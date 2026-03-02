@@ -34,12 +34,12 @@ Claude Desktop (Windows)
     │
     │ stdio (MCP Protocol)
     ▼
-server.py (FastMCP)  ◄── 21 Tools, 6 Resources, 8 Prompts
+server.py (FastMCP)  ◄── 29 Tools, 6 Resources, 8 Prompts
     │
     ▼
-database.py (SQLite)  ◄── 13 Tabellen, WAL Mode, Schema v2
+database.py (SQLite)  ◄── 13 Tabellen, WAL Mode, Schema v3, Multi-Profil
     │
-    ├──► dashboard.py (FastAPI :8200)  ◄── 28 API Endpoints
+    ├──► dashboard.py (FastAPI :8200)  ◄── 32 API Endpoints
     │         │
     │         ▼
     │     dashboard.html (SPA)  ◄── 5 Tabs, Vanilla JS
@@ -117,15 +117,25 @@ Nach der Installation muss Claude Desktop den MCP-Server kennen. Die `INSTALLIER
 
 ### Erste Schritte
 
-Nach der Installation einfach Claude Desktop öffnen und eintippen:
-
-> **"Ersterfassung starten"**
+Nach der Installation einfach Claude Desktop öffnen und den Prompt `/ersterfassung` verwenden (oder eintippen: "Ersterfassung starten").
 
 Claude führt dich durch ein lockeres Gespräch und erfasst:
 1. Persönliche Daten und Kontakt
 2. Berufserfahrung mit Projekten (STAR-Methode)
 3. Ausbildung und Skills
 4. Gehalts- und Arbeitspräferenzen
+
+> 💡 **Tipp:** Du kannst das Gespräch jederzeit unterbrechen und später fortsetzen — der Fortschritt wird automatisch gespeichert!
+
+### Multi-Profil
+
+Mehrere Benutzer auf einem PC? Kein Problem:
+
+> **"Zeige alle Profile"** — Profile auflisten
+> **"Wechsle zu Profil XY"** — Aktives Profil wechseln
+> **"Erstelle ein neues Profil für Anna"** — Neues Profil anlegen
+
+Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 
 ### Jobsuche
 
@@ -155,7 +165,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 21 Tools
+### 29 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -167,6 +177,14 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `projekt_hinzufuegen` | STAR-Projekt zu einer Position |
 | `ausbildung_hinzufuegen` | Ausbildungseintrag anlegen |
 | `skill_hinzufuegen` | Kompetenz hinzufügen |
+| `profile_auflisten` | Alle Profile auflisten (Multi-Profil) |
+| `profil_wechseln` | Aktives Profil wechseln |
+| `neues_profil_erstellen` | Neues leeres Profil anlegen |
+| `profil_loeschen` | Profil löschen (nicht das aktive) |
+| `erfassung_fortschritt_lesen` | Ersterfassungs-Fortschritt abrufen |
+| `erfassung_fortschritt_speichern` | Fortschritt pro Bereich speichern |
+| `dokument_profil_extrahieren` | Profildaten aus Dokument extrahieren |
+| `dokumente_zur_analyse` | Dokumente mit extrahierbarem Text auflisten |
 | `jobsuche_starten` | Multi-Quellen Stellensuche starten |
 | `jobsuche_status` | Suchfortschritt abfragen |
 | `stellen_anzeigen` | Jobs mit Filter und Scoring anzeigen |
@@ -209,11 +227,11 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 13 Tabellen, Schema v2:
+SQLite mit WAL-Mode, 13 Tabellen, Schema v3 (Multi-Profil):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `profile` | Bewerberprofil + Präferenzen |
+| `profile` | Bewerberprofil + Präferenzen (Multi-Profil, Fortschritt) |
 | `positions` | Berufserfahrung |
 | `projects` | STAR-Projekte (→ positions) |
 | `education` | Ausbildung |
@@ -245,9 +263,9 @@ PBP/
 ├── pyproject.toml                # Build-Konfiguration
 │
 ├── src/bewerbungs_assistent/
-│   ├── server.py                 # MCP Server (21 Tools, 6 Resources, 8 Prompts)
+│   ├── server.py                 # MCP Server (29 Tools, 6 Resources, 8 Prompts)
 │   ├── database.py               # SQLite Layer (13 Tabellen)
-│   ├── dashboard.py              # FastAPI Dashboard (28 Endpoints)
+│   ├── dashboard.py              # FastAPI Dashboard (32 Endpoints)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -310,14 +328,27 @@ python -m pytest tests/ -v
 
 ## Geplante Features
 
-- **Multi-Profil-Support** (PBP-025) — Mehrere Benutzerprofile pro PC, automatische Erkennung, Profil-Wechsel
-- **Fortführbare Ersterfassung** (PBP-026) — Profil-Gespräch jederzeit pausieren und später fortsetzen
-- **UX-Verbesserungen** (PBP-027) — Tooltips, Copy-Buttons, erklärende Links im Dashboard
 - **Erweiterte KI-Features** (PBP-014) — Weiterführende KI-gestützte Bewerbungsoptimierung
+- **Screenshots für README** — Automatisierte Dashboard-Screenshots via Playwright
 
 ---
 
 ## Changelog
+
+### v0.6.0 — Multi-Profil, Fortführbare Ersterfassung & UX (2026-03-02)
+- Feature: **Multi-Profil-Support** (PBP-025) — Mehrere Profile pro PC, Profil-Wechsel im Dashboard und via MCP-Tools
+- Feature: **Fortführbare Ersterfassung** (PBP-026) — Profil-Gespräch pausieren und später nahtlos fortsetzen
+- Feature: **UX-Verbesserungen** (PBP-027) — Tooltips, Copy-Buttons für `/ersterfassung`, Claude Desktop Restart-Hinweis
+- Feature: **Dokument-Profil-Extraktion** (PBP-028) — Hochgeladene Dokumente werden automatisch für Profildaten analysiert
+- Schema: Datenbank-Migration v2→v3 (is_active, erfassung_fortschritt, profile_id FKs)
+- Dashboard: Profil-Switcher in der Navigationsleiste
+- Dashboard: Verbesserte Willkommensseite mit Ersterfassungs-Anleitung
+- Tools: 8 neue MCP-Tools (21→29 gesamt)
+- API: 4 neue Dashboard-Endpoints (28→32 gesamt)
+
+### v0.5.1 — Abbrechen-Button Fix (2026-03-02)
+- Fix: Abbrechen-Buttons in Modal-Dialogen funktionieren jetzt korrekt
+- Feature: Escape-Taste schließt Modal-Dialoge
 
 ### v0.5.0 — Installer-Fix Delayed Expansion (2026-03-02)
 - Fix: `!variable!`-Syntax für CMD.exe Delayed Expansion wiederhergestellt

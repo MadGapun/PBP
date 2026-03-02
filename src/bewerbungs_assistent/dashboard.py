@@ -87,6 +87,47 @@ async def api_save_profile(request: Request):
     return {"status": "ok", "id": pid}
 
 
+@app.get("/api/profiles")
+async def api_list_profiles():
+    """List all profiles for profile switching."""
+    profiles = _db.get_profiles()
+    return {"profiles": profiles}
+
+
+@app.post("/api/profiles/switch")
+async def api_switch_profile(request: Request):
+    """Switch active profile."""
+    data = await request.json()
+    profile_id = data.get("profile_id")
+    if not profile_id:
+        return JSONResponse({"error": "Keine profil_id angegeben"}, status_code=400)
+    success = _db.switch_profile(profile_id)
+    if success:
+        return {"status": "ok"}
+    return JSONResponse({"error": "Profil nicht gefunden"}, status_code=404)
+
+
+@app.post("/api/profiles/new")
+async def api_new_profile(request: Request):
+    """Create a new empty profile."""
+    data = await request.json()
+    name = data.get("name", "")
+    if not name:
+        return JSONResponse({"error": "Name ist erforderlich"}, status_code=400)
+    pid = _db.save_profile({"name": name, "email": data.get("email", "")})
+    return {"status": "ok", "id": pid}
+
+
+@app.delete("/api/profiles/{profile_id}")
+async def api_delete_profile(profile_id: str):
+    """Delete a profile (not the active one)."""
+    active_id = _db.get_active_profile_id()
+    if profile_id == active_id:
+        return JSONResponse({"error": "Aktives Profil kann nicht geloescht werden"}, status_code=400)
+    _db.delete_profile(profile_id)
+    return {"status": "ok"}
+
+
 @app.post("/api/position")
 async def api_add_position(request: Request):
     data = await request.json()

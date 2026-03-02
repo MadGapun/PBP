@@ -1015,6 +1015,228 @@ def blacklist_verwalten(
     return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen' oder 'anzeigen'."}
 
 
+# --- Profil-Management (Multi-Profil) ---
+
+@mcp.tool()
+def profile_auflisten() -> dict:
+    """Listet alle vorhandenen Profile auf. Zeigt welches aktiv ist.
+
+    Nutze dieses Tool wenn mehrere Personen den gleichen PC nutzen
+    oder wenn der User zwischen Profilen wechseln moechte.
+    """
+    profiles = db.get_profiles()
+    if not profiles:
+        return {"status": "keine_profile", "nachricht": "Keine Profile vorhanden. Starte die Ersterfassung."}
+    return {
+        "status": "ok",
+        "anzahl": len(profiles),
+        "profile": [
+            {
+                "id": p["id"],
+                "name": p["name"] or "(Ohne Name)",
+                "email": p.get("email", ""),
+                "aktiv": bool(p.get("is_active")),
+                "erstellt": p.get("created_at", ""),
+                "aktualisiert": p.get("updated_at", ""),
+            }
+            for p in profiles
+        ],
+    }
+
+
+@mcp.tool()
+def profil_wechseln(profil_id: str) -> dict:
+    """Wechselt zum angegebenen Profil. Alle anderen Profile werden deaktiviert.
+
+    Args:
+        profil_id: Die ID des Profils zu dem gewechselt werden soll.
+    """
+    success = db.switch_profile(profil_id)
+    if success:
+        profile = db.get_profile()
+        return {
+            "status": "gewechselt",
+            "aktives_profil": profile.get("name") if profile else "?",
+            "nachricht": f"Profil gewechselt zu: {profile.get('name') if profile else profil_id}"
+        }
+    return {"fehler": f"Profil mit ID '{profil_id}' nicht gefunden."}
+
+
+@mcp.tool()
+def neues_profil_erstellen(name: str, email: str = "") -> dict:
+    """Erstellt ein komplett neues, leeres Profil und aktiviert es.
+
+    Das vorherige Profil bleibt gespeichert und kann spaeter wieder aktiviert werden.
+
+    Args:
+        name: Name der Person fuer das neue Profil
+        email: Optional: E-Mail-Adresse
+    """
+    pid = db.save_profile({"name": name, "email": email})
+    return {
+        "status": "erstellt",
+        "profil_id": pid,
+        "name": name,
+        "nachricht": f"Neues Profil '{name}' erstellt und aktiviert. Das vorherige Profil wurde gespeichert."
+    }
+
+
+@mcp.tool()
+def profil_loeschen(profil_id: str) -> dict:
+    """Loescht ein Profil und alle zugehoerigen Daten (Positionen, Skills, Dokumente).
+
+    ACHTUNG: Diese Aktion kann nicht rueckgaengig gemacht werden!
+    Das aktive Profil kann nicht geloescht werden — wechsle zuerst zu einem anderen.
+
+    Args:
+        profil_id: Die ID des zu loeschenden Profils
+    """
+    active_id = db.get_active_profile_id()
+    if profil_id == active_id:
+        return {"fehler": "Das aktive Profil kann nicht geloescht werden. Wechsle zuerst zu einem anderen Profil."}
+    db.delete_profile(profil_id)
+    return {"status": "geloescht", "nachricht": f"Profil {profil_id} und alle zugehoerigen Daten wurden geloescht."}
+
+
+# --- Erfassungsfortschritt (PBP-026) ---
+
+@mcp.tool()
+def erfassung_fortschritt_lesen() -> dict:
+    """Liest den Fortschritt der Profil-Ersterfassung.
+
+    Gibt zurueck welche Bereiche bereits ausgefuellt sind und welche noch fehlen.
+    Nutze dies zu Beginn einer Ersterfassung um zu pruefen ob es eine
+    angefangene Erfassung gibt die fortgesetzt werden soll.
+    """
+    profile = db.get_profile()
+    if profile is None:
+        return {"status": "kein_profil", "fortschritt": {}}
+
+    # Automatisch berechnen was schon da ist
+    fortschritt = profile.get("erfassung_fortschritt", {})
+    auto_check = {
+        "persoenliche_daten": bool(profile.get("name") and profile.get("email")),
+        "berufserfahrung": len(profile.get("positions", [])) > 0,
+        "ausbildung": len(profile.get("education", [])) > 0,
+        "kompetenzen": len(profile.get("skills", [])) > 0,
+        "praeferenzen": bool(profile.get("preferences", {}).get("stellentyp")),
+        "review_abgeschlossen": fortschritt.get("review_abgeschlossen", False),
+    }
+    return {
+        "status": "ok",
+        "profil_name": profile.get("name"),
+        "bereiche": auto_check,
+        "alle_komplett": all(auto_check.values()),
+        "fehlende_bereiche": [k for k, v in auto_check.items() if not v],
+        "letzte_notizen": fortschritt.get("notizen", ""),
+    }
+
+
+@mcp.tool()
+def erfassung_fortschritt_speichern(
+    bereich: str,
+    abgeschlossen: bool = True,
+    notizen: str = ""
+) -> dict:
+    """Speichert den Fortschritt eines Erfassungsbereichs.
+
+    Wird automatisch waehrend der Ersterfassung aufgerufen um den Stand zu merken.
+    So kann die Ersterfassung jederzeit unterbrochen und spaeter fortgesetzt werden.
+
+    Args:
+        bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen)
+        abgeschlossen: Ob der Bereich fertig ist
+        notizen: Optionale Notizen zum Fortschritt
+    """
+    fortschritt = db.get_erfassung_fortschritt()
+    fortschritt[bereich] = abgeschlossen
+    if notizen:
+        fortschritt["notizen"] = notizen
+    db.set_erfassung_fortschritt(fortschritt)
+    return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen}
+
+
+# --- Dokument-Analyse (PBP-028) ---
+
+@mcp.tool()
+def dokument_profil_extrahieren(document_id: str) -> dict:
+    """Liest den extrahierten Text eines hochgeladenen Dokuments und gibt ihn
+    zur Analyse zurueck. Claude soll daraus Profildaten ableiten.
+
+    WORKFLOW:
+    1. Rufe dieses Tool mit der document_id auf
+    2. Analysiere den Text und identifiziere Profildaten (Name, Skills, Positionen etc.)
+    3. Vergleiche mit dem bestehenden Profil (profil_zusammenfassung)
+    4. Bei neuen Daten: Frage den User ob diese uebernommen werden sollen
+    5. Bei Konflikten: Zeige beide Versionen und lasse den User entscheiden
+    6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufuegen etc.)
+
+    Args:
+        document_id: ID des Dokuments aus dem Profildaten extrahiert werden sollen
+    """
+    conn = db.connect()
+    cur = conn.execute("SELECT * FROM documents WHERE id=?", (document_id,))
+    row = cur.fetchone()
+    if row is None:
+        return {"fehler": f"Dokument mit ID '{document_id}' nicht gefunden."}
+
+    doc = dict(row)
+    if not doc.get("extracted_text"):
+        return {
+            "fehler": "Kein extrahierter Text vorhanden. Dokument wurde noch nicht verarbeitet.",
+            "dokument": doc.get("filename"),
+        }
+
+    return {
+        "status": "ok",
+        "dokument": {
+            "id": doc["id"],
+            "filename": doc["filename"],
+            "doc_type": doc.get("doc_type", "sonstiges"),
+        },
+        "extrahierter_text": doc["extracted_text"],
+        "anleitung": (
+            "Analysiere den Text und extrahiere Profildaten. "
+            "Vergleiche mit dem bestehenden Profil und frage bei Konflikten oder "
+            "neuen Informationen den User ob diese uebernommen werden sollen. "
+            "Nutze die entsprechenden Tools (profil_bearbeiten, position_hinzufuegen, "
+            "skill_hinzufuegen etc.) um die Daten zu speichern."
+        ),
+    }
+
+
+@mcp.tool()
+def dokumente_zur_analyse() -> dict:
+    """Listet alle Dokumente mit extrahiertem Text auf, die noch nicht
+    fuer die Profil-Extraktion analysiert wurden.
+
+    Nutze dies nach einem Dokument-Upload um dem User anzubieten,
+    automatisch Profildaten aus den Dokumenten zu extrahieren.
+    """
+    profile = db.get_profile()
+    if profile is None:
+        return {"status": "kein_profil"}
+
+    docs = profile.get("documents", [])
+    analysierbare = [
+        {
+            "id": d["id"],
+            "filename": d["filename"],
+            "doc_type": d.get("doc_type", "sonstiges"),
+            "hat_text": bool(d.get("extracted_text")),
+            "text_laenge": len(d.get("extracted_text", "")),
+        }
+        for d in docs
+        if d.get("extracted_text")
+    ]
+    return {
+        "status": "ok",
+        "dokumente_gesamt": len(docs),
+        "analysierbare": len(analysierbare),
+        "dokumente": analysierbare,
+    }
+
+
 # ============================================================
 # RESOURCES — Data that Claude can read
 # ============================================================
@@ -1069,9 +1291,34 @@ def resource_search_criteria() -> str:
 
 @mcp.prompt()
 def ersterfassung() -> str:
-    """Zwangloses Interview zur erstmaligen Profilerfassung — wie ein Kaffeegespraech."""
+    """Zwangloses Interview zur Profilerfassung — wie ein Kaffeegespraech.
+    Kann jederzeit unterbrochen und spaeter fortgesetzt werden."""
     return """Du bist ein freundlicher, erfahrener Karriereberater. Dies ist KEIN steifes Formular —
 es ist ein zwangloses Gespraech, wie bei einem Kaffee unter Freunden. Du bist per Du.
+
+═══════════════════════════════════════════════════
+SCHRITT 0: FORTSCHRITT PRUEFEN
+═══════════════════════════════════════════════════
+
+BEVOR du anfaengst, rufe IMMER zuerst diese Tools auf:
+1. erfassung_fortschritt_lesen() — Prueft ob eine angefangene Erfassung existiert
+2. profile_auflisten() — Prueft ob mehrere Profile vorhanden sind
+
+WENN ein angefangenes Profil existiert:
+→ Zeige dem User was schon erfasst ist und frage:
+  "Hey! Ich sehe, wir haben schon angefangen. [Name], du hast bereits
+   [X Positionen, Y Skills, ...] erfasst. Sollen wir da weitermachen
+   wo wir aufgehoert haben? Es fehlen noch: [fehlende Bereiche]"
+→ Springe direkt zum ersten fehlenden Bereich
+
+WENN mehrere Profile vorhanden:
+→ "Ich sehe, es gibt bereits [N] Profile: [Liste]. Moechtest du
+   eines davon bearbeiten oder ein ganz neues erstellen?"
+
+WENN noch kein Profil existiert:
+→ Starte normal mit Phase 1
+
+NACH JEDER PHASE: Speichere den Fortschritt mit erfassung_fortschritt_speichern()!
 
 WICHTIG: Dieses Tool ist fuer ALLE Lebenssituationen gedacht:
 - Studenten und Berufseinsteiger (wenig Erfahrung ist voellig ok!)
@@ -1201,7 +1448,17 @@ REGELN
 5. Sei ermutigend — besonders bei Luecken oder ungewoehnlichen Wegen
 6. Wenn jemand unsicher ist: "Kein Problem, wir passen das spaeter an"
 7. Speichere SOFORT mit den Tools — nicht erst am Ende sammeln
-8. Keine Bewertung von Karriereentscheidungen — nur konstruktive Hilfe"""
+8. Keine Bewertung von Karriereentscheidungen — nur konstruktive Hilfe
+9. FORTSCHRITT SPEICHERN: Nach jedem abgeschlossenen Bereich
+   erfassung_fortschritt_speichern() aufrufen!
+10. UNTERBRECHUNG: Wenn der User abbricht, sage:
+    "Kein Problem! Ich habe deinen Fortschritt gespeichert.
+     Starte einfach spaeter /ersterfassung erneut und wir machen
+     genau da weiter, wo wir aufgehoert haben."
+11. DOKUMENT-HINWEIS: Wenn der User Dokumente hochgeladen hat, biete an:
+    "Ich sehe du hast [N] Dokumente hochgeladen. Soll ich daraus automatisch
+     Profildaten extrahieren? Das geht schneller als alles von Hand einzugeben."
+    → Nutze dokument_profil_extrahieren() dafuer"""
 
 
 @mcp.prompt()

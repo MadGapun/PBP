@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def _gen_id() -> str:
@@ -113,6 +113,36 @@ class Database:
                     logger.debug("Spalte existiert bereits oder Fehler: %s", e)
             logger.info("Migration v1->v2: applications erweitert")
 
+        if from_ver < 3:
+            # v3: Multi-Profil + Erfassungsfortschritt + Auto-Extraktion
+            migrations_v3 = [
+                ("profile", "is_active", "INTEGER DEFAULT 1"),
+                ("profile", "erfassung_fortschritt", "TEXT DEFAULT '{}'"),
+                ("positions", "profile_id", "TEXT"),
+                ("education", "profile_id", "TEXT"),
+                ("skills", "profile_id", "TEXT"),
+                ("documents", "profile_id", "TEXT"),
+            ]
+            for table, col, coltype in migrations_v3:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+                except Exception as e:
+                    logger.debug("Spalte existiert bereits: %s", e)
+            # Link existing data to first profile
+            cur = conn.execute("SELECT id FROM profile LIMIT 1")
+            row = cur.fetchone()
+            if row:
+                pid = row["id"]
+                for table in ["positions", "education", "skills", "documents"]:
+                    conn.execute(f"UPDATE {table} SET profile_id=? WHERE profile_id IS NULL", (pid,))
+            # Create index for profile_id lookups
+            for table in ["positions", "education", "skills", "documents"]:
+                try:
+                    conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_profile ON {table}(profile_id)")
+                except Exception:
+                    pass
+            logger.info("Migration v2->v3: Multi-Profil + Erfassung")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -121,25 +151,64 @@ class Database:
 
     # === Profile ===
 
-    def get_profile(self) -> Optional[dict]:
+    def get_active_profile_id(self) -> Optional[str]:
+        """Get the ID of the currently active profile."""
         conn = self.connect()
-        cur = conn.execute("SELECT * FROM profile LIMIT 1")
+        cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")
+        row = cur.fetchone()
+        return row["id"] if row else None
+
+    def get_profile(self) -> Optional[dict]:
+        """Get the currently active profile with all related data."""
+        conn = self.connect()
+        cur = conn.execute("SELECT * FROM profile WHERE is_active=1 LIMIT 1")
         row = cur.fetchone()
         if row is None:
             return None
         profile = dict(row)
         profile["preferences"] = json.loads(profile["preferences"] or "{}")
-        # Load positions
-        profile["positions"] = self._get_positions()
-        profile["education"] = self._get_education()
-        profile["skills"] = self._get_skills()
-        profile["documents"] = self._get_documents()
+        profile["erfassung_fortschritt"] = json.loads(profile.get("erfassung_fortschritt") or "{}")
+        pid = profile["id"]
+        profile["positions"] = self._get_positions(pid)
+        profile["education"] = self._get_education(pid)
+        profile["skills"] = self._get_skills(pid)
+        profile["documents"] = self._get_documents(pid)
         return profile
+
+    def get_profiles(self) -> list:
+        """List all profiles (for profile switching)."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT id, name, email, is_active, created_at, updated_at FROM profile ORDER BY is_active DESC, updated_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def switch_profile(self, profile_id: str) -> bool:
+        """Activate a specific profile, deactivate all others."""
+        conn = self.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        result = conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (profile_id,))
+        conn.commit()
+        return result.rowcount > 0
+
+    def delete_profile(self, profile_id: str):
+        """Delete a profile and all its related data."""
+        conn = self.connect()
+        # Delete related data
+        for table in ["positions", "education", "skills", "documents"]:
+            conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
+        # Delete projects for positions of this profile
+        conn.execute("""
+            DELETE FROM projects WHERE position_id IN
+            (SELECT id FROM positions WHERE profile_id=?)
+        """, (profile_id,))
+        conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
+        conn.commit()
 
     def save_profile(self, data: dict) -> str:
         conn = self.connect()
         now = _now()
-        cur = conn.execute("SELECT id FROM profile LIMIT 1")
+        cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")
         existing = cur.fetchone()
         prefs = json.dumps(data.get("preferences", {}), ensure_ascii=False)
         if existing:
@@ -162,11 +231,14 @@ class Database:
             return existing["id"]
         else:
             pid = _gen_id()
+            # Deactivate other profiles, activate new one
+            conn.execute("UPDATE profile SET is_active=0")
             conn.execute("""
                 INSERT INTO profile (id, name, email, phone, address, city, plz,
                     country, birthday, nationality, summary, informal_notes,
-                    preferences, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    preferences, is_active, erfassung_fortschritt,
+                    created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, '{}', ?, ?)
             """, (
                 pid, data.get("name"), data.get("email"), data.get("phone"),
                 data.get("address"), data.get("city"), data.get("plz"),
@@ -178,13 +250,39 @@ class Database:
             conn.commit()
             return pid
 
+    # === Erfassungsfortschritt (PBP-026) ===
+
+    def get_erfassung_fortschritt(self) -> dict:
+        """Get progress of the profile creation conversation."""
+        conn = self.connect()
+        cur = conn.execute("SELECT erfassung_fortschritt FROM profile WHERE is_active=1 LIMIT 1")
+        row = cur.fetchone()
+        if row and row["erfassung_fortschritt"]:
+            return json.loads(row["erfassung_fortschritt"])
+        return {}
+
+    def set_erfassung_fortschritt(self, fortschritt: dict):
+        """Update the profile creation progress."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE profile SET erfassung_fortschritt=?, updated_at=? WHERE is_active=1",
+            (json.dumps(fortschritt, ensure_ascii=False), _now())
+        )
+        conn.commit()
+
     # === Positions (Berufserfahrung) ===
 
-    def _get_positions(self) -> list:
+    def _get_positions(self, profile_id: str = None) -> list:
         conn = self.connect()
-        rows = conn.execute(
-            "SELECT * FROM positions ORDER BY start_date DESC"
-        ).fetchall()
+        if profile_id:
+            rows = conn.execute(
+                "SELECT * FROM positions WHERE profile_id=? ORDER BY start_date DESC",
+                (profile_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM positions ORDER BY start_date DESC"
+            ).fetchall()
         positions = []
         for row in rows:
             pos = dict(row)
@@ -201,18 +299,19 @@ class Database:
         conn = self.connect()
         pid = _gen_id()
         now = _now()
+        profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
             INSERT INTO positions (id, company, title, location, start_date, end_date,
                 is_current, employment_type, industry, description,
-                tasks, achievements, technologies, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tasks, achievements, technologies, profile_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             pid, data.get("company"), data.get("title"), data.get("location"),
             data.get("start_date"), data.get("end_date"),
             data.get("is_current", False), data.get("employment_type", "festanstellung"),
             data.get("industry"), data.get("description"),
             data.get("tasks"), data.get("achievements"), data.get("technologies"),
-            now
+            profile_id, now
         ))
         conn.commit()
         return pid
@@ -243,8 +342,13 @@ class Database:
 
     # === Education ===
 
-    def _get_education(self) -> list:
+    def _get_education(self, profile_id: str = None) -> list:
         conn = self.connect()
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM education WHERE profile_id=? ORDER BY end_date DESC",
+                (profile_id,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
             "SELECT * FROM education ORDER BY end_date DESC"
         ).fetchall()]
@@ -252,14 +356,16 @@ class Database:
     def add_education(self, data: dict) -> str:
         conn = self.connect()
         eid = _gen_id()
+        profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
             INSERT INTO education (id, institution, degree, field_of_study,
-                start_date, end_date, grade, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                start_date, end_date, grade, description, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             eid, data.get("institution"), data.get("degree"),
             data.get("field_of_study"), data.get("start_date"),
-            data.get("end_date"), data.get("grade"), data.get("description")
+            data.get("end_date"), data.get("grade"), data.get("description"),
+            profile_id
         ))
         conn.commit()
         return eid
@@ -271,8 +377,13 @@ class Database:
 
     # === Skills ===
 
-    def _get_skills(self) -> list:
+    def _get_skills(self, profile_id: str = None) -> list:
         conn = self.connect()
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM skills WHERE profile_id=? ORDER BY category, level DESC",
+                (profile_id,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
             "SELECT * FROM skills ORDER BY category, level DESC"
         ).fetchall()]
@@ -280,12 +391,13 @@ class Database:
     def add_skill(self, data: dict) -> str:
         conn = self.connect()
         sid = _gen_id()
+        profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
-            INSERT INTO skills (id, name, category, level, years_experience)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO skills (id, name, category, level, years_experience, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             sid, data.get("name"), data.get("category", "fachlich"),
-            data.get("level", 3), data.get("years_experience")
+            data.get("level", 3), data.get("years_experience"), profile_id
         ))
         conn.commit()
         return sid
@@ -297,8 +409,13 @@ class Database:
 
     # === Documents ===
 
-    def _get_documents(self) -> list:
+    def _get_documents(self, profile_id: str = None) -> list:
         conn = self.connect()
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM documents WHERE profile_id=? ORDER BY created_at DESC",
+                (profile_id,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
             "SELECT * FROM documents ORDER BY created_at DESC"
         ).fetchall()]
@@ -306,14 +423,15 @@ class Database:
     def add_document(self, data: dict) -> str:
         conn = self.connect()
         did = _gen_id()
+        profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
             INSERT INTO documents (id, filename, filepath, doc_type,
-                extracted_text, linked_position_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                extracted_text, linked_position_id, profile_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             did, data.get("filename"), data.get("filepath"),
             data.get("doc_type", "sonstiges"), data.get("extracted_text"),
-            data.get("linked_position_id"), _now()
+            data.get("linked_position_id"), profile_id, _now()
         ))
         conn.commit()
         return did
@@ -598,6 +716,8 @@ CREATE TABLE IF NOT EXISTS profile (
     summary TEXT,
     informal_notes TEXT,
     preferences TEXT DEFAULT '{}',
+    is_active INTEGER DEFAULT 1,
+    erfassung_fortschritt TEXT DEFAULT '{}',
     created_at TEXT,
     updated_at TEXT
 );
@@ -616,6 +736,7 @@ CREATE TABLE IF NOT EXISTS positions (
     tasks TEXT,
     achievements TEXT,
     technologies TEXT,
+    profile_id TEXT,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT
 );
@@ -643,7 +764,8 @@ CREATE TABLE IF NOT EXISTS education (
     start_date TEXT,
     end_date TEXT,
     grade TEXT,
-    description TEXT
+    description TEXT,
+    profile_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS skills (
@@ -651,7 +773,8 @@ CREATE TABLE IF NOT EXISTS skills (
     name TEXT NOT NULL,
     category TEXT DEFAULT 'fachlich',
     level INTEGER DEFAULT 3,
-    years_experience INTEGER
+    years_experience INTEGER,
+    profile_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -661,6 +784,7 @@ CREATE TABLE IF NOT EXISTS documents (
     doc_type TEXT DEFAULT 'sonstiges',
     extracted_text TEXT,
     linked_position_id TEXT REFERENCES positions(id) ON DELETE SET NULL,
+    profile_id TEXT,
     created_at TEXT
 );
 

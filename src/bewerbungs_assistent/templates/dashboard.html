@@ -148,12 +148,13 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 <nav>
   <div class="logo">Bewerbungs-Assistent</div>
   <div class="tabs">
-    <button class="tab active" onclick="showPage('dashboard')">Dashboard</button>
-    <button class="tab" onclick="showPage('profil')">Profil</button>
-    <button class="tab" onclick="showPage('stellen')">Stellen</button>
-    <button class="tab" onclick="showPage('bewerbungen')">Bewerbungen</button>
-    <button class="tab" onclick="showPage('einstellungen')">Einstellungen</button>
+    <button class="tab active" onclick="showPage('dashboard')" title="Uebersicht: Statistiken, naechste Schritte, letzte Aktivitaeten">Dashboard</button>
+    <button class="tab" onclick="showPage('profil')" title="Dein Bewerberprofil: Persoenliche Daten, Erfahrung, Skills, Dokumente">Profil</button>
+    <button class="tab" onclick="showPage('stellen')" title="Gefundene Stellenangebote mit Fit-Score und Filteroptionen">Stellen</button>
+    <button class="tab" onclick="showPage('bewerbungen')" title="Bewerbungs-Tracking: Status, Timeline, CV-Export">Bewerbungen</button>
+    <button class="tab" onclick="showPage('einstellungen')" title="Job-Quellen, Suchkriterien, Blacklist, Score-Gewichtung">Einstellungen</button>
   </div>
+  <div id="profile-switcher" style="margin-left:auto; display:flex; align-items:center; gap:8px;"></div>
 </nav>
 
 <main>
@@ -176,10 +177,22 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
             <div>
               <strong style="color:var(--accent);">Empfohlen: Starte in Claude Desktop</strong>
               <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
-                Oeffne Claude Desktop und waehle den Prompt <strong>"ersterfassung"</strong>.
-                Wir fuehren ein lockeres Gespraech und ich erfasse dein komplettes Profil —
-                wie ein Kaffeegespraech, kein steifes Formular.
+                Oeffne Claude Desktop und tippe den Befehl:
               </p>
+              <div style="display:flex; align-items:center; gap:8px; margin:8px 0;">
+                <code style="background:var(--bg); padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:1rem; color:var(--accent);">/ersterfassung</code>
+                <button class="btn btn-sm" onclick="copyText('/ersterfassung')" title="In die Zwischenablage kopieren">Kopieren</button>
+              </div>
+              <p style="color:var(--text2); font-size:0.9rem;">
+                Wir fuehren ein lockeres Gespraech und ich erfasse dein komplettes Profil —
+                wie ein Kaffeegespraech, kein steifes Formular. Du kannst jederzeit abbrechen
+                und spaeter weitermachen — der Fortschritt wird gespeichert.
+              </p>
+              <div style="background:#2d1b00; border:1px solid #4b3000; border-radius:6px; padding:8px 12px; margin-top:8px; font-size:0.85rem; color:var(--yellow);">
+                <strong>Wichtig:</strong> Wenn du gerade den Bewerbungs-Assistent installiert hast,
+                musst du Claude Desktop einmal komplett <strong>neu starten</strong> (beenden + oeffnen),
+                damit der /ersterfassung Befehl verfuegbar ist.
+              </div>
             </div>
           </div>
           <div style="display:flex; gap:12px; align-items:flex-start;">
@@ -559,11 +572,15 @@ async function loadProfile() {
         <div class="empty"><div class="icon">&#128100;</div>
         <p>Noch kein Profil vorhanden.</p>
         <p style="font-size:0.85rem; color:var(--text2); margin:8px 0 16px;">
-          Am einfachsten: Oeffne Claude Desktop und nutze den Prompt <strong>"ersterfassung"</strong>.<br>
-          Wir fuehren ein lockeres Gespraech und ich erfasse alles fuer dich.
+          Am einfachsten: Oeffne Claude Desktop und tippe
+          <code style="background:var(--bg3); padding:2px 8px; border-radius:4px; color:var(--accent); cursor:pointer;" onclick="copyText('/ersterfassung')" title="Klicken zum Kopieren">/ersterfassung</code>
+          <button class="btn btn-sm" onclick="copyText('/ersterfassung')" style="margin-left:4px;" title="In Zwischenablage kopieren">Kopieren</button>
+          <br>Wir fuehren ein lockeres Gespraech und ich erfasse alles fuer dich.
+          Du kannst jederzeit abbrechen und spaeter weitermachen.
         </p>
         <div style="display:flex; gap:8px; justify-content:center;">
           <button class="btn btn-primary" onclick="showProfileForm()">Manuell erstellen</button>
+          <button class="btn" onclick="showPage('einstellungen')" title="Ordner mit bestehenden Bewerbungen importieren">Ordner importieren</button>
         </div></div>`;
       return;
     }
@@ -1447,8 +1464,78 @@ async function showAppDetail(id) {
   openModal(html);
 }
 
+// === Profil-Switcher (PBP-025) ===
+async function loadProfileSwitcher() {
+  const data = await api('/api/profiles');
+  const profiles = data.profiles || [];
+  const switcher = document.getElementById('profile-switcher');
+  if (profiles.length <= 1) {
+    const active = profiles.find(p => p.is_active);
+    switcher.innerHTML = active
+      ? `<span style="color:var(--text2); font-size:0.85rem;" title="Aktives Profil">${active.name || 'Profil'}</span>
+         <button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil fuer eine andere Person erstellen">+ Profil</button>`
+      : `<button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil erstellen">+ Profil</button>`;
+    return;
+  }
+  const active = profiles.find(p => p.is_active);
+  switcher.innerHTML = `
+    <select id="profile-select" onchange="switchProfile(this.value)" style="background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:0.85rem;" title="Zwischen Profilen wechseln">
+      ${profiles.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name || 'Ohne Name'}</option>`).join('')}
+    </select>
+    <button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil fuer eine andere Person erstellen">+</button>`;
+}
+
+async function switchProfile(profileId) {
+  await api('/api/profiles/switch', { method: 'POST', body: JSON.stringify({ profile_id: profileId }) });
+  showToast('Profil gewechselt!', 'success');
+  loadDashboard();
+  loadProfileSwitcher();
+}
+
+function showNewProfileDialog() {
+  openModal(`<h2>Neues Profil erstellen</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Erstelle ein neues, leeres Profil. Das aktuelle Profil bleibt gespeichert
+      und kann jederzeit ueber den Profil-Wechsler oben rechts wieder aktiviert werden.
+    </p>
+    <form onsubmit="createNewProfile(event)">
+      <div class="form-group"><label>Name *</label><input name="name" required placeholder="Vor- und Nachname"></div>
+      <div class="form-group"><label>E-Mail</label><input name="email" type="email" placeholder="Optional"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Profil erstellen</button>
+      </div>
+    </form>`);
+}
+
+async function createNewProfile(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/api/profiles/new', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  closeModal();
+  showToast('Neues Profil erstellt!', 'success');
+  loadDashboard();
+  loadProfileSwitcher();
+}
+
+// === Copy-to-Clipboard (PBP-027) ===
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Kopiert: ' + text, 'success');
+  }).catch(() => {
+    // Fallback fuer aeltere Browser
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Kopiert: ' + text, 'success');
+  });
+}
+
 // === Init ===
-document.addEventListener('DOMContentLoaded', () => { loadDashboard(); });
+document.addEventListener('DOMContentLoaded', () => { loadDashboard(); loadProfileSwitcher(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 </script>
 </body>
