@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def _gen_id() -> str:
@@ -171,6 +171,35 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_followups_date ON follow_ups(scheduled_date, status);
             """)
             logger.info("Migration v3->v4: Gehalt-Spalten + Follow-ups Tabelle")
+
+        if from_ver < 5:
+            # v5: Smart Auto-Extraction + Profile Backup
+            migrations_v5 = [
+                ("documents", "extraction_status", "TEXT DEFAULT 'nicht_extrahiert'"),
+                ("documents", "last_extraction_at", "TEXT"),
+            ]
+            for table, col, coltype in migrations_v5:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+                except Exception as e:
+                    logger.debug("Spalte existiert bereits: %s", e)
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS extraction_history (
+                    id TEXT PRIMARY KEY,
+                    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                    profile_id TEXT NOT NULL,
+                    extraction_type TEXT DEFAULT 'auto',
+                    extracted_fields TEXT DEFAULT '{}',
+                    conflicts TEXT DEFAULT '[]',
+                    applied_fields TEXT DEFAULT '{}',
+                    status TEXT DEFAULT 'ausstehend',
+                    created_at TEXT,
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_extraction_doc ON extraction_history(document_id);
+                CREATE INDEX IF NOT EXISTS idx_extraction_profile ON extraction_history(profile_id);
+            """)
+            logger.info("Migration v4->v5: Smart Auto-Extraction + Profile Backup")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -817,6 +846,162 @@ class Database:
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
 
+    # === Extraction History (PBP v0.8.0) ===
+
+    def add_extraction_history(self, data: dict) -> str:
+        """Record an extraction operation."""
+        conn = self.connect()
+        eid = _gen_id()
+        conn.execute("""
+            INSERT INTO extraction_history (id, document_id, profile_id, extraction_type,
+                extracted_fields, conflicts, applied_fields, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            eid, data["document_id"], data["profile_id"],
+            data.get("extraction_type", "auto"),
+            json.dumps(data.get("extracted_fields", {}), ensure_ascii=False),
+            json.dumps(data.get("conflicts", []), ensure_ascii=False),
+            json.dumps(data.get("applied_fields", {}), ensure_ascii=False),
+            data.get("status", "ausstehend"), _now()
+        ))
+        conn.commit()
+        return eid
+
+    def update_extraction_history(self, extraction_id: str, status: str,
+                                   applied_fields: dict = None):
+        """Update extraction status and applied fields."""
+        conn = self.connect()
+        if applied_fields:
+            conn.execute("""
+                UPDATE extraction_history SET status=?, applied_fields=?, completed_at=?
+                WHERE id=?
+            """, (status, json.dumps(applied_fields, ensure_ascii=False),
+                  _now(), extraction_id))
+        else:
+            conn.execute(
+                "UPDATE extraction_history SET status=?, completed_at=? WHERE id=?",
+                (status, _now(), extraction_id)
+            )
+        conn.commit()
+
+    def get_extraction_history(self, profile_id: str = None,
+                                document_id: str = None) -> list:
+        """Get extraction history for a profile or document."""
+        conn = self.connect()
+        query = "SELECT * FROM extraction_history"
+        params = []
+        conditions = []
+        if profile_id:
+            conditions.append("profile_id=?")
+            params.append(profile_id)
+        if document_id:
+            conditions.append("document_id=?")
+            params.append(document_id)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY created_at DESC"
+        return [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    def update_document_extraction_status(self, doc_id: str, status: str):
+        """Update extraction status of a document."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE documents SET extraction_status=?, last_extraction_at=? WHERE id=?",
+            (status, _now(), doc_id)
+        )
+        conn.commit()
+
+    # === Profile Export/Import (PBP v0.8.0) ===
+
+    def export_profile_json(self, profile_id: str = None) -> Optional[dict]:
+        """Export a complete profile as JSON for backup."""
+        if not profile_id:
+            profile_id = self.get_active_profile_id()
+        if not profile_id:
+            return None
+
+        conn = self.connect()
+        row = conn.execute("SELECT * FROM profile WHERE id=?", (profile_id,)).fetchone()
+        if not row:
+            return None
+
+        profile = dict(row)
+        profile["preferences"] = json.loads(profile.get("preferences") or "{}")
+        profile["erfassung_fortschritt"] = json.loads(
+            profile.get("erfassung_fortschritt") or "{}")
+        profile["positions"] = self._get_positions(profile_id)
+        profile["education"] = self._get_education(profile_id)
+        profile["skills"] = self._get_skills(profile_id)
+        # Documents: metadata only (no extracted_text to keep file small)
+        docs = self._get_documents(profile_id)
+        for d in docs:
+            d.pop("extracted_text", None)
+        profile["documents"] = docs
+
+        profile["_export_meta"] = {
+            "version": "0.8.0",
+            "schema_version": SCHEMA_VERSION,
+            "exported_at": _now(),
+            "export_type": "full_profile_backup",
+        }
+        return profile
+
+    def import_profile_json(self, data: dict) -> str:
+        """Import a profile from JSON backup. Creates a new profile."""
+        # Strip export metadata and nested data
+        data.pop("_export_meta", None)
+        positions = data.pop("positions", [])
+        education = data.pop("education", [])
+        skills = data.pop("skills", [])
+        documents = data.pop("documents", [])
+
+        # Strip internal IDs (will be regenerated)
+        data.pop("id", None)
+        data.pop("created_at", None)
+        data.pop("updated_at", None)
+        data.pop("is_active", None)
+
+        # Deactivate all existing profiles so save_profile creates new one
+        conn = self.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        conn.commit()
+
+        # Save new profile (no active profile → creates new)
+        pid = self.save_profile(data)
+
+        # Import positions with projects
+        for pos in positions:
+            projects = pos.pop("projects", [])
+            pos.pop("id", None)
+            pos.pop("created_at", None)
+            pos["profile_id"] = pid
+            pos_id = self.add_position(pos)
+            for proj in projects:
+                proj.pop("id", None)
+                self.add_project(pos_id, proj)
+
+        # Import education
+        for edu in education:
+            edu.pop("id", None)
+            edu["profile_id"] = pid
+            self.add_education(edu)
+
+        # Import skills
+        for skill in skills:
+            skill.pop("id", None)
+            skill["profile_id"] = pid
+            self.add_skill(skill)
+
+        # Import document metadata (not files themselves)
+        for doc in documents:
+            doc.pop("id", None)
+            doc["profile_id"] = pid
+            doc.pop("extraction_status", None)
+            doc.pop("last_extraction_at", None)
+            self.add_document(doc)
+
+        return pid
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -912,6 +1097,8 @@ CREATE TABLE IF NOT EXISTS documents (
     extracted_text TEXT,
     linked_position_id TEXT REFERENCES positions(id) ON DELETE SET NULL,
     profile_id TEXT,
+    extraction_status TEXT DEFAULT 'nicht_extrahiert',
+    last_extraction_at TEXT,
     created_at TEXT
 );
 
@@ -1007,4 +1194,19 @@ CREATE INDEX IF NOT EXISTS idx_apps_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_app_events ON application_events(application_id);
 CREATE INDEX IF NOT EXISTS idx_followups_app ON follow_ups(application_id);
 CREATE INDEX IF NOT EXISTS idx_followups_date ON follow_ups(scheduled_date, status);
+
+CREATE TABLE IF NOT EXISTS extraction_history (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    profile_id TEXT NOT NULL,
+    extraction_type TEXT DEFAULT 'auto',
+    extracted_fields TEXT DEFAULT '{}',
+    conflicts TEXT DEFAULT '[]',
+    applied_fields TEXT DEFAULT '{}',
+    status TEXT DEFAULT 'ausstehend',
+    created_at TEXT,
+    completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_extraction_doc ON extraction_history(document_id);
+CREATE INDEX IF NOT EXISTS idx_extraction_profile ON extraction_history(profile_id);
 """

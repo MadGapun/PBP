@@ -1083,18 +1083,46 @@ def neues_profil_erstellen(name: str, email: str = "") -> dict:
 
 
 @mcp.tool()
-def profil_loeschen(profil_id: str) -> dict:
+def profil_loeschen(profil_id: str, bestaetigung: bool = False) -> dict:
     """Loescht ein Profil und alle zugehoerigen Daten (Positionen, Skills, Dokumente).
 
     ACHTUNG: Diese Aktion kann nicht rueckgaengig gemacht werden!
-    Das aktive Profil kann nicht geloescht werden — wechsle zuerst zu einem anderen.
+    Erstelle vorher ein Backup mit profil_exportieren().
+
+    Wenn das aktive Profil geloescht werden soll und es weitere Profile gibt,
+    wird automatisch zum naechsten Profil gewechselt.
+    Wenn es das einzige Profil ist, muss bestaetigung=True gesetzt werden.
 
     Args:
         profil_id: Die ID des zu loeschenden Profils
+        bestaetigung: Muss True sein wenn das einzige Profil geloescht wird
     """
     active_id = db.get_active_profile_id()
+    profiles = db.get_profiles()
+
     if profil_id == active_id:
-        return {"fehler": "Das aktive Profil kann nicht geloescht werden. Wechsle zuerst zu einem anderen Profil."}
+        if len(profiles) > 1:
+            # Switch to another profile first, then delete
+            other = next(p for p in profiles if p["id"] != profil_id)
+            db.switch_profile(other["id"])
+            db.delete_profile(profil_id)
+            return {
+                "status": "geloescht",
+                "nachricht": f"Profil geloescht. Automatisch gewechselt zu: {other['name']}",
+                "aktives_profil": other["name"],
+            }
+        elif not bestaetigung:
+            return {
+                "fehler": "Dies ist dein einziges Profil. Setze bestaetigung=True um es trotzdem zu loeschen.",
+                "hinweis": "Erstelle vorher ein Backup mit profil_exportieren().",
+            }
+        else:
+            db.delete_profile(profil_id)
+            return {
+                "status": "geloescht",
+                "nachricht": "Einziges Profil geloescht. Erstelle ein neues mit profil_erstellen().",
+            }
+
     db.delete_profile(profil_id)
     return {"status": "geloescht", "nachricht": f"Profil {profil_id} und alle zugehoerigen Daten wurden geloescht."}
 
@@ -1235,6 +1263,462 @@ def dokumente_zur_analyse() -> dict:
         "dokumente_gesamt": len(docs),
         "analysierbare": len(analysierbare),
         "dokumente": analysierbare,
+    }
+
+
+# ============================================================
+# SMART AUTO-EXTRACTION (PBP v0.8.0)
+# ============================================================
+
+@mcp.tool()
+def extraktion_starten(document_ids: list = None) -> dict:
+    """Startet die intelligente Profil-Extraktion fuer ein oder mehrere Dokumente.
+
+    Laedt den extrahierten Text aller angegebenen (oder aller noch nicht
+    analysierten) Dokumente und gibt ihn zusammen mit dem aktuellen Profil
+    zurueck, damit Claude die Daten vergleichen und extrahieren kann.
+
+    WORKFLOW:
+    1. Rufe dieses Tool auf (optional mit document_ids)
+    2. Analysiere die Texte und extrahiere Profildaten
+    3. Speichere mit extraktion_ergebnis_speichern()
+    4. Zeige dem User Ergebnisse und Konflikte
+    5. Wende an mit extraktion_anwenden()
+
+    Args:
+        document_ids: Liste von Dokument-IDs. Leer = alle noch nicht extrahierten.
+    """
+    profile = db.get_profile()
+    if not profile:
+        return {"fehler": "Kein aktives Profil vorhanden. Erstelle zuerst eins mit profil_erstellen()."}
+
+    conn = db.connect()
+    pid = profile["id"]
+
+    if document_ids:
+        placeholders = ",".join("?" for _ in document_ids)
+        rows = conn.execute(
+            f"SELECT * FROM documents WHERE id IN ({placeholders}) AND profile_id=?",
+            (*document_ids, pid)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (pid,)
+        ).fetchall()
+
+    if not rows:
+        return {
+            "status": "keine_dokumente",
+            "nachricht": "Keine Dokumente zur Extraktion gefunden. Lade Dokumente im Dashboard hoch.",
+        }
+
+    dokumente = []
+    doc_ids_for_history = []
+    for row in rows:
+        doc = dict(row)
+        dokumente.append({
+            "id": doc["id"],
+            "filename": doc["filename"],
+            "doc_type": doc.get("doc_type", "sonstiges"),
+            "text_laenge": len(doc.get("extracted_text", "")),
+            "extrahierter_text": doc.get("extracted_text", ""),
+        })
+        doc_ids_for_history.append(doc["id"])
+
+    # Create extraction history entry
+    extraction_type = "bulk" if len(dokumente) > 1 else "auto"
+    eid = db.add_extraction_history({
+        "document_id": doc_ids_for_history[0],
+        "profile_id": pid,
+        "extraction_type": extraction_type,
+    })
+
+    # Build profile summary for comparison
+    profil_zusammenfassung_text = {
+        "name": profile.get("name"),
+        "email": profile.get("email"),
+        "phone": profile.get("phone"),
+        "address": profile.get("address"),
+        "city": profile.get("city"),
+        "plz": profile.get("plz"),
+        "birthday": profile.get("birthday"),
+        "nationality": profile.get("nationality"),
+        "summary": profile.get("summary"),
+        "positionen_anzahl": len(profile.get("positions", [])),
+        "positionen": [
+            {"firma": p.get("company"), "titel": p.get("title"),
+             "zeitraum": f"{p.get('start_date', '?')} - {p.get('end_date', 'heute') if not p.get('is_current') else 'heute'}"}
+            for p in profile.get("positions", [])
+        ],
+        "skills_anzahl": len(profile.get("skills", [])),
+        "skills": [s.get("name") for s in profile.get("skills", [])],
+        "ausbildung_anzahl": len(profile.get("education", [])),
+        "praeferenzen": profile.get("preferences", {}),
+    }
+
+    return {
+        "status": "ok",
+        "extraction_id": eid,
+        "dokumente_anzahl": len(dokumente),
+        "dokumente": dokumente,
+        "aktuelles_profil": profil_zusammenfassung_text,
+        "anleitung": (
+            "Analysiere die Dokumente und extrahiere ALLE verwertbaren Profildaten. "
+            "Vergleiche mit dem aktuellen Profil. "
+            "Speichere das Ergebnis mit extraktion_ergebnis_speichern(). "
+            "Bei Konflikten: IMMER den User fragen. "
+            "Bei fehlenden Feldern: Nachfragen ob der User diese ergaenzen moechte."
+        ),
+    }
+
+
+@mcp.tool()
+def extraktion_ergebnis_speichern(
+    extraction_id: str,
+    extrahierte_daten: dict,
+    konflikte: list = None,
+    status: str = "ausstehend"
+) -> dict:
+    """Speichert das Ergebnis einer Dokument-Extraktion.
+
+    Claude ruft dieses Tool auf, nachdem er die Dokumente analysiert hat.
+    Die extrahierten Daten werden zwischengespeichert, bis der User
+    sie bestaetigt oder ablehnt.
+
+    Args:
+        extraction_id: ID von extraktion_starten()
+        extrahierte_daten: Strukturierte Daten die Claude extrahiert hat.
+            Format: {
+                "persoenliche_daten": {"name": "...", "email": "...", ...},
+                "positionen": [{"company": "...", "title": "...", ...}],
+                "ausbildung": [{"institution": "...", "degree": "...", ...}],
+                "skills": [{"name": "...", "category": "...", "level": 3}],
+                "praeferenzen": {"stellentyp": "...", ...},
+                "zusammenfassung": "Kurzprofil-Text..."
+            }
+        konflikte: Liste von Konflikten mit bestehendem Profil.
+            Format: [{"feld": "phone", "alt": "0171...", "neu": "0172...", "quelle": "CV.pdf"}]
+        status: ausstehend, angewendet, teilweise, verworfen
+    """
+    db.update_extraction_history(
+        extraction_id, status,
+        applied_fields={"extracted": extrahierte_daten, "conflicts": konflikte or []}
+    )
+    # Re-store with proper fields
+    conn = db.connect()
+    conn.execute("""
+        UPDATE extraction_history SET
+            extracted_fields=?, conflicts=?, status=?
+        WHERE id=?
+    """, (
+        json.dumps(extrahierte_daten, ensure_ascii=False),
+        json.dumps(konflikte or [], ensure_ascii=False),
+        status, extraction_id
+    ))
+    conn.commit()
+
+    # Count what was found
+    counts = {}
+    if extrahierte_daten.get("persoenliche_daten"):
+        counts["persoenliche_daten"] = len(extrahierte_daten["persoenliche_daten"])
+    if extrahierte_daten.get("positionen"):
+        counts["positionen"] = len(extrahierte_daten["positionen"])
+    if extrahierte_daten.get("ausbildung"):
+        counts["ausbildung"] = len(extrahierte_daten["ausbildung"])
+    if extrahierte_daten.get("skills"):
+        counts["skills"] = len(extrahierte_daten["skills"])
+    if extrahierte_daten.get("zusammenfassung"):
+        counts["zusammenfassung"] = 1
+
+    return {
+        "status": "gespeichert",
+        "extraction_id": extraction_id,
+        "gefundene_daten": counts,
+        "konflikte_anzahl": len(konflikte or []),
+        "naechster_schritt": "Zeige dem User die Ergebnisse und frage ob er sie uebernehmen moechte. "
+                             "Nutze dann extraktion_anwenden().",
+    }
+
+
+@mcp.tool()
+def extraktion_anwenden(
+    extraction_id: str,
+    bereiche: list = None,
+    konflikte_loesungen: dict = None
+) -> dict:
+    """Wendet extrahierte Daten auf das aktive Profil an.
+
+    Der User hat die extrahierten Daten gesehen und bestaetigt.
+    Dieses Tool wendet die Aenderungen an.
+
+    Args:
+        extraction_id: ID der Extraktion
+        bereiche: Welche Bereiche anwenden (None = alle).
+            Optionen: persoenliche_daten, positionen, ausbildung, skills, praeferenzen, zusammenfassung
+        konflikte_loesungen: Entscheidungen fuer Konflikte.
+            Format: {"phone": "neu", "email": "alt", ...}
+            "alt" = bestehenden Wert behalten, "neu" = ueberschreiben
+    """
+    conn = db.connect()
+    row = conn.execute("SELECT * FROM extraction_history WHERE id=?", (extraction_id,)).fetchone()
+    if not row:
+        return {"fehler": f"Extraktion '{extraction_id}' nicht gefunden."}
+
+    extracted = json.loads(row["extracted_fields"] or "{}")
+    conflicts = json.loads(row["conflicts"] or "[]")
+    profile = db.get_profile()
+    if not profile:
+        return {"fehler": "Kein aktives Profil vorhanden."}
+
+    applied = {}
+    all_bereiche = bereiche or list(extracted.keys())
+    loesungen = konflikte_loesungen or {}
+
+    # Apply personal data
+    if "persoenliche_daten" in all_bereiche and extracted.get("persoenliche_daten"):
+        pers = extracted["persoenliche_daten"]
+        update_data = {}
+        for field in ["name", "email", "phone", "address", "city", "plz",
+                      "country", "birthday", "nationality"]:
+            if field in pers and pers[field]:
+                # Check conflicts
+                if field in loesungen:
+                    if loesungen[field] == "neu":
+                        update_data[field] = pers[field]
+                    # else: keep old value
+                elif not profile.get(field):
+                    # No conflict, field was empty
+                    update_data[field] = pers[field]
+                elif profile.get(field) != pers[field]:
+                    # Conflict not resolved — skip
+                    continue
+        if update_data:
+            # Merge with existing profile data
+            for key in ["name", "email", "phone", "address", "city", "plz",
+                        "country", "birthday", "nationality", "summary",
+                        "informal_notes"]:
+                if key not in update_data:
+                    update_data[key] = profile.get(key)
+            update_data["preferences"] = profile.get("preferences", {})
+            db.save_profile(update_data)
+            applied["persoenliche_daten"] = list(update_data.keys())
+
+    # Apply summary
+    if "zusammenfassung" in all_bereiche and extracted.get("zusammenfassung"):
+        if not profile.get("summary") or "zusammenfassung" in loesungen:
+            update_data = {
+                k: profile.get(k) for k in
+                ["name", "email", "phone", "address", "city", "plz",
+                 "country", "birthday", "nationality", "informal_notes"]
+            }
+            update_data["summary"] = extracted["zusammenfassung"]
+            update_data["preferences"] = profile.get("preferences", {})
+            db.save_profile(update_data)
+            applied["zusammenfassung"] = True
+
+    # Apply preferences
+    if "praeferenzen" in all_bereiche and extracted.get("praeferenzen"):
+        prefs = profile.get("preferences", {})
+        new_prefs = extracted["praeferenzen"]
+        for k, v in new_prefs.items():
+            if v and not prefs.get(k):
+                prefs[k] = v
+        update_data = {
+            k: profile.get(k) for k in
+            ["name", "email", "phone", "address", "city", "plz",
+             "country", "birthday", "nationality", "summary", "informal_notes"]
+        }
+        update_data["preferences"] = prefs
+        db.save_profile(update_data)
+        applied["praeferenzen"] = list(new_prefs.keys())
+
+    # Apply positions
+    if "positionen" in all_bereiche and extracted.get("positionen"):
+        existing_positions = profile.get("positions", [])
+        added_positions = 0
+        for pos in extracted["positionen"]:
+            # Check for duplicates (same company + similar title + overlapping dates)
+            is_duplicate = False
+            for ep in existing_positions:
+                if (ep.get("company", "").lower() == pos.get("company", "").lower() and
+                    ep.get("title", "").lower() == pos.get("title", "").lower()):
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                projects = pos.pop("projects", pos.pop("projekte", []))
+                pos_id = db.add_position(pos)
+                for proj in projects:
+                    db.add_project(pos_id, proj)
+                added_positions += 1
+        if added_positions:
+            applied["positionen"] = added_positions
+
+    # Apply education
+    if "ausbildung" in all_bereiche and extracted.get("ausbildung"):
+        existing_edu = profile.get("education", [])
+        added_edu = 0
+        for edu in extracted["ausbildung"]:
+            is_duplicate = False
+            for ee in existing_edu:
+                if (ee.get("institution", "").lower() == edu.get("institution", "").lower() and
+                    ee.get("degree", "").lower() == edu.get("degree", "").lower()):
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                db.add_education(edu)
+                added_edu += 1
+        if added_edu:
+            applied["ausbildung"] = added_edu
+
+    # Apply skills
+    if "skills" in all_bereiche and extracted.get("skills"):
+        existing_skills = [s.get("name", "").lower() for s in profile.get("skills", [])]
+        added_skills = 0
+        for skill in extracted["skills"]:
+            if skill.get("name", "").lower() not in existing_skills:
+                db.add_skill(skill)
+                added_skills += 1
+                existing_skills.append(skill.get("name", "").lower())
+        if added_skills:
+            applied["skills"] = added_skills
+
+    # Update extraction history
+    db.update_extraction_history(extraction_id, "angewendet", applied)
+
+    # Update document extraction status
+    doc_id = row["document_id"]
+    db.update_document_extraction_status(doc_id, "angewendet")
+
+    return {
+        "status": "angewendet",
+        "extraction_id": extraction_id,
+        "angewendete_bereiche": applied,
+        "hinweis": "Profil wurde aktualisiert. Pruefe mit profil_zusammenfassung().",
+    }
+
+
+@mcp.tool()
+def extraktions_verlauf() -> dict:
+    """Zeigt den Verlauf aller Dokument-Extraktionen fuer das aktive Profil.
+
+    Nuetzlich um zu sehen welche Dokumente bereits analysiert wurden
+    und was daraus uebernommen wurde.
+    """
+    pid = db.get_active_profile_id()
+    if not pid:
+        return {"fehler": "Kein aktives Profil."}
+    history = db.get_extraction_history(profile_id=pid)
+    result = []
+    for h in history:
+        extracted = json.loads(h.get("extracted_fields") or "{}")
+        applied = json.loads(h.get("applied_fields") or "{}")
+        result.append({
+            "id": h["id"],
+            "document_id": h["document_id"],
+            "typ": h.get("extraction_type", "auto"),
+            "status": h.get("status", "ausstehend"),
+            "erstellt": h.get("created_at"),
+            "abgeschlossen": h.get("completed_at"),
+            "extrahierte_bereiche": list(extracted.keys()) if extracted else [],
+            "angewendete_bereiche": list(applied.keys()) if applied else [],
+        })
+    return {
+        "status": "ok",
+        "verlauf_anzahl": len(result),
+        "verlauf": result,
+    }
+
+
+# ============================================================
+# PROFIL EXPORT/IMPORT (PBP v0.8.0)
+# ============================================================
+
+@mcp.tool()
+def profil_exportieren(profil_id: str = "") -> dict:
+    """Exportiert das komplette Profil als JSON-Backup.
+
+    Inkl. aller Positionen, Projekte, Ausbildung, Skills, Dokument-Metadaten
+    und Praeferenzen. Die JSON-Datei wird im Export-Verzeichnis gespeichert.
+
+    Nutze dies fuer:
+    - Backup vor groesseren Aenderungen
+    - Migration auf einen neuen Computer
+    - Archivierung
+
+    Args:
+        profil_id: Profil-ID (leer = aktives Profil)
+    """
+    data = db.export_profile_json(profil_id or None)
+    if not data:
+        return {"fehler": "Profil nicht gefunden oder kein aktives Profil vorhanden."}
+
+    name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"profil_backup_{name_slug}_{date_str}.json"
+    export_dir = get_data_dir() / "export"
+    filepath = export_dir / filename
+
+    filepath.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8"
+    )
+
+    # Count items
+    stats = {
+        "positionen": len(data.get("positions", [])),
+        "projekte": sum(len(p.get("projects", [])) for p in data.get("positions", [])),
+        "ausbildung": len(data.get("education", [])),
+        "skills": len(data.get("skills", [])),
+        "dokumente": len(data.get("documents", [])),
+    }
+
+    return {
+        "status": "exportiert",
+        "datei": str(filepath),
+        "profil_name": data.get("name"),
+        "statistik": stats,
+        "hinweis": f"Backup gespeichert unter: {filepath}. "
+                   "Importiere mit profil_importieren(dateipfad='...').",
+    }
+
+
+@mcp.tool()
+def profil_importieren(dateipfad: str) -> dict:
+    """Importiert ein Profil aus einer JSON-Backup-Datei.
+
+    Erstellt ein neues Profil aus dem Backup. Das vorherige aktive Profil
+    wird gespeichert und kann spaeter wieder aktiviert werden.
+
+    ACHTUNG: Erstellt immer ein NEUES Profil — ueberschreibt nichts.
+
+    Args:
+        dateipfad: Pfad zur JSON-Backup-Datei (von profil_exportieren)
+    """
+    from pathlib import Path
+    filepath = Path(dateipfad)
+    if not filepath.exists():
+        return {"fehler": f"Datei nicht gefunden: {dateipfad}"}
+
+    try:
+        data = json.loads(filepath.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return {"fehler": f"Ungueltige JSON-Datei: {e}"}
+
+    if "_export_meta" not in data:
+        return {"fehler": "Keine gueltige PBP-Backup-Datei (fehlende Metadaten)."}
+
+    meta = data.get("_export_meta", {})
+    pid = db.import_profile_json(data)
+
+    return {
+        "status": "importiert",
+        "profil_id": pid,
+        "profil_name": data.get("name", "?"),
+        "export_version": meta.get("version"),
+        "export_datum": meta.get("exported_at"),
+        "nachricht": f"Profil importiert und aktiviert. "
+                     "Das vorherige Profil wurde gespeichert und kann mit profil_wechseln() wieder aktiviert werden.",
     }
 
 
@@ -2301,6 +2785,126 @@ Sprich Deutsch und per Du. Passe die Templates an das Profil an."""
 
 
 # ============================================================
+# SMART AUTO-EXTRACTION PROMPT (PBP v0.8.0)
+# ============================================================
+
+@mcp.prompt()
+def profil_erweiterung() -> str:
+    """Dokumente analysieren und Profil automatisch erweitern — Smart Auto-Extraction."""
+    profile = db.get_profile()
+    docs = profile.get("documents", []) if profile else []
+    conn = db.connect()
+    unextracted = []
+    if profile:
+        rows = conn.execute(
+            "SELECT id, filename, doc_type FROM documents WHERE profile_id=? AND "
+            "extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (profile["id"],)
+        ).fetchall()
+        unextracted = [dict(r) for r in rows]
+
+    doc_list = "\n".join(
+        f"  - [{d.get('doc_type', '?')}] {d['filename']} (ID: {d['id']})"
+        for d in unextracted[:10]
+    ) if unextracted else "  Alle Dokumente bereits analysiert."
+
+    return f"""Du bist ein Experte fuer Profil-Extraktion aus Bewerbungsunterlagen.
+Deine Aufgabe: Analysiere hochgeladene Dokumente und erweitere das Bewerberprofil automatisch.
+
+═══════════════════════════════════════════════════
+AKTUELLER STAND
+═══════════════════════════════════════════════════
+Profil vorhanden: {'Ja — ' + profile.get('name', '') if profile else 'Nein'}
+Dokumente gesamt: {len(docs)}
+Noch nicht extrahiert: {len(unextracted)}
+{doc_list}
+
+═══════════════════════════════════════════════════
+SCHRITT 1: DOKUMENTE LADEN
+═══════════════════════════════════════════════════
+
+Rufe extraktion_starten() auf um die Dokument-Texte zu laden.
+Falls keine document_ids angegeben: Alle noch nicht extrahierten werden geladen.
+
+═══════════════════════════════════════════════════
+SCHRITT 2: ANALYSE (deine Aufgabe als KI)
+═══════════════════════════════════════════════════
+
+Fuer JEDES Dokument:
+
+A) DOKUMENTTYP ERKENNEN:
+   - Lebenslauf/CV: Persoenliche Daten, Berufserfahrung, Ausbildung, Skills
+   - Zeugnis/Referenz: Firmennamen, Zeitraeume, Bewertungen, Skills
+   - Zertifikat: Ausbildung, Kompetenzen, Aussteller
+   - Projektliste: Positionen, Projekte (STAR), Technologien
+   - Freitext/Sonstiges: Alles was verwertbar ist
+
+B) DATEN EXTRAHIEREN (strukturiert):
+   - Persoenliche Daten: Name, E-Mail, Telefon, Adresse, Geburtstag
+   - Positionen: Firma, Titel, Zeitraum, Aufgaben, Erfolge, Technologien
+   - Projekte: Name, Rolle, STAR-Details, Technologien, Dauer
+   - Ausbildung: Institution, Abschluss, Fachrichtung, Zeitraum, Note
+   - Skills: Name, Kategorie (fachlich/tool/methodisch/sprache/soft_skill), Level (1-5)
+   - Praeferenzen: Stellentyp, Arbeitsmodell, Gehalt (falls erwaehnt)
+   - Zusammenfassung: Kurzprofil-Text
+
+C) MIT BESTEHENDEM PROFIL VERGLEICHEN:
+   - Identische Daten: Ueberspringen
+   - Neue Daten: Zum Hinzufuegen vormerken
+   - Konflikte: Beide Versionen notieren (z.B. andere Telefonnummer)
+
+═══════════════════════════════════════════════════
+SCHRITT 3: ERGEBNIS SPEICHERN
+═══════════════════════════════════════════════════
+
+Rufe extraktion_ergebnis_speichern() auf mit:
+- extraction_id: Von Schritt 1
+- extrahierte_daten: Strukturierte Daten
+- konflikte: Liste der Abweichungen
+
+═══════════════════════════════════════════════════
+SCHRITT 4: USER-BESTAETIGUNG
+═══════════════════════════════════════════════════
+
+Zeige dem User:
+1. "Ich habe aus [N] Dokumenten folgende Daten extrahiert:"
+2. NEUE DATEN (gruppiert nach Bereich):
+   - "X neue Positionen gefunden"
+   - "Y neue Skills erkannt"
+   - etc.
+3. KONFLIKTE (falls vorhanden):
+   - "Deine Telefonnummer im CV (0171...) weicht vom Profil ab (0172...). Welche ist aktuell?"
+4. FEHLENDE FELDER:
+   - "Im Profil fehlt noch: [X, Y]. Moechtest du das ergaenzen?"
+
+Frage: "Soll ich alles uebernehmen? Oder moechtest du einzelne Bereiche auswaehlen?"
+
+═══════════════════════════════════════════════════
+SCHRITT 5: ANWENDEN
+═══════════════════════════════════════════════════
+
+Rufe extraktion_anwenden() auf mit:
+- extraction_id: Von Schritt 1
+- bereiche: Vom User bestaetigte Bereiche (oder alle)
+- konflikte_loesungen: Entscheidungen des Users
+
+Nach dem Anwenden: Zeige profil_zusammenfassung() als Kontrolle.
+
+═══════════════════════════════════════════════════
+REGELN
+═══════════════════════════════════════════════════
+1. Sprich Deutsch und per Du
+2. Bei Konflikten IMMER den User fragen — nie automatisch ueberschreiben
+3. Bei fehlenden Feldern: Nachfragen ob der User diese ergaenzen moechte
+4. Duplikate erkennen (gleiche Firma+Titel = gleiche Position)
+5. Skills deduplizieren (gleicher Name = nicht doppelt anlegen)
+6. Sei transparent: "Aus deinem CV habe ich 3 Positionen erkannt..."
+7. Nach dem Anwenden: Zeige profil_zusammenfassung() als Kontrolle
+8. Biete an: "Moechtest du noch Dokumente hochladen? Das geht im Dashboard (http://localhost:8200)."
+"""
+
+
+# ============================================================
 # Server runner
 # ============================================================
 
@@ -2316,5 +2920,5 @@ def run_server():
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.7.0")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.8.0")
     mcp.run(transport="stdio")

@@ -622,6 +622,97 @@ async def api_background_job(job_id: str):
     return job
 
 
+# ============================================================
+# SMART AUTO-EXTRACTION & PROFILE BACKUP (PBP v0.8.0)
+# ============================================================
+
+@app.get("/api/profile/completeness")
+async def api_profile_completeness():
+    """Calculate profile completeness percentage."""
+    profile = _db.get_profile()
+    if not profile:
+        return {"completeness": 0, "complete": 0, "total": 9, "checks": {}}
+
+    checks = {
+        "name": bool(profile.get("name")),
+        "kontakt": bool(profile.get("email") or profile.get("phone")),
+        "adresse": bool(profile.get("city")),
+        "zusammenfassung": bool(profile.get("summary")),
+        "berufserfahrung": len(profile.get("positions", [])) > 0,
+        "projekte": any(pos.get("projects") for pos in profile.get("positions", [])),
+        "ausbildung": len(profile.get("education", [])) > 0,
+        "skills": len(profile.get("skills", [])) > 0,
+        "praeferenzen": bool(profile.get("preferences", {}).get("stellentyp")),
+    }
+    complete = sum(1 for v in checks.values() if v)
+    pct = int(complete / len(checks) * 100)
+    return {
+        "completeness": pct,
+        "complete": complete,
+        "total": len(checks),
+        "checks": checks,
+    }
+
+
+@app.get("/api/extractions")
+async def api_extraction_history():
+    """Get extraction history for the active profile."""
+    profile_id = _db.get_active_profile_id()
+    if not profile_id:
+        return {"extractions": []}
+    history = _db.get_extraction_history(profile_id=profile_id)
+    for h in history:
+        h["extracted_fields"] = json.loads(h.get("extracted_fields") or "{}")
+        h["conflicts"] = json.loads(h.get("conflicts") or "[]")
+        h["applied_fields"] = json.loads(h.get("applied_fields") or "{}")
+    return {"extractions": history}
+
+
+@app.get("/api/profile/export")
+async def api_export_profile():
+    """Export active profile as JSON file download."""
+    from .database import get_data_dir
+    profile_id = _db.get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Kein Profil vorhanden"}, status_code=404)
+
+    data = _db.export_profile_json(profile_id)
+    if not data:
+        return JSONResponse({"error": "Profil nicht gefunden"}, status_code=404)
+
+    name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+    date_str = datetime.now().strftime("%Y%m%d")
+    filename = f"profil_backup_{name_slug}_{date_str}.json"
+
+    export_dir = get_data_dir() / "export"
+    filepath = export_dir / filename
+    filepath.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8"
+    )
+
+    return FileResponse(str(filepath), filename=filename, media_type="application/json")
+
+
+@app.post("/api/profile/import")
+async def api_import_profile(file: UploadFile = File(...)):
+    """Import a profile from JSON backup file."""
+    content = await file.read()
+    try:
+        data = json.loads(content.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return JSONResponse({"error": f"Ungueltige JSON-Datei: {e}"}, status_code=400)
+
+    if "_export_meta" not in data:
+        return JSONResponse(
+            {"error": "Keine gueltige PBP-Backup-Datei (fehlende Metadaten)"},
+            status_code=400
+        )
+
+    pid = _db.import_profile_json(data)
+    return {"status": "ok", "id": pid, "name": data.get("name", "")}
+
+
 DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
 def start_dashboard(db_instance, port: int = None):

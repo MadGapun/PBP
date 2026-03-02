@@ -253,6 +253,10 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
             <div><code style="color:var(--accent);">/willkommen</code> <span style="color:var(--text2); font-size:0.85rem;">— Begruessung und Status-Uebersicht</span></div>
             <button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button>
           </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/profil_erweiterung</code> <span style="color:var(--text2); font-size:0.85rem;">— Dokumente analysieren + Profil erweitern</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
+            <button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Kopieren</button>
+          </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Jobsuche &amp; Bewerbung</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/jobsuche_workflow</code> <span style="color:var(--text2); font-size:0.85rem;">— Gefuehrter 5-Schritte Suchprozess</span></div>
@@ -307,6 +311,8 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
       <h2>Profil</h2>
       <div style="display:flex; gap:8px;">
+        <button class="btn" onclick="exportProfile()" title="Profil als JSON-Backup herunterladen">Backup</button>
+        <button class="btn" onclick="showImportProfile()" title="Profil aus Backup importieren">Import</button>
         <button class="btn" onclick="showDocUpload()">Dokument hochladen</button>
         <button class="btn btn-primary" onclick="showProfileForm()">Profil bearbeiten</button>
       </div>
@@ -512,11 +518,13 @@ async function loadDashboard() {
   document.getElementById('dashboard-content').style.display = '';
 
   const s = status.statistics;
+  const comp = await api('/api/profile/completeness');
+  const compColor = comp.completeness >= 80 ? 'var(--green)' : comp.completeness >= 50 ? 'var(--yellow)' : 'var(--red)';
   document.getElementById('stats-grid').innerHTML = `
+    <div class="card stat"><div class="number" style="color:${compColor}">${comp.completeness}%</div><div class="label">Profil-Vollstaendigkeit</div></div>
     <div class="card stat"><div class="number">${status.active_jobs}</div><div class="label">Aktive Stellen</div></div>
     <div class="card stat"><div class="number">${s.total_applications || 0}</div><div class="label">Bewerbungen</div></div>
     <div class="card stat"><div class="number">${s.interview_rate || 0}%</div><div class="label">Interview-Rate</div></div>
-    <div class="card stat"><div class="number">${s.offer_rate || 0}%</div><div class="label">Angebots-Rate</div></div>
   `;
 
   // Next steps
@@ -655,9 +663,28 @@ async function loadProfile() {
   }
 }
 
-function renderProfile(p) {
+async function renderProfile(p) {
   const prefs = p.preferences || {};
-  let html = `<div class="card"><h3>Persoenliche Daten</h3>
+  // Completeness bar
+  const comp = await api('/api/profile/completeness');
+  const compColor = comp.completeness >= 80 ? 'var(--green)' : comp.completeness >= 50 ? 'var(--yellow)' : 'var(--red)';
+  const checkLabels = {name:'Name',kontakt:'Kontakt',adresse:'Adresse',zusammenfassung:'Summary',
+    berufserfahrung:'Berufserfahrung',projekte:'Projekte',ausbildung:'Ausbildung',skills:'Skills',praeferenzen:'Praeferenzen'};
+  let html = `<div class="card" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3>Profil-Vollstaendigkeit</h3>
+      <span style="font-size:1.2rem; font-weight:700; color:${compColor};">${comp.completeness}%</span>
+    </div>
+    <div style="background:var(--bg3); border-radius:6px; height:10px; margin:8px 0;">
+      <div style="background:${compColor}; width:${comp.completeness}%; height:100%; border-radius:6px; transition:width 0.5s;"></div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+      ${Object.entries(comp.checks || {}).map(([k, v]) =>
+        `<span class="badge badge-${v ? 'green' : 'red'}">${v ? '\u2713' : '\u2717'} ${checkLabels[k]||k}</span>`
+      ).join('')}
+    </div>
+  </div>`;
+  html += `<div class="card"><h3>Persoenliche Daten</h3>
     <div class="grid grid-2">
       <div><label>Name</label><strong>${p.name || '-'}</strong></div>
       <div><label>E-Mail</label>${p.email || '-'}</div>
@@ -780,6 +807,36 @@ function renderProfile(p) {
     }
     html += '</div>';
   }
+
+  // Extraction history
+  try {
+    const exData = await api('/api/extractions');
+    const extractions = exData.extractions || [];
+    if (extractions.length) {
+      const statusBadge = {'ausstehend':'badge-yellow','angewendet':'badge-green','teilweise':'badge-blue','verworfen':'badge-red'};
+      const statusLabel = {'ausstehend':'Ausstehend','angewendet':'Angewendet','teilweise':'Teilweise','verworfen':'Verworfen'};
+      html += `<div style="margin-top:20px;"><h3>Extraktions-Verlauf (${extractions.length})</h3>
+        <div class="card" style="margin-top:8px;">
+        ${extractions.slice(0, 10).map(ex => {
+          const fields = ex.extracted_fields || {};
+          const fieldCount = Object.keys(fields).filter(k => {
+            const v = fields[k]; return v && (Array.isArray(v) ? v.length > 0 : typeof v === 'object' ? Object.keys(v).length > 0 : true);
+          }).length;
+          const d = new Date(ex.created_at);
+          const dateStr = d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+          return `<div style="padding:8px 0; border-bottom:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div><span style="font-weight:500;">${ex.extraction_type || 'auto'}</span>
+                <span style="color:var(--text2); font-size:0.85rem; margin-left:8px;">${dateStr}</span></div>
+              <span class="badge ${statusBadge[ex.status] || 'badge-gray'}">${statusLabel[ex.status] || ex.status}</span>
+            </div>
+            <div style="font-size:0.85rem; color:var(--text2); margin-top:4px;">
+              ${fieldCount} Bereiche extrahiert${ex.conflicts && ex.conflicts.length ? ', ' + ex.conflicts.length + ' Konflikte' : ''}
+            </div></div>`;
+        }).join('')}
+        </div></div>`;
+    }
+  } catch(e) { /* extraction history optional */ }
 
   document.getElementById('profile-content').innerHTML = html;
 }
@@ -1094,9 +1151,52 @@ function showDocUpload() {
 async function uploadDoc(e) {
   e.preventDefault();
   const fd = new FormData(e.target);
-  await fetch('/api/documents/upload', { method: 'POST', body: fd });
+  const resp = await fetch('/api/documents/upload', { method: 'POST', body: fd });
+  const result = await resp.json();
   closeModal({target: document.getElementById('modal-overlay')});
+  if (result.extracted_length > 0) {
+    showToast('Dokument hochgeladen! ' + result.extracted_length + ' Zeichen extrahiert. Nutze in Claude "/profil_erweiterung" um Profildaten zu uebernehmen.', 'success');
+  } else {
+    showToast('Dokument hochgeladen.', 'success');
+  }
   loadProfile();
+}
+
+// === Profile Export/Import (v0.8.0) ===
+function exportProfile() {
+  window.location.href = '/api/profile/export';
+  showToast('Profil-Backup wird heruntergeladen...', 'success');
+}
+
+function showImportProfile() {
+  openModal(`<h2>Profil importieren</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Importiere ein Profil aus einer JSON-Backup-Datei. Es wird ein neues Profil erstellt &mdash;
+      dein aktuelles Profil bleibt erhalten.
+    </p>
+    <form onsubmit="importProfile(event)" enctype="multipart/form-data">
+      <div class="form-group"><label>Backup-Datei (JSON)</label>
+        <input type="file" name="file" accept=".json" required style="padding:8px;"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Importieren</button>
+      </div>
+    </form>`);
+}
+
+async function importProfile(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const resp = await fetch('/api/profile/import', { method: 'POST', body: fd });
+  const result = await resp.json();
+  closeModal({target: document.getElementById('modal-overlay')});
+  if (result.error) {
+    showToast('Import-Fehler: ' + result.error, 'error');
+  } else {
+    showToast('Profil "' + result.name + '" importiert und aktiviert!', 'success');
+    loadProfile();
+    loadProfileSwitcher();
+  }
 }
 
 // === Profile Forms ===
