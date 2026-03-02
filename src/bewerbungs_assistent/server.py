@@ -592,7 +592,7 @@ def jobsuche_starten(
     }
     job_id = db.create_background_job("jobsuche", params)
 
-    # Start background search
+    # Start background search with timeout
     def _run_search():
         try:
             from .job_scraper import run_search
@@ -603,6 +603,15 @@ def jobsuche_starten(
 
     thread = threading.Thread(target=_run_search, daemon=True)
     thread.start()
+
+    # Timeout watchdog: mark as failed if still running after 10 minutes
+    def _timeout_watchdog():
+        thread.join(timeout=600)
+        if thread.is_alive():
+            logger.warning("Jobsuche Timeout nach 10 Minuten (Job %s)", job_id)
+            db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
+
+    threading.Thread(target=_timeout_watchdog, daemon=True).start()
 
     return {
         "job_id": job_id,
@@ -931,7 +940,8 @@ def bewerbung_erstellen(
 def bewerbung_status_aendern(
     bewerbung_id: str,
     neuer_status: str,
-    notizen: str = ""
+    notizen: str = "",
+    ablehnungsgrund: str = ""
 ) -> dict:
     """Aendert den Status einer Bewerbung.
 
@@ -939,9 +949,13 @@ def bewerbung_status_aendern(
         bewerbung_id: ID der Bewerbung
         neuer_status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen
         notizen: Optionale Notizen zum Statuswechsel
+        ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird fuer Musteranalyse gespeichert.
     """
-    db.update_application_status(bewerbung_id, neuer_status, notizen)
-    return {"status": "aktualisiert", "neuer_status": neuer_status}
+    db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
+    result = {"status": "aktualisiert", "neuer_status": neuer_status}
+    if neuer_status == "abgelehnt":
+        result["hinweis"] = "Nutze ablehnungs_muster() um Ablehnungsmuster zu analysieren und daraus zu lernen."
+    return result
 
 
 @mcp.tool()
@@ -1401,11 +1415,7 @@ def extraktion_ergebnis_speichern(
             Format: [{"feld": "phone", "alt": "0171...", "neu": "0172...", "quelle": "CV.pdf"}]
         status: ausstehend, angewendet, teilweise, verworfen
     """
-    db.update_extraction_history(
-        extraction_id, status,
-        applied_fields={"extracted": extrahierte_daten, "conflicts": konflikte or []}
-    )
-    # Re-store with proper fields
+    # Store extracted data and conflicts directly
     conn = db.connect()
     conn.execute("""
         UPDATE extraction_history SET
@@ -1962,6 +1972,123 @@ def branchen_trends() -> dict:
         "tipp": "Skills die im Markt gefragt sind aber in deinem Profil fehlen, "
                 "sind unter 'skill_gap' aufgelistet.",
     }
+
+
+@mcp.tool()
+def skill_gap_analyse(job_hash: str = "") -> dict:
+    """Vergleicht dein Profil mit einer Stelle oder allen aktiven Stellen.
+
+    Zeigt welche Skills dir fehlen, welche gut passen, und gibt
+    konkrete Empfehlungen welche Kompetenzen du ergaenzen solltest.
+
+    Args:
+        job_hash: Hash einer spezifischen Stelle (leer = alle aktiven Stellen analysieren)
+    """
+    import re
+    from collections import Counter
+
+    profile = db.get_profile()
+    if not profile:
+        return {"fehler": "Kein aktives Profil. Erstelle zuerst eins mit /ersterfassung."}
+
+    user_skills = set()
+    for s in profile.get("skills", []):
+        user_skills.add(s["name"].lower())
+    # Add technologies from positions
+    for pos in profile.get("positions", []):
+        if pos.get("technologies"):
+            for tech in re.split(r"[,;/\s]+", pos["technologies"]):
+                if len(tech) > 1:
+                    user_skills.add(tech.strip().lower())
+
+    conn = db.connect()
+    if job_hash:
+        row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+        if not row:
+            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+        jobs = [dict(row)]
+    else:
+        jobs = [dict(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE is_active=1 ORDER BY score DESC LIMIT 50"
+        ).fetchall()]
+
+    if not jobs:
+        return {"fehler": "Keine aktiven Stellen vorhanden. Starte zuerst eine Jobsuche."}
+
+    # Extract skill requirements from job descriptions
+    required_skills = Counter()
+    for job in jobs:
+        text = (job.get("description") or "") + " " + (job.get("title") or "")
+        # Look for common skill patterns
+        words = set(re.findall(r'\b[A-Z][a-zA-Z+#.]+\b', text))
+        for w in words:
+            if len(w) > 1:
+                required_skills[w.lower()] += 1
+
+    # Classify skills
+    matches = []
+    gaps = []
+    for skill, count in required_skills.most_common(50):
+        if skill in user_skills or any(skill in us for us in user_skills):
+            matches.append({"skill": skill, "nachfrage": count})
+        elif count >= 2 or (job_hash and count >= 1):
+            gaps.append({"skill": skill, "nachfrage": count})
+
+    # Calculate match percentage
+    total_relevant = len(matches) + len(gaps)
+    match_pct = round(len(matches) / total_relevant * 100) if total_relevant > 0 else 0
+
+    result = {
+        "status": "ok",
+        "analysierte_stellen": len(jobs),
+        "match_prozent": match_pct,
+        "vorhandene_skills": matches[:15],
+        "fehlende_skills": gaps[:15],
+        "deine_skills_gesamt": len(user_skills),
+    }
+    if job_hash and jobs:
+        result["stelle"] = jobs[0].get("title")
+        result["firma"] = jobs[0].get("company")
+
+    return result
+
+
+@mcp.tool()
+def ablehnungs_muster() -> dict:
+    """Analysiert Ablehnungsmuster bei deinen Bewerbungen.
+
+    Zeigt Trends bei Ablehnungen: welche Firmen, welche Gruende,
+    und leitet daraus Verbesserungsvorschlaege ab.
+    """
+    patterns = db.get_rejection_patterns()
+    if patterns["anzahl"] == 0:
+        return patterns
+
+    # Calculate rejection rate
+    stats = db.get_statistics()
+    total = stats.get("total_applications", 0)
+    patterns["ablehnungsquote"] = round(patterns["anzahl"] / total * 100, 1) if total > 0 else 0
+
+    # Generate recommendations
+    empfehlungen = []
+    if patterns["ablehnungsquote"] > 60:
+        empfehlungen.append(
+            "Hohe Ablehnungsquote. Pruefe ob dein Profil gut zu den Stellen passt "
+            "(/profil_analyse) oder fokussiere dich auf besser passende Stellen."
+        )
+    if patterns.get("nach_grund", {}).get("Kein Grund angegeben", 0) > 3:
+        empfehlungen.append(
+            "Viele Ablehnungen ohne Grund. Frage aktiv nach Feedback — "
+            "nutze nachfass_planen() mit typ='info'."
+        )
+    repeated_companies = [c for c, n in patterns.get("nach_firma", {}).items() if n >= 2]
+    if repeated_companies:
+        empfehlungen.append(
+            f"Mehrfach abgelehnt bei: {', '.join(repeated_companies[:3])}. "
+            "Eventuell Profil anpassen oder andere Firmen fokussieren."
+        )
+    patterns["empfehlungen"] = empfehlungen
+    return patterns
 
 
 @mcp.tool()
@@ -2920,5 +3047,5 @@ def run_server():
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.8.0")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.9.0")
     mcp.run(transport="stdio")

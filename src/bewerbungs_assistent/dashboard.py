@@ -626,6 +626,45 @@ async def api_background_job(job_id: str):
 # SMART AUTO-EXTRACTION & PROFILE BACKUP (PBP v0.8.0)
 # ============================================================
 
+@app.get("/api/follow-ups")
+async def api_follow_ups():
+    """Get all follow-ups with due status."""
+    follow_ups = _db.get_pending_follow_ups()
+    from datetime import date
+    today = date.today().isoformat()
+    for fu in follow_ups:
+        fu["faellig"] = fu.get("scheduled_date", "") <= today
+    return {"follow_ups": follow_ups, "faellige": sum(1 for f in follow_ups if f.get("faellig"))}
+
+
+@app.get("/api/salary-stats")
+async def api_salary_stats():
+    """Get salary statistics for dashboard."""
+    stats = _db.get_salary_statistics()
+    profile = _db.get_profile()
+    if profile and profile.get("preferences"):
+        prefs = profile["preferences"]
+        stats["deine_vorstellungen"] = {
+            "min_gehalt": prefs.get("min_gehalt"),
+            "ziel_gehalt": prefs.get("ziel_gehalt"),
+            "min_tagessatz": prefs.get("min_tagessatz"),
+        }
+    return stats
+
+
+@app.get("/api/next-steps")
+async def api_next_steps():
+    """Get personalized next action recommendations."""
+    steps = _db.get_next_steps()
+    return {"steps": steps}
+
+
+@app.get("/api/rejection-patterns")
+async def api_rejection_patterns():
+    """Get rejection analysis data."""
+    return _db.get_rejection_patterns()
+
+
 @app.get("/api/profile/completeness")
 async def api_profile_completeness():
     """Calculate profile completeness percentage."""

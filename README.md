@@ -34,12 +34,12 @@ Claude Desktop (Windows)
     │
     │ stdio (MCP Protocol)
     ▼
-server.py (FastMCP)  ◄── 42 Tools, 6 Resources, 12 Prompts
+server.py (FastMCP)  ◄── 44 Tools, 6 Resources, 12 Prompts
     │
     ▼
-database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v5, Multi-Profil
+database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v6, Multi-Profil
     │
-    ├──► dashboard.py (FastAPI :8200)  ◄── 36 API Endpoints
+    ├──► dashboard.py (FastAPI :8200)  ◄── 40 API Endpoints
     │         │
     │         ▼
     │     dashboard.html (SPA)  ◄── 5 Tabs, Vanilla JS
@@ -165,7 +165,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 42 Tools
+### 44 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -211,6 +211,8 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `nachfass_planen` | Follow-up Erinnerung für Bewerbung planen |
 | `nachfass_anzeigen` | Alle geplanten/fälligen Follow-ups zeigen |
 | `bewerbung_stil_tracken` | Anschreiben-Stil für A/B-Tracking speichern |
+| `skill_gap_analyse` | Skill-Gap zwischen Profil und Stelle analysieren |
+| `ablehnungs_muster` | Ablehnungs-Muster und Empfehlungen analysieren |
 
 ### 6 Resources
 
@@ -244,7 +246,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 15 Tabellen, Schema v5 (Multi-Profil + KI-Features + Extraktion):
+SQLite mit WAL-Mode, 15 Tabellen, Schema v6 (Multi-Profil + KI-Features + Extraktion + Ablehnungs-Tracking):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -256,7 +258,7 @@ SQLite mit WAL-Mode, 15 Tabellen, Schema v5 (Multi-Profil + KI-Features + Extrak
 | `documents` | Hochgeladene Dokumente (+ Extraktions-Status) |
 | `extraction_history` | Extraktions-Verlauf (Konflikte, angewandte Felder) |
 | `jobs` | Stellenangebote (8 Quellen) |
-| `applications` | Bewerbungen (6 Status-Stufen) |
+| `applications` | Bewerbungen (6 Status-Stufen, Ablehnungs-Tracking) |
 | `application_events` | Bewerbungs-Timeline |
 | `search_criteria` | Suchfilter |
 | `blacklist` | Ausschlussliste |
@@ -282,9 +284,9 @@ PBP/
 ├── pyproject.toml                # Build-Konfiguration
 │
 ├── src/bewerbungs_assistent/
-│   ├── server.py                 # MCP Server (42 Tools, 6 Resources, 12 Prompts)
-│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v5)
-│   ├── dashboard.py              # FastAPI Dashboard (36 Endpoints)
+│   ├── server.py                 # MCP Server (44 Tools, 6 Resources, 12 Prompts)
+│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v6)
+│   ├── dashboard.py              # FastAPI Dashboard (40 Endpoints)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -353,6 +355,23 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.9.0 — Daten-Integrität, Analyse-Tools & Dashboard-Widgets (2026-03-02)
+- Feature: **Skill-Gap-Analyse** — Vergleich der eigenen Skills mit Stellenanforderungen inkl. Match-Prozent
+- Feature: **Ablehnungs-Muster** — Analyse der Ablehnungsgründe nach Firma mit Handlungsempfehlungen
+- Feature: **Personalisierte Nächste-Schritte** — API-basiert statt hardcoded, abhängig von Profil-Vollständigkeit und Status
+- Feature: **Gehalts-Statistik Widget** — Durchschnitt, Spanne und häufigster Typ im Dashboard
+- Feature: **Follow-up Alerts** — Fällige Nachfass-Aktionen jetzt aus `follow_ups`-Tabelle statt Client-Side
+- Feature: **Ablehnungsgrund-Tracking** — Bei Status "abgelehnt" optionaler Grund speicherbar
+- Fix: **Double-Write Bug** in `extraktion_ergebnis_speichern` behoben (redundanter DB-Aufruf)
+- Fix: **CASCADE/SET NULL** — `applications.job_hash` korrekt als `ON DELETE SET NULL` statt fehlerhaftem FK
+- Fix: **Import-Validierung** — Pflichtfeld-Prüfung und Format-Checks beim Profil-Import
+- Fix: **Scraper-Timeout** — 10-Minuten Watchdog verhindert hängende Jobsuche-Threads
+- Dashboard: Profil-Switcher immer sichtbar und prominent
+- Dashboard: Nächste-Schritte mit Prioritäts-Badges (hoch/mittel/niedrig)
+- Schema: Datenbank-Migration v5→v6 (`rejection_reason` auf applications, FK-Fix)
+- API: 4 neue Endpoints (follow-ups, salary-stats, next-steps, rejection-patterns)
+- Tools: 42→44, API-Endpoints: 36→40
 
 ### v0.8.0 — Smart Auto-Extraction, Profil-Backup & Dashboard-Integration (2026-03-02)
 - Feature: **Smart Auto-Extraction** — Dokumente (CV, Zeugnisse, Projektbeschreibungen) automatisch analysieren und Profildaten extrahieren

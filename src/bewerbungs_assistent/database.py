@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def _gen_id() -> str:
@@ -200,6 +200,50 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_extraction_profile ON extraction_history(profile_id);
             """)
             logger.info("Migration v4->v5: Smart Auto-Extraction + Profile Backup")
+
+        if from_ver < 6:
+            # v6: FK fix (applications.job_hash ON DELETE SET NULL), rejection tracking
+            # Recreate applications table with proper FK constraint
+            try:
+                conn.execute("PRAGMA foreign_keys=OFF")
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS applications_new (
+                        id TEXT PRIMARY KEY,
+                        job_hash TEXT REFERENCES jobs(hash) ON DELETE SET NULL,
+                        title TEXT NOT NULL,
+                        company TEXT NOT NULL,
+                        url TEXT,
+                        status TEXT DEFAULT 'beworben',
+                        applied_at TEXT,
+                        cover_letter_path TEXT,
+                        cv_path TEXT,
+                        project_list_path TEXT,
+                        notes TEXT,
+                        bewerbungsart TEXT DEFAULT 'mit_dokumenten',
+                        lebenslauf_variante TEXT DEFAULT 'standard',
+                        ansprechpartner TEXT DEFAULT '',
+                        kontakt_email TEXT DEFAULT '',
+                        portal_name TEXT DEFAULT '',
+                        rejection_reason TEXT,
+                        created_at TEXT,
+                        updated_at TEXT
+                    );
+                    INSERT OR IGNORE INTO applications_new
+                        SELECT id, job_hash, title, company, url, status,
+                               applied_at, cover_letter_path, cv_path, project_list_path,
+                               notes, bewerbungsart, lebenslauf_variante,
+                               ansprechpartner, kontakt_email, portal_name,
+                               NULL, created_at, updated_at
+                        FROM applications;
+                    DROP TABLE IF EXISTS applications;
+                    ALTER TABLE applications_new RENAME TO applications;
+                    CREATE INDEX IF NOT EXISTS idx_apps_status ON applications(status);
+                """)
+                conn.execute("PRAGMA foreign_keys=ON")
+            except Exception as e:
+                logger.warning("Migration v5->v6 applications: %s", e)
+                conn.execute("PRAGMA foreign_keys=ON")
+            logger.info("Migration v5->v6: FK fix + rejection_reason Spalte")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -619,13 +663,20 @@ class Database:
         conn.commit()
         return aid
 
-    def update_application_status(self, app_id: str, new_status: str, notes: str = ""):
+    def update_application_status(self, app_id: str, new_status: str,
+                                   notes: str = "", rejection_reason: str = ""):
         conn = self.connect()
         now = _now()
-        conn.execute(
-            "UPDATE applications SET status=?, updated_at=? WHERE id=?",
-            (new_status, now, app_id)
-        )
+        if rejection_reason and new_status == "abgelehnt":
+            conn.execute(
+                "UPDATE applications SET status=?, rejection_reason=?, updated_at=? WHERE id=?",
+                (new_status, rejection_reason, now, app_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE applications SET status=?, updated_at=? WHERE id=?",
+                (new_status, now, app_id)
+            )
         conn.execute("""
             INSERT INTO application_events (application_id, status, event_date, notes)
             VALUES (?, ?, ?, ?)
@@ -846,6 +897,112 @@ class Database:
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
 
+    # === Rejection Analysis (PBP v0.9.0) ===
+
+    def get_rejection_patterns(self) -> dict:
+        """Analyze rejection patterns across all applications."""
+        conn = self.connect()
+        apps = conn.execute("""
+            SELECT a.*, ae.notes as event_notes, ae.event_date
+            FROM applications a
+            LEFT JOIN application_events ae ON a.id = ae.application_id AND ae.status = 'abgelehnt'
+            WHERE a.status = 'abgelehnt'
+            ORDER BY a.updated_at DESC
+        """).fetchall()
+        if not apps:
+            return {"anzahl": 0, "muster": [], "nachricht": "Keine Ablehnungen vorhanden."}
+
+        rejections = [dict(a) for a in apps]
+        # Group by company
+        by_company = {}
+        for r in rejections:
+            co = r.get("company", "Unbekannt")
+            by_company.setdefault(co, []).append(r)
+
+        # Aggregate reasons
+        reasons = {}
+        for r in rejections:
+            reason = r.get("rejection_reason") or r.get("event_notes") or "Kein Grund angegeben"
+            reasons.setdefault(reason, 0)
+            reasons[reason] += 1
+
+        return {
+            "anzahl": len(rejections),
+            "nach_firma": {k: len(v) for k, v in by_company.items()},
+            "nach_grund": dict(sorted(reasons.items(), key=lambda x: -x[1])),
+            "ablehnungen": [{
+                "firma": r.get("company"),
+                "stelle": r.get("title"),
+                "beworben_am": r.get("applied_at"),
+                "grund": r.get("rejection_reason") or r.get("event_notes") or "",
+            } for r in rejections[:20]],
+        }
+
+    def get_next_steps(self) -> list:
+        """Get personalized next steps based on profile completeness and activity."""
+        steps = []
+        profile = self.get_profile()
+        if not profile:
+            steps.append({"aktion": "Profil erstellen", "prompt": "/ersterfassung",
+                          "prioritaet": "hoch", "beschreibung": "Erstelle dein Bewerberprofil"})
+            return steps
+
+        # Check completeness
+        if not profile.get("summary"):
+            steps.append({"aktion": "Zusammenfassung ergaenzen", "prompt": "/profil_ueberpruefen",
+                          "prioritaet": "hoch", "beschreibung": "Dein Profil braucht eine Zusammenfassung"})
+        if not profile.get("positions"):
+            steps.append({"aktion": "Berufserfahrung hinzufuegen", "prompt": "/ersterfassung",
+                          "prioritaet": "hoch", "beschreibung": "Berufserfahrung ist fuer Bewerbungen essentiell"})
+        if not profile.get("skills"):
+            steps.append({"aktion": "Skills hinzufuegen", "prompt": "/ersterfassung",
+                          "prioritaet": "mittel", "beschreibung": "Skills helfen beim Job-Matching"})
+        if not profile.get("education"):
+            steps.append({"aktion": "Ausbildung ergaenzen", "prompt": "/ersterfassung",
+                          "prioritaet": "mittel", "beschreibung": "Ausbildung fuer vollstaendiges Profil"})
+        prefs = profile.get("preferences", {})
+        if not prefs.get("stellentyp"):
+            steps.append({"aktion": "Praeferenzen setzen", "prompt": "/ersterfassung",
+                          "prioritaet": "mittel", "beschreibung": "Definiere Gehaltsvorstellungen und Praeferenzen"})
+
+        # Check documents
+        docs = profile.get("documents", [])
+        unextracted = [d for d in docs if d.get("extraction_status") == "nicht_extrahiert"
+                       and d.get("extracted_text")]
+        if unextracted:
+            steps.append({"aktion": f"{len(unextracted)} Dokument(e) analysieren",
+                          "prompt": "/profil_erweiterung", "prioritaet": "hoch",
+                          "beschreibung": "Hochgeladene Dokumente wurden noch nicht ausgewertet"})
+
+        # Check follow-ups
+        conn = self.connect()
+        due_followups = conn.execute("""
+            SELECT COUNT(*) FROM follow_ups
+            WHERE status = 'geplant' AND scheduled_date <= date('now')
+        """).fetchone()[0]
+        if due_followups:
+            steps.append({"aktion": f"{due_followups} faellige(s) Follow-up(s)",
+                          "prompt": "nachfass_anzeigen", "prioritaet": "hoch",
+                          "beschreibung": "Nachfass-Aktionen sind faellig"})
+
+        # Check active jobs without applications
+        active_jobs = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND score >= 70"
+        ).fetchone()[0]
+        apps_count = conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0]
+        if active_jobs > 0 and apps_count == 0:
+            steps.append({"aktion": "Erste Bewerbung schreiben", "prompt": "/bewerbung_schreiben",
+                          "prioritaet": "hoch",
+                          "beschreibung": f"{active_jobs} gut passende Stelle(n) warten auf deine Bewerbung"})
+        elif active_jobs == 0 and apps_count == 0:
+            steps.append({"aktion": "Jobsuche starten", "prompt": "/jobsuche_workflow",
+                          "prioritaet": "mittel", "beschreibung": "Finde passende Stellen"})
+
+        if not steps:
+            steps.append({"aktion": "Alles auf dem neuesten Stand", "prompt": "",
+                          "prioritaet": "info", "beschreibung": "Weiter so! Pruefe regelmaessig deine Bewerbungen."})
+        return steps
+
     # === Extraction History (PBP v0.8.0) ===
 
     def add_extraction_history(self, data: dict) -> str:
@@ -948,6 +1105,22 @@ class Database:
 
     def import_profile_json(self, data: dict) -> str:
         """Import a profile from JSON backup. Creates a new profile."""
+        # Validate required fields
+        required = ["name"]
+        for field in required:
+            if not data.get(field):
+                raise ValueError(f"Pflichtfeld fehlt im Import: {field}")
+        # Validate nested data types
+        for key in ["positions", "education", "skills", "documents"]:
+            val = data.get(key)
+            if val is not None and not isinstance(val, list):
+                raise ValueError(f"Ungueltiges Format fuer '{key}': Liste erwartet")
+        if data.get("preferences") is not None and not isinstance(data.get("preferences"), (dict, str)):
+            raise ValueError("Ungueltiges Format fuer 'preferences': Dict erwartet")
+        # Ensure preferences is a dict (could be JSON string from export)
+        if isinstance(data.get("preferences"), str):
+            data["preferences"] = json.loads(data["preferences"])
+
         # Strip export metadata and nested data
         data.pop("_export_meta", None)
         positions = data.pop("positions", [])
@@ -1123,7 +1296,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 CREATE TABLE IF NOT EXISTS applications (
     id TEXT PRIMARY KEY,
-    job_hash TEXT REFERENCES jobs(hash),
+    job_hash TEXT REFERENCES jobs(hash) ON DELETE SET NULL,
     title TEXT NOT NULL,
     company TEXT NOT NULL,
     url TEXT,
@@ -1138,6 +1311,7 @@ CREATE TABLE IF NOT EXISTS applications (
     ansprechpartner TEXT DEFAULT '',
     kontakt_email TEXT DEFAULT '',
     portal_name TEXT DEFAULT '',
+    rejection_reason TEXT,
     created_at TEXT,
     updated_at TEXT
 );

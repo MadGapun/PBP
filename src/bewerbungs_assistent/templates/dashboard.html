@@ -233,9 +233,15 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
           <div id="recent-jobs"></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <h3>Bewerbungs-Statistik</h3>
-        <div id="stats-chart" style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end; min-height:160px;"></div>
+      <div class="grid grid-2" style="margin-top:16px;">
+        <div class="card">
+          <h3>Bewerbungs-Statistik</h3>
+          <div id="stats-chart" style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end; min-height:160px;"></div>
+        </div>
+        <div class="card" id="salary-stats-card" style="display:none;">
+          <h3>Gehalts-Uebersicht</h3>
+          <div id="salary-stats"></div>
+        </div>
       </div>
       <div class="card" style="margin-top:16px;">
         <h3>KI-Funktionen — Befehle fuer Claude Desktop</h3>
@@ -527,34 +533,25 @@ async function loadDashboard() {
     <div class="card stat"><div class="number">${s.interview_rate || 0}%</div><div class="label">Interview-Rate</div></div>
   `;
 
-  // Next steps
-  const nextSteps = [];
-  const criteria = await api('/api/search-criteria');
-  const sources = await api('/api/sources');
-  const activeSources = sources.filter && sources.filter(s => s.active);
-
-  if (status.active_jobs === 0 && (!criteria.keywords_muss || criteria.keywords_muss.length === 0)) {
-    nextSteps.push({icon: '🎯', text: 'Suchkriterien festlegen', desc: 'Definiere MUSS- und Bonus-Keywords damit die Jobsuche weiss wonach sie suchen soll.', action: "showPage('einstellungen')", btn: 'Einstellungen'});
-  }
-  if (status.active_jobs === 0 && (!activeSources || activeSources.length === 0)) {
-    nextSteps.push({icon: '🔌', text: 'Job-Quellen aktivieren', desc: 'Aktiviere mindestens eine Quelle (z.B. StepStone, Indeed) um Stellen zu finden.', action: "showPage('einstellungen')", btn: 'Quellen'});
-  }
-  if (status.active_jobs === 0 && criteria.keywords_muss && criteria.keywords_muss.length > 0 && activeSources && activeSources.length > 0) {
-    nextSteps.push({icon: '🔍', text: 'Erste Jobsuche starten', desc: 'Alles ist bereit! Starte die Suche in Claude Desktop: "Starte eine Jobsuche"', action: '', btn: ''});
-  }
-  if (status.active_jobs > 0 && (!s.total_applications || s.total_applications === 0)) {
-    nextSteps.push({icon: '✉️', text: 'Erste Bewerbung schreiben', desc: `Es gibt ${status.active_jobs} passende Stellen. Sag in Claude: "Schreib mir ein Anschreiben fuer [Stelle]"`, action: "showPage('stellen')", btn: 'Stellen ansehen'});
-  }
-
-  document.getElementById('next-steps').innerHTML = nextSteps.length
-    ? `<div class="card" style="border-color:var(--accent);">
-        <h3>Naechste Schritte</h3>
-        ${nextSteps.map(n => `<div style="display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border);">
-          <span style="font-size:1.3rem; flex-shrink:0;">${n.icon}</span>
-          <div style="flex:1;"><strong>${n.text}</strong><p style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${n.desc}</p></div>
-          ${n.btn ? `<button class="btn btn-sm" onclick="${n.action}">${n.btn}</button>` : ''}
-        </div>`).join('')}
-      </div>` : '';
+  // Next steps (from API)
+  try {
+    const nsData = await api('/api/next-steps');
+    const nextSteps = nsData.steps || [];
+    const prioIcon = p => p === 'hoch' ? '\u26a0\ufe0f' : p === 'mittel' ? '\ud83d\udca1' : '\u2705';
+    document.getElementById('next-steps').innerHTML = nextSteps.length
+      ? `<div class="card" style="border-color:var(--accent);">
+          <h3>Naechste Schritte</h3>
+          ${nextSteps.map(n => `<div style="display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border);">
+            <span style="font-size:1.3rem; flex-shrink:0;">${prioIcon(n.prioritaet)}</span>
+            <div style="flex:1;">
+              <strong>${n.aktion}</strong>
+              <span class="badge badge-${n.prioritaet === 'hoch' ? 'red' : n.prioritaet === 'mittel' ? 'yellow' : 'green'}" style="margin-left:8px;">${n.prioritaet}</span>
+              <p style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${n.beschreibung}</p>
+            </div>
+            ${n.prompt ? `<button class="btn btn-sm" onclick="copyText('${n.prompt}')" title="Prompt kopieren">${n.prompt}</button>` : ''}
+          </div>`).join('')}
+        </div>` : '';
+  } catch(e) { document.getElementById('next-steps').innerHTML = ''; }
 
   // Recent applications
   const apps = await api('/api/applications');
@@ -576,34 +573,36 @@ async function loadDashboard() {
       </div>`).join('')
     : '<div class="empty">Noch keine Stellen gefunden.<br><span style="font-size:0.85rem;">Sag in Claude: "Starte eine Jobsuche" oder aktiviere Quellen unter Einstellungen.</span></div>';
 
-  // Follow-up alerts
-  const now = Date.now();
-  const followups = apps.filter(a => {
-    if (a.status !== 'beworben' || !a.applied_at) return false;
-    const days = Math.floor((now - new Date(a.applied_at).getTime()) / 86400000);
-    return days >= 7;
-  }).map(a => {
-    const days = Math.floor((now - new Date(a.applied_at).getTime()) / 86400000);
-    return { ...a, days };
-  }).sort((a, b) => b.days - a.days);
-
-  document.getElementById('followup-alerts').innerHTML = followups.length
-    ? `<div class="card" style="border-color:var(--yellow);">
-        <h3 style="color:var(--yellow);">Nachfassen empfohlen (${followups.length})</h3>
-        ${followups.map(f => `<div style="padding:6px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-          <div><strong>${f.title}</strong> bei ${f.company}</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <span class="badge badge-${f.days > 14 ? 'red' : 'yellow'}">${f.days} Tage</span>
-            <select class="btn btn-sm" onchange="updateAppStatus('${f.id}', this.value)" style="width:auto;">
-              <option value="">Aktion...</option>
-              <option value="eingangsbestaetigung">Eingangsbestaetigung erhalten</option>
-              <option value="interview">Zum Interview eingeladen</option>
-              <option value="abgelehnt">Absage erhalten</option>
-              <option value="zurueckgezogen">Zurueckgezogen</option>
-            </select>
-          </div>
-        </div>`).join('')}
-      </div>` : '';
+  // Follow-up alerts (from API)
+  try {
+    const fuData = await api('/api/follow-ups');
+    const followups = fuData.follow_ups || [];
+    const faellige = fuData.faellige || 0;
+    document.getElementById('followup-alerts').innerHTML = followups.length
+      ? `<div class="card" style="border-color:var(--yellow);">
+          <h3 style="color:var(--yellow);">Nachfassen empfohlen (${faellige} faellig)</h3>
+          ${followups.map(f => {
+            const daysDiff = f.scheduled_date ? Math.floor((Date.now() - new Date(f.scheduled_date).getTime()) / 86400000) : 0;
+            const isOverdue = f.faellig;
+            return `<div style="padding:6px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <strong>${f.title || 'Bewerbung'}</strong> bei ${f.company || '?'}
+                ${f.follow_up_type ? `<span style="color:var(--text2); font-size:0.8rem;"> (${f.follow_up_type})</span>` : ''}
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="badge badge-${isOverdue ? 'red' : 'yellow'}">${f.scheduled_date || '?'}</span>
+                <select class="btn btn-sm" onchange="updateAppStatus('${f.application_id}', this.value)" style="width:auto;">
+                  <option value="">Aktion...</option>
+                  <option value="eingangsbestaetigung">Eingangsbestaetigung erhalten</option>
+                  <option value="interview">Zum Interview eingeladen</option>
+                  <option value="abgelehnt">Absage erhalten</option>
+                  <option value="zurueckgezogen">Zurueckgezogen</option>
+                </select>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : '';
+  } catch(e) { document.getElementById('followup-alerts').innerHTML = ''; }
 
   // Stats chart (CSS-based bar chart)
   const statusCounts = {};
@@ -631,6 +630,26 @@ async function loadDashboard() {
         <div style="font-size:0.75rem; color:var(--text2); margin-top:4px;">${statusLabels[k]}</div>
       </div>`;
     }).join('') || '<div class="empty" style="width:100%;">Noch keine Daten fuer Statistik</div>';
+
+  // Salary stats
+  try {
+    const salData = await api('/api/salary-stats');
+    const ss = salData;
+    if (ss.jobs_mit_gehalt > 0) {
+      document.getElementById('salary-stats-card').style.display = '';
+      const fmt = v => v ? v.toLocaleString('de-DE') + ' EUR' : '-';
+      document.getElementById('salary-stats').innerHTML = `
+        <div class="grid grid-3" style="margin-bottom:12px;">
+          <div class="stat" style="padding:8px;"><div class="number" style="font-size:1.3rem;">${fmt(ss.durchschnitt_min)}</div><div class="label">Durchschn. Min</div></div>
+          <div class="stat" style="padding:8px;"><div class="number" style="font-size:1.3rem;">${fmt(ss.durchschnitt_max)}</div><div class="label">Durchschn. Max</div></div>
+          <div class="stat" style="padding:8px;"><div class="number" style="font-size:1.3rem;">${ss.jobs_mit_gehalt}</div><div class="label">Stellen mit Gehalt</div></div>
+        </div>
+        <div style="font-size:0.85rem; color:var(--text2);">
+          Spanne: ${fmt(ss.minimum)} — ${fmt(ss.maximum)}
+          ${ss.haeufigster_typ ? ` | Typ: ${ss.haeufigster_typ}` : ''}
+        </div>`;
+    }
+  } catch(e) {}
 }
 
 // === Profile ===
@@ -1634,9 +1653,9 @@ async function loadProfileSwitcher() {
   if (profiles.length <= 1) {
     const active = profiles.find(p => p.is_active);
     switcher.innerHTML = active
-      ? `<span style="color:var(--text2); font-size:0.85rem;" title="Aktives Profil">${active.name || 'Profil'}</span>
+      ? `<span style="background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:0.85rem; color:var(--accent);" title="Aktives Profil">\ud83d\udc64 ${active.name || 'Profil'}</span>
          <button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil fuer eine andere Person erstellen">+ Profil</button>`
-      : `<button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil erstellen">+ Profil</button>`;
+      : `<button class="btn btn-sm btn-primary" onclick="showNewProfileDialog()" title="Neues Profil erstellen">+ Profil erstellen</button>`;
     return;
   }
   const active = profiles.find(p => p.is_active);
