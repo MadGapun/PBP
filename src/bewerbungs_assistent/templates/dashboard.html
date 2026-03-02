@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bewerbungs-Assistent</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --border: #30363d;
+  --text: #c9d1d9; --text2: #8b949e; --accent: #58a6ff; --green: #3fb950;
+  --red: #f85149; --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Navigation */
+nav { background: var(--bg2); border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; height: 56px; }
+nav .logo { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-right: 32px; }
+nav .tabs { display: flex; gap: 4px; }
+nav .tab { padding: 8px 16px; border-radius: 6px 6px 0 0; cursor: pointer;
+           color: var(--text2); border: none; background: none; font-size: 0.9rem; }
+nav .tab:hover { color: var(--text); background: var(--bg3); }
+nav .tab.active { color: var(--text); background: var(--bg); border: 1px solid var(--border);
+                  border-bottom: 1px solid var(--bg); }
+
+/* Main content */
+main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+        padding: 20px; margin-bottom: 16px; }
+.card h3 { color: var(--accent); margin-bottom: 12px; font-size: 1.1rem; }
+
+/* Grid */
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+/* Stats */
+.stat { text-align: center; padding: 16px; }
+.stat .number { font-size: 2rem; font-weight: 700; color: var(--accent); }
+.stat .label { font-size: 0.85rem; color: var(--text2); margin-top: 4px; }
+
+/* Buttons */
+.btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border);
+       background: var(--bg3); color: var(--text); cursor: pointer; font-size: 0.9rem;
+       display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: #238636; border-color: #2ea043; }
+.btn-primary:hover { background: #2ea043; }
+.btn-danger { background: #da3633; border-color: #f85149; }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--text2); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+tr:hover { background: var(--bg3); }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;
+         font-weight: 600; }
+.badge-green { background: #0d2818; color: var(--green); border: 1px solid #1a4027; }
+.badge-yellow { background: #2d1b00; color: var(--yellow); border: 1px solid #4b3000; }
+.badge-red { background: #2d0709; color: var(--red); border: 1px solid #5c1012; }
+.badge-blue { background: #0c2d6b; color: var(--accent); border: 1px solid #1158c7; }
+.badge-purple { background: #271052; color: var(--purple); border: 1px solid #3d1d7e; }
+.badge-gray { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+
+/* Forms */
+input, select, textarea { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; width: 100%; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+label { display: block; color: var(--text2); font-size: 0.85rem; margin-bottom: 4px; }
+.form-group { margin-bottom: 16px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal h2 { color: var(--accent); margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+/* Job cards */
+.job-card { position: relative; }
+.job-card .source { position: absolute; top: 12px; right: 12px; }
+.job-card .title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+.job-card .company { color: var(--text2); margin-bottom: 8px; }
+.job-card .desc { font-size: 0.85rem; color: var(--text2); margin-bottom: 12px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.job-card .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.job-card .actions { display: flex; gap: 8px; }
+.score-bar { height: 4px; border-radius: 2px; background: var(--bg3); margin-bottom: 8px; }
+.score-fill { height: 100%; border-radius: 2px; }
+
+/* Welcome screen */
+.welcome { text-align: center; padding: 60px 20px; }
+.welcome h1 { font-size: 2rem; margin-bottom: 16px; }
+.welcome p { color: var(--text2); font-size: 1.1rem; margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto; }
+.welcome .steps { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+.welcome .step { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; width: 200px; text-align: center; }
+.welcome .step .num { font-size: 2rem; font-weight: 700; color: var(--accent); }
+.welcome .step .desc { color: var(--text2); font-size: 0.9rem; margin-top: 8px; }
+
+/* Search bar */
+.search-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+.search-bar input { flex: 1; }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* Empty state */
+.empty { text-align: center; padding: 40px; color: var(--text2); }
+.empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+/* Toast notifications */
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 20px; border-radius: 8px; font-size: 0.9rem; max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: slideIn 0.3s ease, fadeOut 0.3s ease forwards;
+  animation-delay: 0s, 4s; display: flex; align-items: center; gap: 8px; }
+.toast-success { background: #0d2818; color: var(--green); border: 1px solid #1a4027; }
+.toast-error { background: #2d0709; color: var(--red); border: 1px solid #5c1012; }
+.toast-info { background: #0c2d6b; color: var(--accent); border: 1px solid #1158c7; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Spinner */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.loading { pointer-events: none; opacity: 0.7; }
+.btn.loading .spinner { margin-right: 4px; }
+
+/* Form validation */
+input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !important; }
+.field-error { color: var(--red); font-size: 0.8rem; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Bewerbungs-Assistent</div>
+  <div class="tabs">
+    <button class="tab active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="tab" onclick="showPage('profil')">Profil</button>
+    <button class="tab" onclick="showPage('stellen')">Stellen</button>
+    <button class="tab" onclick="showPage('bewerbungen')">Bewerbungen</button>
+    <button class="tab" onclick="showPage('einstellungen')">Einstellungen</button>
+  </div>
+</nav>
+
+<main>
+  <!-- Dashboard -->
+  <div id="page-dashboard" class="page active">
+    <div id="welcome-screen" class="welcome" style="display:none;">
+      <h1>Willkommen beim Bewerbungs-Assistent</h1>
+      <p>Dein KI-gestuetzter Begleiter fuer die Jobsuche. Erstelle dein Profil, finde passende Stellen und verwalte deine Bewerbungen — alles an einem Ort.</p>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div class="desc">Profil erstellen</div></div>
+        <div class="step"><div class="num">2</div><div class="desc">Stellen suchen</div></div>
+        <div class="step"><div class="num">3</div><div class="desc">Bewerben</div></div>
+        <div class="step"><div class="num">4</div><div class="desc">Verwalten</div></div>
+      </div>
+      <div class="card" style="max-width:700px; margin:32px auto 0; text-align:left;">
+        <h3 style="text-align:center;">So startest du am besten</h3>
+        <div style="display:grid; gap:16px; margin-top:12px;">
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:1.5rem; flex-shrink:0;">💬</span>
+            <div>
+              <strong style="color:var(--accent);">Empfohlen: Starte in Claude Desktop</strong>
+              <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
+                Oeffne Claude Desktop und waehle den Prompt <strong>"ersterfassung"</strong>.
+                Wir fuehren ein lockeres Gespraech und ich erfasse dein komplettes Profil —
+                wie ein Kaffeegespraech, kein steifes Formular.
+              </p>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:1.5rem; flex-shrink:0;">📝</span>
+            <div>
+              <strong>Alternativ: Hier im Dashboard</strong>
+              <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
+                Du kannst dein Profil auch direkt hier erstellen.
+                <button class="btn btn-sm" onclick="showProfileForm()" style="margin-left:8px;">Profil manuell erstellen</button>
+              </p>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:1.5rem; flex-shrink:0;">📁</span>
+            <div>
+              <strong>Bestehende Bewerbungen importieren</strong>
+              <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
+                Hast du schon Bewerbungsunterlagen? Importiere einen ganzen Ordner.
+                <button class="btn btn-sm" onclick="showPage('profil'); setTimeout(()=>document.getElementById('import-section').scrollIntoView({behavior:'smooth'}),100)" style="margin-left:8px;">Ordner importieren</button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="dashboard-content" style="display:none;">
+      <h2 style="margin-bottom:20px;">Dashboard</h2>
+      <div class="grid grid-4" id="stats-grid"></div>
+      <div id="next-steps" style="margin-top:16px;"></div>
+      <div id="followup-alerts" style="margin-top:16px;"></div>
+      <div class="grid grid-2" style="margin-top:16px;">
+        <div class="card">
+          <h3>Letzte Bewerbungen</h3>
+          <div id="recent-apps"></div>
+        </div>
+        <div class="card">
+          <h3>Neue Stellen</h3>
+          <div id="recent-jobs"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <h3>Bewerbungs-Statistik</h3>
+        <div id="stats-chart" style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end; min-height:160px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profil -->
+  <div id="page-profil" class="page">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h2>Profil</h2>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" onclick="showDocUpload()">Dokument hochladen</button>
+        <button class="btn btn-primary" onclick="showProfileForm()">Profil bearbeiten</button>
+      </div>
+    </div>
+    <div id="profile-content"></div>
+  </div>
+
+  <!-- Stellen -->
+  <div id="page-stellen" class="page">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h2>Stellenangebote</h2>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" onclick="toggleDismissed()">Aussortierte anzeigen</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="job-search" placeholder="Suche..." oninput="filterJobs()" style="max-width:300px;">
+      <select id="job-type-filter" onchange="filterJobs()">
+        <option value="">Alle Typen</option>
+        <option value="festanstellung">Festanstellung</option>
+        <option value="freelance">Freelance</option>
+      </select>
+      <select id="job-source-filter" onchange="filterJobs()">
+        <option value="">Alle Quellen</option>
+      </select>
+    </div>
+    <div class="grid grid-2" id="jobs-grid"></div>
+    <div id="dismissed-section" style="display:none;">
+      <h3 style="margin:20px 0 12px; color:var(--text2);">Aussortierte Stellen</h3>
+      <div class="grid grid-2" id="dismissed-grid"></div>
+    </div>
+  </div>
+
+  <!-- Bewerbungen -->
+  <div id="page-bewerbungen" class="page">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h2>Bewerbungen</h2>
+      <button class="btn btn-primary" onclick="showAppForm()">+ Neue Bewerbung</button>
+    </div>
+    <div class="filter-bar">
+      <select id="app-status-filter" onchange="loadApplications()">
+        <option value="">Alle Status</option>
+        <option value="offen">Offen</option>
+        <option value="beworben">Beworben</option>
+        <option value="eingangsbestaetigung">Eingangsbestaetigung</option>
+        <option value="interview">Interview</option>
+        <option value="zweitgespraech">Zweitgespraech</option>
+        <option value="angebot">Angebot</option>
+        <option value="abgelehnt">Abgelehnt</option>
+        <option value="zurueckgezogen">Zurueckgezogen</option>
+      </select>
+    </div>
+    <div id="apps-table"></div>
+
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card">
+        <h3>Lebenslauf-Vorschau</h3>
+        <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+          Generierter Master-CV aus deinem Profil. Kopiere ihn und nutze Claude fuer stellenspezifische Anpassungen.
+        </p>
+        <button class="btn btn-sm btn-primary" onclick="generateCV()">CV generieren</button>
+        <button class="btn btn-sm" onclick="copyCV()" id="btn-copy-cv" style="display:none;">In Zwischenablage</button>
+        <a href="/api/cv/export/docx" class="btn btn-sm" style="text-decoration:none;">CV als DOCX</a>
+        <a href="/api/cv/export/pdf" class="btn btn-sm" style="text-decoration:none;">CV als PDF</a>
+        <pre id="cv-preview" style="margin-top:12px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:0.8rem; white-space:pre-wrap; max-height:400px; overflow-y:auto; display:none;"></pre>
+      </div>
+      <div class="card">
+        <h3>Interview-Vorbereitung</h3>
+        <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+          Tipps und Hilfestellungen fuer dein naechstes Bewerbungsgespraech.
+        </p>
+        <div id="interview-tips">
+          <div style="margin-bottom:12px;">
+            <strong style="color:var(--accent);">STAR-Methode</strong>
+            <p style="font-size:0.85rem; color:var(--text2);">Beantworte Verhaltens-Fragen mit Situation, Task, Action, Result.</p>
+          </div>
+          <div style="margin-bottom:12px;">
+            <strong style="color:var(--accent);">Haeufige Fragen</strong>
+            <ul style="font-size:0.85rem; color:var(--text2); padding-left:16px;">
+              <li>Erzaehlen Sie von einem schwierigen Projekt</li>
+              <li>Warum moechten Sie wechseln?</li>
+              <li>Wo sehen Sie sich in 5 Jahren?</li>
+              <li>Was sind Ihre Gehaltsvorstellungen?</li>
+              <li>Beschreiben Sie eine Konfliktsituation</li>
+            </ul>
+          </div>
+          <div style="margin-bottom:12px;">
+            <strong style="color:var(--accent);">Gehaltsverhandlung</strong>
+            <p style="font-size:0.85rem; color:var(--text2);">Nenne eine Spanne, nicht einen Festbetrag. Recherchiere Marktdaten vorab.</p>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text2); margin-top:8px;">
+            Nutze den Claude Desktop Prompt <strong>"Interview-Vorbereitung"</strong> fuer eine personalisierte Vorbereitung mit deinem Profil.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Einstellungen -->
+  <div id="page-einstellungen" class="page">
+    <h2 style="margin-bottom:20px;">Einstellungen</h2>
+    <div class="card" style="margin-bottom:16px;">
+      <h3>Job-Quellen</h3>
+      <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+        Waehle aus, welche Stellenportale bei der Jobsuche durchsucht werden sollen.
+        Alle Quellen sind standardmaessig deaktiviert.
+      </p>
+      <div id="sources-list"></div>
+      <button class="btn btn-primary" onclick="saveSources()" style="margin-top:12px;">Quellen speichern</button>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Suchkriterien</h3>
+        <div id="criteria-form"></div>
+      </div>
+      <div class="card">
+        <h3>Blacklist</h3>
+        <div id="blacklist-content"></div>
+        <div style="margin-top:12px;">
+          <div class="form-row">
+            <input id="bl-value" placeholder="Firma oder Keyword...">
+            <div style="display:flex; gap:4px;">
+              <select id="bl-type"><option value="firma">Firma</option><option value="keyword">Keyword</option></select>
+              <button class="btn btn-sm btn-primary" onclick="addBlacklist()">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Fit-Analyse: Gewichtung</h3>
+      <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">Bestimme, wie stark verschiedene Faktoren den Score beeinflussen.</p>
+      <div id="weight-form"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Modals -->
+<div class="toast-container" id="toast-container"></div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-content" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+const API = '';  // Same origin
+
+// === State ===
+let state = { profile: null, jobs: [], dismissed: [], apps: [], stats: {} };
+
+// === Navigation ===
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector(`.tab[onclick="showPage('${page}')"]`).classList.add('active');
+  if (page === 'dashboard') loadDashboard();
+  else if (page === 'profil') loadProfile();
+  else if (page === 'stellen') loadJobs();
+  else if (page === 'bewerbungen') loadApplications();
+  else if (page === 'einstellungen') loadSettings();
+}
+
+// === Toast Notifications ===
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const icons = { success: '\u2714', error: '\u2718', info: '\u2139' };
+  toast.innerHTML = `<span>${icons[type] || ''}</span> ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4500);
+}
+
+// === API Helpers ===
+async function api(path, opts = {}) {
+  try {
+    const r = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      ...opts
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      showToast(data.error || `Fehler ${r.status}`, 'error');
+      return data;
+    }
+    return data;
+  } catch(e) {
+    showToast('Verbindungsfehler: Server nicht erreichbar', 'error');
+    return { error: e.message };
+  }
+}
+
+// === Dashboard ===
+async function loadDashboard() {
+  const status = await api('/api/status');
+  if (!status.has_profile) {
+    document.getElementById('welcome-screen').style.display = '';
+    document.getElementById('dashboard-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('welcome-screen').style.display = 'none';
+  document.getElementById('dashboard-content').style.display = '';
+
+  const s = status.statistics;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="card stat"><div class="number">${status.active_jobs}</div><div class="label">Aktive Stellen</div></div>
+    <div class="card stat"><div class="number">${s.total_applications || 0}</div><div class="label">Bewerbungen</div></div>
+    <div class="card stat"><div class="number">${s.interview_rate || 0}%</div><div class="label">Interview-Rate</div></div>
+    <div class="card stat"><div class="number">${s.offer_rate || 0}%</div><div class="label">Angebots-Rate</div></div>
+  `;
+
+  // Next steps
+  const nextSteps = [];
+  const criteria = await api('/api/search-criteria');
+  const sources = await api('/api/sources');
+  const activeSources = sources.filter && sources.filter(s => s.active);
+
+  if (status.active_jobs === 0 && (!criteria.keywords_muss || criteria.keywords_muss.length === 0)) {
+    nextSteps.push({icon: '🎯', text: 'Suchkriterien festlegen', desc: 'Definiere MUSS- und Bonus-Keywords damit die Jobsuche weiss wonach sie suchen soll.', action: "showPage('einstellungen')", btn: 'Einstellungen'});
+  }
+  if (status.active_jobs === 0 && (!activeSources || activeSources.length === 0)) {
+    nextSteps.push({icon: '🔌', text: 'Job-Quellen aktivieren', desc: 'Aktiviere mindestens eine Quelle (z.B. StepStone, Indeed) um Stellen zu finden.', action: "showPage('einstellungen')", btn: 'Quellen'});
+  }
+  if (status.active_jobs === 0 && criteria.keywords_muss && criteria.keywords_muss.length > 0 && activeSources && activeSources.length > 0) {
+    nextSteps.push({icon: '🔍', text: 'Erste Jobsuche starten', desc: 'Alles ist bereit! Starte die Suche in Claude Desktop: "Starte eine Jobsuche"', action: '', btn: ''});
+  }
+  if (status.active_jobs > 0 && (!s.total_applications || s.total_applications === 0)) {
+    nextSteps.push({icon: '✉️', text: 'Erste Bewerbung schreiben', desc: `Es gibt ${status.active_jobs} passende Stellen. Sag in Claude: "Schreib mir ein Anschreiben fuer [Stelle]"`, action: "showPage('stellen')", btn: 'Stellen ansehen'});
+  }
+
+  document.getElementById('next-steps').innerHTML = nextSteps.length
+    ? `<div class="card" style="border-color:var(--accent);">
+        <h3>Naechste Schritte</h3>
+        ${nextSteps.map(n => `<div style="display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border);">
+          <span style="font-size:1.3rem; flex-shrink:0;">${n.icon}</span>
+          <div style="flex:1;"><strong>${n.text}</strong><p style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${n.desc}</p></div>
+          ${n.btn ? `<button class="btn btn-sm" onclick="${n.action}">${n.btn}</button>` : ''}
+        </div>`).join('')}
+      </div>` : '';
+
+  // Recent applications
+  const apps = await api('/api/applications');
+  const recent = apps.slice(0, 5);
+  document.getElementById('recent-apps').innerHTML = recent.length
+    ? recent.map(a => `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
+        <span>${a.title} — ${a.company}</span>
+        <span class="badge badge-${statusColor(a.status)}">${a.status}</span>
+      </div>`).join('')
+    : '<div class="empty">Noch keine Bewerbungen.<br><span style="font-size:0.85rem;">Sag in Claude: "Schreib mir ein Anschreiben fuer [Stelle] bei [Firma]"</span></div>';
+
+  // Recent jobs
+  const jobs = await api('/api/jobs?active=true');
+  const recentJobs = jobs.slice(0, 5);
+  document.getElementById('recent-jobs').innerHTML = recentJobs.length
+    ? recentJobs.map(j => `<div style="padding:8px 0; border-bottom:1px solid var(--border);">
+        <span style="font-weight:600;">${j.title || 'Ohne Titel'}</span>
+        <span style="color:var(--text2);"> — ${j.company || 'Unbekannt'}</span>
+      </div>`).join('')
+    : '<div class="empty">Noch keine Stellen gefunden.<br><span style="font-size:0.85rem;">Sag in Claude: "Starte eine Jobsuche" oder aktiviere Quellen unter Einstellungen.</span></div>';
+
+  // Follow-up alerts
+  const now = Date.now();
+  const followups = apps.filter(a => {
+    if (a.status !== 'beworben' || !a.applied_at) return false;
+    const days = Math.floor((now - new Date(a.applied_at).getTime()) / 86400000);
+    return days >= 7;
+  }).map(a => {
+    const days = Math.floor((now - new Date(a.applied_at).getTime()) / 86400000);
+    return { ...a, days };
+  }).sort((a, b) => b.days - a.days);
+
+  document.getElementById('followup-alerts').innerHTML = followups.length
+    ? `<div class="card" style="border-color:var(--yellow);">
+        <h3 style="color:var(--yellow);">Nachfassen empfohlen (${followups.length})</h3>
+        ${followups.map(f => `<div style="padding:6px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <div><strong>${f.title}</strong> bei ${f.company}</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span class="badge badge-${f.days > 14 ? 'red' : 'yellow'}">${f.days} Tage</span>
+            <select class="btn btn-sm" onchange="updateAppStatus('${f.id}', this.value)" style="width:auto;">
+              <option value="">Aktion...</option>
+              <option value="eingangsbestaetigung">Eingangsbestaetigung erhalten</option>
+              <option value="interview">Zum Interview eingeladen</option>
+              <option value="abgelehnt">Absage erhalten</option>
+              <option value="zurueckgezogen">Zurueckgezogen</option>
+            </select>
+          </div>
+        </div>`).join('')}
+      </div>` : '';
+
+  // Stats chart (CSS-based bar chart)
+  const statusCounts = {};
+  const statusLabels = {
+    offen: 'Offen', beworben: 'Beworben', eingangsbestaetigung: 'Bestaetigt',
+    interview: 'Interview', zweitgespraech: '2. Runde', angebot: 'Angebot',
+    abgelehnt: 'Abgelehnt', zurueckgezogen: 'Zurueckgezogen'
+  };
+  const statusColors = {
+    offen: '#8b949e', beworben: '#58a6ff', eingangsbestaetigung: '#58a6ff',
+    interview: '#d29922', zweitgespraech: '#d29922', angebot: '#3fb950',
+    abgelehnt: '#f85149', zurueckgezogen: '#8b949e'
+  };
+  for (const a of apps) { statusCounts[a.status] = (statusCounts[a.status] || 0) + 1; }
+  const maxCount = Math.max(1, ...Object.values(statusCounts));
+
+  document.getElementById('stats-chart').innerHTML = Object.keys(statusLabels)
+    .filter(k => statusCounts[k])
+    .map(k => {
+      const count = statusCounts[k] || 0;
+      const height = Math.max(20, (count / maxCount) * 120);
+      return `<div style="text-align:center; flex:1; min-width:60px;">
+        <div style="font-weight:700; color:${statusColors[k]}; margin-bottom:4px;">${count}</div>
+        <div style="height:${height}px; background:${statusColors[k]}; border-radius:4px 4px 0 0; opacity:0.8;"></div>
+        <div style="font-size:0.75rem; color:var(--text2); margin-top:4px;">${statusLabels[k]}</div>
+      </div>`;
+    }).join('') || '<div class="empty" style="width:100%;">Noch keine Daten fuer Statistik</div>';
+}
+
+// === Profile ===
+async function loadProfile() {
+  try {
+    const profile = await api('/api/profile');
+    if (profile.error) {
+      document.getElementById('profile-content').innerHTML = `
+        <div class="empty"><div class="icon">&#128100;</div>
+        <p>Noch kein Profil vorhanden.</p>
+        <p style="font-size:0.85rem; color:var(--text2); margin:8px 0 16px;">
+          Am einfachsten: Oeffne Claude Desktop und nutze den Prompt <strong>"ersterfassung"</strong>.<br>
+          Wir fuehren ein lockeres Gespraech und ich erfasse alles fuer dich.
+        </p>
+        <div style="display:flex; gap:8px; justify-content:center;">
+          <button class="btn btn-primary" onclick="showProfileForm()">Manuell erstellen</button>
+        </div></div>`;
+      return;
+    }
+    state.profile = profile;
+    renderProfile(profile);
+  } catch(e) {
+    document.getElementById('profile-content').innerHTML = `
+      <div class="empty"><p>Profil konnte nicht geladen werden.</p>
+      <button class="btn btn-primary" onclick="showProfileForm()">Jetzt erstellen</button></div>`;
+  }
+}
+
+function renderProfile(p) {
+  const prefs = p.preferences || {};
+  let html = `<div class="card"><h3>Persoenliche Daten</h3>
+    <div class="grid grid-2">
+      <div><label>Name</label><strong>${p.name || '-'}</strong></div>
+      <div><label>E-Mail</label>${p.email || '-'}</div>
+      <div><label>Telefon</label>${p.phone || '-'}</div>
+      <div><label>Standort</label>${p.city || '-'} ${p.plz || ''}</div>
+      <div><label>Stellentyp</label>${prefs.stellentyp || '-'}</div>
+      <div><label>Arbeitsmodell</label>${prefs.arbeitsmodell || '-'}</div>
+    </div>
+    ${p.summary ? `<div style="margin-top:12px;"><label>Zusammenfassung</label><p>${p.summary}</p></div>` : ''}
+    ${p.informal_notes ? `<div style="margin-top:12px;"><label>Persoenliche Notizen</label><p style="color:var(--text2);">${p.informal_notes}</p></div>` : ''}
+  </div>`;
+
+  // Positions
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+    <h3>Berufserfahrung (${(p.positions||[]).length})</h3>
+    <button class="btn btn-sm btn-primary" onclick="showPositionForm()">+ Position</button>
+  </div>`;
+  if (p.positions && p.positions.length) {
+    for (const pos of p.positions) {
+      html += `<div class="card">
+        <div style="display:flex; justify-content:space-between;">
+          <div><strong>${pos.title}</strong> bei ${pos.company}</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <span class="badge badge-gray">${pos.start_date || ''} - ${pos.is_current ? 'heute' : (pos.end_date || '')}</span>
+            <button class="btn btn-sm btn-danger" onclick="deletePosition('${pos.id}')" style="padding:2px 6px;">x</button>
+          </div>
+        </div>
+        ${pos.employment_type ? `<span class="badge badge-purple" style="margin-top:4px;">${pos.employment_type}</span>` : ''}
+        ${pos.industry ? `<span class="badge badge-gray" style="margin-top:4px;">${pos.industry}</span>` : ''}
+        ${pos.description ? `<p style="margin-top:8px; color:var(--text2);">${pos.description}</p>` : ''}
+        ${pos.tasks ? `<div style="margin-top:8px;"><label>Aufgaben</label><p style="font-size:0.9rem;">${pos.tasks}</p></div>` : ''}
+        ${pos.achievements ? `<div style="margin-top:8px;"><label>Erfolge</label><p style="font-size:0.9rem; color:var(--green);">${pos.achievements}</p></div>` : ''}
+        ${pos.technologies ? `<div style="margin-top:8px;"><label>Technologien</label>${pos.technologies}</div>` : ''}
+        <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+          <label>Projekte (${(pos.projects||[]).length})</label>
+          <button class="btn btn-sm" onclick="showProjectForm('${pos.id}')">+ Projekt</button>
+        </div>
+        ${pos.projects && pos.projects.length ? pos.projects.map(pr => `<div style="margin:8px 0; padding:12px; background:var(--bg); border-radius:6px;">
+            <div style="display:flex; justify-content:space-between;"><strong>${pr.name}</strong> ${pr.role ? `<span class="badge badge-blue">${pr.role}</span>` : ''}</div>
+            ${pr.description ? `<p style="font-size:0.85rem; color:var(--text2); margin-top:4px;">${pr.description}</p>` : ''}
+            ${pr.situation ? `<div style="margin-top:6px; font-size:0.85rem;"><strong>S:</strong> ${pr.situation}</div>` : ''}
+            ${pr.task ? `<div style="font-size:0.85rem;"><strong>T:</strong> ${pr.task}</div>` : ''}
+            ${pr.action ? `<div style="font-size:0.85rem;"><strong>A:</strong> ${pr.action}</div>` : ''}
+            ${pr.result ? `<div style="font-size:0.85rem; color:var(--green);"><strong>R:</strong> ${pr.result}</div>` : ''}
+            ${pr.technologies ? `<div style="margin-top:4px; font-size:0.8rem; color:var(--text2);">Tech: ${pr.technologies}</div>` : ''}
+          </div>`).join('') : '<div style="padding:8px; color:var(--text2); font-size:0.85rem;">Noch keine Projekte erfasst</div>'}
+      </div>`;
+    }
+  } else {
+    html += '<div class="card empty">Noch keine Positionen erfasst.<br><span style="font-size:0.85rem;">Klicke oben auf <strong>"+ Position"</strong> oder nutze in Claude den Prompt <strong>"ersterfassung"</strong> fuer die gefuehrte Erfassung.</span></div>';
+  }
+
+  // Education
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+    <h3>Ausbildung (${(p.education||[]).length})</h3>
+    <button class="btn btn-sm btn-primary" onclick="showEducationForm()">+ Ausbildung</button>
+  </div>`;
+  if (p.education && p.education.length) {
+    html += '<div class="card">';
+    for (const ed of p.education) {
+      html += `<div style="padding:8px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between;">
+          <div><strong>${ed.degree || ''}</strong> ${ed.field_of_study ? '— ' + ed.field_of_study : ''}</div>
+          <span style="color:var(--text2); font-size:0.85rem;">${ed.start_date||''} - ${ed.end_date||''}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:var(--text2);">${ed.institution}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteEducation('${ed.id}')" style="padding:2px 6px;">x</button>
+        </div>
+        ${ed.grade ? `<span class="badge badge-green" style="margin-top:4px;">Note: ${ed.grade}</span>` : ''}
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Skills
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+    <h3>Kompetenzen (${(p.skills||[]).length})</h3>
+    <button class="btn btn-sm btn-primary" onclick="showSkillForm()">+ Kompetenz</button>
+  </div>`;
+  if (p.skills && p.skills.length) {
+    html += '<div class="card">';
+    const cats = {};
+    for (const s of p.skills) { (cats[s.category] = cats[s.category] || []).push(s); }
+    for (const [cat, skills] of Object.entries(cats)) {
+      const catLabels = {fachlich:'Fachlich',methodisch:'Methodisch',soft_skill:'Soft Skills',sprache:'Sprachen',tool:'Tools'};
+      html += `<div style="margin-bottom:12px;"><label>${catLabels[cat]||cat}</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${skills.map(s => {
+            const stars = s.level ? ' ' + '\u2605'.repeat(s.level) + '\u2606'.repeat(5 - s.level) : '';
+            return `<span class="badge badge-blue">${s.name}${stars}${s.years_experience ? ' ('+s.years_experience+'J)' : ''} <span onclick="deleteSkill('${s.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
+          }).join('')}
+        </div></div>`;
+    }
+    html += '</div>';
+  }
+
+  // Documents
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+    <h3>Dokumente (${(p.documents||[]).length})</h3>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-sm" onclick="showFolderImport()">Ordner importieren</button>
+      <button class="btn btn-sm btn-primary" onclick="showDocUpload()">+ Hochladen</button>
+    </div>
+  </div>`;
+  if (p.documents && p.documents.length) {
+    html += '<div class="card">';
+    const docTypes = {lebenslauf:'Lebenslauf',zeugnis:'Zeugnis',zertifikat:'Zertifikat',anschreiben:'Anschreiben',sonstiges:'Sonstiges'};
+    for (const d of p.documents) {
+      html += `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <span style="font-weight:500;">${d.filename}</span>
+          ${d.extracted_text ? `<span style="color:var(--green); font-size:0.8rem; margin-left:8px;">Text extrahiert</span>` : ''}
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <span class="badge badge-gray">${docTypes[d.doc_type]||d.doc_type}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteDocument('${d.id}')" style="padding:2px 6px;">x</button>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('profile-content').innerHTML = html;
+}
+
+// === Jobs ===
+async function loadJobs() {
+  state.jobs = await api('/api/jobs?active=true');
+  state.dismissed = await api('/api/jobs?active=false');
+  renderJobs();
+}
+
+function renderJobs() {
+  const jobs = filterJobsList(state.jobs);
+  // Populate source filter
+  const sources = [...new Set(state.jobs.map(j => j.source).filter(Boolean))];
+  const sel = document.getElementById('job-source-filter');
+  if (sel.options.length <= 1) {
+    sources.forEach(s => { const o = new Option(s, s); sel.add(o); });
+  }
+
+  document.getElementById('jobs-grid').innerHTML = jobs.length
+    ? jobs.map(j => jobCard(j)).join('')
+    : `<div class="empty" style="grid-column:1/-1;"><div class="icon">&#128270;</div>
+        <p>Keine Stellen gefunden.</p>
+        <p style="font-size:0.85rem; margin-top:8px;">Sag in Claude Desktop: <strong>"Starte eine Jobsuche"</strong><br>
+        oder nutze den Prompt <strong>"jobsuche_workflow"</strong> fuer eine gefuehrte Anleitung.</p>
+        <button class="btn btn-sm" style="margin-top:12px;" onclick="showPage('einstellungen')">Quellen & Kriterien einrichten</button>
+      </div>`;
+
+  // Dismissed
+  document.getElementById('dismissed-grid').innerHTML = state.dismissed.map(j => jobCard(j, true)).join('');
+}
+
+function jobCard(j, isDismissed = false) {
+  const maxScore = 20;
+  const pct = Math.min(100, (j.score || 0) / maxScore * 100);
+  const color = pct > 60 ? 'var(--green)' : pct > 30 ? 'var(--yellow)' : 'var(--red)';
+  return `<div class="card job-card" data-source="${j.source}" data-type="${j.employment_type}" data-title="${(j.title||'').toLowerCase()}" data-company="${(j.company||'').toLowerCase()}">
+    <span class="source badge badge-gray">${j.source || '?'}</span>
+    <div class="title">${j.title || 'Ohne Titel'}</div>
+    <div class="company">${j.company || 'Unbekannt'} ${j.location ? '— ' + j.location : ''}</div>
+    <div class="score-bar"><div class="score-fill" style="width:${pct}%; background:${color};"></div></div>
+    <div class="meta">
+      <span class="badge badge-blue">Score: ${j.score || 0}</span>
+      ${j.remote_level && j.remote_level !== 'unbekannt' ? `<span class="badge badge-green">${j.remote_level}</span>` : ''}
+      ${j.distance_km ? `<span class="badge badge-gray">${Math.round(j.distance_km)} km</span>` : ''}
+      ${j.salary_info ? `<span class="badge badge-yellow">${j.salary_info}</span>` : ''}
+    </div>
+    ${j.description ? `<div class="desc">${j.description.substring(0, 200)}...</div>` : ''}
+    <div class="actions">
+      ${j.url ? `<a href="${j.url}" target="_blank" class="btn btn-sm">Oeffnen</a>` : ''}
+      ${isDismissed
+        ? `<button class="btn btn-sm" onclick="restoreJob('${j.hash}')">Wiederherstellen</button>`
+        : `<button class="btn btn-sm" onclick="showFitDetail('${j.hash}')">Fit-Analyse</button>
+           <button class="btn btn-sm btn-danger" onclick="dismissJob('${j.hash}')">Passt nicht</button>
+           <button class="btn btn-sm btn-primary" onclick="applyFromJob('${j.hash}','${(j.title||'').replace(/'/g,"\\'")}','${(j.company||'').replace(/'/g,"\\'")}')">Bewerben</button>`
+      }
+    </div>
+    ${isDismissed && j.dismiss_reason ? `<div style="margin-top:8px; font-size:0.8rem; color:var(--text2);">Grund: ${j.dismiss_reason}</div>` : ''}
+  </div>`;
+}
+
+function filterJobs() { renderJobs(); }
+function filterJobsList(jobs) {
+  const search = (document.getElementById('job-search')?.value || '').toLowerCase();
+  const type = document.getElementById('job-type-filter')?.value || '';
+  const source = document.getElementById('job-source-filter')?.value || '';
+  return jobs.filter(j => {
+    if (search && !(j.title||'').toLowerCase().includes(search) && !(j.company||'').toLowerCase().includes(search)) return false;
+    if (type && j.employment_type !== type) return false;
+    if (source && j.source !== source) return false;
+    return true;
+  });
+}
+
+function toggleDismissed() {
+  const sec = document.getElementById('dismissed-section');
+  sec.style.display = sec.style.display === 'none' ? '' : 'none';
+}
+
+async function dismissJob(hash) {
+  const reason = prompt('Grund? (z.B. Zu weit entfernt, Falsches Fachgebiet)');
+  if (reason === null) return;
+  await api('/api/jobs/dismiss', { method: 'POST', body: JSON.stringify({ hash, reason }) });
+  loadJobs();
+}
+
+async function restoreJob(hash) {
+  await api('/api/jobs/restore', { method: 'POST', body: JSON.stringify({ hash }) });
+  loadJobs();
+}
+
+// === Applications ===
+async function loadApplications() {
+  const status = document.getElementById('app-status-filter')?.value || '';
+  const url = status ? `/api/applications?status=${status}` : '/api/applications';
+  state.apps = await api(url);
+  renderApplications();
+}
+
+function renderApplications() {
+  if (!state.apps.length) {
+    document.getElementById('apps-table').innerHTML = `<div class="empty"><div class="icon">&#128203;</div>
+      <p>Noch keine Bewerbungen erfasst.</p>
+      <p style="font-size:0.85rem; margin-top:8px;">Sag in Claude: <strong>"Schreib ein Anschreiben fuer [Stelle] bei [Firma]"</strong><br>
+      oder klicke oben auf <strong>"+ Neue Bewerbung"</strong> fuer manuelle Erfassung.</p></div>`;
+    return;
+  }
+  let html = `<table><thead><tr>
+    <th>Stelle</th><th>Firma</th><th>Status</th><th>Datum</th><th>Aktionen</th>
+  </tr></thead><tbody>`;
+  for (const a of state.apps) {
+    const daysSince = a.applied_at ? Math.floor((Date.now() - new Date(a.applied_at).getTime()) / 86400000) : 0;
+    const followUp = a.status === 'beworben' && daysSince > 14 ? '<span class="badge badge-red">Nachfassen!</span>'
+      : a.status === 'beworben' && daysSince > 7 ? '<span class="badge badge-yellow">7+ Tage</span>' : '';
+    html += `<tr>
+      <td><a href="#" onclick="showAppDetail('${a.id}'); return false;" style="color:var(--accent); text-decoration:none;">${a.title}</a> ${followUp}</td>
+      <td>${a.company}</td>
+      <td><span class="badge badge-${statusColor(a.status)}">${a.status}</span></td>
+      <td>${a.applied_at ? new Date(a.applied_at).toLocaleDateString('de') : '-'}</td>
+      <td>
+        <select class="btn btn-sm" onchange="updateAppStatus('${a.id}', this.value)" style="width:auto;">
+          <option value="">Status aendern</option>
+          <option value="eingangsbestaetigung">Eingangsbestaetigung</option>
+          <option value="interview">Interview</option>
+          <option value="zweitgespraech">Zweitgespraech</option>
+          <option value="angebot">Angebot</option>
+          <option value="abgelehnt">Abgelehnt</option>
+          <option value="zurueckgezogen">Zurueckgezogen</option>
+        </select>
+        ${a.url ? `<a href="${a.url}" target="_blank" class="btn btn-sm">Link</a>` : ''}
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('apps-table').innerHTML = html;
+}
+
+async function updateAppStatus(id, status) {
+  if (!status) return;
+  await api(`/api/applications/${id}/status`, {
+    method: 'PUT', body: JSON.stringify({ status })
+  });
+  loadApplications();
+}
+
+function statusColor(s) {
+  const map = { offen: 'gray', beworben: 'blue', eingangsbestaetigung: 'blue',
+    interview: 'yellow', zweitgespraech: 'yellow', angebot: 'green',
+    abgelehnt: 'red', zurueckgezogen: 'gray' };
+  return map[s] || 'gray';
+}
+
+// === Modals ===
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function showProfileForm() {
+  const p = state.profile || {};
+  const pr = p.preferences || {};
+  openModal(`<h2>${p.name ? 'Profil bearbeiten' : 'Profil erstellen'}</h2>
+    <form onsubmit="saveProfile(event)">
+      <div class="form-row">
+        <div class="form-group"><label>Name *</label><input name="name" value="${p.name||''}" required></div>
+        <div class="form-group"><label>E-Mail</label><input name="email" value="${p.email||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Telefon</label><input name="phone" value="${p.phone||''}"></div>
+        <div class="form-group"><label>Stadt</label><input name="city" value="${p.city||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>PLZ</label><input name="plz" value="${p.plz||''}"></div>
+        <div class="form-group"><label>Adresse</label><input name="address" value="${p.address||''}"></div>
+      </div>
+      <div class="form-group"><label>Zusammenfassung</label><textarea name="summary" rows="3">${p.summary||''}</textarea></div>
+      <div class="form-group"><label>Persoenliche Notizen</label><textarea name="informal_notes" rows="2">${p.informal_notes||''}</textarea></div>
+      <h3 style="margin:16px 0 8px;">Praeferenzen</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Stellentyp</label>
+          <select name="stellentyp"><option value="beides" ${pr.stellentyp==='beides'?'selected':''}>Beides</option>
+          <option value="festanstellung" ${pr.stellentyp==='festanstellung'?'selected':''}>Festanstellung</option>
+          <option value="freelance" ${pr.stellentyp==='freelance'?'selected':''}>Freelance</option></select></div>
+        <div class="form-group"><label>Arbeitsmodell</label>
+          <select name="arbeitsmodell"><option value="hybrid" ${pr.arbeitsmodell==='hybrid'?'selected':''}>Hybrid</option>
+          <option value="remote" ${pr.arbeitsmodell==='remote'?'selected':''}>Remote</option>
+          <option value="vor_ort" ${pr.arbeitsmodell==='vor_ort'?'selected':''}>Vor Ort</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Min. Gehalt (EUR/Jahr)</label><input name="min_gehalt" type="number" value="${pr.min_gehalt||0}"></div>
+        <div class="form-group"><label>Ziel-Gehalt</label><input name="ziel_gehalt" type="number" value="${pr.ziel_gehalt||0}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Min. Tagessatz (EUR)</label><input name="min_tagessatz" type="number" value="${pr.min_tagessatz||0}"></div>
+        <div class="form-group"><label>Ziel-Tagessatz</label><input name="ziel_tagessatz" type="number" value="${pr.ziel_tagessatz||0}"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function saveProfile(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.preferences = {
+    stellentyp: data.stellentyp, arbeitsmodell: data.arbeitsmodell,
+    min_gehalt: parseInt(data.min_gehalt)||0, ziel_gehalt: parseInt(data.ziel_gehalt)||0,
+    min_tagessatz: parseInt(data.min_tagessatz)||0, ziel_tagessatz: parseInt(data.ziel_tagessatz)||0,
+  };
+  await api('/api/profile', { method: 'POST', body: JSON.stringify(data) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function showAppForm(title='', company='', jobHash='') {
+  openModal(`<h2>Bewerbung erfassen</h2>
+    <form onsubmit="saveApplication(event)">
+      <input type="hidden" name="job_hash" value="${jobHash}">
+      <div class="form-row">
+        <div class="form-group"><label>Stelle *</label><input name="title" value="${title}" required></div>
+        <div class="form-group"><label>Firma *</label><input name="company" value="${company}" required></div>
+      </div>
+      <div class="form-group"><label>Bewerbungsart</label>
+        <select name="bewerbungsart" onchange="toggleAppFields(this.value)">
+          <option value="mit_dokumenten">Mit Dokumenten (Anschreiben + CV)</option>
+          <option value="elektronisch">Rein elektronisch (ohne Dokumente)</option>
+          <option value="ueber_portal">Ueber ein Jobportal</option>
+        </select>
+      </div>
+      <div id="app-docs-fields">
+        <div class="form-group"><label>Lebenslauf-Variante</label>
+          <select name="lebenslauf_variante">
+            <option value="standard">Standard-Lebenslauf</option>
+            <option value="angepasst">Angepasst fuer diese Stelle</option>
+            <option value="keiner">Kein Lebenslauf</option>
+          </select>
+        </div>
+      </div>
+      <div id="app-portal-fields" style="display:none;">
+        <div class="form-group"><label>Portal-Name</label>
+          <input name="portal_name" placeholder="z.B. StepStone, Indeed, LinkedIn">
+        </div>
+      </div>
+      <div class="form-group"><label>URL / Link</label><input name="url"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Ansprechpartner</label><input name="ansprechpartner" placeholder="Name"></div>
+        <div class="form-group"><label>Kontakt-E-Mail</label><input name="kontakt_email" type="email" placeholder="hr@firma.de"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label>
+          <select name="status"><option value="beworben">Beworben</option><option value="offen">Offen</option></select></div>
+        <div class="form-group"><label>Datum</label><input name="applied_at" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+      <div class="form-group"><label>Notizen</label><textarea name="notes" rows="3"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+function toggleAppFields(art) {
+  const docsFields = document.getElementById('app-docs-fields');
+  const portalFields = document.getElementById('app-portal-fields');
+  if (art === 'mit_dokumenten') {
+    docsFields.style.display = '';
+    portalFields.style.display = 'none';
+  } else if (art === 'ueber_portal') {
+    docsFields.style.display = 'none';
+    portalFields.style.display = '';
+  } else {
+    docsFields.style.display = 'none';
+    portalFields.style.display = 'none';
+  }
+}
+
+function applyFromJob(hash, title, company) { showAppForm(title, company, hash); }
+
+async function saveApplication(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/api/applications', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadApplications();
+}
+
+function showDocUpload() {
+  openModal(`<h2>Dokument hochladen</h2>
+    <form onsubmit="uploadDoc(event)" enctype="multipart/form-data">
+      <div class="form-group"><label>Datei</label><input type="file" name="file" required style="padding:8px;"></div>
+      <div class="form-group"><label>Typ</label>
+        <select name="doc_type">
+          <option value="lebenslauf">Lebenslauf</option><option value="zeugnis">Zeugnis</option>
+          <option value="zertifikat">Zertifikat</option><option value="anschreiben">Anschreiben</option>
+          <option value="sonstiges">Sonstiges</option>
+        </select></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Hochladen</button>
+      </div>
+    </form>`);
+}
+
+async function uploadDoc(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await fetch('/api/documents/upload', { method: 'POST', body: fd });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+// === Profile Forms ===
+function showPositionForm() {
+  openModal(`<h2>Position hinzufuegen</h2>
+    <form onsubmit="savePosition(event)">
+      <div class="form-row">
+        <div class="form-group"><label>Firma *</label><input name="company" required></div>
+        <div class="form-group"><label>Titel *</label><input name="title" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Standort</label><input name="location"></div>
+        <div class="form-group"><label>Branche</label><input name="industry"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Von</label><input name="start_date" type="month"></div>
+        <div class="form-group"><label>Bis</label><input name="end_date" type="month">
+          <label style="margin-top:4px;"><input type="checkbox" name="is_current" value="1" style="width:auto;margin-right:4px;">Aktuelle Position</label></div>
+      </div>
+      <div class="form-group"><label>Anstellungsart</label>
+        <select name="employment_type">
+          <option value="festanstellung">Festanstellung</option>
+          <option value="freelance">Freelance</option>
+          <option value="teilzeit">Teilzeit</option>
+          <option value="praktikum">Praktikum</option>
+        </select></div>
+      <div class="form-group"><label>Beschreibung</label><textarea name="description" rows="2"></textarea></div>
+      <div class="form-group"><label>Aufgaben</label><textarea name="tasks" rows="3" placeholder="Hauptaufgaben und Verantwortlichkeiten..."></textarea></div>
+      <div class="form-group"><label>Erfolge / Achievements</label><textarea name="achievements" rows="2" placeholder="Messbare Ergebnisse und Erfolge..."></textarea></div>
+      <div class="form-group"><label>Technologien</label><input name="technologies" placeholder="z.B. PRO.FILE, SAP ECTR, Python"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function savePosition(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.is_current = data.is_current === '1';
+  await api('/api/position', { method: 'POST', body: JSON.stringify(data) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function showProjectForm(positionId) {
+  openModal(`<h2>Projekt hinzufuegen (STAR-Methode)</h2>
+    <form onsubmit="saveProject(event, '${positionId}')">
+      <div class="form-row">
+        <div class="form-group"><label>Projektname *</label><input name="name" required></div>
+        <div class="form-group"><label>Rolle</label><input name="role" placeholder="z.B. Projektleiter, Solution Architect"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Dauer</label><input name="duration" placeholder="z.B. 6 Monate"></div>
+        <div class="form-group"><label>Technologien</label><input name="technologies" placeholder="z.B. PRO.FILE, CATIA"></div>
+      </div>
+      <div class="form-group"><label>Beschreibung</label><textarea name="description" rows="2" placeholder="Kurze Projektbeschreibung..."></textarea></div>
+      <div style="margin:16px 0 8px; color:var(--accent); font-weight:600;">STAR-Methode</div>
+      <div class="form-group"><label>S — Situation</label><textarea name="situation" rows="2" placeholder="Ausgangslage und Kontext des Projekts..."></textarea></div>
+      <div class="form-group"><label>T — Task / Aufgabe</label><textarea name="task" rows="2" placeholder="Was war die konkrete Aufgabe/Herausforderung?"></textarea></div>
+      <div class="form-group"><label>A — Action / Vorgehen</label><textarea name="action" rows="2" placeholder="Welche konkreten Schritte hast du unternommen?"></textarea></div>
+      <div class="form-group"><label>R — Result / Ergebnis</label><textarea name="result" rows="2" placeholder="Messbare Ergebnisse und Auswirkungen..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function saveProject(e, positionId) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.position_id = positionId;
+  await api('/api/project', { method: 'POST', body: JSON.stringify(data) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function showEducationForm() {
+  openModal(`<h2>Ausbildung hinzufuegen</h2>
+    <form onsubmit="saveEducation(event)">
+      <div class="form-group"><label>Einrichtung *</label><input name="institution" required placeholder="z.B. TU Hamburg-Harburg"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Abschluss</label><input name="degree" placeholder="z.B. Diplom-Ingenieur, Master"></div>
+        <div class="form-group"><label>Fachrichtung</label><input name="field_of_study" placeholder="z.B. Maschinenbau, Informatik"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Von</label><input name="start_date" type="month"></div>
+        <div class="form-group"><label>Bis</label><input name="end_date" type="month"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Note</label><input name="grade" placeholder="z.B. 1.8"></div>
+        <div class="form-group"><label>Beschreibung</label><input name="description" placeholder="Schwerpunkte, Thema Abschlussarbeit..."></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function saveEducation(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/api/education', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function showSkillForm() {
+  openModal(`<h2>Kompetenz hinzufuegen</h2>
+    <form onsubmit="saveSkill(event)">
+      <div class="form-row">
+        <div class="form-group"><label>Name *</label><input name="name" required placeholder="z.B. PRO.FILE, Projektmanagement"></div>
+        <div class="form-group"><label>Kategorie</label>
+          <select name="category">
+            <option value="fachlich">Fachlich</option>
+            <option value="tool">Tools / Software</option>
+            <option value="methodisch">Methodisch</option>
+            <option value="soft_skill">Soft Skills</option>
+            <option value="sprache">Sprachen</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Level (1-5)</label>
+          <input name="level" type="range" min="1" max="5" value="3" oninput="this.nextElementSibling.textContent=this.value+'/5'" style="width:100%;">
+          <span style="font-size:0.85rem; color:var(--text2);">3/5</span></div>
+        <div class="form-group"><label>Jahre Erfahrung</label><input name="years_experience" type="number" min="0" step="1" placeholder="z.B. 10"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function saveSkill(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.level = parseInt(data.level) || 3;
+  data.years_experience = data.years_experience ? parseInt(data.years_experience) : null;
+  await api('/api/skill', { method: 'POST', body: JSON.stringify(data) });
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function showFolderImport() {
+  openModal(`<h2>Bewerbungsordner importieren</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Gib den Pfad zu deinem Bewerbungsordner an. Der Assistent scannt alle PDF- und DOCX-Dateien,
+      extrahiert Texte und versucht, daraus Bewerbungen und Profildaten abzuleiten.
+    </p>
+    <form onsubmit="startFolderImport(event)">
+      <div class="form-group"><label>Ordnerpfad *</label>
+        <input name="folder_path" required placeholder="z.B. D:\\Bewerbungen oder C:\\Users\\...\\Schriftverkehr\\Bewerbung"></div>
+      <div class="form-group"><label>Optionen</label>
+        <label style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+          <input type="checkbox" name="import_applications" value="1" checked style="width:auto;"> Bewerbungen erkennen
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+          <input type="checkbox" name="import_profile" value="1" checked style="width:auto;"> Profildaten aus Lebenslaeufen ableiten
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+          <input type="checkbox" name="import_documents" value="1" checked style="width:auto;"> Dokumente in Bibliothek importieren
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal(event)">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Import starten</button>
+      </div>
+    </form>`);
+}
+
+async function startFolderImport(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = {
+    folder_path: fd.get('folder_path'),
+    import_applications: fd.get('import_applications') === '1',
+    import_profile: fd.get('import_profile') === '1',
+    import_documents: fd.get('import_documents') === '1',
+  };
+  closeModal({target: document.getElementById('modal-overlay')});
+
+  // Start import and show progress
+  const result = await api('/api/documents/import-folder', { method: 'POST', body: JSON.stringify(data) });
+  if (result.error) {
+    showToast('Import-Fehler: ' + result.error, 'error');
+    return;
+  }
+  showToast(`Import: ${result.documents_imported || 0} Dokumente, ${result.applications_found || 0} Bewerbungen`, 'success');
+  loadProfile();
+}
+
+async function deletePosition(id) {
+  if (!confirm('Position wirklich loeschen? Alle zugehoerigen Projekte werden ebenfalls geloescht.')) return;
+  await api(`/api/position/${id}`, { method: 'DELETE' });
+  loadProfile();
+}
+
+async function deleteEducation(id) {
+  if (!confirm('Ausbildung wirklich loeschen?')) return;
+  await api(`/api/education/${id}`, { method: 'DELETE' });
+  loadProfile();
+}
+
+async function deleteSkill(id) {
+  await api(`/api/skill/${id}`, { method: 'DELETE' });
+  loadProfile();
+}
+
+async function deleteDocument(id) {
+  if (!confirm('Dokument wirklich entfernen?')) return;
+  await api(`/api/document/${id}`, { method: 'DELETE' });
+  loadProfile();
+}
+
+// === Settings ===
+async function loadSettings() {
+  const [criteria, bl, sources] = await Promise.all([
+    api('/api/search-criteria'),
+    api('/api/blacklist'),
+    api('/api/sources'),
+  ]);
+  const weights = criteria.gewichtung || { muss: 2, plus: 1, remote: 2, naehe: 2, ausschluss_penalty: -999 };
+
+  // Sources
+  const methodeBadge = m => {
+    if (m.includes('Playwright')) return `<span class="badge badge-purple">${m}</span>`;
+    if (m.includes('API')) return `<span class="badge badge-blue">${m}</span>`;
+    return `<span class="badge badge-gray">${m}</span>`;
+  };
+  document.getElementById('sources-list').innerHTML = sources.map(s => `
+    <label style="display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); cursor:pointer;">
+      <input type="checkbox" class="source-cb" value="${s.key}" ${s.active ? 'checked' : ''} style="width:auto; margin-top:3px;">
+      <div style="flex:1;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong>${s.name}</strong>
+          ${methodeBadge(s.methode)}
+          ${s.login_erforderlich ? '<span class="badge badge-yellow">Login erforderlich</span>' : ''}
+        </div>
+        <div style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${s.beschreibung}</div>
+        ${s.login_erforderlich ? '<div style="color:var(--orange); font-size:0.8rem; margin-top:2px;">Beim ersten Start oeffnet sich ein Browser-Fenster zur Anmeldung. Danach laeuft alles automatisch.</div>' : ''}
+      </div>
+    </label>
+  `).join('');
+
+  document.getElementById('criteria-form').innerHTML = `
+    <div class="form-group"><label>MUSS-Keywords (mindestens eins muss vorkommen)</label>
+      <textarea id="kw-muss" rows="3" placeholder="plm, pdm, product lifecycle, ...">${(criteria.keywords_muss || []).join(', ')}</textarea></div>
+    <div class="form-group"><label>PLUS-Keywords (erhoehen den Score)</label>
+      <textarea id="kw-plus" rows="3" placeholder="solution architect, consultant, ...">${(criteria.keywords_plus || []).join(', ')}</textarea></div>
+    <div class="form-group"><label>Ausschluss-Keywords (Job wird komplett ignoriert)</label>
+      <textarea id="kw-aus" rows="2" placeholder="junior, praktikum, werkstudent, ...">${(criteria.keywords_ausschluss || []).join(', ')}</textarea></div>
+    <div class="form-group"><label>Regionen / Standorte</label>
+      <textarea id="kw-regionen" rows="2" placeholder="Hamburg, Deutschland, ...">${(criteria.regionen || []).join(', ')}</textarea></div>
+    <button class="btn btn-primary" onclick="saveCriteria()">Speichern</button>`;
+
+  document.getElementById('blacklist-content').innerHTML = bl.length
+    ? bl.map(b => `<div style="padding:6px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div><span class="badge badge-gray">${b.type}</span> ${b.value}
+        <span style="color:var(--text2); font-size:0.8rem;"> ${b.reason||''}</span></div>
+      </div>`).join('')
+    : '<div class="empty">Keine Eintraege</div>';
+
+  document.getElementById('weight-form').innerHTML = `
+    <div class="grid grid-3">
+      <div class="form-group"><label>MUSS-Keyword (pro Treffer)</label>
+        <input id="w-muss" type="number" value="${weights.muss}" min="0" max="10"></div>
+      <div class="form-group"><label>PLUS-Keyword (pro Treffer)</label>
+        <input id="w-plus" type="number" value="${weights.plus}" min="0" max="10"></div>
+      <div class="form-group"><label>Remote/Hybrid Bonus</label>
+        <input id="w-remote" type="number" value="${weights.remote}" min="0" max="10"></div>
+      <div class="form-group"><label>Naehe-Bonus (&lt;80km)</label>
+        <input id="w-naehe" type="number" value="${weights.naehe}" min="0" max="10"></div>
+      <div class="form-group"><label>Entfernungs-Malus (&gt;200km)</label>
+        <input id="w-fern" type="number" value="${weights.fern_malus || 3}" min="0" max="10"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveWeights()" style="margin-top:8px;">Gewichtung speichern</button>`;
+}
+
+async function saveCriteria() {
+  const parse = id => document.getElementById(id).value.split(',').map(s => s.trim()).filter(Boolean);
+  await api('/api/search-criteria', { method: 'POST', body: JSON.stringify({
+    keywords_muss: parse('kw-muss'),
+    keywords_plus: parse('kw-plus'),
+    keywords_ausschluss: parse('kw-aus'),
+    regionen: parse('kw-regionen'),
+  })});
+  showToast('Suchkriterien gespeichert!', 'success');
+}
+
+async function saveWeights() {
+  const gewichtung = {
+    muss: parseInt(document.getElementById('w-muss').value) || 2,
+    plus: parseInt(document.getElementById('w-plus').value) || 1,
+    remote: parseInt(document.getElementById('w-remote').value) || 2,
+    naehe: parseInt(document.getElementById('w-naehe').value) || 2,
+    fern_malus: parseInt(document.getElementById('w-fern').value) || 3,
+  };
+  await api('/api/search-criteria', { method: 'POST', body: JSON.stringify({ gewichtung }) });
+  showToast('Gewichtung gespeichert!', 'success');
+}
+
+async function showFitDetail(hash) {
+  const job = state.jobs.find(j => j.hash === hash) || state.dismissed.find(j => j.hash === hash);
+  if (!job) return;
+  const result = await api(`/api/jobs/${hash}/fit-analyse`);
+  const fa = result;
+
+  let html = `<h2>Fit-Analyse: ${job.title || 'Stelle'}</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">${job.company || ''} ${job.location ? '— ' + job.location : ''}</p>`;
+
+  // Score breakdown
+  html += `<div style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong>Gesamt-Score: ${fa.total_score}</strong>
+      <span class="badge badge-${fa.total_score > 10 ? 'green' : fa.total_score > 5 ? 'yellow' : 'red'}">${fa.total_score > 10 ? 'Sehr gut' : fa.total_score > 5 ? 'Passt' : 'Schwach'}</span>
+    </div>
+    <div class="score-bar" style="height:8px;"><div class="score-fill" style="width:${Math.min(100, fa.total_score / 20 * 100)}%; background:${fa.total_score > 10 ? 'var(--green)' : fa.total_score > 5 ? 'var(--yellow)' : 'var(--red)'};"></div></div>
+  </div>`;
+
+  // Detail breakdown
+  html += '<div style="margin-bottom:16px;">';
+  if (fa.muss_hits && fa.muss_hits.length) {
+    html += `<div style="margin-bottom:8px;"><label>MUSS-Keywords gefunden (${fa.muss_hits.length})</label>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">${fa.muss_hits.map(k => `<span class="badge badge-green">${k}</span>`).join('')}</div></div>`;
+  }
+  if (fa.plus_hits && fa.plus_hits.length) {
+    html += `<div style="margin-bottom:8px;"><label>PLUS-Keywords gefunden (${fa.plus_hits.length})</label>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">${fa.plus_hits.map(k => `<span class="badge badge-blue">${k}</span>`).join('')}</div></div>`;
+  }
+  if (fa.missing_muss && fa.missing_muss.length) {
+    html += `<div style="margin-bottom:8px;"><label>MUSS-Keywords NICHT gefunden</label>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">${fa.missing_muss.map(k => `<span class="badge badge-red">${k}</span>`).join('')}</div></div>`;
+  }
+  html += '</div>';
+
+  // Factors
+  html += '<div style="margin-bottom:16px;"><label>Faktoren</label><table>';
+  for (const [label, pts] of Object.entries(fa.factors || {})) {
+    const color = pts > 0 ? 'var(--green)' : pts < 0 ? 'var(--red)' : 'var(--text2)';
+    html += `<tr><td>${label}</td><td style="color:${color}; font-weight:600; text-align:right;">${pts > 0 ? '+' : ''}${pts}</td></tr>`;
+  }
+  html += '</table></div>';
+
+  // Risks
+  if (fa.risks && fa.risks.length) {
+    html += `<div><label>Risiken</label>
+      ${fa.risks.map(r => `<div style="padding:4px 0; color:var(--yellow); font-size:0.9rem;">${r}</div>`).join('')}</div>`;
+  }
+
+  html += `<div class="modal-actions"><button class="btn" onclick="closeModal(event)">Schliessen</button></div>`;
+  openModal(html);
+}
+
+async function saveSources() {
+  const cbs = document.querySelectorAll('.source-cb');
+  const active = [];
+  cbs.forEach(cb => { if (cb.checked) active.push(cb.value); });
+  await api('/api/sources', { method: 'POST', body: JSON.stringify({ active_sources: active }) });
+  showToast(`${active.length} Quelle(n) aktiviert!`, 'success');
+}
+
+async function addBlacklist() {
+  const value = document.getElementById('bl-value').value.trim();
+  const type = document.getElementById('bl-type').value;
+  if (!value) return;
+  await api('/api/blacklist', { method: 'POST', body: JSON.stringify({ type, value, reason: '' }) });
+  document.getElementById('bl-value').value = '';
+  loadSettings();
+}
+
+// === CV ===
+async function generateCV() {
+  const result = await api('/api/cv/generate');
+  if (result.error) {
+    showToast('CV-Fehler: ' + result.error, 'error');
+    return;
+  }
+  const pre = document.getElementById('cv-preview');
+  pre.textContent = result.cv_text;
+  pre.style.display = '';
+  document.getElementById('btn-copy-cv').style.display = '';
+}
+
+function copyCV() {
+  const text = document.getElementById('cv-preview').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy-cv');
+    btn.textContent = 'Kopiert!';
+    setTimeout(() => { btn.textContent = 'In Zwischenablage'; }, 2000);
+  });
+}
+
+async function showAppDetail(id) {
+  const result = await api(`/api/application/${id}/timeline`);
+  if (result.error) { showToast(result.error, 'error'); return; }
+  const a = result.application;
+  const events = result.events;
+
+  let html = `<h2>${a.title}</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">${a.company} ${a.url ? `— <a href="${a.url}" target="_blank" style="color:var(--accent);">Link</a>` : ''}</p>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <span class="badge badge-${statusColor(a.status)}">${a.status}</span>
+      ${a.applied_at ? `<span class="badge badge-gray">Beworben: ${new Date(a.applied_at).toLocaleDateString('de')}</span>` : ''}
+    </div>
+    ${a.notes ? `<div style="margin-bottom:16px;"><label>Notizen</label><p style="font-size:0.9rem;">${a.notes}</p></div>` : ''}`;
+
+  if (events.length) {
+    html += '<div><label>Verlauf</label>';
+    for (const ev of events) {
+      html += `<div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
+        <span class="badge badge-${statusColor(ev.status)}">${ev.status}</span>
+        <span style="color:var(--text2); margin-left:8px;">${ev.event_date ? new Date(ev.event_date).toLocaleDateString('de') : ''}</span>
+        ${ev.notes ? `<span style="margin-left:8px;">${ev.notes}</span>` : ''}
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  html += `<div class="modal-actions"><button class="btn" onclick="closeModal(event)">Schliessen</button></div>`;
+  openModal(html);
+}
+
+// === Init ===
+document.addEventListener('DOMContentLoaded', () => { loadDashboard(); });
+</script>
+</body>
+</html>
