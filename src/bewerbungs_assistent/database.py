@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def _gen_id() -> str:
@@ -142,6 +142,35 @@ class Database:
                 except Exception:
                     pass
             logger.info("Migration v2->v3: Multi-Profil + Erfassung")
+
+        if from_ver < 4:
+            # v4: Erweiterte KI-Features (Gehalt, Follow-ups)
+            migrations_v4 = [
+                ("jobs", "salary_min", "REAL"),
+                ("jobs", "salary_max", "REAL"),
+                ("jobs", "salary_type", "TEXT"),
+            ]
+            for table, col, coltype in migrations_v4:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+                except Exception as e:
+                    logger.debug("Spalte existiert bereits: %s", e)
+            # Create follow_ups table
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS follow_ups (
+                    id TEXT PRIMARY KEY,
+                    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+                    scheduled_date TEXT NOT NULL,
+                    follow_up_type TEXT DEFAULT 'nachfass',
+                    template TEXT,
+                    status TEXT DEFAULT 'geplant',
+                    created_at TEXT,
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_followups_app ON follow_ups(application_id);
+                CREATE INDEX IF NOT EXISTS idx_followups_date ON follow_ups(scheduled_date, status);
+            """)
+            logger.info("Migration v3->v4: Gehalt-Spalten + Follow-ups Tabelle")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -674,6 +703,104 @@ class Database:
             stats["offer_rate"] = round(offers / total * 100, 1)
         return stats
 
+    # === Salary Data (PBP-014) ===
+
+    def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float, salary_type: str):
+        """Save extracted salary data for a job."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
+            (salary_min, salary_max, salary_type, _now(), job_hash)
+        )
+        conn.commit()
+
+    def get_salary_statistics(self) -> dict:
+        """Get aggregated salary statistics across all jobs with salary data."""
+        conn = self.connect()
+        rows = conn.execute("""
+            SELECT salary_min, salary_max, salary_type, employment_type, source, location
+            FROM jobs WHERE salary_min IS NOT NULL AND is_active=1
+        """).fetchall()
+        if not rows:
+            return {"anzahl": 0, "nachricht": "Keine Gehaltsdaten vorhanden"}
+        data = [dict(r) for r in rows]
+        annual = [d for d in data if d["salary_type"] == "jaehrlich"]
+        daily = [d for d in data if d["salary_type"] == "taeglich"]
+        result = {"anzahl": len(data)}
+        if annual:
+            mins = [d["salary_min"] for d in annual]
+            maxs = [d["salary_max"] for d in annual]
+            result["festanstellung"] = {
+                "anzahl": len(annual),
+                "gehalt_min": min(mins),
+                "gehalt_max": max(maxs),
+                "durchschnitt_min": round(sum(mins) / len(mins)),
+                "durchschnitt_max": round(sum(maxs) / len(maxs)),
+                "median_min": sorted(mins)[len(mins) // 2],
+            }
+        if daily:
+            mins = [d["salary_min"] for d in daily]
+            maxs = [d["salary_max"] for d in daily]
+            result["freelance"] = {
+                "anzahl": len(daily),
+                "tagessatz_min": min(mins),
+                "tagessatz_max": max(maxs),
+                "durchschnitt_min": round(sum(mins) / len(mins)),
+                "durchschnitt_max": round(sum(maxs) / len(maxs)),
+            }
+        return result
+
+    def get_company_jobs(self, company: str) -> list:
+        """Get all jobs from a specific company."""
+        conn = self.connect()
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE company LIKE ? ORDER BY score DESC",
+            (f"%{company}%",)
+        ).fetchall()]
+
+    def get_skill_frequency(self) -> list:
+        """Analyze skill keywords frequency in active job descriptions."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT description FROM jobs WHERE is_active=1 AND description IS NOT NULL"
+        ).fetchall()
+        return [r["description"] for r in rows]
+
+    # === Follow-ups (PBP-014) ===
+
+    def add_follow_up(self, application_id: str, scheduled_date: str,
+                      follow_up_type: str = "nachfass", template: str = "") -> str:
+        """Schedule a follow-up for an application."""
+        conn = self.connect()
+        fid = _gen_id()
+        conn.execute("""
+            INSERT INTO follow_ups (id, application_id, scheduled_date,
+                follow_up_type, template, status, created_at)
+            VALUES (?, ?, ?, ?, ?, 'geplant', ?)
+        """, (fid, application_id, scheduled_date, follow_up_type, template, _now()))
+        conn.commit()
+        return fid
+
+    def get_pending_follow_ups(self) -> list:
+        """Get all pending follow-ups with application details."""
+        conn = self.connect()
+        return [dict(r) for r in conn.execute("""
+            SELECT f.*, a.title, a.company, a.status as app_status, a.applied_at
+            FROM follow_ups f
+            JOIN applications a ON f.application_id = a.id
+            WHERE f.status = 'geplant'
+            ORDER BY f.scheduled_date ASC
+        """).fetchall()]
+
+    def complete_follow_up(self, follow_up_id: str, status: str = "gesendet"):
+        """Mark a follow-up as completed or skipped."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE follow_ups SET status=?, completed_at=? WHERE id=?",
+            (status, _now(), follow_up_id)
+        )
+        conn.commit()
+
     # === Settings ===
 
     def get_setting(self, key: str, default=None):
@@ -863,8 +990,21 @@ CREATE TABLE IF NOT EXISTS background_jobs (
     updated_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS follow_ups (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    scheduled_date TEXT NOT NULL,
+    follow_up_type TEXT DEFAULT 'nachfass',
+    template TEXT,
+    status TEXT DEFAULT 'geplant',
+    created_at TEXT,
+    completed_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
 CREATE INDEX IF NOT EXISTS idx_apps_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_app_events ON application_events(application_id);
+CREATE INDEX IF NOT EXISTS idx_followups_app ON follow_ups(application_id);
+CREATE INDEX IF NOT EXISTS idx_followups_date ON follow_ups(scheduled_date, status);
 """

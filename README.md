@@ -34,10 +34,10 @@ Claude Desktop (Windows)
     │
     │ stdio (MCP Protocol)
     ▼
-server.py (FastMCP)  ◄── 29 Tools, 6 Resources, 8 Prompts
+server.py (FastMCP)  ◄── 36 Tools, 6 Resources, 11 Prompts
     │
     ▼
-database.py (SQLite)  ◄── 13 Tabellen, WAL Mode, Schema v3, Multi-Profil
+database.py (SQLite)  ◄── 14 Tabellen, WAL Mode, Schema v4, Multi-Profil
     │
     ├──► dashboard.py (FastAPI :8200)  ◄── 32 API Endpoints
     │         │
@@ -165,7 +165,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 29 Tools
+### 36 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -198,6 +198,13 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `anschreiben_exportieren` | Anschreiben als PDF/DOCX |
 | `suchkriterien_setzen` | Keywords und Filter konfigurieren |
 | `blacklist_verwalten` | Firmen/Keywords ausschließen |
+| `gehalt_extrahieren` | Gehalt/Tagessatz aus Stellenbeschreibung extrahieren |
+| `gehalt_marktanalyse` | Gehaltsstatistiken über alle gesammelten Stellen |
+| `firmen_recherche` | Firmendaten aus Stellenangeboten aggregieren |
+| `branchen_trends` | Gefragte Skills und Technologien analysieren |
+| `nachfass_planen` | Follow-up Erinnerung für Bewerbung planen |
+| `nachfass_anzeigen` | Alle geplanten/fälligen Follow-ups zeigen |
+| `bewerbung_stil_tracken` | Anschreiben-Stil für A/B-Tracking speichern |
 
 ### 6 Resources
 
@@ -210,7 +217,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `bewerbungen://statistik` | Bewerbungsstatistiken |
 | `config://suchkriterien` | Aktuelle Sucheinstellungen |
 
-### 8 Prompts
+### 11 Prompts
 
 | Prompt | Beschreibung |
 |--------|-------------|
@@ -222,12 +229,15 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `willkommen` | Begrüßung und Statusübersicht |
 | `jobsuche_workflow` | Geführter 5-Schritte Suchprozess |
 | `bewerbungs_uebersicht` | Komplettübersicht aller Aktivitäten |
+| `interview_simulation` | Simuliertes Bewerbungsgespräch mit Claude |
+| `gehaltsverhandlung` | Gehaltsverhandlung vorbereiten mit Strategie |
+| `netzwerk_strategie` | Networking-Plan für eine Zielfirma |
 
 ---
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 13 Tabellen, Schema v3 (Multi-Profil):
+SQLite mit WAL-Mode, 14 Tabellen, Schema v4 (Multi-Profil + KI-Features):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -243,6 +253,7 @@ SQLite mit WAL-Mode, 13 Tabellen, Schema v3 (Multi-Profil):
 | `search_criteria` | Suchfilter |
 | `blacklist` | Ausschlussliste |
 | `background_jobs` | Async-Tasks |
+| `follow_ups` | Nachfass-Erinnerungen |
 | `settings` | Konfiguration |
 
 **Datenspeicherung:**
@@ -263,7 +274,7 @@ PBP/
 ├── pyproject.toml                # Build-Konfiguration
 │
 ├── src/bewerbungs_assistent/
-│   ├── server.py                 # MCP Server (29 Tools, 6 Resources, 8 Prompts)
+│   ├── server.py                 # MCP Server (36 Tools, 6 Resources, 11 Prompts)
 │   ├── database.py               # SQLite Layer (13 Tabellen)
 │   ├── dashboard.py              # FastAPI Dashboard (32 Endpoints)
 │   ├── export.py                 # PDF/DOCX Export
@@ -328,12 +339,26 @@ python -m pytest tests/ -v
 
 ## Geplante Features
 
-- **Erweiterte KI-Features** (PBP-014) — Weiterführende KI-gestützte Bewerbungsoptimierung
 - **Screenshots für README** — Automatisierte Dashboard-Screenshots via Playwright
+- **Erweiterte Scraper** — Zusätzliche Jobportale und verbesserte Datenextraktion
 
 ---
 
 ## Changelog
+
+### v0.7.0 — Erweiterte KI-Features (2026-03-02)
+- Feature: **Interview-Simulation** — Claude spielt den Interviewer, bewertet STAR-Antworten
+- Feature: **Gehaltsverhandlung** — Verhandlungsstrategie mit Marktdaten und Argumenten
+- Feature: **Netzwerk-Strategie** — Networking-Plan mit LinkedIn-Templates
+- Feature: **Gehalt-Extraktion** — Gehalt/Tagessatz automatisch aus Stellenbeschreibungen erkennen
+- Feature: **Marktanalyse** — Gehaltsstatistiken über alle gesammelten Stellen
+- Feature: **Firmen-Recherche** — Firmendaten aus Stellenangeboten aggregieren
+- Feature: **Branchen-Trends** — Gefragte Skills analysieren + Skill-Gap-Erkennung
+- Feature: **Nachfass-Planung** — Follow-up Erinnerungen mit E-Mail-Templates
+- Feature: **A/B-Tracking** — Anschreiben-Stil tracken für Erfolgsanalyse
+- Dashboard: **KI-Funktionen Übersicht** — Alle 11 Prompts dokumentiert mit Copy-Buttons
+- Schema: Datenbank-Migration v3→v4 (Gehalt-Spalten, follow_ups Tabelle)
+- Tools: 29→36, Prompts: 8→11, Tabellen: 13→14
 
 ### v0.6.0 — Multi-Profil, Fortführbare Ersterfassung & UX (2026-03-02)
 - Feature: **Multi-Profil-Support** (PBP-025) — Mehrere Profile pro PC, Profil-Wechsel im Dashboard und via MCP-Tools

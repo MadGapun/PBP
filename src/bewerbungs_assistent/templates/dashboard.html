@@ -237,6 +237,68 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
         <h3>Bewerbungs-Statistik</h3>
         <div id="stats-chart" style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end; min-height:160px;"></div>
       </div>
+      <div class="card" style="margin-top:16px;">
+        <h3>KI-Funktionen — Befehle fuer Claude Desktop</h3>
+        <p style="color:var(--text2); font-size:0.9rem; margin-bottom:12px;">
+          Tippe diese Befehle in Claude Desktop ein oder nutze das <strong>/</strong>-Menue.
+          Klicke auf <em>Kopieren</em> um den Befehl in die Zwischenablage zu uebernehmen.
+        </p>
+        <div style="display:grid; gap:8px;">
+          <div style="font-weight:600; color:var(--accent); margin-top:8px;">Erste Schritte</div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/ersterfassung</code> <span style="color:var(--text2); font-size:0.85rem;">— Profil im Gespraech erstellen (pausierbar)</span></div>
+            <button class="btn btn-sm" onclick="copyText('/ersterfassung')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/willkommen</code> <span style="color:var(--text2); font-size:0.85rem;">— Begruessung und Status-Uebersicht</span></div>
+            <button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button>
+          </div>
+          <div style="font-weight:600; color:var(--accent); margin-top:8px;">Jobsuche &amp; Bewerbung</div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/jobsuche_workflow</code> <span style="color:var(--text2); font-size:0.85rem;">— Gefuehrter 5-Schritte Suchprozess</span></div>
+            <button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/bewerbung_schreiben</code> <span style="color:var(--text2); font-size:0.85rem;">— Anschreiben erstellen + Export</span></div>
+            <button class="btn btn-sm" onclick="copyText('/bewerbung_schreiben')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/bewerbungs_uebersicht</code> <span style="color:var(--text2); font-size:0.85rem;">— Komplette Uebersicht aller Aktivitaeten</span></div>
+            <button class="btn btn-sm" onclick="copyText('/bewerbungs_uebersicht')">Kopieren</button>
+          </div>
+          <div style="font-weight:600; color:var(--accent); margin-top:8px;">Interview &amp; Verhandlung</div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/interview_vorbereitung</code> <span style="color:var(--text2); font-size:0.85rem;">— Fragen, STAR-Antworten, Gehaltstipps</span></div>
+            <button class="btn btn-sm" onclick="copyText('/interview_vorbereitung')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/interview_simulation</code> <span style="color:var(--text2); font-size:0.85rem;">— Uebungsgespraech mit Claude als Interviewer</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
+            <button class="btn btn-sm" onclick="copyText('/interview_simulation')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/gehaltsverhandlung</code> <span style="color:var(--text2); font-size:0.85rem;">— Verhandlungsstrategie + Argumente</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
+            <button class="btn btn-sm" onclick="copyText('/gehaltsverhandlung')">Kopieren</button>
+          </div>
+          <div style="font-weight:600; color:var(--accent); margin-top:8px;">Analyse &amp; Strategie</div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/profil_analyse</code> <span style="color:var(--text2); font-size:0.85rem;">— Staerken, Potenziale, Marktposition</span></div>
+            <button class="btn btn-sm" onclick="copyText('/profil_analyse')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/profil_ueberpruefen</code> <span style="color:var(--text2); font-size:0.85rem;">— Profil auf Fehler pruefen + korrigieren</span></div>
+            <button class="btn btn-sm" onclick="copyText('/profil_ueberpruefen')">Kopieren</button>
+          </div>
+          <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
+            <div><code style="color:var(--accent);">/netzwerk_strategie</code> <span style="color:var(--text2); font-size:0.85rem;">— Networking-Plan fuer Zielfirma</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
+            <button class="btn btn-sm" onclick="copyText('/netzwerk_strategie')">Kopieren</button>
+          </div>
+        </div>
+        <div style="background:#1a2332; border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-top:12px; font-size:0.85rem; color:var(--text2);">
+          <strong>Tipp:</strong> Du kannst auch einfach in natuerlicher Sprache mit Claude sprechen,
+          z.B. <em>"Bereite mich auf ein Interview bei Siemens vor"</em> oder
+          <em>"Wie viel Gehalt kann ich verlangen?"</em> — Claude nutzt die passenden Tools automatisch.
+        </div>
+      </div>
     </div>
   </div>
 

@@ -10,6 +10,7 @@ import json
 import threading
 import logging
 from typing import Optional
+from datetime import datetime, timezone
 
 from fastmcp import FastMCP
 
@@ -1238,6 +1239,393 @@ def dokumente_zur_analyse() -> dict:
 
 
 # ============================================================
+# ERWEITERTE KI-FEATURES (PBP-014)
+# ============================================================
+
+@mcp.tool()
+def gehalt_extrahieren(job_hash: str) -> dict:
+    """Extrahiert Gehaltsinformationen aus einer Stellenbeschreibung.
+
+    Durchsucht den Text nach Gehaltsangaben (Jahresgehalt, Tagessatz,
+    Stundenlohn) und speichert die strukturierten Daten.
+
+    Args:
+        job_hash: Hash der Stelle aus stellen_anzeigen()
+    """
+    import re
+    conn = db.connect()
+    row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+    if not row:
+        return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+
+    text = (row["description"] or "") + " " + (row["salary_info"] or "") + " " + (row["title"] or "")
+
+    # Regex patterns for salary extraction
+    patterns = [
+        # EUR ranges: 60.000-80.000, 60000-80000, 60k-80k
+        (r'(\d{2,3}[\.,]?\d{3})\s*[-–bis]+\s*(\d{2,3}[\.,]?\d{3})\s*(?:EUR|€|Euro)', 'jaehrlich'),
+        (r'€\s*(\d{2,3}[\.,]?\d{3})\s*[-–bis]+\s*(\d{2,3}[\.,]?\d{3})', 'jaehrlich'),
+        (r'(\d{2,3})\s*k\s*[-–bis]+\s*(\d{2,3})\s*k', 'jaehrlich'),
+        # Single annual amounts
+        (r'(?:Gehalt|Jahresgehalt|Brutto)[:\s]*(?:ab|bis|ca\.?)?\s*(\d{2,3}[\.,]?\d{3})\s*(?:EUR|€|Euro)?', 'jaehrlich'),
+        # Daily rates: 800-1200€/Tag
+        (r'(\d{3,4})\s*[-–bis]+\s*(\d{3,4})\s*(?:EUR|€)?\s*/?\s*(?:Tag|day|d)', 'taeglich'),
+        (r'(?:Tagessatz|Tagesrate|daily rate)[:\s]*(\d{3,4})\s*(?:[-–bis]+\s*(\d{3,4}))?\s*(?:EUR|€)?', 'taeglich'),
+        # Hourly rates
+        (r'(\d{2,3})\s*[-–bis]+\s*(\d{2,3})\s*(?:EUR|€)?\s*/?\s*(?:Stunde|hour|h)', 'stuendlich'),
+    ]
+
+    salary_min = None
+    salary_max = None
+    salary_type = None
+
+    for pattern, stype in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            groups = [g for g in match.groups() if g]
+            nums = []
+            for g in groups:
+                g_clean = g.replace(".", "").replace(",", "")
+                try:
+                    n = float(g_clean)
+                    # k-notation
+                    if n < 300 and stype == 'jaehrlich':
+                        n *= 1000
+                    nums.append(n)
+                except ValueError:
+                    continue
+            if nums:
+                salary_min = min(nums)
+                salary_max = max(nums) if len(nums) > 1 else salary_min
+                salary_type = stype
+                break
+
+    if salary_min is None:
+        return {
+            "status": "nicht_gefunden",
+            "stelle": row["title"],
+            "firma": row["company"],
+            "hinweis": "Keine Gehaltsangabe in der Stellenbeschreibung erkannt. "
+                       "Du kannst Claude bitten, den Text manuell zu analysieren.",
+            "salary_info_text": row.get("salary_info", ""),
+        }
+
+    # Save to database
+    db.save_salary_data(job_hash, salary_min, salary_max, salary_type)
+
+    # Compare with profile preferences
+    profile = db.get_profile()
+    vergleich = {}
+    if profile and profile.get("preferences"):
+        prefs = profile["preferences"]
+        if salary_type == "jaehrlich" and prefs.get("min_gehalt"):
+            min_g = float(prefs["min_gehalt"])
+            vergleich["dein_minimum"] = min_g
+            vergleich["passt"] = salary_max >= min_g
+            if prefs.get("ziel_gehalt"):
+                vergleich["dein_ziel"] = float(prefs["ziel_gehalt"])
+        elif salary_type == "taeglich" and prefs.get("min_tagessatz"):
+            min_t = float(prefs["min_tagessatz"])
+            vergleich["dein_minimum"] = min_t
+            vergleich["passt"] = salary_max >= min_t
+
+    return {
+        "status": "extrahiert",
+        "stelle": row["title"],
+        "firma": row["company"],
+        "gehalt_min": salary_min,
+        "gehalt_max": salary_max,
+        "gehalt_typ": salary_type,
+        "vergleich_mit_profil": vergleich,
+    }
+
+
+@mcp.tool()
+def gehalt_marktanalyse() -> dict:
+    """Analysiert Gehaltsdaten aller gesammelten Stellenangebote.
+
+    Zeigt Durchschnitt, Median, Spanne — getrennt nach Festanstellung
+    und Freelance. Vergleicht mit deinen Gehaltsvorstellungen.
+    """
+    stats = db.get_salary_statistics()
+    profile = db.get_profile()
+    if profile and profile.get("preferences"):
+        prefs = profile["preferences"]
+        stats["deine_vorstellungen"] = {
+            "min_gehalt": prefs.get("min_gehalt"),
+            "ziel_gehalt": prefs.get("ziel_gehalt"),
+            "min_tagessatz": prefs.get("min_tagessatz"),
+            "ziel_tagessatz": prefs.get("ziel_tagessatz"),
+        }
+    stats["tipp"] = (
+        "Nutze gehalt_extrahieren(job_hash) um Gehaltsdaten aus einzelnen "
+        "Stellen zu extrahieren und die Datenbasis zu vergroessern."
+    )
+    return stats
+
+
+@mcp.tool()
+def firmen_recherche(firma: str) -> dict:
+    """Recherchiert Informationen ueber eine Firma anhand der gesammelten Stellendaten.
+
+    Aggregiert alle bekannten Jobs, Standorte, Gehaelter und Remote-Level
+    fuer die angegebene Firma.
+
+    Args:
+        firma: Name der Firma (oder Teil davon)
+    """
+    jobs = db.get_company_jobs(firma)
+    if not jobs:
+        return {
+            "status": "keine_daten",
+            "firma": firma,
+            "hinweis": "Keine Stellen von dieser Firma in der Datenbank. "
+                       "Starte eine Jobsuche oder pruefe den Firmennamen.",
+        }
+
+    standorte = list(set(j.get("location", "unbekannt") for j in jobs if j.get("location")))
+    quellen = list(set(j.get("source", "unbekannt") for j in jobs))
+    remote_levels = [j.get("remote_level", "unbekannt") for j in jobs]
+    scores = [j.get("score", 0) for j in jobs]
+    gehalt_jobs = [j for j in jobs if j.get("salary_min")]
+
+    result = {
+        "status": "ok",
+        "firma": firma,
+        "stellen_gesamt": len(jobs),
+        "stellen_aktiv": sum(1 for j in jobs if j.get("is_active")),
+        "standorte": standorte,
+        "quellen": quellen,
+        "remote_level": {r: remote_levels.count(r) for r in set(remote_levels)},
+        "score_durchschnitt": round(sum(scores) / len(scores)) if scores else 0,
+        "score_best": max(scores) if scores else 0,
+        "stellen": [
+            {"titel": j["title"], "standort": j.get("location"), "score": j.get("score", 0),
+             "remote": j.get("remote_level"), "hash": j["hash"]}
+            for j in sorted(jobs, key=lambda x: x.get("score", 0), reverse=True)[:10]
+        ],
+    }
+    if gehalt_jobs:
+        result["gehaltsspanne"] = {
+            "min": min(j["salary_min"] for j in gehalt_jobs),
+            "max": max(j["salary_max"] for j in gehalt_jobs),
+        }
+    return result
+
+
+@mcp.tool()
+def branchen_trends() -> dict:
+    """Analysiert gefragte Skills und Technologien in den gesammelten Stellenangeboten.
+
+    Zaehlt Skill-Keywords in allen aktiven Job-Beschreibungen und vergleicht
+    mit deinem Profil (Match/Gap-Analyse).
+    """
+    import re
+    from collections import Counter
+
+    descriptions = db.get_skill_frequency()
+    if not descriptions:
+        return {
+            "status": "keine_daten",
+            "hinweis": "Noch keine Stellenangebote vorhanden. Starte zuerst eine Jobsuche.",
+        }
+
+    # Common tech/skill keywords to look for
+    skill_keywords = [
+        "Python", "Java", "JavaScript", "TypeScript", "C#", "C\\+\\+", "SQL", "NoSQL",
+        "React", "Angular", "Vue", "Node\\.js", "Docker", "Kubernetes", "AWS", "Azure",
+        "SAP", "ERP", "CRM", "PLM", "PDM", "CAD", "CAM", "MES", "PPS",
+        "Agile", "Scrum", "Kanban", "ITIL", "DevOps", "CI/CD",
+        "REST", "API", "Microservices", "Cloud", "Linux", "Windows Server",
+        "Machine Learning", "KI", "AI", "Data Science", "Big Data",
+        "Projektmanagement", "Teamleitung", "Fuehrung", "Consulting",
+        "PRO\\.FILE", "Teamcenter", "Windchill", "ENOVIA", "3DExperience",
+        "SolidWorks", "AutoCAD", "CATIA", "NX", "Inventor",
+        "Freelance", "Remote", "Hybrid", "Home.?Office",
+        "Englisch", "Deutsch",
+    ]
+
+    full_text = " ".join(descriptions)
+    total_jobs = len(descriptions)
+    trend_counts = Counter()
+
+    for keyword in skill_keywords:
+        count = len(re.findall(keyword, full_text, re.IGNORECASE))
+        if count > 0:
+            clean_key = keyword.replace("\\", "").replace(".?", "-")
+            trend_counts[clean_key] = count
+
+    # Compare with user skills
+    profile = db.get_profile()
+    user_skills = []
+    skill_gap = []
+    if profile:
+        user_skills = [s["name"].lower() for s in profile.get("skills", [])]
+        for skill, count in trend_counts.most_common(30):
+            if skill.lower() not in user_skills and count >= 2:
+                skill_gap.append({"skill": skill, "nachfrage": count})
+
+    top_20 = [
+        {"skill": skill, "nennungen": count, "prozent_jobs": round(count / total_jobs * 100, 1)}
+        for skill, count in trend_counts.most_common(20)
+    ]
+
+    return {
+        "status": "ok",
+        "analysierte_stellen": total_jobs,
+        "top_skills": top_20,
+        "skill_gap": skill_gap[:10] if skill_gap else [],
+        "tipp": "Skills die im Markt gefragt sind aber in deinem Profil fehlen, "
+                "sind unter 'skill_gap' aufgelistet.",
+    }
+
+
+@mcp.tool()
+def nachfass_planen(bewerbung_id: str, tage: int = 7, typ: str = "nachfass") -> dict:
+    """Plant eine Nachfass-Erinnerung fuer eine Bewerbung.
+
+    Erstellt einen Follow-up Eintrag mit Datum und Template-Vorschlag.
+
+    Args:
+        bewerbung_id: ID der Bewerbung
+        tage: Tage ab heute bis zum Follow-up (Standard: 7)
+        typ: Art des Follow-ups: nachfass, danke, info
+    """
+    from datetime import timedelta
+    apps = db.get_applications()
+    app = next((a for a in apps if a["id"] == bewerbung_id), None)
+    if not app:
+        return {"fehler": "Bewerbung nicht gefunden. Pruefe die ID mit bewerbungen_anzeigen()."}
+
+    scheduled = (datetime.now(timezone.utc) + timedelta(days=tage)).strftime("%Y-%m-%d")
+
+    templates = {
+        "nachfass": (
+            f"Betreff: Nachfrage zu meiner Bewerbung — {app['title']}\n\n"
+            f"Sehr geehrte Damen und Herren,\n\n"
+            f"ich habe mich am {{applied_at}} auf die Position \"{app['title']}\" beworben "
+            f"und moechte hoeflich nachfragen, ob Sie bereits eine Entscheidung getroffen haben.\n\n"
+            f"Ich bin weiterhin sehr an der Position interessiert und stehe gerne "
+            f"fuer ein Gespraech zur Verfuegung.\n\n"
+            f"Mit freundlichen Gruessen"
+        ),
+        "danke": (
+            f"Betreff: Vielen Dank fuer das Gespraech — {app['title']}\n\n"
+            f"Sehr geehrte/r {{ansprechpartner}},\n\n"
+            f"vielen Dank fuer das angenehme Gespraech. Ich bin nach unserem Austausch "
+            f"noch ueberzeugter, dass die Position \"{app['title']}\" hervorragend "
+            f"zu meinen Erfahrungen passt.\n\n"
+            f"Mit freundlichen Gruessen"
+        ),
+        "info": (
+            f"Betreff: Zusaetzliche Informationen — {app['title']}\n\n"
+            f"Sehr geehrte Damen und Herren,\n\n"
+            f"ergaenzend zu meiner Bewerbung moechte ich Ihnen noch folgende "
+            f"Informationen zukommen lassen: [HIER ERGAENZEN]\n\n"
+            f"Mit freundlichen Gruessen"
+        ),
+    }
+
+    template = templates.get(typ, templates["nachfass"])
+    fid = db.add_follow_up(bewerbung_id, scheduled, typ, template)
+
+    return {
+        "status": "geplant",
+        "follow_up_id": fid,
+        "bewerbung": app["title"],
+        "firma": app["company"],
+        "geplant_fuer": scheduled,
+        "typ": typ,
+        "template": template,
+        "hinweis": "Das Template ist ein Vorschlag — passe es gerne an bevor du es versendest.",
+    }
+
+
+@mcp.tool()
+def nachfass_anzeigen() -> dict:
+    """Zeigt alle geplanten und faelligen Nachfass-Erinnerungen.
+
+    Gruppiert nach: ueberfaellig, heute, diese Woche, spaeter.
+    """
+    follow_ups = db.get_pending_follow_ups()
+    if not follow_ups:
+        return {
+            "status": "keine_followups",
+            "nachricht": "Keine Nachfass-Erinnerungen geplant. "
+                         "Nutze nachfass_planen() um einen Follow-up zu erstellen.",
+        }
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    from datetime import timedelta
+    week_end = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%d")
+
+    grouped = {"ueberfaellig": [], "heute": [], "diese_woche": [], "spaeter": []}
+    for f in follow_ups:
+        entry = {
+            "id": f["id"],
+            "bewerbung": f.get("title", "?"),
+            "firma": f.get("company", "?"),
+            "app_status": f.get("app_status", "?"),
+            "typ": f["follow_up_type"],
+            "geplant_fuer": f["scheduled_date"],
+            "template": f.get("template", ""),
+        }
+        if f["scheduled_date"] < today:
+            grouped["ueberfaellig"].append(entry)
+        elif f["scheduled_date"] == today:
+            grouped["heute"].append(entry)
+        elif f["scheduled_date"] <= week_end:
+            grouped["diese_woche"].append(entry)
+        else:
+            grouped["spaeter"].append(entry)
+
+    return {
+        "status": "ok",
+        "gesamt": len(follow_ups),
+        "ueberfaellig": len(grouped["ueberfaellig"]),
+        "follow_ups": grouped,
+    }
+
+
+@mcp.tool()
+def bewerbung_stil_tracken(bewerbung_id: str, stil: str, notizen: str = "") -> dict:
+    """Speichert den Anschreiben-Stil einer Bewerbung fuer A/B-Tracking.
+
+    Damit kannst du spaeter analysieren, welcher Stil bessere
+    Ruecklaufquoten hat.
+
+    Args:
+        bewerbung_id: ID der Bewerbung
+        stil: Stil des Anschreibens: formell, kreativ, direkt, storytelling
+        notizen: Optionale Notizen zum Stil
+    """
+    conn = db.connect()
+    row = conn.execute("SELECT * FROM applications WHERE id=?", (bewerbung_id,)).fetchone()
+    if not row:
+        return {"fehler": "Bewerbung nicht gefunden."}
+
+    event_notes = f"Anschreiben-Stil: {stil}"
+    if notizen:
+        event_notes += f" | {notizen}"
+
+    conn.execute("""
+        INSERT INTO application_events (application_id, status, event_date, notes)
+        VALUES (?, ?, ?, ?)
+    """, (bewerbung_id, "stil_tracking", datetime.now(timezone.utc).isoformat(), event_notes))
+    conn.commit()
+
+    return {
+        "status": "gespeichert",
+        "bewerbung_id": bewerbung_id,
+        "titel": row["title"],
+        "firma": row["company"],
+        "stil": stil,
+        "hinweis": "Stil wurde als Event gespeichert. Nutze statistiken_abrufen() "
+                   "um spaeter Ruecklaufquoten pro Stil zu analysieren.",
+    }
+
+
+# ============================================================
 # RESOURCES — Data that Claude can read
 # ============================================================
 
@@ -1751,6 +2139,168 @@ Sprich Deutsch und per Du. Sei proaktiv mit Vorschlaegen."""
 
 
 # ============================================================
+# ERWEITERTE KI-PROMPTS (PBP-014)
+# ============================================================
+
+@mcp.prompt()
+def interview_simulation(stelle: str = "", firma: str = "") -> str:
+    """Simuliertes Bewerbungsgespraech — Claude spielt den Interviewer."""
+    return f"""Du bist jetzt der Interviewer fuer folgende Position:
+Stelle: {stelle}
+Firma: {firma}
+
+VORBEREITUNG (still, nicht anzeigen):
+1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
+2. Falls eine Stelle angegeben: Rufe fit_analyse() oder stellen_anzeigen() auf
+3. Rufe firmen_recherche('{firma}') auf falls Firmendaten vorhanden
+
+ABLAUF DES INTERVIEWS:
+Fuehre ein realistisches Bewerbungsgespraech in 3 Phasen:
+
+PHASE 1 — KENNENLERNEN (2-3 Fragen):
+- "Erzaehlen Sie mir etwas ueber sich und Ihren beruflichen Werdegang."
+- "Was hat Sie an dieser Position besonders angesprochen?"
+- Reagiere auf die Antworten wie ein echter Interviewer
+
+PHASE 2 — FACHFRAGEN (3-4 Fragen):
+- Stelle Fragen passend zur Position und den erforderlichen Skills
+- "Wie wuerden Sie [konkretes Szenario] loesen?"
+- "Welche Erfahrung haben Sie mit [Technologie/Methode]?"
+
+PHASE 3 — SITUATIVE FRAGEN / STAR (2-3 Fragen):
+- "Erzaehlen Sie von einer Situation, in der..."
+- Pruefe ob die Antworten dem STAR-Format folgen
+- Falls nicht: Hilf mit Nachfragen (Situation? Aufgabe? Aktion? Ergebnis?)
+
+WICHTIGE REGELN:
+- Stelle immer NUR EINE Frage auf einmal
+- Warte auf die Antwort bevor du die naechste Frage stellst
+- Reagiere natuerlich auf die Antworten (Nachfragen, Bestaetigung)
+- Am Ende: Gib konstruktives Feedback zu JEDER Antwort
+- Bewerte: Struktur, Konkretheit, STAR-Format, Ueberzeugungskraft
+- Schlage Verbesserungen vor fuer schwache Antworten
+- Sprich formal (Sie) als Interviewer, aber sei wohlwollend
+
+ABSCHLUSS:
+→ Gib eine Gesamtbewertung (1-10)
+→ Liste die 3 staerksten und 3 verbesserungswuerdigsten Punkte
+→ Biete an: "Soll ich den Bewerbungsstatus auf 'interview' setzen?"
+→ bewerbung_status_aendern(id, 'interview')"""
+
+
+@mcp.prompt()
+def gehaltsverhandlung(stelle: str = "", firma: str = "") -> str:
+    """Gehaltsverhandlung vorbereiten — Strategie, Argumente und Taktik."""
+    return f"""Bereite eine Gehaltsverhandlung vor fuer:
+Stelle: {stelle}
+Firma: {firma}
+
+DATENSAMMLUNG (zuerst ausfuehren):
+1. Rufe profil_zusammenfassung() auf — zeige Erfahrung und Gehaltsvorstellungen
+2. Rufe gehalt_marktanalyse() auf — zeige Marktdaten
+3. Falls Firma angegeben: Rufe firmen_recherche('{firma}') auf
+4. Falls Stelle angegeben: Rufe gehalt_extrahieren() fuer die Stelle auf
+
+ANALYSE & STRATEGIE:
+Erstelle eine vollstaendige Verhandlungsvorbereitung:
+
+1. MARKTANALYSE
+   - Was zahlt der Markt fuer diese Position/Region/Erfahrung?
+   - Wie steht das Angebot im Vergleich?
+   - Freelance vs. Festanstellung Unterschied
+
+2. DEIN WERT
+   - Welche einzigartigen Kompetenzen bringst du mit?
+   - Welche Erfolge/Projekte sind besonders verhandlungsrelevant?
+   - Wie viele Jahre relevante Erfahrung?
+
+3. VERHANDLUNGSSTRATEGIE
+   - Ankerpunkt: Nenne zuerst eine Zahl (leicht ueber Ziel)
+   - Minimum: Unter diesem Wert nicht akzeptieren
+   - Ziel: Realistische Erwartung
+   - Stretch: Beste erreichbare Zahl
+   - Timing: Wann das Gehaltsthema ansprechen
+
+4. ARGUMENTATION (5 Saetze)
+   - Formuliere 5 konkrete Saetze fuer die Verhandlung
+   - Verknuepfe jeden mit einem Erfolg/Projekt aus dem Profil
+   - Beispiel: "In meinem letzten Projekt habe ich [Ergebnis] erzielt,
+     was zeigt dass ich [Wert] bringe."
+
+5. TAKTIKEN
+   - "Gesamtpaket" denken: Gehalt + Benefits + Urlaub + Remote + Weiterbildung
+   - Nie sofort zusagen — "Ich moechte darueber nachdenken"
+   - Gegenangebot vorbereiten
+   - Schriftlich festhalten
+
+6. FALLSTRICKE
+   - Was tun wenn das Angebot zu niedrig ist?
+   - Was tun wenn "das Budget ist fix" kommt?
+   - Wie auf "Was verdienen Sie aktuell?" reagieren?
+
+Sprich Deutsch, per Du, und sei direkt mit konkreten Zahlen."""
+
+
+@mcp.prompt()
+def netzwerk_strategie(firma: str = "") -> str:
+    """Networking-Strategie fuer eine Zielfirma — Kontakte und Ansprache."""
+    return f"""Entwickle eine Networking-Strategie fuer die Firma: {firma}
+
+DATENSAMMLUNG (zuerst ausfuehren):
+1. Rufe profil_zusammenfassung() auf — zeige Erfahrung und Kontakte
+2. Falls Firmendaten vorhanden: Rufe firmen_recherche('{firma}') auf
+3. Rufe bewerbungen_anzeigen() auf — pruefe ob du dort schon beworben bist
+
+STRATEGIE ENTWICKELN:
+
+1. FIRMEN-ANALYSE
+   - Was macht die Firma? (aus Stellenanzeigen ablesen)
+   - Welche Abteilungen/Bereiche sind relevant?
+   - Welche Technologien/Methoden nutzen sie?
+
+2. KONTAKTSUCHE (Anleitung fuer LinkedIn)
+   - Suche auf LinkedIn nach: "{firma}" + deine Branche
+   - Interessante Positionen: HR, Teamleiter, Fachkollegen
+   - Ehemalige Kollegen die dort arbeiten koennten
+   - Alumni von deiner Ausbildung/Uni
+
+3. ANSCHREIBEN-TEMPLATES
+
+   a) Erstkontakt (LinkedIn Connection Request):
+   "Hallo [Name], ich bin [Dein Name] und arbeite seit [X Jahren] im Bereich
+   [Fachgebiet]. Ich interessiere mich fuer [Firma] und wuerde mich gerne
+   austauschen. Beste Gruesse"
+
+   b) Informationsgespraech anfragen:
+   "Hallo [Name], vielen Dank fuer die Vernetzung! Ich schaue mich gerade
+   nach neuen Herausforderungen im Bereich [Fachgebiet] um und finde
+   [Firma] sehr spannend. Haetten Sie Zeit fuer ein kurzes
+   Informationsgespraech (15-20 Minuten)? Ich wuerde gerne mehr ueber
+   die Arbeit bei [Firma] erfahren."
+
+   c) Nach Informationsgespraech:
+   "Vielen Dank fuer Ihre Zeit! Das Gespraech hat mich noch mehr
+   ueberzeugt, dass [Firma] zu mir passt. Sie hatten erwaehnt, dass
+   [Detail]. Gibt es eine offene Position fuer die ich mich bewerben koennte?"
+
+4. ZEITPLAN
+   - Woche 1: LinkedIn-Profil optimieren, Kontakte identifizieren
+   - Woche 2: Connection Requests senden (5-10 Personen)
+   - Woche 3: Follow-up, Informationsgespraeche vereinbaren
+   - Woche 4: Bewerbung mit Referenz aus dem Netzwerk
+
+5. DOS AND DON'TS
+   ✅ Authentisch sein, echtes Interesse zeigen
+   ✅ Erst Wert bieten, dann fragen
+   ✅ Geduldig sein — Netzwerken dauert
+   ❌ Nicht sofort nach Jobs fragen
+   ❌ Nicht zu viele Nachrichten auf einmal
+   ❌ Nicht copy-paste fuer alle Kontakte
+
+Sprich Deutsch und per Du. Passe die Templates an das Profil an."""
+
+
+# ============================================================
 # Server runner
 # ============================================================
 
@@ -1766,5 +2316,5 @@ def run_server():
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.1.0")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.7.0")
     mcp.run(transport="stdio")
