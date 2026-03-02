@@ -4,7 +4,7 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.4.0
+:: PBP Installer v0.5.0
 :: Fix: GOTO-basierte Fehlerbehandlung
 ::      (keine Klammern in echo innerhalb IF-Bloecken)
 :: Fix: Debug-Logging zwischen allen Schritten
@@ -33,7 +33,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.4.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.5.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -44,11 +44,11 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.4.0
+echo    Installer v0.5.0
 echo.
 echo  ====================================================
 echo.
-echo  Willkommen\! Dieses Setup richtet ALLES automatisch ein.
+echo  Willkommen! Dieses Setup richtet ALLES automatisch ein.
 echo  Du musst NICHTS selber installieren oder konfigurieren.
 echo  Einfach warten - alles passiert von alleine.
 echo.
@@ -65,7 +65,7 @@ echo.
 echo  Dauer: ca. 3-5 Minuten
 echo.
 echo  ****************************************************
-echo  *  WICHTIG: Dieses Fenster NICHT schliessen\!       *
+echo  *  WICHTIG: Dieses Fenster NICHT schliessen!       *
 echo  *  Einfach warten bis "FERTIG" erscheint.          *
 echo  ****************************************************
 echo.
@@ -83,7 +83,7 @@ if exist "%PYTHON%" goto :python_ready
 echo.
 echo         Python ist noch nicht vorhanden.
 echo         Wird jetzt AUTOMATISCH heruntergeladen
-echo         und eingerichtet. Einfach warten\!
+echo         und eingerichtet. Einfach warten!
 echo.
 
 :: 64-Bit pruefen
@@ -94,7 +94,7 @@ echo [DEBUG] Architektur OK >> "%LOGFILE%"
 :: Curl pruefen
 echo [DEBUG] Pruefe curl... >> "%LOGFILE%"
 where curl.exe >nul 2>&1
-if \!errorlevel\! neq 0 goto :no_curl
+if !errorlevel! neq 0 goto :no_curl
 echo [OK] curl.exe gefunden >> "%LOGFILE%"
 set "USE_CURL=1"
 goto :curl_ok
@@ -115,17 +115,17 @@ echo         Lade Python %PY_VERSION% herunter ^(ca. 11 MB^)...
 echo [INFO] Download: %PY_URL% >> "%LOGFILE%"
 echo [DEBUG] Ziel: %PY_ZIP_PATH% >> "%LOGFILE%"
 
-if "\!USE_CURL\!"=="0" goto :download_ps
+if "!USE_CURL!"=="0" goto :download_ps
 
 echo [DEBUG] Starte curl Download... >> "%LOGFILE%"
 curl.exe -L --progress-bar -o "%PY_ZIP_PATH%" "%PY_URL%"
-echo [DEBUG] curl beendet, errorlevel=\!errorlevel\! >> "%LOGFILE%"
+echo [DEBUG] curl beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 goto :download_done
 
 :download_ps
 echo [DEBUG] Starte PowerShell Download... >> "%LOGFILE%"
 powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityPointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_ZIP_PATH%'" 2>> "%LOGFILE%"
-echo [DEBUG] PowerShell beendet, errorlevel=\!errorlevel\! >> "%LOGFILE%"
+echo [DEBUG] PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :download_done
 echo [DEBUG] Pruefe ob ZIP existiert: %PY_ZIP_PATH% >> "%LOGFILE%"
@@ -141,7 +141,7 @@ echo [INFO] Entpacke %PY_ZIP_PATH% nach %PYTHON_DIR% >> "%LOGFILE%"
 :: PowerShell Expand-Archive (zuverlaessiger als tar fuer ZIP)
 echo [DEBUG] Rufe PowerShell Expand-Archive auf... >> "%LOGFILE%"
 powershell -ExecutionPolicy Bypass -NoProfile -Command "Expand-Archive -Path '%PY_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force" 2>> "%LOGFILE%"
-echo [DEBUG] Expand-Archive beendet, errorlevel=\!errorlevel\! >> "%LOGFILE%"
+echo [DEBUG] Expand-Archive beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :: Pruefen ob python.exe existiert
 echo [DEBUG] Pruefe python.exe in: %PYTHON% >> "%LOGFILE%"
@@ -161,12 +161,12 @@ set "PTH_FILE="
 for %%f in ("%PYTHON_DIR%\python*._pth") do set "PTH_FILE=%%f"
 if not defined PTH_FILE goto :pth_done
 
-echo [DEBUG] PTH: \!PTH_FILE\! >> "%LOGFILE%"
+echo [DEBUG] PTH: !PTH_FILE! >> "%LOGFILE%"
 :: import site entkommentieren
-powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content '\!PTH_FILE\!') -replace '^#import site','import site' | Set-Content '\!PTH_FILE\!'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content '!PTH_FILE!') -replace '^#import site','import site' | Set-Content '!PTH_FILE!'" 2>> "%LOGFILE%"
 :: ../src Pfad hinzufuegen
-findstr /C:"../src" "\!PTH_FILE\!" >nul 2>&1
-if \!errorlevel\! neq 0 echo ../src>> "\!PTH_FILE\!"
+findstr /C:"../src" "!PTH_FILE!" >nul 2>&1
+if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
 echo [OK] _pth konfiguriert >> "%LOGFILE%"
 
 :pth_done
@@ -178,15 +178,15 @@ echo         Installiere Paketmanager ^(pip^)...
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"
 echo [DEBUG] Lade get-pip.py... >> "%LOGFILE%"
 
-if "\!USE_CURL\!"=="0" goto :getpip_ps
+if "!USE_CURL!"=="0" goto :getpip_ps
 
 curl.exe -sL -o "%GETPIP_PATH%" "%GETPIP_URL%" 2>> "%LOGFILE%"
-echo [DEBUG] get-pip curl beendet, errorlevel=\!errorlevel\! >> "%LOGFILE%"
+echo [DEBUG] get-pip curl beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 goto :getpip_done
 
 :getpip_ps
 powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityPointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile '%GETPIP_PATH%'" 2>> "%LOGFILE%"
-echo [DEBUG] get-pip PowerShell beendet, errorlevel=\!errorlevel\! >> "%LOGFILE%"
+echo [DEBUG] get-pip PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :getpip_done
 echo [DEBUG] Pruefe get-pip.py... >> "%LOGFILE%"
@@ -194,7 +194,7 @@ if not exist "%GETPIP_PATH%" goto :err_getpip
 
 echo [DEBUG] Fuehre get-pip.py aus... >> "%LOGFILE%"
 "%PYTHON%" "%GETPIP_PATH%" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 goto :err_pip
+if !errorlevel! neq 0 goto :err_pip
 
 echo         [OK] Python + pip bereit
 echo [OK] pip installiert >> "%LOGFILE%"
@@ -206,11 +206,11 @@ powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path '%BA
 :: Python Schnelltest
 echo [DEBUG] Python Schnelltest... >> "%LOGFILE%"
 "%PYTHON%" -c "print('OK')" >nul 2>&1
-if \!errorlevel\! neq 0 goto :err_python_test
+if !errorlevel! neq 0 goto :err_python_test
 
 for /f "tokens=*" %%v in ('"%PYTHON%" --version 2^^^>^^^&1') do set PYVER=%%v
-echo         [OK] \!PYVER\!
-echo [OK] \!PYVER\! >> "%LOGFILE%"
+echo         [OK] !PYVER!
+echo [OK] !PYVER! >> "%LOGFILE%"
 echo.
 goto :install_packages
 
@@ -223,23 +223,23 @@ powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path '%BA
 
 echo         Teste Python...
 "%PYTHON%" -c "print('OK')" >nul 2>&1
-if \!errorlevel\! neq 0 goto :err_python_existing
+if !errorlevel! neq 0 goto :err_python_existing
 
 for /f "tokens=*" %%v in ('"%PYTHON%" --version 2^^^>^^^&1') do set PYVER=%%v
-echo         [OK] \!PYVER\!
-echo [OK] \!PYVER\! >> "%LOGFILE%"
+echo         [OK] !PYVER!
+echo [OK] !PYVER! >> "%LOGFILE%"
 
 :: _pth sicherstellen
 set "PTH_FILE="
 for %%f in ("%PYTHON_DIR%\python*._pth") do set "PTH_FILE=%%f"
 if not defined PTH_FILE goto :pth_ready_done
-findstr /C:"../src" "\!PTH_FILE\!" >nul 2>&1
-if \!errorlevel\! neq 0 echo ../src>> "\!PTH_FILE\!"
+findstr /C:"../src" "!PTH_FILE!" >nul 2>&1
+if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
 :pth_ready_done
 
 :: pip pruefen
 "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 call :fix_pip
+if !errorlevel! neq 0 call :fix_pip
 "%PYTHON%" -m pip install --upgrade pip -q --no-warn-script-location >> "%LOGFILE%" 2>&1
 echo.
 
@@ -256,13 +256,13 @@ echo         Bitte einfach warten...
 echo.
 echo         Falls ein Fenster erscheint das fragt ob Python
 echo         auf das Internet zugreifen darf: Bitte "Zugriff
-echo         erlauben" / "Allow access" klicken\!
+echo         erlauben" / "Allow access" klicken!
 echo.
 
 :: Internetverbindung testen
 echo [DEBUG] Teste Internet... >> "%LOGFILE%"
 "%PYTHON%" -c "import urllib.request; urllib.request.urlopen('https://pypi.org/simple/', timeout=10); print('OK')" >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 goto :internet_retry
+if !errorlevel! neq 0 goto :internet_retry
 
 :internet_ok
 echo [OK] Internet erreichbar >> "%LOGFILE%"
@@ -271,21 +271,21 @@ echo [OK] Internet erreichbar >> "%LOGFILE%"
 echo [DEBUG] Installiere Kernpakete... >> "%LOGFILE%"
 echo         Installiere Kernpakete...
 "%PYTHON%" -m pip install fastmcp uvicorn fastapi python-multipart httpx --no-warn-script-location >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 goto :err_packages
+if !errorlevel! neq 0 goto :err_packages
 echo         [OK] Kernpakete installiert
 echo [OK] Kernpakete installiert >> "%LOGFILE%"
 
 :: Optionale Pakete - Scraper
 echo [DEBUG] Optionale Pakete Scraper... >> "%LOGFILE%"
 "%PYTHON%" -m pip install beautifulsoup4 lxml --no-warn-script-location >> "%LOGFILE%" 2>&1
-if \!errorlevel\! equ 0 echo         [OK] Job-Scraper installiert
-if \!errorlevel\! neq 0 echo         [--] Job-Scraper uebersprungen
+if !errorlevel! equ 0 echo         [OK] Job-Scraper installiert
+if !errorlevel! neq 0 echo         [--] Job-Scraper uebersprungen
 
 :: Optionale Pakete - PDF/Word
 echo [DEBUG] Optionale Pakete PDF/Word... >> "%LOGFILE%"
 "%PYTHON%" -m pip install python-docx fpdf2 pypdf --no-warn-script-location >> "%LOGFILE%" 2>&1
-if \!errorlevel\! equ 0 echo         [OK] PDF/Word-Export installiert
-if \!errorlevel\! neq 0 echo         [--] PDF/Word-Export uebersprungen
+if !errorlevel! equ 0 echo         [OK] PDF/Word-Export installiert
+if !errorlevel! neq 0 echo         [--] PDF/Word-Export uebersprungen
 
 :: Datenverzeichnis erstellen
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
@@ -309,7 +309,7 @@ if exist "%LOCALAPPDATA%\AnthropicClaude\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%LOCALAPPDATA%\Programs\Claude\Claude.exe" set "CLAUDE_FOUND=1"
 
-if "\!CLAUDE_FOUND\!"=="1" goto :claude_found
+if "!CLAUDE_FOUND!"=="1" goto :claude_found
 
 echo.
 echo  Claude Desktop wurde nicht gefunden.
@@ -331,13 +331,13 @@ if not exist "%CLAUDE_DIR%" mkdir "%CLAUDE_DIR%"
 
 echo [DEBUG] Starte _setup_claude.py >> "%LOGFILE%"
 "%PYTHON%" "%BASEDIR%\_setup_claude.py" >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 goto :claude_config_failed
+if !errorlevel! neq 0 goto :claude_config_failed
 echo         [OK] Claude Desktop konfiguriert
 echo [OK] Claude konfiguriert >> "%LOGFILE%"
 goto :claude_config_done
 
 :claude_config_failed
-echo         [\!\!] Claude-Konfiguration fehlgeschlagen
+echo         [!!] Claude-Konfiguration fehlgeschlagen
 echo [FEHLER] _setup_claude.py >> "%LOGFILE%"
 
 :claude_config_done
@@ -351,15 +351,15 @@ echo  [4/4] Erstelle Startdateien und teste...
 echo [4/4] Startdateien + Test... >> "%LOGFILE%"
 
 :: Desktop-Verknuepfung
-powershell -ExecutionPolicy Bypass -NoProfile -Command "=New-Object -ComObject WScript.Shell; =.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); .TargetPath='%BASEDIR%\Dashboard starten.bat'; .WorkingDirectory='%BASEDIR%'; .Description='PBP Dashboard'; .Save()" >nul 2>&1
-if \!errorlevel\! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
-if \!errorlevel\! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%BASEDIR%\Dashboard starten.bat'; $s.WorkingDirectory='%BASEDIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
+if !errorlevel! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
+if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 
 :: Schnelltest
 echo [DEBUG] Starte Schnelltest >> "%LOGFILE%"
 "%PYTHON%" "%BASEDIR%\_selftest.py" >> "%LOGFILE%" 2>&1
-if \!errorlevel\! equ 0 echo         [OK] Funktionstest bestanden
-if \!errorlevel\! neq 0 echo         [\!\!] Funktionstest nicht bestanden
+if !errorlevel! equ 0 echo         [OK] Funktionstest bestanden
+if !errorlevel! neq 0 echo         [!!] Funktionstest nicht bestanden
 
 echo [OK] Installation abgeschlossen >> "%LOGFILE%"
 echo.
@@ -370,7 +370,7 @@ echo.
 echo.
 echo  ====================================================
 echo.
-echo    FERTIG - Alles installiert\!
+echo    FERTIG - Alles installiert!
 echo.
 echo  ====================================================
 echo.
@@ -404,7 +404,7 @@ echo    Log-Datei: %LOGFILE%
 echo.
 
 set /p OPEN_DASH="  Dashboard jetzt im Browser oeffnen? ^(j/n^): "
-if /i "\!OPEN_DASH\!" neq "j" goto :skip_dashboard
+if /i "!OPEN_DASH!" neq "j" goto :skip_dashboard
 
 echo.
 echo  Starte Dashboard...
@@ -414,7 +414,7 @@ echo  Dashboard laeuft auf http://localhost:8200
 echo.
 
 :skip_dashboard
-echo  Viel Erfolg bei der Jobsuche\!
+echo  Viel Erfolg bei der Jobsuche!
 echo.
 echo  Druecke eine beliebige Taste zum Schliessen...
 pause >nul
@@ -422,14 +422,14 @@ exit /b 0
 
 :: ===================================================
 :: FEHLERBEHANDLUNG
-:: Alle Labels hier unten - AUSSERHALB von Klammern\!
+:: Alle Labels hier unten - AUSSERHALB von Klammern!
 :: So koennen Sonderzeichen sicher in echo verwendet werden.
 :: ===================================================
 
 :err_32bit
 echo [FEHLER] 32-Bit Windows >> "%LOGFILE%"
 echo.
-echo  FEHLER: 32-Bit Windows erkannt\!
+echo  FEHLER: 32-Bit Windows erkannt!
 echo  Der Bewerbungs-Assistent benoetigt 64-Bit Windows.
 echo.
 pause
@@ -438,7 +438,7 @@ exit /b 1
 :err_download
 echo [FEHLER] Python-Download fehlgeschlagen >> "%LOGFILE%"
 echo.
-echo  FEHLER: Python konnte nicht heruntergeladen werden\!
+echo  FEHLER: Python konnte nicht heruntergeladen werden!
 echo.
 echo  Pruefe deine Internetverbindung (oeffne google.de)
 echo  und starte INSTALLIEREN.bat dann nochmal.
@@ -452,7 +452,7 @@ exit /b 1
 :err_extract
 echo [FEHLER] python.exe nach Entpacken nicht gefunden >> "%LOGFILE%"
 echo.
-echo  FEHLER: Python konnte nicht entpackt werden\!
+echo  FEHLER: Python konnte nicht entpackt werden!
 echo  Versuche INSTALLIEREN.bat als Administrator auszufuehren.
 echo  (Rechtsklick, "Als Administrator ausfuehren")
 echo  (Log: %LOGFILE%)
@@ -463,7 +463,7 @@ exit /b 1
 :err_getpip
 echo [FEHLER] get-pip.py fehlgeschlagen >> "%LOGFILE%"
 echo.
-echo  FEHLER: Paketmanager konnte nicht geladen werden\!
+echo  FEHLER: Paketmanager konnte nicht geladen werden!
 echo  Pruefe deine Internetverbindung.
 echo.
 pause
@@ -472,7 +472,7 @@ exit /b 1
 :err_pip
 echo [FEHLER] pip install fehlgeschlagen >> "%LOGFILE%"
 echo.
-echo  FEHLER: Paketmanager konnte nicht installiert werden\!
+echo  FEHLER: Paketmanager konnte nicht installiert werden!
 echo  (Log: %LOGFILE%)
 echo.
 pause
@@ -481,7 +481,7 @@ exit /b 1
 :err_python_test
 echo [FEHLER] Python-Schnelltest fehlgeschlagen >> "%LOGFILE%"
 echo.
-echo  FEHLER: Python funktioniert nicht\!
+echo  FEHLER: Python funktioniert nicht!
 echo  Evtl. blockiert der Virenscanner python.exe.
 echo  Fuege diesen Ordner als Ausnahme hinzu: %BASEDIR%
 echo.
@@ -515,7 +515,7 @@ echo  Falls ein Firewall-Fenster erschien: "Zugriff erlauben"
 echo  Dann druecke eine Taste zum Wiederholen.
 pause >nul
 "%PYTHON%" -c "import urllib.request; urllib.request.urlopen('https://pypi.org/simple/', timeout=15); print('OK')" >> "%LOGFILE%" 2>&1
-if \!errorlevel\! neq 0 goto :err_internet
+if !errorlevel! neq 0 goto :err_internet
 goto :internet_ok
 
 :err_internet
@@ -529,6 +529,6 @@ exit /b 1
 :fix_pip
 echo         pip wird nachinstalliert...
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"
-if not exist "\!GETPIP_PATH\!" curl.exe -sL -o "\!GETPIP_PATH\!" "%GETPIP_URL%" 2>> "%LOGFILE%"
-"%PYTHON%" "\!GETPIP_PATH\!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+if not exist "!GETPIP_PATH!" curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"
+"%PYTHON%" "!GETPIP_PATH!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
 goto :eof
