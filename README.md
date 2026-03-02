@@ -308,9 +308,24 @@ python -m pytest tests/ -v
 
 ---
 
+## Geplante Features
+
+- **Multi-Profil-Support** (PBP-025) — Mehrere Benutzerprofile pro PC, automatische Erkennung, Profil-Wechsel
+- **Fortführbare Ersterfassung** (PBP-026) — Profil-Gespräch jederzeit pausieren und später fortsetzen
+- **UX-Verbesserungen** (PBP-027) — Tooltips, Copy-Buttons, erklärende Links im Dashboard
+- **Erweiterte KI-Features** (PBP-014) — Weiterführende KI-gestützte Bewerbungsoptimierung
+
+---
+
 ## Changelog
 
-### v0.4.0 — Installer Fix (2026-03-02)
+### v0.5.0 — Installer-Fix Delayed Expansion (2026-03-02)
+- Fix: `!variable!`-Syntax für CMD.exe Delayed Expansion wiederhergestellt
+- Fix: PowerShell-Variablen in Expand-Archive korrekt escaped
+- Feature: Vollständiger Installationsdurchlauf (Python + pip + Pakete + Claude Desktop Config)
+- Getestet und funktionsfähig auf Windows 10/11
+
+### v0.4.0 — Installer GOTO-Refactoring (2026-03-02)
 - Fix: GOTO-basierte Fehlerbehandlung im Windows-Installer
 - Fix: PowerShell Expand-Archive statt tar für ZIP-Entpackung
 - Fix: Debug-Logging zwischen allen Installationsschritten
