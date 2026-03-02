@@ -34,12 +34,12 @@ Claude Desktop (Windows)
     │
     │ stdio (MCP Protocol)
     ▼
-server.py (FastMCP)  ◄── 36 Tools, 6 Resources, 11 Prompts
+server.py (FastMCP)  ◄── 42 Tools, 6 Resources, 12 Prompts
     │
     ▼
-database.py (SQLite)  ◄── 14 Tabellen, WAL Mode, Schema v4, Multi-Profil
+database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v5, Multi-Profil
     │
-    ├──► dashboard.py (FastAPI :8200)  ◄── 32 API Endpoints
+    ├──► dashboard.py (FastAPI :8200)  ◄── 36 API Endpoints
     │         │
     │         ▼
     │     dashboard.html (SPA)  ◄── 5 Tabs, Vanilla JS
@@ -165,7 +165,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 36 Tools
+### 42 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -180,11 +180,17 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `profile_auflisten` | Alle Profile auflisten (Multi-Profil) |
 | `profil_wechseln` | Aktives Profil wechseln |
 | `neues_profil_erstellen` | Neues leeres Profil anlegen |
-| `profil_loeschen` | Profil löschen (nicht das aktive) |
+| `profil_loeschen` | Profil löschen (auch aktives, mit Auto-Switch) |
 | `erfassung_fortschritt_lesen` | Ersterfassungs-Fortschritt abrufen |
 | `erfassung_fortschritt_speichern` | Fortschritt pro Bereich speichern |
 | `dokument_profil_extrahieren` | Profildaten aus Dokument extrahieren |
 | `dokumente_zur_analyse` | Dokumente mit extrahierbarem Text auflisten |
+| `extraktion_starten` | Dokument-Analyse starten und Texte laden |
+| `extraktion_ergebnis_speichern` | Extraktionsergebnis zwischenspeichern |
+| `extraktion_anwenden` | Extrahierte Daten auf Profil anwenden |
+| `extraktions_verlauf` | Historie aller Extraktionen anzeigen |
+| `profil_exportieren` | Profil als JSON-Backup exportieren |
+| `profil_importieren` | Profil aus JSON-Backup importieren |
 | `jobsuche_starten` | Multi-Quellen Stellensuche starten |
 | `jobsuche_status` | Suchfortschritt abfragen |
 | `stellen_anzeigen` | Jobs mit Filter und Scoring anzeigen |
@@ -217,11 +223,12 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `bewerbungen://statistik` | Bewerbungsstatistiken |
 | `config://suchkriterien` | Aktuelle Sucheinstellungen |
 
-### 11 Prompts
+### 12 Prompts
 
 | Prompt | Beschreibung |
 |--------|-------------|
 | `ersterfassung` | Gesprächsbasierte Profilerstellung (4 Phasen) |
+| `profil_erweiterung` | Profil aus Dokumenten erweitern (5-Schritte-Workflow) |
 | `bewerbung_schreiben` | Stellenspezifisches Anschreiben |
 | `interview_vorbereitung` | Interview-Prep mit STAR-Antworten |
 | `profil_ueberpruefen` | Profil prüfen und korrigieren |
@@ -237,7 +244,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 14 Tabellen, Schema v4 (Multi-Profil + KI-Features):
+SQLite mit WAL-Mode, 15 Tabellen, Schema v5 (Multi-Profil + KI-Features + Extraktion):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -246,7 +253,8 @@ SQLite mit WAL-Mode, 14 Tabellen, Schema v4 (Multi-Profil + KI-Features):
 | `projects` | STAR-Projekte (→ positions) |
 | `education` | Ausbildung |
 | `skills` | Kompetenzen (5 Kategorien) |
-| `documents` | Hochgeladene Dokumente |
+| `documents` | Hochgeladene Dokumente (+ Extraktions-Status) |
+| `extraction_history` | Extraktions-Verlauf (Konflikte, angewandte Felder) |
 | `jobs` | Stellenangebote (8 Quellen) |
 | `applications` | Bewerbungen (6 Status-Stufen) |
 | `application_events` | Bewerbungs-Timeline |
@@ -274,9 +282,9 @@ PBP/
 ├── pyproject.toml                # Build-Konfiguration
 │
 ├── src/bewerbungs_assistent/
-│   ├── server.py                 # MCP Server (36 Tools, 6 Resources, 11 Prompts)
-│   ├── database.py               # SQLite Layer (13 Tabellen)
-│   ├── dashboard.py              # FastAPI Dashboard (32 Endpoints)
+│   ├── server.py                 # MCP Server (42 Tools, 6 Resources, 12 Prompts)
+│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v5)
+│   ├── dashboard.py              # FastAPI Dashboard (36 Endpoints)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -345,6 +353,21 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.8.0 — Smart Auto-Extraction, Profil-Backup & Dashboard-Integration (2026-03-02)
+- Feature: **Smart Auto-Extraction** — Dokumente (CV, Zeugnisse, Projektbeschreibungen) automatisch analysieren und Profildaten extrahieren
+- Feature: **Extraktion-Workflow** — 5-Schritte-Prozess mit Konflikt-Erkennung und Duplikat-Prüfung
+- Feature: **Profil-Export** — Komplettes Profil als JSON-Backup exportieren (für Rechner-Umzug)
+- Feature: **Profil-Import** — Profil aus JSON-Backup wiederherstellen (erstellt neues Profil)
+- Feature: **Verbessertes Löschen** — Aktives Profil löschbar mit Auto-Switch zum nächsten
+- Feature: **Profil-Vollständigkeit** — 9-Kategorien-Check mit Fortschrittsbalken im Dashboard
+- Prompt: **`/profil_erweiterung`** — Geführter 5-Schritte-Workflow für Dokument-Analyse
+- Dashboard: Export/Import-Buttons im Profil-Header
+- Dashboard: Extraktions-Verlauf mit Status-Badges unter Dokumenten
+- Dashboard: Upload-Hinweis mit Verweis auf `/profil_erweiterung`
+- Schema: Datenbank-Migration v4→v5 (extraction_history Tabelle, extraction_status auf documents)
+- API: 4 neue Endpoints (completeness, extractions, export, import)
+- Tools: 36→42, Prompts: 11→12, Tabellen: 14→15, API-Endpoints: 32→36
 
 ### v0.7.0 — Erweiterte KI-Features (2026-03-02)
 - Feature: **Interview-Simulation** — Claude spielt den Interviewer, bewertet STAR-Antworten
