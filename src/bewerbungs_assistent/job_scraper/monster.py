@@ -1,26 +1,17 @@
-"""Monster.de job scraper via HTML parsing.
+"""Monster.de job scraper via Playwright.
 
-Searches monster.de for job listings using httpx + BeautifulSoup.
+Uses headless Chromium to handle JavaScript-rendered search results.
 No login required.
 """
 
 import logging
+import random
 import time
 from urllib.parse import quote
-
-import httpx
-from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.monster")
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "de-DE,de;q=0.9",
-    "Accept": "text/html,application/xhtml+xml",
-}
 
 FALLBACK_QUERIES = [
     "PLM Consultant",
@@ -30,92 +21,106 @@ FALLBACK_QUERIES = [
 
 
 def search_monster(params: dict) -> list:
-    """Search Monster Germany for job listings.
+    """Search Monster Germany via Playwright headless browser."""
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+    except ImportError:
+        logger.warning("Playwright nicht installiert — Monster uebersprungen")
+        return []
 
-    Args:
-        params: Search parameters with optional 'keywords' dict
-                containing 'monster_queries' list.
-    """
     jobs = []
-
-    # Dynamic queries from DB, fallback to hardcoded
     kw_data = params.get("keywords", {})
     queries = kw_data.get("monster_queries", FALLBACK_QUERIES)
 
-    with httpx.Client(timeout=30, headers=HEADERS, follow_redirects=True) as client:
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+        )
+        context = browser.new_context(
+            viewport={"width": random.randint(1200, 1400), "height": random.randint(800, 1000)},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            locale="de-DE",
+        )
+        page = context.new_page()
+
         for query in queries:
             try:
                 url = f"https://www.monster.de/jobs/suche/?q={quote(query)}&where=Deutschland"
-                resp = client.get(url)
-                if resp.status_code != 200:
-                    logger.warning("Monster %d for '%s'", resp.status_code, query)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(random.uniform(2, 4))
+
+                # Wait for job cards
+                try:
+                    page.wait_for_selector(
+                        "[data-testid='svx-job-card'], .card-content, .job-search-card, article",
+                        timeout=10000,
+                    )
+                except PWTimeout:
+                    logger.debug("Monster: Keine Job-Cards fuer '%s'", query)
                     continue
 
-                soup = BeautifulSoup(resp.text, "lxml")
+                # Extract via JavaScript
+                raw_jobs = page.evaluate("""() => {
+                    const results = [];
+                    const cards = document.querySelectorAll(
+                        "div[data-testid='svx-job-card'], section.card-content, " +
+                        "div.job-search-card, article.job-cardstyle, article[data-testid]"
+                    );
+                    for (const card of cards) {
+                        const titleEl = card.querySelector(
+                            "[data-testid='svx-job-title'] a, h3 a, h2 a, a.job-cardstyle__title"
+                        );
+                        if (!titleEl) continue;
+                        const title = titleEl.textContent?.trim() || '';
+                        if (!title) continue;
 
-                # Monster card selectors
-                cards = (
-                    soup.select("div[data-testid='svx-job-card']") or
-                    soup.select("section.card-content") or
-                    soup.select("div.job-search-card") or
-                    soup.select("article.job-cardstyle")
-                )
+                        let link = titleEl.getAttribute('href') || '';
+                        if (link && !link.startsWith('http')) {
+                            link = 'https://www.monster.de' + link;
+                        }
 
-                for card in cards:
-                    # Title
-                    title_el = (
-                        card.select_one("[data-testid='svx-job-title'] a") or
-                        card.select_one("h3 a") or
-                        card.select_one("h2 a") or
-                        card.select_one("a.job-cardstyle__title")
-                    )
-                    if not title_el:
-                        continue
-                    title = title_el.get_text(strip=True)
-                    if not title:
-                        continue
+                        const companyEl = card.querySelector(
+                            "[data-testid='svx-job-company'], .company, [class*='company']"
+                        );
+                        const locationEl = card.querySelector(
+                            "[data-testid='svx-job-location'], .location, [class*='location']"
+                        );
+                        const descEl = card.querySelector("[class*='description'], p");
 
-                    # Link
-                    link = title_el.get("href", "")
-                    if link and not link.startswith("http"):
-                        link = "https://www.monster.de" + link
+                        results.push({
+                            title,
+                            link,
+                            company: companyEl?.textContent?.trim() || 'Unbekannt',
+                            location: locationEl?.textContent?.trim() || '',
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 500),
+                        });
+                    }
+                    return results;
+                }""")
 
-                    # Company
-                    company_el = (
-                        card.select_one("[data-testid='svx-job-company']") or
-                        card.select_one(".company") or
-                        card.select_one("[class*='company']")
-                    )
-                    company = company_el.get_text(strip=True) if company_el else "Unbekannt"
-
-                    # Location
-                    location_el = (
-                        card.select_one("[data-testid='svx-job-location']") or
-                        card.select_one(".location") or
-                        card.select_one("[class*='location']")
-                    )
-                    location = location_el.get_text(strip=True) if location_el else ""
-
-                    # Description
-                    desc_el = card.select_one("[class*='description']") or card.select_one("p")
-                    desc = desc_el.get_text(strip=True) if desc_el else ""
-
+                for raw in raw_jobs:
                     job = {
-                        "hash": stelle_hash("monster.de", title),
-                        "title": title,
-                        "company": company,
-                        "location": location,
-                        "url": link,
+                        "hash": stelle_hash("monster.de", raw["title"]),
+                        "title": raw["title"],
+                        "company": raw["company"],
+                        "location": raw["location"],
+                        "url": raw["link"],
                         "source": "monster",
-                        "description": desc[:500],
+                        "description": raw["desc"],
                         "employment_type": "festanstellung",
-                        "remote_level": detect_remote_level(f"{title} {location} {desc}"),
+                        "remote_level": detect_remote_level(
+                            f"{raw['title']} {raw['location']} {raw['desc']}"
+                        ),
                     }
                     jobs.append(job)
 
-                time.sleep(1.5)  # Rate limiting
+                time.sleep(random.uniform(1.5, 3))
             except Exception as e:
                 logger.error("Monster error for '%s': %s", query, e)
+
+        browser.close()
 
     logger.info("Monster: %d Stellen gefunden", len(jobs))
     return jobs

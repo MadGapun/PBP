@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def _gen_id() -> str:
@@ -244,6 +244,40 @@ class Database:
                 logger.warning("Migration v5->v6 applications: %s", e)
                 conn.execute("PRAGMA foreign_keys=ON")
             logger.info("Migration v5->v6: FK fix + rejection_reason Spalte")
+
+        if from_ver < 7:
+            # v7: Salary estimation flag + user preferences table
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN salary_min REAL")
+            except Exception:
+                pass  # Already exists from v4
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN salary_max REAL")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN salary_type TEXT")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN salary_estimated INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.debug("salary_estimated already exists: %s", e)
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TEXT
+                );
+            """)
+            try:
+                conn.execute(
+                    "ALTER TABLE documents ADD COLUMN linked_application_id INTEGER "
+                    "REFERENCES applications(id) ON DELETE SET NULL"
+                )
+            except Exception:
+                pass  # Already exists
+            logger.info("Migration v6->v7: salary_estimated + user_preferences + doc-app link")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -550,6 +584,15 @@ class Database:
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
 
+    def link_document_to_application(self, doc_id, application_id: int):
+        """Link a document to an application."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE documents SET linked_application_id=? WHERE id=?",
+            (application_id, str(doc_id)),
+        )
+        conn.commit()
+
     # === Jobs ===
 
     def save_jobs(self, jobs: list):
@@ -559,14 +602,17 @@ class Database:
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
-                    salary_info, employment_type, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    salary_info, salary_min, salary_max, salary_type, salary_estimated,
+                    employment_type, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 job["hash"], job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
                 job.get("description"), job.get("score", 0),
                 job.get("remote_level", "unbekannt"),
                 job.get("distance_km"), job.get("salary_info"),
+                job.get("salary_min"), job.get("salary_max"),
+                job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
                 job.get("found_at", now), now
             ))
@@ -895,6 +941,29 @@ class Database:
             INSERT OR REPLACE INTO settings (key, value)
             VALUES (?, ?)
         """, (key, json.dumps(value, ensure_ascii=False)))
+        conn.commit()
+
+    # === User Preferences (PBP v0.10.0) ===
+
+    def get_user_preference(self, key: str, default=None):
+        """Get a user preference value."""
+        conn = self.connect()
+        cur = conn.execute("SELECT value FROM user_preferences WHERE key=?", (key,))
+        row = cur.fetchone()
+        if row is None:
+            return default
+        try:
+            return json.loads(row["value"])
+        except (json.JSONDecodeError, TypeError):
+            return row["value"]
+
+    def set_user_preference(self, key: str, value):
+        """Set a user preference value."""
+        conn = self.connect()
+        conn.execute("""
+            INSERT OR REPLACE INTO user_preferences (key, value, updated_at)
+            VALUES (?, ?, ?)
+        """, (key, json.dumps(value, ensure_ascii=False), _now()))
         conn.commit()
 
     # === Rejection Analysis (PBP v0.9.0) ===
@@ -1269,6 +1338,7 @@ CREATE TABLE IF NOT EXISTS documents (
     doc_type TEXT DEFAULT 'sonstiges',
     extracted_text TEXT,
     linked_position_id TEXT REFERENCES positions(id) ON DELETE SET NULL,
+    linked_application_id INTEGER REFERENCES applications(id) ON DELETE SET NULL,
     profile_id TEXT,
     extraction_status TEXT DEFAULT 'nicht_extrahiert',
     last_extraction_at TEXT,
@@ -1287,6 +1357,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     remote_level TEXT DEFAULT 'unbekannt',
     distance_km REAL,
     salary_info TEXT,
+    salary_min REAL,
+    salary_max REAL,
+    salary_type TEXT,
+    salary_estimated INTEGER DEFAULT 0,
     employment_type TEXT DEFAULT 'festanstellung',
     dismiss_reason TEXT,
     is_active INTEGER DEFAULT 1,
@@ -1383,4 +1457,10 @@ CREATE TABLE IF NOT EXISTS extraction_history (
 );
 CREATE INDEX IF NOT EXISTS idx_extraction_doc ON extraction_history(document_id);
 CREATE INDEX IF NOT EXISTS idx_extraction_profile ON extraction_history(profile_id);
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT
+);
 """

@@ -486,7 +486,9 @@ MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
 async def api_upload_document(
     file: UploadFile = File(...),
     doc_type: str = Form("sonstiges"),
-    position_id: str = Form("")
+    position_id: str = Form(""),
+    link_application_id: str = Form(""),
+    create_application: str = Form(""),
 ):
     from .database import get_data_dir
 
@@ -520,6 +522,12 @@ async def api_upload_document(
     except Exception as e:
         logger.warning("Text extraction failed for %s: %s", file.filename, e)
 
+    # Smart detection: auto-detect doc_type if "sonstiges"
+    if doc_type == "sonstiges":
+        detected = _detect_doc_type(file.filename, extracted)
+        if detected:
+            doc_type = detected
+
     did = _db.add_document({
         "filename": file.filename,
         "filepath": str(filepath),
@@ -527,7 +535,130 @@ async def api_upload_document(
         "extracted_text": extracted,
         "linked_position_id": position_id or None,
     })
-    return {"status": "ok", "id": did, "extracted_length": len(extracted)}
+
+    # Auto-link to application if requested
+    linked_app = None
+    if link_application_id:
+        try:
+            _db.link_document_to_application(did, int(link_application_id))
+            linked_app = int(link_application_id)
+        except Exception as e:
+            logger.warning("Failed to link doc %s to app %s: %s", did, link_application_id, e)
+    elif create_application:
+        # Create new application from detected info
+        try:
+            import json as _json
+            app_data = _json.loads(create_application)
+            aid = _db.add_application({
+                "title": app_data.get("title", ""),
+                "company": app_data.get("company", ""),
+                "status": "beworben",
+                "bewerbungsart": "mit_dokumenten",
+            })
+            _db.link_document_to_application(did, aid)
+            linked_app = aid
+        except Exception as e:
+            logger.warning("Failed to create app from doc: %s", e)
+
+    return {
+        "status": "ok",
+        "id": did,
+        "doc_type": doc_type,
+        "extracted_length": len(extracted),
+        "linked_application": linked_app,
+    }
+
+
+def _detect_doc_type(filename: str, text: str) -> str | None:
+    """Auto-detect document type from filename and extracted text."""
+    fname = filename.lower()
+    text_lower = (text or "").lower()[:2000]
+
+    # Filename patterns
+    if any(kw in fname for kw in ["lebenslauf", "cv", "resume", "curriculum"]):
+        return "lebenslauf"
+    if any(kw in fname for kw in ["anschreiben", "cover", "bewerbung", "motivations"]):
+        return "anschreiben"
+    if any(kw in fname for kw in ["zeugnis", "referenz", "arbeitszeugnis"]):
+        return "zeugnis"
+    if any(kw in fname for kw in ["zertifikat", "certificate", "bescheinigung"]):
+        return "zertifikat"
+
+    # Text content patterns
+    if text_lower:
+        cv_keywords = ["berufserfahrung", "ausbildung", "kenntnisse", "werdegang",
+                        "beruflicher werdegang", "work experience", "education"]
+        letter_keywords = ["sehr geehrte", "bewerbung als", "mit grossem interesse",
+                           "hiermit bewerbe", "ihre stellenanzeige", "dear"]
+        cv_hits = sum(1 for kw in cv_keywords if kw in text_lower)
+        letter_hits = sum(1 for kw in letter_keywords if kw in text_lower)
+        if letter_hits >= 2:
+            return "anschreiben"
+        if cv_hits >= 3:
+            return "lebenslauf"
+
+    return None
+
+
+@app.post("/api/documents/analyze-filename")
+async def api_analyze_filename(request: Request):
+    """Analyze filename to detect document type and match to existing applications."""
+    import re
+    data = await request.json()
+    filename = data.get("filename", "")
+    fname = filename.lower()
+
+    # Detect document type from filename
+    doc_type = _detect_doc_type(filename, "") or "sonstiges"
+
+    # Extract company/recipient from filename
+    # Common patterns: "Anschreiben_Siemens_2026-03-01.pdf", "CV_BMW_Munich.docx",
+    # "Bewerbung Siemens PLM Consultant.pdf"
+    company_hint = ""
+    date_hint = ""
+
+    # Remove extension and common prefixes
+    base = re.sub(r'\.\w{2,4}$', '', filename)
+    # Remove common doc type words
+    cleaned = re.sub(
+        r'(?i)(anschreiben|bewerbung|lebenslauf|cv|resume|cover.?letter|motivations?schreiben)',
+        '', base
+    )
+    # Extract date (YYYY-MM-DD, DD.MM.YYYY, YYYYMMDD)
+    date_match = re.search(r'(\d{4}[-_.]\d{2}[-_.]\d{2}|\d{2}[.]\d{2}[.]\d{4}|\d{8})', cleaned)
+    if date_match:
+        date_hint = date_match.group(1)
+        cleaned = cleaned.replace(date_match.group(0), "")
+
+    # What remains after cleanup = likely company/position name
+    parts = re.split(r'[_\-\s]+', cleaned.strip())
+    parts = [p.strip() for p in parts if p.strip() and len(p.strip()) > 1]
+    if parts:
+        company_hint = " ".join(parts)
+
+    # Match against existing applications
+    matching_apps = []
+    if company_hint:
+        apps = _db.get_applications()
+        hint_lower = company_hint.lower()
+        for app in apps:
+            app_company = (app.get("company") or "").lower()
+            app_title = (app.get("title") or "").lower()
+            if (app_company and any(w in app_company for w in hint_lower.split())) or \
+               (app_title and any(w in app_title for w in hint_lower.split())):
+                matching_apps.append({
+                    "id": app["id"],
+                    "title": app.get("title", ""),
+                    "company": app.get("company", ""),
+                    "status": app.get("status", ""),
+                })
+
+    return {
+        "detected_type": doc_type,
+        "company_hint": company_hint,
+        "date_hint": date_hint,
+        "matching_applications": matching_apps,
+    }
 
 
 @app.get("/api/sources")
@@ -750,6 +881,37 @@ async def api_import_profile(file: UploadFile = File(...)):
 
     pid = _db.import_profile_json(data)
     return {"status": "ok", "id": pid, "name": data.get("name", "")}
+
+
+# === User Preferences (PBP v0.10.0) ===
+
+@app.get("/api/user-preferences/{key}")
+async def api_get_user_preference(key: str):
+    value = _db.get_user_preference(key)
+    return {"key": key, "value": value}
+
+
+@app.post("/api/user-preferences/{key}")
+async def api_set_user_preference(key: str, request: Request):
+    data = await request.json()
+    _db.set_user_preference(key, data.get("value"))
+    return {"status": "ok"}
+
+
+# === Search Status (PBP v0.10.0) ===
+
+@app.get("/api/search-status")
+async def api_search_status():
+    last = _db.get_setting("last_search_at")
+    if not last:
+        return {"last_search": None, "days_ago": None, "status": "nie"}
+    try:
+        dt = datetime.fromisoformat(last)
+        days = (datetime.now() - dt).days
+    except (ValueError, TypeError):
+        return {"last_search": last, "days_ago": None, "status": "unbekannt"}
+    status = "aktuell" if days < 2 else "veraltet" if days < 7 else "dringend"
+    return {"last_search": last, "days_ago": days, "status": status}
 
 
 DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))

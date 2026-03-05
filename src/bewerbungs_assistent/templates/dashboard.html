@@ -141,6 +141,48 @@ label { display: block; color: var(--text2); font-size: 0.85rem; margin-bottom: 
 /* Form validation */
 input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !important; }
 .field-error { color: var(--red); font-size: 0.8rem; margin-top: 2px; }
+
+/* Wizard overlay (v0.10.0) */
+.wizard-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); z-index: 900; align-items: center; justify-content: center; }
+.wizard-overlay.show { display: flex; }
+.wizard-container { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+  padding: 32px; max-width: 700px; width: 95%; max-height: 85vh; overflow-y: auto; }
+.wizard-progress { display: flex; gap: 4px; margin-bottom: 24px; }
+.wizard-step { flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; font-size: 0.8rem;
+  background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.wizard-step.active { background: #0c2d6b; color: var(--accent); border-color: var(--accent); }
+.wizard-step.done { background: #0d2818; color: var(--green); border-color: #1a4027; }
+.wizard-content { margin-bottom: 24px; }
+.wizard-nav { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Banner (v0.10.0) */
+.banner { padding: 12px 20px; display: flex; align-items: center; gap: 12px; font-size: 0.9rem; }
+.banner-warning { background: #2d1b00; border-bottom: 1px solid #4b3000; color: var(--yellow); }
+.banner-info { background: #0c2d6b; border-bottom: 1px solid #1158c7; color: var(--accent); }
+
+/* Hint system (v0.10.0) */
+.hint { background: #0c2d6b20; border: 1px solid #1158c740; border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 12px; position: relative; font-size: 0.85rem; color: var(--text2); }
+.hint-dismiss { position: absolute; top: 6px; right: 8px; background: none; border: none;
+  color: var(--text2); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+.hint-dismiss:hover { color: var(--text); }
+
+/* Tooltip for prompts (v0.10.0) */
+.prompt-tooltip { position: relative; display: inline-block; }
+.prompt-tooltip .tip-text { visibility: hidden; background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.8rem;
+  position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); width: 280px;
+  text-align: center; z-index: 10; opacity: 0; transition: opacity 0.2s; }
+.prompt-tooltip:hover .tip-text { visibility: visible; opacity: 1; }
+
+/* Danger zone (v0.10.0) */
+.danger-zone { border-color: var(--red) !important; }
+.danger-zone h3 { color: var(--red) !important; }
+
+/* App wizard steps (v0.10.0) */
+.app-wizard-step { counter-increment: step; }
+.app-wizard-step::before { content: counter(step) ". "; color: var(--accent); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -156,6 +198,38 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
   </div>
   <div id="profile-switcher" style="margin-left:auto; display:flex; align-items:center; gap:8px;"></div>
 </nav>
+
+<!-- Source Banner (v0.10.0) -->
+<div id="source-banner" class="banner banner-warning" style="display:none;">
+  <span>Du hast noch keine Jobquellen aktiviert. Ohne Quellen kann keine Jobsuche gestartet werden.</span>
+  <button class="btn btn-sm btn-primary" onclick="showPage('einstellungen')">Quellen aktivieren</button>
+  <button class="btn btn-sm" onclick="dismissBanner('source-banner')">Spaeter</button>
+</div>
+
+<!-- Search Reminder (v0.10.0) -->
+<div id="search-reminder-bar" class="banner banner-info" style="display:none;">
+  <span id="search-reminder-text"></span>
+  <span class="prompt-tooltip">
+    <button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Neue Suche starten</button>
+    <span class="tip-text">Kopiere /jobsuche_workflow und fuege es in deinen Claude-Chat ein</span>
+  </span>
+</div>
+
+<!-- Wizard Overlay (v0.10.0) -->
+<div id="wizard-overlay" class="wizard-overlay">
+  <div class="wizard-container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="color:var(--accent); margin:0;">Willkommen beim Bewerbungs-Assistent</h2>
+      <button class="btn btn-sm" onclick="closeWizard()" title="Spaeter fortsetzen">Spaeter</button>
+    </div>
+    <div class="wizard-progress" id="wizard-progress"></div>
+    <div class="wizard-content" id="wizard-content"></div>
+    <div class="wizard-nav">
+      <button class="btn" id="wizard-prev" onclick="wizardPrev()" style="display:none">Zurueck</button>
+      <button class="btn btn-primary" id="wizard-next" onclick="wizardNext()">Weiter</button>
+    </div>
+  </div>
+</div>
 
 <main>
   <!-- Dashboard -->
@@ -246,61 +320,62 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       <div class="card" style="margin-top:16px;">
         <h3>KI-Funktionen — Befehle fuer Claude Desktop</h3>
         <p style="color:var(--text2); font-size:0.9rem; margin-bottom:12px;">
-          Tippe diese Befehle in Claude Desktop ein oder nutze das <strong>/</strong>-Menue.
-          Klicke auf <em>Kopieren</em> um den Befehl in die Zwischenablage zu uebernehmen.
+          Diese Befehle nutzt du in <strong>Claude Desktop</strong> (dem separaten Chat-Programm).
+          Klicke auf <em>Kopieren</em>, wechsle zu Claude Desktop, und fuege den Text dort ein.
+          Claude erkennt den Befehl automatisch und fuehrt ihn aus.
         </p>
         <div style="display:grid; gap:8px;">
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Erste Schritte</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/ersterfassung</code> <span style="color:var(--text2); font-size:0.85rem;">— Profil im Gespraech erstellen (pausierbar)</span></div>
-            <button class="btn btn-sm" onclick="copyText('/ersterfassung')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/ersterfassung')">Kopieren</button><span class="tip-text">Kopiere diesen Befehl und fuege ihn in Claude Desktop ein. Claude fuehrt dich dann Schritt fuer Schritt durch die Profilerstellung.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/willkommen</code> <span style="color:var(--text2); font-size:0.85rem;">— Begruessung und Status-Uebersicht</span></div>
-            <button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button><span class="tip-text">Kopiere und fuege in Claude Desktop ein. Zeigt dir deinen aktuellen Status und naechste Schritte.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/profil_erweiterung</code> <span style="color:var(--text2); font-size:0.85rem;">— Dokumente analysieren + Profil erweitern</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
-            <button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Kopieren</button><span class="tip-text">Lade ein Dokument (CV, Zeugnis) in Claude Desktop hoch und fuege diesen Befehl ein. Claude extrahiert die Daten automatisch.</span></span>
           </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Jobsuche &amp; Bewerbung</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/jobsuche_workflow</code> <span style="color:var(--text2); font-size:0.85rem;">— Gefuehrter 5-Schritte Suchprozess</span></div>
-            <button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Kopieren</button><span class="tip-text">Startet eine gefuehrte Jobsuche in Claude Desktop. Dauert je nach Quellen 5-10 Minuten. Ergebnisse erscheinen dann hier im Dashboard.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/bewerbung_schreiben</code> <span style="color:var(--text2); font-size:0.85rem;">— Anschreiben erstellen + Export</span></div>
-            <button class="btn btn-sm" onclick="copyText('/bewerbung_schreiben')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/bewerbung_schreiben')">Kopieren</button><span class="tip-text">Claude erstellt ein personalisiertes Anschreiben. Tipp: Nutze den "Jetzt bewerben" Button auf einer Stellenkarte fuer den direkten Weg.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/bewerbungs_uebersicht</code> <span style="color:var(--text2); font-size:0.85rem;">— Komplette Uebersicht aller Aktivitaeten</span></div>
-            <button class="btn btn-sm" onclick="copyText('/bewerbungs_uebersicht')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/bewerbungs_uebersicht')">Kopieren</button><span class="tip-text">Zeigt dir in Claude Desktop eine Zusammenfassung aller Bewerbungen, offene Follow-ups und Statistiken.</span></span>
           </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Interview &amp; Verhandlung</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/interview_vorbereitung</code> <span style="color:var(--text2); font-size:0.85rem;">— Fragen, STAR-Antworten, Gehaltstipps</span></div>
-            <button class="btn btn-sm" onclick="copyText('/interview_vorbereitung')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/interview_vorbereitung')">Kopieren</button><span class="tip-text">Claude bereitet STAR-basierte Antworten, haeufige Fragen und eine Verhandlungsstrategie vor.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/interview_simulation</code> <span style="color:var(--text2); font-size:0.85rem;">— Uebungsgespraech mit Claude als Interviewer</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
-            <button class="btn btn-sm" onclick="copyText('/interview_simulation')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/interview_simulation')">Kopieren</button><span class="tip-text">Claude spielt den Interviewer und stellt dir realistische Fragen. Gutes Training vor dem echten Gespraech!</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/gehaltsverhandlung</code> <span style="color:var(--text2); font-size:0.85rem;">— Verhandlungsstrategie + Argumente</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
-            <button class="btn btn-sm" onclick="copyText('/gehaltsverhandlung')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/gehaltsverhandlung')">Kopieren</button><span class="tip-text">Marktwert-Analyse basierend auf deinem Profil + Verhandlungsargumente und Taktik.</span></span>
           </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Analyse &amp; Strategie</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/profil_analyse</code> <span style="color:var(--text2); font-size:0.85rem;">— Staerken, Potenziale, Marktposition</span></div>
-            <button class="btn btn-sm" onclick="copyText('/profil_analyse')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/profil_analyse')">Kopieren</button><span class="tip-text">Claude analysiert dein Profil und gibt dir konkretes Feedback zu Staerken und Verbesserungspotenzial.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/profil_ueberpruefen</code> <span style="color:var(--text2); font-size:0.85rem;">— Profil auf Fehler pruefen + korrigieren</span></div>
-            <button class="btn btn-sm" onclick="copyText('/profil_ueberpruefen')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/profil_ueberpruefen')">Kopieren</button><span class="tip-text">Findet Tippfehler, fehlende Angaben und Unstimmigkeiten in deinem Profil.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/netzwerk_strategie</code> <span style="color:var(--text2); font-size:0.85rem;">— Networking-Plan fuer Zielfirma</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
-            <button class="btn btn-sm" onclick="copyText('/netzwerk_strategie')">Kopieren</button>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/netzwerk_strategie')">Kopieren</button><span class="tip-text">Claude erstellt einen konkreten Networking-Plan mit Kontaktvorlagen fuer deine Zielfirma.</span></span>
           </div>
         </div>
         <div style="background:#1a2332; border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-top:12px; font-size:0.85rem; color:var(--text2);">
@@ -343,6 +418,13 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       </select>
       <select id="job-source-filter" onchange="filterJobs()">
         <option value="">Alle Quellen</option>
+      </select>
+      <select id="job-salary-filter" onchange="filterJobs()">
+        <option value="">Gehalt egal</option>
+        <option value="50000">Ab 50k</option>
+        <option value="65000">Ab 65k</option>
+        <option value="80000">Ab 80k</option>
+        <option value="100000">Ab 100k</option>
       </select>
     </div>
     <div class="grid grid-2" id="jobs-grid"></div>
@@ -452,6 +534,17 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       <h3>Fit-Analyse: Gewichtung</h3>
       <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">Bestimme, wie stark verschiedene Faktoren den Score beeinflussen.</p>
       <div id="weight-form"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Anzeigeoptionen</h3>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
+        <input type="checkbox" id="expert-mode" onchange="toggleExpertMode()" style="width:auto;">
+        <div>
+          <strong>Expertenmodus</strong>
+          <p style="color:var(--text2); font-size:0.85rem; margin:0;">Blendet alle Hilfe-Hinweise und Tooltips aus.</p>
+        </div>
+      </label>
+      <button class="btn btn-sm" onclick="resetHints()">Alle Hinweise zuruecksetzen</button>
     </div>
   </div>
 </main>
@@ -857,6 +950,17 @@ async function renderProfile(p) {
     }
   } catch(e) { /* extraction history optional */ }
 
+  // Danger Zone: Profile Delete
+  html += `<div class="card danger-zone" style="margin-top:32px;">
+    <h3>Gefahrenzone</h3>
+    <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+      Profil unwiderruflich loeschen. Alle Positionen, Skills, Dokumente und Bewerbungen werden ebenfalls geloescht.
+    </p>
+    <button class="btn btn-danger" onclick="showDeleteProfileModal('${p.id}', '${(p.name||'').replace(/'/g, "\\'")}')">
+      Profil loeschen
+    </button>
+  </div>`;
+
   document.getElementById('profile-content').innerHTML = html;
 }
 
@@ -893,7 +997,28 @@ function jobCard(j, isDismissed = false) {
   const maxScore = 20;
   const pct = Math.min(100, (j.score || 0) / maxScore * 100);
   const color = pct > 60 ? 'var(--green)' : pct > 30 ? 'var(--yellow)' : 'var(--red)';
-  return `<div class="card job-card" data-source="${j.source}" data-type="${j.employment_type}" data-title="${(j.title||'').toLowerCase()}" data-company="${(j.company||'').toLowerCase()}">
+  // Salary badge: always show — yellow for real data, gray for estimated
+  let salaryBadge = '';
+  if (j.salary_min) {
+    const isEstimated = j.salary_estimated === 1;
+    const badgeClass = isEstimated ? 'badge-gray' : 'badge-yellow';
+    const sType = j.salary_type || 'jahr';
+    let salaryText = '';
+    if (sType === 'tag' || sType === 'taeglich') {
+      salaryText = `${j.salary_min}-${j.salary_max || j.salary_min}/Tag`;
+    } else if (sType === 'stunde' || sType === 'stuendlich') {
+      salaryText = `${j.salary_min}-${j.salary_max || j.salary_min}/Std`;
+    } else {
+      const minK = Math.round(j.salary_min / 1000);
+      const maxK = j.salary_max ? Math.round(j.salary_max / 1000) : minK;
+      salaryText = `${minK}k-${maxK}k`;
+    }
+    if (isEstimated) salaryText += ' (geschaetzt)';
+    salaryBadge = `<span class="badge ${badgeClass}">${salaryText}</span>`;
+  } else if (j.salary_info) {
+    salaryBadge = `<span class="badge badge-yellow">${j.salary_info}</span>`;
+  }
+  return `<div class="card job-card" data-source="${j.source}" data-type="${j.employment_type}" data-salary-min="${j.salary_min||0}" data-title="${(j.title||'').toLowerCase()}" data-company="${(j.company||'').toLowerCase()}">
     <span class="source badge badge-gray">${j.source || '?'}</span>
     <div class="title">${j.title || 'Ohne Titel'}</div>
     <div class="company">${j.company || 'Unbekannt'} ${j.location ? '— ' + j.location : ''}</div>
@@ -902,7 +1027,7 @@ function jobCard(j, isDismissed = false) {
       <span class="badge badge-blue">Score: ${j.score || 0}</span>
       ${j.remote_level && j.remote_level !== 'unbekannt' ? `<span class="badge badge-green">${j.remote_level}</span>` : ''}
       ${j.distance_km ? `<span class="badge badge-gray">${Math.round(j.distance_km)} km</span>` : ''}
-      ${j.salary_info ? `<span class="badge badge-yellow">${j.salary_info}</span>` : ''}
+      ${salaryBadge}
     </div>
     ${j.description ? `<div class="desc">${j.description.substring(0, 200)}...</div>` : ''}
     <div class="actions">
@@ -911,7 +1036,7 @@ function jobCard(j, isDismissed = false) {
         ? `<button class="btn btn-sm" onclick="restoreJob('${j.hash}')">Wiederherstellen</button>`
         : `<button class="btn btn-sm" onclick="showFitDetail('${j.hash}')">Fit-Analyse</button>
            <button class="btn btn-sm btn-danger" onclick="dismissJob('${j.hash}')">Passt nicht</button>
-           <button class="btn btn-sm btn-primary" onclick="applyFromJob('${j.hash}','${(j.title||'').replace(/'/g,"\\'")}','${(j.company||'').replace(/'/g,"\\'")}')">Bewerben</button>`
+           <button class="btn btn-sm btn-primary" onclick="showApplicationWizard('${j.hash}','${(j.title||'').replace(/'/g,"\\'")}','${(j.company||'').replace(/'/g,"\\'")}')">Jetzt bewerben</button>`
       }
     </div>
     ${isDismissed && j.dismiss_reason ? `<div style="margin-top:8px; font-size:0.8rem; color:var(--text2);">Grund: ${j.dismiss_reason}</div>` : ''}
@@ -923,10 +1048,12 @@ function filterJobsList(jobs) {
   const search = (document.getElementById('job-search')?.value || '').toLowerCase();
   const type = document.getElementById('job-type-filter')?.value || '';
   const source = document.getElementById('job-source-filter')?.value || '';
+  const salaryMin = parseInt(document.getElementById('job-salary-filter')?.value || '0') || 0;
   return jobs.filter(j => {
     if (search && !(j.title||'').toLowerCase().includes(search) && !(j.company||'').toLowerCase().includes(search)) return false;
     if (type && j.employment_type !== type) return false;
     if (source && j.source !== source) return false;
+    if (salaryMin && (!j.salary_min || j.salary_min < salaryMin)) return false;
     return true;
   });
 }
@@ -1153,18 +1280,79 @@ async function saveApplication(e) {
 function showDocUpload() {
   openModal(`<h2>Dokument hochladen</h2>
     <form onsubmit="uploadDoc(event)" enctype="multipart/form-data">
-      <div class="form-group"><label>Datei</label><input type="file" name="file" required style="padding:8px;"></div>
+      <div class="form-group"><label>Datei</label>
+        <input type="file" name="file" required style="padding:8px;" onchange="analyzeFilename(this)">
+      </div>
+      <div id="doc-detect-info" style="display:none; margin-bottom:12px;"></div>
       <div class="form-group"><label>Typ</label>
-        <select name="doc_type">
+        <select name="doc_type" id="doc-type-select">
           <option value="lebenslauf">Lebenslauf</option><option value="zeugnis">Zeugnis</option>
           <option value="zertifikat">Zertifikat</option><option value="anschreiben">Anschreiben</option>
           <option value="sonstiges">Sonstiges</option>
         </select></div>
+      <div id="doc-app-link" style="display:none;" class="form-group">
+        <label>Bewerbung zuordnen</label>
+        <select name="link_application_id" id="doc-app-select">
+          <option value="">Keine Zuordnung</option>
+        </select>
+      </div>
+      <input type="hidden" name="create_application" id="doc-create-app" value="">
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
         <button type="submit" class="btn btn-primary">Hochladen</button>
       </div>
     </form>`);
+}
+
+async function analyzeFilename(input) {
+  if (!input.files || !input.files[0]) return;
+  const filename = input.files[0].name;
+  const infoDiv = document.getElementById('doc-detect-info');
+  const typeSelect = document.getElementById('doc-type-select');
+  const appLinkDiv = document.getElementById('doc-app-link');
+  const appSelect = document.getElementById('doc-app-select');
+  try {
+    const result = await api('/api/documents/analyze-filename', {
+      method: 'POST', body: JSON.stringify({ filename })
+    });
+    let html = '';
+    if (result.detected_type && result.detected_type !== 'sonstiges') {
+      typeSelect.value = result.detected_type;
+      const typeLabels = {lebenslauf:'Lebenslauf',anschreiben:'Anschreiben',zeugnis:'Zeugnis',zertifikat:'Zertifikat'};
+      html += `<span class="badge badge-blue">Erkannt: ${typeLabels[result.detected_type] || result.detected_type}</span> `;
+    }
+    if (result.company_hint) {
+      html += `<span class="badge badge-gray">Firma: ${result.company_hint}</span> `;
+    }
+    if (result.date_hint) {
+      html += `<span class="badge badge-gray">Datum: ${result.date_hint}</span> `;
+    }
+    if (result.matching_applications && result.matching_applications.length > 0) {
+      appSelect.innerHTML = '<option value="">Keine Zuordnung</option>';
+      for (const app of result.matching_applications) {
+        const o = new Option(`${app.title} @ ${app.company} (${app.status})`, app.id);
+        appSelect.add(o);
+      }
+      appSelect.selectedIndex = 1; // Auto-select first match
+      appLinkDiv.style.display = '';
+      html += `<span class="badge badge-green">Bewerbung gefunden!</span>`;
+    } else if (result.company_hint && (result.detected_type === 'anschreiben' || result.detected_type === 'lebenslauf')) {
+      appLinkDiv.style.display = '';
+      appSelect.innerHTML = '<option value="">Keine Zuordnung</option>';
+      html += `<button type="button" class="btn btn-sm" style="margin-top:4px;" onclick="autoCreateApp('${result.company_hint.replace(/'/g,"\\'")}')">Neue Bewerbung fuer "${result.company_hint}" erstellen</button>`;
+    }
+    if (html) {
+      infoDiv.innerHTML = html;
+      infoDiv.style.display = '';
+    }
+  } catch(e) { /* Filename analysis optional */ }
+}
+
+function autoCreateApp(company) {
+  document.getElementById('doc-create-app').value = JSON.stringify({
+    title: '', company: company
+  });
+  showToast('Neue Bewerbung wird beim Hochladen erstellt.', 'info');
 }
 
 async function uploadDoc(e) {
@@ -1173,11 +1361,18 @@ async function uploadDoc(e) {
   const resp = await fetch('/api/documents/upload', { method: 'POST', body: fd });
   const result = await resp.json();
   closeModal({target: document.getElementById('modal-overlay')});
-  if (result.extracted_length > 0) {
-    showToast('Dokument hochgeladen! ' + result.extracted_length + ' Zeichen extrahiert. Nutze in Claude "/profil_erweiterung" um Profildaten zu uebernehmen.', 'success');
-  } else {
-    showToast('Dokument hochgeladen.', 'success');
+  let msg = 'Dokument hochgeladen';
+  if (result.doc_type && result.doc_type !== 'sonstiges') {
+    const typeLabels = {lebenslauf:'Lebenslauf',anschreiben:'Anschreiben',zeugnis:'Zeugnis',zertifikat:'Zertifikat'};
+    msg += ` als ${typeLabels[result.doc_type] || result.doc_type}`;
   }
+  if (result.linked_application) {
+    msg += ' und einer Bewerbung zugeordnet';
+  }
+  if (result.extracted_length > 0) {
+    msg += `. ${result.extracted_length} Zeichen extrahiert. Nutze "/profil_erweiterung" in Claude.`;
+  }
+  showToast(msg + '.', 'success');
   loadProfile();
 }
 
@@ -1715,8 +1910,406 @@ function copyText(text) {
   });
 }
 
+// === Hint System (v0.10.0) ===
+function showHint(id, html) {
+  const expert = localStorage.getItem('pbp_expert_mode') === 'true';
+  const dismissed = JSON.parse(localStorage.getItem('pbp_dismissed_hints') || '[]');
+  if (expert || dismissed.includes(id)) return '';
+  return `<div class="hint" id="hint-${id}">
+    ${html}
+    <button class="hint-dismiss" onclick="dismissHint('${id}')" title="Nicht mehr anzeigen">&times;</button>
+  </div>`;
+}
+
+function dismissHint(id) {
+  const dismissed = JSON.parse(localStorage.getItem('pbp_dismissed_hints') || '[]');
+  if (!dismissed.includes(id)) dismissed.push(id);
+  localStorage.setItem('pbp_dismissed_hints', JSON.stringify(dismissed));
+  const el = document.getElementById('hint-' + id);
+  if (el) el.remove();
+}
+
+function toggleExpertMode() {
+  const cb = document.getElementById('expert-mode');
+  localStorage.setItem('pbp_expert_mode', cb.checked ? 'true' : 'false');
+  if (cb.checked) {
+    document.querySelectorAll('.hint').forEach(h => h.remove());
+    showToast('Expertenmodus aktiviert', 'info');
+  } else {
+    showToast('Hinweise werden wieder angezeigt (nach Neuladen)', 'info');
+  }
+}
+
+function resetHints() {
+  localStorage.removeItem('pbp_dismissed_hints');
+  localStorage.removeItem('pbp_expert_mode');
+  const cb = document.getElementById('expert-mode');
+  if (cb) cb.checked = false;
+  showToast('Alle Hinweise zurueckgesetzt', 'success');
+}
+
+// === Banner (v0.10.0) ===
+function dismissBanner(id) {
+  document.getElementById(id).style.display = 'none';
+  api('/api/user-preferences/' + id, { method: 'POST', body: JSON.stringify({ value: true }) });
+}
+
+async function checkSourceBanner() {
+  try {
+    const sources = await api('/api/sources');
+    const active = sources.filter(s => s.active);
+    const dismissed = await api('/api/user-preferences/source-banner');
+    if (active.length === 0 && !dismissed.value) {
+      document.getElementById('source-banner').style.display = '';
+    } else {
+      document.getElementById('source-banner').style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+async function checkSearchReminder() {
+  try {
+    const s = await api('/api/search-status');
+    const bar = document.getElementById('search-reminder-bar');
+    const txt = document.getElementById('search-reminder-text');
+    if (!s.last_search) {
+      bar.style.display = 'none';
+      return;
+    }
+    const label = s.days_ago === 0 ? 'Heute' : s.days_ago === 1 ? 'Gestern' : `Vor ${s.days_ago} Tagen`;
+    const color = s.status === 'aktuell' ? 'var(--green)' : s.status === 'veraltet' ? 'var(--yellow)' : 'var(--red)';
+    txt.innerHTML = `<span style="color:${color}; font-weight:600;">Letzte Jobsuche: ${label}</span> — ` +
+      (s.status === 'dringend' ? 'Ergebnisse sind ueber 7 Tage alt. Zeit fuer eine neue Suche!'
+       : 'Regelmaessige Suchen finden mehr Stellen.');
+    bar.style.display = '';
+  } catch (e) {}
+}
+
+// === Onboarding Wizard (v0.10.0) ===
+let wizardStep = 0;
+const WIZARD_STEPS = [
+  { title: '1. Profil', label: 'Profil erstellen' },
+  { title: '2. Quellen', label: 'Quellen aktivieren' },
+  { title: '3. Suche', label: 'Jobsuche starten' },
+  { title: '4. Bewerben', label: 'Bewerben' },
+];
+
+function renderWizardProgress() {
+  document.getElementById('wizard-progress').innerHTML = WIZARD_STEPS.map((s, i) =>
+    `<div class="wizard-step ${i < wizardStep ? 'done' : ''} ${i === wizardStep ? 'active' : ''}">${s.title}</div>`
+  ).join('');
+}
+
+function renderWizardStep() {
+  renderWizardProgress();
+  const c = document.getElementById('wizard-content');
+  const prev = document.getElementById('wizard-prev');
+  const next = document.getElementById('wizard-next');
+  prev.style.display = wizardStep > 0 ? '' : 'none';
+  next.textContent = wizardStep === WIZARD_STEPS.length - 1 ? 'Fertig' : 'Weiter';
+
+  if (wizardStep === 0) {
+    c.innerHTML = `
+      <h3 style="margin-bottom:12px;">Profil erstellen</h3>
+      ${showHint('wizard-profil', 'Dein Profil ist die Basis fuer alles: Lebenslauf, Anschreiben, Interview-Vorbereitung. Je vollstaendiger, desto besser die Ergebnisse.')}
+      <p style="color:var(--text2); margin-bottom:16px;">Es gibt zwei Wege dein Profil zu erstellen:</p>
+      <div class="card" style="margin-bottom:12px;">
+        <strong style="color:var(--green);">Empfohlen: KI-gefuehrte Ersterfassung</strong>
+        <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Claude fuehrt dich in einem Gespraech durch alle Schritte. Dauert ca. 10-15 Min.</p>
+        <div class="prompt-tooltip">
+          <button class="btn btn-primary" onclick="copyText('/ersterfassung')">
+            /ersterfassung kopieren
+          </button>
+          <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Desktop Chat-Fenster ein. Claude startet dann ein Gespraech, in dem du Schritt fuer Schritt dein Profil aufbaust.</span>
+        </div>
+      </div>
+      <div class="card">
+        <strong>Alternative: Manuell</strong>
+        <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Trage deine Daten direkt im Profil-Tab ein.</p>
+        <button class="btn btn-sm" onclick="closeWizard(); showPage('profil');">Profil manuell erstellen</button>
+      </div>`;
+  } else if (wizardStep === 1) {
+    c.innerHTML = `
+      <h3 style="margin-bottom:12px;">Quellen aktivieren</h3>
+      ${showHint('wizard-quellen', 'Waehle mindestens eine Quelle aus. Mehr Quellen = mehr Stellenangebote, aber auch laengere Suchzeit.')}
+      <p style="color:var(--text2); margin-bottom:16px;">Welche Jobportale sollen durchsucht werden?</p>
+      <div id="wizard-sources" style="margin-bottom:16px;"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveWizardSources()">Quellen speichern</button>`;
+    loadWizardSources();
+  } else if (wizardStep === 2) {
+    c.innerHTML = `
+      <h3 style="margin-bottom:12px;">Jobsuche starten</h3>
+      ${showHint('wizard-suche', 'Die Suche durchsucht alle aktivierten Portale mit deinen Keywords. Das kann 5-10 Minuten dauern.')}
+      <p style="color:var(--text2); margin-bottom:16px;">Nutze den Jobsuche-Workflow in Claude Desktop:</p>
+      <div class="prompt-tooltip">
+        <button class="btn btn-primary" onclick="copyText('/jobsuche_workflow')">
+          /jobsuche_workflow kopieren
+        </button>
+        <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Desktop Chat ein. Claude fuehrt dich durch: Suchkriterien festlegen, Quellen pruefen, Suche starten, Ergebnisse anzeigen.</span>
+      </div>
+      <div class="hint" style="margin-top:16px;">
+        <strong>Wichtig:</strong> Die Jobsuche sollte regelmaessig (alle 2-3 Tage) wiederholt werden,
+        da Portale taeglich neue Stellen veroeffentlichen. Die Suche kann je nach Anzahl der Quellen 5-10 Minuten dauern.
+      </div>`;
+  } else if (wizardStep === 3) {
+    c.innerHTML = `
+      <h3 style="margin-bottom:12px;">Bewerben</h3>
+      <p style="color:var(--text2); margin-bottom:16px;">Super! Jetzt kannst du loslegen:</p>
+      <ul style="color:var(--text2); margin-left:20px; line-height:1.8;">
+        <li>Im <strong>Stellen</strong>-Tab findest du gefundene Jobs mit Fit-Score</li>
+        <li>Klicke <strong>"Jetzt bewerben"</strong> bei einer Stelle fuer den Bewerbungs-Assistenten</li>
+        <li>Im <strong>Bewerbungen</strong>-Tab trackst du den Status deiner Bewerbungen</li>
+      </ul>
+      <div style="margin-top:16px; padding:12px; background:var(--bg3); border-radius:8px;">
+        <strong style="color:var(--accent);">Weitere KI-Funktionen:</strong>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+          <button class="btn btn-sm" onclick="copyText('/interview_vorbereitung')">Interview-Vorbereitung</button>
+          <button class="btn btn-sm" onclick="copyText('/gehaltsverhandlung')">Gehaltsverhandlung</button>
+          <button class="btn btn-sm" onclick="copyText('/profil_analyse')">Profil-Analyse</button>
+          <button class="btn btn-sm" onclick="copyText('/netzwerk_strategie')">Netzwerk-Strategie</button>
+        </div>
+      </div>`;
+  }
+}
+
+async function loadWizardSources() {
+  const sources = await api('/api/sources');
+  const container = document.getElementById('wizard-sources');
+  if (!container) return;
+  container.innerHTML = sources.map(s => `
+    <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
+      <input type="checkbox" class="wizard-source-cb" value="${s.key}" ${s.active ? 'checked' : ''} style="width:auto;">
+      <div>
+        <strong>${s.name}</strong>
+        <span class="badge badge-gray" style="margin-left:4px;">${s.methode}</span>
+        ${s.login_erforderlich ? '<span class="badge badge-yellow" style="margin-left:4px;">Login noetig</span>' : ''}
+      </div>
+    </label>
+  `).join('');
+}
+
+async function saveWizardSources() {
+  const checked = [...document.querySelectorAll('.wizard-source-cb:checked')].map(c => c.value);
+  if (checked.length === 0) {
+    showToast('Bitte mindestens eine Quelle auswaehlen', 'error');
+    return;
+  }
+  await api('/api/sources', { method: 'POST', body: JSON.stringify({ sources: checked }) });
+  showToast(`${checked.length} Quelle(n) aktiviert!`, 'success');
+  document.getElementById('source-banner').style.display = 'none';
+}
+
+function wizardNext() {
+  if (wizardStep < WIZARD_STEPS.length - 1) {
+    wizardStep++;
+    renderWizardStep();
+  } else {
+    closeWizard(true);
+  }
+}
+
+function wizardPrev() {
+  if (wizardStep > 0) {
+    wizardStep--;
+    renderWizardStep();
+  }
+}
+
+function closeWizard(completed = false) {
+  document.getElementById('wizard-overlay').classList.remove('show');
+  if (completed) {
+    api('/api/user-preferences/wizard_completed', { method: 'POST', body: JSON.stringify({ value: true }) });
+    showToast('Einrichtung abgeschlossen!', 'success');
+  }
+}
+
+async function checkWizardNeeded() {
+  try {
+    const status = await api('/api/status');
+    const pref = await api('/api/user-preferences/wizard_completed');
+    if (!status.has_profile && !pref.value) {
+      wizardStep = 0;
+      renderWizardStep();
+      document.getElementById('wizard-overlay').classList.add('show');
+    }
+  } catch (e) {}
+}
+
+// === Profile Delete (v0.10.0) ===
+function showDeleteProfileModal(profileId, profileName) {
+  openModal(`<h2 style="color:var(--red);">Profil unwiderruflich loeschen</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Um das Profil <strong style="color:var(--text);">${profileName}</strong> zu loeschen,
+      tippe den Profilnamen exakt ein:
+    </p>
+    <div class="form-group">
+      <input id="delete-confirm-input" placeholder="${profileName}"
+        oninput="checkDeleteInput('${profileName.replace(/'/g, "\\\\'")}')" autocomplete="off">
+    </div>
+    <p style="color:var(--red); font-size:0.85rem; margin-bottom:16px;">
+      Alle Daten werden geloescht: Positionen, Skills, Ausbildung, Projekte, Dokumente, Bewerbungen.
+    </p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-danger" id="delete-confirm-btn" disabled
+        onclick="deleteProfile('${profileId}')">Endgueltig loeschen</button>
+    </div>`);
+}
+
+function checkDeleteInput(expected) {
+  const input = document.getElementById('delete-confirm-input').value;
+  document.getElementById('delete-confirm-btn').disabled = (input !== expected);
+}
+
+async function deleteProfile(profileId) {
+  await api('/api/profiles/' + profileId, { method: 'DELETE' });
+  closeModal();
+  showToast('Profil geloescht', 'success');
+  loadProfile();
+  loadDashboard();
+  loadProfileSwitcher();
+}
+
+// === Application Wizard (v0.10.0) ===
+let appWizardStep = 0;
+let appWizardData = {};
+
+async function showApplicationWizard(hash, title, company) {
+  appWizardStep = 0;
+  appWizardData = { hash, title, company };
+
+  // Pre-load fit analysis
+  try {
+    appWizardData.fit = await api('/api/jobs/' + hash + '/fit-analyse');
+  } catch (e) {
+    appWizardData.fit = null;
+  }
+
+  renderAppWizardStep();
+}
+
+function renderAppWizardStep() {
+  const { hash, title, company, fit } = appWizardData;
+  const steps = ['Fit-Analyse', 'Lebenslauf', 'Anschreiben', 'Interview', 'Bewerbung erfassen'];
+  const stepLabels = steps.map((s, i) =>
+    `<span style="color:${i === appWizardStep ? 'var(--accent)' : i < appWizardStep ? 'var(--green)' : 'var(--text2)'}; font-weight:${i === appWizardStep ? '700' : '400'};">${i+1}. ${s}</span>`
+  ).join(' &rarr; ');
+
+  let content = '';
+  if (appWizardStep === 0) {
+    // Fit-Analyse
+    const f = fit;
+    content = f ? `
+      <div style="margin-bottom:12px;">
+        <strong>Score: ${f.total_score}</strong>
+        <div class="score-bar" style="margin-top:4px;">
+          <div class="score-fill" style="width:${Math.min(100, (f.total_score/20)*100)}%; background:${f.total_score > 12 ? 'var(--green)' : f.total_score > 6 ? 'var(--yellow)' : 'var(--red)'}"></div>
+        </div>
+      </div>
+      ${f.muss_hits?.length ? `<p><span class="badge badge-green">MUSS-Treffer: ${f.muss_hits.join(', ')}</span></p>` : ''}
+      ${f.missing_muss?.length ? `<p style="margin-top:4px;"><span class="badge badge-red">Fehlend: ${f.missing_muss.join(', ')}</span></p>` : ''}
+      ${f.plus_hits?.length ? `<p style="margin-top:4px;"><span class="badge badge-blue">PLUS-Treffer: ${f.plus_hits.join(', ')}</span></p>` : ''}
+      ${f.risks?.length ? `<p style="margin-top:8px; color:var(--yellow); font-size:0.85rem;">Risiken: ${f.risks.join(', ')}</p>` : ''}
+    ` : '<p style="color:var(--text2);">Fit-Analyse nicht verfuegbar.</p>';
+  } else if (appWizardStep === 1) {
+    content = `
+      <p style="color:var(--text2); margin-bottom:12px;">Lass Claude einen auf die Stelle angepassten Lebenslauf erstellen:</p>
+      <div class="prompt-tooltip">
+        <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+          Prompt kopieren: Anschreiben + CV
+        </button>
+        <span class="tip-text">Kopiere diesen Text in Claude Desktop. Claude analysiert die Stelle und erstellt passende Dokumente.</span>
+      </div>
+      <div style="margin-top:12px;">
+        <a href="/api/cv/export/pdf" target="_blank" class="btn btn-sm">Lebenslauf als PDF</a>
+        <a href="/api/cv/export/docx" target="_blank" class="btn btn-sm" style="margin-left:4px;">Als DOCX</a>
+      </div>`;
+  } else if (appWizardStep === 2) {
+    content = `
+      <p style="color:var(--text2); margin-bottom:12px;">Claude erstellt ein personalisiertes Anschreiben basierend auf deinem Profil und der Stelle:</p>
+      <div class="prompt-tooltip">
+        <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+          Prompt kopieren: Anschreiben
+        </button>
+        <span class="tip-text">Falls noch nicht geschehen: Kopiere diesen Text in Claude Desktop.</span>
+      </div>`;
+  } else if (appWizardStep === 3) {
+    content = `
+      <p style="color:var(--text2); margin-bottom:12px;">Optional: Bereite dich auf das Interview vor.</p>
+      <div class="prompt-tooltip">
+        <button class="btn btn-primary" onclick="copyText('/interview_vorbereitung stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+          Interview-Vorbereitung
+        </button>
+        <span class="tip-text">Claude erstellt STAR-basierte Antworten und eine Verhandlungsstrategie.</span>
+      </div>
+      <div style="margin-top:8px;">
+        <div class="prompt-tooltip">
+          <button class="btn btn-sm" onclick="copyText('/gehaltsverhandlung stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+            Gehaltsverhandlung vorbereiten
+          </button>
+          <span class="tip-text">Marktwert-Analyse und Verhandlungsstrategie fuer diese Stelle.</span>
+        </div>
+      </div>`;
+  } else if (appWizardStep === 4) {
+    content = `
+      <p style="color:var(--text2); margin-bottom:12px;">Erfasse die Bewerbung fuer dein Tracking:</p>
+      <form onsubmit="submitAppFromWizard(event)">
+        <input type="hidden" name="job_hash" value="${hash}">
+        <div class="form-row">
+          <div class="form-group"><label>Stelle</label><input name="title" value="${title}" readonly></div>
+          <div class="form-group"><label>Firma</label><input name="company" value="${company}" readonly></div>
+        </div>
+        <div class="form-group"><label>Bewerbungsart</label>
+          <select name="bewerbungsart"><option value="mit_dokumenten">Mit Dokumenten</option>
+            <option value="elektronisch">Elektronisch</option><option value="ueber_portal">Ueber Portal</option></select>
+        </div>
+        <div class="form-group"><label>Notizen</label><textarea name="notes" rows="2" placeholder="Optional..."></textarea></div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Bewerbung speichern</button>
+        </div>
+      </form>`;
+  }
+
+  openModal(`
+    <h2 style="color:var(--accent);">Bewerbung: ${title}</h2>
+    <p style="color:var(--text2); margin-bottom:4px;">${company}</p>
+    <div style="margin-bottom:16px; font-size:0.85rem;">${stepLabels}</div>
+    <div>${content}</div>
+    ${appWizardStep < 4 ? `
+    <div class="modal-actions" style="margin-top:20px;">
+      ${appWizardStep > 0 ? '<button class="btn" onclick="appWizardPrev()">Zurueck</button>' : ''}
+      <button class="btn btn-primary" onclick="appWizardNext()">${appWizardStep === 3 ? 'Bewerbung erfassen' : 'Weiter'}</button>
+      ${appWizardStep === 3 ? '<button class="btn" onclick="appWizardNext()">Ueberspringen</button>' : ''}
+    </div>` : ''}
+  `);
+}
+
+function appWizardNext() { if (appWizardStep < 4) { appWizardStep++; renderAppWizardStep(); } }
+function appWizardPrev() { if (appWizardStep > 0) { appWizardStep--; renderAppWizardStep(); } }
+
+async function submitAppFromWizard(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.status = 'beworben';
+  data.applied_at = new Date().toISOString().split('T')[0];
+  await api('/api/applications', { method: 'POST', body: JSON.stringify(data) });
+  closeModal();
+  showToast('Bewerbung gespeichert!', 'success');
+}
+
 // === Init ===
-document.addEventListener('DOMContentLoaded', () => { loadDashboard(); loadProfileSwitcher(); });
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+  loadProfileSwitcher();
+  checkWizardNeeded();
+  checkSourceBanner();
+  checkSearchReminder();
+  // Init expert mode checkbox
+  const cb = document.getElementById('expert-mode');
+  if (cb) cb.checked = localStorage.getItem('pbp_expert_mode') === 'true';
+});
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 </script>
 </body>

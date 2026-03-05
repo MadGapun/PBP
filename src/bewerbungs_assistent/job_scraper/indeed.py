@@ -1,26 +1,17 @@
-"""Indeed job scraper via HTML parsing.
+"""Indeed job scraper via Playwright.
 
-Searches de.indeed.com for job listings using httpx + BeautifulSoup.
-No login required. Rate limited to 2s between requests.
+Uses headless Chromium to handle JavaScript-rendered search results.
+No login required. Anti-bot measures: random delays, viewport variation.
 """
 
 import logging
+import random
 import time
 from urllib.parse import quote
-
-import httpx
-from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.indeed")
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-    "Accept": "text/html,application/xhtml+xml",
-}
 
 FALLBACK_QUERIES = [
     "PLM Consultant",
@@ -30,111 +21,117 @@ FALLBACK_QUERIES = [
 
 
 def search_indeed(params: dict) -> list:
-    """Search Indeed Germany for job listings.
+    """Search Indeed Germany via Playwright headless browser."""
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+    except ImportError:
+        logger.warning("Playwright nicht installiert — Indeed uebersprungen")
+        return []
 
-    Args:
-        params: Search parameters with optional 'keywords' dict
-                containing 'indeed_queries' list.
-    """
     jobs = []
-
-    # Dynamic queries from DB, fallback to hardcoded
     kw_data = params.get("keywords", {})
     queries = kw_data.get("indeed_queries", FALLBACK_QUERIES)
 
-    with httpx.Client(timeout=30, headers=HEADERS, follow_redirects=True) as client:
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+        )
+        context = browser.new_context(
+            viewport={"width": random.randint(1200, 1400), "height": random.randint(800, 1000)},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            locale="de-DE",
+        )
+        page = context.new_page()
+
         for query in queries:
             try:
                 url = f"https://de.indeed.com/jobs?q={quote(query)}&l=Deutschland"
-                resp = client.get(url)
-                if resp.status_code != 200:
-                    logger.warning("Indeed %d for '%s'", resp.status_code, query)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(random.uniform(3, 5))
+
+                # Wait for job cards
+                try:
+                    page.wait_for_selector(
+                        ".job_seen_beacon, .jobsearch-ResultsList, [data-jk], .cardOutline",
+                        timeout=10000,
+                    )
+                except PWTimeout:
+                    logger.debug("Indeed: Keine Job-Cards fuer '%s'", query)
                     continue
 
-                soup = BeautifulSoup(resp.text, "lxml")
+                # Extract via JavaScript
+                raw_jobs = page.evaluate("""() => {
+                    const results = [];
+                    const cards = document.querySelectorAll(
+                        'div.job_seen_beacon, div[data-jk], li div.cardOutline, .jobsearch-SerpJobCard'
+                    );
+                    for (const card of cards) {
+                        const titleEl = card.querySelector(
+                            'h2.jobTitle a, a[data-jk], h2 a, .jobTitle a'
+                        );
+                        if (!titleEl) continue;
+                        const title = titleEl.textContent?.trim() || '';
+                        if (!title) continue;
 
-                # Indeed uses various card structures
-                cards = (
-                    soup.select("div.job_seen_beacon") or
-                    soup.select("div.jobsearch-SerpJobCard") or
-                    soup.select("div[data-jk]") or
-                    soup.select("li div.cardOutline")
-                )
+                        // Build link from data-jk attribute
+                        let link = '';
+                        const jk = card.getAttribute('data-jk') || titleEl.getAttribute('data-jk');
+                        if (jk) {
+                            link = 'https://de.indeed.com/viewjob?jk=' + jk;
+                        } else if (titleEl.href) {
+                            link = titleEl.href.startsWith('http') ? titleEl.href
+                                : 'https://de.indeed.com' + titleEl.href;
+                        }
 
-                for card in cards:
-                    # Title
-                    title_el = (
-                        card.select_one("h2.jobTitle a") or
-                        card.select_one("a[data-jk]") or
-                        card.select_one("h2 a") or
-                        card.select_one(".jobTitle")
-                    )
-                    if not title_el:
-                        continue
-                    title = title_el.get_text(strip=True)
-                    if not title:
-                        continue
+                        const companyEl = card.querySelector(
+                            "[data-testid='company-name'], .companyName, .company"
+                        );
+                        const locationEl = card.querySelector(
+                            "[data-testid='text-location'], .companyLocation, .location"
+                        );
+                        const descEl = card.querySelector(
+                            '.job-snippet, [class*="snippet"], .summary'
+                        );
+                        const salaryEl = card.querySelector(
+                            "[data-testid='attribute_snippet_testid'], .salary-snippet-container, .estimated-salary"
+                        );
 
-                    # Link
-                    link = ""
-                    jk = card.get("data-jk") or (title_el.get("data-jk") if title_el else "")
-                    if jk:
-                        link = f"https://de.indeed.com/viewjob?jk={jk}"
-                    elif title_el and title_el.get("href"):
-                        href = title_el["href"]
-                        if not href.startswith("http"):
-                            href = "https://de.indeed.com" + href
-                        link = href
+                        results.push({
+                            title,
+                            link,
+                            company: companyEl?.textContent?.trim() || 'Unbekannt',
+                            location: locationEl?.textContent?.trim() || '',
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 500),
+                            salary: salaryEl?.textContent?.trim() || '',
+                        });
+                    }
+                    return results;
+                }""")
 
-                    # Company
-                    company_el = (
-                        card.select_one("[data-testid='company-name']") or
-                        card.select_one(".companyName") or
-                        card.select_one(".company")
-                    )
-                    company = company_el.get_text(strip=True) if company_el else "Unbekannt"
-
-                    # Location
-                    location_el = (
-                        card.select_one("[data-testid='text-location']") or
-                        card.select_one(".companyLocation") or
-                        card.select_one(".location")
-                    )
-                    location = location_el.get_text(strip=True) if location_el else ""
-
-                    # Description snippet
-                    desc_el = (
-                        card.select_one(".job-snippet") or
-                        card.select_one("[class*='snippet']") or
-                        card.select_one(".summary")
-                    )
-                    desc = desc_el.get_text(strip=True) if desc_el else ""
-
-                    # Salary
-                    salary_el = (
-                        card.select_one("[data-testid='attribute_snippet_testid']") or
-                        card.select_one(".salary-snippet-container") or
-                        card.select_one(".estimated-salary")
-                    )
-                    salary = salary_el.get_text(strip=True) if salary_el else ""
-
+                for raw in raw_jobs:
                     job = {
-                        "hash": stelle_hash("indeed.de", title),
-                        "title": title,
-                        "company": company,
-                        "location": location,
-                        "url": link,
+                        "hash": stelle_hash("indeed.de", raw["title"]),
+                        "title": raw["title"],
+                        "company": raw["company"],
+                        "location": raw["location"],
+                        "url": raw["link"],
                         "source": "indeed",
-                        "description": desc[:500],
+                        "description": raw["desc"],
                         "employment_type": "festanstellung",
-                        "remote_level": detect_remote_level(f"{title} {location} {desc}"),
-                        "salary_info": salary if salary else None,
+                        "remote_level": detect_remote_level(
+                            f"{raw['title']} {raw['location']} {raw['desc']}"
+                        ),
+                        "salary_info": raw["salary"] if raw["salary"] else None,
                     }
                     jobs.append(job)
 
-                time.sleep(2)  # Rate limiting
+                time.sleep(random.uniform(2, 4))
             except Exception as e:
                 logger.error("Indeed error for '%s': %s", query, e)
+
+        browser.close()
 
     logger.info("Indeed: %d Stellen gefunden", len(jobs))
     return jobs

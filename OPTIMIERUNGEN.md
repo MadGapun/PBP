@@ -1,5 +1,45 @@
 # PBP — Optimierungsplan
-## Stand: 2026-02-25 (aktualisiert)
+## Stand: 2026-03-05 (aktualisiert)
+
+---
+
+## v0.10.0 — UX & Scraper Overhaul (2026-03-05)
+
+### Neue Features
+- **Onboarding-Wizard**: 4-Schritt Wizard fuer neue User (Profil, Quellen, Suche, Ergebnisse)
+- **Bewerbungs-Wizard**: 5-Schritt Wizard pro Stelle (Fit-Analyse, CV, Anschreiben, Interview, Erfassung)
+- **Gehalt auf Stellenkarten**: Immer sichtbar — gelb fuer echte Daten, grau fuer Schaetzung
+- **Gehalts-Schaetzungs-Engine**: Automatische Extraktion (7 Regex-Patterns) + Schaetzung via Lookup-Tabellen
+- **Quellen-Banner**: Persistenter Hinweis wenn keine Quellen aktiv
+- **Such-Reminder**: Farbcodierte Anzeige der letzten Suche (gruen/gelb/rot)
+- **Hint-System**: Per-Hint dismissbar + globaler Expertenmodus
+- **Profil loeschen**: Gefahrenzone mit Namens-Bestaetigung
+- **Gehaltsfilter**: Dropdown im Stellen-Tab (ab 50k/65k/80k/100k)
+- **Tooltips**: Alle KI-Befehle mit Erklaerung was passiert
+
+### Scraper-Reparatur
+- **StepStone**: Komplett auf Playwright umgestellt (war httpx+BS4)
+- **Indeed**: Komplett auf Playwright umgestellt mit Anti-Bot-Massnahmen
+- **Monster**: Komplett auf Playwright umgestellt
+- **XING**: Selektoren repariert, nutzt jetzt link-basierte Extraktion
+- **Freelancermap**: Playwright-Fallback wenn httpx leer zurueckkommt
+- **LinkedIn**: Bestehende Implementierung verifiziert
+
+### Schema & API
+- Schema v6 → v7: `salary_estimated` Spalte, `user_preferences` Tabelle
+- 3 neue API-Endpoints: `/api/user-preferences/{key}`, `/api/search-status`
+- `gehalt_extrahieren()` nutzt jetzt shared Engine mit Schaetzungs-Fallback
+- `jobsuche_workflow` Prompt mit Schritt-Erklaerungen und Wiederholungshinweis
+
+### Intelligente Dokumenten-Erkennung
+- **Auto-Typ-Erkennung**: Dateiname + Textinhalt → Lebenslauf/Anschreiben/Zeugnis/Zertifikat
+- **Firmen-Erkennung**: Aus Dateiname extrahiert (z.B. "Anschreiben_Siemens_2026-03.pdf")
+- **Bewerbungs-Matching**: Automatische Zuordnung zu bestehenden Bewerbungen
+- **Auto-Create**: Neue Bewerbung direkt beim Upload erstellen
+
+### Tests
+- 22 neue Tests fuer v0.10.0 (Schema v7, Salary-Extraction, User-Preferences)
+- 79 Tests total, alle bestanden
 
 ---
 

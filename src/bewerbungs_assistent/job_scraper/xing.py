@@ -146,68 +146,66 @@ def search_xing(params: dict, progress_callback=None) -> list:
                         page.evaluate("window.scrollBy(0, 800)")
                         time.sleep(0.5)
 
-                    # Extract job cards
-                    cards = page.query_selector_all(
-                        "article, [data-testid*='job'], "
-                        "[class*='job-posting'], [class*='JobCard'], "
-                        "[class*='serp-result']"
-                    )
+                    # Extract job cards via JavaScript (more reliable than query_selector_all)
+                    raw_jobs = page.evaluate("""() => {
+                        const results = [];
+                        // XING job cards: look for links to /jobs/ detail pages
+                        const allLinks = document.querySelectorAll('a[href*="/jobs/"]');
+                        const seen = new Set();
+                        for (const link of allLinks) {
+                            const href = link.getAttribute('href') || '';
+                            // Only job detail links (not search/filter links)
+                            if (!href.match(/\\/jobs\\/[a-z0-9-]+\\./i) &&
+                                !href.match(/\\/jobs\\/\\d+/)) continue;
+                            const title = link.textContent?.trim() || '';
+                            if (!title || title.length < 5 || seen.has(title)) continue;
+                            seen.add(title);
 
-                    for card in cards:
-                        try:
-                            # Title
-                            title_el = card.query_selector(
-                                "h2 a, h3 a, [data-testid*='title'] a, "
-                                "[class*='title'] a, a[class*='Title']"
-                            )
-                            if not title_el:
-                                continue
-                            title = title_el.inner_text().strip()
-                            if not title:
-                                continue
+                            // Walk up to find the card container
+                            let card = link.closest('article, [data-testid], li, div[class*="card"]');
+                            if (!card) card = link.parentElement?.parentElement || link.parentElement;
 
-                            # Link
-                            link = title_el.get_attribute("href") or ""
-                            if link and not link.startswith("http"):
-                                link = "https://www.xing.com" + link
+                            const companyEl = card?.querySelector(
+                                '[data-testid*="company"], [class*="company" i]'
+                            );
+                            const locationEl = card?.querySelector(
+                                '[data-testid*="location"], [class*="location" i]'
+                            );
+                            const descEl = card?.querySelector(
+                                '[class*="description" i], [class*="snippet" i]'
+                            );
 
-                            # Company
-                            company_el = card.query_selector(
-                                "[data-testid*='company'], "
-                                "[class*='company'], [class*='Company']"
-                            )
-                            company = company_el.inner_text().strip() if company_el else "Unbekannt"
-
-                            # Location
-                            location_el = card.query_selector(
-                                "[data-testid*='location'], "
-                                "[class*='location'], [class*='Location']"
-                            )
-                            location = location_el.inner_text().strip() if location_el else ""
-
-                            # Description snippet
-                            desc_el = card.query_selector(
-                                "[class*='description'], [class*='snippet'], p"
-                            )
-                            desc = desc_el.inner_text().strip() if desc_el else ""
-
-                            job = {
-                                "hash": stelle_hash("xing.com", title),
-                                "title": title,
-                                "company": company,
-                                "location": location,
-                                "url": link,
-                                "source": "xing",
-                                "description": desc[:500],
-                                "employment_type": "festanstellung",
-                                "remote_level": detect_remote_level(
-                                    f"{title} {location} {desc}"
-                                ),
+                            let fullLink = href;
+                            if (fullLink && !fullLink.startsWith('http')) {
+                                fullLink = 'https://www.xing.com' + fullLink;
                             }
-                            stellen.append(job)
 
-                        except Exception as e:
-                            logger.debug("XING card parse error: %s", e)
+                            results.push({
+                                title,
+                                link: fullLink,
+                                company: companyEl?.textContent?.trim() || 'Unbekannt',
+                                location: locationEl?.textContent?.trim() || '',
+                                desc: (descEl?.textContent?.trim() || '').substring(0, 500),
+                            });
+                        }
+                        return results;
+                    }""")
+
+                    for raw in raw_jobs:
+                        job = {
+                            "hash": stelle_hash("xing.com", raw["title"]),
+                            "title": raw["title"],
+                            "company": raw["company"],
+                            "location": raw["location"],
+                            "url": raw["link"],
+                            "source": "xing",
+                            "description": raw["desc"],
+                            "employment_type": "festanstellung",
+                            "remote_level": detect_remote_level(
+                                f"{raw['title']} {raw['location']} {raw['desc']}"
+                            ),
+                        }
+                        stellen.append(job)
 
                     time.sleep(2)  # Rate limiting between searches
                 except Exception as e:

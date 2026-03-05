@@ -1741,12 +1741,14 @@ def gehalt_extrahieren(job_hash: str) -> dict:
     """Extrahiert Gehaltsinformationen aus einer Stellenbeschreibung.
 
     Durchsucht den Text nach Gehaltsangaben (Jahresgehalt, Tagessatz,
-    Stundenlohn) und speichert die strukturierten Daten.
+    Stundenlohn). Falls keine Angabe gefunden wird, erstellt eine Schaetzung
+    basierend auf Jobtitel und Standort. Speichert die Daten in der DB.
 
     Args:
         job_hash: Hash der Stelle aus stellen_anzeigen()
     """
-    import re
+    from .job_scraper import extract_salary_from_text, estimate_salary
+
     conn = db.connect()
     row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
     if not row:
@@ -1754,82 +1756,59 @@ def gehalt_extrahieren(job_hash: str) -> dict:
 
     text = (row["description"] or "") + " " + (row["salary_info"] or "") + " " + (row["title"] or "")
 
-    # Regex patterns for salary extraction
-    patterns = [
-        # EUR ranges: 60.000-80.000, 60000-80000, 60k-80k
-        (r'(\d{2,3}[\.,]?\d{3})\s*[-–bis]+\s*(\d{2,3}[\.,]?\d{3})\s*(?:EUR|€|Euro)', 'jaehrlich'),
-        (r'€\s*(\d{2,3}[\.,]?\d{3})\s*[-–bis]+\s*(\d{2,3}[\.,]?\d{3})', 'jaehrlich'),
-        (r'(\d{2,3})\s*k\s*[-–bis]+\s*(\d{2,3})\s*k', 'jaehrlich'),
-        # Single annual amounts
-        (r'(?:Gehalt|Jahresgehalt|Brutto)[:\s]*(?:ab|bis|ca\.?)?\s*(\d{2,3}[\.,]?\d{3})\s*(?:EUR|€|Euro)?', 'jaehrlich'),
-        # Daily rates: 800-1200€/Tag
-        (r'(\d{3,4})\s*[-–bis]+\s*(\d{3,4})\s*(?:EUR|€)?\s*/?\s*(?:Tag|day|d)', 'taeglich'),
-        (r'(?:Tagessatz|Tagesrate|daily rate)[:\s]*(\d{3,4})\s*(?:[-–bis]+\s*(\d{3,4}))?\s*(?:EUR|€)?', 'taeglich'),
-        # Hourly rates
-        (r'(\d{2,3})\s*[-–bis]+\s*(\d{2,3})\s*(?:EUR|€)?\s*/?\s*(?:Stunde|hour|h)', 'stuendlich'),
-    ]
+    # Try extraction first
+    salary_min, salary_max, salary_type = extract_salary_from_text(text)
+    is_estimated = False
 
-    salary_min = None
-    salary_max = None
-    salary_type = None
-
-    for pattern, stype in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            groups = [g for g in match.groups() if g]
-            nums = []
-            for g in groups:
-                g_clean = g.replace(".", "").replace(",", "")
-                try:
-                    n = float(g_clean)
-                    # k-notation
-                    if n < 300 and stype == 'jaehrlich':
-                        n *= 1000
-                    nums.append(n)
-                except ValueError:
-                    continue
-            if nums:
-                salary_min = min(nums)
-                salary_max = max(nums) if len(nums) > 1 else salary_min
-                salary_type = stype
-                break
+    # Fallback: estimate if not found
+    if salary_min is None:
+        salary_min, salary_max, salary_type = estimate_salary(
+            row["title"] or "", row.get("employment_type", ""), row.get("location", "")
+        )
+        is_estimated = True
 
     if salary_min is None:
         return {
             "status": "nicht_gefunden",
             "stelle": row["title"],
             "firma": row["company"],
-            "hinweis": "Keine Gehaltsangabe in der Stellenbeschreibung erkannt. "
+            "hinweis": "Keine Gehaltsangabe erkannt und keine Schaetzung moeglich. "
                        "Du kannst Claude bitten, den Text manuell zu analysieren.",
             "salary_info_text": row.get("salary_info", ""),
         }
 
     # Save to database
     db.save_salary_data(job_hash, salary_min, salary_max, salary_type)
+    if is_estimated:
+        conn.execute(
+            "UPDATE jobs SET salary_estimated=1 WHERE hash=?", (job_hash,)
+        )
+        conn.commit()
 
     # Compare with profile preferences
     profile = db.get_profile()
     vergleich = {}
     if profile and profile.get("preferences"):
         prefs = profile["preferences"]
-        if salary_type == "jaehrlich" and prefs.get("min_gehalt"):
+        if salary_type in ("jaehrlich", "jahr") and prefs.get("min_gehalt"):
             min_g = float(prefs["min_gehalt"])
             vergleich["dein_minimum"] = min_g
             vergleich["passt"] = salary_max >= min_g
             if prefs.get("ziel_gehalt"):
                 vergleich["dein_ziel"] = float(prefs["ziel_gehalt"])
-        elif salary_type == "taeglich" and prefs.get("min_tagessatz"):
+        elif salary_type in ("taeglich", "tag") and prefs.get("min_tagessatz"):
             min_t = float(prefs["min_tagessatz"])
             vergleich["dein_minimum"] = min_t
             vergleich["passt"] = salary_max >= min_t
 
     return {
-        "status": "extrahiert",
+        "status": "geschaetzt" if is_estimated else "extrahiert",
         "stelle": row["title"],
         "firma": row["company"],
         "gehalt_min": salary_min,
         "gehalt_max": salary_max,
         "gehalt_typ": salary_type,
+        "geschaetzt": is_estimated,
         "vergleich_mit_profil": vergleich,
     }
 
@@ -1852,8 +1831,8 @@ def gehalt_marktanalyse() -> dict:
             "ziel_tagessatz": prefs.get("ziel_tagessatz"),
         }
     stats["tipp"] = (
-        "Nutze gehalt_extrahieren(job_hash) um Gehaltsdaten aus einzelnen "
-        "Stellen zu extrahieren und die Datenbasis zu vergroessern."
+        "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschaetzt. "
+        "Nutze gehalt_extrahieren(job_hash) um einzelne Stellen gezielt zu analysieren."
     )
     return stats
 
@@ -2657,13 +2636,32 @@ def jobsuche_workflow() -> str:
     active_sources = db.get_setting("active_sources", [])
     active_jobs = len(db.get_active_jobs())
 
+    last_search = db.get_setting("last_search_at", "")
+    last_info = ""
+    if last_search:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(last_search)
+            days = (datetime.now() - d).days
+            last_info = f"Letzte Suche: {last_search} ({days} Tag(e) her)"
+        except Exception:
+            last_info = f"Letzte Suche: {last_search}"
+
     return f"""Starte den gefuehrten Jobsuche-Workflow.
 
-DU FUEHRST DEN USER SCHRITT FUER SCHRITT DURCH DIESEN PROZESS:
+DU FUEHRST DEN USER SCHRITT FUER SCHRITT DURCH DIESEN PROZESS.
+Erklaere bei jedem Schritt WAS passiert und WARUM.
+
+{f'ℹ {last_info}' if last_info else ''}
 
 ═══════════════════════════════════════════════════
 SCHRITT 1: SUCHKRITERIEN PRUEFEN
 ═══════════════════════════════════════════════════
+WAS PASSIERT: Du legst fest, nach welchen Stellen gesucht wird.
+MUSS-Keywords = Pflichtbegriffe (Stelle muss diese enthalten).
+PLUS-Keywords = Bonus (erhoehen den Score, sind aber nicht Pflicht).
+BLACKLIST = Ausschluesse (Stellen mit diesen Begriffen werden ignoriert).
+
 Aktueller Stand: {json.dumps(criteria, ensure_ascii=False, indent=2) if criteria else 'Noch keine Kriterien gesetzt!'}
 
 Falls keine/wenige Kriterien gesetzt:
@@ -2676,33 +2674,43 @@ Falls keine/wenige Kriterien gesetzt:
 ═══════════════════════════════════════════════════
 SCHRITT 2: QUELLEN AKTIVIEREN
 ═══════════════════════════════════════════════════
+WAS PASSIERT: Wir waehlen die Jobportale aus, die durchsucht werden.
+Mehr Quellen = mehr Ergebnisse, aber laengere Suchdauer.
+
 Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen muessen erst aktiviert werden)'}
 
 Falls keine Quellen aktiv:
 → Erklaere: "Du musst mindestens eine Jobquelle aktivieren. Das geht am einfachsten
-   im Dashboard (http://localhost:8200) unter Einstellungen → Job-Quellen.
+   im Dashboard unter Einstellungen → Job-Quellen.
    Oder sag mir welche du nutzen moechtest:
    - StepStone (keine Anmeldung noetig)
    - Indeed (keine Anmeldung noetig)
    - Monster (keine Anmeldung noetig)
    - Bundesagentur fuer Arbeit (keine Anmeldung noetig)
    - Hays (keine Anmeldung noetig)
-   - Freelancermap (keine Anmeldung noetig)
-   - LinkedIn (Anmeldung erforderlich)
-   - XING (Anmeldung erforderlich)"
+   - Freelancermap (keine Anmeldung noetig, Freelance-Projekte)
+   - LinkedIn (Anmeldung erforderlich, Browser oeffnet sich)
+   - XING (Anmeldung erforderlich, Browser oeffnet sich)"
 
 ═══════════════════════════════════════════════════
 SCHRITT 3: SUCHE STARTEN
 ═══════════════════════════════════════════════════
-{f'Es gibt bereits {active_jobs} aktive Stellen.' if active_jobs > 0 else 'Noch keine Stellen gefunden.'}
+WAS PASSIERT: Ich durchsuche jetzt alle aktivierten Portale nach deinen Kriterien.
+Das kann je nach Anzahl der Quellen 5-10 Minuten dauern. Ich halte dich auf dem Laufenden.
+{f'Es gibt bereits {active_jobs} aktive Stellen aus frueheren Suchen.' if active_jobs > 0 else 'Noch keine Stellen gefunden.'}
 
 → Starte die Suche mit jobsuche_starten()
-→ Die Suche dauert ca. 5-10 Minuten
+→ WICHTIG: Informiere den User: "Die Suche laeuft jetzt. Das dauert einige Minuten.
+   Ich melde mich wenn es Ergebnisse gibt."
 → Informiere den User ueber den Fortschritt mit jobsuche_status()
 
 ═══════════════════════════════════════════════════
 SCHRITT 4: ERGEBNISSE SICHTEN
 ═══════════════════════════════════════════════════
+WAS PASSIERT: Wir schauen uns die gefundenen Stellen an. Jede Stelle hat einen
+Fit-Score (0-20 Punkte) der zeigt, wie gut sie zu deinem Profil passt.
+Stellen mit Gehaltsinformationen zeigen diese direkt an.
+
 → Zeige die Ergebnisse mit stellen_anzeigen()
 → Gehe die Top-Stellen durch: "Schau dir die besten Treffer an:"
 → Fuer interessante Stellen: fit_analyse(hash) fuer Details
@@ -2711,6 +2719,9 @@ SCHRITT 4: ERGEBNISSE SICHTEN
 ═══════════════════════════════════════════════════
 SCHRITT 5: BEWERBUNG VORBEREITEN
 ═══════════════════════════════════════════════════
+WAS PASSIERT: Fuer Stellen die gut passen, erstellen wir Bewerbungsunterlagen.
+Du kannst das auch spaeter ueber den "Jetzt bewerben" Button im Dashboard machen.
+
 Fuer passende Stellen:
 → "Soll ich ein Anschreiben fuer [Stelle] bei [Firma] schreiben?"
 → Nutze den Prompt 'bewerbung_schreiben' fuer das Anschreiben
@@ -2722,7 +2733,9 @@ REGELN:
 - Erklaere jeden Schritt verstaendlich
 - Ueberspringe Schritte die bereits erledigt sind
 - Biete Hilfe bei jedem Schritt an
-- Sprich Deutsch und per Du"""
+- Sprich Deutsch und per Du
+- Am Ende: "Tipp: Fuehre die Jobsuche alle 2-3 Tage erneut aus, um neue Stellen zu finden.
+  Im Dashboard siehst du, wann die letzte Suche war.\""""
 
 
 @mcp.prompt()
