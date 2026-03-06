@@ -212,7 +212,7 @@ def profil_zusammenfassung() -> dict:
     checks = {
         "Name": bool(profile.get("name")),
         "Kontaktdaten (E-Mail/Telefon)": bool(profile.get("email") or profile.get("phone")),
-        "Adresse": bool(profile.get("city")),
+        "Adresse": bool(profile.get("address") or profile.get("city")),
         "Kurzprofil/Summary": bool(profile.get("summary")),
         "Berufserfahrung": len(positions) > 0,
         "Projekte (STAR)": any(pos.get("projects") for pos in positions),
@@ -249,15 +249,20 @@ def profil_bearbeiten(
     element_id: str = "",
     daten: dict = None
 ) -> dict:
-    """Bearbeitet einen bestimmten Bereich des Profils gezielt.
+    """Bearbeitet Profildaten: Persoenliches, Berufserfahrung, Skills, Ausbildung, Projekte.
 
-    Ermoeglicht Korrekturen ohne alles neu eingeben zu muessen.
+    Universaltool fuer alle Profil-Aenderungen. Auch nutzbar fuer Bulk-Import
+    mit aktion='hinzufuegen_bulk' und daten als Liste.
+
+    Feldnamen-Aliase fuer bereich='persoenlich':
+    adresse/anschrift→address, kurzprofil/zusammenfassung→summary,
+    stadt/ort→city, telefon→phone
 
     Args:
         bereich: persoenlich, praeferenzen, position, projekt, ausbildung, skill
-        aktion: aendern, loeschen, hinzufuegen
+        aktion: aendern, loeschen, hinzufuegen, hinzufuegen_bulk (Liste in daten)
         element_id: ID des Elements (bei aendern/loeschen)
-        daten: Die konkreten Aenderungsdaten (bei aendern/hinzufuegen)
+        daten: Dict mit Aenderungen, oder Liste von Dicts bei hinzufuegen_bulk
     """
     if daten is None:
         daten = {}
@@ -267,23 +272,46 @@ def profil_bearbeiten(
             profile = db.get_profile()
             if not profile:
                 return {"fehler": "Kein Profil vorhanden"}
+            # Alias-Support: deutsche Feldnamen → DB-Spalten
+            _FIELD_ALIASES = {
+                "adresse": "address", "strasse": "address", "anschrift": "address",
+                "stadt": "city", "ort": "city", "wohnort": "city",
+                "kurzprofil": "summary", "zusammenfassung": "summary", "profil": "summary",
+                "telefon": "phone", "tel": "phone", "handy": "phone",
+                "land": "country", "geburtstag": "birthday",
+                "staatsangehoerigkeit": "nationality", "nationalitaet": "nationality",
+                "notizen": "informal_notes",
+            }
+            resolved = {}
+            for k, v in daten.items():
+                canonical = _FIELD_ALIASES.get(k.lower(), k.lower())
+                resolved[canonical] = v
+            # Known DB fields
+            _KNOWN_FIELDS = {"name", "email", "phone", "address", "city", "plz",
+                             "country", "birthday", "nationality", "summary", "informal_notes"}
+            ignoriert = [k for k in resolved if k not in _KNOWN_FIELDS]
             # Merge: keep existing, update provided
             update = {
-                "name": daten.get("name", profile.get("name")),
-                "email": daten.get("email", profile.get("email")),
-                "phone": daten.get("phone", profile.get("phone")),
-                "address": daten.get("address", profile.get("address")),
-                "city": daten.get("city", profile.get("city")),
-                "plz": daten.get("plz", profile.get("plz")),
-                "country": daten.get("country", profile.get("country")),
-                "birthday": daten.get("birthday", profile.get("birthday")),
-                "nationality": daten.get("nationality", profile.get("nationality")),
-                "summary": daten.get("summary", profile.get("summary")),
-                "informal_notes": daten.get("informal_notes", profile.get("informal_notes")),
+                "name": resolved.get("name", profile.get("name")),
+                "email": resolved.get("email", profile.get("email")),
+                "phone": resolved.get("phone", profile.get("phone")),
+                "address": resolved.get("address", profile.get("address")),
+                "city": resolved.get("city", profile.get("city")),
+                "plz": resolved.get("plz", profile.get("plz")),
+                "country": resolved.get("country", profile.get("country")),
+                "birthday": resolved.get("birthday", profile.get("birthday")),
+                "nationality": resolved.get("nationality", profile.get("nationality")),
+                "summary": resolved.get("summary", profile.get("summary")),
+                "informal_notes": resolved.get("informal_notes", profile.get("informal_notes")),
                 "preferences": profile.get("preferences", {}),
             }
             db.save_profile(update)
-            return {"status": "aktualisiert", "bereich": "persoenlich"}
+            result = {"status": "aktualisiert", "bereich": "persoenlich",
+                      "akzeptierte_felder": [k for k in resolved if k in _KNOWN_FIELDS]}
+            if ignoriert:
+                result["ignorierte_felder"] = ignoriert
+                result["hinweis"] = f"Unbekannte Felder ignoriert: {', '.join(ignoriert)}"
+            return result
 
     elif bereich == "praeferenzen":
         if aktion == "aendern":
@@ -314,11 +342,20 @@ def profil_bearbeiten(
         elif aktion == "hinzufuegen":
             pid = db.add_position(daten)
             return {"status": "hinzugefuegt", "bereich": "position", "id": pid}
+        elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
+            ids = [db.add_position(d) for d in daten]
+            return {"status": "hinzugefuegt", "bereich": "position", "anzahl": len(ids), "ids": ids}
 
     elif bereich == "projekt":
         if aktion == "hinzufuegen" and daten.get("position_id"):
             pid = db.add_project(daten["position_id"], daten)
             return {"status": "hinzugefuegt", "bereich": "projekt", "id": pid}
+        elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
+            ids = []
+            for d in daten:
+                if d.get("position_id"):
+                    ids.append(db.add_project(d["position_id"], d))
+            return {"status": "hinzugefuegt", "bereich": "projekt", "anzahl": len(ids), "ids": ids}
 
     elif bereich == "ausbildung":
         if aktion == "loeschen" and element_id:
@@ -327,6 +364,9 @@ def profil_bearbeiten(
         elif aktion == "hinzufuegen":
             eid = db.add_education(daten)
             return {"status": "hinzugefuegt", "bereich": "ausbildung", "id": eid}
+        elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
+            ids = [db.add_education(d) for d in daten]
+            return {"status": "hinzugefuegt", "bereich": "ausbildung", "anzahl": len(ids), "ids": ids}
 
     elif bereich == "skill":
         if aktion == "loeschen" and element_id:
@@ -335,6 +375,9 @@ def profil_bearbeiten(
         elif aktion == "hinzufuegen":
             sid = db.add_skill(daten)
             return {"status": "hinzugefuegt", "bereich": "skill", "id": sid}
+        elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
+            ids = [db.add_skill(d) for d in daten]
+            return {"status": "hinzugefuegt", "bereich": "skill", "anzahl": len(ids), "ids": ids}
 
     return {"fehler": f"Ungueltige Kombination: bereich={bereich}, aktion={aktion}"}
 
@@ -425,7 +468,9 @@ def position_hinzufuegen(
     achievements: str = "",
     technologies: str = ""
 ) -> dict:
-    """Fuegt eine Berufsposition zum Profil hinzu.
+    """Fuegt eine Berufserfahrung (Position/Stelle/Job) zum Bewerberprofil hinzu.
+
+    Alternativ: profil_bearbeiten(bereich='position', aktion='hinzufuegen')
 
     Args:
         company: Firmenname
@@ -534,10 +579,13 @@ def skill_hinzufuegen(
     level: int = 3,
     years_experience: int = 0
 ) -> dict:
-    """Fuegt eine Kompetenz/Faehigkeit zum Profil hinzu.
+    """Fuegt einen Skill (Kompetenz/Faehigkeit/Expertise) zum Bewerberprofil hinzu.
+
+    Fuer Fachwissen, Tools, Soft Skills, Sprachen und Methoden-Kompetenzen.
+    Alternativ: profil_bearbeiten(bereich='skill', aktion='hinzufuegen')
 
     Args:
-        name: Name der Kompetenz
+        name: Name der Kompetenz (z.B. Python, Projektmanagement, SAP)
         category: fachlich, methodisch, soft_skill, sprache, tool
         level: Kompetenzstufe 1-5 (1=Grundkenntnisse, 5=Experte)
         years_experience: Jahre Erfahrung
@@ -1215,13 +1263,20 @@ def dokument_profil_extrahieren(document_id: str) -> dict:
     6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufuegen etc.)
 
     Args:
-        document_id: ID des Dokuments aus dem Profildaten extrahiert werden sollen
+        document_id: ID oder Dateiname des Dokuments
     """
     conn = db.connect()
-    cur = conn.execute("SELECT * FROM documents WHERE id=?", (document_id,))
-    row = cur.fetchone()
+    # Try ID first, then filename fallback
+    row = conn.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
     if row is None:
-        return {"fehler": f"Dokument mit ID '{document_id}' nicht gefunden."}
+        row = conn.execute("SELECT * FROM documents WHERE filename=? ORDER BY created_at DESC LIMIT 1",
+                           (document_id,)).fetchone()
+    if row is None:
+        # List available documents as help
+        docs = conn.execute("SELECT id, filename FROM documents ORDER BY created_at DESC LIMIT 10").fetchall()
+        available = [{"id": d["id"], "filename": d["filename"]} for d in docs]
+        return {"fehler": f"Dokument '{document_id}' nicht gefunden.",
+                "verfuegbare_dokumente": available}
 
     doc = dict(row)
     if not doc.get("extracted_text"):
@@ -1250,11 +1305,11 @@ def dokument_profil_extrahieren(document_id: str) -> dict:
 
 @mcp.tool()
 def dokumente_zur_analyse() -> dict:
-    """Listet alle Dokumente mit extrahiertem Text auf, die noch nicht
-    fuer die Profil-Extraktion analysiert wurden.
+    """Listet alle Dokumente mit extrahiertem Text auf — auch bereits analysierte.
 
-    Nutze dies nach einem Dokument-Upload um dem User anzubieten,
-    automatisch Profildaten aus den Dokumenten zu extrahieren.
+    Zeigt den Extraktions-Status jedes Dokuments an, damit auch wiederholte
+    Extraktion moeglich ist. Nutze extraktion_starten(document_ids=[...]) um
+    bestimmte Dokumente erneut zu extrahieren.
     """
     profile = db.get_profile()
     if profile is None:
@@ -1268,14 +1323,18 @@ def dokumente_zur_analyse() -> dict:
             "doc_type": d.get("doc_type", "sonstiges"),
             "hat_text": bool(d.get("extracted_text")),
             "text_laenge": len(d.get("extracted_text", "")),
+            "extraction_status": d.get("extraction_status", "nicht_extrahiert"),
+            "bereits_analysiert": d.get("extraction_status", "") not in ("nicht_extrahiert", ""),
         }
         for d in docs
         if d.get("extracted_text")
     ]
+    neue = [d for d in analysierbare if not d["bereits_analysiert"]]
     return {
         "status": "ok",
         "dokumente_gesamt": len(docs),
         "analysierbare": len(analysierbare),
+        "neue_dokumente": len(neue),
         "dokumente": analysierbare,
     }
 
@@ -1285,7 +1344,7 @@ def dokumente_zur_analyse() -> dict:
 # ============================================================
 
 @mcp.tool()
-def extraktion_starten(document_ids: list = None) -> dict:
+def extraktion_starten(document_ids: list = None, force: bool = False) -> dict:
     """Startet die intelligente Profil-Extraktion fuer ein oder mehrere Dokumente.
 
     Laedt den extrahierten Text aller angegebenen (oder aller noch nicht
@@ -1300,7 +1359,8 @@ def extraktion_starten(document_ids: list = None) -> dict:
     5. Wende an mit extraktion_anwenden()
 
     Args:
-        document_ids: Liste von Dokument-IDs. Leer = alle noch nicht extrahierten.
+        document_ids: Liste von Dokument-IDs oder Dateinamen. Leer = alle noch nicht extrahierten.
+        force: True = auch bereits extrahierte Dokumente erneut verarbeiten.
     """
     profile = db.get_profile()
     if not profile:
@@ -1310,10 +1370,21 @@ def extraktion_starten(document_ids: list = None) -> dict:
     pid = profile["id"]
 
     if document_ids:
-        placeholders = ",".join("?" for _ in document_ids)
+        # Support both IDs and filenames
+        rows = []
+        for doc_ref in document_ids:
+            r = conn.execute(
+                "SELECT * FROM documents WHERE (id=? OR filename=?) AND profile_id=?",
+                (doc_ref, doc_ref, pid)
+            ).fetchone()
+            if r:
+                rows.append(r)
+        if not rows:
+            rows = []
+    elif force:
         rows = conn.execute(
-            f"SELECT * FROM documents WHERE id IN ({placeholders}) AND profile_id=?",
-            (*document_ids, pid)
+            "SELECT * FROM documents WHERE profile_id=? AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (pid,)
         ).fetchall()
     else:
         rows = conn.execute(
@@ -3106,5 +3177,5 @@ def run_server():
         pass  # Signals not available in all contexts
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.3")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.4")
     mcp.run(transport="stdio")

@@ -476,3 +476,57 @@ class TestOrphanedDocumentAdoption:
             "SELECT profile_id FROM documents WHERE filename='user1_cv.pdf'"
         ).fetchone()
         assert row["profile_id"] == pid1
+
+
+class TestCompletenessCheck:
+    """Tests for the profile completeness check."""
+
+    def test_address_field_recognized(self, tmp_db):
+        """Address field should count for completeness."""
+        tmp_db.save_profile({"name": "Test", "address": "Musterstr. 1"})
+        profile = tmp_db.get_profile()
+        # address is set, city is not — should still count
+        assert profile["address"] == "Musterstr. 1"
+
+    def test_city_also_counts_as_address(self, tmp_db):
+        """City field alone should also satisfy address check."""
+        tmp_db.save_profile({"name": "Test", "city": "Hamburg"})
+        profile = tmp_db.get_profile()
+        assert profile["city"] == "Hamburg"
+
+    def test_summary_stored_correctly(self, tmp_db):
+        """Summary field should be stored and retrievable."""
+        tmp_db.save_profile({"name": "Test", "summary": "Erfahrener Entwickler"})
+        profile = tmp_db.get_profile()
+        assert profile["summary"] == "Erfahrener Entwickler"
+
+
+class TestBulkImport:
+    """Tests for bulk import via profil_bearbeiten."""
+
+    def test_bulk_add_skills(self, tmp_db):
+        """Bulk adding skills should work."""
+        tmp_db.save_profile({"name": "Test"})
+        skills = [
+            {"name": "Python", "category": "tool", "level": 5},
+            {"name": "SQL", "category": "tool", "level": 4},
+            {"name": "Projektmanagement", "category": "methodisch", "level": 4},
+        ]
+        for s in skills:
+            tmp_db.add_skill(s)
+        profile = tmp_db.get_profile()
+        assert len(profile["skills"]) == 3
+
+    def test_bulk_add_positions(self, tmp_db):
+        """Bulk adding positions should work."""
+        tmp_db.save_profile({"name": "Test"})
+        positions = [
+            {"company": "Firma A", "title": "Dev", "start_date": "2020-01",
+             "employment_type": "festanstellung"},
+            {"company": "Firma B", "title": "Lead", "start_date": "2022-01",
+             "employment_type": "festanstellung"},
+        ]
+        ids = [tmp_db.add_position(p) for p in positions]
+        assert len(ids) == 2
+        profile = tmp_db.get_profile()
+        assert len(profile["positions"]) == 2

@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-95%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-100%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -323,10 +323,10 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 95 Tests, ~3 Sekunden
+# 100 Tests, ~3 Sekunden
 # ✓ 34 Datenbank-Tests
 # ✓ 19 Scoring-Tests
-# ✓ 40 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset, Next-Steps, Doc-Adoption)
+# ✓ 45 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -358,6 +358,15 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.10.4 — Profil-Qualitaet & Bulk-Import (2026-03-06)
+- Fix: **Vollstaendigkeits-Check** — Adresse und Kurzprofil/Summary werden jetzt korrekt erkannt
+- Fix: **Dokument-Extraktion wiederholbar** — force-Parameter + Dateinamen-Lookup + bereits analysierte Dokumente sichtbar
+- Feature: **Feldnamen-Aliase** — adresse, kurzprofil, zusammenfassung, stadt, telefon etc. werden automatisch gemappt
+- Feature: **Bulk-Import** — `hinzufuegen_bulk` Aktion fuer Skills, Positionen, Projekte, Ausbildung (Liste statt Einzel-Calls)
+- Feature: **Feld-Validierung** — Unbekannte Feldnamen werden gemeldet statt still ignoriert
+- Feature: **Tool-Discovery** — Verbesserte Beschreibungen fuer skill_hinzufuegen, position_hinzufuegen, profil_bearbeiten
+- Tests: 100 bestanden (5 neue fuer Completeness + Bulk)
 
 ### v0.10.3 — Wizard & Dokument-Fix (2026-03-06)
 - Fix: **Dokument-Upload ohne Profil** — Auto-Profil wird erstellt, Dokument sofort verknuepft

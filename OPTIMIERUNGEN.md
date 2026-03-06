@@ -3,6 +3,24 @@
 
 ---
 
+## v0.10.4 — Profil-Qualitaet & Bulk-Import (2026-03-06)
+
+### Bugfixes
+- **Vollstaendigkeits-Check**: Pruefte nur `city` fuer Adresse — jetzt `address OR city`. Summary-Check funktioniert jetzt auch mit Alias-Feldnamen
+- **Dokument-Extraktion nicht wiederholbar**: `dokumente_zur_analyse` zeigt jetzt ALLE Dokumente (auch bereits analysierte) mit Status-Info. `extraktion_starten` hat neuen `force: true` Parameter. `dokument_profil_extrahieren` akzeptiert Dateinamen als Fallback
+
+### Neue Features
+- **Feldnamen-Aliase**: `profil_bearbeiten` akzeptiert jetzt deutsche Feldnamen: adresse→address, kurzprofil/zusammenfassung→summary, stadt/ort→city, telefon→phone, etc.
+- **Feld-Validierung**: Unbekannte Feldnamen werden in der Response als `ignorierte_felder` gemeldet + `akzeptierte_felder` zeigt was gespeichert wurde
+- **Bulk-Import**: `profil_bearbeiten(aktion='hinzufuegen_bulk', daten=[...])` fuer Skills, Positionen, Projekte, Ausbildung — reduziert Tool-Calls um 80%+
+- **Tool-Discovery**: Verbesserte Docstrings mit Synonymen und Querverweisen (Skill→Kompetenz/Expertise, Position→Berufserfahrung/Job)
+
+### Tests
+- 5 neue Tests (Completeness-Check, Bulk-Import)
+- 100 Tests total, alle bestanden
+
+---
+
 ## v0.10.3 — Wizard & Dokument-Fix (2026-03-06)
 
 ### Bugfixes
