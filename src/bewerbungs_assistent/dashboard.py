@@ -83,6 +83,8 @@ async def api_profile():
 @app.post("/api/profile")
 async def api_save_profile(request: Request):
     data = await request.json()
+    if not data.get("name", "").strip():
+        return JSONResponse({"error": "Name ist ein Pflichtfeld"}, status_code=400)
     pid = _db.save_profile(data)
     return {"status": "ok", "id": pid}
 
@@ -138,6 +140,10 @@ async def api_delete_profile(profile_id: str):
 @app.post("/api/position")
 async def api_add_position(request: Request):
     data = await request.json()
+    if not data.get("company", "").strip():
+        return JSONResponse({"error": "Firma ist ein Pflichtfeld"}, status_code=400)
+    if not data.get("title", "").strip():
+        return JSONResponse({"error": "Titel ist ein Pflichtfeld"}, status_code=400)
     pid = _db.add_position(data)
     return {"status": "ok", "id": pid}
 
@@ -145,6 +151,8 @@ async def api_add_position(request: Request):
 @app.post("/api/project")
 async def api_add_project(request: Request):
     data = await request.json()
+    if not data.get("name", "").strip():
+        return JSONResponse({"error": "Projektname ist ein Pflichtfeld"}, status_code=400)
     position_id = data.pop("position_id")
     pid = _db.add_project(position_id, data)
     return {"status": "ok", "id": pid}
@@ -153,6 +161,8 @@ async def api_add_project(request: Request):
 @app.post("/api/education")
 async def api_add_education(request: Request):
     data = await request.json()
+    if not data.get("institution", "").strip():
+        return JSONResponse({"error": "Einrichtung ist ein Pflichtfeld"}, status_code=400)
     eid = _db.add_education(data)
     return {"status": "ok", "id": eid}
 
@@ -160,6 +170,8 @@ async def api_add_education(request: Request):
 @app.post("/api/skill")
 async def api_add_skill(request: Request):
     data = await request.json()
+    if not data.get("name", "").strip():
+        return JSONResponse({"error": "Name ist ein Pflichtfeld"}, status_code=400)
     sid = _db.add_skill(data)
     return {"status": "ok", "id": sid}
 
@@ -439,13 +451,21 @@ async def api_fit_analyse(job_hash: str):
 
 
 @app.get("/api/applications")
-async def api_applications(status: str = None):
-    return _db.get_applications(status)
+async def api_applications(status: str = None, limit: int = 0, offset: int = 0):
+    apps = _db.get_applications(status)
+    total = len(apps)
+    if limit > 0:
+        apps = apps[offset:offset + limit]
+    return {"applications": apps, "total": total, "limit": limit, "offset": offset}
 
 
 @app.post("/api/applications")
 async def api_add_application(request: Request):
     data = await request.json()
+    if not data.get("title", "").strip():
+        return JSONResponse({"error": "Stelle ist ein Pflichtfeld"}, status_code=400)
+    if not data.get("company", "").strip():
+        return JSONResponse({"error": "Firma ist ein Pflichtfeld"}, status_code=400)
     aid = _db.add_application(data)
     return {"status": "ok", "id": aid}
 

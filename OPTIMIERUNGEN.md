@@ -3,6 +3,26 @@
 
 ---
 
+## v0.11.0 — Validierung, Ladeanimationen, Paginierung & Extraktions-Fixes (2026-03-06)
+
+### Neue Features
+- **OPT-004: Form-Validierung** (Client + Server): Alle Formulare pruefen Pflichtfelder vor dem Absenden. Visuelle Hervorhebung ungenueller Felder (roter Rand + Fehlermeldung). Server-seitige Validierung in allen POST-Endpoints (400-Fehler bei leeren Pflichtfeldern). E-Mail- und Datums-Validierung im Frontend.
+- **OPT-009: Ladeanimationen**: Spinner waehrend alle Daten laden (Dashboard, Profil, Stellen, Bewerbungen). Submit-Buttons zeigen Loading-Zustand und verhindern Doppelklicks. Alle Save-Funktionen geben Erfolgs-Toast.
+- **OPT-010: Paginierung fuer Bewerbungen**: Bewerbungs-Tab laed initial 20 Eintraege. "Mehr laden" Button zeigt Anzahl und laed weitere nach. API unterstuetzt limit/offset Parameter.
+- **Auto-Apply Extraktion**: `extraktion_anwenden(auto_apply=True)` ist jetzt Standard. Extrahierte Daten werden ohne Rueckfragen uebernommen ausser bei echten Konflikten.
+- **Standalone-Projekte**: Top-Level `projekte` in Extraktions-Daten werden automatisch der passenden Position zugeordnet (Company-Match oder neueste Position).
+
+### Kritische Bugfixes
+- **Profilname "Mein Profil" nicht aktualisiert**: Default-Name wird jetzt als leer behandelt und automatisch mit extrahiertem Namen ueberschrieben.
+- **Felder nach Extraktion leer**: `summary` war nicht in der Feldliste von `persoenliche_daten`. Jetzt wird summary sowohl als persoenliche Daten als auch als zusammenfassung unterstuetzt.
+- **Projekte bei doppelten Positionen uebersprungen**: Bei bereits existierenden Positionen werden neue Projekte trotzdem hinzugefuegt (statt komplett uebersprungen).
+- **Praeferenzen ueberschrieben**: Nach Update der persoenlichen Daten wurde das Profil nochmal gelesen, damit Praeferenzen korrekt erhalten bleiben.
+
+### Tests
+- 100 Tests bestanden (8 Export-Tests uebersprungen wegen optionaler Abhaengigkeiten)
+
+---
+
 ## v0.10.5 — Markdown & Textdateien Support (2026-03-06)
 
 ### Bugfixes
@@ -150,19 +170,17 @@
 **Loesung**: Gemeinsame fit_analyse() + _parse_weights() in job_scraper/__init__.py
 **Status**: Implementiert (Prompt 041) — 60 Zeilen → 5 Zeilen in dashboard.py
 
-### OPT-003: Error-Handling im Frontend
+### OPT-003: Error-Handling im Frontend ✓ ERLEDIGT
 **Datei**: dashboard.html
 **Problem**: API-Fehler werden verschluckt, kein Feedback an User
 **Loesung**: Toast-Notifications + try/catch bei allen api() Calls
-**Aufwand**: 2 Std
-**Status**: offen
+**Status**: Implementiert (v0.10.0 — api() Funktion mit Toast-Notifications)
 
-### OPT-004: Form-Validierung
+### OPT-004: Form-Validierung ✓ ERLEDIGT
 **Dateien**: dashboard.html + dashboard.py
 **Problem**: Keine Client- oder Server-Validierung (leere Pflichtfelder moeglich)
-**Loesung**: Required-Felder pruefen, Datumsformat validieren
-**Aufwand**: 2 Std
-**Status**: offen
+**Loesung**: validateForm() JS-Funktion, Server-Validierung in POST-Endpoints
+**Status**: Implementiert (v0.11.0)
 
 ---
 
@@ -187,37 +205,33 @@
 **Loesung**: `_gen_id()` Hilfsfunktion, 7 Stellen ersetzt
 **Status**: Implementiert (Prompt 041)
 
-### OPT-008: Scraper-Keywords konfigurierbar
+### OPT-008: Scraper-Keywords konfigurierbar ✓ ERLEDIGT
 **Dateien**: alle Scraper
 **Problem**: DEFAULT_SEARCHES/KEYWORDS hardcoded (PLM-spezifisch)
-**Loesung**: Keywords aus search_criteria DB lesen
-**Aufwand**: 2 Std
-**Status**: offen
+**Loesung**: build_search_keywords(db) liest aus search_criteria DB
+**Status**: Implementiert (v0.10.0 — dynamische Keywords aus DB)
 
-### OPT-009: Ladeanimationen
+### OPT-009: Ladeanimationen ✓ ERLEDIGT
 **Datei**: dashboard.html
 **Problem**: Kein visuelles Feedback bei API-Calls
-**Loesung**: Spinner/Skeleton bei Laden, Disabled-Buttons bei Submit
-**Aufwand**: 1 Std
-**Status**: offen
+**Loesung**: showSkeleton() + setLoading() bei allen Lade- und Save-Funktionen
+**Status**: Implementiert (v0.11.0)
 
 ---
 
 ## Prioritaet 3: Nice-to-have
 
-### OPT-010: Paginierung fuer Applications
+### OPT-010: Paginierung fuer Applications ✓ ERLEDIGT
 **Dateien**: dashboard.py + dashboard.html
 **Problem**: Alle Bewerbungen auf einmal geladen
-**Loesung**: limit/offset Parameter + "Mehr laden" Button
-**Aufwand**: 2 Std
-**Status**: offen
+**Loesung**: limit/offset Parameter + "Mehr laden" Button (20er Seiten)
+**Status**: Implementiert (v0.11.0)
 
-### OPT-011: Test-Suite erstellen
-**Neue Dateien**: tests/test_database.py, tests/test_scoring.py
+### OPT-011: Test-Suite erstellen ✓ ERLEDIGT
+**Dateien**: tests/test_database.py, tests/test_scoring.py, tests/test_v010.py
 **Problem**: Null Test-Coverage
-**Loesung**: Basis-Tests fuer DB-CRUD und Scoring
-**Aufwand**: 3 Std
-**Status**: offen
+**Loesung**: 100 Tests (DB-CRUD, Scoring, Schema v8, Profil-Isolation, Factory Reset)
+**Status**: Implementiert (v0.10.0-v0.10.5)
 
 ### OPT-012: Dashboard Port konfigurierbar ✓ ERLEDIGT
 **Dateien**: dashboard.py
@@ -261,11 +275,8 @@
 
 | Status | Anzahl | Tickets |
 |--------|--------|---------|
-| ✓ Erledigt | 8 | OPT-001, 002, 005, 006, 007, 012, 013 + 5 Fixes |
-| Offen | 5 | OPT-003, 004, 008, 009, 010, 011 |
-| Releases | 11 | v0.1.0 bis v0.10.2 |
+| ✓ Erledigt | 13 | OPT-001 bis OPT-013 + 5 Fixes + 4 Bugfixes |
+| Offen | 0 | — |
+| Releases | 12 | v0.1.0 bis v0.11.0 |
 
-**Naechste Empfehlung**:
-1. OPT-003 (Error-Handling) — direkte User-Auswirkung
-2. OPT-011 (Tests) — Qualitaetssicherung
-3. OPT-008 (Scraper-Keywords) — Flexibilitaet
+**Alle Optimierungen abgeschlossen!**

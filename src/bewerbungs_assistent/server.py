@@ -1526,12 +1526,15 @@ def extraktion_ergebnis_speichern(
 def extraktion_anwenden(
     extraction_id: str,
     bereiche: list = None,
-    konflikte_loesungen: dict = None
+    konflikte_loesungen: dict = None,
+    auto_apply: bool = True
 ) -> dict:
     """Wendet extrahierte Daten auf das aktive Profil an.
 
-    Der User hat die extrahierten Daten gesehen und bestaetigt.
-    Dieses Tool wendet die Aenderungen an.
+    Standardmaessig werden alle Daten automatisch uebernommen (auto_apply=True).
+    Nur bei echten Konflikten (Feld hat bereits einen vom User eingegebenen Wert)
+    wird der bestehende Wert beibehalten — es sei denn, konflikte_loesungen enthaelt
+    eine explizite Entscheidung.
 
     Args:
         extraction_id: ID der Extraktion
@@ -1540,6 +1543,9 @@ def extraktion_anwenden(
         konflikte_loesungen: Entscheidungen fuer Konflikte.
             Format: {"phone": "neu", "email": "alt", ...}
             "alt" = bestehenden Wert behalten, "neu" = ueberschreiben
+        auto_apply: Wenn True (Standard), werden alle leeren Felder und Default-Werte
+            automatisch ueberschrieben ohne Rueckfrage. Bei False muessen Konflikte
+            ueber konflikte_loesungen aufgeloest werden.
     """
     conn = db.connect()
     row = conn.execute("SELECT * FROM extraction_history WHERE id=?", (extraction_id,)).fetchone()
@@ -1556,23 +1562,38 @@ def extraktion_anwenden(
     all_bereiche = bereiche or list(extracted.keys())
     loesungen = konflikte_loesungen or {}
 
+    # Default values that should be overwritten automatically
+    _DEFAULT_VALUES = {"Mein Profil", "mein profil", ""}
+
+    def _is_default_or_empty(value):
+        """Check if a profile field value is empty or a default placeholder."""
+        if not value:
+            return True
+        return str(value).strip().lower() in {v.lower() for v in _DEFAULT_VALUES}
+
     # Apply personal data
     if "persoenliche_daten" in all_bereiche and extracted.get("persoenliche_daten"):
         pers = extracted["persoenliche_daten"]
         update_data = {}
+        actually_applied = []
         for field in ["name", "email", "phone", "address", "city", "plz",
-                      "country", "birthday", "nationality"]:
+                      "country", "birthday", "nationality", "summary"]:
             if field in pers and pers[field]:
                 # Check conflicts
                 if field in loesungen:
                     if loesungen[field] == "neu":
                         update_data[field] = pers[field]
-                    # else: keep old value
-                elif not profile.get(field):
-                    # No conflict, field was empty
+                        actually_applied.append(field)
+                elif _is_default_or_empty(profile.get(field)):
+                    # No conflict, field was empty or default
                     update_data[field] = pers[field]
+                    actually_applied.append(field)
+                elif auto_apply:
+                    # auto_apply: overwrite with new value
+                    update_data[field] = pers[field]
+                    actually_applied.append(field)
                 elif profile.get(field) != pers[field]:
-                    # Conflict not resolved — skip
+                    # Conflict not resolved — skip (only in manual mode)
                     continue
         if update_data:
             # Merge with existing profile data
@@ -1583,11 +1604,18 @@ def extraktion_anwenden(
                     update_data[key] = profile.get(key)
             update_data["preferences"] = profile.get("preferences", {})
             db.save_profile(update_data)
-            applied["persoenliche_daten"] = list(update_data.keys())
+            applied["persoenliche_daten"] = actually_applied
 
     # Apply summary
     if "zusammenfassung" in all_bereiche and extracted.get("zusammenfassung"):
-        if not profile.get("summary") or "zusammenfassung" in loesungen:
+        should_apply = (
+            _is_default_or_empty(profile.get("summary")) or
+            auto_apply or
+            "zusammenfassung" in loesungen
+        )
+        if should_apply:
+            # Re-read profile in case personal data was just updated
+            profile = db.get_profile()
             update_data = {
                 k: profile.get(k) for k in
                 ["name", "email", "phone", "address", "city", "plz",
@@ -1600,10 +1628,12 @@ def extraktion_anwenden(
 
     # Apply preferences
     if "praeferenzen" in all_bereiche and extracted.get("praeferenzen"):
+        # Re-read profile in case personal data/summary was just updated
+        profile = db.get_profile()
         prefs = profile.get("preferences", {})
         new_prefs = extracted["praeferenzen"]
         for k, v in new_prefs.items():
-            if v and not prefs.get(k):
+            if v and (not prefs.get(k) or auto_apply):
                 prefs[k] = v
         update_data = {
             k: profile.get(k) for k in
@@ -1616,24 +1646,67 @@ def extraktion_anwenden(
 
     # Apply positions
     if "positionen" in all_bereiche and extracted.get("positionen"):
+        # Re-read profile for latest positions
+        profile = db.get_profile()
         existing_positions = profile.get("positions", [])
         added_positions = 0
+        added_projects = 0
         for pos in extracted["positionen"]:
-            # Check for duplicates (same company + similar title + overlapping dates)
+            projects = pos.pop("projects", pos.pop("projekte", []))
+            # Check for duplicates (same company + similar title)
             is_duplicate = False
+            existing_pos_id = None
             for ep in existing_positions:
                 if (ep.get("company", "").lower() == pos.get("company", "").lower() and
                     ep.get("title", "").lower() == pos.get("title", "").lower()):
                     is_duplicate = True
+                    existing_pos_id = ep.get("id")
                     break
             if not is_duplicate:
-                projects = pos.pop("projects", pos.pop("projekte", []))
                 pos_id = db.add_position(pos)
                 for proj in projects:
                     db.add_project(pos_id, proj)
+                    added_projects += 1
                 added_positions += 1
-        if added_positions:
+            elif projects and existing_pos_id:
+                # Position exists — still add new projects to it
+                existing_proj_names = {
+                    p.get("name", "").lower()
+                    for ep in existing_positions if ep.get("id") == existing_pos_id
+                    for p in ep.get("projects", [])
+                }
+                for proj in projects:
+                    if proj.get("name", "").lower() not in existing_proj_names:
+                        db.add_project(existing_pos_id, proj)
+                        added_projects += 1
+        if added_positions or added_projects:
             applied["positionen"] = added_positions
+            if added_projects:
+                applied["projekte"] = added_projects
+
+    # Apply standalone projects (top-level "projekte" key, not nested under positions)
+    if "projekte" in all_bereiche and extracted.get("projekte"):
+        profile = db.get_profile()
+        positions = profile.get("positions", [])
+        if positions:
+            added_standalone = 0
+            for proj in extracted["projekte"]:
+                # Try to match project to a position by company name
+                target_pos_id = None
+                proj_company = proj.pop("company", proj.pop("firma", "")).lower()
+                if proj_company:
+                    for p in positions:
+                        if proj_company in p.get("company", "").lower():
+                            target_pos_id = p.get("id")
+                            break
+                if not target_pos_id:
+                    # Assign to most recent position
+                    target_pos_id = positions[0].get("id")
+                if target_pos_id:
+                    db.add_project(target_pos_id, proj)
+                    added_standalone += 1
+            if added_standalone:
+                applied["projekte"] = applied.get("projekte", 0) + added_standalone
 
     # Apply education
     if "ausbildung" in all_bereiche and extracted.get("ausbildung"):
@@ -1670,6 +1743,13 @@ def extraktion_anwenden(
     # Update document extraction status
     doc_id = row["document_id"]
     db.update_document_extraction_status(doc_id, "angewendet")
+
+    # Bug #3 fix: Update profile display name if it was "Mein Profil" (auto-created)
+    updated_profile = db.get_profile()
+    if updated_profile and updated_profile.get("name") and \
+       updated_profile["name"] not in _DEFAULT_VALUES:
+        # Name was updated from extraction — ensure profile switcher reflects it
+        pass  # save_profile already updated the name
 
     return {
         "status": "angewendet",

@@ -623,8 +623,78 @@ async function api(path, opts = {}) {
   }
 }
 
+// === Form Validation (OPT-004) ===
+function validateForm(form) {
+  let valid = true;
+  form.querySelectorAll('.field-error').forEach(e => e.remove());
+  form.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
+  form.querySelectorAll('[required]').forEach(input => {
+    if (!input.value.trim()) {
+      valid = false;
+      input.classList.add('invalid');
+      const err = document.createElement('div');
+      err.className = 'field-error';
+      err.textContent = (input.closest('.form-group')?.querySelector('label')?.textContent || 'Feld').replace(' *','') + ' ist erforderlich';
+      input.parentNode.appendChild(err);
+    }
+  });
+  // Validate email fields
+  form.querySelectorAll('input[type=email]').forEach(input => {
+    if (input.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+      valid = false;
+      input.classList.add('invalid');
+      const err = document.createElement('div');
+      err.className = 'field-error';
+      err.textContent = 'Ungueltige E-Mail-Adresse';
+      input.parentNode.appendChild(err);
+    }
+  });
+  // Validate date fields
+  form.querySelectorAll('input[type=date]').forEach(input => {
+    if (input.value && isNaN(Date.parse(input.value))) {
+      valid = false;
+      input.classList.add('invalid');
+      const err = document.createElement('div');
+      err.className = 'field-error';
+      err.textContent = 'Ungueltiges Datum';
+      input.parentNode.appendChild(err);
+    }
+  });
+  return valid;
+}
+
+// Clear validation on input
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('invalid')) {
+    e.target.classList.remove('invalid');
+    const err = e.target.parentNode.querySelector('.field-error');
+    if (err) err.remove();
+  }
+});
+
+// === Loading Helpers (OPT-009) ===
+function setLoading(el, loading, text) {
+  if (!el) return;
+  if (loading) {
+    el.dataset.origHtml = el.innerHTML;
+    el.innerHTML = `<span class="spinner"></span>${text ? ' ' + text : ''}`;
+    el.classList.add('loading');
+    el.disabled = true;
+  } else {
+    if (el.dataset.origHtml) el.innerHTML = el.dataset.origHtml;
+    el.classList.remove('loading');
+    el.disabled = false;
+  }
+}
+
+function showSkeleton(containerId) {
+  const el = document.getElementById(containerId);
+  if (el) el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:20px;color:var(--text2);"><span class="spinner"></span> Wird geladen...</div>';
+}
+
 // === Dashboard ===
 async function loadDashboard() {
+  showSkeleton('stats-grid');
   const status = await api('/api/status');
   if (!status.has_profile) {
     document.getElementById('welcome-screen').style.display = '';
@@ -678,8 +748,9 @@ async function loadDashboard() {
     }
   } catch(e) { document.getElementById('next-steps').innerHTML = ''; }
 
-  // Recent applications
-  const apps = await api('/api/applications');
+  // Recent applications (load all for status chart, show only 5)
+  const appsData = await api('/api/applications');
+  const apps = appsData.applications || appsData;
   const recent = apps.slice(0, 5);
   document.getElementById('recent-apps').innerHTML = recent.length
     ? recent.map(a => `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
@@ -787,6 +858,7 @@ async function loadDashboard() {
 
 // === Profile ===
 async function loadProfile() {
+  showSkeleton('profile-content');
   try {
     const profile = await api('/api/profile');
     if (profile.error) {
@@ -1020,6 +1092,7 @@ async function renderProfile(p) {
 
 // === Jobs ===
 async function loadJobs() {
+  showSkeleton('jobs-grid');
   state.jobs = await api('/api/jobs?active=true');
   state.dismissed = await api('/api/jobs?active=false');
   renderJobs();
@@ -1131,10 +1204,22 @@ async function restoreJob(hash) {
 }
 
 // === Applications ===
-async function loadApplications() {
+const APP_PAGE_SIZE = 20;
+let appOffset = 0;
+let appTotal = 0;
+async function loadApplications(append = false) {
   const status = document.getElementById('app-status-filter')?.value || '';
-  const url = status ? `/api/applications?status=${status}` : '/api/applications';
-  state.apps = await api(url);
+  if (!append) { appOffset = 0; showSkeleton('apps-table'); }
+  let url = `/api/applications?limit=${APP_PAGE_SIZE}&offset=${appOffset}`;
+  if (status) url += `&status=${status}`;
+  const result = await api(url);
+  const newApps = result.applications || result;
+  appTotal = result.total || newApps.length;
+  if (append) {
+    state.apps = state.apps.concat(newApps);
+  } else {
+    state.apps = newApps;
+  }
   renderApplications();
 }
 
@@ -1176,7 +1261,21 @@ function renderApplications() {
     </tr>`;
   }
   html += '</tbody></table>';
+  // Pagination: "Mehr laden" button
+  if (state.apps.length < appTotal) {
+    html += `<div style="text-align:center; margin-top:12px;">
+      <button class="btn" id="btn-load-more-apps" onclick="loadMoreApps()">
+        Mehr laden (${state.apps.length} von ${appTotal})
+      </button></div>`;
+  }
   document.getElementById('apps-table').innerHTML = html;
+}
+
+async function loadMoreApps() {
+  const btn = document.getElementById('btn-load-more-apps');
+  if (btn) setLoading(btn, true, 'Lade...');
+  appOffset += APP_PAGE_SIZE;
+  await loadApplications(true);
 }
 
 async function updateAppStatus(id, status) {
@@ -1251,6 +1350,9 @@ function showProfileForm() {
 
 async function saveProfile(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd);
   data.preferences = {
@@ -1258,9 +1360,13 @@ async function saveProfile(e) {
     min_gehalt: parseInt(data.min_gehalt)||0, ziel_gehalt: parseInt(data.ziel_gehalt)||0,
     min_tagessatz: parseInt(data.min_tagessatz)||0, ziel_tagessatz: parseInt(data.ziel_tagessatz)||0,
   };
-  await api('/api/profile', { method: 'POST', body: JSON.stringify(data) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadProfile();
+  const result = await api('/api/profile', { method: 'POST', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Profil gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
 }
 
 function showAppForm(title='', company='', jobHash='') {
@@ -1329,10 +1435,17 @@ function applyFromJob(hash, title, company) { showAppForm(title, company, hash);
 
 async function saveApplication(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
-  await api('/api/applications', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadApplications();
+  const result = await api('/api/applications', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Bewerbung gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadApplications();
+  }
 }
 
 function showDocUpload() {
@@ -1595,12 +1708,19 @@ function showPositionForm() {
 
 async function savePosition(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd);
   data.is_current = data.is_current === '1';
-  await api('/api/position', { method: 'POST', body: JSON.stringify(data) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadProfile();
+  const result = await api('/api/position', { method: 'POST', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Position gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
 }
 
 function showProjectForm(positionId) {
@@ -1629,12 +1749,19 @@ function showProjectForm(positionId) {
 
 async function saveProject(e, positionId) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd);
   data.position_id = positionId;
-  await api('/api/project', { method: 'POST', body: JSON.stringify(data) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadProfile();
+  const result = await api('/api/project', { method: 'POST', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Projekt gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
 }
 
 function showEducationForm() {
@@ -1662,10 +1789,17 @@ function showEducationForm() {
 
 async function saveEducation(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
-  await api('/api/education', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadProfile();
+  const result = await api('/api/education', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Ausbildung gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
 }
 
 function showSkillForm() {
@@ -1697,13 +1831,20 @@ function showSkillForm() {
 
 async function saveSkill(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd);
   data.level = parseInt(data.level) || 3;
   data.years_experience = data.years_experience ? parseInt(data.years_experience) : null;
-  await api('/api/skill', { method: 'POST', body: JSON.stringify(data) });
-  closeModal({target: document.getElementById('modal-overlay')});
-  loadProfile();
+  const result = await api('/api/skill', { method: 'POST', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Kompetenz gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
 }
 
 function showFolderImport() {
@@ -1735,6 +1876,9 @@ function showFolderImport() {
 
 async function startFolderImport(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Importiere...');
   const fd = new FormData(e.target);
   const data = {
     folder_path: fd.get('folder_path'),
@@ -2507,13 +2651,19 @@ function appWizardPrev() { if (appWizardStep > 0) { appWizardStep--; renderAppWi
 
 async function submitAppFromWizard(e) {
   e.preventDefault();
+  if (!validateForm(e.target)) return;
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
   const fd = new FormData(e.target);
   const data = Object.fromEntries(fd);
   data.status = 'beworben';
   data.applied_at = new Date().toISOString().split('T')[0];
-  await api('/api/applications', { method: 'POST', body: JSON.stringify(data) });
-  closeModal();
-  showToast('Bewerbung gespeichert!', 'success');
+  const result = await api('/api/applications', { method: 'POST', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    closeModal();
+    showToast('Bewerbung gespeichert!', 'success');
+  }
 }
 
 // === Init ===
