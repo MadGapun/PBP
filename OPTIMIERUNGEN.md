@@ -3,6 +3,30 @@
 
 ---
 
+## v0.10.2 — Guided Experience (2026-03-06)
+
+### Benutzerf&uuml;hrung
+- **Smart Next-Steps**: Kontextabhaengige naechste Schritte basierend auf Profil-Vollstaendigkeit und Aktivitaet
+  - Erkennt: fehlende Zusammenfassung, Positionen, Skills, Ausbildung, Dokumente, Quellen, Suche, Bewerbungen
+  - Zwei Action-Typen: `dashboard` (direkter Button) und `prompt` (Claude Desktop Befehl)
+  - Spezial-Hinweise bei 3+ Ablehnungen (Muster-Analyse) und anstehenden Interviews (Vorbereitung)
+- **Onboarding Dokument-Upload**: Lebenslauf hochladen als 3. Option im Wizard (neben KI-gefuehrt und manuell)
+- **Actionable Empty States**: Alle leeren Zustaende haben jetzt Aktions-Buttons statt nur Text-Hinweise
+  - Stellen: "Jobsuche starten" + "Quellen einrichten"
+  - Bewerbungen: "Passende Stellen finden" + "Bewerbung manuell erfassen"
+  - Profil-Bereiche: Direkte Bearbeitungs-Buttons
+
+### Technisch
+- **Sauberes Beenden**: atexit/signal-Handler fuer SIGTERM, SIGINT, SIGBREAK (Windows)
+  - uvicorn.Server direkt gemanaged (statt uvicorn.run()) fuer kontrollierten Shutdown
+  - Datenbank-Verbindung wird sauber geschlossen
+
+### Tests
+- 7 neue Tests fuer Smart Next-Steps (Profil-Erstellung, Quellen, Ablehnungen, Interview, Action-Types)
+- 92 Tests total, alle bestanden
+
+---
+
 ## v0.10.1 — Profil-Isolation & Bugfixes (2026-03-06)
 
 ### Kritische Bugfixes
@@ -195,6 +219,7 @@
 |--------|--------|---------|
 | ✓ Erledigt | 8 | OPT-001, 002, 005, 006, 007, 012, 013 + 5 Fixes |
 | Offen | 5 | OPT-003, 004, 008, 009, 010, 011 |
+| Releases | 11 | v0.1.0 bis v0.10.2 |
 
 **Naechste Empfehlung**:
 1. OPT-003 (Error-Handling) — direkte User-Auswirkung

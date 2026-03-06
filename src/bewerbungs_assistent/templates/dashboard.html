@@ -280,12 +280,22 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
             </div>
           </div>
           <div style="display:flex; gap:12px; align-items:flex-start;">
+            <span style="font-size:1.5rem; flex-shrink:0;">📄</span>
+            <div>
+              <strong style="color:var(--accent);">Schnellstart: Lebenslauf hochladen</strong>
+              <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
+                Hast du einen Lebenslauf? Lade ihn hoch und dein Profil wird automatisch befuellt.
+                <button class="btn btn-sm btn-primary" onclick="wizardDocUpload()" style="margin-left:8px;">Dokument hochladen</button>
+              </p>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
             <span style="font-size:1.5rem; flex-shrink:0;">📁</span>
             <div>
               <strong>Bestehende Bewerbungen importieren</strong>
               <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
-                Hast du schon Bewerbungsunterlagen? Importiere einen ganzen Ordner.
-                <button class="btn btn-sm" onclick="showPage('profil'); setTimeout(()=>document.getElementById('import-section').scrollIntoView({behavior:'smooth'}),100)" style="margin-left:8px;">Ordner importieren</button>
+                Hast du einen ganzen Ordner mit Bewerbungsunterlagen?
+                <button class="btn btn-sm" onclick="showPage('profil'); setTimeout(()=>document.getElementById('import-section')?.scrollIntoView({behavior:'smooth'}),100)" style="margin-left:8px;">Ordner importieren</button>
               </p>
             </div>
           </div>
@@ -634,24 +644,38 @@ async function loadDashboard() {
     <div class="card stat"><div class="number">${s.interview_rate || 0}%</div><div class="label">Interview-Rate</div></div>
   `;
 
-  // Next steps (from API)
+  // Next steps (from API) — smart contextual cards
   try {
     const nsData = await api('/api/next-steps');
     const nextSteps = nsData.steps || [];
-    const prioIcon = p => p === 'hoch' ? '\u26a0\ufe0f' : p === 'mittel' ? '\ud83d\udca1' : '\u2705';
-    document.getElementById('next-steps').innerHTML = nextSteps.length
-      ? `<div class="card" style="border-color:var(--accent);">
+    const prioIcon = p => p === 'hoch' ? '\u26a0\ufe0f' : p === 'mittel' ? '\ud83d\udca1' : p === 'info' ? '\u2705' : '\u2139\ufe0f';
+    if (nextSteps.length) {
+      document.getElementById('next-steps').innerHTML = `<div class="card" style="border-color:var(--accent);">
           <h3>Naechste Schritte</h3>
-          ${nextSteps.map(n => `<div style="display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border);">
-            <span style="font-size:1.3rem; flex-shrink:0;">${prioIcon(n.prioritaet)}</span>
-            <div style="flex:1;">
-              <strong>${n.aktion}</strong>
-              <span class="badge badge-${n.prioritaet === 'hoch' ? 'red' : n.prioritaet === 'mittel' ? 'yellow' : 'green'}" style="margin-left:8px;">${n.prioritaet}</span>
-              <p style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${n.beschreibung}</p>
-            </div>
-            ${n.prompt ? `<button class="btn btn-sm" onclick="copyText('${n.prompt}')" title="Prompt kopieren">${n.prompt}</button>` : ''}
-          </div>`).join('')}
-        </div>` : '';
+          ${nextSteps.map(n => {
+            // Determine action button based on action_type
+            let actionBtn = '';
+            if (n.action_type === 'dashboard') {
+              actionBtn = `<button class="btn btn-sm btn-primary" onclick="${n.action_target}">${n.action_label || 'Los'}</button>`;
+            } else if (n.action_type === 'prompt') {
+              actionBtn = `<span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('${n.prompt}')">${n.prompt}</button><span class="tip-text">In Claude Desktop einfuegen</span></span>`;
+            } else if (n.prompt) {
+              actionBtn = `<button class="btn btn-sm" onclick="copyText('${n.prompt}')" title="Prompt kopieren">${n.prompt}</button>`;
+            }
+            return `<div style="display:flex; gap:12px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border);">
+              <span style="font-size:1.3rem; flex-shrink:0;">${prioIcon(n.prioritaet)}</span>
+              <div style="flex:1;">
+                <strong>${n.aktion}</strong>
+                <span class="badge badge-${n.prioritaet === 'hoch' ? 'red' : n.prioritaet === 'mittel' ? 'yellow' : 'green'}" style="margin-left:8px;">${n.prioritaet}</span>
+                <p style="color:var(--text2); font-size:0.85rem; margin-top:2px;">${n.beschreibung}</p>
+              </div>
+              ${actionBtn}
+            </div>`;
+          }).join('')}
+        </div>`;
+    } else {
+      document.getElementById('next-steps').innerHTML = '';
+    }
   } catch(e) { document.getElementById('next-steps').innerHTML = ''; }
 
   // Recent applications
@@ -662,7 +686,11 @@ async function loadDashboard() {
         <span>${a.title} — ${a.company}</span>
         <span class="badge badge-${statusColor(a.status)}">${a.status}</span>
       </div>`).join('')
-    : '<div class="empty">Noch keine Bewerbungen.<br><span style="font-size:0.85rem;">Sag in Claude: "Schreib mir ein Anschreiben fuer [Stelle] bei [Firma]"</span></div>';
+    : `<div class="empty">Noch keine Bewerbungen.<br>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
+          <button class="btn btn-sm btn-primary" onclick="showPage('bewerbungen'); showAppForm()">+ Neue Bewerbung</button>
+          <button class="btn btn-sm" onclick="showPage('stellen')">Stellen ansehen</button>
+        </div></div>`;
 
   // Recent jobs
   const jobs = await api('/api/jobs?active=true');
@@ -672,7 +700,11 @@ async function loadDashboard() {
         <span style="font-weight:600;">${j.title || 'Ohne Titel'}</span>
         <span style="color:var(--text2);"> — ${j.company || 'Unbekannt'}</span>
       </div>`).join('')
-    : '<div class="empty">Noch keine Stellen gefunden.<br><span style="font-size:0.85rem;">Sag in Claude: "Starte eine Jobsuche" oder aktiviere Quellen unter Einstellungen.</span></div>';
+    : `<div class="empty">Noch keine Stellen gefunden.<br>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
+          <button class="btn btn-sm btn-primary" onclick="copyText('/jobsuche_workflow')">Jobsuche starten</button>
+          <button class="btn btn-sm" onclick="showPage('einstellungen')">Quellen aktivieren</button>
+        </div></div>`;
 
   // Follow-up alerts (from API)
   try {
@@ -1006,9 +1038,10 @@ function renderJobs() {
     ? jobs.map(j => jobCard(j)).join('')
     : `<div class="empty" style="grid-column:1/-1;"><div class="icon">&#128270;</div>
         <p>Keine Stellen gefunden.</p>
-        <p style="font-size:0.85rem; margin-top:8px;">Sag in Claude Desktop: <strong>"Starte eine Jobsuche"</strong><br>
-        oder nutze den Prompt <strong>"jobsuche_workflow"</strong> fuer eine gefuehrte Anleitung.</p>
-        <button class="btn btn-sm" style="margin-top:12px;" onclick="showPage('einstellungen')">Quellen & Kriterien einrichten</button>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-primary" onclick="copyText('/jobsuche_workflow')">Jobsuche starten</button>
+          <button class="btn btn-sm" onclick="showPage('einstellungen')">Quellen & Kriterien einrichten</button>
+        </div>
       </div>`;
 
   // Dismissed
@@ -1109,8 +1142,11 @@ function renderApplications() {
   if (!state.apps.length) {
     document.getElementById('apps-table').innerHTML = `<div class="empty"><div class="icon">&#128203;</div>
       <p>Noch keine Bewerbungen erfasst.</p>
-      <p style="font-size:0.85rem; margin-top:8px;">Sag in Claude: <strong>"Schreib ein Anschreiben fuer [Stelle] bei [Firma]"</strong><br>
-      oder klicke oben auf <strong>"+ Neue Bewerbung"</strong> fuer manuelle Erfassung.</p></div>`;
+      <div style="display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary" onclick="showAppForm()">+ Neue Bewerbung</button>
+        <button class="btn btn-sm" onclick="showPage('stellen')">Stellen ansehen</button>
+        <button class="btn btn-sm" onclick="copyText('/bewerbung_schreiben')">Anschreiben mit Claude</button>
+      </div></div>`;
     return;
   }
   let html = `<table><thead><tr>
@@ -1396,6 +1432,88 @@ async function uploadDoc(e) {
   }
   showToast(msg + '.', 'success');
   loadProfile();
+}
+
+// === Wizard Document Upload (v0.10.2) ===
+function wizardDocUpload() {
+  openModal(`<h2>Lebenslauf hochladen</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Lade deinen Lebenslauf oder andere Bewerbungsdokumente hoch.<br>
+      Der Text wird automatisch extrahiert. Nutze danach in Claude Desktop den Befehl
+      <code style="color:var(--accent);">/profil_erweiterung</code>, um die Daten in dein Profil zu uebernehmen.
+    </p>
+    <form onsubmit="wizardDocUploadSubmit(event)" enctype="multipart/form-data">
+      <div class="form-group"><label>Datei (PDF, DOCX, TXT)</label>
+        <input type="file" name="file" required accept=".pdf,.docx,.doc,.txt" style="padding:8px;">
+      </div>
+      <div class="form-group"><label>Dokumenttyp</label>
+        <select name="doc_type">
+          <option value="lebenslauf">Lebenslauf / CV</option>
+          <option value="zeugnis">Zeugnis / Referenz</option>
+          <option value="zertifikat">Zertifikat</option>
+          <option value="sonstiges">Sonstiges</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Hochladen & Analysieren</button>
+      </div>
+    </form>`);
+}
+
+async function wizardDocUploadSubmit(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.innerHTML = '<span class="spinner"></span> Wird hochgeladen...';
+  btn.disabled = true;
+  try {
+    const resp = await fetch('/api/documents/upload', { method: 'POST', body: fd });
+    const result = await resp.json();
+    closeModal({target: document.getElementById('modal-overlay')});
+    if (result.error) {
+      showToast('Fehler: ' + result.error, 'error');
+      return;
+    }
+    let msg = 'Dokument hochgeladen';
+    if (result.extracted_length > 0) {
+      msg += ` (${result.extracted_length} Zeichen extrahiert)`;
+    }
+    showToast(msg, 'success');
+    // Show next step: use /profil_erweiterung in Claude
+    setTimeout(() => {
+      openModal(`<h2 style="color:var(--green);">Dokument erfolgreich hochgeladen!</h2>
+        <p style="color:var(--text2); margin-bottom:16px;">
+          ${result.extracted_length > 0
+            ? 'Der Text wurde extrahiert und ist bereit zur Analyse.'
+            : 'Die Datei wurde gespeichert.'}
+        </p>
+        <div class="card" style="margin-bottom:16px; border-color:var(--accent);">
+          <strong style="color:var(--accent);">Naechster Schritt: Profil befuellen lassen</strong>
+          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">
+            Kopiere diesen Befehl und fuege ihn in Claude Desktop ein.
+            Claude analysiert dein Dokument und fuellt dein Profil automatisch aus.
+          </p>
+          <button class="btn btn-primary" onclick="copyText('/profil_erweiterung'); closeModal();">
+            /profil_erweiterung kopieren
+          </button>
+        </div>
+        <div class="card">
+          <strong>Alternativ: Weitere Dokumente hochladen</strong>
+          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">
+            Du kannst mehrere Dokumente hochladen, bevor du die Extraktion startest.
+          </p>
+          <button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeModal()">Schliessen</button>
+        </div>`);
+    }, 300);
+  } catch (err) {
+    showToast('Upload fehlgeschlagen: ' + err.message, 'error');
+    btn.innerHTML = 'Hochladen & Analysieren';
+    btn.disabled = false;
+  }
 }
 
 // === Profile Export/Import (v0.8.0) ===
@@ -2047,7 +2165,7 @@ function renderWizardStep() {
     c.innerHTML = `
       <h3 style="margin-bottom:12px;">Profil erstellen</h3>
       ${showHint('wizard-profil', 'Dein Profil ist die Basis fuer alles: Lebenslauf, Anschreiben, Interview-Vorbereitung. Je vollstaendiger, desto besser die Ergebnisse.')}
-      <p style="color:var(--text2); margin-bottom:16px;">Es gibt zwei Wege dein Profil zu erstellen:</p>
+      <p style="color:var(--text2); margin-bottom:16px;">Es gibt drei Wege dein Profil zu erstellen:</p>
       <div class="card" style="margin-bottom:12px;">
         <strong style="color:var(--green);">Empfohlen: KI-gefuehrte Ersterfassung</strong>
         <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Claude fuehrt dich in einem Gespraech durch alle Schritte. Dauert ca. 10-15 Min.</p>
@@ -2057,6 +2175,11 @@ function renderWizardStep() {
           </button>
           <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Desktop Chat-Fenster ein. Claude startet dann ein Gespraech, in dem du Schritt fuer Schritt dein Profil aufbaust.</span>
         </div>
+      </div>
+      <div class="card" style="margin-bottom:12px; border-color:var(--accent);">
+        <strong style="color:var(--accent);">Schnellstart: Lebenslauf hochladen</strong>
+        <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Lade deinen Lebenslauf (PDF/DOCX) hoch — deine Daten werden automatisch extrahiert und das Profil wird befuellt.</p>
+        <button class="btn btn-primary" onclick="closeWizard(); wizardDocUpload()">Dokument hochladen</button>
       </div>
       <div class="card">
         <strong>Alternative: Manuell</strong>

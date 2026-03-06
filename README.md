@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-85%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-92%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -323,10 +323,10 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 85 Tests, ~3 Sekunden
+# 92 Tests, ~3 Sekunden
 # ✓ 34 Datenbank-Tests
 # ✓ 19 Scoring-Tests
-# ✓ 30 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset)
+# ✓ 37 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset, Smart Next-Steps)
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -358,6 +358,15 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.10.2 — Guided Experience (2026-03-06)
+- Feature: **Smart Next-Steps** — Kontextabhaengige naechste Schritte basierend auf Profil-Zustand und Aktivitaet
+- Feature: **Onboarding Dokument-Upload** — Lebenslauf als 3. Option im Wizard hochladen
+- Feature: **Actionable Empty States** — Alle leeren Zustaende mit direkten Aktions-Buttons
+- Feature: **Sauberes Beenden** — atexit/signal-Handler fuer kontrollierten Server-Shutdown
+- UX: Zwei Action-Typen (Dashboard-Buttons vs. Claude-Desktop-Prompts) in Next-Steps
+- UX: Spezial-Hinweise bei Ablehnungen (Muster-Analyse) und Interviews (Vorbereitung)
+- Tests: 92 bestanden (7 neue fuer Smart Next-Steps)
 
 ### v0.10.1 — Profil-Isolation & Bugfixes (2026-03-06)
 - Fix: **Profil loeschen repariert** — Aktives Profil kann jetzt geloescht werden (Auto-Switch zum naechsten)

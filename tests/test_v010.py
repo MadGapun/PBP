@@ -329,3 +329,87 @@ class TestFactoryReset:
         # schema_version should still be preserved
         row = conn.execute("SELECT value FROM settings WHERE key='schema_version'").fetchone()
         assert row is not None
+
+
+# === Smart Next Steps (v0.10.2) ===
+
+class TestSmartNextSteps:
+    def test_no_profile_suggests_creation(self, tmp_db):
+        """No profile: next steps should suggest profile creation."""
+        steps = tmp_db.get_next_steps()
+        assert len(steps) >= 1
+        assert steps[0]["aktion"] == "Profil erstellen"
+        assert steps[0]["prioritaet"] == "hoch"
+        assert steps[0]["action_type"] == "dashboard"
+
+    def test_empty_profile_suggests_building(self, tmp_db):
+        """Profile without positions/skills should suggest additions."""
+        tmp_db.save_profile({"name": "Test User"})
+        steps = tmp_db.get_next_steps()
+        actions = [s["aktion"] for s in steps]
+        assert "Zusammenfassung ergaenzen" in actions
+        assert "Berufserfahrung hinzufuegen" in actions
+
+    def test_complete_profile_suggests_sources(self, tmp_db):
+        """Complete profile but no sources: suggest activating sources."""
+        tmp_db.save_profile({
+            "name": "Test", "email": "t@t.de", "city": "Hamburg",
+            "summary": "Test summary",
+            "preferences": {"stellentyp": "beides"},
+        })
+        tmp_db.add_position({
+            "company": "Corp", "title": "Dev",
+            "start_date": "2020-01", "employment_type": "festanstellung",
+        })
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
+        steps = tmp_db.get_next_steps()
+        actions = [s["aktion"] for s in steps]
+        assert "Jobquellen aktivieren" in actions
+
+    def test_with_rejections_suggests_analysis(self, tmp_db):
+        """3+ rejections should suggest pattern analysis."""
+        tmp_db.save_profile({"name": "Test", "summary": "x",
+                             "preferences": {"stellentyp": "beides"}})
+        tmp_db.add_position({"company": "A", "title": "B",
+                             "start_date": "2020-01", "employment_type": "festanstellung"})
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
+        for i in range(3):
+            aid = tmp_db.add_application({"title": f"Job {i}", "company": f"Corp {i}"})
+            tmp_db.update_application_status(aid, "abgelehnt")
+        steps = tmp_db.get_next_steps()
+        actions = [s["aktion"] for s in steps]
+        assert "Ablehnungen analysieren" in actions
+
+    def test_interview_suggests_prep(self, tmp_db):
+        """Interview status should suggest interview preparation."""
+        tmp_db.save_profile({"name": "Test", "summary": "x",
+                             "preferences": {"stellentyp": "beides"}})
+        tmp_db.add_position({"company": "A", "title": "B",
+                             "start_date": "2020-01", "employment_type": "festanstellung"})
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
+        aid = tmp_db.add_application({"title": "Job", "company": "Corp"})
+        tmp_db.update_application_status(aid, "interview")
+        steps = tmp_db.get_next_steps()
+        actions = [s["aktion"] for s in steps]
+        assert "Interview vorbereiten" in actions
+
+    def test_action_types_present(self, tmp_db):
+        """All steps should have action_type field."""
+        steps = tmp_db.get_next_steps()
+        for s in steps:
+            assert "action_type" in s or "prompt" in s
+
+    def test_no_docs_suggests_upload(self, tmp_db):
+        """Profile without documents should suggest upload."""
+        tmp_db.save_profile({"name": "Test", "summary": "x",
+                             "preferences": {"stellentyp": "beides"}})
+        tmp_db.add_position({"company": "A", "title": "B",
+                             "start_date": "2020-01", "employment_type": "festanstellung"})
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
+        steps = tmp_db.get_next_steps()
+        actions = [s["aktion"] for s in steps]
+        assert "Dokumente hochladen" in actions

@@ -1086,68 +1086,151 @@ class Database:
         }
 
     def get_next_steps(self) -> list:
-        """Get personalized next steps based on profile completeness and activity."""
+        """Get personalized next steps based on profile completeness and activity.
+
+        Returns list of dicts with keys:
+          aktion, beschreibung, prioritaet (hoch/mittel/info),
+          prompt (optional), action_type (dashboard/prompt),
+          action_target (JS function for dashboard), action_label (button text)
+        """
         steps = []
         profile = self.get_profile()
+        conn = self.connect()
+        profile_id = self.get_active_profile_id()
+
         if not profile:
-            steps.append({"aktion": "Profil erstellen", "prompt": "/ersterfassung",
-                          "prioritaet": "hoch", "beschreibung": "Erstelle dein Bewerberprofil"})
+            steps.append({"aktion": "Profil erstellen", "prioritaet": "hoch",
+                          "beschreibung": "Erstelle dein Bewerberprofil — per Gespraech, Dokument-Upload oder manuell.",
+                          "action_type": "dashboard", "action_target": "wizardDocUpload()",
+                          "action_label": "Lebenslauf hochladen",
+                          "prompt": "/ersterfassung"})
             return steps
 
-        # Check completeness
+        # Check completeness — profile building
         if not profile.get("summary"):
-            steps.append({"aktion": "Zusammenfassung ergaenzen", "prompt": "/profil_ueberpruefen",
-                          "prioritaet": "hoch", "beschreibung": "Dein Profil braucht eine Zusammenfassung"})
+            steps.append({"aktion": "Zusammenfassung ergaenzen", "prioritaet": "hoch",
+                          "beschreibung": "Dein Profil braucht eine Zusammenfassung fuer Anschreiben und CV.",
+                          "action_type": "dashboard", "action_target": "showProfileForm()",
+                          "action_label": "Profil bearbeiten", "prompt": "/profil_ueberpruefen"})
         if not profile.get("positions"):
-            steps.append({"aktion": "Berufserfahrung hinzufuegen", "prompt": "/ersterfassung",
-                          "prioritaet": "hoch", "beschreibung": "Berufserfahrung ist fuer Bewerbungen essentiell"})
+            steps.append({"aktion": "Berufserfahrung hinzufuegen", "prioritaet": "hoch",
+                          "beschreibung": "Berufserfahrung ist fuer Bewerbungen essentiell.",
+                          "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showPositionForm, 200)",
+                          "action_label": "+ Position", "prompt": "/ersterfassung"})
         if not profile.get("skills"):
-            steps.append({"aktion": "Skills hinzufuegen", "prompt": "/ersterfassung",
-                          "prioritaet": "mittel", "beschreibung": "Skills helfen beim Job-Matching"})
+            steps.append({"aktion": "Skills hinzufuegen", "prioritaet": "mittel",
+                          "beschreibung": "Skills helfen beim Job-Matching und Fit-Score.",
+                          "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showSkillForm, 200)",
+                          "action_label": "+ Skill"})
         if not profile.get("education"):
-            steps.append({"aktion": "Ausbildung ergaenzen", "prompt": "/ersterfassung",
-                          "prioritaet": "mittel", "beschreibung": "Ausbildung fuer vollstaendiges Profil"})
-        prefs = profile.get("preferences", {})
-        if not prefs.get("stellentyp"):
-            steps.append({"aktion": "Praeferenzen setzen", "prompt": "/ersterfassung",
-                          "prioritaet": "mittel", "beschreibung": "Definiere Gehaltsvorstellungen und Praeferenzen"})
+            steps.append({"aktion": "Ausbildung ergaenzen", "prioritaet": "mittel",
+                          "beschreibung": "Fuer ein vollstaendiges Bewerberprofil.",
+                          "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showEducationForm, 200)",
+                          "action_label": "+ Ausbildung"})
 
-        # Check documents
+        # Check documents for extraction
         docs = profile.get("documents", [])
         unextracted = [d for d in docs if d.get("extraction_status") == "nicht_extrahiert"
                        and d.get("extracted_text")]
         if unextracted:
             steps.append({"aktion": f"{len(unextracted)} Dokument(e) analysieren",
-                          "prompt": "/profil_erweiterung", "prioritaet": "hoch",
-                          "beschreibung": "Hochgeladene Dokumente wurden noch nicht ausgewertet"})
+                          "prioritaet": "hoch",
+                          "beschreibung": "Hochgeladene Dokumente wurden noch nicht ausgewertet — Claude kann die Daten extrahieren.",
+                          "action_type": "prompt", "prompt": "/profil_erweiterung"})
+        elif not docs:
+            # No documents at all — suggest upload
+            steps.append({"aktion": "Dokumente hochladen", "prioritaet": "mittel",
+                          "beschreibung": "Lade Lebenslauf oder Zeugnisse hoch fuer automatische Profil-Erweiterung.",
+                          "action_type": "dashboard", "action_target": "wizardDocUpload()",
+                          "action_label": "Dokument hochladen"})
 
         # Check follow-ups
-        conn = self.connect()
         due_followups = conn.execute("""
             SELECT COUNT(*) FROM follow_ups
             WHERE status = 'geplant' AND scheduled_date <= date('now')
         """).fetchone()[0]
         if due_followups:
             steps.append({"aktion": f"{due_followups} faellige(s) Follow-up(s)",
-                          "prompt": "nachfass_anzeigen", "prioritaet": "hoch",
-                          "beschreibung": "Nachfass-Aktionen sind faellig"})
+                          "prioritaet": "hoch",
+                          "beschreibung": "Nachfass-Aktionen sind faellig — nicht vergessen!",
+                          "action_type": "dashboard",
+                          "action_target": "showPage('bewerbungen')",
+                          "action_label": "Bewerbungen ansehen"})
+
+        # Check sources
+        active_sources = self.get_setting("active_sources", [])
+        if not active_sources:
+            steps.append({"aktion": "Jobquellen aktivieren", "prioritaet": "hoch",
+                          "beschreibung": "Ohne aktive Quellen kann keine Jobsuche gestartet werden.",
+                          "action_type": "dashboard",
+                          "action_target": "showPage('einstellungen')",
+                          "action_label": "Einstellungen"})
+
+        # Check job search recency
+        last_search = self.get_setting("last_search_at")
+        if last_search:
+            try:
+                from datetime import datetime
+                days = (datetime.now() - datetime.fromisoformat(last_search)).days
+                if days >= 7:
+                    steps.append({"aktion": "Neue Jobsuche starten",
+                                  "prioritaet": "hoch" if days > 14 else "mittel",
+                                  "beschreibung": f"Letzte Suche war vor {days} Tagen. Neue Stellen warten!",
+                                  "action_type": "prompt", "prompt": "/jobsuche_workflow"})
+            except (ValueError, TypeError):
+                pass
 
         # Check active jobs without applications
+        where_profile = "AND profile_id = ?" if profile_id else ""
+        params_profile = (profile_id,) if profile_id else ()
         active_jobs = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND score >= 70"
+            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 {where_profile}",
+            params_profile
         ).fetchone()[0]
-        apps_count = conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0]
-        if active_jobs > 0 and apps_count == 0:
-            steps.append({"aktion": "Erste Bewerbung schreiben", "prompt": "/bewerbung_schreiben",
-                          "prioritaet": "hoch",
-                          "beschreibung": f"{active_jobs} gut passende Stelle(n) warten auf deine Bewerbung"})
-        elif active_jobs == 0 and apps_count == 0:
-            steps.append({"aktion": "Jobsuche starten", "prompt": "/jobsuche_workflow",
-                          "prioritaet": "mittel", "beschreibung": "Finde passende Stellen"})
+        high_score_jobs = conn.execute(
+            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 AND score >= 8 {where_profile}",
+            params_profile
+        ).fetchone()[0]
+        apps_count = conn.execute(
+            f"SELECT COUNT(*) FROM applications {('WHERE profile_id = ?' if profile_id else '')}",
+            params_profile
+        ).fetchone()[0]
+
+        if high_score_jobs > 0 and apps_count == 0:
+            steps.append({"aktion": "Erste Bewerbung schreiben", "prioritaet": "hoch",
+                          "beschreibung": f"{high_score_jobs} gut passende Stelle(n) warten auf deine Bewerbung!",
+                          "action_type": "dashboard",
+                          "action_target": "showPage('stellen')",
+                          "action_label": "Stellen ansehen"})
+        elif active_jobs == 0 and not last_search and active_sources:
+            steps.append({"aktion": "Erste Jobsuche starten", "prioritaet": "mittel",
+                          "beschreibung": "Quellen sind aktiv — starte jetzt deine erste Suche.",
+                          "action_type": "prompt", "prompt": "/jobsuche_workflow"})
+
+        # Check rejections — suggest pattern analysis
+        rejections = conn.execute(
+            f"SELECT COUNT(*) FROM applications WHERE status='abgelehnt' {where_profile}",
+            params_profile
+        ).fetchone()[0]
+        if rejections >= 3:
+            steps.append({"aktion": "Ablehnungen analysieren", "prioritaet": "mittel",
+                          "beschreibung": f"{rejections} Absagen erhalten — analysiere die Muster fuer bessere Chancen.",
+                          "action_type": "prompt", "prompt": "/profil_analyse"})
+
+        # Suggest interview prep when interviews scheduled
+        interviews = conn.execute(
+            f"SELECT COUNT(*) FROM applications WHERE status IN ('interview','zweitgespraech') {where_profile}",
+            params_profile
+        ).fetchone()[0]
+        if interviews > 0:
+            steps.append({"aktion": "Interview vorbereiten", "prioritaet": "hoch",
+                          "beschreibung": f"{interviews} Interview(s) stehen an — bereite dich vor!",
+                          "action_type": "prompt", "prompt": "/interview_vorbereitung"})
 
         if not steps:
-            steps.append({"aktion": "Alles auf dem neuesten Stand", "prompt": "",
-                          "prioritaet": "info", "beschreibung": "Weiter so! Pruefe regelmaessig deine Bewerbungen."})
+            steps.append({"aktion": "Alles auf dem neuesten Stand", "prioritaet": "info",
+                          "beschreibung": "Weiter so! Pruefe regelmaessig deine Bewerbungen und starte neue Suchen.",
+                          "prompt": ""})
         return steps
 
     # === Extraction History (PBP v0.8.0) ===

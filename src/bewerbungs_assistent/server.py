@@ -3050,15 +3050,61 @@ REGELN
 
 def run_server():
     """Start the MCP server with optional web dashboard."""
-    # Start web dashboard in background thread
+    import atexit
+    import signal
+
+    _dashboard_server = None
+
+    # Start web dashboard in background thread (with managed uvicorn.Server for clean shutdown)
     try:
-        from .dashboard import start_dashboard
-        dashboard_thread = threading.Thread(target=start_dashboard, args=(db,), daemon=True)
+        from .dashboard import app as dashboard_app
+        import uvicorn
+        from . import dashboard as _dashboard_module
+        _dashboard_module._db = db  # Set shared database reference
+
+        dash_port = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
+        config = uvicorn.Config(
+            dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
+        )
+        _dashboard_server = uvicorn.Server(config)
+
+        dashboard_thread = threading.Thread(target=_dashboard_server.run, daemon=True)
         dashboard_thread.start()
-        logger.info("Web Dashboard gestartet auf http://localhost:8200")
+        logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
     except Exception as e:
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
+    # Clean shutdown handler — stops dashboard + closes DB
+    def _cleanup():
+        logger.info("Bewerbungs-Assistent wird beendet...")
+        if _dashboard_server:
+            try:
+                _dashboard_server.should_exit = True
+                logger.info("Dashboard-Server gestoppt")
+            except Exception as ex:
+                logger.warning("Dashboard-Stop Fehler: %s", ex)
+        try:
+            db.close()
+            logger.info("Datenbank geschlossen")
+        except Exception as ex:
+            logger.warning("DB-Close Fehler: %s", ex)
+
+    atexit.register(_cleanup)
+
+    # Signal handlers for graceful shutdown
+    def _signal_handler(signum, frame):
+        logger.info("Signal %s empfangen, beende...", signum)
+        _cleanup()
+        sys.exit(0)
+
+    try:
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGINT, _signal_handler)
+        if hasattr(signal, "SIGBREAK"):  # Windows
+            signal.signal(signal.SIGBREAK, _signal_handler)
+    except (OSError, ValueError):
+        pass  # Signals not available in all contexts
+
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.1")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.2")
     mcp.run(transport="stdio")
