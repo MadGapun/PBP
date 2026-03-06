@@ -3060,5 +3060,5 @@ def run_server():
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.9.0")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.1")
     mcp.run(transport="stdio")

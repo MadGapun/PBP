@@ -120,10 +120,17 @@ async def api_new_profile(request: Request):
 
 @app.delete("/api/profiles/{profile_id}")
 async def api_delete_profile(profile_id: str):
-    """Delete a profile (not the active one)."""
+    """Delete a profile and all its data. If active, switch to another first."""
     active_id = _db.get_active_profile_id()
     if profile_id == active_id:
-        return JSONResponse({"error": "Aktives Profil kann nicht geloescht werden"}, status_code=400)
+        # Try switching to another profile before deleting
+        conn = _db.connect()
+        other = conn.execute(
+            "SELECT id FROM profile WHERE id != ? LIMIT 1", (profile_id,)
+        ).fetchone()
+        if other:
+            _db.switch_profile(other["id"])
+        # else: last profile — delete anyway, no active profile afterwards
     _db.delete_profile(profile_id)
     return {"status": "ok"}
 
@@ -912,6 +919,57 @@ async def api_search_status():
         return {"last_search": last, "days_ago": None, "status": "unbekannt"}
     status = "aktuell" if days < 2 else "veraltet" if days < 7 else "dringend"
     return {"last_search": last, "days_ago": days, "status": status}
+
+
+# === Factory Reset (v0.10.1) ===
+
+@app.post("/api/reset")
+async def api_factory_reset(request: Request):
+    """Factory reset — delete ALL data for clean testing."""
+    data = await request.json()
+    if data.get("confirm") != "RESET":
+        return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
+    _db.reset_all_data()
+    return {"status": "ok", "message": "Alle Daten geloescht. Neustart empfohlen."}
+
+
+@app.delete("/api/extraction-history/{entry_id}")
+async def api_delete_extraction_entry(entry_id: int):
+    """Delete a single extraction history entry."""
+    conn = _db.connect()
+    conn.execute("DELETE FROM extraction_history WHERE id=?", (entry_id,))
+    conn.commit()
+    return {"status": "ok"}
+
+
+@app.delete("/api/extraction-history")
+async def api_clear_extraction_history():
+    """Clear all extraction history for the active profile."""
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    if pid:
+        conn.execute("DELETE FROM extraction_history WHERE profile_id=?", (pid,))
+    else:
+        conn.execute("DELETE FROM extraction_history")
+    conn.commit()
+    return {"status": "ok"}
+
+
+# === Runtime Log Viewer (v0.10.1) ===
+
+@app.get("/api/logs")
+async def api_get_logs(lines: int = 100):
+    """Return the last N lines of the runtime log."""
+    from .logging_config import get_log_path
+    log_path = get_log_path()
+    if not log_path or not Path(log_path).exists():
+        return {"lines": [], "path": log_path, "error": "Log-Datei nicht gefunden"}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+        return {"lines": all_lines[-lines:], "path": log_path, "total": len(all_lines)}
+    except Exception as e:
+        return {"lines": [], "path": log_path, "error": str(e)}
 
 
 DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))

@@ -546,6 +546,14 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       </label>
       <button class="btn btn-sm" onclick="resetHints()">Alle Hinweise zuruecksetzen</button>
     </div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Runtime-Log</h3>
+      <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+        Letzte Eintraege aus dem Betriebslog (pbp.log). Hilfreich fuer Fehlersuche.
+      </p>
+      <button class="btn btn-sm" onclick="loadRuntimeLog()">Log laden</button>
+      <pre id="runtime-log" style="display:none; max-height:400px; overflow:auto; margin-top:12px; padding:12px; background:var(--bg1); border:1px solid var(--border); border-radius:6px; font-size:0.75rem; white-space:pre-wrap; color:var(--text2);"></pre>
+    </div>
   </div>
 </main>
 
@@ -950,15 +958,29 @@ async function renderProfile(p) {
     }
   } catch(e) { /* extraction history optional */ }
 
-  // Danger Zone: Profile Delete
+  // Extraction History Cleanup
+  html += `<div class="card" style="margin-top:24px;">
+    <h3>Extraktions-Historie</h3>
+    <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
+      Falls Meldungen zu analysierten Dokumenten nicht verschwinden, kann die Extraktions-Historie hier bereinigt werden.
+    </p>
+    <button class="btn" onclick="clearExtractionHistory()">Extraktions-Historie leeren</button>
+  </div>`;
+
+  // Danger Zone: Profile Delete + Factory Reset
   html += `<div class="card danger-zone" style="margin-top:32px;">
     <h3>Gefahrenzone</h3>
     <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
-      Profil unwiderruflich loeschen. Alle Positionen, Skills, Dokumente und Bewerbungen werden ebenfalls geloescht.
+      Profil unwiderruflich loeschen. Alle Positionen, Skills, Dokumente, Bewerbungen und Jobs werden ebenfalls geloescht.
     </p>
-    <button class="btn btn-danger" onclick="showDeleteProfileModal('${p.id}', '${(p.name||'').replace(/'/g, "\\'")}')">
-      Profil loeschen
-    </button>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-danger" onclick="showDeleteProfileModal('${p.id}', '${(p.name||'').replace(/'/g, "\\'")}')">
+        Profil loeschen
+      </button>
+      <button class="btn btn-danger" onclick="showResetModal()" style="background:var(--bg3); border:1px solid var(--red);">
+        Kompletter Reset (Neuinstallation)
+      </button>
+    </div>
   </div>`;
 
   document.getElementById('profile-content').innerHTML = html;
@@ -1845,15 +1867,10 @@ async function loadProfileSwitcher() {
   const data = await api('/api/profiles');
   const profiles = data.profiles || [];
   const switcher = document.getElementById('profile-switcher');
-  if (profiles.length <= 1) {
-    const active = profiles.find(p => p.is_active);
-    switcher.innerHTML = active
-      ? `<span style="background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:0.85rem; color:var(--accent);" title="Aktives Profil">\ud83d\udc64 ${active.name || 'Profil'}</span>
-         <button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil fuer eine andere Person erstellen">+ Profil</button>`
-      : `<button class="btn btn-sm btn-primary" onclick="showNewProfileDialog()" title="Neues Profil erstellen">+ Profil erstellen</button>`;
+  if (profiles.length === 0) {
+    switcher.innerHTML = `<button class="btn btn-sm btn-primary" onclick="showNewProfileDialog()" title="Neues Profil erstellen">+ Profil erstellen</button>`;
     return;
   }
-  const active = profiles.find(p => p.is_active);
   switcher.innerHTML = `
     <select id="profile-select" onchange="switchProfile(this.value)" style="background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:0.85rem;" title="Zwischen Profilen wechseln">
       ${profiles.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name || 'Ohne Name'}</option>`).join('')}
@@ -1946,6 +1963,24 @@ function resetHints() {
   const cb = document.getElementById('expert-mode');
   if (cb) cb.checked = false;
   showToast('Alle Hinweise zurueckgesetzt', 'success');
+}
+
+// === Runtime Log (v0.10.1) ===
+async function loadRuntimeLog() {
+  const el = document.getElementById('runtime-log');
+  el.style.display = 'block';
+  el.textContent = 'Lade Log...';
+  try {
+    const data = await api('/api/logs?lines=150');
+    if (data.error) {
+      el.textContent = 'Fehler: ' + data.error;
+    } else {
+      el.textContent = (data.lines || []).join('');
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch (e) {
+    el.textContent = 'Log konnte nicht geladen werden: ' + e.message;
+  }
 }
 
 // === Banner (v0.10.0) ===
@@ -2136,7 +2171,9 @@ async function checkWizardNeeded() {
 }
 
 // === Profile Delete (v0.10.0) ===
+let _deleteExpectedName = '';
 function showDeleteProfileModal(profileId, profileName) {
+  _deleteExpectedName = profileName;
   openModal(`<h2 style="color:var(--red);">Profil unwiderruflich loeschen</h2>
     <p style="color:var(--text2); margin-bottom:16px;">
       Um das Profil <strong style="color:var(--text);">${profileName}</strong> zu loeschen,
@@ -2144,10 +2181,10 @@ function showDeleteProfileModal(profileId, profileName) {
     </p>
     <div class="form-group">
       <input id="delete-confirm-input" placeholder="${profileName}"
-        oninput="checkDeleteInput('${profileName.replace(/'/g, "\\\\'")}')" autocomplete="off">
+        oninput="checkDeleteInput()" autocomplete="off">
     </div>
     <p style="color:var(--red); font-size:0.85rem; margin-bottom:16px;">
-      Alle Daten werden geloescht: Positionen, Skills, Ausbildung, Projekte, Dokumente, Bewerbungen.
+      Alle Daten werden geloescht: Positionen, Skills, Ausbildung, Projekte, Dokumente, Bewerbungen und verlinkte Jobs.
     </p>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">Abbrechen</button>
@@ -2156,18 +2193,62 @@ function showDeleteProfileModal(profileId, profileName) {
     </div>`);
 }
 
-function checkDeleteInput(expected) {
+function checkDeleteInput() {
   const input = document.getElementById('delete-confirm-input').value;
-  document.getElementById('delete-confirm-btn').disabled = (input !== expected);
+  document.getElementById('delete-confirm-btn').disabled = (input !== _deleteExpectedName);
 }
 
 async function deleteProfile(profileId) {
-  await api('/api/profiles/' + profileId, { method: 'DELETE' });
-  closeModal();
-  showToast('Profil geloescht', 'success');
+  try {
+    await api('/api/profiles/' + profileId, { method: 'DELETE' });
+    closeModal();
+    showToast('Profil und alle zugehoerigen Daten geloescht', 'success');
+    loadProfile();
+    loadDashboard();
+    loadProfileSwitcher();
+  } catch (e) {
+    showToast('Fehler beim Loeschen: ' + e.message, 'error');
+  }
+}
+
+// === Factory Reset (v0.10.1) ===
+function showResetModal() {
+  openModal(`<h2 style="color:var(--red);">Kompletter Reset</h2>
+    <p style="color:var(--text2); margin-bottom:16px;">
+      Alle Daten werden unwiderruflich geloescht: Profile, Bewerbungen, Jobs, Dokumente, Einstellungen.
+      Das System verhaelt sich danach wie bei einer Neuinstallation.
+    </p>
+    <div class="form-group">
+      <input id="reset-confirm-input" placeholder="RESET tippen zum Bestaetigen"
+        oninput="checkResetInput()" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-danger" id="reset-confirm-btn" disabled
+        onclick="doFactoryReset()">Alles loeschen</button>
+    </div>`);
+}
+function checkResetInput() {
+  document.getElementById('reset-confirm-btn').disabled =
+    document.getElementById('reset-confirm-input').value !== 'RESET';
+}
+async function doFactoryReset() {
+  try {
+    await api('/api/reset', { method: 'POST', body: JSON.stringify({ confirm: 'RESET' }) });
+    closeModal();
+    showToast('Factory Reset durchgefuehrt. Seite wird neu geladen...', 'success');
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) {
+    showToast('Reset fehlgeschlagen: ' + e.message, 'error');
+  }
+}
+
+// === Extraction History Cleanup (v0.10.1) ===
+async function clearExtractionHistory() {
+  if (!confirm('Alle Extraktions-Eintraege loeschen?')) return;
+  await api('/api/extraction-history', { method: 'DELETE' });
+  showToast('Extraktions-Historie geloescht', 'success');
   loadProfile();
-  loadDashboard();
-  loadProfileSwitcher();
 }
 
 // === Application Wizard (v0.10.0) ===

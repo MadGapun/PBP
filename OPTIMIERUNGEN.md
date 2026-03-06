@@ -1,5 +1,30 @@
 # PBP — Optimierungsplan
-## Stand: 2026-03-05 (aktualisiert)
+## Stand: 2026-03-06 (aktualisiert)
+
+---
+
+## v0.10.1 — Profil-Isolation & Bugfixes (2026-03-06)
+
+### Kritische Bugfixes
+- **Profil loeschen repariert**: Aktives Profil kann jetzt geloescht werden (wechselt automatisch zu anderem Profil)
+- **Profil-Switcher repariert**: Dropdown wird jetzt immer angezeigt (auch bei nur 1 Profil)
+- **Delete-Modal repariert**: Name-Vergleich funktioniert jetzt (String-Escaping-Bug behoben)
+- **Daten-Isolation zwischen Profilen**: Jobs und Bewerbungen sind jetzt per `profile_id` getrennt
+
+### Neue Features
+- **Factory Reset**: "Kompletter Reset" Button in Gefahrenzone fuer saubere Neuinstallation
+- **Extraktions-Historie leeren**: Button zum Bereinigen veralteter Extraktions-Eintraege
+- **Runtime-Log Viewer**: Betriebslog direkt im Dashboard einsehbar (Einstellungen-Tab)
+- **Cascade-Delete**: Profil-Loeschung entfernt alle zugehoerigen Daten (Positionen, Skills, Dokumente, Bewerbungen, Jobs)
+
+### Schema & API
+- Schema v7 → v8: `profile_id` Spalte auf `applications` und `jobs` Tabellen
+- Neue API-Endpoints: `/api/reset`, `/api/extraction-history`, `/api/logs`
+- Alle Job-/Bewerbungs-Queries filtern jetzt nach aktivem Profil
+
+### Tests
+- 30 Tests fuer v0.10.x (Schema v8, Profil-Isolation, Cascade-Delete, Factory-Reset)
+- 85 Tests total, alle bestanden (8 Export-Tests uebersprungen wegen fehlender Abhaengigkeiten)
 
 ---
 

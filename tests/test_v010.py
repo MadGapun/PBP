@@ -1,16 +1,16 @@
-"""Tests for v0.10.0 features: Schema v7, salary extraction, user preferences."""
+"""Tests for v0.10.x features: Schema v8, salary extraction, user preferences, profile isolation."""
 
 import pytest
 from bewerbungs_assistent.database import Database, SCHEMA_VERSION
 from bewerbungs_assistent.job_scraper import extract_salary_from_text, estimate_salary
 
 
-# === Schema v7 ===
+# === Schema v8 ===
 
-class TestSchemaV7:
-    def test_schema_version_is_7(self, tmp_db):
-        """Schema version should be 7."""
-        assert SCHEMA_VERSION == 7
+class TestSchemaV8:
+    def test_schema_version_is_8(self, tmp_db):
+        """Schema version should be 8."""
+        assert SCHEMA_VERSION == 8
 
     def test_salary_estimated_column(self, tmp_db):
         """jobs table should have salary_estimated column."""
@@ -34,6 +34,20 @@ class TestSchemaV7:
         col_names = [c["name"] for c in cols]
         for expected in ["salary_min", "salary_max", "salary_type"]:
             assert expected in col_names, f"Column {expected} missing from jobs"
+
+    def test_profile_id_in_jobs(self, tmp_db):
+        """jobs table should have profile_id column (v8)."""
+        conn = tmp_db.connect()
+        cols = conn.execute("PRAGMA table_info(jobs)").fetchall()
+        col_names = [c["name"] for c in cols]
+        assert "profile_id" in col_names
+
+    def test_profile_id_in_applications(self, tmp_db):
+        """applications table should have profile_id column (v8)."""
+        conn = tmp_db.connect()
+        cols = conn.execute("PRAGMA table_info(applications)").fetchall()
+        col_names = [c["name"] for c in cols]
+        assert "profile_id" in col_names
 
 
 # === User Preferences ===
@@ -158,6 +172,7 @@ class TestSalaryEstimation:
 class TestJobsWithSalary:
     def test_save_job_with_salary(self, tmp_db):
         """Save a job with salary data and retrieve it."""
+        tmp_db.save_profile({"name": "Test User"})
         jobs = [{
             "hash": "salary_test_001",
             "title": "PLM Consultant",
@@ -179,6 +194,7 @@ class TestJobsWithSalary:
 
     def test_save_job_with_estimated_salary(self, tmp_db):
         """Save a job with estimated salary and verify flag."""
+        tmp_db.save_profile({"name": "Test User"})
         jobs = [{
             "hash": "salary_test_002",
             "title": "Manager",
@@ -194,3 +210,122 @@ class TestJobsWithSalary:
         active = tmp_db.get_active_jobs()
         job = [j for j in active if j["hash"] == "salary_test_002"][0]
         assert job["salary_estimated"] == 1
+
+
+# === Profile Isolation (v0.10.1) ===
+
+class TestProfileIsolation:
+    def test_jobs_isolated_by_profile(self, tmp_db):
+        """Jobs saved under profile A should not appear for profile B."""
+        # Create profile A
+        pid_a = tmp_db.save_profile({"name": "Alice"})
+        tmp_db.save_jobs([{
+            "hash": "job_alice_001", "title": "Alice Job",
+            "company": "A-Corp", "url": "https://a.com", "source": "test",
+        }])
+        assert len(tmp_db.get_active_jobs()) == 1
+
+        # Create profile B (switches active to B)
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        import uuid
+        pid_b = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO profile (id, name, is_active, created_at, updated_at) VALUES (?,?,1,?,?)",
+            (pid_b, "Bob", "2025-01-01", "2025-01-01")
+        )
+        conn.commit()
+
+        # Bob should see no jobs
+        assert len(tmp_db.get_active_jobs()) == 0
+
+        # Save a job for Bob
+        tmp_db.save_jobs([{
+            "hash": "job_bob_001", "title": "Bob Job",
+            "company": "B-Corp", "url": "https://b.com", "source": "test",
+        }])
+        assert len(tmp_db.get_active_jobs()) == 1
+        assert tmp_db.get_active_jobs()[0]["title"] == "Bob Job"
+
+    def test_applications_isolated_by_profile(self, tmp_db):
+        """Applications are scoped to the active profile."""
+        pid_a = tmp_db.save_profile({"name": "Alice"})
+        tmp_db.add_application({"title": "App A", "company": "Corp A"})
+        assert len(tmp_db.get_applications()) == 1
+
+        # Switch to new profile
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        import uuid
+        pid_b = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO profile (id, name, is_active, created_at, updated_at) VALUES (?,?,1,?,?)",
+            (pid_b, "Bob", "2025-01-01", "2025-01-01")
+        )
+        conn.commit()
+
+        # Bob should see no applications
+        assert len(tmp_db.get_applications()) == 0
+
+
+# === Cascade Delete (v0.10.1) ===
+
+class TestCascadeDelete:
+    def test_delete_profile_removes_all_data(self, tmp_db):
+        """Deleting a profile removes all linked data."""
+        pid = tmp_db.save_profile({"name": "Delete Me"})
+        tmp_db.add_position({
+            "company": "Corp", "title": "Dev",
+            "start_date": "2020-01", "employment_type": "festanstellung",
+        })
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
+        tmp_db.add_application({"title": "Job", "company": "Corp"})
+        tmp_db.save_jobs([{
+            "hash": "del_test_001", "title": "Job", "company": "Corp",
+            "url": "https://example.com", "source": "test",
+        }])
+
+        # Verify data exists
+        conn = tmp_db.connect()
+        assert conn.execute("SELECT COUNT(*) FROM positions").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM education").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 1
+
+        # Delete
+        tmp_db.delete_profile(pid)
+
+        # Verify everything is gone
+        assert conn.execute("SELECT COUNT(*) FROM profile").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM positions").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM education").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM applications").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+# === Factory Reset (v0.10.1) ===
+
+class TestFactoryReset:
+    def test_reset_clears_all_data(self, tmp_db):
+        """Factory reset removes all data, keeps schema_version."""
+        tmp_db.save_profile({"name": "Test"})
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.save_jobs([{
+            "hash": "reset_001", "title": "Job", "company": "Corp",
+            "url": "https://example.com", "source": "test",
+        }])
+        tmp_db.set_user_preference("wizard_completed", "true")
+
+        tmp_db.reset_all_data()
+
+        conn = tmp_db.connect()
+        assert conn.execute("SELECT COUNT(*) FROM profile").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM user_preferences").fetchone()[0] == 0
+        # schema_version should still be preserved
+        row = conn.execute("SELECT value FROM settings WHERE key='schema_version'").fetchone()
+        assert row is not None

@@ -156,6 +156,7 @@ class TestSkills:
 class TestJobs:
     def test_save_and_get_jobs(self, tmp_db, sample_jobs):
         """Save jobs and retrieve active ones."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         active = tmp_db.get_active_jobs()
         assert len(active) == 2
@@ -164,6 +165,7 @@ class TestJobs:
 
     def test_dismiss_and_restore_job(self, tmp_db, sample_jobs):
         """Dismiss a job, verify it's inactive, then restore it."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         tmp_db.dismiss_job("abc123456789", "nicht relevant")
         active = tmp_db.get_active_jobs()
@@ -178,6 +180,7 @@ class TestJobs:
 
     def test_filter_jobs_by_source(self, tmp_db, sample_jobs):
         """Filter active jobs by source."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         stepstone = tmp_db.get_active_jobs({"source": "stepstone"})
         assert len(stepstone) == 1
@@ -185,6 +188,7 @@ class TestJobs:
 
     def test_filter_jobs_by_min_score(self, tmp_db, sample_jobs):
         """Filter active jobs by minimum score."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         high = tmp_db.get_active_jobs({"min_score": 5})
         assert len(high) == 1
@@ -192,6 +196,7 @@ class TestJobs:
 
     def test_upsert_jobs(self, tmp_db, sample_jobs):
         """INSERT OR REPLACE should update existing jobs."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         # Update score of existing job
         updated = [dict(sample_jobs[0], score=10)]
@@ -206,6 +211,7 @@ class TestJobs:
 class TestApplications:
     def test_add_application(self, tmp_db):
         """Add an application and retrieve it."""
+        tmp_db.save_profile({"name": "Test"})
         aid = tmp_db.add_application({
             "title": "PLM Consultant",
             "company": "Siemens",
@@ -223,6 +229,7 @@ class TestApplications:
 
     def test_update_application_status(self, tmp_db):
         """Updating status creates a new event."""
+        tmp_db.save_profile({"name": "Test"})
         aid = tmp_db.add_application({
             "title": "Dev", "company": "Startup",
         })
@@ -235,6 +242,7 @@ class TestApplications:
 
     def test_filter_applications_by_status(self, tmp_db):
         """Filter applications by status."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.add_application({"title": "A", "company": "X", "status": "beworben"})
         tmp_db.add_application({"title": "B", "company": "Y", "status": "interview"})
         beworben = tmp_db.get_applications(status="beworben")
@@ -243,6 +251,7 @@ class TestApplications:
 
     def test_application_v2_fields(self, tmp_db):
         """v2 fields: bewerbungsart, lebenslauf_variante, ansprechpartner, kontakt_email, portal_name."""
+        tmp_db.save_profile({"name": "Test"})
         aid = tmp_db.add_application({
             "title": "Manager", "company": "Firma",
             "bewerbungsart": "ueber_portal",
@@ -367,6 +376,7 @@ class TestStatistics:
 
     def test_statistics_with_data(self, tmp_db, sample_jobs):
         """Statistics reflect actual data."""
+        tmp_db.save_profile({"name": "Test"})
         tmp_db.save_jobs(sample_jobs)
         tmp_db.add_application({"title": "A", "company": "X", "status": "beworben"})
         tmp_db.add_application({"title": "B", "company": "Y", "status": "interview"})

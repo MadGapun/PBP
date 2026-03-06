@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 def _gen_id() -> str:
@@ -279,6 +279,24 @@ class Database:
                 pass  # Already exists
             logger.info("Migration v6->v7: salary_estimated + user_preferences + doc-app link")
 
+        if from_ver < 8:
+            # v8: Profile isolation — add profile_id to applications and jobs
+            for col_add in [
+                ("applications", "profile_id TEXT"),
+                ("jobs", "profile_id TEXT"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {col_add[0]} ADD COLUMN {col_add[1]}")
+                except Exception:
+                    pass  # Already exists
+            # Backfill: assign existing data to active profile
+            active = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1").fetchone()
+            if active:
+                pid = active["id"]
+                conn.execute("UPDATE applications SET profile_id=? WHERE profile_id IS NULL", (pid,))
+                conn.execute("UPDATE jobs SET profile_id=? WHERE profile_id IS NULL", (pid,))
+            logger.info("Migration v7->v8: profile_id on applications + jobs, data backfilled")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -327,19 +345,72 @@ class Database:
         conn.commit()
         return result.rowcount > 0
 
-    def delete_profile(self, profile_id: str):
-        """Delete a profile and all its related data."""
+    def delete_profile(self, profile_id: str, delete_files: bool = True):
+        """Delete a profile and ALL its related data (CASCADE)."""
         conn = self.connect()
-        # Delete related data
-        for table in ["positions", "education", "skills", "documents"]:
-            conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
+
+        # Delete document files from disk
+        if delete_files:
+            docs = conn.execute(
+                "SELECT filepath FROM documents WHERE profile_id=?", (profile_id,)
+            ).fetchall()
+            for d in docs:
+                if d["filepath"]:
+                    try:
+                        Path(d["filepath"]).unlink(missing_ok=True)
+                    except Exception as e:
+                        logger.warning("Could not delete file %s: %s", d["filepath"], e)
+
+        # Delete extraction history for this profile's documents
+        conn.execute("""
+            DELETE FROM extraction_history WHERE profile_id=?
+        """, (profile_id,))
+
+        # Delete application events for this profile's applications
+        conn.execute("""
+            DELETE FROM application_events WHERE application_id IN
+            (SELECT id FROM applications WHERE profile_id=?)
+        """, (profile_id,))
+
         # Delete projects for positions of this profile
         conn.execute("""
             DELETE FROM projects WHERE position_id IN
             (SELECT id FROM positions WHERE profile_id=?)
         """, (profile_id,))
+
+        # Delete all profile-linked data
+        for table in ["positions", "education", "skills", "documents",
+                       "applications", "jobs"]:
+            conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
+
+        # Delete the profile itself
         conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
         conn.commit()
+        logger.info("Profile %s and all related data deleted", profile_id)
+
+    def reset_all_data(self):
+        """Delete ALL data — factory reset for testing."""
+        conn = self.connect()
+        # Delete document files
+        docs = conn.execute("SELECT filepath FROM documents WHERE filepath IS NOT NULL").fetchall()
+        for d in docs:
+            try:
+                Path(d["filepath"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        # Clear all data tables
+        for table in ["extraction_history", "application_events", "projects",
+                       "positions", "education", "skills", "documents",
+                       "applications", "jobs", "blacklist", "background_jobs",
+                       "user_preferences", "profile"]:
+            try:
+                conn.execute(f"DELETE FROM {table}")
+            except Exception:
+                pass
+        # Keep settings but reset search-related ones
+        conn.execute("DELETE FROM settings WHERE key != 'schema_version'")
+        conn.commit()
+        logger.info("Factory reset: all data deleted")
 
     def save_profile(self, data: dict) -> str:
         conn = self.connect()
@@ -598,13 +669,14 @@ class Database:
     def save_jobs(self, jobs: list):
         conn = self.connect()
         now = _now()
+        pid = self.get_active_profile_id()
         for job in jobs:
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
-                    employment_type, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    employment_type, profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 job["hash"], job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -613,15 +685,16 @@ class Database:
                 job.get("distance_km"), job.get("salary_info"),
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
-                job.get("employment_type", "festanstellung"),
+                job.get("employment_type", "festanstellung"), pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
 
     def get_active_jobs(self, filters: Optional[dict] = None) -> list:
         conn = self.connect()
-        query = "SELECT * FROM jobs WHERE is_active=1"
-        params = []
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)"
+        params = [pid]
         if filters:
             if filters.get("source"):
                 query += " AND source=?"
@@ -637,8 +710,10 @@ class Database:
 
     def get_dismissed_jobs(self) -> list:
         conn = self.connect()
+        pid = self.get_active_profile_id()
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM jobs WHERE is_active=0 ORDER BY updated_at DESC"
+            "SELECT * FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) ORDER BY updated_at DESC",
+            (pid,)
         ).fetchall()]
 
     def dismiss_job(self, job_hash: str, reason: str):
@@ -661,14 +736,16 @@ class Database:
 
     def get_applications(self, status: Optional[str] = None) -> list:
         conn = self.connect()
+        pid = self.get_active_profile_id()
         if status:
             rows = conn.execute(
-                "SELECT * FROM applications WHERE status=? ORDER BY applied_at DESC",
-                (status,)
+                "SELECT * FROM applications WHERE status=? AND (profile_id=? OR profile_id IS NULL) ORDER BY applied_at DESC",
+                (status, pid)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM applications ORDER BY applied_at DESC"
+                "SELECT * FROM applications WHERE (profile_id=? OR profile_id IS NULL) ORDER BY applied_at DESC",
+                (pid,)
             ).fetchall()
         apps = []
         for row in rows:
@@ -684,14 +761,15 @@ class Database:
         conn = self.connect()
         aid = _gen_id()
         now = _now()
+        pid = self.get_active_profile_id()
         conn.execute("""
-            INSERT INTO applications (id, job_hash, title, company, url, status,
+            INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
                 bewerbungsart, lebenslauf_variante, ansprechpartner,
                 kontakt_email, portal_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            aid, data.get("job_hash"), data.get("title"), data.get("company"),
+            aid, data.get("job_hash"), pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
             data.get("applied_at", now), data.get("cover_letter_path"),
             data.get("cv_path"), data.get("notes"), now,
@@ -1364,6 +1442,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     employment_type TEXT DEFAULT 'festanstellung',
     dismiss_reason TEXT,
     is_active INTEGER DEFAULT 1,
+    profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
 );
@@ -1371,6 +1450,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE TABLE IF NOT EXISTS applications (
     id TEXT PRIMARY KEY,
     job_hash TEXT REFERENCES jobs(hash) ON DELETE SET NULL,
+    profile_id TEXT,
     title TEXT NOT NULL,
     company TEXT NOT NULL,
     url TEXT,
