@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-65%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-85%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -37,9 +37,9 @@ Claude Desktop (Windows)
 server.py (FastMCP)  ◄── 44 Tools, 6 Resources, 12 Prompts
     │
     ▼
-database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v6, Multi-Profil
+database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v8, Profil-Isolation
     │
-    ├──► dashboard.py (FastAPI :8200)  ◄── 40 API Endpoints
+    ├──► dashboard.py (FastAPI :8200)  ◄── 43+ API Endpoints
     │         │
     │         ▼
     │     dashboard.html (SPA)  ◄── 5 Tabs, Vanilla JS
@@ -49,13 +49,13 @@ database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v6, Multi-Profil
     └──► job_scraper/ (8 Quellen)
               │
               ├── bundesagentur.py   (REST API)
-              ├── stepstone.py       (BeautifulSoup)
+              ├── stepstone.py       (Playwright)
               ├── hays.py            (Sitemap + JSON-LD)
-              ├── freelancermap.py   (JS State Extraction)
+              ├── freelancermap.py   (httpx + Playwright Fallback)
               ├── linkedin.py        (Playwright)
-              ├── indeed.py          (httpx + BS4)
+              ├── indeed.py          (Playwright)
               ├── xing.py            (Playwright)
-              └── monster.py         (httpx + BS4)
+              └── monster.py         (Playwright)
 ```
 
 ---
@@ -246,7 +246,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 15 Tabellen, Schema v6 (Multi-Profil + KI-Features + Extraktion + Ablehnungs-Tracking):
+SQLite mit WAL-Mode, 15 Tabellen, Schema v8 (Profil-Isolation + Factory-Reset):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -264,6 +264,7 @@ SQLite mit WAL-Mode, 15 Tabellen, Schema v6 (Multi-Profil + KI-Features + Extrak
 | `blacklist` | Ausschlussliste |
 | `background_jobs` | Async-Tasks |
 | `follow_ups` | Nachfass-Erinnerungen |
+| `user_preferences` | Benutzereinstellungen (Wizard, Hints) |
 | `settings` | Konfiguration |
 
 **Datenspeicherung:**
@@ -285,8 +286,8 @@ PBP/
 │
 ├── src/bewerbungs_assistent/
 │   ├── server.py                 # MCP Server (44 Tools, 6 Resources, 12 Prompts)
-│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v6)
-│   ├── dashboard.py              # FastAPI Dashboard (40 Endpoints)
+│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v8)
+│   ├── dashboard.py              # FastAPI Dashboard (43+ Endpoints)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -294,18 +295,19 @@ PBP/
 │   └── job_scraper/
 │       ├── __init__.py           # Orchestrator + Scoring
 │       ├── bundesagentur.py      # Bundesagentur für Arbeit (REST)
-│       ├── stepstone.py          # StepStone (BS4)
+│       ├── stepstone.py          # StepStone (Playwright)
 │       ├── hays.py               # Hays (Sitemap)
-│       ├── freelancermap.py      # Freelancermap (JS)
+│       ├── freelancermap.py      # Freelancermap (httpx + Playwright)
 │       ├── freelance_de.py       # Freelance.de
 │       ├── linkedin.py           # LinkedIn (Playwright)
-│       ├── indeed.py             # Indeed (BS4)
+│       ├── indeed.py             # Indeed (Playwright)
 │       ├── xing.py               # XING (Playwright)
-│       └── monster.py            # Monster (BS4)
+│       └── monster.py            # Monster (Playwright)
 │
-├── tests/                        # 65 Tests (pytest)
+├── tests/                        # 85 Tests (pytest)
 │   ├── test_database.py
 │   ├── test_scoring.py
+│   ├── test_v010.py
 │   └── test_export.py
 │
 └── installer/                    # Alternative Installer
@@ -321,10 +323,11 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 65 Tests, ~2 Sekunden
+# 85 Tests, ~3 Sekunden
 # ✓ 34 Datenbank-Tests
 # ✓ 19 Scoring-Tests
-# ✓  8 Export-Tests (+ 4 Edge-Cases)
+# ✓ 30 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset)
+# ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
 ---
@@ -355,6 +358,38 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.10.1 — Profil-Isolation & Bugfixes (2026-03-06)
+- Fix: **Profil loeschen repariert** — Aktives Profil kann jetzt geloescht werden (Auto-Switch zum naechsten)
+- Fix: **Delete-Modal** — String-Escaping-Bug beim Name-Vergleich behoben
+- Fix: **Profil-Switcher** — Dropdown wird jetzt immer angezeigt (auch bei nur 1 Profil)
+- Fix: **Daten-Isolation** — Jobs und Bewerbungen per `profile_id` getrennt (kein Daten-Bleeding mehr)
+- Feature: **Factory Reset** — Kompletter Daten-Reset fuer saubere Neuinstallation (Bestaetigung: "RESET" tippen)
+- Feature: **Extraktions-Historie leeren** — Button zum Bereinigen veralteter Eintraege
+- Feature: **Runtime-Log Viewer** — Betriebslog direkt im Dashboard (Einstellungen-Tab)
+- Feature: **Cascade-Delete** — Profil-Loeschung entfernt vollstaendig alle zugehoerigen Daten
+- Schema: Datenbank-Migration v7→v8 (`profile_id` auf applications + jobs mit Backfill)
+- API: 3 neue Endpoints (reset, extraction-history, logs)
+- Tests: 85 bestanden (30 fuer v0.10.x)
+
+### v0.10.0 — UX & Scraper Overhaul (2026-03-05)
+- Feature: **Onboarding-Wizard** — 4-Schritt Wizard fuer neue User (Profil, Quellen, Suche, Ergebnisse)
+- Feature: **Bewerbungs-Wizard** — 5-Schritt Wizard pro Stelle (Fit-Analyse, CV, Anschreiben, Interview, Erfassung)
+- Feature: **Gehalt auf Stellenkarten** — Immer sichtbar: gelb fuer echte Daten, grau fuer Schaetzung
+- Feature: **Gehalts-Engine** — Automatische Extraktion (7 Regex-Patterns) + Schaetzung via Lookup-Tabellen
+- Feature: **Quellen-Banner** — Persistenter Hinweis wenn keine Quellen aktiv
+- Feature: **Such-Reminder** — Farbcodierte Anzeige der letzten Suche (gruen/gelb/rot)
+- Feature: **Hint-System** — Per-Hint dismissbar + globaler Expertenmodus
+- Feature: **Gehaltsfilter** — Dropdown im Stellen-Tab (ab 50k/65k/80k/100k)
+- Feature: **Intelligente Dokumenten-Erkennung** — Auto-Typ, Firmen-Erkennung, Bewerbungs-Matching beim Upload
+- Scraper: **StepStone** komplett auf Playwright umgestellt
+- Scraper: **Indeed** komplett auf Playwright mit Anti-Bot-Massnahmen
+- Scraper: **Monster** komplett auf Playwright umgestellt
+- Scraper: **XING** Selektoren repariert (link-basierte Extraktion)
+- Scraper: **Freelancermap** Playwright-Fallback
+- Schema: Datenbank-Migration v6→v7 (salary_estimated, user_preferences Tabelle)
+- API: 3 neue Endpoints (user-preferences, search-status, analyze-filename)
+- Tools: 44, Prompts: 12, Tabellen: 15
 
 ### v0.9.0 — Daten-Integrität, Analyse-Tools & Dashboard-Widgets (2026-03-02)
 - Feature: **Skill-Gap-Analyse** — Vergleich der eigenen Skills mit Stellenanforderungen inkl. Match-Prozent
