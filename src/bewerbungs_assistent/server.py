@@ -3177,5 +3177,5 @@ def run_server():
         pass  # Signals not available in all contexts
 
     # Run MCP server (blocks on stdio)
-    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.4")
+    logger.info("Bewerbungs-Assistent MCP Server v%s gestartet", "0.10.5")
     mcp.run(transport="stdio")

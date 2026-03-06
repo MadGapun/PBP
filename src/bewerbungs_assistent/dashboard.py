@@ -213,7 +213,7 @@ async def api_import_folder(request: Request):
     files_found = 0
     docs_imported = 0
     apps_found = 0
-    supported = (".pdf", ".docx", ".doc", ".txt")
+    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf")
 
     for fpath in folder.rglob("*"):
         if not fpath.is_file() or fpath.suffix.lower() not in supported:
@@ -231,7 +231,7 @@ async def api_import_folder(request: Request):
                 from docx import Document
                 doc = Document(str(fpath))
                 extracted = "\n".join(p.text for p in doc.paragraphs)
-            elif fname.endswith(".txt"):
+            elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
                 extracted = fpath.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             logger.warning("Import: Text extraction failed for %s: %s", fpath.name, e)
@@ -524,7 +524,7 @@ async def api_upload_document(
             from docx import Document
             doc = Document(str(filepath))
             extracted = "\n".join(p.text for p in doc.paragraphs)
-        elif fname.endswith(".txt"):
+        elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
             extracted = content.decode("utf-8", errors="replace")
     except Exception as e:
         logger.warning("Text extraction failed for %s: %s", file.filename, e)

@@ -359,6 +359,11 @@ python -m pytest tests/ -v
 
 ## Changelog
 
+### v0.10.5 — Markdown & Textdateien Support (2026-03-06)
+- Fix: **Markdown-Dateien (.md)** werden jetzt beim Upload als Text extrahiert (war vorher nur PDF/DOCX/TXT)
+- Feature: Zusaetzliche Formate: `.md`, `.csv`, `.json`, `.xml`, `.rtf` — alle als Plain-Text behandelt
+- Feature: Dateiauswahl-Dialog im Wizard zeigt jetzt alle unterstuetzten Formate
+
 ### v0.10.4 — Profil-Qualitaet & Bulk-Import (2026-03-06)
 - Fix: **Vollstaendigkeits-Check** — Adresse und Kurzprofil/Summary werden jetzt korrekt erkannt
 - Fix: **Dokument-Extraktion wiederholbar** — force-Parameter + Dateinamen-Lookup + bereits analysierte Dokumente sichtbar

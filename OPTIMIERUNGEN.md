@@ -3,6 +3,17 @@
 
 ---
 
+## v0.10.5 — Markdown & Textdateien Support (2026-03-06)
+
+### Bugfixes
+- **Markdown-Dateien nicht extrahiert**: `.md`-Dateien wurden beim Upload zwar gespeichert, aber der Text nicht extrahiert → extracted_text war leer → dokumente_zur_analyse fand nichts. Jetzt werden `.md`, `.csv`, `.json`, `.xml`, `.rtf` als Plain-Text eingelesen.
+
+### Verbesserungen
+- Upload-Dialog im Wizard zeigt jetzt alle unterstuetzten Formate
+- Folder-Import (rglob) erkennt ebenfalls die neuen Formate
+
+---
+
 ## v0.10.4 — Profil-Qualitaet & Bulk-Import (2026-03-06)
 
 ### Bugfixes
