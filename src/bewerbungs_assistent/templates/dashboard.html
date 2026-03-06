@@ -1468,6 +1468,11 @@ async function wizardDocUploadSubmit(e) {
   btn.innerHTML = '<span class="spinner"></span> Wird hochgeladen...';
   btn.disabled = true;
   try {
+    // Auto-create profile if none exists so the document gets linked
+    const st = await api('/api/status');
+    if (!st.has_profile) {
+      await api('/api/profiles/new', { method: 'POST', body: JSON.stringify({ name: 'Mein Profil' }) });
+    }
     const resp = await fetch('/api/documents/upload', { method: 'POST', body: fd });
     const result = await resp.json();
     closeModal({target: document.getElementById('modal-overlay')});
@@ -2023,10 +2028,18 @@ async function createNewProfile(e) {
   e.preventDefault();
   const fd = new FormData(e.target);
   await api('/api/profiles/new', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+  // Reset wizard for new profile so setup assistant shows
+  await api('/api/user-preferences/wizard_completed', { method: 'POST', body: JSON.stringify({ value: '' }) });
   closeModal();
-  showToast('Neues Profil erstellt!', 'success');
+  showToast('Neues Profil erstellt! Einrichtungsassistent wird gestartet...', 'success');
   loadDashboard();
   loadProfileSwitcher();
+  // Show wizard for the new profile
+  setTimeout(() => {
+    wizardStep = 0;
+    renderWizardStep();
+    document.getElementById('wizard-overlay').classList.add('show');
+  }, 500);
 }
 
 // === Copy-to-Clipboard (PBP-027) ===

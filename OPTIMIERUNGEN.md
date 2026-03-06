@@ -3,6 +3,21 @@
 
 ---
 
+## v0.10.3 — Wizard & Dokument-Fix (2026-03-06)
+
+### Bugfixes
+- **Dokument-Upload ohne Profil**: Auto-Profil ("Mein Profil") wird erstellt bevor das Dokument hochgeladen wird — Dokument ist sofort verknuepft und fuer `/profil_erweiterung` sichtbar
+- **Verwaiste Dokumente**: Dokumente mit `profile_id=NULL` werden automatisch adoptiert wenn ein neues Profil erstellt wird (Fallback-Sicherung)
+
+### Neue Features
+- **Wizard bei neuem Profil**: Einrichtungsassistent startet automatisch auch beim Anlegen weiterer Profile (nicht nur beim allerersten)
+
+### Tests
+- 3 neue Tests fuer Dokument-Adoption (orphaned, multiple, no-steal)
+- 95 Tests total, alle bestanden
+
+---
+
 ## v0.10.2 — Guided Experience (2026-03-06)
 
 ### Benutzerf&uuml;hrung

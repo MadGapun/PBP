@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-92%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-95%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -323,10 +323,10 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 92 Tests, ~3 Sekunden
+# 95 Tests, ~3 Sekunden
 # ✓ 34 Datenbank-Tests
 # ✓ 19 Scoring-Tests
-# ✓ 37 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset, Smart Next-Steps)
+# ✓ 40 v0.10.x Tests (Schema, Salary, Profil-Isolation, Delete, Reset, Next-Steps, Doc-Adoption)
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -358,6 +358,12 @@ python -m pytest tests/ -v
 ---
 
 ## Changelog
+
+### v0.10.3 — Wizard & Dokument-Fix (2026-03-06)
+- Fix: **Dokument-Upload ohne Profil** — Auto-Profil wird erstellt, Dokument sofort verknuepft
+- Fix: **Verwaiste Dokumente** — Dokumente mit profile_id=NULL werden bei Profil-Erstellung adoptiert
+- Feature: **Wizard bei neuem Profil** — Einrichtungsassistent startet auch beim Anlegen weiterer Profile
+- Tests: 95 bestanden (3 neue fuer Dokument-Adoption)
 
 ### v0.10.2 — Guided Experience (2026-03-06)
 - Feature: **Smart Next-Steps** — Kontextabhaengige naechste Schritte basierend auf Profil-Zustand und Aktivitaet
