@@ -413,3 +413,66 @@ class TestSmartNextSteps:
         steps = tmp_db.get_next_steps()
         actions = [s["aktion"] for s in steps]
         assert "Dokumente hochladen" in actions
+
+
+class TestOrphanedDocumentAdoption:
+    """Documents uploaded before profile creation should be adopted."""
+
+    def test_orphaned_docs_adopted_on_profile_creation(self, tmp_db):
+        """Documents with profile_id=NULL should be adopted when first profile is created."""
+        # Upload document without any profile existing
+        doc_id = tmp_db.add_document({
+            "filename": "lebenslauf.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "Python Developer mit 10 Jahren Erfahrung",
+        })
+        # Verify document has no profile
+        conn = tmp_db.connect()
+        row = conn.execute("SELECT profile_id FROM documents WHERE id=?", (doc_id,)).fetchone()
+        assert row["profile_id"] is None
+
+        # Now create a profile — should adopt the orphaned document
+        pid = tmp_db.save_profile({"name": "Test User"})
+
+        # Document should now belong to the new profile
+        row = conn.execute("SELECT profile_id FROM documents WHERE id=?", (doc_id,)).fetchone()
+        assert row["profile_id"] == pid
+
+        # Profile should see the document
+        profile = tmp_db.get_profile()
+        assert len(profile["documents"]) == 1
+        assert profile["documents"][0]["filename"] == "lebenslauf.pdf"
+
+    def test_multiple_orphaned_docs_all_adopted(self, tmp_db):
+        """All orphaned documents should be adopted, not just one."""
+        ids = []
+        for name in ["cv.pdf", "zeugnis.pdf", "master.md"]:
+            ids.append(tmp_db.add_document({
+                "filename": name,
+                "doc_type": "sonstiges",
+                "extracted_text": f"Content of {name}",
+            }))
+        pid = tmp_db.save_profile({"name": "Test"})
+        conn = tmp_db.connect()
+        count = conn.execute(
+            "SELECT COUNT(*) as c FROM documents WHERE profile_id=?", (pid,)
+        ).fetchone()["c"]
+        assert count == 3
+
+    def test_existing_profile_docs_not_affected(self, tmp_db):
+        """Creating a second profile should not steal documents from first."""
+        # Create first profile with a document
+        pid1 = tmp_db.save_profile({"name": "User 1"})
+        tmp_db.add_document({
+            "filename": "user1_cv.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "User 1 CV",
+        })
+        # Create second profile (switch)
+        pid2 = tmp_db.save_profile({"name": "User 2"})
+        # User 1's document should still belong to user 1
+        conn = tmp_db.connect()
+        row = conn.execute(
+            "SELECT profile_id FROM documents WHERE filename='user1_cv.pdf'"
+        ).fetchone()
+        assert row["profile_id"] == pid1

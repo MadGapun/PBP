@@ -454,6 +454,12 @@ class Database:
                 data.get("summary"), data.get("informal_notes"), prefs,
                 now, now
             ))
+            # Adopt orphaned documents (uploaded before any profile existed)
+            adopted = conn.execute(
+                "UPDATE documents SET profile_id=? WHERE profile_id IS NULL", (pid,)
+            ).rowcount
+            if adopted:
+                logger.info("Adopted %d orphaned document(s) for new profile %s", adopted, pid)
             conn.commit()
             return pid
 
