@@ -4,13 +4,34 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [0.11.1] — 2026-03-07
 
-### Konsolidierung
-- **ZUSTAND.md** komplett auf realen Stand gebracht (war v1.0.0, jetzt v0.11.0 mit 44 Tools, Schema v8, 108 Tests)
-- **README.md** korrigiert: 9 Jobquellen (statt 8), 108 Tests (statt 100/85), freelance_de.py im Architekturdiagramm ergaenzt, Changelog auf letzte 3 Versionen gekuerzt
-- **AGENTS.md** korrigiert: 9 Quellen (statt 8), freelance_de.py in Architektur ergaenzt
-- **docs/architecture.md** synchronisiert: 9 Scraper, 108 Tests
-- **docs/codex_context.md** synchronisiert: 9 Portale, 108 Tests
-- **docs/VERBESSERUNGSPLAN.md** NEU: Priorisierter Verbesserungsplan (Prio 1-3) auf Basis der Codex-Analyse
+### Konsolidierung (ausgeloest durch Codex-Analyse)
+
+OpenAI Codex hat das Projekt analysiert (siehe `docs/CODEX_ANALYSE.md`) und dabei
+massive Inkonsistenzen in der Dokumentation aufgedeckt. Claude Code hat daraufhin
+alle Dokumente auf den tatsaechlichen Stand gebracht.
+
+**Was Codex gefunden hat:**
+
+| Aspekt | Vorher (Doku) | Tatsaechlich (Code) |
+|--------|--------------|-------------------|
+| ZUSTAND.md Version | v1.0.0 | v0.11.0 |
+| Jobquellen | "8 Portale" | 9 (freelance_de.py fehlte ueberall) |
+| Tests | 65 / 85 / 100 (je nach Datei) | 108 |
+| Schema | v2 | v8 |
+| Tools | 21 | 44 |
+| Prompts | 8 | 12 |
+| Tabellen | 13 | 15 |
+
+**Was Claude Code gefixt hat:**
+- **ZUSTAND.md** komplett neugeschrieben (war seit v1.0.0 nicht aktualisiert)
+- **README.md** — 9 Jobquellen, 108 Tests, `freelance_de.py` im Architekturdiagramm, Changelog auf 3 Versionen + CHANGELOG.md-Link gekuerzt
+- **AGENTS.md** — 9 Quellen, `freelance_de.py` ergaenzt
+- **docs/architecture.md** — 9 Scraper, 108 Tests
+- **docs/codex_context.md** — 9 Portale, 108 Tests
+- **pyproject.toml** — Version auf 0.11.1
+
+**Neu erstellt:**
+- **docs/VERBESSERUNGSPLAN.md** — Priorisierter Plan (Prio 1-3) fuer zukuenftige Verbesserungen (server.py Modularisierung, Service-Layer, Teststrategie)
 
 ## [0.11.0] — 2026-03-06
 
