@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-100%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-108%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -18,7 +18,7 @@ PBP ist ein **MCP-Server für Claude Desktop**, der dich bei der gesamten Jobsuc
 ### Highlights
 
 - 🗣️ **Gesprächsbasierte Profilerstellung** — Claude führt ein lockeres Interview und baut dein Profil auf (STAR-Methode für Projekte)
-- 🔍 **Multi-Quellen Jobsuche** — 8 Jobportale gleichzeitig durchsuchen (Bundesagentur, StepStone, Hays, LinkedIn, u.v.m.)
+- 🔍 **Multi-Quellen Jobsuche** — 9 Jobportale gleichzeitig durchsuchen (Bundesagentur, StepStone, Hays, Freelance.de, LinkedIn, u.v.m.)
 - 📊 **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet (MUSS/PLUS/AUSSCHLUSS Keywords)
 - 📝 **Dokument-Export** — Lebenslauf und Anschreiben als PDF oder DOCX, angepasst pro Stelle
 - 📈 **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline und Statistiken
@@ -46,12 +46,13 @@ database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v8, Profil-Isolati
     │
     ├──► export.py  ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     │
-    └──► job_scraper/ (8 Quellen)
+    └──► job_scraper/ (9 Quellen)
               │
               ├── bundesagentur.py   (REST API)
               ├── stepstone.py       (Playwright)
               ├── hays.py            (Sitemap + JSON-LD)
               ├── freelancermap.py   (httpx + Playwright Fallback)
+              ├── freelance_de.py    (HTML Scraping)
               ├── linkedin.py        (Playwright)
               ├── indeed.py          (Playwright)
               ├── xing.py            (Playwright)
@@ -141,7 +142,7 @@ Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 
 > **"Starte eine Jobsuche nach Python Entwickler in Hamburg"**
 
-PBP durchsucht bis zu 8 Portale gleichzeitig und bewertet die Ergebnisse automatisch.
+PBP durchsucht bis zu 9 Portale gleichzeitig und bewertet die Ergebnisse automatisch.
 
 ### Bewerbung schreiben
 
@@ -257,7 +258,7 @@ SQLite mit WAL-Mode, 15 Tabellen, Schema v8 (Profil-Isolation + Factory-Reset):
 | `skills` | Kompetenzen (5 Kategorien) |
 | `documents` | Hochgeladene Dokumente (+ Extraktions-Status) |
 | `extraction_history` | Extraktions-Verlauf (Konflikte, angewandte Felder) |
-| `jobs` | Stellenangebote (8 Quellen) |
+| `jobs` | Stellenangebote (9 Quellen) |
 | `applications` | Bewerbungen (6 Status-Stufen, Ablehnungs-Tracking) |
 | `application_events` | Bewerbungs-Timeline |
 | `search_criteria` | Suchfilter |
@@ -304,7 +305,7 @@ PBP/
 │       ├── xing.py               # XING (Playwright)
 │       └── monster.py            # Monster (Playwright)
 │
-├── tests/                        # 85 Tests (pytest)
+├── tests/                        # 108 Tests (pytest)
 │   ├── test_database.py
 │   ├── test_scoring.py
 │   ├── test_v010.py
@@ -323,10 +324,10 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 100 Tests, ~3 Sekunden
-# ✓ 34 Datenbank-Tests
-# ✓ 19 Scoring-Tests
-# ✓ 45 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
+# 108 Tests, ~3 Sekunden
+# ✓ 33 Datenbank-Tests
+# ✓ 24 Scoring-Tests
+# ✓ 43 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -357,158 +358,30 @@ python -m pytest tests/ -v
 
 ---
 
-## Changelog
+## Changelog (letzte 3 Versionen)
+
+> Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v0.11.0 — Validierung, Ladeanimationen, Paginierung (2026-03-06)
+- Feature: **Form-Validierung** — Pflichtfeld-Prüfung (Client + Server), E-Mail-/Datums-Validierung
+- Feature: **Ladeanimationen** — Spinner + Loading-Buttons gegen Doppelklicks
+- Feature: **Paginierung Bewerbungen** — 20er Seiten + "Mehr laden"
+- Feature: **Auto-Apply Extraktion** — Daten ohne Rückfragen übernehmen
+- Fix: Kritische Felder (email, phone, address, summary) nach Extraktion leer
+- Fix: Profilname "Mein Profil" wird nicht mehr bei Extraktion überschrieben
+- Fix: Projekte bei doppelten Positionen werden nicht mehr übersprungen
+- 108 Tests bestanden, alle Optimierungen abgeschlossen
 
 ### v0.10.5 — Markdown & Textdateien Support (2026-03-06)
-- Fix: **Markdown-Dateien (.md)** werden jetzt beim Upload als Text extrahiert (war vorher nur PDF/DOCX/TXT)
-- Feature: Zusaetzliche Formate: `.md`, `.csv`, `.json`, `.xml`, `.rtf` — alle als Plain-Text behandelt
-- Feature: Dateiauswahl-Dialog im Wizard zeigt jetzt alle unterstuetzten Formate
-
-### v0.10.4 — Profil-Qualitaet & Bulk-Import (2026-03-06)
-- Fix: **Vollstaendigkeits-Check** — Adresse und Kurzprofil/Summary werden jetzt korrekt erkannt
-- Fix: **Dokument-Extraktion wiederholbar** — force-Parameter + Dateinamen-Lookup + bereits analysierte Dokumente sichtbar
-- Feature: **Feldnamen-Aliase** — adresse, kurzprofil, zusammenfassung, stadt, telefon etc. werden automatisch gemappt
-- Feature: **Bulk-Import** — `hinzufuegen_bulk` Aktion fuer Skills, Positionen, Projekte, Ausbildung (Liste statt Einzel-Calls)
-- Feature: **Feld-Validierung** — Unbekannte Feldnamen werden gemeldet statt still ignoriert
-- Feature: **Tool-Discovery** — Verbesserte Beschreibungen fuer skill_hinzufuegen, position_hinzufuegen, profil_bearbeiten
-- Tests: 100 bestanden (5 neue fuer Completeness + Bulk)
-
-### v0.10.3 — Wizard & Dokument-Fix (2026-03-06)
-- Fix: **Dokument-Upload ohne Profil** — Auto-Profil wird erstellt, Dokument sofort verknuepft
-- Fix: **Verwaiste Dokumente** — Dokumente mit profile_id=NULL werden bei Profil-Erstellung adoptiert
-- Feature: **Wizard bei neuem Profil** — Einrichtungsassistent startet auch beim Anlegen weiterer Profile
-- Tests: 95 bestanden (3 neue fuer Dokument-Adoption)
-
-### v0.10.2 — Guided Experience (2026-03-06)
-- Feature: **Smart Next-Steps** — Kontextabhaengige naechste Schritte basierend auf Profil-Zustand und Aktivitaet
-- Feature: **Onboarding Dokument-Upload** — Lebenslauf als 3. Option im Wizard hochladen
-- Feature: **Actionable Empty States** — Alle leeren Zustaende mit direkten Aktions-Buttons
-- Feature: **Sauberes Beenden** — atexit/signal-Handler fuer kontrollierten Server-Shutdown
-- UX: Zwei Action-Typen (Dashboard-Buttons vs. Claude-Desktop-Prompts) in Next-Steps
-- UX: Spezial-Hinweise bei Ablehnungen (Muster-Analyse) und Interviews (Vorbereitung)
-- Tests: 92 bestanden (7 neue fuer Smart Next-Steps)
-
-### v0.10.1 — Profil-Isolation & Bugfixes (2026-03-06)
-- Fix: **Profil loeschen repariert** — Aktives Profil kann jetzt geloescht werden (Auto-Switch zum naechsten)
-- Fix: **Delete-Modal** — String-Escaping-Bug beim Name-Vergleich behoben
-- Fix: **Profil-Switcher** — Dropdown wird jetzt immer angezeigt (auch bei nur 1 Profil)
-- Fix: **Daten-Isolation** — Jobs und Bewerbungen per `profile_id` getrennt (kein Daten-Bleeding mehr)
-- Feature: **Factory Reset** — Kompletter Daten-Reset fuer saubere Neuinstallation (Bestaetigung: "RESET" tippen)
-- Feature: **Extraktions-Historie leeren** — Button zum Bereinigen veralteter Eintraege
-- Feature: **Runtime-Log Viewer** — Betriebslog direkt im Dashboard (Einstellungen-Tab)
-- Feature: **Cascade-Delete** — Profil-Loeschung entfernt vollstaendig alle zugehoerigen Daten
-- Schema: Datenbank-Migration v7→v8 (`profile_id` auf applications + jobs mit Backfill)
-- API: 3 neue Endpoints (reset, extraction-history, logs)
-- Tests: 85 bestanden (30 fuer v0.10.x)
+- Fix: Markdown-Dateien (.md) werden jetzt als Text extrahiert
+- Feature: Zusätzliche Formate (.md, .csv, .json, .xml, .rtf)
 
 ### v0.10.0 — UX & Scraper Overhaul (2026-03-05)
-- Feature: **Onboarding-Wizard** — 4-Schritt Wizard fuer neue User (Profil, Quellen, Suche, Ergebnisse)
-- Feature: **Bewerbungs-Wizard** — 5-Schritt Wizard pro Stelle (Fit-Analyse, CV, Anschreiben, Interview, Erfassung)
-- Feature: **Gehalt auf Stellenkarten** — Immer sichtbar: gelb fuer echte Daten, grau fuer Schaetzung
-- Feature: **Gehalts-Engine** — Automatische Extraktion (7 Regex-Patterns) + Schaetzung via Lookup-Tabellen
-- Feature: **Quellen-Banner** — Persistenter Hinweis wenn keine Quellen aktiv
-- Feature: **Such-Reminder** — Farbcodierte Anzeige der letzten Suche (gruen/gelb/rot)
-- Feature: **Hint-System** — Per-Hint dismissbar + globaler Expertenmodus
-- Feature: **Gehaltsfilter** — Dropdown im Stellen-Tab (ab 50k/65k/80k/100k)
-- Feature: **Intelligente Dokumenten-Erkennung** — Auto-Typ, Firmen-Erkennung, Bewerbungs-Matching beim Upload
-- Scraper: **StepStone** komplett auf Playwright umgestellt
-- Scraper: **Indeed** komplett auf Playwright mit Anti-Bot-Massnahmen
-- Scraper: **Monster** komplett auf Playwright umgestellt
-- Scraper: **XING** Selektoren repariert (link-basierte Extraktion)
-- Scraper: **Freelancermap** Playwright-Fallback
-- Schema: Datenbank-Migration v6→v7 (salary_estimated, user_preferences Tabelle)
-- API: 3 neue Endpoints (user-preferences, search-status, analyze-filename)
-- Tools: 44, Prompts: 12, Tabellen: 15
-
-### v0.9.0 — Daten-Integrität, Analyse-Tools & Dashboard-Widgets (2026-03-02)
-- Feature: **Skill-Gap-Analyse** — Vergleich der eigenen Skills mit Stellenanforderungen inkl. Match-Prozent
-- Feature: **Ablehnungs-Muster** — Analyse der Ablehnungsgründe nach Firma mit Handlungsempfehlungen
-- Feature: **Personalisierte Nächste-Schritte** — API-basiert statt hardcoded, abhängig von Profil-Vollständigkeit und Status
-- Feature: **Gehalts-Statistik Widget** — Durchschnitt, Spanne und häufigster Typ im Dashboard
-- Feature: **Follow-up Alerts** — Fällige Nachfass-Aktionen jetzt aus `follow_ups`-Tabelle statt Client-Side
-- Feature: **Ablehnungsgrund-Tracking** — Bei Status "abgelehnt" optionaler Grund speicherbar
-- Fix: **Double-Write Bug** in `extraktion_ergebnis_speichern` behoben (redundanter DB-Aufruf)
-- Fix: **CASCADE/SET NULL** — `applications.job_hash` korrekt als `ON DELETE SET NULL` statt fehlerhaftem FK
-- Fix: **Import-Validierung** — Pflichtfeld-Prüfung und Format-Checks beim Profil-Import
-- Fix: **Scraper-Timeout** — 10-Minuten Watchdog verhindert hängende Jobsuche-Threads
-- Dashboard: Profil-Switcher immer sichtbar und prominent
-- Dashboard: Nächste-Schritte mit Prioritäts-Badges (hoch/mittel/niedrig)
-- Schema: Datenbank-Migration v5→v6 (`rejection_reason` auf applications, FK-Fix)
-- API: 4 neue Endpoints (follow-ups, salary-stats, next-steps, rejection-patterns)
-- Tools: 42→44, API-Endpoints: 36→40
-
-### v0.8.0 — Smart Auto-Extraction, Profil-Backup & Dashboard-Integration (2026-03-02)
-- Feature: **Smart Auto-Extraction** — Dokumente (CV, Zeugnisse, Projektbeschreibungen) automatisch analysieren und Profildaten extrahieren
-- Feature: **Extraktion-Workflow** — 5-Schritte-Prozess mit Konflikt-Erkennung und Duplikat-Prüfung
-- Feature: **Profil-Export** — Komplettes Profil als JSON-Backup exportieren (für Rechner-Umzug)
-- Feature: **Profil-Import** — Profil aus JSON-Backup wiederherstellen (erstellt neues Profil)
-- Feature: **Verbessertes Löschen** — Aktives Profil löschbar mit Auto-Switch zum nächsten
-- Feature: **Profil-Vollständigkeit** — 9-Kategorien-Check mit Fortschrittsbalken im Dashboard
-- Prompt: **`/profil_erweiterung`** — Geführter 5-Schritte-Workflow für Dokument-Analyse
-- Dashboard: Export/Import-Buttons im Profil-Header
-- Dashboard: Extraktions-Verlauf mit Status-Badges unter Dokumenten
-- Dashboard: Upload-Hinweis mit Verweis auf `/profil_erweiterung`
-- Schema: Datenbank-Migration v4→v5 (extraction_history Tabelle, extraction_status auf documents)
-- API: 4 neue Endpoints (completeness, extractions, export, import)
-- Tools: 36→42, Prompts: 11→12, Tabellen: 14→15, API-Endpoints: 32→36
-
-### v0.7.0 — Erweiterte KI-Features (2026-03-02)
-- Feature: **Interview-Simulation** — Claude spielt den Interviewer, bewertet STAR-Antworten
-- Feature: **Gehaltsverhandlung** — Verhandlungsstrategie mit Marktdaten und Argumenten
-- Feature: **Netzwerk-Strategie** — Networking-Plan mit LinkedIn-Templates
-- Feature: **Gehalt-Extraktion** — Gehalt/Tagessatz automatisch aus Stellenbeschreibungen erkennen
-- Feature: **Marktanalyse** — Gehaltsstatistiken über alle gesammelten Stellen
-- Feature: **Firmen-Recherche** — Firmendaten aus Stellenangeboten aggregieren
-- Feature: **Branchen-Trends** — Gefragte Skills analysieren + Skill-Gap-Erkennung
-- Feature: **Nachfass-Planung** — Follow-up Erinnerungen mit E-Mail-Templates
-- Feature: **A/B-Tracking** — Anschreiben-Stil tracken für Erfolgsanalyse
-- Dashboard: **KI-Funktionen Übersicht** — Alle 11 Prompts dokumentiert mit Copy-Buttons
-- Schema: Datenbank-Migration v3→v4 (Gehalt-Spalten, follow_ups Tabelle)
-- Tools: 29→36, Prompts: 8→11, Tabellen: 13→14
-
-### v0.6.0 — Multi-Profil, Fortführbare Ersterfassung & UX (2026-03-02)
-- Feature: **Multi-Profil-Support** (PBP-025) — Mehrere Profile pro PC, Profil-Wechsel im Dashboard und via MCP-Tools
-- Feature: **Fortführbare Ersterfassung** (PBP-026) — Profil-Gespräch pausieren und später nahtlos fortsetzen
-- Feature: **UX-Verbesserungen** (PBP-027) — Tooltips, Copy-Buttons für `/ersterfassung`, Claude Desktop Restart-Hinweis
-- Feature: **Dokument-Profil-Extraktion** (PBP-028) — Hochgeladene Dokumente werden automatisch für Profildaten analysiert
-- Schema: Datenbank-Migration v2→v3 (is_active, erfassung_fortschritt, profile_id FKs)
-- Dashboard: Profil-Switcher in der Navigationsleiste
-- Dashboard: Verbesserte Willkommensseite mit Ersterfassungs-Anleitung
-- Tools: 8 neue MCP-Tools (21→29 gesamt)
-- API: 4 neue Dashboard-Endpoints (28→32 gesamt)
-
-### v0.5.1 — Abbrechen-Button Fix (2026-03-02)
-- Fix: Abbrechen-Buttons in Modal-Dialogen funktionieren jetzt korrekt
-- Feature: Escape-Taste schließt Modal-Dialoge
-
-### v0.5.0 — Installer-Fix Delayed Expansion (2026-03-02)
-- Fix: `!variable!`-Syntax für CMD.exe Delayed Expansion wiederhergestellt
-- Fix: PowerShell-Variablen in Expand-Archive korrekt escaped
-- Feature: Vollständiger Installationsdurchlauf (Python + pip + Pakete + Claude Desktop Config)
-- Getestet und funktionsfähig auf Windows 10/11
-
-### v0.4.0 — Installer GOTO-Refactoring (2026-03-02)
-- Fix: GOTO-basierte Fehlerbehandlung im Windows-Installer
-- Fix: PowerShell Expand-Archive statt tar für ZIP-Entpackung
-- Fix: Debug-Logging zwischen allen Installationsschritten
-
-### v0.3.0 — Installer Update (2026-03-02)
-- Umstellung auf curl.exe für Downloads (Windows 10+ built-in)
-- Nur ASCII-Zeichen im Installer
-
-### v0.2.0 — Installer Bugfix (2026-03-02)
-- Fix: PowerShell exit-Bug der BAT-Prozess beendete
-- Fix: ExecutionPolicy Bypass hinzugefügt
-
-### v0.1.0 — Erster Release (2026-03-02)
-- Vollständiger MCP-Server mit 21 Tools, 6 Resources, 8 Prompts
-- Web-Dashboard mit 5 Tabs
-- 8 Job-Scraper (Bundesagentur, StepStone, Hays, Freelancermap, LinkedIn, Indeed, XING, Monster)
-- Intelligentes Scoring-System
-- PDF/DOCX Export für Lebenslauf und Anschreiben
-- Bewerbungs-Tracking mit Timeline
-- Windows Zero-Knowledge Installer
-- 65 Tests bestanden
+- Feature: Onboarding-Wizard (4 Schritte) + Bewerbungs-Wizard (5 Schritte)
+- Feature: Gehalts-Engine (7 Regex-Patterns + Schätzung)
+- Feature: Hint-System, Gehaltsfilter, Quellen-Banner
+- Scraper: StepStone, Indeed, Monster auf Playwright; XING, Freelancermap repariert
+- Schema v6→v7, 44 Tools, 12 Prompts, 15 Tabellen
 
 ---
 

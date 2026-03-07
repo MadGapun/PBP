@@ -34,11 +34,11 @@ database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v8, Profil-Isolati
     │
     ├── export.py  ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     │
-    └── job_scraper/ (8 Quellen)
+    └── job_scraper/ (9 Quellen)
           ├── bundesagentur.py (REST API)
           ├── stepstone.py (Playwright)
-          ├── hays.py, freelancermap.py, linkedin.py
-          ├── indeed.py, xing.py, monster.py
+          ├── hays.py, freelancermap.py, freelance_de.py
+          ├── linkedin.py, indeed.py, xing.py, monster.py
           └── (alle nutzen Playwright für Headless-Scraping)
 ```
 

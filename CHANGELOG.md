@@ -2,6 +2,16 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.11.1] — 2026-03-07
+
+### Konsolidierung
+- **ZUSTAND.md** komplett auf realen Stand gebracht (war v1.0.0, jetzt v0.11.0 mit 44 Tools, Schema v8, 108 Tests)
+- **README.md** korrigiert: 9 Jobquellen (statt 8), 108 Tests (statt 100/85), freelance_de.py im Architekturdiagramm ergaenzt, Changelog auf letzte 3 Versionen gekuerzt
+- **AGENTS.md** korrigiert: 9 Quellen (statt 8), freelance_de.py in Architektur ergaenzt
+- **docs/architecture.md** synchronisiert: 9 Scraper, 108 Tests
+- **docs/codex_context.md** synchronisiert: 9 Portale, 108 Tests
+- **docs/VERBESSERUNGSPLAN.md** NEU: Priorisierter Verbesserungsplan (Prio 1-3) auf Basis der Codex-Analyse
+
 ## [0.11.0] — 2026-03-06
 
 ### Neue Features
@@ -23,7 +33,7 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 - OPT-008: Scraper-Keywords konfigurierbar (bereits seit v0.10.0)
 - OPT-009: Ladeanimationen ✓ NEU
 - OPT-010: Paginierung ✓ NEU
-- OPT-011: Test-Suite (bereits seit v0.10.0, 100 Tests)
+- OPT-011: Test-Suite (bereits seit v0.10.0, 108 Tests)
 
 ## [0.10.5] — 2026-03-06
 
