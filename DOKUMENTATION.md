@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-02-26 | V1.0
+## Komplette Projektdokumentation | Stand: 2026-03-07 | v0.11.1
 
 ---
 
@@ -13,7 +13,7 @@ Computerwissen vorausgesetzt.
 Der Assistent kann:
 
 - Ein strukturiertes Profil aufbauen (wie ein lockeres Gespraech, nicht wie ein Formular)
-- Stellenangebote automatisch aus **8 Jobportalen** sammeln
+- Stellenangebote automatisch aus **9 Jobportalen** sammeln
 - Stellen per Scoring-System bewerten (passt/passt nicht)
 - Bewerbungen verwalten und den Status tracken
 - **Lebenslaeufe und Anschreiben als PDF/DOCX exportieren**
@@ -56,16 +56,17 @@ ueber das der User seine Daten auch visuell verwalten kann.
 
 ---
 
-### 2.2 Jobsuche ✓ vollstaendig (8 Quellen)
+### 2.2 Jobsuche ✓ vollstaendig (9 Quellen)
 
 | Quelle | Methode | Login | Status |
 |--------|---------|-------|--------|
 | **Bundesagentur fuer Arbeit** | REST API | Nein | ✓ |
-| **StepStone** | HTML-Scraping (BS4) | Nein | ✓ |
+| **StepStone** | Browser-Automation (Playwright) | Nein | ✓ |
 | **Hays** | Sitemap + JSON-LD | Nein | ✓ |
-| **Freelancermap** | JavaScript-State | Nein | ✓ |
-| **Indeed** | HTML-Scraping (BS4) | Nein | ✓ |
-| **Monster** | HTML-Scraping (BS4) | Nein | ✓ |
+| **Freelancermap** | httpx + Playwright Fallback | Nein | ✓ |
+| **Freelance.de** | HTML-Scraping | Nein | ✓ |
+| **Indeed** | Browser-Automation (Playwright) | Nein | ✓ |
+| **Monster** | Browser-Automation (Playwright) | Nein | ✓ |
 | **LinkedIn** | Browser-Automation (Playwright) | Ja | ✓ |
 | **XING** | Browser-Automation (Playwright) | Ja | ✓ |
 
@@ -148,7 +149,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 - Regionale Praeferenzen
 - Gewichtungs-Regler
 - Blacklist-Verwaltung
-- **Quellenverwaltung** (8 Quellen an/aus mit Info-Badges)
+- **Quellenverwaltung** (9 Quellen an/aus mit Info-Badges)
 
 **Frontend-Qualitaet**:
 - Toast-Benachrichtigungen (Erfolg/Fehler/Info) statt alert()
@@ -181,36 +182,65 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 
 ## 3. MCP-Schnittstelle (fuer Claude Desktop)
 
-### 3.1 Tools (21 Aktionen)
+### 3.1 Tools (44 Aktionen)
 
 | Tool | Beschreibung |
 |------|-------------|
-| **Profil** | |
+| **Profil-Grundlagen (8)** | |
 | `profil_status()` | Prueft ob ein Profil existiert — immer als erstes aufrufen |
 | `profil_erstellen()` | Profil erstellen/aktualisieren |
 | `profil_zusammenfassung()` | Formatierte Profil-Uebersicht mit Vollstaendigkeits-Check |
-| `profil_bearbeiten()` | Gezielte Korrekturen an Profilbereichen |
+| `profil_bearbeiten()` | Gezielte Korrekturen an Profilbereichen (Aliase, Bulk-Import) |
 | `position_hinzufuegen()` | Berufserfahrung hinzufuegen |
 | `projekt_hinzufuegen()` | STAR-Projekt einer Position zuordnen |
 | `ausbildung_hinzufuegen()` | Ausbildung hinzufuegen |
 | `skill_hinzufuegen()` | Kompetenz hinzufuegen |
-| **Jobsuche** | |
-| `jobsuche_starten()` | Jobsuche auf konfigurierten Quellen |
+| **Multi-Profil (4)** | |
+| `profile_auflisten()` | Alle Profile mit Aktivstatus anzeigen |
+| `profil_wechseln()` | Zu anderem Profil wechseln |
+| `neues_profil_erstellen()` | Neues Profil anlegen |
+| `profil_loeschen()` | Profil mit allen Daten loeschen (CASCADE) |
+| **Erfassungsfortschritt (2)** | |
+| `erfassung_fortschritt_lesen()` | Dialog-Fortschritt der Ersterfassung lesen |
+| `erfassung_fortschritt_speichern()` | Dialog-Fortschritt speichern |
+| **Dokument-Analyse (6)** | |
+| `dokument_profil_extrahieren()` | Dokument-Text extrahieren |
+| `dokumente_zur_analyse()` | Alle Dokumente mit Analysestatus auflisten |
+| `extraktion_starten()` | KI-gestuetzte Datenextraktion starten |
+| `extraktion_ergebnis_speichern()` | Extraktionsergebnis speichern |
+| `extraktion_anwenden()` | Extrahierte Daten ins Profil uebernehmen (auto_apply) |
+| `extraktions_verlauf()` | Extraktions-Historie anzeigen |
+| **Profil Export/Import (2)** | |
+| `profil_exportieren()` | Profil als JSON exportieren (Backup) |
+| `profil_importieren()` | Profil aus JSON importieren |
+| **Jobsuche (3)** | |
+| `jobsuche_starten()` | Jobsuche auf konfigurierten Quellen (9 Portale) |
 | `jobsuche_status()` | Fortschritt der Suche pruefen |
-| `stellen_anzeigen()` | Gefundene Stellen anzeigen (mit Filter nach Score, Quelle) |
-| `fit_analyse()` | Detaillierte Passungsanalyse einer Stelle |
 | `stelle_bewerten()` | Stelle bewerten/aussortieren |
-| **Bewerbungen** | |
+| **Stellen & Bewerbungen (3)** | |
+| `stellen_anzeigen()` | Gefundene Stellen anzeigen (Filter, Score, Quelle) |
+| `fit_analyse()` | Detaillierte Passungsanalyse einer Stelle |
+| `bewerbungen_anzeigen()` | Alle Bewerbungen mit Status und Statistik |
+| **Bewerbungs-Management (3)** | |
 | `bewerbung_erstellen()` | Bewerbung anlegen (3 Arten) |
-| `bewerbung_status_aendern()` | Status aktualisieren |
-| `bewerbungen_anzeigen()` | Alle Bewerbungen mit Status und Statistik anzeigen |
+| `bewerbung_status_aendern()` | Status aktualisieren mit Timeline |
 | `statistiken_abrufen()` | Conversion-Rates, Bewerbungszahlen |
-| **Export** | |
+| **Export (2)** | |
 | `lebenslauf_exportieren()` | CV als PDF/DOCX generieren und speichern |
 | `anschreiben_exportieren()` | Anschreiben als PDF/DOCX generieren |
-| **Konfiguration** | |
+| **Konfiguration (2)** | |
 | `suchkriterien_setzen()` | Keywords und Regionen konfigurieren |
 | `blacklist_verwalten()` | Ausschlussliste verwalten |
+| **Erweiterte KI-Features (9)** | |
+| `gehalt_extrahieren()` | Gehaltsdaten aus Stellenanzeigen extrahieren |
+| `gehalt_marktanalyse()` | Marktanalyse fuer Gehaltsverhandlung |
+| `firmen_recherche()` | Unternehmensinformationen sammeln |
+| `branchen_trends()` | Branchentrends und Marktentwicklung |
+| `skill_gap_analyse()` | Fehlende Skills identifizieren |
+| `ablehnungs_muster()` | Muster in Ablehnungen erkennen |
+| `nachfass_planen()` | Follow-up Erinnerung erstellen |
+| `nachfass_anzeigen()` | Anstehende Follow-ups anzeigen |
+| `bewerbung_stil_tracken()` | Bewerbungsstil und Erfolgsrate tracken |
 
 ### 3.2 Resources (6 Datenquellen)
 
@@ -223,7 +253,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 | `bewerbungen://statistik` | Statistiken und Conversion-Rates |
 | `config://suchkriterien` | Aktuelle Suchkonfiguration |
 
-### 3.3 Prompts (8 KI-Vorlagen)
+### 3.3 Prompts (12 KI-Vorlagen)
 
 | Prompt | Zweck |
 |--------|-------|
@@ -231,9 +261,13 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 | `ersterfassung()` | 4-Phasen Dialog: Lockerer Einstieg → Strukturierte Erfassung → CV-basierte Praeferenzen → Review |
 | `profil_ueberpruefen()` | Standalone Profil-Review mit Korrekturmoeglichkeit |
 | `profil_analyse()` | Staerken, Luecken, Marktposition, Optimierungstipps |
+| `profil_erweiterung()` | Dokument-basierte Profilerweiterung (Upload → Extraktion → Uebernahme) |
 | `jobsuche_workflow()` | Gefuehrter Workflow: Kriterien → Quellen → Suche → Sichten → Bewerben |
 | `bewerbung_schreiben(stelle, firma)` | Individuelles Anschreiben + Export als PDF/DOCX + Bewerbungs-Tracking |
 | `interview_vorbereitung(stelle, firma)` | 10 Fragen, STAR-Antworten, Gehaltsstrategie, Quick-Reference |
+| `interview_simulation(stelle, firma)` | Interaktive Interview-Simulation mit Feedback |
+| `gehaltsverhandlung(stelle, firma)` | Gehaltsstrategie mit Marktdaten und Verhandlungstipps |
+| `netzwerk_strategie()` | Networking-Plan fuer die Jobsuche |
 | `bewerbungs_uebersicht()` | Komplette Uebersicht: Profil + Stellen + Bewerbungen + naechste Schritte |
 
 ---
@@ -248,18 +282,18 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (FastMCP)                                      │
-│    ├── 21 Tools (profil, jobs, export, bewerbungen...)    │
+│    ├── 44 Tools (profil, jobs, export, bewerbungen...)    │
 │    ├── 6 Resources (profil://aktuell, jobs://aktiv...)    │
-│    └── 8 Prompts (ersterfassung, willkommen, workflow...) │
+│    └── 12 Prompts (ersterfassung, willkommen, workflow...)│
 │         ↓                                                  │
-│  database.py (SQLite + WAL, Schema v2)                    │
-│    └── 13 Tabellen, Foreign Keys, CASCADE Deletes         │
+│  database.py (SQLite + WAL, Schema v8)                    │
+│    └── 15 Tabellen, Foreign Keys, CASCADE Deletes         │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
 │  │ dashboard.py      │  │ job_scraper/ │  │ export.py  │  │
-│  │ (FastAPI :8200)   │  │ 8 Quellen    │  │ PDF/DOCX   │  │
-│  │ 28 Endpoints      │  │ dynamische   │  │ fpdf2 +    │  │
+│  │ (FastAPI :8200)   │  │ 9 Quellen    │  │ PDF/DOCX   │  │
+│  │ ~47 Endpoints     │  │ dynamische   │  │ fpdf2 +    │  │
 │  │  ↕ JSON           │  │ Keywords     │  │ python-docx│  │
 │  │ dashboard.html    │  │              │  │            │  │
 │  │ (Browser SPA)     │  │              │  │            │  │
@@ -320,37 +354,38 @@ python test_demo.py
 pytest tests/ -v
 
 # Einzelne Testdateien:
-pytest tests/test_database.py -v    # 34 Tests
-pytest tests/test_scoring.py -v     # 19 Tests
+pytest tests/test_database.py -v    # 33 Tests
+pytest tests/test_scoring.py -v     # 24 Tests
 pytest tests/test_export.py -v      # 8 Tests
+pytest tests/test_v010.py -v        # 43 Tests
 ```
 
-Ergebnis: **65 Tests, alle gruen, 1.96 Sekunden**
+Ergebnis: **108 Tests, alle gruen**
 
 ---
 
-## 7. Fazit V1.0
+## 7. Fazit v0.11.1
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
 - ✓ Unterstuetzung fuer diverse Lebenslaeufe (Studenten bis Wiedereinsteiger)
-- ✓ Multi-Source Jobsuche (8 Portale) mit dynamischen Keywords
+- ✓ Multi-Source Jobsuche (9 Portale) mit dynamischen Keywords
 - ✓ Quellenverwaltung (an/aus pro Quelle)
 - ✓ Scoring + Fit-Analyse (konfigurierbar)
+- ✓ Multi-Profil-System mit Daten-Isolation
 - ✓ Bewerbungs-Tracking mit Timeline (3 Bewerbungsarten)
 - ✓ PDF/DOCX-Export (Lebenslauf + Anschreiben)
-- ✓ KI-gestuetzte Texterstellung (Anschreiben, Interview-Prep)
-- ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner
+- ✓ KI-gestuetzte Texterstellung (Anschreiben, Interview-Prep, Simulation)
+- ✓ Dokument-Upload mit automatischer Text-Extraktion
+- ✓ Gehalts-Schaetzungs-Engine (7 Regex-Patterns + Lookup)
+- ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
+- ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 65 automatische Tests (100% gruen)
+- ✓ 108 automatische Tests (100% gruen)
 - ✓ Cross-Platform (Windows + Linux)
 
-### Post-V1.0 Ideen:
-- Profil-Bearbeitung direkt im Dashboard (nicht nur hinzufuegen)
-- Paginierung bei vielen Jobs/Bewerbungen
-- Automatische Backups der Datenbank
+### Moegliche zukuenftige Erweiterungen:
 - Dark Mode
 - E-Mail-Benachrichtigungen bei neuen passenden Stellen
-- Multi-Profil (verschiedene CVs fuer verschiedene Branchen)
 - Bewerbungs-Templates
-- Trend-Analyse (Erfolgsrate ueber Zeit)
+- server.py Modularisierung (siehe docs/VERBESSERUNGSPLAN.md)

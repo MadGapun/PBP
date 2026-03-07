@@ -1,5 +1,5 @@
 # PBP — Optimierungsplan
-## Stand: 2026-03-06 (aktualisiert)
+## Stand: 2026-03-07 | Alle 13 Optimierungen abgeschlossen (v0.11.0) ✓ ARCHIVIERT
 
 ---
 
@@ -19,7 +19,7 @@
 - **Praeferenzen ueberschrieben**: Nach Update der persoenlichen Daten wurde das Profil nochmal gelesen, damit Praeferenzen korrekt erhalten bleiben.
 
 ### Tests
-- 100 Tests bestanden (8 Export-Tests uebersprungen wegen optionaler Abhaengigkeiten)
+- 108 Tests bestanden
 
 ---
 

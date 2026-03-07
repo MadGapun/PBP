@@ -110,6 +110,5 @@ In `%APPDATA%\Claude\claude_desktop_config.json`:
 
 ## Bekannte Einschraenkungen
 - Job-Scraper nicht getestet auf Server (braucht bs4/playwright)
-- PDF-Export noch nicht implementiert (CV nur als Text)
 - Kein Auth (localhost-only, kein Sicherheitsrisiko)
 - LinkedIn-Scraper braucht manuellen Erstlogin
