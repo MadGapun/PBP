@@ -2,6 +2,38 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.12.0] — 2026-03-07
+
+### Refactoring: server.py Modularisierung
+
+Die monolithische `server.py` (3.261 Zeilen) wurde in saubere Module aufgeteilt.
+Keine Feature-Aenderungen — nur Strukturverbesserung fuer bessere Wartbarkeit.
+
+**Neue Modulstruktur:**
+
+| Modul | Inhalt | Zeilen |
+|-------|--------|--------|
+| `server.py` | Composition Root | ~140 |
+| `tools/__init__.py` | Register-Orchestrierung | ~25 |
+| `tools/profil.py` | 14 Profil-Tools | ~770 |
+| `tools/dokumente.py` | 8 Dokument-Tools | ~700 |
+| `tools/jobs.py` | 5 Job-Tools | ~190 |
+| `tools/bewerbungen.py` | 4 Bewerbungs-Tools | ~140 |
+| `tools/suche.py` | 2 Such-Tools | ~65 |
+| `tools/export_tools.py` | 2 Export-Tools | ~95 |
+| `tools/analyse.py` | 9 Analyse-Tools | ~500 |
+| `resources.py` | 6 MCP Resources | ~45 |
+| `prompts.py` | 12 MCP Prompts | ~765 |
+
+**Doku-Korrekturen (ausgeloest durch Codex-Analyse):**
+- `__init__.py` Version 0.9.0 → 0.11.1
+- `DOKUMENTATION.md` komplett aktualisiert (44 Tools, 12 Prompts, 15 Tabellen, 108 Tests)
+- `TESTVERSION.md`, `OPTIMIERUNGEN.md`, `ZUSTAND.md` bereinigt
+
+**Neue Tests:**
+- `tests/test_dashboard.py`: 37 Dashboard-API-Tests (FastAPI TestClient)
+- Gesamt: 145 Tests (vorher 108)
+
 ## [0.11.1] — 2026-03-07
 
 ### Konsolidierung (ausgeloest durch Codex-Analyse)
