@@ -10,7 +10,7 @@ PBP (Persoenliches Bewerbungs-Portal) ist ein MCP-Server fuer Claude Desktop.
 Er unterstuetzt den gesamten Bewerbungsprozess: Profil-Erstellung,
 Jobsuche (9 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
 
-**Version:** 0.11.0 (alle Features und Optimierungen abgeschlossen)
+**Version:** 0.12.0 (Modularisierung + Dashboard-Tests)
 
 ---
 
@@ -18,14 +18,17 @@ Jobsuche (9 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
 
 | Datei | Zeilen | Beschreibung |
 |-------|--------|-------------|
-| `src/bewerbungs_assistent/server.py` | 3261 | MCP-Server: 44 Tools, 6 Resources, 12 Prompts |
+| `src/bewerbungs_assistent/server.py` | ~140 | Composition Root (Init + Dashboard + Shutdown) |
+| `src/bewerbungs_assistent/tools/*.py` | ~2500 | 7 Module: 44 Tools |
+| `src/bewerbungs_assistent/prompts.py` | ~765 | 12 MCP Prompts |
+| `src/bewerbungs_assistent/resources.py` | ~45 | 6 MCP Resources |
 | `src/bewerbungs_assistent/database.py` | 1635 | SQLite-Datenbankschicht (15 Tabellen, Schema v8) |
 | `src/bewerbungs_assistent/dashboard.py` | 1029 | Web-Dashboard (FastAPI, Port 8200) |
 | `src/bewerbungs_assistent/export.py` | 365 | PDF/DOCX-Export (Lebenslauf, Anschreiben) |
 | `src/bewerbungs_assistent/job_scraper/__init__.py` | 601 | Scraper-Framework (9 Portale) |
 | `src/bewerbungs_assistent/job_scraper/*.py` | ~350ea | Einzelne Portal-Scraper |
 | `src/bewerbungs_assistent/templates/dashboard.html` | — | Dashboard-Template |
-| `tests/` | ~1428 | 108 Tests (pytest) |
+| `tests/` | ~1700 | 145 Tests (pytest) |
 
 ## Wichtige Dateien im Root
 
@@ -122,4 +125,4 @@ Siehe [docs/dependency_on_elwosa.md](dependency_on_elwosa.md) fuer Details.
 
 ---
 
-*Stand: 07.03.2026*
+*Stand: 07.03.2026 (v0.12.0)*

@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-07 | v0.11.0
+## Zustandsbericht | 2026-03-07 | v0.12.0
 
 ---
 
@@ -8,14 +8,14 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.11.0 (pyproject.toml) |
+| **Version** | 0.12.0 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Tabellen, WAL, CASCADE, Schema v8, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 108 Tests (Database, Scoring, Export, v0.10.x) — alle gruen |
+| **Tests** | 145 Tests (Database, Scoring, Export, v0.10.x, Dashboard) — alle gruen |
 
 ---
 
@@ -144,7 +144,10 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Datei | Zeilen | Zweck |
 |-------|--------|-------|
-| server.py | 3.261 | MCP Server (44 Tools, 6 Resources, 12 Prompts) |
+| server.py | ~140 | Composition Root (Init + Dashboard + Shutdown) |
+| tools/*.py | ~2.485 | 7 Module: 44 Tools |
+| prompts.py | ~765 | 12 MCP Prompts |
+| resources.py | ~45 | 6 MCP Resources |
 | database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
 | dashboard.py | 1.030 | FastAPI Web-Dashboard (~47 Endpoints) |
 | export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
@@ -170,7 +173,8 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | test_scoring.py | 24 | Score, Fit, Remote, Hash, Keywords |
 | test_export.py | 8 | CV + Anschreiben in PDF + DOCX |
 | test_v010.py | 43 | Schema v8, Salary, UserPrefs, Profil-Isolation |
-| **Gesamt** | **108** | **Alle gruen** |
+| test_dashboard.py | 37 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil) |
+| **Gesamt** | **145** | **Alle gruen** |
 
 ---
 
@@ -189,7 +193,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 - Factory Reset fuer saubere Neuinstallation
 
 ### Bekannte Einschraenkungen
-- server.py ist monolithisch (3.261 Zeilen) — Modularisierung empfohlen
+- ~~server.py ist monolithisch~~ — modularisiert in v0.12.0 (tools/, resources.py, prompts.py)
 - Keine Tests fuer MCP-Tools, Dashboard-API oder Scraper
 - Kein Multi-User-System (lokale SQLite-DB)
 - Scraper abhaengig von Portal-Struktur (kann brechen)
@@ -200,6 +204,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
+| 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
 | 0.10.5 | 2026-03-06 | Markdown & Textdateien Support |
 | 0.10.0 | 2026-03-05 | UX & Scraper Overhaul, Onboarding-Wizard, Gehalts-Engine |
@@ -213,5 +218,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-07 von Claude Code*
-*Vorheriger Stand: 2026-02-26 (v1.0.0 — stark veraltet, ersetzt durch dieses Update)*
+*Aktualisiert: 2026-03-07 von Claude Code (v0.12.0 Modularisierung)*
+*Vorheriger Stand: 2026-03-07 (v0.11.1)*
