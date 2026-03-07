@@ -4,35 +4,82 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [0.12.0] — 2026-03-07
 
-### Refactoring: server.py Modularisierung
+### Architektur: server.py Modularisierung
 
-Die monolithische `server.py` (3.261 Zeilen) wurde in saubere Module aufgeteilt.
-Keine Feature-Aenderungen — nur Strukturverbesserung fuer bessere Wartbarkeit.
+Die gesamte `server.py` (3.261 Zeilen, 44 Tools + 6 Resources + 12 Prompts in einer
+Datei) wurde in fachlich getrennte Module aufgeteilt. Das war die groesste
+Strukturschwaeche des Projekts: Ein einziges File fuer die komplette Business-Logik
+machte Navigation, Wartung und gezieltes Testen praktisch unmoeglich.
 
-**Neue Modulstruktur:**
+**Vorher:** Alles in `server.py` — Tools, Resources, Prompts, Hilfsfunktionen, Imports.
+Wer ein einzelnes Tool aendern wollte, musste durch 3.000+ Zeilen scrollen.
 
-| Modul | Inhalt | Zeilen |
-|-------|--------|--------|
-| `server.py` | Composition Root | ~140 |
-| `tools/__init__.py` | Register-Orchestrierung | ~25 |
-| `tools/profil.py` | 14 Profil-Tools | ~770 |
-| `tools/dokumente.py` | 8 Dokument-Tools | ~700 |
-| `tools/jobs.py` | 5 Job-Tools | ~190 |
-| `tools/bewerbungen.py` | 4 Bewerbungs-Tools | ~140 |
-| `tools/suche.py` | 2 Such-Tools | ~65 |
-| `tools/export_tools.py` | 2 Export-Tools | ~95 |
-| `tools/analyse.py` | 9 Analyse-Tools | ~500 |
-| `resources.py` | 6 MCP Resources | ~45 |
-| `prompts.py` | 12 MCP Prompts | ~765 |
+**Nachher:** `server.py` ist nur noch der Composition Root (~140 Zeilen) — sie
+initialisiert Logging, Datenbank und MCP-Server, haengt den Logging-Wrapper ein
+und ruft `register_all()` / `register_resources()` / `register_prompts()` auf.
+Die eigentliche Logik liegt jetzt in eigenen Modulen nach Fachgebiet:
 
-**Doku-Korrekturen (ausgeloest durch Codex-Analyse):**
-- `__init__.py` Version 0.9.0 → 0.11.1
-- `DOKUMENTATION.md` komplett aktualisiert (44 Tools, 12 Prompts, 15 Tabellen, 108 Tests)
-- `TESTVERSION.md`, `OPTIMIERUNGEN.md`, `ZUSTAND.md` bereinigt
+| Modul | Was steckt drin | Tools |
+|-------|----------------|-------|
+| `tools/profil.py` | Profil-CRUD, Multi-Profil, Erfassungs-Fortschritt | 14 |
+| `tools/dokumente.py` | Dokument-Analyse, Extraktion, Profil-Im/Export | 8 |
+| `tools/jobs.py` | Jobsuche starten/status, Stelle bewerten, Fit-Analyse | 5 |
+| `tools/bewerbungen.py` | Bewerbung erstellen/status, Statistiken | 4 |
+| `tools/analyse.py` | Gehalt, Firmenrecherche, Skill-Gap, Ablehnungsmuster, Follow-ups | 9 |
+| `tools/export_tools.py` | Lebenslauf + Anschreiben als PDF/DOCX exportieren | 2 |
+| `tools/suche.py` | Suchkriterien setzen, Blacklist verwalten | 2 |
+| `resources.py` | 6 MCP-Datenquellen (Profil, Jobs, Bewerbungen, Statistik, Config) | — |
+| `prompts.py` | 12 MCP-Prompts (Ersterfassung, Interview-Sim, Gehaltsverhandlung, ...) | — |
 
-**Neue Tests:**
-- `tests/test_dashboard.py`: 37 Dashboard-API-Tests (FastAPI TestClient)
-- Gesamt: 145 Tests (vorher 108)
+Jedes Modul hat eine `register(mcp, db, logger)` Funktion — der MCP-Server und die
+Datenbank werden als Parameter uebergeben, keine globalen Imports noetig.
+
+**Wichtig:** An der Funktionalitaet hat sich nichts geaendert. Alle 44 Tools, 6
+Resources und 12 Prompts verhalten sich exakt gleich. Es ist ein reines Refactoring.
+
+### Bugfix in Prompts
+
+- `willkommen`-Prompt: "bis zu 8 Jobportale" auf "bis zu 9 Jobportale" korrigiert
+  (Freelance.de wurde in v0.10.0 als 9. Quelle hinzugefuegt, der Prompt-Text war
+  aber nie angepasst worden)
+
+### Dashboard-API-Tests (neu)
+
+Bisher gab es keine Tests fuer die ~47 Dashboard-API-Endpoints. Jetzt gibt es
+37 Tests mit dem FastAPI TestClient, die folgendes abdecken:
+
+- **Status-API**: Leere DB liefert `has_profile: false`, nach Profil-Erstellung `true`
+- **Profil-CRUD**: Erstellen, Lesen, Aktualisieren eines Profils
+- **Validierung** (8 Tests): Fehlende Pflichtfelder bei Profil (Name), Position
+  (Firma, Titel), Ausbildung (Einrichtung), Skill (Name) und Bewerbung (Stelle, Firma)
+  liefern korrekten HTTP 400 mit Fehlermeldung
+- **Multi-Profil** (5 Tests): Profil-Liste, neues Profil erstellen + wechseln,
+  nicht-existierendes Profil → 404, Profil loeschen
+- **Profil-Elemente**: Position, Skill, Ausbildung hinzufuegen + loeschen
+- **Bewerbungen + Paginierung**: Erstellen, Auflisten, Paginierung mit limit/offset
+- **CV-Generierung**: Ohne Profil → 404, mit Profil → Text enthaelt Name
+- **Statistiken**: Suchkriterien, Profil-Vollstaendigkeit, Next-Steps, Such-Status
+- **Factory Reset**: Ohne Bestaetigung → 400, mit Bestaetigung loescht alle Daten
+
+Test-Gesamtzahl steigt von 108 auf **145 Tests** (alle gruen).
+
+### Doku-Korrekturen
+
+Die Codex-Analyse (v0.11.1) hatte aufgedeckt, dass die Dokumentation an vielen
+Stellen veraltet war. In v0.11.1 wurden README, ZUSTAND und AGENTS gefixt.
+Jetzt kamen die restlichen Dateien dran:
+
+- **`__init__.py`**: Version stand noch auf `0.9.0` (!) statt `0.11.1` —
+  das heisst `bewerbungs_assistent.__version__` und der Log beim Start zeigten
+  die falsche Version an. Jetzt `0.12.0`.
+- **DOKUMENTATION.md**: Komplett ueberarbeitet — Tool-Tabelle von 21 auf 44 Tools
+  erweitert, Prompt-Tabelle von 8 auf 12, Schema von v2 auf v8, Tabellen von 13
+  auf 15, Dashboard-Endpoints von 28 auf ~47, Tests von 65 auf 145. Veraltete
+  "Naechste Schritte" (die laengst umgesetzt waren) entfernt.
+- **TESTVERSION.md**: Hinweis "PDF-Export noch nicht implementiert" entfernt
+  (ist seit v0.8.0 implementiert)
+- **OPTIMIERUNGEN.md**: Als abgeschlossen markiert ("Alle 13 Optimierungen
+  abgeschlossen, archiviert")
 
 ## [0.11.1] — 2026-03-07
 
