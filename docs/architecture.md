@@ -18,7 +18,7 @@ database.py (SQLite)        <-- 15 Tabellen, WAL Mode, Schema v8
     |
     +-- dashboard.py (FastAPI, Port 8200)  <-- Web-Dashboard
     +-- export.py                          <-- PDF/DOCX Export
-    +-- job_scraper/                       <-- 8 Jobportal-Scraper
+    +-- job_scraper/                       <-- 9 Jobportal-Scraper
 ```
 
 ## Komponenten
@@ -67,8 +67,8 @@ ueber Profile, Jobs und Bewerbungen.
 PDF/DOCX-Export mit fpdf2 und python-docx. Erzeugt professionelle
 Lebenslaeufe und Anschreiben.
 
-### job_scraper/ (8 Scraper, 600 Zeilen __init__.py)
-Modularer Scraper fuer 8 Jobportale:
+### job_scraper/ (9 Scraper, 601 Zeilen __init__.py)
+Modularer Scraper fuer 9 Jobportale:
 - Bundesagentur fuer Arbeit
 - StepStone
 - Indeed
@@ -97,7 +97,7 @@ Modularer Scraper fuer 8 Jobportale:
 
 Parallel:
 - Dashboard zeigt Daten auf localhost:8200
-- Scraper holen Jobs von 8 Portalen
+- Scraper holen Jobs von 9 Portalen
 - Export erzeugt PDF/DOCX Dokumente
 ```
 
@@ -112,7 +112,7 @@ Parallel:
 | PDF | fpdf2 |
 | DOCX | python-docx |
 | Scraping | Playwright + BeautifulSoup4 |
-| Tests | pytest (100 Tests) |
+| Tests | pytest (108 Tests) |
 | Package | pyproject.toml (hatchling) |
 
 ## Datenspeicherung
@@ -126,4 +126,4 @@ alle Daten sind daran gebunden.
 
 ---
 
-*Stand: 06.03.2026*
+*Stand: 07.03.2026*

@@ -8,7 +8,7 @@ Dieses Dokument gibt KI-Assistenten den noetigen Kontext fuer PBP.
 
 PBP (Persoenliches Bewerbungs-Portal) ist ein MCP-Server fuer Claude Desktop.
 Er unterstuetzt den gesamten Bewerbungsprozess: Profil-Erstellung,
-Jobsuche (8 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
+Jobsuche (9 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
 
 **Version:** 0.11.0 (alle Features und Optimierungen abgeschlossen)
 
@@ -22,10 +22,10 @@ Jobsuche (8 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
 | `src/bewerbungs_assistent/database.py` | 1635 | SQLite-Datenbankschicht (15 Tabellen, Schema v8) |
 | `src/bewerbungs_assistent/dashboard.py` | 1029 | Web-Dashboard (FastAPI, Port 8200) |
 | `src/bewerbungs_assistent/export.py` | 365 | PDF/DOCX-Export (Lebenslauf, Anschreiben) |
-| `src/bewerbungs_assistent/job_scraper/__init__.py` | 600 | Scraper-Framework (8 Portale) |
+| `src/bewerbungs_assistent/job_scraper/__init__.py` | 601 | Scraper-Framework (9 Portale) |
 | `src/bewerbungs_assistent/job_scraper/*.py` | ~350ea | Einzelne Portal-Scraper |
 | `src/bewerbungs_assistent/templates/dashboard.html` | — | Dashboard-Template |
-| `tests/` | ~1400 | 100 Tests (pytest) |
+| `tests/` | ~1428 | 108 Tests (pytest) |
 
 ## Wichtige Dateien im Root
 
@@ -122,4 +122,4 @@ Siehe [docs/dependency_on_elwosa.md](dependency_on_elwosa.md) fuer Details.
 
 ---
 
-*Stand: 06.03.2026*
+*Stand: 07.03.2026*
