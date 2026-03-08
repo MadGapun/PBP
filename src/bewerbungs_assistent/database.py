@@ -361,31 +361,42 @@ class Database:
                     except Exception as e:
                         logger.warning("Could not delete file %s: %s", d["filepath"], e)
 
-        # Delete extraction history for this profile's documents
-        conn.execute("""
-            DELETE FROM extraction_history WHERE profile_id=?
-        """, (profile_id,))
+        # Disable FK constraints during bulk delete to avoid issues with
+        # invalid references (e.g. job_hash="" from previous bug)
+        conn.execute("PRAGMA foreign_keys=OFF")
+        try:
+            # Fix corrupt job_hash="" entries first
+            conn.execute(
+                "UPDATE applications SET job_hash=NULL WHERE profile_id=? AND job_hash=''",
+                (profile_id,))
 
-        # Delete application events for this profile's applications
-        conn.execute("""
-            DELETE FROM application_events WHERE application_id IN
-            (SELECT id FROM applications WHERE profile_id=?)
-        """, (profile_id,))
+            # Delete extraction history for this profile's documents
+            conn.execute("""
+                DELETE FROM extraction_history WHERE profile_id=?
+            """, (profile_id,))
 
-        # Delete projects for positions of this profile
-        conn.execute("""
-            DELETE FROM projects WHERE position_id IN
-            (SELECT id FROM positions WHERE profile_id=?)
-        """, (profile_id,))
+            # Delete application events for this profile's applications
+            conn.execute("""
+                DELETE FROM application_events WHERE application_id IN
+                (SELECT id FROM applications WHERE profile_id=?)
+            """, (profile_id,))
 
-        # Delete all profile-linked data
-        for table in ["positions", "education", "skills", "documents",
-                       "applications", "jobs"]:
-            conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
+            # Delete projects for positions of this profile
+            conn.execute("""
+                DELETE FROM projects WHERE position_id IN
+                (SELECT id FROM positions WHERE profile_id=?)
+            """, (profile_id,))
 
-        # Delete the profile itself
-        conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
-        conn.commit()
+            # Delete all profile-linked data
+            for table in ["positions", "education", "skills", "documents",
+                           "applications", "jobs"]:
+                conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
+
+            # Delete the profile itself
+            conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
+            conn.commit()
+        finally:
+            conn.execute("PRAGMA foreign_keys=ON")
         logger.info("Profile %s and all related data deleted", profile_id)
 
     def reset_all_data(self):
@@ -398,18 +409,25 @@ class Database:
                 Path(d["filepath"]).unlink(missing_ok=True)
             except Exception:
                 pass
-        # Clear all data tables
-        for table in ["extraction_history", "application_events", "projects",
-                       "positions", "education", "skills", "documents",
-                       "applications", "jobs", "blacklist", "background_jobs",
-                       "user_preferences", "profile"]:
-            try:
-                conn.execute(f"DELETE FROM {table}")
-            except Exception:
-                pass
-        # Keep settings but reset search-related ones
-        conn.execute("DELETE FROM settings WHERE key != 'schema_version'")
-        conn.commit()
+        # Disable FK constraints during factory reset
+        conn.execute("PRAGMA foreign_keys=OFF")
+        try:
+            # Fix corrupt job_hash="" entries first
+            conn.execute("UPDATE applications SET job_hash=NULL WHERE job_hash=''")
+            # Clear all data tables
+            for table in ["extraction_history", "application_events", "projects",
+                           "positions", "education", "skills", "documents",
+                           "applications", "jobs", "blacklist", "background_jobs",
+                           "user_preferences", "profile"]:
+                try:
+                    conn.execute(f"DELETE FROM {table}")
+                except Exception:
+                    pass
+            # Keep settings but reset search-related ones
+            conn.execute("DELETE FROM settings WHERE key != 'schema_version'")
+            conn.commit()
+        finally:
+            conn.execute("PRAGMA foreign_keys=ON")
         logger.info("Factory reset: all data deleted")
 
     def save_profile(self, data: dict) -> str:
@@ -775,7 +793,7 @@ class Database:
                 kontakt_email, portal_name)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            aid, data.get("job_hash"), pid, data.get("title"), data.get("company"),
+            aid, data.get("job_hash") or None, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
             data.get("applied_at", now), data.get("cover_letter_path"),
             data.get("cv_path"), data.get("notes"), now,

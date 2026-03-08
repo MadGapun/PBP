@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-07 | v0.12.0
+## Zustandsbericht | 2026-03-08 | v0.13.0
 
 ---
 
@@ -8,14 +8,14 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.12.0 (pyproject.toml) |
+| **Version** | 0.13.0 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Tabellen, WAL, CASCADE, Schema v8, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 145 Tests (Database, Scoring, Export, v0.10.x, Dashboard) — alle gruen |
+| **Tests** | 159 Tests (Database, Scoring, Export, v0.10.x, Dashboard, v0.13.0) — alle gruen |
 
 ---
 
@@ -194,7 +194,8 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 ### Bekannte Einschraenkungen
 - ~~server.py ist monolithisch~~ — modularisiert in v0.12.0 (tools/, resources.py, prompts.py)
-- Keine Tests fuer MCP-Tools, Dashboard-API oder Scraper
+- ~~Keine Tests fuer Dashboard-API~~ — 37 Dashboard-Tests + 14 v0.13.0-Tests
+- Keine Tests fuer MCP-Tools oder Scraper
 - Kein Multi-User-System (lokale SQLite-DB)
 - Scraper abhaengig von Portal-Struktur (kann brechen)
 
@@ -204,6 +205,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
+| 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
 | 0.10.5 | 2026-03-06 | Markdown & Textdateien Support |
@@ -218,5 +220,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-07 von Claude Code (v0.12.0 Modularisierung)*
-*Vorheriger Stand: 2026-03-07 (v0.11.1)*
+*Aktualisiert: 2026-03-08 von Claude Code (v0.13.0 FK-Bugfixes, Auto-Analyse, Ordner-Browser)*
+*Vorheriger Stand: 2026-03-07 (v0.12.0 Modularisierung)*

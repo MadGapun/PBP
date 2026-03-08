@@ -37,7 +37,7 @@ def register(mcp, db, logger):
         """
         aid = db.add_application({
             "title": title, "company": company, "url": url,
-            "job_hash": job_hash, "status": status,
+            "job_hash": job_hash or None, "status": status,
             "applied_at": applied_at, "notes": notes,
             "bewerbungsart": bewerbungsart,
             "lebenslauf_variante": lebenslauf_variante,

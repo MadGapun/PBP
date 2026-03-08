@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-108%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-159%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -305,10 +305,12 @@ PBP/
 │       ├── xing.py               # XING (Playwright)
 │       └── monster.py            # Monster (Playwright)
 │
-├── tests/                        # 108 Tests (pytest)
+├── tests/                        # 159 Tests (pytest)
 │   ├── test_database.py
 │   ├── test_scoring.py
+│   ├── test_dashboard.py
 │   ├── test_v010.py
+│   ├── test_v013.py
 │   └── test_export.py
 │
 └── installer/                    # Alternative Installer
@@ -324,10 +326,12 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 108 Tests, ~3 Sekunden
+# 159 Tests, ~7 Sekunden
 # ✓ 33 Datenbank-Tests
 # ✓ 24 Scoring-Tests
+# ✓ 37 Dashboard-API-Tests
 # ✓ 43 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
+# ✓ 14 v0.13.0 Tests (FK-Fix, Ordner-Browser, Auto-Analyse, Recursive-Import)
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -362,15 +366,23 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
+- Fix: **job_hash FK-Constraint** — Leerer String → None, kein FK-Fehler mehr
+- Fix: **Reset/Loeschen blockiert** — FK-safe mit PRAGMA + Datenbereinigung
+- Feature: **Auto-Analyse** — Dokumente automatisch per Regex ins Profil einpflegen
+- Feature: **Ordner-Browser** — Klickbarer Verzeichnis-Browser statt nur Pfad-Eingabe
+- Feature: **Unterordner-Option** — Rekursiver Import mit Warnhinweis
+- 159 Tests bestanden
+
+### v0.12.0 — Architektur: Modularisierung (2026-03-07)
+- server.py (3.261 Zeilen) aufgeteilt in 8 fachliche Module
+- 37 neue Dashboard-API-Tests
+- 145 Tests bestanden
+
 ### v0.11.0 — Validierung, Ladeanimationen, Paginierung (2026-03-06)
-- Feature: **Form-Validierung** — Pflichtfeld-Prüfung (Client + Server), E-Mail-/Datums-Validierung
-- Feature: **Ladeanimationen** — Spinner + Loading-Buttons gegen Doppelklicks
+- Feature: **Form-Validierung** — Pflichtfeld-Prüfung (Client + Server)
+- Feature: **Ladeanimationen** — Spinner + Loading-Buttons
 - Feature: **Paginierung Bewerbungen** — 20er Seiten + "Mehr laden"
-- Feature: **Auto-Apply Extraktion** — Daten ohne Rückfragen übernehmen
-- Fix: Kritische Felder (email, phone, address, summary) nach Extraktion leer
-- Fix: Profilname "Mein Profil" wird nicht mehr bei Extraktion überschrieben
-- Fix: Projekte bei doppelten Positionen werden nicht mehr übersprungen
-- 108 Tests bestanden, alle Optimierungen abgeschlossen
 
 ### v0.10.5 — Markdown & Textdateien Support (2026-03-06)
 - Fix: Markdown-Dateien (.md) werden jetzt als Text extrahiert

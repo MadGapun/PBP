@@ -2,6 +2,47 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.13.0] — 2026-03-08
+
+### Bugfixes
+
+- **FIX-008: job_hash FK-Constraint**: `bewerbung_erstellen` mit leerem `job_hash=""` loeste
+  einen Foreign-Key-Fehler aus, weil `""` keinem `jobs.hash` entsprach. Jetzt wird leerer
+  String automatisch zu `None` konvertiert (`job_hash or None`).
+- **FIX-009: Reset/Profil-Loeschen blockiert**: Wenn durch FIX-008 bereits korrupte
+  Eintraege (`job_hash=""`) in der DB existierten, konnte weder Factory-Reset noch
+  Profil-Loeschen ausgefuehrt werden (FK-Constraint beim DELETE). Jetzt werden beide
+  Operationen mit `PRAGMA foreign_keys=OFF` umschlossen und korrupte Eintraege
+  vorher bereinigt.
+- **FIX-006: Upload-Modal zeigt falschen Prompt**: Nach Dokument-Upload fuer die
+  Ersterfassung wurde nur `/profil_erweiterung` angeboten. Jetzt wird die
+  Profil-Vollstaendigkeit geprueft: Bei neuen Profilen (<20%) wird `/ersterfassung`
+  empfohlen.
+- **FIX-007: Automatische Dokument-Analyse**: Importierte Dokumente wurden nur
+  hochgeladen aber nicht ins Profil eingepflegt. Neuer Endpoint
+  `/api/dokumente-analysieren` extrahiert per Regex (ohne LLM) E-Mail, Telefon,
+  Adresse, Name, Geburtstag, Nationalitaet und Skills. Wird automatisch nach
+  Upload und Ordner-Import aufgerufen.
+
+### Neue Features
+
+- **OPT-014: Ordner-Browser**: Der Ordner-Import hat jetzt einen klickbaren
+  Verzeichnis-Browser statt nur Pfad-Eingabe. Neuer Endpoint `/api/browse-directory`
+  mit Vorschlaegen (Eigene Dateien, Desktop, Downloads), Sicherheits-Checks
+  (Systemverzeichnisse blockiert) und Datei-Zaehler.
+- **Unterordner-Option**: Checkbox "Unterordner einschliessen" (standardmaessig aus)
+  mit Warnhinweis. Backend nutzt `rglob()` statt `glob()` bei `recursive=True`.
+
+### Tests
+
+- 14 neue Tests in `test_v013.py`:
+  - TestJobHashFix (3): Leerer, None und gueltiger job_hash
+  - TestFKSafeDelete (2): Reset und Profil-Loeschen mit korrupten Daten
+  - TestDirectoryBrowser (4): Vorschlaege, existierendes Dir, blockiert, 404
+  - TestFolderImportRecursive (2): Nicht-rekursiv vs. rekursiv
+  - TestAutoAnalyze (3): Ohne Profil, ohne Dokumente, E-Mail-Extraktion
+- Test-Gesamtzahl steigt von 145 auf **159 Tests** (alle gruen).
+
 ## [0.12.0] — 2026-03-07
 
 ### Architektur: server.py Modularisierung

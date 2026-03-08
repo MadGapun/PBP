@@ -200,6 +200,72 @@ async def api_delete_document(doc_id: str):
     return {"status": "ok"}
 
 
+@app.post("/api/browse-directory")
+async def api_browse_directory(request: Request):
+    """Browse directories for folder import. Returns subdirectories and file counts."""
+    data = await request.json()
+    dir_path = data.get("path", "")
+
+    blocked = ["/etc", "/var", "/usr", "/bin", "/sbin", "/root", "/proc", "/sys",
+               "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)"]
+
+    if not dir_path:
+        import platform
+        home = Path.home()
+        if platform.system() == "Windows":
+            drives = []
+            for letter in "CDEFGHIJ":
+                p = Path(f"{letter}:\\")
+                if p.exists():
+                    drives.append({"name": f"{letter}:\\", "path": str(p), "type": "drive"})
+            return {"entries": drives, "current": "", "parent": "",
+                    "suggestions": [
+                        {"name": "Eigene Dateien", "path": str(home / "Documents")},
+                        {"name": "Desktop", "path": str(home / "Desktop")},
+                        {"name": "Downloads", "path": str(home / "Downloads")},
+                    ]}
+        else:
+            return {"entries": [
+                {"name": "Home", "path": str(home), "type": "dir"},
+                {"name": "/tmp", "path": "/tmp", "type": "dir"},
+            ], "current": "", "parent": "",
+                    "suggestions": [
+                        {"name": "Dokumente", "path": str(home / "Documents")},
+                        {"name": "Downloads", "path": str(home / "Downloads")},
+                    ]}
+
+    folder = Path(dir_path).resolve()
+    if any(str(folder).startswith(b) for b in blocked):
+        return JSONResponse({"error": "Zugriff auf Systemverzeichnisse nicht erlaubt"}, status_code=403)
+    if not folder.exists() or not folder.is_dir():
+        return JSONResponse({"error": f"Verzeichnis nicht gefunden: {dir_path}"}, status_code=404)
+
+    entries = []
+    supported = {".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf"}
+    file_count = 0
+    try:
+        for item in sorted(folder.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
+            if item.name.startswith("."):
+                continue
+            if item.is_dir():
+                entries.append({"name": item.name, "path": str(item), "type": "dir"})
+            elif item.suffix.lower() in supported:
+                file_count += 1
+                entries.append({"name": item.name, "path": str(item), "type": "file",
+                                "size": item.stat().st_size})
+    except PermissionError:
+        return JSONResponse({"error": "Zugriff verweigert"}, status_code=403)
+
+    parent = str(folder.parent) if folder.parent != folder else ""
+    return {
+        "entries": entries[:200],
+        "current": str(folder),
+        "parent": parent,
+        "file_count": file_count,
+        "total_entries": len(entries),
+    }
+
+
 @app.post("/api/documents/import-folder")
 async def api_import_folder(request: Request):
     data = await request.json()
@@ -221,13 +287,15 @@ async def api_import_folder(request: Request):
 
     import_apps = data.get("import_applications", True)
     import_docs = data.get("import_documents", True)
+    recursive = data.get("recursive", False)
 
     files_found = 0
     docs_imported = 0
     apps_found = 0
     supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf")
 
-    for fpath in folder.rglob("*"):
+    file_iter = folder.rglob("*") if recursive else folder.glob("*")
+    for fpath in file_iter:
         if not fpath.is_file() or fpath.suffix.lower() not in supported:
             continue
         files_found += 1
@@ -939,6 +1007,146 @@ async def api_search_status():
         return {"last_search": last, "days_ago": None, "status": "unbekannt"}
     status = "aktuell" if days < 2 else "veraltet" if days < 7 else "dringend"
     return {"last_search": last, "days_ago": days, "status": status}
+
+
+# === Auto-Analyze Documents (v0.13.0) ===
+
+@app.post("/api/dokumente-analysieren")
+async def api_analyze_documents(request: Request):
+    """Analyze uploaded documents and apply extracted data to the profile automatically."""
+    import re as _re
+    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    force = data.get("force", False)
+
+    profile = _db.get_profile()
+    if not profile:
+        return JSONResponse({"fehler": "Kein aktives Profil vorhanden."}, status_code=400)
+
+    conn = _db.connect()
+    pid = profile["id"]
+
+    if force:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE profile_id=? AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (pid,)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (pid,)
+        ).fetchall()
+
+    if not rows:
+        return {"status": "keine_dokumente", "nachricht": "Keine neuen Dokumente zur Analyse gefunden."}
+
+    combined_text = ""
+    doc_ids = []
+    for row in rows:
+        doc = dict(row)
+        combined_text += f"\n--- {doc['filename']} ---\n{doc.get('extracted_text', '')}\n"
+        doc_ids.append(doc["id"])
+
+    # Rule-based extraction (no LLM needed)
+    extracted = {}
+    pers = {}
+    email_match = _re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', combined_text)
+    if email_match:
+        pers["email"] = email_match.group()
+    phone_match = _re.search(r'(?:Tel\.?|Telefon|Phone|Mobil|Handy)[:\s]*([+\d\s()/.-]{8,20})', combined_text, _re.IGNORECASE)
+    if phone_match:
+        pers["phone"] = phone_match.group(1).strip()
+    addr_match = _re.search(r'(\w[\w\s.-]+(?:str(?:\.|aße|asse)|weg|gasse|platz|ring|allee)\s*\d+\w?)', combined_text, _re.IGNORECASE)
+    if addr_match:
+        pers["address"] = addr_match.group(1).strip()
+    plz_city = _re.search(r'(\d{5})\s+([A-ZÄÖÜa-zäöü][a-zäöüß]+(?:\s+[a-zäöüß]+)*)', combined_text)
+    if plz_city:
+        pers["plz"] = plz_city.group(1)
+        pers["city"] = plz_city.group(2).strip()
+    name_match = _re.search(r'^([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)\s*$', combined_text[:500], _re.MULTILINE)
+    if name_match:
+        pers["name"] = name_match.group(1).strip()
+    bday_match = _re.search(r'(?:Geburtsdatum|geb\.|geboren)[:\s]*(\d{1,2}[./]\d{1,2}[./]\d{4})', combined_text, _re.IGNORECASE)
+    if bday_match:
+        pers["birthday"] = bday_match.group(1)
+    nat_match = _re.search(r'(?:Nationalit(?:ä|ae)t|Staatsangeh(?:ö|oe)rigkeit)[:\s]*([A-ZÄÖÜa-zäöüß]+)', combined_text, _re.IGNORECASE)
+    if nat_match:
+        pers["nationality"] = nat_match.group(1).strip()
+    if pers:
+        extracted["persoenliche_daten"] = pers
+
+    skill_patterns = _re.findall(
+        r'(?:Kenntnisse|Skills|Kompetenzen|Faehigkeiten|Fähigkeiten|Technologien)[:\s]*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n[A-Z])',
+        combined_text, _re.IGNORECASE
+    )
+    if skill_patterns:
+        skills = []
+        for block in skill_patterns:
+            for item in _re.split(r'[,;•·|/\n]+', block):
+                item = item.strip(' -–*')
+                if 2 < len(item) < 50 and not _re.match(r'^\d+$', item):
+                    skills.append({"name": item, "category": "Fachkenntnisse", "level": 3})
+        if skills:
+            extracted["skills"] = skills[:30]
+
+    if not extracted:
+        for doc_id in doc_ids:
+            _db.update_document_extraction_status(doc_id, "analysiert_leer")
+        return {"status": "keine_daten", "nachricht": "Keine strukturierten Profildaten erkannt. Nutze /profil_erweiterung in Claude fuer KI-gestuetzte Extraktion."}
+
+    eid = _db.add_extraction_history({
+        "document_id": doc_ids[0],
+        "profile_id": pid,
+        "extraction_type": "auto_dashboard",
+    })
+    conn.execute("""
+        UPDATE extraction_history SET extracted_fields=?, conflicts='[]', status='ausstehend'
+        WHERE id=?
+    """, (json.dumps(extracted, ensure_ascii=False), eid))
+    conn.commit()
+
+    # Apply extracted data directly
+    applied = {}
+    _DEFAULT_VALUES = {"Mein Profil", "mein profil", ""}
+
+    if extracted.get("persoenliche_daten"):
+        p = extracted["persoenliche_daten"]
+        update_data = {}
+        for field in ["name", "email", "phone", "address", "city", "plz",
+                      "country", "birthday", "nationality", "summary"]:
+            if field in p and p[field]:
+                current = profile.get(field)
+                if not current or str(current).strip().lower() in {v.lower() for v in _DEFAULT_VALUES}:
+                    update_data[field] = p[field]
+        if update_data:
+            for key in ["name", "email", "phone", "address", "city", "plz",
+                        "country", "birthday", "nationality", "summary", "informal_notes"]:
+                if key not in update_data:
+                    update_data[key] = profile.get(key)
+            update_data["preferences"] = profile.get("preferences", {})
+            _db.save_profile(update_data)
+            applied["persoenliche_daten"] = list(update_data.keys())
+
+    if extracted.get("skills"):
+        existing_skills = [s.get("name", "").lower() for s in profile.get("skills", [])]
+        added = 0
+        for skill in extracted["skills"]:
+            if skill.get("name", "").lower() not in existing_skills:
+                _db.add_skill(skill)
+                existing_skills.append(skill.get("name", "").lower())
+                added += 1
+        if added:
+            applied["skills"] = added
+
+    _db.update_extraction_history(eid, "angewendet", applied)
+    for doc_id in doc_ids:
+        _db.update_document_extraction_status(doc_id, "angewendet")
+
+    return {
+        "status": "angewendet",
+        "extraction_id": eid,
+        "angewendet": applied,
+        "nachricht": f"{len(applied)} Bereiche aktualisiert." if applied else "Keine neuen Daten zum Anwenden."
+    }
 
 
 # === Factory Reset (v0.10.1) ===

@@ -1598,34 +1598,44 @@ async function wizardDocUploadSubmit(e) {
       msg += ` (${result.extracted_length} Zeichen extrahiert)`;
     }
     showToast(msg, 'success');
-    // Show next step: use /profil_erweiterung in Claude
-    setTimeout(() => {
+    // Auto-analyze or show prompt fallback
+    setTimeout(async () => {
+      const comp = await api('/api/profile/completeness');
+      const isNewProfile = comp.completeness < 20;
+      const primaryPrompt = isNewProfile ? '/ersterfassung' : '/profil_erweiterung';
+      const primaryLabel = isNewProfile ? 'Gefuehrte Profilerstellung' : 'Profil erweitern';
+      const primaryDesc = isNewProfile
+        ? 'Claude fuehrt dich Schritt fuer Schritt durch die Profilerstellung und nutzt dabei dein hochgeladenes Dokument.'
+        : 'Claude analysiert dein Dokument und fuellt dein Profil automatisch aus.';
+      if (result.extracted_length > 0) {
+        openModal(`<h2 style="color:var(--green);">Dokument erfolgreich hochgeladen!</h2>
+          <p style="color:var(--text2); margin-bottom:16px;">${result.extracted_length} Zeichen extrahiert. Starte automatische Analyse...</p>
+          <div style="text-align:center; padding:20px;"><span class="spinner"></span></div>`);
+        try {
+          const analyzeResult = await api('/api/dokumente-analysieren', { method: 'POST', body: JSON.stringify({}) });
+          closeModal({target: document.getElementById('modal-overlay')});
+          if (analyzeResult.status === 'angewendet') {
+            const appliedList = Object.entries(analyzeResult.angewendet || {})
+              .map(([k,v]) => '<li>' + k + ': ' + (typeof v === 'number' ? v + ' hinzugefuegt' : v) + '</li>').join('');
+            openModal('<h2 style="color:var(--green);">Dokument analysiert und eingepflegt!</h2>' +
+              (appliedList ? '<ul style="color:var(--text2); margin:12px 0;">' + appliedList + '</ul>' : '<p style="color:var(--text2);">Keine neuen Daten gefunden.</p>') +
+              '<div class="card" style="margin-top:12px;"><strong>Weiteres Dokument hochladen?</strong><p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Du kannst weitere Dokumente hochladen um dein Profil zu vervollstaendigen.</p><button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button></div>' +
+              '<div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>');
+            loadProfile();
+            return;
+          }
+        } catch (e) { /* fallback below */ }
+      }
       openModal(`<h2 style="color:var(--green);">Dokument erfolgreich hochgeladen!</h2>
-        <p style="color:var(--text2); margin-bottom:16px;">
-          ${result.extracted_length > 0
-            ? 'Der Text wurde extrahiert und ist bereit zur Analyse.'
-            : 'Die Datei wurde gespeichert.'}
-        </p>
+        <p style="color:var(--text2); margin-bottom:16px;">${result.extracted_length > 0 ? 'Der Text wurde extrahiert und ist bereit zur Analyse.' : 'Die Datei wurde gespeichert.'}</p>
         <div class="card" style="margin-bottom:16px; border-color:var(--accent);">
-          <strong style="color:var(--accent);">Naechster Schritt: Profil befuellen lassen</strong>
-          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">
-            Kopiere diesen Befehl und fuege ihn in Claude Desktop ein.
-            Claude analysiert dein Dokument und fuellt dein Profil automatisch aus.
-          </p>
-          <button class="btn btn-primary" onclick="copyText('/profil_erweiterung'); closeModal();">
-            /profil_erweiterung kopieren
-          </button>
+          <strong style="color:var(--accent);">Naechster Schritt: ${primaryLabel}</strong>
+          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Kopiere diesen Befehl und fuege ihn in Claude Desktop ein. ${primaryDesc}</p>
+          <button class="btn btn-primary" onclick="copyText('${primaryPrompt}'); closeModal();">${primaryPrompt} kopieren</button>
         </div>
-        <div class="card">
-          <strong>Alternativ: Weitere Dokumente hochladen</strong>
-          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">
-            Du kannst mehrere Dokumente hochladen, bevor du die Extraktion startest.
-          </p>
-          <button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button>
-        </div>
-        <div class="modal-actions">
-          <button class="btn" onclick="closeModal()">Schliessen</button>
-        </div>`);
+        ${isNewProfile ? '<div class="card" style="margin-bottom:16px;"><strong>Alternative: Nur Dokument-Daten uebernehmen</strong><p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Ohne gefuehrte Ersterfassung — nur die Daten aus dem Dokument extrahieren.</p><button class="btn btn-sm" onclick="copyText(\'/profil_erweiterung\'); closeModal();">/profil_erweiterung kopieren</button></div>' : ''}
+        <div class="card"><strong>Alternativ: Weitere Dokumente hochladen</strong><p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Du kannst mehrere Dokumente hochladen, bevor du die Extraktion startest.</p><button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button></div>
+        <div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>`);
     }, 300);
   } catch (err) {
     showToast('Upload fehlgeschlagen: ' + err.message, 'error');
@@ -1850,12 +1860,17 @@ async function saveSkill(e) {
 function showFolderImport() {
   openModal(`<h2>Bewerbungsordner importieren</h2>
     <p style="color:var(--text2); margin-bottom:16px;">
-      Gib den Pfad zu deinem Bewerbungsordner an. Der Assistent scannt alle PDF- und DOCX-Dateien,
-      extrahiert Texte und versucht, daraus Bewerbungen und Profildaten abzuleiten.
+      Waehle deinen Bewerbungsordner aus. Der Assistent scannt alle PDF- und DOCX-Dateien,
+      extrahiert Texte und pflegt erkannte Profildaten automatisch ein.
     </p>
     <form onsubmit="startFolderImport(event)">
       <div class="form-group"><label>Ordnerpfad *</label>
-        <input name="folder_path" required placeholder="z.B. D:\\Bewerbungen oder C:\\Users\\...\\Schriftverkehr\\Bewerbung"></div>
+        <div style="display:flex; gap:8px;">
+          <input name="folder_path" id="folder-path-input" required placeholder="z.B. D:\\Bewerbungen" style="flex:1;">
+          <button type="button" class="btn" onclick="openDirectoryBrowser()" title="Ordner durchsuchen">Durchsuchen</button>
+        </div>
+        <div id="dir-browser" style="display:none; margin-top:8px; border:1px solid var(--border); border-radius:8px; max-height:250px; overflow-y:auto; background:var(--bg2);"></div>
+      </div>
       <div class="form-group"><label>Optionen</label>
         <label style="display:flex; align-items:center; gap:6px; margin:4px 0;">
           <input type="checkbox" name="import_applications" value="1" checked style="width:auto;"> Bewerbungen erkennen
@@ -1866,12 +1881,57 @@ function showFolderImport() {
         <label style="display:flex; align-items:center; gap:6px; margin:4px 0;">
           <input type="checkbox" name="import_documents" value="1" checked style="width:auto;"> Dokumente in Bibliothek importieren
         </label>
+        <label style="display:flex; align-items:center; gap:6px; margin:8px 0 0 0;">
+          <input type="checkbox" name="recursive" value="1" style="width:auto;" onchange="toggleRecursiveWarning(this)"> Unterordner einschliessen
+        </label>
+        <div id="recursive-warning" style="display:none; background:#fff3cd; color:#856404; border:1px solid #ffc107; border-radius:6px; padding:8px 12px; margin-top:6px; font-size:13px;">
+          Achtung: Bei vielen Unterordnern kann der Import laenger dauern und sehr viele Dateien einlesen.
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
         <button type="submit" class="btn btn-primary">Import starten</button>
       </div>
     </form>`);
+}
+
+async function openDirectoryBrowser(path) {
+  const browser = document.getElementById('dir-browser');
+  browser.style.display = 'block';
+  browser.innerHTML = '<div style="padding:12px; color:var(--text2);">Lade...</div>';
+  const body = path ? {path} : {};
+  const res = await api('/api/browse-directory', {method:'POST', body:JSON.stringify(body)});
+  if (res.error) { browser.innerHTML = `<div style="padding:12px; color:var(--danger);">${res.error}</div>`; return; }
+
+  let html = '';
+  if (res.suggestions && !path) {
+    html += '<div style="padding:8px 12px; font-size:12px; color:var(--text2); border-bottom:1px solid var(--border);">Vorschlaege</div>';
+    res.suggestions.forEach(s => {
+      html += `<div style="padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="openDirectoryBrowser('${s.path.replace(/\\/g,'\\\\')}')"><span style="font-size:16px;">&#128193;</span> ${s.name}</div>`;
+    });
+    html += '<div style="border-top:1px solid var(--border);"></div>';
+  }
+  if (res.parent) {
+    html += `<div style="padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; font-weight:bold;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="openDirectoryBrowser('${res.parent.replace(/\\/g,'\\\\')}')"><span style="font-size:16px;">&#11013;</span> Zurueck</div>`;
+  }
+  if (res.current) {
+    html += `<div style="padding:6px 12px; font-size:12px; color:var(--text2); border-bottom:1px solid var(--border); word-break:break-all;">${res.current}${res.file_count ? ' — ' + res.file_count + ' Dokumente' : ''}</div>`;
+  }
+  (res.entries || []).forEach(e => {
+    if (e.type === 'dir' || e.type === 'drive') {
+      html += `<div style="padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''" onclick="openDirectoryBrowser('${e.path.replace(/\\/g,'\\\\')}')"><span style="font-size:16px;">&#128193;</span> ${e.name}</div>`;
+    } else {
+      html += `<div style="padding:4px 12px 4px 34px; font-size:13px; color:var(--text2);">${e.name}</div>`;
+    }
+  });
+  if (res.current) {
+    html += `<div style="padding:8px 12px; border-top:1px solid var(--border);"><button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('folder-path-input').value='${res.current.replace(/\\/g,'\\\\')}'; document.getElementById('dir-browser').style.display='none';" style="width:100%;">Diesen Ordner waehlen</button></div>`;
+  }
+  browser.innerHTML = html;
+}
+
+function toggleRecursiveWarning(cb) {
+  document.getElementById('recursive-warning').style.display = cb.checked ? 'block' : 'none';
 }
 
 async function startFolderImport(e) {
@@ -1885,16 +1945,28 @@ async function startFolderImport(e) {
     import_applications: fd.get('import_applications') === '1',
     import_profile: fd.get('import_profile') === '1',
     import_documents: fd.get('import_documents') === '1',
+    recursive: fd.get('recursive') === '1',
   };
   closeModal({target: document.getElementById('modal-overlay')});
 
-  // Start import and show progress
   const result = await api('/api/documents/import-folder', { method: 'POST', body: JSON.stringify(data) });
   if (result.error) {
     showToast('Import-Fehler: ' + result.error, 'error');
     return;
   }
   showToast(`Import: ${result.documents_imported || 0} Dokumente, ${result.applications_found || 0} Bewerbungen`, 'success');
+
+  // Auto-analyze imported documents (FIX-007)
+  if (result.documents_imported > 0) {
+    showToast('Analysiere importierte Dokumente...', 'info');
+    const analysis = await api('/api/dokumente-analysieren', { method: 'POST', body: JSON.stringify({force: false}) });
+    if (analysis.status === 'angewendet' && analysis.angewendet) {
+      const fields = Object.keys(analysis.angewendet).join(', ');
+      showToast(`Profildaten aktualisiert: ${fields}`, 'success');
+    } else if (analysis.status === 'keine_daten') {
+      showToast('Keine Profildaten automatisch erkannt. Nutze /profil_erweiterung in Claude.', 'info');
+    }
+  }
   loadProfile();
 }
 

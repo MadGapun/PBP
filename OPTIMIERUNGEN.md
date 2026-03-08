@@ -1,5 +1,23 @@
 # PBP — Optimierungsplan
-## Stand: 2026-03-07 | Alle 13 Optimierungen abgeschlossen (v0.11.0) ✓ ARCHIVIERT
+## Stand: 2026-03-08 | 14 Optimierungen + 9 Fixes abgeschlossen (v0.13.0)
+
+---
+
+## v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
+
+### Kritische Bugfixes
+- **FIX-008: job_hash FK-Constraint**: Leerer `job_hash=""` bei `bewerbung_erstellen` loeste FK-Fehler aus. Fix: `job_hash or None` in `tools/bewerbungen.py` und `database.py`.
+- **FIX-009: Reset/Loeschen blockiert**: Korrupte FK-Daten verhinderten Factory-Reset und Profil-Loeschen. Fix: `PRAGMA foreign_keys=OFF` Wrapper + Bereinigung korrupter Eintraege.
+
+### Neue Features
+- **FIX-006: Upload-Modal**: Profil-Vollstaendigkeits-Check entscheidet ob `/ersterfassung` oder `/profil_erweiterung` empfohlen wird.
+- **FIX-007: Auto-Analyse**: Neuer `/api/dokumente-analysieren` Endpoint — Regex-basierte Extraktion (E-Mail, Telefon, Adresse, Name, Skills) ohne LLM. Automatisch nach Upload und Ordner-Import.
+- **OPT-014: Ordner-Browser**: Klickbarer Verzeichnis-Browser statt nur Pfad-Eingabe. `/api/browse-directory` Endpoint mit Vorschlaegen und Sicherheits-Checks.
+- **OPT-014: Unterordner-Option**: Checkbox mit Warnhinweis, `recursive=True` nutzt `rglob()`.
+
+### Tests
+- 14 neue Tests (test_v013.py): JobHash, FK-SafeDelete, DirectoryBrowser, RecursiveImport, AutoAnalyze
+- 159 Tests total, alle bestanden
 
 ---
 
@@ -275,8 +293,8 @@
 
 | Status | Anzahl | Tickets |
 |--------|--------|---------|
-| ✓ Erledigt | 13 | OPT-001 bis OPT-013 + 5 Fixes + 4 Bugfixes |
+| ✓ Erledigt | 14 | OPT-001 bis OPT-014 + FIX-001 bis FIX-009 |
 | Offen | 0 | — |
-| Releases | 12 | v0.1.0 bis v0.11.0 |
+| Releases | 14 | v0.1.0 bis v0.13.0 |
 
-**Alle Optimierungen abgeschlossen!**
+**Alle Optimierungen und Fixes abgeschlossen!**
