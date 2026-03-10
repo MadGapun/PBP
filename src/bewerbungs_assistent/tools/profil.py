@@ -5,6 +5,13 @@ Enthalt: Profil-Grundlagen (8), Multi-Profil (4), Erfassungsfortschritt (2).
 
 import json
 
+from ..services.profile_service import (
+    get_profile_completeness,
+    get_profile_completeness_labels,
+    get_profile_preferences,
+    get_profile_status_payload,
+)
+
 
 def register(mcp, db, logger):
     """Registriert alle Profil-Tools."""
@@ -18,21 +25,7 @@ def register(mcp, db, logger):
         IMMER als erstes aufrufen wenn der User den Assistent startet.
         Entscheidet ob Ersterfassung noetig ist oder ob es direkt losgehen kann.
         """
-        profile = db.get_profile()
-        if profile is None:
-            return {
-                "status": "kein_profil",
-                "nachricht": "Noch kein Profil vorhanden. Bitte starte die Ersterfassung mit profil_erstellen().",
-                "dashboard_url": "http://localhost:8200"
-            }
-        return {
-            "status": "vorhanden",
-            "name": profile.get("name"),
-            "positionen": len(profile.get("positions", [])),
-            "skills": len(profile.get("skills", [])),
-            "dokumente": len(profile.get("documents", [])),
-            "dashboard_url": "http://localhost:8200"
-        }
+        return get_profile_status_payload(db.get_profile())
 
     @mcp.tool()
     def profil_zusammenfassung() -> dict:
@@ -49,9 +42,7 @@ def register(mcp, db, logger):
         education = profile.get("education", [])
         skills = profile.get("skills", [])
         documents = profile.get("documents", [])
-        prefs = profile.get("preferences", {})
-        if isinstance(prefs, str):
-            prefs = json.loads(prefs) if prefs else {}
+        prefs = get_profile_preferences(profile)
 
         # Build formatted summary
         lines = []
@@ -156,26 +147,14 @@ def register(mcp, db, logger):
         lines.append("VOLLSTAENDIGKEITS-CHECK")
         lines.append("=" * 50)
 
-        checks = {
-            "Name": bool(profile.get("name")),
-            "Kontaktdaten (E-Mail/Telefon)": bool(profile.get("email") or profile.get("phone")),
-            "Adresse": bool(profile.get("address") or profile.get("city")),
-            "Kurzprofil/Summary": bool(profile.get("summary")),
-            "Berufserfahrung": len(positions) > 0,
-            "Projekte (STAR)": any(pos.get("projects") for pos in positions),
-            "Ausbildung": len(education) > 0,
-            "Skills": len(skills) > 0,
-            "Job-Praeferenzen": bool(prefs.get("stellentyp")),
-        }
-
-        complete = 0
+        completeness = get_profile_completeness(profile)
+        checks = get_profile_completeness_labels(profile)
+        complete = completeness["complete"]
         for label, ok in checks.items():
             icon = "[OK]" if ok else "[FEHLT]"
             lines.append(f"  {icon} {label}")
-            if ok:
-                complete += 1
 
-        pct = int(complete / len(checks) * 100)
+        pct = completeness["completeness"]
         lines.append(f"\nVollstaendigkeit: {pct}% ({complete}/{len(checks)})")
 
         return {
@@ -660,12 +639,13 @@ def register(mcp, db, logger):
 
         # Automatisch berechnen was schon da ist
         fortschritt = profile.get("erfassung_fortschritt", {})
+        prefs = get_profile_preferences(profile)
         auto_check = {
             "persoenliche_daten": bool(profile.get("name") and profile.get("email")),
             "berufserfahrung": len(profile.get("positions", [])) > 0,
             "ausbildung": len(profile.get("education", [])) > 0,
             "kompetenzen": len(profile.get("skills", [])) > 0,
-            "praeferenzen": bool(profile.get("preferences", {}).get("stellentyp")),
+            "praeferenzen": bool(prefs.get("stellentyp")),
             "review_abgeschlossen": fortschritt.get("review_abgeschlossen", False),
         }
         return {

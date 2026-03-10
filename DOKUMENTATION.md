@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-07 | v0.11.1
+## Komplette Projektdokumentation | Stand: 2026-03-10 | v0.14.0
 
 ---
 
@@ -287,13 +287,13 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │    └── 12 Prompts (ersterfassung, willkommen, workflow...)│
 │         ↓                                                  │
 │  database.py (SQLite + WAL, Schema v8)                    │
-│    └── 15 Tabellen, Foreign Keys, CASCADE Deletes         │
+│    └── 15 Kern-Tabellen + user_preferences, FK + CASCADE  │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
 │  │ dashboard.py      │  │ job_scraper/ │  │ export.py  │  │
 │  │ (FastAPI :8200)   │  │ 9 Quellen    │  │ PDF/DOCX   │  │
-│  │ ~47 Endpoints     │  │ dynamische   │  │ fpdf2 +    │  │
+│  │ 56 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
 │  │  ↕ JSON           │  │ Keywords     │  │ python-docx│  │
 │  │ dashboard.html    │  │              │  │            │  │
 │  │ (Browser SPA)     │  │              │  │            │  │
@@ -354,17 +354,24 @@ python test_demo.py
 pytest tests/ -v
 
 # Einzelne Testdateien:
-pytest tests/test_database.py -v    # 33 Tests
-pytest tests/test_scoring.py -v     # 24 Tests
-pytest tests/test_export.py -v      # 8 Tests
-pytest tests/test_v010.py -v        # 43 Tests
+pytest tests/test_database.py -v          # 33 Tests
+pytest tests/test_scoring.py -v           # 24 Tests
+pytest tests/test_export.py -v            #  8 Tests
+pytest tests/test_v010.py -v              # 43 Tests
+pytest tests/test_dashboard.py -v         # 44 Tests
+pytest tests/test_v013.py -v              # 14 Tests
+pytest tests/test_mcp_registry.py -v      #  3 Tests
+pytest tests/test_scrapers.py -v          #  3 Tests
+pytest tests/test_profile_service.py -v   #  5 Tests
+pytest tests/test_search_service.py -v    #  5 Tests
+pytest tests/test_workspace_service.py -v #  5 Tests
 ```
 
-Ergebnis: **108 Tests, alle gruen**
+Ergebnis: **187 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.11.1
+## 7. Fazit v0.14.0
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
@@ -381,11 +388,11 @@ Ergebnis: **108 Tests, alle gruen**
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 108 automatische Tests (100% gruen)
+- ✓ 187 Tests im aktuellen Repo-Stand
 - ✓ Cross-Platform (Windows + Linux)
 
 ### Moegliche zukuenftige Erweiterungen:
 - Dark Mode
 - E-Mail-Benachrichtigungen bei neuen passenden Stellen
 - Bewerbungs-Templates
-- server.py Modularisierung (siehe docs/VERBESSERUNGSPLAN.md)
+- weiterer Ausbau des Service-Layers (siehe docs/VERBESSERUNGSPLAN.md)

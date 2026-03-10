@@ -1,128 +1,92 @@
 # PBP Codex Context
 
-Dieses Dokument gibt KI-Assistenten den noetigen Kontext fuer PBP.
+Kurzkontext fuer KI-Assistenten, die im Repo arbeiten.
 
----
+Stand: 2026-03-10
 
 ## Was ist PBP?
 
 PBP (Persoenliches Bewerbungs-Portal) ist ein MCP-Server fuer Claude Desktop.
-Er unterstuetzt den gesamten Bewerbungsprozess: Profil-Erstellung,
-Jobsuche (9 Portale), Bewertung, Dokument-Export und Bewerbungs-Tracking.
+Das Produkt ist lokal-first, deutschsprachig und fuer einen Endnutzerworkflow gebaut:
+Profil aufbauen, Jobs suchen, Dokumente exportieren, Bewerbungen verfolgen.
 
-**Version:** 0.12.0 (Modularisierung + Dashboard-Tests)
+## Technischer Kern
 
----
+- Python 3.11+
+- FastMCP fuer die Claude-Desktop-Integration
+- FastAPI fuer das lokale Dashboard auf Port 8200
+- SQLite mit WAL und Migrationen
+- Playwright/HTML-Scraping fuer Jobportale
 
-## Quelldateien
+## Struktur
 
-| Datei | Zeilen | Beschreibung |
-|-------|--------|-------------|
-| `src/bewerbungs_assistent/server.py` | ~140 | Composition Root (Init + Dashboard + Shutdown) |
-| `src/bewerbungs_assistent/tools/*.py` | ~2500 | 7 Module: 44 Tools |
-| `src/bewerbungs_assistent/prompts.py` | ~765 | 12 MCP Prompts |
-| `src/bewerbungs_assistent/resources.py` | ~45 | 6 MCP Resources |
-| `src/bewerbungs_assistent/database.py` | 1635 | SQLite-Datenbankschicht (15 Tabellen, Schema v8) |
-| `src/bewerbungs_assistent/dashboard.py` | 1029 | Web-Dashboard (FastAPI, Port 8200) |
-| `src/bewerbungs_assistent/export.py` | 365 | PDF/DOCX-Export (Lebenslauf, Anschreiben) |
-| `src/bewerbungs_assistent/job_scraper/__init__.py` | 601 | Scraper-Framework (9 Portale) |
-| `src/bewerbungs_assistent/job_scraper/*.py` | ~350ea | Einzelne Portal-Scraper |
-| `src/bewerbungs_assistent/templates/dashboard.html` | — | Dashboard-Template |
-| `tests/` | ~1700 | 145 Tests (pytest) |
+- `src/bewerbungs_assistent/server.py`
+  Composition Root, registriert Module und startet das Dashboard.
+- `src/bewerbungs_assistent/tools/`
+  44 MCP-Tools in 7 Modulen.
+- `src/bewerbungs_assistent/prompts.py`
+  12 MCP-Prompts.
+- `src/bewerbungs_assistent/resources.py`
+  6 MCP-Resources.
+- `src/bewerbungs_assistent/services/`
+  Gemeinsame Profil-, Such- und Workspace-Logik fuer Dashboard und MCP-Tools.
+- `src/bewerbungs_assistent/database.py`
+  SQLite-Schicht mit Schema v8.
+- `src/bewerbungs_assistent/dashboard.py`
+  56 API-Endpoints plus Dashboard-Root.
+- `src/bewerbungs_assistent/export.py`
+  PDF/DOCX-Erzeugung.
+- `src/bewerbungs_assistent/job_scraper/`
+  Dispatcher plus 9 Quellen.
 
-## Wichtige Dateien im Root
+## Datenbank
 
-| Datei | Beschreibung |
-|-------|-------------|
-| `pyproject.toml` | Package-Definition, Dependencies, Build-Config |
-| `INSTALLIEREN.bat` | Windows Zero-Knowledge Installer |
-| `Dashboard starten.bat` | Dashboard-Starter fuer Windows |
-| `README.md` | Hauptdokumentation |
-| `DOKUMENTATION.md` | Detaillierte Nutzerdokumentation |
-| `CHANGELOG.md` | Aenderungshistorie (v0.1.0 bis v0.11.0) |
-| `OPTIMIERUNGEN.md` | Optimierungs-Tracking |
-| `ZUSTAND.md` | Aktueller Projektzustand |
-| `TESTVERSION.md` | Testversions-Info |
+Fachlich gibt es 15 Kern-Tabellen plus `user_preferences` als systemnahe Tabelle.
+Wichtige Merkmale:
 
----
+- Profil-Isolation
+- WAL Mode
+- Foreign Keys
+- Migrationskette bis Schema v8
 
-## Abhaengigkeiten
+## Datenpfade
 
-### Pflicht (in pyproject.toml)
-```
-fastmcp>=2.0
-uvicorn>=0.30
-fastapi>=0.115
-python-multipart>=0.0.9
-httpx>=0.27
-```
+Default aus dem Code:
 
-### Optional
-```
-# Scraper
-playwright>=1.40
-beautifulsoup4>=4.12
-lxml>=5.0
+- Windows: `%LOCALAPPDATA%/BewerbungsAssistent/pbp.db`
+- Linux: `~/.bewerbungs-assistent/pbp.db`
+- ueberschreibbar ueber `BA_DATA_DIR`
 
-# Dokument-Export
-python-docx>=1.1
-pypdf>=4.0
-fpdf2>=2.7
+## Teststand
 
-# Entwicklung
-pytest>=8.0
-pytest-asyncio>=0.23
-```
+Im Repo liegen aktuell 187 Tests:
 
----
+- `tests/test_database.py`
+- `tests/test_scoring.py`
+- `tests/test_export.py`
+- `tests/test_v010.py`
+- `tests/test_dashboard.py`
+- `tests/test_v013.py`
+- `tests/test_mcp_registry.py`
+- `tests/test_scrapers.py`
+- `tests/test_profile_service.py`
+- `tests/test_search_service.py`
+- `tests/test_workspace_service.py`
 
-## Projekt-Status
+## Wichtige Doku
 
-**Komplett abgeschlossen.** Alle 18 Tasks und 13 Optimierungen sind done.
+- `AGENTS.md`
+  Teamrollen, Architektur, Konventionen.
+- `ZUSTAND.md`
+  Aktueller Systemzustand.
+- `docs/CODEX_ANALYSE.md`
+  Urspruengliche Codex-Analyse.
+- `docs/VERBESSERUNGSPLAN.md`
+  Konsolidierungs- und Ausbauplan.
 
-### Letzte Aenderungen (v0.11.0)
-- Form-Validierung (Client + Server, Pflichtfelder, E-Mail-Check)
-- Ladeanimationen (Spinner + Loading-Buttons)
-- Paginierung Bewerbungen (20er Seiten + "Mehr laden")
-- Bugfix: extraktion_anwenden mit auto_apply=True Standard
-- Bugfix: Profilname bei Extraktion nicht mehr ueberschrieben
-- Bugfix: Projekte bei doppelten Positionen + standalone Projekte
+## Was aktuell offen ist
 
-### Bekannte Einschraenkungen
-- Kein Multi-User-System (einzelne SQLite-DB)
-- Scraper abhaengig von Portal-Struktur (kann brechen)
-- Playwright-Installation unter Windows manchmal umstaendlich
-
----
-
-## Build & Test
-
-```bash
-# Installation
-pip install -e ".[all,dev]"
-
-# Tests ausfuehren
-pytest tests/ -v
-
-# MCP-Server starten (fuer Claude Desktop)
-bewerbungs-assistent
-# oder
-python -m bewerbungs_assistent
-
-# Dashboard separat starten
-python start_dashboard.py
-```
-
----
-
-## Beziehung zu ELWOSA
-
-PBP ist ein **eigenstaendiges Projekt**. Es wurde auf dem ELWOSA-Server
-entwickelt und die Release-ZIPs werden ueber den ELWOSA Voice Backend
-Static-Server ausgeliefert, aber es gibt keine Code-Abhaengigkeit.
-
-Siehe [docs/dependency_on_elwosa.md](dependency_on_elwosa.md) fuer Details.
-
----
-
-*Stand: 07.03.2026 (v0.12.0)*
+- Scraper-Fixture-Tests auf weitere Quellen und Fallbacks erweitern
+- mehr MCP-Tool-Smoke-Tests auf Verhaltensebene
+- Service-Layer nach Profil/Suche/Workspace auf Bewerbungen weiterziehen
+- weitere Dashboard-Usability-Politur

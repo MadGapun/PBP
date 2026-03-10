@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-159%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -34,20 +34,16 @@ Claude Desktop (Windows)
     │
     │ stdio (MCP Protocol)
     ▼
-server.py (FastMCP)  ◄── 44 Tools, 6 Resources, 12 Prompts
+server.py (FastMCP, Composition Root)
     │
-    ▼
-database.py (SQLite)  ◄── 15 Tabellen, WAL Mode, Schema v8, Profil-Isolation
+    ├──► tools/            ◄── 44 Tools in 7 Modulen
+    ├──► prompts.py        ◄── 12 Prompts
+    ├──► resources.py      ◄── 6 Resources
     │
-    ├──► dashboard.py (FastAPI :8200)  ◄── 43+ API Endpoints
-    │         │
-    │         ▼
-    │     dashboard.html (SPA)  ◄── 5 Tabs, Vanilla JS
-    │
-    ├──► export.py  ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    │
-    └──► job_scraper/ (9 Quellen)
-              │
+    ├──► database.py       ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    ├──► dashboard.py      ◄── FastAPI :8200, 56 API-Endpoints + Dashboard-Root
+    ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
+    └──► job_scraper/      ◄── 9 Quellen
               ├── bundesagentur.py   (REST API)
               ├── stepstone.py       (Playwright)
               ├── hays.py            (Sitemap + JSON-LD)
@@ -247,7 +243,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 15 Tabellen, Schema v8 (Profil-Isolation + Factory-Reset):
+SQLite mit WAL-Mode, 15 Kern-Tabellen + `user_preferences`, Schema v8 (Profil-Isolation + Factory-Reset):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -287,8 +283,8 @@ PBP/
 │
 ├── src/bewerbungs_assistent/
 │   ├── server.py                 # MCP Server (44 Tools, 6 Resources, 12 Prompts)
-│   ├── database.py               # SQLite Layer (15 Tabellen, Schema v8)
-│   ├── dashboard.py              # FastAPI Dashboard (43+ Endpoints)
+│   ├── database.py               # SQLite Layer (15 Kern-Tabellen + user_preferences, Schema v8)
+│   ├── dashboard.py              # FastAPI Dashboard (56 API-Endpoints + Root)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -305,12 +301,17 @@ PBP/
 │       ├── xing.py               # XING (Playwright)
 │       └── monster.py            # Monster (Playwright)
 │
-├── tests/                        # 159 Tests (pytest)
+├── tests/                        # 187 Tests (pytest)
 │   ├── test_database.py
 │   ├── test_scoring.py
 │   ├── test_dashboard.py
+│   ├── test_profile_service.py
+│   ├── test_search_service.py
+│   ├── test_scrapers.py
 │   ├── test_v010.py
 │   ├── test_v013.py
+│   ├── test_mcp_registry.py
+│   ├── test_workspace_service.py
 │   └── test_export.py
 │
 └── installer/                    # Alternative Installer
@@ -326,12 +327,17 @@ PBP/
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 159 Tests, ~7 Sekunden
+# 187 Tests, ~5 Sekunden
 # ✓ 33 Datenbank-Tests
 # ✓ 24 Scoring-Tests
-# ✓ 37 Dashboard-API-Tests
+# ✓ 44 Dashboard-API-Tests
 # ✓ 43 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
 # ✓ 14 v0.13.0 Tests (FK-Fix, Ordner-Browser, Auto-Analyse, Recursive-Import)
+# ✓  5 Service-Layer-Tests (Profilstatus, Praeferenzen, Vollstaendigkeit)
+# ✓  5 Search-Service-Tests
+# ✓  5 Workspace-Service-Tests
+# ✓  3 MCP-Registry-Tests
+# ✓  3 Scraper-Fixture-Tests
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)
 ```
 
@@ -366,34 +372,25 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.14.0 — Service-Layer, Dashboard-UX, Workspace-Guidance (2026-03-10)
+- **Service-Layer**: `profile_service.py`, `search_service.py`, `workspace_service.py` — gemeinsame Logik fuer Dashboard und MCP-Tools
+- **Dashboard-UX**: Workspace-Kopf mit Guidance, klarere Navigation, Profil-Schnellzugriffe
+- **Workspace-Summary API**: `/api/workspace-summary` mit Readiness-Stufen und Handlungsempfehlung
+- **MCP-Registry-Tests**: Smoke-Tests fuer alle 44 Tools, 12 Prompts, 6 Resources
+- **Scraper-Fixture-Tests**: Hays, Freelance.de, Freelancermap mit stabilen HTML-Fixtures
+- 187 Tests bestanden
+
 ### v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
 - Fix: **job_hash FK-Constraint** — Leerer String → None, kein FK-Fehler mehr
 - Fix: **Reset/Loeschen blockiert** — FK-safe mit PRAGMA + Datenbereinigung
 - Feature: **Auto-Analyse** — Dokumente automatisch per Regex ins Profil einpflegen
 - Feature: **Ordner-Browser** — Klickbarer Verzeichnis-Browser statt nur Pfad-Eingabe
-- Feature: **Unterordner-Option** — Rekursiver Import mit Warnhinweis
 - 159 Tests bestanden
 
 ### v0.12.0 — Architektur: Modularisierung (2026-03-07)
 - server.py (3.261 Zeilen) aufgeteilt in 8 fachliche Module
 - 37 neue Dashboard-API-Tests
 - 145 Tests bestanden
-
-### v0.11.0 — Validierung, Ladeanimationen, Paginierung (2026-03-06)
-- Feature: **Form-Validierung** — Pflichtfeld-Prüfung (Client + Server)
-- Feature: **Ladeanimationen** — Spinner + Loading-Buttons
-- Feature: **Paginierung Bewerbungen** — 20er Seiten + "Mehr laden"
-
-### v0.10.5 — Markdown & Textdateien Support (2026-03-06)
-- Fix: Markdown-Dateien (.md) werden jetzt als Text extrahiert
-- Feature: Zusätzliche Formate (.md, .csv, .json, .xml, .rtf)
-
-### v0.10.0 — UX & Scraper Overhaul (2026-03-05)
-- Feature: Onboarding-Wizard (4 Schritte) + Bewerbungs-Wizard (5 Schritte)
-- Feature: Gehalts-Engine (7 Regex-Patterns + Schätzung)
-- Feature: Hint-System, Gehaltsfilter, Quellen-Banner
-- Scraper: StepStone, Indeed, Monster auf Playwright; XING, Freelancermap repariert
-- Schema v6→v7, 44 Tools, 12 Prompts, 15 Tabellen
 
 ---
 

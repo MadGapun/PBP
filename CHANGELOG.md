@@ -2,6 +2,75 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.14.0] — 2026-03-10
+
+### Konsolidierung: Service-Layer, Dashboard-UX, Workspace-Guidance
+
+Dieser Release entstand aus einem Codex-Sprint (Branch `codex/konsolidierung-sprint1`)
+mit anschliessender Claude-Code-Pruefung und Abnahme. Fokus war Konsolidierung und
+Qualitaet, nicht neue End-User-Features.
+
+### Service-Layer (neu)
+
+Gemeinsame Domaenenlogik wurde aus Dashboard und MCP-Tools in drei Service-Module
+extrahiert. Damit sprechen beide Schichten dieselbe fachliche Sprache:
+
+- **`services/profile_service.py`** — Profilstatus, Praeferenzen-Parsing,
+  Vollstaendigkeits-Checks mit 9 Pruefregeln und Nutzer-Labels.
+- **`services/search_service.py`** — Suchstatus-Normalisierung (aktuell/veraltet/dringend),
+  Quellenzaehlung (aktiv vs. Registry), Dashboard-freundliche Quellenzeilen.
+- **`services/workspace_service.py`** — Workspace-Guidance mit 7 Readiness-Stufen
+  (onboarding → profil_aufbauen → quellen_aktivieren → jobsuche_erneuern →
+  bewerben → nachfassen → im_fluss), Follow-up-Zusammenfassung, Navigations-Badges.
+
+### Dashboard-UX
+
+- **Workspace-Summary API** — Neuer Endpoint `/api/workspace-summary` aggregiert
+  Profil, Quellen, Suchstatus, Jobs, Bewerbungen und Follow-ups zu einer einzigen
+  Guidance-Payload mit Readiness-Stufe und konkreter Handlungsempfehlung.
+- **Workspace-Kopf** — Das Dashboard zeigt jetzt oben einen kontextabhaengigen
+  Hinweis mit Headline, Beschreibung und Aktions-Button (z.B. "Profil ausbauen"
+  oder "Quellen einrichten").
+- **Navigations-Badges** — Tab-Navigation zeigt Zaehler fuer offene Stellen,
+  Bewerbungen und Konfigurationsbedarf.
+- **Profil-Schnellzugriffe** — Klarerer Zugang zu Profilstatus und Vollstaendigkeit.
+- **Seitenbezogene Orientierung** — Jeder Tab reagiert auf den aktuellen
+  Workspace-Zustand.
+
+### Bugfixes
+
+- **Wizard speichert Quellen korrekt** — `active_sources` werden jetzt sauber
+  persistiert statt ignoriert.
+- **Sprung zum Dokument-/Import-Bereich** — Hash-Navigation korrigiert.
+- **Runtime-Log-CSS-Fallback** — Bereinigung eines fehlenden Style-Fallbacks.
+- **Quellenfilter** — Wird bei Seitenwechsel sauber neu aufgebaut.
+
+### Tests
+
+- **28 neue Tests** (von 159 auf 187):
+  - `test_profile_service.py` (5): Profilstatus, Praeferenzen, Vollstaendigkeit,
+    Labels, ungueltige JSON-Praeferenzen.
+  - `test_search_service.py` (5): Suchstatus, aktive Quellen, Quellenzeilen.
+  - `test_workspace_service.py` (5): Follow-ups, Badges, Onboarding,
+    Quellen-Priorisierung, Follow-up-Priorisierung.
+  - `test_mcp_registry.py` (3): Registry-Zaehlung, stabile Interface-Namen,
+    repraesentative Smoke-Runs.
+  - `test_scrapers.py` (3): Fixture-basierte Parser fuer Hays (Sitemap + JSON-LD),
+    Freelance.de (Karten + Paginierung), Freelancermap (JS-State-Extraktion).
+  - `test_dashboard.py` (+7): Workspace-Summary (leer, Profil-Ausbau,
+    Quellen/Suche/Follow-ups), Profil-Vollstaendigkeit (Adresse), Quellen-API.
+- **Scraper-Fixtures**: HTML/XML-Fixtures unter `tests/fixtures/scrapers/`
+  fuer reproduzierbare Parsertests ohne Netzwerk.
+- Test-Gesamtzahl: **187 Tests** (alle gruen).
+
+### Doku-Sweep
+
+- README-Badge von "159 passing" auf "187 passing" korrigiert.
+- Endpoint-Zaehlung von 55 auf 56 korrigiert (alle Dokumente).
+- Dashboard-Zeilenanzahl auf ~1.272 aktualisiert.
+- Versionshistorie in ZUSTAND.md, AGENTS.md, architecture.md ergaenzt.
+- DOKUMENTATION.md Test-Auflistung um Service- und Scraper-Tests erweitert.
+
 ## [0.13.0] — 2026-03-08
 
 ### Bugfixes

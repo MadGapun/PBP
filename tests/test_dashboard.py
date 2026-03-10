@@ -8,8 +8,10 @@ Stellen, Bewerbungen, Paginierung und Factory Reset ab.
 import os
 import sys
 import json
-import pytest
+from datetime import datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -57,6 +59,63 @@ class TestStatus:
         data = r.json()
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
+
+    def test_workspace_summary_empty(self, client):
+        """Workspace Summary zeigt Onboarding-Zustand ohne Profil."""
+        r = client.get("/api/workspace-summary")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["has_profile"] is False
+        assert data["readiness"]["stage"] == "onboarding"
+        assert data["sources"]["active"] == 0
+        assert data["jobs"]["active"] == 0
+        assert data["applications"]["total"] == 0
+
+    def test_workspace_summary_profile_needs_building(self, client):
+        """Minimales Profil priorisiert den Profil-Ausbau."""
+        client.post("/api/profile", json={"name": "Tester"})
+        r = client.get("/api/workspace-summary")
+        data = r.json()
+        assert data["has_profile"] is True
+        assert data["readiness"]["stage"] == "profil_aufbauen"
+        assert data["profile"]["completeness"] < 60
+        assert "Adresse" in data["profile"]["missing_areas"]
+        assert data["navigation"]["profile_badge"] is not None
+
+    def test_workspace_summary_counts_sources_search_and_followups(self, client):
+        """Workspace Summary verdichtet Quellen, Suche und Follow-ups fuer die Navigation."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={
+            "name": "Tester",
+            "email": "test@example.com",
+            "phone": "+49 40 123456",
+            "address": "Musterweg 1",
+            "summary": "Erfahrener Berater",
+            "preferences": {"stellentyp": "festanstellung"},
+        })
+        dash._db.add_position({"company": "ACME", "title": "Consultant", "start_date": "2022-01"})
+        dash._db.add_education({"institution": "FH Hamburg", "degree": "Bachelor"})
+        dash._db.add_skill({"name": "Python", "category": "tool"})
+        dash._db.set_setting("active_sources", ["bundesagentur", "stepstone"])
+        dash._db.set_setting("last_search_at", datetime.now().isoformat())
+        app_id = dash._db.add_application({
+            "title": "PLM Consultant",
+            "company": "ACME",
+            "status": "beworben",
+            "applied_at": datetime.now().date().isoformat(),
+        })
+        due_date = (datetime.now() - timedelta(days=1)).date().isoformat()
+        dash._db.add_follow_up(app_id, due_date)
+
+        r = client.get("/api/workspace-summary")
+        data = r.json()
+        assert data["sources"]["active"] == 2
+        assert data["search"]["status"] == "aktuell"
+        assert data["applications"]["total"] == 1
+        assert data["applications"]["follow_ups_due"] == 1
+        assert data["readiness"]["stage"] == "nachfassen"
+        assert data["navigation"]["applications_badge"] == "1"
 
 
 # ============================================================
@@ -408,6 +467,17 @@ class TestStatistics:
         assert data["checks"]["adresse"] is True
         assert data["checks"]["zusammenfassung"] is True
 
+    def test_profile_completeness_address_without_city(self, client):
+        """Adresse allein zaehlt auch im Dashboard als gueltige Anschrift."""
+        client.post("/api/profile", json={
+            "name": "Test",
+            "email": "test@test.de",
+            "address": "Musterweg 1",
+        })
+        r = client.get("/api/profile/completeness")
+        data = r.json()
+        assert data["checks"]["adresse"] is True
+
     def test_next_steps(self, client):
         """Next Steps abrufbar."""
         r = client.get("/api/next-steps")
@@ -419,6 +489,32 @@ class TestStatistics:
         r = client.get("/api/search-status")
         assert r.status_code == 200
         assert r.json()["status"] == "nie"
+
+    def test_search_status_recent(self, client):
+        """Aktuelle Suche wird als 'aktuell' markiert."""
+        import bewerbungs_assistent.dashboard as dash
+
+        dash._db.set_setting("last_search_at", datetime.now().isoformat())
+        r = client.get("/api/search-status")
+        assert r.status_code == 200
+        assert r.json()["status"] == "aktuell"
+
+    def test_sources_default_all_inactive(self, client):
+        """Quellen-API liefert standardmaessig alle Quellen als inaktiv."""
+        r = client.get("/api/sources")
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) >= 1
+        assert all(source["active"] is False for source in data)
+
+    def test_sources_can_be_updated(self, client):
+        """Aktive Quellen koennen gespeichert und erneut geladen werden."""
+        r = client.post("/api/sources", json={"active_sources": ["bundesagentur", "stepstone"]})
+        assert r.status_code == 200
+
+        r2 = client.get("/api/sources")
+        active_sources = {source["key"] for source in r2.json() if source["active"]}
+        assert active_sources == {"bundesagentur", "stepstone"}
 
 
 # ============================================================

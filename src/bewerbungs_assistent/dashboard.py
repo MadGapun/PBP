@@ -14,10 +14,36 @@ from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .services.profile_service import (
+    get_profile_completeness,
+    get_profile_preferences,
+    summarize_profile,
+)
+from .services.search_service import (
+    build_source_rows,
+    get_search_status,
+    summarize_active_sources,
+)
+from .services.workspace_service import build_workspace_summary, summarize_follow_ups
+
 logger = logging.getLogger("bewerbungs_assistent.dashboard")
 
 # Reference to shared database (set in start_dashboard)
 _db = None
+
+_BLOCKED_PATH_PREFIXES = (
+    "/etc",
+    "/var",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/root",
+    "/proc",
+    "/sys",
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+)
 
 app = FastAPI(title="Bewerbungs-Assistent", docs_url=None, redoc_url=None)
 
@@ -58,18 +84,73 @@ async def index():
     return HTMLResponse(_generate_dashboard_html())
 
 
+def _normalize_path_for_check(path: str) -> str:
+    """Normalize user-provided and resolved paths for prefix checks."""
+    return str(path).replace("/", "\\").rstrip("\\").lower()
+
+
+def _is_blocked_path(raw_path: str, resolved_path: Path) -> bool:
+    """Block obvious system directories on both Unix-like and Windows inputs."""
+    blocked = {_normalize_path_for_check(prefix) for prefix in _BLOCKED_PATH_PREFIXES}
+    candidates = {
+        _normalize_path_for_check(raw_path),
+        _normalize_path_for_check(str(resolved_path)),
+    }
+    return any(
+        candidate == prefix or candidate.startswith(prefix + "\\")
+        for candidate in candidates
+        for prefix in blocked
+    )
+
+
+def _get_search_status_payload() -> dict:
+    """Build the normalized search-status payload once for UI consumers."""
+    return get_search_status(_db.get_setting("last_search_at"), now=datetime.now())
+
+
+def _get_source_summary() -> dict:
+    """Return active vs. total configured job sources."""
+    from .job_scraper import SOURCE_REGISTRY
+
+    return summarize_active_sources(_db.get_setting("active_sources", []) or [], SOURCE_REGISTRY.keys())
+
+
+def _get_follow_up_summary() -> dict:
+    """Return follow-up totals and due count for the active profile."""
+    return summarize_follow_ups(_db.get_pending_follow_ups())
+
+
+def _build_workspace_summary() -> dict:
+    """Aggregate the current workspace state for dashboard navigation and guidance."""
+    return build_workspace_summary(
+        profile=_db.get_profile(),
+        jobs=_db.get_active_jobs(),
+        applications=_db.get_applications(),
+        source_summary=_get_source_summary(),
+        search_status=_get_search_status_payload(),
+        follow_up_summary=_get_follow_up_summary(),
+    )
+
+
 # === API Endpoints ===
 
 @app.get("/api/status")
 async def api_status():
     profile = _db.get_profile()
+    summary = summarize_profile(profile)
     return {
         "has_profile": profile is not None,
-        "profile_name": profile.get("name") if profile else None,
+        "profile_name": summary["name"],
         "active_jobs": len(_db.get_active_jobs()),
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
     }
+
+
+@app.get("/api/workspace-summary")
+async def api_workspace_summary():
+    """Aggregated workspace state for dashboard guidance and navigation."""
+    return _build_workspace_summary()
 
 
 @app.get("/api/profile")
@@ -206,9 +287,6 @@ async def api_browse_directory(request: Request):
     data = await request.json()
     dir_path = data.get("path", "")
 
-    blocked = ["/etc", "/var", "/usr", "/bin", "/sbin", "/root", "/proc", "/sys",
-               "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)"]
-
     if not dir_path:
         import platform
         home = Path.home()
@@ -235,7 +313,7 @@ async def api_browse_directory(request: Request):
                     ]}
 
     folder = Path(dir_path).resolve()
-    if any(str(folder).startswith(b) for b in blocked):
+    if _is_blocked_path(dir_path, folder):
         return JSONResponse({"error": "Zugriff auf Systemverzeichnisse nicht erlaubt"}, status_code=403)
     if not folder.exists() or not folder.is_dir():
         return JSONResponse({"error": f"Verzeichnis nicht gefunden: {dir_path}"}, status_code=404)
@@ -275,9 +353,7 @@ async def api_import_folder(request: Request):
 
     folder = Path(folder_path).resolve()
     # Security: block obvious system paths
-    blocked = ["/etc", "/var", "/usr", "/bin", "/sbin", "/root", "/proc", "/sys",
-               "C:\\Windows", "C:\\Program Files"]
-    if any(str(folder).startswith(b) for b in blocked):
+    if _is_blocked_path(folder_path, folder):
         return JSONResponse({"error": "Zugriff auf Systemverzeichnisse nicht erlaubt"}, status_code=403)
     if not folder.exists() or not folder.is_dir():
         return JSONResponse({"error": f"Ordner nicht gefunden: {folder_path}"}, status_code=404)
@@ -761,17 +837,7 @@ async def api_sources():
     """List all available job sources with active status."""
     from .job_scraper import SOURCE_REGISTRY
     active = _db.get_setting("active_sources", [])
-    sources = []
-    for key, info in SOURCE_REGISTRY.items():
-        sources.append({
-            "key": key,
-            "name": info["name"],
-            "beschreibung": info["beschreibung"],
-            "methode": info["methode"],
-            "login_erforderlich": info["login_erforderlich"],
-            "active": key in active,
-        })
-    return sources
+    return build_source_rows(SOURCE_REGISTRY, active)
 
 
 @app.post("/api/sources")
@@ -868,8 +934,8 @@ async def api_salary_stats():
     """Get salary statistics for dashboard."""
     stats = _db.get_salary_statistics()
     profile = _db.get_profile()
-    if profile and profile.get("preferences"):
-        prefs = profile["preferences"]
+    prefs = get_profile_preferences(profile)
+    if prefs:
         stats["deine_vorstellungen"] = {
             "min_gehalt": prefs.get("min_gehalt"),
             "ziel_gehalt": prefs.get("ziel_gehalt"),
@@ -894,29 +960,7 @@ async def api_rejection_patterns():
 @app.get("/api/profile/completeness")
 async def api_profile_completeness():
     """Calculate profile completeness percentage."""
-    profile = _db.get_profile()
-    if not profile:
-        return {"completeness": 0, "complete": 0, "total": 9, "checks": {}}
-
-    checks = {
-        "name": bool(profile.get("name")),
-        "kontakt": bool(profile.get("email") or profile.get("phone")),
-        "adresse": bool(profile.get("city")),
-        "zusammenfassung": bool(profile.get("summary")),
-        "berufserfahrung": len(profile.get("positions", [])) > 0,
-        "projekte": any(pos.get("projects") for pos in profile.get("positions", [])),
-        "ausbildung": len(profile.get("education", [])) > 0,
-        "skills": len(profile.get("skills", [])) > 0,
-        "praeferenzen": bool(profile.get("preferences", {}).get("stellentyp")),
-    }
-    complete = sum(1 for v in checks.values() if v)
-    pct = int(complete / len(checks) * 100)
-    return {
-        "completeness": pct,
-        "complete": complete,
-        "total": len(checks),
-        "checks": checks,
-    }
+    return get_profile_completeness(_db.get_profile())
 
 
 @app.get("/api/extractions")
@@ -997,16 +1041,7 @@ async def api_set_user_preference(key: str, request: Request):
 
 @app.get("/api/search-status")
 async def api_search_status():
-    last = _db.get_setting("last_search_at")
-    if not last:
-        return {"last_search": None, "days_ago": None, "status": "nie"}
-    try:
-        dt = datetime.fromisoformat(last)
-        days = (datetime.now() - dt).days
-    except (ValueError, TypeError):
-        return {"last_search": last, "days_ago": None, "status": "unbekannt"}
-    status = "aktuell" if days < 2 else "veraltet" if days < 7 else "dringend"
-    return {"last_search": last, "days_ago": days, "status": status}
+    return _get_search_status_payload()
 
 
 # === Auto-Analyze Documents (v0.13.0) ===
