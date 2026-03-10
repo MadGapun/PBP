@@ -1,7 +1,7 @@
 # PBP Architektur
 
-Stand: 2026-03-09
-Referenz: Release-Linie v0.13.0 plus laufende Konsolidierung
+Stand: 2026-03-10
+Referenz: Release-Linie v0.14.0
 
 ## Systemueberblick
 
@@ -80,7 +80,7 @@ fuer Profilstatus, Suchstatus/Quellen und die uebergreifende Guidance.
 ### dashboard.py
 
 `src/bewerbungs_assistent/dashboard.py` stellt das lokale Web-Dashboard bereit.
-Der aktuelle Stand umfasst 55 API-Endpoints plus die HTML-Startseite.
+Der aktuelle Stand umfasst 56 API-Endpoints plus die HTML-Startseite.
 
 Das Dashboard ist bewusst eng an dieselbe lokale Datenbank gekoppelt wie der MCP-Server.
 Es ist kein separates SPA-Build-System, sondern ein pragmatisches, leicht deploybares

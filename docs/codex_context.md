@@ -2,7 +2,7 @@
 
 Kurzkontext fuer KI-Assistenten, die im Repo arbeiten.
 
-Stand: 2026-03-09
+Stand: 2026-03-10
 
 ## Was ist PBP?
 
@@ -33,7 +33,7 @@ Profil aufbauen, Jobs suchen, Dokumente exportieren, Bewerbungen verfolgen.
 - `src/bewerbungs_assistent/database.py`
   SQLite-Schicht mit Schema v8.
 - `src/bewerbungs_assistent/dashboard.py`
-  55 API-Endpoints plus Dashboard-Root.
+  56 API-Endpoints plus Dashboard-Root.
 - `src/bewerbungs_assistent/export.py`
   PDF/DOCX-Erzeugung.
 - `src/bewerbungs_assistent/job_scraper/`

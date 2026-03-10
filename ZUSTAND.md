@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-09 | v0.13.0
+## Zustandsbericht | 2026-03-10 | v0.14.0
 
 ---
 
@@ -8,7 +8,7 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.13.0 (pyproject.toml) |
+| **Version** | 0.14.0 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
@@ -38,7 +38,7 @@ server.py (FastMCP, Composition Root)  <-- 44 Tools, 6 Resources, 12 Prompts
     |
     +---> database.py (SQLite)  <-- 15 Kern-Tabellen + user_preferences, WAL, Schema v8
     |
-    +---> dashboard.py (FastAPI :8200)  <-- 55 API-Endpoints + Dashboard-Root
+    +---> dashboard.py (FastAPI :8200)  <-- 56 API-Endpoints + Dashboard-Root
     |         |
     |         v
     |     dashboard.html (SPA)  <-- 5 Tabs, Vanilla JS
@@ -156,7 +156,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | prompts.py | ~765 | 12 MCP Prompts |
 | resources.py | ~45 | 6 MCP Resources |
 | database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
-| dashboard.py | 1.237 | FastAPI Web-Dashboard (55 API-Endpoints + Dashboard-Root) |
+| dashboard.py | 1.272 | FastAPI Web-Dashboard (56 API-Endpoints + Dashboard-Root) |
 | export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
 | job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
 | job_scraper/linkedin.py | ~290 | LinkedIn (Playwright) |
@@ -218,6 +218,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
+| 0.14.0 | 2026-03-10 | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
 | 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
@@ -233,5 +234,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-08 von Claude Code (v0.13.0 FK-Bugfixes, Auto-Analyse, Ordner-Browser)*
-*Vorheriger Stand: 2026-03-07 (v0.12.0 Modularisierung)*
+*Aktualisiert: 2026-03-10 von Claude Code (v0.14.0 Service-Layer, Dashboard-UX, Workspace-Guidance)*
+*Vorheriger Stand: 2026-03-08 (v0.13.0 FK-Bugfixes, Auto-Analyse, Ordner-Browser)*

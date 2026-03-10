@@ -1,6 +1,6 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 0.13.0 (Stand: 2026-03-08)
+> **Version:** 0.14.0 (Stand: 2026-03-10)
 > **Detaillierte Doku:** `ZUSTAND.md` (aktueller Systemzustand), `README.md`, `DOKUMENTATION.md`
 > **Codex-Analyse:** `docs/CODEX_ANALYSE.md` | **Verbesserungsplan:** `docs/VERBESSERUNGSPLAN.md`
 
@@ -45,7 +45,7 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     ├── services/          ◄── gemeinsamer Service-Layer (profile/search/workspace)
     ├── database.py         ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
     │
-    ├── dashboard.py        ◄── FastAPI :8200, 55 API-Endpoints + Dashboard-Root
+    ├── dashboard.py        ◄── FastAPI :8200, 56 API-Endpoints + Dashboard-Root
     │   └── templates/dashboard.html (SPA, Vanilla JS, 5 Tabs)
     │
     ├── export.py           ◄── Lebenslauf + Anschreiben (PDF/DOCX)
@@ -74,6 +74,7 @@ In v0.12.0 wurde `server.py` von ~3200 Zeilen auf ~140 Zeilen reduziert:
 | v0.11.1 | Claude Code | Doku-Konsolidierung (Codex-Analyse integriert) |
 | v0.12.0 | Claude Code | Modularisierung (server.py aufgeteilt, 37 Dashboard-Tests) |
 | v0.13.0 | Claude Code | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
+| v0.14.0 | Codex + Claude Code | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
 
 ## Deployment
 

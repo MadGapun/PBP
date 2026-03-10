@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-07 | v0.11.1
+## Komplette Projektdokumentation | Stand: 2026-03-10 | v0.14.0
 
 ---
 
@@ -293,7 +293,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
 │  │ dashboard.py      │  │ job_scraper/ │  │ export.py  │  │
 │  │ (FastAPI :8200)   │  │ 9 Quellen    │  │ PDF/DOCX   │  │
-│  │ 55 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
+│  │ 56 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
 │  │  ↕ JSON           │  │ Keywords     │  │ python-docx│  │
 │  │ dashboard.html    │  │              │  │            │  │
 │  │ (Browser SPA)     │  │              │  │            │  │
@@ -354,21 +354,24 @@ python test_demo.py
 pytest tests/ -v
 
 # Einzelne Testdateien:
-pytest tests/test_database.py -v    # 33 Tests
-pytest tests/test_scoring.py -v     # 24 Tests
-pytest tests/test_export.py -v      # 8 Tests
-pytest tests/test_v010.py -v        # 43 Tests
-pytest tests/test_dashboard.py -v   # 40 Tests
-pytest tests/test_v013.py -v        # 14 Tests
-pytest tests/test_mcp_registry.py -v # 3 Tests
-pytest tests/test_scrapers.py -v    # 3 Tests
+pytest tests/test_database.py -v          # 33 Tests
+pytest tests/test_scoring.py -v           # 24 Tests
+pytest tests/test_export.py -v            #  8 Tests
+pytest tests/test_v010.py -v              # 43 Tests
+pytest tests/test_dashboard.py -v         # 44 Tests
+pytest tests/test_v013.py -v              # 14 Tests
+pytest tests/test_mcp_registry.py -v      #  3 Tests
+pytest tests/test_scrapers.py -v          #  3 Tests
+pytest tests/test_profile_service.py -v   #  5 Tests
+pytest tests/test_search_service.py -v    #  5 Tests
+pytest tests/test_workspace_service.py -v #  5 Tests
 ```
 
 Ergebnis: **187 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.11.1
+## 7. Fazit v0.14.0
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
