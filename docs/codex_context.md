@@ -59,7 +59,7 @@ Default aus dem Code:
 
 ## Teststand
 
-Im Repo liegen aktuell 187 Tests:
+Im Repo liegen aktuell 190 Tests:
 
 - `tests/test_database.py`
 - `tests/test_scoring.py`

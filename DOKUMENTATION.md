@@ -369,9 +369,10 @@ pytest tests/test_scrapers.py -v          #  3 Tests
 pytest tests/test_profile_service.py -v   #  5 Tests
 pytest tests/test_search_service.py -v    #  5 Tests
 pytest tests/test_workspace_service.py -v #  5 Tests
+pytest tests/test_dashboard_browser.py -v #  3 Tests
 ```
 
-Ergebnis: **187 Tests, alle gruen**
+Ergebnis: **190 Tests, alle gruen**
 
 ---
 
@@ -392,7 +393,7 @@ Ergebnis: **187 Tests, alle gruen**
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 187 Tests im aktuellen Repo-Stand
+- ✓ 190 Tests im aktuellen Repo-Stand
 - ✓ Cross-Platform (Windows + Linux)
 
 ### Moegliche zukuenftige Erweiterungen:

@@ -12,7 +12,7 @@ unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstrac
 **Sprache:** Deutsch
 **Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, Playwright
 **Eigentümer:** Markus (kein Programmierer, nutzt PBP über Claude Desktop)
-**Tests:** 187 Tests, alle gruen (aktueller Repo-Stand)
+**Tests:** 190 Tests, alle gruen (aktueller Repo-Stand)
 
 ## Team & KI-Rollen
 
@@ -75,6 +75,7 @@ In v0.12.0 wurde `server.py` von ~3200 Zeilen auf ~140 Zeilen reduziert:
 | v0.12.0 | Claude Code | Modularisierung (server.py aufgeteilt, 37 Dashboard-Tests) |
 | v0.13.0 | Claude Code | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | v0.14.0 | Codex + Claude Code | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
+| nach v0.14.0 | Codex | Dashboard-Browser-Smoke-Tests, 190 Tests im Repo-Stand |
 
 ## Deployment
 
@@ -94,10 +95,11 @@ In v0.12.0 wurde `server.py` von ~3200 Zeilen auf ~140 Zeilen reduziert:
 # Windows: Doppelklick
 INSTALLIEREN.bat
 
-# Manuell
-pip install -e ".[dev]"
+# Fuer den vollen Dev-/Test-Stand
+pip install -e ".[all,dev]"
+playwright install chromium
 
-# Tests (187 Tests)
+# Tests (190 Tests)
 python -m pytest tests/ -v
 
 # Dashboard
