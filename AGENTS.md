@@ -12,7 +12,7 @@ unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstrac
 **Sprache:** Deutsch
 **Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, Playwright
 **Eigentümer:** Markus (kein Programmierer, nutzt PBP über Claude Desktop)
-**Tests:** 159 Tests, alle grün
+**Tests:** 187 Tests, alle gruen (aktueller Repo-Stand)
 
 ## Team & KI-Rollen
 
@@ -31,20 +31,21 @@ Claude Desktop (Windows)
 server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │
     ├── tools/              ◄── 44 MCP-Tools in 7 Modulen
-    │   ├── profil.py       — Profilverwaltung, Positionen, Skills, Ausbildung
-    │   ├── dokumente.py    — Dokumenten-Upload, Extraktion, Analyse
-    │   ├── jobs.py         — Stellensuche, Bewertung, Suchkriterien
-    │   ├── bewerbungen.py  — Bewerbungstracking, Status, Timeline
-    │   ├── analyse.py      — Fit-Analyse, Skill-Gap, Statistiken, Trends
+    │   ├── profil.py       — Profilverwaltung, Multi-Profil, Erfassungsfortschritt
+    │   ├── dokumente.py    — Dokumenten-Analyse, Extraktion, Profil-Im/Export
+    │   ├── jobs.py         — Jobsuche, Stellenverwaltung, Fit-Analyse
+    │   ├── bewerbungen.py  — Bewerbungstracking, Status, Statistiken
+    │   ├── analyse.py      — Gehalt, Trends, Skill-Gap, Follow-ups
     │   ├── export_tools.py — Lebenslauf/Anschreiben als PDF/DOCX
-    │   └── suche.py        — Jobsuche starten/Status prüfen
+    │   └── suche.py        — Suchkriterien und Blacklist
     │
     ├── prompts.py          ◄── 12 MCP-Prompts
     ├── resources.py        ◄── 6 MCP-Resources
     │
-    ├── database.py         ◄── 15 Tabellen, WAL, Schema v8, Profil-Isolation
+    ├── services/          ◄── gemeinsamer Service-Layer (profile/search/workspace)
+    ├── database.py         ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
     │
-    ├── dashboard.py        ◄── FastAPI :8200, 47+ API-Endpoints
+    ├── dashboard.py        ◄── FastAPI :8200, 55 API-Endpoints + Dashboard-Root
     │   └── templates/dashboard.html (SPA, Vanilla JS, 5 Tabs)
     │
     ├── export.py           ◄── Lebenslauf + Anschreiben (PDF/DOCX)
@@ -79,7 +80,7 @@ In v0.12.0 wurde `server.py` von ~3200 Zeilen auf ~140 Zeilen reduziert:
 ### Lokal (Windows — Hauptnutzung)
 - Installiert via `INSTALLIEREN.bat` (Zero-Knowledge Installer)
 - Läuft als MCP-Server in Claude Desktop
-- SQLite-Datenbank lokal unter `~/.pbp/`
+- SQLite-Datenbank lokal unter `%LOCALAPPDATA%/BewerbungsAssistent\pbp.db`
 
 ### Server (ELWOSA — sekundär)
 - Server-Pfad: `/home/chatgpt/pbp/bewerbungs-assistent/`
@@ -95,7 +96,7 @@ INSTALLIEREN.bat
 # Manuell
 pip install -e ".[dev]"
 
-# Tests (159 Tests)
+# Tests (187 Tests)
 python -m pytest tests/ -v
 
 # Dashboard

@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-08 | v0.13.0
+## Zustandsbericht | 2026-03-09 | v0.13.0
 
 ---
 
@@ -11,11 +11,11 @@
 | **Version** | 0.13.0 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
-| **Datenbank** | SQLite (15 Tabellen, WAL, CASCADE, Schema v8, Profil-Isolation) |
+| **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 159 Tests (Database, Scoring, Export, v0.10.x, Dashboard, v0.13.0) — alle gruen |
+| **Tests** | 187 Tests (Database, Scoring, Export, v0.10.x, Dashboard, MCP, Scraper, Services) — alle gruen |
 
 ---
 
@@ -26,12 +26,19 @@ Claude Desktop (Windows)
     |
     | stdio (MCP Protocol)
     v
-server.py (FastMCP)  <-- 44 Tools, 6 Resources, 12 Prompts
+server.py (FastMCP, Composition Root)  <-- 44 Tools, 6 Resources, 12 Prompts
     |
-    v
-database.py (SQLite)  <-- 15 Tabellen, WAL Mode, Schema v8, Profil-Isolation
+    +---> tools/ (7 Module)
+    |         +-- profil.py, dokumente.py, jobs.py, bewerbungen.py
+    |         +-- analyse.py, export_tools.py, suche.py
     |
-    +---> dashboard.py (FastAPI :8200)  <-- ~47 API Endpoints
+    +---> prompts.py / resources.py
+    |
+    +---> services/  <-- gemeinsame Profil-, Such- und Workspace-Logik
+    |
+    +---> database.py (SQLite)  <-- 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    |
+    +---> dashboard.py (FastAPI :8200)  <-- 55 API-Endpoints + Dashboard-Root
     |         |
     |         v
     |     dashboard.html (SPA)  <-- 5 Tabs, Vanilla JS
@@ -113,7 +120,7 @@ interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
 
 ---
 
-## 4. Datenbank-Schema (v8, 15 Tabellen)
+## 4. Datenbank-Schema (v8, 15 Kern-Tabellen + user_preferences)
 
 | Tabelle | Zweck | Seit |
 |---------|-------|------|
@@ -149,7 +156,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | prompts.py | ~765 | 12 MCP Prompts |
 | resources.py | ~45 | 6 MCP Resources |
 | database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
-| dashboard.py | 1.030 | FastAPI Web-Dashboard (~47 Endpoints) |
+| dashboard.py | 1.237 | FastAPI Web-Dashboard (55 API-Endpoints + Dashboard-Root) |
 | export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
 | job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
 | job_scraper/linkedin.py | ~290 | LinkedIn (Playwright) |
@@ -164,7 +171,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | logging_config.py | ~50 | Zentrales Logging |
 | __init__.py / __main__.py | ~15 | Entry Points |
 
-### Tests (4 Dateien, 1.428 Zeilen)
+### Tests (11 Testdateien + conftest, 1.900+ Zeilen)
 
 | Datei | Tests | Zweck |
 |-------|-------|-------|
@@ -173,8 +180,14 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | test_scoring.py | 24 | Score, Fit, Remote, Hash, Keywords |
 | test_export.py | 8 | CV + Anschreiben in PDF + DOCX |
 | test_v010.py | 43 | Schema v8, Salary, UserPrefs, Profil-Isolation |
-| test_dashboard.py | 37 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil) |
-| **Gesamt** | **145** | **Alle gruen** |
+| test_dashboard.py | 44 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil, Quellen, Suchstatus, Workspace Summary) |
+| test_v013.py | 14 | v0.13.0 Fixes (FK-Bugfixes, Ordner-Browser, Auto-Analyse) |
+| test_mcp_registry.py | 3 | MCP-Registry, Public Interface, modulare Smoke-Tests |
+| test_scrapers.py | 3 | Fixture-basierte Parser-Tests fuer Hays, freelance.de und Freelancermap |
+| test_profile_service.py | 5 | Service-Layer fuer Profilstatus, Praeferenzen und Vollstaendigkeit |
+| test_search_service.py | 5 | Suchstatus, Quellenzaehlung und Source-Listen |
+| test_workspace_service.py | 5 | Workspace-Guidance, Navigation-Badges und Priorisierung |
+| **Gesamt** | **187** | **Alle gruen** |
 
 ---
 
@@ -187,7 +200,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 - 9-Quellen Job-Suche mit Scoring und Deduplizierung
 - Gehaltsextraktion (7 Regex-Patterns + Schaetzungstabellen)
 - Vollstaendige Schema-Migrationen (v1 bis v8, abwaertskompatibel)
-- 108 automatische Tests
+- 187 automatische Tests
 - Zero-Knowledge Windows-Installer
 - Onboarding-Wizard und Bewerbungs-Wizard
 - Factory Reset fuer saubere Neuinstallation
@@ -195,7 +208,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 ### Bekannte Einschraenkungen
 - ~~server.py ist monolithisch~~ — modularisiert in v0.12.0 (tools/, resources.py, prompts.py)
 - ~~Keine Tests fuer Dashboard-API~~ — 37 Dashboard-Tests + 14 v0.13.0-Tests
-- Keine Tests fuer MCP-Tools oder Scraper
+- Nur erste MCP-Smoke-Tests und erste Scraper-Fixtures, noch keine breite Verhaltenstiefe
 - Kein Multi-User-System (lokale SQLite-DB)
 - Scraper abhaengig von Portal-Struktur (kann brechen)
 

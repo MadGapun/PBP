@@ -1,129 +1,149 @@
 # PBP Architektur
 
+Stand: 2026-03-09
+Referenz: Release-Linie v0.13.0 plus laufende Konsolidierung
+
 ## Systemueberblick
 
-PBP (Persoenliches Bewerbungs-Portal) ist ein MCP-Server fuer Claude Desktop,
-der den gesamten Bewerbungsprozess unterstuetzt — von der Profilerstellung bis
-zum Bewerbungs-Tracking.
+PBP (Persoenliches Bewerbungs-Portal) ist ein lokal-first MCP-Server fuer Claude Desktop.
+Er deckt den Bewerbungsprozess von der Profilerstellung ueber Jobsuche und Dokument-Analyse
+bis zum Bewerbungstracking ab.
 
-```
-Claude Desktop (Windows/Mac)
+```text
+Claude Desktop (Windows)
     |
     | stdio (MCP Protocol)
     v
-server.py (FastMCP)         <-- 44 Tools, 6 Resources, 12 Prompts
+server.py (FastMCP, 138 Zeilen)
     |
-    v
-database.py (SQLite)        <-- 15 Tabellen, WAL Mode, Schema v8
-    |
-    +-- dashboard.py (FastAPI, Port 8200)  <-- Web-Dashboard
-    +-- export.py                          <-- PDF/DOCX Export
-    +-- job_scraper/                       <-- 9 Jobportal-Scraper
+    +-- tools/              44 MCP-Tools in 7 Modulen
+    +-- prompts.py          12 MCP-Prompts
+    +-- resources.py        6 MCP-Resources
+    +-- services/          gemeinsamer Service-Layer
+    +-- database.py         SQLite, Schema v8
+    +-- dashboard.py        FastAPI :8200
+    +-- export.py           PDF/DOCX Export
+    +-- job_scraper/        9 Jobquellen
 ```
 
 ## Komponenten
 
-### server.py (3261 Zeilen)
-MCP-Server mit FastMCP-Framework. Definiert alle Tools, Resources und Prompts.
-Startet den Dashboard-Server in einem Background-Thread.
+### server.py
 
-**Tool-Kategorien (44 Tools):**
-- Profil-Management: Erstellung, Bearbeitung, Import/Export
-- Jobsuche: Multi-Quellen-Scraping, Favoriten, Bewertung
-- Bewerbungen: Tracking, Status-Updates, Timeline
-- Dokumente: Upload, Extraktion, Anschreiben-Generierung
-- Dashboard: Statistiken, Analyse-Tools
-- System: Factory-Reset, Daten-Bereinigung
+`src/bewerbungs_assistent/server.py` ist seit v0.12.0 nur noch Composition Root.
+Die Datei initialisiert Logging, Datenbank und FastMCP, registriert Tools, Prompts
+und Resources und startet optional das Dashboard in einem Hintergrund-Thread.
 
-**Resources (6 Stueck):**
-- Profile, Jobs, Bewerbungen, Dokumente, Statistiken, System-Status
+### tools/
 
-**Prompts (12 Stueck):**
-- Profil-Interview, Job-Analyse, Anschreiben, Bewerbungsstrategie, etc.
+Die 44 Tools sind fachlich getrennt:
 
-### database.py (1635 Zeilen)
-SQLite-Datenbankschicht mit WAL-Modus und Thread-Safety.
+- `profil.py` - Profilverwaltung, Multi-Profil, Erfassungsfortschritt
+- `dokumente.py` - Dokument-Analyse, Extraktion, Profil-Im/Export
+- `jobs.py` - Jobsuche, Stellenverwaltung, Fit-Analyse
+- `bewerbungen.py` - Bewerbungstracking, Status, Statistiken
+- `analyse.py` - Gehalt, Trends, Skill-Gap, Follow-ups
+- `export_tools.py` - Lebenslauf- und Anschreiben-Export
+- `suche.py` - Suchkriterien und Blacklist
 
-**15 Tabellen (Schema v8):**
-- `profiles` — Benutzerprofile mit Skills, Erfahrung
-- `profile_projects` — STAR-Methode Projekte
-- `profile_languages` — Sprachkenntnisse
-- `profile_certifications` — Zertifikate
-- `jobs` — Gefundene Stellenangebote
-- `job_scoring` — Bewertungs-Keywords (MUSS/PLUS/AUSSCHLUSS)
-- `applications` — Bewerbungs-Tracking
-- `application_events` — Timeline-Events
-- `documents` — Hochgeladene Dokumente (Lebenslaeufe, Zeugnisse)
-- `scraper_configs` — Scraper-Konfigurationen
-- `extraction_cache` — Cache fuer Dokument-Extraktionen
-- `favorites` — Favorisierte Stellen
-- Plus System- und Meta-Tabellen
+Diese Aufteilung ist der zentrale Strukturgewinn gegenueber dem alten monolithischen
+`server.py`.
 
-### dashboard.py (1029 Zeilen)
-FastAPI Web-Dashboard auf `localhost:8200`. Bietet visuelle Uebersicht
-ueber Profile, Jobs und Bewerbungen.
+### prompts.py und resources.py
 
-### export.py (365 Zeilen)
-PDF/DOCX-Export mit fpdf2 und python-docx. Erzeugt professionelle
-Lebenslaeufe und Anschreiben.
+- `prompts.py` kapselt die 12 MCP-Prompts.
+- `resources.py` kapselt die 6 MCP-Resources.
 
-### job_scraper/ (9 Scraper, 601 Zeilen __init__.py)
-Modularer Scraper fuer 9 Jobportale:
-- Bundesagentur fuer Arbeit
+Damit ist die oeffentliche MCP-Schnittstelle in drei klaren Schichten organisiert:
+Tools, Prompts und Resources.
+
+### database.py
+
+`src/bewerbungs_assistent/database.py` ist die persistente Basis des Systems.
+Aktuell existieren 15 Kern-Tabellen plus `user_preferences` als systemnahe Tabelle.
+
+Wichtige Eigenschaften:
+
+- Schema-Version `v8`
+- SQLite WAL Mode
+- `foreign_keys=ON`
+- automatische Migrationen von aelteren Stufen
+- Profil-Isolation ueber `profile_id`
+
+### services/
+
+`src/bewerbungs_assistent/services/` kapselt gemeinsam genutzte Domaenenlogik
+zwischen Dashboard und MCP-Tools. Aktuell liegen dort
+`profile_service.py`, `search_service.py` und `workspace_service.py`
+fuer Profilstatus, Suchstatus/Quellen und die uebergreifende Guidance.
+
+### dashboard.py
+
+`src/bewerbungs_assistent/dashboard.py` stellt das lokale Web-Dashboard bereit.
+Der aktuelle Stand umfasst 55 API-Endpoints plus die HTML-Startseite.
+
+Das Dashboard ist bewusst eng an dieselbe lokale Datenbank gekoppelt wie der MCP-Server.
+Es ist kein separates SPA-Build-System, sondern ein pragmatisches, leicht deploybares
+Frontend fuer den Endnutzer. Neu dazugekommen sind eine verdichtete
+`/api/workspace-summary`-Sicht fuer Navigation und Benutzerfuehrung sowie
+ein klarerer Workspace-Kopf im Dashboard.
+
+### export.py
+
+`src/bewerbungs_assistent/export.py` erzeugt Lebenslauf und Anschreiben als PDF oder DOCX.
+Die Export-Tools im MCP-Layer und die Dashboard-Endpunkte greifen auf dieses Modul zu.
+
+### job_scraper/
+
+`src/bewerbungs_assistent/job_scraper/` enthaelt den Dispatcher und 9 Quellen:
+
+- Bundesagentur
 - StepStone
-- Indeed
-- LinkedIn
-- XING
 - Hays
-- Monster
 - Freelancermap
 - Freelance.de
+- LinkedIn
+- Indeed
+- XING
+- Monster
 
----
+Die Quellen sind absichtlich heterogen umgesetzt: REST, HTML-Scraping oder Playwright,
+je nachdem was fuer die jeweilige Plattform robust genug ist.
 
 ## Datenfluss
 
+```text
+1. Nutzer interagiert in Claude Desktop oder im Dashboard
+2. MCP-Tools bzw. Dashboard-API rufen dieselbe Domaenenlogik auf
+3. database.py liest und schreibt den lokalen Zustand
+4. export.py und job_scraper/ ergaenzen Dokumente und Stellenmarktdaten
 ```
-1. Benutzer chattet mit Claude
-   |
-   v
-2. Claude ruft MCP-Tools auf (server.py)
-   |
-   v
-3. server.py fuehrt DB-Operationen aus (database.py)
-   |
-   v
-4. Ergebnis geht zurueck an Claude -> Benutzer
-
-Parallel:
-- Dashboard zeigt Daten auf localhost:8200
-- Scraper holen Jobs von 9 Portalen
-- Export erzeugt PDF/DOCX Dokumente
-```
-
-## Technische Details
-
-| Aspekt | Detail |
-|--------|--------|
-| Python | >= 3.11 |
-| MCP Framework | FastMCP >= 2.0 |
-| Datenbank | SQLite (WAL, check_same_thread=False) |
-| Web Framework | FastAPI + uvicorn |
-| PDF | fpdf2 |
-| DOCX | python-docx |
-| Scraping | Playwright + BeautifulSoup4 |
-| Tests | pytest (108 Tests) |
-| Package | pyproject.toml (hatchling) |
 
 ## Datenspeicherung
 
-SQLite-Datenbank liegt unter:
-- Windows: `%APPDATA%/BewerbungsAssistent/data.db`
-- Linux: `~/.local/share/BewerbungsAssistent/data.db`
+Die Datenablage folgt direkt dem Code in `database.py`:
 
-Profil-Isolation: Jedes Profil hat eine eigene `profile_id`,
-alle Daten sind daran gebunden.
+- Windows: `%LOCALAPPDATA%/BewerbungsAssistent/pbp.db`
+- Linux: `~/.bewerbungs-assistent/pbp.db`
+- alternativ explizit ueber `BA_DATA_DIR`
 
----
+Zusatzverzeichnisse im Datenordner:
 
-*Stand: 07.03.2026*
+- `dokumente/`
+- `export/`
+- `logs/`
+
+## Qualitaetsstand
+
+Der aktuelle Repo-Stand ist deutlich konsolidierter als in der fruehen Analyse:
+
+- modulare MCP-Struktur statt monolithischem `server.py`
+- 187 Tests im Repo
+- Dashboard-API-Tests vorhanden
+- Regressionstests fuer v0.13.0-Bugfixes vorhanden
+
+Offen bleiben vor allem:
+
+- MCP-Tool-Smoke-Tests weiter ausbauen
+- Scraper-Fixture-Tests auf weitere Quellen und Fallbacks ausweiten
+- Service-Layer nach Profil/Suche/Workspace auf Bewerbungen weiterziehen

@@ -9,30 +9,77 @@
   --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --border: #30363d;
   --text: #c9d1d9; --text2: #8b949e; --accent: #58a6ff; --green: #3fb950;
   --red: #f85149; --yellow: #d29922; --purple: #bc8cff; --orange: #f0883e;
+  --bg-soft: rgba(88, 166, 255, 0.08); --shadow: 0 18px 50px rgba(1, 4, 9, 0.32);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-       background: var(--bg); color: var(--text); min-height: 100vh; }
+       background:
+         radial-gradient(circle at top right, rgba(88, 166, 255, 0.12), transparent 24%),
+         radial-gradient(circle at top left, rgba(63, 185, 80, 0.08), transparent 22%),
+         linear-gradient(180deg, #0b1220 0%, var(--bg) 22%, var(--bg) 100%);
+       color: var(--text); min-height: 100vh; line-height: 1.45; }
+a { color: inherit; }
 
 /* Navigation */
-nav { background: var(--bg2); border-bottom: 1px solid var(--border);
-      padding: 0 24px; display: flex; align-items: center; height: 56px; }
-nav .logo { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-right: 32px; }
-nav .tabs { display: flex; gap: 4px; }
-nav .tab { padding: 8px 16px; border-radius: 6px 6px 0 0; cursor: pointer;
-           color: var(--text2); border: none; background: none; font-size: 0.9rem; }
-nav .tab:hover { color: var(--text); background: var(--bg3); }
-nav .tab.active { color: var(--text); background: var(--bg); border: 1px solid var(--border);
-                  border-bottom: 1px solid var(--bg); }
+.app-topbar { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(16px);
+      background: rgba(13, 17, 23, 0.9); border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+      padding: 14px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.brand-block { display: flex; flex-direction: column; gap: 2px; min-width: 210px; }
+.brand-title { font-size: 1.08rem; font-weight: 700; color: var(--text); letter-spacing: 0.01em; }
+.brand-subtitle { font-size: 0.78rem; color: var(--text2); }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 280px; }
+.tab { padding: 10px 14px; border-radius: 12px; cursor: pointer;
+           color: var(--text2); border: 1px solid transparent; background: transparent; font-size: 0.9rem;
+           display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 120px; position: relative; }
+.tab:hover { color: var(--text); background: rgba(33, 38, 45, 0.82); border-color: rgba(48, 54, 61, 0.85); }
+.tab.active { color: var(--text); background: linear-gradient(180deg, rgba(88, 166, 255, 0.18), rgba(22, 27, 34, 0.95));
+                  border-color: rgba(88, 166, 255, 0.55); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+.tab-title { font-weight: 600; }
+.tab-meta { font-size: 0.75rem; color: var(--text2); text-align: left; }
+.tab-badge { position: absolute; top: 8px; right: 8px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: rgba(88, 166, 255, 0.18); color: var(--accent); border: 1px solid rgba(88, 166, 255, 0.32);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; }
+.profile-switcher { margin-left:auto; display:flex; align-items:center; gap:8px; padding: 6px 8px;
+  border-radius: 12px; border: 1px solid rgba(48, 54, 61, 0.9); background: rgba(22, 27, 34, 0.9); }
+
+/* Workspace strip */
+.workspace-strip { max-width: 1400px; margin: 18px auto 0; padding: 0 24px; display: none; }
+.workspace-strip.active { display: block; }
+.workspace-shell { border: 1px solid rgba(48, 54, 61, 0.88); border-radius: 18px; background:
+  linear-gradient(135deg, rgba(88, 166, 255, 0.12), rgba(13, 17, 23, 0.94) 36%);
+  box-shadow: var(--shadow); padding: 18px 20px; }
+.workspace-grid { display: grid; grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(130px, 1fr)); gap: 12px; }
+.workspace-card { padding: 14px 16px; border-radius: 14px; background: rgba(13, 17, 23, 0.76); border: 1px solid rgba(48, 54, 61, 0.9); }
+.workspace-card.lead { display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; }
+.workspace-label { font-size: 0.76rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
+.workspace-headline { font-size: 1.05rem; font-weight: 700; margin-top: 6px; }
+.workspace-copy { color: var(--text2); font-size: 0.88rem; margin-top: 6px; }
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.workspace-value { font-size: 1.6rem; font-weight: 700; margin-top: 8px; }
+.workspace-note { color: var(--text2); font-size: 0.82rem; margin-top: 4px; }
+.workspace-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 
 /* Main content */
 main { max-width: 1400px; margin: 0 auto; padding: 24px; }
 .page { display: none; }
 .page.active { display: block; }
 
+/* Page headers */
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.page-header-copy { max-width: 720px; }
+.page-header h2 { font-size: 1.75rem; margin-bottom: 6px; }
+.page-header p { color: var(--text2); font-size: 0.96rem; }
+.page-header-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.page-summary-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px; }
+.page-summary-card { padding:14px 16px; border-radius:14px; border:1px solid rgba(48, 54, 61, 0.92); background: rgba(22, 27, 34, 0.9); }
+.page-summary-card strong { display:block; font-size:1.2rem; margin-top:6px; }
+.quick-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.subtle-panel { background: rgba(22, 27, 34, 0.82); border: 1px solid rgba(48, 54, 61, 0.88); border-radius: 14px; padding: 16px; }
+.stack { display:grid; gap:16px; }
+
 /* Cards */
 .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
-        padding: 20px; margin-bottom: 16px; }
+        padding: 20px; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(1, 4, 9, 0.18); }
 .card h3 { color: var(--accent); margin-bottom: 12px; font-size: 1.1rem; }
 
 /* Grid */
@@ -120,6 +167,9 @@ label { display: block; color: var(--text2); font-size: 0.85rem; margin-bottom: 
 .empty { text-align: center; padding: 40px; color: var(--text2); }
 .empty .icon { font-size: 3rem; margin-bottom: 12px; }
 
+/* Section anchors */
+.section-anchor { scroll-margin-top: 110px; }
+
 /* Toast notifications */
 .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
 .toast { padding: 12px 20px; border-radius: 8px; font-size: 0.9rem; max-width: 400px;
@@ -183,21 +233,63 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 /* App wizard steps (v0.10.0) */
 .app-wizard-step { counter-increment: step; }
 .app-wizard-step::before { content: counter(step) ". "; color: var(--accent); font-weight: 700; }
+
+@media (max-width: 960px) {
+  .app-topbar { padding: 14px 16px; }
+  .tabs { order: 3; width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+  .tab { min-width: 132px; flex-shrink: 0; }
+  .workspace-strip { padding: 0 16px; }
+  main { padding: 18px 16px 24px; }
+  .workspace-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .workspace-grid { grid-template-columns: 1fr; }
+  .page-header h2 { font-size: 1.42rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .search-bar, .filter-bar, .page-header-actions, .quick-links { flex-direction: column; align-items: stretch; }
+  .btn { justify-content: center; }
+}
 </style>
 </head>
 <body>
 
-<nav>
-  <div class="logo">Bewerbungs-Assistent</div>
-  <div class="tabs">
-    <button class="tab active" onclick="showPage('dashboard')" title="Uebersicht: Statistiken, naechste Schritte, letzte Aktivitaeten">Dashboard</button>
-    <button class="tab" onclick="showPage('profil')" title="Dein Bewerberprofil: Persoenliche Daten, Erfahrung, Skills, Dokumente">Profil</button>
-    <button class="tab" onclick="showPage('stellen')" title="Gefundene Stellenangebote mit Fit-Score und Filteroptionen">Stellen</button>
-    <button class="tab" onclick="showPage('bewerbungen')" title="Bewerbungs-Tracking: Status, Timeline, CV-Export">Bewerbungen</button>
-    <button class="tab" onclick="showPage('einstellungen')" title="Job-Quellen, Suchkriterien, Blacklist, Score-Gewichtung">Einstellungen</button>
+<nav class="app-topbar">
+  <div class="brand-block">
+    <div class="brand-title">Persoenliches Bewerbungs-Portal</div>
+    <div class="brand-subtitle">Lokaler Bewerbungs-Assistent mit Claude Desktop, Dashboard und Bewerbungs-Tracking</div>
   </div>
-  <div id="profile-switcher" style="margin-left:auto; display:flex; align-items:center; gap:8px;"></div>
+  <div class="tabs">
+    <button class="tab active" data-page="dashboard" onclick="showPage('dashboard')" title="Uebersicht: Statistiken, naechste Schritte, letzte Aktivitaeten">
+      <span class="tab-title">Dashboard</span>
+      <span class="tab-meta" id="tab-meta-dashboard">Status und naechste Schritte</span>
+      <span class="tab-badge" id="tab-badge-dashboard" style="display:none;"></span>
+    </button>
+    <button class="tab" data-page="profil" onclick="showPage('profil')" title="Dein Bewerberprofil: Persoenliche Daten, Erfahrung, Skills, Dokumente">
+      <span class="tab-title">Profil</span>
+      <span class="tab-meta" id="tab-meta-profil">Lebenslauf-Basis und Vollstaendigkeit</span>
+      <span class="tab-badge" id="tab-badge-profil" style="display:none;"></span>
+    </button>
+    <button class="tab" data-page="stellen" onclick="showPage('stellen')" title="Gefundene Stellenangebote mit Fit-Score und Filteroptionen">
+      <span class="tab-title">Stellen</span>
+      <span class="tab-meta" id="tab-meta-stellen">Treffer, Filter und Fit</span>
+      <span class="tab-badge" id="tab-badge-stellen" style="display:none;"></span>
+    </button>
+    <button class="tab" data-page="bewerbungen" onclick="showPage('bewerbungen')" title="Bewerbungs-Tracking: Status, Timeline, CV-Export">
+      <span class="tab-title">Bewerbungen</span>
+      <span class="tab-meta" id="tab-meta-bewerbungen">Pipeline, Follow-ups und Status</span>
+      <span class="tab-badge" id="tab-badge-bewerbungen" style="display:none;"></span>
+    </button>
+    <button class="tab" data-page="einstellungen" onclick="showPage('einstellungen')" title="Job-Quellen, Suchkriterien, Blacklist, Score-Gewichtung">
+      <span class="tab-title">Einstellungen</span>
+      <span class="tab-meta" id="tab-meta-einstellungen">Quellen, Suche und Verhalten</span>
+      <span class="tab-badge" id="tab-badge-einstellungen" style="display:none;"></span>
+    </button>
+  </div>
+  <div id="profile-switcher" class="profile-switcher"></div>
 </nav>
+
+<div id="workspace-strip" class="workspace-strip"></div>
 
 <!-- Source Banner (v0.10.0) -->
 <div id="source-banner" class="banner banner-warning" style="display:none;">
@@ -295,7 +387,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
               <strong>Bestehende Bewerbungen importieren</strong>
               <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
                 Hast du einen ganzen Ordner mit Bewerbungsunterlagen?
-                <button class="btn btn-sm" onclick="showPage('profil'); setTimeout(()=>document.getElementById('import-section')?.scrollIntoView({behavior:'smooth'}),100)" style="margin-left:8px;">Ordner importieren</button>
+                <button class="btn btn-sm" onclick="showPage('profil'); setTimeout(()=>document.getElementById('section-documents')?.scrollIntoView({behavior:'smooth'}),100)" style="margin-left:8px;">Ordner importieren</button>
               </p>
             </div>
           </div>
@@ -303,8 +395,18 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       </div>
     </div>
     <div id="dashboard-content" style="display:none;">
-      <h2 style="margin-bottom:20px;">Dashboard</h2>
+      <div class="page-header">
+        <div class="page-header-copy">
+          <h2>Dashboard</h2>
+          <p>Hier siehst du auf einen Blick, wie weit dein Setup ist, was als naechstes Sinn ergibt und wo gerade Handlungsbedarf besteht.</p>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn" onclick="loadDashboard()">Aktualisieren</button>
+          <button class="btn btn-primary" onclick="copyText('/jobsuche_workflow')">Jobsuche mit Claude starten</button>
+        </div>
+      </div>
       <div class="grid grid-4" id="stats-grid"></div>
+      <div id="dashboard-action-center" style="margin-top:16px;"></div>
       <div id="next-steps" style="margin-top:16px;"></div>
       <div id="followup-alerts" style="margin-top:16px;"></div>
       <div class="grid grid-2" style="margin-top:16px;">
@@ -399,9 +501,12 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 
   <!-- Profil -->
   <div id="page-profil" class="page">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h2>Profil</h2>
-      <div style="display:flex; gap:8px;">
+    <div class="page-header">
+      <div class="page-header-copy">
+        <h2>Profil</h2>
+        <p>Pflege hier die Grundlage fuer Lebenslauf, Anschreiben, Matching und Interview-Vorbereitung. Gute Ergebnisse starten mit einem klaren Profil.</p>
+      </div>
+      <div class="page-header-actions">
         <button class="btn" onclick="exportProfile()" title="Profil als JSON-Backup herunterladen">Backup</button>
         <button class="btn" onclick="showImportProfile()" title="Profil aus Backup importieren">Import</button>
         <button class="btn" onclick="showDocUpload()">Dokument hochladen</button>
@@ -413,12 +518,16 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 
   <!-- Stellen -->
   <div id="page-stellen" class="page">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h2>Stellenangebote</h2>
-      <div style="display:flex; gap:8px;">
+    <div class="page-header">
+      <div class="page-header-copy">
+        <h2>Stellenangebote</h2>
+        <p>Pruefe neue Treffer, filtere nach Quellen und Gehalt und starte direkt aus einer Stellenkarte den Bewerbungs-Wizard.</p>
+      </div>
+      <div class="page-header-actions">
         <button class="btn" onclick="toggleDismissed()">Aussortierte anzeigen</button>
       </div>
     </div>
+    <div id="jobs-toolbar-summary"></div>
     <div class="filter-bar">
       <input type="text" id="job-search" placeholder="Suche..." oninput="filterJobs()" style="max-width:300px;">
       <select id="job-type-filter" onchange="filterJobs()">
@@ -446,10 +555,16 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 
   <!-- Bewerbungen -->
   <div id="page-bewerbungen" class="page">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h2>Bewerbungen</h2>
+    <div class="page-header">
+      <div class="page-header-copy">
+        <h2>Bewerbungen</h2>
+        <p>Hier steuerst du deine Pipeline, siehst offene Follow-ups und haeltst fest, was schon laeuft und was als naechstes passieren sollte.</p>
+      </div>
+      <div class="page-header-actions">
       <button class="btn btn-primary" onclick="showAppForm()">+ Neue Bewerbung</button>
+      </div>
     </div>
+    <div id="apps-summary"></div>
     <div class="filter-bar">
       <select id="app-status-filter" onchange="loadApplications()">
         <option value="">Alle Status</option>
@@ -511,7 +626,22 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 
   <!-- Einstellungen -->
   <div id="page-einstellungen" class="page">
-    <h2 style="margin-bottom:20px;">Einstellungen</h2>
+    <div class="page-header">
+      <div class="page-header-copy">
+        <h2>Einstellungen</h2>
+        <p>Aktiviere zuerst die passenden Quellen, justiere danach Suchkriterien und optimiere zum Schluss Bewertung und Anzeige nach deinem Arbeitsstil.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px; border-color:var(--accent);">
+      <h3>Empfohlene Reihenfolge</h3>
+      <div class="quick-links">
+        <span class="badge badge-blue">1. Quellen aktivieren</span>
+        <span class="badge badge-yellow">2. Suchkriterien festlegen</span>
+        <span class="badge badge-green">3. Bewertung pruefen</span>
+        <span class="badge badge-gray">4. Hinweise und Runtime-Log nur bei Bedarf</span>
+      </div>
+      <p style="color:var(--text2); font-size:0.88rem; margin-top:12px;">So vermeidest du, dass das Dashboard zwar konfiguriert wirkt, aber praktisch noch keine frische Jobsuche starten kann.</p>
+    </div>
     <div class="card" style="margin-bottom:16px;">
       <h3>Job-Quellen</h3>
       <p style="color:var(--text2); font-size:0.85rem; margin-bottom:12px;">
@@ -562,7 +692,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
         Letzte Eintraege aus dem Betriebslog (pbp.log). Hilfreich fuer Fehlersuche.
       </p>
       <button class="btn btn-sm" onclick="loadRuntimeLog()">Log laden</button>
-      <pre id="runtime-log" style="display:none; max-height:400px; overflow:auto; margin-top:12px; padding:12px; background:var(--bg1); border:1px solid var(--border); border-radius:6px; font-size:0.75rem; white-space:pre-wrap; color:var(--text2);"></pre>
+      <pre id="runtime-log" style="display:none; max-height:400px; overflow:auto; margin-top:12px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:0.75rem; white-space:pre-wrap; color:var(--text2);"></pre>
     </div>
   </div>
 </main>
@@ -578,19 +708,156 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 const API = '';  // Same origin
 
 // === State ===
-let state = { profile: null, jobs: [], dismissed: [], apps: [], stats: {} };
+let state = { profile: null, jobs: [], dismissed: [], apps: [], stats: {}, workspace: null };
+
+function getToneColor(tone) {
+  return tone === 'green' ? 'var(--green)'
+    : tone === 'yellow' ? 'var(--yellow)'
+    : tone === 'red' ? 'var(--red)'
+    : 'var(--accent)';
+}
+
+function setTabBadge(page, value) {
+  const el = document.getElementById(`tab-badge-${page}`);
+  if (!el) return;
+  if (value) {
+    el.style.display = 'inline-flex';
+    el.textContent = value;
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+}
+
+function updateNavigationMeta(summary) {
+  if (!summary || summary.error) return;
+
+  const profileMeta = summary.has_profile
+    ? `${summary.profile.completeness}% vollstaendig`
+    : 'Profil anlegen oder importieren';
+  const jobsMeta = summary.sources.active === 0
+    ? 'Quellen aktivieren'
+    : summary.jobs.active > 0
+      ? `${summary.jobs.active} aktive Treffer`
+      : 'Neue Suche starten';
+  const appsMeta = summary.applications.follow_ups_due > 0
+    ? `${summary.applications.follow_ups_due} Nachfassaktionen offen`
+    : summary.applications.total > 0
+      ? `${summary.applications.total} in der Pipeline`
+      : 'Noch keine Bewerbungen';
+  const settingsMeta = summary.sources.active === 0
+    ? 'Quellen fehlen noch'
+    : `${summary.sources.active}/${summary.sources.total} Quellen aktiv`;
+
+  const profileMetaEl = document.getElementById('tab-meta-profil');
+  const jobsMetaEl = document.getElementById('tab-meta-stellen');
+  const appsMetaEl = document.getElementById('tab-meta-bewerbungen');
+  const settingsMetaEl = document.getElementById('tab-meta-einstellungen');
+  const dashboardMetaEl = document.getElementById('tab-meta-dashboard');
+
+  if (dashboardMetaEl) dashboardMetaEl.textContent = summary.readiness.label;
+  if (profileMetaEl) profileMetaEl.textContent = profileMeta;
+  if (jobsMetaEl) jobsMetaEl.textContent = jobsMeta;
+  if (appsMetaEl) appsMetaEl.textContent = appsMeta;
+  if (settingsMetaEl) settingsMetaEl.textContent = settingsMeta;
+
+  setTabBadge('dashboard', summary.applications.follow_ups_due > 0 ? String(summary.applications.follow_ups_due) : null);
+  setTabBadge('profil', summary.navigation.profile_badge);
+  setTabBadge('stellen', summary.navigation.jobs_badge);
+  setTabBadge('bewerbungen', summary.navigation.applications_badge);
+  setTabBadge('einstellungen', summary.navigation.settings_badge);
+}
+
+function renderWorkspaceStrip(summary) {
+  const container = document.getElementById('workspace-strip');
+  if (!container) return;
+  if (!summary || summary.error) {
+    container.classList.remove('active');
+    container.innerHTML = '';
+    return;
+  }
+
+  container.classList.add('active');
+  const readiness = summary.readiness || {};
+  const toneColor = getToneColor(readiness.tone);
+  const actionButton = readiness.action_type === 'prompt'
+    ? `<button class="btn btn-primary" onclick="copyText('${readiness.action_target || ''}')">${readiness.action_label || 'Jetzt starten'}</button>`
+    : `<button class="btn btn-primary" onclick="showPage('${readiness.action_target || readiness.next_page || 'dashboard'}')">${readiness.action_label || 'Oeffnen'}</button>`;
+  const missing = (summary.profile.missing_areas || []).slice(0, 4);
+  const searchText = summary.search.status === 'nie'
+    ? 'Noch keine Suche gelaufen'
+    : summary.search.days_ago == null
+      ? 'Status noch nicht einordenbar'
+      : `Vor ${summary.search.days_ago} Tag${summary.search.days_ago === 1 ? '' : 'en'}`;
+  const searchBadge = summary.search.status === 'aktuell'
+    ? 'green'
+    : summary.search.status === 'veraltet'
+      ? 'yellow'
+      : summary.search.status === 'dringend'
+        ? 'red'
+        : 'gray';
+
+  container.innerHTML = `
+    <div class="workspace-shell">
+      <div class="workspace-grid">
+        <div class="workspace-card lead" style="border-color:${toneColor};">
+          <div>
+            <div class="workspace-label">Arbeitsstand</div>
+            <div class="workspace-headline" style="color:${toneColor};">${readiness.headline || 'PBP ist bereit.'}</div>
+            <div class="workspace-copy">${readiness.description || ''}</div>
+            ${missing.length ? `<div class="workspace-list">${missing.map(item => `<span class="badge badge-gray">${item}</span>`).join('')}</div>` : ''}
+          </div>
+          <div class="workspace-actions">
+            ${actionButton}
+            <button class="btn" onclick="showPage('${readiness.next_page || 'dashboard'}')">Passende Seite oeffnen</button>
+          </div>
+        </div>
+        <div class="workspace-card">
+          <div class="workspace-label">Aktives Profil</div>
+          <div class="workspace-value">${summary.profile_name || 'Noch keines'}</div>
+          <div class="workspace-note">${summary.profile.completeness}% Vollstaendigkeit</div>
+        </div>
+        <div class="workspace-card">
+          <div class="workspace-label">Jobquellen</div>
+          <div class="workspace-value">${summary.sources.active}/${summary.sources.total}</div>
+          <div class="workspace-note">${summary.sources.active > 0 ? 'bereit fuer neue Suche' : 'noch keine Quellen aktiv'}</div>
+        </div>
+        <div class="workspace-card">
+          <div class="workspace-label">Jobsuche</div>
+          <div class="workspace-value" style="font-size:1.2rem;"><span class="badge badge-${searchBadge}">${summary.search.status}</span></div>
+          <div class="workspace-note">${searchText}</div>
+        </div>
+        <div class="workspace-card">
+          <div class="workspace-label">Pipeline</div>
+          <div class="workspace-value">${summary.applications.total}</div>
+          <div class="workspace-note">${summary.applications.follow_ups_due > 0 ? `${summary.applications.follow_ups_due} Nachfassaktionen faellig` : 'keine ueberfaelligen Follow-ups'}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function refreshWorkspaceChrome() {
+  const summary = await api('/api/workspace-summary');
+  if (!summary.error) {
+    state.workspace = summary;
+    renderWorkspaceStrip(summary);
+    updateNavigationMeta(summary);
+  }
+  return summary;
+}
 
 // === Navigation ===
-function showPage(page) {
+function showPage(page, syncHash = true) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  document.querySelector(`.tab[onclick="showPage('${page}')"]`).classList.add('active');
+  document.querySelector(`.tab[data-page="${page}"]`)?.classList.add('active');
+  if (syncHash) history.replaceState(null, '', '#' + page);
   if (page === 'dashboard') loadDashboard();
-  else if (page === 'profil') loadProfile();
-  else if (page === 'stellen') loadJobs();
-  else if (page === 'bewerbungen') loadApplications();
-  else if (page === 'einstellungen') loadSettings();
+  else if (page === 'profil') { refreshWorkspaceChrome(); loadProfile(); }
+  else if (page === 'stellen') { refreshWorkspaceChrome(); loadJobs(); }
+  else if (page === 'bewerbungen') { refreshWorkspaceChrome(); loadApplications(); }
+  else if (page === 'einstellungen') { refreshWorkspaceChrome(); loadSettings(); }
 }
 
 // === Toast Notifications ===
@@ -692,10 +959,90 @@ function showSkeleton(containerId) {
   if (el) el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:20px;color:var(--text2);"><span class="spinner"></span> Wird geladen...</div>';
 }
 
+function renderDashboardActionCenter(completeness, sourceSummary, searchStatus) {
+  const container = document.getElementById('dashboard-action-center');
+  if (!container) return;
+
+  const activeSources = sourceSummary?.active || 0;
+  const totalSources = sourceSummary?.total || 0;
+  const searchInfo = searchStatus && !searchStatus.error ? searchStatus : { status: 'unbekannt', days_ago: null, last_search: null };
+  const searchBadge = searchInfo.status === 'aktuell' ? 'green'
+    : searchInfo.status === 'veraltet' ? 'yellow'
+    : searchInfo.status === 'dringend' ? 'red'
+    : 'gray';
+  const searchText = searchInfo.status === 'nie'
+    ? 'Noch keine Suche gestartet'
+    : searchInfo.days_ago == null
+      ? 'Letzte Suche konnte nicht eingeordnet werden'
+      : `Letzte Suche vor ${searchInfo.days_ago} Tag${searchInfo.days_ago === 1 ? '' : 'en'}`;
+
+  let primaryAction = {
+    label: 'Stellen pruefen',
+    onclick: "showPage('stellen')",
+    hint: 'Du hast bereits ein solides Setup. Pruefe jetzt passende Stellen oder aktualisiere Bewerbungsstaende.',
+  };
+
+  if (completeness < 60) {
+    primaryAction = {
+      label: 'Profil vervollstaendigen',
+      onclick: "showPage('profil')",
+      hint: 'Je besser dein Profil, desto besser werden Lebenslauf, Anschreiben und Jobsuche.',
+    };
+  } else if (activeSources === 0) {
+    primaryAction = {
+      label: 'Quellen aktivieren',
+      onclick: "showPage('einstellungen')",
+      hint: 'Ohne aktive Quellen kann keine Jobsuche gestartet werden.',
+    };
+  } else if (searchInfo.status === 'nie' || searchInfo.status === 'veraltet' || searchInfo.status === 'dringend') {
+    primaryAction = {
+      label: '/jobsuche_workflow kopieren',
+      onclick: "copyText('/jobsuche_workflow')",
+      hint: 'Deine Suche ist noch nicht gestartet oder nicht mehr frisch. Mit dem Workflow startest du direkt in Claude Desktop.',
+    };
+  }
+
+  container.innerHTML = `
+    <div class="card" style="border-color:var(--accent);">
+      <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+        <div style="flex:2; min-width:260px;">
+          <h3 style="margin-bottom:8px;">Schnellzugriff</h3>
+          <p style="color:var(--text2); font-size:0.9rem; margin-bottom:12px;">Das ist gerade der sinnvollste naechste Schritt fuer dein Setup.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-primary" onclick="${primaryAction.onclick}">${primaryAction.label}</button>
+            <button class="btn" onclick="showPage('dashboard')">Dashboard aktualisieren</button>
+          </div>
+          <p style="color:var(--text2); font-size:0.85rem; margin-top:10px;">${primaryAction.hint}</p>
+        </div>
+        <div style="flex:3; min-width:280px; display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));">
+          <div style="padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px;">
+            <div style="font-size:0.8rem; color:var(--text2); margin-bottom:4px;">Profil</div>
+            <div style="font-size:1.2rem; font-weight:700; color:${completeness >= 80 ? 'var(--green)' : completeness >= 50 ? 'var(--yellow)' : 'var(--red)'};">${completeness}%</div>
+            <div style="font-size:0.8rem; color:var(--text2); margin-top:4px;">Vollstaendigkeit</div>
+          </div>
+          <div style="padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px;">
+            <div style="font-size:0.8rem; color:var(--text2); margin-bottom:4px;">Jobquellen</div>
+            <div style="font-size:1.2rem; font-weight:700;">${activeSources}/${totalSources || 0}</div>
+            <div style="font-size:0.8rem; color:var(--text2); margin-top:4px;">aktiv</div>
+          </div>
+          <div style="padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px;">
+            <div style="font-size:0.8rem; color:var(--text2); margin-bottom:4px;">Jobsuche</div>
+            <div><span class="badge badge-${searchBadge}">${searchInfo.status}</span></div>
+            <div style="font-size:0.8rem; color:var(--text2); margin-top:8px;">${searchText}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // === Dashboard ===
 async function loadDashboard() {
   showSkeleton('stats-grid');
-  const status = await api('/api/status');
+  document.getElementById('dashboard-action-center').innerHTML = '';
+  const [status, workspace] = await Promise.all([
+    api('/api/status'),
+    refreshWorkspaceChrome(),
+  ]);
   if (!status.has_profile) {
     document.getElementById('welcome-screen').style.display = '';
     document.getElementById('dashboard-content').style.display = 'none';
@@ -705,7 +1052,7 @@ async function loadDashboard() {
   document.getElementById('dashboard-content').style.display = '';
 
   const s = status.statistics;
-  const comp = await api('/api/profile/completeness');
+  const comp = workspace?.profile ? { completeness: workspace.profile.completeness } : await api('/api/profile/completeness');
   const compColor = comp.completeness >= 80 ? 'var(--green)' : comp.completeness >= 50 ? 'var(--yellow)' : 'var(--red)';
   document.getElementById('stats-grid').innerHTML = `
     <div class="card stat"><div class="number" style="color:${compColor}">${comp.completeness}%</div><div class="label">Profil-Vollstaendigkeit</div></div>
@@ -713,6 +1060,7 @@ async function loadDashboard() {
     <div class="card stat"><div class="number">${s.total_applications || 0}</div><div class="label">Bewerbungen</div></div>
     <div class="card stat"><div class="number">${s.interview_rate || 0}%</div><div class="label">Interview-Rate</div></div>
   `;
+  renderDashboardActionCenter(comp.completeness, workspace?.sources, workspace?.search);
 
   // Next steps (from API) — smart contextual cards
   try {
@@ -859,6 +1207,7 @@ async function loadDashboard() {
 // === Profile ===
 async function loadProfile() {
   showSkeleton('profile-content');
+  await refreshWorkspaceChrome();
   try {
     const profile = await api('/api/profile');
     if (profile.error) {
@@ -894,21 +1243,64 @@ async function renderProfile(p) {
   const compColor = comp.completeness >= 80 ? 'var(--green)' : comp.completeness >= 50 ? 'var(--yellow)' : 'var(--red)';
   const checkLabels = {name:'Name',kontakt:'Kontakt',adresse:'Adresse',zusammenfassung:'Summary',
     berufserfahrung:'Berufserfahrung',projekte:'Projekte',ausbildung:'Ausbildung',skills:'Skills',praeferenzen:'Praeferenzen'};
-  let html = `<div class="card" style="margin-bottom:16px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3>Profil-Vollstaendigkeit</h3>
-      <span style="font-size:1.2rem; font-weight:700; color:${compColor};">${comp.completeness}%</span>
+  const missingAreas = Object.entries(comp.checks || {})
+    .filter(([, ok]) => !ok)
+    .map(([key]) => checkLabels[key] || key);
+  let html = `<div class="page-summary-grid">
+    <div class="page-summary-card" style="border-color:${compColor};">
+      <div class="workspace-label">Profil-Vollstaendigkeit</div>
+      <strong style="color:${compColor};">${comp.completeness}%</strong>
+      <div class="workspace-note">${missingAreas.length ? `${missingAreas.length} Bereiche fehlen noch` : 'Profil ist sehr gut vorbereitet'}</div>
     </div>
-    <div style="background:var(--bg3); border-radius:6px; height:10px; margin:8px 0;">
-      <div style="background:${compColor}; width:${comp.completeness}%; height:100%; border-radius:6px; transition:width 0.5s;"></div>
+    <div class="page-summary-card">
+      <div class="workspace-label">Berufserfahrung</div>
+      <strong>${(p.positions||[]).length}</strong>
+      <div class="workspace-note">${(p.positions||[]).length ? 'Positionen erfasst' : 'Noch keine Positionen'}</div>
     </div>
-    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
-      ${Object.entries(comp.checks || {}).map(([k, v]) =>
-        `<span class="badge badge-${v ? 'green' : 'red'}">${v ? '\u2713' : '\u2717'} ${checkLabels[k]||k}</span>`
-      ).join('')}
+    <div class="page-summary-card">
+      <div class="workspace-label">Kompetenzen</div>
+      <strong>${(p.skills||[]).length}</strong>
+      <div class="workspace-note">${(p.skills||[]).length ? 'Skills im Profil' : 'Noch keine Skills'}</div>
+    </div>
+    <div class="page-summary-card">
+      <div class="workspace-label">Dokumente</div>
+      <strong>${(p.documents||[]).length}</strong>
+      <div class="workspace-note">${(p.documents||[]).length ? 'Upload und Extraktion verfuegbar' : 'Noch keine Dokumente importiert'}</div>
     </div>
   </div>`;
-  html += `<div class="card"><h3>Persoenliche Daten</h3>
+  html += `<div class="grid grid-2" style="margin-bottom:16px;">
+    <div class="card" style="border-color:${compColor};">
+      <h3>Arbeitsstand</h3>
+      <p style="color:var(--text2); font-size:0.92rem;">${missingAreas.length
+        ? `Wenn du diese Bereiche schliesst, verbessert sich die Qualitaet von Lebenslauf, Matching und Anschreiben merklich.`
+        : 'Dein Profil ist gut vorbereitet. Jetzt lohnt sich vor allem eine frische Jobsuche oder gezielte Bewerbungsarbeit.'}</p>
+      <div style="background:var(--bg3); border-radius:6px; height:10px; margin:10px 0 12px;">
+        <div style="background:${compColor}; width:${comp.completeness}%; height:100%; border-radius:6px; transition:width 0.5s;"></div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        ${Object.entries(comp.checks || {}).map(([k, v]) =>
+          `<span class="badge badge-${v ? 'green' : 'red'}">${v ? '\u2713' : '\u2717'} ${checkLabels[k]||k}</span>`
+        ).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Schnellzugriffe</h3>
+      <p style="color:var(--text2); font-size:0.92rem;">Springe direkt zum richtigen Bereich oder lass Claude an einer Stelle weiterhelfen.</p>
+      <div class="quick-links">
+        <button class="btn btn-sm" onclick="document.getElementById('section-personal')?.scrollIntoView({behavior:'smooth'})">Persoenliche Daten</button>
+        <button class="btn btn-sm" onclick="document.getElementById('section-experience')?.scrollIntoView({behavior:'smooth'})">Berufserfahrung</button>
+        <button class="btn btn-sm" onclick="document.getElementById('section-skills')?.scrollIntoView({behavior:'smooth'})">Skills</button>
+        <button class="btn btn-sm" onclick="document.getElementById('section-documents')?.scrollIntoView({behavior:'smooth'})">Dokumente</button>
+        <button class="btn btn-sm btn-primary" onclick="copyText('/profil_ueberpruefen')">Claude: Profil pruefen</button>
+      </div>
+    </div>
+  </div>`;
+  html += `<div class="card section-anchor" id="section-personal"><h3>Persoenliche Daten</h3>
+    <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+      <p style="color:var(--text2); font-size:0.9rem; max-width:720px;">Hier liegen die Kernangaben, die in Lebenslauf, Anschreiben und Profilanalyse auftauchen.</p>
+      ${missingAreas.length ? `<span class="badge badge-yellow">Offen: ${missingAreas.slice(0, 2).join(', ')}${missingAreas.length > 2 ? ' ...' : ''}</span>` : '<span class="badge badge-green">Keine offensichtlichen Luecken</span>'}
+    </div>`;
+  html += `
     <div class="grid grid-2">
       <div><label>Name</label><strong>${p.name || '-'}</strong></div>
       <div><label>E-Mail</label>${p.email || '-'}</div>
@@ -922,7 +1314,7 @@ async function renderProfile(p) {
   </div>`;
 
   // Positions
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+  html += `<div id="section-experience" class="section-anchor" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
     <h3>Berufserfahrung (${(p.positions||[]).length})</h3>
     <button class="btn btn-sm btn-primary" onclick="showPositionForm()">+ Position</button>
   </div>`;
@@ -962,7 +1354,7 @@ async function renderProfile(p) {
   }
 
   // Education
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+  html += `<div id="section-education" class="section-anchor" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
     <h3>Ausbildung (${(p.education||[]).length})</h3>
     <button class="btn btn-sm btn-primary" onclick="showEducationForm()">+ Ausbildung</button>
   </div>`;
@@ -985,7 +1377,7 @@ async function renderProfile(p) {
   }
 
   // Skills
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+  html += `<div id="section-skills" class="section-anchor" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
     <h3>Kompetenzen (${(p.skills||[]).length})</h3>
     <button class="btn btn-sm btn-primary" onclick="showSkillForm()">+ Kompetenz</button>
   </div>`;
@@ -1007,7 +1399,7 @@ async function renderProfile(p) {
   }
 
   // Documents
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+  html += `<div id="section-documents" class="section-anchor" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
     <h3>Dokumente (${(p.documents||[]).length})</h3>
     <div style="display:flex; gap:8px;">
       <button class="btn btn-sm" onclick="showFolderImport()">Ordner importieren</button>
@@ -1030,6 +1422,15 @@ async function renderProfile(p) {
       </div>`;
     }
     html += '</div>';
+  } else {
+    html += `<div class="card empty">Noch keine Dokumente importiert.<br>
+      <span style="font-size:0.85rem;">Ein Lebenslauf-Upload oder Ordner-Import spart dir oft den schnellsten manuellen Einstieg.</span>
+      <div class="quick-links" style="justify-content:center; margin-top:12px;">
+        <button class="btn btn-sm btn-primary" onclick="showDocUpload()">Dokument hochladen</button>
+        <button class="btn btn-sm" onclick="showFolderImport()">Ordner importieren</button>
+        <button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Claude: Profil aus Dokumenten erweitern</button>
+      </div>
+    </div>`;
   }
 
   // Extraction history
@@ -1093,6 +1494,7 @@ async function renderProfile(p) {
 // === Jobs ===
 async function loadJobs() {
   showSkeleton('jobs-grid');
+  await refreshWorkspaceChrome();
   state.jobs = await api('/api/jobs?active=true');
   state.dismissed = await api('/api/jobs?active=false');
   renderJobs();
@@ -1103,9 +1505,34 @@ function renderJobs() {
   // Populate source filter
   const sources = [...new Set(state.jobs.map(j => j.source).filter(Boolean))];
   const sel = document.getElementById('job-source-filter');
-  if (sel.options.length <= 1) {
+  if (sel) {
+    const currentValue = sel.value;
+    sel.innerHTML = '<option value="">Alle Quellen</option>';
     sources.forEach(s => { const o = new Option(s, s); sel.add(o); });
+    if (sources.includes(currentValue)) sel.value = currentValue;
   }
+
+  const workspace = state.workspace || {};
+  const activeSources = workspace.sources?.active || 0;
+  const totalSources = workspace.sources?.total || 0;
+  document.getElementById('jobs-toolbar-summary').innerHTML = `
+    <div class="page-summary-grid">
+      <div class="page-summary-card">
+        <div class="workspace-label">Aktive Treffer</div>
+        <strong>${jobs.length}</strong>
+        <div class="workspace-note">${jobs.length === state.jobs.length ? 'ohne aktive Filter' : `von ${state.jobs.length} sichtbaren Stellen`}</div>
+      </div>
+      <div class="page-summary-card">
+        <div class="workspace-label">Quellen</div>
+        <strong>${activeSources}/${totalSources}</strong>
+        <div class="workspace-note">${activeSources > 0 ? 'Quelle(n) derzeit aktiv' : 'noch keine Quellen konfiguriert'}</div>
+      </div>
+      <div class="page-summary-card">
+        <div class="workspace-label">Aussortiert</div>
+        <strong>${state.dismissed.length}</strong>
+        <div class="workspace-note">Kann bei Bedarf wiederhergestellt werden</div>
+      </div>
+    </div>`;
 
   document.getElementById('jobs-grid').innerHTML = jobs.length
     ? jobs.map(j => jobCard(j)).join('')
@@ -1195,11 +1622,13 @@ async function dismissJob(hash) {
   const reason = prompt('Grund? (z.B. Zu weit entfernt, Falsches Fachgebiet)');
   if (reason === null) return;
   await api('/api/jobs/dismiss', { method: 'POST', body: JSON.stringify({ hash, reason }) });
+  await refreshWorkspaceChrome();
   loadJobs();
 }
 
 async function restoreJob(hash) {
   await api('/api/jobs/restore', { method: 'POST', body: JSON.stringify({ hash }) });
+  await refreshWorkspaceChrome();
   loadJobs();
 }
 
@@ -1209,6 +1638,7 @@ let appOffset = 0;
 let appTotal = 0;
 async function loadApplications(append = false) {
   const status = document.getElementById('app-status-filter')?.value || '';
+  if (!append) await refreshWorkspaceChrome();
   if (!append) { appOffset = 0; showSkeleton('apps-table'); }
   let url = `/api/applications?limit=${APP_PAGE_SIZE}&offset=${appOffset}`;
   if (status) url += `&status=${status}`;
@@ -1224,6 +1654,33 @@ async function loadApplications(append = false) {
 }
 
 function renderApplications() {
+  const byStatus = {};
+  for (const app of state.apps) byStatus[app.status] = (byStatus[app.status] || 0) + 1;
+  const followUpsDue = state.workspace?.applications?.follow_ups_due || 0;
+  document.getElementById('apps-summary').innerHTML = `
+    <div class="page-summary-grid">
+      <div class="page-summary-card">
+        <div class="workspace-label">In Ansicht</div>
+        <strong>${state.apps.length}</strong>
+        <div class="workspace-note">${appTotal ? `${state.apps.length} von ${appTotal} geladen` : 'noch keine Eintraege'}</div>
+      </div>
+      <div class="page-summary-card">
+        <div class="workspace-label">Interviews</div>
+        <strong>${(byStatus.interview || 0) + (byStatus.zweitgespraech || 0)}</strong>
+        <div class="workspace-note">laufende Gespraeche</div>
+      </div>
+      <div class="page-summary-card">
+        <div class="workspace-label">Angebote</div>
+        <strong>${byStatus.angebot || 0}</strong>
+        <div class="workspace-note">aktive Angebote im System</div>
+      </div>
+      <div class="page-summary-card">
+        <div class="workspace-label">Nachfassen</div>
+        <strong>${followUpsDue}</strong>
+        <div class="workspace-note">${followUpsDue > 0 ? 'offene Follow-ups priorisieren' : 'keine ueberfaelligen Aktionen'}</div>
+      </div>
+    </div>`;
+
   if (!state.apps.length) {
     document.getElementById('apps-table').innerHTML = `<div class="empty"><div class="icon">&#128203;</div>
       <p>Noch keine Bewerbungen erfasst.</p>
@@ -1365,6 +1822,7 @@ async function saveProfile(e) {
   if (!result.error) {
     showToast('Profil gespeichert', 'success');
     closeModal({target: document.getElementById('modal-overlay')});
+    await refreshWorkspaceChrome();
     loadProfile();
   }
 }
@@ -1444,6 +1902,7 @@ async function saveApplication(e) {
   if (!result.error) {
     showToast('Bewerbung gespeichert', 'success');
     closeModal({target: document.getElementById('modal-overlay')});
+    await refreshWorkspaceChrome();
     loadApplications();
   }
 }
@@ -1995,6 +2454,7 @@ async function deleteDocument(id) {
 
 // === Settings ===
 async function loadSettings() {
+  await refreshWorkspaceChrome();
   const [criteria, bl, sources] = await Promise.all([
     api('/api/search-criteria'),
     api('/api/blacklist'),
@@ -2065,6 +2525,7 @@ async function saveCriteria() {
     keywords_ausschluss: parse('kw-aus'),
     regionen: parse('kw-regionen'),
   })});
+  await refreshWorkspaceChrome();
   showToast('Suchkriterien gespeichert!', 'success');
 }
 
@@ -2077,6 +2538,7 @@ async function saveWeights() {
     fern_malus: parseInt(document.getElementById('w-fern').value) || 3,
   };
   await api('/api/search-criteria', { method: 'POST', body: JSON.stringify({ gewichtung }) });
+  await refreshWorkspaceChrome();
   showToast('Gewichtung gespeichert!', 'success');
 }
 
@@ -2137,6 +2599,8 @@ async function saveSources() {
   const active = [];
   cbs.forEach(cb => { if (cb.checked) active.push(cb.value); });
   await api('/api/sources', { method: 'POST', body: JSON.stringify({ active_sources: active }) });
+  await refreshWorkspaceChrome();
+  await checkSourceBanner();
   showToast(`${active.length} Quelle(n) aktiviert!`, 'success');
 }
 
@@ -2211,7 +2675,8 @@ async function loadProfileSwitcher() {
     return;
   }
   switcher.innerHTML = `
-    <select id="profile-select" onchange="switchProfile(this.value)" style="background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:0.85rem;" title="Zwischen Profilen wechseln">
+    <span class="workspace-label" style="margin-right:2px;">Profil</span>
+    <select id="profile-select" onchange="switchProfile(this.value)" style="background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:0.85rem;" title="Zwischen Profilen wechseln">
       ${profiles.map(p => `<option value="${p.id}" ${p.is_active ? 'selected' : ''}>${p.name || 'Ohne Name'}</option>`).join('')}
     </select>
     <button class="btn btn-sm" onclick="showNewProfileDialog()" title="Neues Profil fuer eine andere Person erstellen">+</button>`;
@@ -2220,6 +2685,7 @@ async function loadProfileSwitcher() {
 async function switchProfile(profileId) {
   await api('/api/profiles/switch', { method: 'POST', body: JSON.stringify({ profile_id: profileId }) });
   showToast('Profil gewechselt!', 'success');
+  await refreshWorkspaceChrome();
   loadDashboard();
   loadProfileSwitcher();
 }
@@ -2248,6 +2714,7 @@ async function createNewProfile(e) {
   await api('/api/user-preferences/wizard_completed', { method: 'POST', body: JSON.stringify({ value: '' }) });
   closeModal();
   showToast('Neues Profil erstellt! Einrichtungsassistent wird gestartet...', 'success');
+  await refreshWorkspaceChrome();
   loadDashboard();
   loadProfileSwitcher();
   // Show wizard for the new profile
@@ -2354,7 +2821,7 @@ async function checkSearchReminder() {
     const s = await api('/api/search-status');
     const bar = document.getElementById('search-reminder-bar');
     const txt = document.getElementById('search-reminder-text');
-    if (!s.last_search) {
+    if (!s.last_search || s.status === 'aktuell') {
       bar.style.display = 'none';
       return;
     }
@@ -2481,7 +2948,9 @@ async function saveWizardSources() {
     showToast('Bitte mindestens eine Quelle auswaehlen', 'error');
     return;
   }
-  await api('/api/sources', { method: 'POST', body: JSON.stringify({ sources: checked }) });
+  await api('/api/sources', { method: 'POST', body: JSON.stringify({ active_sources: checked }) });
+  await refreshWorkspaceChrome();
+  await checkSourceBanner();
   showToast(`${checked.length} Quelle(n) aktiviert!`, 'success');
   document.getElementById('source-banner').style.display = 'none';
 }
@@ -2740,7 +3209,9 @@ async function submitAppFromWizard(e) {
 
 // === Init ===
 document.addEventListener('DOMContentLoaded', () => {
-  loadDashboard();
+  const knownPages = ['dashboard', 'profil', 'stellen', 'bewerbungen', 'einstellungen'];
+  const initialPage = (location.hash || '#dashboard').replace('#', '');
+  showPage(knownPages.includes(initialPage) ? initialPage : 'dashboard', false);
   loadProfileSwitcher();
   checkWizardNeeded();
   checkSourceBanner();
@@ -2748,6 +3219,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Init expert mode checkbox
   const cb = document.getElementById('expert-mode');
   if (cb) cb.checked = localStorage.getItem('pbp_expert_mode') === 'true';
+});
+window.addEventListener('hashchange', () => {
+  const knownPages = ['dashboard', 'profil', 'stellen', 'bewerbungen', 'einstellungen'];
+  const page = (location.hash || '#dashboard').replace('#', '');
+  if (knownPages.includes(page)) showPage(page, false);
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 </script>
