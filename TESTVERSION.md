@@ -6,9 +6,10 @@
 ```
 Python >= 3.11 (python.org oder Microsoft Store)
 pip (kommt mit Python)
+Claude Desktop (claude.ai/download)
 ```
 
-### Linux / ELWOSA Server (Entwicklung)
+### Linux (Entwicklung)
 ```
 Python >= 3.11
 pip
@@ -18,41 +19,38 @@ pip
 
 ## Installation
 
-### Option A: Schnell (nur Core + Dashboard)
+### Option A: Windows Installer (empfohlen)
+1. [Neueste Version](https://github.com/MadGapun/PBP/releases/latest) als ZIP herunterladen
+2. ZIP entpacken (z.B. nach `C:\PBP`)
+3. `INSTALLIEREN.bat` doppelklicken — der Rest passiert automatisch
+
+### Option B: Schnell (nur Core + Dashboard)
 ```bash
-cd /home/chatgpt/pbp/bewerbungs-assistent
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
 pip install -e .
 ```
 
-### Option B: Mit Scraper + Dokument-Import
+### Option C: Mit Scraper + Dokument-Import
 ```bash
 pip install -e ".[all]"
-# Fuer LinkedIn-Scraping zusaetzlich:
 playwright install chromium
 ```
 
-### Option C: Entwicklung
+### Option D: Entwicklung
 ```bash
 pip install -e ".[all,dev]"
 playwright install chromium
-```
-
-### Einzelne optionale Pakete
-```bash
-# Job-Scraper (StepStone, Hays, etc.)
-pip install beautifulsoup4 lxml playwright
-
-# Dokument-Import (PDF/DOCX)
-pip install pypdf python-docx
+python -m pytest tests/ -v    # 187 Tests
 ```
 
 ---
 
 ## Testversion starten
 
-### Dashboard mit Demo-Daten:
+### Dashboard starten:
 ```bash
-python /tmp/pbp_testrun.py
+python start_dashboard.py
 # Oeffne: http://localhost:8200
 ```
 
@@ -70,7 +68,9 @@ In `%APPDATA%\Claude\claude_desktop_config.json`:
     "bewerbungs-assistent": {
       "command": "python",
       "args": ["-m", "bewerbungs_assistent"],
-      "env": {}
+      "env": {
+        "BA_DATA_DIR": "C:\\Users\\DEIN_NAME\\AppData\\Local\\BewerbungsAssistent"
+      }
     }
   }
 }
@@ -81,34 +81,39 @@ In `%APPDATA%\Claude\claude_desktop_config.json`:
 ## Was die Testversion zeigt
 
 ### 5 Dashboard-Tabs:
-1. **Dashboard** — Uebersicht (3 Stellen, 1 Bewerbung, Statistiken)
-2. **Profil** — Demo-Profil mit Positionen, STAR-Projekt, Skills, Ausbildung
-3. **Stellen** — 3 Demo-Stellenangebote mit Scores und Fit-Analyse
-4. **Bewerbungen** — 1 Demo-Bewerbung mit Timeline
-5. **Einstellungen** — Suchkriterien und Gewichtungen
+1. **Dashboard** — Uebersicht mit Workspace-Guidance und Statistiken
+2. **Profil** — Profilbearbeitung mit Positionen, STAR-Projekten, Skills, Ausbildung
+3. **Stellen** — Stellenangebote mit Scoring und Fit-Analyse
+4. **Bewerbungen** — Pipeline-Ansicht mit Timeline und Follow-ups
+5. **Einstellungen** — Suchkriterien, Blacklist, Quellen, Expertenmodus
 
 ### Aktionen zum Testen:
-- Profil bearbeiten (Klick auf "Bearbeiten")
+- Profil bearbeiten und vervollstaendigen
 - Position/Skill/Ausbildung hinzufuegen
 - Stelle aussortieren + wiederherstellen
 - Fit-Analyse einer Stelle ansehen (Score-Aufschluesselung)
 - Bewerbungsstatus aendern
-- CV-Generator testen
+- CV-Generator testen (PDF/DOCX)
 - Suchkriterien anpassen (Keywords, Gewichtung)
+- Dokumente hochladen und extrahieren lassen
+- Factory Reset in den Einstellungen
 
 ---
 
-## Daten
+## Datenspeicherung
 
-| Pfad | Inhalt |
-|------|--------|
-| Linux: `~/.bewerbungs-assistent/` | SQLite DB + Dokumente |
-| Windows: `%LOCALAPPDATA%\BewerbungsAssistent\` | SQLite DB + Dokumente |
-| Testversion: `/tmp/pbp_testversion/` | Temporaere Demo-Daten |
+| Plattform | Pfad |
+|-----------|------|
+| Windows | `%LOCALAPPDATA%\BewerbungsAssistent\` |
+| Linux | `~/.bewerbungs-assistent/` |
+| Alternativ | Umgebungsvariable `BA_DATA_DIR` |
+
+Unterverzeichnisse: `dokumente/`, `export/`, `logs/`
 
 ---
 
 ## Bekannte Einschraenkungen
-- Job-Scraper nicht getestet auf Server (braucht bs4/playwright)
+- Job-Scraper braucht `beautifulsoup4`, `lxml` und `playwright` (optionale Pakete)
 - Kein Auth (localhost-only, kein Sicherheitsrisiko)
 - LinkedIn-Scraper braucht manuellen Erstlogin
+- MCP-Registry-Tests (`test_mcp_registry.py`) benoetigen `fastmcp`

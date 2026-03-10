@@ -281,10 +281,14 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │  User: "Suche nach Python-Jobs in Hamburg"                │
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
-│  server.py (FastMCP)                                      │
-│    ├── 44 Tools (profil, jobs, export, bewerbungen...)    │
-│    ├── 6 Resources (profil://aktuell, jobs://aktiv...)    │
-│    └── 12 Prompts (ersterfassung, willkommen, workflow...)│
+│  server.py (Composition Root, ~140 Zeilen)                │
+│    ├── tools/ (7 Module, 44 Tools)                        │
+│    ├── prompts.py (12 Prompts)                            │
+│    ├── resources.py (6 Resources)                         │
+│    └── services/ (gemeinsamer Service-Layer)              │
+│         ├── profile_service.py                            │
+│         ├── search_service.py                             │
+│         └── workspace_service.py                          │
 │         ↓                                                  │
 │  database.py (SQLite + WAL, Schema v8)                    │
 │    └── 15 Kern-Tabellen + user_preferences, FK + CASCADE  │

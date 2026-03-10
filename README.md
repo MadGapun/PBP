@@ -282,37 +282,53 @@ PBP/
 ├── pyproject.toml                # Build-Konfiguration
 │
 ├── src/bewerbungs_assistent/
-│   ├── server.py                 # MCP Server (44 Tools, 6 Resources, 12 Prompts)
-│   ├── database.py               # SQLite Layer (15 Kern-Tabellen + user_preferences, Schema v8)
+│   ├── server.py                 # Composition Root (~140 Zeilen)
+│   ├── tools/                    # 44 MCP-Tools in 7 Modulen
+│   │   ├── profil.py             #   Profilverwaltung, Multi-Profil, Erfassung
+│   │   ├── dokumente.py          #   Dokument-Analyse, Extraktion, Import/Export
+│   │   ├── jobs.py               #   Jobsuche, Stellenverwaltung, Fit-Analyse
+│   │   ├── bewerbungen.py        #   Bewerbungstracking, Status, Statistiken
+│   │   ├── analyse.py            #   Gehalt, Trends, Skill-Gap, Follow-ups
+│   │   ├── export_tools.py       #   Lebenslauf/Anschreiben als PDF/DOCX
+│   │   └── suche.py              #   Suchkriterien und Blacklist
+│   ├── prompts.py                # 12 MCP-Prompts
+│   ├── resources.py              # 6 MCP-Resources
+│   ├── services/                 # Gemeinsamer Service-Layer
+│   │   ├── profile_service.py    #   Profilstatus, Vollstaendigkeit, Praeferenzen
+│   │   ├── search_service.py     #   Suchstatus, Quellenverwaltung
+│   │   └── workspace_service.py  #   Workspace-Guidance (7 Readiness-Stufen)
+│   ├── database.py               # SQLite (15 Kern-Tabellen + user_preferences, Schema v8)
 │   ├── dashboard.py              # FastAPI Dashboard (56 API-Endpoints + Root)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
 │   │   └── dashboard.html        # SPA Frontend (5 Tabs)
-│   └── job_scraper/
-│       ├── __init__.py           # Orchestrator + Scoring
-│       ├── bundesagentur.py      # Bundesagentur für Arbeit (REST)
-│       ├── stepstone.py          # StepStone (Playwright)
-│       ├── hays.py               # Hays (Sitemap)
-│       ├── freelancermap.py      # Freelancermap (httpx + Playwright)
-│       ├── freelance_de.py       # Freelance.de
-│       ├── linkedin.py           # LinkedIn (Playwright)
-│       ├── indeed.py             # Indeed (Playwright)
-│       ├── xing.py               # XING (Playwright)
-│       └── monster.py            # Monster (Playwright)
+│   └── job_scraper/              # 9 Quellen
+│       ├── __init__.py           #   Orchestrator + Scoring
+│       ├── bundesagentur.py      #   Bundesagentur fuer Arbeit (REST)
+│       ├── stepstone.py          #   StepStone (Playwright)
+│       ├── hays.py               #   Hays (Sitemap + JSON-LD)
+│       ├── freelancermap.py      #   Freelancermap (httpx + Playwright)
+│       ├── freelance_de.py       #   Freelance.de (HTML Scraping)
+│       ├── linkedin.py           #   LinkedIn (Playwright)
+│       ├── indeed.py             #   Indeed (Playwright)
+│       ├── xing.py               #   XING (Playwright)
+│       └── monster.py            #   Monster (Playwright)
 │
 ├── tests/                        # 187 Tests (pytest)
-│   ├── test_database.py
-│   ├── test_scoring.py
-│   ├── test_dashboard.py
-│   ├── test_profile_service.py
-│   ├── test_search_service.py
-│   ├── test_scrapers.py
-│   ├── test_v010.py
-│   ├── test_v013.py
-│   ├── test_mcp_registry.py
-│   ├── test_workspace_service.py
-│   └── test_export.py
+│   ├── conftest.py               # Fixtures (tmp_db, sample_*)
+│   ├── test_database.py          # 33 DB-Tests
+│   ├── test_scoring.py           # 24 Scoring-Tests
+│   ├── test_export.py            #  8 Export-Tests
+│   ├── test_v010.py              # 43 Schema/Profil-Isolation
+│   ├── test_dashboard.py         # 44 Dashboard-API-Tests
+│   ├── test_v013.py              # 14 Regressionstests
+│   ├── test_profile_service.py   #  5 Service-Layer
+│   ├── test_search_service.py    #  5 Suchstatus
+│   ├── test_workspace_service.py #  5 Workspace-Guidance
+│   ├── test_mcp_registry.py      #  3 MCP-Smoke-Tests
+│   ├── test_scrapers.py          #  3 Scraper-Fixture-Tests
+│   └── fixtures/scrapers/        # HTML/XML-Fixtures
 │
 └── installer/                    # Alternative Installer
     ├── install.ps1               # PowerShell Installer
@@ -361,9 +377,29 @@ python -m pytest tests/ -v
 
 ---
 
+## Screenshots
+
+### Dashboard — Übersicht mit Workspace-Guidance
+![Dashboard](docs/screenshots/01_dashboard.png)
+
+### Profil — Berufserfahrung, Skills, Ausbildung
+![Profil](docs/screenshots/02_profil.png)
+
+### Stellen — Scoring und Fit-Analyse
+![Stellen](docs/screenshots/03_stellen.png)
+
+### Bewerbungen — Pipeline mit Timeline
+![Bewerbungen](docs/screenshots/04_bewerbungen.png)
+
+### Einstellungen — Suchkriterien und Quellen
+![Einstellungen](docs/screenshots/05_einstellungen.png)
+
+> Screenshots werden automatisch generiert: `python docs/screenshots/generate_screenshots.py`
+
+---
+
 ## Geplante Features
 
-- **Screenshots für README** — Automatisierte Dashboard-Screenshots via Playwright
 - **Erweiterte Scraper** — Zusätzliche Jobportale und verbesserte Datenextraktion
 
 ---

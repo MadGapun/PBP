@@ -1,5 +1,9 @@
-# PBP — Optimierungsplan
-## Stand: 2026-03-08 | 14 Optimierungen + 9 Fixes abgeschlossen (v0.13.0)
+# PBP — Optimierungsplan (Archiv)
+## Stand: 2026-03-08 | 14 Optimierungen + 9 Fixes abgeschlossen (v0.10.0–v0.13.0)
+
+> **Hinweis:** Dieses Dokument ist ein Archiv der abgeschlossenen Optimierungen
+> bis v0.13.0. Fuer aktuelle und kuenftige Aenderungen siehe
+> [CHANGELOG.md](CHANGELOG.md) und [docs/VERBESSERUNGSPLAN.md](docs/VERBESSERUNGSPLAN.md).
 
 ---
 
@@ -298,3 +302,5 @@
 | Releases | 14 | v0.1.0 bis v0.13.0 |
 
 **Alle Optimierungen und Fixes abgeschlossen!**
+
+> Ab v0.14.0 werden Aenderungen im [CHANGELOG.md](CHANGELOG.md) dokumentiert.
