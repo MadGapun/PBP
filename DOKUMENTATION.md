@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-10 | v0.14.0
+## Komplette Projektdokumentation | Stand: 2026-03-12 | v0.15.1
 
 ---
 
@@ -182,7 +182,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 
 ## 3. MCP-Schnittstelle (fuer Claude Desktop)
 
-### 3.1 Tools (44 Aktionen)
+### 3.1 Tools (51 Aktionen)
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -210,6 +210,10 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 | `extraktion_ergebnis_speichern()` | Extraktionsergebnis speichern |
 | `extraktion_anwenden()` | Extrahierte Daten ins Profil uebernehmen (auto_apply) |
 | `extraktions_verlauf()` | Extraktions-Historie anzeigen |
+| `analyse_plan_erstellen()` | Vorab-Plan: Dokumente, Duplikate, Batches, Firmen |
+| `dokumente_batch_analysieren()` | Effiziente Batch-Analyse mit Token-Budget |
+| `dokumente_bulk_markieren()` | Bulk-Markierung als analysiert |
+| `bewerbungs_dokumente_erkennen()` | Firmen aus Dateinamen + auto Bewerbungseintraege |
 | **Profil Export/Import (2)** | |
 | `profil_exportieren()` | Profil als JSON exportieren (Backup) |
 | `profil_importieren()` | Profil aus JSON importieren |
@@ -241,6 +245,10 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 | `nachfass_planen()` | Follow-up Erinnerung erstellen |
 | `nachfass_anzeigen()` | Anstehende Follow-ups anzeigen |
 | `bewerbung_stil_tracken()` | Bewerbungsstil und Erfolgsrate tracken |
+| **Workflows (3)** | |
+| `workflow_starten()` | Universeller Workflow-Starter fuer alle 12 Workflows |
+| `jobsuche_workflow_starten()` | Direkter Einstieg Jobsuche-Workflow |
+| `ersterfassung_starten()` | Direkter Einstieg Profilerfassung |
 
 ### 3.2 Resources (6 Datenquellen)
 
@@ -282,7 +290,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (Composition Root, ~140 Zeilen)                │
-│    ├── tools/ (7 Module, 44 Tools)                        │
+│    ├── tools/ (8 Module, 51 Tools)                        │
 │    ├── prompts.py (12 Prompts)                            │
 │    ├── resources.py (6 Resources)                         │
 │    └── services/ (gemeinsamer Service-Layer)              │
@@ -297,7 +305,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
 │  │ dashboard.py      │  │ job_scraper/ │  │ export.py  │  │
 │  │ (FastAPI :8200)   │  │ 9 Quellen    │  │ PDF/DOCX   │  │
-│  │ 56 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
+│  │ 60 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
 │  │  ↕ JSON           │  │ Keywords     │  │ python-docx│  │
 │  │ dashboard.html    │  │              │  │            │  │
 │  │ (Browser SPA)     │  │              │  │            │  │
@@ -376,7 +384,7 @@ Ergebnis: **190 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.14.0
+## 7. Fazit v0.15.1
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
@@ -389,11 +397,16 @@ Ergebnis: **190 Tests, alle gruen**
 - ✓ PDF/DOCX-Export (Lebenslauf + Anschreiben)
 - ✓ KI-gestuetzte Texterstellung (Anschreiben, Interview-Prep, Simulation)
 - ✓ Dokument-Upload mit automatischer Text-Extraktion
+- ✓ Effiziente Batch-Analyse (Duplikat-Erkennung, Token-Budget)
+- ✓ Automatische Bewerbungs-Erkennung aus Dateinamen
+- ✓ Ersterfassung analysiert Dokumente sofort automatisch
+- ✓ Dashboard-Editing: Positionen, Ausbildung, Skills direkt bearbeiten
+- ✓ Workflows als Tools (funktioniert in Claude Desktop UND claude.ai)
 - ✓ Gehalts-Schaetzungs-Engine (7 Regex-Patterns + Lookup)
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 190 Tests im aktuellen Repo-Stand
+- ✓ 51 Tools, 12 Prompts, 6 Resources, 190 Tests
 - ✓ Cross-Platform (Windows + Linux)
 
 ### Moegliche zukuenftige Erweiterungen:

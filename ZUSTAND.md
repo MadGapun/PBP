@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-12 | v0.15.0
+## Zustandsbericht | 2026-03-12 | v0.15.1
 
 ---
 
@@ -8,7 +8,7 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.15.0 (pyproject.toml) |
+| **Version** | 0.15.1 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
@@ -64,7 +64,7 @@ server.py (FastMCP, Composition Root)  <-- 51 Tools, 6 Resources, 12 Prompts
 
 | Typ | Anzahl |
 |-----|--------|
-| **Tools** | 44 |
+| **Tools** | 51 |
 | **Resources** | 6 |
 | **Prompts** | 12 |
 
@@ -80,9 +80,11 @@ profile_auflisten, profil_wechseln, neues_profil_erstellen, profil_loeschen
 **Erfassungsfortschritt (2):**
 erfassung_fortschritt_lesen, erfassung_fortschritt_speichern
 
-**Dokument-Analyse (6):**
+**Dokument-Analyse (10):**
 dokument_profil_extrahieren, dokumente_zur_analyse, extraktion_starten,
-extraktion_ergebnis_speichern, extraktion_anwenden, extraktions_verlauf
+extraktion_ergebnis_speichern, extraktion_anwenden, extraktions_verlauf,
+analyse_plan_erstellen, dokumente_batch_analysieren, dokumente_bulk_markieren,
+bewerbungs_dokumente_erkennen
 
 **Profil Export/Import (2):**
 profil_exportieren, profil_importieren
@@ -106,6 +108,9 @@ lebenslauf_exportieren, anschreiben_exportieren
 gehalt_extrahieren, gehalt_marktanalyse, firmen_recherche, branchen_trends,
 skill_gap_analyse, ablehnungs_muster, nachfass_planen, nachfass_anzeigen,
 bewerbung_stil_tracken
+
+**Workflows (3):**
+workflow_starten, jobsuche_workflow_starten, ersterfassung_starten
 
 ### Resources (6)
 
@@ -152,11 +157,11 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | Datei | Zeilen | Zweck |
 |-------|--------|-------|
 | server.py | ~140 | Composition Root (Init + Dashboard + Shutdown) |
-| tools/*.py | ~2.485 | 7 Module: 44 Tools |
+| tools/*.py | ~2.800 | 8 Module: 51 Tools |
 | prompts.py | ~765 | 12 MCP Prompts |
 | resources.py | ~45 | 6 MCP Resources |
 | database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
-| dashboard.py | 1.272 | FastAPI Web-Dashboard (56 API-Endpoints + Dashboard-Root) |
+| dashboard.py | ~1.300 | FastAPI Web-Dashboard (60 API-Endpoints + Dashboard-Root) |
 | export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
 | job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
 | job_scraper/linkedin.py | ~290 | LinkedIn (Playwright) |
@@ -219,8 +224,12 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
+| 0.15.1 | 2026-03-12 | Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons, Reanalyze |
+| 0.15.0 | 2026-03-12 | Batch-Analyse, Summary-Bugfix, Bewerbungs-Erkennung, 51 Tools |
+| 0.14.3 | 2026-03-12 | Dashboard-Befehle ueberall (copyText-Transformation) |
+| 0.14.2 | 2026-03-12 | Workflows als Tools (MCP-Prompts auch ohne Slash-Commands) |
+| 0.14.1 | 2026-03-12 | Update-sichere MCP-Konfiguration, feste Installationspfade |
 | 0.14.0 | 2026-03-10 | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
-| nach 0.14.0 | 2026-03-10 | Dashboard-Browser-Smoke-Tests, 190 Tests im Repo-Stand |
 | 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
@@ -236,5 +245,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-10 von Claude Code (v0.14.0 Service-Layer, Dashboard-UX, Workspace-Guidance)*
-*Vorheriger Stand: 2026-03-08 (v0.13.0 FK-Bugfixes, Auto-Analyse, Ordner-Browser)*
+*Aktualisiert: 2026-03-12 von Claude Code (v0.15.1 Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons)*
+*Vorheriger Stand: 2026-03-10 (v0.14.0 Service-Layer, Dashboard-UX, Workspace-Guidance)*

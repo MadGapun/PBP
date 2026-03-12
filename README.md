@@ -36,12 +36,12 @@ Claude Desktop (Windows)
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 44 Tools in 7 Modulen
+    ├──► tools/            ◄── 51 Tools in 8 Modulen
     ├──► prompts.py        ◄── 12 Prompts
     ├──► resources.py      ◄── 6 Resources
     │
     ├──► database.py       ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
-    ├──► dashboard.py      ◄── FastAPI :8200, 56 API-Endpoints + Dashboard-Root
+    ├──► dashboard.py      ◄── FastAPI :8200, 60 API-Endpoints + Dashboard-Root
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 9 Quellen
               ├── bundesagentur.py   (REST API)
@@ -162,7 +162,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 44 Tools
+### 51 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -186,6 +186,10 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `extraktion_ergebnis_speichern` | Extraktionsergebnis zwischenspeichern |
 | `extraktion_anwenden` | Extrahierte Daten auf Profil anwenden |
 | `extraktions_verlauf` | Historie aller Extraktionen anzeigen |
+| `analyse_plan_erstellen` | Vorab-Plan: Anzahl Dokumente, Duplikate, Batches |
+| `dokumente_batch_analysieren` | Effiziente Batch-Analyse mit Token-Budget |
+| `dokumente_bulk_markieren` | Bulk-Markierung als analysiert |
+| `bewerbungs_dokumente_erkennen` | Firmen aus Dateinamen + auto Bewerbungseinträge |
 | `profil_exportieren` | Profil als JSON-Backup exportieren |
 | `profil_importieren` | Profil aus JSON-Backup importieren |
 | `jobsuche_starten` | Multi-Quellen Stellensuche starten |
@@ -210,6 +214,9 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `bewerbung_stil_tracken` | Anschreiben-Stil für A/B-Tracking speichern |
 | `skill_gap_analyse` | Skill-Gap zwischen Profil und Stelle analysieren |
 | `ablehnungs_muster` | Ablehnungs-Muster und Empfehlungen analysieren |
+| `workflow_starten` | Universeller Workflow-Starter für alle 12 Workflows |
+| `jobsuche_workflow_starten` | Direkter Einstieg Jobsuche-Workflow |
+| `ersterfassung_starten` | Direkter Einstieg Profilerfassung |
 
 ### 6 Resources
 
@@ -283,14 +290,15 @@ PBP/
 │
 ├── src/bewerbungs_assistent/
 │   ├── server.py                 # Composition Root (~140 Zeilen)
-│   ├── tools/                    # 44 MCP-Tools in 7 Modulen
+│   ├── tools/                    # 51 MCP-Tools in 8 Modulen
 │   │   ├── profil.py             #   Profilverwaltung, Multi-Profil, Erfassung
-│   │   ├── dokumente.py          #   Dokument-Analyse, Extraktion, Import/Export
+│   │   ├── dokumente.py          #   Dokument-Analyse, Extraktion, Batch, Import/Export
 │   │   ├── jobs.py               #   Jobsuche, Stellenverwaltung, Fit-Analyse
 │   │   ├── bewerbungen.py        #   Bewerbungstracking, Status, Statistiken
 │   │   ├── analyse.py            #   Gehalt, Trends, Skill-Gap, Follow-ups
 │   │   ├── export_tools.py       #   Lebenslauf/Anschreiben als PDF/DOCX
-│   │   └── suche.py              #   Suchkriterien und Blacklist
+│   │   ├── suche.py              #   Suchkriterien und Blacklist
+│   │   └── workflows.py          #   Workflow-Starter (Prompts als Tools)
 │   ├── prompts.py                # 12 MCP-Prompts
 │   ├── resources.py              # 6 MCP-Resources
 │   ├── services/                 # Gemeinsamer Service-Layer
@@ -298,7 +306,7 @@ PBP/
 │   │   ├── search_service.py     #   Suchstatus, Quellenverwaltung
 │   │   └── workspace_service.py  #   Workspace-Guidance (7 Readiness-Stufen)
 │   ├── database.py               # SQLite (15 Kern-Tabellen + user_preferences, Schema v8)
-│   ├── dashboard.py              # FastAPI Dashboard (56 API-Endpoints + Root)
+│   ├── dashboard.py              # FastAPI Dashboard (60 API-Endpoints + Root)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
 │   ├── templates/
@@ -414,25 +422,25 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.15.1 — Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons (2026-03-12)
+- **Ersterfassung analysiert Dokumente automatisch** — kein Nachfragen mehr
+- **Erneut-analysieren-Button** im Dashboard für gezielte Nachanalyse
+- **Kritischer Bugfix**: Neues Profil war nicht leer (überschrieb bestehendes Profil)
+- **Dashboard Edit-Buttons** für Positionen, Ausbildung und Skills
+- 190 Tests bestanden
+
+### v0.15.0 — Batch-Analyse, Summary-Bugfix, Bewerbungs-Erkennung (2026-03-12)
+- **4 neue Tools**: Batch-Analyse, Bulk-Markierung, Analyse-Plan, Bewerbungs-Erkennung
+- **Summary-Bug behoben**: Dokumentbeschreibungen überschrieben Profil-Summary nicht mehr
+- **Workflows als Tools** (v0.14.2): Alle 12 Prompts auch ohne Slash-Commands nutzbar
+- **Update-sichere Pfade** (v0.14.1): Installer-Fix für stabile MCP-Konfiguration
+- 51 Tools, 190 Tests bestanden
+
 ### v0.14.0 — Service-Layer, Dashboard-UX, Workspace-Guidance (2026-03-10)
-- **Service-Layer**: `profile_service.py`, `search_service.py`, `workspace_service.py` — gemeinsame Logik fuer Dashboard und MCP-Tools
-- **Dashboard-UX**: Workspace-Kopf mit Guidance, klarere Navigation, Profil-Schnellzugriffe
-- **Workspace-Summary API**: `/api/workspace-summary` mit Readiness-Stufen und Handlungsempfehlung
-- **MCP-Registry-Tests**: Smoke-Tests fuer alle 44 Tools, 12 Prompts, 6 Resources
-- **Scraper-Fixture-Tests**: Hays, Freelance.de, Freelancermap mit stabilen HTML-Fixtures
+- **Service-Layer**: `profile_service.py`, `search_service.py`, `workspace_service.py`
+- **Dashboard-UX**: Workspace-Kopf mit Guidance, klarere Navigation
+- **MCP-Registry-Tests** und **Scraper-Fixture-Tests**
 - 187 Tests bestanden
-
-### v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
-- Fix: **job_hash FK-Constraint** — Leerer String → None, kein FK-Fehler mehr
-- Fix: **Reset/Loeschen blockiert** — FK-safe mit PRAGMA + Datenbereinigung
-- Feature: **Auto-Analyse** — Dokumente automatisch per Regex ins Profil einpflegen
-- Feature: **Ordner-Browser** — Klickbarer Verzeichnis-Browser statt nur Pfad-Eingabe
-- 159 Tests bestanden
-
-### v0.12.0 — Architektur: Modularisierung (2026-03-07)
-- server.py (3.261 Zeilen) aufgeteilt in 8 fachliche Module
-- 37 neue Dashboard-API-Tests
-- 145 Tests bestanden
 
 ---
 
