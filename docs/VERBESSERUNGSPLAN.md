@@ -24,7 +24,8 @@ Auto-Analyse und Dashboard-Tests.
 - zusaetzliche Dashboard-Tests fuer Quellen- und Suchstatus-Endpunkte
 - neue Service- und Dashboard-Regressionstests fuer Profilstatus, Praeferenzen und Vollstaendigkeit
 - kleinere Dashboard-UX-Verbesserung: sichtbarer Schnellzugriff mit Quellen- und Suchstatus
-- Workspace-Summary-API plus klarere Navigation, Workspace-Kopf und seitenbezogene Orientierung`r`n- echte Dashboard-Browser-Smoke-Tests fuer Onboarding, Navigation, Follow-up-Guidance und Mobile-Layout
+- Workspace-Summary-API plus klarere Navigation, Workspace-Kopf und seitenbezogene Orientierung
+- echte Dashboard-Browser-Smoke-Tests fuer Onboarding, Navigation, Follow-up-Guidance und Mobile-Layout
 - Doku-Sweep fuer verbleibende Architektur- und Zaehldifferenzen
 
 ## Offene Prioritaeten
@@ -68,7 +69,8 @@ handlungsorientierten Verbesserungen:
 - Status noch klarer in Aktionen uebersetzen
 - bessere Kontextinfos bei leerer Jobsuche
 - Such- und Quellenbereitschaft sichtbarer machen
-- Bewerbungsnaechste Schritte noch direkter hervorheben`r`n- Browser-Smokes bei neuen UI-Aenderungen mitziehen
+- Bewerbungsnaechste Schritte noch direkter hervorheben
+- Browser-Smokes bei neuen UI-Aenderungen mitziehen
 
 ## Nicht empfohlen
 

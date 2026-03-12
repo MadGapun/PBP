@@ -72,6 +72,7 @@ Im Repo liegen aktuell 190 Tests:
 - `tests/test_profile_service.py`
 - `tests/test_search_service.py`
 - `tests/test_workspace_service.py`
+- `tests/test_dashboard_browser.py`
 
 ## Wichtige Doku
 

@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -420,7 +420,7 @@ python -m pytest tests/ -v
 - **Workspace-Summary API**: `/api/workspace-summary` mit Readiness-Stufen und Handlungsempfehlung
 - **MCP-Registry-Tests**: Smoke-Tests fuer alle 44 Tools, 12 Prompts, 6 Resources
 - **Scraper-Fixture-Tests**: Hays, Freelance.de, Freelancermap mit stabilen HTML-Fixtures
-- 190 Tests bestanden
+- 187 Tests bestanden
 
 ### v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
 - Fix: **job_hash FK-Constraint** — Leerer String → None, kein FK-Fehler mehr

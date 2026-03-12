@@ -15,7 +15,7 @@
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) ? alle gruen |
+| **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) -- alle gruen |
 
 ---
 
