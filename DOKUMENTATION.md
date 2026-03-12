@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-12 | v0.15.1
+## Komplette Projektdokumentation | Stand: 2026-03-12 | v0.16.0
 
 ---
 
@@ -290,7 +290,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (Composition Root, ~140 Zeilen)                │
-│    ├── tools/ (8 Module, 51 Tools)                        │
+│    ├── tools/ (8 Module, 53 Tools)                        │
 │    ├── prompts.py (12 Prompts)                            │
 │    ├── resources.py (6 Resources)                         │
 │    └── services/ (gemeinsamer Service-Layer)              │
@@ -298,8 +298,8 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │         ├── search_service.py                             │
 │         └── workspace_service.py                          │
 │         ↓                                                  │
-│  database.py (SQLite + WAL, Schema v8)                    │
-│    └── 15 Kern-Tabellen + user_preferences, FK + CASCADE  │
+│  database.py (SQLite + WAL, Schema v9)                    │
+│    └── 16 Kern-Tabellen + user_preferences, FK + CASCADE  │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
@@ -406,7 +406,7 @@ Ergebnis: **190 Tests, alle gruen**
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 51 Tools, 12 Prompts, 6 Resources, 190 Tests
+- ✓ 53 Tools, 12 Prompts, 6 Resources, 190 Tests
 - ✓ Cross-Platform (Windows + Linux)
 
 ### Moegliche zukuenftige Erweiterungen:

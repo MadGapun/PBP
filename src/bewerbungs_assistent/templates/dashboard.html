@@ -1394,11 +1394,34 @@ async function renderProfile(p) {
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           ${skills.map(s => {
             const stars = s.level ? ' ' + '\u2605'.repeat(s.level) + '\u2606'.repeat(5 - s.level) : '';
-            return `<span class="badge badge-blue" style="cursor:pointer;" onclick="editSkill('${s.id}')" title="Klicken zum Bearbeiten">${s.name}${stars}${s.years_experience ? ' ('+s.years_experience+'J)' : ''} <span onclick="event.stopPropagation();deleteSkill('${s.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
+            const yearInfo = s.years_experience ? ' ('+s.years_experience+'J)' : '';
+            const lastUsed = s.last_used_year ? ` &#8226; ${s.last_used_year}` : '';
+            const isOld = s.last_used_year && s.last_used_year < new Date().getFullYear() - 5;
+            const badgeClass = isOld ? 'badge-gray' : 'badge-blue';
+            return `<span class="badge ${badgeClass}" style="cursor:pointer;" onclick="editSkill('${s.id}')" title="${isOld ? 'Veraltet — zuletzt '+s.last_used_year+'. Klicken zum Bearbeiten' : 'Klicken zum Bearbeiten'}">${s.name}${stars}${yearInfo}${lastUsed} <span onclick="event.stopPropagation();deleteSkill('${s.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
           }).join('')}
         </div></div>`;
     }
     html += '</div>';
+  }
+
+  // Suggested Job Titles
+  const titles = p.suggested_job_titles || [];
+  html += `<div id="section-jobtitles" class="section-anchor" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 12px;">
+    <h3>Passende Jobtitel (${titles.length})</h3>
+    <button class="btn btn-sm btn-primary" onclick="addJobTitle()">+ Jobtitel</button>
+  </div>`;
+  if (titles.length) {
+    html += '<div class="card"><div style="display:flex; gap:6px; flex-wrap:wrap;">';
+    for (const t of titles) {
+      const srcBadge = t.source === 'user' ? '&#9998;' : t.source === 'extraktion' ? '&#128196;' : '&#9881;';
+      const opacity = t.is_active ? '1' : '0.4';
+      html += `<span class="badge badge-green" style="cursor:pointer; opacity:${opacity};" onclick="editJobTitle('${t.id}', '${(t.title||'').replace(/'/g, "\\'")}')" title="Klicken zum Bearbeiten (Quelle: ${t.source})">${srcBadge} ${t.title} <span onclick="event.stopPropagation();deleteJobTitle('${t.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
+    }
+    html += '</div></div>';
+  } else {
+    html += `<div class="card empty">Noch keine Jobtitel. Claude schlaegt bei der Profil-Analyse automatisch passende Titel vor.<br>
+      <span style="font-size:0.85rem;">Du kannst auch manuell Jobtitel hinzufuegen.</span></div>`;
   }
 
   // Documents
@@ -2431,10 +2454,14 @@ function editSkill(skillId) {
           </select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Level (1-5)</label>
+        <div class="form-group"><label>Aktuelles Level (1-5)</label>
           <input name="level" type="range" min="1" max="5" value="${sk.level||3}" oninput="this.nextElementSibling.textContent=this.value+'/5'" style="width:100%;">
           <span style="font-size:0.85rem; color:var(--text2);">${sk.level||3}/5</span></div>
         <div class="form-group"><label>Jahre Erfahrung</label><input name="years_experience" type="number" min="0" step="1" value="${sk.years_experience||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Zuletzt genutzt (Jahr)</label><input name="last_used_year" type="number" min="1980" max="2030" step="1" value="${sk.last_used_year||''}" placeholder="z.B. 2024">
+          <span style="font-size:0.75rem; color:var(--text2);">Leer = aktuell. Alte Skills entsprechend niedrig bewerten!</span></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
@@ -2452,6 +2479,7 @@ async function updateSkill(e, skillId) {
   const data = Object.fromEntries(fd);
   data.level = parseInt(data.level) || 3;
   data.years_experience = data.years_experience ? parseInt(data.years_experience) : null;
+  data.last_used_year = data.last_used_year ? parseInt(data.last_used_year) : null;
   const result = await api('/api/skill/' + skillId, { method: 'PUT', body: JSON.stringify(data) });
   setLoading(btn, false);
   if (!result.error) {
@@ -2459,6 +2487,55 @@ async function updateSkill(e, skillId) {
     closeModal({target: document.getElementById('modal-overlay')});
     loadProfile();
   }
+}
+
+// === Job Title Management ===
+function addJobTitle() {
+  openModal(`<h2>Jobtitel hinzufuegen</h2>
+    <form onsubmit="saveJobTitle(event)">
+      <div class="form-group"><label>Jobtitel *</label><input name="title" placeholder="z.B. PLM Architekt" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function saveJobTitle(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/api/job-title', { method: 'POST', body: JSON.stringify({title: fd.get('title')}) });
+  showToast('Jobtitel hinzugefuegt', 'success');
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+function editJobTitle(id, title) {
+  openModal(`<h2>Jobtitel bearbeiten</h2>
+    <form onsubmit="updateJobTitle(event, '${id}')">
+      <div class="form-group"><label>Jobtitel *</label><input name="title" value="${title.replace(/"/g,'&quot;')}" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="button" class="btn btn-danger" onclick="deleteJobTitle('${id}')">Entfernen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function updateJobTitle(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await api('/api/job-title/' + id, { method: 'PUT', body: JSON.stringify({title: fd.get('title')}) });
+  showToast('Jobtitel aktualisiert', 'success');
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
+}
+
+async function deleteJobTitle(id) {
+  await api('/api/job-title/' + id, { method: 'DELETE' });
+  showToast('Jobtitel entfernt', 'success');
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
 }
 
 function showFolderImport() {

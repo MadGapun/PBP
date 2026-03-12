@@ -69,6 +69,8 @@ EXPECTED_TOOL_NAMES = {
     "dokumente_batch_analysieren",
     "dokumente_bulk_markieren",
     "bewerbungs_dokumente_erkennen",
+    "jobtitel_vorschlagen",
+    "jobtitel_verwalten",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -143,7 +145,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 51
+        assert len(tools) == 53
         assert len(prompts) == 12
         assert len(resources) == 6
     finally:

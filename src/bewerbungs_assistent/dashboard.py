@@ -218,6 +218,37 @@ async def api_delete_profile(profile_id: str):
     return {"status": "ok"}
 
 
+# === Job Title Suggestions ===
+
+@app.get("/api/job-titles")
+async def api_get_job_titles():
+    titles = _db.get_suggested_job_titles()
+    return {"titles": titles}
+
+
+@app.post("/api/job-title")
+async def api_add_job_title(request: Request):
+    data = await request.json()
+    title = data.get("title", "").strip()
+    if not title:
+        return JSONResponse({"error": "Titel ist ein Pflichtfeld"}, status_code=400)
+    tid = _db.add_job_title(title, source="user", confidence=1.0)
+    return {"status": "ok", "id": tid}
+
+
+@app.put("/api/job-title/{title_id}")
+async def api_update_job_title(title_id: str, request: Request):
+    data = await request.json()
+    _db.update_job_title(title_id, data)
+    return {"status": "ok"}
+
+
+@app.delete("/api/job-title/{title_id}")
+async def api_delete_job_title(title_id: str):
+    _db.delete_job_title(title_id)
+    return {"status": "ok"}
+
+
 @app.post("/api/position")
 async def api_add_position(request: Request):
     data = await request.json()

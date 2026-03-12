@@ -497,22 +497,32 @@ def register(mcp, db, logger):
         name: str,
         category: str = "fachlich",
         level: int = 3,
-        years_experience: int = 0
+        years_experience: int = 0,
+        last_used_year: int = 0
     ) -> dict:
         """Fuegt einen Skill (Kompetenz/Faehigkeit/Expertise) zum Bewerberprofil hinzu.
 
         Fuer Fachwissen, Tools, Soft Skills, Sprachen und Methoden-Kompetenzen.
         Alternativ: profil_bearbeiten(bereich='skill', aktion='hinzufuegen')
 
+        WICHTIG fuer Skill-Level-Bewertung:
+        - Beruecksichtige WANN der Skill zuletzt aktiv genutzt wurde
+        - Ein Skill von vor 20 Jahren der seitdem nicht mehr genutzt wurde → Level 1
+        - Setze last_used_year auf das Jahr der letzten aktiven Nutzung
+        - Level sollte die AKTUELLE Kompetenz widerspiegeln, nicht die historische
+        - Beispiel: "C++ Programmierung, 5 Jahre Erfahrung, zuletzt 2008" → level=1, last_used_year=2008
+
         Args:
             name: Name der Kompetenz (z.B. Python, Projektmanagement, SAP)
             category: fachlich, methodisch, soft_skill, sprache, tool
-            level: Kompetenzstufe 1-5 (1=Grundkenntnisse, 5=Experte)
-            years_experience: Jahre Erfahrung
+            level: AKTUELLE Kompetenzstufe 1-5 (1=Grundkenntnisse, 5=Experte). Alte, nicht mehr genutzte Skills → niedrig bewerten!
+            years_experience: Jahre Erfahrung (gesamt, auch historisch)
+            last_used_year: Jahr der letzten aktiven Nutzung (z.B. 2024). 0 = aktuell/unbekannt.
         """
         sid = db.add_skill({
             "name": name, "category": category,
             "level": level, "years_experience": years_experience,
+            "last_used_year": last_used_year if last_used_year else None,
         })
         return {"status": "gespeichert", "skill_id": sid}
 
@@ -679,3 +689,74 @@ def register(mcp, db, logger):
             fortschritt["notizen"] = notizen
         db.set_erfassung_fortschritt(fortschritt)
         return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen}
+
+    # --- Jobtitel-Vorschlaege (2 Tools) ---
+
+    @mcp.tool()
+    def jobtitel_vorschlagen(titel: list[str], quelle: str = "auto") -> dict:
+        """Speichert vorgeschlagene Jobtitel fuer das aktive Profil.
+
+        Rufe dieses Tool auf nachdem du das Profil analysiert hast, um passende
+        Jobtitel/Stellenbezeichnungen vorzuschlagen. Die Titel werden im Dashboard
+        angezeigt und koennen vom User bearbeitet werden.
+
+        WICHTIG: Beruecksichtige bei der Analyse:
+        - Aktuelle Positionen und deren Titel
+        - Branchen und Technologien aus der Berufserfahrung
+        - Skill-Level und Aktualitaet (alte Skills zaehlen weniger)
+        - Typische Stellenbezeichnungen im deutschen Arbeitsmarkt
+        - Sowohl deutsch als auch englisch (z.B. "PLM Architekt" UND "PLM Architect")
+
+        Args:
+            titel: Liste von vorgeschlagenen Jobtiteln (z.B. ["PLM Architekt", "SAP PLM Berater"])
+            quelle: Woher der Vorschlag kommt: 'auto' (aus Analyse), 'user' (vom Benutzer), 'extraktion' (aus Dokument)
+        """
+        profile_id = db.get_active_profile_id()
+        if not profile_id:
+            return {"fehler": "Kein aktives Profil vorhanden."}
+
+        existing = {t["title"].lower() for t in db.get_suggested_job_titles(profile_id)}
+        added = []
+        skipped = []
+        for t in titel:
+            t = t.strip()
+            if not t:
+                continue
+            if t.lower() in existing:
+                skipped.append(t)
+                continue
+            db.add_job_title(t, source=quelle, confidence=0.8 if quelle == "auto" else 1.0,
+                             profile_id=profile_id)
+            existing.add(t.lower())
+            added.append(t)
+
+        return {
+            "status": "ok",
+            "hinzugefuegt": added,
+            "uebersprungen_duplikate": skipped,
+            "gesamt": len(db.get_suggested_job_titles(profile_id)),
+            "hinweis": "Jobtitel sind im Dashboard unter 'Profil' sichtbar und editierbar."
+        }
+
+    @mcp.tool()
+    def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:
+        """Verwaltet einen vorgeschlagenen Jobtitel (aendern, loeschen, deaktivieren).
+
+        Args:
+            titel_id: ID des Jobtitels
+            aktion: 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
+            neuer_titel: Neuer Titeltext (nur bei aktion='aendern')
+        """
+        if aktion == "loeschen":
+            db.delete_job_title(titel_id)
+            return {"status": "geloescht"}
+        elif aktion == "aendern" and neuer_titel:
+            db.update_job_title(titel_id, {"title": neuer_titel})
+            return {"status": "geaendert", "titel": neuer_titel}
+        elif aktion == "deaktivieren":
+            db.update_job_title(titel_id, {"is_active": 0})
+            return {"status": "deaktiviert"}
+        elif aktion == "aktivieren":
+            db.update_job_title(titel_id, {"is_active": 1})
+            return {"status": "aktiviert"}
+        return {"fehler": f"Unbekannte Aktion: {aktion}"}

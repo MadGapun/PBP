@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 def _gen_id() -> str:
@@ -297,6 +297,25 @@ class Database:
                 conn.execute("UPDATE jobs SET profile_id=? WHERE profile_id IS NULL", (pid,))
             logger.info("Migration v7->v8: profile_id on applications + jobs, data backfilled")
 
+        if from_ver < 9:
+            # v9: Skill recency + suggested job titles
+            try:
+                conn.execute("ALTER TABLE skills ADD COLUMN last_used_year INTEGER")
+            except Exception:
+                pass
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS suggested_job_titles (
+                    id TEXT PRIMARY KEY,
+                    profile_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    source TEXT DEFAULT 'auto',
+                    confidence REAL DEFAULT 0.0,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT
+                )
+            """)
+            logger.info("Migration v8->v9: last_used_year on skills + suggested_job_titles table")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -327,6 +346,7 @@ class Database:
         profile["education"] = self._get_education(pid)
         profile["skills"] = self._get_skills(pid)
         profile["documents"] = self._get_documents(pid)
+        profile["suggested_job_titles"] = self.get_suggested_job_titles(pid)
         return profile
 
     def get_profiles(self) -> list:
@@ -389,7 +409,7 @@ class Database:
 
             # Delete all profile-linked data
             for table in ["positions", "education", "skills", "documents",
-                           "applications", "jobs"]:
+                           "applications", "jobs", "suggested_job_titles"]:
                 conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
 
             # Delete the profile itself
@@ -418,7 +438,7 @@ class Database:
             for table in ["extraction_history", "application_events", "projects",
                            "positions", "education", "skills", "documents",
                            "applications", "jobs", "blacklist", "background_jobs",
-                           "user_preferences", "profile"]:
+                           "user_preferences", "suggested_job_titles", "profile"]:
                 try:
                     conn.execute(f"DELETE FROM {table}")
                 except Exception:
@@ -614,7 +634,7 @@ class Database:
 
     def update_skill(self, skill_id: str, data: dict):
         conn = self.connect()
-        fields = ["name", "category", "level", "years_experience"]
+        fields = ["name", "category", "level", "years_experience", "last_used_year"]
         sets, vals = [], []
         for f in fields:
             if f in data:
@@ -684,11 +704,12 @@ class Database:
         sid = _gen_id()
         profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
-            INSERT INTO skills (id, name, category, level, years_experience, profile_id)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO skills (id, name, category, level, years_experience, last_used_year, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             sid, data.get("name"), data.get("category", "fachlich"),
-            data.get("level", 3), data.get("years_experience"), profile_id
+            data.get("level", 3), data.get("years_experience"),
+            data.get("last_used_year"), profile_id
         ))
         conn.commit()
         return sid
@@ -696,6 +717,48 @@ class Database:
     def delete_skill(self, skill_id: str):
         conn = self.connect()
         conn.execute("DELETE FROM skills WHERE id = ?", (skill_id,))
+        conn.commit()
+
+    # === Suggested Job Titles ===
+
+    def get_suggested_job_titles(self, profile_id: str = None) -> list:
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return []
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM suggested_job_titles WHERE profile_id=? ORDER BY confidence DESC",
+            (pid,)
+        ).fetchall()]
+
+    def add_job_title(self, title: str, source: str = "auto",
+                      confidence: float = 0.0, profile_id: str = None) -> str:
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        tid = _gen_id()
+        conn.execute("""
+            INSERT INTO suggested_job_titles (id, profile_id, title, source, confidence, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
+        """, (tid, pid, title, source, confidence, _now()))
+        conn.commit()
+        return tid
+
+    def update_job_title(self, title_id: str, data: dict):
+        conn = self.connect()
+        fields = ["title", "is_active", "confidence"]
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            vals.append(title_id)
+            conn.execute(f"UPDATE suggested_job_titles SET {','.join(sets)} WHERE id=?", vals)
+            conn.commit()
+
+    def delete_job_title(self, title_id: str):
+        conn = self.connect()
+        conn.execute("DELETE FROM suggested_job_titles WHERE id=?", (title_id,))
         conn.commit()
 
     # === Documents ===
@@ -1573,7 +1636,18 @@ CREATE TABLE IF NOT EXISTS skills (
     category TEXT DEFAULT 'fachlich',
     level INTEGER DEFAULT 3,
     years_experience INTEGER,
+    last_used_year INTEGER,
     profile_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS suggested_job_titles (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    source TEXT DEFAULT 'auto',
+    confidence REAL DEFAULT 0.0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS documents (

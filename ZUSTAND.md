@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-12 | v0.15.1
+## Zustandsbericht | 2026-03-12 | v0.16.0
 
 ---
 
@@ -8,10 +8,10 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.15.1 (pyproject.toml) |
+| **Version** | 0.16.0 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
-| **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
+| **Datenbank** | SQLite (16 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v9, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop + claude.ai) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
@@ -26,7 +26,7 @@ Claude Desktop (Windows)
     |
     | stdio (MCP Protocol)
     v
-server.py (FastMCP, Composition Root)  <-- 51 Tools, 6 Resources, 12 Prompts
+server.py (FastMCP, Composition Root)  <-- 53 Tools, 6 Resources, 12 Prompts
     |
     +---> tools/ (7 Module)
     |         +-- profil.py, dokumente.py, jobs.py, bewerbungen.py
@@ -64,7 +64,7 @@ server.py (FastMCP, Composition Root)  <-- 51 Tools, 6 Resources, 12 Prompts
 
 | Typ | Anzahl |
 |-----|--------|
-| **Tools** | 51 |
+| **Tools** | 53 |
 | **Resources** | 6 |
 | **Prompts** | 12 |
 
@@ -109,6 +109,9 @@ gehalt_extrahieren, gehalt_marktanalyse, firmen_recherche, branchen_trends,
 skill_gap_analyse, ablehnungs_muster, nachfass_planen, nachfass_anzeigen,
 bewerbung_stil_tracken
 
+**Jobtitel (2):**
+jobtitel_vorschlagen, jobtitel_verwalten
+
 **Workflows (3):**
 workflow_starten, jobsuche_workflow_starten, ersterfassung_starten
 
@@ -125,7 +128,7 @@ interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
 
 ---
 
-## 4. Datenbank-Schema (v8, 15 Kern-Tabellen + user_preferences)
+## 4. Datenbank-Schema (v9, 16 Kern-Tabellen + user_preferences)
 
 | Tabelle | Zweck | Seit |
 |---------|-------|------|
@@ -145,8 +148,9 @@ interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
 | follow_ups | Nachfass-Erinnerungen | v4 |
 | extraction_history | Extraktions-Verlauf | v5 |
 | user_preferences | Benutzereinstellungen (Wizard, Hints) | v7 |
+| suggested_job_titles | Vorgeschlagene Jobtitel (auto + manuell) | v9 |
 
-Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
+Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 -> v9
 
 ---
 
@@ -157,10 +161,10 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | Datei | Zeilen | Zweck |
 |-------|--------|-------|
 | server.py | ~140 | Composition Root (Init + Dashboard + Shutdown) |
-| tools/*.py | ~2.800 | 8 Module: 51 Tools |
+| tools/*.py | ~2.900 | 8 Module: 53 Tools |
 | prompts.py | ~765 | 12 MCP Prompts |
 | resources.py | ~45 | 6 MCP Resources |
-| database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
+| database.py | ~1.700 | SQLite-Persistenz (Schema v9, Migrationen) |
 | dashboard.py | ~1.300 | FastAPI Web-Dashboard (60 API-Endpoints + Dashboard-Root) |
 | export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
 | job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
@@ -205,7 +209,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 - Automatische Dokument-Extraktion (Smart Auto-Extraction)
 - 9-Quellen Job-Suche mit Scoring und Deduplizierung
 - Gehaltsextraktion (7 Regex-Patterns + Schaetzungstabellen)
-- Vollstaendige Schema-Migrationen (v1 bis v8, abwaertskompatibel)
+- Vollstaendige Schema-Migrationen (v1 bis v9, abwaertskompatibel)
 - 190 automatische Tests
 - Zero-Knowledge Windows-Installer
 - Onboarding-Wizard und Bewerbungs-Wizard
@@ -224,6 +228,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
+| 0.16.0 | 2026-03-12 | Skill-Aktualitaet, Jobtitel-Vorschlaege, Schema v9, 53 Tools |
 | 0.15.1 | 2026-03-12 | Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons, Reanalyze |
 | 0.15.0 | 2026-03-12 | Batch-Analyse, Summary-Bugfix, Bewerbungs-Erkennung, 51 Tools |
 | 0.14.3 | 2026-03-12 | Dashboard-Befehle ueberall (copyText-Transformation) |
@@ -245,5 +250,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-12 von Claude Code (v0.15.1 Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons)*
-*Vorheriger Stand: 2026-03-10 (v0.14.0 Service-Layer, Dashboard-UX, Workspace-Guidance)*
+*Aktualisiert: 2026-03-12 von Claude Code (v0.16.0 Skill-Aktualitaet, Jobtitel-Vorschlaege, Schema v9)*
+*Vorheriger Stand: 2026-03-12 (v0.15.1 Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons)*

@@ -36,11 +36,11 @@ Claude Desktop (Windows)
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 51 Tools in 8 Modulen
+    ├──► tools/            ◄── 53 Tools in 8 Modulen
     ├──► prompts.py        ◄── 12 Prompts
     ├──► resources.py      ◄── 6 Resources
     │
-    ├──► database.py       ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    ├──► database.py       ◄── 16 Kern-Tabellen + user_preferences, WAL, Schema v9
     ├──► dashboard.py      ◄── FastAPI :8200, 60 API-Endpoints + Dashboard-Root
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 9 Quellen
@@ -162,7 +162,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## MCP-Schnittstelle
 
-### 51 Tools
+### 53 Tools
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -217,6 +217,8 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | `workflow_starten` | Universeller Workflow-Starter für alle 12 Workflows |
 | `jobsuche_workflow_starten` | Direkter Einstieg Jobsuche-Workflow |
 | `ersterfassung_starten` | Direkter Einstieg Profilerfassung |
+| `jobtitel_vorschlagen` | Passende Jobtitel aus Profil/Dokumenten ableiten |
+| `jobtitel_verwalten` | Jobtitel bearbeiten, loeschen, deaktivieren |
 
 ### 6 Resources
 
@@ -234,7 +236,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 | Prompt | Beschreibung |
 |--------|-------------|
 | `ersterfassung` | Gesprächsbasierte Profilerstellung (4 Phasen) |
-| `profil_erweiterung` | Profil aus Dokumenten erweitern (5-Schritte-Workflow) |
+| `profil_erweiterung` | Profil aus Dokumenten erweitern (6-Schritte-Workflow) |
 | `bewerbung_schreiben` | Stellenspezifisches Anschreiben |
 | `interview_vorbereitung` | Interview-Prep mit STAR-Antworten |
 | `profil_ueberpruefen` | Profil prüfen und korrigieren |
@@ -250,7 +252,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 15 Kern-Tabellen + `user_preferences`, Schema v8 (Profil-Isolation + Factory-Reset):
+SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v9 (Skill-Aktualitaet + Jobtitel):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -269,6 +271,7 @@ SQLite mit WAL-Mode, 15 Kern-Tabellen + `user_preferences`, Schema v8 (Profil-Is
 | `background_jobs` | Async-Tasks |
 | `follow_ups` | Nachfass-Erinnerungen |
 | `user_preferences` | Benutzereinstellungen (Wizard, Hints) |
+| `suggested_job_titles` | Vorgeschlagene Jobtitel (auto + manuell) |
 | `settings` | Konfiguration |
 
 **Datenspeicherung:**
@@ -290,7 +293,7 @@ PBP/
 │
 ├── src/bewerbungs_assistent/
 │   ├── server.py                 # Composition Root (~140 Zeilen)
-│   ├── tools/                    # 51 MCP-Tools in 8 Modulen
+│   ├── tools/                    # 53 MCP-Tools in 8 Modulen
 │   │   ├── profil.py             #   Profilverwaltung, Multi-Profil, Erfassung
 │   │   ├── dokumente.py          #   Dokument-Analyse, Extraktion, Batch, Import/Export
 │   │   ├── jobs.py               #   Jobsuche, Stellenverwaltung, Fit-Analyse
@@ -305,7 +308,7 @@ PBP/
 │   │   ├── profile_service.py    #   Profilstatus, Vollstaendigkeit, Praeferenzen
 │   │   ├── search_service.py     #   Suchstatus, Quellenverwaltung
 │   │   └── workspace_service.py  #   Workspace-Guidance (7 Readiness-Stufen)
-│   ├── database.py               # SQLite (15 Kern-Tabellen + user_preferences, Schema v8)
+│   ├── database.py               # SQLite (16 Kern-Tabellen + user_preferences, Schema v9)
 │   ├── dashboard.py              # FastAPI Dashboard (60 API-Endpoints + Root)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
