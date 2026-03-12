@@ -29,6 +29,13 @@ automatische Bewerbungs-Erkennung aus Dateinamen und der kritische Summary-Bug b
 - **`bewerbungs_dokumente_erkennen(auto_erstellen)`** — Firmen aus Dateinamen erkennen +
   automatisch Bewerbungseintraege anlegen
 
+### Ersterfassung: Automatische Dokumentanalyse
+
+- **Dokumente werden sofort analysiert** — Ersterfassung prueft jetzt aktiv auf vorhandene
+  Dokumente und startet die Extraktion automatisch, statt den User zu fragen
+- **Erneut-analysieren-Button** bei jedem analysierten Dokument im Dashboard —
+  setzt den Status zurueck, damit Claude das Dokument nochmal gezielt analysieren kann
+
 ### Dashboard: Direktes Profil-Bearbeiten
 
 - **Edit-Buttons bei Positionen** — Titel, Firma, Zeitraum, Beschreibung direkt aendern

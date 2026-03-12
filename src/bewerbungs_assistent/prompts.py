@@ -20,8 +20,18 @@ SCHRITT 0: FORTSCHRITT PRUEFEN
 BEVOR du anfaengst, rufe IMMER zuerst diese Tools auf:
 1. erfassung_fortschritt_lesen() — Prueft ob eine angefangene Erfassung existiert
 2. profile_auflisten() — Prueft ob mehrere Profile vorhanden sind
+3. profil_zusammenfassung() — Prueft ob Dokumente vorhanden sind
 
-WENN ein angefangenes Profil existiert:
+WENN Dokumente vorhanden (insbesondere nicht-extrahierte):
+→ SOFORT automatisch analysieren! Nicht fragen, nicht abwarten.
+→ Rufe analyse_plan_erstellen() auf um den Umfang zu sehen
+→ Dann extraktion_starten() fuer jedes Dokument
+→ Dann extraktion_ergebnis_speichern() mit den extrahierten Daten
+→ Dann extraktion_anwenden() um die Daten ins Profil zu uebernehmen
+→ ERST DANACH mit dem User sprechen und zeigen was extrahiert wurde
+→ Das ist der SCHNELLSTE Weg zum vollstaendigen Profil!
+
+WENN ein angefangenes Profil existiert (und keine neuen Dokumente):
 → Zeige dem User was schon erfasst ist und frage:
   "Hey! Ich sehe, wir haben schon angefangen. [Name], du hast bereits
    [X Positionen, Y Skills, ...] erfasst. Sollen wir da weitermachen
@@ -32,7 +42,7 @@ WENN mehrere Profile vorhanden:
 → "Ich sehe, es gibt bereits [N] Profile: [Liste]. Moechtest du
    eines davon bearbeiten oder ein ganz neues erstellen?"
 
-WENN noch kein Profil existiert:
+WENN noch kein Profil existiert und keine Dokumente:
 → Starte normal mit Phase 1
 
 NACH JEDER PHASE: Speichere den Fortschritt mit erfassung_fortschritt_speichern()!
@@ -173,10 +183,12 @@ REGELN
      Starte einfach spaeter die Ersterfassung erneut (sag einfach
      'Ersterfassung starten') und wir machen genau da weiter,
      wo wir aufgehoert haben."
-11. DOKUMENT-HINWEIS: Wenn der User Dokumente hochgeladen hat, biete an:
-    "Ich sehe du hast [N] Dokumente hochgeladen. Soll ich daraus automatisch
-     Profildaten extrahieren? Das geht schneller als alles von Hand einzugeben."
-    → Nutze dokument_profil_extrahieren() dafuer"""
+11. DOKUMENT-PFLICHT: Wenn Dokumente vorhanden sind, MUESSEN diese ZUERST
+    automatisch analysiert werden — BEVOR du den User mit Fragen belastest.
+    Dokumente sind die schnellste und vollstaendigste Datenquelle.
+    Nutze: analyse_plan_erstellen() → extraktion_starten() → extraktion_ergebnis_speichern()
+    → extraktion_anwenden(). Frage den User NICHT ob er Dokumente hochladen will,
+    wenn bereits Dokumente vorhanden sind!"""
 
     @mcp.prompt()
     def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:

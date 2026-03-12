@@ -1413,13 +1413,17 @@ async function renderProfile(p) {
     html += '<div class="card">';
     const docTypes = {lebenslauf:'Lebenslauf',zeugnis:'Zeugnis',zertifikat:'Zertifikat',anschreiben:'Anschreiben',sonstiges:'Sonstiges'};
     for (const d of p.documents) {
+      const statusLabel = d.extraction_status === 'angewendet' ? '<span style="color:var(--green); font-size:0.8rem; margin-left:8px;">&#10003; Analysiert</span>'
+        : d.extraction_status === 'nicht_extrahiert' && d.extracted_text ? '<span style="color:var(--yellow); font-size:0.8rem; margin-left:8px;">Bereit</span>'
+        : d.extracted_text ? '<span style="color:var(--blue); font-size:0.8rem; margin-left:8px;">Text extrahiert</span>' : '';
       html += `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
         <div>
           <span style="font-weight:500;">${d.filename}</span>
-          ${d.extracted_text ? `<span style="color:var(--green); font-size:0.8rem; margin-left:8px;">Text extrahiert</span>` : ''}
+          ${statusLabel}
         </div>
         <div style="display:flex; gap:6px; align-items:center;">
           <span class="badge badge-gray">${docTypes[d.doc_type]||d.doc_type}</span>
+          ${d.extraction_status === 'angewendet' ? `<button class="btn btn-sm" onclick="reanalyzeDocument('${d.id}')" title="Erneut analysieren lassen" style="padding:2px 6px;">&#8635;</button>` : ''}
           <button class="btn btn-sm btn-danger" onclick="deleteDocument('${d.id}')" style="padding:2px 6px;">x</button>
         </div>
       </div>`;
@@ -2591,6 +2595,16 @@ async function deleteDocument(id) {
   if (!confirm('Dokument wirklich entfernen?')) return;
   await api(`/api/document/${id}`, { method: 'DELETE' });
   loadProfile();
+}
+
+async function reanalyzeDocument(id) {
+  try {
+    await api(`/api/document/${id}/reanalyze`, { method: 'POST' });
+    showToast('Dokument zum erneuten Analysieren markiert. Starte Profil-Erweiterung in Claude.', 'success');
+    loadProfile();
+  } catch (e) {
+    showToast('Fehler: ' + e.message, 'error');
+  }
 }
 
 // === Settings ===

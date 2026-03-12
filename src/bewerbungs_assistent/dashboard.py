@@ -302,6 +302,13 @@ async def api_delete_document(doc_id: str):
     return {"status": "ok"}
 
 
+@app.post("/api/document/{doc_id}/reanalyze")
+async def api_reanalyze_document(doc_id: str):
+    """Reset extraction status so document can be analyzed again."""
+    _db.update_document_extraction_status(doc_id, "nicht_extrahiert")
+    return {"status": "ok"}
+
+
 @app.post("/api/browse-directory")
 async def api_browse_directory(request: Request):
     """Browse directories for folder import. Returns subdirectories and file counts."""
