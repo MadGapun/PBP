@@ -2,6 +2,19 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.16.4] — 2026-03-12
+
+### Installer v0.7.0: File-Locking Fix + Versions-Check
+
+- **Laufende PBP-Prozesse werden automatisch beendet** bevor die Runtime kopiert wird —
+  behebt "Unzulaessiger SHARE-Vorgang" wenn Claude Desktop noch laeuft
+- **Versions-Check**: Installer prueft ob die aktuelle Version schon installiert ist und
+  fragt ob trotzdem neu installiert werden soll. Bei Updates zeigt er "Update: X auf Y".
+- **Bessere Fehlermeldung**: Bei Kopier-Fehler erklaert der Installer jetzt konkret dass
+  Claude Desktop beendet werden muss (statt nur "als Administrator ausfuehren")
+
+---
+
 ## [0.16.3] — 2026-03-12
 
 ### Fix: Ersterfassung arbeitet IMMER mit aktivem Profil

@@ -4,7 +4,7 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.6.0
+:: PBP Installer v0.7.0
 :: Fix: GOTO-basierte Fehlerbehandlung
 ::      (keine Klammern in echo innerhalb IF-Bloecken)
 :: Fix: Debug-Logging zwischen allen Schritten
@@ -33,7 +33,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.6.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.7.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -44,7 +44,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.6.0
+echo    Installer v0.7.0
 echo.
 echo  ====================================================
 echo.
@@ -69,6 +69,35 @@ echo  *  WICHTIG: Dieses Fenster NICHT schliessen!       *
 echo  *  Einfach warten bis "FERTIG" erscheint.          *
 echo  ****************************************************
 echo.
+
+:: -------------------------------------------
+:: Versions-Check: Ist die aktuelle Version schon installiert?
+:: -------------------------------------------
+echo [DEBUG] Versions-Check... >> "%LOGFILE%"
+if exist "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" (
+    for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" 2^>nul') do set "INSTALLED_VER=%%~v"
+    for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%SRC_DIR%\bewerbungs_assistent\__init__.py" 2^>nul') do set "NEW_VER=%%~v"
+    if defined INSTALLED_VER if defined NEW_VER if "!INSTALLED_VER!"=="!NEW_VER!" (
+        echo [INFO] Version !INSTALLED_VER! ist bereits installiert >> "%LOGFILE%"
+        echo.
+        echo  Version !INSTALLED_VER! ist bereits installiert.
+        echo.
+        set /p FORCE_INSTALL="  Trotzdem neu installieren? ^(j/n^): "
+        if /i "!FORCE_INSTALL!" neq "j" (
+            echo.
+            echo  Installation abgebrochen. Aktuelle Version laeuft bereits.
+            echo.
+            pause
+            exit /b 0
+        )
+        echo [INFO] Erzwinge Neuinstallation >> "%LOGFILE%"
+    ) else (
+        echo [INFO] Update: !INSTALLED_VER! auf !NEW_VER! >> "%LOGFILE%"
+        echo.
+        echo  Update erkannt: !INSTALLED_VER! wird auf !NEW_VER! aktualisiert.
+        echo.
+    )
+)
 
 :: -------------------------------------------
 :: SCHRITT 1: Python pruefen / herunterladen
@@ -300,16 +329,36 @@ echo.
 echo         Kopiere Runtime in festen Installationspfad...
 echo [INFO] Kopiere python + src nach %DATA_DIR% >> "%LOGFILE%"
 
+:: Laufende PBP-Prozesse beenden (verhindert "Unzulaessiger SHARE-Vorgang")
+echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
+set "KILLED_PROCESSES=0"
+for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr /i "PID"') do (
+    wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "bewerbungs_assistent" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [INFO] Beende PBP-Prozess PID %%p >> "%LOGFILE%"
+        taskkill /pid %%p /f >nul 2>&1
+        set "KILLED_PROCESSES=1"
+    )
+)
+if "!KILLED_PROCESSES!"=="1" (
+    echo         [OK] Laufende PBP-Prozesse beendet
+    echo [OK] PBP-Prozesse beendet >> "%LOGFILE%"
+    timeout /t 2 /nobreak >nul
+)
+
 :: python/ Ordner kopieren
 echo [DEBUG] Kopiere python-Ordner... >> "%LOGFILE%"
-if exist "%DATA_DIR%\python" rmdir /s /q "%DATA_DIR%\python"
+if exist "%DATA_DIR%\python" rmdir /s /q "%DATA_DIR%\python" 2>nul
+if exist "%DATA_DIR%\python" (
+    echo [WARN] python-Ordner konnte nicht geloescht werden, versuche ueberschreiben >> "%LOGFILE%"
+)
 xcopy "%PYTHON_DIR%" "%DATA_DIR%\python\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
 echo [OK] python kopiert >> "%LOGFILE%"
 
 :: src/ Ordner kopieren
 echo [DEBUG] Kopiere src-Ordner... >> "%LOGFILE%"
-if exist "%DATA_DIR%\src" rmdir /s /q "%DATA_DIR%\src"
+if exist "%DATA_DIR%\src" rmdir /s /q "%DATA_DIR%\src" 2>nul
 xcopy "%SRC_DIR%" "%DATA_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
 echo [OK] src kopiert >> "%LOGFILE%"
@@ -552,7 +601,17 @@ exit /b 1
 echo [FEHLER] Runtime-Kopie fehlgeschlagen >> "%LOGFILE%"
 echo.
 echo  FEHLER: Runtime konnte nicht nach %DATA_DIR% kopiert werden.
-echo  Versuche INSTALLIEREN.bat als Administrator auszufuehren.
+echo.
+echo  Das passiert meistens weil Claude Desktop noch laeuft
+echo  und Python-Dateien sperrt.
+echo.
+echo  LOESUNG:
+echo    1. Claude Desktop BEENDEN:
+echo       Rechtsklick auf das Claude-Symbol unten rechts
+echo       in der Taskleiste, dann "Quit" / "Beenden"
+echo    2. INSTALLIEREN.bat nochmal starten
+echo.
+echo  Falls das nicht hilft: Als Administrator ausfuehren.
 echo  (Log: %LOGFILE%)
 echo.
 pause
