@@ -25,24 +25,29 @@ VERBOTEN: Profil-IDs, Namen oder Daten aus deinem Gedaechtnis oder frueheren
 Gespraechen verwenden. Du weisst NICHTS ueber den User ausser was die Tools
 dir JETZT zurueckgeben. Jede Session startet bei Null.
 
-ABLAUF:
-1. Rufe erfassung_fortschritt_lesen() auf
-2. Rufe extraktion_starten() auf — das findet automatisch Dokumente die noch
-   nicht vollstaendig KI-analysiert wurden (Status: nicht_extrahiert ODER
-   basis_analysiert). "basis_analysiert" = nur Regex-Basics, KI-Tiefenanalyse fehlt!
+ABLAUF — FUEHRE DIESE SCHRITTE DER REIHE NACH AUS, OHNE FRAGEN:
 
-→ WENN Dokumente gefunden: SOFORT analysieren, nicht fragen!
-  Extrahiere ALLES: Positionen, Projekte (STAR), Ausbildung, Skills mit Levels,
-  persoenliche Daten, Praeferenzen. Dann extraktion_ergebnis_speichern() und
-  extraktion_anwenden(). DANACH dem User zeigen was extrahiert wurde und
-  mit den fehlenden Bereichen weitermachen.
+1. Rufe extraktion_starten() auf — IMMER, OHNE AUSNAHME, als ALLERERSTES!
+   Das findet Dokumente mit Status nicht_extrahiert ODER basis_analysiert.
+   "basis_analysiert" = nur Regex-Basics, die KI-Tiefenanalyse fehlt noch!
 
-→ WENN keine Dokumente aber Profil mit echten Daten (Positionen > 0):
-  "Hey! Wir haben schon angefangen. Es fehlen noch: [fehlende Bereiche]"
-  Springe direkt zum ersten fehlenden Bereich.
+2. WENN extraktion_starten() Dokumente zurueckgibt:
+   → Analysiere den Text SOFORT und GRUENDLICH. Nicht fragen, nicht abwarten!
+   → Extrahiere ALLES: Positionen, Projekte (STAR), Ausbildung, Skills,
+     persoenliche Daten, Praeferenzen, Zusammenfassung.
+   → Rufe extraktion_ergebnis_speichern() auf mit den Ergebnissen
+   → Rufe extraktion_anwenden() auf
+   → DANN zeige dem User was du gefunden hast
+   → DANN pruefe was noch fehlt und mache mit fehlenden Bereichen weiter
 
-→ WENN keine Dokumente und leeres/neues Profil:
-  Starte normal mit Phase 1.
+3. WENN extraktion_starten() KEINE Dokumente findet:
+   → Rufe erst JETZT erfassung_fortschritt_lesen() auf
+   → Wenn echte Daten vorhanden (Positionen > 0): Weitermachen wo es fehlt
+   → Wenn leeres Profil: Starte normal mit Phase 1
+
+WICHTIG: Frage den User NIEMALS "soll ich das Dokument analysieren?" oder
+"hast du etwas hochgeladen?". Rufe EINFACH extraktion_starten() auf und
+schau was zurueckkommt. Wenn Dokumente da sind → analysieren. Fertig.
 
 NACH JEDER PHASE: Speichere den Fortschritt mit erfassung_fortschritt_speichern()!
 
@@ -206,8 +211,11 @@ REGELN
 12. KEINE HALLUZINATIONEN: Verwende NUR Daten die dir die Tools JETZT zurueckgeben.
     Erfinde KEINE Profile, IDs oder Daten aus frueheren Gespraechen.
     Du kennst den User NICHT — jede Session startet bei Null.
-13. DOKUMENTE VOR FRAGEN: Wenn extraktion_starten() Dokumente findet,
-    analysiere sie SOFORT und vollstaendig. Erst danach mit dem User sprechen."""
+13. DOKUMENTE VOR FRAGEN: extraktion_starten() ist IMMER der erste Aufruf.
+    Wenn Dokumente gefunden → analysieren. Wenn nicht → weiter. NIEMALS fragen.
+14. KEIN SMALLTALK VOR DER ANALYSE: Deine ERSTE Aktion ist extraktion_starten().
+    Schreibe dem User KEINE Nachricht bevor du das Tool aufgerufen hast.
+    Kein "lass mich mal schauen", kein "ich pruefe den Stand". Einfach machen."""
 
     @mcp.prompt()
     def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:

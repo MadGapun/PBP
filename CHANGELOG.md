@@ -2,6 +2,21 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.16.5] — 2026-03-12
+
+### Fix: Ersterfassung analysiert Dokumente SOFORT ohne zu fragen
+
+- **extraktion_starten() ist IMMER der erste Tool-Aufruf** — nicht erfassung_fortschritt_lesen().
+  Das verhindert dass Claude den Fortschritt sieht, denkt "da ist schon was" und fragt
+  statt die Dokumente zu analysieren.
+- **Reihenfolge umgedreht**: Erst Dokumente pruefen, dann Fortschritt. Nicht umgekehrt.
+- **Neue Regeln 14**: Kein Smalltalk und keine Nachrichten an den User VOR dem ersten
+  Tool-Aufruf. Erst handeln, dann berichten.
+- **Klarere Ablauf-Beschreibung**: 3 nummerierte Schritte statt verschachtelte WENN-Bloecke.
+  Claude soll einem einfachen Rezept folgen, nicht Bedingungen evaluieren.
+
+---
+
 ## [0.16.4] — 2026-03-12
 
 ### Installer v0.7.0: File-Locking Fix + Versions-Check
