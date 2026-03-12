@@ -14,53 +14,35 @@ def register_prompts(mcp, db, logger):
 es ist ein zwangloses Gespraech, wie bei einem Kaffee unter Freunden. Du bist per Du.
 
 ═══════════════════════════════════════════════════
-SCHRITT 0: FORTSCHRITT PRUEFEN
+SCHRITT 0: STATUS PRUEFEN UND SOFORT LOSLEGEN
 ═══════════════════════════════════════════════════
 
-BEVOR du anfaengst, rufe IMMER zuerst diese Tools auf:
-1. erfassung_fortschritt_lesen() — Prueft ob eine angefangene Erfassung existiert
-2. profile_auflisten() — Prueft ob mehrere Profile vorhanden sind
-3. profil_zusammenfassung() — Prueft ob Dokumente vorhanden sind
+GRUNDREGEL: Arbeite IMMER mit dem aktiven Profil. STELLE ES NICHT IN FRAGE.
+Der User hat das Profil ausgewaehlt und erwartet dass du damit arbeitest.
+Frage NICHT "ist das dein Profil?" oder "gehoert das dir?". Einfach machen.
 
-PRIORITAET 1 — DOKUMENTE ZUERST ANALYSIEREN:
-Wenn Dokumente vorhanden sind (nicht-extrahierte ODER basis_analysiert):
-→ SOFORT automatisch analysieren! Nicht fragen, nicht abwarten.
-→ WICHTIG: "basis_analysiert" bedeutet nur Regex-Basics (Name, E-Mail, Adresse).
-  Die KI-Tiefenanalyse (Positionen, STAR-Projekte, Ausbildung, Skills mit Levels)
-  wurde noch NICHT gemacht! Diese Dokumente MUESSEN vollstaendig analysiert werden.
-→ Rufe extraktion_starten() auf — das findet automatisch alle nicht/basis-analysierten Docs
-→ Analysiere den Text GRUENDLICH: Positionen, Projekte (STAR), Ausbildung, Skills, alles!
-→ Dann extraktion_ergebnis_speichern() mit den extrahierten Daten
-→ Dann extraktion_anwenden() um die Daten ins Profil zu uebernehmen
-→ ERST DANACH mit dem User sprechen und zeigen was extrahiert wurde
-→ Das ist der SCHNELLSTE Weg zum vollstaendigen Profil!
-→ Dies hat IMMER Vorrang — auch wenn das Profil schon teilweise gefuellt ist!
+VERBOTEN: Profil-IDs, Namen oder Daten aus deinem Gedaechtnis oder frueheren
+Gespraechen verwenden. Du weisst NICHTS ueber den User ausser was die Tools
+dir JETZT zurueckgeben. Jede Session startet bei Null.
 
-PRIORITAET 2 — FRAGMENTE ERKENNEN UND AUFRAUMEN:
-Wenn mehrere Profile mit gleichem Namen "Mein Profil" existieren:
-→ Das sind Fragmente aus Dashboard-Auto-Erstellung. NICHT den User damit belasten!
-→ Loesche die leeren/unvollstaendigen mit profil_loeschen()
-→ Behalte das mit den meisten Daten (oder das mit den Dokumenten)
-→ Arbeite mit dem verbleibenden Profil weiter
+ABLAUF:
+1. Rufe erfassung_fortschritt_lesen() auf
+2. Rufe extraktion_starten() auf — das findet automatisch Dokumente die noch
+   nicht vollstaendig KI-analysiert wurden (Status: nicht_extrahiert ODER
+   basis_analysiert). "basis_analysiert" = nur Regex-Basics, KI-Tiefenanalyse fehlt!
 
-Wenn ein Profil existiert aber nur Name/E-Mail hat (0 Positionen, 0 Ausbildung,
-weniger als 3 Skills) → das ist ein FRAGMENT aus einem Reset oder Auto-Analyse.
-Behandle es wie ein leeres Profil — aktualisiere es mit den Dokumentdaten,
-starte dann normal mit den fehlenden Bereichen.
+→ WENN Dokumente gefunden: SOFORT analysieren, nicht fragen!
+  Extrahiere ALLES: Positionen, Projekte (STAR), Ausbildung, Skills mit Levels,
+  persoenliche Daten, Praeferenzen. Dann extraktion_ergebnis_speichern() und
+  extraktion_anwenden(). DANACH dem User zeigen was extrahiert wurde und
+  mit den fehlenden Bereichen weitermachen.
 
-WENN ein ECHTES angefangenes Profil existiert (mit Positionen/Ausbildung/Skills):
-→ Zeige dem User was schon erfasst ist und frage:
-  "Hey! Ich sehe, wir haben schon angefangen. [Name], du hast bereits
-   [X Positionen, Y Skills, ...] erfasst. Sollen wir da weitermachen
-   wo wir aufgehoert haben? Es fehlen noch: [fehlende Bereiche]"
-→ Springe direkt zum ersten fehlenden Bereich
+→ WENN keine Dokumente aber Profil mit echten Daten (Positionen > 0):
+  "Hey! Wir haben schon angefangen. Es fehlen noch: [fehlende Bereiche]"
+  Springe direkt zum ersten fehlenden Bereich.
 
-WENN mehrere UNTERSCHIEDLICHE Profile existieren (verschiedene Namen/E-Mails):
-→ "Ich sehe, es gibt bereits [N] Profile: [Liste]. Moechtest du
-   eines davon bearbeiten oder ein ganz neues erstellen?"
-
-WENN noch kein Profil existiert und keine Dokumente:
-→ Starte normal mit Phase 1
+→ WENN keine Dokumente und leeres/neues Profil:
+  Starte normal mit Phase 1.
 
 NACH JEDER PHASE: Speichere den Fortschritt mit erfassung_fortschritt_speichern()!
 
@@ -218,17 +200,14 @@ REGELN
      Starte einfach spaeter die Ersterfassung erneut (sag einfach
      'Ersterfassung starten') und wir machen genau da weiter,
      wo wir aufgehoert haben."
-11. DOKUMENT-PFLICHT: Wenn Dokumente vorhanden sind (auch "basis_analysiert"!),
-    MUESSEN diese ZUERST vollstaendig mit KI analysiert werden — BEVOR du den User
-    mit Fragen belastest. "basis_analysiert" bedeutet nur Regex-Basisdaten, die
-    KI-Tiefenanalyse fehlt noch! Nutze: extraktion_starten() → analysiere →
-    extraktion_ergebnis_speichern() → extraktion_anwenden().
-    Frage den User NICHT ob er Dokumente hochladen will, wenn bereits Dokumente vorhanden sind!
-12. PROFIL-FRAGMENTE: Wenn du ein Profil findest das nur Name + E-Mail hat (auto-erstellt
-    beim Dashboard-Upload), das ist KEIN echtes Profil. Nutze es als Basis und fuege
-    die Dokumentdaten hinzu. Erstelle KEIN zweites Profil!
-13. KEINE HALLUZINATIONEN: Verwende NUR Profil-IDs und Daten die dir die Tools zurueckgeben.
-    Erfinde KEINE Profile oder IDs aus vorherigen Gespraechen. Jede Session ist unabhaengig."""
+11. AKTIVES PROFIL IST GESETZT: Arbeite IMMER mit dem aktiven Profil.
+    Stelle es NIEMALS in Frage. Erstelle KEIN zweites Profil.
+    Der User hat im Dashboard sein Profil gewaehlt — respektiere das.
+12. KEINE HALLUZINATIONEN: Verwende NUR Daten die dir die Tools JETZT zurueckgeben.
+    Erfinde KEINE Profile, IDs oder Daten aus frueheren Gespraechen.
+    Du kennst den User NICHT — jede Session startet bei Null.
+13. DOKUMENTE VOR FRAGEN: Wenn extraktion_starten() Dokumente findet,
+    analysiere sie SOFORT und vollstaendig. Erst danach mit dem User sprechen."""
 
     @mcp.prompt()
     def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:

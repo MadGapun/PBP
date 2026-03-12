@@ -2,6 +2,22 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.16.3] — 2026-03-12
+
+### Fix: Ersterfassung arbeitet IMMER mit aktivem Profil
+
+- **SCHRITT 0 radikal vereinfacht** — Claude ruft jetzt nur noch `erfassung_fortschritt_lesen()`
+  und `extraktion_starten()` auf. Kein `profile_auflisten()` mehr, das Claude zum Nachdenken
+  ueber mehrere Profile verleitete statt einfach zu arbeiten.
+- **Aktives Profil ist gesetzt** — Claude stellt das Profil NICHT mehr in Frage. Der User
+  hat es im Dashboard gewaehlt, Claude respektiert das und arbeitet damit.
+- **Keine Halluzinationen mehr** — Starke Regel: Claude verwendet NUR Daten die die Tools
+  JETZT zurueckgeben. Keine Profil-IDs oder Namen aus dem Gedaechtnis/frueheren Gespraechen.
+- **Handeln statt diskutieren** — Der Prompt ist jetzt handlungsorientiert: Dokumente
+  analysieren → Daten anwenden → fehlende Bereiche im Gespraech ergaenzen.
+
+---
+
 ## [0.16.2] — 2026-03-12
 
 ### Fix: Ersterfassung nach Reset — Fragmente, Duplikate, Dokumentanalyse
