@@ -1126,7 +1126,7 @@ async def api_analyze_documents(request: Request):
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+            "SELECT * FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') AND extracted_text IS NOT NULL AND extracted_text != ''",
             (pid,)
         ).fetchall()
 
@@ -1233,7 +1233,7 @@ async def api_analyze_documents(request: Request):
 
     _db.update_extraction_history(eid, "angewendet", applied)
     for doc_id in doc_ids:
-        _db.update_document_extraction_status(doc_id, "angewendet")
+        _db.update_document_extraction_status(doc_id, "basis_analysiert")
 
     return {
         "status": "angewendet",

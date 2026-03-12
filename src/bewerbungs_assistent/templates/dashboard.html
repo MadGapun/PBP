@@ -2106,10 +2106,19 @@ async function wizardDocUploadSubmit(e) {
           if (analyzeResult.status === 'angewendet') {
             const appliedList = Object.entries(analyzeResult.angewendet || {})
               .map(([k,v]) => '<li>' + k + ': ' + (typeof v === 'number' ? v + ' hinzugefuegt' : v) + '</li>').join('');
-            openModal('<h2 style="color:var(--green);">Dokument analysiert und eingepflegt!</h2>' +
-              (appliedList ? '<ul style="color:var(--text2); margin:12px 0;">' + appliedList + '</ul>' : '<p style="color:var(--text2);">Keine neuen Daten gefunden.</p>') +
-              '<div class="card" style="margin-top:12px;"><strong>Weiteres Dokument hochladen?</strong><p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Du kannst weitere Dokumente hochladen um dein Profil zu vervollstaendigen.</p><button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button></div>' +
-              '<div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>');
+            openModal('<h2 style="color:var(--green);">Dokument hochgeladen — Basisdaten uebernommen!</h2>' +
+              (appliedList ? '<ul style="color:var(--text2); margin:12px 0;">' + appliedList + '</ul>' : '') +
+              '<div class="card" style="margin:16px 0; border:2px solid var(--accent); background:rgba(12,45,107,0.15); padding:20px;">' +
+                '<h3 style="color:var(--accent); margin:0 0 8px;">Jetzt Profil vervollstaendigen!</h3>' +
+                '<p style="color:var(--text2); font-size:0.9rem; margin:0 0 12px;">Die Basisdaten (Name, E-Mail, Adresse) wurden uebernommen. Fuer die vollstaendige Profilerstellung — Berufserfahrung, Projekte, Ausbildung, Skills — starte jetzt die <strong>Ersterfassung</strong> in Claude.</p>' +
+                '<p style="color:var(--text2); font-size:0.85rem; margin:0 0 12px;">Claude analysiert dein Dokument mit KI und fuehrt dich im Gespraech durch alle fehlenden Bereiche.</p>' +
+                '<button class="btn btn-primary" onclick="copyText(\'/ersterfassung\'); closeModal();" style="font-size:1rem; padding:10px 24px;">Ersterfassung starten (kopieren)</button>' +
+                '<p style="color:var(--text3); font-size:0.75rem; margin:8px 0 0;">Du kannst das auch spaeter machen — oeffne einfach Claude und sage "Ersterfassung starten".</p>' +
+              '</div>' +
+              '<div style="display:flex; gap:8px; margin-top:8px;">' +
+                '<button class="btn btn-sm" onclick="closeModal(); wizardDocUpload();">Weiteres Dokument</button>' +
+                '<button class="btn btn-sm" onclick="closeModal()">Spaeter</button>' +
+              '</div>');
             loadProfile();
             return;
           }

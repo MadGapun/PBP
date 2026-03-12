@@ -2,6 +2,23 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.16.1] — 2026-03-12
+
+### Fix: Ersterfassung nach Dokumenten-Upload (Issue #38)
+
+- **Dashboard-Auto-Analyse markiert Dokumente jetzt als `basis_analysiert`** statt `angewendet` —
+  damit erkennt die Ersterfassung diese Dokumente und fuehrt die vollstaendige KI-Tiefenanalyse durch
+  (Positionen, STAR-Projekte, Ausbildung, Skills mit Levels statt nur Regex-Basisdaten)
+- **Prominenter Ersterfassung-CTA nach Upload** — nach dem Hochladen eines Dokuments erscheint
+  ein grosser, auffaelliger Hinweis der erklaert was als naechstes zu tun ist und den
+  Ersterfassung-Workflow direkt zum Kopieren anbietet
+- **Ersterfassung-Prompt versteht `basis_analysiert`** — erkennt dass nur Basisdaten extrahiert
+  wurden und startet automatisch die vollstaendige KI-Analyse
+- **Alle Dokument-Tools aktualisiert** — `extraktion_starten()`, `analyse_plan_erstellen()`,
+  `dokumente_batch_analysieren()`, `dokumente_bulk_markieren()` erkennen alle den neuen Status
+
+---
+
 ## [0.16.0] — 2026-03-12
 
 ### Skill-Aktualitaet & Jobtitel-Vorschlaege

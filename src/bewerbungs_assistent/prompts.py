@@ -22,10 +22,12 @@ BEVOR du anfaengst, rufe IMMER zuerst diese Tools auf:
 2. profile_auflisten() — Prueft ob mehrere Profile vorhanden sind
 3. profil_zusammenfassung() — Prueft ob Dokumente vorhanden sind
 
-WENN Dokumente vorhanden (insbesondere nicht-extrahierte):
+WENN Dokumente vorhanden (nicht-extrahierte ODER basis_analysiert):
 → SOFORT automatisch analysieren! Nicht fragen, nicht abwarten.
-→ Rufe analyse_plan_erstellen() auf um den Umfang zu sehen
-→ Dann extraktion_starten() fuer jedes Dokument
+→ WICHTIG: "basis_analysiert" bedeutet nur Regex-Basics (Name, E-Mail, Adresse).
+  Die KI-Tiefenanalyse (Positionen, STAR-Projekte, Ausbildung, Skills mit Levels)
+  wurde noch NICHT gemacht! Diese Dokumente MUESSEN nochmal vollstaendig analysiert werden.
+→ Rufe extraktion_starten() auf — das findet automatisch alle nicht/basis-analysierten Docs
 → Dann extraktion_ergebnis_speichern() mit den extrahierten Daten
 → Dann extraktion_anwenden() um die Daten ins Profil zu uebernehmen
 → ERST DANACH mit dem User sprechen und zeigen was extrahiert wurde
@@ -201,12 +203,12 @@ REGELN
      Starte einfach spaeter die Ersterfassung erneut (sag einfach
      'Ersterfassung starten') und wir machen genau da weiter,
      wo wir aufgehoert haben."
-11. DOKUMENT-PFLICHT: Wenn Dokumente vorhanden sind, MUESSEN diese ZUERST
-    automatisch analysiert werden — BEVOR du den User mit Fragen belastest.
-    Dokumente sind die schnellste und vollstaendigste Datenquelle.
-    Nutze: analyse_plan_erstellen() → extraktion_starten() → extraktion_ergebnis_speichern()
-    → extraktion_anwenden(). Frage den User NICHT ob er Dokumente hochladen will,
-    wenn bereits Dokumente vorhanden sind!"""
+11. DOKUMENT-PFLICHT: Wenn Dokumente vorhanden sind (auch "basis_analysiert"!),
+    MUESSEN diese ZUERST vollstaendig mit KI analysiert werden — BEVOR du den User
+    mit Fragen belastest. "basis_analysiert" bedeutet nur Regex-Basisdaten, die
+    KI-Tiefenanalyse fehlt noch! Nutze: extraktion_starten() → analysiere →
+    extraktion_ergebnis_speichern() → extraktion_anwenden().
+    Frage den User NICHT ob er Dokumente hochladen will, wenn bereits Dokumente vorhanden sind!"""
 
     @mcp.prompt()
     def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:
@@ -689,7 +691,7 @@ Sprich Deutsch und per Du. Passe die Templates an das Profil an."""
         if profile:
             rows = conn.execute(
                 "SELECT id, filename, doc_type FROM documents WHERE profile_id=? AND "
-                "extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+                "extraction_status IN ('nicht_extrahiert', 'basis_analysiert') AND extracted_text IS NOT NULL AND extracted_text != ''",
                 (profile["id"],)
             ).fetchall()
             unextracted = [dict(r) for r in rows]

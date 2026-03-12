@@ -86,7 +86,7 @@ def register(mcp, db, logger):
                 "hat_text": bool(d.get("extracted_text")),
                 "text_laenge": len(d.get("extracted_text", "")),
                 "extraction_status": d.get("extraction_status", "nicht_extrahiert"),
-                "bereits_analysiert": d.get("extraction_status", "") not in ("nicht_extrahiert", ""),
+                "bereits_analysiert": d.get("extraction_status", "") not in ("nicht_extrahiert", "", "basis_analysiert"),
             }
             for d in docs
             if d.get("extracted_text")
@@ -151,7 +151,7 @@ def register(mcp, db, logger):
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
+                "SELECT * FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') AND extracted_text IS NOT NULL AND extracted_text != ''",
                 (pid,)
             ).fetchall()
 
@@ -647,8 +647,8 @@ def register(mcp, db, logger):
         ).fetchall()
 
         docs = [dict(d) for d in all_docs]
-        nicht_analysiert = [d for d in docs if d["extraction_status"] == "nicht_extrahiert"]
-        bereits_analysiert = [d for d in docs if d["extraction_status"] != "nicht_extrahiert"]
+        nicht_analysiert = [d for d in docs if d["extraction_status"] in ("nicht_extrahiert", "basis_analysiert")]
+        bereits_analysiert = [d for d in docs if d["extraction_status"] not in ("nicht_extrahiert", "basis_analysiert")]
 
         # Duplikate erkennen
         unique, dup_ids = _find_duplicates(nicht_analysiert)
@@ -735,7 +735,7 @@ def register(mcp, db, logger):
         conn = db.connect()
         pid = profile["id"]
         rows = conn.execute(
-            "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' "
+            "SELECT * FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
             "AND extracted_text IS NOT NULL AND extracted_text != '' ORDER BY LENGTH(extracted_text)",
             (pid,)
         ).fetchall()
@@ -856,7 +856,7 @@ def register(mcp, db, logger):
         else:
             rows = conn.execute(
                 "SELECT id, filename FROM documents WHERE profile_id=? "
-                "AND extraction_status='nicht_extrahiert' "
+                "AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
                 "AND extracted_text IS NOT NULL AND extracted_text != ''",
                 (pid,)
             ).fetchall()
