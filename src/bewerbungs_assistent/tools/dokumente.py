@@ -1,7 +1,10 @@
-"""Dokument-Analyse und Extraktion Tools (PBP-028, PBP v0.8.0)."""
+"""Dokument-Analyse und Extraktion Tools (PBP-028, PBP v0.8.0+)."""
 
 import json
+import os
+import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ..database import get_data_dir
 
@@ -98,12 +101,16 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
-    def extraktion_starten(document_ids: list = None, force: bool = False) -> dict:
+    def extraktion_starten(document_ids: list = None, force: bool = False,
+                           profil_mitsenden: bool = True) -> dict:
         """Startet die intelligente Profil-Extraktion fuer ein oder mehrere Dokumente.
 
         Laedt den extrahierten Text aller angegebenen (oder aller noch nicht
         analysierten) Dokumente und gibt ihn zusammen mit dem aktuellen Profil
         zurueck, damit Claude die Daten vergleichen und extrahieren kann.
+
+        TIPP: Fuer viele Dokumente nutze stattdessen analyse_plan_erstellen()
+        und dokumente_batch_analysieren() — das ist effizienter.
 
         WORKFLOW:
         1. Rufe dieses Tool auf (optional mit document_ids)
@@ -115,6 +122,8 @@ def register(mcp, db, logger):
         Args:
             document_ids: Liste von Dokument-IDs oder Dateinamen. Leer = alle noch nicht extrahierten.
             force: True = auch bereits extrahierte Dokumente erneut verarbeiten.
+            profil_mitsenden: True (Standard) = Profil wird mitgesendet. False = nur Dokumente,
+                spart Tokens wenn das Profil schon bekannt ist.
         """
         profile = db.get_profile()
         if not profile:
@@ -196,20 +205,26 @@ def register(mcp, db, logger):
             "praeferenzen": profile.get("preferences", {}),
         }
 
-        return {
+        result = {
             "status": "ok",
             "extraction_id": eid,
             "dokumente_anzahl": len(dokumente),
             "dokumente": dokumente,
-            "aktuelles_profil": profil_zusammenfassung_text,
             "anleitung": (
                 "Analysiere die Dokumente und extrahiere ALLE verwertbaren Profildaten. "
                 "Vergleiche mit dem aktuellen Profil. "
                 "Speichere das Ergebnis mit extraktion_ergebnis_speichern(). "
-                "Bei Konflikten: IMMER den User fragen. "
-                "Bei fehlenden Feldern: Nachfragen ob der User diese ergaenzen moechte."
+                "WICHTIG: Das Feld 'zusammenfassung' ist NUR fuer echte Profil-Summaries "
+                "(z.B. 'Lead PLM Architekt mit 20 Jahren Erfahrung'), NICHT fuer Dokument-"
+                "Beschreibungen. Bei Dokumenten ohne Profil-relevante Daten: zusammenfassung weglassen. "
+                "Bei Konflikten: IMMER den User fragen."
             ),
         }
+        if profil_mitsenden:
+            result["aktuelles_profil"] = profil_zusammenfassung_text
+        else:
+            result["profil_hinweis"] = "Profil nicht mitgesendet (profil_mitsenden=False). Nutze profil_zusammenfassung() bei Bedarf."
+        return result
 
     @mcp.tool()
     def extraktion_ergebnis_speichern(
@@ -329,7 +344,7 @@ def register(mcp, db, logger):
             update_data = {}
             actually_applied = []
             for field in ["name", "email", "phone", "address", "city", "plz",
-                          "country", "birthday", "nationality", "summary"]:
+                          "country", "birthday", "nationality"]:
                 if field in pers and pers[field]:
                     # Check conflicts
                     if field in loesungen:
@@ -358,13 +373,35 @@ def register(mcp, db, logger):
                 db.save_profile(update_data)
                 applied["persoenliche_daten"] = actually_applied
 
-        # Apply summary
+        # Apply summary — ONLY if it looks like a real profile summary,
+        # NOT a document description. Dokument-Zusammenfassungen (z.B.
+        # "Interview-Vorbereitung fuer Jungheinrich") duerfen NICHT das
+        # Profil-Summary ueberschreiben.
         if "zusammenfassung" in all_bereiche and extracted.get("zusammenfassung"):
-            should_apply = (
-                _is_default_or_empty(profile.get("summary")) or
-                auto_apply or
-                "zusammenfassung" in loesungen
-            )
+            new_summary = extracted["zusammenfassung"]
+            current_summary = profile.get("summary", "")
+
+            # Nur anwenden wenn: Summary ist leer/default ODER der neue Text
+            # ist laenger und sieht nach einem echten Profil-Summary aus
+            # (enthaelt typische Profil-Keywords wie "Jahre", "Erfahrung", "Architekt" etc.)
+            _PROFIL_KEYWORDS = {"erfahrung", "jahre", "beruf", "architekt", "engineer",
+                                "manager", "berater", "consultant", "entwickler", "experte",
+                                "spezialist", "leiter", "lead", "senior", "principal"}
+            new_lower = new_summary.lower()
+            has_profil_keywords = any(kw in new_lower for kw in _PROFIL_KEYWORDS)
+
+            should_apply = False
+            if _is_default_or_empty(current_summary):
+                # Profil hat noch kein Summary — immer anwenden
+                should_apply = True
+            elif has_profil_keywords and len(new_summary) > len(current_summary):
+                # Neues Summary sieht nach echtem Profil aus UND ist ausfuehrlicher
+                should_apply = True
+            elif "zusammenfassung" in loesungen and loesungen["zusammenfassung"] == "neu":
+                # User hat explizit entschieden
+                should_apply = True
+            # NICHT auto_apply fuer Summary — das war der Bug!
+
             if should_apply:
                 # Re-read profile in case personal data was just updated
                 profile = db.get_profile()
@@ -373,7 +410,7 @@ def register(mcp, db, logger):
                     ["name", "email", "phone", "address", "city", "plz",
                      "country", "birthday", "nationality", "informal_notes"]
                 }
-                update_data["summary"] = extracted["zusammenfassung"]
+                update_data["summary"] = new_summary
                 update_data["preferences"] = profile.get("preferences", {})
                 db.save_profile(update_data)
                 applied["zusammenfassung"] = True
@@ -509,6 +546,466 @@ def register(mcp, db, logger):
             "angewendete_bereiche": applied,
             "hinweis": "Profil wurde aktualisiert. Pruefe mit profil_zusammenfassung().",
         }
+
+    # ── Hilfsfunktion: Duplikat-Erkennung ──────────────────────────────────
+
+    def _find_duplicates(documents: list) -> tuple:
+        """Erkennt PDF/DOCX-Paare mit gleichem Basisnamen.
+
+        Returns:
+            (unique_docs, duplicate_ids): unique_docs to analyze, IDs of duplicates to skip
+        """
+        by_basename = {}
+        for doc in documents:
+            fname = doc.get("filename", "")
+            base = os.path.splitext(fname)[0].lower()
+            if base not in by_basename:
+                by_basename[base] = []
+            by_basename[base].append(doc)
+
+        unique = []
+        duplicate_ids = []
+        for base, group in by_basename.items():
+            if len(group) == 1:
+                unique.append(group[0])
+            else:
+                # Keep the version with more text
+                group.sort(key=lambda d: d.get("text_laenge", 0), reverse=True)
+                unique.append(group[0])
+                for dup in group[1:]:
+                    duplicate_ids.append(dup["id"])
+        return unique, duplicate_ids
+
+    # ── Hilfsfunktion: Firma aus Dateiname extrahieren ───────────────────
+
+    def _extract_firma_from_filename(filename: str) -> str | None:
+        """Extrahiert den Firmennamen aus CV/Lebenslauf-Dateinamen.
+
+        Patterns:
+        - Lebenslauf;Birzite,Markus-FIRMA.pdf
+        - CV;Birzite,Markus-FIRMA.docx
+        - Anschreiben;Birzite,Markus-FIRMA.pdf
+        """
+        base = os.path.splitext(filename)[0]
+        patterns = [
+            r'(?:Lebenslauf|CV|Anschreiben)[;,]\s*[^-]+-\s*(.+)',
+            r'(?:Lebenslauf|CV|Anschreiben)\s+[^-]+-\s*(.+)',
+        ]
+        for pattern in patterns:
+            match = re.match(pattern, base, re.IGNORECASE)
+            if match:
+                firma = match.group(1).strip()
+                # Filter non-company values
+                skip_words = {"ausfuehrlich", "frankenstein", "freelance", "allgemein",
+                              "vorlage", "template", "entwurf", "draft"}
+                if firma.lower() in skip_words:
+                    return None
+                if re.match(r'^\d{8}$', firma):  # Date like 20260203
+                    return None
+                return firma
+        return None
+
+    def _extract_doc_type_from_filename(filename: str) -> str:
+        """Erkennt den Dokumenttyp aus dem Dateinamen."""
+        lower = filename.lower()
+        if any(kw in lower for kw in ["lebenslauf", "cv", "resume"]):
+            return "lebenslauf"
+        if any(kw in lower for kw in ["anschreiben", "cover", "motivationsschreiben"]):
+            return "anschreiben"
+        if any(kw in lower for kw in ["projekt", "project"]):
+            return "projektliste"
+        if any(kw in lower for kw in ["zeugnis", "certificate", "referenz"]):
+            return "zeugnis"
+        return "sonstiges"
+
+    # ── Neue Tools ───────────────────────────────────────────────────────
+
+    @mcp.tool()
+    def analyse_plan_erstellen() -> dict:
+        """Erstellt einen Analyse-Plan BEVOR die eigentliche Extraktion startet.
+
+        Zeigt:
+        - Wie viele Dokumente es gibt
+        - Wie viele Duplikate (PDF/DOCX-Paare) automatisch uebersprungen werden
+        - Geschaetzte Batch-Anzahl und Token-Verbrauch
+        - Empfohlene Vorgehensweise
+
+        Rufe dieses Tool ZUERST auf, bevor du mit der Analyse beginnst.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        conn = db.connect()
+        pid = profile["id"]
+        all_docs = conn.execute(
+            "SELECT id, filename, doc_type, extraction_status, "
+            "LENGTH(extracted_text) as text_laenge, created_at "
+            "FROM documents WHERE profile_id=? AND extracted_text IS NOT NULL "
+            "AND extracted_text != '' ORDER BY filename",
+            (pid,)
+        ).fetchall()
+
+        docs = [dict(d) for d in all_docs]
+        nicht_analysiert = [d for d in docs if d["extraction_status"] == "nicht_extrahiert"]
+        bereits_analysiert = [d for d in docs if d["extraction_status"] != "nicht_extrahiert"]
+
+        # Duplikate erkennen
+        unique, dup_ids = _find_duplicates(nicht_analysiert)
+
+        # Batches berechnen (max 50KB Text pro Batch)
+        MAX_BATCH_BYTES = 50000
+        batches = []
+        current_batch = []
+        current_size = 0
+        for doc in sorted(unique, key=lambda d: d.get("text_laenge", 0)):
+            size = doc.get("text_laenge", 0)
+            if current_size + size > MAX_BATCH_BYTES and current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_size = 0
+            current_batch.append(doc)
+            current_size += size
+        if current_batch:
+            batches.append(current_batch)
+
+        # Firmen erkennen
+        firmen = set()
+        for doc in docs:
+            firma = _extract_firma_from_filename(doc["filename"])
+            if firma:
+                firmen.add(firma)
+
+        total_bytes = sum(d.get("text_laenge", 0) for d in unique)
+        return {
+            "status": "ok",
+            "dokumente_gesamt": len(docs),
+            "bereits_analysiert": len(bereits_analysiert),
+            "noch_zu_analysieren": len(nicht_analysiert),
+            "duplikate_erkannt": len(dup_ids),
+            "unique_dokumente": len(unique),
+            "geschaetzte_batches": len(batches),
+            "total_text_bytes": total_bytes,
+            "geschaetzte_tokens": total_bytes // 4,
+            "erkannte_firmen": sorted(firmen),
+            "batches": [
+                {"nr": i + 1, "dokumente": len(b),
+                 "bytes": sum(d.get("text_laenge", 0) for d in b),
+                 "dateien": [d["filename"] for d in b]}
+                for i, b in enumerate(batches)
+            ],
+            "empfehlung": (
+                f"{len(dup_ids)} Duplikate werden automatisch uebersprungen. "
+                f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
+                f"Nutze dokumente_batch_analysieren() fuer den naechsten Batch."
+            ),
+        }
+
+    @mcp.tool()
+    def dokumente_batch_analysieren(
+        batch_nr: int = 1,
+        max_text_bytes: int = 50000,
+        max_dokumente: int = 10,
+        profil_mitsenden: bool = True,
+    ) -> dict:
+        """Analysiert den naechsten Batch von Dokumenten — effizient und Token-sparend.
+
+        Erkennt PDF/DOCX-Duplikate automatisch und ueberspring sie.
+        Sortiert Dokumente nach Groesse (kleinste zuerst) fuer optimale Batch-Fuellun.
+
+        WORKFLOW:
+        1. Rufe analyse_plan_erstellen() auf um den Plan zu sehen
+        2. Rufe dokumente_batch_analysieren(batch_nr=1) auf
+        3. Analysiere die zurueckgegebenen Texte
+        4. Speichere Ergebnisse mit extraktion_ergebnis_speichern()
+        5. Wende an mit extraktion_anwenden()
+        6. Wiederhole mit batch_nr=2, 3, ... bis alle durch
+
+        Args:
+            batch_nr: Welcher Batch (1-basiert). Standard: 1 (erster Batch).
+            max_text_bytes: Maximale Text-Bytes pro Batch (Token-Budget). Standard: 50000 (~12.5K Tokens).
+            max_dokumente: Maximale Anzahl Dokumente pro Batch. Standard: 10.
+            profil_mitsenden: Wenn True (Standard), wird das Profil mitgesendet. Bei Folge-Batches
+                auf False setzen um Tokens zu sparen.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        conn = db.connect()
+        pid = profile["id"]
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE profile_id=? AND extraction_status='nicht_extrahiert' "
+            "AND extracted_text IS NOT NULL AND extracted_text != '' ORDER BY LENGTH(extracted_text)",
+            (pid,)
+        ).fetchall()
+        all_docs = [dict(r) for r in rows]
+
+        if not all_docs:
+            return {"status": "fertig", "nachricht": "Alle Dokumente sind bereits analysiert."}
+
+        # Duplikate erkennen und automatisch markieren
+        for d in all_docs:
+            d["text_laenge"] = len(d.get("extracted_text", ""))
+        unique, dup_ids = _find_duplicates(all_docs)
+
+        # Duplikate als analysiert markieren
+        for dup_id in dup_ids:
+            db.update_document_extraction_status(dup_id, "duplikat")
+        if dup_ids:
+            logger.info("Batch: %d Duplikate automatisch markiert", len(dup_ids))
+
+        # Batches berechnen
+        sorted_docs = sorted(unique, key=lambda d: d.get("text_laenge", 0))
+        batches = []
+        current_batch = []
+        current_size = 0
+        for doc in sorted_docs:
+            size = doc.get("text_laenge", 0)
+            if (current_size + size > max_text_bytes or len(current_batch) >= max_dokumente) and current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_size = 0
+            current_batch.append(doc)
+            current_size += size
+        if current_batch:
+            batches.append(current_batch)
+
+        if batch_nr > len(batches):
+            return {"status": "fertig", "nachricht": f"Nur {len(batches)} Batches vorhanden. Alle Dokumente verarbeitet."}
+
+        batch = batches[batch_nr - 1]
+
+        # Extraction history fuer den Batch erstellen
+        eid = db.add_extraction_history({
+            "document_id": batch[0]["id"],
+            "profile_id": pid,
+            "extraction_type": "batch",
+        })
+
+        # Dokumente aufbereiten (nur Text + Metadaten, KEIN Profil bei Folge-Batches)
+        dokumente = []
+        for doc in batch:
+            dokumente.append({
+                "id": doc["id"],
+                "filename": doc["filename"],
+                "doc_type": doc.get("doc_type", "sonstiges"),
+                "text_laenge": doc["text_laenge"],
+                "extrahierter_text": doc.get("extracted_text", ""),
+            })
+
+        result = {
+            "status": "ok",
+            "extraction_id": eid,
+            "batch_nr": batch_nr,
+            "batches_gesamt": len(batches),
+            "dokumente_in_batch": len(dokumente),
+            "duplikate_uebersprungen": len(dup_ids),
+            "dokumente": dokumente,
+            "anleitung": (
+                "Analysiere die Dokumente und extrahiere Profildaten. "
+                "Speichere mit extraktion_ergebnis_speichern(). "
+                "Dann extraktion_anwenden(). "
+                "Danach: dokumente_batch_analysieren(batch_nr=" + str(batch_nr + 1) + ") fuer den naechsten Batch."
+            ),
+        }
+
+        if profil_mitsenden:
+            result["aktuelles_profil"] = {
+                "name": profile.get("name"),
+                "summary": profile.get("summary"),
+                "positionen_anzahl": len(profile.get("positions", [])),
+                "skills": [s.get("name") for s in profile.get("skills", [])],
+                "skills_anzahl": len(profile.get("skills", [])),
+            }
+        else:
+            result["profil_hinweis"] = "Profil wurde im ersten Batch gesendet. Nutze das gleiche Profil als Referenz."
+
+        return result
+
+    @mcp.tool()
+    def dokumente_bulk_markieren(
+        document_ids: list = None,
+        status: str = "angewendet",
+        zusammenfassung: str = "Keine neuen Profildaten — bereits im Profil erfasst.",
+    ) -> dict:
+        """Markiert mehrere Dokumente gleichzeitig als analysiert.
+
+        Ideal fuer Dokumente die offensichtlich keine neuen Profildaten enthalten
+        (z.B. firmenspezifische CV-Varianten wenn das Basisprofil schon vollstaendig ist,
+        oder Duplikate).
+
+        Args:
+            document_ids: Liste von Dokument-IDs. Wenn leer: markiert ALLE unanalysierten.
+            status: Zielstatus. Standard: "angewendet". Optionen: angewendet, verworfen, duplikat.
+            zusammenfassung: Kurze Begruendung warum ohne Analyse markiert.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        conn = db.connect()
+        pid = profile["id"]
+
+        if document_ids:
+            placeholders = ",".join("?" * len(document_ids))
+            rows = conn.execute(
+                f"SELECT id, filename FROM documents WHERE id IN ({placeholders}) AND profile_id=?",
+                (*document_ids, pid)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, filename FROM documents WHERE profile_id=? "
+                "AND extraction_status='nicht_extrahiert' "
+                "AND extracted_text IS NOT NULL AND extracted_text != ''",
+                (pid,)
+            ).fetchall()
+
+        if not rows:
+            return {"status": "keine_dokumente", "nachricht": "Keine passenden Dokumente gefunden."}
+
+        markiert = []
+        for row in rows:
+            db.update_document_extraction_status(row["id"], status)
+            markiert.append({"id": row["id"], "filename": row["filename"]})
+
+        logger.info("Bulk-Markierung: %d Dokumente als '%s' markiert", len(markiert), status)
+        return {
+            "status": "ok",
+            "markiert_anzahl": len(markiert),
+            "zielstatus": status,
+            "zusammenfassung": zusammenfassung,
+            "dokumente": markiert,
+        }
+
+    @mcp.tool()
+    def bewerbungs_dokumente_erkennen(auto_erstellen: bool = False) -> dict:
+        """Analysiert Dateinamen und erkennt Bewerbungs-Zuordnungen.
+
+        Erkennt aus firmenspezifischen CVs und Anschreiben:
+        - Firma (aus Dateiname extrahiert)
+        - Dokumenttyp (Lebenslauf, Anschreiben, Projektliste)
+        - Erstellungsdatum (= Bewerbungsdatum)
+        - Ob bereits eine Bewerbung fuer diese Firma existiert
+
+        Args:
+            auto_erstellen: Wenn True, werden Bewerbungseintraege automatisch
+                fuer alle erkannten Firmen angelegt (die noch keinen Eintrag haben).
+                Das Erstellungsdatum des Dokuments wird als Bewerbungsdatum verwendet.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        conn = db.connect()
+        pid = profile["id"]
+        docs = conn.execute(
+            "SELECT id, filename, doc_type, created_at FROM documents "
+            "WHERE profile_id=? ORDER BY filename",
+            (pid,)
+        ).fetchall()
+
+        # Bestehende Bewerbungen laden
+        existing_apps = conn.execute(
+            "SELECT company, title FROM applications WHERE profile_id=?", (pid,)
+        ).fetchall()
+        existing_companies = {row["company"].lower() for row in existing_apps if row["company"]}
+
+        # Dokumente nach Firma gruppieren
+        firmen_docs = {}
+        for doc in docs:
+            doc = dict(doc)
+            firma = _extract_firma_from_filename(doc["filename"])
+            if not firma:
+                continue
+            doc_type = _extract_doc_type_from_filename(doc["filename"])
+            if firma not in firmen_docs:
+                firmen_docs[firma] = {
+                    "firma": firma,
+                    "dokumente": [],
+                    "bewerbung_existiert": firma.lower() in existing_companies,
+                    "fruehestes_datum": doc.get("created_at"),
+                }
+            firmen_docs[firma]["dokumente"].append({
+                "id": doc["id"],
+                "filename": doc["filename"],
+                "typ": doc_type,
+                "datum": doc.get("created_at"),
+            })
+            # Fruehestes Datum tracken
+            if doc.get("created_at") and (
+                not firmen_docs[firma]["fruehestes_datum"] or
+                doc["created_at"] < firmen_docs[firma]["fruehestes_datum"]
+            ):
+                firmen_docs[firma]["fruehestes_datum"] = doc["created_at"]
+
+        # Ergebnis sortieren
+        erkannt = sorted(firmen_docs.values(), key=lambda f: f["firma"])
+        neue_firmen = [f for f in erkannt if not f["bewerbung_existiert"]]
+
+        # Auto-Erstellung von Bewerbungseintraegen
+        erstellt = []
+        if auto_erstellen and neue_firmen:
+            for firma_info in neue_firmen:
+                firma = firma_info["firma"]
+                # Dokumenttypen bestimmen
+                doc_types = [d["typ"] for d in firma_info["dokumente"]]
+                has_anschreiben = "anschreiben" in doc_types
+                has_cv = "lebenslauf" in doc_types
+
+                # Bewerbungsdatum = fruehestes Dokument-Datum
+                applied_at = ""
+                if firma_info.get("fruehestes_datum"):
+                    try:
+                        dt = datetime.fromisoformat(firma_info["fruehestes_datum"])
+                        applied_at = dt.strftime("%Y-%m-%d")
+                    except (ValueError, TypeError):
+                        pass
+
+                # Stellentitel ableiten
+                title = f"Bewerbung bei {firma}"
+                bewerbungsart = "mit_dokumenten" if has_cv else "elektronisch"
+                lv_variante = "angepasst" if has_cv else "keiner"
+
+                notes = f"Automatisch erkannt aus {len(firma_info['dokumente'])} Dokument(en): "
+                notes += ", ".join(d["filename"] for d in firma_info["dokumente"][:3])
+
+                aid = db.add_application({
+                    "title": title, "company": firma, "url": "",
+                    "job_hash": None, "status": "beworben",
+                    "applied_at": applied_at, "notes": notes,
+                    "bewerbungsart": bewerbungsart,
+                    "lebenslauf_variante": lv_variante,
+                })
+                erstellt.append({"firma": firma, "bewerbung_id": aid, "datum": applied_at})
+                firma_info["bewerbung_erstellt"] = True
+                firma_info["bewerbung_id"] = aid
+            logger.info("Auto-Erstellung: %d Bewerbungen aus Dokumenten angelegt", len(erstellt))
+
+        result = {
+            "status": "ok",
+            "erkannte_firmen": len(erkannt),
+            "neue_firmen": len(neue_firmen),
+            "bereits_erfasst": len(erkannt) - len(neue_firmen),
+            "firmen": erkannt,
+        }
+
+        if erstellt:
+            result["auto_erstellt"] = erstellt
+            result["naechster_schritt"] = (
+                f"{len(erstellt)} Bewerbung(en) automatisch angelegt. "
+                "Pruefe im Dashboard unter 'Bewerbungen' ob alles stimmt."
+            )
+        elif neue_firmen:
+            result["naechster_schritt"] = (
+                f"{len(neue_firmen)} Firma(en) ohne Bewerbungseintrag erkannt. "
+                "Nutze bewerbungs_dokumente_erkennen(auto_erstellen=True) um alle automatisch anzulegen, "
+                "oder bewerbung_erstellen() fuer einzelne Firmen."
+            )
+        else:
+            result["naechster_schritt"] = "Alle erkannten Firmen haben bereits Bewerbungseintraege."
+
+        return result
 
     @mcp.tool()
     def extraktions_verlauf() -> dict:

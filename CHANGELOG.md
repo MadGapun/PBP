@@ -2,6 +2,37 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.15.0] — 2026-03-12
+
+### Effiziente Dokument-Analyse & Bewerbungs-Erkennung
+
+Grosses Update fuer Nutzer mit vielen Dokumenten. Batch-Analyse, Duplikat-Erkennung,
+automatische Bewerbungs-Erkennung aus Dateinamen und der kritische Summary-Bug behoben.
+
+### Bugfixes
+
+- **Summary-Ueberschreibung behoben** (kritisch): `extraktion_anwenden()` ueberschrieb
+  das Profil-Summary mit Dokument-Beschreibungen (z.B. "Jungheinrich Interview-Vorbereitung"
+  statt "Lead PLM Architekt mit 20+ Jahren Erfahrung"). Jetzt wird Summary nur noch
+  ueberschrieben wenn der neue Text nach einem echten Profil-Summary aussieht und
+  laenger ist als das bestehende.
+
+### Neue Tools (4 neue, 51 gesamt)
+
+- **`analyse_plan_erstellen()`** — Vorab-Plan: Anzahl Dokumente, Duplikate, Batches, Firmen
+- **`dokumente_batch_analysieren(batch_nr, ...)`** — Effiziente Batch-Analyse mit Token-Budget
+- **`dokumente_bulk_markieren(document_ids, status)`** — Bulk-Markierung als analysiert
+- **`bewerbungs_dokumente_erkennen(auto_erstellen)`** — Firmen aus Dateinamen erkennen +
+  automatisch Bewerbungseintraege anlegen
+
+### Verbesserungen
+
+- **`extraktion_starten(profil_mitsenden=False)`** — Token-sparend bei Folge-Aufrufen
+- **PDF/DOCX-Duplikat-Erkennung** — Automatisch bei Batch-Analyse
+- **Anleitung in extraktion_starten** — Warnt vor Summary-Missbrauch
+
+---
+
 ## [0.14.3] — 2026-03-12
 
 ### Fix: Dashboard-Befehle funktionieren jetzt ueberall

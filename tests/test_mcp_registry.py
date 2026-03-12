@@ -65,6 +65,10 @@ EXPECTED_TOOL_NAMES = {
     "workflow_starten",
     "jobsuche_workflow_starten",
     "ersterfassung_starten",
+    "analyse_plan_erstellen",
+    "dokumente_batch_analysieren",
+    "dokumente_bulk_markieren",
+    "bewerbungs_dokumente_erkennen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -139,7 +143,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 47
+        assert len(tools) == 51
         assert len(prompts) == 12
         assert len(resources) == 6
     finally:
