@@ -11,6 +11,10 @@ automatische Bewerbungs-Erkennung aus Dateinamen und der kritische Summary-Bug b
 
 ### Bugfixes
 
+- **Neues Profil uebernahm alle Daten** (kritisch): `neues_profil_erstellen()` und Dashboard
+  "Neues Profil" aktualisierten nur das bestehende Profil statt ein neues, leeres anzulegen.
+  Positionen, Skills, Ausbildung und Dokumente blieben am selben Profil. Beim Loeschen ging
+  dann alles verloren. Neue `create_profile()`-Methode erstellt jetzt ein komplett leeres Profil.
 - **Summary-Ueberschreibung behoben** (kritisch): `extraktion_anwenden()` ueberschrieb
   das Profil-Summary mit Dokument-Beschreibungen (z.B. "Jungheinrich Interview-Vorbereitung"
   statt "Lead PLM Architekt mit 20+ Jahren Erfahrung"). Jetzt wird Summary nur noch
@@ -24,6 +28,13 @@ automatische Bewerbungs-Erkennung aus Dateinamen und der kritische Summary-Bug b
 - **`dokumente_bulk_markieren(document_ids, status)`** — Bulk-Markierung als analysiert
 - **`bewerbungs_dokumente_erkennen(auto_erstellen)`** — Firmen aus Dateinamen erkennen +
   automatisch Bewerbungseintraege anlegen
+
+### Dashboard: Direktes Profil-Bearbeiten
+
+- **Edit-Buttons bei Positionen** — Titel, Firma, Zeitraum, Beschreibung direkt aendern
+- **Edit-Buttons bei Ausbildung** — Institution, Abschluss, Fachrichtung, Zeitraum bearbeiten
+- **Kompetenzen klickbar** — Skill-Name, Level und Kategorie aendern oder Kompetenz entfernen
+- **3 neue PUT-Endpoints** — `/api/position/{id}`, `/api/education/{id}`, `/api/skill/{id}`
 
 ### Verbesserungen
 

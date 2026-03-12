@@ -197,7 +197,7 @@ async def api_new_profile(request: Request):
     name = data.get("name", "")
     if not name:
         return JSONResponse({"error": "Name ist erforderlich"}, status_code=400)
-    pid = _db.save_profile({"name": name, "email": data.get("email", "")})
+    pid = _db.create_profile(name, data.get("email", ""))
     return {"status": "ok", "id": pid}
 
 
@@ -257,15 +257,36 @@ async def api_add_skill(request: Request):
     return {"status": "ok", "id": sid}
 
 
+@app.put("/api/position/{position_id}")
+async def api_update_position(position_id: str, request: Request):
+    data = await request.json()
+    _db.update_position(position_id, data)
+    return {"status": "ok"}
+
+
 @app.delete("/api/position/{position_id}")
 async def api_delete_position(position_id: str):
     _db.delete_position(position_id)
     return {"status": "ok"}
 
 
+@app.put("/api/education/{education_id}")
+async def api_update_education(education_id: str, request: Request):
+    data = await request.json()
+    _db.update_education(education_id, data)
+    return {"status": "ok"}
+
+
 @app.delete("/api/education/{education_id}")
 async def api_delete_education(education_id: str):
     _db.delete_education(education_id)
+    return {"status": "ok"}
+
+
+@app.put("/api/skill/{skill_id}")
+async def api_update_skill(skill_id: str, request: Request):
+    data = await request.json()
+    _db.update_skill(skill_id, data)
     return {"status": "ok"}
 
 

@@ -1324,6 +1324,7 @@ async function renderProfile(p) {
           <div><strong>${pos.title}</strong> bei ${pos.company}</div>
           <div style="display:flex; gap:6px; align-items:center;">
             <span class="badge badge-gray">${pos.start_date || ''} - ${pos.is_current ? 'heute' : (pos.end_date || '')}</span>
+            <button class="btn btn-sm" onclick="editPosition('${pos.id}')" style="padding:2px 8px;" title="Bearbeiten">&#9998;</button>
             <button class="btn btn-sm btn-danger" onclick="deletePosition('${pos.id}')" style="padding:2px 6px;">x</button>
           </div>
         </div>
@@ -1367,7 +1368,10 @@ async function renderProfile(p) {
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="color:var(--text2);">${ed.institution}</span>
-          <button class="btn btn-sm btn-danger" onclick="deleteEducation('${ed.id}')" style="padding:2px 6px;">x</button>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm" onclick="editEducation('${ed.id}')" style="padding:2px 8px;" title="Bearbeiten">&#9998;</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteEducation('${ed.id}')" style="padding:2px 6px;">x</button>
+          </div>
         </div>
         ${ed.grade ? `<span class="badge badge-green" style="margin-top:4px;">Note: ${ed.grade}</span>` : ''}
       </div>`;
@@ -1390,7 +1394,7 @@ async function renderProfile(p) {
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           ${skills.map(s => {
             const stars = s.level ? ' ' + '\u2605'.repeat(s.level) + '\u2606'.repeat(5 - s.level) : '';
-            return `<span class="badge badge-blue">${s.name}${stars}${s.years_experience ? ' ('+s.years_experience+'J)' : ''} <span onclick="deleteSkill('${s.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
+            return `<span class="badge badge-blue" style="cursor:pointer;" onclick="editSkill('${s.id}')" title="Klicken zum Bearbeiten">${s.name}${stars}${s.years_experience ? ' ('+s.years_experience+'J)' : ''} <span onclick="event.stopPropagation();deleteSkill('${s.id}')" style="cursor:pointer;color:var(--red);margin-left:4px;">&times;</span></span>`;
           }).join('')}
         </div></div>`;
     }
@@ -2191,6 +2195,58 @@ async function savePosition(e) {
   }
 }
 
+function editPosition(posId) {
+  const pos = (state.profile?.positions || []).find(p => p.id === posId);
+  if (!pos) return;
+  openModal(`<h2>Position bearbeiten</h2>
+    <form onsubmit="updatePosition(event, '${posId}')">
+      <div class="form-row">
+        <div class="form-group"><label>Firma *</label><input name="company" value="${(pos.company||'').replace(/"/g,'&quot;')}" required></div>
+        <div class="form-group"><label>Titel *</label><input name="title" value="${(pos.title||'').replace(/"/g,'&quot;')}" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Standort</label><input name="location" value="${(pos.location||'').replace(/"/g,'&quot;')}"></div>
+        <div class="form-group"><label>Branche</label><input name="industry" value="${(pos.industry||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Von</label><input name="start_date" type="month" value="${pos.start_date||''}"></div>
+        <div class="form-group"><label>Bis</label><input name="end_date" type="month" value="${pos.end_date||''}">
+          <label style="margin-top:4px;"><input type="checkbox" name="is_current" value="1" ${pos.is_current?'checked':''} style="width:auto;margin-right:4px;">Aktuelle Position</label></div>
+      </div>
+      <div class="form-group"><label>Anstellungsart</label>
+        <select name="employment_type">
+          <option value="festanstellung" ${pos.employment_type==='festanstellung'?'selected':''}>Festanstellung</option>
+          <option value="freelance" ${pos.employment_type==='freelance'?'selected':''}>Freelance</option>
+          <option value="teilzeit" ${pos.employment_type==='teilzeit'?'selected':''}>Teilzeit</option>
+          <option value="praktikum" ${pos.employment_type==='praktikum'?'selected':''}>Praktikum</option>
+        </select></div>
+      <div class="form-group"><label>Beschreibung</label><textarea name="description" rows="2">${pos.description||''}</textarea></div>
+      <div class="form-group"><label>Aufgaben</label><textarea name="tasks" rows="3">${pos.tasks||''}</textarea></div>
+      <div class="form-group"><label>Erfolge / Achievements</label><textarea name="achievements" rows="2">${pos.achievements||''}</textarea></div>
+      <div class="form-group"><label>Technologien</label><input name="technologies" value="${(pos.technologies||'').replace(/"/g,'&quot;')}"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function updatePosition(e, posId) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.is_current = data.is_current === '1';
+  const result = await api('/api/position/' + posId, { method: 'PUT', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Position aktualisiert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
+}
+
 function showProjectForm(positionId) {
   openModal(`<h2>Projekt hinzufuegen (STAR-Methode)</h2>
     <form onsubmit="saveProject(event, '${positionId}')">
@@ -2255,6 +2311,45 @@ function showEducationForm() {
     </form>`);
 }
 
+function editEducation(edId) {
+  const ed = (state.profile?.education || []).find(e => e.id === edId);
+  if (!ed) return;
+  openModal(`<h2>Ausbildung bearbeiten</h2>
+    <form onsubmit="updateEducation(event, '${edId}')">
+      <div class="form-group"><label>Einrichtung *</label><input name="institution" value="${(ed.institution||'').replace(/"/g,'&quot;')}" required></div>
+      <div class="form-row">
+        <div class="form-group"><label>Abschluss</label><input name="degree" value="${(ed.degree||'').replace(/"/g,'&quot;')}"></div>
+        <div class="form-group"><label>Fachrichtung</label><input name="field_of_study" value="${(ed.field_of_study||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Von</label><input name="start_date" type="month" value="${ed.start_date||''}"></div>
+        <div class="form-group"><label>Bis</label><input name="end_date" type="month" value="${ed.end_date||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Note</label><input name="grade" value="${(ed.grade||'').replace(/"/g,'&quot;')}"></div>
+        <div class="form-group"><label>Beschreibung</label><input name="description" value="${(ed.description||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function updateEducation(e, edId) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
+  const fd = new FormData(e.target);
+  const result = await api('/api/education/' + edId, { method: 'PUT', body: JSON.stringify(Object.fromEntries(fd)) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Ausbildung aktualisiert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
+}
+
 async function saveEducation(e) {
   e.preventDefault();
   if (!validateForm(e.target)) return;
@@ -2310,6 +2405,53 @@ async function saveSkill(e) {
   setLoading(btn, false);
   if (!result.error) {
     showToast('Kompetenz gespeichert', 'success');
+    closeModal({target: document.getElementById('modal-overlay')});
+    loadProfile();
+  }
+}
+
+function editSkill(skillId) {
+  const sk = (state.profile?.skills || []).find(s => s.id === skillId);
+  if (!sk) return;
+  openModal(`<h2>Kompetenz bearbeiten</h2>
+    <form onsubmit="updateSkill(event, '${skillId}')">
+      <div class="form-row">
+        <div class="form-group"><label>Name *</label><input name="name" value="${(sk.name||'').replace(/"/g,'&quot;')}" required></div>
+        <div class="form-group"><label>Kategorie</label>
+          <select name="category">
+            <option value="fachlich" ${sk.category==='fachlich'?'selected':''}>Fachlich</option>
+            <option value="tool" ${sk.category==='tool'?'selected':''}>Tools / Software</option>
+            <option value="methodisch" ${sk.category==='methodisch'?'selected':''}>Methodisch</option>
+            <option value="soft_skill" ${sk.category==='soft_skill'?'selected':''}>Soft Skills</option>
+            <option value="sprache" ${sk.category==='sprache'?'selected':''}>Sprachen</option>
+          </select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Level (1-5)</label>
+          <input name="level" type="range" min="1" max="5" value="${sk.level||3}" oninput="this.nextElementSibling.textContent=this.value+'/5'" style="width:100%;">
+          <span style="font-size:0.85rem; color:var(--text2);">${sk.level||3}/5</span></div>
+        <div class="form-group"><label>Jahre Erfahrung</label><input name="years_experience" type="number" min="0" step="1" value="${sk.years_experience||''}"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        <button type="button" class="btn btn-danger" onclick="deleteSkill('${skillId}');closeModal({target:document.getElementById('modal-overlay')});">Entfernen</button>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>`);
+}
+
+async function updateSkill(e, skillId) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  setLoading(btn, true, 'Speichern...');
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.level = parseInt(data.level) || 3;
+  data.years_experience = data.years_experience ? parseInt(data.years_experience) : null;
+  const result = await api('/api/skill/' + skillId, { method: 'PUT', body: JSON.stringify(data) });
+  setLoading(btn, false);
+  if (!result.error) {
+    showToast('Kompetenz aktualisiert', 'success');
     closeModal({target: document.getElementById('modal-overlay')});
     loadProfile();
   }

@@ -481,6 +481,24 @@ class Database:
             conn.commit()
             return pid
 
+    def create_profile(self, name: str, email: str = "") -> str:
+        """Create a new, empty profile and activate it. Deactivates previous profile."""
+        conn = self.connect()
+        now = _now()
+        pid = _gen_id()
+        conn.execute("UPDATE profile SET is_active=0")
+        conn.execute("""
+            INSERT INTO profile (id, name, email, phone, address, city, plz,
+                country, birthday, nationality, summary, informal_notes,
+                preferences, is_active, erfassung_fortschritt,
+                created_at, updated_at)
+            VALUES (?, ?, ?, NULL, NULL, NULL, NULL,
+                'Deutschland', NULL, NULL, NULL, NULL,
+                '{}', 1, '{}', ?, ?)
+        """, (pid, name, email, now, now))
+        conn.commit()
+        return pid
+
     # === Erfassungsfortschritt (PBP-026) ===
 
     def get_erfassung_fortschritt(self) -> dict:
@@ -564,6 +582,48 @@ class Database:
         ))
         conn.commit()
         return pid
+
+    def update_position(self, position_id: str, data: dict):
+        conn = self.connect()
+        fields = ["company", "title", "location", "start_date", "end_date",
+                  "is_current", "employment_type", "industry", "description",
+                  "tasks", "achievements", "technologies"]
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            vals.append(position_id)
+            conn.execute(f"UPDATE positions SET {','.join(sets)} WHERE id=?", vals)
+            conn.commit()
+
+    def update_education(self, education_id: str, data: dict):
+        conn = self.connect()
+        fields = ["institution", "degree", "field_of_study", "start_date",
+                  "end_date", "grade", "description"]
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            vals.append(education_id)
+            conn.execute(f"UPDATE education SET {','.join(sets)} WHERE id=?", vals)
+            conn.commit()
+
+    def update_skill(self, skill_id: str, data: dict):
+        conn = self.connect()
+        fields = ["name", "category", "level", "years_experience"]
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            vals.append(skill_id)
+            conn.execute(f"UPDATE skills SET {','.join(sets)} WHERE id=?", vals)
+            conn.commit()
 
     def delete_position(self, position_id: str):
         conn = self.connect()

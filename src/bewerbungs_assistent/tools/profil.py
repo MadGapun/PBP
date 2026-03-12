@@ -571,7 +571,7 @@ def register(mcp, db, logger):
             name: Name der Person fuer das neue Profil
             email: Optional: E-Mail-Adresse
         """
-        pid = db.save_profile({"name": name, "email": email})
+        pid = db.create_profile(name, email)
         return {
             "status": "erstellt",
             "profil_id": pid,
