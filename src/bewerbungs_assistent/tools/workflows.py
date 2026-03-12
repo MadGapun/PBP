@@ -237,19 +237,28 @@ ABLAUF:
 Sprich Deutsch und per Du. Sei nicht aufdringlich — biete an, draenge nicht."""
 
     def _bewerbung_schreiben():
-        return """Erstelle ein professionelles Anschreiben.
+        return """Erstelle Bewerbungsunterlagen (Lebenslauf + Anschreiben).
 
 SCHRITTE:
 1. Rufe profil_zusammenfassung() auf
 2. Frage nach Stelle und Firma (falls nicht bekannt)
-3. Waehle die relevantesten Erfahrungen und Projekte
-4. Erstelle ein Anschreiben (max. 1 Seite, professionell aber persoenlich)
-5. Zeige den Text — "Passt das so?"
-6. Nach Freigabe: Export anbieten (anschreiben_exportieren)
-7. Lebenslauf-Export anbieten (lebenslauf_exportieren)
-8. Bewerbung im Tracking erfassen (bewerbung_erstellen)
+3. LEBENSLAUF ERSTELLEN (IMMER ALS ERSTES!):
+   → lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung)
+   → Relevante Skills und Erfahrungen werden hervorgehoben und priorisiert
+   → IMMER als DOCX — finale Formatierung macht der User
+   → Zeige dem User was angepasst wurde
+4. ANSCHREIBEN ERSTELLEN:
+   → Waehle die relevantesten Erfahrungen und Projekte
+   → Erstelle ein Anschreiben (max. 1 Seite, professionell aber persoenlich)
+   → Zeige den Text — "Passt das so?"
+   → Nach Freigabe: anschreiben_exportieren (als DOCX)
+5. Bewerbung im Tracking erfassen (bewerbung_erstellen)
 
-Sprich Deutsch."""
+REGELN:
+- Lebenslauf IMMER als DOCX (nie PDF)
+- Erst Lebenslauf, dann Anschreiben, dann Tracking
+- Manchmal braucht der User nur den Lebenslauf — dann Anschreiben ueberspringen
+- Sprich Deutsch"""
 
     def _interview_vorbereitung():
         return """Bereite den Nutzer auf ein Bewerbungsgespraech vor.

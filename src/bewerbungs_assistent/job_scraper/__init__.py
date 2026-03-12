@@ -265,6 +265,7 @@ def _parse_weights(criteria: dict) -> dict:
         "remote": w.get("remote", 2),
         "naehe": w.get("naehe", 2),
         "fern_malus": w.get("fern_malus", 3),
+        "gehalt": w.get("gehalt", 1),
     }
 
 
@@ -275,7 +276,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
       muss: points per MUSS keyword hit (default 2)
       plus: points per PLUS keyword hit (default 1)
       remote: bonus for remote/hybrid (default 2)
-      naehe: bonus for <80km distance (default 2)
+      naehe: bonus for <30km distance (default 2)
       fern_malus: penalty for >200km distance (default 3)
     """
     text = f"{job.get('title', '')} {job.get('description', '')}".lower()
@@ -303,13 +304,21 @@ def calculate_score(job: dict, criteria: dict) -> int:
     if dist is not None:
         if dist > 200:
             score -= w["fern_malus"]
-        elif dist < 80:
+        elif dist < 30:
             score += w["naehe"]
 
     # Remote bonus
     remote = job.get("remote_level", "unbekannt")
     if remote in ("remote", "hybrid"):
         score += w["remote"]
+
+    # Salary bonus: reward jobs matching salary expectations
+    salary_min = job.get("salary_min")
+    if salary_min and w.get("gehalt", 0):
+        emp_type = job.get("employment_type", "festanstellung")
+        salary_pref_min = criteria.get("min_gehalt", 0) or criteria.get("min_tagessatz", 0)
+        if salary_pref_min and salary_min >= salary_pref_min:
+            score += w["gehalt"]
 
     return max(0, score)
 
@@ -353,17 +362,39 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if dist > 200:
             factors[f"Entfernung: {int(dist)} km"] = -w["fern_malus"]
             total -= w["fern_malus"]
-        elif dist < 80:
+        elif dist < 30:
             factors[f"Naehe: {int(dist)} km"] = w["naehe"]
             total += w["naehe"]
 
     risks = []
+
+    # Salary factor
+    salary_min = job.get("salary_min")
+    if salary_min:
+        emp_type = job.get("employment_type", "festanstellung")
+        salary_pref = criteria.get("min_gehalt", 0) or criteria.get("min_tagessatz", 0)
+        if salary_pref and salary_min >= salary_pref:
+            factors["Gehalt passt zu Erwartung"] = w.get("gehalt", 1)
+            total += w.get("gehalt", 1)
+        elif salary_pref and salary_min < salary_pref * 0.8:
+            risks.append(f"Gehalt ({salary_min}) liegt unter Mindestvorstellung ({salary_pref})")
     if missing_muss:
         risks.append(f"{len(missing_muss)} MUSS-Keywords nicht gefunden")
     if not job.get("url"):
         risks.append("Kein Link zur Stellenanzeige vorhanden")
     if job.get("employment_type") == "freelance" and not job.get("salary_info"):
         risks.append("Freelance ohne Tagessatz-Angabe")
+
+    # Skill matching from profile
+    profile_skills = criteria.get("_profile_skills", [])
+    if profile_skills:
+        skill_hits = [s for s in profile_skills if s in text]
+        skill_miss = [s for s in profile_skills if s not in text and len(s) > 2]
+        if skill_hits:
+            factors[f"Kompetenzen-Match ({len(skill_hits)} Skills)"] = len(skill_hits)
+            total += len(skill_hits)
+        if len(skill_miss) > len(skill_hits) and skill_miss:
+            risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
     return {
         "total_score": max(0, total),

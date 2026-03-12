@@ -50,6 +50,45 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def lebenslauf_angepasst_exportieren(
+        stelle: str,
+        firma: str,
+        stellenbeschreibung: str = ""
+    ) -> dict:
+        """Exportiert einen auf die Stelle angepassten Lebenslauf als DOCX.
+
+        Erstellt einen Lebenslauf der relevante Skills und Erfahrungen
+        fuer die Zielstelle hervorhebt und priorisiert. Immer als DOCX,
+        da die finale Formatierung manuell erfolgt.
+
+        Args:
+            stelle: Stellentitel (z.B. 'PLM Consultant')
+            firma: Firmenname (z.B. 'Siemens')
+            stellenbeschreibung: Optional — Beschreibung der Stelle fuer bessere Anpassung
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil mit der Ersterfassung."}
+
+        from ..export import generate_tailored_cv_docx
+
+        export_dir = get_data_dir() / "export"
+        export_dir.mkdir(exist_ok=True)
+        name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
+        firma_slug = (firma or "stelle").replace(" ", "_").lower()
+
+        path = export_dir / f"lebenslauf_{name_slug}_{firma_slug}.docx"
+        generate_tailored_cv_docx(profile, stelle, stellenbeschreibung, path)
+
+        return {
+            "status": "erstellt",
+            "datei": str(path),
+            "format": "docx",
+            "nachricht": f"Angepasster Lebenslauf fuer '{stelle}' bei {firma} als DOCX exportiert: {path.name}. "
+                         "Die Datei ist als DOCX gespeichert, damit du die finale Formatierung anpassen kannst."
+        }
+
+    @mcp.tool()
     def anschreiben_exportieren(
         text: str,
         stelle: str,

@@ -119,6 +119,157 @@ def generate_cv_docx(profile: dict, output_path: Path) -> Path:
     return output_path
 
 
+def generate_tailored_cv_docx(
+    profile: dict, job_title: str, job_description: str, output_path: Path
+) -> Path:
+    """Generate a CV tailored for a specific job as Word document.
+
+    Reorders skills and highlights relevant experience based on the job.
+    """
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    # Determine relevant keywords from job
+    job_text = f"{job_title} {job_description}".lower()
+    job_keywords = set(job_text.split())
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(10)
+
+    # Header
+    heading = doc.add_heading(profile.get("name", "Lebenslauf"), level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Contact
+    contact = []
+    if profile.get("email"): contact.append(profile["email"])
+    if profile.get("phone"): contact.append(profile["phone"])
+    if profile.get("city"):
+        addr = f"{profile.get('address', '')} " if profile.get("address") else ""
+        addr += f"{profile.get('plz', '')} {profile['city']}".strip()
+        contact.append(addr.strip())
+    if contact:
+        p = doc.add_paragraph(" | ".join(contact))
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Targeted summary — mention the target position
+    doc.add_heading("Profil", level=1)
+    summary = profile.get("summary", "")
+    if summary:
+        doc.add_paragraph(summary)
+
+    # Skills — relevant first, grouped by category
+    skills = profile.get("skills", [])
+    if skills:
+        doc.add_heading("Kompetenzen", level=1)
+
+        def skill_relevance(s):
+            name_lower = s.get("name", "").lower()
+            # Higher relevance if skill name appears in job text
+            if name_lower in job_text:
+                return 0
+            # Check partial match
+            if any(kw in name_lower or name_lower in kw for kw in job_keywords if len(kw) > 3):
+                return 1
+            return 2
+
+        by_cat = {}
+        for s in skills:
+            by_cat.setdefault(s.get("category", "sonstige"), []).append(s)
+
+        cat_labels = {
+            "fachlich": "Fachlich", "methodisch": "Methodisch",
+            "soft_skill": "Soft Skills", "sprache": "Sprachen",
+            "tool": "Tools / Software",
+        }
+
+        # Sort categories: put those with relevant skills first
+        def cat_relevance(cat_items):
+            cat, items = cat_items
+            return min((skill_relevance(s) for s in items), default=2)
+
+        for cat, items in sorted(by_cat.items(), key=cat_relevance):
+            label = cat_labels.get(cat, cat)
+            # Sort skills within category: relevant first, then by level desc
+            sorted_items = sorted(items, key=lambda s: (skill_relevance(s), -(s.get("level", 0) or 0)))
+            names = []
+            for s in sorted_items:
+                name = s["name"]
+                level = s.get("level", 0)
+                if level and level >= 4:
+                    name += " (Experte)" if level == 5 else " (Fortgeschritten)"
+                names.append(name)
+            doc.add_paragraph(f"{label}: {', '.join(names)}")
+
+    # Work experience — relevant positions first
+    positions = profile.get("positions", [])
+    if positions:
+        doc.add_heading("Berufserfahrung", level=1)
+
+        def pos_relevance(pos):
+            pos_text = f"{pos.get('title', '')} {pos.get('tasks', '')} {pos.get('technologies', '')} {pos.get('achievements', '')}".lower()
+            hits = sum(1 for kw in job_keywords if len(kw) > 3 and kw in pos_text)
+            return -hits  # Negative so most relevant sorts first
+
+        sorted_positions = sorted(positions, key=pos_relevance)
+
+        for pos in sorted_positions:
+            end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
+            period = f"{pos.get('start_date', '')} - {end}"
+            emp_type = pos.get("employment_type", "")
+            type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
+
+            p = doc.add_paragraph()
+            run = p.add_run(f"{pos.get('title', '')} bei {pos.get('company', '')}{type_str}")
+            run.bold = True
+            run.font.size = Pt(11)
+
+            p2 = doc.add_paragraph(period)
+            if pos.get("location"):
+                p2.add_run(f" | {pos['location']}")
+
+            if pos.get("tasks"):
+                doc.add_paragraph(f"Aufgaben: {pos['tasks']}")
+            if pos.get("achievements"):
+                doc.add_paragraph(f"Erfolge: {pos['achievements']}")
+            if pos.get("technologies"):
+                doc.add_paragraph(f"Technologien: {pos['technologies']}")
+
+            for proj in pos.get("projects", []):
+                p = doc.add_paragraph()
+                run = p.add_run(f"Projekt: {proj.get('name', '')}")
+                run.bold = True
+                if proj.get("role"):
+                    p.add_run(f" ({proj['role']})")
+                if proj.get("result"):
+                    doc.add_paragraph(f"Ergebnis: {proj['result']}", style="List Bullet")
+
+    # Education
+    education = profile.get("education", [])
+    if education:
+        doc.add_heading("Ausbildung", level=1)
+        for edu in education:
+            p = doc.add_paragraph()
+            degree = f"{edu.get('degree', '')} {edu.get('field_of_study', '')}".strip()
+            run = p.add_run(degree or edu.get("institution", ""))
+            run.bold = True
+            line = edu.get("institution", "")
+            start = edu.get("start_date", "")
+            end = edu.get("end_date", "")
+            if start or end:
+                line += f" | {start} - {end}"
+            if edu.get("grade"):
+                line += f" | Note: {edu['grade']}"
+            doc.add_paragraph(line)
+
+    doc.save(str(output_path))
+    logger.info("Tailored CV DOCX generated: %s", output_path)
+    return output_path
+
+
 def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
     """Generate a professional CV as PDF."""
     from fpdf import FPDF

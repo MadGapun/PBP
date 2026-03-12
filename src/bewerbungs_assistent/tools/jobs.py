@@ -159,6 +159,14 @@ def register(mcp, db, logger):
                 "remote": j.get("remote_level", "unbekannt"),
                 "url": j.get("url", ""),
             }
+            if j.get("employment_type"):
+                entry["typ"] = j["employment_type"]
+            if j.get("salary_min"):
+                entry["gehalt_min"] = j["salary_min"]
+                entry["gehalt_max"] = j.get("salary_max")
+                entry["gehalt_typ"] = j.get("salary_type", "jaehrlich")
+                if j.get("salary_estimated"):
+                    entry["gehalt_geschaetzt"] = True
             if j.get("distance_km"):
                 entry["entfernung_km"] = j["distance_km"]
             if j.get("dismiss_reason"):
@@ -189,4 +197,14 @@ def register(mcp, db, logger):
         if not row:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
         criteria = db.get_search_criteria()
+        # Enrich criteria with profile skills and salary preferences for better fit analysis
+        profile = db.get_profile()
+        if profile:
+            skills = profile.get("skills", [])
+            criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
+            prefs = profile.get("preferences", {})
+            if prefs.get("min_gehalt"):
+                criteria["min_gehalt"] = prefs["min_gehalt"]
+            if prefs.get("min_tagessatz"):
+                criteria["min_tagessatz"] = prefs["min_tagessatz"]
         return _fit_analyse(dict(row), criteria)

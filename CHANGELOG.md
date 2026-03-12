@@ -2,6 +2,35 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.17.0] — 2026-03-12
+
+### Features: Split-Layout, Distance-Scoring, Tailored CV, GitHub-Issue-Cleanup
+
+- **Dashboard Split-Layout**: Stellen werden nach Festanstellung/Freelance in zwei Spalten
+  angezeigt. Toggle-Button zum Umschalten zwischen Split- und Listen-Ansicht.
+  Layout-Wahl wird in localStorage gespeichert.
+- **Sortierung nach Entfernung**: Neue Standard-Sortierung — Nah (<30km), dann Remote/Hybrid,
+  dann Fern. Zusaetzliche Sort-Optionen: Score, Gehalt, Datum.
+- **Entfernung-Schwelle 80→30km**: Stellen unter 30km werden bevorzugt (statt 80km).
+- **Gehalts-Scoring**: Neues Gewicht `gehalt` in der Stellenbewertung. Vergleicht Job-Gehalt
+  mit Profil-Mindestgehalt/-tagessatz. Gehalts-Risiko in Fit-Analyse wenn <80% der Praeferenz.
+- **Kompetenzen in Fit-Analyse**: Profil-Skills werden gegen Stellenbeschreibung gematcht,
+  neuer Faktor "Kompetenzen-Match" in der Analyse.
+- **Angepasster Lebenslauf (DOCX)**: Neues Tool `lebenslauf_angepasst_exportieren()` —
+  ordnet Skills und Positionen nach Relevanz fuer die Stelle, immer DOCX-Format.
+- **Bewerbungs-Workflow aktualisiert**: Lebenslauf kommt vor Anschreiben, Anschreiben optional.
+- **Next-Steps-Banner**: Kontextbezogener gruener Banner im Dashboard mit naechsten Aktionen.
+- **Skill-Navigation**: Prev/Next-Pfeile im Skill-Edit-Modal (← 3/25 →).
+- **profil_bearbeiten erweitert**: `aendern`-Aktion fuer Position, Skill, Projekt, Ausbildung;
+  `loeschen` fuer Projekt.
+- **Skill-Validierung**: Garbage-Filter — min 2 Zeichen, max 100, >50% alphanumerisch,
+  keine Markdown-Fragmente, Deduplizierung per LOWER(name).
+- **bewerbung_status_aendern**: Erweiterte Docstring-Keywords fuer bessere Tool-Erkennung.
+- **GitHub Issues**: 42→11 offene Issues — 31 Issues geschlossen (bereits implementiert oder obsolet).
+- **54 Tools**, 12 Prompts, 15 Tabellen, 190 Tests.
+
+---
+
 ## [0.16.5] — 2026-03-12
 
 ### Fix: Ersterfassung analysiert Dokumente SOFORT ohne zu fragen

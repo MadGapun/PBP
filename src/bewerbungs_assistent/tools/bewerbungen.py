@@ -58,7 +58,10 @@ def register(mcp, db, logger):
         notizen: str = "",
         ablehnungsgrund: str = ""
     ) -> dict:
-        """Aendert den Status einer Bewerbung.
+        """Aendert den Status einer Bewerbung (Bewerbungsstatus aendern/aktualisieren).
+
+        Auch findbar als: status aendern, bewerbung aktualisieren, application status update,
+        interview eingetragen, absage melden, angebot erhalten, zurueckgezogen.
 
         Args:
             bewerbung_id: ID der Bewerbung

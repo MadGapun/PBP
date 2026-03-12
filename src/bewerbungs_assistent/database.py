@@ -604,6 +604,25 @@ class Database:
         conn.commit()
         return pid
 
+    def update_project(self, project_id: str, data: dict):
+        conn = self.connect()
+        fields = ["name", "description", "role", "situation", "task",
+                  "action", "result", "technologies", "duration"]
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            vals.append(project_id)
+            conn.execute(f"UPDATE projects SET {','.join(sets)} WHERE id=?", vals)
+            conn.commit()
+
+    def delete_project(self, project_id: str):
+        conn = self.connect()
+        conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.commit()
+
     def update_position(self, position_id: str, data: dict):
         conn = self.connect()
         fields = ["company", "title", "location", "start_date", "end_date",
@@ -702,13 +721,33 @@ class Database:
 
     def add_skill(self, data: dict) -> str:
         conn = self.connect()
+        name = (data.get("name") or "").strip()
+        # Validate: reject garbage skills from markdown fragments (Issue #43)
+        if not name or len(name) < 2 or len(name) > 100:
+            return ""
+        # Reject obvious markdown/formatting artifacts
+        _GARBAGE_PATTERNS = ["---", "===", "***", "|||", "```", "<!--", "-->",
+                             "##", "**", "__", "- -", "...", "~~~"]
+        if any(p in name for p in _GARBAGE_PATTERNS):
+            return ""
+        # Reject if name is mostly special characters
+        alpha_count = sum(1 for c in name if c.isalnum() or c == ' ')
+        if alpha_count < len(name) * 0.5:
+            return ""
         sid = _gen_id()
         profile_id = data.get("profile_id") or self.get_active_profile_id()
+        # Deduplicate: skip if same name already exists for this profile
+        existing = conn.execute(
+            "SELECT id FROM skills WHERE profile_id=? AND LOWER(name)=LOWER(?)",
+            (profile_id, name)
+        ).fetchone()
+        if existing:
+            return existing["id"]
         conn.execute("""
             INSERT INTO skills (id, name, category, level, years_experience, last_used_year, profile_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            sid, data.get("name"), data.get("category", "fachlich"),
+            sid, name, data.get("category", "fachlich"),
             data.get("level", 3), data.get("years_experience"),
             data.get("last_used_year"), profile_id
         ))

@@ -220,35 +220,39 @@ REGELN
     @mcp.prompt()
     def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:
         """Erstellt ein stellenspezifisches Anschreiben mit Export-Option."""
-        return f"""Erstelle ein professionelles Anschreiben fuer folgende Stelle:
+        return f"""Erstelle Bewerbungsunterlagen fuer folgende Stelle:
 Stelle: {stelle}
 Firma: {firma}
 
 SCHRITTE:
 1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
 2. Analysiere die Stellenanforderungen (wenn URL vorhanden, darauf eingehen)
-3. Waehle die relevantesten Erfahrungen und Projekte aus dem Profil
-4. Erstelle ein Anschreiben das:
-   - Sofort einen Bezug zur Stelle herstellt
-   - 2-3 konkrete Erfolge/Projekte aus dem Profil einbindet
-   - Die Motivation fuer genau diese Stelle deutlich macht
-   - Professionell aber persoenlich klingt
-   - Max. 1 Seite lang ist
-5. Zeige den Text dem User — "Passt das so? Soll ich etwas aendern?"
-6. Nach Freigabe: Biete Export an!
-   → "Soll ich das als PDF oder Word-Dokument exportieren?"
-   → anschreiben_exportieren(text, '{stelle}', '{firma}', format)
-7. Biete auch den Lebenslauf-Export an:
-   → "Moechtest du deinen Lebenslauf auch als PDF/DOCX fuer diese Bewerbung exportieren?"
-   → lebenslauf_exportieren(format, angepasst_fuer='{firma}')
-8. Frage ob die Bewerbung erfasst werden soll:
+3. LEBENSLAUF ERSTELLEN (IMMER ALS ERSTES!):
+   → Erstelle einen auf die Stelle angepassten Lebenslauf
+   → Relevante Skills und Erfahrungen werden hervorgehoben und priorisiert
+   → Export als DOCX: lebenslauf_angepasst_exportieren(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...')
+   → WICHTIG: Immer DOCX — die finale Formatierung macht der Mensch!
+   → Zeige dem User was du angepasst hast (welche Skills/Erfahrungen priorisiert)
+4. ANSCHREIBEN ERSTELLEN:
+   → Waehle die relevantesten Erfahrungen und Projekte aus dem Profil
+   → Erstelle ein Anschreiben das:
+     - Sofort einen Bezug zur Stelle herstellt
+     - 2-3 konkrete Erfolge/Projekte aus dem Profil einbindet
+     - Die Motivation fuer genau diese Stelle deutlich macht
+     - Professionell aber persoenlich klingt
+     - Max. 1 Seite lang ist
+   → Zeige den Text dem User — "Passt das so? Soll ich etwas aendern?"
+   → Nach Freigabe: anschreiben_exportieren(text, '{stelle}', '{firma}', 'docx')
+5. Frage ob die Bewerbung erfasst werden soll:
    → "Soll ich die Bewerbung in dein Tracking aufnehmen?"
    → bewerbung_erstellen(title='{stelle}', company='{firma}')
 
 REGELN:
 - Sprich Deutsch
-- Zeige erst den Text, dann biete Export an
-- Daten werden gespeichert — der User kann alles im Dashboard wiederfinden"""
+- Lebenslauf IMMER als DOCX (nie PDF) — finale Formatierung macht der User
+- Zeige erst den Lebenslauf, dann das Anschreiben, dann biete Tracking an
+- Daten werden gespeichert — der User kann alles im Dashboard wiederfinden
+- Manchmal braucht der User nur den Lebenslauf — wenn er das sagt, ueberspringe das Anschreiben"""
 
     @mcp.prompt()
     def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:

@@ -87,6 +87,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 24px; }
 .grid-2 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 .grid-4 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.grid-1 { display: grid; grid-template-columns: 1fr; gap: 12px; }
 
 /* Stats */
 .stat { text-align: center; padding: 16px; }
@@ -210,6 +211,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 .banner { padding: 12px 20px; display: flex; align-items: center; gap: 12px; font-size: 0.9rem; }
 .banner-warning { background: #2d1b00; border-bottom: 1px solid #4b3000; color: var(--yellow); }
 .banner-info { background: #0c2d6b; border-bottom: 1px solid #1158c7; color: var(--accent); }
+.banner-accent { background: #0a2f1a; border-bottom: 1px solid #1a6b3a; color: var(--green); }
 
 /* Hint system (v0.10.0) */
 .hint { background: #0c2d6b20; border: 1px solid #1158c740; border-radius: 8px;
@@ -305,6 +307,12 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
     <button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Neue Suche starten</button>
     <span class="tip-text">Kopiere /jobsuche_workflow und fuege es in deinen Claude-Chat ein</span>
   </span>
+</div>
+
+<!-- Next Steps Banner (v0.17.0) -->
+<div id="next-steps-bar" class="banner banner-accent" style="display:none;">
+  <span id="next-steps-text"></span>
+  <button class="btn btn-sm" onclick="dismissBanner('next-steps-bar')" style="margin-left:8px;">Ausblenden</button>
 </div>
 
 <!-- Wizard Overlay (v0.10.0) -->
@@ -528,7 +536,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
     </div>
     <div id="jobs-toolbar-summary"></div>
     <div class="filter-bar">
-      <input type="text" id="job-search" placeholder="Suche..." oninput="filterJobs()" style="max-width:300px;">
+      <input type="text" id="job-search" placeholder="Suche..." oninput="filterJobs()" style="max-width:200px;">
       <select id="job-type-filter" onchange="filterJobs()">
         <option value="">Alle Typen</option>
         <option value="festanstellung">Festanstellung</option>
@@ -544,8 +552,35 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
         <option value="80000">Ab 80k</option>
         <option value="100000">Ab 100k</option>
       </select>
+      <select id="job-sort" onchange="filterJobs()">
+        <option value="entfernung">Entfernung (Standard)</option>
+        <option value="score">Score</option>
+        <option value="gehalt">Gehalt</option>
+        <option value="datum">Datum</option>
+      </select>
+      <button class="btn btn-sm" id="layout-toggle" onclick="toggleJobLayout()" title="Ansicht wechseln" style="min-width:36px; padding:4px 8px;">&#9776;</button>
     </div>
-    <div class="grid grid-2" id="jobs-grid"></div>
+    <div id="jobs-container">
+      <div class="grid grid-2" id="jobs-grid"></div>
+      <div id="jobs-split" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+          <div>
+            <h3 style="margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--green);">
+              <span style="color:var(--green);">&#9670;</span> Festanstellung
+              <span id="split-count-fest" class="badge badge-green" style="margin-left:8px;">0</span>
+            </h3>
+            <div id="jobs-col-fest" class="grid grid-1"></div>
+          </div>
+          <div>
+            <h3 style="margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--yellow);">
+              <span style="color:var(--yellow);">&#9670;</span> Freelance
+              <span id="split-count-free" class="badge badge-yellow" style="margin-left:8px;">0</span>
+            </h3>
+            <div id="jobs-col-free" class="grid grid-1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="dismissed-section" style="display:none;">
       <h3 style="margin:20px 0 12px; color:var(--text2);">Aussortierte Stellen</h3>
       <div class="grid grid-2" id="dismissed-grid"></div>
@@ -1527,6 +1562,7 @@ async function loadJobs() {
   await refreshWorkspaceChrome();
   state.jobs = await api('/api/jobs?active=true');
   state.dismissed = await api('/api/jobs?active=false');
+  document.getElementById('layout-toggle').innerHTML = jobLayout === 'split' ? '&#9776;' : '&#9638;';
   renderJobs();
 }
 
@@ -1564,15 +1600,32 @@ function renderJobs() {
       </div>
     </div>`;
 
-  document.getElementById('jobs-grid').innerHTML = jobs.length
-    ? jobs.map(j => jobCard(j)).join('')
-    : `<div class="empty" style="grid-column:1/-1;"><div class="icon">&#128270;</div>
+  const filtered = jobs;
+  const emptyHtml = `<div class="empty" style="grid-column:1/-1;"><div class="icon">&#128270;</div>
         <p>Keine Stellen gefunden.</p>
         <div style="display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap;">
           <button class="btn btn-sm btn-primary" onclick="copyText('/jobsuche_workflow')">Jobsuche starten</button>
           <button class="btn btn-sm" onclick="showPage('einstellungen')">Quellen & Kriterien einrichten</button>
         </div>
       </div>`;
+
+  // Layout: split vs list
+  const isSplit = jobLayout === 'split' && !document.getElementById('job-type-filter')?.value;
+  document.getElementById('jobs-grid').style.display = isSplit ? 'none' : '';
+  document.getElementById('jobs-split').style.display = isSplit ? '' : 'none';
+
+  if (isSplit) {
+    const fest = filtered.filter(j => j.employment_type !== 'freelance');
+    const free = filtered.filter(j => j.employment_type === 'freelance');
+    document.getElementById('jobs-col-fest').innerHTML = fest.map(j => jobCard(j)).join('') || '<p style="color:var(--text2);">Keine Festanstellungen gefunden.</p>';
+    document.getElementById('jobs-col-free').innerHTML = free.map(j => jobCard(j)).join('') || '<p style="color:var(--text2);">Keine Freelance-Projekte gefunden.</p>';
+    document.getElementById('split-count-fest').textContent = fest.length;
+    document.getElementById('split-count-free').textContent = free.length;
+  } else {
+    document.getElementById('jobs-grid').innerHTML = filtered.length
+      ? filtered.map(j => jobCard(j)).join('')
+      : emptyHtml;
+  }
 
   // Dismissed
   document.getElementById('dismissed-grid').innerHTML = state.dismissed.map(j => jobCard(j, true)).join('');
@@ -1628,19 +1681,58 @@ function jobCard(j, isDismissed = false) {
   </div>`;
 }
 
+let jobLayout = localStorage.getItem('pbp-job-layout') || 'split';
+
+function toggleJobLayout() {
+  jobLayout = jobLayout === 'split' ? 'list' : 'split';
+  localStorage.setItem('pbp-job-layout', jobLayout);
+  document.getElementById('layout-toggle').innerHTML = jobLayout === 'split' ? '&#9776;' : '&#9638;';
+  renderJobs();
+}
+
 function filterJobs() { renderJobs(); }
+
+function sortJobs(jobs) {
+  const sortBy = document.getElementById('job-sort')?.value || 'entfernung';
+  return [...jobs].sort((a, b) => {
+    if (sortBy === 'entfernung') {
+      // Sort by distance: <30km first, then REMOTE, then far away
+      const distA = a.distance_km ?? 9999;
+      const distB = b.distance_km ?? 9999;
+      const isRemoteA = (a.remote_level === 'remote' || a.remote_level === 'hybrid') ? 1 : 0;
+      const isRemoteB = (b.remote_level === 'remote' || b.remote_level === 'hybrid') ? 1 : 0;
+      const nearA = distA <= 30;
+      const nearB = distB <= 30;
+      // Group: 1=near (<30km), 2=remote, 3=far
+      const groupA = nearA ? 1 : (isRemoteA ? 2 : 3);
+      const groupB = nearB ? 1 : (isRemoteB ? 2 : 3);
+      if (groupA !== groupB) return groupA - groupB;
+      if (groupA === 1) return distA - distB; // both near: sort by distance
+      if (groupA === 2) return (b.score||0) - (a.score||0); // both remote: sort by score
+      return distA - distB; // both far: sort by distance
+    } else if (sortBy === 'gehalt') {
+      return (b.salary_min||0) - (a.salary_min||0);
+    } else if (sortBy === 'datum') {
+      return (b.found_at||'').localeCompare(a.found_at||'');
+    } else {
+      return (b.score||0) - (a.score||0);
+    }
+  });
+}
+
 function filterJobsList(jobs) {
   const search = (document.getElementById('job-search')?.value || '').toLowerCase();
   const type = document.getElementById('job-type-filter')?.value || '';
   const source = document.getElementById('job-source-filter')?.value || '';
   const salaryMin = parseInt(document.getElementById('job-salary-filter')?.value || '0') || 0;
-  return jobs.filter(j => {
+  let filtered = jobs.filter(j => {
     if (search && !(j.title||'').toLowerCase().includes(search) && !(j.company||'').toLowerCase().includes(search)) return false;
     if (type && j.employment_type !== type) return false;
     if (source && j.source !== source) return false;
     if (salaryMin && (!j.salary_min || j.salary_min < salaryMin)) return false;
     return true;
   });
+  return sortJobs(filtered);
 }
 
 function toggleDismissed() {
@@ -2447,9 +2539,21 @@ async function saveSkill(e) {
 }
 
 function editSkill(skillId) {
-  const sk = (state.profile?.skills || []).find(s => s.id === skillId);
+  const skills = state.profile?.skills || [];
+  const idx = skills.findIndex(s => s.id === skillId);
+  const sk = skills[idx];
   if (!sk) return;
-  openModal(`<h2>Kompetenz bearbeiten</h2>
+  const prevId = idx > 0 ? skills[idx - 1].id : null;
+  const nextId = idx < skills.length - 1 ? skills[idx + 1].id : null;
+  const navInfo = `${idx + 1} / ${skills.length}`;
+  openModal(`<div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2>Kompetenz bearbeiten</h2>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-sm" ${prevId ? `onclick="editSkill('${prevId}')"` : 'disabled'} title="Vorherige">&larr;</button>
+        <span style="font-size:0.85rem; color:var(--text2);">${navInfo}</span>
+        <button class="btn btn-sm" ${nextId ? `onclick="editSkill('${nextId}')"` : 'disabled'} title="Naechste">&rarr;</button>
+      </div>
+    </div>
     <form onsubmit="updateSkill(event, '${skillId}')">
       <div class="form-row">
         <div class="form-group"><label>Name *</label><input name="name" value="${(sk.name||'').replace(/"/g,'&quot;')}" required></div>
@@ -3048,6 +3152,7 @@ async function loadRuntimeLog() {
 // === Banner (v0.10.0) ===
 function dismissBanner(id) {
   document.getElementById(id).style.display = 'none';
+  localStorage.setItem('pbp-dismiss-' + id, '1');
   api('/api/user-preferences/' + id, { method: 'POST', body: JSON.stringify({ value: true }) });
 }
 
@@ -3078,6 +3183,52 @@ async function checkSearchReminder() {
     txt.innerHTML = `<span style="color:${color}; font-weight:600;">Letzte Jobsuche: ${label}</span> — ` +
       (s.status === 'dringend' ? 'Ergebnisse sind ueber 7 Tage alt. Zeit fuer eine neue Suche!'
        : 'Regelmaessige Suchen finden mehr Stellen.');
+    bar.style.display = '';
+  } catch (e) {}
+}
+
+// === Next Steps Banner (v0.17.0) ===
+async function checkNextSteps() {
+  try {
+    if (localStorage.getItem('pbp-dismiss-next-steps-bar')) return;
+    const bar = document.getElementById('next-steps-bar');
+    const txt = document.getElementById('next-steps-text');
+    const steps = [];
+
+    // Check profile completeness
+    if (state.profile) {
+      const p = state.profile;
+      if (!p.positions?.length) steps.push({icon: '📋', text: 'Berufserfahrung ergaenzen', action: "copyText('/ersterfassung')"});
+      else if (!p.skills?.length) steps.push({icon: '🎯', text: 'Skills erfassen', action: "copyText('/ersterfassung')"});
+    } else {
+      steps.push({icon: '👤', text: 'Profil erstellen', action: "copyText('/ersterfassung')"});
+    }
+
+    // Check if jobs exist
+    if (state.jobs.length === 0) {
+      steps.push({icon: '🔍', text: 'Erste Jobsuche starten', action: "copyText('/jobsuche_workflow')"});
+    } else {
+      // Check for high-score jobs without application
+      const topJobs = state.jobs.filter(j => j.score >= 10);
+      if (topJobs.length > 0) {
+        steps.push({icon: '⭐', text: `${topJobs.length} Top-Stelle${topJobs.length > 1 ? 'n' : ''} — jetzt bewerben!`, action: "showPage('stellen')"});
+      }
+    }
+
+    // Check for stale applications
+    if (state.workspace?.applications?.follow_ups_due > 0) {
+      const n = state.workspace.applications.follow_ups_due;
+      steps.push({icon: '📩', text: `${n} Follow-up${n > 1 ? 's' : ''} faellig`, action: "showPage('bewerbungen')"});
+    }
+
+    if (steps.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    txt.innerHTML = steps.map(s =>
+      `<span style="cursor:pointer; margin-right:16px;" onclick="${s.action}">${s.icon} <strong>${s.text}</strong></span>`
+    ).join('');
     bar.style.display = '';
   } catch (e) {}
 }
@@ -3365,20 +3516,21 @@ function renderAppWizardStep() {
     content = `
       <p style="color:var(--text2); margin-bottom:12px;">Lass Claude einen auf die Stelle angepassten Lebenslauf erstellen:</p>
       <div class="prompt-tooltip">
-        <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+        <button class="btn btn-primary" onclick="copyText('Starte den Workflow: /bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
           Prompt kopieren: Anschreiben + CV
         </button>
-        <span class="tip-text">Kopiere diesen Text in Claude. Claude analysiert die Stelle und erstellt passende Dokumente.</span>
+        <span class="tip-text">Kopiere diesen Text in Claude. Er erstellt zuerst einen angepassten Lebenslauf (DOCX), dann ein Anschreiben.</span>
       </div>
       <div style="margin-top:12px;">
-        <a href="/api/cv/export/pdf" target="_blank" class="btn btn-sm">Lebenslauf als PDF</a>
-        <a href="/api/cv/export/docx" target="_blank" class="btn btn-sm" style="margin-left:4px;">Als DOCX</a>
-      </div>`;
+        <a href="/api/cv/export/docx" target="_blank" class="btn btn-sm">Standard-Lebenslauf als DOCX</a>
+      </div>
+      <p style="color:var(--text2); font-size:0.85rem; margin-top:8px;">Der angepasste CV hebt relevante Skills und Erfahrungen fuer diese Stelle hervor. Format ist immer DOCX, damit du die finale Formatierung anpassen kannst.</p>`;
   } else if (appWizardStep === 2) {
     content = `
       <p style="color:var(--text2); margin-bottom:12px;">Claude erstellt ein personalisiertes Anschreiben basierend auf deinem Profil und der Stelle:</p>
+      <p style="color:var(--text2); font-size:0.85rem;">Falls du den Bewerbungs-Workflow schon gestartet hast, erstellt Claude das Anschreiben automatisch nach dem Lebenslauf.</p>
       <div class="prompt-tooltip">
-        <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
+        <button class="btn btn-primary" onclick="copyText('Starte den Workflow: /bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
           Prompt kopieren: Anschreiben
         </button>
         <span class="tip-text">Falls noch nicht geschehen: Kopiere diesen Text in Claude.</span>
@@ -3464,6 +3616,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkWizardNeeded();
   checkSourceBanner();
   checkSearchReminder();
+  checkNextSteps();
   // Init expert mode checkbox
   const cb = document.getElementById('expert-mode');
   if (cb) cb.checked = localStorage.getItem('pbp_expert_mode') === 'true';

@@ -179,6 +179,14 @@ def register(mcp, db, logger):
         Universaltool fuer alle Profil-Aenderungen. Auch nutzbar fuer Bulk-Import
         mit aktion='hinzufuegen_bulk' und daten als Liste.
 
+        AKTIONEN PRO BEREICH:
+        - persoenlich: aendern (Felder in daten)
+        - praeferenzen: aendern (Key-Value in daten)
+        - position: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
+        - projekt: hinzufuegen (daten.position_id noetig), aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
+        - ausbildung: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
+        - skill: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
+
         Feldnamen-Aliase fuer bereich='persoenlich':
         adresse/anschrift->address, kurzprofil/zusammenfassung->summary,
         stadt/ort->city, telefon->phone
@@ -264,6 +272,10 @@ def register(mcp, db, logger):
             if aktion == "loeschen" and element_id:
                 db.delete_position(element_id)
                 return {"status": "geloescht", "bereich": "position", "id": element_id}
+            elif aktion == "aendern" and element_id:
+                db.update_position(element_id, daten)
+                return {"status": "aktualisiert", "bereich": "position", "id": element_id,
+                        "geaenderte_felder": list(daten.keys())}
             elif aktion == "hinzufuegen":
                 pid = db.add_position(daten)
                 return {"status": "hinzugefuegt", "bereich": "position", "id": pid}
@@ -272,7 +284,14 @@ def register(mcp, db, logger):
                 return {"status": "hinzugefuegt", "bereich": "position", "anzahl": len(ids), "ids": ids}
 
         elif bereich == "projekt":
-            if aktion == "hinzufuegen" and daten.get("position_id"):
+            if aktion == "loeschen" and element_id:
+                db.delete_project(element_id)
+                return {"status": "geloescht", "bereich": "projekt", "id": element_id}
+            elif aktion == "aendern" and element_id:
+                db.update_project(element_id, daten)
+                return {"status": "aktualisiert", "bereich": "projekt", "id": element_id,
+                        "geaenderte_felder": list(daten.keys())}
+            elif aktion == "hinzufuegen" and daten.get("position_id"):
                 pid = db.add_project(daten["position_id"], daten)
                 return {"status": "hinzugefuegt", "bereich": "projekt", "id": pid}
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
@@ -286,6 +305,10 @@ def register(mcp, db, logger):
             if aktion == "loeschen" and element_id:
                 db.delete_education(element_id)
                 return {"status": "geloescht", "bereich": "ausbildung", "id": element_id}
+            elif aktion == "aendern" and element_id:
+                db.update_education(element_id, daten)
+                return {"status": "aktualisiert", "bereich": "ausbildung", "id": element_id,
+                        "geaenderte_felder": list(daten.keys())}
             elif aktion == "hinzufuegen":
                 eid = db.add_education(daten)
                 return {"status": "hinzugefuegt", "bereich": "ausbildung", "id": eid}
@@ -297,6 +320,10 @@ def register(mcp, db, logger):
             if aktion == "loeschen" and element_id:
                 db.delete_skill(element_id)
                 return {"status": "geloescht", "bereich": "skill", "id": element_id}
+            elif aktion == "aendern" and element_id:
+                db.update_skill(element_id, daten)
+                return {"status": "aktualisiert", "bereich": "skill", "id": element_id,
+                        "geaenderte_felder": list(daten.keys())}
             elif aktion == "hinzufuegen":
                 sid = db.add_skill(daten)
                 return {"status": "hinzugefuegt", "bereich": "skill", "id": sid}
