@@ -1,10 +1,16 @@
-"""Konfiguriert Claude Desktop fuer den Bewerbungs-Assistenten."""
+"""Konfiguriert Claude Desktop fuer den Bewerbungs-Assistenten.
+
+Verwendet feste Installationspfade unter %LOCALAPPDATA%\\BewerbungsAssistent,
+damit Versions-Updates die MCP-Konfiguration nicht kaputtmachen.
+"""
 import json, os, sys
 
 config_path = os.path.join(os.environ["APPDATA"], "Claude", "claude_desktop_config.json")
 data_dir = os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent")
-python_exe = sys.executable
-src_dir = os.path.join(os.path.dirname(os.path.dirname(python_exe)), "src")
+
+# Feste Pfade (update-sicher) — python/ und src/ werden vom Installer hierhin kopiert
+python_exe = os.path.join(data_dir, "python", "python.exe")
+src_dir = os.path.join(data_dir, "src")
 
 print(f"[CLAUDE] Config: {config_path}")
 print(f"[CLAUDE] Python: {python_exe}")

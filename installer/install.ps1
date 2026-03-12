@@ -247,14 +247,30 @@ if (Test-Path $claudeConfig) {
     }
 }
 
-# MCP Server eintragen
-$venvPythonPath = $venvPython.Replace("\", "\\")
+# Runtime in festen Pfad kopieren (update-sicher)
+Write-Info "Kopiere Runtime in festen Installationspfad..."
+$destPython = Join-Path $dataDir "python"
+$destSrc = Join-Path $dataDir "src"
+
+# .venv kopieren als python/
+if (Test-Path $destPython) { Remove-Item $destPython -Recurse -Force }
+Copy-Item -Path (Join-Path $projectDir ".venv") -Destination $destPython -Recurse
+Write-OK "Python-Umgebung kopiert"
+
+# src/ kopieren
+if (Test-Path $destSrc) { Remove-Item $destSrc -Recurse -Force }
+Copy-Item -Path (Join-Path $projectDir "src") -Destination $destSrc -Recurse
+Write-OK "Source-Code kopiert"
+
+# MCP Server eintragen — feste Pfade unter %LOCALAPPDATA%\BewerbungsAssistent
+$fixedPython = Join-Path $destPython "Scripts\python.exe"
 $serverModule = "bewerbungs_assistent"
 $mcpEntry = @{
-    command = $venvPython
+    command = $fixedPython
     args = @("-m", $serverModule)
     env = @{
         BA_DATA_DIR = $dataDir
+        PYTHONPATH = $destSrc
     }
 }
 $config.mcpServers | Add-Member -NotePropertyName "bewerbungs-assistent" -NotePropertyValue $mcpEntry -Force

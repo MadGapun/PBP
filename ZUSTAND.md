@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-10 | v0.14.0
+## Zustandsbericht | 2026-03-12 | v0.14.1
 
 ---
 
@@ -8,7 +8,7 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.14.0 (pyproject.toml) |
+| **Version** | 0.14.1 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |

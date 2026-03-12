@@ -4,7 +4,7 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.5.0
+:: PBP Installer v0.6.0
 :: Fix: GOTO-basierte Fehlerbehandlung
 ::      (keine Klammern in echo innerhalb IF-Bloecken)
 :: Fix: Debug-Logging zwischen allen Schritten
@@ -33,7 +33,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.5.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.6.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -44,7 +44,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.5.0
+echo    Installer v0.6.0
 echo.
 echo  ====================================================
 echo.
@@ -294,6 +294,28 @@ if not exist "%DATA_DIR%\export" mkdir "%DATA_DIR%\export"
 if not exist "%DATA_DIR%\logs" mkdir "%DATA_DIR%\logs"
 echo         [OK] Datenordner erstellt
 echo [OK] Datenordner: %DATA_DIR% >> "%LOGFILE%"
+
+:: Runtime in festen Pfad kopieren (update-sichere Pfade fuer Claude Desktop)
+echo.
+echo         Kopiere Runtime in festen Installationspfad...
+echo [INFO] Kopiere python + src nach %DATA_DIR% >> "%LOGFILE%"
+
+:: python/ Ordner kopieren
+echo [DEBUG] Kopiere python-Ordner... >> "%LOGFILE%"
+if exist "%DATA_DIR%\python" rmdir /s /q "%DATA_DIR%\python"
+xcopy "%PYTHON_DIR%" "%DATA_DIR%\python\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 goto :err_copy_runtime
+echo [OK] python kopiert >> "%LOGFILE%"
+
+:: src/ Ordner kopieren
+echo [DEBUG] Kopiere src-Ordner... >> "%LOGFILE%"
+if exist "%DATA_DIR%\src" rmdir /s /q "%DATA_DIR%\src"
+xcopy "%SRC_DIR%" "%DATA_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 goto :err_copy_runtime
+echo [OK] src kopiert >> "%LOGFILE%"
+
+echo         [OK] Runtime installiert in %DATA_DIR%
+echo [OK] Runtime installiert >> "%LOGFILE%"
 echo.
 
 :: -------------------------------------------
@@ -521,6 +543,16 @@ goto :internet_ok
 :err_internet
 echo.
 echo  FEHLER: Kein Internet. Bitte pruefe WLAN/LAN.
+echo  (Log: %LOGFILE%)
+echo.
+pause
+exit /b 1
+
+:err_copy_runtime
+echo [FEHLER] Runtime-Kopie fehlgeschlagen >> "%LOGFILE%"
+echo.
+echo  FEHLER: Runtime konnte nicht nach %DATA_DIR% kopiert werden.
+echo  Versuche INSTALLIEREN.bat als Administrator auszufuehren.
 echo  (Log: %LOGFILE%)
 echo.
 pause

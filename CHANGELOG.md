@@ -2,16 +2,39 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
-## [Unreleased]
+## [0.14.1] — 2026-03-12
 
-### Tests
+### Fix: Update-sichere MCP-Konfiguration
 
-- **Dashboard-Browser-Smoke-Tests**: Neue Datei `tests/test_dashboard_browser.py` mit 3 echten Playwright-Smokes fuer Erststart, Navigation, Follow-up-Guidance und Mobile-Layout.
+Bei Versions-Updates (z.B. v0.12.0 → v0.14.0) zeigte die Claude Desktop Config
+auf den alten, nicht mehr existierenden Ordner. Der MCP-Server wurde dadurch nicht
+erkannt und kein einziges PBP-Tool war verfuegbar.
 
-### Doku / Setup
+### Aenderungen
 
-- Test-Doku auf den aktuellen Repo-Stand von **190 Tests** aktualisiert
-- Voller Test-Setup jetzt klarer dokumentiert: `pip install -e ".[all,dev]"` plus `playwright install chromium`
+- **Installer v0.6.0**: Kopiert `python/` und `src/` jetzt in den festen Pfad
+  `%LOCALAPPDATA%\BewerbungsAssistent\`. Bei Updates werden diese Ordner
+  ueberschrieben, die Pfade in der Claude-Config bleiben stabil.
+- **`_setup_claude.py`**: Schreibt feste Pfade statt `sys.executable`-basierte
+  Pfade in die `claude_desktop_config.json`.
+- **`installer/install.ps1`**: Gleiche Logik fuer den PowerShell-Installer —
+  kopiert `.venv` und `src/` in den festen Installationspfad.
+- **Dashboard-Browser-Smoke-Tests**: 3 Playwright-Smokes (Erststart, Navigation, Mobile-Layout)
+- **190 Tests** dokumentiert, Test-Setup klarer beschrieben
+
+### Struktur nach Installation
+
+```
+%LOCALAPPDATA%\BewerbungsAssistent\
+├── python\          (Embedded Python, vom Installer kopiert)
+├── src\             (PBP Source Code, vom Installer kopiert)
+├── pbp.db           (Datenbank)
+├── dokumente\       (Uploads)
+├── export\          (Generierte Dokumente)
+└── logs\
+```
+
+---
 
 ## [0.14.0] — 2026-03-10
 
