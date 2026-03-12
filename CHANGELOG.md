@@ -2,6 +2,23 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.16.2] — 2026-03-12
+
+### Fix: Ersterfassung nach Reset — Fragmente, Duplikate, Dokumentanalyse
+
+- **Reset loescht jetzt ALLE Tabellen** — `search_criteria` und `follow_ups` fehlten in
+  `reset_all_data()` und konnten Fragmente hinterlassen
+- **Ersterfassung erkennt Profil-Fragmente** — Profile mit nur Name/E-Mail (aus Dashboard-
+  Auto-Erstellung) werden als Fragmente behandelt, nicht als echte Profile. Doppelte
+  "Mein Profil"-Eintraege werden automatisch aufgeraeumt statt den User zu verwirren.
+- **Dokument-Analyse hat IMMER Vorrang** — Prompt-Prioritaet umstrukturiert: Dokumente
+  werden immer zuerst vollstaendig KI-analysiert, auch wenn das Profil schon Basisdaten hat.
+  basis_analysiert-Dokumente werden jetzt zuverlaessig gefunden und tiefenanalysiert.
+- **Neue Prompt-Regeln 12+13** — Verhindern Profil-Duplikate und Halluzinationen von
+  Profil-IDs aus frueheren Gespraechen
+
+---
+
 ## [0.16.1] — 2026-03-12
 
 ### Fix: Ersterfassung nach Dokumenten-Upload (Issue #38)

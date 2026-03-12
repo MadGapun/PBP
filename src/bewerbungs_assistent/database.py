@@ -438,7 +438,8 @@ class Database:
             for table in ["extraction_history", "application_events", "projects",
                            "positions", "education", "skills", "documents",
                            "applications", "jobs", "blacklist", "background_jobs",
-                           "user_preferences", "suggested_job_titles", "profile"]:
+                           "user_preferences", "suggested_job_titles",
+                           "search_criteria", "follow_ups", "profile"]:
                 try:
                     conn.execute(f"DELETE FROM {table}")
                 except Exception:
