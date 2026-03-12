@@ -59,7 +59,7 @@ Default aus dem Code:
 
 ## Teststand
 
-Im Repo liegen aktuell 187 Tests:
+Im Repo liegen aktuell 190 Tests:
 
 - `tests/test_database.py`
 - `tests/test_scoring.py`
@@ -72,6 +72,7 @@ Im Repo liegen aktuell 187 Tests:
 - `tests/test_profile_service.py`
 - `tests/test_search_service.py`
 - `tests/test_workspace_service.py`
+- `tests/test_dashboard_browser.py`
 
 ## Wichtige Doku
 

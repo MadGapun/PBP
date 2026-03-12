@@ -138,7 +138,7 @@ Zusatzverzeichnisse im Datenordner:
 Der aktuelle Repo-Stand ist deutlich konsolidierter als in der fruehen Analyse:
 
 - modulare MCP-Struktur statt monolithischem `server.py`
-- 187 Tests im Repo
+- 190 Tests im Repo, inklusive Browser-Smoke-Tests fuer das Dashboard
 - Dashboard-API-Tests vorhanden
 - Regressionstests fuer v0.13.0-Bugfixes vorhanden
 

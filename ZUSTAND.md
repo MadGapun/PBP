@@ -15,7 +15,7 @@
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 187 Tests (Database, Scoring, Export, v0.10.x, Dashboard, MCP, Scraper, Services) — alle gruen |
+| **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) -- alle gruen |
 
 ---
 
@@ -171,7 +171,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | logging_config.py | ~50 | Zentrales Logging |
 | __init__.py / __main__.py | ~15 | Entry Points |
 
-### Tests (11 Testdateien + conftest, 1.900+ Zeilen)
+### Tests (12 Testdateien + conftest, 2.000+ Zeilen)
 
 | Datei | Tests | Zweck |
 |-------|-------|-------|
@@ -187,7 +187,8 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | test_profile_service.py | 5 | Service-Layer fuer Profilstatus, Praeferenzen und Vollstaendigkeit |
 | test_search_service.py | 5 | Suchstatus, Quellenzaehlung und Source-Listen |
 | test_workspace_service.py | 5 | Workspace-Guidance, Navigation-Badges und Priorisierung |
-| **Gesamt** | **187** | **Alle gruen** |
+| test_dashboard_browser.py | 3 | Browser-Smokes fuer Onboarding, Navigation, Follow-up-Guidance und Mobile-Layout |
+| **Gesamt** | **190** | **Alle gruen** |
 
 ---
 
@@ -200,7 +201,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 - 9-Quellen Job-Suche mit Scoring und Deduplizierung
 - Gehaltsextraktion (7 Regex-Patterns + Schaetzungstabellen)
 - Vollstaendige Schema-Migrationen (v1 bis v8, abwaertskompatibel)
-- 187 automatische Tests
+- 190 automatische Tests
 - Zero-Knowledge Windows-Installer
 - Onboarding-Wizard und Bewerbungs-Wizard
 - Factory Reset fuer saubere Neuinstallation
@@ -219,6 +220,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | Version | Datum | Highlights |
 |---------|-------|-----------|
 | 0.14.0 | 2026-03-10 | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
+| nach 0.14.0 | 2026-03-10 | Dashboard-Browser-Smoke-Tests, 190 Tests im Repo-Stand |
 | 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |

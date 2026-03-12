@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -315,7 +315,7 @@ PBP/
 │       ├── xing.py               #   XING (Playwright)
 │       └── monster.py            #   Monster (Playwright)
 │
-├── tests/                        # 187 Tests (pytest)
+├── tests/                        # 190 Tests (pytest)
 │   ├── conftest.py               # Fixtures (tmp_db, sample_*)
 │   ├── test_database.py          # 33 DB-Tests
 │   ├── test_scoring.py           # 24 Scoring-Tests
@@ -326,6 +326,7 @@ PBP/
 │   ├── test_profile_service.py   #  5 Service-Layer
 │   ├── test_search_service.py    #  5 Suchstatus
 │   ├── test_workspace_service.py #  5 Workspace-Guidance
+│   ├── test_dashboard_browser.py #  3 Browser-Smoke-Tests
 │   ├── test_mcp_registry.py      #  3 MCP-Smoke-Tests
 │   ├── test_scrapers.py          #  3 Scraper-Fixture-Tests
 │   └── fixtures/scrapers/        # HTML/XML-Fixtures
@@ -340,10 +341,14 @@ PBP/
 ## Tests
 
 ```bash
+# Voller Test-Stand inkl. Scraper, Export und Browser-Smokes
+pip install -e ".[all,dev]"
+playwright install chromium
+
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 187 Tests, ~5 Sekunden
+# 190 Tests, ~10 Sekunden
 # ✓ 33 Datenbank-Tests
 # ✓ 24 Scoring-Tests
 # ✓ 44 Dashboard-API-Tests
@@ -352,6 +357,7 @@ python -m pytest tests/ -v
 # ✓  5 Service-Layer-Tests (Profilstatus, Praeferenzen, Vollstaendigkeit)
 # ✓  5 Search-Service-Tests
 # ✓  5 Workspace-Service-Tests
+# ✓  3 Dashboard-Browser-Smoke-Tests
 # ✓  3 MCP-Registry-Tests
 # ✓  3 Scraper-Fixture-Tests
 # ✓  8 Export-Tests (benötigt python-docx + fpdf2)

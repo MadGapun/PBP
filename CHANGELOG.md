@@ -2,6 +2,17 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [Unreleased]
+
+### Tests
+
+- **Dashboard-Browser-Smoke-Tests**: Neue Datei `tests/test_dashboard_browser.py` mit 3 echten Playwright-Smokes fuer Erststart, Navigation, Follow-up-Guidance und Mobile-Layout.
+
+### Doku / Setup
+
+- Test-Doku auf den aktuellen Repo-Stand von **190 Tests** aktualisiert
+- Voller Test-Setup jetzt klarer dokumentiert: `pip install -e ".[all,dev]"` plus `playwright install chromium`
+
 ## [0.14.0] — 2026-03-10
 
 ### Konsolidierung: Service-Layer, Dashboard-UX, Workspace-Guidance
