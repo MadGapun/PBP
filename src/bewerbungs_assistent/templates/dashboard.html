@@ -257,7 +257,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
 <nav class="app-topbar">
   <div class="brand-block">
     <div class="brand-title">Persoenliches Bewerbungs-Portal</div>
-    <div class="brand-subtitle">Lokaler Bewerbungs-Assistent mit Claude Desktop, Dashboard und Bewerbungs-Tracking</div>
+    <div class="brand-subtitle">Lokaler Bewerbungs-Assistent mit Claude, Dashboard und Bewerbungs-Tracking</div>
   </div>
   <div class="tabs">
     <button class="tab active" data-page="dashboard" onclick="showPage('dashboard')" title="Uebersicht: Statistiken, naechste Schritte, letzte Aktivitaeten">
@@ -341,9 +341,9 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
           <div style="display:flex; gap:12px; align-items:flex-start;">
             <span style="font-size:1.5rem; flex-shrink:0;">💬</span>
             <div>
-              <strong style="color:var(--accent);">Empfohlen: Starte in Claude Desktop</strong>
+              <strong style="color:var(--accent);">Empfohlen: Starte in Claude</strong>
               <p style="color:var(--text2); margin-top:4px; font-size:0.9rem;">
-                Oeffne Claude Desktop und tippe den Befehl:
+                Oeffne Claude und tippe den Befehl:
               </p>
               <div style="display:flex; align-items:center; gap:8px; margin:8px 0;">
                 <code style="background:var(--bg); padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:1rem; color:var(--accent);">/ersterfassung</code>
@@ -356,7 +356,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
               </p>
               <div style="background:#2d1b00; border:1px solid #4b3000; border-radius:6px; padding:8px 12px; margin-top:8px; font-size:0.85rem; color:var(--yellow);">
                 <strong>Wichtig:</strong> Wenn du gerade den Bewerbungs-Assistent installiert hast,
-                musst du Claude Desktop einmal komplett <strong>neu starten</strong> (beenden + oeffnen),
+                musst du Claude einmal komplett <strong>neu starten</strong> (beenden + oeffnen),
                 damit der /ersterfassung Befehl verfuegbar ist.
               </div>
             </div>
@@ -430,30 +430,29 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
-        <h3>KI-Funktionen — Befehle fuer Claude Desktop</h3>
+        <h3>KI-Funktionen — Befehle fuer Claude</h3>
         <p style="color:var(--text2); font-size:0.9rem; margin-bottom:12px;">
-          Diese Befehle nutzt du in <strong>Claude Desktop</strong> (dem separaten Chat-Programm).
-          Klicke auf <em>Kopieren</em>, wechsle zu Claude Desktop, und fuege den Text dort ein.
-          Claude erkennt den Befehl automatisch und fuehrt ihn aus.
+          Klicke auf <em>Kopieren</em>, wechsle zu Claude (Desktop oder claude.ai),
+          und fuege den Text dort ein. Claude erkennt den Befehl automatisch und fuehrt ihn aus.
         </p>
         <div style="display:grid; gap:8px;">
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Erste Schritte</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/ersterfassung</code> <span style="color:var(--text2); font-size:0.85rem;">— Profil im Gespraech erstellen (pausierbar)</span></div>
-            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/ersterfassung')">Kopieren</button><span class="tip-text">Kopiere diesen Befehl und fuege ihn in Claude Desktop ein. Claude fuehrt dich dann Schritt fuer Schritt durch die Profilerstellung.</span></span>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/ersterfassung')">Kopieren</button><span class="tip-text">Kopiere diesen Befehl und fuege ihn in Claude ein. Claude fuehrt dich dann Schritt fuer Schritt durch die Profilerstellung.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/willkommen</code> <span style="color:var(--text2); font-size:0.85rem;">— Begruessung und Status-Uebersicht</span></div>
-            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button><span class="tip-text">Kopiere und fuege in Claude Desktop ein. Zeigt dir deinen aktuellen Status und naechste Schritte.</span></span>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/willkommen')">Kopieren</button><span class="tip-text">Kopiere und fuege in Claude ein. Zeigt dir deinen aktuellen Status und naechste Schritte.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/profil_erweiterung</code> <span style="color:var(--text2); font-size:0.85rem;">— Dokumente analysieren + Profil erweitern</span><span style="background:var(--accent); color:white; padding:1px 6px; border-radius:4px; font-size:0.75rem; margin-left:6px;">NEU</span></div>
-            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Kopieren</button><span class="tip-text">Lade ein Dokument (CV, Zeugnis) in Claude Desktop hoch und fuege diesen Befehl ein. Claude extrahiert die Daten automatisch.</span></span>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/profil_erweiterung')">Kopieren</button><span class="tip-text">Lade ein Dokument (CV, Zeugnis) in Claude hoch und fuege diesen Befehl ein. Claude extrahiert die Daten automatisch.</span></span>
           </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Jobsuche &amp; Bewerbung</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/jobsuche_workflow</code> <span style="color:var(--text2); font-size:0.85rem;">— Gefuehrter 5-Schritte Suchprozess</span></div>
-            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Kopieren</button><span class="tip-text">Startet eine gefuehrte Jobsuche in Claude Desktop. Dauert je nach Quellen 5-10 Minuten. Ergebnisse erscheinen dann hier im Dashboard.</span></span>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/jobsuche_workflow')">Kopieren</button><span class="tip-text">Startet eine gefuehrte Jobsuche in Claude. Dauert je nach Quellen 5-10 Minuten. Ergebnisse erscheinen dann hier im Dashboard.</span></span>
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/bewerbung_schreiben</code> <span style="color:var(--text2); font-size:0.85rem;">— Anschreiben erstellen + Export</span></div>
@@ -461,7 +460,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
           </div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
             <div><code style="color:var(--accent);">/bewerbungs_uebersicht</code> <span style="color:var(--text2); font-size:0.85rem;">— Komplette Uebersicht aller Aktivitaeten</span></div>
-            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/bewerbungs_uebersicht')">Kopieren</button><span class="tip-text">Zeigt dir in Claude Desktop eine Zusammenfassung aller Bewerbungen, offene Follow-ups und Statistiken.</span></span>
+            <span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('/bewerbungs_uebersicht')">Kopieren</button><span class="tip-text">Zeigt dir in Claude eine Zusammenfassung aller Bewerbungen, offene Follow-ups und Statistiken.</span></span>
           </div>
           <div style="font-weight:600; color:var(--accent); margin-top:8px;">Interview &amp; Verhandlung</div>
           <div class="prompt-row" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--bg); border-radius:6px;">
@@ -617,7 +616,7 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
             <p style="font-size:0.85rem; color:var(--text2);">Nenne eine Spanne, nicht einen Festbetrag. Recherchiere Marktdaten vorab.</p>
           </div>
           <p style="font-size:0.85rem; color:var(--text2); margin-top:8px;">
-            Nutze den Claude Desktop Prompt <strong>"Interview-Vorbereitung"</strong> fuer eine personalisierte Vorbereitung mit deinem Profil.
+            Nutze den Prompt <strong>"Interview-Vorbereitung"</strong> fuer eine personalisierte Vorbereitung mit deinem Profil.
           </p>
         </div>
       </div>
@@ -998,7 +997,7 @@ function renderDashboardActionCenter(completeness, sourceSummary, searchStatus) 
     primaryAction = {
       label: '/jobsuche_workflow kopieren',
       onclick: "copyText('/jobsuche_workflow')",
-      hint: 'Deine Suche ist noch nicht gestartet oder nicht mehr frisch. Mit dem Workflow startest du direkt in Claude Desktop.',
+      hint: 'Deine Suche ist noch nicht gestartet oder nicht mehr frisch. Mit dem Workflow startest du direkt in Claude.',
     };
   }
 
@@ -1076,7 +1075,7 @@ async function loadDashboard() {
             if (n.action_type === 'dashboard') {
               actionBtn = `<button class="btn btn-sm btn-primary" onclick="${n.action_target}">${n.action_label || 'Los'}</button>`;
             } else if (n.action_type === 'prompt') {
-              actionBtn = `<span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('${n.prompt}')">${n.prompt}</button><span class="tip-text">In Claude Desktop einfuegen</span></span>`;
+              actionBtn = `<span class="prompt-tooltip"><button class="btn btn-sm" onclick="copyText('${n.prompt}')">${n.prompt}</button><span class="tip-text">In Claude einfuegen</span></span>`;
             } else if (n.prompt) {
               actionBtn = `<button class="btn btn-sm" onclick="copyText('${n.prompt}')" title="Prompt kopieren">${n.prompt}</button>`;
             }
@@ -1215,7 +1214,7 @@ async function loadProfile() {
         <div class="empty"><div class="icon">&#128100;</div>
         <p>Noch kein Profil vorhanden.</p>
         <p style="font-size:0.85rem; color:var(--text2); margin:8px 0 16px;">
-          Am einfachsten: Oeffne Claude Desktop und tippe
+          Am einfachsten: Oeffne Claude und tippe
           <code style="background:var(--bg3); padding:2px 8px; border-radius:4px; color:var(--accent); cursor:pointer;" onclick="copyText('/ersterfassung')" title="Klicken zum Kopieren">/ersterfassung</code>
           <button class="btn btn-sm" onclick="copyText('/ersterfassung')" style="margin-left:4px;" title="In Zwischenablage kopieren">Kopieren</button>
           <br>Wir fuehren ein lockeres Gespraech und ich erfasse alles fuer dich.
@@ -2011,7 +2010,7 @@ function wizardDocUpload() {
   openModal(`<h2>Lebenslauf hochladen</h2>
     <p style="color:var(--text2); margin-bottom:16px;">
       Lade deinen Lebenslauf oder andere Bewerbungsdokumente hoch.<br>
-      Der Text wird automatisch extrahiert. Nutze danach in Claude Desktop den Befehl
+      Der Text wird automatisch extrahiert. Nutze danach in Claude den Befehl
       <code style="color:var(--accent);">/profil_erweiterung</code>, um die Daten in dein Profil zu uebernehmen.
     </p>
     <form onsubmit="wizardDocUploadSubmit(event)" enctype="multipart/form-data">
@@ -2089,7 +2088,7 @@ async function wizardDocUploadSubmit(e) {
         <p style="color:var(--text2); margin-bottom:16px;">${result.extracted_length > 0 ? 'Der Text wurde extrahiert und ist bereit zur Analyse.' : 'Die Datei wurde gespeichert.'}</p>
         <div class="card" style="margin-bottom:16px; border-color:var(--accent);">
           <strong style="color:var(--accent);">Naechster Schritt: ${primaryLabel}</strong>
-          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Kopiere diesen Befehl und fuege ihn in Claude Desktop ein. ${primaryDesc}</p>
+          <p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Kopiere diesen Befehl und fuege ihn in Claude ein. ${primaryDesc}</p>
           <button class="btn btn-primary" onclick="copyText('${primaryPrompt}'); closeModal();">${primaryPrompt} kopieren</button>
         </div>
         ${isNewProfile ? '<div class="card" style="margin-bottom:16px;"><strong>Alternative: Nur Dokument-Daten uebernehmen</strong><p style="color:var(--text2); font-size:0.85rem; margin:8px 0;">Ohne gefuehrte Ersterfassung — nur die Daten aus dem Dokument extrahieren.</p><button class="btn btn-sm" onclick="copyText(\'/profil_erweiterung\'); closeModal();">/profil_erweiterung kopieren</button></div>' : ''}
@@ -2727,12 +2726,19 @@ async function createNewProfile(e) {
 
 // === Copy-to-Clipboard (PBP-027) ===
 function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => {
+  // Wandle /slash_commands in Claude-verstaendliche Anweisungen um
+  // Claude erkennt diese und ruft automatisch workflow_starten() auf
+  let copyValue = text;
+  if (text.startsWith('/')) {
+    const name = text.substring(1);
+    copyValue = 'Starte den Workflow: ' + text;
+  }
+  navigator.clipboard.writeText(copyValue).then(() => {
     showToast('Kopiert: ' + text, 'success');
   }).catch(() => {
     // Fallback fuer aeltere Browser
     const ta = document.createElement('textarea');
-    ta.value = text;
+    ta.value = copyValue;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand('copy');
@@ -2869,7 +2875,7 @@ function renderWizardStep() {
           <button class="btn btn-primary" onclick="copyText('/ersterfassung')">
             /ersterfassung kopieren
           </button>
-          <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Desktop Chat-Fenster ein. Claude startet dann ein Gespraech, in dem du Schritt fuer Schritt dein Profil aufbaust.</span>
+          <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Chat-Fenster ein. Claude startet dann ein Gespraech, in dem du Schritt fuer Schritt dein Profil aufbaust.</span>
         </div>
       </div>
       <div class="card" style="margin-bottom:12px; border-color:var(--accent);">
@@ -2894,12 +2900,12 @@ function renderWizardStep() {
     c.innerHTML = `
       <h3 style="margin-bottom:12px;">Jobsuche starten</h3>
       ${showHint('wizard-suche', 'Die Suche durchsucht alle aktivierten Portale mit deinen Keywords. Das kann 5-10 Minuten dauern.')}
-      <p style="color:var(--text2); margin-bottom:16px;">Nutze den Jobsuche-Workflow in Claude Desktop:</p>
+      <p style="color:var(--text2); margin-bottom:16px;">Nutze den Jobsuche-Workflow in Claude:</p>
       <div class="prompt-tooltip">
         <button class="btn btn-primary" onclick="copyText('/jobsuche_workflow')">
           /jobsuche_workflow kopieren
         </button>
-        <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Desktop Chat ein. Claude fuehrt dich durch: Suchkriterien festlegen, Quellen pruefen, Suche starten, Ergebnisse anzeigen.</span>
+        <span class="tip-text">Kopiere diesen Text und fuege ihn in dein Claude Chat ein. Claude fuehrt dich durch: Suchkriterien festlegen, Quellen pruefen, Suche starten, Ergebnisse anzeigen.</span>
       </div>
       <div class="hint" style="margin-top:16px;">
         <strong>Wichtig:</strong> Die Jobsuche sollte regelmaessig (alle 2-3 Tage) wiederholt werden,
@@ -3120,7 +3126,7 @@ function renderAppWizardStep() {
         <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
           Prompt kopieren: Anschreiben + CV
         </button>
-        <span class="tip-text">Kopiere diesen Text in Claude Desktop. Claude analysiert die Stelle und erstellt passende Dokumente.</span>
+        <span class="tip-text">Kopiere diesen Text in Claude. Claude analysiert die Stelle und erstellt passende Dokumente.</span>
       </div>
       <div style="margin-top:12px;">
         <a href="/api/cv/export/pdf" target="_blank" class="btn btn-sm">Lebenslauf als PDF</a>
@@ -3133,7 +3139,7 @@ function renderAppWizardStep() {
         <button class="btn btn-primary" onclick="copyText('/bewerbung_schreiben stelle=&quot;${title}&quot; firma=&quot;${company}&quot;')">
           Prompt kopieren: Anschreiben
         </button>
-        <span class="tip-text">Falls noch nicht geschehen: Kopiere diesen Text in Claude Desktop.</span>
+        <span class="tip-text">Falls noch nicht geschehen: Kopiere diesen Text in Claude.</span>
       </div>`;
   } else if (appWizardStep === 3) {
     content = `

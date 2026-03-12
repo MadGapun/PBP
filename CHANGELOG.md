@@ -2,6 +2,25 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.14.3] — 2026-03-12
+
+### Fix: Dashboard-Befehle funktionieren jetzt ueberall
+
+Das Dashboard kopierte bisher `/jobsuche_workflow` in die Zwischenablage — das funktionierte
+nur in Claude Desktop (als Slash-Command), nicht in claude.ai. Jetzt kopiert der "Kopieren"-Button
+`Starte den Workflow: /jobsuche_workflow`, was Claude als natuerliche Anweisung erkennt und
+automatisch `workflow_starten()` aufruft.
+
+### Aenderungen
+
+- **Dashboard `copyText()` transformiert Slash-Commands**: `/name` wird zu
+  `Starte den Workflow: /name` — funktioniert in Claude Desktop UND claude.ai
+- **Alle "Claude Desktop"-Verweise entfernt**: Dashboard sagt jetzt nur "Claude",
+  da es mit allen Claude-Umgebungen funktioniert
+- **Tooltip-Texte aktualisiert**: Keine irreführende "Claude Desktop"-Referenz mehr
+
+---
+
 ## [0.14.2] — 2026-03-12
 
 ### Fix: Workflows auch ohne Slash-Commands nutzbar

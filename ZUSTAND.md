@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-12 | v0.14.2
+## Zustandsbericht | 2026-03-12 | v0.14.3
 
 ---
 
@@ -8,12 +8,12 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.14.2 (pyproject.toml) |
+| **Version** | 0.14.3 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
 | **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
-| **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
+| **Zielplattform** | Windows 10/11 (Claude Desktop + claude.ai) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
 | **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) -- alle gruen |
 
