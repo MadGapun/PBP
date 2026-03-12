@@ -62,6 +62,9 @@ EXPECTED_TOOL_NAMES = {
     "nachfass_planen",
     "nachfass_anzeigen",
     "bewerbung_stil_tracken",
+    "workflow_starten",
+    "jobsuche_workflow_starten",
+    "ersterfassung_starten",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -103,20 +106,40 @@ def _build_test_server(tmp_path):
 
 
 async def _run_tool(mcp, name, arguments=None):
-    tools = await mcp.get_tools()
-    result = await tools[name].run(arguments or {})
-    return result.structured_content
+    result = await mcp.call_tool(name, arguments or {})
+    if hasattr(result, 'structured_content') and result.structured_content:
+        return result.structured_content
+    # Fallback: parse text content
+    import json
+    for c in (result.content if hasattr(result, 'content') else []):
+        if hasattr(c, 'text'):
+            try:
+                return json.loads(c.text)
+            except (json.JSONDecodeError, TypeError):
+                return {"text": c.text}
+    return {}
+
+
+def _collect_names(mcp):
+    """Collect tool, prompt and resource names from the MCP server."""
+    async def _gather():
+        tools = await mcp.list_tools()
+        prompts = await mcp.list_prompts()
+        resources = await mcp.list_resources()
+        return (
+            {t.name for t in tools},
+            {p.name for p in prompts},
+            {str(r.uri) for r in resources},
+        )
+    return asyncio.run(_gather())
 
 
 def test_mcp_registry_counts(tmp_path):
     """Server registriert alle erwarteten Tools, Prompts und Resources."""
     mcp, db = _build_test_server(tmp_path)
     try:
-        async def collect():
-            return await mcp.get_tools(), await mcp.get_prompts(), await mcp.get_resources()
-
-        tools, prompts, resources = asyncio.run(collect())
-        assert len(tools) == 44
+        tools, prompts, resources = _collect_names(mcp)
+        assert len(tools) == 47
         assert len(prompts) == 12
         assert len(resources) == 6
     finally:
@@ -128,13 +151,10 @@ def test_mcp_public_interface_names_are_stable(tmp_path):
     """Die oeffentliche MCP-Schnittstelle bleibt namentlich stabil."""
     mcp, db = _build_test_server(tmp_path)
     try:
-        async def collect():
-            return await mcp.get_tools(), await mcp.get_prompts(), await mcp.get_resources()
-
-        tools, prompts, resources = asyncio.run(collect())
-        assert set(tools) == EXPECTED_TOOL_NAMES
-        assert set(prompts) == EXPECTED_PROMPT_NAMES
-        assert set(resources) == EXPECTED_RESOURCE_NAMES
+        tools, prompts, resources = _collect_names(mcp)
+        assert tools == EXPECTED_TOOL_NAMES
+        assert prompts == EXPECTED_PROMPT_NAMES
+        assert resources == EXPECTED_RESOURCE_NAMES
     finally:
         db.close()
         os.environ.pop("BA_DATA_DIR", None)

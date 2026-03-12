@@ -2,6 +2,32 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.14.2] — 2026-03-12
+
+### Fix: Workflows auch ohne Slash-Commands nutzbar
+
+MCP-Prompts (/slash-commands) werden in manchen Claude-Umgebungen nicht angezeigt.
+Alle 12 Workflows sind jetzt zusaetzlich als Tools verfuegbar, sodass sie ueberall
+funktionieren — egal ob Claude Desktop, claude.ai oder andere MCP-Clients.
+
+### Aenderungen
+
+- **Neues Modul `tools/workflows.py`**: 3 neue Tools
+  - `workflow_starten(name)` — Universeller Workflow-Starter fuer alle 12 Workflows
+  - `jobsuche_workflow_starten()` — Direkter Einstieg in den Jobsuche-Workflow
+  - `ersterfassung_starten()` — Direkter Einstieg in die Profilerfassung
+- **47 Tools** (vorher 44): Workflows als Tools statt nur als Prompts
+- Prompts bleiben weiterhin registriert (fuer Clients die sie unterstuetzen)
+
+### Nutzung
+
+Statt `/jobsuche_workflow` einfach sagen:
+- "Starte den Jobsuche-Workflow" → Claude ruft `jobsuche_workflow_starten()` auf
+- "Starte die Ersterfassung" → Claude ruft `ersterfassung_starten()` auf
+- Oder: `workflow_starten(name='bewerbung_schreiben')` fuer jeden anderen Workflow
+
+---
+
 ## [0.14.1] — 2026-03-12
 
 ### Fix: Update-sichere MCP-Konfiguration
