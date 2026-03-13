@@ -132,3 +132,56 @@ def register(mcp, db, logger):
             "format": format,
             "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
         }
+
+    @mcp.tool()
+    def lebenslauf_bewerten(
+        stelle: str,
+        firma: str,
+        stellenbeschreibung: str = "",
+        gewicht_personalberater: float = 0.33,
+        gewicht_ats: float = 0.34,
+        gewicht_recruiter: float = 0.33
+    ) -> dict:
+        """Bewertet den Lebenslauf aus 3 Experten-Perspektiven fuer eine bestimmte Stelle.
+
+        Analysiert wie der CV auf einen Personalberater, ein ATS-System und einen
+        HR-Recruiter wirkt. Gibt Score (0-100) pro Perspektive und konkrete
+        Verbesserungsvorschlaege zurueck. Die Gewichtung der Perspektiven ist einstellbar.
+
+        Auch findbar als: CV bewerten, Lebenslauf analysieren, CV check, resume review,
+        3-Perspektiven-Analyse, Personalberater, ATS, Recruiter.
+
+        Args:
+            stelle: Stellentitel (z.B. 'PLM Consultant')
+            firma: Firmenname (z.B. 'Siemens')
+            stellenbeschreibung: Stellenbeschreibung fuer praezise Analyse
+            gewicht_personalberater: Gewicht Personalberater-Perspektive (0.0-1.0, Standard 0.33)
+            gewicht_ats: Gewicht ATS-Perspektive (0.0-1.0, Standard 0.34)
+            gewicht_recruiter: Gewicht Recruiter-Perspektive (0.0-1.0, Standard 0.33)
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil."}
+
+        from ..export import analyse_cv_perspectives
+
+        # Normalize weights
+        total = gewicht_personalberater + gewicht_ats + gewicht_recruiter
+        if total <= 0:
+            total = 1.0
+        weights = {
+            "personalberater": gewicht_personalberater / total,
+            "ats": gewicht_ats / total,
+            "recruiter": gewicht_recruiter / total,
+        }
+
+        analysis = analyse_cv_perspectives(profile, stelle, stellenbeschreibung or stelle, weights)
+
+        return {
+            "status": "analysiert",
+            "stelle": stelle,
+            "firma": firma,
+            **analysis,
+            "naechster_schritt": "Nutze lebenslauf_angepasst_exportieren() um den optimierten CV zu erstellen. "
+                                 "Oder passe dein Profil basierend auf den Empfehlungen an."
+        }

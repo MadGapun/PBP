@@ -18,11 +18,11 @@ from . import stelle_hash, detect_remote_level
 logger = logging.getLogger("bewerbungs_assistent.scraper.linkedin")
 
 DEFAULT_SEARCHES = [
-    "PLM Systemarchitekt Hamburg",
-    "PDM Solution Architect Germany",
-    "PLM Consultant Hamburg",
-    "PLM Projektleiter Hamburg",
-    "Head of PLM Germany",
+    "PLM Systemarchitekt",
+    "PDM Solution Architect",
+    "PLM Consultant",
+    "PLM Projektleiter",
+    "Head of PLM",
     "PLM Program Manager",
 ]
 

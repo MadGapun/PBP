@@ -2,6 +2,27 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.17.1] — 2026-03-13
+
+### Features: 3-Perspektiven-Analyse, Release-Vorbereitung
+
+- **3-Perspektiven CV-Analyse**: Neues Tool `lebenslauf_bewerten()` — bewertet den Lebenslauf
+  aus drei Experten-Blickwinkeln mit einstellbarer Gewichtung:
+  - **Personalberater (Executive Search)**: Karriereverlauf, Soft Skills, Fuehrung, STAR-Projekte
+  - **ATS (Bewerbermanagementsystem)**: Keyword-Treffer, messbare Erfolge, Kontaktdaten, Format
+  - **HR-Recruiter (Fachabteilung)**: Technische Tiefe, Expert-Skills, Tech-Stack-Match, Projektqualitaet
+- **Gewichtung einstellbar**: Standard 33/34/33, frei anpassbar je Perspektive (0.0-1.0)
+- **Top-Empfehlungen**: Priorisierte Verbesserungsvorschlaege, ATS-Empfehlungen zuerst
+- **Bewerbungs-Workflow erweitert**: Analyse kommt VOR dem CV-Export, damit der User
+  basierend auf den Empfehlungen noch reagieren kann
+- **README komplett ueberarbeitet**: Benefit-First, Bedienungsanleitung, Account-Anforderungen,
+  rechtliche Hinweise zu LinkedIn/XING, FAQ-Sektion
+- **LinkedIn DEFAULT_SEARCHES entpersonalisiert**: Keine standortspezifischen Suchbegriffe mehr
+- **Version-Mismatch behoben**: pyproject.toml und __init__.py jetzt konsistent
+- **55 Tools**, 12 Prompts, 190 Tests.
+
+---
+
 ## [0.17.0] — 2026-03-12
 
 ### Features: Split-Layout, Distance-Scoring, Tailored CV, GitHub-Issue-Cleanup

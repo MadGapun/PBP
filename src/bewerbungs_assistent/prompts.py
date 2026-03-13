@@ -227,13 +227,22 @@ Firma: {firma}
 SCHRITTE:
 1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
 2. Analysiere die Stellenanforderungen (wenn URL vorhanden, darauf eingehen)
-3. LEBENSLAUF ERSTELLEN (IMMER ALS ERSTES!):
+3. LEBENSLAUF-ANALYSE (3-PERSPEKTIVEN-CHECK):
+   → Rufe lebenslauf_bewerten(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...') auf
+   → Zeige dem User die Bewertung aus allen 3 Perspektiven:
+     - PERSONALBERATER: Karriereverlauf, Soft Skills, Fuehrung
+     - ATS: Keyword-Treffer, Format, messbare Erfolge
+     - HR-RECRUITER: Technische Tiefe, Projekt-Komplexitaet
+   → Zeige den Gesamtscore und die Top-Empfehlungen
+   → Frage: "Moechtest du einen Schwerpunkt setzen? (z.B. mehr ATS-optimiert oder mehr auf Personalberater ausgerichtet?)"
+   → Wenn der User Gewichtung aendern will, rufe lebenslauf_bewerten() erneut mit angepassten Gewichten auf
+4. LEBENSLAUF ERSTELLEN:
    → Erstelle einen auf die Stelle angepassten Lebenslauf
    → Relevante Skills und Erfahrungen werden hervorgehoben und priorisiert
    → Export als DOCX: lebenslauf_angepasst_exportieren(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...')
    → WICHTIG: Immer DOCX — die finale Formatierung macht der Mensch!
    → Zeige dem User was du angepasst hast (welche Skills/Erfahrungen priorisiert)
-4. ANSCHREIBEN ERSTELLEN:
+5. ANSCHREIBEN ERSTELLEN:
    → Waehle die relevantesten Erfahrungen und Projekte aus dem Profil
    → Erstelle ein Anschreiben das:
      - Sofort einen Bezug zur Stelle herstellt
@@ -243,14 +252,15 @@ SCHRITTE:
      - Max. 1 Seite lang ist
    → Zeige den Text dem User — "Passt das so? Soll ich etwas aendern?"
    → Nach Freigabe: anschreiben_exportieren(text, '{stelle}', '{firma}', 'docx')
-5. Frage ob die Bewerbung erfasst werden soll:
+6. Frage ob die Bewerbung erfasst werden soll:
    → "Soll ich die Bewerbung in dein Tracking aufnehmen?"
    → bewerbung_erstellen(title='{stelle}', company='{firma}')
 
 REGELN:
 - Sprich Deutsch
 - Lebenslauf IMMER als DOCX (nie PDF) — finale Formatierung macht der User
-- Zeige erst den Lebenslauf, dann das Anschreiben, dann biete Tracking an
+- Die 3-Perspektiven-Analyse zeigt Staerken und Schwaechen VOR dem Export — so kann der User noch reagieren
+- Zeige erst die Analyse, dann den Lebenslauf, dann das Anschreiben, dann biete Tracking an
 - Daten werden gespeichert — der User kann alles im Dashboard wiederfinden
 - Manchmal braucht der User nur den Lebenslauf — wenn er das sagt, ueberspringe das Anschreiben"""
 

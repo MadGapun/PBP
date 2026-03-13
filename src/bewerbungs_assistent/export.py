@@ -270,6 +270,358 @@ def generate_tailored_cv_docx(
     return output_path
 
 
+def analyse_cv_perspectives(
+    profile: dict, job_title: str, job_description: str,
+    weights: dict = None
+) -> dict:
+    """Analyse CV-job fit from 3 professional perspectives.
+
+    Perspectives: Personalberater, HR-Recruiter, ATS.
+    Each scores 0-100. Combined score uses weights.
+    Returns detailed analysis with recommendations.
+    """
+    import re
+
+    weights = weights or {"personalberater": 0.33, "ats": 0.34, "recruiter": 0.33}
+    job_text = f"{job_title} {job_description}".lower()
+    job_words = set(w for w in re.findall(r'\b\w+\b', job_text) if len(w) > 2)
+
+    skills = profile.get("skills", [])
+    positions = profile.get("positions", [])
+    education = profile.get("education", [])
+
+    # --- PERSONALBERATER perspective ---
+    pb = _score_personalberater(profile, skills, positions, job_text, job_words)
+
+    # --- ATS perspective ---
+    ats = _score_ats(profile, skills, positions, education, job_text, job_words)
+
+    # --- HR-RECRUITER perspective ---
+    rec = _score_recruiter(profile, skills, positions, job_text, job_words)
+
+    # Combined score
+    combined = round(
+        pb["score"] * weights.get("personalberater", 0.33)
+        + ats["score"] * weights.get("ats", 0.34)
+        + rec["score"] * weights.get("recruiter", 0.33)
+    )
+
+    return {
+        "gesamtscore": combined,
+        "gewichtung": {
+            "personalberater": f"{weights.get('personalberater', 0.33) * 100:.0f}%",
+            "ats": f"{weights.get('ats', 0.34) * 100:.0f}%",
+            "recruiter": f"{weights.get('recruiter', 0.33) * 100:.0f}%",
+        },
+        "perspektiven": {
+            "personalberater": pb,
+            "ats": ats,
+            "recruiter": rec,
+        },
+        "top_empfehlungen": _top_recommendations(pb, ats, rec),
+    }
+
+
+def _score_personalberater(profile, skills, positions, job_text, job_words):
+    """Personalberater perspective: career progression, soft skills, leadership."""
+    score = 0
+    factors = []
+    empfehlungen = []
+
+    # Career progression: do titles show growth?
+    titles = [p.get("title", "").lower() for p in positions]
+    leadership_words = {"lead", "head", "manager", "director", "leiter", "architekt",
+                        "principal", "senior", "vp", "chief", "teamleiter", "abteilungsleiter"}
+    has_leadership = any(any(lw in t for lw in leadership_words) for t in titles)
+    if has_leadership:
+        score += 25
+        factors.append("Fuehrungserfahrung erkennbar")
+    else:
+        empfehlungen.append("Fuehrungsverantwortung oder Teamleitung hervorheben (auch informell)")
+
+    # Career length and continuity
+    if len(positions) >= 3:
+        score += 15
+        factors.append(f"{len(positions)} Stationen zeigen breite Erfahrung")
+    elif len(positions) >= 1:
+        score += 8
+
+    # Soft skills presence
+    soft_skills = [s for s in skills if s.get("category") == "soft_skill"]
+    if len(soft_skills) >= 3:
+        score += 15
+        factors.append(f"{len(soft_skills)} Soft Skills dokumentiert")
+    elif soft_skills:
+        score += 8
+        empfehlungen.append("Mehr Soft Skills ergaenzen (Kommunikation, Teamfaehigkeit, Problemloesung)")
+    else:
+        empfehlungen.append("Soft Skills fehlen komplett — fuer Personalberater ein Warnsignal")
+
+    # Summary/profile statement quality
+    summary = profile.get("summary", "")
+    if len(summary) > 100:
+        score += 15
+        factors.append("Aussagekraeftiges Profil-Statement vorhanden")
+    elif summary:
+        score += 8
+        empfehlungen.append("Profil-Statement ausfuehrlicher formulieren (min. 2-3 Saetze)")
+    else:
+        empfehlungen.append("Profil-Statement fehlt — das ist das Erste was ein Personalberater liest")
+
+    # Projects with results (STAR format)
+    projects_with_results = sum(
+        1 for p in positions
+        for proj in p.get("projects", [])
+        if proj.get("result")
+    )
+    if projects_with_results >= 3:
+        score += 20
+        factors.append(f"{projects_with_results} Projekte mit messbaren Ergebnissen (STAR)")
+    elif projects_with_results >= 1:
+        score += 10
+        empfehlungen.append("Mehr Projekte mit konkreten Ergebnissen dokumentieren")
+    else:
+        empfehlungen.append("STAR-Projekte mit messbaren Ergebnissen hinzufuegen — Personalberater lieben konkrete Erfolge")
+
+    # Match with job description keywords for cultural/industry fit
+    all_text = f"{summary} {' '.join(titles)}".lower()
+    industry_hits = sum(1 for w in job_words if w in all_text and len(w) > 4)
+    if industry_hits >= 5:
+        score += 10
+        factors.append("Starke Branchen-/Rollenpassung")
+    elif industry_hits >= 2:
+        score += 5
+
+    return {
+        "score": min(score, 100),
+        "label": "Personalberater (Executive Search)",
+        "fokus": "Karriereverlauf, Soft Skills, Fuehrung, Branchen-Fit",
+        "faktoren": factors,
+        "empfehlungen": empfehlungen,
+    }
+
+
+def _score_ats(profile, skills, positions, education, job_text, job_words):
+    """ATS perspective: keyword matches, standard format, measurables."""
+    import re
+
+    score = 0
+    factors = []
+    empfehlungen = []
+
+    # Exact skill keyword matches
+    skill_names = [s.get("name", "").lower() for s in skills]
+    exact_matches = []
+    for sn in skill_names:
+        if sn in job_text:
+            exact_matches.append(sn)
+
+    if len(exact_matches) >= 8:
+        score += 30
+        factors.append(f"{len(exact_matches)} Skills direkt in Stelle gefunden: {', '.join(exact_matches[:8])}")
+    elif len(exact_matches) >= 4:
+        score += 20
+        factors.append(f"{len(exact_matches)} Skill-Treffer: {', '.join(exact_matches)}")
+    elif exact_matches:
+        score += 10
+        factors.append(f"Nur {len(exact_matches)} Skill-Treffer — zu wenig fuer ATS")
+        empfehlungen.append("Mehr Keywords aus der Stellenbeschreibung als Skills hinzufuegen")
+    else:
+        empfehlungen.append("KRITISCH: Kein einziger Skill matcht die Stellenbeschreibung — ATS wird den CV wahrscheinlich aussortieren")
+
+    # Partial matches (skill word appears in job text)
+    partial = []
+    for sn in skill_names:
+        if sn not in job_text:
+            for part in sn.split():
+                if len(part) > 3 and part in job_text:
+                    partial.append(sn)
+                    break
+    if partial:
+        score += min(len(partial) * 2, 10)
+        factors.append(f"{len(partial)} teilweise Treffer")
+
+    # Job title match
+    profile_titles = [p.get("title", "").lower() for p in positions]
+    title_lower = job_text.split("\n")[0] if job_text else ""
+    title_match = any(
+        any(tw in pt for tw in re.findall(r'\b\w+\b', title_lower) if len(tw) > 3)
+        for pt in profile_titles
+    )
+    if title_match:
+        score += 15
+        factors.append("Jobtitel-Uebereinstimmung mit frueheren Positionen")
+    else:
+        empfehlungen.append("Fruehere Positionstitel aehnlicher zur Zielstelle formulieren")
+
+    # Measurable achievements (numbers in text)
+    all_achievements = " ".join(p.get("achievements", "") or "" for p in positions)
+    numbers = re.findall(r'\d+[%\u20ack+]|\d+\s*(?:Prozent|Euro|Mitarbeiter|Projekte|Jahre)', all_achievements)
+    if len(numbers) >= 3:
+        score += 15
+        factors.append(f"{len(numbers)} messbare Erfolge gefunden")
+    elif numbers:
+        score += 8
+        empfehlungen.append("Mehr Zahlen und Metriken in Erfolge einbauen (%, Euro, Teamgroesse)")
+    else:
+        empfehlungen.append("Keine messbaren Erfolge — ATS und Recruiter bevorzugen quantifizierte Ergebnisse")
+
+    # Education present
+    if education:
+        score += 10
+        factors.append("Ausbildung dokumentiert")
+    else:
+        empfehlungen.append("Ausbildung fehlt — wird von vielen ATS als Pflichtfeld erwartet")
+
+    # Contact info complete
+    has_email = bool(profile.get("email"))
+    has_phone = bool(profile.get("phone"))
+    has_city = bool(profile.get("city"))
+    contact_score = sum([has_email, has_phone, has_city])
+    if contact_score == 3:
+        score += 10
+        factors.append("Kontaktdaten vollstaendig")
+    else:
+        missing = []
+        if not has_email: missing.append("E-Mail")
+        if not has_phone: missing.append("Telefon")
+        if not has_city: missing.append("Ort")
+        score += contact_score * 3
+        empfehlungen.append(f"Kontaktdaten unvollstaendig: {', '.join(missing)} fehlt")
+
+    # Skills with standard categories
+    categorized = [s for s in skills if s.get("category") and s["category"] != "sonstige"]
+    if len(categorized) >= len(skills) * 0.8 and skills:
+        score += 10
+        factors.append("Skills gut kategorisiert")
+    elif skills:
+        empfehlungen.append("Skills besser kategorisieren (fachlich, methodisch, tool, sprache, soft_skill)")
+
+    return {
+        "score": min(score, 100),
+        "label": "ATS (Bewerbermanagementsystem)",
+        "fokus": "Keyword-Treffer, Standard-Format, messbare Erfolge, vollstaendige Daten",
+        "faktoren": factors,
+        "empfehlungen": empfehlungen,
+        "keyword_matches": exact_matches,
+        "fehlende_keywords": [w for w in job_words if len(w) > 4 and w not in " ".join(skill_names) and w.isalpha()],
+    }
+
+
+def _score_recruiter(profile, skills, positions, job_text, job_words):
+    """HR-Recruiter perspective: technical depth, project complexity, specific fit."""
+    score = 0
+    factors = []
+    empfehlungen = []
+
+    # Technical skills depth (high-level skills)
+    expert_skills = [s for s in skills if (s.get("level") or 0) >= 4]
+    if len(expert_skills) >= 5:
+        score += 25
+        names = ", ".join(s["name"] for s in expert_skills[:6])
+        factors.append(f"{len(expert_skills)} Expert-Skills (Level 4-5): {names}")
+    elif expert_skills:
+        score += 15
+        empfehlungen.append("Mehr Skills auf Level 4-5 hochstufen wenn die Erfahrung es hergibt")
+    else:
+        empfehlungen.append("Keine Expert-Level Skills — Recruiter suchen Tiefe, nicht nur Breite")
+
+    # Technology overlap with job
+    tool_skills = [s.get("name", "").lower() for s in skills if s.get("category") in ("tool", "fachlich")]
+    tech_hits = [t for t in tool_skills if t in job_text]
+    if len(tech_hits) >= 5:
+        score += 20
+        factors.append(f"Starke Tech-Uebereinstimmung: {', '.join(tech_hits[:6])}")
+    elif tech_hits:
+        score += 10
+        factors.append(f"Teilweise Tech-Match: {', '.join(tech_hits)}")
+    else:
+        empfehlungen.append("Technologie-Stack stimmt kaum ueberein — Skills ggf. ergaenzen")
+
+    # Project complexity (projects with technologies and results)
+    complex_projects = sum(
+        1 for p in positions
+        for proj in p.get("projects", [])
+        if proj.get("technologies") or proj.get("result")
+    )
+    if complex_projects >= 3:
+        score += 20
+        factors.append(f"{complex_projects} technisch dokumentierte Projekte")
+    elif complex_projects >= 1:
+        score += 10
+    else:
+        empfehlungen.append("Projekte mit Technologien und Ergebnissen dokumentieren")
+
+    # Years of experience (total career span)
+    years_exp = 0
+    for pos in positions:
+        start = pos.get("start_date", "")
+        end = pos.get("end_date", "")
+        if start:
+            try:
+                start_year = int(start[:4]) if len(start) >= 4 else 0
+                if pos.get("is_current"):
+                    end_year = 2026
+                elif end and len(end) >= 4:
+                    end_year = int(end[:4])
+                else:
+                    end_year = start_year + 1
+                years_exp += max(end_year - start_year, 0)
+            except (ValueError, IndexError):
+                pass
+
+    if years_exp >= 10:
+        score += 15
+        factors.append(f"~{years_exp} Jahre Berufserfahrung")
+    elif years_exp >= 5:
+        score += 10
+        factors.append(f"~{years_exp} Jahre Berufserfahrung")
+    elif years_exp > 0:
+        score += 5
+
+    # Specific tasks/achievements match
+    all_tasks = " ".join(
+        f"{p.get('tasks', '')} {p.get('achievements', '')} {p.get('technologies', '')}"
+        for p in positions
+    ).lower()
+    task_hits = sum(1 for w in job_words if w in all_tasks and len(w) > 4)
+    if task_hits >= 10:
+        score += 15
+        factors.append(f"Starke Uebereinstimmung in Aufgaben/Erfahrung ({task_hits} Treffer)")
+    elif task_hits >= 5:
+        score += 8
+        factors.append(f"Moderate Aufgaben-Uebereinstimmung ({task_hits} Treffer)")
+    else:
+        empfehlungen.append("Aufgabenbeschreibungen mit Begriffen aus der Stellenausschreibung anreichern")
+
+    # Languages
+    lang_skills = [s for s in skills if s.get("category") == "sprache"]
+    if lang_skills:
+        score += 5
+        factors.append(f"{len(lang_skills)} Sprache(n) dokumentiert")
+
+    return {
+        "score": min(score, 100),
+        "label": "HR-Recruiter (Fachabteilung)",
+        "fokus": "Technische Tiefe, Projekt-Komplexitaet, spezifische Erfahrung, Tech-Stack",
+        "faktoren": factors,
+        "empfehlungen": empfehlungen,
+    }
+
+
+def _top_recommendations(pb, ats, rec):
+    """Extract top 5 recommendations across all perspectives, prioritized."""
+    recs = []
+    # ATS recommendations first (most critical for getting past the filter)
+    for r in ats.get("empfehlungen", []):
+        recs.append({"perspektive": "ATS", "empfehlung": r, "prioritaet": "hoch"})
+    for r in rec.get("empfehlungen", []):
+        recs.append({"perspektive": "Recruiter", "empfehlung": r, "prioritaet": "mittel"})
+    for r in pb.get("empfehlungen", []):
+        recs.append({"perspektive": "Personalberater", "empfehlung": r, "prioritaet": "mittel"})
+    return recs[:7]
+
+
 def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
     """Generate a professional CV as PDF."""
     from fpdf import FPDF

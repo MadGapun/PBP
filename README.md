@@ -6,7 +6,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-54-blueviolet.svg)](#mcp-schnittstelle)
+[![Tools](https://img.shields.io/badge/MCP_Tools-55-blueviolet.svg)](#mcp-schnittstelle)
 
 ---
 
@@ -18,7 +18,7 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 
 | Problem | PBP-Lösung |
 |---------|-----------|
-| 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz |
+| 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz, bewertet aus 3 Perspektiven (Personalberater, ATS, Recruiter) |
 | 😩 10 Jobportale einzeln durchsuchen | ✅ **9 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de |
 | 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt) |
 | 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung |
@@ -81,6 +81,7 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - **Angepasster Lebenslauf (DOCX)** — Skills und Positionen werden nach Relevanz für die Stelle umsortiert
 - **Personalisiertes Anschreiben (PDF/DOCX)** — basierend auf Profil + Stellenbeschreibung
 - **Standard-Lebenslauf (PDF/DOCX)** — für Initiativbewerbungen
+- **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen HR-Recruiter? Mit einstellbarer Gewichtung und konkreten Verbesserungsvorschlägen.
 
 > 📌 Immer DOCX beim angepassten CV — weil die letzten Feinschliffe ein Mensch machen sollte.
 
@@ -198,6 +199,7 @@ PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Cl
 | "Exportiere meinen Lebenslauf als DOCX" | Standard-CV-Export |
 | "Bereite mich auf das Interview bei Firma XY vor" | Interview-Simulation |
 | "Wie sollte ich beim Gehalt verhandeln?" | Gehaltsverhandlungs-Coaching |
+| "Bewerte meinen Lebenslauf für die Stelle bei Firma XY" | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
 | "Welche Skills fehlen mir für die Stelle?" | Skill-Gap-Analyse |
 | "Zeige meine Bewerbungsstatistiken" | Conversion-Rates und Übersicht |
 | "Plane einen Follow-up für die Bewerbung bei Firma XY" | Erinnerung in X Tagen |
@@ -399,7 +401,7 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 54 Tools in 8 Modulen
+    ├──► tools/            ◄── 55 Tools in 8 Modulen
     ├──► prompts.py        ◄── 12 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
@@ -423,7 +425,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 54 Tools in 8 Modulen
+### 55 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (14 Tools) — Profil, Multi-Profil, Erfassung</summary>
@@ -508,12 +510,13 @@ server.py (FastMCP, Composition Root)
 </details>
 
 <details>
-<summary><strong>Export</strong> (3 Tools) — Lebenslauf und Anschreiben</summary>
+<summary><strong>Export</strong> (4 Tools) — Lebenslauf, Analyse und Anschreiben</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
 | `lebenslauf_exportieren` | Standard-CV als PDF/DOCX |
 | `lebenslauf_angepasst_exportieren` | Stellenspezifischer CV (immer DOCX) |
+| `lebenslauf_bewerten` | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
 | `anschreiben_exportieren` | Anschreiben als PDF/DOCX |
 
 </details>
@@ -656,7 +659,7 @@ python -m pytest tests/ -v
 - **Entfernung <30km bevorzugt**, Gehalts-Scoring, Kompetenzen-Match in Fit-Analyse
 - **Next-Steps-Banner**, Skill-Navigation, profil_bearbeiten erweitert
 - **GitHub Issues**: 42→11 offen — 31 Issues geschlossen
-- 54 Tools, 190 Tests
+- 55 Tools, 190 Tests (inkl. 3-Perspektiven-Analyse ab v0.17.1)
 
 ### v0.16.0 — Skill-Aktualität & Jobtitel-Vorschläge (2026-03-12)
 - Skills tracken `last_used_year` — veraltete Skills werden erkannt
