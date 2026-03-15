@@ -470,3 +470,85 @@ def register(mcp, db, logger):
             "hinweis": "Stil wurde als Event gespeichert. Nutze statistiken_abrufen() "
                        "um spaeter Ruecklaufquoten pro Stil zu analysieren.",
         }
+
+    @mcp.tool()
+    def antwort_formulieren(
+        bewerbung_id: str = "",
+        kontext: str = "",
+        ton: str = "professionell",
+        sprache: str = "deutsch"
+    ) -> dict:
+        """Formuliert eine kurze Antwortmail fuer Recruiter-Kontakte.
+
+        Nicht fuer vollstaendige Anschreiben, sondern fuer kurze Antworten auf:
+        - Recruiter-Anfragen auf LinkedIn/XING
+        - Rueckfragen zu Bewerbungen
+        - Terminvorschlaege
+        - Absage-Antworten (hoeflich und professionell)
+
+        Args:
+            bewerbung_id: Optional: ID einer verknuepften Bewerbung (fuer Kontext)
+            kontext: Beschreibung der Situation (z.B. 'Recruiter fragt nach Verfuegbarkeit')
+            ton: professionell, locker, kurz (Standard: professionell)
+            sprache: deutsch oder englisch (Standard: deutsch)
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein Profil vorhanden."}
+
+        context_data = {
+            "name": profile.get("name", ""),
+            "email": profile.get("email", ""),
+            "phone": profile.get("phone", ""),
+        }
+
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if app:
+                context_data["stelle"] = app.get("title", "")
+                context_data["firma"] = app.get("company", "")
+                context_data["status"] = app.get("status", "")
+                context_data["ansprechpartner"] = app.get("ansprechpartner", "")
+
+        return {
+            "status": "bereit",
+            "kontext": kontext,
+            "profil_daten": context_data,
+            "ton": ton,
+            "sprache": sprache,
+            "anweisung": (
+                "Formuliere eine kurze, passende Antwortmail basierend auf dem Kontext. "
+                f"Ton: {ton}. Sprache: {sprache}. "
+                "Halte die Antwort kurz (3-5 Saetze). "
+                "Verwende den Namen und die Kontaktdaten aus dem Profil. "
+                "Wenn eine Bewerbung verknuepft ist, beziehe dich auf die Stelle."
+            ),
+        }
+
+    @mcp.tool()
+    def dokument_verknuepfen(dokument_id: str, bewerbung_id: str) -> dict:
+        """Verknuepft ein hochgeladenes Dokument mit einer Bewerbung.
+
+        Damit wird das Dokument (z.B. Lebenslauf, Anschreiben, Interview-Vorbereitung)
+        direkt der Bewerbung zugeordnet und erscheint in bewerbung_details().
+
+        Args:
+            dokument_id: ID des Dokuments (von dokumente_zur_analyse)
+            bewerbung_id: ID der Bewerbung (von bewerbungen_anzeigen)
+        """
+        app = db.get_application(bewerbung_id)
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden."}
+
+        conn = db.connect()
+        doc = conn.execute("SELECT * FROM documents WHERE id=?", (dokument_id,)).fetchone()
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden. Pruefe die ID mit dokumente_zur_analyse()."}
+
+        db.link_document_to_application(dokument_id, bewerbung_id)
+        return {
+            "status": "verknuepft",
+            "dokument": doc["filename"],
+            "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+            "nachricht": f"Dokument '{doc['filename']}' wurde der Bewerbung zugeordnet."
+        }

@@ -92,20 +92,64 @@ def register(mcp, db, logger):
             "ergebnis": job["result"] if job["status"] == "fertig" else None,
         }
 
+    # Standard rejection reasons for learning (#66)
+    ABLEHNUNGSGRUENDE = [
+        "zu_weit_entfernt",
+        "gehalt_zu_niedrig",
+        "falsches_fachgebiet",
+        "zu_junior",
+        "zu_senior",
+        "unpassendes_arbeitsmodell",
+        "firma_uninteressant",
+        "zeitarbeit",
+        "befristet",
+        "sonstiges",
+    ]
+
     @mcp.tool()
     def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "") -> dict:
         """Bewertet eine gefundene Stelle.
 
+        Bei 'passt_nicht' wird der Grund gespeichert und fuer kuenftige Suchen gelernt.
+        Haeufig genutzte Gruende fuehren automatisch zu Gewichtungsanpassungen.
+
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
-            grund: Grund bei passt_nicht (z.B. 'Zu weit entfernt', 'Falsches Fachgebiet')
+            grund: Grund bei passt_nicht. Vordefinierte Optionen:
+                zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
+                zu_junior, zu_senior, unpassendes_arbeitsmodell,
+                firma_uninteressant, zeitarbeit, befristet, sonstiges
+                (oder eigener Freitext)
         """
         if bewertung == "passt_nicht":
             db.dismiss_job(job_hash, grund)
             if grund:
-                # Learn from dismissal reasons
                 db.add_to_blacklist("dismiss_pattern", grund)
+
+                # Track rejection counts for learning (#66)
+                counts = db.get_setting("dismiss_counts", {})
+                normalized = grund.lower().strip()
+                counts[normalized] = counts.get(normalized, 0) + 1
+                db.set_setting("dismiss_counts", counts)
+
+                # Auto-adjust weights if pattern is strong enough
+                hints = []
+                if counts.get(normalized, 0) >= 3:
+                    if normalized == "zu_weit_entfernt":
+                        hints.append("Entfernungs-Malus wird verstaerkt (3+ Ablehnungen wegen Entfernung).")
+                    elif normalized == "gehalt_zu_niedrig":
+                        hints.append("Gehalts-Gewichtung wird verstaerkt (3+ Ablehnungen wegen Gehalt).")
+                    elif normalized in ("zeitarbeit", "befristet"):
+                        hints.append(f"Empfehlung: Fuege '{grund}' zu AUSSCHLUSS-Keywords hinzu.")
+
+                return {
+                    "status": "aussortiert",
+                    "grund": grund,
+                    "ablehnungs_statistik": {k: v for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5]},
+                    "hinweise": hints if hints else None,
+                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
+                }
             return {"status": "aussortiert", "grund": grund}
         elif bewertung == "passt":
             db.restore_job(job_hash)
@@ -116,7 +160,11 @@ def register(mcp, db, logger):
     def stellen_anzeigen(
         filter: str = "aktiv",
         min_score: int = 0,
-        quelle: str = ""
+        quelle: str = "",
+        seite: int = 1,
+        pro_seite: int = 20,
+        max_alter_tage: int = 0,
+        nur_nicht_beworben: bool = False
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -125,8 +173,12 @@ def register(mcp, db, logger):
 
         Args:
             filter: 'aktiv' (Standard), 'aussortiert', oder 'alle'
-            min_score: Nur Stellen mit mindestens diesem Score anzeigen
-            quelle: Optional: Nur Stellen von dieser Quelle (z.B. 'stepstone', 'indeed')
+            min_score: Nur Stellen mit mindestens diesem Score anzeigen (Tipp: 1 = mindestens ein Keyword-Treffer)
+            quelle: Optional: Nur Stellen von dieser Quelle (z.B. 'stepstone', 'indeed', 'manuell')
+            seite: Seitennummer fuer Paginierung (Standard: 1)
+            pro_seite: Anzahl Stellen pro Seite (Standard: 20, max: 50)
+            max_alter_tage: Nur Stellen die nicht aelter als X Tage sind (0 = kein Limit)
+            nur_nicht_beworben: Nur Stellen anzeigen auf die noch nicht beworben wurde
         """
         if filter == "aussortiert":
             jobs = db.get_dismissed_jobs()
@@ -138,6 +190,20 @@ def register(mcp, db, logger):
                 filters["source"] = quelle
             jobs = db.get_active_jobs(filters if filters else None)
 
+        # Age filter (#52)
+        if max_alter_tage > 0:
+            from datetime import datetime, timedelta
+            cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
+            jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
+
+        # Filter out already-applied jobs (#65)
+        if nur_nicht_beworben:
+            applied_hashes = {
+                r["job_hash"] for r in db.get_applications()
+                if r.get("job_hash")
+            }
+            jobs = [j for j in jobs if j["hash"] not in applied_hashes]
+
         if not jobs:
             return {
                 "anzahl": 0,
@@ -146,9 +212,28 @@ def register(mcp, db, logger):
                              "aktiviere Quellen im Dashboard unter Einstellungen."
             }
 
+        # Count per source for overview
+        source_counts = {}
+        for j in jobs:
+            src = j.get("source", "unbekannt")
+            source_counts[src] = source_counts.get(src, 0) + 1
+
+        # Check which jobs have been applied to (#65)
+        applied_hashes_all = {
+            r["job_hash"] for r in db.get_applications()
+            if r.get("job_hash")
+        } if not nur_nicht_beworben else set()
+
+        # Pagination (#58)
+        pro_seite = min(pro_seite, 50)
+        total = len(jobs)
+        start = (seite - 1) * pro_seite
+        end = start + pro_seite
+        page_jobs = jobs[start:end]
+
         # Format for Claude readability
         formatted = []
-        for j in jobs[:20]:  # Max 20 to avoid token overflow
+        for j in page_jobs:
             entry = {
                 "hash": j["hash"],
                 "titel": j.get("title", ""),
@@ -158,6 +243,7 @@ def register(mcp, db, logger):
                 "quelle": j.get("source", ""),
                 "remote": j.get("remote_level", "unbekannt"),
                 "url": j.get("url", ""),
+                "gefunden_am": (j.get("found_at") or "")[:10],
             }
             if j.get("employment_type"):
                 entry["typ"] = j["employment_type"]
@@ -171,16 +257,28 @@ def register(mcp, db, logger):
                 entry["entfernung_km"] = j["distance_km"]
             if j.get("dismiss_reason"):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
+            if j["hash"] in applied_hashes_all:
+                entry["bereits_beworben"] = True
             formatted.append(entry)
 
-        return {
-            "anzahl": len(jobs),
+        result = {
+            "anzahl_gesamt": total,
+            "seite": seite,
+            "pro_seite": pro_seite,
+            "seiten_gesamt": (total + pro_seite - 1) // pro_seite,
             "angezeigt": len(formatted),
+            "quellen_uebersicht": source_counts,
             "stellen": formatted,
-            "hinweis": "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
-                       "um Stellen zu bewerten. Fuer Details zu einer Stelle nutze fit_analyse(hash)."
-                       if filter == "aktiv" else ""
         }
+        if filter == "aktiv":
+            result["hinweis"] = (
+                "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
+                "um Stellen zu bewerten. Fuer Details: fit_analyse(hash). "
+                f"Naechste Seite: stellen_anzeigen(seite={seite+1})" if seite * pro_seite < total else
+                "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
+                "um Stellen zu bewerten. Fuer Details: fit_analyse(hash)."
+            )
+        return result
 
     @mcp.tool()
     def fit_analyse(job_hash: str) -> dict:
@@ -207,4 +305,10 @@ def register(mcp, db, logger):
                 criteria["min_gehalt"] = prefs["min_gehalt"]
             if prefs.get("min_tagessatz"):
                 criteria["min_tagessatz"] = prefs["min_tagessatz"]
-        return _fit_analyse(dict(row), criteria)
+        job_dict = dict(row)
+        result = _fit_analyse(job_dict, criteria)
+        # Include job description in result (#55) so Claude can use it for analysis
+        if job_dict.get("description"):
+            result["stellenbeschreibung"] = job_dict["description"][:2000]
+        result["url"] = job_dict.get("url", "")
+        return result

@@ -419,11 +419,11 @@ input.invalid, select.invalid, textarea.invalid { border-color: var(--red) !impo
       <div id="followup-alerts" style="margin-top:16px;"></div>
       <div class="grid grid-2" style="margin-top:16px;">
         <div class="card">
-          <h3>Letzte Bewerbungen</h3>
+          <h3 style="cursor:pointer;" onclick="showPage('bewerbungen')">Letzte Bewerbungen <span style="font-size:0.7rem; color:var(--accent);">→ alle anzeigen</span></h3>
           <div id="recent-apps"></div>
         </div>
         <div class="card">
-          <h3>Neue Stellen</h3>
+          <h3 style="cursor:pointer;" onclick="showPage('stellen')">Neue Stellen <span style="font-size:0.7rem; color:var(--accent);">→ alle anzeigen</span></h3>
           <div id="recent-jobs"></div>
         </div>
       </div>
@@ -1135,8 +1135,8 @@ async function loadDashboard() {
   const apps = appsData.applications || appsData;
   const recent = apps.slice(0, 5);
   document.getElementById('recent-apps').innerHTML = recent.length
-    ? recent.map(a => `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
-        <span>${a.title} — ${a.company}</span>
+    ? recent.map(a => `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; cursor:pointer;" onclick="showPage('bewerbungen')">
+        <span style="color:var(--accent);">${a.title} — ${a.company}</span>
         <span class="badge badge-${statusColor(a.status)}">${a.status}</span>
       </div>`).join('')
     : `<div class="empty">Noch keine Bewerbungen.<br>
@@ -1149,9 +1149,12 @@ async function loadDashboard() {
   const jobs = await api('/api/jobs?active=true');
   const recentJobs = jobs.slice(0, 5);
   document.getElementById('recent-jobs').innerHTML = recentJobs.length
-    ? recentJobs.map(j => `<div style="padding:8px 0; border-bottom:1px solid var(--border);">
-        <span style="font-weight:600;">${j.title || 'Ohne Titel'}</span>
-        <span style="color:var(--text2);"> — ${j.company || 'Unbekannt'}</span>
+    ? recentJobs.map(j => `<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <a href="${j.url || '#'}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit; flex:1; cursor:pointer;" title="Stellenanzeige oeffnen">
+          <span style="font-weight:600; color:var(--accent);">${j.title || 'Ohne Titel'}</span>
+          <span style="color:var(--text2);"> — ${j.company || 'Unbekannt'}</span>
+        </a>
+        <span style="font-size:0.75rem; color:var(--text2); margin-left:8px;">${j.source || ''}</span>
       </div>`).join('')
     : `<div class="empty">Noch keine Stellen gefunden.<br>
         <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
@@ -2658,9 +2661,22 @@ function showFolderImport() {
       extrahiert Texte und pflegt erkannte Profildaten automatisch ein.
     </p>
     <form onsubmit="startFolderImport(event)">
-      <div class="form-group"><label>Ordnerpfad *</label>
+      <!-- Drag & Drop Zone (#32) -->
+      <div id="drop-zone" style="border:2px dashed var(--border); border-radius:12px; padding:24px; text-align:center; margin-bottom:16px; cursor:pointer; transition:all 0.2s;"
+           ondragover="event.preventDefault(); this.style.borderColor='var(--accent)'; this.style.background='var(--bg3)';"
+           ondragleave="this.style.borderColor='var(--border)'; this.style.background='';"
+           ondrop="handleFileDrop(event)">
+        <div style="font-size:2rem; margin-bottom:8px;">&#128193;</div>
+        <div style="font-weight:600;">Dateien hier ablegen</div>
+        <div style="color:var(--text2); font-size:0.85rem; margin-top:4px;">PDF und DOCX Dateien per Drag &amp; Drop importieren</div>
+        <input type="file" id="file-drop-input" multiple accept=".pdf,.docx,.doc" style="display:none;" onchange="handleFileSelect(this.files)">
+        <button type="button" class="btn btn-sm" style="margin-top:12px;" onclick="document.getElementById('file-drop-input').click()">Dateien auswaehlen</button>
+      </div>
+      <div id="drop-file-list" style="display:none; margin-bottom:16px;"></div>
+      <div style="text-align:center; color:var(--text2); margin-bottom:16px;">— oder Ordnerpfad eingeben —</div>
+      <div class="form-group"><label>Ordnerpfad</label>
         <div style="display:flex; gap:8px;">
-          <input name="folder_path" id="folder-path-input" required placeholder="z.B. D:\\Bewerbungen" style="flex:1;">
+          <input name="folder_path" id="folder-path-input" placeholder="z.B. D:\\Bewerbungen" style="flex:1;">
           <button type="button" class="btn" onclick="openDirectoryBrowser()" title="Ordner durchsuchen">Durchsuchen</button>
         </div>
         <div id="dir-browser" style="display:none; margin-top:8px; border:1px solid var(--border); border-radius:8px; max-height:250px; overflow-y:auto; background:var(--bg2);"></div>
@@ -2726,6 +2742,52 @@ async function openDirectoryBrowser(path) {
 
 function toggleRecursiveWarning(cb) {
   document.getElementById('recursive-warning').style.display = cb.checked ? 'block' : 'none';
+}
+
+// Drag & Drop file handling (#32)
+function handleFileDrop(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--border)';
+  e.currentTarget.style.background = '';
+  const files = Array.from(e.dataTransfer.files).filter(f =>
+    f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.docx') || f.name.toLowerCase().endsWith('.doc')
+  );
+  if (files.length === 0) { showToast('Keine PDF/DOCX Dateien gefunden.', 'warning'); return; }
+  handleFileSelect(files);
+}
+
+async function handleFileSelect(fileList) {
+  const files = Array.from(fileList).filter(f =>
+    f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.docx') || f.name.toLowerCase().endsWith('.doc')
+  );
+  if (!files.length) return;
+  const listEl = document.getElementById('drop-file-list');
+  listEl.style.display = 'block';
+  listEl.innerHTML = `<div style="font-weight:600; margin-bottom:8px;">${files.length} Datei(en) ausgewaehlt:</div>` +
+    files.map(f => `<div style="padding:4px 0; font-size:0.85rem;">&#128196; ${f.name} <span style="color:var(--text2);">(${(f.size/1024).toFixed(0)} KB)</span></div>`).join('') +
+    `<button type="button" class="btn btn-sm btn-primary" style="margin-top:8px;" onclick="uploadDroppedFiles()">Hochladen &amp; analysieren</button>`;
+  window._droppedFiles = files;
+}
+
+async function uploadDroppedFiles() {
+  if (!window._droppedFiles || !window._droppedFiles.length) return;
+  const files = window._droppedFiles;
+  showToast(`Lade ${files.length} Dateien hoch...`, 'info');
+  let uploaded = 0;
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/upload-document', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!data.error) uploaded++;
+    } catch(e) { console.error('Upload failed:', e); }
+  }
+  showToast(`${uploaded}/${files.length} Dateien hochgeladen.`, uploaded > 0 ? 'success' : 'error');
+  window._droppedFiles = null;
+  document.getElementById('drop-file-list').style.display = 'none';
+  closeModal({target: document.getElementById('modal-overlay')});
+  loadProfile();
 }
 
 async function startFolderImport(e) {

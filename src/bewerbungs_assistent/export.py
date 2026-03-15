@@ -866,3 +866,182 @@ def generate_cover_letter_pdf(
     pdf.output(str(output_path))
     logger.info("Cover letter PDF generated: %s", output_path)
     return output_path
+
+
+def generate_cv_markdown(profile: dict, output_path: Path) -> Path:
+    """Generate a CV as Markdown file."""
+    lines = [f"# {profile.get('name', 'Lebenslauf')}", ""]
+
+    contact = []
+    if profile.get("email"):
+        contact.append(profile["email"])
+    if profile.get("phone"):
+        contact.append(profile["phone"])
+    if profile.get("city"):
+        addr = f"{profile.get('address', '')} ".strip()
+        addr += f" {profile.get('plz', '')} {profile['city']}".strip()
+        contact.append(addr.strip())
+    if contact:
+        lines.append(" | ".join(contact))
+        lines.append("")
+
+    if profile.get("summary"):
+        lines.extend(["## Profil", "", profile["summary"], ""])
+
+    positions = profile.get("positions", [])
+    if positions:
+        lines.append("## Berufserfahrung")
+        lines.append("")
+        for pos in positions:
+            end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
+            period = f"{pos.get('start_date', '')} - {end}"
+            emp = pos.get("employment_type", "")
+            t = f" ({emp})" if emp and emp != "festanstellung" else ""
+            lines.append(f"### {pos.get('title', '')} bei {pos.get('company', '')}{t}")
+            lines.append(f"*{period}*")
+            lines.append("")
+            if pos.get("tasks"):
+                lines.append(f"**Aufgaben:** {pos['tasks']}")
+            if pos.get("achievements"):
+                lines.append(f"**Erfolge:** {pos['achievements']}")
+            if pos.get("technologies"):
+                lines.append(f"**Technologien:** {pos['technologies']}")
+            for proj in pos.get("projects", []):
+                lines.append(f"- **Projekt: {proj.get('name', '')}**"
+                             + (f" ({proj.get('role', '')})" if proj.get("role") else ""))
+                if proj.get("result"):
+                    lines.append(f"  Ergebnis: {proj['result']}")
+            lines.append("")
+
+    skills = profile.get("skills", [])
+    if skills:
+        lines.append("## Kompetenzen")
+        lines.append("")
+        by_cat = {}
+        for s in skills:
+            cat = s.get("category", "sonstiges")
+            by_cat.setdefault(cat, []).append(s.get("name", ""))
+        for cat, names in by_cat.items():
+            lines.append(f"**{cat}:** {', '.join(names)}")
+        lines.append("")
+
+    education = profile.get("education", [])
+    if education:
+        lines.append("## Ausbildung")
+        lines.append("")
+        for edu in education:
+            period = f"{edu.get('start_date', '')} - {edu.get('end_date', '')}".strip(" -")
+            lines.append(f"- **{edu.get('degree', '')}** — {edu.get('institution', '')} ({period})")
+        lines.append("")
+
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.info("CV Markdown generated: %s", output_path)
+    return output_path
+
+
+def generate_cv_text(profile: dict, output_path: Path) -> Path:
+    """Generate a CV as plain text file."""
+    lines = [profile.get("name", "Lebenslauf"), "=" * len(profile.get("name", "Lebenslauf")), ""]
+
+    contact = []
+    if profile.get("email"):
+        contact.append(profile["email"])
+    if profile.get("phone"):
+        contact.append(profile["phone"])
+    if profile.get("city"):
+        addr = f"{profile.get('address', '')} ".strip()
+        addr += f" {profile.get('plz', '')} {profile['city']}".strip()
+        contact.append(addr.strip())
+    if contact:
+        lines.append(" | ".join(contact))
+        lines.append("")
+
+    if profile.get("summary"):
+        lines.extend(["PROFIL", "-" * 6, profile["summary"], ""])
+
+    positions = profile.get("positions", [])
+    if positions:
+        lines.extend(["BERUFSERFAHRUNG", "-" * 15, ""])
+        for pos in positions:
+            end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
+            period = f"{pos.get('start_date', '')} - {end}"
+            lines.append(f"{pos.get('title', '')} bei {pos.get('company', '')}")
+            lines.append(f"  {period}")
+            if pos.get("tasks"):
+                lines.append(f"  Aufgaben: {pos['tasks']}")
+            if pos.get("achievements"):
+                lines.append(f"  Erfolge: {pos['achievements']}")
+            for proj in pos.get("projects", []):
+                lines.append(f"  Projekt: {proj.get('name', '')}"
+                             + (f" ({proj.get('role', '')})" if proj.get("role") else ""))
+            lines.append("")
+
+    skills = profile.get("skills", [])
+    if skills:
+        lines.extend(["KOMPETENZEN", "-" * 11, ""])
+        by_cat = {}
+        for s in skills:
+            cat = s.get("category", "sonstiges")
+            by_cat.setdefault(cat, []).append(s.get("name", ""))
+        for cat, names in by_cat.items():
+            lines.append(f"  {cat}: {', '.join(names)}")
+        lines.append("")
+
+    education = profile.get("education", [])
+    if education:
+        lines.extend(["AUSBILDUNG", "-" * 10, ""])
+        for edu in education:
+            period = f"{edu.get('start_date', '')} - {edu.get('end_date', '')}".strip(" -")
+            lines.append(f"  {edu.get('degree', '')} — {edu.get('institution', '')} ({period})")
+        lines.append("")
+
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.info("CV text generated: %s", output_path)
+    return output_path
+
+
+def generate_cover_letter_text(
+    profile: dict, text: str, stelle: str, firma: str,
+    output_path: Path, markdown: bool = False
+) -> Path:
+    """Generate a cover letter as Markdown or plain text."""
+    lines = []
+    name = profile.get("name", "")
+
+    if markdown:
+        lines.append(f"# Bewerbung als {stelle}")
+        lines.append(f"**{firma}**")
+        lines.append("")
+        if name:
+            lines.append(f"*{name}*")
+            contact = []
+            if profile.get("email"):
+                contact.append(profile["email"])
+            if profile.get("phone"):
+                contact.append(profile["phone"])
+            if contact:
+                lines.append(f"*{' | '.join(contact)}*")
+            lines.append("")
+        lines.append(f"*{datetime.now().strftime('%d.%m.%Y')}*")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append(text)
+    else:
+        lines.append(f"Bewerbung als {stelle}")
+        lines.append(firma)
+        lines.append("")
+        if name:
+            lines.append(name)
+            if profile.get("email"):
+                lines.append(profile["email"])
+            if profile.get("phone"):
+                lines.append(profile["phone"])
+            lines.append("")
+        lines.append(datetime.now().strftime("%d.%m.%Y"))
+        lines.append("")
+        lines.append(text)
+
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.info("Cover letter %s generated: %s", "MD" if markdown else "TXT", output_path)
+    return output_path

@@ -2,6 +2,76 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.18.0] — 2026-03-15
+
+### Mega-Release: 26 GitHub-Issues geschlossen, 61 Tools, 14 Workflows
+
+**Scoring & Suche:**
+- **Tagessatz vs. Jahresgehalt korrekt** (#54): Gehaltsvergleich normalisiert jetzt
+  Tagessaetze (×220 Arbeitstage) auf Jahresgehalt — Freelance-Stellen werden fair bewertet.
+- **Cross-Source Duplikat-Erkennung** (#59): Gleiche Stelle auf mehreren Portalen wird
+  erkannt (normalisierter Company+Title-Key) und nur einmal angezeigt.
+- **Feineres Entfernungs-Scoring** (#60): 30/50/100/200km-Stufen statt hart/weich,
+  Remote vs. Hybrid differenziert, Remote bekommt +4 Bonus.
+- **Bewerbung als Scoring-Signal** (#68): Stellen aehnlich zu bisherigen Bewerbungen
+  bekommen automatisch einen Bonus (Title-Matching).
+- **Mindest-Score-Schwelle** (#53): Stellen unter konfigurierbarem Mindest-Score
+  werden gar nicht erst gespeichert (Standard: 1).
+- **Stellenbeschreibung in fit_analyse** (#55): Beschreibung (bis 2000 Zeichen)
+  wird jetzt im Ergebnis mitgeliefert fuer tiefere Analyse.
+- **Zeitraum-Filter** (#52): `max_alter_tage` Parameter — nur Stellen der letzten X Tage.
+- **Datum in stellen_anzeigen** (#56): `gefunden_am` Feld in jeder Stelle.
+- **Paginierung** (#58): `seite`/`pro_seite` Parameter, `seiten_gesamt`, `quellen_uebersicht`.
+- **Beworbene Stellen markieren** (#65): `nur_nicht_beworben` Filter, `bereits_beworben` Flag.
+- **Timestamp-Bug behoben** (#51): "Vor 2 Tagen" statt "Heute" korrigiert.
+
+**Bewerbungs-Management:**
+- **Bewerbungen vollstaendig verwalten** (#70): 4 neue Tools — `bewerbung_loeschen`,
+  `bewerbung_bearbeiten`, `bewerbung_notiz`, `bewerbung_details`.
+- **Manuelle Stellen sichtbar** (#67/#49): `bewerbung_erstellen` legt automatisch
+  einen Job-Eintrag an (source="manuell", score=99). Duplikat-Erkennung.
+- **Stellen-URL verknuepft** (#63): URL wird automatisch mit Bewerbung verknuepft.
+- **Lernende Ablehnungsgruende** (#66): 10 vordefinierte Gruende, Zaehler,
+  automatische Gewichtungsanpassung ab 3 gleichen Ablehnungen.
+
+**Analyse & Coaching:**
+- **Antwort-Formulierung** (#22): `antwort_formulieren` — generiert Kontext fuer
+  Recruiter-Antworten basierend auf Bewerbungs-Details und Ton.
+- **Dokument-Verknuepfung** (#61): `dokument_verknuepfen` — verknuepft Dokumente
+  mit Bewerbungen fuer bessere Organisation.
+- **Ablehnungs-Coaching** (#26): Neuer Workflow — empathische Analyse nach Absage
+  mit konkreten Verbesserungsvorschlaegen.
+- **Auto-Bewerbung** (#21): Neuer Workflow — automatische Bewerbungserstellung
+  aus URL oder Stellentext (Fit-Analyse → CV → Anschreiben → Tracking).
+
+**Dashboard:**
+- **Klickbare Links** (#64): Stellen-URLs direkt anklickbar, Quellen-Badges,
+  Widget-Ueberschriften verlinkt, Bewerbungen anklickbar zum Tab-Wechsel.
+- **Drag & Drop Upload** (#32): Dateien per Drag & Drop oder Datei-Browser
+  hochladen — visuelles Feedback mit Drop-Zone.
+
+**Export:**
+- **Markdown & TXT** (#62): `lebenslauf_exportieren` und `anschreiben_exportieren`
+  unterstuetzen jetzt 'md' und 'txt' neben PDF/DOCX.
+
+**Installer:**
+- **Claude Desktop erkennen** (#24/#27): Installer erkennt und startet Claude Desktop
+  automatisch. Prominenter Hinweis dass Claude im Hintergrund laufen muss.
+
+**Bereits implementiert / geschlossen:**
+- **Profildaten aus Dokumenten** (#40): War bereits ueber `extraktion_starten`/
+  `profil_erweiterung` implementiert.
+
+**Offen gelassen (4 Issues):**
+- #57: Playwright-Scraper (StepStone, LinkedIn, Indeed, XING, Monster) — benoetigt
+  Analyse der Portal-Aenderungen
+- #50/#48: LinkedIn/XING Crawler-Verbesserungen — Tests auf Windows noetig
+- #28: Dashboard-Claude Integration — Vision-Feature fuer spaeter
+
+**61 Tools** in 8 Modulen, **14 Workflows**, 6 Resources, 190+ Tests.
+
+---
+
 ## [0.17.1] — 2026-03-13
 
 ### Features: 3-Perspektiven-Analyse, Release-Vorbereitung

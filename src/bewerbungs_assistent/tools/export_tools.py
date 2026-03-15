@@ -11,20 +11,18 @@ def register(mcp, db, logger):
         format: str = "pdf",
         angepasst_fuer: str = ""
     ) -> dict:
-        """Exportiert den Lebenslauf als PDF oder DOCX-Datei.
+        """Exportiert den Lebenslauf als PDF, DOCX, Markdown oder TXT-Datei.
 
         Erzeugt ein professionell formatiertes Dokument aus dem gespeicherten Profil.
         Die Datei wird im Bewerbungs-Assistent Datenordner gespeichert.
 
         Args:
-            format: 'pdf' oder 'docx'
+            format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
             angepasst_fuer: Optional — Firma/Stelle fuer die der CV angepasst wird (fuer Dateinamen)
         """
         profile = db.get_profile()
         if not profile:
             return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil mit der Ersterfassung."}
-
-        from ..export import generate_cv_docx, generate_cv_pdf
 
         export_dir = get_data_dir() / "export"
         export_dir.mkdir(exist_ok=True)
@@ -32,13 +30,25 @@ def register(mcp, db, logger):
         suffix = f"_{angepasst_fuer.replace(' ', '_').lower()}" if angepasst_fuer else ""
 
         if format == "docx":
+            from ..export import generate_cv_docx
             path = export_dir / f"lebenslauf_{name_slug}{suffix}.docx"
             generate_cv_docx(profile, path)
         elif format == "pdf":
+            from ..export import generate_cv_pdf
             path = export_dir / f"lebenslauf_{name_slug}{suffix}.pdf"
             generate_cv_pdf(profile, path)
+        elif format in ("md", "markdown"):
+            from ..export import generate_cv_markdown
+            path = export_dir / f"lebenslauf_{name_slug}{suffix}.md"
+            generate_cv_markdown(profile, path)
+            format = "md"
+        elif format in ("txt", "text"):
+            from ..export import generate_cv_text
+            path = export_dir / f"lebenslauf_{name_slug}{suffix}.txt"
+            generate_cv_text(profile, path)
+            format = "txt"
         else:
-            return {"fehler": "Format muss 'pdf' oder 'docx' sein."}
+            return {"fehler": "Format muss 'pdf', 'docx', 'md' oder 'txt' sein."}
 
         return {
             "status": "erstellt",
@@ -95,7 +105,7 @@ def register(mcp, db, logger):
         firma: str,
         format: str = "pdf"
     ) -> dict:
-        """Exportiert ein Anschreiben als PDF oder DOCX-Datei.
+        """Exportiert ein Anschreiben als PDF, DOCX, Markdown oder TXT-Datei.
 
         Nimmt den fertigen Anschreiben-Text und erzeugt ein formatiertes Dokument
         mit Absender, Datum, Betreffzeile und Text.
@@ -104,27 +114,37 @@ def register(mcp, db, logger):
             text: Der vollstaendige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'PLM Consultant')
             firma: Firmenname (z.B. 'Siemens')
-            format: 'pdf' oder 'docx'
+            format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
         """
         if not text.strip():
             return {"fehler": "Kein Anschreiben-Text angegeben. Nutze den Prompt 'bewerbung_schreiben' um einen Text zu erstellen."}
 
         profile = db.get_profile() or {}
 
-        from ..export import generate_cover_letter_docx, generate_cover_letter_pdf
-
         export_dir = get_data_dir() / "export"
         export_dir.mkdir(exist_ok=True)
         firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
 
         if format == "docx":
+            from ..export import generate_cover_letter_docx
             path = export_dir / f"anschreiben_{firma_slug}.docx"
             generate_cover_letter_docx(profile, text, stelle, firma, path)
         elif format == "pdf":
+            from ..export import generate_cover_letter_pdf
             path = export_dir / f"anschreiben_{firma_slug}.pdf"
             generate_cover_letter_pdf(profile, text, stelle, firma, path)
+        elif format in ("md", "markdown"):
+            path = export_dir / f"anschreiben_{firma_slug}.md"
+            from ..export import generate_cover_letter_text
+            generate_cover_letter_text(profile, text, stelle, firma, path, markdown=True)
+            format = "md"
+        elif format in ("txt", "text"):
+            path = export_dir / f"anschreiben_{firma_slug}.txt"
+            from ..export import generate_cover_letter_text
+            generate_cover_letter_text(profile, text, stelle, firma, path, markdown=False)
+            format = "txt"
         else:
-            return {"fehler": "Format muss 'pdf' oder 'docx' sein."}
+            return {"fehler": "Format muss 'pdf', 'docx', 'md' oder 'txt' sein."}
 
         return {
             "status": "erstellt",

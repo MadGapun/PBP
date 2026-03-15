@@ -994,6 +994,64 @@ class Database:
         """, (app_id, new_status, now, notes))
         conn.commit()
 
+    def delete_application(self, app_id: str):
+        """Delete an application and all its events."""
+        conn = self.connect()
+        conn.execute("DELETE FROM application_events WHERE application_id=?", (app_id,))
+        conn.execute("DELETE FROM follow_ups WHERE application_id=?", (app_id,))
+        conn.execute("DELETE FROM applications WHERE id=?", (app_id,))
+        conn.commit()
+
+    def update_application(self, app_id: str, data: dict):
+        """Update application fields (title, company, url, notes, ansprechpartner, kontakt_email)."""
+        conn = self.connect()
+        now = _now()
+        fields = []
+        values = []
+        for key in ("title", "company", "url", "notes", "ansprechpartner",
+                     "kontakt_email", "portal_name", "bewerbungsart"):
+            if key in data:
+                fields.append(f"{key}=?")
+                values.append(data[key])
+        if not fields:
+            return
+        fields.append("updated_at=?")
+        values.append(now)
+        values.append(app_id)
+        conn.execute(f"UPDATE applications SET {', '.join(fields)} WHERE id=?", values)
+        conn.commit()
+
+    def add_application_note(self, app_id: str, note: str):
+        """Add a timestamped note to the application timeline."""
+        conn = self.connect()
+        now = _now()
+        conn.execute("""
+            INSERT INTO application_events (application_id, status, event_date, notes)
+            VALUES (?, 'notiz', ?, ?)
+        """, (app_id, now, note))
+        conn.commit()
+
+    def get_application(self, app_id: str) -> dict | None:
+        """Get a single application with events."""
+        conn = self.connect()
+        row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
+        if not row:
+            return None
+        app = dict(row)
+        app["events"] = [dict(e) for e in conn.execute(
+            "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
+            (app_id,)
+        ).fetchall()]
+        # Also load linked job description if available
+        if app.get("job_hash"):
+            job = conn.execute("SELECT description, url FROM jobs WHERE hash=?",
+                               (app["job_hash"],)).fetchone()
+            if job:
+                app["stellenbeschreibung"] = dict(job).get("description", "")
+                if not app.get("url"):
+                    app["url"] = dict(job).get("url", "")
+        return app
+
     # === Search Criteria ===
 
     def get_search_criteria(self) -> dict:

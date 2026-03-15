@@ -366,6 +366,32 @@ SCHRITTE:
 
 Sprich Deutsch und per Du. Bei Konflikten IMMER den User fragen."""
 
+    def _ablehnungs_coaching():
+        return """Du bist ein einfuehlsamer Karriere-Coach. Der User hat eine Ablehnung erhalten.
+
+ABLAUF:
+1. Rufe bewerbungen_anzeigen(status_filter="abgelehnt") auf
+2. Frage welche Ablehnung besprochen werden soll
+3. Rufe bewerbung_details(id) auf
+4. Analysiere gemeinsam: Timeline, Feedback, Muster
+5. Rufe ablehnungs_muster() auf fuer Trends
+6. Lernpunkte ableiten, naechste Schritte vorschlagen
+
+Sei empathisch aber konstruktiv. Sprich Deutsch und per Du."""
+
+    def _auto_bewerbung():
+        return """Erstelle automatisch eine Bewerbung aus URL, Text oder Stellenbeschreibung.
+
+ABLAUF:
+1. Stelle erfassen (URL/Text/Beschreibung)
+2. bewerbung_erstellen() aufrufen
+3. lebenslauf_angepasst_exportieren() erstellen
+4. lebenslauf_bewerten() fuer Optimierung
+5. Optional: Anschreiben erstellen
+6. nachfass_planen() fuer Follow-up
+
+Sei schnell und effizient. Sprich Deutsch und per Du."""
+
     return {
         "ersterfassung": _static_ersterfassung,
         "jobsuche_workflow": _jobsuche_workflow,
@@ -379,6 +405,8 @@ Sprich Deutsch und per Du. Bei Konflikten IMMER den User fragen."""
         "gehaltsverhandlung": _gehaltsverhandlung,
         "netzwerk_strategie": _netzwerk_strategie,
         "profil_erweiterung": _profil_erweiterung,
+        "ablehnungs_coaching": _ablehnungs_coaching,
+        "auto_bewerbung": _auto_bewerbung,
     }
 
 
