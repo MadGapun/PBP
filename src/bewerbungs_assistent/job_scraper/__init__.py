@@ -74,6 +74,54 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
     },
+    "ingenieur_de": {
+        "name": "ingenieur.de (VDI)",
+        "beschreibung": "Engineering-Jobboerse des VDI. Spezialisiert auf Ingenieur- und Technik-Stellen.",
+        "methode": "HTML Scraping",
+        "login_erforderlich": False,
+    },
+    "heise_jobs": {
+        "name": "Heise Jobs",
+        "beschreibung": "IT-Stellenmarkt von Heise Verlag. Starke IT/Admin-Community.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "gulp": {
+        "name": "GULP",
+        "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "solcom": {
+        "name": "SOLCOM",
+        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "stellenanzeigen_de": {
+        "name": "Stellenanzeigen.de",
+        "beschreibung": "Grosses deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "jobware": {
+        "name": "Jobware",
+        "beschreibung": "Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "ferchau": {
+        "name": "FERCHAU",
+        "beschreibung": "Engineering & IT Personaldienstleister. Grosser Footprint in Engineering.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "kimeta": {
+        "name": "Kimeta",
+        "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
+        "methode": "HTML Scraping",
+        "login_erforderlich": False,
+    },
 }
 
 
@@ -148,6 +196,14 @@ _SCRAPER_MAP = {
     "indeed": ("indeed", "search_indeed"),
     "xing": ("xing", "search_xing"),
     "monster": ("monster", "search_monster"),
+    "ingenieur_de": ("ingenieur_de", "search_ingenieur_de"),
+    "heise_jobs": ("heise_jobs", "search_heise_jobs"),
+    "gulp": ("gulp", "search_gulp"),
+    "solcom": ("solcom", "search_solcom"),
+    "stellenanzeigen_de": ("stellenanzeigen_de", "search_stellenanzeigen_de"),
+    "jobware": ("jobware", "search_jobware"),
+    "ferchau": ("ferchau", "search_ferchau"),
+    "kimeta": ("kimeta", "search_kimeta"),
 }
 
 

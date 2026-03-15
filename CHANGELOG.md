@@ -2,6 +2,28 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.19.0] — 2026-03-15
+
+### 8 neue Jobquellen — 17 Quellen insgesamt
+
+**Neue Jobboersen (Festanstellung):**
+- **ingenieur.de (VDI)**: Engineering-Jobboerse des VDI. HTML-Scraping.
+- **Heise Jobs**: IT-Stellenmarkt von Heise Verlag. HTML + JSON-LD.
+- **Stellenanzeigen.de**: Grosses Jobportal (3.2 Mio. Besucher/Monat). HTML + JSON-LD.
+- **Jobware**: Premium-Jobportal fuer Spezialisten und Fuehrungskraefte. HTML + JSON-LD.
+- **FERCHAU**: Engineering & IT Personaldienstleister. HTML + JSON-LD.
+- **Kimeta**: Deutscher Job-Aggregator — buendelt Stellen aus vielen Quellen. HTML.
+
+**Neue Projektboersen (Freelance):**
+- **GULP**: Top IT/Engineering Freelance-Projektboerse. HTML + JSON-LD.
+- **SOLCOM**: IT + Engineering Projektportal. HTML + JSON-LD.
+
+**Alle neuen Quellen:**
+- Kein Login erforderlich
+- Multi-Strategie: HTML-Selektoren + JSON-LD Structured Data Fallback
+- Dynamische Keywords aus Profil-Skills und Suchkriterien
+- Automatische Remote-Level-Erkennung
+
 ## [0.18.1] — 2026-03-15
 
 ### Scraper-Rewrite: Robustere Jobsuche fuer alle 5 Quellen
