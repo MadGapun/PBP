@@ -2,6 +2,28 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.18.1] — 2026-03-15
+
+### Scraper-Rewrite: Robustere Jobsuche fuer alle 5 Quellen
+
+**Jobsuche (#57, #48, #50):**
+- **StepStone Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) Article-Elemente, (2) /stellenangebot/-Links Fallback, (3) JSON-LD
+  Structured Data. Cookie-Banner-Erkennung. Aktualisierte CSS-Selektoren.
+- **Indeed Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) job_seen_beacon/data-jk Container, (2) /viewjob-Link Fallback.
+  Salary-Extraktion, Cookie-Banner-Erkennung.
+- **Monster Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) Article/Job-Card Elemente, (2) /job-openings/-Link Fallback,
+  (3) JSON-LD Structured Data. Aktualisierte URL-Patterns.
+- **LinkedIn dynamische Keywords** (#48): Suchbegriffe werden aus
+  Profil-Skills und Suchkriterien generiert statt hardcoded.
+- **LinkedIn regionale Filterung** (#50): Location-Parameter aus
+  Suchkriterien-Regionen statt pauschal "Deutschland".
+- **XING dynamische Keywords + Region** (#50): Gleiche Verbesserungen
+  wie LinkedIn — Keywords aus Profil, Region aus Kriterien.
+- Alle Scraper: Robustere Fallback-Selektoren, bessere Fehlerbehandlung.
+
 ## [0.18.0] — 2026-03-15
 
 ### Mega-Release: 26 GitHub-Issues geschlossen, 61 Tools, 14 Workflows

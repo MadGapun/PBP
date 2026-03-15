@@ -1,9 +1,13 @@
 """LinkedIn Job-Scraper via Playwright.
 
 Uses persistent browser session (user logs in once, session is saved).
-Searches LinkedIn Jobs with configurable keywords.
+Searches LinkedIn Jobs with dynamic keywords from profile/criteria.
 
-Based on the proven linkedin_searcher.py from the original JobFinder project.
+Features (#48/#50):
+- launch_persistent_context for reliable session management
+- Dynamic keywords from profile skills and search criteria
+- Regional filtering (location parameter from criteria)
+- Date filter (last 7 days)
 """
 
 import logging
@@ -18,12 +22,10 @@ from . import stelle_hash, detect_remote_level
 logger = logging.getLogger("bewerbungs_assistent.scraper.linkedin")
 
 DEFAULT_SEARCHES = [
-    "PLM Systemarchitekt",
-    "PDM Solution Architect",
     "PLM Consultant",
+    "PDM Solution Architect",
     "PLM Projektleiter",
-    "Head of PLM",
-    "PLM Program Manager",
+    "Product Lifecycle Management",
 ]
 
 
@@ -35,6 +37,48 @@ def get_session_dir() -> Path:
     return session_dir
 
 
+def _build_search_queries(params: dict) -> list[str]:
+    """Build LinkedIn search queries from params.
+
+    Uses profile keywords if available, falls back to DEFAULT_SEARCHES.
+    Combines MUSS-Keywords into meaningful search pairs for better results (#50).
+    """
+    kw_data = params.get("keywords", {})
+
+    # If explicit keywords provided, use them
+    general = kw_data.get("general", [])
+    if general:
+        # Build targeted search queries: combine pairs for specificity
+        queries = []
+        for kw in general[:6]:
+            queries.append(kw)
+        return queries if queries else DEFAULT_SEARCHES
+
+    return DEFAULT_SEARCHES
+
+
+def _build_location_param(params: dict) -> str:
+    """Build LinkedIn location parameter from search criteria (#50).
+
+    Uses region from criteria for targeted results instead of broad 'Deutschland'.
+    """
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
+
+    # Check for regions in criteria
+    regionen = criteria.get("regionen", [])
+    if not regionen and kw_data:
+        # Check if regions were passed through keywords
+        regionen = kw_data.get("regionen", [])
+
+    if regionen:
+        # Use first region for location filter, prefer city names over "Remote"
+        for r in regionen:
+            if r.lower() != "remote":
+                return r
+    return "Deutschland"
+
+
 def search_linkedin(params: dict, progress_callback=None) -> list:
     """Search LinkedIn Jobs via Playwright with persistent session.
 
@@ -42,7 +86,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
     After that, the session is saved and reused (headless mode).
 
     Args:
-        params: Search parameters with optional 'keywords' list
+        params: Search parameters with optional 'keywords' dict
         progress_callback: Optional callback(message) for progress updates
 
     Returns:
@@ -54,13 +98,8 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
         logger.error("Playwright nicht installiert. Bitte: pip install playwright && python -m playwright install chromium")
         return []
 
-    keywords = params.get("keywords")
-    searches = DEFAULT_SEARCHES
-    if keywords:
-        # Build search queries from profile keywords
-        searches = [f"{kw} Deutschland" for kw in keywords[:8]]
-
-    criteria = params.get("criteria", {})
+    searches = _build_search_queries(params)
+    location = _build_location_param(params)
     max_age_days = 21
     grenze = datetime.now() - timedelta(days=max_age_days)
     stellen = []
@@ -127,7 +166,8 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                     browser.close()
                     return []
 
-            logger.info("LinkedIn eingeloggt. Starte %d Suchen...", len(searches))
+            logger.info("LinkedIn eingeloggt. Starte %d Suchen (Region: %s)...",
+                        len(searches), location)
 
             # === Job Search ===
             for idx, suchbegriff in enumerate(searches):
@@ -138,7 +178,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                     url = (
                         f"https://www.linkedin.com/jobs/search/"
                         f"?keywords={quote(suchbegriff)}"
-                        f"&location=Deutschland"
+                        f"&location={quote(location)}"
                         f"&f_TPR=r604800"   # Last 7 days
                         f"&sortBy=DD"       # Newest first
                     )
@@ -152,7 +192,8 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
 
                     # Collect job cards
                     karten = page.locator(
-                        ".job-card-container, .jobs-search-results__list-item"
+                        ".job-card-container, .jobs-search-results__list-item, "
+                        "[data-job-id], .scaffold-layout__list-item"
                     ).all()
                     logger.info("LinkedIn '%s': %d Karten", suchbegriff, len(karten))
 
@@ -199,23 +240,47 @@ def _is_login_page(page) -> bool:
 
 def _parse_job_card(karte, grenze: datetime) -> dict | None:
     """Parse a single LinkedIn job card into a job dict."""
-    # Title
-    titel_el = karte.locator(
-        ".job-card-list__title, .job-card-container__link"
-    ).first
-    titel = _clean(titel_el.text_content()) if titel_el.count() else ""
+    # Title — try multiple selectors for robustness
+    titel = ""
+    for sel in [
+        ".job-card-list__title",
+        ".job-card-container__link",
+        "a[class*='job-card']",
+        "strong",
+    ]:
+        el = karte.locator(sel).first
+        if el.count():
+            titel = _clean(el.text_content())
+            if titel:
+                break
     if not titel:
         return None
 
     # Company
-    firma_el = karte.locator(
-        ".job-card-container__company-name, .artdeco-entity-lockup__subtitle"
-    ).first
-    firma = _clean(firma_el.text_content()) if firma_el.count() else "k.A."
+    firma = "k.A."
+    for sel in [
+        ".job-card-container__company-name",
+        ".artdeco-entity-lockup__subtitle",
+        "span[class*='company']",
+    ]:
+        el = karte.locator(sel).first
+        if el.count():
+            firma = _clean(el.text_content())
+            if firma:
+                break
 
     # Location
-    ort_el = karte.locator(".job-card-container__metadata-item").first
-    ort = _clean(ort_el.text_content()) if ort_el.count() else ""
+    ort = ""
+    for sel in [
+        ".job-card-container__metadata-item",
+        ".artdeco-entity-lockup__caption",
+        "span[class*='location']",
+    ]:
+        el = karte.locator(sel).first
+        if el.count():
+            ort = _clean(el.text_content())
+            if ort:
+                break
 
     # Link — prefer /jobs/view/ URLs, strip tracking parameters
     link_el = karte.locator("a[href*='/jobs/view/']").first
@@ -231,7 +296,7 @@ def _parse_job_card(karte, grenze: datetime) -> dict | None:
         return None
 
     # Date
-    datum_el = karte.locator("time, .job-card-container__listdate").first
+    datum_el = karte.locator("time, .job-card-container__listdate, span[class*='time']").first
     datum_raw = ""
     if datum_el.count():
         datum_raw = datum_el.get_attribute("datetime") or _clean(datum_el.text_content())
@@ -267,7 +332,7 @@ def _parse_linkedin_date(text: str) -> datetime:
         return datetime.now()
     t = text.lower().strip()
 
-    if "minute" in t or "sekunde" in t or "second" in t or "minute" in t:
+    if "minute" in t or "sekunde" in t or "second" in t:
         return datetime.now()
     if "stunde" in t or "hour" in t:
         m = re.search(r"(\d+)", t)

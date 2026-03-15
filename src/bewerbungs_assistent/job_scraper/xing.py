@@ -1,9 +1,12 @@
 """XING Job-Scraper via Playwright.
 
 Uses persistent browser session (user logs in once, session is saved).
-Searches XING Jobs with configurable keywords.
+Searches XING Jobs with dynamic keywords from profile/criteria.
 
-Based on the LinkedIn scraper pattern — same session management approach.
+Features (#48/#50):
+- launch_persistent_context for reliable session management
+- Dynamic keywords from profile skills and search criteria
+- Regional filtering (location parameter from criteria)
 """
 
 import logging
@@ -32,6 +35,37 @@ def get_session_dir() -> Path:
     return session_dir
 
 
+def _build_search_queries(params: dict) -> list[str]:
+    """Build XING search queries from params.
+
+    Uses profile keywords if available, falls back to DEFAULT_SEARCHES.
+    """
+    kw_data = params.get("keywords", {})
+    general = kw_data.get("general", [])
+    if general:
+        return list(general[:6]) or DEFAULT_SEARCHES
+    return DEFAULT_SEARCHES
+
+
+def _build_location_param(params: dict) -> str:
+    """Build XING location parameter from search criteria (#50).
+
+    Uses region from criteria for targeted results instead of broad 'Deutschland'.
+    """
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
+
+    regionen = criteria.get("regionen", [])
+    if not regionen and kw_data:
+        regionen = kw_data.get("regionen", [])
+
+    if regionen:
+        for r in regionen:
+            if r.lower() != "remote":
+                return r
+    return "Deutschland"
+
+
 def search_xing(params: dict, progress_callback=None) -> list:
     """Search XING Jobs via Playwright with persistent session.
 
@@ -55,11 +89,8 @@ def search_xing(params: dict, progress_callback=None) -> list:
         )
         return []
 
-    # Dynamic keywords from DB, fallback to hardcoded
-    kw_data = params.get("keywords", {})
-    searches = kw_data.get("general", DEFAULT_SEARCHES)
-    if not searches:
-        searches = DEFAULT_SEARCHES
+    searches = _build_search_queries(params)
+    location = _build_location_param(params)
 
     stellen = []
     session_dir = get_session_dir()
@@ -123,7 +154,8 @@ def search_xing(params: dict, progress_callback=None) -> list:
                     browser.close()
                     return []
 
-            logger.info("XING eingeloggt. Starte %d Suchen...", len(searches))
+            logger.info("XING eingeloggt. Starte %d Suchen (Region: %s)...",
+                        len(searches), location)
 
             # === Job Search ===
             for idx, suchbegriff in enumerate(searches):
@@ -136,7 +168,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
                     url = (
                         f"https://www.xing.com/jobs/search"
                         f"?keywords={quote(suchbegriff)}"
-                        f"&location=Deutschland"
+                        f"&location={quote(location)}"
                     )
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
                     time.sleep(3)
