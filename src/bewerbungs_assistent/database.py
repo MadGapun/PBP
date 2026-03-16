@@ -89,6 +89,11 @@ class Database:
             current = int(row["value"])
             if current < SCHEMA_VERSION:
                 self._migrate(current, SCHEMA_VERSION)
+        # Create indexes that depend on migrated columns (safe after migration)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
+        )
+        conn.commit()
         logger.info("Database initialized at %s", self.db_path)
 
     def _migrate(self, from_ver: int, to_ver: int):
@@ -2115,7 +2120,6 @@ CREATE TABLE IF NOT EXISTS follow_ups (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
 CREATE INDEX IF NOT EXISTS idx_apps_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_app_events ON application_events(application_id);
