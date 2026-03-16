@@ -204,7 +204,7 @@ def test_dashboard_mobile_layout_has_no_horizontal_overflow(live_dashboard, brow
             })"""
         )
 
-        assert layout["tabCount"] == 5
+        assert layout["tabCount"] == 6
         assert layout["scrollWidth"] <= layout["clientWidth"] + 1
         assert layout["bodyScrollWidth"] <= layout["clientWidth"] + 1
         assert page.locator(".app-topbar").is_visible()

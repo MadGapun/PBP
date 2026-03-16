@@ -2,6 +2,85 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.20.0] — 2026-03-16
+
+### Statistik-Dashboard, Bewerbungsbericht & Score-Korrektur
+
+**Neuer Tab: Statistiken** (5 interaktive Charts mit Chart.js)
+- **Bewerbungs-Timeline**: Balkendiagramm (Bewerbungen) + Linienchart (gefundene
+  Stellen) — umschaltbar zwischen Woche / Monat / Quartal / Jahr.
+- **Status-Verteilung**: Donut-Diagramm — farbcodierte Aufteilung aller
+  Bewerbungen nach aktuellem Status.
+- **Quellen-Vergleich**: Horizontale Balken — welche Jobquelle liefert die
+  meisten Stellen? Top 12 Quellen auf einen Blick.
+- **Fit-Score Verteilung**: Balkendiagramm — farbcodiert nach Qualitaet
+  (gruen >= 8, gelb >= 5, grau < 5). Gepinnte Stellen exkludiert.
+- **Quellen-Detailvergleich**: Gruppiertes Balkendiagramm — Durchschnittlicher
+  vs. maximaler Fit-Score pro Quelle.
+
+**Dashboard-Startseite:**
+- Neue Statistik-Vorschau-Karte — zeigt zufaellig einen von 3 Werten
+  (Avg Fit-Score, Quellen-Anzahl, Angebots-Rate) mit Link zum Statistik-Tab.
+
+**Score-System: `is_pinned` ersetzt Score=99** (#72)
+- **Neues Datenbankfeld `is_pinned`** (Schema v10): Manuell hinzugefuegte
+  Stellen werden gepinnt statt kuenstlich auf Score 99 gesetzt.
+- **Saubere Sortierung**: Gepinnte Stellen immer oben, dann nach echtem Score.
+- **Statistik-Bereinigung**: ALLE Statistiken (Avg, Max, Verteilung) nutzen
+  ausschliesslich den echten berechneten Score — keine Verzerrung durch
+  kuenstliche 99er. Gepinnte Stellen separat gezaehlt.
+- **Migration**: Bestehende Score=99-Eintraege (source="manuell") werden
+  automatisch zu `is_pinned=1, score=0` migriert.
+- **Pin-Toggle API**: `PUT /api/jobs/{hash}/pin` zum Pinnen/Entpinnen.
+- **Score-Edit API**: `PUT /api/jobs/{hash}/score` zum manuellen Aendern.
+
+**Neuer Status: `abgelaufen`** (#72)
+- Fuer Bewerbungen, bei denen sich monatelang niemand gemeldet hat.
+- Manuell setzbar (nicht automatisch) — da manche Firmen Monate brauchen.
+- In allen Status-Dropdowns verfuegbar (Dashboard + MCP Tools).
+
+**Bewerbungsliste: Paginierung + Archiv** (#72)
+- **30er Paginierung**: Standardmaessig die letzten 30 Bewerbungen laden.
+- **"Mehr laden" + "Alle laden"**: Buttons fuer seitenweises oder komplettes Laden.
+- **Archiv-Sektion**: Abgelehnte, zurueckgezogene und abgelaufene Bewerbungen
+  in einer eingeklappten `<details>`-Sektion — aktive Bewerbungen bleiben
+  uebersichtlich sichtbar.
+- Archiv-Badge zeigt Anzahl archivierter Bewerbungen.
+
+**PDF-Bewerbungsbericht** (#72) — Arbeitsamt-tauglich
+- Umfassender PDF-Export mit 7 Sektionen:
+  1. **Zusammenfassung**: Bewerbungen, analysierte Stellen, Fit-Scores, Raten
+  2. **Status-Verteilung**: Visuelle Balken pro Status
+  3. **Genutzte Jobquellen**: Tabelle mit Stellenanzahl und Prozent-Anteil
+  4. **Fit-Score Verteilung**: Farbige Balken pro Score-Klasse
+  5. **Bewerbungsliste**: Tabelle (Datum, Firma, Position, Status, Quelle, Score)
+  6. **Nicht beworben trotz gutem Score**: Analyse verpasster Chancen
+  7. **Keyword-Analyse**: Top-25 Begriffe in passenden Stellen mit Haeufigkeit
+- Export ueber Dashboard-Button oder `/api/applications/export?format=pdf`
+
+**Excel-Export** (optional) (#72)
+- Tabellarische Bewerbungsliste + Statistik-Sheet.
+- Optionale Dependency: `pip install bewerbungs-assistent[export]` (openpyxl).
+- Export ueber Dashboard-Button oder `/api/applications/export?format=xlsx`
+
+**Backend-Verbesserungen:**
+- `get_statistics()` jetzt Profil-gefiltert + erweitert um `pinned_jobs`,
+  `avg_score`, `max_score`, `scored_jobs`, `jobs_by_source`.
+- Neue API-Endpunkte: `/api/stats/timeline`, `/api/stats/scores`.
+- `get_timeline_stats(interval)`: Bewerbungen + Stellen pro Zeitraum.
+- `get_score_stats()`: Score-Verteilung + Quellen-Vergleich (Avg/Max).
+- `get_report_data()`: Umfassende Daten fuer PDF/Excel-Bericht.
+
+**Tests:**
+- 18 neue Tests (208 total): Schema-Migration, is_pinned, Pagination,
+  Archiv-Filter, Statistik-Bereinigung, Timeline-Stats, PDF-Generierung.
+
+**Abhaengigkeiten:**
+- Chart.js 4.4.7 via CDN (Dashboard-Statistiken)
+- `openpyxl >= 3.1` als optionale `[export]` Dependency
+
+---
+
 ## [0.19.0] — 2026-03-15
 
 ### 8 neue Jobquellen — 17 Quellen insgesamt

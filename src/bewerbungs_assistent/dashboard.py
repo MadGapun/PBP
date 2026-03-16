@@ -654,12 +654,27 @@ async def api_fit_analyse(job_hash: str):
 
 
 @app.get("/api/applications")
-async def api_applications(status: str = None, limit: int = 0, offset: int = 0):
-    apps = _db.get_applications(status)
-    total = len(apps)
-    if limit > 0:
-        apps = apps[offset:offset + limit]
-    return {"applications": apps, "total": total, "limit": limit, "offset": offset}
+async def api_applications(
+    status: str = None, limit: int = 30, offset: int = 0,
+    include_archived: bool = False
+):
+    total = _db.count_applications(status, include_archived=True)
+    archived_count = _db.count_archived_applications()
+    active_count = total - archived_count
+    if status:
+        apps = _db.get_applications(status=status, limit=limit, offset=offset)
+        filtered_total = _db.count_applications(status=status)
+    else:
+        apps = _db.get_applications(
+            include_archived=include_archived, limit=limit, offset=offset
+        )
+        filtered_total = active_count if not include_archived else total
+    return {
+        "applications": apps, "total": total,
+        "filtered_total": filtered_total,
+        "archived_count": archived_count,
+        "limit": limit, "offset": offset,
+    }
 
 
 @app.post("/api/applications")
@@ -683,6 +698,67 @@ async def api_update_app_status(app_id: str, request: Request):
 @app.get("/api/statistics")
 async def api_statistics():
     return _db.get_statistics()
+
+
+@app.get("/api/stats/timeline")
+async def api_stats_timeline(interval: str = "month"):
+    """Application timeline grouped by interval (week/month/quarter/year)."""
+    return _db.get_timeline_stats(interval)
+
+
+@app.get("/api/stats/scores")
+async def api_stats_scores():
+    """Score distribution and trend data for charts."""
+    return _db.get_score_stats()
+
+
+@app.put("/api/jobs/{job_hash}/score")
+async def api_update_job_score(job_hash: str, request: Request):
+    data = await request.json()
+    score = int(data.get("score", 0))
+    _db.update_job_score(job_hash, score)
+    return {"status": "ok", "score": score}
+
+
+@app.put("/api/jobs/{job_hash}/pin")
+async def api_toggle_job_pin(job_hash: str):
+    new_state = _db.toggle_job_pin(job_hash)
+    return {"status": "ok", "is_pinned": new_state}
+
+
+@app.get("/api/applications/export")
+async def api_export_applications(format: str = "pdf"):
+    """Export applications as PDF or Excel."""
+    from .export_report import generate_application_report
+    report_data = _db.get_report_data()
+    profile = _db.get_profile()
+    from .database import get_data_dir
+    export_dir = get_data_dir() / "export"
+    export_dir.mkdir(exist_ok=True)
+
+    if format == "xlsx":
+        try:
+            from .export_report import generate_excel_report
+            path = export_dir / "bewerbungsbericht.xlsx"
+            generate_excel_report(report_data, profile, path)
+            return FileResponse(
+                str(path),
+                filename="Bewerbungsbericht.xlsx",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except ImportError:
+            return JSONResponse(
+                {"error": "openpyxl nicht installiert. Installiere mit: pip install openpyxl"},
+                status_code=501
+            )
+    else:
+        path = export_dir / "bewerbungsbericht.pdf"
+        generate_application_report(report_data, profile, path)
+        return FileResponse(
+            str(path),
+            filename="Bewerbungsbericht.pdf",
+            media_type="application/pdf"
+        )
 
 
 @app.get("/api/search-criteria")

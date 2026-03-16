@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 
 def _gen_id() -> str:
@@ -315,6 +315,22 @@ class Database:
                 )
             """)
             logger.info("Migration v8->v9: last_used_year on skills + suggested_job_titles table")
+
+        if from_ver < 10:
+            # v10: is_pinned flag on jobs (replaces score=99 hack) + abgelaufen status support
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN is_pinned INTEGER DEFAULT 0")
+            except Exception:
+                pass  # Already exists
+            # Migrate existing score=99 manual entries: set is_pinned=1, recalculate score to 0
+            conn.execute(
+                "UPDATE jobs SET is_pinned=1, score=0 WHERE source='manuell' AND score=99"
+            )
+            # Add index for pinned+score sorting
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
+            )
+            logger.info("Migration v9->v10: is_pinned on jobs + abgelaufen status")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -862,8 +878,8 @@ class Database:
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
-                    employment_type, profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    employment_type, is_pinned, profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 job["hash"], job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -872,7 +888,8 @@ class Database:
                 job.get("distance_km"), job.get("salary_info"),
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
-                job.get("employment_type", "festanstellung"), pid,
+                job.get("employment_type", "festanstellung"),
+                1 if job.get("is_pinned") else 0, pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
@@ -892,7 +909,7 @@ class Database:
             if filters.get("min_score"):
                 query += " AND score>=?"
                 params.append(filters["min_score"])
-        query += " ORDER BY score DESC, found_at DESC"
+        query += " ORDER BY is_pinned DESC, score DESC, found_at DESC"
         return [dict(r) for r in conn.execute(query, params).fetchall()]
 
     def get_dismissed_jobs(self) -> list:
@@ -919,21 +936,53 @@ class Database:
         )
         conn.commit()
 
+    def update_job_score(self, job_hash: str, score: int):
+        """Manually update a job's score."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE jobs SET score=?, updated_at=? WHERE hash=?",
+            (score, _now(), job_hash)
+        )
+        conn.commit()
+
+    def toggle_job_pin(self, job_hash: str) -> bool:
+        """Toggle is_pinned flag. Returns new pin state."""
+        conn = self.connect()
+        row = conn.execute("SELECT is_pinned FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+        if not row:
+            return False
+        new_val = 0 if row["is_pinned"] else 1
+        conn.execute(
+            "UPDATE jobs SET is_pinned=?, updated_at=? WHERE hash=?",
+            (new_val, _now(), job_hash)
+        )
+        conn.commit()
+        return bool(new_val)
+
     # === Applications ===
 
-    def get_applications(self, status: Optional[str] = None) -> list:
+    # Statuses considered archived (inactive)
+    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen")
+
+    def get_applications(self, status: Optional[str] = None,
+                         include_archived: bool = True,
+                         limit: int = 0, offset: int = 0) -> list:
         conn = self.connect()
         pid = self.get_active_profile_id()
+        query = "SELECT * FROM applications WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
         if status:
-            rows = conn.execute(
-                "SELECT * FROM applications WHERE status=? AND (profile_id=? OR profile_id IS NULL) ORDER BY applied_at DESC",
-                (status, pid)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM applications WHERE (profile_id=? OR profile_id IS NULL) ORDER BY applied_at DESC",
-                (pid,)
-            ).fetchall()
+            query += " AND status=?"
+            params.append(status)
+        elif not include_archived:
+            placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+            query += f" AND status NOT IN ({placeholders})"
+            params.extend(self.ARCHIVE_STATUSES)
+        query += " ORDER BY applied_at DESC"
+        if limit > 0:
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+        rows = conn.execute(query, params).fetchall()
         apps = []
         for row in rows:
             app = dict(row)
@@ -943,6 +992,33 @@ class Database:
             ).fetchall()]
             apps.append(app)
         return apps
+
+    def count_applications(self, status: Optional[str] = None,
+                           include_archived: bool = True) -> int:
+        """Count applications without loading full data."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        query = "SELECT COUNT(*) FROM applications WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
+        if status:
+            query += " AND status=?"
+            params.append(status)
+        elif not include_archived:
+            placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+            query += f" AND status NOT IN ({placeholders})"
+            params.extend(self.ARCHIVE_STATUSES)
+        return conn.execute(query, params).fetchone()[0]
+
+    def count_archived_applications(self) -> int:
+        """Count archived (abgelehnt/zurueckgezogen/abgelaufen) applications."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+        return conn.execute(
+            f"SELECT COUNT(*) FROM applications WHERE status IN ({placeholders}) "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (*self.ARCHIVE_STATUSES, pid)
+        ).fetchone()[0]
 
     def add_application(self, data: dict) -> str:
         conn = self.connect()
@@ -1129,28 +1205,210 @@ class Database:
 
     def get_statistics(self) -> dict:
         conn = self.connect()
+        pid = self.get_active_profile_id()
         stats = {}
-        # Applications by status
+        # Applications by status (profile-filtered)
         rows = conn.execute(
-            "SELECT status, COUNT(*) as cnt FROM applications GROUP BY status"
+            "SELECT status, COUNT(*) as cnt FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL) GROUP BY status",
+            (pid,)
         ).fetchall()
         stats["applications_by_status"] = {r["status"]: r["cnt"] for r in rows}
         stats["total_applications"] = sum(r["cnt"] for r in rows)
         # Jobs
         stats["active_jobs"] = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE is_active=1"
+            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
         ).fetchone()[0]
         stats["dismissed_jobs"] = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE is_active=0"
+            "SELECT COUNT(*) FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
         ).fetchone()[0]
+        stats["pinned_jobs"] = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_pinned=1 AND is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()[0]
+        # Score statistics (excluding pinned/manual to avoid skew)
+        score_row = conn.execute(
+            "SELECT AVG(score) as avg_score, MAX(score) as max_score, COUNT(*) as cnt "
+            "FROM jobs WHERE is_active=1 AND is_pinned=0 AND score>0 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        if score_row and score_row["cnt"]:
+            stats["avg_score"] = round(score_row["avg_score"], 1)
+            stats["max_score"] = score_row["max_score"]
+            stats["scored_jobs"] = score_row["cnt"]
         # Conversion rate
         total = stats["total_applications"]
         if total > 0:
-            interviews = stats["applications_by_status"].get("interview", 0)
+            interviews = (stats["applications_by_status"].get("interview", 0)
+                          + stats["applications_by_status"].get("zweitgespraech", 0))
             offers = stats["applications_by_status"].get("angebot", 0)
             stats["interview_rate"] = round(interviews / total * 100, 1)
             stats["offer_rate"] = round(offers / total * 100, 1)
+        # Sources breakdown
+        source_rows = conn.execute(
+            "SELECT source, COUNT(*) as cnt FROM jobs WHERE is_active=1 "
+            "AND (profile_id=? OR profile_id IS NULL) GROUP BY source ORDER BY cnt DESC",
+            (pid,)
+        ).fetchall()
+        stats["jobs_by_source"] = {r["source"]: r["cnt"] for r in source_rows}
         return stats
+
+    def get_timeline_stats(self, interval: str = "month") -> dict:
+        """Get application counts grouped by time interval for charts."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        fmt_map = {"week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
+        fmt = fmt_map.get(interval, "%Y-%m")
+
+        if interval == "quarter":
+            rows = conn.execute("""
+                SELECT
+                    CAST(strftime('%Y', applied_at) AS TEXT) || '-Q' ||
+                    CAST((CAST(strftime('%m', applied_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                    as period,
+                    COUNT(*) as count, status
+                FROM applications
+                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                GROUP BY period, status ORDER BY period
+            """, (pid,)).fetchall()
+        else:
+            rows = conn.execute(f"""
+                SELECT strftime('{fmt}', applied_at) as period,
+                       COUNT(*) as count, status
+                FROM applications
+                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                GROUP BY period, status ORDER BY period
+            """, (pid,)).fetchall()
+
+        periods = {}
+        for r in rows:
+            p = r["period"]
+            if p not in periods:
+                periods[p] = {"total": 0, "by_status": {}}
+            periods[p]["total"] += r["count"]
+            periods[p]["by_status"][r["status"]] = r["count"]
+
+        if interval == "quarter":
+            job_rows = conn.execute("""
+                SELECT
+                    CAST(strftime('%Y', found_at) AS TEXT) || '-Q' ||
+                    CAST((CAST(strftime('%m', found_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                    as period, COUNT(*) as count
+                FROM jobs WHERE found_at IS NOT NULL
+                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                GROUP BY period ORDER BY period
+            """, (pid,)).fetchall()
+        else:
+            job_rows = conn.execute(f"""
+                SELECT strftime('{fmt}', found_at) as period, COUNT(*) as count
+                FROM jobs WHERE found_at IS NOT NULL
+                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                GROUP BY period ORDER BY period
+            """, (pid,)).fetchall()
+
+        return {
+            "interval": interval,
+            "periods": sorted(periods.keys()),
+            "applications": {p: d["total"] for p, d in sorted(periods.items())},
+            "by_status": {p: d["by_status"] for p, d in sorted(periods.items())},
+            "jobs_found": {r["period"]: r["count"] for r in job_rows},
+        }
+
+    def get_score_stats(self) -> dict:
+        """Get score distribution and source comparison data for charts."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        dist_rows = conn.execute("""
+            SELECT score, COUNT(*) as cnt
+            FROM jobs WHERE is_active=1 AND is_pinned=0 AND score > 0
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY score ORDER BY score
+        """, (pid,)).fetchall()
+
+        source_rows = conn.execute("""
+            SELECT source, COUNT(*) as cnt,
+                   ROUND(AVG(CASE WHEN is_pinned=0 AND score>0 THEN score END), 1) as avg_score,
+                   MAX(CASE WHEN is_pinned=0 THEN score END) as max_score
+            FROM jobs WHERE is_active=1
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY source ORDER BY cnt DESC
+        """, (pid,)).fetchall()
+
+        return {
+            "score_distribution": {str(r["score"]): r["cnt"] for r in dist_rows},
+            "sources": [
+                {"name": r["source"] or "unbekannt", "count": r["cnt"],
+                 "avg_score": r["avg_score"], "max_score": r["max_score"]}
+                for r in source_rows
+            ],
+        }
+
+    def get_report_data(self) -> dict:
+        """Get comprehensive data for the PDF/Excel Bewerbungsbericht.
+
+        Returns everything needed: applications list, score stats,
+        source breakdown, keyword analysis, unapplied high-score jobs.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        # All applications with their linked job data
+        apps = conn.execute("""
+            SELECT a.*, j.score, j.source as job_source, j.is_pinned,
+                   j.description as job_description, j.found_at as job_found_at
+            FROM applications a
+            LEFT JOIN jobs j ON a.job_hash = j.hash
+            WHERE (a.profile_id=? OR a.profile_id IS NULL)
+            ORDER BY a.applied_at DESC
+        """, (pid,)).fetchall()
+
+        # Score distribution (non-pinned only)
+        score_dist = conn.execute("""
+            SELECT
+                CASE
+                    WHEN score = 0 THEN '0'
+                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
+                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
+                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    ELSE '10+'
+                END as bracket, COUNT(*) as cnt
+            FROM jobs WHERE is_active=1 AND is_pinned=0
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY bracket ORDER BY bracket
+        """, (pid,)).fetchall()
+
+        # High-score jobs NOT applied to
+        unapplied_high = conn.execute("""
+            SELECT j.hash, j.title, j.company, j.score, j.source,
+                   j.dismiss_reason, j.is_active, j.found_at
+            FROM jobs j
+            LEFT JOIN applications a ON j.hash = a.job_hash
+            WHERE a.id IS NULL AND j.score >= 5 AND j.is_pinned=0
+            AND (j.profile_id=? OR j.profile_id IS NULL)
+            ORDER BY j.score DESC LIMIT 30
+        """, (pid,)).fetchall()
+
+        # Date range
+        date_range = conn.execute("""
+            SELECT MIN(applied_at) as first, MAX(applied_at) as last
+            FROM applications WHERE (profile_id=? OR profile_id IS NULL)
+        """, (pid,)).fetchone()
+
+        return {
+            "applications": [dict(r) for r in apps],
+            "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
+            "unapplied_high_score": [dict(r) for r in unapplied_high],
+            "date_range": {
+                "first": date_range["first"] if date_range else None,
+                "last": date_range["last"] if date_range else None,
+            },
+            "statistics": self.get_statistics(),
+        }
 
     # === Salary Data (PBP-014) ===
 
@@ -1781,6 +2039,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     employment_type TEXT DEFAULT 'festanstellung',
     dismiss_reason TEXT,
     is_active INTEGER DEFAULT 1,
+    is_pinned INTEGER DEFAULT 0,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
@@ -1856,6 +2115,7 @@ CREATE TABLE IF NOT EXISTS follow_ups (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
 CREATE INDEX IF NOT EXISTS idx_apps_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_app_events ON application_events(application_id);

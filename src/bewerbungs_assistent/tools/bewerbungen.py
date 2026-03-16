@@ -28,7 +28,7 @@ def register(mcp, db, logger):
             company: Firmenname
             url: Link zur Stellenanzeige
             job_hash: Optional: Hash einer gefundenen Stelle
-            status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen
+            status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen, abgelaufen
             applied_at: Bewerbungsdatum (YYYY-MM-DD, Standard: heute)
             notes: Notizen
             bewerbungsart: mit_dokumenten, elektronisch, ueber_portal
@@ -68,7 +68,8 @@ def register(mcp, db, logger):
                     "url": url,
                     "source": "manuell",
                     "description": notes or "",
-                    "score": 99,
+                    "score": 0,
+                    "is_pinned": True,
                     "remote_level": "unbekannt",
                     "employment_type": "festanstellung",
                     "found_at": datetime.now().isoformat(),
@@ -105,7 +106,7 @@ def register(mcp, db, logger):
 
         Args:
             bewerbung_id: ID der Bewerbung
-            neuer_status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen
+            neuer_status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen, abgelaufen
             notizen: Optionale Notizen zum Statuswechsel
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird fuer Musteranalyse gespeichert.
         """
@@ -122,7 +123,7 @@ def register(mcp, db, logger):
         Args:
             status_filter: Optional: Nur Bewerbungen mit diesem Status
                 (offen, beworben, eingangsbestaetigung, interview, zweitgespraech,
-                 angebot, abgelehnt, zurueckgezogen)
+                 angebot, abgelehnt, zurueckgezogen, abgelaufen)
         """
         apps = db.get_applications(status_filter if status_filter else None)
 
