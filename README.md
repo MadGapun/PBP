@@ -20,7 +20,7 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 | Problem | PBP-Lösung |
 |---------|-----------|
 | 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz, bewertet aus 3 Perspektiven (Personalberater, ATS, Recruiter) |
-| 😩 10 Jobportale einzeln durchsuchen | ✅ **9 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de |
+| 😩 10 Jobportale einzeln durchsuchen | ✅ **17 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de, GULP, SOLCOM, Jobware, FERCHAU, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Kimeta |
 | 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt). Duplikate werden portalübergreifend erkannt. |
 | 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung (PDF, DOCX, Markdown oder TXT) |
 | 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen, Bearbeitung und Statistiken |
@@ -49,8 +49,10 @@ Claude führt ein lockeres Interview und erfasst alles:
 
 **Oder:** Lade einfach deinen bestehenden Lebenslauf hoch (PDF/DOCX) — PBP extrahiert die Daten automatisch.
 
-### 🔍 Stellensuche über 9 Portale
+### 🔍 Stellensuche über 17 Portale
 Eine Suche — alle relevanten Portale gleichzeitig:
+
+**Festanstellung (11 Quellen):**
 
 | Portal | Methode | Account nötig? |
 |--------|---------|---------------|
@@ -59,12 +61,30 @@ Eine Suche — alle relevanten Portale gleichzeitig:
 | Hays | Sitemap + JSON-LD | ❌ Nein |
 | Monster | Playwright | ❌ Nein |
 | Indeed | Playwright | ❌ Nein |
+| ingenieur.de (VDI) | HTML Scraping | ❌ Nein |
+| Heise Jobs | HTML + JSON-LD | ❌ Nein |
+| Stellenanzeigen.de | HTML + JSON-LD | ❌ Nein |
+| Jobware | HTML + JSON-LD | ❌ Nein |
+| FERCHAU | HTML + JSON-LD | ❌ Nein |
+| Kimeta (Aggregator) | HTML Scraping | ❌ Nein |
+
+**Freelance & Projekte (4 Quellen):**
+
+| Portal | Methode | Account nötig? |
+|--------|---------|---------------|
 | Freelancermap | httpx + Fallback | ❌ Nein |
 | Freelance.de | HTML Scraping | ❌ Nein |
+| GULP | HTML + JSON-LD | ❌ Nein |
+| SOLCOM | HTML + JSON-LD | ❌ Nein |
+
+**Netzwerk-Portale (2 Quellen — optionaler Login):**
+
+| Portal | Methode | Account nötig? |
+|--------|---------|---------------|
 | **LinkedIn** | **Playwright** | **✅ Ja — eigener Account** |
 | **XING** | **Playwright** | **✅ Ja — eigener Account** |
 
-> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. LinkedIn und XING sind optional.
+> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. 15 der 17 Quellen funktionieren ohne Login.
 
 ### 📊 Intelligentes Scoring & Fit-Analyse
 Jede Stelle bekommt einen Score basierend auf:
@@ -294,8 +314,16 @@ Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 | Hays | Nein | Öffentliche Sitemap + strukturierte Daten |
 | Monster | Nein | Öffentlich einsehbare Stellenanzeigen |
 | Indeed | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Freelancermap | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Freelance.de | Nein | Öffentlich einsehbare Stellenanzeigen |
+| Freelancermap | Nein | Öffentlich einsehbare Projektlisten |
+| Freelance.de | Nein | Öffentlich einsehbare Projektlisten |
+| GULP | Nein | Öffentlich einsehbare Projektlisten |
+| SOLCOM | Nein | Öffentlich einsehbares Projektportal |
+| ingenieur.de (VDI) | Nein | Öffentliche Engineering-Jobbörse |
+| Heise Jobs | Nein | Öffentlicher IT-Stellenmarkt |
+| Stellenanzeigen.de | Nein | Öffentlich einsehbare Stellenanzeigen |
+| Jobware | Nein | Öffentlich einsehbare Stellenanzeigen |
+| FERCHAU | Nein | Öffentliche Stellenangebote |
+| Kimeta | Nein | Öffentlicher Job-Aggregator |
 | **LinkedIn** | **Ja** | Kostenloser Account reicht. Du musst dich **einmalig** im Browser einloggen — PBP speichert die Session lokal. |
 | **XING** | **Ja** | Kostenloser Account reicht. Gleicher Ansatz wie LinkedIn — einmaliger Login. |
 
@@ -334,9 +362,9 @@ PBP ist ein **persönliches Werkzeug**, das in deinem Namen und mit deinen Accou
 - Du nutzt PBP mit **deinen eigenen Accounts** und bist für die Einhaltung der jeweiligen Nutzungsbedingungen verantwortlich.
 - LinkedIn und XING verbieten in ihren AGB die Nutzung automatisierter Tools. In der Praxis tolerieren die meisten Plattformen persönliche Nutzung mit normaler Frequenz — PBP simuliert menschliches Suchverhalten mit Verzögerungen. Trotzdem besteht theoretisch das Risiko einer Account-Sperre.
 - Die Bundesagentur für Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
-- StepStone, Hays, Monster, Indeed, Freelancermap und Freelance.de werden über öffentlich zugängliche Seiten durchsucht.
+- StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden über öffentlich zugängliche Seiten durchsucht.
 
-> 💡 **Empfehlung:** Wenn du auf Nummer sicher gehen willst, deaktiviere LinkedIn und XING in den Einstellungen und nutze die 7 anderen Quellen. Die liefern bereits eine sehr gute Abdeckung des deutschen Stellenmarkts.
+> 💡 **Empfehlung:** Wenn du auf Nummer sicher gehen willst, deaktiviere LinkedIn und XING in den Einstellungen und nutze die 15 anderen Quellen. Die liefern bereits eine hervorragende Abdeckung des deutschen Stellenmarkts — Festanstellung, Freelance und Engineering.
 
 ---
 
@@ -422,16 +450,24 @@ server.py (FastMCP, Composition Root)
     ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v9)
     ├──► dashboard.py      ◄── FastAPI :8200, 60+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    └──► job_scraper/      ◄── 9 Quellen
-              ├── bundesagentur.py   (REST API)
-              ├── stepstone.py       (Playwright)
-              ├── hays.py            (Sitemap + JSON-LD)
-              ├── freelancermap.py   (httpx + Playwright Fallback)
-              ├── freelance_de.py    (HTML Scraping)
-              ├── linkedin.py        (Playwright + Persistent Session)
-              ├── indeed.py          (Playwright)
-              ├── xing.py            (Playwright + Persistent Session)
-              └── monster.py         (Playwright)
+    └──► job_scraper/      ◄── 17 Quellen
+              ├── bundesagentur.py       (REST API)
+              ├── stepstone.py           (Playwright)
+              ├── hays.py                (Sitemap + JSON-LD)
+              ├── freelancermap.py       (httpx + Playwright Fallback)
+              ├── freelance_de.py        (HTML Scraping)
+              ├── linkedin.py            (Playwright + Persistent Session)
+              ├── indeed.py              (Playwright)
+              ├── xing.py                (Playwright + Persistent Session)
+              ├── monster.py             (Playwright)
+              ├── ingenieur_de.py        (HTML Scraping)
+              ├── heise_jobs.py          (HTML + JSON-LD)
+              ├── gulp.py                (HTML + JSON-LD)
+              ├── solcom.py              (HTML + JSON-LD)
+              ├── stellenanzeigen_de.py  (HTML + JSON-LD)
+              ├── jobware.py             (HTML + JSON-LD)
+              ├── ferchau.py             (HTML + JSON-LD)
+              └── kimeta.py              (HTML Scraping)
 ```
 
 ---
@@ -591,7 +627,7 @@ SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v9:
 | `skills` | Kompetenzen (5 Kategorien, Level, Aktualität) |
 | `documents` | Hochgeladene Dokumente |
 | `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (9 Quellen) |
+| `jobs` | Stellenangebote (17 Quellen) |
 | `applications` | Bewerbungen (6 Status-Stufen) |
 | `application_events` | Bewerbungs-Timeline |
 | `search_criteria` | Suchfilter |
@@ -664,6 +700,15 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.19.0 — 8 neue Jobquellen, 17 Quellen insgesamt (2026-03-16)
+- **8 neue Quellen**: ingenieur.de (VDI), Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU, Kimeta, GULP, SOLCOM
+- Alle ohne Login, mit HTML + JSON-LD Multi-Strategie-Extraktion
+- **17 Quellen** insgesamt — von 9 fast verdoppelt
+
+### v0.18.1 — Scraper-Rewrite: Robustere Jobsuche (2026-03-15)
+- **StepStone, Indeed, Monster** komplett neu: Multi-Strategie-Extraktion (CSS → Link-Fallback → JSON-LD)
+- **LinkedIn/XING**: Dynamische Keywords aus Profil + regionale Filterung aus Suchkriterien
+
 ### v0.18.0 — Mega-Release: 26 Issues, 61 Tools, 14 Workflows (2026-03-15)
 - **26 GitHub-Issues geschlossen** in einem Release
 - **Scoring komplett überarbeitet**: Duplikat-Erkennung, Entfernungs-Stufen, Bewerbungs-Signal, Tagessatz-Normalisierung
@@ -699,7 +744,7 @@ Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (S
 Ja! Du kannst PBP auch nur für Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
 **Was passiert, wenn ein Portal sich ändert?**
-Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen laufen weiter. Updates werden über neue Releases bereitgestellt.
+Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen 16 laufen weiter. Viele Scraper nutzen Multi-Strategie-Extraktion (HTML-Selektoren → JSON-LD Fallback), was sie robuster gegen Layout-Änderungen macht. Updates werden über neue Releases bereitgestellt.
 
 **Unterstützt PBP mehrere Sprachen?**
 Die Oberfläche und Workflows sind auf Deutsch. Jobtitel werden auf Deutsch und Englisch vorgeschlagen. Claude selbst kann in jeder Sprache kommunizieren.
