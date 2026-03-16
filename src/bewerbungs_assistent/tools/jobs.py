@@ -281,6 +281,105 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def linkedin_browser_search(
+        keywords: list[str] = None,
+        location: str = "Deutschland",
+        remote_only: bool = False,
+        max_pages: int = 3
+    ) -> dict:
+        """Direkte LinkedIn-Jobsuche via Browser-Automation (Playwright).
+
+        Kann unabhaengig von jobsuche_starten() aufgerufen werden.
+        Nutzt die gespeicherte Browser-Session (beim ersten Mal wird ein
+        Browser-Fenster zur Anmeldung geoeffnet).
+
+        Ergebnisse werden automatisch in die PBP-Datenbank gespeichert
+        und nach den aktuellen Suchkriterien bewertet.
+
+        Args:
+            keywords: Suchbegriffe (Standard: aus keywords_muss generiert)
+            location: Standort-Filter (Standard: Deutschland)
+            remote_only: Nur Remote-Stellen (f_WT=2)
+            max_pages: Maximale Seiten pro Suchbegriff (Standard: 3, je 25 Ergebnisse)
+        """
+        from ..job_scraper import run_search, calculate_score, extract_salary_from_text, estimate_salary
+
+        criteria = db.get_search_criteria()
+
+        params = {
+            "keywords": {"general": keywords} if keywords else {},
+            "criteria": criteria,
+            "quellen": ["linkedin"],
+            "nur_remote": remote_only,
+            "max_pages": max_pages,
+        }
+
+        # Override location if provided
+        if location != "Deutschland":
+            if "criteria" not in params:
+                params["criteria"] = {}
+            params["criteria"]["regionen"] = [location]
+
+        job_id = db.create_background_job("linkedin_browser_search", params)
+
+        def _run():
+            try:
+                from ..job_scraper.linkedin import search_linkedin
+                import time
+
+                def _progress(msg):
+                    db.update_background_job(job_id, "running", message=msg)
+
+                jobs = search_linkedin(params, progress_callback=_progress)
+
+                # Score and enrich
+                for job in jobs:
+                    job["score"] = calculate_score(job, criteria)
+                    if not job.get("salary_min"):
+                        text = f"{job.get('description', '')} {job.get('title', '')}"
+                        s_min, s_max, s_type = extract_salary_from_text(text)
+                        if s_min:
+                            job["salary_min"] = s_min
+                            job["salary_max"] = s_max
+                            job["salary_type"] = s_type
+                            job["salary_estimated"] = 0
+                    if not job.get("salary_min"):
+                        s_min, s_max, s_type = estimate_salary(
+                            job.get("title", ""), job.get("employment_type", ""), job.get("location", "")
+                        )
+                        job["salary_min"] = s_min
+                        job["salary_max"] = s_max
+                        job["salary_type"] = s_type
+                        job["salary_estimated"] = 1
+
+                # Filter by min score
+                min_score = criteria.get("min_score_schwelle", 1)
+                jobs = [j for j in jobs if j.get("score", 0) >= min_score]
+
+                db.save_jobs(jobs)
+                db.set_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+                db.update_background_job(
+                    job_id, "fertig", progress=100,
+                    message=f"LinkedIn: {len(jobs)} Stellen gefunden und gespeichert",
+                    result={"total": len(jobs), "quelle": "linkedin"},
+                )
+            except Exception as e:
+                logger.error("LinkedIn Browser-Suche fehlgeschlagen: %s", e, exc_info=True)
+                db.update_background_job(job_id, "fehler", message=str(e))
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+
+        return {
+            "job_id": job_id,
+            "status": "gestartet",
+            "nachricht": (
+                f"LinkedIn Browser-Suche laeuft (max {max_pages} Seiten pro Suchbegriff). "
+                f"Pruefe Fortschritt mit jobsuche_status('{job_id}')."
+            ),
+        }
+
+    @mcp.tool()
     def fit_analyse(job_hash: str) -> dict:
         """Detaillierte Passungsanalyse fuer eine bestimmte Stelle.
 

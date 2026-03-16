@@ -239,8 +239,11 @@ def run_search(db, job_id: str, params: dict):
             mod = importlib.import_module(f".{module_name}", package=__package__)
             search_func = getattr(mod, func_name)
 
-            # Playwright-based scrapers may use progress callback
+            # Playwright-based scrapers: pass criteria + progress callback
             if quelle in ("linkedin", "xing"):
+                # Ensure criteria are available for smart keyword building
+                if "criteria" not in params:
+                    params["criteria"] = db.get_search_criteria()
                 def _progress(msg, _jid=job_id):
                     db.update_background_job(_jid, "running", message=msg)
                 jobs = search_func(params, progress_callback=_progress)
