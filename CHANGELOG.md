@@ -2,6 +2,23 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.21.1] - 2026-03-17
+
+### Multi-Profil-Haertung und Merge-Stabilisierung
+
+- Jobs werden intern jetzt profilgebunden gespeichert, sodass identische externe
+  Stellen-Hashes sich zwischen Profilen nicht mehr gegenseitig ueberschreiben.
+- Oeffentliche Tool- und Dashboard-Ausgaben behalten dabei die bekannten
+  unveraenderten Job-Hashes bei, obwohl intern scoped gespeichert wird.
+- Bewerbungen loesen verknuepfte Stellen-Hashes profilsauber auf; Reports,
+  Fit-Analysen und Gehalts-Extraktion bleiben damit konsistent.
+- Follow-ups, Gehaltsstatistiken, Firmen-/Skill-Analysen, Ablehnungsmuster und
+  naechste Schritte respektieren jetzt das aktive Profil durchgaengig.
+- Neue Regressionstests decken Job-Kollisionen, profilgefilterte Follow-ups,
+  Statistik-Isolation und stabile oeffentliche Hash-Ausgaben ab.
+- MCP-Registry-Tests wurden mit der aktuellen FastMCP-API kompatibel gemacht,
+  damit die Vollsuite auf dem aktuellen Dependency-Stand wieder gruen laeuft.
+
 ## [0.20.0] — 2026-03-16
 
 ### Statistik-Dashboard, Bewerbungsbericht & Score-Korrektur

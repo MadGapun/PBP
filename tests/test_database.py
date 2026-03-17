@@ -386,3 +386,31 @@ class TestStatistics:
         assert stats["applications_by_status"]["beworben"] == 1
         assert stats["applications_by_status"]["interview"] == 1
         assert stats["interview_rate"] == 50.0
+
+    def test_statistics_are_scoped_to_active_profile(self, tmp_db):
+        """Statistics should not include jobs/applications from another profile."""
+        tmp_db.save_profile({"name": "Alice"})
+        tmp_db.save_jobs([{
+            "hash": "alice_job", "title": "Alice Job",
+            "company": "A-Corp", "url": "https://a.com", "source": "test",
+        }])
+        tmp_db.add_application({"title": "App A", "company": "Corp A", "status": "beworben"})
+
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        conn.execute(
+            "INSERT INTO profile (id, name, is_active, created_at, updated_at) VALUES (?,?,1,?,?)",
+            ("bob12345", "Bob", "2025-01-01", "2025-01-01")
+        )
+        conn.commit()
+
+        tmp_db.save_jobs([{
+            "hash": "bob_job", "title": "Bob Job",
+            "company": "B-Corp", "url": "https://b.com", "source": "test",
+        }])
+        tmp_db.add_application({"title": "App B", "company": "Corp B", "status": "interview"})
+
+        stats = tmp_db.get_statistics()
+        assert stats["total_applications"] == 1
+        assert stats["active_jobs"] == 1
+        assert set(stats["applications_by_status"]) == {"interview"}

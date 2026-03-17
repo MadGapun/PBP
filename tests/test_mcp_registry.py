@@ -123,7 +123,11 @@ def _build_test_server(tmp_path):
 
 
 async def _run_tool(mcp, name, arguments=None):
-    result = await mcp.call_tool(name, arguments or {})
+    if hasattr(mcp, "call_tool"):
+        result = await mcp.call_tool(name, arguments or {})
+    else:
+        tool = await mcp.get_tool(name)
+        result = await tool.run(arguments or {})
     if hasattr(result, 'structured_content') and result.structured_content:
         return result.structured_content
     # Fallback: parse text content
@@ -140,9 +144,18 @@ async def _run_tool(mcp, name, arguments=None):
 def _collect_names(mcp):
     """Collect tool, prompt and resource names from the MCP server."""
     async def _gather():
-        tools = await mcp.list_tools()
-        prompts = await mcp.list_prompts()
-        resources = await mcp.list_resources()
+        if hasattr(mcp, "list_tools"):
+            tools = await mcp.list_tools()
+        else:
+            tools = list((await mcp.get_tools()).values())
+        if hasattr(mcp, "list_prompts"):
+            prompts = await mcp.list_prompts()
+        else:
+            prompts = list((await mcp.get_prompts()).values())
+        if hasattr(mcp, "list_resources"):
+            resources = await mcp.list_resources()
+        else:
+            resources = list((await mcp.get_resources()).values())
         return (
             {t.name for t in tools},
             {p.name for p in prompts},

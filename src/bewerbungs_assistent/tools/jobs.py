@@ -389,9 +389,8 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle (von stellen_anzeigen)
         """
         from ..job_scraper import fit_analyse as _fit_analyse
-        conn = db.connect()
-        row = conn.execute("SELECT * FROM jobs WHERE hash = ?", (job_hash,)).fetchone()
-        if not row:
+        job_dict = db.get_job(job_hash)
+        if not job_dict:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
         criteria = db.get_search_criteria()
         # Enrich criteria with profile skills and salary preferences for better fit analysis
@@ -404,7 +403,6 @@ def register(mcp, db, logger):
                 criteria["min_gehalt"] = prefs["min_gehalt"]
             if prefs.get("min_tagessatz"):
                 criteria["min_tagessatz"] = prefs["min_tagessatz"]
-        job_dict = dict(row)
         result = _fit_analyse(job_dict, criteria)
         # Include job description in result (#55) so Claude can use it for analysis
         if job_dict.get("description"):

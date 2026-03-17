@@ -644,11 +644,9 @@ async def api_restore_job(request: Request):
 async def api_fit_analyse(job_hash: str):
     """Detailed fit analysis for a specific job."""
     from .job_scraper import fit_analyse
-    conn = _db.connect()
-    row = conn.execute("SELECT * FROM jobs WHERE hash = ?", (job_hash,)).fetchone()
-    if not row:
+    job = _db.get_job(job_hash)
+    if not job:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
-    job = dict(row)
     criteria = _db.get_search_criteria()
     return fit_analyse(job, criteria)
 

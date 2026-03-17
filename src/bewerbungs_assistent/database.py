@@ -472,6 +472,90 @@ class Database:
             conn.execute("PRAGMA foreign_keys=ON")
         logger.info("Factory reset: all data deleted")
 
+    def _scope_job_hash(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> Optional[str]:
+        """Return the internal storage hash for one profile."""
+        if not job_hash:
+            return job_hash
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return job_hash
+        prefix = f"{pid}:"
+        if job_hash.startswith(prefix):
+            return job_hash
+        return f"{prefix}{job_hash}"
+
+    def _public_job_hash(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> Optional[str]:
+        """Convert an internal storage hash back to the stable public hash."""
+        if not job_hash:
+            return job_hash
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return job_hash
+        prefix = f"{pid}:"
+        if job_hash.startswith(prefix):
+            return job_hash[len(prefix):]
+        return job_hash
+
+    def _job_hash_candidates(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> list[str]:
+        """Return compatible hashes for scoped and legacy rows."""
+        if not job_hash:
+            return []
+        pid = profile_id or self.get_active_profile_id()
+        candidates: list[str] = []
+        for candidate in (
+            job_hash,
+            self._scope_job_hash(job_hash, pid),
+            self._public_job_hash(job_hash, pid),
+        ):
+            if candidate and candidate not in candidates:
+                candidates.append(candidate)
+        return candidates
+
+    def _find_job_row(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[sqlite3.Row]:
+        """Find a job for the requested profile, including legacy unscoped rows."""
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        for candidate in self._job_hash_candidates(job_hash, pid):
+            if pid:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE hash=? AND (profile_id=? OR profile_id IS NULL)",
+                    (candidate, pid),
+                ).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM jobs WHERE hash=?", (candidate,)).fetchone()
+            if row is not None:
+                return row
+        return None
+
+    def _serialize_job_row(self, row: sqlite3.Row | dict | None) -> Optional[dict]:
+        """Return one job row in the public API shape."""
+        if row is None:
+            return None
+        job = dict(row)
+        job["hash"] = self._public_job_hash(job.get("hash"), job.get("profile_id"))
+        return job
+
+    def _serialize_application_row(self, row: sqlite3.Row | dict | None) -> Optional[dict]:
+        """Return one application row in the public API shape."""
+        if row is None:
+            return None
+        app = dict(row)
+        app["job_hash"] = self._public_job_hash(app.get("job_hash"), app.get("profile_id"))
+        return app
+
+    def resolve_job_hash(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[str]:
+        """Resolve a public job hash to the stored value for one profile."""
+        if not job_hash:
+            return None
+        row = self._find_job_row(job_hash, profile_id)
+        if row is not None:
+            return row["hash"]
+        return self._scope_job_hash(job_hash, profile_id)
+
+    def get_job(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[dict]:
+        """Return one job by public or stored hash for the selected profile."""
+        return self._serialize_job_row(self._find_job_row(job_hash, profile_id))
+
     def save_profile(self, data: dict) -> str:
         conn = self.connect()
         now = _now()
@@ -877,8 +961,10 @@ class Database:
     def save_jobs(self, jobs: list):
         conn = self.connect()
         now = _now()
-        pid = self.get_active_profile_id()
+        active_pid = self.get_active_profile_id()
         for job in jobs:
+            job_pid = job.get("profile_id") or active_pid
+            stored_hash = self.resolve_job_hash(job["hash"], job_pid)
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
@@ -886,7 +972,7 @@ class Database:
                     employment_type, is_pinned, profile_id, found_at, updated_at, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
-                job["hash"], job.get("title"), job.get("company"),
+                stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
                 job.get("description"), job.get("score", 0),
                 job.get("remote_level", "unbekannt"),
@@ -894,7 +980,7 @@ class Database:
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
-                1 if job.get("is_pinned") else 0, pid,
+                1 if job.get("is_pinned") else 0, job_pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
@@ -915,51 +1001,63 @@ class Database:
                 query += " AND score>=?"
                 params.append(filters["min_score"])
         query += " ORDER BY is_pinned DESC, score DESC, found_at DESC"
-        return [dict(r) for r in conn.execute(query, params).fetchall()]
+        return [self._serialize_job_row(r) for r in conn.execute(query, params).fetchall()]
 
     def get_dismissed_jobs(self) -> list:
         conn = self.connect()
         pid = self.get_active_profile_id()
-        return [dict(r) for r in conn.execute(
+        return [self._serialize_job_row(r) for r in conn.execute(
             "SELECT * FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) ORDER BY updated_at DESC",
             (pid,)
         ).fetchall()]
 
     def dismiss_job(self, job_hash: str, reason: str):
         conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
             "UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=?",
-            (reason, _now(), job_hash)
+            (reason, _now(), target_hash)
         )
         conn.commit()
 
     def restore_job(self, job_hash: str):
         conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
             "UPDATE jobs SET is_active=1, dismiss_reason=NULL, updated_at=? WHERE hash=?",
-            (_now(), job_hash)
+            (_now(), target_hash)
         )
         conn.commit()
 
     def update_job_score(self, job_hash: str, score: int):
         """Manually update a job's score."""
         conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
             "UPDATE jobs SET score=?, updated_at=? WHERE hash=?",
-            (score, _now(), job_hash)
+            (score, _now(), target_hash)
         )
         conn.commit()
 
     def toggle_job_pin(self, job_hash: str) -> bool:
         """Toggle is_pinned flag. Returns new pin state."""
         conn = self.connect()
-        row = conn.execute("SELECT is_pinned FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return False
+        row = conn.execute("SELECT is_pinned FROM jobs WHERE hash=?", (target_hash,)).fetchone()
         if not row:
             return False
         new_val = 0 if row["is_pinned"] else 1
         conn.execute(
             "UPDATE jobs SET is_pinned=?, updated_at=? WHERE hash=?",
-            (new_val, _now(), job_hash)
+            (new_val, _now(), target_hash)
         )
         conn.commit()
         return bool(new_val)
@@ -995,7 +1093,7 @@ class Database:
                 "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
                 (row["id"],)
             ).fetchall()]
-            apps.append(app)
+            apps.append(self._serialize_application_row(app))
         return apps
 
     def count_applications(self, status: Optional[str] = None,
@@ -1030,6 +1128,7 @@ class Database:
         aid = _gen_id()
         now = _now()
         pid = self.get_active_profile_id()
+        stored_job_hash = self.resolve_job_hash(data.get("job_hash"), pid) if data.get("job_hash") else None
         conn.execute("""
             INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
@@ -1037,7 +1136,7 @@ class Database:
                 kontakt_email, portal_name)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            aid, data.get("job_hash") or None, pid, data.get("title"), data.get("company"),
+            aid, stored_job_hash, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
             data.get("applied_at", now), data.get("cover_letter_path"),
             data.get("cv_path"), data.get("notes"), now,
@@ -1131,7 +1230,7 @@ class Database:
                 app["stellenbeschreibung"] = dict(job).get("description", "")
                 if not app.get("url"):
                     app["url"] = dict(job).get("url", "")
-        return app
+        return self._serialize_application_row(app)
 
     # === Search Criteria ===
 
@@ -1405,9 +1504,9 @@ class Database:
         """, (pid,)).fetchone()
 
         return {
-            "applications": [dict(r) for r in apps],
+            "applications": [self._serialize_application_row(r) for r in apps],
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
-            "unapplied_high_score": [dict(r) for r in unapplied_high],
+            "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
             "date_range": {
                 "first": date_range["first"] if date_range else None,
                 "last": date_range["last"] if date_range else None,
@@ -1420,19 +1519,25 @@ class Database:
     def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float, salary_type: str):
         """Save extracted salary data for a job."""
         conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
             "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
-            (salary_min, salary_max, salary_type, _now(), job_hash)
+            (salary_min, salary_max, salary_type, _now(), target_hash)
         )
         conn.commit()
 
     def get_salary_statistics(self) -> dict:
         """Get aggregated salary statistics across all jobs with salary data."""
         conn = self.connect()
+        pid = self.get_active_profile_id()
         rows = conn.execute("""
             SELECT salary_min, salary_max, salary_type, employment_type, source, location
-            FROM jobs WHERE salary_min IS NOT NULL AND is_active=1
-        """).fetchall()
+            FROM jobs
+            WHERE salary_min IS NOT NULL AND is_active=1
+              AND (? IS NULL OR profile_id=? OR profile_id IS NULL)
+        """, (pid, pid)).fetchall()
         if not rows:
             return {"anzahl": 0, "nachricht": "Keine Gehaltsdaten vorhanden"}
         data = [dict(r) for r in rows]
@@ -1465,16 +1570,22 @@ class Database:
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
         conn = self.connect()
-        return [dict(r) for r in conn.execute(
-            "SELECT * FROM jobs WHERE company LIKE ? ORDER BY score DESC",
-            (f"%{company}%",)
+        pid = self.get_active_profile_id()
+        return [self._serialize_job_row(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE company LIKE ? "
+            "AND (? IS NULL OR profile_id=? OR profile_id IS NULL) "
+            "ORDER BY score DESC",
+            (f"%{company}%", pid, pid)
         ).fetchall()]
 
     def get_skill_frequency(self) -> list:
         """Analyze skill keywords frequency in active job descriptions."""
         conn = self.connect()
+        pid = self.get_active_profile_id()
         rows = conn.execute(
-            "SELECT description FROM jobs WHERE is_active=1 AND description IS NOT NULL"
+            "SELECT description FROM jobs WHERE is_active=1 AND description IS NOT NULL "
+            "AND (? IS NULL OR profile_id=? OR profile_id IS NULL)",
+            (pid, pid)
         ).fetchall()
         return [r["description"] for r in rows]
 
@@ -1496,13 +1607,15 @@ class Database:
     def get_pending_follow_ups(self) -> list:
         """Get all pending follow-ups with application details."""
         conn = self.connect()
+        pid = self.get_active_profile_id()
         return [dict(r) for r in conn.execute("""
             SELECT f.*, a.title, a.company, a.status as app_status, a.applied_at
             FROM follow_ups f
             JOIN applications a ON f.application_id = a.id
             WHERE f.status = 'geplant'
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY f.scheduled_date ASC
-        """).fetchall()]
+        """, (pid, pid)).fetchall()]
 
     def complete_follow_up(self, follow_up_id: str, status: str = "gesendet"):
         """Mark a follow-up as completed or skipped."""
@@ -1557,13 +1670,15 @@ class Database:
     def get_rejection_patterns(self) -> dict:
         """Analyze rejection patterns across all applications."""
         conn = self.connect()
+        pid = self.get_active_profile_id()
         apps = conn.execute("""
             SELECT a.*, ae.notes as event_notes, ae.event_date
             FROM applications a
             LEFT JOIN application_events ae ON a.id = ae.application_id AND ae.status = 'abgelehnt'
             WHERE a.status = 'abgelehnt'
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY a.updated_at DESC
-        """).fetchall()
+        """, (pid, pid)).fetchall()
         if not apps:
             return {"anzahl": 0, "muster": [], "nachricht": "Keine Ablehnungen vorhanden."}
 
@@ -1654,9 +1769,13 @@ class Database:
 
         # Check follow-ups
         due_followups = conn.execute("""
-            SELECT COUNT(*) FROM follow_ups
-            WHERE status = 'geplant' AND scheduled_date <= date('now')
-        """).fetchone()[0]
+            SELECT COUNT(*)
+            FROM follow_ups f
+            JOIN applications a ON a.id = f.application_id
+            WHERE f.status = 'geplant'
+              AND f.scheduled_date <= date('now')
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
+        """, (profile_id, profile_id)).fetchone()[0]
         if due_followups:
             steps.append({"aktion": f"{due_followups} faellige(s) Follow-up(s)",
                           "prioritaet": "hoch",
@@ -1689,7 +1808,7 @@ class Database:
                 pass
 
         # Check active jobs without applications
-        where_profile = "AND profile_id = ?" if profile_id else ""
+        where_profile = "AND (profile_id = ? OR profile_id IS NULL)" if profile_id else ""
         params_profile = (profile_id,) if profile_id else ()
         active_jobs = conn.execute(
             f"SELECT COUNT(*) FROM jobs WHERE is_active=1 {where_profile}",
@@ -1700,7 +1819,7 @@ class Database:
             params_profile
         ).fetchone()[0]
         apps_count = conn.execute(
-            f"SELECT COUNT(*) FROM applications {('WHERE profile_id = ?' if profile_id else '')}",
+            f"SELECT COUNT(*) FROM applications {('WHERE (profile_id = ? OR profile_id IS NULL)' if profile_id else '')}",
             params_profile
         ).fetchone()[0]
 

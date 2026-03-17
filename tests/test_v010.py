@@ -267,6 +267,85 @@ class TestProfileIsolation:
         # Bob should see no applications
         assert len(tmp_db.get_applications()) == 0
 
+    def test_same_job_hash_stays_visible_for_both_profiles(self, tmp_db):
+        """Identische externe Job-Hashes duerfen sich profiluebergreifend nicht ueberschreiben."""
+        pid_a = tmp_db.save_profile({"name": "Alice"})
+        tmp_db.save_jobs([{
+            "hash": "shared_job_001", "title": "Alice Shared Job",
+            "company": "A-Corp", "url": "https://a.com", "source": "test",
+        }])
+
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        import uuid
+        pid_b = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO profile (id, name, is_active, created_at, updated_at) VALUES (?,?,1,?,?)",
+            (pid_b, "Bob", "2025-01-01", "2025-01-01")
+        )
+        conn.commit()
+
+        tmp_db.save_jobs([{
+            "hash": "shared_job_001", "title": "Bob Shared Job",
+            "company": "B-Corp", "url": "https://b.com", "source": "test",
+        }])
+        assert tmp_db.get_active_jobs()[0]["title"] == "Bob Shared Job"
+
+        conn.execute("UPDATE profile SET is_active=0")
+        conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (pid_a,))
+        conn.commit()
+
+        active = tmp_db.get_active_jobs()
+        assert len(active) == 1
+        assert active[0]["hash"] == "shared_job_001"
+        assert active[0]["title"] == "Alice Shared Job"
+        assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 2
+
+    def test_follow_ups_are_scoped_to_active_profile(self, tmp_db):
+        """Pending follow-ups should only include applications of the active profile."""
+        pid_a = tmp_db.save_profile({"name": "Alice"})
+        app_a = tmp_db.add_application({"title": "App A", "company": "Corp A"})
+        tmp_db.add_follow_up(app_a, "2026-03-10")
+
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=0")
+        import uuid
+        pid_b = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO profile (id, name, is_active, created_at, updated_at) VALUES (?,?,1,?,?)",
+            (pid_b, "Bob", "2025-01-01", "2025-01-01")
+        )
+        conn.commit()
+
+        app_b = tmp_db.add_application({"title": "App B", "company": "Corp B"})
+        tmp_db.add_follow_up(app_b, "2026-03-11")
+        bob_followups = tmp_db.get_pending_follow_ups()
+        assert [item["title"] for item in bob_followups] == ["App B"]
+
+        conn.execute("UPDATE profile SET is_active=0")
+        conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (pid_a,))
+        conn.commit()
+
+        alice_followups = tmp_db.get_pending_follow_ups()
+        assert [item["title"] for item in alice_followups] == ["App A"]
+
+    def test_application_job_hash_stays_public(self, tmp_db):
+        """Applications should expose the public hash even if the DB stores a scoped hash."""
+        tmp_db.save_profile({"name": "Alice"})
+        tmp_db.save_jobs([{
+            "hash": "shared_job_002", "title": "Shared Job",
+            "company": "A-Corp", "url": "https://a.com", "source": "test",
+        }])
+        app_id = tmp_db.add_application({
+            "title": "Shared Job",
+            "company": "A-Corp",
+            "job_hash": "shared_job_002",
+        })
+
+        app = tmp_db.get_application(app_id)
+        assert app["job_hash"] == "shared_job_002"
+        assert tmp_db.get_applications()[0]["job_hash"] == "shared_job_002"
+
 
 # === Cascade Delete (v0.10.1) ===
 

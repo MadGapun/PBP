@@ -55,9 +55,7 @@ def register(mcp, db, logger):
         if not effective_hash:
             effective_hash = hashlib.md5(f"manuell:{company}:{title}:{url}".encode()).hexdigest()[:12]
             # Check if job already exists
-            existing = db.connect().execute(
-                "SELECT hash FROM jobs WHERE hash=?", (effective_hash,)
-            ).fetchone()
+            existing = db.get_job(effective_hash)
             if not existing:
                 from datetime import datetime
                 db.save_jobs([{
