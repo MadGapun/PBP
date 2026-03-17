@@ -1220,6 +1220,24 @@ class Database:
         """, (app_id, now, note))
         conn.commit()
 
+    def update_application_event(self, event_id: int, app_id: str, text: str):
+        """Update the notes text of an existing event."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE application_events SET notes=? WHERE id=? AND application_id=?",
+            (text, event_id, app_id)
+        )
+        conn.commit()
+
+    def delete_application_event(self, event_id: int, app_id: str):
+        """Delete a single event (only 'notiz' type should be deletable)."""
+        conn = self.connect()
+        conn.execute(
+            "DELETE FROM application_events WHERE id=? AND application_id=? AND status='notiz'",
+            (event_id, app_id)
+        )
+        conn.commit()
+
     def get_application(self, app_id: str) -> dict | None:
         """Get a single application with events."""
         conn = self.connect()

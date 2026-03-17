@@ -462,6 +462,91 @@ class TestApplicationDetail:
 
 
 # ============================================================
+# Gespraechsnotizen
+# ============================================================
+
+class TestApplicationNotes:
+    def test_add_note(self, client):
+        """Notiz zu Bewerbung hinzufuegen."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        r = client.post(f"/api/applications/{app_id}/notes",
+                        json={"text": "Telefonat mit HR, positives Feedback"})
+        assert r.status_code == 200
+        # Verify in timeline
+        r2 = client.get(f"/api/application/{app_id}/timeline")
+        notes = [e for e in r2.json()["events"] if e["status"] == "notiz"]
+        assert len(notes) == 1
+        assert "Telefonat" in notes[0]["notes"]
+
+    def test_add_note_empty_rejected(self, client):
+        """Leere Notiz wird abgelehnt."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        r = client.post(f"/api/applications/{app_id}/notes", json={"text": ""})
+        assert r.status_code == 400
+
+    def test_edit_note(self, client):
+        """Notiz bearbeiten."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        dash._db.add_application_note(app_id, "Erste Version")
+        # Get the event id
+        r = client.get(f"/api/application/{app_id}/timeline")
+        note_event = [e for e in r.json()["events"] if e["status"] == "notiz"][0]
+        # Update
+        r2 = client.put(f"/api/applications/{app_id}/notes/{note_event['id']}",
+                        json={"text": "Korrigierte Version"})
+        assert r2.status_code == 200
+        # Verify
+        r3 = client.get(f"/api/application/{app_id}/timeline")
+        updated = [e for e in r3.json()["events"] if e["status"] == "notiz"][0]
+        assert updated["notes"] == "Korrigierte Version"
+
+    def test_delete_note(self, client):
+        """Notiz loeschen (nur Typ 'notiz', nicht Statusaenderungen)."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        dash._db.add_application_note(app_id, "Wird geloescht")
+        r = client.get(f"/api/application/{app_id}/timeline")
+        events = r.json()["events"]
+        note_event = [e for e in events if e["status"] == "notiz"][0]
+        status_event = [e for e in events if e["status"] == "beworben"][0]
+        # Delete note
+        r2 = client.delete(f"/api/applications/{app_id}/notes/{note_event['id']}")
+        assert r2.status_code == 200
+        # Try deleting status event (should NOT work)
+        r3 = client.delete(f"/api/applications/{app_id}/notes/{status_event['id']}")
+        assert r3.status_code == 200  # No error, but nothing deleted
+        # Verify: notiz gone, status still there
+        r4 = client.get(f"/api/application/{app_id}/timeline")
+        remaining = r4.json()["events"]
+        assert not any(e["status"] == "notiz" for e in remaining)
+        assert any(e["status"] == "beworben" for e in remaining)
+
+    def test_multiple_notes_chronological(self, client):
+        """Mehrere Notizen werden chronologisch gespeichert."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Nordex", "company": "Nordex"})
+        dash._db.add_application_note(app_id, "Bewerbung abgeschickt")
+        dash._db.add_application_note(app_id, "Einladung zum Interview erhalten")
+        dash._db.add_application_note(app_id, "Interview war gut, Feedback in 1 Woche")
+        r = client.get(f"/api/application/{app_id}/timeline")
+        notes = [e for e in r.json()["events"] if e["status"] == "notiz"]
+        assert len(notes) == 3
+
+
+# ============================================================
 # Profil-Elemente (Position, Skill, Ausbildung)
 # ============================================================
 

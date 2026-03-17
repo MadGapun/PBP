@@ -3431,23 +3431,55 @@ async function showAppDetail(id) {
     <button class="btn btn-sm" onclick="showLinkDocumentDialog('${id}')">Dokument verknuepfen</button>
   </div></div>`;
 
-  // Notes
+  // Initial notes (from application record)
   if (a.notes) {
-    html += `<div style="margin-bottom:16px;"><label>Notizen</label><p style="font-size:0.9rem;">${a.notes}</p></div>`;
+    html += `<div style="margin-bottom:16px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border);">
+      <label style="font-size:0.78rem; text-transform:uppercase; color:var(--text2); letter-spacing:0.05em;">Bewerbungsnotizen</label>
+      <p style="font-size:0.9rem; margin-top:6px; white-space:pre-wrap;">${_escHtml(a.notes)}</p>
+    </div>`;
   }
 
-  // Timeline
-  if (events.length) {
-    html += '<div style="margin-bottom:16px;"><label>Verlauf</label>';
-    for (const ev of events) {
-      html += `<div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
-        <span class="badge badge-${statusColor(ev.status)}">${ev.status}</span>
-        <span style="color:var(--text2); margin-left:8px;">${ev.event_date ? new Date(ev.event_date).toLocaleDateString('de') : ''}</span>
-        ${ev.notes ? `<span style="margin-left:8px;">${ev.notes}</span>` : ''}
+  // Timeline & Gespraechsnotizen (combined, chronological)
+  html += `<div style="margin-bottom:16px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <label style="font-size:0.78rem; text-transform:uppercase; color:var(--text2); letter-spacing:0.05em;">Verlauf & Notizen</label>
+      <button class="btn btn-sm btn-primary" onclick="showAddNoteForm('${id}')">+ Notiz</button>
+    </div>
+    <div id="add-note-form-${id}" style="display:none; margin-bottom:12px;">
+      <textarea id="note-text-${id}" rows="3" style="width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:8px; font-size:0.9rem; resize:vertical;" placeholder="Gespraechsnotiz, Feedback, Telefonnotiz..."></textarea>
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button class="btn btn-sm btn-primary" onclick="submitNote('${id}')">Speichern</button>
+        <button class="btn btn-sm" onclick="document.getElementById('add-note-form-${id}').style.display='none'">Abbrechen</button>
+      </div>
+    </div>`;
+
+  // Sort events chronologically (newest first)
+  const sortedEvents = [...events].sort((a, b) => (b.event_date || '').localeCompare(a.event_date || ''));
+
+  if (sortedEvents.length) {
+    for (const ev of sortedEvents) {
+      const isNote = ev.status === 'notiz';
+      const dateStr = ev.event_date ? new Date(ev.event_date).toLocaleString('de', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+      html += `<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:0.85rem; ${isNote ? 'background:rgba(88,166,255,0.04); margin:0 -12px; padding-left:12px; padding-right:12px;' : ''}" id="event-${ev.id}">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            ${isNote
+              ? '<span style="color:var(--accent); font-weight:600; font-size:0.78rem;">NOTIZ</span>'
+              : `<span class="badge badge-${statusColor(ev.status)}">${ev.status}</span>`}
+            <span style="color:var(--text2); margin-left:8px; font-size:0.8rem;">${dateStr}</span>
+          </div>
+          ${isNote ? `<div style="display:flex; gap:4px;">
+            <button class="btn btn-sm" onclick="editNoteInline('${id}', ${ev.id}, this)" style="padding:2px 8px; font-size:0.75rem;">Bearbeiten</button>
+            <button class="btn btn-sm" onclick="deleteNote('${id}', ${ev.id})" style="padding:2px 8px; font-size:0.75rem; color:var(--red);">X</button>
+          </div>` : ''}
+        </div>
+        ${ev.notes ? `<div style="margin-top:4px; ${isNote ? 'white-space:pre-wrap; line-height:1.5;' : ''}" id="note-content-${ev.id}">${_escHtml(ev.notes)}</div>` : ''}
       </div>`;
     }
-    html += '</div>';
+  } else {
+    html += `<p style="color:var(--text2); font-size:0.85rem;">Noch keine Eintraege. Fuege eine Notiz hinzu oder aendere den Status.</p>`;
   }
+  html += `</div>`;
 
   // Lebenslauf-Variante & Ablehnungsgrund
   if (a.lebenslauf_variante || a.rejection_reason) {
@@ -3459,6 +3491,54 @@ async function showAppDetail(id) {
 
   html += `</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>`;
   openModal(html);
+}
+
+function showAddNoteForm(appId) {
+  const form = document.getElementById('add-note-form-' + appId);
+  form.style.display = 'block';
+  document.getElementById('note-text-' + appId).focus();
+}
+
+async function submitNote(appId) {
+  const textarea = document.getElementById('note-text-' + appId);
+  const text = textarea.value.trim();
+  if (!text) { showToast('Bitte Text eingeben', 'error'); return; }
+  await api(`/api/applications/${appId}/notes`, {
+    method: 'POST', body: JSON.stringify({ text })
+  });
+  showToast('Notiz gespeichert!', 'success');
+  showAppDetail(appId);  // Refresh detail view
+}
+
+function editNoteInline(appId, eventId, btn) {
+  const contentEl = document.getElementById('note-content-' + eventId);
+  if (!contentEl) return;
+  const currentText = contentEl.textContent;
+  contentEl.innerHTML = `
+    <textarea id="edit-note-${eventId}" rows="3" style="width:100%; background:var(--bg); color:var(--text); border:1px solid var(--accent); border-radius:6px; padding:8px; font-size:0.9rem; resize:vertical;">${_escHtml(currentText)}</textarea>
+    <div style="display:flex; gap:8px; margin-top:6px;">
+      <button class="btn btn-sm btn-primary" onclick="saveNoteEdit('${appId}', ${eventId})">Speichern</button>
+      <button class="btn btn-sm" onclick="showAppDetail('${appId}')">Abbrechen</button>
+    </div>`;
+  document.getElementById('edit-note-' + eventId).focus();
+}
+
+async function saveNoteEdit(appId, eventId) {
+  const textarea = document.getElementById('edit-note-' + eventId);
+  const text = textarea.value.trim();
+  if (!text) { showToast('Text darf nicht leer sein', 'error'); return; }
+  await api(`/api/applications/${appId}/notes/${eventId}`, {
+    method: 'PUT', body: JSON.stringify({ text })
+  });
+  showToast('Notiz aktualisiert!', 'success');
+  showAppDetail(appId);
+}
+
+async function deleteNote(appId, eventId) {
+  if (!confirm('Notiz wirklich loeschen?')) return;
+  await api(`/api/applications/${appId}/notes/${eventId}`, { method: 'DELETE' });
+  showToast('Notiz geloescht', 'success');
+  showAppDetail(appId);
 }
 
 function _escHtml(text) {

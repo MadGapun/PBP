@@ -719,6 +719,35 @@ async def api_link_document(app_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.post("/api/applications/{app_id}/notes")
+async def api_add_note(app_id: str, request: Request):
+    """Add a timestamped note to an application."""
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        return JSONResponse({"error": "Notiz-Text ist Pflicht"}, status_code=400)
+    _db.add_application_note(app_id, text)
+    return {"status": "ok"}
+
+
+@app.put("/api/applications/{app_id}/notes/{event_id}")
+async def api_update_note(app_id: str, event_id: int, request: Request):
+    """Update an existing note/event text."""
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        return JSONResponse({"error": "Notiz-Text ist Pflicht"}, status_code=400)
+    _db.update_application_event(event_id, app_id, text)
+    return {"status": "ok"}
+
+
+@app.delete("/api/applications/{app_id}/notes/{event_id}")
+async def api_delete_note(app_id: str, event_id: int):
+    """Delete a note from the application timeline."""
+    _db.delete_application_event(event_id, app_id)
+    return {"status": "ok"}
+
+
 @app.get("/api/documents")
 async def api_documents():
     """List all documents for the active profile."""
