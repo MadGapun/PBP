@@ -223,6 +223,26 @@ class TestAutoAnalyze:
         assert r.status_code == 200
         assert r.json()["status"] == "keine_dokumente"
 
+    def test_analyze_marks_empty_text_documents_as_analysiert_leer(self, client):
+        """Dokumente ohne extrahierbaren Text bleiben nicht auf 'offen' stehen."""
+        tc, db, _ = client
+        tc.post("/api/profile", json={"name": "Test"})
+
+        doc_id = db.add_document({
+            "filename": "Bachelor Zeugnis.pdf",
+            "filepath": "/tmp/bachelor.pdf",
+            "doc_type": "zeugnis",
+            "extracted_text": "",
+        })
+
+        r = tc.post("/api/dokumente-analysieren", json={})
+        assert r.status_code == 200
+        assert r.json()["status"] == "keine_daten"
+
+        profile = db.get_profile()
+        document = next(doc for doc in profile["documents"] if doc["id"] == doc_id)
+        assert document["extraction_status"] == "analysiert_leer"
+
     def test_analyze_extracts_email(self, client):
         """Analyse extrahiert E-Mail aus Dokumenttext."""
         tc, db, _ = client

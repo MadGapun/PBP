@@ -35,6 +35,93 @@ def get_session_dir() -> Path:
     return session_dir
 
 
+def ensure_linkedin_session(progress_callback=None) -> bool:
+    """Ensure that a reusable LinkedIn browser session exists.
+
+    Oeffnet beim ersten Mal einen sichtbaren Browser zur Anmeldung und speichert
+    die Session fuer spaetere Jobsuchen.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.error("Playwright nicht installiert. Bitte: pip install playwright && python -m playwright install chromium")
+        return False
+
+    def _notify(message: str):
+        logger.info(message)
+        if progress_callback:
+            progress_callback(message)
+
+    session_dir = get_session_dir()
+
+    with sync_playwright() as pw:
+        session_exists = (session_dir / "Default" / "Cookies").exists() or \
+                        (session_dir / "Default").exists()
+
+        if not session_exists:
+            _notify("LinkedIn: Browser wird fuer den Erst-Login geoeffnet.")
+
+        browser = pw.chromium.launch_persistent_context(
+            user_data_dir=str(session_dir),
+            headless=session_exists,
+            slow_mo=300 if not session_exists else 0,
+            viewport={"width": 1280, "height": 900},
+            locale="de-DE",
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
+
+        try:
+            page = browser.pages[0] if browser.pages else browser.new_page()
+            page.goto(
+                "https://www.linkedin.com/jobs/",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+            time.sleep(2)
+
+            if _is_login_page(page):
+                if session_exists:
+                    browser.close()
+                    _notify("LinkedIn: Vorhandene Session ist abgelaufen. Browser wird fuer erneuten Login geoeffnet.")
+                    browser = pw.chromium.launch_persistent_context(
+                        user_data_dir=str(session_dir),
+                        headless=False,
+                        slow_mo=300,
+                        viewport={"width": 1280, "height": 900},
+                        locale="de-DE",
+                        args=[
+                            "--no-sandbox",
+                            "--disable-blink-features=AutomationControlled",
+                        ],
+                    )
+                    page = browser.pages[0] if browser.pages else browser.new_page()
+                    page.goto(
+                        "https://www.linkedin.com/jobs/",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    time.sleep(2)
+
+                _notify("LinkedIn: Bitte im geoeffneten Browser einloggen. Warte max. 3 Minuten...")
+                for _ in range(180):
+                    time.sleep(1)
+                    url = page.url
+                    if ("feed" in url or "jobs" in url) and "login" not in url:
+                        _notify("LinkedIn: Login erfolgreich, Session gespeichert.")
+                        return True
+
+                logger.warning("LinkedIn Login Timeout. Abbruch.")
+                return False
+
+            _notify("LinkedIn: Session ist bereits bereit.")
+            return True
+        finally:
+            browser.close()
+
+
 def search_linkedin(params: dict, progress_callback=None) -> list:
     """Search LinkedIn Jobs via Playwright with persistent session.
 

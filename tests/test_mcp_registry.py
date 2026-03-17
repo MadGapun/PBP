@@ -32,6 +32,7 @@ EXPECTED_TOOL_NAMES = {
     "profil_loeschen",
     "erfassung_fortschritt_lesen",
     "erfassung_fortschritt_speichern",
+    "kennlerngespraech_abschliessen",
     "dokument_profil_extrahieren",
     "dokumente_zur_analyse",
     "extraktion_starten",
@@ -147,7 +148,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 55
+        assert len(tools) == 56
         assert len(prompts) == 12
         assert len(resources) == 6
     finally:
@@ -196,6 +197,135 @@ def test_representative_tools_smoke_run(tmp_path):
         assert bewerbungen_result["anzahl"] == 0
         assert suche_result["status"] == "gespeichert"
         assert analyse_result["anzahl"] == 0
+    finally:
+        db.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_kennlerngespraech_abschliessen_sets_onboarding_signal(tmp_path):
+    """Das Abschluss-Tool signalisiert der UI den Wechsel zum Quellen-Schritt."""
+    mcp, db = _build_test_server(tmp_path)
+    try:
+        profile_id = db.create_profile("Signal Test", "signal@example.com")
+
+        result = asyncio.run(_run_tool(mcp, "kennlerngespraech_abschliessen", {}))
+
+        assert result["status"] == "ok"
+        assert result["profil_id"] == profile_id
+        assert result["naechster_schritt"] == "quellen"
+        assert db.get_user_preference(f"profile_onboarding_conversation_{profile_id}") == "complete"
+    finally:
+        db.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_ersterfassung_workflow_uses_current_backend_prompt(tmp_path):
+    """Workflow-Wrapper fuer ersterfassung zieht den Prompt aus prompts.py."""
+    mcp, db = _build_test_server(tmp_path)
+    try:
+        db.create_profile("Prompt Test", "prompt@example.com")
+
+        result = asyncio.run(_run_tool(mcp, "workflow_starten", {"name": "ersterfassung"}))
+
+        assert "kennlerngespraech_abschliessen()" in result["anweisungen"]
+        assert "Jobboersen" in result["anweisungen"]
+        assert "Super, dein Profil ist fertig!" not in result["anweisungen"]
+    finally:
+        db.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_document_extraction_tool_is_profile_scoped(tmp_path):
+    """dokument_profil_extrahieren darf nur Dokumente des aktiven Profils liefern."""
+    mcp, db = _build_test_server(tmp_path)
+    try:
+        profile_a = db.create_profile("Profil A", "a@example.com")
+        doc_a = db.add_document({
+            "filename": "a_cv.pdf",
+            "filepath": "/tmp/a_cv.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "Profil A Inhalt",
+            "profile_id": profile_a,
+        })
+
+        profile_b = db.create_profile("Profil B", "b@example.com")
+        doc_b = db.add_document({
+            "filename": "b_cv.pdf",
+            "filepath": "/tmp/b_cv.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "Profil B Inhalt",
+            "profile_id": profile_b,
+        })
+
+        leaked = asyncio.run(_run_tool(mcp, "dokument_profil_extrahieren", {"document_id": doc_a}))
+        own = asyncio.run(_run_tool(mcp, "dokument_profil_extrahieren", {"document_id": doc_b}))
+
+        assert "fehler" in leaked
+        assert own["status"] == "ok"
+        assert own["dokument"]["id"] == doc_b
+
+        db.switch_profile(profile_a)
+        own_a = asyncio.run(_run_tool(mcp, "dokument_profil_extrahieren", {"document_id": doc_a}))
+        assert own_a["status"] == "ok"
+        assert own_a["dokument"]["id"] == doc_a
+    finally:
+        db.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_application_style_tracking_tool_is_profile_scoped(tmp_path):
+    """bewerbung_stil_tracken darf keine Bewerbung aus anderem Profil anfassen."""
+    mcp, db = _build_test_server(tmp_path)
+    try:
+        profile_a = db.create_profile("Profil A", "a@example.com")
+        app_a = db.add_application({"title": "A", "company": "Firma A", "status": "beworben"})
+
+        profile_b = db.create_profile("Profil B", "b@example.com")
+        app_b = db.add_application({"title": "B", "company": "Firma B", "status": "beworben"})
+
+        leaked = asyncio.run(_run_tool(mcp, "bewerbung_stil_tracken", {
+            "bewerbung_id": app_a,
+            "stil": "direkt",
+        }))
+        own = asyncio.run(_run_tool(mcp, "bewerbung_stil_tracken", {
+            "bewerbung_id": app_b,
+            "stil": "direkt",
+        }))
+
+        assert db.get_active_profile_id() == profile_b
+        assert "fehler" in leaked
+        assert own["status"] == "gespeichert"
+        assert own["bewerbung_id"] == app_b
+    finally:
+        db.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_jobsuche_workflow_uses_only_active_profile_data(tmp_path):
+    """jobsuche_workflow darf nur Kriterien/Quellen des aktiven Profils verwenden."""
+    mcp, db = _build_test_server(tmp_path)
+    try:
+        profile_a = db.create_profile("Profil A", "a@example.com")
+        db.set_search_criteria("keywords_muss", ["A_ONLY"])
+        db.set_setting("active_sources", ["bundesagentur"])
+        db.set_setting("last_search_at", "2026-03-10T09:00:00")
+
+        profile_b = db.create_profile("Profil B", "b@example.com")
+        db.set_search_criteria("keywords_muss", ["B_ONLY"])
+        db.set_setting("active_sources", ["stepstone"])
+        db.set_setting("last_search_at", "2026-03-12T09:00:00")
+
+        assert db.get_active_profile_id() == profile_b
+        workflow_b = asyncio.run(_run_tool(mcp, "workflow_starten", {"name": "jobsuche_workflow"}))
+        assert "B_ONLY" in workflow_b["anweisungen"]
+        assert "stepstone" in workflow_b["anweisungen"]
+        assert "A_ONLY" not in workflow_b["anweisungen"]
+
+        db.switch_profile(profile_a)
+        workflow_a = asyncio.run(_run_tool(mcp, "workflow_starten", {"name": "jobsuche_workflow"}))
+        assert "A_ONLY" in workflow_a["anweisungen"]
+        assert "bundesagentur" in workflow_a["anweisungen"]
+        assert "B_ONLY" not in workflow_a["anweisungen"]
     finally:
         db.close()
         os.environ.pop("BA_DATA_DIR", None)

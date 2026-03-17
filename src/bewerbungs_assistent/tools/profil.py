@@ -1,6 +1,6 @@
 """Profil-Verwaltung — 14 Tools.
 
-Enthalt: Profil-Grundlagen (8), Multi-Profil (4), Erfassungsfortschritt (2).
+Enthalt: Profil-Grundlagen (8), Multi-Profil (4), Erfassungsfortschritt (3).
 """
 
 import json
@@ -715,7 +715,41 @@ def register(mcp, db, logger):
         if notizen:
             fortschritt["notizen"] = notizen
         db.set_erfassung_fortschritt(fortschritt)
+
+        # UI-Signal: Sobald das Kennlerngespraech arbeitet, Status auf "active" setzen.
+        profile_id = db.get_active_profile_id()
+        if profile_id:
+            db.set_user_preference(f"profile_onboarding_started_{profile_id}", True)
+            db.set_user_preference(f"profile_onboarding_completed_{profile_id}", False)
+            db.set_user_preference(f"profile_onboarding_dismissed_{profile_id}", False)
+            conversation_key = f"profile_onboarding_conversation_{profile_id}"
+            if db.get_user_preference(conversation_key) != "complete":
+                db.set_user_preference(conversation_key, "active")
         return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen}
+
+    @mcp.tool()
+    def kennlerngespraech_abschliessen() -> dict:
+        """Markiert das Kennlerngespraech fuer das aktive Profil als abgeschlossen.
+
+        Dieses Signal wird vom Onboarding in der Web-UI ausgewertet, damit nach dem
+        Review direkt zum Schritt "Quellen" weitergegangen werden kann.
+        """
+        profile_id = db.get_active_profile_id()
+        if not profile_id:
+            return {"fehler": "Kein aktives Profil vorhanden."}
+
+        db.set_user_preference(f"profile_onboarding_started_{profile_id}", True)
+        db.set_user_preference(f"profile_onboarding_completed_{profile_id}", False)
+        db.set_user_preference(f"profile_onboarding_dismissed_{profile_id}", False)
+        db.set_user_preference(f"profile_onboarding_conversation_{profile_id}", "complete")
+
+        return {
+            "status": "ok",
+            "profil_id": profile_id,
+            "naechster_schritt": "quellen",
+            "ui_signal": "profile_onboarding_conversation=complete",
+            "nachricht": "Kennlerngespraech abgeschlossen. Als naechstes koennen die Quellen eingerichtet werden.",
+        }
 
     # --- Jobtitel-Vorschlaege (2 Tools) ---
 

@@ -16,6 +16,31 @@ from logging.handlers import RotatingFileHandler
 _initialized = False
 
 
+class SafeRotatingFileHandler(RotatingFileHandler):
+    """RotatingFileHandler that tolerates transient file locks on Windows."""
+
+    def doRollover(self):
+        try:
+            super().doRollover()
+        except PermissionError:
+            # Another process may temporarily hold the log file.
+            # Skip this rollover attempt; keep logging to current file.
+            if self.stream is None:
+                try:
+                    self.stream = self._open()
+                except Exception:
+                    pass
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 32:
+                if self.stream is None:
+                    try:
+                        self.stream = self._open()
+                    except Exception:
+                        pass
+                return
+            raise
+
+
 def setup_logging(level=None, console=True):
     """Richte zentrales Logging ein.
 
@@ -40,6 +65,8 @@ def setup_logging(level=None, console=True):
     log_level_str = level or os.environ.get("BA_LOG_LEVEL", "INFO")
     log_level = getattr(logging, log_level_str.upper(), logging.INFO)
     logger.setLevel(log_level)
+    # Logging errors should not spam stderr in production-like runs.
+    logging.raiseExceptions = False
 
     # Format
     fmt = logging.Formatter(
@@ -64,7 +91,7 @@ def setup_logging(level=None, console=True):
 
         # Rotierende Log-Datei (max 1MB, 1 Backup = max 2MB gesamt)
         log_file = os.path.join(log_dir, "pbp.log")
-        fh = RotatingFileHandler(
+        fh = SafeRotatingFileHandler(
             log_file,
             maxBytes=1_000_000,
             backupCount=1,

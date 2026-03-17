@@ -32,6 +32,19 @@ def summarize_active_sources(active_keys, available_keys) -> dict:
     }
 
 
+def get_default_active_source_keys(source_registry: dict) -> list[str]:
+    """Return the default source selection for a fresh profile.
+
+    Quellen mit notwendigem Erst-Login bleiben standardmaessig deaktiviert,
+    alle anderen werden vorausgewaehlt.
+    """
+    return [
+        key
+        for key, info in source_registry.items()
+        if not info.get("login_erforderlich", False)
+    ]
+
+
 def build_source_rows(source_registry: dict, active_keys) -> list:
     """Build dashboard-friendly source rows with active flags."""
     active_set = set(active_keys or [])

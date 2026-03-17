@@ -1,0 +1,17 @@
+{
+  "name": "pbp",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev:api:raw": "uv run --all-extras python start_dashboard.py",
+    "dev:api": "node scripts/dev-api.mjs",
+    "dev:web:raw": "pnpm --dir frontend dev",
+    "dev:web": "node scripts/dev-web.mjs",
+    "dev": "concurrently -k -n API,WEB -c cyan,magenta \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "build:web": "pnpm --dir frontend build",
+    "preview:web": "pnpm --dir frontend preview"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

@@ -1,16 +1,16 @@
-"""Tests for v0.10.x features: Schema v8, salary extraction, user preferences, profile isolation."""
+"""Tests for v0.10.x+ features: schema, salary extraction, preferences and profile isolation."""
 
 import pytest
 from bewerbungs_assistent.database import Database, SCHEMA_VERSION
 from bewerbungs_assistent.job_scraper import extract_salary_from_text, estimate_salary
 
 
-# === Schema v9 ===
+# === Schema v10 ===
 
-class TestSchemaV9:
-    def test_schema_version_is_9(self, tmp_db):
-        """Schema version should be 9."""
-        assert SCHEMA_VERSION == 9
+class TestSchemaV10:
+    def test_schema_version_is_10(self, tmp_db):
+        """Schema version should be 10."""
+        assert SCHEMA_VERSION == 10
 
     def test_salary_estimated_column(self, tmp_db):
         """jobs table should have salary_estimated column."""
@@ -350,8 +350,8 @@ class TestSmartNextSteps:
         assert "Zusammenfassung ergaenzen" in actions
         assert "Berufserfahrung hinzufuegen" in actions
 
-    def test_complete_profile_suggests_sources(self, tmp_db):
-        """Complete profile but no sources: suggest activating sources."""
+    def test_complete_profile_with_default_sources_suggests_search(self, tmp_db):
+        """Vollstaendiges Profil nutzt Default-Quellen und priorisiert die Jobsuche."""
         tmp_db.save_profile({
             "name": "Test", "email": "t@t.de", "city": "Hamburg",
             "summary": "Test summary",
@@ -365,7 +365,8 @@ class TestSmartNextSteps:
         tmp_db.add_education({"institution": "Uni", "degree": "BSc"})
         steps = tmp_db.get_next_steps()
         actions = [s["aktion"] for s in steps]
-        assert "Jobquellen aktivieren" in actions
+        assert "Jobquellen aktivieren" not in actions
+        assert "Erste Jobsuche starten" in actions
 
     def test_with_rejections_suggests_analysis(self, tmp_db):
         """3+ rejections should suggest pattern analysis."""
@@ -476,6 +477,46 @@ class TestOrphanedDocumentAdoption:
             "SELECT profile_id FROM documents WHERE filename='user1_cv.pdf'"
         ).fetchone()
         assert row["profile_id"] == pid1
+
+
+class TestDocumentDeletion:
+    """Deleting documents should also remove document-bound analysis history."""
+
+    def test_delete_document_removes_extraction_history(self, tmp_db):
+        tmp_db.save_profile({"name": "Delete Test"})
+        profile_id = tmp_db.get_active_profile_id()
+
+        doc_id = tmp_db.add_document({
+            "filename": "to_delete.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "Testinhalt",
+        })
+        tmp_db.add_extraction_history({
+            "document_id": doc_id,
+            "profile_id": profile_id,
+            "extraction_type": "auto_dashboard",
+            "extracted_fields": {"skills": [{"name": "Python"}]},
+        })
+
+        conn = tmp_db.connect()
+        before = conn.execute(
+            "SELECT COUNT(*) AS c FROM extraction_history WHERE document_id=?",
+            (doc_id,),
+        ).fetchone()["c"]
+        assert before == 1
+
+        tmp_db.delete_document(doc_id)
+
+        doc_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM documents WHERE id=?",
+            (doc_id,),
+        ).fetchone()["c"]
+        history_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM extraction_history WHERE document_id=?",
+            (doc_id,),
+        ).fetchone()["c"]
+        assert doc_count == 0
+        assert history_count == 0
 
 
 class TestCompletenessCheck:

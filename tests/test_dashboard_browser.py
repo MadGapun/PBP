@@ -153,7 +153,7 @@ def test_dashboard_onboarding_navigation_and_import_jump(live_dashboard, browser
         page.locator(".tab[data-page='einstellungen']").click()
         page.wait_for_function("() => window.location.hash === '#einstellungen'")
         page.locator("#page-einstellungen.active").wait_for(state="visible")
-        assert page.locator("#page-einstellungen h2").inner_text() == "Einstellungen"
+        assert page.locator("#page-einstellungen h1").inner_text() == "Einstellungen"
     finally:
         context.close()
 
@@ -178,6 +178,63 @@ def test_dashboard_guidance_and_badges_reflect_due_followups(live_dashboard, bro
         page.locator("#tab-badge-bewerbungen").wait_for(state="visible")
         assert page.locator("#tab-badge-bewerbungen").inner_text() == "1"
         assert page.locator("#tab-meta-dashboard").inner_text() == "Nachfassen"
+    finally:
+        context.close()
+
+
+def test_new_profile_starts_with_profile_onboarding_overlay(live_dashboard, browser):
+    """A newly prepared profile opens the four-step onboarding before regular work starts."""
+    profile_id = live_dashboard["db"].create_profile("Neues Profil", "neu@example.com")
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_started_{profile_id}", True)
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_completed_{profile_id}", False)
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_dismissed_{profile_id}", False)
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"], wait_until="domcontentloaded")
+        page.locator("#profile-onboarding-overlay").wait_for(state="visible")
+
+        overlay_text = page.locator("#profile-onboarding-overlay").inner_text()
+        assert "1. Unterlagen" in overlay_text
+        assert "2. Kennlerngespraech" in overlay_text
+        assert "3. Quellen" in overlay_text
+        assert "4. Jobsuche" in overlay_text
+        assert "0/4 Schritte" in overlay_text
+    finally:
+        context.close()
+
+
+def test_onboarding_detects_completed_kennlerngespraech_and_unlocks_sources(live_dashboard, browser):
+    """Wenn Claude das Kennlerngespraech abschliesst, schaltet die UI zu Quellen frei."""
+    profile_id = live_dashboard["db"].create_profile("Onboarding Signal", "signal@example.com")
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_started_{profile_id}", True)
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_completed_{profile_id}", False)
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_dismissed_{profile_id}", False)
+    live_dashboard["db"].set_user_preference(f"profile_onboarding_conversation_{profile_id}", "active")
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"], wait_until="domcontentloaded")
+        page.locator("#profile-onboarding-overlay").wait_for(state="visible")
+
+        page.locator("#profile-onboarding-overlay button", has_text="2. Kennlerngespraech").first.click()
+        page.locator("#profile-onboarding-overlay").locator("text=/ersterfassung kopieren").wait_for(state="visible")
+        page.locator("#profile-onboarding-overlay").get_by_text("Laeuft", exact=True).first.wait_for(
+            state="visible"
+        )
+
+        live_dashboard["db"].set_user_preference(f"profile_onboarding_conversation_{profile_id}", "complete")
+
+        page.locator("#profile-onboarding-overlay").locator("text=Abgeschlossen").wait_for(
+            state="visible", timeout=7000
+        )
+
+        page.locator("#profile-onboarding-overlay button", has_text="3. Quellen").first.click()
+        assert "Waehle die passenden Quellen" in page.locator("#profile-onboarding-overlay").inner_text()
     finally:
         context.close()
 

@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from bewerbungs_assistent.services.search_service import (  # noqa: E402
     build_source_rows,
+    get_default_active_source_keys,
     get_search_status,
     summarize_active_sources,
 )
@@ -67,3 +68,16 @@ def test_build_source_rows_marks_active_entries():
     assert rows[0]["active"] is False
     assert rows[1]["active"] is True
     assert rows[1]["login_erforderlich"] is True
+
+
+def test_get_default_active_source_keys_excludes_login_required_sources():
+    """Frische Profile aktivieren alle Quellen ausser den Login-Portalen."""
+    keys = get_default_active_source_keys(
+        {
+            "bundesagentur": {"login_erforderlich": False},
+            "linkedin": {"login_erforderlich": True},
+            "xing": {"login_erforderlich": True},
+            "stepstone": {"login_erforderlich": False},
+        }
+    )
+    assert keys == ["bundesagentur", "stepstone"]

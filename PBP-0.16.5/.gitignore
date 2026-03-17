@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual Environment
+venv/
+.venv/
+python/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# PBP spezifisch
+install_log.txt
+*.zip
+!src/**/*.zip
+
+# Daten (lokal)
+*.db
+*.sqlite
+BewerbungsAssistent/
+
+# Logs
+logs/
+*.log
+
+# Installer-Artefakte
+python-*-embed-*.zip
+get-pip.py

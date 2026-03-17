@@ -36,7 +36,8 @@ try:
     logger.info("Datenbank initialisiert")
 
     print()
-    print(f"  Dashboard: http://localhost:8200")
+    port = os.environ.get("BA_DASHBOARD_PORT", "8200")
+    print(f"  Dashboard: http://localhost:{port}")
     print(f"  Daten:     {data_dir}")
     print(f"  Log:       {log_path}")
     print(f"  Beenden:   Dieses Fenster schliessen oder Strg+C")
@@ -50,4 +51,4 @@ except Exception as e:
     print(f"  FEHLER: {e}")
     print(f"  Details in: {log_path}")
     print()
-    input("  Druecke Enter zum Schliessen...")
+    sys.exit(1)

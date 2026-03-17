@@ -38,6 +38,62 @@ def client(tmp_path):
 
 
 # ============================================================
+# Dashboard Index
+# ============================================================
+
+class TestDashboardIndex:
+    def test_index_serves_built_frontend(self, client, monkeypatch, tmp_path):
+        """Root route serves the built dashboard frontend when available."""
+        import bewerbungs_assistent.dashboard as dash
+
+        built_html = tmp_path / "dashboard" / "index.html"
+        built_html.parent.mkdir(parents=True, exist_ok=True)
+        built_html.write_text("<!doctype html><html><body>NEUE-UI</body></html>", encoding="utf-8")
+        monkeypatch.setattr(dash, "DASHBOARD_BUILD_HTML", built_html)
+
+        r = client.get("/")
+        assert r.status_code == 200
+        assert "NEUE-UI" in r.text
+        assert "Dashboard-Fehler" not in r.text
+
+    def test_index_shows_error_page_when_build_missing(self, client, monkeypatch, tmp_path):
+        """Missing frontend build no longer falls back to legacy template."""
+        import bewerbungs_assistent.dashboard as dash
+
+        missing_html = tmp_path / "does-not-exist" / "index.html"
+        monkeypatch.setattr(dash, "DASHBOARD_BUILD_HTML", missing_html)
+
+        r = client.get("/")
+        assert r.status_code == 500
+        assert "Dashboard-Fehler" in r.text
+        assert "nicht gefunden" in r.text
+        assert str(missing_html) in r.text
+        assert "Bitte Templates installieren" not in r.text
+
+    def test_index_shows_error_page_when_build_unreadable(self, client, monkeypatch):
+        """Read failures render a dedicated error page instead of old UI."""
+        import bewerbungs_assistent.dashboard as dash
+
+        class BrokenBuild:
+            def exists(self):
+                return True
+
+            def read_text(self, encoding="utf-8"):
+                raise OSError("kaputt")
+
+            def __str__(self):
+                return "BROKEN/index.html"
+
+        monkeypatch.setattr(dash, "DASHBOARD_BUILD_HTML", BrokenBuild())
+
+        r = client.get("/")
+        assert r.status_code == 500
+        assert "Dashboard-Fehler" in r.text
+        assert "konnte nicht geladen werden" in r.text
+        assert "kaputt" in r.text
+
+
+# ============================================================
 # Status
 # ============================================================
 
@@ -116,6 +172,21 @@ class TestStatus:
         assert data["applications"]["follow_ups_due"] == 1
         assert data["readiness"]["stage"] == "nachfassen"
         assert data["navigation"]["applications_badge"] == "1"
+
+    def test_live_update_token_endpoint(self, client):
+        """Live-Update-Token steht fuer Frontend-Polling bereit."""
+        before = client.get("/api/live-update-token")
+        assert before.status_code == 200
+        before_body = before.json()
+        assert isinstance(before_body.get("token"), str)
+
+        client.post("/api/profile", json={"name": "Live Token"})
+
+        after = client.get("/api/live-update-token")
+        assert after.status_code == 200
+        after_body = after.json()
+        assert isinstance(after_body.get("token"), str)
+        assert before_body["token"] != after_body["token"]
 
 
 # ============================================================
@@ -240,10 +311,15 @@ class TestMultiProfile:
         r3 = client.get("/api/profile")
         assert r3.json()["name"] == "Profil B"
 
-    def test_switch_nonexistent_profile(self, client):
-        """Wechsel zu nicht existierendem Profil → 404."""
+    def test_switch_nonexistent_profile_keeps_active_profile(self, client):
+        """Ungültiger Wechsel darf das aktive Profil nicht verlieren."""
+        client.post("/api/profile", json={"name": "Profil A"})
+        active_before = client.get("/api/profile").json()["id"]
         r = client.post("/api/profiles/switch", json={"profile_id": "nonexistent"})
         assert r.status_code == 404
+        active_after = client.get("/api/profile")
+        assert active_after.status_code == 200
+        assert active_after.json()["id"] == active_before
 
     def test_delete_profile(self, client):
         """Profil loeschen."""
@@ -258,6 +334,19 @@ class TestMultiProfile:
         profiles = client.get("/api/profiles").json()["profiles"]
         assert not any(p.get("id") == new_id for p in profiles)
 
+    def test_delete_nonexistent_profile_returns_404(self, client):
+        """Löschen eines unbekannten Profils liefert 404 und behält aktives Profil."""
+        client.post("/api/profile", json={"name": "Profil A"})
+        active_before = client.get("/api/profile").json()["id"]
+
+        r = client.delete("/api/profiles/nonexistent")
+        assert r.status_code == 404
+        assert "nicht gefunden" in r.json()["error"]
+
+        active_after = client.get("/api/profile")
+        assert active_after.status_code == 200
+        assert active_after.json()["id"] == active_before
+
     def test_new_profile_without_name(self, client):
         """Neues Profil ohne Name → 400."""
         r = client.post("/api/profiles/new", json={})
@@ -267,6 +356,126 @@ class TestMultiProfile:
 # ============================================================
 # Stellen (Jobs)
 # ============================================================
+
+class TestProfileIsolation:
+    def test_profile_specific_sources_criteria_blacklist_and_search_status(self, client):
+        """Profilbezogene Einstellungen bleiben beim Wechsel sauber getrennt."""
+        import bewerbungs_assistent.dashboard as dash
+        from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+
+        client.post("/api/profile", json={"name": "Profil A"})
+        client.post("/api/sources", json={"active_sources": ["bundesagentur"]})
+        client.post("/api/search-criteria", json={"keywords": "PLM"})
+        client.post("/api/blacklist", json={"type": "firma", "value": "BadCorp"})
+        dash._db.set_setting("last_search_at", datetime.now().isoformat())
+
+        r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
+        profile_b = r_new.json()["id"]
+
+        active_defaults_b = {
+            source["key"] for source in client.get("/api/sources").json() if source["active"]
+        }
+        expected_defaults = {
+            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+        }
+        assert active_defaults_b == expected_defaults
+        assert client.get("/api/search-criteria").json() == {}
+        assert client.get("/api/blacklist").json() == []
+        assert client.get("/api/search-status").json()["status"] == "nie"
+
+        client.post("/api/sources", json={"active_sources": ["stepstone"]})
+        client.post("/api/search-criteria", json={"keywords": "React"})
+        client.post("/api/blacklist", json={"type": "firma", "value": "NopeCorp"})
+        dash._db.set_setting("last_search_at", (datetime.now() - timedelta(days=8)).isoformat())
+
+        profiles = client.get("/api/profiles").json()["profiles"]
+        profile_a = next(profile["id"] for profile in profiles if profile["name"] == "Profil A")
+
+        client.post("/api/profiles/switch", json={"profile_id": profile_a})
+        active_a = {source["key"] for source in client.get("/api/sources").json() if source["active"]}
+        assert active_a == {"bundesagentur"}
+        assert client.get("/api/search-criteria").json()["keywords"] == "PLM"
+        assert [entry["value"] for entry in client.get("/api/blacklist").json()] == ["BadCorp"]
+        assert client.get("/api/search-status").json()["status"] == "aktuell"
+
+        client.post("/api/profiles/switch", json={"profile_id": profile_b})
+        active_b = {source["key"] for source in client.get("/api/sources").json() if source["active"]}
+        assert active_b == {"stepstone"}
+        assert client.get("/api/search-criteria").json()["keywords"] == "React"
+        assert [entry["value"] for entry in client.get("/api/blacklist").json()] == ["NopeCorp"]
+        assert client.get("/api/search-status").json()["status"] == "dringend"
+
+    def test_blacklist_entries_can_be_deleted_and_are_profile_scoped(self, client):
+        """DELETE /api/blacklist/{id} loescht nur Eintraege des aktiven Profils."""
+        client.post("/api/profile", json={"name": "Profil A"})
+        client.post("/api/blacklist", json={"type": "firma", "value": "BadCorp"})
+        entry_a = client.get("/api/blacklist").json()[0]
+
+        r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
+        profile_b = r_new.json()["id"]
+        client.post("/api/blacklist", json={"type": "firma", "value": "NopeCorp"})
+        entry_b = client.get("/api/blacklist").json()[0]
+
+        # Active profile is B: deleting A's entry must fail.
+        r_forbidden_scope = client.delete(f"/api/blacklist/{entry_a['id']}")
+        assert r_forbidden_scope.status_code == 404
+        assert [entry["value"] for entry in client.get("/api/blacklist").json()] == ["NopeCorp"]
+
+        # Deleting own entry works.
+        r_delete_b = client.delete(f"/api/blacklist/{entry_b['id']}")
+        assert r_delete_b.status_code == 200
+        assert client.get("/api/blacklist").json() == []
+
+        profiles = client.get("/api/profiles").json()["profiles"]
+        profile_a = next(profile["id"] for profile in profiles if profile["name"] == "Profil A")
+        client.post("/api/profiles/switch", json={"profile_id": profile_a})
+        assert [entry["value"] for entry in client.get("/api/blacklist").json()] == ["BadCorp"]
+
+        r_delete_a = client.delete(f"/api/blacklist/{entry_a['id']}")
+        assert r_delete_a.status_code == 200
+        assert client.get("/api/blacklist").json() == []
+
+        client.post("/api/profiles/switch", json={"profile_id": profile_b})
+        assert client.get("/api/blacklist").json() == []
+
+    def test_profile_specific_jobs_and_applications_are_isolated(self, client):
+        """Job- und Bewerbungslisten folgen dem aktiven Profil."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Profil A"})
+        dash._db.save_jobs([{
+            "hash": "job-a",
+            "title": "PLM Consultant",
+            "company": "Firma A",
+            "source": "stepstone",
+            "score": 8,
+        }])
+        client.post("/api/applications", json={"title": "Job A", "company": "Firma A"})
+
+        r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
+        profile_b = r_new.json()["id"]
+        dash._db.save_jobs([{
+            "hash": "job-b",
+            "title": "React Developer",
+            "company": "Firma B",
+            "source": "indeed",
+            "score": 7,
+        }])
+        client.post("/api/applications", json={"title": "Job B", "company": "Firma B"})
+
+        jobs_b = client.get("/api/jobs").json()
+        apps_b = client.get("/api/applications").json()
+        assert [job["hash"] for job in jobs_b] == ["job-b"]
+        assert [app["title"] for app in apps_b["applications"]] == ["Job B"]
+
+        profiles = client.get("/api/profiles").json()["profiles"]
+        profile_a = next(profile["id"] for profile in profiles if profile["name"] == "Profil A")
+        client.post("/api/profiles/switch", json={"profile_id": profile_a})
+
+        jobs_a = client.get("/api/jobs").json()
+        apps_a = client.get("/api/applications").json()
+        assert [job["hash"] for job in jobs_a] == ["job-a"]
+        assert [app["title"] for app in apps_a["applications"]] == ["Job A"]
 
 class TestJobs:
     def test_jobs_empty(self, client):
@@ -499,6 +708,32 @@ class TestStatistics:
         assert r.status_code == 200
         assert r.json()["status"] == "aktuell"
 
+    def test_jobsuche_running_false_without_running_job(self, client):
+        """Jobsuche-Status liefert running=False ohne laufenden Hintergrundjob."""
+        r = client.get("/api/jobsuche/running")
+        assert r.status_code == 200
+        assert r.json()["running"] is False
+
+    def test_jobsuche_running_true_with_running_job(self, client):
+        """Jobsuche-Status zeigt Fortschritt eines laufenden Jobsuche-Jobs."""
+        import bewerbungs_assistent.dashboard as dash
+
+        job_id = dash._db.create_background_job("jobsuche", {"quellen": ["stepstone"]})
+        dash._db.update_background_job(
+            job_id,
+            "running",
+            progress=42,
+            message="Durchsuche stepstone... (1/1)",
+        )
+
+        r = client.get("/api/jobsuche/running")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["running"] is True
+        assert body["job_id"] == job_id
+        assert body["status"] == "running"
+        assert body["progress"] == 42
+
     def test_sources_default_all_inactive(self, client):
         """Quellen-API liefert standardmaessig alle Quellen als inaktiv."""
         r = client.get("/api/sources")
@@ -506,6 +741,20 @@ class TestStatistics:
         data = r.json()
         assert len(data) >= 1
         assert all(source["active"] is False for source in data)
+
+    def test_sources_default_with_profile_excludes_login_required(self, client):
+        """Frisches Profil aktiviert alle Quellen ausser LinkedIn/XING."""
+        from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+
+        client.post("/api/profile", json={"name": "Tester"})
+        r = client.get("/api/sources")
+        assert r.status_code == 200
+
+        active = {source["key"] for source in r.json() if source["active"]}
+        expected = {
+            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+        }
+        assert active == expected
 
     def test_sources_can_be_updated(self, client):
         """Aktive Quellen koennen gespeichert und erneut geladen werden."""
@@ -515,6 +764,105 @@ class TestStatistics:
         r2 = client.get("/api/sources")
         active_sources = {source["key"] for source in r2.json() if source["active"]}
         assert active_sources == {"bundesagentur", "stepstone"}
+
+    def test_source_login_rejects_non_login_source(self, client):
+        """Login-Endpunkt weist Quellen ohne Login-Anforderung ab."""
+        r = client.post("/api/sources/stepstone/login")
+        assert r.status_code == 400
+        assert "kein Login erforderlich" in r.json()["error"]
+
+    def test_source_login_starts_background_job_for_linkedin(self, client, monkeypatch):
+        """LinkedIn-Login startet Job und markiert ihn bei Erfolg als fertig."""
+        import bewerbungs_assistent.dashboard as dash
+        import bewerbungs_assistent.job_scraper.linkedin as linkedin
+
+        class ImmediateThread:
+            def __init__(self, target=None, daemon=None):
+                self._target = target
+
+            def start(self):
+                if self._target:
+                    self._target()
+
+        monkeypatch.setattr(dash.threading, "Thread", ImmediateThread)
+        monkeypatch.setattr(linkedin, "ensure_linkedin_session", lambda progress_callback=None: True)
+
+        r = client.post("/api/sources/linkedin/login")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "gestartet"
+
+        r_job = client.get(f"/api/background-jobs/{body['job_id']}")
+        assert r_job.status_code == 200
+        job = r_job.json()
+        assert job["status"] == "fertig"
+        assert job["result"]["source"] == "linkedin"
+        assert job["result"]["session_ready"] is True
+
+    def test_upload_document_sanitizes_nested_path_filename(self, client):
+        """Upload with relative folder path stores file under /dokumente without source subfolders."""
+        client.post("/api/profile", json={"name": "Uploader"})
+        r = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("Tomra/Bewerbung Vollzeit.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        )
+        assert r.status_code == 200
+
+        profile = client.get("/api/profile").json()
+        docs = profile["documents"]
+        assert len(docs) == 1
+        assert docs[0]["filename"] == "Bewerbung Vollzeit.pdf"
+
+        stored_path = Path(docs[0]["filepath"])
+        assert stored_path.exists()
+        assert "dokumente" in [part.lower() for part in stored_path.parts]
+        assert stored_path.parent.name != "Tomra"
+
+    def test_upload_document_sanitizes_windows_separator_filename(self, client):
+        """Upload with backslashes should not fail and should keep only the basename."""
+        client.post("/api/profile", json={"name": "Uploader"})
+        r = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("Tomra\\Lebenslauf Vollzeit.pdf", b"dummy", "application/pdf")},
+        )
+        assert r.status_code == 200
+        profile = client.get("/api/profile").json()
+        names = [document["filename"] for document in profile["documents"]]
+        assert "Lebenslauf Vollzeit.pdf" in names
+
+    def test_upload_same_filename_in_new_profile_keeps_original_name(self, client):
+        """Same filename in a different profile should not be renamed to _1."""
+        client.post("/api/profile", json={"name": "Profil A"})
+        first_upload = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("Bewerbung.pdf", b"dummy-a", "application/pdf")},
+        )
+        assert first_upload.status_code == 200
+
+        first_profile = client.get("/api/profile").json()
+        first_profile_id = first_profile["id"]
+        assert [doc["filename"] for doc in first_profile["documents"]] == ["Bewerbung.pdf"]
+
+        create_second = client.post("/api/profiles/new", json={"name": "Profil B"})
+        assert create_second.status_code == 200
+
+        second_upload = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("Bewerbung.pdf", b"dummy-b", "application/pdf")},
+        )
+        assert second_upload.status_code == 200
+
+        second_profile = client.get("/api/profile").json()
+        assert second_profile["id"] != first_profile_id
+        assert [doc["filename"] for doc in second_profile["documents"]] == ["Bewerbung.pdf"]
+
+        first_path = Path(first_profile["documents"][0]["filepath"])
+        second_path = Path(second_profile["documents"][0]["filepath"])
+        assert first_path.parent != second_path.parent
 
 
 # ============================================================
@@ -536,3 +884,6 @@ class TestFactoryReset:
         # Profile should be gone
         r2 = client.get("/api/status")
         assert r2.json()["has_profile"] is False
+
+
+

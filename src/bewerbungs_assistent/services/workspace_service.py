@@ -1,4 +1,4 @@
-"""Gemeinsame Workspace-Logik fuer Dashboard-Navigation und Guidance."""
+"""Gemeinsame Workspace-Logik für Dashboard-Navigation und Guidance."""
 
 from datetime import date
 
@@ -49,7 +49,7 @@ def build_workspace_summary(
         "label": "Startklar machen",
         "tone": "blue",
         "headline": "Lege dein Profil an oder importiere vorhandene Unterlagen.",
-        "description": "Ohne Profil kann PBP noch nicht fuer Jobsuche, Export oder Bewerbungen arbeiten.",
+        "description": "Ohne Profil kann PBP noch nicht für Jobsuche, Export oder Bewerbungen arbeiten.",
         "next_page": "dashboard",
         "action_label": "Profil starten",
         "action_type": "prompt",
@@ -61,8 +61,8 @@ def build_workspace_summary(
             "stage": "im_fluss",
             "label": "Im Fluss",
             "tone": "green",
-            "headline": "Dein Setup ist arbeitsfaehig.",
-            "description": "Pruefe neue Stellen, halte Bewerbungen aktuell und nutze Claude fuer die naechsten Schritte.",
+            "headline": "Dein Setup ist arbeitsfähig.",
+            "description": "Prüfe neue Stellen, halte Bewerbungen aktuell und nutze Claude für die nächsten Schritte.",
             "next_page": "dashboard",
             "action_label": "Dashboard ansehen",
             "action_type": "page",
@@ -75,9 +75,9 @@ def build_workspace_summary(
                 "label": "Profil ausbauen",
                 "tone": "yellow",
                 "headline": "Dein Profil braucht noch mehr Substanz.",
-                "description": "Je vollstaendiger dein Profil, desto besser funktionieren Matching, Anschreiben und Exporte.",
+                "description": "Je vollständiger dein Profil, desto besser funktionieren Matching, Anschreiben und Exporte.",
                 "next_page": "profil",
-                "action_label": "Profil vervollstaendigen",
+                "action_label": "Profil vervollständigen",
                 "action_type": "page",
                 "action_target": "profil",
             }
@@ -87,7 +87,7 @@ def build_workspace_summary(
                 "label": "Quellen aktivieren",
                 "tone": "yellow",
                 "headline": "Die Jobsuche ist noch nicht startbereit.",
-                "description": "Aktiviere mindestens eine Quelle, damit Claude oder das Dashboard Stellen finden koennen.",
+                "description": "Aktiviere mindestens eine Quelle, damit Claude oder das Dashboard Stellen finden können.",
                 "next_page": "einstellungen",
                 "action_label": "Quellen einrichten",
                 "action_type": "page",
@@ -98,8 +98,8 @@ def build_workspace_summary(
                 "stage": "jobsuche_erneuern",
                 "label": "Jobsuche erneuern",
                 "tone": "blue" if search_status["status"] == "nie" else "yellow",
-                "headline": "Es ist Zeit fuer eine frische Jobsuche.",
-                "description": "Regelmaessige Suchen halten deine Treffer aktuell und vermeiden alte Stellenlisten.",
+                "headline": "Es ist Zeit für eine frische Jobsuche.",
+                "description": "Regelmäßige Suchen halten deine Treffer aktuell und vermeiden alte Stellenlisten.",
                 "next_page": "dashboard",
                 "action_label": "/jobsuche_workflow kopieren",
                 "action_type": "prompt",
@@ -113,7 +113,7 @@ def build_workspace_summary(
                 "headline": "Du hast passende Stellen, aber noch keine Bewerbungen erfasst.",
                 "description": "Nutze die Stellenkarten oder den Bewerbungs-Wizard, um Momentum aufzubauen.",
                 "next_page": "stellen",
-                "action_label": "Stellen pruefen",
+                "action_label": "Stellen prüfen",
                 "action_type": "page",
                 "action_target": "stellen",
             }
@@ -122,10 +122,10 @@ def build_workspace_summary(
                 "stage": "nachfassen",
                 "label": "Nachfassen",
                 "tone": "red",
-                "headline": "Es gibt ueberfaellige Nachfassaktionen.",
+                "headline": "Es gibt überfällige Nachfassaktionen.",
                 "description": "Aktualisiere den Bewerbungsstatus oder plane ein Follow-up, damit nichts liegen bleibt.",
                 "next_page": "bewerbungen",
-                "action_label": "Bewerbungen pruefen",
+                "action_label": "Bewerbungen prüfen",
                 "action_type": "page",
                 "action_target": "bewerbungen",
             }

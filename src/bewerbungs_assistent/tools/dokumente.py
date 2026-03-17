@@ -29,14 +29,25 @@ def register(mcp, db, logger):
             document_id: ID oder Dateiname des Dokuments
         """
         conn = db.connect()
+        pid = db.get_active_profile_id()
+        if not pid:
+            return {"fehler": "Kein aktives Profil vorhanden."}
         # Try ID first, then filename fallback
-        row = conn.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM documents WHERE id=? AND profile_id=?",
+            (document_id, pid),
+        ).fetchone()
         if row is None:
-            row = conn.execute("SELECT * FROM documents WHERE filename=? ORDER BY created_at DESC LIMIT 1",
-                               (document_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM documents WHERE filename=? AND profile_id=? ORDER BY created_at DESC LIMIT 1",
+                (document_id, pid),
+            ).fetchone()
         if row is None:
             # List available documents as help
-            docs = conn.execute("SELECT id, filename FROM documents ORDER BY created_at DESC LIMIT 10").fetchall()
+            docs = conn.execute(
+                "SELECT id, filename FROM documents WHERE profile_id=? ORDER BY created_at DESC LIMIT 10",
+                (pid,),
+            ).fetchall()
             available = [{"id": d["id"], "filename": d["filename"]} for d in docs]
             return {"fehler": f"Dokument '{document_id}' nicht gefunden.",
                     "verfuegbare_dokumente": available}
@@ -256,15 +267,20 @@ def register(mcp, db, logger):
         """
         # Store extracted data and conflicts directly
         conn = db.connect()
-        conn.execute("""
+        pid = db.get_active_profile_id()
+        if not pid:
+            return {"fehler": "Kein aktives Profil vorhanden."}
+        updated = conn.execute("""
             UPDATE extraction_history SET
                 extracted_fields=?, conflicts=?, status=?
-            WHERE id=?
+            WHERE id=? AND profile_id=?
         """, (
             json.dumps(extrahierte_daten, ensure_ascii=False),
             json.dumps(konflikte or [], ensure_ascii=False),
-            status, extraction_id
-        ))
+            status, extraction_id, pid
+        )).rowcount
+        if updated == 0:
+            return {"fehler": f"Extraktion '{extraction_id}' nicht gefunden."}
         conn.commit()
 
         # Count what was found
@@ -315,7 +331,13 @@ def register(mcp, db, logger):
                 ueber konflikte_loesungen aufgeloest werden.
         """
         conn = db.connect()
-        row = conn.execute("SELECT * FROM extraction_history WHERE id=?", (extraction_id,)).fetchone()
+        pid = db.get_active_profile_id()
+        if not pid:
+            return {"fehler": "Kein aktives Profil vorhanden."}
+        row = conn.execute(
+            "SELECT * FROM extraction_history WHERE id=? AND profile_id=?",
+            (extraction_id, pid),
+        ).fetchone()
         if not row:
             return {"fehler": f"Extraktion '{extraction_id}' nicht gefunden."}
 

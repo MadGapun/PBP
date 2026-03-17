@@ -102,7 +102,7 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - **Branchen-Trends** — Welche Skills gerade gefragt sind
 
 ### 🌐 Web-Dashboard
-Browser-Oberfläche auf `localhost:8200` mit 5 Tabs:
+Browser-Oberfläche auf `localhost:5173` mit 5 Tabs:
 
 | Tab | Funktion |
 |-----|----------|
@@ -129,6 +129,12 @@ Der Installer:
 - Erstellt eine Desktop-Verknüpfung
 
 > **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
+
+### Deinstallation (Windows)
+
+1. Claude Desktop komplett beenden.
+2. Im PBP-Ordner `DEINSTALLIEREN.bat` ausfuehren.
+3. Im Skript entscheiden, ob nur Runtime/Config entfernt werden oder auch alle Daten in `%LOCALAPPDATA%\BewerbungsAssistent`.
 
 ### 2. Profil erstellen
 
@@ -227,7 +233,7 @@ PBP bietet 12 geführte Workflows. Du kannst sie entweder als Slash-Command (`/n
 
 ### Das Web-Dashboard
 
-Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8200) wenn PBP läuft.
+Das Dashboard startet automatisch auf [http://localhost:5173](http://localhost:5173) wenn PBP läuft.
 
 **Dashboard-Tab:**
 - Workspace-Guidance zeigt dir den nächsten sinnvollen Schritt
@@ -407,7 +413,7 @@ server.py (FastMCP, Composition Root)
     │
     ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace)
     ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v9)
-    ├──► dashboard.py      ◄── FastAPI :8200, 60+ API-Endpoints
+    ├──► dashboard.py      ◄── FastAPI :5173, 60+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 9 Quellen
               ├── bundesagentur.py   (REST API)

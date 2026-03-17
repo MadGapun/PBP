@@ -1,0 +1,6 @@
+================================================== 
+PBP Deinstaller v0.1.0 - 14.03.2026 11:42:05,37 
+User: tomsb 
+Basispfad: C:\Users\tomsb\Documents\development\PBP 
+Datenpfad: C:\Users\tomsb\AppData\Local\BewerbungsAssistent 
+================================================== 

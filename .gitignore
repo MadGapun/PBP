@@ -20,6 +20,9 @@ env/
 *.swp
 *.swo
 *~
+node_modules/
+frontend/node_modules/
+pnpm-debug.log*
 
 # OS
 .DS_Store

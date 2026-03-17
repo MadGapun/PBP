@@ -22,8 +22,7 @@ def register(mcp, db, logger):
         """
         from ..job_scraper import extract_salary_from_text, estimate_salary
 
-        conn = db.connect()
-        row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+        row = db.get_job(job_hash)
         if not row:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
 
@@ -53,10 +52,7 @@ def register(mcp, db, logger):
         # Save to database
         db.save_salary_data(job_hash, salary_min, salary_max, salary_type)
         if is_estimated:
-            conn.execute(
-                "UPDATE jobs SET salary_estimated=1 WHERE hash=?", (job_hash,)
-            )
-            conn.commit()
+            db.set_job_salary_estimated(job_hash, True)
 
         # Compare with profile preferences
         profile = db.get_profile()
@@ -243,16 +239,13 @@ def register(mcp, db, logger):
                     if len(tech) > 1:
                         user_skills.add(tech.strip().lower())
 
-        conn = db.connect()
         if job_hash:
-            row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
+            row = db.get_job(job_hash)
             if not row:
                 return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
-            jobs = [dict(row)]
+            jobs = [row]
         else:
-            jobs = [dict(r) for r in conn.execute(
-                "SELECT * FROM jobs WHERE is_active=1 ORDER BY score DESC LIMIT 50"
-            ).fetchall()]
+            jobs = db.get_active_jobs()[:50]
 
         if not jobs:
             return {"fehler": "Keine aktiven Stellen vorhanden. Starte zuerst eine Jobsuche."}
@@ -447,7 +440,13 @@ def register(mcp, db, logger):
             notizen: Optionale Notizen zum Stil
         """
         conn = db.connect()
-        row = conn.execute("SELECT * FROM applications WHERE id=?", (bewerbung_id,)).fetchone()
+        pid = db.get_active_profile_id()
+        if not pid:
+            return {"fehler": "Kein aktives Profil."}
+        row = conn.execute(
+            "SELECT * FROM applications WHERE id=? AND profile_id=?",
+            (bewerbung_id, pid),
+        ).fetchone()
         if not row:
             return {"fehler": "Bewerbung nicht gefunden."}
 

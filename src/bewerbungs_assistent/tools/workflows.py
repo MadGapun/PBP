@@ -7,6 +7,8 @@ damit sie sowohl in Claude Desktop als auch in claude.ai funktionieren.
 
 import asyncio
 
+from ..prompts import build_kennlerngespraech_prompt
+
 
 def register(mcp, db, logger):
     """Registriert Workflow-Tools (Prompt-Wrapper)."""
@@ -90,10 +92,7 @@ def _prompt_registry(db):
     import json
 
     def _ersterfassung():
-        from ..prompts import register_prompts
-        # We need to return the prompt text directly
-        # Re-implement the dynamic parts here
-        return _static_prompt("ersterfassung")
+        return build_kennlerngespraech_prompt(db)
 
     def _jobsuche_workflow():
         criteria = db.get_search_criteria()
@@ -367,7 +366,7 @@ SCHRITTE:
 Sprich Deutsch und per Du. Bei Konflikten IMMER den User fragen."""
 
     return {
-        "ersterfassung": _static_ersterfassung,
+        "ersterfassung": _ersterfassung,
         "jobsuche_workflow": _jobsuche_workflow,
         "willkommen": _willkommen,
         "bewerbungs_uebersicht": _bewerbungs_uebersicht,

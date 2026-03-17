@@ -5,6 +5,7 @@ settings, search criteria, blacklist, and background jobs.
 """
 
 import json
+import sqlite3
 import pytest
 from bewerbungs_assistent.database import Database, SCHEMA_VERSION
 
@@ -37,6 +38,19 @@ class TestProfile:
     def test_empty_profile(self, tmp_db):
         """No profile saved yet returns None."""
         assert tmp_db.get_profile() is None
+
+    def test_new_profile_default_sources_exclude_login_required(self, tmp_db):
+        """Neue Profile aktivieren standardmaessig keine Login-Quellen."""
+        from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+
+        tmp_db.create_profile("Neues Profil")
+        active_sources = tmp_db.get_setting("active_sources", [])
+        expected = [
+            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+        ]
+        assert active_sources == expected
+        assert "linkedin" not in active_sources
+        assert "xing" not in active_sources
 
 
 # === Positions & Projects ===
@@ -305,6 +319,35 @@ class TestBlacklist:
         bl = tmp_db.get_blacklist()
         assert len(bl) == 1
 
+    def test_remove_blacklist_entry(self, tmp_db):
+        """Blacklist entries can be removed by id."""
+        tmp_db.add_to_blacklist("firma", "BadCorp", "Grund")
+        tmp_db.add_to_blacklist("keyword", "Zeitarbeit", "Grund")
+
+        entries = tmp_db.get_blacklist()
+        badcorp = next(entry for entry in entries if entry["value"] == "BadCorp")
+
+        removed = tmp_db.remove_blacklist_entry(badcorp["id"])
+        assert removed is True
+        assert [entry["value"] for entry in tmp_db.get_blacklist()] == ["Zeitarbeit"]
+
+    def test_remove_blacklist_entry_is_profile_scoped(self, tmp_db):
+        """An entry from profile A must not be deletable while profile B is active."""
+        profile_a = tmp_db.create_profile("Profil A")
+        tmp_db.add_to_blacklist("firma", "BadCorp", "A")
+        entry_a = tmp_db.get_blacklist()[0]
+
+        tmp_db.create_profile("Profil B")
+        tmp_db.add_to_blacklist("firma", "NopeCorp", "B")
+
+        assert tmp_db.remove_blacklist_entry(entry_a["id"]) is False
+        assert [entry["value"] for entry in tmp_db.get_blacklist()] == ["NopeCorp"]
+
+        tmp_db.switch_profile(profile_a)
+        assert [entry["value"] for entry in tmp_db.get_blacklist()] == ["BadCorp"]
+        assert tmp_db.remove_blacklist_entry(entry_a["id"]) is True
+        assert tmp_db.get_blacklist() == []
+
 
 # === Settings ===
 
@@ -319,6 +362,151 @@ class TestSettings:
         """Missing setting returns default value."""
         result = tmp_db.get_setting("nonexistent", "fallback")
         assert result == "fallback"
+
+
+class TestProfileScopedData:
+    def test_switch_nonexistent_profile_keeps_current_active(self, tmp_db):
+        """Switching to an unknown profile id must keep the current active profile."""
+        profile_a = tmp_db.create_profile("Profil A")
+        tmp_db.create_profile("Profil B")
+        assert tmp_db.switch_profile(profile_a) is True
+        active_before = tmp_db.get_active_profile_id()
+        assert active_before == profile_a
+
+        assert tmp_db.switch_profile("nonexistent") is False
+        assert tmp_db.get_active_profile_id() == active_before
+
+    def test_settings_criteria_and_blacklist_are_profile_scoped(self, tmp_db):
+        """Profile-specific settings must not leak across profiles."""
+        from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+
+        profile_a = tmp_db.create_profile("Profil A")
+        tmp_db.set_setting("active_sources", ["stepstone"])
+        tmp_db.set_setting("last_search_at", "2026-03-13T10:00:00")
+        tmp_db.set_search_criteria("keywords_muss", ["PLM"])
+        tmp_db.add_to_blacklist("firma", "BadCorp", "Nicht passend")
+
+        profile_b = tmp_db.create_profile("Profil B")
+        expected_defaults = [
+            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+        ]
+        assert tmp_db.get_setting("active_sources", []) == expected_defaults
+        assert tmp_db.get_setting("last_search_at") is None
+        assert tmp_db.get_search_criteria() == {}
+        assert tmp_db.get_blacklist() == []
+
+        tmp_db.set_setting("active_sources", ["indeed"])
+        tmp_db.set_search_criteria("keywords_muss", ["React"])
+        tmp_db.add_to_blacklist("firma", "NopeCorp", "Anderer Markt")
+
+        tmp_db.switch_profile(profile_a)
+        assert tmp_db.get_setting("active_sources") == ["stepstone"]
+        assert tmp_db.get_setting("last_search_at") == "2026-03-13T10:00:00"
+        assert tmp_db.get_search_criteria()["keywords_muss"] == ["PLM"]
+        assert [entry["value"] for entry in tmp_db.get_blacklist()] == ["BadCorp"]
+
+        tmp_db.switch_profile(profile_b)
+        assert tmp_db.get_setting("active_sources") == ["indeed"]
+        assert tmp_db.get_search_criteria()["keywords_muss"] == ["React"]
+        assert [entry["value"] for entry in tmp_db.get_blacklist()] == ["NopeCorp"]
+
+    def test_jobs_applications_statistics_and_followups_are_profile_scoped(self, tmp_db, sample_jobs):
+        """Read models should only include data from the active profile."""
+        profile_a = tmp_db.create_profile("Profil A")
+        tmp_db.save_jobs(sample_jobs[:1])
+        app_a = tmp_db.add_application({"title": "A", "company": "Firma A", "status": "beworben"})
+        tmp_db.add_follow_up(app_a, "2026-03-01")
+
+        profile_b = tmp_db.create_profile("Profil B")
+        tmp_db.save_jobs(sample_jobs[1:])
+        tmp_db.add_application({"title": "B", "company": "Firma B", "status": "interview"})
+
+        stats_b = tmp_db.get_statistics()
+        assert len(tmp_db.get_active_jobs()) == 1
+        assert tmp_db.get_active_jobs()[0]["hash"] == sample_jobs[1]["hash"]
+        assert tmp_db.get_applications()[0]["title"] == "B"
+        assert stats_b["total_applications"] == 1
+        assert stats_b["applications_by_status"]["interview"] == 1
+        assert stats_b["active_jobs"] == 1
+        assert tmp_db.get_pending_follow_ups() == []
+
+        tmp_db.switch_profile(profile_a)
+        stats_a = tmp_db.get_statistics()
+        assert len(tmp_db.get_active_jobs()) == 1
+        assert tmp_db.get_active_jobs()[0]["hash"] == sample_jobs[0]["hash"]
+        assert tmp_db.get_applications()[0]["title"] == "A"
+        assert stats_a["total_applications"] == 1
+        assert stats_a["applications_by_status"]["beworben"] == 1
+        assert stats_a["active_jobs"] == 1
+        assert len(tmp_db.get_pending_follow_ups()) == 1
+
+    def test_profile_loaders_default_to_active_profile_only(self, tmp_db):
+        """Internal profile loaders must never fall back to global rows."""
+        profile_a = tmp_db.create_profile("Profil A")
+        tmp_db.add_position({"company": "A GmbH", "title": "Consultant"})
+        tmp_db.add_education({"institution": "FH A", "degree": "B.Sc."})
+        tmp_db.add_skill({"name": "Python", "category": "tool"})
+        tmp_db.add_document({
+            "filename": "cv_a.pdf",
+            "filepath": "/tmp/cv_a.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "Profil A",
+        })
+
+        profile_b = tmp_db.create_profile("Profil B")
+        assert tmp_db._get_positions() == []
+        assert tmp_db._get_education() == []
+        assert tmp_db._get_skills() == []
+        assert tmp_db._get_documents() == []
+
+        # Explicit profile parameter still works independent of active profile.
+        assert len(tmp_db._get_positions(profile_a)) == 1
+        assert len(tmp_db._get_education(profile_a)) == 1
+        assert len(tmp_db._get_skills(profile_a)) == 1
+        assert len(tmp_db._get_documents(profile_a)) == 1
+        assert tmp_db.get_active_profile_id() == profile_b
+
+    def test_extraction_history_defaults_to_active_profile_scope(self, tmp_db):
+        """Extraction history without explicit profile_id must be profile-scoped."""
+        profile_a = tmp_db.create_profile("Profil A")
+        doc_a = tmp_db.add_document({
+            "filename": "a.pdf",
+            "filepath": "/tmp/a.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "A",
+        })
+        ex_a = tmp_db.add_extraction_history({"document_id": doc_a, "profile_id": profile_a})
+
+        profile_b = tmp_db.create_profile("Profil B")
+        doc_b = tmp_db.add_document({
+            "filename": "b.pdf",
+            "filepath": "/tmp/b.pdf",
+            "doc_type": "lebenslauf",
+            "extracted_text": "B",
+        })
+        ex_b = tmp_db.add_extraction_history({"document_id": doc_b, "profile_id": profile_b})
+
+        history_b = tmp_db.get_extraction_history()
+        assert [row["id"] for row in history_b] == [ex_b]
+
+        tmp_db.switch_profile(profile_a)
+        history_a = tmp_db.get_extraction_history()
+        assert [row["id"] for row in history_a] == [ex_a]
+
+    def test_active_profile_self_heals_when_multiple_profiles_are_active(self, tmp_db):
+        """Legacy data with multiple active profiles is repaired on read."""
+        profile_a = tmp_db.create_profile("Profil A")
+        profile_b = tmp_db.create_profile("Profil B")
+        conn = tmp_db.connect()
+        conn.execute("UPDATE profile SET is_active=1 WHERE id IN (?, ?)", (profile_a, profile_b))
+        conn.commit()
+
+        active_id = tmp_db.get_active_profile_id()
+        active_rows = conn.execute("SELECT id FROM profile WHERE is_active=1").fetchall()
+
+        assert active_id in {profile_a, profile_b}
+        assert len(active_rows) == 1
+        assert active_rows[0]["id"] == active_id
 
 
 # === Background Jobs ===
@@ -342,6 +530,18 @@ class TestBackgroundJobs:
         assert job["progress"] == 100
         assert job["result"]["total"] == 42
 
+    def test_get_running_background_job_filtered_by_type(self, tmp_db):
+        """Running job lookup can be filtered by job_type."""
+        tmp_db.create_background_job("search")
+        jid_jobsuche = tmp_db.create_background_job("jobsuche")
+        tmp_db.update_background_job(jid_jobsuche, "running", progress=55, message="scan")
+
+        running = tmp_db.get_running_background_job("jobsuche")
+        assert running is not None
+        assert running["id"] == jid_jobsuche
+        assert running["job_type"] == "jobsuche"
+        assert running["status"] == "running"
+
 
 # === Schema Migration ===
 
@@ -363,6 +563,60 @@ class TestMigration:
         for expected in ["bewerbungsart", "lebenslauf_variante", "ansprechpartner",
                          "kontakt_email", "portal_name"]:
             assert expected in col_names, f"Column {expected} missing from applications"
+
+    def test_initialize_repairs_legacy_blacklist_without_profile_id(self, tmp_path):
+        """Init repariert Alt-DBs mit schema_version=10 aber altem blacklist-Schema."""
+        db_path = tmp_path / "legacy.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript("""
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+            INSERT INTO settings (key, value) VALUES ('schema_version', '10');
+
+            CREATE TABLE profile (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT,
+                updated_at TEXT
+            );
+            INSERT INTO profile (id, name, is_active) VALUES ('p1', 'Legacy', 1);
+
+            CREATE TABLE search_criteria (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TEXT
+            );
+            INSERT INTO search_criteria (key, value, updated_at)
+            VALUES ('keywords_muss', '["PLM"]', '2026-03-01T00:00:00');
+
+            CREATE TABLE blacklist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                value TEXT NOT NULL,
+                reason TEXT,
+                created_at TEXT,
+                UNIQUE(type, value)
+            );
+            INSERT INTO blacklist (type, value, reason, created_at)
+            VALUES ('firma', 'LegacyCorp', 'Altbestand', '2026-03-01T00:00:00');
+        """)
+        conn.commit()
+        conn.close()
+
+        db = Database(db_path=db_path)
+        db.initialize()
+
+        scoped_criteria = db.get_search_criteria()
+        assert scoped_criteria["keywords_muss"] == ["PLM"]
+
+        scoped_blacklist = db.get_blacklist()
+        assert len(scoped_blacklist) == 1
+        assert scoped_blacklist[0]["value"] == "LegacyCorp"
+
+        columns = {
+            row["name"] for row in db.connect().execute("PRAGMA table_info(blacklist)").fetchall()
+        }
+        assert "profile_id" in columns
 
 
 # === Statistics ===
@@ -386,3 +640,4 @@ class TestStatistics:
         assert stats["applications_by_status"]["beworben"] == 1
         assert stats["applications_by_status"]["interview"] == 1
         assert stats["interview_rate"] == 50.0
+
