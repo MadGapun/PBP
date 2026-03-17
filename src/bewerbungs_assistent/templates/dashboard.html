@@ -1562,6 +1562,7 @@ async function renderProfile(p) {
         </div>
         <div style="display:flex; gap:6px; align-items:center;">
           <span class="badge badge-gray">${docTypes[d.doc_type]||d.doc_type}</span>
+          ${d.linked_application_id ? `<span class="badge badge-blue" style="font-size:0.7rem;">Verknuepft</span>` : `<button class="btn btn-sm" onclick="showLinkDocToAppSearch('${d.id}', '${d.filename.replace(/'/g, "\\'")}')" title="Mit Bewerbung verknuepfen" style="padding:2px 6px;">&#128279;</button>`}
           ${d.extraction_status === 'angewendet' ? `<button class="btn btn-sm" onclick="reanalyzeDocument('${d.id}')" title="Erneut analysieren lassen" style="padding:2px 6px;">&#8635;</button>` : ''}
           <button class="btn btn-sm btn-danger" onclick="deleteDocument('${d.id}')" style="padding:2px 6px;">x</button>
         </div>
@@ -3576,6 +3577,60 @@ async function linkDocToApp(appId, docId) {
   closeModal();
   showToast('Dokument verknuepft!', 'success');
   showAppDetail(appId);
+}
+
+// === Dokument-Verknuepfung mit Suche (aus Profil-Tab) ===
+async function showLinkDocToAppSearch(docId, filename) {
+  const result = await api('/api/applications?limit=9999&include_archived=true');
+  const apps = result.applications || [];
+  if (!apps.length) {
+    showToast('Keine Bewerbungen vorhanden.', 'info');
+    return;
+  }
+  let html = `<h2>Dokument verknuepfen</h2>
+    <p style="color:var(--text2); margin-bottom:8px;"><strong>${_escHtml(filename)}</strong> mit einer Bewerbung verknuepfen:</p>
+    <input type="text" id="doc-link-search" placeholder="Firma oder Stelle suchen..." oninput="filterDocLinkResults()"
+      style="width:100%; padding:8px 12px; margin-bottom:8px; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px; font-size:0.95rem;">
+    <div id="doc-link-results" style="max-height:300px; overflow-y:auto;">`;
+  html += _renderDocLinkItems(apps, docId);
+  html += `</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Abbrechen</button></div>`;
+  openModal(html);
+  // Store apps for filtering
+  window._docLinkApps = apps;
+  window._docLinkDocId = docId;
+  setTimeout(() => document.getElementById('doc-link-search')?.focus(), 100);
+}
+
+function _renderDocLinkItems(apps, docId) {
+  let h = '';
+  for (const a of apps) {
+    const statusBadge = {'beworben':'badge-blue','interview':'badge-yellow','angebot':'badge-green','abgelehnt':'badge-red','abgesagt':'badge-red','archiviert':'badge-gray','abgelaufen':'badge-gray'}[a.status] || 'badge-gray';
+    h += `<div style="padding:8px; border-bottom:1px solid var(--border); cursor:pointer; border-radius:6px;"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"
+      onclick="linkDocFromProfile('${docId}', '${a.id}')">
+      <div style="font-weight:600;">${_escHtml(a.company || '')}</div>
+      <div style="font-size:0.85rem; color:var(--text2);">${_escHtml(a.title || '')} <span class="badge ${statusBadge}" style="font-size:0.7rem;">${a.status||''}</span></div>
+    </div>`;
+  }
+  return h || '<div style="padding:12px; color:var(--text2);">Keine Treffer</div>';
+}
+
+function filterDocLinkResults() {
+  const q = (document.getElementById('doc-link-search')?.value || '').toLowerCase();
+  const apps = window._docLinkApps || [];
+  const docId = window._docLinkDocId;
+  const filtered = q ? apps.filter(a => (a.company||'').toLowerCase().includes(q) || (a.title||'').toLowerCase().includes(q)) : apps;
+  document.getElementById('doc-link-results').innerHTML = _renderDocLinkItems(filtered, docId);
+}
+
+async function linkDocFromProfile(docId, appId) {
+  await api(`/api/applications/${appId}/link-document`, {
+    method: 'POST', body: JSON.stringify({ document_id: docId })
+  });
+  closeModal();
+  showToast('Dokument verknuepft!', 'success');
+  // Refresh profile view to update badge
+  loadProfile();
 }
 
 // === Profil-Switcher (PBP-025) ===

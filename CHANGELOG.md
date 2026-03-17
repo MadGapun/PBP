@@ -4,21 +4,43 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [0.22.0] - 2026-03-17
 
-### Erweiterte Bewerbungs-Detailansicht und Dokument-Verknuepfung
+### Bewerbungs-Detailansicht, Gespraechsnotizen und Dokument-Verknuepfung
 
+**Erweiterte Bewerbungs-Detailansicht:**
 - Bewerbungs-Detailansicht komplett ueberarbeitet: Klick auf eine Bewerbung zeigt
   jetzt Stellendetails (Fit-Score, Quelle, Ort, Remote-Level, Gehalt, Entfernung),
   Kontaktdaten, aufklappbare Stellenbeschreibung und verknuepfte Dokumente.
-- Neue Dokument-Verknuepfung: Lebenslauf, Anschreiben und andere Unterlagen
-  koennen direkt in der Detailansicht mit einer Bewerbung verknuepft werden.
-- Neue API-Endpoints: GET /api/documents (Profil-Dokumente auflisten),
-  POST /api/applications/{id}/link-document (Dokument verknuepfen).
-- Timeline-Endpoint liefert jetzt Job-Details und verknuepfte Dokumente mit.
-- Archiv-Fix: Archivierte Bewerbungen (abgelehnt, zurueckgezogen, abgelaufen)
-  werden wieder korrekt in der eingeklappten Archiv-Sektion angezeigt.
-- Lebenslauf-Variante und Ablehnungsgrund werden in der Detailansicht angezeigt.
-- 4 neue Tests fuer Detailansicht, Dokument-Verknuepfung und Dokumente-API.
-- 232 Tests gesamt, alle gruen.
+- Firmenname prominent mit Original-Link zur Stellenanzeige.
+- Portal-Badge (via StepStone, LinkedIn etc.) direkt sichtbar.
+- Lebenslauf-Variante und Ablehnungsgrund in der Detailansicht.
+
+**Gespraechsnotizen mit Zeitstempeln:**
+- Neue Notizen-Funktion direkt in der Bewerbungs-Detailansicht.
+- Notizen mit automatischem Zeitstempel hinzufuegen (Telefonnotizen,
+  Interview-Feedback, Vorbereitung, Gespraechsprotokolle).
+- Bestehende Notizen inline bearbeiten und loeschen.
+- Notizen sind visuell hervorgehoben (blaues NOTIZ-Label) und von
+  Statusaenderungen klar unterscheidbar.
+- Sicherheit: Nur Notizen koennen geloescht werden, nicht Statusaenderungen.
+- Chronologische Sortierung (neueste oben) mit Datum und Uhrzeit.
+- API: POST /api/applications/{id}/notes (hinzufuegen),
+  PUT /api/applications/{id}/notes/{event_id} (bearbeiten),
+  DELETE /api/applications/{id}/notes/{event_id} (loeschen).
+
+**Dokument-Verknuepfung:**
+- Lebenslauf, Anschreiben und andere Unterlagen koennen direkt in der
+  Detailansicht mit einer Bewerbung verknuepft werden.
+- Dokument-Auswahldialog mit Hover-Effekt und Typ-Icons.
+- API: GET /api/documents, POST /api/applications/{id}/link-document.
+
+**Archiv-Fix:**
+- Archivierte Bewerbungen (abgelehnt, zurueckgezogen, abgelaufen) werden wieder
+  korrekt in der eingeklappten Archiv-Sektion angezeigt.
+
+**Tests:**
+- 9 neue Tests (237 total): Detailansicht, Dokument-Verknuepfung, Dokumente-API,
+  Notizen hinzufuegen/bearbeiten/loeschen, leere Notiz abgewiesen,
+  mehrere chronologische Notizen.
 
 ## [0.21.1] - 2026-03-17
 
@@ -36,6 +58,20 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
   Statistik-Isolation und stabile oeffentliche Hash-Ausgaben ab.
 - MCP-Registry-Tests wurden mit der aktuellen FastMCP-API kompatibel gemacht,
   damit die Vollsuite auf dem aktuellen Dependency-Stand wieder gruen laeuft.
+
+## [0.21.0] — 2026-03-16
+
+### LinkedIn & XING Browser-Integration mit konfigurierbaren Selektoren (#73)
+
+- **LinkedIn Browser-Suche**: Persistent-Browser-Sessions, Smart-Keywords aus
+  Profil-Skills, Multi-Page-Pagination (max 3 Seiten), Job-ID-Deduplizierung,
+  Beschreibungs-Extraktion aus Detail-Panel, Remote-Filter, Bot-Detection-Erkennung.
+- **XING Browser-Suche**: Analoge Verbesserungen — Pagination, Job-ID-Dedup,
+  konfigurierbare DOM-Selektoren.
+- **Neues Modul `browser_config.py`**: Zentrale DOM-Selektoren fuer LinkedIn und
+  XING — einfach aktualisierbar wenn Portale ihr Layout aendern.
+- **Neues MCP-Tool**: `linkedin_browser_search()` fuer direkte LinkedIn-Suche.
+- **62 Tools** gesamt (+1), 15 neue Tests (223 total).
 
 ## [0.20.0] — 2026-03-16
 

@@ -5,8 +5,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-61-blueviolet.svg)](#mcp-schnittstelle)
+[![Tests](https://img.shields.io/badge/Tests-237%20passing-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-62-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-14-ff69b4.svg)](#die-14-workflows)
 
 ---
@@ -110,16 +110,23 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 
 > 📌 Immer DOCX beim angepassten CV — weil die letzten Feinschliffe ein Mensch machen sollte.
 
-### 📈 Bewerbungs-Tracking
-- Status-Pipeline: offen → beworben → Interview → Angebot → angenommen/abgelehnt
-- Timeline mit allen Ereignissen
-- Bewerbungen **bearbeiten, löschen, kommentieren** — volle Kontrolle
-- Gesprächsnotizen zu jeder Bewerbung
-- Dokumente mit Bewerbungen verknüpfen
-- Conversion-Rates und Statistiken
+### 📈 Bewerbungs-Tracking & Detailansicht
+- Status-Pipeline: offen → beworben → Interview → Angebot → angenommen/abgelehnt/abgelaufen
+- **Detailansicht pro Bewerbung** — Klick zeigt alles auf einen Blick:
+  - Stellenbeschreibung (aufklappbar), Fit-Score, Quelle, Gehalt, Standort, Remote-Level
+  - Kontaktdaten (Ansprechpartner + E-Mail)
+  - Verknüpfte Dokumente (Lebenslauf, Anschreiben, Zeugnisse)
+  - Chronologischer Verlauf mit Zeitstempeln
+- **Gesprächsnotizen** — Telefonnotizen, Interview-Feedback, Vorbereitung direkt zur Bewerbung
+  - Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
+  - Visuell getrennt von Statusänderungen
+- **Dokumente verknüpfen** — Unterlagen direkt aus der Detailansicht zuordnen
+- **Archiv** — Abgelehnte/zurückgezogene/abgelaufene Bewerbungen in eingeklappter Sektion
+- Conversion-Rates und **Statistik-Dashboard** (5 Charts: Timeline, Status-Donut, Quellen, Score-Verteilung)
 - Follow-up-Erinnerungen (automatisch geplant)
 - A/B-Tracking für Anschreiben-Stile
 - Ablehnungs-Muster-Analyse mit lernenden Ablehnungsgründen
+- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
 
 ### 🎯 KI-Coaching
 - **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
@@ -133,14 +140,15 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - **Branchen-Trends** — Welche Skills gerade gefragt sind
 
 ### 🌐 Web-Dashboard
-Browser-Oberfläche auf `localhost:8200` mit 5 Tabs:
+Browser-Oberfläche auf `localhost:8200` mit 6 Tabs:
 
 | Tab | Funktion |
 |-----|----------|
-| **Dashboard** | Übersicht, Workspace-Guidance, nächste Schritte, klickbare Links |
-| **Profil** | Alles bearbeiten — Positionen, Skills, Ausbildung, Projekte. Drag & Drop Upload. |
-| **Stellen** | Jobs mit Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges |
-| **Bewerbungen** | Pipeline, Timeline, Notizen, Statistiken |
+| **Dashboard** | Übersicht, Workspace-Guidance, nächste Schritte, Statistik-Vorschau |
+| **Profil** | Alles bearbeiten — Positionen, Skills, Ausbildung, Projekte. Drag & Drop Upload. Multi-Profil-Wechsler. |
+| **Stellen** | Jobs mit Fit-Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges, Pin/Unpin |
+| **Bewerbungen** | Pipeline, Detailansicht mit Stelleninfos + Dokumenten + Gesprächsnotizen, Archiv-Sektion |
+| **Statistiken** | 5 interaktive Charts: Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Score-Verteilung, Quellen-Scores |
 | **Einstellungen** | Quellen, Suchkriterien, Blacklist, Gehaltsfilter |
 
 ---
@@ -280,10 +288,17 @@ Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8
 - Bewerbungs-Wizard direkt aus der Stellenanzeige
 
 **Bewerbungen-Tab:**
-- Pipeline-Ansicht mit Drag & Drop
-- Timeline pro Bewerbung
+- Pipeline-Ansicht mit Status-Filter und Paginierung (30er Seiten)
+- **Detailansicht** (Klick auf Bewerbung): Stellendetails, Fit-Score, Quelle, Gehalt, Kontakt, Stellenbeschreibung, verknüpfte Dokumente, Gesprächsnotizen, Timeline
+- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen — mit Zeitstempeln
+- **Dokument-Verknüpfung**: Unterlagen direkt zuordnen
+- **Archiv**: Abgelehnte/zurückgezogene/abgelaufene Bewerbungen eingeklappt
 - Follow-up-Erinnerungen
-- Statistiken und Conversion-Rates
+- PDF-Bewerbungsbericht + Excel-Export
+
+**Statistiken-Tab:**
+- 5 interaktive Charts (Chart.js): Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Fit-Score-Verteilung, Quellen-Detailvergleich
+- Umschaltbar: Woche / Monat / Quartal / Jahr
 
 **Einstellungen-Tab:**
 - Aktive Jobportale auswählen
@@ -442,13 +457,13 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 61 Tools in 8 Modulen
+    ├──► tools/            ◄── 62 Tools in 8 Modulen
     ├──► prompts.py        ◄── 14 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
     ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace)
-    ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v9)
-    ├──► dashboard.py      ◄── FastAPI :8200, 60+ API-Endpoints
+    ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v10)
+    ├──► dashboard.py      ◄── FastAPI :8200, 70+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 17 Quellen
               ├── bundesagentur.py       (REST API)
@@ -474,7 +489,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 61 Tools in 8 Modulen
+### 62 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
@@ -521,7 +536,7 @@ server.py (FastMCP, Composition Root)
 </details>
 
 <details>
-<summary><strong>Jobsuche</strong> (5 Tools) — Suche, Bewertung, Analyse</summary>
+<summary><strong>Jobsuche</strong> (6 Tools) — Suche, Bewertung, Analyse</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -530,6 +545,7 @@ server.py (FastMCP, Composition Root)
 | `stellen_anzeigen` | Jobs mit Filter und Scoring |
 | `stelle_bewerten` | Job als passend/unpassend markieren |
 | `fit_analyse` | Detaillierte Fit-Analyse |
+| `linkedin_browser_search` | LinkedIn Browser-Suche mit persistenter Session |
 
 </details>
 
@@ -616,20 +632,20 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v9:
+SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v10:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `profile` | Bewerberprofil + Präferenzen |
+| `profile` | Bewerberprofil + Präferenzen (Multi-Profil-fähig) |
 | `positions` | Berufserfahrung |
 | `projects` | STAR-Projekte (→ positions) |
 | `education` | Ausbildung |
 | `skills` | Kompetenzen (5 Kategorien, Level, Aktualität) |
-| `documents` | Hochgeladene Dokumente |
+| `documents` | Hochgeladene Dokumente (verknüpfbar mit Bewerbungen) |
 | `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (17 Quellen) |
-| `applications` | Bewerbungen (6 Status-Stufen) |
-| `application_events` | Bewerbungs-Timeline |
+| `jobs` | Stellenangebote (17 Quellen, `is_pinned`, profilgebunden) |
+| `applications` | Bewerbungen (9 Status-Stufen inkl. abgelaufen) |
+| `application_events` | Bewerbungs-Timeline + Gesprächsnotizen |
 | `search_criteria` | Suchfilter |
 | `blacklist` | Ausschlussliste |
 | `background_jobs` | Async-Tasks |
@@ -654,7 +670,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 190 Tests, ~10 Sekunden
+# 237 Tests, ~13 Sekunden
 ```
 
 ---
@@ -700,35 +716,36 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.22.0 — Bewerbungs-Detailansicht, Gesprächsnotizen & Dokument-Verknüpfung (2026-03-17)
+- **Detailansicht** komplett neu: Stelleninfos, Fit-Score, Quelle, Gehalt, aufklappbare Stellenbeschreibung
+- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
+- **Dokument-Verknüpfung**: Unterlagen direkt in der Bewerbung zuordnen
+- **Archiv-Fix**: Archivierte Bewerbungen werden wieder angezeigt
+- 62 Tools, 237 Tests
+
+### v0.21.1 — Multi-Profil-Härtung (2026-03-17)
+- Jobs profilgebunden gespeichert, Follow-ups/Statistiken profilisoliert
+- Alle Queries respektieren das aktive Profil durchgängig
+
+### v0.21.0 — LinkedIn & XING Browser-Integration (2026-03-16)
+- **Persistent Browser Sessions** für LinkedIn und XING
+- Konfigurierbare DOM-Selektoren, Job-ID-Deduplizierung, Multi-Page-Pagination
+- Neues Tool: `linkedin_browser_search()`
+
+### v0.20.0 — Statistik-Dashboard & Bewerbungsbericht (2026-03-16)
+- **5 interaktive Charts** (Chart.js): Timeline, Status-Donut, Quellen, Score-Verteilung
+- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
+- **`is_pinned`** ersetzt Score=99 (Schema v10), neuer Status `abgelaufen`
+- Paginierung + Archiv-Sektion für Bewerbungen
+
 ### v0.19.0 — 8 neue Jobquellen, 17 Quellen insgesamt (2026-03-16)
 - **8 neue Quellen**: ingenieur.de (VDI), Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU, Kimeta, GULP, SOLCOM
-- Alle ohne Login, mit HTML + JSON-LD Multi-Strategie-Extraktion
 - **17 Quellen** insgesamt — von 9 fast verdoppelt
 
-### v0.18.1 — Scraper-Rewrite: Robustere Jobsuche (2026-03-15)
-- **StepStone, Indeed, Monster** komplett neu: Multi-Strategie-Extraktion (CSS → Link-Fallback → JSON-LD)
-- **LinkedIn/XING**: Dynamische Keywords aus Profil + regionale Filterung aus Suchkriterien
-
 ### v0.18.0 — Mega-Release: 26 Issues, 61 Tools, 14 Workflows (2026-03-15)
-- **26 GitHub-Issues geschlossen** in einem Release
-- **Scoring komplett überarbeitet**: Duplikat-Erkennung, Entfernungs-Stufen, Bewerbungs-Signal, Tagessatz-Normalisierung
-- **Bewerbungs-Management**: Bearbeiten, Löschen, Notizen, Details, Dokument-Verknüpfung
-- **2 neue Workflows**: Ablehnungs-Coaching, Auto-Bewerbung
-- **Dashboard**: Drag & Drop Upload, klickbare Links, Quellen-Badges, Paginierung
-- **Export**: Markdown und TXT neben PDF/DOCX
+- **26 GitHub-Issues geschlossen**, Scoring komplett überarbeitet
+- **Bewerbungs-Management**: Bearbeiten, Löschen, Notizen, Details
 - 61 Tools, 14 Workflows, 190+ Tests
-
-### v0.17.0 — Split-Layout, Distance-Scoring, Tailored CV (2026-03-12)
-- Dashboard Split-Layout, angepasster Lebenslauf, 3-Perspektiven-Analyse
-- 55 Tools, 190 Tests
-
-### v0.16.0 — Skill-Aktualität & Jobtitel-Vorschläge (2026-03-12)
-- Skills tracken `last_used_year`, automatische Jobtitel-Vorschläge
-- Schema v9, 53 Tools
-
-### v0.15.0 — Batch-Analyse & Bewerbungs-Erkennung (2026-03-12)
-- Batch-Analyse für viele Dokumente, Workflows als Tools
-- 51 Tools, 190 Tests
 
 ---
 
