@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-194%20passing-brightgreen.svg)](#tests)
 
 ---
 
@@ -40,7 +40,7 @@ server.py (FastMCP, Composition Root)
     ├──► prompts.py        ◄── 12 Prompts
     ├──► resources.py      ◄── 6 Resources
     │
-    ├──► database.py       ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    ├──► database.py       ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v9
     ├──► dashboard.py      ◄── FastAPI :8200, 56 API-Endpoints + Dashboard-Root
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 9 Quellen
@@ -243,7 +243,7 @@ Das Dashboard läuft auf [http://localhost:8200](http://localhost:8200) und biet
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 15 Kern-Tabellen + `user_preferences`, Schema v8 (Profil-Isolation + Factory-Reset):
+SQLite mit WAL-Mode, 15 Kern-Tabellen + `user_preferences`, Schema v9 (Profil-Isolation + Factory-Reset):
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -297,7 +297,7 @@ PBP/
 │   │   ├── profile_service.py    #   Profilstatus, Vollstaendigkeit, Praeferenzen
 │   │   ├── search_service.py     #   Suchstatus, Quellenverwaltung
 │   │   └── workspace_service.py  #   Workspace-Guidance (7 Readiness-Stufen)
-│   ├── database.py               # SQLite (15 Kern-Tabellen + user_preferences, Schema v8)
+│   ├── database.py               # SQLite (15 Kern-Tabellen + user_preferences, Schema v9)
 │   ├── dashboard.py              # FastAPI Dashboard (56 API-Endpoints + Root)
 │   ├── export.py                 # PDF/DOCX Export
 │   ├── logging_config.py         # Zentrales Logging
@@ -315,7 +315,7 @@ PBP/
 │       ├── xing.py               #   XING (Playwright)
 │       └── monster.py            #   Monster (Playwright)
 │
-├── tests/                        # 190 Tests (pytest)
+├── tests/                        # 194 Tests (pytest)
 │   ├── conftest.py               # Fixtures (tmp_db, sample_*)
 │   ├── test_database.py          # 33 DB-Tests
 │   ├── test_scoring.py           # 24 Scoring-Tests
@@ -348,11 +348,11 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 190 Tests, ~10 Sekunden
-# ✓ 33 Datenbank-Tests
+# 194 Tests, ~10-15 Sekunden
+# ✓ 34 Datenbank-Tests
 # ✓ 24 Scoring-Tests
-# ✓ 44 Dashboard-API-Tests
-# ✓ 43 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
+# ✓ 45 Dashboard-API-Tests
+# ✓ 45 v0.10.x Tests (Schema, Profil-Isolation, Next-Steps, Doc-Adoption, Completeness, Bulk)
 # ✓ 14 v0.13.0 Tests (FK-Fix, Ordner-Browser, Auto-Analyse, Recursive-Import)
 # ✓  5 Service-Layer-Tests (Profilstatus, Praeferenzen, Vollstaendigkeit)
 # ✓  5 Search-Service-Tests
@@ -414,13 +414,20 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.14.1 — Multi-Profil-Haertung und Release-Konsolidierung (2026-03-17)
+- **Multi-Profil-Fix**: Follow-ups, Statistiken und Analyse-Endpunkte sind jetzt sauber auf das aktive Profil begrenzt
+- **Job-Isolation**: Gleichnamige Stellen koennen in mehreren Profilen parallel existieren, ohne sich gegenseitig zu ueberschreiben
+- **Profil-Erstellung**: Dashboard und MCP legen neue Profile jetzt wirklich neu an statt das aktive Profil zu ersetzen
+- **Schema v9**: Migration auf profilgebundene interne Job-Hashes inklusive Nachziehen von `applications.job_hash`
+- 194 Tests bestanden
+
 ### v0.14.0 — Service-Layer, Dashboard-UX, Workspace-Guidance (2026-03-10)
 - **Service-Layer**: `profile_service.py`, `search_service.py`, `workspace_service.py` — gemeinsame Logik fuer Dashboard und MCP-Tools
 - **Dashboard-UX**: Workspace-Kopf mit Guidance, klarere Navigation, Profil-Schnellzugriffe
 - **Workspace-Summary API**: `/api/workspace-summary` mit Readiness-Stufen und Handlungsempfehlung
 - **MCP-Registry-Tests**: Smoke-Tests fuer alle 44 Tools, 12 Prompts, 6 Resources
 - **Scraper-Fixture-Tests**: Hays, Freelance.de, Freelancermap mit stabilen HTML-Fixtures
-- 190 Tests bestanden
+- 187 Tests im Release, spaeter auf 190 im Repo-Stand erweitert
 
 ### v0.13.0 — FK-Bugfixes, Auto-Analyse, Ordner-Browser (2026-03-08)
 - Fix: **job_hash FK-Constraint** — Leerer String → None, kein FK-Fehler mehr

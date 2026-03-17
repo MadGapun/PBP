@@ -4,13 +4,36 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-03-17
+
+### Bugfixes
+
+- **Multi-Profil-Fix: Follow-ups sauber isoliert** — `get_pending_follow_ups()`,
+  Dashboard-Guidance, `/api/follow-ups` und `nachfass_anzeigen()` liefern jetzt nur noch
+  Eintraege des aktiven Profils.
+- **Multi-Profil-Fix: Job-Hashes pro Profil stabilisiert** — Gleichnamige/gleiche
+  Stellen koennen jetzt in mehreren Profilen parallel existieren, ohne sich ueber
+  `jobs.hash` gegenseitig zu ueberschreiben.
+- **Dashboard/MCP: Neues Profil erstellt wirklich ein neues Profil** — `/api/profiles/new`
+  und `neues_profil_erstellen()` legen jetzt ein zusaetzliches Profil an statt das aktive
+  Profil stillschweigend zu ueberschreiben.
+- **Analyse-/Statistik-Abfragen profilbezogen** — Gehaltsanalyse, Firmenrecherche,
+  Skill-Frequenz, Ablehnungsmuster und Kernstatistiken respektieren jetzt das aktive Profil.
+
+### Migration
+
+- **Schema v9** — Bestehende Jobs werden bei Migration auf profilgebundene interne Hashes
+  umgestellt; verknuepfte `applications.job_hash`-Referenzen werden mitgezogen.
+
 ### Tests
 
 - **Dashboard-Browser-Smoke-Tests**: Neue Datei `tests/test_dashboard_browser.py` mit 3 echten Playwright-Smokes fuer Erststart, Navigation, Follow-up-Guidance und Mobile-Layout.
+- **4 neue Regressionstests** fuer Multi-Profil-Isolation, profilgebundene Statistiken und den
+  Follow-up-Endpoint im Dashboard.
 
 ### Doku / Setup
 
-- Test-Doku auf den aktuellen Repo-Stand von **190 Tests** aktualisiert
+- Test-Doku auf den aktuellen Repo-Stand von **194 Tests** aktualisiert
 - Voller Test-Setup jetzt klarer dokumentiert: `pip install -e ".[all,dev]"` plus `playwright install chromium`
 
 ## [0.14.0] — 2026-03-10

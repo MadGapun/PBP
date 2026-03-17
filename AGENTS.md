@@ -1,6 +1,6 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 0.14.0 (Stand: 2026-03-10)
+> **Version:** 0.14.1 (Stand: 2026-03-17)
 > **Detaillierte Doku:** `ZUSTAND.md` (aktueller Systemzustand), `README.md`, `DOKUMENTATION.md`
 > **Codex-Analyse:** `docs/CODEX_ANALYSE.md` | **Verbesserungsplan:** `docs/VERBESSERUNGSPLAN.md`
 
@@ -12,7 +12,7 @@ unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstrac
 **Sprache:** Deutsch
 **Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, Playwright
 **Eigentümer:** Markus (kein Programmierer, nutzt PBP über Claude Desktop)
-**Tests:** 190 Tests, alle gruen (aktueller Repo-Stand)
+**Tests:** 194 Tests, alle gruen (aktueller Repo-Stand)
 
 ## Team & KI-Rollen
 
@@ -43,7 +43,7 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     ├── resources.py        ◄── 6 MCP-Resources
     │
     ├── services/          ◄── gemeinsamer Service-Layer (profile/search/workspace)
-    ├── database.py         ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    ├── database.py         ◄── 15 Kern-Tabellen + user_preferences, WAL, Schema v9
     │
     ├── dashboard.py        ◄── FastAPI :8200, 56 API-Endpoints + Dashboard-Root
     │   └── templates/dashboard.html (SPA, Vanilla JS, 5 Tabs)
@@ -75,7 +75,7 @@ In v0.12.0 wurde `server.py` von ~3200 Zeilen auf ~140 Zeilen reduziert:
 | v0.12.0 | Claude Code | Modularisierung (server.py aufgeteilt, 37 Dashboard-Tests) |
 | v0.13.0 | Claude Code | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | v0.14.0 | Codex + Claude Code | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
-| nach v0.14.0 | Codex | Dashboard-Browser-Smoke-Tests, 190 Tests im Repo-Stand |
+| v0.14.1 | Codex | Multi-Profil-Haertung, Schema v9, echte Neuprofil-Erstellung, 194 Tests |
 
 ## Deployment
 
@@ -99,7 +99,7 @@ INSTALLIEREN.bat
 pip install -e ".[all,dev]"
 playwright install chromium
 
-# Tests (190 Tests)
+# Tests (194 Tests)
 python -m pytest tests/ -v
 
 # Dashboard

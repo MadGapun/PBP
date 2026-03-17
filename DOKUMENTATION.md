@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-10 | v0.14.0
+## Komplette Projektdokumentation | Stand: 2026-03-17 | v0.14.1
 
 ---
 
@@ -290,7 +290,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:8200`:
 │         ├── search_service.py                             │
 │         └── workspace_service.py                          │
 │         ↓                                                  │
-│  database.py (SQLite + WAL, Schema v8)                    │
+│  database.py (SQLite + WAL, Schema v9)                    │
 │    └── 15 Kern-Tabellen + user_preferences, FK + CASCADE  │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
@@ -358,11 +358,11 @@ python test_demo.py
 pytest tests/ -v
 
 # Einzelne Testdateien:
-pytest tests/test_database.py -v          # 33 Tests
+pytest tests/test_database.py -v          # 34 Tests
 pytest tests/test_scoring.py -v           # 24 Tests
 pytest tests/test_export.py -v            #  8 Tests
-pytest tests/test_v010.py -v              # 43 Tests
-pytest tests/test_dashboard.py -v         # 44 Tests
+pytest tests/test_v010.py -v              # 45 Tests
+pytest tests/test_dashboard.py -v         # 45 Tests
 pytest tests/test_v013.py -v              # 14 Tests
 pytest tests/test_mcp_registry.py -v      #  3 Tests
 pytest tests/test_scrapers.py -v          #  3 Tests
@@ -372,11 +372,11 @@ pytest tests/test_workspace_service.py -v #  5 Tests
 pytest tests/test_dashboard_browser.py -v #  3 Tests
 ```
 
-Ergebnis: **190 Tests, alle gruen**
+Ergebnis: **194 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.14.0
+## 7. Fazit v0.14.1
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
@@ -393,7 +393,7 @@ Ergebnis: **190 Tests, alle gruen**
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 190 Tests im aktuellen Repo-Stand
+- ✓ 194 Tests im aktuellen Repo-Stand
 - ✓ Cross-Platform (Windows + Linux)
 
 ### Moegliche zukuenftige Erweiterungen:

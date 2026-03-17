@@ -3,6 +3,10 @@
 Stand: 2026-03-07
 Branch: `codex/pbp-analyse`
 
+> Hinweis: Diese Analyse ist historisch. Der aktuelle Repo-Stand liegt inzwischen bei
+> `v0.14.1` mit Schema `v9` und 194 Tests. Fuer den Live-Stand sind `ZUSTAND.md`,
+> `README.md` und `CHANGELOG.md` die verlässlichere Referenz.
+
 ## Kurzfazit
 
 PBP ist kein Prototyp mehr, sondern ein bereits deutlich ausgearbeitetes Produkt mit realer Architektur, persistenter Datenhaltung, lokalem Dashboard, Export-Funktionen und einem vergleichsweise breiten MCP-Interface. Die Grundidee ist technisch schluessig: Claude Desktop ist die sprachliche Oberflaeche, `server.py` kapselt die MCP-Interaktion, `database.py` haelt den Zustand lokal und `dashboard.py` bietet eine zweite Bedienoberflaeche.

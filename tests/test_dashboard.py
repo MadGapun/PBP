@@ -231,6 +231,9 @@ class TestMultiProfile:
         r = client.post("/api/profiles/new", json={"name": "Profil B"})
         assert r.status_code == 200
         new_id = r.json()["id"]
+        profiles = client.get("/api/profiles").json()["profiles"]
+        assert len(profiles) == 2
+        assert {p["name"] for p in profiles} == {"Profil A", "Profil B"}
 
         # Switch to new profile
         r2 = client.post("/api/profiles/switch", json={"profile_id": new_id})
@@ -335,6 +338,36 @@ class TestApplications:
         # Page 3 (last item)
         r4 = client.get("/api/applications?limit=2&offset=4")
         assert len(r4.json()["applications"]) == 1
+
+
+# ============================================================
+# Follow-ups
+# ============================================================
+
+class TestFollowUps:
+    def test_follow_ups_endpoint_respects_active_profile(self, client):
+        """API liefert nur Follow-ups des aktiven Profils."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Profil A"})
+        app_a = dash._db.add_application({"title": "App A", "company": "Corp A"})
+        dash._db.add_follow_up(app_a, (datetime.now() - timedelta(days=1)).date().isoformat())
+
+        r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
+        profile_b = r_new.json()["id"]
+        client.post("/api/profiles/switch", json={"profile_id": profile_b})
+        app_b = dash._db.add_application({"title": "App B", "company": "Corp B"})
+        dash._db.add_follow_up(app_b, datetime.now().date().isoformat())
+
+        data_b = client.get("/api/follow-ups").json()
+        assert [item["title"] for item in data_b["follow_ups"]] == ["App B"]
+
+        profiles = client.get("/api/profiles").json()["profiles"]
+        profile_a = next(p["id"] for p in profiles if p["name"] == "Profil A")
+        client.post("/api/profiles/switch", json={"profile_id": profile_a})
+
+        data_a = client.get("/api/follow-ups").json()
+        assert [item["title"] for item in data_a["follow_ups"]] == ["App A"]
 
 
 # ============================================================

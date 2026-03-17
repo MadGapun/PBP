@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-10 | v0.14.0
+## Zustandsbericht | 2026-03-17 | v0.14.1
 
 ---
 
@@ -8,14 +8,14 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.14.0 (pyproject.toml) |
+| **Version** | 0.14.1 (pyproject.toml) |
 | **Architektur** | MCP Server + Web Dashboard |
 | **Sprache** | Python 3.11+ |
-| **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v8, Profil-Isolation) |
+| **Datenbank** | SQLite (15 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v9, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) ? alle gruen |
+| **Tests** | 194 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) - alle gruen |
 
 ---
 
@@ -36,7 +36,7 @@ server.py (FastMCP, Composition Root)  <-- 44 Tools, 6 Resources, 12 Prompts
     |
     +---> services/  <-- gemeinsame Profil-, Such- und Workspace-Logik
     |
-    +---> database.py (SQLite)  <-- 15 Kern-Tabellen + user_preferences, WAL, Schema v8
+    +---> database.py (SQLite)  <-- 15 Kern-Tabellen + user_preferences, WAL, Schema v9
     |
     +---> dashboard.py (FastAPI :8200)  <-- 56 API-Endpoints + Dashboard-Root
     |         |
@@ -120,7 +120,7 @@ interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
 
 ---
 
-## 4. Datenbank-Schema (v8, 15 Kern-Tabellen + user_preferences)
+## 4. Datenbank-Schema (v9, 15 Kern-Tabellen + user_preferences)
 
 | Tabelle | Zweck | Seit |
 |---------|-------|------|
@@ -141,7 +141,7 @@ interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
 | extraction_history | Extraktions-Verlauf | v5 |
 | user_preferences | Benutzereinstellungen (Wizard, Hints) | v7 |
 
-Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
+Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 -> v9
 
 ---
 
@@ -151,14 +151,14 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 
 | Datei | Zeilen | Zweck |
 |-------|--------|-------|
-| server.py | ~140 | Composition Root (Init + Dashboard + Shutdown) |
+| server.py | 110 | Composition Root (Init + Dashboard + Shutdown) |
 | tools/*.py | ~2.485 | 7 Module: 44 Tools |
-| prompts.py | ~765 | 12 MCP Prompts |
-| resources.py | ~45 | 6 MCP Resources |
-| database.py | 1.635 | SQLite-Persistenz (Schema v8, Migrationen) |
-| dashboard.py | 1.272 | FastAPI Web-Dashboard (56 API-Endpoints + Dashboard-Root) |
-| export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
-| job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
+| prompts.py | 622 | 12 MCP Prompts |
+| resources.py | 36 | 6 MCP Resources |
+| database.py | 1.682 | SQLite-Persistenz (Schema v9, Migrationen) |
+| dashboard.py | 1.049 | FastAPI Web-Dashboard (56 API-Endpoints + Dashboard-Root) |
+| export.py | 313 | PDF/DOCX-Export (fpdf2 + python-docx) |
+| job_scraper/__init__.py | 515 | Orchestrator, Scoring, Gehaltsextraktion |
 | job_scraper/linkedin.py | ~290 | LinkedIn (Playwright) |
 | job_scraper/xing.py | ~240 | XING (Playwright) |
 | job_scraper/indeed.py | ~160 | Indeed (Playwright) |
@@ -176,11 +176,11 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | Datei | Tests | Zweck |
 |-------|-------|-------|
 | conftest.py | — | Fixtures (tmp_db, sample_*) |
-| test_database.py | 33 | CRUD, CASCADE, Migration, Stats |
+| test_database.py | 34 | CRUD, CASCADE, Migration, Stats |
 | test_scoring.py | 24 | Score, Fit, Remote, Hash, Keywords |
 | test_export.py | 8 | CV + Anschreiben in PDF + DOCX |
-| test_v010.py | 43 | Schema v8, Salary, UserPrefs, Profil-Isolation |
-| test_dashboard.py | 44 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil, Quellen, Suchstatus, Workspace Summary) |
+| test_v010.py | 45 | Schema v9, Salary, UserPrefs, Profil-Isolation |
+| test_dashboard.py | 45 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil, Quellen, Suchstatus, Workspace Summary) |
 | test_v013.py | 14 | v0.13.0 Fixes (FK-Bugfixes, Ordner-Browser, Auto-Analyse) |
 | test_mcp_registry.py | 3 | MCP-Registry, Public Interface, modulare Smoke-Tests |
 | test_scrapers.py | 3 | Fixture-basierte Parser-Tests fuer Hays, freelance.de und Freelancermap |
@@ -188,7 +188,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | test_search_service.py | 5 | Suchstatus, Quellenzaehlung und Source-Listen |
 | test_workspace_service.py | 5 | Workspace-Guidance, Navigation-Badges und Priorisierung |
 | test_dashboard_browser.py | 3 | Browser-Smokes fuer Onboarding, Navigation, Follow-up-Guidance und Mobile-Layout |
-| **Gesamt** | **190** | **Alle gruen** |
+| **Gesamt** | **194** | **Alle gruen** |
 
 ---
 
@@ -220,7 +220,7 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8
 | Version | Datum | Highlights |
 |---------|-------|-----------|
 | 0.14.0 | 2026-03-10 | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
-| nach 0.14.0 | 2026-03-10 | Dashboard-Browser-Smoke-Tests, 190 Tests im Repo-Stand |
+| 0.14.1 | 2026-03-17 | Multi-Profil-Haertung, Schema v9, echte Neuprofil-Erstellung, 194 Tests |
 | 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
 | 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
 | 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
@@ -236,5 +236,5 @@ Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
 
 ---
 
-*Aktualisiert: 2026-03-10 von Claude Code (v0.14.0 Service-Layer, Dashboard-UX, Workspace-Guidance)*
+*Aktualisiert: 2026-03-17 von Codex (v0.14.1 Multi-Profil-Haertung, Schema v9, Release-Konsolidierung)*
 *Vorheriger Stand: 2026-03-08 (v0.13.0 FK-Bugfixes, Auto-Analyse, Ordner-Browser)*

@@ -22,12 +22,11 @@ def register(mcp, db, logger):
         """
         from ..job_scraper import extract_salary_from_text, estimate_salary
 
-        conn = db.connect()
-        row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
-        if not row:
+        job = db.get_job(job_hash)
+        if not job:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
 
-        text = (row["description"] or "") + " " + (row["salary_info"] or "") + " " + (row["title"] or "")
+        text = (job["description"] or "") + " " + (job["salary_info"] or "") + " " + (job["title"] or "")
 
         # Try extraction first
         salary_min, salary_max, salary_type = extract_salary_from_text(text)
@@ -36,25 +35,27 @@ def register(mcp, db, logger):
         # Fallback: estimate if not found
         if salary_min is None:
             salary_min, salary_max, salary_type = estimate_salary(
-                row["title"] or "", row.get("employment_type", ""), row.get("location", "")
+                job["title"] or "", job.get("employment_type", ""), job.get("location", "")
             )
             is_estimated = True
 
         if salary_min is None:
             return {
                 "status": "nicht_gefunden",
-                "stelle": row["title"],
-                "firma": row["company"],
+                "stelle": job["title"],
+                "firma": job["company"],
                 "hinweis": "Keine Gehaltsangabe erkannt und keine Schaetzung moeglich. "
                            "Du kannst Claude bitten, den Text manuell zu analysieren.",
-                "salary_info_text": row.get("salary_info", ""),
+                "salary_info_text": job.get("salary_info", ""),
             }
 
         # Save to database
         db.save_salary_data(job_hash, salary_min, salary_max, salary_type)
         if is_estimated:
+            conn = db.connect()
+            target_hash = db.resolve_job_hash(job_hash)
             conn.execute(
-                "UPDATE jobs SET salary_estimated=1 WHERE hash=?", (job_hash,)
+                "UPDATE jobs SET salary_estimated=1 WHERE hash=?", (target_hash,)
             )
             conn.commit()
 
@@ -76,8 +77,8 @@ def register(mcp, db, logger):
 
         return {
             "status": "geschaetzt" if is_estimated else "extrahiert",
-            "stelle": row["title"],
-            "firma": row["company"],
+            "stelle": job["title"],
+            "firma": job["company"],
             "gehalt_min": salary_min,
             "gehalt_max": salary_max,
             "gehalt_typ": salary_type,
@@ -243,16 +244,13 @@ def register(mcp, db, logger):
                     if len(tech) > 1:
                         user_skills.add(tech.strip().lower())
 
-        conn = db.connect()
         if job_hash:
-            row = conn.execute("SELECT * FROM jobs WHERE hash=?", (job_hash,)).fetchone()
-            if not row:
+            job = db.get_job(job_hash)
+            if not job:
                 return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
-            jobs = [dict(row)]
+            jobs = [job]
         else:
-            jobs = [dict(r) for r in conn.execute(
-                "SELECT * FROM jobs WHERE is_active=1 ORDER BY score DESC LIMIT 50"
-            ).fetchall()]
+            jobs = db.get_active_jobs()[:50]
 
         if not jobs:
             return {"fehler": "Keine aktiven Stellen vorhanden. Starte zuerst eine Jobsuche."}

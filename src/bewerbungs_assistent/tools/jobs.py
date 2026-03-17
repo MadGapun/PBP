@@ -184,9 +184,8 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle (von stellen_anzeigen)
         """
         from ..job_scraper import fit_analyse as _fit_analyse
-        conn = db.connect()
-        row = conn.execute("SELECT * FROM jobs WHERE hash = ?", (job_hash,)).fetchone()
-        if not row:
+        job = db.get_job(job_hash)
+        if not job:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
         criteria = db.get_search_criteria()
-        return _fit_analyse(dict(row), criteria)
+        return _fit_analyse(job, criteria)
