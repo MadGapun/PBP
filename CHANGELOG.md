@@ -2,6 +2,24 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.22.0] - 2026-03-17
+
+### Erweiterte Bewerbungs-Detailansicht und Dokument-Verknuepfung
+
+- Bewerbungs-Detailansicht komplett ueberarbeitet: Klick auf eine Bewerbung zeigt
+  jetzt Stellendetails (Fit-Score, Quelle, Ort, Remote-Level, Gehalt, Entfernung),
+  Kontaktdaten, aufklappbare Stellenbeschreibung und verknuepfte Dokumente.
+- Neue Dokument-Verknuepfung: Lebenslauf, Anschreiben und andere Unterlagen
+  koennen direkt in der Detailansicht mit einer Bewerbung verknuepft werden.
+- Neue API-Endpoints: GET /api/documents (Profil-Dokumente auflisten),
+  POST /api/applications/{id}/link-document (Dokument verknuepfen).
+- Timeline-Endpoint liefert jetzt Job-Details und verknuepfte Dokumente mit.
+- Archiv-Fix: Archivierte Bewerbungen (abgelehnt, zurueckgezogen, abgelaufen)
+  werden wieder korrekt in der eingeklappten Archiv-Sektion angezeigt.
+- Lebenslauf-Variante und Ablehnungsgrund werden in der Detailansicht angezeigt.
+- 4 neue Tests fuer Detailansicht, Dokument-Verknuepfung und Dokumente-API.
+- 232 Tests gesamt, alle gruen.
+
 ## [0.21.1] - 2026-03-17
 
 ### Multi-Profil-Haertung und Merge-Stabilisierung

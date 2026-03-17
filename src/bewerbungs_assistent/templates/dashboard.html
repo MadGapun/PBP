@@ -1921,7 +1921,8 @@ function renderApplications() {
 
   // Archive section (collapsed by default)
   const archiveEl = document.getElementById('apps-archive');
-  if (appArchivedCount > 0 && !document.getElementById('app-status-filter')?.value) {
+  const currentFilter = document.getElementById('app-status-filter')?.value || '';
+  if (appArchivedCount > 0 && (!currentFilter || currentFilter === '__all__')) {
     const showingArchive = archivedApps.length > 0;
     archiveEl.innerHTML = `
       <details${showingArchive ? ' open' : ''}>
@@ -3349,17 +3350,95 @@ async function showAppDetail(id) {
   if (result.error) { showToast(result.error, 'error'); return; }
   const a = result.application;
   const events = result.events;
+  const job = result.job;
+  const docs = result.documents || [];
 
-  let html = `<h2>${a.title}</h2>
-    <p style="color:var(--text2); margin-bottom:16px;">${a.company} ${a.url ? `— <a href="${a.url}" target="_blank" style="color:var(--accent);">Link</a>` : ''}</p>
-    <div style="display:flex; gap:8px; margin-bottom:16px;">
+  let html = `<div style="max-width:720px;">`;
+
+  // Header with company and status
+  html += `<h2 style="margin-bottom:4px;">${a.title}</h2>
+    <p style="color:var(--text2); margin-bottom:12px; font-size:1.05rem;">
+      <strong style="color:var(--text);">${a.company}</strong>
+      ${a.url ? ` &mdash; <a href="${a.url}" target="_blank" style="color:var(--accent);">Stellenanzeige</a>` : ''}
+      ${job && job.url && job.url !== a.url ? ` | <a href="${job.url}" target="_blank" style="color:var(--accent);">Original-Link</a>` : ''}
+    </p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
       <span class="badge badge-${statusColor(a.status)}">${a.status}</span>
       ${a.applied_at ? `<span class="badge badge-gray">Beworben: ${new Date(a.applied_at).toLocaleDateString('de')}</span>` : ''}
-    </div>
-    ${a.notes ? `<div style="margin-bottom:16px;"><label>Notizen</label><p style="font-size:0.9rem;">${a.notes}</p></div>` : ''}`;
+      ${a.bewerbungsart ? `<span class="badge badge-gray">${a.bewerbungsart}</span>` : ''}
+      ${a.portal_name ? `<span class="badge badge-blue">via ${a.portal_name}</span>` : ''}
+    </div>`;
 
+  // Contact info
+  if (a.ansprechpartner || a.kontakt_email) {
+    html += `<div style="margin-bottom:16px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border);">
+      <label style="font-size:0.78rem; text-transform:uppercase; color:var(--text2); letter-spacing:0.05em;">Kontakt</label>
+      ${a.ansprechpartner ? `<div style="margin-top:4px;">${a.ansprechpartner}</div>` : ''}
+      ${a.kontakt_email ? `<div><a href="mailto:${a.kontakt_email}" style="color:var(--accent);">${a.kontakt_email}</a></div>` : ''}
+    </div>`;
+  }
+
+  // Job details (Score, Source, Description)
+  if (job) {
+    html += `<div style="margin-bottom:16px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border);">
+      <label style="font-size:0.78rem; text-transform:uppercase; color:var(--text2); letter-spacing:0.05em;">Stellendetails</label>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-top:8px;">
+        ${job.score != null ? `<div><span style="color:var(--text2); font-size:0.82rem;">Fit-Score</span><br><strong style="font-size:1.2rem; color:${job.score >= 70 ? 'var(--green)' : job.score >= 40 ? 'var(--yellow)' : 'var(--red)'};">${job.score}%</strong></div>` : ''}
+        ${job.source ? `<div><span style="color:var(--text2); font-size:0.82rem;">Quelle</span><br><strong>${job.source}</strong></div>` : ''}
+        ${job.location ? `<div><span style="color:var(--text2); font-size:0.82rem;">Ort</span><br><strong>${job.location}</strong></div>` : ''}
+        ${job.remote_level && job.remote_level !== 'unbekannt' ? `<div><span style="color:var(--text2); font-size:0.82rem;">Remote</span><br><strong>${job.remote_level}</strong></div>` : ''}
+        ${job.employment_type ? `<div><span style="color:var(--text2); font-size:0.82rem;">Art</span><br><strong>${job.employment_type}</strong></div>` : ''}
+        ${job.salary_min ? `<div><span style="color:var(--text2); font-size:0.82rem;">Gehalt</span><br><strong>${job.salary_min.toLocaleString('de')}${job.salary_max ? ' - ' + job.salary_max.toLocaleString('de') : ''} EUR</strong><br><span style="font-size:0.75rem; color:var(--text2);">${job.salary_type || ''}${job.salary_estimated ? ' (geschaetzt)' : ''}</span></div>` : job.salary_info ? `<div><span style="color:var(--text2); font-size:0.82rem;">Gehalt</span><br><strong>${job.salary_info}</strong></div>` : ''}
+        ${job.distance_km ? `<div><span style="color:var(--text2); font-size:0.82rem;">Entfernung</span><br><strong>${job.distance_km} km</strong></div>` : ''}
+        ${job.found_at ? `<div><span style="color:var(--text2); font-size:0.82rem;">Gefunden</span><br><strong>${new Date(job.found_at).toLocaleDateString('de')}</strong></div>` : ''}
+      </div>
+      ${job.url ? `<div style="margin-top:8px;"><a href="${job.url}" target="_blank" style="color:var(--accent); font-size:0.88rem;">Originalanzeige aufrufen</a></div>` : ''}
+    </div>`;
+
+    // Job description (collapsible)
+    if (job.description) {
+      html += `<div style="margin-bottom:16px;">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; color:var(--text2); padding:8px 0;">
+            Stellenbeschreibung anzeigen
+          </summary>
+          <div style="margin-top:8px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border); font-size:0.88rem; white-space:pre-wrap; max-height:400px; overflow-y:auto;">${_escHtml(job.description)}</div>
+        </details>
+      </div>`;
+    }
+  }
+
+  // Documents section
+  html += `<div style="margin-bottom:16px; padding:12px; border-radius:8px; background:var(--bg3); border:1px solid var(--border);">
+    <label style="font-size:0.78rem; text-transform:uppercase; color:var(--text2); letter-spacing:0.05em;">Dokumente</label>`;
+  if (docs.length) {
+    html += '<div style="margin-top:8px;">';
+    for (const d of docs) {
+      const icon = d.doc_type === 'lebenslauf' ? '&#128196;' : d.doc_type === 'anschreiben' ? '&#9993;' : d.doc_type === 'zeugnis' ? '&#127891;' : '&#128206;';
+      html += `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
+        <span style="font-size:1.1rem;">${icon}</span>
+        <div>
+          <div style="font-size:0.9rem;">${d.filename}</div>
+          <div style="font-size:0.78rem; color:var(--text2);">${d.doc_type || 'sonstiges'} ${d.created_at ? '— ' + new Date(d.created_at).toLocaleDateString('de') : ''}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  } else {
+    html += '<p style="color:var(--text2); font-size:0.85rem; margin-top:6px;">Keine Dokumente verknuepft.</p>';
+  }
+  html += `<div style="margin-top:8px;">
+    <button class="btn btn-sm" onclick="showLinkDocumentDialog('${id}')">Dokument verknuepfen</button>
+  </div></div>`;
+
+  // Notes
+  if (a.notes) {
+    html += `<div style="margin-bottom:16px;"><label>Notizen</label><p style="font-size:0.9rem;">${a.notes}</p></div>`;
+  }
+
+  // Timeline
   if (events.length) {
-    html += '<div><label>Verlauf</label>';
+    html += '<div style="margin-bottom:16px;"><label>Verlauf</label>';
     for (const ev of events) {
       html += `<div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:0.85rem;">
         <span class="badge badge-${statusColor(ev.status)}">${ev.status}</span>
@@ -3370,8 +3449,53 @@ async function showAppDetail(id) {
     html += '</div>';
   }
 
-  html += `<div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>`;
+  // Lebenslauf-Variante & Ablehnungsgrund
+  if (a.lebenslauf_variante || a.rejection_reason) {
+    html += `<div style="margin-bottom:16px; font-size:0.85rem;">`;
+    if (a.lebenslauf_variante) html += `<div style="color:var(--text2);">Lebenslauf-Variante: <strong style="color:var(--text);">${a.lebenslauf_variante}</strong></div>`;
+    if (a.rejection_reason) html += `<div style="color:var(--red); margin-top:4px;">Ablehnungsgrund: ${a.rejection_reason}</div>`;
+    html += `</div>`;
+  }
+
+  html += `</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Schliessen</button></div>`;
   openModal(html);
+}
+
+function _escHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+async function showLinkDocumentDialog(appId) {
+  const result = await api('/api/documents');
+  const docs = result.documents || [];
+  if (!docs.length) {
+    showToast('Keine Dokumente vorhanden. Lade zuerst Dokumente ueber das Profil-Tab hoch.', 'info');
+    return;
+  }
+  let html = `<h2>Dokument verknuepfen</h2>
+    <p style="color:var(--text2); margin-bottom:12px;">Waehle ein Dokument aus, das mit dieser Bewerbung verknuepft werden soll:</p>
+    <div style="max-height:300px; overflow-y:auto;">`;
+  for (const d of docs) {
+    html += `<div style="padding:8px; border-bottom:1px solid var(--border); cursor:pointer; border-radius:6px;"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"
+      onclick="linkDocToApp('${appId}', '${d.id}')">
+      <div style="font-weight:600;">${d.filename}</div>
+      <div style="font-size:0.8rem; color:var(--text2);">${d.doc_type || 'sonstiges'} ${d.created_at ? '— ' + new Date(d.created_at).toLocaleDateString('de') : ''}</div>
+    </div>`;
+  }
+  html += `</div><div class="modal-actions"><button class="btn" onclick="closeModal()">Abbrechen</button></div>`;
+  openModal(html);
+}
+
+async function linkDocToApp(appId, docId) {
+  await api(`/api/applications/${appId}/link-document`, {
+    method: 'POST', body: JSON.stringify({ document_id: docId })
+  });
+  closeModal();
+  showToast('Dokument verknuepft!', 'success');
+  showAppDetail(appId);
 }
 
 // === Profil-Switcher (PBP-025) ===

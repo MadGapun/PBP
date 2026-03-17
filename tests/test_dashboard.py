@@ -371,6 +371,97 @@ class TestFollowUps:
 
 
 # ============================================================
+# Application Detail (Timeline + Job + Documents)
+# ============================================================
+
+class TestApplicationDetail:
+    def test_timeline_includes_job_and_documents(self, client):
+        """Timeline-Endpoint liefert Job-Details und Dokumente."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        # Create a job first
+        dash._db.save_jobs([{
+            "hash": "test_job_001", "title": "Engineer",
+            "company": "Nordex", "url": "https://nordex.com/job",
+            "source": "stepstone", "description": "Wind energy engineer",
+            "score": 82,
+        }])
+        # Create application linked to job
+        app_id = dash._db.add_application({
+            "title": "Engineer", "company": "Nordex",
+            "job_hash": "test_job_001", "status": "beworben",
+        })
+        # Create and link a document
+        doc_id = dash._db.add_document({
+            "filename": "anschreiben_nordex.pdf",
+            "doc_type": "anschreiben",
+        })
+        dash._db.link_document_to_application(doc_id, app_id)
+
+        # Fetch detail
+        r = client.get(f"/api/application/{app_id}/timeline")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["application"]["title"] == "Engineer"
+        # Job details present
+        assert data["job"] is not None
+        assert data["job"]["company"] == "Nordex"
+        assert data["job"]["score"] == 82
+        assert data["job"]["source"] == "stepstone"
+        assert data["job"]["description"] == "Wind energy engineer"
+        # Documents present
+        assert len(data["documents"]) == 1
+        assert data["documents"][0]["filename"] == "anschreiben_nordex.pdf"
+
+    def test_timeline_without_job(self, client):
+        """Timeline funktioniert auch ohne verknuepften Job."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({
+            "title": "Manuell", "company": "TestFirma",
+        })
+        r = client.get(f"/api/application/{app_id}/timeline")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["job"] is None
+        assert data["documents"] == []
+
+    def test_link_document_to_application(self, client):
+        """Dokument via API mit Bewerbung verknuepfen."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({
+            "title": "Job X", "company": "Firma X",
+        })
+        doc_id = dash._db.add_document({
+            "filename": "cv.pdf", "doc_type": "lebenslauf",
+        })
+        r = client.post(f"/api/applications/{app_id}/link-document",
+                        json={"document_id": doc_id})
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+        # Verify linkage
+        docs = dash._db.get_documents_for_application(app_id)
+        assert len(docs) == 1
+        assert docs[0]["filename"] == "cv.pdf"
+
+    def test_documents_list_endpoint(self, client):
+        """Dokumente-Liste-Endpoint liefert alle Dokumente."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        dash._db.add_document({"filename": "cv.pdf", "doc_type": "lebenslauf"})
+        dash._db.add_document({"filename": "brief.pdf", "doc_type": "anschreiben"})
+
+        r = client.get("/api/documents")
+        assert r.status_code == 200
+        assert len(r.json()["documents"]) == 2
+
+
+# ============================================================
 # Profil-Elemente (Position, Skill, Ausbildung)
 # ============================================================
 

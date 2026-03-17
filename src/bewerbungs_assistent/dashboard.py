@@ -607,7 +607,7 @@ async def api_generate_cv(format: str = "text"):
 
 @app.get("/api/application/{app_id}/timeline")
 async def api_application_timeline(app_id: str):
-    """Get full event timeline for an application."""
+    """Get full event timeline for an application with job details and documents."""
     conn = _db.connect()
     events = [dict(r) for r in conn.execute(
         "SELECT * FROM application_events WHERE application_id = ? ORDER BY event_date DESC",
@@ -616,7 +616,22 @@ async def api_application_timeline(app_id: str):
     app_row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
     if not app_row:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    return {"application": dict(app_row), "events": events}
+    application = _db._serialize_application_row(app_row) if hasattr(_db, '_serialize_application_row') else dict(app_row)
+
+    # Enrich with job details if linked
+    job = None
+    if application.get("job_hash"):
+        job = _db.get_job(application["job_hash"])
+
+    # Get linked documents
+    documents = _db.get_documents_for_application(app_id)
+
+    return {
+        "application": application,
+        "events": events,
+        "job": job,
+        "documents": documents,
+    }
 
 
 @app.get("/api/jobs")
@@ -691,6 +706,25 @@ async def api_update_app_status(app_id: str, request: Request):
     data = await request.json()
     _db.update_application_status(app_id, data["status"], data.get("notes", ""))
     return {"status": "ok"}
+
+
+@app.post("/api/applications/{app_id}/link-document")
+async def api_link_document(app_id: str, request: Request):
+    """Link an existing document to an application."""
+    data = await request.json()
+    doc_id = data.get("document_id")
+    if not doc_id:
+        return JSONResponse({"error": "document_id ist Pflicht"}, status_code=400)
+    _db.link_document_to_application(doc_id, app_id)
+    return {"status": "ok"}
+
+
+@app.get("/api/documents")
+async def api_documents():
+    """List all documents for the active profile."""
+    pid = _db.get_active_profile_id()
+    docs = _db._get_documents(pid)
+    return {"documents": docs}
 
 
 @app.get("/api/statistics")

@@ -956,6 +956,15 @@ class Database:
         )
         conn.commit()
 
+    def get_documents_for_application(self, application_id: str) -> list:
+        """Return all documents linked to an application."""
+        conn = self.connect()
+        return [dict(r) for r in conn.execute(
+            "SELECT id, filename, filepath, doc_type, created_at, extraction_status "
+            "FROM documents WHERE linked_application_id=? ORDER BY created_at DESC",
+            (application_id,)
+        ).fetchall()]
+
     # === Jobs ===
 
     def save_jobs(self, jobs: list):
