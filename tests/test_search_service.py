@@ -22,11 +22,16 @@ def test_get_search_status_without_timestamp():
 
 
 def test_get_search_status_recent_search():
-    """Frische Suchlaeufe werden als aktuell markiert."""
+    """Frische Suchlaeufe werden als aktuell markiert (nur gleicher Tag)."""
     now = datetime(2026, 3, 9, 12, 0, 0)
-    data = get_search_status("2026-03-08T10:30:00", now=now)
+    # Same day = aktuell
+    data = get_search_status("2026-03-09T08:30:00", now=now)
     assert data["status"] == "aktuell"
-    assert data["days_ago"] == 1
+    assert data["days_ago"] == 0
+    # Yesterday = veraltet (Fix #51)
+    data2 = get_search_status("2026-03-08T10:30:00", now=now)
+    assert data2["status"] == "veraltet"
+    assert data2["days_ago"] == 1
 
 
 def test_get_search_status_invalid_timestamp():

@@ -173,7 +173,7 @@ def test_dashboard_guidance_and_badges_reflect_due_followups(live_dashboard, bro
         workspace_text = page.locator("#workspace-strip").inner_text()
         assert "Es gibt ueberfaellige Nachfassaktionen." in workspace_text
         assert "Max Tester" in workspace_text
-        assert "2/9" in workspace_text
+        assert "2/17" in workspace_text
 
         page.locator("#tab-badge-bewerbungen").wait_for(state="visible")
         assert page.locator("#tab-badge-bewerbungen").inner_text() == "1"
@@ -261,7 +261,7 @@ def test_dashboard_mobile_layout_has_no_horizontal_overflow(live_dashboard, brow
             })"""
         )
 
-        assert layout["tabCount"] == 5
+        assert layout["tabCount"] == 6
         assert layout["scrollWidth"] <= layout["clientWidth"] + 1
         assert layout["bodyScrollWidth"] <= layout["clientWidth"] + 1
         assert page.locator(".app-topbar").is_visible()

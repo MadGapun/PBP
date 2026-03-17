@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "0.17.1"
+version = "0.22.0"
 description = "KI-gestützter Bewerbungsassistent — MCP Server für Claude Desktop"
 readme = {text = "KI-gestuetzter Bewerbungsassistent als MCP Server fuer Claude Desktop", content-type = "text/plain"}
 license = "MIT"
@@ -33,12 +33,15 @@ docs = [
     "pypdf>=4.0",
     "fpdf2>=2.7",
 ]
+export = [
+    "openpyxl>=3.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
 ]
 all = [
-    "bewerbungs-assistent[scraper,docs]",
+    "bewerbungs-assistent[scraper,docs,export]",
 ]
 
 [project.scripts]

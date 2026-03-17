@@ -302,6 +302,9 @@ class TestMultiProfile:
         r = client.post("/api/profiles/new", json={"name": "Profil B"})
         assert r.status_code == 200
         new_id = r.json()["id"]
+        profiles = client.get("/api/profiles").json()["profiles"]
+        assert len(profiles) == 2
+        assert {p["name"] for p in profiles} == {"Profil A", "Profil B"}
 
         # Switch to new profile
         r2 = client.post("/api/profiles/switch", json={"profile_id": new_id})
@@ -544,6 +547,212 @@ class TestApplications:
         # Page 3 (last item)
         r4 = client.get("/api/applications?limit=2&offset=4")
         assert len(r4.json()["applications"]) == 1
+
+
+# ============================================================
+# Follow-ups
+# ============================================================
+
+class TestFollowUps:
+    def test_follow_ups_endpoint_respects_active_profile(self, client):
+        """API liefert nur Follow-ups des aktiven Profils."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Profil A"})
+        app_a = dash._db.add_application({"title": "App A", "company": "Corp A"})
+        dash._db.add_follow_up(app_a, (datetime.now() - timedelta(days=1)).date().isoformat())
+
+        r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
+        profile_b = r_new.json()["id"]
+        client.post("/api/profiles/switch", json={"profile_id": profile_b})
+        app_b = dash._db.add_application({"title": "App B", "company": "Corp B"})
+        dash._db.add_follow_up(app_b, datetime.now().date().isoformat())
+
+        data_b = client.get("/api/follow-ups").json()
+        assert [item["title"] for item in data_b["follow_ups"]] == ["App B"]
+
+        profiles = client.get("/api/profiles").json()["profiles"]
+        profile_a = next(p["id"] for p in profiles if p["name"] == "Profil A")
+        client.post("/api/profiles/switch", json={"profile_id": profile_a})
+
+        data_a = client.get("/api/follow-ups").json()
+        assert [item["title"] for item in data_a["follow_ups"]] == ["App A"]
+
+
+# ============================================================
+# Application Detail (Timeline + Job + Documents)
+# ============================================================
+
+class TestApplicationDetail:
+    def test_timeline_includes_job_and_documents(self, client):
+        """Timeline-Endpoint liefert Job-Details und Dokumente."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        # Create a job first
+        dash._db.save_jobs([{
+            "hash": "test_job_001", "title": "Engineer",
+            "company": "Nordex", "url": "https://nordex.com/job",
+            "source": "stepstone", "description": "Wind energy engineer",
+            "score": 82,
+        }])
+        # Create application linked to job
+        app_id = dash._db.add_application({
+            "title": "Engineer", "company": "Nordex",
+            "job_hash": "test_job_001", "status": "beworben",
+        })
+        # Create and link a document
+        doc_id = dash._db.add_document({
+            "filename": "anschreiben_nordex.pdf",
+            "doc_type": "anschreiben",
+        })
+        dash._db.link_document_to_application(doc_id, app_id)
+
+        # Fetch detail
+        r = client.get(f"/api/application/{app_id}/timeline")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["application"]["title"] == "Engineer"
+        # Job details present
+        assert data["job"] is not None
+        assert data["job"]["company"] == "Nordex"
+        assert data["job"]["score"] == 82
+        assert data["job"]["source"] == "stepstone"
+        assert data["job"]["description"] == "Wind energy engineer"
+        # Documents present
+        assert len(data["documents"]) == 1
+        assert data["documents"][0]["filename"] == "anschreiben_nordex.pdf"
+
+    def test_timeline_without_job(self, client):
+        """Timeline funktioniert auch ohne verknuepften Job."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({
+            "title": "Manuell", "company": "TestFirma",
+        })
+        r = client.get(f"/api/application/{app_id}/timeline")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["job"] is None
+        assert data["documents"] == []
+
+    def test_link_document_to_application(self, client):
+        """Dokument via API mit Bewerbung verknuepfen."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({
+            "title": "Job X", "company": "Firma X",
+        })
+        doc_id = dash._db.add_document({
+            "filename": "cv.pdf", "doc_type": "lebenslauf",
+        })
+        r = client.post(f"/api/applications/{app_id}/link-document",
+                        json={"document_id": doc_id})
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+        # Verify linkage
+        docs = dash._db.get_documents_for_application(app_id)
+        assert len(docs) == 1
+        assert docs[0]["filename"] == "cv.pdf"
+
+    def test_documents_list_endpoint(self, client):
+        """Dokumente-Liste-Endpoint liefert alle Dokumente."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        dash._db.add_document({"filename": "cv.pdf", "doc_type": "lebenslauf"})
+        dash._db.add_document({"filename": "brief.pdf", "doc_type": "anschreiben"})
+
+        r = client.get("/api/documents")
+        assert r.status_code == 200
+        assert len(r.json()["documents"]) == 2
+
+
+# ============================================================
+# Gespraechsnotizen
+# ============================================================
+
+class TestApplicationNotes:
+    def test_add_note(self, client):
+        """Notiz zu Bewerbung hinzufuegen."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        r = client.post(f"/api/applications/{app_id}/notes",
+                        json={"text": "Telefonat mit HR, positives Feedback"})
+        assert r.status_code == 200
+        # Verify in timeline
+        r2 = client.get(f"/api/application/{app_id}/timeline")
+        notes = [e for e in r2.json()["events"] if e["status"] == "notiz"]
+        assert len(notes) == 1
+        assert "Telefonat" in notes[0]["notes"]
+
+    def test_add_note_empty_rejected(self, client):
+        """Leere Notiz wird abgelehnt."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        r = client.post(f"/api/applications/{app_id}/notes", json={"text": ""})
+        assert r.status_code == 400
+
+    def test_edit_note(self, client):
+        """Notiz bearbeiten."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        dash._db.add_application_note(app_id, "Erste Version")
+        # Get the event id
+        r = client.get(f"/api/application/{app_id}/timeline")
+        note_event = [e for e in r.json()["events"] if e["status"] == "notiz"][0]
+        # Update
+        r2 = client.put(f"/api/applications/{app_id}/notes/{note_event['id']}",
+                        json={"text": "Korrigierte Version"})
+        assert r2.status_code == 200
+        # Verify
+        r3 = client.get(f"/api/application/{app_id}/timeline")
+        updated = [e for e in r3.json()["events"] if e["status"] == "notiz"][0]
+        assert updated["notes"] == "Korrigierte Version"
+
+    def test_delete_note(self, client):
+        """Notiz loeschen (nur Typ 'notiz', nicht Statusaenderungen)."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma"})
+        dash._db.add_application_note(app_id, "Wird geloescht")
+        r = client.get(f"/api/application/{app_id}/timeline")
+        events = r.json()["events"]
+        note_event = [e for e in events if e["status"] == "notiz"][0]
+        status_event = [e for e in events if e["status"] == "beworben"][0]
+        # Delete note
+        r2 = client.delete(f"/api/applications/{app_id}/notes/{note_event['id']}")
+        assert r2.status_code == 200
+        # Try deleting status event (should NOT work)
+        r3 = client.delete(f"/api/applications/{app_id}/notes/{status_event['id']}")
+        assert r3.status_code == 200  # No error, but nothing deleted
+        # Verify: notiz gone, status still there
+        r4 = client.get(f"/api/application/{app_id}/timeline")
+        remaining = r4.json()["events"]
+        assert not any(e["status"] == "notiz" for e in remaining)
+        assert any(e["status"] == "beworben" for e in remaining)
+
+    def test_multiple_notes_chronological(self, client):
+        """Mehrere Notizen werden chronologisch gespeichert."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Nordex", "company": "Nordex"})
+        dash._db.add_application_note(app_id, "Bewerbung abgeschickt")
+        dash._db.add_application_note(app_id, "Einladung zum Interview erhalten")
+        dash._db.add_application_note(app_id, "Interview war gut, Feedback in 1 Woche")
+        r = client.get(f"/api/application/{app_id}/timeline")
+        notes = [e for e in r.json()["events"] if e["status"] == "notiz"]
+        assert len(notes) == 3
 
 
 # ============================================================

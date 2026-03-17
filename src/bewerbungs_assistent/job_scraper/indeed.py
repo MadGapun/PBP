@@ -1,7 +1,7 @@
 """Indeed job scraper via Playwright.
 
 Uses headless Chromium to handle JavaScript-rendered search results.
-No login required. Anti-bot measures: random delays, viewport variation.
+No login required. Multi-strategy extraction for robustness.
 """
 
 import logging
@@ -38,9 +38,9 @@ def search_indeed(params: dict) -> list:
             args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
         )
         context = browser.new_context(
-            viewport={"width": random.randint(1200, 1400), "height": random.randint(800, 1000)},
+            viewport={"width": 1280, "height": 900},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             locale="de-DE",
         )
         page = context.new_page()
@@ -51,51 +51,70 @@ def search_indeed(params: dict) -> list:
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 time.sleep(random.uniform(3, 5))
 
-                # Wait for job cards
+                # Dismiss cookie banner
+                _dismiss_cookie_banner(page)
+
+                # Wait for any job content
                 try:
                     page.wait_for_selector(
-                        ".job_seen_beacon, .jobsearch-ResultsList, [data-jk], .cardOutline",
+                        ".job_seen_beacon, [data-jk], .resultContent, .jobsearch-ResultsList, "
+                        "a[data-jk], div[class*='cardOutline'], div[class*='job_seen']",
                         timeout=10000,
                     )
                 except PWTimeout:
                     logger.debug("Indeed: Keine Job-Cards fuer '%s'", query)
                     continue
 
-                # Extract via JavaScript
+                # Multi-strategy extraction
                 raw_jobs = page.evaluate("""() => {
                     const results = [];
-                    const cards = document.querySelectorAll(
-                        'div.job_seen_beacon, div[data-jk], li div.cardOutline, .jobsearch-SerpJobCard'
-                    );
-                    for (const card of cards) {
-                        const titleEl = card.querySelector(
-                            'h2.jobTitle a, a[data-jk], h2 a, .jobTitle a'
-                        );
-                        if (!titleEl) continue;
-                        const title = titleEl.textContent?.trim() || '';
-                        if (!title) continue;
+                    const seen = new Set();
 
-                        // Build link from data-jk attribute
+                    // Strategy 1: job_seen_beacon containers (current Indeed layout)
+                    for (const card of document.querySelectorAll(
+                        'div.job_seen_beacon, div[data-jk], td.resultContent, li[data-jk]'
+                    )) {
+                        const titleEl = card.querySelector(
+                            'h2.jobTitle a, h2 a, a.jcs-JobTitle, ' +
+                            'a[data-jk], span[id^="jobTitle"] a, a[class*="Title"]'
+                        );
+                        // Fallback: check span inside h2
+                        const titleSpan = !titleEl ? card.querySelector(
+                            'h2.jobTitle span, h2 span[title]'
+                        ) : null;
+
+                        const title = titleEl?.textContent?.trim() ||
+                                     titleSpan?.textContent?.trim() || '';
+                        if (!title || title.length < 5 || seen.has(title)) continue;
+                        seen.add(title);
+
+                        // Build link
                         let link = '';
-                        const jk = card.getAttribute('data-jk') || titleEl.getAttribute('data-jk');
+                        const jk = card.getAttribute('data-jk') ||
+                                  titleEl?.getAttribute('data-jk') ||
+                                  titleEl?.closest('[data-jk]')?.getAttribute('data-jk');
                         if (jk) {
                             link = 'https://de.indeed.com/viewjob?jk=' + jk;
-                        } else if (titleEl.href) {
+                        } else if (titleEl?.href) {
                             link = titleEl.href.startsWith('http') ? titleEl.href
                                 : 'https://de.indeed.com' + titleEl.href;
                         }
 
                         const companyEl = card.querySelector(
-                            "[data-testid='company-name'], .companyName, .company"
+                            "[data-testid='company-name'], .companyName, " +
+                            ".company_location .companyName, span[class*='company' i]"
                         );
                         const locationEl = card.querySelector(
-                            "[data-testid='text-location'], .companyLocation, .location"
+                            "[data-testid='text-location'], .companyLocation, " +
+                            ".company_location .companyLocation, div[class*='location' i]"
                         );
                         const descEl = card.querySelector(
-                            '.job-snippet, [class*="snippet"], .summary'
+                            '.job-snippet, .underShelfFooter, [class*="snippet" i]'
                         );
                         const salaryEl = card.querySelector(
-                            "[data-testid='attribute_snippet_testid'], .salary-snippet-container, .estimated-salary"
+                            "[data-testid='attribute_snippet_testid'], " +
+                            ".salary-snippet-container, .estimated-salary, " +
+                            "[class*='salary' i], .metadata .attribute_snippet"
                         );
 
                         results.push({
@@ -107,6 +126,32 @@ def search_indeed(params: dict) -> list:
                             salary: salaryEl?.textContent?.trim() || '',
                         });
                     }
+
+                    // Strategy 2: Fallback — find all links to /viewjob or /rc/clk
+                    if (results.length === 0) {
+                        for (const a of document.querySelectorAll(
+                            'a[href*="/viewjob"], a[href*="/rc/clk"], a[href*="/pagead/clk"]'
+                        )) {
+                            const title = a.textContent?.trim() || '';
+                            if (!title || title.length < 5 || seen.has(title)) continue;
+                            seen.add(title);
+                            let link = a.href || '';
+
+                            let card = a.closest('div, li, td');
+                            const companyEl = card?.querySelector('[class*="company" i]');
+                            const locationEl = card?.querySelector('[class*="location" i]');
+
+                            results.push({
+                                title,
+                                link,
+                                company: companyEl?.textContent?.trim() || 'Unbekannt',
+                                location: locationEl?.textContent?.trim() || '',
+                                desc: '',
+                                salary: '',
+                            });
+                        }
+                    }
+
                     return results;
                 }""")
 
@@ -127,6 +172,7 @@ def search_indeed(params: dict) -> list:
                     }
                     jobs.append(job)
 
+                logger.debug("Indeed: %d Stellen fuer '%s'", len(raw_jobs), query)
                 time.sleep(random.uniform(2, 4))
             except Exception as e:
                 logger.error("Indeed error for '%s': %s", query, e)
@@ -135,3 +181,21 @@ def search_indeed(params: dict) -> list:
 
     logger.info("Indeed: %d Stellen gefunden", len(jobs))
     return jobs
+
+
+def _dismiss_cookie_banner(page):
+    """Try to dismiss cookie consent banners."""
+    try:
+        for selector in [
+            "#onetrust-accept-btn-handler",
+            "button[id*='accept' i]", "button[id*='consent' i]",
+            "button:has-text('Alle akzeptieren')",
+            "button:has-text('Accept')",
+        ]:
+            btn = page.locator(selector).first
+            if btn.count() > 0 and btn.is_visible():
+                btn.click(timeout=2000)
+                time.sleep(0.5)
+                return
+    except Exception:
+        pass

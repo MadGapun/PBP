@@ -19,100 +19,10 @@ logger = logging.getLogger("bewerbungs_assistent.database")
 
 SCHEMA_VERSION = 10
 
-PROFILE_SCOPED_SETTING_KEYS = {"active_sources", "last_search_at"}
-PROFILE_KEY_SEPARATOR = "::"
-NO_PROFILE_SCOPE = "__no_profile__"
-SKILL_CATEGORIES = {"fachlich", "methodisch", "soft_skill", "sprache", "tool"}
-
 
 def _gen_id() -> str:
     """Generate a short unique ID (8 hex chars)."""
     return str(uuid.uuid4())[:8]
-
-
-def _normalize_text(value: str) -> str:
-    text = str(value or "").strip().lower()
-    return (
-        text.replace("ae", "ae")
-        .replace("oe", "oe")
-        .replace("ue", "ue")
-        .replace("ß", "ss")
-        .replace("ä", "ae")
-        .replace("ö", "oe")
-        .replace("ü", "ue")
-    )
-
-
-def _infer_skill_category(skill_name: str) -> str:
-    text = _normalize_text(skill_name)
-    if not text:
-        return "fachlich"
-
-    language_keywords = {
-        "deutsch", "englisch", "spanisch", "franzoesisch", "franzosisch",
-        "italienisch", "portugiesisch", "niederlaendisch", "russisch",
-        "arabisch", "tuirkisch", "tuerkisch", "polnisch", "ukrainisch",
-        "chinesisch", "japanisch", "koreanisch", "sprache",
-    }
-    if any(keyword in text for keyword in language_keywords):
-        return "sprache"
-
-    soft_keywords = {
-        "kommunikation", "teamfaehig", "teamfahig", "teamwork", "empath",
-        "konflikt", "fuehrung", "fuhrung", "moderation", "praesentation",
-        "prasentation", "verhandlung", "organisation", "zuverlaessig",
-        "zuverlassig", "belastbar", "eigeninitiative",
-    }
-    if any(keyword in text for keyword in soft_keywords):
-        return "soft_skill"
-
-    method_keywords = {
-        "scrum", "kanban", "agil", "agile", "lean", "itil", "six sigma",
-        "design thinking", "projektmanagement", "prince2", "safe", "okr",
-    }
-    if any(keyword in text for keyword in method_keywords):
-        return "methodisch"
-
-    tool_keywords = {
-        "excel", "word", "powerpoint", "office", "outlook", "jira", "confluence",
-        "sap", "salesforce", "servicenow", "tableau", "power bi", "figma",
-        "photoshop", "illustrator", "after effects", "docker", "kubernetes",
-        "git", "github", "gitlab", "bitbucket", "postgres", "mysql", "sqlite",
-        "aws", "azure", "gcp", "terraform", "ansible", "linux", "windows server",
-    }
-    if any(keyword in text for keyword in tool_keywords):
-        return "tool"
-
-    return "fachlich"
-
-
-def _normalize_skill_category(category: str, skill_name: str = "") -> str:
-    raw = _normalize_text(category).replace("-", "_").replace(" ", "_")
-    aliases = {
-        "fachlich": "fachlich",
-        "fachkenntnisse": "fachlich",
-        "kenntnisse": "fachlich",
-        "kompetenzen": "fachlich",
-        "skills": "fachlich",
-        "tool": "tool",
-        "tools": "tool",
-        "technologie": "tool",
-        "technologien": "tool",
-        "software": "tool",
-        "methodisch": "methodisch",
-        "methode": "methodisch",
-        "methoden": "methodisch",
-        "soft_skill": "soft_skill",
-        "softskills": "soft_skill",
-        "soft_skills": "soft_skill",
-        "sprache": "sprache",
-        "sprachen": "sprache",
-    }
-    mapped = aliases.get(raw, raw)
-    generic = {"fachkenntnisse", "kenntnisse", "kompetenzen", "skills", "fachlich"}
-    if mapped in SKILL_CATEGORIES and raw not in generic:
-        return mapped
-    return _infer_skill_category(skill_name)
 
 
 def get_data_dir() -> Path:
@@ -179,101 +89,12 @@ class Database:
             current = int(row["value"])
             if current < SCHEMA_VERSION:
                 self._migrate(current, SCHEMA_VERSION)
-        # Safety net for legacy DBs that already report a new schema version
-        # but still contain pre-v10 tables without profile scoping columns.
-        self._ensure_profile_scope_tables()
-        self._ensure_profile_scope_indexes()
+        # Create indexes that depend on migrated columns (safe after migration)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
+        )
+        conn.commit()
         logger.info("Database initialized at %s", self.db_path)
-
-    def _table_columns(self, table: str) -> set[str]:
-        conn = self.connect()
-        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-        return {row["name"] for row in rows}
-
-    def _ensure_profile_scope_tables(self):
-        """Ensure profile-scoped settings, criteria and blacklist schema."""
-        conn = self.connect()
-        active_scope = self._select_canonical_active_profile_id(conn=conn) or NO_PROFILE_SCOPE
-        now = _now()
-
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS profile_settings (
-                profile_id TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value TEXT,
-                updated_at TEXT,
-                PRIMARY KEY (profile_id, key)
-            );
-
-            CREATE TABLE IF NOT EXISTS search_criteria_v10 (
-                profile_id TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value TEXT,
-                updated_at TEXT,
-                PRIMARY KEY (profile_id, key)
-            );
-
-            CREATE TABLE IF NOT EXISTS blacklist_v10 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id TEXT NOT NULL,
-                type TEXT NOT NULL,
-                value TEXT NOT NULL,
-                reason TEXT,
-                created_at TEXT,
-                UNIQUE(profile_id, type, value)
-            );
-        """)
-
-        placeholders = ", ".join("?" for _ in PROFILE_SCOPED_SETTING_KEYS)
-        scoped_settings = conn.execute(
-            f"SELECT key, value FROM settings WHERE key IN ({placeholders})",
-            tuple(PROFILE_SCOPED_SETTING_KEYS),
-        ).fetchall()
-        for setting in scoped_settings:
-            conn.execute("""
-                INSERT INTO profile_settings (profile_id, key, value, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(profile_id, key) DO UPDATE SET
-                    value=excluded.value,
-                    updated_at=excluded.updated_at
-            """, (active_scope, setting["key"], setting["value"], now))
-        if scoped_settings:
-            conn.execute(
-                f"DELETE FROM settings WHERE key IN ({placeholders})",
-                tuple(PROFILE_SCOPED_SETTING_KEYS),
-            )
-
-        if "profile_id" not in self._table_columns("search_criteria"):
-            conn.execute("""
-                INSERT INTO search_criteria_v10 (profile_id, key, value, updated_at)
-                SELECT ?, key, value, updated_at FROM search_criteria
-            """, (active_scope,))
-            conn.execute("DROP TABLE search_criteria")
-            conn.execute("ALTER TABLE search_criteria_v10 RENAME TO search_criteria")
-        else:
-            conn.execute("DROP TABLE search_criteria_v10")
-
-        if "profile_id" not in self._table_columns("blacklist"):
-            conn.execute("""
-                INSERT INTO blacklist_v10 (profile_id, type, value, reason, created_at)
-                SELECT ?, type, value, reason, created_at FROM blacklist
-            """, (active_scope,))
-            conn.execute("DROP TABLE blacklist")
-            conn.execute("ALTER TABLE blacklist_v10 RENAME TO blacklist")
-        else:
-            conn.execute("DROP TABLE blacklist_v10")
-
-        conn.commit()
-
-    def _ensure_profile_scope_indexes(self):
-        """Create profile-related indexes only when required columns exist."""
-        conn = self.connect()
-        blacklist_columns = self._table_columns("blacklist")
-        if {"profile_id", "type"}.issubset(blacklist_columns):
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_blacklist_profile ON blacklist(profile_id, type)"
-            )
-        conn.commit()
 
     def _migrate(self, from_ver: int, to_ver: int):
         """Run schema migrations."""
@@ -464,7 +285,7 @@ class Database:
             logger.info("Migration v6->v7: salary_estimated + user_preferences + doc-app link")
 
         if from_ver < 8:
-            # v8: Profile isolation - add profile_id to applications and jobs
+            # v8: Profile isolation — add profile_id to applications and jobs
             for col_add in [
                 ("applications", "profile_id TEXT"),
                 ("jobs", "profile_id TEXT"),
@@ -474,8 +295,9 @@ class Database:
                 except Exception:
                     pass  # Already exists
             # Backfill: assign existing data to active profile
-            pid = self._select_canonical_active_profile_id(conn=conn)
-            if pid:
+            active = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1").fetchone()
+            if active:
+                pid = active["id"]
                 conn.execute("UPDATE applications SET profile_id=? WHERE profile_id IS NULL", (pid,))
                 conn.execute("UPDATE jobs SET profile_id=? WHERE profile_id IS NULL", (pid,))
             logger.info("Migration v7->v8: profile_id on applications + jobs, data backfilled")
@@ -500,8 +322,20 @@ class Database:
             logger.info("Migration v8->v9: last_used_year on skills + suggested_job_titles table")
 
         if from_ver < 10:
-            self._ensure_profile_scope_tables()
-            logger.info("Migration v9->v10: profile-scoped settings, search criteria and blacklist")
+            # v10: is_pinned flag on jobs (replaces score=99 hack) + abgelaufen status support
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN is_pinned INTEGER DEFAULT 0")
+            except Exception:
+                pass  # Already exists
+            # Migrate existing score=99 manual entries: set is_pinned=1, recalculate score to 0
+            conn.execute(
+                "UPDATE jobs SET is_pinned=1, score=0 WHERE source='manuell' AND score=99"
+            )
+            # Add index for pinned+score sorting
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
+            )
+            logger.info("Migration v9->v10: is_pinned on jobs + abgelaufen status")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -511,122 +345,24 @@ class Database:
 
     # === Profile ===
 
-    def _select_canonical_active_profile_id(
-        self,
-        conn: Optional[sqlite3.Connection] = None,
-        repair: bool = True,
-    ) -> Optional[str]:
-        """Return the canonical active profile id and self-heal legacy states.
-
-        Legacy databases may contain either no active profile or multiple active
-        profiles. In those cases we keep/activate the most recently updated one.
-        """
-        conn = conn or self.connect()
-        active_rows = conn.execute("""
-            SELECT id
-            FROM profile
-            WHERE is_active=1
-            ORDER BY
-                COALESCE(updated_at, created_at, '') DESC,
-                COALESCE(created_at, '') DESC,
-                id DESC
-        """).fetchall()
-
-        if active_rows:
-            active_id = active_rows[0]["id"]
-            if repair and len(active_rows) > 1:
-                conn.execute(
-                    "UPDATE profile SET is_active=0 WHERE is_active=1 AND id<>?",
-                    (active_id,),
-                )
-                conn.commit()
-                logger.warning(
-                    "Detected %d active profiles; keeping %s as active.",
-                    len(active_rows),
-                    active_id,
-                )
-            return active_id
-
-        fallback = conn.execute("""
-            SELECT id
-            FROM profile
-            ORDER BY
-                COALESCE(updated_at, created_at, '') DESC,
-                COALESCE(created_at, '') DESC,
-                id DESC
-            LIMIT 1
-        """).fetchone()
-        if not fallback:
-            return None
-
-        fallback_id = fallback["id"]
-        if repair:
-            conn.execute(
-                "UPDATE profile SET is_active=CASE WHEN id=? THEN 1 ELSE 0 END",
-                (fallback_id,),
-            )
-            conn.commit()
-            logger.warning(
-                "No active profile set; auto-activated profile %s.",
-                fallback_id,
-            )
-        return fallback_id
-
     def get_active_profile_id(self) -> Optional[str]:
         """Get the ID of the currently active profile."""
-        return self._select_canonical_active_profile_id()
-
-    def _resolve_profile_id(self, profile_id: Optional[str] = None) -> Optional[str]:
-        """Resolve an explicit profile id or fall back to the active one."""
-        if profile_id is not None:
-            return profile_id
-        return self.get_active_profile_id()
-
-    def _profile_scope_id(self, profile_id: Optional[str] = None) -> str:
-        """Stable scope id for profile-specific settings and criteria."""
-        return self._resolve_profile_id(profile_id) or NO_PROFILE_SCOPE
-
-    def _default_active_sources(self) -> list[str]:
-        """Compute default source selection (all non-login sources)."""
-        from .job_scraper import SOURCE_REGISTRY
-        from .services.search_service import get_default_active_source_keys
-
-        return get_default_active_source_keys(SOURCE_REGISTRY)
-
-    def _set_profile_setting_for(self, profile_id: str, key: str, value):
-        """Store a profile-scoped setting for a specific profile id."""
         conn = self.connect()
-        conn.execute("""
-            INSERT INTO profile_settings (profile_id, key, value, updated_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(profile_id, key) DO UPDATE SET
-                value=excluded.value,
-                updated_at=excluded.updated_at
-        """, (profile_id, key, json.dumps(value, ensure_ascii=False), _now()))
-
-    def _profile_filter(
-        self,
-        column: str = "profile_id",
-        profile_id: Optional[str] = None,
-    ) -> tuple[str, tuple]:
-        """Build a profile WHERE fragment for entity tables."""
-        pid = self._resolve_profile_id(profile_id)
-        if pid:
-            return f"{column}=?", (pid,)
-        return f"{column} IS NULL", ()
+        cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")
+        row = cur.fetchone()
+        return row["id"] if row else None
 
     def get_profile(self) -> Optional[dict]:
         """Get the currently active profile with all related data."""
         conn = self.connect()
-        pid = self.get_active_profile_id()
-        if not pid:
-            return None
-        row = conn.execute("SELECT * FROM profile WHERE id=? LIMIT 1", (pid,)).fetchone()
+        cur = conn.execute("SELECT * FROM profile WHERE is_active=1 LIMIT 1")
+        row = cur.fetchone()
         if row is None:
             return None
         profile = dict(row)
         profile["preferences"] = json.loads(profile["preferences"] or "{}")
         profile["erfassung_fortschritt"] = json.loads(profile.get("erfassung_fortschritt") or "{}")
+        pid = profile["id"]
         profile["positions"] = self._get_positions(pid)
         profile["education"] = self._get_education(pid)
         profile["skills"] = self._get_skills(pid)
@@ -645,22 +381,14 @@ class Database:
     def switch_profile(self, profile_id: str) -> bool:
         """Activate a specific profile, deactivate all others."""
         conn = self.connect()
-        target = conn.execute("SELECT id FROM profile WHERE id=? LIMIT 1", (profile_id,)).fetchone()
-        if not target:
-            return False
-        conn.execute(
-            "UPDATE profile SET is_active = CASE WHEN id=? THEN 1 ELSE 0 END",
-            (profile_id,),
-        )
+        conn.execute("UPDATE profile SET is_active=0")
+        result = conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (profile_id,))
         conn.commit()
-        return True
+        return result.rowcount > 0
 
-    def delete_profile(self, profile_id: str, delete_files: bool = True) -> bool:
+    def delete_profile(self, profile_id: str, delete_files: bool = True):
         """Delete a profile and ALL its related data (CASCADE)."""
         conn = self.connect()
-        exists = conn.execute("SELECT id FROM profile WHERE id=? LIMIT 1", (profile_id,)).fetchone()
-        if not exists:
-            return False
 
         # Delete document files from disk
         if delete_files:
@@ -704,18 +432,13 @@ class Database:
             for table in ["positions", "education", "skills", "documents",
                            "applications", "jobs", "suggested_job_titles"]:
                 conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
-            conn.execute("DELETE FROM profile_settings WHERE profile_id=?", (profile_id,))
-            conn.execute("DELETE FROM search_criteria WHERE profile_id=?", (profile_id,))
-            conn.execute("DELETE FROM blacklist WHERE profile_id=?", (profile_id,))
 
             # Delete the profile itself
-            deleted = conn.execute("DELETE FROM profile WHERE id=?", (profile_id,)).rowcount
+            conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
             conn.commit()
         finally:
             conn.execute("PRAGMA foreign_keys=ON")
-        if deleted > 0:
-            logger.info("Profile %s and all related data deleted", profile_id)
-        return deleted > 0
+        logger.info("Profile %s and all related data deleted", profile_id)
 
     def reset_all_data(self):
         """Delete ALL data — factory reset for testing."""
@@ -736,7 +459,7 @@ class Database:
             for table in ["extraction_history", "application_events", "projects",
                            "positions", "education", "skills", "documents",
                            "applications", "jobs", "blacklist", "background_jobs",
-                           "profile_settings", "user_preferences", "suggested_job_titles",
+                           "user_preferences", "suggested_job_titles",
                            "search_criteria", "follow_ups", "profile"]:
                 try:
                     conn.execute(f"DELETE FROM {table}")
@@ -749,12 +472,97 @@ class Database:
             conn.execute("PRAGMA foreign_keys=ON")
         logger.info("Factory reset: all data deleted")
 
+    def _scope_job_hash(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> Optional[str]:
+        """Return the internal storage hash for one profile."""
+        if not job_hash:
+            return job_hash
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return job_hash
+        prefix = f"{pid}:"
+        if job_hash.startswith(prefix):
+            return job_hash
+        return f"{prefix}{job_hash}"
+
+    def _public_job_hash(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> Optional[str]:
+        """Convert an internal storage hash back to the stable public hash."""
+        if not job_hash:
+            return job_hash
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return job_hash
+        prefix = f"{pid}:"
+        if job_hash.startswith(prefix):
+            return job_hash[len(prefix):]
+        return job_hash
+
+    def _job_hash_candidates(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> list[str]:
+        """Return compatible hashes for scoped and legacy rows."""
+        if not job_hash:
+            return []
+        pid = profile_id or self.get_active_profile_id()
+        candidates: list[str] = []
+        for candidate in (
+            job_hash,
+            self._scope_job_hash(job_hash, pid),
+            self._public_job_hash(job_hash, pid),
+        ):
+            if candidate and candidate not in candidates:
+                candidates.append(candidate)
+        return candidates
+
+    def _find_job_row(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[sqlite3.Row]:
+        """Find a job for the requested profile, including legacy unscoped rows."""
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        for candidate in self._job_hash_candidates(job_hash, pid):
+            if pid:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE hash=? AND (profile_id=? OR profile_id IS NULL)",
+                    (candidate, pid),
+                ).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM jobs WHERE hash=?", (candidate,)).fetchone()
+            if row is not None:
+                return row
+        return None
+
+    def _serialize_job_row(self, row: sqlite3.Row | dict | None) -> Optional[dict]:
+        """Return one job row in the public API shape."""
+        if row is None:
+            return None
+        job = dict(row)
+        job["hash"] = self._public_job_hash(job.get("hash"), job.get("profile_id"))
+        return job
+
+    def _serialize_application_row(self, row: sqlite3.Row | dict | None) -> Optional[dict]:
+        """Return one application row in the public API shape."""
+        if row is None:
+            return None
+        app = dict(row)
+        app["job_hash"] = self._public_job_hash(app.get("job_hash"), app.get("profile_id"))
+        return app
+
+    def resolve_job_hash(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[str]:
+        """Resolve a public job hash to the stored value for one profile."""
+        if not job_hash:
+            return None
+        row = self._find_job_row(job_hash, profile_id)
+        if row is not None:
+            return row["hash"]
+        return self._scope_job_hash(job_hash, profile_id)
+
+    def get_job(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[dict]:
+        """Return one job by public or stored hash for the selected profile."""
+        return self._serialize_job_row(self._find_job_row(job_hash, profile_id))
+
     def save_profile(self, data: dict) -> str:
         conn = self.connect()
         now = _now()
-        existing_id = self.get_active_profile_id()
+        cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")
+        existing = cur.fetchone()
         prefs = json.dumps(data.get("preferences", {}), ensure_ascii=False)
-        if existing_id:
+        if existing:
             conn.execute("""
                 UPDATE profile SET
                     name=?, email=?, phone=?, address=?, city=?, plz=?,
@@ -768,10 +576,10 @@ class Database:
                 data.get("country", "Deutschland"), data.get("birthday"),
                 data.get("nationality"),
                 data.get("summary"), data.get("informal_notes"), prefs,
-                now, existing_id
+                now, existing["id"]
             ))
             conn.commit()
-            return existing_id
+            return existing["id"]
         else:
             pid = _gen_id()
             # Deactivate other profiles, activate new one
@@ -796,7 +604,6 @@ class Database:
             ).rowcount
             if adopted:
                 logger.info("Adopted %d orphaned document(s) for new profile %s", adopted, pid)
-            self._set_profile_setting_for(pid, "active_sources", self._default_active_sources())
             conn.commit()
             return pid
 
@@ -815,7 +622,6 @@ class Database:
                 'Deutschland', NULL, NULL, NULL, NULL,
                 '{}', 1, '{}', ?, ?)
         """, (pid, name, email, now, now))
-        self._set_profile_setting_for(pid, "active_sources", self._default_active_sources())
         conn.commit()
         return pid
 
@@ -824,13 +630,8 @@ class Database:
     def get_erfassung_fortschritt(self) -> dict:
         """Get progress of the profile creation conversation."""
         conn = self.connect()
-        pid = self.get_active_profile_id()
-        if not pid:
-            return {}
-        row = conn.execute(
-            "SELECT erfassung_fortschritt FROM profile WHERE id=? LIMIT 1",
-            (pid,),
-        ).fetchone()
+        cur = conn.execute("SELECT erfassung_fortschritt FROM profile WHERE is_active=1 LIMIT 1")
+        row = cur.fetchone()
         if row and row["erfassung_fortschritt"]:
             return json.loads(row["erfassung_fortschritt"])
         return {}
@@ -838,12 +639,9 @@ class Database:
     def set_erfassung_fortschritt(self, fortschritt: dict):
         """Update the profile creation progress."""
         conn = self.connect()
-        pid = self.get_active_profile_id()
-        if not pid:
-            return
         conn.execute(
-            "UPDATE profile SET erfassung_fortschritt=?, updated_at=? WHERE id=?",
-            (json.dumps(fortschritt, ensure_ascii=False), _now(), pid)
+            "UPDATE profile SET erfassung_fortschritt=?, updated_at=? WHERE is_active=1",
+            (json.dumps(fortschritt, ensure_ascii=False), _now())
         )
         conn.commit()
 
@@ -851,13 +649,15 @@ class Database:
 
     def _get_positions(self, profile_id: str = None) -> list:
         conn = self.connect()
-        pid = self._resolve_profile_id(profile_id)
-        if not pid:
-            return []
-        rows = conn.execute(
-            "SELECT * FROM positions WHERE profile_id=? ORDER BY start_date DESC",
-            (pid,)
-        ).fetchall()
+        if profile_id:
+            rows = conn.execute(
+                "SELECT * FROM positions WHERE profile_id=? ORDER BY start_date DESC",
+                (profile_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM positions ORDER BY start_date DESC"
+            ).fetchall()
         positions = []
         for row in rows:
             pos = dict(row)
@@ -961,16 +761,10 @@ class Database:
         conn = self.connect()
         fields = ["name", "category", "level", "years_experience", "last_used_year"]
         sets, vals = [], []
-        incoming_name = (data.get("name") or "").strip()
         for f in fields:
             if f in data:
-                value = data[f]
-                if f == "name":
-                    value = incoming_name
-                elif f == "category":
-                    value = _normalize_skill_category(str(value or ""), incoming_name)
                 sets.append(f"{f}=?")
-                vals.append(value)
+                vals.append(data[f])
         if sets:
             vals.append(skill_id)
             conn.execute(f"UPDATE skills SET {','.join(sets)} WHERE id=?", vals)
@@ -986,12 +780,13 @@ class Database:
 
     def _get_education(self, profile_id: str = None) -> list:
         conn = self.connect()
-        pid = self._resolve_profile_id(profile_id)
-        if not pid:
-            return []
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM education WHERE profile_id=? ORDER BY end_date DESC",
+                (profile_id,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM education WHERE profile_id=? ORDER BY end_date DESC",
-            (pid,)
+            "SELECT * FROM education ORDER BY end_date DESC"
         ).fetchall()]
 
     def add_education(self, data: dict) -> str:
@@ -1020,16 +815,14 @@ class Database:
 
     def _get_skills(self, profile_id: str = None) -> list:
         conn = self.connect()
-        pid = self._resolve_profile_id(profile_id)
-        if not pid:
-            return []
-        skills = [dict(r) for r in conn.execute(
-            "SELECT * FROM skills WHERE profile_id=? ORDER BY category, level DESC",
-            (pid,)
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM skills WHERE profile_id=? ORDER BY category, level DESC",
+                (profile_id,)
+            ).fetchall()]
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM skills ORDER BY category, level DESC"
         ).fetchall()]
-        for skill in skills:
-            skill["category"] = _normalize_skill_category(skill.get("category") or "", skill.get("name") or "")
-        return skills
 
     def add_skill(self, data: dict) -> str:
         conn = self.connect()
@@ -1055,12 +848,11 @@ class Database:
         ).fetchone()
         if existing:
             return existing["id"]
-        category = _normalize_skill_category(str(data.get("category", "")), name)
         conn.execute("""
             INSERT INTO skills (id, name, category, level, years_experience, last_used_year, profile_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            sid, name, category,
+            sid, name, data.get("category", "fachlich"),
             data.get("level", 3), data.get("years_experience"),
             data.get("last_used_year"), profile_id
         ))
@@ -1118,12 +910,13 @@ class Database:
 
     def _get_documents(self, profile_id: str = None) -> list:
         conn = self.connect()
-        pid = self._resolve_profile_id(profile_id)
-        if not pid:
-            return []
+        if profile_id:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM documents WHERE profile_id=? ORDER BY created_at DESC",
+                (profile_id,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM documents WHERE profile_id=? ORDER BY created_at DESC",
-            (pid,)
+            "SELECT * FROM documents ORDER BY created_at DESC"
         ).fetchall()]
 
     def add_document(self, data: dict) -> str:
@@ -1151,8 +944,6 @@ class Database:
                 Path(row["filepath"]).unlink(missing_ok=True)
             except Exception as e:
                 logger.warning("Dokument-Datei konnte nicht geloescht werden: %s", e)
-        # Also purge extraction history for this document so analysis data is removed with it.
-        conn.execute("DELETE FROM extraction_history WHERE document_id = ?", (doc_id,))
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
 
@@ -1165,37 +956,49 @@ class Database:
         )
         conn.commit()
 
+    def get_documents_for_application(self, application_id: str) -> list:
+        """Return all documents linked to an application."""
+        conn = self.connect()
+        return [dict(r) for r in conn.execute(
+            "SELECT id, filename, filepath, doc_type, created_at, extraction_status "
+            "FROM documents WHERE linked_application_id=? ORDER BY created_at DESC",
+            (application_id,)
+        ).fetchall()]
+
     # === Jobs ===
 
     def save_jobs(self, jobs: list):
         conn = self.connect()
         now = _now()
-        pid = self.get_active_profile_id()
+        active_pid = self.get_active_profile_id()
         for job in jobs:
+            job_pid = job.get("profile_id") or active_pid
+            stored_hash = self.resolve_job_hash(job["hash"], job_pid)
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
-                    employment_type, profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    employment_type, is_pinned, profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
-                job["hash"], job.get("title"), job.get("company"),
+                stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
                 job.get("description"), job.get("score", 0),
                 job.get("remote_level", "unbekannt"),
                 job.get("distance_km"), job.get("salary_info"),
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
-                job.get("employment_type", "festanstellung"), pid,
+                job.get("employment_type", "festanstellung"),
+                1 if job.get("is_pinned") else 0, job_pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
 
     def get_active_jobs(self, filters: Optional[dict] = None) -> list:
         conn = self.connect()
-        where_profile, params = self._profile_filter()
-        query = f"SELECT * FROM jobs WHERE is_active=1 AND {where_profile}"
-        params = list(params)
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)"
+        params = [pid]
         if filters:
             if filters.get("source"):
                 query += " AND source=?"
@@ -1206,93 +1009,92 @@ class Database:
             if filters.get("min_score"):
                 query += " AND score>=?"
                 params.append(filters["min_score"])
-        query += " ORDER BY score DESC, found_at DESC"
-        jobs = [dict(r) for r in conn.execute(query, params).fetchall()]
-        blacklist_entries = self.get_blacklist()
-        if not blacklist_entries:
-            return jobs
-
-        def _match_blacklist(job: dict, entry_type: str, value: str) -> bool:
-            probe = str(value or "").strip().lower()
-            if not probe:
-                return False
-            if entry_type == "firma":
-                return probe in str(job.get("company") or "").lower()
-            if entry_type == "ort":
-                return probe in str(job.get("location") or "").lower()
-            if entry_type == "keyword":
-                haystack = " ".join(
-                    [
-                        str(job.get("title") or ""),
-                        str(job.get("description") or ""),
-                        str(job.get("company") or ""),
-                        str(job.get("location") or ""),
-                    ]
-                ).lower()
-                return probe in haystack
-            return False
-
-        blocked = []
-        for job in jobs:
-            is_blocked = any(
-                _match_blacklist(job, entry.get("type", ""), entry.get("value", ""))
-                for entry in blacklist_entries
-            )
-            if not is_blocked:
-                blocked.append(job)
-        return blocked
+        query += " ORDER BY is_pinned DESC, score DESC, found_at DESC"
+        return [self._serialize_job_row(r) for r in conn.execute(query, params).fetchall()]
 
     def get_dismissed_jobs(self) -> list:
         conn = self.connect()
-        where_profile, params = self._profile_filter()
-        return [dict(r) for r in conn.execute(
-            f"SELECT * FROM jobs WHERE is_active=0 AND {where_profile} ORDER BY updated_at DESC",
-            params
+        pid = self.get_active_profile_id()
+        return [self._serialize_job_row(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) ORDER BY updated_at DESC",
+            (pid,)
         ).fetchall()]
 
     def dismiss_job(self, job_hash: str, reason: str):
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
-            f"UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=? AND {where_profile}",
-            (reason, _now(), job_hash, *params)
+            "UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=?",
+            (reason, _now(), target_hash)
         )
         conn.commit()
 
     def restore_job(self, job_hash: str):
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
-            f"UPDATE jobs SET is_active=1, dismiss_reason=NULL, updated_at=? WHERE hash=? AND {where_profile}",
-            (_now(), job_hash, *params)
+            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, updated_at=? WHERE hash=?",
+            (_now(), target_hash)
         )
         conn.commit()
 
-    def get_job(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[dict]:
-        """Get a single job for the resolved profile context."""
+    def update_job_score(self, job_hash: str, score: int):
+        """Manually update a job's score."""
         conn = self.connect()
-        where_profile, params = self._profile_filter(profile_id=profile_id)
-        row = conn.execute(
-            f"SELECT * FROM jobs WHERE hash=? AND {where_profile}",
-            (job_hash, *params)
-        ).fetchone()
-        return dict(row) if row else None
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
+        conn.execute(
+            "UPDATE jobs SET score=?, updated_at=? WHERE hash=?",
+            (score, _now(), target_hash)
+        )
+        conn.commit()
+
+    def toggle_job_pin(self, job_hash: str) -> bool:
+        """Toggle is_pinned flag. Returns new pin state."""
+        conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return False
+        row = conn.execute("SELECT is_pinned FROM jobs WHERE hash=?", (target_hash,)).fetchone()
+        if not row:
+            return False
+        new_val = 0 if row["is_pinned"] else 1
+        conn.execute(
+            "UPDATE jobs SET is_pinned=?, updated_at=? WHERE hash=?",
+            (new_val, _now(), target_hash)
+        )
+        conn.commit()
+        return bool(new_val)
 
     # === Applications ===
 
-    def get_applications(self, status: Optional[str] = None) -> list:
+    # Statuses considered archived (inactive)
+    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen")
+
+    def get_applications(self, status: Optional[str] = None,
+                         include_archived: bool = True,
+                         limit: int = 0, offset: int = 0) -> list:
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM applications WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
         if status:
-            rows = conn.execute(
-                f"SELECT * FROM applications WHERE status=? AND {where_profile} ORDER BY applied_at DESC",
-                (status, *params)
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                f"SELECT * FROM applications WHERE {where_profile} ORDER BY applied_at DESC",
-                params
-            ).fetchall()
+            query += " AND status=?"
+            params.append(status)
+        elif not include_archived:
+            placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+            query += f" AND status NOT IN ({placeholders})"
+            params.extend(self.ARCHIVE_STATUSES)
+        query += " ORDER BY applied_at DESC"
+        if limit > 0:
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+        rows = conn.execute(query, params).fetchall()
         apps = []
         for row in rows:
             app = dict(row)
@@ -1300,14 +1102,42 @@ class Database:
                 "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
                 (row["id"],)
             ).fetchall()]
-            apps.append(app)
+            apps.append(self._serialize_application_row(app))
         return apps
+
+    def count_applications(self, status: Optional[str] = None,
+                           include_archived: bool = True) -> int:
+        """Count applications without loading full data."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        query = "SELECT COUNT(*) FROM applications WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
+        if status:
+            query += " AND status=?"
+            params.append(status)
+        elif not include_archived:
+            placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+            query += f" AND status NOT IN ({placeholders})"
+            params.extend(self.ARCHIVE_STATUSES)
+        return conn.execute(query, params).fetchone()[0]
+
+    def count_archived_applications(self) -> int:
+        """Count archived (abgelehnt/zurueckgezogen/abgelaufen) applications."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
+        return conn.execute(
+            f"SELECT COUNT(*) FROM applications WHERE status IN ({placeholders}) "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (*self.ARCHIVE_STATUSES, pid)
+        ).fetchone()[0]
 
     def add_application(self, data: dict) -> str:
         conn = self.connect()
         aid = _gen_id()
         now = _now()
         pid = self.get_active_profile_id()
+        stored_job_hash = self.resolve_job_hash(data.get("job_hash"), pid) if data.get("job_hash") else None
         conn.execute("""
             INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
@@ -1315,7 +1145,7 @@ class Database:
                 kontakt_email, portal_name)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            aid, data.get("job_hash") or None, pid, data.get("title"), data.get("company"),
+            aid, stored_job_hash, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
             data.get("applied_at", now), data.get("cover_letter_path"),
             data.get("cv_path"), data.get("notes"), now,
@@ -1353,15 +1183,87 @@ class Database:
         """, (app_id, new_status, now, notes))
         conn.commit()
 
+    def delete_application(self, app_id: str):
+        """Delete an application and all its events."""
+        conn = self.connect()
+        conn.execute("DELETE FROM application_events WHERE application_id=?", (app_id,))
+        conn.execute("DELETE FROM follow_ups WHERE application_id=?", (app_id,))
+        conn.execute("DELETE FROM applications WHERE id=?", (app_id,))
+        conn.commit()
+
+    def update_application(self, app_id: str, data: dict):
+        """Update application fields (title, company, url, notes, ansprechpartner, kontakt_email)."""
+        conn = self.connect()
+        now = _now()
+        fields = []
+        values = []
+        for key in ("title", "company", "url", "notes", "ansprechpartner",
+                     "kontakt_email", "portal_name", "bewerbungsart"):
+            if key in data:
+                fields.append(f"{key}=?")
+                values.append(data[key])
+        if not fields:
+            return
+        fields.append("updated_at=?")
+        values.append(now)
+        values.append(app_id)
+        conn.execute(f"UPDATE applications SET {', '.join(fields)} WHERE id=?", values)
+        conn.commit()
+
+    def add_application_note(self, app_id: str, note: str):
+        """Add a timestamped note to the application timeline."""
+        conn = self.connect()
+        now = _now()
+        conn.execute("""
+            INSERT INTO application_events (application_id, status, event_date, notes)
+            VALUES (?, 'notiz', ?, ?)
+        """, (app_id, now, note))
+        conn.commit()
+
+    def update_application_event(self, event_id: int, app_id: str, text: str):
+        """Update the notes text of an existing event."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE application_events SET notes=? WHERE id=? AND application_id=?",
+            (text, event_id, app_id)
+        )
+        conn.commit()
+
+    def delete_application_event(self, event_id: int, app_id: str):
+        """Delete a single event (only 'notiz' type should be deletable)."""
+        conn = self.connect()
+        conn.execute(
+            "DELETE FROM application_events WHERE id=? AND application_id=? AND status='notiz'",
+            (event_id, app_id)
+        )
+        conn.commit()
+
+    def get_application(self, app_id: str) -> dict | None:
+        """Get a single application with events."""
+        conn = self.connect()
+        row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
+        if not row:
+            return None
+        app = dict(row)
+        app["events"] = [dict(e) for e in conn.execute(
+            "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
+            (app_id,)
+        ).fetchall()]
+        # Also load linked job description if available
+        if app.get("job_hash"):
+            job = conn.execute("SELECT description, url FROM jobs WHERE hash=?",
+                               (app["job_hash"],)).fetchone()
+            if job:
+                app["stellenbeschreibung"] = dict(job).get("description", "")
+                if not app.get("url"):
+                    app["url"] = dict(job).get("url", "")
+        return self._serialize_application_row(app)
+
     # === Search Criteria ===
 
     def get_search_criteria(self) -> dict:
         conn = self.connect()
-        scope_id = self._profile_scope_id()
-        cur = conn.execute(
-            "SELECT key, value FROM search_criteria WHERE profile_id=?",
-            (scope_id,)
-        )
+        cur = conn.execute("SELECT * FROM search_criteria")
         rows = cur.fetchall()
         criteria = {}
         for row in rows:
@@ -1370,42 +1272,27 @@ class Database:
 
     def set_search_criteria(self, key: str, value):
         conn = self.connect()
-        scope_id = self._profile_scope_id()
         conn.execute("""
-            INSERT INTO search_criteria (profile_id, key, value, updated_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(profile_id, key) DO UPDATE SET
-                value=excluded.value,
-                updated_at=excluded.updated_at
-        """, (scope_id, key, json.dumps(value, ensure_ascii=False), _now()))
+            INSERT OR REPLACE INTO search_criteria (key, value, updated_at)
+            VALUES (?, ?, ?)
+        """, (key, json.dumps(value, ensure_ascii=False), _now()))
         conn.commit()
 
     # === Blacklist ===
 
     def add_to_blacklist(self, entry_type: str, value: str, reason: str = ""):
         conn = self.connect()
-        scope_id = self._profile_scope_id()
         conn.execute("""
-            INSERT OR IGNORE INTO blacklist (profile_id, type, value, reason, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (scope_id, entry_type, value, reason, _now()))
+            INSERT OR IGNORE INTO blacklist (type, value, reason, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (entry_type, value, reason, _now()))
         conn.commit()
 
     def get_blacklist(self) -> list:
         conn = self.connect()
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM blacklist WHERE profile_id=? ORDER BY type, value",
-            (self._profile_scope_id(),)
+            "SELECT * FROM blacklist ORDER BY type, value"
         ).fetchall()]
-
-    def remove_blacklist_entry(self, entry_id: int) -> bool:
-        conn = self.connect()
-        result = conn.execute(
-            "DELETE FROM blacklist WHERE id=? AND profile_id=?",
-            (entry_id, self._profile_scope_id()),
-        )
-        conn.commit()
-        return result.rowcount > 0
 
     # === Background Jobs ===
 
@@ -1445,110 +1332,242 @@ class Database:
         d["result"] = json.loads(d["result"] or "null")
         return d
 
-    def get_running_background_job(self, job_type: Optional[str] = None) -> Optional[dict]:
-        """Return newest running background job, optionally filtered by type."""
-        conn = self.connect()
-        query = "SELECT * FROM background_jobs WHERE status='running'"
-        params: list[str] = []
-        if job_type:
-            query += " AND job_type=?"
-            params.append(job_type)
-        query += " ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
-        row = conn.execute(query, params).fetchone()
-        if row is None:
-            return None
-        d = dict(row)
-        d["params"] = json.loads(d["params"] or "{}")
-        d["result"] = json.loads(d["result"] or "null")
-        return d
-
     # === Statistics ===
 
     def get_statistics(self) -> dict:
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        pid = self.get_active_profile_id()
         stats = {}
-        # Applications by status
+        # Applications by status (profile-filtered)
         rows = conn.execute(
-            f"SELECT status, COUNT(*) as cnt FROM applications WHERE {where_profile} GROUP BY status",
-            params
+            "SELECT status, COUNT(*) as cnt FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL) GROUP BY status",
+            (pid,)
         ).fetchall()
         stats["applications_by_status"] = {r["status"]: r["cnt"] for r in rows}
         stats["total_applications"] = sum(r["cnt"] for r in rows)
         # Jobs
         stats["active_jobs"] = conn.execute(
-            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 AND {where_profile}",
-            params
+            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
         ).fetchone()[0]
         stats["dismissed_jobs"] = conn.execute(
-            f"SELECT COUNT(*) FROM jobs WHERE is_active=0 AND {where_profile}",
-            params
+            "SELECT COUNT(*) FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
         ).fetchone()[0]
+        stats["pinned_jobs"] = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_pinned=1 AND is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()[0]
+        # Score statistics (excluding pinned/manual to avoid skew)
+        score_row = conn.execute(
+            "SELECT AVG(score) as avg_score, MAX(score) as max_score, COUNT(*) as cnt "
+            "FROM jobs WHERE is_active=1 AND is_pinned=0 AND score>0 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        if score_row and score_row["cnt"]:
+            stats["avg_score"] = round(score_row["avg_score"], 1)
+            stats["max_score"] = score_row["max_score"]
+            stats["scored_jobs"] = score_row["cnt"]
         # Conversion rate
         total = stats["total_applications"]
         if total > 0:
-            interviews = stats["applications_by_status"].get("interview", 0)
+            interviews = (stats["applications_by_status"].get("interview", 0)
+                          + stats["applications_by_status"].get("zweitgespraech", 0))
             offers = stats["applications_by_status"].get("angebot", 0)
             stats["interview_rate"] = round(interviews / total * 100, 1)
             stats["offer_rate"] = round(offers / total * 100, 1)
+        # Sources breakdown
+        source_rows = conn.execute(
+            "SELECT source, COUNT(*) as cnt FROM jobs WHERE is_active=1 "
+            "AND (profile_id=? OR profile_id IS NULL) GROUP BY source ORDER BY cnt DESC",
+            (pid,)
+        ).fetchall()
+        stats["jobs_by_source"] = {r["source"]: r["cnt"] for r in source_rows}
         return stats
+
+    def get_timeline_stats(self, interval: str = "month") -> dict:
+        """Get application counts grouped by time interval for charts."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        fmt_map = {"week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
+        fmt = fmt_map.get(interval, "%Y-%m")
+
+        if interval == "quarter":
+            rows = conn.execute("""
+                SELECT
+                    CAST(strftime('%Y', applied_at) AS TEXT) || '-Q' ||
+                    CAST((CAST(strftime('%m', applied_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                    as period,
+                    COUNT(*) as count, status
+                FROM applications
+                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                GROUP BY period, status ORDER BY period
+            """, (pid,)).fetchall()
+        else:
+            rows = conn.execute(f"""
+                SELECT strftime('{fmt}', applied_at) as period,
+                       COUNT(*) as count, status
+                FROM applications
+                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                GROUP BY period, status ORDER BY period
+            """, (pid,)).fetchall()
+
+        periods = {}
+        for r in rows:
+            p = r["period"]
+            if p not in periods:
+                periods[p] = {"total": 0, "by_status": {}}
+            periods[p]["total"] += r["count"]
+            periods[p]["by_status"][r["status"]] = r["count"]
+
+        if interval == "quarter":
+            job_rows = conn.execute("""
+                SELECT
+                    CAST(strftime('%Y', found_at) AS TEXT) || '-Q' ||
+                    CAST((CAST(strftime('%m', found_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                    as period, COUNT(*) as count
+                FROM jobs WHERE found_at IS NOT NULL
+                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                GROUP BY period ORDER BY period
+            """, (pid,)).fetchall()
+        else:
+            job_rows = conn.execute(f"""
+                SELECT strftime('{fmt}', found_at) as period, COUNT(*) as count
+                FROM jobs WHERE found_at IS NOT NULL
+                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                GROUP BY period ORDER BY period
+            """, (pid,)).fetchall()
+
+        return {
+            "interval": interval,
+            "periods": sorted(periods.keys()),
+            "applications": {p: d["total"] for p, d in sorted(periods.items())},
+            "by_status": {p: d["by_status"] for p, d in sorted(periods.items())},
+            "jobs_found": {r["period"]: r["count"] for r in job_rows},
+        }
+
+    def get_score_stats(self) -> dict:
+        """Get score distribution and source comparison data for charts."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        dist_rows = conn.execute("""
+            SELECT score, COUNT(*) as cnt
+            FROM jobs WHERE is_active=1 AND is_pinned=0 AND score > 0
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY score ORDER BY score
+        """, (pid,)).fetchall()
+
+        source_rows = conn.execute("""
+            SELECT source, COUNT(*) as cnt,
+                   ROUND(AVG(CASE WHEN is_pinned=0 AND score>0 THEN score END), 1) as avg_score,
+                   MAX(CASE WHEN is_pinned=0 THEN score END) as max_score
+            FROM jobs WHERE is_active=1
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY source ORDER BY cnt DESC
+        """, (pid,)).fetchall()
+
+        return {
+            "score_distribution": {str(r["score"]): r["cnt"] for r in dist_rows},
+            "sources": [
+                {"name": r["source"] or "unbekannt", "count": r["cnt"],
+                 "avg_score": r["avg_score"], "max_score": r["max_score"]}
+                for r in source_rows
+            ],
+        }
+
+    def get_report_data(self) -> dict:
+        """Get comprehensive data for the PDF/Excel Bewerbungsbericht.
+
+        Returns everything needed: applications list, score stats,
+        source breakdown, keyword analysis, unapplied high-score jobs.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        # All applications with their linked job data
+        apps = conn.execute("""
+            SELECT a.*, j.score, j.source as job_source, j.is_pinned,
+                   j.description as job_description, j.found_at as job_found_at
+            FROM applications a
+            LEFT JOIN jobs j ON a.job_hash = j.hash
+            WHERE (a.profile_id=? OR a.profile_id IS NULL)
+            ORDER BY a.applied_at DESC
+        """, (pid,)).fetchall()
+
+        # Score distribution (non-pinned only)
+        score_dist = conn.execute("""
+            SELECT
+                CASE
+                    WHEN score = 0 THEN '0'
+                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
+                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
+                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    ELSE '10+'
+                END as bracket, COUNT(*) as cnt
+            FROM jobs WHERE is_active=1 AND is_pinned=0
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY bracket ORDER BY bracket
+        """, (pid,)).fetchall()
+
+        # High-score jobs NOT applied to
+        unapplied_high = conn.execute("""
+            SELECT j.hash, j.title, j.company, j.score, j.source,
+                   j.dismiss_reason, j.is_active, j.found_at
+            FROM jobs j
+            LEFT JOIN applications a ON j.hash = a.job_hash
+            WHERE a.id IS NULL AND j.score >= 5 AND j.is_pinned=0
+            AND (j.profile_id=? OR j.profile_id IS NULL)
+            ORDER BY j.score DESC LIMIT 30
+        """, (pid,)).fetchall()
+
+        # Date range
+        date_range = conn.execute("""
+            SELECT MIN(applied_at) as first, MAX(applied_at) as last
+            FROM applications WHERE (profile_id=? OR profile_id IS NULL)
+        """, (pid,)).fetchone()
+
+        return {
+            "applications": [self._serialize_application_row(r) for r in apps],
+            "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
+            "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
+            "date_range": {
+                "first": date_range["first"] if date_range else None,
+                "last": date_range["last"] if date_range else None,
+            },
+            "statistics": self.get_statistics(),
+        }
 
     # === Salary Data (PBP-014) ===
 
     def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float, salary_type: str):
         """Save extracted salary data for a job."""
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
         conn.execute(
-            f"UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=? AND {where_profile}",
-            (salary_min, salary_max, salary_type, _now(), job_hash, *params)
-        )
-        conn.commit()
-
-    def set_job_salary_estimated(self, job_hash: str, estimated: bool = True):
-        """Mark whether a job salary was estimated in the active profile context."""
-        conn = self.connect()
-        where_profile, params = self._profile_filter()
-        conn.execute(
-            f"UPDATE jobs SET salary_estimated=?, updated_at=? WHERE hash=? AND {where_profile}",
-            (1 if estimated else 0, _now(), job_hash, *params)
+            "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
+            (salary_min, salary_max, salary_type, _now(), target_hash)
         )
         conn.commit()
 
     def get_salary_statistics(self) -> dict:
-        """Get aggregated salary statistics across visible active jobs with salary data."""
-
-        def _positive_number(value):
-            if value is None:
-                return None
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                return None
-            return numeric if numeric > 0 else None
-
-        rows = []
-        for job in self.get_active_jobs():
-            salary_min = _positive_number(job.get("salary_min"))
-            salary_max = _positive_number(job.get("salary_max"))
-            if salary_min is None and salary_max is None:
-                continue
-            if salary_min is None:
-                salary_min = salary_max
-            if salary_max is None:
-                salary_max = salary_min
-            rows.append({
-                "salary_min": salary_min,
-                "salary_max": salary_max,
-                "salary_type": job.get("salary_type"),
-                "employment_type": job.get("employment_type"),
-                "source": job.get("source"),
-                "location": job.get("location"),
-            })
-
+        """Get aggregated salary statistics across all jobs with salary data."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute("""
+            SELECT salary_min, salary_max, salary_type, employment_type, source, location
+            FROM jobs
+            WHERE salary_min IS NOT NULL AND is_active=1
+              AND (? IS NULL OR profile_id=? OR profile_id IS NULL)
+        """, (pid, pid)).fetchall()
         if not rows:
             return {"anzahl": 0, "nachricht": "Keine Gehaltsdaten vorhanden"}
-        data = rows
+        data = [dict(r) for r in rows]
         annual = [d for d in data if d["salary_type"] == "jaehrlich"]
         daily = [d for d in data if d["salary_type"] == "taeglich"]
         result = {"anzahl": len(data)}
@@ -1578,19 +1597,22 @@ class Database:
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
         conn = self.connect()
-        where_profile, params = self._profile_filter()
-        return [dict(r) for r in conn.execute(
-            f"SELECT * FROM jobs WHERE company LIKE ? AND {where_profile} ORDER BY score DESC",
-            (f"%{company}%", *params)
+        pid = self.get_active_profile_id()
+        return [self._serialize_job_row(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE company LIKE ? "
+            "AND (? IS NULL OR profile_id=? OR profile_id IS NULL) "
+            "ORDER BY score DESC",
+            (f"%{company}%", pid, pid)
         ).fetchall()]
 
     def get_skill_frequency(self) -> list:
         """Analyze skill keywords frequency in active job descriptions."""
         conn = self.connect()
-        where_profile, params = self._profile_filter()
+        pid = self.get_active_profile_id()
         rows = conn.execute(
-            f"SELECT description FROM jobs WHERE is_active=1 AND description IS NOT NULL AND {where_profile}",
-            params
+            "SELECT description FROM jobs WHERE is_active=1 AND description IS NOT NULL "
+            "AND (? IS NULL OR profile_id=? OR profile_id IS NULL)",
+            (pid, pid)
         ).fetchall()
         return [r["description"] for r in rows]
 
@@ -1612,14 +1634,15 @@ class Database:
     def get_pending_follow_ups(self) -> list:
         """Get all pending follow-ups with application details."""
         conn = self.connect()
-        where_profile, params = self._profile_filter("a.profile_id")
+        pid = self.get_active_profile_id()
         return [dict(r) for r in conn.execute("""
             SELECT f.*, a.title, a.company, a.status as app_status, a.applied_at
             FROM follow_ups f
             JOIN applications a ON f.application_id = a.id
-            WHERE f.status = 'geplant' AND """ + where_profile + """
+            WHERE f.status = 'geplant'
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY f.scheduled_date ASC
-        """, params).fetchall()]
+        """, (pid, pid)).fetchall()]
 
     def complete_follow_up(self, follow_up_id: str, status: str = "gesendet"):
         """Mark a follow-up as completed or skipped."""
@@ -1634,28 +1657,12 @@ class Database:
 
     def get_setting(self, key: str, default=None):
         conn = self.connect()
-        if key in PROFILE_SCOPED_SETTING_KEYS:
-            row = conn.execute(
-                "SELECT value FROM profile_settings WHERE profile_id=? AND key=?",
-                (self._profile_scope_id(), key)
-            ).fetchone()
-            return json.loads(row["value"]) if row else default
         cur = conn.execute("SELECT value FROM settings WHERE key=?", (key,))
         row = cur.fetchone()
         return json.loads(row["value"]) if row else default
 
     def set_setting(self, key: str, value):
         conn = self.connect()
-        if key in PROFILE_SCOPED_SETTING_KEYS:
-            conn.execute("""
-                INSERT INTO profile_settings (profile_id, key, value, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(profile_id, key) DO UPDATE SET
-                    value=excluded.value,
-                    updated_at=excluded.updated_at
-            """, (self._profile_scope_id(), key, json.dumps(value, ensure_ascii=False), _now()))
-            conn.commit()
-            return
         conn.execute("""
             INSERT OR REPLACE INTO settings (key, value)
             VALUES (?, ?)
@@ -1690,14 +1697,15 @@ class Database:
     def get_rejection_patterns(self) -> dict:
         """Analyze rejection patterns across all applications."""
         conn = self.connect()
-        where_profile, params = self._profile_filter("a.profile_id")
+        pid = self.get_active_profile_id()
         apps = conn.execute("""
             SELECT a.*, ae.notes as event_notes, ae.event_date
             FROM applications a
             LEFT JOIN application_events ae ON a.id = ae.application_id AND ae.status = 'abgelehnt'
-            WHERE a.status = 'abgelehnt' AND """ + where_profile + """
+            WHERE a.status = 'abgelehnt'
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY a.updated_at DESC
-        """, params).fetchall()
+        """, (pid, pid)).fetchall()
         if not apps:
             return {"anzahl": 0, "muster": [], "nachricht": "Keine Ablehnungen vorhanden."}
 
@@ -1748,7 +1756,7 @@ class Database:
                           "prompt": "/ersterfassung"})
             return steps
 
-        # Check completeness - profile building
+        # Check completeness — profile building
         if not profile.get("summary"):
             steps.append({"aktion": "Zusammenfassung ergaenzen", "prioritaet": "hoch",
                           "beschreibung": "Dein Profil braucht eine Zusammenfassung fuer Anschreiben und CV.",
@@ -1780,22 +1788,21 @@ class Database:
                           "beschreibung": "Hochgeladene Dokumente wurden noch nicht ausgewertet — Claude kann die Daten extrahieren.",
                           "action_type": "prompt", "prompt": "/profil_erweiterung"})
         elif not docs:
-            # No documents at all - suggest upload
+            # No documents at all — suggest upload
             steps.append({"aktion": "Dokumente hochladen", "prioritaet": "mittel",
                           "beschreibung": "Lade Lebenslauf oder Zeugnisse hoch fuer automatische Profil-Erweiterung.",
                           "action_type": "dashboard", "action_target": "wizardDocUpload()",
                           "action_label": "Dokument hochladen"})
 
         # Check follow-ups
-        where_app_profile, params_app_profile = self._profile_filter("a.profile_id", profile_id)
         due_followups = conn.execute("""
-            SELECT COUNT(*) FROM follow_ups
-            JOIN applications a ON follow_ups.application_id = a.id
-            WHERE follow_ups.status = 'geplant'
-              AND follow_ups.scheduled_date <= date('now')
-              AND """ + where_app_profile,
-            params_app_profile
-        ).fetchone()[0]
+            SELECT COUNT(*)
+            FROM follow_ups f
+            JOIN applications a ON a.id = f.application_id
+            WHERE f.status = 'geplant'
+              AND f.scheduled_date <= date('now')
+              AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
+        """, (profile_id, profile_id)).fetchone()[0]
         if due_followups:
             steps.append({"aktion": f"{due_followups} faellige(s) Follow-up(s)",
                           "prioritaet": "hoch",
@@ -1828,17 +1835,18 @@ class Database:
                 pass
 
         # Check active jobs without applications
-        where_profile, params_profile = self._profile_filter(profile_id=profile_id)
+        where_profile = "AND (profile_id = ? OR profile_id IS NULL)" if profile_id else ""
+        params_profile = (profile_id,) if profile_id else ()
         active_jobs = conn.execute(
-            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 AND {where_profile}",
+            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 {where_profile}",
             params_profile
         ).fetchone()[0]
         high_score_jobs = conn.execute(
-            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 AND score >= 8 AND {where_profile}",
+            f"SELECT COUNT(*) FROM jobs WHERE is_active=1 AND score >= 8 {where_profile}",
             params_profile
         ).fetchone()[0]
         apps_count = conn.execute(
-            f"SELECT COUNT(*) FROM applications WHERE {where_profile}",
+            f"SELECT COUNT(*) FROM applications {('WHERE (profile_id = ? OR profile_id IS NULL)' if profile_id else '')}",
             params_profile
         ).fetchone()[0]
 
@@ -1853,9 +1861,9 @@ class Database:
                           "beschreibung": "Quellen sind aktiv — starte jetzt deine erste Suche.",
                           "action_type": "prompt", "prompt": "/jobsuche_workflow"})
 
-        # Check rejections - suggest pattern analysis
+        # Check rejections — suggest pattern analysis
         rejections = conn.execute(
-            f"SELECT COUNT(*) FROM applications WHERE status='abgelehnt' AND {where_profile}",
+            f"SELECT COUNT(*) FROM applications WHERE status='abgelehnt' {where_profile}",
             params_profile
         ).fetchone()[0]
         if rejections >= 3:
@@ -1865,7 +1873,7 @@ class Database:
 
         # Suggest interview prep when interviews scheduled
         interviews = conn.execute(
-            f"SELECT COUNT(*) FROM applications WHERE status IN ('interview','zweitgespraech') AND {where_profile}",
+            f"SELECT COUNT(*) FROM applications WHERE status IN ('interview','zweitgespraech') {where_profile}",
             params_profile
         ).fetchone()[0]
         if interviews > 0:
@@ -1904,17 +1912,16 @@ class Database:
                                    applied_fields: dict = None):
         """Update extraction status and applied fields."""
         conn = self.connect()
-        where_profile, params = self._profile_filter()
         if applied_fields:
-            conn.execute(
-                "UPDATE extraction_history SET status=?, applied_fields=?, completed_at=? "
-                "WHERE id=? AND " + where_profile,
-                (status, json.dumps(applied_fields, ensure_ascii=False), _now(), extraction_id, *params),
-            )
+            conn.execute("""
+                UPDATE extraction_history SET status=?, applied_fields=?, completed_at=?
+                WHERE id=?
+            """, (status, json.dumps(applied_fields, ensure_ascii=False),
+                  _now(), extraction_id))
         else:
             conn.execute(
-                "UPDATE extraction_history SET status=?, completed_at=? WHERE id=? AND " + where_profile,
-                (status, _now(), extraction_id, *params)
+                "UPDATE extraction_history SET status=?, completed_at=? WHERE id=?",
+                (status, _now(), extraction_id)
             )
         conn.commit()
 
@@ -1925,10 +1932,9 @@ class Database:
         query = "SELECT * FROM extraction_history"
         params = []
         conditions = []
-        pid = self._resolve_profile_id(profile_id)
-        if pid:
+        if profile_id:
             conditions.append("profile_id=?")
-            params.append(pid)
+            params.append(profile_id)
         if document_id:
             conditions.append("document_id=?")
             params.append(document_id)
@@ -1940,10 +1946,9 @@ class Database:
     def update_document_extraction_status(self, doc_id: str, status: str):
         """Update extraction status of a document."""
         conn = self.connect()
-        where_profile, params = self._profile_filter()
         conn.execute(
-            "UPDATE documents SET extraction_status=?, last_extraction_at=? WHERE id=? AND " + where_profile,
-            (status, _now(), doc_id, *params)
+            "UPDATE documents SET extraction_status=?, last_extraction_at=? WHERE id=?",
+            (status, _now(), doc_id)
         )
         conn.commit()
 
@@ -2018,7 +2023,7 @@ class Database:
         conn.execute("UPDATE profile SET is_active=0")
         conn.commit()
 
-        # Save new profile (no active profile -> creates new)
+        # Save new profile (no active profile → creates new)
         pid = self.save_profile(data)
 
         # Import positions with projects
@@ -2063,14 +2068,6 @@ SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
-);
-
-CREATE TABLE IF NOT EXISTS profile_settings (
-    profile_id TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT,
-    updated_at TEXT,
-    PRIMARY KEY (profile_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS profile (
@@ -2193,6 +2190,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     employment_type TEXT DEFAULT 'festanstellung',
     dismiss_reason TEXT,
     is_active INTEGER DEFAULT 1,
+    is_pinned INTEGER DEFAULT 0,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
@@ -2230,21 +2228,18 @@ CREATE TABLE IF NOT EXISTS application_events (
 );
 
 CREATE TABLE IF NOT EXISTS search_criteria (
-    profile_id TEXT NOT NULL,
-    key TEXT NOT NULL,
+    key TEXT PRIMARY KEY,
     value TEXT,
-    updated_at TEXT,
-    PRIMARY KEY (profile_id, key)
+    updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS blacklist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    profile_id TEXT NOT NULL,
     type TEXT NOT NULL,
     value TEXT NOT NULL,
     reason TEXT,
     created_at TEXT,
-    UNIQUE(profile_id, type, value)
+    UNIQUE(type, value)
 );
 
 CREATE TABLE IF NOT EXISTS background_jobs (
@@ -2298,4 +2293,3 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     updated_at TEXT
 );
 """
-

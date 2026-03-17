@@ -1,9 +1,18 @@
-"""LinkedIn Job-Scraper via Playwright.
+"""LinkedIn Job-Scraper via Playwright (Browser-Automation).
 
 Uses persistent browser session (user logs in once, session is saved).
-Searches LinkedIn Jobs with configurable keywords.
+Searches LinkedIn Jobs with dynamic keyword combinations from profile/criteria.
 
-Based on the proven linkedin_searcher.py from the original JobFinder project.
+Features (#48/#50/#73):
+- launch_persistent_context for reliable session management
+- Dynamic keyword combinations from keywords_muss (smart pairing)
+- Configurable DOM selectors (browser_config.py)
+- Multi-page pagination (configurable max_pages)
+- Job description extraction from detail panel
+- LinkedIn Job-ID based deduplication
+- Remote filter via f_WT parameter
+- Regional filtering from criteria
+- Bot-detection handling with clear error messages
 """
 
 import logging
@@ -14,17 +23,26 @@ from pathlib import Path
 from urllib.parse import quote
 
 from . import stelle_hash, detect_remote_level
+from .browser_config import (
+    get_selectors,
+    build_js_extractor,
+    build_js_description,
+    build_keyword_combinations,
+)
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.linkedin")
 
 DEFAULT_SEARCHES = [
-    "PLM Systemarchitekt",
-    "PDM Solution Architect",
     "PLM Consultant",
+    "PDM Solution Architect",
     "PLM Projektleiter",
-    "Head of PLM",
-    "PLM Program Manager",
+    "Product Lifecycle Management",
 ]
+
+# Default config
+DEFAULT_MAX_PAGES = 3
+DEFAULT_PAGE_DELAY = 3  # seconds between page loads
+DEFAULT_MAX_AGE_DAYS = 21
 
 
 def get_session_dir() -> Path:
@@ -35,91 +53,86 @@ def get_session_dir() -> Path:
     return session_dir
 
 
-def ensure_linkedin_session(progress_callback=None) -> bool:
-    """Ensure that a reusable LinkedIn browser session exists.
+def _build_search_queries(params: dict) -> list[str]:
+    """Build LinkedIn search queries from params.
 
-    Oeffnet beim ersten Mal einen sichtbaren Browser zur Anmeldung und speichert
-    die Session fuer spaetere Jobsuchen.
+    Uses smart keyword combinations from keywords_muss if available,
+    falls back to general keywords or DEFAULT_SEARCHES.
     """
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.error("Playwright nicht installiert. Bitte: pip install playwright && python -m playwright install chromium")
-        return False
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
 
-    def _notify(message: str):
-        logger.info(message)
-        if progress_callback:
-            progress_callback(message)
+    # Try to build smart combinations from keywords_muss
+    muss = criteria.get("keywords_muss", [])
+    if not muss and isinstance(kw_data, dict):
+        muss = kw_data.get("keywords_muss", [])
 
-    session_dir = get_session_dir()
+    if muss:
+        combos = build_keyword_combinations(muss)
+        if combos:
+            logger.info("Keyword-Kombinationen: %s", combos)
+            return combos
 
-    with sync_playwright() as pw:
-        session_exists = (session_dir / "Default" / "Cookies").exists() or \
-                        (session_dir / "Default").exists()
+    # Fallback: use general keywords
+    general = kw_data.get("general", []) if isinstance(kw_data, dict) else []
+    if general:
+        return list(general[:6])
 
-        if not session_exists:
-            _notify("LinkedIn: Browser wird fuer den Erst-Login geoeffnet.")
+    return DEFAULT_SEARCHES
 
-        browser = pw.chromium.launch_persistent_context(
-            user_data_dir=str(session_dir),
-            headless=session_exists,
-            slow_mo=300 if not session_exists else 0,
-            viewport={"width": 1280, "height": 900},
-            locale="de-DE",
-            args=[
-                "--no-sandbox",
-                "--disable-blink-features=AutomationControlled",
-            ],
-        )
 
+def _build_location_param(params: dict) -> str:
+    """Build LinkedIn location parameter from search criteria."""
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
+
+    regionen = criteria.get("regionen", [])
+    if not regionen and isinstance(kw_data, dict):
+        regionen = kw_data.get("regionen", [])
+
+    if regionen:
+        for r in regionen:
+            if r.lower() != "remote":
+                return r
+    return "Deutschland"
+
+
+def _should_filter_remote(params: dict) -> bool:
+    """Check if remote filter should be applied (f_WT=2).
+
+    Returns True if homeoffice preference >= 7 in custom_kriterien.
+    """
+    criteria = params.get("criteria", {})
+    custom = criteria.get("custom_kriterien", {})
+    if isinstance(custom, str):
         try:
-            page = browser.pages[0] if browser.pages else browser.new_page()
-            page.goto(
-                "https://www.linkedin.com/jobs/",
-                wait_until="domcontentloaded",
-                timeout=30000,
-            )
-            time.sleep(2)
+            import json
+            custom = json.loads(custom)
+        except Exception:
+            custom = {}
+    return custom.get("homeoffice", 0) >= 7
 
-            if _is_login_page(page):
-                if session_exists:
-                    browser.close()
-                    _notify("LinkedIn: Vorhandene Session ist abgelaufen. Browser wird fuer erneuten Login geoeffnet.")
-                    browser = pw.chromium.launch_persistent_context(
-                        user_data_dir=str(session_dir),
-                        headless=False,
-                        slow_mo=300,
-                        viewport={"width": 1280, "height": 900},
-                        locale="de-DE",
-                        args=[
-                            "--no-sandbox",
-                            "--disable-blink-features=AutomationControlled",
-                        ],
-                    )
-                    page = browser.pages[0] if browser.pages else browser.new_page()
-                    page.goto(
-                        "https://www.linkedin.com/jobs/",
-                        wait_until="domcontentloaded",
-                        timeout=30000,
-                    )
-                    time.sleep(2)
 
-                _notify("LinkedIn: Bitte im geoeffneten Browser einloggen. Warte max. 3 Minuten...")
-                for _ in range(180):
-                    time.sleep(1)
-                    url = page.url
-                    if ("feed" in url or "jobs" in url) and "login" not in url:
-                        _notify("LinkedIn: Login erfolgreich, Session gespeichert.")
-                        return True
+def _build_search_url(query: str, location: str, remote: bool, page: int = 0) -> str:
+    """Build a LinkedIn Jobs search URL.
 
-                logger.warning("LinkedIn Login Timeout. Abbruch.")
-                return False
-
-            _notify("LinkedIn: Session ist bereits bereit.")
-            return True
-        finally:
-            browser.close()
+    Args:
+        query: Search keywords (can include Boolean operators)
+        location: Location string
+        remote: Whether to filter for remote jobs (f_WT=2)
+        page: Page number (0-based, each page = 25 results)
+    """
+    url = (
+        f"https://www.linkedin.com/jobs/search/"
+        f"?keywords={quote(query)}"
+        f"&location={quote(location)}"
+        f"&sortBy=DD"  # Newest first
+    )
+    if remote:
+        url += "&f_WT=2"  # Remote filter
+    if page > 0:
+        url += f"&start={page * 25}"
+    return url
 
 
 def search_linkedin(params: dict, progress_callback=None) -> list:
@@ -129,7 +142,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
     After that, the session is saved and reused (headless mode).
 
     Args:
-        params: Search parameters with optional 'keywords' list
+        params: Search parameters with optional 'keywords' dict and 'criteria'
         progress_callback: Optional callback(message) for progress updates
 
     Returns:
@@ -138,26 +151,35 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        logger.error("Playwright nicht installiert. Bitte: pip install playwright && python -m playwright install chromium")
+        msg = ("Playwright nicht installiert. "
+               "Bitte: pip install playwright && python -m playwright install chromium")
+        logger.error(msg)
+        if progress_callback:
+            progress_callback(f"LinkedIn FEHLER: {msg}")
         return []
 
-    keywords = params.get("keywords")
-    searches = DEFAULT_SEARCHES
-    if keywords:
-        # Build search queries from profile keywords
-        searches = [f"{kw} Deutschland" for kw in keywords[:8]]
+    # Load criteria from DB if not in params
+    if "criteria" not in params:
+        try:
+            from ..database import Database
+            db = Database()
+            params["criteria"] = db.get_search_criteria()
+        except Exception:
+            params["criteria"] = {}
 
-    criteria = params.get("criteria", {})
-    max_age_days = 21
+    searches = _build_search_queries(params)
+    location = _build_location_param(params)
+    remote_filter = params.get("nur_remote", False) or _should_filter_remote(params)
+    max_pages = params.get("max_pages", DEFAULT_MAX_PAGES)
+    max_age_days = params.get("max_age_days", DEFAULT_MAX_AGE_DAYS)
     grenze = datetime.now() - timedelta(days=max_age_days)
-    stellen = []
 
+    stellen = []
+    seen_job_ids = set()  # LinkedIn Job-ID deduplication
     session_dir = get_session_dir()
 
     with sync_playwright() as pw:
-        # Check if session already exists (login saved)
-        session_exists = (session_dir / "Default" / "Cookies").exists() or \
-                        (session_dir / "Default").exists()
+        session_exists = (session_dir / "Default").exists()
         headless = session_exists
 
         if not session_exists:
@@ -187,11 +209,10 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
             page.goto(
                 "https://www.linkedin.com/jobs/",
                 wait_until="domcontentloaded",
-                timeout=30000
+                timeout=30000,
             )
             time.sleep(2)
 
-            # Detect login page
             if _is_login_page(page):
                 logger.info("LinkedIn Login erforderlich...")
                 if progress_callback:
@@ -199,7 +220,6 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                         "LinkedIn: Bitte im geoeffneten Browser einloggen. "
                         "Warte max. 3 Minuten..."
                     )
-                # Wait for user to log in (max 3 minutes)
                 logged_in = False
                 for _ in range(180):
                     time.sleep(1)
@@ -214,55 +234,109 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                     browser.close()
                     return []
 
-            logger.info("LinkedIn eingeloggt. Starte %d Suchen...", len(searches))
+            # Bot-detection check
+            if _is_bot_blocked(page):
+                msg = (
+                    "LinkedIn Bot-Detection aktiv. Optionen: "
+                    "1) Warte einige Minuten und versuche erneut. "
+                    "2) Nutze 'Claude in Chrome' Browser-Extension fuer direkte Suche."
+                )
+                logger.warning(msg)
+                if progress_callback:
+                    progress_callback(f"LinkedIn WARNUNG: {msg}")
+                browser.close()
+                return []
 
-            # === Job Search ===
+            logger.info(
+                "LinkedIn eingeloggt. Starte %d Suchen (Region: %s, Remote: %s, Max Pages: %d)...",
+                len(searches), location, remote_filter, max_pages,
+            )
+
+            # === Job Search with Pagination ===
+            js_extractor = build_js_extractor("linkedin")
+
             for idx, suchbegriff in enumerate(searches):
                 if progress_callback:
-                    progress_callback(f"LinkedIn: Suche '{suchbegriff}' ({idx+1}/{len(searches)})")
-
-                try:
-                    url = (
-                        f"https://www.linkedin.com/jobs/search/"
-                        f"?keywords={quote(suchbegriff)}"
-                        f"&location=Deutschland"
-                        f"&f_TPR=r604800"   # Last 7 days
-                        f"&sortBy=DD"       # Newest first
+                    progress_callback(
+                        f"LinkedIn: Suche '{suchbegriff}' ({idx+1}/{len(searches)})"
                     )
-                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    time.sleep(3)
 
-                    # Scroll to load more results
-                    for _ in range(3):
-                        page.keyboard.press("End")
-                        time.sleep(1.5)
+                for page_num in range(max_pages):
+                    try:
+                        url = _build_search_url(
+                            suchbegriff, location, remote_filter, page_num
+                        )
+                        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        time.sleep(DEFAULT_PAGE_DELAY)
 
-                    # Collect job cards
-                    karten = page.locator(
-                        ".job-card-container, .jobs-search-results__list-item"
-                    ).all()
-                    logger.info("LinkedIn '%s': %d Karten", suchbegriff, len(karten))
+                        # Scroll to load lazy-loaded results
+                        for _ in range(3):
+                            page.keyboard.press("End")
+                            time.sleep(1)
 
-                    for karte in karten[:25]:
-                        try:
-                            job = _parse_job_card(karte, grenze)
+                        # Extract job cards via JavaScript
+                        raw_jobs = page.evaluate(js_extractor)
+                        logger.info(
+                            "LinkedIn '%s' Seite %d: %d Karten",
+                            suchbegriff, page_num + 1, len(raw_jobs),
+                        )
+
+                        if not raw_jobs:
+                            logger.info(
+                                "Keine Ergebnisse auf Seite %d, beende Paginierung.",
+                                page_num + 1,
+                            )
+                            break
+
+                        page_stellen = 0
+                        for raw in raw_jobs:
+                            job = _process_raw_job(raw, grenze, seen_job_ids)
                             if job:
                                 stellen.append(job)
-                        except Exception as e:
-                            logger.debug("Karte-Fehler: %s", e)
-                            continue
+                                page_stellen += 1
 
-                except PWTimeout:
-                    logger.warning("LinkedIn Timeout fuer '%s'", suchbegriff)
-                except Exception as e:
-                    logger.error("LinkedIn Fehler bei '%s': %s", suchbegriff, e)
+                        # Update progress with page info
+                        if progress_callback and page_num > 0:
+                            progress_callback(
+                                f"LinkedIn: '{suchbegriff}' Seite {page_num+1}/{max_pages} "
+                                f"({page_stellen} neue Stellen)"
+                            )
 
-                time.sleep(2)  # Rate limiting between searches
+                        # Stop pagination if fewer than expected results
+                        if len(raw_jobs) < 15:
+                            break
 
+                    except PWTimeout:
+                        logger.warning(
+                            "LinkedIn Timeout fuer '%s' Seite %d",
+                            suchbegriff, page_num + 1,
+                        )
+                        break
+                    except Exception as e:
+                        logger.error(
+                            "LinkedIn Fehler bei '%s' Seite %d: %s",
+                            suchbegriff, page_num + 1, e,
+                        )
+                        break
+
+                    # Rate limiting between pages
+                    if page_num < max_pages - 1:
+                        time.sleep(2)
+
+                # Rate limiting between searches
+                time.sleep(2)
+
+            # === Optional: Extract descriptions for top results ===
+            _extract_descriptions(page, stellen[:20], progress_callback)
+
+        except Exception as e:
+            logger.error("LinkedIn Session-Fehler: %s", e, exc_info=True)
+            if progress_callback:
+                progress_callback(f"LinkedIn FEHLER: {e}")
         finally:
             browser.close()
 
-    # Deduplicate
+    # Final dedup by hash
     seen = set()
     unique = []
     for s in stellen:
@@ -274,73 +348,115 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
     return unique
 
 
-def _is_login_page(page) -> bool:
-    """Check if we're on a LinkedIn login/auth page."""
-    url = page.url.lower()
-    if "login" in url or "authwall" in url or "checkpoint" in url:
-        return True
-    if page.locator("input#username").count() > 0:
-        return True
-    return False
+def _process_raw_job(
+    raw: dict, grenze: datetime, seen_job_ids: set
+) -> dict | None:
+    """Process a raw JS-extracted job into a job dict.
 
-
-def _parse_job_card(karte, grenze: datetime) -> dict | None:
-    """Parse a single LinkedIn job card into a job dict."""
-    # Title
-    titel_el = karte.locator(
-        ".job-card-list__title, .job-card-container__link"
-    ).first
-    titel = _clean(titel_el.text_content()) if titel_el.count() else ""
-    if not titel:
+    Handles LinkedIn Job-ID deduplication.
+    """
+    title = _clean(raw.get("title", ""))
+    if not title:
         return None
 
-    # Company
-    firma_el = karte.locator(
-        ".job-card-container__company-name, .artdeco-entity-lockup__subtitle"
-    ).first
-    firma = _clean(firma_el.text_content()) if firma_el.count() else "k.A."
+    # Deduplicate by LinkedIn Job-ID
+    job_id = raw.get("jobId", "")
+    if job_id:
+        if job_id in seen_job_ids:
+            return None
+        seen_job_ids.add(job_id)
 
-    # Location
-    ort_el = karte.locator(".job-card-container__metadata-item").first
-    ort = _clean(ort_el.text_content()) if ort_el.count() else ""
+    link = raw.get("link", "")
+    company = _clean(raw.get("company", "")) or "k.A."
+    location = _clean(raw.get("location", ""))
 
-    # Link — prefer /jobs/view/ URLs, strip tracking parameters
-    link_el = karte.locator("a[href*='/jobs/view/']").first
-    href = link_el.get_attribute("href") if link_el.count() else ""
-    if not href:
-        any_link = karte.locator("a[href]").first
-        href = any_link.get_attribute("href") if any_link.count() else ""
-    link = href.split("?")[0] if href else ""
-    if link and not link.startswith("http"):
-        link = "https://www.linkedin.com" + link
-    # Skip company page links
-    if "/company/" in link and "/jobs/view/" not in link:
-        return None
-
-    # Date
-    datum_el = karte.locator("time, .job-card-container__listdate").first
-    datum_raw = ""
-    if datum_el.count():
-        datum_raw = datum_el.get_attribute("datetime") or _clean(datum_el.text_content())
-    datum = _parse_linkedin_date(datum_raw)
+    # Date filtering
+    datum = _parse_linkedin_date(raw.get("dateRaw", ""))
     if datum < grenze:
         return None
 
-    volltext = f"{titel} {firma} {ort}"
-    employment = "freelance" if ("interim" in titel.lower() or "freelance" in titel.lower()) else "festanstellung"
+    volltext = f"{title} {company} {location}"
+    employment = (
+        "freelance"
+        if ("interim" in title.lower() or "freelance" in title.lower())
+        else "festanstellung"
+    )
+
+    # Use LinkedIn Job-ID in hash for better deduplication
+    hash_key = f"linkedin.com/jobs/view/{job_id}" if job_id else f"linkedin.com|{title}"
 
     return {
-        "hash": stelle_hash("linkedin.com", titel),
-        "title": titel,
-        "company": firma,
-        "location": ort,
+        "hash": stelle_hash("linkedin.com", hash_key if job_id else title),
+        "title": title,
+        "company": company,
+        "location": location,
         "url": link,
         "source": "linkedin",
         "description": "",
         "employment_type": employment,
         "remote_level": detect_remote_level(volltext),
         "found_at": datetime.now().isoformat(),
+        "linkedin_job_id": job_id,
     }
+
+
+def _extract_descriptions(page, stellen: list, progress_callback=None) -> None:
+    """Try to extract descriptions by clicking on job cards.
+
+    Only extracts for jobs that don't already have descriptions.
+    Fails silently on errors (descriptions are optional).
+    """
+    js_desc = build_js_description("linkedin")
+    extracted = 0
+
+    for job in stellen:
+        if job.get("description") or not job.get("url"):
+            continue
+        try:
+            page.goto(job["url"], wait_until="domcontentloaded", timeout=15000)
+            time.sleep(1.5)
+            desc = page.evaluate(js_desc)
+            if desc and len(desc) > 50:
+                job["description"] = desc.strip()
+                extracted += 1
+        except Exception as e:
+            logger.debug("Beschreibung nicht extrahiert fuer %s: %s", job["url"], e)
+        # Rate limit
+        time.sleep(1)
+
+        # Limit description extraction to avoid rate-limiting
+        if extracted >= 10:
+            break
+
+    if extracted:
+        logger.info("LinkedIn: %d Stellenbeschreibungen extrahiert", extracted)
+
+
+def _is_login_page(page) -> bool:
+    """Check if we're on a LinkedIn login/auth page."""
+    sel = get_selectors("linkedin")
+    url = page.url.lower()
+
+    for pattern in sel.get("login_url_patterns", ["login", "authwall"]):
+        if pattern in url:
+            return True
+
+    indicators = sel.get("login_indicators", "input#username")
+    if page.locator(indicators).count() > 0:
+        return True
+
+    return False
+
+
+def _is_bot_blocked(page) -> bool:
+    """Check if LinkedIn has triggered bot detection."""
+    url = page.url.lower()
+    if "challenge" in url or "captcha" in url:
+        return True
+    # Check for CAPTCHA elements
+    if page.locator("iframe[src*='captcha'], #captcha, .challenge-dialog").count() > 0:
+        return True
+    return False
 
 
 def _clean(text) -> str:
@@ -354,7 +470,7 @@ def _parse_linkedin_date(text: str) -> datetime:
         return datetime.now()
     t = text.lower().strip()
 
-    if "minute" in t or "sekunde" in t or "second" in t or "minute" in t:
+    if "minute" in t or "sekunde" in t or "second" in t:
         return datetime.now()
     if "stunde" in t or "hour" in t:
         m = re.search(r"(\d+)", t)
@@ -372,7 +488,7 @@ def _parse_linkedin_date(text: str) -> datetime:
     # Try ISO date formats
     for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]:
         try:
-            return datetime.strptime(text[:len(fmt.replace("%", "X"))], fmt)
+            return datetime.strptime(text[: len(fmt.replace("%", "X"))], fmt)
         except (ValueError, TypeError):
             continue
 

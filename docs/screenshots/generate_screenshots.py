@@ -75,15 +75,19 @@ def _create_demo_data(db: Database):
         "description": "CAD/CAM-Systemadministration und Customizing.",
     })
 
-    # Skills
-    for skill_name, cat in [
-        ("Windchill", "tool"), ("PRO.FILE", "tool"), ("SAP ECTR", "tool"),
-        ("Python", "programmiersprache"), ("SQL", "programmiersprache"),
-        ("Projektmanagement", "methodik"), ("Agile/Scrum", "methodik"),
-        ("ITIL", "methodik"), ("Change Management", "soft_skill"),
-        ("Stakeholder-Kommunikation", "soft_skill"),
+    # Skills mit Level und Kategorie
+    for skill_name, cat, level in [
+        ("Windchill", "tool", 5), ("PRO.FILE", "tool", 4), ("SAP ECTR", "tool", 4),
+        ("CATIA V5", "tool", 3), ("Teamcenter", "tool", 2),
+        ("Python", "programmiersprache", 4), ("SQL", "programmiersprache", 4),
+        ("JavaScript", "programmiersprache", 2),
+        ("Projektmanagement", "methodik", 5), ("Agile/Scrum", "methodik", 4),
+        ("ITIL", "methodik", 3), ("Prince2", "methodik", 3),
+        ("Change Management", "soft_skill", 5),
+        ("Stakeholder-Kommunikation", "soft_skill", 4),
+        ("Englisch C1", "sprache", 4), ("Deutsch Muttersprache", "sprache", 5),
     ]:
-        db.add_skill({"name": skill_name, "category": cat})
+        db.add_skill({"name": skill_name, "category": cat, "level": level})
 
     # Ausbildung
     db.add_education({
@@ -107,7 +111,7 @@ def _create_demo_data(db: Database):
     db.set_setting("active_sources", ["bundesagentur", "stepstone", "hays"])
     db.set_setting("last_search_at", datetime.now().isoformat())
 
-    # Jobs
+    # Jobs — Mix aus Festanstellung und Freelance fuer Split-View
     now = datetime.now()
     jobs = [
         {
@@ -154,6 +158,40 @@ def _create_demo_data(db: Database):
             "employment_type": "festanstellung", "remote_level": "onsite",
             "score": 65, "found_at": (now - timedelta(days=5)).isoformat(),
         },
+        # Freelance-Stellen fuer Split-View
+        {
+            "title": "PLM Berater Windchill Migration",
+            "company": "EDAG Engineering",
+            "location": "Remote",
+            "url": "https://example.com/job/5",
+            "source": "freelancermap",
+            "description": "6-Monats-Projekt: Migration von Windchill 11 auf 13. Erfahrung mit Multi-Site-Architektur erforderlich.",
+            "salary_min": 850, "salary_max": 950, "salary_type": "taeglich",
+            "employment_type": "freelance", "remote_level": "remote",
+            "score": 90, "found_at": (now - timedelta(days=1)).isoformat(),
+        },
+        {
+            "title": "PDM Consultant SAP ECTR",
+            "company": "Brunel GmbH",
+            "location": "Stuttgart (Hybrid)",
+            "url": "https://example.com/job/6",
+            "source": "freelance_de",
+            "description": "SAP ECTR Implementierung fuer Automobilzulieferer. 3 Monate, Verlaengerung moeglich.",
+            "salary_min": 800, "salary_max": 900, "salary_type": "taeglich",
+            "employment_type": "freelance", "remote_level": "hybrid",
+            "score": 78, "found_at": (now - timedelta(days=2)).isoformat(),
+        },
+        {
+            "title": "Projektleiter Digitaler Zwilling",
+            "company": "Ferchau Engineering",
+            "location": "Muenchen",
+            "url": "https://example.com/job/7",
+            "source": "freelancermap",
+            "description": "Aufbau Digital-Twin-Strategie fuer Maschinenbau-Konzern. PLM-Erfahrung zwingend.",
+            "salary_min": 900, "salary_max": 1050, "salary_type": "taeglich",
+            "employment_type": "freelance", "remote_level": "onsite",
+            "score": 72, "found_at": (now - timedelta(days=4)).isoformat(),
+        },
     ]
     # save_jobs erwartet eine Liste mit hash-Feld
     import hashlib
@@ -186,8 +224,26 @@ def _create_demo_data(db: Database):
     })
     db.update_application_status(app3_id, "abgelehnt", "Absage erhalten", "Stelle intern besetzt")
 
-    # Follow-up
+    app4_id = db.add_application({
+        "title": "PDM Architect PRO.FILE",
+        "company": "PROCAD GmbH & Co. KG",
+        "status": "beworben",
+        "applied_at": (now - timedelta(days=3)).date().isoformat(),
+        "notes": "Initiativbewerbung nach Empfehlung von Ex-Kollege.",
+    })
+
+    app5_id = db.add_application({
+        "title": "PLM Berater Windchill Migration",
+        "company": "EDAG Engineering",
+        "status": "beworben",
+        "applied_at": (now - timedelta(days=20)).date().isoformat(),
+    })
+    db.update_application_status(app5_id, "eingeladen", "Technisches Interview am 18.03.")
+    db.update_application_status(app5_id, "verhandlung", "Angebot: 900 EUR/Tag, 6 Monate")
+
+    # Follow-ups
     db.add_follow_up(app2_id, (now + timedelta(days=3)).date().isoformat())
+    db.add_follow_up(app4_id, (now + timedelta(days=7)).date().isoformat())
 
 
 def _start_dashboard(db_path: str, port: int):

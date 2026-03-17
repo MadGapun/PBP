@@ -15,7 +15,7 @@ def get_search_status(last_search_at: str | None, now: datetime | None = None) -
     except (ValueError, TypeError):
         return {"last_search": last_search_at, "days_ago": None, "status": "unbekannt"}
 
-    status = "aktuell" if days < 2 else "veraltet" if days < 7 else "dringend"
+    status = "aktuell" if days == 0 else "veraltet" if days < 7 else "dringend"
     return {"last_search": last_search_at, "days_ago": days, "status": status}
 
 

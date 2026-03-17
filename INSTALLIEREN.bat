@@ -397,6 +397,15 @@ pause >nul
 echo.
 
 :claude_found
+echo         [OK] Claude Desktop gefunden
+echo [OK] Claude Desktop gefunden >> "%LOGFILE%"
+:: Store Claude path for later opening (#24)
+set "CLAUDE_EXE="
+if exist "%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe"
+if exist "%LOCALAPPDATA%\AnthropicClaude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\AnthropicClaude\Claude.exe"
+if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles%\Claude\Claude.exe"
+if exist "%LOCALAPPDATA%\Programs\Claude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\Programs\Claude\Claude.exe"
+
 set "CLAUDE_DIR=%APPDATA%\Claude"
 if not exist "%CLAUDE_DIR%" mkdir "%CLAUDE_DIR%"
 
@@ -445,16 +454,18 @@ echo    FERTIG - Alles installiert!
 echo.
 echo  ====================================================
 echo.
+echo  WICHTIG: Claude Desktop muss im Hintergrund laufen!
+echo  --------------------------------------------------------
+echo  Der Bewerbungs-Assistent laeuft ALS TEIL von Claude
+echo  Desktop. Ohne Claude Desktop funktioniert nichts.
+echo  Claude Desktop muss IMMER im Hintergrund laufen wenn
+echo  du den Bewerbungs-Assistent nutzen willst.
+echo.
 echo  SO GEHT ES WEITER:
 echo.
-echo    1. Claude Desktop BEENDEN ^(falls es laeuft^)
-echo       Rechtsklick auf Claude-Symbol unten rechts
-echo       in der Taskleiste, dann "Quit" / "Beenden"
+echo    1. Claude Desktop starten ^(wird jetzt geoeffnet^)
 echo.
-echo    2. Claude Desktop WIEDER OEFFNEN
-echo       Im Startmenue "Claude" suchen und starten
-echo.
-echo    3. In Claude eintippen:
+echo    2. In Claude eintippen:
 echo.
 echo       "Ersterfassung starten"
 echo.
@@ -473,6 +484,16 @@ echo    Deine Daten: %DATA_DIR%
 echo    Installation: %BASEDIR%
 echo    Log-Datei: %LOGFILE%
 echo.
+
+:: Auto-open Claude Desktop if found (#24)
+if defined CLAUDE_EXE (
+echo  Starte Claude Desktop...
+echo [INFO] Starte Claude Desktop: !CLAUDE_EXE! >> "%LOGFILE%"
+start "" "!CLAUDE_EXE!"
+timeout /t 2 /nobreak >nul
+echo  [OK] Claude Desktop gestartet
+echo.
+)
 
 set /p OPEN_DASH="  Dashboard jetzt im Browser oeffnen? ^(j/n^): "
 if /i "!OPEN_DASH!" neq "j" goto :skip_dashboard

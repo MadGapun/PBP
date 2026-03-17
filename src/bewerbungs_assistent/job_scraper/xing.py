@@ -1,17 +1,31 @@
-"""XING Job-Scraper via Playwright.
+"""XING Job-Scraper via Playwright (Browser-Automation).
 
 Uses persistent browser session (user logs in once, session is saved).
-Searches XING Jobs with configurable keywords.
+Searches XING Jobs with dynamic keyword combinations from profile/criteria.
 
-Based on the LinkedIn scraper pattern — same session management approach.
+Features (#48/#50/#73):
+- launch_persistent_context for reliable session management
+- Dynamic keyword combinations from keywords_muss (smart pairing)
+- Configurable DOM selectors (browser_config.py)
+- Multi-page pagination (configurable max_pages)
+- XING Job-ID based deduplication
+- Regional filtering from criteria
+- Bot-detection handling
 """
 
 import logging
+import re
 import time
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
 from . import stelle_hash, detect_remote_level
+from .browser_config import (
+    get_selectors,
+    build_js_extractor,
+    build_keyword_combinations,
+)
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.xing")
 
@@ -23,6 +37,9 @@ DEFAULT_SEARCHES = [
     "PLM Berater",
 ]
 
+DEFAULT_MAX_PAGES = 3
+DEFAULT_PAGE_DELAY = 3
+
 
 def get_session_dir() -> Path:
     """Get the persistent browser session directory for XING."""
@@ -32,89 +49,66 @@ def get_session_dir() -> Path:
     return session_dir
 
 
-def ensure_xing_session(progress_callback=None) -> bool:
-    """Ensure that a reusable XING browser session exists."""
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.error(
-            "Playwright nicht installiert. "
-            "Bitte: pip install playwright && python -m playwright install chromium"
-        )
-        return False
+def _build_search_queries(params: dict) -> list[str]:
+    """Build XING search queries from params.
 
-    def _notify(message: str):
-        logger.info(message)
-        if progress_callback:
-            progress_callback(message)
+    Uses smart keyword combinations from keywords_muss if available.
+    """
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
 
-    session_dir = get_session_dir()
+    # Try smart combinations from keywords_muss
+    muss = criteria.get("keywords_muss", [])
+    if not muss and isinstance(kw_data, dict):
+        muss = kw_data.get("keywords_muss", [])
 
-    with sync_playwright() as pw:
-        session_exists = (session_dir / "Default").exists()
+    if muss:
+        combos = build_keyword_combinations(muss)
+        if combos:
+            logger.info("XING Keyword-Kombinationen: %s", combos)
+            return combos
 
-        if not session_exists:
-            _notify("XING: Browser wird fuer den Erst-Login geoeffnet.")
+    # Fallback: general keywords
+    general = kw_data.get("general", []) if isinstance(kw_data, dict) else []
+    if general:
+        return list(general[:6])
 
-        browser = pw.chromium.launch_persistent_context(
-            user_data_dir=str(session_dir),
-            headless=session_exists,
-            slow_mo=300 if not session_exists else 0,
-            viewport={"width": 1280, "height": 900},
-            locale="de-DE",
-            args=[
-                "--no-sandbox",
-                "--disable-blink-features=AutomationControlled",
-            ],
-        )
+    return DEFAULT_SEARCHES
 
-        try:
-            page = browser.pages[0] if browser.pages else browser.new_page()
-            page.goto(
-                "https://www.xing.com/jobs/search",
-                wait_until="domcontentloaded",
-                timeout=30000,
-            )
-            time.sleep(2)
 
-            if _is_login_page(page):
-                if session_exists:
-                    browser.close()
-                    _notify("XING: Vorhandene Session ist abgelaufen. Browser wird fuer erneuten Login geoeffnet.")
-                    browser = pw.chromium.launch_persistent_context(
-                        user_data_dir=str(session_dir),
-                        headless=False,
-                        slow_mo=300,
-                        viewport={"width": 1280, "height": 900},
-                        locale="de-DE",
-                        args=[
-                            "--no-sandbox",
-                            "--disable-blink-features=AutomationControlled",
-                        ],
-                    )
-                    page = browser.pages[0] if browser.pages else browser.new_page()
-                    page.goto(
-                        "https://www.xing.com/jobs/search",
-                        wait_until="domcontentloaded",
-                        timeout=30000,
-                    )
-                    time.sleep(2)
+def _build_location_param(params: dict) -> str:
+    """Build XING location parameter from search criteria."""
+    kw_data = params.get("keywords", {})
+    criteria = params.get("criteria", {})
 
-                _notify("XING: Bitte im geoeffneten Browser einloggen. Warte max. 3 Minuten...")
-                for _ in range(180):
-                    time.sleep(1)
-                    url = page.url
-                    if "jobs" in url and "login" not in url and "auth" not in url:
-                        _notify("XING: Login erfolgreich, Session gespeichert.")
-                        return True
+    regionen = criteria.get("regionen", [])
+    if not regionen and isinstance(kw_data, dict):
+        regionen = kw_data.get("regionen", [])
 
-                logger.warning("XING Login Timeout. Abbruch.")
-                return False
+    if regionen:
+        for r in regionen:
+            if r.lower() != "remote":
+                return r
+    return "Deutschland"
 
-            _notify("XING: Session ist bereits bereit.")
-            return True
-        finally:
-            browser.close()
+
+def _build_search_url(query: str, location: str, page: int = 0) -> str:
+    """Build a XING Jobs search URL.
+
+    Args:
+        query: Search keywords
+        location: Location string
+        page: Page number (1-based for XING)
+    """
+    url = (
+        f"https://www.xing.com/jobs/search"
+        f"?keywords={quote(query)}"
+        f"&location={quote(location)}"
+        f"&sort=date"
+    )
+    if page > 0:
+        url += f"&page={page + 1}"  # XING uses 1-based pagination
+    return url
 
 
 def search_xing(params: dict, progress_callback=None) -> list:
@@ -124,8 +118,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
     After that, the session is saved and reused (headless mode).
 
     Args:
-        params: Search parameters with optional 'keywords' dict
-                containing 'general' keyword list.
+        params: Search parameters with optional 'keywords' dict and 'criteria'
         progress_callback: Optional callback(message) for progress updates
 
     Returns:
@@ -134,23 +127,33 @@ def search_xing(params: dict, progress_callback=None) -> list:
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        logger.error(
+        msg = (
             "Playwright nicht installiert. "
             "Bitte: pip install playwright && python -m playwright install chromium"
         )
+        logger.error(msg)
+        if progress_callback:
+            progress_callback(f"XING FEHLER: {msg}")
         return []
 
-    # Dynamic keywords from DB, fallback to hardcoded
-    kw_data = params.get("keywords", {})
-    searches = kw_data.get("general", DEFAULT_SEARCHES)
-    if not searches:
-        searches = DEFAULT_SEARCHES
+    # Load criteria from DB if not in params
+    if "criteria" not in params:
+        try:
+            from ..database import Database
+            db = Database()
+            params["criteria"] = db.get_search_criteria()
+        except Exception:
+            params["criteria"] = {}
+
+    searches = _build_search_queries(params)
+    location = _build_location_param(params)
+    max_pages = params.get("max_pages", DEFAULT_MAX_PAGES)
 
     stellen = []
+    seen_job_ids = set()
     session_dir = get_session_dir()
 
     with sync_playwright() as pw:
-        # Check if session already exists
         session_exists = (session_dir / "Default").exists()
         headless = session_exists
 
@@ -185,7 +188,6 @@ def search_xing(params: dict, progress_callback=None) -> list:
             )
             time.sleep(2)
 
-            # Detect login page
             if _is_login_page(page):
                 logger.info("XING Login erforderlich...")
                 if progress_callback:
@@ -193,7 +195,6 @@ def search_xing(params: dict, progress_callback=None) -> list:
                         "XING: Bitte im geoeffneten Browser einloggen. "
                         "Warte max. 3 Minuten..."
                     )
-                # Wait for user to log in
                 logged_in = False
                 for _ in range(180):
                     time.sleep(1)
@@ -208,112 +209,182 @@ def search_xing(params: dict, progress_callback=None) -> list:
                     browser.close()
                     return []
 
-            logger.info("XING eingeloggt. Starte %d Suchen...", len(searches))
+            # Bot-detection check
+            if _is_bot_blocked(page):
+                msg = (
+                    "XING Bot-Detection aktiv. Optionen: "
+                    "1) Warte einige Minuten und versuche erneut. "
+                    "2) Nutze 'Claude in Chrome' Browser-Extension fuer direkte Suche."
+                )
+                logger.warning(msg)
+                if progress_callback:
+                    progress_callback(f"XING WARNUNG: {msg}")
+                browser.close()
+                return []
 
-            # === Job Search ===
+            logger.info(
+                "XING eingeloggt. Starte %d Suchen (Region: %s, Max Pages: %d)...",
+                len(searches), location, max_pages,
+            )
+
+            # === Job Search with Pagination ===
+            js_extractor = build_js_extractor("xing")
+
             for idx, suchbegriff in enumerate(searches):
                 if progress_callback:
                     progress_callback(
-                        f"XING: Suche '{suchbegriff}' ({idx + 1}/{len(searches)})"
+                        f"XING: Suche '{suchbegriff}' ({idx+1}/{len(searches)})"
                     )
 
-                try:
-                    url = (
-                        f"https://www.xing.com/jobs/search"
-                        f"?keywords={quote(suchbegriff)}"
-                        f"&location=Deutschland"
-                    )
-                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    time.sleep(3)
+                for page_num in range(max_pages):
+                    try:
+                        url = _build_search_url(suchbegriff, location, page_num)
+                        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                        time.sleep(DEFAULT_PAGE_DELAY)
 
-                    # Scroll to load results
-                    for _ in range(3):
-                        page.evaluate("window.scrollBy(0, 800)")
-                        time.sleep(0.5)
+                        # Scroll to load results
+                        for _ in range(3):
+                            page.evaluate("window.scrollBy(0, 800)")
+                            time.sleep(0.5)
 
-                    # Extract job cards via JavaScript (more reliable than query_selector_all)
-                    raw_jobs = page.evaluate("""() => {
-                        const results = [];
-                        // XING job cards: look for links to /jobs/ detail pages
-                        const allLinks = document.querySelectorAll('a[href*="/jobs/"]');
-                        const seen = new Set();
-                        for (const link of allLinks) {
-                            const href = link.getAttribute('href') || '';
-                            // Only job detail links (not search/filter links)
-                            if (!href.match(/\\/jobs\\/[a-z0-9-]+\\./i) &&
-                                !href.match(/\\/jobs\\/\\d+/)) continue;
-                            const title = link.textContent?.trim() || '';
-                            if (!title || title.length < 5 || seen.has(title)) continue;
-                            seen.add(title);
+                        # Extract job cards via JavaScript
+                        raw_jobs = page.evaluate(js_extractor)
+                        logger.info(
+                            "XING '%s' Seite %d: %d Karten",
+                            suchbegriff, page_num + 1, len(raw_jobs),
+                        )
 
-                            // Walk up to find the card container
-                            let card = link.closest('article, [data-testid], li, div[class*="card"]');
-                            if (!card) card = link.parentElement?.parentElement || link.parentElement;
+                        if not raw_jobs:
+                            logger.info(
+                                "Keine Ergebnisse auf Seite %d, beende Paginierung.",
+                                page_num + 1,
+                            )
+                            break
 
-                            const companyEl = card?.querySelector(
-                                '[data-testid*="company"], [class*="company" i]'
-                            );
-                            const locationEl = card?.querySelector(
-                                '[data-testid*="location"], [class*="location" i]'
-                            );
-                            const descEl = card?.querySelector(
-                                '[class*="description" i], [class*="snippet" i]'
-                            );
+                        page_stellen = 0
+                        for raw in raw_jobs:
+                            job = _process_raw_job(raw, seen_job_ids)
+                            if job:
+                                stellen.append(job)
+                                page_stellen += 1
 
-                            let fullLink = href;
-                            if (fullLink && !fullLink.startsWith('http')) {
-                                fullLink = 'https://www.xing.com' + fullLink;
-                            }
+                        if progress_callback and page_num > 0:
+                            progress_callback(
+                                f"XING: '{suchbegriff}' Seite {page_num+1}/{max_pages} "
+                                f"({page_stellen} neue Stellen)"
+                            )
 
-                            results.push({
-                                title,
-                                link: fullLink,
-                                company: companyEl?.textContent?.trim() || 'Unbekannt',
-                                location: locationEl?.textContent?.trim() || '',
-                                desc: (descEl?.textContent?.trim() || '').substring(0, 500),
-                            });
-                        }
-                        return results;
-                    }""")
+                        # Stop if fewer than expected results
+                        if len(raw_jobs) < 10:
+                            break
 
-                    for raw in raw_jobs:
-                        job = {
-                            "hash": stelle_hash("xing.com", raw["title"]),
-                            "title": raw["title"],
-                            "company": raw["company"],
-                            "location": raw["location"],
-                            "url": raw["link"],
-                            "source": "xing",
-                            "description": raw["desc"],
-                            "employment_type": "festanstellung",
-                            "remote_level": detect_remote_level(
-                                f"{raw['title']} {raw['location']} {raw['desc']}"
-                            ),
-                        }
-                        stellen.append(job)
+                    except PWTimeout:
+                        logger.warning(
+                            "XING Timeout fuer '%s' Seite %d",
+                            suchbegriff, page_num + 1,
+                        )
+                        break
+                    except Exception as e:
+                        logger.error(
+                            "XING Fehler bei '%s' Seite %d: %s",
+                            suchbegriff, page_num + 1, e,
+                        )
+                        break
 
-                    time.sleep(2)  # Rate limiting between searches
-                except Exception as e:
-                    logger.warning("XING search error for '%s': %s", suchbegriff, e)
+                    # Rate limiting between pages
+                    if page_num < max_pages - 1:
+                        time.sleep(2)
+
+                # Rate limiting between searches
+                time.sleep(2)
 
         except Exception as e:
-            logger.error("XING session error: %s", e)
+            logger.error("XING Session-Fehler: %s", e, exc_info=True)
+            if progress_callback:
+                progress_callback(f"XING FEHLER: {e}")
         finally:
             browser.close()
 
-    logger.info("XING: %d Stellen gefunden", len(stellen))
-    return stellen
+    # Final dedup by hash
+    seen = set()
+    unique = []
+    for s in stellen:
+        if s["hash"] not in seen:
+            seen.add(s["hash"])
+            unique.append(s)
+
+    logger.info("XING: %d einzigartige Stellen gefunden", len(unique))
+    return unique
+
+
+def _process_raw_job(raw: dict, seen_job_ids: set) -> dict | None:
+    """Process a raw JS-extracted XING job into a job dict."""
+    title = _clean(raw.get("title", ""))
+    if not title or len(title) < 5:
+        return None
+
+    # Deduplicate by XING Job-ID
+    job_id = raw.get("jobId", "")
+    if job_id:
+        if job_id in seen_job_ids:
+            return None
+        seen_job_ids.add(job_id)
+
+    link = raw.get("link", "")
+    company = _clean(raw.get("company", "")) or "Unbekannt"
+    location = _clean(raw.get("location", ""))
+    desc = raw.get("desc", "")
+
+    volltext = f"{title} {company} {location} {desc}"
+    employment = (
+        "freelance"
+        if ("interim" in title.lower() or "freelance" in title.lower())
+        else "festanstellung"
+    )
+
+    # Use XING Job-ID in hash for better deduplication
+    hash_input = f"xing.com/jobs/{job_id}" if job_id else title
+
+    return {
+        "hash": stelle_hash("xing.com", hash_input if job_id else title),
+        "title": title,
+        "company": company,
+        "location": location,
+        "url": link,
+        "source": "xing",
+        "description": desc,
+        "employment_type": employment,
+        "remote_level": detect_remote_level(volltext),
+        "found_at": datetime.now().isoformat(),
+        "xing_job_id": job_id,
+    }
 
 
 def _is_login_page(page) -> bool:
     """Detect if we're on a XING login/auth page."""
+    sel = get_selectors("xing")
     url = page.url.lower()
-    if any(k in url for k in ["login", "auth", "signin", "anmelden"]):
-        return True
+
+    for pattern in sel.get("login_url_patterns", ["login", "auth"]):
+        if pattern in url:
+            return True
 
     # Check for login form elements
-    login_els = page.query_selector_all(
-        "input[type='email'], input[type='password'], "
-        "input[name='login_form'], form[action*='login']"
-    )
-    return len(login_els) >= 2
+    indicators = sel.get("login_indicators", "input[type='email']")
+    login_els = page.query_selector_all(indicators)
+    return len(login_els) >= 1
+
+
+def _is_bot_blocked(page) -> bool:
+    """Check if XING has triggered bot detection."""
+    url = page.url.lower()
+    if "captcha" in url or "challenge" in url or "blocked" in url:
+        return True
+    if page.locator("iframe[src*='captcha'], #captcha").count() > 0:
+        return True
+    return False
+
+
+def _clean(text) -> str:
+    """Clean whitespace from text."""
+    return re.sub(r"\s+", " ", str(text or "")).strip()

@@ -5,8 +5,9 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-190%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-55-blueviolet.svg)](#mcp-schnittstelle)
+[![Tests](https://img.shields.io/badge/Tests-237%20passing-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-62-blueviolet.svg)](#mcp-schnittstelle)
+[![Workflows](https://img.shields.io/badge/Workflows-14-ff69b4.svg)](#die-14-workflows)
 
 ---
 
@@ -19,12 +20,13 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 | Problem | PBP-Lösung |
 |---------|-----------|
 | 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz, bewertet aus 3 Perspektiven (Personalberater, ATS, Recruiter) |
-| 😩 10 Jobportale einzeln durchsuchen | ✅ **9 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de |
-| 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt) |
-| 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung |
-| 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline und Statistiken |
+| 😩 10 Jobportale einzeln durchsuchen | ✅ **17 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de, GULP, SOLCOM, Jobware, FERCHAU, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Kimeta |
+| 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt). Duplikate werden portalübergreifend erkannt. |
+| 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung (PDF, DOCX, Markdown oder TXT) |
+| 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen, Bearbeitung und Statistiken |
 | 😩 Interviewvorbereitung improvisieren | ✅ **Interview-Simulation** — Claude spielt den Interviewer und gibt Feedback |
 | 😩 Gehalt falsch verhandeln | ✅ **Gehaltsverhandlung** — Markdaten-basierte Strategie und Argumentationshilfe |
+| 😩 Absage bekommen und ratlos sein | ✅ **Ablehnungs-Coaching** — Empathische Analyse mit konkreten Verbesserungsvorschlägen |
 
 ### Das Besondere
 
@@ -47,8 +49,10 @@ Claude führt ein lockeres Interview und erfasst alles:
 
 **Oder:** Lade einfach deinen bestehenden Lebenslauf hoch (PDF/DOCX) — PBP extrahiert die Daten automatisch.
 
-### 🔍 Stellensuche über 9 Portale
+### 🔍 Stellensuche über 17 Portale
 Eine Suche — alle relevanten Portale gleichzeitig:
+
+**Festanstellung (11 Quellen):**
 
 | Portal | Methode | Account nötig? |
 |--------|---------|---------------|
@@ -57,59 +61,94 @@ Eine Suche — alle relevanten Portale gleichzeitig:
 | Hays | Sitemap + JSON-LD | ❌ Nein |
 | Monster | Playwright | ❌ Nein |
 | Indeed | Playwright | ❌ Nein |
+| ingenieur.de (VDI) | HTML Scraping | ❌ Nein |
+| Heise Jobs | HTML + JSON-LD | ❌ Nein |
+| Stellenanzeigen.de | HTML + JSON-LD | ❌ Nein |
+| Jobware | HTML + JSON-LD | ❌ Nein |
+| FERCHAU | HTML + JSON-LD | ❌ Nein |
+| Kimeta (Aggregator) | HTML Scraping | ❌ Nein |
+
+**Freelance & Projekte (4 Quellen):**
+
+| Portal | Methode | Account nötig? |
+|--------|---------|---------------|
 | Freelancermap | httpx + Fallback | ❌ Nein |
 | Freelance.de | HTML Scraping | ❌ Nein |
+| GULP | HTML + JSON-LD | ❌ Nein |
+| SOLCOM | HTML + JSON-LD | ❌ Nein |
+
+**Netzwerk-Portale (2 Quellen — optionaler Login):**
+
+| Portal | Methode | Account nötig? |
+|--------|---------|---------------|
 | **LinkedIn** | **Playwright** | **✅ Ja — eigener Account** |
 | **XING** | **Playwright** | **✅ Ja — eigener Account** |
 
-> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. LinkedIn und XING sind optional.
+> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. 15 der 17 Quellen funktionieren ohne Login.
 
 ### 📊 Intelligentes Scoring & Fit-Analyse
 Jede Stelle bekommt einen Score basierend auf:
-- **Entfernung** — Stellen unter 30 km werden bevorzugt
+- **Entfernung** — 30/50/100/200km-Stufen, Stellen unter 30 km bevorzugt
 - **Keywords** — MUSS/PLUS/AUSSCHLUSS-Kriterien
-- **Gehalt** — Vergleich mit deiner Gehaltsvorstellung
-- **Remote-Level** — Remote/Hybrid-Erkennung
+- **Gehalt** — Vergleich mit deiner Gehaltsvorstellung (Tagessatz ↔ Jahresgehalt automatisch normalisiert)
+- **Remote-Level** — Remote/Hybrid-Differenzierung mit Bonus
 - **Kompetenzen-Match** — Deine Skills vs. Stellenbeschreibung
+- **Bewerbungs-Signal** — Stellen ähnlich zu bisherigen Bewerbungen werden automatisch höher bewertet
+- **Duplikat-Erkennung** — Gleiche Stelle auf mehreren Portalen wird erkannt und zusammengeführt
 
 Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - **Linke Spalte:** Festanstellung
 - **Rechte Spalte:** Freelance/Projekt
 - Umschaltbar auf Listen-Ansicht per Knopfdruck
+- Paginierung mit frei wählbarer Seitengröße
 
 ### 📝 Stellenspezifische Dokumente
 - **Angepasster Lebenslauf (DOCX)** — Skills und Positionen werden nach Relevanz für die Stelle umsortiert
-- **Personalisiertes Anschreiben (PDF/DOCX)** — basierend auf Profil + Stellenbeschreibung
-- **Standard-Lebenslauf (PDF/DOCX)** — für Initiativbewerbungen
+- **Personalisiertes Anschreiben (PDF/DOCX/MD/TXT)** — basierend auf Profil + Stellenbeschreibung
+- **Standard-Lebenslauf (PDF/DOCX/MD/TXT)** — für Initiativbewerbungen, jetzt auch als Markdown oder Klartext
 - **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen HR-Recruiter? Mit einstellbarer Gewichtung und konkreten Verbesserungsvorschlägen.
 
 > 📌 Immer DOCX beim angepassten CV — weil die letzten Feinschliffe ein Mensch machen sollte.
 
-### 📈 Bewerbungs-Tracking
-- Status-Pipeline: offen → beworben → Interview → Angebot → angenommen/abgelehnt
-- Timeline mit allen Ereignissen
-- Conversion-Rates und Statistiken
+### 📈 Bewerbungs-Tracking & Detailansicht
+- Status-Pipeline: offen → beworben → Interview → Angebot → angenommen/abgelehnt/abgelaufen
+- **Detailansicht pro Bewerbung** — Klick zeigt alles auf einen Blick:
+  - Stellenbeschreibung (aufklappbar), Fit-Score, Quelle, Gehalt, Standort, Remote-Level
+  - Kontaktdaten (Ansprechpartner + E-Mail)
+  - Verknüpfte Dokumente (Lebenslauf, Anschreiben, Zeugnisse)
+  - Chronologischer Verlauf mit Zeitstempeln
+- **Gesprächsnotizen** — Telefonnotizen, Interview-Feedback, Vorbereitung direkt zur Bewerbung
+  - Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
+  - Visuell getrennt von Statusänderungen
+- **Dokumente verknüpfen** — Unterlagen direkt aus der Detailansicht zuordnen
+- **Archiv** — Abgelehnte/zurückgezogene/abgelaufene Bewerbungen in eingeklappter Sektion
+- Conversion-Rates und **Statistik-Dashboard** (5 Charts: Timeline, Status-Donut, Quellen, Score-Verteilung)
 - Follow-up-Erinnerungen (automatisch geplant)
 - A/B-Tracking für Anschreiben-Stile
-- Ablehnungs-Muster-Analyse
+- Ablehnungs-Muster-Analyse mit lernenden Ablehnungsgründen
+- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
 
 ### 🎯 KI-Coaching
 - **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
 - **Gehaltsverhandlung** — Markdaten, Strategie, Argumente
+- **Ablehnungs-Coaching** — Empathische Analyse nach Absage mit konkreten Verbesserungsvorschlägen
+- **Auto-Bewerbung** — Komplette Bewerbung aus URL oder Stellentext (Fit-Analyse → CV → Anschreiben → Tracking)
+- **Antwort-Formulierung** — Kontext für Recruiter-Antworten basierend auf Bewerbungshistorie
 - **Skill-Gap-Analyse** — Was dir für die Wunschstelle fehlt
 - **Profil-Analyse** — Stärken, Potenziale, Marktposition
 - **Netzwerk-Strategie** — Networking-Plan für eine Zielfirma
 - **Branchen-Trends** — Welche Skills gerade gefragt sind
 
 ### 🌐 Web-Dashboard
-Browser-Oberfläche auf `localhost:5173` mit 5 Tabs:
+Browser-Oberfläche auf `localhost:8200` mit 6 Tabs:
 
 | Tab | Funktion |
 |-----|----------|
-| **Dashboard** | Übersicht, Workspace-Guidance, nächste Schritte |
-| **Profil** | Alles bearbeiten — Positionen, Skills, Ausbildung, Projekte |
-| **Stellen** | Jobs mit Score, Split-View (Fest/Freelance), Sortierung |
-| **Bewerbungen** | Pipeline, Timeline, Statistiken |
+| **Dashboard** | Übersicht, Workspace-Guidance, nächste Schritte, Statistik-Vorschau |
+| **Profil** | Alles bearbeiten — Positionen, Skills, Ausbildung, Projekte. Drag & Drop Upload. Multi-Profil-Wechsler. |
+| **Stellen** | Jobs mit Fit-Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges, Pin/Unpin |
+| **Bewerbungen** | Pipeline, Detailansicht mit Stelleninfos + Dokumenten + Gesprächsnotizen, Archiv-Sektion |
+| **Statistiken** | 5 interaktive Charts: Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Score-Verteilung, Quellen-Scores |
 | **Einstellungen** | Quellen, Suchkriterien, Blacklist, Gehaltsfilter |
 
 ---
@@ -129,12 +168,6 @@ Der Installer:
 - Erstellt eine Desktop-Verknüpfung
 
 > **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
-
-### Deinstallation (Windows)
-
-1. Claude Desktop komplett beenden.
-2. Im PBP-Ordner `DEINSTALLIEREN.bat` ausfuehren.
-3. Im Skript entscheiden, ob nur Runtime/Config entfernt werden oder auch alle Daten in `%LOCALAPPDATA%\BewerbungsAssistent`.
 
 ### 2. Profil erstellen
 
@@ -210,9 +243,9 @@ PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Cl
 | "Zeige meine Bewerbungsstatistiken" | Conversion-Rates und Übersicht |
 | "Plane einen Follow-up für die Bewerbung bei Firma XY" | Erinnerung in X Tagen |
 
-### Die 12 Workflows
+### Die 14 Workflows
 
-PBP bietet 12 geführte Workflows. Du kannst sie entweder als Slash-Command (`/name`) oder als natürliche Anweisung starten:
+PBP bietet 14 geführte Workflows. Du kannst sie entweder als Slash-Command (`/name`) oder als natürliche Anweisung starten:
 
 | Workflow | Slash-Command | Was er tut |
 |----------|--------------|-----------|
@@ -222,7 +255,9 @@ PBP bietet 12 geführte Workflows. Du kannst sie entweder als Slash-Command (`/n
 | **Profil-Analyse** | `/profil_analyse` | Stärken, Potenziale, Marktposition |
 | **Jobsuche** | `/jobsuche_workflow` | Geführte 5-Schritte Stellensuche |
 | **Bewerbung schreiben** | `/bewerbung_schreiben` | CV + Anschreiben für eine Stelle |
+| **Auto-Bewerbung** | `/auto_bewerbung` | Komplette Bewerbung aus URL/Stellentext |
 | **Bewerbungsübersicht** | `/bewerbungs_uebersicht` | Komplettübersicht aller Aktivitäten |
+| **Ablehnungs-Coaching** | `/ablehnungs_coaching` | Empathische Analyse nach Absage |
 | **Interview-Vorbereitung** | `/interview_vorbereitung` | STAR-Antworten vorbereiten |
 | **Interview-Simulation** | `/interview_simulation` | Claude spielt den Interviewer |
 | **Gehaltsverhandlung** | `/gehaltsverhandlung` | Strategie und Argumente |
@@ -233,7 +268,7 @@ PBP bietet 12 geführte Workflows. Du kannst sie entweder als Slash-Command (`/n
 
 ### Das Web-Dashboard
 
-Das Dashboard startet automatisch auf [http://localhost:5173](http://localhost:5173) wenn PBP läuft.
+Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8200) wenn PBP läuft.
 
 **Dashboard-Tab:**
 - Workspace-Guidance zeigt dir den nächsten sinnvollen Schritt
@@ -253,10 +288,17 @@ Das Dashboard startet automatisch auf [http://localhost:5173](http://localhost:5
 - Bewerbungs-Wizard direkt aus der Stellenanzeige
 
 **Bewerbungen-Tab:**
-- Pipeline-Ansicht mit Drag & Drop
-- Timeline pro Bewerbung
+- Pipeline-Ansicht mit Status-Filter und Paginierung (30er Seiten)
+- **Detailansicht** (Klick auf Bewerbung): Stellendetails, Fit-Score, Quelle, Gehalt, Kontakt, Stellenbeschreibung, verknüpfte Dokumente, Gesprächsnotizen, Timeline
+- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen — mit Zeitstempeln
+- **Dokument-Verknüpfung**: Unterlagen direkt zuordnen
+- **Archiv**: Abgelehnte/zurückgezogene/abgelaufene Bewerbungen eingeklappt
 - Follow-up-Erinnerungen
-- Statistiken und Conversion-Rates
+- PDF-Bewerbungsbericht + Excel-Export
+
+**Statistiken-Tab:**
+- 5 interaktive Charts (Chart.js): Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Fit-Score-Verteilung, Quellen-Detailvergleich
+- Umschaltbar: Woche / Monat / Quartal / Jahr
 
 **Einstellungen-Tab:**
 - Aktive Jobportale auswählen
@@ -287,8 +329,16 @@ Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 | Hays | Nein | Öffentliche Sitemap + strukturierte Daten |
 | Monster | Nein | Öffentlich einsehbare Stellenanzeigen |
 | Indeed | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Freelancermap | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Freelance.de | Nein | Öffentlich einsehbare Stellenanzeigen |
+| Freelancermap | Nein | Öffentlich einsehbare Projektlisten |
+| Freelance.de | Nein | Öffentlich einsehbare Projektlisten |
+| GULP | Nein | Öffentlich einsehbare Projektlisten |
+| SOLCOM | Nein | Öffentlich einsehbares Projektportal |
+| ingenieur.de (VDI) | Nein | Öffentliche Engineering-Jobbörse |
+| Heise Jobs | Nein | Öffentlicher IT-Stellenmarkt |
+| Stellenanzeigen.de | Nein | Öffentlich einsehbare Stellenanzeigen |
+| Jobware | Nein | Öffentlich einsehbare Stellenanzeigen |
+| FERCHAU | Nein | Öffentliche Stellenangebote |
+| Kimeta | Nein | Öffentlicher Job-Aggregator |
 | **LinkedIn** | **Ja** | Kostenloser Account reicht. Du musst dich **einmalig** im Browser einloggen — PBP speichert die Session lokal. |
 | **XING** | **Ja** | Kostenloser Account reicht. Gleicher Ansatz wie LinkedIn — einmaliger Login. |
 
@@ -327,9 +377,9 @@ PBP ist ein **persönliches Werkzeug**, das in deinem Namen und mit deinen Accou
 - Du nutzt PBP mit **deinen eigenen Accounts** und bist für die Einhaltung der jeweiligen Nutzungsbedingungen verantwortlich.
 - LinkedIn und XING verbieten in ihren AGB die Nutzung automatisierter Tools. In der Praxis tolerieren die meisten Plattformen persönliche Nutzung mit normaler Frequenz — PBP simuliert menschliches Suchverhalten mit Verzögerungen. Trotzdem besteht theoretisch das Risiko einer Account-Sperre.
 - Die Bundesagentur für Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
-- StepStone, Hays, Monster, Indeed, Freelancermap und Freelance.de werden über öffentlich zugängliche Seiten durchsucht.
+- StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden über öffentlich zugängliche Seiten durchsucht.
 
-> 💡 **Empfehlung:** Wenn du auf Nummer sicher gehen willst, deaktiviere LinkedIn und XING in den Einstellungen und nutze die 7 anderen Quellen. Die liefern bereits eine sehr gute Abdeckung des deutschen Stellenmarkts.
+> 💡 **Empfehlung:** Wenn du auf Nummer sicher gehen willst, deaktiviere LinkedIn und XING in den Einstellungen und nutze die 15 anderen Quellen. Die liefern bereits eine hervorragende Abdeckung des deutschen Stellenmarkts — Festanstellung, Freelance und Engineering.
 
 ---
 
@@ -407,34 +457,42 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 55 Tools in 8 Modulen
-    ├──► prompts.py        ◄── 12 Prompts (Workflows)
+    ├──► tools/            ◄── 62 Tools in 8 Modulen
+    ├──► prompts.py        ◄── 14 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
     ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace)
-    ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v9)
-    ├──► dashboard.py      ◄── FastAPI :5173, 60+ API-Endpoints
+    ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v10)
+    ├──► dashboard.py      ◄── FastAPI :8200, 70+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    └──► job_scraper/      ◄── 9 Quellen
-              ├── bundesagentur.py   (REST API)
-              ├── stepstone.py       (Playwright)
-              ├── hays.py            (Sitemap + JSON-LD)
-              ├── freelancermap.py   (httpx + Playwright Fallback)
-              ├── freelance_de.py    (HTML Scraping)
-              ├── linkedin.py        (Playwright + Persistent Session)
-              ├── indeed.py          (Playwright)
-              ├── xing.py            (Playwright + Persistent Session)
-              └── monster.py         (Playwright)
+    └──► job_scraper/      ◄── 17 Quellen
+              ├── bundesagentur.py       (REST API)
+              ├── stepstone.py           (Playwright)
+              ├── hays.py                (Sitemap + JSON-LD)
+              ├── freelancermap.py       (httpx + Playwright Fallback)
+              ├── freelance_de.py        (HTML Scraping)
+              ├── linkedin.py            (Playwright + Persistent Session)
+              ├── indeed.py              (Playwright)
+              ├── xing.py                (Playwright + Persistent Session)
+              ├── monster.py             (Playwright)
+              ├── ingenieur_de.py        (HTML Scraping)
+              ├── heise_jobs.py          (HTML + JSON-LD)
+              ├── gulp.py                (HTML + JSON-LD)
+              ├── solcom.py              (HTML + JSON-LD)
+              ├── stellenanzeigen_de.py  (HTML + JSON-LD)
+              ├── jobware.py             (HTML + JSON-LD)
+              ├── ferchau.py             (HTML + JSON-LD)
+              └── kimeta.py              (HTML Scraping)
 ```
 
 ---
 
 ## MCP-Schnittstelle
 
-### 55 Tools in 8 Modulen
+### 62 Tools in 8 Modulen
 
 <details>
-<summary><strong>Profilverwaltung</strong> (14 Tools) — Profil, Multi-Profil, Erfassung</summary>
+<summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -452,11 +510,13 @@ server.py (FastMCP, Composition Root)
 | `profil_loeschen` | Profil löschen (mit Auto-Switch) |
 | `erfassung_fortschritt_lesen` | Ersterfassungs-Fortschritt |
 | `erfassung_fortschritt_speichern` | Fortschritt pro Bereich speichern |
+| `jobtitel_vorschlagen` | Passende Jobtitel aus Profil ableiten |
+| `jobtitel_verwalten` | Jobtitel bearbeiten/löschen/deaktivieren |
 
 </details>
 
 <details>
-<summary><strong>Dokumente</strong> (10 Tools) — Upload, Extraktion, Import/Export</summary>
+<summary><strong>Dokumente</strong> (12 Tools) — Upload, Extraktion, Import/Export</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -470,11 +530,13 @@ server.py (FastMCP, Composition Root)
 | `dokumente_batch_analysieren` | Effiziente Batch-Analyse |
 | `dokumente_bulk_markieren` | Bulk-Markierung als analysiert |
 | `bewerbungs_dokumente_erkennen` | Firmen aus Dateinamen erkennen |
+| `profil_exportieren` | Profil als JSON-Backup |
+| `profil_importieren` | Profil aus JSON-Backup |
 
 </details>
 
 <details>
-<summary><strong>Jobsuche</strong> (5 Tools) — Suche, Bewertung, Analyse</summary>
+<summary><strong>Jobsuche</strong> (6 Tools) — Suche, Bewertung, Analyse</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -483,23 +545,28 @@ server.py (FastMCP, Composition Root)
 | `stellen_anzeigen` | Jobs mit Filter und Scoring |
 | `stelle_bewerten` | Job als passend/unpassend markieren |
 | `fit_analyse` | Detaillierte Fit-Analyse |
+| `linkedin_browser_search` | LinkedIn Browser-Suche mit persistenter Session |
 
 </details>
 
 <details>
-<summary><strong>Bewerbungen</strong> (4 Tools) — Tracking und Statistiken</summary>
+<summary><strong>Bewerbungen</strong> (8 Tools) — Tracking, Bearbeitung und Statistiken</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
-| `bewerbung_erstellen` | Neue Bewerbung anlegen |
+| `bewerbung_erstellen` | Neue Bewerbung anlegen (inkl. manueller Job-Eintrag) |
 | `bewerbung_status_aendern` | Status aktualisieren |
+| `bewerbung_bearbeiten` | Bewerbung bearbeiten (Firma, Stelle, Status, Notizen) |
+| `bewerbung_loeschen` | Bewerbung löschen (mit Bestätigung) |
+| `bewerbung_notiz` | Gesprächsnotiz hinzufügen |
+| `bewerbung_details` | Detailansicht mit Timeline und Stellenbeschreibung |
 | `bewerbungen_anzeigen` | Alle Bewerbungen mit Statistiken |
 | `statistiken_abrufen` | Conversion Rates und Übersicht |
 
 </details>
 
 <details>
-<summary><strong>Analyse</strong> (9 Tools) — Gehalt, Trends, Skill-Gap, Follow-ups</summary>
+<summary><strong>Analyse</strong> (11 Tools) — Gehalt, Trends, Skill-Gap, Follow-ups, Coaching</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -512,6 +579,8 @@ server.py (FastMCP, Composition Root)
 | `bewerbung_stil_tracken` | A/B-Tracking für Anschreiben |
 | `skill_gap_analyse` | Skill-Gap zwischen Profil und Stelle |
 | `ablehnungs_muster` | Ablehnungs-Analyse und Empfehlungen |
+| `antwort_formulieren` | Kontext für Recruiter-Antwort generieren |
+| `dokument_verknuepfen` | Dokument mit Bewerbung verknüpfen |
 
 </details>
 
@@ -520,10 +589,10 @@ server.py (FastMCP, Composition Root)
 
 | Tool | Beschreibung |
 |------|-------------|
-| `lebenslauf_exportieren` | Standard-CV als PDF/DOCX |
+| `lebenslauf_exportieren` | Standard-CV als PDF/DOCX/MD/TXT |
 | `lebenslauf_angepasst_exportieren` | Stellenspezifischer CV (immer DOCX) |
 | `lebenslauf_bewerten` | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
-| `anschreiben_exportieren` | Anschreiben als PDF/DOCX |
+| `anschreiben_exportieren` | Anschreiben als PDF/DOCX/MD/TXT |
 
 </details>
 
@@ -538,25 +607,13 @@ server.py (FastMCP, Composition Root)
 </details>
 
 <details>
-<summary><strong>Workflows</strong> (5 Tools) — Import/Export und Workflow-Starter</summary>
+<summary><strong>Workflows</strong> (3 Tools) — Workflow-Starter</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
-| `profil_exportieren` | Profil als JSON-Backup |
-| `profil_importieren` | Profil aus JSON-Backup |
-| `workflow_starten` | Universeller Workflow-Starter |
+| `workflow_starten` | Universeller Workflow-Starter (alle 14 Workflows) |
 | `jobsuche_workflow_starten` | Direkter Einstieg Jobsuche |
 | `ersterfassung_starten` | Direkter Einstieg Ersterfassung |
-
-</details>
-
-<details>
-<summary><strong>Jobtitel</strong> (2 Tools)</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `jobtitel_vorschlagen` | Passende Jobtitel aus Profil ableiten |
-| `jobtitel_verwalten` | Jobtitel bearbeiten/löschen/deaktivieren |
 
 </details>
 
@@ -575,20 +632,20 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v9:
+SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v10:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `profile` | Bewerberprofil + Präferenzen |
+| `profile` | Bewerberprofil + Präferenzen (Multi-Profil-fähig) |
 | `positions` | Berufserfahrung |
 | `projects` | STAR-Projekte (→ positions) |
 | `education` | Ausbildung |
 | `skills` | Kompetenzen (5 Kategorien, Level, Aktualität) |
-| `documents` | Hochgeladene Dokumente |
+| `documents` | Hochgeladene Dokumente (verknüpfbar mit Bewerbungen) |
 | `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (9 Quellen) |
-| `applications` | Bewerbungen (6 Status-Stufen) |
-| `application_events` | Bewerbungs-Timeline |
+| `jobs` | Stellenangebote (17 Quellen, `is_pinned`, profilgebunden) |
+| `applications` | Bewerbungen (9 Status-Stufen inkl. abgelaufen) |
+| `application_events` | Bewerbungs-Timeline + Gesprächsnotizen |
 | `search_criteria` | Suchfilter |
 | `blacklist` | Ausschlussliste |
 | `background_jobs` | Async-Tasks |
@@ -613,7 +670,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 190 Tests, ~10 Sekunden
+# 237 Tests, ~13 Sekunden
 ```
 
 ---
@@ -659,23 +716,36 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v0.17.0 — Split-Layout, Distance-Scoring, Tailored CV (2026-03-12)
-- **Dashboard Split-Layout**: Festanstellung | Freelance in zwei Spalten, umschaltbar
-- **Angepasster Lebenslauf**: Neues Tool — Skills und Positionen nach Stellenrelevanz sortiert (DOCX)
-- **Entfernung <30km bevorzugt**, Gehalts-Scoring, Kompetenzen-Match in Fit-Analyse
-- **Next-Steps-Banner**, Skill-Navigation, profil_bearbeiten erweitert
-- **GitHub Issues**: 42→11 offen — 31 Issues geschlossen
-- 55 Tools, 190 Tests (inkl. 3-Perspektiven-Analyse ab v0.17.1)
+### v0.22.0 — Bewerbungs-Detailansicht, Gesprächsnotizen & Dokument-Verknüpfung (2026-03-17)
+- **Detailansicht** komplett neu: Stelleninfos, Fit-Score, Quelle, Gehalt, aufklappbare Stellenbeschreibung
+- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
+- **Dokument-Verknüpfung**: Unterlagen direkt in der Bewerbung zuordnen
+- **Archiv-Fix**: Archivierte Bewerbungen werden wieder angezeigt
+- 62 Tools, 237 Tests
 
-### v0.16.0 — Skill-Aktualität & Jobtitel-Vorschläge (2026-03-12)
-- Skills tracken `last_used_year` — veraltete Skills werden erkannt
-- Automatische Jobtitel-Vorschläge aus Profil und Dokumenten
-- Schema v9, 53 Tools
+### v0.21.1 — Multi-Profil-Härtung (2026-03-17)
+- Jobs profilgebunden gespeichert, Follow-ups/Statistiken profilisoliert
+- Alle Queries respektieren das aktive Profil durchgängig
 
-### v0.15.0 — Batch-Analyse & Bewerbungs-Erkennung (2026-03-12)
-- Batch-Analyse für viele Dokumente, automatische Bewerbungs-Erkennung
-- Summary-Bug behoben, Workflows als Tools
-- 51 Tools, 190 Tests
+### v0.21.0 — LinkedIn & XING Browser-Integration (2026-03-16)
+- **Persistent Browser Sessions** für LinkedIn und XING
+- Konfigurierbare DOM-Selektoren, Job-ID-Deduplizierung, Multi-Page-Pagination
+- Neues Tool: `linkedin_browser_search()`
+
+### v0.20.0 — Statistik-Dashboard & Bewerbungsbericht (2026-03-16)
+- **5 interaktive Charts** (Chart.js): Timeline, Status-Donut, Quellen, Score-Verteilung
+- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
+- **`is_pinned`** ersetzt Score=99 (Schema v10), neuer Status `abgelaufen`
+- Paginierung + Archiv-Sektion für Bewerbungen
+
+### v0.19.0 — 8 neue Jobquellen, 17 Quellen insgesamt (2026-03-16)
+- **8 neue Quellen**: ingenieur.de (VDI), Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU, Kimeta, GULP, SOLCOM
+- **17 Quellen** insgesamt — von 9 fast verdoppelt
+
+### v0.18.0 — Mega-Release: 26 Issues, 61 Tools, 14 Workflows (2026-03-15)
+- **26 GitHub-Issues geschlossen**, Scoring komplett überarbeitet
+- **Bewerbungs-Management**: Bearbeiten, Löschen, Notizen, Details
+- 61 Tools, 14 Workflows, 190+ Tests
 
 ---
 
@@ -691,7 +761,7 @@ Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (S
 Ja! Du kannst PBP auch nur für Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
 **Was passiert, wenn ein Portal sich ändert?**
-Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen laufen weiter. Updates werden über neue Releases bereitgestellt.
+Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen 16 laufen weiter. Viele Scraper nutzen Multi-Strategie-Extraktion (HTML-Selektoren → JSON-LD Fallback), was sie robuster gegen Layout-Änderungen macht. Updates werden über neue Releases bereitgestellt.
 
 **Unterstützt PBP mehrere Sprachen?**
 Die Oberfläche und Workflows sind auf Deutsch. Jobtitel werden auf Deutsch und Englisch vorgeschlagen. Claude selbst kann in jeder Sprache kommunizieren.

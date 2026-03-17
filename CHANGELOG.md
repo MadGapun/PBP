@@ -2,6 +2,270 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.22.0] - 2026-03-17
+
+### Bewerbungs-Detailansicht, Gespraechsnotizen und Dokument-Verknuepfung
+
+**Erweiterte Bewerbungs-Detailansicht:**
+- Bewerbungs-Detailansicht komplett ueberarbeitet: Klick auf eine Bewerbung zeigt
+  jetzt Stellendetails (Fit-Score, Quelle, Ort, Remote-Level, Gehalt, Entfernung),
+  Kontaktdaten, aufklappbare Stellenbeschreibung und verknuepfte Dokumente.
+- Firmenname prominent mit Original-Link zur Stellenanzeige.
+- Portal-Badge (via StepStone, LinkedIn etc.) direkt sichtbar.
+- Lebenslauf-Variante und Ablehnungsgrund in der Detailansicht.
+
+**Gespraechsnotizen mit Zeitstempeln:**
+- Neue Notizen-Funktion direkt in der Bewerbungs-Detailansicht.
+- Notizen mit automatischem Zeitstempel hinzufuegen (Telefonnotizen,
+  Interview-Feedback, Vorbereitung, Gespraechsprotokolle).
+- Bestehende Notizen inline bearbeiten und loeschen.
+- Notizen sind visuell hervorgehoben (blaues NOTIZ-Label) und von
+  Statusaenderungen klar unterscheidbar.
+- Sicherheit: Nur Notizen koennen geloescht werden, nicht Statusaenderungen.
+- Chronologische Sortierung (neueste oben) mit Datum und Uhrzeit.
+- API: POST /api/applications/{id}/notes (hinzufuegen),
+  PUT /api/applications/{id}/notes/{event_id} (bearbeiten),
+  DELETE /api/applications/{id}/notes/{event_id} (loeschen).
+
+**Dokument-Verknuepfung:**
+- Lebenslauf, Anschreiben und andere Unterlagen koennen direkt in der
+  Detailansicht mit einer Bewerbung verknuepft werden.
+- Dokument-Auswahldialog mit Hover-Effekt und Typ-Icons.
+- API: GET /api/documents, POST /api/applications/{id}/link-document.
+
+**Archiv-Fix:**
+- Archivierte Bewerbungen (abgelehnt, zurueckgezogen, abgelaufen) werden wieder
+  korrekt in der eingeklappten Archiv-Sektion angezeigt.
+
+**Tests:**
+- 9 neue Tests (237 total): Detailansicht, Dokument-Verknuepfung, Dokumente-API,
+  Notizen hinzufuegen/bearbeiten/loeschen, leere Notiz abgewiesen,
+  mehrere chronologische Notizen.
+
+## [0.21.1] - 2026-03-17
+
+### Multi-Profil-Haertung und Merge-Stabilisierung
+
+- Jobs werden intern jetzt profilgebunden gespeichert, sodass identische externe
+  Stellen-Hashes sich zwischen Profilen nicht mehr gegenseitig ueberschreiben.
+- Oeffentliche Tool- und Dashboard-Ausgaben behalten dabei die bekannten
+  unveraenderten Job-Hashes bei, obwohl intern scoped gespeichert wird.
+- Bewerbungen loesen verknuepfte Stellen-Hashes profilsauber auf; Reports,
+  Fit-Analysen und Gehalts-Extraktion bleiben damit konsistent.
+- Follow-ups, Gehaltsstatistiken, Firmen-/Skill-Analysen, Ablehnungsmuster und
+  naechste Schritte respektieren jetzt das aktive Profil durchgaengig.
+- Neue Regressionstests decken Job-Kollisionen, profilgefilterte Follow-ups,
+  Statistik-Isolation und stabile oeffentliche Hash-Ausgaben ab.
+- MCP-Registry-Tests wurden mit der aktuellen FastMCP-API kompatibel gemacht,
+  damit die Vollsuite auf dem aktuellen Dependency-Stand wieder gruen laeuft.
+
+## [0.21.0] — 2026-03-16
+
+### LinkedIn & XING Browser-Integration mit konfigurierbaren Selektoren (#73)
+
+- **LinkedIn Browser-Suche**: Persistent-Browser-Sessions, Smart-Keywords aus
+  Profil-Skills, Multi-Page-Pagination (max 3 Seiten), Job-ID-Deduplizierung,
+  Beschreibungs-Extraktion aus Detail-Panel, Remote-Filter, Bot-Detection-Erkennung.
+- **XING Browser-Suche**: Analoge Verbesserungen — Pagination, Job-ID-Dedup,
+  konfigurierbare DOM-Selektoren.
+- **Neues Modul `browser_config.py`**: Zentrale DOM-Selektoren fuer LinkedIn und
+  XING — einfach aktualisierbar wenn Portale ihr Layout aendern.
+- **Neues MCP-Tool**: `linkedin_browser_search()` fuer direkte LinkedIn-Suche.
+- **62 Tools** gesamt (+1), 15 neue Tests (223 total).
+
+## [0.20.0] — 2026-03-16
+
+### Statistik-Dashboard, Bewerbungsbericht & Score-Korrektur
+
+**Neuer Tab: Statistiken** (5 interaktive Charts mit Chart.js)
+- **Bewerbungs-Timeline**: Balkendiagramm (Bewerbungen) + Linienchart (gefundene
+  Stellen) — umschaltbar zwischen Woche / Monat / Quartal / Jahr.
+- **Status-Verteilung**: Donut-Diagramm — farbcodierte Aufteilung aller
+  Bewerbungen nach aktuellem Status.
+- **Quellen-Vergleich**: Horizontale Balken — welche Jobquelle liefert die
+  meisten Stellen? Top 12 Quellen auf einen Blick.
+- **Fit-Score Verteilung**: Balkendiagramm — farbcodiert nach Qualitaet
+  (gruen >= 8, gelb >= 5, grau < 5). Gepinnte Stellen exkludiert.
+- **Quellen-Detailvergleich**: Gruppiertes Balkendiagramm — Durchschnittlicher
+  vs. maximaler Fit-Score pro Quelle.
+
+**Dashboard-Startseite:**
+- Neue Statistik-Vorschau-Karte — zeigt zufaellig einen von 3 Werten
+  (Avg Fit-Score, Quellen-Anzahl, Angebots-Rate) mit Link zum Statistik-Tab.
+
+**Score-System: `is_pinned` ersetzt Score=99** (#72)
+- **Neues Datenbankfeld `is_pinned`** (Schema v10): Manuell hinzugefuegte
+  Stellen werden gepinnt statt kuenstlich auf Score 99 gesetzt.
+- **Saubere Sortierung**: Gepinnte Stellen immer oben, dann nach echtem Score.
+- **Statistik-Bereinigung**: ALLE Statistiken (Avg, Max, Verteilung) nutzen
+  ausschliesslich den echten berechneten Score — keine Verzerrung durch
+  kuenstliche 99er. Gepinnte Stellen separat gezaehlt.
+- **Migration**: Bestehende Score=99-Eintraege (source="manuell") werden
+  automatisch zu `is_pinned=1, score=0` migriert.
+- **Pin-Toggle API**: `PUT /api/jobs/{hash}/pin` zum Pinnen/Entpinnen.
+- **Score-Edit API**: `PUT /api/jobs/{hash}/score` zum manuellen Aendern.
+
+**Neuer Status: `abgelaufen`** (#72)
+- Fuer Bewerbungen, bei denen sich monatelang niemand gemeldet hat.
+- Manuell setzbar (nicht automatisch) — da manche Firmen Monate brauchen.
+- In allen Status-Dropdowns verfuegbar (Dashboard + MCP Tools).
+
+**Bewerbungsliste: Paginierung + Archiv** (#72)
+- **30er Paginierung**: Standardmaessig die letzten 30 Bewerbungen laden.
+- **"Mehr laden" + "Alle laden"**: Buttons fuer seitenweises oder komplettes Laden.
+- **Archiv-Sektion**: Abgelehnte, zurueckgezogene und abgelaufene Bewerbungen
+  in einer eingeklappten `<details>`-Sektion — aktive Bewerbungen bleiben
+  uebersichtlich sichtbar.
+- Archiv-Badge zeigt Anzahl archivierter Bewerbungen.
+
+**PDF-Bewerbungsbericht** (#72) — Arbeitsamt-tauglich
+- Umfassender PDF-Export mit 7 Sektionen:
+  1. **Zusammenfassung**: Bewerbungen, analysierte Stellen, Fit-Scores, Raten
+  2. **Status-Verteilung**: Visuelle Balken pro Status
+  3. **Genutzte Jobquellen**: Tabelle mit Stellenanzahl und Prozent-Anteil
+  4. **Fit-Score Verteilung**: Farbige Balken pro Score-Klasse
+  5. **Bewerbungsliste**: Tabelle (Datum, Firma, Position, Status, Quelle, Score)
+  6. **Nicht beworben trotz gutem Score**: Analyse verpasster Chancen
+  7. **Keyword-Analyse**: Top-25 Begriffe in passenden Stellen mit Haeufigkeit
+- Export ueber Dashboard-Button oder `/api/applications/export?format=pdf`
+
+**Excel-Export** (optional) (#72)
+- Tabellarische Bewerbungsliste + Statistik-Sheet.
+- Optionale Dependency: `pip install bewerbungs-assistent[export]` (openpyxl).
+- Export ueber Dashboard-Button oder `/api/applications/export?format=xlsx`
+
+**Backend-Verbesserungen:**
+- `get_statistics()` jetzt Profil-gefiltert + erweitert um `pinned_jobs`,
+  `avg_score`, `max_score`, `scored_jobs`, `jobs_by_source`.
+- Neue API-Endpunkte: `/api/stats/timeline`, `/api/stats/scores`.
+- `get_timeline_stats(interval)`: Bewerbungen + Stellen pro Zeitraum.
+- `get_score_stats()`: Score-Verteilung + Quellen-Vergleich (Avg/Max).
+- `get_report_data()`: Umfassende Daten fuer PDF/Excel-Bericht.
+
+**Tests:**
+- 18 neue Tests (208 total): Schema-Migration, is_pinned, Pagination,
+  Archiv-Filter, Statistik-Bereinigung, Timeline-Stats, PDF-Generierung.
+
+**Abhaengigkeiten:**
+- Chart.js 4.4.7 via CDN (Dashboard-Statistiken)
+- `openpyxl >= 3.1` als optionale `[export]` Dependency
+
+---
+
+## [0.19.0] — 2026-03-15
+
+### 8 neue Jobquellen — 17 Quellen insgesamt
+
+**Neue Jobboersen (Festanstellung):**
+- **ingenieur.de (VDI)**: Engineering-Jobboerse des VDI. HTML-Scraping.
+- **Heise Jobs**: IT-Stellenmarkt von Heise Verlag. HTML + JSON-LD.
+- **Stellenanzeigen.de**: Grosses Jobportal (3.2 Mio. Besucher/Monat). HTML + JSON-LD.
+- **Jobware**: Premium-Jobportal fuer Spezialisten und Fuehrungskraefte. HTML + JSON-LD.
+- **FERCHAU**: Engineering & IT Personaldienstleister. HTML + JSON-LD.
+- **Kimeta**: Deutscher Job-Aggregator — buendelt Stellen aus vielen Quellen. HTML.
+
+**Neue Projektboersen (Freelance):**
+- **GULP**: Top IT/Engineering Freelance-Projektboerse. HTML + JSON-LD.
+- **SOLCOM**: IT + Engineering Projektportal. HTML + JSON-LD.
+
+**Alle neuen Quellen:**
+- Kein Login erforderlich
+- Multi-Strategie: HTML-Selektoren + JSON-LD Structured Data Fallback
+- Dynamische Keywords aus Profil-Skills und Suchkriterien
+- Automatische Remote-Level-Erkennung
+
+## [0.18.1] — 2026-03-15
+
+### Scraper-Rewrite: Robustere Jobsuche fuer alle 5 Quellen
+
+**Jobsuche (#57, #48, #50):**
+- **StepStone Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) Article-Elemente, (2) /stellenangebot/-Links Fallback, (3) JSON-LD
+  Structured Data. Cookie-Banner-Erkennung. Aktualisierte CSS-Selektoren.
+- **Indeed Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) job_seen_beacon/data-jk Container, (2) /viewjob-Link Fallback.
+  Salary-Extraktion, Cookie-Banner-Erkennung.
+- **Monster Scraper komplett neu** (#57): Multi-Strategie-Extraktion —
+  (1) Article/Job-Card Elemente, (2) /job-openings/-Link Fallback,
+  (3) JSON-LD Structured Data. Aktualisierte URL-Patterns.
+- **LinkedIn dynamische Keywords** (#48): Suchbegriffe werden aus
+  Profil-Skills und Suchkriterien generiert statt hardcoded.
+- **LinkedIn regionale Filterung** (#50): Location-Parameter aus
+  Suchkriterien-Regionen statt pauschal "Deutschland".
+- **XING dynamische Keywords + Region** (#50): Gleiche Verbesserungen
+  wie LinkedIn — Keywords aus Profil, Region aus Kriterien.
+- Alle Scraper: Robustere Fallback-Selektoren, bessere Fehlerbehandlung.
+
+## [0.18.0] — 2026-03-15
+
+### Mega-Release: 26 GitHub-Issues geschlossen, 61 Tools, 14 Workflows
+
+**Scoring & Suche:**
+- **Tagessatz vs. Jahresgehalt korrekt** (#54): Gehaltsvergleich normalisiert jetzt
+  Tagessaetze (×220 Arbeitstage) auf Jahresgehalt — Freelance-Stellen werden fair bewertet.
+- **Cross-Source Duplikat-Erkennung** (#59): Gleiche Stelle auf mehreren Portalen wird
+  erkannt (normalisierter Company+Title-Key) und nur einmal angezeigt.
+- **Feineres Entfernungs-Scoring** (#60): 30/50/100/200km-Stufen statt hart/weich,
+  Remote vs. Hybrid differenziert, Remote bekommt +4 Bonus.
+- **Bewerbung als Scoring-Signal** (#68): Stellen aehnlich zu bisherigen Bewerbungen
+  bekommen automatisch einen Bonus (Title-Matching).
+- **Mindest-Score-Schwelle** (#53): Stellen unter konfigurierbarem Mindest-Score
+  werden gar nicht erst gespeichert (Standard: 1).
+- **Stellenbeschreibung in fit_analyse** (#55): Beschreibung (bis 2000 Zeichen)
+  wird jetzt im Ergebnis mitgeliefert fuer tiefere Analyse.
+- **Zeitraum-Filter** (#52): `max_alter_tage` Parameter — nur Stellen der letzten X Tage.
+- **Datum in stellen_anzeigen** (#56): `gefunden_am` Feld in jeder Stelle.
+- **Paginierung** (#58): `seite`/`pro_seite` Parameter, `seiten_gesamt`, `quellen_uebersicht`.
+- **Beworbene Stellen markieren** (#65): `nur_nicht_beworben` Filter, `bereits_beworben` Flag.
+- **Timestamp-Bug behoben** (#51): "Vor 2 Tagen" statt "Heute" korrigiert.
+
+**Bewerbungs-Management:**
+- **Bewerbungen vollstaendig verwalten** (#70): 4 neue Tools — `bewerbung_loeschen`,
+  `bewerbung_bearbeiten`, `bewerbung_notiz`, `bewerbung_details`.
+- **Manuelle Stellen sichtbar** (#67/#49): `bewerbung_erstellen` legt automatisch
+  einen Job-Eintrag an (source="manuell", score=99). Duplikat-Erkennung.
+- **Stellen-URL verknuepft** (#63): URL wird automatisch mit Bewerbung verknuepft.
+- **Lernende Ablehnungsgruende** (#66): 10 vordefinierte Gruende, Zaehler,
+  automatische Gewichtungsanpassung ab 3 gleichen Ablehnungen.
+
+**Analyse & Coaching:**
+- **Antwort-Formulierung** (#22): `antwort_formulieren` — generiert Kontext fuer
+  Recruiter-Antworten basierend auf Bewerbungs-Details und Ton.
+- **Dokument-Verknuepfung** (#61): `dokument_verknuepfen` — verknuepft Dokumente
+  mit Bewerbungen fuer bessere Organisation.
+- **Ablehnungs-Coaching** (#26): Neuer Workflow — empathische Analyse nach Absage
+  mit konkreten Verbesserungsvorschlaegen.
+- **Auto-Bewerbung** (#21): Neuer Workflow — automatische Bewerbungserstellung
+  aus URL oder Stellentext (Fit-Analyse → CV → Anschreiben → Tracking).
+
+**Dashboard:**
+- **Klickbare Links** (#64): Stellen-URLs direkt anklickbar, Quellen-Badges,
+  Widget-Ueberschriften verlinkt, Bewerbungen anklickbar zum Tab-Wechsel.
+- **Drag & Drop Upload** (#32): Dateien per Drag & Drop oder Datei-Browser
+  hochladen — visuelles Feedback mit Drop-Zone.
+
+**Export:**
+- **Markdown & TXT** (#62): `lebenslauf_exportieren` und `anschreiben_exportieren`
+  unterstuetzen jetzt 'md' und 'txt' neben PDF/DOCX.
+
+**Installer:**
+- **Claude Desktop erkennen** (#24/#27): Installer erkennt und startet Claude Desktop
+  automatisch. Prominenter Hinweis dass Claude im Hintergrund laufen muss.
+
+**Bereits implementiert / geschlossen:**
+- **Profildaten aus Dokumenten** (#40): War bereits ueber `extraktion_starten`/
+  `profil_erweiterung` implementiert.
+
+**Offen gelassen (4 Issues):**
+- #57: Playwright-Scraper (StepStone, LinkedIn, Indeed, XING, Monster) — benoetigt
+  Analyse der Portal-Aenderungen
+- #50/#48: LinkedIn/XING Crawler-Verbesserungen — Tests auf Windows noetig
+- #28: Dashboard-Claude Integration — Vision-Feature fuer spaeter
+
+**61 Tools** in 8 Modulen, **14 Workflows**, 6 Resources, 190+ Tests.
+
+---
+
 ## [0.17.1] — 2026-03-13
 
 ### Features: 3-Perspektiven-Analyse, Release-Vorbereitung

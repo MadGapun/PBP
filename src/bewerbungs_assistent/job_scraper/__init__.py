@@ -74,6 +74,54 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
     },
+    "ingenieur_de": {
+        "name": "ingenieur.de (VDI)",
+        "beschreibung": "Engineering-Jobboerse des VDI. Spezialisiert auf Ingenieur- und Technik-Stellen.",
+        "methode": "HTML Scraping",
+        "login_erforderlich": False,
+    },
+    "heise_jobs": {
+        "name": "Heise Jobs",
+        "beschreibung": "IT-Stellenmarkt von Heise Verlag. Starke IT/Admin-Community.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "gulp": {
+        "name": "GULP",
+        "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "solcom": {
+        "name": "SOLCOM",
+        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "stellenanzeigen_de": {
+        "name": "Stellenanzeigen.de",
+        "beschreibung": "Grosses deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "jobware": {
+        "name": "Jobware",
+        "beschreibung": "Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "ferchau": {
+        "name": "FERCHAU",
+        "beschreibung": "Engineering & IT Personaldienstleister. Grosser Footprint in Engineering.",
+        "methode": "HTML Scraping + JSON-LD",
+        "login_erforderlich": False,
+    },
+    "kimeta": {
+        "name": "Kimeta",
+        "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
+        "methode": "HTML Scraping",
+        "login_erforderlich": False,
+    },
 }
 
 
@@ -148,6 +196,14 @@ _SCRAPER_MAP = {
     "indeed": ("indeed", "search_indeed"),
     "xing": ("xing", "search_xing"),
     "monster": ("monster", "search_monster"),
+    "ingenieur_de": ("ingenieur_de", "search_ingenieur_de"),
+    "heise_jobs": ("heise_jobs", "search_heise_jobs"),
+    "gulp": ("gulp", "search_gulp"),
+    "solcom": ("solcom", "search_solcom"),
+    "stellenanzeigen_de": ("stellenanzeigen_de", "search_stellenanzeigen_de"),
+    "jobware": ("jobware", "search_jobware"),
+    "ferchau": ("ferchau", "search_ferchau"),
+    "kimeta": ("kimeta", "search_kimeta"),
 }
 
 
@@ -183,8 +239,11 @@ def run_search(db, job_id: str, params: dict):
             mod = importlib.import_module(f".{module_name}", package=__package__)
             search_func = getattr(mod, func_name)
 
-            # Playwright-based scrapers may use progress callback
+            # Playwright-based scrapers: pass criteria + progress callback
             if quelle in ("linkedin", "xing"):
+                # Ensure criteria are available for smart keyword building
+                if "criteria" not in params:
+                    params["criteria"] = db.get_search_criteria()
                 def _progress(msg, _jid=job_id):
                     db.update_background_job(_jid, "running", message=msg)
                 jobs = search_func(params, progress_callback=_progress)
@@ -198,16 +257,45 @@ def run_search(db, job_id: str, params: dict):
         except Exception as e:
             logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
 
-    # Deduplicate
-    seen = set()
+    # Deduplicate — first by hash, then cross-source by normalized title+company (#59)
+    seen_hashes = set()
+    seen_titles = {}  # normalized_key -> first job
     unique = []
+    duplicates_merged = 0
     for job in all_jobs:
-        if job["hash"] not in seen:
-            seen.add(job["hash"])
-            unique.append(job)
+        if job["hash"] in seen_hashes:
+            continue
+        seen_hashes.add(job["hash"])
+
+        # Cross-source dedup: normalize title + company
+        norm_key = re.sub(r'[^a-z0-9]', '', f"{job.get('company','')}{job.get('title','')}".lower())
+        if norm_key in seen_titles:
+            # Keep the one with more description text
+            existing = seen_titles[norm_key]
+            if len(job.get("description", "") or "") > len(existing.get("description", "") or ""):
+                unique.remove(existing)
+                unique.append(job)
+                seen_titles[norm_key] = job
+            duplicates_merged += 1
+            continue
+        seen_titles[norm_key] = job
+        unique.append(job)
+
+    if duplicates_merged:
+        logger.info("Cross-Source Duplikate entfernt: %d", duplicates_merged)
 
     # Score, extract/estimate salary, and save
     criteria = db.get_search_criteria()
+
+    # Enrich with application signals (#68)
+    try:
+        apps = db.get_applications()
+        criteria["_applied_titles"] = [
+            a.get("title", "").lower() for a in apps
+            if a.get("title") and a.get("status") not in ("abgelehnt", "zurueckgezogen")
+        ]
+    except Exception:
+        criteria["_applied_titles"] = []
     for job in unique:
         job["score"] = calculate_score(job, criteria)
 
@@ -230,6 +318,14 @@ def run_search(db, job_id: str, params: dict):
             job["salary_max"] = s_max
             job["salary_type"] = s_type
             job["salary_estimated"] = 1
+
+    # Filter out zero-score jobs (#53) — no keyword match = irrelevant
+    min_score_threshold = criteria.get("min_score_schwelle", 1)
+    before = len(unique)
+    unique = [j for j in unique if j.get("score", 0) >= min_score_threshold]
+    if before > len(unique):
+        logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d)",
+                     before - len(unique), before, min_score_threshold)
 
     db.save_jobs(unique)
     db.set_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -299,25 +395,48 @@ def calculate_score(job: dict, criteria: dict) -> int:
     plus = criteria.get("keywords_plus", [])
     score += sum(1 for kw in plus if kw.lower() in text) * w["plus"]
 
-    # Distance bonus/malus
+    # Distance bonus/malus (#60) — finer granularity
     dist = job.get("distance_km")
     if dist is not None:
         if dist > 200:
             score -= w["fern_malus"]
+        elif dist > 100:
+            score -= 1  # slight penalty for far-away
         elif dist < 30:
             score += w["naehe"]
+        elif dist < 50:
+            score += max(1, w["naehe"] - 1)  # smaller bonus for 30-50km
 
-    # Remote bonus
+    # Remote bonus (#60) — differentiate remote vs hybrid
     remote = job.get("remote_level", "unbekannt")
-    if remote in ("remote", "hybrid"):
+    if remote == "remote":
+        score += w["remote"] + 1  # full remote gets extra
+    elif remote == "hybrid":
         score += w["remote"]
+
+    # Application signal bonus (#68) — boost similar jobs
+    applied_titles = criteria.get("_applied_titles", [])
+    if applied_titles:
+        job_title = job.get("title", "").lower()
+        for at in applied_titles:
+            if at in job_title or job_title in at:
+                score += 2  # applied for similar = strong signal
+                break
 
     # Salary bonus: reward jobs matching salary expectations
     salary_min = job.get("salary_min")
     if salary_min and w.get("gehalt", 0):
+        salary_type = job.get("salary_type", "jaehrlich")
         emp_type = job.get("employment_type", "festanstellung")
-        salary_pref_min = criteria.get("min_gehalt", 0) or criteria.get("min_tagessatz", 0)
-        if salary_pref_min and salary_min >= salary_pref_min:
+        if salary_type == "taeglich" or emp_type == "freelance":
+            salary_pref_min = criteria.get("min_tagessatz", 0) or 0
+            job_yearly = salary_min * 220
+            pref_yearly = salary_pref_min * 220 if salary_pref_min else (criteria.get("min_gehalt", 0) or 0)
+        else:
+            salary_pref_min = criteria.get("min_gehalt", 0) or 0
+            job_yearly = salary_min
+            pref_yearly = salary_pref_min
+        if pref_yearly and job_yearly >= pref_yearly:
             score += w["gehalt"]
 
     return max(0, score)
@@ -368,16 +487,28 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     risks = []
 
-    # Salary factor
+    # Salary factor — normalize daily rates vs yearly salary
     salary_min = job.get("salary_min")
     if salary_min:
+        salary_type = job.get("salary_type", "jaehrlich")
         emp_type = job.get("employment_type", "festanstellung")
-        salary_pref = criteria.get("min_gehalt", 0) or criteria.get("min_tagessatz", 0)
-        if salary_pref and salary_min >= salary_pref:
+        if salary_type == "taeglich" or emp_type == "freelance":
+            salary_pref = criteria.get("min_tagessatz", 0) or 0
+            job_yearly = salary_min * 220
+            pref_yearly = salary_pref * 220 if salary_pref else (criteria.get("min_gehalt", 0) or 0)
+            salary_label = f"{salary_min} EUR/Tag (~{int(job_yearly)} EUR/Jahr)"
+            pref_label = f"{salary_pref} EUR/Tag" if salary_pref else f"{pref_yearly} EUR/Jahr"
+        else:
+            salary_pref = criteria.get("min_gehalt", 0) or 0
+            job_yearly = salary_min
+            pref_yearly = salary_pref
+            salary_label = f"{salary_min} EUR/Jahr"
+            pref_label = f"{salary_pref} EUR/Jahr"
+        if pref_yearly and job_yearly >= pref_yearly:
             factors["Gehalt passt zu Erwartung"] = w.get("gehalt", 1)
             total += w.get("gehalt", 1)
-        elif salary_pref and salary_min < salary_pref * 0.8:
-            risks.append(f"Gehalt ({salary_min}) liegt unter Mindestvorstellung ({salary_pref})")
+        elif pref_yearly and job_yearly < pref_yearly * 0.8:
+            risks.append(f"Gehalt ({salary_label}) liegt unter Mindestvorstellung ({pref_label})")
     if missing_muss:
         risks.append(f"{len(missing_muss)} MUSS-Keywords nicht gefunden")
     if not job.get("url"):

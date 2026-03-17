@@ -803,7 +803,7 @@ async def api_generate_cv(format: str = "text"):
 
 @app.get("/api/application/{app_id}/timeline")
 async def api_application_timeline(app_id: str):
-    """Get full event timeline for an application."""
+    """Get full event timeline for an application with job details and documents."""
     conn = _db.connect()
     events = [dict(r) for r in conn.execute(
         "SELECT * FROM application_events WHERE application_id = ? ORDER BY event_date DESC",
@@ -812,7 +812,22 @@ async def api_application_timeline(app_id: str):
     app_row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
     if not app_row:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    return {"application": dict(app_row), "events": events}
+    application = _db._serialize_application_row(app_row) if hasattr(_db, '_serialize_application_row') else dict(app_row)
+
+    # Enrich with job details if linked
+    job = None
+    if application.get("job_hash"):
+        job = _db.get_job(application["job_hash"])
+
+    # Get linked documents
+    documents = _db.get_documents_for_application(app_id)
+
+    return {
+        "application": application,
+        "events": events,
+        "job": job,
+        "documents": documents,
+    }
 
 
 @app.get("/api/jobs")
@@ -848,12 +863,27 @@ async def api_fit_analyse(job_hash: str):
 
 
 @app.get("/api/applications")
-async def api_applications(status: str = None, limit: int = 0, offset: int = 0):
-    apps = _db.get_applications(status)
-    total = len(apps)
-    if limit > 0:
-        apps = apps[offset:offset + limit]
-    return {"applications": apps, "total": total, "limit": limit, "offset": offset}
+async def api_applications(
+    status: str = None, limit: int = 30, offset: int = 0,
+    include_archived: bool = False
+):
+    total = _db.count_applications(status, include_archived=True)
+    archived_count = _db.count_archived_applications()
+    active_count = total - archived_count
+    if status:
+        apps = _db.get_applications(status=status, limit=limit, offset=offset)
+        filtered_total = _db.count_applications(status=status)
+    else:
+        apps = _db.get_applications(
+            include_archived=include_archived, limit=limit, offset=offset
+        )
+        filtered_total = active_count if not include_archived else total
+    return {
+        "applications": apps, "total": total,
+        "filtered_total": filtered_total,
+        "archived_count": archived_count,
+        "limit": limit, "offset": offset,
+    }
 
 
 @app.post("/api/applications")
@@ -874,9 +904,118 @@ async def api_update_app_status(app_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.post("/api/applications/{app_id}/link-document")
+async def api_link_document(app_id: str, request: Request):
+    """Link an existing document to an application."""
+    data = await request.json()
+    doc_id = data.get("document_id")
+    if not doc_id:
+        return JSONResponse({"error": "document_id ist Pflicht"}, status_code=400)
+    _db.link_document_to_application(doc_id, app_id)
+    return {"status": "ok"}
+
+
+@app.post("/api/applications/{app_id}/notes")
+async def api_add_note(app_id: str, request: Request):
+    """Add a timestamped note to an application."""
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        return JSONResponse({"error": "Notiz-Text ist Pflicht"}, status_code=400)
+    _db.add_application_note(app_id, text)
+    return {"status": "ok"}
+
+
+@app.put("/api/applications/{app_id}/notes/{event_id}")
+async def api_update_note(app_id: str, event_id: int, request: Request):
+    """Update an existing note/event text."""
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        return JSONResponse({"error": "Notiz-Text ist Pflicht"}, status_code=400)
+    _db.update_application_event(event_id, app_id, text)
+    return {"status": "ok"}
+
+
+@app.delete("/api/applications/{app_id}/notes/{event_id}")
+async def api_delete_note(app_id: str, event_id: int):
+    """Delete a note from the application timeline."""
+    _db.delete_application_event(event_id, app_id)
+    return {"status": "ok"}
+
+
+@app.get("/api/documents")
+async def api_documents():
+    """List all documents for the active profile."""
+    pid = _db.get_active_profile_id()
+    docs = _db._get_documents(pid)
+    return {"documents": docs}
+
+
 @app.get("/api/statistics")
 async def api_statistics():
     return _db.get_statistics()
+
+
+@app.get("/api/stats/timeline")
+async def api_stats_timeline(interval: str = "month"):
+    """Application timeline grouped by interval (week/month/quarter/year)."""
+    return _db.get_timeline_stats(interval)
+
+
+@app.get("/api/stats/scores")
+async def api_stats_scores():
+    """Score distribution and trend data for charts."""
+    return _db.get_score_stats()
+
+
+@app.put("/api/jobs/{job_hash}/score")
+async def api_update_job_score(job_hash: str, request: Request):
+    data = await request.json()
+    score = int(data.get("score", 0))
+    _db.update_job_score(job_hash, score)
+    return {"status": "ok", "score": score}
+
+
+@app.put("/api/jobs/{job_hash}/pin")
+async def api_toggle_job_pin(job_hash: str):
+    new_state = _db.toggle_job_pin(job_hash)
+    return {"status": "ok", "is_pinned": new_state}
+
+
+@app.get("/api/applications/export")
+async def api_export_applications(format: str = "pdf"):
+    """Export applications as PDF or Excel."""
+    from .export_report import generate_application_report
+    report_data = _db.get_report_data()
+    profile = _db.get_profile()
+    from .database import get_data_dir
+    export_dir = get_data_dir() / "export"
+    export_dir.mkdir(exist_ok=True)
+
+    if format == "xlsx":
+        try:
+            from .export_report import generate_excel_report
+            path = export_dir / "bewerbungsbericht.xlsx"
+            generate_excel_report(report_data, profile, path)
+            return FileResponse(
+                str(path),
+                filename="Bewerbungsbericht.xlsx",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except ImportError:
+            return JSONResponse(
+                {"error": "openpyxl nicht installiert. Installiere mit: pip install openpyxl"},
+                status_code=501
+            )
+    else:
+        path = export_dir / "bewerbungsbericht.pdf"
+        generate_application_report(report_data, profile, path)
+        return FileResponse(
+            str(path),
+            filename="Bewerbungsbericht.pdf",
+            media_type="application/pdf"
+        )
 
 
 @app.get("/api/search-criteria")
