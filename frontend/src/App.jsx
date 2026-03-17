@@ -128,6 +128,7 @@ export default function App() {
   const liveUpdateSeenRef = useRef(false);
   const liveRefreshPendingRef = useRef(false);
   const liveSyncInFlightRef = useRef(false);
+  const ownSaveInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!profileMenuOpen) return undefined;
@@ -211,6 +212,9 @@ export default function App() {
 
   async function refreshChrome(options = {}) {
     const quiet = Boolean(options?.quiet);
+    if (quiet && !options?.forceReload) {
+      ownSaveInFlightRef.current = true;
+    }
     try {
       const [status, workspace, profilesData, profile, wizardPreference, searchStatus] =
         await Promise.all([
@@ -251,6 +255,8 @@ export default function App() {
           }
         } catch {
           // best-effort – don't block the refresh
+        } finally {
+          ownSaveInFlightRef.current = false;
         }
       }
 
@@ -304,6 +310,13 @@ export default function App() {
       const changed = nextToken !== liveUpdateTokenRef.current;
       if (changed) {
         liveUpdateTokenRef.current = nextToken;
+      }
+
+      // If a quiet save from this client is in-flight, the token change is
+      // our own — absorb it and don't schedule a reload.
+      if (ownSaveInFlightRef.current) {
+        liveRefreshPendingRef.current = false;
+        return;
       }
 
       if (!changed && !liveRefreshPendingRef.current) {

@@ -869,104 +869,41 @@ export default function ProfilePage() {
     }));
   };
 
-  const weightColorMap = {
-    teal: {
-      border: "border-teal/20",
-      accent: "bg-teal",
-      chip: "border-teal/25 bg-teal/10 text-teal",
-      text: "text-teal/70",
-      bar: "bg-teal/15",
-      barFill: "bg-teal",
-      btn: "border-white/10 bg-white/[0.04] text-muted hover:bg-teal/15 hover:text-teal",
-      input: "!border-white/10 !bg-white/[0.04] !text-ink",
-    },
-    sky: {
-      border: "border-sky/20",
-      accent: "bg-sky",
-      chip: "border-sky/25 bg-sky/10 text-sky",
-      text: "text-sky/70",
-      bar: "bg-sky/15",
-      barFill: "bg-sky",
-      btn: "border-white/10 bg-white/[0.04] text-muted hover:bg-sky/15 hover:text-sky",
-      input: "!border-white/10 !bg-white/[0.04] !text-ink",
-    },
-    coral: {
-      border: "border-coral/20",
-      accent: "bg-coral",
-      chip: "border-coral/25 bg-coral/10 text-coral",
-      text: "text-coral/70",
-      bar: "bg-coral/15",
-      barFill: "bg-coral",
-      btn: "border-white/10 bg-white/[0.04] text-muted hover:bg-coral/15 hover:text-coral",
-      input: "!border-white/10 !bg-white/[0.04] !text-ink",
-    },
-    amber: {
-      border: "border-amber/20",
-      accent: "bg-amber",
-      chip: "border-amber/25 bg-amber/10 text-amber",
-      text: "text-amber/70",
-      bar: "bg-amber/15",
-      barFill: "bg-amber",
-      btn: "border-white/10 bg-white/[0.04] text-muted hover:bg-amber/15 hover:text-amber",
-      input: "!border-white/10 !bg-white/[0.04] !text-ink",
-    },
+  const weightColorVars = {
+    teal: { track: "bg-teal/20", fill: "bg-teal", thumb: "accent-teal", value: "text-teal", label: "text-ink/70" },
+    sky: { track: "bg-sky/20", fill: "bg-sky", thumb: "accent-sky", value: "text-sky", label: "text-ink/70" },
+    coral: { track: "bg-coral/20", fill: "bg-coral", thumb: "accent-coral", value: "text-coral", label: "text-ink/70" },
+    amber: { track: "bg-amber/20", fill: "bg-amber", thumb: "accent-amber", value: "text-amber", label: "text-ink/70" },
   };
 
-  const renderWeightCard = (card) => {
+  const renderWeightRow = (card) => {
     const value = normalizeWeight(criteriaDraft[card.key]);
-    const displayValue = formatWeightValue(value);
-    const barWidth = `${value * 10}%`;
-    const c = weightColorMap[card.color];
+    const c = weightColorVars[card.color];
 
     return (
-      <div
-        key={card.key}
-        className={cn("group relative overflow-hidden rounded-xl border bg-white/[0.02] p-4", c.border)}
-      >
-        {/* Thin colored accent on top */}
-        <div className={cn("absolute inset-x-0 top-0 h-[2px]", c.accent)} />
-
-        {/* Header: label + chip */}
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/80">{card.label}</p>
-          <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-medium", c.chip)}>{card.chip}</span>
+      <div key={card.key} className="group flex items-center gap-4 py-2">
+        <div className="w-28 shrink-0">
+          <p className={cn("text-[12px] font-semibold", c.label)}>{card.label}</p>
+          <p className="text-[10px] text-muted/50">{card.chip}</p>
         </div>
-
-        {/* Description */}
-        <p className={cn("mt-1.5 text-[11px] leading-relaxed", c.text)}>{card.desc}</p>
-
-        {/* Progress bar */}
-        <div className={cn("mt-3 h-1 overflow-hidden rounded-full", c.bar)}>
-          <div className={cn("h-full rounded-full transition-all duration-300", c.barFill)} style={{ width: barWidth }} />
-        </div>
-
-        {/* Controls: -  value  + */}
-        <div className="mt-3 grid grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-1.5">
-          <button
-            type="button"
-            className={cn("flex h-8 items-center justify-center rounded-lg border text-sm font-medium transition", c.btn)}
-            onClick={() => nudgeWeight(card.key, -1)}
-          >
-            -
-          </button>
-          <TextInput
-            type="number"
+        <div className="relative flex flex-1 items-center">
+          <input
+            type="range"
             min={0}
             max={10}
             step={0.5}
-            className={cn("!h-8 !text-center !text-sm !font-semibold", c.input)}
-            value={criteriaDraft[card.key]}
+            value={value}
             onChange={(event) => setCriteriaDraft((current) => ({ ...current, [card.key]: event.target.value }))}
-            onBlur={() => setCriteriaDraft((current) => ({ ...current, [card.key]: String(normalizeWeight(current[card.key])) }))}
+            className={cn("weight-slider h-1.5 w-full cursor-pointer appearance-none rounded-full", c.track, c.thumb)}
+            style={{
+              background: `linear-gradient(to right, var(--slider-fill) ${value * 10}%, transparent ${value * 10}%)`,
+              "--slider-fill": `var(--color-${card.color})`,
+            }}
           />
-          <button
-            type="button"
-            className={cn("flex h-8 items-center justify-center rounded-lg border text-sm font-medium transition", c.btn)}
-            onClick={() => nudgeWeight(card.key, 1)}
-          >
-            +
-          </button>
         </div>
+        <span className={cn("w-8 text-right text-sm font-bold tabular-nums", c.value)}>
+          {formatWeightValue(value)}
+        </span>
       </div>
     );
   };
@@ -1098,8 +1035,8 @@ export default function ProfilePage() {
               </Field>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {weightingCards.map((card) => renderWeightCard(card))}
+            <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
+              {weightingCards.map((card) => renderWeightRow(card))}
             </div>
 
             <div className="mt-2 border-t border-white/8 pt-5">

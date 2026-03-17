@@ -89,6 +89,38 @@ class Database:
             current = int(row["value"])
             if current < SCHEMA_VERSION:
                 self._migrate(current, SCHEMA_VERSION)
+        # Safety net: ensure is_pinned column exists (may be missing if a prior
+        # v10 migration only added profile-scoped tables but not this column).
+        try:
+            conn.execute("SELECT is_pinned FROM jobs LIMIT 1")
+        except Exception:
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN is_pinned INTEGER DEFAULT 0")
+                conn.execute(
+                    "UPDATE jobs SET is_pinned=1, score=0 WHERE source='manuell' AND score=99"
+                )
+                conn.commit()
+            except Exception:
+                pass
+        # Safety net: if active_sources / last_search_at were migrated to
+        # profile_settings by a prior profile-scoped migration, copy them back
+        # to settings so the current code can read them.
+        for _key in ("active_sources", "last_search_at"):
+            try:
+                cur2 = conn.execute("SELECT value FROM settings WHERE key=?", (_key,))
+                if cur2.fetchone() is None:
+                    ps_row = conn.execute(
+                        "SELECT value FROM profile_settings WHERE key=? LIMIT 1",
+                        (_key,)
+                    ).fetchone()
+                    if ps_row:
+                        conn.execute(
+                            "INSERT INTO settings (key, value) VALUES (?, ?)",
+                            (_key, ps_row["value"])
+                        )
+                        conn.commit()
+            except Exception:
+                pass  # profile_settings table may not exist
         # Create indexes that depend on migrated columns (safe after migration)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
@@ -1325,6 +1357,27 @@ class Database:
         conn = self.connect()
         cur = conn.execute("SELECT * FROM background_jobs WHERE id=?", (job_id,))
         row = cur.fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        d["params"] = json.loads(d["params"] or "{}")
+        d["result"] = json.loads(d["result"] or "null")
+        return d
+
+    def get_running_background_job(self, job_type: Optional[str] = None) -> Optional[dict]:
+        """Return the most recent running/pending background job of the given type."""
+        conn = self.connect()
+        if job_type:
+            row = conn.execute(
+                "SELECT * FROM background_jobs WHERE job_type=? AND status IN ('running','pending') "
+                "ORDER BY created_at DESC LIMIT 1",
+                (job_type,)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM background_jobs WHERE status IN ('running','pending') "
+                "ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
         if row is None:
             return None
         d = dict(row)

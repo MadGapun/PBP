@@ -1,7 +1,7 @@
-﻿import { Ban, BriefcaseBusiness, EyeOff, ExternalLink, Filter, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
+﻿import { Ban, BriefcaseBusiness, Check, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, optionalApi, postJson } from "@/api";
+import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import {
   Badge,
@@ -113,6 +113,8 @@ export default function JobsPage() {
   const [searchJob, setSearchJob] = useState({ running: false, progress: 0, message: "" });
   const [pendingFocusJobHash, setPendingFocusJobHash] = useState("");
   const [highlightedJobHash, setHighlightedJobHash] = useState("");
+  const [editingScoreHash, setEditingScoreHash] = useState("");
+  const [editingScoreValue, setEditingScoreValue] = useState("");
 
   const wasSearchRunningRef = useRef(false);
   const searchPollErrorShownRef = useRef(false);
@@ -310,6 +312,29 @@ export default function JobsPage() {
     }
   }
 
+  async function togglePin(job) {
+    try {
+      const result = await putJson(`/api/jobs/${job.hash}/pin`, {});
+      await loadPage({ silent: true });
+      pushToast(result.is_pinned ? "Stelle angepinnt." : "Pin entfernt.", "success");
+    } catch (error) {
+      pushToast(`Pin-Aktion fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  async function saveScore(job) {
+    const score = Math.max(0, Math.min(100, Math.round(Number(editingScoreValue) || 0)));
+    try {
+      await putJson(`/api/jobs/${job.hash}/score`, { score });
+      setEditingScoreHash("");
+      setEditingScoreValue("");
+      await loadPage({ silent: true });
+      pushToast(`Score auf ${score} gesetzt.`, "success");
+    } catch (error) {
+      pushToast(`Score konnte nicht gespeichert werden: ${error.message}`, "danger");
+    }
+  }
+
   if (loading) return <LoadingPanel label="Stellen werden geladen..." />;
 
   const allJobs = [...jobs, ...dismissedJobs];
@@ -364,6 +389,11 @@ export default function JobsPage() {
       return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch;
     })
     .sort((a, b) => {
+      // Pinned jobs always come first
+      const pinA = a.is_pinned ? 1 : 0;
+      const pinB = b.is_pinned ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
+
       switch (filters.sort) {
         case "score_desc": return (b.score || 0) - (a.score || 0);
         case "score_asc": return (a.score || 0) - (b.score || 0);
@@ -544,71 +574,100 @@ export default function JobsPage() {
                 key={job.hash}
                 id={jobCardElementId(job.hash)}
                 className={cn(
-                  "rounded-xl transition-[border-color,box-shadow,background-color] duration-300",
-                  highlightedJobHash === String(job.hash) && "job-card-highlight"
+                  "flex flex-col rounded-xl transition-[border-color,box-shadow,background-color] duration-300",
+                  highlightedJobHash === String(job.hash) && "job-card-highlight",
+                  job.is_pinned && "border-amber/20 bg-amber/[0.02]"
                 )}
               >
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="sky">{job.source || "Quelle"}</Badge>
-                      <Badge tone="amber">Score {job.score || 0}</Badge>
-                      {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
-                    </div>
-                    <h2 className="text-2xl font-semibold text-ink">{job.title}</h2>
-                    <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
-                    <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
-                    {job.salary_min ? (
-                      <p className="text-sm text-ink">
-                        Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <Button variant="secondary" onClick={() => showFitAnalysis(job)}>
-                      <Target size={15} />
-                      Fit-Analyse
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        setApplicationDialog({
-                          open: true,
-                          draft: {
-                            job_hash: job.hash,
-                            title: job.title || "",
-                            company: job.company || "",
-                            url: job.url || "",
-                            status: "beworben",
-                            notes: "",
-                          },
-                        })
-                      }
-                    >
-                      <Plus size={15} />
-                      Bewerbung erfassen
-                    </Button>
-                    <Button variant="ghost" onClick={() => openBlacklistDialog(job)}>
-                      <Ban size={15} />
-                      Zur Blacklist
-                    </Button>
-                    {filters.view === "active" ? (
-                      <Button variant="danger" onClick={() => changeJobState("/api/jobs/dismiss", { hash: job.hash, reason: "passt_nicht" }, "Stelle aussortiert")}>
-                        <EyeOff size={15} />
-                        Passt nicht
-                      </Button>
+                <div className="flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline -mt-0.5" /> Angepinnt</Badge> : null}
+                    <Badge tone="sky">{job.source || "Quelle"}</Badge>
+                    {editingScoreHash === String(job.hash) ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber/30 bg-amber/10 px-2.5 py-0.5">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="w-12 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-center text-[12px] font-medium text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          value={editingScoreValue}
+                          onChange={(e) => setEditingScoreValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveScore(job); if (e.key === "Escape") setEditingScoreHash(""); }}
+                          autoFocus
+                        />
+                        <button type="button" className="text-teal hover:text-teal/80" onClick={() => saveScore(job)}><Check size={14} /></button>
+                        <button type="button" className="text-muted hover:text-ink" onClick={() => setEditingScoreHash("")}><X size={14} /></button>
+                      </span>
                     ) : (
-                      <Button variant="ghost" onClick={() => changeJobState("/api/jobs/restore", { hash: job.hash }, "Stelle wiederhergestellt")}>
-                        <RotateCcw size={15} />
-                        Wiederherstellen
-                      </Button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full border border-transparent bg-amber/10 px-2.5 py-0.5 text-[12px] font-semibold text-amber transition-colors hover:border-amber/30 hover:bg-amber/20"
+                        onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(job.score || 0)); }}
+                        title="Score bearbeiten"
+                      >
+                        Score {job.score || 0}
+                        <Pencil size={11} />
+                      </button>
                     )}
-                    {job.url ? (
-                      <LinkButton href={job.url} target="_blank" rel="noreferrer">
-                        <ExternalLink size={15} />
-                        Anzeige
-                      </LinkButton>
-                    ) : null}
+                    {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
                   </div>
+                  <h2 className="text-2xl font-semibold text-ink">{job.title}</h2>
+                  <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
+                  <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
+                  {job.salary_min ? (
+                    <p className="text-sm text-ink">
+                      Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3 border-t border-white/[0.06] pt-4">
+                  <Button variant={job.is_pinned ? "subtle" : "secondary"} onClick={() => togglePin(job)}>
+                    {job.is_pinned ? <PinOff size={15} /> : <Pin size={15} />}
+                    {job.is_pinned ? "Entpinnen" : "Anpinnen"}
+                  </Button>
+                  <Button variant="secondary" onClick={() => showFitAnalysis(job)}>
+                    <Target size={15} />
+                    Fit-Analyse
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      setApplicationDialog({
+                        open: true,
+                        draft: {
+                          job_hash: job.hash,
+                          title: job.title || "",
+                          company: job.company || "",
+                          url: job.url || "",
+                          status: "beworben",
+                          notes: "",
+                        },
+                      })
+                    }
+                  >
+                    <Plus size={15} />
+                    Bewerbung erfassen
+                  </Button>
+                  <Button variant="ghost" onClick={() => openBlacklistDialog(job)}>
+                    <Ban size={15} />
+                    Zur Blacklist
+                  </Button>
+                  {filters.view === "active" ? (
+                    <Button variant="danger" onClick={() => changeJobState("/api/jobs/dismiss", { hash: job.hash, reason: "passt_nicht" }, "Stelle aussortiert")}>
+                      <EyeOff size={15} />
+                      Passt nicht
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" onClick={() => changeJobState("/api/jobs/restore", { hash: job.hash }, "Stelle wiederhergestellt")}>
+                      <RotateCcw size={15} />
+                      Wiederherstellen
+                    </Button>
+                  )}
+                  {job.url ? (
+                    <LinkButton href={job.url} target="_blank" rel="noreferrer">
+                      <ExternalLink size={15} />
+                      Anzeige
+                    </LinkButton>
+                  ) : null}
                 </div>
               </Card>
             ))

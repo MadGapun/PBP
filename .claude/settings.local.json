@@ -40,7 +40,21 @@
       "Bash(grep -r \"mit Gehalt\\\\|mit gehalt\\\\|with salary\" /c/Users/tomsb/Documents/development/PBP/src --include=*.py)",
       "Bash(grep -r \"salary.*count\\\\|count.*salary\\\\|anzahl.*gehalt\" /c/Users/tomsb/Documents/development/PBP/src/bewerbungs_assistent --include=*.py)",
       "Bash(find /c/Users/tomsb/Documents/development/PBP -type f -name *.tsx -o -name *.jsx)",
-      "Bash(grep -r \"mit Gehalt\\\\|mit gehalt\\\\|salary\\\\|gehalt\" /c/Users/tomsb/Documents/development/PBP/frontend/src --include=*.jsx --include=*.js)"
+      "Bash(grep -r \"mit Gehalt\\\\|mit gehalt\\\\|salary\\\\|gehalt\" /c/Users/tomsb/Documents/development/PBP/frontend/src --include=*.jsx --include=*.js)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(git diff:*)",
+      "Bash(diffstat -t)",
+      "Bash(sed 's/^+//')",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(python -c \"from src.bewerbungs_assistent.database import Database; db = Database\\(\\); db.initialize\\(\\); print\\(''OK - DB initialized''\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(npm run:*)",
+      "Bash(timeout 8 python start_dashboard.py)",
+      "Bash(npm install:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }

@@ -1,7 +1,7 @@
-﻿import { CalendarClock, Download, Plus, Send, Workflow } from "lucide-react";
+﻿import { CalendarClock, Check, Download, FileText, Link2, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
 
-import { api, apiUrl, postJson, putJson } from "@/api";
+import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import {
   Badge,
@@ -19,7 +19,7 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui";
-import { formatDate, formatDateTime, statusTone } from "@/utils";
+import { cn, formatCurrency, formatDate, formatDateTime, statusTone } from "@/utils";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -38,6 +38,11 @@ export default function ApplicationsPage() {
   const [filters, setFilters] = useState({ query: "", status: "" });
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
+  const [newNoteText, setNewNoteText] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [documents, setDocuments] = useState([]);
 
   const deferredQuery = useDeferredValue(filters.query);
 
@@ -86,10 +91,79 @@ export default function ApplicationsPage() {
 
   async function openTimeline(application) {
     try {
-      const timeline = await api(`/api/application/${application.id}/timeline`);
+      const [timeline, docs] = await Promise.all([
+        api(`/api/application/${application.id}/timeline`),
+        api("/api/documents"),
+      ]);
       setTimelineDialog({ open: true, entry: timeline });
+      setDocuments(docs?.documents || []);
+      setNewNoteText("");
+      setEditingNoteId(null);
+      setDocSearchQuery("");
     } catch (error) {
       pushToast(`Timeline konnte nicht geladen werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function reloadTimeline(appId) {
+    try {
+      const timeline = await api(`/api/application/${appId}/timeline`);
+      setTimelineDialog((current) => ({ ...current, entry: timeline }));
+    } catch { /* silent */ }
+  }
+
+  async function addNote() {
+    const text = newNoteText.trim();
+    if (!text) return;
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    try {
+      await postJson(`/api/applications/${appId}/notes`, { text });
+      setNewNoteText("");
+      await reloadTimeline(appId);
+      pushToast("Notiz hinzugefügt.", "success");
+    } catch (error) {
+      pushToast(`Notiz konnte nicht gespeichert werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function updateNote(eventId) {
+    const text = editingNoteText.trim();
+    if (!text) return;
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    try {
+      await putJson(`/api/applications/${appId}/notes/${eventId}`, { text });
+      setEditingNoteId(null);
+      setEditingNoteText("");
+      await reloadTimeline(appId);
+      pushToast("Notiz aktualisiert.", "success");
+    } catch (error) {
+      pushToast(`Notiz konnte nicht aktualisiert werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function deleteNote(eventId) {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    try {
+      await deleteRequest(`/api/applications/${appId}/notes/${eventId}`);
+      await reloadTimeline(appId);
+      pushToast("Notiz gelöscht.", "success");
+    } catch (error) {
+      pushToast(`Notiz konnte nicht gelöscht werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function linkDocument(docId) {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    try {
+      await postJson(`/api/applications/${appId}/link-document`, { document_id: docId });
+      await reloadTimeline(appId);
+      pushToast("Dokument verknüpft.", "success");
+    } catch (error) {
+      pushToast(`Verknüpfung fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 

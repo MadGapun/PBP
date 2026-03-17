@@ -297,6 +297,33 @@
   }
 }
 
+/* Weight slider (range input) */
+.weight-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.weight-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+.weight-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
 .job-card-highlight {
   animation: job-card-highlight-pulse 1.8s ease-out 1;
 }
