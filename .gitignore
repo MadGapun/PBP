@@ -25,7 +25,6 @@ frontend/node_modules/
 pnpm-debug.log*
 .claude/
 
-
 # OS
 .DS_Store
 Thumbs.db

@@ -9,8 +9,55 @@ echo  ║  PBP Setup.exe Builder                         ║
 echo  ║  Erstellt eine Setup.exe aus dem GUI-Installer  ║
 echo  ╚════════════════════════════════════════════════╝
 echo.
-echo  Voraussetzung: Python 3.11+ mit pip
+echo  Voraussetzungen:
+echo    - Python 3.11+ mit pip
+echo    - Node.js mit npm/pnpm
 echo.
+
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%.."
+set "FRONTEND_DIR=%PROJECT_DIR%\frontend"
+
+:: ----------------------------------------------------
+:: Step 1: Frontend bauen
+:: ----------------------------------------------------
+echo  [1/4] Baue Frontend...
+
+:: Check for pnpm
+where pnpm >nul 2>&1
+if %errorlevel% neq 0 (
+    echo    WARNUNG: pnpm nicht gefunden. Versuche, es via npm zu installieren...
+    call npm install -g pnpm
+    if %errorlevel% neq 0 (
+        echo    FEHLER: pnpm konnte nicht installiert werden.
+        echo    Bitte Node.js (https://nodejs.org) installieren und dann 'npm install -g pnpm' ausfuehren.
+        pause
+        exit /b 1
+    )
+)
+
+echo    Installiere Frontend-Abhaengigkeiten...
+call pnpm --dir "%FRONTEND_DIR%" install
+if %errorlevel% neq 0 (
+    echo    FEHLER: 'pnpm install' ist fehlgeschlagen.
+    pause
+    exit /b 1
+)
+
+echo    Baue Frontend-Dateien...
+call pnpm --dir "%FRONTEND_DIR%" run build
+if %errorlevel% neq 0 (
+    echo    FEHLER: 'pnpm run build' ist fehlgeschlagen.
+    pause
+    exit /b 1
+)
+echo         ✓ Frontend erfolgreich gebaut.
+
+:: ----------------------------------------------------
+:: Step 2: Python und PyInstaller pruefen
+:: ----------------------------------------------------
+echo.
+echo  [2/4] Installiere PyInstaller...
 
 :: Find Python
 set "PY="
@@ -23,7 +70,6 @@ if not defined PY (
     exit /b 1
 )
 
-echo  [1/3] Installiere PyInstaller...
 %PY% -m pip install pyinstaller -q
 if %errorlevel% neq 0 (
     echo  FEHLER: PyInstaller konnte nicht installiert werden.
@@ -32,8 +78,11 @@ if %errorlevel% neq 0 (
 )
 echo         ✓ PyInstaller bereit
 
+:: ----------------------------------------------------
+:: Step 3: Setup.exe bauen
+:: ----------------------------------------------------
 echo.
-echo  [2/3] Baue Setup.exe...
+echo  [3/4] Baue Setup.exe...
 echo         (Das dauert 1-2 Minuten)
 echo.
 
@@ -59,8 +108,11 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: ----------------------------------------------------
+:: Step 4: Fertig
+:: ----------------------------------------------------
 echo.
-echo  [3/3] Fertig!
+echo  [4/4] Fertig!
 echo.
 
 if exist "dist\PBP-Setup.exe" (

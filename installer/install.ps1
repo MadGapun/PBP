@@ -38,7 +38,7 @@ Write-Host "║   KI-gestuetztes Bewerbungsmanagement       ║" -ForegroundColo
 Write-Host "╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
 
 $projectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$totalSteps = 7
+$totalSteps = 8
 Write-Info "Projektverzeichnis: $projectDir"
 
 # ── STEP 1: Python pruefen ──────────────────────────────────────────
@@ -133,8 +133,64 @@ try {
     Write-Warn "Playwright-Browser nicht installiert (LinkedIn-Suche deaktiviert)"
 }
 
-# ── STEP 5: Funktionstest ────────────────────────────────────────────
-Write-Step 5 $totalSteps "Funktionstest..."
+# ── STEP 5: Frontend bauen ──────────────────────────────────────────
+Write-Step 5 $totalSteps "Frontend (React UI) bauen..."
+
+$frontendDir = Join-Path $projectDir "frontend"
+$pnpmOK = $false
+try {
+    $pnpmVer = & pnpm --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        $pnpmOK = $true
+        Write-OK "pnpm Version $pnpmVer"
+    }
+} catch {}
+
+if (-not $pnpmOK) {
+    Write-Warn "pnpm nicht gefunden. Versuche Installation via npm..."
+    try {
+        & npm install -g pnpm
+        $pnpmVer = & pnpm --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $pnpmOK = $true
+            Write-OK "pnpm erfolgreich installiert (Version $pnpmVer)"
+        }
+    } catch {
+        # Let's see if npm is installed
+        try {
+            & npm --version 2>&1 | Out-Null
+            Write-Warn "pnpm konnte nicht global installiert werden. Bitte 'npm install -g pnpm' manuell ausfuehren und Installer neu starten."
+        } catch {
+            Write-Warn "Node.js und/oder npm scheinen nicht installiert zu sein. Das Frontend kann nicht gebaut werden."
+            Write-Warn "Bitte Node.js (LTS) von https://nodejs.org/ herunterladen und installieren."
+        }
+        Write-Fail "Frontend-Build uebersprungen. Das UI wird nicht verfuegbar sein."
+    }
+}
+
+if ($pnpmOK) {
+    Write-Info "Installiere Frontend-Abhaengigkeiten (pnpm install)..."
+    & pnpm --dir $frontendDir install --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Write-Fail "pnpm install fehlgeschlagen!"
+        Read-Host "Druecke Enter zum Beenden"
+        exit 1
+    }
+    Write-OK "Frontend-Abhaengigkeiten installiert."
+
+    Write-Info "Baue Frontend (pnpm run build)..."
+    & pnpm --dir $frontendDir run build
+     if ($LASTEXITCODE -ne 0) {
+        Write-Fail "pnpm run build fehlgeschlagen!"
+        Read-Host "Druecke Enter zum Beenden"
+        exit 1
+    }
+    Write-OK "Frontend erfolgreich gebaut."
+}
+
+
+# ── STEP 6: Funktionstest ────────────────────────────────────────────
+Write-Step 6 $totalSteps "Funktionstest..."
 
 $testScript = @"
 import sys
@@ -219,8 +275,8 @@ if (-not $testOK) {
 }
 Write-OK "Alle Funktionen getestet"
 
-# ── STEP 6: Claude Desktop konfigurieren ────────────────────────────
-Write-Step 6 $totalSteps "Claude Desktop konfigurieren..."
+# ── STEP 7: Claude Desktop konfigurieren ────────────────────────────
+Write-Step 7 $totalSteps "Claude Desktop konfigurieren..."
 
 $claudeConfig = "$env:APPDATA\Claude\claude_desktop_config.json"
 $dataDir = "$env:LOCALAPPDATA\BewerbungsAssistent"
@@ -282,8 +338,8 @@ $config | ConvertTo-Json -Depth 10 | Set-Content $claudeConfig -Encoding UTF8
 Write-OK "Claude Desktop MCP-Konfiguration geschrieben"
 Write-Info "Config: $claudeConfig"
 
-# ── STEP 7: Dashboard testen ────────────────────────────────────────
-Write-Step 7 $totalSteps "Dashboard-Test..."
+# ── STEP 8: Dashboard testen ────────────────────────────────────────
+Write-Step 8 $totalSteps "Dashboard-Test..."
 
 $dashTest = @"
 import os, sys, threading, time, urllib.request
