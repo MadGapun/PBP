@@ -695,20 +695,25 @@ python -m pytest tests/ -v
 
 ## Screenshots
 
-### Dashboard — Übersicht mit Workspace-Guidance
+> UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
+
+### Dashboard — Uebersicht mit Workspace-Guidance
 ![Dashboard](docs/screenshots/01_dashboard.png)
 
 ### Profil — Berufserfahrung, Skills, Ausbildung
 ![Profil](docs/screenshots/02_profil.png)
 
-### Stellen — Scoring, Split-View und Fit-Analyse
+### Stellen — Scoring, Filter und Fit-Analyse
 ![Stellen](docs/screenshots/03_stellen.png)
 
-### Bewerbungen — Pipeline mit Timeline
+### Bewerbungen — Pipeline mit Follow-ups
 ![Bewerbungen](docs/screenshots/04_bewerbungen.png)
 
-### Einstellungen — Suchkriterien und Quellen
-![Einstellungen](docs/screenshots/05_einstellungen.png)
+### Statistiken — Charts, Trends und Export
+![Statistiken](docs/screenshots/05_statistiken.png)
+
+### Einstellungen — Quellen und Suchverhalten
+![Einstellungen](docs/screenshots/06_einstellungen.png)
 
 ---
 

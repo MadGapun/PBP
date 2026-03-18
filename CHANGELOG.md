@@ -26,6 +26,13 @@ Dashboard durch eine moderne Single-Page-Application.
   Profil-ID waren danach alle Profile inaktiv. Fix: Existenz-Pruefung VOR dem
   Deaktivieren.
 - **Test-Fix**: Versions-Konsistenz korrigiert.
+- **DB Schema v11**: `profile_id` auf `search_criteria` und `blacklist` Tabellen
+  fuer Profil-Isolation. Migration backfilled bestehende Daten automatisch.
+- **delete_profile()** bereinigt jetzt auch `search_criteria` und `blacklist` Daten,
+  und gibt korrekten Return-Wert zurueck (war immer None → 404).
+- **Screenshots aktualisiert**: Alle 6 Tabs mit neuem React-Design (Dashboard,
+  Profil, Stellen, Bewerbungen, Statistiken, Einstellungen).
+- **Screenshot-Generator**: Fuer React-Frontend angepasst (Hash-Navigation, Toast-Dismissal).
 
 ## [0.22.0] - 2026-03-17
 

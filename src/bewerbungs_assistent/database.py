@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 
 def _gen_id() -> str:
@@ -369,6 +369,24 @@ class Database:
             )
             logger.info("Migration v9->v10: is_pinned on jobs + abgelaufen status")
 
+        if from_ver < 11:
+            # v11: profile_id on search_criteria and blacklist for profile isolation
+            for col_add in [
+                ("search_criteria", "profile_id TEXT NOT NULL DEFAULT ''"),
+                ("blacklist", "profile_id TEXT NOT NULL DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {col_add[0]} ADD COLUMN {col_add[1]}")
+                except Exception:
+                    pass  # Already exists
+            # Backfill: assign existing data to active profile
+            active = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1").fetchone()
+            if active:
+                pid = active["id"]
+                conn.execute("UPDATE search_criteria SET profile_id=? WHERE profile_id=''", (pid,))
+                conn.execute("UPDATE blacklist SET profile_id=? WHERE profile_id=''", (pid,))
+            logger.info("Migration v10->v11: profile_id on search_criteria + blacklist")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -468,12 +486,18 @@ class Database:
                            "applications", "jobs", "suggested_job_titles"]:
                 conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
 
+            # Delete search_criteria and blacklist for this profile
+            conn.execute("DELETE FROM search_criteria WHERE profile_id=?", (profile_id,))
+            conn.execute("DELETE FROM blacklist WHERE profile_id=?", (profile_id,))
+
             # Delete the profile itself
-            conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
+            cur = conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
+            deleted = cur.rowcount > 0
             conn.commit()
         finally:
             conn.execute("PRAGMA foreign_keys=ON")
         logger.info("Profile %s and all related data deleted", profile_id)
+        return deleted
 
     def reset_all_data(self):
         """Delete ALL data — factory reset for testing."""
@@ -2301,18 +2325,21 @@ CREATE TABLE IF NOT EXISTS application_events (
 );
 
 CREATE TABLE IF NOT EXISTS search_criteria (
-    key TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL DEFAULT '',
+    key TEXT NOT NULL,
     value TEXT,
-    updated_at TEXT
+    updated_at TEXT,
+    PRIMARY KEY (profile_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS blacklist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL DEFAULT '',
     type TEXT NOT NULL,
     value TEXT NOT NULL,
     reason TEXT,
     created_at TEXT,
-    UNIQUE(type, value)
+    UNIQUE(profile_id, type, value)
 );
 
 CREATE TABLE IF NOT EXISTS background_jobs (

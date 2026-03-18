@@ -270,29 +270,42 @@ def _take_screenshots(port: int, output_dir: Path):
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
 
-        # Tab-Mapping: (tab_id, filename, description)
+        # Tab-Mapping: (hash_id, filename, description)
+        # React-Frontend nutzt Hash-Navigation: /#dashboard, /#profil, etc.
         tabs = [
-            (None, "01_dashboard.png", "Dashboard-Uebersicht"),
+            ("dashboard", "01_dashboard.png", "Dashboard-Uebersicht"),
             ("profil", "02_profil.png", "Profil-Tab"),
             ("stellen", "03_stellen.png", "Stellen-Tab"),
             ("bewerbungen", "04_bewerbungen.png", "Bewerbungen-Tab"),
-            ("einstellungen", "05_einstellungen.png", "Einstellungen-Tab"),
+            ("statistiken", "05_statistiken.png", "Statistiken-Tab"),
+            ("einstellungen", "06_einstellungen.png", "Einstellungen-Tab"),
         ]
 
-        for tab_id, filename, desc in tabs:
-            url = base if tab_id is None else f"{base}#{tab_id}"
+        for hash_id, filename, desc in tabs:
+            url = f"{base}#{hash_id}"
             page.goto(url)
             page.wait_for_load_state("networkidle")
-            time.sleep(1)  # Extra wait for JS rendering
+            time.sleep(2)  # Extra wait for React rendering + API calls
 
-            if tab_id:
-                # Click tab to trigger JS navigation
+            # Dismiss any error toasts before capturing
+            for _ in range(5):
+                toast_btn = page.locator("button[aria-label='Close'], [data-dismiss], .toast button, [role='status'] button, button:has(svg)")
                 try:
-                    page.click(f'[data-tab="{tab_id}"]', timeout=3000)
-                    page.wait_for_load_state("networkidle")
-                    time.sleep(0.5)
+                    # Try clicking close buttons on toast notifications
+                    close_btns = page.locator("[class*='toast'] button, [class*='Toast'] button, [role='alert'] button")
+                    if close_btns.count() > 0:
+                        for i in range(close_btns.count()):
+                            close_btns.nth(i).click(timeout=500)
+                        time.sleep(0.3)
                 except Exception:
                     pass
+
+            # Also try to remove toasts via JS
+            page.evaluate("""
+                document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"], [role="status"]')
+                    .forEach(el => el.remove());
+            """)
+            time.sleep(0.3)
 
             path = output_dir / filename
             page.screenshot(path=str(path), full_page=False)

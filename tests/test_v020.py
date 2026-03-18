@@ -273,6 +273,12 @@ class TestMigrationV10:
                 VALUES ('manual1', 'Manual Job', 'ManCo', 'manuell', 99, 1);
             INSERT INTO jobs (hash, title, company, source, score, is_active)
                 VALUES ('regular1', 'Regular Job', 'RegCo', 'stepstone', 8, 1);
+            CREATE TABLE profile (id TEXT PRIMARY KEY, name TEXT, is_active INTEGER DEFAULT 0,
+                created_at TEXT, updated_at TEXT);
+            CREATE TABLE search_criteria (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
+            CREATE TABLE blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL, value TEXT NOT NULL, reason TEXT,
+                created_at TEXT, UNIQUE(type, value));
         """)
         conn.commit()
         conn.close()
@@ -281,11 +287,11 @@ class TestMigrationV10:
         db = Database(db_path=db_path)
         conn = db.connect()
         conn.execute("PRAGMA foreign_keys=ON")
-        db._migrate(9, 10)
+        db._migrate(9, 11)
 
         # Check migration results
         ver = conn.execute("SELECT value FROM settings WHERE key='schema_version'").fetchone()
-        assert ver["value"] == "10"
+        assert ver["value"] == "11"
 
         manual = conn.execute("SELECT is_pinned, score FROM jobs WHERE hash='manual1'").fetchone()
         assert manual["is_pinned"] == 1
