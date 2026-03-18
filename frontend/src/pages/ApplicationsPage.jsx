@@ -71,7 +71,10 @@ export default function ApplicationsPage() {
   async function updateStatus(applicationId, status) {
     try {
       await putJson(`/api/applications/${applicationId}/status`, { status });
-      await refreshChrome();
+      setApplications((current) =>
+        current.map((app) => (app.id === applicationId ? { ...app, status } : app))
+      );
+      await refreshChrome({ quiet: true });
       pushToast("Status aktualisiert.", "success");
     } catch (error) {
       pushToast(`Status konnte nicht aktualisiert werden: ${error.message}`, "danger");

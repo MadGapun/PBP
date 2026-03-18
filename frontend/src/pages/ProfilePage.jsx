@@ -1680,8 +1680,8 @@ export default function ProfilePage() {
                         }
                       }}
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
                           <p className="text-[15px] font-semibold text-ink">
                             {entry.extraction_type || entry.filename || "auto"}
                           </p>
@@ -1689,10 +1689,6 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
-                          <ChevronDown
-                            size={16}
-                            className={cn("text-muted/60 transition-transform duration-200", isExpanded && "rotate-180")}
-                          />
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1709,6 +1705,10 @@ export default function ProfilePage() {
                             Löschen
                           </Button>
                         </div>
+                        <ChevronDown
+                          size={20}
+                          className={cn("shrink-0 text-muted/60 transition-transform duration-200", isExpanded && "rotate-180")}
+                        />
                       </div>
                       <p className="mt-2 text-[13px] text-muted/70">{summaryParts.join(", ")}</p>
                     </div>

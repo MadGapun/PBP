@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(find . -type f \\\\\\(-name *.py -o -name *.js -o -name *.json -o -name *.ts -o -name *.tsx \\\\\\))",
-      "Bash(sed 's/.*def //')"
-    ]
-  }
-}

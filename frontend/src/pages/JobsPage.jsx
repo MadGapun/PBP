@@ -468,11 +468,20 @@ export default function JobsPage() {
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" size={16} />
               <TextInput
-                className="w-full !rounded-xl !pl-11 !pr-4"
+                className="w-full !rounded-xl !pl-11 !pr-10"
                 value={filters.query}
                 onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
                 placeholder="Titel, Firma oder Schlagwort suchen..."
               />
+              {filters.query && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-ink"
+                  onClick={() => setFilters((current) => ({ ...current, query: "" }))}
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
             <span className="shrink-0 text-[12px] tabular-nums text-muted/50">
               {filteredJobs.length} / {currentList.length}
@@ -506,70 +515,90 @@ export default function JobsPage() {
             <span className="mx-0.5 h-5 w-px bg-white/5" />
 
             {/* Inline filter selects */}
-            <SelectInput
-              className={cn(
-                "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
-                filters.source
-                  ? "!border-teal/20 !bg-teal/8 !text-teal/80"
-                  : "!border-white/5 !bg-white/[0.03] !text-muted/60"
-              )}
-              value={filters.source}
-              onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))}
-            >
-              <option value="">Alle Quellen</option>
-              {sourceOptions.map((source) => (
-                <option key={source} value={source}>{source}</option>
-              ))}
-            </SelectInput>
-
-            <SelectInput
-              className={cn(
-                "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
-                filters.remote
-                  ? "!border-teal/20 !bg-teal/8 !text-teal/80"
-                  : "!border-white/5 !bg-white/[0.03] !text-muted/60"
-              )}
-              value={filters.remote}
-              onChange={(event) => setFilters((current) => ({ ...current, remote: event.target.value }))}
-            >
-              <option value="">Remote: Alle</option>
-              {remoteOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </SelectInput>
-
-            <div className={cn(
-              "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors",
-              Number(filters.minScore || 0) > 0
-                ? "border-teal/20 bg-teal/8"
-                : "border-white/5 bg-white/[0.03]"
-            )}>
-              <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal/80" : "text-muted/40")}>Score ≥</span>
-              <input
-                type="number"
+            <div className="group inline-flex items-center gap-1.5">
+              <SelectInput
                 className={cn(
-                  "w-10 rounded-md border bg-white/[0.04] text-center text-[13px] font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-                  Number(filters.minScore || 0) > 0
-                    ? "border-teal/30 text-teal/80 focus:border-teal/50"
-                    : "border-white/10 text-muted/70 focus:border-teal/40"
+                  "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
+                  filters.source
+                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
                 )}
-                value={filters.minScore}
-                onChange={(event) => setFilters((current) => ({ ...current, minScore: event.target.value }))}
-              />
+                value={filters.source}
+                onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))}
+              >
+                <option value="">Alle Quellen</option>
+                {sourceOptions.map((source) => (
+                  <option key={source} value={source}>{source}</option>
+                ))}
+              </SelectInput>
+              {filters.source && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, source: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+              )}
             </div>
 
-            <button
-              type="button"
-              className={cn(
-                "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
-                filters.salaryOnly
-                  ? "border-teal/20 bg-teal/8 text-teal/80"
-                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+            <div className="group inline-flex items-center gap-1.5">
+              <SelectInput
+                className={cn(
+                  "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
+                  filters.remote
+                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
+                )}
+                value={filters.remote}
+                onChange={(event) => setFilters((current) => ({ ...current, remote: event.target.value }))}
+              >
+                <option value="">Remote: Alle</option>
+                {remoteOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </SelectInput>
+              {filters.remote && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, remote: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
               )}
-              onClick={() => setFilters((current) => ({ ...current, salaryOnly: !current.salaryOnly }))}
-            >
-              Nur mit Gehalt
-            </button>
+            </div>
+
+            <div className="group inline-flex items-center gap-1.5">
+              <div className={cn(
+                "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors",
+                Number(filters.minScore || 0) > 0
+                  ? "border-teal/20 bg-teal/8"
+                  : "border-white/5 bg-white/[0.03]"
+              )}>
+                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal/80" : "text-muted/40")}>Score ≥</span>
+                <input
+                  type="number"
+                  className={cn(
+                    "w-10 rounded-md border bg-white/[0.04] text-center text-[13px] font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                    Number(filters.minScore || 0) > 0
+                      ? "border-teal/30 text-teal/80 focus:border-teal/50"
+                      : "border-white/10 text-muted/70 focus:border-teal/40"
+                  )}
+                  value={filters.minScore}
+                  onChange={(event) => setFilters((current) => ({ ...current, minScore: event.target.value }))}
+                />
+              </div>
+              {Number(filters.minScore || 0) > 0 && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, minScore: "0" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
+
+            <div className="group inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                  filters.salaryOnly
+                    ? "border-teal/20 bg-teal/8 text-teal/80"
+                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                )}
+                onClick={() => setFilters((current) => ({ ...current, salaryOnly: !current.salaryOnly }))}
+              >
+                Nur mit Gehalt
+              </button>
+              {filters.salaryOnly && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, salaryOnly: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
 
             {/* Spacer */}
             <div className="flex-1" />

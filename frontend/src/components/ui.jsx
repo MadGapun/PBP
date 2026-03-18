@@ -194,8 +194,6 @@ export function TagInput({ tags = [], onChange, placeholder = "Eingabe + Enter",
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       addTag(input);
-    } else if (event.key === "Backspace" && !input && tags.length > 0) {
-      removeTag(tags.length - 1);
     }
   }
 
@@ -220,21 +218,30 @@ export function TagInput({ tags = [], onChange, placeholder = "Eingabe + Enter",
         <span
           key={`${tag}-${index}`}
           className={cn(
-            "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-medium leading-tight",
+            "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-medium leading-tight select-none",
             toneClasses[tone]
           )}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           {tag}
-          <button
-            type="button"
-            className="ml-0.5 rounded-sm p-0.5 opacity-60 transition-opacity hover:opacity-100"
+          <span
+            role="button"
+            tabIndex={0}
+            className="ml-0.5 cursor-pointer rounded-sm p-0.5 opacity-60 transition-opacity hover:opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               removeTag(index);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                removeTag(index);
+              }
+            }}
           >
             <X size={10} />
-          </button>
+          </span>
         </span>
       ))}
       <input
