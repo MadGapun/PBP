@@ -54,7 +54,11 @@
       "Bash(npm run:*)",
       "Bash(timeout 8 python start_dashboard.py)",
       "Bash(npm install:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(curl -s -X POST http://127.0.0.1:8200/api/search-criteria -H \"Content-Type: application/json\" -d '{\"\"keywords_muss\"\": [\"\"test\"\"]}')",
+      "Bash(curl -s -X POST http://127.0.0.1:8200/api/blacklist -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"firma\"\",\"\"value\"\":\"\"testcurl\"\"}')",
+      "Bash(curl -s http://127.0.0.1:5173/api/search-criteria)",
+      "Bash(curl -s -X POST http://127.0.0.1:5173/api/search-criteria -H \"Content-Type: application/json\" -d '{\"\"keywords_muss\"\": [\"\"test\"\",\"\"test2\"\"]}')"
     ]
   }
 }

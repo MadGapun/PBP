@@ -3,6 +3,7 @@
   "profil",
   "stellen",
   "bewerbungen",
+  "statistiken",
   "einstellungen",
 ];
 

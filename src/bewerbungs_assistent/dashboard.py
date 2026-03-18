@@ -336,6 +336,21 @@ async def api_add_project(request: Request):
     return {"status": "ok", "id": pid}
 
 
+@app.put("/api/project/{project_id}")
+async def api_update_project(project_id: str, request: Request):
+    data = await request.json()
+    if not data.get("name", "").strip():
+        return JSONResponse({"error": "Projektname ist ein Pflichtfeld"}, status_code=400)
+    _db.update_project(project_id, data)
+    return {"status": "ok"}
+
+
+@app.delete("/api/project/{project_id}")
+async def api_delete_project(project_id: str):
+    _db.delete_project(project_id)
+    return {"status": "ok"}
+
+
 @app.post("/api/education")
 async def api_add_education(request: Request):
     data = await request.json()
@@ -396,6 +411,16 @@ async def api_delete_skill(skill_id: str):
 @app.delete("/api/document/{doc_id}")
 async def api_delete_document(doc_id: str):
     _db.delete_document(doc_id)
+    return {"status": "ok"}
+
+
+@app.put("/api/document/{doc_id}/doc-type")
+async def api_update_document_type(doc_id: str, request: Request):
+    data = await request.json()
+    new_type = data.get("doc_type", "sonstiges")
+    conn = _db.connect()
+    conn.execute("UPDATE documents SET doc_type=? WHERE id=?", (new_type, doc_id))
+    conn.commit()
     return {"status": "ok"}
 
 
@@ -1735,7 +1760,7 @@ async def api_factory_reset(request: Request):
 
 
 @app.delete("/api/extraction-history/{entry_id}")
-async def api_delete_extraction_entry(entry_id: int):
+async def api_delete_extraction_entry(entry_id: str):
     """Delete a single extraction history entry."""
     conn = _db.connect()
     conn.execute("DELETE FROM extraction_history WHERE id=?", (entry_id,))

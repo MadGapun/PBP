@@ -168,7 +168,8 @@
     box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.08);
   }
 
-  .glass-input option {
+  .glass-input option,
+  select option {
     background: rgb(22 25 38);
     color: rgb(var(--color-ink));
   }

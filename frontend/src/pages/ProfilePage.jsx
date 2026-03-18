@@ -2,6 +2,8 @@
   Ban,
   BriefcaseBusiness,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Download,
   GraduationCap,
@@ -107,6 +109,27 @@ const SKILL_CATEGORY_LABELS = {
   sprache: "Sprachen",
 };
 
+const SKILL_CATEGORY_NORMALIZE = {
+  fachlich: "fachlich",
+  fachkenntnisse: "fachlich",
+  technisch: "fachlich",
+  "ki/ml": "fachlich",
+  tool: "tool",
+  tools: "tool",
+  methodisch: "methodisch",
+  soft_skill: "soft_skill",
+  "soft skills": "soft_skill",
+  "soft skill": "soft_skill",
+  sprache: "sprache",
+  sprachen: "sprache",
+};
+
+function normalizeSkillCategory(raw) {
+  if (!raw) return "fachlich";
+  const key = String(raw).trim().toLowerCase();
+  return SKILL_CATEGORY_NORMALIZE[key] || "fachlich";
+}
+
 const EMPLOYMENT_TYPE_LABELS = {
   festanstellung: "Festanstellung",
   freelance: "Freelance",
@@ -195,6 +218,7 @@ function buildSkillDraft(skill) {
       : Math.min(currentYear, Math.max(1900, currentYear - Math.max(0, yearsExperience)));
   return {
     ...normalized,
+    category: normalizeSkillCategory(normalized.category),
     years_experience: yearsExperience === null ? "" : yearsExperience,
     since_year: existingSinceYear === null ? derivedSinceYear : existingSinceYear,
   };
@@ -532,32 +556,78 @@ export default function ProfilePage() {
       return;
     }
     try {
-      const created = await postJson("/api/project", {
-        ...projectDialog.draft,
-        position_id: projectDialog.positionId,
-      });
-      const nextProject = {
-        ...projectDialog.draft,
-        id: created?.id || "",
-      };
+      const isEdit = Boolean(projectDialog.draft.id);
+      if (isEdit) {
+        const { id, ...payload } = projectDialog.draft;
+        await putJson(`/api/project/${id}`, payload);
+        startTransition(() => {
+          setProfile((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              positions: (current.positions || []).map((position) => {
+                if (position.id !== projectDialog.positionId) return position;
+                return {
+                  ...position,
+                  projects: (position.projects || []).map((p) =>
+                    p.id === id ? { ...p, ...payload } : p
+                  ),
+                };
+              }),
+            };
+          });
+        });
+      } else {
+        const created = await postJson("/api/project", {
+          ...projectDialog.draft,
+          position_id: projectDialog.positionId,
+        });
+        const nextProject = { ...projectDialog.draft, id: created?.id || "" };
+        startTransition(() => {
+          setProfile((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              positions: (current.positions || []).map((position) => {
+                if (position.id !== projectDialog.positionId) return position;
+                const existingProjects = Array.isArray(position.projects) ? position.projects : [];
+                return { ...position, projects: [...existingProjects, nextProject] };
+              }),
+            };
+          });
+        });
+      }
+      setProjectDialog({ open: false, positionId: "", draft: EMPTY_PROJECT });
+      await refreshChrome({ quiet: true });
+      pushToast(isEdit ? "Projekt aktualisiert." : "Projekt gespeichert.", "success");
+    } catch (error) {
+      pushToast(`Projekt konnte nicht gespeichert werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function deleteProject(positionId, projectId) {
+    if (!window.confirm("Projekt wirklich löschen?")) return;
+    try {
+      await deleteRequest(`/api/project/${projectId}`);
       startTransition(() => {
         setProfile((current) => {
           if (!current) return current;
           return {
             ...current,
             positions: (current.positions || []).map((position) => {
-              if (position.id !== projectDialog.positionId) return position;
-              const existingProjects = Array.isArray(position.projects) ? position.projects : [];
-              return { ...position, projects: [...existingProjects, nextProject] };
+              if (position.id !== positionId) return position;
+              return {
+                ...position,
+                projects: (position.projects || []).filter((p) => p.id !== projectId),
+              };
             }),
           };
         });
       });
-      setProjectDialog({ open: false, positionId: "", draft: EMPTY_PROJECT });
       await refreshChrome({ quiet: true });
-      pushToast("Projekt gespeichert.", "success");
+      pushToast("Projekt gelöscht.", "success");
     } catch (error) {
-      pushToast(`Projekt konnte nicht gespeichert werden: ${error.message}`, "danger");
+      pushToast(`Projekt konnte nicht gelöscht werden: ${error.message}`, "danger");
     }
   }
 
@@ -1101,12 +1171,8 @@ export default function ProfilePage() {
                 const projectCountLabel = `${projectCount} ${projectCount === 1 ? "Projekt" : "Projekte"}`;
                 return (
                   <Card key={item.id} className="glass-card-soft rounded-xl shadow-none">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 text-left"
-                      onClick={() => togglePosition(item.id)}
-                    >
-                      <div className="min-w-0 space-y-2">
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1 cursor-pointer space-y-2" role="button" tabIndex={0} onClick={() => togglePosition(item.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") togglePosition(item.id); }}>
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge tone="sky">{item.company || "Unbekannt"}</Badge>
                           <Badge tone={projectCount ? "success" : "neutral"}>{projectCountLabel}</Badge>
@@ -1115,12 +1181,11 @@ export default function ProfilePage() {
                         <p className="text-sm text-muted">{formatPositionPeriod(item)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setPositionDialog({ open: true, draft: { ...item } }); }}>Bearbeiten</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setPositionDialog({ open: true, draft: { ...item } })}>Bearbeiten</Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             if (!window.confirm("Position wirklich löschen? Alle zugehörigen Projekte werden ebenfalls gelöscht.")) return;
                             quickAction(() => deleteRequest(`/api/position/${item.id}`), "Position gelöscht", {
                               onSuccess: () =>
@@ -1139,9 +1204,11 @@ export default function ProfilePage() {
                           <Trash2 size={15} />
                           Löschen
                         </Button>
-                        <ChevronDown size={18} className={cn("text-muted transition-transform duration-200", isExpanded && "rotate-180")} />
+                        <button type="button" onClick={() => togglePosition(item.id)} className="p-1">
+                          <ChevronDown size={18} className={cn("text-muted transition-transform duration-200", isExpanded && "rotate-180")} />
+                        </button>
                       </div>
-                    </button>
+                    </div>
 
                     {isExpanded ? (
                       <div className="mt-4 grid gap-3">
@@ -1204,6 +1271,12 @@ export default function ProfilePage() {
                                     {project.result ? <p className="text-teal/80"><strong>R:</strong> {project.result}</p> : null}
                                   </div>
                                   {project.technologies ? <p className="mt-2 text-[11px] text-muted/50">Tech: {project.technologies}</p> : null}
+                                  <div className="mt-2 flex gap-3 border-t border-white/[0.04] pt-2">
+                                    <button type="button" className="text-[12px] text-muted/50 hover:text-ink transition-colors" onClick={() => setProjectDialog({ open: true, positionId: item.id, draft: { ...project } })}>Bearbeiten</button>
+                                    <button type="button" className="text-[12px] text-muted/50 hover:text-coral transition-colors" onClick={() => deleteProject(item.id, project.id)}>
+                                      <span className="inline-flex items-center gap-1"><Trash2 size={11} /> Löschen</span>
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -1259,7 +1332,7 @@ export default function ProfilePage() {
             {profile.skills?.length ? (() => {
               const groups = {};
               for (const skill of profile.skills) {
-                const cat = skill.category || "fachlich";
+                const cat = normalizeSkillCategory(skill.category);
                 if (!groups[cat]) groups[cat] = [];
                 groups[cat].push(skill);
               }
@@ -1274,7 +1347,7 @@ export default function ProfilePage() {
                         {skills.map((item) => (
                           <Card key={item.id} className="glass-card-soft rounded-xl shadow-none">
                             <div className="flex items-center justify-between">
-                              <Badge tone="sky">{SKILL_CATEGORY_LABELS[item.category] || item.category || "Fachlich"}</Badge>
+                              <Badge tone="sky">{SKILL_CATEGORY_LABELS[normalizeSkillCategory(item.category)]}</Badge>
                               <div className="flex items-center gap-1" title={`Level ${item.level ?? "?"}`}>
                                 {[1, 2, 3, 4, 5].map((dot) => (
                                   <button
@@ -1293,6 +1366,7 @@ export default function ProfilePage() {
                                           ...prev,
                                           skills: prev.skills.map((s) => s.id === item.id ? { ...s, level: newLevel } : s),
                                         }));
+                                        await refreshChrome({ quiet: true });
                                       } catch (error) {
                                         pushToast(`Level konnte nicht geändert werden: ${error.message}`, "danger");
                                       }
@@ -1471,8 +1545,29 @@ export default function ProfilePage() {
           </div>
           <div className="mt-5 grid gap-1.5">
             {documents.length ? documents.map((item) => (
-              <div key={item.id} className="grid items-center gap-3 rounded-xl border border-white/[0.04] px-4 py-2.5 transition-colors hover:bg-white/[0.03]" style={{ gridTemplateColumns: "6.5rem 10.5rem minmax(0,1fr) 8.5rem auto" }}>
-                <Badge tone="sky">{docTypeLabel(item.doc_type)}</Badge>
+              <div key={item.id} className="grid items-center gap-3 rounded-xl border border-white/[0.04] px-4 py-2.5 transition-colors hover:bg-white/[0.03]" style={{ gridTemplateColumns: "8rem 10.5rem minmax(0,1fr) 8.5rem auto" }}>
+                <SelectInput
+                  value={item.doc_type || "sonstiges"}
+                  className="!min-h-0 !rounded-md !px-2 !py-1 text-[11px]"
+                  onChange={async (event) => {
+                    const newType = event.target.value;
+                    const oldType = item.doc_type;
+                    startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: newType } : d)));
+                    try {
+                      await putJson(`/api/document/${item.id}/doc-type`, { doc_type: newType });
+                      pushToast("Dokumenttyp aktualisiert.", "success");
+                    } catch (err) {
+                      startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: oldType } : d)));
+                      pushToast(`Fehler: ${err.message}`, "danger");
+                    }
+                  }}
+                >
+                  <option value="sonstiges">Sonstiges</option>
+                  <option value="lebenslauf">Lebenslauf</option>
+                  <option value="anschreiben">Anschreiben</option>
+                  <option value="zeugnis">Zeugnis</option>
+                  <option value="zertifikat">Zertifikat</option>
+                </SelectInput>
                 {(() => {
                   const statusMeta = getDocumentStatusMeta(item.extraction_status);
                   return (
@@ -1554,10 +1649,16 @@ export default function ProfilePage() {
                 const isExpanded = expandedExtractionId === entry.id;
                 const fieldCount = countExtractedFields(entry.extracted_fields);
                 const conflictCount = Array.isArray(entry.conflicts) ? entry.conflicts.length : 0;
-                const summaryParts = [`${fieldCount} Bereiche extrahiert`];
-                if (conflictCount) summaryParts.push(`${conflictCount} Konflikte`);
                 const extractedFieldKeys = Object.keys(entry.extracted_fields || {});
                 const appliedEntries = Object.entries(entry.applied_fields || {});
+                const appliedSummary = appliedEntries.map(([key, value]) => {
+                  if (Array.isArray(value)) return `${key}: ${value.length}`;
+                  if (value && typeof value === "object") return `${key}: ${Object.keys(value).length}`;
+                  return `${key}: ${value ?? 0}`;
+                }).join(" | ");
+                const summaryParts = [extractedFieldKeys.length ? extractedFieldKeys.join(", ") : `${fieldCount} Bereiche extrahiert`];
+                if (appliedSummary) summaryParts.push(`→ ${appliedSummary}`);
+                if (conflictCount) summaryParts.push(`${conflictCount} Konflikte`);
                 return (
                   <div
                     key={entry.id}
@@ -1619,44 +1720,54 @@ export default function ProfilePage() {
                       )}
                     >
                       <div className="overflow-hidden">
-                        <div className="grid gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 md:grid-cols-2">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/50">Erkannte Bereiche</p>
-                            <p className="mt-1 text-[13px] text-ink/90">
-                              {extractedFieldKeys.length ? extractedFieldKeys.join(", ") : "Keine"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/50">Übernommene Werte</p>
-                            <p className="mt-1 text-[13px] text-ink/90">
-                              {appliedEntries.length
-                                ? appliedEntries.map(([key, value]) => {
-                                  if (Array.isArray(value)) return `${key}: ${value.length}`;
-                                  if (value && typeof value === "object") return `${key}: ${Object.keys(value).length}`;
-                                  return `${key}: ${value ?? 0}`;
-                                }).join(" | ")
-                                : "Keine"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/50">Konflikte</p>
-                            <p className="mt-1 text-[13px] text-ink/90">
-                              {conflictCount
-                                ? (entry.conflicts || [])
-                                  .slice(0, 3)
-                                  .map((item) => (typeof item === "string" ? item : item?.field || item?.key || "Konflikt"))
-                                  .join(", ")
-                                : "Keine"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/50">Metadaten</p>
-                            <p className="mt-1 text-[13px] text-ink/90">
-                              ID: {entry.id || "n/a"} | Dokument: {entry.document_id || "n/a"}
-                            </p>
-                            <p className="mt-1 text-[12px] text-muted/60">
-                              Abgeschlossen: {entry.completed_at ? formatDateTime(entry.completed_at) : "Noch offen"}
-                            </p>
+                        <div className="space-y-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3">
+                          {extractedFieldKeys.map((fieldKey) => {
+                            const fieldData = entry.extracted_fields[fieldKey];
+                            const appliedCount = entry.applied_fields?.[fieldKey];
+                            return (
+                              <div key={fieldKey} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-2.5">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[11px] font-semibold text-teal/80">{fieldKey}</p>
+                                  {appliedCount != null && <Badge tone="success">{typeof appliedCount === "number" ? `${appliedCount} übernommen` : "übernommen"}</Badge>}
+                                </div>
+                                <div className="mt-1.5 text-[12px] text-ink/80">
+                                  {Array.isArray(fieldData) ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {fieldData.slice(0, 12).map((item, i) => (
+                                        <span key={i} className="inline-block rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px]">
+                                          {typeof item === "string" ? item : item?.name || item?.title || item?.institution || JSON.stringify(item).slice(0, 40)}
+                                        </span>
+                                      ))}
+                                      {fieldData.length > 12 && <span className="text-[11px] text-muted/50">+{fieldData.length - 12} weitere</span>}
+                                    </div>
+                                  ) : fieldData && typeof fieldData === "object" ? (
+                                    <div className="grid gap-1 sm:grid-cols-2">
+                                      {Object.entries(fieldData).map(([k, v]) => (
+                                        <div key={k} className="flex gap-1.5">
+                                          <span className="shrink-0 text-[11px] text-muted/50">{k}:</span>
+                                          <span className="text-[11px] text-ink/80 truncate">{String(v ?? "–")}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-ink/70">{String(fieldData ?? "–")}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {conflictCount > 0 && (
+                            <div className="rounded-lg border border-coral/15 bg-coral/[0.04] p-2.5">
+                              <p className="text-[11px] font-semibold text-coral/80">Konflikte ({conflictCount})</p>
+                              <p className="mt-1 text-[12px] text-ink/70">
+                                {(entry.conflicts || []).slice(0, 5).map((item) => (typeof item === "string" ? item : item?.field || item?.key || "Konflikt")).join(", ")}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3 text-[11px] text-muted/40">
+                            <span>ID: {entry.id || "n/a"}</span>
+                            <span>Dokument: {entry.document_id || "n/a"}</span>
+                            <span>Abgeschlossen: {entry.completed_at ? formatDateTime(entry.completed_at) : "Noch offen"}</span>
                           </div>
                         </div>
                       </div>
@@ -1735,7 +1846,7 @@ export default function ProfilePage() {
 
       <Modal
         open={projectDialog.open}
-        title="Projekt hinzufügen (STAR-Methode)"
+        title={projectDialog.draft?.id ? "Projekt bearbeiten (STAR-Methode)" : "Projekt hinzufügen (STAR-Methode)"}
         onClose={() => setProjectDialog({ open: false, positionId: "", draft: EMPTY_PROJECT })}
         footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setProjectDialog({ open: false, positionId: "", draft: EMPTY_PROJECT })}>Abbrechen</Button><Button onClick={saveProject}>Speichern</Button></div>}
       >
@@ -1798,7 +1909,29 @@ export default function ProfilePage() {
         open={skillDialog.open}
         title={skillDialog.draft.id ? "Skill bearbeiten" : "Skill hinzufügen"}
         onClose={() => setSkillDialog({ open: false, draft: EMPTY_SKILL })}
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setSkillDialog({ open: false, draft: EMPTY_SKILL })}>Abbrechen</Button><Button onClick={() => saveItem("skill", skillDialog)}>Speichern</Button></div>}
+        footer={(() => {
+          const allSkills = profile?.skills || [];
+          const curIdx = skillDialog.draft.id ? allSkills.findIndex((s) => s.id === skillDialog.draft.id) : -1;
+          const hasPrev = curIdx > 0;
+          const hasNext = curIdx >= 0 && curIdx < allSkills.length - 1;
+          return (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex gap-1">
+                {skillDialog.draft.id && allSkills.length > 1 ? (
+                  <>
+                    <Button variant="ghost" disabled={!hasPrev} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx - 1]) })}><ChevronLeft size={16} /></Button>
+                    <span className="flex items-center text-xs text-muted/60 tabular-nums">{curIdx + 1}/{allSkills.length}</span>
+                    <Button variant="ghost" disabled={!hasNext} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx + 1]) })}><ChevronRight size={16} /></Button>
+                  </>
+                ) : null}
+              </div>
+              <div className="flex gap-3">
+                <Button variant="ghost" onClick={() => setSkillDialog({ open: false, draft: EMPTY_SKILL })}>Abbrechen</Button>
+                <Button onClick={() => saveItem("skill", skillDialog)}>Speichern</Button>
+              </div>
+            </div>
+          );
+        })()}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Name">
@@ -1813,8 +1946,15 @@ export default function ProfilePage() {
               <option value="sprache">Sprache</option>
             </SelectInput>
           </Field>
-          <Field label="Level">
-            <TextInput type="number" min="1" max="5" value={skillDialog.draft.level} onChange={(event) => setSkillDialog((current) => ({ ...current, draft: { ...current.draft, level: event.target.value } }))} />
+          <Field label="Level (1–5)">
+            <TextInput type="number" min="1" max="5" value={skillDialog.draft.level} onChange={(event) => {
+              const raw = event.target.value;
+              if (raw === "") { setSkillDialog((c) => ({ ...c, draft: { ...c.draft, level: "" } })); return; }
+              const n = Number(raw);
+              if (!Number.isFinite(n)) return;
+              const clamped = Math.min(5, Math.max(1, Math.round(n)));
+              setSkillDialog((c) => ({ ...c, draft: { ...c.draft, level: clamped } }));
+            }} />
           </Field>
           <Field label="Jahre Erfahrung">
             <TextInput

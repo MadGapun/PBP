@@ -1294,8 +1294,12 @@ class Database:
     # === Search Criteria ===
 
     def get_search_criteria(self) -> dict:
+        pid = self.get_active_profile_id()
         conn = self.connect()
-        cur = conn.execute("SELECT * FROM search_criteria")
+        if pid:
+            cur = conn.execute("SELECT * FROM search_criteria WHERE profile_id=?", (pid,))
+        else:
+            cur = conn.execute("SELECT * FROM search_criteria")
         rows = cur.fetchall()
         criteria = {}
         for row in rows:
@@ -1303,28 +1307,41 @@ class Database:
         return criteria
 
     def set_search_criteria(self, key: str, value):
+        pid = self.get_active_profile_id() or ""
         conn = self.connect()
         conn.execute("""
-            INSERT OR REPLACE INTO search_criteria (key, value, updated_at)
-            VALUES (?, ?, ?)
-        """, (key, json.dumps(value, ensure_ascii=False), _now()))
+            INSERT OR REPLACE INTO search_criteria (profile_id, key, value, updated_at)
+            VALUES (?, ?, ?, ?)
+        """, (pid, key, json.dumps(value, ensure_ascii=False), _now()))
         conn.commit()
 
     # === Blacklist ===
 
     def add_to_blacklist(self, entry_type: str, value: str, reason: str = ""):
+        pid = self.get_active_profile_id() or ""
         conn = self.connect()
         conn.execute("""
-            INSERT OR IGNORE INTO blacklist (type, value, reason, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (entry_type, value, reason, _now()))
+            INSERT OR IGNORE INTO blacklist (profile_id, type, value, reason, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (pid, entry_type, value, reason, _now()))
         conn.commit()
 
     def get_blacklist(self) -> list:
+        pid = self.get_active_profile_id()
         conn = self.connect()
+        if pid:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM blacklist WHERE profile_id=? ORDER BY type, value", (pid,)
+            ).fetchall()]
         return [dict(r) for r in conn.execute(
             "SELECT * FROM blacklist ORDER BY type, value"
         ).fetchall()]
+
+    def remove_blacklist_entry(self, entry_id: int) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM blacklist WHERE id=?", (entry_id,))
+        conn.commit()
+        return cur.rowcount > 0
 
     # === Background Jobs ===
 

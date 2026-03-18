@@ -264,7 +264,21 @@ export default function JobsPage() {
   async function changeJobState(path, payload, successText) {
     try {
       await postJson(path, payload);
-      await refreshChrome();
+      const hash = payload.hash;
+      if (path.includes("/dismiss")) {
+        startTransition(() => {
+          setJobs((cur) => cur.filter((j) => String(j.hash) !== String(hash)));
+          const dismissed = jobs.find((j) => String(j.hash) === String(hash));
+          if (dismissed) setDismissedJobs((cur) => [{ ...dismissed, status: "aussortiert" }, ...cur]);
+        });
+      } else if (path.includes("/restore")) {
+        startTransition(() => {
+          setDismissedJobs((cur) => cur.filter((j) => String(j.hash) !== String(hash)));
+          const restored = dismissedJobs.find((j) => String(j.hash) === String(hash));
+          if (restored) setJobs((cur) => [{ ...restored, status: "aktiv" }, ...cur]);
+        });
+      }
+      refreshChrome({ quiet: true });
       pushToast(successText, "success");
     } catch (error) {
       pushToast(`${successText} fehlgeschlagen: ${error.message}`, "danger");
@@ -304,7 +318,13 @@ export default function JobsPage() {
         type: blacklistDialog.type,
         value,
       });
-      await loadPage({ silent: true });
+      const jobHash = blacklistDialog.job?.hash;
+      if (jobHash) {
+        startTransition(() => {
+          setJobs((cur) => cur.filter((j) => String(j.hash) !== String(jobHash)));
+        });
+      }
+      refreshChrome({ quiet: true });
       pushToast(`Blacklist-Eintrag gespeichert: ${value}`, "success");
       setBlacklistDialog(EMPTY_BLACKLIST_DIALOG);
     } catch (error) {
@@ -315,8 +335,12 @@ export default function JobsPage() {
   async function togglePin(job) {
     try {
       const result = await putJson(`/api/jobs/${job.hash}/pin`, {});
-      await loadPage({ silent: true });
-      pushToast(result.is_pinned ? "Stelle angepinnt." : "Pin entfernt.", "success");
+      const newPinned = result.is_pinned;
+      startTransition(() => {
+        setJobs((cur) => cur.map((j) => String(j.hash) === String(job.hash) ? { ...j, is_pinned: newPinned ? 1 : 0 } : j));
+      });
+      refreshChrome({ quiet: true });
+      pushToast(newPinned ? "Stelle angepinnt." : "Pin entfernt.", "success");
     } catch (error) {
       pushToast(`Pin-Aktion fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -328,7 +352,10 @@ export default function JobsPage() {
       await putJson(`/api/jobs/${job.hash}/score`, { score });
       setEditingScoreHash("");
       setEditingScoreValue("");
-      await loadPage({ silent: true });
+      startTransition(() => {
+        setJobs((cur) => cur.map((j) => String(j.hash) === String(job.hash) ? { ...j, score } : j));
+      });
+      refreshChrome({ quiet: true });
       pushToast(`Score auf ${score} gesetzt.`, "success");
     } catch (error) {
       pushToast(`Score konnte nicht gespeichert werden: ${error.message}`, "danger");

@@ -415,54 +415,6 @@ export default function DashboardPage() {
         <div className="grid gap-3 xl:grid-cols-2">
           <Card className="rounded-2xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-baseline gap-2">
-                <h2 className="text-sm font-semibold text-ink">Top-Stellen</h2>
-                <span className="text-[11px] text-muted/40">
-                  {chrome.searchStatus?.last_search
-                    ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
-                    : "Noch nie gesucht"}
-                </span>
-              </div>
-              <Button size="sm" variant="ghost" onClick={() => navigateTo("stellen")}>
-                Alle
-              </Button>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {data.jobs.slice(0, 3).length ? (
-                data.jobs.slice(0, 3).map((job) => (
-                  <button
-                    key={job.hash}
-                    type="button"
-                    className="group flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:-translate-y-[1px] hover:border-sky/35 hover:bg-white/[0.06] hover:shadow-[0_8px_20px_rgba(14,165,233,0.12)] hover:text-ink"
-                    onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>
-                      <p className="mt-0.5 truncate text-[12px] text-muted/50">
-                        {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge tone="amber">Score {job.score || 0}</Badge>
-                      <span className="rounded-lg p-1.5 text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink">
-                        <ArrowRight size={14} />
-                      </span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <p className="py-4 text-center text-[13px] text-muted/50">
-                  Noch keine Stellen.{" "}
-                  <button type="button" className="text-teal/70 hover:text-teal" onClick={() => copyPrompt("/jobsuche_workflow")}>
-                    Suche starten
-                  </button>
-                </p>
-              )}
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl">
-            <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-ink">TODOs</h2>
               <Button size="sm" variant="ghost" onClick={() => navigateTo("bewerbungen")}>
                 Alle
@@ -491,6 +443,49 @@ export default function DashboardPage() {
                 ))
               ) : (
                 <p className="py-4 text-center text-[13px] text-muted/50">Keine TODOs offen</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden rounded-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-sm font-semibold text-ink">Top-Stellen</h2>
+                <span className="text-[11px] text-muted/40">
+                  {chrome.searchStatus?.last_search
+                    ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
+                    : "Noch nie gesucht"}
+                </span>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => navigateTo("stellen")}>
+                Alle
+              </Button>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {data.jobs.slice(0, 3).length ? (
+                data.jobs.slice(0, 3).map((job) => (
+                  <button
+                    key={job.hash}
+                    type="button"
+                    className="group flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:-translate-y-[1px] hover:border-sky/35 hover:bg-white/[0.06] hover:shadow-[0_8px_20px_rgba(14,165,233,0.12)] hover:text-ink"
+                    onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>
+                      <p className="truncate text-[12px] text-muted/50">
+                        {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0"><Badge tone="amber">Score {job.score || 0}</Badge></span>
+                  </button>
+                ))
+              ) : (
+                <p className="py-4 text-center text-[13px] text-muted/50">
+                  Noch keine Stellen.{" "}
+                  <button type="button" className="text-teal/70 hover:text-teal" onClick={() => copyPrompt("/jobsuche_workflow")}>
+                    Suche starten
+                  </button>
+                </p>
               )}
             </div>
           </Card>

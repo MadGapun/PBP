@@ -242,31 +242,29 @@ export default function ApplicationsPage() {
             <div className="grid gap-4">
               {filteredApplications.length ? (
                 filteredApplications.map((application) => (
-                  <Card key={application.id} className="glass-card-soft rounded-xl shadow-none">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
-                          <span className="text-xs font-medium text-muted">{formatDate(application.applied_at)}</span>
-                        </div>
-                        <h3 className="text-xl font-semibold text-ink">{application.title}</h3>
-                        <p className="text-sm text-muted">{application.company}</p>
-                        {application.notes ? <p className="text-sm text-muted">{application.notes}</p> : null}
+                  <Card key={application.id} className="flex flex-col glass-card-soft rounded-xl shadow-none">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
+                        <span className="text-xs font-medium text-muted">{formatDate(application.applied_at)}</span>
                       </div>
-                      <div className="flex flex-wrap gap-3">
-                        <SelectInput value={application.status || "beworben"} onChange={(event) => updateStatus(application.id, event.target.value)}>
-                          <option value="entwurf">Entwurf</option>
-                          <option value="beworben">Beworben</option>
-                          <option value="interview">Interview</option>
-                          <option value="angebot">Angebot</option>
-                          <option value="abgelehnt">Abgelehnt</option>
-                          <option value="zurueckgezogen">Zurückgezogen</option>
-                        </SelectInput>
-                        <Button variant="secondary" onClick={() => openTimeline(application)}>
-                          <Workflow size={15} />
-                          Timeline
-                        </Button>
-                      </div>
+                      <h3 className="text-xl font-semibold text-ink">{application.title}</h3>
+                      <p className="text-sm text-muted">{application.company}</p>
+                      {application.notes ? <p className="text-sm text-muted">{application.notes}</p> : null}
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-4">
+                      <SelectInput value={application.status || "beworben"} onChange={(event) => updateStatus(application.id, event.target.value)}>
+                        <option value="entwurf">Entwurf</option>
+                        <option value="beworben">Beworben</option>
+                        <option value="interview">Interview</option>
+                        <option value="angebot">Angebot</option>
+                        <option value="abgelehnt">Abgelehnt</option>
+                        <option value="zurueckgezogen">Zurückgezogen</option>
+                      </SelectInput>
+                      <Button variant="secondary" onClick={() => openTimeline(application)}>
+                        <Workflow size={15} />
+                        Timeline
+                      </Button>
                     </div>
                   </Card>
                 ))
@@ -337,16 +335,138 @@ export default function ApplicationsPage() {
         onClose={() => setTimelineDialog({ open: false, entry: null })}
         footer={<div className="flex justify-end"><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schließen</Button></div>}
       >
-        <div className="grid gap-4">
+        <div className="grid gap-5">
+          {/* Job details */}
+          {timelineDialog.entry?.job ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Stellendetails</p>
+              <h3 className="mt-2 text-base font-semibold text-ink">{timelineDialog.entry.job.title}</h3>
+              <p className="text-sm text-muted">{timelineDialog.entry.job.company}{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge tone="sky">{timelineDialog.entry.job.source || "Quelle"}</Badge>
+                <Badge tone="amber">Score {timelineDialog.entry.job.score || 0}</Badge>
+                {timelineDialog.entry.job.remote_level && timelineDialog.entry.job.remote_level !== "unbekannt" ? <Badge tone="success">{timelineDialog.entry.job.remote_level}</Badge> : null}
+              </div>
+              {timelineDialog.entry.job.salary_min ? (
+                <p className="mt-2 text-sm text-ink">
+                  Gehalt: {formatCurrency(timelineDialog.entry.job.salary_min)}{timelineDialog.entry.job.salary_max ? ` bis ${formatCurrency(timelineDialog.entry.job.salary_max)}` : ""}{timelineDialog.entry.job.salary_estimated ? " (geschätzt)" : ""}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {/* Linked documents */}
+          {(timelineDialog.entry?.documents || []).length > 0 ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Verknüpfte Dokumente</p>
+              <div className="mt-2 grid gap-1.5">
+                {timelineDialog.entry.documents.map((doc) => (
+                  <div key={doc.id} className="flex items-center gap-2 text-sm text-ink">
+                    <FileText size={14} className="shrink-0 text-muted/50" />
+                    <span className="truncate">{doc.filename}</span>
+                    {doc.doc_type ? <Badge tone="sky">{doc.doc_type}</Badge> : null}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Document linking search */}
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Dokument verknüpfen</p>
+            <div className="mt-2 relative">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted/50" />
+              <TextInput
+                className="!pl-9"
+                placeholder="Dokument suchen..."
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+              />
+            </div>
+            {docSearchQuery.trim() && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/5 bg-white/[0.02]">
+                {documents
+                  .filter((doc) => {
+                    const q = docSearchQuery.toLowerCase();
+                    return (doc.filename || "").toLowerCase().includes(q) || (doc.doc_type || "").toLowerCase().includes(q);
+                  })
+                  .slice(0, 8)
+                  .map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-white/[0.06]"
+                      onClick={() => { linkDocument(doc.id); setDocSearchQuery(""); }}
+                    >
+                      <Link2 size={14} className="shrink-0 text-teal/60" />
+                      <span className="truncate">{doc.filename}</span>
+                      {doc.doc_type ? <span className="ml-auto shrink-0 text-[11px] text-muted/50">{doc.doc_type}</span> : null}
+                    </button>
+                  ))}
+                {documents.filter((doc) => {
+                  const q = docSearchQuery.toLowerCase();
+                  return (doc.filename || "").toLowerCase().includes(q) || (doc.doc_type || "").toLowerCase().includes(q);
+                }).length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted/50">Kein Dokument gefunden.</p>
+                ) : null}
+              </div>
+            )}
+          </Card>
+
+          {/* Add note */}
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Neue Notiz</p>
+            <div className="mt-2 flex gap-2">
+              <TextArea
+                rows={2}
+                className="flex-1"
+                placeholder="Notiz hinzufügen..."
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addNote(); }}
+              />
+              <Button className="shrink-0 self-end" onClick={addNote} disabled={!newNoteText.trim()}>
+                <Plus size={14} />
+                Hinzufügen
+              </Button>
+            </div>
+          </Card>
+
+          {/* Timeline events */}
           {(timelineDialog.entry?.events || []).length ? (
             timelineDialog.entry.events.map((event) => (
               <Card key={`${event.id}-${event.event_date}`} className="glass-card-soft rounded-xl shadow-none">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <Badge tone={statusTone(event.status)}>{event.status}</Badge>
-                    <p className="mt-3 text-sm text-muted">{formatDateTime(event.event_date)}</p>
+                  <div className="space-y-1">
+                    <Badge tone={statusTone(event.status || event.event_type)}>{event.status || event.event_type || "notiz"}</Badge>
+                    <p className="text-[12px] text-muted/50">{formatDateTime(event.event_date)}</p>
                   </div>
-                  <p className="max-w-xl text-sm text-ink">{event.notes || "Keine Notiz"}</p>
+                  <div className="flex-1 min-w-0">
+                    {editingNoteId === event.id ? (
+                      <div className="flex gap-2">
+                        <TextArea
+                          rows={2}
+                          className="flex-1"
+                          value={editingNoteText}
+                          onChange={(e) => setEditingNoteText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) updateNote(event.id); }}
+                          autoFocus
+                        />
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <button type="button" className="text-teal hover:text-teal/80" onClick={() => updateNote(event.id)}><Check size={16} /></button>
+                          <button type="button" className="text-muted hover:text-ink" onClick={() => setEditingNoteId(null)}><X size={16} /></button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink">{event.notes || event.text || "Keine Notiz"}</p>
+                    )}
+                  </div>
+                  {(event.event_type === "notiz" || event.status === "notiz") && editingNoteId !== event.id ? (
+                    <div className="flex gap-1.5 shrink-0">
+                      <button type="button" className="text-muted/40 hover:text-ink transition-colors" onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.notes || event.text || ""); }} title="Bearbeiten"><Pencil size={14} /></button>
+                      <button type="button" className="text-muted/40 hover:text-coral transition-colors" onClick={() => deleteNote(event.id)} title="Löschen"><Trash2 size={14} /></button>
+                    </div>
+                  ) : null}
                 </div>
               </Card>
             ))
