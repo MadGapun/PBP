@@ -2,10 +2,19 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
-## [0.22.1] - 2026-03-18
+## [0.23.0] - 2026-03-18
 
-### Bugfixes: Frontend-Status-Dropdowns, Profilwechsel-Absturz
+### Feature-Release: Koala280 React-Frontend Integration
 
+Koala280s komplettes React/Vite/Tailwind-Frontend (7.877 Zeilen neuer UI-Code)
+wurde offiziell in das Projekt integriert. Dies ersetzt das bisherige Vanilla-JS
+Dashboard durch eine moderne Single-Page-Application.
+
+**React-Frontend (Koala280):**
+- Komplettes React/Vite/Tailwind-Frontend mit 7.877 Zeilen neuem UI-Code
+- Moderne SPA-Architektur als Ersatz fuer das bisherige Vanilla-JS Dashboard
+
+**Bugfixes:**
 - **Status "abgelaufen" und "zweitgespraech" in Frontend-Dropdowns**: Alle drei
   Status-Dropdowns in ApplicationsPage (Filter, Statuswechsel, Neu-Anlegen) um
   die fehlenden Optionen ergaenzt. `STATUS_OPTIONS` in utils.js erweitert.
@@ -16,7 +25,7 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
   Profile aus, BEVOR geprueft wurde ob das Zielprofil existiert. Bei ungueltigem
   Profil-ID waren danach alle Profile inaktiv. Fix: Existenz-Pruefung VOR dem
   Deaktivieren.
-- Version auf 0.22.1.
+- **Test-Fix**: Versions-Konsistenz korrigiert.
 
 ## [0.22.0] - 2026-03-17
 
