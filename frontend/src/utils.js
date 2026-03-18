@@ -11,9 +11,11 @@ export const STATUS_OPTIONS = [
   { value: "entwurf", label: "Entwurf" },
   { value: "beworben", label: "Beworben" },
   { value: "interview", label: "Interview" },
+  { value: "zweitgespraech", label: "Zweitgespräch" },
   { value: "angebot", label: "Angebot" },
   { value: "abgelehnt", label: "Abgelehnt" },
   { value: "zurueckgezogen", label: "Zurückgezogen" },
+  { value: "abgelaufen", label: "Abgelaufen" },
 ];
 
 export function cn(...parts) {
@@ -78,11 +80,15 @@ export function statusTone(status) {
   switch (status) {
     case "angebot":
       return "success";
+    case "zweitgespraech":
+      return "success";
     case "interview":
       return "sky";
     case "abgelehnt":
     case "zurueckgezogen":
       return "danger";
+    case "abgelaufen":
+      return "neutral";
     case "beworben":
       return "amber";
     default:

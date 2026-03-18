@@ -232,8 +232,10 @@ export default function ApplicationsPage() {
                 <option value="entwurf">Entwurf</option>
                 <option value="beworben">Beworben</option>
                 <option value="interview">Interview</option>
+                <option value="zweitgespraech">Zweitgespräch</option>
                 <option value="angebot">Angebot</option>
                 <option value="abgelehnt">Abgelehnt</option>
+                <option value="abgelaufen">Abgelaufen</option>
               </SelectInput>
             </Field>
           </div>
@@ -260,9 +262,11 @@ export default function ApplicationsPage() {
                         <option value="entwurf">Entwurf</option>
                         <option value="beworben">Beworben</option>
                         <option value="interview">Interview</option>
+                        <option value="zweitgespraech">Zweitgespräch</option>
                         <option value="angebot">Angebot</option>
                         <option value="abgelehnt">Abgelehnt</option>
                         <option value="zurueckgezogen">Zurückgezogen</option>
+                        <option value="abgelaufen">Abgelaufen</option>
                       </SelectInput>
                       <Button variant="secondary" onClick={() => openTimeline(application)}>
                         <Workflow size={15} />
@@ -324,6 +328,8 @@ export default function ApplicationsPage() {
               <option value="entwurf">Entwurf</option>
               <option value="beworben">Beworben</option>
               <option value="interview">Interview</option>
+              <option value="zweitgespraech">Zweitgespräch</option>
+              <option value="angebot">Angebot</option>
             </SelectInput>
           </Field>
           <Field label="Notizen">

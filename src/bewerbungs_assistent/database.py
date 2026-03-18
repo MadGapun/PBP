@@ -413,10 +413,13 @@ class Database:
     def switch_profile(self, profile_id: str) -> bool:
         """Activate a specific profile, deactivate all others."""
         conn = self.connect()
+        exists = conn.execute("SELECT 1 FROM profile WHERE id=?", (profile_id,)).fetchone()
+        if not exists:
+            return False
         conn.execute("UPDATE profile SET is_active=0")
-        result = conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (profile_id,))
+        conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (profile_id,))
         conn.commit()
-        return result.rowcount > 0
+        return True
 
     def delete_profile(self, profile_id: str, delete_files: bool = True):
         """Delete a profile and ALL its related data (CASCADE)."""

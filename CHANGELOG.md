@@ -2,6 +2,22 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.22.1] - 2026-03-18
+
+### Bugfixes: Frontend-Status-Dropdowns, Profilwechsel-Absturz
+
+- **Status "abgelaufen" und "zweitgespraech" in Frontend-Dropdowns**: Alle drei
+  Status-Dropdowns in ApplicationsPage (Filter, Statuswechsel, Neu-Anlegen) um
+  die fehlenden Optionen ergaenzt. `STATUS_OPTIONS` in utils.js erweitert.
+- **`statusTone()` erweitert**: "zweitgespraech" erhaelt Tone "success",
+  "abgelaufen" erhaelt Tone "neutral" — passende Farbgebung in Badges.
+- **Profilwechsel auf nicht-existierendes Profil deaktivierte aktives Profil**
+  (kritisch): `switch_profile()` fuehrte `UPDATE SET is_active=0` auf alle
+  Profile aus, BEVOR geprueft wurde ob das Zielprofil existiert. Bei ungueltigem
+  Profil-ID waren danach alle Profile inaktiv. Fix: Existenz-Pruefung VOR dem
+  Deaktivieren.
+- Version auf 0.22.1.
+
 ## [0.22.0] - 2026-03-17
 
 ### Bewerbungs-Detailansicht, Gespraechsnotizen und Dokument-Verknuepfung
