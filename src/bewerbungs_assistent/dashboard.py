@@ -5,6 +5,7 @@ Runs in a background thread alongside the MCP server.
 """
 
 import json
+import math
 import os
 import logging
 import threading
@@ -16,6 +17,30 @@ from datetime import datetime
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+
+
+def _sanitize_for_json(obj):
+    """Recursively replace inf/nan floats with None for JSON safety."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    if isinstance(obj, float) and (math.isinf(obj) or math.isnan(obj)):
+        return None
+    return obj
+
+
+class SafeJSONResponse(JSONResponse):
+    """JSONResponse that sanitizes inf/nan floats before serialization."""
+
+    def render(self, content):
+        return json.dumps(
+            _sanitize_for_json(content),
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode("utf-8")
 
 from .services.profile_service import (
     get_profile_completeness,
@@ -49,7 +74,12 @@ _BLOCKED_PATH_PREFIXES = (
     "C:\\Program Files (x86)",
 )
 
-app = FastAPI(title="Bewerbungs-Assistent", docs_url=None, redoc_url=None)
+app = FastAPI(
+    title="Bewerbungs-Assistent",
+    docs_url=None,
+    redoc_url=None,
+    default_response_class=SafeJSONResponse,
+)
 
 
 # Request-Logging Middleware

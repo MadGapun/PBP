@@ -2,6 +2,18 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.24.1] - 2026-03-19
+
+### Hotfix: Profil-Anzeige crashed durch inf-Float-Wert
+
+- **GET /api/profile crashed**: `ValueError: Out of range float values are not JSON compliant: inf`
+  verhinderte das Laden des Profils im Dashboard. Ursache: Ein `inf`-Float-Wert in der
+  Datenbank (z.B. confidence in suggested_job_titles) konnte nicht JSON-serialisiert werden.
+- **Globaler Fix**: Neuer `SafeJSONResponse` als `default_response_class` fuer die gesamte
+  FastAPI-App. Alle API-Responses werden jetzt automatisch von `inf`/`nan`-Werten bereinigt
+  (rekursive Sanitisierung zu `null`). Dies schuetzt ALLE Endpoints, nicht nur `/api/profile`.
+- **Tests:** 2 neue Tests fuer inf-Sanitisierung (262 Tests gesamt)
+
 ## [0.24.0] - 2026-03-19
 
 ### Major: Dashboard-Erweiterungen (10 Issues)

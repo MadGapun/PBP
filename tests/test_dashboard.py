@@ -1095,4 +1095,52 @@ class TestFactoryReset:
         assert r2.json()["has_profile"] is False
 
 
+# ============================================================
+# v0.24.1 — SafeJSONResponse / inf-Sanitization
+# ============================================================
+
+class TestSafeJSONResponse:
+    """Regression tests for inf/nan float values in API responses."""
+
+    def test_profile_with_inf_confidence_does_not_crash(self, client):
+        """Profile with inf confidence in suggested_job_titles must not crash (#91)."""
+        import math
+        client.post("/api/profile", json={"name": "Inf-Test"})
+        # Directly inject inf into suggested_job_titles via DB
+        from bewerbungs_assistent import dashboard
+        db = dashboard._db
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        conn.execute(
+            "INSERT INTO suggested_job_titles (id, profile_id, title, source, confidence, is_active, created_at) "
+            "VALUES ('inf-test', ?, 'Developer', 'test', ?, 1, '2026-01-01')",
+            (pid, float('inf'))
+        )
+        conn.commit()
+        r = client.get("/api/profile")
+        assert r.status_code == 200
+        data = r.json()
+        # inf should be sanitized to None
+        inf_title = [t for t in data["suggested_job_titles"] if t["id"] == "inf-test"]
+        assert len(inf_title) == 1
+        assert inf_title[0]["confidence"] is None
+
+    def test_sanitize_for_json_handles_nested_inf(self):
+        """_sanitize_for_json must handle deeply nested inf/nan."""
+        import math
+        from bewerbungs_assistent.dashboard import _sanitize_for_json
+        data = {
+            "a": float('inf'),
+            "b": [1, float('-inf'), {"c": float('nan')}],
+            "d": "normal",
+            "e": 42,
+        }
+        result = _sanitize_for_json(data)
+        assert result["a"] is None
+        assert result["b"][0] == 1
+        assert result["b"][1] is None
+        assert result["b"][2]["c"] is None
+        assert result["d"] == "normal"
+        assert result["e"] == 42
+
 
