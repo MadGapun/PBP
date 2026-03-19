@@ -710,18 +710,20 @@ export default function JobsPage() {
                       </Badge>
                     ) : null}
                   </div>
-                  <h2
-                    className="text-2xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors"
+                  <div
+                    className="cursor-pointer group"
                     onClick={() => setDetailDialog({ open: true, job, editing: false })}
                     title="Details anzeigen"
-                  >{job.title}</h2>
-                  <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
-                  <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
-                  {job.salary_min ? (
-                    <p className="text-sm text-ink">
-                      Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
-                    </p>
-                  ) : null}
+                  >
+                    <h2 className="text-2xl font-semibold text-ink group-hover:text-sky transition-colors">{job.title}</h2>
+                    <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
+                    <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
+                    {job.salary_min ? (
+                      <p className="text-sm text-ink">
+                        Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-white/[0.06] pt-4">
                   <Button variant={job.is_pinned ? "subtle" : "secondary"} onClick={() => togglePin(job)}>

@@ -1011,6 +1011,21 @@ async def api_documents():
     return {"documents": docs}
 
 
+@app.get("/api/documents/{doc_id}/download")
+async def api_download_document(doc_id: str):
+    """Download/preview a document by ID."""
+    conn = _db.connect()
+    row = conn.execute("SELECT filename, filepath FROM documents WHERE id=?", (doc_id,)).fetchone()
+    if not row:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+    filepath = Path(row["filepath"])
+    if not filepath.exists():
+        return JSONResponse({"error": "Datei nicht gefunden auf dem Dateisystem"}, status_code=404)
+    import mimetypes
+    mime, _ = mimetypes.guess_type(str(filepath))
+    return FileResponse(str(filepath), filename=row["filename"], media_type=mime or "application/octet-stream")
+
+
 @app.get("/api/statistics")
 async def api_statistics():
     return _db.get_statistics()

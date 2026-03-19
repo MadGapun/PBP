@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Check, Download, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
+﻿import { CalendarClock, Check, Download, ExternalLink, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -457,11 +457,18 @@ export default function ApplicationsPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Verknüpfte Dokumente</p>
               <div className="mt-2 grid gap-1.5">
                 {timelineDialog.entry.documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center gap-2 text-sm text-ink">
+                  <a
+                    key={doc.id}
+                    href={`/api/documents/${doc.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-ink hover:text-sky transition-colors cursor-pointer rounded-lg px-2 py-1.5 -mx-2 hover:bg-white/[0.04]"
+                  >
                     <FileText size={14} className="shrink-0 text-muted/50" />
                     <span className="truncate">{doc.filename}</span>
                     {doc.doc_type ? <Badge tone="sky">{doc.doc_type}</Badge> : null}
-                  </div>
+                    <ExternalLink size={12} className="shrink-0 ml-auto text-muted/30" />
+                  </a>
                 ))}
               </div>
             </Card>
