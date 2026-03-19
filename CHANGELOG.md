@@ -18,6 +18,11 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 - **LinkedIn/XING Profil-Optimierung**: Neuer Hinweis bei LinkedIn und XING
   Quellen, dass Profile automatisch von Claude optimiert werden koennen
   (verbraucht viele API-Tokens und dauert einige Minuten).
+- **JSON inf-Error**: `ValueError: Out of range float values` bei Statistik-APIs
+  wenn Score-Werte `inf` oder `NaN` enthalten. Alle Float-Werte werden jetzt
+  vor der JSON-Serialisierung sanitized.
+- **Aktives Profil nicht erkannt**: Safety-Net hinzugefuegt — wenn Profile
+  existieren aber keins aktiv ist, wird das neueste automatisch aktiviert.
 
 ## [0.23.2] - 2026-03-19
 

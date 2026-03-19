@@ -126,6 +126,16 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
         )
         conn.commit()
+        # Safety net: if profiles exist but none is active, auto-activate the newest
+        active_check = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1").fetchone()
+        if active_check is None:
+            orphan = conn.execute(
+                "SELECT id FROM profile ORDER BY updated_at DESC LIMIT 1"
+            ).fetchone()
+            if orphan:
+                conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (orphan["id"],))
+                conn.commit()
+                logger.warning("Kein aktives Profil gefunden — %s automatisch aktiviert", orphan["id"])
         logger.info("Database initialized at %s", self.db_path)
 
     def _migrate(self, from_ver: int, to_ver: int):
@@ -1470,8 +1480,10 @@ class Database:
             (pid,)
         ).fetchone()
         if score_row and score_row["cnt"]:
-            stats["avg_score"] = round(score_row["avg_score"], 1)
-            stats["max_score"] = score_row["max_score"]
+            stats["avg_score"] = _safe_float(score_row["avg_score"], 0)
+            if stats["avg_score"]:
+                stats["avg_score"] = round(stats["avg_score"], 1)
+            stats["max_score"] = _safe_float(score_row["max_score"], 0)
             stats["scored_jobs"] = score_row["cnt"]
         # Conversion rate
         total = stats["total_applications"]
@@ -1577,7 +1589,8 @@ class Database:
             "score_distribution": {str(r["score"]): r["cnt"] for r in dist_rows},
             "sources": [
                 {"name": r["source"] or "unbekannt", "count": r["cnt"],
-                 "avg_score": r["avg_score"], "max_score": r["max_score"]}
+                 "avg_score": _safe_float(r["avg_score"]),
+                 "max_score": _safe_float(r["max_score"])}
                 for r in source_rows
             ],
         }
@@ -2178,6 +2191,20 @@ class Database:
             self.add_document(doc)
 
         return pid
+
+
+def _safe_float(val, default=None):
+    """Sanitize float values for JSON serialization (inf/nan -> default)."""
+    import math
+    if val is None:
+        return default
+    try:
+        f = float(val)
+        if math.isinf(f) or math.isnan(f):
+            return default
+        return f
+    except (ValueError, TypeError):
+        return default
 
 
 def _now() -> str:
