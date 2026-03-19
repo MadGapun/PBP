@@ -83,6 +83,7 @@ class InstallerApp:
         self.current_step = 0
         self.total_steps = 5
         self.python_cmd = None
+        self._claude_already_configured = self._detect_claude_config()
 
         # Build UI
         self._build_header()
@@ -175,7 +176,11 @@ class InstallerApp:
                                    padx=10, pady=10)
         opt_frame.pack(fill="x", pady=10)
 
-        tk.Checkbutton(opt_frame, text="Claude Desktop verbinden (MCP Plugin)",
+        claude_label = "Claude Desktop verbinden (MCP Plugin)"
+        if self._claude_already_configured:
+            claude_label += "  ✓ bereits konfiguriert"
+            self.install_claude_config.set(False)
+        tk.Checkbutton(opt_frame, text=claude_label,
                        variable=self.install_claude_config, font=("Segoe UI", 10),
                        bg=BG_CARD, fg=FG, selectcolor=BG,
                        activebackground=BG_CARD, activeforeground=FG
@@ -478,6 +483,18 @@ class InstallerApp:
         except Exception as e:
             self._log(f"✗ {str(e)}", "error")
             return False
+
+    def _detect_claude_config(self) -> bool:
+        """Check if Claude Desktop is already configured with PBP."""
+        try:
+            config_path = os.path.join(os.environ.get('APPDATA', ''), 'Claude', 'claude_desktop_config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return 'bewerbungs-assistent' in config.get('mcpServers', {})
+        except Exception:
+            pass
+        return False
 
     def _configure_claude(self, venv_python: str, data_dir: str):
         """Configure Claude Desktop to use PBP as MCP server."""

@@ -630,14 +630,23 @@ def register(mcp, db, logger):
     def _extract_doc_type_from_filename(filename: str) -> str:
         """Erkennt den Dokumenttyp aus dem Dateinamen."""
         lower = filename.lower()
-        if any(kw in lower for kw in ["lebenslauf", "cv", "resume"]):
+        # Special cases
+        if "master-wissen" in lower or "bewerbungs-master" in lower:
+            return "referenz"
+        if any(kw in lower for kw in ["vorbereitung", "preparation", "interview-prep"]):
+            return "vorbereitung"
+        if any(kw in lower for kw in ["projektliste", "project-list", "projekte"]):
+            return "projektliste"
+        if any(kw in lower for kw in ["lebenslauf", "cv", "resume", "vita"]):
             return "lebenslauf"
         if any(kw in lower for kw in ["anschreiben", "cover", "motivationsschreiben"]):
             return "anschreiben"
-        if any(kw in lower for kw in ["projekt", "project"]):
-            return "projektliste"
-        if any(kw in lower for kw in ["zeugnis", "certificate", "referenz"]):
+        if any(kw in lower for kw in ["zeugnis", "arbeitszeugnis"]):
             return "zeugnis"
+        if any(kw in lower for kw in ["referenz", "reference", "empfehlung"]):
+            return "referenz"
+        if any(kw in lower for kw in ["zertifikat", "certificate", "bescheinigung"]):
+            return "zertifikat"
         return "sonstiges"
 
     # ── Neue Tools ───────────────────────────────────────────────────────

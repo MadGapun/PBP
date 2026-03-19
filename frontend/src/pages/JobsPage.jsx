@@ -965,6 +965,43 @@ export default function JobsPage() {
               {detailDialog.job.found_at ? (
                 <p className="text-xs text-muted/40">Gefunden: {formatDateTime(detailDialog.job.found_at)}</p>
               ) : null}
+              <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-4 mt-4">
+                <Button onClick={() => {
+                  setDetailDialog({ open: false, job: null, editing: false });
+                  setApplicationDialog({
+                    open: true,
+                    draft: {
+                      job_hash: detailDialog.job.hash,
+                      title: detailDialog.job.title || "",
+                      company: detailDialog.job.company || "",
+                      url: detailDialog.job.url || "",
+                      status: "beworben",
+                      notes: "",
+                    },
+                  });
+                }}>
+                  <Plus size={15} /> Bewerbung erfassen
+                </Button>
+                <Button variant="secondary" onClick={() => {
+                  setDetailDialog({ open: false, job: null, editing: false });
+                  showFitAnalysis(detailDialog.job);
+                }}>
+                  <Target size={15} /> Fit-Analyse
+                </Button>
+                <Button variant={detailDialog.job.is_pinned ? "subtle" : "secondary"} onClick={async () => {
+                  await togglePin(detailDialog.job);
+                  setDetailDialog((d) => ({ ...d, job: { ...d.job, is_pinned: d.job.is_pinned ? 0 : 1 } }));
+                }}>
+                  {detailDialog.job.is_pinned ? <PinOff size={15} /> : <Pin size={15} />}
+                  {detailDialog.job.is_pinned ? "Entpinnen" : "Anpinnen"}
+                </Button>
+                <Button variant="ghost" onClick={() => {
+                  setDetailDialog({ open: false, job: null, editing: false });
+                  openBlacklistDialog(detailDialog.job);
+                }}>
+                  <Ban size={15} /> Blacklist
+                </Button>
+              </div>
             </div>
           )}
         </Modal>

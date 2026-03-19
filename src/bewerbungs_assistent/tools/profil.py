@@ -74,7 +74,10 @@ def register(mcp, db, logger):
                 "stellentyp": "Stellentyp", "arbeitsmodell": "Arbeitsmodell",
                 "min_gehalt": "Min. Gehalt (EUR/Jahr)", "ziel_gehalt": "Ziel-Gehalt (EUR/Jahr)",
                 "min_tagessatz": "Min. Tagessatz (EUR)", "ziel_tagessatz": "Ziel-Tagessatz (EUR)",
+                "min_stundensatz": "Min. Stundensatz (EUR/h)", "ziel_stundensatz": "Ziel-Stundensatz (EUR/h)",
+                "remote_anteil": "Remote-Anteil (%)", "max_vor_ort_tage": "Max. Vor-Ort-Tage/Woche",
                 "reisebereitschaft": "Reisebereitschaft", "umzug_moeglich": "Umzug moeglich",
+                "max_entfernung_km": "Max. Entfernung (km)",
             }
             for key, label in pref_labels.items():
                 val = prefs.get(key)
@@ -182,6 +185,7 @@ def register(mcp, db, logger):
         AKTIONEN PRO BEREICH:
         - persoenlich: aendern (Felder in daten)
         - praeferenzen: aendern (Key-Value in daten)
+        - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — haengt Text an eine Sektion der informal_notes an
         - position: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
         - projekt: hinzufuegen (daten.position_id noetig), aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
         - ausbildung: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
@@ -192,8 +196,8 @@ def register(mcp, db, logger):
         stadt/ort->city, telefon->phone
 
         Args:
-            bereich: persoenlich, praeferenzen, position, projekt, ausbildung, skill
-            aktion: aendern, loeschen, hinzufuegen, hinzufuegen_bulk (Liste in daten)
+            bereich: persoenlich, praeferenzen, notizen, position, projekt, ausbildung, skill
+            aktion: aendern, loeschen, hinzufuegen, hinzufuegen_bulk, anhang (bei notizen)
             element_id: ID des Elements (bei aendern/loeschen)
             daten: Dict mit Aenderungen, oder Liste von Dicts bei hinzufuegen_bulk
         """
@@ -267,6 +271,66 @@ def register(mcp, db, logger):
                 }
                 db.save_profile(update_data)
                 return {"status": "aktualisiert", "bereich": "praeferenzen", "neue_werte": prefs}
+
+        elif bereich == "notizen":
+            if aktion == "anhang":
+                profile = db.get_profile()
+                if not profile:
+                    return {"fehler": "Kein Profil vorhanden"}
+                sektion = daten.get("sektion", "ALLGEMEIN").upper()
+                text = daten.get("text", "")
+                if not text:
+                    return {"fehler": "Kein Text angegeben"}
+                current = profile.get("informal_notes") or ""
+                # Find or create section
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y-%m-%d")
+                entry = f"[{timestamp}] {text}"
+                header = f"## {sektion}"
+                if header in current:
+                    # Append to existing section
+                    lines = current.split("\n")
+                    idx = next(i for i, l in enumerate(lines) if l.strip() == header)
+                    # Find next section or end
+                    end = len(lines)
+                    for j in range(idx + 1, len(lines)):
+                        if lines[j].strip().startswith("## "):
+                            end = j
+                            break
+                    lines.insert(end, entry)
+                    new_notes = "\n".join(lines)
+                else:
+                    # Create new section at end
+                    new_notes = f"{current}\n\n{header}\n{entry}" if current else f"{header}\n{entry}"
+                update = {
+                    "name": profile.get("name"), "email": profile.get("email"),
+                    "phone": profile.get("phone"), "address": profile.get("address"),
+                    "city": profile.get("city"), "plz": profile.get("plz"),
+                    "country": profile.get("country"), "birthday": profile.get("birthday"),
+                    "nationality": profile.get("nationality"),
+                    "summary": profile.get("summary"),
+                    "informal_notes": new_notes,
+                    "preferences": profile.get("preferences", {}),
+                }
+                db.save_profile(update)
+                return {"status": "notiz_angehaengt", "sektion": sektion, "text": text}
+            elif aktion == "aendern":
+                # Full replace of informal_notes
+                profile = db.get_profile()
+                if not profile:
+                    return {"fehler": "Kein Profil vorhanden"}
+                update = {
+                    "name": profile.get("name"), "email": profile.get("email"),
+                    "phone": profile.get("phone"), "address": profile.get("address"),
+                    "city": profile.get("city"), "plz": profile.get("plz"),
+                    "country": profile.get("country"), "birthday": profile.get("birthday"),
+                    "nationality": profile.get("nationality"),
+                    "summary": profile.get("summary"),
+                    "informal_notes": daten.get("informal_notes", daten.get("text", "")),
+                    "preferences": profile.get("preferences", {}),
+                }
+                db.save_profile(update)
+                return {"status": "aktualisiert", "bereich": "notizen"}
 
         elif bereich == "position":
             if aktion == "loeschen" and element_id:

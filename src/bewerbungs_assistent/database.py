@@ -1033,6 +1033,32 @@ class Database:
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
 
+    def _auto_link_documents(self, application_id: str, company: str):
+        """Auto-link unlinked documents whose filename contains the company name."""
+        if not company or len(company) < 2:
+            return
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        company_lower = company.lower()
+        unlinked = conn.execute(
+            "SELECT id, filename FROM documents "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND linked_application_id IS NULL",
+            (pid,)
+        ).fetchall()
+        linked = 0
+        for doc in unlinked:
+            if company_lower in (doc["filename"] or "").lower():
+                conn.execute(
+                    "UPDATE documents SET linked_application_id=? WHERE id=?",
+                    (application_id, doc["id"]),
+                )
+                linked += 1
+        if linked:
+            conn.commit()
+            logger.info("Auto-linked %d document(s) to application %s (company: %s)",
+                        linked, application_id, company)
+
     def link_document_to_application(self, doc_id, application_id: int):
         """Link a document to an application."""
         conn = self.connect()
@@ -1060,6 +1086,17 @@ class Database:
         for job in jobs:
             job_pid = job.get("profile_id") or active_pid
             stored_hash = self.resolve_job_hash(job["hash"], job_pid)
+            # Preserve existing score/pin state for pinned or manually scored jobs
+            new_score = job.get("score", 0)
+            new_pinned = 1 if job.get("is_pinned") else 0
+            existing = conn.execute(
+                "SELECT score, is_pinned FROM jobs WHERE hash=?", (stored_hash,)
+            ).fetchone()
+            if existing:
+                if existing["is_pinned"]:
+                    new_pinned = 1
+                if existing["score"] and existing["score"] > new_score:
+                    new_score = existing["score"]
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
@@ -1069,13 +1106,13 @@ class Database:
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
-                job.get("description"), job.get("score", 0),
+                job.get("description"), new_score,
                 job.get("remote_level", "unbekannt"),
                 job.get("distance_km"), job.get("salary_info"),
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
-                1 if job.get("is_pinned") else 0, job_pid,
+                new_pinned, job_pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
@@ -1164,7 +1201,12 @@ class Database:
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,
-                         limit: int = 0, offset: int = 0) -> list:
+                         limit: int = 0, offset: int = 0,
+                         from_date: Optional[str] = None,
+                         to_date: Optional[str] = None,
+                         search: Optional[str] = None,
+                         sort_by: str = "applied_at",
+                         sort_order: str = "desc") -> list:
         conn = self.connect()
         pid = self.get_active_profile_id()
         query = "SELECT * FROM applications WHERE (profile_id=? OR profile_id IS NULL)"
@@ -1176,7 +1218,21 @@ class Database:
             placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
             query += f" AND status NOT IN ({placeholders})"
             params.extend(self.ARCHIVE_STATUSES)
-        query += " ORDER BY applied_at DESC"
+        if from_date:
+            query += " AND applied_at >= ?"
+            params.append(from_date)
+        if to_date:
+            query += " AND applied_at <= ?"
+            params.append(to_date + " 23:59:59" if len(to_date) == 10 else to_date)
+        if search:
+            query += " AND (title LIKE ? OR company LIKE ? OR notes LIKE ?)"
+            pattern = f"%{search}%"
+            params.extend([pattern, pattern, pattern])
+        # Whitelist allowed sort columns
+        allowed_sort = {"applied_at", "title", "company", "status", "created_at", "updated_at"}
+        col = sort_by if sort_by in allowed_sort else "applied_at"
+        order = "ASC" if sort_order.lower() == "asc" else "DESC"
+        query += f" ORDER BY {col} {order}"
         if limit > 0:
             query += " LIMIT ? OFFSET ?"
             params.extend([limit, offset])
@@ -1195,11 +1251,20 @@ class Database:
                 (row["id"],)
             ).fetchone()
             app["last_note"] = last_note_row["notes"] if last_note_row else None
+            # Document count for list display (#77)
+            doc_count_row = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE linked_application_id=?",
+                (row["id"],)
+            ).fetchone()
+            app["document_count"] = doc_count_row[0] if doc_count_row else 0
             apps.append(self._serialize_application_row(app))
         return apps
 
     def count_applications(self, status: Optional[str] = None,
-                           include_archived: bool = True) -> int:
+                           include_archived: bool = True,
+                           from_date: Optional[str] = None,
+                           to_date: Optional[str] = None,
+                           search: Optional[str] = None) -> int:
         """Count applications without loading full data."""
         conn = self.connect()
         pid = self.get_active_profile_id()
@@ -1212,6 +1277,16 @@ class Database:
             placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
             query += f" AND status NOT IN ({placeholders})"
             params.extend(self.ARCHIVE_STATUSES)
+        if from_date:
+            query += " AND applied_at >= ?"
+            params.append(from_date)
+        if to_date:
+            query += " AND applied_at <= ?"
+            params.append(to_date + " 23:59:59" if len(to_date) == 10 else to_date)
+        if search:
+            query += " AND (title LIKE ? OR company LIKE ? OR notes LIKE ?)"
+            pattern = f"%{search}%"
+            params.extend([pattern, pattern, pattern])
         return conn.execute(query, params).fetchone()[0]
 
     def count_archived_applications(self) -> int:
@@ -1254,6 +1329,8 @@ class Database:
             VALUES (?, ?, ?, ?)
         """, (aid, data.get("status", "beworben"), now, "Bewerbung erstellt"))
         conn.commit()
+        # Auto-link documents by company name match
+        self._auto_link_documents(aid, data.get("company", ""))
         return aid
 
     def update_application_status(self, app_id: str, new_status: str,

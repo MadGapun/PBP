@@ -2,6 +2,80 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.25.0] - 2026-03-19
+
+### Major: 14 Issues abgearbeitet — Backend, Frontend, Installer (66 Tools, 14 Prompts)
+
+**Datenqualitaet (#79):**
+- Word-Temp-Dateien (~$...) werden bei Import und Upload automatisch gefiltert
+- Neue Dokumenttypen: `vorbereitung`, `projektliste`, `referenz`
+- BEWERBUNGS-MASTER-WISSEN.md wird korrekt als `referenz` erkannt (nicht mehr als `anschreiben`)
+- Einheitliche doc_type-Erkennung in Dashboard und MCP-Tools
+
+**API-Erweiterung: Bewerbungen (#81):**
+- Neue Query-Parameter: `from_date`, `to_date`, `search`, `sort_by`, `sort_order`
+- Freitext-Suche ueber Titel, Firma und Notizen
+- Sortierung nach: applied_at, title, company, status, created_at, updated_at
+- SQL-Injection-sichere Whitelist fuer Sortierfelder
+
+**Top-Stellen Bug-Fix (#98):**
+- Dashboard-Top-Stellen filtern bereits beworbene Jobs aus
+- Jobs mit Score 0 werden nicht mehr als Top-Stellen angezeigt
+- Score-Persistenz: Gepinnte Jobs und manuell bewertete Jobs behalten ihren Score bei Re-Import
+- `save_jobs()` prueft existierende Scores und Pin-Status vor INSERT OR REPLACE
+
+**Stellen-Detailansicht (#96):**
+- Aktionsbuttons im Detail-Modal: Bewerbung erfassen, Fit-Analyse, Anpinnen, Blacklist
+- Direkte Interaktion ohne Schliessen des Modals
+
+**Hilfe-Button kontextsensitiv (#95):**
+- Hilfe-Inhalte passen sich automatisch an die aktuelle Seite an
+- Spezifische Hilfe fuer: Dashboard, Profil, Stellen, Bewerbungen, Statistiken, Einstellungen
+- Allgemeine Hilfe wird immer zusaetzlich angezeigt
+
+**Auto-Link Dokumente (#77, #82):**
+- Beim Erstellen einer Bewerbung werden Dokumente automatisch per Firmenname verknuepft
+- Funktioniert identisch ueber MCP-Tool (`bewerbung_erstellen`) und Dashboard-API
+- Shared Logic in `database.py:_auto_link_documents()`
+- Dokument-Anzahl wird in der Bewerbungsliste angezeigt
+
+**Bewerbungsansicht verbessern (#78):**
+- Follow-Up-Banner verschlankt: Kompakte einzeilige Darstellung statt grosse Cards
+- Datumsfilter (Von/Bis) und erweiterte Freitext-Suche (auch Notizen)
+- Tage seit Bewerbung, Dokument-Count und Bewerbungsart als Badges
+- Ansprechpartner wird in der Karten-Ansicht angezeigt
+- Bewerbungstitel klickbar → oeffnet Timeline direkt
+
+**Bewerbungs-Detailansicht (#80, #97):**
+- Bewerbungs-Header mit Status-Badge, Kontaktdaten und Portal-Info
+- Stellenbeschreibung als ausklappbarer Bereich (collapsible)
+- Link zur Original-Stellenanzeige
+- Bewerbungsdatum und Ansprechpartner prominent sichtbar
+
+**Informelle Notizen (#92):**
+- Neuer Bereich `notizen` in `profil_bearbeiten` mit Aktion `anhang`
+- Sektion-basiertes Append: Text wird an benannte Sektion angehaengt (z.B. INTERVIEW-ERKENNTNISSE)
+- Timestamps werden automatisch hinzugefuegt ([YYYY-MM-DD])
+- Neue Sektionen werden automatisch erstellt wenn noch nicht vorhanden
+
+**Profil-Report PDF (#93):**
+- Neues MCP-Tool `profil_report_exportieren` — exportiert vollstaendigen Profil-Report als PDF
+- Nutzt bestehende CV-PDF-Generierung (inkl. Positionen, Projekte, Skills, Ausbildung)
+
+**Stundensatz & Arbeitsmodell (#94):**
+- Neue Praeferenz-Felder: `min_stundensatz`, `ziel_stundensatz`, `remote_anteil`, `max_vor_ort_tage`, `max_entfernung_km`
+- Werden in `profil_zusammenfassung` angezeigt
+- 2 neue MCP-Tools: `suchkriterien_bearbeiten` (inkrementell Keywords hinzufuegen/entfernen) und `suchkriterien_anzeigen` (aktuelle Kriterien anzeigen)
+
+**Installer Claude-Check (#91):**
+- Automatische Erkennung ob Claude Desktop bereits mit PBP konfiguriert ist
+- Checkbox wird deaktiviert mit "bereits konfiguriert" Hinweis
+
+**Technisch:**
+- 66 MCP-Tools (+3: profil_report_exportieren, suchkriterien_bearbeiten, suchkriterien_anzeigen)
+- 262 Tests, alle bestanden
+- Frontend-Build aktualisiert
+
 ## [0.24.1] - 2026-03-19
 
 ### Hotfix: Profil-Anzeige crashed durch inf-Float-Wert

@@ -462,31 +462,39 @@ export default function DashboardPage() {
               </Button>
             </div>
             <div className="mt-3 grid gap-2">
-              {data.jobs.slice(0, 3).length ? (
-                data.jobs.slice(0, 3).map((job) => (
-                  <button
-                    key={job.hash}
-                    type="button"
-                    className="group flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:-translate-y-[1px] hover:border-sky/35 hover:bg-white/[0.06] hover:shadow-[0_8px_20px_rgba(14,165,233,0.12)] hover:text-ink"
-                    onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>
-                      <p className="truncate text-[12px] text-muted/50">
-                        {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
-                      </p>
-                    </div>
-                    <span className="shrink-0"><Badge tone="amber">Score {job.score || 0}</Badge></span>
-                  </button>
-                ))
-              ) : (
-                <p className="py-4 text-center text-[13px] text-muted/50">
-                  Noch keine Stellen.{" "}
-                  <button type="button" className="text-teal/70 hover:text-teal" onClick={() => copyPrompt("/jobsuche_workflow")}>
-                    Suche starten
-                  </button>
-                </p>
-              )}
+              {(() => {
+                const appliedHashes = new Set(
+                  (data.applications || []).map((a) => a.job_hash).filter(Boolean)
+                );
+                const topJobs = data.jobs
+                  .filter((j) => !appliedHashes.has(j.hash) && (j.score || 0) > 0)
+                  .slice(0, 3);
+                return topJobs.length ? (
+                  topJobs.map((job) => (
+                    <button
+                      key={job.hash}
+                      type="button"
+                      className="group flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:-translate-y-[1px] hover:border-sky/35 hover:bg-white/[0.06] hover:shadow-[0_8px_20px_rgba(14,165,233,0.12)] hover:text-ink"
+                      onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>
+                        <p className="truncate text-[12px] text-muted/50">
+                          {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0"><Badge tone="amber">Score {job.score || 0}</Badge></span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="py-4 text-center text-[13px] text-muted/50">
+                    Noch keine Stellen.{" "}
+                    <button type="button" className="text-teal/70 hover:text-teal" onClick={() => copyPrompt("/jobsuche_workflow")}>
+                      Suche starten
+                    </button>
+                  </p>
+                );
+              })()}
             </div>
           </Card>
         </div>

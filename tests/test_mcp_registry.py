@@ -81,6 +81,9 @@ EXPECTED_TOOL_NAMES = {
     "dokument_verknuepfen",
     "linkedin_browser_search",
     "kennlerngespraech_abschliessen",
+    "profil_report_exportieren",
+    "suchkriterien_bearbeiten",
+    "suchkriterien_anzeigen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -170,7 +173,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 63
+        assert len(tools) == 66
         assert len(prompts) == 14
         assert len(resources) == 6
     finally:

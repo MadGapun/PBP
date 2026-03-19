@@ -35,7 +35,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [filters, setFilters] = useState({ query: "", status: "" });
+  const [filters, setFilters] = useState({ query: "", status: "", fromDate: "", toDate: "" });
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   const [newNoteText, setNewNoteText] = useState("");
@@ -176,10 +176,12 @@ export default function ApplicationsPage() {
   if (loading) return <LoadingPanel label="Bewerbungen werden geladen..." />;
 
   const filteredApplications = applications.filter((application) => {
-    const haystack = `${application.title || ""} ${application.company || ""}`.toLowerCase();
+    const haystack = `${application.title || ""} ${application.company || ""} ${application.notes || ""}`.toLowerCase();
     const queryMatch = !deferredQuery || haystack.includes(deferredQuery.toLowerCase());
     const statusMatch = !filters.status || application.status === filters.status;
-    return queryMatch && statusMatch;
+    const dateMatch = (!filters.fromDate || (application.applied_at || "") >= filters.fromDate) &&
+                      (!filters.toDate || (application.applied_at || "") <= filters.toDate + "T23:59:59");
+    return queryMatch && statusMatch && dateMatch;
   });
 
   const dueFollowUps = followUps.filter((item) => item.faellig);
@@ -225,9 +227,9 @@ export default function ApplicationsPage() {
 
         <Card className="rounded-2xl">
           <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_10rem_10rem]">
             <Field label="Suche">
-              <TextInput value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="Titel oder Firma" />
+              <TextInput value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="Titel, Firma oder Notizen" />
             </Field>
             <Field label="Status">
               <SelectInput value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
@@ -240,6 +242,12 @@ export default function ApplicationsPage() {
                 <option value="abgelehnt">Abgelehnt</option>
                 <option value="abgelaufen">Abgelaufen</option>
               </SelectInput>
+            </Field>
+            <Field label="Von">
+              <TextInput type="date" value={filters.fromDate} onChange={(event) => setFilters((current) => ({ ...current, fromDate: event.target.value }))} />
+            </Field>
+            <Field label="Bis">
+              <TextInput type="date" value={filters.toDate} onChange={(event) => setFilters((current) => ({ ...current, toDate: event.target.value }))} />
             </Field>
           </div>
         </Card>
@@ -255,10 +263,22 @@ export default function ApplicationsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
                         <span className="text-xs font-medium text-muted">{formatDate(application.applied_at)}</span>
+                        {application.applied_at && (() => {
+                          const days = Math.floor((Date.now() - Date.parse(application.applied_at)) / 86400000);
+                          return days > 0 ? <span className="text-xs text-muted/40">vor {days}d</span> : null;
+                        })()}
+                        {application.document_count > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted/50">
+                            <FileText size={12} /> {application.document_count}
+                          </span>
+                        )}
+                        {application.bewerbungsart && application.bewerbungsart !== "mit_dokumenten" && (
+                          <Badge tone="neutral">{application.bewerbungsart === "ueber_portal" ? "Portal" : application.bewerbungsart === "elektronisch" ? "E-Mail" : application.bewerbungsart}</Badge>
+                        )}
                       </div>
-                      <h3 className="text-xl font-semibold text-ink">{application.title}</h3>
-                      <p className="text-sm text-muted">{application.company}</p>
-                      {application.notes ? <p className="text-sm text-muted">{application.notes}</p> : null}
+                      <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
+                      <p className="text-sm text-muted">{application.company}{application.ansprechpartner ? ` — ${application.ansprechpartner}` : ""}</p>
+                      {application.notes ? <p className="text-sm text-muted">{textExcerpt(application.notes, 150)}</p> : null}
                       {application.last_note ? <p className="text-xs text-muted/40 truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-4">
@@ -291,21 +311,18 @@ export default function ApplicationsPage() {
 
           {followUps.length > 0 && (
             <Card className="rounded-2xl">
-              <SectionHeading title="Follow-ups" description="Fällige Nachfassaktionen werden vom Backend berechnet." />
-              <div className="grid gap-4">
+              <SectionHeading title={`Follow-ups (${followUps.length})`} />
+              <div className="grid gap-1.5">
                 {followUps.map((followUp) => (
-                  <Card key={followUp.id} className="glass-card-soft rounded-xl shadow-none">
-                    <div className="flex items-start gap-3">
-                      <div className="glass-icon glass-icon-danger h-12 w-12">
-                        <CalendarClock size={16} />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-ink">{followUp.title} - {followUp.company}</p>
-                        <p className="text-sm text-muted">Fällig am {formatDate(followUp.scheduled_date)}</p>
-                        <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
-                      </div>
-                    </div>
-                  </Card>
+                  <div key={followUp.id} className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
+                    followUp.faellig ? "bg-coral/8 border border-coral/15" : "bg-white/[0.03] border border-white/5"
+                  )}>
+                    <CalendarClock size={14} className={followUp.faellig ? "text-coral" : "text-muted/40"} />
+                    <span className="flex-1 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
+                    <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
+                    <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
+                  </div>
                 ))}
               </div>
             </Card>
@@ -347,7 +364,33 @@ export default function ApplicationsPage() {
         footer={<div className="flex justify-end"><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schließen</Button></div>}
       >
         <div className="grid gap-5">
-          {/* Job details */}
+          {/* Application details & contact */}
+          {timelineDialog.entry?.application && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung</p>
+                  <h3 className="mt-1 text-base font-semibold text-ink">{timelineDialog.entry.application.title}</h3>
+                  <p className="text-sm text-muted">{timelineDialog.entry.application.company}</p>
+                </div>
+                <Badge tone={statusTone(timelineDialog.entry.application.status)}>{timelineDialog.entry.application.status}</Badge>
+              </div>
+              {(timelineDialog.entry.application.ansprechpartner || timelineDialog.entry.application.kontakt_email) && (
+                <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted/70">
+                  {timelineDialog.entry.application.ansprechpartner && <span>Kontakt: {timelineDialog.entry.application.ansprechpartner}</span>}
+                  {timelineDialog.entry.application.kontakt_email && <a href={`mailto:${timelineDialog.entry.application.kontakt_email}`} className="text-sky hover:underline">{timelineDialog.entry.application.kontakt_email}</a>}
+                </div>
+              )}
+              {timelineDialog.entry.application.portal_name && (
+                <p className="mt-1 text-xs text-muted/50">Portal: {timelineDialog.entry.application.portal_name}</p>
+              )}
+              {timelineDialog.entry.application.applied_at && (
+                <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(timelineDialog.entry.application.applied_at)}</p>
+              )}
+            </Card>
+          )}
+
+          {/* Job details with full description */}
           {timelineDialog.entry?.job ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Stellendetails</p>
@@ -363,6 +406,19 @@ export default function ApplicationsPage() {
                   Gehalt: {formatCurrency(timelineDialog.entry.job.salary_min)}{timelineDialog.entry.job.salary_max ? ` bis ${formatCurrency(timelineDialog.entry.job.salary_max)}` : ""}{timelineDialog.entry.job.salary_estimated ? " (geschätzt)" : ""}
                 </p>
               ) : null}
+              {timelineDialog.entry.job.url && (
+                <a href={timelineDialog.entry.job.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-sky hover:underline">
+                  Stellenanzeige oeffnen
+                </a>
+              )}
+              {timelineDialog.entry.job.description && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink">Stellenbeschreibung anzeigen</summary>
+                  <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
+                    {timelineDialog.entry.job.description}
+                  </div>
+                </details>
+              )}
             </Card>
           ) : null}
 

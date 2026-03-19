@@ -684,6 +684,9 @@ async def api_import_folder(request: Request):
     for fpath in file_iter:
         if not fpath.is_file() or fpath.suffix.lower() not in supported:
             continue
+        # Skip Word temp files (~$...)
+        if fpath.name.startswith("~$"):
+            continue
         files_found += 1
 
         extracted = ""
@@ -702,17 +705,8 @@ async def api_import_folder(request: Request):
         except Exception as e:
             logger.warning("Import: Text extraction failed for %s: %s", fpath.name, e)
 
-        # Determine doc type from filename
-        doc_type = "sonstiges"
-        fl = fname
-        if any(k in fl for k in ("lebenslauf", "cv", "resume", "vita")):
-            doc_type = "lebenslauf"
-        elif any(k in fl for k in ("zeugnis", "referenz", "certificate")):
-            doc_type = "zeugnis"
-        elif any(k in fl for k in ("anschreiben", "cover", "motivationsschreiben")):
-            doc_type = "anschreiben"
-        elif any(k in fl for k in ("zertifikat", "cert", "bescheinigung")):
-            doc_type = "zertifikat"
+        # Determine doc type from filename (use shared _detect_doc_type)
+        doc_type = _detect_doc_type(fpath.name, extracted) or "sonstiges"
 
         if import_docs:
             # Copy file to doc_dir
@@ -920,19 +914,28 @@ async def api_fit_analyse(job_hash: str):
 @app.get("/api/applications")
 async def api_applications(
     status: str = None, limit: int = 30, offset: int = 0,
-    include_archived: bool = False
+    include_archived: bool = False,
+    from_date: str = None, to_date: str = None,
+    search: str = None, sort_by: str = "applied_at", sort_order: str = "desc",
 ):
+    filter_kwargs = dict(from_date=from_date, to_date=to_date, search=search)
     total = _db.count_applications(status, include_archived=True)
     archived_count = _db.count_archived_applications()
     active_count = total - archived_count
     if status:
-        apps = _db.get_applications(status=status, limit=limit, offset=offset)
-        filtered_total = _db.count_applications(status=status)
+        apps = _db.get_applications(
+            status=status, limit=limit, offset=offset,
+            sort_by=sort_by, sort_order=sort_order, **filter_kwargs,
+        )
+        filtered_total = _db.count_applications(status=status, **filter_kwargs)
     else:
         apps = _db.get_applications(
-            include_archived=include_archived, limit=limit, offset=offset
+            include_archived=include_archived, limit=limit, offset=offset,
+            sort_by=sort_by, sort_order=sort_order, **filter_kwargs,
         )
-        filtered_total = active_count if not include_archived else total
+        filtered_total = _db.count_applications(
+            include_archived=include_archived, **filter_kwargs,
+        )
     return {
         "applications": apps, "total": total,
         "filtered_total": filtered_total,
@@ -1176,6 +1179,12 @@ async def api_upload_document(
         )
 
     incoming_name = file.filename or "upload.bin"
+    # Reject Word temp files (~$...)
+    if incoming_name.startswith("~$"):
+        return JSONResponse(
+            {"error": "Temporaere Word-Datei (~$...) wird nicht importiert."},
+            status_code=400,
+        )
     doc_dir = _get_active_profile_document_dir()
     stored_filename, filepath = _resolve_upload_filepath(doc_dir, incoming_name)
     with open(filepath, "wb") as f:
@@ -1251,13 +1260,23 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     fname = filename.lower()
     text_lower = (text or "").lower()[:2000]
 
-    # Filename patterns
-    if any(kw in fname for kw in ["lebenslauf", "cv", "resume", "curriculum"]):
+    # Special cases: known reference documents
+    if "master-wissen" in fname or "bewerbungs-master" in fname:
+        return "referenz"
+
+    # Filename patterns (order matters — more specific first)
+    if any(kw in fname for kw in ["vorbereitung", "preparation", "interview-prep"]):
+        return "vorbereitung"
+    if any(kw in fname for kw in ["projektliste", "project-list", "projekte"]):
+        return "projektliste"
+    if any(kw in fname for kw in ["lebenslauf", "cv", "resume", "curriculum", "vita"]):
         return "lebenslauf"
-    if any(kw in fname for kw in ["anschreiben", "cover", "bewerbung", "motivations"]):
+    if any(kw in fname for kw in ["anschreiben", "cover", "motivations"]):
         return "anschreiben"
-    if any(kw in fname for kw in ["zeugnis", "referenz", "arbeitszeugnis"]):
+    if any(kw in fname for kw in ["zeugnis", "arbeitszeugnis"]):
         return "zeugnis"
+    if any(kw in fname for kw in ["referenz", "reference", "empfehlung"]):
+        return "referenz"
     if any(kw in fname for kw in ["zertifikat", "certificate", "bescheinigung"]):
         return "zertifikat"
 

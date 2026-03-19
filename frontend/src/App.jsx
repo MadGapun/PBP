@@ -1048,17 +1048,99 @@ export default function App() {
 
             {helpTab === "hilfe" && (
               <div className="space-y-3 text-sm text-muted/60">
+                {/* Context-sensitive help based on current page */}
+                {page === "dashboard" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Dashboard</h3>
+                      <p>Das Dashboard zeigt dir eine Uebersicht ueber dein Profil, aktuelle Stellen und Bewerbungen. Die Metriken aktualisieren sich automatisch.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Top-Stellen</h3>
+                      <p>Zeigt die 3 besten Stellen nach Score, bei denen du dich noch nicht beworben hast. Klicke darauf, um zur Stellenansicht zu springen.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
+                      <p>Faellige Nachfass-Aktionen werden hier hervorgehoben. Klicke auf "Erledigt", um sie abzuhaken.</p>
+                    </div>
+                  </>
+                )}
+                {page === "profil" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Profil aufbauen</h3>
+                      <p>Dein Profil ist die Basis fuer alles: Lebenslauf-Export, Fit-Analysen und personalisierte Anschreiben. Je vollstaendiger, desto besser.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Positionen & Projekte</h3>
+                      <p>Fuelle Positionen mit dem STAR-Format aus (Situation, Task, Action, Result). Das ergibt starke Projektbeschreibungen fuer den Lebenslauf.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Dokumente</h3>
+                      <p>Ziehe PDF- oder DOCX-Dateien per Drag & Drop ins Fenster. Der Dokumenttyp wird automatisch erkannt.</p>
+                    </div>
+                  </>
+                )}
+                {page === "stellen" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Stellensuche</h3>
+                      <p>Aktiviere Jobquellen unter "Einstellungen" und starte eine Suche ueber Claude mit "/jobsuche_workflow". Die Stellen werden automatisch bewertet.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Score</h3>
+                      <p>Der Score (0–100) zeigt die Passgenauigkeit: Entfernung, Skills, Gehalt und Keywords fliessen ein. Klicke auf den Score um ihn manuell anzupassen.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Fit-Analyse</h3>
+                      <p>Klicke auf "Fit-Analyse" fuer eine detaillierte Auswertung der MUSS-/PLUS-Treffer und Risiken.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Anpinnen & Blacklist</h3>
+                      <p>Pinne interessante Stellen an, damit sie oben bleiben. Unpassende Firmen oder Keywords kannst du auf die Blacklist setzen.</p>
+                    </div>
+                  </>
+                )}
+                {page === "bewerbungen" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Bewerbungen verwalten</h3>
+                      <p>Hier trackst du alle laufenden Bewerbungen mit Status, Timeline und Notizen. Aendere den Status per Dropdown.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Timeline & Notizen</h3>
+                      <p>Klicke auf eine Bewerbung fuer die vollstaendige Timeline. Dort kannst du Notizen hinzufuegen und Follow-Ups planen.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
+                      <p>Plane automatische Erinnerungen (z.B. "In 2 Wochen nachfragen"). Die werden auf dem Dashboard als TODO angezeigt.</p>
+                    </div>
+                  </>
+                )}
+                {page === "statistiken" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Statistiken</h3>
+                      <p>Visualisiert Bewerbungsverlauf, Erfolgsquoten, Antwortzeiten und Gehaltsverteilung. Exportiere Berichte als PDF.</p>
+                    </div>
+                  </>
+                )}
+                {page === "einstellungen" && (
+                  <>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Jobquellen</h3>
+                      <p>Aktiviere und deaktiviere einzelne Quellen (StepStone, Indeed, LinkedIn, etc.). LinkedIn und XING benoetigen Login-Daten.</p>
+                    </div>
+                    <div className="glass-card p-3">
+                      <h3 className="font-medium text-ink mb-1">Suchkriterien</h3>
+                      <p>Definiere MUSS-Keywords (Pflicht), PLUS-Keywords (Bonus) und AUSSCHLUSS-Keywords. Diese steuern den Score der gefundenen Stellen.</p>
+                    </div>
+                  </>
+                )}
+                {/* General help always shown */}
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Wie starte ich?</h3>
                   <p>Oeffne Claude Desktop und tippe "Ersterfassung starten". Claude fuehrt dich durch den Aufbau deines Bewerbungsprofils.</p>
-                </div>
-                <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-1">Wie finde ich Stellen?</h3>
-                  <p>Aktiviere Jobquellen unter "Einstellungen", dann starte eine Suche ueber Claude mit "Jobsuche starten".</p>
-                </div>
-                <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-1">Wie bewerbe ich mich?</h3>
-                  <p>Klicke bei einer Stelle auf "Bewerben". Claude erstellt Anschreiben und Lebenslauf auf Basis deines Profils.</p>
                 </div>
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Support</h3>
@@ -1105,7 +1187,7 @@ export default function App() {
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">PBP — Persoenliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v0.24.1</p>
+                  <p className="text-muted/60">Version: v0.25.0</p>
                   <p className="text-muted/60">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">

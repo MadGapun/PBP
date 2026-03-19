@@ -1,4 +1,4 @@
-"""Suchkriterien und Blacklist-Verwaltung — 2 Tools."""
+"""Suchkriterien und Blacklist-Verwaltung — 4 Tools."""
 
 
 def register(mcp, db, logger):
@@ -12,7 +12,7 @@ def register(mcp, db, logger):
         regionen: list[str] = None,
         custom_kriterien: dict = None
     ) -> dict:
-        """Setzt die Suchkriterien fuer die Jobsuche.
+        """Setzt die Suchkriterien fuer die Jobsuche (ersetzt die gesamte Liste).
 
         MUSS-Keywords: Stelle wird nur beruecksichtigt wenn mindestens eins vorkommt.
         PLUS-Keywords: Erhoehen den Score (= bessere Sortierung).
@@ -39,6 +39,61 @@ def register(mcp, db, logger):
         if custom_kriterien:
             db.set_search_criteria("custom_kriterien", custom_kriterien)
         return {"status": "gespeichert", "kriterien": db.get_search_criteria()}
+
+    @mcp.tool()
+    def suchkriterien_bearbeiten(
+        kategorie: str,
+        aktion: str,
+        werte: list[str] = None
+    ) -> dict:
+        """Einzelne Keywords zu Suchkriterien hinzufuegen oder entfernen.
+
+        Statt die gesamte Liste zu ersetzen, koennen einzelne Keywords
+        inkrementell hinzugefuegt oder entfernt werden.
+
+        Args:
+            kategorie: 'muss', 'plus' oder 'ausschluss'
+            aktion: 'hinzufuegen' oder 'entfernen'
+            werte: Liste der Keywords
+        """
+        key_map = {"muss": "keywords_muss", "plus": "keywords_plus", "ausschluss": "keywords_ausschluss"}
+        key = key_map.get(kategorie)
+        if not key:
+            return {"fehler": f"Kategorie muss 'muss', 'plus' oder 'ausschluss' sein, nicht '{kategorie}'"}
+        if not werte:
+            return {"fehler": "Keine Werte angegeben"}
+
+        criteria = db.get_search_criteria()
+        current = criteria.get(key, [])
+        if isinstance(current, str):
+            import json
+            current = json.loads(current) if current else []
+
+        if aktion == "hinzufuegen":
+            current_set = set(w.lower() for w in current)
+            added = []
+            for w in werte:
+                if w.lower() not in current_set:
+                    current.append(w)
+                    added.append(w)
+            db.set_search_criteria(key, current)
+            return {"status": "hinzugefuegt", "kategorie": kategorie, "hinzugefuegt": added, "gesamt": len(current)}
+        elif aktion == "entfernen":
+            remove_set = set(w.lower() for w in werte)
+            removed = [w for w in current if w.lower() in remove_set]
+            current = [w for w in current if w.lower() not in remove_set]
+            db.set_search_criteria(key, current)
+            return {"status": "entfernt", "kategorie": kategorie, "entfernt": removed, "gesamt": len(current)}
+        return {"fehler": "Aktion muss 'hinzufuegen' oder 'entfernen' sein."}
+
+    @mcp.tool()
+    def suchkriterien_anzeigen() -> dict:
+        """Zeigt die aktuellen Suchkriterien an.
+
+        Gibt alle MUSS-, PLUS- und AUSSCHLUSS-Keywords, Regionen und
+        benutzerdefinierte Kriterien zurueck.
+        """
+        return {"kriterien": db.get_search_criteria()}
 
     @mcp.tool()
     def blacklist_verwalten(

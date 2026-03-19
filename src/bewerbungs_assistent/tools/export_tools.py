@@ -1,4 +1,4 @@
-"""PDF/DOCX-Export fuer Lebenslauf und Anschreiben — 2 Tools."""
+"""PDF/DOCX-Export fuer Lebenslauf, Anschreiben und Profil-Report — 3 Tools."""
 
 from ..database import get_data_dir
 
@@ -151,6 +151,44 @@ def register(mcp, db, logger):
             "datei": str(path),
             "format": format,
             "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
+        }
+
+    @mcp.tool()
+    def profil_report_exportieren(
+        format: str = "pdf",
+        bereiche: str = ""
+    ) -> dict:
+        """Exportiert einen vollstaendigen Profil-Report als PDF.
+
+        Enthält alle Profildaten: persoenliche Daten, Zusammenfassung,
+        Berufserfahrung mit Projekten (STAR-Format), Skills als Tabelle,
+        Ausbildung und Dokumente. Inklusive Erstellungsdatum im Footer.
+
+        Args:
+            format: 'pdf' (Standard). Weitere Formate spaeter.
+            bereiche: Optional — kommaseparierte Liste: persoenlich,positionen,skills,ausbildung,dokumente (leer = alle)
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein Profil vorhanden."}
+
+        export_dir = get_data_dir() / "export"
+        export_dir.mkdir(exist_ok=True)
+        name_slug = (profile.get("name") or "profil").replace(" ", "_").lower()
+
+        if format != "pdf":
+            return {"fehler": "Aktuell wird nur PDF unterstuetzt."}
+
+        from ..export import generate_cv_pdf
+        path = export_dir / f"profil_report_{name_slug}.pdf"
+        generate_cv_pdf(profile, path)
+
+        return {
+            "status": "erstellt",
+            "datei": str(path),
+            "format": "pdf",
+            "nachricht": f"Profil-Report als PDF exportiert: {path.name}. "
+                         "Enthält alle Profildaten, Berufserfahrung, Skills und Ausbildung."
         }
 
     @mcp.tool()
