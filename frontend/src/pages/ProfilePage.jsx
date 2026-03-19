@@ -52,7 +52,7 @@ const EMPTY_PROFILE = {
   nationality: "",
   summary: "",
   informal_notes: "",
-  preferences: { stellentyp: "", min_gehalt: "", ziel_gehalt: "", min_tagessatz: "" },
+  preferences: { stellentyp: "", min_gehalt: "", ziel_gehalt: "", min_tagessatz: "", min_stundensatz: "", max_entfernung_km: "" },
 };
 
 const EMPTY_POSITION = {
@@ -151,7 +151,7 @@ function toDraft(profile) {
 
 function normalizeProfile(draft) {
   const preferences = { ...(draft.preferences || {}) };
-  ["min_gehalt", "ziel_gehalt", "min_tagessatz"].forEach((key) => {
+  ["min_gehalt", "ziel_gehalt", "min_tagessatz", "min_stundensatz", "max_entfernung_km"].forEach((key) => {
     if (preferences[key] === "" || preferences[key] === null || typeof preferences[key] === "undefined") {
       preferences[key] = null;
       return;
@@ -170,6 +170,8 @@ function criteriaToDraft(criteria) {
     regionen: [...(criteria?.regionen || [])],
     min_gehalt: criteria?.min_gehalt ?? "",
     min_tagessatz: criteria?.min_tagessatz ?? "",
+    min_stundensatz: criteria?.min_stundensatz ?? "",
+    max_entfernung_km: criteria?.max_entfernung_km ?? "",
     stellentyp: criteria?.stellentyp || "",
     gewichtung_muss: criteria?.gewichtung?.muss ?? 2,
     gewichtung_plus: criteria?.gewichtung?.plus ?? 1,
@@ -188,6 +190,8 @@ function criteriaDraftToPayload(criteriaDraft) {
     regionen: criteriaDraft.regionen,
     min_gehalt: criteriaDraft.min_gehalt === "" ? null : Number(criteriaDraft.min_gehalt),
     min_tagessatz: criteriaDraft.min_tagessatz === "" ? null : Number(criteriaDraft.min_tagessatz),
+    min_stundensatz: criteriaDraft.min_stundensatz === "" ? null : Number(criteriaDraft.min_stundensatz),
+    max_entfernung_km: criteriaDraft.max_entfernung_km === "" ? null : Number(criteriaDraft.max_entfernung_km),
     stellentyp: criteriaDraft.stellentyp,
     gewichtung: {
       muss: Number(criteriaDraft.gewichtung_muss),
@@ -985,8 +989,36 @@ export default function ProfilePage() {
 
   return (
     <div id="page-profil" className="page active">
-      <div className="mb-6 flex items-baseline justify-between gap-4">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Profil</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={() => importRef.current?.click()}>
+            <Upload size={15} /> Importieren
+          </Button>
+          <Button variant="ghost" onClick={async () => {
+            const res = await api("/api/profile/export");
+            const blob = new Blob([JSON.stringify(res, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = `profil_${draft.name || "backup"}.json`; a.click();
+            URL.revokeObjectURL(url);
+            pushToast("Profil exportiert", "success");
+          }}>
+            <Download size={15} /> Exportieren
+          </Button>
+          <Button variant="danger" onClick={async () => {
+            if (!window.confirm("Profil wirklich löschen? Alle zugehörigen Daten (Positionen, Skills, Dokumente) werden ebenfalls gelöscht.")) return;
+            try {
+              await api(`/api/profiles/${profile.id}`, { method: "DELETE" });
+              pushToast("Profil gelöscht", "success");
+              refreshChrome();
+            } catch (err) {
+              pushToast("Fehler beim Löschen: " + (err.message || err), "error");
+            }
+          }}>
+            <Trash2 size={15} /> Löschen
+          </Button>
+        </div>
       </div>
 
       <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
@@ -1097,6 +1129,23 @@ export default function ProfilePage() {
                   onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_tagessatz: event.target.value }))}
                 />
               </Field>
+              <Field label="Min. Stundensatz">
+                <TextInput
+                  type="number"
+                  value={criteriaDraft.min_stundensatz}
+                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_stundensatz: event.target.value }))}
+                />
+              </Field>
+              <Field label="Max. Entfernung (km)">
+                <TextInput
+                  type="number"
+                  value={criteriaDraft.max_entfernung_km}
+                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, max_entfernung_km: event.target.value }))}
+                  placeholder="z.B. 50"
+                />
+              </Field>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
               <Field label="Stellentyp">
                 <SelectInput
                   value={criteriaDraft.stellentyp}
