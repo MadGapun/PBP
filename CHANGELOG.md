@@ -34,6 +34,11 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 - Alte Vanilla-JS Browser-Tests als `skip` markiert (Dashboard seit v0.23.0 React)
 - Neuer React-kompatibler Smoke-Test: Seitenlade, Hash-Navigation, API-Erreichbarkeit
 
+**Installer-Fix:**
+- **Fix**: Installer installiert jetzt `playwright` Python-Paket und laedt Chromium-Browser
+  automatisch herunter. Vorher fehlte Playwright im Installer, sodass LinkedIn- und
+  XING-Browser-Suche mit "Playwright nicht installiert" fehlschlug (Installer v0.7.1).
+
 **Tests:** 253+ bestanden
 
 ## [0.23.1] - 2026-03-19

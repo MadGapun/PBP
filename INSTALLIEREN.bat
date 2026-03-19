@@ -4,7 +4,7 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.7.0
+:: PBP Installer v0.7.1
 :: Fix: GOTO-basierte Fehlerbehandlung
 ::      (keine Klammern in echo innerhalb IF-Bloecken)
 :: Fix: Debug-Logging zwischen allen Schritten
@@ -306,8 +306,15 @@ echo [OK] Kernpakete installiert >> "%LOGFILE%"
 
 :: Optionale Pakete - Scraper
 echo [DEBUG] Optionale Pakete Scraper... >> "%LOGFILE%"
-"%PYTHON%" -m pip install beautifulsoup4 lxml --no-warn-script-location >> "%LOGFILE%" 2>&1
-if !errorlevel! equ 0 echo         [OK] Job-Scraper installiert
+"%PYTHON%" -m pip install playwright beautifulsoup4 lxml --no-warn-script-location >> "%LOGFILE%" 2>&1
+if !errorlevel! equ 0 (
+    echo         [OK] Job-Scraper Pakete installiert
+    echo [DEBUG] Installiere Playwright Browser... >> "%LOGFILE%"
+    echo         Lade Browser fuer LinkedIn/XING-Suche...
+    "%PYTHON%" -m playwright install chromium >> "%LOGFILE%" 2>&1
+    if !errorlevel! equ 0 echo         [OK] Job-Scraper komplett installiert
+    if !errorlevel! neq 0 echo         [--] Browser-Download fehlgeschlagen
+)
 if !errorlevel! neq 0 echo         [--] Job-Scraper uebersprungen
 
 :: Optionale Pakete - PDF/Word
