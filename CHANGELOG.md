@@ -4,12 +4,20 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [0.23.3] - 2026-03-19
 
-### Bugfix: XING Login-Flow
+### Bugfixes + Installer-Verbesserungen
 
-- **XING Login fehlgeschlagen**: `ensure_xing_session` fehlte in `xing.py` —
-  XING-Login ueber Dashboard schlug mit ImportError fehl.
-- **Installer**: Playwright + Chromium werden jetzt automatisch installiert
-  (Fix aus v0.23.2 Installer-Patch).
+- **XING Login fehlgeschlagen**: `ensure_xing_session` fehlte im Release-ZIP —
+  XING-Login ueber Dashboard schlug mit ImportError fehl. ZIP wird jetzt korrekt
+  aus dem aktuellen Code gebaut.
+- **Dashboard starten.bat nicht gefunden**: Desktop-Shortcut und Dashboard-Start
+  zeigten auf den temporaeren ZIP-Entpackpfad. Startdateien werden jetzt in den
+  festen Installationspfad (`%LOCALAPPDATA%\BewerbungsAssistent`) kopiert.
+- **Python wird nicht mehr unnoetig heruntergeladen**: Installer prueft jetzt ob
+  Python aus einer frueheren Installation bereits vorhanden ist und verwendet es
+  wieder, statt bei jedem Update erneut herunterzuladen (Installer v0.8.0).
+- **LinkedIn/XING Profil-Optimierung**: Neuer Hinweis bei LinkedIn und XING
+  Quellen, dass Profile automatisch von Claude optimiert werden koennen
+  (verbraucht viele API-Tokens und dauert einige Minuten).
 
 ## [0.23.2] - 2026-03-19
 

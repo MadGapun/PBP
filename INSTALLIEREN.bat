@@ -4,11 +4,10 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.7.1
-:: Fix: GOTO-basierte Fehlerbehandlung
-::      (keine Klammern in echo innerhalb IF-Bloecken)
-:: Fix: Debug-Logging zwischen allen Schritten
-:: Fix: PowerShell Expand-Archive statt tar
+:: PBP Installer v0.8.0
+:: Fix: Dashboard + Startdateien nach DATA_DIR kopieren
+:: Fix: Python nur downloaden wenn noch nicht vorhanden
+:: Fix: Desktop-Shortcut zeigt auf DATA_DIR (stabil)
 :: -------------------------------------------
 
 :: Variablen
@@ -33,7 +32,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.7.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.8.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -44,7 +43,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.7.0
+echo    Installer v0.8.0
 echo.
 echo  ====================================================
 echo.
@@ -105,8 +104,18 @@ if exist "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" (
 echo  [1/4] Python einrichten...
 echo [1/4] Python einrichten... >> "%LOGFILE%"
 
-:: Python bereits vorhanden?
+:: Python bereits vorhanden? (1. im ZIP-Ordner, 2. in DATA_DIR von frueherer Installation)
 if exist "%PYTHON%" goto :python_ready
+
+:: Fruehere Installation in DATA_DIR vorhanden? -> wiederverwenden statt neu downloaden
+if exist "%DATA_DIR%\python\python.exe" (
+    echo [INFO] Python aus frueherer Installation gefunden: %DATA_DIR%\python >> "%LOGFILE%"
+    echo         Python aus frueherer Installation gefunden.
+    if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
+    xcopy "%DATA_DIR%\python" "%PYTHON_DIR%\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+    if exist "%PYTHON%" goto :python_ready
+    echo [WARN] Kopie fehlgeschlagen, lade Python neu herunter >> "%LOGFILE%"
+)
 
 :: --- Python muss heruntergeladen werden ---
 echo.
@@ -370,6 +379,13 @@ xcopy "%SRC_DIR%" "%DATA_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
 echo [OK] src kopiert >> "%LOGFILE%"
 
+:: Startdateien nach DATA_DIR kopieren (Dashboard starten.bat + start_dashboard.py)
+echo [DEBUG] Kopiere Startdateien... >> "%LOGFILE%"
+if exist "%BASEDIR%\Dashboard starten.bat" copy /Y "%BASEDIR%\Dashboard starten.bat" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\start_dashboard.py" copy /Y "%BASEDIR%\start_dashboard.py" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\_selftest.py" copy /Y "%BASEDIR%\_selftest.py" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+echo [OK] Startdateien kopiert >> "%LOGFILE%"
+
 echo         [OK] Runtime installiert in %DATA_DIR%
 echo [OK] Runtime installiert >> "%LOGFILE%"
 echo.
@@ -437,8 +453,8 @@ echo [DEBUG] Starte Schritt 4 >> "%LOGFILE%"
 echo  [4/4] Erstelle Startdateien und teste...
 echo [4/4] Startdateien + Test... >> "%LOGFILE%"
 
-:: Desktop-Verknuepfung
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%BASEDIR%\Dashboard starten.bat'; $s.WorkingDirectory='%BASEDIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
+:: Desktop-Verknuepfung (zeigt auf DATA_DIR - stabil auch nach ZIP-Loeschung)
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%DATA_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%DATA_DIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
 if !errorlevel! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
 if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 
@@ -507,7 +523,7 @@ if /i "!OPEN_DASH!" neq "j" goto :skip_dashboard
 
 echo.
 echo  Starte Dashboard...
-start "" "%BASEDIR%\Dashboard starten.bat"
+start "" "%DATA_DIR%\Dashboard starten.bat"
 timeout /t 3 /nobreak >nul
 echo  Dashboard laeuft auf http://localhost:8200
 echo.

@@ -55,6 +55,7 @@ SOURCE_REGISTRY = {
         "beschreibung": "Internationales Business-Netzwerk. Beim ersten Start oeffnet sich ein Browser zur Anmeldung.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": True,
+        "profil_optimierung": "Dein LinkedIn-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
     },
     "indeed": {
         "name": "Indeed",
@@ -67,6 +68,7 @@ SOURCE_REGISTRY = {
         "beschreibung": "Deutsches Business-Netzwerk. Beim ersten Start oeffnet sich ein Browser zur Anmeldung.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": True,
+        "profil_optimierung": "Dein XING-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
     },
     "monster": {
         "name": "Monster",
