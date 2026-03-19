@@ -44,6 +44,17 @@ def _wait_for_server(base_url: str, timeout: float = 10.0) -> None:
     raise RuntimeError(f"Dashboard unter {base_url} wurde nicht rechtzeitig bereit: {last_error}")
 
 
+def _dismiss_setup_overlay(page) -> None:
+    """Close the first-run setup overlay when it is visible."""
+    later_button = page.get_by_role("button", name="Später")
+    if later_button.count():
+        try:
+            later_button.first.wait_for(state="visible", timeout=1500)
+            later_button.first.click()
+        except PlaywrightError:
+            pass
+
+
 @pytest.fixture
 def live_dashboard(tmp_path):
     """Start a live dashboard server with a temporary SQLite database."""
@@ -129,6 +140,74 @@ def _seed_ready_workspace(db) -> None:
         }
     )
     db.add_follow_up(app_id, (datetime.now().date() - timedelta(days=1)).isoformat())
+
+
+def _seed_timeline_workspace(db) -> str:
+    """Create a profile with one linked job/application for timeline regressions."""
+    profile_id = db.save_profile(
+        {
+            "name": "Max Timeline",
+            "email": "timeline@example.com",
+            "phone": "+49 40 123456",
+            "address": "Musterweg 1",
+            "city": "Hamburg",
+            "plz": "20095",
+            "summary": "PLM-Berater mit Fokus auf Modernisierung",
+            "preferences": {"stellentyp": "festanstellung"},
+        }
+    )
+    db.add_skill({"name": "React", "category": "tool", "level": 4, "profile_id": profile_id})
+    db.set_profile_setting("active_sources", ["bundesagentur", "stepstone"])
+    db.set_profile_setting("last_search_at", datetime.now().isoformat())
+
+    now = datetime.now().isoformat()
+    conn = db.connect()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO jobs (
+            hash, title, company, location, url, source, description, score,
+            remote_level, salary_min, salary_max, salary_type, employment_type,
+            is_active, is_pinned, profile_id, found_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+        """,
+        (
+            "timeline-job-1",
+            "Senior PLM Consultant",
+            "ACME GmbH",
+            "Hamburg",
+            "https://example.com/jobs/1",
+            "stepstone",
+            "Lange Stellenbeschreibung fuer die Timeline.",
+            88,
+            "hybrid",
+            85000,
+            92000,
+            "jahr",
+            "festanstellung",
+            profile_id,
+            now,
+            now,
+        ),
+    )
+    conn.commit()
+
+    app_id = db.add_application(
+        {
+            "job_hash": "timeline-job-1",
+            "title": "Senior PLM Consultant",
+            "company": "ACME GmbH",
+            "url": "https://example.com/jobs/1",
+            "status": "beworben",
+            "applied_at": datetime.now().date().isoformat(),
+            "notes": "Erstkontakt lief positiv.",
+            "ansprechpartner": "Julia Beispiel",
+            "kontakt_email": "julia@example.com",
+            "portal_name": "StepStone",
+        }
+    )
+    db.add_application_note(app_id, "Telefonat geführt")
+    return app_id
 
 
 @pytest.mark.skip(reason="Tests reference old Vanilla-JS dashboard — React-Frontend seit v0.23.0")
@@ -292,5 +371,81 @@ def test_react_frontend_smoke(live_dashboard, browser):
         # 3) API endpoint responds
         response = httpx.get(f"{live_dashboard['base_url']}/api/workspace-summary", timeout=5.0)
         assert response.status_code == 200
+    finally:
+        context.close()
+
+
+def test_help_button_opens_support_modal(live_dashboard, browser):
+    """The help button opens the support modal with issue/report actions."""
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"], wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+
+        page.get_by_title("Hilfe & Support").click()
+        page.get_by_role("heading", name="Hilfe & Support").wait_for(state="visible")
+        page.get_by_role("button", name="Bug melden").click()
+
+        issue_link = page.get_by_role("link", name="Bug auf GitHub melden")
+        issue_link.wait_for(state="visible")
+        href = issue_link.get_attribute("href") or ""
+        assert "github.com/MadGapun/PBP/issues/new" in href
+        assert "labels=bug" in href
+    finally:
+        context.close()
+
+
+def test_application_timeline_supports_note_and_status_changes(live_dashboard, browser):
+    """Timeline modal supports adding notes and changing status directly."""
+    _seed_timeline_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#bewerbungen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.locator("h1").filter(has_text="Bewerbungen").wait_for(state="visible")
+
+        page.get_by_role("heading", name="Senior PLM Consultant").click()
+        page.get_by_text("Neue Notiz").wait_for(state="visible")
+
+        note_input = page.get_by_placeholder("Notiz hinzufügen...")
+        note_input.fill("Browser-Regression: Timeline-Notiz")
+        page.get_by_role("button", name="Hinzufügen").click()
+        page.get_by_text("Notiz hinzugefügt.").wait_for(state="visible")
+        page.get_by_text("Browser-Regression: Timeline-Notiz", exact=True).wait_for(state="visible")
+
+        timeline_status = page.get_by_label("Status direkt ändern")
+        timeline_status.click()
+        page.get_by_role("button", name="Interview").click()
+        page.get_by_text("Status aktualisiert.").wait_for(state="visible")
+        page.wait_for_function(
+            """() => Array.from(document.querySelectorAll('label'))
+                .some((label) => label.textContent?.includes('Status direkt ändern') && label.textContent?.includes('Interview'))""",
+            timeout=5000,
+        )
+
+        response = httpx.get(
+            f"{live_dashboard['base_url']}/api/applications",
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        applications = response.json()["applications"]
+        assert applications[0]["status"] == "interview"
+
+        timeline = httpx.get(
+            f"{live_dashboard['base_url']}/api/application/{applications[0]['id']}/timeline",
+            timeout=5.0,
+        )
+        timeline.raise_for_status()
+        payload = timeline.json()
+        notes = [event for event in payload["events"] if event["status"] == "notiz"]
+        assert any("Browser-Regression: Timeline-Notiz" in (event.get("notes") or "") for event in notes)
+        assert any(event["status"] == "interview" for event in payload["events"])
     finally:
         context.close()

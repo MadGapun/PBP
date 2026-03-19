@@ -1022,8 +1022,7 @@ export default function App() {
 
         {/* Help Modal (#75) */}
         {helpOpen && (
-          <Modal onClose={() => setHelpOpen(false)}>
-            <h2 className="text-xl font-semibold text-ink mb-4">Hilfe & Support</h2>
+          <Modal open={helpOpen} title="Hilfe & Support" onClose={() => setHelpOpen(false)}>
             <div className="flex gap-1 mb-4 border-b border-white/8 pb-2">
               {[
                 { id: "hilfe", label: "Hilfe / FAQ" },

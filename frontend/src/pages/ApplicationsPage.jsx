@@ -19,7 +19,15 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui";
-import { cn, formatCurrency, formatDate, formatDateTime, statusTone, textExcerpt } from "@/utils";
+import {
+  STATUS_OPTIONS,
+  cn,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  statusTone,
+  textExcerpt,
+} from "@/utils";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -45,6 +53,7 @@ export default function ApplicationsPage() {
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [documents, setDocuments] = useState([]);
+  const [timelineStatusDraft, setTimelineStatusDraft] = useState(EMPTY_APPLICATION.status);
 
   const deferredQuery = useDeferredValue(filters.query);
 
@@ -70,15 +79,21 @@ export default function ApplicationsPage() {
     loadPage();
   }, [reloadKey]);
 
-  async function updateStatus(applicationId, status) {
+  async function updateStatus(applicationId, status, options = {}) {
     try {
       await putJson(`/api/applications/${applicationId}/status`, { status });
       setApplications((current) =>
         current.map((app) => (app.id === applicationId ? { ...app, status } : app))
       );
+      if (options.reloadTimeline) {
+        await reloadTimeline(applicationId);
+      }
       await refreshChrome({ quiet: true });
       pushToast("Status aktualisiert.", "success");
     } catch (error) {
+      if (options.rollbackStatus) {
+        setTimelineStatusDraft(options.rollbackStatus);
+      }
       pushToast(`Status konnte nicht aktualisiert werden: ${error.message}`, "danger");
     }
   }
@@ -101,6 +116,7 @@ export default function ApplicationsPage() {
         api("/api/documents"),
       ]);
       setTimelineDialog({ open: true, entry: timeline });
+      setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
       setNewNoteText("");
       setEditingNoteId(null);
@@ -114,7 +130,16 @@ export default function ApplicationsPage() {
     try {
       const timeline = await api(`/api/application/${appId}/timeline`);
       setTimelineDialog((current) => ({ ...current, entry: timeline }));
+      setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
     } catch { /* silent */ }
+  }
+
+  async function updateTimelineStatus(status) {
+    const appId = timelineDialog.entry?.application?.id;
+    const currentStatus = timelineDialog.entry?.application?.status || EMPTY_APPLICATION.status;
+    if (!appId || !status || status === currentStatus) return;
+    setTimelineStatusDraft(status);
+    await updateStatus(appId, status, { reloadTimeline: true, rollbackStatus: currentStatus });
   }
 
   async function addNote(parentEventId = null) {
@@ -283,14 +308,11 @@ export default function ApplicationsPage() {
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-4">
                       <SelectInput value={application.status || "beworben"} onChange={(event) => updateStatus(application.id, event.target.value)}>
-                        <option value="entwurf">Entwurf</option>
-                        <option value="beworben">Beworben</option>
-                        <option value="interview">Interview</option>
-                        <option value="zweitgespraech">Zweitgespräch</option>
-                        <option value="angebot">Angebot</option>
-                        <option value="abgelehnt">Abgelehnt</option>
-                        <option value="zurueckgezogen">Zurückgezogen</option>
-                        <option value="abgelaufen">Abgelaufen</option>
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </SelectInput>
                       <Button variant="secondary" onClick={() => openTimeline(application)}>
                         <Workflow size={15} />
@@ -344,11 +366,11 @@ export default function ApplicationsPage() {
           ))}
           <Field label="Status">
             <SelectInput value={createDialog.draft.status} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value } }))}>
-              <option value="entwurf">Entwurf</option>
-              <option value="beworben">Beworben</option>
-              <option value="interview">Interview</option>
-              <option value="zweitgespraech">Zweitgespräch</option>
-              <option value="angebot">Angebot</option>
+              {STATUS_OPTIONS.filter((option) => !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(option.value)).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </SelectInput>
           </Field>
           <Field label="Notizen">
@@ -387,6 +409,23 @@ export default function ApplicationsPage() {
               {timelineDialog.entry.application.applied_at && (
                 <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(timelineDialog.entry.application.applied_at)}</p>
               )}
+              <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/[0.06] pt-4">
+                <Field className="min-w-[14rem] flex-1" label="Status direkt ändern">
+                  <SelectInput
+                    value={timelineStatusDraft}
+                    onChange={(event) => updateTimelineStatus(event.target.value)}
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </SelectInput>
+                </Field>
+                <p className="pb-2 text-xs text-muted/50">
+                  Der Status wird sofort gespeichert und als Timeline-Eintrag protokolliert.
+                </p>
+              </div>
             </Card>
           )}
 
@@ -528,7 +567,7 @@ export default function ApplicationsPage() {
                 onChange={(e) => setNewNoteText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addNote(); }}
               />
-              <Button className="shrink-0 self-end" onClick={addNote} disabled={!newNoteText.trim()}>
+              <Button className="shrink-0 self-end" onClick={() => addNote()} disabled={!newNoteText.trim()}>
                 <Plus size={14} />
                 Hinzufügen
               </Button>
