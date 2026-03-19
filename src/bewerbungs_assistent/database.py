@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 
 def _gen_id() -> str:
@@ -397,6 +397,18 @@ class Database:
                 conn.execute("UPDATE blacklist SET profile_id=? WHERE profile_id=''", (pid,))
             logger.info("Migration v10->v11: profile_id on search_criteria + blacklist")
 
+        if from_ver < 12:
+            # v12: fit_analyse on applications, parent_event_id for threaded notes
+            for col_add in [
+                ("applications", "fit_analyse TEXT"),
+                ("application_events", "parent_event_id INTEGER"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {col_add[0]} ADD COLUMN {col_add[1]}")
+                except Exception:
+                    pass  # Already exists
+            logger.info("Migration v11->v12: fit_analyse + threaded notes")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -610,6 +622,11 @@ class Database:
             return None
         app = dict(row)
         app["job_hash"] = self._public_job_hash(app.get("job_hash"), app.get("profile_id"))
+        if app.get("fit_analyse"):
+            try:
+                app["fit_analyse"] = json.loads(app["fit_analyse"])
+            except (json.JSONDecodeError, TypeError):
+                pass
         return app
 
     def resolve_job_hash(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[str]:
@@ -1171,6 +1188,13 @@ class Database:
                 "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
                 (row["id"],)
             ).fetchall()]
+            # Last note excerpt for list display (#88)
+            last_note_row = conn.execute(
+                "SELECT notes FROM application_events "
+                "WHERE application_id=? AND status='notiz' ORDER BY event_date DESC LIMIT 1",
+                (row["id"],)
+            ).fetchone()
+            app["last_note"] = last_note_row["notes"] if last_note_row else None
             apps.append(self._serialize_application_row(app))
         return apps
 
@@ -1279,14 +1303,14 @@ class Database:
         conn.execute(f"UPDATE applications SET {', '.join(fields)} WHERE id=?", values)
         conn.commit()
 
-    def add_application_note(self, app_id: str, note: str):
+    def add_application_note(self, app_id: str, note: str, parent_event_id: int = None):
         """Add a timestamped note to the application timeline."""
         conn = self.connect()
         now = _now()
         conn.execute("""
-            INSERT INTO application_events (application_id, status, event_date, notes)
-            VALUES (?, 'notiz', ?, ?)
-        """, (app_id, now, note))
+            INSERT INTO application_events (application_id, status, event_date, notes, parent_event_id)
+            VALUES (?, 'notiz', ?, ?, ?)
+        """, (app_id, now, note, parent_event_id))
         conn.commit()
 
     def update_application_event(self, event_id: int, app_id: str, text: str):
@@ -1507,6 +1531,9 @@ class Database:
         conn = self.connect()
         pid = self.get_active_profile_id()
 
+        # "all" uses year grouping to show everything
+        if interval == "all":
+            interval = "year"
         fmt_map = {"week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
         fmt = fmt_map.get(interval, "%Y-%m")
 
@@ -1585,6 +1612,15 @@ class Database:
             GROUP BY source ORDER BY cnt DESC
         """, (pid,)).fetchall()
 
+        # Application sources (#87)
+        app_source_rows = conn.execute("""
+            SELECT COALESCE(j.source, 'import') as source, COUNT(*) as cnt
+            FROM applications a
+            LEFT JOIN jobs j ON a.job_hash = j.hash
+            WHERE (a.profile_id=? OR a.profile_id IS NULL)
+            GROUP BY source ORDER BY cnt DESC
+        """, (pid,)).fetchall()
+
         return {
             "score_distribution": {str(r["score"]): r["cnt"] for r in dist_rows},
             "sources": [
@@ -1592,6 +1628,10 @@ class Database:
                  "avg_score": _safe_float(r["avg_score"]),
                  "max_score": _safe_float(r["max_score"])}
                 for r in source_rows
+            ],
+            "application_sources": [
+                {"name": r["source"], "count": r["cnt"]}
+                for r in app_source_rows
             ],
         }
 
@@ -1709,6 +1749,34 @@ class Database:
                 "durchschnitt_max": round(sum(maxs) / len(maxs)),
             }
         return result
+
+    def save_fit_analyse(self, app_id: str, fit_data: dict):
+        """Save fit analysis result to an application (#84)."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE applications SET fit_analyse=?, updated_at=? WHERE id=?",
+            (json.dumps(fit_data, ensure_ascii=False), _now(), app_id)
+        )
+        conn.commit()
+
+    def update_job(self, job_hash: str, data: dict):
+        """Update editable fields of a job (#90)."""
+        conn = self.connect()
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return
+        allowed = ("title", "company", "location", "description")
+        sets, vals = [], []
+        for f in allowed:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            sets.append("updated_at=?")
+            vals.append(_now())
+            vals.append(target_hash)
+            conn.execute(f"UPDATE jobs SET {','.join(sets)} WHERE hash=?", vals)
+            conn.commit()
 
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
@@ -2362,6 +2430,7 @@ CREATE TABLE IF NOT EXISTS applications (
     kontakt_email TEXT DEFAULT '',
     portal_name TEXT DEFAULT '',
     rejection_reason TEXT,
+    fit_analyse TEXT,
     created_at TEXT,
     updated_at TEXT
 );
@@ -2371,7 +2440,8 @@ CREATE TABLE IF NOT EXISTS application_events (
     application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
     status TEXT NOT NULL,
     event_date TEXT NOT NULL,
-    notes TEXT
+    notes TEXT,
+    parent_event_id INTEGER REFERENCES application_events(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS search_criteria (

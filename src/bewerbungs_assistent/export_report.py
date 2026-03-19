@@ -29,6 +29,24 @@ STATUS_LABELS = {
     "abgelaufen": "Abgelaufen",
 }
 
+STATUS_COLORS = {
+    "beworben": (56, 189, 248),
+    "interview": (251, 191, 36),
+    "zweitgespraech": (251, 191, 36),
+    "angebot": (52, 211, 153),
+    "abgelehnt": (248, 113, 113),
+    "zurueckgezogen": (148, 163, 184),
+    "abgelaufen": (148, 163, 184),
+    "offen": (100, 116, 139),
+    "eingangsbestaetigung": (56, 189, 248),
+}
+
+SOURCE_COLORS_PDF = [
+    (59, 130, 246), (168, 85, 247), (236, 72, 153), (249, 115, 22),
+    (234, 179, 8), (34, 197, 94), (20, 184, 166), (99, 102, 241),
+    (244, 63, 94), (107, 114, 128),
+]
+
 
 def _safe_text(text: str) -> str:
     """Sanitize text for PDF output (replace problematic chars)."""
@@ -111,9 +129,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                                          key=lambda x: -x[1]):
             label = STATUS_LABELS.get(status_key, status_key)
             bar_width = min(count * 8, 120)
+            r, g, b = STATUS_COLORS.get(status_key, (66, 133, 244))
             pdf.set_font("Helvetica", "", 9)
             pdf.cell(45, 5, _safe_text(f"  {label}"))
-            pdf.set_fill_color(66, 133, 244)
+            pdf.set_fill_color(r, g, b)
             pdf.cell(bar_width, 5, "", fill=True)
             pdf.cell(15, 5, f"  {count}", ln=True)
     pdf.ln(4)
@@ -130,9 +149,14 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.ln()
         total_source = sum(by_source.values()) or 1
         pdf.set_font("Helvetica", "", 8)
-        for source, count in sorted(by_source.items(), key=lambda x: -x[1]):
+        for idx, (source, count) in enumerate(sorted(by_source.items(), key=lambda x: -x[1])):
             pct = round(count / total_source * 100, 1)
-            pdf.cell(60, 5, _safe_text(f"  {source}"), border=1)
+            r, g, b = SOURCE_COLORS_PDF[idx % len(SOURCE_COLORS_PDF)]
+            pdf.set_fill_color(r, g, b)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(5, 5, "", border=0, fill=True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(55, 5, _safe_text(f" {source}"), border=1)
             pdf.cell(30, 5, str(count), border=1, align="C")
             pdf.cell(40, 5, f"{pct}%", border=1, align="C")
             pdf.ln()

@@ -106,8 +106,11 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [filters, setFilters] = useState({ query: "", source: "", minScore: "0", remote: "", salaryOnly: false, sort: "score_desc", view: "active" });
+  const [filters, setFilters] = useState({ query: "", source: "", minScore: "0", remote: "", salaryOnly: false, sort: "score_desc", view: "active", employmentType: "", hideApplied: true });
+  const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
+  const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
+  const [editForm, setEditForm] = useState({});
   const [applicationDialog, setApplicationDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [blacklistDialog, setBlacklistDialog] = useState(EMPTY_BLACKLIST_DIALOG);
   const [searchJob, setSearchJob] = useState({ running: false, progress: 0, message: "" });
@@ -124,15 +127,18 @@ export default function JobsPage() {
   const loadPage = useEffectEvent(async (options = {}) => {
     const silent = Boolean(options?.silent);
     try {
-      const [activeJobs, hiddenJobs, followUpsResponse] = await Promise.all([
+      const [activeJobs, hiddenJobs, followUpsResponse, appsResponse] = await Promise.all([
         api("/api/jobs?active=true"),
         api("/api/jobs?active=false"),
         api("/api/follow-ups"),
+        api("/api/applications"),
       ]);
       startTransition(() => {
         setJobs(activeJobs || []);
         setDismissedJobs(hiddenJobs || []);
         setFollowUps(followUpsResponse?.follow_ups || []);
+        const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
+        setAppliedJobHashes(appHashes);
         setLoading(false);
       });
     } catch (error) {
@@ -367,6 +373,7 @@ export default function JobsPage() {
   const allJobs = [...jobs, ...dismissedJobs];
   const sourceOptions = [...new Set(allJobs.map((job) => job.source).filter(Boolean))];
   const remoteOptions = [...new Set(allJobs.map((job) => job.remote_level).filter((r) => r && r !== "unbekannt"))];
+  const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
   const currentList = filters.view === "active" ? jobs : dismissedJobs;
   const scoredActiveJobs = jobs.filter((job) => Number(job?.score || 0) > 0);
   const salaryMetrics = buildAnnualSalaryMetrics(jobs);
@@ -413,7 +420,9 @@ export default function JobsPage() {
       const scoreMatch = Number(job.score || 0) >= Number(filters.minScore || 0);
       const remoteMatch = !filters.remote || job.remote_level === filters.remote;
       const salaryMatch = !filters.salaryOnly || (job.salary_min && job.salary_min > 0);
-      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch;
+      const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
+      const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
+      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch;
     })
     .sort((a, b) => {
       // Pinned jobs always come first
@@ -600,6 +609,35 @@ export default function JobsPage() {
               )}
             </div>
 
+            {/* Employment Type Filter (#83) */}
+            {employmentTypeOptions.length > 1 && (
+              <SelectInput
+                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+                value={filters.employmentType}
+                onChange={(e) => setFilters((f) => ({ ...f, employmentType: e.target.value }))}
+              >
+                <option value="">Alle Stellenarten</option>
+                {employmentTypeOptions.map((t) => (
+                  <option key={t} value={t}>{t === "festanstellung" ? "Festanstellung" : t === "freelance" ? "Freelance" : t === "praktikum" ? "Praktikum" : t === "werkstudent" ? "Werkstudent" : t}</option>
+                ))}
+              </SelectInput>
+            )}
+
+            {/* Hide Applied Toggle (#83) */}
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                filters.hideApplied
+                  ? "border-sky/20 bg-sky/8 text-sky/80"
+                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+              )}
+              onClick={() => setFilters((f) => ({ ...f, hideApplied: !f.hideApplied }))}
+            >
+              <EyeOff size={14} />
+              Beworbene ausblenden
+            </button>
+
             {/* Spacer */}
             <div className="flex-1" />
 
@@ -666,8 +704,17 @@ export default function JobsPage() {
                       </button>
                     )}
                     {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
+                    {job.employment_type && job.employment_type !== "festanstellung" ? (
+                      <Badge tone={job.employment_type === "freelance" ? "success" : job.employment_type === "praktikum" ? "amber" : "neutral"}>
+                        {job.employment_type === "freelance" ? "Freelance" : job.employment_type === "praktikum" ? "Praktikum" : job.employment_type === "werkstudent" ? "Werkstudent" : job.employment_type}
+                      </Badge>
+                    ) : null}
                   </div>
-                  <h2 className="text-2xl font-semibold text-ink">{job.title}</h2>
+                  <h2
+                    className="text-2xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors"
+                    onClick={() => setDetailDialog({ open: true, job, editing: false })}
+                    title="Details anzeigen"
+                  >{job.title}</h2>
                   <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
                   <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
                   {job.salary_min ? (
@@ -842,6 +889,86 @@ export default function JobsPage() {
           </Card>
         </div>
       </Modal>
+
+      {/* Job Detail Modal (#90) */}
+      {detailDialog.open && detailDialog.job && (
+        <Modal onClose={() => setDetailDialog({ open: false, job: null, editing: false })}>
+          {detailDialog.editing ? (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-ink">Stelle bearbeiten</h2>
+              <Field label="Titel">
+                <TextInput value={editForm.title || ""} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
+              </Field>
+              <Field label="Firma">
+                <TextInput value={editForm.company || ""} onChange={(e) => setEditForm((f) => ({ ...f, company: e.target.value }))} />
+              </Field>
+              <Field label="Standort">
+                <TextInput value={editForm.location || ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} />
+              </Field>
+              <Field label="Beschreibung">
+                <TextArea value={editForm.description || ""} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} className="!min-h-40" />
+              </Field>
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={async () => {
+                  await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
+                  pushToast("Stelle aktualisiert", "success");
+                  setDetailDialog({ open: false, job: null, editing: false });
+                  loadPage({ silent: true });
+                }}>Speichern</Button>
+                <Button variant="ghost" onClick={() => setDetailDialog((d) => ({ ...d, editing: false }))}>Abbrechen</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h2>
+                  <p className="text-sm text-muted">{detailDialog.job.company || "Unbekannt"}{detailDialog.job.location ? ` — ${detailDialog.job.location}` : ""}</p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  setEditForm({
+                    title: detailDialog.job.title || "",
+                    company: detailDialog.job.company || "",
+                    location: detailDialog.job.location || "",
+                    description: detailDialog.job.description || "",
+                  });
+                  setDetailDialog((d) => ({ ...d, editing: true }));
+                }}>
+                  <Pencil size={14} /> Bearbeiten
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
+                {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
+                {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
+                <Badge tone="amber">Score {detailDialog.job.score || 0}</Badge>
+                {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
+              </div>
+              {detailDialog.job.salary_min ? (
+                <p className="text-sm text-teal font-medium">
+                  Gehalt: {formatCurrency(detailDialog.job.salary_min)} - {formatCurrency(detailDialog.job.salary_max)}
+                  {detailDialog.job.salary_type ? ` (${detailDialog.job.salary_type})` : ""}
+                  {detailDialog.job.salary_estimated ? " (geschaetzt)" : ""}
+                </p>
+              ) : null}
+              {detailDialog.job.url ? (
+                <a href={detailDialog.job.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
+                  <ExternalLink size={14} /> Stellenanzeige oeffnen
+                </a>
+              ) : null}
+              {detailDialog.job.description ? (
+                <div className="glass-card p-4 rounded-xl">
+                  <h3 className="text-sm font-semibold text-ink mb-2">Stellenbeschreibung</h3>
+                  <p className="text-sm text-muted/70 whitespace-pre-wrap">{detailDialog.job.description}</p>
+                </div>
+              ) : null}
+              {detailDialog.job.found_at ? (
+                <p className="text-xs text-muted/40">Gefunden: {formatDateTime(detailDialog.job.found_at)}</p>
+              ) : null}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

@@ -57,6 +57,11 @@ export default function SourceSelectionList({
                 {loginJob?.message ? (
                   <p className="text-xs text-muted">{loginJob.message}</p>
                 ) : null}
+                {source.active && source.profil_optimierung ? (
+                  <div className="mt-1 rounded-lg border border-amber/15 bg-amber/5 px-3 py-2">
+                    <p className="text-xs text-amber">{source.profil_optimierung}</p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex shrink-0 self-center items-center gap-3">

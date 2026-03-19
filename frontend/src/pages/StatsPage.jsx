@@ -58,7 +58,7 @@ function ChartCard({ title, children }) {
 }
 
 export default function StatsPage() {
-  const { reloadKey, pushToast } = useApp();
+  const { reloadKey, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
   const [interval, setInterval_] = useState("month");
   const [timeline, setTimeline] = useState(null);
@@ -148,6 +148,7 @@ export default function StatsPage() {
             <option value="month">Monatlich</option>
             <option value="quarter">Quartalsweise</option>
             <option value="year">Jährlich</option>
+            <option value="all">Komplett</option>
           </SelectInput>
           <LinkButton
             size="sm"
@@ -241,8 +242,8 @@ export default function StatsPage() {
                       label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                       labelLine={{ stroke: "rgba(255,255,255,0.2)" }}
                     >
-                      {sourcePieData.map((_, i) => (
-                        <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
+                      {sourcePieData.map((entry, i) => (
+                        <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} cursor="pointer" onClick={() => navigateTo("stellen")} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -280,6 +281,38 @@ export default function StatsPage() {
               )}
             </ChartCard>
           </div>
+
+          {/* Row 2b: Application Sources (#87) */}
+          {(scores?.application_sources || []).length > 0 && (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <ChartCard title="Bewerbungs-Quellen">
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={scores.application_sources.map((s) => ({ name: s.name, value: s.count }))}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      innerRadius={50}
+                      paddingAngle={2}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                      labelLine={{ stroke: "rgba(255,255,255,0.2)" }}
+                    >
+                      {scores.application_sources.map((_, i) => (
+                        <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "rgba(30,34,52,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <div />
+            </div>
+          )}
 
           {/* Row 3: Source-Score comparison */}
           {sourceScoreData.length > 0 ? (

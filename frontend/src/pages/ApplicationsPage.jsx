@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Check, Download, FileText, Link2, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
+﻿import { CalendarClock, Check, Download, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -19,7 +19,7 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui";
-import { cn, formatCurrency, formatDate, formatDateTime, statusTone } from "@/utils";
+import { cn, formatCurrency, formatDate, formatDateTime, statusTone, textExcerpt } from "@/utils";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -42,6 +42,8 @@ export default function ApplicationsPage() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState("");
   const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [replyingToId, setReplyingToId] = useState(null);
+  const [replyText, setReplyText] = useState("");
   const [documents, setDocuments] = useState([]);
 
   const deferredQuery = useDeferredValue(filters.query);
@@ -115,14 +117,15 @@ export default function ApplicationsPage() {
     } catch { /* silent */ }
   }
 
-  async function addNote() {
-    const text = newNoteText.trim();
+  async function addNote(parentEventId = null) {
+    const text = parentEventId ? replyText.trim() : newNoteText.trim();
     if (!text) return;
     const appId = timelineDialog.entry?.application?.id;
     if (!appId) return;
     try {
-      await postJson(`/api/applications/${appId}/notes`, { text });
-      setNewNoteText("");
+      await postJson(`/api/applications/${appId}/notes`, { text, parent_event_id: parentEventId });
+      if (parentEventId) { setReplyText(""); setReplyingToId(null); }
+      else setNewNoteText("");
       await reloadTimeline(appId);
       pushToast("Notiz hinzugefügt.", "success");
     } catch (error) {
@@ -241,7 +244,7 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]">
+        <div className={cn("grid gap-6", followUps.length > 0 ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]" : "")}>
           <Card className="rounded-2xl">
             <SectionHeading title="Bewerbungen" description="Statuswechsel werden direkt in der Historie vermerkt." />
             <div className="grid gap-4">
@@ -256,6 +259,7 @@ export default function ApplicationsPage() {
                       <h3 className="text-xl font-semibold text-ink">{application.title}</h3>
                       <p className="text-sm text-muted">{application.company}</p>
                       {application.notes ? <p className="text-sm text-muted">{application.notes}</p> : null}
+                      {application.last_note ? <p className="text-xs text-muted/40 truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-4">
                       <SelectInput value={application.status || "beworben"} onChange={(event) => updateStatus(application.id, event.target.value)}>
@@ -285,11 +289,11 @@ export default function ApplicationsPage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl">
-            <SectionHeading title="Follow-ups" description="Fällige Nachfassaktionen werden vom Backend berechnet." />
-            <div className="grid gap-4">
-              {followUps.length ? (
-                followUps.map((followUp) => (
+          {followUps.length > 0 && (
+            <Card className="rounded-2xl">
+              <SectionHeading title="Follow-ups" description="Fällige Nachfassaktionen werden vom Backend berechnet." />
+              <div className="grid gap-4">
+                {followUps.map((followUp) => (
                   <Card key={followUp.id} className="glass-card-soft rounded-xl shadow-none">
                     <div className="flex items-start gap-3">
                       <div className="glass-icon glass-icon-danger h-12 w-12">
@@ -302,12 +306,10 @@ export default function ApplicationsPage() {
                       </div>
                     </div>
                   </Card>
-                ))
-              ) : (
-                <EmptyState title="Keine Follow-ups" description="Sobald Nachfassaktionen geplant sind, erscheinen sie hier." />
-              )}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -361,6 +363,35 @@ export default function ApplicationsPage() {
                   Gehalt: {formatCurrency(timelineDialog.entry.job.salary_min)}{timelineDialog.entry.job.salary_max ? ` bis ${formatCurrency(timelineDialog.entry.job.salary_max)}` : ""}{timelineDialog.entry.job.salary_estimated ? " (geschätzt)" : ""}
                 </p>
               ) : null}
+            </Card>
+          ) : null}
+
+          {/* Fit-Analyse (#84) */}
+          {timelineDialog.entry?.application?.fit_analyse ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Fit-Analyse</p>
+              <div className="mt-2 space-y-1 text-sm">
+                {timelineDialog.entry.application.fit_analyse.total_score != null && (
+                  <p className="text-ink font-medium">Fit-Score: {timelineDialog.entry.application.fit_analyse.total_score}/10</p>
+                )}
+                {timelineDialog.entry.application.fit_analyse.summary && (
+                  <p className="text-muted/70">{timelineDialog.entry.application.fit_analyse.summary}</p>
+                )}
+                {(timelineDialog.entry.application.fit_analyse.muss_hits || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {timelineDialog.entry.application.fit_analyse.muss_hits.map((k, i) => (
+                      <Badge key={i} tone="success">{k}</Badge>
+                    ))}
+                  </div>
+                )}
+                {(timelineDialog.entry.application.fit_analyse.risks || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {timelineDialog.entry.application.fit_analyse.risks.map((r, i) => (
+                      <Badge key={i} tone="danger">{r}</Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </Card>
           ) : null}
 
@@ -443,7 +474,7 @@ export default function ApplicationsPage() {
 
           {/* Timeline events */}
           {(timelineDialog.entry?.events || []).length ? (
-            timelineDialog.entry.events.map((event) => (
+            timelineDialog.entry.events.filter(e => !e.parent_event_id).map((event) => (
               <Card key={`${event.id}-${event.event_date}`} className="glass-card-soft rounded-xl shadow-none">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -472,11 +503,36 @@ export default function ApplicationsPage() {
                   </div>
                   {(event.event_type === "notiz" || event.status === "notiz") && editingNoteId !== event.id ? (
                     <div className="flex gap-1.5 shrink-0">
+                      <button type="button" className="text-muted/40 hover:text-sky transition-colors" onClick={() => { setReplyingToId(event.id); setReplyText(""); }} title="Antworten"><MessageSquareReply size={14} /></button>
                       <button type="button" className="text-muted/40 hover:text-ink transition-colors" onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.notes || event.text || ""); }} title="Bearbeiten"><Pencil size={14} /></button>
                       <button type="button" className="text-muted/40 hover:text-coral transition-colors" onClick={() => deleteNote(event.id)} title="Löschen"><Trash2 size={14} /></button>
                     </div>
                   ) : null}
                 </div>
+                {/* Reply form (#85) */}
+                {replyingToId === event.id && (
+                  <div className="ml-8 mt-2 flex gap-2">
+                    <TextInput
+                      className="flex-1"
+                      placeholder="Antwort schreiben..."
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addNote(event.id); }}
+                    />
+                    <Button size="sm" onClick={() => addNote(event.id)} disabled={!replyText.trim()}>Antworten</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setReplyingToId(null)}><X size={14} /></Button>
+                  </div>
+                )}
+                {/* Replies to this note */}
+                {(timelineDialog.entry?.events || []).filter(r => r.parent_event_id === event.id).map((reply) => (
+                  <Card key={reply.id} className="ml-8 mt-2 glass-card-soft rounded-lg shadow-none border-l-2 border-sky/20">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted/40">{formatDateTime(reply.event_date)}</span>
+                      <Badge tone="sky">Antwort</Badge>
+                    </div>
+                    <p className="text-sm text-ink mt-1">{reply.notes || reply.text}</p>
+                  </Card>
+                ))}
               </Card>
             ))
           ) : (

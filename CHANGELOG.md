@@ -2,6 +2,52 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.24.0] - 2026-03-19
+
+### Major: Dashboard-Erweiterungen (10 Issues)
+
+**Hilfe-Menu (#75):**
+- Fragezeichen-Icon im Header mit Modal: Hilfe/FAQ, Bug melden, Feature vorschlagen, Credits
+- Bug/Feature-Reports oeffnen vorausgefuellte GitHub Issues
+
+**Profil-Optimierung Hinweis (#76):**
+- LinkedIn/XING Quellen zeigen Hinweis zur automatischen Profil-Optimierung
+- Token-Warnung wird bei aktiven Quellen angezeigt
+
+**Stellen-Liste (#83, #90):**
+- Filter nach Stellenart (Festanstellung, Freelance, Praktikum, Werkstudent)
+- Farbige Badges fuer Stellenarten in Jobs- und Bewerbungsliste
+- "Beworbene ausblenden" Toggle — Stellen mit aktiver Bewerbung werden gefiltert
+- Stellen-Detailansicht: Klick auf Titel oeffnet vollstaendige Ansicht
+- Stellen bearbeiten: Titel, Firma, Standort, Beschreibung direkt im Modal
+
+**Fit-Analyse in Bewerbung (#84):**
+- Fit-Analyse wird in der Bewerbung gespeichert (neues DB-Feld)
+- Anzeige im Timeline-Dialog mit Score, Staerken und Risiken
+
+**Notizen: Antwort-Funktion (#85):**
+- Reply-Button bei Notizen im Timeline-Dialog
+- Antworten werden eingerueckt unter der Original-Notiz angezeigt
+- Thread-Struktur via parent_event_id
+
+**Einstellungen Badge (#86):**
+- Settings-Badge "1" wird nur noch angezeigt wenn tatsaechlich Handlungsbedarf besteht
+- "Nie gesucht" zaehlt nur wenn Quellen aktiv sind
+
+**Statistiken (#87):**
+- Neues Intervall "Komplett" (alle Daten)
+- Bewerbungs-Quellen PieChart (woher kamen die Bewerbungen?)
+- Klickbare Diagramm-Segmente navigieren zur Stellen-Liste
+- Farbige Status-Balken und Quellen-Legende im PDF-Bericht
+
+**Bewerbungen-Layout (#88):**
+- Follow-Up Panel wird nur angezeigt wenn Follow-Ups existieren
+- Ohne Follow-Ups: Bewerbungsliste nutzt volle Seitenbreite
+- Letzte Notiz wird als Vorschau in der Bewerbungsliste angezeigt
+
+**Schema:** v11 -> v12 (fit_analyse + parent_event_id)
+**Tests:** Backend-Aenderungen + Frontend-Build erfolgreich
+
 ## [0.23.3] - 2026-03-19
 
 ### Bugfixes + Installer-Verbesserungen

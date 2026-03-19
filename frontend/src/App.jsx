@@ -4,7 +4,9 @@
   BriefcaseBusiness,
   ChevronDown,
   Copy,
+  ExternalLink,
   FolderOpen,
+  HelpCircle,
   Plus,
   Send,
   Settings2,
@@ -126,6 +128,8 @@ export default function App() {
   const profileMenuRef = useRef(null);
   const [wizardOpen, setWizardOpen] = useState(true);
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState("hilfe");
   const recentToastsRef = useRef(new Map());
   const liveUpdateTokenRef = useRef("");
   const liveUpdateSeenRef = useRef(false);
@@ -639,6 +643,16 @@ export default function App() {
               })}
             </nav>
 
+            {/* Help Button (#75) */}
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="shrink-0 rounded-lg p-1.5 text-muted/50 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              title="Hilfe & Support"
+            >
+              <HelpCircle size={18} />
+            </button>
+
             <div
               id="profile-switcher"
               ref={profileMenuRef}
@@ -1005,6 +1019,115 @@ export default function App() {
           onDismiss={dismissProfileOnboarding}
           onComplete={completeProfileOnboarding}
         />
+
+        {/* Help Modal (#75) */}
+        {helpOpen && (
+          <Modal onClose={() => setHelpOpen(false)}>
+            <h2 className="text-xl font-semibold text-ink mb-4">Hilfe & Support</h2>
+            <div className="flex gap-1 mb-4 border-b border-white/8 pb-2">
+              {[
+                { id: "hilfe", label: "Hilfe / FAQ" },
+                { id: "bug", label: "Bug melden" },
+                { id: "feature", label: "Feature vorschlagen" },
+                { id: "credits", label: "Credits" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setHelpTab(t.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    helpTab === t.id
+                      ? "bg-sky/15 text-sky font-medium"
+                      : "text-muted/50 hover:text-ink hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {helpTab === "hilfe" && (
+              <div className="space-y-3 text-sm text-muted/60">
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-1">Wie starte ich?</h3>
+                  <p>Oeffne Claude Desktop und tippe "Ersterfassung starten". Claude fuehrt dich durch den Aufbau deines Bewerbungsprofils.</p>
+                </div>
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-1">Wie finde ich Stellen?</h3>
+                  <p>Aktiviere Jobquellen unter "Einstellungen", dann starte eine Suche ueber Claude mit "Jobsuche starten".</p>
+                </div>
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-1">Wie bewerbe ich mich?</h3>
+                  <p>Klicke bei einer Stelle auf "Bewerben". Claude erstellt Anschreiben und Lebenslauf auf Basis deines Profils.</p>
+                </div>
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-1">Support</h3>
+                  <p>Fuer Fragen und Probleme erstelle ein Issue auf GitHub. Du brauchst dafuer einen kostenlosen GitHub-Account.</p>
+                </div>
+              </div>
+            )}
+
+            {helpTab === "bug" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted/60">
+                  Beschreibe den Fehler moeglichst genau. Ein GitHub-Account wird benoetigt.
+                </p>
+                <a
+                  href="https://github.com/MadGapun/PBP/issues/new?labels=bug&title=%5BBug%5D+"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-coral/15 px-4 py-2.5 text-sm font-medium text-coral hover:bg-coral/25 transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  Bug auf GitHub melden
+                </a>
+              </div>
+            )}
+
+            {helpTab === "feature" && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted/60">
+                  Hast du eine Idee fuer eine Verbesserung? Erstelle einen Feature-Vorschlag auf GitHub.
+                </p>
+                <a
+                  href="https://github.com/MadGapun/PBP/issues/new?labels=enhancement&title=%5BFeature%5D+"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky/15 px-4 py-2.5 text-sm font-medium text-sky hover:bg-sky/25 transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  Feature vorschlagen
+                </a>
+              </div>
+            )}
+
+            {helpTab === "credits" && (
+              <div className="space-y-3 text-sm">
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-2">PBP — Persoenliches Bewerbungs-Portal</h3>
+                  <p className="text-muted/60">Version: v0.24.0</p>
+                  <p className="text-muted/60">Lizenz: MIT</p>
+                </div>
+                <div className="glass-card p-3">
+                  <h3 className="font-medium text-ink mb-2">Team</h3>
+                  <p className="text-muted/60">Markus (MadGapun) — Konzept, Backend, Projektleitung</p>
+                  <p className="text-muted/60">Toms (Koala280) — React-Frontend</p>
+                  <p className="text-muted/60">Claude — KI-Assistent & Co-Developer</p>
+                </div>
+                <a
+                  href="https://github.com/MadGapun/PBP"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sky hover:underline"
+                >
+                  <ExternalLink size={14} />
+                  github.com/MadGapun/PBP
+                </a>
+              </div>
+            )}
+          </Modal>
+        )}
+
         <GlobalDocumentDropZone
           hasActiveProfile={Boolean(activeProfileId)}
           profileName={chrome.profile?.name}

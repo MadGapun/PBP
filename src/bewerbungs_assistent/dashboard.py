@@ -947,7 +947,8 @@ async def api_add_note(app_id: str, request: Request):
     text = (data.get("text") or "").strip()
     if not text:
         return JSONResponse({"error": "Notiz-Text ist Pflicht"}, status_code=400)
-    _db.add_application_note(app_id, text)
+    parent_id = data.get("parent_event_id")
+    _db.add_application_note(app_id, text, parent_event_id=parent_id)
     return {"status": "ok"}
 
 
@@ -1006,6 +1007,22 @@ async def api_update_job_score(job_hash: str, request: Request):
 async def api_toggle_job_pin(job_hash: str):
     new_state = _db.toggle_job_pin(job_hash)
     return {"status": "ok", "is_pinned": new_state}
+
+
+@app.put("/api/jobs/{job_hash}")
+async def api_update_job(job_hash: str, request: Request):
+    """Update editable fields of a job (#90)."""
+    data = await request.json()
+    _db.update_job(job_hash, data)
+    return {"status": "ok"}
+
+
+@app.post("/api/applications/{app_id}/fit-analyse")
+async def api_save_app_fit_analyse(app_id: str, request: Request):
+    """Save fit analysis result to an application (#84)."""
+    data = await request.json()
+    _db.save_fit_analyse(app_id, data)
+    return {"status": "ok"}
 
 
 @app.get("/api/applications/export")

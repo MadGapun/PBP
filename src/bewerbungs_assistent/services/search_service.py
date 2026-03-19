@@ -56,6 +56,7 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "methode": info["methode"],
             "login_erforderlich": info["login_erforderlich"],
             "active": key in active_set,
+            "profil_optimierung": info.get("profil_optimierung"),
         }
         for key, info in source_registry.items()
     ]

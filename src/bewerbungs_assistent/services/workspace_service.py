@@ -156,7 +156,8 @@ def build_workspace_summary(
             "applications_badge": format_nav_badge(len(applications)),
             "settings_badge": format_nav_badge(
                 (1 if source_summary["active"] == 0 else 0)
-                + (1 if search_status["status"] in {"nie", "dringend"} else 0)
+                + (1 if source_summary["active"] > 0
+                   and search_status["status"] in {"nie", "dringend"} else 0)
             ),
             "profile_badge": format_nav_badge(len(missing_areas)),
         },
