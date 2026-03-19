@@ -682,7 +682,20 @@ REGELN:
 - Die 3-Perspektiven-Analyse zeigt Staerken und Schwaechen VOR dem Export — so kann der User noch reagieren
 - Zeige erst die Analyse, dann den Lebenslauf, dann das Anschreiben, dann biete Tracking an
 - Daten werden gespeichert — der User kann alles im Dashboard wiederfinden
-- Manchmal braucht der User nur den Lebenslauf — wenn er das sagt, ueberspringe das Anschreiben"""
+- Manchmal braucht der User nur den Lebenslauf — wenn er das sagt, ueberspringe das Anschreiben
+
+CV-QUALITAETSREGELN (professionelle Best Practices):
+- Antichronologisch: Neueste Position zuerst
+- Max. 2-3 Seiten — bei 10+ Jahren Erfahrung max. 3, sonst max. 2
+- Jede Position: Aufgaben UND Erfolge (nicht nur Aufgabenliste!)
+- Erfolge IMMER quantifizieren: Budget, Teamgroesse, Zeitersparnis, %-Verbesserung
+- Luecken proaktiv schliessen: Weiterbildung, Ehrenamt, Familienzeit
+- Datumsformat einheitlich: MM/JJJJ (z.B. 04/2019 - 03/2023)
+- Skills mit Kontext: Nicht nur "Python" sondern "Python (8 Jahre, Data Engineering)"
+- Profil-Statement: 3-4 Saetze mit Kernkompetenz, Branchenfokus, Alleinstellungsmerkmal
+- Keywords der Stellenanzeige EXAKT uebernehmen (ATS-Systeme filtern rigoros)
+- Jede Anpassung transparent machen: "Fuer diese Stelle habe ich X priorisiert weil..."
+- Keine generischen Floskeln: "teamfaehig" → stattdessen konkretes Beispiel"""
 
     @mcp.prompt()
     def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:

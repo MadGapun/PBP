@@ -131,6 +131,7 @@ def _seed_ready_workspace(db) -> None:
     db.add_follow_up(app_id, (datetime.now().date() - timedelta(days=1)).isoformat())
 
 
+@pytest.mark.skip(reason="Tests reference old Vanilla-JS dashboard — React-Frontend seit v0.23.0")
 def test_dashboard_onboarding_navigation_and_import_jump(live_dashboard, browser):
     """Welcome flow, tab navigation and document jump work in a real browser."""
     context = browser.new_context(viewport={"width": 1440, "height": 960})
@@ -158,6 +159,7 @@ def test_dashboard_onboarding_navigation_and_import_jump(live_dashboard, browser
         context.close()
 
 
+@pytest.mark.skip(reason="Tests reference old Vanilla-JS dashboard — React-Frontend seit v0.23.0")
 def test_dashboard_guidance_and_badges_reflect_due_followups(live_dashboard, browser):
     """Workspace strip and navigation badges react to a ready workspace state."""
     _seed_ready_workspace(live_dashboard["db"])
@@ -182,6 +184,7 @@ def test_dashboard_guidance_and_badges_reflect_due_followups(live_dashboard, bro
         context.close()
 
 
+@pytest.mark.skip(reason="Tests reference old Vanilla-JS onboarding overlay — React-Frontend seit v0.23.0")
 def test_new_profile_starts_with_profile_onboarding_overlay(live_dashboard, browser):
     """A newly prepared profile opens the four-step onboarding before regular work starts."""
     profile_id = live_dashboard["db"].create_profile("Neues Profil", "neu@example.com")
@@ -206,6 +209,7 @@ def test_new_profile_starts_with_profile_onboarding_overlay(live_dashboard, brow
         context.close()
 
 
+@pytest.mark.skip(reason="Tests reference old Vanilla-JS onboarding overlay — React-Frontend seit v0.23.0")
 def test_onboarding_detects_completed_kennlerngespraech_and_unlocks_sources(live_dashboard, browser):
     """Wenn Claude das Kennlerngespraech abschliesst, schaltet die UI zu Quellen frei."""
     profile_id = live_dashboard["db"].create_profile("Onboarding Signal", "signal@example.com")
@@ -240,7 +244,7 @@ def test_onboarding_detects_completed_kennlerngespraech_and_unlocks_sources(live
 
 
 def test_dashboard_mobile_layout_has_no_horizontal_overflow(live_dashboard, browser):
-    """Mobile viewport keeps navigation and settings page inside the viewport width."""
+    """Mobile viewport keeps React app inside the viewport width without horizontal scroll."""
     context = browser.new_context(
         viewport={"width": 390, "height": 844},
         is_mobile=True,
@@ -250,20 +254,43 @@ def test_dashboard_mobile_layout_has_no_horizontal_overflow(live_dashboard, brow
 
     try:
         page.goto(live_dashboard["base_url"] + "#einstellungen", wait_until="domcontentloaded")
-        page.locator("#page-einstellungen.active").wait_for(state="visible")
+        page.locator("div#root").wait_for(state="visible")
 
         layout = page.evaluate(
             """() => ({
                 clientWidth: document.documentElement.clientWidth,
                 scrollWidth: document.documentElement.scrollWidth,
                 bodyScrollWidth: document.body.scrollWidth,
-                tabCount: document.querySelectorAll('.tab').length,
+                rootPresent: !!document.getElementById('root'),
             })"""
         )
 
-        assert layout["tabCount"] == 6
+        assert layout["rootPresent"]
         assert layout["scrollWidth"] <= layout["clientWidth"] + 1
         assert layout["bodyScrollWidth"] <= layout["clientWidth"] + 1
-        assert page.locator(".app-topbar").is_visible()
+    finally:
+        context.close()
+
+
+def test_react_frontend_smoke(live_dashboard, browser):
+    """React frontend loads, hash navigation works, and API responds."""
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        # 1) Page loads with div#root
+        page.goto(live_dashboard["base_url"], wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        assert page.locator("div#root").is_visible()
+
+        # 2) Hash navigation works for key routes
+        for fragment in ("dashboard", "profil", "einstellungen"):
+            page.goto(f"{live_dashboard['base_url']}#{fragment}", wait_until="domcontentloaded")
+            actual_hash = page.evaluate("() => window.location.hash")
+            assert actual_hash == f"#{fragment}", f"Expected #{fragment}, got {actual_hash}"
+
+        # 3) API endpoint responds
+        response = httpx.get(f"{live_dashboard['base_url']}/api/workspace-summary", timeout=5.0)
+        assert response.status_code == 200
     finally:
         context.close()

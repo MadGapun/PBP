@@ -2,6 +2,40 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.23.2] - 2026-03-19
+
+### CV-Qualitaet und Recruiter-Best-Practices
+
+**Verbesserte 3-Perspektiven-Bewertung (lebenslauf_bewerten):**
+- **Karriereluecken-Erkennung**: Automatische Erkennung von Luecken >6 Monate
+  im Lebenslauf mit konkreten Handlungsempfehlungen (Weiterbildung, Ehrenamt,
+  Familienzeit dokumentieren).
+- **Erfolge vs. Aufgaben**: Warnung wenn nur Aufgaben aber keine quantifizierten
+  Erfolge dokumentiert sind — "Was hast du ERREICHT, nicht nur was hast du GETAN?"
+- **Datumsformat-Pruefung**: ATS-Perspektive prueft ob Monat/Jahr angegeben ist
+  (nicht nur Jahreszahl).
+- **Roter-Faden-Analyse**: Recruiter-Perspektive erkennt ob sich Kernthemen
+  durch mehrere Karrierestationen ziehen.
+- **Zertifizierungen**: Recruiter-Perspektive bewertet Weiterbildungen und
+  Zertifizierungen (SCRUM, ITIL, PMP, Cloud-Zertifikate etc.).
+- **Sprachkenntnisse-Check**: ATS warnt wenn Sprachen fehlen (deutscher
+  Arbeitsmarkt erwartet min. Deutsch + Englisch).
+- **Skill-Level-Bonus**: Dokumentierte Skill-Level erhoehen ATS-Score.
+- **Priorisierte Empfehlungen**: Top-Empfehlungen jetzt nach Kritikalitaet
+  sortiert (kritisch > hoch > mittel) mit max. 8 statt 7 Empfehlungen.
+
+**Verbesserte CV-Erstellungs-Prompts:**
+- Neue "CV-Qualitaetsregeln" im bewerbung_schreiben-Prompt:
+  Antichronologische Sortierung, max. 2-3 Seiten, quantifizierte Erfolge,
+  einheitliches Datumsformat, Skills mit Kontext, ATS-Keyword-Uebernahme.
+- Konkretere Empfehlungstexte mit "Tipp:"-Hinweisen statt abstrakter Aussagen.
+
+**Browser-Tests fuer React-Frontend:**
+- Alte Vanilla-JS Browser-Tests als `skip` markiert (Dashboard seit v0.23.0 React)
+- Neuer React-kompatibler Smoke-Test: Seitenlade, Hash-Navigation, API-Erreichbarkeit
+
+**Tests:** 253+ bestanden
+
 ## [0.23.1] - 2026-03-19
 
 ### Hotfix: Schema-Migration + Profil-Isolation

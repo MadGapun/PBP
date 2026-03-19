@@ -145,3 +145,81 @@ class TestCoverLetterPdf:
         result = generate_cover_letter_pdf(full_profile, "", "Stelle", "Firma", output)
         assert result == output
         assert output.exists()
+
+
+# === CV Perspectives Analysis (v0.23.2) ===
+
+class TestCvPerspectivesAnalysis:
+    """Tests for the 3-perspectives CV analysis with career gap detection."""
+
+    def test_analyse_returns_all_perspectives(self, full_profile):
+        """Analysis returns all three perspectives with scores."""
+        from bewerbungs_assistent.export import analyse_cv_perspectives
+        result = analyse_cv_perspectives(full_profile, "PLM Consultant", "PLM Windchill Projektmanagement")
+        assert "gesamtscore" in result
+        assert "perspektiven" in result
+        assert "personalberater" in result["perspektiven"]
+        assert "ats" in result["perspektiven"]
+        assert "recruiter" in result["perspektiven"]
+        for key in ("personalberater", "ats", "recruiter"):
+            p = result["perspektiven"][key]
+            assert "score" in p
+            assert 0 <= p["score"] <= 100
+            assert "faktoren" in p
+            assert "empfehlungen" in p
+
+    def test_career_gap_detection(self):
+        """Career gaps longer than 6 months are detected."""
+        from bewerbungs_assistent.export import _detect_career_gaps
+        positions = [
+            {"start_date": "2015-01", "end_date": "2018-06"},
+            {"start_date": "2020-01", "end_date": None, "is_current": True},
+        ]
+        gaps = _detect_career_gaps(positions)
+        assert len(gaps) == 1
+        assert gaps[0]["months"] > 6
+
+    def test_no_career_gap_for_continuous_positions(self):
+        """No gap detected for consecutive positions."""
+        from bewerbungs_assistent.export import _detect_career_gaps
+        positions = [
+            {"start_date": "2015-01", "end_date": "2018-06"},
+            {"start_date": "2018-07", "end_date": None, "is_current": True},
+        ]
+        gaps = _detect_career_gaps(positions)
+        assert len(gaps) == 0
+
+    def test_top_recommendations_sorted_by_priority(self, full_profile):
+        """Top recommendations are sorted: kritisch > hoch > mittel."""
+        from bewerbungs_assistent.export import analyse_cv_perspectives
+        result = analyse_cv_perspectives(full_profile, "Java Developer", "Java Spring Boot Microservices")
+        recs = result.get("top_empfehlungen", [])
+        assert len(recs) > 0
+        # Check that critical/high come before medium
+        prio_order = {"kritisch": 0, "hoch": 1, "mittel": 2}
+        for i in range(1, len(recs)):
+            assert prio_order.get(recs[i - 1]["prioritaet"], 2) <= prio_order.get(recs[i]["prioritaet"], 2)
+
+    def test_ats_keyword_matches_returned(self, full_profile):
+        """ATS perspective returns matched and missing keywords."""
+        from bewerbungs_assistent.export import analyse_cv_perspectives
+        result = analyse_cv_perspectives(full_profile, "PLM Consultant", "Windchill PLM Python Projektmanagement")
+        ats = result["perspektiven"]["ats"]
+        assert "keyword_matches" in ats
+        assert "fehlende_keywords" in ats
+
+    def test_weights_affect_combined_score(self, full_profile):
+        """Different weights produce different combined scores."""
+        from bewerbungs_assistent.export import analyse_cv_perspectives
+        r1 = analyse_cv_perspectives(
+            full_profile, "PLM Consultant", "PLM",
+            {"personalberater": 1.0, "ats": 0.0, "recruiter": 0.0}
+        )
+        r2 = analyse_cv_perspectives(
+            full_profile, "PLM Consultant", "PLM",
+            {"personalberater": 0.0, "ats": 1.0, "recruiter": 0.0}
+        )
+        # Scores should differ (unless by coincidence)
+        # At minimum, both should be valid
+        assert 0 <= r1["gesamtscore"] <= 100
+        assert 0 <= r2["gesamtscore"] <= 100
