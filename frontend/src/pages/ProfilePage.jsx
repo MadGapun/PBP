@@ -366,13 +366,18 @@ export default function ProfilePage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [profileData, completenessData, extractionData, searchCriteria, blacklistRows] = await Promise.all([
+      const results = await Promise.allSettled([
         optionalApi("/api/profile"),
         api("/api/profile/completeness"),
         api("/api/extractions"),
         api("/api/search-criteria"),
         api("/api/blacklist"),
       ]);
+      const profileData = results[0].status === "fulfilled" ? results[0].value : null;
+      const completenessData = results[1].status === "fulfilled" ? results[1].value : null;
+      const extractionData = results[2].status === "fulfilled" ? results[2].value : null;
+      const searchCriteria = results[3].status === "fulfilled" ? results[3].value : {};
+      const blacklistRows = results[4].status === "fulfilled" ? results[4].value : [];
       const nextDraft = toDraft(profileData);
       const nextCriteriaDraft = criteriaToDraft(searchCriteria || {});
       suppressProfileAutosaveRef.current = true;

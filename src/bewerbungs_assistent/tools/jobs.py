@@ -30,7 +30,7 @@ def register(mcp, db, logger):
         """
         # Default sources from DB settings (all disabled by default)
         if not quellen:
-            quellen = db.get_setting("active_sources", [])
+            quellen = db.get_profile_setting("active_sources", [])
             if not quellen:
                 return {
                     "status": "keine_quellen",
@@ -357,7 +357,7 @@ def register(mcp, db, logger):
                 jobs = [j for j in jobs if j.get("score", 0) >= min_score]
 
                 db.save_jobs(jobs)
-                db.set_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+                db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
                 db.update_background_job(
                     job_id, "fertig", progress=100,
                     message=f"LinkedIn: {len(jobs)} Stellen gefunden und gespeichert",

@@ -328,7 +328,7 @@ def run_search(db, job_id: str, params: dict):
                      before - len(unique), before, min_score_threshold)
 
     db.save_jobs(unique)
-    db.set_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+    db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
     db.update_background_job(
         job_id, "fertig", progress=100,
         message=f"{len(unique)} Stellen gefunden (aus {total} Quellen)",

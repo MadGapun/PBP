@@ -1365,8 +1365,14 @@ class Database:
         ).fetchall()]
 
     def remove_blacklist_entry(self, entry_id: int) -> bool:
+        pid = self.get_active_profile_id()
         conn = self.connect()
-        cur = conn.execute("DELETE FROM blacklist WHERE id=?", (entry_id,))
+        if pid:
+            cur = conn.execute(
+                "DELETE FROM blacklist WHERE id=? AND profile_id=?", (entry_id, pid)
+            )
+        else:
+            cur = conn.execute("DELETE FROM blacklist WHERE id=?", (entry_id,))
         conn.commit()
         return cur.rowcount > 0
 
@@ -1766,6 +1772,23 @@ class Database:
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
 
+    def get_profile_setting(self, key: str, default=None):
+        """Get a setting scoped to the active profile.
+
+        Stored in settings as '{profile_id}:{key}'.  Falls back to *default*
+        when no entry exists for the current profile (even if a global entry
+        with the bare *key* exists from a previous schema).
+        """
+        pid = self.get_active_profile_id()
+        if not pid:
+            return self.get_setting(key, default)
+        return self.get_setting(f"{pid}:{key}", default)
+
+    def set_profile_setting(self, key: str, value):
+        """Store a setting scoped to the active profile."""
+        pid = self.get_active_profile_id() or ""
+        self.set_setting(f"{pid}:{key}" if pid else key, value)
+
     # === User Preferences (PBP v0.10.0) ===
 
     def get_user_preference(self, key: str, default=None):
@@ -1909,7 +1932,7 @@ class Database:
                           "action_label": "Bewerbungen ansehen"})
 
         # Check sources
-        active_sources = self.get_setting("active_sources", [])
+        active_sources = self.get_profile_setting("active_sources", [])
         if not active_sources:
             steps.append({"aktion": "Jobquellen aktivieren", "prioritaet": "hoch",
                           "beschreibung": "Ohne aktive Quellen kann keine Jobsuche gestartet werden.",
@@ -1918,7 +1941,7 @@ class Database:
                           "action_label": "Einstellungen"})
 
         # Check job search recency
-        last_search = self.get_setting("last_search_at")
+        last_search = self.get_profile_setting("last_search_at")
         if last_search:
             try:
                 from datetime import datetime

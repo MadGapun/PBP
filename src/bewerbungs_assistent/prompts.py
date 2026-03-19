@@ -840,10 +840,10 @@ Du brauchst kein Computerwissen. Ich fuehre dich durch alles Schritt fuer Schrit
     def jobsuche_workflow() -> str:
         """Gefuehrter Workflow: Von Suchkriterien bis zur Bewerbung."""
         criteria = db.get_search_criteria()
-        active_sources = db.get_setting("active_sources", [])
+        active_sources = db.get_profile_setting("active_sources", [])
         active_jobs = len(db.get_active_jobs())
 
-        last_search = db.get_setting("last_search_at", "")
+        last_search = db.get_profile_setting("last_search_at", "")
         last_info = ""
         if last_search:
             try:

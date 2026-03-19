@@ -2,6 +2,24 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.23.1] - 2026-03-19
+
+### Hotfix: Schema-Migration + Profil-Isolation
+
+**Kritischer Bug:** v0.23.0 Release-ZIP enthielt Code der `profile_id` auf
+`search_criteria` und `blacklist` Tabellen referenzierte, aber die v11 Migration
+fehlte. Bestehende DBs (von v0.21.0 oder frueher) crashten beim Start.
+
+**Fixes:**
+- Schema-Migration v10->v11 funktioniert jetzt korrekt bei bestehenden DBs
+- `active_sources` und `last_search_at` sind jetzt profilbezogen gespeichert
+  (Multi-Profil-Isolation komplett)
+- `remove_blacklist_entry()` prueft jetzt Profil-Zugehoerigkeit
+- ProfilePage.jsx: `Promise.allSettled` statt `Promise.all` — einzelne API-Fehler
+  blockieren nicht mehr die gesamte Seite
+- `ensure_linkedin_session()` Funktion hinzugefuegt
+- 252 Tests bestanden (vorher 248)
+
 ## [0.23.0] - 2026-03-18
 
 ### Feature-Release: Koala280 React-Frontend Integration

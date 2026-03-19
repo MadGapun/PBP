@@ -118,8 +118,8 @@ def _seed_ready_workspace(db) -> None:
     )
     db.add_education({"institution": "FH Hamburg", "degree": "Bachelor"})
     db.add_skill({"name": "Python", "category": "tool"})
-    db.set_setting("active_sources", ["bundesagentur", "stepstone"])
-    db.set_setting("last_search_at", datetime.now().isoformat())
+    db.set_profile_setting("active_sources", ["bundesagentur", "stepstone"])
+    db.set_profile_setting("last_search_at", datetime.now().isoformat())
     app_id = db.add_application(
         {
             "title": "Senior Consultant",

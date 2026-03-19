@@ -133,14 +133,14 @@ def _is_blocked_path(raw_path: str, resolved_path: Path) -> bool:
 
 def _get_search_status_payload() -> dict:
     """Build the normalized search-status payload once for UI consumers."""
-    return get_search_status(_db.get_setting("last_search_at"), now=datetime.now())
+    return get_search_status(_db.get_profile_setting("last_search_at"), now=datetime.now())
 
 
 def _get_source_summary() -> dict:
     """Return active vs. total configured job sources."""
     from .job_scraper import SOURCE_REGISTRY
 
-    return summarize_active_sources(_db.get_setting("active_sources", []) or [], SOURCE_REGISTRY.keys())
+    return summarize_active_sources(_db.get_profile_setting("active_sources", []) or [], SOURCE_REGISTRY.keys())
 
 
 def _get_follow_up_summary() -> dict:
@@ -1295,10 +1295,10 @@ async def api_analyze_filename(request: Request):
 async def api_sources():
     """List all available job sources with active status."""
     from .job_scraper import SOURCE_REGISTRY
-    active = _db.get_setting("active_sources", None)
+    active = _db.get_profile_setting("active_sources", None)
     if active is None and _db.get_active_profile_id():
         active = get_default_active_source_keys(SOURCE_REGISTRY)
-        _db.set_setting("active_sources", active)
+        _db.set_profile_setting("active_sources", active)
     active = active or []
     return build_source_rows(SOURCE_REGISTRY, active)
 
@@ -1308,7 +1308,7 @@ async def api_set_sources(request: Request):
     """Set active job sources."""
     data = await request.json()
     active = data.get("active_sources", [])
-    _db.set_setting("active_sources", active)
+    _db.set_profile_setting("active_sources", active)
     return {"status": "ok", "active_sources": active}
 
 

@@ -153,8 +153,8 @@ class TestStatus:
         dash._db.add_position({"company": "ACME", "title": "Consultant", "start_date": "2022-01"})
         dash._db.add_education({"institution": "FH Hamburg", "degree": "Bachelor"})
         dash._db.add_skill({"name": "Python", "category": "tool"})
-        dash._db.set_setting("active_sources", ["bundesagentur", "stepstone"])
-        dash._db.set_setting("last_search_at", datetime.now().isoformat())
+        dash._db.set_profile_setting("active_sources", ["bundesagentur", "stepstone"])
+        dash._db.set_profile_setting("last_search_at", datetime.now().isoformat())
         app_id = dash._db.add_application({
             "title": "PLM Consultant",
             "company": "ACME",
@@ -370,7 +370,7 @@ class TestProfileIsolation:
         client.post("/api/sources", json={"active_sources": ["bundesagentur"]})
         client.post("/api/search-criteria", json={"keywords": "PLM"})
         client.post("/api/blacklist", json={"type": "firma", "value": "BadCorp"})
-        dash._db.set_setting("last_search_at", datetime.now().isoformat())
+        dash._db.set_profile_setting("last_search_at", datetime.now().isoformat())
 
         r_new = client.post("/api/profiles/new", json={"name": "Profil B"})
         profile_b = r_new.json()["id"]
@@ -389,7 +389,7 @@ class TestProfileIsolation:
         client.post("/api/sources", json={"active_sources": ["stepstone"]})
         client.post("/api/search-criteria", json={"keywords": "React"})
         client.post("/api/blacklist", json={"type": "firma", "value": "NopeCorp"})
-        dash._db.set_setting("last_search_at", (datetime.now() - timedelta(days=8)).isoformat())
+        dash._db.set_profile_setting("last_search_at", (datetime.now() - timedelta(days=8)).isoformat())
 
         profiles = client.get("/api/profiles").json()["profiles"]
         profile_a = next(profile["id"] for profile in profiles if profile["name"] == "Profil A")

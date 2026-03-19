@@ -432,6 +432,74 @@ def _extract_descriptions(page, stellen: list, progress_callback=None) -> None:
         logger.info("LinkedIn: %d Stellenbeschreibungen extrahiert", extracted)
 
 
+def ensure_linkedin_session(progress_callback=None) -> bool:
+    """Ensure a valid LinkedIn session exists (login if needed).
+
+    Opens a visible browser for first-time login.  Returns True when the
+    user is logged in and the session is persisted, False otherwise.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.error("Playwright nicht installiert.")
+        return False
+
+    session_dir = get_session_dir()
+
+    with sync_playwright() as pw:
+        session_exists = (session_dir / "Default").exists()
+        headless = session_exists
+
+        if not session_exists and progress_callback:
+            progress_callback(
+                "LinkedIn: Browser wird geoeffnet fuer Erst-Login. "
+                "Bitte bei LinkedIn anmelden."
+            )
+
+        browser = pw.chromium.launch_persistent_context(
+            user_data_dir=str(session_dir),
+            headless=headless,
+            slow_mo=300 if not headless else 0,
+            viewport={"width": 1280, "height": 900},
+            locale="de-DE",
+            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+        )
+        page = browser.pages[0] if browser.pages else browser.new_page()
+
+        try:
+            page.goto(
+                "https://www.linkedin.com/jobs/",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+            time.sleep(2)
+
+            if _is_login_page(page):
+                if progress_callback:
+                    progress_callback("LinkedIn: Bitte im Browser einloggen...")
+                for _ in range(180):
+                    time.sleep(1)
+                    url = page.url
+                    if ("feed" in url or "jobs" in url) and "login" not in url:
+                        logger.info("LinkedIn Login erfolgreich!")
+                        browser.close()
+                        return True
+                logger.warning("LinkedIn Login Timeout.")
+                browser.close()
+                return False
+
+            logger.info("LinkedIn Session ist gueltig.")
+            browser.close()
+            return True
+        except Exception as exc:
+            logger.error("LinkedIn Session-Check fehlgeschlagen: %s", exc)
+            try:
+                browser.close()
+            except Exception:
+                pass
+            return False
+
+
 def _is_login_page(page) -> bool:
     """Check if we're on a LinkedIn login/auth page."""
     sel = get_selectors("linkedin")
