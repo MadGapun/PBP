@@ -2,6 +2,15 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.23.3] - 2026-03-19
+
+### Bugfix: XING Login-Flow
+
+- **XING Login fehlgeschlagen**: `ensure_xing_session` fehlte in `xing.py` —
+  XING-Login ueber Dashboard schlug mit ImportError fehl.
+- **Installer**: Playwright + Chromium werden jetzt automatisch installiert
+  (Fix aus v0.23.2 Installer-Patch).
+
 ## [0.23.2] - 2026-03-19
 
 ### CV-Qualitaet und Recruiter-Best-Practices
