@@ -454,6 +454,31 @@ async def api_update_document_type(doc_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.post("/api/documents/auto-mark-templates")
+async def api_auto_mark_templates():
+    """Auto-detect and mark unlinked CVs/cover letters as templates (#132).
+
+    Marks documents as templates when they have doc_type 'lebenslauf' or
+    'anschreiben' AND are not linked to any application or position.
+    """
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    result = conn.execute("""
+        UPDATE documents SET doc_type =
+            CASE
+                WHEN doc_type = 'lebenslauf' THEN 'lebenslauf_vorlage'
+                WHEN doc_type = 'anschreiben' THEN 'anschreiben_vorlage'
+            END
+        WHERE doc_type IN ('lebenslauf', 'anschreiben')
+        AND linked_application_id IS NULL
+        AND linked_position_id IS NULL
+        AND (profile_id=? OR profile_id IS NULL)
+    """, (pid,))
+    conn.commit()
+    count = result.rowcount
+    return {"status": "ok", "marked": count}
+
+
 @app.post("/api/document/{doc_id}/reanalyze")
 async def api_reanalyze_document(doc_id: str):
     """Reset extraction status so document can be analyzed again."""
@@ -980,6 +1005,60 @@ async def api_update_app_status(app_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.put("/api/applications/{app_id}")
+async def api_update_application(app_id: str, request: Request):
+    """Update editable fields of an application (#134).
+
+    Allowed fields: title, company, url, ansprechpartner, kontakt_email,
+    portal_name, bewerbungsart, vermittler, endkunde, notes.
+    Changes are logged as timeline events.
+    """
+    data = await request.json()
+    allowed = (
+        "title", "company", "url", "ansprechpartner", "kontakt_email",
+        "portal_name", "bewerbungsart", "vermittler", "endkunde", "notes",
+    )
+    conn = _db.connect()
+    app_row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
+    if not app_row:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+
+    changes = []
+    for field in allowed:
+        if field in data:
+            old_val = app_row[field] if field in app_row.keys() else ""
+            new_val = data[field]
+            if str(old_val or "") != str(new_val or ""):
+                changes.append(f"{field}: {old_val or '(leer)'} \u2192 {new_val or '(leer)'}")
+
+    if not changes:
+        return {"status": "ok", "changes": 0}
+
+    # Apply updates
+    sets = []
+    vals = []
+    for field in allowed:
+        if field in data:
+            sets.append(f"{field}=?")
+            vals.append(data[field])
+    now = datetime.now().isoformat()
+    sets.append("updated_at=?")
+    vals.append(now)
+    vals.append(app_id)
+    conn.execute(f"UPDATE applications SET {', '.join(sets)} WHERE id=?", vals)
+
+    # Log change as timeline event
+    import uuid
+    event_id = str(uuid.uuid4())[:8]
+    change_text = "Bewerbung bearbeitet: " + "; ".join(changes)
+    conn.execute(
+        "INSERT INTO application_events (id, application_id, status, event_date, notes) VALUES (?, ?, ?, ?, ?)",
+        (event_id, app_id, "bearbeitet", now, change_text)
+    )
+    conn.commit()
+    return {"status": "ok", "changes": len(changes)}
+
+
 @app.post("/api/applications/{app_id}/link-document")
 async def api_link_document(app_id: str, request: Request):
     """Link an existing document to an application."""
@@ -1021,6 +1100,64 @@ async def api_delete_note(app_id: str, event_id: int):
     return {"status": "ok"}
 
 
+@app.post("/api/applications/{app_id}/snapshot")
+async def api_snapshot_description(app_id: str, request: Request):
+    """Fetch job description from URL and save as snapshot (#124).
+
+    POST body: { "url": "https://..." }
+    Uses simple HTTP fetch + HTML text extraction.
+    """
+    data = await request.json()
+    url = (data.get("url") or "").strip()
+    if not url:
+        return JSONResponse({"error": "URL ist erforderlich"}, status_code=400)
+
+    import urllib.request
+    import re
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; PBP/1.0)",
+            "Accept": "text/html,application/xhtml+xml",
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"URL konnte nicht geladen werden: {str(e)}"},
+            status_code=502
+        )
+
+    # Extract text from HTML (strip tags, decode entities)
+    text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '\n', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&lt;', '<', text)
+    text = re.sub(r'&gt;', '>', text)
+    text = re.sub(r'&#\d+;', '', text)
+    text = re.sub(r'\n\s*\n', '\n\n', text).strip()
+
+    # Limit to reasonable size
+    if len(text) > 20000:
+        text = text[:20000] + "\n\n[... gekuerzt]"
+
+    conn = _db.connect()
+    now = datetime.now().isoformat()
+    conn.execute(
+        "UPDATE applications SET description_snapshot=?, snapshot_date=?, updated_at=? WHERE id=?",
+        (text, now, now, app_id)
+    )
+    conn.commit()
+
+    return {
+        "status": "ok",
+        "snapshot_length": len(text),
+        "snapshot_date": now,
+        "preview": text[:500],
+    }
+
+
 @app.get("/api/documents")
 async def api_documents():
     """List all documents for the active profile."""
@@ -1059,6 +1196,12 @@ async def api_stats_timeline(interval: str = "month"):
 async def api_stats_scores():
     """Score distribution and trend data for charts."""
     return _db.get_score_stats()
+
+
+@app.get("/api/stats/extended")
+async def api_stats_extended():
+    """Extended statistics: daily activity, response times, dismiss reasons, import vs new (#135)."""
+    return _db.get_extended_stats()
 
 
 @app.put("/api/jobs/{job_hash}/score")

@@ -1648,7 +1648,9 @@ export default function ProfilePage() {
                 >
                   <option value="sonstiges">Sonstiges</option>
                   <option value="lebenslauf">Lebenslauf</option>
+                  <option value="lebenslauf_vorlage">Lebenslauf (Vorlage)</option>
                   <option value="anschreiben">Anschreiben</option>
+                  <option value="anschreiben_vorlage">Anschreiben (Vorlage)</option>
                   <option value="zeugnis">Zeugnis</option>
                   <option value="zertifikat">Zertifikat</option>
                 </SelectInput>
@@ -1663,7 +1665,12 @@ export default function ProfilePage() {
                     </div>
                   );
                 })()}
-                <p className="truncate text-[13px] font-medium text-ink">{item.filename}</p>
+                <p className="truncate text-[13px] font-medium text-ink">
+                  {item.filename}
+                  {(item.doc_type || "").endsWith("_vorlage") && (
+                    <span className="ml-1.5 inline-flex rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">VORLAGE</span>
+                  )}
+                </p>
                 <span className="text-[11px] text-muted/40">{formatDateTime(item.created_at)}</span>
                 <div className="flex justify-end gap-1.5">
                   <button

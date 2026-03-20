@@ -101,6 +101,7 @@ export default function DashboardPage() {
           applications: [],
           followUps: [],
           statistics: {},
+          zombies: [],
         });
         setLoading(false);
       });
@@ -109,12 +110,27 @@ export default function DashboardPage() {
 
     try {
       const [jobs, applications, followUps, statistics, zombieData] = await Promise.all([
-        api("/api/jobs?active=true"),
+        optionalApi("/api/jobs?active=true"),
         optionalApi("/api/applications"),
-        api("/api/follow-ups"),
-        api("/api/statistics"),
+        optionalApi("/api/follow-ups"),
+        optionalApi("/api/statistics"),
         optionalApi("/api/applications/zombies"),
       ]);
+
+      // If ALL calls returned null, the server is unreachable (#123)
+      if (!jobs && !applications && !followUps && !statistics) {
+        const message = "Server nicht erreichbar — LiveUpdate pausiert.";
+        const now = Date.now();
+        if (
+          message !== lastLoadErrorRef.current.message ||
+          now - lastLoadErrorRef.current.at > 30000
+        ) {
+          lastLoadErrorRef.current = { message, at: now };
+          pushToast(message, "danger");
+        }
+        startTransition(() => setLoading(false));
+        return;
+      }
 
       startTransition(() => {
         setData({

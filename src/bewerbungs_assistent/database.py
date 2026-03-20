@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def _gen_id() -> str:
@@ -452,6 +452,21 @@ class Database:
                 except Exception:
                     pass
             logger.info("Migration v12->v13: dismiss_reasons table")
+
+        if from_ver < 14:
+            # v14: description_snapshot (#124), vermittler/endkunde (#134), activity tracking (#135)
+            migrations_v14 = [
+                ("applications", "description_snapshot", "TEXT"),
+                ("applications", "snapshot_date", "TEXT"),
+                ("applications", "vermittler", "TEXT DEFAULT ''"),
+                ("applications", "endkunde", "TEXT DEFAULT ''"),
+            ]
+            for table, col, coltype in migrations_v14:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+                except Exception as e:
+                    logger.debug("Spalte existiert bereits: %s", e)
+            logger.info("Migration v13->v14: description_snapshot, vermittler/endkunde")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -1963,6 +1978,176 @@ class Database:
             ORDER BY days_inactive DESC
         """, (pid, days_threshold)).fetchall()
         return [dict(r) for r in rows]
+
+    def get_extended_stats(self) -> dict:
+        """Get extended statistics for the enhanced stats page (#135).
+
+        Returns: daily activity, response times, dismiss reasons breakdown,
+        import vs new applications, overall totals since start.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+
+        # --- Today's activity ---
+        today_jobs_found = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE date(found_at) = date('now') "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        today_dismissed = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE date(updated_at) = date('now') AND is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        today_applied = conn.execute(
+            "SELECT COUNT(*) FROM applications WHERE date(applied_at) = date('now') "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+
+        # --- This week ---
+        week_jobs = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE found_at >= date('now', '-7 days') "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        week_dismissed = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE updated_at >= date('now', '-7 days') AND is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        week_applied = conn.execute(
+            "SELECT COUNT(*) FROM applications WHERE applied_at >= date('now', '-7 days') "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+
+        # --- Overall totals ---
+        total_jobs_ever = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        total_dismissed = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        total_active = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        total_pinned = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_pinned=1 AND is_active=1 AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+
+        # --- Import vs. new applications ---
+        # Applications before first job found_at are considered "imported"
+        first_job = conn.execute(
+            "SELECT MIN(found_at) as first FROM jobs WHERE found_at IS NOT NULL "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()
+        first_job_date = first_job["first"] if first_job else None
+
+        if first_job_date:
+            imported = conn.execute(
+                "SELECT COUNT(*) FROM applications WHERE applied_at < ? "
+                "AND (profile_id=? OR profile_id IS NULL)", (first_job_date, pid)
+            ).fetchone()[0]
+            new_apps = conn.execute(
+                "SELECT COUNT(*) FROM applications WHERE applied_at >= ? "
+                "AND (profile_id=? OR profile_id IS NULL)", (first_job_date, pid)
+            ).fetchone()[0]
+        else:
+            imported = 0
+            new_apps = conn.execute(
+                "SELECT COUNT(*) FROM applications WHERE (profile_id=? OR profile_id IS NULL)", (pid,)
+            ).fetchone()[0]
+
+        # --- Response times (days from applied_at to first status change beyond 'beworben') ---
+        response_rows = conn.execute("""
+            SELECT a.id,
+                   CAST(julianday(MIN(e.event_date)) - julianday(a.applied_at) AS INTEGER) as days
+            FROM applications a
+            JOIN application_events e ON a.id = e.application_id
+            WHERE e.status NOT IN ('beworben', 'offen', 'notiz', 'eingangsbestaetigung')
+            AND a.applied_at IS NOT NULL
+            AND (a.profile_id=? OR a.profile_id IS NULL)
+            GROUP BY a.id
+            HAVING days >= 0
+        """, (pid,)).fetchall()
+        response_days = [r["days"] for r in response_rows]
+        avg_response = round(sum(response_days) / len(response_days), 1) if response_days else None
+        min_response = min(response_days) if response_days else None
+        max_response = max(response_days) if response_days else None
+
+        # --- Dismiss reasons breakdown ---
+        dismiss_rows = conn.execute("""
+            SELECT dismiss_reason, COUNT(*) as cnt
+            FROM jobs WHERE is_active=0 AND dismiss_reason IS NOT NULL AND dismiss_reason != ''
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY dismiss_reason ORDER BY cnt DESC
+        """, (pid,)).fetchall()
+        # Normalize: some are JSON arrays, some strings
+        reason_counter = {}
+        for r in dismiss_rows:
+            raw = r["dismiss_reason"]
+            count = r["cnt"]
+            # Try JSON array
+            try:
+                reasons = json.loads(raw)
+                if isinstance(reasons, list):
+                    for reason in reasons:
+                        reason_counter[reason] = reason_counter.get(reason, 0) + count
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                pass
+            # Plain string — skip duplicates
+            if raw.startswith("Duplikat:"):
+                reason_counter["duplikat"] = reason_counter.get("duplikat", 0) + count
+            else:
+                reason_counter[raw] = reason_counter.get(raw, 0) + count
+
+        dismiss_reasons = sorted(reason_counter.items(), key=lambda x: -x[1])
+
+        # --- Recent activity (last 10 events) ---
+        recent = conn.execute("""
+            SELECT e.event_date, e.status, e.notes,
+                   a.title, a.company
+            FROM application_events e
+            JOIN applications a ON e.application_id = a.id
+            WHERE (a.profile_id=? OR a.profile_id IS NULL)
+            ORDER BY e.event_date DESC LIMIT 10
+        """, (pid,)).fetchall()
+        recent_activity = [dict(r) for r in recent]
+
+        # --- Start date ---
+        start_date = conn.execute(
+            "SELECT MIN(created_at) FROM profile WHERE is_active=1"
+        ).fetchone()[0]
+
+        return {
+            "today": {
+                "jobs_found": today_jobs_found,
+                "dismissed": today_dismissed,
+                "applied": today_applied,
+            },
+            "this_week": {
+                "jobs_found": week_jobs,
+                "dismissed": week_dismissed,
+                "applied": week_applied,
+            },
+            "totals": {
+                "jobs_ever": total_jobs_ever,
+                "jobs_active": total_active,
+                "jobs_dismissed": total_dismissed,
+                "jobs_pinned": total_pinned,
+                "dismiss_rate": round(total_dismissed / total_jobs_ever * 100, 1) if total_jobs_ever else 0,
+            },
+            "applications": {
+                "imported": imported,
+                "new": new_apps,
+                "total": imported + new_apps,
+            },
+            "response_times": {
+                "average_days": avg_response,
+                "fastest_days": min_response,
+                "slowest_days": max_response,
+                "sample_size": len(response_days),
+            },
+            "dismiss_reasons": dismiss_reasons,
+            "recent_activity": recent_activity,
+            "start_date": start_date,
+        }
 
     def get_report_data(self) -> dict:
         """Get comprehensive data for the PDF/Excel Bewerbungsbericht.

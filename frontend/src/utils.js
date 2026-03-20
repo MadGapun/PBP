@@ -91,6 +91,8 @@ export function statusTone(status) {
       return "neutral";
     case "beworben":
       return "amber";
+    case "bearbeitet":
+      return "neutral";
     default:
       return "neutral";
   }
@@ -123,12 +125,19 @@ export function readinessTone(tone) {
 export function docTypeLabel(docType) {
   const labels = {
     lebenslauf: "Lebenslauf",
+    lebenslauf_vorlage: "Lebenslauf (Vorlage)",
     anschreiben: "Anschreiben",
+    anschreiben_vorlage: "Anschreiben (Vorlage)",
     zeugnis: "Zeugnis",
     zertifikat: "Zertifikat",
     sonstiges: "Sonstiges",
   };
   return labels[docType] || docType || "Unbekannt";
+}
+
+export function isTemplateDoc(doc) {
+  const type = doc?.doc_type || "";
+  return type.endsWith("_vorlage");
 }
 
 export function employmentTypeLabel(type) {

@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Check, Download, ExternalLink, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
+﻿import { CalendarClock, Camera, Check, Download, ExternalLink, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -393,29 +393,75 @@ export default function ApplicationsPage() {
         footer={<div className="flex justify-end"><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schließen</Button></div>}
       >
         <div className="grid gap-5">
-          {/* Application details & contact */}
-          {timelineDialog.entry?.application && (
+          {/* Application details & contact (#134 editable) */}
+          {timelineDialog.entry?.application && (() => {
+            const app = timelineDialog.entry.application;
+            return (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung</p>
-                  <h3 className="mt-1 text-base font-semibold text-ink">{timelineDialog.entry.application.title}</h3>
-                  <p className="text-sm text-muted">{timelineDialog.entry.application.company}</p>
+                  <h3 className="mt-1 text-base font-semibold text-ink">{app.title}</h3>
+                  <p className="text-sm text-muted">{app.company}</p>
+                  {(app.vermittler || app.endkunde) && (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted/60">
+                      {app.vermittler && <span>Vermittler: {app.vermittler}</span>}
+                      {app.endkunde && <span>Endkunde: {app.endkunde}</span>}
+                    </div>
+                  )}
                 </div>
-                <Badge tone={statusTone(timelineDialog.entry.application.status)}>{timelineDialog.entry.application.status}</Badge>
+                <Badge tone={statusTone(app.status)}>{app.status}</Badge>
               </div>
-              {(timelineDialog.entry.application.ansprechpartner || timelineDialog.entry.application.kontakt_email) && (
+              {(app.ansprechpartner || app.kontakt_email) && (
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted/70">
-                  {timelineDialog.entry.application.ansprechpartner && <span>Kontakt: {timelineDialog.entry.application.ansprechpartner}</span>}
-                  {timelineDialog.entry.application.kontakt_email && <a href={`mailto:${timelineDialog.entry.application.kontakt_email}`} className="text-sky hover:underline">{timelineDialog.entry.application.kontakt_email}</a>}
+                  {app.ansprechpartner && <span>Kontakt: {app.ansprechpartner}</span>}
+                  {app.kontakt_email && <a href={`mailto:${app.kontakt_email}`} className="text-sky hover:underline">{app.kontakt_email}</a>}
                 </div>
               )}
-              {timelineDialog.entry.application.portal_name && (
-                <p className="mt-1 text-xs text-muted/50">Portal: {timelineDialog.entry.application.portal_name}</p>
+              {app.portal_name && (
+                <p className="mt-1 text-xs text-muted/50">Portal: {app.portal_name}</p>
               )}
-              {timelineDialog.entry.application.applied_at && (
-                <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(timelineDialog.entry.application.applied_at)}</p>
+              {app.applied_at && (
+                <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(app.applied_at)}</p>
               )}
+
+              {/* Inline edit section (#134) */}
+              <details className="mt-3 border-t border-white/[0.06] pt-3">
+                <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink flex items-center gap-1.5">
+                  <Pencil size={13} />
+                  Bewerbung bearbeiten
+                </summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    { key: "title", label: "Stellentitel" },
+                    { key: "company", label: "Firma (Endkunde)" },
+                    { key: "vermittler", label: "Vermittler" },
+                    { key: "endkunde", label: "Endkunde" },
+                    { key: "ansprechpartner", label: "Ansprechpartner" },
+                    { key: "kontakt_email", label: "Kontakt-E-Mail" },
+                    { key: "portal_name", label: "Portal" },
+                    { key: "url", label: "URL" },
+                  ].map(({ key, label }) => (
+                    <Field key={key} label={label}>
+                      <TextInput
+                        defaultValue={app[key] || ""}
+                        onBlur={async (e) => {
+                          const newVal = e.target.value;
+                          if (newVal === (app[key] || "")) return;
+                          try {
+                            await putJson(`/api/applications/${app.id}`, { [key]: newVal });
+                            await reloadTimeline(app.id);
+                            pushToast(`${label} aktualisiert.`, "success");
+                          } catch (err) {
+                            pushToast(`Fehler: ${err.message}`, "danger");
+                          }
+                        }}
+                      />
+                    </Field>
+                  ))}
+                </div>
+              </details>
+
               <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/[0.06] pt-4">
                 <Field className="min-w-[14rem] flex-1" label="Status direkt ändern">
                   <SelectInput
@@ -434,7 +480,8 @@ export default function ApplicationsPage() {
                 </p>
               </div>
             </Card>
-          )}
+            );
+          })()}
 
           {/* Job details with full description */}
           {timelineDialog.entry?.job ? (
@@ -467,6 +514,55 @@ export default function ApplicationsPage() {
               )}
             </Card>
           ) : null}
+
+          {/* Description Snapshot (#124) */}
+          {timelineDialog.entry?.application && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Stellenbeschreibung-Snapshot</p>
+                {(timelineDialog.entry.application.url || timelineDialog.entry.job?.url) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      const url = timelineDialog.entry.application.url || timelineDialog.entry.job?.url;
+                      if (!url) return;
+                      try {
+                        pushToast("Lade Stellenbeschreibung...", "info");
+                        const result = await postJson(`/api/applications/${timelineDialog.entry.application.id}/snapshot`, { url });
+                        await reloadTimeline(timelineDialog.entry.application.id);
+                        pushToast(`Snapshot gespeichert (${result.snapshot_length} Zeichen).`, "success");
+                      } catch (error) {
+                        pushToast(`Snapshot fehlgeschlagen: ${error.message}`, "danger");
+                      }
+                    }}
+                  >
+                    <Camera size={13} />
+                    {timelineDialog.entry.application.description_snapshot ? "Aktualisieren" : "Jetzt laden"}
+                  </Button>
+                )}
+              </div>
+              {timelineDialog.entry.application.description_snapshot ? (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink">
+                    Gespeicherte Beschreibung anzeigen
+                    {timelineDialog.entry.application.snapshot_date && (
+                      <span className="ml-2 text-xs text-muted/40">
+                        (vom {formatDate(timelineDialog.entry.application.snapshot_date)})
+                      </span>
+                    )}
+                  </summary>
+                  <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
+                    {timelineDialog.entry.application.description_snapshot}
+                  </div>
+                </details>
+              ) : (
+                <p className="mt-2 text-xs text-muted/50">
+                  Noch kein Snapshot vorhanden. Klicke &quot;Jetzt laden&quot; um die aktuelle Stellenbeschreibung zu sichern.
+                </p>
+              )}
+            </Card>
+          )}
 
           {/* Fit-Analyse (#84) */}
           {timelineDialog.entry?.application?.fit_analyse ? (

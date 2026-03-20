@@ -12,6 +12,73 @@ from typing import Optional
 logger = logging.getLogger("bewerbungs_assistent.export")
 
 
+def _parse_date_ym(date_str: str) -> Optional[tuple]:
+    """Parse a date string to (year, month) tuple for overlap detection."""
+    if not date_str:
+        return None
+    date_str = str(date_str).strip()[:10]
+    try:
+        if len(date_str) >= 7:
+            parts = date_str.split("-")
+            return (int(parts[0]), int(parts[1]))
+        if len(date_str) == 4:
+            return (int(date_str), 1)
+    except (ValueError, IndexError):
+        pass
+    return None
+
+
+def detect_position_overlaps(positions: list) -> dict:
+    """Detect temporal overlaps between positions.
+
+    Returns a dict mapping position index to list of overlapping position indices.
+    """
+    overlaps = {}
+    parsed = []
+    now_ym = (datetime.now().year, datetime.now().month)
+
+    for pos in positions:
+        start = _parse_date_ym(pos.get("start_date"))
+        end = _parse_date_ym(pos.get("end_date"))
+        if pos.get("is_current"):
+            end = now_ym
+        parsed.append((start, end))
+
+    for i in range(len(parsed)):
+        s_i, e_i = parsed[i]
+        if s_i is None:
+            continue
+        if e_i is None:
+            e_i = now_ym
+        for j in range(i + 1, len(parsed)):
+            s_j, e_j = parsed[j]
+            if s_j is None:
+                continue
+            if e_j is None:
+                e_j = now_ym
+            # Check overlap: start_i <= end_j AND start_j <= end_i
+            if s_i <= e_j and s_j <= e_i:
+                overlaps.setdefault(i, []).append(j)
+                overlaps.setdefault(j, []).append(i)
+
+    return overlaps
+
+
+def _overlap_hint(pos_index: int, positions: list, overlaps: dict) -> str:
+    """Generate a hint string for a position with overlaps."""
+    if pos_index not in overlaps:
+        return ""
+    partner_indices = overlaps[pos_index]
+    partners = []
+    for idx in partner_indices:
+        if idx < len(positions):
+            name = positions[idx].get("company") or positions[idx].get("title", "")
+            partners.append(name)
+    if not partners:
+        return ""
+    return f"(parallel zu {', '.join(partners)})"
+
+
 def generate_cv_docx(profile: dict, output_path: Path) -> Path:
     """Generate a professional CV as Word document."""
     from docx import Document
@@ -48,9 +115,13 @@ def generate_cv_docx(profile: dict, output_path: Path) -> Path:
     positions = profile.get("positions", [])
     if positions:
         doc.add_heading("Berufserfahrung", level=1)
-        for pos in positions:
+        overlaps = detect_position_overlaps(positions)
+        for pos_idx, pos in enumerate(positions):
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             period = f"{pos.get('start_date', '')} - {end}"
+            hint = _overlap_hint(pos_idx, positions, overlaps)
+            if hint:
+                period += f"  {hint}"
             emp_type = pos.get("employment_type", "")
             type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
 
@@ -215,10 +286,18 @@ def generate_tailored_cv_docx(
             return -hits  # Negative so most relevant sorts first
 
         sorted_positions = sorted(positions, key=pos_relevance)
+        # Use original positions list for overlap detection (order-independent)
+        overlaps = detect_position_overlaps(positions)
+        # Map original index for each sorted position
+        pos_index_map = {id(p): i for i, p in enumerate(positions)}
 
         for pos in sorted_positions:
+            orig_idx = pos_index_map.get(id(pos), -1)
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             period = f"{pos.get('start_date', '')} - {end}"
+            hint = _overlap_hint(orig_idx, positions, overlaps) if orig_idx >= 0 else ""
+            if hint:
+                period += f"  {hint}"
             emp_type = pos.get("employment_type", "")
             type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
 
@@ -904,14 +983,17 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
     positions = profile.get("positions", [])
     if positions:
         section("Berufserfahrung")
-        for pos in positions:
+        overlaps = detect_position_overlaps(positions)
+        for pos_idx, pos in enumerate(positions):
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             pdf.set_font(font_name, "B", 11)
             pdf.cell(epw, 6, safe(f"{pos.get('title', '')} bei {pos.get('company', '')}"),
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font(font_name, "", 9)
             loc = f" | {pos['location']}" if pos.get("location") else ""
-            pdf.cell(epw, 5, safe(f"{pos.get('start_date', '')} - {end}{loc}"),
+            hint = _overlap_hint(pos_idx, positions, overlaps)
+            hint_str = f"  {hint}" if hint else ""
+            pdf.cell(epw, 5, safe(f"{pos.get('start_date', '')} - {end}{loc}{hint_str}"),
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font(font_name, "", 10)
             if pos.get("tasks"):
