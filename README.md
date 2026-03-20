@@ -60,20 +60,40 @@ Du musst keine Kommandos kennen. Keine spezielle Syntax. Keine Prompts formulier
 Sobald PBP läuft, weiß Claude wer du bist, was du suchst und wo du stehst. Du tippst einfach los:
 
 > *"Schau mal über meinen Lebenslauf"*
-> *"Ich hab ne Absage von Siemens bekommen, was mach ich falsch?"*
+> *"Ich hab ne Absage bekommen, was mach ich falsch?"*
 > *"Bereite mich auf das Interview morgen vor"*
 > *"Suche was mit Python in Hamburg"*
 
 Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht genau weißt, wie man es "richtig" fragt. Und wenn etwas unklar ist, fragt Claude einfach nach. Kein Fehler, kein Absturz, kein "Befehl nicht erkannt".
 
+**🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache. Wie ein echtes Coaching-Gespräch am Küchentisch. Besonders beim Interview-Training macht das einen riesigen Unterschied: Du übst, frei zu antworten — nicht Texte zu tippen.
+
 > 💡 **Für Power-User:** Es gibt 14 vorgefertigte Workflows (z.B. `/interview_simulation`, `/auto_bewerbung`), die du als Slash-Command starten oder einfach per Copy & Paste an Claude geben kannst. Aber das ist optional — alles geht auch einfach im Gespräch.
+
+### Voraussetzungen
+
+PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose App von Anthropic für Windows, Mac und Linux.
+
+| | **Free** | **Pro** ⭐ empfohlen | **Max** |
+|---|----------|---------------------|---------|
+| **Preis** | $0 | **$20/Monat** | $100–200/Monat |
+| **Was geht mit PBP** | Reinschnuppern, CV analysieren lassen, einzelne Fragen stellen | **Alles.** Tägliche Nutzung: Jobsuche, Bewerbungen, Interview-Training, Coaching | Für Power-User mit stundenlangen Sessions |
+| **Nachrichten** | ~20 pro Tag | ~45 pro 5 Stunden (5× mehr) | 5×–20× mehr als Pro |
+| **MCP-Tools (PBP)** | ✅ Funktioniert | ✅ Funktioniert | ✅ Funktioniert |
+| **Mikrofon/Sprache** | ✅ Ja | ✅ Ja | ✅ Ja |
+| **Limit-Reset** | Alle 5–8 Stunden | Alle 5–8 Stunden | Wöchentlich |
+
+> ⚠️ **Wichtig:** PBP funktioniert auf dem Free-Plan, aber jeder Tool-Aufruf (Jobsuche, Analyse, Export) verbraucht Nachrichten-Kontingent. Mit dem Free-Plan ist das Kontingent nach einer Handvoll Aktionen aufgebraucht. Für regelmäßige Nutzung empfehlen wir **Claude Pro ($20/Monat)** — damit kommst du bequem durch den Tag.
+>
+> Zum Ausprobieren reicht der Free-Plan: Installieren, Lebenslauf hochladen, analysieren lassen. Wenn es dir gefällt, lohnt sich Pro.
 
 ### Das Besondere
 
-- **Einfach reden.** Kein Formular, keine Befehle, keine Syntax. Du unterhältst dich mit Claude — und PBP arbeitet im Hintergrund.
+- **Einfach reden — oder sprechen.** Kein Formular, keine Befehle. Tippen oder Mikrofon drücken — Claude versteht beides.
 - **Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). Kein Server, kein Account, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach.
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
+- **Open Source & kostenlos.** PBP selbst kostet nichts. Du brauchst nur Claude Desktop (Free oder Pro).
 
 ---
 
@@ -233,7 +253,7 @@ Der Installer:
 - Konfiguriert Claude Desktop automatisch
 - Erstellt eine Desktop-Verknüpfung
 
-> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
+> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download) (Free reicht zum Ausprobieren, [Pro empfohlen](#voraussetzungen) für tägliche Nutzung)
 
 ### 2. Profil erstellen
 
