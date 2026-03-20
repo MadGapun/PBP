@@ -1,6 +1,6 @@
 # PBP — Persönliches Bewerbungs-Portal
 
-> Dein KI-gestützter Bewerbungsassistent für Claude Desktop — von der Profilerstellung bis zum Traumjob.
+> Dein persönlicher Bewerbungs-Coach — analysiert deinen Lebenslauf, findet Schwächen, gibt ehrliches Feedback und hilft dir, besser zu werden. Kostenlos. Lokal. Open Source.
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
@@ -13,34 +13,53 @@
 
 ## Warum PBP?
 
-Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen, copy-pastest zwischen Tabs, verlierst den Überblick über Bewerbungen und fragst dich, ob du die richtige Stelle überhaupt findest.
+Mal ehrlich: Weißt du, wie dein Lebenslauf auf einen Recruiter wirkt? Auf ein ATS-System? Auf einen Personalberater?
 
-**PBP nimmt dir das ab.** Du redest einfach mit Claude — in natürlicher Sprache — und PBP erledigt den Rest:
+Die meisten Bewerber wissen es nicht. Sie schreiben ihren CV einmal, kopieren das Anschreiben mit minimalen Änderungen und wundern sich über Absagen. Nicht weil sie schlecht sind — sondern weil niemand ihnen ehrlich sagt, was sie besser machen könnten.
 
-| Problem | PBP-Lösung |
-|---------|-----------|
-| 😩 Profil mühsam von Hand erstellen | ✅ **Alles hochladen, was du hast** — alte CVs, Zeugnisse, Projektbeschreibungen, frühere Bewerbungen, ganze Ordner. PBP extrahiert die Fakten und baut dein Profil auf. Mit jedem Dokument wird es schärfer. |
-| 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz, bewertet aus 3 Perspektiven (Personalberater, ATS, Recruiter) |
-| 😩 10 Jobportale einzeln durchsuchen | ✅ **17 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de, GULP, SOLCOM, Jobware, FERCHAU, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Kimeta |
-| 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt). Duplikate werden portalübergreifend erkannt. |
-| 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung (PDF, DOCX, Markdown oder TXT) |
-| 😩 Interessante Stelle gefunden — und jetzt? | ✅ **Auto-Bewerbung** — Stellenanzeigen-URL rein, PBP macht den Rest: Fit-Analyse → angepasster CV → Anschreiben → Bewerbung wird getrackt. Ein Befehl, alles erledigt. |
-| 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen, Bearbeitung und Statistiken. Live-Dashboard im Browser. |
-| 😩 E-Mails von Firmen manuell zuordnen | ✅ **E-Mail-Import** — .msg/.eml per Drag & Drop ins Dashboard. PBP erkennt automatisch: Welche Bewerbung? Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert. |
-| 😩 Interviewvorbereitung improvisieren | ✅ **Interview-Simulation** — Claude spielt den Interviewer und gibt Feedback |
-| 😩 Gehalt falsch verhandeln | ✅ **Gehaltsverhandlung** — Markdaten-basierte Strategie und Argumentationshilfe |
-| 😩 Absage bekommen und ratlos sein | ✅ **Ablehnungs-Coaching** — Empathische Analyse mit konkreten Verbesserungsvorschlägen |
-| 😩 Nicht wissen, welche Skills fehlen | ✅ **Skill-Gap-Analyse** — PBP vergleicht dein Profil mit der Wunschstelle und zeigt, was du noch brauchst |
+**PBP ist dieser ehrliche Sparringspartner.**
+
+### Fang einfach an — mit dem, was du schon hast
+
+Du hast irgendwo einen Lebenslauf rumliegen? Ein altes Anschreiben? Projektbeschreibungen vom letzten Job? **Wirf alles rein.** PBP liest jedes Dokument, extrahiert die Fakten und baut daraus dein Profil. Alte Formulierungsfehler, schiefe Formatierungen, veraltete Buzzwords — werden nicht übernommen. Nur die harten Fakten: Was hast du gemacht, wo, wie lange, mit welchen Tools.
+
+> 💡 **Der schnellste Einstieg:** Lade deine letzte Bewerbung hoch und sag *"Analysiere meinen Lebenslauf"*. Du wirst überrascht sein, was dir auffällt — und was dir bisher keiner gesagt hat.
+
+Du kannst einzelne Dateien hochladen oder gleich einen ganzen Ordner mit Jahren an Unterlagen. Mit jedem Dokument wird dein Profil schärfer. Zeugnisse, Urkunden, Zertifikate, alte CVs — alles ist Rohmaterial.
+
+### Was PBP anders macht
+
+PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absenden". PBP gibt dir **Perspektive, Struktur und ehrliches Feedback** — die Entscheidungen triffst du.
+
+| Du fragst dich... | PBP hilft dir so |
+|-------------------|-----------------|
+| *"Ist mein Lebenslauf gut genug?"* | **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen Recruiter? Mit konkreten Verbesserungsvorschlägen. |
+| *"Passe ich überhaupt auf die Stelle?"* | **Fit-Analyse** — PBP vergleicht dein Profil Punkt für Punkt mit der Stellenbeschreibung. Ehrlich, nicht schöngerechnet. |
+| *"Was fehlt mir noch?"* | **Skill-Gap-Analyse** — Welche Fähigkeiten verlangt die Stelle, die du (noch) nicht hast? |
+| *"Wie bringe ich meine Erfahrung besser rüber?"* | **STAR-Methode** — PBP strukturiert deine Projekte nach Situation-Task-Action-Result. Das Format, das Recruiter lieben. |
+| *"Wie soll ich auf die Absage reagieren?"* | **Ablehnungs-Coaching** — Keine Durchhalteparolen, sondern ehrliche Analyse: Was kannst du beim nächsten Mal konkret besser machen? |
+| *"Was soll ich im Interview sagen?"* | **Interview-Simulation** — Claude spielt den Interviewer auf Basis der echten Stelle. Mit Feedback danach. |
+| *"Wie verhandle ich das Gehalt?"* | **Gehaltsverhandlung** — Markdaten, Strategie, konkrete Argumente. Kein Bauchgefühl. |
+
+### Und wenn du mehr willst
+
+PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
+
+- **17 Jobportale gleichzeitig durchsuchen** — StepStone, LinkedIn, Indeed, Hays, XING, Bundesagentur und 11 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
+- **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills und Erfahrung nach Relevanz sortiert sind. Als DOCX, damit du den Feinschliff selbst machst.
+- **Personalisierte Anschreiben** — Kein Copy-Paste. Basierend auf deinem Profil und der konkreten Stelle.
+- **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
+- **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. PBP erkennt: Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert.
+- **Follow-ups & Erinnerungen** — Damit keine Bewerbung in Vergessenheit gerät.
+- **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich, falls du Nachweise brauchst.
 
 ### Das Besondere
 
-- **Kein Formular-Ausfüllen.** Du unterhältst dich mit Claude. PBP baut dein Profil aus dem Gespräch auf.
-- **Deine alten Unterlagen sind Gold wert.** Lade alles hoch, was du hast — alte Lebensläufe, Zeugnisse, Projektbeschreibungen, Urkunden, frühere Bewerbungen. PBP extrahiert die relevanten Daten und schärft damit dein Profil. Mit jedem Upload wird es besser. Und keine Sorge: Alte Fehler, schlechte Formulierungen oder veraltete Formate werden nicht übernommen — PBP nutzt nur die Fakten.
+- **Kein Formular-Ausfüllen.** Du unterhältst dich mit Claude in natürlicher Sprache. Kein Klicken durch 20 Eingabefelder.
 - **Deine Daten bleiben lokal.** SQLite auf deinem Rechner — nichts geht in die Cloud (außer an Claude für die KI-Verarbeitung).
-- **Festanstellung & Freelance.** Egal ob du einen festen Job oder Projektaufträge suchst — PBP unterstützt beides mit getrennter Darstellung.
-- **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten, Bewerbungen und Suchkriterien.
-- **STAR-Methode für Projekte.** PBP strukturiert deine Berufserfahrung nach Situation-Task-Action-Result — das Format, das Recruiter lieben.
-- **14 geführte Workflows.** Von der Ersterfassung bis zur Netzwerk-Strategie — PBP leitet dich Schritt für Schritt.
+- **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
+- **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
+- **14 geführte Workflows.** Von der Ersterfassung bis zur Netzwerk-Strategie — Schritt für Schritt.
 
 ---
 
