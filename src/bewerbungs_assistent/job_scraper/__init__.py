@@ -397,13 +397,18 @@ def calculate_score(job: dict, criteria: dict) -> int:
     plus = criteria.get("keywords_plus", [])
     score += sum(1 for kw in plus if kw.lower() in text) * w["plus"]
 
-    # Distance bonus/malus (#60) — finer granularity
+    # Distance bonus/malus (#60, #112) — Freelance: reduced/no malus
     dist = job.get("distance_km")
+    emp_type = job.get("employment_type", "festanstellung")
+    is_freelance = emp_type == "freelance"
     if dist is not None:
         if dist > 200:
-            score -= w["fern_malus"]
+            # Freelance: no distance penalty (remote work assumed) (#112)
+            if not is_freelance:
+                score -= w["fern_malus"]
         elif dist > 100:
-            score -= 1  # slight penalty for far-away
+            if not is_freelance:
+                score -= 1  # slight penalty for far-away (Festanstellung only)
         elif dist < 30:
             score += w["naehe"]
         elif dist < 50:
@@ -479,10 +484,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         total += w["remote"]
 
     dist = job.get("distance_km")
+    fit_emp_type = job.get("employment_type", "festanstellung")
+    fit_is_freelance = fit_emp_type == "freelance"
     if dist is not None:
         if dist > 200:
-            factors[f"Entfernung: {int(dist)} km"] = -w["fern_malus"]
-            total -= w["fern_malus"]
+            if fit_is_freelance:
+                factors[f"Entfernung: {int(dist)} km (Freelance — kein Malus)"] = 0
+            else:
+                factors[f"Entfernung: {int(dist)} km"] = -w["fern_malus"]
+                total -= w["fern_malus"]
         elif dist < 30:
             factors[f"Naehe: {int(dist)} km"] = w["naehe"]
             total += w["naehe"]

@@ -8,9 +8,9 @@ from bewerbungs_assistent.job_scraper import extract_salary_from_text, estimate_
 # === Schema v9 ===
 
 class TestSchemaV9:
-    def test_schema_version_is_12(self, tmp_db):
-        """Schema version should be 12."""
-        assert SCHEMA_VERSION == 12
+    def test_schema_version_is_13(self, tmp_db):
+        """Schema version should be 13."""
+        assert SCHEMA_VERSION == 13
 
     def test_salary_estimated_column(self, tmp_db):
         """jobs table should have salary_estimated column."""

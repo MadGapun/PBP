@@ -880,16 +880,34 @@ async def api_application_timeline(app_id: str):
 
 
 @app.get("/api/jobs")
-async def api_jobs(active: bool = True):
+async def api_jobs(active: bool = True,
+                   exclude_blacklisted: bool = True,
+                   exclude_applied: bool = False):
+    """Get jobs with filtering (#118, #121).
+
+    By default, blacklisted companies are excluded from active jobs.
+    Set exclude_applied=true to also hide already-applied jobs.
+    """
     if active:
-        return _db.get_active_jobs()
+        return _db.get_active_jobs(
+            exclude_blacklisted=exclude_blacklisted,
+            exclude_applied=exclude_applied,
+        )
     return _db.get_dismissed_jobs()
 
 
 @app.post("/api/jobs/dismiss")
 async def api_dismiss_job(request: Request):
     data = await request.json()
-    _db.dismiss_job(data["hash"], data.get("reason", ""))
+    reasons = data.get("reasons", [])
+    reason_str = data.get("reason", "")
+    # Support both single reason (legacy) and multi-select reasons (#108, #120)
+    if reasons:
+        reason_str = json.dumps(reasons, ensure_ascii=False)
+        _db.increment_dismiss_reason_usage(reasons)
+    elif not reason_str:
+        return JSONResponse({"error": "Mindestens ein Ablehnungsgrund ist erforderlich"}, status_code=400)
+    _db.dismiss_job(data["hash"], reason_str)
     return {"status": "ok"}
 
 
@@ -1119,6 +1137,23 @@ async def api_set_criteria(request: Request):
     for key, value in data.items():
         _db.set_search_criteria(key, value)
     return {"status": "ok"}
+
+
+@app.get("/api/dismiss-reasons")
+async def api_dismiss_reasons():
+    """Get all dismiss reasons for the dismiss dialog (#108, #120)."""
+    return _db.get_dismiss_reasons()
+
+
+@app.post("/api/dismiss-reasons")
+async def api_add_dismiss_reason(request: Request):
+    """Add a custom dismiss reason (#108)."""
+    data = await request.json()
+    label = (data.get("label") or "").strip()
+    if not label:
+        return JSONResponse({"error": "Label ist erforderlich"}, status_code=400)
+    rid = _db.add_dismiss_reason(label)
+    return {"status": "ok", "id": rid}
 
 
 @app.get("/api/blacklist")

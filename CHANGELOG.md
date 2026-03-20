@@ -2,6 +2,56 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.26.0] - 2026-03-20
+
+### Major: Filtering, Scoring, UX — 15 Issues (66 Tools, 14 Prompts, Schema v13)
+
+**Bug-Fixes Filtering (#114, #118, #121):**
+- Blacklist-Filter in Stellen-API: Stellen von geblacklisteten Firmen werden automatisch ausgeblendet
+- Bereits beworbene und aussortierte Stellen erscheinen nicht mehr in der Jobsuche
+- Stellen-Zaehler (MetricCard) zeigt nur noch tatsaechlich sichtbare Stellen an
+- Zentrale Filter-Funktion in `database.py` — MCP-Tools und Dashboard filtern identisch
+
+**Passt-nicht-Begruendung (#108, #120):**
+- Ablehnungsgruende sind jetzt Pflicht beim Aussortieren — kein "Passt nicht" ohne Grund
+- Multi-Select: Mehrere Gruende gleichzeitig auswaehlbar (z.B. "zu_weit_entfernt" + "gehalt_zu_niedrig")
+- Benutzerdefinierte Gruende koennen hinzugefuegt werden
+- Neue `dismiss_reasons`-Tabelle (Schema v13) mit Nutzungszaehler fuer lernendes System
+- Frontend: Neuer Dismiss-Dialog mit Chips-Auswahl und optionalem Freitext
+
+**Scoring-Verbesserungen (#105, #112):**
+- Freelance-Stellen erhalten keinen Entfernungs-Malus mehr — Festanstellung wie bisher
+- Fit-Analyse zeigt explizit "Freelance — kein Malus" bei entfernten Freelance-Stellen
+
+**UX Quick Wins (#106, #111, #116, #119):**
+- Farbliche Unterscheidung: Festanstellung (blau) vs. Freelance (gruen) als Badge bei jeder Stelle
+- Jobsuche-Button in leerer Stellen-Ansicht — direkter Einstieg in die Jobsuche
+- Quell-Link (ExternalLink-Icon) direkt in der Bewerbungsliste neben dem Titel
+- Stellen werden ohne automatische passt/passt-nicht-Empfehlung praesentiert
+
+**Profil-Navigation (#122):**
+- Sticky Sidebar im Profil-Bereich (ab Desktop-Breite): Schnellnavigation zu allen Sektionen
+- Anker-Links: Persoenliche Daten, Suchkriterien, Blacklist, Erfahrung, Ausbildung, Skills, Dokumente
+
+**Compliance & Hilfe (#103, #115):**
+- Rechtlicher Disclaimer in Credits: Hinweis zu Scraping-ToS, lokaler Datenspeicherung, keine Gewaehr
+- Hilfe/FAQ erweitert: Link zur vollstaendigen GitHub-Dokumentation
+- Codex als weiteres Teammitglied in Credits aufgenommen
+- Version in Credits auf v0.26.0 aktualisiert
+
+**Roadmap-Issues gekennzeichnet:**
+- 5 Issues (#28, #104, #107, #109, #117) als "roadmap" gelabelt — zukuenftige Entwicklungen
+
+**Schema-Migration v13:**
+- Neue Tabelle `dismiss_reasons` (id, label, is_custom, usage_count, profile_id)
+- Vorbefuellt mit 10 Standard-Ablehnungsgruenden
+
+**Geschlossene Issues:** #103, #105, #106, #108, #111, #112, #114, #115, #116, #118, #119, #120, #121, #122
+
+**Tests:** 271 passed, 4 skipped (7 neue Tests)
+
+---
+
 ## [0.25.2] - 2026-03-20
 
 ### Frontend-Recovery: Hilfe-Dialog, Timeline-Notizen, Statuswechsel (Codex/Claude)

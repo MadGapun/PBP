@@ -301,7 +301,14 @@ export default function ApplicationsPage() {
                           <Badge tone="neutral">{application.bewerbungsart === "ueber_portal" ? "Portal" : application.bewerbungsart === "elektronisch" ? "E-Mail" : application.bewerbungsart}</Badge>
                         )}
                       </div>
-                      <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
+                        {application.url ? (
+                          <a href={application.url} target="_blank" rel="noreferrer" className="text-muted/40 hover:text-sky transition-colors" title="Stellenanzeige öffnen">
+                            <ExternalLink size={14} />
+                          </a>
+                        ) : null}
+                      </div>
                       <p className="text-sm text-muted">{application.company}{application.ansprechpartner ? ` — ${application.ansprechpartner}` : ""}</p>
                       {application.notes ? <p className="text-sm text-muted">{textExcerpt(application.notes, 150)}</p> : null}
                       {application.last_note ? <p className="text-xs text-muted/40 truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}

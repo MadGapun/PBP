@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 
 def _gen_id() -> str:
@@ -84,6 +84,20 @@ class Database:
                 "INSERT INTO settings (key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),)
             )
+            # Pre-populate standard dismiss reasons for fresh databases (#108)
+            _standard_reasons = [
+                "zu_weit_entfernt", "gehalt_zu_niedrig", "falsches_fachgebiet",
+                "zu_junior", "zu_senior", "unpassendes_arbeitsmodell",
+                "firma_uninteressant", "zeitarbeit", "befristet", "sonstiges",
+            ]
+            for label in _standard_reasons:
+                try:
+                    conn.execute(
+                        "INSERT INTO dismiss_reasons (label, is_custom, profile_id, created_at) VALUES (?, 0, '', ?)",
+                        (label, _now())
+                    )
+                except Exception:
+                    pass
             conn.commit()
         else:
             current = int(row["value"])
@@ -408,6 +422,36 @@ class Database:
                 except Exception:
                     pass  # Already exists
             logger.info("Migration v11->v12: fit_analyse + threaded notes")
+
+        if from_ver < 13:
+            # v13: dismiss_reasons table for multi-select + custom reasons (#108, #120)
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS dismiss_reasons (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label TEXT NOT NULL,
+                    is_custom INTEGER DEFAULT 0,
+                    usage_count INTEGER DEFAULT 0,
+                    profile_id TEXT,
+                    created_at TEXT
+                );
+            """)
+            # Pre-populate with standard reasons
+            from datetime import datetime as _dt
+            _now_str = _dt.now().isoformat()
+            _standard = [
+                "zu_weit_entfernt", "gehalt_zu_niedrig", "falsches_fachgebiet",
+                "zu_junior", "zu_senior", "unpassendes_arbeitsmodell",
+                "firma_uninteressant", "zeitarbeit", "befristet", "sonstiges",
+            ]
+            for label in _standard:
+                try:
+                    conn.execute(
+                        "INSERT INTO dismiss_reasons (label, is_custom, profile_id, created_at) VALUES (?, 0, '', ?)",
+                        (label, _now_str)
+                    )
+                except Exception:
+                    pass
+            logger.info("Migration v12->v13: dismiss_reasons table")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -1117,11 +1161,20 @@ class Database:
             ))
         conn.commit()
 
-    def get_active_jobs(self, filters: Optional[dict] = None) -> list:
+    def get_active_jobs(self, filters: Optional[dict] = None,
+                        exclude_blacklisted: bool = False,
+                        exclude_applied: bool = False) -> list:
+        """Get active jobs with optional filtering (#118, #121).
+
+        Args:
+            filters: dict with source, employment_type, min_score
+            exclude_blacklisted: exclude jobs from blacklisted companies
+            exclude_applied: exclude jobs that already have an application
+        """
         conn = self.connect()
         pid = self.get_active_profile_id()
         query = "SELECT * FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)"
-        params = [pid]
+        params: list = [pid]
         if filters:
             if filters.get("source"):
                 query += " AND source=?"
@@ -1133,7 +1186,35 @@ class Database:
                 query += " AND score>=?"
                 params.append(filters["min_score"])
         query += " ORDER BY is_pinned DESC, score DESC, found_at DESC"
-        return [self._serialize_job_row(r) for r in conn.execute(query, params).fetchall()]
+        jobs = [self._serialize_job_row(r) for r in conn.execute(query, params).fetchall()]
+
+        # Blacklist filter (#121): exclude jobs from blacklisted companies
+        if exclude_blacklisted:
+            bl_entries = self.get_blacklist()
+            bl_firms = {e["value"].lower() for e in bl_entries if e.get("type") == "firma"}
+            bl_keywords = {e["value"].lower() for e in bl_entries if e.get("type") == "keyword"}
+            if bl_firms or bl_keywords:
+                filtered = []
+                for j in jobs:
+                    company = (j.get("company") or "").lower()
+                    title = (j.get("title") or "").lower()
+                    if company in bl_firms:
+                        continue
+                    if any(kw in title or kw in company for kw in bl_keywords):
+                        continue
+                    filtered.append(j)
+                jobs = filtered
+
+        # Applied filter (#118): exclude jobs already applied to
+        if exclude_applied:
+            applied_hashes = {
+                r["job_hash"] for r in self.get_applications()
+                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen")
+            }
+            if applied_hashes:
+                jobs = [j for j in jobs if j["hash"] not in applied_hashes]
+
+        return jobs
 
     def get_dismissed_jobs(self) -> list:
         conn = self.connect()
@@ -1486,6 +1567,38 @@ class Database:
             cur = conn.execute("DELETE FROM blacklist WHERE id=?", (entry_id,))
         conn.commit()
         return cur.rowcount > 0
+
+    # === Dismiss Reasons (#108, #120) ===
+
+    def get_dismiss_reasons(self) -> list:
+        """Get all dismiss reasons (standard + custom)."""
+        conn = self.connect()
+        pid = self.get_active_profile_id() or ""
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM dismiss_reasons WHERE profile_id='' OR profile_id=? ORDER BY usage_count DESC, label",
+            (pid,)
+        ).fetchall()]
+
+    def add_dismiss_reason(self, label: str) -> int:
+        """Add a custom dismiss reason. Returns the new id."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        cur = conn.execute(
+            "INSERT INTO dismiss_reasons (label, is_custom, profile_id, created_at) VALUES (?, 1, ?, ?)",
+            (label, pid, _now())
+        )
+        conn.commit()
+        return cur.lastrowid
+
+    def increment_dismiss_reason_usage(self, labels: list):
+        """Increment usage_count for the given reason labels."""
+        conn = self.connect()
+        for label in labels:
+            conn.execute(
+                "UPDATE dismiss_reasons SET usage_count = usage_count + 1 WHERE label=?",
+                (label,)
+            )
+        conn.commit()
 
     # === Background Jobs ===
 
@@ -2588,5 +2701,14 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     key TEXT PRIMARY KEY,
     value TEXT,
     updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS dismiss_reasons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    is_custom INTEGER DEFAULT 0,
+    usage_count INTEGER DEFAULT 0,
+    profile_id TEXT,
+    created_at TEXT
 );
 """

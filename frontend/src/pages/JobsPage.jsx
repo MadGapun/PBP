@@ -1,5 +1,5 @@
 ﻿import { Ban, BriefcaseBusiness, Check, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
@@ -35,6 +35,12 @@ const EMPTY_BLACKLIST_DIALOG = {
   job: null,
   type: "firma",
   value: "",
+};
+const EMPTY_DISMISS_DIALOG = {
+  open: false,
+  job: null,
+  selectedReasons: [],
+  customReason: "",
 };
 const JOB_HIGHLIGHT_DURATION_MS = 1800;
 
@@ -118,6 +124,8 @@ export default function JobsPage() {
   const [highlightedJobHash, setHighlightedJobHash] = useState("");
   const [editingScoreHash, setEditingScoreHash] = useState("");
   const [editingScoreValue, setEditingScoreValue] = useState("");
+  const [dismissDialog, setDismissDialog] = useState(EMPTY_DISMISS_DIALOG);
+  const [dismissReasons, setDismissReasons] = useState([]);
 
   const wasSearchRunningRef = useRef(false);
   const searchPollErrorShownRef = useRef(false);
@@ -127,11 +135,12 @@ export default function JobsPage() {
   const loadPage = useEffectEvent(async (options = {}) => {
     const silent = Boolean(options?.silent);
     try {
-      const [activeJobs, hiddenJobs, followUpsResponse, appsResponse] = await Promise.all([
-        api("/api/jobs?active=true"),
+      const [activeJobs, hiddenJobs, followUpsResponse, appsResponse, reasons] = await Promise.all([
+        api("/api/jobs?active=true&exclude_blacklisted=true"),
         api("/api/jobs?active=false"),
         api("/api/follow-ups"),
         api("/api/applications"),
+        optionalApi("/api/dismiss-reasons"),
       ]);
       startTransition(() => {
         setJobs(activeJobs || []);
@@ -139,6 +148,7 @@ export default function JobsPage() {
         setFollowUps(followUpsResponse?.follow_ups || []);
         const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
         setAppliedJobHashes(appHashes);
+        if (reasons) setDismissReasons(reasons);
         setLoading(false);
       });
     } catch (error) {
@@ -303,6 +313,45 @@ export default function JobsPage() {
     }
   }
 
+  function openDismissDialog(job) {
+    setDismissDialog({ open: true, job, selectedReasons: [], customReason: "" });
+  }
+
+  async function saveDismiss() {
+    const reasons = [...dismissDialog.selectedReasons];
+    if (dismissDialog.customReason.trim()) {
+      reasons.push(dismissDialog.customReason.trim());
+    }
+    if (!reasons.length) {
+      pushToast("Bitte mindestens einen Ablehnungsgrund auswählen.", "danger");
+      return;
+    }
+    const hash = dismissDialog.job?.hash;
+    if (!hash) return;
+    try {
+      await postJson("/api/jobs/dismiss", { hash, reasons });
+      startTransition(() => {
+        setJobs((cur) => cur.filter((j) => String(j.hash) !== String(hash)));
+        const dismissed = jobs.find((j) => String(j.hash) === String(hash));
+        if (dismissed) setDismissedJobs((cur) => [{ ...dismissed, status: "aussortiert" }, ...cur]);
+      });
+      refreshChrome({ quiet: true });
+      pushToast("Stelle aussortiert.", "success");
+      setDismissDialog(EMPTY_DISMISS_DIALOG);
+    } catch (error) {
+      pushToast(`Stelle konnte nicht aussortiert werden: ${error.message}`, "danger");
+    }
+  }
+
+  function toggleDismissReason(label) {
+    setDismissDialog((cur) => {
+      const selected = cur.selectedReasons.includes(label)
+        ? cur.selectedReasons.filter((r) => r !== label)
+        : [...cur.selectedReasons, label];
+      return { ...cur, selectedReasons: selected };
+    });
+  }
+
   function openBlacklistDialog(job) {
     const preferredType = job?.company ? "firma" : job?.location ? "ort" : "keyword";
     setBlacklistDialog({
@@ -455,7 +504,7 @@ export default function JobsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Aktive Stellen" value={jobs.length} note={jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
+          <MetricCard label="Aktive Stellen" value={filteredJobs.length} note={jobs.length !== filteredJobs.length ? `${jobs.length} gesamt, ${jobsWithSalary} mit Gehalt` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
@@ -704,9 +753,9 @@ export default function JobsPage() {
                       </button>
                     )}
                     {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
-                    {job.employment_type && job.employment_type !== "festanstellung" ? (
-                      <Badge tone={job.employment_type === "freelance" ? "success" : job.employment_type === "praktikum" ? "amber" : "neutral"}>
-                        {job.employment_type === "freelance" ? "Freelance" : job.employment_type === "praktikum" ? "Praktikum" : job.employment_type === "werkstudent" ? "Werkstudent" : job.employment_type}
+                    {job.employment_type ? (
+                      <Badge tone={job.employment_type === "freelance" ? "success" : job.employment_type === "festanstellung" ? "sky" : job.employment_type === "praktikum" ? "amber" : "neutral"}>
+                        {job.employment_type === "freelance" ? "Freelance" : job.employment_type === "festanstellung" ? "Festanstellung" : job.employment_type === "praktikum" ? "Praktikum" : job.employment_type === "werkstudent" ? "Werkstudent" : job.employment_type}
                       </Badge>
                     ) : null}
                   </div>
@@ -757,7 +806,7 @@ export default function JobsPage() {
                     Zur Blacklist
                   </Button>
                   {filters.view === "active" ? (
-                    <Button variant="danger" onClick={() => changeJobState("/api/jobs/dismiss", { hash: job.hash, reason: "passt_nicht" }, "Stelle aussortiert")}>
+                    <Button variant="danger" onClick={() => openDismissDialog(job)}>
                       <EyeOff size={15} />
                       Passt nicht
                     </Button>
@@ -779,8 +828,16 @@ export default function JobsPage() {
           ) : (
             <EmptyState
               title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine ausgeblendeten Stellen"}
-              description={filters.view === "active" ? "Sobald Jobs im System sind, erscheinen sie hier mit Fit-Analyse und Aktionsbuttons." : "Ausgeblendete Jobs können hier später wieder aktiviert werden."}
-          action={filters.view === "active" ? <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button> : null}
+              description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Ausgeblendete Jobs können hier später wieder aktiviert werden."}
+              action={filters.view === "active" ? (
+                <div className="flex gap-3">
+                  <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
+                  <Button variant="secondary" onClick={() => pushToast("Starte die Jobsuche über das MCP-Tool 'jobsuche_starten' oder per Claude-Prompt.", "info")}>
+                    <Search size={15} />
+                    Jobsuche starten
+                  </Button>
+                </div>
+              ) : null}
             />
           )}
         </div>
@@ -889,6 +946,60 @@ export default function JobsPage() {
               </span>
             </p>
           </Card>
+        </div>
+      </Modal>
+
+      {/* Dismiss Dialog with reason selection (#108, #120) */}
+      <Modal
+        open={dismissDialog.open}
+        title={`Stelle aussortieren — ${dismissDialog.job?.title || ""}`}
+        onClose={() => setDismissDialog(EMPTY_DISMISS_DIALOG)}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setDismissDialog(EMPTY_DISMISS_DIALOG)}>Abbrechen</Button>
+            <Button variant="danger" onClick={saveDismiss}>
+              <EyeOff size={15} />
+              Aussortieren
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4">
+          <p className="text-sm text-muted">Warum passt diese Stelle nicht? (Mehrfachauswahl möglich)</p>
+          <div className="flex flex-wrap gap-2">
+            {(dismissReasons.length ? dismissReasons : [
+              { label: "zu_weit_entfernt" }, { label: "gehalt_zu_niedrig" }, { label: "falsches_fachgebiet" },
+              { label: "zu_junior" }, { label: "zu_senior" }, { label: "unpassendes_arbeitsmodell" },
+              { label: "firma_uninteressant" }, { label: "zeitarbeit" }, { label: "befristet" }, { label: "sonstiges" },
+            ]).map((reason) => {
+              const selected = dismissDialog.selectedReasons.includes(reason.label);
+              const displayLabel = reason.label.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+              return (
+                <button
+                  key={reason.label}
+                  type="button"
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors",
+                    selected
+                      ? "border-coral/30 bg-coral/15 text-coral"
+                      : "border-white/10 bg-white/[0.04] text-muted/60 hover:bg-white/[0.08] hover:text-muted/80"
+                  )}
+                  onClick={() => toggleDismissReason(reason.label)}
+                >
+                  {selected ? <Check size={12} className="mr-1 inline -mt-0.5" /> : null}
+                  {displayLabel}
+                  {reason.usage_count > 0 ? <span className="ml-1 text-[11px] opacity-50">({reason.usage_count})</span> : null}
+                </button>
+              );
+            })}
+          </div>
+          <Field label="Eigener Grund (optional)">
+            <TextInput
+              placeholder="z.B. kein Home-Office möglich"
+              value={dismissDialog.customReason}
+              onChange={(e) => setDismissDialog((cur) => ({ ...cur, customReason: e.target.value }))}
+            />
+          </Field>
         </div>
       </Modal>
 

@@ -1023,8 +1023,38 @@ export default function ProfilePage() {
 
       <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
 
-      <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="flex gap-6">
+        {/* Sticky sidebar navigation (#122) */}
+        <nav className="hidden lg:block w-48 shrink-0">
+          <div className="sticky top-6 space-y-1">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Navigation</p>
+            {[
+              ["profil-uebersicht", "Übersicht"],
+              ["profil-persoenlich", "Persönliche Daten"],
+              ["profil-suchkriterien", "Suchkriterien"],
+              ["profil-blacklist", "Blacklist"],
+              ["profil-erfahrung", "Berufserfahrung"],
+              ["profil-ausbildung", "Ausbildung"],
+              ["profil-skills", "Skills"],
+              ["profil-dokumente", "Dokumente"],
+            ].map(([id, label]) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="block rounded-lg px-3 py-1.5 text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        </nav>
+
+        <div className="min-w-0 flex-1 grid gap-6">
+        <div id="profil-uebersicht" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {profileElementCards.map((item) => (
             <MetricCard
               key={item.key}
@@ -1036,7 +1066,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        <Card className="rounded-2xl">
+        <Card id="profil-persoenlich" className="rounded-2xl">
           <SectionHeading title="Persönliche Daten" description="Diese Daten fließen in CV, Anschreiben und Matching ein." />
           <div className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
@@ -1095,7 +1125,7 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        <Card className="rounded-2xl">
+        <Card id="profil-suchkriterien" className="rounded-2xl">
           <SectionHeading title="Suchkriterien" description="Keywords und Gewichtungen für Matching und Scoring." />
           <div className="grid gap-4">
             {[
@@ -1163,7 +1193,7 @@ export default function ProfilePage() {
               {weightingCards.map((card) => renderWeightRow(card))}
             </div>
 
-            <div className="mt-2 border-t border-white/8 pt-5">
+            <div id="profil-blacklist" className="mt-2 border-t border-white/8 pt-5">
               <SectionHeading title="Blacklist" description="Ausschlüsse für Firmen oder Keywords." />
               <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)_auto]">
                 <Field label="Typ">
@@ -1215,7 +1245,7 @@ export default function ProfilePage() {
         </Card>
 
         <div className="grid gap-6">
-          <Card className="rounded-2xl">
+          <Card id="profil-erfahrung" className="rounded-2xl">
             <SectionHeading title="Berufserfahrung" description="Positionen für CV und Matching." action={<Button onClick={() => setPositionDialog({ open: true, draft: EMPTY_POSITION })}><Plus size={15} />Position</Button>} />
             <div className="grid gap-4">
               {profile.positions?.length ? profile.positions.map((item) => {
@@ -1346,7 +1376,7 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl">
+          <Card id="profil-ausbildung" className="rounded-2xl">
             <SectionHeading title="Ausbildung" description="Studium und Ausbildung." action={<Button onClick={() => setEducationDialog({ open: true, draft: EMPTY_EDUCATION })}><Plus size={15} />Ausbildung</Button>} />
             <div className="grid gap-4">
               {profile.education?.length ? profile.education.map((item) => (
@@ -1381,7 +1411,7 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          <Card className="rounded-2xl">
+          <Card id="profil-skills" className="rounded-2xl">
             <SectionHeading title="Skills" description="Kompetenzen für Matching und Fit-Analyse." action={<Button onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(EMPTY_SKILL) })}><Plus size={15} />Skill</Button>} />
             {profile.skills?.length ? (() => {
               const groups = {};
@@ -1470,7 +1500,7 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        <Card id="section-documents" className="rounded-2xl">
+        <Card id="profil-dokumente" className="rounded-2xl">
           <SectionHeading
             title="Dokumente"
             description="Upload, Ordnerimport und Reanalyse bleiben über die vorhandenen Endpunkte erhalten."
@@ -1838,6 +1868,7 @@ export default function ProfilePage() {
           )}
         </Card>
       </div>
+      </div>{/* end flex layout */}
 
       <Modal
         open={positionDialog.open}

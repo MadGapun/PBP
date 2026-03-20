@@ -1142,8 +1142,17 @@ export default function App() {
                   <p>Oeffne Claude Desktop und tippe "Ersterfassung starten". Claude fuehrt dich durch den Aufbau deines Bewerbungsprofils.</p>
                 </div>
                 <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-1">Support</h3>
+                  <h3 className="font-medium text-ink mb-1">Support & Dokumentation</h3>
                   <p>Fuer Fragen und Probleme erstelle ein Issue auf GitHub. Du brauchst dafuer einen kostenlosen GitHub-Account.</p>
+                  <a
+                    href="https://github.com/MadGapun/PBP#readme"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-sky hover:underline text-[13px]"
+                  >
+                    <ExternalLink size={12} />
+                    Vollstaendige Anleitung auf GitHub
+                  </a>
                 </div>
               </div>
             )}
@@ -1186,7 +1195,7 @@ export default function App() {
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">PBP — Persoenliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v0.25.2</p>
+                  <p className="text-muted/60">Version: v0.26.0</p>
                   <p className="text-muted/60">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">
@@ -1194,6 +1203,16 @@ export default function App() {
                   <p className="text-muted/60">Markus (MadGapun) — Konzept, Backend, Projektleitung</p>
                   <p className="text-muted/60">Toms (Koala280) — React-Frontend</p>
                   <p className="text-muted/60">Claude — KI-Assistent & Co-Developer</p>
+                  <p className="text-muted/60">Codex (TANTE) — Frontend-Recovery & Co-Developer</p>
+                </div>
+                <div className="glass-card p-3 border border-amber/15">
+                  <h3 className="font-medium text-ink mb-2">Rechtliche Hinweise</h3>
+                  <div className="space-y-1.5 text-muted/60 text-[12px]">
+                    <p><strong>Jobsuche / Scraping:</strong> Die Stellensuche greift auf oeffentlich zugaengliche Daten von Jobportalen zu (z.B. Bundesagentur fuer Arbeit, LinkedIn, XING, StepStone). Die Nutzung erfolgt auf eigene Verantwortung. Bitte beachte die jeweiligen Nutzungsbedingungen der Plattformen.</p>
+                    <p><strong>Datenspeicherung:</strong> Alle Daten werden ausschliesslich lokal auf deinem Geraet gespeichert. Es findet keine Uebertragung an Dritte statt.</p>
+                    <p><strong>Keine Gewaehr:</strong> PBP uebernimmt keine Gewaehr fuer die Vollstaendigkeit, Richtigkeit oder Aktualitaet der gesammelten Stellenangebote.</p>
+                    <p><strong>Verantwortung:</strong> Du bist selbst dafuer verantwortlich, dass deine Nutzung der Jobsuche-Funktion im Einklang mit den Nutzungsbedingungen der jeweiligen Plattformen steht.</p>
+                  </div>
                 </div>
                 <a
                   href="https://github.com/MadGapun/PBP"

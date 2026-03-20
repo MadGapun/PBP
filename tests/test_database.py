@@ -414,3 +414,73 @@ class TestStatistics:
         assert stats["total_applications"] == 1
         assert stats["active_jobs"] == 1
         assert set(stats["applications_by_status"]) == {"interview"}
+
+
+# === Blacklist Filtering (#121) ===
+
+class TestBlacklistFiltering:
+    def test_exclude_blacklisted_companies(self, tmp_db, sample_profile):
+        """Active jobs from blacklisted companies should be excluded (#121)."""
+        tmp_db.save_profile(sample_profile)
+        tmp_db.save_jobs([
+            {"hash": "j1", "title": "Good Job", "company": "GoodCorp", "url": "https://g.com", "source": "test"},
+            {"hash": "j2", "title": "Bad Job", "company": "BadCorp", "url": "https://b.com", "source": "test"},
+        ])
+        tmp_db.add_to_blacklist("firma", "BadCorp", "Schlechte Erfahrung")
+
+        # Without filter
+        all_jobs = tmp_db.get_active_jobs()
+        assert len(all_jobs) == 2
+
+        # With filter
+        filtered = tmp_db.get_active_jobs(exclude_blacklisted=True)
+        assert len(filtered) == 1
+        assert filtered[0]["company"] == "GoodCorp"
+
+    def test_exclude_applied_jobs(self, tmp_db, sample_profile):
+        """Already-applied jobs should be excludable (#118)."""
+        tmp_db.save_profile(sample_profile)
+        tmp_db.save_jobs([
+            {"hash": "j1", "title": "Open Job", "company": "Corp A", "url": "https://a.com", "source": "test"},
+            {"hash": "j2", "title": "Applied Job", "company": "Corp B", "url": "https://b.com", "source": "test"},
+        ])
+        tmp_db.add_application({"title": "Applied Job", "company": "Corp B", "job_hash": "j2", "status": "beworben"})
+
+        # Without filter
+        all_jobs = tmp_db.get_active_jobs()
+        assert len(all_jobs) == 2
+
+        # With filter
+        filtered = tmp_db.get_active_jobs(exclude_applied=True)
+        assert len(filtered) == 1
+        assert filtered[0]["title"] == "Open Job"
+
+
+# === Dismiss Reasons (#108, #120) ===
+
+class TestDismissReasons:
+    def test_get_standard_reasons(self, tmp_db):
+        """Standard dismiss reasons should be pre-populated after migration."""
+        reasons = tmp_db.get_dismiss_reasons()
+        assert len(reasons) >= 10
+        labels = {r["label"] for r in reasons}
+        assert "zu_weit_entfernt" in labels
+        assert "gehalt_zu_niedrig" in labels
+
+    def test_add_custom_reason(self, tmp_db):
+        """Custom dismiss reasons can be added."""
+        rid = tmp_db.add_dismiss_reason("kein_homeoffice")
+        assert rid > 0
+        reasons = tmp_db.get_dismiss_reasons()
+        custom = [r for r in reasons if r["label"] == "kein_homeoffice"]
+        assert len(custom) == 1
+        assert custom[0]["is_custom"] == 1
+
+    def test_increment_usage(self, tmp_db):
+        """Usage count should increment correctly."""
+        tmp_db.increment_dismiss_reason_usage(["zu_weit_entfernt", "gehalt_zu_niedrig"])
+        reasons = tmp_db.get_dismiss_reasons()
+        zwe = [r for r in reasons if r["label"] == "zu_weit_entfernt"][0]
+        gzn = [r for r in reasons if r["label"] == "gehalt_zu_niedrig"][0]
+        assert zwe["usage_count"] == 1
+        assert gzn["usage_count"] == 1

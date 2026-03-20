@@ -107,7 +107,8 @@ def register(mcp, db, logger):
     ]
 
     @mcp.tool()
-    def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "") -> dict:
+    def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
+                        gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
 
         Bei 'passt_nicht' wird der Grund gespeichert und fuer kuenftige Suchen gelernt.
@@ -116,41 +117,55 @@ def register(mcp, db, logger):
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
-            grund: Grund bei passt_nicht. Vordefinierte Optionen:
+            grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
+            gruende: Liste von Gruenden bei passt_nicht (Multi-Select, #108).
+                Vordefinierte Optionen:
                 zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
                 zu_junior, zu_senior, unpassendes_arbeitsmodell,
                 firma_uninteressant, zeitarbeit, befristet, sonstiges
                 (oder eigener Freitext)
         """
+        import json as _json
         if bewertung == "passt_nicht":
-            db.dismiss_job(job_hash, grund)
-            if grund:
-                db.add_to_blacklist("dismiss_pattern", grund)
+            # Support multi-select reasons (#108, #120)
+            reason_list = gruende or ([grund] if grund else [])
+            if not reason_list:
+                return {
+                    "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
+                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
+                }
+            reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
+            db.dismiss_job(job_hash, reason_str)
 
-                # Track rejection counts for learning (#66)
-                counts = db.get_setting("dismiss_counts", {})
-                normalized = grund.lower().strip()
+            for g in reason_list:
+                db.add_to_blacklist("dismiss_pattern", g)
+
+            # Track rejection counts for learning (#66)
+            counts = db.get_setting("dismiss_counts", {})
+            hints = []
+            for g in reason_list:
+                normalized = g.lower().strip()
                 counts[normalized] = counts.get(normalized, 0) + 1
-                db.set_setting("dismiss_counts", counts)
 
                 # Auto-adjust weights if pattern is strong enough
-                hints = []
                 if counts.get(normalized, 0) >= 3:
                     if normalized == "zu_weit_entfernt":
                         hints.append("Entfernungs-Malus wird verstaerkt (3+ Ablehnungen wegen Entfernung).")
                     elif normalized == "gehalt_zu_niedrig":
                         hints.append("Gehalts-Gewichtung wird verstaerkt (3+ Ablehnungen wegen Gehalt).")
                     elif normalized in ("zeitarbeit", "befristet"):
-                        hints.append(f"Empfehlung: Fuege '{grund}' zu AUSSCHLUSS-Keywords hinzu.")
+                        hints.append(f"Empfehlung: Fuege '{g}' zu AUSSCHLUSS-Keywords hinzu.")
 
-                return {
-                    "status": "aussortiert",
-                    "grund": grund,
-                    "ablehnungs_statistik": {k: v for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5]},
-                    "hinweise": hints if hints else None,
-                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
-                }
-            return {"status": "aussortiert", "grund": grund}
+            db.set_setting("dismiss_counts", counts)
+            db.increment_dismiss_reason_usage(reason_list)
+
+            return {
+                "status": "aussortiert",
+                "gruende": reason_list,
+                "ablehnungs_statistik": {k: v for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5]},
+                "hinweise": hints if hints else None,
+                "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
+            }
         elif bewertung == "passt":
             db.restore_job(job_hash)
             return {"status": "als_passend_markiert"}
@@ -188,21 +203,17 @@ def register(mcp, db, logger):
                 filters["min_score"] = min_score
             if quelle:
                 filters["source"] = quelle
-            jobs = db.get_active_jobs(filters if filters else None)
+            jobs = db.get_active_jobs(
+                filters if filters else None,
+                exclude_blacklisted=True,
+                exclude_applied=nur_nicht_beworben,
+            )
 
         # Age filter (#52)
         if max_alter_tage > 0:
             from datetime import datetime, timedelta
             cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
-
-        # Filter out already-applied jobs (#65)
-        if nur_nicht_beworben:
-            applied_hashes = {
-                r["job_hash"] for r in db.get_applications()
-                if r.get("job_hash")
-            }
-            jobs = [j for j in jobs if j["hash"] not in applied_hashes]
 
         if not jobs:
             return {

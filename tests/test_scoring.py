@@ -140,6 +140,31 @@ class TestCalculateScore:
         # No MUSS list → muss_found=0, but muss is empty → score not zeroed
         assert score == 1  # 1x PLUS with default weight 1
 
+    def test_freelance_no_distance_malus(self):
+        """Freelance jobs should not get distance penalty (#112)."""
+        job_freelance = _job(title="PLM Berater", distance=300,
+                             employment_type="freelance")
+        job_fest = _job(title="PLM Berater", distance=300,
+                        employment_type="festanstellung")
+        criteria = _criteria(muss=["PLM"])
+        score_freelance = calculate_score(job_freelance, criteria)
+        score_fest = calculate_score(job_fest, criteria)
+        # Freelance: MUSS=2, no malus = 2
+        # Festanstellung: MUSS=2 - fern_malus=3 = max(0, -1) = 0
+        assert score_freelance == 2
+        assert score_fest == 0
+
+    def test_freelance_moderate_distance_no_penalty(self):
+        """Freelance 150km should have no slight penalty either (#112)."""
+        job_freelance = _job(title="PLM Berater", distance=150,
+                             employment_type="freelance")
+        job_fest = _job(title="PLM Berater", distance=150,
+                        employment_type="festanstellung")
+        criteria = _criteria(muss=["PLM"])
+        score_freelance = calculate_score(job_freelance, criteria)
+        score_fest = calculate_score(job_fest, criteria)
+        assert score_freelance > score_fest
+
 
 # === fit_analyse ===
 
