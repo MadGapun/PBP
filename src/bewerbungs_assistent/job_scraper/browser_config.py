@@ -241,7 +241,7 @@ def build_keyword_combinations(keywords_muss: list[str]) -> list[str]:
 
     Strategy:
     - Pairs core keywords for specificity
-    - Groups related keywords (PLM ecosystem, SAP ecosystem, etc.)
+    - Groups related keywords (Engineering tools, Enterprise tools, etc.)
     - Uses Boolean OR for niche keywords
     - Limits to max 6 queries to avoid rate-limiting
 
@@ -255,10 +255,10 @@ def build_keyword_combinations(keywords_muss: list[str]) -> list[str]:
         return []
 
     # Categorize keywords for smart pairing
-    core_kw = []      # High-level terms: PLM, PDM, SAP, etc.
-    tech_kw = []      # Specific tech: Teamcenter, PRO.FILE, Windchill, etc.
+    core_kw = []      # High-level terms: broad domain keywords
+    tech_kw = []      # Specific tech stacks and tools
     role_kw = []      # Role terms: Consultant, Architekt, Manager, etc.
-    niche_kw = []     # Niche terms: PROCAD, Aras, etc.
+    niche_kw = []     # Niche/specialized terms
 
     CORE_TERMS = {"plm", "pdm", "sap", "cad", "erp", "mes", "alm", "bom"}
     ROLE_TERMS = {

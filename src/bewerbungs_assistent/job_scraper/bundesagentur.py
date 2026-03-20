@@ -17,14 +17,8 @@ API_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs"
 API_KEY = "jobboerse-jobsuche"  # Public key, no registration needed
 
 DEFAULT_KEYWORDS = [
-    "PLM Berater", "PLM Consultant", "PLM Architekt",
-    "PDM Manager", "PDM Consultant",
-    "Windchill", "Teamcenter", "3DEXPERIENCE",
-    "Product Lifecycle Management",
-    "Engineering Change Manager",
-    "CAD-ERP Integration",
-    "Systemarchitekt PLM",
-    "Head of PLM",
+    "Software Engineer", "Projektmanager", "Data Analyst",
+    "DevOps Engineer", "Consultant", "Product Manager",
 ]
 
 

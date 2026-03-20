@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generiert Dashboard-Screenshots mit Demo-Daten fuer die GitHub-Dokumentation.
+"""Generiert Dashboard-Screenshots mit Demo-Daten für die GitHub-Dokumentation.
 
 Verwendung:
     python docs/screenshots/generate_screenshots.py
@@ -28,7 +28,7 @@ PORT = 8299  # Separate port to avoid conflicts
 
 
 def _create_demo_data(db: Database):
-    """Erstellt realistische Demo-Daten fuer Screenshots."""
+    """Erstellt realistische Demo-Daten für Screenshots."""
 
     # Profil
     db.save_profile({
@@ -39,9 +39,9 @@ def _create_demo_data(db: Database):
         "city": "Hamburg",
         "postal_code": "20099",
         "summary": (
-            "Erfahrener IT-Projektmanager mit 15+ Jahren Expertise in PLM/PDM-Systemen, "
-            "SAP-Integration und agiler Transformation. Schwerpunkte: Windchill, PRO.FILE, "
-            "Multi-Site-Rollouts und Change Management."
+            "Erfahrener IT-Projektmanager mit 15+ Jahren Expertise in Software-Architektur, "
+            "Cloud-Migration und agiler Transformation. Schwerpunkte: Microservices, DevOps, "
+            "Enterprise-Integration und Change Management."
         ),
         "preferences": {
             "stellentyp": "festanstellung",
@@ -55,34 +55,35 @@ def _create_demo_data(db: Database):
     # Positionen
     db.add_position({
         "company": "ACME Engineering GmbH",
-        "title": "Senior PLM Consultant",
+        "title": "Senior Software Architect",
         "start_date": "2019-04",
         "end_date": None,
-        "description": "Leitung von PLM-Migrationsprojekten und Architekturberatung.",
+        "description": "Leitung von Cloud-Migrationsprojekten und Architekturberatung.",
     })
     db.add_position({
         "company": "TechVision AG",
         "title": "IT-Projektmanager",
         "start_date": "2014-01",
         "end_date": "2019-03",
-        "description": "SAP-ERP-Integration und Prozessautomatisierung.",
+        "description": "Enterprise-Integration und Prozessautomatisierung.",
     })
     db.add_position({
         "company": "DataSoft Solutions",
-        "title": "Systems Engineer",
+        "title": "Software Engineer",
         "start_date": "2009-06",
         "end_date": "2013-12",
-        "description": "CAD/CAM-Systemadministration und Customizing.",
+        "description": "Backend-Entwicklung und API-Design.",
     })
 
     # Skills mit Level und Kategorie
     for skill_name, cat, level in [
-        ("Windchill", "tool", 5), ("PRO.FILE", "tool", 4), ("SAP ECTR", "tool", 4),
-        ("CATIA V5", "tool", 3), ("Teamcenter", "tool", 2),
-        ("Python", "programmiersprache", 4), ("SQL", "programmiersprache", 4),
-        ("JavaScript", "programmiersprache", 2),
+        ("Python", "programmiersprache", 5), ("TypeScript", "programmiersprache", 4),
+        ("Java", "programmiersprache", 4), ("SQL", "programmiersprache", 4),
+        ("Go", "programmiersprache", 2),
+        ("Docker", "tool", 5), ("Kubernetes", "tool", 4), ("Terraform", "tool", 3),
+        ("AWS", "tool", 4), ("PostgreSQL", "tool", 4),
         ("Projektmanagement", "methodik", 5), ("Agile/Scrum", "methodik", 4),
-        ("ITIL", "methodik", 3), ("Prince2", "methodik", 3),
+        ("CI/CD", "methodik", 4), ("ITIL", "methodik", 3),
         ("Change Management", "soft_skill", 5),
         ("Stakeholder-Kommunikation", "soft_skill", 4),
         ("Englisch C1", "sprache", 4), ("Deutsch Muttersprache", "sprache", 5),
@@ -100,8 +101,8 @@ def _create_demo_data(db: Database):
 
     # Suchkriterien
     db.set_setting("search_criteria", {
-        "keywords_muss": ["PLM", "PDM", "Windchill", "Projektmanager"],
-        "keywords_plus": ["SAP", "Python", "Agile", "Remote"],
+        "keywords_muss": ["Software Architect", "Projektmanager", "DevOps"],
+        "keywords_plus": ["Python", "Cloud", "Agile", "Remote"],
         "keywords_ausschluss": ["Junior", "Praktikum", "Werkstudent"],
         "regionen": ["Hamburg", "Remote"],
         "umkreis_km": 50,
@@ -111,83 +112,83 @@ def _create_demo_data(db: Database):
     db.set_setting("active_sources", ["bundesagentur", "stepstone", "hays"])
     db.set_setting("last_search_at", datetime.now().isoformat())
 
-    # Jobs — Mix aus Festanstellung und Freelance fuer Split-View
+    # Jobs — Mix aus Festanstellung und Freelance für Split-View
     now = datetime.now()
     jobs = [
         {
-            "title": "Senior PLM Consultant (Windchill)",
-            "company": "Siemens Digital Industries",
+            "title": "Senior Software Architect (Cloud)",
+            "company": "TechCorp GmbH",
             "location": "Hamburg (Hybrid)",
             "url": "https://example.com/job/1",
             "source": "stepstone",
-            "description": "Wir suchen einen erfahrenen PLM Consultant mit Windchill-Expertise fuer unsere Kunden im Maschinenbau. Erfahrung mit SAP-Integration von Vorteil.",
+            "description": "Wir suchen einen erfahrenen Software Architect mit Cloud-Expertise für unsere Microservices-Plattform. Erfahrung mit AWS und Kubernetes von Vorteil.",
             "salary_min": 80000, "salary_max": 95000, "salary_type": "yearly",
             "employment_type": "festanstellung", "remote_level": "hybrid",
             "score": 92, "found_at": (now - timedelta(days=1)).isoformat(),
         },
         {
-            "title": "IT-Projektmanager PLM/PDM",
-            "company": "Airbus Operations GmbH",
-            "location": "Hamburg-Finkenwerder",
+            "title": "IT-Projektmanager Digitalisierung",
+            "company": "NovaTech Industries AG",
+            "location": "Hamburg-Altona",
             "url": "https://example.com/job/2",
             "source": "bundesagentur",
-            "description": "Leitung von PLM-Migrationsprojekten im Bereich Flugzeugbau. Erfahrung mit agilen Methoden und Change Management erforderlich.",
+            "description": "Leitung von Digitalisierungsprojekten im Enterprise-Umfeld. Erfahrung mit agilen Methoden und Change Management erforderlich.",
             "salary_min": 85000, "salary_max": 100000, "salary_type": "yearly",
             "employment_type": "festanstellung", "remote_level": "onsite",
             "score": 88, "found_at": (now - timedelta(days=2)).isoformat(),
         },
         {
-            "title": "PDM Architect PRO.FILE",
-            "company": "PROCAD GmbH & Co. KG",
-            "location": "Remote / Karlsruhe",
+            "title": "Platform Engineer (Kubernetes)",
+            "company": "CloudWorks GmbH",
+            "location": "Remote / Berlin",
             "url": "https://example.com/job/3",
             "source": "hays",
-            "description": "Architekturberatung und Implementierung von PRO.FILE PDM-Loesungen. Python-Kenntnisse fuer Automatisierung erwuenscht.",
+            "description": "Aufbau und Betrieb einer Container-Plattform. Python-Kenntnisse für Automatisierung erwünscht.",
             "salary_min": 75000, "salary_max": 90000, "salary_type": "yearly",
             "employment_type": "festanstellung", "remote_level": "remote",
             "score": 85, "found_at": (now - timedelta(days=3)).isoformat(),
         },
         {
-            "title": "Systemadministrator CAD/PLM",
-            "company": "MAN Energy Solutions",
+            "title": "DevOps Engineer",
+            "company": "DataStream Solutions",
             "location": "Hamburg",
             "url": "https://example.com/job/4",
             "source": "stepstone",
-            "description": "Administration und Weiterentwicklung der CAD/PLM-Infrastruktur.",
+            "description": "CI/CD-Pipelines und Infrastructure-as-Code mit Terraform und AWS.",
             "salary_min": 60000, "salary_max": 72000, "salary_type": "yearly",
             "employment_type": "festanstellung", "remote_level": "onsite",
             "score": 65, "found_at": (now - timedelta(days=5)).isoformat(),
         },
-        # Freelance-Stellen fuer Split-View
+        # Freelance-Stellen für Split-View
         {
-            "title": "PLM Berater Windchill Migration",
-            "company": "EDAG Engineering",
+            "title": "Cloud Migration Architect",
+            "company": "InnoConsult AG",
             "location": "Remote",
             "url": "https://example.com/job/5",
             "source": "freelancermap",
-            "description": "6-Monats-Projekt: Migration von Windchill 11 auf 13. Erfahrung mit Multi-Site-Architektur erforderlich.",
+            "description": "6-Monats-Projekt: Migration von On-Premise auf AWS. Erfahrung mit Multi-Account-Architektur erforderlich.",
             "salary_min": 850, "salary_max": 950, "salary_type": "taeglich",
             "employment_type": "freelance", "remote_level": "remote",
             "score": 90, "found_at": (now - timedelta(days=1)).isoformat(),
         },
         {
-            "title": "PDM Consultant SAP ECTR",
-            "company": "Brunel GmbH",
+            "title": "Backend-Entwickler Python/FastAPI",
+            "company": "CodeForge GmbH",
             "location": "Stuttgart (Hybrid)",
             "url": "https://example.com/job/6",
             "source": "freelance_de",
-            "description": "SAP ECTR Implementierung fuer Automobilzulieferer. 3 Monate, Verlaengerung moeglich.",
+            "description": "API-Entwicklung für Fintech-Startup. 3 Monate, Verlängerung möglich.",
             "salary_min": 800, "salary_max": 900, "salary_type": "taeglich",
             "employment_type": "freelance", "remote_level": "hybrid",
             "score": 78, "found_at": (now - timedelta(days=2)).isoformat(),
         },
         {
             "title": "Projektleiter Digitaler Zwilling",
-            "company": "Ferchau Engineering",
-            "location": "Muenchen",
+            "company": "EngSmart Consulting",
+            "location": "München",
             "url": "https://example.com/job/7",
             "source": "freelancermap",
-            "description": "Aufbau Digital-Twin-Strategie fuer Maschinenbau-Konzern. PLM-Erfahrung zwingend.",
+            "description": "Aufbau Digital-Twin-Strategie für Industrie-Konzern. Cloud-Erfahrung zwingend.",
             "salary_min": 900, "salary_max": 1050, "salary_type": "taeglich",
             "employment_type": "freelance", "remote_level": "onsite",
             "score": 72, "found_at": (now - timedelta(days=4)).isoformat(),
@@ -201,40 +202,40 @@ def _create_demo_data(db: Database):
 
     # Bewerbungen (add_application erstellt automatisch ein erstes Event)
     app1_id = db.add_application({
-        "title": "Senior PLM Consultant (Windchill)",
-        "company": "Siemens Digital Industries",
+        "title": "Senior Software Architect (Cloud)",
+        "company": "TechCorp GmbH",
         "status": "beworben",
         "applied_at": (now - timedelta(days=10)).date().isoformat(),
-        "notes": "Bewerbung ueber StepStone, Anschreiben personalisiert.",
+        "notes": "Bewerbung über StepStone, Anschreiben personalisiert.",
     })
-    db.update_application_status(app1_id, "eingeladen", "Einladung zum Erstgespraech am 20.03.")
+    db.update_application_status(app1_id, "eingeladen", "Einladung zum Erstgespräch am 20.03.")
 
     app2_id = db.add_application({
-        "title": "IT-Projektmanager PLM/PDM",
-        "company": "Airbus Operations GmbH",
+        "title": "IT-Projektmanager Digitalisierung",
+        "company": "NovaTech Industries AG",
         "status": "beworben",
         "applied_at": (now - timedelta(days=5)).date().isoformat(),
     })
 
     app3_id = db.add_application({
-        "title": "PLM Engineer",
-        "company": "Daimler Truck AG",
+        "title": "Full-Stack Developer",
+        "company": "WebScale AG",
         "status": "beworben",
         "applied_at": (now - timedelta(days=30)).date().isoformat(),
     })
     db.update_application_status(app3_id, "abgelehnt", "Absage erhalten", "Stelle intern besetzt")
 
     app4_id = db.add_application({
-        "title": "PDM Architect PRO.FILE",
-        "company": "PROCAD GmbH & Co. KG",
+        "title": "Platform Engineer (Kubernetes)",
+        "company": "CloudWorks GmbH",
         "status": "beworben",
         "applied_at": (now - timedelta(days=3)).date().isoformat(),
         "notes": "Initiativbewerbung nach Empfehlung von Ex-Kollege.",
     })
 
     app5_id = db.add_application({
-        "title": "PLM Berater Windchill Migration",
-        "company": "EDAG Engineering",
+        "title": "Cloud Migration Architect",
+        "company": "InnoConsult AG",
         "status": "beworben",
         "applied_at": (now - timedelta(days=20)).date().isoformat(),
     })
@@ -273,7 +274,7 @@ def _take_screenshots(port: int, output_dir: Path):
         # Tab-Mapping: (hash_id, filename, description)
         # React-Frontend nutzt Hash-Navigation: /#dashboard, /#profil, etc.
         tabs = [
-            ("dashboard", "01_dashboard.png", "Dashboard-Uebersicht"),
+            ("dashboard", "01_dashboard.png", "Dashboard-Übersicht"),
             ("profil", "02_profil.png", "Profil-Tab"),
             ("stellen", "03_stellen.png", "Stellen-Tab"),
             ("bewerbungen", "04_bewerbungen.png", "Bewerbungen-Tab"),
@@ -289,9 +290,7 @@ def _take_screenshots(port: int, output_dir: Path):
 
             # Dismiss any error toasts before capturing
             for _ in range(5):
-                toast_btn = page.locator("button[aria-label='Close'], [data-dismiss], .toast button, [role='status'] button, button:has(svg)")
                 try:
-                    # Try clicking close buttons on toast notifications
                     close_btns = page.locator("[class*='toast'] button, [class*='Toast'] button, [role='alert'] button")
                     if close_btns.count() > 0:
                         for i in range(close_btns.count()):

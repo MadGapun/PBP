@@ -28,10 +28,10 @@ logger = logging.getLogger("bewerbungs_assistent.scraper.freelance_de")
 
 # Default search URLs (skill-based)
 SEARCH_URLS = [
-    "https://www.freelance.de/PLM-Projekte",
-    "https://www.freelance.de/PDM-Projekte",
-    "https://www.freelance.de/Windchill-Projekte",
-    "https://www.freelance.de/Product-Lifecycle-Management-Projekte",
+    "https://www.freelance.de/Software-Engineering-Projekte",
+    "https://www.freelance.de/Projektmanagement-Projekte",
+    "https://www.freelance.de/Data-Analytics-Projekte",
+    "https://www.freelance.de/DevOps-Projekte",
 ]
 
 HEADERS = {

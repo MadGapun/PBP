@@ -16,12 +16,8 @@ from . import stelle_hash, detect_remote_level
 logger = logging.getLogger("bewerbungs_assistent.scraper.kimeta")
 
 FALLBACK_QUERIES = [
-    "PLM Consultant",
-    "PLM Systemarchitekt",
-    "PDM Manager",
-    "Product Lifecycle Management",
-    "PLM Projektleiter",
-    "Engineering Change Manager",
+    "Software Engineer", "Projektmanager", "Data Analyst",
+    "DevOps Engineer", "Consultant",
 ]
 
 HEADERS = {

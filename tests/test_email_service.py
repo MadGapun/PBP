@@ -51,7 +51,7 @@ def sample_eml(tmp_path):
 @pytest.fixture
 def interview_eml(tmp_path):
     """Create an interview invitation .eml file."""
-    body = """Sehr geehrter Herr Birzite,
+    body = """Sehr geehrter Herr Mustermann,
 
 wir möchten Sie gerne zu einem Vorstellungsgespräch einladen.
 
@@ -75,7 +75,7 @@ HR Team"""
 @pytest.fixture
 def rejection_eml(tmp_path):
     """Create a rejection email."""
-    body = """Sehr geehrter Herr Birzite,
+    body = """Sehr geehrter Herr Mustermann,
 
 vielen Dank für Ihr Interesse und Ihre Bewerbung.
 Leider müssen wir Ihnen mitteilen, dass wir uns für andere Kandidaten entschieden haben.
@@ -351,7 +351,7 @@ class TestMeetingExtraction:
 
 class TestRejectionFeedback:
     def test_extract_feedback(self):
-        body = """Sehr geehrter Herr Birzite,
+        body = """Sehr geehrter Herr Mustermann,
 
 leider müssen wir Ihnen absagen.
 

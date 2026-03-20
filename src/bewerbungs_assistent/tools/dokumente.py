@@ -226,7 +226,7 @@ def register(mcp, db, logger):
                 "Vergleiche mit dem aktuellen Profil. "
                 "Speichere das Ergebnis mit extraktion_ergebnis_speichern(). "
                 "WICHTIG: Das Feld 'zusammenfassung' ist NUR für echte Profil-Summaries "
-                "(z.B. 'Lead PLM Architekt mit 20 Jahren Erfahrung'), NICHT für Dokument-"
+                "(z.B. 'Lead Software Architect mit 20 Jahren Erfahrung'), NICHT für Dokument-"
                 "Beschreibungen. Bei Dokumenten ohne Profil-relevante Daten: zusammenfassung weglassen. "
                 "Bei Konflikten: IMMER den User fragen."
             ),
@@ -604,9 +604,9 @@ def register(mcp, db, logger):
         """Extrahiert den Firmennamen aus CV/Lebenslauf-Dateinamen.
 
         Patterns:
-        - Lebenslauf;Birzite,Markus-FIRMA.pdf
-        - CV;Birzite,Markus-FIRMA.docx
-        - Anschreiben;Birzite,Markus-FIRMA.pdf
+        - Lebenslauf;Mustermann,Max-FIRMA.pdf
+        - CV;Mustermann,Max-FIRMA.docx
+        - Anschreiben;Mustermann,Max-FIRMA.pdf
         """
         base = os.path.splitext(filename)[0]
         patterns = [

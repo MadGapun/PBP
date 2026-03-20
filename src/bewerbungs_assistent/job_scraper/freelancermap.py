@@ -13,10 +13,8 @@ from . import stelle_hash, detect_remote_level
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelancermap")
 
 SEARCH_URLS = [
-    "https://www.freelancermap.de/projektboerse.html?q=PLM",
-    "https://www.freelancermap.de/projektboerse.html?q=PDM",
-    "https://www.freelancermap.de/projektboerse.html?q=Windchill",
-    "https://www.freelancermap.de/projektboerse.html?q=Product+Lifecycle",
+    "Software-Engineer", "Projektmanager",
+    "Data-Analyst", "Consultant",
 ]
 
 

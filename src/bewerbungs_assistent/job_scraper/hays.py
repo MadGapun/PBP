@@ -14,9 +14,8 @@ logger = logging.getLogger("bewerbungs_assistent.scraper.hays")
 SITEMAP_URL = "https://www.hays.de/o/sitemaps/de/job-sitemap.xml"
 
 KEYWORDS = [
-    "plm", "pdm", "windchill", "teamcenter", "3dexperience",
-    "product-lifecycle", "product-data-management",
-    "cad-erp", "engineering-change", "systemarchitekt",
+    "software-engineer", "projektmanager", "data-analyst",
+    "devops", "consultant",
 ]
 
 

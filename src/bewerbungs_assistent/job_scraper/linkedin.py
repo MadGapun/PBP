@@ -33,10 +33,8 @@ from .browser_config import (
 logger = logging.getLogger("bewerbungs_assistent.scraper.linkedin")
 
 DEFAULT_SEARCHES = [
-    "PLM Consultant",
-    "PDM Solution Architect",
-    "PLM Projektleiter",
-    "Product Lifecycle Management",
+    "Software Engineer", "Projektmanager",
+    "Data Analyst", "Consultant",
 ]
 
 # Default config

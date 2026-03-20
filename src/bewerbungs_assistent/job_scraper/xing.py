@@ -30,11 +30,8 @@ from .browser_config import (
 logger = logging.getLogger("bewerbungs_assistent.scraper.xing")
 
 DEFAULT_SEARCHES = [
-    "PLM Consultant",
-    "Product Lifecycle Management",
-    "PDM Manager",
-    "PLM Systemarchitekt",
-    "PLM Berater",
+    "Software Engineer", "Projektmanager",
+    "Data Analyst", "Consultant",
 ]
 
 DEFAULT_MAX_PAGES = 3

@@ -830,10 +830,10 @@ def register(mcp, db, logger):
         - Branchen und Technologien aus der Berufserfahrung
         - Skill-Level und Aktualität (alte Skills zählen weniger)
         - Typische Stellenbezeichnungen im deutschen Arbeitsmarkt
-        - Sowohl deutsch als auch englisch (z.B. "PLM Architekt" UND "PLM Architect")
+        - Sowohl deutsch als auch englisch (z.B. "Software-Architekt" UND "Software Architect")
 
         Args:
-            titel: Liste von vorgeschlagenen Jobtiteln (z.B. ["PLM Architekt", "SAP PLM Berater"])
+            titel: Liste von vorgeschlagenen Jobtiteln (z.B. ["Software-Architekt", "IT-Projektmanager"])
             quelle: Woher der Vorschlag kommt: 'auto' (aus Analyse), 'user' (vom Benutzer), 'extraktion' (aus Dokument)
         """
         profile_id = db.get_active_profile_id()

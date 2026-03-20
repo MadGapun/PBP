@@ -835,4 +835,4 @@ Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei
 
 ## Autor
 
-**Markus Birzite** — PLM/PDM Systemarchitekt
+**Markus Birzite** — Konzept, Backend & Projektleitung

@@ -1935,8 +1935,8 @@ async def api_analyze_filename(request: Request):
     doc_type = _detect_doc_type(filename, "") or "sonstiges"
 
     # Extract company/recipient from filename
-    # Common patterns: "Anschreiben_Siemens_2026-03-01.pdf", "CV_BMW_Munich.docx",
-    # "Bewerbung Siemens PLM Consultant.pdf"
+    # Common patterns: "Anschreiben_Firma_2026-03-01.pdf", "CV_Firma_Stadt.docx",
+    # "Bewerbung Firma Stellentitel.pdf"
     company_hint = ""
     date_hint = ""
 

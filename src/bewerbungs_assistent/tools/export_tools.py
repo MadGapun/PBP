@@ -72,8 +72,8 @@ def register(mcp, db, logger):
         da die finale Formatierung manuell erfolgt.
 
         Args:
-            stelle: Stellentitel (z.B. 'PLM Consultant')
-            firma: Firmenname (z.B. 'Siemens')
+            stelle: Stellentitel (z.B. 'Software Architect')
+            firma: Firmenname (z.B. 'TechCorp GmbH')
             stellenbeschreibung: Optional — Beschreibung der Stelle für bessere Anpassung
         """
         profile = db.get_profile()
@@ -112,8 +112,8 @@ def register(mcp, db, logger):
 
         Args:
             text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
-            stelle: Stellentitel (z.B. 'PLM Consultant')
-            firma: Firmenname (z.B. 'Siemens')
+            stelle: Stellentitel (z.B. 'Software Architect')
+            firma: Firmenname (z.B. 'TechCorp GmbH')
             format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
         """
         if not text.strip():
@@ -210,8 +210,8 @@ def register(mcp, db, logger):
         3-Perspektiven-Analyse, Personalberater, ATS, Recruiter.
 
         Args:
-            stelle: Stellentitel (z.B. 'PLM Consultant')
-            firma: Firmenname (z.B. 'Siemens')
+            stelle: Stellentitel (z.B. 'Software Architect')
+            firma: Firmenname (z.B. 'TechCorp GmbH')
             stellenbeschreibung: Stellenbeschreibung für praezise Analyse
             gewicht_personalberater: Gewicht Personalberater-Perspektive (0.0-1.0, Standard 0.33)
             gewicht_ats: Gewicht ATS-Perspektive (0.0-1.0, Standard 0.34)

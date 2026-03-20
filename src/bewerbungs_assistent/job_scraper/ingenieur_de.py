@@ -16,12 +16,8 @@ from . import stelle_hash, detect_remote_level
 logger = logging.getLogger("bewerbungs_assistent.scraper.ingenieur_de")
 
 FALLBACK_QUERIES = [
-    "PLM Berater",
-    "PLM Systemarchitekt",
-    "PDM Consultant",
-    "Product Lifecycle Management",
-    "Engineering Change Manager",
-    "PLM Projektleiter",
+    "Software Engineer", "Projektmanager", "Data Analyst",
+    "DevOps Engineer", "Consultant",
 ]
 
 HEADERS = {

@@ -49,7 +49,7 @@ DATA_DIR_NAME = "BewerbungsAssistent"
 PYTHON_MIN_VERSION = (3, 11)
 VENV_NAME = ".venv"
 
-# Colors (dark theme matching ELWOSA style)
+# Colors (dark theme)
 BG = "#1a1a2e"
 BG_CARD = "#16213e"
 FG = "#e0e0e0"

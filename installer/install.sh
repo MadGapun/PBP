@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# Bewerbungs-Assistent — Installer fuer Linux (ELWOSA/Entwicklung)
+# Bewerbungs-Assistent — Installer für Linux
 # ============================================================================
 # Ausfuehren: bash installer/install.sh
 # ============================================================================
