@@ -53,13 +53,27 @@ PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
 - **Follow-ups & Erinnerungen** — Damit keine Bewerbung in Vergessenheit gerät.
 - **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich, falls du Nachweise brauchst.
 
+### Einfach reden — keine Befehle nötig
+
+Du musst keine Kommandos kennen. Keine spezielle Syntax. Keine Prompts formulieren. **Du redest einfach mit Claude, wie mit einem Menschen.**
+
+Sobald PBP läuft, weiß Claude wer du bist, was du suchst und wo du stehst. Du tippst einfach los:
+
+> *"Schau mal über meinen Lebenslauf"*
+> *"Ich hab ne Absage von Siemens bekommen, was mach ich falsch?"*
+> *"Bereite mich auf das Interview morgen vor"*
+> *"Suche was mit Python in Hamburg"*
+
+Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht genau weißt, wie man es "richtig" fragt. Und wenn etwas unklar ist, fragt Claude einfach nach. Kein Fehler, kein Absturz, kein "Befehl nicht erkannt".
+
+> 💡 **Für Power-User:** Es gibt 14 vorgefertigte Workflows (z.B. `/interview_simulation`, `/auto_bewerbung`), die du als Slash-Command starten oder einfach per Copy & Paste an Claude geben kannst. Aber das ist optional — alles geht auch einfach im Gespräch.
+
 ### Das Besondere
 
-- **Kein Formular-Ausfüllen.** Du unterhältst dich mit Claude in natürlicher Sprache. Kein Klicken durch 20 Eingabefelder.
-- **Deine Daten bleiben lokal.** SQLite auf deinem Rechner — nichts geht in die Cloud (außer an Claude für die KI-Verarbeitung).
+- **Einfach reden.** Kein Formular, keine Befehle, keine Syntax. Du unterhältst dich mit Claude — und PBP arbeitet im Hintergrund.
+- **Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). Kein Server, kein Account, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach.
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
-- **14 geführte Workflows.** Von der Ersterfassung bis zur Netzwerk-Strategie — Schritt für Schritt.
 
 ---
 
