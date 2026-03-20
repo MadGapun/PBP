@@ -19,6 +19,7 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 
 | Problem | PBP-Lösung |
 |---------|-----------|
+| 😩 Profil mühsam von Hand erstellen | ✅ **Alles hochladen, was du hast** — alte CVs, Zeugnisse, Projektbeschreibungen, frühere Bewerbungen, ganze Ordner. PBP extrahiert die Fakten und baut dein Profil auf. Mit jedem Dokument wird es schärfer. |
 | 😩 Lebenslauf für jede Stelle umschreiben | ✅ **Angepasster Lebenslauf** — PBP erstellt für jede Stelle einen maßgeschneiderten CV (DOCX), sortiert Skills und Erfahrung nach Relevanz, bewertet aus 3 Perspektiven (Personalberater, ATS, Recruiter) |
 | 😩 10 Jobportale einzeln durchsuchen | ✅ **17 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de, GULP, SOLCOM, Jobware, FERCHAU, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Kimeta |
 | 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt). Duplikate werden portalübergreifend erkannt. |
@@ -31,6 +32,7 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 ### Das Besondere
 
 - **Kein Formular-Ausfüllen.** Du unterhältst dich mit Claude. PBP baut dein Profil aus dem Gespräch auf.
+- **Deine alten Unterlagen sind Gold wert.** Lade alles hoch, was du hast — alte Lebensläufe, Zeugnisse, Projektbeschreibungen, Urkunden, frühere Bewerbungen. PBP extrahiert die relevanten Daten und schärft damit dein Profil. Mit jedem Upload wird es besser. Und keine Sorge: Alte Fehler, schlechte Formulierungen oder veraltete Formate werden nicht übernommen — PBP nutzt nur die Fakten.
 - **Deine Daten bleiben lokal.** SQLite auf deinem Rechner — nichts geht in die Cloud (außer an Claude für die KI-Verarbeitung).
 - **Festanstellung & Freelance.** Egal ob du einen festen Job oder Projektaufträge suchst — PBP unterstützt beides mit getrennter Darstellung.
 - **STAR-Methode für Projekte.** PBP strukturiert deine Berufserfahrung nach Situation-Task-Action-Result — das Format, das Recruiter lieben.
@@ -39,7 +41,7 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 
 ## Was PBP kann — Feature-Übersicht
 
-### 🗣️ Profilerstellung im Gespräch
+### 🗣️ Profilerstellung — aus Gespräch und Dokumenten
 Claude führt ein lockeres Interview und erfasst alles:
 - Persönliche Daten, Kontakt, Standort
 - Berufserfahrung mit Projekten (STAR-Methode)
@@ -47,7 +49,19 @@ Claude führt ein lockeres Interview und erfasst alles:
 - Skills mit Level (1-5) und Aktualität
 - Gehaltsvorstellungen und Arbeitspräferenzen (Remote, Teilzeit, Reisebereitschaft)
 
-**Oder:** Lade einfach deinen bestehenden Lebenslauf hoch (PDF/DOCX) — PBP extrahiert die Daten automatisch.
+**Aber das Beste:** Du musst nicht bei Null anfangen. Lade einfach hoch, was du hast:
+
+- 📄 **Alte Lebensläufe** (PDF/DOCX) — auch wenn sie 5 Jahre alt sind
+- 📋 **Projektbeschreibungen** — aus alten Bewerbungen oder internen Dokumenten
+- 🎓 **Zeugnisse & Urkunden** — Abschlüsse, Zertifikate, Weiterbildungen
+- ✉️ **Frühere Bewerbungen** — Anschreiben enthalten oft die besten Selbstbeschreibungen
+- 📑 **Arbeitszeugnisse** — PBP extrahiert Positionen, Zeiträume und Aufgaben
+
+PBP liest jedes Dokument, extrahiert die Fakten und reichert dein Profil an. **Mit jedem Upload wird dein Profil schärfer** — mehr Skills, mehr Stationen, bessere Beschreibungen. Alte Formulierungsfehler oder veraltete Formate werden dabei nicht übernommen — nur die harten Fakten zählen.
+
+**Ordner-Import:** Du kannst auch ganze Ordner auf einmal importieren — PBP scannt rekursiv alle Dateien, erkennt die Dokumenttypen automatisch und verarbeitet alles in einem Durchgang. Ideal, wenn du einen `Bewerbungen/`-Ordner mit Jahren an Unterlagen hast.
+
+> 💡 **Tipp:** Du hast schon mal eine Bewerbung geschrieben? Lade sie als Erstes hoch. Das spart dir 80% der Profilersterfassung.
 
 ### 🔍 Stellensuche über 17 Portale
 Eine Suche — alle relevanten Portale gleichzeitig:
