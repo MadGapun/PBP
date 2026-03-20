@@ -179,6 +179,8 @@ Eine Suche — alle relevanten Portale gleichzeitig:
 | **XING** | **Playwright** | **✅ Ja — eigener Account** |
 
 > 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. 15 der 17 Quellen funktionieren ohne Login.
+>
+> 📌 **Gut zu wissen:** Die Spalte "Account nötig?" bezieht sich auf das **Finden** von Stellen. PBP durchsucht diese Portale für dich und zeigt dir die Ergebnisse. Für die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenbörsen selbst.
 
 ### 📊 Intelligentes Scoring & Fit-Analyse
 Jede Stelle bekommt einen Score basierend auf:
