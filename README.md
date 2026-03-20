@@ -1,5 +1,7 @@
 # PBP — Persönliches Bewerbungs-Portal
 
+<sup>An <b>ELWOSA</b> Project</sup>
+
 > Dein persönlicher Bewerbungs-Coach — analysiert deinen Lebenslauf, findet Schwächen, gibt ehrliches Feedback und hilft dir, besser zu werden. Kostenlos. Lokal. Open Source.
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
@@ -83,11 +85,15 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 | **Mikrofon/Sprache** | ✅ Ja | ✅ Ja | ✅ Ja |
 | **Limit-Reset** | Alle 5–8 Stunden | Alle 5–8 Stunden | Wöchentlich |
 
-> **Ehrlich gesagt:** PBP selbst ist kostenlos und Open Source — aber die KI dahinter (Claude) kostet Geld, wenn du sie ernsthaft nutzen willst. Das ist wie ein kostenloses Navi, das Benzin braucht.
+> **Ehrlich gesagt:** PBP selbst ist kostenlos und Open Source — aber die KI dahinter (Claude) ist ein Service von Anthropic, und der hat Grenzen.
 >
-> Der **Free-Plan** reicht zum Reinschnuppern: Installieren, Lebenslauf hochladen, analysieren lassen — und selbst entscheiden, ob es dir was bringt. Aber für echte tägliche Nutzung (Jobsuche, Bewerbungen schreiben, Interview-Training) empfehlen wir **Claude Pro für $20/Monat**. Damit kommst du bequem durch den Tag.
+> Stell dir PBP vor wie ein Auto mit eingebautem Navi, das du geschenkt bekommst. **Fahren kannst du sofort** — kostenlos. Aber nach ein paar Kilometern musst du an die Tankstelle, warten bis der Tank wieder voll ist, und dann weiterfahren. So funktioniert der Free-Plan: Du kommst vorwärts, aber in Etappen.
 >
-> Zum Vergleich: Ein einziger professioneller Bewerbungscheck kostet oft 50–150 €. Mit PBP + Claude Pro hast du einen unbegrenzten Bewerbungs-Coach für 20 Dollar im Monat — so oft du willst, so lange du willst.
+> **Mit Claude Pro ($20/Monat) tankst du voll** — und fährst den ganzen Tag ohne Pause. Jobsuche, Bewerbungen schreiben, Interview-Training, Coaching — alles in einer Session, so viel du willst.
+>
+> Zum Vergleich: Ein einziger professioneller Bewerbungscheck kostet oft 50–150 €. Mit PBP + Claude Pro hast du einen persönlichen Bewerbungs-Coach für 20 Dollar im Monat — so oft du willst, so lange du willst.
+>
+> **Unser Rat:** Fang kostenlos an. Installieren, Lebenslauf hochladen, analysieren lassen. Wenn du merkst, dass es dir was bringt — und das wirst du — dann lohnt sich der Vollltank.
 
 ### Das Besondere
 
@@ -922,3 +928,7 @@ Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei
 ## Autor
 
 **Markus Birzite** — Konzept, Backend & Projektleitung
+
+---
+
+<p align="center"><sub>An <b>ELWOSA</b> Project</sub></p>
