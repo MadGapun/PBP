@@ -83,9 +83,11 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 | **Mikrofon/Sprache** | ✅ Ja | ✅ Ja | ✅ Ja |
 | **Limit-Reset** | Alle 5–8 Stunden | Alle 5–8 Stunden | Wöchentlich |
 
-> ⚠️ **Wichtig:** PBP funktioniert auf dem Free-Plan, aber jeder Tool-Aufruf (Jobsuche, Analyse, Export) verbraucht Nachrichten-Kontingent. Mit dem Free-Plan ist das Kontingent nach einer Handvoll Aktionen aufgebraucht. Für regelmäßige Nutzung empfehlen wir **Claude Pro ($20/Monat)** — damit kommst du bequem durch den Tag.
+> **Ehrlich gesagt:** PBP selbst ist kostenlos und Open Source — aber die KI dahinter (Claude) kostet Geld, wenn du sie ernsthaft nutzen willst. Das ist wie ein kostenloses Navi, das Benzin braucht.
 >
-> Zum Ausprobieren reicht der Free-Plan: Installieren, Lebenslauf hochladen, analysieren lassen. Wenn es dir gefällt, lohnt sich Pro.
+> Der **Free-Plan** reicht zum Reinschnuppern: Installieren, Lebenslauf hochladen, analysieren lassen — und selbst entscheiden, ob es dir was bringt. Aber für echte tägliche Nutzung (Jobsuche, Bewerbungen schreiben, Interview-Training) empfehlen wir **Claude Pro für $20/Monat**. Damit kommst du bequem durch den Tag.
+>
+> Zum Vergleich: Ein einziger professioneller Bewerbungscheck kostet oft 50–150 €. Mit PBP + Claude Pro hast du einen unbegrenzten Bewerbungs-Coach für 20 Dollar im Monat — so oft du willst, so lange du willst.
 
 ### Das Besondere
 
@@ -120,6 +122,18 @@ PBP liest jedes Dokument, extrahiert die Fakten und reichert dein Profil an. **M
 **Ordner-Import:** Du kannst auch ganze Ordner auf einmal importieren — PBP scannt rekursiv alle Dateien, erkennt die Dokumenttypen automatisch und verarbeitet alles in einem Durchgang. Ideal, wenn du einen `Bewerbungen/`-Ordner mit Jahren an Unterlagen hast.
 
 > 💡 **Tipp:** Du hast schon mal eine Bewerbung geschrieben? Lade sie als Erstes hoch. Das spart dir 80% der Profilersterfassung.
+
+### 💡 Erzähl auch, was dich sonst ausmacht
+
+Viele Bewerber unterschätzen, was sie neben dem Job alles können. PBP nicht.
+
+Erzähl Claude ruhig auch von:
+- **Ehrenamt** — Du trainierst die Jugend-Fußballmannschaft? Das ist Teamführung, Organisation, Konfliktlösung.
+- **Hobbys** — Du baust Drohnen? Das ist Elektronik, Problemlösung, technisches Verständnis. Du fotografierst? Liebe zum Detail, Kreativität, Bildbearbeitung.
+- **Nebenprojekte** — Du hast mal einen Online-Shop für Freunde aufgesetzt? Das ist E-Commerce, Webentwicklung, Eigeninitiative.
+- **Familiäres** — Du hast drei Jahre Angehörige gepflegt? Das ist Belastbarkeit, Empathie, Zeitmanagement unter Druck.
+
+Claude erkennt die versteckten Fähigkeiten hinter deinen Aktivitäten und übersetzt sie in die Sprache, die Recruiter verstehen. Das kann dazu führen, dass PBP dir Stellen vorschlägt, an die du selbst nie gedacht hättest — weil du gar nicht wusstest, dass dein Hobby eine gefragte Qualifikation ist.
 
 ### 🔍 Stellensuche über 17 Portale
 Eine Suche — alle relevanten Portale gleichzeitig:
