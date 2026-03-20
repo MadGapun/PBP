@@ -216,7 +216,7 @@ class TestTimelineStats:
         assert len(result["sources"]) == 2  # stepstone + indeed
 
     def test_score_stats_excludes_pinned(self, tmp_db):
-        """Score distribution should exclude pinned jobs."""
+        """Score distribution should exclude pinned jobs and use brackets (#125)."""
         tmp_db.create_profile("Test User", "test@example.com")
         tmp_db.save_jobs([
             {"hash": "r1", "title": "A", "company": "C", "score": 5, "source": "test"},
@@ -224,9 +224,11 @@ class TestTimelineStats:
              "is_pinned": True, "source": "manuell"},
         ])
         result = tmp_db.get_score_stats()
-        # Only the score=5 job should appear, not the pinned score=0
-        assert "5" in result["score_distribution"]
-        assert "0" not in result["score_distribution"]
+        # Score 5 falls into bracket "4-6", pinned score=0 should be excluded
+        assert "4-6" in result["score_distribution"]
+        # All keys must be valid brackets
+        dist_keys = set(result["score_distribution"].keys())
+        assert dist_keys.issubset({"0", "1-3", "4-6", "7-9", "10+"})
 
 
 class TestExportReport:

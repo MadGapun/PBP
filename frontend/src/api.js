@@ -61,7 +61,14 @@ export async function api(path, options = {}) {
 }
 
 export async function optionalApi(path, options = {}) {
-  const response = await fetch(apiUrl(path), withJsonHeaders(options));
+  let response;
+  try {
+    response = await fetch(apiUrl(path), withJsonHeaders(options));
+  } catch {
+    // Network error (server unreachable, CORS, etc.) — return null
+    // instead of throwing so polling loops stay silent (#123).
+    return null;
+  }
   if (response.status === 404) {
     return null;
   }

@@ -954,23 +954,85 @@ class Database:
             "SELECT * FROM skills ORDER BY category, level DESC"
         ).fetchall()]
 
-    def add_skill(self, data: dict) -> str:
-        conn = self.connect()
-        name = (data.get("name") or "").strip()
-        # Validate: reject garbage skills from markdown fragments (Issue #43)
+    @staticmethod
+    def _is_garbage_skill(name: str) -> bool:
+        """Check if a skill name is garbage from extraction artifacts (#129)."""
+        import re
         if not name or len(name) < 2 or len(name) > 100:
-            return ""
+            return True
         # Reject obvious markdown/formatting artifacts
         _GARBAGE_PATTERNS = ["---", "===", "***", "|||", "```", "<!--", "-->",
                              "##", "**", "__", "- -", "...", "~~~"]
         if any(p in name for p in _GARBAGE_PATTERNS):
-            return ""
+            return True
         # Reject if name is mostly special characters
         alpha_count = sum(1 for c in name if c.isalnum() or c == ' ')
         if alpha_count < len(name) * 0.5:
+            return True
+        # Reject numbered list items: "1. Something", "2) Something"
+        if re.match(r'^\d+[\.\)]\s', name):
+            return True
+        # Reject strings starting with parentheses: "(DETAILLIERT)", "(optional)"
+        if name.startswith("("):
+            return True
+        # Reject URLs and email addresses
+        if "://" in name or "@" in name:
+            return True
+        # Reject strings with colons (header fragments): "Programmsteuerung: Program Management"
+        if ": " in name and len(name) > 30:
+            return True
+        # Reject sentence fragments: too many spaces = likely a sentence, not a skill
+        if name.count(" ") > 5:
+            return True
+        # Reject ALL-CAPS fragments over 20 chars (header artifacts)
+        if name.isupper() and len(name) > 20:
+            return True
+        # Reject common non-skill words/fragments
+        _STOPWORDS = {"enabling", "efficient", "power", "detailliert", "sonstige",
+                       "diverse", "verschiedene", "uebersicht", "zusammenfassung",
+                       "verantwortlich", "zustaendig", "erfahrung"}
+        if name.lower().strip() in _STOPWORDS:
+            return True
+        # Reject names that are just a single digit/number
+        if name.strip().isdigit():
+            return True
+        return False
+
+    @staticmethod
+    def _normalize_skill_category(raw: str) -> str:
+        """Normalize skill category against a whitelist (#128)."""
+        if not raw:
+            return "fachlich"
+        _CATEGORY_MAP = {
+            "fachlich": "fachlich", "fachkenntnisse": "fachlich", "fachkenntnis": "fachlich",
+            "fachkompetenz": "fachlich", "engineering": "fachlich",
+            "tool": "tool", "tools": "tool", "software": "tool", "systeme": "tool",
+            "system": "tool", "anwendungen": "tool",
+            "sprache": "sprache", "sprachen": "sprache", "language": "sprache",
+            "soft_skill": "soft_skill", "softskill": "soft_skill", "softskills": "soft_skill",
+            "soft skill": "soft_skill", "soft skills": "soft_skill", "sozial": "soft_skill",
+            "methodisch": "methodisch", "methoden": "methodisch", "methodik": "methodisch",
+            "methodenkompetenz": "methodisch",
+            "zertifizierung": "zertifizierung", "zertifikat": "zertifizierung",
+            "zertifikate": "zertifizierung", "certification": "zertifizierung",
+            "fuehrung": "fuehrung", "management": "fuehrung", "leadership": "fuehrung",
+        }
+        normalized = raw.strip().lower().replace("-", "_")
+        return _CATEGORY_MAP.get(normalized, "fachlich")
+
+    def add_skill(self, data: dict) -> str:
+        conn = self.connect()
+        name = (data.get("name") or "").strip()
+        # Strip leading bullet markers from extraction
+        import re
+        name = re.sub(r'^[\-\*\+•]\s+', '', name).strip()
+        # Validate: reject garbage skills (#43, #129)
+        if self._is_garbage_skill(name):
             return ""
         sid = _gen_id()
         profile_id = data.get("profile_id") or self.get_active_profile_id()
+        # Normalize category (#128)
+        category = self._normalize_skill_category(data.get("category", "fachlich"))
         # Deduplicate: skip if same name already exists for this profile
         existing = conn.execute(
             "SELECT id FROM skills WHERE profile_id=? AND LOWER(name)=LOWER(?)",
@@ -982,7 +1044,7 @@ class Database:
             INSERT INTO skills (id, name, category, level, years_experience, last_used_year, profile_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            sid, name, data.get("category", "fachlich"),
+            sid, name, category,
             data.get("level", 3), data.get("years_experience"),
             data.get("last_used_year"), profile_id
         ))
@@ -1591,13 +1653,28 @@ class Database:
         return cur.lastrowid
 
     def increment_dismiss_reason_usage(self, labels: list):
-        """Increment usage_count for the given reason labels."""
+        """Increment usage_count for the given reason labels.
+
+        If a label doesn't exist yet (custom reason from free-text input),
+        auto-create it so it appears as a selectable option next time (#126).
+        """
         conn = self.connect()
+        pid = self.get_active_profile_id() or ""
         for label in labels:
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE dismiss_reasons SET usage_count = usage_count + 1 WHERE label=?",
                 (label,)
             )
+            if cur.rowcount == 0:
+                # New custom reason — insert so it's available next time
+                try:
+                    conn.execute(
+                        "INSERT INTO dismiss_reasons (label, is_custom, profile_id, usage_count, created_at) "
+                        "VALUES (?, 1, ?, 1, ?)",
+                        (label, pid, _now())
+                    )
+                except Exception:
+                    pass  # Duplicate or constraint violation — ignore
         conn.commit()
 
     # === Background Jobs ===
@@ -1707,28 +1784,51 @@ class Database:
             offers = stats["applications_by_status"].get("angebot", 0)
             stats["interview_rate"] = round(interviews / total * 100, 1)
             stats["offer_rate"] = round(offers / total * 100, 1)
-        # Sources breakdown
+        # Sources breakdown — count ALL jobs (active + dismissed) for historical accuracy (#125)
         source_rows = conn.execute(
-            "SELECT source, COUNT(*) as cnt FROM jobs WHERE is_active=1 "
-            "AND (profile_id=? OR profile_id IS NULL) GROUP BY source ORDER BY cnt DESC",
+            "SELECT source, COUNT(*) as cnt, "
+            "SUM(CASE WHEN is_active=1 THEN 1 ELSE 0 END) as active_cnt "
+            "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY source ORDER BY cnt DESC",
             (pid,)
         ).fetchall()
         stats["jobs_by_source"] = {r["source"]: r["cnt"] for r in source_rows}
+        stats["active_jobs_by_source"] = {r["source"]: r["active_cnt"] for r in source_rows}
         return stats
 
     def get_timeline_stats(self, interval: str = "month") -> dict:
-        """Get application counts grouped by time interval for charts."""
+        """Get application counts grouped by time interval for charts (#125).
+
+        Intervals determine the time window:
+        - week: last 12 weeks
+        - month: last 12 months
+        - quarter: last 8 quarters
+        - year: all years
+        - all: all data grouped by month
+        """
         conn = self.connect()
         pid = self.get_active_profile_id()
 
-        # "all" uses year grouping to show everything
+        original_interval = interval
+        # "all" shows everything grouped monthly
         if interval == "all":
-            interval = "year"
+            interval = "month"
         fmt_map = {"week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
         fmt = fmt_map.get(interval, "%Y-%m")
 
+        # Time window limits (#125) — only for non-"all" views
+        _time_limits = {
+            "week": "date('now', '-12 weeks')",
+            "month": "date('now', '-12 months')",
+            "quarter": "date('now', '-24 months')",
+        }
+        time_filter = ""
+        if original_interval != "all" and interval in _time_limits:
+            time_filter = f"AND applied_at >= {_time_limits[interval]}"
+        time_filter_jobs = time_filter.replace("applied_at", "found_at")
+
         if interval == "quarter":
-            rows = conn.execute("""
+            rows = conn.execute(f"""
                 SELECT
                     CAST(strftime('%Y', applied_at) AS TEXT) || '-Q' ||
                     CAST((CAST(strftime('%m', applied_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
@@ -1736,6 +1836,7 @@ class Database:
                     COUNT(*) as count, status
                 FROM applications
                 WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                {time_filter}
                 GROUP BY period, status ORDER BY period
             """, (pid,)).fetchall()
         else:
@@ -1744,6 +1845,7 @@ class Database:
                        COUNT(*) as count, status
                 FROM applications
                 WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
+                {time_filter}
                 GROUP BY period, status ORDER BY period
             """, (pid,)).fetchall()
 
@@ -1755,21 +1857,24 @@ class Database:
             periods[p]["total"] += r["count"]
             periods[p]["by_status"][r["status"]] = r["count"]
 
+        # Jobs found — count ALL jobs (active + dismissed) for historical accuracy (#125)
         if interval == "quarter":
-            job_rows = conn.execute("""
+            job_rows = conn.execute(f"""
                 SELECT
                     CAST(strftime('%Y', found_at) AS TEXT) || '-Q' ||
                     CAST((CAST(strftime('%m', found_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
                     as period, COUNT(*) as count
                 FROM jobs WHERE found_at IS NOT NULL
-                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                AND (profile_id=? OR profile_id IS NULL)
+                {time_filter_jobs}
                 GROUP BY period ORDER BY period
             """, (pid,)).fetchall()
         else:
             job_rows = conn.execute(f"""
                 SELECT strftime('{fmt}', found_at) as period, COUNT(*) as count
                 FROM jobs WHERE found_at IS NOT NULL
-                AND (profile_id=? OR profile_id IS NULL) AND is_active=1
+                AND (profile_id=? OR profile_id IS NULL)
+                {time_filter_jobs}
                 GROUP BY period ORDER BY period
             """, (pid,)).fetchall()
 
@@ -1782,23 +1887,31 @@ class Database:
         }
 
     def get_score_stats(self) -> dict:
-        """Get score distribution and source comparison data for charts."""
+        """Get score distribution and source comparison data for charts (#125)."""
         conn = self.connect()
         pid = self.get_active_profile_id()
 
+        # Score distribution using brackets (consistent with PDF report) (#125)
         dist_rows = conn.execute("""
-            SELECT score, COUNT(*) as cnt
-            FROM jobs WHERE is_active=1 AND is_pinned=0 AND score > 0
+            SELECT
+                CASE
+                    WHEN score = 0 THEN '0'
+                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
+                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
+                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    ELSE '10+'
+                END as bracket, COUNT(*) as cnt
+            FROM jobs WHERE is_pinned=0
             AND (profile_id=? OR profile_id IS NULL)
-            GROUP BY score ORDER BY score
+            GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
 
+        # Source stats — ALL jobs (active + dismissed) for historical view (#125)
         source_rows = conn.execute("""
             SELECT source, COUNT(*) as cnt,
                    ROUND(AVG(CASE WHEN is_pinned=0 AND score>0 THEN score END), 1) as avg_score,
                    MAX(CASE WHEN is_pinned=0 THEN score END) as max_score
-            FROM jobs WHERE is_active=1
-            AND (profile_id=? OR profile_id IS NULL)
+            FROM jobs WHERE (profile_id=? OR profile_id IS NULL)
             GROUP BY source ORDER BY cnt DESC
         """, (pid,)).fetchall()
 
@@ -1812,7 +1925,7 @@ class Database:
         """, (pid,)).fetchall()
 
         return {
-            "score_distribution": {str(r["score"]): r["cnt"] for r in dist_rows},
+            "score_distribution": {r["bracket"]: r["cnt"] for r in dist_rows},
             "sources": [
                 {"name": r["source"] or "unbekannt", "count": r["cnt"],
                  "avg_score": _safe_float(r["avg_score"]),
@@ -1824,6 +1937,32 @@ class Database:
                 for r in app_source_rows
             ],
         }
+
+    def get_zombie_applications(self, days_threshold: int = 60) -> list:
+        """Detect zombie applications — stuck in early status with no recent activity (#130).
+
+        Returns applications where:
+        - Status is 'offen', 'beworben', or 'eingangsbestaetigung'
+        - Last update was more than `days_threshold` days ago
+        - No pending follow-up scheduled
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute(f"""
+            SELECT a.id, a.title, a.company, a.status, a.applied_at, a.updated_at,
+                   j.score, j.source as job_source,
+                   CAST(julianday('now') - julianday(COALESCE(a.updated_at, a.applied_at, a.created_at))
+                        AS INTEGER) as days_inactive
+            FROM applications a
+            LEFT JOIN jobs j ON a.job_hash = j.hash
+            LEFT JOIN follow_ups f ON a.id = f.application_id AND f.status = 'offen'
+            WHERE a.status IN ('offen', 'beworben', 'eingangsbestaetigung')
+            AND (a.profile_id=? OR a.profile_id IS NULL)
+            AND f.id IS NULL
+            AND julianday('now') - julianday(COALESCE(a.updated_at, a.applied_at, a.created_at)) > ?
+            ORDER BY days_inactive DESC
+        """, (pid, days_threshold)).fetchall()
+        return [dict(r) for r in rows]
 
     def get_report_data(self) -> dict:
         """Get comprehensive data for the PDF/Excel Bewerbungsbericht.
@@ -1859,13 +1998,14 @@ class Database:
             GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
 
-        # High-score jobs NOT applied to
+        # High-score ACTIVE jobs NOT applied to (exclude dismissed — #125)
         unapplied_high = conn.execute("""
             SELECT j.hash, j.title, j.company, j.score, j.source,
                    j.dismiss_reason, j.is_active, j.found_at
             FROM jobs j
             LEFT JOIN applications a ON j.hash = a.job_hash
             WHERE a.id IS NULL AND j.score >= 5 AND j.is_pinned=0
+            AND j.is_active=1
             AND (j.profile_id=? OR j.profile_id IS NULL)
             ORDER BY j.score DESC LIMIT 30
         """, (pid,)).fetchall()

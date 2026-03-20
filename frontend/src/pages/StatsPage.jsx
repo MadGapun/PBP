@@ -117,11 +117,12 @@ export default function StatsPage() {
     value: s.count,
   }));
 
-  // --- Score distribution bar data ---
+  // --- Score distribution bar data (brackets: 0, 1-3, 4-6, 7-9, 10+) ---
   const scoreDistribution = scores?.score_distribution || {};
-  const scoreBarData = Object.entries(scoreDistribution)
-    .map(([bucket, count]) => ({ bucket, count }))
-    .sort((a, b) => Number(a.bucket) - Number(b.bucket));
+  const SCORE_BRACKET_ORDER = ["0", "1-3", "4-6", "7-9", "10+"];
+  const scoreBarData = SCORE_BRACKET_ORDER
+    .filter((bracket) => scoreDistribution[bracket] != null)
+    .map((bracket) => ({ bucket: bracket, count: scoreDistribution[bracket] || 0 }));
 
   // --- Source-Score comparison bar data ---
   const sourceScoreData = sources
@@ -267,7 +268,7 @@ export default function StatsPage() {
                       contentStyle={{ background: "rgba(30,34,52,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
                       labelStyle={{ color: "rgba(255,255,255,0.7)" }}
                       formatter={(value) => [value, "Stellen"]}
-                      labelFormatter={(label) => `Score ${label}`}
+                      labelFormatter={(label) => `Score-Bereich ${label}`}
                     />
                     <Bar dataKey="count" fill="#fbbf24" radius={[4, 4, 0, 0]}>
                       {scoreBarData.map((_, i) => (

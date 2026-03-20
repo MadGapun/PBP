@@ -90,6 +90,7 @@ export default function DashboardPage() {
     applications: [],
     followUps: [],
     statistics: {},
+    zombies: [],
   });
 
   const loadData = useEffectEvent(async () => {
@@ -107,11 +108,12 @@ export default function DashboardPage() {
     }
 
     try {
-      const [jobs, applications, followUps, statistics] = await Promise.all([
+      const [jobs, applications, followUps, statistics, zombieData] = await Promise.all([
         api("/api/jobs?active=true"),
         optionalApi("/api/applications"),
         api("/api/follow-ups"),
         api("/api/statistics"),
+        optionalApi("/api/applications/zombies"),
       ]);
 
       startTransition(() => {
@@ -120,6 +122,7 @@ export default function DashboardPage() {
           applications: applications?.applications || [],
           followUps: followUps?.follow_ups || [],
           statistics: statistics || {},
+          zombies: zombieData?.zombies || [],
         });
         setLoading(false);
       });
@@ -246,6 +249,17 @@ export default function DashboardPage() {
       description: `${dueFollowUps.length} Follow-up(s) sind heute oder früher fällig.`,
       tone: "sky",
       actionLabel: "Öffnen",
+      action: () => navigateTo("bewerbungen"),
+    });
+  }
+
+  if (data.zombies.length > 0) {
+    todoItems.push({
+      id: "zombies",
+      title: "Zombie-Bewerbungen prüfen",
+      description: `${data.zombies.length} Bewerbung(en) ohne Rückmeldung seit über 60 Tagen.`,
+      tone: "amber",
+      actionLabel: "Bewerbungen",
       action: () => navigateTo("bewerbungen"),
     });
   }

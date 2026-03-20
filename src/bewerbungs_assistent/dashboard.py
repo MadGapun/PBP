@@ -182,7 +182,7 @@ def _build_workspace_summary() -> dict:
     """Aggregate the current workspace state for dashboard navigation and guidance."""
     return build_workspace_summary(
         profile=_db.get_profile(),
-        jobs=_db.get_active_jobs(),
+        jobs=_db.get_active_jobs(exclude_applied=True),
         applications=_db.get_applications(),
         source_summary=_get_source_summary(),
         search_status=_get_search_status_payload(),
@@ -1091,6 +1091,13 @@ async def api_save_app_fit_analyse(app_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.get("/api/applications/zombies")
+async def api_zombie_applications(days: int = 60):
+    """Detect zombie applications — stuck in early status without activity (#130)."""
+    zombies = _db.get_zombie_applications(days_threshold=days)
+    return {"zombies": zombies, "count": len(zombies), "threshold_days": days}
+
+
 @app.get("/api/applications/export")
 async def api_export_applications(format: str = "pdf"):
     """Export applications as PDF or Excel."""
@@ -1306,19 +1313,27 @@ async def api_upload_document(
 
 
 def _detect_doc_type(filename: str, text: str) -> str | None:
-    """Auto-detect document type from filename and extracted text."""
+    """Auto-detect document type from filename and extracted text (#131)."""
     fname = filename.lower()
     text_lower = (text or "").lower()[:2000]
 
-    # Special cases: known reference documents
-    if "master-wissen" in fname or "bewerbungs-master" in fname:
+    # Special cases: known internal/reference documents
+    if any(kw in fname for kw in ["master-wissen", "bewerbungs-master", "wissen"]):
         return "referenz"
+    # Test/draft documents → sonstiges
+    if any(kw in fname for kw in ["test", "chaotisch", "draft", "entwurf", "tmp"]):
+        return "sonstiges"
+    # Templates/Vorlagen — generic CVs not tied to a specific application
+    if any(kw in fname for kw in ["template", "vorlage", "standard", "generic", "muster"]):
+        return "vorlage"
 
     # Filename patterns (order matters — more specific first)
     if any(kw in fname for kw in ["vorbereitung", "preparation", "interview-prep"]):
         return "vorbereitung"
     if any(kw in fname for kw in ["projektliste", "project-list", "projekte"]):
         return "projektliste"
+    if any(kw in fname for kw in ["stellenbeschreibung", "job-description", "ausschreibung"]):
+        return "stellenbeschreibung"
     if any(kw in fname for kw in ["lebenslauf", "cv", "resume", "curriculum", "vita"]):
         return "lebenslauf"
     if any(kw in fname for kw in ["anschreiben", "cover", "motivations"]):
@@ -1329,6 +1344,14 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         return "referenz"
     if any(kw in fname for kw in ["zertifikat", "certificate", "bescheinigung"]):
         return "zertifikat"
+    if any(kw in fname for kw in ["foto", "bild", "bewerbungsfoto", "portrait", "photo"]):
+        return "foto"
+    if any(kw in fname for kw in ["portfolio", "mappe", "arbeitsproben"]):
+        return "portfolio"
+
+    # .md files are rarely cover letters — treat as reference/sonstiges
+    if fname.endswith(".md"):
+        return "referenz"
 
     # Text content patterns
     if text_lower:
@@ -1336,8 +1359,13 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
                         "beruflicher werdegang", "work experience", "education"]
         letter_keywords = ["sehr geehrte", "bewerbung als", "mit grossem interesse",
                            "hiermit bewerbe", "ihre stellenanzeige", "dear"]
+        project_keywords = ["auftraggeber", "technologien", "projektbeschreibung",
+                            "projektlaufzeit", "projektzeitraum", "kunde"]
         cv_hits = sum(1 for kw in cv_keywords if kw in text_lower)
         letter_hits = sum(1 for kw in letter_keywords if kw in text_lower)
+        project_hits = sum(1 for kw in project_keywords if kw in text_lower)
+        if project_hits >= 2:
+            return "projektliste"
         if letter_hits >= 2:
             return "anschreiben"
         if cv_hits >= 3:
