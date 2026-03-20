@@ -124,7 +124,7 @@ async def index():
             _generate_dashboard_error_html(
                 message="Das Dashboard-Frontend wurde nicht gefunden.",
                 details=f"Erwarteter Pfad: {DASHBOARD_BUILD_HTML}",
-                hint="Bitte Frontend-Build ausfuehren, z. B. mit 'pnpm run build:web'.",
+                hint="Bitte Frontend-Build ausführen, z. B. mit 'pnpm run build:web'.",
             ),
             status_code=500,
         )
@@ -518,7 +518,7 @@ async def api_update_document_extraction(doc_id: str, request: Request):
 
     history = _db.get_extraction_history(profile_id=profile["id"], document_id=doc_id)
     if not history:
-        return JSONResponse({"error": "Keine Extraktion fuer dieses Dokument vorhanden"}, status_code=404)
+        return JSONResponse({"error": "Keine Extraktion für dieses Dokument vorhanden"}, status_code=404)
 
     extraction = history[0]
     conn = _db.connect()
@@ -907,17 +907,25 @@ async def api_application_timeline(app_id: str):
 @app.get("/api/jobs")
 async def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,
-                   exclude_applied: bool = False):
-    """Get jobs with filtering (#118, #121).
+                   exclude_applied: bool = False,
+                   limit: int = 0,
+                   offset: int = 0):
+    """Get jobs with filtering and optional pagination (#118, #121, #145).
 
     By default, blacklisted companies are excluded from active jobs.
     Set exclude_applied=true to also hide already-applied jobs.
+    Use limit/offset for pagination. limit=0 returns all (backward compatible).
     """
     if active:
-        return _db.get_active_jobs(
+        all_jobs = _db.get_active_jobs(
             exclude_blacklisted=exclude_blacklisted,
             exclude_applied=exclude_applied,
         )
+        total = len(all_jobs)
+        if limit > 0:
+            page = all_jobs[offset:offset + limit]
+            return {"jobs": page, "total": total, "offset": offset, "limit": limit, "has_more": offset + limit < total}
+        return all_jobs
     return _db.get_dismissed_jobs()
 
 
@@ -2006,7 +2014,7 @@ async def api_start_source_login(source_key: str):
     if source is None:
         return JSONResponse({"error": "Quelle nicht gefunden"}, status_code=404)
     if not source.get("login_erforderlich"):
-        return JSONResponse({"error": "Fuer diese Quelle ist kein Login erforderlich"}, status_code=400)
+        return JSONResponse({"error": "Für diese Quelle ist kein Login erforderlich"}, status_code=400)
 
     job_id = _db.create_background_job("quellen_login", {"source": source_key})
 
@@ -2024,7 +2032,7 @@ async def api_start_source_login(source_key: str):
 
                 ready = ensure_xing_session(progress_callback=lambda message: _progress(message, 40))
             else:
-                raise ValueError(f"Login-Flow fuer Quelle '{source_key}' ist nicht implementiert")
+                raise ValueError(f"Login-Flow für Quelle '{source_key}' ist nicht implementiert")
 
             if ready:
                 _db.update_background_job(
@@ -2043,7 +2051,7 @@ async def api_start_source_login(source_key: str):
                     result={"source": source_key, "session_ready": False},
                 )
         except Exception as exc:
-            logger.error("Login-Start fuer %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
+            logger.error("Login-Start für %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
             _db.update_background_job(
                 job_id,
                 "fehler",
@@ -2058,7 +2066,7 @@ async def api_start_source_login(source_key: str):
         "status": "gestartet",
         "job_id": job_id,
         "source": source_key,
-        "nachricht": f"{source['name']}: Browser wird fuer den Login gestartet, falls noch keine Session vorhanden ist.",
+        "nachricht": f"{source['name']}: Browser wird für den Login gestartet, falls noch keine Session vorhanden ist.",
     }
 
 
@@ -2372,7 +2380,7 @@ async def api_analyze_documents(request: Request):
     if not extracted:
         for doc_id in [*doc_ids, *empty_text_doc_ids]:
             _db.update_document_extraction_status(doc_id, "analysiert_leer")
-        return {"status": "keine_daten", "nachricht": "Keine strukturierten Profildaten erkannt. Nutze /profil_erweiterung in Claude fuer KI-gestuetzte Extraktion."}
+        return {"status": "keine_daten", "nachricht": "Keine strukturierten Profildaten erkannt. Nutze /profil_erweiterung in Claude für KI-gestuetzte Extraktion."}
 
     eid = _db.add_extraction_history({
         "document_id": doc_ids[0],
@@ -2441,7 +2449,7 @@ async def api_factory_reset(request: Request):
     if data.get("confirm") != "RESET":
         return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
     _db.reset_all_data()
-    return {"status": "ok", "message": "Alle Daten geloescht. Neustart empfohlen."}
+    return {"status": "ok", "message": "Alle Daten gelöscht. Neustart empfohlen."}
 
 
 @app.delete("/api/extraction-history/{entry_id}")

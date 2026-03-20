@@ -183,10 +183,10 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
         headless = session_exists
 
         if not session_exists:
-            logger.info("LinkedIn Erst-Login: Browser wird sichtbar geoeffnet.")
+            logger.info("LinkedIn Erst-Login: Browser wird sichtbar geöffnet.")
             if progress_callback:
                 progress_callback(
-                    "LinkedIn: Browser wird geoeffnet fuer Erst-Login. "
+                    "LinkedIn: Browser wird geöffnet für Erst-Login. "
                     "Bitte bei LinkedIn anmelden. Die Session wird gespeichert."
                 )
 
@@ -217,7 +217,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                 logger.info("LinkedIn Login erforderlich...")
                 if progress_callback:
                     progress_callback(
-                        "LinkedIn: Bitte im geoeffneten Browser einloggen. "
+                        "LinkedIn: Bitte im geöffneten Browser einloggen. "
                         "Warte max. 3 Minuten..."
                     )
                 logged_in = False
@@ -239,7 +239,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                 msg = (
                     "LinkedIn Bot-Detection aktiv. Optionen: "
                     "1) Warte einige Minuten und versuche erneut. "
-                    "2) Nutze 'Claude in Chrome' Browser-Extension fuer direkte Suche."
+                    "2) Nutze 'Claude in Chrome' Browser-Extension für direkte Suche."
                 )
                 logger.warning(msg)
                 if progress_callback:
@@ -308,7 +308,7 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
 
                     except PWTimeout:
                         logger.warning(
-                            "LinkedIn Timeout fuer '%s' Seite %d",
+                            "LinkedIn Timeout für '%s' Seite %d",
                             suchbegriff, page_num + 1,
                         )
                         break
@@ -420,7 +420,7 @@ def _extract_descriptions(page, stellen: list, progress_callback=None) -> None:
                 job["description"] = desc.strip()
                 extracted += 1
         except Exception as e:
-            logger.debug("Beschreibung nicht extrahiert fuer %s: %s", job["url"], e)
+            logger.debug("Beschreibung nicht extrahiert für %s: %s", job["url"], e)
         # Rate limit
         time.sleep(1)
 
@@ -452,7 +452,7 @@ def ensure_linkedin_session(progress_callback=None) -> bool:
 
         if not session_exists and progress_callback:
             progress_callback(
-                "LinkedIn: Browser wird geoeffnet fuer Erst-Login. "
+                "LinkedIn: Browser wird geöffnet für Erst-Login. "
                 "Bitte bei LinkedIn anmelden."
             )
 

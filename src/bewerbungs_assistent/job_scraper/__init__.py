@@ -21,14 +21,14 @@ logger = logging.getLogger("bewerbungs_assistent.scraper")
 
 SOURCE_REGISTRY = {
     "bundesagentur": {
-        "name": "Bundesagentur fuer Arbeit",
+        "name": "Bundesagentur für Arbeit",
         "beschreibung": "Oeffentliche Jobboerse der Arbeitsagentur. Groesstes deutsches Stellenportal.",
         "methode": "REST API",
         "login_erforderlich": False,
     },
     "stepstone": {
         "name": "StepStone",
-        "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
+        "beschreibung": "Grosses deutsches Jobportal für Fach- und Führungskräfte.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
     },
@@ -40,19 +40,19 @@ SOURCE_REGISTRY = {
     },
     "freelancermap": {
         "name": "Freelancermap",
-        "beschreibung": "Projektboerse fuer Freelancer und Selbstaendige.",
+        "beschreibung": "Projektboerse für Freelancer und Selbstaendige.",
         "methode": "HTML Scraping + Playwright Fallback",
         "login_erforderlich": False,
     },
     "freelance_de": {
         "name": "freelance.de",
-        "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
+        "beschreibung": "Projektboerse für Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
     },
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "Internationales Business-Netzwerk. Beim ersten Start oeffnet sich ein Browser zur Anmeldung.",
+        "beschreibung": "Internationales Business-Netzwerk. Beim ersten Start öffnet sich ein Browser zur Anmeldung.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": True,
         "profil_optimierung": "Dein LinkedIn-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
@@ -65,7 +65,7 @@ SOURCE_REGISTRY = {
     },
     "xing": {
         "name": "XING",
-        "beschreibung": "Deutsches Business-Netzwerk. Beim ersten Start oeffnet sich ein Browser zur Anmeldung.",
+        "beschreibung": "Deutsches Business-Netzwerk. Beim ersten Start öffnet sich ein Browser zur Anmeldung.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": True,
         "profil_optimierung": "Dein XING-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
@@ -96,7 +96,7 @@ SOURCE_REGISTRY = {
     },
     "solcom": {
         "name": "SOLCOM",
-        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
+        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister für IT-Projekte.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
     },
@@ -108,7 +108,7 @@ SOURCE_REGISTRY = {
     },
     "jobware": {
         "name": "Jobware",
-        "beschreibung": "Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.",
+        "beschreibung": "Premium-Jobportal für Spezialisten und Führungskräfte.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
     },
@@ -255,7 +255,7 @@ def run_search(db, job_id: str, params: dict):
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
         except ImportError as e:
-            logger.warning("Scraper %s nicht verfuegbar: %s", quelle, e)
+            logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
         except Exception as e:
             logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
 
@@ -294,7 +294,7 @@ def run_search(db, job_id: str, params: dict):
         apps = db.get_applications()
         criteria["_applied_titles"] = [
             a.get("title", "").lower() for a in apps
-            if a.get("title") and a.get("status") not in ("abgelehnt", "zurueckgezogen")
+            if a.get("title") and a.get("status") not in ("abgelehnt", "zurückgezogen")
         ]
     except Exception:
         criteria["_applied_titles"] = []

@@ -1,4 +1,4 @@
-"""Tool-Module fuer den Bewerbungs-Assistent MCP Server.
+"""Tool-Module für den Bewerbungs-Assistent MCP Server.
 
 Alle 47 MCP-Tools sind in 8 Domain-Module aufgeteilt:
 - profil: Profil-Verwaltung (14 Tools)
@@ -8,7 +8,7 @@ Alle 47 MCP-Tools sind in 8 Domain-Module aufgeteilt:
 - suche: Suchkriterien und Blacklist (2 Tools)
 - export_tools: PDF/DOCX-Export (2 Tools)
 - analyse: Erweiterte KI-Features (9 Tools)
-- workflows: Workflow-Starter (3 Tools) — Prompts als Tools fuer claude.ai
+- workflows: Workflow-Starter (3 Tools) — Prompts als Tools für claude.ai
 """
 
 from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows

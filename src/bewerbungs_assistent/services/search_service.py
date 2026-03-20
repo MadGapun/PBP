@@ -1,4 +1,4 @@
-"""Gemeinsame Such- und Quellenlogik fuer Dashboard und weitere Services."""
+"""Gemeinsame Such- und Quellenlogik für Dashboard und weitere Services."""
 
 from datetime import datetime
 

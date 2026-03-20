@@ -28,14 +28,14 @@ def register(mcp, db, logger):
             company: Firmenname
             url: Link zur Stellenanzeige
             job_hash: Optional: Hash einer gefundenen Stelle
-            status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen, abgelaufen
+            status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurückgezogen, abgelaufen
             applied_at: Bewerbungsdatum (YYYY-MM-DD, Standard: heute)
             notes: Notizen
-            bewerbungsart: mit_dokumenten, elektronisch, ueber_portal
+            bewerbungsart: mit_dokumenten, elektronisch, über_portal
             lebenslauf_variante: standard, angepasst, keiner
             ansprechpartner: Name des Ansprechpartners
             kontakt_email: E-Mail des Ansprechpartners
-            portal_name: Name des Portals (bei bewerbungsart=ueber_portal)
+            portal_name: Name des Portals (bei bewerbungsart=über_portal)
         """
         # Check for duplicate applications (#63)
         existing_apps = db.get_applications()
@@ -45,7 +45,7 @@ def register(mcp, db, logger):
                 return {
                     "status": "duplikat",
                     "bestehende_bewerbung_id": existing["id"],
-                    "nachricht": f"Es gibt bereits eine Bewerbung bei {company} fuer '{title}' "
+                    "nachricht": f"Es gibt bereits eine Bewerbung bei {company} für '{title}' "
                                  f"(Status: {existing.get('status', '?')}). "
                                  "Nutze bewerbung_bearbeiten() um diese zu aktualisieren."
                 }
@@ -87,7 +87,7 @@ def register(mcp, db, logger):
             "status": "erstellt",
             "bewerbung_id": aid,
             "job_hash": effective_hash,
-            "nachricht": f"Bewerbung bei {company} fuer '{title}' erfasst ({bewerbungsart})."
+            "nachricht": f"Bewerbung bei {company} für '{title}' erfasst ({bewerbungsart})."
         }
 
     @mcp.tool()
@@ -97,16 +97,16 @@ def register(mcp, db, logger):
         notizen: str = "",
         ablehnungsgrund: str = ""
     ) -> dict:
-        """Aendert den Status einer Bewerbung (Bewerbungsstatus aendern/aktualisieren).
+        """Ändert den Status einer Bewerbung (Bewerbungsstatus ändern/aktualisieren).
 
-        Auch findbar als: status aendern, bewerbung aktualisieren, application status update,
-        interview eingetragen, absage melden, angebot erhalten, zurueckgezogen.
+        Auch findbar als: status ändern, bewerbung aktualisieren, application status update,
+        interview eingetragen, absage melden, angebot erhalten, zurückgezogen.
 
         Args:
             bewerbung_id: ID der Bewerbung
-            neuer_status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen, abgelaufen
+            neuer_status: offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurückgezogen, abgelaufen
             notizen: Optionale Notizen zum Statuswechsel
-            ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird fuer Musteranalyse gespeichert.
+            ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
         """
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
         result = {"status": "aktualisiert", "neuer_status": neuer_status}
@@ -121,7 +121,7 @@ def register(mcp, db, logger):
         Args:
             status_filter: Optional: Nur Bewerbungen mit diesem Status
                 (offen, beworben, eingangsbestaetigung, interview, zweitgespraech,
-                 angebot, abgelehnt, zurueckgezogen, abgelaufen)
+                 angebot, abgelehnt, zurückgezogen, abgelaufen)
         """
         apps = db.get_applications(status_filter if status_filter else None)
 
@@ -130,7 +130,7 @@ def register(mcp, db, logger):
                 "anzahl": 0,
                 "nachricht": "Noch keine Bewerbungen erfasst. "
                              "Erstelle eine neue Bewerbung mit bewerbung_erstellen() oder "
-                             "nutze den Prompt 'bewerbung_schreiben' fuer eine gefuehrte Bewerbung."
+                             "nutze den Prompt 'bewerbung_schreiben' für eine geführte Bewerbung."
             }
 
         formatted = []
@@ -161,18 +161,18 @@ def register(mcp, db, logger):
                 "nach_status": stats.get("applications_by_status", {}),
                 "interview_rate": stats.get("interview_rate", 0),
             },
-            "hinweis": "Nutze bewerbung_status_aendern(id, status, notizen) um den Status zu aktualisieren."
+            "hinweis": "Nutze bewerbung_status_ändern(id, status, notizen) um den Status zu aktualisieren."
         }
 
     @mcp.tool()
     def bewerbung_loeschen(bewerbung_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht eine Bewerbung und alle zugehoerigen Events/Timeline-Eintraege.
+        """Löscht eine Bewerbung und alle zugehörigen Events/Timeline-Einträge.
 
-        ACHTUNG: Diese Aktion kann nicht rueckgaengig gemacht werden!
+        ACHTUNG: Diese Aktion kann nicht rückgängig gemacht werden!
 
         Args:
             bewerbung_id: ID der Bewerbung
-            bestaetigung: Muss True sein um die Loeschung zu bestaetigen
+            bestaetigung: Muss True sein um die Löschung zu bestätigen
         """
         if not bestaetigung:
             app = db.get_application(bewerbung_id)
@@ -181,7 +181,7 @@ def register(mcp, db, logger):
             return {
                 "status": "bestaetigung_erforderlich",
                 "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
-                "hinweis": "Setze bestaetigung=True um die Bewerbung unwiderruflich zu loeschen."
+                "hinweis": "Setze bestaetigung=True um die Bewerbung unwiderruflich zu löschen."
             }
         app = db.get_application(bewerbung_id)
         if not app:
@@ -191,7 +191,7 @@ def register(mcp, db, logger):
         db.delete_application(bewerbung_id)
         return {
             "status": "geloescht",
-            "nachricht": f"Bewerbung '{title}' bei {company} wurde geloescht."
+            "nachricht": f"Bewerbung '{title}' bei {company} wurde gelöscht."
         }
 
     @mcp.tool()
@@ -206,16 +206,16 @@ def register(mcp, db, logger):
         portal_name: str = "",
         bewerbungsart: str = ""
     ) -> dict:
-        """Bearbeitet eine bestehende Bewerbung (Felder nachtraeglich aendern/ergaenzen).
+        """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
-        Nur die angegebenen Felder werden geaendert, leere Felder bleiben unveraendert.
+        Nur die angegebenen Felder werden geändert, leere Felder bleiben unverändert.
 
         Args:
             bewerbung_id: ID der Bewerbung
             title: Neuer Stellentitel
             company: Neuer Firmenname
             url: Neuer Link zur Stellenanzeige
-            notes: Neue Notizen (ueberschreibt bisherige)
+            notes: Neue Notizen (überschreibt bisherige)
             ansprechpartner: Neuer Ansprechpartner
             kontakt_email: Neue Kontakt-E-Mail
             portal_name: Neues Portal
@@ -234,7 +234,7 @@ def register(mcp, db, logger):
                 updates[key] = val
 
         if not updates:
-            return {"fehler": "Keine Aenderungen angegeben."}
+            return {"fehler": "Keine Änderungen angegeben."}
 
         db.update_application(bewerbung_id, updates)
         return {
@@ -245,10 +245,10 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def bewerbung_notiz(bewerbung_id: str, notiz: str) -> dict:
-        """Fuegt eine Gespraechsnotiz mit Timestamp zur Bewerbungs-Timeline hinzu.
+        """Fügt eine Gesprächsnotiz mit Timestamp zur Bewerbungs-Timeline hinzu.
 
-        Ideal fuer: Interview-Notizen, Telefonate, E-Mail-Zusammenfassungen,
-        Feedback nach Gespraechen, naechste Schritte.
+        Ideal für: Interview-Notizen, Telefonate, E-Mail-Zusammenfassungen,
+        Feedback nach Gesprächen, nächste Schritte.
 
         Args:
             bewerbung_id: ID der Bewerbung
@@ -261,7 +261,7 @@ def register(mcp, db, logger):
         db.add_application_note(bewerbung_id, notiz)
         return {
             "status": "gespeichert",
-            "nachricht": f"Notiz zu '{app.get('title', '')}' bei {app.get('company', '')} hinzugefuegt.",
+            "nachricht": f"Notiz zu '{app.get('title', '')}' bei {app.get('company', '')} hinzugefügt.",
             "timeline_eintraege": len(app.get("events", [])) + 1
         }
 
@@ -269,7 +269,7 @@ def register(mcp, db, logger):
     def bewerbung_details(bewerbung_id: str) -> dict:
         """Zeigt alle Details einer Bewerbung: Stellenbeschreibung, Timeline, Notizen, Dokumente.
 
-        Das vollstaendige Dossier — alles auf einen Blick fuer Interview-Vorbereitung.
+        Das vollständige Dossier — alles auf einen Blick für Interview-Vorbereitung.
 
         Args:
             bewerbung_id: ID der Bewerbung
@@ -307,9 +307,9 @@ def register(mcp, db, logger):
     def statistiken_abrufen() -> dict:
         """Ruft Bewerbungsstatistiken ab: Conversion-Rate, Antwortzeiten, Status-Verteilung.
 
-        Gibt einen Ueberblick ueber:
+        Gibt einen Überblick über:
         - Gesamtzahl Bewerbungen und aktive Stellen
         - Bewerbungen nach Status (beworben, interview, angebot, etc.)
-        - Interview-Rate (% der Bewerbungen die zum Interview fuehren)
+        - Interview-Rate (% der Bewerbungen die zum Interview führen)
         """
         return db.get_statistics()

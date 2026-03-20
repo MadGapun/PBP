@@ -1,4 +1,4 @@
-"""Bundesagentur fuer Arbeit REST API scraper.
+"""Bundesagentur für Arbeit REST API scraper.
 
 Uses the public REST API (no authentication needed).
 Reliable, no anti-bot measures.
@@ -29,7 +29,7 @@ DEFAULT_KEYWORDS = [
 
 
 def search_bundesagentur(params: dict) -> list:
-    """Search Bundesagentur fuer Arbeit job API.
+    """Search Bundesagentur für Arbeit job API.
 
     Args:
         params: Search parameters with optional 'keywords' list

@@ -77,7 +77,7 @@ def _playwright_fallback(urls: list) -> list:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        logger.debug("Playwright nicht verfuegbar fuer Freelancermap-Fallback")
+        logger.debug("Playwright nicht verfügbar für Freelancermap-Fallback")
         return []
 
     jobs = []

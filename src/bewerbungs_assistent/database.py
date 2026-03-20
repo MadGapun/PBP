@@ -1064,7 +1064,7 @@ class Database:
             return True
         # Reject common non-skill words/fragments
         _STOPWORDS = {"enabling", "efficient", "power", "detailliert", "sonstige",
-                       "diverse", "verschiedene", "uebersicht", "zusammenfassung",
+                       "diverse", "verschiedene", "übersicht", "zusammenfassung",
                        "verantwortlich", "zustaendig", "erfahrung"}
         if name.lower().strip() in _STOPWORDS:
             return True
@@ -1211,7 +1211,7 @@ class Database:
             try:
                 Path(row["filepath"]).unlink(missing_ok=True)
             except Exception as e:
-                logger.warning("Dokument-Datei konnte nicht geloescht werden: %s", e)
+                logger.warning("Dokument-Datei konnte nicht gelöscht werden: %s", e)
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
 
@@ -1347,7 +1347,7 @@ class Database:
         if exclude_applied:
             applied_hashes = {
                 r["job_hash"] for r in self.get_applications()
-                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen")
+                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurückgezogen", "abgelaufen")
             }
             if applied_hashes:
                 jobs = [j for j in jobs if j["hash"] not in applied_hashes]
@@ -1416,7 +1416,7 @@ class Database:
     # === Applications ===
 
     # Statuses considered archived (inactive)
-    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen")
+    ARCHIVE_STATUSES = ("abgelehnt", "zurückgezogen", "abgelaufen")
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,
@@ -1509,7 +1509,7 @@ class Database:
         return conn.execute(query, params).fetchone()[0]
 
     def count_archived_applications(self) -> int:
-        """Count archived (abgelehnt/zurueckgezogen/abgelaufen) applications."""
+        """Count archived (abgelehnt/zurückgezogen/abgelaufen) applications."""
         conn = self.connect()
         pid = self.get_active_profile_id()
         placeholders = ",".join("?" for _ in self.ARCHIVE_STATUSES)
@@ -2545,23 +2545,23 @@ class Database:
 
         # Check completeness — profile building
         if not profile.get("summary"):
-            steps.append({"aktion": "Zusammenfassung ergaenzen", "prioritaet": "hoch",
-                          "beschreibung": "Dein Profil braucht eine Zusammenfassung fuer Anschreiben und CV.",
+            steps.append({"aktion": "Zusammenfassung ergänzen", "prioritaet": "hoch",
+                          "beschreibung": "Dein Profil braucht eine Zusammenfassung für Anschreiben und CV.",
                           "action_type": "dashboard", "action_target": "showProfileForm()",
-                          "action_label": "Profil bearbeiten", "prompt": "/profil_ueberpruefen"})
+                          "action_label": "Profil bearbeiten", "prompt": "/profil_überprüfen"})
         if not profile.get("positions"):
-            steps.append({"aktion": "Berufserfahrung hinzufuegen", "prioritaet": "hoch",
-                          "beschreibung": "Berufserfahrung ist fuer Bewerbungen essentiell.",
+            steps.append({"aktion": "Berufserfahrung hinzufügen", "prioritaet": "hoch",
+                          "beschreibung": "Berufserfahrung ist für Bewerbungen essentiell.",
                           "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showPositionForm, 200)",
                           "action_label": "+ Position", "prompt": "/ersterfassung"})
         if not profile.get("skills"):
-            steps.append({"aktion": "Skills hinzufuegen", "prioritaet": "mittel",
+            steps.append({"aktion": "Skills hinzufügen", "prioritaet": "mittel",
                           "beschreibung": "Skills helfen beim Job-Matching und Fit-Score.",
                           "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showSkillForm, 200)",
                           "action_label": "+ Skill"})
         if not profile.get("education"):
-            steps.append({"aktion": "Ausbildung ergaenzen", "prioritaet": "mittel",
-                          "beschreibung": "Fuer ein vollstaendiges Bewerberprofil.",
+            steps.append({"aktion": "Ausbildung ergänzen", "prioritaet": "mittel",
+                          "beschreibung": "Für ein vollständiges Bewerberprofil.",
                           "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showEducationForm, 200)",
                           "action_label": "+ Ausbildung"})
 
@@ -2577,7 +2577,7 @@ class Database:
         elif not docs:
             # No documents at all — suggest upload
             steps.append({"aktion": "Dokumente hochladen", "prioritaet": "mittel",
-                          "beschreibung": "Lade Lebenslauf oder Zeugnisse hoch fuer automatische Profil-Erweiterung.",
+                          "beschreibung": "Lade Lebenslauf oder Zeugnisse hoch für automatische Profil-Erweiterung.",
                           "action_type": "dashboard", "action_target": "wizardDocUpload()",
                           "action_label": "Dokument hochladen"})
 
@@ -2655,7 +2655,7 @@ class Database:
         ).fetchone()[0]
         if rejections >= 3:
             steps.append({"aktion": "Ablehnungen analysieren", "prioritaet": "mittel",
-                          "beschreibung": f"{rejections} Absagen erhalten — analysiere die Muster fuer bessere Chancen.",
+                          "beschreibung": f"{rejections} Absagen erhalten — analysiere die Muster für bessere Chancen.",
                           "action_type": "prompt", "prompt": "/profil_analyse"})
 
         # Suggest interview prep when interviews scheduled
@@ -2785,9 +2785,9 @@ class Database:
         for key in ["positions", "education", "skills", "documents"]:
             val = data.get(key)
             if val is not None and not isinstance(val, list):
-                raise ValueError(f"Ungueltiges Format fuer '{key}': Liste erwartet")
+                raise ValueError(f"Ungueltiges Format für '{key}': Liste erwartet")
         if data.get("preferences") is not None and not isinstance(data.get("preferences"), (dict, str)):
-            raise ValueError("Ungueltiges Format fuer 'preferences': Dict erwartet")
+            raise ValueError("Ungueltiges Format für 'preferences': Dict erwartet")
         # Ensure preferences is a dict (could be JSON string from export)
         if isinstance(data.get("preferences"), str):
             data["preferences"] = json.loads(data["preferences"])

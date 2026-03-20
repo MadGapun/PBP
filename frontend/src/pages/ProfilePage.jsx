@@ -38,7 +38,7 @@ import {
   TextArea,
   TextInput,
 } from "@/components/ui";
-import { cn, docTypeLabel, formatDateTime } from "@/utils";
+import { cn, docTypeLabel, formatDateTime, normalizeMonthDate } from "@/utils";
 
 const EMPTY_PROFILE = {
   name: "",
@@ -1265,7 +1265,7 @@ export default function ProfilePage() {
                         <p className="text-sm text-muted">{formatPositionPeriod(item)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setPositionDialog({ open: true, draft: { ...item } })}>Bearbeiten</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setPositionDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1384,7 +1384,7 @@ export default function ProfilePage() {
                   <h3 className="text-lg font-semibold text-ink">{item.institution}</h3>
                   <p className="mt-2 text-sm text-muted">{[item.degree, item.field_of_study].filter(Boolean).join(" - ")}</p>
                   <div className="mt-4 flex flex-wrap gap-3">
-                    <Button variant="ghost" onClick={() => setEducationDialog({ open: true, draft: { ...item } })}>Bearbeiten</Button>
+                    <Button variant="ghost" onClick={() => setEducationDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
                     <Button
                       variant="ghost"
                       onClick={() =>
@@ -1639,6 +1639,7 @@ export default function ProfilePage() {
                     startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: newType } : d)));
                     try {
                       await putJson(`/api/document/${item.id}/doc-type`, { doc_type: newType });
+                      await refreshChrome({ quiet: true });
                       pushToast("Dokumenttyp aktualisiert.", "success");
                     } catch (err) {
                       startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: oldType } : d)));

@@ -1,7 +1,7 @@
-"""freelance.de Scraper — Projektboerse fuer Freelancer und IT-Projekte.
+"""freelance.de Scraper — Projektboerse für Freelancer und IT-Projekte.
 
-Sucht Projekte auf freelance.de ueber Skill-basierte URLs.
-Kein Login erforderlich fuer oeffentliche Projektlisten.
+Sucht Projekte auf freelance.de über Skill-basierte URLs.
+Kein Login erforderlich für oeffentliche Projektlisten.
 Firmennamen und Stundensaetze sind hinter der Paywall (EXPERT-Mitgliedschaft).
 
 HTML-Struktur (Stand 2026-02):

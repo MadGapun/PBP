@@ -19,7 +19,7 @@ def register(mcp, db, logger):
         1. Mindestens eine Quelle muss aktiviert sein (Dashboard → Einstellungen → Job-Quellen)
         2. Suchkriterien sollten gesetzt sein (suchkriterien_setzen)
 
-        Die Suche dauert 5-10 Minuten. Pruefe den Fortschritt mit jobsuche_status().
+        Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
         Ergebnisse danach mit stellen_anzeigen() ansehen.
 
         Args:
@@ -71,13 +71,13 @@ def register(mcp, db, logger):
         return {
             "job_id": job_id,
             "status": "gestartet",
-            "nachricht": f"Jobsuche laeuft auf {len(params['quellen'])} Portalen. "
-                        f"Pruefe den Fortschritt mit jobsuche_status('{job_id}')."
+            "nachricht": f"Jobsuche läuft auf {len(params['quellen'])} Portalen. "
+                        f"Prüfe den Fortschritt mit jobsuche_status('{job_id}')."
         }
 
     @mcp.tool()
     def jobsuche_status(job_id: str) -> dict:
-        """Prueft den Fortschritt einer laufenden Jobsuche.
+        """Prüft den Fortschritt einer laufenden Jobsuche.
 
         Args:
             job_id: Job-ID von jobsuche_starten()
@@ -111,14 +111,14 @@ def register(mcp, db, logger):
                         gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
 
-        Bei 'passt_nicht' wird der Grund gespeichert und fuer kuenftige Suchen gelernt.
-        Haeufig genutzte Gruende fuehren automatisch zu Gewichtungsanpassungen.
+        Bei 'passt_nicht' wird der Grund gespeichert und für künftige Suchen gelernt.
+        Häufig genutzte Gründe führen automatisch zu Gewichtungsanpassungen.
 
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
-            grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
-            gruende: Liste von Gruenden bei passt_nicht (Multi-Select, #108).
+            grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gründe)
+            gründe: Liste von Gründen bei passt_nicht (Multi-Select, #108).
                 Vordefinierte Optionen:
                 zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
                 zu_junior, zu_senior, unpassendes_arbeitsmodell,
@@ -150,11 +150,11 @@ def register(mcp, db, logger):
                 # Auto-adjust weights if pattern is strong enough
                 if counts.get(normalized, 0) >= 3:
                     if normalized == "zu_weit_entfernt":
-                        hints.append("Entfernungs-Malus wird verstaerkt (3+ Ablehnungen wegen Entfernung).")
+                        hints.append("Entfernungs-Malus wird verstärkt (3+ Ablehnungen wegen Entfernung).")
                     elif normalized == "gehalt_zu_niedrig":
-                        hints.append("Gehalts-Gewichtung wird verstaerkt (3+ Ablehnungen wegen Gehalt).")
+                        hints.append("Gehalts-Gewichtung wird verstärkt (3+ Ablehnungen wegen Gehalt).")
                     elif normalized in ("zeitarbeit", "befristet"):
-                        hints.append(f"Empfehlung: Fuege '{g}' zu AUSSCHLUSS-Keywords hinzu.")
+                        hints.append(f"Empfehlung: Füge '{g}' zu AUSSCHLUSS-Keywords hinzu.")
 
             db.set_setting("dismiss_counts", counts)
             db.increment_dismiss_reason_usage(reason_list)
@@ -169,7 +169,7 @@ def register(mcp, db, logger):
         elif bewertung == "passt":
             db.restore_job(job_hash)
             return {"status": "als_passend_markiert"}
-        return {"fehler": "Ungueltige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
+        return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
     @mcp.tool()
     def stellen_anzeigen(
@@ -183,16 +183,16 @@ def register(mcp, db, logger):
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
-        Gibt die Liste der Stellen zurueck, sortiert nach Score.
+        Gibt die Liste der Stellen zurück, sortiert nach Score.
         Nutze stelle_bewerten() um einzelne Stellen zu bewerten.
 
         Args:
             filter: 'aktiv' (Standard), 'aussortiert', oder 'alle'
             min_score: Nur Stellen mit mindestens diesem Score anzeigen (Tipp: 1 = mindestens ein Keyword-Treffer)
             quelle: Optional: Nur Stellen von dieser Quelle (z.B. 'stepstone', 'indeed', 'manuell')
-            seite: Seitennummer fuer Paginierung (Standard: 1)
+            seite: Seitennummer für Paginierung (Standard: 1)
             pro_seite: Anzahl Stellen pro Seite (Standard: 20, max: 50)
-            max_alter_tage: Nur Stellen die nicht aelter als X Tage sind (0 = kein Limit)
+            max_alter_tage: Nur Stellen die nicht älter als X Tage sind (0 = kein Limit)
             nur_nicht_beworben: Nur Stellen anzeigen auf die noch nicht beworben wurde
         """
         if filter == "aussortiert":
@@ -284,10 +284,10 @@ def register(mcp, db, logger):
         if filter == "aktiv":
             result["hinweis"] = (
                 "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
-                "um Stellen zu bewerten. Fuer Details: fit_analyse(hash). "
-                f"Naechste Seite: stellen_anzeigen(seite={seite+1})" if seite * pro_seite < total else
+                "um Stellen zu bewerten. Für Details: fit_analyse(hash). "
+                f"Nächste Seite: stellen_anzeigen(seite={seite+1})" if seite * pro_seite < total else
                 "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
-                "um Stellen zu bewerten. Fuer Details: fit_analyse(hash)."
+                "um Stellen zu bewerten. Für Details: fit_analyse(hash)."
             )
         return result
 
@@ -300,9 +300,9 @@ def register(mcp, db, logger):
     ) -> dict:
         """Direkte LinkedIn-Jobsuche via Browser-Automation (Playwright).
 
-        Kann unabhaengig von jobsuche_starten() aufgerufen werden.
+        Kann unabhängig von jobsuche_starten() aufgerufen werden.
         Nutzt die gespeicherte Browser-Session (beim ersten Mal wird ein
-        Browser-Fenster zur Anmeldung geoeffnet).
+        Browser-Fenster zur Anmeldung geöffnet).
 
         Ergebnisse werden automatisch in die PBP-Datenbank gespeichert
         und nach den aktuellen Suchkriterien bewertet.
@@ -385,14 +385,14 @@ def register(mcp, db, logger):
             "job_id": job_id,
             "status": "gestartet",
             "nachricht": (
-                f"LinkedIn Browser-Suche laeuft (max {max_pages} Seiten pro Suchbegriff). "
-                f"Pruefe Fortschritt mit jobsuche_status('{job_id}')."
+                f"LinkedIn Browser-Suche läuft (max {max_pages} Seiten pro Suchbegriff). "
+                f"Prüfe Fortschritt mit jobsuche_status('{job_id}')."
             ),
         }
 
     @mcp.tool()
     def fit_analyse(job_hash: str) -> dict:
-        """Detaillierte Passungsanalyse fuer eine bestimmte Stelle.
+        """Detaillierte Passungsanalyse für eine bestimmte Stelle.
 
         Zeigt welche Keywords matchen, was fehlt, und gibt eine Risikobewertung.
 
@@ -402,7 +402,7 @@ def register(mcp, db, logger):
         from ..job_scraper import fit_analyse as _fit_analyse
         job_dict = db.get_job(job_hash)
         if not job_dict:
-            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+            return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
         criteria = db.get_search_criteria()
         # Enrich criteria with profile skills and salary preferences for better fit analysis
         profile = db.get_profile()

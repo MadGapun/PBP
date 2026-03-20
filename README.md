@@ -746,6 +746,16 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.30.0 — UX-Verbesserungen & Qualität (2026-03-20)
+- **Scrollbar-Gutter** verhindert Layout-Verschiebung bei Seitenwechsel (#147)
+- **Status-Charts** mit deutschen Anzeigenamen (#139) + Umlaut-Korrektur in ~300 Backend-Strings
+- **Datumsnormalisierung** im Profil-Editor für diverse Formate (#141)
+- **Interview-Termine** als Pseudo-Meetings im Dashboard-Widget (#140)
+- **Lazy Loading** mit Pagination für Stellenliste (20/50/100/Alle) (#145)
+- **Stellenanzeigen-Link** in Bewerbungsdetails (#146)
+- Token-Sync nach Dokumenttyp-Änderung ohne Reload (#143)
+- 317 Tests
+
 ### v0.29.0 — E-Mail-Integration: Parsing, Matching, Meetings (2026-03-20)
 - **E-Mail-Import** (.msg/.eml) mit automatischer Zuordnung zu Bewerbungen (6 Matching-Strategien)
 - **Status-Erkennung** aus E-Mail-Inhalt (Eingangsbestätigung, Interview, Absage, Angebot)

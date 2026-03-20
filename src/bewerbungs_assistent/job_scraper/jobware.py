@@ -1,6 +1,6 @@
-"""Jobware Scraper — Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.
+"""Jobware Scraper — Premium-Jobportal für Spezialisten und Führungskräfte.
 
-Gute Abdeckung fuer Senior-Positionen und Fachkraefte.
+Gute Abdeckung für Senior-Positionen und Fachkräfte.
 Kein Login erforderlich. HTML-Scraping mit JSON-LD Fallback.
 """
 

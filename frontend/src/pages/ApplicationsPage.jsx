@@ -424,9 +424,17 @@ export default function ApplicationsPage() {
                   {app.kontakt_email && <a href={`mailto:${app.kontakt_email}`} className="text-sky hover:underline">{app.kontakt_email}</a>}
                 </div>
               )}
-              {app.portal_name && (
-                <p className="mt-1 text-xs text-muted/50">Portal: {app.portal_name}</p>
-              )}
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                {app.portal_name && (
+                  <span className="text-xs text-muted/50">Portal: {app.portal_name}</span>
+                )}
+                {(app.url || timelineDialog.entry.job?.url) && (
+                  <a href={app.url || timelineDialog.entry.job?.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-sky hover:underline">
+                    <ExternalLink size={12} />
+                    Stellenanzeige öffnen
+                  </a>
+                )}
+              </div>
               {app.applied_at && (
                 <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(app.applied_at)}</p>
               )}
@@ -507,7 +515,7 @@ export default function ApplicationsPage() {
               ) : null}
               {timelineDialog.entry.job.url && (
                 <a href={timelineDialog.entry.job.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-sky hover:underline">
-                  Stellenanzeige oeffnen
+                  Stellenanzeige öffnen
                 </a>
               )}
               {timelineDialog.entry.job.description && (

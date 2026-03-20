@@ -158,10 +158,10 @@ def search_xing(params: dict, progress_callback=None) -> list:
         headless = session_exists
 
         if not session_exists:
-            logger.info("XING Erst-Login: Browser wird sichtbar geoeffnet.")
+            logger.info("XING Erst-Login: Browser wird sichtbar geöffnet.")
             if progress_callback:
                 progress_callback(
-                    "XING: Browser wird geoeffnet fuer Erst-Login. "
+                    "XING: Browser wird geöffnet für Erst-Login. "
                     "Bitte bei XING anmelden. Die Session wird gespeichert."
                 )
 
@@ -192,7 +192,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
                 logger.info("XING Login erforderlich...")
                 if progress_callback:
                     progress_callback(
-                        "XING: Bitte im geoeffneten Browser einloggen. "
+                        "XING: Bitte im geöffneten Browser einloggen. "
                         "Warte max. 3 Minuten..."
                     )
                 logged_in = False
@@ -214,7 +214,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
                 msg = (
                     "XING Bot-Detection aktiv. Optionen: "
                     "1) Warte einige Minuten und versuche erneut. "
-                    "2) Nutze 'Claude in Chrome' Browser-Extension fuer direkte Suche."
+                    "2) Nutze 'Claude in Chrome' Browser-Extension für direkte Suche."
                 )
                 logger.warning(msg)
                 if progress_callback:
@@ -280,7 +280,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
 
                     except PWTimeout:
                         logger.warning(
-                            "XING Timeout fuer '%s' Seite %d",
+                            "XING Timeout für '%s' Seite %d",
                             suchbegriff, page_num + 1,
                         )
                         break
@@ -337,7 +337,7 @@ def ensure_xing_session(progress_callback=None) -> bool:
 
         if not session_exists and progress_callback:
             progress_callback(
-                "XING: Browser wird geoeffnet fuer Erst-Login. "
+                "XING: Browser wird geöffnet für Erst-Login. "
                 "Bitte bei XING anmelden."
             )
 

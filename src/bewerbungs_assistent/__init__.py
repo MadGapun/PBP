@@ -1,4 +1,4 @@
-"""Bewerbungs-Assistent - KI-gestuetzter MCP Server fuer Claude Desktop."""
+"""Bewerbungs-Assistent - KI-gestuetzter MCP Server für Claude Desktop."""
 
 __version__ = "0.27.0"
 

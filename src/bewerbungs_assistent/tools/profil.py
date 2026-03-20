@@ -20,18 +20,18 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def profil_status() -> dict:
-        """Prueft ob bereits ein Profil existiert und gibt eine Kurzuebersicht.
+        """Prüft ob bereits ein Profil existiert und gibt eine Kurzübersicht.
 
         IMMER als erstes aufrufen wenn der User den Assistent startet.
-        Entscheidet ob Ersterfassung noetig ist oder ob es direkt losgehen kann.
+        Entscheidet ob Ersterfassung nötig ist oder ob es direkt losgehen kann.
         """
         return get_profile_status_payload(db.get_profile())
 
     @mcp.tool()
     def profil_zusammenfassung() -> dict:
-        """Liest das komplette Profil und gibt eine formatierte Zusammenfassung zurueck.
+        """Liest das komplette Profil und gibt eine formatierte Zusammenfassung zurück.
 
-        Inkl. Vollstaendigkeits-Checkliste. Nutze dieses Tool um dem User
+        Inkl. Vollständigkeits-Checkliste. Nutze dieses Tool um dem User
         sein Profil zur Kontrolle zu zeigen (Review-Phase).
         """
         profile = db.get_profile()
@@ -51,11 +51,11 @@ def register(mcp, db, logger):
         lines.append("=" * 50)
 
         # Personal data
-        lines.append("\n--- Persoenliche Daten ---")
+        lines.append("\n--- Persönliche Daten ---")
         for key, label in [
             ("email", "E-Mail"), ("phone", "Telefon"), ("address", "Adresse"),
             ("city", "Stadt"), ("plz", "PLZ"), ("country", "Land"),
-            ("birthday", "Geburtstag"), ("nationality", "Nationalitaet"),
+            ("birthday", "Geburtstag"), ("nationality", "Nationalität"),
         ]:
             val = profile.get(key)
             if val:
@@ -65,11 +65,11 @@ def register(mcp, db, logger):
             lines.append(f"\n--- Kurzprofil ---\n  {profile['summary']}")
 
         if profile.get("informal_notes"):
-            lines.append(f"\n--- Persoenliche Notizen ---\n  {profile['informal_notes']}")
+            lines.append(f"\n--- Persönliche Notizen ---\n  {profile['informal_notes']}")
 
         # Preferences
         if prefs:
-            lines.append("\n--- Job-Praeferenzen ---")
+            lines.append("\n--- Job-Präferenzen ---")
             pref_labels = {
                 "stellentyp": "Stellentyp", "arbeitsmodell": "Arbeitsmodell",
                 "min_gehalt": "Min. Gehalt (EUR/Jahr)", "ziel_gehalt": "Ziel-Gehalt (EUR/Jahr)",
@@ -112,7 +112,7 @@ def register(mcp, db, logger):
                         lines.append(f"      Ergebnis: {proj['result'][:100]}")
 
         # Education
-        lines.append(f"\n--- Ausbildung ({len(education)} Eintraege) ---")
+        lines.append(f"\n--- Ausbildung ({len(education)} Einträge) ---")
         for edu in education:
             degree = edu.get("degree", "")
             field = edu.get("field_of_study", "")
@@ -124,7 +124,7 @@ def register(mcp, db, logger):
                 lines.append(f"  Note: {edu['grade']}")
 
         # Skills
-        lines.append(f"\n--- Skills ({len(skills)} Eintraege) ---")
+        lines.append(f"\n--- Skills ({len(skills)} Einträge) ---")
         by_cat = {}
         for s in skills:
             cat = s.get("category", "sonstige")
@@ -147,7 +147,7 @@ def register(mcp, db, logger):
 
         # Completeness check
         lines.append("\n" + "=" * 50)
-        lines.append("VOLLSTAENDIGKEITS-CHECK")
+        lines.append("VOLLSTÄNDIGKEITS-CHECK")
         lines.append("=" * 50)
 
         completeness = get_profile_completeness(profile)
@@ -158,7 +158,7 @@ def register(mcp, db, logger):
             lines.append(f"  {icon} {label}")
 
         pct = completeness["completeness"]
-        lines.append(f"\nVollstaendigkeit: {pct}% ({complete}/{len(checks)})")
+        lines.append(f"\nVollständigkeit: {pct}% ({complete}/{len(checks)})")
 
         return {
             "zusammenfassung": "\n".join(lines),
@@ -177,29 +177,29 @@ def register(mcp, db, logger):
         element_id: str = "",
         daten: dict = None
     ) -> dict:
-        """Bearbeitet Profildaten: Persoenliches, Berufserfahrung, Skills, Ausbildung, Projekte.
+        """Bearbeitet Profildaten: Persönliches, Berufserfahrung, Skills, Ausbildung, Projekte.
 
-        Universaltool fuer alle Profil-Aenderungen. Auch nutzbar fuer Bulk-Import
+        Universaltool für alle Profil-Änderungen. Auch nutzbar für Bulk-Import
         mit aktion='hinzufuegen_bulk' und daten als Liste.
 
         AKTIONEN PRO BEREICH:
-        - persoenlich: aendern (Felder in daten)
-        - praeferenzen: aendern (Key-Value in daten)
+        - persönlich: ändern (Felder in daten)
+        - präferenzen: ändern (Key-Value in daten)
         - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — haengt Text an eine Sektion der informal_notes an
-        - position: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
-        - projekt: hinzufuegen (daten.position_id noetig), aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
-        - ausbildung: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
-        - skill: hinzufuegen, aendern (element_id + daten), loeschen (element_id), hinzufuegen_bulk
+        - position: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
+        - projekt: hinzufügen (daten.position_id nötig), ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
+        - ausbildung: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
+        - skill: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
 
-        Feldnamen-Aliase fuer bereich='persoenlich':
+        Feldnamen-Aliase für bereich='persoenlich':
         adresse/anschrift->address, kurzprofil/zusammenfassung->summary,
         stadt/ort->city, telefon->phone
 
         Args:
-            bereich: persoenlich, praeferenzen, notizen, position, projekt, ausbildung, skill
-            aktion: aendern, loeschen, hinzufuegen, hinzufuegen_bulk, anhang (bei notizen)
-            element_id: ID des Elements (bei aendern/loeschen)
-            daten: Dict mit Aenderungen, oder Liste von Dicts bei hinzufuegen_bulk
+            bereich: persönlich, präferenzen, notizen, position, projekt, ausbildung, skill
+            aktion: ändern, löschen, hinzufügen, hinzufügen_bulk, anhang (bei notizen)
+            element_id: ID des Elements (bei ändern/löschen)
+            daten: Dict mit Änderungen, oder Liste von Dicts bei hinzufügen_bulk
         """
         if daten is None:
             daten = {}
@@ -395,7 +395,7 @@ def register(mcp, db, logger):
                 ids = [db.add_skill(d) for d in daten]
                 return {"status": "hinzugefuegt", "bereich": "skill", "anzahl": len(ids), "ids": ids}
 
-        return {"fehler": f"Ungueltige Kombination: bereich={bereich}, aktion={aktion}"}
+        return {"fehler": f"Ungültige Kombination: bereich={bereich}, aktion={aktion}"}
 
     @mcp.tool()
     def profil_erstellen(
@@ -422,17 +422,17 @@ def register(mcp, db, logger):
         """Erstellt oder aktualisiert das Bewerberprofil.
 
         Args:
-            name: Vollstaendiger Name
+            name: Vollständiger Name
             email: E-Mail-Adresse
             phone: Telefonnummer
-            address: Strasse und Hausnummer
+            address: Straße und Hausnummer
             city: Stadt/Ort
             plz: Postleitzahl
             country: Land
             birthday: Geburtsdatum (YYYY-MM-DD)
-            nationality: Staatsangehoerigkeit
+            nationality: Staatsangehörigkeit
             summary: Kurzprofil / Zusammenfassung
-            informal_notes: Zwanglose Informationen (Neigungen, Motivation, Wuensche)
+            informal_notes: Zwanglose Informationen (Neigungen, Motivation, Wünsche)
             stellentyp: festanstellung, freelance, oder beides
             arbeitsmodell: remote, hybrid, vor_ort
             min_gehalt: Mindestgehalt Festanstellung (EUR/Jahr)
@@ -462,9 +462,9 @@ def register(mcp, db, logger):
         return {
             "status": "gespeichert",
             "profil_id": pid,
-            "naechster_schritt": "Fuege jetzt Berufserfahrung hinzu mit position_hinzufuegen(). "
+            "naechster_schritt": "Füge jetzt Berufserfahrung hinzu mit position_hinzufuegen(). "
                                 "Frage nach: Firma, Position, Zeitraum, Aufgaben, Erfolge, Technologien. "
-                                "Nutze die STAR-Methode (Situation, Task, Action, Result) fuer jedes Projekt."
+                                "Nutze die STAR-Methode (Situation, Task, Action, Result) für jedes Projekt."
         }
 
     @mcp.tool()
@@ -482,7 +482,7 @@ def register(mcp, db, logger):
         achievements: str = "",
         technologies: str = ""
     ) -> dict:
-        """Fuegt eine Berufserfahrung (Position/Stelle/Job) zum Bewerberprofil hinzu.
+        """Fügt eine Berufserfahrung (Position/Stelle/Job) zum Bewerberprofil hinzu.
 
         Alternativ: profil_bearbeiten(bereich='position', aktion='hinzufuegen')
 
@@ -510,7 +510,7 @@ def register(mcp, db, logger):
         return {
             "status": "gespeichert",
             "position_id": pid,
-            "naechster_schritt": f"Position '{title}' bei {company} hinzugefuegt. "
+            "naechster_schritt": f"Position '{title}' bei {company} hinzugefügt. "
                                 "Frage jetzt nach Projekten bei dieser Position: "
                                 "projekt_hinzufuegen(). Nutze STAR: Situation, Task, Action, Result. "
                                 "Frage am Ende: 'Gab es noch ein weiteres Projekt bei dieser Firma?'"
@@ -529,17 +529,17 @@ def register(mcp, db, logger):
         technologies: str = "",
         duration: str = ""
     ) -> dict:
-        """Fuegt ein Projekt zu einer Berufsposition hinzu (STAR-Methode).
+        """Fügt ein Projekt zu einer Berufsposition hinzu (STAR-Methode).
 
         Args:
-            position_id: ID der Position (von position_hinzufuegen)
+            position_id: ID der Position (von position_hinzufügen)
             name: Projektname
             description: Kurzbeschreibung des Projekts
             role: Rolle im Projekt (z.B. Projektleiter, Architekt)
             situation: STAR-S: Ausgangssituation / Kontext
             task: STAR-T: Aufgabe / Herausforderung
-            action: STAR-A: Durchgefuehrte Massnahmen
-            result: STAR-R: Ergebnis / Erfolg (moeglichst quantifizierbar)
+            action: STAR-A: Durchgeführte Maßnahmen
+            result: STAR-R: Ergebnis / Erfolg (möglichst quantifizierbar)
             technologies: Eingesetzte Technologien
             duration: Dauer (z.B. "6 Monate", "2020-2021")
         """
@@ -564,7 +564,7 @@ def register(mcp, db, logger):
         grade: str = "",
         description: str = ""
     ) -> dict:
-        """Fuegt eine Ausbildung, Studium oder Weiterbildung hinzu.
+        """Fügt eine Ausbildung, Studium oder Weiterbildung hinzu.
 
         Args:
             institution: Name der Bildungseinrichtung
@@ -573,7 +573,7 @@ def register(mcp, db, logger):
             start_date: Startdatum
             end_date: Enddatum
             grade: Note / Bewertung
-            description: Zusaetzliche Details
+            description: Zusätzliche Details
         """
         eid = db.add_education({
             "institution": institution, "degree": degree,
@@ -591,12 +591,12 @@ def register(mcp, db, logger):
         years_experience: int = 0,
         last_used_year: int = 0
     ) -> dict:
-        """Fuegt einen Skill (Kompetenz/Faehigkeit/Expertise) zum Bewerberprofil hinzu.
+        """Fügt einen Skill (Kompetenz/Fähigkeit/Expertise) zum Bewerberprofil hinzu.
 
-        Fuer Fachwissen, Tools, Soft Skills, Sprachen und Methoden-Kompetenzen.
+        Für Fachwissen, Tools, Soft Skills, Sprachen und Methoden-Kompetenzen.
         Alternativ: profil_bearbeiten(bereich='skill', aktion='hinzufuegen')
 
-        WICHTIG fuer Skill-Level-Bewertung:
+        WICHTIG für Skill-Level-Bewertung:
         - Beruecksichtige WANN der Skill zuletzt aktiv genutzt wurde
         - Ein Skill von vor 20 Jahren der seitdem nicht mehr genutzt wurde → Level 1
         - Setze last_used_year auf das Jahr der letzten aktiven Nutzung
@@ -624,7 +624,7 @@ def register(mcp, db, logger):
         """Listet alle vorhandenen Profile auf. Zeigt welches aktiv ist.
 
         Nutze dieses Tool wenn mehrere Personen den gleichen PC nutzen
-        oder wenn der User zwischen Profilen wechseln moechte.
+        oder wenn der User zwischen Profilen wechseln möchte.
         """
         profiles = db.get_profiles()
         if not profiles:
@@ -666,10 +666,10 @@ def register(mcp, db, logger):
     def neues_profil_erstellen(name: str, email: str = "") -> dict:
         """Erstellt ein komplett neues, leeres Profil und aktiviert es.
 
-        Das vorherige Profil bleibt gespeichert und kann spaeter wieder aktiviert werden.
+        Das vorherige Profil bleibt gespeichert und kann später wieder aktiviert werden.
 
         Args:
-            name: Name der Person fuer das neue Profil
+            name: Name der Person für das neue Profil
             email: Optional: E-Mail-Adresse
         """
         pid = db.create_profile(name, email)
@@ -682,18 +682,18 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def profil_loeschen(profil_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht ein Profil und alle zugehoerigen Daten (Positionen, Skills, Dokumente).
+        """Löscht ein Profil und alle zugehörigen Daten (Positionen, Skills, Dokumente).
 
-        ACHTUNG: Diese Aktion kann nicht rueckgaengig gemacht werden!
+        ACHTUNG: Diese Aktion kann nicht rückgängig gemacht werden!
         Erstelle vorher ein Backup mit profil_exportieren().
 
-        Wenn das aktive Profil geloescht werden soll und es weitere Profile gibt,
-        wird automatisch zum naechsten Profil gewechselt.
+        Wenn das aktive Profil gelöscht werden soll und es weitere Profile gibt,
+        wird automatisch zum nächsten Profil gewechselt.
         Wenn es das einzige Profil ist, muss bestaetigung=True gesetzt werden.
 
         Args:
-            profil_id: Die ID des zu loeschenden Profils
-            bestaetigung: Muss True sein wenn das einzige Profil geloescht wird
+            profil_id: Die ID des zu löschenden Profils
+            bestaetigung: Muss True sein wenn das einzige Profil gelöscht wird
         """
         active_id = db.get_active_profile_id()
         profiles = db.get_profiles()
@@ -706,23 +706,23 @@ def register(mcp, db, logger):
                 db.delete_profile(profil_id)
                 return {
                     "status": "geloescht",
-                    "nachricht": f"Profil geloescht. Automatisch gewechselt zu: {other['name']}",
+                    "nachricht": f"Profil gelöscht. Automatisch gewechselt zu: {other['name']}",
                     "aktives_profil": other["name"],
                 }
             elif not bestaetigung:
                 return {
-                    "fehler": "Dies ist dein einziges Profil. Setze bestaetigung=True um es trotzdem zu loeschen.",
+                    "fehler": "Dies ist dein einziges Profil. Setze bestaetigung=True um es trotzdem zu löschen.",
                     "hinweis": "Erstelle vorher ein Backup mit profil_exportieren().",
                 }
             else:
                 db.delete_profile(profil_id)
                 return {
                     "status": "geloescht",
-                    "nachricht": "Einziges Profil geloescht. Erstelle ein neues mit profil_erstellen().",
+                    "nachricht": "Einziges Profil gelöscht. Erstelle ein neues mit profil_erstellen().",
                 }
 
         db.delete_profile(profil_id)
-        return {"status": "geloescht", "nachricht": f"Profil {profil_id} und alle zugehoerigen Daten wurden geloescht."}
+        return {"status": "geloescht", "nachricht": f"Profil {profil_id} und alle zugehörigen Daten wurden gelöscht."}
 
     # --- Erfassungsfortschritt (2 Tools) ---
 
@@ -730,8 +730,8 @@ def register(mcp, db, logger):
     def erfassung_fortschritt_lesen() -> dict:
         """Liest den Fortschritt der Profil-Ersterfassung.
 
-        Gibt zurueck welche Bereiche bereits ausgefuellt sind und welche noch fehlen.
-        Nutze dies zu Beginn einer Ersterfassung um zu pruefen ob es eine
+        Gibt zurück welche Bereiche bereits ausgefüllt sind und welche noch fehlen.
+        Nutze dies zu Beginn einer Ersterfassung um zu prüfen ob es eine
         angefangene Erfassung gibt die fortgesetzt werden soll.
         """
         profile = db.get_profile()
@@ -766,11 +766,11 @@ def register(mcp, db, logger):
     ) -> dict:
         """Speichert den Fortschritt eines Erfassungsbereichs.
 
-        Wird automatisch waehrend der Ersterfassung aufgerufen um den Stand zu merken.
-        So kann die Ersterfassung jederzeit unterbrochen und spaeter fortgesetzt werden.
+        Wird automatisch während der Ersterfassung aufgerufen um den Stand zu merken.
+        So kann die Ersterfassung jederzeit unterbrochen und später fortgesetzt werden.
 
         Args:
-            bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen)
+            bereich: Name des Bereichs (persönliche_daten, berufserfahrung, ausbildung, kompetenzen, präferenzen, review_abgeschlossen)
             abgeschlossen: Ob der Bereich fertig ist
             notizen: Optionale Notizen zum Fortschritt
         """
@@ -780,7 +780,7 @@ def register(mcp, db, logger):
             fortschritt["notizen"] = notizen
         db.set_erfassung_fortschritt(fortschritt)
 
-        # UI-Signal: Sobald das Kennlerngespraech arbeitet, Status auf "active" setzen.
+        # UI-Signal: Sobald das Kennlerngespräch arbeitet, Status auf "active" setzen.
         profile_id = db.get_active_profile_id()
         if profile_id:
             db.set_user_preference(f"profile_onboarding_started_{profile_id}", True)
@@ -793,7 +793,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def kennlerngespraech_abschliessen() -> dict:
-        """Markiert das Kennlerngespraech fuer das aktive Profil als abgeschlossen.
+        """Markiert das Kennlerngespräch für das aktive Profil als abgeschlossen.
 
         Dieses Signal wird vom Onboarding in der Web-UI ausgewertet, damit nach dem
         Review direkt zum Schritt "Quellen" weitergegangen werden kann.
@@ -812,23 +812,23 @@ def register(mcp, db, logger):
             "profil_id": profile_id,
             "naechster_schritt": "quellen",
             "ui_signal": "profile_onboarding_conversation=complete",
-            "nachricht": "Kennlerngespraech abgeschlossen. Als naechstes koennen die Quellen eingerichtet werden.",
+            "nachricht": "Kennlerngespräch abgeschlossen. Als nächstes können die Quellen eingerichtet werden.",
         }
 
-    # --- Jobtitel-Vorschlaege (2 Tools) ---
+    # --- Jobtitel-Vorschläge (2 Tools) ---
 
     @mcp.tool()
     def jobtitel_vorschlagen(titel: list[str], quelle: str = "auto") -> dict:
-        """Speichert vorgeschlagene Jobtitel fuer das aktive Profil.
+        """Speichert vorgeschlagene Jobtitel für das aktive Profil.
 
         Rufe dieses Tool auf nachdem du das Profil analysiert hast, um passende
         Jobtitel/Stellenbezeichnungen vorzuschlagen. Die Titel werden im Dashboard
-        angezeigt und koennen vom User bearbeitet werden.
+        angezeigt und können vom User bearbeitet werden.
 
         WICHTIG: Beruecksichtige bei der Analyse:
         - Aktuelle Positionen und deren Titel
         - Branchen und Technologien aus der Berufserfahrung
-        - Skill-Level und Aktualitaet (alte Skills zaehlen weniger)
+        - Skill-Level und Aktualität (alte Skills zählen weniger)
         - Typische Stellenbezeichnungen im deutschen Arbeitsmarkt
         - Sowohl deutsch als auch englisch (z.B. "PLM Architekt" UND "PLM Architect")
 
@@ -865,7 +865,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:
-        """Verwaltet einen vorgeschlagenen Jobtitel (aendern, loeschen, deaktivieren).
+        """Verwaltet einen vorgeschlagenen Jobtitel (ändern, löschen, deaktivieren).
 
         Args:
             titel_id: ID des Jobtitels

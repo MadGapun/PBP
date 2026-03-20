@@ -1,4 +1,4 @@
-"""MCP Resources — 6 Datenquellen fuer Claude Desktop."""
+"""MCP Resources — 6 Datenquellen für Claude Desktop."""
 
 import json
 

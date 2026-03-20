@@ -1,4 +1,4 @@
-"""PDF/DOCX-Export fuer Lebenslauf, Anschreiben und Profil-Report — 3 Tools."""
+"""PDF/DOCX-Export für Lebenslauf, Anschreiben und Profil-Report — 3 Tools."""
 
 from ..database import get_data_dir
 
@@ -9,7 +9,7 @@ def register(mcp, db, logger):
     @mcp.tool()
     def lebenslauf_exportieren(
         format: str = "pdf",
-        angepasst_fuer: str = ""
+        angepasst_für: str = ""
     ) -> dict:
         """Exportiert den Lebenslauf als PDF, DOCX, Markdown oder TXT-Datei.
 
@@ -18,7 +18,7 @@ def register(mcp, db, logger):
 
         Args:
             format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
-            angepasst_fuer: Optional — Firma/Stelle fuer die der CV angepasst wird (fuer Dateinamen)
+            angepasst_für: Optional — Firma/Stelle für die der CV angepasst wird (für Dateinamen)
         """
         profile = db.get_profile()
         if not profile:
@@ -27,7 +27,7 @@ def register(mcp, db, logger):
         export_dir = get_data_dir() / "export"
         export_dir.mkdir(exist_ok=True)
         name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
-        suffix = f"_{angepasst_fuer.replace(' ', '_').lower()}" if angepasst_fuer else ""
+        suffix = f"_{angepasst_für.replace(' ', '_').lower()}" if angepasst_für else ""
 
         if format == "docx":
             from ..export import generate_cv_docx
@@ -68,13 +68,13 @@ def register(mcp, db, logger):
         """Exportiert einen auf die Stelle angepassten Lebenslauf als DOCX.
 
         Erstellt einen Lebenslauf der relevante Skills und Erfahrungen
-        fuer die Zielstelle hervorhebt und priorisiert. Immer als DOCX,
+        für die Zielstelle hervorhebt und priorisiert. Immer als DOCX,
         da die finale Formatierung manuell erfolgt.
 
         Args:
             stelle: Stellentitel (z.B. 'PLM Consultant')
             firma: Firmenname (z.B. 'Siemens')
-            stellenbeschreibung: Optional — Beschreibung der Stelle fuer bessere Anpassung
+            stellenbeschreibung: Optional — Beschreibung der Stelle für bessere Anpassung
         """
         profile = db.get_profile()
         if not profile:
@@ -94,7 +94,7 @@ def register(mcp, db, logger):
             "status": "erstellt",
             "datei": str(path),
             "format": "docx",
-            "nachricht": f"Angepasster Lebenslauf fuer '{stelle}' bei {firma} als DOCX exportiert: {path.name}. "
+            "nachricht": f"Angepasster Lebenslauf für '{stelle}' bei {firma} als DOCX exportiert: {path.name}. "
                          "Die Datei ist als DOCX gespeichert, damit du die finale Formatierung anpassen kannst."
         }
 
@@ -111,7 +111,7 @@ def register(mcp, db, logger):
         mit Absender, Datum, Betreffzeile und Text.
 
         Args:
-            text: Der vollstaendige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
+            text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'PLM Consultant')
             firma: Firmenname (z.B. 'Siemens')
             format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
@@ -150,7 +150,7 @@ def register(mcp, db, logger):
             "status": "erstellt",
             "datei": str(path),
             "format": format,
-            "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
+            "nachricht": f"Anschreiben für {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
         }
 
     @mcp.tool()
@@ -158,15 +158,15 @@ def register(mcp, db, logger):
         format: str = "pdf",
         bereiche: str = ""
     ) -> dict:
-        """Exportiert einen vollstaendigen Profil-Report als PDF.
+        """Exportiert einen vollständigen Profil-Report als PDF.
 
-        Enthält alle Profildaten: persoenliche Daten, Zusammenfassung,
+        Enthält alle Profildaten: persönliche Daten, Zusammenfassung,
         Berufserfahrung mit Projekten (STAR-Format), Skills als Tabelle,
         Ausbildung und Dokumente. Inklusive Erstellungsdatum im Footer.
 
         Args:
-            format: 'pdf' (Standard). Weitere Formate spaeter.
-            bereiche: Optional — kommaseparierte Liste: persoenlich,positionen,skills,ausbildung,dokumente (leer = alle)
+            format: 'pdf' (Standard). Weitere Formate später.
+            bereiche: Optional — kommaseparierte Liste: persönlich,positionen,skills,ausbildung,dokumente (leer = alle)
         """
         profile = db.get_profile()
         if not profile:
@@ -177,7 +177,7 @@ def register(mcp, db, logger):
         name_slug = (profile.get("name") or "profil").replace(" ", "_").lower()
 
         if format != "pdf":
-            return {"fehler": "Aktuell wird nur PDF unterstuetzt."}
+            return {"fehler": "Aktuell wird nur PDF unterstützt."}
 
         from ..export import generate_cv_pdf
         path = export_dir / f"profil_report_{name_slug}.pdf"
@@ -200,11 +200,11 @@ def register(mcp, db, logger):
         gewicht_ats: float = 0.34,
         gewicht_recruiter: float = 0.33
     ) -> dict:
-        """Bewertet den Lebenslauf aus 3 Experten-Perspektiven fuer eine bestimmte Stelle.
+        """Bewertet den Lebenslauf aus 3 Experten-Perspektiven für eine bestimmte Stelle.
 
         Analysiert wie der CV auf einen Personalberater, ein ATS-System und einen
         HR-Recruiter wirkt. Gibt Score (0-100) pro Perspektive und konkrete
-        Verbesserungsvorschlaege zurueck. Die Gewichtung der Perspektiven ist einstellbar.
+        Verbesserungsvorschläge zurück. Die Gewichtung der Perspektiven ist einstellbar.
 
         Auch findbar als: CV bewerten, Lebenslauf analysieren, CV check, resume review,
         3-Perspektiven-Analyse, Personalberater, ATS, Recruiter.
@@ -212,7 +212,7 @@ def register(mcp, db, logger):
         Args:
             stelle: Stellentitel (z.B. 'PLM Consultant')
             firma: Firmenname (z.B. 'Siemens')
-            stellenbeschreibung: Stellenbeschreibung fuer praezise Analyse
+            stellenbeschreibung: Stellenbeschreibung für praezise Analyse
             gewicht_personalberater: Gewicht Personalberater-Perspektive (0.0-1.0, Standard 0.33)
             gewicht_ats: Gewicht ATS-Perspektive (0.0-1.0, Standard 0.34)
             gewicht_recruiter: Gewicht Recruiter-Perspektive (0.0-1.0, Standard 0.33)

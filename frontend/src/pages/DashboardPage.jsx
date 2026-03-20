@@ -259,15 +259,13 @@ export default function DashboardPage() {
     });
   }
 
-  if (upcomingInterviewTodos.length > 0 || activeInterviewCount > 0) {
-    const nextInterviewDate = upcomingInterviewTodos[0]?.scheduled_date || "";
+  // Interview-Termine werden jetzt im Meeting-Widget angezeigt (#140)
+  // Nur wenn KEINE Follow-Ups vorhanden, aber Interviews laufen, als TODO zeigen
+  if (activeInterviewCount > 0 && upcomingInterviewTodos.length === 0) {
     todoItems.push({
       id: "interviews",
       title: "Interview vorbereiten",
-      description:
-        upcomingInterviewTodos.length > 0
-          ? `${upcomingInterviewTodos.length} Interview-Termin(e) in den nächsten 7 Tagen, nächster am ${formatDate(nextInterviewDate)}.`
-          : `${activeInterviewCount} Bewerbung(en) sind im Interview-Status.`,
+      description: `${activeInterviewCount} Bewerbung(en) sind im Interview-Status.`,
       tone: "amber",
       actionLabel: "Vorbereiten",
       action: () => copyPrompt("/interview_vorbereitung"),
@@ -502,8 +500,23 @@ export default function DashboardPage() {
               <EmailUploadButton pushToast={pushToast} />
             </div>
             <div className="mt-3 grid gap-2">
-              {data.meetings.length > 0 ? (
-                data.meetings.slice(0, 5).map((meeting) => {
+              {(() => {
+                // Merge real meetings with interview follow-ups (#140)
+                const interviewPseudoMeetings = upcomingInterviewTodos
+                  .filter((fu) => !data.meetings.some((m) => m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
+                  .map((fu) => ({
+                    id: `interview-${fu.id}`,
+                    title: "Interview vorbereiten",
+                    meeting_date: fu.scheduled_date + "T09:00:00",
+                    app_company: fu.company || fu.title || "",
+                    app_title: fu.title || "",
+                    platform: null,
+                    meeting_url: null,
+                    _isInterview: true,
+                  }));
+                const allMeetings = [...data.meetings, ...interviewPseudoMeetings]
+                  .sort((a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || "")));
+                return allMeetings.length > 0 ? allMeetings.slice(0, 5).map((meeting) => {
                   const meetingDate = new Date(meeting.meeting_date);
                   const now = new Date();
                   const diffMs = meetingDate - now;
@@ -554,7 +567,16 @@ export default function DashboardPage() {
                           {countdown}
                         </p>
                       </div>
-                      {meeting.meeting_url && (
+                      {meeting._isInterview ? (
+                        <button
+                          type="button"
+                          onClick={() => copyPrompt("/interview_vorbereitung")}
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
+                        >
+                          <Calendar size={14} />
+                          Vorbereiten
+                        </button>
+                      ) : meeting.meeting_url ? (
                         <a
                           href={meeting.meeting_url}
                           target="_blank"
@@ -564,15 +586,15 @@ export default function DashboardPage() {
                           <Video size={14} />
                           Beitreten
                         </a>
-                      )}
+                      ) : null}
                     </div>
                   );
-                })
-              ) : (
-                <p className="py-4 text-center text-[13px] text-muted/50">
-                  Keine anstehenden Termine
-                </p>
-              )}
+                }) : (
+                  <p className="py-4 text-center text-[13px] text-muted/50">
+                    Keine anstehenden Termine
+                  </p>
+                );
+              })()}
             </div>
           </Card>
         </div>

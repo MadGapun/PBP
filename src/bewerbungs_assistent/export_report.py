@@ -25,7 +25,7 @@ STATUS_LABELS = {
     "zweitgespraech": "Zweitgespräch",
     "angebot": "Angebot",
     "abgelehnt": "Abgelehnt",
-    "zurueckgezogen": "Zurückgezogen",
+    "zurückgezogen": "Zurückgezogen",
     "abgelaufen": "Abgelaufen",
 }
 
@@ -35,7 +35,7 @@ STATUS_COLORS = {
     "zweitgespraech": (251, 191, 36),
     "angebot": (52, 211, 153),
     "abgelehnt": (248, 113, 113),
-    "zurueckgezogen": (148, 163, 184),
+    "zurückgezogen": (148, 163, 184),
     "abgelaufen": (148, 163, 184),
     "offen": (100, 116, 139),
     "eingangsbestaetigung": (56, 189, 248),
@@ -292,7 +292,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.cell(0, 5, _safe_text(
         f"Generiert mit PBP Bewerbungs-Assistent | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
     ), ln=True, align="C")
-    pdf.cell(0, 4, _safe_text("* = manuell hinzugefuegte Stelle (gepinnt)"), ln=True, align="C")
+    pdf.cell(0, 4, _safe_text("* = manuell hinzugefügte Stelle (gepinnt)"), ln=True, align="C")
 
     pdf.output(str(output_path))
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)

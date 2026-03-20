@@ -25,7 +25,7 @@ def search_monster(params: dict) -> list:
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        logger.warning("Playwright nicht installiert — Monster uebersprungen")
+        logger.warning("Playwright nicht installiert — Monster übersprungen")
         return []
 
     jobs = []
@@ -63,7 +63,7 @@ def search_monster(params: dict) -> list:
                         timeout=10000,
                     )
                 except PWTimeout:
-                    logger.debug("Monster: Keine Job-Cards fuer '%s'", query)
+                    logger.debug("Monster: Keine Job-Cards für '%s'", query)
                     continue
 
                 # Multi-strategy extraction
@@ -177,7 +177,7 @@ def search_monster(params: dict) -> list:
                     }
                     jobs.append(job)
 
-                logger.debug("Monster: %d Stellen fuer '%s'", len(raw_jobs), query)
+                logger.debug("Monster: %d Stellen für '%s'", len(raw_jobs), query)
                 time.sleep(random.uniform(1.5, 3))
             except Exception as e:
                 logger.error("Monster error for '%s': %s", query, e)

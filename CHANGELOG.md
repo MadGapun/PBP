@@ -1,6 +1,30 @@
 # Changelog
 
-Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
+Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
+
+## [0.30.0] - 2026-03-20
+
+### UX-Verbesserungen & Qualität (Issues #139–#147, Koala280)
+
+**Frontend-Fixes:**
+- **#147** Scrollbar-Gutter: `scrollbar-gutter: stable` verhindert Layout-Verschiebung bei Seitenwechsel
+- **#139** Status-Charts: Deutsche Anzeigenamen statt interne Keys in Statistik-Legenden
+- **#141** Datumsnormalisierung: Profil-Editor konvertiert diverse Datumsformate (`02/2016`, `DD.MM.YYYY`) korrekt für `<input type="month">`
+- **#142** (zusammengelegt mit #141)
+- **#143** Token-Sync: Nach Dokumenttyp-Änderung kein erzwungener Seiten-Reload mehr (quiet refresh)
+- **#146** Stellenanzeigen-Link: ExternalLink-Button in der Bewerbungsdetailansicht
+- **#140** Interview-Termine: Interview-Follow-ups erscheinen als Pseudo-Meetings im Dashboard-Widget
+- **#145** Lazy Loading: Paginierte Stellenliste mit wählbarer Seitengröße (20/50/100/Alle) + "Mehr laden"-Button
+- **#144** (Duplikat von #145, geschlossen)
+
+**Backend:**
+- Server-seitige Pagination für `/api/jobs` mit `limit`/`offset` (abwärtskompatibel)
+- ~300 Umlaut-Korrekturen: ASCII-Ersetzungen (ae→ä, oe→ö, ue→ü, ss→ß) in allen Python-Modulen
+- MCP-Tool-Funktionsnamen bleiben ASCII-kompatibel (MCP-Standard)
+
+**Neue Utility-Funktionen:**
+- `statusLabel()` — Status-Key → deutscher Anzeigename
+- `normalizeMonthDate()` — Multi-Format-Datum → `YYYY-MM`
 
 ## [0.29.0] - 2026-03-20
 

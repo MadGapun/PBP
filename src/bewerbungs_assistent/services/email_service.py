@@ -38,7 +38,7 @@ MEETING_LINK_PATTERNS = [
 STATUS_PATTERNS = {
     "eingangsbestaetigung": [
         "vielen dank für ihre bewerbung",
-        "vielen dank fuer ihre bewerbung",
+        "vielen dank für ihre bewerbung",
         "bewerbung erhalten",
         "eingangsbestätigung",
         "eingangsbestaetigung",

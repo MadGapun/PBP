@@ -493,7 +493,7 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
         score += 5
         empfehlungen.append("Mehr Soft Skills ergaenzen (Kommunikation, Teamfaehigkeit, Problemloesung)")
     else:
-        empfehlungen.append("Soft Skills fehlen komplett — fuer Personalberater ein Warnsignal")
+        empfehlungen.append("Soft Skills fehlen komplett — für Personalberater ein Warnsignal")
 
     # Summary/profile statement quality
     summary = profile.get("summary", "")
@@ -502,7 +502,7 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
         factors.append("Aussagekraeftiges Profil-Statement vorhanden")
     elif summary:
         score += 6
-        empfehlungen.append("Profil-Statement ausfuehrlicher formulieren (min. 2-3 Saetze)")
+        empfehlungen.append("Profil-Statement ausführlicher formulieren (min. 2-3 Saetze)")
     else:
         empfehlungen.append(
             "Profil-Statement fehlt — das ist das Erste was ein Personalberater liest. "
@@ -523,7 +523,7 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
         empfehlungen.append("Mehr Projekte mit konkreten Ergebnissen dokumentieren")
     else:
         empfehlungen.append(
-            "STAR-Projekte mit messbaren Ergebnissen hinzufuegen — "
+            "STAR-Projekte mit messbaren Ergebnissen hinzufügen — "
             "Personalberater lieben konkrete Erfolge (Budget, Teamgroesse, Zeitersparnis)"
         )
 
@@ -572,7 +572,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     """ATS perspective: keyword matches, standard format, measurables.
 
     Beruecksichtigt professionelle Recruiter-Kriterien:
-    - Exakte Keyword-Uebereinstimmung (ATS filtert rigoros)
+    - Exakte Keyword-Übereinstimmung (ATS filtert rigoros)
     - Standardisiertes Format und Pflichtfelder
     - Quantifizierte Erfolge mit Zahlen/Metriken
     - Lueckenlose Datumsangaben (Monat/Jahr)
@@ -598,13 +598,13 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         factors.append(f"{len(exact_matches)} Skill-Treffer: {', '.join(exact_matches)}")
     elif exact_matches:
         score += 8
-        factors.append(f"Nur {len(exact_matches)} Skill-Treffer — zu wenig fuer ATS")
-        empfehlungen.append("Mehr Keywords aus der Stellenbeschreibung als Skills hinzufuegen")
+        factors.append(f"Nur {len(exact_matches)} Skill-Treffer — zu wenig für ATS")
+        empfehlungen.append("Mehr Keywords aus der Stellenbeschreibung als Skills hinzufügen")
     else:
         empfehlungen.append(
             "KRITISCH: Kein einziger Skill matcht die Stellenbeschreibung — "
             "ATS wird den CV wahrscheinlich aussortieren. "
-            "Tipp: Uebernimm die exakten Begriffe aus der Stellenanzeige."
+            "Tipp: Übernimm die exakten Begriffe aus der Stellenanzeige."
         )
 
     # Partial matches (skill word appears in job text)
@@ -628,7 +628,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     )
     if title_match:
         score += 12
-        factors.append("Jobtitel-Uebereinstimmung mit frueheren Positionen")
+        factors.append("Jobtitel-Übereinstimmung mit frueheren Positionen")
     else:
         empfehlungen.append(
             "Fruehere Positionstitel aehnlicher zur Zielstelle formulieren — "
@@ -640,7 +640,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         f"{p.get('achievements', '')} {p.get('tasks', '')}" for p in positions
     )
     numbers = re.findall(
-        r'\d+[%\u20ack+]|\d+\s*(?:Prozent|Euro|Mitarbeiter|Projekte|Jahre|Monate|Standorte|Laender)',
+        r'\d+[%\u20ack+]|\d+\s*(?:Prozent|Euro|Mitarbeiter|Projekte|Jahre|Monate|Standorte|Länder)',
         all_text
     )
     if len(numbers) >= 5:
@@ -716,7 +716,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
         score += 5
         factors.append("Skill-Level dokumentiert")
 
-    # Language skills — besonders fuer deutsche ATS relevant
+    # Language skills — besonders für deutsche ATS relevant
     lang_skills = [s for s in skills if s.get("category") == "sprache"]
     if len(lang_skills) >= 2:
         score += 5
@@ -771,12 +771,12 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
     tech_hits = [t for t in tool_skills if t in job_text]
     if len(tech_hits) >= 5:
         score += 15
-        factors.append(f"Starke Tech-Uebereinstimmung: {', '.join(tech_hits[:6])}")
+        factors.append(f"Starke Tech-Übereinstimmung: {', '.join(tech_hits[:6])}")
     elif tech_hits:
         score += 8
         factors.append(f"Teilweise Tech-Match: {', '.join(tech_hits)}")
     else:
-        empfehlungen.append("Technologie-Stack stimmt kaum ueberein — Skills ggf. ergaenzen")
+        empfehlungen.append("Technologie-Stack stimmt kaum überein — Skills ggf. ergaenzen")
 
     # Project complexity (projects with technologies and results)
     complex_projects = sum(
@@ -830,10 +830,10 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
     task_hits = sum(1 for w in job_words if w in all_tasks and len(w) > 4)
     if task_hits >= 10:
         score += 12
-        factors.append(f"Starke Uebereinstimmung in Aufgaben/Erfahrung ({task_hits} Treffer)")
+        factors.append(f"Starke Übereinstimmung in Aufgaben/Erfahrung ({task_hits} Treffer)")
     elif task_hits >= 5:
         score += 7
-        factors.append(f"Moderate Aufgaben-Uebereinstimmung ({task_hits} Treffer)")
+        factors.append(f"Moderate Aufgaben-Übereinstimmung ({task_hits} Treffer)")
     else:
         empfehlungen.append("Aufgabenbeschreibungen mit Begriffen aus der Stellenausschreibung anreichern")
 
@@ -931,7 +931,7 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
         pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
         font_name = "DejaVu"
     except Exception as e:
-        logger.debug("DejaVu-Font nicht verfuegbar, nutze Helvetica: %s", e)
+        logger.debug("DejaVu-Font nicht verfügbar, nutze Helvetica: %s", e)
         font_name = "Helvetica"
 
     epw = pdf.epw  # effective page width
@@ -1119,7 +1119,7 @@ def generate_cover_letter_pdf(
         pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
         font_name = "DejaVu"
     except Exception as e:
-        logger.debug("DejaVu-Font nicht verfuegbar, nutze Helvetica: %s", e)
+        logger.debug("DejaVu-Font nicht verfügbar, nutze Helvetica: %s", e)
         font_name = "Helvetica"
 
     epw = pdf.epw

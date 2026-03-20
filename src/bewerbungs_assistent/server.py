@@ -16,7 +16,7 @@ from fastmcp import FastMCP
 
 from .database import Database, get_data_dir
 
-# Logging: Datei + stderr (stdout ist fuer MCP-Protokoll reserviert!)
+# Logging: Datei + stderr (stdout ist für MCP-Protokoll reserviert!)
 from .logging_config import setup_logging
 setup_logging(console=True)
 logger = logging.getLogger("bewerbungs_assistent")

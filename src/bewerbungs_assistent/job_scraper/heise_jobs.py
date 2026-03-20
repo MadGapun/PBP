@@ -1,6 +1,6 @@
 """Heise Jobs Scraper — IT-Stellenmarkt von Heise Verlag.
 
-Starke IT/Admin-Community, gute Abdeckung fuer IT-Stellen.
+Starke IT/Admin-Community, gute Abdeckung für IT-Stellen.
 Kein Login erforderlich. HTML-Scraping via requests.
 """
 

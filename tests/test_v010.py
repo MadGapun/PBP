@@ -426,8 +426,8 @@ class TestSmartNextSteps:
         tmp_db.save_profile({"name": "Test User"})
         steps = tmp_db.get_next_steps()
         actions = [s["aktion"] for s in steps]
-        assert "Zusammenfassung ergaenzen" in actions
-        assert "Berufserfahrung hinzufuegen" in actions
+        assert "Zusammenfassung ergänzen" in actions
+        assert "Berufserfahrung hinzufügen" in actions
 
     def test_complete_profile_suggests_sources(self, tmp_db):
         """Complete profile but no sources: suggest activating sources."""

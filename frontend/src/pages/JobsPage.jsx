@@ -126,6 +126,13 @@ export default function JobsPage() {
   const [editingScoreValue, setEditingScoreValue] = useState("");
   const [dismissDialog, setDismissDialog] = useState(EMPTY_DISMISS_DIALOG);
   const [dismissReasons, setDismissReasons] = useState([]);
+  const [jobsTotal, setJobsTotal] = useState(0);
+  const [jobsHasMore, setJobsHasMore] = useState(false);
+  const [jobsPageSize, setJobsPageSize] = useState(() => {
+    const saved = localStorage.getItem("pbp_jobs_page_size");
+    return saved ? Number(saved) : 20;
+  });
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const wasSearchRunningRef = useRef(false);
   const searchPollErrorShownRef = useRef(false);
@@ -134,28 +141,53 @@ export default function JobsPage() {
 
   const loadPage = useEffectEvent(async (options = {}) => {
     const silent = Boolean(options?.silent);
+    const append = Boolean(options?.append);
+    const pageSize = options?.pageSize || jobsPageSize;
+    const currentOffset = append ? jobs.length : 0;
     try {
-      const [activeJobs, hiddenJobs, followUpsResponse, appsResponse, reasons] = await Promise.all([
-        api("/api/jobs?active=true&exclude_blacklisted=true"),
-        api("/api/jobs?active=false"),
-        api("/api/follow-ups"),
-        api("/api/applications"),
-        optionalApi("/api/dismiss-reasons"),
+      const jobsUrl = pageSize > 0
+        ? `/api/jobs?active=true&exclude_blacklisted=true&limit=${pageSize}&offset=${currentOffset}`
+        : "/api/jobs?active=true&exclude_blacklisted=true";
+      const [activeJobsResp, hiddenJobs, followUpsResponse, appsResponse, reasons] = await Promise.all([
+        api(jobsUrl),
+        append ? Promise.resolve(null) : api("/api/jobs?active=false"),
+        append ? Promise.resolve(null) : api("/api/follow-ups"),
+        append ? Promise.resolve(null) : api("/api/applications"),
+        append ? Promise.resolve(null) : optionalApi("/api/dismiss-reasons"),
       ]);
       startTransition(() => {
-        setJobs(activeJobs || []);
-        setDismissedJobs(hiddenJobs || []);
-        setFollowUps(followUpsResponse?.follow_ups || []);
-        const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
-        setAppliedJobHashes(appHashes);
-        if (reasons) setDismissReasons(reasons);
+        // Handle paginated response (object with jobs array) or plain array (no limit)
+        const isPaginated = activeJobsResp && !Array.isArray(activeJobsResp) && activeJobsResp.jobs;
+        const newJobs = isPaginated ? activeJobsResp.jobs : (activeJobsResp || []);
+        if (append) {
+          setJobs((prev) => [...prev, ...newJobs]);
+        } else {
+          setJobs(newJobs);
+        }
+        if (isPaginated) {
+          setJobsTotal(activeJobsResp.total || 0);
+          setJobsHasMore(Boolean(activeJobsResp.has_more));
+        } else {
+          setJobsTotal(newJobs.length);
+          setJobsHasMore(false);
+        }
+        if (!append) {
+          if (hiddenJobs) setDismissedJobs(hiddenJobs || []);
+          if (followUpsResponse) setFollowUps(followUpsResponse?.follow_ups || []);
+          if (appsResponse) {
+            const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
+            setAppliedJobHashes(appHashes);
+          }
+          if (reasons) setDismissReasons(reasons);
+        }
         setLoading(false);
+        setLoadingMore(false);
       });
     } catch (error) {
       if (!silent) {
         pushToast(`Stellen konnten nicht geladen werden: ${error.message}`, "danger");
       }
-      startTransition(() => setLoading(false));
+      startTransition(() => { setLoading(false); setLoadingMore(false); });
     }
   });
 
@@ -504,7 +536,7 @@ export default function JobsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Aktive Stellen" value={filteredJobs.length} note={jobs.length !== filteredJobs.length ? `${jobs.length} gesamt, ${jobsWithSalary} mit Gehalt` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
+          <MetricCard label="Aktive Stellen" value={jobsTotal > jobs.length ? `${filteredJobs.length} / ${jobsTotal}` : filteredJobs.length} note={jobs.length !== filteredJobs.length ? `${jobs.length} geladen, ${jobsWithSalary} mit Gehalt` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
@@ -542,8 +574,24 @@ export default function JobsPage() {
               )}
             </div>
             <span className="shrink-0 text-[12px] tabular-nums text-muted/50">
-              {filteredJobs.length} / {currentList.length}
+              {filteredJobs.length}{jobsTotal > jobs.length ? ` / ${jobsTotal}` : ` / ${currentList.length}`}
             </span>
+            <SelectInput
+              className="!min-h-0 !w-auto !rounded-lg !px-2 !py-1 text-[11px] !border-white/5 !bg-white/[0.03]"
+              value={jobsPageSize}
+              onChange={async (e) => {
+                const newSize = Number(e.target.value);
+                setJobsPageSize(newSize);
+                localStorage.setItem("pbp_jobs_page_size", String(newSize));
+                setLoading(true);
+                await loadPage({ pageSize: newSize });
+              }}
+            >
+              <option value="20">20 pro Seite</option>
+              <option value="50">50 pro Seite</option>
+              <option value="100">100 pro Seite</option>
+              <option value="0">Alle</option>
+            </SelectInput>
           </div>
 
           {/* Row 2: Filter chips row */}
@@ -825,7 +873,36 @@ export default function JobsPage() {
                 </div>
               </Card>
             ))
-          ) : (
+          ) : null}
+
+          {/* Load more + page size (#145) */}
+          {filteredJobs.length > 0 && jobsHasMore && filters.view === "active" && (
+            <div className="flex items-center justify-center gap-4 py-4">
+              <Button
+                variant="secondary"
+                disabled={loadingMore}
+                onClick={async () => {
+                  setLoadingMore(true);
+                  await loadPage({ append: true, silent: true });
+                }}
+              >
+                {loadingMore ? "Laden..." : `Mehr laden (${jobs.length} von ${jobsTotal})`}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  setJobsPageSize(0);
+                  localStorage.setItem("pbp_jobs_page_size", "0");
+                  setLoading(true);
+                  await loadPage({ pageSize: 0 });
+                }}
+              >
+                Alle laden
+              </Button>
+            </div>
+          )}
+
+          {filteredJobs.length === 0 && (
             <EmptyState
               title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine ausgeblendeten Stellen"}
               description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Ausgeblendete Jobs können hier später wieder aktiviert werden."}

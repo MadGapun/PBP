@@ -15,15 +15,15 @@ def register(mcp, db, logger):
     @mcp.tool()
     def dokument_profil_extrahieren(document_id: str) -> dict:
         """Liest den extrahierten Text eines hochgeladenen Dokuments und gibt ihn
-        zur Analyse zurueck. Claude soll daraus Profildaten ableiten.
+        zur Analyse zurück. Claude soll daraus Profildaten ableiten.
 
         WORKFLOW:
         1. Rufe dieses Tool mit der document_id auf
         2. Analysiere den Text und identifiziere Profildaten (Name, Skills, Positionen etc.)
         3. Vergleiche mit dem bestehenden Profil (profil_zusammenfassung)
-        4. Bei neuen Daten: Frage den User ob diese uebernommen werden sollen
+        4. Bei neuen Daten: Frage den User ob diese übernommen werden sollen
         5. Bei Konflikten: Zeige beide Versionen und lasse den User entscheiden
-        6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufuegen etc.)
+        6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufügen etc.)
 
         Args:
             document_id: ID oder Dateiname des Dokuments
@@ -70,9 +70,9 @@ def register(mcp, db, logger):
             "anleitung": (
                 "Analysiere den Text und extrahiere Profildaten. "
                 "Vergleiche mit dem bestehenden Profil und frage bei Konflikten oder "
-                "neuen Informationen den User ob diese uebernommen werden sollen. "
-                "Nutze die entsprechenden Tools (profil_bearbeiten, position_hinzufuegen, "
-                "skill_hinzufuegen etc.) um die Daten zu speichern."
+                "neuen Informationen den User ob diese übernommen werden sollen. "
+                "Nutze die entsprechenden Tools (profil_bearbeiten, position_hinzufügen, "
+                "skill_hinzufügen etc.) um die Daten zu speichern."
             ),
         }
 
@@ -81,7 +81,7 @@ def register(mcp, db, logger):
         """Listet alle Dokumente mit extrahiertem Text auf — auch bereits analysierte.
 
         Zeigt den Extraktions-Status jedes Dokuments an, damit auch wiederholte
-        Extraktion moeglich ist. Nutze extraktion_starten(document_ids=[...]) um
+        Extraktion möglich ist. Nutze extraktion_starten(document_ids=[...]) um
         bestimmte Dokumente erneut zu extrahieren.
         """
         profile = db.get_profile()
@@ -114,13 +114,13 @@ def register(mcp, db, logger):
     @mcp.tool()
     def extraktion_starten(document_ids: list = None, force: bool = False,
                            profil_mitsenden: bool = True) -> dict:
-        """Startet die intelligente Profil-Extraktion fuer ein oder mehrere Dokumente.
+        """Startet die intelligente Profil-Extraktion für ein oder mehrere Dokumente.
 
         Laedt den extrahierten Text aller angegebenen (oder aller noch nicht
         analysierten) Dokumente und gibt ihn zusammen mit dem aktuellen Profil
-        zurueck, damit Claude die Daten vergleichen und extrahieren kann.
+        zurück, damit Claude die Daten vergleichen und extrahieren kann.
 
-        TIPP: Fuer viele Dokumente nutze stattdessen analyse_plan_erstellen()
+        TIPP: Für viele Dokumente nutze stattdessen analyse_plan_erstellen()
         und dokumente_batch_analysieren() — das ist effizienter.
 
         WORKFLOW:
@@ -225,8 +225,8 @@ def register(mcp, db, logger):
                 "Analysiere die Dokumente und extrahiere ALLE verwertbaren Profildaten. "
                 "Vergleiche mit dem aktuellen Profil. "
                 "Speichere das Ergebnis mit extraktion_ergebnis_speichern(). "
-                "WICHTIG: Das Feld 'zusammenfassung' ist NUR fuer echte Profil-Summaries "
-                "(z.B. 'Lead PLM Architekt mit 20 Jahren Erfahrung'), NICHT fuer Dokument-"
+                "WICHTIG: Das Feld 'zusammenfassung' ist NUR für echte Profil-Summaries "
+                "(z.B. 'Lead PLM Architekt mit 20 Jahren Erfahrung'), NICHT für Dokument-"
                 "Beschreibungen. Bei Dokumenten ohne Profil-relevante Daten: zusammenfassung weglassen. "
                 "Bei Konflikten: IMMER den User fragen."
             ),
@@ -248,7 +248,7 @@ def register(mcp, db, logger):
 
         Claude ruft dieses Tool auf, nachdem er die Dokumente analysiert hat.
         Die extrahierten Daten werden zwischengespeichert, bis der User
-        sie bestaetigt oder ablehnt.
+        sie bestätigt oder ablehnt.
 
         Args:
             extraction_id: ID von extraktion_starten()
@@ -301,7 +301,7 @@ def register(mcp, db, logger):
             "extraction_id": extraction_id,
             "gefundene_daten": counts,
             "konflikte_anzahl": len(konflikte or []),
-            "naechster_schritt": "Zeige dem User die Ergebnisse und frage ob er sie uebernehmen moechte. "
+            "naechster_schritt": "Zeige dem User die Ergebnisse und frage ob er sie übernehmen möchte. "
                                  "Nutze dann extraktion_anwenden().",
         }
 
@@ -314,7 +314,7 @@ def register(mcp, db, logger):
     ) -> dict:
         """Wendet extrahierte Daten auf das aktive Profil an.
 
-        Standardmaessig werden alle Daten automatisch uebernommen (auto_apply=True).
+        Standardmaessig werden alle Daten automatisch übernommen (auto_apply=True).
         Nur bei echten Konflikten (Feld hat bereits einen vom User eingegebenen Wert)
         wird der bestehende Wert beibehalten — es sei denn, konflikte_loesungen enthaelt
         eine explizite Entscheidung.
@@ -322,13 +322,13 @@ def register(mcp, db, logger):
         Args:
             extraction_id: ID der Extraktion
             bereiche: Welche Bereiche anwenden (None = alle).
-                Optionen: persoenliche_daten, positionen, ausbildung, skills, praeferenzen, zusammenfassung
-            konflikte_loesungen: Entscheidungen fuer Konflikte.
+                Optionen: persönliche_daten, positionen, ausbildung, skills, präferenzen, zusammenfassung
+            konflikte_loesungen: Entscheidungen für Konflikte.
                 Format: {"phone": "neu", "email": "alt", ...}
-                "alt" = bestehenden Wert behalten, "neu" = ueberschreiben
+                "alt" = bestehenden Wert behalten, "neu" = überschreiben
             auto_apply: Wenn True (Standard), werden alle leeren Felder und Default-Werte
-                automatisch ueberschrieben ohne Rueckfrage. Bei False muessen Konflikte
-                ueber konflikte_loesungen aufgeloest werden.
+                automatisch überschrieben ohne Rückfrage. Bei False müssen Konflikte
+                über konflikte_loesungen aufgeloest werden.
         """
         conn = db.connect()
         pid = db.get_active_profile_id()
@@ -397,14 +397,14 @@ def register(mcp, db, logger):
 
         # Apply summary — ONLY if it looks like a real profile summary,
         # NOT a document description. Dokument-Zusammenfassungen (z.B.
-        # "Interview-Vorbereitung fuer Jungheinrich") duerfen NICHT das
-        # Profil-Summary ueberschreiben.
+        # "Interview-Vorbereitung für Jungheinrich") duerfen NICHT das
+        # Profil-Summary überschreiben.
         if "zusammenfassung" in all_bereiche and extracted.get("zusammenfassung"):
             new_summary = extracted["zusammenfassung"]
             current_summary = profile.get("summary", "")
 
             # Nur anwenden wenn: Summary ist leer/default ODER der neue Text
-            # ist laenger und sieht nach einem echten Profil-Summary aus
+            # ist länger und sieht nach einem echten Profil-Summary aus
             # (enthaelt typische Profil-Keywords wie "Jahre", "Erfahrung", "Architekt" etc.)
             _PROFIL_KEYWORDS = {"erfahrung", "jahre", "beruf", "architekt", "engineer",
                                 "manager", "berater", "consultant", "entwickler", "experte",
@@ -417,12 +417,12 @@ def register(mcp, db, logger):
                 # Profil hat noch kein Summary — immer anwenden
                 should_apply = True
             elif has_profil_keywords and len(new_summary) > len(current_summary):
-                # Neues Summary sieht nach echtem Profil aus UND ist ausfuehrlicher
+                # Neues Summary sieht nach echtem Profil aus UND ist ausführlicher
                 should_apply = True
             elif "zusammenfassung" in loesungen and loesungen["zusammenfassung"] == "neu":
                 # User hat explizit entschieden
                 should_apply = True
-            # NICHT auto_apply fuer Summary — das war der Bug!
+            # NICHT auto_apply für Summary — das war der Bug!
 
             if should_apply:
                 # Re-read profile in case personal data was just updated
@@ -566,7 +566,7 @@ def register(mcp, db, logger):
             "status": "angewendet",
             "extraction_id": extraction_id,
             "angewendete_bereiche": applied,
-            "hinweis": "Profil wurde aktualisiert. Pruefe mit profil_zusammenfassung().",
+            "hinweis": "Profil wurde aktualisiert. Prüfe mit profil_zusammenfassung().",
         }
 
     # ── Hilfsfunktion: Duplikat-Erkennung ──────────────────────────────────
@@ -657,8 +657,8 @@ def register(mcp, db, logger):
 
         Zeigt:
         - Wie viele Dokumente es gibt
-        - Wie viele Duplikate (PDF/DOCX-Paare) automatisch uebersprungen werden
-        - Geschaetzte Batch-Anzahl und Token-Verbrauch
+        - Wie viele Duplikate (PDF/DOCX-Paare) automatisch übersprungen werden
+        - Geschätzte Batch-Anzahl und Token-Verbrauch
         - Empfohlene Vorgehensweise
 
         Rufe dieses Tool ZUERST auf, bevor du mit der Analyse beginnst.
@@ -726,9 +726,9 @@ def register(mcp, db, logger):
                 for i, b in enumerate(batches)
             ],
             "empfehlung": (
-                f"{len(dup_ids)} Duplikate werden automatisch uebersprungen. "
+                f"{len(dup_ids)} Duplikate werden automatisch übersprungen. "
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
-                f"Nutze dokumente_batch_analysieren() fuer den naechsten Batch."
+                f"Nutze dokumente_batch_analysieren() für den nächsten Batch."
             ),
         }
 
@@ -739,15 +739,15 @@ def register(mcp, db, logger):
         max_dokumente: int = 10,
         profil_mitsenden: bool = True,
     ) -> dict:
-        """Analysiert den naechsten Batch von Dokumenten — effizient und Token-sparend.
+        """Analysiert den nächsten Batch von Dokumenten — effizient und Token-sparend.
 
-        Erkennt PDF/DOCX-Duplikate automatisch und ueberspring sie.
-        Sortiert Dokumente nach Groesse (kleinste zuerst) fuer optimale Batch-Fuellun.
+        Erkennt PDF/DOCX-Duplikate automatisch und überspring sie.
+        Sortiert Dokumente nach Größe (kleinste zuerst) für optimale Batch-Füllung.
 
         WORKFLOW:
         1. Rufe analyse_plan_erstellen() auf um den Plan zu sehen
         2. Rufe dokumente_batch_analysieren(batch_nr=1) auf
-        3. Analysiere die zurueckgegebenen Texte
+        3. Analysiere die zurückgegebenen Texte
         4. Speichere Ergebnisse mit extraktion_ergebnis_speichern()
         5. Wende an mit extraktion_anwenden()
         6. Wiederhole mit batch_nr=2, 3, ... bis alle durch
@@ -807,7 +807,7 @@ def register(mcp, db, logger):
 
         batch = batches[batch_nr - 1]
 
-        # Extraction history fuer den Batch erstellen
+        # Extraction history für den Batch erstellen
         eid = db.add_extraction_history({
             "document_id": batch[0]["id"],
             "profile_id": pid,
@@ -837,7 +837,7 @@ def register(mcp, db, logger):
                 "Analysiere die Dokumente und extrahiere Profildaten. "
                 "Speichere mit extraktion_ergebnis_speichern(). "
                 "Dann extraktion_anwenden(). "
-                "Danach: dokumente_batch_analysieren(batch_nr=" + str(batch_nr + 1) + ") fuer den naechsten Batch."
+                "Danach: dokumente_batch_analysieren(batch_nr=" + str(batch_nr + 1) + ") für den nächsten Batch."
             ),
         }
 
@@ -862,14 +862,14 @@ def register(mcp, db, logger):
     ) -> dict:
         """Markiert mehrere Dokumente gleichzeitig als analysiert.
 
-        Ideal fuer Dokumente die offensichtlich keine neuen Profildaten enthalten
-        (z.B. firmenspezifische CV-Varianten wenn das Basisprofil schon vollstaendig ist,
+        Ideal für Dokumente die offensichtlich keine neuen Profildaten enthalten
+        (z.B. firmenspezifische CV-Varianten wenn das Basisprofil schon vollständig ist,
         oder Duplikate).
 
         Args:
             document_ids: Liste von Dokument-IDs. Wenn leer: markiert ALLE unanalysierten.
             status: Zielstatus. Standard: "angewendet". Optionen: angewendet, verworfen, duplikat.
-            zusammenfassung: Kurze Begruendung warum ohne Analyse markiert.
+            zusammenfassung: Kurze Begründung warum ohne Analyse markiert.
         """
         profile = db.get_profile()
         if not profile:
@@ -917,11 +917,11 @@ def register(mcp, db, logger):
         - Firma (aus Dateiname extrahiert)
         - Dokumenttyp (Lebenslauf, Anschreiben, Projektliste)
         - Erstellungsdatum (= Bewerbungsdatum)
-        - Ob bereits eine Bewerbung fuer diese Firma existiert
+        - Ob bereits eine Bewerbung für diese Firma existiert
 
         Args:
-            auto_erstellen: Wenn True, werden Bewerbungseintraege automatisch
-                fuer alle erkannten Firmen angelegt (die noch keinen Eintrag haben).
+            auto_erstellen: Wenn True, werden Bewerbungseinträge automatisch
+                für alle erkannten Firmen angelegt (die noch keinen Eintrag haben).
                 Das Erstellungsdatum des Dokuments wird als Bewerbungsdatum verwendet.
         """
         profile = db.get_profile()
@@ -963,7 +963,7 @@ def register(mcp, db, logger):
                 "typ": doc_type,
                 "datum": doc.get("created_at"),
             })
-            # Fruehestes Datum tracken
+            # Frühestes Datum tracken
             if doc.get("created_at") and (
                 not firmen_docs[firma]["fruehestes_datum"] or
                 doc["created_at"] < firmen_docs[firma]["fruehestes_datum"]
@@ -974,7 +974,7 @@ def register(mcp, db, logger):
         erkannt = sorted(firmen_docs.values(), key=lambda f: f["firma"])
         neue_firmen = [f for f in erkannt if not f["bewerbung_existiert"]]
 
-        # Auto-Erstellung von Bewerbungseintraegen
+        # Auto-Erstellung von Bewerbungseinträgen
         erstellt = []
         if auto_erstellen and neue_firmen:
             for firma_info in neue_firmen:
@@ -984,7 +984,7 @@ def register(mcp, db, logger):
                 has_anschreiben = "anschreiben" in doc_types
                 has_cv = "lebenslauf" in doc_types
 
-                # Bewerbungsdatum = fruehestes Dokument-Datum
+                # Bewerbungsdatum = frühestes Dokument-Datum
                 applied_at = ""
                 if firma_info.get("fruehestes_datum"):
                     try:
@@ -1025,25 +1025,25 @@ def register(mcp, db, logger):
             result["auto_erstellt"] = erstellt
             result["naechster_schritt"] = (
                 f"{len(erstellt)} Bewerbung(en) automatisch angelegt. "
-                "Pruefe im Dashboard unter 'Bewerbungen' ob alles stimmt."
+                "Prüfe im Dashboard unter 'Bewerbungen' ob alles stimmt."
             )
         elif neue_firmen:
             result["naechster_schritt"] = (
                 f"{len(neue_firmen)} Firma(en) ohne Bewerbungseintrag erkannt. "
                 "Nutze bewerbungs_dokumente_erkennen(auto_erstellen=True) um alle automatisch anzulegen, "
-                "oder bewerbung_erstellen() fuer einzelne Firmen."
+                "oder bewerbung_erstellen() für einzelne Firmen."
             )
         else:
-            result["naechster_schritt"] = "Alle erkannten Firmen haben bereits Bewerbungseintraege."
+            result["naechster_schritt"] = "Alle erkannten Firmen haben bereits Bewerbungseinträge."
 
         return result
 
     @mcp.tool()
     def extraktions_verlauf() -> dict:
-        """Zeigt den Verlauf aller Dokument-Extraktionen fuer das aktive Profil.
+        """Zeigt den Verlauf aller Dokument-Extraktionen für das aktive Profil.
 
-        Nuetzlich um zu sehen welche Dokumente bereits analysiert wurden
-        und was daraus uebernommen wurde.
+        Nützlich um zu sehen welche Dokumente bereits analysiert wurden
+        und was daraus übernommen wurde.
         """
         pid = db.get_active_profile_id()
         if not pid:
@@ -1074,10 +1074,10 @@ def register(mcp, db, logger):
         """Exportiert das komplette Profil als JSON-Backup.
 
         Inkl. aller Positionen, Projekte, Ausbildung, Skills, Dokument-Metadaten
-        und Praeferenzen. Die JSON-Datei wird im Export-Verzeichnis gespeichert.
+        und Präferenzen. Die JSON-Datei wird im Export-Verzeichnis gespeichert.
 
-        Nutze dies fuer:
-        - Backup vor groesseren Aenderungen
+        Nutze dies für:
+        - Backup vor größeren Änderungen
         - Migration auf einen neuen Computer
         - Archivierung
 
@@ -1122,9 +1122,9 @@ def register(mcp, db, logger):
         """Importiert ein Profil aus einer JSON-Backup-Datei.
 
         Erstellt ein neues Profil aus dem Backup. Das vorherige aktive Profil
-        wird gespeichert und kann spaeter wieder aktiviert werden.
+        wird gespeichert und kann später wieder aktiviert werden.
 
-        ACHTUNG: Erstellt immer ein NEUES Profil — ueberschreibt nichts.
+        ACHTUNG: Erstellt immer ein NEUES Profil — überschreibt nichts.
 
         Args:
             dateipfad: Pfad zur JSON-Backup-Datei (von profil_exportieren)
@@ -1137,10 +1137,10 @@ def register(mcp, db, logger):
         try:
             data = json.loads(filepath.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            return {"fehler": f"Ungueltige JSON-Datei: {e}"}
+            return {"fehler": f"Ungültige JSON-Datei: {e}"}
 
         if "_export_meta" not in data:
-            return {"fehler": "Keine gueltige PBP-Backup-Datei (fehlende Metadaten)."}
+            return {"fehler": "Keine gültige PBP-Backup-Datei (fehlende Metadaten)."}
 
         meta = data.get("_export_meta", {})
         pid = db.import_profile_json(data)

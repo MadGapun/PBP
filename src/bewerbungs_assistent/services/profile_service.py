@@ -1,4 +1,4 @@
-"""Gemeinsame Profil-Logik fuer Dashboard und MCP-Tools."""
+"""Gemeinsame Profil-Logik für Dashboard und MCP-Tools."""
 
 import json
 
@@ -57,7 +57,7 @@ def get_profile_status_payload(
     profile: dict | None,
     dashboard_url: str = "http://localhost:8200",
 ) -> dict:
-    """Liefert die gemeinsame Payload fuer den MCP-Profilstatus."""
+    """Liefert die gemeinsame Payload für den MCP-Profilstatus."""
     if profile is None:
         return {
             "status": "kein_profil",
@@ -77,7 +77,7 @@ def get_profile_status_payload(
 
 
 def _build_profile_checks(profile: dict | None) -> dict:
-    """Berechnet die Roh-Checks fuer die Profilvollstaendigkeit."""
+    """Berechnet die Roh-Checks für die Profilvollstaendigkeit."""
     if not profile:
         return {}
 
@@ -100,7 +100,7 @@ def _build_profile_checks(profile: dict | None) -> dict:
 
 
 def get_profile_completeness(profile: dict | None) -> dict:
-    """Berechnet Profilvollstaendigkeit fuer Dashboard und Tools."""
+    """Berechnet Profilvollstaendigkeit für Dashboard und Tools."""
     checks = _build_profile_checks(profile)
     total = len(PROFILE_COMPLETENESS_CHECKS)
     if not checks:

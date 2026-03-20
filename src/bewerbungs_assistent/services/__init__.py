@@ -1,2 +1,2 @@
-"""Gemeinsame Service-Funktionen fuer Dashboard und MCP-Tools."""
+"""Gemeinsame Service-Funktionen für Dashboard und MCP-Tools."""
 

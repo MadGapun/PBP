@@ -28,7 +28,7 @@ import {
   MetricCard,
   SelectInput,
 } from "@/components/ui";
-import { formatDate, formatDateTime } from "@/utils";
+import { formatDate, formatDateTime, statusLabel } from "@/utils";
 
 const STATUS_COLORS = {
   beworben: "#38bdf8",
@@ -149,10 +149,11 @@ export default function StatsPage() {
     }
   }
   const statusKeys = [...allStatuses];
+  const statusLabels = statusKeys.map((s) => statusLabel(s));
   const statusChartData = timelinePeriods.map((period) => {
     const entry = { name: period };
-    for (const status of statusKeys) {
-      entry[status] = timeline?.by_status?.[period]?.[status] || 0;
+    for (let i = 0; i < statusKeys.length; i++) {
+      entry[statusLabels[i]] = timeline?.by_status?.[period]?.[statusKeys[i]] || 0;
     }
     return entry;
   });
@@ -331,8 +332,8 @@ export default function StatsPage() {
                     <YAxis tick={CHART_STYLE} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    {statusKeys.map((status) => (
-                      <Bar key={status} dataKey={status} stackId="status" fill={STATUS_COLORS[status] || "#94a3b8"} radius={[2, 2, 0, 0]} />
+                    {statusKeys.map((status, i) => (
+                      <Bar key={status} dataKey={statusLabels[i]} stackId="status" fill={STATUS_COLORS[status] || "#94a3b8"} radius={[2, 2, 0, 0]} />
                     ))}
                   </BarChart>
                 </ResponsiveContainer>

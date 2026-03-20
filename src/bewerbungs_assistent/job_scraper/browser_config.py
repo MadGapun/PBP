@@ -1,6 +1,6 @@
-"""Konfigurierbare DOM-Selektoren fuer Browser-basierte Job-Scraper.
+"""Konfigurierbare DOM-Selektoren für Browser-basierte Job-Scraper.
 
-LinkedIn und XING aendern regelmaessig ihre DOM-Struktur.
+LinkedIn und XING ändern regelmäßig ihre DOM-Struktur.
 Alle Selektoren sind hier zentralisiert, damit Updates einfach sind.
 
 Usage:

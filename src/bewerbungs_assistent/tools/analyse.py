@@ -14,7 +14,7 @@ def register(mcp, db, logger):
         """Extrahiert Gehaltsinformationen aus einer Stellenbeschreibung.
 
         Durchsucht den Text nach Gehaltsangaben (Jahresgehalt, Tagessatz,
-        Stundenlohn). Falls keine Angabe gefunden wird, erstellt eine Schaetzung
+        Stundenlohn). Falls keine Angabe gefunden wird, erstellt eine Schätzung
         basierend auf Jobtitel und Standort. Speichert die Daten in der DB.
 
         Args:
@@ -24,7 +24,7 @@ def register(mcp, db, logger):
 
         job = db.get_job(job_hash)
         if not job:
-            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+            return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
 
         text = (job["description"] or "") + " " + (job["salary_info"] or "") + " " + (job["title"] or "")
 
@@ -44,7 +44,7 @@ def register(mcp, db, logger):
                 "status": "nicht_gefunden",
                 "stelle": job["title"],
                 "firma": job["company"],
-                "hinweis": "Keine Gehaltsangabe erkannt und keine Schaetzung moeglich. "
+                "hinweis": "Keine Gehaltsangabe erkannt und keine Schätzung möglich. "
                            "Du kannst Claude bitten, den Text manuell zu analysieren.",
                 "salary_info_text": job.get("salary_info", ""),
             }
@@ -104,17 +104,17 @@ def register(mcp, db, logger):
                 "ziel_tagessatz": prefs.get("ziel_tagessatz"),
             }
         stats["tipp"] = (
-            "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschaetzt. "
+            "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschätzt. "
             "Nutze gehalt_extrahieren(job_hash) um einzelne Stellen gezielt zu analysieren."
         )
         return stats
 
     @mcp.tool()
     def firmen_recherche(firma: str) -> dict:
-        """Recherchiert Informationen ueber eine Firma anhand der gesammelten Stellendaten.
+        """Recherchiert Informationen über eine Firma anhand der gesammelten Stellendaten.
 
-        Aggregiert alle bekannten Jobs, Standorte, Gehaelter und Remote-Level
-        fuer die angegebene Firma.
+        Aggregiert alle bekannten Jobs, Standorte, Gehälter und Remote-Level
+        für die angegebene Firma.
 
         Args:
             firma: Name der Firma (oder Teil davon)
@@ -125,7 +125,7 @@ def register(mcp, db, logger):
                 "status": "keine_daten",
                 "firma": firma,
                 "hinweis": "Keine Stellen von dieser Firma in der Datenbank. "
-                           "Starte eine Jobsuche oder pruefe den Firmennamen.",
+                           "Starte eine Jobsuche oder prüfe den Firmennamen.",
             }
 
         standorte = list(set(j.get("location", "unbekannt") for j in jobs if j.get("location")))
@@ -161,7 +161,7 @@ def register(mcp, db, logger):
     def branchen_trends() -> dict:
         """Analysiert gefragte Skills und Technologien in den gesammelten Stellenangeboten.
 
-        Zaehlt Skill-Keywords in allen aktiven Job-Beschreibungen und vergleicht
+        Zählt Skill-Keywords in allen aktiven Job-Beschreibungen und vergleicht
         mit deinem Profil (Match/Gap-Analyse).
         """
         descriptions = db.get_skill_frequency()
@@ -225,7 +225,7 @@ def register(mcp, db, logger):
         """Vergleicht dein Profil mit einer Stelle oder allen aktiven Stellen.
 
         Zeigt welche Skills dir fehlen, welche gut passen, und gibt
-        konkrete Empfehlungen welche Kompetenzen du ergaenzen solltest.
+        konkrete Empfehlungen welche Kompetenzen du ergänzen solltest.
 
         Args:
             job_hash: Hash einer spezifischen Stelle (leer = alle aktiven Stellen analysieren)
@@ -247,7 +247,7 @@ def register(mcp, db, logger):
         if job_hash:
             job = db.get_job(job_hash)
             if not job:
-                return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+                return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
             jobs = [job]
         else:
             jobs = db.get_active_jobs()[:50]
@@ -296,8 +296,8 @@ def register(mcp, db, logger):
     def ablehnungs_muster() -> dict:
         """Analysiert Ablehnungsmuster bei deinen Bewerbungen.
 
-        Zeigt Trends bei Ablehnungen: welche Firmen, welche Gruende,
-        und leitet daraus Verbesserungsvorschlaege ab.
+        Zeigt Trends bei Ablehnungen: welche Firmen, welche Gründe,
+        und leitet daraus Verbesserungsvorschläge ab.
         """
         patterns = db.get_rejection_patterns()
         if patterns["anzahl"] == 0:
@@ -312,7 +312,7 @@ def register(mcp, db, logger):
         empfehlungen = []
         if patterns["ablehnungsquote"] > 60:
             empfehlungen.append(
-                "Hohe Ablehnungsquote. Pruefe ob dein Profil gut zu den Stellen passt "
+                "Hohe Ablehnungsquote. Prüfe ob dein Profil gut zu den Stellen passt "
                 "(/profil_analyse) oder fokussiere dich auf besser passende Stellen."
             )
         if patterns.get("nach_grund", {}).get("Kein Grund angegeben", 0) > 3:
@@ -331,7 +331,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def nachfass_planen(bewerbung_id: str, tage: int = 7, typ: str = "nachfass") -> dict:
-        """Plant eine Nachfass-Erinnerung fuer eine Bewerbung.
+        """Plant eine Nachfass-Erinnerung für eine Bewerbung.
 
         Erstellt einen Follow-up Eintrag mit Datum und Template-Vorschlag.
 
@@ -343,7 +343,7 @@ def register(mcp, db, logger):
         apps = db.get_applications()
         app = next((a for a in apps if a["id"] == bewerbung_id), None)
         if not app:
-            return {"fehler": "Bewerbung nicht gefunden. Pruefe die ID mit bewerbungen_anzeigen()."}
+            return {"fehler": "Bewerbung nicht gefunden. Prüfe die ID mit bewerbungen_anzeigen()."}
 
         scheduled = (datetime.now(timezone.utc) + timedelta(days=tage)).strftime("%Y-%m-%d")
 
@@ -352,25 +352,25 @@ def register(mcp, db, logger):
                 f"Betreff: Nachfrage zu meiner Bewerbung — {app['title']}\n\n"
                 f"Sehr geehrte Damen und Herren,\n\n"
                 f"ich habe mich am {{applied_at}} auf die Position \"{app['title']}\" beworben "
-                f"und moechte hoeflich nachfragen, ob Sie bereits eine Entscheidung getroffen haben.\n\n"
+                f"und möchte höflich nachfragen, ob Sie bereits eine Entscheidung getroffen haben.\n\n"
                 f"Ich bin weiterhin sehr an der Position interessiert und stehe gerne "
-                f"fuer ein Gespraech zur Verfuegung.\n\n"
-                f"Mit freundlichen Gruessen"
+                f"für ein Gespräch zur Verfügung.\n\n"
+                f"Mit freundlichen Grüßen"
             ),
             "danke": (
-                f"Betreff: Vielen Dank fuer das Gespraech — {app['title']}\n\n"
+                f"Betreff: Vielen Dank für das Gespräch — {app['title']}\n\n"
                 f"Sehr geehrte/r {{ansprechpartner}},\n\n"
-                f"vielen Dank fuer das angenehme Gespraech. Ich bin nach unserem Austausch "
-                f"noch ueberzeugter, dass die Position \"{app['title']}\" hervorragend "
+                f"vielen Dank für das angenehme Gespräch. Ich bin nach unserem Austausch "
+                f"noch überzeugter, dass die Position \"{app['title']}\" hervorragend "
                 f"zu meinen Erfahrungen passt.\n\n"
-                f"Mit freundlichen Gruessen"
+                f"Mit freundlichen Grüßen"
             ),
             "info": (
-                f"Betreff: Zusaetzliche Informationen — {app['title']}\n\n"
+                f"Betreff: Zusätzliche Informationen — {app['title']}\n\n"
                 f"Sehr geehrte Damen und Herren,\n\n"
-                f"ergaenzend zu meiner Bewerbung moechte ich Ihnen noch folgende "
+                f"ergänzend zu meiner Bewerbung möchte ich Ihnen noch folgende "
                 f"Informationen zukommen lassen: [HIER ERGAENZEN]\n\n"
-                f"Mit freundlichen Gruessen"
+                f"Mit freundlichen Grüßen"
             ),
         }
 
@@ -390,9 +390,9 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def nachfass_anzeigen() -> dict:
-        """Zeigt alle geplanten und faelligen Nachfass-Erinnerungen.
+        """Zeigt alle geplanten und fälligen Nachfass-Erinnerungen.
 
-        Gruppiert nach: ueberfaellig, heute, diese Woche, spaeter.
+        Gruppiert nach: überfällig, heute, diese Woche, später.
         """
         follow_ups = db.get_pending_follow_ups()
         if not follow_ups:
@@ -434,10 +434,10 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def bewerbung_stil_tracken(bewerbung_id: str, stil: str, notizen: str = "") -> dict:
-        """Speichert den Anschreiben-Stil einer Bewerbung fuer A/B-Tracking.
+        """Speichert den Anschreiben-Stil einer Bewerbung für A/B-Tracking.
 
-        Damit kannst du spaeter analysieren, welcher Stil bessere
-        Ruecklaufquoten hat.
+        Damit kannst du später analysieren, welcher Stil bessere
+        Rücklaufquoten hat.
 
         Args:
             bewerbung_id: ID der Bewerbung
@@ -466,7 +466,7 @@ def register(mcp, db, logger):
             "firma": row["company"],
             "stil": stil,
             "hinweis": "Stil wurde als Event gespeichert. Nutze statistiken_abrufen() "
-                       "um spaeter Ruecklaufquoten pro Stil zu analysieren.",
+                       "um später Rücklaufquoten pro Stil zu analysieren.",
         }
 
     @mcp.tool()
@@ -476,17 +476,17 @@ def register(mcp, db, logger):
         ton: str = "professionell",
         sprache: str = "deutsch"
     ) -> dict:
-        """Formuliert eine kurze Antwortmail fuer Recruiter-Kontakte.
+        """Formuliert eine kurze Antwortmail für Recruiter-Kontakte.
 
-        Nicht fuer vollstaendige Anschreiben, sondern fuer kurze Antworten auf:
+        Nicht für vollständige Anschreiben, sondern für kurze Antworten auf:
         - Recruiter-Anfragen auf LinkedIn/XING
-        - Rueckfragen zu Bewerbungen
-        - Terminvorschlaege
-        - Absage-Antworten (hoeflich und professionell)
+        - Rückfragen zu Bewerbungen
+        - Terminvorschläge
+        - Absage-Antworten (höflich und professionell)
 
         Args:
-            bewerbung_id: Optional: ID einer verknuepften Bewerbung (fuer Kontext)
-            kontext: Beschreibung der Situation (z.B. 'Recruiter fragt nach Verfuegbarkeit')
+            bewerbung_id: Optional: ID einer verknuepften Bewerbung (für Kontext)
+            kontext: Beschreibung der Situation (z.B. 'Recruiter fragt nach Verfügbarkeit')
             ton: professionell, locker, kurz (Standard: professionell)
             sprache: deutsch oder englisch (Standard: deutsch)
         """
@@ -517,7 +517,7 @@ def register(mcp, db, logger):
             "anweisung": (
                 "Formuliere eine kurze, passende Antwortmail basierend auf dem Kontext. "
                 f"Ton: {ton}. Sprache: {sprache}. "
-                "Halte die Antwort kurz (3-5 Saetze). "
+                "Halte die Antwort kurz (3-5 Sätze). "
                 "Verwende den Namen und die Kontaktdaten aus dem Profil. "
                 "Wenn eine Bewerbung verknuepft ist, beziehe dich auf die Stelle."
             ),
@@ -541,7 +541,7 @@ def register(mcp, db, logger):
         conn = db.connect()
         doc = conn.execute("SELECT * FROM documents WHERE id=?", (dokument_id,)).fetchone()
         if not doc:
-            return {"fehler": "Dokument nicht gefunden. Pruefe die ID mit dokumente_zur_analyse()."}
+            return {"fehler": "Dokument nicht gefunden. Prüfe die ID mit dokumente_zur_analyse()."}
 
         db.link_document_to_application(dokument_id, bewerbung_id)
         return {

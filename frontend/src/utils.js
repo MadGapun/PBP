@@ -140,6 +140,36 @@ export function isTemplateDoc(doc) {
   return type.endsWith("_vorlage");
 }
 
+export function statusLabel(status) {
+  const found = STATUS_OPTIONS.find((opt) => opt.value === status);
+  if (found) return found.label;
+  // Also handle eingangsbestaetigung which is not in STATUS_OPTIONS
+  const extra = {
+    eingangsbestaetigung: "Eingangsbestätigung",
+    notiz: "Notiz",
+    bearbeitet: "Bearbeitet",
+  };
+  return extra[status] || status || "Unbekannt";
+}
+
+export function normalizeMonthDate(value) {
+  if (!value) return "";
+  const str = String(value).trim();
+  // Already YYYY-MM format
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+  // YYYY-MM-DD → YYYY-MM
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 7);
+  // MM/YYYY → YYYY-MM
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) return `${slashMatch[2]}-${slashMatch[1].padStart(2, "0")}`;
+  // DD.MM.YYYY → YYYY-MM
+  const dotMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dotMatch) return `${dotMatch[3]}-${dotMatch[2].padStart(2, "0")}`;
+  // Just a year like "2016"
+  if (/^\d{4}$/.test(str)) return `${str}-01`;
+  return str;
+}
+
 export function employmentTypeLabel(type) {
   const labels = {
     festanstellung: "Festanstellung",

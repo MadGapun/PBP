@@ -1,4 +1,4 @@
-"""Zentrales Logging fuer alle PBP-Komponenten.
+"""Zentrales Logging für alle PBP-Komponenten.
 
 Schreibt in eine rotierende Log-Datei (max 1MB, 1 Backup).
 Log-Verzeichnis: %BA_DATA_DIR%/logs/pbp.log
@@ -48,10 +48,10 @@ def setup_logging(level=None, console=True):
         level: Log-Level (default: aus BA_LOG_LEVEL env oder INFO)
         console: Auch auf stderr ausgeben (default: True, aber
                  bei MCP-Server auf False setzen da stdout/stderr
-                 fuer das MCP-Protokoll reserviert sind)
+                 für das MCP-Protokoll reserviert sind)
 
     Returns:
-        Der konfigurierte Root-Logger fuer bewerbungs_assistent
+        Der konfigurierte Root-Logger für bewerbungs_assistent
     """
     global _initialized
 
@@ -117,7 +117,7 @@ def setup_logging(level=None, console=True):
 
 
 def get_log_path():
-    """Gibt den Pfad zur Log-Datei zurueck."""
+    """Gibt den Pfad zur Log-Datei zurück."""
     data_dir = os.environ.get("BA_DATA_DIR", "")
     if data_dir:
         return os.path.join(data_dir, "logs", "pbp.log")

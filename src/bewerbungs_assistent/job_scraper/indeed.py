@@ -25,7 +25,7 @@ def search_indeed(params: dict) -> list:
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        logger.warning("Playwright nicht installiert — Indeed uebersprungen")
+        logger.warning("Playwright nicht installiert — Indeed übersprungen")
         return []
 
     jobs = []
@@ -62,7 +62,7 @@ def search_indeed(params: dict) -> list:
                         timeout=10000,
                     )
                 except PWTimeout:
-                    logger.debug("Indeed: Keine Job-Cards fuer '%s'", query)
+                    logger.debug("Indeed: Keine Job-Cards für '%s'", query)
                     continue
 
                 # Multi-strategy extraction
@@ -172,7 +172,7 @@ def search_indeed(params: dict) -> list:
                     }
                     jobs.append(job)
 
-                logger.debug("Indeed: %d Stellen fuer '%s'", len(raw_jobs), query)
+                logger.debug("Indeed: %d Stellen für '%s'", len(raw_jobs), query)
                 time.sleep(random.uniform(2, 4))
             except Exception as e:
                 logger.error("Indeed error for '%s': %s", query, e)
