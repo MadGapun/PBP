@@ -24,10 +24,13 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 | 😩 10 Jobportale einzeln durchsuchen | ✅ **17 Portale gleichzeitig** — eine Suche, alle Ergebnisse: StepStone, LinkedIn, Indeed, Hays, XING, Monster, Bundesagentur, Freelancermap, Freelance.de, GULP, SOLCOM, Jobware, FERCHAU, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Kimeta |
 | 😩 Hunderte Stellen manuell durchlesen | ✅ **Intelligentes Scoring** — Stellen werden automatisch nach deinem Profil bewertet und sortiert (Entfernung, Skills, Gehalt). Duplikate werden portalübergreifend erkannt. |
 | 😩 Anschreiben von Null anfangen | ✅ **Personalisierte Anschreiben** — basierend auf deinem Profil und der Stellenbeschreibung (PDF, DOCX, Markdown oder TXT) |
-| 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen, Bearbeitung und Statistiken |
+| 😩 Interessante Stelle gefunden — und jetzt? | ✅ **Auto-Bewerbung** — Stellenanzeigen-URL rein, PBP macht den Rest: Fit-Analyse → angepasster CV → Anschreiben → Bewerbung wird getrackt. Ein Befehl, alles erledigt. |
+| 😩 Überblick über Bewerbungen verlieren | ✅ **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen, Bearbeitung und Statistiken. Live-Dashboard im Browser. |
+| 😩 E-Mails von Firmen manuell zuordnen | ✅ **E-Mail-Import** — .msg/.eml per Drag & Drop ins Dashboard. PBP erkennt automatisch: Welche Bewerbung? Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert. |
 | 😩 Interviewvorbereitung improvisieren | ✅ **Interview-Simulation** — Claude spielt den Interviewer und gibt Feedback |
 | 😩 Gehalt falsch verhandeln | ✅ **Gehaltsverhandlung** — Markdaten-basierte Strategie und Argumentationshilfe |
 | 😩 Absage bekommen und ratlos sein | ✅ **Ablehnungs-Coaching** — Empathische Analyse mit konkreten Verbesserungsvorschlägen |
+| 😩 Nicht wissen, welche Skills fehlen | ✅ **Skill-Gap-Analyse** — PBP vergleicht dein Profil mit der Wunschstelle und zeigt, was du noch brauchst |
 
 ### Das Besondere
 
@@ -35,7 +38,9 @@ Jobsuche ist zeitfressend. Du schreibst Lebensläufe um, googelst Stellenbörsen
 - **Deine alten Unterlagen sind Gold wert.** Lade alles hoch, was du hast — alte Lebensläufe, Zeugnisse, Projektbeschreibungen, Urkunden, frühere Bewerbungen. PBP extrahiert die relevanten Daten und schärft damit dein Profil. Mit jedem Upload wird es besser. Und keine Sorge: Alte Fehler, schlechte Formulierungen oder veraltete Formate werden nicht übernommen — PBP nutzt nur die Fakten.
 - **Deine Daten bleiben lokal.** SQLite auf deinem Rechner — nichts geht in die Cloud (außer an Claude für die KI-Verarbeitung).
 - **Festanstellung & Freelance.** Egal ob du einen festen Job oder Projektaufträge suchst — PBP unterstützt beides mit getrennter Darstellung.
+- **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten, Bewerbungen und Suchkriterien.
 - **STAR-Methode für Projekte.** PBP strukturiert deine Berufserfahrung nach Situation-Task-Action-Result — das Format, das Recruiter lieben.
+- **14 geführte Workflows.** Von der Ersterfassung bis zur Netzwerk-Strategie — PBP leitet dich Schritt für Schritt.
 
 ---
 
@@ -217,9 +222,9 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten):
 > **"Starte den Jobsuche-Workflow"**
 
 Claude hilft dir bei:
-- MUSS-Keywords (z.B. "PLM", "Python")
+- MUSS-Keywords (z.B. "Python", "Projektmanager")
 - PLUS-Keywords (z.B. "Remote", "Teamleitung")
-- AUSSCHLUSS-Keywords (z.B. "SAP", "Zeitarbeit")
+- AUSSCHLUSS-Keywords (z.B. "Praktikum", "Zeitarbeit")
 - Standort und Entfernungsradius
 - Gehaltsvorstellungen
 - Aktive Jobportale auswählen
