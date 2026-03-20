@@ -1204,6 +1204,404 @@ async def api_stats_extended():
     return _db.get_extended_stats()
 
 
+# === E-Mail Integration (#136) ===
+
+@app.post("/api/emails/upload")
+async def api_upload_email(file: UploadFile = File(...)):
+    """Upload and parse a .msg or .eml file.
+
+    Parses the email, auto-matches to an application, detects status,
+    extracts meetings, and saves attachments as documents.
+    """
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        return JSONResponse(
+            {"error": f"Datei zu gross ({len(content) // 1024 // 1024} MB). Maximum: 50 MB."},
+            status_code=413,
+        )
+    incoming_name = file.filename or "email.eml"
+    ext = Path(incoming_name).suffix.lower()
+    if ext not in (".msg", ".eml"):
+        return JSONResponse(
+            {"error": "Nur .msg und .eml Dateien werden unterstützt."},
+            status_code=400,
+        )
+
+    from .services.email_service import (
+        parse_email_file,
+        detect_direction,
+        match_email_to_application,
+        detect_email_status,
+        extract_meetings_from_email,
+        save_attachments,
+        extract_sender_email,
+        find_duplicate_document,
+    )
+    from .database import get_data_dir
+
+    # Save the raw email file
+    email_dir = get_data_dir() / "emails"
+    email_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = _sanitize_upload_filename(incoming_name)
+    email_path = email_dir / safe_name
+    counter = 1
+    stem, suffix = email_path.stem, email_path.suffix
+    while email_path.exists():
+        email_path = email_dir / f"{stem}_{counter}{suffix}"
+        counter += 1
+    email_path.write_bytes(content)
+
+    # Parse the email
+    try:
+        parsed = parse_email_file(str(email_path))
+    except ImportError as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception as e:
+        logger.error("E-Mail Parsing fehlgeschlagen: %s", e)
+        return JSONResponse(
+            {"error": f"E-Mail konnte nicht geparst werden: {str(e)}"},
+            status_code=400,
+        )
+
+    # Detect direction (incoming vs outgoing)
+    profile = _db.get_profile()
+    profile_email = (profile or {}).get("email", "")
+    direction = detect_direction(parsed.get("sender", ""), profile_email)
+    parsed["_direction"] = direction
+
+    # Auto-match to application
+    apps = _db.get_applications()
+    match_app_id, match_confidence = match_email_to_application(parsed, apps)
+
+    # Detect status from content
+    detected_status, status_confidence = detect_email_status(
+        parsed.get("subject", ""),
+        parsed.get("body_text", ""),
+    )
+
+    # Extract meetings
+    meetings = extract_meetings_from_email(parsed)
+
+    # Save attachments as documents
+    doc_dir = _get_active_profile_document_dir()
+    saved_attachments = save_attachments(parsed, str(doc_dir))
+
+    # Check for duplicate documents and auto-import new ones
+    existing_docs = _db._get_documents(_db.get_active_profile_id())
+    imported_docs = []
+    for att in saved_attachments:
+        # Check for duplicate
+        dup_id = find_duplicate_document(att["content_hash"], existing_docs)
+        if dup_id:
+            att["duplicate_of"] = dup_id
+            att["imported"] = False
+            # Remove the duplicate file
+            try:
+                Path(att["filepath"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        else:
+            # Import as document
+            fname = att["filename"].lower()
+            # Auto-detect doc_type
+            doc_type = _detect_doc_type(att["filename"], "") or "sonstiges"
+            did = _db.add_document({
+                "filename": att["filename"],
+                "filepath": att["filepath"],
+                "doc_type": doc_type,
+                "extracted_text": "",
+                "content_hash": att["content_hash"],
+            })
+            att["doc_id"] = did
+            att["doc_type"] = doc_type
+            att["imported"] = True
+            # Link to matched application
+            if match_app_id:
+                try:
+                    _db.link_document_to_application(did, match_app_id)
+                except Exception:
+                    pass
+            imported_docs.append(att)
+
+    # Store the email
+    attachments_meta = [
+        {k: v for k, v in a.items() if k != "payload"}
+        for a in saved_attachments
+    ]
+    email_id = _db.add_email({
+        "application_id": match_app_id,
+        "filename": email_path.name,
+        "filepath": str(email_path),
+        "subject": parsed.get("subject", ""),
+        "sender": parsed.get("sender", ""),
+        "recipients": parsed.get("recipients", ""),
+        "sent_date": parsed.get("sent_date"),
+        "direction": direction,
+        "body_text": parsed.get("body_text", ""),
+        "body_html": parsed.get("body_html", ""),
+        "detected_status": detected_status,
+        "detected_status_confidence": status_confidence,
+        "match_confidence": match_confidence,
+        "attachments_meta": attachments_meta,
+        "meeting_extracted": bool(meetings),
+    })
+
+    # Store meetings if matched to an application
+    stored_meetings = []
+    if match_app_id and meetings:
+        for m in meetings:
+            if m.get("start"):
+                mid = _db.add_meeting({
+                    "application_id": match_app_id,
+                    "email_id": email_id,
+                    "title": m.get("title", "Termin"),
+                    "meeting_date": m["start"],
+                    "meeting_end": m.get("end"),
+                    "location": m.get("location", ""),
+                    "meeting_url": m.get("meeting_url"),
+                    "platform": m.get("platform"),
+                    "meeting_type": "interview",
+                })
+                stored_meetings.append({"id": mid, **m})
+
+    # Add timeline event if matched
+    if match_app_id:
+        event_note = f"E-Mail: {parsed.get('subject', 'Ohne Betreff')}"
+        if direction == "ausgang":
+            event_note = f"Ausgehende Mail: {parsed.get('subject', '')}"
+        _db.add_application_event(match_app_id, "email_" + direction, event_note)
+
+    # Find matched application info for response
+    matched_app = None
+    if match_app_id:
+        for a in apps:
+            if a.get("id") == match_app_id:
+                matched_app = {"id": a["id"], "title": a.get("title"), "company": a.get("company")}
+                break
+
+    return {
+        "status": "ok",
+        "email_id": email_id,
+        "parsed": {
+            "subject": parsed.get("subject", ""),
+            "sender": parsed.get("sender", ""),
+            "recipients": parsed.get("recipients", ""),
+            "sent_date": parsed.get("sent_date"),
+            "direction": direction,
+            "body_preview": (parsed.get("body_text") or "")[:500],
+            "attachment_count": len(parsed.get("attachments", [])),
+        },
+        "match": {
+            "application": matched_app,
+            "confidence": match_confidence,
+        },
+        "detected_status": {
+            "status": detected_status,
+            "confidence": status_confidence,
+        },
+        "meetings": [
+            {k: v for k, v in m.items() if k != "payload"}
+            for m in stored_meetings
+        ],
+        "attachments": [
+            {k: v for k, v in a.items() if k not in ("payload", "filepath")}
+            for a in saved_attachments
+        ],
+        "imported_documents": len(imported_docs),
+    }
+
+
+@app.post("/api/emails/{email_id}/confirm-match")
+async def api_confirm_email_match(email_id: str, request: Request):
+    """Confirm or override auto-matched application for an email."""
+    data = await request.json()
+    app_id = data.get("application_id")
+    if not app_id:
+        return JSONResponse({"error": "application_id ist erforderlich"}, status_code=400)
+
+    em = _db.get_email(email_id)
+    if not em:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+
+    _db.update_email(email_id, {"application_id": app_id, "match_confidence": 1.0, "is_processed": 1})
+
+    # Link any imported documents to the application
+    for att in (em.get("attachments_meta") or []):
+        doc_id = att.get("doc_id")
+        if doc_id:
+            try:
+                _db.link_document_to_application(doc_id, app_id)
+            except Exception:
+                pass
+
+    # Re-extract and store meetings if not yet done
+    if not em.get("meeting_extracted"):
+        from .services.email_service import extract_meetings_from_email
+        meetings = extract_meetings_from_email({
+            "subject": em.get("subject", ""),
+            "body_text": em.get("body_text", ""),
+            "body_html": em.get("body_html", ""),
+            "attachments": [],
+        })
+        for m in meetings:
+            if m.get("start"):
+                _db.add_meeting({
+                    "application_id": app_id,
+                    "email_id": email_id,
+                    "title": m.get("title", "Termin"),
+                    "meeting_date": m["start"],
+                    "meeting_end": m.get("end"),
+                    "location": m.get("location", ""),
+                    "meeting_url": m.get("meeting_url"),
+                    "platform": m.get("platform"),
+                })
+
+    return {"status": "ok"}
+
+
+@app.post("/api/emails/{email_id}/apply-status")
+async def api_apply_email_status(email_id: str, request: Request):
+    """Apply the detected status from an email to the linked application."""
+    data = await request.json()
+    status = data.get("status")
+    if not status:
+        return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
+
+    em = _db.get_email(email_id)
+    if not em:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    if not em.get("application_id"):
+        return JSONResponse({"error": "E-Mail ist keiner Bewerbung zugeordnet"}, status_code=400)
+
+    app_id = em["application_id"]
+    _db.update_application_status(app_id, status)
+    _db.add_application_event(app_id, status, f"Status aus E-Mail: {em.get('subject', '')}")
+    _db.update_email(email_id, {"is_processed": 1})
+
+    # Extract rejection feedback if applicable
+    if status == "abgelehnt":
+        from .services.email_service import extract_rejection_feedback
+        feedback = extract_rejection_feedback(em.get("body_text", ""))
+        if feedback:
+            _db.add_application_event(app_id, "notiz", f"Feedback aus Absage:\n{feedback}")
+
+    return {"status": "ok", "applied_status": status}
+
+
+@app.get("/api/emails")
+async def api_list_emails():
+    """List all emails for the active profile."""
+    emails = _db.get_all_emails()
+    return {"emails": emails, "count": len(emails)}
+
+
+@app.get("/api/emails/{email_id}")
+async def api_get_email(email_id: str):
+    """Get a single email with full body."""
+    em = _db.get_email(email_id)
+    if not em:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    return em
+
+
+@app.get("/api/applications/{app_id}/emails")
+async def api_get_application_emails(app_id: str):
+    """List all emails linked to a specific application."""
+    emails = _db.get_emails_for_application(app_id)
+    return {"emails": emails, "count": len(emails)}
+
+
+@app.delete("/api/emails/{email_id}")
+async def api_delete_email(email_id: str):
+    """Delete an email."""
+    em = _db.get_email(email_id)
+    if not em:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    # Delete file from disk
+    filepath = em.get("filepath")
+    if filepath:
+        try:
+            Path(filepath).unlink(missing_ok=True)
+        except Exception:
+            pass
+    _db.delete_email(email_id)
+    return {"status": "ok"}
+
+
+# === Meetings (#136) ===
+
+@app.get("/api/meetings")
+async def api_upcoming_meetings(days: int = 30):
+    """Get upcoming meetings for the dashboard widget."""
+    meetings = _db.get_upcoming_meetings(days=days)
+    return {"meetings": meetings, "count": len(meetings)}
+
+
+@app.get("/api/meetings/{meeting_id}")
+async def api_get_meeting(meeting_id: str):
+    """Get a single meeting."""
+    conn = _db.connect()
+    row = conn.execute(
+        """SELECT m.*, a.title as app_title, a.company as app_company
+           FROM application_meetings m
+           LEFT JOIN applications a ON m.application_id = a.id
+           WHERE m.id=?""",
+        (meeting_id,),
+    ).fetchone()
+    if not row:
+        return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
+    return dict(row)
+
+
+@app.put("/api/meetings/{meeting_id}")
+async def api_update_meeting(meeting_id: str, request: Request):
+    """Update a meeting."""
+    data = await request.json()
+    _db.update_meeting(meeting_id, data)
+    return {"status": "ok"}
+
+
+@app.delete("/api/meetings/{meeting_id}")
+async def api_delete_meeting(meeting_id: str):
+    """Cancel/delete a meeting."""
+    _db.delete_meeting(meeting_id)
+    return {"status": "ok"}
+
+
+@app.post("/api/meetings")
+async def api_create_meeting(request: Request):
+    """Manually create a meeting for an application."""
+    data = await request.json()
+    app_id = data.get("application_id")
+    meeting_date = data.get("meeting_date")
+    if not app_id or not meeting_date:
+        return JSONResponse(
+            {"error": "application_id und meeting_date sind erforderlich"},
+            status_code=400,
+        )
+    mid = _db.add_meeting({
+        "application_id": app_id,
+        "title": data.get("title", "Termin"),
+        "meeting_date": meeting_date,
+        "meeting_end": data.get("meeting_end"),
+        "location": data.get("location", ""),
+        "meeting_url": data.get("meeting_url"),
+        "meeting_type": data.get("meeting_type", "interview"),
+        "platform": data.get("platform"),
+        "notes": data.get("notes"),
+    })
+    # Add timeline event
+    _db.add_application_event(app_id, "termin_erstellt", f"Termin: {data.get('title', 'Termin')} am {meeting_date}")
+    return {"status": "ok", "id": mid}
+
+
+@app.get("/api/applications/{app_id}/meetings")
+async def api_get_application_meetings(app_id: str):
+    """List all meetings for a specific application."""
+    meetings = _db.get_meetings_for_application(app_id)
+    return {"meetings": meetings, "count": len(meetings)}
+
+
 @app.put("/api/jobs/{job_hash}/score")
 async def api_update_job_score(job_hash: str, request: Request):
     data = await request.json()

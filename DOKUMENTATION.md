@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-12 | v0.16.0
+## Komplette Projektdokumentation | Stand: 2026-03-20 | v0.29.0
 
 ---
 
@@ -380,11 +380,11 @@ pytest tests/test_workspace_service.py -v #  5 Tests
 pytest tests/test_dashboard_browser.py -v #  3 Tests
 ```
 
-Ergebnis: **190 Tests, alle gruen**
+Ergebnis: **317 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.15.1
+## 7. Fazit v0.29.0
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)
@@ -406,11 +406,33 @@ Ergebnis: **190 Tests, alle gruen**
 - ✓ Web-Dashboard mit 5 Tabs + Toast + Validierung + Spinner + Paginierung
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
-- ✓ 53 Tools, 12 Prompts, 6 Resources, 190 Tests
+- ✓ E-Mail-Integration: Import, Matching, Status-Erkennung, Meetings
+- ✓ 66 Tools, 14 Prompts, 6 Resources, 317 Tests
 - ✓ Cross-Platform (Windows + Linux)
+
+### 2.7 E-Mail-Integration ✓ vollstaendig (v0.29.0)
+
+| Feature | Beschreibung |
+|---------|-------------|
+| **E-Mail-Import** | .eml (Standard) und .msg (Outlook) Dateien per Upload oder Drag & Drop |
+| **Automatische Zuordnung** | 6 Matching-Strategien (E-Mail, Domain, Firma, Jobtitel, Ansprechpartner, URL) |
+| **Status-Erkennung** | Eingangsbestaetigung, Interview, Absage, Angebot — Deutsch + Englisch |
+| **Meeting-Extraktion** | Datum/Uhrzeit aus E-Mail-Body + .ics-Anhaenge |
+| **Meeting-Links** | Teams, Zoom, Google Meet, WebEx automatisch erkannt |
+| **Meeting-Widget** | Dashboard-Karte mit Countdown und "Beitreten"-Button |
+| **Attachment-Import** | PDF/DOCX-Anhaenge werden automatisch als Dokumente importiert |
+| **Duplikat-Erkennung** | SHA256-Hashing verhindert doppelte Dokumente |
+| **Absage-Feedback** | Konkretes Feedback aus Absagen wird in Timeline gespeichert |
+| **Manuelle Termine** | Termine ohne E-Mail direkt in Bewerbungs-Detailansicht anlegen |
+
+**Ablauf:** E-Mail per Drag & Drop oder Upload-Button importieren → PBP parst die Mail,
+ordnet sie der passenden Bewerbung zu, erkennt den Status, extrahiert Termine und
+importiert Anhaenge — alles in einem Schritt. Die Zuordnung und der Status koennen
+jederzeit manuell bestaetigt oder geaendert werden.
+
+---
 
 ### Moegliche zukuenftige Erweiterungen:
 - Dark Mode
-- E-Mail-Benachrichtigungen bei neuen passenden Stellen
 - Bewerbungs-Templates
 - weiterer Ausbau des Service-Layers (siehe docs/VERBESSERUNGSPLAN.md)

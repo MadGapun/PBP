@@ -11,13 +11,13 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 
 def _gen_id() -> str:
@@ -468,6 +468,61 @@ class Database:
                     logger.debug("Spalte existiert bereits: %s", e)
             logger.info("Migration v13->v14: description_snapshot, vermittler/endkunde")
 
+        if from_ver < 15:
+            # v15: E-Mail-Integration — application_emails, application_meetings, content_hash
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS application_emails (
+                    id TEXT PRIMARY KEY,
+                    application_id TEXT REFERENCES applications(id) ON DELETE SET NULL,
+                    profile_id TEXT,
+                    filename TEXT NOT NULL,
+                    filepath TEXT,
+                    subject TEXT,
+                    sender TEXT,
+                    recipients TEXT,
+                    sent_date TEXT,
+                    direction TEXT DEFAULT 'eingang',
+                    body_text TEXT,
+                    body_html TEXT,
+                    detected_status TEXT,
+                    detected_status_confidence REAL DEFAULT 0.0,
+                    match_confidence REAL DEFAULT 0.0,
+                    attachments_json TEXT DEFAULT '[]',
+                    meeting_extracted INTEGER DEFAULT 0,
+                    is_processed INTEGER DEFAULT 0,
+                    created_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS application_meetings (
+                    id TEXT PRIMARY KEY,
+                    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+                    email_id TEXT REFERENCES application_emails(id) ON DELETE SET NULL,
+                    profile_id TEXT,
+                    title TEXT NOT NULL,
+                    meeting_date TEXT NOT NULL,
+                    meeting_end TEXT,
+                    location TEXT,
+                    meeting_url TEXT,
+                    meeting_type TEXT DEFAULT 'interview',
+                    platform TEXT,
+                    ics_data TEXT,
+                    notes TEXT,
+                    status TEXT DEFAULT 'geplant',
+                    created_at TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_emails_app ON application_emails(application_id);
+                CREATE INDEX IF NOT EXISTS idx_emails_profile ON application_emails(profile_id);
+                CREATE INDEX IF NOT EXISTS idx_meetings_app ON application_meetings(application_id);
+                CREATE INDEX IF NOT EXISTS idx_meetings_date ON application_meetings(meeting_date, status);
+            """)
+            # Add content_hash to documents for duplicate detection
+            try:
+                conn.execute("ALTER TABLE documents ADD COLUMN content_hash TEXT")
+            except Exception:
+                pass
+            logger.info("Migration v14->v15: application_emails, application_meetings, content_hash")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -562,6 +617,10 @@ class Database:
                 (SELECT id FROM positions WHERE profile_id=?)
             """, (profile_id,))
 
+            # Delete emails and meetings for this profile
+            conn.execute("DELETE FROM application_meetings WHERE profile_id=?", (profile_id,))
+            conn.execute("DELETE FROM application_emails WHERE profile_id=?", (profile_id,))
+
             # Delete all profile-linked data
             for table in ["positions", "education", "skills", "documents",
                            "applications", "jobs", "suggested_job_titles"]:
@@ -596,7 +655,8 @@ class Database:
             # Fix corrupt job_hash="" entries first
             conn.execute("UPDATE applications SET job_hash=NULL WHERE job_hash=''")
             # Clear all data tables
-            for table in ["extraction_history", "application_events", "projects",
+            for table in ["application_meetings", "application_emails",
+                           "extraction_history", "application_events", "projects",
                            "positions", "education", "skills", "documents",
                            "applications", "jobs", "blacklist", "background_jobs",
                            "user_preferences", "suggested_job_titles",
@@ -1132,12 +1192,13 @@ class Database:
         profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
             INSERT INTO documents (id, filename, filepath, doc_type,
-                extracted_text, linked_position_id, profile_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                extracted_text, linked_position_id, profile_id, content_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             did, data.get("filename"), data.get("filepath"),
             data.get("doc_type", "sonstiges"), data.get("extracted_text"),
-            data.get("linked_position_id"), profile_id, _now()
+            data.get("linked_position_id"), profile_id,
+            data.get("content_hash"), _now()
         ))
         conn.commit()
         return did
@@ -1546,6 +1607,16 @@ class Database:
             INSERT INTO application_events (application_id, status, event_date, notes, parent_event_id)
             VALUES (?, 'notiz', ?, ?, ?)
         """, (app_id, now, note, parent_event_id))
+        conn.commit()
+
+    def add_application_event(self, app_id: str, status: str, notes: str = ""):
+        """Add a generic event to the application timeline (#136)."""
+        conn = self.connect()
+        now = _now()
+        conn.execute("""
+            INSERT INTO application_events (application_id, status, event_date, notes)
+            VALUES (?, ?, ?, ?)
+        """, (app_id, status, now, notes))
         conn.commit()
 
     def update_application_event(self, event_id: int, app_id: str, text: str):
@@ -2775,6 +2846,211 @@ class Database:
 
         return pid
 
+    # === E-Mail Integration ===
+
+    def add_email(self, data: dict) -> str:
+        """Store a parsed email in the database."""
+        conn = self.connect()
+        eid = _gen_id()
+        pid = self.get_active_profile_id()
+        conn.execute(
+            """INSERT INTO application_emails
+               (id, application_id, profile_id, filename, filepath, subject, sender,
+                recipients, sent_date, direction, body_text, body_html,
+                detected_status, detected_status_confidence, match_confidence,
+                attachments_json, meeting_extracted, is_processed, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                eid,
+                data.get("application_id"),
+                pid,
+                data.get("filename", ""),
+                data.get("filepath", ""),
+                data.get("subject", ""),
+                data.get("sender", ""),
+                data.get("recipients", ""),
+                data.get("sent_date"),
+                data.get("direction", "eingang"),
+                data.get("body_text", ""),
+                data.get("body_html", ""),
+                data.get("detected_status"),
+                data.get("detected_status_confidence", 0.0),
+                data.get("match_confidence", 0.0),
+                json.dumps(data.get("attachments_meta", []), ensure_ascii=False),
+                1 if data.get("meeting_extracted") else 0,
+                1 if data.get("is_processed") else 0,
+                _now(),
+            ),
+        )
+        conn.commit()
+        return eid
+
+    def get_email(self, email_id: str) -> Optional[dict]:
+        """Get a single email by ID."""
+        conn = self.connect()
+        row = conn.execute("SELECT * FROM application_emails WHERE id=?", (email_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["attachments_meta"] = json.loads(d.get("attachments_json") or "[]")
+        return d
+
+    def get_emails_for_application(self, application_id: str) -> list:
+        """List all emails linked to an application."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM application_emails WHERE application_id=? ORDER BY sent_date DESC",
+            (application_id,),
+        ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["attachments_meta"] = json.loads(d.get("attachments_json") or "[]")
+            # Don't send full body in list view
+            d.pop("body_html", None)
+            result.append(d)
+        return result
+
+    def get_unmatched_emails(self) -> list:
+        """Get emails not yet linked to an application."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute(
+            """SELECT * FROM application_emails
+               WHERE application_id IS NULL AND (profile_id=? OR profile_id IS NULL)
+               ORDER BY created_at DESC""",
+            (pid,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def update_email(self, email_id: str, data: dict):
+        """Update email fields (e.g., assign to application)."""
+        conn = self.connect()
+        allowed = {"application_id", "is_processed", "detected_status",
+                    "detected_status_confidence", "match_confidence"}
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if k in allowed:
+                sets.append(f"{k}=?")
+                vals.append(v)
+        if sets:
+            vals.append(email_id)
+            conn.execute(
+                f"UPDATE application_emails SET {', '.join(sets)} WHERE id=?",
+                vals,
+            )
+            conn.commit()
+
+    def delete_email(self, email_id: str):
+        """Delete an email record."""
+        conn = self.connect()
+        conn.execute("DELETE FROM application_emails WHERE id=?", (email_id,))
+        conn.commit()
+
+    def get_all_emails(self) -> list:
+        """Get all emails for the active profile."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute(
+            """SELECT id, application_id, filename, subject, sender, recipients,
+                      sent_date, direction, detected_status, detected_status_confidence,
+                      match_confidence, is_processed, created_at
+               FROM application_emails
+               WHERE profile_id=? OR profile_id IS NULL
+               ORDER BY sent_date DESC""",
+            (pid,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    # === Meetings ===
+
+    def add_meeting(self, data: dict) -> str:
+        """Store a meeting/appointment."""
+        conn = self.connect()
+        mid = _gen_id()
+        pid = self.get_active_profile_id()
+        conn.execute(
+            """INSERT INTO application_meetings
+               (id, application_id, email_id, profile_id, title, meeting_date,
+                meeting_end, location, meeting_url, meeting_type, platform,
+                ics_data, notes, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                mid,
+                data["application_id"],
+                data.get("email_id"),
+                pid,
+                data.get("title", "Termin"),
+                data["meeting_date"],
+                data.get("meeting_end"),
+                data.get("location", ""),
+                data.get("meeting_url"),
+                data.get("meeting_type", "interview"),
+                data.get("platform"),
+                data.get("ics_data"),
+                data.get("notes"),
+                data.get("status", "geplant"),
+                _now(),
+            ),
+        )
+        conn.commit()
+        return mid
+
+    def get_upcoming_meetings(self, days: int = 30) -> list:
+        """Get upcoming meetings for the active profile within N days."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        now = datetime.now().isoformat()
+        cutoff = (datetime.now() + timedelta(days=days)).isoformat()
+        rows = conn.execute(
+            """SELECT m.*, a.title as app_title, a.company as app_company
+               FROM application_meetings m
+               LEFT JOIN applications a ON m.application_id = a.id
+               WHERE m.status='geplant'
+                 AND m.meeting_date >= ?
+                 AND m.meeting_date <= ?
+                 AND (m.profile_id=? OR m.profile_id IS NULL)
+               ORDER BY m.meeting_date ASC""",
+            (now, cutoff, pid),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_meetings_for_application(self, application_id: str) -> list:
+        """Get all meetings for a specific application."""
+        conn = self.connect()
+        rows = conn.execute(
+            """SELECT * FROM application_meetings
+               WHERE application_id=? ORDER BY meeting_date ASC""",
+            (application_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def update_meeting(self, meeting_id: str, data: dict):
+        """Update meeting fields."""
+        conn = self.connect()
+        allowed = {"title", "meeting_date", "meeting_end", "location",
+                    "meeting_url", "meeting_type", "platform", "notes", "status"}
+        sets = []
+        vals = []
+        for k, v in data.items():
+            if k in allowed:
+                sets.append(f"{k}=?")
+                vals.append(v)
+        if sets:
+            vals.append(meeting_id)
+            conn.execute(
+                f"UPDATE application_meetings SET {', '.join(sets)} WHERE id=?",
+                vals,
+            )
+            conn.commit()
+
+    def delete_meeting(self, meeting_id: str):
+        """Delete a meeting."""
+        conn = self.connect()
+        conn.execute("DELETE FROM application_meetings WHERE id=?", (meeting_id,))
+        conn.commit()
+
 
 def _safe_float(val, default=None):
     """Sanitize float values for JSON serialization (inf/nan -> default)."""
@@ -2898,6 +3174,7 @@ CREATE TABLE IF NOT EXISTS documents (
     profile_id TEXT,
     extraction_status TEXT DEFAULT 'nicht_extrahiert',
     last_extraction_at TEXT,
+    content_hash TEXT,
     created_at TEXT
 );
 
@@ -3036,4 +3313,49 @@ CREATE TABLE IF NOT EXISTS dismiss_reasons (
     profile_id TEXT,
     created_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS application_emails (
+    id TEXT PRIMARY KEY,
+    application_id TEXT REFERENCES applications(id) ON DELETE SET NULL,
+    profile_id TEXT,
+    filename TEXT NOT NULL,
+    filepath TEXT,
+    subject TEXT,
+    sender TEXT,
+    recipients TEXT,
+    sent_date TEXT,
+    direction TEXT DEFAULT 'eingang',
+    body_text TEXT,
+    body_html TEXT,
+    detected_status TEXT,
+    detected_status_confidence REAL DEFAULT 0.0,
+    match_confidence REAL DEFAULT 0.0,
+    attachments_json TEXT DEFAULT '[]',
+    meeting_extracted INTEGER DEFAULT 0,
+    is_processed INTEGER DEFAULT 0,
+    created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS application_meetings (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    email_id TEXT REFERENCES application_emails(id) ON DELETE SET NULL,
+    profile_id TEXT,
+    title TEXT NOT NULL,
+    meeting_date TEXT NOT NULL,
+    meeting_end TEXT,
+    location TEXT,
+    meeting_url TEXT,
+    meeting_type TEXT DEFAULT 'interview',
+    platform TEXT,
+    ics_data TEXT,
+    notes TEXT,
+    status TEXT DEFAULT 'geplant',
+    created_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_emails_app ON application_emails(application_id);
+CREATE INDEX IF NOT EXISTS idx_emails_profile ON application_emails(profile_id);
+CREATE INDEX IF NOT EXISTS idx_meetings_app ON application_meetings(application_id);
+CREATE INDEX IF NOT EXISTS idx_meetings_date ON application_meetings(meeting_date, status);
 """

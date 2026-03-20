@@ -416,7 +416,7 @@ def test_application_timeline_supports_note_and_status_changes(live_dashboard, b
 
         note_input = page.get_by_placeholder("Notiz hinzufügen...")
         note_input.fill("Browser-Regression: Timeline-Notiz")
-        page.get_by_role("button", name="Hinzufügen").click()
+        page.get_by_role("button", name="Hinzufügen", exact=True).click()
         page.get_by_text("Notiz hinzugefügt.").wait_for(state="visible")
         page.get_by_text("Browser-Regression: Timeline-Notiz", exact=True).wait_for(state="visible")
 

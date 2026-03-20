@@ -2,6 +2,80 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.29.0] - 2026-03-20
+
+### Major: E-Mail-Integration — Parsing, Matching, Meetings (#136)
+
+**E-Mail-Import & Parsing:**
+- Neuer Service `email_service.py` (~480 Zeilen) fuer .eml (Python stdlib) und .msg (extract-msg) Dateien
+- Automatische Richtungserkennung (eingehend/ausgehend) anhand Absender-Domain
+- Absender-E-Mail und Domain werden extrahiert und fuer Matching verwendet
+- Drag & Drop: .msg/.eml Dateien ins Dashboard ziehen — automatische Erkennung und Routing
+
+**Automatische Zuordnung (6 Strategien):**
+- Kontakt-E-Mail exakt → Konfidenz 0.95
+- Domain-Match → 0.70
+- Firmenname in Absender/Betreff → 0.60
+- Jobtitel in Betreff → 0.50
+- Ansprechpartner in Absender → 0.80
+- URL-Domain-Match → 0.65
+- Minimum-Schwelle: 0.30 — darunter bleibt die E-Mail unzugeordnet
+
+**Status-Erkennung:**
+- Muster-basierte Erkennung fuer Deutsch + Englisch
+- 4 Kategorien: Eingangsbestaetigung, Interview-Einladung, Absage, Angebot
+- Umlaut-Normalisierung (ae→ä, ue→ü, oe→ö, ss→ß) fuer robustes Matching
+
+**Meeting-Extraktion:**
+- Datum/Uhrzeit aus E-Mail-Body (2 deutsche Datumsformate)
+- .ics-Anhang-Parsing via `icalendar` Library
+- Meeting-Link-Erkennung: Teams, Zoom, Google Meet, WebEx
+- Plattform wird automatisch aus URL erkannt
+
+**Dashboard Meeting-Widget:**
+- Anstehende Termine mit Countdown ("in X Tagen", "morgen", "jetzt gleich")
+- Plattform-Badge (Teams/Zoom/Meet/WebEx)
+- Direkter "Beitreten"-Button mit Meeting-URL
+- Manuelle Termin-Erstellung in der Bewerbungs-Detailansicht
+
+**Attachment-Import & Duplikat-Erkennung:**
+- E-Mail-Anhaenge (PDF, DOCX) werden automatisch als Dokumente importiert
+- SHA256-Content-Hashing auf `documents`-Tabelle
+- Duplikate werden erkannt und uebersprungen (mit Info-Badge im UI)
+
+**Absage-Feedback:**
+- Konkretes Feedback aus Absage-Mails wird extrahiert
+- Automatisch als Notiz in der Bewerbungs-Timeline gespeichert
+
+**17 neue API-Endpoints:**
+- `POST /api/emails/upload` — Komplette Pipeline (Parse → Match → Status → Meetings → Attachments)
+- `POST /api/emails/{id}/confirm-match` — Zuordnung bestaetigen/aendern
+- `POST /api/emails/{id}/apply-status` — Erkannten Status uebernehmen
+- `GET/DELETE /api/emails`, `GET /api/emails/{id}`
+- `GET /api/applications/{id}/emails`, `GET /api/applications/{id}/meetings`
+- `GET/POST/PUT/DELETE /api/meetings`
+
+**Schema-Migration v14→v15:**
+- Neue Tabelle `application_emails` (subject, sender, body, direction, matched, status, confidence, ...)
+- Neue Tabelle `application_meetings` (title, meeting_date, meeting_url, platform, ...)
+- `content_hash TEXT` Spalte auf `documents` fuer Duplikat-Erkennung
+
+**Frontend-Erweiterungen:**
+- DashboardPage: Meeting-Widget + E-Mail-Liste + E-Mail-Detail-Modal + Upload-Button
+- ApplicationsPage: Meetings/E-Mails in Timeline + MeetingCreator-Komponente
+- GlobalDocumentDropZone: Automatische .msg/.eml-Erkennung und Routing
+- document-upload.js: `isEmailFile()` + `uploadEmailFile()` Hilfsfunktionen
+
+**Dependencies:**
+- Neue optionale Gruppe `email`: `extract-msg>=0.48`, `icalendar>=5.0`
+- `all`-Gruppe erweitert: `bewerbungs-assistent[scraper,docs,export,email]`
+
+**Geschlossene Issues:** #136
+
+**Tests:** 317 passed (46 neue E-Mail-Tests), 4 skipped
+
+---
+
 ## [0.26.0] - 2026-03-20
 
 ### Major: Filtering, Scoring, UX — 15 Issues (66 Tools, 14 Prompts, Schema v13)

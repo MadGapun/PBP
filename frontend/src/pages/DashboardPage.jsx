@@ -3,20 +3,25 @@
   BarChart3,
   BookOpen,
   Briefcase,
+  Calendar,
   ClipboardList,
+  ExternalLink,
   FolderOpen,
   HandCoins,
+  Mail,
   Mic,
   Network,
   PlayCircle,
   PlusCircle,
   Search,
   Send,
+  Upload,
   UserCheck,
+  Video,
 } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, optionalApi } from "@/api";
+import { api, optionalApi, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import {
   Badge,
@@ -24,7 +29,9 @@ import {
   Card,
   LoadingPanel,
   MetricCard,
+  Modal,
   PageHeader,
+  SelectInput,
 } from "@/components/ui";
 import {
   formatCurrency,
@@ -91,7 +98,10 @@ export default function DashboardPage() {
     followUps: [],
     statistics: {},
     zombies: [],
+    meetings: [],
+    emails: [],
   });
+  const [emailDetail, setEmailDetail] = useState(null);
 
   const loadData = useEffectEvent(async () => {
     if (!chrome.status?.has_profile) {
@@ -102,6 +112,8 @@ export default function DashboardPage() {
           followUps: [],
           statistics: {},
           zombies: [],
+          meetings: [],
+          emails: [],
         });
         setLoading(false);
       });
@@ -109,12 +121,14 @@ export default function DashboardPage() {
     }
 
     try {
-      const [jobs, applications, followUps, statistics, zombieData] = await Promise.all([
+      const [jobs, applications, followUps, statistics, zombieData, meetingsData, emailsData] = await Promise.all([
         optionalApi("/api/jobs?active=true"),
         optionalApi("/api/applications"),
         optionalApi("/api/follow-ups"),
         optionalApi("/api/statistics"),
         optionalApi("/api/applications/zombies"),
+        optionalApi("/api/meetings"),
+        optionalApi("/api/emails"),
       ]);
 
       // If ALL calls returned null, the server is unreachable (#123)
@@ -139,6 +153,8 @@ export default function DashboardPage() {
           followUps: followUps?.follow_ups || [],
           statistics: statistics || {},
           zombies: zombieData?.zombies || [],
+          meetings: meetingsData?.meetings || [],
+          emails: emailsData?.emails || [],
         });
         setLoading(false);
       });
@@ -477,6 +493,91 @@ export default function DashboardPage() {
             </div>
           </Card>
 
+          <Card className="rounded-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink">
+                <Calendar size={14} className="mr-1.5 inline-block text-teal/60" />
+                Anstehende Termine
+              </h2>
+              <EmailUploadButton pushToast={pushToast} />
+            </div>
+            <div className="mt-3 grid gap-2">
+              {data.meetings.length > 0 ? (
+                data.meetings.slice(0, 5).map((meeting) => {
+                  const meetingDate = new Date(meeting.meeting_date);
+                  const now = new Date();
+                  const diffMs = meetingDate - now;
+                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                  const countdown =
+                    diffDays > 1
+                      ? `in ${diffDays} Tagen`
+                      : diffDays === 1
+                        ? "morgen"
+                        : diffHours > 0
+                          ? `in ${diffHours} Stunden`
+                          : diffMs > 0
+                            ? "jetzt gleich"
+                            : "vergangen";
+                  const isToday = diffDays === 0 && diffMs > 0;
+                  const platformIcon = meeting.platform === "teams" ? "Teams" :
+                    meeting.platform === "zoom" ? "Zoom" :
+                    meeting.platform === "google_meet" ? "Meet" : "";
+                  return (
+                    <div
+                      key={meeting.id}
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                        isToday
+                          ? "border-teal/30 bg-teal/5"
+                          : "border-white/[0.04]"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-ink">
+                          {meeting.title || meeting.app_title || "Termin"}
+                        </p>
+                        <p className="text-[12px] text-muted/60">
+                          {meeting.app_company && (
+                            <span className="font-medium text-muted/80">{meeting.app_company} — </span>
+                          )}
+                          {formatDate(meeting.meeting_date)}{" "}
+                          {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+                          {platformIcon && (
+                            <span className="ml-1.5 rounded bg-sky/15 px-1.5 py-px text-[10px] font-bold text-sky">
+                              {platformIcon}
+                            </span>
+                          )}
+                        </p>
+                        <p className={`mt-0.5 text-[11px] font-medium ${
+                          isToday ? "text-teal" : diffDays <= 3 ? "text-amber" : "text-muted/50"
+                        }`}>
+                          {countdown}
+                        </p>
+                      </div>
+                      {meeting.meeting_url && (
+                        <a
+                          href={meeting.meeting_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
+                        >
+                          <Video size={14} />
+                          Beitreten
+                        </a>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="py-4 text-center text-[13px] text-muted/50">
+                  Keine anstehenden Termine
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-2">
           <Card className="overflow-hidden rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
@@ -527,10 +628,289 @@ export default function DashboardPage() {
               })()}
             </div>
           </Card>
+
+          {/* Recent Emails (#136) */}
+          <Card className="overflow-hidden rounded-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink">
+                <Mail size={14} className="mr-1.5 inline-block text-teal/60" />
+                E-Mails
+                {data.emails.filter((e) => !e.application_id).length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-[10px] font-bold text-amber">
+                    {data.emails.filter((e) => !e.application_id).length} offen
+                  </span>
+                )}
+              </h2>
+              <EmailUploadButton pushToast={pushToast} />
+            </div>
+            <div className="mt-3 grid gap-1.5">
+              {data.emails.length > 0 ? (
+                data.emails.slice(0, 6).map((em) => (
+                  <button
+                    key={em.id}
+                    type="button"
+                    className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-white/[0.04] px-3 py-2 text-left transition hover:bg-white/[0.04]"
+                    onClick={async () => {
+                      try {
+                        const full = await api(`/api/emails/${em.id}`);
+                        setEmailDetail(full);
+                      } catch {
+                        setEmailDetail(em);
+                      }
+                    }}
+                  >
+                    <span className={`shrink-0 text-sm ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
+                      {em.direction === "ausgang" ? "↗" : "↙"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] text-ink">{em.subject || "Ohne Betreff"}</p>
+                      <p className="truncate text-[11px] text-muted/50">
+                        {em.sender || em.recipients}
+                        {em.sent_date && <span className="ml-1.5">{formatDate(em.sent_date)}</span>}
+                      </p>
+                    </div>
+                    {!em.application_id && (
+                      <Badge tone="amber">Offen</Badge>
+                    )}
+                    {em.detected_status && (
+                      <Badge tone="sky">{em.detected_status}</Badge>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <p className="py-4 text-center text-[13px] text-muted/50">
+                  Keine E-Mails importiert. Drag &amp; Drop oder Button nutzen.
+                </p>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
+
+      {/* Email Detail Modal (#136) */}
+      {emailDetail && (
+        <EmailDetailModal
+          email={emailDetail}
+          applications={data.applications}
+          onClose={() => setEmailDetail(null)}
+          pushToast={pushToast}
+          onUpdate={() => { setEmailDetail(null); loadData(); }}
+        />
+      )}
     </div>
   );
 }
 
 
+function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate }) {
+  const [assignApp, setAssignApp] = useState(email.application_id || "");
+  const [applying, setApplying] = useState(false);
+
+  async function confirmMatch() {
+    if (!assignApp) return;
+    try {
+      await postJson(`/api/emails/${email.id}/confirm-match`, { application_id: assignApp });
+      pushToast("E-Mail zugeordnet.", "success");
+      onUpdate();
+    } catch (err) {
+      pushToast(`Zuordnung fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  async function applyStatus(status) {
+    setApplying(true);
+    try {
+      await postJson(`/api/emails/${email.id}/apply-status`, { status });
+      pushToast(`Status '${status}' angewendet.`, "success");
+      onUpdate();
+    } catch (err) {
+      pushToast(`Status konnte nicht angewendet werden: ${err.message}`, "danger");
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  async function deleteEmail() {
+    try {
+      await api(`/api/emails/${email.id}`, { method: "DELETE" });
+      pushToast("E-Mail gelöscht.", "success");
+      onUpdate();
+    } catch (err) {
+      pushToast(`Löschen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  return (
+    <Modal
+      open={true}
+      title={email.subject || "E-Mail"}
+      onClose={onClose}
+      footer={
+        <div className="flex justify-between">
+          <Button variant="ghost" className="text-coral" onClick={deleteEmail}>Löschen</Button>
+          <Button onClick={onClose}>Schließen</Button>
+        </div>
+      }
+    >
+      <div className="grid gap-4">
+        <Card className="glass-card-soft rounded-xl shadow-none">
+          <div className="grid gap-1.5 text-sm">
+            <div className="flex gap-2">
+              <span className="w-16 shrink-0 text-muted/50">Von:</span>
+              <span className="text-ink">{email.sender}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="w-16 shrink-0 text-muted/50">An:</span>
+              <span className="text-ink">{email.recipients}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="w-16 shrink-0 text-muted/50">Datum:</span>
+              <span className="text-ink">{formatDate(email.sent_date)}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="w-16 shrink-0 text-muted/50">Richtung:</span>
+              <Badge tone={email.direction === "ausgang" ? "sky" : "amber"}>
+                {email.direction === "ausgang" ? "Ausgehend" : "Eingehend"}
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        {/* Body text */}
+        {email.body_text && (
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Inhalt</p>
+            <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
+              {email.body_text}
+            </div>
+          </Card>
+        )}
+
+        {/* Detected status */}
+        {email.detected_status && (
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Erkannter Status</p>
+            <div className="mt-2 flex items-center gap-3">
+              <Badge tone="sky">{email.detected_status}</Badge>
+              <span className="text-xs text-muted/50">
+                Konfidenz: {Math.round((email.detected_status_confidence || 0) * 100)}%
+              </span>
+              {email.application_id && (
+                <Button size="sm" onClick={() => applyStatus(email.detected_status)} disabled={applying}>
+                  Status übernehmen
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Attachments */}
+        {(email.attachments_meta || []).length > 0 && (
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              Anhänge ({email.attachments_meta.length})
+            </p>
+            <div className="mt-2 grid gap-1">
+              {email.attachments_meta.map((att, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-ink">
+                  <span className="text-muted/50">📎</span>
+                  <span>{att.filename}</span>
+                  {att.imported && <Badge tone="success">Importiert</Badge>}
+                  {att.duplicate_of && <Badge tone="neutral">Duplikat</Badge>}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Assign to application */}
+        <Card className="glass-card-soft rounded-xl shadow-none">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung zuordnen</p>
+          <div className="mt-2 flex gap-2">
+            <SelectInput
+              className="flex-1"
+              value={assignApp}
+              onChange={(e) => setAssignApp(e.target.value)}
+            >
+              <option value="">— Nicht zugeordnet —</option>
+              {(applications || []).map((app) => (
+                <option key={app.id} value={app.id}>
+                  {app.title} @ {app.company}
+                </option>
+              ))}
+            </SelectInput>
+            <Button size="sm" onClick={confirmMatch} disabled={!assignApp}>
+              Zuordnen
+            </Button>
+          </div>
+          {email.match_confidence > 0 && email.match_confidence < 1 && (
+            <p className="mt-1 text-xs text-muted/50">
+              Auto-Match Konfidenz: {Math.round(email.match_confidence * 100)}%
+            </p>
+          )}
+        </Card>
+      </div>
+    </Modal>
+  );
+}
+
+
+function EmailUploadButton({ pushToast }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/emails/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        pushToast(data.error || "E-Mail-Upload fehlgeschlagen", "danger");
+        return;
+      }
+      const matchInfo = data.match?.application
+        ? ` → ${data.match.application.company} (${Math.round(data.match.confidence * 100)}%)`
+        : " (nicht zugeordnet)";
+      const statusInfo = data.detected_status?.status
+        ? ` | Status: ${data.detected_status.status}`
+        : "";
+      const meetingInfo = data.meetings?.length
+        ? ` | ${data.meetings.length} Termin(e)`
+        : "";
+      const docInfo = data.imported_documents
+        ? ` | ${data.imported_documents} Dokument(e)`
+        : "";
+      pushToast(`E-Mail importiert${matchInfo}${statusInfo}${meetingInfo}${docInfo}`, "success");
+    } catch (err) {
+      pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".msg,.eml"
+        className="hidden"
+        onChange={handleUpload}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+      >
+        <Mail size={14} className="mr-1" />
+        {uploading ? "Importiere..." : "E-Mail importieren"}
+      </Button>
+    </>
+  );
+}

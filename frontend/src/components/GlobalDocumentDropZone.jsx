@@ -1,6 +1,6 @@
 ﻿import { useEffect, useEffectEvent, useRef } from "react";
 
-import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
+import { analyzeUploadedDocuments, createFileSignature, isEmailFile, uploadDocumentFile, uploadEmailFile } from "@/document-upload";
 import {
   extractDroppedFiles,
   GLOBAL_FILE_DRAG_STATE_EVENT,
@@ -56,9 +56,34 @@ export default function GlobalDocumentDropZone({ hasActiveProfile, profileName, 
 
     busyRef.current = true;
 
+    // Separate email files from document files (#136)
+    const emailFiles = uniqueFiles.filter((f) => isEmailFile(f));
+    const docFiles = uniqueFiles.filter((f) => !isEmailFile(f));
+
     let uploaded = 0;
     let failed = 0;
-    for (const file of uniqueFiles) {
+    let emailsImported = 0;
+
+    // Process email files via /api/emails/upload
+    for (const file of emailFiles) {
+      try {
+        const result = await uploadEmailFile(file);
+        emailsImported += 1;
+        const matchInfo = result.match?.application
+          ? ` → ${result.match.application.company}`
+          : "";
+        const meetingInfo = result.meetings?.length
+          ? ` | ${result.meetings.length} Termin(e)`
+          : "";
+        pushToast(`E-Mail importiert: ${result.parsed?.subject || file.name}${matchInfo}${meetingInfo}`, "success");
+      } catch (err) {
+        failed += 1;
+        pushToast(`E-Mail-Import fehlgeschlagen (${file.name}): ${err.message}`, "danger");
+      }
+    }
+
+    // Process document files normally
+    for (const file of docFiles) {
       try {
         await uploadDocumentFile(file);
         uploaded += 1;
@@ -77,15 +102,20 @@ export default function GlobalDocumentDropZone({ hasActiveProfile, profileName, 
     busyRef.current = false;
     await refreshChrome();
 
-    if (uploaded > 0 && failed === 0) {
-      pushToast(`${uploaded} Datei(en) für ${profileName || "das aktive Profil"} hochgeladen und analysiert.`, "success");
+    const totalOk = uploaded + emailsImported;
+    if (totalOk > 0 && failed === 0) {
+      if (docFiles.length > 0) {
+        pushToast(`${uploaded} Datei(en) für ${profileName || "das aktive Profil"} hochgeladen und analysiert.`, "success");
+      }
       return;
     }
-    if (uploaded > 0 && failed > 0) {
-      pushToast(`${uploaded} Datei(en) erfolgreich, ${failed} fehlgeschlagen.`, "amber");
+    if (totalOk > 0 && failed > 0) {
+      pushToast(`${totalOk} Datei(en) erfolgreich, ${failed} fehlgeschlagen.`, "amber");
       return;
     }
-    pushToast("Keine Datei konnte verarbeitet werden.", "danger");
+    if (totalOk === 0 && failed > 0) {
+      pushToast("Keine Datei konnte verarbeitet werden.", "danger");
+    }
   });
 
   useEffect(() => {

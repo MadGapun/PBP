@@ -5,8 +5,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-237%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-62-blueviolet.svg)](#mcp-schnittstelle)
+[![Tests](https://img.shields.io/badge/Tests-317%20passing-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-66-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-14-ff69b4.svg)](#die-14-workflows)
 
 ---
@@ -127,6 +127,20 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - A/B-Tracking für Anschreiben-Stile
 - Ablehnungs-Muster-Analyse mit lernenden Ablehnungsgründen
 - **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
+
+### 📧 E-Mail-Integration (NEU in v0.29.0)
+Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
+
+- **Automatische Zuordnung** — E-Mails werden anhand von Absender-Domain, Firmenname, Betreff und Kontaktdaten automatisch der richtigen Bewerbung zugeordnet
+- **Status-Erkennung** — Eingangsbestätigung, Interview-Einladung, Absage oder Angebot werden automatisch erkannt (Deutsch + Englisch)
+- **Termin-Extraktion** — Datum, Uhrzeit und Meeting-Links (Teams, Zoom, Google Meet, WebEx) werden aus dem E-Mail-Body und .ics-Anhängen extrahiert
+- **Meeting-Widget im Dashboard** — Anstehende Termine mit Countdown und direktem "Beitreten"-Button
+- **Attachment-Import** — E-Mail-Anhänge (PDF, DOCX) werden automatisch als Dokumente importiert, mit SHA256-Duplikat-Erkennung
+- **Absage-Feedback** — Konkretes Feedback aus Absage-Mails wird als Notiz in der Bewerbungs-Timeline gespeichert
+- **Drag & Drop** — .msg/.eml Dateien einfach ins Dashboard ziehen — automatische Erkennung und Verarbeitung
+- **Manuelle Termin-Erstellung** — Termine können auch ohne E-Mail direkt in der Bewerbungs-Detailansicht angelegt werden
+
+> 💡 **So funktioniert es:** E-Mail per Drag & Drop oder Upload-Button importieren → PBP parst die Mail, ordnet sie zu, erkennt den Status, extrahiert Termine und importiert Anhänge — alles in einem Schritt.
 
 ### 🎯 KI-Coaching
 - **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
@@ -274,6 +288,9 @@ Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8
 - Workspace-Guidance zeigt dir den nächsten sinnvollen Schritt
 - Next-Steps-Banner mit kontextbezogenen Aktionen
 - Statistiken auf einen Blick
+- **Meeting-Widget** — Anstehende Termine mit Countdown ("in 3 Tagen", "morgen", "jetzt gleich"), Plattform-Badge (Teams/Zoom/Meet) und "Beitreten"-Button
+- **E-Mail-Übersicht** — Letzte importierte E-Mails mit Richtungsanzeige (↗ gesendet / ↙ empfangen), offene Zuordnungen, Klick für Details
+- **E-Mail-Upload** — .msg/.eml Dateien per Drag & Drop oder Upload-Button importieren
 
 **Profil-Tab:**
 - Alle Daten bearbeiten (Klick auf ✏️)
@@ -292,6 +309,9 @@ Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8
 - **Detailansicht** (Klick auf Bewerbung): Stellendetails, Fit-Score, Quelle, Gehalt, Kontakt, Stellenbeschreibung, verknüpfte Dokumente, Gesprächsnotizen, Timeline
 - **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen — mit Zeitstempeln
 - **Dokument-Verknüpfung**: Unterlagen direkt zuordnen
+- **E-Mails zur Bewerbung**: Verknüpfte E-Mails mit Absender, Betreff, erkanntem Status
+- **Termine zur Bewerbung**: Anstehende/vergangene Meetings mit Plattform-Badge und "Beitreten"-Button
+- **Termin erstellen**: Manuelles Anlegen von Terminen (Titel, Datum, Uhrzeit, Meeting-URL) direkt in der Detailansicht
 - **Archiv**: Abgelehnte/zurückgezogene/abgelaufene Bewerbungen eingeklappt
 - Follow-up-Erinnerungen
 - PDF-Bewerbungsbericht + Excel-Export
@@ -457,13 +477,13 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 62 Tools in 8 Modulen
+    ├──► tools/            ◄── 66 Tools in 8 Modulen
     ├──► prompts.py        ◄── 14 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
-    ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace)
-    ├──► database.py       ◄── SQLite (16 Kern-Tabellen, WAL, Schema v10)
-    ├──► dashboard.py      ◄── FastAPI :8200, 70+ API-Endpoints
+    ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail)
+    ├──► database.py       ◄── SQLite (19 Tabellen, WAL, Schema v15)
+    ├──► dashboard.py      ◄── FastAPI :8200, 85+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 17 Quellen
               ├── bundesagentur.py       (REST API)
@@ -489,7 +509,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 62 Tools in 8 Modulen
+### 66 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
@@ -632,7 +652,7 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v10:
+SQLite mit WAL-Mode, 19 Kern-Tabellen + `user_preferences`, Schema v15:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -641,11 +661,13 @@ SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v10:
 | `projects` | STAR-Projekte (→ positions) |
 | `education` | Ausbildung |
 | `skills` | Kompetenzen (5 Kategorien, Level, Aktualität) |
-| `documents` | Hochgeladene Dokumente (verknüpfbar mit Bewerbungen) |
+| `documents` | Hochgeladene Dokumente (verknüpfbar mit Bewerbungen, `content_hash` für Duplikat-Erkennung) |
 | `extraction_history` | Extraktions-Verlauf |
 | `jobs` | Stellenangebote (17 Quellen, `is_pinned`, profilgebunden) |
 | `applications` | Bewerbungen (9 Status-Stufen inkl. abgelaufen) |
 | `application_events` | Bewerbungs-Timeline + Gesprächsnotizen |
+| `application_emails` | Importierte E-Mails mit Parsing-Ergebnis, Zuordnung und Status-Erkennung |
+| `application_meetings` | Termine mit Datum, Meeting-URL, Plattform-Erkennung |
 | `search_criteria` | Suchfilter |
 | `blacklist` | Ausschlussliste |
 | `background_jobs` | Async-Tasks |
@@ -653,6 +675,7 @@ SQLite mit WAL-Mode, 16 Kern-Tabellen + `user_preferences`, Schema v10:
 | `user_preferences` | Benutzereinstellungen |
 | `suggested_job_titles` | Vorgeschlagene Jobtitel |
 | `settings` | Konfiguration |
+| `dismiss_reasons` | Ablehnungsgründe (lernend, mit Nutzungszähler) |
 
 **Datenspeicherung:**
 - Windows: `%LOCALAPPDATA%\BewerbungsAssistent\`
@@ -670,7 +693,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 237 Tests, ~13 Sekunden
+# 317 Tests, ~15 Sekunden
 ```
 
 ---
@@ -689,6 +712,8 @@ python -m pytest tests/ -v
 | **HTTP Client** | [httpx](https://www.python-httpx.org/) ≥0.27 |
 | **HTML Parsing** | [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) ≥4.12 |
 | **Browser Automation** | [Playwright](https://playwright.dev/python/) ≥1.40 |
+| **E-Mail Parsing (.msg)** | [extract-msg](https://github.com/TeamMsgExtractor/msg-extractor) ≥0.48 |
+| **Kalender Parsing (.ics)** | [icalendar](https://github.com/collective/icalendar) ≥5.0 |
 | **Laufzeit** | Python ≥3.11 |
 
 ---
@@ -720,6 +745,16 @@ python -m pytest tests/ -v
 ## Changelog
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v0.29.0 — E-Mail-Integration: Parsing, Matching, Meetings (2026-03-20)
+- **E-Mail-Import** (.msg/.eml) mit automatischer Zuordnung zu Bewerbungen (6 Matching-Strategien)
+- **Status-Erkennung** aus E-Mail-Inhalt (Eingangsbestätigung, Interview, Absage, Angebot)
+- **Meeting-Extraktion** mit .ics-Support und Link-Erkennung (Teams, Zoom, Meet, WebEx)
+- **Dashboard Meeting-Widget** mit Countdown und "Beitreten"-Button
+- **Attachment-Import** mit SHA256-Duplikat-Erkennung
+- **Drag & Drop** für E-Mails ins Dashboard
+- Schema v15 (2 neue Tabellen: `application_emails`, `application_meetings`)
+- 317 Tests (46 neue E-Mail-Tests)
 
 ### v0.22.0 — Bewerbungs-Detailansicht, Gesprächsnotizen & Dokument-Verknüpfung (2026-03-17)
 - **Detailansicht** komplett neu: Stelleninfos, Fit-Score, Quelle, Gehalt, aufklappbare Stellenbeschreibung
@@ -770,6 +805,15 @@ Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab un
 
 **Unterstützt PBP mehrere Sprachen?**
 Die Oberfläche und Workflows sind auf Deutsch. Jobtitel werden auf Deutsch und Englisch vorgeschlagen. Claude selbst kann in jeder Sprache kommunizieren.
+
+**Welche E-Mail-Formate werden unterstützt?**
+PBP kann .eml (Standard-E-Mail-Format) und .msg (Outlook) Dateien importieren. Die E-Mails werden automatisch geparst, der richtigen Bewerbung zugeordnet und auf Status-Änderungen (Eingangsbestätigung, Interview, Absage, Angebot) untersucht.
+
+**Wie funktioniert die automatische E-Mail-Zuordnung?**
+PBP vergleicht Absender-E-Mail, Domain, Firmenname, Betreff und Ansprechpartner mit deinen bestehenden Bewerbungen. Bei einer Übereinstimmung (Konfidenz ≥30%) wird die E-Mail automatisch zugeordnet. Du kannst die Zuordnung jederzeit manuell bestätigen oder ändern.
+
+**Werden E-Mail-Anhänge automatisch importiert?**
+Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei prüft PBP per SHA256-Hash, ob das Dokument bereits vorhanden ist, und vermeidet Duplikate.
 
 ---
 

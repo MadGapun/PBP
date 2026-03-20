@@ -1,4 +1,4 @@
-﻿import { CalendarClock, Camera, Check, Download, ExternalLink, FileText, Link2, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Workflow, X } from "lucide-react";
+﻿import { Calendar, CalendarClock, Camera, Check, Download, ExternalLink, FileText, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -54,6 +54,8 @@ export default function ApplicationsPage() {
   const [replyText, setReplyText] = useState("");
   const [documents, setDocuments] = useState([]);
   const [timelineStatusDraft, setTimelineStatusDraft] = useState(EMPTY_APPLICATION.status);
+  const [timelineMeetings, setTimelineMeetings] = useState([]);
+  const [timelineEmails, setTimelineEmails] = useState([]);
 
   const deferredQuery = useDeferredValue(filters.query);
 
@@ -111,13 +113,17 @@ export default function ApplicationsPage() {
 
   async function openTimeline(application) {
     try {
-      const [timeline, docs] = await Promise.all([
+      const [timeline, docs, meetings, emails] = await Promise.all([
         api(`/api/application/${application.id}/timeline`),
         api("/api/documents"),
+        api(`/api/applications/${application.id}/meetings`).catch(() => ({ meetings: [] })),
+        api(`/api/applications/${application.id}/emails`).catch(() => ({ emails: [] })),
       ]);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
+      setTimelineMeetings(meetings?.meetings || []);
+      setTimelineEmails(emails?.emails || []);
       setNewNoteText("");
       setEditingNoteId(null);
       setDocSearchQuery("");
@@ -616,6 +622,83 @@ export default function ApplicationsPage() {
             </Card>
           ) : null}
 
+          {/* Meetings for this application (#136) */}
+          {timelineMeetings.length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                <Calendar size={12} className="mr-1 inline" />
+                Termine ({timelineMeetings.length})
+              </p>
+              <div className="mt-2 grid gap-1.5">
+                {timelineMeetings.map((m) => {
+                  const dt = new Date(m.meeting_date);
+                  const isPast = dt < new Date();
+                  return (
+                    <div key={m.id} className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 ${isPast ? "opacity-50" : "bg-teal/5 border border-teal/15"}`}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink">{m.title || "Termin"}</p>
+                        <p className="text-xs text-muted/60">
+                          {formatDate(m.meeting_date)} {dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+                          {m.platform && <span className="ml-1 rounded bg-sky/15 px-1 py-px text-[10px] font-bold text-sky">{m.platform}</span>}
+                          {m.location && <span className="ml-1">— {m.location}</span>}
+                        </p>
+                      </div>
+                      {m.meeting_url && !isPast && (
+                        <a href={m.meeting_url} target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
+                          <Video size={12} /> Beitreten
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Emails for this application (#136) */}
+          {timelineEmails.length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                <Mail size={12} className="mr-1 inline" />
+                E-Mails ({timelineEmails.length})
+              </p>
+              <div className="mt-2 grid gap-1.5">
+                {timelineEmails.map((em) => (
+                  <div key={em.id} className="flex items-center gap-2 rounded-lg px-3 py-2 border border-white/[0.04] hover:bg-white/[0.03]">
+                    <span className={`shrink-0 text-xs ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
+                      {em.direction === "ausgang" ? "↗" : "↙"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink">{em.subject || "Ohne Betreff"}</p>
+                      <p className="text-xs text-muted/50">
+                        {em.direction === "ausgang" ? "An" : "Von"}: {em.direction === "ausgang" ? em.recipients : em.sender}
+                        {em.sent_date && <span className="ml-2">{formatDate(em.sent_date)}</span>}
+                      </p>
+                    </div>
+                    {em.detected_status && (
+                      <Badge tone={statusTone(em.detected_status)}>{em.detected_status}</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Create meeting manually (#136) */}
+          {timelineDialog.entry?.application && (
+            <MeetingCreator
+              applicationId={timelineDialog.entry.application.id}
+              pushToast={pushToast}
+              onCreated={async () => {
+                const appId = timelineDialog.entry.application.id;
+                await reloadTimeline(appId);
+                const meetings = await api(`/api/applications/${appId}/meetings`).catch(() => ({ meetings: [] }));
+                setTimelineMeetings(meetings?.meetings || []);
+              }}
+            />
+          )}
+
           {/* Document linking search */}
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Dokument verknüpfen</p>
@@ -746,6 +829,113 @@ export default function ApplicationsPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+
+function MeetingCreator({ applicationId, pushToast, onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("Vorstellungsgespräch");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("10:00");
+  const [url, setUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function createMeeting() {
+    if (!date) {
+      pushToast("Bitte ein Datum angeben.", "danger");
+      return;
+    }
+    setSaving(true);
+    try {
+      const meetingDate = `${date}T${time || "10:00"}:00`;
+      await postJson("/api/meetings", {
+        application_id: applicationId,
+        title,
+        meeting_date: meetingDate,
+        meeting_url: url || undefined,
+        platform: url.includes("teams") ? "teams" : url.includes("zoom") ? "zoom" : url.includes("meet.google") ? "google_meet" : undefined,
+      });
+      pushToast("Termin erstellt.", "success");
+      setOpen(false);
+      setTitle("Vorstellungsgespräch");
+      setDate("");
+      setTime("10:00");
+      setUrl("");
+      onCreated();
+    } catch (err) {
+      pushToast(`Termin konnte nicht erstellt werden: ${err.message}`, "danger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-[13px] text-muted/50 transition hover:border-teal/30 hover:text-teal/70"
+        onClick={() => setOpen(true)}
+      >
+        <Calendar size={14} />
+        Termin hinzufügen
+      </button>
+    );
+  }
+
+  return (
+    <Card className="glass-card-soft rounded-xl shadow-none">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+        <Calendar size={12} className="mr-1 inline" />
+        Neuer Termin
+      </p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div>
+          <label className="text-xs text-muted/60">Titel</label>
+          <input
+            type="text"
+            className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted/60">Datum</label>
+          <input
+            type="date"
+            className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted/60">Uhrzeit</label>
+          <input
+            type="time"
+            className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted/60">Meeting-Link (optional)</label>
+          <input
+            type="url"
+            className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
+            placeholder="https://teams..."
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Button size="sm" onClick={createMeeting} disabled={saving || !date}>
+          <Plus size={14} />
+          Erstellen
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Abbrechen</Button>
+      </div>
+    </Card>
   );
 }
 
