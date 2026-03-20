@@ -2,6 +2,28 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.25.2] - 2026-03-20
+
+### Frontend-Recovery: Hilfe-Dialog, Timeline-Notizen, Statuswechsel (Codex/Claude)
+
+**Bug-Fixes:**
+- Hilfe-Button oben rechts repariert — Modal-`open`-Prop fehlte (#99)
+- Notiz-Hinzufuegen in Bewerbungs-Timeline repariert — Click-Event wurde als Argument weitergereicht (#100)
+
+**Neue Features:**
+- Statuswechsel direkt in der Timeline-Detailansicht via Dropdown (#102)
+
+**Stabilisierung:**
+- Frontend-Build-Skripte auf `pnpm exec vite` umgestellt (stabiler in CI)
+- Browser-Regressionstests fuer Hilfe-Modal und Timeline-Flows hinzugefuegt
+- Recovery-Dokumentation: `docs/FRONTEND_RECOVERY_v022_to_v025.md`, `docs/CODEX_CLAUDE_FRONTEND_HANDOFF.md`
+
+**Geschlossene Issues:** #99, #100, #101 (bereits seit v0.24.0 implementiert), #102
+
+**Tests:** 264 passed, 4 skipped
+
+---
+
 ## [0.25.0] - 2026-03-19
 
 ### Major: 14 Issues abgearbeitet — Backend, Frontend, Installer (66 Tools, 14 Prompts)
