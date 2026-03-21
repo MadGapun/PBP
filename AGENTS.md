@@ -33,14 +33,14 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     ├── prompts.py          ◄── 14 MCP-Prompts
     ├── resources.py        ◄── 6 MCP-Resources
     │
-    ├── services/           ◄── Service-Layer (profile/search/email)
+    ├── services/           ◄── Service-Layer (profile/search/workspace/email)
     ├── database.py         ◄── Schema v15, WAL, CASCADE
     │
     ├── dashboard.py        ◄── FastAPI, React-SPA, REST-API
     │
     ├── export.py           ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     │
-    └── job_scraper/        ◄── 12 Quellen
+    └── job_scraper/        ◄── 17 Quellen
         ├── __init__.py     — Dispatcher, Scoring, Deduplizierung
         └── *.py            — Bundesagentur, StepStone, LinkedIn, XING, etc.
 ```
@@ -59,7 +59,7 @@ playwright install chromium
 python -m pytest tests/ -v
 
 # Dashboard
-python start_dashboard.py  # → http://localhost:5173
+python start_dashboard.py  # → http://localhost:8200
 ```
 
 ## Wichtige Konventionen

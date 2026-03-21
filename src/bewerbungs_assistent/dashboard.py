@@ -221,9 +221,12 @@ def _build_live_update_token_payload() -> dict:
 
 @app.get("/api/status")
 async def api_status():
+    from . import __version__
+
     profile = _db.get_profile()
     summary = summarize_profile(profile)
     return {
+        "version": __version__,
         "has_profile": profile is not None,
         "profile_name": summary["name"],
         "active_jobs": len(_db.get_active_jobs()),
