@@ -100,6 +100,53 @@ Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ---
 
+## [0.28.0] - 2026-03-20
+
+### Editierbare Bewerbungen, Statistik-Upgrade, Snapshot (7 Issues)
+
+**Neue Features:**
+- **#124** Stellenbeschreibung-Snapshot: URL wird automatisch ausgelesen und in der Bewerbung gespeichert — kein Datenverlust mehr wenn die Anzeige offline geht
+- **#132** Template/Vorlagen-Kennzeichnung: Neue Dokumenttypen `lebenslauf_vorlage` und `anschreiben_vorlage` für generische CVs
+- **#133** Positions-Überlappungs-Hinweis: CV-Export (PDF/DOCX) zeigt automatisch "(parallel zu XY)" bei überlappenden Positionen
+- **#134** Bewerbungen editierbar: Alle Felder nachträglich änderbar + Vermittlerkette (Vermittler → Endkunde) + Timeline-Logging aller Änderungen
+- **#135** Erweiterte Statistiken: Tagesbericht, Antwortzeiten-Analyse, Import/Neu-Unterscheidung, Dismiss-Reasons-Chart
+
+**Bugfixes:**
+- **#123** LiveUpdate "Failed to fetch": Dashboard-API-Calls resilient gemacht (`optionalApi` statt `api` für nicht-kritische Requests)
+- **#137** zombies undefined: TypeError in DashboardPage wenn kein Profil vorhanden (Koala280 Bug-Report)
+
+**Schema-Migration v13→v14:**
+- `description_snapshot TEXT`, `snapshot_date TEXT` auf `applications`
+- `vermittler TEXT`, `endkunde TEXT` auf `applications`
+
+**Geschlossene Issues:** #123, #124, #132, #133, #134, #135, #137
+
+**Tests:** 271 passed, 4 skipped
+
+---
+
+## [0.27.0] - 2026-03-20
+
+### Datenqualität & Bugfix-Release (8 Issues)
+
+**Bugfixes:**
+- **#123** LiveUpdate "Failed to fetch": `optionalApi` fängt Netzwerkfehler ab ohne UI-Fehlermeldung
+- **#125** Statistiken repariert: Quellen historisch korrekt, Score-Brackets, Unapplied-Filter, Timeline-Zeitfenster
+- **#126** Eigene Ablehnungsgründe: UPSERT-Logik speichert und schlägt beim nächsten Mal vor
+- **#127** Stellen-Badge: Zählt nur noch nicht-beworbene, aktive Stellen
+
+**Verbesserungen:**
+- **#128** Skill-Kategorie-Normalisierung: Whitelist-basierte Zuordnung (tool→tool, Sprachen→sprache, etc.)
+- **#129** Skill-Extraktions-Müllfilter: Satzfragmente, URLs, Klammern und Nummern werden automatisch abgelehnt
+- **#130** Zombie-Bewerbungen: Dashboard warnt bei Bewerbungen ohne Rückmeldung >60 Tage
+- **#131** Dokument-Typ-Erkennung erweitert: .md, Vorlagen, Test-Docs, Fotos, Portfolios, Stellenbeschreibungen
+
+**Geschlossene Issues:** #123, #125, #126, #127, #128, #129, #130, #131
+
+**Tests:** 267 passed, 4 skipped
+
+---
+
 ## [0.26.0] - 2026-03-20
 
 ### Major: Filtering, Scoring, UX — 15 Issues (66 Tools, 14 Prompts, Schema v13)

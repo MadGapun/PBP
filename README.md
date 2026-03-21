@@ -929,9 +929,21 @@ Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei
 
 ---
 
-## Autor
+## Credits
 
-**Markus Birzite** — Konzept, Backend & Projektleitung
+**Markus Birzite** — Konzept, Architektur & Projektleitung
+
+**Claude** (Anthropic) — Entwicklung, Code, Dokumentation, Tests
+> Hauptentwickler seit v0.1.0. Hat den Großteil des Codes geschrieben — Backend, Frontend-Integration, Scraper, Tests, Installer, Dashboard, E-Mail-Service. Jeder Commit trägt seinen Namen.
+
+**Codex** (OpenAI) — Code-Analyse, Recovery & Bugfixes
+> Kommt ins Spiel wenn größere Code-Analysen, Refactorings oder Recovery-Aufgaben anstehen. Hat u.a. das Frontend-Recovery (v0.25.2) durchgeführt und liefert zuverlässig Fixes für komplexe Bugs. Intern: "die Tante".
+
+**Toms ([@Koala280](https://github.com/Koala280))** — React-Frontend
+> Hat das React 19 + Vite + Tailwind Frontend beigesteuert (v0.23.0, 7.877 Zeilen) und kontinuierlich UX-Issues gemeldet (#139–#147). AI & Data Science Student.
+
+**ELWOSA** — Projektrahmen & Infrastruktur
+> PBP ist das erste ELWOSA-Projekt. Die Idee, eine lokale Datenbank zu nutzen um eine KI gezielt zu unterstützen, stammt aus dem ELWOSA-Ökosystem. Server-Infrastruktur, CI/CD-Prozesse und Entwicklungsmethodik werden von ELWOSA bereitgestellt.
 
 ---
 
