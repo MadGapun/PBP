@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "0.30.2"
+version = "0.30.3"
 description = "KI-gestützter Bewerbungsassistent — MCP Server für Claude Desktop"
 readme = {text = "KI-gestuetzter Bewerbungsassistent als MCP Server fuer Claude Desktop", content-type = "text/plain"}
 license = "MIT"

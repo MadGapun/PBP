@@ -1476,6 +1476,17 @@ class Database:
                 (row["id"],)
             ).fetchone()
             app["document_count"] = doc_count_row[0] if doc_count_row else 0
+            # Job metadata for list display (employment_type, source, url fallback)
+            if row["job_hash"]:
+                job_row = conn.execute(
+                    "SELECT employment_type, source, url FROM jobs WHERE hash=? LIMIT 1",
+                    (row["job_hash"],)
+                ).fetchone()
+                if job_row:
+                    app["job_employment_type"] = job_row["employment_type"]
+                    app["job_source"] = job_row["source"]
+                    if not app.get("url"):
+                        app["url"] = job_row["url"]
             apps.append(self._serialize_application_row(app))
         return apps
 

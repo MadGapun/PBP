@@ -43,7 +43,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [filters, setFilters] = useState({ query: "", status: "", fromDate: "", toDate: "" });
+  const [filters, setFilters] = useState({ query: "", status: "", fromDate: "", toDate: "", stellenart: "" });
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   const [newNoteText, setNewNoteText] = useState("");
@@ -212,7 +212,9 @@ export default function ApplicationsPage() {
     const statusMatch = !filters.status || application.status === filters.status;
     const dateMatch = (!filters.fromDate || (application.applied_at || "") >= filters.fromDate) &&
                       (!filters.toDate || (application.applied_at || "") <= filters.toDate + "T23:59:59");
-    return queryMatch && statusMatch && dateMatch;
+    const artMatch = !filters.stellenart ||
+      (filters.stellenart === "freelance" ? (application.job_employment_type && application.job_employment_type !== "festanstellung") : application.job_employment_type === "festanstellung" || !application.job_employment_type);
+    return queryMatch && statusMatch && dateMatch && artMatch;
   });
 
   const dueFollowUps = followUps.filter((item) => item.faellig);
@@ -258,7 +260,7 @@ export default function ApplicationsPage() {
 
         <Card className="rounded-2xl">
           <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_10rem_10rem]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_10rem_10rem_10rem]">
             <Field label="Suche">
               <TextInput value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="Titel, Firma oder Notizen" />
             </Field>
@@ -272,6 +274,13 @@ export default function ApplicationsPage() {
                 <option value="angebot">Angebot</option>
                 <option value="abgelehnt">Abgelehnt</option>
                 <option value="abgelaufen">Abgelaufen</option>
+              </SelectInput>
+            </Field>
+            <Field label="Stellenart">
+              <SelectInput value={filters.stellenart} onChange={(event) => setFilters((current) => ({ ...current, stellenart: event.target.value }))}>
+                <option value="">Alle</option>
+                <option value="festanstellung">Festanstellung</option>
+                <option value="freelance">Freelance</option>
               </SelectInput>
             </Field>
             <Field label="Von">
@@ -289,7 +298,7 @@ export default function ApplicationsPage() {
             <div className="grid gap-4">
               {filteredApplications.length ? (
                 filteredApplications.map((application) => (
-                  <Card key={application.id} className="flex flex-col glass-card-soft rounded-xl shadow-none">
+                  <Card key={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
@@ -305,6 +314,9 @@ export default function ApplicationsPage() {
                         )}
                         {application.bewerbungsart && application.bewerbungsart !== "mit_dokumenten" && (
                           <Badge tone="neutral">{application.bewerbungsart === "ueber_portal" ? "Portal" : application.bewerbungsart === "elektronisch" ? "E-Mail" : application.bewerbungsart}</Badge>
+                        )}
+                        {application.job_employment_type && application.job_employment_type !== "festanstellung" && (
+                          <Badge tone="success">Freelance</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -331,6 +343,14 @@ export default function ApplicationsPage() {
                         <Workflow size={15} />
                         Timeline
                       </Button>
+                      {application.url && (
+                        <a href={application.url} target="_blank" rel="noopener noreferrer">
+                          <Button variant="secondary" type="button" onClick={(e) => e.stopPropagation()}>
+                            <ExternalLink size={15} />
+                            Stellenanzeige
+                          </Button>
+                        </a>
+                      )}
                     </div>
                   </Card>
                 ))
