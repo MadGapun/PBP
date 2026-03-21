@@ -35,6 +35,17 @@ PBP erreicht v1.0.0 — nicht weil alles perfekt ist, sondern weil es zuverläss
 
 ---
 
+## [0.30.1] - 2026-03-21
+
+### Hotfix: Versionserkennung & Installer
+
+- **Version-Fix:** `__init__.py` und `pyproject.toml` zeigen jetzt die korrekte Version (v0.28.0–v0.30.0 hatten intern fälschlich `0.27.0` stehen)
+- **Installer v0.9.0:** pip-Upgrade-Schritt übersprungen wenn pip bereits vorhanden (verhindert Hänger bei Update-Installation)
+- **~300 Umlaut-Korrekturen:** Alle Python-Module verwenden jetzt korrekte deutsche Umlaute in User-Strings
+- **Versionshistorie:** Alter historischer `v1.0.0`-Tag → `v0.0.0` umbenannt
+
+---
+
 ## [0.30.0] - 2026-03-20
 
 ### UX-Verbesserungen & Qualität (Issues #139–#147, Koala280)

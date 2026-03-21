@@ -4,7 +4,8 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.8.0
+:: PBP Installer v0.9.0
+:: Fix: Versionserkennung korrigiert
 :: Fix: Dashboard + Startdateien nach DATA_DIR kopieren
 :: Fix: Python nur downloaden wenn noch nicht vorhanden
 :: Fix: Desktop-Shortcut zeigt auf DATA_DIR (stabil)
@@ -32,7 +33,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.8.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.9.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -43,7 +44,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.8.0
+echo    Installer v0.9.0
 echo.
 echo  ====================================================
 echo.
@@ -278,7 +279,8 @@ if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
 :: pip pruefen
 "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 call :fix_pip
-"%PYTHON%" -m pip install --upgrade pip -q --no-warn-script-location >> "%LOGFILE%" 2>&1
+echo         pip vorhanden, ueberspringe Upgrade
+echo [OK] pip vorhanden >> "%LOGFILE%"
 echo.
 
 :: -------------------------------------------
