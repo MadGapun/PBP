@@ -1,61 +1,77 @@
-# PBP — Persoenliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-12 | v0.16.0
+# PBP — Persönliches Bewerbungs-Portal
+## Zustandsbericht | 2026-03-21 | v0.30.0
 
 ---
 
-## 1. Projektueberblick
+## 1. Projektüberblick
 
 | Eigenschaft | Wert |
 |------------|------|
-| **Name** | PBP (Persoenliches Bewerbungs-Portal) |
-| **Version** | 0.16.0 (pyproject.toml) |
-| **Architektur** | MCP Server + Web Dashboard |
-| **Sprache** | Python 3.11+ |
-| **Datenbank** | SQLite (16 Kern-Tabellen + user_preferences, WAL, CASCADE, Schema v9, Profil-Isolation) |
-| **Transport** | stdio (MCP) + HTTP localhost:5173 (Dashboard) |
-| **Zielplattform** | Windows 10/11 (Claude Desktop + claude.ai) + Linux (Entwicklung) |
-| **Jobquellen** | 9 (Bundesagentur, StepStone, Hays, Freelancermap, Freelance.de, LinkedIn, Indeed, XING, Monster) |
-| **Tests** | 190 Tests (Database, Scoring, Export, v0.10.x, Dashboard, Browser, MCP, Scraper, Services) -- alle gruen |
+| **Name** | PBP (Persönliches Bewerbungs-Portal) |
+| **Version** | 0.30.0 (pyproject.toml + \_\_init\_\_.py) |
+| **Architektur** | MCP Server + React-Dashboard (SPA) |
+| **Sprache** | Python 3.11+ / React 19 + Vite + Tailwind |
+| **Datenbank** | SQLite (21 Tabellen, WAL, CASCADE, Schema v15, Profil-Isolation) |
+| **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
+| **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
+| **Jobquellen** | 17 (11 Festanstellung + 4 Freelance + 2 Netzwerk) |
+| **Tests** | 317 Tests (alle grün, 4 übersprungen) |
 
 ---
 
 ## 2. Architektur
 
 ```
-Claude Desktop (Windows)
-    |
-    | stdio (MCP Protocol)
-    v
-server.py (FastMCP, Composition Root)  <-- 53 Tools, 6 Resources, 12 Prompts
-    |
-    +---> tools/ (7 Module)
-    |         +-- profil.py, dokumente.py, jobs.py, bewerbungen.py
-    |         +-- analyse.py, export_tools.py, suche.py
-    |
-    +---> prompts.py / resources.py
-    |
-    +---> services/  <-- gemeinsame Profil-, Such- und Workspace-Logik
-    |
-    +---> database.py (SQLite)  <-- 15 Kern-Tabellen + user_preferences, WAL, Schema v8
-    |
-    +---> dashboard.py (FastAPI :5173)  <-- 56 API-Endpoints + Dashboard-Root
-    |         |
-    |         v
-    |     dashboard.html (SPA)  <-- 5 Tabs, Vanilla JS
-    |
-    +---> export.py  <-- CV + Anschreiben als PDF/DOCX
-    |
-    +---> job_scraper/ (9 Quellen)
-              |
-              +-- bundesagentur.py   (REST API)
-              +-- stepstone.py       (Playwright)
-              +-- hays.py            (Sitemap + JSON-LD)
-              +-- freelancermap.py   (httpx + Playwright Fallback)
-              +-- freelance_de.py    (HTML Scraping)
-              +-- linkedin.py        (Playwright)
-              +-- indeed.py          (Playwright)
-              +-- xing.py            (Playwright)
-              +-- monster.py         (Playwright)
+Claude Desktop (Windows / Linux)
+    │
+    │ stdio (MCP Protocol)
+    ▼
+server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root
+    │
+    ├── tools/ (8 Module, 66 Tools)
+    │     ├── profil.py         — Profilverwaltung, Multi-Profil, Fortschritt
+    │     ├── dokumente.py      — Analyse, Extraktion, Im/Export
+    │     ├── jobs.py           — Jobsuche, Stellenverwaltung, Fit-Analyse
+    │     ├── bewerbungen.py    — Tracking, Status, Statistiken
+    │     ├── analyse.py        — Gehalt, Trends, Skill-Gap, Follow-ups
+    │     ├── export_tools.py   — Lebenslauf/Anschreiben (PDF/DOCX)
+    │     ├── suche.py          — Suchkriterien und Blacklist
+    │     └── workflows.py      — Geführte Workflows
+    │
+    ├── prompts.py       ◄── 14 MCP-Prompts
+    ├── resources.py     ◄── 6 MCP-Resources
+    │
+    ├── services/        ◄── Service-Layer
+    │     ├── profile_service.py    — Profilstatus, Präferenzen
+    │     ├── search_service.py     — Suchstatus, Quellen
+    │     ├── workspace_service.py  — Guidance, Navigation
+    │     └── email_service.py      — E-Mail-Parsing, Matching, Meetings
+    │
+    ├── database.py      ◄── Schema v15, WAL, CASCADE, Migrationen v1→v15
+    │
+    ├── dashboard.py     ◄── FastAPI :8200, React-SPA, REST-API
+    │
+    ├── export.py        ◄── PDF/DOCX (fpdf2 + python-docx)
+    │
+    └── job_scraper/     ◄── 17 Quellen
+          ├── __init__.py       — Dispatcher, Scoring, Deduplizierung
+          ├── bundesagentur.py  — REST API
+          ├── stepstone.py      — Playwright
+          ├── hays.py           — Sitemap + JSON-LD
+          ├── linkedin.py       — Playwright (Login)
+          ├── xing.py           — Playwright (Login)
+          ├── indeed.py         — Playwright
+          ├── monster.py        — Playwright
+          ├── freelancermap.py  — httpx + Playwright Fallback
+          ├── freelance_de.py   — HTML Scraping
+          ├── gulp.py           — HTML + JSON-LD
+          ├── solcom.py         — HTML + JSON-LD
+          ├── ingenieur_de.py   — HTML Scraping (VDI)
+          ├── heise_jobs.py     — HTML + JSON-LD
+          ├── stellenanzeigen_de.py — HTML + JSON-LD
+          ├── jobware.py        — HTML + JSON-LD
+          ├── ferchau.py        — HTML + JSON-LD
+          └── kimeta.py         — HTML Scraping (Aggregator)
 ```
 
 ---
@@ -64,11 +80,11 @@ server.py (FastMCP, Composition Root)  <-- 53 Tools, 6 Resources, 12 Prompts
 
 | Typ | Anzahl |
 |-----|--------|
-| **Tools** | 53 |
+| **Tools** | 66 |
 | **Resources** | 6 |
-| **Prompts** | 12 |
+| **Prompts** | 14 |
 
-### Tools nach Kategorie
+### Tools nach Kategorie (66)
 
 **Profil-Grundlagen (8):**
 profil_status, profil_zusammenfassung, profil_bearbeiten, profil_erstellen,
@@ -92,11 +108,15 @@ profil_exportieren, profil_importieren
 **Jobsuche (3):**
 jobsuche_starten, jobsuche_status, stelle_bewerten
 
-**Stellen & Bewerbungen (3):**
-stellen_anzeigen, fit_analyse, bewerbungen_anzeigen
+**Stellen & Bewerbungen (5):**
+stellen_anzeigen, fit_analyse, bewerbungen_anzeigen,
+bewerbung_erstellen, bewerbung_status_aendern
 
-**Bewerbungs-Management (3):**
-bewerbung_erstellen, bewerbung_status_aendern, statistiken_abrufen
+**Statistiken & Analyse (10):**
+statistiken_abrufen, gehalt_extrahieren, gehalt_marktanalyse,
+firmen_recherche, branchen_trends, skill_gap_analyse,
+ablehnungs_muster, nachfass_planen, nachfass_anzeigen,
+bewerbung_stil_tracken
 
 **Suchkriterien (2):**
 suchkriterien_setzen, blacklist_verwalten
@@ -104,53 +124,61 @@ suchkriterien_setzen, blacklist_verwalten
 **Export (2):**
 lebenslauf_exportieren, anschreiben_exportieren
 
-**Erweiterte KI-Features (9):**
-gehalt_extrahieren, gehalt_marktanalyse, firmen_recherche, branchen_trends,
-skill_gap_analyse, ablehnungs_muster, nachfass_planen, nachfass_anzeigen,
-bewerbung_stil_tracken
-
 **Jobtitel (2):**
 jobtitel_vorschlagen, jobtitel_verwalten
 
 **Workflows (3):**
 workflow_starten, jobsuche_workflow_starten, ersterfassung_starten
 
+**E-Mail (5):**
+email_importieren, email_zuordnung_bestätigen, email_meetings_anzeigen,
+email_meeting_erstellen, emails_einer_bewerbung
+
+**Bewerbungs-Edit (6):**
+bewerbung_bearbeiten, bewerbung_loeschen, bewerbung_notiz,
+stelle_snapshot_aktualisieren, dismiss_reason_verwalten, statistik_tagesbericht
+
 ### Resources (6)
 
 profil://aktuell, jobs://aktiv, jobs://aussortiert,
 bewerbungen://alle, bewerbungen://statistik, config://suchkriterien
 
-### Prompts (12)
+### Prompts (14)
 
-ersterfassung, bewerbung_schreiben, interview_vorbereitung, profil_ueberpruefen,
-profil_analyse, willkommen, jobsuche_workflow, bewerbungs_uebersicht,
-interview_simulation, gehaltsverhandlung, netzwerk_strategie, profil_erweiterung
+ersterfassung, willkommen, profil_ueberpruefen, profil_analyse,
+profil_erweiterung, bewerbung_schreiben, interview_vorbereitung,
+interview_simulation, gehaltsverhandlung, netzwerk_strategie,
+bewerbungs_uebersicht, jobsuche_workflow, email_analyse, quick_check
 
 ---
 
-## 4. Datenbank-Schema (v9, 16 Kern-Tabellen + user_preferences)
+## 4. Datenbank-Schema (v15, 21 Tabellen)
 
 | Tabelle | Zweck | Seit |
 |---------|-------|------|
 | settings | Globale Konfiguration | v1 |
-| profile | Benutzerprofil (Multi-Profil, is_active, Fortschritt) | v1, erweitert v3 |
-| positions | Berufserfahrung (profile_id FK) | v1, erweitert v3 |
-| projects | STAR-Projekte (positions CASCADE) | v1 |
-| education | Ausbildung (profile_id FK) | v1, erweitert v3 |
-| skills | Kompetenzen (profile_id FK) | v1, erweitert v3 |
-| documents | Dokumente (profile_id, extraction_status) | v1, erweitert v3/v5 |
-| jobs | Stellenangebote (salary_*, profile_id) | v1, erweitert v4/v7/v8 |
-| applications | Bewerbungen (rejection_reason, profile_id) | v1, erweitert v2/v6/v8 |
+| profile | Benutzerprofil (Multi-Profil, Fortschritt) | v1, v3 |
+| positions | Berufserfahrung | v1, v3 |
+| projects | STAR-Projekte | v1 |
+| education | Ausbildung | v1, v3 |
+| skills | Kompetenzen mit Kategorie + Level | v1, v3 |
+| documents | Dokumente (extraction_status, content_hash) | v1, v3, v5, v15 |
+| jobs | Stellenangebote (salary_*, description_snapshot) | v1, v4, v7, v8, v14 |
+| applications | Bewerbungen (vermittler, endkunde, editierbar) | v1, v2, v6, v8, v14 |
 | application_events | Bewerbungs-Timeline (CASCADE) | v1 |
+| application_emails | E-Mail-Zuordnung (matched_by, status_detected) | v15 |
+| application_meetings | Termine (meeting_url, platform) | v15 |
 | search_criteria | Suchfilter (JSON) | v1 |
 | blacklist | Ausschlussliste | v1 |
 | background_jobs | Async Tasks | v1 |
 | follow_ups | Nachfass-Erinnerungen | v4 |
 | extraction_history | Extraktions-Verlauf | v5 |
 | user_preferences | Benutzereinstellungen (Wizard, Hints) | v7 |
-| suggested_job_titles | Vorgeschlagene Jobtitel (auto + manuell) | v9 |
+| suggested_job_titles | Jobtitel (auto + manuell) | v9 |
+| dismiss_reasons | Ablehnungsgründe (benutzerdefiniert) | v13 |
+| document_templates | Vorlagen-Kennzeichnung | v14 |
 
-Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 -> v9
+Migrationskette: v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 → v9 → v10 → v11 → v12 → v13 → v14 → v15
 
 ---
 
@@ -160,95 +188,113 @@ Migrationskette: v1 -> v2 -> v3 -> v4 -> v5 -> v6 -> v7 -> v8 -> v9
 
 | Datei | Zeilen | Zweck |
 |-------|--------|-------|
-| server.py | ~140 | Composition Root (Init + Dashboard + Shutdown) |
-| tools/*.py | ~2.900 | 8 Module: 53 Tools |
-| prompts.py | ~765 | 12 MCP Prompts |
+| server.py | ~140 | Composition Root |
+| tools/*.py | ~4.500 | 8 Module: 66 Tools |
+| prompts.py | ~1.100 | 14 MCP Prompts |
 | resources.py | ~45 | 6 MCP Resources |
-| database.py | ~1.700 | SQLite-Persistenz (Schema v9, Migrationen) |
-| dashboard.py | ~1.300 | FastAPI Web-Dashboard (60 API-Endpoints + Dashboard-Root) |
-| export.py | 366 | PDF/DOCX-Export (fpdf2 + python-docx) |
-| job_scraper/__init__.py | 601 | Orchestrator, Scoring, Gehaltsextraktion |
-| job_scraper/linkedin.py | ~290 | LinkedIn (Playwright) |
-| job_scraper/xing.py | ~240 | XING (Playwright) |
-| job_scraper/indeed.py | ~160 | Indeed (Playwright) |
-| job_scraper/monster.py | ~140 | Monster (Playwright) |
-| job_scraper/freelancermap.py | ~180 | Freelancermap (httpx + Playwright) |
-| job_scraper/freelance_de.py | ~230 | Freelance.de (HTML Scraping) |
-| job_scraper/hays.py | ~90 | Hays (Sitemap + JSON-LD) |
-| job_scraper/stepstone.py | ~130 | StepStone (Playwright) |
-| job_scraper/bundesagentur.py | ~80 | Bundesagentur (REST API) |
-| logging_config.py | ~50 | Zentrales Logging |
-| __init__.py / __main__.py | ~15 | Entry Points |
+| services/*.py | ~800 | 4 Services (Profil, Suche, Workspace, E-Mail) |
+| database.py | ~2.200 | SQLite-Persistenz (Schema v15, 15 Migrationen) |
+| dashboard.py | ~1.800 | FastAPI Dashboard (REST-API + React-SPA) |
+| export.py | ~400 | PDF/DOCX-Export |
+| export_report.py | ~300 | Profil-Report |
+| job_scraper/*.py | ~3.000 | Dispatcher + 17 Quellen |
 
-### Tests (12 Testdateien + conftest, 2.000+ Zeilen)
+### Frontend (React 19)
+
+| Datei | Zweck |
+|-------|-------|
+| frontend/src/App.jsx | Haupt-SPA (~7.500 Zeilen) |
+| frontend/src/pages/*.jsx | 6 Seiten (Dashboard, Profil, Bewerbungen, Stellen, Statistiken, Einstellungen) |
+| frontend/src/utils.js | Hilfsfunktionen (statusLabel, normalizeMonthDate) |
+| frontend/src/styles.css | Tailwind + Custom CSS |
+
+### Tests (13 Testdateien, 317 Tests)
 
 | Datei | Tests | Zweck |
 |-------|-------|-------|
-| conftest.py | — | Fixtures (tmp_db, sample_*) |
 | test_database.py | 33 | CRUD, CASCADE, Migration, Stats |
 | test_scoring.py | 24 | Score, Fit, Remote, Hash, Keywords |
 | test_export.py | 8 | CV + Anschreiben in PDF + DOCX |
 | test_v010.py | 43 | Schema v8, Salary, UserPrefs, Profil-Isolation |
-| test_dashboard.py | 44 | Dashboard-API (Status, CRUD, Validierung, Multi-Profil, Quellen, Suchstatus, Workspace Summary) |
-| test_v013.py | 14 | v0.13.0 Fixes (FK-Bugfixes, Ordner-Browser, Auto-Analyse) |
-| test_mcp_registry.py | 3 | MCP-Registry, Public Interface, modulare Smoke-Tests |
-| test_scrapers.py | 3 | Fixture-basierte Parser-Tests fuer Hays, freelance.de und Freelancermap |
-| test_profile_service.py | 5 | Service-Layer fuer Profilstatus, Praeferenzen und Vollstaendigkeit |
-| test_search_service.py | 5 | Suchstatus, Quellenzaehlung und Source-Listen |
-| test_workspace_service.py | 5 | Workspace-Guidance, Navigation-Badges und Priorisierung |
-| test_dashboard_browser.py | 3 | Browser-Smokes fuer Onboarding, Navigation, Follow-up-Guidance und Mobile-Layout |
-| **Gesamt** | **190** | **Alle gruen** |
+| test_dashboard.py | 44 | Dashboard-API, CRUD, Multi-Profil, Version-Check |
+| test_v013.py | 14 | FK-Bugfixes, Ordner-Browser, Auto-Analyse |
+| test_v020.py | 80 | v0.20+ Features, Export-Report, E-Mail |
+| test_email_service.py | 46 | E-Mail-Parsing, Matching, Meetings |
+| test_mcp_registry.py | 3 | MCP-Registry, Public Interface |
+| test_scrapers.py | 3 | Fixture-basierte Parser-Tests |
+| test_profile_service.py | 5 | Service-Layer Profil |
+| test_search_service.py | 5 | Suchstatus, Quellen |
+| test_workspace_service.py | 5 | Workspace-Guidance |
+| test_dashboard_browser.py | 3 | Browser-Smokes |
+| **Gesamt** | **317** | **Alle grün** |
 
 ---
 
-## 6. Qualitaetsanalyse
+## 6. Dashboard (React 19 SPA)
 
-### Staerken
-- Saubere Architektur (Server / DB / Dashboard / Scraper / Export getrennt)
-- Multi-Profil-System mit Profil-Isolation
-- Automatische Dokument-Extraktion (Smart Auto-Extraction)
-- 9-Quellen Job-Suche mit Scoring und Deduplizierung
-- Gehaltsextraktion (7 Regex-Patterns + Schaetzungstabellen)
-- Vollstaendige Schema-Migrationen (v1 bis v9, abwaertskompatibel)
-- 190 automatische Tests
+Port: **8200** (localhost)
+
+**7 Bereiche:**
+
+| Bereich | Inhalt |
+|---------|--------|
+| **Dashboard** | Statistik-Kacheln, Meetings-Widget, Follow-up-Alerts, Guidance-TODOs |
+| **Profil** | Persönliche Daten, Positionen, Ausbildung, Skills, Dokumente |
+| **Stellen** | Job-Karten mit Score, Lazy Loading, Pagination, Fit-Analyse |
+| **Bewerbungen** | Timeline, Status-Tracking, E-Mail-Zuordnung, Meetings |
+| **Statistiken** | Charts (Recharts), Trends, Tagesbericht, Status-Verteilung |
+| **Einstellungen** | Keywords, Regionen, Gewichtungen, Quellen, Blacklist |
+| **Onboarding** | Wizard für Ersteinrichtung (Profil, Kriterien, Quellen) |
+
+**Features:** Drag & Drop (E-Mail + Dokumente), Toast-Notifications, Live-Update-Polling,
+Responsive Layout, Profil-Sidebar, Hilfe-Dialog, Credits-Dialog
+
+---
+
+## 7. Qualitätsanalyse
+
+### Stärken
+- Modulare MCP-Architektur (server.py nur Composition Root)
+- Multi-Profil mit vollständiger Daten-Isolation
+- 17-Quellen-Jobsuche mit konfigurierbarem Scoring
+- E-Mail-Integration (.eml + .msg) mit automatischem Matching
+- Schema-Migrationen v1→v15, voll abwärtskompatibel
+- 317 automatische Tests inkl. Browser-Smokes
+- React 19 SPA mit professionellem UI
 - Zero-Knowledge Windows-Installer
-- Onboarding-Wizard und Bewerbungs-Wizard
-- Factory Reset fuer saubere Neuinstallation
+- Deutsche Nutzerführung durchgängig
 
-### Bekannte Einschraenkungen
-- ~~server.py ist monolithisch~~ — modularisiert in v0.12.0 (tools/, resources.py, prompts.py)
-- ~~Keine Tests fuer Dashboard-API~~ — 37 Dashboard-Tests + 14 v0.13.0-Tests
-- Nur erste MCP-Smoke-Tests und erste Scraper-Fixtures, noch keine breite Verhaltenstiefe
-- Kein Multi-User-System (lokale SQLite-DB)
-- Scraper abhaengig von Portal-Struktur (kann brechen)
+### Bekannte Einschränkungen
+- Frontend-Bundle ~832 kB (vor gzip) — funktional, Optimierung möglich
+- fpdf2 Deprecation-Warnungen (ln→new_x/new_y)
+- Kein Multi-User-System (bewusst: lokale SQLite-DB)
+- Scraper abhängig von Portal-Struktur (kann brechen)
+- LinkedIn/XING erfordern eigenen Account
 
 ---
 
-## 7. Versionsverlauf (Auswahl)
+## 8. Versionsverlauf (Auswahl)
 
 | Version | Datum | Highlights |
 |---------|-------|-----------|
-| 0.16.0 | 2026-03-12 | Skill-Aktualitaet, Jobtitel-Vorschlaege, Schema v9, 53 Tools |
-| 0.15.1 | 2026-03-12 | Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons, Reanalyze |
-| 0.15.0 | 2026-03-12 | Batch-Analyse, Summary-Bugfix, Bewerbungs-Erkennung, 51 Tools |
-| 0.14.3 | 2026-03-12 | Dashboard-Befehle ueberall (copyText-Transformation) |
-| 0.14.2 | 2026-03-12 | Workflows als Tools (MCP-Prompts auch ohne Slash-Commands) |
-| 0.14.1 | 2026-03-12 | Update-sichere MCP-Konfiguration, feste Installationspfade |
-| 0.14.0 | 2026-03-10 | Service-Layer, Dashboard-UX, Workspace-Guidance, 187 Tests |
-| 0.13.0 | 2026-03-08 | FK-Bugfixes, Auto-Analyse, Ordner-Browser, 159 Tests |
-| 0.12.0 | 2026-03-07 | server.py Modularisierung, Dashboard-Tests, Doku-Korrekturen |
-| 0.11.0 | 2026-03-06 | Validierung, Ladeanimationen, Paginierung, Extraktions-Fixes |
-| 0.10.5 | 2026-03-06 | Markdown & Textdateien Support |
-| 0.10.0 | 2026-03-05 | UX & Scraper Overhaul, Onboarding-Wizard, Gehalts-Engine |
-| 0.9.0 | 2026-03-02 | Skill-Gap-Analyse, Follow-ups, Ablehnungs-Tracking |
-| 0.8.0 | 2026-03-02 | Smart Auto-Extraction, Profil-Export/Import |
-| 0.7.0 | 2026-03-02 | Interview-Simulation, Gehaltsverhandlung, 9 neue Tools |
-| 0.6.0 | 2026-03-02 | Multi-Profil, Fortfuehrbare Ersterfassung |
+| 0.30.0 | 2026-03-20 | UX-Fixes (9 Issues, Koala280), Lazy Loading, ~300 Umlaut-Korrekturen |
+| 0.29.0 | 2026-03-20 | E-Mail-Integration, Schema v15, 17 API-Endpoints, Meeting-Widget |
+| 0.28.0 | 2026-03-20 | Editierbare Bewerbungen, Snapshot, Schema v14 |
+| 0.27.0 | 2026-03-20 | Datenqualität, Skill-Normalisierung, Zombie-Erkennung |
+| 0.26.0 | 2026-03-20 | Filtering, Scoring, UX, 66 Tools, Schema v13 |
+| 0.25.2 | 2026-03-20 | Frontend-Recovery (Codex + Claude) |
+| 0.25.0 | 2026-03-17 | Datenqualität, Installer, Profil-Report |
+| 0.24.0 | 2026-03-16 | Dashboard-Erweiterungen, Fit-Analyse, Help-Menü |
+| 0.23.0 | 2026-03-16 | Koala280 React-Frontend (7.877 Zeilen) |
+| 0.17.0 | 2026-03-14 | React 19 + Vite + Tailwind (Koala280-Basis) |
+| 0.16.0 | 2026-03-12 | Skill-Aktualität, Jobtitel, Schema v9, 53 Tools |
+| 0.14.0 | 2026-03-10 | Service-Layer, Workspace-Guidance |
+| 0.10.0 | 2026-03-05 | UX-Overhaul, Onboarding-Wizard |
 | 0.1.0 | 2026-03-02 | Erster Release (21 Tools, 65 Tests) |
 
-Vollstaendiges Changelog: siehe CHANGELOG.md und README.md
+Vollständiges Changelog: siehe CHANGELOG.md
 
 ---
 
-*Aktualisiert: 2026-03-12 von Claude Code (v0.16.0 Skill-Aktualitaet, Jobtitel-Vorschlaege, Schema v9)*
-*Vorheriger Stand: 2026-03-12 (v0.15.1 Auto-Dokumentanalyse, Profil-Fix, Edit-Buttons)*
+*Aktualisiert: 2026-03-21 von Claude Code (v0.30.0 Release-Vorbereitung für v1.0.0)*
+*Vorheriger Stand: 2026-03-12 (v0.16.0)*

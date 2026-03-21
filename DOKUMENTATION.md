@@ -1,5 +1,5 @@
 # PBP — Persoenliches Bewerbungs-Portal
-## Komplette Projektdokumentation | Stand: 2026-03-20 | v0.29.0
+## Komplette Projektdokumentation | Stand: 2026-03-21 | v0.30.0
 
 ---
 
@@ -13,7 +13,7 @@ Computerwissen vorausgesetzt.
 Der Assistent kann:
 
 - Ein strukturiertes Profil aufbauen (wie ein lockeres Gespraech, nicht wie ein Formular)
-- Stellenangebote automatisch aus **9 Jobportalen** sammeln
+- Stellenangebote automatisch aus **17 Jobportalen** sammeln
 - Stellen per Scoring-System bewerten (passt/passt nicht)
 - Bewerbungen verwalten und den Status tracken
 - **Lebenslaeufe und Anschreiben als PDF/DOCX exportieren**
@@ -22,7 +22,7 @@ Der Assistent kann:
 Der User spricht mit Claude in natuerlicher Sprache. Claude nutzt im Hintergrund
 die PBP-Tools, um Daten zu speichern, Jobs zu suchen und Dokumente zu erstellen.
 
-**Zusaetzlich** gibt es ein **Web-Dashboard** (Browser-Oberflaeche auf Port 5173),
+**Zusaetzlich** gibt es ein **Web-Dashboard** (Browser-Oberflaeche auf Port 8200),
 ueber das der User seine Daten auch visuell verwalten kann.
 
 ---
@@ -56,7 +56,7 @@ ueber das der User seine Daten auch visuell verwalten kann.
 
 ---
 
-### 2.2 Jobsuche ✓ vollstaendig (9 Quellen)
+### 2.2 Jobsuche ✓ vollstaendig (17 Quellen)
 
 | Quelle | Methode | Login | Status |
 |--------|---------|-------|--------|
@@ -118,7 +118,7 @@ Cairo/Pango — wichtig fuer Windows!), python-docx fuer DOCX.
 
 ### 2.5 Dashboard (Browser-UI) ✓ vollstaendig
 
-Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
+Das Dashboard hat **7 Bereiche** und läuft auf `http://localhost:8200`:
 
 **Tab 1 — Dashboard (Uebersicht)**
 - Statistik-Kacheln: Aktive Stellen, Bewerbungen, Interview-Rate, Angebot-Rate
@@ -149,7 +149,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
 - Regionale Praeferenzen
 - Gewichtungs-Regler
 - Blacklist-Verwaltung
-- **Quellenverwaltung** (9 Quellen an/aus mit Info-Badges)
+- **Quellenverwaltung** (17 Quellen an/aus mit Info-Badges)
 
 **Frontend-Qualitaet**:
 - Toast-Benachrichtigungen (Erfolg/Fehler/Info) statt alert()
@@ -182,7 +182,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
 
 ## 3. MCP-Schnittstelle (fuer Claude Desktop)
 
-### 3.1 Tools (51 Aktionen)
+### 3.1 Tools (66 Aktionen)
 
 | Tool | Beschreibung |
 |------|-------------|
@@ -290,7 +290,7 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (Composition Root, ~140 Zeilen)                │
-│    ├── tools/ (8 Module, 53 Tools)                        │
+│    ├── tools/ (8 Module, 66 Tools)                        │
 │    ├── prompts.py (12 Prompts)                            │
 │    ├── resources.py (6 Resources)                         │
 │    └── services/ (gemeinsamer Service-Layer)              │
@@ -298,13 +298,13 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
 │         ├── search_service.py                             │
 │         └── workspace_service.py                          │
 │         ↓                                                  │
-│  database.py (SQLite + WAL, Schema v9)                    │
+│  database.py (SQLite + WAL, Schema v15)                    │
 │    └── 16 Kern-Tabellen + user_preferences, FK + CASCADE  │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐  │
 │  │ dashboard.py      │  │ job_scraper/ │  │ export.py  │  │
-│  │ (FastAPI :5173)   │  │ 9 Quellen    │  │ PDF/DOCX   │  │
+│  │ (FastAPI :8200)   │  │ 17 Quellen    │  │ PDF/DOCX   │  │
 │  │ 60 API-Endpunkte  │  │ dynamische   │  │ fpdf2 +    │  │
 │  │  ↕ JSON           │  │ Keywords     │  │ python-docx│  │
 │  │ dashboard.html    │  │              │  │            │  │
@@ -348,13 +348,13 @@ Das Dashboard hat **5 Tabs** und laeuft auf `http://localhost:5173`:
 > "Zeige mir mein Profil" oder "Profil ueberpruefen"
 
 **Dashboard ansehen:**
-> Browser oeffnen: http://localhost:5173
+> Browser oeffnen: http://localhost:8200
 
 ### 5.3 Demo-Modus
 
 ```bash
 python test_demo.py
-# Oeffnet Dashboard mit Beispieldaten auf http://localhost:5173
+# Oeffnet Dashboard mit Beispieldaten auf http://localhost:8200
 ```
 
 ---
@@ -384,7 +384,7 @@ Ergebnis: **317 Tests, alle gruen**
 
 ---
 
-## 7. Fazit v0.29.0
+## 7. Fazit v0.30.0
 
 ### Was funktioniert:
 - ✓ Dialog-basierte Profilerstellung (lockeres Interview, nicht steifes Formular)

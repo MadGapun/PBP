@@ -2,6 +2,39 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.0.0] - 2026-03-22
+
+### Erster öffentlicher Release 🎉
+
+PBP erreicht v1.0.0 — nicht weil alles perfekt ist, sondern weil es zuverlässig funktioniert.
+
+**Was in 1.0.0 steckt** (kumuliert seit v0.1.0):
+
+- **66 MCP-Tools** in 8 Modulen — Profil, Dokumente, Jobs, Bewerbungen, Analyse, Export, Suche, Workflows
+- **14 MCP-Prompts** — von Ersterfassung bis Interview-Simulation
+- **17 Jobquellen** — Bundesagentur, StepStone, LinkedIn, Indeed, Monster, Hays und 11 weitere
+- **E-Mail-Integration** — .eml/.msg Import, automatisches Matching, Meeting-Extraktion
+- **React 19 Dashboard** — 7 Bereiche, Drag & Drop, Live-Updates, Statistik-Charts
+- **PDF/DOCX-Export** — Lebenslauf und Anschreiben in professionellem Layout
+- **Multi-Profil** — Mehrere Profile mit vollständiger Daten-Isolation
+- **Schema v15** — 21 Tabellen, Migrationskette v1→v15, voll abwärtskompatibel
+- **317 Tests** — alle grün
+- **Zero-Knowledge Installer** — `INSTALLIEREN.bat` für Windows
+
+**Release-Vorbereitung:**
+- Versions-Metadaten synchronisiert (pyproject.toml, \_\_init\_\_.py, Credits-Dialog)
+- Sekundär-Dokumentation auf v0.30.0 Stand gebracht (ZUSTAND.md, architecture.md, codex_context.md)
+- DOKUMENTATION.md aktualisiert (Port, Quellen, Tools, Schema)
+- Security-Audit bestanden (keine API-Keys, Passwörter oder private Daten im Repo)
+
+> **Hinweis zur Versionshistorie:** Es existierte ein früherer Release `v1.0.0` vom 2. März 2026,
+> der als "Erster Release" auf den zweiten Commit des Repos zeigte (21 Tools, 65 Tests).
+> Dieser wurde vor dem offiziellen 1.0.0-Release entfernt, da er nicht dem tatsächlichen
+> Reifegrad eines 1.0-Produkts entsprach. Die lückenlose Entwicklungshistorie ist über
+> die v0.x-Tags (v0.1.0 bis v0.30.0) und das CHANGELOG vollständig nachvollziehbar.
+
+---
+
 ## [0.30.0] - 2026-03-20
 
 ### UX-Verbesserungen & Qualität (Issues #139–#147, Koala280)
