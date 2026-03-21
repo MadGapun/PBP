@@ -107,7 +107,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
 }
 
 export default function JobsPage() {
-  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, navigateTo } = useApp();
+  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
@@ -909,7 +909,7 @@ export default function JobsPage() {
               action={filters.view === "active" ? (
                 <div className="flex gap-3">
                   <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
-                  <Button variant="secondary" onClick={() => pushToast("Starte die Jobsuche über das MCP-Tool 'jobsuche_starten' oder per Claude-Prompt.", "info")}>
+                  <Button variant="secondary" onClick={() => copyPrompt("/jobsuche_workflow")}>
                     <Search size={15} />
                     Jobsuche starten
                   </Button>

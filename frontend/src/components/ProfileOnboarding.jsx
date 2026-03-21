@@ -593,7 +593,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
           postJson(`/api/user-preferences/profile_onboarding_conversation_${profile.id}`, { value: CONVERSATION_STATE.ACTIVE }),
         ]);
       }
-      pushToast("Befehl kopiert.", "success");
+      pushToast("Befehl kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
     } catch (error) {
       pushToast(`Befehl konnte nicht kopiert werden: ${error.message}`, "danger");
     }
@@ -669,7 +669,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       await copyToClipboard(JOB_WORKFLOW_COMMAND);
       setJobWorkflowStarted(true);
       void syncJobsDuringWorkflow();
-      pushToast("Befehl kopiert.", "success");
+      pushToast("Befehl kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
     } catch (error) {
       pushToast(`Befehl konnte nicht kopiert werden: ${error.message}`, "danger");
     }

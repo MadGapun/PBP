@@ -35,6 +35,15 @@ PBP erreicht v1.0.0 — nicht weil alles perfekt ist, sondern weil es zuverläss
 
 ---
 
+## [0.30.2] - 2026-03-21
+
+### UX: Prompt-Kopie & Paste-Hinweis
+
+- **Jobsuche starten:** Button kopiert jetzt `/jobsuche_workflow` in die Zwischenablage (vorher nur Info-Toast)
+- **Paste-Hinweis:** Alle Clipboard-Toasts zeigen jetzt "Prompt kopiert — füge ihn mit Strg+V in Claude ein." und bleiben 7 Sekunden sichtbar (vorher 4s, ohne Hinweis)
+
+---
+
 ## [0.30.1] - 2026-03-21
 
 ### Hotfix: Versionserkennung & Installer

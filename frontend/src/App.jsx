@@ -178,7 +178,7 @@ export default function App() {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`;
     setToasts((current) => [...current, { id, message: normalizedMessage || message, tone }]);
-    window.setTimeout(() => dismissToast(id), 4200);
+    window.setTimeout(() => dismissToast(id), Number(options?.duration) || 4200);
   }
 
   async function copyPrompt(prompt) {
@@ -211,7 +211,7 @@ export default function App() {
           });
         }
       }
-      pushToast("Prompt in die Zwischenablage kopiert.", "success");
+      pushToast("Prompt kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
     }
