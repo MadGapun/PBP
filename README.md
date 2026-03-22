@@ -857,18 +857,21 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.32.1 — Bugfixes + Diagnose (2026-03-22)
+- **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Uebernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurueckgezogene ausblenden, Fuzzy-Matching
+- **Fuzzy-Keyword-Matching** (#183) — Synonyme (PLM→Teamcenter), Umlaute, Multi-Word-Split
+- **pbp_diagnose** — Gesundheitscheck mit auto_fix, findet Probleme und gibt Empfehlungen
+- **keyword_vorschlaege** — Analysiert tote Keywords und schlaegt Aenderungen vor
+- 72 Tools, 341 Tests
+
 ### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
 - **Gefuehrter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhaengige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
-- **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen (Stellentyp, Remote, Entfernung, Gehalt, Keywords, Schwellenwert), 2 neue Tools
-- **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim, integriert in Scraper-Pipeline
-- **Blacklist bereinigt** (#168) — dismiss_patterns raus, nur noch firma/keyword, Duplikat-Erkennung
-- **ATS-konformer CV** (#174) — Calibri, keine Tabellen, Heading-Hierarchie, Pfeil-Symbole
-- **Aufgewerteter Bewerbungsbericht** (#173) — Executive Summary, Inhaltsverzeichnis, PBP-Branding, Quellenanalyse mit Erfolgsquote, +5 Score-Bonus
-- **Drag & Drop Upload** (#176) — Dokumente direkt in der Bewerbungs-Timeline hochladen und verknuepfen
-- **Auto-Dokumentzuordnung** (#177) — Firmenname-Matching mit Umlaut-Normalisierung und Zeitnaehe
-- **IDs ueberall** (#171) — Kurz-Hashes in allen Tool-Outputs und klickbar im Frontend
-- **Auto-Save Stellenbeschreibung** (#172) — Bei CV/Anschreiben-Export automatisch in DB persistiert
-- **FAQ / Erste Schritte** (#175) — Interaktiver Guide mit Entscheidungsbaum
+- **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen, 2 neue Tools
+- **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim
+- **ATS-konformer CV** (#174) — Calibri, keine Tabellen, Heading-Hierarchie
+- **Aufgewerteter Bewerbungsbericht** (#173) — Executive Summary, PBP-Branding, Quellenanalyse
+- **Drag & Drop Upload** (#176), **Auto-Dokumentzuordnung** (#177), **IDs ueberall** (#171)
+- **Auto-Save Stellenbeschreibung** (#172), **FAQ** (#175), **Blacklist bereinigt** (#168)
 - Schema v17, 70 Tools, 16 Prompts, 341 Tests
 
 ### v0.30.0 — UX-Verbesserungen & Qualitaet (2026-03-20)

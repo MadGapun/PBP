@@ -2,6 +2,38 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.32.1] - 2026-03-22
+
+### Bugfixes + Diagnose (#178-#184, #154, #168, #176)
+
+Alle Bugs aus den Endtests behoben, Pipeline-Simulation verifiziert.
+
+**Bugfixes:**
+
+- **#178:** source aus Jobs-Tabelle in Bewerbungen uebernehmen, Score-Verteilung zeigt alle Jobs,
+  +5 Beworben-Bonus im Scoring-Service
+- **#179:** Grammatikfehler "darfst du erinnern" + Umlaut "fuer" im Frontend
+- **#180:** Scoring warnt bei fehlender Beschreibung (Mindest-Score statt 0), Dashboard-Todo
+- **#181:** bewerbung_bearbeiten erweitert um employment_type, source, vermittler, endkunde
+- **#182:** Zurueckgezogene Bewerbungen standardmaessig ausblenden, Stellenart-Filter, Sortierung
+- **#183:** Fuzzy-Keyword-Matching — Synonyme (PLM→Teamcenter), Umlaute (Luerssen→Lürssen),
+  Multi-Word-Split ("PLM Projektleiter" matcht "Projektleiter im PLM-Umfeld")
+- **#184:** keyword_vorschlaege Tool — analysiert tote Keywords und schlaegt Aenderungen vor
+- **#154:** "Bereits beworben"-Badge in Frontend-Stellenkarten
+- **#168:** Blacklist-Validierung auf DB-Ebene + Substring-Match fuer Firmennamen
+- **#176:** Timeline-Eintrag bei Upload verifiziert (war bereits implementiert)
+
+**Neue Tools:**
+
+- `pbp_diagnose(auto_fix)` — Gesundheitscheck: Profil, Kriterien, Stellen, Bewerbungen,
+  Blacklist. Findet Probleme und gibt Handlungsempfehlungen. Mit auto_fix=True werden
+  einfache Probleme automatisch behoben (z.B. fehlende source nachgetragen).
+- `keyword_vorschlaege()` — Analysiert haeufige Begriffe in gut vs. schlecht bewerteten
+  Stellen und findet Keywords die in keiner Stelle vorkommen ("tote Keywords").
+
+**Technisch:** 72 Tools (+2), 341 Tests, Basis-Schema um vermittler/endkunde/description_snapshot ergaenzt,
+Blacklist-Firmenfilter mit Substring-Match.
+
 ## [0.32.0] - 2026-03-22
 
 ### 11 Issues (#167-#177) — Erweiterter Bewerbungsbegleiter
