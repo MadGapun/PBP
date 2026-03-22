@@ -1847,8 +1847,8 @@ class Database:
             INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
                 bewerbungsart, lebenslauf_variante, ansprechpartner,
-                kontakt_email, portal_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                kontakt_email, portal_name, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             aid, stored_job_hash, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
@@ -1859,6 +1859,7 @@ class Database:
             data.get("ansprechpartner", ""),
             data.get("kontakt_email", ""),
             data.get("portal_name", ""),
+            data.get("source", ""),
         ))
         # Add initial event
         conn.execute("""
@@ -1899,13 +1900,16 @@ class Database:
         conn.commit()
 
     def update_application(self, app_id: str, data: dict):
-        """Update application fields (title, company, url, notes, ansprechpartner, kontakt_email)."""
+        """Update application fields (#181: erweitert um employment_type, source, vermittler, endkunde)."""
         conn = self.connect()
         now = _now()
         fields = []
         values = []
-        for key in ("title", "company", "url", "notes", "ansprechpartner",
-                     "kontakt_email", "portal_name", "bewerbungsart"):
+        allowed_keys = ("title", "company", "url", "notes", "ansprechpartner",
+                        "kontakt_email", "portal_name", "bewerbungsart",
+                        "employment_type", "source", "source_secondary",
+                        "vermittler", "endkunde", "applied_at")
+        for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
                 values.append(data[key])
@@ -2003,6 +2007,9 @@ class Database:
     # === Blacklist ===
 
     def add_to_blacklist(self, entry_type: str, value: str, reason: str = ""):
+        # #168: Nur noch firma und keyword erlaubt
+        if entry_type not in ("firma", "keyword"):
+            raise ValueError(f"Ungültiger Blacklist-Typ '{entry_type}'. Nur 'firma' oder 'keyword' erlaubt.")
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
         conn.execute("""
@@ -2295,7 +2302,7 @@ class Database:
         conn = self.connect()
         pid = self.get_active_profile_id()
 
-        # Score distribution using brackets (consistent with PDF report) (#125)
+        # Score distribution using brackets — ALL jobs (active + dismissed) for full picture (#178)
         dist_rows = conn.execute("""
             SELECT
                 CASE
@@ -2306,6 +2313,21 @@ class Database:
                     ELSE '10+'
                 END as bracket, COUNT(*) as cnt
             FROM jobs WHERE is_pinned=0
+            AND (profile_id=? OR profile_id IS NULL)
+            GROUP BY bracket ORDER BY bracket
+        """, (pid,)).fetchall()
+
+        # Separate: nur aktive Jobs für die "aktive Score-Verteilung"
+        active_dist_rows = conn.execute("""
+            SELECT
+                CASE
+                    WHEN score = 0 THEN '0'
+                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
+                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
+                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
+                    ELSE '10+'
+                END as bracket, COUNT(*) as cnt
+            FROM jobs WHERE is_pinned=0 AND is_active=1
             AND (profile_id=? OR profile_id IS NULL)
             GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
@@ -2330,6 +2352,7 @@ class Database:
 
         return {
             "score_distribution": {r["bracket"]: r["cnt"] for r in dist_rows},
+            "score_distribution_aktiv": {r["bracket"]: r["cnt"] for r in active_dist_rows},
             "sources": [
                 {"name": r["source"] or "unbekannt", "count": r["cnt"],
                  "avg_score": _safe_float(r["avg_score"]),
@@ -3591,6 +3614,10 @@ CREATE TABLE IF NOT EXISTS applications (
     employment_type TEXT,
     source TEXT DEFAULT '',
     source_secondary TEXT DEFAULT '',
+    vermittler TEXT DEFAULT '',
+    endkunde TEXT DEFAULT '',
+    description_snapshot TEXT,
+    snapshot_date TEXT,
     created_at TEXT,
     updated_at TEXT
 );

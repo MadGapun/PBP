@@ -147,7 +147,21 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
             adjustments.append({"dimension": "Muss-Kriterium", "detail": kw,
                                 "punkte": entry["value"]})
 
-    # 7. Auto-Ignore Schwellenwert
+    # 7. Beworben-Bonus: +5 wenn der User sich auf diese Stelle beworben hat (#178)
+    job_hash = job.get("hash") or job.get("job_hash", "")
+    if job_hash:
+        try:
+            apps = db.get_applications()
+            applied_hashes = {a.get("job_hash") for a in apps if a.get("job_hash")}
+            if job_hash in applied_hashes:
+                bonus = 5
+                total_adj += bonus
+                adjustments.append({"dimension": "Beworben-Bonus", "detail": "Bewerbung vorhanden",
+                                    "punkte": bonus})
+        except Exception:
+            pass
+
+    # 8. Auto-Ignore Schwellenwert
     final_score = base_score + total_adj
     threshold = cfg.get(("schwellenwert", "auto_ignore"), {}).get("value", 0)
 

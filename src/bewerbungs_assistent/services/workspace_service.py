@@ -130,6 +130,23 @@ def build_workspace_summary(
                 "action_target": "bewerbungen",
             }
 
+    # #180: Zähle aktive Jobs ohne Beschreibung — Dashboard-Hinweis
+    jobs_ohne_beschreibung = sum(
+        1 for j in jobs
+        if len((j.get("description") or "").strip()) < 50 and j.get("score", 0) > 0
+    )
+
+    # Aufgaben/Todos für das Dashboard (#180, #182)
+    todos = []
+    if jobs_ohne_beschreibung > 0:
+        todos.append({
+            "typ": "beschreibung_nachladen",
+            "prioritaet": "hoch",
+            "text": f"{jobs_ohne_beschreibung} Stellen ohne Beschreibung — Score ist unzuverlässig. "
+                    "Öffne die Stellen und lade die Beschreibung nach.",
+            "aktion": "stellen_anzeigen(beschreibung_fehlt=True)",
+        })
+
     return {
         "has_profile": profile is not None,
         "profile_name": profile_summary["name"],
@@ -144,7 +161,8 @@ def build_workspace_summary(
         },
         "sources": source_summary,
         "search": search_status,
-        "jobs": {"active": len(jobs)},
+        "jobs": {"active": len(jobs), "ohne_beschreibung": jobs_ohne_beschreibung},
+        "todos": todos,
         "applications": {
             "total": len(applications),
             "follow_ups_total": follow_up_summary["total"],

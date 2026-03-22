@@ -382,6 +382,11 @@ def register(mcp, db, logger):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
             if j["hash"] in applied_hashes_all:
                 entry["bereits_beworben"] = True
+            # #180: Warnung wenn Beschreibung fehlt (Score unsicher)
+            desc = j.get("description") or ""
+            if len(desc.strip()) < 50:
+                entry["beschreibung_fehlt"] = True
+                entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
             formatted.append(entry)
 
         result = {

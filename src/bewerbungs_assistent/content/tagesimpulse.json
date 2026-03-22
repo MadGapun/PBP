@@ -109,7 +109,7 @@
   {"id": "impuls_108", "text": "Selbst dein Lebenslauf will nicht, dass du sonntags an Bulletpoints zerbrichst.", "tags": ["wochenende", "humor"], "contexts": ["weekend"]},
   {"id": "impuls_109", "text": "Wenn du heute nur Kraft sammelst, war das nicht zu wenig.", "tags": ["wochenende", "ruhe"], "contexts": ["weekend"]},
   {"id": "impuls_110", "text": "Regeneration ist Teil von Leistungsfaehigkeit, nicht ihr Gegner.", "tags": ["wochenende", "ernst"], "contexts": ["weekend"]},
-  {"id": "impuls_111", "text": "Heute darfst du erinnern, dass du mehr bist als dein Bewerbungsstatus.", "tags": ["feiertag", "ruhe"], "contexts": ["weekend", "default"]},
+  {"id": "impuls_111", "text": "Heute darfst du dich daran erinnern, dass du mehr bist als dein Bewerbungsstatus.", "tags": ["feiertag", "ruhe"], "contexts": ["weekend", "default"]},
   {"id": "impuls_112", "text": "Feiertage muessen nichts leisten. Du auch nicht unbedingt.", "tags": ["feiertag", "ruhe"], "contexts": ["weekend", "default"]},
   {"id": "impuls_113", "text": "Ein Tag Pause macht deine Ziele nicht kleiner.", "tags": ["feiertag", "ermutigend"], "contexts": ["weekend", "default"]},
   {"id": "impuls_114", "text": "Selbst Karriereplaene haben Feiertage. Sonst waeren sie Steuererklaerungen.", "tags": ["feiertag", "humor"], "contexts": ["weekend", "default"]},

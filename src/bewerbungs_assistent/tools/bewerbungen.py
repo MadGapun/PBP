@@ -194,6 +194,13 @@ def register(mcp, db, logger):
                     "found_at": datetime.now().isoformat(),
                 }])
 
+        # #178 Bug 1: source aus jobs-Tabelle übernehmen
+        source = ""
+        if effective_hash:
+            linked_job = db.get_job(effective_hash)
+            if linked_job:
+                source = linked_job.get("source", "") or ""
+
         aid = db.add_application({
             "title": title, "company": company, "url": url,
             "job_hash": effective_hash, "status": status,
@@ -204,6 +211,7 @@ def register(mcp, db, logger):
             "ansprechpartner": ansprechpartner,
             "kontakt_email": kontakt_email,
             "portal_name": portal_name,
+            "source": source,
         })
 
         result = {
@@ -271,15 +279,39 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def bewerbungen_anzeigen(status_filter: str = "") -> dict:
-        """Zeigt alle erfassten Bewerbungen mit Status und Timeline.
+    def bewerbungen_anzeigen(
+        status_filter: str = "",
+        archiv: bool = False,
+        stellenart: str = "",
+        sortierung: str = "datum",
+    ) -> dict:
+        """Zeigt erfasste Bewerbungen mit Status und Timeline.
+
+        Standardmäßig werden zurückgezogene, abgelehnte und abgelaufene Bewerbungen
+        ausgeblendet. Setze archiv=True um sie zu sehen.
 
         Args:
             status_filter: Optional: Nur Bewerbungen mit diesem Status
-                (offen, beworben, eingangsbestaetigung, interview, zweitgespraech,
-                 angebot, abgelehnt, zurückgezogen, abgelaufen)
+                (offen, in_vorbereitung, beworben, eingangsbestaetigung, interview,
+                 zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen)
+            archiv: True = auch abgelehnte/zurückgezogene/abgelaufene zeigen (Standard: False)
+            stellenart: Optional: Filter nach Stellenart (festanstellung, freelance, etc.)
+            sortierung: datum (Standard), firma, status, score
         """
         apps = db.get_applications(status_filter if status_filter else None)
+
+        # #182: Archivierte Bewerbungen standardmäßig ausblenden
+        ARCHIVE_STATUSES = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+        if not archiv and not status_filter:
+            aktive = [a for a in apps if a.get("status") not in ARCHIVE_STATUSES]
+            archivierte_count = len(apps) - len(aktive)
+            apps = aktive
+        else:
+            archivierte_count = 0
+
+        # Stellenart-Filter (#182)
+        if stellenart:
+            apps = [a for a in apps if (a.get("employment_type") or "").lower() == stellenart.lower()]
 
         if not apps:
             return {
@@ -330,17 +362,38 @@ def register(mcp, db, logger):
                 }
             formatted.append(entry)
 
+        # #182: Sortierung
+        if sortierung == "firma":
+            formatted.sort(key=lambda x: x.get("firma", "").lower())
+        elif sortierung == "status":
+            status_order = ["in_vorbereitung", "beworben", "eingangsbestaetigung",
+                            "interview", "zweitgespraech", "angebot", "angenommen",
+                            "offen", "abgelehnt", "zurueckgezogen", "abgelaufen"]
+            formatted.sort(key=lambda x: (
+                status_order.index(x.get("status", "offen"))
+                if x.get("status") in status_order else 99
+            ))
+        else:  # datum (default) — neueste zuerst
+            formatted.sort(key=lambda x: x.get("datum", ""), reverse=True)
+
         stats = db.get_statistics()
-        return {
-            "anzahl": len(apps),
+        result = {
+            "anzahl": len(formatted),
             "bewerbungen": formatted,
             "statistik": {
                 "gesamt": stats.get("total_applications", 0),
                 "nach_status": stats.get("applications_by_status", {}),
                 "interview_rate": stats.get("interview_rate", 0),
             },
-            "hinweis": "Nutze bewerbung_status_ändern(id, status, notizen) um den Status zu aktualisieren."
+            "hinweis": "Nutze bewerbung_status_aendern(id, status, notizen) um den Status zu aktualisieren."
         }
+        # #182: Archiv-Hinweis wenn Bewerbungen ausgeblendet
+        if archivierte_count > 0:
+            result["archiv_hinweis"] = (
+                f"{archivierte_count} archivierte Bewerbungen ausgeblendet "
+                "(abgelehnt/zurückgezogen/abgelaufen). Zeige mit archiv=True."
+            )
+        return result
 
     @mcp.tool()
     def bewerbung_loeschen(bewerbung_id: str, bestaetigung: bool = False) -> dict:
@@ -382,7 +435,11 @@ def register(mcp, db, logger):
         ansprechpartner: str = "",
         kontakt_email: str = "",
         portal_name: str = "",
-        bewerbungsart: str = ""
+        bewerbungsart: str = "",
+        employment_type: str = "",
+        source: str = "",
+        vermittler: str = "",
+        endkunde: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -398,6 +455,10 @@ def register(mcp, db, logger):
             kontakt_email: Neue Kontakt-E-Mail
             portal_name: Neues Portal
             bewerbungsart: Neue Bewerbungsart
+            employment_type: Stellenart (festanstellung, freelance, teilzeit, praktikum, werkstudent)
+            source: Quelle der Stelle (stepstone, indeed, linkedin, manuell, etc.)
+            vermittler: Name des Vermittlers/der Agentur
+            endkunde: Name des Endkunden (bei Freelance/Vermittlung)
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -407,7 +468,8 @@ def register(mcp, db, logger):
         for key, val in [("title", title), ("company", company), ("url", url),
                          ("notes", notes), ("ansprechpartner", ansprechpartner),
                          ("kontakt_email", kontakt_email), ("portal_name", portal_name),
-                         ("bewerbungsart", bewerbungsart)]:
+                         ("bewerbungsart", bewerbungsart), ("employment_type", employment_type),
+                         ("source", source), ("vermittler", vermittler), ("endkunde", endkunde)]:
             if val:
                 updates[key] = val
 

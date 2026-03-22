@@ -812,6 +812,10 @@ export default function JobsPage() {
                         {job.employment_type === "freelance" ? "Freelance" : job.employment_type === "festanstellung" ? "Festanstellung" : job.employment_type === "praktikum" ? "Praktikum" : job.employment_type === "werkstudent" ? "Werkstudent" : job.employment_type}
                       </Badge>
                     ) : null}
+                    {/* #154: Bereits-beworben-Badge aus matched applications */}
+                    {appliedJobHashes.has(job.hash) ? (
+                      <Badge tone="success">Bereits beworben</Badge>
+                    ) : null}
                   </div>
                   <div
                     className="cursor-pointer group"

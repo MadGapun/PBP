@@ -281,8 +281,8 @@ def _post_search_cleanup(db, jobs: list) -> dict:
             stats["duplikate_db"] += 1
             continue
 
-        # Skip blacklisted companies
-        if company in bl_firms:
+        # Skip blacklisted companies (Substring-Match: "CIDEON" matcht "CIDEON Software GmbH")
+        if any(firm in company or company in firm for firm in bl_firms):
             stats["blacklist"] += 1
             continue
 
@@ -542,6 +542,77 @@ def _parse_weights(criteria: dict) -> dict:
     }
 
 
+# Synonym-Map fuer echte Synonyme/Varianten (#183)
+# NUR direkte Synonyme — KEINE Technologie-Familien (sonst matcht "Java" auf "Python-Stellen")
+_SYNONYM_MAP = {
+    "plm": ["teamcenter", "windchill", "enovia", "aras", "product lifecycle"],
+    "projektmanager": ["projektleiter", "project manager", "projektleitung"],
+    "projektleiter": ["projektmanager", "project manager", "projektleitung"],
+    "scrum master": ["agile coach", "scrum"],
+    "fullstack": ["full-stack", "full stack"],
+    "remote": ["homeoffice", "home office", "home-office", "telearbeit"],
+    "freelance": ["freiberuflich", "selbststaendig", "freiberufler"],
+    "devops": ["site reliability", "sre", "platform engineer"],
+    "maschinenbau": ["mechanical engineering", "maschinenbauingenieur"],
+    "vertrieb": ["sales", "account manager", "business development"],
+}
+
+
+def _normalize_for_matching(text: str) -> str:
+    """Normalisiere Text fuer Matching: Umlaute, Bindestriche, Gross/Klein (#183)."""
+    text = text.lower()
+    # Umlaute normalisieren (bidirektional: ue->ü UND ü->ue)
+    replacements = [
+        ("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"),
+    ]
+    # Erst die echten Umlaute im Suchtext durch ae/oe/ue ersetzen
+    normalized = text
+    for uml, repl in replacements:
+        normalized = normalized.replace(uml, repl)
+    return normalized
+
+
+def _fuzzy_keyword_match(keyword: str, text: str) -> bool:
+    """Fuzzy-Keyword-Matching: Substring + Synonyme + Umlaut-Normalisierung (#183).
+
+    Matcht wenn:
+    1. Keyword als Substring im Text (exakt)
+    2. Normalisiertes Keyword im normalisierten Text (Umlaute)
+    3. Einzelne Wörter des Keywords matchen alle (Multi-Word Split)
+    4. Ein Synonym des Keywords im Text vorkommt
+    """
+    kw_lower = keyword.lower().strip()
+    text_lower = text.lower()
+
+    # 1. Exakter Substring-Match
+    if kw_lower in text_lower:
+        return True
+
+    # 2. Umlaut-normalisierter Match
+    kw_norm = _normalize_for_matching(kw_lower)
+    text_norm = _normalize_for_matching(text_lower)
+    if kw_norm in text_norm:
+        return True
+
+    # 3. Multi-Word: Alle Einzelwörter müssen im Text vorkommen
+    #    z.B. "PLM Projektleiter" matcht "Projektleiter (m/w/d) im Bereich PLM"
+    words = re.split(r'[\s\-/]+', kw_lower)
+    if len(words) > 1:
+        if all(w in text_lower or _normalize_for_matching(w) in text_norm for w in words if len(w) > 1):
+            return True
+
+    # 4. Synonym-Match
+    for syn_key, synonyms in _SYNONYM_MAP.items():
+        if syn_key == kw_lower or kw_lower in synonyms:
+            # Prüfe ob das Keyword oder ein Synonym im Text vorkommt
+            all_terms = [syn_key] + synonyms
+            for term in all_terms:
+                if term in text_lower or _normalize_for_matching(term) in text_norm:
+                    return True
+
+    return False
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -551,26 +622,49 @@ def calculate_score(job: dict, criteria: dict) -> int:
       remote: bonus for remote/hybrid (default 2)
       naehe: bonus for <30km distance (default 2)
       fern_malus: penalty for >200km distance (default 3)
+
+    #180: Bei fehlender Beschreibung wird nur der Titel gematcht.
+    Das Scoring laeuft trotzdem, aber der Score wird als "unsicher" markiert
+    (via _description_missing Flag am Job).
     """
-    text = f"{job.get('title', '')} {job.get('description', '')}".lower()
+    description = job.get("description", "") or ""
+    title = job.get("title", "") or ""
+    has_description = len(description.strip()) > 50  # Mindestens 50 Zeichen fuer sinnvollen Match
+    text = f"{title} {description}".lower()
     w = _parse_weights(criteria)
+
+    # #180: Markiere Jobs ohne Beschreibung damit Claude/Frontend warnen kann
+    if not has_description:
+        job["_beschreibung_fehlt"] = True
 
     # AUSSCHLUSS keywords (check first for early exit)
     ausschluss = criteria.get("keywords_ausschluss", [])
-    if any(kw.lower() in text for kw in ausschluss):
+    if any(_fuzzy_keyword_match(kw, text) for kw in ausschluss):
         return 0
 
-    # MUSS keywords
+    # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
-    muss_found = sum(1 for kw in muss if kw.lower() in text)
+    muss_found = sum(1 for kw in muss if _fuzzy_keyword_match(kw, text))
     if muss and muss_found == 0:
+        # #180: Ohne Beschreibung nicht sofort auf 0 setzen, WENN der Titel
+        # zumindest Teilworte der MUSS-Keywords enthält (z.B. "PLM" im Titel)
+        if not has_description and title.strip():
+            title_lower = title.lower()
+            # Prüfe ob mindestens ein Einzelwort aus MUSS-Keywords im Titel vorkommt
+            has_partial = any(
+                w in title_lower
+                for kw in muss for w in kw.lower().split() if len(w) > 2
+            )
+            if has_partial:
+                job["_score_unsicher"] = True
+                return 1  # Mindest-Score — Beschreibung nachladen!
         return 0
 
     score = muss_found * w["muss"]
 
-    # PLUS keywords
+    # PLUS keywords — #183: Fuzzy-Matching
     plus = criteria.get("keywords_plus", [])
-    score += sum(1 for kw in plus if kw.lower() in text) * w["plus"]
+    score += sum(1 for kw in plus if _fuzzy_keyword_match(kw, text)) * w["plus"]
 
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     dist = job.get("distance_km")
@@ -640,9 +734,10 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     muss = criteria.get("keywords_muss", [])
     plus = criteria.get("keywords_plus", [])
 
-    muss_hits = [kw for kw in muss if kw.lower() in text]
-    missing_muss = [kw for kw in muss if kw.lower() not in text]
-    plus_hits = [kw for kw in plus if kw.lower() in text]
+    # #183: Fuzzy-Matching auch in der Fit-Analyse
+    muss_hits = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
+    missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
+    plus_hits = [kw for kw in plus if _fuzzy_keyword_match(kw, text)]
 
     factors = {}
     total = 0
@@ -724,6 +819,12 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if len(skill_miss) > len(skill_hits) and skill_miss:
             risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
+    # #180: Warnung bei fehlender Beschreibung
+    desc = job.get("description") or ""
+    if len(desc.strip()) < 50:
+        risks.insert(0, "BESCHREIBUNG FEHLT — Score ist unzuverlässig! "
+                     "Lade die Stellenbeschreibung nach (stelle_manuell_anlegen oder URL öffnen).")
+
     return {
         "total_score": max(0, total),
         "muss_hits": muss_hits,
@@ -731,6 +832,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         "plus_hits": plus_hits,
         "factors": factors,
         "risks": risks,
+        "beschreibung_vorhanden": len(desc.strip()) >= 50,
     }
 
 

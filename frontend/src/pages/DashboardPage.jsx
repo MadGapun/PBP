@@ -400,7 +400,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400/60">
-                {impulse.impulse.title || "Heute fuer dich"}
+                {impulse.impulse.title || "Heute für dich"}
               </p>
               <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
             </div>

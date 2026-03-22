@@ -1084,7 +1084,7 @@ export default function App() {
                   <>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Stellensuche</h3>
-                      <p>Aktiviere Jobquellen unter "Einstellungen" und starte eine Suche ueber Claude mit "/jobsuche_workflow". Die Stellen werden automatisch bewertet.</p>
+                      <p>Aktiviere Jobquellen unter "Einstellungen" und starte eine Suche über Claude mit "/jobsuche_workflow". Die Stellen werden automatisch bewertet.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Score</h3>

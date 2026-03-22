@@ -663,3 +663,353 @@ def register(mcp, db, logger):
             "ignoriert": result.get("ignored", False),
             "hinweis": "Passe die Regler mit scoring_konfigurieren('setzen', ...) an."
         }
+
+    @mcp.tool()
+    def pbp_diagnose(auto_fix: bool = False) -> dict:
+        """Führt einen umfassenden Gesundheitscheck des PBP-Systems durch.
+
+        Prüft die Datenbank auf bekannte Probleme, fehlende Daten, Inkonsistenzen
+        und gibt konkrete Handlungsempfehlungen. Ideal wenn etwas nicht funktioniert
+        oder du dir unsicher bist ob alles korrekt eingerichtet ist.
+
+        Bei auto_fix=True werden einfache Probleme automatisch behoben.
+
+        Args:
+            auto_fix: True = behebbare Probleme automatisch fixen (Standard: False)
+        """
+        probleme = []
+        warnungen = []
+        info = []
+        fixes = []
+
+        # --- 1. Profil-Check ---
+        profile = db.get_profile()
+        if not profile:
+            probleme.append({
+                "bereich": "Profil",
+                "problem": "Kein aktives Profil vorhanden",
+                "loesung": "Erstelle ein Profil mit /ersterfassung oder profil_erstellen()",
+                "schwere": "kritisch",
+            })
+        else:
+            name = profile.get("name") or profile.get("full_name", "")
+            if not name:
+                warnungen.append({
+                    "bereich": "Profil",
+                    "problem": "Profil hat keinen Namen",
+                    "loesung": "profil_bearbeiten(name='Dein Name')",
+                })
+            skills = profile.get("skills", [])
+            if len(skills) < 3:
+                warnungen.append({
+                    "bereich": "Profil",
+                    "problem": f"Nur {len(skills)} Skills hinterlegt — zu wenig für gutes Matching",
+                    "loesung": "skill_hinzufuegen() oder /profil_erweiterung nutzen",
+                })
+            positions = profile.get("positions", [])
+            if not positions:
+                warnungen.append({
+                    "bereich": "Profil",
+                    "problem": "Keine Berufserfahrung hinterlegt",
+                    "loesung": "position_hinzufuegen() oder Lebenslauf hochladen",
+                })
+
+        # --- 2. Suchkriterien-Check ---
+        criteria = db.get_search_criteria()
+        muss = criteria.get("keywords_muss", [])
+        plus = criteria.get("keywords_plus", [])
+        if not muss and not plus:
+            probleme.append({
+                "bereich": "Suchkriterien",
+                "problem": "Keine Suchbegriffe definiert — Scoring kann nicht funktionieren",
+                "loesung": "suchkriterien_setzen() oder /jobsuche_workflow starten",
+                "schwere": "kritisch",
+            })
+        elif not muss:
+            warnungen.append({
+                "bereich": "Suchkriterien",
+                "problem": "Keine MUSS-Keywords — alle Stellen bekommen Score 0",
+                "loesung": "suchkriterien_setzen('keywords_muss', ['Keyword1', 'Keyword2'])",
+            })
+
+        # --- 3. Stellen-Check ---
+        try:
+            active_jobs = db.get_active_jobs()
+            total_jobs = len(active_jobs)
+
+            if total_jobs == 0:
+                info.append({
+                    "bereich": "Stellen",
+                    "meldung": "Keine aktiven Stellen. Starte eine Jobsuche mit /jobsuche_workflow.",
+                })
+            else:
+                # Jobs ohne Beschreibung
+                ohne_beschreibung = [
+                    j for j in active_jobs
+                    if len((j.get("description") or "").strip()) < 50
+                ]
+                if ohne_beschreibung:
+                    warnungen.append({
+                        "bereich": "Stellen",
+                        "problem": f"{len(ohne_beschreibung)} von {total_jobs} Stellen ohne Beschreibung — Score ist unzuverlässig",
+                        "stellen": [
+                            {"id": j["hash"][:8], "titel": j.get("title", ""), "firma": j.get("company", "")}
+                            for j in ohne_beschreibung[:5]
+                        ],
+                        "loesung": "Öffne die Stellen-URLs und lade die Beschreibung nach (stelle_manuell_anlegen oder fit_analyse)",
+                    })
+
+                # Jobs mit Score 0
+                score_null = [j for j in active_jobs if j.get("score", 0) == 0 and not j.get("is_pinned")]
+                if score_null and len(score_null) > total_jobs * 0.5:
+                    warnungen.append({
+                        "bereich": "Scoring",
+                        "problem": f"{len(score_null)} von {total_jobs} Stellen haben Score 0 — Keywords passen nicht zu den Stellenangeboten",
+                        "loesung": "Prüfe deine MUSS-Keywords mit keyword_vorschlaege() oder suchkriterien_anzeigen()",
+                    })
+
+                # Quellen-Verteilung
+                sources = {}
+                for j in active_jobs:
+                    src = j.get("source", "unbekannt")
+                    sources[src] = sources.get(src, 0) + 1
+                info.append({
+                    "bereich": "Stellen",
+                    "meldung": f"{total_jobs} aktive Stellen aus {len(sources)} Quellen",
+                    "quellen": sources,
+                })
+        except Exception as e:
+            probleme.append({
+                "bereich": "Datenbank",
+                "problem": f"Fehler beim Lesen der Stellen: {e}",
+                "schwere": "kritisch",
+            })
+
+        # --- 4. Bewerbungs-Check ---
+        try:
+            apps = db.get_applications()
+            if apps:
+                # Source leer?
+                ohne_source = [a for a in apps if not (a.get("source") or "").strip()]
+                if ohne_source:
+                    warnungen.append({
+                        "bereich": "Bewerbungen",
+                        "problem": f"{len(ohne_source)} von {len(apps)} Bewerbungen ohne Quelle",
+                        "loesung": "bewerbung_bearbeiten(id, source='stepstone') oder automatisch bei neuen Bewerbungen",
+                    })
+                    if auto_fix:
+                        fixed = 0
+                        for a in ohne_source:
+                            if a.get("job_hash"):
+                                job = db.get_job(a["job_hash"])
+                                if job and job.get("source"):
+                                    db.update_application(a["id"], {"source": job["source"]})
+                                    fixed += 1
+                        if fixed:
+                            fixes.append(f"{fixed} Bewerbungen: source aus verknüpfter Stelle nachgetragen")
+
+                # Zombies: Seit >60 Tagen in beworben ohne Update
+                _now = datetime.now()
+                zombies = []
+                for a in apps:
+                    if a.get("status") in ("beworben", "offen"):
+                        date_str = a.get("applied_at") or a.get("created_at") or ""
+                        if date_str:
+                            try:
+                                app_date = datetime.fromisoformat(date_str[:19])
+                                if (_now - app_date).days > 60:
+                                    zombies.append({
+                                        "id": a["id"][:8],
+                                        "titel": a.get("title", ""),
+                                        "firma": a.get("company", ""),
+                                        "tage": (_now - app_date).days,
+                                    })
+                            except (ValueError, TypeError):
+                                pass
+                if zombies:
+                    warnungen.append({
+                        "bereich": "Bewerbungen",
+                        "problem": f"{len(zombies)} Zombie-Bewerbungen (>60 Tage ohne Update)",
+                        "bewerbungen": zombies[:5],
+                        "loesung": "Status aktualisieren oder als abgelehnt/zurückgezogen markieren",
+                    })
+
+                # Pipeline-Übersicht
+                by_status = {}
+                for a in apps:
+                    s = a.get("status", "offen")
+                    by_status[s] = by_status.get(s, 0) + 1
+                info.append({
+                    "bereich": "Bewerbungen",
+                    "meldung": f"{len(apps)} Bewerbungen",
+                    "pipeline": by_status,
+                })
+        except Exception as e:
+            probleme.append({
+                "bereich": "Datenbank",
+                "problem": f"Fehler beim Lesen der Bewerbungen: {e}",
+                "schwere": "kritisch",
+            })
+
+        # --- 5. Blacklist-Check ---
+        try:
+            blacklist = db.get_blacklist()
+            invalid = [b for b in blacklist if b.get("type") not in ("firma", "keyword")]
+            if invalid:
+                warnungen.append({
+                    "bereich": "Blacklist",
+                    "problem": f"{len(invalid)} Einträge mit ungültigem Typ (nicht firma/keyword)",
+                    "loesung": "Diese Einträge haben keine Wirkung. Entferne sie mit blacklist_verwalten('entfernen', entry_id=...)",
+                })
+        except Exception:
+            pass
+
+        # --- 6. Scoring-Config-Check ---
+        try:
+            scoring = db.get_scoring_config()
+            if not scoring:
+                info.append({
+                    "bereich": "Scoring",
+                    "meldung": "Keine individuellen Scoring-Regler konfiguriert (Standardwerte aktiv). "
+                               "Nutze scoring_konfigurieren() für Feintuning.",
+                })
+        except Exception:
+            pass
+
+        # --- Ergebnis ---
+        gesundheit = "kritisch" if probleme else "warnungen" if warnungen else "gesund"
+        result = {
+            "status": gesundheit,
+            "zusammenfassung": (
+                f"{len(probleme)} Probleme, {len(warnungen)} Warnungen, {len(info)} Infos"
+            ),
+        }
+        if probleme:
+            result["probleme"] = probleme
+        if warnungen:
+            result["warnungen"] = warnungen
+        if info:
+            result["info"] = info
+        if fixes:
+            result["automatisch_behoben"] = fixes
+        if gesundheit == "gesund":
+            result["nachricht"] = "Alles in Ordnung! Dein PBP-System ist gesund."
+        elif gesundheit == "kritisch":
+            result["nachricht"] = "Es gibt kritische Probleme die zuerst behoben werden müssen."
+        else:
+            result["nachricht"] = "Es gibt Verbesserungsmöglichkeiten. Schau dir die Warnungen an."
+
+        # Bugreport-Hinweis bei kritischen Problemen
+        if probleme:
+            result["bugreport_hinweis"] = (
+                "Falls du ein technisches Problem vermutest, erstelle einen Bugreport: "
+                "Kopiere diese Diagnose-Ausgabe und sende sie an den Entwickler."
+            )
+
+        return result
+
+    @mcp.tool()
+    def keyword_vorschlaege() -> dict:
+        """Analysiert aktive Stellen und schlägt Keyword-Anpassungen vor (#184).
+
+        Prüft welche Keywords in den Stellenbeschreibungen häufig vorkommen
+        aber NICHT in den Suchkriterien enthalten sind, und umgekehrt.
+
+        Ideal nach einer Jobsuche: 'Passen meine Keywords noch?'
+        """
+        criteria = db.get_search_criteria()
+        muss = [kw.lower() for kw in criteria.get("keywords_muss", [])]
+        plus = [kw.lower() for kw in criteria.get("keywords_plus", [])]
+        ausschluss = [kw.lower() for kw in criteria.get("keywords_ausschluss", [])]
+        alle_keywords = set(muss + plus)
+
+        jobs = db.get_active_jobs(exclude_blacklisted=True)
+        if not jobs:
+            return {"nachricht": "Keine aktiven Stellen. Starte zuerst eine Jobsuche."}
+
+        # Zähle häufige Begriffe in gut bewerteten Stellen
+        good_jobs = [j for j in jobs if j.get("score", 0) >= 3]
+        bad_jobs = [j for j in jobs if j.get("score", 0) <= 1]
+
+        from collections import Counter as _Counter
+        good_words = _Counter()
+        bad_words = _Counter()
+
+        # Relevante Fachbegriffe extrahieren (Wörter > 3 Zeichen, keine Stoppwörter)
+        _stopwords = {"und", "oder", "der", "die", "das", "den", "dem", "ein", "eine",
+                      "ist", "sind", "hat", "haben", "wird", "werden", "mit", "von",
+                      "fuer", "für", "als", "bei", "zur", "zum", "auf", "aus", "nach",
+                      "nicht", "auch", "sich", "wir", "sie", "uns", "ihr", "ihre",
+                      "unser", "unsere", "deine", "ihre", "m/w/d", "m/w", "gmbh",
+                      "bieten", "suchen", "ihre", "gerne", "dich", "dein", "team",
+                      "arbeit", "deutsch", "english", "stelle", "stellen", "job"}
+
+        def _extract_terms(text):
+            words = re.findall(r'[a-zA-ZäöüÄÖÜß]{4,}', text.lower())
+            return [w for w in words if w not in _stopwords]
+
+        for j in good_jobs:
+            text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+            for term in _extract_terms(text):
+                good_words[term] += 1
+        for j in bad_jobs:
+            text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+            for term in _extract_terms(text):
+                bad_words[term] += 1
+
+        # Vorschläge berechnen
+        vorschlaege_plus = []
+        vorschlaege_ausschluss = []
+
+        min_freq = max(2, len(good_jobs) // 4) if good_jobs else 2
+        for term, count in good_words.most_common(50):
+            if term not in alle_keywords and count >= min_freq:
+                # Kommt häufig in guten Jobs vor, aber nicht in Keywords
+                ratio = count / max(1, bad_words.get(term, 0))
+                if ratio >= 2:  # Mindestens doppelt so häufig in guten Jobs
+                    vorschlaege_plus.append({
+                        "keyword": term,
+                        "in_guten_stellen": count,
+                        "in_schlechten_stellen": bad_words.get(term, 0),
+                    })
+
+        min_bad_freq = max(2, len(bad_jobs) // 4) if bad_jobs else 2
+        for term, count in bad_words.most_common(30):
+            if term not in alle_keywords and term not in ausschluss and count >= min_bad_freq:
+                ratio = count / max(1, good_words.get(term, 0))
+                if ratio >= 3:  # Dreimal häufiger in schlechten Jobs
+                    vorschlaege_ausschluss.append({
+                        "keyword": term,
+                        "in_schlechten_stellen": count,
+                        "in_guten_stellen": good_words.get(term, 0),
+                    })
+
+        # Keywords die in keiner Stelle vorkommen (tote Keywords)
+        from ..job_scraper import _fuzzy_keyword_match
+        tote_keywords = []
+        all_text = " ".join(
+            f"{j.get('title', '')} {(j.get('description') or '')[:500]}"
+            for j in jobs
+        ).lower()
+        for kw in muss + plus:
+            if not _fuzzy_keyword_match(kw, all_text):
+                tote_keywords.append(kw)
+
+        return {
+            "aktive_stellen": len(jobs),
+            "gut_bewertet": len(good_jobs),
+            "schlecht_bewertet": len(bad_jobs),
+            "aktuelle_keywords": {
+                "muss": muss,
+                "plus": plus,
+                "ausschluss": ausschluss,
+            },
+            "vorschlaege_plus": vorschlaege_plus[:10],
+            "vorschlaege_ausschluss": vorschlaege_ausschluss[:5],
+            "tote_keywords": tote_keywords,
+            "hinweis": (
+                "Nutze suchkriterien_bearbeiten() um Keywords anzupassen. "
+                "Tote Keywords matchen in keiner aktiven Stelle — prüfe ob sie noch relevant sind."
+            ) if tote_keywords or vorschlaege_plus else
+            "Deine Keywords passen gut zu den aktuellen Stellen."
+        }
