@@ -1435,7 +1435,7 @@ WICHTIG:
                         bewerbung_id = a["id"]
                         break
 
-        return f"""Du bist ein empathischer Bewerbungscoach. Du begleitest den User
+        return f"""Du bist ein erfahrener Bewerbungscoach. Du begleitest den User
 Schritt fuer Schritt durch die Vorbereitung seiner Bewerbung.
 
 Dein Ton: Motivierend, klar, strukturiert. Der User soll sich an die Hand

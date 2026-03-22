@@ -857,7 +857,7 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v0.32.0 — Empathischer Bewerbungsbegleiter (2026-03-22)
+### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
 - **Gefuehrter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhaengige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
 - **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen (Stellentyp, Remote, Entfernung, Gehalt, Keywords, Schwellenwert), 2 neue Tools
 - **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim, integriert in Scraper-Pipeline

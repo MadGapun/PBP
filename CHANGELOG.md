@@ -4,9 +4,9 @@ Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ## [0.32.0] - 2026-03-22
 
-### 11 Issues (#167-#177) — Empathischer Bewerbungsbegleiter
+### 11 Issues (#167-#177) — Erweiterter Bewerbungsbegleiter
 
-PBP wird zum empathischen Begleiter: Gefuehrter Workflow, Scoring-Regler, Geocoding,
+PBP wird zum erweiterten Begleiter: Gefuehrter Workflow, Scoring-Regler, Geocoding,
 ATS-konformer CV, aufgewerteter Bericht und Drag & Drop fuer Dokumente.
 
 **Kern-Features:**
