@@ -249,85 +249,42 @@ async def api_live_update_token():
 
 # === Daily Impulse (#163) ===
 
-_IMPULSE_TEXTE = [
-    # Motivation & Durchhalten
-    "Jede Bewerbung ist ein Schritt nach vorn — auch wenn die Antwort noch auf sich warten laesst.",
-    "Der perfekte Job kommt selten beim ersten Versuch. Aber er kommt.",
-    "Heute ist ein guter Tag, um den naechsten Schritt zu machen.",
-    "Geduld ist keine Passivitaet — sie ist strategisches Warten.",
-    "Eine Absage ist keine Bewertung deiner Faehigkeiten. Sie ist eine Information.",
-    "Du hast mehr Erfahrung, als du denkst. Dein Lebenslauf zeigt nur einen Teil davon.",
-    "Wer sucht, der findet. Wer aufgibt, der nicht.",
-    "Jede Woche ohne Bewerbung ist eine verpasste Chance. Jede Bewerbung ist eine genutzte.",
-    "Qualitaet schlaegt Quantitaet — eine gute Bewerbung ist mehr wert als zehn hastige.",
-    "Mach heute einen kleinen Schritt. Morgen den naechsten.",
-    # Selbstvertrauen
-    "Du bringst etwas mit, das kein anderer Bewerber hat: deine Geschichte.",
-    "Dein naechster Arbeitgeber sucht genau jemanden wie dich — er weiss es nur noch nicht.",
-    "Staerken erkennt man oft erst, wenn man sie aufschreibt. Aktualisiere dein Profil.",
-    "Erfahrung ist nicht nur, was du gemacht hast — sondern was du daraus gelernt hast.",
-    "Sei ehrlich in deiner Bewerbung. Authentizitaet ueberzeugt mehr als Perfektion.",
-    # Praxis-Tipps
-    "Hast du dein Profil diese Woche aktualisiert? Kleine Aenderungen machen grosse Unterschiede.",
-    "Pruefe deine Follow-ups — eine hoefliche Nachfrage zeigt Interesse, nicht Ungeduld.",
-    "Nutze die Fit-Analyse, bevor du dich bewirbst. Sie zeigt dir, worauf es ankommt.",
-    "Ein gutes Anschreiben beantwortet eine Frage: Warum gerade du fuer diese Stelle?",
-    "Netzwerken ist keine Einbahnstrasse — biete auch anderen deine Hilfe an.",
-    "Schau dir die Ablehnungsgruende an. Muster erkennen hilft, die Suche zu schaerfen.",
-    "Nimm dir Zeit fuer Recherche ueber das Unternehmen. Vorbereitung faellt auf.",
-    # Wochenende / Auszeit
-    "Auch eine Jobsuche braucht Pausen. Goenn dir heute etwas Gutes.",
-    "Am Wochenende darf die Jobsuche ruhen. Erholung ist Teil der Strategie.",
-    "Manchmal bringt ein freier Kopf die besten Ideen. Mach heute frueh Schluss.",
-    # Perspektive
-    "Die beste Zeit, sich zu bewerben, war gestern. Die zweitbeste ist jetzt.",
-    "Ein Jobwechsel ist kein Scheitern — er ist eine Entscheidung fuer Wachstum.",
-    "Vergleiche dich nicht mit anderen. Dein Weg ist einzigartig.",
-    "In einem Jahr wirst du froh sein, dass du heute angefangen hast.",
-    "Der Arbeitsmarkt veraendert sich staendig. Deine Faehigkeiten sind dein stabiler Anker.",
-]
-
 
 def _get_daily_impulse() -> dict:
-    """Select a deterministic impulse for today based on date hash (#163)."""
-    import hashlib
-    from datetime import datetime
-    today = datetime.now().strftime("%Y-%m-%d")
-    idx = int(hashlib.md5(today.encode()).hexdigest(), 16) % len(_IMPULSE_TEXTE)
-
-    # Context detection
-    try:
-        apps = _db.get_applications()
-        has_profile = _db.get_profile() is not None
-        active_jobs = len(_db.get_active_jobs())
-    except Exception:
-        apps, has_profile, active_jobs = [], False, 0
-
-    context = "default"
-    if not has_profile:
-        context = "onboarding"
-    elif active_jobs == 0:
-        context = "search_refresh"
-    elif len(apps) == 0 and active_jobs > 0:
-        context = "jobs_ready"
-
-    # Weekend detection
-    from datetime import datetime
-    try:
-        day = datetime.fromisoformat(today).weekday()
-        if day >= 5:
-            context = "weekend"
-    except Exception:
-        pass
+    """Build the daily impulse payload using the impulse service (#163)."""
+    from .services.daily_impulse_service import get_daily_impulse
+    from .services.profile_service import get_profile_completeness
 
     enabled = _db.get_profile_setting("daily_impulse_enabled", True)
 
-    return {
-        "text": _IMPULSE_TEXTE[idx],
-        "context": context,
-        "enabled": enabled,
-        "datum": today,
-    }
+    try:
+        profile = _db.get_profile()
+        has_profile = profile is not None
+        completeness = get_profile_completeness(profile)["completeness"] if profile else 0
+        source_summary = _get_source_summary()
+        search_status = _get_search_status_payload()
+        follow_up_summary = _get_follow_up_summary()
+        active_jobs = len(_db.get_active_jobs())
+        total_applications = len(_db.get_applications())
+    except Exception:
+        has_profile = False
+        completeness = 0
+        source_summary = {"active": 0}
+        search_status = {"status": "nie"}
+        follow_up_summary = {"due": 0}
+        active_jobs = 0
+        total_applications = 0
+
+    return get_daily_impulse(
+        enabled=enabled,
+        has_profile=has_profile,
+        profile_completeness=completeness,
+        active_sources=source_summary["active"],
+        search_status=search_status["status"],
+        active_jobs=active_jobs,
+        total_applications=total_applications,
+        follow_ups_due=follow_up_summary["due"],
+    )
 
 
 @app.get("/api/daily-impulse")

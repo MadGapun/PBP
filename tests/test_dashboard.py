@@ -1146,3 +1146,63 @@ class TestSafeJSONResponse:
         assert result["e"] == 42
 
 
+# ============================================================
+# Daily Impulse API (#163)
+# ============================================================
+
+class TestDailyImpulseAPI:
+    def test_daily_impulse_returns_valid_structure(self, client):
+        """GET /api/daily-impulse returns enabled, context, datum, impulse."""
+        r = client.get("/api/daily-impulse")
+        assert r.status_code == 200
+        data = r.json()
+        assert "enabled" in data
+        assert "context" in data
+        assert "datum" in data
+        # Context depends on day-of-week and workspace state
+        assert data["context"] in (
+            "onboarding", "weekend", "default", "profile_building",
+            "sources_missing", "search_refresh", "jobs_ready", "follow_up_due",
+        )
+
+    def test_daily_impulse_has_impulse_object(self, client):
+        """When enabled the response should contain an impulse dict."""
+        r = client.get("/api/daily-impulse")
+        data = r.json()
+        assert data["enabled"] is True
+        impulse = data["impulse"]
+        assert impulse is not None
+        assert "id" in impulse
+        assert "title" in impulse
+        assert "text" in impulse
+        assert "tags" in impulse
+        assert impulse["id"].startswith("impuls_")
+
+    def test_daily_impulse_stable_within_same_request(self, client):
+        """Two calls on the same day return the same impulse."""
+        r1 = client.get("/api/daily-impulse")
+        r2 = client.get("/api/daily-impulse")
+        assert r1.json()["impulse"]["id"] == r2.json()["impulse"]["id"]
+
+    def test_daily_impulse_toggle(self, client):
+        """POST /api/daily-impulse/toggle flips the enabled state."""
+        r = client.get("/api/daily-impulse")
+        initial = r.json()["enabled"]
+
+        t = client.post("/api/daily-impulse/toggle")
+        assert t.status_code == 200
+        assert t.json()["enabled"] is not initial
+
+        r2 = client.get("/api/daily-impulse")
+        assert r2.json()["enabled"] is not initial
+
+    def test_daily_impulse_disabled_returns_null(self, client):
+        """When disabled, impulse should be None."""
+        # Disable
+        client.post("/api/daily-impulse/toggle")
+        r = client.get("/api/daily-impulse")
+        data = r.json()
+        assert data["enabled"] is False
+        assert data["impulse"] is None
+
+

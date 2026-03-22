@@ -395,10 +395,15 @@ export default function DashboardPage() {
         <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
       </div>
 
-      {impulse?.enabled && impulse?.text && (
+      {impulse?.enabled && impulse?.impulse?.text && (
         <Card className="mb-5 rounded-2xl border-amber-600/30 bg-amber-950/10">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm italic text-muted">{impulse.text}</p>
+            <div className="min-w-0">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400/60">
+                {impulse.impulse.title || "Heute fuer dich"}
+              </p>
+              <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
+            </div>
             <button
               className="shrink-0 text-xs text-muted/40 hover:text-muted"
               title="Tagesimpuls ausblenden"

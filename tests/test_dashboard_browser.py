@@ -375,6 +375,38 @@ def test_react_frontend_smoke(live_dashboard, browser):
         context.close()
 
 
+def test_daily_impulse_visible_and_toggleable(live_dashboard, browser):
+    """Daily impulse card is visible on dashboard and can be toggled off (#163)."""
+    import httpx
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        # API returns a valid impulse
+        response = httpx.get(f"{live_dashboard['base_url']}/api/daily-impulse", timeout=5.0)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["enabled"] is True
+        assert data["impulse"] is not None
+        assert "text" in data["impulse"]
+
+        # Toggle off
+        toggle = httpx.post(f"{live_dashboard['base_url']}/api/daily-impulse/toggle", timeout=5.0)
+        assert toggle.status_code == 200
+        assert toggle.json()["enabled"] is False
+
+        # Verify disabled
+        response2 = httpx.get(f"{live_dashboard['base_url']}/api/daily-impulse", timeout=5.0)
+        assert response2.json()["enabled"] is False
+        assert response2.json()["impulse"] is None
+
+        # Toggle back on
+        httpx.post(f"{live_dashboard['base_url']}/api/daily-impulse/toggle", timeout=5.0)
+    finally:
+        context.close()
+
+
 def test_help_button_opens_support_modal(live_dashboard, browser):
     """The help button opens the support modal with issue/report actions."""
     context = browser.new_context(viewport={"width": 1440, "height": 960})
