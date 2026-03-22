@@ -10,22 +10,30 @@ def register(mcp, db, logger):
         keywords_plus: list[str] = None,
         keywords_ausschluss: list[str] = None,
         regionen: list[str] = None,
+        stellentypen: list[str] = None,
+        max_entfernung: dict = None,
         custom_kriterien: dict = None
     ) -> dict:
-        """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
+        """Setzt die Suchkriterien fuer die Jobsuche (ersetzt die gesamte Liste).
 
         MUSS-Keywords: Stelle wird nur beruecksichtigt wenn mindestens eins vorkommt.
-        PLUS-Keywords: Erhöhen den Score (= bessere Sortierung).
+        PLUS-Keywords: Erhoehen den Score (= bessere Sortierung).
         AUSSCHLUSS-Keywords: Stelle wird komplett ignoriert wenn eins vorkommt.
 
         Tipp: Leite die Keywords aus dem Profil ab! Was kann der User,
         was sucht er? Nutze profil_zusammenfassung() als Basis.
 
         Args:
-            keywords_muss: Pflicht-Keywords (müssen vorkommen)
-            keywords_plus: Bonus-Keywords (erhöhen Score)
+            keywords_muss: Pflicht-Keywords (muessen vorkommen)
+            keywords_plus: Bonus-Keywords (erhoehen Score)
             keywords_ausschluss: Ausschluss-Keywords (z.B. Junior, Praktikum)
             regionen: Bevorzugte Regionen
+            stellentypen: Gewuenschte Stellentypen als Multi-Select (#166).
+                Optionen: festanstellung, freelance, teilzeit, praktikum, werkstudent.
+                Standard: ['festanstellung']
+            max_entfernung: Max. Entfernung pro Stellentyp in km (#166).
+                z.B. {"festanstellung": 50, "freelance": 200, "teilzeit": 30}
+                Die Entfernung beeinflusst das Fit-Scoring als Malus.
             custom_kriterien: Eigene Kriterien mit Gewichtung, z.B. {"homeoffice": 8, "gehalt": 7}
         """
         if keywords_muss:
@@ -36,6 +44,12 @@ def register(mcp, db, logger):
             db.set_search_criteria("keywords_ausschluss", keywords_ausschluss)
         if regionen:
             db.set_search_criteria("regionen", regionen)
+        if stellentypen is not None:
+            valid = {"festanstellung", "freelance", "teilzeit", "praktikum", "werkstudent"}
+            stellentypen = [s for s in stellentypen if s in valid]
+            db.set_search_criteria("stellentypen", stellentypen or ["festanstellung"])
+        if max_entfernung is not None:
+            db.set_search_criteria("max_entfernung", max_entfernung)
         if custom_kriterien:
             db.set_search_criteria("custom_kriterien", custom_kriterien)
         return {"status": "gespeichert", "kriterien": db.get_search_criteria()}

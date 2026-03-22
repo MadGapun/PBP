@@ -554,22 +554,26 @@ def calculate_score(job: dict, criteria: dict) -> int:
     plus = criteria.get("keywords_plus", [])
     score += sum(1 for kw in plus if kw.lower() in text) * w["plus"]
 
-    # Distance bonus/malus (#60, #112) — Freelance: reduced/no malus
+    # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     dist = job.get("distance_km")
     emp_type = job.get("employment_type", "festanstellung")
-    is_freelance = emp_type == "freelance"
+    max_dist_map = criteria.get("max_entfernung", {})
+    # Defaults: Festanstellung 50km, Freelance 200km, Rest 50km
+    _default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
+    type_max_dist = max_dist_map.get(emp_type) or _default_max.get(emp_type, 50)
     if dist is not None:
-        if dist > 200:
-            # Freelance: no distance penalty (remote work assumed) (#112)
-            if not is_freelance:
-                score -= w["fern_malus"]
-        elif dist > 100:
-            if not is_freelance:
-                score -= 1  # slight penalty for far-away (Festanstellung only)
-        elif dist < 30:
+        if dist > type_max_dist * 4:
+            # Way beyond limit: full penalty
+            score -= w["fern_malus"]
+        elif dist > type_max_dist * 2:
+            # Moderately beyond: slight penalty
+            score -= 1
+        elif dist <= type_max_dist * 0.6:
+            # Well within range: bonus
             score += w["naehe"]
-        elif dist < 50:
-            score += max(1, w["naehe"] - 1)  # smaller bonus for 30-50km
+        elif dist <= type_max_dist:
+            # Within range: smaller bonus
+            score += max(1, w["naehe"] - 1)
 
     # Remote bonus (#60) — differentiate remote vs hybrid
     remote = job.get("remote_level", "unbekannt")
@@ -642,17 +646,23 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     dist = job.get("distance_km")
     fit_emp_type = job.get("employment_type", "festanstellung")
-    fit_is_freelance = fit_emp_type == "freelance"
+    fit_max_dist_map = criteria.get("max_entfernung", {})
+    _fit_default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
+    fit_type_max = fit_max_dist_map.get(fit_emp_type) or _fit_default_max.get(fit_emp_type, 50)
     if dist is not None:
-        if dist > 200:
-            if fit_is_freelance:
-                factors[f"Entfernung: {int(dist)} km (Freelance — kein Malus)"] = 0
-            else:
-                factors[f"Entfernung: {int(dist)} km"] = -w["fern_malus"]
-                total -= w["fern_malus"]
-        elif dist < 30:
+        if dist > fit_type_max * 4:
+            factors[f"Entfernung: {int(dist)} km (Max {fit_emp_type}: {fit_type_max} km)"] = -w["fern_malus"]
+            total -= w["fern_malus"]
+        elif dist > fit_type_max * 2:
+            factors[f"Entfernung: {int(dist)} km (ueber Max {fit_type_max} km)"] = -1
+            total -= 1
+        elif dist <= fit_type_max * 0.6:
             factors[f"Naehe: {int(dist)} km"] = w["naehe"]
             total += w["naehe"]
+        elif dist <= fit_type_max:
+            pts = max(1, w["naehe"] - 1)
+            factors[f"Naehe: {int(dist)} km (im Rahmen)"] = pts
+            total += pts
 
     risks = []
 

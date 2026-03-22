@@ -162,7 +162,26 @@ function normalizeProfile(draft) {
   return { ...draft, preferences };
 }
 
+const STELLENTYPEN_OPTIONS = [
+  { value: "festanstellung", label: "Festanstellung" },
+  { value: "freelance", label: "Freelance" },
+  { value: "teilzeit", label: "Teilzeit" },
+  { value: "praktikum", label: "Praktikum" },
+  { value: "werkstudent", label: "Werkstudent" },
+];
+
+const DEFAULT_MAX_ENTFERNUNG = { festanstellung: 50, freelance: 200, teilzeit: 30, praktikum: 50, werkstudent: 50 };
+
 function criteriaToDraft(criteria) {
+  // Migrate legacy stellentyp (string) to stellentypen (list) (#166)
+  let stellentypen = criteria?.stellentypen || [];
+  if (!stellentypen.length && criteria?.stellentyp) {
+    stellentypen = [criteria.stellentyp];
+  }
+  if (!stellentypen.length) stellentypen = ["festanstellung"];
+
+  const maxEnt = criteria?.max_entfernung || {};
+
   return {
     keywords_muss: [...(criteria?.keywords_muss || [])],
     keywords_plus: [...(criteria?.keywords_plus || [])],
@@ -172,7 +191,12 @@ function criteriaToDraft(criteria) {
     min_tagessatz: criteria?.min_tagessatz ?? "",
     min_stundensatz: criteria?.min_stundensatz ?? "",
     max_entfernung_km: criteria?.max_entfernung_km ?? "",
-    stellentyp: criteria?.stellentyp || "",
+    stellentypen,
+    max_entfernung_festanstellung: maxEnt.festanstellung ?? DEFAULT_MAX_ENTFERNUNG.festanstellung,
+    max_entfernung_freelance: maxEnt.freelance ?? DEFAULT_MAX_ENTFERNUNG.freelance,
+    max_entfernung_teilzeit: maxEnt.teilzeit ?? DEFAULT_MAX_ENTFERNUNG.teilzeit,
+    max_entfernung_praktikum: maxEnt.praktikum ?? DEFAULT_MAX_ENTFERNUNG.praktikum,
+    max_entfernung_werkstudent: maxEnt.werkstudent ?? DEFAULT_MAX_ENTFERNUNG.werkstudent,
     gewichtung_muss: criteria?.gewichtung?.muss ?? 2,
     gewichtung_plus: criteria?.gewichtung?.plus ?? 1,
     gewichtung_remote: criteria?.gewichtung?.remote ?? 2,
@@ -192,7 +216,14 @@ function criteriaDraftToPayload(criteriaDraft) {
     min_tagessatz: criteriaDraft.min_tagessatz === "" ? null : Number(criteriaDraft.min_tagessatz),
     min_stundensatz: criteriaDraft.min_stundensatz === "" ? null : Number(criteriaDraft.min_stundensatz),
     max_entfernung_km: criteriaDraft.max_entfernung_km === "" ? null : Number(criteriaDraft.max_entfernung_km),
-    stellentyp: criteriaDraft.stellentyp,
+    stellentypen: criteriaDraft.stellentypen,
+    max_entfernung: {
+      festanstellung: Number(criteriaDraft.max_entfernung_festanstellung) || 50,
+      freelance: Number(criteriaDraft.max_entfernung_freelance) || 200,
+      teilzeit: Number(criteriaDraft.max_entfernung_teilzeit) || 30,
+      praktikum: Number(criteriaDraft.max_entfernung_praktikum) || 50,
+      werkstudent: Number(criteriaDraft.max_entfernung_werkstudent) || 50,
+    },
     gewichtung: {
       muss: Number(criteriaDraft.gewichtung_muss),
       plus: Number(criteriaDraft.gewichtung_plus),
@@ -1166,28 +1197,46 @@ export default function ProfilePage() {
                   onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_stundensatz: event.target.value }))}
                 />
               </Field>
-              <Field label="Max. Entfernung (km)">
-                <TextInput
-                  type="number"
-                  value={criteriaDraft.max_entfernung_km}
-                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, max_entfernung_km: event.target.value }))}
-                  placeholder="z.B. 50"
-                />
-              </Field>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Stellentyp">
-                <SelectInput
-                  value={criteriaDraft.stellentyp}
-                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, stellentyp: event.target.value }))}
-                >
-                  <option value="">Keine Auswahl</option>
-                  <option value="festanstellung">Festanstellung</option>
-                  <option value="freelance">Freelance</option>
-                  <option value="teilzeit">Teilzeit</option>
-                </SelectInput>
-              </Field>
-            </div>
+
+            <Field label="Stellentypen (Multi-Select)">
+              <div className="flex flex-wrap gap-4">
+                {STELLENTYPEN_OPTIONS.map(({ value, label }) => (
+                  <label key={value} className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                    <input
+                      type="checkbox"
+                      checked={criteriaDraft.stellentypen?.includes(value)}
+                      onChange={() => setCriteriaDraft((current) => {
+                        const next = current.stellentypen?.includes(value)
+                          ? current.stellentypen.filter((t) => t !== value)
+                          : [...(current.stellentypen || []), value];
+                        return { ...current, stellentypen: next.length ? next : ["festanstellung"] };
+                      })}
+                      className="h-4 w-4 accent-sky-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Max. Entfernung pro Stellentyp (km)">
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                {STELLENTYPEN_OPTIONS.filter(({ value }) => criteriaDraft.stellentypen?.includes(value)).map(({ value, label }) => (
+                  <div key={value} className="flex items-center gap-2">
+                    <span className="min-w-[7rem] text-xs text-muted/60">{label}:</span>
+                    <TextInput
+                      type="number"
+                      className="!w-20"
+                      value={criteriaDraft[`max_entfernung_${value}`]}
+                      onChange={(event) => setCriteriaDraft((current) => ({ ...current, [`max_entfernung_${value}`]: event.target.value }))}
+                    />
+                    <span className="text-xs text-muted/40">km</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted/40">Entfernung beeinflusst den Fit-Score als Malus. Freelance hat standardmaessig eine hoehere Toleranz.</p>
+            </Field>
 
             <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
               {weightingCards.map((card) => renderWeightRow(card))}
