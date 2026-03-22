@@ -20,17 +20,20 @@ export default function SettingsPage() {
   const [logs, setLogs] = useState([]);
   const [resetConfirm, setResetConfirm] = useState("");
   const [loginJobs, setLoginJobs] = useState({});
+  const [impulseEnabled, setImpulseEnabled] = useState(true);
   const loginPollersRef = useRef(new Map());
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [sourceRows, logsData] = await Promise.all([
+      const [sourceRows, logsData, impulseData] = await Promise.all([
         api("/api/sources"),
         api("/api/logs?lines=100"),
+        api("/api/daily-impulse").catch(() => null),
       ]);
       startTransition(() => {
         setSources(sourceRows || []);
         setLogs(logsData?.lines || []);
+        if (impulseData) setImpulseEnabled(impulseData.enabled !== false);
         setLoading(false);
       });
     } catch (error) {
@@ -160,6 +163,26 @@ export default function SettingsPage() {
             onToggle={toggleSource}
             onStartLogin={startSourceLogin}
           />
+        </Card>
+
+        <Card className="rounded-2xl">
+          <SectionHeading title="Dashboard" description="Allgemeine Dashboard-Einstellungen." />
+          <label className="flex cursor-pointer items-center gap-3 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={impulseEnabled}
+              onChange={async () => {
+                try {
+                  const res = await postJson("/api/daily-impulse/toggle");
+                  setImpulseEnabled(res.enabled);
+                } catch (error) {
+                  pushToast(`Fehler: ${error.message}`, "danger");
+                }
+              }}
+              className="h-4 w-4 accent-sky-500"
+            />
+            Tagesimpuls im Dashboard anzeigen
+          </label>
         </Card>
 
         <Card className="rounded-2xl">

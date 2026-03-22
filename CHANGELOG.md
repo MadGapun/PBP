@@ -2,6 +2,47 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.31.0] - 2026-03-22
+
+### 13 Issues — Stabilisierung, Freelance, LinkedIn-Umbau, Tagesimpulse
+
+**Bugs & Stabilisierung:**
+- **#155** Stale-Job-Erkennung: Background-Jobs > 30 Min werden automatisch bereinigt, Startup-Cleanup fuer haengende Jobs
+- **#162** MetricCard zeigt jetzt Server-Stellenzahl statt gefilterte Anzahl
+
+**Freelance & Stellentyp (#151):**
+- Automatische Freelance-Erkennung ueber Keywords in Titel/Beschreibung
+- Stellenart (Festanstellung/Freelance/Praktikum/Werkstudent) manuell editierbar in Bewerbungen
+- Schema v16: `employment_type` Spalte in `applications`
+- Stellenart-Filter in Bewerbungsuebersicht
+
+**Post-Search Cleanup (#153, #154):**
+- Automatische Bereinigung nach Jobsuche: DB-Duplikate, Blacklist, bereits bewertete Stellen werden gefiltert
+- Fuzzy-Matching gegen bestehende Bewerbungen (Token-Overlap > 70%)
+- Bereinigungs-Statistik in Jobsuche-Ergebnis ("89 gefunden, 12 bekannt, 5 bewertet, 3 Blacklist")
+
+**LinkedIn/XING Umbau (#159, #160, #161):**
+- Playwright-basiertes LinkedIn/XING-Scraping deaktiviert (blockiert zuverlaessig)
+- Neues MCP-Tool `stelle_manuell_anlegen()` — Bruecke von Claude-in-Chrome zurueck ins PBP
+- README aktualisiert: Chrome + Claude-in-Chrome als Voraussetzung dokumentiert
+
+**UX-Verbesserungen:**
+- **#156** Stellen-Hash mit Click-to-Copy in Job-Karten und Detail-Dialog
+- **#157** Fit-Analyse: "Detailbewertung anfordern" Button kopiert Analyse-Prompt
+- **#158** Ablehnungsgruende werden auf Standard-Keywords normalisiert
+- **#152** Token-Verbrauch-Hinweis in README (Free-Plan vs. Pro)
+
+**Dashboard (#163):**
+- Tagesimpuls-Karte mit 30 motivierenden Texten (deterministisch pro Tag)
+- Kontext-Erkennung (Onboarding, Wochenende, Stellen vorhanden, etc.)
+- Ein/Aus-Toggle in Einstellungen
+
+**Technisch:**
+- 67 Tools, 14 Prompts, Schema v16, 317 Tests
+- Post-Search Cleanup Pipeline mit Fuzzy-Matching
+
+---
+
 ## [1.0.0] - 2026-03-22
 
 ### Erster öffentlicher Release 🎉
@@ -10,14 +51,14 @@ PBP erreicht v1.0.0 — nicht weil alles perfekt ist, sondern weil es zuverläss
 
 **Was in 1.0.0 steckt** (kumuliert seit v0.1.0):
 
-- **66 MCP-Tools** in 8 Modulen — Profil, Dokumente, Jobs, Bewerbungen, Analyse, Export, Suche, Workflows
+- **67 MCP-Tools** in 8 Modulen — Profil, Dokumente, Jobs, Bewerbungen, Analyse, Export, Suche, Workflows
 - **14 MCP-Prompts** — von Ersterfassung bis Interview-Simulation
 - **17 Jobquellen** — Bundesagentur, StepStone, LinkedIn, Indeed, Monster, Hays und 11 weitere
 - **E-Mail-Integration** — .eml/.msg Import, automatisches Matching, Meeting-Extraktion
 - **React 19 Dashboard** — 7 Bereiche, Drag & Drop, Live-Updates, Statistik-Charts
 - **PDF/DOCX-Export** — Lebenslauf und Anschreiben in professionellem Layout
 - **Multi-Profil** — Mehrere Profile mit vollständiger Daten-Isolation
-- **Schema v15** — 21 Tabellen, Migrationskette v1→v15, voll abwärtskompatibel
+- **Schema v16** — 21 Tabellen, Migrationskette v1→v16, voll abwärtskompatibel
 - **317 Tests** — alle grün
 - **Zero-Knowledge Installer** — `INSTALLIEREN.bat` für Windows
 

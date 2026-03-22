@@ -52,10 +52,12 @@ SOURCE_REGISTRY = {
     },
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "Internationales Business-Netzwerk. Beim ersten Start öffnet sich ein Browser zur Anmeldung.",
-        "methode": "Playwright (Browser)",
+        "beschreibung": "LinkedIn-Suche funktioniert nur via Claude-in-Chrome Extension (nicht automatisiert). "
+                        "Nutze die Chrome-Extension um Stellen zu finden und uebertrage sie mit stelle_manuell_anlegen().",
+        "methode": "Claude-in-Chrome (manuell)",
         "login_erforderlich": True,
-        "profil_optimierung": "Dein LinkedIn-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
+        "veraltet": True,
+        "hinweis": "Automatische Suche via Playwright deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
     "indeed": {
         "name": "Indeed",
@@ -65,10 +67,12 @@ SOURCE_REGISTRY = {
     },
     "xing": {
         "name": "XING",
-        "beschreibung": "Deutsches Business-Netzwerk. Beim ersten Start öffnet sich ein Browser zur Anmeldung.",
-        "methode": "Playwright (Browser)",
+        "beschreibung": "XING blockiert automatisierte Zugriffe. "
+                        "Nutze die Chrome-Extension um Stellen zu finden und uebertrage sie mit stelle_manuell_anlegen().",
+        "methode": "Claude-in-Chrome (manuell)",
         "login_erforderlich": True,
-        "profil_optimierung": "Dein XING-Profil kann von Claude automatisch optimiert werden (via Chrome-Browser). Hinweis: Dies verbraucht viele API-Tokens und dauert einige Minuten.",
+        "veraltet": True,
+        "hinweis": "Automatische Suche via Playwright deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
     "monster": {
         "name": "Monster",
@@ -209,6 +213,120 @@ _SCRAPER_MAP = {
 }
 
 
+def _token_overlap(a: str, b: str) -> float:
+    """Calculate token overlap ratio between two strings (#154)."""
+    tokens_a = set(re.sub(r'[^a-zäöüß0-9\s]', '', a.lower()).split())
+    tokens_b = set(re.sub(r'[^a-zäöüß0-9\s]', '', b.lower()).split())
+    if not tokens_a or not tokens_b:
+        return 0.0
+    intersection = tokens_a & tokens_b
+    return len(intersection) / min(len(tokens_a), len(tokens_b))
+
+
+def _post_search_cleanup(db, jobs: list) -> dict:
+    """Post-search cleanup: remove duplicates, blacklist, dismissed, mark applied (#153, #154).
+
+    Returns dict with 'jobs' (cleaned list) and 'stats' (cleanup counters).
+    """
+    stats = {"duplikate_db": 0, "blacklist": 0, "bereits_bewertet": 0, "bereits_beworben": 0}
+
+    # 1. Get existing job hashes from DB to skip already-known jobs
+    try:
+        existing_dismissed = {j["hash"] for j in db.get_dismissed_jobs()}
+    except Exception:
+        existing_dismissed = set()
+
+    # 2. Get blacklist entries
+    try:
+        bl_entries = db.get_blacklist()
+        bl_firms = {e["value"].lower() for e in bl_entries if e.get("type") == "firma"}
+        bl_keywords = {e["value"].lower() for e in bl_entries if e.get("type") == "keyword"}
+    except Exception:
+        bl_firms, bl_keywords = set(), set()
+
+    # 3. Get existing applications for fuzzy matching
+    try:
+        applications = db.get_applications()
+        app_keys = []
+        for a in applications:
+            title = (a.get("title") or "").strip()
+            company = (a.get("company") or "").strip()
+            if title:
+                app_keys.append({
+                    "title": title, "company": company,
+                    "id": a.get("id"), "status": a.get("status"),
+                })
+    except Exception:
+        app_keys = []
+
+    # 4. Get existing active job hashes to detect DB duplicates
+    try:
+        existing_active = {j["hash"] for j in db.get_active_jobs()}
+    except Exception:
+        existing_active = set()
+
+    cleaned = []
+    for job in jobs:
+        h = job.get("hash", "")
+        company = (job.get("company") or "").lower()
+        title = (job.get("title") or "").lower()
+
+        # Skip already-dismissed (previously rated as passt_nicht)
+        if h in existing_dismissed:
+            stats["bereits_bewertet"] += 1
+            continue
+
+        # Skip DB duplicates (already in active jobs)
+        if h in existing_active:
+            stats["duplikate_db"] += 1
+            continue
+
+        # Skip blacklisted companies
+        if company in bl_firms:
+            stats["blacklist"] += 1
+            continue
+
+        # Skip blacklisted keywords in title/company
+        if bl_keywords and any(kw in title or kw in company for kw in bl_keywords):
+            stats["blacklist"] += 1
+            continue
+
+        # Fuzzy match against existing applications (#154)
+        matched_app = None
+        for ak in app_keys:
+            # Exact company match + title token overlap > 70%
+            if ak["company"] and company and ak["company"].lower() == company:
+                overlap = _token_overlap(ak["title"], job.get("title", ""))
+                if overlap >= 0.7:
+                    matched_app = ak
+                    break
+            # No company but high title overlap
+            elif not ak["company"] and _token_overlap(ak["title"], job.get("title", "")) >= 0.85:
+                matched_app = ak
+                break
+
+        if matched_app:
+            stats["bereits_beworben"] += 1
+            # Mark but don't remove — add application info to job
+            job["_matched_application"] = {
+                "id": matched_app["id"],
+                "status": matched_app["status"],
+            }
+
+        cleaned.append(job)
+
+    total_removed = stats["duplikate_db"] + stats["blacklist"] + stats["bereits_bewertet"]
+    if total_removed or stats["bereits_beworben"]:
+        logger.info(
+            "Post-Search Cleanup: %d entfernt (DB-Duplikate: %d, Blacklist: %d, "
+            "bereits bewertet: %d), %d als bereits beworben markiert",
+            total_removed, stats["duplikate_db"], stats["blacklist"],
+            stats["bereits_bewertet"], stats["bereits_beworben"],
+        )
+
+    return {"jobs": cleaned, "stats": stats}
+
+
 def run_search(db, job_id: str, params: dict):
     """Run a background job search across configured sources.
 
@@ -225,6 +343,9 @@ def run_search(db, job_id: str, params: dict):
     if not params.get("keywords"):
         params["keywords"] = build_search_keywords(db)
 
+    # Deprecated sources (#159): skip with warning
+    _deprecated_sources = {"linkedin", "xing"}
+
     for i, quelle in enumerate(quellen):
         db.update_background_job(
             job_id, "running",
@@ -232,6 +353,12 @@ def run_search(db, job_id: str, params: dict):
             message=f"Durchsuche {quelle}... ({i+1}/{total})"
         )
         try:
+            # Skip deprecated Playwright-based sources (#159)
+            if quelle in _deprecated_sources:
+                logger.warning(
+                    "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
+                continue
+
             if quelle not in _SCRAPER_MAP:
                 logger.warning("Unbekannte Quelle: %s", quelle)
                 continue
@@ -241,14 +368,9 @@ def run_search(db, job_id: str, params: dict):
             mod = importlib.import_module(f".{module_name}", package=__package__)
             search_func = getattr(mod, func_name)
 
-            # Playwright-based scrapers: pass criteria + progress callback
-            if quelle in ("linkedin", "xing"):
-                # Ensure criteria are available for smart keyword building
-                if "criteria" not in params:
-                    params["criteria"] = db.get_search_criteria()
-                def _progress(msg, _jid=job_id):
-                    db.update_background_job(_jid, "running", message=msg)
-                jobs = search_func(params, progress_callback=_progress)
+            if False:  # Legacy Playwright path — kept for reference
+                # Playwright-based scrapers: pass criteria + progress callback
+                pass
             else:
                 jobs = search_func(params)
 
@@ -321,6 +443,15 @@ def run_search(db, job_id: str, params: dict):
             job["salary_type"] = s_type
             job["salary_estimated"] = 1
 
+    # Heuristik: employment_type aus Titel/Beschreibung erkennen (#151)
+    _freelance_keywords = {"freelance", "freiberuflich", "freiberufler", "kontingent",
+                           "projektbasiert", "auf projektbasis"}
+    for job in unique:
+        if job.get("employment_type", "festanstellung") == "festanstellung":
+            haystack = f"{job.get('title', '')} {job.get('description', '')[:500]}".lower()
+            if any(kw in haystack for kw in _freelance_keywords):
+                job["employment_type"] = "freelance"
+
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
     min_score_threshold = criteria.get("min_score_schwelle", 1)
     before = len(unique)
@@ -329,12 +460,38 @@ def run_search(db, job_id: str, params: dict):
         logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d)",
                      before - len(unique), before, min_score_threshold)
 
+    # === Post-Search Cleanup (#153, #154) ===
+    cleanup = _post_search_cleanup(db, unique)
+    unique = cleanup["jobs"]
+
     db.save_jobs(unique)
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+
+    result_data = {
+        "total": len(unique),
+        "quellen": {q: sum(1 for j in unique if j.get("source") == q) for q in quellen},
+    }
+    if cleanup["stats"]:
+        result_data["bereinigung"] = cleanup["stats"]
+
+    msg_parts = [f"{len(unique)} Stellen gefunden (aus {total} Quellen)"]
+    stats = cleanup["stats"]
+    if stats.get("duplikate_db") or stats.get("blacklist") or stats.get("bereits_bewertet") or stats.get("bereits_beworben"):
+        details = []
+        if stats.get("duplikate_db"):
+            details.append(f"{stats['duplikate_db']} bereits bekannt")
+        if stats.get("blacklist"):
+            details.append(f"{stats['blacklist']} Blacklist")
+        if stats.get("bereits_bewertet"):
+            details.append(f"{stats['bereits_bewertet']} bereits bewertet")
+        if stats.get("bereits_beworben"):
+            details.append(f"{stats['bereits_beworben']} bereits beworben")
+        msg_parts.append(f"Bereinigt: {', '.join(details)}")
+
     db.update_background_job(
         job_id, "fertig", progress=100,
-        message=f"{len(unique)} Stellen gefunden (aus {total} Quellen)",
-        result={"total": len(unique), "quellen": {q: sum(1 for j in unique if j.get("source") == q) for q in quellen}}
+        message=" | ".join(msg_parts),
+        result=result_data,
     )
 
 

@@ -303,7 +303,7 @@ export default function JobsPage() {
   async function showFitAnalysis(job) {
     try {
       const analysis = await api(`/api/jobs/${job.hash}/fit-analyse`);
-      setFitDialog({ open: true, title: job.title, analysis });
+      setFitDialog({ open: true, title: job.title, hash: job.hash, analysis });
     } catch (error) {
       pushToast(`Fit-Analyse fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -536,7 +536,7 @@ export default function JobsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Aktive Stellen" value={jobsTotal > jobs.length ? `${filteredJobs.length} / ${jobsTotal}` : filteredJobs.length} note={jobs.length !== filteredJobs.length ? `${jobs.length} geladen, ${jobsWithSalary} mit Gehalt` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
+          <MetricCard label="Aktive Stellen" value={jobsTotal || filteredJobs.length} note={filteredJobs.length !== (jobsTotal || filteredJobs.length) ? `${filteredJobs.length} angezeigt (Filter aktiv)` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
@@ -772,6 +772,12 @@ export default function JobsPage() {
               >
                 <div className="flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="font-mono text-[10px] text-muted/30 hover:text-sky transition-colors"
+                      title="ID kopieren"
+                      onClick={async () => { try { await navigator.clipboard.writeText(job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
+                    >#{String(job.hash).slice(0, 12)}</button>
                     {job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline -mt-0.5" /> Angepinnt</Badge> : null}
                     <Badge tone="sky">{job.source || "Quelle"}</Badge>
                     {editingScoreHash === String(job.hash) ? (
@@ -945,6 +951,18 @@ export default function JobsPage() {
               {(fitDialog.analysis?.risks || []).length ? fitDialog.analysis.risks.map((risk) => <p key={risk}>{risk}</p>) : <p>Keine besonderen Risiken.</p>}
             </div>
           </Card>
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => {
+              const hash = fitDialog.hash || "";
+              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert für mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschätzung: Stärken, Schwächen, Risiken, und ob sich eine Bewerbung lohnt.`;
+              copyPrompt(prompt);
+            }}
+          >
+            <Search size={15} />
+            Detailbewertung durch Claude anfordern
+          </Button>
         </div>
       </Modal>
 
@@ -1128,6 +1146,12 @@ export default function JobsPage() {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="font-mono text-[10px] text-muted/40 hover:text-sky transition-colors"
+                  title="ID kopieren"
+                  onClick={async () => { try { await navigator.clipboard.writeText(detailDialog.job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
+                >#{String(detailDialog.job.hash).slice(0, 12)}</button>
                 <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
                 {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}

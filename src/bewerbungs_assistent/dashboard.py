@@ -247,6 +247,103 @@ async def api_live_update_token():
     return _build_live_update_token_payload()
 
 
+# === Daily Impulse (#163) ===
+
+_IMPULSE_TEXTE = [
+    # Motivation & Durchhalten
+    "Jede Bewerbung ist ein Schritt nach vorn — auch wenn die Antwort noch auf sich warten laesst.",
+    "Der perfekte Job kommt selten beim ersten Versuch. Aber er kommt.",
+    "Heute ist ein guter Tag, um den naechsten Schritt zu machen.",
+    "Geduld ist keine Passivitaet — sie ist strategisches Warten.",
+    "Eine Absage ist keine Bewertung deiner Faehigkeiten. Sie ist eine Information.",
+    "Du hast mehr Erfahrung, als du denkst. Dein Lebenslauf zeigt nur einen Teil davon.",
+    "Wer sucht, der findet. Wer aufgibt, der nicht.",
+    "Jede Woche ohne Bewerbung ist eine verpasste Chance. Jede Bewerbung ist eine genutzte.",
+    "Qualitaet schlaegt Quantitaet — eine gute Bewerbung ist mehr wert als zehn hastige.",
+    "Mach heute einen kleinen Schritt. Morgen den naechsten.",
+    # Selbstvertrauen
+    "Du bringst etwas mit, das kein anderer Bewerber hat: deine Geschichte.",
+    "Dein naechster Arbeitgeber sucht genau jemanden wie dich — er weiss es nur noch nicht.",
+    "Staerken erkennt man oft erst, wenn man sie aufschreibt. Aktualisiere dein Profil.",
+    "Erfahrung ist nicht nur, was du gemacht hast — sondern was du daraus gelernt hast.",
+    "Sei ehrlich in deiner Bewerbung. Authentizitaet ueberzeugt mehr als Perfektion.",
+    # Praxis-Tipps
+    "Hast du dein Profil diese Woche aktualisiert? Kleine Aenderungen machen grosse Unterschiede.",
+    "Pruefe deine Follow-ups — eine hoefliche Nachfrage zeigt Interesse, nicht Ungeduld.",
+    "Nutze die Fit-Analyse, bevor du dich bewirbst. Sie zeigt dir, worauf es ankommt.",
+    "Ein gutes Anschreiben beantwortet eine Frage: Warum gerade du fuer diese Stelle?",
+    "Netzwerken ist keine Einbahnstrasse — biete auch anderen deine Hilfe an.",
+    "Schau dir die Ablehnungsgruende an. Muster erkennen hilft, die Suche zu schaerfen.",
+    "Nimm dir Zeit fuer Recherche ueber das Unternehmen. Vorbereitung faellt auf.",
+    # Wochenende / Auszeit
+    "Auch eine Jobsuche braucht Pausen. Goenn dir heute etwas Gutes.",
+    "Am Wochenende darf die Jobsuche ruhen. Erholung ist Teil der Strategie.",
+    "Manchmal bringt ein freier Kopf die besten Ideen. Mach heute frueh Schluss.",
+    # Perspektive
+    "Die beste Zeit, sich zu bewerben, war gestern. Die zweitbeste ist jetzt.",
+    "Ein Jobwechsel ist kein Scheitern — er ist eine Entscheidung fuer Wachstum.",
+    "Vergleiche dich nicht mit anderen. Dein Weg ist einzigartig.",
+    "In einem Jahr wirst du froh sein, dass du heute angefangen hast.",
+    "Der Arbeitsmarkt veraendert sich staendig. Deine Faehigkeiten sind dein stabiler Anker.",
+]
+
+
+def _get_daily_impulse() -> dict:
+    """Select a deterministic impulse for today based on date hash (#163)."""
+    import hashlib
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    idx = int(hashlib.md5(today.encode()).hexdigest(), 16) % len(_IMPULSE_TEXTE)
+
+    # Context detection
+    try:
+        apps = _db.get_applications()
+        has_profile = _db.get_profile() is not None
+        active_jobs = len(_db.get_active_jobs())
+    except Exception:
+        apps, has_profile, active_jobs = [], False, 0
+
+    context = "default"
+    if not has_profile:
+        context = "onboarding"
+    elif active_jobs == 0:
+        context = "search_refresh"
+    elif len(apps) == 0 and active_jobs > 0:
+        context = "jobs_ready"
+
+    # Weekend detection
+    from datetime import datetime
+    try:
+        day = datetime.fromisoformat(today).weekday()
+        if day >= 5:
+            context = "weekend"
+    except Exception:
+        pass
+
+    enabled = _db.get_profile_setting("daily_impulse_enabled", True)
+
+    return {
+        "text": _IMPULSE_TEXTE[idx],
+        "context": context,
+        "enabled": enabled,
+        "datum": today,
+    }
+
+
+@app.get("/api/daily-impulse")
+async def api_daily_impulse():
+    """Tagesimpuls fuer das Dashboard (#163)."""
+    return _get_daily_impulse()
+
+
+@app.post("/api/daily-impulse/toggle")
+async def api_toggle_daily_impulse():
+    """Toggle daily impulse on/off (#163)."""
+    current = _db.get_profile_setting("daily_impulse_enabled", True)
+    _db.set_profile_setting("daily_impulse_enabled", not current)
+    return {"enabled": not current}
+
+
 @app.get("/api/profile")
 async def api_profile():
     profile = _db.get_profile()
@@ -1028,6 +1125,7 @@ async def api_update_application(app_id: str, request: Request):
     allowed = (
         "title", "company", "url", "ansprechpartner", "kontakt_email",
         "portal_name", "bewerbungsart", "vermittler", "endkunde", "notes",
+        "employment_type",
     )
     conn = _db.connect()
     app_row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
@@ -2144,13 +2242,27 @@ async def api_jobsuche_running():
     job = _db.get_running_background_job("jobsuche")
     if not job:
         return {"running": False}
+    # Stale-Job-Erkennung (#155): Job > 30 Minuten ohne Update → abbrechen
+    updated = job.get("updated_at") or job.get("created_at")
+    if updated:
+        from datetime import datetime, timedelta
+        try:
+            last_update = datetime.fromisoformat(updated)
+            now = datetime.now()
+            if now - last_update > timedelta(minutes=30):
+                _db.update_background_job(
+                    job["id"], "fehler", message="Timeout: Job lief länger als 30 Minuten ohne Update")
+                logger.warning("Stale background job %s bereinigt (letztes Update: %s)", job["id"], updated)
+                return {"running": False}
+        except (ValueError, TypeError):
+            pass
     return {
         "running": True,
         "job_id": job.get("id"),
         "status": job.get("status"),
         "progress": int(job.get("progress") or 0),
         "message": job.get("message") or "",
-        "updated_at": job.get("updated_at") or job.get("created_at"),
+        "updated_at": updated,
     }
 
 
@@ -2496,6 +2608,36 @@ async def api_get_logs(lines: int = 100):
 
 DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
+def _cleanup_stale_jobs(db):
+    """Startup-Bereinigung: Alte stuck Background-Jobs auf 'fehler' setzen (#155)."""
+    from datetime import datetime, timedelta
+    try:
+        conn = db.connect()
+        rows = conn.execute(
+            "SELECT id, updated_at, created_at FROM background_jobs "
+            "WHERE status IN ('running', 'pending')"
+        ).fetchall()
+        now = datetime.now()
+        cleaned = 0
+        for row in rows:
+            updated = row["updated_at"] or row["created_at"]
+            if not updated:
+                continue
+            try:
+                last = datetime.fromisoformat(updated)
+                if now - last > timedelta(hours=1):
+                    db.update_background_job(
+                        row["id"], "fehler",
+                        message="Startup-Bereinigung: Job war beim Neustart noch als laufend markiert")
+                    cleaned += 1
+            except (ValueError, TypeError):
+                continue
+        if cleaned:
+            logger.info("Startup: %d veraltete Background-Jobs bereinigt", cleaned)
+    except Exception as exc:
+        logger.warning("Startup-Bereinigung fehlgeschlagen: %s", exc)
+
+
 def start_dashboard(db_instance, port: int = None):
     """Start the dashboard web server (called from background thread).
 
@@ -2503,6 +2645,7 @@ def start_dashboard(db_instance, port: int = None):
     """
     global _db
     _db = db_instance
+    _cleanup_stale_jobs(db_instance)
     use_port = port or DASHBOARD_PORT
     logger.info("Dashboard startet auf http://localhost:%d", use_port)
     import uvicorn

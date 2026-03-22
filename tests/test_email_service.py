@@ -113,9 +113,9 @@ def eml_with_attachment(tmp_path):
     return str(path)
 
 
-class TestSchemaV15:
-    def test_schema_version_is_15(self, tmp_db):
-        assert SCHEMA_VERSION == 15
+class TestSchemaV16:
+    def test_schema_version_is_16(self, tmp_db):
+        assert SCHEMA_VERSION == 16
 
     def test_application_emails_table_exists(self, tmp_db):
         conn = tmp_db.connect()

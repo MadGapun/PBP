@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 
 def _gen_id() -> str:
@@ -522,6 +522,14 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v14->v15: application_emails, application_meetings, content_hash")
+
+        if from_ver < 16:
+            # v16: employment_type in applications für manuelle Stellenart-Zuordnung (#151)
+            try:
+                conn.execute("ALTER TABLE applications ADD COLUMN employment_type TEXT")
+            except Exception:
+                pass
+            logger.info("Migration v15->v16: applications.employment_type")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -1483,10 +1491,15 @@ class Database:
                     (row["job_hash"],)
                 ).fetchone()
                 if job_row:
-                    app["job_employment_type"] = job_row["employment_type"]
+                    # Manuell gesetzter Typ hat Vorrang (#151)
+                    app["job_employment_type"] = app.get("employment_type") or job_row["employment_type"]
                     app["job_source"] = job_row["source"]
                     if not app.get("url"):
                         app["url"] = job_row["url"]
+            else:
+                # Manuell angelegte Bewerbung ohne Job-Verknüpfung
+                if app.get("employment_type"):
+                    app["job_employment_type"] = app["employment_type"]
             apps.append(self._serialize_application_row(app))
         return apps
 
@@ -3234,6 +3247,7 @@ CREATE TABLE IF NOT EXISTS applications (
     portal_name TEXT DEFAULT '',
     rejection_reason TEXT,
     fit_analyse TEXT,
+    employment_type TEXT,
     created_at TEXT,
     updated_at TEXT
 );

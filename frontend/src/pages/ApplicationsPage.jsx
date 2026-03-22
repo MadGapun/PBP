@@ -493,6 +493,26 @@ export default function ApplicationsPage() {
                       />
                     </Field>
                   ))}
+                  <Field label="Stellenart">
+                    <SelectInput
+                      value={app.job_employment_type || "festanstellung"}
+                      onChange={async (e) => {
+                        const newVal = e.target.value;
+                        try {
+                          await putJson(`/api/applications/${app.id}`, { employment_type: newVal });
+                          await reloadTimeline(app.id);
+                          pushToast("Stellenart aktualisiert.", "success");
+                        } catch (err) {
+                          pushToast(`Fehler: ${err.message}`, "danger");
+                        }
+                      }}
+                    >
+                      <option value="festanstellung">Festanstellung</option>
+                      <option value="freelance">Freelance</option>
+                      <option value="praktikum">Praktikum</option>
+                      <option value="werkstudent">Werkstudent</option>
+                    </SelectInput>
+                  </Field>
                 </div>
               </details>
 

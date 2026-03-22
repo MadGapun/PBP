@@ -1,4 +1,4 @@
-"""Jobsuche und Stellenverwaltung — 5 Tools."""
+"""Jobsuche und Stellenverwaltung — 6 Tools."""
 
 import threading
 
@@ -85,12 +85,18 @@ def register(mcp, db, logger):
         job = db.get_background_job(job_id)
         if job is None:
             return {"fehler": "Unbekannte Job-ID"}
-        return {
+        result = {
             "status": job["status"],
             "fortschritt": f"{job['progress']}%",
             "nachricht": job["message"],
             "ergebnis": job["result"] if job["status"] == "fertig" else None,
         }
+        # Include cleanup stats if available (#153)
+        if job["status"] == "fertig" and isinstance(job.get("result"), dict):
+            bereinigung = job["result"].get("bereinigung")
+            if bereinigung:
+                result["bereinigung"] = bereinigung
+        return result
 
     # Standard rejection reasons for learning (#66)
     ABLEHNUNGSGRUENDE = [
@@ -103,8 +109,24 @@ def register(mcp, db, logger):
         "firma_uninteressant",
         "zeitarbeit",
         "befristet",
+        "bereits_beworben",
         "sonstiges",
     ]
+
+    def _normalize_dismiss_reason(reason: str) -> str:
+        """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158)."""
+        lower = reason.lower().strip()
+        if "bereits beworben" in lower or "schon beworben" in lower:
+            return "bereits_beworben"
+        if "zu weit" in lower or "entfernung" in lower:
+            return "zu_weit_entfernt"
+        if "gehalt" in lower or "zu niedrig" in lower:
+            return "gehalt_zu_niedrig"
+        if "zeitarbeit" in lower or "arbeitnehmerüberl" in lower:
+            return "zeitarbeit"
+        if "befristet" in lower:
+            return "befristet"
+        return reason
 
     @mcp.tool()
     def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
@@ -128,7 +150,7 @@ def register(mcp, db, logger):
         import json as _json
         if bewertung == "passt_nicht":
             # Support multi-select reasons (#108, #120)
-            reason_list = gruende or ([grund] if grund else [])
+            reason_list = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
             if not reason_list:
                 return {
                     "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
@@ -298,96 +320,109 @@ def register(mcp, db, logger):
         remote_only: bool = False,
         max_pages: int = 3
     ) -> dict:
-        """Direkte LinkedIn-Jobsuche via Browser-Automation (Playwright).
+        """VERALTET: LinkedIn Browser-Suche ist deaktiviert (#159).
 
-        Kann unabhängig von jobsuche_starten() aufgerufen werden.
-        Nutzt die gespeicherte Browser-Session (beim ersten Mal wird ein
-        Browser-Fenster zur Anmeldung geöffnet).
-
-        Ergebnisse werden automatisch in die PBP-Datenbank gespeichert
-        und nach den aktuellen Suchkriterien bewertet.
+        LinkedIn blockiert automatisierte Zugriffe zuverlaessig.
+        Nutze stattdessen Claude-in-Chrome Extension:
+        1. Oeffne LinkedIn im Chrome-Browser mit Claude-in-Chrome
+        2. Suche manuell nach Stellen
+        3. Uebertrage gefundene Stellen mit stelle_manuell_anlegen()
 
         Args:
-            keywords: Suchbegriffe (Standard: aus keywords_muss generiert)
-            location: Standort-Filter (Standard: Deutschland)
-            remote_only: Nur Remote-Stellen (f_WT=2)
-            max_pages: Maximale Seiten pro Suchbegriff (Standard: 3, je 25 Ergebnisse)
+            keywords: (ignoriert)
+            location: (ignoriert)
+            remote_only: (ignoriert)
+            max_pages: (ignoriert)
         """
-        from ..job_scraper import run_search, calculate_score, extract_salary_from_text, estimate_salary
-
-        criteria = db.get_search_criteria()
-
-        params = {
-            "keywords": {"general": keywords} if keywords else {},
-            "criteria": criteria,
-            "quellen": ["linkedin"],
-            "nur_remote": remote_only,
-            "max_pages": max_pages,
+        return {
+            "status": "veraltet",
+            "nachricht": (
+                "Die automatische LinkedIn-Suche via Playwright ist deaktiviert (#159). "
+                "LinkedIn blockiert automatisierte Zugriffe zuverlaessig. "
+                "Nutze stattdessen: 1) Claude-in-Chrome Extension oeffnen, "
+                "2) LinkedIn manuell durchsuchen, "
+                "3) Stellen mit stelle_manuell_anlegen() uebertragen."
+            ),
         }
 
-        # Override location if provided
-        if location != "Deutschland":
-            if "criteria" not in params:
-                params["criteria"] = {}
-            params["criteria"]["regionen"] = [location]
+    @mcp.tool()
+    def stelle_manuell_anlegen(
+        titel: str,
+        firma: str,
+        url: str = "",
+        ort: str = "",
+        beschreibung: str = "",
+        quelle: str = "manuell",
+        remote: str = "unbekannt",
+        stellenart: str = "festanstellung",
+    ) -> dict:
+        """Legt eine Stelle manuell an (z.B. von LinkedIn/XING via Claude-in-Chrome) (#160).
 
-        job_id = db.create_background_job("linkedin_browser_search", params)
+        Nutze dieses Tool, um Stellen aus externen Quellen (LinkedIn, XING,
+        Firmen-Webseiten) in PBP zu uebertragen. Die Stelle wird automatisch
+        bewertet und erscheint in stellen_anzeigen().
 
-        def _run():
-            try:
-                from ..job_scraper.linkedin import search_linkedin
-                import time
+        Args:
+            titel: Stellentitel (z.B. 'Senior Projektmanager PLM')
+            firma: Firmenname
+            url: Link zur Stellenanzeige
+            ort: Arbeitsort (z.B. 'Hamburg', 'Remote')
+            beschreibung: Stellenbeschreibung (so ausfuehrlich wie moeglich)
+            quelle: Herkunft der Stelle (z.B. 'linkedin', 'xing', 'firmenwebsite', 'manuell')
+            remote: Remote-Level ('remote', 'hybrid', 'vor_ort', 'unbekannt')
+            stellenart: Art der Stelle ('festanstellung', 'freelance', 'praktikum', 'werkstudent')
+        """
+        if not titel or not firma:
+            return {"fehler": "Titel und Firma sind Pflichtfelder."}
 
-                def _progress(msg):
-                    db.update_background_job(job_id, "running", message=msg)
+        from ..job_scraper import stelle_hash, calculate_score, extract_salary_from_text, estimate_salary
 
-                jobs = search_linkedin(params, progress_callback=_progress)
+        job_hash = stelle_hash(quelle, f"{firma} {titel}")
 
-                # Score and enrich
-                for job in jobs:
-                    job["score"] = calculate_score(job, criteria)
-                    if not job.get("salary_min"):
-                        text = f"{job.get('description', '')} {job.get('title', '')}"
-                        s_min, s_max, s_type = extract_salary_from_text(text)
-                        if s_min:
-                            job["salary_min"] = s_min
-                            job["salary_max"] = s_max
-                            job["salary_type"] = s_type
-                            job["salary_estimated"] = 0
-                    if not job.get("salary_min"):
-                        s_min, s_max, s_type = estimate_salary(
-                            job.get("title", ""), job.get("employment_type", ""), job.get("location", "")
-                        )
-                        job["salary_min"] = s_min
-                        job["salary_max"] = s_max
-                        job["salary_type"] = s_type
-                        job["salary_estimated"] = 1
+        # Check for duplicates
+        existing = db.resolve_job_hash(job_hash)
+        if existing and existing != job_hash:
+            return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing})."}
 
-                # Filter by min score
-                min_score = criteria.get("min_score_schwelle", 1)
-                jobs = [j for j in jobs if j.get("score", 0) >= min_score]
+        criteria = db.get_search_criteria()
+        job = {
+            "hash": job_hash,
+            "title": titel,
+            "company": firma,
+            "url": url,
+            "location": ort,
+            "description": beschreibung,
+            "source": quelle,
+            "remote_level": remote,
+            "employment_type": stellenart,
+        }
 
-                db.save_jobs(jobs)
-                db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
-                db.update_background_job(
-                    job_id, "fertig", progress=100,
-                    message=f"LinkedIn: {len(jobs)} Stellen gefunden und gespeichert",
-                    result={"total": len(jobs), "quelle": "linkedin"},
-                )
-            except Exception as e:
-                logger.error("LinkedIn Browser-Suche fehlgeschlagen: %s", e, exc_info=True)
-                db.update_background_job(job_id, "fehler", message=str(e))
+        # Score
+        job["score"] = calculate_score(job, criteria)
 
-        thread = threading.Thread(target=_run, daemon=True)
-        thread.start()
+        # Extract/estimate salary
+        text = f"{beschreibung} {titel}"
+        s_min, s_max, s_type = extract_salary_from_text(text)
+        if s_min:
+            job["salary_min"] = s_min
+            job["salary_max"] = s_max
+            job["salary_type"] = s_type
+            job["salary_estimated"] = 0
+        else:
+            s_min, s_max, s_type = estimate_salary(titel, stellenart, ort)
+            job["salary_min"] = s_min
+            job["salary_max"] = s_max
+            job["salary_type"] = s_type
+            job["salary_estimated"] = 1
+
+        db.save_jobs([job])
 
         return {
-            "job_id": job_id,
-            "status": "gestartet",
-            "nachricht": (
-                f"LinkedIn Browser-Suche läuft (max {max_pages} Seiten pro Suchbegriff). "
-                f"Prüfe Fortschritt mit jobsuche_status('{job_id}')."
-            ),
+            "status": "angelegt",
+            "hash": job_hash,
+            "score": job["score"],
+            "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
+                         f"Bewerte mit stelle_bewerten('{job_hash[:8]}...', 'passt'/'passt_nicht').",
         }
 
     @mcp.tool()

@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const { chrome, reloadKey, navigateTo, copyPrompt, pushToast } = useApp();
   const lastLoadErrorRef = useRef({ message: "", at: 0 });
   const [loading, setLoading] = useState(true);
+  const [impulse, setImpulse] = useState(null);
   const [data, setData] = useState({
     jobs: [],
     applications: [],
@@ -121,7 +122,7 @@ export default function DashboardPage() {
     }
 
     try {
-      const [jobs, applications, followUps, statistics, zombieData, meetingsData, emailsData] = await Promise.all([
+      const [jobs, applications, followUps, statistics, zombieData, meetingsData, emailsData, impulseData] = await Promise.all([
         optionalApi("/api/jobs?active=true"),
         optionalApi("/api/applications"),
         optionalApi("/api/follow-ups"),
@@ -129,6 +130,7 @@ export default function DashboardPage() {
         optionalApi("/api/applications/zombies"),
         optionalApi("/api/meetings"),
         optionalApi("/api/emails"),
+        optionalApi("/api/daily-impulse"),
       ]);
 
       // If ALL calls returned null, the server is unreachable (#123)
@@ -156,6 +158,7 @@ export default function DashboardPage() {
           meetings: meetingsData?.meetings || [],
           emails: emailsData?.emails || [],
         });
+        if (impulseData) setImpulse(impulseData);
         setLoading(false);
       });
     } catch (error) {
@@ -391,6 +394,26 @@ export default function DashboardPage() {
         />
         <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
       </div>
+
+      {impulse?.enabled && impulse?.text && (
+        <Card className="mb-5 rounded-2xl border-amber-600/30 bg-amber-950/10">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm italic text-muted">{impulse.text}</p>
+            <button
+              className="shrink-0 text-xs text-muted/40 hover:text-muted"
+              title="Tagesimpuls ausblenden"
+              onClick={async () => {
+                try {
+                  await postJson("/api/daily-impulse/toggle");
+                  setImpulse((prev) => ({ ...prev, enabled: false }));
+                } catch {}
+              }}
+            >
+              ausblenden
+            </button>
+          </div>
+        </Card>
+      )}
 
       <div id="dashboard-content" className="grid gap-5">
         <div className="grid gap-3 xl:grid-cols-2">

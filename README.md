@@ -175,12 +175,14 @@ Eine Suche — alle relevanten Portale gleichzeitig:
 
 | Portal | Methode | Account nötig? |
 |--------|---------|---------------|
-| **LinkedIn** | **Playwright** | **✅ Ja — eigener Account** |
-| **XING** | **Playwright** | **✅ Ja — eigener Account** |
+| **LinkedIn** | **Claude-in-Chrome** | **✅ Ja — eigener Account + Chrome-Extension** |
+| **XING** | **Claude-in-Chrome** | **✅ Ja — eigener Account + Chrome-Extension** |
 
 > 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. 15 der 17 Quellen funktionieren ohne Login.
 >
 > 📌 **Gut zu wissen:** Die Spalte "Account nötig?" bezieht sich auf das **Finden** von Stellen. PBP durchsucht diese Portale für dich und zeigt dir die Ergebnisse. Für die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenbörsen selbst.
+>
+> ⚡ **Hinweis zum Kontingent:** Die Suche über viele Quellen gleichzeitig verbraucht entsprechend Token-Kontingent bei Claude. Mit dem Free-Plan empfehlen wir, zunächst nur 2–3 Quellen zu aktivieren (z.B. Bundesagentur + StepStone). Mit Claude Pro gibt es keine Einschränkung — dann kannst du alle Quellen gleichzeitig durchsuchen.
 
 ### 📊 Intelligentes Scoring & Fit-Analyse
 Jede Stelle bekommt einen Score basierend auf:
@@ -455,47 +457,48 @@ Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 | Jobware | Nein | Öffentlich einsehbare Stellenanzeigen |
 | FERCHAU | Nein | Öffentliche Stellenangebote |
 | Kimeta | Nein | Öffentlicher Job-Aggregator |
-| **LinkedIn** | **Ja** | Kostenloser Account reicht. Du musst dich **einmalig** im Browser einloggen — PBP speichert die Session lokal. |
-| **XING** | **Ja** | Kostenloser Account reicht. Gleicher Ansatz wie LinkedIn — einmaliger Login. |
+| **LinkedIn** | **Ja** | Kostenloser Account + Google Chrome + [Claude-in-Chrome Extension](https://chromewebstore.google.com/detail/claude-in-chrome/) |
+| **XING** | **Ja** | Kostenloser Account + Google Chrome + [Claude-in-Chrome Extension](https://chromewebstore.google.com/detail/claude-in-chrome/) |
 
 ### LinkedIn und XING einrichten
 
-Beide Portale erfordern einen einmaligen Login:
+LinkedIn und XING blockieren automatisierte Zugriffe zuverlaessig. Deshalb nutzt PBP ab v0.31.0 einen manuellen Ansatz ueber die Claude-in-Chrome Extension:
 
-1. **Aktiviere** LinkedIn/XING in den PBP-Einstellungen (Dashboard → Einstellungen → Quellen)
-2. **Starte eine Jobsuche** — PBP erkennt, dass noch kein Login vorliegt
-3. **Ein Browser-Fenster öffnet sich** — logge dich ganz normal ein
-4. **Session wird gespeichert** — alle weiteren Suchen laufen automatisch (headless)
+**Voraussetzungen:**
+1. **Google Chrome** (nicht Edge, nicht Chromium)
+2. **Claude-in-Chrome Extension** aus dem Chrome Web Store installieren
+3. **Einmaliger Login** bei LinkedIn/XING im Chrome-Browser
 
-Die Session wird lokal gespeichert unter:
-- LinkedIn: `~/.bewerbungs-assistent/linkedin-session/` (bzw. `%LOCALAPPDATA%\BewerbungsAssistent\linkedin-session\`)
-- XING: `~/.bewerbungs-assistent/xing-session/`
+**Workflow:**
+1. Oeffne LinkedIn/XING im Chrome-Browser mit Claude-in-Chrome
+2. Suche manuell nach Stellen
+3. Claude liest die Stellenanzeigen ueber die Extension
+4. Uebertrage gefundene Stellen mit `stelle_manuell_anlegen()` in PBP
 
-> ⚠️ Wenn die Session abläuft (nach Wochen/Monaten), öffnet sich der Browser erneut zum Login.
+> 💡 Die automatische Jobsuche (`jobsuche_starten()`) funktioniert weiterhin mit allen 15 anderen Quellen. LinkedIn und XING werden bei automatischen Suchen uebersprungen.
 
 ### Rechtliche Einordnung
 
-PBP ist ein **persönliches Werkzeug**, das in deinem Namen und mit deinen Accounts auf Jobportale zugreift — vergleichbar damit, dass du selbst im Browser suchst.
+PBP ist ein **persoenliches Werkzeug**, das in deinem Namen und mit deinen Accounts auf Jobportale zugreift — vergleichbar damit, dass du selbst im Browser suchst.
 
 **Was PBP tut:**
-- Durchsucht öffentlich zugängliche Stellenanzeigen
-- Greift auf LinkedIn/XING nur mit **deinem persönlichen Account** und **deiner aktiven Session** zu
+- Durchsucht oeffentlich zugaengliche Stellenanzeigen
+- Greift auf LinkedIn/XING nur ueber **deine eigene Chrome-Session** zu (du steuerst den Browser)
 - Speichert Stellendaten **nur lokal** auf deinem Rechner
-- Macht keine Massenanfragen — menschliche Verzögerungen zwischen Anfragen
+- Macht keine Massenanfragen — du suchst selbst
 
 **Was PBP NICHT tut:**
 - Keine Daten anderer Nutzer scrapen (nur Stellenanzeigen)
-- Keine Accounts anlegen oder Passwörter speichern
+- Keine Accounts anlegen oder Passwoerter speichern
 - Keine Daten an Dritte weitergeben
-- Kein Umgehen von Zugangsschranken (du bist selbst eingeloggt)
+- Kein automatisiertes Scraping von LinkedIn/XING
 
 **Deine Verantwortung:**
-- Du nutzt PBP mit **deinen eigenen Accounts** und bist für die Einhaltung der jeweiligen Nutzungsbedingungen verantwortlich.
-- LinkedIn und XING verbieten in ihren AGB die Nutzung automatisierter Tools. In der Praxis tolerieren die meisten Plattformen persönliche Nutzung mit normaler Frequenz — PBP simuliert menschliches Suchverhalten mit Verzögerungen. Trotzdem besteht theoretisch das Risiko einer Account-Sperre.
-- Die Bundesagentur für Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
-- StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden über öffentlich zugängliche Seiten durchsucht.
+- Du nutzt PBP mit **deinen eigenen Accounts** und bist fuer die Einhaltung der jeweiligen Nutzungsbedingungen verantwortlich.
+- Die Bundesagentur fuer Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
+- StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden ueber oeffentlich zugaengliche Seiten durchsucht.
 
-> 💡 **Empfehlung:** Wenn du auf Nummer sicher gehen willst, deaktiviere LinkedIn und XING in den Einstellungen und nutze die 15 anderen Quellen. Die liefern bereits eine hervorragende Abdeckung des deutschen Stellenmarkts — Festanstellung, Freelance und Engineering.
+> 💡 **Empfehlung:** Die 15 automatisierten Quellen liefern bereits eine hervorragende Abdeckung des deutschen Stellenmarkts — Festanstellung, Freelance und Engineering. LinkedIn und XING sind ein optionales Plus fuer gezielte Recherche.
 
 ---
 
@@ -573,7 +576,7 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 66 Tools in 8 Modulen
+    ├──► tools/            ◄── 67 Tools in 8 Modulen
     ├──► prompts.py        ◄── 14 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
@@ -605,7 +608,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 66 Tools in 8 Modulen
+### 67 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
@@ -661,7 +664,8 @@ server.py (FastMCP, Composition Root)
 | `stellen_anzeigen` | Jobs mit Filter und Scoring |
 | `stelle_bewerten` | Job als passend/unpassend markieren |
 | `fit_analyse` | Detaillierte Fit-Analyse |
-| `linkedin_browser_search` | LinkedIn Browser-Suche mit persistenter Session |
+| `stelle_manuell_anlegen` | Stelle manuell anlegen (z.B. von LinkedIn via Chrome) |
+| `linkedin_browser_search` | ~~Veraltet~~ — Nutze `stelle_manuell_anlegen` |
 
 </details>
 
