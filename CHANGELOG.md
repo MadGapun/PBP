@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.31.1] - 2026-03-22
+
+### Tagesimpulse V1 — vollstaendige Integration (#163)
+
+- 140 kuratierte Originaltexte (statt 30 inline) in `content/tagesimpulse.json`
+- Neuer `daily_impulse_service.py` mit 8 Kontexten und Prioritaetslogik
+- Kontextabhaengige Filterung: weekend > follow_up_due > jobs_ready > search_refresh > sources_missing > profile_building > onboarding > default
+- Tagesstabile Auswahl via SHA-256 Hash (Seed: Datum + Kontext)
+- Dashboard-Karte mit Titel "Heute fuer dich" und strukturierter API-Antwort
+- 19 neue Tests (Service-Unit, API-Integration, Browser-Smoke)
+- Vorarbeit: Codex Seed-Sammlung + Implementierungsplan (PR #164)
+- 67 Tools, 14 Prompts, Schema v16, 336 Tests
+
+---
+
 ## [0.31.0] - 2026-03-22
 
 ### 13 Issues — Stabilisierung, Freelance, LinkedIn-Umbau, Tagesimpulse
@@ -33,7 +48,7 @@ Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 - **#152** Token-Verbrauch-Hinweis in README (Free-Plan vs. Pro)
 
 **Dashboard (#163):**
-- Tagesimpuls-Karte mit 30 motivierenden Texten (deterministisch pro Tag)
+- Tagesimpuls-Basis (30 Texte) — vollstaendige V1 mit 140 Texten in v0.31.1
 - Kontext-Erkennung (Onboarding, Wochenende, Stellen vorhanden, etc.)
 - Ein/Aus-Toggle in Einstellungen
 
