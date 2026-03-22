@@ -199,7 +199,7 @@ class TestGetDailyImpulse:
         assert result["context"] == "default"
         assert result["datum"] == "2026-03-23"
         assert result["impulse"]["id"].startswith("impuls_")
-        assert result["impulse"]["title"] == "Heute fuer dich"
+        assert result["impulse"]["title"] == "Heute für dich"
         assert len(result["impulse"]["text"]) > 0
         assert isinstance(result["impulse"]["tags"], list)
 

@@ -152,7 +152,7 @@ def get_daily_impulse(
         "datum": today.isoformat(),
         "impulse": {
             "id": chosen["id"],
-            "title": "Heute fuer dich",
+            "title": "Heute für dich",
             "text": chosen["text"],
             "tags": chosen.get("tags", []),
         },
