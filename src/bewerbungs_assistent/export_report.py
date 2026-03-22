@@ -18,23 +18,29 @@ from typing import Optional
 logger = logging.getLogger("bewerbungs_assistent.export_report")
 
 STATUS_LABELS = {
+    "in_vorbereitung": "In Vorbereitung",
     "offen": "Offen",
     "beworben": "Beworben",
     "eingangsbestaetigung": "Eingangsbestätigung",
     "interview": "Interview",
     "zweitgespraech": "Zweitgespräch",
     "angebot": "Angebot",
+    "angenommen": "Angenommen",
     "abgelehnt": "Abgelehnt",
+    "zurueckgezogen": "Zurückgezogen",
     "zurückgezogen": "Zurückgezogen",
     "abgelaufen": "Abgelaufen",
 }
 
 STATUS_COLORS = {
+    "in_vorbereitung": (168, 85, 247),
     "beworben": (56, 189, 248),
     "interview": (251, 191, 36),
     "zweitgespraech": (251, 191, 36),
     "angebot": (52, 211, 153),
+    "angenommen": (16, 185, 129),
     "abgelehnt": (248, 113, 113),
+    "zurueckgezogen": (148, 163, 184),
     "zurückgezogen": (148, 163, 184),
     "abgelaufen": (148, 163, 184),
     "offen": (100, 116, 139),
@@ -62,8 +68,10 @@ def _safe_text(text: str) -> str:
 
 
 def generate_application_report(report_data: dict, profile: Optional[dict],
-                                output_path: Path) -> Path:
-    """Generate a comprehensive PDF Bewerbungsbericht."""
+                                output_path: Path,
+                                zeitraum_von: str = "",
+                                zeitraum_bis: str = "") -> Path:
+    """Generate a comprehensive PDF Bewerbungsbericht (#173 aufgewertet)."""
     from fpdf import FPDF
 
     apps = report_data.get("applications", [])
@@ -72,27 +80,86 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     unapplied = report_data.get("unapplied_high_score", [])
     date_range = report_data.get("date_range", {})
 
+    # Zeitraumfilter (#173)
+    if zeitraum_von or zeitraum_bis:
+        apps = [a for a in apps if
+                (not zeitraum_von or (a.get("applied_at") or "") >= zeitraum_von) and
+                (not zeitraum_bis or (a.get("applied_at") or "") <= zeitraum_bis + "T23:59:59")]
+
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.add_page()
 
-    # --- Title ---
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 12, _safe_text("Bewerbungsbericht"), ln=True, align="C")
+    # --- Title Page with PBP Branding (#173) ---
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.cell(0, 15, _safe_text("Bewerbungsbericht"), ln=True, align="C")
 
     # Subtitle with name and date range
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("Helvetica", "", 11)
     name = profile.get("name", "") if profile else ""
-    subtitle_parts = []
     if name:
-        subtitle_parts.append(name)
-    if date_range.get("first") and date_range.get("last"):
-        first = date_range["first"][:10]
-        last = date_range["last"][:10]
-        subtitle_parts.append(f"Zeitraum: {first} bis {last}")
-    subtitle_parts.append(f"Erstellt: {datetime.now().strftime('%d.%m.%Y')}")
-    pdf.cell(0, 6, _safe_text(" | ".join(subtitle_parts)), ln=True, align="C")
-    pdf.ln(8)
+        pdf.cell(0, 7, _safe_text(name), ln=True, align="C")
+
+    pdf.set_font("Helvetica", "", 9)
+    zeitraum = ""
+    if zeitraum_von and zeitraum_bis:
+        zeitraum = f"Zeitraum: {zeitraum_von} bis {zeitraum_bis}"
+    elif date_range.get("first") and date_range.get("last"):
+        zeitraum = f"Zeitraum: {date_range['first'][:10]} bis {date_range['last'][:10]}"
+    if zeitraum:
+        pdf.cell(0, 5, _safe_text(zeitraum), ln=True, align="C")
+    pdf.cell(0, 5, _safe_text(f"Erstellt: {datetime.now().strftime('%d.%m.%Y %H:%M')}"), ln=True, align="C")
+    pdf.ln(6)
+
+    # PBP Branding (#173)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 4, _safe_text("Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"), ln=True, align="C")
+    pdf.cell(0, 4, _safe_text("https://github.com/MadGapun/PBP"), ln=True, align="C")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(4)
+
+    # --- Inhaltsverzeichnis (#173) ---
+    _section_header(pdf, "Inhaltsverzeichnis")
+    toc_items = [
+        "1. Executive Summary",
+        "2. Bewerbungen nach Status",
+        "3. Quellenanalyse",
+        "4. Fit-Score Verteilung",
+        "5. Bewerbungsliste (detailliert)",
+        "6. Nicht beworben trotz gutem Score",
+        "7. Keyword-Analyse",
+    ]
+    pdf.set_font("Helvetica", "", 10)
+    for item in toc_items:
+        pdf.cell(0, 6, _safe_text(f"    {item}"), ln=True)
+    pdf.ln(6)
+
+    # --- Executive Summary (#173) ---
+    _section_header(pdf, "1. Executive Summary")
+    total_apps = len(apps) if (zeitraum_von or zeitraum_bis) else stats.get("total_applications", len(apps))
+    active_jobs = stats.get("active_jobs", 0)
+    dismissed_jobs = stats.get("dismissed_jobs", 0)
+    avg_score = stats.get("avg_score", 0)
+    max_score = stats.get("max_score", 0)
+
+    # Recalculate rates for filtered apps
+    by_status_filtered = Counter(a.get("status", "offen") for a in apps)
+    interviews = by_status_filtered.get("interview", 0) + by_status_filtered.get("zweitgespraech", 0)
+    offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
+    interview_rate = round(interviews / total_apps * 100, 1) if total_apps else 0
+    offer_rate = round(offers / total_apps * 100, 1) if total_apps else 0
+
+    # Summary text
+    pdf.set_font("Helvetica", "", 9)
+    summary_text = (
+        f"Im Berichtszeitraum wurden {total_apps} Bewerbungen erfasst. "
+        f"Die Interview-Rate liegt bei {interview_rate}%, "
+        f"die Angebotsrate bei {offer_rate}%. "
+        f"Insgesamt wurden {active_jobs + dismissed_jobs} Stellen analysiert."
+    )
+    pdf.multi_cell(0, 5, _safe_text(summary_text))
+    pdf.ln(3)
 
     # --- 1. Zusammenfassung ---
     _section_header(pdf, "1. Zusammenfassung")
@@ -104,17 +171,21 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     interview_rate = stats.get("interview_rate", 0)
     offer_rate = stats.get("offer_rate", 0)
 
-    summary_data = [
+    # Pipeline overview
+    pipeline_data = [
         ("Bewerbungen gesamt", str(total_apps)),
+        ("  davon in Vorbereitung", str(by_status_filtered.get("in_vorbereitung", 0))),
+        ("  davon beworben", str(by_status_filtered.get("beworben", 0))),
+        ("  davon im Prozess", str(interviews)),
+        ("  davon Angebote", str(offers)),
         ("Aktive Stellen analysiert", str(active_jobs)),
         ("Aussortierte Stellen", str(dismissed_jobs)),
-        ("Stellen gesamt verglichen", str(active_jobs + dismissed_jobs)),
         ("Durchschn. Fit-Score", f"{avg_score}" if avg_score else "k.A."),
         ("Spitzen-Fit-Score", f"{max_score}" if max_score else "k.A."),
         ("Interview-Rate", f"{interview_rate}%"),
         ("Angebots-Rate", f"{offer_rate}%"),
     ]
-    for label, value in summary_data:
+    for label, value in pipeline_data:
         pdf.set_font("Helvetica", "", 9)
         pdf.cell(80, 5, _safe_text(f"  {label}:"), border=0)
         pdf.set_font("Helvetica", "B", 9)
@@ -137,8 +208,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(15, 5, f"  {count}", ln=True)
     pdf.ln(4)
 
-    # --- 3. Genutzte Jobquellen ---
-    _section_header(pdf, "3. Genutzte Jobquellen")
+    # --- 3. Quellenanalyse (#173) ---
+    _section_header(pdf, "3. Quellenanalyse")
     by_source = stats.get("jobs_by_source", {})
     if by_source:
         pdf.set_font("Helvetica", "B", 8)
@@ -160,6 +231,35 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(30, 5, str(count), border=1, align="C")
             pdf.cell(40, 5, f"{pct}%", border=1, align="C")
             pdf.ln()
+    pdf.ln(2)
+
+    # Bewerbungen nach Quelle mit Erfolgsquote (#173)
+    app_by_source = {}
+    for a in apps:
+        src = a.get("job_source") or a.get("source") or "unbekannt"
+        if src not in app_by_source:
+            app_by_source[src] = {"total": 0, "interview": 0}
+        app_by_source[src]["total"] += 1
+        if a.get("status") in ("interview", "zweitgespraech", "angebot", "angenommen"):
+            app_by_source[src]["interview"] += 1
+
+    if app_by_source:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(0, 5, _safe_text("  Bewerbungen nach Quelle (mit Erfolgsquote):"), ln=True)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(50, 5, "  Quelle", border=1, fill=True)
+        pdf.cell(30, 5, "Bewerbungen", border=1, fill=True, align="C")
+        pdf.cell(30, 5, "Interviews", border=1, fill=True, align="C")
+        pdf.cell(30, 5, "Erfolgsquote", border=1, fill=True, align="C")
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 8)
+        for src, data in sorted(app_by_source.items(), key=lambda x: -x[1]["total"]):
+            rate = round(data["interview"] / data["total"] * 100, 0) if data["total"] else 0
+            pdf.cell(50, 4, _safe_text(f"  {src}"), border=1)
+            pdf.cell(30, 4, str(data["total"]), border=1, align="C")
+            pdf.cell(30, 4, str(data["interview"]), border=1, align="C")
+            pdf.cell(30, 4, f"{rate:.0f}%", border=1, align="C")
+            pdf.ln()
     pdf.ln(4)
 
     # --- 4. Score-Verteilung ---
@@ -174,37 +274,60 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(15, 5, f"  {count}", ln=True)
         pdf.ln(4)
 
-    # --- 5. Bewerbungsliste ---
-    _section_header(pdf, "5. Bewerbungsliste")
+    # --- 5. Bewerbungsliste (detailliert, #173) ---
+    _section_header(pdf, "5. Bewerbungsliste (detailliert)")
     if apps:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(22, 5, "Datum", border=1, fill=True)
-        pdf.cell(50, 5, "Firma", border=1, fill=True)
-        pdf.cell(60, 5, "Position", border=1, fill=True)
-        pdf.cell(25, 5, "Status", border=1, fill=True, align="C")
-        pdf.cell(20, 5, "Quelle", border=1, fill=True, align="C")
-        pdf.cell(13, 5, "Score", border=1, fill=True, align="C")
+        pdf.cell(18, 5, "Datum", border=1, fill=True)
+        pdf.cell(35, 5, "Firma", border=1, fill=True)
+        pdf.cell(45, 5, "Position", border=1, fill=True)
+        pdf.cell(22, 5, "Status", border=1, fill=True, align="C")
+        pdf.cell(15, 5, "Quelle", border=1, fill=True, align="C")
+        pdf.cell(10, 5, "Score", border=1, fill=True, align="C")
+        pdf.cell(15, 5, "Art", border=1, fill=True, align="C")
+        pdf.cell(30, 5, "Kontakt", border=1, fill=True)
         pdf.ln()
-        pdf.set_font("Helvetica", "", 7)
-        for a in apps:
+        pdf.set_font("Helvetica", "", 6.5)
+        for idx, a in enumerate(apps):
+            # Alternating row colors (#173)
+            if idx % 2 == 1:
+                pdf.set_fill_color(245, 247, 250)
+                fill = True
+            else:
+                fill = False
+
             date_str = (a.get("applied_at") or "")[:10]
-            company = (a.get("company") or "")[:28]
-            title = (a.get("title") or "")[:35]
-            status = STATUS_LABELS.get(a.get("status", ""), a.get("status", ""))[:14]
-            source = (a.get("job_source") or a.get("source", ""))[:12]
+            company = (a.get("company") or "")[:20]
+            title = (a.get("title") or "")[:28]
+            status_key = a.get("status", "")
+            status = STATUS_LABELS.get(status_key, status_key)[:12]
+            source = (a.get("job_source") or a.get("source", ""))[:10]
             score = a.get("score", "")
             if a.get("is_pinned"):
                 score = f"*{score}" if score else "*"
             else:
                 score = str(score) if score else ""
+            art = (a.get("bewerbungsart") or "")[:10]
+            kontakt = (a.get("ansprechpartner") or "")[:18]
 
-            pdf.cell(22, 4, _safe_text(date_str), border=1)
-            pdf.cell(50, 4, _safe_text(company), border=1)
-            pdf.cell(60, 4, _safe_text(title), border=1)
-            pdf.cell(25, 4, _safe_text(status), border=1, align="C")
-            pdf.cell(20, 4, _safe_text(source), border=1, align="C")
-            pdf.cell(13, 4, _safe_text(str(score)), border=1, align="C")
+            # Status color badge
+            r, g, b = STATUS_COLORS.get(status_key, (100, 116, 139))
+
+            pdf.cell(18, 4, _safe_text(date_str), border=1, fill=fill)
+            pdf.cell(35, 4, _safe_text(company), border=1, fill=fill)
+            pdf.cell(45, 4, _safe_text(title), border=1, fill=fill)
+            # Status with color
+            pdf.set_fill_color(r, g, b)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(22, 4, _safe_text(status), border=1, fill=True, align="C")
+            pdf.set_text_color(0, 0, 0)
+            if idx % 2 == 1:
+                pdf.set_fill_color(245, 247, 250)
+            pdf.cell(15, 4, _safe_text(source), border=1, fill=fill, align="C")
+            pdf.cell(10, 4, _safe_text(str(score)), border=1, fill=fill, align="C")
+            pdf.cell(15, 4, _safe_text(art), border=1, fill=fill, align="C")
+            pdf.cell(30, 4, _safe_text(kontakt), border=1, fill=fill)
             pdf.ln()
     pdf.ln(4)
 
@@ -287,12 +410,27 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 pdf.ln()
     pdf.ln(4)
 
-    # --- Footer ---
-    pdf.set_font("Helvetica", "I", 7)
+    # --- Footer with PBP Branding (#173) ---
+    pdf.ln(8)
+    pdf.set_draw_color(31, 78, 121)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(31, 78, 121)
     pdf.cell(0, 5, _safe_text(
-        f"Generiert mit PBP Bewerbungs-Assistent | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        "Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"
     ), ln=True, align="C")
-    pdf.cell(0, 4, _safe_text("* = manuell hinzugefügte Stelle (gepinnt)"), ln=True, align="C")
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 4, _safe_text(
+        "PBP ist ein KI-gestuetztes Bewerbungsmanagement-Tool, das den gesamten "
+        "Bewerbungsprozess von der Stellensuche bis zum Angebot strukturiert und automatisiert."
+    ), ln=True, align="C")
+    pdf.cell(0, 4, _safe_text(
+        f"https://github.com/MadGapun/PBP | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ), ln=True, align="C")
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 4, _safe_text("* = manuell hinzugefuegte Stelle (gepinnt)"), ln=True, align="C")
 
     pdf.output(str(output_path))
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)

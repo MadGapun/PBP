@@ -1,5 +1,5 @@
 # PBP — Persönliches Bewerbungs-Portal
-## Zustandsbericht | 2026-03-21 | v0.30.0
+## Zustandsbericht | 2026-03-22 | v0.32.0
 
 ---
 
@@ -8,14 +8,14 @@
 | Eigenschaft | Wert |
 |------------|------|
 | **Name** | PBP (Persönliches Bewerbungs-Portal) |
-| **Version** | 0.30.0 (pyproject.toml + \_\_init\_\_.py) |
+| **Version** | 0.32.0 (pyproject.toml + \_\_init\_\_.py) |
 | **Architektur** | MCP Server + React-Dashboard (SPA) |
 | **Sprache** | Python 3.11+ / React 19 + Vite + Tailwind |
-| **Datenbank** | SQLite (21 Tabellen, WAL, CASCADE, Schema v15, Profil-Isolation) |
+| **Datenbank** | SQLite (22 Tabellen, WAL, CASCADE, Schema v17, Profil-Isolation) |
 | **Transport** | stdio (MCP) + HTTP localhost:8200 (Dashboard) |
 | **Zielplattform** | Windows 10/11 (Claude Desktop) + Linux (Entwicklung) |
 | **Jobquellen** | 17 (11 Festanstellung + 4 Freelance + 2 Netzwerk) |
-| **Tests** | 317 Tests (alle grün, 4 übersprungen) |
+| **Tests** | 341 Tests (alle gruen, 4 uebersprungen) |
 
 ---
 
@@ -28,7 +28,7 @@ Claude Desktop (Windows / Linux)
     ▼
 server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root
     │
-    ├── tools/ (8 Module, 66 Tools)
+    ├── tools/ (8 Module, 70 Tools)
     │     ├── profil.py         — Profilverwaltung, Multi-Profil, Fortschritt
     │     ├── dokumente.py      — Analyse, Extraktion, Im/Export
     │     ├── jobs.py           — Jobsuche, Stellenverwaltung, Fit-Analyse
@@ -38,16 +38,18 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root
     │     ├── suche.py          — Suchkriterien und Blacklist
     │     └── workflows.py      — Geführte Workflows
     │
-    ├── prompts.py       ◄── 14 MCP-Prompts
+    ├── prompts.py       ◄── 16 MCP-Prompts
     ├── resources.py     ◄── 6 MCP-Resources
     │
     ├── services/        ◄── Service-Layer
-    │     ├── profile_service.py    — Profilstatus, Präferenzen
+    │     ├── profile_service.py    — Profilstatus, Praeferenzen
     │     ├── search_service.py     — Suchstatus, Quellen
     │     ├── workspace_service.py  — Guidance, Navigation
-    │     └── email_service.py      — E-Mail-Parsing, Matching, Meetings
+    │     ├── email_service.py      — E-Mail-Parsing, Matching, Meetings
+    │     ├── geocoding_service.py  — Nominatim Geocoding, Distanz (#167)
+    │     └── scoring_service.py    — Scoring-Regler Engine (#169)
     │
-    ├── database.py      ◄── Schema v15, WAL, CASCADE, Migrationen v1→v15
+    ├── database.py      ◄── Schema v17, WAL, CASCADE, Migrationen v1→v17
     │
     ├── dashboard.py     ◄── FastAPI :8200, React-SPA, REST-API
     │

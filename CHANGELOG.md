@@ -1,6 +1,93 @@
 # Changelog
 
-Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
+Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
+
+## [0.32.0] - 2026-03-22
+
+### 11 Issues (#167-#177) — Empathischer Bewerbungsbegleiter
+
+PBP wird zum empathischen Begleiter: Gefuehrter Workflow, Scoring-Regler, Geocoding,
+ATS-konformer CV, aufgewerteter Bericht und Drag & Drop fuer Dokumente.
+
+**Kern-Features:**
+
+- **#170 Gefuehrter Bewerbungs-Workflow:** Neuer Status `in_vorbereitung` mit kontextabhaengigen
+  Aktionen pro Status. Jeder Schritt zeigt genau die 3-4 relevanten Aktionen — mit Motivation.
+  Einstiegsfrage "Bereits beworben oder will mich bewerben?". Vorbereitungs-Checkliste.
+  Neuer orchestrierender Prompt `bewerbung_vorbereitung` mit 7-Schritte Checkliste.
+  Fortschritts-Tracking in der Bewerbungsliste.
+
+- **#169 Scoring-Regler-System:** Neue `scoring_config` Tabelle mit 6 Dimensionen
+  (Stellentyp, Remote, Entfernung getrennt nach Stellenart, Gehalt, Muss-Kriterien,
+  Ausschluss-Keywords). 19 Default-Eintraege. "Komplett Ignorieren"-Flag pro Einzelwert.
+  Auto-Ignore-Schwellenwert. Integriert in `stellen_anzeigen`. 2 neue Tools:
+  `scoring_konfigurieren` und `scoring_vorschau`.
+
+- **#167 Geocoding/Entfernungsberechnung:** `geopy` als Dependency. Nominatim (OpenStreetMap)
+  mit 1 Req/s Rate-Limiting und In-Memory-Cache. Bewerber-Standort in Suchkriterien cachen.
+  Automatische Distanzberechnung in der Scraper-Pipeline und bei `stelle_manuell_anlegen`.
+  `lat`/`lon` Spalten auf `jobs` Tabelle.
+
+- **#168 Blacklist bereinigt:** `dismiss_pattern`-Typ komplett aus der Blacklist entfernt.
+  Nur noch `firma` und `keyword` als Typen erlaubt. Migration konvertiert kurze
+  dismiss_patterns zu keywords, loescht lange Freitext-Eintraege. Typ-Validierung und
+  Laengen-Warnung bei neuen Eintraegen. `stelle_bewerten` schreibt nicht mehr in Blacklist.
+  Duplikat-Erkennung als separater Mechanismus (Titel-Aehnlichkeit + Firmen-Match).
+
+**Export & Bericht:**
+
+- **#174 ATS-konformer CV-Stil:** Komplett ueberarbeitetes CV-Template. Calibri Font,
+  KEINE Tabellen, H1/H3-Heading-Hierarchie, Kernkompetenzen als `Kategorie: Werte` Bullets,
+  grosser Name-Header auf Seite 1, Pfeil-Symbole fuer Ergebnis-Zeilen, Seitenzahlen im Footer.
+  Farbig: nur #1F4E79 fuer Ueberschriften.
+
+- **#173 Aufgewerteter Bewerbungsbericht:** Executive Summary mit Pipeline-Uebersicht.
+  Inhaltsverzeichnis. PBP-Branding (Header/Footer mit Name, Link, Beschreibung).
+  Zeitraumfilter fuer `statistiken_abrufen` und `bewerbungsbericht_exportieren`.
+  Quellenanalyse mit Erfolgsquote pro Quelle. +5 Score-Bonus fuer beworbene Stellen.
+  Erweiterte Bewerbungsliste mit 8 Spalten und Farb-Badges. Importierte Bewerbungen
+  als "importiert (pre-PBP)" gekennzeichnet.
+
+**Frontend & Dokumente:**
+
+- **#176 Drag & Drop Upload:** Upload-Zone direkt in der Bewerbungs-Timeline.
+  Dateien per Drag & Drop oder Klick hochladen — automatisch mit Bewerbung verknuepft.
+  "Vorhandenes Dokument verknuepfen" als aufklappbare Auswahl.
+
+- **#177 Auto-Dokumentzuordnung:** `auto_assign_document` in `add_document` integriert.
+  Firmenname-Matching mit Teilwoertern und Umlaut-Normalisierung (Luerssen = Lürssen).
+  Zeitliche Naehe (24h) als zusaetzliches Kriterium. Automatische Verknuepfung bei
+  Konfidenz >= 70%, Hinweis bei niedrigerer Konfidenz. Timeline-Eintrag bei jeder
+  Dokument-Verknuepfung.
+
+- **#171 IDs ueberall:** Kurz-Hashes (8 Zeichen) in `bewerbungen_anzeigen`,
+  `bewerbung_details`, `stellen_anzeigen`. Klickbare IDs mit Clipboard-Kopie im Frontend
+  (ApplicationsPage Karten + Timeline-Header, JobsPage bereits vorhanden).
+
+**Sonstiges:**
+
+- **#172 Auto-Save Stellenbeschreibung:** Bei `lebenslauf_angepasst_exportieren` und
+  `anschreiben_exportieren` wird die Stellenbeschreibung automatisch in der DB gespeichert.
+  `bewerbung_erstellen` akzeptiert optionale `stellenbeschreibung`.
+
+- **#175 FAQ / Erste-Schritte-Guide:** `docs/FAQ.md` mit Token-Limit-Warnung,
+  Workflow-Uebersicht, Entscheidungsbaum ("Was soll ich tun?"), Troubleshooting.
+  Interaktiver `faq` Prompt der den aktuellen Stand zeigt und den naechsten Schritt empfiehlt.
+
+**Schema v17 Migration:**
+- Neue Tabelle: `scoring_config` (konfigurierbare Scoring-Regler)
+- Neue Spalten: `jobs.lat`, `jobs.lon` (Geocoding)
+- Neue Spalten: `applications.source`, `applications.source_secondary` (Quellenfeld)
+- Blacklist: dismiss_pattern-Eintraege migriert/bereinigt
+
+**Technisch:**
+- 70 MCP-Tools (+3: `scoring_konfigurieren`, `scoring_vorschau`, `bewerbungsbericht_exportieren`)
+- 16 MCP-Prompts (+2: `bewerbung_vorbereitung`, `faq`)
+- 2 neue Services: `geocoding_service.py`, `scoring_service.py`
+- Schema v17, 341 Tests (alle gruen)
+- Frontend: `in_vorbereitung`, `eingangsbestaetigung`, `angenommen` Status + Farben
+
+---
 
 ## [0.31.1] - 2026-03-22
 

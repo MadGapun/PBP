@@ -1,6 +1,43 @@
-"""PDF/DOCX-Export für Lebenslauf, Anschreiben und Profil-Report — 3 Tools."""
+"""PDF/DOCX-Export für Lebenslauf, Anschreiben und Profil-Report — 5 Tools."""
 
 from ..database import get_data_dir
+
+
+def _auto_save_job_description(db, firma: str, stelle: str, beschreibung: str):
+    """Speichert Stellenbeschreibung automatisch bei passender Stelle/Bewerbung (#172)."""
+    if not beschreibung or not firma:
+        return
+    try:
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        # Find matching job by company+title
+        row = conn.execute(
+            "SELECT hash, description FROM jobs WHERE company LIKE ? AND title LIKE ? "
+            "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+            (f"%{firma}%", f"%{stelle}%", pid)
+        ).fetchone()
+        if row and (not row["description"] or len(row["description"]) < len(beschreibung)):
+            conn.execute(
+                "UPDATE jobs SET description=?, updated_at=datetime('now') WHERE hash=?",
+                (beschreibung, row["hash"])
+            )
+            conn.commit()
+        # Also update application description_snapshot if exists
+        app_row = conn.execute(
+            "SELECT id, description_snapshot FROM applications "
+            "WHERE company LIKE ? AND title LIKE ? "
+            "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+            (f"%{firma}%", f"%{stelle}%", pid)
+        ).fetchone()
+        if app_row and not app_row["description_snapshot"]:
+            conn.execute(
+                "UPDATE applications SET description_snapshot=?, snapshot_date=datetime('now'), "
+                "updated_at=datetime('now') WHERE id=?",
+                (beschreibung, app_row["id"])
+            )
+            conn.commit()
+    except Exception:
+        pass  # Non-critical feature
 
 
 def register(mcp, db, logger):
@@ -90,6 +127,10 @@ def register(mcp, db, logger):
         path = export_dir / f"lebenslauf_{name_slug}_{firma_slug}.docx"
         generate_tailored_cv_docx(profile, stelle, stellenbeschreibung, path)
 
+        # #172: Stellenbeschreibung automatisch speichern
+        if stellenbeschreibung:
+            _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
+
         return {
             "status": "erstellt",
             "datei": str(path),
@@ -103,7 +144,8 @@ def register(mcp, db, logger):
         text: str,
         stelle: str,
         firma: str,
-        format: str = "pdf"
+        format: str = "pdf",
+        stellenbeschreibung: str = ""
     ) -> dict:
         """Exportiert ein Anschreiben als PDF, DOCX, Markdown oder TXT-Datei.
 
@@ -111,10 +153,11 @@ def register(mcp, db, logger):
         mit Absender, Datum, Betreffzeile und Text.
 
         Args:
-            text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
+            text: Der vollstaendige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'Software Architect')
             firma: Firmenname (z.B. 'TechCorp GmbH')
             format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
+            stellenbeschreibung: Optional — wird automatisch in der DB gespeichert (#172)
         """
         if not text.strip():
             return {"fehler": "Kein Anschreiben-Text angegeben. Nutze den Prompt 'bewerbung_schreiben' um einen Text zu erstellen."}
@@ -146,11 +189,15 @@ def register(mcp, db, logger):
         else:
             return {"fehler": "Format muss 'pdf', 'docx', 'md' oder 'txt' sein."}
 
+        # #172: Stellenbeschreibung automatisch speichern
+        if stellenbeschreibung:
+            _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
+
         return {
             "status": "erstellt",
             "datei": str(path),
             "format": format,
-            "nachricht": f"Anschreiben für {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
+            "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
         }
 
     @mcp.tool()
@@ -189,6 +236,94 @@ def register(mcp, db, logger):
             "format": "pdf",
             "nachricht": f"Profil-Report als PDF exportiert: {path.name}. "
                          "Enthält alle Profildaten, Berufserfahrung, Skills und Ausbildung."
+        }
+
+    @mcp.tool()
+    def bewerbungsbericht_exportieren(
+        format: str = "pdf",
+        zeitraum_von: str = "",
+        zeitraum_bis: str = ""
+    ) -> dict:
+        """Exportiert einen professionellen Bewerbungsbericht als PDF oder Excel (#173).
+
+        Enthält: Executive Summary, Status-Uebersicht, Quellenanalyse,
+        detaillierte Bewerbungsliste, Fit-Score-Verteilung und Keyword-Analyse.
+        Mit PBP-Branding und Inhaltsverzeichnis.
+
+        Ideal fuer: Arbeitsamt-Dokumentation, eigene Analyse, Berater.
+
+        Args:
+            format: 'pdf' (Standard) oder 'excel'
+            zeitraum_von: Optional: Start-Datum (YYYY-MM-DD)
+            zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
+        """
+        profile = db.get_profile()
+        stats = db.get_statistics()
+
+        # Gather application data with job info
+        apps = db.get_applications()
+        for a in apps:
+            if a.get("job_hash"):
+                job = db.get_job(a["job_hash"])
+                if job:
+                    a["score"] = job.get("score", 0) + 5  # #173: +5 Score-Bonus fuer beworbene Stellen
+                    a["job_source"] = job.get("source", "")
+                    a["is_pinned"] = job.get("is_pinned", False)
+                    a["job_description"] = job.get("description", "")
+                else:
+                    a["score"] = 5  # Beworbene Stelle ohne Job-Eintrag
+                    a["job_source"] = a.get("source") or "importiert"
+            else:
+                # #173: Importierte Bewerbungen (pre-PBP, kein Job-Hash)
+                a["score"] = 5
+                a["job_source"] = a.get("source") or "importiert (pre-PBP)"
+
+        # Score distribution
+        all_jobs = db.get_active_jobs()
+        score_dist = {}
+        for j in all_jobs:
+            s = j.get("score", 0)
+            bracket = f"{(s // 2) * 2}-{(s // 2) * 2 + 1}"
+            score_dist[bracket] = score_dist.get(bracket, 0) + 1
+
+        # Unapplied high-score jobs
+        applied_hashes = {a.get("job_hash") for a in apps if a.get("job_hash")}
+        unapplied = [j for j in all_jobs if j["hash"] not in applied_hashes and j.get("score", 0) >= 5]
+        unapplied.sort(key=lambda j: -j.get("score", 0))
+
+        # Date range
+        dates = [a.get("applied_at") for a in apps if a.get("applied_at")]
+        date_range = {"first": min(dates) if dates else "", "last": max(dates) if dates else ""}
+
+        report_data = {
+            "applications": apps,
+            "statistics": stats,
+            "score_distribution": score_dist,
+            "unapplied_high_score": unapplied[:20],
+            "date_range": date_range,
+        }
+
+        export_dir = get_data_dir() / "export"
+        export_dir.mkdir(exist_ok=True)
+        name_slug = (profile.get("name", "bericht") if profile else "bericht").replace(" ", "_").lower()
+
+        if format == "excel":
+            from ..export_report import generate_excel_report
+            path = export_dir / f"bewerbungsbericht_{name_slug}.xlsx"
+            generate_excel_report(report_data, profile, path)
+        else:
+            from ..export_report import generate_application_report
+            path = export_dir / f"bewerbungsbericht_{name_slug}.pdf"
+            generate_application_report(report_data, profile, path,
+                                        zeitraum_von=zeitraum_von,
+                                        zeitraum_bis=zeitraum_bis)
+
+        return {
+            "status": "erstellt",
+            "datei": str(path),
+            "format": format,
+            "bewerbungen": len(apps),
+            "nachricht": f"Bewerbungsbericht als {format.upper()} exportiert: {path.name}."
         }
 
     @mcp.tool()

@@ -1,4 +1,4 @@
-"""Erweiterte KI-Features — 9 Tools."""
+"""Erweiterte KI-Features — 11 Tools (#169: Scoring-Regler)."""
 
 import json
 import re
@@ -549,4 +549,117 @@ def register(mcp, db, logger):
             "dokument": doc["filename"],
             "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
             "nachricht": f"Dokument '{doc['filename']}' wurde der Bewerbung zugeordnet."
+        }
+
+    @mcp.tool()
+    def scoring_konfigurieren(
+        aktion: str = "anzeigen",
+        dimension: str = "",
+        sub_key: str = "",
+        wert: float = 0,
+        ignorieren: bool = False
+    ) -> dict:
+        """Konfiguriert das Scoring-Regler-System (#169).
+
+        Jede Bewertungsdimension hat einen konfigurierbaren Regler der Punkte
+        zum Basis-Fit-Score addiert oder subtrahiert.
+
+        Dimensionen:
+        - stellentyp: Bonus/Malus pro Stellenart (freelance, festanstellung, zeitarbeit, etc.)
+        - remote: Bonus/Malus pro Remote-Level (remote, hybrid, vor_ort)
+        - entfernung_fest: km-Stufen-Malus fuer Festanstellung (30, 50, 80, 999)
+        - entfernung_freelance: km-Stufen-Malus fuer Freelance (100, 200, 999)
+        - gehalt: Punkte pro 10% Abweichung vom Wunschgehalt
+        - schwellenwert: Auto-Ignore-Schwelle (Stellen unter diesem Score werden ausgeblendet)
+
+        Args:
+            aktion: 'anzeigen' (alle Regler), 'setzen' (einen Regler aendern),
+                    'reset' (alle auf Defaults zuruecksetzen)
+            dimension: Dimension des Reglers (stellentyp, remote, entfernung_fest, etc.)
+            sub_key: Unter-Schluessel (z.B. 'freelance', 'zeitarbeit', '50', 'hybrid')
+            wert: Punktwert (+/- Punkte). Positiv = Bonus, Negativ = Malus.
+            ignorieren: True = Stellen mit diesem Wert komplett ignorieren
+        """
+        if aktion == "anzeigen":
+            config = db.get_scoring_config(dimension if dimension else None)
+            if not config:
+                return {
+                    "status": "leer",
+                    "nachricht": "Keine Scoring-Konfiguration vorhanden. "
+                                 "Nutze scoring_konfigurieren('setzen', dimension, sub_key, wert) "
+                                 "um Regler einzustellen."
+                }
+            # Group by dimension for readability
+            grouped = {}
+            for c in config:
+                dim = c["dimension"]
+                if dim not in grouped:
+                    grouped[dim] = []
+                entry = {"sub_key": c["sub_key"], "wert": c["value"]}
+                if c.get("ignore_flag"):
+                    entry["ignorieren"] = True
+                grouped[dim].append(entry)
+
+            return {
+                "status": "ok",
+                "scoring_regler": grouped,
+                "schwellenwert": db.get_scoring_threshold(),
+                "hinweis": "Nutze scoring_konfigurieren('setzen', dimension, sub_key, wert) "
+                           "um einen Regler zu aendern. Setze ignorieren=True um einen "
+                           "Wert komplett auszublenden."
+            }
+
+        elif aktion == "setzen":
+            if not dimension or not sub_key:
+                return {"fehler": "dimension und sub_key sind Pflicht beim Setzen."}
+            db.set_scoring_config(dimension, sub_key, wert, ignorieren)
+            return {
+                "status": "gespeichert",
+                "dimension": dimension,
+                "sub_key": sub_key,
+                "wert": wert,
+                "ignorieren": ignorieren,
+                "nachricht": f"Scoring-Regler {dimension}/{sub_key} auf {wert} gesetzt"
+                             + (" (IGNORIEREN)" if ignorieren else "") + "."
+            }
+
+        elif aktion == "reset":
+            # Delete all custom scoring config and re-run migration defaults
+            conn = db.connect()
+            pid = db.get_active_profile_id() or ""
+            conn.execute("DELETE FROM scoring_config WHERE profile_id=?", (pid,))
+            conn.commit()
+            return {
+                "status": "zurueckgesetzt",
+                "nachricht": "Alle Scoring-Regler auf Standard zurueckgesetzt. "
+                             "Die Defaults werden beim naechsten Start geladen."
+            }
+
+        return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen' oder 'reset'."}
+
+    @mcp.tool()
+    def scoring_vorschau(job_hash: str) -> dict:
+        """Zeigt die Scoring-Berechnung fuer eine Stelle im Detail (#169).
+
+        Zeigt den Basis-Score UND alle Scoring-Regler-Adjustments,
+        sodass der User versteht warum eine Stelle hoch oder niedrig bewertet wird.
+
+        Args:
+            job_hash: Hash der Stelle
+        """
+        job = db.get_job(job_hash)
+        if not job:
+            return {"fehler": "Stelle nicht gefunden."}
+
+        from ..services.scoring_service import apply_scoring_adjustments
+        result = apply_scoring_adjustments(job, job.get("score", 0), db)
+
+        return {
+            "stelle": f"{job.get('title', '')} bei {job.get('company', '')}",
+            "basis_score": result.get("basis_score", 0),
+            "adjustments": result.get("adjustments", []),
+            "adjustment_total": result.get("adjustment_total", 0),
+            "final_score": result.get("final_score", 0),
+            "ignoriert": result.get("ignored", False),
+            "hinweis": "Passe die Regler mit scoring_konfigurieren('setzen', ...) an."
         }

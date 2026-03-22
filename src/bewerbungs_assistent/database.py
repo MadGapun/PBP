@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 
 def _gen_id() -> str:
@@ -95,6 +95,38 @@ class Database:
                     conn.execute(
                         "INSERT INTO dismiss_reasons (label, is_custom, profile_id, created_at) VALUES (?, 0, '', ?)",
                         (label, _now())
+                    )
+                except Exception:
+                    pass
+            # Pre-populate scoring defaults for fresh databases (#169)
+            _scoring_defaults = [
+                ("stellentyp", "freelance", 3, 0),
+                ("stellentyp", "festanstellung", 0, 0),
+                ("stellentyp", "zeitarbeit", -5, 0),
+                ("stellentyp", "befristet", -2, 0),
+                ("stellentyp", "praktikum", -8, 1),
+                ("stellentyp", "werkstudent", -8, 1),
+                ("remote", "remote", 2, 0),
+                ("remote", "hybrid", 1, 0),
+                ("remote", "vor_ort", -2, 0),
+                ("remote", "unbekannt", 0, 0),
+                ("entfernung_fest", "30", 0, 0),
+                ("entfernung_fest", "50", -2, 0),
+                ("entfernung_fest", "80", -5, 0),
+                ("entfernung_fest", "999", -8, 0),
+                ("entfernung_freelance", "100", 0, 0),
+                ("entfernung_freelance", "200", 0, 0),
+                ("entfernung_freelance", "999", -1, 0),
+                ("gehalt", "pro_10_prozent", 1, 0),
+                ("schwellenwert", "auto_ignore", 0, 0),
+            ]
+            for dim, sub, val, ign in _scoring_defaults:
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO scoring_config "
+                        "(profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                        "VALUES ('', ?, ?, ?, ?, ?)",
+                        (dim, sub, val, ign, _now())
                     )
                 except Exception:
                     pass
@@ -530,6 +562,115 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v15->v16: applications.employment_type")
+
+        if from_ver < 17:
+            # v17: Geocoding (#167), Scoring-Config (#169), Bewerbungs-Workflow (#170),
+            #      Quellenfeld bei Bewerbungen (#173)
+
+            # 1. Geocoding: lat/lon auf jobs Tabelle (#167)
+            for col_add in [
+                ("jobs", "lat REAL"),
+                ("jobs", "lon REAL"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {col_add[0]} ADD COLUMN {col_add[1]}")
+                except Exception:
+                    pass
+
+            # 2. Scoring-Config Tabelle (#169)
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS scoring_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    profile_id TEXT NOT NULL DEFAULT '',
+                    dimension TEXT NOT NULL,
+                    sub_key TEXT NOT NULL,
+                    value REAL DEFAULT 0,
+                    ignore_flag INTEGER DEFAULT 0,
+                    created_at TEXT,
+                    UNIQUE(profile_id, dimension, sub_key)
+                );
+                CREATE INDEX IF NOT EXISTS idx_scoring_profile
+                    ON scoring_config(profile_id, dimension);
+            """)
+
+            # Pre-populate scoring defaults
+            _scoring_defaults = [
+                # Stellentyp
+                ("stellentyp", "freelance", 3, 0),
+                ("stellentyp", "festanstellung", 0, 0),
+                ("stellentyp", "zeitarbeit", -5, 0),
+                ("stellentyp", "befristet", -2, 0),
+                ("stellentyp", "praktikum", -8, 1),
+                ("stellentyp", "werkstudent", -8, 1),
+                # Remote
+                ("remote", "remote", 2, 0),
+                ("remote", "hybrid", 1, 0),
+                ("remote", "vor_ort", -2, 0),
+                ("remote", "unbekannt", 0, 0),
+                # Entfernung Festanstellung (km-Stufen)
+                ("entfernung_fest", "30", 0, 0),
+                ("entfernung_fest", "50", -2, 0),
+                ("entfernung_fest", "80", -5, 0),
+                ("entfernung_fest", "999", -8, 0),
+                # Entfernung Freelance (km-Stufen)
+                ("entfernung_freelance", "100", 0, 0),
+                ("entfernung_freelance", "200", 0, 0),
+                ("entfernung_freelance", "999", -1, 0),
+                # Gehalt (pro 10% Abweichung)
+                ("gehalt", "pro_10_prozent", 1, 0),
+                # Schwellenwert
+                ("schwellenwert", "auto_ignore", 0, 0),
+            ]
+            for dim, sub, val, ign in _scoring_defaults:
+                try:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO scoring_config "
+                        "(profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                        "VALUES ('', ?, ?, ?, ?, ?)",
+                        (dim, sub, val, ign, _now())
+                    )
+                except Exception:
+                    pass
+
+            # 3. Quellen-Feld bei Bewerbungen (#173)
+            for col_add in [
+                ("applications", "source TEXT DEFAULT ''"),
+                ("applications", "source_secondary TEXT DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {col_add[0]} ADD COLUMN {col_add[1]}")
+                except Exception:
+                    pass
+
+            # 4. Blacklist bereinigen (#168): dismiss_pattern Einträge migrieren
+            # Konvertiere generische dismiss_patterns zu keywords oder lösche sie
+            try:
+                _generic_patterns = {
+                    "zu_junior", "zu_senior", "zu_weit_entfernt", "gehalt_zu_niedrig",
+                    "falsches_fachgebiet", "unpassendes_arbeitsmodell", "firma_uninteressant",
+                    "zeitarbeit", "befristet", "bereits_beworben", "sonstiges",
+                    "duplikat",
+                }
+                dp_rows = conn.execute(
+                    "SELECT id, value FROM blacklist WHERE type='dismiss_pattern'"
+                ).fetchall()
+                for dp in dp_rows:
+                    val = dp["value"].lower().strip()
+                    if val in _generic_patterns:
+                        # Generic reason — just delete, these belong in dismiss_reasons
+                        conn.execute("DELETE FROM blacklist WHERE id=?", (dp["id"],))
+                    elif len(val) > 40:
+                        # Long free-text entry (e.g. duplicate descriptions) — delete
+                        conn.execute("DELETE FROM blacklist WHERE id=?", (dp["id"],))
+                    else:
+                        # Short custom pattern — convert to keyword
+                        conn.execute(
+                            "UPDATE blacklist SET type='keyword' WHERE id=?", (dp["id"],)
+                        )
+            except Exception as e:
+                logger.warning("Blacklist migration (dismiss_pattern): %s", e)
+
+            logger.info("Migration v16->v17: Geocoding, Scoring-Config, Quellen, Blacklist-Bereinigung")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -1209,6 +1350,15 @@ class Database:
             data.get("content_hash"), _now()
         ))
         conn.commit()
+
+        # #177: Auto-assign document to matching application
+        try:
+            filename = data.get("filename", "")
+            if filename and not data.get("linked_application_id"):
+                self.auto_assign_document(did, filename)
+        except Exception as e:
+            logger.debug("Auto-assign document failed (non-critical): %s", e)
+
         return did
 
     def delete_document(self, doc_id: str):
@@ -1249,13 +1399,157 @@ class Database:
             logger.info("Auto-linked %d document(s) to application %s (company: %s)",
                         linked, application_id, company)
 
+    @staticmethod
+    def _normalize_umlauts(text: str) -> str:
+        """Normalize umlauts for fuzzy matching (#177).
+
+        Handles both directions: ü→ue and ue→ü, ö→oe, ä→ae, ß→ss.
+        """
+        t = text.lower()
+        # Expand umlauts to ASCII
+        for uml, repl in [("ü", "ue"), ("ö", "oe"), ("ä", "ae"), ("ß", "ss"),
+                          ("Ü", "ue"), ("Ö", "oe"), ("Ä", "ae")]:
+            t = t.replace(uml, repl)
+        return t
+
+    def auto_assign_document(self, doc_id: str, filename: str) -> dict:
+        """Smart auto-assignment of uploaded document to matching application (#177).
+
+        Matching criteria (in order of confidence):
+        1. Company name in filename + document type → high confidence
+        2. Company name in filename only → medium confidence
+        3. Recently created application (within 24h) → low confidence
+
+        Returns dict with match info or None if no match.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        if not pid:
+            return {"match": None, "confidence": 0}
+
+        fname_lower = (filename or "").lower()
+        fname_normalized = self._normalize_umlauts(fname_lower)  # #177
+
+        # Detect document type from filename
+        doc_type = "sonstiges"
+        type_keywords = {
+            "lebenslauf": "lebenslauf", "cv": "lebenslauf", "resume": "lebenslauf",
+            "anschreiben": "anschreiben", "cover": "anschreiben", "motivationsschreiben": "anschreiben",
+            "projektliste": "projektliste", "referenz": "referenz", "zeugnis": "zeugnis",
+        }
+        for keyword, dtype in type_keywords.items():
+            if keyword in fname_lower:
+                doc_type = dtype
+                break
+
+        # Get all applications
+        apps = conn.execute(
+            "SELECT id, title, company, status, created_at FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "ORDER BY created_at DESC",
+            (pid,)
+        ).fetchall()
+
+        best_match = None
+        best_confidence = 0
+
+        for app in apps:
+            company = (app["company"] or "").lower()
+            if not company or len(company) < 2:
+                continue
+
+            # Check company name match in filename (#177: with umlaut normalization)
+            # Try full company name and significant parts
+            company_parts = [company]
+            company_normalized = self._normalize_umlauts(company)
+            company_parts_normalized = [company_normalized]
+            # Also try individual words > 3 chars (e.g. "Luerssen" from "Luerssen Werft")
+            for part in company.split():
+                if len(part) > 3:
+                    company_parts.append(part.lower())
+                    company_parts_normalized.append(self._normalize_umlauts(part.lower()))
+
+            # Match against both original and normalized filenames
+            company_match = (
+                any(cp in fname_lower for cp in company_parts) or
+                any(cp in fname_normalized for cp in company_parts_normalized)
+            )
+
+            if company_match and doc_type != "sonstiges":
+                # High confidence: company + document type
+                confidence = 0.95
+            elif company_match:
+                # Medium confidence: company only
+                confidence = 0.7
+            else:
+                # Check time proximity (within 24h)
+                from datetime import datetime, timedelta
+                try:
+                    created = datetime.fromisoformat(app["created_at"].replace("Z", "+00:00"))
+                    if datetime.now(created.tzinfo or None) - created < timedelta(hours=24):
+                        confidence = 0.3
+                    else:
+                        confidence = 0
+                except Exception:
+                    confidence = 0
+
+            if confidence > best_confidence:
+                best_confidence = confidence
+                best_match = dict(app)
+
+        if not best_match:
+            return {"match": None, "confidence": 0}
+
+        result = {
+            "match": {
+                "bewerbung_id": best_match["id"][:8],
+                "bewerbung_id_voll": best_match["id"],
+                "firma": best_match["company"],
+                "titel": best_match["title"],
+                "status": best_match["status"],
+            },
+            "confidence": best_confidence,
+            "doc_type": doc_type,
+        }
+
+        # Auto-link if confidence is high enough
+        if best_confidence >= 0.7:
+            conn.execute(
+                "UPDATE documents SET linked_application_id=? WHERE id=?",
+                (best_match["id"], doc_id)
+            )
+            # Add timeline event
+            self.add_application_event(
+                best_match["id"], "dokument",
+                f"Dokument '{filename}' automatisch verknuepft (Konfidenz: {best_confidence:.0%})"
+            )
+            conn.commit()
+            result["auto_verknuepft"] = True
+        else:
+            result["auto_verknuepft"] = False
+            result["hinweis"] = (
+                f"Moeglicher Match mit '{best_match['company']}' "
+                f"(Konfidenz: {best_confidence:.0%}). "
+                f"Nutze dokument_verknuepfen('{doc_id}', '{best_match['id'][:8]}') "
+                "um manuell zu verknuepfen."
+            )
+
+        return result
+
     def link_document_to_application(self, doc_id, application_id: int):
-        """Link a document to an application."""
+        """Link a document to an application and create timeline entry (#176)."""
         conn = self.connect()
         conn.execute(
             "UPDATE documents SET linked_application_id=? WHERE id=?",
             (application_id, str(doc_id)),
         )
+        # Get filename for timeline entry (#176)
+        doc_row = conn.execute("SELECT filename FROM documents WHERE id=?", (str(doc_id),)).fetchone()
+        filename = doc_row["filename"] if doc_row else "Dokument"
+        conn.execute("""
+            INSERT INTO application_events (application_id, status, event_date, notes)
+            VALUES (?, 'dokument', ?, ?)
+        """, (str(application_id), _now(), f"Dokument verknuepft: {filename}"))
         conn.commit()
 
     def get_documents_for_application(self, application_id: str) -> list:
@@ -1291,8 +1585,8 @@ class Database:
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
-                    employment_type, is_pinned, profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    employment_type, is_pinned, lat, lon, profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -1302,7 +1596,7 @@ class Database:
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
-                new_pinned, job_pid,
+                new_pinned, job.get("lat"), job.get("lon"), job_pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
@@ -2027,11 +2321,11 @@ class Database:
 
         # Application sources (#87)
         app_source_rows = conn.execute("""
-            SELECT COALESCE(j.source, 'import') as source, COUNT(*) as cnt
+            SELECT COALESCE(j.source, 'import') as job_source, COUNT(*) as cnt
             FROM applications a
             LEFT JOIN jobs j ON a.job_hash = j.hash
             WHERE (a.profile_id=? OR a.profile_id IS NULL)
-            GROUP BY source ORDER BY cnt DESC
+            GROUP BY job_source ORDER BY cnt DESC
         """, (pid,)).fetchall()
 
         return {
@@ -2043,7 +2337,7 @@ class Database:
                 for r in source_rows
             ],
             "application_sources": [
-                {"name": r["source"], "count": r["cnt"]}
+                {"name": r["job_source"], "count": r["cnt"]}
                 for r in app_source_rows
             ],
         }
@@ -2479,6 +2773,51 @@ class Database:
         """Store a setting scoped to the active profile."""
         pid = self.get_active_profile_id() or ""
         self.set_setting(f"{pid}:{key}" if pid else key, value)
+
+    # === Scoring Config (#169) ===
+
+    def get_scoring_config(self, dimension: str = None) -> list:
+        """Get scoring configuration entries, optionally filtered by dimension."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        if dimension:
+            rows = conn.execute(
+                "SELECT * FROM scoring_config WHERE (profile_id=? OR profile_id='') "
+                "AND dimension=? ORDER BY sub_key",
+                (pid, dimension)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM scoring_config WHERE profile_id=? OR profile_id='' "
+                "ORDER BY dimension, sub_key",
+                (pid,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def set_scoring_config(self, dimension: str, sub_key: str,
+                           value: float = 0, ignore_flag: bool = False):
+        """Set or update a scoring config entry."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        conn.execute("""
+            INSERT OR REPLACE INTO scoring_config
+                (profile_id, dimension, sub_key, value, ignore_flag, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (pid, dimension, sub_key, value, 1 if ignore_flag else 0, _now()))
+        conn.commit()
+
+    def get_scoring_threshold(self) -> float:
+        """Get the auto-ignore threshold for fit scores."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT value FROM scoring_config "
+            "WHERE (profile_id=? OR profile_id='') "
+            "AND dimension='schwellenwert' AND sub_key='auto_ignore' "
+            "ORDER BY profile_id DESC LIMIT 1",
+            (pid,)
+        ).fetchone()
+        return float(row["value"]) if row else 0
 
     # === User Preferences (PBP v0.10.0) ===
 
@@ -3222,6 +3561,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     dismiss_reason TEXT,
     is_active INTEGER DEFAULT 1,
     is_pinned INTEGER DEFAULT 0,
+    lat REAL,
+    lon REAL,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
@@ -3248,6 +3589,8 @@ CREATE TABLE IF NOT EXISTS applications (
     rejection_reason TEXT,
     fit_analyse TEXT,
     employment_type TEXT,
+    source TEXT DEFAULT '',
+    source_secondary TEXT DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );
@@ -3383,4 +3726,16 @@ CREATE INDEX IF NOT EXISTS idx_emails_app ON application_emails(application_id);
 CREATE INDEX IF NOT EXISTS idx_emails_profile ON application_emails(profile_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_app ON application_meetings(application_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_date ON application_meetings(meeting_date, status);
+
+CREATE TABLE IF NOT EXISTS scoring_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL DEFAULT '',
+    dimension TEXT NOT NULL,
+    sub_key TEXT NOT NULL,
+    value REAL DEFAULT 0,
+    ignore_flag INTEGER DEFAULT 0,
+    created_at TEXT,
+    UNIQUE(profile_id, dimension, sub_key)
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_profile ON scoring_config(profile_id, dimension);
 """

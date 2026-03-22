@@ -452,6 +452,24 @@ def run_search(db, job_id: str, params: dict):
             if any(kw in haystack for kw in _freelance_keywords):
                 job["employment_type"] = "freelance"
 
+    # Geocoding: calculate distance for jobs with location (#167)
+    try:
+        from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
+        user_coords = get_user_coordinates(db)
+        if user_coords:
+            geocoded_count = 0
+            for job in unique:
+                loc = job.get("location", "")
+                if loc and not job.get("distance_km"):
+                    dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
+                    if dist is not None:
+                        job["distance_km"] = dist
+                        geocoded_count += 1
+            if geocoded_count:
+                logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
+    except Exception as e:
+        logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
+
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
     min_score_threshold = criteria.get("min_score_schwelle", 1)
     before = len(unique)

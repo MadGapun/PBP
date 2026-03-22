@@ -10,6 +10,7 @@ def register(mcp, db, logger):
         keywords_plus: list[str] = None,
         keywords_ausschluss: list[str] = None,
         regionen: list[str] = None,
+        standort: str = "",
         stellentypen: list[str] = None,
         max_entfernung: dict = None,
         custom_kriterien: dict = None
@@ -28,6 +29,8 @@ def register(mcp, db, logger):
             keywords_plus: Bonus-Keywords (erhoehen Score)
             keywords_ausschluss: Ausschluss-Keywords (z.B. Junior, Praktikum)
             regionen: Bevorzugte Regionen
+            standort: Wohnort des Bewerbers fuer Entfernungsberechnung (#167).
+                z.B. 'Bremen' oder 'Bremen, Deutschland'. Wird einmalig geocoded und gecacht.
             stellentypen: Gewuenschte Stellentypen als Multi-Select (#166).
                 Optionen: festanstellung, freelance, teilzeit, praktikum, werkstudent.
                 Standard: ['festanstellung']
@@ -52,7 +55,24 @@ def register(mcp, db, logger):
             db.set_search_criteria("max_entfernung", max_entfernung)
         if custom_kriterien:
             db.set_search_criteria("custom_kriterien", custom_kriterien)
-        return {"status": "gespeichert", "kriterien": db.get_search_criteria()}
+
+        # Geocode user location (#167)
+        geo_info = None
+        if standort:
+            try:
+                from ..services.geocoding_service import cache_user_coordinates
+                coords = cache_user_coordinates(db, standort)
+                if coords:
+                    geo_info = f"Standort '{standort}' geocoded: {coords[0]:.4f}, {coords[1]:.4f}"
+                else:
+                    geo_info = f"Standort '{standort}' konnte nicht geocoded werden."
+            except Exception as e:
+                geo_info = f"Geocoding fehlgeschlagen: {e}"
+
+        result = {"status": "gespeichert", "kriterien": db.get_search_criteria()}
+        if geo_info:
+            result["geocoding"] = geo_info
+        return result
 
     @mcp.tool()
     def suchkriterien_bearbeiten(
@@ -114,19 +134,54 @@ def register(mcp, db, logger):
         aktion: str,
         typ: str = "firma",
         wert: str = "",
-        grund: str = ""
+        grund: str = "",
+        entry_id: int = 0
     ) -> dict:
-        """Verwaltet die Blacklist (Firmen, Keywords die automatisch aussortiert werden).
+        """Verwaltet die Blacklist (Firmen und Keywords die bei der Jobsuche automatisch aussortiert werden).
+
+        WICHTIG (#168): Die Blacklist ist NUR fuer harte Ausschlüsse gedacht:
+        - 'firma': Firmen die IMMER ignoriert werden (z.B. CIDEON, Zeitarbeitsfirma XY)
+        - 'keyword': Begriffe die IMMER ignoriert werden (z.B. Werkstudent, Praktikum)
+
+        Individuelle Ablehnungsgründe (zu_weit, zu_junior, etc.) gehoeren NICHT hierher!
+        Diese werden automatisch bei stelle_bewerten() als dismiss_reason gespeichert.
 
         Args:
-            aktion: 'hinzufügen', 'anzeigen'
-            typ: 'firma', 'keyword', 'dismiss_pattern'
-            wert: Der Blacklist-Eintrag
-            grund: Grund für den Eintrag
+            aktion: 'hinzufuegen', 'anzeigen', 'entfernen'
+            typ: 'firma' oder 'keyword' (keine anderen Typen mehr!)
+            wert: Der Blacklist-Eintrag (Firmenname oder Keyword)
+            grund: Optionaler Grund fuer den Eintrag
+            entry_id: ID des Eintrags (nur bei aktion='entfernen')
         """
         if aktion == "hinzufuegen":
-            db.add_to_blacklist(typ, wert, grund)
-            return {"status": "hinzugefuegt", "typ": typ, "wert": wert}
+            # Validate type (#168)
+            if typ not in ("firma", "keyword"):
+                return {
+                    "fehler": f"Ungültiger Typ '{typ}'. Nur 'firma' oder 'keyword' erlaubt. "
+                              "Ablehnungsgründe werden automatisch bei stelle_bewerten() gespeichert."
+                }
+            if not wert or not wert.strip():
+                return {"fehler": "Kein Wert angegeben."}
+            # Warn if entry looks too specific (#168)
+            if len(wert) > 50:
+                return {
+                    "warnung": f"Der Eintrag '{wert[:50]}...' ist sehr lang. "
+                               "Blacklist-Einträge sollten kurz und generisch sein "
+                               "(z.B. Firmenname oder einzelnes Keyword). "
+                               "Trotzdem hinzufügen? Rufe erneut auf wenn ja."
+                }
+            db.add_to_blacklist(typ, wert.strip(), grund)
+            return {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
+        elif aktion == "entfernen":
+            if entry_id:
+                ok = db.remove_blacklist_entry(entry_id)
+                return {"status": "entfernt" if ok else "nicht_gefunden"}
+            return {"fehler": "entry_id ist erforderlich zum Entfernen."}
         elif aktion == "anzeigen":
-            return {"blacklist": db.get_blacklist()}
-        return {"fehler": "Unbekannte Aktion. Nutze 'hinzufügen' oder 'anzeigen'."}
+            entries = db.get_blacklist()
+            return {
+                "blacklist": entries,
+                "anzahl": len(entries),
+                "hinweis": "Nutze blacklist_verwalten('entfernen', entry_id=<id>) um Einträge zu entfernen."
+            }
+        return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen', 'anzeigen' oder 'entfernen'."}

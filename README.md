@@ -7,9 +7,9 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-317%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-66-blueviolet.svg)](#mcp-schnittstelle)
-[![Workflows](https://img.shields.io/badge/Workflows-14-ff69b4.svg)](#die-14-workflows)
+[![Tests](https://img.shields.io/badge/Tests-341%20passing-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-70-blueviolet.svg)](#mcp-schnittstelle)
+[![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
 
 ---
 
@@ -53,7 +53,9 @@ PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
 - **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. PBP erkennt: Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert.
 - **Follow-ups & Erinnerungen** — Damit keine Bewerbung in Vergessenheit gerät.
-- **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich, falls du Nachweise brauchst.
+- **Gefuehrter Bewerbungs-Workflow** — PBP zeigt dir bei jeder Bewerbung die naechsten Schritte. Von der Vorbereitung bis zum Angebot — immer genau eine Aktion, nie ueberfordert.
+- **Scoring-Regler-System** — Konfiguriere, was dir wichtig ist: Stellentyp, Entfernung, Remote, Gehalt. PBP sortiert automatisch.
+- **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich mit Executive Summary, Quellenanalyse und PBP-Branding.
 
 ### Einfach reden — keine Befehle nötig
 
@@ -355,26 +357,28 @@ PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Cl
 | "Zeige meine Bewerbungsstatistiken" | Conversion-Rates und Übersicht |
 | "Plane einen Follow-up für die Bewerbung bei Firma XY" | Erinnerung in X Tagen |
 
-### Die 14 Workflows
+### Die 16 Workflows
 
-PBP bietet 14 geführte Workflows. Du kannst sie entweder als Slash-Command (`/name`) oder als natürliche Anweisung starten:
+PBP bietet 16 gefuehrte Workflows. Du kannst sie entweder als Slash-Command (`/name`) oder als natuerliche Anweisung starten:
 
 | Workflow | Slash-Command | Was er tut |
 |----------|--------------|-----------|
-| **Ersterfassung** | `/ersterfassung` | Komplettes Profil im Gespräch aufbauen |
+| **Ersterfassung** | `/ersterfassung` | Komplettes Profil im Gespraech aufbauen |
 | **Profil-Erweiterung** | `/profil_erweiterung` | Profil aus Dokumenten erweitern |
-| **Profil überprüfen** | `/profil_ueberpruefen` | Fehler und Lücken finden |
-| **Profil-Analyse** | `/profil_analyse` | Stärken, Potenziale, Marktposition |
-| **Jobsuche** | `/jobsuche_workflow` | Geführte 5-Schritte Stellensuche |
-| **Bewerbung schreiben** | `/bewerbung_schreiben` | CV + Anschreiben für eine Stelle |
+| **Profil ueberpruefen** | `/profil_ueberpruefen` | Fehler und Luecken finden |
+| **Profil-Analyse** | `/profil_analyse` | Staerken, Potenziale, Marktposition |
+| **Jobsuche** | `/jobsuche_workflow` | Gefuehrte 5-Schritte Stellensuche |
+| **Bewerbung vorbereiten** | `/bewerbung_vorbereitung` | **NEU** — Komplette Vorbereitung von Fit-Analyse bis Anschreiben (#170) |
+| **Bewerbung schreiben** | `/bewerbung_schreiben` | CV + Anschreiben fuer eine Stelle |
 | **Auto-Bewerbung** | `/auto_bewerbung` | Komplette Bewerbung aus URL/Stellentext |
-| **Bewerbungsübersicht** | `/bewerbungs_uebersicht` | Komplettübersicht aller Aktivitäten |
+| **Bewerbungsuebersicht** | `/bewerbungs_uebersicht` | Komplettuebersicht aller Aktivitaeten |
 | **Ablehnungs-Coaching** | `/ablehnungs_coaching` | Empathische Analyse nach Absage |
 | **Interview-Vorbereitung** | `/interview_vorbereitung` | STAR-Antworten vorbereiten |
 | **Interview-Simulation** | `/interview_simulation` | Claude spielt den Interviewer |
 | **Gehaltsverhandlung** | `/gehaltsverhandlung` | Strategie und Argumente |
-| **Netzwerk-Strategie** | `/netzwerk_strategie` | Networking-Plan für Zielfirma |
-| **Willkommen** | `/willkommen` | Statusübersicht und Einstiegshilfe |
+| **Netzwerk-Strategie** | `/netzwerk_strategie` | Networking-Plan fuer Zielfirma |
+| **FAQ / Erste Schritte** | `/faq` | **NEU** — Interaktiver Guide: Wo stehe ich? Was kommt als Naechstes? (#175) |
+| **Willkommen** | `/willkommen` | Statusuebersicht und Einstiegshilfe |
 
 > 💡 **Tipp:** In **claude.ai** (Web) gibt es keine Slash-Commands. Sage einfach: *"Starte den Workflow: /jobsuche_workflow"* — PBP erkennt das automatisch.
 
@@ -576,12 +580,12 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 67 Tools in 8 Modulen
-    ├──► prompts.py        ◄── 14 Prompts (Workflows)
+    ├──► tools/            ◄── 70 Tools in 8 Modulen
+    ├──► prompts.py        ◄── 16 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
-    ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail)
-    ├──► database.py       ◄── SQLite (19 Tabellen, WAL, Schema v15)
+    ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail, Geocoding, Scoring)
+    ├──► database.py       ◄── SQLite (22 Tabellen, WAL, Schema v17)
     ├──► dashboard.py      ◄── FastAPI :8200, 85+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 17 Quellen
@@ -608,7 +612,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 67 Tools in 8 Modulen
+### 70 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
@@ -686,43 +690,48 @@ server.py (FastMCP, Composition Root)
 </details>
 
 <details>
-<summary><strong>Analyse</strong> (11 Tools) — Gehalt, Trends, Skill-Gap, Follow-ups, Coaching</summary>
+<summary><strong>Analyse</strong> (13 Tools) — Gehalt, Trends, Skill-Gap, Follow-ups, Coaching, Scoring</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
 | `gehalt_extrahieren` | Gehalt aus Stellenbeschreibung |
-| `gehalt_marktanalyse` | Gehaltsstatistiken über alle Stellen |
+| `gehalt_marktanalyse` | Gehaltsstatistiken ueber alle Stellen |
 | `firmen_recherche` | Firmendaten aggregieren |
 | `branchen_trends` | Gefragte Skills und Technologien |
 | `nachfass_planen` | Follow-up-Erinnerung planen |
 | `nachfass_anzeigen` | Alle Follow-ups zeigen |
-| `bewerbung_stil_tracken` | A/B-Tracking für Anschreiben |
+| `bewerbung_stil_tracken` | A/B-Tracking fuer Anschreiben |
 | `skill_gap_analyse` | Skill-Gap zwischen Profil und Stelle |
 | `ablehnungs_muster` | Ablehnungs-Analyse und Empfehlungen |
-| `antwort_formulieren` | Kontext für Recruiter-Antwort generieren |
-| `dokument_verknuepfen` | Dokument mit Bewerbung verknüpfen |
+| `antwort_formulieren` | Kontext fuer Recruiter-Antwort generieren |
+| `dokument_verknuepfen` | Dokument mit Bewerbung verknuepfen |
+| `scoring_konfigurieren` | **NEU** — Scoring-Regler einstellen (Stellentyp, Remote, Entfernung, Gehalt) (#169) |
+| `scoring_vorschau` | **NEU** — Score-Berechnung fuer eine Stelle im Detail anzeigen (#169) |
 
 </details>
 
 <details>
-<summary><strong>Export</strong> (4 Tools) — Lebenslauf, Analyse und Anschreiben</summary>
+<summary><strong>Export</strong> (5 Tools) — Lebenslauf, Analyse, Anschreiben, Bericht</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
 | `lebenslauf_exportieren` | Standard-CV als PDF/DOCX/MD/TXT |
-| `lebenslauf_angepasst_exportieren` | Stellenspezifischer CV (immer DOCX) |
+| `lebenslauf_angepasst_exportieren` | Stellenspezifischer ATS-konformer CV (#174) |
 | `lebenslauf_bewerten` | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
 | `anschreiben_exportieren` | Anschreiben als PDF/DOCX/MD/TXT |
+| `bewerbungsbericht_exportieren` | **NEU** — Professioneller Bericht mit Executive Summary und PBP-Branding (#173) |
 
 </details>
 
 <details>
-<summary><strong>Suche & Einstellungen</strong> (2 Tools)</summary>
+<summary><strong>Suche & Einstellungen</strong> (4 Tools)</summary>
 
 | Tool | Beschreibung |
 |------|-------------|
-| `suchkriterien_setzen` | Keywords und Filter konfigurieren |
-| `blacklist_verwalten` | Firmen/Keywords ausschließen |
+| `suchkriterien_setzen` | Keywords, Filter und Standort konfigurieren (inkl. Geocoding #167) |
+| `suchkriterien_bearbeiten` | Einzelne Keywords hinzufuegen/entfernen |
+| `suchkriterien_anzeigen` | Aktuelle Suchkriterien anzeigen |
+| `blacklist_verwalten` | Firmen/Keywords ausschliessen (bereinigt, #168) |
 
 </details>
 
@@ -731,7 +740,7 @@ server.py (FastMCP, Composition Root)
 
 | Tool | Beschreibung |
 |------|-------------|
-| `workflow_starten` | Universeller Workflow-Starter (alle 14 Workflows) |
+| `workflow_starten` | Universeller Workflow-Starter (alle 16 Workflows) |
 | `jobsuche_workflow_starten` | Direkter Einstieg Jobsuche |
 | `ersterfassung_starten` | Direkter Einstieg Ersterfassung |
 
@@ -752,30 +761,31 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 19 Kern-Tabellen + `user_preferences`, Schema v15:
+SQLite mit WAL-Mode, 22 Tabellen, Schema v17:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `profile` | Bewerberprofil + Präferenzen (Multi-Profil-fähig) |
+| `profile` | Bewerberprofil + Praeferenzen (Multi-Profil-faehig) |
 | `positions` | Berufserfahrung |
-| `projects` | STAR-Projekte (→ positions) |
+| `projects` | STAR-Projekte (-> positions) |
 | `education` | Ausbildung |
-| `skills` | Kompetenzen (5 Kategorien, Level, Aktualität) |
-| `documents` | Hochgeladene Dokumente (verknüpfbar mit Bewerbungen, `content_hash` für Duplikat-Erkennung) |
+| `skills` | Kompetenzen (5 Kategorien, Level, Aktualitaet) |
+| `documents` | Hochgeladene Dokumente (auto-verknuepfbar mit Bewerbungen, #177) |
 | `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (17 Quellen, `is_pinned`, profilgebunden) |
-| `applications` | Bewerbungen (9 Status-Stufen inkl. abgelaufen) |
-| `application_events` | Bewerbungs-Timeline + Gesprächsnotizen |
-| `application_emails` | Importierte E-Mails mit Parsing-Ergebnis, Zuordnung und Status-Erkennung |
+| `jobs` | Stellenangebote (17 Quellen, `is_pinned`, `lat`/`lon` fuer Geocoding #167) |
+| `applications` | Bewerbungen (11 Status-Stufen inkl. `in_vorbereitung` #170, `source` #173) |
+| `application_events` | Bewerbungs-Timeline + Gespraechsnotizen + Dokument-Events (#176) |
+| `application_emails` | Importierte E-Mails mit Parsing-Ergebnis und Status-Erkennung |
 | `application_meetings` | Termine mit Datum, Meeting-URL, Plattform-Erkennung |
-| `search_criteria` | Suchfilter |
-| `blacklist` | Ausschlussliste |
+| `search_criteria` | Suchfilter (inkl. `standort_lat`/`standort_lon` fuer Geocoding #167) |
+| `blacklist` | Ausschlussliste (nur `firma`/`keyword`, bereinigt #168) |
 | `background_jobs` | Async-Tasks |
 | `follow_ups` | Nachfass-Erinnerungen |
 | `user_preferences` | Benutzereinstellungen |
 | `suggested_job_titles` | Vorgeschlagene Jobtitel |
 | `settings` | Konfiguration |
-| `dismiss_reasons` | Ablehnungsgründe (lernend, mit Nutzungszähler) |
+| `dismiss_reasons` | Ablehnungsgruende (lernend, mit Nutzungszaehler) |
+| `scoring_config` | **NEU** — Konfigurierbare Scoring-Regler (#169) |
 
 **Datenspeicherung:**
 - Windows: `%LOCALAPPDATA%\BewerbungsAssistent\`
@@ -793,7 +803,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 317 Tests, ~15 Sekunden
+# 341 Tests, ~22 Sekunden
 ```
 
 ---
@@ -809,6 +819,7 @@ python -m pytest tests/ -v
 | **PDF Export** | [fpdf2](https://github.com/py-pdf/fpdf2) ≥2.7 |
 | **Word Export** | [python-docx](https://python-docx.readthedocs.io/) ≥1.1 |
 | **PDF Import** | [pypdf](https://github.com/py-pdf/pypdf) ≥4.0 |
+| **Geocoding** | [geopy](https://geopy.readthedocs.io/) ≥2.4 (Nominatim/OpenStreetMap) |
 | **HTTP Client** | [httpx](https://www.python-httpx.org/) ≥0.27 |
 | **HTML Parsing** | [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) ≥4.12 |
 | **Browser Automation** | [Playwright](https://playwright.dev/python/) ≥1.40 |
@@ -846,15 +857,29 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v0.30.0 — UX-Verbesserungen & Qualität (2026-03-20)
+### v0.32.0 — Empathischer Bewerbungsbegleiter (2026-03-22)
+- **Gefuehrter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhaengige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
+- **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen (Stellentyp, Remote, Entfernung, Gehalt, Keywords, Schwellenwert), 2 neue Tools
+- **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim, integriert in Scraper-Pipeline
+- **Blacklist bereinigt** (#168) — dismiss_patterns raus, nur noch firma/keyword, Duplikat-Erkennung
+- **ATS-konformer CV** (#174) — Calibri, keine Tabellen, Heading-Hierarchie, Pfeil-Symbole
+- **Aufgewerteter Bewerbungsbericht** (#173) — Executive Summary, Inhaltsverzeichnis, PBP-Branding, Quellenanalyse mit Erfolgsquote, +5 Score-Bonus
+- **Drag & Drop Upload** (#176) — Dokumente direkt in der Bewerbungs-Timeline hochladen und verknuepfen
+- **Auto-Dokumentzuordnung** (#177) — Firmenname-Matching mit Umlaut-Normalisierung und Zeitnaehe
+- **IDs ueberall** (#171) — Kurz-Hashes in allen Tool-Outputs und klickbar im Frontend
+- **Auto-Save Stellenbeschreibung** (#172) — Bei CV/Anschreiben-Export automatisch in DB persistiert
+- **FAQ / Erste Schritte** (#175) — Interaktiver Guide mit Entscheidungsbaum
+- Schema v17, 70 Tools, 16 Prompts, 341 Tests
+
+### v0.30.0 — UX-Verbesserungen & Qualitaet (2026-03-20)
 - **Scrollbar-Gutter** verhindert Layout-Verschiebung bei Seitenwechsel (#147)
 - **Status-Charts** mit deutschen Anzeigenamen (#139) + Umlaut-Korrektur in ~300 Backend-Strings
-- **Datumsnormalisierung** im Profil-Editor für diverse Formate (#141)
+- **Datumsnormalisierung** im Profil-Editor fuer diverse Formate (#141)
 - **Interview-Termine** als Pseudo-Meetings im Dashboard-Widget (#140)
-- **Lazy Loading** mit Pagination für Stellenliste (20/50/100/Alle) (#145)
+- **Lazy Loading** mit Pagination fuer Stellenliste (20/50/100/Alle) (#145)
 - **Stellenanzeigen-Link** in Bewerbungsdetails (#146)
-- Token-Sync nach Dokumenttyp-Änderung ohne Reload (#143)
-- 317 Tests
+- Token-Sync nach Dokumenttyp-Aenderung ohne Reload (#143)
+- 341 Tests
 
 ### v0.29.0 — E-Mail-Integration: Parsing, Matching, Meetings (2026-03-20)
 - **E-Mail-Import** (.msg/.eml) mit automatischer Zuordnung zu Bewerbungen (6 Matching-Strategien)
@@ -864,7 +889,7 @@ python -m pytest tests/ -v
 - **Attachment-Import** mit SHA256-Duplikat-Erkennung
 - **Drag & Drop** für E-Mails ins Dashboard
 - Schema v15 (2 neue Tabellen: `application_emails`, `application_meetings`)
-- 317 Tests (46 neue E-Mail-Tests)
+- 341 Tests (46 neue E-Mail-Tests)
 
 ### v0.22.0 — Bewerbungs-Detailansicht, Gesprächsnotizen & Dokument-Verknüpfung (2026-03-17)
 - **Detailansicht** komplett neu: Stelleninfos, Fit-Score, Quelle, Gehalt, aufklappbare Stellenbeschreibung

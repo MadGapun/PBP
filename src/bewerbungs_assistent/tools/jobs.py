@@ -110,8 +110,57 @@ def register(mcp, db, logger):
         "zeitarbeit",
         "befristet",
         "bereits_beworben",
+        "duplikat",
         "sonstiges",
     ]
+
+    def _detect_duplicate(job_hash: str) -> dict | None:
+        """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert."""
+        job = db.get_job(job_hash)
+        if not job:
+            return None
+        title = (job.get("title") or "").lower()
+        company = (job.get("company") or "").lower()
+        if not title or not company:
+            return None
+
+        # Check existing applications
+        apps = db.get_applications()
+        for app in apps:
+            app_title = (app.get("title") or "").lower()
+            app_company = (app.get("company") or "").lower()
+            if company in app_company or app_company in company:
+                # Company match — check title similarity
+                title_words = set(title.split())
+                app_words = set(app_title.split())
+                overlap = title_words & app_words
+                if len(overlap) >= min(2, len(title_words)):
+                    return {
+                        "typ": "bewerbung",
+                        "id": app["id"][:8],
+                        "titel": app.get("title"),
+                        "firma": app.get("company"),
+                        "status": app.get("status"),
+                    }
+
+        # Check existing dismissed jobs with same company
+        dismissed = db.get_dismissed_jobs()
+        for dj in dismissed:
+            dj_company = (dj.get("company") or "").lower()
+            dj_title = (dj.get("title") or "").lower()
+            if company in dj_company or dj_company in company:
+                title_words = set(title.split())
+                dj_words = set(dj_title.split())
+                overlap = title_words & dj_words
+                if len(overlap) >= min(2, len(title_words)):
+                    return {
+                        "typ": "aussortierte_stelle",
+                        "hash": dj["hash"][:8],
+                        "titel": dj.get("title"),
+                        "firma": dj.get("company"),
+                        "grund": dj.get("dismiss_reason"),
+                    }
+        return None
 
     def _normalize_dismiss_reason(reason: str) -> str:
         """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158)."""
@@ -157,10 +206,18 @@ def register(mcp, db, logger):
                     "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
                 }
             reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
+
+            # #168: Duplikat-Erkennung
+            dup_info = None
+            if "duplikat" in reason_list:
+                dup_info = _detect_duplicate(job_hash)
+
             db.dismiss_job(job_hash, reason_str)
 
-            for g in reason_list:
-                db.add_to_blacklist("dismiss_pattern", g)
+            # #168: Ablehnungsgründe gehören NICHT in die Blacklist!
+            # Sie werden als dismiss_reason bei der Stelle gespeichert und
+            # in dismiss_reasons für Statistiken getrackt.
+            # Nur explizite Firmen-Blacklist-Anfragen → blacklist_verwalten()
 
             # Track rejection counts for learning (#66)
             counts = db.get_setting("dismiss_counts", {})
@@ -169,25 +226,36 @@ def register(mcp, db, logger):
                 normalized = g.lower().strip()
                 counts[normalized] = counts.get(normalized, 0) + 1
 
-                # Auto-adjust weights if pattern is strong enough
+                # Suggest scoring adjustments (#169) when patterns are strong
                 if counts.get(normalized, 0) >= 3:
                     if normalized == "zu_weit_entfernt":
-                        hints.append("Entfernungs-Malus wird verstärkt (3+ Ablehnungen wegen Entfernung).")
+                        hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren).")
                     elif normalized == "gehalt_zu_niedrig":
-                        hints.append("Gehalts-Gewichtung wird verstärkt (3+ Ablehnungen wegen Gehalt).")
+                        hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
                     elif normalized in ("zeitarbeit", "befristet"):
-                        hints.append(f"Empfehlung: Füge '{g}' zu AUSSCHLUSS-Keywords hinzu.")
+                        hints.append(f"Tipp: Setze '{g}' im Scoring-Regler auf 'Komplett Ignorieren' (scoring_konfigurieren).")
+                    elif normalized == "firma_uninteressant":
+                        # Suggest adding company to blacklist
+                        job = db.get_job(job_hash)
+                        if job:
+                            hints.append(
+                                f"Tipp: Moechtest du '{job.get('company', '')}' auf die Blacklist setzen? "
+                                f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{job.get('company', '')}')."
+                            )
 
             db.set_setting("dismiss_counts", counts)
             db.increment_dismiss_reason_usage(reason_list)
 
-            return {
+            result = {
                 "status": "aussortiert",
                 "gruende": reason_list,
                 "ablehnungs_statistik": {k: v for k, v in sorted(counts.items(), key=lambda x: -x[1])[:5]},
                 "hinweise": hints if hints else None,
                 "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
             }
+            if dup_info:
+                result["duplikat_erkannt"] = dup_info
+            return result
         elif bewertung == "passt":
             db.restore_job(job_hash)
             return {"status": "als_passend_markiert"}
@@ -237,6 +305,27 @@ def register(mcp, db, logger):
             cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
 
+        # Apply scoring adjustments (#169)
+        if filter != "aussortiert":
+            try:
+                from ..services.scoring_service import apply_scoring_adjustments
+                auto_ignored = 0
+                scored_jobs = []
+                for j in jobs:
+                    result = apply_scoring_adjustments(j, j.get("score", 0), db)
+                    j["score"] = result["final_score"]
+                    if result.get("ignored"):
+                        auto_ignored += 1
+                        continue
+                    scored_jobs.append(j)
+                if auto_ignored:
+                    logger.info("Scoring-Regler: %d Stellen auto-ignoriert", auto_ignored)
+                jobs = scored_jobs
+                # Re-sort by new score
+                jobs.sort(key=lambda j: (-j.get("is_pinned", 0), -j.get("score", 0)))
+            except Exception as e:
+                logger.debug("Scoring adjustments fehlgeschlagen: %s", e)
+
         if not jobs:
             return {
                 "anzahl": 0,
@@ -268,6 +357,7 @@ def register(mcp, db, logger):
         formatted = []
         for j in page_jobs:
             entry = {
+                "id": j["hash"][:8],  # #171: Kurz-ID fuer schnelle Referenz
                 "hash": j["hash"],
                 "titel": j.get("title", ""),
                 "firma": j.get("company", ""),
@@ -415,15 +505,31 @@ def register(mcp, db, logger):
             job["salary_type"] = s_type
             job["salary_estimated"] = 1
 
+        # Geocoding (#167): Entfernung berechnen wenn Standort bekannt
+        if ort:
+            try:
+                from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
+                user_coords = get_user_coordinates(db)
+                if user_coords:
+                    dist = geocode_and_calculate_distance(ort, user_coords[0], user_coords[1])
+                    if dist is not None:
+                        job["distance_km"] = dist
+            except Exception:
+                pass
+
         db.save_jobs([job])
 
-        return {
+        result = {
             "status": "angelegt",
+            "id": job_hash[:8],
             "hash": job_hash,
             "score": job["score"],
             "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
-                         f"Bewerte mit stelle_bewerten('{job_hash[:8]}...', 'passt'/'passt_nicht').",
+                         f"Bewerte mit stelle_bewerten('{job_hash[:8]}', 'passt'/'passt_nicht').",
         }
+        if job.get("distance_km"):
+            result["entfernung_km"] = job["distance_km"]
+        return result
 
     @mcp.tool()
     def fit_analyse(job_hash: str) -> dict:

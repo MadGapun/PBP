@@ -1345,3 +1345,157 @@ REGELN
 7. Nach dem Anwenden: Zeige profil_zusammenfassung() als Kontrolle
 8. Biete an: "Möchtest du noch Dokumente hochladen? Das geht im Dashboard (http://localhost:8200)."
 """
+
+    @mcp.prompt()
+    def faq() -> str:
+        """Interaktiver Erste-Schritte-Guide und FAQ fuer PBP (#175).
+
+        Hilft dem User sich zurechtzufinden und zeigt was als Naechstes zu tun ist."""
+        profile = db.get_profile()
+        stats = db.get_statistics() if profile else {}
+        criteria = db.get_search_criteria() if profile else {}
+
+        # Determine user state
+        has_profile = profile is not None
+        has_criteria = bool(criteria.get("keywords_muss"))
+        total_apps = stats.get("total_applications", 0)
+        active_jobs = stats.get("active_jobs", 0)
+        in_vorbereitung = stats.get("applications_by_status", {}).get("in_vorbereitung", 0)
+
+        state_lines = []
+        if not has_profile:
+            state_lines.append("Du hast noch kein Profil. Starte mit: workflow_starten('ersterfassung')")
+        else:
+            state_lines.append(f"Profil: {profile.get('name', 'vorhanden')}")
+            if not has_criteria:
+                state_lines.append("Keine Suchkriterien gesetzt. Nutze: suchkriterien_setzen()")
+            else:
+                state_lines.append(f"Suchkriterien: aktiv ({len(criteria.get('keywords_muss', []))} MUSS-Keywords)")
+            state_lines.append(f"Stellen: {active_jobs} aktiv")
+            state_lines.append(f"Bewerbungen: {total_apps} gesamt")
+            if in_vorbereitung:
+                state_lines.append(f"In Vorbereitung: {in_vorbereitung} — workflow_starten('bewerbung_vorbereitung') starten!")
+
+        state_block = "\n".join(f"  {s}" for s in state_lines)
+
+        return f"""Du bist ein freundlicher PBP-Assistent. Der User hat PBP geoeffnet und
+braucht Orientierung. Zeige ihm wo er steht und was er als Naechstes tun kann.
+
+═══════════════════════════════════════════════════
+AKTUELLER STAND
+═══════════════════════════════════════════════════
+{state_block}
+
+═══════════════════════════════════════════════════
+DEINE AUFGABE
+═══════════════════════════════════════════════════
+
+1. Begruesse den User kurz und freundlich
+2. Zeige den aktuellen Stand (oben)
+3. Empfehle den NAECHSTEN sinnvollen Schritt — genau EINEN, nicht alle
+4. Frage ob der User das tun moechte oder etwas anderes braucht
+5. Bei Fragen: Antworte basierend auf der FAQ (docs/FAQ.md)
+
+WICHTIG:
+- Nicht ueberfordernd — immer nur den naechsten Schritt zeigen
+- Aufmunternder Ton, besonders wenn wenig Aktivitaet
+- Wenn der User frustriert wirkt: "Jeder Schritt zaehlt!"
+- Wenn alles laeuft: "Du machst das grossartig, weiter so!"
+"""
+
+    @mcp.prompt()
+    def bewerbung_vorbereitung(bewerbung_id: str = "") -> str:
+        """Gefuehrter Bewerbungs-Vorbereitungs-Workflow (#170).
+
+        Begleitet den User Schritt fuer Schritt durch die Vorbereitung einer Bewerbung:
+        Fit-Analyse, CV anpassen, Anschreiben, Dokumente verknuepfen.
+
+        Args:
+            bewerbung_id: ID der Bewerbung (optional — wenn leer, letzte in_vorbereitung)
+        """
+        # Find the application to prepare
+        app_info = ""
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if app:
+                app_info = f"Bewerbung: {app.get('title', '')} bei {app.get('company', '')} (ID: {app['id'][:8]}, Status: {app.get('status', '')})"
+        if not app_info:
+            # Find latest in_vorbereitung
+            apps = db.get_applications("in_vorbereitung")
+            if apps:
+                a = apps[0]
+                app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: in_vorbereitung)"
+                bewerbung_id = a["id"]
+            else:
+                # Find latest beworben without documents
+                apps = db.get_applications()
+                for a in apps:
+                    if a.get("status") in ("in_vorbereitung", "offen"):
+                        app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: {a.get('status', '')})"
+                        bewerbung_id = a["id"]
+                        break
+
+        return f"""Du bist ein empathischer Bewerbungscoach. Du begleitest den User
+Schritt fuer Schritt durch die Vorbereitung seiner Bewerbung.
+
+Dein Ton: Motivierend, klar, strukturiert. Der User soll sich an die Hand
+genommen fuehlen und genau wissen was als Naechstes kommt.
+
+═══════════════════════════════════════════════════
+AKTUELLE BEWERBUNG
+═══════════════════════════════════════════════════
+{app_info or "Keine Bewerbung in Vorbereitung gefunden. Frage den User welche Stelle er vorbereiten moechte."}
+
+═══════════════════════════════════════════════════
+VORBEREITUNGS-CHECKLISTE
+═══════════════════════════════════════════════════
+
+Gehe diese Schritte der Reihe nach durch. Markiere erledigte Schritte.
+Ueberspringe nichts, es sei denn der User bittet darum.
+
+[ ] 1. FIT-ANALYSE
+    → Rufe fit_analyse(job_hash) auf
+    → Zeige dem User: Was passt, was fehlt, Risiken
+    → "Dein Match mit dieser Stelle liegt bei X% — lass uns schauen was wir optimieren koennen."
+
+[ ] 2. SKILL-GAP PRUEFEN
+    → Rufe skill_gap_analyse(job_hash) auf
+    → Zeige dem User welche Skills fehlen und wie er sie darstellen kann
+    → "Dir fehlt X — aber du hast Y was aehnlich ist. Das koennen wir im CV betonen."
+
+[ ] 3. LEBENSLAUF ANPASSEN
+    → Rufe lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung) auf
+    → Der CV wird automatisch auf die Stelle optimiert
+    → "Dein angepasster Lebenslauf ist fertig! Schau ihn dir an und sag mir ob er passt."
+
+[ ] 4. LEBENSLAUF BEWERTEN LASSEN
+    → Rufe lebenslauf_bewerten(stelle, firma, stellenbeschreibung) auf
+    → Zeige die 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter)
+    → Bei Score < 70: Verbesserungsvorschlaege umsetzen
+
+[ ] 5. ANSCHREIBEN ERSTELLEN
+    → Nutze den Workflow bewerbung_schreiben
+    → Oder erstelle das Anschreiben direkt und exportiere mit anschreiben_exportieren()
+    → Stil mit bewerbung_stil_tracken() festhalten
+
+[ ] 6. DOKUMENTE VERKNUEPFEN
+    → Pruefe ob alle erstellten Dokumente verknuepft sind
+    → Rufe bewerbung_details(bewerbung_id) auf um den Stand zu sehen
+
+[ ] 7. ABSCHLUSS
+    → Fasse zusammen was erstellt wurde
+    → Frage: "Bist du bereit die Bewerbung abzuschicken?"
+    → Bei Ja: bewerbung_status_aendern(bewerbung_id, 'beworben')
+    → "Glueckwunsch! Deine Bewerbung ist komplett vorbereitet."
+
+═══════════════════════════════════════════════════
+WICHTIGE REGELN
+═══════════════════════════════════════════════════
+
+- Nach JEDEM Schritt: Timeline-Eintrag erstellen mit bewerbung_notiz()
+  z.B. "Fit-Analyse durchgefuehrt (Score: 78)" oder "CV angepasst und exportiert"
+- Automatisch dokument_verknuepfen() aufrufen wenn Dokumente erstellt werden
+- Den User NICHT mit allen Schritten auf einmal ueberfordern — immer nur den naechsten zeigen
+- Bei Unsicherheit: Aufmuntern! "Das sieht gut aus. Lass uns weitermachen."
+- Wenn der User frustriert wirkt: "Jeder Schritt zaehlt. Du machst das richtig."
+"""

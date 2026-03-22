@@ -290,15 +290,15 @@ Das Dashboard hat **7 Bereiche** und läuft auf `http://localhost:8200`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (Composition Root, ~140 Zeilen)                │
-│    ├── tools/ (8 Module, 66 Tools)                        │
-│    ├── prompts.py (12 Prompts)                            │
+│    ├── tools/ (8 Module, 70 Tools)                        │
+│    ├── prompts.py (16 Prompts)                            │
 │    ├── resources.py (6 Resources)                         │
 │    └── services/ (gemeinsamer Service-Layer)              │
 │         ├── profile_service.py                            │
 │         ├── search_service.py                             │
 │         └── workspace_service.py                          │
 │         ↓                                                  │
-│  database.py (SQLite + WAL, Schema v15)                    │
+│  database.py (SQLite + WAL, Schema v17)                    │
 │    └── 16 Kern-Tabellen + user_preferences, FK + CASCADE  │
 │    └── Daten: %LOCALAPPDATA%\BewerbungsAssistent\pbp.db   │
 │         ↓                                                  │
@@ -380,7 +380,7 @@ pytest tests/test_workspace_service.py -v #  5 Tests
 pytest tests/test_dashboard_browser.py -v #  3 Tests
 ```
 
-Ergebnis: **317 Tests, alle gruen**
+Ergebnis: **341 Tests, alle gruen**
 
 ---
 
@@ -407,7 +407,7 @@ Ergebnis: **317 Tests, alle gruen**
 - ✓ Onboarding-Wizard + Bewerbungs-Wizard
 - ✓ Zero-Knowledge Windows-Installer (Doppelklick, winget-Support)
 - ✓ E-Mail-Integration: Import, Matching, Status-Erkennung, Meetings
-- ✓ 66 Tools, 14 Prompts, 6 Resources, 317 Tests
+- ✓ 70 Tools, 16 Prompts, 6 Resources, 341 Tests
 - ✓ Cross-Platform (Windows + Linux)
 
 ### 2.7 E-Mail-Integration ✓ vollstaendig (v0.29.0)

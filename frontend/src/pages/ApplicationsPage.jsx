@@ -302,6 +302,12 @@ export default function ApplicationsPage() {
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
+                        {/* #171: Klickbare ID */}
+                        <button
+                          className="font-mono text-[10px] text-muted/40 hover:text-sky cursor-pointer transition-colors"
+                          title={`ID: ${application.id} — Klicken zum Kopieren`}
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(application.id); pushToast(`ID ${application.id.slice(0,8)} kopiert`, "success"); }}
+                        >{application.id?.slice(0, 8)}</button>
                         <span className="text-xs font-medium text-muted">{formatDate(application.applied_at)}</span>
                         {application.applied_at && (() => {
                           const days = Math.floor((Date.now() - Date.parse(application.applied_at)) / 86400000);
@@ -426,7 +432,22 @@ export default function ApplicationsPage() {
             <Card className="glass-card-soft rounded-xl shadow-none">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung</p>
+                    {/* #171: Klickbare IDs */}
+                    <button
+                      className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
+                      title={`Bewerbung-ID: ${app.id}`}
+                      onClick={() => { navigator.clipboard.writeText(app.id); pushToast(`ID ${app.id?.slice(0,8)} kopiert`, "success"); }}
+                    >{app.id?.slice(0, 8)}</button>
+                    {app.job_hash && (
+                      <button
+                        className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
+                        title={`Stellen-ID: ${app.job_hash}`}
+                        onClick={() => { navigator.clipboard.writeText(app.job_hash); pushToast(`Stellen-ID ${app.job_hash?.slice(0,8)} kopiert`, "success"); }}
+                      >Job: {app.job_hash?.slice(0, 8)}</button>
+                    )}
+                  </div>
                   <h3 className="mt-1 text-base font-semibold text-ink">{app.title}</h3>
                   <p className="text-sm text-muted">{app.company}</p>
                   {(app.vermittler || app.endkunde) && (
@@ -647,10 +668,10 @@ export default function ApplicationsPage() {
             </Card>
           ) : null}
 
-          {/* Linked documents */}
-          {(timelineDialog.entry?.documents || []).length > 0 ? (
-            <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Verknüpfte Dokumente</p>
+          {/* Linked documents + Upload zone (#176) */}
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Dokumente</p>
+            {(timelineDialog.entry?.documents || []).length > 0 && (
               <div className="mt-2 grid gap-1.5">
                 {timelineDialog.entry.documents.map((doc) => (
                   <a
@@ -667,8 +688,85 @@ export default function ApplicationsPage() {
                   </a>
                 ))}
               </div>
-            </Card>
-          ) : null}
+            )}
+
+            {/* Drag & Drop Upload Zone (#176) */}
+            <div
+              className="mt-3 border-2 border-dashed border-white/10 rounded-lg p-4 text-center hover:border-sky/30 hover:bg-sky/[0.02] transition-all cursor-pointer"
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-sky/40", "bg-sky/[0.05]"); }}
+              onDragLeave={(e) => { e.currentTarget.classList.remove("border-sky/40", "bg-sky/[0.05]"); }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove("border-sky/40", "bg-sky/[0.05]");
+                const { extractDroppedFiles } = await import("@/file-drop.js");
+                const { uploadDocumentFile } = await import("@/document-upload.js");
+                const files = await extractDroppedFiles(e.dataTransfer);
+                const appId = timelineDialog.entry?.application?.id;
+                for (const file of files) {
+                  try {
+                    const result = await uploadDocumentFile(file);
+                    if (result?.document_id && appId) {
+                      await postJson(`/api/applications/${appId}/link-document`, { document_id: result.document_id });
+                    }
+                    pushToast(`'${file.name}' hochgeladen und verknüpft.`, "success");
+                  } catch (err) {
+                    pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
+                  }
+                }
+                if (appId) await reloadTimeline(appId);
+              }}
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.multiple = true;
+                input.accept = ".pdf,.docx,.doc,.txt,.msg,.eml";
+                input.onchange = async (ev) => {
+                  const { uploadDocumentFile } = await import("@/document-upload.js");
+                  const appId = timelineDialog.entry?.application?.id;
+                  for (const file of ev.target.files) {
+                    try {
+                      const result = await uploadDocumentFile(file);
+                      if (result?.document_id && appId) {
+                        await postJson(`/api/applications/${appId}/link-document`, { document_id: result.document_id });
+                      }
+                      pushToast(`'${file.name}' hochgeladen und verknüpft.`, "success");
+                    } catch (err) {
+                      pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
+                    }
+                  }
+                  if (appId) await reloadTimeline(appId);
+                };
+                input.click();
+              }}
+            >
+              <Upload size={20} className="mx-auto text-muted/30" />
+              <p className="mt-1 text-xs text-muted/50">Datei hierher ziehen oder klicken zum Upload</p>
+            </div>
+
+            {/* Link existing document button */}
+            {documents.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-muted/50 hover:text-sky flex items-center gap-1">
+                  <Link2 size={12} /> Vorhandenes Dokument verknüpfen
+                </summary>
+                <div className="mt-2 grid gap-1 max-h-40 overflow-y-auto">
+                  {documents
+                    .filter((d) => !d.linked_application_id)
+                    .slice(0, 20)
+                    .map((doc) => (
+                    <button
+                      key={doc.id}
+                      className="flex items-center gap-2 text-xs text-ink hover:text-sky rounded px-2 py-1 hover:bg-white/[0.04] text-left w-full"
+                      onClick={() => linkDocument(doc.id)}
+                    >
+                      <FileText size={12} className="shrink-0 text-muted/40" />
+                      <span className="truncate">{doc.filename}</span>
+                    </button>
+                  ))}
+                </div>
+              </details>
+            )}
+          </Card>
 
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (

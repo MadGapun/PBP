@@ -8,11 +8,14 @@
 ];
 
 export const STATUS_OPTIONS = [
+  { value: "in_vorbereitung", label: "In Vorbereitung" },
   { value: "entwurf", label: "Entwurf" },
   { value: "beworben", label: "Beworben" },
+  { value: "eingangsbestaetigung", label: "Eingangsbestätigung" },
   { value: "interview", label: "Interview" },
   { value: "zweitgespraech", label: "Zweitgespräch" },
   { value: "angebot", label: "Angebot" },
+  { value: "angenommen", label: "Angenommen" },
   { value: "abgelehnt", label: "Abgelehnt" },
   { value: "zurueckgezogen", label: "Zurückgezogen" },
   { value: "abgelaufen", label: "Abgelaufen" },
@@ -78,11 +81,15 @@ export function joinKeywords(items) {
 
 export function statusTone(status) {
   switch (status) {
+    case "in_vorbereitung":
+      return "violet";
     case "angebot":
+    case "angenommen":
       return "success";
     case "zweitgespraech":
       return "success";
     case "interview":
+    case "eingangsbestaetigung":
       return "sky";
     case "abgelehnt":
     case "zurueckgezogen":

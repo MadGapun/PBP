@@ -190,60 +190,143 @@ def generate_cv_docx(profile: dict, output_path: Path) -> Path:
     return output_path
 
 
+def _setup_ats_styles(doc):
+    """Configure ATS-compliant styles (#174).
+
+    Rules: Calibri font, no tables, Heading hierarchy, generous spacing.
+    Color: #1F4E79 for headings only.
+    """
+    from docx.shared import Pt, RGBColor, Cm
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    # Normal style
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(10)
+    style.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    style.paragraph_format.space_after = Pt(4)
+
+    # Heading 1 — Section headers (Profil, Berufserfahrung, etc.)
+    h1 = doc.styles["Heading 1"]
+    h1.font.name = "Calibri"
+    h1.font.size = Pt(14)
+    h1.font.bold = True
+    h1.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    h1.paragraph_format.space_before = Pt(18)
+    h1.paragraph_format.space_after = Pt(6)
+
+    # Heading 3 — Company/Position subheadings
+    h3 = doc.styles["Heading 3"]
+    h3.font.name = "Calibri"
+    h3.font.size = Pt(11)
+    h3.font.bold = True
+    h3.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    h3.paragraph_format.space_before = Pt(10)
+    h3.paragraph_format.space_after = Pt(2)
+
+
+def _add_section_line(doc):
+    """Add a thin colored line under section headings."""
+    from docx.shared import Pt, RGBColor
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(4)
+    run = p.add_run("_" * 80)
+    run.font.size = Pt(2)
+    run.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+
+
 def generate_tailored_cv_docx(
     profile: dict, job_title: str, job_description: str, output_path: Path
 ) -> Path:
-    """Generate a CV tailored for a specific job as Word document.
+    """Generate an ATS-compliant CV tailored for a specific job (#174).
 
-    Reorders skills and highlights relevant experience based on the job.
+    Design rules:
+    - Font: Calibri (ATS standard)
+    - NO tables anywhere — bullet lists only
+    - NO columns, text boxes, or shapes
+    - Heading hierarchy: H1 for sections, H3 for companies
+    - Color: #1F4E79 for headings only, rest black/grey
+    - Generous white space
+    - Page 1: Large name header with subtitle + contact
+    - Page 2+: Compact header with name
     """
     from docx import Document
-    from docx.shared import Pt, RGBColor
+    from docx.shared import Pt, RGBColor, Cm
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
     # Determine relevant keywords from job
     job_text = f"{job_title} {job_description}".lower()
-    job_keywords = set(job_text.split())
+    job_keywords = set(w for w in job_text.split() if len(w) > 3)
 
     doc = Document()
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(10)
+    _setup_ats_styles(doc)
 
-    # Header
-    heading = doc.add_heading(profile.get("name", "Lebenslauf"), level=0)
-    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # === PAGE 1 HEADER: Large name ===
+    name = profile.get("name", "Lebenslauf")
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = p.add_run(name)
+    run.font.size = Pt(24)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    run.font.name = "Calibri"
 
-    # Contact
-    contact = []
-    if profile.get("email"): contact.append(profile["email"])
-    if profile.get("phone"): contact.append(profile["phone"])
+    # Subtitle: target position
+    p2 = doc.add_paragraph()
+    run2 = p2.add_run(job_title)
+    run2.font.size = Pt(12)
+    run2.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+    run2.font.name = "Calibri"
+
+    # Contact info as bullet list (not centered, ATS-friendly)
+    contact_parts = []
+    if profile.get("email"):
+        contact_parts.append(profile["email"])
+    if profile.get("phone"):
+        contact_parts.append(profile["phone"])
     if profile.get("city"):
         addr = f"{profile.get('address', '')} " if profile.get("address") else ""
         addr += f"{profile.get('plz', '')} {profile['city']}".strip()
-        contact.append(addr.strip())
-    if contact:
-        p = doc.add_paragraph(" | ".join(contact))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        contact_parts.append(addr.strip())
+    if contact_parts:
+        p3 = doc.add_paragraph()
+        p3.paragraph_format.space_before = Pt(4)
+        run3 = p3.add_run(" | ".join(contact_parts))
+        run3.font.size = Pt(9)
+        run3.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
-    # Targeted summary — mention the target position
+    # === PROFIL ===
     doc.add_heading("Profil", level=1)
+    _add_section_line(doc)
     summary = profile.get("summary", "")
     if summary:
         doc.add_paragraph(summary)
 
-    # Skills — relevant first, grouped by category
+    # Strengths as bullet list if available
+    prefs = profile.get("preferences", {})
+    if isinstance(prefs, str):
+        import json
+        try:
+            prefs = json.loads(prefs)
+        except Exception:
+            prefs = {}
+    staerken = prefs.get("staerken") or prefs.get("strengths")
+    if isinstance(staerken, list) and staerken:
+        for s in staerken[:5]:
+            doc.add_paragraph(s, style="List Bullet")
+
+    # === KERNKOMPETENZEN (as Kategorie: Werte bullets, NO tables!) ===
     skills = profile.get("skills", [])
     if skills:
-        doc.add_heading("Kompetenzen", level=1)
+        doc.add_heading("Kernkompetenzen", level=1)
+        _add_section_line(doc)
 
         def skill_relevance(s):
             name_lower = s.get("name", "").lower()
-            # Higher relevance if skill name appears in job text
             if name_lower in job_text:
                 return 0
-            # Check partial match
-            if any(kw in name_lower or name_lower in kw for kw in job_keywords if len(kw) > 3):
+            if any(kw in name_lower or name_lower in kw for kw in job_keywords):
                 return 1
             return 2
 
@@ -254,98 +337,158 @@ def generate_tailored_cv_docx(
         cat_labels = {
             "fachlich": "Fachlich", "methodisch": "Methodisch",
             "soft_skill": "Soft Skills", "sprache": "Sprachen",
-            "tool": "Tools / Software",
+            "tool": "Tools & Software", "zertifizierung": "Zertifizierungen",
+            "fuehrung": "Fuehrung",
         }
 
-        # Sort categories: put those with relevant skills first
         def cat_relevance(cat_items):
             cat, items = cat_items
             return min((skill_relevance(s) for s in items), default=2)
 
         for cat, items in sorted(by_cat.items(), key=cat_relevance):
-            label = cat_labels.get(cat, cat)
-            # Sort skills within category: relevant first, then by level desc
+            label = cat_labels.get(cat, cat.capitalize())
             sorted_items = sorted(items, key=lambda s: (skill_relevance(s), -(s.get("level", 0) or 0)))
-            names = []
-            for s in sorted_items:
-                name = s["name"]
-                level = s.get("level", 0)
-                if level and level >= 4:
-                    name += " (Experte)" if level == 5 else " (Fortgeschritten)"
-                names.append(name)
-            doc.add_paragraph(f"{label}: {', '.join(names)}")
+            names = ", ".join(s["name"] for s in sorted_items)
+            # Bullet format: "Kategorie: Wert1, Wert2, ..."
+            p = doc.add_paragraph(style="List Bullet")
+            run_label = p.add_run(f"{label}: ")
+            run_label.bold = True
+            run_label.font.size = Pt(10)
+            run_values = p.add_run(names)
+            run_values.font.size = Pt(10)
 
-    # Work experience — relevant positions first
+    # === BERUFSERFAHRUNG ===
     positions = profile.get("positions", [])
     if positions:
         doc.add_heading("Berufserfahrung", level=1)
+        _add_section_line(doc)
 
         def pos_relevance(pos):
             pos_text = f"{pos.get('title', '')} {pos.get('tasks', '')} {pos.get('technologies', '')} {pos.get('achievements', '')}".lower()
-            hits = sum(1 for kw in job_keywords if len(kw) > 3 and kw in pos_text)
-            return -hits  # Negative so most relevant sorts first
+            hits = sum(1 for kw in job_keywords if kw in pos_text)
+            return -hits
 
         sorted_positions = sorted(positions, key=pos_relevance)
-        # Use original positions list for overlap detection (order-independent)
         overlaps = detect_position_overlaps(positions)
-        # Map original index for each sorted position
         pos_index_map = {id(p): i for i, p in enumerate(positions)}
 
         for pos in sorted_positions:
             orig_idx = pos_index_map.get(id(pos), -1)
+
+            # H3: Company name
+            company = pos.get("company", "")
+            doc.add_heading(company, level=3)
+
+            # Role + period as normal text
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             period = f"{pos.get('start_date', '')} - {end}"
             hint = _overlap_hint(orig_idx, positions, overlaps) if orig_idx >= 0 else ""
-            if hint:
-                period += f"  {hint}"
             emp_type = pos.get("employment_type", "")
-            type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
+            type_str = f" | {emp_type}" if emp_type and emp_type != "festanstellung" else ""
+            location_str = f" | {pos['location']}" if pos.get("location") else ""
 
             p = doc.add_paragraph()
-            run = p.add_run(f"{pos.get('title', '')} bei {pos.get('company', '')}{type_str}")
-            run.bold = True
-            run.font.size = Pt(11)
+            run_title = p.add_run(pos.get("title", ""))
+            run_title.bold = True
+            run_title.font.size = Pt(10)
+            run_meta = p.add_run(f"\n{period}{location_str}{type_str}")
+            run_meta.font.size = Pt(9)
+            run_meta.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+            if hint:
+                run_hint = p.add_run(f"  {hint}")
+                run_hint.font.size = Pt(8)
+                run_hint.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
 
-            p2 = doc.add_paragraph(period)
-            if pos.get("location"):
-                p2.add_run(f" | {pos['location']}")
-
+            # Tasks as bullet points
             if pos.get("tasks"):
-                doc.add_paragraph(f"Aufgaben: {pos['tasks']}")
-            if pos.get("achievements"):
-                doc.add_paragraph(f"Erfolge: {pos['achievements']}")
-            if pos.get("technologies"):
-                doc.add_paragraph(f"Technologien: {pos['technologies']}")
+                for task in pos["tasks"].split("\n"):
+                    task = task.strip().lstrip("- ")
+                    if task:
+                        doc.add_paragraph(task, style="List Bullet")
 
-            for proj in pos.get("projects", []):
+            # Achievements with arrow symbol for visual emphasis
+            if pos.get("achievements"):
+                for ach in pos["achievements"].split("\n"):
+                    ach = ach.strip().lstrip("- ")
+                    if ach:
+                        p = doc.add_paragraph(style="List Bullet")
+                        run = p.add_run(f"\u2192 {ach}")
+                        run.bold = True
+                        run.font.size = Pt(10)
+
+            # Technologies
+            if pos.get("technologies"):
                 p = doc.add_paragraph()
+                run_lbl = p.add_run("Technologien: ")
+                run_lbl.font.size = Pt(9)
+                run_lbl.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+                run_lbl.italic = True
+                run_val = p.add_run(pos["technologies"])
+                run_val.font.size = Pt(9)
+                run_val.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+            # Projects
+            for proj in pos.get("projects", []):
+                p = doc.add_paragraph(style="List Bullet")
                 run = p.add_run(f"Projekt: {proj.get('name', '')}")
                 run.bold = True
                 if proj.get("role"):
                     p.add_run(f" ({proj['role']})")
                 if proj.get("result"):
-                    doc.add_paragraph(f"Ergebnis: {proj['result']}", style="List Bullet")
+                    p_res = doc.add_paragraph(style="List Bullet")
+                    run_res = p_res.add_run(f"\u2192 {proj['result']}")
+                    run_res.bold = True
 
-    # Education
+    # === AUSBILDUNG ===
     education = profile.get("education", [])
     if education:
         doc.add_heading("Ausbildung", level=1)
+        _add_section_line(doc)
         for edu in education:
-            p = doc.add_paragraph()
             degree = f"{edu.get('degree', '')} {edu.get('field_of_study', '')}".strip()
-            run = p.add_run(degree or edu.get("institution", ""))
-            run.bold = True
-            line = edu.get("institution", "")
+            institution = edu.get("institution", "")
             start = edu.get("start_date", "")
             end = edu.get("end_date", "")
-            if start or end:
-                line += f" | {start} - {end}"
-            if edu.get("grade"):
-                line += f" | Note: {edu['grade']}"
-            doc.add_paragraph(line)
+            period = f"{start} - {end}" if start or end else ""
+            grade = f" | Note: {edu['grade']}" if edu.get("grade") else ""
+
+            p = doc.add_paragraph()
+            if degree:
+                run = p.add_run(degree)
+                run.bold = True
+                run.font.size = Pt(10)
+                p.add_run(f"\n{institution}")
+            else:
+                run = p.add_run(institution)
+                run.bold = True
+            if period:
+                run_meta = p.add_run(f" | {period}{grade}")
+                run_meta.font.size = Pt(9)
+                run_meta.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    # === FOOTER: Page numbers ===
+    from docx.oxml.ns import qn
+    section = doc.sections[0]
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    fp = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = fp.add_run()
+    run.font.size = Pt(8)
+    run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    # Add page number field
+    fld_xml = (
+        '<w:fldSimple xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+        'w:instr=" PAGE "><w:r><w:t>1</w:t></w:r></w:fldSimple>'
+    )
+    try:
+        from lxml import etree
+        fp._p.append(etree.fromstring(fld_xml))
+    except Exception:
+        fp.add_run("  ")  # Fallback if lxml not available
 
     doc.save(str(output_path))
-    logger.info("Tailored CV DOCX generated: %s", output_path)
+    logger.info("ATS-compliant tailored CV DOCX generated: %s", output_path)
     return output_path
 
 
