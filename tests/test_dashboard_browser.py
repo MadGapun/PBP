@@ -282,6 +282,33 @@ def _seed_uncertain_jobs_workspace(db) -> None:
     )
 
 
+def _seed_profile_document_workspace(db) -> str:
+    """Create one uploaded document for profile-side analysis prompt flows."""
+    profile_id = db.save_profile(
+        {
+            "name": "Max Dokument",
+            "email": "dokument@example.com",
+            "phone": "+49 40 123456",
+            "address": "Musterweg 1",
+            "summary": "Dokumentanalyse testen",
+        }
+    )
+    document_path = Path(os.environ["BA_DATA_DIR"]) / "recruiter-mail.eml"
+    document_path.write_text(
+        "Betreff: Recruiter-Mail\nVon: hr@example.com\n\nVielen Dank fuer Ihr Interesse.",
+        encoding="utf-8",
+    )
+    return db.add_document(
+        {
+            "filename": "Recruiter-Mail.eml",
+            "filepath": str(document_path),
+            "doc_type": "sonstiges",
+            "extracted_text": "Betreff: Recruiter-Mail\nVon: hr@example.com\n\nVielen Dank fuer Ihr Interesse.",
+            "profile_id": profile_id,
+        }
+    )
+
+
 @pytest.mark.skip(reason="Tests reference old Vanilla-JS dashboard — React-Frontend seit v0.23.0")
 def test_dashboard_onboarding_navigation_and_import_jump(live_dashboard, browser):
     """Welcome flow, tab navigation and document jump work in a real browser."""
@@ -614,5 +641,46 @@ def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
 
         page.get_by_text("Nächster sinnvoller Schritt", exact=True).wait_for(state="visible")
         page.get_by_text("Es gibt überfällige Nachfassaktionen.").wait_for(state="visible")
+    finally:
+        context.close()
+
+
+def test_profile_document_analysis_button_copies_targeted_prompt(live_dashboard, browser):
+    """Profile documents copy a Claude prompt that targets exactly the chosen document."""
+    document_id = _seed_profile_document_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    page.add_init_script(
+        """
+        (() => {
+          window.__copiedText = "";
+          const clipboard = {
+            writeText: async (text) => {
+              window.__copiedText = text;
+            },
+          };
+          Object.defineProperty(navigator, "clipboard", {
+            value: clipboard,
+            configurable: true,
+          });
+        })();
+        """
+    )
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#profil", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Profil", exact=True).wait_for(state="visible")
+        page.get_by_text("Recruiter-Mail.eml", exact=True).wait_for(state="visible")
+
+        page.locator("div").filter(has_text="Recruiter-Mail.eml").get_by_role("button", name="Analysieren").click()
+        page.wait_for_function("() => Boolean(window.__copiedText && window.__copiedText.length > 0)")
+
+        copied = page.evaluate("() => window.__copiedText")
+        assert document_id in copied
+        assert 'extraktion_starten(document_ids=["' in copied
+        assert "Recruiter-Mail.eml" in copied
     finally:
         context.close()

@@ -511,6 +511,68 @@ async def api_update_document_type(doc_id: str, request: Request):
     return {"status": "ok"}
 
 
+def _document_type_label(doc_type: str | None) -> str:
+    labels = {
+        "lebenslauf": "Lebenslauf",
+        "lebenslauf_vorlage": "Lebenslauf-Vorlage",
+        "anschreiben": "Anschreiben",
+        "anschreiben_vorlage": "Anschreiben-Vorlage",
+        "zeugnis": "Zeugnis",
+        "zertifikat": "Zertifikat",
+        "referenz": "Referenz",
+        "projektliste": "Projektliste",
+        "stellenbeschreibung": "Stellenbeschreibung",
+        "vorbereitung": "Interview-Vorbereitung",
+        "portfolio": "Portfolio",
+        "foto": "Foto",
+        "sonstiges": "Sonstiges Dokument",
+    }
+    return labels.get(doc_type or "", doc_type or "Dokument")
+
+
+def _build_document_analysis_prompt(document: dict) -> str:
+    document_id = str(document.get("id") or "")
+    filename = str(document.get("filename") or "Unbekannte Datei")
+    doc_type = _document_type_label(document.get("doc_type"))
+    extraction_status = str(document.get("extraction_status") or "nicht_extrahiert")
+    is_email_document = Path(filename).suffix.lower() in {".eml", ".msg"}
+    extracted_available = bool(str(document.get("extracted_text") or "").strip())
+
+    extra_hint = (
+        "- Es handelt sich um eine E-Mail-Datei. Berücksichtige Betreff, Absender, Nachrichtentext und erkennbare Anhänge.\n"
+        if is_email_document
+        else ""
+    )
+    extracted_hint = (
+        "- Im PBP ist bereits extrahierter Text zu diesem Dokument vorhanden. Arbeite mit dem Dokument im aktiven Profil, nicht mit Vermutungen.\n"
+        if extracted_available
+        else "- Falls das Dokument keinen lesbaren Text liefert, melde das klar zurück und nenne den wahrscheinlichsten Grund.\n"
+    )
+
+    return f"""Bitte analysiere im aktiven PBP-Profil genau dieses Dokument und erweitere daraus mein Profil:
+
+- Dokument-ID: {document_id}
+- Dateiname: {filename}
+- Dokumenttyp in PBP: {doc_type}
+- Aktueller Extraktionsstatus: {extraction_status}
+
+Arbeite dabei bitte so:
+1. Nutze `extraktion_starten(document_ids=["{document_id}"], force=True)`, damit wirklich nur dieses Dokument geladen wird.
+2. Analysiere den Inhalt vollständig auf profilrelevante Informationen.
+3. Speichere das Ergebnis mit `extraktion_ergebnis_speichern(...)`.
+4. Wende verwertbare Daten mit `extraktion_anwenden(...)` direkt auf das aktive Profil an.
+5. Fasse mir danach kurz zusammen:
+   - was übernommen wurde
+   - was unsicher oder unklar blieb
+   - welche sinnvolle nächste Ergänzung ich noch liefern sollte
+
+Wichtig:
+- Stelle keine Rückfrage, ob du das Dokument analysieren sollst. Fang direkt an.
+- Arbeite nur mit dem aktiven Profil.
+{extra_hint}{extracted_hint}Wenn das Dokument fachlich nichts für das Profil bringt, sag das klar und knapp.
+"""
+
+
 @app.post("/api/documents/auto-mark-templates")
 async def api_auto_mark_templates():
     """Auto-detect and mark unlinked CVs/cover letters as templates (#132).
@@ -559,6 +621,33 @@ async def api_get_document_extraction(doc_id: str):
     entry["conflicts"] = json.loads(entry.get("conflicts") or "[]")
     entry["applied_fields"] = json.loads(entry.get("applied_fields") or "{}")
     return {"extraction": entry}
+
+
+@app.get("/api/document/{doc_id}/analysis-prompt")
+async def api_get_document_analysis_prompt(doc_id: str):
+    """Return a Claude-ready prompt that targets exactly one uploaded document."""
+    profile_id = _db.get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Kein aktives Profil vorhanden"}, status_code=400)
+
+    conn = _db.connect()
+    row = conn.execute(
+        "SELECT * FROM documents WHERE id=? AND profile_id=?",
+        (doc_id, profile_id),
+    ).fetchone()
+    if not row:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+
+    document = dict(row)
+    return {
+        "prompt": _build_document_analysis_prompt(document),
+        "document": {
+            "id": document.get("id"),
+            "filename": document.get("filename"),
+            "doc_type": document.get("doc_type"),
+            "extraction_status": document.get("extraction_status"),
+        },
+    }
 
 
 @app.put("/api/document/{doc_id}/extraction")
@@ -1866,6 +1955,25 @@ async def api_upload_document(
             from docx import Document
             doc = Document(str(filepath))
             extracted = "\n".join(p.text for p in doc.paragraphs)
+        elif fname.endswith((".eml", ".msg")):
+            from .services.email_service import parse_email_file
+
+            parsed = parse_email_file(str(filepath))
+            attachments = ", ".join(
+                attachment.get("filename", "")
+                for attachment in parsed.get("attachments", [])
+                if attachment.get("filename")
+            )
+            extracted_parts = [
+                f"Betreff: {parsed.get('subject', '')}".strip(),
+                f"Von: {parsed.get('sender', '')}".strip(),
+                f"An: {parsed.get('recipients', '')}".strip(),
+                f"Datum: {parsed.get('sent_date', '')}".strip(),
+                f"Anhänge: {attachments}".strip() if attachments else "",
+                "",
+                parsed.get("body_text", "") or "",
+            ]
+            extracted = "\n".join(part for part in extracted_parts if part)
         elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
             extracted = content.decode("utf-8", errors="replace")
     except Exception as e:

@@ -9,6 +9,7 @@ import os
 import sys
 import json
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 from pathlib import Path
 
 import pytest
@@ -1091,6 +1092,54 @@ class TestStatistics:
         first_path = Path(first_profile["documents"][0]["filepath"])
         second_path = Path(second_profile["documents"][0]["filepath"])
         assert first_path.parent != second_path.parent
+
+    def test_upload_email_document_extracts_mail_content(self, client):
+        """Uploading an .eml through the documents endpoint stores readable text for later analysis."""
+        client.post("/api/profile", json={"name": "Uploader"})
+
+        message = MIMEText("Vielen Dank fuer Ihre Bewerbung. Wir melden uns zeitnah.")
+        message["Subject"] = "Recruiter-Update"
+        message["From"] = "hr@example.com"
+        message["To"] = "markus@example.com"
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("recruiter-update.eml", message.as_bytes(), "message/rfc822")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["extracted_length"] > 0
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+        assert "Recruiter-Update" in document["extracted_text"]
+        assert "Vielen Dank fuer Ihre Bewerbung" in document["extracted_text"]
+
+    def test_document_analysis_prompt_targets_single_document(self, client):
+        """The prompt endpoint should generate a Claude-ready command for one concrete document."""
+        client.post("/api/profile", json={"name": "Prompt Tester"})
+
+        upload = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "lebenslauf"},
+            files={"file": ("profil.txt", b"Python, PLM, Projektleitung", "text/plain")},
+        )
+        assert upload.status_code == 200
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+
+        response = client.get(f"/api/document/{document['id']}/analysis-prompt")
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["document"]["id"] == document["id"]
+        assert payload["document"]["filename"] == "profil.txt"
+        assert document["id"] in payload["prompt"]
+        assert "extraktion_starten(document_ids=[" in payload["prompt"]
+        assert "extraktion_ergebnis_speichern" in payload["prompt"]
+        assert "extraktion_anwenden" in payload["prompt"]
 
 
 # ============================================================
