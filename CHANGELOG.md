@@ -2,6 +2,37 @@
 
 Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.32.2] - 2026-03-23
+
+### Guidance- und Stabilitaets-Sprint
+
+Dieser Patch zieht die Stabilisierung von `v0.32.1` bis in die sichtbaren Nutzerfluesse durch.
+Der Fokus liegt nicht auf neuen Kernfeatures, sondern auf klarerer Fuehrung, transparenteren
+Zustaenden und einer runderen Release-Basis.
+
+**Frontend / UX:**
+
+- **Bewerbungen:** sichtbarer Toggle `Archivierte anzeigen`, damit abgelehnte, zurueckgezogene
+  und abgelaufene Bewerbungen nicht nur technisch, sondern auch in der React-UI kontrollierbar sind
+- **Bewerbungen:** neue Karte `Naechster sinnvoller Schritt` mit klarer Priorisierung
+  fuer Follow-ups, Entwuerfe, Interview-Phase und Archiv-Sicht
+- **Stellen:** neue Guidance-Karte mit konkreter Einordnung statt nur Trefferliste
+- **Stellen:** sichtbare Warnung `Score unsicher`, wenn eine Stellenbeschreibung fehlt
+  oder zu kurz ist
+- **Stellen:** neuer Fokus-Filter `Nur ohne Beschreibung`, um unzuverlaessige Treffer
+  gezielt nachzuarbeiten
+- **Dashboard:** Workspace-Readiness jetzt sichtbar als echte `Naechster sinnvoller Schritt`-Karte
+  inklusive direkter Aktionen aus den vorhandenen Workspace-Signalen
+
+**Technisch:**
+
+- Versionsdrift zwischen `pyproject.toml` und `src/bewerbungs_assistent/__init__.py` bereinigt
+- Browser-Smoke-Tests fuer Archiv-Toggle, Workspace-Readiness und Score-Warnungen ausgebaut
+- statischer Frontend-Build aktualisiert
+
+**Verifikation:** 349 Tests gruen, 4 Tests bewusst geskippt, Web-Build gruen
+(`python -m pytest tests -q`, `pnpm run build:web`)
+
 ## [0.32.1] - 2026-03-22
 
 ### Bugfixes + Diagnose (#178-#184, #154, #168, #176)

@@ -857,6 +857,14 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.32.2 — Guidance + UI-Stabilisierung (2026-03-23)
+- **Archiv-Toggle in Bewerbungen** — Archivierte Bewerbungen lassen sich jetzt gezielt wieder einblenden
+- **Nächster sinnvoller Schritt** — Dashboard und Bewerbungsansicht führen klarer durch den Prozess
+- **Score-Warnungen in Stellen** — Treffer ohne belastbare Beschreibung werden sichtbar als unsicher markiert
+- **Neuer Filter `Nur ohne Beschreibung`** — schwache Datenqualität direkt nacharbeitbar
+- **Browser-Smoke-Tests erweitert** — Archiv, Workspace-Readiness und Score-Hinweise abgesichert
+- 72 Tools, 349 Tests
+
 ### v0.32.1 — Bugfixes + Diagnose (2026-03-22)
 - **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Uebernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurueckgezogene ausblenden, Fuzzy-Matching
 - **Fuzzy-Keyword-Matching** (#183) — Synonyme (PLM→Teamcenter), Umlaute, Multi-Word-Split

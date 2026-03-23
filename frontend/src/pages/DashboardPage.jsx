@@ -36,6 +36,7 @@ import {
 import {
   formatCurrency,
   formatDate,
+  readinessTone,
 } from "@/utils";
 
 function positiveSalary(value) {
@@ -308,6 +309,26 @@ export default function DashboardPage() {
     });
   }
 
+  const workspaceReadiness = chrome.workspace?.readiness || {};
+  const workspaceTodos = Array.isArray(chrome.workspace?.todos) ? chrome.workspace.todos : [];
+  const profileCompleteness = Number(chrome.workspace?.profile?.completeness || 0);
+  const jobsWithoutDescription = Number(chrome.workspace?.jobs?.ohne_beschreibung || 0);
+
+  async function runWorkspaceAction(action) {
+    if (!action) return;
+    if (String(action.typ || "") === "beschreibung_nachladen" || String(action.aktion || "").includes("beschreibung_fehlt")) {
+      navigateTo("stellen", { missingDescriptionOnly: true });
+      return;
+    }
+    if (action.action_type === "prompt" && action.action_target) {
+      await copyPrompt(action.action_target);
+      return;
+    }
+    if (action.action_type === "page" && action.action_target) {
+      navigateTo(action.action_target);
+    }
+  }
+
   if (!chrome.status?.has_profile) {
     return (
       <div id="page-dashboard" className="page active">
@@ -419,6 +440,51 @@ export default function DashboardPage() {
           </div>
         </Card>
       )}
+
+      <Card className="mb-5 rounded-2xl">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
+              <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+              {jobsWithoutDescription > 0 ? (
+                <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
+              ) : null}
+            </div>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
+            <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted">
+              {workspaceReadiness.description || "PBP zeigt dir hier immer den nächsten sinnvollen Schritt statt nur Rohdaten."}
+            </p>
+          </div>
+          {workspaceReadiness.action_label ? (
+            <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
+              {workspaceReadiness.action_label}
+            </Button>
+          ) : null}
+        </div>
+
+        {workspaceTodos.length > 0 && (
+          <div className="mt-4 grid gap-2">
+            {workspaceTodos.slice(0, 2).map((todo) => (
+              <div
+                key={`${todo.typ}-${todo.text}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
+                  <p className="mt-0.5 text-[12px] text-muted/60">
+                    {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
+                  Öffnen
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <div id="dashboard-content" className="grid gap-5">
         <div className="grid gap-3 xl:grid-cols-2">

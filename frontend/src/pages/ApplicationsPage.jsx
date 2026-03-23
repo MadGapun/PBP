@@ -1,5 +1,6 @@
 ﻿import { Calendar, CalendarClock, Camera, Check, Download, ExternalLink, FileText, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
+import { Archive } from "lucide-react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
@@ -37,13 +38,22 @@ const EMPTY_APPLICATION = {
   applied_at: new Date().toISOString().slice(0, 10),
   notes: "",
 };
+const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen"];
 
 export default function ApplicationsPage() {
   const { chrome, reloadKey, refreshChrome, pushToast } = useApp();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [filters, setFilters] = useState({ query: "", status: "", fromDate: "", toDate: "", stellenart: "" });
+  const [applicationMeta, setApplicationMeta] = useState({ total: 0, filteredTotal: 0, archivedCount: 0 });
+  const [filters, setFilters] = useState({
+    query: "",
+    status: "",
+    fromDate: "",
+    toDate: "",
+    stellenart: "",
+    showArchived: false,
+  });
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   const [newNoteText, setNewNoteText] = useState("");
@@ -58,15 +68,21 @@ export default function ApplicationsPage() {
   const [timelineEmails, setTimelineEmails] = useState([]);
 
   const deferredQuery = useDeferredValue(filters.query);
+  const includeArchivedDataset = filters.showArchived || ARCHIVE_STATUSES.includes(filters.status);
 
   const loadPage = useEffectEvent(async () => {
     try {
       const [applicationData, followUpData] = await Promise.all([
-        api("/api/applications"),
+        api(`/api/applications?limit=500&include_archived=${includeArchivedDataset ? "true" : "false"}`),
         api("/api/follow-ups"),
       ]);
       startTransition(() => {
         setApplications(applicationData?.applications || []);
+        setApplicationMeta({
+          total: Number(applicationData?.total || 0),
+          filteredTotal: Number(applicationData?.filtered_total || 0),
+          archivedCount: Number(applicationData?.archived_count || 0),
+        });
         setFollowUps(followUpData?.follow_ups || []);
         setLoading(false);
       });
@@ -79,7 +95,7 @@ export default function ApplicationsPage() {
   useEffect(() => {
     setLoading(true);
     loadPage();
-  }, [reloadKey]);
+  }, [reloadKey, includeArchivedDataset]);
 
   async function updateStatus(applicationId, status, options = {}) {
     try {
@@ -218,6 +234,12 @@ export default function ApplicationsPage() {
   });
 
   const dueFollowUps = followUps.filter((item) => item.faellig);
+  const archivedCount = Number(applicationMeta.archivedCount || 0);
+  const activeApplications = applications.filter((item) => !ARCHIVE_STATUSES.includes(item.status));
+  const activeApplicationsCount = activeApplications.length;
+  const visibleArchivedCount = applications.filter((item) => ARCHIVE_STATUSES.includes(item.status)).length;
+  const interviewApplicationsCount = applications.filter((item) => ["interview", "zweitgespraech"].includes(item.status)).length;
+  const draftApplicationsCount = applications.filter((item) => ["in_vorbereitung", "entwurf"].includes(item.status)).length;
   const activeJobsCount = Number(chrome.workspace?.jobs?.active || 0);
   const applicationTimestamps = applications
     .map((item) => Date.parse(item?.applied_at || item?.created_at || item?.updated_at || ""))
@@ -233,6 +255,63 @@ export default function ApplicationsPage() {
     minimumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
     maximumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
   }).format(applicationsPerWeekRaw);
+  const nextStep = (() => {
+    if (dueFollowUps.length > 0) {
+      return {
+        badge: "Priorität 1",
+        tone: "danger",
+        title: "Fällige Nachfassaktionen zuerst schließen",
+        description: `${dueFollowUps.length} Follow-up(s) sind fällig oder überfällig. Aktualisiere Status und Notizen, bevor neue Fälle liegen bleiben.`,
+      };
+    }
+    if (draftApplicationsCount > 0) {
+      const draftStatus = applications.some((item) => item.status === "in_vorbereitung") ? "in_vorbereitung" : "entwurf";
+      return {
+        badge: "Entwürfe",
+        tone: "amber",
+        title: "Fast fertige Bewerbungen abschließen",
+        description: `${draftApplicationsCount} Bewerbung(en) stehen noch auf Entwurf oder Vorbereitung. Zieh zuerst die halbfertigen Fälle über die Ziellinie.`,
+        actionLabel: "Entwürfe filtern",
+        action: () => setFilters((current) => ({ ...current, status: draftStatus, showArchived: false })),
+      };
+    }
+    if (!activeApplicationsCount && activeJobsCount > 0) {
+      return {
+        badge: "Start",
+        tone: "sky",
+        title: "Aus vorhandenen Stellen die erste Bewerbung machen",
+        description: `${activeJobsCount} aktive Stellen sind da, aber noch keine aktive Bewerbung. Nutze eine Stelle als Startpunkt oder lege manuell eine Bewerbung an.`,
+        actionLabel: "Bewerbung anlegen",
+        action: () => setCreateDialog({ open: true, draft: EMPTY_APPLICATION }),
+      };
+    }
+    if (interviewApplicationsCount > 0) {
+      return {
+        badge: "Interview",
+        tone: "amber",
+        title: "Interview-Phase eng begleiten",
+        description: `${interviewApplicationsCount} Bewerbung(en) stehen im Interview oder Zweitgespräch. Halte Status, Termine und Notizen bewusst zusammen.`,
+        actionLabel: "Interview filtern",
+        action: () => setFilters((current) => ({ ...current, status: "interview", showArchived: false })),
+      };
+    }
+    if (archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status)) {
+      return {
+        badge: "Archiv",
+        tone: "neutral",
+        title: "Archivierte Bewerbungen bleiben bewusst aus dem Weg",
+        description: `${archivedCount} ältere Fälle liegen im Archiv. Blende sie nur ein, wenn du Gründe, Quellen oder alte Kontakte prüfen willst.`,
+        actionLabel: "Archiv einblenden",
+        action: () => setFilters((current) => ({ ...current, showArchived: true })),
+      };
+    }
+    return {
+      badge: "Auf Kurs",
+      tone: "success",
+      title: "Bewerbungsboard ist gerade sauber",
+      description: "Im Moment ist nichts akut liegen geblieben. Nutze die Liste für klare Statuspflege statt nur zum Sammeln.",
+    };
+  })();
 
   return (
     <div id="page-bewerbungen" className="page active">
@@ -252,14 +331,60 @@ export default function ApplicationsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Bewerbungen" value={`${applications.length} / ${activeJobsCount}`} note="Bewerbungen / aktive Stellen" tone="sky" />
+          <MetricCard
+            label={filters.showArchived || ARCHIVE_STATUSES.includes(filters.status) ? "Sichtbare Bewerbungen" : "Aktive Bewerbungen"}
+            value={filters.showArchived || ARCHIVE_STATUSES.includes(filters.status) ? applications.length : activeApplicationsCount}
+            note={
+              archivedCount > 0
+                ? `${activeApplicationsCount} aktiv · ${archivedCount} archiviert`
+                : `${activeJobsCount} aktive Stellen im Board`
+            }
+            tone="sky"
+          />
           <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
           <MetricCard label="Follow-ups" value={dueFollowUps.length} note="Offene Nachfassaktionen" tone={dueFollowUps.length ? "danger" : "neutral"} />
-          <MetricCard label="Interviews" value={applications.filter((item) => item.status === "interview").length} note="Aktive Interview-Phase" tone="amber" />
+          <MetricCard label="Interviews" value={interviewApplicationsCount} note="Aktive Interview-Phase" tone="amber" />
         </div>
 
         <Card className="rounded-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={nextStep.tone}>{nextStep.badge}</Badge>
+                {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
+                  <span className="text-xs text-muted/50">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</span>
+                ) : null}
+              </div>
+              <h2 className="mt-3 text-base font-semibold text-ink">{nextStep.title}</h2>
+              <p className="mt-1 max-w-3xl text-sm text-muted">{nextStep.description}</p>
+            </div>
+            {nextStep.actionLabel ? (
+              <Button size="sm" variant="secondary" onClick={nextStep.action}>
+                {nextStep.actionLabel}
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card className="rounded-2xl">
           <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={filters.showArchived ? "secondary" : "ghost"}
+              onClick={() => setFilters((current) => ({ ...current, showArchived: !current.showArchived }))}
+            >
+              <Archive size={14} />
+              {filters.showArchived ? "Archiv eingeblendet" : "Archivierte anzeigen"}
+            </Button>
+            {archivedCount > 0 ? (
+              <span className="text-xs text-muted/50">
+                {archivedCount} archivierte Bewerbung(en){visibleArchivedCount > 0 ? `, davon ${visibleArchivedCount} sichtbar` : ""}.
+              </span>
+            ) : (
+              <span className="text-xs text-muted/50">Zurzeit keine archivierten Bewerbungen.</span>
+            )}
+          </div>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_10rem_10rem_10rem]">
             <Field label="Suche">
               <TextInput value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} placeholder="Titel, Firma oder Notizen" />
@@ -267,12 +392,14 @@ export default function ApplicationsPage() {
             <Field label="Status">
               <SelectInput value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
                 <option value="">Alle</option>
+                <option value="in_vorbereitung">In Vorbereitung</option>
                 <option value="entwurf">Entwurf</option>
                 <option value="beworben">Beworben</option>
                 <option value="interview">Interview</option>
                 <option value="zweitgespraech">Zweitgespräch</option>
                 <option value="angebot">Angebot</option>
                 <option value="abgelehnt">Abgelehnt</option>
+                <option value="zurueckgezogen">Zurückgezogen</option>
                 <option value="abgelaufen">Abgelaufen</option>
               </SelectInput>
             </Field>
@@ -362,8 +489,12 @@ export default function ApplicationsPage() {
                 ))
               ) : (
                 <EmptyState
-                  title="Noch keine Bewerbungen"
-            description="Lege eine neue Bewerbung an oder übernimm sie direkt aus einer Stelle."
+                  title={archivedCount > 0 && !filters.showArchived ? "Keine aktiven Bewerbungen im Filter" : "Noch keine Bewerbungen"}
+                  description={
+                    archivedCount > 0 && !filters.showArchived
+                      ? "Aktive Bewerbungen passen gerade nicht zum Filter. Archivierte Fälle kannst du oben gezielt einblenden."
+                      : "Lege eine neue Bewerbung an oder übernimm sie direkt aus einer Stelle."
+                  }
                   action={<Button onClick={() => setCreateDialog({ open: true, draft: EMPTY_APPLICATION })}>Bewerbung anlegen</Button>}
                 />
               )}
