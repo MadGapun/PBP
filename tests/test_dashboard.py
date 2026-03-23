@@ -1141,6 +1141,18 @@ class TestStatistics:
         assert "extraktion_ergebnis_speichern" in payload["prompt"]
         assert "extraktion_anwenden" in payload["prompt"]
 
+    def test_workflow_prompt_resolves_profile_extension_instructions(self, client):
+        """UI slash commands should resolve to a usable workflow prompt for Claude."""
+        client.post("/api/profile", json={"name": "Workflow Tester"})
+
+        response = client.get("/api/workflow-prompt/profil_erweiterung")
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["workflow"] == "profil_erweiterung"
+        assert "Analysiere hochgeladene Dokumente" in payload["prompt"]
+        assert "extraktion_starten()" in payload["prompt"]
+
 
 # ============================================================
 # Factory Reset

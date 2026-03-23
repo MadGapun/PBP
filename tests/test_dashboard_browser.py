@@ -684,3 +684,41 @@ def test_profile_document_analysis_button_copies_targeted_prompt(live_dashboard,
         assert "Recruiter-Mail.eml" in copied
     finally:
         context.close()
+
+
+def test_profile_workflow_button_copies_resolved_prompt_instead_of_slash_command(live_dashboard, browser):
+    """The generic profile prompt button should copy real instructions, not a raw /profil_erweiterung token."""
+    _seed_profile_document_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    page.add_init_script(
+        """
+        (() => {
+          window.__copiedText = "";
+          const clipboard = {
+            writeText: async (text) => {
+              window.__copiedText = text;
+            },
+          };
+          Object.defineProperty(navigator, "clipboard", {
+            value: clipboard,
+            configurable: true,
+          });
+        })();
+        """
+    )
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#profil", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Profil-Prompt kopieren").click()
+        page.wait_for_function("() => Boolean(window.__copiedText && window.__copiedText.length > 0)")
+
+        copied = page.evaluate("() => window.__copiedText")
+        assert not copied.strip().startswith("/profil_erweiterung")
+        assert "Analysiere hochgeladene Dokumente" in copied
+        assert "extraktion_starten()" in copied
+    finally:
+        context.close()

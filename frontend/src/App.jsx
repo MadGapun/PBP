@@ -183,8 +183,27 @@ export default function App() {
 
   async function copyPrompt(prompt) {
     try {
-      await copyToClipboard(prompt);
-      const normalizedPrompt = String(prompt || "").trim().toLocaleLowerCase("de-DE");
+      const rawPrompt = String(prompt || "").trim();
+      const normalizedPrompt = rawPrompt.toLocaleLowerCase("de-DE");
+      let promptToCopy = rawPrompt;
+      let copiedResolvedWorkflow = false;
+
+      if (normalizedPrompt.startsWith("/")) {
+        const workflowName = rawPrompt.slice(1).split(/\s+/)[0];
+        if (workflowName) {
+          try {
+            const resolved = await api(`/api/workflow-prompt/${encodeURIComponent(workflowName)}`);
+            if (resolved?.prompt) {
+              promptToCopy = resolved.prompt;
+              copiedResolvedWorkflow = true;
+            }
+          } catch (error) {
+            pushToast(`Workflow-Prompt konnte nicht aufgelöst werden, kopiere Originalbefehl: ${error.message}`, "amber");
+          }
+        }
+      }
+
+      await copyToClipboard(promptToCopy);
       const isConversationPrompt =
         normalizedPrompt === "/ersterfassung" || normalizedPrompt.startsWith("/ersterfassung ");
       if (isConversationPrompt) {
@@ -211,7 +230,13 @@ export default function App() {
           });
         }
       }
-      pushToast("Prompt kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
+      pushToast(
+        copiedResolvedWorkflow
+          ? "Arbeitsanweisung kopiert — füge sie mit Strg+V in Claude ein."
+          : "Prompt kopiert — füge ihn mit Strg+V in Claude ein.",
+        "success",
+        { duration: 7200 }
+      );
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
     }

@@ -650,6 +650,22 @@ async def api_get_document_analysis_prompt(doc_id: str):
     }
 
 
+@app.get("/api/workflow-prompt/{workflow_name}")
+async def api_get_workflow_prompt(workflow_name: str):
+    """Return the resolved workflow instructions instead of a raw slash command."""
+    from .tools.workflows import _prompt_registry
+
+    name = str(workflow_name or "").strip().lstrip("/")
+    if not name:
+        return JSONResponse({"error": "workflow_name ist erforderlich"}, status_code=400)
+
+    prompt_funcs = _prompt_registry(_db)
+    if name not in prompt_funcs:
+        return JSONResponse({"error": f"Workflow '{name}' nicht gefunden"}, status_code=404)
+
+    return {"workflow": name, "prompt": prompt_funcs[name]()}
+
+
 @app.put("/api/document/{doc_id}/extraction")
 async def api_update_document_extraction(doc_id: str, request: Request):
     """Persist corrected extraction fields and apply supported values to profile."""
