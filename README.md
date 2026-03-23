@@ -7,8 +7,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-341%20passing-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-70-blueviolet.svg)](#mcp-schnittstelle)
+[![Tests](https://img.shields.io/badge/Tests-349%20passing-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-72-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
 
 ---
@@ -53,7 +53,7 @@ PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
 - **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. PBP erkennt: Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert.
 - **Follow-ups & Erinnerungen** — Damit keine Bewerbung in Vergessenheit gerät.
-- **Gefuehrter Bewerbungs-Workflow** — PBP zeigt dir bei jeder Bewerbung die naechsten Schritte. Von der Vorbereitung bis zum Angebot — immer genau eine Aktion, nie ueberfordert.
+- **Geführter Bewerbungs-Workflow** — PBP zeigt dir bei jeder Bewerbung die nächsten Schritte. Von der Vorbereitung bis zum Angebot — immer genau eine Aktion, nie überfordert.
 - **Scoring-Regler-System** — Konfiguriere, was dir wichtig ist: Stellentyp, Entfernung, Remote, Gehalt. PBP sortiert automatisch.
 - **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich mit Executive Summary, Quellenanalyse und PBP-Branding.
 
@@ -833,7 +833,7 @@ python -m pytest tests/ -v
 
 > UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
 
-### Dashboard — Uebersicht mit Workspace-Guidance
+### Dashboard — Übersicht mit Workspace-Guidance
 ![Dashboard](docs/screenshots/01_dashboard.png)
 
 ### Profil — Berufserfahrung, Skills, Ausbildung
@@ -857,6 +857,12 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.32.3 — Finishing & Release-Hygiene (2026-03-23)
+- **Öffentliche Texte konsolidiert** — Help-/Support-Texte, FAQ und sichtbare Release-Hinweise sprachlich nachgezogen
+- **Report-Export modernisiert** — `export_report.py` auf aktuelle `fpdf2`-API umgestellt, Deprecation-Warnungen abgebaut
+- **Versionen synchronisiert** — Paket, Dashboard-Credits und Metadateien stehen wieder auf demselben Stand
+- 72 Tools, 349 Tests
+
 ### v0.32.2 — Guidance + UI-Stabilisierung (2026-03-23)
 - **Archiv-Toggle in Bewerbungen** — Archivierte Bewerbungen lassen sich jetzt gezielt wieder einblenden
 - **Nächster sinnvoller Schritt** — Dashboard und Bewerbungsansicht führen klarer durch den Prozess
@@ -866,19 +872,19 @@ python -m pytest tests/ -v
 - 72 Tools, 349 Tests
 
 ### v0.32.1 — Bugfixes + Diagnose (2026-03-22)
-- **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Uebernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurueckgezogene ausblenden, Fuzzy-Matching
+- **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Übernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurückgezogene ausblenden, Fuzzy-Matching
 - **Fuzzy-Keyword-Matching** (#183) — Synonyme (PLM→Teamcenter), Umlaute, Multi-Word-Split
 - **pbp_diagnose** — Gesundheitscheck mit auto_fix, findet Probleme und gibt Empfehlungen
-- **keyword_vorschlaege** — Analysiert tote Keywords und schlaegt Aenderungen vor
+- **keyword_vorschlaege** — Analysiert tote Keywords und schlägt Änderungen vor
 - 72 Tools, 341 Tests
 
 ### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
-- **Gefuehrter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhaengige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
+- **Geführter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhängige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
 - **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen, 2 neue Tools
 - **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim
 - **ATS-konformer CV** (#174) — Calibri, keine Tabellen, Heading-Hierarchie
 - **Aufgewerteter Bewerbungsbericht** (#173) — Executive Summary, PBP-Branding, Quellenanalyse
-- **Drag & Drop Upload** (#176), **Auto-Dokumentzuordnung** (#177), **IDs ueberall** (#171)
+- **Drag & Drop Upload** (#176), **Auto-Dokumentzuordnung** (#177), **IDs überall** (#171)
 - **Auto-Save Stellenbeschreibung** (#172), **FAQ** (#175), **Blacklist bereinigt** (#168)
 - Schema v17, 70 Tools, 16 Prompts, 341 Tests
 

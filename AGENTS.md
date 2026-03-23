@@ -1,6 +1,6 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 0.32.2 (Stand: 2026-03-23)
+> **Version:** 0.32.3 (Stand: 2026-03-23)
 > **Detaillierte Doku:** `README.md`, `CHANGELOG.md`
 
 ## Projektübersicht

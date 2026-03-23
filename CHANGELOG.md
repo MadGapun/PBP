@@ -1,6 +1,30 @@
 # Changelog
 
-Alle wichtigen Aenderungen am Bewerbungs-Assistent werden hier dokumentiert.
+Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
+
+## [0.32.3] - 2026-03-23
+
+### Finishing-Sprint: Release-Hygiene und Export-Stabilität
+
+Dieser Patch macht aus `v0.32.2` einen runderen veröffentlichbaren Stand. Es gibt keine neuen
+Kernfunktionen, sondern gezielte Qualitätsarbeit an den sichtbaren Einstiegspunkten und am
+Report-Export.
+
+**Öffentliche Texte / Doku:**
+
+- Help-/Support-Texte im React-Frontend sprachlich konsolidiert
+- `docs/FAQ.md` in sauberes, öffentlich lesbares Deutsch überführt
+- sichtbare README-/Release-Texte für den aktuellen Stand nachgezogen
+- Versionsangaben in Paket, Dashboard und Metadateien auf `0.32.3` angeglichen
+
+**Technisch:**
+
+- `export_report.py` auf die aktuelle `fpdf2`-API umgestellt
+- veraltete `ln=True`-Aufrufe durch stabile Zeilenumbrüche via `new_x`/`new_y` ersetzt
+- PDF-Report-Export damit wieder ohne die bisherigen Deprecation-Warnings vorbereitet
+
+**Verifikation:** 349 Tests grün, 4 Tests bewusst geskippt, Web-Build grün
+(`python -m pytest tests -q`, `pnpm run build:web`)
 
 ## [0.32.2] - 2026-03-23
 
