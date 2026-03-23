@@ -647,11 +647,18 @@ export default function ApplicationsPage() {
                   ))}
                   <Field label="Stellenart">
                     <SelectInput
-                      value={app.job_employment_type || "festanstellung"}
+                      value={app.employment_type || app.job_employment_type || timelineDialog.entry?.job?.employment_type || "festanstellung"}
                       onChange={async (e) => {
                         const newVal = e.target.value;
                         try {
                           await putJson(`/api/applications/${app.id}`, { employment_type: newVal });
+                          setApplications((current) =>
+                            current.map((entry) =>
+                              entry.id === app.id
+                                ? { ...entry, employment_type: newVal, job_employment_type: newVal }
+                                : entry
+                            )
+                          );
                           await reloadTimeline(app.id);
                           pushToast("Stellenart aktualisiert.", "success");
                         } catch (err) {

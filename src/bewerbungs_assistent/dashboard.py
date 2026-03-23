@@ -1114,12 +1114,10 @@ async def api_update_application(app_id: str, request: Request):
     conn.execute(f"UPDATE applications SET {', '.join(sets)} WHERE id=?", vals)
 
     # Log change as timeline event
-    import uuid
-    event_id = str(uuid.uuid4())[:8]
     change_text = "Bewerbung bearbeitet: " + "; ".join(changes)
     conn.execute(
-        "INSERT INTO application_events (id, application_id, status, event_date, notes) VALUES (?, ?, ?, ?, ?)",
-        (event_id, app_id, "bearbeitet", now, change_text)
+        "INSERT INTO application_events (application_id, status, event_date, notes) VALUES (?, ?, ?, ?)",
+        (app_id, "bearbeitet", now, change_text)
     )
     conn.commit()
     return {"status": "ok", "changes": len(changes)}

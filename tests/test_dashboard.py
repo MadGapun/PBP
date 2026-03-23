@@ -656,6 +656,38 @@ class TestApplicationDetail:
         assert data["job"] is None
         assert data["documents"] == []
 
+    def test_timeline_prefers_application_employment_type_over_linked_job(self, client):
+        """Timeline-Details zeigen manuell geaenderte Stellenart statt nur den Job-Typ."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        dash._db.save_jobs([{
+            "hash": "test_job_002",
+            "title": "PLM Consultant",
+            "company": "Nordex",
+            "url": "https://nordex.com/job",
+            "source": "stepstone",
+            "description": "Wind energy engineer",
+            "score": 82,
+            "employment_type": "festanstellung",
+        }])
+        app_id = dash._db.add_application({
+            "title": "PLM Consultant",
+            "company": "Nordex",
+            "job_hash": "test_job_002",
+            "status": "beworben",
+        })
+
+        update = client.put(f"/api/applications/{app_id}", json={"employment_type": "freelance"})
+        assert update.status_code == 200
+
+        timeline = client.get(f"/api/application/{app_id}/timeline")
+        assert timeline.status_code == 200
+        data = timeline.json()
+        assert data["application"]["employment_type"] == "freelance"
+        assert data["application"]["job_employment_type"] == "freelance"
+        assert data["job"]["employment_type"] == "festanstellung"
+
     def test_link_document_to_application(self, client):
         """Dokument via API mit Bewerbung verknuepfen."""
         import bewerbungs_assistent.dashboard as dash

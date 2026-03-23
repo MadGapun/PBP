@@ -961,8 +961,9 @@ export default function JobsPage() {
                       <Badge tone="amber">Score unsicher</Badge>
                     ) : null}
                   </div>
-                  <div
-                    className="cursor-pointer group"
+                  <button
+                    type="button"
+                    className="group w-full cursor-pointer text-left"
                     onClick={() => setDetailDialog({ open: true, job, editing: false })}
                     title="Details anzeigen"
                   >
@@ -979,7 +980,7 @@ export default function JobsPage() {
                         Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
                       </p>
                     ) : null}
-                  </div>
+                  </button>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-white/[0.06] pt-4">
                   <Button variant={job.is_pinned ? "subtle" : "secondary"} onClick={() => togglePin(job)}>
@@ -1253,10 +1254,13 @@ export default function JobsPage() {
 
       {/* Job Detail Modal (#90) */}
       {detailDialog.open && detailDialog.job && (
-        <Modal onClose={() => setDetailDialog({ open: false, job: null, editing: false })}>
+        <Modal
+          open={detailDialog.open}
+          title={detailDialog.editing ? "Stelle bearbeiten" : detailDialog.job.title || "Stellendetails"}
+          onClose={() => setDetailDialog({ open: false, job: null, editing: false })}
+        >
           {detailDialog.editing ? (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-ink">Stelle bearbeiten</h2>
               <Field label="Titel">
                 <TextInput value={editForm.title || ""} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
               </Field>
@@ -1273,6 +1277,7 @@ export default function JobsPage() {
                 <Button variant="primary" onClick={async () => {
                   await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
                   pushToast("Stelle aktualisiert", "success");
+                  setJobs((cur) => cur.map((job) => String(job.hash) === String(detailDialog.job.hash) ? { ...job, ...editForm } : job));
                   setDetailDialog({ open: false, job: null, editing: false });
                   loadPage({ silent: true });
                 }}>Speichern</Button>

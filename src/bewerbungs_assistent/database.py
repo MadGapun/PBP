@@ -895,6 +895,25 @@ class Database:
                 app["fit_analyse"] = json.loads(app["fit_analyse"])
             except (json.JSONDecodeError, TypeError):
                 pass
+        return self._attach_application_job_metadata(app)
+
+    def _attach_application_job_metadata(self, app: dict) -> dict:
+        """Attach derived job metadata so list and detail views stay consistent."""
+        if app.get("job_hash"):
+            job_row = self._find_job_row(app["job_hash"], app.get("profile_id"))
+            if job_row:
+                job = dict(job_row)
+                app["job_employment_type"] = app.get("employment_type") or job.get("employment_type")
+                app["job_source"] = self._preferred_application_source(
+                    app.get("source"), job.get("source")
+                )
+                if not app.get("url"):
+                    app["url"] = job.get("url")
+        else:
+            if app.get("employment_type"):
+                app["job_employment_type"] = app["employment_type"]
+            if app.get("source"):
+                app["job_source"] = app["source"]
         return app
 
     def _preferred_application_source(self, app_source: Optional[str], job_source: Optional[str]) -> str:
@@ -1788,26 +1807,6 @@ class Database:
                 (row["id"],)
             ).fetchone()
             app["document_count"] = doc_count_row[0] if doc_count_row else 0
-            # Job metadata for list display (employment_type, source, url fallback)
-            if row["job_hash"]:
-                job_row = conn.execute(
-                    "SELECT employment_type, source, url FROM jobs WHERE hash=? LIMIT 1",
-                    (row["job_hash"],)
-                ).fetchone()
-                if job_row:
-                    # Manuell gesetzter Typ hat Vorrang (#151)
-                    app["job_employment_type"] = app.get("employment_type") or job_row["employment_type"]
-                    app["job_source"] = self._preferred_application_source(
-                        app.get("source"), job_row["source"]
-                    )
-                    if not app.get("url"):
-                        app["url"] = job_row["url"]
-            else:
-                # Manuell angelegte Bewerbung ohne Job-Verknüpfung
-                if app.get("employment_type"):
-                    app["job_employment_type"] = app["employment_type"]
-                if app.get("source"):
-                    app["job_source"] = app["source"]
             apps.append(self._serialize_application_row(app))
         return apps
 

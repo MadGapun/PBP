@@ -600,6 +600,81 @@ def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard
         context.close()
 
 
+def test_jobs_detail_modal_opens_and_allows_description_edit(live_dashboard, browser):
+    """Job detail modal opens and can persist a description edit from the UI."""
+    _seed_uncertain_jobs_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        page.locator('[title="Details anzeigen"]').filter(has_text="Senior Consultant").click()
+        modal = page.locator(".glass-overlay").filter(has_text="Senior Consultant").first
+        modal.get_by_role("heading", name="Senior Consultant").first.wait_for(state="visible")
+        modal.get_by_role("button", name="Bearbeiten").click()
+        page.get_by_role("heading", name="Stelle bearbeiten").wait_for(state="visible")
+        page.locator("textarea").last.fill(
+            "Ergaenzte Browser-Beschreibung mit Aufgaben, Skills und Rahmenbedingungen."
+        )
+        page.get_by_role("button", name="Speichern").click()
+        page.get_by_text("Stelle aktualisiert").wait_for(state="visible")
+
+        jobs = httpx.get(f"{live_dashboard['base_url']}/api/jobs", timeout=5.0)
+        jobs.raise_for_status()
+        payload = jobs.json()
+        job_rows = payload["jobs"] if isinstance(payload, dict) and "jobs" in payload else payload
+        updated = next(job for job in job_rows if job["hash"] == "job-ohne-beschreibung")
+        assert "Ergaenzte Browser-Beschreibung" in updated["description"]
+    finally:
+        context.close()
+
+
+def test_application_timeline_can_change_employment_type(live_dashboard, browser):
+    """Timeline edit form persists employment type changes and shows the new value."""
+    app_id = _seed_timeline_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#bewerbungen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.locator("h1").filter(has_text="Bewerbungen").wait_for(state="visible")
+
+        page.get_by_role("heading", name="Senior PLM Consultant").click()
+        modal = page.locator(".glass-overlay").filter(has_text="Bewerbung bearbeiten").first
+        modal.get_by_text("Bewerbung bearbeiten").wait_for(state="visible")
+        modal.get_by_text("Bewerbung bearbeiten").click()
+
+        employment = modal.get_by_label("Stellenart")
+        employment.click()
+        page.get_by_role("button", name="Freelance").click()
+        page.get_by_text("Stellenart aktualisiert.").wait_for(state="visible")
+        page.wait_for_function(
+            """() => Array.from(document.querySelectorAll('label'))
+                .some((label) => label.textContent?.includes('Stellenart') && label.textContent?.includes('Freelance'))""",
+            timeout=5000,
+        )
+
+        timeline = httpx.get(
+            f"{live_dashboard['base_url']}/api/application/{app_id}/timeline",
+            timeout=5.0,
+        )
+        timeline.raise_for_status()
+        data = timeline.json()
+        assert data["application"]["employment_type"] == "freelance"
+        assert data["application"]["job_employment_type"] == "freelance"
+        assert data["job"]["employment_type"] == "festanstellung"
+    finally:
+        context.close()
+
+
 def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
     """Dashboard surfaces the workspace readiness as a clear next-step card."""
     _seed_ready_workspace(live_dashboard["db"])
