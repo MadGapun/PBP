@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from fpdf.enums import XPos, YPos
+
 logger = logging.getLogger("bewerbungs_assistent.export_report")
 
 STATUS_LABELS = {
@@ -67,6 +69,11 @@ def _safe_text(text: str) -> str:
             .encode("latin-1", errors="replace").decode("latin-1"))
 
 
+def _line_cell(pdf, w, h, text="", **kwargs):
+    """Write a cell and advance to the next line with the modern fpdf2 API."""
+    pdf.cell(w, h, text, new_x=XPos.LMARGIN, new_y=YPos.NEXT, **kwargs)
+
+
 def generate_application_report(report_data: dict, profile: Optional[dict],
                                 output_path: Path,
                                 zeitraum_von: str = "",
@@ -92,13 +99,13 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # --- Title Page with PBP Branding (#173) ---
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 22)
-    pdf.cell(0, 15, _safe_text("Bewerbungsbericht"), ln=True, align="C")
+    _line_cell(pdf, 0, 15, _safe_text("Bewerbungsbericht"), align="C")
 
     # Subtitle with name and date range
     pdf.set_font("Helvetica", "", 11)
     name = profile.get("name", "") if profile else ""
     if name:
-        pdf.cell(0, 7, _safe_text(name), ln=True, align="C")
+        _line_cell(pdf, 0, 7, _safe_text(name), align="C")
 
     pdf.set_font("Helvetica", "", 9)
     zeitraum = ""
@@ -107,15 +114,15 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     elif date_range.get("first") and date_range.get("last"):
         zeitraum = f"Zeitraum: {date_range['first'][:10]} bis {date_range['last'][:10]}"
     if zeitraum:
-        pdf.cell(0, 5, _safe_text(zeitraum), ln=True, align="C")
-    pdf.cell(0, 5, _safe_text(f"Erstellt: {datetime.now().strftime('%d.%m.%Y %H:%M')}"), ln=True, align="C")
+        _line_cell(pdf, 0, 5, _safe_text(zeitraum), align="C")
+    _line_cell(pdf, 0, 5, _safe_text(f"Erstellt: {datetime.now().strftime('%d.%m.%Y %H:%M')}"), align="C")
     pdf.ln(6)
 
     # PBP Branding (#173)
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 4, _safe_text("Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"), ln=True, align="C")
-    pdf.cell(0, 4, _safe_text("https://github.com/MadGapun/PBP"), ln=True, align="C")
+    _line_cell(pdf, 0, 4, _safe_text("Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"), align="C")
+    _line_cell(pdf, 0, 4, _safe_text("https://github.com/MadGapun/PBP"), align="C")
     pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
 
@@ -132,7 +139,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     ]
     pdf.set_font("Helvetica", "", 10)
     for item in toc_items:
-        pdf.cell(0, 6, _safe_text(f"    {item}"), ln=True)
+        _line_cell(pdf, 0, 6, _safe_text(f"    {item}"))
     pdf.ln(6)
 
     # --- Executive Summary (#173) ---
@@ -189,7 +196,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "", 9)
         pdf.cell(80, 5, _safe_text(f"  {label}:"), border=0)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(0, 5, _safe_text(value), ln=True)
+        _line_cell(pdf, 0, 5, _safe_text(value))
     pdf.ln(4)
 
     # --- 2. Bewerbungen nach Status ---
@@ -205,7 +212,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(45, 5, _safe_text(f"  {label}"))
             pdf.set_fill_color(r, g, b)
             pdf.cell(bar_width, 5, "", fill=True)
-            pdf.cell(15, 5, f"  {count}", ln=True)
+            _line_cell(pdf, 15, 5, f"  {count}")
     pdf.ln(4)
 
     # --- 3. Quellenanalyse (#173) ---
@@ -245,7 +252,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     if app_by_source:
         pdf.set_font("Helvetica", "B", 8)
-        pdf.cell(0, 5, _safe_text("  Bewerbungen nach Quelle (mit Erfolgsquote):"), ln=True)
+        _line_cell(pdf, 0, 5, _safe_text("  Bewerbungen nach Quelle (mit Erfolgsquote):"))
         pdf.set_fill_color(230, 230, 230)
         pdf.cell(50, 5, "  Quelle", border=1, fill=True)
         pdf.cell(30, 5, "Bewerbungen", border=1, fill=True, align="C")
@@ -271,7 +278,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(30, 5, _safe_text(f"  Score {bracket}"))
             pdf.set_fill_color(76, 175, 80)
             pdf.cell(bar_width, 5, "", fill=True)
-            pdf.cell(15, 5, f"  {count}", ln=True)
+            _line_cell(pdf, 15, 5, f"  {count}")
         pdf.ln(4)
 
     # --- 5. Bewerbungsliste (detailliert, #173) ---
@@ -335,9 +342,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     if unapplied:
         _section_header(pdf, "6. Nicht beworben trotz gutem Fit-Score")
         pdf.set_font("Helvetica", "", 8)
-        pdf.cell(0, 5, _safe_text(
+        _line_cell(pdf, 0, 5, _safe_text(
             f"  {len(unapplied)} Stellen mit Score >= 5 ohne Bewerbung:"
-        ), ln=True)
+        ))
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(255, 243, 224)
         pdf.cell(50, 5, "Firma", border=1, fill=True)
@@ -395,9 +402,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         top_words = word_counter.most_common(25)
         if top_words:
             pdf.set_font("Helvetica", "", 8)
-            pdf.cell(0, 5, _safe_text(
+            _line_cell(pdf, 0, 5, _safe_text(
                 "  Haeufigste Begriffe in Stellen, auf die Sie sich beworben haben:"
-            ), ln=True)
+            ))
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_fill_color(232, 245, 233)
             pdf.cell(50, 5, "  Keyword", border=1, fill=True)
@@ -417,20 +424,20 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(31, 78, 121)
-    pdf.cell(0, 5, _safe_text(
+    _line_cell(pdf, 0, 5, _safe_text(
         "Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"
-    ), ln=True, align="C")
+    ), align="C")
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 4, _safe_text(
+    _line_cell(pdf, 0, 4, _safe_text(
         "PBP ist ein KI-gestuetztes Bewerbungsmanagement-Tool, das den gesamten "
         "Bewerbungsprozess von der Stellensuche bis zum Angebot strukturiert und automatisiert."
-    ), ln=True, align="C")
-    pdf.cell(0, 4, _safe_text(
+    ), align="C")
+    _line_cell(pdf, 0, 4, _safe_text(
         f"https://github.com/MadGapun/PBP | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ), ln=True, align="C")
+    ), align="C")
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 4, _safe_text("* = manuell hinzugefuegte Stelle (gepinnt)"), ln=True, align="C")
+    _line_cell(pdf, 0, 4, _safe_text("* = manuell hinzugefuegte Stelle (gepinnt)"), align="C")
 
     pdf.output(str(output_path))
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)
@@ -442,7 +449,7 @@ def _section_header(pdf, title: str):
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_fill_color(33, 150, 243)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 7, _safe_text(f"  {title}"), ln=True, fill=True)
+    _line_cell(pdf, 0, 7, _safe_text(f"  {title}"), fill=True)
     pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
 

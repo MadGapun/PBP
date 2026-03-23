@@ -1052,7 +1052,7 @@ export default function App() {
                   <>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Dashboard</h3>
-                      <p>Das Dashboard zeigt dir eine Uebersicht ueber dein Profil, aktuelle Stellen und Bewerbungen. Die Metriken aktualisieren sich automatisch.</p>
+                      <p>Das Dashboard zeigt dir eine Übersicht über dein Profil, aktuelle Stellen und Bewerbungen. Die Metriken aktualisieren sich automatisch.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Top-Stellen</h3>
@@ -1060,7 +1060,7 @@ export default function App() {
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
-                      <p>Faellige Nachfass-Aktionen werden hier hervorgehoben. Klicke auf "Erledigt", um sie abzuhaken.</p>
+                      <p>Fällige Nachfass-Aktionen werden hier hervorgehoben. Klicke auf "Erledigt", um sie abzuhaken.</p>
                     </div>
                   </>
                 )}
@@ -1068,11 +1068,11 @@ export default function App() {
                   <>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Profil aufbauen</h3>
-                      <p>Dein Profil ist die Basis fuer alles: Lebenslauf-Export, Fit-Analysen und personalisierte Anschreiben. Je vollstaendiger, desto besser.</p>
+                      <p>Dein Profil ist die Basis für alles: Lebenslauf-Export, Fit-Analysen und personalisierte Anschreiben. Je vollständiger, desto besser.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Positionen & Projekte</h3>
-                      <p>Fuelle Positionen mit dem STAR-Format aus (Situation, Task, Action, Result). Das ergibt starke Projektbeschreibungen fuer den Lebenslauf.</p>
+                      <p>Fülle Positionen mit dem STAR-Format aus (Situation, Task, Action, Result). Das ergibt starke Projektbeschreibungen für den Lebenslauf.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Dokumente</h3>
@@ -1092,7 +1092,7 @@ export default function App() {
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Fit-Analyse</h3>
-                      <p>Klicke auf "Fit-Analyse" fuer eine detaillierte Auswertung der MUSS-/PLUS-Treffer und Risiken.</p>
+                      <p>Klicke auf "Fit-Analyse" für eine detaillierte Auswertung der MUSS-/PLUS-Treffer und Risiken.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Anpinnen & Blacklist</h3>
@@ -1104,11 +1104,11 @@ export default function App() {
                   <>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Bewerbungen verwalten</h3>
-                      <p>Hier trackst du alle laufenden Bewerbungen mit Status, Timeline und Notizen. Aendere den Status per Dropdown.</p>
+                      <p>Hier trackst du alle laufenden Bewerbungen mit Status, Timeline und Notizen. Ändere den Status per Dropdown.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Timeline & Notizen</h3>
-                      <p>Klicke auf eine Bewerbung fuer die vollstaendige Timeline. Dort kannst du Notizen hinzufuegen und Follow-Ups planen.</p>
+                      <p>Klicke auf eine Bewerbung für die vollständige Timeline. Dort kannst du Notizen hinzufügen und Follow-ups planen.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
@@ -1128,7 +1128,7 @@ export default function App() {
                   <>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Jobquellen</h3>
-                      <p>Aktiviere und deaktiviere einzelne Quellen (StepStone, Indeed, LinkedIn, etc.). LinkedIn und XING benoetigen Login-Daten.</p>
+                      <p>Aktiviere und deaktiviere einzelne Quellen (StepStone, Indeed, LinkedIn, etc.). LinkedIn und XING benötigen Login-Daten.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Suchkriterien</h3>
@@ -1139,11 +1139,11 @@ export default function App() {
                 {/* General help always shown */}
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Wie starte ich?</h3>
-                  <p>Oeffne Claude Desktop und tippe "Ersterfassung starten". Claude fuehrt dich durch den Aufbau deines Bewerbungsprofils.</p>
+                  <p>Öffne Claude Desktop und tippe "Ersterfassung starten". Claude führt dich durch den Aufbau deines Bewerbungsprofils.</p>
                 </div>
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Support & Dokumentation</h3>
-                  <p>Fuer Fragen und Probleme erstelle ein Issue auf GitHub. Du brauchst dafuer einen kostenlosen GitHub-Account.</p>
+                  <p>Für Fragen und Probleme erstelle ein Issue auf GitHub. Du brauchst dafür einen kostenlosen GitHub-Account.</p>
                   <a
                     href="https://github.com/MadGapun/PBP#readme"
                     target="_blank"
@@ -1151,7 +1151,7 @@ export default function App() {
                     className="mt-2 inline-flex items-center gap-1.5 text-sky hover:underline text-[13px]"
                   >
                     <ExternalLink size={12} />
-                    Vollstaendige Anleitung auf GitHub
+                    Vollständige Anleitung auf GitHub
                   </a>
                 </div>
               </div>
@@ -1160,7 +1160,7 @@ export default function App() {
             {helpTab === "bug" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted/60">
-                  Beschreibe den Fehler moeglichst genau. Ein GitHub-Account wird benoetigt.
+                  Beschreibe den Fehler möglichst genau. Ein GitHub-Account wird benötigt.
                 </p>
                 <a
                   href="https://github.com/MadGapun/PBP/issues/new?labels=bug&title=%5BBug%5D+"
@@ -1177,7 +1177,7 @@ export default function App() {
             {helpTab === "feature" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted/60">
-                  Hast du eine Idee fuer eine Verbesserung? Erstelle einen Feature-Vorschlag auf GitHub.
+                  Hast du eine Idee für eine Verbesserung? Erstelle einen Feature-Vorschlag auf GitHub.
                 </p>
                 <a
                   href="https://github.com/MadGapun/PBP/issues/new?labels=enhancement&title=%5BFeature%5D+"
@@ -1194,8 +1194,8 @@ export default function App() {
             {helpTab === "credits" && (
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-2">PBP — Persoenliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.30.0"}</p>
+                  <h3 className="font-medium text-ink mb-2">PBP — Persönliches Bewerbungs-Portal</h3>
+                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.3"}</p>
                   <p className="text-muted/60">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">
@@ -1208,10 +1208,10 @@ export default function App() {
                 <div className="glass-card p-3 border border-amber/15">
                   <h3 className="font-medium text-ink mb-2">Rechtliche Hinweise</h3>
                   <div className="space-y-1.5 text-muted/60 text-[12px]">
-                    <p><strong>Jobsuche / Scraping:</strong> Die Stellensuche greift auf oeffentlich zugaengliche Daten von Jobportalen zu (z.B. Bundesagentur fuer Arbeit, LinkedIn, XING, StepStone). Die Nutzung erfolgt auf eigene Verantwortung. Bitte beachte die jeweiligen Nutzungsbedingungen der Plattformen.</p>
-                    <p><strong>Datenspeicherung:</strong> Alle Daten werden ausschliesslich lokal auf deinem Geraet gespeichert. Es findet keine Uebertragung an Dritte statt.</p>
-                    <p><strong>Keine Gewaehr:</strong> PBP uebernimmt keine Gewaehr fuer die Vollstaendigkeit, Richtigkeit oder Aktualitaet der gesammelten Stellenangebote.</p>
-                    <p><strong>Verantwortung:</strong> Du bist selbst dafuer verantwortlich, dass deine Nutzung der Jobsuche-Funktion im Einklang mit den Nutzungsbedingungen der jeweiligen Plattformen steht.</p>
+                    <p><strong>Jobsuche / Scraping:</strong> Die Stellensuche greift auf öffentlich zugängliche Daten von Jobportalen zu (z.B. Bundesagentur für Arbeit, LinkedIn, XING, StepStone). Die Nutzung erfolgt auf eigene Verantwortung. Bitte beachte die jeweiligen Nutzungsbedingungen der Plattformen.</p>
+                    <p><strong>Datenspeicherung:</strong> Alle Daten werden ausschließlich lokal auf deinem Gerät gespeichert. Es findet keine Übertragung an Dritte statt.</p>
+                    <p><strong>Keine Gewähr:</strong> PBP übernimmt keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der gesammelten Stellenangebote.</p>
+                    <p><strong>Verantwortung:</strong> Du bist selbst dafür verantwortlich, dass deine Nutzung der Jobsuche-Funktion im Einklang mit den Nutzungsbedingungen der jeweiligen Plattformen steht.</p>
                   </div>
                 </div>
                 <a

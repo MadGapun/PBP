@@ -1,10 +1,10 @@
-# PBP - Haeufig gestellte Fragen (FAQ)
+# PBP - Häufig gestellte Fragen (FAQ)
 
 ## Was ist PBP?
 
-**PBP (Persoenliches Bewerbungs-Portal)** ist ein KI-gestuetztes Bewerbungsmanagement-Tool,
+**PBP (Persönliches Bewerbungs-Portal)** ist ein KI-gestütztes Bewerbungsmanagement-Tool,
 das den gesamten Bewerbungsprozess von der Stellensuche bis zum Angebot strukturiert
-und automatisiert. Es laeuft als MCP-Server fuer Claude Desktop.
+und automatisiert. Es läuft als MCP-Server für Claude Desktop.
 
 GitHub: https://github.com/MadGapun/PBP
 
@@ -13,82 +13,85 @@ GitHub: https://github.com/MadGapun/PBP
 ## Erste Schritte
 
 ### 1. Profil erstellen
-Starte mit der Ersterfassung deines Profils. PBP fragt dich Schritt fuer Schritt
-nach deinen persoenlichen Daten, Berufserfahrung, Skills und Ausbildung.
+Starte mit der Ersterfassung deines Profils. PBP fragt dich Schritt für Schritt
+nach deinen persönlichen Daten, Berufserfahrung, Skills und Ausbildung.
 
-**Tipp:** Lade vorhandene Lebenslaeufe und Zeugnisse hoch — PBP extrahiert
-die Daten automatisch und fuellt dein Profil vor.
+**Tipp:** Lade vorhandene Lebensläufe und Zeugnisse hoch. PBP extrahiert
+die Daten automatisch und füllt dein Profil vor.
 
 ### 2. Suchkriterien setzen
 Definiere deine Jobsuche-Keywords:
-- **MUSS-Keywords**: Stellen muessen mindestens eins davon enthalten
-- **PLUS-Keywords**: Erhoehen den Score (bessere Sortierung)
+
+- **MUSS-Keywords**: Stellen müssen mindestens eins davon enthalten
+- **PLUS-Keywords**: Erhöhen den Score und verbessern die Sortierung
 - **AUSSCHLUSS-Keywords**: Stellen werden komplett ignoriert
 
-**Tipp:** Nutze `profil_zusammenfassung()` als Basis fuer die Keywords.
+**Tipp:** Nutze `profil_zusammenfassung()` als Basis für deine Keywords.
 
 ### 3. Jobsuche starten
 Aktiviere Quellen im Dashboard und starte eine Suche. Die Ergebnisse werden
 automatisch bewertet und sortiert.
 
 ### 4. Stellen bewerten und bewerben
-Gehe die gefundenen Stellen durch, bewerte sie mit `stelle_bewerten()`,
-und erstelle Bewerbungsunterlagen fuer die passenden Stellen.
+Gehe die gefundenen Stellen durch, bewerte sie mit `stelle_bewerten()`
+und erstelle Bewerbungsunterlagen für die passenden Stellen.
 
 ### 5. Bewerbungen verfolgen
-Nutze den gefuehrten Bewerbungs-Workflow (#170): PBP zeigt dir bei jeder
-Bewerbung genau die naechsten Schritte an — von der Vorbereitung bis zum Angebot.
+Nutze den geführten Bewerbungs-Workflow: PBP zeigt dir bei jeder Bewerbung
+die nächsten sinnvollen Schritte an, statt dich mit Optionen zu überladen.
 
 ---
 
 ## Wichtige Hinweise
 
-### Token-/Kontextlimits bei grossen Datenmengen
+### Token- und Kontextlimits bei großen Profilen
 
-**WICHTIG:** Wenn dein Profil sehr umfangreich ist (viele Positionen, Projekte,
-Skills, Dokumente), kann selbst ein Claude Pro Abo an seine Grenzen kommen.
-Claude analysiert bei jeder Interaktion das gesamte Profil.
+Wenn dein Profil sehr umfangreich ist, kann selbst ein starkes Claude-Abo
+an Grenzen stoßen. Claude analysiert bei jeder Interaktion dein Profil,
+deine Suchkriterien und oft auch die aktuelle Stelle.
 
 **Empfehlungen:**
-- Arbeite schrittweise, nicht alles auf einmal laden
-- Bei sehr grossen Profilen: Batch-Verarbeitung nutzen
-- Skill-Listen regelmaessig bereinigen (Duplikate, Junk-Eintraege entfernen)
-- Nicht alle Dokumente gleichzeitig extrahieren lassen
+
+- Arbeite schrittweise statt alles auf einmal zu laden.
+- Nutze Uploads und Analysen in kleineren Blöcken.
+- Bereinige Skill-Listen regelmäßig.
+- Extrahiere nicht alle Dokumente gleichzeitig.
 
 ### Blacklist richtig nutzen
 
-Die Blacklist ist NUR fuer harte Ausschluesse gedacht:
-- **Firmen**: Unternehmen die IMMER ignoriert werden sollen
-- **Keywords**: Begriffe die IMMER ignoriert werden sollen
+Die Blacklist ist nur für harte Ausschlüsse gedacht:
 
-Individuelle Ablehnungsgruende (zu_weit, zu_junior, etc.) werden automatisch
-bei `stelle_bewerten()` gespeichert — sie gehoeren NICHT in die Blacklist!
+- **Firmen**: Unternehmen, die immer ignoriert werden sollen
+- **Keywords**: Begriffe, die immer ignoriert werden sollen
+
+Individuelle Ablehnungsgründe wie `zu_weit` oder `zu_junior` gehören nicht
+in die Blacklist. Diese Informationen werden über die Stellen- und
+Bewerbungslogik ohnehin sinnvoller ausgewertet.
 
 ### Scoring-Regler-System
 
-Ab v0.32.0 gibt es ein konfigurierbares Scoring-System. Jede Dimension
-(Stellentyp, Entfernung, Remote, Gehalt) hat einen Regler der den
-Fit-Score beeinflusst. Nutze `scoring_konfigurieren()` um die Regler
-an deine Beduerfnisse anzupassen.
+Ab `v0.32.0` gibt es ein konfigurierbares Scoring-System. Jede Dimension
+wie Stellentyp, Entfernung, Remote und Gehalt kann gewichtet werden.
+Nutze `scoring_konfigurieren()`, um PBP an deine Prioritäten anzupassen.
 
 ---
 
-## Verfuegbare Workflows
+## Verfügbare Workflows
 
 | Workflow | Beschreibung | Wann nutzen? |
 |---|---|---|
-| `ersterfassung` | Gefuehrte Profil-Erstellung | Beim allerersten Start |
-| `bewerbung_vorbereitung` | Komplette Vorbereitung | Neue Bewerbung von A-Z |
-| `bewerbung_schreiben` | Anschreiben erstellen | Wenn du dich bewerben willst |
-| `interview_vorbereitung` | Interview-Prep | Vor einem Vorstellungsgespraech |
-| `interview_simulation` | Uebungsgespraech | Zum Ueben vor dem Interview |
-| `gehaltsverhandlung` | Gehalt verhandeln | Bei Gehaltsgespraech/Angebot |
-| `profil_erweiterung` | Dokumente analysieren | Nach Dokument-Upload |
+| `ersterfassung` | Geführte Profil-Erstellung | Beim allerersten Start |
+| `bewerbung_vorbereitung` | Komplette Vorbereitung | Für eine neue Bewerbung |
+| `bewerbung_schreiben` | Anschreiben erstellen | Wenn du dich konkret bewerben willst |
+| `interview_vorbereitung` | Interview-Prep | Vor einem Gespräch |
+| `interview_simulation` | Übungsgespräch | Zum Üben mit Claude |
+| `gehaltsverhandlung` | Gehalt verhandeln | Bei Angebot oder Verhandlung |
+| `profil_erweiterung` | Dokumente analysieren | Nach Upload neuer Unterlagen |
 
-## Entscheidungsbaum: Was soll ich tun?
+## Entscheidungsbaum: Was soll ich jetzt tun?
 
-```
-Oeffne PBP und frage dich:
+```text
+Öffne PBP und frage dich:
 
 Habe ich ein Profil?
 ├── Nein → workflow_starten("ersterfassung")
@@ -107,7 +110,7 @@ Habe ich ein Profil?
     │       │       │       │   └── Nein
     │       │       │       │       ├── Warte ich auf Antworten?
     │       │       │       │       │   ├── Ja → nachfass_anzeigen() / bewerbungen_anzeigen()
-    │       │       │       │       │   └── Nein → Neue Jobsuche starten!
+    │       │       │       │       │   └── Nein → neue Jobsuche starten
     │       │       │       └── Habe ich ein Interview?
     │       │       │           └── Ja → workflow_starten("interview_vorbereitung")
     │       └── Habe ich neue Dokumente?
@@ -116,41 +119,45 @@ Habe ich ein Profil?
         └── Ja → bewerbungsbericht_exportieren()
 ```
 
-**Tipp:** Im Zweifel einfach `statistiken_abrufen()` aufrufen — das gibt dir
-einen Ueberblick ueber deinen aktuellen Stand und zeigt die Pipeline.
+**Tipp:** Im Zweifel hilft `statistiken_abrufen()`. Das gibt dir einen
+kompakten Überblick über deinen aktuellen Stand und die Pipeline.
 
 ---
 
 ## Troubleshooting
 
 ### "Token-Limit erreicht"
-- Schliesse die aktuelle Konversation und starte eine neue
-- Reduziere die Datenmenge (weniger Skills, kuerze Beschreibungen)
-- Arbeite in kleineren Schritten
 
-### "Skill-Import erzeugt Junk-Eintraege"
-- Nutze `profil_bearbeiten()` um einzelne Skills zu loeschen
-- Oder bereinige ueber die Profil-Seite im Dashboard
+- Schließe die aktuelle Konversation und starte eine neue.
+- Reduziere die Datenmenge.
+- Arbeite in kleineren Schritten.
+
+### "Skill-Import erzeugt Junk-Einträge"
+
+- Nutze `profil_bearbeiten()`, um einzelne Skills zu löschen.
+- Oder bereinige sie über die Profil-Seite im Dashboard.
 
 ### "Stellensuche findet nichts"
-- Pruefe ob Quellen aktiviert sind (Dashboard -> Einstellungen)
-- Pruefe die MUSS-Keywords — zu spezifische Keywords = keine Treffer
-- Erweitere die Regionen
+
+- Prüfe, ob Quellen aktiviert sind.
+- Prüfe die MUSS-Keywords.
+- Erweitere Regionen oder lockere Kriterien.
 
 ### "Lebenslauf-Export sieht komisch aus"
-- Ab v0.32.0: ATS-konformer Stil ohne Tabellen
-- Nutze DOCX-Format fuer manuelle Nachbearbeitung
-- Pruefe ob alle Profildaten vollstaendig sind
+
+- Ab `v0.32.0` ist der ATS-konforme Stil ohne Tabellen aktiv.
+- Nutze DOCX für manuelle Nachbearbeitung.
+- Prüfe, ob alle Profildaten vollständig sind.
 
 ---
 
 ## Voraussetzungen
 
-- **Claude Pro Abo** (oder Claude Max fuer grosse Profile)
-- **Claude Desktop** mit MCP-Unterstuetzung
-- **Python 3.11+** (fuer den MCP-Server)
-- Optional: Playwright (fuer automatische Jobsuche)
+- **Claude Pro** oder **Claude Max** für größere Profile
+- **Claude Desktop** mit MCP-Unterstützung
+- **Python 3.11+**
+- Optional: **Playwright** für automatische Jobsuche
 
 ---
 
-*Erstellt fuer PBP v0.32.0 | https://github.com/MadGapun/PBP*
+*Erstellt für PBP v0.32.3 | https://github.com/MadGapun/PBP*
