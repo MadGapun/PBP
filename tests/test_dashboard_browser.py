@@ -210,6 +210,78 @@ def _seed_timeline_workspace(db) -> str:
     return app_id
 
 
+def _seed_archive_workspace(db) -> None:
+    """Create active and archived applications for the archive toggle flow."""
+    db.save_profile(
+        {
+            "name": "Max Archiv",
+            "email": "archiv@example.com",
+            "phone": "+49 40 123456",
+            "address": "Musterweg 1",
+            "summary": "Bewerbungsmanagement testen",
+        }
+    )
+    db.add_application(
+        {
+            "title": "Aktive Bewerbung",
+            "company": "ACME Aktiv",
+            "status": "beworben",
+            "applied_at": datetime.now().date().isoformat(),
+        }
+    )
+    db.add_application(
+        {
+            "title": "Archivierte Bewerbung",
+            "company": "ACME Archiv",
+            "status": "abgelehnt",
+            "applied_at": (datetime.now().date() - timedelta(days=14)).isoformat(),
+        }
+    )
+
+
+def _seed_uncertain_jobs_workspace(db) -> None:
+    """Create jobs with missing descriptions to validate guidance and warning badges."""
+    profile_id = db.save_profile(
+        {
+            "name": "Max Stellen",
+            "email": "stellen@example.com",
+            "phone": "+49 40 123456",
+            "address": "Musterweg 1",
+            "summary": "Berater fuer Produkt- und Prozessarbeit",
+        }
+    )
+    db.set_profile_setting("active_sources", ["stepstone"])
+    db.set_profile_setting("last_search_at", datetime.now().isoformat())
+    db.save_jobs(
+        [
+            {
+                "hash": "job-ohne-beschreibung",
+                "title": "Senior Consultant",
+                "company": "ACME GmbH",
+                "location": "Hamburg",
+                "url": "https://example.com/job-ohne-beschreibung",
+                "source": "stepstone",
+                "description": "Kurztext",
+                "score": 74,
+                "employment_type": "festanstellung",
+                "profile_id": profile_id,
+            },
+            {
+                "hash": "job-mit-beschreibung",
+                "title": "PLM Consultant",
+                "company": "Beta GmbH",
+                "location": "Hamburg",
+                "url": "https://example.com/job-mit-beschreibung",
+                "source": "stepstone",
+                "description": "Ausfuehrliche Stellenbeschreibung mit Aufgaben, Skills, Verantwortlichkeiten und Rahmenbedingungen fuer eine belastbare Bewertung.",
+                "score": 82,
+                "employment_type": "festanstellung",
+                "profile_id": profile_id,
+            },
+        ]
+    )
+
+
 @pytest.mark.skip(reason="Tests reference old Vanilla-JS dashboard — React-Frontend seit v0.23.0")
 def test_dashboard_onboarding_navigation_and_import_jump(live_dashboard, browser):
     """Welcome flow, tab navigation and document jump work in a real browser."""
@@ -479,5 +551,68 @@ def test_application_timeline_supports_note_and_status_changes(live_dashboard, b
         notes = [event for event in payload["events"] if event["status"] == "notiz"]
         assert any("Browser-Regression: Timeline-Notiz" in (event.get("notes") or "") for event in notes)
         assert any(event["status"] == "interview" for event in payload["events"])
+    finally:
+        context.close()
+
+
+def test_applications_archive_toggle_reveals_archived_entries(live_dashboard, browser):
+    """Applications page hides archived entries by default and reveals them on demand."""
+    _seed_archive_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#bewerbungen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.locator("h1").filter(has_text="Bewerbungen").wait_for(state="visible")
+
+        page.get_by_role("heading", name="Aktive Bewerbung").wait_for(state="visible")
+        assert page.get_by_text("Archivierte Bewerbung", exact=True).count() == 0
+
+        page.get_by_role("button", name="Archivierte anzeigen").click()
+        page.get_by_text("Archivierte Bewerbung", exact=True).wait_for(state="visible")
+    finally:
+        context.close()
+
+
+def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard, browser):
+    """Jobs page highlights incomplete descriptions and offers a focused filter."""
+    _seed_uncertain_jobs_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        page.get_by_text("Score unsicher").first.wait_for(state="visible")
+        page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
+
+        page.get_by_role("button", name="Nur ohne Beschreibung").click()
+        page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
+        assert page.get_by_text("PLM Consultant", exact=True).count() == 0
+    finally:
+        context.close()
+
+
+def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
+    """Dashboard surfaces the workspace readiness as a clear next-step card."""
+    _seed_ready_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"], wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+
+        page.get_by_text("Nächster sinnvoller Schritt", exact=True).wait_for(state="visible")
+        page.get_by_text("Es gibt überfällige Nachfassaktionen.").wait_for(state="visible")
     finally:
         context.close()

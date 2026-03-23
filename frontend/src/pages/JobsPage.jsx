@@ -106,13 +106,28 @@ function buildAnnualSalaryMetrics(jobs = []) {
   };
 }
 
+function jobNeedsDescriptionAttention(job) {
+  return Number(job?.score || 0) > 0 && String(job?.description || "").trim().length < 50;
+}
+
 export default function JobsPage() {
   const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
   const [followUps, setFollowUps] = useState([]);
-  const [filters, setFilters] = useState({ query: "", source: "", minScore: "0", remote: "", salaryOnly: false, sort: "score_desc", view: "active", employmentType: "", hideApplied: true });
+  const [filters, setFilters] = useState({
+    query: "",
+    source: "",
+    minScore: "0",
+    remote: "",
+    salaryOnly: false,
+    sort: "score_desc",
+    view: "active",
+    employmentType: "",
+    hideApplied: true,
+    missingDescriptionOnly: false,
+  });
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
@@ -266,8 +281,16 @@ export default function JobsPage() {
         minScore: "0",
         remote: "",
         salaryOnly: false,
+        missingDescriptionOnly: false,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
+    }
+    if (intent.missingDescriptionOnly) {
+      setFilters((current) => ({
+        ...current,
+        view: "active",
+        missingDescriptionOnly: true,
+      }));
     }
     clearIntent();
   }, [intent]);
@@ -297,6 +320,7 @@ export default function JobsPage() {
     filters.minScore,
     filters.remote,
     filters.salaryOnly,
+    filters.missingDescriptionOnly,
     filters.sort,
   ]);
 
@@ -457,6 +481,8 @@ export default function JobsPage() {
   const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
   const currentList = filters.view === "active" ? jobs : dismissedJobs;
   const scoredActiveJobs = jobs.filter((job) => Number(job?.score || 0) > 0);
+  const jobsWithoutDescriptionCount = jobs.filter(jobNeedsDescriptionAttention).length;
+  const hiddenAppliedCount = currentList.filter((job) => appliedJobHashes.has(job.hash)).length;
   const salaryMetrics = buildAnnualSalaryMetrics(jobs);
   const jobsWithSalary = Number(salaryMetrics.jobsWithSalary || 0);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
@@ -503,7 +529,8 @@ export default function JobsPage() {
       const salaryMatch = !filters.salaryOnly || (job.salary_min && job.salary_min > 0);
       const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
       const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
-      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch;
+      const descriptionMatch = !filters.missingDescriptionOnly || jobNeedsDescriptionAttention(job);
+      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch && descriptionMatch;
     })
     .sort((a, b) => {
       // Pinned jobs always come first
@@ -520,6 +547,82 @@ export default function JobsPage() {
         default: return 0;
       }
     });
+  const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
+  const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
+  const jobsGuidance = (() => {
+    if (searchJob.running) {
+      return {
+        badge: "Läuft",
+        tone: "sky",
+        title: "Jobsuche wird gerade aktualisiert",
+        description: searchJob.message || "Neue Treffer kommen laufend rein. Prüfe die Liste erst, wenn die Suche durch ist.",
+      };
+    }
+    if (filters.view === "active" && jobsWithoutDescriptionCount > 0) {
+      return {
+        badge: "Score prüfen",
+        tone: "amber",
+        title: "Ein Teil der Scores ist noch nicht belastbar",
+        description: `${jobsWithoutDescriptionCount} aktive Stelle(n) haben keine oder nur eine sehr kurze Beschreibung. Prüfe diese Treffer vor einer Entscheidung direkt gegen die Originalanzeige.`,
+        actionLabel: filters.missingDescriptionOnly ? "Alle Stellen zeigen" : "Nur diese Stellen zeigen",
+        action: () => setFilters((current) => ({ ...current, view: "active", missingDescriptionOnly: !current.missingDescriptionOnly })),
+      };
+    }
+    if (filters.view === "active" && filteredJobs.length === 0 && currentList.length > 0 && filters.hideApplied && hiddenAppliedCount === currentList.length) {
+      return {
+        badge: "Filter",
+        tone: "sky",
+        title: "Alle sichtbaren Treffer sind nur wegen \"Beworbene ausblenden\" weg",
+        description: "Für einen Vollcheck lohnt sich ein kurzer Blick auf bereits bearbeitete Stellen, bevor du unnötig neu suchst.",
+        actionLabel: "Beworbene einblenden",
+        action: () => setFilters((current) => ({ ...current, hideApplied: false })),
+      };
+    }
+    if (filters.view === "active" && filteredJobs.length === 0 && currentList.length > 0) {
+      return {
+        badge: "Filter",
+        tone: "neutral",
+        title: "Die aktuelle Filterkombination ist strenger als nötig",
+        description: "Gerade passt kein Treffer mehr durch die Filter. Lockere zuerst die Auswahl, bevor du annimmst, dass nichts Passendes da ist.",
+        actionLabel: "Filter zurücksetzen",
+        action: () => setFilters((current) => ({
+          ...current,
+          query: "",
+          source: "",
+          minScore: "0",
+          remote: "",
+          salaryOnly: false,
+          employmentType: "",
+          hideApplied: true,
+          missingDescriptionOnly: false,
+        })),
+      };
+    }
+    if (filters.view === "active" && filteredJobs.length === 0 && searchNeedsRefresh) {
+      return {
+        badge: "Suche",
+        tone: "danger",
+        title: "Erst die Jobsuche erneuern, dann wieder aussortieren",
+        description: "Die Suche ist veraltet oder noch nie gelaufen. Neue Treffer bringen jetzt mehr als noch feinere Filter.",
+        actionLabel: "Jobsuche starten",
+        action: () => copyPrompt("/jobsuche_workflow"),
+      };
+    }
+    if (filters.view === "dismissed" && dismissedJobs.length > 0) {
+      return {
+        badge: "Review",
+        tone: "neutral",
+        title: "Ausgeblendete Stellen sind dein späteres Prüfregal",
+        description: "Hier solltest du nur bewusst wiederherstellen, nicht wahllos zurückholen. Nutze die Gründe als Lernsignal für bessere Filter.",
+      };
+    }
+    return {
+      badge: "Auf Kurs",
+      tone: "success",
+      title: "Die Stellenliste ist arbeitsfähig",
+      description: "Prüfe jetzt die besten Treffer, bevor du neue Suchrunden startest. Erst sichten, dann bewerben, dann nachschärfen.",
+    };
+  })();
 
   return (
     <div id="page-stellen" className="page active">
@@ -551,6 +654,26 @@ export default function JobsPage() {
             tone="sky"
           />
         </div>
+
+        <Card className="rounded-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>
+                {visibleDescriptionGaps > 0 ? (
+                  <span className="text-xs text-muted/50">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</span>
+                ) : null}
+              </div>
+              <h2 className="mt-3 text-base font-semibold text-ink">{jobsGuidance.title}</h2>
+              <p className="mt-1 max-w-3xl text-sm text-muted">{jobsGuidance.description}</p>
+            </div>
+            {jobsGuidance.actionLabel ? (
+              <Button size="sm" variant="secondary" onClick={jobsGuidance.action}>
+                {jobsGuidance.actionLabel}
+              </Button>
+            ) : null}
+          </div>
+        </Card>
 
         <Card className="rounded-2xl">
           {/* Row 1: Search bar + counter */}
@@ -735,6 +858,24 @@ export default function JobsPage() {
               Beworbene ausblenden
             </button>
 
+            <div className="group inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                  filters.missingDescriptionOnly
+                    ? "border-amber/20 bg-amber/8 text-amber"
+                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                )}
+                onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: !current.missingDescriptionOnly }))}
+              >
+                Nur ohne Beschreibung
+              </button>
+              {filters.missingDescriptionOnly && (
+                <button type="button" onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
+
             {/* Spacer */}
             <div className="flex-1" />
 
@@ -816,6 +957,9 @@ export default function JobsPage() {
                     {appliedJobHashes.has(job.hash) ? (
                       <Badge tone="success">Bereits beworben</Badge>
                     ) : null}
+                    {jobNeedsDescriptionAttention(job) ? (
+                      <Badge tone="amber">Score unsicher</Badge>
+                    ) : null}
                   </div>
                   <div
                     className="cursor-pointer group"
@@ -825,6 +969,11 @@ export default function JobsPage() {
                     <h2 className="text-2xl font-semibold text-ink group-hover:text-sky transition-colors">{job.title}</h2>
                     <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
                     <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
+                    {jobNeedsDescriptionAttention(job) ? (
+                      <p className="text-xs text-amber">
+                        Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du den Score zu ernst nimmst.
+                      </p>
+                    ) : null}
                     {job.salary_min ? (
                       <p className="text-sm text-ink">
                         Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
@@ -1160,6 +1309,7 @@ export default function JobsPage() {
                 {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
                 <Badge tone="amber">Score {detailDialog.job.score || 0}</Badge>
+                {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">Score unsicher</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>
               {detailDialog.job.salary_min ? (
@@ -1173,6 +1323,14 @@ export default function JobsPage() {
                 <a href={detailDialog.job.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
                   <ExternalLink size={14} /> Stellenanzeige oeffnen
                 </a>
+              ) : null}
+              {jobNeedsDescriptionAttention(detailDialog.job) ? (
+                <Card className="rounded-xl border-amber/20 bg-amber/10 shadow-none">
+                  <p className="text-sm font-semibold text-ink">Beschreibung zuerst nachziehen</p>
+                  <p className="mt-1 text-sm text-muted">
+                    Für diese Stelle fehlt eine belastbare Beschreibung. Der Score ist deshalb nur eine Vororientierung und kein sauberes Urteil.
+                  </p>
+                </Card>
               ) : null}
               {detailDialog.job.description ? (
                 <div className="glass-card p-4 rounded-xl">

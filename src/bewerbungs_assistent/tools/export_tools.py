@@ -259,6 +259,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         stats = db.get_statistics()
+        score_stats = db.get_score_stats()
 
         # Gather application data with job info
         apps = db.get_applications()
@@ -267,7 +268,9 @@ def register(mcp, db, logger):
                 job = db.get_job(a["job_hash"])
                 if job:
                     a["score"] = job.get("score", 0) + 5  # #173: +5 Score-Bonus fuer beworbene Stellen
-                    a["job_source"] = job.get("source", "")
+                    a["job_source"] = db._preferred_application_source(
+                        a.get("source"), job.get("source", "")
+                    )
                     a["is_pinned"] = job.get("is_pinned", False)
                     a["job_description"] = job.get("description", "")
                 else:
@@ -278,13 +281,9 @@ def register(mcp, db, logger):
                 a["score"] = 5
                 a["job_source"] = a.get("source") or "importiert (pre-PBP)"
 
-        # Score distribution
+        # Score distribution (#178): use historical all-jobs distribution from DB stats
         all_jobs = db.get_active_jobs()
-        score_dist = {}
-        for j in all_jobs:
-            s = j.get("score", 0)
-            bracket = f"{(s // 2) * 2}-{(s // 2) * 2 + 1}"
-            score_dist[bracket] = score_dist.get(bracket, 0) + 1
+        score_dist = score_stats.get("score_distribution", {})
 
         # Unapplied high-score jobs
         applied_hashes = {a.get("job_hash") for a in apps if a.get("job_hash")}

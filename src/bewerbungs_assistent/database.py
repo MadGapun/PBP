@@ -897,6 +897,16 @@ class Database:
                 pass
         return app
 
+    def _preferred_application_source(self, app_source: Optional[str], job_source: Optional[str]) -> str:
+        """Return the most accurate source for an application/report row."""
+        app_val = (app_source or "").strip()
+        job_val = (job_source or "").strip()
+        if app_val and app_val.lower() != "manuell":
+            return app_val
+        if job_val:
+            return job_val
+        return app_val
+
     def resolve_job_hash(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[str]:
         """Resolve a public job hash to the stored value for one profile."""
         if not job_hash:
@@ -1787,13 +1797,17 @@ class Database:
                 if job_row:
                     # Manuell gesetzter Typ hat Vorrang (#151)
                     app["job_employment_type"] = app.get("employment_type") or job_row["employment_type"]
-                    app["job_source"] = job_row["source"]
+                    app["job_source"] = self._preferred_application_source(
+                        app.get("source"), job_row["source"]
+                    )
                     if not app.get("url"):
                         app["url"] = job_row["url"]
             else:
                 # Manuell angelegte Bewerbung ohne Job-Verknüpfung
                 if app.get("employment_type"):
                     app["job_employment_type"] = app["employment_type"]
+                if app.get("source"):
+                    app["job_source"] = app["source"]
             apps.append(self._serialize_application_row(app))
         return apps
 
@@ -1843,6 +1857,11 @@ class Database:
         now = _now()
         pid = self.get_active_profile_id()
         stored_job_hash = self.resolve_job_hash(data.get("job_hash"), pid) if data.get("job_hash") else None
+        source = data.get("source", "")
+        if stored_job_hash and not str(source or "").strip():
+            linked_job = self.get_job(stored_job_hash, pid)
+            if linked_job:
+                source = linked_job.get("source", "") or ""
         conn.execute("""
             INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
@@ -1859,7 +1878,7 @@ class Database:
             data.get("ansprechpartner", ""),
             data.get("kontakt_email", ""),
             data.get("portal_name", ""),
-            data.get("source", ""),
+            source,
         ))
         # Add initial event
         conn.execute("""
@@ -2341,14 +2360,13 @@ class Database:
             GROUP BY source ORDER BY cnt DESC
         """, (pid,)).fetchall()
 
-        # Application sources (#87)
-        app_source_rows = conn.execute("""
-            SELECT COALESCE(j.source, 'import') as job_source, COUNT(*) as cnt
-            FROM applications a
-            LEFT JOIN jobs j ON a.job_hash = j.hash
-            WHERE (a.profile_id=? OR a.profile_id IS NULL)
-            GROUP BY job_source ORDER BY cnt DESC
-        """, (pid,)).fetchall()
+        # Application sources (#87, #185) – prefer applications.source over jobs.source
+        app_sources = {}
+        for app in self.get_applications(include_archived=True):
+            source = self._preferred_application_source(
+                app.get("source"), app.get("job_source")
+            ) or "import"
+            app_sources[source] = app_sources.get(source, 0) + 1
 
         return {
             "score_distribution": {r["bracket"]: r["cnt"] for r in dist_rows},
@@ -2360,8 +2378,8 @@ class Database:
                 for r in source_rows
             ],
             "application_sources": [
-                {"name": r["job_source"], "count": r["cnt"]}
-                for r in app_source_rows
+                {"name": name, "count": count}
+                for name, count in sorted(app_sources.items(), key=lambda item: (-item[1], item[0]))
             ],
         }
 
@@ -2580,7 +2598,7 @@ class Database:
             ORDER BY a.applied_at DESC
         """, (pid,)).fetchall()
 
-        # Score distribution (non-pinned only)
+        # Score distribution (non-pinned only) – all jobs for historical accuracy (#178)
         score_dist = conn.execute("""
             SELECT
                 CASE
@@ -2590,7 +2608,7 @@ class Database:
                     WHEN score BETWEEN 7 AND 9 THEN '7-9'
                     ELSE '10+'
                 END as bracket, COUNT(*) as cnt
-            FROM jobs WHERE is_active=1 AND is_pinned=0
+            FROM jobs WHERE is_pinned=0
             AND (profile_id=? OR profile_id IS NULL)
             GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
@@ -2614,7 +2632,17 @@ class Database:
         """, (pid,)).fetchone()
 
         return {
-            "applications": [self._serialize_application_row(r) for r in apps],
+            "applications": [
+                self._serialize_application_row(
+                    {
+                        **dict(r),
+                        "job_source": self._preferred_application_source(
+                            dict(r).get("source"), dict(r).get("job_source")
+                        ),
+                    }
+                )
+                for r in apps
+            ],
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
             "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
             "date_range": {

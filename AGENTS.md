@@ -1,6 +1,6 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 0.30.0 (Stand: 2026-03-20)
+> **Version:** 0.32.2 (Stand: 2026-03-23)
 > **Detaillierte Doku:** `README.md`, `CHANGELOG.md`
 
 ## Projektübersicht
@@ -10,7 +10,7 @@ unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstrac
 
 **Sprache:** Deutsch
 **Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, React 19, Playwright
-**Tests:** 317 Tests, alle grün
+**Tests:** 349 Tests, alle grün
 
 ## Architektur
 

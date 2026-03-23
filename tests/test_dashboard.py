@@ -103,7 +103,7 @@ class TestStatus:
         r = client.get("/api/status")
         assert r.status_code == 200
         data = r.json()
-        assert data["version"] == "0.32.0"
+        assert data["version"] == "0.32.2"
         assert data["has_profile"] is False
         assert data["profile_name"] is None
         assert data["active_jobs"] == 0
@@ -114,7 +114,7 @@ class TestStatus:
         client.post("/api/profile", json={"name": "Tester"})
         r = client.get("/api/status")
         data = r.json()
-        assert data["version"] == "0.32.0"
+        assert data["version"] == "0.32.2"
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
 
@@ -549,6 +549,23 @@ class TestApplications:
         # Page 3 (last item)
         r4 = client.get("/api/applications?limit=2&offset=4")
         assert len(r4.json()["applications"]) == 1
+
+    def test_archived_applications_are_hidden_by_default_but_counted(self, client):
+        """Archivierte Bewerbungen bleiben standardmäßig verborgen, sind aber als Metadaten sichtbar."""
+        client.post("/api/applications", json={"title": "Aktiv", "company": "Firma A", "status": "beworben"})
+        client.post("/api/applications", json={"title": "Archiv", "company": "Firma B", "status": "abgelehnt"})
+
+        hidden = client.get("/api/applications")
+        hidden_data = hidden.json()
+        assert hidden.status_code == 200
+        assert hidden_data["archived_count"] == 1
+        assert [app["title"] for app in hidden_data["applications"]] == ["Aktiv"]
+
+        visible = client.get("/api/applications?include_archived=true")
+        visible_data = visible.json()
+        assert visible.status_code == 200
+        assert visible_data["archived_count"] == 1
+        assert {app["title"] for app in visible_data["applications"]} == {"Aktiv", "Archiv"}
 
 
 # ============================================================
