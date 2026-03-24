@@ -2082,7 +2082,9 @@ async def api_upload_document(
                     "error": str(exc),
                     "hinweis": (
                         "MSG-Dateien benoetigen das Paket 'extract-msg'. "
-                        "Bitte Installation pruefen oder die Mail als .eml exportieren."
+                        "Bitte PBP neu installieren oder aktualisieren. "
+                        "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern "
+                        "und erneut hochladen."
                     ),
                 },
                 status_code=501,

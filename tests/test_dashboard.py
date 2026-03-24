@@ -1161,7 +1161,11 @@ class TestStatistics:
 
         def fail_extract(filepath):
             if str(filepath).lower().endswith(".msg"):
-                raise ImportError("extract-msg ist nicht installiert. Bitte mit 'pip install extract-msg' installieren.")
+                raise ImportError(
+                    "extract-msg ist nicht installiert. "
+                    "Bitte PBP neu installieren oder aktualisieren. "
+                    "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern und erneut hochladen."
+                )
             return "", None
 
         monkeypatch.setattr(dash, "_extract_document_text", fail_extract)
@@ -1175,6 +1179,8 @@ class TestStatistics:
         assert response.status_code == 501
         body = response.json()
         assert "extract-msg" in body["error"]
+        assert "PDF" in body["hinweis"]
+        assert "Outlook" in body["hinweis"]
 
         profile = client.get("/api/profile").json()
         assert profile["documents"] == []
@@ -1218,7 +1224,11 @@ class TestStatistics:
 
         def fail_extract(filepath):
             if str(filepath).lower().endswith(".msg"):
-                raise ImportError("extract-msg ist nicht installiert. Bitte mit 'pip install extract-msg' installieren.")
+                raise ImportError(
+                    "extract-msg ist nicht installiert. "
+                    "Bitte PBP neu installieren oder aktualisieren. "
+                    "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern und erneut hochladen."
+                )
             return "", None
 
         monkeypatch.setattr(dash, "_extract_document_text", fail_extract)
@@ -1234,6 +1244,7 @@ class TestStatistics:
         assert payload["skipped_files"] == 1
         assert payload["warning_count"] == 1
         assert "extract-msg" in payload["warnings"][0]
+        assert "PDF" in payload["warnings"][0]
 
     def test_analyze_documents_keeps_non_empty_text_as_basis_analysiert(self, client):
         """Readable documents without structured profile fields should not fall back to 'Ohne Inhalt'."""

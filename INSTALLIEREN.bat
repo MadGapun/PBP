@@ -334,6 +334,12 @@ echo [DEBUG] Optionale Pakete PDF/Word... >> "%LOGFILE%"
 if !errorlevel! equ 0 echo         [OK] PDF/Word-Export installiert
 if !errorlevel! neq 0 echo         [--] PDF/Word-Export uebersprungen
 
+:: Optionale Pakete - E-Mail/Outlook
+echo [DEBUG] Optionale Pakete E-Mail/Outlook... >> "%LOGFILE%"
+"%PYTHON%" -m pip install extract-msg icalendar --no-warn-script-location >> "%LOGFILE%" 2>&1
+if !errorlevel! equ 0 echo         [OK] E-Mail/Outlook-Import installiert
+if !errorlevel! neq 0 echo         [--] E-Mail/Outlook-Import uebersprungen
+
 :: Datenverzeichnis erstellen
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
 if not exist "%DATA_DIR%\dokumente" mkdir "%DATA_DIR%\dokumente"
