@@ -2097,12 +2097,16 @@ async def api_upload_document(
             filepath.unlink(missing_ok=True)
             return JSONResponse(
                 {
-                    "error": str(exc),
+                    "error": (
+                        "Outlook-Mails (.msg) werden in dieser Installation nicht unterstuetzt. "
+                        "Das Paket 'extract-msg' fehlt oder konnte nicht installiert werden."
+                    ),
                     "hinweis": (
-                        "MSG-Dateien benoetigen das Paket 'extract-msg'. "
-                        "Bitte PBP neu installieren oder aktualisieren. "
-                        "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern "
-                        "und erneut hochladen."
+                        "Bitte PBP neu installieren (INSTALLIEREN.bat). "
+                        "Falls das Problem bestehen bleibt: "
+                        "Die Mail in Outlook oeffnen und als .eml oder PDF speichern, "
+                        "dann hier erneut hochladen. "
+                        "(Datei > Speichern unter > 'Nur Text (*.eml)' oder PDF)"
                     ),
                 },
                 status_code=501,
@@ -2170,6 +2174,41 @@ async def api_upload_document(
     if fname.endswith((".msg", ".eml")) and extracted.strip():
         _db.update_document_extraction_status(did, "basis_analysiert")
 
+    # For email documents: apply full email intelligence (meetings, status, timeline)
+    stored_meetings = []
+    if email_context and linked_app:
+        try:
+            from .services.email_service import parse_email_file, extract_meetings_from_email
+
+            parsed = parse_email_file(str(filepath))
+
+            # Store meetings if detected
+            meetings = extract_meetings_from_email(parsed)
+            for m in meetings:
+                if m.get("start"):
+                    mid = _db.add_meeting({
+                        "application_id": linked_app,
+                        "title": m.get("title", "Termin"),
+                        "meeting_date": m["start"],
+                        "meeting_end": m.get("end"),
+                        "location": m.get("location", ""),
+                        "meeting_url": m.get("meeting_url"),
+                        "platform": m.get("platform"),
+                        "meeting_type": "interview",
+                    })
+                    stored_meetings.append({"id": mid, **m})
+
+            # Add timeline event
+            direction = email_context.get("direction", "eingang")
+            subject = parsed.get("subject", "Ohne Betreff")
+            if direction == "ausgang":
+                event_note = f"Ausgehende Mail: {subject}"
+            else:
+                event_note = f"E-Mail: {subject}"
+            _db.add_application_event(linked_app, f"email_{direction}", event_note)
+        except Exception as e:
+            logger.warning("Email intelligence for doc %s failed: %s", did, e)
+
     return {
         "status": "ok",
         "id": did,
@@ -2178,6 +2217,10 @@ async def api_upload_document(
         "extracted_length": len(extracted),
         "linked_application": linked_app,
         "email_context": email_context,
+        "meetings": [
+            {k: v for k, v in m.items() if k not in ("payload",)}
+            for m in stored_meetings
+        ] if stored_meetings else [],
     }
 
 

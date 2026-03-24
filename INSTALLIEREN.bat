@@ -4,7 +4,9 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.9.0
+:: PBP Installer v0.10.0
+:: Fix: setuptools+wheel vor extract-msg (embeddable Python)
+:: Fix: Klare Fehlermeldung wenn Outlook-Import scheitert
 :: Fix: Versionserkennung korrigiert
 :: Fix: Dashboard + Startdateien nach DATA_DIR kopieren
 :: Fix: Python nur downloaden wenn noch nicht vorhanden
@@ -33,7 +35,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.9.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.10.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -336,9 +338,41 @@ if !errorlevel! neq 0 echo         [--] PDF/Word-Export uebersprungen
 
 :: Optionale Pakete - E-Mail/Outlook
 echo [DEBUG] Optionale Pakete E-Mail/Outlook... >> "%LOGFILE%"
+:: setuptools + wheel muessen VOR extract-msg installiert werden,
+:: weil extract-msg Abhaengigkeiten hat (z.B. red-black-tree-mod),
+:: die aus dem Source gebaut werden und setuptools.build_meta brauchen.
+:: Embeddable Python bringt setuptools/wheel NICHT mit.
+echo [DEBUG] Installiere Build-Werkzeuge (setuptools, wheel)... >> "%LOGFILE%"
+"%PYTHON%" -m pip install setuptools wheel --no-warn-script-location >> "%LOGFILE%" 2>&1
+if !errorlevel! neq 0 (
+    echo [WARN] setuptools/wheel konnten nicht installiert werden >> "%LOGFILE%"
+    echo         [--] E-Mail/Outlook-Import uebersprungen
+    echo             Build-Werkzeuge konnten nicht installiert werden.
+    echo             .msg-Dateien ^(Outlook-Mails^) werden NICHT unterstuetzt.
+    echo             .eml-Dateien und PDF-Mails funktionieren weiterhin.
+    echo             Tipp: Outlook-Mails als .eml oder PDF speichern.
+    goto :email_install_done
+)
+echo [OK] setuptools + wheel installiert >> "%LOGFILE%"
 "%PYTHON%" -m pip install extract-msg icalendar --no-warn-script-location >> "%LOGFILE%" 2>&1
-if !errorlevel! equ 0 echo         [OK] E-Mail/Outlook-Import installiert
-if !errorlevel! neq 0 echo         [--] E-Mail/Outlook-Import uebersprungen
+if !errorlevel! equ 0 (
+    echo         [OK] E-Mail/Outlook-Import installiert
+    echo [OK] E-Mail/Outlook-Import installiert >> "%LOGFILE%"
+) else (
+    echo [WARN] extract-msg/icalendar Installation fehlgeschlagen >> "%LOGFILE%"
+    echo         [!!] Outlook-Mail-Import teilweise nicht verfuegbar
+    echo.
+    echo             Das Paket 'extract-msg' konnte nicht installiert werden.
+    echo             .msg-Dateien ^(Outlook-Mails^) werden NICHT unterstuetzt.
+    echo             .eml-Dateien und PDF-Mails funktionieren weiterhin.
+    echo.
+    echo             Workaround: Outlook-Mail oeffnen, dann:
+    echo               Datei ^> Speichern unter ^> "Nur Text" ^(.eml^) oder PDF
+    echo             Die gespeicherte Datei kann dann in PBP hochgeladen werden.
+    echo.
+    echo             Details im Log: %LOGFILE%
+)
+:email_install_done
 
 :: Datenverzeichnis erstellen
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"

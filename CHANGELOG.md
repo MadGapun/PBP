@@ -2,6 +2,42 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.32.6] - 2026-03-24
+
+### Fix: Outlook-Mail-Import (.msg) funktioniert jetzt im Installer
+
+**Ursache:** Embeddable Python 3.12 bringt weder `setuptools` noch `wheel` mit.
+Beim Installieren von `extract-msg` muss dessen Abhaengigkeit `red-black-tree-mod`
+aus dem Source gebaut werden — das scheiterte mit `BackendUnavailable: Cannot import
+'setuptools.build_meta'`. Der Installer uebersprang den gesamten E-Mail-Import still.
+
+**Fix (Installer v0.10.0):**
+- `setuptools` und `wheel` werden jetzt explizit vor `extract-msg` installiert
+- Bei Fehlern bekommt der Nutzer eine klare, mehrzeilige Erklaerung:
+  was fehlt, was das bedeutet, und wie der Workaround funktioniert
+  (.eml / PDF statt .msg)
+- Fehlerbehandlung mit separatem Label statt stiller Zeile
+
+**Fix (Dashboard):**
+- Fehlermeldung beim .msg-Upload ist jetzt konkreter und zeigt den Workaround
+  (Outlook > Speichern unter > .eml oder PDF) direkt an
+- `parse_msg()` Fehlermeldung vereinheitlicht
+
+**Enhancement (Dokumenten-Upload → volle E-Mail-Intelligenz):**
+- Dokument-Upload von `.eml`/`.msg` wendet jetzt die gleiche Logik wie der
+  dedizierte E-Mail-Endpoint an: Meetings werden erkannt und gespeichert,
+  Timeline-Events werden auf der zugeordneten Bewerbung erstellt
+- Vorher: nur Textextraktion und Auto-Linking; Meetings und Status-Erkennung
+  gingen beim Upload ueber `Profil > Dokumente` verloren
+- Neue API-Response enthaelt jetzt `meetings`-Array mit erkannten Terminen
+
+**Tests:** 2 neue Tests (Timeline-Event bei Mail-Upload, Meeting-Extraktion),
+362 Tests gruen, 4 geskippt
+
+**Verifikation:** Installer-Logik manuell geprueft. `.msg`-Upload-Fehlerfall
+getestet via Unit-Tests. Auf echtem Windows mit embeddable Python verifizierbar
+durch Ausfuehren von `INSTALLIEREN.bat`.
+
 ## [0.32.5] - 2026-03-24
 
 ### Stellen-Dialog und Outlook-Installer vervollstaendigt

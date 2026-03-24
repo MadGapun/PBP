@@ -229,8 +229,8 @@ def parse_msg(filepath: str) -> dict:
     except ImportError:
         raise ImportError(
             "extract-msg ist nicht installiert. "
-            "Bitte PBP neu installieren oder aktualisieren. "
-            "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern und erneut hochladen."
+            "Bitte PBP neu installieren (INSTALLIEREN.bat). "
+            "Falls das nicht hilft: Mail in Outlook als .eml oder PDF speichern und erneut hochladen."
         )
     msg = extract_msg.Message(filepath)
     sender = msg.sender or ""

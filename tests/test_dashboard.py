@@ -104,7 +104,7 @@ class TestStatus:
         r = client.get("/api/status")
         assert r.status_code == 200
         data = r.json()
-        assert data["version"] == "0.32.5"
+        assert data["version"] == "0.32.6"
         assert data["has_profile"] is False
         assert data["profile_name"] is None
         assert data["active_jobs"] == 0
@@ -115,7 +115,7 @@ class TestStatus:
         client.post("/api/profile", json={"name": "Tester"})
         r = client.get("/api/status")
         data = r.json()
-        assert data["version"] == "0.32.5"
+        assert data["version"] == "0.32.6"
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
 
@@ -1153,6 +1153,82 @@ class TestStatistics:
         assert document["linked_application_id"] == app_id
         assert document["extraction_status"] == "basis_analysiert"
 
+    def test_upload_email_document_creates_timeline_event(self, client):
+        """Email upload via documents endpoint should add a timeline event to the matched application."""
+        client.post("/api/profile", json={"name": "Uploader", "email": "markus@example.com"})
+        app_response = client.post(
+            "/api/applications",
+            json={
+                "title": "Tester",
+                "company": "Timeline Corp",
+                "status": "beworben",
+                "kontakt_email": "hr@timeline.com",
+            },
+        )
+        app_id = app_response.json()["id"]
+
+        body = "Vielen Dank fuer Ihre Bewerbung. Wir haben diese erhalten."
+        message = MIMEText(body)
+        message["Subject"] = "Eingangsbestaetigung"
+        message["From"] = "hr@timeline.com"
+        message["To"] = "markus@example.com"
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("bestaetigung.eml", message.as_bytes(), "message/rfc822")},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["linked_application"] == app_id
+
+        # Check timeline event via DB (application_events table)
+        import bewerbungs_assistent.dashboard as dash
+        conn = dash._db.connect()
+        events = conn.execute(
+            "SELECT * FROM application_events WHERE application_id=? AND status LIKE 'email_%'",
+            (app_id,),
+        ).fetchall()
+        assert len(events) >= 1, "Timeline event for email should have been created"
+        assert "Eingangsbestaetigung" in events[0]["notes"]
+
+    def test_upload_email_document_extracts_meeting(self, client):
+        """Email with Teams link and date should create a meeting when uploaded via documents."""
+        client.post("/api/profile", json={"name": "Uploader", "email": "markus@example.com"})
+        app_response = client.post(
+            "/api/applications",
+            json={
+                "title": "Dev",
+                "company": "MeetCo",
+                "status": "beworben",
+                "kontakt_email": "hr@meetco.com",
+            },
+        )
+        app_id = app_response.json()["id"]
+
+        body = (
+            "Wir moechten Sie gerne zu einem Vorstellungsgespraech einladen.\n"
+            "Termin: am 28.03.2026 um 10:00 Uhr\n"
+            "Link: https://teams.microsoft.com/l/meetup-join/19%3Ameeting_test123\n"
+        )
+        message = MIMEText(body)
+        message["Subject"] = "Einladung Interview"
+        message["From"] = "hr@meetco.com"
+        message["To"] = "markus@example.com"
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("interview.eml", message.as_bytes(), "message/rfc822")},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["linked_application"] == app_id
+        assert len(payload.get("meetings", [])) >= 1, "Meeting should have been extracted"
+        assert "teams" in (payload["meetings"][0].get("meeting_url") or "")
+
     def test_upload_msg_document_returns_clear_error_when_parser_missing(self, client, monkeypatch):
         """Missing extract-msg must surface as a user-facing error instead of a silent empty document."""
         client.post("/api/profile", json={"name": "Uploader"})
@@ -1163,8 +1239,8 @@ class TestStatistics:
             if str(filepath).lower().endswith(".msg"):
                 raise ImportError(
                     "extract-msg ist nicht installiert. "
-                    "Bitte PBP neu installieren oder aktualisieren. "
-                    "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern und erneut hochladen."
+                    "Bitte PBP neu installieren (INSTALLIEREN.bat). "
+                    "Falls das nicht hilft: Mail in Outlook als .eml oder PDF speichern und erneut hochladen."
                 )
             return "", None
 
@@ -1226,8 +1302,8 @@ class TestStatistics:
             if str(filepath).lower().endswith(".msg"):
                 raise ImportError(
                     "extract-msg ist nicht installiert. "
-                    "Bitte PBP neu installieren oder aktualisieren. "
-                    "Wenn das nicht moeglich ist, die Mail in Outlook als PDF oder .eml speichern und erneut hochladen."
+                    "Bitte PBP neu installieren (INSTALLIEREN.bat). "
+                    "Falls das nicht hilft: Mail in Outlook als .eml oder PDF speichern und erneut hochladen."
                 )
             return "", None
 
