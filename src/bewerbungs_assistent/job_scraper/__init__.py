@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Optional
 from urllib.parse import quote
 
@@ -346,6 +347,10 @@ def run_search(db, job_id: str, params: dict):
     # Deprecated sources (#159): skip with warning
     _deprecated_sources = {"linkedin", "xing"}
 
+    # Per-source timeout: 90 seconds per source (#200)
+    _SOURCE_TIMEOUT = 90
+    skipped_sources = []
+
     for i, quelle in enumerate(quellen):
         db.update_background_job(
             job_id, "running",
@@ -357,10 +362,12 @@ def run_search(db, job_id: str, params: dict):
             if quelle in _deprecated_sources:
                 logger.warning(
                     "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
+                skipped_sources.append(quelle)
                 continue
 
             if quelle not in _SCRAPER_MAP:
                 logger.warning("Unbekannte Quelle: %s", quelle)
+                skipped_sources.append(quelle)
                 continue
 
             module_name, func_name = _SCRAPER_MAP[quelle]
@@ -368,18 +375,24 @@ def run_search(db, job_id: str, params: dict):
             mod = importlib.import_module(f".{module_name}", package=__package__)
             search_func = getattr(mod, func_name)
 
-            if False:  # Legacy Playwright path — kept for reference
-                # Playwright-based scrapers: pass criteria + progress callback
-                pass
-            else:
-                jobs = search_func(params)
+            # Run with per-source timeout (#200)
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(search_func, params)
+                try:
+                    jobs = future.result(timeout=_SOURCE_TIMEOUT)
+                except FuturesTimeoutError:
+                    logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, _SOURCE_TIMEOUT)
+                    skipped_sources.append(quelle)
+                    continue
 
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
         except ImportError as e:
             logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
+            skipped_sources.append(quelle)
         except Exception as e:
             logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
+            skipped_sources.append(quelle)
 
     # Deduplicate — first by hash, then cross-source by normalized title+company (#59)
     seen_hashes = set()
@@ -443,11 +456,22 @@ def run_search(db, job_id: str, params: dict):
             job["salary_type"] = s_type
             job["salary_estimated"] = 1
 
-    # Heuristik: employment_type aus Titel/Beschreibung erkennen (#151)
+    # Heuristik: employment_type aus Quelle/Titel/Beschreibung erkennen (#151, #201)
+    _freelance_sources = {"freelance_de", "freelancermap", "gulp", "solcom"}
     _freelance_keywords = {"freelance", "freiberuflich", "freiberufler", "kontingent",
-                           "projektbasiert", "auf projektbasis"}
+                           "projektbasiert", "auf projektbasis", "interim",
+                           "interims", "interimsmanag"}
     for job in unique:
         if job.get("employment_type", "festanstellung") == "festanstellung":
+            # Source-based detection (#201)
+            if job.get("source") in _freelance_sources:
+                job["employment_type"] = "freelance"
+                continue
+            # Hays with hourly rate → freelance (#201)
+            if job.get("source") == "hays" and job.get("salary_type") == "hourly":
+                job["employment_type"] = "freelance"
+                continue
+            # Keyword-based detection in title and description
             haystack = f"{job.get('title', '')} {job.get('description', '')[:500]}".lower()
             if any(kw in haystack for kw in _freelance_keywords):
                 job["employment_type"] = "freelance"
@@ -492,7 +516,10 @@ def run_search(db, job_id: str, params: dict):
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
 
-    msg_parts = [f"{len(unique)} Stellen gefunden (aus {total} Quellen)"]
+    successful_sources = total - len(skipped_sources)
+    msg_parts = [f"{len(unique)} Stellen gefunden (aus {successful_sources}/{total} Quellen)"]
+    if skipped_sources:
+        msg_parts.append(f"Uebersprungen: {', '.join(skipped_sources)}")
     stats = cleanup["stats"]
     if stats.get("duplikate_db") or stats.get("blacklist") or stats.get("bereits_bewertet") or stats.get("bereits_beworben"):
         details = []

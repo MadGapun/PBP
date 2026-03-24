@@ -2208,14 +2208,15 @@ class Database:
                 stats["avg_score"] = round(stats["avg_score"], 1)
             stats["max_score"] = _safe_float(score_row["max_score"], 0)
             stats["scored_jobs"] = score_row["cnt"]
-        # Conversion rate
-        total = stats["total_applications"]
-        if total > 0:
+        # Conversion rate — exclude in_vorbereitung from basis (#198)
+        in_vorb = stats["applications_by_status"].get("in_vorbereitung", 0)
+        submitted = stats["total_applications"] - in_vorb
+        if submitted > 0:
             interviews = (stats["applications_by_status"].get("interview", 0)
                           + stats["applications_by_status"].get("zweitgespraech", 0))
             offers = stats["applications_by_status"].get("angebot", 0)
-            stats["interview_rate"] = round(interviews / total * 100, 1)
-            stats["offer_rate"] = round(offers / total * 100, 1)
+            stats["interview_rate"] = round(interviews / submitted * 100, 1)
+            stats["offer_rate"] = round(offers / submitted * 100, 1)
         # Sources breakdown — count ALL jobs (active + dismissed) for historical accuracy (#125)
         source_rows = conn.execute(
             "SELECT source, COUNT(*) as cnt, "
@@ -2259,31 +2260,37 @@ class Database:
             time_filter = f"AND applied_at >= {_time_limits[interval]}"
         time_filter_jobs = time_filter.replace("applied_at", "found_at")
 
+        # Normalize applied_at: strip timezone suffix and skip empty strings (#197)
+        _date_col = "substr(replace(applied_at, 'T', ' '), 1, 19)"
+        _date_filter = "AND applied_at IS NOT NULL AND applied_at != ''"
+
         if interval == "quarter":
             rows = conn.execute(f"""
                 SELECT
-                    CAST(strftime('%Y', applied_at) AS TEXT) || '-Q' ||
-                    CAST((CAST(strftime('%m', applied_at) AS INTEGER) - 1) / 3 + 1 AS TEXT)
+                    CAST(strftime('%Y', {_date_col}) AS TEXT) || '-Q' ||
+                    CAST((CAST(strftime('%m', {_date_col}) AS INTEGER) - 1) / 3 + 1 AS TEXT)
                     as period,
                     COUNT(*) as count, status
                 FROM applications
-                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
-                {time_filter}
+                WHERE (profile_id=? OR profile_id IS NULL)
+                {_date_filter} {time_filter}
                 GROUP BY period, status ORDER BY period
             """, (pid,)).fetchall()
         else:
             rows = conn.execute(f"""
-                SELECT strftime('{fmt}', applied_at) as period,
+                SELECT strftime('{fmt}', {_date_col}) as period,
                        COUNT(*) as count, status
                 FROM applications
-                WHERE applied_at IS NOT NULL AND (profile_id=? OR profile_id IS NULL)
-                {time_filter}
+                WHERE (profile_id=? OR profile_id IS NULL)
+                {_date_filter} {time_filter}
                 GROUP BY period, status ORDER BY period
             """, (pid,)).fetchall()
 
         periods = {}
         for r in rows:
             p = r["period"]
+            if not p:  # skip NULL periods from empty dates (#197)
+                continue
             if p not in periods:
                 periods[p] = {"total": 0, "by_status": {}}
             periods[p]["total"] += r["count"]

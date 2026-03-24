@@ -589,13 +589,15 @@ def register(mcp, db, logger):
                 s = a.get("status", "offen")
                 by_status[s] = by_status.get(s, 0) + 1
             total = len(filtered)
+            in_vorb = by_status.get("in_vorbereitung", 0)
+            submitted = total - in_vorb  # exclude in_vorbereitung from rate basis (#198)
             interviews = by_status.get("interview", 0) + by_status.get("zweitgespraech", 0)
             offers = by_status.get("angebot", 0) + by_status.get("angenommen", 0)
             stats["zeitraum"] = {"von": zeitraum_von, "bis": zeitraum_bis}
             stats["total_applications"] = total
             stats["applications_by_status"] = by_status
-            stats["interview_rate"] = round(interviews / total * 100, 1) if total else 0
-            stats["offer_rate"] = round(offers / total * 100, 1) if total else 0
+            stats["interview_rate"] = round(interviews / submitted * 100, 1) if submitted else 0
+            stats["offer_rate"] = round(offers / submitted * 100, 1) if submitted else 0
 
         # Pipeline-Zusammenfassung (#170)
         by_status = stats.get("applications_by_status", {})

@@ -154,8 +154,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     by_status_filtered = Counter(a.get("status", "offen") for a in apps)
     interviews = by_status_filtered.get("interview", 0) + by_status_filtered.get("zweitgespraech", 0)
     offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
-    interview_rate = round(interviews / total_apps * 100, 1) if total_apps else 0
-    offer_rate = round(offers / total_apps * 100, 1) if total_apps else 0
+    in_vorb = by_status_filtered.get("in_vorbereitung", 0)
+    submitted_apps = total_apps - in_vorb  # exclude in_vorbereitung (#198)
+    interview_rate = round(interviews / submitted_apps * 100, 1) if submitted_apps else 0
+    offer_rate = round(offers / submitted_apps * 100, 1) if submitted_apps else 0
 
     # Summary text
     pdf.set_font("Helvetica", "", 9)

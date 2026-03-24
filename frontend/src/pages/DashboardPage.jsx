@@ -187,7 +187,8 @@ export default function DashboardPage() {
 
   const dueFollowUps = data.followUps.filter((item) => item.faellig);
   const interviewCount = data.statistics?.applications_by_status?.interview || 0;
-  const applicationsCount = Number(data.applications?.length || data.statistics?.total_applications || 0);
+  const applicationsTotal = Number(data.statistics?.total_applications || data.applications?.length || 0);  // #199: use total from statistics (includes archived)
+  const applicationsCount = applicationsTotal;
   const applicationTimestamps = (data.applications || [])
     .map((item) => Date.parse(item?.applied_at || item?.created_at || item?.updated_at || ""))
     .filter((timestamp) => Number.isFinite(timestamp));
@@ -405,7 +406,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Bewerbungen" value={`${applicationsCount} / ${activeJobsCount}`} note="Bewerbungen / aktive Stellen" tone="sky" />
+        <MetricCard label="Bewerbungen" value={`${applicationsCount} / ${activeJobsCount}`} note={`${applicationsCount} gesamt / ${activeJobsCount} aktive Stellen`} tone="sky" />
         <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
         <MetricCard
           label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}

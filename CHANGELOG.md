@@ -160,6 +160,37 @@ Zustaenden und einer runderen Release-Basis.
 **Verifikation:** 349 Tests gruen, 4 Tests bewusst geskippt, Web-Build gruen
 (`python -m pytest tests -q`, `pnpm run build:web`)
 
+## [0.32.7] - 2026-03-24
+
+### Bugfixes (#197-#201)
+
+5 Bugs aus dem Produktivbetrieb behoben.
+
+- **#197:** Statistiken-Seite 500-Fehler behoben — `/api/stats/timeline` scheiterte an
+  gemischten Datumsformaten (ISO mit/ohne Timezone) und leeren `applied_at`-Werten
+  (z.B. bei `in_vorbereitung`-Bewerbungen). Datumsnormalisierung und leere Werte werden
+  jetzt korrekt behandelt.
+
+- **#198:** Interview-Rate zaehlt `in_vorbereitung` nicht mehr in der Gesamtbasis mit.
+  Berechnung basiert jetzt nur auf tatsaechlich eingereichten Bewerbungen
+  (in database.py, tools/bewerbungen.py und export_report.py).
+
+- **#199:** Dashboard-Kachel zeigt jetzt die Gesamtzahl aller Bewerbungen (aus Statistics)
+  statt nur die nicht-archivierten. Note klargestellt: "X gesamt / Y aktive Stellen".
+
+- **#200:** Jobsuche bricht nicht mehr komplett nach 10 Minuten ab. Jede Quelle hat jetzt
+  ein eigenes 90-Sekunden-Timeout. Bei Timeout wird die Quelle uebersprungen und die
+  bereits gesammelten Ergebnisse bleiben erhalten. Abschlussmeldung zeigt erfolgreiche
+  und uebersprungene Quellen.
+
+- **#201:** Stellentyp-Erkennung erweitert — Freelance/Interim werden jetzt automatisch
+  erkannt: Quellen-basiert (freelance_de, freelancermap, gulp, solcom), Titel-basiert
+  ("Interim", "Freelance"), und Hays mit Stundensatz. Keywords erweitert um "interim",
+  "interims", "interimsmanag".
+
+**Technisch:** 341 Tests (alle gruen, 4 uebersprungen), keine neuen Tools/Prompts,
+keine Schema-Aenderung.
+
 ## [0.32.1] - 2026-03-22
 
 ### Bugfixes + Diagnose (#178-#184, #154, #168, #176)
