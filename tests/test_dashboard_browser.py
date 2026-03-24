@@ -627,6 +627,40 @@ def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard
         context.close()
 
 
+def test_jobs_page_opens_detail_modal_and_allows_description_edit(live_dashboard, browser):
+    """Clicking a job title opens the detail modal and missing descriptions can be completed there."""
+    _seed_uncertain_jobs_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        page.get_by_role("heading", name="Senior Consultant").click()
+        page.get_by_role("heading", name="Stellendetails").wait_for(state="visible")
+        page.get_by_role("button", name="Bearbeiten").click()
+        page.get_by_role("heading", name="Stelle bearbeiten").wait_for(state="visible")
+
+        description_input = page.get_by_label("Beschreibung")
+        description_input.fill(
+            "Jetzt mit belastbarer Beschreibung: Aufgaben, Skills, Teamkontext und Verantwortlichkeiten."
+        )
+        page.get_by_role("button", name="Speichern").click()
+        page.get_by_text("Stelle aktualisiert").wait_for(state="visible")
+
+        response = httpx.get(f"{live_dashboard['base_url']}/api/jobs", timeout=5.0)
+        response.raise_for_status()
+        jobs = response.json()
+        updated = next(job for job in jobs if job["hash"] == "job-ohne-beschreibung")
+        assert "belastbarer Beschreibung" in updated["description"]
+    finally:
+        context.close()
+
+
 def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
     """Dashboard surfaces the workspace readiness as a clear next-step card."""
     _seed_ready_workspace(live_dashboard["db"])

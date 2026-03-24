@@ -154,6 +154,10 @@ export default function JobsPage() {
 
   const deferredQuery = useDeferredValue(filters.query);
 
+  const openDetailDialog = useCallback((job) => {
+    setDetailDialog({ open: true, job, editing: false });
+  }, []);
+
   const loadPage = useEffectEvent(async (options = {}) => {
     const silent = Boolean(options?.silent);
     const append = Boolean(options?.append);
@@ -962,8 +966,16 @@ export default function JobsPage() {
                     ) : null}
                   </div>
                   <div
-                    className="cursor-pointer group"
-                    onClick={() => setDetailDialog({ open: true, job, editing: false })}
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-sky/50 focus-visible:ring-offset-2 focus-visible:ring-offset-night"
+                    onClick={() => openDetailDialog(job)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openDetailDialog(job);
+                      }
+                    }}
                     title="Details anzeigen"
                   >
                     <h2 className="text-2xl font-semibold text-ink group-hover:text-sky transition-colors">{job.title}</h2>
@@ -1253,10 +1265,13 @@ export default function JobsPage() {
 
       {/* Job Detail Modal (#90) */}
       {detailDialog.open && detailDialog.job && (
-        <Modal onClose={() => setDetailDialog({ open: false, job: null, editing: false })}>
+        <Modal
+          open={detailDialog.open}
+          title={detailDialog.editing ? "Stelle bearbeiten" : "Stellendetails"}
+          onClose={() => setDetailDialog({ open: false, job: null, editing: false })}
+        >
           {detailDialog.editing ? (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-ink">Stelle bearbeiten</h2>
               <Field label="Titel">
                 <TextInput value={editForm.title || ""} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
               </Field>
@@ -1283,7 +1298,7 @@ export default function JobsPage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h2>
+                  <h3 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h3>
                   <p className="text-sm text-muted">{detailDialog.job.company || "Unbekannt"}{detailDialog.job.location ? ` — ${detailDialog.job.location}` : ""}</p>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {
