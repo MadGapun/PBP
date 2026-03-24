@@ -183,8 +183,27 @@ export default function App() {
 
   async function copyPrompt(prompt) {
     try {
-      await copyToClipboard(prompt);
-      const normalizedPrompt = String(prompt || "").trim().toLocaleLowerCase("de-DE");
+      const rawPrompt = String(prompt || "").trim();
+      const normalizedPrompt = rawPrompt.toLocaleLowerCase("de-DE");
+      let promptToCopy = rawPrompt;
+      let copiedResolvedWorkflow = false;
+
+      if (normalizedPrompt.startsWith("/")) {
+        const workflowName = rawPrompt.slice(1).split(/\s+/)[0];
+        if (workflowName) {
+          try {
+            const resolved = await api(`/api/workflow-prompt/${encodeURIComponent(workflowName)}`);
+            if (resolved?.prompt) {
+              promptToCopy = resolved.prompt;
+              copiedResolvedWorkflow = true;
+            }
+          } catch (error) {
+            pushToast(`Workflow-Prompt konnte nicht aufgelöst werden, kopiere Originalbefehl: ${error.message}`, "amber");
+          }
+        }
+      }
+
+      await copyToClipboard(promptToCopy);
       const isConversationPrompt =
         normalizedPrompt === "/ersterfassung" || normalizedPrompt.startsWith("/ersterfassung ");
       if (isConversationPrompt) {
@@ -211,7 +230,13 @@ export default function App() {
           });
         }
       }
-      pushToast("Prompt kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
+      pushToast(
+        copiedResolvedWorkflow
+          ? "Arbeitsanweisung kopiert — füge sie mit Strg+V in Claude ein."
+          : "Prompt kopiert — füge ihn mit Strg+V in Claude ein.",
+        "success",
+        { duration: 7200 }
+      );
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -1195,7 +1220,7 @@ export default function App() {
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">PBP — Persönliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.3"}</p>
+                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.4"}</p>
                   <p className="text-muted/60">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">

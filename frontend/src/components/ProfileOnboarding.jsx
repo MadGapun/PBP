@@ -885,6 +885,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
             className="hidden"
             type="file"
             multiple
+            accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
             onChange={(event) => {
               addFiles(event.target.files);
               event.target.value = "";
@@ -895,6 +896,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
             className="hidden"
             type="file"
             multiple
+            accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
             webkitdirectory=""
             directory=""
             onChange={(event) => {

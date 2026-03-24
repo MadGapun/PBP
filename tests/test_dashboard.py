@@ -9,6 +9,7 @@ import os
 import sys
 import json
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 from pathlib import Path
 
 import pytest
@@ -103,7 +104,7 @@ class TestStatus:
         r = client.get("/api/status")
         assert r.status_code == 200
         data = r.json()
-        assert data["version"] == "0.32.3"
+        assert data["version"] == "0.32.4"
         assert data["has_profile"] is False
         assert data["profile_name"] is None
         assert data["active_jobs"] == 0
@@ -114,7 +115,7 @@ class TestStatus:
         client.post("/api/profile", json={"name": "Tester"})
         r = client.get("/api/status")
         data = r.json()
-        assert data["version"] == "0.32.3"
+        assert data["version"] == "0.32.4"
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
 
@@ -1091,6 +1092,206 @@ class TestStatistics:
         first_path = Path(first_profile["documents"][0]["filepath"])
         second_path = Path(second_profile["documents"][0]["filepath"])
         assert first_path.parent != second_path.parent
+
+    def test_upload_email_document_extracts_mail_content(self, client):
+        """Uploading an .eml through the documents endpoint stores readable text for later analysis."""
+        client.post("/api/profile", json={"name": "Uploader"})
+
+        message = MIMEText("Vielen Dank fuer Ihre Bewerbung. Wir melden uns zeitnah.")
+        message["Subject"] = "Recruiter-Update"
+        message["From"] = "hr@example.com"
+        message["To"] = "markus@example.com"
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("recruiter-update.eml", message.as_bytes(), "message/rfc822")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["extracted_length"] > 0
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+        assert "Recruiter-Update" in document["extracted_text"]
+        assert "Vielen Dank fuer Ihre Bewerbung" in document["extracted_text"]
+
+    def test_upload_email_document_auto_links_matching_application(self, client):
+        """Document uploads should reuse email matching helpers when a mail clearly belongs to one application."""
+        client.post("/api/profile", json={"name": "Uploader", "email": "markus@example.com"})
+        app_response = client.post(
+            "/api/applications",
+            json={
+                "title": "Senior Consultant",
+                "company": "ACME GmbH",
+                "status": "beworben",
+                "kontakt_email": "hr@example.com",
+            },
+        )
+        assert app_response.status_code == 200
+        app_id = app_response.json()["id"]
+
+        message = MIMEText("Wir laden Sie gern zu einem Interview ein.")
+        message["Subject"] = "Interview bei ACME"
+        message["From"] = "hr@example.com"
+        message["To"] = "markus@example.com"
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("einladung.eml", message.as_bytes(), "message/rfc822")},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["linked_application"] == app_id
+        assert payload["email_context"]["matched_application"]["id"] == app_id
+        assert payload["email_context"]["detected_status"] == "interview"
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+        assert document["linked_application_id"] == app_id
+        assert document["extraction_status"] == "basis_analysiert"
+
+    def test_upload_msg_document_returns_clear_error_when_parser_missing(self, client, monkeypatch):
+        """Missing extract-msg must surface as a user-facing error instead of a silent empty document."""
+        client.post("/api/profile", json={"name": "Uploader"})
+
+        import bewerbungs_assistent.dashboard as dash
+
+        def fail_extract(filepath):
+            if str(filepath).lower().endswith(".msg"):
+                raise ImportError("extract-msg ist nicht installiert. Bitte mit 'pip install extract-msg' installieren.")
+            return "", None
+
+        monkeypatch.setattr(dash, "_extract_document_text", fail_extract)
+
+        response = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("outlook.msg", b"dummy", "application/vnd.ms-outlook")},
+        )
+
+        assert response.status_code == 501
+        body = response.json()
+        assert "extract-msg" in body["error"]
+
+        profile = client.get("/api/profile").json()
+        assert profile["documents"] == []
+
+    def test_import_folder_supports_eml_documents(self, client, tmp_path):
+        """Folder import should parse .eml files and keep them usable for profile analysis."""
+        client.post("/api/profile", json={"name": "Importer"})
+        folder = tmp_path / "import"
+        folder.mkdir()
+
+        message = MIMEText("Bitte senden Sie uns Ihre Unterlagen.")
+        message["Subject"] = "Stellenbeschreibung"
+        message["From"] = "jobs@example.com"
+        message["To"] = "markus@example.com"
+        (folder / "angebot.eml").write_bytes(message.as_bytes())
+
+        response = client.post(
+            "/api/documents/import-folder",
+            json={"folder_path": str(folder), "import_documents": True, "import_applications": False},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["documents_imported"] == 1
+        assert payload["warning_count"] == 0
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+        assert document["filename"] == "angebot.eml"
+        assert "Stellenbeschreibung" in document["extracted_text"]
+        assert document["extraction_status"] == "basis_analysiert"
+
+    def test_import_folder_reports_missing_msg_parser_as_warning(self, client, tmp_path, monkeypatch):
+        """Folder import should report .msg parser problems clearly instead of silently importing empty docs."""
+        client.post("/api/profile", json={"name": "Importer"})
+        folder = tmp_path / "import"
+        folder.mkdir()
+        (folder / "outlook.msg").write_bytes(b"dummy")
+
+        import bewerbungs_assistent.dashboard as dash
+
+        def fail_extract(filepath):
+            if str(filepath).lower().endswith(".msg"):
+                raise ImportError("extract-msg ist nicht installiert. Bitte mit 'pip install extract-msg' installieren.")
+            return "", None
+
+        monkeypatch.setattr(dash, "_extract_document_text", fail_extract)
+
+        response = client.post(
+            "/api/documents/import-folder",
+            json={"folder_path": str(folder), "import_documents": True, "import_applications": False},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["documents_imported"] == 0
+        assert payload["skipped_files"] == 1
+        assert payload["warning_count"] == 1
+        assert "extract-msg" in payload["warnings"][0]
+
+    def test_analyze_documents_keeps_non_empty_text_as_basis_analysiert(self, client):
+        """Readable documents without structured profile fields should not fall back to 'Ohne Inhalt'."""
+        client.post("/api/profile", json={"name": "Uploader"})
+
+        upload = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "sonstiges"},
+            files={"file": ("notiz.txt", b"Bitte denke an das Nachfassen am Freitag.", "text/plain")},
+        )
+        assert upload.status_code == 200
+
+        analysis = client.post("/api/dokumente-analysieren", json={"force": True})
+        assert analysis.status_code == 200
+        payload = analysis.json()
+        assert payload["status"] == "keine_daten"
+        assert payload["basis_analysiert"] == 1
+        assert payload["analysiert_leer"] == 0
+
+        profile = client.get("/api/profile").json()
+        assert profile["documents"][0]["extraction_status"] == "basis_analysiert"
+
+    def test_document_analysis_prompt_targets_single_document(self, client):
+        """The prompt endpoint should generate a Claude-ready command for one concrete document."""
+        client.post("/api/profile", json={"name": "Prompt Tester"})
+
+        upload = client.post(
+            "/api/documents/upload",
+            data={"doc_type": "lebenslauf"},
+            files={"file": ("profil.txt", b"Python, PLM, Projektleitung", "text/plain")},
+        )
+        assert upload.status_code == 200
+
+        profile = client.get("/api/profile").json()
+        document = profile["documents"][0]
+
+        response = client.get(f"/api/document/{document['id']}/analysis-prompt")
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["document"]["id"] == document["id"]
+        assert payload["document"]["filename"] == "profil.txt"
+        assert document["id"] in payload["prompt"]
+        assert "extraktion_starten(document_ids=[" in payload["prompt"]
+        assert "extraktion_ergebnis_speichern" in payload["prompt"]
+        assert "extraktion_anwenden" in payload["prompt"]
+
+    def test_workflow_prompt_resolves_profile_extension_instructions(self, client):
+        """UI slash commands should resolve to a usable workflow prompt for Claude."""
+        client.post("/api/profile", json={"name": "Workflow Tester"})
+
+        response = client.get("/api/workflow-prompt/profil_erweiterung")
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert payload["workflow"] == "profil_erweiterung"
+        assert "Analysiere hochgeladene Dokumente" in payload["prompt"]
+        assert "extraktion_starten()" in payload["prompt"]
 
 
 # ============================================================

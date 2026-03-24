@@ -72,7 +72,7 @@ Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht
 
 **🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache. Wie ein echtes Coaching-Gespräch am Küchentisch. Besonders beim Interview-Training macht das einen riesigen Unterschied: Du übst, frei zu antworten — nicht Texte zu tippen.
 
-> 💡 **Für Power-User:** Es gibt 14 vorgefertigte Workflows (z.B. `/interview_simulation`, `/auto_bewerbung`), die du als Slash-Command starten oder einfach per Copy & Paste an Claude geben kannst. Aber das ist optional — alles geht auch einfach im Gespräch.
+> 💡 **Für Power-User:** Es gibt 14 vorgefertigte Workflows (z.B. `interview_simulation`, `auto_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
 
 ### Voraussetzungen
 
@@ -359,7 +359,7 @@ PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Cl
 
 ### Die 16 Workflows
 
-PBP bietet 16 gefuehrte Workflows. Du kannst sie entweder als Slash-Command (`/name`) oder als natuerliche Anweisung starten:
+PBP bietet 16 gefuehrte Workflows. Je nach Claude-Client startest du sie entweder als Slash-Command (`/name`), über die kopierten PBP-Arbeitsanweisungen aus dem Dashboard oder einfach als natuerliche Anweisung:
 
 | Workflow | Slash-Command | Was er tut |
 |----------|--------------|-----------|
@@ -380,7 +380,7 @@ PBP bietet 16 gefuehrte Workflows. Du kannst sie entweder als Slash-Command (`/n
 | **FAQ / Erste Schritte** | `/faq` | **NEU** — Interaktiver Guide: Wo stehe ich? Was kommt als Naechstes? (#175) |
 | **Willkommen** | `/willkommen` | Statusuebersicht und Einstiegshilfe |
 
-> 💡 **Tipp:** In **claude.ai** (Web) gibt es keine Slash-Commands. Sage einfach: *"Starte den Workflow: /jobsuche_workflow"* — PBP erkennt das automatisch.
+> 💡 **Tipp:** Wenn dein Claude-Client keine Slash-Commands versteht, nutze im Dashboard den Button **Prompt kopieren**. PBP kopiert dir dann die vollstaendige Arbeitsanweisung statt nur `/jobsuche_workflow`.
 
 ### Das Web-Dashboard
 
@@ -856,6 +856,13 @@ python -m pytest tests/ -v
 ## Changelog
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v0.32.4 - Mail-Dokumente im Profil-Flow stabilisiert (2026-03-24)
+- **MSG/EML im Dokumentbereich wirklich nutzbar** - normaler Dokument-Upload und Ordner-Import extrahieren Mail-Inhalte jetzt direkt
+- **Klare Fehler statt stiller Leereintraege** - fehlendes extract-msg wird sichtbar gemeldet, statt leere Dokumente zu erzeugen
+- **Statuslogik korrigiert** - lesbare Dokumente ohne direkte Profilfelder bleiben als Basis analysiert sichtbar
+- **Bestehende E-Mail-Helfer mitgenutzt** - Richtungs-Erkennung, Bewerbungs-Match und Status-Hinweise laufen jetzt auch im Profil-Dokumentflow
+- 72 Tools, 359 Tests
 
 ### v0.32.3 — Finishing & Release-Hygiene (2026-03-23)
 - **Öffentliche Texte konsolidiert** — Help-/Support-Texte, FAQ und sichtbare Release-Hinweise sprachlich nachgezogen

@@ -1351,12 +1351,14 @@ class Database:
         profile_id = data.get("profile_id") or self.get_active_profile_id()
         conn.execute("""
             INSERT INTO documents (id, filename, filepath, doc_type,
-                extracted_text, linked_position_id, profile_id, content_hash, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                extracted_text, linked_position_id, linked_application_id,
+                profile_id, content_hash, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             did, data.get("filename"), data.get("filepath"),
             data.get("doc_type", "sonstiges"), data.get("extracted_text"),
-            data.get("linked_position_id"), profile_id,
+            data.get("linked_position_id"), data.get("linked_application_id"),
+            profile_id,
             data.get("content_hash"), _now()
         ))
         conn.commit()

@@ -5,6 +5,7 @@
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Copy,
   Download,
   GraduationCap,
   Pencil,
@@ -352,7 +353,7 @@ function countExtractedFields(extractedFields) {
 }
 
 export default function ProfilePage() {
-  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, openCreateProfileModal } = useApp();
+  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, openCreateProfileModal } = useApp();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [draft, setDraft] = useState(EMPTY_PROFILE);
@@ -680,6 +681,21 @@ export default function ProfilePage() {
     await loadPage();
   }
 
+  function updateDocumentLocally(documentId, updater) {
+    startTransition(() => {
+      setProfile((current) => {
+        if (!current) return current;
+        const currentDocuments = Array.isArray(current.documents) ? current.documents : [];
+        return {
+          ...current,
+          documents: currentDocuments.map((document) =>
+            document.id === documentId ? { ...document, ...updater(document) } : document
+          ),
+        };
+      });
+    });
+  }
+
   async function processDocumentFiles(filesLike) {
     const incoming = Array.from(filesLike || []).filter((file) => file && file.name);
     if (!incoming.length) return;
@@ -737,10 +753,22 @@ export default function ProfilePage() {
       return;
     }
     try {
-      await postJson("/api/documents/import-folder", { folder_path: folderPath, import_documents: true, import_applications: true });
+      const result = await postJson("/api/documents/import-folder", {
+        folder_path: folderPath,
+        import_documents: true,
+        import_applications: true,
+      });
       setFolderDialogOpen(false);
       setFolderPath("");
       await refreshProfileContent({ syncChrome: true });
+      if (result?.warning_count) {
+        const firstWarning = Array.isArray(result.warnings) && result.warnings.length ? ` ${result.warnings[0]}` : "";
+        pushToast(
+          `Ordnerimport abgeschlossen mit ${result.warning_count} Hinweis(en).${firstWarning}`,
+          "amber"
+        );
+        return;
+      }
       pushToast("Ordnerimport abgeschlossen.", "success");
     } catch (error) {
       pushToast(`Ordnerimport fehlgeschlagen: ${error.message}`, "danger");
@@ -780,20 +808,12 @@ export default function ProfilePage() {
     }
   }
 
-  async function analyzeSingleDocument(docId) {
+  async function copyDocumentAnalysisPrompt(document) {
     try {
-      await postJson(`/api/document/${docId}/reanalyze`, {});
-      const result = await analyzeUploadedDocuments();
-      await refreshProfileContent({ syncChrome: true });
-
-      if (result?.status === "keine_dokumente" || result?.status === "keine_daten") {
-        pushToast(result?.nachricht || "Keine neuen Daten zur Analyse gefunden.", "amber");
-        return;
-      }
-
-      pushToast(result?.nachricht || "Dokument wurde analysiert.", "success");
+      const response = await api(`/api/document/${document.id}/analysis-prompt`);
+      await copyPrompt(response.prompt);
     } catch (error) {
-      pushToast(`Dokumentanalyse fehlgeschlagen: ${error.message}`, "danger");
+      pushToast(`Analyse-Prompt konnte nicht kopiert werden: ${error.message}`, "danger");
     }
   }
 
@@ -1552,7 +1572,13 @@ export default function ProfilePage() {
         <Card id="profil-dokumente" className="rounded-2xl">
           <SectionHeading
             title="Dokumente"
-            description="Upload, Ordnerimport und Reanalyse bleiben über die vorhandenen Endpunkte erhalten."
+            description="Upload, Ordnerimport und gezielte Claude-Analyse für einzelne Dokumente."
+            action={(
+              <Button type="button" variant="secondary" onClick={() => copyPrompt("/profil_erweiterung")}>
+                <Copy size={15} />
+                Profil-Prompt kopieren
+              </Button>
+            )}
           />
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
             <Card className="glass-card-soft rounded-xl shadow-none">
@@ -1615,6 +1641,7 @@ export default function ProfilePage() {
                     className="hidden"
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
                     onChange={async (event) => {
                       await processDocumentFiles(event.target.files);
                       event.target.value = "";
@@ -1625,6 +1652,7 @@ export default function ProfilePage() {
                     className="hidden"
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
                     webkitdirectory=""
                     directory=""
                     onChange={async (event) => {
@@ -1672,7 +1700,10 @@ export default function ProfilePage() {
 
               <p className="mt-4 text-[12px] leading-relaxed text-muted/65">
                 Tipp: Dokumente mit Status <span className="text-teal/80">angewendet</span> sind bereits in dein Profil eingeflossen.
-                Über das Stift-Symbol kannst du extrahierte Inhalte prüfen und korrigieren.
+                <br />
+                <span className="text-ink/85">Analysieren</span> kopiert einen Claude-Prompt für genau dieses Dokument,
+                <span className="text-ink/85"> Extraktion</span> zeigt bereits erkannte Felder zur Korrektur
+                und <span className="text-ink/85">Reanalyse vormerken</span> setzt nur den internen Status zurück.
               </p>
             </Card>
           </div>
@@ -1685,13 +1716,13 @@ export default function ProfilePage() {
                   onChange={async (event) => {
                     const newType = event.target.value;
                     const oldType = item.doc_type;
-                    startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: newType } : d)));
+                    updateDocumentLocally(item.id, () => ({ doc_type: newType }));
                     try {
                       await putJson(`/api/document/${item.id}/doc-type`, { doc_type: newType });
                       await refreshChrome({ quiet: true });
                       pushToast("Dokumenttyp aktualisiert.", "success");
                     } catch (err) {
-                      startTransition(() => setDocuments((cur) => cur.map((d) => d.id === item.id ? { ...d, doc_type: oldType } : d)));
+                      updateDocumentLocally(item.id, () => ({ doc_type: oldType }));
                       pushToast(`Fehler: ${err.message}`, "danger");
                     }
                   }}
@@ -1726,17 +1757,17 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2 text-[11px] font-medium text-ink/85 transition-colors hover:bg-white/[0.1] hover:text-ink"
-                    title="Extrahierte Infos"
+                    title="Extraktion prüfen und korrigieren"
                     onClick={() => openExtractionDialog(item)}
                   >
                     <Pencil size={13} />
-                    Details
+                    Extraktion
                   </button>
                   <button
                     type="button"
                     className="inline-flex h-8 items-center gap-1 rounded-md border border-teal/30 bg-teal/10 px-2 text-[11px] font-medium text-teal transition-colors hover:bg-teal/18"
-                    title="Dokument analysieren"
-                    onClick={() => analyzeSingleDocument(item.id)}
+                    title="Analyse-Prompt für Claude kopieren"
+                    onClick={() => copyDocumentAnalysisPrompt(item)}
                   >
                     <Sparkles size={13} />
                     Analysieren
@@ -1744,7 +1775,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2 text-[11px] font-medium text-ink/85 transition-colors hover:bg-white/[0.1] hover:text-ink"
-                    title="Reanalyse-Status zurücksetzen"
+                    title="Dokument intern für eine erneute Analyse vormerken"
                     onClick={() =>
                       quickAction(() => postJson(`/api/document/${item.id}/reanalyze`, {}), "Dokument für Reanalyse markiert", {
                         localRefresh: true,
@@ -1753,7 +1784,7 @@ export default function ProfilePage() {
                     }
                   >
                     <RefreshCcw size={13} />
-                    Reset
+                    Reanalyse vormerken
                   </button>
                   <button
                     type="button"
@@ -2154,8 +2185,8 @@ export default function ProfilePage() {
 
       <Modal
         open={extractionDialog.open}
-        title={`Extrahierte Infos${extractionDialog.document?.filename ? `: ${extractionDialog.document.filename}` : ""}`}
-      description="Hier kannst du die aus dem Dokument erkannten Felder ansehen und nachträglich korrigieren."
+        title={`Extraktion prüfen${extractionDialog.document?.filename ? `: ${extractionDialog.document.filename}` : ""}`}
+        description="Hier bearbeitest du bereits erkannte Felder, bevor sie ins Profil übernommen werden. Für Claude nutze den Analyse-Prompt."
         onClose={() =>
           setExtractionDialog({
             open: false,
@@ -2167,7 +2198,16 @@ export default function ProfilePage() {
           })
         }
         footer={
-          <div className="flex justify-end gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            {extractionDialog.document ? (
+              <Button
+                variant="secondary"
+                onClick={() => copyDocumentAnalysisPrompt(extractionDialog.document)}
+              >
+                <Sparkles size={15} />
+                Analyse-Prompt kopieren
+              </Button>
+            ) : <span />}
             <Button
               variant="ghost"
               onClick={() =>
@@ -2187,7 +2227,7 @@ export default function ProfilePage() {
               onClick={saveExtractionCorrections}
               disabled={extractionDialog.loading || extractionDialog.saving || !extractionDialog.extraction}
             >
-              {extractionDialog.saving ? "Speichere..." : "Korrekturen speichern"}
+              {extractionDialog.saving ? "Speichere..." : "Korrekturen ins Profil übernehmen"}
             </Button>
           </div>
         }
@@ -2217,12 +2257,12 @@ export default function ProfilePage() {
               />
             </Field>
             <p className="text-xs text-muted">
-              Unterstützte Korrekturen für direkte Übernahme: <code>persoenliche_daten</code> und <code>skills</code>.
+              Unterstützte Korrekturen für die direkte Profil-Übernahme: <code>persoenliche_daten</code> und <code>skills</code>.
             </p>
           </div>
         ) : (
           <p className="text-sm text-muted">
-            Für dieses Dokument liegt noch keine Extraktion vor. Starte ggf. zuerst eine Analyse.
+            Für dieses Dokument liegt noch keine interne Extraktion vor. Nutze den Analyse-Prompt, wenn Claude genau diese Datei auswerten soll.
           </p>
         )}
       </Modal>

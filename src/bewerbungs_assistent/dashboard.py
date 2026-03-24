@@ -1,4 +1,4 @@
-"""Web Dashboard for Bewerbungs-Assistent.
+﻿"""Web Dashboard for Bewerbungs-Assistent.
 
 Serves a browser-based UI on localhost:8200 for visual management.
 Runs in a background thread alongside the MCP server.
@@ -124,7 +124,7 @@ async def index():
             _generate_dashboard_error_html(
                 message="Das Dashboard-Frontend wurde nicht gefunden.",
                 details=f"Erwarteter Pfad: {DASHBOARD_BUILD_HTML}",
-                hint="Bitte Frontend-Build ausführen, z. B. mit 'pnpm run build:web'.",
+                hint="Bitte Frontend-Build ausfÃ¼hren, z. B. mit 'pnpm run build:web'.",
             ),
             status_code=500,
         )
@@ -511,6 +511,158 @@ async def api_update_document_type(doc_id: str, request: Request):
     return {"status": "ok"}
 
 
+def _document_type_label(doc_type: str | None) -> str:
+    labels = {
+        "lebenslauf": "Lebenslauf",
+        "lebenslauf_vorlage": "Lebenslauf-Vorlage",
+        "anschreiben": "Anschreiben",
+        "anschreiben_vorlage": "Anschreiben-Vorlage",
+        "zeugnis": "Zeugnis",
+        "zertifikat": "Zertifikat",
+        "referenz": "Referenz",
+        "projektliste": "Projektliste",
+        "stellenbeschreibung": "Stellenbeschreibung",
+        "vorbereitung": "Interview-Vorbereitung",
+        "portfolio": "Portfolio",
+        "foto": "Foto",
+        "sonstiges": "Sonstiges Dokument",
+    }
+    return labels.get(doc_type or "", doc_type or "Dokument")
+
+
+def _build_document_analysis_prompt(document: dict) -> str:
+    document_id = str(document.get("id") or "")
+    filename = str(document.get("filename") or "Unbekannte Datei")
+    doc_type = _document_type_label(document.get("doc_type"))
+    extraction_status = str(document.get("extraction_status") or "nicht_extrahiert")
+    is_email_document = Path(filename).suffix.lower() in {".eml", ".msg"}
+    extracted_available = bool(str(document.get("extracted_text") or "").strip())
+
+    extra_hint = (
+        "- Es handelt sich um eine E-Mail-Datei. BerÃ¼cksichtige Betreff, Absender, Nachrichtentext und erkennbare AnhÃ¤nge.\n"
+        if is_email_document
+        else ""
+    )
+    extracted_hint = (
+        "- Im PBP ist bereits extrahierter Text zu diesem Dokument vorhanden. Arbeite mit dem Dokument im aktiven Profil, nicht mit Vermutungen.\n"
+        if extracted_available
+        else "- Falls das Dokument keinen lesbaren Text liefert, melde das klar zurÃ¼ck und nenne den wahrscheinlichsten Grund.\n"
+    )
+
+    return f"""Bitte analysiere im aktiven PBP-Profil genau dieses Dokument und erweitere daraus mein Profil:
+
+- Dokument-ID: {document_id}
+- Dateiname: {filename}
+- Dokumenttyp in PBP: {doc_type}
+- Aktueller Extraktionsstatus: {extraction_status}
+
+Arbeite dabei bitte so:
+1. Nutze `extraktion_starten(document_ids=["{document_id}"], force=True)`, damit wirklich nur dieses Dokument geladen wird.
+2. Analysiere den Inhalt vollstÃ¤ndig auf profilrelevante Informationen.
+3. Speichere das Ergebnis mit `extraktion_ergebnis_speichern(...)`.
+4. Wende verwertbare Daten mit `extraktion_anwenden(...)` direkt auf das aktive Profil an.
+5. Fasse mir danach kurz zusammen:
+   - was Ã¼bernommen wurde
+   - was unsicher oder unklar blieb
+   - welche sinnvolle nÃ¤chste ErgÃ¤nzung ich noch liefern sollte
+
+Wichtig:
+- Stelle keine RÃ¼ckfrage, ob du das Dokument analysieren sollst. Fang direkt an.
+- Arbeite nur mit dem aktiven Profil.
+{extra_hint}{extracted_hint}Wenn das Dokument fachlich nichts fÃ¼r das Profil bringt, sag das klar und knapp.
+"""
+
+
+def _format_email_document_text(parsed: dict) -> str:
+    """Build readable extracted text for a parsed .eml/.msg document."""
+    attachments = ", ".join(
+        attachment.get("filename", "")
+        for attachment in parsed.get("attachments", [])
+        if attachment.get("filename")
+    )
+    extracted_parts = [
+        f"Betreff: {parsed.get('subject', '')}".strip(),
+        f"Von: {parsed.get('sender', '')}".strip(),
+        f"An: {parsed.get('recipients', '')}".strip(),
+        f"Datum: {parsed.get('sent_date', '')}".strip(),
+        "",
+        parsed.get("body_text", "") or "",
+    ]
+    return "\n".join(part for part in extracted_parts if part).strip()
+
+
+def _build_email_document_context(parsed: dict) -> dict:
+    """Reuse email helpers for document uploads when a mail file is detected."""
+    from .services.email_service import (
+        detect_direction,
+        detect_email_status,
+        extract_meetings_from_email,
+        match_email_to_application,
+    )
+
+    profile = _db.get_profile() or {}
+    parsed_for_matching = dict(parsed)
+    direction = detect_direction(parsed.get("sender", ""), profile.get("email", ""))
+    parsed_for_matching["_direction"] = direction
+
+    apps = _db.get_applications()
+    match_app_id, match_confidence = match_email_to_application(parsed_for_matching, apps)
+    detected_status, status_confidence = detect_email_status(
+        parsed.get("subject", ""),
+        parsed.get("body_text", ""),
+    )
+    meetings = extract_meetings_from_email(parsed_for_matching)
+
+    matched_application = None
+    if match_app_id:
+        for app in apps:
+            if app.get("id") == match_app_id:
+                matched_application = {
+                    "id": app["id"],
+                    "title": app.get("title"),
+                    "company": app.get("company"),
+                }
+                break
+
+    return {
+        "direction": direction,
+        "match_application_id": match_app_id,
+        "match_confidence": match_confidence,
+        "matched_application": matched_application,
+        "detected_status": detected_status,
+        "status_confidence": status_confidence,
+        "meeting_count": len(meetings),
+    }
+
+
+def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
+    """Extract readable text for supported document types."""
+    fname = filepath.name.lower()
+    email_context = None
+    extracted = ""
+
+    if fname.endswith(".pdf"):
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(filepath))
+        extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
+    elif fname.endswith(".docx"):
+        from docx import Document
+
+        doc = Document(str(filepath))
+        extracted = "\n".join(p.text for p in doc.paragraphs)
+    elif fname.endswith((".eml", ".msg")):
+        from .services.email_service import parse_email_file
+
+        parsed = parse_email_file(str(filepath))
+        extracted = _format_email_document_text(parsed)
+        email_context = _build_email_document_context(parsed)
+    elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
+        extracted = filepath.read_text(encoding="utf-8", errors="replace")
+
+    return extracted, email_context
+
+
 @app.post("/api/documents/auto-mark-templates")
 async def api_auto_mark_templates():
     """Auto-detect and mark unlinked CVs/cover letters as templates (#132).
@@ -561,6 +713,49 @@ async def api_get_document_extraction(doc_id: str):
     return {"extraction": entry}
 
 
+@app.get("/api/document/{doc_id}/analysis-prompt")
+async def api_get_document_analysis_prompt(doc_id: str):
+    """Return a Claude-ready prompt that targets exactly one uploaded document."""
+    profile_id = _db.get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Kein aktives Profil vorhanden"}, status_code=400)
+
+    conn = _db.connect()
+    row = conn.execute(
+        "SELECT * FROM documents WHERE id=? AND profile_id=?",
+        (doc_id, profile_id),
+    ).fetchone()
+    if not row:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+
+    document = dict(row)
+    return {
+        "prompt": _build_document_analysis_prompt(document),
+        "document": {
+            "id": document.get("id"),
+            "filename": document.get("filename"),
+            "doc_type": document.get("doc_type"),
+            "extraction_status": document.get("extraction_status"),
+        },
+    }
+
+
+@app.get("/api/workflow-prompt/{workflow_name}")
+async def api_get_workflow_prompt(workflow_name: str):
+    """Return the resolved workflow instructions instead of a raw slash command."""
+    from .tools.workflows import _prompt_registry
+
+    name = str(workflow_name or "").strip().lstrip("/")
+    if not name:
+        return JSONResponse({"error": "workflow_name ist erforderlich"}, status_code=400)
+
+    prompt_funcs = _prompt_registry(_db)
+    if name not in prompt_funcs:
+        return JSONResponse({"error": f"Workflow '{name}' nicht gefunden"}, status_code=404)
+
+    return {"workflow": name, "prompt": prompt_funcs[name]()}
+
+
 @app.put("/api/document/{doc_id}/extraction")
 async def api_update_document_extraction(doc_id: str, request: Request):
     """Persist corrected extraction fields and apply supported values to profile."""
@@ -575,7 +770,7 @@ async def api_update_document_extraction(doc_id: str, request: Request):
 
     history = _db.get_extraction_history(profile_id=profile["id"], document_id=doc_id)
     if not history:
-        return JSONResponse({"error": "Keine Extraktion für dieses Dokument vorhanden"}, status_code=404)
+        return JSONResponse({"error": "Keine Extraktion fÃ¼r dieses Dokument vorhanden"}, status_code=404)
 
     extraction = history[0]
     conn = _db.connect()
@@ -760,7 +955,10 @@ async def api_import_folder(request: Request):
     files_found = 0
     docs_imported = 0
     apps_found = 0
-    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf")
+    skipped_files = 0
+    auto_linked_documents = 0
+    warnings = []
+    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf", ".msg", ".eml")
 
     file_iter = folder.rglob("*") if recursive else folder.glob("*")
     for fpath in file_iter:
@@ -772,19 +970,21 @@ async def api_import_folder(request: Request):
         files_found += 1
 
         extracted = ""
+        email_context = None
         fname = fpath.name.lower()
         try:
-            if fname.endswith(".pdf"):
-                from pypdf import PdfReader
-                reader = PdfReader(str(fpath))
-                extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
-            elif fname.endswith(".docx"):
-                from docx import Document
-                doc = Document(str(fpath))
-                extracted = "\n".join(p.text for p in doc.paragraphs)
-            elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
-                extracted = fpath.read_text(encoding="utf-8", errors="replace")
+            extracted, email_context = _extract_document_text(fpath)
+        except ImportError as exc:
+            warnings.append(f"{fpath.name}: {exc}")
+            skipped_files += 1
+            logger.warning("Import: E-Mail-Parsing nicht verfuegbar fuer %s: %s", fpath.name, exc)
+            continue
         except Exception as e:
+            if fname.endswith((".msg", ".eml")):
+                warnings.append(f"{fpath.name}: E-Mail konnte nicht gelesen werden ({e})")
+                skipped_files += 1
+                logger.warning("Import: E-Mail-Parsing fehlgeschlagen fuer %s: %s", fpath.name, e)
+                continue
             logger.warning("Import: Text extraction failed for %s: %s", fpath.name, e)
 
         # Determine doc type from filename (use shared _detect_doc_type)
@@ -800,12 +1000,21 @@ async def api_import_folder(request: Request):
                 except Exception:
                     dest = fpath  # Use original path
 
-            _db.add_document({
+            did = _db.add_document({
                 "filename": fpath.name,
                 "filepath": str(dest),
                 "doc_type": doc_type,
                 "extracted_text": extracted,
+                "linked_application_id": (email_context or {}).get("match_application_id"),
             })
+            if email_context and email_context.get("match_application_id"):
+                try:
+                    _db.link_document_to_application(did, email_context["match_application_id"])
+                    auto_linked_documents += 1
+                except Exception as exc:
+                    logger.warning("Import: Dokument %s konnte nicht mit Bewerbung verknuepft werden: %s", fpath.name, exc)
+            if fname.endswith((".msg", ".eml")) and extracted.strip():
+                _db.update_document_extraction_status(did, "basis_analysiert")
             docs_imported += 1
 
         # Try to detect applications from folder structure
@@ -825,6 +1034,10 @@ async def api_import_folder(request: Request):
         "files_found": files_found,
         "documents_imported": docs_imported,
         "applications_found": apps_found,
+        "skipped_files": skipped_files,
+        "auto_linked_documents": auto_linked_documents,
+        "warning_count": len(warnings),
+        "warnings": warnings,
     }
 
 
@@ -1289,7 +1502,7 @@ async def api_upload_email(file: UploadFile = File(...)):
     ext = Path(incoming_name).suffix.lower()
     if ext not in (".msg", ".eml"):
         return JSONResponse(
-            {"error": "Nur .msg und .eml Dateien werden unterstützt."},
+            {"error": "Nur .msg und .eml Dateien werden unterstÃ¼tzt."},
             status_code=400,
         )
 
@@ -1700,7 +1913,7 @@ async def api_save_app_fit_analyse(app_id: str, request: Request):
 
 @app.get("/api/applications/zombies")
 async def api_zombie_applications(days: int = 60):
-    """Detect zombie applications — stuck in early status without activity (#130)."""
+    """Detect zombie applications â€” stuck in early status without activity (#130)."""
     zombies = _db.get_zombie_applications(days_threshold=days)
     return {"zombies": zombies, "count": len(zombies), "threshold_days": days}
 
@@ -1856,19 +2069,32 @@ async def api_upload_document(
 
     # Try to extract text
     extracted = ""
+    email_context = None
     fname = stored_filename.lower()
     try:
-        if fname.endswith(".pdf"):
-            from pypdf import PdfReader
-            reader = PdfReader(str(filepath))
-            extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
-        elif fname.endswith(".docx"):
-            from docx import Document
-            doc = Document(str(filepath))
-            extracted = "\n".join(p.text for p in doc.paragraphs)
-        elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
-            extracted = content.decode("utf-8", errors="replace")
+        extracted, email_context = _extract_document_text(filepath)
+    except ImportError as exc:
+        logger.warning("Text extraction failed for %s: %s", incoming_name, exc)
+        if fname.endswith(".msg"):
+            filepath.unlink(missing_ok=True)
+            return JSONResponse(
+                {
+                    "error": str(exc),
+                    "hinweis": (
+                        "MSG-Dateien benoetigen das Paket 'extract-msg'. "
+                        "Bitte Installation pruefen oder die Mail als .eml exportieren."
+                    ),
+                },
+                status_code=501,
+            )
     except Exception as e:
+        if fname.endswith((".msg", ".eml")):
+            logger.warning("E-Mail extraction failed for %s: %s", incoming_name, e)
+            filepath.unlink(missing_ok=True)
+            return JSONResponse(
+                {"error": f"E-Mail-Datei konnte nicht verarbeitet werden: {e}"},
+                status_code=400,
+            )
         logger.warning("Text extraction failed for %s: %s", incoming_name, e)
 
     # Smart detection: auto-detect doc_type if "sonstiges"
@@ -1883,16 +2109,28 @@ async def api_upload_document(
         "doc_type": doc_type,
         "extracted_text": extracted,
         "linked_position_id": position_id or None,
+        "linked_application_id": link_application_id or (email_context or {}).get("match_application_id"),
     })
 
     # Auto-link to application if requested
     linked_app = None
     if link_application_id:
         try:
-            _db.link_document_to_application(did, int(link_application_id))
-            linked_app = int(link_application_id)
+            _db.link_document_to_application(did, str(link_application_id))
+            linked_app = str(link_application_id)
         except Exception as e:
             logger.warning("Failed to link doc %s to app %s: %s", did, link_application_id, e)
+    elif email_context and email_context.get("match_application_id"):
+        try:
+            _db.link_document_to_application(did, email_context["match_application_id"])
+            linked_app = email_context["match_application_id"]
+        except Exception as e:
+            logger.warning(
+                "Failed to auto-link mail doc %s to app %s: %s",
+                did,
+                email_context["match_application_id"],
+                e,
+            )
     elif create_application:
         # Create new application from detected info
         try:
@@ -1909,6 +2147,9 @@ async def api_upload_document(
         except Exception as e:
             logger.warning("Failed to create app from doc: %s", e)
 
+    if fname.endswith((".msg", ".eml")) and extracted.strip():
+        _db.update_document_extraction_status(did, "basis_analysiert")
+
     return {
         "status": "ok",
         "id": did,
@@ -1916,6 +2157,7 @@ async def api_upload_document(
         "doc_type": doc_type,
         "extracted_length": len(extracted),
         "linked_application": linked_app,
+        "email_context": email_context,
     }
 
 
@@ -1927,14 +2169,14 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     # Special cases: known internal/reference documents
     if any(kw in fname for kw in ["master-wissen", "bewerbungs-master", "wissen"]):
         return "referenz"
-    # Test/draft documents → sonstiges
+    # Test/draft documents â†’ sonstiges
     if any(kw in fname for kw in ["test", "chaotisch", "draft", "entwurf", "tmp"]):
         return "sonstiges"
-    # Templates/Vorlagen — generic CVs not tied to a specific application
+    # Templates/Vorlagen â€” generic CVs not tied to a specific application
     if any(kw in fname for kw in ["template", "vorlage", "standard", "generic", "muster"]):
         return "vorlage"
 
-    # Filename patterns (order matters — more specific first)
+    # Filename patterns (order matters â€” more specific first)
     if any(kw in fname for kw in ["vorbereitung", "preparation", "interview-prep"]):
         return "vorbereitung"
     if any(kw in fname for kw in ["projektliste", "project-list", "projekte"]):
@@ -1956,7 +2198,7 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     if any(kw in fname for kw in ["portfolio", "mappe", "arbeitsproben"]):
         return "portfolio"
 
-    # .md files are rarely cover letters — treat as reference/sonstiges
+    # .md files are rarely cover letters â€” treat as reference/sonstiges
     if fname.endswith(".md"):
         return "referenz"
 
@@ -2072,7 +2314,7 @@ async def api_start_source_login(source_key: str):
     if source is None:
         return JSONResponse({"error": "Quelle nicht gefunden"}, status_code=404)
     if not source.get("login_erforderlich"):
-        return JSONResponse({"error": "Für diese Quelle ist kein Login erforderlich"}, status_code=400)
+        return JSONResponse({"error": "FÃ¼r diese Quelle ist kein Login erforderlich"}, status_code=400)
 
     job_id = _db.create_background_job("quellen_login", {"source": source_key})
 
@@ -2090,7 +2332,7 @@ async def api_start_source_login(source_key: str):
 
                 ready = ensure_xing_session(progress_callback=lambda message: _progress(message, 40))
             else:
-                raise ValueError(f"Login-Flow für Quelle '{source_key}' ist nicht implementiert")
+                raise ValueError(f"Login-Flow fÃ¼r Quelle '{source_key}' ist nicht implementiert")
 
             if ready:
                 _db.update_background_job(
@@ -2109,7 +2351,7 @@ async def api_start_source_login(source_key: str):
                     result={"source": source_key, "session_ready": False},
                 )
         except Exception as exc:
-            logger.error("Login-Start für %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
+            logger.error("Login-Start fÃ¼r %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
             _db.update_background_job(
                 job_id,
                 "fehler",
@@ -2124,7 +2366,7 @@ async def api_start_source_login(source_key: str):
         "status": "gestartet",
         "job_id": job_id,
         "source": source_key,
-        "nachricht": f"{source['name']}: Browser wird für den Login gestartet, falls noch keine Session vorhanden ist.",
+        "nachricht": f"{source['name']}: Browser wird fÃ¼r den Login gestartet, falls noch keine Session vorhanden ist.",
     }
 
 
@@ -2199,7 +2441,7 @@ async def api_jobsuche_running():
     job = _db.get_running_background_job("jobsuche")
     if not job:
         return {"running": False}
-    # Stale-Job-Erkennung (#155): Job > 30 Minuten ohne Update → abbrechen
+    # Stale-Job-Erkennung (#155): Job > 30 Minuten ohne Update â†’ abbrechen
     updated = job.get("updated_at") or job.get("created_at")
     if updated:
         from datetime import datetime, timedelta
@@ -2208,7 +2450,7 @@ async def api_jobsuche_running():
             now = datetime.now()
             if now - last_update > timedelta(minutes=30):
                 _db.update_background_job(
-                    job["id"], "fehler", message="Timeout: Job lief länger als 30 Minuten ohne Update")
+                    job["id"], "fehler", message="Timeout: Job lief lÃ¤nger als 30 Minuten ohne Update")
                 logger.warning("Stale background job %s bereinigt (letztes Update: %s)", job["id"], updated)
                 return {"running": False}
         except (ValueError, TypeError):
@@ -2416,43 +2658,54 @@ async def api_analyze_documents(request: Request):
     phone_match = _re.search(r'(?:Tel\.?|Telefon|Phone|Mobil|Handy)[:\s]*([+\d\s()/.-]{8,20})', combined_text, _re.IGNORECASE)
     if phone_match:
         pers["phone"] = phone_match.group(1).strip()
-    addr_match = _re.search(r'(\w[\w\s.-]+(?:str(?:\.|aße|asse)|weg|gasse|platz|ring|allee)\s*\d+\w?)', combined_text, _re.IGNORECASE)
+    addr_match = _re.search(r'(\w[\w\s.-]+(?:str(?:\.|aÃŸe|asse)|weg|gasse|platz|ring|allee)\s*\d+\w?)', combined_text, _re.IGNORECASE)
     if addr_match:
         pers["address"] = addr_match.group(1).strip()
-    plz_city = _re.search(r'(\d{5})\s+([A-ZÄÖÜa-zäöü][a-zäöüß]+(?:\s+[a-zäöüß]+)*)', combined_text)
+    plz_city = _re.search(r'(\d{5})\s+([A-ZÃ„Ã–Ãœa-zÃ¤Ã¶Ã¼][a-zÃ¤Ã¶Ã¼ÃŸ]+(?:\s+[a-zÃ¤Ã¶Ã¼ÃŸ]+)*)', combined_text)
     if plz_city:
         pers["plz"] = plz_city.group(1)
         pers["city"] = plz_city.group(2).strip()
-    name_match = _re.search(r'^([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)\s*$', combined_text[:500], _re.MULTILINE)
+    name_match = _re.search(r'^([A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+(?:\s+[A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+)+)\s*$', combined_text[:500], _re.MULTILINE)
     if name_match:
         pers["name"] = name_match.group(1).strip()
     bday_match = _re.search(r'(?:Geburtsdatum|geb\.|geboren)[:\s]*(\d{1,2}[./]\d{1,2}[./]\d{4})', combined_text, _re.IGNORECASE)
     if bday_match:
         pers["birthday"] = bday_match.group(1)
-    nat_match = _re.search(r'(?:Nationalit(?:ä|ae)t|Staatsangeh(?:ö|oe)rigkeit)[:\s]*([A-ZÄÖÜa-zäöüß]+)', combined_text, _re.IGNORECASE)
+    nat_match = _re.search(r'(?:Nationalit(?:Ã¤|ae)t|Staatsangeh(?:Ã¶|oe)rigkeit)[:\s]*([A-ZÃ„Ã–Ãœa-zÃ¤Ã¶Ã¼ÃŸ]+)', combined_text, _re.IGNORECASE)
     if nat_match:
         pers["nationality"] = nat_match.group(1).strip()
     if pers:
         extracted["persoenliche_daten"] = pers
 
     skill_patterns = _re.findall(
-        r'(?:Kenntnisse|Skills|Kompetenzen|Faehigkeiten|Fähigkeiten|Technologien)[:\s]*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n[A-Z])',
+        r'(?:Kenntnisse|Skills|Kompetenzen|Faehigkeiten|FÃ¤higkeiten|Technologien)[:\s]*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n[A-Z])',
         combined_text, _re.IGNORECASE
     )
     if skill_patterns:
         skills = []
         for block in skill_patterns:
-            for item in _re.split(r'[,;•·|/\n]+', block):
-                item = item.strip(' -–*')
+            for item in _re.split(r'[,;â€¢Â·|/\n]+', block):
+                item = item.strip(' -â€“*')
                 if 2 < len(item) < 50 and not _re.match(r'^\d+$', item):
                     skills.append({"name": item, "category": "Fachkenntnisse", "level": 3})
         if skills:
             extracted["skills"] = skills[:30]
 
     if not extracted:
-        for doc_id in [*doc_ids, *empty_text_doc_ids]:
+        for doc_id in doc_ids:
+            _db.update_document_extraction_status(doc_id, "basis_analysiert")
+        for doc_id in empty_text_doc_ids:
             _db.update_document_extraction_status(doc_id, "analysiert_leer")
-        return {"status": "keine_daten", "nachricht": "Keine strukturierten Profildaten erkannt. Nutze /profil_erweiterung in Claude für KI-gestuetzte Extraktion."}
+        return {
+            "status": "keine_daten",
+            "nachricht": (
+                "Keine strukturierten Profildaten erkannt. "
+                "Nutze im Profil den Button 'Profil-Prompt kopieren' oder den Analyse-Prompt des Dokuments "
+                "fuer die Claude-gestuetzte Auswertung."
+            ),
+            "basis_analysiert": len(doc_ids),
+            "analysiert_leer": len(empty_text_doc_ids),
+        }
 
     eid = _db.add_extraction_history({
         "document_id": doc_ids[0],
@@ -2516,12 +2769,12 @@ async def api_analyze_documents(request: Request):
 
 @app.post("/api/reset")
 async def api_factory_reset(request: Request):
-    """Factory reset — delete ALL data for clean testing."""
+    """Factory reset â€” delete ALL data for clean testing."""
     data = await request.json()
     if data.get("confirm") != "RESET":
         return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
     _db.reset_all_data()
-    return {"status": "ok", "message": "Alle Daten gelöscht. Neustart empfohlen."}
+    return {"status": "ok", "message": "Alle Daten gelÃ¶scht. Neustart empfohlen."}
 
 
 @app.delete("/api/extraction-history/{entry_id}")
