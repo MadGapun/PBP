@@ -857,6 +857,13 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.32.5 - Stellen-Dialog + Outlook-Installer nachgezogen (2026-03-24)
+- **Stellenbeschreibung endlich direkt bearbeitbar** - Klick auf den Stellentitel oeffnet die Detailansicht jetzt wieder sauber, inklusive Bearbeiten und Speichern
+- **Browser-Regression abgesichert** - Stellen-Detaildialog und Nachpflege der Beschreibung sind jetzt als echter UI-Test hinterlegt
+- **Windows-/Outlook-Installation korrigiert** - der Installer zieht `extract-msg` und `icalendar` jetzt mit, damit `.msg`-Dateien auch im echten Setup funktionieren
+- **Klarer Fallback fuer Outlook-Mails** - wenn der Parser fehlt, fuehrt PBP jetzt direkt zu `PBP aktualisieren` oder `als PDF/.eml aus Outlook speichern`
+- 72 Tools, 360 Tests
+
 ### v0.32.4 - Mail-Dokumente im Profil-Flow stabilisiert (2026-03-24)
 - **MSG/EML im Dokumentbereich wirklich nutzbar** - normaler Dokument-Upload und Ordner-Import extrahieren Mail-Inhalte jetzt direkt
 - **Klare Fehler statt stiller Leereintraege** - fehlendes extract-msg wird sichtbar gemeldet, statt leere Dokumente zu erzeugen

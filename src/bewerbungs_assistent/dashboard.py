@@ -82,27 +82,45 @@ app = FastAPI(
 )
 
 
-# Request-Logging Middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Loggt alle API-Anfragen und Fehler."""
-    import time
-    start = time.time()
-    try:
-        response = await call_next(request)
-        duration = time.time() - start
-        if request.url.path.startswith("/api/"):
-            logger.debug(
-                "%s %s %d (%.1fms)",
-                request.method,
-                request.url.path,
-                response.status_code,
-                duration * 1000,
-            )
-        return response
-    except Exception as e:
-        logger.error("%s %s Fehler: %s", request.method, request.url.path, e)
-        raise
+class ApiRequestLoggingMiddleware:
+    """ASGI logging middleware without BaseHTTPMiddleware response-body side effects."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        import time
+
+        start = time.time()
+        status_code = 500
+
+        async def send_wrapper(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+            if scope.get("path", "").startswith("/api/"):
+                duration = time.time() - start
+                logger.debug(
+                    "%s %s %d (%.1fms)",
+                    scope.get("method", "HTTP"),
+                    scope.get("path", ""),
+                    status_code,
+                    duration * 1000,
+                )
+        except Exception as exc:
+            logger.error("%s %s Fehler: %s", scope.get("method", "HTTP"), scope.get("path", ""), exc)
+            raise
+
+
+app.add_middleware(ApiRequestLoggingMiddleware)
 
 
 # Static files

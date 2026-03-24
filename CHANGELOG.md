@@ -2,6 +2,36 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.32.5] - 2026-03-24
+
+### Stellen-Dialog und Outlook-Installer vervollstaendigt
+
+Dieser Patch schliesst zwei reale Restprobleme, die im integrierten Testbetrieb direkt
+aufgefallen sind: Der Detaildialog in der Stellenliste liess sich trotz klickbarem Titel
+nicht oeffnen, und der Windows-Installer installierte die Outlook-Abhaengigkeit fuer
+`.msg`-Dateien nicht mit.
+
+**Stellen / Frontend:**
+
+- Klick auf den Stellentitel oeffnet die Stellendetails wieder sauber
+- Bearbeiten der Stelle aus dem Detaildialog funktioniert wieder, inklusive Nachpflege
+  fehlender Beschreibungen
+- der Klickbereich ist jetzt auch per Tastatur sauber bedienbar
+- neuer Browser-Regressionstest sichert den kompletten Flow:
+  Titel klicken -> Details sehen -> Bearbeiten -> Beschreibung speichern
+
+**Installer / Outlook-Mail-Import:**
+
+- `INSTALLIEREN.bat` installiert jetzt auch `extract-msg` und `icalendar`
+- Outlook-`.msg`-Dateien funktionieren damit nicht nur im Dev-Setup, sondern auch
+  in der ausgelieferten Windows-Installation
+- wenn der Parser trotzdem fehlt, gibt PBP jetzt einen klaren Nutzerhinweis:
+  PBP aktualisieren oder die Mail in Outlook als PDF / `.eml` speichern und erneut hochladen
+
+**Verifikation:** 360 Tests gruen, 4 Tests bewusst geskippt, Web-Build gruen
+(`python -m pytest tests -q`, `python -m pytest tests/test_dashboard_browser.py -k "jobs_page" -q`,
+`pnpm run build:web`)
+
 ## [0.32.4] - 2026-03-24
 
 ### Mail-Dokumente im Profil-Flow vollstaendig stabilisiert
