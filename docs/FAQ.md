@@ -160,4 +160,4 @@ kompakten Überblick über deinen aktuellen Stand und die Pipeline.
 
 ---
 
-*Erstellt für PBP v0.32.3 | https://github.com/MadGapun/PBP*
+*Erstellt für PBP v0.32.4 | https://github.com/MadGapun/PBP*

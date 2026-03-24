@@ -753,10 +753,22 @@ export default function ProfilePage() {
       return;
     }
     try {
-      await postJson("/api/documents/import-folder", { folder_path: folderPath, import_documents: true, import_applications: true });
+      const result = await postJson("/api/documents/import-folder", {
+        folder_path: folderPath,
+        import_documents: true,
+        import_applications: true,
+      });
       setFolderDialogOpen(false);
       setFolderPath("");
       await refreshProfileContent({ syncChrome: true });
+      if (result?.warning_count) {
+        const firstWarning = Array.isArray(result.warnings) && result.warnings.length ? ` ${result.warnings[0]}` : "";
+        pushToast(
+          `Ordnerimport abgeschlossen mit ${result.warning_count} Hinweis(en).${firstWarning}`,
+          "amber"
+        );
+        return;
+      }
       pushToast("Ordnerimport abgeschlossen.", "success");
     } catch (error) {
       pushToast(`Ordnerimport fehlgeschlagen: ${error.message}`, "danger");
@@ -1629,6 +1641,7 @@ export default function ProfilePage() {
                     className="hidden"
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
                     onChange={async (event) => {
                       await processDocumentFiles(event.target.files);
                       event.target.value = "";
@@ -1639,6 +1652,7 @@ export default function ProfilePage() {
                     className="hidden"
                     type="file"
                     multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml"
                     webkitdirectory=""
                     directory=""
                     onChange={async (event) => {

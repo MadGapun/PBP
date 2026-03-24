@@ -2,6 +2,43 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.32.4] - 2026-03-24
+
+### Mail-Dokumente im Profil-Flow vollstaendig stabilisiert
+
+Dieser Patch schliesst den offenen Rest aus `#191` sauber ab. Mail-Dateien im Profil-
+Dokumentbereich verhalten sich jetzt nicht mehr wie Sonderfaelle mit stillen Luecken,
+sondern wie ein sauber gefuehrter Teil des normalen Dokument-Workflows.
+
+**Dokument-Upload / Ordner-Import:**
+
+- `.msg` und `.eml` werden jetzt auch im normalen Profil-Dokumentupload und beim
+  Ordner-Import extrahiert und nicht mehr als leere Dateien abgelegt
+- der Ordner-Import erkennt Mail-Dateien ebenfalls und liefert bei Problemen klare
+  Warnungen statt stiller Fehlimporte
+- wenn `extract-msg` fuer Outlook-Dateien fehlt, gibt PBP jetzt eine explizite
+  Nutzerfehlermeldung aus
+
+**Workflow / Status:**
+
+- Mail-Dokumente mit lesbarem Inhalt landen als `basis_analysiert` statt `analysiert_leer`
+- Dokumente mit Text, aber ohne direkt erkannte Profilfelder, bleiben ebenfalls als
+  `basis_analysiert` sichtbar und werden nicht mehr faelschlich als `Ohne Inhalt`
+  behandelt
+- bestehende E-Mail-Helfer werden beim Dokument-Upload mitgenutzt:
+  Richtungs-Erkennung, Bewerbungs-Match und Status-Hinweise
+
+**Frontend / UX:**
+
+- Profilseite und Onboarding akzeptieren Mail-Dateien jetzt explizit auch in den
+  Dateidialogen
+- der Ordner-Import zeigt Warnungen sichtbar in der UI an, statt nur "fertig" zu melden
+- statischer Frontend-Build fuer den neuen Stand aktualisiert
+
+**Tests / Verifikation:** 359 Tests gruen, 4 Tests bewusst geskippt, Browser-Smokes gruen,
+Web-Build gruen (`python -m pytest tests -q`, `python -m pytest tests/test_dashboard_browser.py -q`,
+`pnpm run build:web`)
+
 ## [0.32.3] - 2026-03-23
 
 ### Finishing-Sprint: Release-Hygiene und Export-Stabilität

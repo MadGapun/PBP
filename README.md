@@ -857,6 +857,13 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+### v0.32.4 - Mail-Dokumente im Profil-Flow stabilisiert (2026-03-24)
+- **MSG/EML im Dokumentbereich wirklich nutzbar** - normaler Dokument-Upload und Ordner-Import extrahieren Mail-Inhalte jetzt direkt
+- **Klare Fehler statt stiller Leereintraege** - fehlendes extract-msg wird sichtbar gemeldet, statt leere Dokumente zu erzeugen
+- **Statuslogik korrigiert** - lesbare Dokumente ohne direkte Profilfelder bleiben als Basis analysiert sichtbar
+- **Bestehende E-Mail-Helfer mitgenutzt** - Richtungs-Erkennung, Bewerbungs-Match und Status-Hinweise laufen jetzt auch im Profil-Dokumentflow
+- 72 Tools, 359 Tests
+
 ### v0.32.3 — Finishing & Release-Hygiene (2026-03-23)
 - **Öffentliche Texte konsolidiert** — Help-/Support-Texte, FAQ und sichtbare Release-Hinweise sprachlich nachgezogen
 - **Report-Export modernisiert** — `export_report.py` auf aktuelle `fpdf2`-API umgestellt, Deprecation-Warnungen abgebaut

@@ -1220,7 +1220,7 @@ export default function App() {
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">PBP — Persönliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.3"}</p>
+                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.4"}</p>
                   <p className="text-muted/60">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">
