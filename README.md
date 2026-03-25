@@ -13,6 +13,20 @@
 
 ---
 
+## So funktioniert PBP
+
+**PBP führt dich Schritt für Schritt durch deine Bewerbungen — auch wenn du lange keine geschrieben hast.**
+
+| Schritt | Was passiert |
+|---------|-------------|
+| **1. Du erzählst kurz von dir** | Claude führt dich durch ein Kennenlerngespräch und baut dein Profil auf. Du musst nichts vorbereiten. |
+| **2. PBP findet passende Stellen** | Jobbörsen werden automatisch durchsucht. Du bekommst eine bewertete Liste. |
+| **3. Du bewirbst dich — mit Unterstützung** | Anschreiben, Lebenslauf, Interview-Vorbereitung — PBP begleitet dich bei jedem Schritt. |
+
+> 💡 **Wichtig:** PBP arbeitet zusammen mit [Claude Desktop](https://claude.ai/download). Du wirst an bestimmten Stellen automatisch dorthin weitergeleitet — das ist Teil des Ablaufs. Claude ist dein Gesprächspartner, das Dashboard deine Übersicht.
+
+---
+
 ## Warum PBP?
 
 Mal ehrlich: Weißt du, wie dein Lebenslauf auf einen Recruiter wirkt? Auf ein ATS-System? Auf einen Personalberater?
@@ -72,7 +86,7 @@ Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht
 
 **🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache. Wie ein echtes Coaching-Gespräch am Küchentisch. Besonders beim Interview-Training macht das einen riesigen Unterschied: Du übst, frei zu antworten — nicht Texte zu tippen.
 
-> 💡 **Für Power-User:** Es gibt 14 vorgefertigte Workflows (z.B. `interview_simulation`, `auto_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
+> 💡 **Für Power-User:** Es gibt 16 vorgefertigte Workflows (z.B. `interview_simulation`, `auto_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
 
 ### Voraussetzungen
 

@@ -6,7 +6,6 @@
   Calendar,
   ClipboardList,
   ExternalLink,
-  FolderOpen,
   HandCoins,
   Mail,
   Mic,
@@ -280,8 +279,8 @@ export default function DashboardPage() {
   if (dueFollowUps.length > 0) {
     todoItems.push({
       id: "followups",
-      title: "Follow-ups bearbeiten",
-      description: `${dueFollowUps.length} Follow-up(s) sind heute oder früher fällig.`,
+      title: "Nachfragen nicht vergessen",
+      description: `Bei ${dueFollowUps.length} Bewerbung(en) solltest du nachhaken.`,
       tone: "sky",
       actionLabel: "Öffnen",
       action: () => navigateTo("bewerbungen"),
@@ -291,8 +290,8 @@ export default function DashboardPage() {
   if (data.zombies.length > 0) {
     todoItems.push({
       id: "zombies",
-      title: "Zombie-Bewerbungen prüfen",
-      description: `${data.zombies.length} Bewerbung(en) ohne Rückmeldung seit über 60 Tagen.`,
+      title: "Lange keine Antwort bekommen",
+      description: `${data.zombies.length} Bewerbung(en) warten seit \u00fcber 60 Tagen auf R\u00fcckmeldung.`,
       tone: "amber",
       actionLabel: "Bewerbungen",
       action: () => navigateTo("bewerbungen"),
@@ -335,36 +334,37 @@ export default function DashboardPage() {
       <div id="page-dashboard" className="page active">
         <PageHeader
           title="Dashboard"
-          description="Alle Funktionalität bleibt erhalten, aber der Einstieg ist jetzt fokussierter und klarer strukturiert."
-          eyebrow="Übersicht"
+          description="Hier siehst du auf einen Blick, was als N\u00e4chstes zu tun ist."
+          eyebrow="\u00dcbersicht"
         />
 
         <div id="welcome-screen" className="grid gap-6">
           <Card className="glass-hero rounded-2xl p-8">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.9fr)]">
               <div className="space-y-5">
-                <Badge tone="sky">Neuer UI-Layer auf bestehendem Backend</Badge>
+                <Badge tone="sky">Dein Bewerbungs-Begleiter</Badge>
                 <h2 className="font-display text-4xl font-semibold tracking-tight text-ink">
-                  Willkommen beim Bewerbungs-Assistenten
+                  Willkommen bei PBP
                 </h2>
                 <p className="max-w-2xl text-base text-muted">
-                  Diese React-Oberfläche nutzt dieselben FastAPI-Endpunkte wie zuvor, bringt aber
-                  mehr Ordnung, klarere Hierarchien und deutlich bessere Lesbarkeit.
+                  PBP hilft dir Schritt für Schritt durch den Bewerbungsprozess — vom
+                  Lebenslauf bis zum Vorstellungsgespräch. Alles bleibt auf deinem Rechner.
+                </p>
+                <p className="max-w-2xl text-sm text-muted/70">
+                  Du musst nicht wissen, was du tun sollst — PBP zeigt dir bei jedem
+                  Schritt, was als N\u00e4chstes sinnvoll ist.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Button onClick={() => navigateTo("profil")}>
-                    Profil starten
+                    Starte dein Profil (ca. 10 Minuten)
                     <ArrowRight size={15} />
                   </Button>
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => navigateTo("profil", { composer: "document" })}
                   >
-                    <FolderOpen size={15} />
-                    Ordner importieren
-                  </Button>
-                  <Button variant="ghost" onClick={() => navigateTo("einstellungen")}>
-                    Einstellungen Öffnen
+                    <Upload size={15} />
+                    Ich habe schon Unterlagen (optional)
                   </Button>
                 </div>
               </div>
@@ -372,16 +372,16 @@ export default function DashboardPage() {
               <div className="grid gap-4">
                 {[
                   {
-                    title: "Profil",
-                    text: "Persönliche Daten, Positionen, Skills und Dokumente zentral pflegen.",
+                    title: "Schritt 1 — Profil",
+                    text: "Erzähl Claude von dir. Deine Erfahrung, deine Stärken, deine Wünsche.",
                   },
                   {
-                    title: "Stellen",
-                    text: "Gefundene Jobs mit Filtern, Fit-Analyse und schneller Übernahme in Bewerbungen.",
+                    title: "Schritt 2 — Stellen finden",
+                    text: "PBP durchsucht Jobbörsen und zeigt dir passende Stellen mit Bewertung.",
                   },
                   {
-                    title: "Bewerbungen",
-                    text: "TODOs, Statuswechsel, Timeline und Exportfunktionen auf einen Blick.",
+                    title: "Schritt 3 — Bewerben",
+                    text: "Anschreiben erstellen, Bewerbungen verfolgen, Termine im Blick behalten.",
                   },
                 ].map((item) => (
                   <Card key={item.title} className="glass-card-soft rounded-xl shadow-none">
@@ -455,7 +455,7 @@ export default function DashboardPage() {
             <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
             <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted">
-              {workspaceReadiness.description || "PBP zeigt dir hier immer den nächsten sinnvollen Schritt statt nur Rohdaten."}
+              {workspaceReadiness.description || "PBP zeigt dir hier immer, was als N\u00e4chstes sinnvoll ist."}
             </p>
           </div>
           {workspaceReadiness.action_label ? (
@@ -495,33 +495,33 @@ export default function DashboardPage() {
                 {
                   title: "Erste Schritte",
                   items: [
-                    { prompt: "/ersterfassung", label: "Ersterfassung", desc: "Profil im Gespräch erstellen", icon: PlayCircle },
-                    { prompt: "/willkommen", label: "Willkommen", desc: "Status-Übersicht", icon: BookOpen },
-                    { prompt: "/profil_erweiterung", label: "Profil erweitern", desc: "Dokumente analysieren", icon: PlusCircle, isNew: true },
+                    { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespr\u00e4ch erstellen", icon: PlayCircle },
+                    { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
+                    { prompt: "/profil_erweiterung", label: "Profil erg\u00e4nzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
                   ],
                 },
                 {
                   title: "Jobsuche & Bewerbung",
                   items: [
-                    { prompt: "/jobsuche_workflow", label: "Jobsuche", desc: "Geführter 5-Schritte Suchprozess", icon: Search },
-                    { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen + Export", icon: Send },
-                    { prompt: "/bewerbungs_uebersicht", label: "Übersicht", desc: "Alle Aktivitäten", icon: ClipboardList },
+                    { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobb\u00f6rsen durchsuchen lassen", icon: Search },
+                    { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
+                    { prompt: "/bewerbungs_uebersicht", label: "\u00dcbersicht", desc: "Was l\u00e4uft gerade?", icon: ClipboardList },
                   ],
                 },
                 {
                   title: "Interview & Verhandlung",
                   items: [
-                    { prompt: "/interview_vorbereitung", label: "Interview-Prep", desc: "Fragen, STAR-Antworten", icon: Briefcase },
-                    { prompt: "/interview_simulation", label: "Simulation", desc: "Übungsgespräch mit Claude", icon: Mic, isNew: true },
-                    { prompt: "/gehaltsverhandlung", label: "Gehalt", desc: "Verhandlungsstrategie", icon: HandCoins, isNew: true },
+                    { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen \u00fcben", icon: Briefcase },
+                    { prompt: "/interview_simulation", label: "\u00dcbungsgespr\u00e4ch", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
+                    { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins, isNew: true },
                   ],
                 },
                 {
                   title: "Analyse & Strategie",
                   items: [
-                    { prompt: "/profil_analyse", label: "Profil-Analyse", desc: "Stärken & Potenziale", icon: BarChart3 },
-                    { prompt: "/profil_ueberpruefen", label: "Profil prüfen", desc: "Fehler finden + korrigieren", icon: UserCheck },
-                    { prompt: "/netzwerk_strategie", label: "Netzwerk", desc: "Networking-Plan", icon: Network, isNew: true },
+                    { prompt: "/profil_analyse", label: "St\u00e4rken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
+                    { prompt: "/profil_ueberpruefen", label: "Profil pr\u00fcfen", desc: "Fehler finden und korrigieren", icon: UserCheck },
+                    { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
                   ],
                 },
               ].map((group) => (

@@ -198,7 +198,7 @@ export default function App() {
               copiedResolvedWorkflow = true;
             }
           } catch (error) {
-            pushToast(`Workflow-Prompt konnte nicht aufgelöst werden, kopiere Originalbefehl: ${error.message}`, "amber");
+            pushToast("Anleitung konnte nicht geladen werden \u2014 der Originaltext wurde kopiert.", "amber");
           }
         }
       }
@@ -231,11 +231,9 @@ export default function App() {
         }
       }
       pushToast(
-        copiedResolvedWorkflow
-          ? "Arbeitsanweisung kopiert — füge sie mit Strg+V in Claude ein."
-          : "Prompt kopiert — füge ihn mit Strg+V in Claude ein.",
+        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop \u2014 dort f\u00fchrt dich ein Gespr\u00e4ch automatisch durch den n\u00e4chsten Schritt. Einf\u00fcgen mit Strg+V.",
         "success",
-        { duration: 7200 }
+        { duration: 10000 }
       );
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
