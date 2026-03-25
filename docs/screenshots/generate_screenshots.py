@@ -261,6 +261,34 @@ def _start_dashboard(db_path: str, port: int):
     server.run()
 
 
+def _dismiss_toasts(page):
+    """Entfernt Toast-Benachrichtigungen vor dem Screenshot."""
+    for _ in range(5):
+        try:
+            close_btns = page.locator("[class*='toast'] button, [class*='Toast'] button, [role='alert'] button")
+            if close_btns.count() > 0:
+                for i in range(close_btns.count()):
+                    close_btns.nth(i).click(timeout=500)
+                time.sleep(0.3)
+        except Exception:
+            pass
+    page.evaluate("""
+        document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"], [role="status"]')
+            .forEach(el => el.remove());
+    """)
+    time.sleep(0.3)
+
+
+def _screenshot(page, url, output_path, desc):
+    """Navigiert zu URL und macht einen Screenshot."""
+    page.goto(url)
+    page.wait_for_load_state("networkidle")
+    time.sleep(2)
+    _dismiss_toasts(page)
+    page.screenshot(path=str(output_path), full_page=False)
+    print(f"  Screenshot: {output_path.name} ({desc})")
+
+
 def _take_screenshots(port: int, output_dir: Path):
     """Nimmt Screenshots aller Dashboard-Tabs."""
     from playwright.sync_api import sync_playwright
@@ -271,10 +299,8 @@ def _take_screenshots(port: int, output_dir: Path):
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
 
-        # Tab-Mapping: (hash_id, filename, description)
-        # React-Frontend nutzt Hash-Navigation: /#dashboard, /#profil, etc.
         tabs = [
-            ("dashboard", "01_dashboard.png", "Dashboard-Übersicht"),
+            ("dashboard", "01_dashboard.png", "Dashboard-\u00dcbersicht"),
             ("profil", "02_profil.png", "Profil-Tab"),
             ("stellen", "03_stellen.png", "Stellen-Tab"),
             ("bewerbungen", "04_bewerbungen.png", "Bewerbungen-Tab"),
@@ -283,32 +309,62 @@ def _take_screenshots(port: int, output_dir: Path):
         ]
 
         for hash_id, filename, desc in tabs:
-            url = f"{base}#{hash_id}"
-            page.goto(url)
-            page.wait_for_load_state("networkidle")
-            time.sleep(2)  # Extra wait for React rendering + API calls
+            _screenshot(page, f"{base}#{hash_id}", output_dir / filename, desc)
 
-            # Dismiss any error toasts before capturing
-            for _ in range(5):
-                try:
-                    close_btns = page.locator("[class*='toast'] button, [class*='Toast'] button, [role='alert'] button")
-                    if close_btns.count() > 0:
-                        for i in range(close_btns.count()):
-                            close_btns.nth(i).click(timeout=500)
-                        time.sleep(0.3)
-                except Exception:
-                    pass
+        browser.close()
 
-            # Also try to remove toasts via JS
-            page.evaluate("""
-                document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"], [role="status"]')
-                    .forEach(el => el.remove());
-            """)
-            time.sleep(0.3)
 
-            path = output_dir / filename
-            page.screenshot(path=str(path), full_page=False)
-            print(f"  Screenshot: {path.name} ({desc})")
+def _take_onboarding_screenshots(port: int, output_dir: Path, db_path: str):
+    """Nimmt Screenshots fuer verschiedene Onboarding-Zustaende."""
+    from playwright.sync_api import sync_playwright
+
+    base = f"http://127.0.0.1:{port}"
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+
+        # --- Phase 1: Leere DB = Willkommensbildschirm ---
+        print("\n  Phase 1: Neuer User (kein Profil)")
+        _screenshot(page, f"{base}#dashboard",
+                    output_dir / "00_willkommen.png",
+                    "Willkommen — erster Start")
+
+        # --- Phase 2: Profil unvollstaendig (nur Name, keine Skills/Positionen) ---
+        print("  Phase 2: Profil unvollstaendig")
+        db = Database(db_path=db_path)
+        db.initialize()
+        db.save_profile({
+            "name": "Heike Mustermann",
+            "email": "heike@example.com",
+            "summary": "",
+        })
+        db.close()
+        time.sleep(0.5)
+
+        _screenshot(page, f"{base}#dashboard",
+                    output_dir / "00b_profil_unvollstaendig.png",
+                    "Dashboard — Profil unvollst\u00e4ndig")
+
+        # --- Phase 3: Profil vollstaendig, mit Stellen + Bewerbungen ---
+        print("  Phase 3: Profil vollstaendig (Demo-Daten)")
+        db = Database(db_path=db_path)
+        db.initialize()
+        # Loesche das minimale Profil und lade die vollen Demo-Daten
+        conn = db.connect()
+        for tbl in ["positions", "skills", "education", "documents", "profile"]:
+            try:
+                conn.execute(f"DELETE FROM {tbl}")
+            except Exception:
+                pass
+        conn.commit()
+        _create_demo_data(db)
+        db.close()
+        time.sleep(0.5)
+
+        _screenshot(page, f"{base}#dashboard",
+                    output_dir / "00c_dashboard_vollstaendig.png",
+                    "Dashboard — Profil vollst\u00e4ndig, aktive Bewerbungen")
 
         browser.close()
 
@@ -317,14 +373,13 @@ def main():
     print("PBP Screenshot-Generator")
     print("=" * 40)
 
-    # Temp-DB mit Demo-Daten
+    # Temp-DB — startet LEER fuer Onboarding-Screenshots
     tmp_dir = tempfile.mkdtemp(prefix="pbp_screenshots_")
     db_path = os.path.join(tmp_dir, "pbp.db")
 
-    print(f"1. Erstelle Demo-Datenbank: {db_path}")
+    print(f"1. Erstelle leere Datenbank: {db_path}")
     db = Database(db_path=db_path)
     db.initialize()
-    _create_demo_data(db)
     db.close()
 
     # Dashboard starten
@@ -337,8 +392,12 @@ def main():
     server_thread.start()
     time.sleep(3)  # Wait for server startup
 
-    # Screenshots
-    print("3. Erstelle Screenshots...")
+    # Onboarding-Screenshots (leer -> unvollstaendig -> vollstaendig)
+    print("3. Erstelle Onboarding-Screenshots (3 Zustaende)...")
+    _take_onboarding_screenshots(PORT, SCREENSHOT_DIR, db_path)
+
+    # Vollstaendige Tab-Screenshots (DB hat jetzt Demo-Daten)
+    print("4. Erstelle Tab-Screenshots...")
     _take_screenshots(PORT, SCREENSHOT_DIR)
 
     print(f"\nFertig! Screenshots in: {SCREENSHOT_DIR}")

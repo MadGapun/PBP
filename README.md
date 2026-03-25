@@ -815,7 +815,16 @@ python -m pytest tests/ -v
 
 > UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
 
-### Dashboard — Übersicht mit Workspace-Guidance
+### Erster Start — So begr\u00fc\u00dft dich PBP
+![Willkommen](docs/screenshots/00_willkommen.png)
+
+### Profil unvollst\u00e4ndig — PBP zeigt dir den n\u00e4chsten Schritt
+![Profil unvollst\u00e4ndig](docs/screenshots/00b_profil_unvollstaendig.png)
+
+### Alles eingerichtet — Dashboard im Normalbetrieb
+![Dashboard vollst\u00e4ndig](docs/screenshots/00c_dashboard_vollstaendig.png)
+
+### Dashboard — \u00dcbersicht mit Workspace-Guidance
 ![Dashboard](docs/screenshots/01_dashboard.png)
 
 ### Profil — Berufserfahrung, Skills, Ausbildung
