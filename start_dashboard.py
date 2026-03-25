@@ -1,5 +1,5 @@
 """PBP Dashboard Launcher - startet das Web-Dashboard auf Port 8200."""
-import os, sys
+import os, shutil, subprocess, sys
 
 # Finde src-Verzeichnis relativ zu diesem Script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +27,44 @@ logger.info("Python: %s", sys.version)
 logger.info("Daten: %s", data_dir)
 logger.info("Log: %s", log_path)
 
+
+def _find_chrome() -> str | None:
+    """Find Chrome executable on Windows. Returns path or None."""
+    if sys.platform != "win32":
+        return shutil.which("google-chrome") or shutil.which("chromium-browser")
+
+    # Typische Chrome-Installationspfade auf Windows
+    candidates = [
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
+def _open_in_chrome(url: str) -> None:
+    """Open URL in Chrome if available, otherwise fall back to system default."""
+    chrome = _find_chrome()
+    if chrome:
+        logger.info("Oeffne Dashboard in Chrome: %s", chrome)
+        try:
+            subprocess.Popen([chrome, url], start_new_session=True)
+            return
+        except Exception as e:
+            logger.warning("Chrome-Start fehlgeschlagen: %s — nutze Fallback", e)
+
+    # Fallback: System-Standard-Browser
+    logger.info("Chrome nicht gefunden — oeffne im Standard-Browser")
+    if sys.platform == "win32":
+        os.startfile(url)
+    else:
+        import webbrowser
+        webbrowser.open(url)
+
+
 try:
     import socket
 
@@ -50,8 +88,7 @@ try:
             print("  ====================================================")
             print()
             # Browser trotzdem öffnen, damit der Nutzer direkt zum Dashboard kommt
-            if sys.platform == "win32":
-                os.startfile(f"http://localhost:{port}")
+            _open_in_chrome(f"http://localhost:{port}")
             input("  Druecke Enter zum Schliessen...")
             sys.exit(0)
 

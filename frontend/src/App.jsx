@@ -802,8 +802,8 @@ export default function App() {
               </div>
               <div className="h-6 w-px bg-white/[0.06]" />
               <div className="workspace-card">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Bewerbungen</p>
-                <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.applications?.total || 0}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Bewerbungen aktiv</p>
+                <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.applications?.active ?? chrome.workspace?.applications?.total ?? 0}</p>
               </div>
             </div>
 

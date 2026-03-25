@@ -2616,6 +2616,7 @@ async def api_export_profile():
     filename = f"profil_backup_{name_slug}_{date_str}.json"
 
     export_dir = get_data_dir() / "export"
+    export_dir.mkdir(exist_ok=True)
     filepath = export_dir / filename
     filepath.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, default=str),
@@ -2642,6 +2643,37 @@ async def api_import_profile(file: UploadFile = File(...)):
 
     pid = _db.import_profile_json(data)
     return {"status": "ok", "id": pid, "name": data.get("name", "")}
+
+
+@app.get("/api/backup")
+async def api_backup():
+    """Create a full backup of the pbp.db database file (#212)."""
+    import shutil
+    from .database import get_data_dir
+
+    db_path = get_data_dir() / "pbp.db"
+    if not db_path.exists():
+        return JSONResponse({"error": "Keine Datenbank vorhanden"}, status_code=404)
+
+    backup_dir = get_data_dir() / "backup"
+    backup_dir.mkdir(exist_ok=True)
+    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"pbp_backup_{date_str}.db"
+    backup_path = backup_dir / backup_name
+
+    # SQLite-safe backup via connection backup API
+    import sqlite3
+    src = sqlite3.connect(str(db_path))
+    dst = sqlite3.connect(str(backup_path))
+    src.backup(dst)
+    dst.close()
+    src.close()
+
+    return FileResponse(
+        str(backup_path),
+        filename=backup_name,
+        media_type="application/octet-stream",
+    )
 
 
 # === User Preferences (PBP v0.10.0) ===

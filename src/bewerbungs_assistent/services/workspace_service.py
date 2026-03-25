@@ -35,6 +35,8 @@ def build_workspace_summary(
     """Aggregate the workspace state for top-level guidance."""
     jobs = list(jobs or [])
     applications = list(applications or [])
+    archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+    active_applications = [a for a in applications if a.get("status") not in archive_statuses]
     profile_summary = summarize_profile(profile)
     completeness = get_profile_completeness(profile)
 
@@ -165,13 +167,15 @@ def build_workspace_summary(
         "todos": todos,
         "applications": {
             "total": len(applications),
+            "active": len(active_applications),
+            "archived": len(applications) - len(active_applications),
             "follow_ups_total": follow_up_summary["total"],
             "follow_ups_due": follow_up_summary["due"],
         },
         "readiness": readiness,
         "navigation": {
             "jobs_badge": format_nav_badge(len(jobs)),
-            "applications_badge": format_nav_badge(len(applications)),
+            "applications_badge": format_nav_badge(len(active_applications)),
             "settings_badge": format_nav_badge(
                 (1 if source_summary["active"] == 0 else 0)
                 + (1 if source_summary["active"] > 0

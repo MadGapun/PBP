@@ -184,8 +184,10 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
             logger.info("LinkedIn Erst-Login: Browser wird sichtbar geöffnet.")
             if progress_callback:
                 progress_callback(
-                    "LinkedIn: Browser wird geöffnet für Erst-Login. "
-                    "Bitte bei LinkedIn anmelden. Die Session wird gespeichert."
+                    "LinkedIn: Ein separates Chrome-Fenster wird geöffnet (NICHT Edge!). "
+                    "Bitte dort bei LinkedIn anmelden. "
+                    "Falls Edge im Vordergrund ist, bitte Edge minimieren und das "
+                    "neue Chrome-Fenster suchen. Die Session wird danach gespeichert."
                 )
 
         browser = pw.chromium.launch_persistent_context(
@@ -215,8 +217,8 @@ def search_linkedin(params: dict, progress_callback=None) -> list:
                 logger.info("LinkedIn Login erforderlich...")
                 if progress_callback:
                     progress_callback(
-                        "LinkedIn: Bitte im geöffneten Browser einloggen. "
-                        "Warte max. 3 Minuten..."
+                        "LinkedIn: Bitte im separaten Chrome-Fenster einloggen "
+                        "(NICHT im Edge-Browser!). Warte max. 3 Minuten..."
                     )
                 logged_in = False
                 for _ in range(180):

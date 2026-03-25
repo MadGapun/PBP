@@ -1057,6 +1057,22 @@ export default function ProfilePage() {
           }}>
             <Download size={15} /> Exportieren
           </Button>
+          <Button variant="ghost" onClick={async () => {
+            try {
+              const resp = await fetch(apiUrl("/api/backup"));
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+              const blob = await resp.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = `pbp_backup_${new Date().toISOString().slice(0, 10)}.db`; a.click();
+              URL.revokeObjectURL(url);
+              pushToast("Datenbank-Backup heruntergeladen", "success");
+            } catch (err) {
+              pushToast("Backup fehlgeschlagen: " + err.message, "danger");
+            }
+          }}>
+            <Download size={15} /> DB-Backup
+          </Button>
           <Button variant="danger" onClick={async () => {
             if (!window.confirm("Profil wirklich löschen? Alle zugehörigen Daten (Positionen, Skills, Dokumente) werden ebenfalls gelöscht.")) return;
             try {
