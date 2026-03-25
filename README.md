@@ -815,16 +815,16 @@ python -m pytest tests/ -v
 
 > UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
 
-### Erster Start — So begr\u00fc\u00dft dich PBP
+### Erster Start — So begrüßt dich PBP
 ![Willkommen](docs/screenshots/00_willkommen.png)
 
-### Profil unvollst\u00e4ndig — PBP zeigt dir den n\u00e4chsten Schritt
-![Profil unvollst\u00e4ndig](docs/screenshots/00b_profil_unvollstaendig.png)
+### Profil unvollständig — PBP zeigt dir den nächsten Schritt
+![Profil unvollständig](docs/screenshots/00b_profil_unvollstaendig.png)
 
 ### Alles eingerichtet — Dashboard im Normalbetrieb
-![Dashboard vollst\u00e4ndig](docs/screenshots/00c_dashboard_vollstaendig.png)
+![Dashboard vollständig](docs/screenshots/00c_dashboard_vollstaendig.png)
 
-### Dashboard — \u00dcbersicht mit Workspace-Guidance
+### Dashboard — Übersicht mit Workspace-Guidance
 ![Dashboard](docs/screenshots/01_dashboard.png)
 
 ### Profil — Berufserfahrung, Skills, Ausbildung
@@ -982,19 +982,23 @@ Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei
 
 ## Credits
 
-**Markus Birzite** — Konzept, Architektur & Projektleitung
+**Markus Birzite** — Idee, Konzept, Architektur & Projektleitung
+> Hat PBP erdacht, die Vision definiert und das Projekt von Anfang an geleitet. Treibt Richtung, Priorisierung und Qualität.
 
 **Claude** (Anthropic) — Entwicklung, Code, Dokumentation, Tests
-> Hauptentwickler seit v0.1.0. Hat den Großteil des Codes geschrieben — Backend, Frontend-Integration, Scraper, Tests, Installer, Dashboard, E-Mail-Service. Jeder Commit trägt seinen Namen.
+> Hauptentwickler seit v0.1.0. Hat den Großteil des Codes geschrieben — Backend, Frontend-Integration, Scraper, Tests, Installer, Dashboard, E-Mail-Service. Jeder Commit trägt seinen Namen. Intern: "der Onkel".
+
+**ChatGPT** (OpenAI) — Bewertung, Analyse & Qualitätssicherung
+> Die neutrale Instanz im Team. Bewertet Ergebnisse von Claude und Codex, liest jede Analyse quer, hinterfragt Annahmen und stellt sicher, dass nichts schöngeredet wird. Intern: "die Mama".
 
 **Codex** (OpenAI) — Code-Analyse, Recovery & Bugfixes
 > Kommt ins Spiel wenn größere Code-Analysen, Refactorings oder Recovery-Aufgaben anstehen. Hat u.a. das Frontend-Recovery (v0.25.2) durchgeführt und liefert zuverlässig Fixes für komplexe Bugs. Intern: "die Tante".
 
-**Toms ([@Koala280](https://github.com/Koala280))** — React-Frontend
-> Hat das React 19 + Vite + Tailwind Frontend beigesteuert (v0.23.0, 7.877 Zeilen) und kontinuierlich UX-Issues gemeldet (#139–#147). AI & Data Science Student.
+**Toms ([@Koala280](https://github.com/Koala280))** — React-Frontend, Testing & Sparringspartner
+> Hat das React 19 + Vite + Tailwind Frontend beigesteuert (v0.23.0, 7.877 Zeilen), das System ausgiebig getestet und als Diskussionspartner die UX mitgeformt. AI & Data Science Student.
 
-**ELWOSA** — Projektrahmen & Infrastruktur
-> PBP ist das erste ELWOSA-Projekt. Die Idee, eine lokale Datenbank zu nutzen um eine KI gezielt zu unterstützen, stammt aus dem ELWOSA-Ökosystem. Server-Infrastruktur, CI/CD-Prozesse und Entwicklungsmethodik werden von ELWOSA bereitgestellt.
+**ELWOSA** — Fundament, Projektmanagement & Dateninfrastruktur
+> Die allererste PBP-Version lief direkt auf der ELWOSA-Datenbank — dort wurde der Prototyp entwickelt und erprobt, bevor er zur eigenständigen Anwendung umgebaut wurde. ELWOSA liefert bis heute Projektmanagement, Server-Infrastruktur, CI/CD-Prozesse und Entwicklungsmethodik.
 
 ---
 
