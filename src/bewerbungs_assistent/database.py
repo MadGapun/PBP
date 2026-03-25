@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 
 
 def _gen_id() -> str:
@@ -671,6 +671,14 @@ class Database:
                 logger.warning("Blacklist migration (dismiss_pattern): %s", e)
 
             logger.info("Migration v16->v17: Geocoding, Scoring-Config, Quellen, Blacklist-Bereinigung")
+
+        if from_ver < 18:
+            # v18: Gehaltsvorstellung pro Bewerbung (#203)
+            try:
+                conn.execute("ALTER TABLE applications ADD COLUMN gehaltsvorstellung TEXT DEFAULT ''")
+            except Exception:
+                pass
+            logger.info("Migration v17->v18: applications.gehaltsvorstellung (#203)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -3655,6 +3663,7 @@ CREATE TABLE IF NOT EXISTS applications (
     endkunde TEXT DEFAULT '',
     description_snapshot TEXT,
     snapshot_date TEXT,
+    gehaltsvorstellung TEXT DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );

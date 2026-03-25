@@ -66,6 +66,8 @@ export default function ApplicationsPage() {
   const [timelineStatusDraft, setTimelineStatusDraft] = useState(EMPTY_APPLICATION.status);
   const [timelineMeetings, setTimelineMeetings] = useState([]);
   const [timelineEmails, setTimelineEmails] = useState([]);
+  const [manualSnapshotMode, setManualSnapshotMode] = useState(false);
+  const [manualSnapshotText, setManualSnapshotText] = useState("");
 
   const deferredQuery = useDeferredValue(filters.query);
   const includeArchivedDataset = filters.showArchived || ARCHIVE_STATUSES.includes(filters.status);
@@ -625,12 +627,14 @@ export default function ApplicationsPage() {
                     { key: "endkunde", label: "Endkunde" },
                     { key: "ansprechpartner", label: "Ansprechpartner" },
                     { key: "kontakt_email", label: "Kontakt-E-Mail" },
+                    { key: "gehaltsvorstellung", label: "Gehaltsvorstellung", placeholder: "z.B. 65.000\u20ac/Jahr, 850\u20ac/Tag" },
                     { key: "portal_name", label: "Portal" },
                     { key: "url", label: "URL" },
-                  ].map(({ key, label }) => (
+                  ].map(({ key, label, placeholder }) => (
                     <Field key={key} label={label}>
                       <TextInput
                         defaultValue={app[key] || ""}
+                        placeholder={placeholder || ""}
                         onBlur={async (e) => {
                           const newVal = e.target.value;
                           if (newVal === (app[key] || "")) return;
@@ -726,28 +730,76 @@ export default function ApplicationsPage() {
             <Card className="glass-card-soft rounded-xl shadow-none">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Stellenbeschreibung-Snapshot</p>
-                {(timelineDialog.entry.application.url || timelineDialog.entry.job?.url) && (
+                <div className="flex gap-2">
+                  {(timelineDialog.entry.application.url || timelineDialog.entry.job?.url) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        const url = timelineDialog.entry.application.url || timelineDialog.entry.job?.url;
+                        if (!url) return;
+                        try {
+                          pushToast("Lade Stellenbeschreibung...", "info");
+                          const result = await postJson(`/api/applications/${timelineDialog.entry.application.id}/snapshot`, { url });
+                          await reloadTimeline(timelineDialog.entry.application.id);
+                          pushToast(`Snapshot gespeichert (${result.snapshot_length} Zeichen).`, "success");
+                        } catch (error) {
+                          pushToast(`Snapshot fehlgeschlagen: ${error.message}`, "danger");
+                        }
+                      }}
+                    >
+                      <Camera size={13} />
+                      {timelineDialog.entry.application.description_snapshot ? "Aktualisieren" : "Jetzt laden"}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={async () => {
-                      const url = timelineDialog.entry.application.url || timelineDialog.entry.job?.url;
-                      if (!url) return;
-                      try {
-                        pushToast("Lade Stellenbeschreibung...", "info");
-                        const result = await postJson(`/api/applications/${timelineDialog.entry.application.id}/snapshot`, { url });
-                        await reloadTimeline(timelineDialog.entry.application.id);
-                        pushToast(`Snapshot gespeichert (${result.snapshot_length} Zeichen).`, "success");
-                      } catch (error) {
-                        pushToast(`Snapshot fehlgeschlagen: ${error.message}`, "danger");
-                      }
+                    onClick={() => {
+                      setManualSnapshotMode(!manualSnapshotMode);
+                      setManualSnapshotText(timelineDialog.entry.application.description_snapshot || "");
                     }}
                   >
-                    <Camera size={13} />
-                    {timelineDialog.entry.application.description_snapshot ? "Aktualisieren" : "Jetzt laden"}
+                    <Pencil size={13} />
+                    Manuell eingeben
                   </Button>
-                )}
+                </div>
               </div>
+              {manualSnapshotMode && (
+                <div className="mt-3 space-y-2">
+                  <TextArea
+                    rows={8}
+                    value={manualSnapshotText}
+                    onChange={(e) => setManualSnapshotText(e.target.value)}
+                    placeholder="Stellenbeschreibung hier einf\u00fcgen..."
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const now = new Date().toISOString();
+                          await putJson(`/api/applications/${timelineDialog.entry.application.id}`, {
+                            description_snapshot: manualSnapshotText,
+                            snapshot_date: now,
+                          });
+                          await reloadTimeline(timelineDialog.entry.application.id);
+                          setManualSnapshotMode(false);
+                          pushToast("Snapshot manuell gespeichert.", "success");
+                        } catch (err) {
+                          pushToast(`Fehler: ${err.message}`, "danger");
+                        }
+                      }}
+                    >
+                      <Check size={13} />
+                      Speichern
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setManualSnapshotMode(false)}>
+                      Abbrechen
+                    </Button>
+                  </div>
+                </div>
+              )}
               {timelineDialog.entry.application.description_snapshot ? (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink">
@@ -762,11 +814,11 @@ export default function ApplicationsPage() {
                     {timelineDialog.entry.application.description_snapshot}
                   </div>
                 </details>
-              ) : (
+              ) : !manualSnapshotMode ? (
                 <p className="mt-2 text-xs text-muted/50">
-                  Noch kein Snapshot vorhanden. Klicke &quot;Jetzt laden&quot; um die aktuelle Stellenbeschreibung zu sichern.
+                  Noch kein Snapshot vorhanden. Klicke &quot;Jetzt laden&quot; oder &quot;Manuell eingeben&quot;.
                 </p>
-              )}
+              ) : null}
             </Card>
           )}
 

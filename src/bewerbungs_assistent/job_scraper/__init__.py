@@ -51,29 +51,11 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping",
         "login_erforderlich": False,
     },
-    "linkedin": {
-        "name": "LinkedIn",
-        "beschreibung": "LinkedIn-Suche funktioniert nur via Claude-in-Chrome Extension (nicht automatisiert). "
-                        "Nutze die Chrome-Extension um Stellen zu finden und uebertrage sie mit stelle_manuell_anlegen().",
-        "methode": "Claude-in-Chrome (manuell)",
-        "login_erforderlich": True,
-        "veraltet": True,
-        "hinweis": "Automatische Suche via Playwright deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
-    },
     "indeed": {
         "name": "Indeed",
         "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
-    },
-    "xing": {
-        "name": "XING",
-        "beschreibung": "XING blockiert automatisierte Zugriffe. "
-                        "Nutze die Chrome-Extension um Stellen zu finden und uebertrage sie mit stelle_manuell_anlegen().",
-        "methode": "Claude-in-Chrome (manuell)",
-        "login_erforderlich": True,
-        "veraltet": True,
-        "hinweis": "Automatische Suche via Playwright deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
     "monster": {
         "name": "Monster",
@@ -128,6 +110,57 @@ SOURCE_REGISTRY = {
         "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
+    },
+    # ── Beta-Quellen (inoffiziell, nicht in README beworben) ────
+    "linkedin": {
+        "name": "LinkedIn",
+        "beschreibung": "LinkedIn-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
+        "methode": "Claude-in-Chrome (manuell)",
+        "login_erforderlich": True,
+        "veraltet": True,
+        "beta": True,
+        "warnung": (
+            "BETA-FEATURE — Bitte beachten:\n"
+            "\n"
+            "Token-Verbrauch: LinkedIn-Suche verbraucht erheblich mehr Claude-Token als "
+            "normale Quellen. Mit dem Free-Plan wird das Kontingent schnell aufgebraucht.\n"
+            "\n"
+            "Rechtlicher Hinweis: LinkedIn untersagt automatisiertes Scraping in seinen "
+            "Nutzungsbedingungen. PBP greift nur ueber deine eigene Chrome-Session zu "
+            "(du steuerst den Browser). Du bist fuer die Einhaltung der LinkedIn-Nutzungsbedingungen "
+            "selbst verantwortlich.\n"
+            "\n"
+            "Anleitung: Oeffne LinkedIn in Chrome mit der Claude-in-Chrome Extension, suche "
+            "manuell nach Stellen und uebertrage sie mit stelle_manuell_anlegen(). "
+            "Die automatische Jobsuche ueberspringt LinkedIn — du musst Claude explizit "
+            "bitten, dort zu suchen."
+        ),
+        "hinweis": "Automatische Suche deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
+    },
+    "xing": {
+        "name": "XING",
+        "beschreibung": "XING-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
+        "methode": "Claude-in-Chrome (manuell)",
+        "login_erforderlich": True,
+        "veraltet": True,
+        "beta": True,
+        "warnung": (
+            "BETA-FEATURE — Bitte beachten:\n"
+            "\n"
+            "Token-Verbrauch: XING-Suche verbraucht erheblich mehr Claude-Token als "
+            "normale Quellen. Mit dem Free-Plan wird das Kontingent schnell aufgebraucht.\n"
+            "\n"
+            "Rechtlicher Hinweis: XING untersagt automatisiertes Scraping in seinen "
+            "Nutzungsbedingungen. PBP greift nur ueber deine eigene Chrome-Session zu "
+            "(du steuerst den Browser). Du bist fuer die Einhaltung der XING-Nutzungsbedingungen "
+            "selbst verantwortlich.\n"
+            "\n"
+            "Anleitung: Oeffne XING in Chrome mit der Claude-in-Chrome Extension, suche "
+            "manuell nach Stellen und uebertrage sie mit stelle_manuell_anlegen(). "
+            "Die automatische Jobsuche ueberspringt XING — du musst Claude explizit "
+            "bitten, dort zu suchen."
+        ),
+        "hinweis": "Automatische Suche deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
 }
 

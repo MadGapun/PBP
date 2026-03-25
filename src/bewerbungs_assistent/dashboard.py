@@ -1313,7 +1313,8 @@ async def api_update_application(app_id: str, request: Request):
     allowed = (
         "title", "company", "url", "ansprechpartner", "kontakt_email",
         "portal_name", "bewerbungsart", "vermittler", "endkunde", "notes",
-        "employment_type",
+        "employment_type", "gehaltsvorstellung",
+        "description_snapshot", "snapshot_date",
     )
     conn = _db.connect()
     app_row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
@@ -1326,7 +1327,14 @@ async def api_update_application(app_id: str, request: Request):
             old_val = app_row[field] if field in app_row.keys() else ""
             new_val = data[field]
             if str(old_val or "") != str(new_val or ""):
-                changes.append(f"{field}: {old_val or '(leer)'} \u2192 {new_val or '(leer)'}")
+                # Lange Felder (z.B. Snapshot) im Log kuerzen
+                _old = str(old_val or "(leer)")
+                _new = str(new_val or "(leer)")
+                if len(_old) > 80:
+                    _old = _old[:77] + "..."
+                if len(_new) > 80:
+                    _new = _new[:77] + "..."
+                changes.append(f"{field}: {_old} \u2192 {_new}")
 
     if not changes:
         return {"status": "ok", "changes": 0}

@@ -47,7 +47,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
 
-- **17 Jobportale gleichzeitig durchsuchen** — StepStone, LinkedIn, Indeed, Hays, XING, Bundesagentur und 11 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
+- **15 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 11 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills und Erfahrung nach Relevanz sortiert sind. Als DOCX, damit du den Feinschliff selbst machst.
 - **Personalisierte Anschreiben** — Kein Copy-Paste. Basierend auf deinem Profil und der konkreten Stelle.
 - **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
@@ -102,7 +102,10 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 ### Das Besondere
 
 - **Einfach reden — oder sprechen.** Kein Formular, keine Befehle. Tippen oder Mikrofon drücken — Claude versteht beides.
-- **Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). Kein Server, kein Account, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach.
+
+> **&#9888;&#65039; Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). **Kein Server, kein Account, kein Cloud-Speicher.** Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach. **Deine Bewerbungsdaten verlassen niemals deinen Computer.**
+
+-
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
 - **Open Source & kostenlos.** PBP selbst kostet nichts. Du brauchst nur Claude Desktop (Free oder Pro).
@@ -145,8 +148,8 @@ Erzähl Claude ruhig auch von:
 
 Claude erkennt die versteckten Fähigkeiten hinter deinen Aktivitäten und übersetzt sie in die Sprache, die Recruiter verstehen. Das kann dazu führen, dass PBP dir Stellen vorschlägt, an die du selbst nie gedacht hättest — weil du gar nicht wusstest, dass dein Hobby eine gefragte Qualifikation ist.
 
-### 🔍 Stellensuche über 17 Portale
-Eine Suche — alle relevanten Portale gleichzeitig:
+### 🔍 Stellensuche über 15 Portale
+Eine Suche — alle relevanten Portale gleichzeitig. Kein Account nötig:
 
 **Festanstellung (11 Quellen):**
 
@@ -173,14 +176,7 @@ Eine Suche — alle relevanten Portale gleichzeitig:
 | GULP | HTML + JSON-LD | ❌ Nein |
 | SOLCOM | HTML + JSON-LD | ❌ Nein |
 
-**Netzwerk-Portale (2 Quellen — optionaler Login):**
-
-| Portal | Methode | Account nötig? |
-|--------|---------|---------------|
-| **LinkedIn** | **Claude-in-Chrome** | **✅ Ja — eigener Account + Chrome-Extension** |
-| **XING** | **Claude-in-Chrome** | **✅ Ja — eigener Account + Chrome-Extension** |
-
-> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. 15 der 17 Quellen funktionieren ohne Login.
+> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. Alle 15 Quellen funktionieren ohne Login.
 >
 > 📌 **Gut zu wissen:** Die Spalte "Account nötig?" bezieht sich auf das **Finden** von Stellen. PBP durchsucht diese Portale für dich und zeigt dir die Ergebnisse. Für die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenbörsen selbst.
 >
@@ -461,48 +457,23 @@ Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
 | Jobware | Nein | Öffentlich einsehbare Stellenanzeigen |
 | FERCHAU | Nein | Öffentliche Stellenangebote |
 | Kimeta | Nein | Öffentlicher Job-Aggregator |
-| **LinkedIn** | **Ja** | Kostenloser Account + Google Chrome + [Claude-in-Chrome Extension](https://chromewebstore.google.com/detail/claude-in-chrome/) |
-| **XING** | **Ja** | Kostenloser Account + Google Chrome + [Claude-in-Chrome Extension](https://chromewebstore.google.com/detail/claude-in-chrome/) |
-
-### LinkedIn und XING einrichten
-
-LinkedIn und XING blockieren automatisierte Zugriffe zuverlaessig. Deshalb nutzt PBP ab v0.31.0 einen manuellen Ansatz ueber die Claude-in-Chrome Extension:
-
-**Voraussetzungen:**
-1. **Google Chrome** (nicht Edge, nicht Chromium)
-2. **Claude-in-Chrome Extension** aus dem Chrome Web Store installieren
-3. **Einmaliger Login** bei LinkedIn/XING im Chrome-Browser
-
-**Workflow:**
-1. Oeffne LinkedIn/XING im Chrome-Browser mit Claude-in-Chrome
-2. Suche manuell nach Stellen
-3. Claude liest die Stellenanzeigen ueber die Extension
-4. Uebertrage gefundene Stellen mit `stelle_manuell_anlegen()` in PBP
-
-> 💡 Die automatische Jobsuche (`jobsuche_starten()`) funktioniert weiterhin mit allen 15 anderen Quellen. LinkedIn und XING werden bei automatischen Suchen uebersprungen.
 
 ### Rechtliche Einordnung
 
-PBP ist ein **persoenliches Werkzeug**, das in deinem Namen und mit deinen Accounts auf Jobportale zugreift — vergleichbar damit, dass du selbst im Browser suchst.
+PBP ist ein **persoenliches Werkzeug**, das in deinem Namen auf oeffentlich zugaengliche Jobportale zugreift — vergleichbar damit, dass du selbst im Browser suchst.
 
 **Was PBP tut:**
 - Durchsucht oeffentlich zugaengliche Stellenanzeigen
-- Greift auf LinkedIn/XING nur ueber **deine eigene Chrome-Session** zu (du steuerst den Browser)
 - Speichert Stellendaten **nur lokal** auf deinem Rechner
-- Macht keine Massenanfragen — du suchst selbst
 
 **Was PBP NICHT tut:**
 - Keine Daten anderer Nutzer scrapen (nur Stellenanzeigen)
 - Keine Accounts anlegen oder Passwoerter speichern
 - Keine Daten an Dritte weitergeben
-- Kein automatisiertes Scraping von LinkedIn/XING
 
 **Deine Verantwortung:**
-- Du nutzt PBP mit **deinen eigenen Accounts** und bist fuer die Einhaltung der jeweiligen Nutzungsbedingungen verantwortlich.
 - Die Bundesagentur fuer Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
 - StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden ueber oeffentlich zugaengliche Seiten durchsucht.
-
-> 💡 **Empfehlung:** Die 15 automatisierten Quellen liefern bereits eine hervorragende Abdeckung des deutschen Stellenmarkts — Festanstellung, Freelance und Engineering. LinkedIn und XING sind ein optionales Plus fuer gezielte Recherche.
 
 ---
 
@@ -588,15 +559,13 @@ server.py (FastMCP, Composition Root)
     ├──► database.py       ◄── SQLite (22 Tabellen, WAL, Schema v17)
     ├──► dashboard.py      ◄── FastAPI :8200, 85+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    └──► job_scraper/      ◄── 17 Quellen
+    └──► job_scraper/      ◄── 15 Quellen
               ├── bundesagentur.py       (REST API)
               ├── stepstone.py           (Playwright)
               ├── hays.py                (Sitemap + JSON-LD)
               ├── freelancermap.py       (httpx + Playwright Fallback)
               ├── freelance_de.py        (HTML Scraping)
-              ├── linkedin.py            (Playwright + Persistent Session)
               ├── indeed.py              (Playwright)
-              ├── xing.py                (Playwright + Persistent Session)
               ├── monster.py             (Playwright)
               ├── ingenieur_de.py        (HTML Scraping)
               ├── heise_jobs.py          (HTML + JSON-LD)
@@ -668,8 +637,7 @@ server.py (FastMCP, Composition Root)
 | `stellen_anzeigen` | Jobs mit Filter und Scoring |
 | `stelle_bewerten` | Job als passend/unpassend markieren |
 | `fit_analyse` | Detaillierte Fit-Analyse |
-| `stelle_manuell_anlegen` | Stelle manuell anlegen (z.B. von LinkedIn via Chrome) |
-| `linkedin_browser_search` | ~~Veraltet~~ — Nutze `stelle_manuell_anlegen` |
+| `stelle_manuell_anlegen` | Stelle manuell anlegen (z.B. von externen Portalen) |
 
 </details>
 
@@ -772,7 +740,7 @@ SQLite mit WAL-Mode, 22 Tabellen, Schema v17:
 | `skills` | Kompetenzen (5 Kategorien, Level, Aktualitaet) |
 | `documents` | Hochgeladene Dokumente (auto-verknuepfbar mit Bewerbungen, #177) |
 | `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (17 Quellen, `is_pinned`, `lat`/`lon` fuer Geocoding #167) |
+| `jobs` | Stellenangebote (15+ Quellen, `is_pinned`, `lat`/`lon` fuer Geocoding #167) |
 | `applications` | Bewerbungen (11 Status-Stufen inkl. `in_vorbereitung` #170, `source` #173) |
 | `application_events` | Bewerbungs-Timeline + Gespraechsnotizen + Dokument-Events (#176) |
 | `application_emails` | Importierte E-Mails mit Parsing-Ergebnis und Status-Erkennung |
@@ -933,10 +901,10 @@ python -m pytest tests/ -v
 - Jobs profilgebunden gespeichert, Follow-ups/Statistiken profilisoliert
 - Alle Queries respektieren das aktive Profil durchgängig
 
-### v0.21.0 — LinkedIn & XING Browser-Integration (2026-03-16)
-- **Persistent Browser Sessions** für LinkedIn und XING
+### v0.21.0 — Browser-Integration & Netzwerk-Quellen (2026-03-16)
+- **Persistent Browser Sessions** für Netzwerk-Portale (Beta-Feature, siehe Einstellungen)
 - Konfigurierbare DOM-Selektoren, Job-ID-Deduplizierung, Multi-Page-Pagination
-- Neues Tool: `linkedin_browser_search()`
+- Manueller Stellen-Import via `stelle_manuell_anlegen()`
 
 ### v0.20.0 — Statistik-Dashboard & Bewerbungsbericht (2026-03-16)
 - **5 interaktive Charts** (Chart.js): Timeline, Status-Donut, Quellen, Score-Verteilung
@@ -944,9 +912,9 @@ python -m pytest tests/ -v
 - **`is_pinned`** ersetzt Score=99 (Schema v10), neuer Status `abgelaufen`
 - Paginierung + Archiv-Sektion für Bewerbungen
 
-### v0.19.0 — 8 neue Jobquellen, 17 Quellen insgesamt (2026-03-16)
+### v0.19.0 — 8 neue Jobquellen, 15+ Quellen insgesamt (2026-03-16)
 - **8 neue Quellen**: ingenieur.de (VDI), Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU, Kimeta, GULP, SOLCOM
-- **17 Quellen** insgesamt — von 9 fast verdoppelt
+- **15+ Quellen** insgesamt — von 9 fast verdoppelt
 
 ### v0.18.0 — Mega-Release: 26 Issues, 61 Tools, 14 Workflows (2026-03-15)
 - **26 GitHub-Issues geschlossen**, Scoring komplett überarbeitet
