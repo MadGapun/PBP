@@ -40,6 +40,10 @@ def register(mcp, db, logger):
         - gehaltsverhandlung: Gehaltsverhandlung vorbereiten
         - netzwerk_strategie: Networking-Strategie entwickeln
         - willkommen: Willkommensbildschirm mit Status
+        - ablehnungs_coaching: Empathische Analyse nach Absage
+        - auto_bewerbung: Komplette Bewerbung aus URL/Stellentext
+        - bewerbung_vorbereitung: Schritt-fuer-Schritt Bewerbungsvorbereitung
+        - faq: Erste-Schritte-Guide und FAQ
 
         WICHTIG: Wenn du die Anweisungen erhaeltst, fuehre sie Schritt für Schritt aus.
         Die Anweisungen enthalten Tool-Aufrufe die du ausführen sollst."""
@@ -59,6 +63,10 @@ def register(mcp, db, logger):
                     {"name": "gehaltsverhandlung", "beschreibung": "Gehaltsverhandlung vorbereiten"},
                     {"name": "netzwerk_strategie", "beschreibung": "Networking-Strategie"},
                     {"name": "willkommen", "beschreibung": "Willkommensbildschirm"},
+                    {"name": "ablehnungs_coaching", "beschreibung": "Empathische Analyse nach Absage"},
+                    {"name": "auto_bewerbung", "beschreibung": "Komplette Bewerbung aus URL/Stellentext"},
+                    {"name": "bewerbung_vorbereitung", "beschreibung": "Bewerbung Schritt fuer Schritt vorbereiten"},
+                    {"name": "faq", "beschreibung": "Erste-Schritte-Guide und FAQ"},
                 ],
                 "beispiel": "workflow_starten(name='jobsuche_workflow')"
             }
@@ -391,6 +399,54 @@ ABLAUF:
 
 Sei schnell und effizient. Sprich Deutsch und per Du."""
 
+    def _bewerbung_vorbereitung():
+        conn = db.connect()
+        in_vorb = conn.execute(
+            "SELECT id, title, company FROM applications WHERE status='in_vorbereitung' ORDER BY updated_at DESC LIMIT 5"
+        ).fetchall()
+        vorb_lines = "\n".join(
+            f"- {r['title']} bei {r['company']} (ID: {r['id'][:8]})" for r in in_vorb
+        ) if in_vorb else "(keine)"
+        return f"""Begleite den User durch die Vorbereitung einer Bewerbung.
+
+Bewerbungen in Vorbereitung:
+{vorb_lines}
+
+ABLAUF:
+1. Frage welche Bewerbung vorbereitet werden soll (oder nimm die letzte)
+2. Rufe bewerbung_details(id) auf
+3. Fuehre fit_analyse(id) durch — zeige MUSS/PLUS/Risiken
+4. Erstelle angepassten Lebenslauf: lebenslauf_angepasst_exportieren(id)
+5. Erstelle Anschreiben: anschreiben_generieren(id)
+6. Verknuepfe Dokumente und plane Follow-up: nachfass_planen(id)
+7. Setze Status auf 'beworben' wenn alles fertig
+
+Sprich Deutsch und per Du. Geh Schritt fuer Schritt vor."""
+
+    def _faq():
+        profile = db.get_profile()
+        has_profile = profile is not None
+        stats = db.get_statistics() if profile else {}
+        active_jobs = stats.get("active_jobs", 0)
+        total_apps = stats.get("total_applications", 0)
+        return f"""Du bist ein freundlicher Erste-Schritte-Guide fuer PBP.
+
+AKTUELLER STAND:
+- Profil vorhanden: {'Ja' if has_profile else 'Nein'}
+- Aktive Stellen: {active_jobs}
+- Bewerbungen: {total_apps}
+
+ABLAUF:
+1. Begruesse den User kurz und freundlich
+2. Zeige den aktuellen Stand
+3. Empfehle den NAECHSTEN sinnvollen Schritt — genau EINEN, nicht alle
+4. Frage ob der User das tun moechte oder etwas anderes braucht
+
+WICHTIG:
+- Nicht ueberfordernd — immer nur den naechsten Schritt zeigen
+- Aufmunternder Ton
+- Sprich Deutsch und per Du"""
+
     return {
         "ersterfassung": _ersterfassung,
         "jobsuche_workflow": _jobsuche_workflow,
@@ -406,6 +462,8 @@ Sei schnell und effizient. Sprich Deutsch und per Du."""
         "profil_erweiterung": _profil_erweiterung,
         "ablehnungs_coaching": _ablehnungs_coaching,
         "auto_bewerbung": _auto_bewerbung,
+        "bewerbung_vorbereitung": _bewerbung_vorbereitung,
+        "faq": _faq,
     }
 
 

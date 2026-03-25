@@ -256,7 +256,7 @@ Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
 - **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
 - **Gehaltsverhandlung** — Markdaten, Strategie, Argumente
 - **Ablehnungs-Coaching** — Empathische Analyse nach Absage mit konkreten Verbesserungsvorschlägen
-- **Auto-Bewerbung** — Komplette Bewerbung aus URL oder Stellentext (Fit-Analyse → CV → Anschreiben → Tracking)
+- **Auto-Bewerbung** — Erstellt aus einer URL oder Stellenbeschreibung alle Unterlagen (Fit-Analyse → CV → Anschreiben → Tracking). Du prüfst und verschickst selbst — PBP bewirbt sich nie automatisch für dich.
 - **Antwort-Formulierung** — Kontext für Recruiter-Antworten basierend auf Bewerbungshistorie
 - **Skill-Gap-Analyse** — Was dir für die Wunschstelle fehlt
 - **Profil-Analyse** — Stärken, Potenziale, Marktposition
