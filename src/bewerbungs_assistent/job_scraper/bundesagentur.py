@@ -56,6 +56,11 @@ def search_bundesagentur(params: dict) -> list:
                     location = s.get("arbeitsort", {}).get("ort", "")
                     ref_nr = s.get("refnr", "")
 
+                    # Fetch full description from detail API
+                    description = s.get("beruf", "")
+                    if ref_nr:
+                        description = _fetch_ba_detail(client, ref_nr) or description
+
                     job = {
                         "hash": stelle_hash("arbeitsagentur.de", title),
                         "title": title,
@@ -63,9 +68,9 @@ def search_bundesagentur(params: dict) -> list:
                         "location": location,
                         "url": f"https://www.arbeitsagentur.de/jobsuche/suche?id={ref_nr}",
                         "source": "bundesagentur",
-                        "description": s.get("beruf", ""),
+                        "description": description[:2000],
                         "employment_type": "festanstellung",
-                        "remote_level": detect_remote_level(f"{title} {location}"),
+                        "remote_level": detect_remote_level(f"{title} {location} {description}"),
                     }
                     jobs.append(job)
 
@@ -75,3 +80,31 @@ def search_bundesagentur(params: dict) -> list:
 
     logger.info("Bundesagentur: %d Stellen gefunden", len(jobs))
     return jobs
+
+
+DETAIL_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs/{refnr}"
+
+
+def _fetch_ba_detail(client: httpx.Client, ref_nr: str) -> str:
+    """Fetch full job description from BA detail API."""
+    try:
+        resp = client.get(
+            DETAIL_URL.format(refnr=ref_nr),
+            headers={"X-API-Key": API_KEY},
+        )
+        if resp.status_code != 200:
+            return ""
+        data = resp.json()
+        parts = []
+        for field in ("stellenbeschreibung", "beruf", "branche", "taetigkeit"):
+            val = data.get(field, "")
+            if val and isinstance(val, str):
+                parts.append(val)
+        # Also check nested arbeitgeberdarstellung
+        ag = data.get("arbeitgeberdarstellung", "")
+        if ag:
+            parts.append(ag)
+        return " | ".join(parts) if parts else ""
+    except Exception as e:
+        logger.debug("BA detail error for %s: %s", ref_nr, e)
+        return ""

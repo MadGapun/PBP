@@ -11,7 +11,7 @@ import time
 import httpx
 from bs4 import BeautifulSoup
 
-from . import stelle_hash, detect_remote_level
+from . import stelle_hash, detect_remote_level, fetch_description_from_detail
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.kimeta")
 
@@ -99,6 +99,22 @@ def search_kimeta(params: dict) -> list:
                 time.sleep(2)
             except Exception as e:
                 logger.error("Kimeta error for '%s': %s", query, e)
+
+    # Fetch descriptions from detail pages
+    if jobs:
+        with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as detail_client:
+            for job in jobs:
+                if job.get("description") or not job.get("url"):
+                    continue
+                desc = fetch_description_from_detail(job["url"], detail_client)
+                if desc:
+                    job["description"] = desc
+                    job["remote_level"] = detect_remote_level(
+                        f"{job['title']} {job.get('location', '')} {desc}"
+                    )
+                time.sleep(1)
+        fetched = sum(1 for j in jobs if j.get("description"))
+        logger.info("Kimeta: %d/%d Beschreibungen von Detail-Seiten", fetched, len(jobs))
 
     logger.info("Kimeta: %d Stellen gefunden", len(jobs))
     return jobs

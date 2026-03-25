@@ -121,7 +121,7 @@ def search_indeed(params: dict) -> list:
                             link,
                             company: companyEl?.textContent?.trim() || 'Unbekannt',
                             location: locationEl?.textContent?.trim() || '',
-                            desc: (descEl?.textContent?.trim() || '').substring(0, 500),
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 2000),
                             salary: salaryEl?.textContent?.trim() || '',
                         });
                     }
@@ -176,10 +176,50 @@ def search_indeed(params: dict) -> list:
             except Exception as e:
                 logger.error("Indeed error for '%s': %s", query, e)
 
+        # Fetch full descriptions from detail pages
+        _fetch_detail_descriptions(page, jobs)
+
         browser.close()
 
     logger.info("Indeed: %d Stellen gefunden", len(jobs))
     return jobs
+
+
+def _fetch_detail_descriptions(page, jobs):
+    """Navigate to each job's detail page and extract full description."""
+    for job in jobs:
+        if len(job.get("description", "") or "") > 200 or not job.get("url"):
+            continue
+        try:
+            page.goto(job["url"], wait_until="domcontentloaded", timeout=20000)
+            time.sleep(random.uniform(1.5, 3))
+
+            desc = page.evaluate("""() => {
+                // Indeed detail page selectors
+                for (const sel of [
+                    '#jobDescriptionText', '.jobsearch-JobComponent-description',
+                    '[class*="jobDescription"]', '[class*="job-description"]',
+                    '[id*="jobDescription"]', 'article',
+                ]) {
+                    const el = document.querySelector(sel);
+                    if (el && el.textContent?.trim().length > 100) {
+                        return el.textContent.trim().substring(0, 2000);
+                    }
+                }
+                return '';
+            }""")
+
+            if desc and len(desc) > len(job.get("description", "") or ""):
+                job["description"] = desc
+                job["remote_level"] = detect_remote_level(
+                    f"{job['title']} {job.get('location', '')} {desc}"
+                )
+                logger.debug("Indeed detail: got %d chars for '%s'", len(desc), job["title"])
+        except Exception as e:
+            logger.debug("Indeed detail error for '%s': %s", job.get("title", "?"), e)
+
+    fetched = sum(1 for j in jobs if len(j.get("description", "") or "") > 200)
+    logger.info("Indeed: %d/%d Beschreibungen von Detail-Seiten geladen", fetched, len(jobs))
 
 
 def _dismiss_cookie_banner(page):

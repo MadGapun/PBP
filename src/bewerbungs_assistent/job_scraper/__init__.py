@@ -583,6 +583,53 @@ def stelle_hash(domain: str, title: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
+def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> str:
+    """Fetch job description from a detail page via httpx.
+
+    Tries JSON-LD first, then common HTML content selectors.
+    Returns plain text description (max 2000 chars) or empty string.
+    """
+    try:
+        from bs4 import BeautifulSoup
+        resp = client.get(url, timeout=timeout)
+        if resp.status_code != 200:
+            return ""
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Strategy 1: JSON-LD structured data
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+                items = data if isinstance(data, list) else data.get("@graph", [data])
+                for item in items:
+                    if item.get("@type") == "JobPosting":
+                        desc = item.get("description", "")
+                        if desc:
+                            text = BeautifulSoup(desc, "html.parser").get_text(separator=" ", strip=True)
+                            return text[:2000]
+            except Exception:
+                continue
+
+        # Strategy 2: Common content selectors
+        for selector in [
+            "[class*='job-description']", "[class*='jobDescription']",
+            "[class*='stellenbeschreibung']", "[class*='description']",
+            "[class*='detail-content']", "[class*='job-detail']",
+            "article .content", "article", ".content-area",
+            "[itemprop='description']", "main",
+        ]:
+            el = soup.select_one(selector)
+            if el:
+                text = el.get_text(separator=" ", strip=True)
+                if len(text) > 100:
+                    return text[:2000]
+
+        return ""
+    except Exception as e:
+        logger.debug("Detail-fetch failed for %s: %s", url, e)
+        return ""
+
+
 def _parse_weights(criteria: dict) -> dict:
     """Parse and normalize scoring weights from criteria dict."""
     w = criteria.get("gewichtung", {})

@@ -51,7 +51,7 @@ def search_freelancermap(params: dict) -> list:
                         "location": location,
                         "url": f"https://www.freelancermap.de/projekt/{slug}" if slug else url,
                         "source": "freelancermap",
-                        "description": desc[:500],
+                        "description": desc[:2000],
                         "employment_type": "freelance",
                         "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                     }
@@ -115,7 +115,7 @@ def _playwright_fallback(urls: list) -> list:
                             "location": location,
                             "url": f"https://www.freelancermap.de/projekt/{slug}" if slug else url,
                             "source": "freelancermap",
-                            "description": desc[:500],
+                            "description": desc[:2000],
                             "employment_type": "freelance",
                             "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                         })
@@ -138,7 +138,7 @@ def _playwright_fallback(urls: list) -> list:
                             title,
                             link,
                             location: locEl?.parentElement?.textContent?.trim() || locEl?.textContent?.trim() || '',
-                            desc: (descEl?.textContent?.trim() || '').substring(0, 500),
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 2000),
                         });
                     }
                     return results;

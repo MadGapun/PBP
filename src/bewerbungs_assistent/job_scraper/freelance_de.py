@@ -22,7 +22,7 @@ from urllib.parse import quote
 import httpx
 from bs4 import BeautifulSoup
 
-from . import stelle_hash, detect_remote_level
+from . import stelle_hash, detect_remote_level, fetch_description_from_detail
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelance_de")
 
@@ -69,6 +69,22 @@ def search_freelance_de(params: dict) -> list:
                 time.sleep(1)  # Rate limiting between keywords
             except Exception as e:
                 logger.error("freelance.de error for %s: %s", base_url, e)
+
+    # Fetch descriptions from project detail pages
+    if jobs:
+        with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as detail_client:
+            for job in jobs:
+                if len(job.get("description", "") or "") > 200 or not job.get("url"):
+                    continue
+                desc = fetch_description_from_detail(job["url"], detail_client)
+                if desc and len(desc) > len(job.get("description", "") or ""):
+                    job["description"] = desc
+                    job["remote_level"] = detect_remote_level(
+                        f"{job['title']} {job.get('location', '')} {desc}"
+                    )
+                time.sleep(1)
+        fetched = sum(1 for j in jobs if len(j.get("description", "") or "") > 200)
+        logger.info("freelance.de: %d/%d Beschreibungen von Detail-Seiten", fetched, len(jobs))
 
     logger.info("freelance.de: %d Projekte gefunden", len(jobs))
     return jobs
@@ -223,7 +239,7 @@ def _extract_project_from_card(card, seen_urls: set) -> dict | None:
         "location": location,
         "url": project_url,
         "source": "freelance_de",
-        "description": description[:500],
+        "description": description[:2000],
         "employment_type": "freelance",
         "remote_level": detect_remote_level(remote_text),
     }

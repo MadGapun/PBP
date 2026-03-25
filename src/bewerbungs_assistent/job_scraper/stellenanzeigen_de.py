@@ -76,7 +76,7 @@ def search_stellenanzeigen_de(params: dict) -> list:
                                 "location": location,
                                 "url": item.get("url", ""),
                                 "source": "stellenanzeigen_de",
-                                "description": (item.get("description", "") or "")[:500],
+                                "description": (item.get("description", "") or "")[:2000],
                                 "employment_type": "festanstellung",
                                 "remote_level": detect_remote_level(
                                     f"{title} {location} {item.get('description', '')}"

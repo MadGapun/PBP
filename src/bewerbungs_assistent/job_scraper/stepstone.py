@@ -170,10 +170,64 @@ def search_stepstone(params: dict) -> list:
             except Exception as e:
                 logger.error("StepStone error for %s: %s", url, e)
 
+        # Fetch descriptions from detail pages
+        _fetch_detail_descriptions(page, jobs)
+
         browser.close()
 
     logger.info("StepStone: %d Stellen gefunden", len(jobs))
     return jobs
+
+
+def _fetch_detail_descriptions(page, jobs):
+    """Navigate to each job's detail page and extract description."""
+    for job in jobs:
+        if job.get("description") or not job.get("url"):
+            continue
+        try:
+            page.goto(job["url"], wait_until="domcontentloaded", timeout=20000)
+            time.sleep(random.uniform(1, 2))
+
+            desc = page.evaluate("""() => {
+                // JSON-LD first
+                for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+                    try {
+                        const data = JSON.parse(script.textContent);
+                        const items = data['@graph'] || (Array.isArray(data) ? data : [data]);
+                        for (const item of items) {
+                            if (item['@type'] === 'JobPosting' && item.description) {
+                                const div = document.createElement('div');
+                                div.innerHTML = item.description;
+                                return div.textContent?.trim()?.substring(0, 2000) || '';
+                            }
+                        }
+                    } catch (e) {}
+                }
+                // HTML content selectors
+                for (const sel of [
+                    '[class*="job-ad-display"]', '[class*="listing-content"]',
+                    '[class*="JobAdContent"]', '[data-testid="job-ad-content"]',
+                    '[class*="description"]', 'article',
+                ]) {
+                    const el = document.querySelector(sel);
+                    if (el && el.textContent?.trim().length > 100) {
+                        return el.textContent.trim().substring(0, 2000);
+                    }
+                }
+                return '';
+            }""")
+
+            if desc:
+                job["description"] = desc
+                job["remote_level"] = detect_remote_level(
+                    f"{job['title']} {job.get('location', '')} {desc}"
+                )
+                logger.debug("StepStone detail: got %d chars for '%s'", len(desc), job["title"])
+        except Exception as e:
+            logger.debug("StepStone detail error for '%s': %s", job.get("title", "?"), e)
+
+    fetched = sum(1 for j in jobs if j.get("description"))
+    logger.info("StepStone: %d/%d Beschreibungen von Detail-Seiten geladen", fetched, len(jobs))
 
 
 def _dismiss_cookie_banner(page):
