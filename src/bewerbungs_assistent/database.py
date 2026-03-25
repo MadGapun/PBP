@@ -1532,11 +1532,12 @@ class Database:
             "doc_type": doc_type,
         }
 
-        # Auto-link if confidence is high enough
+        # Auto-link if confidence is high enough (#219: auch extraction_status setzen)
         if best_confidence >= 0.7:
             conn.execute(
-                "UPDATE documents SET linked_application_id=? WHERE id=?",
-                (best_match["id"], doc_id)
+                "UPDATE documents SET linked_application_id=?, "
+                "extraction_status='angewendet', last_extraction_at=? WHERE id=?",
+                (best_match["id"], _now(), doc_id)
             )
             # Add timeline event
             self.add_application_event(
@@ -1557,11 +1558,12 @@ class Database:
         return result
 
     def link_document_to_application(self, doc_id, application_id: int):
-        """Link a document to an application and create timeline entry (#176)."""
+        """Link a document to an application and create timeline entry (#176, #219)."""
         conn = self.connect()
         conn.execute(
-            "UPDATE documents SET linked_application_id=? WHERE id=?",
-            (application_id, str(doc_id)),
+            "UPDATE documents SET linked_application_id=?, "
+            "extraction_status='angewendet', last_extraction_at=? WHERE id=?",
+            (application_id, _now(), str(doc_id)),
         )
         # Get filename for timeline entry (#176)
         doc_row = conn.execute("SELECT filename FROM documents WHERE id=?", (str(doc_id),)).fetchone()
@@ -2630,14 +2632,13 @@ class Database:
             GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
 
-        # High-score ACTIVE jobs NOT applied to (exclude dismissed — #125)
+        # High-score jobs NOT applied to — inkl. aussortierte (#220)
         unapplied_high = conn.execute("""
             SELECT j.hash, j.title, j.company, j.score, j.source,
                    j.dismiss_reason, j.is_active, j.found_at
             FROM jobs j
             LEFT JOIN applications a ON j.hash = a.job_hash
             WHERE a.id IS NULL AND j.score >= 5 AND j.is_pinned=0
-            AND j.is_active=1
             AND (j.profile_id=? OR j.profile_id IS NULL)
             ORDER BY j.score DESC LIMIT 30
         """, (pid,)).fetchall()

@@ -474,10 +474,10 @@ def register(mcp, db, logger):
 
         job_hash = stelle_hash(quelle, f"{firma} {titel}")
 
-        # Check for duplicates
-        existing = db.resolve_job_hash(job_hash)
-        if existing and existing != job_hash:
-            return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing})."}
+        # Check for duplicates (#219: nur echte DB-Treffer, nicht scope-Prefix)
+        existing_job = db.get_job(job_hash)
+        if existing_job:
+            return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
 
         criteria = db.get_search_criteria()
         job = {

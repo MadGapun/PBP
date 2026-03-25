@@ -340,9 +340,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
     pdf.ln(4)
 
-    # --- 6. Nicht beworben trotz gutem Score ---
+    # --- 6. Nicht beworben trotz gutem Score (#220) ---
+    _section_header(pdf, "6. Nicht beworben trotz gutem Fit-Score")
     if unapplied:
-        _section_header(pdf, "6. Nicht beworben trotz gutem Fit-Score")
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
             f"  {len(unapplied)} Stellen mit Score >= 5 ohne Bewerbung:"
@@ -362,7 +362,17 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             title = (j.get("title") or "")[:38]
             reason = ""
             if not j.get("is_active"):
-                reason = j.get("dismiss_reason", "aussort.")[:12]
+                raw = j.get("dismiss_reason") or ""
+                # dismiss_reason kann JSON-Array oder String sein
+                if raw.startswith("["):
+                    import json as _json
+                    try:
+                        reasons = _json.loads(raw)
+                        reason = ", ".join(str(r) for r in reasons)[:20]
+                    except Exception:
+                        reason = raw[:20]
+                else:
+                    reason = raw[:20] if raw else "aussort."
             pdf.cell(50, 4, _safe_text(company), border=1)
             pdf.cell(65, 4, _safe_text(title), border=1)
             pdf.cell(13, 4, str(j.get("score", "")), border=1, align="C")
@@ -370,6 +380,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(22, 4, _safe_text((j.get("found_at") or "")[:10]), border=1, align="C")
             pdf.cell(20, 4, _safe_text(reason), border=1, align="C")
             pdf.ln()
+    else:
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, "  Im Berichtszeitraum wurden keine Stellen mit gutem Score aussortiert.")
     pdf.ln(4)
 
     # --- 7. Keyword-Analyse ---
