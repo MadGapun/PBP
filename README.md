@@ -1003,4 +1003,7 @@ Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei
 
 ---
 
-<p align="center"><sub>An <b>ELWOSA</b> Project</sub></p>
+<p align="center">
+<a href="https://paypal.me/birzite"><img src="https://img.shields.io/badge/☕_Kaffee_spendieren-PayPal-blue?style=for-the-badge" alt="Kaffee spendieren"></a>
+<br><sub>An <b>ELWOSA</b> Project</sub>
+</p>
