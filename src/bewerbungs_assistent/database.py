@@ -1671,7 +1671,7 @@ class Database:
         if exclude_applied:
             applied_hashes = {
                 r["job_hash"] for r in self.get_applications()
-                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurückgezogen", "abgelaufen")
+                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen")
             }
             if applied_hashes:
                 jobs = [j for j in jobs if j["hash"] not in applied_hashes]
@@ -1740,7 +1740,7 @@ class Database:
     # === Applications ===
 
     # Statuses considered archived (inactive)
-    ARCHIVE_STATUSES = ("abgelehnt", "zurückgezogen", "abgelaufen")
+    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen")
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,

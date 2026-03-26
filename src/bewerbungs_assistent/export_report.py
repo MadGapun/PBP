@@ -31,7 +31,6 @@ STATUS_LABELS = {
     "angenommen": "Angenommen",
     "abgelehnt": "Abgelehnt",
     "zurueckgezogen": "Zurückgezogen",
-    "zurückgezogen": "Zurückgezogen",
     "abgelaufen": "Abgelaufen",
 }
 
@@ -45,7 +44,6 @@ STATUS_COLORS = {
     "angenommen": (16, 185, 129),
     "abgelehnt": (248, 113, 113),
     "zurueckgezogen": (148, 163, 184),
-    "zurückgezogen": (148, 163, 184),
     "abgelaufen": (148, 163, 184),
     "offen": (100, 116, 139),
     "eingangsbestaetigung": (56, 189, 248),

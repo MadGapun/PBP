@@ -2,6 +2,42 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.33.9] - 2026-03-26
+
+### Fix: Archiv-Zaehlung und Interview-Filter korrigiert
+
+Zwei zusammenhaengende Bugs behoben, die zu falschen Zahlen im Dashboard fuehrten.
+
+**Bug 1 — ARCHIVE_STATUSES Encoding-Mismatch:**
+
+`ARCHIVE_STATUSES` in `database.py` enthielt `zurückgezogen` (Umlaut ue) statt
+`zurueckgezogen` (ASCII). Da die Datenbank konsequent ASCII-Status verwendet,
+wurden zurueckgezogene Bewerbungen weder beim Archiv-Zaehlen noch beim Filtern
+erkannt. Dashboard zeigte 32 statt 34 archivierte Bewerbungen.
+
+- `database.py`: ARCHIVE_STATUSES und Job-Hash-Filter auf ASCII korrigiert
+- `job_scraper/__init__.py`: Applied-Titles-Filter auf ASCII korrigiert
+- `export_report.py`: Umlaut-Duplikat-Keys in STATUS_LABELS/STATUS_COLORS entfernt
+
+**Bug 2 — Interview-Filter zeigt nur einen Status:**
+
+Klick auf "Interview filtern" im Dashboard setzte `status: "interview"`, aber
+der Filter matchte nur exakt diesen Wert. Bewerbungen mit `zweitgespraech` oder
+`interview_abgeschlossen` fehlten, obwohl die Zaehlung sie einschloss.
+
+- `INTERVIEW_STATUSES`-Konstante eingefuehrt (`interview`, `zweitgespraech`,
+  `interview_abgeschlossen`)
+- `statusMatch`-Filter erweitert: `status === "interview"` matcht jetzt die
+  gesamte Interview-Gruppe
+- `interviewApplicationsCount` nutzt die neue Konstante
+
+**Entfernt:**
+
+- "Claude oeffnen"-Button und zugehoerige Endpoints (`/api/claude-open`,
+  `/api/claude-status`) — Windows-only, auf Linux-Server nie funktionsfaehig
+
+**Tests:** 362 Tests gruen, 4 geskippt
+
 ## [0.32.6] - 2026-03-24
 
 ### Fix: Outlook-Mail-Import (.msg) funktioniert jetzt im Installer

@@ -39,6 +39,7 @@ const EMPTY_APPLICATION = {
   notes: "",
 };
 const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen"];
+const INTERVIEW_STATUSES = ["interview", "zweitgespraech", "interview_abgeschlossen"];
 
 export default function ApplicationsPage() {
   const { chrome, reloadKey, refreshChrome, pushToast } = useApp();
@@ -227,7 +228,10 @@ export default function ApplicationsPage() {
   const filteredApplications = applications.filter((application) => {
     const haystack = `${application.title || ""} ${application.company || ""} ${application.notes || ""}`.toLowerCase();
     const queryMatch = !deferredQuery || haystack.includes(deferredQuery.toLowerCase());
-    const statusMatch = !filters.status || application.status === filters.status;
+    const statusMatch = !filters.status ||
+      (filters.status === "interview"
+        ? INTERVIEW_STATUSES.includes(application.status)
+        : application.status === filters.status);
     const dateMatch = (!filters.fromDate || (application.applied_at || "") >= filters.fromDate) &&
                       (!filters.toDate || (application.applied_at || "") <= filters.toDate + "T23:59:59");
     const artMatch = !filters.stellenart ||
@@ -240,7 +244,7 @@ export default function ApplicationsPage() {
   const activeApplications = applications.filter((item) => !ARCHIVE_STATUSES.includes(item.status));
   const activeApplicationsCount = activeApplications.length;
   const visibleArchivedCount = applications.filter((item) => ARCHIVE_STATUSES.includes(item.status)).length;
-  const interviewApplicationsCount = applications.filter((item) => ["interview", "zweitgespraech", "interview_abgeschlossen"].includes(item.status)).length;
+  const interviewApplicationsCount = applications.filter((item) => INTERVIEW_STATUSES.includes(item.status)).length;
   const draftApplicationsCount = applications.filter((item) => ["in_vorbereitung", "entwurf"].includes(item.status)).length;
   const activeJobsCount = Number(chrome.workspace?.jobs?.active || 0);
   const applicationTimestamps = applications

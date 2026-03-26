@@ -462,7 +462,7 @@ def run_search(db, job_id: str, params: dict):
         apps = db.get_applications()
         criteria["_applied_titles"] = [
             a.get("title", "").lower() for a in apps
-            if a.get("title") and a.get("status") not in ("abgelehnt", "zurückgezogen")
+            if a.get("title") and a.get("status") not in ("abgelehnt", "zurueckgezogen")
         ]
     except Exception:
         criteria["_applied_titles"] = []

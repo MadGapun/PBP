@@ -104,7 +104,7 @@ class TestStatus:
         r = client.get("/api/status")
         assert r.status_code == 200
         data = r.json()
-        assert data["version"] == "0.33.8"
+        assert data["version"] == "0.33.9"
         assert data["has_profile"] is False
         assert data["profile_name"] is None
         assert data["active_jobs"] == 0
@@ -115,7 +115,7 @@ class TestStatus:
         client.post("/api/profile", json={"name": "Tester"})
         r = client.get("/api/status")
         data = r.json()
-        assert data["version"] == "0.33.8"
+        assert data["version"] == "0.33.9"
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
 

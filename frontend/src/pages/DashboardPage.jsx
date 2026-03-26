@@ -5,7 +5,6 @@
   Briefcase,
   Calendar,
   ClipboardList,
-  ExternalLink,
   HandCoins,
   Mail,
   Mic,
@@ -464,16 +463,6 @@ export default function DashboardPage() {
                 {workspaceReadiness.action_label}
               </Button>
             ) : null}
-            <Button size="sm" variant="ghost" onClick={async () => {
-              try {
-                const resp = await api("/api/claude-open", { method: "POST" });
-                pushToast(resp.message || "Claude Desktop wird gestartet...", "success");
-              } catch (err) {
-                pushToast("Claude konnte nicht gestartet werden: " + err.message, "danger");
-              }
-            }}>
-              <ExternalLink size={14} /> Claude öffnen
-            </Button>
           </div>
         </div>
 
