@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.0.0] - 2026-03-26
+
+### Erster offizieller Public Release
+
+PBP ist jetzt Open Source und oeffentlich auf GitHub verfuegbar.
+
+**Inhalt:** 72 MCP-Tools, 16 Prompts, 6 Resources, 18 Jobquellen, Schema v18,
+React 19 Dashboard, E-Mail-Integration, Multi-Profil, Scoring-Regler,
+Geocoding, gefuehrter Bewerbungs-Workflow, ATS-konformer CV-Export.
+
+**Repository:** Oeffentlich, Issues aktiviert, Branch Protection auf main,
+Community-Dateien (CONTRIBUTING, SECURITY, CODE_OF_CONDUCT) vorhanden.
+
+**Tests:** 362 Tests gruen, 4 geskippt
+
 ## [0.33.10] - 2026-03-26
 
 ### Release-Hygiene: Public-Release-Vorbereitung
