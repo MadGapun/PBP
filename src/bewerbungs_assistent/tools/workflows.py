@@ -42,10 +42,10 @@ def register(mcp, db, logger):
         - willkommen: Willkommensbildschirm mit Status
         - ablehnungs_coaching: Empathische Analyse nach Absage
         - auto_bewerbung: Komplette Bewerbung aus URL/Stellentext
-        - bewerbung_vorbereitung: Schritt-fuer-Schritt Bewerbungsvorbereitung
+        - bewerbung_vorbereitung: Schritt-für-Schritt Bewerbungsvorbereitung
         - faq: Erste-Schritte-Guide und FAQ
 
-        WICHTIG: Wenn du die Anweisungen erhaeltst, fuehre sie Schritt für Schritt aus.
+        WICHTIG: Wenn du die Anweisungen erhältst, führe sie Schritt für Schritt aus.
         Die Anweisungen enthalten Tool-Aufrufe die du ausführen sollst."""
         if not name:
             return {
@@ -59,13 +59,13 @@ def register(mcp, db, logger):
                     {"name": "profil_ueberpruefen", "beschreibung": "Profil korrigieren"},
                     {"name": "profil_analyse", "beschreibung": "Profilbewertung"},
                     {"name": "profil_erweiterung", "beschreibung": "Dokumente analysieren"},
-                    {"name": "bewerbungs_uebersicht", "beschreibung": "Komplette Uebersicht"},
+                    {"name": "bewerbungs_uebersicht", "beschreibung": "Komplette Übersicht"},
                     {"name": "gehaltsverhandlung", "beschreibung": "Gehaltsverhandlung vorbereiten"},
                     {"name": "netzwerk_strategie", "beschreibung": "Networking-Strategie"},
                     {"name": "willkommen", "beschreibung": "Willkommensbildschirm"},
                     {"name": "ablehnungs_coaching", "beschreibung": "Empathische Analyse nach Absage"},
                     {"name": "auto_bewerbung", "beschreibung": "Komplette Bewerbung aus URL/Stellentext"},
-                    {"name": "bewerbung_vorbereitung", "beschreibung": "Bewerbung Schritt fuer Schritt vorbereiten"},
+                    {"name": "bewerbung_vorbereitung", "beschreibung": "Bewerbung Schritt für Schritt vorbereiten"},
                     {"name": "faq", "beschreibung": "Erste-Schritte-Guide und FAQ"},
                 ],
                 "beispiel": "workflow_starten(name='jobsuche_workflow')"
@@ -119,12 +119,12 @@ def _prompt_registry(db):
 
         return f"""Starte den geführten Jobsuche-Workflow.
 
-DU FUEHRST DEN USER SCHRITT FÜR SCHRITT DURCH DIESEN PROZESS.
-Erklaere bei jedem Schritt WAS passiert und WARUM.
+DU FÜHRST DEN USER SCHRITT FÜR SCHRITT DURCH DIESEN PROZESS.
+Erkläre bei jedem Schritt WAS passiert und WARUM.
 
 {f'i {last_info}' if last_info else ''}
 
-SCHRITT 1: SUCHKRITERIEN PRUEFEN
+SCHRITT 1: SUCHKRITERIEN PRÜFEN
 Aktueller Stand: {json.dumps(criteria, ensure_ascii=False, indent=2) if criteria else 'Noch keine Kriterien gesetzt!'}
 
 Falls keine/wenige Kriterien gesetzt:
@@ -138,7 +138,7 @@ SCHRITT 2: QUELLEN AKTIVIEREN
 Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen müssen erst aktiviert werden)'}
 
 Falls keine Quellen aktiv:
-→ Erklaere welche Quellen verfügbar sind (StepStone, Indeed, Monster, BA, Hays, Freelancermap, LinkedIn, XING)
+→ Erkläre welche Quellen verfügbar sind (StepStone, Indeed, Monster, BA, Hays, Freelancermap, LinkedIn, XING)
 → Frage welche der User nutzen möchte
 
 SCHRITT 3: SUCHE STARTEN
@@ -157,7 +157,7 @@ SCHRITT 5: BEWERBUNG VORBEREITEN
 → Erfasse die Bewerbung mit bewerbung_erstellen()
 
 REGELN:
-- Erklaere jeden Schritt verständlich
+- Erkläre jeden Schritt verständlich
 - Überspringe Schritte die bereits erledigt sind
 - Sprich Deutsch und per Du"""
 
@@ -437,13 +437,13 @@ AKTUELLER STAND:
 - Bewerbungen: {total_apps}
 
 ABLAUF:
-1. Begruesse den User kurz und freundlich
+1. Begrüße den User kurz und freundlich
 2. Zeige den aktuellen Stand
-3. Empfehle den NAECHSTEN sinnvollen Schritt — genau EINEN, nicht alle
-4. Frage ob der User das tun moechte oder etwas anderes braucht
+3. Empfehle den NÄCHSTEN sinnvollen Schritt — genau EINEN, nicht alle
+4. Frage ob der User das tun möchte oder etwas anderes braucht
 
 WICHTIG:
-- Nicht ueberfordernd — immer nur den naechsten Schritt zeigen
+- Nicht überfordernd — immer nur den nächsten Schritt zeigen
 - Aufmunternder Ton
 - Sprich Deutsch und per Du"""
 
@@ -471,7 +471,7 @@ def _static_ersterfassung():
     """Ersterfassung-Prompt (statisch, keine DB-Abhängigkeiten)."""
     return """Du bist ein freundlicher Karriereberater. Dies ist ein zwangloses Gespräch.
 
-SCHRITT 0: FORTSCHRITT PRUEFEN
+SCHRITT 0: FORTSCHRITT PRÜFEN
 Rufe zuerst auf: erfassung_fortschritt_lesen() und profile_auflisten()
 Falls angefangenes Profil: Weitermachen wo aufgehört.
 Falls mehrere Profile: Fragen welches bearbeitet werden soll.

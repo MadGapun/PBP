@@ -291,7 +291,7 @@ async def api_claude_open():
     import subprocess
 
     if sys.platform != "win32":
-        return JSONResponse({"error": "Nur unter Windows verfuegbar"}, status_code=400)
+        return JSONResponse({"error": "Nur unter Windows verfügbar"}, status_code=400)
 
     # Find Claude Desktop
     candidates = [
@@ -385,7 +385,7 @@ def _get_daily_impulse() -> dict:
 
 @app.get("/api/daily-impulse")
 async def api_daily_impulse():
-    """Tagesimpuls fuer das Dashboard (#163)."""
+    """Tagesimpuls für das Dashboard (#163)."""
     return _get_daily_impulse()
 
 

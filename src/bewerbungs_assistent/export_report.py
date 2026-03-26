@@ -123,7 +123,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # PBP Branding (#173)
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(100, 100, 100)
-    _line_cell(pdf, 0, 4, _safe_text("Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"), align="C")
+    _line_cell(pdf, 0, 4, _safe_text("Erstellt mit PBP (Persönliches Bewerbungs-Portal)"), align="C")
     _line_cell(pdf, 0, 4, _safe_text("https://github.com/MadGapun/PBP"), align="C")
     pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
@@ -402,7 +402,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         # Count word frequency across applied job descriptions
         word_counter = Counter()
         stop_words = {
-            "und", "die", "der", "in", "von", "zu", "mit", "fuer", "für",
+            "und", "die", "der", "in", "von", "zu", "mit", "für", "für",
             "den", "das", "ist", "im", "ein", "eine", "auf", "des", "als",
             "wir", "sie", "oder", "an", "bei", "our", "the", "and", "for",
             "you", "are", "with", "your", "will", "that", "this", "have",
@@ -422,7 +422,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         if top_words:
             pdf.set_font("Helvetica", "", 8)
             _line_cell(pdf, 0, 5, _safe_text(
-                "  Haeufigste Begriffe in Stellen, auf die Sie sich beworben haben:"
+                "  Häufigste Begriffe in Stellen, auf die Sie sich beworben haben:"
             ))
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_fill_color(232, 245, 233)
@@ -444,19 +444,19 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(31, 78, 121)
     _line_cell(pdf, 0, 5, _safe_text(
-        "Erstellt mit PBP (Persoenliches Bewerbungs-Portal)"
+        "Erstellt mit PBP (Persönliches Bewerbungs-Portal)"
     ), align="C")
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(100, 100, 100)
     _line_cell(pdf, 0, 4, _safe_text(
-        "PBP ist ein KI-gestuetztes Bewerbungsmanagement-Tool, das den gesamten "
+        "PBP ist ein KI-gestütztes Bewerbungsmanagement-Tool, das den gesamten "
         "Bewerbungsprozess von der Stellensuche bis zum Angebot strukturiert und automatisiert."
     ), align="C")
     _line_cell(pdf, 0, 4, _safe_text(
         f"https://github.com/MadGapun/PBP | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
     ), align="C")
     pdf.set_text_color(0, 0, 0)
-    _line_cell(pdf, 0, 4, _safe_text("* = manuell hinzugefuegte Stelle (gepinnt)"), align="C")
+    _line_cell(pdf, 0, 4, _safe_text("* = manuell hinzugefügte Stelle (gepinnt)"), align="C")
 
     pdf.output(str(output_path))
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)

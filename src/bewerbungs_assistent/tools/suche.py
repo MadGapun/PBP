@@ -15,7 +15,7 @@ def register(mcp, db, logger):
         max_entfernung: dict = None,
         custom_kriterien: dict = None
     ) -> dict:
-        """Setzt die Suchkriterien fuer die Jobsuche (ersetzt die gesamte Liste).
+        """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
 
         MUSS-Keywords: Stelle wird nur beruecksichtigt wenn mindestens eins vorkommt.
         PLUS-Keywords: Erhoehen den Score (= bessere Sortierung).
@@ -29,7 +29,7 @@ def register(mcp, db, logger):
             keywords_plus: Bonus-Keywords (erhoehen Score)
             keywords_ausschluss: Ausschluss-Keywords (z.B. Junior, Praktikum)
             regionen: Bevorzugte Regionen
-            standort: Wohnort des Bewerbers fuer Entfernungsberechnung (#167).
+            standort: Wohnort des Bewerbers für Entfernungsberechnung (#167).
                 z.B. 'Bremen' oder 'Bremen, Deutschland'. Wird einmalig geocoded und gecacht.
             stellentypen: Gewuenschte Stellentypen als Multi-Select (#166).
                 Optionen: festanstellung, freelance, teilzeit, praktikum, werkstudent.
@@ -139,7 +139,7 @@ def register(mcp, db, logger):
     ) -> dict:
         """Verwaltet die Blacklist (Firmen und Keywords die bei der Jobsuche automatisch aussortiert werden).
 
-        WICHTIG (#168): Die Blacklist ist NUR fuer harte Ausschlüsse gedacht:
+        WICHTIG (#168): Die Blacklist ist NUR für harte Ausschlüsse gedacht:
         - 'firma': Firmen die IMMER ignoriert werden (z.B. CIDEON, Zeitarbeitsfirma XY)
         - 'keyword': Begriffe die IMMER ignoriert werden (z.B. Werkstudent, Praktikum)
 
@@ -150,7 +150,7 @@ def register(mcp, db, logger):
             aktion: 'hinzufuegen', 'anzeigen', 'entfernen'
             typ: 'firma' oder 'keyword' (keine anderen Typen mehr!)
             wert: Der Blacklist-Eintrag (Firmenname oder Keyword)
-            grund: Optionaler Grund fuer den Eintrag
+            grund: Optionaler Grund für den Eintrag
             entry_id: ID des Eintrags (nur bei aktion='entfernen')
         """
         if aktion == "hinzufuegen":

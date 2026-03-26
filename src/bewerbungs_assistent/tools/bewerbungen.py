@@ -1,40 +1,40 @@
-"""Bewerbungs-Management — 9 Tools (#170: gefuehrter Workflow)."""
+"""Bewerbungs-Management — 9 Tools (#170: geführter Workflow)."""
 
 import hashlib
 
 
-# Status-zu-Aktionen Mapping (#170): Kontextabhaengige Aktionen pro Status
+# Status-zu-Aktionen Mapping (#170): Kontextabhängige Aktionen pro Status
 # Jeder Status zeigt dem User genau die Aktionen die JETZT relevant sind.
 STATUS_ACTIONS = {
     "in_vorbereitung": {
-        "beschreibung": "Du bereitest dich auf diese Bewerbung vor. Hier sind deine naechsten Schritte:",
+        "beschreibung": "Du bereitest dich auf diese Bewerbung vor. Hier sind deine nächsten Schritte:",
         "aktionen": [
-            {"label": "Fit-Analyse durchfuehren", "tool": "fit_analyse", "prioritaet": 1},
+            {"label": "Fit-Analyse durchführen", "tool": "fit_analyse", "prioritaet": 1},
             {"label": "Skill-Gap-Analyse", "tool": "skill_gap_analyse", "prioritaet": 2},
             {"label": "Lebenslauf anpassen", "tool": "lebenslauf_angepasst_exportieren", "prioritaet": 3},
             {"label": "Lebenslauf bewerten lassen", "tool": "lebenslauf_bewerten", "prioritaet": 4},
             {"label": "Anschreiben erstellen", "tool": "anschreiben_exportieren", "prioritaet": 5},
             {"label": "Firmen-Recherche", "tool": "firmen_recherche", "prioritaet": 6},
-            {"label": "Dokument verknuepfen", "tool": "dokument_verknuepfen", "prioritaet": 7},
+            {"label": "Dokument verknüpfen", "tool": "dokument_verknüpfen", "prioritaet": 7},
             {"label": "Als 'beworben' markieren", "tool": "bewerbung_status_aendern", "status": "beworben", "prioritaet": 8},
         ],
         "motivation": "Gute Vorbereitung ist der halbe Erfolg! Nimm dir die Zeit.",
     },
     "beworben": {
-        "beschreibung": "Bewerbung ist raus! Nutze die Wartezeit um dich auf ein moegliches Interview vorzubereiten.",
+        "beschreibung": "Bewerbung ist raus! Nutze die Wartezeit um dich auf ein mögliches Interview vorzubereiten.",
         "aktionen": [
             {"label": "Interview-Vorbereitung starten", "tool": "workflow_starten", "workflow": "interview_vorbereitung", "prioritaet": 1},
             {"label": "Interview-Simulation", "tool": "workflow_starten", "workflow": "interview_simulation", "prioritaet": 2},
             {"label": "Firmen-Recherche", "tool": "firmen_recherche", "prioritaet": 3},
             {"label": "Nachfass-Erinnerung planen", "tool": "nachfass_planen", "prioritaet": 4},
-            {"label": "Notiz hinzufuegen", "tool": "bewerbung_notiz", "prioritaet": 5},
-            {"label": "Eingangsbestaetigung erhalten", "tool": "bewerbung_status_aendern", "status": "eingangsbestaetigung", "prioritaet": 6},
+            {"label": "Notiz hinzufügen", "tool": "bewerbung_notiz", "prioritaet": 5},
+            {"label": "Eingangsbestätigung erhalten", "tool": "bewerbung_status_aendern", "status": "eingangsbestaetigung", "prioritaet": 6},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
-        "motivation": "Du hast den wichtigsten Schritt gemacht! Bereite dich jetzt schon aufs Interview vor — wer vorbereitet ist, ueberzeugt.",
+        "motivation": "Du hast den wichtigsten Schritt gemacht! Bereite dich jetzt schon aufs Interview vor — wer vorbereitet ist, überzeugt.",
     },
     "eingangsbestaetigung": {
-        "beschreibung": "Die Firma hat deine Bewerbung erhalten. Bereite dich auf ein moegliches Interview vor!",
+        "beschreibung": "Die Firma hat deine Bewerbung erhalten. Bereite dich auf ein mögliches Interview vor!",
         "aktionen": [
             {"label": "Interview-Vorbereitung starten", "tool": "workflow_starten", "workflow": "interview_vorbereitung", "prioritaet": 1},
             {"label": "Interview-Simulation", "tool": "workflow_starten", "workflow": "interview_simulation", "prioritaet": 2},
@@ -43,69 +43,69 @@ STATUS_ACTIONS = {
             {"label": "Interview-Termin erhalten", "tool": "bewerbung_status_aendern", "status": "interview", "prioritaet": 5},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
-        "motivation": "Positive Zeichen! Nutze die Wartezeit fuer die Vorbereitung.",
+        "motivation": "Positive Zeichen! Nutze die Wartezeit für die Vorbereitung.",
     },
     "interview": {
-        "beschreibung": "Du hattest ein Interview! Dokumentiere deine Eindruecke und Erkenntnisse solange sie frisch sind.",
+        "beschreibung": "Du hattest ein Interview! Dokumentiere deine Eindrücke und Erkenntnisse solange sie frisch sind.",
         "aktionen": [
-            {"label": "Gespraechsnotizen erfassen", "tool": "bewerbung_notiz", "prioritaet": 1},
+            {"label": "Gesprächsnotizen erfassen", "tool": "bewerbung_notiz", "prioritaet": 1},
             {"label": "Gehaltsverhandlung vorbereiten", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 2},
             {"label": "Nachfass-Erinnerung planen", "tool": "nachfass_planen", "prioritaet": 3},
-            {"label": "Notiz hinzufuegen", "tool": "bewerbung_notiz", "prioritaet": 4},
-            {"label": "Zweitgespraech erhalten", "tool": "bewerbung_status_aendern", "status": "zweitgespraech", "prioritaet": 5},
+            {"label": "Notiz hinzufügen", "tool": "bewerbung_notiz", "prioritaet": 4},
+            {"label": "Zweitgespräch erhalten", "tool": "bewerbung_status_aendern", "status": "zweitgespraech", "prioritaet": 5},
             {"label": "Interview abgeschlossen", "tool": "bewerbung_status_aendern", "status": "interview_abgeschlossen", "prioritaet": 6},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
-        "motivation": "Super, ein Interview geschafft! Halte fest was gut lief und was du beim naechsten Mal anders machen wuerdest.",
+        "motivation": "Super, ein Interview geschafft! Halte fest was gut lief und was du beim nächsten Mal anders machen würdest.",
     },
     "zweitgespraech": {
-        "beschreibung": "Du bist in der engeren Auswahl! Die Firma interessiert sich fuer dich.",
+        "beschreibung": "Du bist in der engeren Auswahl! Die Firma interessiert sich für dich.",
         "aktionen": [
             {"label": "Interview-Simulation (vertieft)", "tool": "workflow_starten", "workflow": "interview_simulation", "prioritaet": 1},
             {"label": "Gehaltsverhandlung vorbereiten", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 2},
-            {"label": "Gespraechsnotizen erfassen", "tool": "bewerbung_notiz", "prioritaet": 3},
+            {"label": "Gesprächsnotizen erfassen", "tool": "bewerbung_notiz", "prioritaet": 3},
             {"label": "Interview abgeschlossen", "tool": "bewerbung_status_aendern", "status": "interview_abgeschlossen", "prioritaet": 4},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
         "motivation": "Die Firma investiert Zeit in dich — ein sehr gutes Zeichen!",
     },
     "interview_abgeschlossen": {
-        "beschreibung": "Die Gespraeche sind abgeschlossen. Jetzt heisst es warten — oder proaktiv nachhaken.",
+        "beschreibung": "Die Gespräche sind abgeschlossen. Jetzt heißt es warten — oder proaktiv nachhaken.",
         "aktionen": [
             {"label": "Gehaltsverhandlung vorbereiten", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 1},
             {"label": "Nachfass-Erinnerung planen", "tool": "nachfass_planen", "prioritaet": 2},
-            {"label": "Gespraechsnotizen ergaenzen", "tool": "bewerbung_notiz", "prioritaet": 3},
+            {"label": "Gesprächsnotizen ergänzen", "tool": "bewerbung_notiz", "prioritaet": 3},
             {"label": "Angebot erhalten", "tool": "bewerbung_status_aendern", "status": "angebot", "prioritaet": 4},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
         "motivation": "Du hast alles gegeben! Nutze die Wartezeit um dich auf eine Gehaltsverhandlung vorzubereiten.",
     },
     "angebot": {
-        "beschreibung": "Glueckwunsch, du hast ein Angebot! Jetzt heisst es klug verhandeln.",
+        "beschreibung": "Glückwunsch, du hast ein Angebot! Jetzt heißt es klug verhandeln.",
         "aktionen": [
-            {"label": "Gehaltsverhandlung durchfuehren", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 1},
+            {"label": "Gehaltsverhandlung durchführen", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 1},
             {"label": "Vertragsdetails notieren", "tool": "bewerbung_notiz", "prioritaet": 2},
             {"label": "Angebot annehmen", "tool": "bewerbung_status_aendern", "status": "angenommen", "prioritaet": 3},
-            {"label": "Angebot ablehnen / zurueckziehen", "tool": "bewerbung_status_aendern", "status": "zurueckgezogen", "prioritaet": 9},
+            {"label": "Angebot ablehnen / zurückziehen", "tool": "bewerbung_status_aendern", "status": "zurueckgezogen", "prioritaet": 9},
         ],
-        "motivation": "Fantastisch! Du hast es geschafft. Nimm dir Zeit fuer die Entscheidung.",
+        "motivation": "Fantastisch! Du hast es geschafft. Nimm dir Zeit für die Entscheidung.",
     },
     "abgelehnt": {
-        "beschreibung": "Eine Absage ist hart, aber jede bringt dich naeher ans Ziel.",
+        "beschreibung": "Eine Absage ist hart, aber jede bringt dich näher ans Ziel.",
         "aktionen": [
             {"label": "Ablehnungsmuster analysieren", "tool": "ablehnungs_muster", "prioritaet": 1},
-            {"label": "Rueckfrage an Firma formulieren", "tool": "antwort_formulieren", "prioritaet": 2},
-            {"label": "Aehnliche Stellen suchen", "tool": "stellen_anzeigen", "prioritaet": 3},
+            {"label": "Rückfrage an Firma formulieren", "tool": "antwort_formulieren", "prioritaet": 2},
+            {"label": "Ähnliche Stellen suchen", "tool": "stellen_anzeigen", "prioritaet": 3},
             {"label": "Neue Jobsuche starten", "tool": "jobsuche_starten", "prioritaet": 4},
         ],
-        "motivation": "Kopf hoch! Absagen gehoeren dazu. Schau was du daraus lernen kannst.",
+        "motivation": "Kopf hoch! Absagen gehören dazu. Schau was du daraus lernen kannst.",
     },
     "offen": {
-        "beschreibung": "Diese Bewerbung ist offen. Was moechtest du als naechstes tun?",
+        "beschreibung": "Diese Bewerbung ist offen. Was möchtest du als nächstes tun?",
         "aktionen": [
             {"label": "Bewerbung vorbereiten", "tool": "bewerbung_status_aendern", "status": "in_vorbereitung", "prioritaet": 1},
             {"label": "Als beworben markieren", "tool": "bewerbung_status_aendern", "status": "beworben", "prioritaet": 2},
-            {"label": "Notiz hinzufuegen", "tool": "bewerbung_notiz", "prioritaet": 3},
+            {"label": "Notiz hinzufügen", "tool": "bewerbung_notiz", "prioritaet": 3},
         ],
         "motivation": "Los geht's! Der erste Schritt ist immer der wichtigste.",
     },
@@ -113,12 +113,12 @@ STATUS_ACTIONS = {
 
 
 def _get_context_actions(status: str) -> dict:
-    """Gibt kontextabhaengige Aktionen fuer einen Bewerbungsstatus zurueck (#170)."""
+    """Gibt kontextabhängige Aktionen für einen Bewerbungsstatus zurück (#170)."""
     default = {
-        "beschreibung": "Aktionen verfuegbar:",
+        "beschreibung": "Aktionen verfügbar:",
         "aktionen": [
-            {"label": "Notiz hinzufuegen", "tool": "bewerbung_notiz"},
-            {"label": "Status aendern", "tool": "bewerbung_status_aendern"},
+            {"label": "Notiz hinzufügen", "tool": "bewerbung_notiz"},
+            {"label": "Status ändern", "tool": "bewerbung_status_aendern"},
         ],
     }
     return STATUS_ACTIONS.get(status, default)
@@ -147,10 +147,10 @@ def register(mcp, db, logger):
         """Erstellt eine neue Bewerbung (manuell oder aus einer gefundenen Stelle).
 
         EINSTIEGSFRAGE (#170): Frage den User zuerst:
-        "Hast du dich bereits beworben, oder moechtest du dich bewerben?"
+        "Hast du dich bereits beworben, oder möchtest du dich bewerben?"
         - Bereits beworben (bereits_beworben=True): Status 'beworben', Datum erfassen
         - Will mich bewerben (bereits_beworben=False): Status 'in_vorbereitung',
-          direkt in Bewerbungsdetails mit naechsten Schritten
+          direkt in Bewerbungsdetails mit nächsten Schritten
 
         Args:
             title: Stellentitel
@@ -166,7 +166,7 @@ def register(mcp, db, logger):
             kontakt_email: E-Mail des Ansprechpartners
             portal_name: Name des Portals (bei bewerbungsart=ueber_portal)
             bereits_beworben: True = schon beworben (Standard), False = will mich bewerben (#170)
-            stellenbeschreibung: Optional: Vollstaendige Stellenbeschreibung (#172) — wird automatisch gespeichert
+            stellenbeschreibung: Optional: Vollständige Stellenbeschreibung (#172) — wird automatisch gespeichert
         """
         # #170: Wenn der User sich noch nicht beworben hat → in_vorbereitung
         if not bereits_beworben:
@@ -239,10 +239,10 @@ def register(mcp, db, logger):
 
         # #170: Bei in_vorbereitung direkt die nächsten Schritte zeigen
         if status == "in_vorbereitung":
-            result["naechste_schritte"] = _get_context_actions("in_vorbereitung")
+            result["nächste_schritte"] = _get_context_actions("in_vorbereitung")
             result["nachricht"] += (
                 " Status: in_vorbereitung — Nutze bewerbung_details() um die "
-                "Bewerbung zu oeffnen und die Vorbereitung zu starten."
+                "Bewerbung zu öffnen und die Vorbereitung zu starten."
             )
         else:
             result["nachricht"] += f" ({bewerbungsart})"
@@ -256,10 +256,10 @@ def register(mcp, db, logger):
         notizen: str = "",
         ablehnungsgrund: str = ""
     ) -> dict:
-        """Aendert den Status einer Bewerbung (Bewerbungsstatus aendern/aktualisieren).
+        """Ändert den Status einer Bewerbung (Bewerbungsstatus ändern/aktualisieren).
 
-        Auch findbar als: status aendern, bewerbung aktualisieren, application status update,
-        interview eingetragen, absage melden, angebot erhalten, zurueckgezogen.
+        Auch findbar als: status ändern, bewerbung aktualisieren, application status update,
+        interview eingetragen, absage melden, angebot erhalten, zurückgezogen.
 
         Status-Journey (#170):
         in_vorbereitung -> beworben -> eingangsbestaetigung -> interview -> zweitgespraech -> interview_abgeschlossen -> angebot -> angenommen
@@ -269,7 +269,7 @@ def register(mcp, db, logger):
             bewerbung_id: ID der Bewerbung
             neuer_status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen
             notizen: Optionale Notizen zum Statuswechsel
-            ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird fuer Musteranalyse gespeichert.
+            ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
         """
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen
         if neuer_status == "beworben":
@@ -282,14 +282,14 @@ def register(mcp, db, logger):
         result = {
             "status": "aktualisiert",
             "neuer_status": neuer_status,
-            "naechste_aktionen": _get_context_actions(neuer_status),
+            "nächste_aktionen": _get_context_actions(neuer_status),
         }
         if neuer_status == "abgelehnt":
             actions = _get_context_actions("abgelehnt")
             result["motivation"] = actions.get("motivation", "")
             result["hinweis"] = "Nutze ablehnungs_muster() um Ablehnungsmuster zu analysieren und daraus zu lernen."
         elif neuer_status == "angenommen":
-            result["nachricht"] = "Herzlichen Glueckwunsch! Du hast es geschafft!"
+            result["nachricht"] = "Herzlichen Glückwunsch! Du hast es geschafft!"
         return result
 
     @mcp.tool()
@@ -308,7 +308,7 @@ def register(mcp, db, logger):
             status_filter: Optional: Nur Bewerbungen mit diesem Status
                 (offen, in_vorbereitung, beworben, eingangsbestaetigung, interview,
                  zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen)
-            archiv: True = auch abgelehnte/zurückgezogene/abgelaufene zeigen (Standard: False)
+            archiv: True = auch abgelehnte/zurueckgezogene/abgelaufene zeigen (Standard: False)
             stellenart: Optional: Filter nach Stellenart (festanstellung, freelance, etc.)
             sortierung: datum (Standard), firma, status, score
         """
@@ -406,7 +406,7 @@ def register(mcp, db, logger):
         if archivierte_count > 0:
             result["archiv_hinweis"] = (
                 f"{archivierte_count} archivierte Bewerbungen ausgeblendet "
-                "(abgelehnt/zurückgezogen/abgelaufen). Zeige mit archiv=True."
+                "(abgelehnt/zurueckgezogen/abgelaufen). Zeige mit archiv=True."
             )
         return result
 
@@ -436,7 +436,7 @@ def register(mcp, db, logger):
         company = app.get("company", "")
         db.delete_application(bewerbung_id)
         return {
-            "status": "geloescht",
+            "status": "gelöscht",
             "nachricht": f"Bewerbung '{title}' bei {company} wurde gelöscht."
         }
 
@@ -494,7 +494,7 @@ def register(mcp, db, logger):
         db.update_application(bewerbung_id, updates)
         return {
             "status": "aktualisiert",
-            "geaenderte_felder": list(updates.keys()),
+            "geänderte_felder": list(updates.keys()),
             "nachricht": f"Bewerbung bei {app.get('company', '')} aktualisiert."
         }
 
@@ -564,7 +564,7 @@ def register(mcp, db, logger):
             ]
 
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
-        result["naechste_aktionen"] = _get_context_actions(app.get("status", ""))
+        result["nächste_aktionen"] = _get_context_actions(app.get("status", ""))
 
         return result
 
@@ -579,11 +579,11 @@ def register(mcp, db, logger):
         - Gesamtzahl Bewerbungen und aktive Stellen
         - Bewerbungen nach Status (in_vorbereitung, beworben, interview, angebot, etc.)
         - Interview-Rate (% der Bewerbungen die zum Interview fuehren)
-        - Pipeline-Uebersicht (wie viele Bewerbungen in welchem Status)
+        - Pipeline-Übersicht (wie viele Bewerbungen in welchem Status)
 
         Args:
-            zeitraum_von: Optional: Start-Datum (YYYY-MM-DD) fuer den Bericht (#173)
-            zeitraum_bis: Optional: End-Datum (YYYY-MM-DD) fuer den Bericht (#173)
+            zeitraum_von: Optional: Start-Datum (YYYY-MM-DD) für den Bericht (#173)
+            zeitraum_bis: Optional: End-Datum (YYYY-MM-DD) für den Bericht (#173)
         """
         stats = db.get_statistics()
 

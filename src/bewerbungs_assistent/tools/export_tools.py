@@ -153,7 +153,7 @@ def register(mcp, db, logger):
         mit Absender, Datum, Betreffzeile und Text.
 
         Args:
-            text: Der vollstaendige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
+            text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'Software Architect')
             firma: Firmenname (z.B. 'TechCorp GmbH')
             format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
@@ -346,7 +346,7 @@ def register(mcp, db, logger):
         Args:
             stelle: Stellentitel (z.B. 'Software Architect')
             firma: Firmenname (z.B. 'TechCorp GmbH')
-            stellenbeschreibung: Stellenbeschreibung für praezise Analyse
+            stellenbeschreibung: Stellenbeschreibung für präzise Analyse
             gewicht_personalberater: Gewicht Personalberater-Perspektive (0.0-1.0, Standard 0.33)
             gewicht_ats: Gewicht ATS-Perspektive (0.0-1.0, Standard 0.34)
             gewicht_recruiter: Gewicht Recruiter-Perspektive (0.0-1.0, Standard 0.33)

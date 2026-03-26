@@ -76,7 +76,7 @@ def register(mcp, db, logger):
                 "min_tagessatz": "Min. Tagessatz (EUR)", "ziel_tagessatz": "Ziel-Tagessatz (EUR)",
                 "min_stundensatz": "Min. Stundensatz (EUR/h)", "ziel_stundensatz": "Ziel-Stundensatz (EUR/h)",
                 "remote_anteil": "Remote-Anteil (%)", "max_vor_ort_tage": "Max. Vor-Ort-Tage/Woche",
-                "reisebereitschaft": "Reisebereitschaft", "umzug_moeglich": "Umzug moeglich",
+                "reisebereitschaft": "Reisebereitschaft", "umzug_moeglich": "Umzug möglich",
                 "max_entfernung_km": "Max. Entfernung (km)",
             }
             for key, label in pref_labels.items():
@@ -185,7 +185,7 @@ def register(mcp, db, logger):
         AKTIONEN PRO BEREICH:
         - persönlich: ändern (Felder in daten)
         - präferenzen: ändern (Key-Value in daten)
-        - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — haengt Text an eine Sektion der informal_notes an
+        - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — hängt Text an eine Sektion der informal_notes an
         - position: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - projekt: hinzufügen (daten.position_id nötig), ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - ausbildung: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
@@ -597,7 +597,7 @@ def register(mcp, db, logger):
         Alternativ: profil_bearbeiten(bereich='skill', aktion='hinzufuegen')
 
         WICHTIG für Skill-Level-Bewertung:
-        - Beruecksichtige WANN der Skill zuletzt aktiv genutzt wurde
+        - Berücksichtige WANN der Skill zuletzt aktiv genutzt wurde
         - Ein Skill von vor 20 Jahren der seitdem nicht mehr genutzt wurde → Level 1
         - Setze last_used_year auf das Jahr der letzten aktiven Nutzung
         - Level sollte die AKTUELLE Kompetenz widerspiegeln, nicht die historische
@@ -825,7 +825,7 @@ def register(mcp, db, logger):
         Jobtitel/Stellenbezeichnungen vorzuschlagen. Die Titel werden im Dashboard
         angezeigt und können vom User bearbeitet werden.
 
-        WICHTIG: Beruecksichtige bei der Analyse:
+        WICHTIG: Berücksichtige bei der Analyse:
         - Aktuelle Positionen und deren Titel
         - Branchen und Technologien aus der Berufserfahrung
         - Skill-Level und Aktualität (alte Skills zählen weniger)

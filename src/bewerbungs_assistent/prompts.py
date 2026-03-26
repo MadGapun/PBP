@@ -588,7 +588,7 @@ Basierend auf dem erfassten Profil, schlage passende Stellenbezeichnungen vor:
    Stellen suchen: [Liste]. Passt das? Soll ich welche ändern oder ergänzen?"
 → Speichere mit jobtitel_vorschlagen(titel=[...])
 → Diese Titel werden später für die automatische Jobsuche verwendet!
-→ WICHTIG: Keine unrealistischen Titel! Beruecksichtige was AKTUELL ist,
+→ WICHTIG: Keine unrealistischen Titel! Berücksichtige was AKTUELL ist,
    nicht was vor 20 Jahren war.
 
 ═══════════════════════════════════════════════════
@@ -870,7 +870,7 @@ Du brauchst kein Computerwissen. Ich fuehre dich durch alles Schritt für Schrit
         return f"""Starte den geführten Jobsuche-Workflow.
 
 DU FUEHRST DEN USER SCHRITT FÜR SCHRITT DURCH DIESEN PROZESS.
-Erklaere bei jedem Schritt WAS passiert und WARUM.
+Erkläre bei jedem Schritt WAS passiert und WARUM.
 
 {f'ℹ {last_info}' if last_info else ''}
 
@@ -900,7 +900,7 @@ Mehr Quellen = mehr Ergebnisse, aber längere Suchdauer.
 Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen müssen erst aktiviert werden)'}
 
 Falls keine Quellen aktiv:
-→ Erklaere: "Du musst mindestens eine Jobquelle aktivieren. Das geht am einfachsten
+→ Erkläre: "Du musst mindestens eine Jobquelle aktivieren. Das geht am einfachsten
    im Dashboard unter Einstellungen → Job-Quellen.
    Oder sag mir welche du nutzen möchtest:
    - StepStone (keine Anmeldung nötig)
@@ -950,7 +950,7 @@ Für passende Stellen:
 → Erfasse die Bewerbung mit bewerbung_erstellen()
 
 REGELN:
-- Erklaere jeden Schritt verständlich
+- Erkläre jeden Schritt verständlich
 - Überspringe Schritte die bereits erledigt sind
 - Biete Hilfe bei jedem Schritt an
 - Sprich Deutsch und per Du
@@ -1331,7 +1331,7 @@ Nach jeder Dokument-Analyse: Leite passende Jobtitel ab!
 → Analysiere: Aktuelle/letzte Position, Branche, Technologien, Erfahrungslevel
 → Schlage 5-10 passende Jobtitel vor (deutsch UND englisch)
 → Speichere mit jobtitel_vorschlagen(titel=[...], quelle="dokument_analyse")
-→ Beruecksichtige dabei die Skill-Aktualität: Veraltete Skills führen NICHT zu Jobtiteln!
+→ Berücksichtige dabei die Skill-Aktualität: Veraltete Skills führen NICHT zu Jobtiteln!
 
 ═══════════════════════════════════════════════════
 REGELN
@@ -1393,11 +1393,11 @@ DEINE AUFGABE
 1. Begruesse den User kurz und freundlich
 2. Zeige den aktuellen Stand (oben)
 3. Empfehle den NAECHSTEN sinnvollen Schritt — genau EINEN, nicht alle
-4. Frage ob der User das tun moechte oder etwas anderes braucht
+4. Frage ob der User das tun möchte oder etwas anderes braucht
 5. Bei Fragen: Antworte basierend auf der FAQ (docs/FAQ.md)
 
 WICHTIG:
-- Nicht ueberfordernd — immer nur den naechsten Schritt zeigen
+- Nicht überfordernd — immer nur den nächsten Schritt zeigen
 - Aufmunternder Ton, besonders wenn wenig Aktivitaet
 - Wenn der User frustriert wirkt: "Jeder Schritt zaehlt!"
 - Wenn alles laeuft: "Du machst das grossartig, weiter so!"
@@ -1444,7 +1444,7 @@ genommen fuehlen und genau wissen was als Naechstes kommt.
 ═══════════════════════════════════════════════════
 AKTUELLE BEWERBUNG
 ═══════════════════════════════════════════════════
-{app_info or "Keine Bewerbung in Vorbereitung gefunden. Frage den User welche Stelle er vorbereiten moechte."}
+{app_info or "Keine Bewerbung in Vorbereitung gefunden. Frage den User welche Stelle er vorbereiten möchte."}
 
 ═══════════════════════════════════════════════════
 VORBEREITUNGS-CHECKLISTE
@@ -1495,7 +1495,7 @@ WICHTIGE REGELN
 - Nach JEDEM Schritt: Timeline-Eintrag erstellen mit bewerbung_notiz()
   z.B. "Fit-Analyse durchgefuehrt (Score: 78)" oder "CV angepasst und exportiert"
 - Automatisch dokument_verknuepfen() aufrufen wenn Dokumente erstellt werden
-- Den User NICHT mit allen Schritten auf einmal ueberfordern — immer nur den naechsten zeigen
+- Den User NICHT mit allen Schritten auf einmal überfordern — immer nur den nächsten zeigen
 - Bei Unsicherheit: Aufmuntern! "Das sieht gut aus. Lass uns weitermachen."
 - Wenn der User frustriert wirkt: "Jeder Schritt zaehlt. Du machst das richtig."
 """

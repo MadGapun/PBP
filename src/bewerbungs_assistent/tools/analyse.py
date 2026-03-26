@@ -632,7 +632,7 @@ def register(mcp, db, logger):
             return {
                 "status": "zurueckgesetzt",
                 "nachricht": "Alle Scoring-Regler auf Standard zurueckgesetzt. "
-                             "Die Defaults werden beim naechsten Start geladen."
+                             "Die Defaults werden beim nächsten Start geladen."
             }
 
         return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen' oder 'reset'."}

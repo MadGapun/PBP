@@ -23,13 +23,13 @@ logger = logging.getLogger("bewerbungs_assistent.scraper")
 SOURCE_REGISTRY = {
     "bundesagentur": {
         "name": "Bundesagentur für Arbeit",
-        "beschreibung": "Oeffentliche Jobboerse der Arbeitsagentur. Groesstes deutsches Stellenportal.",
+        "beschreibung": "Öffentliche Jobbörse der Arbeitsagentur. Größtes deutsches Stellenportal.",
         "methode": "REST API",
         "login_erforderlich": False,
     },
     "stepstone": {
         "name": "StepStone",
-        "beschreibung": "Grosses deutsches Jobportal für Fach- und Führungskräfte.",
+        "beschreibung": "Großes deutsches Jobportal für Fach- und Führungskräfte.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
     },
@@ -41,19 +41,19 @@ SOURCE_REGISTRY = {
     },
     "freelancermap": {
         "name": "Freelancermap",
-        "beschreibung": "Projektboerse für Freelancer und Selbstaendige.",
+        "beschreibung": "Projektbörse für Freelancer und Selbstständige.",
         "methode": "HTML Scraping + Playwright Fallback",
         "login_erforderlich": False,
     },
     "freelance_de": {
         "name": "freelance.de",
-        "beschreibung": "Projektboerse für Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
+        "beschreibung": "Projektbörse für Freelancer und IT-Projekte. Große Auswahl an Projekten in DACH.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
     },
     "indeed": {
         "name": "Indeed",
-        "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
+        "beschreibung": "Größte Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
     },
@@ -89,7 +89,7 @@ SOURCE_REGISTRY = {
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
-        "beschreibung": "Grosses deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
+        "beschreibung": "Großes deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
     },
