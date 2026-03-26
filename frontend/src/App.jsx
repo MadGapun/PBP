@@ -4,7 +4,9 @@
   BriefcaseBusiness,
   ChevronDown,
   Copy,
+  Coffee,
   ExternalLink,
+  Heart,
   FolderOpen,
   HelpCircle,
   Plus,
@@ -1227,6 +1229,22 @@ export default function App() {
                   <p className="text-muted/60">Toms (Koala280) — React-Frontend</p>
                   <p className="text-muted/60">Claude — KI-Assistent & Co-Developer</p>
                   <p className="text-muted/60">Codex (TANTE) — Frontend-Recovery & Co-Developer</p>
+                </div>
+                <div className="glass-card p-3 border border-sky/15">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Coffee size={16} className="text-amber" />
+                    <h3 className="font-medium text-ink">Kaffee spendieren</h3>
+                  </div>
+                  <p className="text-muted/60 mb-3">PBP ist kostenlos und bleibt es. Wenn dir das Tool bei deiner Jobsuche hilft, kannst du mir einen Kaffee spendieren.</p>
+                  <a
+                    href="https://paypal.me/birzite"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sky/10 text-sky hover:bg-sky/20 transition-colors text-sm"
+                  >
+                    <Heart size={14} />
+                    Unterstützen via PayPal
+                  </a>
                 </div>
                 <div className="glass-card p-3 border border-amber/15">
                   <h3 className="font-medium text-ink mb-2">Rechtliche Hinweise</h3>
