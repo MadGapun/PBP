@@ -477,18 +477,40 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {workspaceTodos.length > 0 && (
+        {(todoItems.length > 0 || workspaceTodos.length > 0) && (
           <div className="mt-4 grid gap-2">
-            {workspaceTodos.slice(0, 2).map((todo) => (
+            {todoItems.map((todo) => (
               <div
-                key={`${todo.typ}-${todo.text}`}
+                key={todo.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
               >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
-                  <p className="mt-0.5 text-[12px] text-muted/60">
-                    {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
-                  </p>
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <Badge tone={todo.tone}>
+                    {todo.id === "jobsuche" ? "Priorität 1" : todo.id === "interviews" ? "Priorität 2" : todo.id === "followups" ? "Priorität 3" : "Empfehlung"}
+                  </Badge>
+                  <div>
+                    <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
+                    <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
+                  </div>
+                </div>
+                <Button size="sm" variant="ghost" onClick={todo.action}>
+                  {todo.actionLabel}
+                </Button>
+              </div>
+            ))}
+            {workspaceTodos.slice(0, 2).map((todo) => (
+              <div
+                key={`ws-${todo.typ}-${todo.text}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
+              >
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
+                  <div>
+                    <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
+                    <p className="mt-0.5 text-[12px] text-muted/60">
+                      {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
+                    </p>
+                  </div>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
                   Öffnen
@@ -564,40 +586,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-3 xl:grid-cols-2">
-          <Card className="rounded-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-ink">TODOs</h2>
-              <Button size="sm" variant="ghost" onClick={() => navigateTo("bewerbungen")}>
-                Alle
-              </Button>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {todoItems.length ? (
-                todoItems.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge tone={todo.tone}>
-                          {todo.id === "jobsuche" ? "Priorität 1" : todo.id === "interviews" ? "Priorität 2" : todo.id === "followups" ? "Priorität 3" : "Empfehlung"}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-[13px] font-semibold text-ink">{todo.title}</p>
-                      <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={todo.action}>
-                      {todo.actionLabel}
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <p className="py-4 text-center text-[13px] text-muted/50">Keine TODOs offen</p>
-              )}
-            </div>
-          </Card>
-
           <Card className="rounded-2xl">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-ink">

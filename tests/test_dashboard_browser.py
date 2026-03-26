@@ -553,7 +553,7 @@ def test_application_timeline_supports_note_and_status_changes(live_dashboard, b
 
         timeline_status = page.get_by_label("Status direkt ändern")
         timeline_status.click()
-        page.get_by_role("button", name="Interview").click()
+        page.get_by_role("button", name="Interview", exact=True).click()
         page.get_by_text("Status aktualisiert.").wait_for(state="visible")
         page.wait_for_function(
             """() => Array.from(document.querySelectorAll('label'))

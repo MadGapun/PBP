@@ -2223,7 +2223,8 @@ class Database:
         submitted = stats["total_applications"] - in_vorb
         if submitted > 0:
             interviews = (stats["applications_by_status"].get("interview", 0)
-                          + stats["applications_by_status"].get("zweitgespraech", 0))
+                          + stats["applications_by_status"].get("zweitgespraech", 0)
+                          + stats["applications_by_status"].get("interview_abgeschlossen", 0))
             offers = stats["applications_by_status"].get("angebot", 0)
             stats["interview_rate"] = round(interviews / submitted * 100, 1)
             stats["offer_rate"] = round(offers / submitted * 100, 1)
@@ -3092,7 +3093,7 @@ class Database:
 
         # Suggest interview prep when interviews scheduled
         interviews = conn.execute(
-            f"SELECT COUNT(*) FROM applications WHERE status IN ('interview','zweitgespraech') {where_profile}",
+            f"SELECT COUNT(*) FROM applications WHERE status IN ('interview','zweitgespraech','interview_abgeschlossen') {where_profile}",
             params_profile
         ).fetchone()[0]
         if interviews > 0:

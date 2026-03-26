@@ -53,7 +53,7 @@ STATUS_ACTIONS = {
             {"label": "Nachfass-Erinnerung planen", "tool": "nachfass_planen", "prioritaet": 3},
             {"label": "Notiz hinzufuegen", "tool": "bewerbung_notiz", "prioritaet": 4},
             {"label": "Zweitgespraech erhalten", "tool": "bewerbung_status_aendern", "status": "zweitgespraech", "prioritaet": 5},
-            {"label": "Angebot erhalten", "tool": "bewerbung_status_aendern", "status": "angebot", "prioritaet": 6},
+            {"label": "Interview abgeschlossen", "tool": "bewerbung_status_aendern", "status": "interview_abgeschlossen", "prioritaet": 6},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
         "motivation": "Super, ein Interview geschafft! Halte fest was gut lief und was du beim naechsten Mal anders machen wuerdest.",
@@ -64,10 +64,21 @@ STATUS_ACTIONS = {
             {"label": "Interview-Simulation (vertieft)", "tool": "workflow_starten", "workflow": "interview_simulation", "prioritaet": 1},
             {"label": "Gehaltsverhandlung vorbereiten", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 2},
             {"label": "Gespraechsnotizen erfassen", "tool": "bewerbung_notiz", "prioritaet": 3},
-            {"label": "Angebot erhalten", "tool": "bewerbung_status_aendern", "status": "angebot", "prioritaet": 4},
+            {"label": "Interview abgeschlossen", "tool": "bewerbung_status_aendern", "status": "interview_abgeschlossen", "prioritaet": 4},
             {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
         ],
         "motivation": "Die Firma investiert Zeit in dich — ein sehr gutes Zeichen!",
+    },
+    "interview_abgeschlossen": {
+        "beschreibung": "Die Gespraeche sind abgeschlossen. Jetzt heisst es warten — oder proaktiv nachhaken.",
+        "aktionen": [
+            {"label": "Gehaltsverhandlung vorbereiten", "tool": "workflow_starten", "workflow": "gehaltsverhandlung", "prioritaet": 1},
+            {"label": "Nachfass-Erinnerung planen", "tool": "nachfass_planen", "prioritaet": 2},
+            {"label": "Gespraechsnotizen ergaenzen", "tool": "bewerbung_notiz", "prioritaet": 3},
+            {"label": "Angebot erhalten", "tool": "bewerbung_status_aendern", "status": "angebot", "prioritaet": 4},
+            {"label": "Absage erhalten", "tool": "bewerbung_status_aendern", "status": "abgelehnt", "prioritaet": 9},
+        ],
+        "motivation": "Du hast alles gegeben! Nutze die Wartezeit um dich auf eine Gehaltsverhandlung vorzubereiten.",
     },
     "angebot": {
         "beschreibung": "Glueckwunsch, du hast ein Angebot! Jetzt heisst es klug verhandeln.",
@@ -146,7 +157,7 @@ def register(mcp, db, logger):
             company: Firmenname
             url: Link zur Stellenanzeige
             job_hash: Optional: Hash einer gefundenen Stelle
-            status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, abgelehnt, zurueckgezogen, abgelaufen
+            status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, interview_abgeschlossen, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen
             applied_at: Bewerbungsdatum (YYYY-MM-DD, Standard: heute)
             notes: Notizen
             bewerbungsart: mit_dokumenten, elektronisch, ueber_portal
@@ -251,7 +262,7 @@ def register(mcp, db, logger):
         interview eingetragen, absage melden, angebot erhalten, zurueckgezogen.
 
         Status-Journey (#170):
-        in_vorbereitung -> beworben -> eingangsbestaetigung -> interview -> zweitgespraech -> angebot -> angenommen
+        in_vorbereitung -> beworben -> eingangsbestaetigung -> interview -> zweitgespraech -> interview_abgeschlossen -> angebot -> angenommen
         (von jedem Status auch: abgelehnt, zurueckgezogen)
 
         Args:
@@ -370,7 +381,8 @@ def register(mcp, db, logger):
             formatted.sort(key=lambda x: x.get("firma", "").lower())
         elif sortierung == "status":
             status_order = ["in_vorbereitung", "beworben", "eingangsbestaetigung",
-                            "interview", "zweitgespraech", "angebot", "angenommen",
+                            "interview", "zweitgespraech", "interview_abgeschlossen",
+                            "angebot", "angenommen",
                             "offen", "abgelehnt", "zurueckgezogen", "abgelaufen"]
             formatted.sort(key=lambda x: (
                 status_order.index(x.get("status", "offen"))

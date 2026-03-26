@@ -1269,6 +1269,7 @@ export default function JobsPage() {
           open={detailDialog.open}
           title={detailDialog.editing ? "Stelle bearbeiten" : "Stellendetails"}
           onClose={() => setDetailDialog({ open: false, job: null, editing: false })}
+          size="xl"
         >
           {detailDialog.editing ? (
             <div className="space-y-4">

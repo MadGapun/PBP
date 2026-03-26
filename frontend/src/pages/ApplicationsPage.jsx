@@ -240,7 +240,7 @@ export default function ApplicationsPage() {
   const activeApplications = applications.filter((item) => !ARCHIVE_STATUSES.includes(item.status));
   const activeApplicationsCount = activeApplications.length;
   const visibleArchivedCount = applications.filter((item) => ARCHIVE_STATUSES.includes(item.status)).length;
-  const interviewApplicationsCount = applications.filter((item) => ["interview", "zweitgespraech"].includes(item.status)).length;
+  const interviewApplicationsCount = applications.filter((item) => ["interview", "zweitgespraech", "interview_abgeschlossen"].includes(item.status)).length;
   const draftApplicationsCount = applications.filter((item) => ["in_vorbereitung", "entwurf"].includes(item.status)).length;
   const activeJobsCount = Number(chrome.workspace?.jobs?.active || 0);
   const applicationTimestamps = applications
@@ -399,6 +399,7 @@ export default function ApplicationsPage() {
                 <option value="beworben">Beworben</option>
                 <option value="interview">Interview</option>
                 <option value="zweitgespraech">Zweitgespräch</option>
+                <option value="interview_abgeschlossen">Interview abgeschlossen</option>
                 <option value="angebot">Angebot</option>
                 <option value="abgelehnt">Abgelehnt</option>
                 <option value="zurueckgezogen">Zurückgezogen</option>
@@ -555,6 +556,7 @@ export default function ApplicationsPage() {
         open={timelineDialog.open}
         title={`Timeline - ${timelineDialog.entry?.application?.title || ""}`}
         onClose={() => setTimelineDialog({ open: false, entry: null })}
+        size="xl"
         footer={<div className="flex justify-end"><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schließen</Button></div>}
       >
         <div className="grid gap-5">

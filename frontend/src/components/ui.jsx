@@ -454,7 +454,7 @@ export function LoadingPanel({ label = "Lade Daten..." }) {
   );
 }
 
-export function Modal({ open, title, description, onClose, children, footer }) {
+export function Modal({ open, title, description, onClose, children, footer, size = "lg" }) {
   useEffect(() => {
     if (!open) return undefined;
 
@@ -483,7 +483,7 @@ export function Modal({ open, title, description, onClose, children, footer }) {
         }
       }}
     >
-      <div className="glass-card-strong max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl animate-rise">
+      <div className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}>
         <div className="border-b border-white/6 px-6 py-5">
           <h2 className="text-xl font-semibold text-ink">{title}</h2>
           {description ? <p className="mt-1.5 text-[13px] text-muted/70">{description}</p> : null}

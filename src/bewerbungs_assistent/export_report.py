@@ -26,6 +26,7 @@ STATUS_LABELS = {
     "eingangsbestaetigung": "Eingangsbestätigung",
     "interview": "Interview",
     "zweitgespraech": "Zweitgespräch",
+    "interview_abgeschlossen": "Interview abgeschl.",
     "angebot": "Angebot",
     "angenommen": "Angenommen",
     "abgelehnt": "Abgelehnt",
@@ -39,6 +40,7 @@ STATUS_COLORS = {
     "beworben": (56, 189, 248),
     "interview": (251, 191, 36),
     "zweitgespraech": (251, 191, 36),
+    "interview_abgeschlossen": (20, 184, 166),
     "angebot": (52, 211, 153),
     "angenommen": (16, 185, 129),
     "abgelehnt": (248, 113, 113),
@@ -152,7 +154,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # Recalculate rates for filtered apps
     by_status_filtered = Counter(a.get("status", "offen") for a in apps)
-    interviews = by_status_filtered.get("interview", 0) + by_status_filtered.get("zweitgespraech", 0)
+    interviews = (by_status_filtered.get("interview", 0)
+                  + by_status_filtered.get("zweitgespraech", 0)
+                  + by_status_filtered.get("interview_abgeschlossen", 0))
     offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
     in_vorb = by_status_filtered.get("in_vorbereitung", 0)
     submitted_apps = total_apps - in_vorb  # exclude in_vorbereitung (#198)
@@ -249,7 +253,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         if src not in app_by_source:
             app_by_source[src] = {"total": 0, "interview": 0}
         app_by_source[src]["total"] += 1
-        if a.get("status") in ("interview", "zweitgespraech", "angebot", "angenommen"):
+        if a.get("status") in ("interview", "zweitgespraech", "interview_abgeschlossen", "angebot", "angenommen"):
             app_by_source[src]["interview"] += 1
 
     if app_by_source:

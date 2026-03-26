@@ -35,6 +35,7 @@ const STATUS_COLORS = {
   eingangsbestaetigung: "#38bdf8",
   interview: "#fbbf24",
   zweitgespraech: "#fbbf24",
+  interview_abgeschlossen: "#14b8a6",
   angebot: "#34d399",
   abgelehnt: "#f87171",
   entwurf: "#94a3b8",
