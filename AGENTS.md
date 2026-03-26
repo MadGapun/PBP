@@ -1,6 +1,6 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 0.32.5 (Stand: 2026-03-24)
+> **Version:** 1.0.0 (Stand: 2026-03-26)
 > **Detaillierte Doku:** `README.md`, `CHANGELOG.md`
 
 ## Projektübersicht
@@ -10,7 +10,7 @@ unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstrac
 
 **Sprache:** Deutsch
 **Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, React 19, Playwright
-**Tests:** 360 Tests, 4 bewusst geskippt
+**Tests:** 362 Tests, 4 bewusst geskippt
 
 ## Architektur
 
@@ -20,7 +20,7 @@ Claude Desktop
     ▼
 server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │
-    ├── tools/              ◄── 66 MCP-Tools in 8 Modulen
+    ├── tools/              ◄── 72 MCP-Tools in 8 Modulen
     │   ├── profil.py       — Profilverwaltung, Multi-Profil, Erfassungsfortschritt
     │   ├── dokumente.py    — Dokumenten-Analyse, Extraktion, Profil-Im/Export
     │   ├── jobs.py         — Jobsuche, Stellenverwaltung, Fit-Analyse
@@ -30,17 +30,17 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │   ├── suche.py        — Suchkriterien und Blacklist
     │   └── workflows.py    — Geführte Workflows
     │
-    ├── prompts.py          ◄── 14 MCP-Prompts
+    ├── prompts.py          ◄── 16 MCP-Prompts
     ├── resources.py        ◄── 6 MCP-Resources
     │
-    ├── services/           ◄── Service-Layer (profile/search/workspace/email)
-    ├── database.py         ◄── Schema v15, WAL, CASCADE
+    ├── services/           ◄── Service-Layer (profile/search/workspace/email/daily_impulse)
+    ├── database.py         ◄── Schema v18, WAL, CASCADE
     │
     ├── dashboard.py        ◄── FastAPI, React-SPA, REST-API
     │
     ├── export.py           ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     │
-    └── job_scraper/        ◄── 17 Quellen
+    └── job_scraper/        ◄── 18 Quellen
         ├── __init__.py     — Dispatcher, Scoring, Deduplizierung
         └── *.py            — Bundesagentur, StepStone, LinkedIn, XING, etc.
 ```
@@ -74,10 +74,12 @@ python start_dashboard.py  # → http://localhost:8200
 
 ## Branches
 
-- `main` — Stabiler Hauptbranch
-- Feature-Branches für neue Funktionen
+- `main` — Stabiler Hauptbranch, geschützt
+- Feature-Branches für neue Funktionen, PR gegen `main`
 
 ## Dokumentation
 
 1. **`README.md`** — Projektbeschreibung, Installation, Nutzung, vollständige Tool-Referenz
 2. **`CHANGELOG.md`** — Änderungsprotokoll aller Versionen
+3. **`CONTRIBUTING.md`** — Beitragsrichtlinien
+4. **`SECURITY.md`** — Sicherheitsrichtlinie

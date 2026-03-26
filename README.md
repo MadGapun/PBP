@@ -7,7 +7,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-349%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-362%20passing-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-72-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
 
@@ -61,7 +61,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
 
-- **15 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 11 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
+- **18 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 14 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills und Erfahrung nach Relevanz sortiert sind. Als DOCX, damit du den Feinschliff selbst machst.
 - **Personalisierte Anschreiben** — Kein Copy-Paste. Basierend auf deinem Profil und der konkreten Stelle.
 - **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
@@ -190,7 +190,7 @@ Eine Suche — alle relevanten Portale gleichzeitig. Kein Account nötig:
 | GULP | HTML + JSON-LD | ❌ Nein |
 | SOLCOM | HTML + JSON-LD | ❌ Nein |
 
-> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. Alle 15 Quellen funktionieren ohne Login.
+> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. Alle 18 Quellen funktionieren ohne Login.
 >
 > 📌 **Gut zu wissen:** Die Spalte "Account nötig?" bezieht sich auf das **Finden** von Stellen. PBP durchsucht diese Portale für dich und zeigt dir die Ergebnisse. Für die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenbörsen selbst.
 >
@@ -570,10 +570,10 @@ server.py (FastMCP, Composition Root)
     ├──► resources.py      ◄── 6 Resources
     │
     ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail, Geocoding, Scoring)
-    ├──► database.py       ◄── SQLite (22 Tabellen, WAL, Schema v17)
+    ├──► database.py       ◄── SQLite (22 Tabellen, WAL, Schema v18)
     ├──► dashboard.py      ◄── FastAPI :8200, 85+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    └──► job_scraper/      ◄── 15 Quellen
+    └──► job_scraper/      ◄── 18 Quellen
               ├── bundesagentur.py       (REST API)
               ├── stepstone.py           (Playwright)
               ├── hays.py                (Sitemap + JSON-LD)
@@ -743,7 +743,7 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 22 Tabellen, Schema v17:
+SQLite mit WAL-Mode, 22 Tabellen, Schema v18:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -785,7 +785,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 341 Tests, ~22 Sekunden
+# 362 Tests, ~35 Sekunden
 ```
 
 ---
@@ -848,33 +848,34 @@ python -m pytest tests/ -v
 
 > Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v0.32.5 - Stellen-Dialog + Outlook-Installer nachgezogen (2026-03-24)
-- **Stellenbeschreibung endlich direkt bearbeitbar** - Klick auf den Stellentitel oeffnet die Detailansicht jetzt wieder sauber, inklusive Bearbeiten und Speichern
-- **Browser-Regression abgesichert** - Stellen-Detaildialog und Nachpflege der Beschreibung sind jetzt als echter UI-Test hinterlegt
-- **Windows-/Outlook-Installation korrigiert** - der Installer zieht `extract-msg` und `icalendar` jetzt mit, damit `.msg`-Dateien auch im echten Setup funktionieren
-- **Klarer Fallback fuer Outlook-Mails** - wenn der Parser fehlt, fuehrt PBP jetzt direkt zu `PBP aktualisieren` oder `als PDF/.eml aus Outlook speichern`
-- 72 Tools, 360 Tests
+### v0.33.9 — Archiv-Zählung, Interview-Filter, Claude-Button entfernt (2026-03-26)
+- **ARCHIVE_STATUSES Encoding-Mismatch behoben** — Dashboard zählt archivierte Bewerbungen jetzt korrekt
+- **Interview-Filter zeigt alle Interview-Status** — `interview`, `zweitgespraech`, `interview_abgeschlossen`
+- **"Claude öffnen"-Button entfernt** — Endpoint `/api/claude-open` und zugehörige UI-Elemente bereinigt
+- 72 Tools, 362 Tests
 
-### v0.32.4 - Mail-Dokumente im Profil-Flow stabilisiert (2026-03-24)
-- **MSG/EML im Dokumentbereich wirklich nutzbar** - normaler Dokument-Upload und Ordner-Import extrahieren Mail-Inhalte jetzt direkt
-- **Klare Fehler statt stiller Leereintraege** - fehlendes extract-msg wird sichtbar gemeldet, statt leere Dokumente zu erzeugen
-- **Statuslogik korrigiert** - lesbare Dokumente ohne direkte Profilfelder bleiben als Basis analysiert sichtbar
-- **Bestehende E-Mail-Helfer mitgenutzt** - Richtungs-Erkennung, Bewerbungs-Match und Status-Hinweise laufen jetzt auch im Profil-Dokumentflow
-- 72 Tools, 359 Tests
+### v0.33.7 — TODOs in Readiness-Card, größere Modals (2026-03-26)
+- **Workspace-Readiness zeigt priorisierte TODOs** — Interview vorbereiten, Follow-ups, Jobsuche direkt im Dashboard
+- **interview_abgeschlossen** als neuer Bewerbungsstatus
+- **Modale Dialoge verbreitert** — Stellendetails und Bewerbungsansicht nutzen den Platz besser
+- 72 Tools, 362 Tests
 
-### v0.32.3 — Finishing & Release-Hygiene (2026-03-23)
-- **Öffentliche Texte konsolidiert** — Help-/Support-Texte, FAQ und sichtbare Release-Hinweise sprachlich nachgezogen
-- **Report-Export modernisiert** — `export_report.py` auf aktuelle `fpdf2`-API umgestellt, Deprecation-Warnungen abgebaut
-- **Versionen synchronisiert** — Paket, Dashboard-Credits und Metadateien stehen wieder auf demselben Stand
-- 72 Tools, 349 Tests
+### v0.33.3 — Stellenbeschreibung beim Crawlen mitspeichern (2026-03-25)
+- **Beschreibung direkt aus dem Scraping** — kein separater Nachladevorgang mehr nötig
+- Basis für zuverlässigere Fit-Scores und genauere Suchtreffer
+- 72 Tools, 362 Tests
 
-### v0.32.2 — Guidance + UI-Stabilisierung (2026-03-23)
-- **Archiv-Toggle in Bewerbungen** — Archivierte Bewerbungen lassen sich jetzt gezielt wieder einblenden
-- **Nächster sinnvoller Schritt** — Dashboard und Bewerbungsansicht führen klarer durch den Prozess
-- **Score-Warnungen in Stellen** — Treffer ohne belastbare Beschreibung werden sichtbar als unsicher markiert
-- **Neuer Filter `Nur ohne Beschreibung`** — schwache Datenqualität direkt nacharbeitbar
-- **Browser-Smoke-Tests erweitert** — Archiv, Workspace-Readiness und Score-Hinweise abgesichert
-- 72 Tools, 349 Tests
+### v0.32.6 — Outlook-Mail-Import (.msg) im Installer (2026-03-24)
+- **setuptools/wheel vor extract-msg** — Installation unter Embeddable Python repariert
+- **Mail-Upload nutzt volle E-Mail-Intelligenz** — Meetings, Timeline-Events, Status-Erkennung
+- 72 Tools, 362 Tests
+
+### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
+- **Geführter Bewerbungs-Workflow** — kontextabhängige Aktionen pro Status
+- **Scoring-Regler-System** — 6 konfigurierbare Dimensionen
+- **Geocoding** — Entfernungsberechnung mit geopy + Nominatim
+- **ATS-konformer CV** — Calibri, keine Tabellen, Heading-Hierarchie
+- Schema v17, 70 Tools, 16 Prompts, 341 Tests
 
 ### v0.32.1 — Bugfixes + Diagnose (2026-03-22)
 - **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Übernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurückgezogene ausblenden, Fuzzy-Matching
@@ -958,7 +959,7 @@ Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (S
 Ja! Du kannst PBP auch nur für Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
 **Was passiert, wenn ein Portal sich ändert?**
-Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen 16 laufen weiter. Viele Scraper nutzen Multi-Strategie-Extraktion (HTML-Selektoren → JSON-LD Fallback), was sie robuster gegen Layout-Änderungen macht. Updates werden über neue Releases bereitgestellt.
+Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen 17 laufen weiter. Viele Scraper nutzen Multi-Strategie-Extraktion (HTML-Selektoren → JSON-LD Fallback), was sie robuster gegen Layout-Änderungen macht. Updates werden über neue Releases bereitgestellt.
 
 **Unterstützt PBP mehrere Sprachen?**
 Die Oberfläche und Workflows sind auf Deutsch. Jobtitel werden auf Deutsch und Englisch vorgeschlagen. Claude selbst kann in jeder Sprache kommunizieren.

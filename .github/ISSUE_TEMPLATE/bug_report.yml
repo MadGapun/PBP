@@ -1,0 +1,83 @@
+name: "\U0001F41E Bug melden"
+description: "Etwas funktioniert nicht wie erwartet"
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke, dass du dir die Zeit nimmst, einen Bug zu melden!
+        Je genauer du beschreibst, was passiert ist, desto schneller können wir helfen.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Was ist passiert?
+      description: Beschreibe das Problem so genau wie möglich.
+      placeholder: "Wenn ich auf 'Stellen' klicke, erscheint eine leere Seite..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Was hättest du erwartet?
+      description: Was sollte stattdessen passieren?
+      placeholder: "Die Stellenliste sollte angezeigt werden."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Reproduzieren
+      description: Wie können wir das Problem nachstellen?
+      placeholder: |
+        1. Dashboard öffnen
+        2. Auf 'Stellen' klicken
+        3. ...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Betriebssystem
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS
+        - Linux
+        - Andere
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: PBP-Version
+      description: "Findest du unten im Dashboard oder via `python -c \"from bewerbungs_assistent import __version__; print(__version__)\"`"
+      placeholder: "z.B. 1.0.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: claude_plan
+    attributes:
+      label: Claude Desktop Plan
+      options:
+        - Free
+        - Pro
+        - Max
+        - Weiß ich nicht
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Fehlermeldung / Logs
+      description: Falls vorhanden — Fehlermeldungen, Konsolenausgabe oder Screenshots.
+      render: shell
+    validations:
+      required: false

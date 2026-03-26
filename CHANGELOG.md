@@ -2,6 +2,31 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [0.33.10] - 2026-03-26
+
+### Release-Hygiene: Public-Release-Vorbereitung
+
+Letzter Pre-1.0-Release. Dokumentation, Badges und Community-Dateien auf den aktuellen Stand
+gebracht, um das Repository für die Veröffentlichung vorzubereiten.
+
+**Neue Dateien:**
+
+- `CONTRIBUTING.md` — Beitragsrichtlinien mit Schnellstart, Konventionen, Projektstruktur
+- `SECURITY.md` — Sicherheitsrichtlinie mit Meldeverfahren
+- `CODE_OF_CONDUCT.md` — Verhaltenskodex (Contributor Covenant 2.1)
+- `.github/ISSUE_TEMPLATE/bug_report.yml` — Strukturiertes Bug-Formular
+- `.github/ISSUE_TEMPLATE/feature_request.yml` — Strukturiertes Feature-Formular
+- `.github/ISSUE_TEMPLATE/config.yml` — Template-Konfiguration (keine Blank Issues)
+- `.github/pull_request_template.md` — PR-Checkliste
+
+**Aktualisierte Dateien:**
+
+- `README.md` — Tests-Badge (349→362), Quellenzahl (15→18), Schema (v17→v18), Changelog-Excerpt auf v0.33.x
+- `AGENTS.md` — Version, Tools (66→72), Prompts (14→16), Quellen (17→18), Schema (v15→v18), Tests (360→362)
+- `docs/RELEASE_v1.0.0_DRAFT.md` — Komplett überarbeitet mit aktuellen Zahlen
+
+**Tests:** 362 Tests grün, 4 geskippt
+
 ## [0.33.9] - 2026-03-26
 
 ### Fix: Archiv-Zaehlung und Interview-Filter korrigiert

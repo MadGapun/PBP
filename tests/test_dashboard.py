@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from bewerbungs_assistent import __version__
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -104,7 +106,7 @@ class TestStatus:
         r = client.get("/api/status")
         assert r.status_code == 200
         data = r.json()
-        assert data["version"] == "0.33.9"
+        assert data["version"] == __version__
         assert data["has_profile"] is False
         assert data["profile_name"] is None
         assert data["active_jobs"] == 0
@@ -115,7 +117,7 @@ class TestStatus:
         client.post("/api/profile", json={"name": "Tester"})
         r = client.get("/api/status")
         data = r.json()
-        assert data["version"] == "0.33.9"
+        assert data["version"] == __version__
         assert data["has_profile"] is True
         assert data["profile_name"] == "Tester"
 

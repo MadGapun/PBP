@@ -1,0 +1,53 @@
+name: "\U0001F4A1 Feature-Wunsch"
+description: "Eine Idee oder Verbesserung vorschlagen"
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hast du eine Idee, wie PBP besser werden kann? Wir freuen uns über jeden Vorschlag!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem löst dein Vorschlag?
+      description: Beschreibe die Situation, in der dir etwas fehlt oder schwerfällt.
+      placeholder: "Ich möchte meine Bewerbungen nach Gehalt filtern können, aber..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Wie stellst du dir die Lösung vor?
+      description: Beschreibe, was PBP tun sollte.
+      placeholder: "Ein Filter-Dropdown in der Stellenliste, das nach Gehaltsspanne sortiert."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativen, die du probiert hast
+      description: Gibt es Workarounds, die du aktuell nutzt?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      description: Wo würde das Feature hingehören?
+      options:
+        - Dashboard
+        - Profil
+        - Stellen / Jobsuche
+        - Bewerbungen
+        - Statistiken
+        - Export (CV/Anschreiben)
+        - Einstellungen
+        - Installation
+        - Sonstiges
+    validations:
+      required: false
