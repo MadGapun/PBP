@@ -253,6 +253,84 @@ async def api_status():
     }
 
 
+@app.get("/api/claude-status")
+async def api_claude_status():
+    """Check if Claude Desktop is running and return its path."""
+    import shutil
+    result = {"running": False, "path": None}
+
+    if sys.platform == "win32":
+        candidates = [
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Claude", "Claude.exe"),
+            os.path.join(os.environ.get("PROGRAMFILES", ""), "Claude", "Claude.exe"),
+        ]
+        for p in candidates:
+            if p and os.path.isfile(p):
+                result["path"] = p
+                break
+
+        # Check if running via tasklist
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],
+                text=True, timeout=5, creationflags=0x08000000,  # CREATE_NO_WINDOW
+            )
+            result["running"] = "Claude.exe" in out
+        except Exception:
+            pass
+    else:
+        result["path"] = shutil.which("claude")
+
+    return result
+
+
+@app.post("/api/claude-open")
+async def api_claude_open():
+    """Open (or restart) Claude Desktop."""
+    import subprocess
+
+    if sys.platform != "win32":
+        return JSONResponse({"error": "Nur unter Windows verfuegbar"}, status_code=400)
+
+    # Find Claude Desktop
+    candidates = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Claude", "Claude.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Claude", "Claude.exe"),
+    ]
+    claude_path = None
+    for p in candidates:
+        if p and os.path.isfile(p):
+            claude_path = p
+            break
+
+    if not claude_path:
+        return JSONResponse({"error": "Claude Desktop nicht gefunden"}, status_code=404)
+
+    # Kill existing Claude process if running (for clean restart)
+    try:
+        subprocess.run(
+            ["taskkill", "/IM", "Claude.exe", "/F"],
+            timeout=5, capture_output=True,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW
+        )
+        import time
+        time.sleep(2)  # Wait for process to fully exit
+    except Exception:
+        pass
+
+    # Start Claude Desktop
+    try:
+        subprocess.Popen(
+            [claude_path],
+            start_new_session=True,
+            creationflags=0x00000008,  # DETACHED_PROCESS
+        )
+        return {"status": "ok", "message": "Claude Desktop wird gestartet..."}
+    except Exception as e:
+        return JSONResponse({"error": f"Start fehlgeschlagen: {e}"}, status_code=500)
+
+
 @app.get("/api/workspace-summary")
 async def api_workspace_summary():
     """Aggregated workspace state for dashboard guidance and navigation."""

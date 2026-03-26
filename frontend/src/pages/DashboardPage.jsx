@@ -458,11 +458,23 @@ export default function DashboardPage() {
               {workspaceReadiness.description || "PBP zeigt dir hier immer, was als N\u00e4chstes sinnvoll ist."}
             </p>
           </div>
-          {workspaceReadiness.action_label ? (
-            <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
-              {workspaceReadiness.action_label}
+          <div className="flex shrink-0 gap-2">
+            {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
+              <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
+                {workspaceReadiness.action_label}
+              </Button>
+            ) : null}
+            <Button size="sm" variant="ghost" onClick={async () => {
+              try {
+                const resp = await api("/api/claude-open", { method: "POST" });
+                pushToast(resp.message || "Claude Desktop wird gestartet...", "success");
+              } catch (err) {
+                pushToast("Claude konnte nicht gestartet werden: " + err.message, "danger");
+              }
+            }}>
+              <ExternalLink size={14} /> Claude öffnen
             </Button>
-          ) : null}
+          </div>
         </div>
 
         {workspaceTodos.length > 0 && (

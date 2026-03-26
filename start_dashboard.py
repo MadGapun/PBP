@@ -99,12 +99,52 @@ try:
     db.initialize()
     logger.info("Datenbank initialisiert")
 
+    # Claude Desktop Neustart anbieten (damit MCP-Server sauber geladen wird)
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=0x08000000,
+            )
+            if "Claude.exe" in result.stdout:
+                print()
+                print("  !! Claude Desktop laeuft bereits.")
+                print("  Damit PBP als MCP-Server erkannt wird, muss Claude")
+                print("  neu gestartet werden.")
+                print()
+                answer = input("  Claude jetzt neu starten? [J/n]: ").strip().lower()
+                if answer in ("", "j", "ja", "y", "yes"):
+                    logger.info("Claude Desktop wird neu gestartet...")
+                    subprocess.run(
+                        ["taskkill", "/IM", "Claude.exe", "/F"],
+                        capture_output=True, timeout=5,
+                        creationflags=0x08000000,
+                    )
+                    import time
+                    time.sleep(2)
+                    claude_path = _find_chrome()  # reuse search pattern
+                    # Find Claude specifically
+                    for cp in [
+                        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Claude", "Claude.exe"),
+                        os.path.join(os.environ.get("PROGRAMFILES", ""), "Claude", "Claude.exe"),
+                    ]:
+                        if cp and os.path.isfile(cp):
+                            subprocess.Popen([cp], start_new_session=True, creationflags=0x00000008)
+                            print("  Claude Desktop wird gestartet...")
+                            time.sleep(3)
+                            break
+        except Exception as e:
+            logger.warning("Claude-Check fehlgeschlagen: %s", e)
+
     print()
     print(f"  Dashboard: http://localhost:{port}")
     print(f"  Daten:     {data_dir}")
     print(f"  Log:       {log_path}")
     print(f"  Beenden:   Dieses Fenster schliessen oder Strg+C")
     print()
+
+    _open_in_chrome(f"http://localhost:{port}")
 
     start_dashboard(db, port=port)
 
