@@ -5,11 +5,12 @@ Reliable, no anti-bot measures.
 """
 
 import logging
-import time
+import json
 
 import httpx
 
 from . import stelle_hash, detect_remote_level
+from .async_http_helper import fetch_all_parallel
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.bundesagentur")
 
@@ -35,43 +36,42 @@ def search_bundesagentur(params: dict) -> list:
     criteria = params.get("criteria", {})
     jobs = []
 
-    with httpx.Client(timeout=30) as client:
-        for kw in keywords:
-            try:
-                resp = client.get(
-                    API_URL,
-                    params={"was": kw, "size": 25, "page": 1},
-                    headers={"X-API-Key": API_KEY}
-                )
-                if resp.status_code != 200:
-                    logger.warning("BA API %d for '%s'", resp.status_code, kw)
-                    continue
+    requests_list = [
+        {"url": API_URL, "params": {"was": kw, "size": 25, "page": 1}}
+        for kw in keywords
+    ]
+    all_responses = fetch_all_parallel(
+        requests_list,
+        headers={"X-API-Key": API_KEY, "Accept": "application/json"},
+        delay_between_batches=0.3,
+    )
 
-                data = resp.json()
-                stellenangebote = data.get("stellenangebote", [])
-
-                for s in stellenangebote:
-                    title = s.get("titel", "")
-                    company = s.get("arbeitgeber", "Nicht angegeben")
-                    location = s.get("arbeitsort", {}).get("ort", "")
-                    ref_nr = s.get("refnr", "")
-
-                    job = {
-                        "hash": stelle_hash("arbeitsagentur.de", title),
-                        "title": title,
-                        "company": company,
-                        "location": location,
-                        "url": f"https://www.arbeitsagentur.de/jobsuche/suche?id={ref_nr}",
-                        "source": "bundesagentur",
-                        "description": s.get("beruf", ""),
-                        "employment_type": "festanstellung",
-                        "remote_level": detect_remote_level(f"{title} {location}"),
-                    }
-                    jobs.append(job)
-
-                time.sleep(0.5)  # Be polite
-            except Exception as e:
-                logger.error("BA search error for '%s': %s", kw, e)
+    for _url, params, html in all_responses:
+        if not html:
+            continue
+        kw = (params or {}).get("was", "")
+        try:
+            data = json.loads(html)
+            stellenangebote = data.get("stellenangebote", [])
+            for s in stellenangebote:
+                title = s.get("titel", "")
+                company = s.get("arbeitgeber", "Nicht angegeben")
+                location = s.get("arbeitsort", {}).get("ort", "")
+                ref_nr = s.get("refnr", "")
+                job = {
+                    "hash": stelle_hash("arbeitsagentur.de", title),
+                    "title": title,
+                    "company": company,
+                    "location": location,
+                    "url": f"https://www.arbeitsagentur.de/jobsuche/suche?id={ref_nr}",
+                    "source": "bundesagentur",
+                    "description": s.get("beruf", ""),
+                    "employment_type": "festanstellung",
+                    "remote_level": detect_remote_level(f"{title} {location}"),
+                }
+                jobs.append(job)
+        except Exception as e:
+            logger.error("BA parse error for '%s': %s", kw, e)
 
     logger.info("Bundesagentur: %d Stellen gefunden", len(jobs))
     return jobs

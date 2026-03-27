@@ -3,12 +3,12 @@
 import json
 import logging
 import re
-import time
 
 import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .async_http_helper import fetch_all_parallel
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelancermap")
 
@@ -26,15 +26,16 @@ def search_freelancermap(params: dict) -> list:
     kw_data = params.get("keywords", {})
     urls = kw_data.get("freelancermap_urls", SEARCH_URLS)
 
-    with httpx.Client(timeout=30, follow_redirects=True) as client:
-        for url in urls:
-            try:
-                resp = client.get(url)
-                if resp.status_code != 200:
-                    continue
+    # Parallele Requests statt serielle Schleife
+    requests_list = [{"url": url} for url in urls]
+    all_responses = fetch_all_parallel(requests_list, delay_between_batches=0.5)
 
-                projects = _extract_projects_from_js(resp.text)
-                for p in projects:
+    for url, _params, html in all_responses:
+        if not html:
+            continue
+        try:
+            projects = _extract_projects_from_js(html)
+            for p in projects:
                     title = p.get("title", "")
                     company = p.get("poster", {}).get("company", "Freelancermap")
                     locations = p.get("locations", [])
@@ -56,10 +57,8 @@ def search_freelancermap(params: dict) -> list:
                         "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                     }
                     jobs.append(job)
-
-                time.sleep(1)
-            except Exception as e:
-                logger.error("Freelancermap error: %s", e)
+        except Exception as e:
+            logger.error("Freelancermap error for %s: %s", url, e)
 
     # Fallback to Playwright if httpx returned nothing
     if not jobs:

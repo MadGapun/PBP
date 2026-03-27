@@ -6,12 +6,12 @@ Kein Login erforderlich. HTML-Scraping via requests.
 
 import logging
 import re
-import time
 
 import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .async_http_helper import fetch_all_parallel
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.ingenieur_de")
 
@@ -34,26 +34,22 @@ def search_ingenieur_de(params: dict) -> list:
     kw_data = params.get("keywords", {})
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
-    with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
-        for query in queries:
-            try:
-                url = f"https://www.ingenieur.de/jobs/suche/?q={httpx.QueryParams({'q': query})['q']}"
-                # ingenieur.de uses /jobs/suche/ with q parameter
-                resp = client.get(
-                    "https://www.ingenieur.de/jobs/suche/",
-                    params={"q": query, "sort": "date"},
-                )
-                if resp.status_code != 200:
-                    logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
-                    continue
+    requests_list = [
+        {"url": "https://www.ingenieur.de/jobs/suche/", "params": {"q": q, "sort": "date"}}
+        for q in queries
+    ]
+    all_responses = fetch_all_parallel(requests_list, headers=HEADERS, delay_between_batches=0.5)
 
-                soup = BeautifulSoup(resp.text, "html.parser")
+    for _url, params, html in all_responses:
+        if not html:
+            continue
+        query = (params or {}).get("q", "")
+        try:
+            soup = BeautifulSoup(html, "html.parser")
 
-                # Job cards: article elements or list items with job links
-                cards = soup.select("article, .job-item, .search-result, [class*='job-card']")
-                if not cards:
-                    # Fallback: find all links to job detail pages
-                    cards = soup.select("a[href*='/jobs/']")
+            cards = soup.select("article, .job-item, .search-result, [class*='job-card']")
+            if not cards:
+                cards = soup.select("a[href*='/jobs/']")
 
                 for card in cards[:25]:
                     try:
@@ -63,10 +59,9 @@ def search_ingenieur_de(params: dict) -> list:
                     except Exception as e:
                         logger.debug("ingenieur.de card error: %s", e)
 
-                logger.debug("ingenieur.de: %d cards for '%s'", len(cards), query)
-                time.sleep(1.5)
-            except Exception as e:
-                logger.error("ingenieur.de error for '%s': %s", query, e)
+            logger.debug("ingenieur.de: %d cards for '%s'", len(cards), query)
+        except Exception as e:
+            logger.error("ingenieur.de error for '%s': %s", query, e)
 
     logger.info("ingenieur.de: %d Stellen gefunden", len(jobs))
     return jobs

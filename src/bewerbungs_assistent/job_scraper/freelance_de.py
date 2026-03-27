@@ -16,13 +16,12 @@ HTML-Struktur (Stand 2026-02):
 
 import logging
 import re
-import time
 from urllib.parse import quote
 
-import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .async_http_helper import fetch_all_parallel
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelance_de")
 
@@ -61,50 +60,34 @@ def search_freelance_de(params: dict) -> list:
     kw_data = params.get("keywords", {})
     urls = kw_data.get("freelance_de_urls", SEARCH_URLS)
 
-    with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
-        for base_url in urls:
-            try:
-                page_jobs = _scrape_listing_pages(client, base_url, seen_urls)
-                jobs.extend(page_jobs)
-                time.sleep(1)  # Rate limiting between keywords
-            except Exception as e:
-                logger.error("freelance.de error for %s: %s", base_url, e)
+    # Erste Seite aller URLs parallel laden
+    requests_list = [{"url": u} for u in urls]
+    first_responses = fetch_all_parallel(requests_list, headers=HEADERS, delay_between_batches=0.4)
+
+    for base_url, _params, html in first_responses:
+        if not html:
+            continue
+        try:
+            page_jobs = _parse_listing_page(html, seen_urls)
+            jobs.extend(page_jobs)
+            # Folgeseiten (Paginierung) seriell – selten mehr als 1-2 Seiten nötig
+            for page in range(1, MAX_PAGES):
+                offset = page * 20
+                if not _has_next_page(html, offset - 20):
+                    break
+                next_url = f"{base_url}?_offset={offset}"
+                resp_list = fetch_all_parallel([{"url": next_url}], headers=HEADERS)
+                if resp_list and resp_list[0][2]:
+                    html = resp_list[0][2]
+                    jobs.extend(_parse_listing_page(html, seen_urls))
+                else:
+                    break
+        except Exception as e:
+            logger.error("freelance.de error for %s: %s", base_url, e)
 
     logger.info("freelance.de: %d Projekte gefunden", len(jobs))
     return jobs
 
-
-def _scrape_listing_pages(client: httpx.Client, base_url: str, seen_urls: set) -> list:
-    """Scrape listing pages with pagination."""
-    jobs = []
-
-    for page in range(MAX_PAGES):
-        offset = page * 20
-        url = base_url if page == 0 else f"{base_url}?_offset={offset}"
-
-        try:
-            resp = client.get(url)
-            if resp.status_code != 200:
-                logger.debug("freelance.de HTTP %d for %s", resp.status_code, url)
-                break
-
-            page_jobs = _parse_listing_page(resp.text, seen_urls)
-
-            if not page_jobs:
-                break  # No more results
-
-            jobs.extend(page_jobs)
-
-            # Check if there's a next page
-            if not _has_next_page(resp.text, offset):
-                break
-
-            time.sleep(1)  # Rate limiting between pages
-        except Exception as e:
-            logger.error("freelance.de page error: %s", e)
-            break
-
-    return jobs
 
 
 def _parse_listing_page(html: str, seen_urls: set) -> list:
