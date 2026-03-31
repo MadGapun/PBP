@@ -308,17 +308,20 @@ def build_keyword_combinations(keywords_muss: list[str]) -> list[str]:
             if q not in queries:
                 queries.append(q)
 
-    # Strategy 4: Niche keywords as OR group
-    if niche_kw:
-        # Group niche keywords with OR
-        or_parts = [f'"{kw}"' for kw in niche_kw[:3]]
-        q = " OR ".join(or_parts)
-        if q not in queries:
-            queries.append(q)
+    # Strategy 4: Niche keywords paired with core (#253: kein OR, zu unspezifisch)
+    if niche_kw and core_kw:
+        for niche in niche_kw[:2]:
+            q = f'"{core_kw[0]}" "{niche}"'
+            if q not in queries:
+                queries.append(q)
+    elif niche_kw:
+        for niche in niche_kw[:2]:
+            if f'"{niche}"' not in queries:
+                queries.append(f'"{niche}"')
 
-    # Strategy 5: Tech keywords paired
+    # Strategy 5: Tech keywords paired (AND statt OR, #253)
     if len(tech_kw) >= 2:
-        q = f'"{tech_kw[0]}" OR "{tech_kw[1]}"'
+        q = f'"{tech_kw[0]}" "{tech_kw[1]}"'
         if q not in queries:
             queries.append(q)
 

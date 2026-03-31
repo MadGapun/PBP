@@ -119,22 +119,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "veraltet": True,
         "beta": True,
-        "warnung": (
-            "BETA-FEATURE — Bitte beachten:\n"
-            "\n"
-            "Token-Verbrauch: LinkedIn-Suche verbraucht erheblich mehr Claude-Token als "
-            "normale Quellen. Mit dem Free-Plan wird das Kontingent schnell aufgebraucht.\n"
-            "\n"
-            "Rechtlicher Hinweis: LinkedIn untersagt automatisiertes Scraping in seinen "
-            "Nutzungsbedingungen. PBP greift nur ueber deine eigene Chrome-Session zu "
-            "(du steuerst den Browser). Du bist fuer die Einhaltung der LinkedIn-Nutzungsbedingungen "
-            "selbst verantwortlich.\n"
-            "\n"
-            "Anleitung: Oeffne LinkedIn in Chrome mit der Claude-in-Chrome Extension, suche "
-            "manuell nach Stellen und uebertrage sie mit stelle_manuell_anlegen(). "
-            "Die automatische Jobsuche ueberspringt LinkedIn — du musst Claude explizit "
-            "bitten, dort zu suchen."
-        ),
+        "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
         "hinweis": "Automatische Suche deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
     "xing": {
@@ -144,22 +129,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "veraltet": True,
         "beta": True,
-        "warnung": (
-            "BETA-FEATURE — Bitte beachten:\n"
-            "\n"
-            "Token-Verbrauch: XING-Suche verbraucht erheblich mehr Claude-Token als "
-            "normale Quellen. Mit dem Free-Plan wird das Kontingent schnell aufgebraucht.\n"
-            "\n"
-            "Rechtlicher Hinweis: XING untersagt automatisiertes Scraping in seinen "
-            "Nutzungsbedingungen. PBP greift nur ueber deine eigene Chrome-Session zu "
-            "(du steuerst den Browser). Du bist fuer die Einhaltung der XING-Nutzungsbedingungen "
-            "selbst verantwortlich.\n"
-            "\n"
-            "Anleitung: Oeffne XING in Chrome mit der Claude-in-Chrome Extension, suche "
-            "manuell nach Stellen und uebertrage sie mit stelle_manuell_anlegen(). "
-            "Die automatische Jobsuche ueberspringt XING — du musst Claude explizit "
-            "bitten, dort zu suchen."
-        ),
+        "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
         "hinweis": "Automatische Suche deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
 }
@@ -380,9 +350,14 @@ def run_search(db, job_id: str, params: dict):
     # Deprecated sources (#159): skip with warning
     _deprecated_sources = {"linkedin", "xing"}
 
-    # Per-source timeout: 90 seconds per source (#200)
+    # Per-source timeout: 90 seconds default, Stepstone 180s (#200, #248, #252)
     _SOURCE_TIMEOUT = 90
+    _STEPSTONE_TIMEOUT = 180
     skipped_sources = []
+
+    # #252: Stepstone immer als letztes Portal starten
+    if "stepstone" in quellen:
+        quellen = [q for q in quellen if q != "stepstone"] + ["stepstone"]
 
     for i, quelle in enumerate(quellen):
         db.update_background_job(
@@ -408,13 +383,14 @@ def run_search(db, job_id: str, params: dict):
             mod = importlib.import_module(f".{module_name}", package=__package__)
             search_func = getattr(mod, func_name)
 
-            # Run with per-source timeout (#200)
+            # Run with per-source timeout (#200, #248)
+            timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(search_func, params)
                 try:
-                    jobs = future.result(timeout=_SOURCE_TIMEOUT)
+                    jobs = future.result(timeout=timeout)
                 except FuturesTimeoutError:
-                    logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, _SOURCE_TIMEOUT)
+                    logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
                     skipped_sources.append(quelle)
                     continue
 
@@ -526,6 +502,24 @@ def run_search(db, job_id: str, params: dict):
                 logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
     except Exception as e:
         logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
+
+    # #251: Stellenalter automatisch begrenzen (2x Suchintervall, min 7 Tage)
+    last_search_at = db.get_profile_setting("last_search_at", None)
+    if last_search_at:
+        try:
+            from datetime import datetime, timedelta
+            last_dt = datetime.fromisoformat(last_search_at)
+            now_dt = datetime.now()
+            interval = (now_dt - last_dt).days
+            max_age_days = max(7, interval * 2)
+            cutoff_dt = (now_dt - timedelta(days=max_age_days)).isoformat()
+            before_age = len(unique)
+            unique = [j for j in unique if (j.get("found_at") or j.get("published_at") or "9999") >= cutoff_dt[:10]]
+            if before_age > len(unique):
+                logger.info("Stellenalter-Filter: %d von %d Stellen aelter als %d Tage",
+                            before_age - len(unique), before_age, max_age_days)
+        except Exception as e:
+            logger.debug("Stellenalter-Filter fehlgeschlagen: %s", e)
 
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
     min_score_threshold = criteria.get("min_score_schwelle", 1)

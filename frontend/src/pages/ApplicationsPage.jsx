@@ -55,6 +55,7 @@ export default function ApplicationsPage() {
     stellenart: "",
     showArchived: false,
   });
+  const [sortMode, setSortMode] = useState("neueste"); // neueste | status | firma
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   const [newNoteText, setNewNoteText] = useState("");
@@ -237,6 +238,23 @@ export default function ApplicationsPage() {
     const artMatch = !filters.stellenart ||
       (filters.stellenart === "freelance" ? (application.job_employment_type && application.job_employment_type !== "festanstellung") : application.job_employment_type === "festanstellung" || !application.job_employment_type);
     return queryMatch && statusMatch && dateMatch && artMatch;
+  });
+
+  // #245: Sortierung
+  const STATUS_PRIORITY = {
+    angebot: 0, interview_abgeschlossen: 1, zweitgespraech: 2, interview: 3,
+    eingangsbestaetigung: 4, beworben: 5, in_vorbereitung: 6, entwurf: 7,
+    angenommen: 8, abgelehnt: 9, zurueckgezogen: 10, abgelaufen: 11,
+  };
+  const sortedApplications = [...filteredApplications].sort((a, b) => {
+    if (sortMode === "firma") return (a.company || "").localeCompare(b.company || "", "de");
+    if (sortMode === "status") {
+      const pa = STATUS_PRIORITY[a.status] ?? 99;
+      const pb = STATUS_PRIORITY[b.status] ?? 99;
+      return pa !== pb ? pa - pb : (b.applied_at || "").localeCompare(a.applied_at || "");
+    }
+    // neueste (default)
+    return (b.applied_at || b.created_at || "").localeCompare(a.applied_at || a.created_at || "");
   });
 
   const dueFollowUps = followUps.filter((item) => item.faellig);
@@ -428,10 +446,25 @@ export default function ApplicationsPage() {
 
         <div className={cn("grid gap-6", followUps.length > 0 ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]" : "")}>
           <Card className="rounded-2xl">
-            <SectionHeading title="Bewerbungen" description="Statuswechsel werden direkt in der Historie vermerkt." />
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <SectionHeading title="Bewerbungen" description="Statuswechsel werden direkt in der Historie vermerkt." />
+              <div className="flex gap-1.5">
+                {[["neueste", "Neueste"], ["status", "Status"], ["firma", "Firma A-Z"]].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                      sortMode === key ? "bg-sky/20 text-sky" : "text-muted hover:text-ink hover:bg-white/5"
+                    )}
+                    onClick={() => setSortMode(key)}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-4">
-              {filteredApplications.length ? (
-                filteredApplications.map((application) => (
+              {sortedApplications.length ? (
+                sortedApplications.map((application) => (
                   <Card key={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">

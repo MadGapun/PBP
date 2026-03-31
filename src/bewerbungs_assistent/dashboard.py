@@ -247,7 +247,7 @@ async def api_status():
         "version": __version__,
         "has_profile": profile is not None,
         "profile_name": summary["name"],
-        "active_jobs": len(_db.get_active_jobs()),
+        "active_jobs": len(_db.get_active_jobs(exclude_applied=True)),
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
     }

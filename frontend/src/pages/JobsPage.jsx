@@ -215,9 +215,13 @@ export default function JobsPage() {
       const status = await optionalApi("/api/jobsuche/running");
       if (!status) {
         searchPollErrorShownRef.current = false;
-        wasSearchRunningRef.current = false;
+        // #221: Nur bei Status-Wechsel (running→done) neu laden
+        if (wasSearchRunningRef.current) {
+          wasSearchRunningRef.current = false;
+          await loadPage({ silent: true });
+          await refreshChrome({ quiet: true });
+        }
         startTransition(() => setSearchJob({ running: false, progress: 0, message: "" }));
-        await loadPage({ silent: true });
         return;
       }
       const running = Boolean(status?.running);
@@ -229,7 +233,6 @@ export default function JobsPage() {
 
       if (running) {
         wasSearchRunningRef.current = true;
-        await loadPage({ silent: true });
         return;
       }
 
@@ -259,7 +262,7 @@ export default function JobsPage() {
       if (cancelled) return;
       await syncRunningSearch();
       if (cancelled) return;
-      const delay = wasSearchRunningRef.current ? 2000 : 5000;
+      const delay = wasSearchRunningRef.current ? 5000 : 30000;
       timer = window.setTimeout(tick, delay);
     };
 

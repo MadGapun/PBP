@@ -11,5 +11,4 @@ echo    Zum Beenden: Dieses Fenster schliessen
 echo  ====================================================
 echo.
 timeout /t 2 /nobreak >nul
-start http://localhost:8200
 "%PYTHON%" "%DIR%\start_dashboard.py"

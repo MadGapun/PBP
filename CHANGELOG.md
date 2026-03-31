@@ -2,6 +2,36 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.1.0] - 2026-03-31
+
+### Bug Fixes
+- **#231**: Beworbene Stellen verschwinden jetzt automatisch aus der aktiven Liste
+- **#242**: Schema-Migration v19 — `linked_application_id` von INTEGER auf TEXT korrigiert (FK-Kompatibilitaet)
+- **#221**: Polling-Intervall von 2s/5s auf 5s/30s erhoeht, Seite wird nur bei Status-Wechsel neu geladen (kein Flackern mehr)
+- **#248 + #252**: Stepstone wird als letztes Portal gestartet mit eigenem Timeout (180s), blockiert andere Portale nicht mehr
+- **#230**: Dashboard oeffnet nur noch einen Browser (doppeltes Oeffnen in BAT + Python behoben)
+- **#243**: Dokument-Status springt nach KI-Analyse automatisch auf "analysiert" (statt auf basis_analysiert haengen zu bleiben)
+
+### UX-Verbesserungen (Toms/Markus Feedback)
+- **Text-Reduktion**: Redundante Info-Boxen im Quellen-Panel entfernt (2 Boxen → 1 kurzer Satz)
+- **LinkedIn/XING Warnungen**: Von 4 Absaetzen auf einen Satz gekuerzt
+- **Quellen-Hinweis**: Wird nur noch angezeigt wenn keine Quellen gewaehlt sind
+- **Jobsuche-Prompt**: Schritt 2 (Quellen) wird uebersprungen wenn bereits konfiguriert
+- **#249**: LinkedIn/XING als "Manuell" statt "Aktiv" gekennzeichnet
+
+### Neue Features
+- **#223**: Verknuepfte Dokumente in Bewerbung-Details sichtbar
+- **#224**: Notizen bei Bewerbungserstellung erscheinen als erster Timeline-Eintrag
+- **#245**: Schnell-Sortierung in Bewerbungsliste (3 Buttons: Neueste / Status / Firma A-Z)
+- **#251**: Stellenalter wird automatisch auf 2x Suchintervall begrenzt (min. 7 Tage)
+- **#253**: LinkedIn/XING-Suche nutzt gepaarte Keywords statt breite OR-Queries
+
+### Technisch
+- Schema-Version: 18 → 19
+- 346 Tests gruen, 4 geskippt
+
+---
+
 ## [1.0.0] - 2026-03-26
 
 ### Erster offizieller Public Release

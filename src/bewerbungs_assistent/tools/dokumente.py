@@ -283,6 +283,14 @@ def register(mcp, db, logger):
             return {"fehler": f"Extraktion '{extraction_id}' nicht gefunden."}
         conn.commit()
 
+        # #243: Dokument-Status auf 'analysiert' setzen nach erfolgreicher Extraktion
+        row = conn.execute(
+            "SELECT document_id FROM extraction_history WHERE id=?",
+            (extraction_id,)
+        ).fetchone()
+        if row:
+            db.update_document_extraction_status(row["document_id"], "analysiert")
+
         # Count what was found
         counts = {}
         if extrahierte_daten.get("persoenliche_daten"):

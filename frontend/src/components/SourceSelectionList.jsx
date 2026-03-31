@@ -32,7 +32,7 @@ export default function SourceSelectionList({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-ink">{source.name}</span>
                   <Badge tone={source.active ? "success" : "neutral"}>
-                    {source.active ? "Aktiv" : "Inaktiv"}
+                    {source.veraltet ? "Manuell" : source.active ? "Aktiv" : "Inaktiv"}
                   </Badge>
                   {source.beta ? (
                     <Badge tone="amber">Beta</Badge>

@@ -892,25 +892,10 @@ Falls keine/wenige Kriterien gesetzt:
 → Speichere mit suchkriterien_setzen()
 
 ═══════════════════════════════════════════════════
-SCHRITT 2: QUELLEN AKTIVIEREN
+SCHRITT 2: QUELLEN PRUEFEN
 ═══════════════════════════════════════════════════
-WAS PASSIERT: Wir wählen die Jobportale aus, die durchsucht werden.
-Mehr Quellen = mehr Ergebnisse, aber längere Suchdauer.
-
-Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen müssen erst aktiviert werden)'}
-
-Falls keine Quellen aktiv:
-→ Erkläre: "Du musst mindestens eine Jobquelle aktivieren. Das geht am einfachsten
-   im Dashboard unter Einstellungen → Job-Quellen.
-   Oder sag mir welche du nutzen möchtest:
-   - StepStone (keine Anmeldung nötig)
-   - Indeed (keine Anmeldung nötig)
-   - Monster (keine Anmeldung nötig)
-   - Bundesagentur für Arbeit (keine Anmeldung nötig)
-   - Hays (keine Anmeldung nötig)
-   - Freelancermap (keine Anmeldung nötig, Freelance-Projekte)
-   - LinkedIn (Anmeldung erforderlich, Browser öffnet sich)
-   - XING (Anmeldung erforderlich, Browser öffnet sich)"
+Aktive Quellen: {active_sources if active_sources else 'KEINE'}
+{"→ Quellen sind bereits konfiguriert. Weiter zu Schritt 3." if active_sources else "→ Noch keine Quellen aktiv. Aktiviere Quellen im Dashboard unter Einstellungen → Job-Quellen, oder sag mir welche du nutzen moechtest."}
 
 ═══════════════════════════════════════════════════
 SCHRITT 3: SUCHE STARTEN

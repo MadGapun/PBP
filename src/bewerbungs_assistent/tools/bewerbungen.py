@@ -228,6 +228,23 @@ def register(mcp, db, logger):
             "source": source,
         })
 
+        # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
+        if effective_hash:
+            try:
+                db.dismiss_job(effective_hash)
+            except Exception:
+                pass  # Job existiert evtl. nicht
+
+        # #224: Notiz als ersten Timeline-Eintrag speichern
+        if notes:
+            from datetime import datetime as dt_now
+            conn = db.connect()
+            conn.execute(
+                "INSERT INTO application_events (application_id, status, event_date, notes) VALUES (?, 'notiz', ?, ?)",
+                (aid, dt_now.now().isoformat(), notes)
+            )
+            conn.commit()
+
         result = {
             "status": "erstellt",
             "bewerbung_id": aid[:8],
@@ -561,6 +578,19 @@ def register(mcp, db, logger):
                     "notiz": e.get("notes", ""),
                 }
                 for e in app["events"]
+            ]
+
+        # #223: Verknuepfte Dokumente anzeigen
+        conn = db.connect()
+        linked_docs = conn.execute(
+            "SELECT id, filename, doc_type, extraction_status FROM documents WHERE linked_application_id=?",
+            (app["id"],)
+        ).fetchall()
+        if linked_docs:
+            result["dokumente"] = [
+                {"id": d["id"], "dateiname": d["filename"], "typ": d["doc_type"],
+                 "status": d["extraction_status"]}
+                for d in linked_docs
             ]
 
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
