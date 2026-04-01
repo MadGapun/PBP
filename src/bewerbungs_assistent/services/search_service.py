@@ -58,6 +58,7 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "active": key in active_set,
             "profil_optimierung": info.get("profil_optimierung"),
             "beta": info.get("beta", False),
+            "veraltet": info.get("veraltet", False),
             "warnung": info.get("warnung"),
         }
         for key, info in source_registry.items()

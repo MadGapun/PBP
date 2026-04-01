@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 
 def _gen_id() -> str:
@@ -679,6 +679,40 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v17->v18: applications.gehaltsvorstellung (#203)")
+
+        if from_ver < 19:
+            # v19: documents.linked_application_id INTEGER→TEXT (#242)
+            # SQLite kann keine Spaltentypen aendern → Tabelle neu erstellen
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS documents_new (
+                        id TEXT PRIMARY KEY,
+                        filename TEXT NOT NULL,
+                        filepath TEXT,
+                        doc_type TEXT DEFAULT 'sonstiges',
+                        extracted_text TEXT,
+                        linked_position_id TEXT REFERENCES positions(id) ON DELETE SET NULL,
+                        linked_application_id TEXT REFERENCES applications(id) ON DELETE SET NULL,
+                        profile_id TEXT,
+                        extraction_status TEXT DEFAULT 'nicht_extrahiert',
+                        last_extraction_at TEXT,
+                        content_hash TEXT,
+                        created_at TEXT
+                    )
+                """)
+                conn.execute("""
+                    INSERT OR IGNORE INTO documents_new
+                    SELECT id, filename, filepath, doc_type, extracted_text,
+                           linked_position_id, CAST(linked_application_id AS TEXT),
+                           profile_id, extraction_status, last_extraction_at,
+                           content_hash, created_at
+                    FROM documents
+                """)
+                conn.execute("DROP TABLE documents")
+                conn.execute("ALTER TABLE documents_new RENAME TO documents")
+            except Exception as e:
+                logger.warning("Migration v18->v19 documents: %s", e)
+            logger.info("Migration v18->v19: documents.linked_application_id TEXT (#242)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -3603,7 +3637,7 @@ CREATE TABLE IF NOT EXISTS documents (
     doc_type TEXT DEFAULT 'sonstiges',
     extracted_text TEXT,
     linked_position_id TEXT REFERENCES positions(id) ON DELETE SET NULL,
-    linked_application_id INTEGER REFERENCES applications(id) ON DELETE SET NULL,
+    linked_application_id TEXT REFERENCES applications(id) ON DELETE SET NULL,
     profile_id TEXT,
     extraction_status TEXT DEFAULT 'nicht_extrahiert',
     last_extraction_at TEXT,

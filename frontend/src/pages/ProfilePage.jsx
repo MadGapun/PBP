@@ -296,6 +296,11 @@ const DOCUMENT_STATUS_META = {
     tone: "sky",
     help: "Basisanalyse ist abgeschlossen. Eine erneute Analyse kann zusätzliche Profildaten übernehmen.",
   },
+  analysiert: {
+    label: "Analysiert",
+    tone: "sky",
+    help: "KI-Analyse abgeschlossen. Ergebnisse können ins Profil übernommen werden.",
+  },
   angewendet: {
     label: "Angewendet",
     tone: "success",

@@ -1100,23 +1100,14 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     </Card>
   );
 
+  const hasActiveSources = sources.some((s) => s.active);
   const sourcesPanel = (
     <Card className="glass-card-soft rounded-xl p-6 shadow-none sm:p-8">
-      <p className="text-sm text-muted">
-        Wähle die passenden Quellen für dieses Profil aus.
-      </p>
-      <div className="mt-4 grid gap-3">
-        <div className="rounded-xl border border-white/10 bg-white/4 px-4 py-3">
-          <p className="text-sm text-muted">
-            LinkedIn und XING sind beim Erststart nicht vorausgewählt. Beim Aktivieren startet ein Login-Prozess.
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <p className="text-sm text-muted">
-            Zu viele Quellen verursachen oft mehr Rauschen als bessere Treffer.
-          </p>
-        </div>
-      </div>
+      {!hasActiveSources ? (
+        <p className="text-sm text-muted">
+          Wähle mindestens eine Quelle aus, die durchsucht werden soll.
+        </p>
+      ) : null}
       <div className="mt-5">
         <SourceSelectionList sources={sources} loginJobs={loginJobs} onToggle={toggleSource} onStartLogin={startSourceLogin} />
       </div>
