@@ -2,7 +2,7 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
-## [1.1.0] - 2026-03-31
+## [1.1.0] - 2026-04-01
 
 ### Bug Fixes
 - **#231**: Beworbene Stellen verschwinden jetzt automatisch aus der aktiven Liste
@@ -28,7 +28,7 @@ Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
 ### Technisch
 - Schema-Version: 18 → 19
-- 346 Tests gruen, 4 geskippt
+- 352 Tests gruen, 4 geskippt
 
 ---
 
