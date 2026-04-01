@@ -231,7 +231,7 @@ def register(mcp, db, logger):
         # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
         if effective_hash:
             try:
-                db.dismiss_job(effective_hash)
+                db.dismiss_job(effective_hash, reason="bewerbung_erstellt")
             except Exception:
                 pass  # Job existiert evtl. nicht
 

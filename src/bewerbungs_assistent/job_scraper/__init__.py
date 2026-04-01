@@ -384,15 +384,20 @@ def run_search(db, job_id: str, params: dict):
             search_func = getattr(mod, func_name)
 
             # Run with per-source timeout (#200, #248)
+            # shutdown(wait=False) damit ein haengender Worker nicht die
+            # gesamte Pipeline blockiert — der Daemon-Thread stirbt spaeter.
             timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(search_func, params)
-                try:
-                    jobs = future.result(timeout=timeout)
-                except FuturesTimeoutError:
-                    logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
-                    skipped_sources.append(quelle)
-                    continue
+            executor = ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(search_func, params)
+            try:
+                jobs = future.result(timeout=timeout)
+            except FuturesTimeoutError:
+                logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
+                executor.shutdown(wait=False, cancel_futures=True)
+                skipped_sources.append(quelle)
+                continue
+            finally:
+                executor.shutdown(wait=False)
 
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
