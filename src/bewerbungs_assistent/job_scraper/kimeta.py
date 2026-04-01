@@ -2,6 +2,8 @@
 
 Aggregiert Stellen aus vielen Quellen, gute DE-Abdeckung.
 Kein Login erforderlich. HTML-Scraping.
+
+Fix #236: Erweiterte CSS-Selektoren, URL-Fallbacks, JSON-LD-Fallback.
 """
 
 import logging
@@ -27,6 +29,13 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
+# URL-Varianten (#236)
+_SEARCH_URLS = [
+    "https://www.kimeta.de/jobs",
+    "https://www.kimeta.de/stellenangebote",
+    "https://www.kimeta.de/suche",
+]
+
 
 def search_kimeta(params: dict) -> list:
     """Search Kimeta job aggregator via HTML scraping."""
@@ -35,45 +44,115 @@ def search_kimeta(params: dict) -> list:
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
+        working_url = None
         for query in queries:
             try:
-                resp = client.get(
-                    "https://www.kimeta.de/jobs",
-                    params={"q": query, "l": "Deutschland"},
-                )
-                if resp.status_code != 200:
-                    logger.debug("Kimeta HTTP %d for '%s'", resp.status_code, query)
-                    continue
+                if not working_url:
+                    for url_candidate in _SEARCH_URLS:
+                        try:
+                            resp = client.get(
+                                url_candidate,
+                                params={"q": query, "l": "Deutschland"},
+                            )
+                            if resp.status_code == 200 and len(resp.text) > 5000:
+                                working_url = url_candidate
+                                break
+                        except Exception:
+                            continue
+                    if not working_url:
+                        logger.warning("Kimeta: Keine funktionierende URL gefunden (#236)")
+                        return jobs
+                else:
+                    resp = client.get(
+                        working_url,
+                        params={"q": query, "l": "Deutschland"},
+                    )
+                    if resp.status_code != 200:
+                        logger.debug("Kimeta HTTP %d for '%s'", resp.status_code, query)
+                        continue
 
                 soup = BeautifulSoup(resp.text, "html.parser")
 
-                # Kimeta cards: article.result, .job-item, li.result, [class*='result-item']
+                # Extended selectors (#236): Kimeta aendert CSS-Klassen regelmaessig
                 cards = (
                     soup.select("article.result") or
                     soup.select(".job-item") or
                     soup.select("li.result") or
                     soup.select("[class*='result-item']") or
-                    soup.select("[class*='job-card']")
+                    soup.select("[class*='job-card']") or
+                    soup.select("[class*='search-result']") or
+                    soup.select("[class*='stellenangebot']") or
+                    soup.select("div[data-job]") or
+                    soup.select("a[href*='/stellenangebot/']")
                 )
+
+                # JSON-LD Fallback (#236): Falls Kimeta JSON-LD hinzugefuegt hat
+                if not cards:
+                    for script in soup.find_all("script", type="application/ld+json"):
+                        try:
+                            import json
+                            data = json.loads(script.string or "")
+                            items = data if isinstance(data, list) else data.get("@graph", [data])
+                            for item in items:
+                                if item.get("@type") != "JobPosting":
+                                    continue
+                                title = item.get("title", "")
+                                if not title:
+                                    continue
+                                org = item.get("hiringOrganization", {})
+                                company = org.get("name", "Unbekannt") if isinstance(org, dict) else "Unbekannt"
+                                loc = item.get("jobLocation", {})
+                                if isinstance(loc, list):
+                                    loc = loc[0] if loc else {}
+                                location = ""
+                                if isinstance(loc, dict):
+                                    addr = loc.get("address", {})
+                                    location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
+                                jobs.append({
+                                    "hash": stelle_hash("kimeta.de", title),
+                                    "title": title,
+                                    "company": company,
+                                    "location": location,
+                                    "url": item.get("url", ""),
+                                    "source": "kimeta",
+                                    "description": (item.get("description", "") or "")[:2000],
+                                    "employment_type": "festanstellung",
+                                    "remote_level": detect_remote_level(
+                                        f"{title} {location} {item.get('description', '')}"
+                                    ),
+                                })
+                        except Exception:
+                            continue
 
                 seen = set()
                 for card in cards[:25]:
-                    # Title
-                    t_el = card.find(["h2", "h3", "h4"]) or card.select_one("a.job-title, a.title")
+                    # Title: extended heading + link selectors (#236)
+                    t_el = (
+                        card.find(["h2", "h3", "h4"]) or
+                        card.select_one("a.job-title, a.title") or
+                        card.select_one("[class*='title']") or
+                        card.select_one("a[href*='/stellenangebot/']")
+                    )
                     title = t_el.get_text(strip=True) if t_el else ""
                     if not title or len(title) < 5 or title in seen:
                         continue
                     seen.add(title)
 
-                    # Company
+                    # Company: extended selectors (#236)
                     f_el = (
                         card.select_one(".company, .employer, [class*='company']") or
-                        card.select_one("[class*='employer']")
+                        card.select_one("[class*='employer']") or
+                        card.select_one("[class*='firma']") or
+                        card.select_one("[class*='arbeitgeber']")
                     )
                     company = f_el.get_text(strip=True) if f_el else "Unbekannt"
 
-                    # Location
-                    o_el = card.select_one(".location, [class*='location']")
+                    # Location: extended selectors (#236)
+                    o_el = (
+                        card.select_one(".location, [class*='location']") or
+                        card.select_one("[class*='ort']") or
+                        card.select_one("[class*='standort']")
+                    )
                     location = o_el.get_text(strip=True) if o_el else "Deutschland"
 
                     # Link

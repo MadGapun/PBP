@@ -39,6 +39,16 @@ def register(mcp, db, logger):
                                  "oder gib sie explizit an: quellen=['stepstone', 'bundesagentur']"
                 }
 
+        # Prevent duplicate concurrent searches (#265)
+        existing = db.get_running_background_job("jobsuche")
+        if existing:
+            return {
+                "status": "laeuft_bereits",
+                "job_id": existing["id"],
+                "nachricht": "Eine Jobsuche läuft bereits. "
+                            f"Prüfe den Fortschritt mit jobsuche_status('{existing['id']}')."
+            }
+
         params = {
             "keywords": keywords,
             "quellen": quellen,
@@ -177,6 +187,62 @@ def register(mcp, db, logger):
             return "befristet"
         return reason
 
+    def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
+        """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern."""
+        LEARN_MAP = {
+            "zu_weit_entfernt": ("entfernung_fest", "50km", -2),
+            "zeitarbeit": ("stellentyp", "zeitarbeit", None),  # None = ignore
+            "befristet": ("stellentyp", "befristet", None),
+            "zu_junior": ("stellentyp", "praktikum", None),
+        }
+        if reason not in LEARN_MAP:
+            return None
+        dim, sub, adjustment = LEARN_MAP[reason]
+        conn = db_ref.connect()
+        existing = conn.execute(
+            "SELECT value, ignore_flag FROM scoring_config "
+            "WHERE profile_id=? AND dimension=? AND sub_key=?",
+            (db_ref.get_active_profile_id() or "", dim, sub)
+        ).fetchone()
+        if adjustment is None:
+            # Set ignore flag
+            if existing and existing["ignore_flag"]:
+                return None  # already ignored
+            if existing:
+                conn.execute(
+                    "UPDATE scoring_config SET ignore_flag=1 "
+                    "WHERE profile_id=? AND dimension=? AND sub_key=?",
+                    (db_ref.get_active_profile_id() or "", dim, sub)
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                    "VALUES (?, ?, ?, 0, 1, ?)",
+                    (db_ref.get_active_profile_id() or "", dim, sub, __import__("datetime").datetime.now().isoformat())
+                )
+            conn.commit()
+            return f"'{reason}' → {dim}/{sub} auf IGNORIEREN gesetzt"
+        else:
+            # Increase penalty proportionally to count
+            new_val = adjustment * (1 + (count - 5) * 0.5)
+            new_val = max(new_val, -10)
+            if existing:
+                if existing["value"] <= new_val:
+                    return None  # already penalized enough
+                conn.execute(
+                    "UPDATE scoring_config SET value=? "
+                    "WHERE profile_id=? AND dimension=? AND sub_key=?",
+                    (new_val, db_ref.get_active_profile_id() or "", dim, sub)
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                    "VALUES (?, ?, ?, ?, 0, ?)",
+                    (db_ref.get_active_profile_id() or "", dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
+                )
+            conn.commit()
+            return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
+
     @mcp.tool()
     def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
@@ -245,6 +311,21 @@ def register(mcp, db, logger):
 
             db.set_setting("dismiss_counts", counts)
             db.increment_dismiss_reason_usage(reason_list)
+
+            # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern
+            auto_adjustments = []
+            for g in reason_list:
+                normalized = g.lower().strip()
+                cnt = counts.get(normalized, 0)
+                if cnt >= 5:
+                    _auto = _auto_adjust_scoring(db, normalized, cnt)
+                    if _auto:
+                        auto_adjustments.append(_auto)
+            if auto_adjustments:
+                hints.append(
+                    "Scoring wurde automatisch angepasst: "
+                    + "; ".join(auto_adjustments)
+                )
 
             result = {
                 "status": "aussortiert",
@@ -478,6 +559,21 @@ def register(mcp, db, logger):
         existing_job = db.get_job(job_hash)
         if existing_job:
             return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
+
+        # Cross-source duplicate detection (#222): Check if similar stelle exists
+        import re as _re
+        norm_key = _re.sub(r'[^a-z0-9]', '', f"{firma}{titel}".lower())
+        all_active = db.get_active_jobs(exclude_applied=False)
+        for existing in all_active:
+            exist_key = _re.sub(r'[^a-z0-9]', '', f"{existing.get('company','')}{existing.get('title','')}".lower())
+            if norm_key == exist_key and existing["hash"] != job_hash:
+                return {
+                    "warnung": "duplikat_erkannt",
+                    "nachricht": f"Aehnliche Stelle existiert bereits: '{existing['title']}' bei {existing['company']} "
+                                 f"(Quelle: {existing.get('source', 'unbekannt')}, Hash: {existing['hash']}). "
+                                 "Falls du die Stelle trotzdem anlegen moechtest, aendere den Titel leicht ab.",
+                    "existing_hash": existing["hash"],
+                }
 
         criteria = db.get_search_criteria()
         job = {

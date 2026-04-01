@@ -1013,3 +1013,67 @@ def register(mcp, db, logger):
             ) if tote_keywords or vorschlaege_plus else
             "Deine Keywords passen gut zu den aktuellen Stellen."
         }
+
+    @mcp.tool()
+    def recherche_speichern(
+        text: str,
+        job_hash: str = "",
+        bewerbung_id: str = "",
+        kategorie: str = "allgemein"
+    ) -> dict:
+        """Speichert eine Recherche-Analyse dauerhaft zu einer Stelle oder Bewerbung (#240).
+
+        Nutze dieses Tool, um Ergebnisse aus firmen_recherche(), branchen_trends(),
+        skill_gap_analyse() oder eigene Notizen zu persistieren. Gespeicherte
+        Recherchen bleiben über Chat-Sessions hinweg erhalten.
+
+        Args:
+            text: Der Analysetext / die Recherche-Ergebnisse
+            job_hash: Hash der Stelle (optional, wenn stellenbezogen)
+            bewerbung_id: ID der Bewerbung (optional, wenn bewerbungsbezogen)
+            kategorie: Art der Recherche (allgemein, firmenrecherche, skillgap, gehalt, markt)
+        """
+        if not job_hash and not bewerbung_id:
+            return {"fehler": "Entweder job_hash oder bewerbung_id muss angegeben werden."}
+
+        now = datetime.now().isoformat()
+        saved_to = []
+
+        if job_hash:
+            job = db.get_job(job_hash)
+            if not job:
+                return {"fehler": f"Stelle {job_hash} nicht gefunden."}
+            existing = job.get("research_notes") or ""
+            entry = f"\n\n--- {kategorie} ({now[:10]}) ---\n{text}"
+            new_notes = (existing + entry).strip()
+            conn = db.connect()
+            conn.execute(
+                "UPDATE jobs SET research_notes=?, updated_at=? WHERE hash=?",
+                (new_notes, now, job_hash)
+            )
+            conn.commit()
+            saved_to.append(f"Stelle {job_hash}")
+
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if not app:
+                return {"fehler": f"Bewerbung {bewerbung_id} nicht gefunden."}
+            existing = app.get("fit_analyse") or ""
+            if existing:
+                try:
+                    data = json.loads(existing)
+                except (json.JSONDecodeError, TypeError):
+                    data = {"vorherige_analyse": existing}
+            else:
+                data = {}
+            data[f"{kategorie}_{now[:10]}"] = text
+            db.save_fit_analyse(bewerbung_id, data)
+            saved_to.append(f"Bewerbung {bewerbung_id}")
+
+        return {
+            "status": "gespeichert",
+            "gespeichert_in": saved_to,
+            "kategorie": kategorie,
+            "laenge": len(text),
+            "hinweis": "Die Recherche ist jetzt dauerhaft gespeichert und bleibt über Chat-Sessions hinweg verfügbar."
+        }

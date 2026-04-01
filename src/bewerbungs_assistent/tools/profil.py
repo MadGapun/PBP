@@ -527,7 +527,9 @@ def register(mcp, db, logger):
         action: str = "",
         result: str = "",
         technologies: str = "",
-        duration: str = ""
+        duration: str = "",
+        customer_name: str = "",
+        is_confidential: bool = False
     ) -> dict:
         """Fügt ein Projekt zu einer Berufsposition hinzu (STAR-Methode).
 
@@ -542,17 +544,28 @@ def register(mcp, db, logger):
             result: STAR-R: Ergebnis / Erfolg (möglichst quantifizierbar)
             technologies: Eingesetzte Technologien
             duration: Dauer (z.B. "6 Monate", "2020-2021")
+            customer_name: Name des Kunden/Endkunden (optional)
+            is_confidential: True = Kundenname wird im CV-Export anonymisiert (#246)
         """
         pid = db.add_project(position_id, {
             "name": name, "description": description, "role": role,
             "situation": situation, "task": task, "action": action,
             "result": result, "technologies": technologies, "duration": duration,
+            "customer_name": customer_name or None,
+            "is_confidential": 1 if is_confidential else 0,
         })
-        return {
+        result_data = {
             "status": "gespeichert",
             "projekt_id": pid,
             "hinweis": "Frage den User: 'Gab es noch ein weiteres Projekt in dieser Position?'"
         }
+        if customer_name and not is_confidential:
+            result_data["rueckfrage"] = (
+                f"Der Kundenname '{customer_name}' wird im CV sichtbar sein. "
+                "Soll er als vertraulich markiert werden? "
+                "(is_confidential=true → wird im Export anonymisiert)"
+            )
+        return result_data
 
     @mcp.tool()
     def ausbildung_hinzufuegen(

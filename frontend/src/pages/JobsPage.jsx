@@ -644,6 +644,25 @@ export default function JobsPage() {
         </span>
       </div>
 
+      {/* Progress bar during job search (#210) */}
+      {searchJob.running && (
+        <div className="mb-4 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="flex items-center gap-2 font-medium text-sky-300">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-sky-500/30 border-t-sky-400" />
+              {searchJob.message || "Jobsuche läuft..."}
+            </span>
+            <span className="text-xs text-muted/50">{Math.round(searchJob.progress)}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full bg-sky-500 transition-all duration-500 ease-out"
+              style={{ width: `${Math.max(2, searchJob.progress)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Aktive Stellen" value={jobsTotal || filteredJobs.length} note={filteredJobs.length !== (jobsTotal || filteredJobs.length) ? `${filteredJobs.length} angezeigt (Filter aktiv)` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
@@ -962,7 +981,13 @@ export default function JobsPage() {
                     ) : null}
                     {/* #154: Bereits-beworben-Badge aus matched applications */}
                     {appliedJobHashes.has(job.hash) ? (
-                      <Badge tone="success">Bereits beworben</Badge>
+                      <button
+                        className="cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); window.location.hash = "bewerbungen"; }}
+                        title="Zur Bewerbung wechseln"
+                      >
+                        <Badge tone="success">Bereits beworben</Badge>
+                      </button>
                     ) : null}
                     {jobNeedsDescriptionAttention(job) ? (
                       <Badge tone="amber">Score unsicher</Badge>

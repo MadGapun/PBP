@@ -12,6 +12,17 @@ from typing import Optional
 logger = logging.getLogger("bewerbungs_assistent.export")
 
 
+def _project_display_name(proj: dict) -> str:
+    """Return project name, anonymizing customer_name if is_confidential (#246)."""
+    name = proj.get("name", "")
+    customer = proj.get("customer_name", "")
+    if customer and proj.get("is_confidential"):
+        return f"{name} (Kunde: [vertraulich])"
+    if customer:
+        return f"{name} (Kunde: {customer})"
+    return name
+
+
 def _parse_date_ym(date_str: str) -> Optional[tuple]:
     """Parse a date string to (year, month) tuple for overlap detection."""
     if not date_str:
@@ -143,7 +154,7 @@ def generate_cv_docx(profile: dict, output_path: Path) -> Path:
 
             for proj in pos.get("projects", []):
                 p = doc.add_paragraph()
-                run = p.add_run(f"Projekt: {proj.get('name', '')}")
+                run = p.add_run(f"Projekt: {_project_display_name(proj)}")
                 run.bold = True
                 if proj.get("role"):
                     p.add_run(f" ({proj['role']})")
@@ -430,7 +441,7 @@ def generate_tailored_cv_docx(
             # Projects
             for proj in pos.get("projects", []):
                 p = doc.add_paragraph(style="List Bullet")
-                run = p.add_run(f"Projekt: {proj.get('name', '')}")
+                run = p.add_run(f"Projekt: {_project_display_name(proj)}")
                 run.bold = True
                 if proj.get("role"):
                     p.add_run(f" ({proj['role']})")
@@ -1151,7 +1162,7 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
             for proj in pos.get("projects", []):
                 pdf.set_font(font_name, "B", 10)
                 role = f" ({proj['role']})" if proj.get("role") else ""
-                pdf.cell(epw, 5, safe(f"  Projekt: {proj.get('name', '')}{role}"),
+                pdf.cell(epw, 5, safe(f"  Projekt: {_project_display_name(proj)}{role}"),
                          new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 if proj.get("result"):
                     pdf.set_font(font_name, "", 9)
@@ -1347,7 +1358,7 @@ def generate_cv_markdown(profile: dict, output_path: Path) -> Path:
             if pos.get("technologies"):
                 lines.append(f"**Technologien:** {pos['technologies']}")
             for proj in pos.get("projects", []):
-                lines.append(f"- **Projekt: {proj.get('name', '')}**"
+                lines.append(f"- **Projekt: {_project_display_name(proj)}**"
                              + (f" ({proj.get('role', '')})" if proj.get("role") else ""))
                 if proj.get("result"):
                     lines.append(f"  Ergebnis: {proj['result']}")
@@ -1412,7 +1423,7 @@ def generate_cv_text(profile: dict, output_path: Path) -> Path:
             if pos.get("achievements"):
                 lines.append(f"  Erfolge: {pos['achievements']}")
             for proj in pos.get("projects", []):
-                lines.append(f"  Projekt: {proj.get('name', '')}"
+                lines.append(f"  Projekt: {_project_display_name(proj)}"
                              + (f" ({proj.get('role', '')})" if proj.get("role") else ""))
             lines.append("")
 

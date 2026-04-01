@@ -5,6 +5,7 @@
   Briefcase,
   Calendar,
   ClipboardList,
+  Download,
   HandCoins,
   Mail,
   Mic,
@@ -102,6 +103,7 @@ export default function DashboardPage() {
     emails: [],
   });
   const [emailDetail, setEmailDetail] = useState(null);
+  const [publicHints, setPublicHints] = useState([]);
 
   const loadData = useEffectEvent(async () => {
     if (!chrome.status?.has_profile) {
@@ -160,6 +162,11 @@ export default function DashboardPage() {
         if (impulseData) setImpulse(impulseData);
         setLoading(false);
       });
+
+      // #233: Hints from public GitHub source (non-blocking)
+      optionalApi("/api/public/hints")
+        .then((h) => { if (h?.hints?.length) setPublicHints(h.hints); })
+        .catch(() => {});
     } catch (error) {
       const message = `Dashboard-Daten konnten nicht geladen werden: ${error.message}`;
       const now = Date.now();
@@ -245,7 +252,8 @@ export default function DashboardPage() {
     .sort((left, right) => String(left.scheduled_date || "").localeCompare(String(right.scheduled_date || "")));
   const needsSearchTodo = !lastSearchAt || !hasSearchDays || searchDaysAgo > 0;
   const appliedCoverage = activeJobsCount > 0 ? applicationsCount / activeJobsCount : 0;
-  const needsMoreSourcesTodo = activeJobsCount >= 3 && appliedCoverage >= 0.6;
+  const activeSourceCount = Number(chrome.workspace?.sources?.active || 0);
+  const needsMoreSourcesTodo = activeJobsCount >= 3 && appliedCoverage >= 0.6 && activeSourceCount < 2;
   const todoItems = [];
 
   if (needsSearchTodo) {
@@ -404,6 +412,24 @@ export default function DashboardPage() {
         <h1 className="font-display text-xl font-semibold text-ink">Dashboard</h1>
       </div>
 
+      {publicHints.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {publicHints.map((hint) => (
+            <div
+              key={hint.id}
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                hint.type === "warning"
+                  ? "border-amber-500/20 bg-amber-500/5 text-amber-200"
+                  : "border-sky-500/20 bg-sky-500/5 text-sky-200"
+              }`}
+            >
+              {hint.title && <span className="font-medium">{hint.title} </span>}
+              {hint.text}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Bewerbungen" value={`${applicationsCount} / ${activeJobsCount}`} note={`${applicationsCount} gesamt / ${activeJobsCount} aktive Stellen`} tone="sky" />
         <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
@@ -511,8 +537,10 @@ export default function DashboardPage() {
       </Card>
 
       <div id="dashboard-content" className="grid gap-5">
-        <div className="grid gap-3 xl:grid-cols-2">
-            <Card className="col-span-full rounded-2xl">
+        {/* #258: 2-Spalten-Layout (2/3 Im Fluss + 1/3 Upload-Box) */}
+        <div className="grid gap-3 xl:grid-cols-[2fr_1fr]">
+          <div className="grid gap-3">
+            <Card className="rounded-2xl">
               <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
               {[
                 {
@@ -572,6 +600,24 @@ export default function DashboardPage() {
                 </div>
               ))}
             </Card>
+          </div>
+
+          {/* #259: Upload-Box (rechte Spalte) */}
+          <Card className="rounded-2xl xl:sticky xl:top-4 xl:self-start">
+            <h2 className="text-sm font-semibold text-ink">
+              <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
+              Schnell-Import
+            </h2>
+            <p className="mt-1 text-[11px] text-muted/50">
+              Dokumente oder E-Mails hier ablegen — PBP erkennt und verarbeitet sie automatisch.
+            </p>
+            <div className="mt-3 grid gap-2">
+              <EmailUploadButton pushToast={pushToast} />
+            </div>
+            <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
+              Dateien per Drag & Drop auf die Seite ziehen
+            </div>
+          </Card>
         </div>
 
         <div className="grid gap-3 xl:grid-cols-2">
@@ -581,7 +627,6 @@ export default function DashboardPage() {
                 <Calendar size={14} className="mr-1.5 inline-block text-teal/60" />
                 Anstehende Termine
               </h2>
-              <EmailUploadButton pushToast={pushToast} />
             </div>
             <div className="mt-3 grid gap-2">
               {(() => {
@@ -651,26 +696,36 @@ export default function DashboardPage() {
                           {countdown}
                         </p>
                       </div>
-                      {meeting._isInterview ? (
-                        <button
-                          type="button"
-                          onClick={() => copyPrompt("/interview_vorbereitung")}
-                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
-                        >
-                          <Calendar size={14} />
-                          Vorbereiten
-                        </button>
-                      ) : meeting.meeting_url ? (
-                        <a
-                          href={meeting.meeting_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
-                        >
-                          <Video size={14} />
-                          Beitreten
-                        </a>
-                      ) : null}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {/* .ics Export (#261, #263) */}
+                        {!meeting._isInterview && (
+                          <a href={`/api/meetings/${meeting.id}/ics`} download
+                            className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-muted/50 transition hover:bg-white/10 hover:text-ink"
+                            title="Als .ics exportieren">
+                            <Download size={12} /> .ics
+                          </a>
+                        )}
+                        {meeting._isInterview ? (
+                          <button
+                            type="button"
+                            onClick={() => copyPrompt("/interview_vorbereitung")}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
+                          >
+                            <Calendar size={14} />
+                            Vorbereiten
+                          </button>
+                        ) : meeting.meeting_url ? (
+                          <a
+                            href={meeting.meeting_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
+                          >
+                            <Video size={14} />
+                            Beitreten
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 }) : (
@@ -681,6 +736,37 @@ export default function DashboardPage() {
               })()}
             </div>
           </Card>
+
+          {/* Kollisionserkennung (#267) */}
+          {(() => {
+            const sorted = [...data.meetings].sort((a, b) =>
+              String(a.meeting_date || "").localeCompare(String(b.meeting_date || ""))
+            );
+            const collisions = [];
+            for (let i = 0; i < sorted.length; i++) {
+              for (let j = i + 1; j < sorted.length; j++) {
+                const s1 = new Date(sorted[i].meeting_date);
+                const e1 = sorted[i].meeting_end ? new Date(sorted[i].meeting_end) : new Date(s1.getTime() + 3600000);
+                const s2 = new Date(sorted[j].meeting_date);
+                if (s2 < e1) collisions.push([sorted[i], sorted[j]]);
+              }
+            }
+            return collisions.length > 0 ? (
+              <Card className="rounded-2xl border-danger/20 bg-danger/5">
+                <p className="text-[12px] font-semibold text-danger">
+                  Terminkonflikt erkannt ({collisions.length})
+                </p>
+                {collisions.map(([m1, m2], idx) => (
+                  <p key={idx} className="mt-1 text-[11px] text-muted/60">
+                    <span className="font-medium text-ink">{m1.title || "Termin"}</span>
+                    {m1.app_company && ` (${m1.app_company})`} kollidiert mit{" "}
+                    <span className="font-medium text-ink">{m2.title || "Termin"}</span>
+                    {m2.app_company && ` (${m2.app_company})`}
+                  </p>
+                ))}
+              </Card>
+            ) : null;
+          })()}
         </div>
 
         <div className="grid gap-3 xl:grid-cols-2">

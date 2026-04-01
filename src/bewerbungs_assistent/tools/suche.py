@@ -171,7 +171,24 @@ def register(mcp, db, logger):
                                "Trotzdem hinzufügen? Rufe erneut auf wenn ja."
                 }
             db.add_to_blacklist(typ, wert.strip(), grund)
-            return {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
+            result = {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
+            # #109: Blacklist-Eintrag löscht sofort alle Stellen des Unternehmens
+            if typ == "firma":
+                conn = db.connect()
+                firma_lower = wert.strip().lower()
+                dismissed = conn.execute(
+                    "UPDATE jobs SET is_active=0, dismiss_reason='firma_blacklisted' "
+                    "WHERE is_active=1 AND LOWER(company) LIKE ?",
+                    (f"%{firma_lower}%",)
+                ).rowcount
+                conn.commit()
+                if dismissed:
+                    result["stellen_deaktiviert"] = dismissed
+                    result["hinweis"] = (
+                        f"{dismissed} aktive Stelle(n) von '{wert.strip()}' "
+                        "wurden automatisch deaktiviert."
+                    )
+            return result
         elif aktion == "entfernen":
             if entry_id:
                 ok = db.remove_blacklist_entry(entry_id)

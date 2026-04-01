@@ -243,8 +243,9 @@ export default function ApplicationsPage() {
   // #245: Sortierung
   const STATUS_PRIORITY = {
     angebot: 0, interview_abgeschlossen: 1, zweitgespraech: 2, interview: 3,
-    eingangsbestaetigung: 4, beworben: 5, in_vorbereitung: 6, entwurf: 7,
-    angenommen: 8, abgelehnt: 9, zurueckgezogen: 10, abgelaufen: 11,
+    warte_auf_rueckmeldung: 4, eingangsbestaetigung: 5, beworben: 6,
+    in_vorbereitung: 7, entwurf: 8,
+    angenommen: 9, abgelehnt: 10, zurueckgezogen: 11, abgelaufen: 12,
   };
   const sortedApplications = [...filteredApplications].sort((a, b) => {
     if (sortMode === "firma") return (a.company || "").localeCompare(b.company || "", "de");
@@ -615,9 +616,9 @@ export default function ApplicationsPage() {
                     {app.job_hash && (
                       <button
                         className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
-                        title={`Stellen-ID: ${app.job_hash}`}
-                        onClick={() => { navigator.clipboard.writeText(app.job_hash); pushToast(`Stellen-ID ${app.job_hash?.slice(0,8)} kopiert`, "success"); }}
-                      >Job: {app.job_hash?.slice(0, 8)}</button>
+                        title="Zur Stelle wechseln"
+                        onClick={() => { window.location.hash = "stellen"; }}
+                      ><ExternalLink size={8} className="mr-0.5 inline" />Stelle: {app.job_hash?.slice(0, 8)}</button>
                     )}
                   </div>
                   <h3 className="mt-1 text-base font-semibold text-ink">{app.title}</h3>
@@ -1011,12 +1012,32 @@ export default function ApplicationsPage() {
                           {m.location && <span className="ml-1">— {m.location}</span>}
                         </p>
                       </div>
-                      {m.meeting_url && !isPast && (
-                        <a href={m.meeting_url} target="_blank" rel="noopener noreferrer"
-                          className="shrink-0 inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
-                          <Video size={12} /> Beitreten
+                      <div className="flex shrink-0 items-center gap-1">
+                        {/* .ics Export (#261, #263) */}
+                        <a href={`/api/meetings/${m.id}/ics`} download
+                          className="inline-flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] font-semibold text-muted/60 hover:bg-white/10 hover:text-ink"
+                          title="Als .ics exportieren">
+                          <Download size={10} /> .ics
                         </a>
-                      )}
+                        {/* Delete meeting (#266) */}
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Termin wirklich löschen?")) return;
+                            await deleteRequest(`/api/meetings/${m.id}`);
+                            pushToast("Termin gelöscht.", "success");
+                            loadTimeline();
+                          }}
+                          className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-[10px] text-muted/40 hover:bg-danger/15 hover:text-danger"
+                          title="Termin löschen">
+                          <Trash2 size={10} />
+                        </button>
+                        {m.meeting_url && !isPast && (
+                          <a href={m.meeting_url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
+                            <Video size={12} /> Beitreten
+                          </a>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

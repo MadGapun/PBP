@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 
 def _gen_id() -> str:
@@ -714,6 +714,22 @@ class Database:
                 logger.warning("Migration v18->v19 documents: %s", e)
             logger.info("Migration v18->v19: documents.linked_application_id TEXT (#242)")
 
+        if from_ver < 20:
+            # v20: projects.customer_name + is_confidential (#246)
+            try:
+                conn.execute("ALTER TABLE projects ADD COLUMN customer_name TEXT")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE projects ADD COLUMN is_confidential INTEGER DEFAULT 0")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN research_notes TEXT")
+            except Exception:
+                pass
+            logger.info("Migration v19->v20: projects.customer_name, is_confidential (#246); jobs.research_notes (#240)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -1103,13 +1119,15 @@ class Database:
         conn.execute("""
             INSERT INTO projects (id, position_id, name, description,
                 role, situation, task, action, result,
-                technologies, duration, sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                technologies, duration, customer_name, is_confidential,
+                sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             pid, position_id, data.get("name"), data.get("description"),
             data.get("role"), data.get("situation"), data.get("task"),
             data.get("action"), data.get("result"),
             data.get("technologies"), data.get("duration"),
+            data.get("customer_name"), data.get("is_confidential", 0),
             data.get("sort_order", 0)
         ))
         conn.commit()
@@ -1118,7 +1136,8 @@ class Database:
     def update_project(self, project_id: str, data: dict):
         conn = self.connect()
         fields = ["name", "description", "role", "situation", "task",
-                  "action", "result", "technologies", "duration"]
+                  "action", "result", "technologies", "duration",
+                  "customer_name", "is_confidential"]
         sets, vals = [], []
         for f in fields:
             if f in data:
@@ -3595,6 +3614,8 @@ CREATE TABLE IF NOT EXISTS projects (
     result TEXT,
     technologies TEXT,
     duration TEXT,
+    customer_name TEXT,
+    is_confidential INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 0
 );
 
@@ -3667,6 +3688,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     is_pinned INTEGER DEFAULT 0,
     lat REAL,
     lon REAL,
+    research_notes TEXT,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT

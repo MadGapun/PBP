@@ -2,6 +2,8 @@
 
 Gute Abdeckung für Senior-Positionen und Fachkräfte.
 Kein Login erforderlich. HTML-Scraping mit JSON-LD Fallback.
+
+Fix #235: Mehrere URL-Varianten, erweiterte Selektoren, SPA-Erkennung.
 """
 
 import logging
@@ -27,6 +29,13 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
+# URL-Varianten: Jobware hat URLs in der Vergangenheit geaendert (#235)
+_SEARCH_URLS = [
+    "https://www.jobware.de/suche/",
+    "https://www.jobware.de/stellenangebote/",
+    "https://www.jobware.de/jobs/",
+]
+
 
 def search_jobware(params: dict) -> list:
     """Search Jobware via HTML scraping."""
@@ -35,17 +44,41 @@ def search_jobware(params: dict) -> list:
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
+        # Find working URL on first query
+        working_url = None
         for query in queries:
             try:
-                resp = client.get(
-                    "https://www.jobware.de/suche/",
-                    params={"q": query, "l": "Deutschland"},
-                )
-                if resp.status_code != 200:
-                    logger.debug("Jobware HTTP %d for '%s'", resp.status_code, query)
-                    continue
+                if not working_url:
+                    for url_candidate in _SEARCH_URLS:
+                        try:
+                            resp = client.get(
+                                url_candidate,
+                                params={"q": query, "l": "Deutschland"},
+                            )
+                            if resp.status_code == 200 and len(resp.text) > 5000:
+                                working_url = url_candidate
+                                break
+                        except Exception:
+                            continue
+                    if not working_url:
+                        logger.warning("Jobware: Keine funktionierende URL gefunden (#235)")
+                        return jobs
+                else:
+                    resp = client.get(
+                        working_url,
+                        params={"q": query, "l": "Deutschland"},
+                    )
+                    if resp.status_code != 200:
+                        logger.debug("Jobware HTTP %d for '%s'", resp.status_code, query)
+                        continue
 
                 soup = BeautifulSoup(resp.text, "html.parser")
+
+                # SPA-Erkennung: Wenn Seite < 10KB und kein Job-Content, ist Scraping sinnlos (#235)
+                if len(resp.text) < 10000 and not soup.find("script", type="application/ld+json"):
+                    logger.warning("Jobware: Seite hat nur %d Bytes — moeglicherweise SPA (#235)",
+                                   len(resp.text))
+                    continue
 
                 # JSON-LD (preferred)
                 for script in soup.find_all("script", type="application/ld+json"):
@@ -85,11 +118,13 @@ def search_jobware(params: dict) -> list:
                     except Exception:
                         continue
 
-                # Fallback: HTML card extraction
+                # Fallback: HTML card extraction with extended selectors (#235)
                 if not any(j["source"] == "jobware" for j in jobs):
                     cards = soup.select(
-                        "article, .job-item, [class*='job'], "
-                        ".search-result, a[href*='/stellenangebot/']"
+                        "article, .job-item, [class*='job-card'], [class*='job-list'], "
+                        "[class*='search-result'], [class*='result-item'], "
+                        "a[href*='/stellenangebot/'], a[href*='/job/'], "
+                        "[data-job], [data-jobid]"
                     )
                     seen = set()
                     for card in cards[:25]:
@@ -104,8 +139,8 @@ def search_jobware(params: dict) -> list:
                         href = link_el.get("href", "")
                         url = href if href.startswith("http") else f"https://www.jobware.de{href}"
 
-                        comp_el = card.find(class_=re.compile(r"company|firma", re.I)) if card.name != "a" else None
-                        loc_el = card.find(class_=re.compile(r"location|ort", re.I)) if card.name != "a" else None
+                        comp_el = card.find(class_=re.compile(r"company|firma|employer|arbeitgeber", re.I)) if card.name != "a" else None
+                        loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I)) if card.name != "a" else None
 
                         jobs.append({
                             "hash": stelle_hash("jobware.de", title),

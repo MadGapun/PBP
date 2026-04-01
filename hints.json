@@ -1,0 +1,11 @@
+{
+  "hints": [
+    {
+      "id": "welcome",
+      "type": "info",
+      "title": "Willkommen beim PBP!",
+      "text": "Dein persoenlicher Bewerbungs-Assistent ist einsatzbereit. Starte mit der Profil-Ersterfassung, um das volle Potenzial zu nutzen.",
+      "min_version": "1.0.0"
+    }
+  ]
+}

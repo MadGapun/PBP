@@ -2,6 +2,49 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.2.0] - 2026-04-01
+
+### Bug Fixes
+- **#268**: Snapshot-Beschreibungen verwenden jetzt 3-Stufen-Extraktion (JSON-LD → CSS → Regex) statt naivem Regex-HTML-Stripping
+- **#265**: Stale-Job-Timeout von 30 auf 15 Minuten reduziert, doppelte gleichzeitige Suchen werden verhindert
+- **#238**: Playwright-asyncio-Konflikte geloest — jeder Worker-Thread bekommt eigenen Event-Loop
+- **#235/#236/#237**: Jobware, Kimeta und Gulp Scraper komplett neugeschrieben fuer aktuelle Website-Strukturen
+- **#234**: Httpx-Scraper laufen jetzt parallel (ThreadPoolExecutor max 4), Playwright sequentiell
+
+### UX-Verbesserungen
+- **#258**: Dashboard-Layout auf xl:grid-cols-[2fr_1fr] (2/3 + 1/3) umgestellt
+- **#259**: Upload-Box als eigene Card in der rechten Sidebar
+- **#264**: "Mehr Quellen aktivieren" Hinweis nur bei <2 aktiven Quellen
+- **#241**: Stellenhash und "Bereits beworben" Badge als klickbare Links
+- **#262**: Neuer Status "Warte auf Rueckmeldung" mit Amber-Farbton
+- **#232**: "Auto-Bewerbung" umbenannt in "Gefuehrte Bewerbung"
+- **#210**: Fortschrittsbalken waehrend Jobsuche mit Quellen-Anzeige
+- **#215**: Geocoding-Fortschritt bei grossen Batches (>50 Standorte)
+
+### Termin-Management
+- **#260/#266**: Termine loeschen mit Delete-Button in Timeline und Dashboard
+- **#261/#263**: .ics-Export fuer Termine (RFC-5545 mit PBP-Link)
+- **#267**: Kollisionserkennung fuer ueberlappende Termine
+
+### Neue Features
+- **#246/#247**: Projekt-Kundennamen als vertraulich markieren — automatische Anonymisierung im CV-Export, Rueckfrage bei Eingabe
+- **#240**: recherche_speichern() Tool — Analyse-Ergebnisse dauerhaft an Stellen/Bewerbungen speichern
+- **#233**: Dashboard-Hinweise aus oeffentlicher GitHub-Quelle (hints.json) — dezentes Update-System ohne Registrierung
+- **#192**: OCR-Fallback fuer gescannte PDFs (pytesseract) und .doc-Support (antiword)
+- **#222**: Cross-Source Duplikat-Erkennung beim manuellen Anlegen von Stellen
+- **#225**: Kontaktdaten aus eingehenden E-Mails automatisch in Bewerbung uebernehmen
+- **#109**: Blacklist-Eintrag deaktiviert sofort alle aktiven Stellen des Unternehmens
+- **#110**: Lernender Score — ab 5+ gleichen Ablehnungen werden Scoring-Regler automatisch angepasst
+- **#117**: Neuer Prompt "profil_sync" — Leitfaden fuer Profil-Abgleich mit LinkedIn/XING/Freelance.de
+- **#195**: Neuer Prompt "tipps_und_tricks" — kategorisierte Tipps fuer AI-gestuetzte Jobsuche
+
+### Technisch
+- Schema-Version: 19 → 20 (projects.customer_name, projects.is_confidential, jobs.research_notes)
+- 73 Tools (+1), 18 Prompts (+2), 6 Resources
+- 362 Tests bestanden
+
+---
+
 ## [1.1.0] - 2026-04-01
 
 ### Bug Fixes

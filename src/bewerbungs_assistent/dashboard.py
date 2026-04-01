@@ -255,6 +255,41 @@ async def api_status():
 
 
 
+@app.get("/api/public/hints")
+async def api_public_hints():
+    """Holt dezente Hinweise/Updates aus einer öffentlichen GitHub-Quelle (#233).
+
+    Kein Login nötig. Ergebnis wird 1h gecacht.
+    """
+    import time
+    cache = getattr(api_public_hints, "_cache", None)
+    now = time.time()
+    if cache and now - cache["ts"] < 3600:
+        return cache["data"]
+
+    from . import __version__
+    hints_url = (
+        "https://raw.githubusercontent.com/MadGapun/PBP/main/hints.json"
+    )
+    result = {"hints": [], "version": __version__}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(hints_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                hints = data if isinstance(data, list) else data.get("hints", [])
+                result["hints"] = [
+                    h for h in hints
+                    if not h.get("min_version") or h["min_version"] <= __version__
+                ]
+    except Exception as exc:
+        logger.debug("hints fetch failed: %s", exc)
+
+    api_public_hints._cache = {"ts": now, "data": result}
+    return result
+
+
 @app.get("/api/workspace-summary")
 async def api_workspace_summary():
     """Aggregated workspace state for dashboard guidance and navigation."""
@@ -666,6 +701,39 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
 
         reader = PdfReader(str(filepath))
         extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
+        # #192: OCR-Fallback for scanned PDFs
+        if len(extracted.strip()) < 50 and reader.pages:
+            try:
+                from pdf2image import convert_from_path
+                import pytesseract
+                images = convert_from_path(str(filepath), dpi=200)
+                ocr_parts = []
+                for img in images:
+                    ocr_parts.append(pytesseract.image_to_string(img, lang="deu+eng"))
+                ocr_text = "\n".join(ocr_parts).strip()
+                if ocr_text:
+                    extracted = ocr_text
+                    logger.info("OCR-Fallback erfolgreich für %s (%d Zeichen)", filepath.name, len(ocr_text))
+            except ImportError:
+                logger.debug("OCR nicht verfügbar (pip install pytesseract pdf2image)")
+            except Exception as e:
+                logger.warning("OCR-Fallback fehlgeschlagen für %s: %s", filepath.name, e)
+    elif fname.endswith(".doc") and not fname.endswith(".docx"):
+        # #192: .doc (legacy Word) support via antiword or textract
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["antiword", str(filepath)],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                extracted = result.stdout
+            else:
+                logger.warning(".doc extraction via antiword failed: %s", result.stderr[:200])
+        except FileNotFoundError:
+            logger.debug(".doc support not available (apt install antiword)")
+        except Exception as e:
+            logger.warning(".doc extraction failed: %s", e)
     elif fname.endswith(".docx"):
         from docx import Document
 
@@ -1434,15 +1502,57 @@ async def api_snapshot_description(app_id: str, request: Request):
             status_code=502
         )
 
-    # Extract text from HTML (strip tags, decode entities)
-    text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', '\n', text)
-    text = re.sub(r'&nbsp;', ' ', text)
-    text = re.sub(r'&amp;', '&', text)
-    text = re.sub(r'&lt;', '<', text)
-    text = re.sub(r'&gt;', '>', text)
-    text = re.sub(r'&#\d+;', '', text)
+    # Smart extraction: JSON-LD → CSS selectors → fallback regex (#268)
+    text = ""
+    try:
+        from bs4 import BeautifulSoup
+        import json as _json
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Strategy 1: JSON-LD structured data (best quality)
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = _json.loads(script.string or "")
+                items = data if isinstance(data, list) else data.get("@graph", [data])
+                for item in items:
+                    if item.get("@type") == "JobPosting":
+                        desc = item.get("description", "")
+                        if desc:
+                            text = BeautifulSoup(desc, "html.parser").get_text(separator=" ", strip=True)
+                            break
+            except Exception:
+                continue
+            if text:
+                break
+
+        # Strategy 2: Common CSS selectors for job descriptions
+        if not text:
+            for selector in [
+                "[class*='job-description']", "[class*='jobDescription']",
+                "[class*='stellenbeschreibung']", "[class*='description']",
+                "[class*='detail-content']", "[class*='job-detail']",
+                "article .content", "article", ".content-area",
+                "[itemprop='description']", "main",
+            ]:
+                el = soup.select_one(selector)
+                if el:
+                    candidate = el.get_text(separator="\n", strip=True)
+                    if len(candidate) > 100:
+                        text = candidate
+                        break
+    except ImportError:
+        pass  # bs4 not available, fall through to regex fallback
+
+    # Strategy 3: Regex fallback (only if smart extraction found nothing)
+    if not text:
+        text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<[^>]+>', '\n', text)
+        text = re.sub(r'&nbsp;', ' ', text)
+        text = re.sub(r'&amp;', '&', text)
+        text = re.sub(r'&lt;', '<', text)
+        text = re.sub(r'&gt;', '>', text)
+        text = re.sub(r'&#\d+;', '', text)
     text = re.sub(r'\n\s*\n', '\n\n', text).strip()
 
     # Limit to reasonable size
@@ -1678,6 +1788,38 @@ async def api_upload_email(file: UploadFile = File(...)):
             event_note = f"Ausgehende Mail: {parsed.get('subject', '')}"
         _db.add_application_event(match_app_id, "email_" + direction, event_note)
 
+    # #225: Kontaktdaten aus E-Mail automatisch in Bewerbung übernehmen
+    contact_updated = False
+    if match_app_id and direction == "eingang":
+        sender = parsed.get("sender", "")
+        # Extract email and name from sender (e.g. "Max Müller <max@firma.de>")
+        import re as _re_email
+        email_match = _re_email.search(r'[\w.+-]+@[\w.-]+\.\w+', sender)
+        name_match = _re_email.match(r'^([^<]+?)\s*<', sender)
+        sender_email = email_match.group(0) if email_match else ""
+        sender_name = name_match.group(1).strip().strip('"') if name_match else ""
+
+        if sender_email or sender_name:
+            conn = _db.connect()
+            app_row = conn.execute(
+                "SELECT kontakt_email, ansprechpartner FROM applications WHERE id=?",
+                (match_app_id,)
+            ).fetchone()
+            updates = {}
+            if app_row:
+                if sender_email and not app_row["kontakt_email"]:
+                    updates["kontakt_email"] = sender_email
+                if sender_name and not app_row["ansprechpartner"]:
+                    updates["ansprechpartner"] = sender_name
+            if updates:
+                set_clause = ", ".join(f"{k}=?" for k in updates)
+                conn.execute(
+                    f"UPDATE applications SET {set_clause}, updated_at=? WHERE id=?",
+                    (*updates.values(), datetime.now().isoformat(), match_app_id)
+                )
+                conn.commit()
+                contact_updated = True
+
     # Find matched application info for response
     matched_app = None
     if match_app_id:
@@ -1689,6 +1831,7 @@ async def api_upload_email(file: UploadFile = File(...)):
     return {
         "status": "ok",
         "email_id": email_id,
+        "contact_updated": contact_updated,
         "parsed": {
             "subject": parsed.get("subject", ""),
             "sender": parsed.get("sender", ""),
@@ -1907,6 +2050,145 @@ async def api_get_application_meetings(app_id: str):
     """List all meetings for a specific application."""
     meetings = _db.get_meetings_for_application(app_id)
     return {"meetings": meetings, "count": len(meetings)}
+
+
+@app.get("/api/meetings/{meeting_id}/ics")
+async def api_meeting_ics(meeting_id: str):
+    """Export a single meeting as .ics file (#261, #263)."""
+    conn = _db.connect()
+    row = conn.execute(
+        """SELECT m.*, a.title as app_title, a.company as app_company, a.id as app_id
+           FROM application_meetings m
+           LEFT JOIN applications a ON m.application_id = a.id
+           WHERE m.id=?""",
+        (meeting_id,),
+    ).fetchone()
+    if not row:
+        return JSONResponse({"error": "Meeting nicht gefunden"}, status_code=404)
+
+    m = dict(row)
+    from datetime import datetime as _dt
+    import uuid as _uuid
+
+    # Build .ics content
+    start = m.get("meeting_date", "")
+    end = m.get("meeting_end") or ""
+    title = m.get("title", "Termin")
+    company = m.get("app_company", "")
+    app_title = m.get("app_title", "")
+    location = m.get("location", "")
+    meeting_url = m.get("meeting_url", "")
+    notes = m.get("notes", "") or ""
+    app_id = m.get("app_id", "")
+
+    # PBP-Link zur Bewerbung einbetten (#263)
+    pbp_link = f"http://localhost:8200/bewerbungen?id={app_id}" if app_id else ""
+    description_parts = []
+    if company and app_title:
+        description_parts.append(f"Bewerbung: {app_title} bei {company}")
+    if pbp_link:
+        description_parts.append(f"PBP-Link: {pbp_link}")
+    if meeting_url:
+        description_parts.append(f"Meeting-Link: {meeting_url}")
+    if notes:
+        description_parts.append(f"Notizen: {notes}")
+    description = "\\n".join(description_parts)
+
+    def _fmt_dt(iso_str):
+        """Format ISO datetime to iCal DTSTART format."""
+        if not iso_str:
+            return None
+        try:
+            dt = _dt.fromisoformat(iso_str)
+            return dt.strftime("%Y%m%dT%H%M%S")
+        except (ValueError, TypeError):
+            return None
+
+    dt_start = _fmt_dt(start)
+    if not dt_start:
+        return JSONResponse({"error": "Ungültiges Meeting-Datum"}, status_code=400)
+    dt_end = _fmt_dt(end) or _fmt_dt(start)  # fallback: same as start
+
+    uid = f"{meeting_id}@pbp.local"
+    now_stamp = _dt.now().strftime("%Y%m%dT%H%M%SZ")
+
+    ics_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//PBP Bewerbungs-Assistent//DE",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{now_stamp}",
+        f"DTSTART:{dt_start}",
+        f"DTEND:{dt_end}",
+        f"SUMMARY:{title}" + (f" — {company}" if company else ""),
+        f"DESCRIPTION:{description}",
+    ]
+    if location:
+        ics_lines.append(f"LOCATION:{location}")
+    if meeting_url:
+        ics_lines.append(f"URL:{meeting_url}")
+    ics_lines.extend(["END:VEVENT", "END:VCALENDAR"])
+
+    ics_content = "\r\n".join(ics_lines)
+
+    from starlette.responses import Response
+    return Response(
+        content=ics_content,
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f'attachment; filename="termin-{meeting_id[:8]}.ics"',
+        },
+    )
+
+
+@app.get("/api/meetings/calendar")
+async def api_meetings_calendar(days: int = 90):
+    """Get all meetings for calendar view with collision detection (#267)."""
+    meetings = _db.get_upcoming_meetings(days=days)
+    # Also include past meetings (last 30 days) for context
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    past_cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+    now = datetime.now().isoformat()
+    past_rows = conn.execute(
+        """SELECT m.*, a.title as app_title, a.company as app_company
+           FROM application_meetings m
+           LEFT JOIN applications a ON m.application_id = a.id
+           WHERE m.meeting_date >= ? AND m.meeting_date < ?
+             AND (m.profile_id=? OR m.profile_id IS NULL)
+           ORDER BY m.meeting_date ASC""",
+        (past_cutoff, now, pid),
+    ).fetchall()
+    all_meetings = [dict(r) for r in past_rows] + meetings
+
+    # Collision detection (#267): find overlapping meetings
+    collisions = []
+    sorted_m = sorted(all_meetings, key=lambda x: x.get("meeting_date", ""))
+    for i, m1 in enumerate(sorted_m):
+        for m2 in sorted_m[i + 1:]:
+            try:
+                start1 = datetime.fromisoformat(m1["meeting_date"])
+                end1 = datetime.fromisoformat(m1.get("meeting_end") or m1["meeting_date"])
+                if end1 == start1:
+                    end1 = start1 + timedelta(hours=1)
+                start2 = datetime.fromisoformat(m2["meeting_date"])
+                if start2 < end1:
+                    collisions.append({
+                        "meeting_1": m1["id"],
+                        "meeting_2": m2["id"],
+                        "overlap_start": max(start1, start2).isoformat(),
+                    })
+            except (ValueError, TypeError):
+                continue
+
+    return {
+        "meetings": all_meetings,
+        "collisions": collisions,
+        "count": len(all_meetings),
+    }
 
 
 @app.put("/api/jobs/{job_hash}/score")
@@ -2505,6 +2787,19 @@ async def api_background_job(job_id: str):
     job = _db.get_background_job(job_id)
     if job is None:
         return JSONResponse({"error": "Not found"}, status_code=404)
+    # Stale-Detection: stuck jobs > 15 min → mark as error (#265)
+    if job.get("status") in ("running", "pending"):
+        updated = job.get("updated_at") or job.get("created_at")
+        if updated:
+            from datetime import datetime, timedelta
+            try:
+                if datetime.now() - datetime.fromisoformat(updated) > timedelta(minutes=15):
+                    _db.update_background_job(
+                        job_id, "fehler",
+                        message="Timeout: Job lief länger als 15 Minuten ohne Update (#265)")
+                    job["status"] = "fehler"
+            except (ValueError, TypeError):
+                pass
     return job
 
 
@@ -2521,9 +2816,9 @@ async def api_jobsuche_running():
         try:
             last_update = datetime.fromisoformat(updated)
             now = datetime.now()
-            if now - last_update > timedelta(minutes=30):
+            if now - last_update > timedelta(minutes=15):
                 _db.update_background_job(
-                    job["id"], "fehler", message="Timeout: Job lief lÃ¤nger als 30 Minuten ohne Update")
+                    job["id"], "fehler", message="Timeout: Job lief länger als 15 Minuten ohne Update (#265)")
                 logger.warning("Stale background job %s bereinigt (letztes Update: %s)", job["id"], updated)
                 return {"running": False}
         except (ValueError, TypeError):

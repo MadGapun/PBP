@@ -86,7 +86,7 @@ Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht
 
 **🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache. Wie ein echtes Coaching-Gespräch am Küchentisch. Besonders beim Interview-Training macht das einen riesigen Unterschied: Du übst, frei zu antworten — nicht Texte zu tippen.
 
-> 💡 **Für Power-User:** Es gibt 16 vorgefertigte Workflows (z.B. `interview_simulation`, `auto_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
+> 💡 **Für Power-User:** Es gibt 16 vorgefertigte Workflows (z.B. `interview_simulation`, `gefuehrte_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
 
 ### Voraussetzungen
 
@@ -256,7 +256,7 @@ Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
 - **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
 - **Gehaltsverhandlung** — Markdaten, Strategie, Argumente
 - **Ablehnungs-Coaching** — Empathische Analyse nach Absage mit konkreten Verbesserungsvorschlägen
-- **Auto-Bewerbung** — Erstellt aus einer URL oder Stellenbeschreibung alle Unterlagen (Fit-Analyse → CV → Anschreiben → Tracking). Du prüfst und verschickst selbst — PBP bewirbt sich nie automatisch für dich.
+- **Geführte Bewerbung** — Erstellt aus einer URL oder Stellenbeschreibung alle Unterlagen (Fit-Analyse → CV → Anschreiben → Tracking). Du prüfst und verschickst selbst — PBP bewirbt sich nie automatisch für dich.
 - **Antwort-Formulierung** — Kontext für Recruiter-Antworten basierend auf Bewerbungshistorie
 - **Skill-Gap-Analyse** — Was dir für die Wunschstelle fehlt
 - **Profil-Analyse** — Stärken, Potenziale, Marktposition
@@ -380,7 +380,7 @@ PBP bietet 16 gefuehrte Workflows. Je nach Claude-Client startest du sie entwede
 | **Jobsuche** | `/jobsuche_workflow` | Gefuehrte 5-Schritte Stellensuche |
 | **Bewerbung vorbereiten** | `/bewerbung_vorbereitung` | **NEU** — Komplette Vorbereitung von Fit-Analyse bis Anschreiben (#170) |
 | **Bewerbung schreiben** | `/bewerbung_schreiben` | CV + Anschreiben fuer eine Stelle |
-| **Auto-Bewerbung** | `/auto_bewerbung` | Komplette Bewerbung aus URL/Stellentext |
+| **Geführte Bewerbung** | `/auto_bewerbung` | Komplette Bewerbung aus URL/Stellentext — du prüfst und verschickst selbst |
 | **Bewerbungsuebersicht** | `/bewerbungs_uebersicht` | Komplettuebersicht aller Aktivitaeten |
 | **Ablehnungs-Coaching** | `/ablehnungs_coaching` | Empathische Analyse nach Absage |
 | **Interview-Vorbereitung** | `/interview_vorbereitung` | STAR-Antworten vorbereiten |

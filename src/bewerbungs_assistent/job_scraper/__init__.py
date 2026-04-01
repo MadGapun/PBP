@@ -355,40 +355,101 @@ def run_search(db, job_id: str, params: dict):
     _STEPSTONE_TIMEOUT = 180
     skipped_sources = []
 
+    # #234: Playwright-basierte Scraper sequentiell, httpx-basierte parallel
+    _PLAYWRIGHT_SOURCES = {"stepstone", "indeed", "monster", "freelancermap"}
+
     # #252: Stepstone immer als letztes Portal starten
     if "stepstone" in quellen:
         quellen = [q for q in quellen if q != "stepstone"] + ["stepstone"]
 
-    for i, quelle in enumerate(quellen):
+    def _run_with_loop(fn, p):
+        """Run scraper in thread with fresh asyncio event loop (#238)."""
+        import asyncio
+        import sys
+        try:
+            if sys.platform == "win32":
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+            asyncio.set_event_loop(asyncio.new_event_loop())
+        except Exception:
+            pass
+        return fn(p)
+
+    def _load_scraper(quelle):
+        """Load scraper function by source name."""
+        module_name, func_name = _SCRAPER_MAP[quelle]
+        import importlib
+        mod = importlib.import_module(f".{module_name}", package=__package__)
+        return getattr(mod, func_name)
+
+    # #234: Separate httpx (parallel) and playwright (sequential) sources
+    httpx_quellen = []
+    sequential_quellen = []
+    for quelle in quellen:
+        if quelle in _deprecated_sources:
+            logger.warning(
+                "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
+            skipped_sources.append(quelle)
+        elif quelle not in _SCRAPER_MAP:
+            logger.warning("Unbekannte Quelle: %s", quelle)
+            skipped_sources.append(quelle)
+        elif quelle in _PLAYWRIGHT_SOURCES:
+            sequential_quellen.append(quelle)
+        else:
+            httpx_quellen.append(quelle)
+
+    completed = 0
+
+    # Phase 1: Run httpx-based scrapers in parallel (#234)
+    if httpx_quellen:
+        db.update_background_job(
+            job_id, "running", progress=0,
+            message=f"Durchsuche {len(httpx_quellen)} Quellen parallel..."
+        )
+        parallel_executor = ThreadPoolExecutor(max_workers=min(4, len(httpx_quellen)))
+        futures = {}
+        for quelle in httpx_quellen:
+            try:
+                search_func = _load_scraper(quelle)
+                timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+                futures[parallel_executor.submit(_run_with_loop, search_func, params)] = (quelle, timeout)
+            except ImportError as e:
+                logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
+                skipped_sources.append(quelle)
+
+        for future in futures:
+            quelle, timeout = futures[future]
+            try:
+                jobs = future.result(timeout=timeout)
+                all_jobs.extend(jobs)
+                logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
+            except FuturesTimeoutError:
+                logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
+                skipped_sources.append(quelle)
+            except Exception as e:
+                logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
+                skipped_sources.append(quelle)
+            completed += 1
+            db.update_background_job(
+                job_id, "running",
+                progress=int((completed / total) * 100),
+                message=f"Fertig: {quelle} ({completed}/{total})"
+            )
+        parallel_executor.shutdown(wait=False)
+
+    # Phase 2: Run playwright-based scrapers sequentially (#234)
+    for quelle in sequential_quellen:
+        completed += 1
         db.update_background_job(
             job_id, "running",
-            progress=int((i / total) * 100),
-            message=f"Durchsuche {quelle}... ({i+1}/{total})"
+            progress=int((completed / total) * 100),
+            message=f"Durchsuche {quelle}... ({completed}/{total})"
         )
         try:
-            # Skip deprecated Playwright-based sources (#159)
-            if quelle in _deprecated_sources:
-                logger.warning(
-                    "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
-                skipped_sources.append(quelle)
-                continue
-
-            if quelle not in _SCRAPER_MAP:
-                logger.warning("Unbekannte Quelle: %s", quelle)
-                skipped_sources.append(quelle)
-                continue
-
-            module_name, func_name = _SCRAPER_MAP[quelle]
-            import importlib
-            mod = importlib.import_module(f".{module_name}", package=__package__)
-            search_func = getattr(mod, func_name)
-
-            # Run with per-source timeout (#200, #248)
-            # shutdown(wait=False) damit ein haengender Worker nicht die
-            # gesamte Pipeline blockiert — der Daemon-Thread stirbt spaeter.
+            search_func = _load_scraper(quelle)
             timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+
             executor = ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(search_func, params)
+            future = executor.submit(_run_with_loop, search_func, params)
             try:
                 jobs = future.result(timeout=timeout)
             except FuturesTimeoutError:
@@ -496,13 +557,31 @@ def run_search(db, job_id: str, params: dict):
         user_coords = get_user_coordinates(db)
         if user_coords:
             geocoded_count = 0
-            for job in unique:
+            needs_geocoding = [j for j in unique if j.get("location") and not j.get("distance_km")]
+            total_geocode = len(needs_geocoding)
+            if total_geocode > 50:
+                # #215: Warnung bei vielen Geocoding-Requests
+                est_seconds = total_geocode * 1  # 1 req/sec
+                db.update_background_job(
+                    job_id, "running",
+                    progress=int(90),
+                    message=f"Geocoding: {total_geocode} Standorte berechnen (~{est_seconds // 60} Min)..."
+                )
+                logger.info("Geocoding: %d Standorte zu berechnen (~%d Sek bei 1 Req/Sek) (#215)",
+                            total_geocode, est_seconds)
+            for i, job in enumerate(needs_geocoding):
                 loc = job.get("location", "")
-                if loc and not job.get("distance_km"):
-                    dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
-                    if dist is not None:
-                        job["distance_km"] = dist
-                        geocoded_count += 1
+                dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
+                if dist is not None:
+                    job["distance_km"] = dist
+                    geocoded_count += 1
+                # Update progress periodically during geocoding (#215)
+                if total_geocode > 20 and i > 0 and i % 20 == 0:
+                    db.update_background_job(
+                        job_id, "running",
+                        progress=int(90 + (i / total_geocode) * 9),
+                        message=f"Geocoding: {i}/{total_geocode} Standorte..."
+                    )
             if geocoded_count:
                 logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
     except Exception as e:

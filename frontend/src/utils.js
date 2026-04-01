@@ -15,6 +15,7 @@ export const STATUS_OPTIONS = [
   { value: "interview", label: "Interview" },
   { value: "zweitgespraech", label: "Zweitgespräch" },
   { value: "interview_abgeschlossen", label: "Interview abgeschlossen" },
+  { value: "warte_auf_rueckmeldung", label: "Warte auf Rückmeldung" },
   { value: "angebot", label: "Angebot" },
   { value: "angenommen", label: "Angenommen" },
   { value: "abgelehnt", label: "Abgelehnt" },
@@ -94,6 +95,8 @@ export function statusTone(status) {
     case "interview":
     case "eingangsbestaetigung":
       return "sky";
+    case "warte_auf_rueckmeldung":
+      return "amber";
     case "abgelehnt":
     case "zurueckgezogen":
       return "danger";

@@ -90,6 +90,7 @@ EXPECTED_TOOL_NAMES = {
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
     "pbp_diagnose",
+    "recherche_speichern",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -109,6 +110,8 @@ EXPECTED_PROMPT_NAMES = {
     "auto_bewerbung",
     "faq",
     "bewerbung_vorbereitung",
+    "profil_sync",
+    "tipps_und_tricks",
 }
 
 EXPECTED_RESOURCE_NAMES = {
@@ -181,8 +184,8 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 72
-        assert len(prompts) == 16
+        assert len(tools) == 73
+        assert len(prompts) == 18
         assert len(resources) == 6
     finally:
         db.close()
