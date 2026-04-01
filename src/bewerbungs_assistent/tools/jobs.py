@@ -188,7 +188,11 @@ def register(mcp, db, logger):
         return reason
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
-        """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern."""
+        """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern.
+
+        Bug #269: Seed-Daten haben profile_id='', daher muss mit
+        (profile_id=? OR profile_id='') gesucht werden.
+        """
         LEARN_MAP = {
             "zu_weit_entfernt": ("entfernung_fest", "50km", -2),
             "zeitarbeit": ("stellentyp", "zeitarbeit", None),  # None = ignore
@@ -199,10 +203,13 @@ def register(mcp, db, logger):
             return None
         dim, sub, adjustment = LEARN_MAP[reason]
         conn = db_ref.connect()
+        pid = db_ref.get_active_profile_id() or ""
+        # #269: Seed-Daten haben profile_id='' — beides prüfen
         existing = conn.execute(
-            "SELECT value, ignore_flag FROM scoring_config "
-            "WHERE profile_id=? AND dimension=? AND sub_key=?",
-            (db_ref.get_active_profile_id() or "", dim, sub)
+            "SELECT id, value, ignore_flag, profile_id FROM scoring_config "
+            "WHERE (profile_id=? OR profile_id='') AND dimension=? AND sub_key=? "
+            "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
+            (pid, dim, sub, pid)
         ).fetchone()
         if adjustment is None:
             # Set ignore flag
@@ -210,15 +217,14 @@ def register(mcp, db, logger):
                 return None  # already ignored
             if existing:
                 conn.execute(
-                    "UPDATE scoring_config SET ignore_flag=1 "
-                    "WHERE profile_id=? AND dimension=? AND sub_key=?",
-                    (db_ref.get_active_profile_id() or "", dim, sub)
+                    "UPDATE scoring_config SET ignore_flag=1 WHERE id=?",
+                    (existing["id"],)
                 )
             else:
                 conn.execute(
                     "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
                     "VALUES (?, ?, ?, 0, 1, ?)",
-                    (db_ref.get_active_profile_id() or "", dim, sub, __import__("datetime").datetime.now().isoformat())
+                    (pid, dim, sub, __import__("datetime").datetime.now().isoformat())
                 )
             conn.commit()
             return f"'{reason}' → {dim}/{sub} auf IGNORIEREN gesetzt"
@@ -230,15 +236,14 @@ def register(mcp, db, logger):
                 if existing["value"] <= new_val:
                     return None  # already penalized enough
                 conn.execute(
-                    "UPDATE scoring_config SET value=? "
-                    "WHERE profile_id=? AND dimension=? AND sub_key=?",
-                    (new_val, db_ref.get_active_profile_id() or "", dim, sub)
+                    "UPDATE scoring_config SET value=? WHERE id=?",
+                    (new_val, existing["id"])
                 )
             else:
                 conn.execute(
                     "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
                     "VALUES (?, ?, ?, ?, 0, ?)",
-                    (db_ref.get_active_profile_id() or "", dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
+                    (pid, dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
                 )
             conn.commit()
             return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"

@@ -1046,10 +1046,12 @@ def register(mcp, db, logger):
             existing = job.get("research_notes") or ""
             entry = f"\n\n--- {kategorie} ({now[:10]}) ---\n{text}"
             new_notes = (existing + entry).strip()
+            # #270: resolve to stored hash (public hash differs in multi-profile)
+            stored_hash = db.resolve_job_hash(job_hash)
             conn = db.connect()
             conn.execute(
                 "UPDATE jobs SET research_notes=?, updated_at=? WHERE hash=?",
-                (new_notes, now, job_hash)
+                (new_notes, now, stored_hash)
             )
             conn.commit()
             saved_to.append(f"Stelle {job_hash}")
