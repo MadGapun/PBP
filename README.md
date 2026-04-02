@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="docs/logo.png" alt="PBP Logo" width="80" />
-</p>
-
-# PBP — Persönliches Bewerbungs-Portal
+# <img src="docs/pbp.png" alt="PBP Logo" width="36" align="absmiddle" /> PBP — Persönliches Bewerbungs-Portal
 
 <sup>An <b>ELWOSA</b> Project</sup>
 
