@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Crossed Hammer and Fountain Pen - PBP Logo -->
+  <!-- Hammer (top-right to bottom-left) -->
+  <g transform="rotate(-45 64 64)">
+    <!-- Hammer handle -->
+    <rect x="58" y="30" width="12" height="72" rx="3" fill="#1a2744"/>
+    <!-- Hammer head -->
+    <rect x="44" y="24" width="40" height="16" rx="4" fill="#2d4a7a"/>
+    <!-- Hammer face -->
+    <rect x="78" y="24" width="8" height="16" rx="2" fill="#8ba4c7"/>
+    <!-- Handle rings -->
+    <rect x="56" y="55" width="16" height="3" rx="1" fill="#8ba4c7"/>
+    <rect x="56" y="75" width="16" height="3" rx="1" fill="#8ba4c7"/>
+  </g>
+  <!-- Fountain Pen (top-left to bottom-right) -->
+  <g transform="rotate(45 64 64)">
+    <!-- Pen body -->
+    <rect x="58" y="20" width="12" height="60" rx="3" fill="#1e3a6e"/>
+    <!-- Pen cap band -->
+    <rect x="56" y="38" width="16" height="3" rx="1" fill="#8ba4c7"/>
+    <rect x="56" y="55" width="16" height="3" rx="1" fill="#8ba4c7"/>
+    <!-- Nib section -->
+    <polygon points="64,80 58,62 70,62" fill="#2d4a7a"/>
+    <!-- Nib tip -->
+    <polygon points="64,88 61,78 67,78" fill="#8ba4c7"/>
+    <!-- Nib slit -->
+    <line x1="64" y1="88" x2="64" y2="70" stroke="#1a2744" stroke-width="1"/>
+    <!-- Cap top -->
+    <rect x="60" y="18" width="8" height="6" rx="2" fill="#2d4a7a"/>
+  </g>
+  <!-- Sparkle -->
+  <g transform="translate(98 88)" fill="#4da6ff">
+    <polygon points="0,-8 2,-2 8,0 2,2 0,8 -2,2 -8,0 -2,-2" />
+  </g>
+  <g transform="translate(90 78) scale(0.5)" fill="#4da6ff" opacity="0.6">
+    <polygon points="0,-8 2,-2 8,0 2,2 0,8 -2,2 -8,0 -2,-2" />
+  </g>
+</svg>
