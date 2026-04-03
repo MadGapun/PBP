@@ -4,7 +4,9 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.10.0
+:: PBP Installer v0.11.0
+:: Fix: Erkennung wenn BAT aus ZIP heraus gestartet wird
+:: Fix: Fehler-melden Hinweis bei allen Fehlern
 :: Fix: setuptools+wheel vor extract-msg (embeddable Python)
 :: Fix: Klare Fehlermeldung wenn Outlook-Import scheitert
 :: Fix: Versionserkennung korrigiert
@@ -30,12 +32,17 @@ set "PY_URL=https://www.python.org/ftp/python/%PY_VERSION%/%PY_ZIP%"
 set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 
 :: -------------------------------------------
+:: Integritaets-Check: Wurde das ZIP richtig entpackt?
+:: -------------------------------------------
+if not exist "%SRC_DIR%" goto :err_not_extracted
+
+:: -------------------------------------------
 :: Logging initialisieren
 :: -------------------------------------------
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.10.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v0.11.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -46,7 +53,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.9.0
+echo    Installer v0.11.0
 echo.
 echo  ====================================================
 echo.
@@ -416,6 +423,7 @@ echo [OK] python kopiert >> "%LOGFILE%"
 
 :: src/ Ordner kopieren
 echo [DEBUG] Kopiere src-Ordner... >> "%LOGFILE%"
+if not exist "%SRC_DIR%" goto :err_not_extracted
 if exist "%DATA_DIR%\src" rmdir /s /q "%DATA_DIR%\src" 2>nul
 xcopy "%SRC_DIR%" "%DATA_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
@@ -583,12 +591,37 @@ exit /b 0
 :: So koennen Sonderzeichen sicher in echo verwendet werden.
 :: ===================================================
 
+:err_not_extracted
+echo [FEHLER] src-Ordner nicht gefunden - ZIP nicht entpackt >> "%LOGFILE%" 2>nul
+echo.
+echo  ****************************************************
+echo  *  FEHLER: ZIP wurde nicht richtig entpackt!       *
+echo  ****************************************************
+echo.
+echo  Der Ordner "src" fehlt. Das passiert wenn die
+echo  INSTALLIEREN.bat direkt aus dem ZIP heraus gestartet
+echo  wird, ohne das ZIP vorher zu entpacken.
+echo.
+echo  SO GEHT ES RICHTIG:
+echo    1. Rechtsklick auf die heruntergeladene ZIP-Datei
+echo    2. "Alle extrahieren..." / "Extract All..." waehlen
+echo    3. Einen Zielordner waehlen ^(z.B. Desktop^)
+echo    4. Im ENTPACKTEN Ordner die INSTALLIEREN.bat starten
+echo.
+echo  WICHTIG: Nicht einfach die BAT-Datei aus dem ZIP
+echo  herausziehen - das ganze ZIP muss entpackt werden!
+echo.
+call :show_support_info
+pause
+exit /b 1
+
 :err_32bit
 echo [FEHLER] 32-Bit Windows >> "%LOGFILE%"
 echo.
 echo  FEHLER: 32-Bit Windows erkannt!
 echo  Der Bewerbungs-Assistent benoetigt 64-Bit Windows.
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -603,6 +636,7 @@ echo.
 echo  Falls eine Firewall fragt: "Zugriff erlauben" klicken.
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -614,6 +648,7 @@ echo  Versuche INSTALLIEREN.bat als Administrator auszufuehren.
 echo  (Rechtsklick, "Als Administrator ausfuehren")
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -623,6 +658,7 @@ echo.
 echo  FEHLER: Paketmanager konnte nicht geladen werden!
 echo  Pruefe deine Internetverbindung.
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -632,6 +668,7 @@ echo.
 echo  FEHLER: Paketmanager konnte nicht installiert werden!
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -642,6 +679,7 @@ echo  FEHLER: Python funktioniert nicht!
 echo  Evtl. blockiert der Virenscanner python.exe.
 echo  Fuege diesen Ordner als Ausnahme hinzu: %BASEDIR%
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -654,6 +692,7 @@ echo  INSTALLIEREN.bat nochmal - Python wird dann
 echo  erneut heruntergeladen.
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -663,6 +702,7 @@ echo.
 echo  FEHLER: Pakete konnten nicht installiert werden.
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -680,6 +720,7 @@ echo.
 echo  FEHLER: Kein Internet. Bitte pruefe WLAN/LAN.
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
 
@@ -700,8 +741,26 @@ echo.
 echo  Falls das nicht hilft: Als Administrator ausfuehren.
 echo  (Log: %LOGFILE%)
 echo.
+call :show_support_info
 pause
 exit /b 1
+
+:: -------------------------------------------
+:: Support-Info (wird bei jedem Fehler angezeigt)
+:: -------------------------------------------
+:show_support_info
+echo.
+echo  ----------------------------------------------------
+echo  FEHLER MELDEN:
+echo  Falls das Problem bestehen bleibt, melde es bitte:
+echo.
+echo    https://github.com/MadGapun/PBP/issues/new
+echo.
+echo  Bitte haenge die Log-Datei an:
+echo    %LOGFILE%
+echo  ----------------------------------------------------
+echo.
+goto :eof
 
 :fix_pip
 echo         pip wird nachinstalliert...

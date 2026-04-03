@@ -2,6 +2,13 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.2.1] - 2026-04-03
+
+### Bug Fixes
+- **Installer**: Erkennt wenn ZIP nicht entpackt wurde und zeigt klare Anleitung (#275)
+- **Installer**: "Fehler melden"-Hinweis mit GitHub Issues Link bei allen Fehlermeldungen
+- **Installer**: Versions-Anzeige korrigiert (war 0.9.0, intern 0.10.0 → jetzt einheitlich 0.11.0)
+
 ## [1.2.0] - 2026-04-01
 
 ### Bug Fixes
