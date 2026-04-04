@@ -72,7 +72,7 @@ function createUploadEntry(file) {
 }
 
 export default function ProfileOnboarding({ open, profile, workspace, onDismiss, onComplete }) {
-  const { refreshChrome, pushToast } = useApp();
+  const { chrome, refreshChrome, pushToast } = useApp();
 
   const [sources, setSources] = useState([]);
   const [jobs, setJobs] = useState([]);
