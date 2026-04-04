@@ -967,11 +967,32 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     </Card>
   );
 
+  const mcpConnection = chrome?.status?.mcp_connection;
+  const mcpConnected = mcpConnection?.status === "connected";
+
   const conversationPanel = (
     <Card className="glass-card-soft rounded-xl p-6 shadow-none sm:p-8">
       <p className="text-sm text-muted">
         Um offene Punkte zu klären, führst du jetzt in Claude ein kurzes Kennlerngespräch.
       </p>
+
+      {/* #274: Verbindungs-Verifikation */}
+      {mcpConnection && !mcpConnected && (
+        <div className="mt-4 rounded-xl border border-amber/30 bg-amber/5 p-4">
+          <p className="text-sm font-semibold text-amber">Claude Verbindung pr&uuml;fen</p>
+          <p className="mt-1 text-xs text-muted">
+            &Ouml;ffne Claude Desktop und schau unten links: Siehst du ein Hammer-Symbol mit einer Zahl?
+          </p>
+          <div className="mt-2 space-y-1 text-xs text-muted">
+            <p>Falls nicht:</p>
+            <p>1. Ist das PBP-Konsolenfenster noch offen? (Nicht schlie&szlig;en!)</p>
+            <p>2. Claude Desktop beenden: Rechtsklick auf Symbol in Taskleiste &rarr; Beenden</p>
+            <p>3. Claude Desktop neu starten</p>
+            <p>4. Hammer-Symbol unten links pr&uuml;fen</p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={copyConversationCommand}>
           <Copy size={15} />

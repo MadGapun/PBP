@@ -2,7 +2,9 @@
 
 Aendert die MCP-Konfiguration in claude_desktop_config.json:
   - Dev:       Quellcode aus dem Projektordner, .venv-Python
-  - Offiziell: Installierte Version in AppData, embedded Python
+  - Offiziell: Installierte Version, system/venv-Python
+
+Plattformunabhaengig: Windows, macOS und Linux.
 
 Nutzung:
   python switch_mode.py          # Zeigt aktuellen Modus
@@ -14,23 +16,56 @@ import json
 import os
 import sys
 
+# ── Plattform-Pfade ────────────────────────────────────────────
+
+
+def _claude_config_path():
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("APPDATA", ""), "Claude", "claude_desktop_config.json")
+    elif sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Claude", "claude_desktop_config.json")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".config", "Claude", "claude_desktop_config.json")
+
+
+def _data_dir():
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".bewerbungs-assistent")
+
+
+def _venv_python(base_dir):
+    if sys.platform == "win32":
+        return os.path.join(base_dir, ".venv", "Scripts", "python.exe")
+    else:
+        return os.path.join(base_dir, ".venv", "bin", "python")
+
+
+def _installed_python(data_dir):
+    if sys.platform == "win32":
+        return os.path.join(data_dir, "python", "Scripts", "python.exe")
+    else:
+        return os.path.join(data_dir, "venv", "bin", "python")
+
+
 # ── Pfade ──────────────────────────────────────────────────────
 
-CONFIG_PATH = os.path.join(os.environ["APPDATA"], "Claude", "claude_desktop_config.json")
+CONFIG_PATH = _claude_config_path()
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODES = {
     "dev": {
-        "python": os.path.join(PROJECT_DIR, ".venv", "Scripts", "python.exe"),
+        "python": _venv_python(PROJECT_DIR),
         "src": os.path.join(PROJECT_DIR, "src"),
-        "data_dir": os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent"),
+        "data_dir": _data_dir(),
         "label": "Dev",
     },
     "official": {
-        "python": os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent", "python", "python.exe"),
-        "src": os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent", "src"),
-        "data_dir": os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent"),
+        "python": _installed_python(_data_dir()),
+        "src": os.path.join(_data_dir(), "src"),
+        "data_dir": _data_dir(),
         "label": "Offiziell",
     },
 }
@@ -118,6 +153,9 @@ def show_status():
     current = detect_current_mode(config)
 
     print("=== Bewerbungs-Assistent: Modus-Status ===\n")
+    print(f"  Plattform: {sys.platform}")
+    print(f"  Config:    {CONFIG_PATH}")
+    print()
 
     if current:
         mode = MODES[current]

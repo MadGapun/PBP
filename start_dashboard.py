@@ -29,7 +29,13 @@ logger.info("Log: %s", log_path)
 
 
 def _find_chrome() -> str | None:
-    """Find Chrome executable on Windows. Returns path or None."""
+    """Find Chrome executable. Supports Windows, macOS and Linux."""
+    if sys.platform == "darwin":
+        mac_chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        if os.path.isfile(mac_chrome):
+            return mac_chrome
+        return shutil.which("google-chrome") or shutil.which("chromium-browser")
+
     if sys.platform != "win32":
         return shutil.which("google-chrome") or shutil.which("chromium-browser")
 
@@ -123,8 +129,6 @@ try:
                     )
                     import time
                     time.sleep(2)
-                    claude_path = _find_chrome()  # reuse search pattern
-                    # Find Claude specifically
                     for cp in [
                         os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Claude", "Claude.exe"),
                         os.path.join(os.environ.get("PROGRAMFILES", ""), "Claude", "Claude.exe"),
@@ -136,12 +140,38 @@ try:
                             break
         except Exception as e:
             logger.warning("Claude-Check fehlgeschlagen: %s", e)
+    elif sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                ["pgrep", "-x", "Claude"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                print()
+                print("  !! Claude Desktop laeuft bereits.")
+                print("  Damit PBP als MCP-Server erkannt wird, muss Claude")
+                print("  neu gestartet werden.")
+                print()
+                answer = input("  Claude jetzt neu starten? [J/n]: ").strip().lower()
+                if answer in ("", "j", "ja", "y", "yes"):
+                    logger.info("Claude Desktop wird neu gestartet...")
+                    subprocess.run(["pkill", "-x", "Claude"], capture_output=True, timeout=5)
+                    import time
+                    time.sleep(2)
+                    claude_app = "/Applications/Claude.app"
+                    if os.path.isdir(claude_app):
+                        subprocess.Popen(["open", claude_app], start_new_session=True)
+                        print("  Claude Desktop wird gestartet...")
+                        time.sleep(3)
+        except Exception as e:
+            logger.warning("Claude-Check fehlgeschlagen: %s", e)
 
     print()
     print(f"  Dashboard: http://localhost:{port}")
     print(f"  Daten:     {data_dir}")
     print(f"  Log:       {log_path}")
-    print(f"  Beenden:   Dieses Fenster schliessen oder Strg+C")
+    quit_hint = "Strg+C" if sys.platform != "darwin" else "Ctrl+C oder Cmd+Q"
+    print(f"  Beenden:   Dieses Fenster schliessen oder {quit_hint}")
     print()
 
     _open_in_chrome(f"http://localhost:{port}")

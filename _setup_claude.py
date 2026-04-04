@@ -1,17 +1,44 @@
 """Konfiguriert Claude Desktop fuer den Bewerbungs-Assistenten.
 
-Verwendet feste Installationspfade unter %LOCALAPPDATA%\\BewerbungsAssistent,
-damit Versions-Updates die MCP-Konfiguration nicht kaputtmachen.
+Plattformunabhaengig: Windows, macOS und Linux.
+Verwendet feste Installationspfade, damit Versions-Updates
+die MCP-Konfiguration nicht kaputtmachen.
 """
 import json, os, sys
 
-config_path = os.path.join(os.environ["APPDATA"], "Claude", "claude_desktop_config.json")
-data_dir = os.path.join(os.environ["LOCALAPPDATA"], "BewerbungsAssistent")
 
-# Feste Pfade (update-sicher) — python/ und src/ werden vom Installer hierhin kopiert
-python_exe = os.path.join(data_dir, "python", "python.exe")
+def get_claude_config_path():
+    """Gibt den Claude Desktop Config-Pfad fuer die aktuelle Plattform zurueck."""
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("APPDATA", ""), "Claude", "claude_desktop_config.json")
+    elif sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Claude", "claude_desktop_config.json")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".config", "Claude", "claude_desktop_config.json")
+
+
+def get_data_dir():
+    """Gibt das Datenverzeichnis fuer die aktuelle Plattform zurueck."""
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".bewerbungs-assistent")
+
+
+def get_python_exe(data_dir):
+    """Gibt den Python-Pfad im Installationsverzeichnis zurueck."""
+    if sys.platform == "win32":
+        return os.path.join(data_dir, "python", "Scripts", "python.exe")
+    else:
+        return os.path.join(data_dir, "venv", "bin", "python")
+
+
+config_path = get_claude_config_path()
+data_dir = get_data_dir()
+python_exe = get_python_exe(data_dir)
 src_dir = os.path.join(data_dir, "src")
 
+print(f"[CLAUDE] Plattform: {sys.platform}")
 print(f"[CLAUDE] Config: {config_path}")
 print(f"[CLAUDE] Python: {python_exe}")
 print(f"[CLAUDE] Source: {src_dir}")

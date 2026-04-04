@@ -15,6 +15,7 @@ import functools
 from fastmcp import FastMCP
 
 from .database import Database, get_data_dir
+from .heartbeat import write_heartbeat
 
 # Logging: Datei + stderr (stdout ist für MCP-Protokoll reserviert!)
 from .logging_config import setup_logging
@@ -44,6 +45,7 @@ def _logged_tool(*args, **kwargs):
         @functools.wraps(func)
         def logged_func(*a, **kw):
             logger.info("Tool aufgerufen: %s", func.__name__)
+            write_heartbeat(func.__name__)
             try:
                 result = func(*a, **kw)
                 if isinstance(result, dict) and "fehler" in result:

@@ -1018,23 +1018,29 @@ export default function ProfilePage() {
     return (
       <div key={card.key} className="group flex items-center gap-4 py-2">
         <div className="w-28 shrink-0">
-          <p className={cn("text-[12px] font-semibold", c.label)}>{card.label}</p>
+          <p className={cn("text-[12px] font-semibold", c.label)} title={card.desc}>{card.label}</p>
           <p className="text-[10px] text-muted/50">{card.chip}</p>
         </div>
-        <div className="relative flex flex-1 items-center">
-          <input
-            type="range"
-            min={0}
-            max={10}
-            step={0.5}
-            value={value}
-            onChange={(event) => setCriteriaDraft((current) => ({ ...current, [card.key]: event.target.value }))}
-            className={cn("weight-slider h-1.5 w-full cursor-pointer appearance-none rounded-full", c.track, c.thumb)}
-            style={{
-              background: `linear-gradient(to right, var(--slider-fill) ${value * 10}%, transparent ${value * 10}%)`,
-              "--slider-fill": `var(--color-${card.color})`,
-            }}
-          />
+        <div className="flex flex-1 flex-col gap-0.5">
+          <div className="relative flex items-center">
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={value}
+              onChange={(event) => setCriteriaDraft((current) => ({ ...current, [card.key]: event.target.value }))}
+              className={cn("weight-slider h-1.5 w-full cursor-pointer appearance-none rounded-full", c.track, c.thumb)}
+              style={{
+                background: `linear-gradient(to right, var(--slider-fill) ${value * 10}%, transparent ${value * 10}%)`,
+                "--slider-fill": `var(--color-${card.color})`,
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-[9px] text-muted/40">
+            <span>unwichtig</span>
+            <span>sehr wichtig</span>
+          </div>
         </div>
         <span className={cn("w-8 text-right text-sm font-bold tabular-nums", c.value)}>
           {formatWeightValue(value)}

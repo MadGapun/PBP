@@ -240,6 +240,7 @@ def _build_live_update_token_payload() -> dict:
 @app.get("/api/status")
 async def api_status():
     from . import __version__
+    from .heartbeat import get_connection_status
 
     profile = _db.get_profile()
     summary = summarize_profile(profile)
@@ -250,6 +251,7 @@ async def api_status():
         "active_jobs": len(_db.get_active_jobs(exclude_applied=True)),
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
+        "mcp_connection": get_connection_status(),
     }
 
 

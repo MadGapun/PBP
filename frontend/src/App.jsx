@@ -9,6 +9,8 @@
   Heart,
   FolderOpen,
   HelpCircle,
+  Link2,
+  Link2Off,
   Plus,
   Send,
   Settings2,
@@ -206,6 +208,17 @@ export default function App() {
       }
 
       await copyToClipboard(promptToCopy);
+
+      // #275: Warnung wenn Claude nicht verbunden
+      const connStatus = chrome.status?.mcp_connection?.status;
+      if (connStatus && connStatus !== "connected") {
+        pushToast(
+          "Claude Desktop scheint nicht verbunden zu sein. Bitte pr\u00fcfen: 1) L\u00e4uft das PBP-Fenster noch? 2) Claude Desktop neu starten 3) Hammer-Symbol unten links pr\u00fcfen.",
+          "amber",
+          { duration: 12000, dedupe: true }
+        );
+      }
+
       const isConversationPrompt =
         normalizedPrompt === "/ersterfassung" || normalizedPrompt.startsWith("/ersterfassung ");
       if (isConversationPrompt) {
@@ -667,6 +680,26 @@ export default function App() {
                 );
               })}
             </nav>
+
+            {/* MCP Connection Indicator (#273) */}
+            {(() => {
+              const conn = chrome.status?.mcp_connection;
+              const st = conn?.status || "disconnected";
+              const cfg = {
+                connected: { color: "text-emerald", bg: "bg-emerald/15", label: "Verbunden", Icon: Link2 },
+                unknown: { color: "text-amber", bg: "bg-amber/15", label: "Unbekannt", Icon: Link2 },
+                disconnected: { color: "text-red-400", bg: "bg-red-400/15", label: "Nicht verbunden", Icon: Link2Off },
+              }[st] || { color: "text-red-400", bg: "bg-red-400/15", label: "Nicht verbunden", Icon: Link2Off };
+              return (
+                <span
+                  className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium ${cfg.bg} ${cfg.color}`}
+                  title={`MCP: ${cfg.label}${conn?.last_tool ? ` (${conn.last_tool})` : ""}`}
+                >
+                  <cfg.Icon size={13} />
+                  <span className="hidden sm:inline">{cfg.label}</span>
+                </span>
+              );
+            })()}
 
             {/* Help Button (#75) */}
             <button

@@ -7,7 +7,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-379%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-383%20passing-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
 
@@ -505,6 +505,35 @@ PBP ist ein **persoenliches Werkzeug**, das in deinem Namen auf oeffentlich zuga
 
 > **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
 
+### macOS
+
+1. **[Claude Desktop fuer Mac](https://claude.ai/download) installieren**
+2. **Python 3.11+** installieren (falls nicht vorhanden):
+   ```bash
+   brew install python@3.12
+   ```
+3. **Repository klonen und Installer starten:**
+   ```bash
+   git clone https://github.com/MadGapun/PBP.git
+   cd PBP
+   bash installer/install.sh
+   ```
+   Der Installer macht automatisch:
+   - Virtuelle Umgebung erstellen
+   - Alle Pakete installieren
+   - Frontend bauen (falls Node.js/pnpm vorhanden)
+   - Claude Desktop konfigurieren
+   - Funktionstest durchfuehren
+
+4. **Claude Desktop beenden** (Menueleiste → Claude → Beenden) und **neu starten**
+5. In Claude eingeben: *"Starte den Bewerbungs-Assistenten"*
+
+> **Dashboard starten:** Doppelklick auf `Dashboard starten.command` oder: `.venv/bin/python start_dashboard.py`
+
+> **Voraussetzungen:** macOS 12+, Python 3.11+, [Claude Desktop](https://claude.ai/download)
+
+> **Deinstallieren:** `bash installer/deinstallieren.sh`
+
 ### Linux / Manuell
 
 ```bash
@@ -512,11 +541,12 @@ PBP ist ein **persoenliches Werkzeug**, das in deinem Namen auf oeffentlich zuga
 git clone https://github.com/MadGapun/PBP.git
 cd PBP
 
-# Virtual Environment erstellen
-python3 -m venv venv
-source venv/bin/activate
+# Installer (empfohlen — inkl. Claude Desktop Config):
+bash installer/install.sh
 
-# Installieren (Kern + Docs)
+# Oder manuell:
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[docs]"
 
 # Optional: Scraper mit Playwright
@@ -526,7 +556,15 @@ playwright install chromium
 
 ### Claude Desktop konfigurieren
 
-Die `INSTALLIEREN.bat` macht das automatisch. Für manuelle Konfiguration, füge in `%APPDATA%\Claude\claude_desktop_config.json` hinzu:
+Die Installer (`INSTALLIEREN.bat`, `install.sh`) machen das automatisch. Fuer manuelle Konfiguration:
+
+| Plattform | Config-Pfad |
+|-----------|-------------|
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+
+Fuege folgenden Eintrag hinzu:
 
 ```json
 {
@@ -535,22 +573,38 @@ Die `INSTALLIEREN.bat` macht das automatisch. Für manuelle Konfiguration, füge
       "command": "python",
       "args": ["-m", "bewerbungs_assistent"],
       "env": {
-        "BA_DATA_DIR": "C:\\Users\\DEIN_NAME\\AppData\\Local\\BewerbungsAssistent"
+        "BA_DATA_DIR": "/pfad/zu/deinen/daten"
       }
     }
   }
 }
 ```
 
+**Datenverzeichnis-Pfade:**
+| Plattform | Standard-Pfad |
+|-----------|---------------|
+| Windows | `%LOCALAPPDATA%\BewerbungsAssistent` |
+| macOS / Linux | `~/.bewerbungs-assistent` |
+
 ### Nach der Installation
 
+**Windows:**
 ```
 %LOCALAPPDATA%\BewerbungsAssistent\
 ├── python\          ← Embedded Python (vom Installer)
 ├── src\             ← PBP Source Code (vom Installer)
 ├── pbp.db           ← Deine Datenbank (Profil, Jobs, Bewerbungen)
 ├── dokumente\       ← Hochgeladene Dokumente
-├── export\          ← Generierte Lebensläufe und Anschreiben
+├── export\          ← Generierte Lebenslaeufe und Anschreiben
+└── logs\            ← Protokolle
+```
+
+**macOS / Linux:**
+```
+~/.bewerbungs-assistent/
+├── pbp.db           ← Deine Datenbank
+├── dokumente\       ← Hochgeladene Dokumente
+├── export\          ← Generierte Lebenslaeufe und Anschreiben
 └── logs\            ← Protokolle
 ```
 
