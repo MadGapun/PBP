@@ -512,7 +512,18 @@ export function ToastViewport({ toasts, onDismiss }) {
           )}
         >
           <div className="flex items-start justify-between gap-3">
-            <p className="text-[13px] font-medium">{toast.message}</p>
+            <div>
+              <p className="text-[13px] font-medium">{toast.message}</p>
+              {toast.action && (
+                <button
+                  type="button"
+                  className="mt-1.5 rounded-lg bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/20 transition-colors"
+                  onClick={() => { toast.action.onClick?.(); onDismiss(toast.id); }}
+                >
+                  {toast.action.label}
+                </button>
+              )}
+            </div>
             <button
               type="button"
               className="shrink-0 rounded-lg p-1 text-current/50 transition hover:bg-white/6 hover:text-current"

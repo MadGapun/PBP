@@ -3218,6 +3218,223 @@ async def api_get_logs(lines: int = 100):
         return {"lines": [], "path": log_path, "error": str(e)}
 
 
+# === Update Check (v1.4.0, #286) ===
+
+_update_cache = {"ts": 0, "data": None}
+
+@app.get("/api/update-check")
+async def api_update_check():
+    """Check GitHub for newer PBP releases (cached 1h)."""
+    import time
+    from . import __version__
+
+    now = time.time()
+    if _update_cache["data"] and now - _update_cache["ts"] < 3600:
+        return _update_cache["data"]
+
+    result = {"current_version": __version__, "latest_version": __version__,
+              "update_available": False, "release_url": None}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                "https://api.github.com/repos/MadGapun/PBP/releases/latest",
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                latest = data.get("tag_name", "").lstrip("v")
+                if latest and latest != __version__:
+                    result["latest_version"] = latest
+                    result["update_available"] = True
+                    result["release_url"] = data.get("html_url")
+                    result["release_name"] = data.get("name", "")
+    except Exception as exc:
+        logger.debug("update check failed: %s", exc)
+
+    _update_cache["ts"] = now
+    _update_cache["data"] = result
+    return result
+
+
+# === Health Info (v1.4.0, #290) ===
+
+@app.get("/api/health")
+async def api_health():
+    """System health information for diagnostics."""
+    import platform
+    import sys
+    from . import __version__
+    from .database import get_data_dir
+    from .heartbeat import get_connection_status
+
+    data_dir = get_data_dir()
+    db_path = data_dir / "pbp.db"
+    db_size = db_path.stat().st_size if db_path.exists() else 0
+    doc_dir = data_dir / "dokumente"
+    doc_count = len(list(doc_dir.glob("*"))) if doc_dir.exists() else 0
+
+    modules = {}
+    for mod_name in ["httpx", "playwright", "docx", "pdfplumber", "openpyxl", "bs4"]:
+        try:
+            m = __import__(mod_name)
+            modules[mod_name] = getattr(m, "__version__", "installed")
+        except ImportError:
+            modules[mod_name] = None
+
+    return {
+        "pbp_version": __version__,
+        "python_version": platform.python_version(),
+        "platform": platform.system(),
+        "platform_detail": platform.platform(),
+        "data_dir": str(data_dir),
+        "db_size_bytes": db_size,
+        "db_size_mb": round(db_size / (1024 * 1024), 2),
+        "document_count": doc_count,
+        "modules": modules,
+        "mcp_connection": get_connection_status(),
+    }
+
+
+# === Privacy / Data Info (v1.4.0, #287) ===
+
+@app.get("/api/privacy-info")
+async def api_privacy_info():
+    """Return data storage locations and statistics for privacy page."""
+    import sys
+    from .database import get_data_dir
+
+    data_dir = get_data_dir()
+    db_path = data_dir / "pbp.db"
+
+    storage = {
+        "data_dir": str(data_dir),
+        "db_path": str(db_path),
+        "db_exists": db_path.exists(),
+        "db_size_bytes": db_path.stat().st_size if db_path.exists() else 0,
+        "platform": sys.platform,
+    }
+
+    # Count stored items
+    profile = _db.get_profile()
+    counts = {
+        "profiles": len(_db.list_profiles()) if hasattr(_db, "list_profiles") else (1 if profile else 0),
+        "jobs": len(_db.get_active_jobs(exclude_applied=False)),
+        "applications": len(_db.get_applications()),
+        "documents": len(profile.get("documents", [])) if profile else 0,
+    }
+
+    subdirs = {}
+    for name in ["dokumente", "export", "logs", "backup"]:
+        sub = data_dir / name
+        if sub.exists():
+            files = list(sub.glob("*"))
+            subdirs[name] = {"path": str(sub), "file_count": len(files)}
+        else:
+            subdirs[name] = {"path": str(sub), "file_count": 0}
+
+    return {
+        "storage": storage,
+        "counts": counts,
+        "subdirs": subdirs,
+        "data_flow": {
+            "local_only": ["Profildaten", "Bewerbungen", "Dokumente", "Stellenangebote", "Statistiken"],
+            "sent_to_claude": ["Prompts (via Copy & Paste, du kontrollierst was gesendet wird)"],
+            "external_requests": ["GitHub Hints (anonyme Abfrage, kein Login)", "Jobportale (nur bei aktiver Stellensuche)"],
+        },
+    }
+
+
+@app.delete("/api/privacy-delete-all")
+async def api_privacy_delete_all(request: Request):
+    """Delete all user data (GDPR right to deletion)."""
+    import shutil
+    from .database import get_data_dir
+
+    data = await request.json()
+    if data.get("confirm") != "ALLES_LOESCHEN":
+        return JSONResponse(
+            {"error": "Bestaetigung fehlt (confirm: ALLES_LOESCHEN)"}, status_code=400
+        )
+
+    data_dir = get_data_dir()
+    deleted = []
+
+    # Delete database
+    db_path = data_dir / "pbp.db"
+    if db_path.exists():
+        _db.close()
+        db_path.unlink()
+        deleted.append("Datenbank")
+
+    # Delete documents
+    for subdir in ["dokumente", "export"]:
+        sub = data_dir / subdir
+        if sub.exists():
+            shutil.rmtree(sub)
+            sub.mkdir()
+            deleted.append(subdir.capitalize())
+
+    return {"status": "ok", "deleted": deleted, "message": "Alle Daten geloescht. Bitte Dashboard neu starten."}
+
+
+# === Export Package (v1.4.0, #289) ===
+
+@app.get("/api/export-package")
+async def api_export_package():
+    """Create a ZIP package with all user data."""
+    import shutil
+    import tempfile
+    import zipfile
+    from .database import get_data_dir
+
+    data_dir = get_data_dir()
+    db_path = data_dir / "pbp.db"
+
+    if not db_path.exists():
+        return JSONResponse({"error": "Keine Daten vorhanden"}, status_code=404)
+
+    tmp = tempfile.mkdtemp()
+    zip_name = f"pbp_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    zip_path = Path(tmp) / zip_name
+
+    try:
+        import sqlite3
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Database (SQLite backup for consistency)
+            backup_path = Path(tmp) / "pbp.db"
+            src = sqlite3.connect(str(db_path))
+            dst = sqlite3.connect(str(backup_path))
+            src.backup(dst)
+            dst.close()
+            src.close()
+            zf.write(backup_path, "pbp.db")
+
+            # Documents
+            doc_dir = data_dir / "dokumente"
+            if doc_dir.exists():
+                for f in doc_dir.iterdir():
+                    if f.is_file():
+                        zf.write(f, f"dokumente/{f.name}")
+
+            # README
+            zf.writestr("README.txt",
+                "PBP Export-Paket\n"
+                "================\n\n"
+                "Inhalt:\n"
+                "  - pbp.db: Deine Datenbank (Profil, Stellen, Bewerbungen)\n"
+                "  - dokumente/: Deine hochgeladenen Dokumente\n\n"
+                "Import:\n"
+                "  1. PBP installieren (INSTALLIEREN.command / install.bat)\n"
+                "  2. Dateien nach ~/.bewerbungs-assistent/ kopieren\n"
+                "  3. Dashboard starten\n")
+
+        return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip")
+    except Exception as exc:
+        logger.error("Export failed: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
 def _cleanup_stale_jobs(db):

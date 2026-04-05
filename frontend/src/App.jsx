@@ -134,6 +134,7 @@ export default function App() {
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState("hilfe");
+  const [updateInfo, setUpdateInfo] = useState(null);
   const recentToastsRef = useRef(new Map());
   const liveUpdateTokenRef = useRef("");
   const liveUpdateSeenRef = useRef(false);
@@ -181,7 +182,7 @@ export default function App() {
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`;
-    setToasts((current) => [...current, { id, message: normalizedMessage || message, tone }]);
+    setToasts((current) => [...current, { id, message: normalizedMessage || message, tone, action: options?.action }]);
     window.setTimeout(() => dismissToast(id), Number(options?.duration) || 4200);
   }
 
@@ -246,9 +247,9 @@ export default function App() {
         }
       }
       pushToast(
-        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop \u2014 dort f\u00fchrt dich ein Gespr\u00e4ch automatisch durch den n\u00e4chsten Schritt. Einf\u00fcgen mit Strg+V.",
+        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop \u2014 Einfuegen mit Strg+V (Cmd+V auf Mac).",
         "success",
-        { duration: 10000 }
+        { duration: 10000, action: { label: "Zu Claude wechseln", onClick: () => { window.open("claude://", "_self"); } } }
       );
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
@@ -384,6 +385,10 @@ export default function App() {
 
   useEffect(() => {
     refreshChrome();
+    // Update-Check (#286)
+    optionalApi("/api/update-check").then((data) => {
+      if (data?.update_available) setUpdateInfo(data);
+    });
   }, []);
 
   useEffect(() => {
@@ -802,6 +807,39 @@ export default function App() {
           </div>
         </header>
 
+        {/* Update-Banner (#286) */}
+        {updateInfo?.update_available && (
+          <div className="mx-auto w-full max-w-[92rem] px-5 sm:px-8 pt-2">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber/20 bg-amber/8 px-4 py-2.5 text-sm text-amber">
+              <span>
+                Neue Version verfuegbar: <strong>v{updateInfo.latest_version}</strong>
+                {updateInfo.release_name ? ` — ${updateInfo.release_name}` : ""}
+              </span>
+              <div className="flex items-center gap-2">
+                {updateInfo.release_url && (
+                  <a
+                    href={updateInfo.release_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg bg-amber/15 px-3 py-1 text-xs font-medium hover:bg-amber/25 transition-colors"
+                  >
+                    Update-Anleitung
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="rounded-lg p-1 hover:bg-amber/15 transition-colors"
+                  onClick={() => setUpdateInfo(null)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showWorkspaceStrip ? (
           <div
           id="workspace-strip"
@@ -976,96 +1014,70 @@ export default function App() {
             showWizard ? "show flex" : "hidden"
           )}
         >
-          <div className="glass-card-strong w-full max-w-3xl rounded-2xl p-6 animate-rise">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div className="glass-card-strong w-full max-w-2xl rounded-2xl p-6 animate-rise">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal/70">
-                  Setup
-                </p>
-                <h2 className="mt-1.5 font-display text-2xl font-semibold text-ink">
+                <h2 className="font-display text-xl font-semibold text-ink">
                   Willkommen beim Bewerbungs-Assistenten
                 </h2>
-                <p className="mt-1.5 max-w-xl text-[13px] text-muted/70">
-                  Drei Schritte zum Start: Profil anlegen, Unterlagen importieren, Suchquellen aktivieren.
+                <p className="mt-1 max-w-lg text-[13px] text-muted/60">
+                  Am schnellsten startest du mit dem Kennlerngespräch — Claude fuehrt dich durch alles.
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => closeWizard(false)}>
-                Später
+                Spaeter
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <Card className="glass-card-soft rounded-xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">1. Profil</p>
-                <h3 className="mt-2 text-base font-semibold text-ink">Basis anlegen</h3>
-                <p className="mt-1 text-[13px] text-muted/60">
-                  Manuelle Erfassung oder Claude führt dich durch.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      closeWizard(true);
-                      navigateTo("profil");
-                    }}
-                  >
-                    <UserRound size={14} />
-                    Profil
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => copyPrompt("/ersterfassung")}>
-                    <Copy size={14} />
-                    /ersterfassung
-                  </Button>
+            {/* Primaerer Pfad */}
+            <Card className="glass-card-soft rounded-xl border border-sky/20 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="glass-icon h-10 w-10 shrink-0 bg-sky/15 text-sky rounded-xl flex items-center justify-center">
+                  <Send size={18} />
                 </div>
-              </Card>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-semibold text-ink">Kennlerngespräch starten</h3>
+                  <p className="text-[12px] text-muted/50">
+                    Claude fragt dich alles Wichtige und baut dein Profil automatisch auf.
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => { closeWizard(true); copyPrompt("/ersterfassung"); }}>
+                  <Copy size={14} />
+                  Starten
+                </Button>
+              </div>
+            </Card>
 
-              <Card className="glass-card-soft rounded-xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-                  2. Dokumente
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-ink">Unterlagen importieren</h3>
-                <p className="mt-1 text-[13px] text-muted/60">
-                  Lebenslauf, Zeugnisse per Upload oder Ordnerimport.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      closeWizard(true);
-                      navigateTo("profil", { composer: "document" });
-                    }}
-                  >
-                    <FolderOpen size={14} />
-                    Importieren
-                  </Button>
-                </div>
-              </Card>
-
-              <Card className="glass-card-soft rounded-xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-                  3. Suche
-                </p>
-                <h3 className="mt-2 text-base font-semibold text-ink">Quellen festlegen</h3>
-                <p className="mt-1 text-[13px] text-muted/60">
-                  Quellen aktivieren und Keywords hinterlegen.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      closeWizard(true);
-                      navigateTo("einstellungen");
-                    }}
-                  >
-                    <Settings2 size={14} />
-                    Einstellungen
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => copyPrompt("/jobsuche_workflow")}>
-                    <Copy size={14} />
-                    /jobsuche_workflow
-                  </Button>
-                </div>
-              </Card>
+            {/* Alternative Pfade (kompakt) */}
+            <p className="text-[11px] text-muted/40 mb-2 uppercase tracking-widest">Oder manuell:</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
+                onClick={() => { closeWizard(true); navigateTo("profil"); }}
+              >
+                <UserRound size={14} className="text-muted/40 mb-1" />
+                <p className="text-[13px] font-medium text-ink">Profil anlegen</p>
+                <p className="text-[11px] text-muted/40">Manuell ausfuellen</p>
+              </button>
+              <button
+                type="button"
+                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
+                onClick={() => { closeWizard(true); navigateTo("profil", { composer: "document" }); }}
+              >
+                <FolderOpen size={14} className="text-muted/40 mb-1" />
+                <p className="text-[13px] font-medium text-ink">Unterlagen importieren</p>
+                <p className="text-[11px] text-muted/40">PDF, DOCX hochladen</p>
+              </button>
+              <button
+                type="button"
+                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
+                onClick={() => { closeWizard(true); navigateTo("einstellungen"); }}
+              >
+                <Settings2 size={14} className="text-muted/40 mb-1" />
+                <p className="text-[13px] font-medium text-ink">Quellen aktivieren</p>
+                <p className="text-[11px] text-muted/40">Jobportale einrichten</p>
+              </button>
             </div>
           </div>
         </div>
@@ -1081,11 +1093,13 @@ export default function App() {
         {/* Help Modal (#75) */}
         {helpOpen && (
           <Modal open={helpOpen} title="Hilfe & Support" onClose={() => setHelpOpen(false)}>
-            <div className="flex gap-1 mb-4 border-b border-white/8 pb-2">
+            <div className="flex gap-1 mb-4 border-b border-white/8 pb-2 overflow-x-auto">
               {[
-                { id: "hilfe", label: "Hilfe / FAQ" },
+                { id: "hilfe", label: "Hilfe" },
+                { id: "faq", label: "FAQ" },
+                { id: "troubleshooting", label: "Probleme" },
                 { id: "bug", label: "Bug melden" },
-                { id: "feature", label: "Feature vorschlagen" },
+                { id: "feature", label: "Feature" },
                 { id: "credits", label: "Credits" },
               ].map((t) => (
                 <button
@@ -1215,10 +1229,58 @@ export default function App() {
               </div>
             )}
 
+            {helpTab === "faq" && (
+              <div className="space-y-2 text-sm text-muted/60">
+                {[
+                  { q: "Was ist MCP?", a: "MCP (Model Context Protocol) ist die Schnittstelle, ueber die PBP mit Claude Desktop kommuniziert. PBP stellt Tools bereit, die Claude nutzen kann." },
+                  { q: "Wo werden meine Daten gespeichert?", a: "Alle Daten liegen lokal auf deinem Geraet. Unter Windows in %LOCALAPPDATA%/bewerbungs-assistent, auf macOS in ~/.bewerbungs-assistent. Es werden keine Daten an Server gesendet." },
+                  { q: "Muss Claude Desktop laufen?", a: "Fuer die KI-Funktionen ja. Das Dashboard funktioniert aber auch ohne Claude Desktop — du kannst Profil, Stellen und Bewerbungen jederzeit verwalten." },
+                  { q: "Wie starte ich das Kennlerngespräch?", a: "Oeffne Claude Desktop und tippe /ersterfassung ein. Claude fuehrt dich dann Schritt fuer Schritt durch den Aufbau deines Profils." },
+                  { q: "Kann ich mehrere Profile haben?", a: "Ja. Klicke oben auf deinen Profilnamen und waehle 'Neues Profil'. Du kannst zwischen Profilen wechseln." },
+                  { q: "Wie funktioniert die Jobsuche?", a: "Aktiviere Quellen unter Einstellungen, dann kopiere /jobsuche_workflow in Claude Desktop. Claude durchsucht die aktivierten Portale und bewertet die Treffer." },
+                  { q: "Welche Dokumentformate werden unterstuetzt?", a: "PDF, DOCX, DOC und TXT. Ziehe Dateien per Drag & Drop ins Dashboard-Fenster oder nutze den Upload-Button." },
+                  { q: "Wie exportiere ich meinen Lebenslauf?", a: "Gehe zu Profil > Lebenslauf-Export. Es stehen verschiedene Formate zur Verfuegung (PDF, DOCX, TXT)." },
+                  { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und Open Source (MIT-Lizenz). Du brauchst aber einen Claude Desktop Account (kostenloser Tier reicht)." },
+                  { q: "Wie aktualisiere ich PBP?", a: "Lade die neue Version von GitHub herunter und fuehre den Installer erneut aus. Deine Daten bleiben erhalten." },
+                ].map(({ q, a }) => (
+                  <details key={q} className="glass-card rounded-lg group">
+                    <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
+                      {q}
+                      <ChevronDown size={14} className="text-muted/30 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <p className="px-3 pb-2.5 text-[12.5px]">{a}</p>
+                  </details>
+                ))}
+              </div>
+            )}
+
+            {helpTab === "troubleshooting" && (
+              <div className="space-y-2 text-sm text-muted/60">
+                {[
+                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Pruefe ob das PBP-Terminal/Fenster noch laeuft\n2. Klicke in Claude Desktop auf das Hammer-Symbol unten links — PBP muss dort als Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu oeffnen)\n4. Pruefe den MCP-Status im Dashboard-Header" },
+                  { q: "Dashboard startet nicht", a: "1. Pruefe ob Port 8200 bereits belegt ist (anderes PBP-Fenster?)\n2. Starte das Dashboard ueber das Terminal: python start_dashboard.py\n3. Pruefe die Logs unter Einstellungen > Logs" },
+                  { q: "Jobsuche findet keine Stellen", a: "1. Pruefe ob Quellen unter Einstellungen aktiviert sind\n2. Pruefe ob Suchkriterien (Keywords, Ort, Umkreis) gesetzt sind\n3. Manche Quellen brauchen einen Login (LinkedIn, XING)" },
+                  { q: "Dokumente werden nicht erkannt", a: "1. Nur PDF, DOCX, DOC und TXT werden unterstuetzt\n2. Gescannte PDFs ohne Text-Layer koennen nicht analysiert werden\n3. Versuche 'Erneut analysieren' auf dem Dokument" },
+                  { q: "MCP-Verbindung zeigt 'Nicht verbunden'", a: "Die Verbindung wird ueber einen Heartbeat geprueft. Claude Desktop muss PBP mindestens einmal aufgerufen haben. Tippe einen beliebigen PBP-Befehl in Claude Desktop ein." },
+                ].map(({ q, a }) => (
+                  <details key={q} className="glass-card rounded-lg group">
+                    <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
+                      {q}
+                      <ChevronDown size={14} className="text-muted/30 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <pre className="px-3 pb-2.5 text-[12px] whitespace-pre-wrap font-sans">{a}</pre>
+                  </details>
+                ))}
+                <div className="glass-card p-3 mt-2">
+                  <p className="text-[12px]">Problem nicht geloest? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit einer Beschreibung und den Logs aus Einstellungen.</p>
+                </div>
+              </div>
+            )}
+
             {helpTab === "bug" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted/60">
-                  Beschreibe den Fehler möglichst genau. Ein GitHub-Account wird benötigt.
+                  Beschreibe den Fehler moeglichst genau. Ein GitHub-Account wird benoetigt.
                 </p>
                 <a
                   href="https://github.com/MadGapun/PBP/issues/new?labels=bug&title=%5BBug%5D+"

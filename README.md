@@ -273,7 +273,7 @@ Browser-Oberfläche auf `localhost:8200` mit 6 Tabs:
 | **Stellen** | Jobs mit Fit-Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges, Pin/Unpin |
 | **Bewerbungen** | Pipeline, Detailansicht mit Stelleninfos + Dokumenten + Gesprächsnotizen, Archiv-Sektion |
 | **Statistiken** | 5 interaktive Charts: Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Score-Verteilung, Quellen-Scores |
-| **Einstellungen** | Quellen, Suchkriterien, Blacklist, Gehaltsfilter |
+| **Einstellungen** | Quellen, System-Info, Datenschutz, Logs, Export |
 
 ---
 
@@ -291,7 +291,15 @@ Der Installer:
 - Konfiguriert Claude Desktop automatisch
 - Erstellt eine Desktop-Verknüpfung
 
-> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download) (Free reicht zum Ausprobieren, [Pro empfohlen](#voraussetzungen) für tägliche Nutzung)
+> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download) (Free reicht zum Ausprobieren, [Pro empfohlen](#voraussetzungen) fuer taegliche Nutzung)
+
+### 1b. Installation (macOS)
+
+1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
+2. **Entpacke** das ZIP
+3. **Doppelklicke `INSTALLIEREN.command`** — fertig!
+
+> **Voraussetzungen:** macOS 12+, Python 3.11+ (`brew install python@3.12`), [Claude Desktop](https://claude.ai/download)
 
 ### 2. Profil erstellen
 
