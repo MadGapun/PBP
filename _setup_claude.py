@@ -30,8 +30,8 @@ def detect_mode(project_dir):
 
     Prueft in dieser Reihenfolge:
     1. .venv im Projektordner (Dev-Modus, macOS/Linux/Windows mit venv)
-    2. python/python.exe im Projektordner (Windows Embeddable-Modus)
-    3. Official-Modus (Datenverzeichnis)
+    2. AppData/Datenverzeichnis (Official-Modus, stabiler Pfad — bevorzugt)
+    3. python/ im Projektordner (Fallback, z.B. aus Downloads)
 
     Returns (mode, python_exe, src_dir, data_dir)
     """
@@ -47,24 +47,38 @@ def detect_mode(project_dir):
     if os.path.exists(venv_python):
         return "dev", venv_python, src_dir_local, data_dir
 
-    # 2. Windows Embeddable Python im Projektordner (INSTALLIEREN.bat)
+    # 2. Official-Modus: Python im stabilen Datenverzeichnis (bevorzugt, #292/#297)
+    #    INSTALLIEREN.bat kopiert python + src nach AppData — stabiler als Downloads-Ordner
     if sys.platform == "win32":
-        embeddable_python = os.path.join(project_dir, "python", "python.exe")
-        if os.path.exists(embeddable_python):
-            # Embeddable Python nutzt Scripts/python.exe fuer pip-installierte Module
-            scripts_python = os.path.join(project_dir, "python", "Scripts", "python.exe")
-            if os.path.exists(scripts_python):
-                return "local", scripts_python, src_dir_local, data_dir
-            return "local", embeddable_python, src_dir_local, data_dir
-
-    # 3. Official-Modus: Python im Datenverzeichnis
-    if sys.platform == "win32":
-        official_python = os.path.join(data_dir, "python", "Scripts", "python.exe")
+        for appdata_python in [
+            os.path.join(data_dir, "python", "Scripts", "python.exe"),
+            os.path.join(data_dir, "python", "python.exe"),
+        ]:
+            if os.path.exists(appdata_python):
+                src_dir_appdata = os.path.join(data_dir, "src")
+                return "official", appdata_python, src_dir_appdata, data_dir
     else:
         official_python = os.path.join(data_dir, "venv", "bin", "python")
+        if os.path.exists(official_python):
+            src_dir_appdata = os.path.join(data_dir, "src")
+            return "official", official_python, src_dir_appdata, data_dir
 
-    src_dir = os.path.join(data_dir, "src")
-    return "official", official_python, src_dir, data_dir
+    # 3. Fallback: Python im Projektordner (Windows Embeddable aus Downloads)
+    if sys.platform == "win32":
+        for local_python in [
+            os.path.join(project_dir, "python", "Scripts", "python.exe"),
+            os.path.join(project_dir, "python", "python.exe"),
+        ]:
+            if os.path.exists(local_python):
+                return "local", local_python, src_dir_local, data_dir
+
+    # 4. Nichts gefunden — Official-Pfad als Platzhalter (wird Warnung auslösen)
+    if sys.platform == "win32":
+        fallback_python = os.path.join(data_dir, "python", "python.exe")
+    else:
+        fallback_python = os.path.join(data_dir, "venv", "bin", "python")
+    src_dir_fallback = os.path.join(data_dir, "src")
+    return "official", fallback_python, src_dir_fallback, data_dir
 
 
 # Projektverzeichnis = wo dieses Script liegt
@@ -109,9 +123,8 @@ mcp_entry = {
     }
 }
 
-# PYTHONPATH setzen wenn lokale src/ verwendet wird (dev + local Modus)
-if mode in ("dev", "local"):
-    mcp_entry["env"]["PYTHONPATH"] = src_dir
+# PYTHONPATH immer setzen — stellt sicher dass bewerbungs_assistent gefunden wird
+mcp_entry["env"]["PYTHONPATH"] = src_dir
 
 config["mcpServers"]["bewerbungs-assistent"] = mcp_entry
 

@@ -33,31 +33,28 @@ mcp = FastMCP(
 
 
 # ============================================================
-# Zentrale Tool-Aufruf-Protokollierung
+# Zentrale Tool-Aufruf-Protokollierung via FastMCP Middleware
 # ============================================================
 
-_original_tool = mcp.tool
+from fastmcp.server.middleware import Middleware
 
-def _logged_tool(*args, **kwargs):
-    """Wrapper: Loggt jeden Tool-Aufruf und Fehler in die Log-Datei."""
-    decorator = _original_tool(*args, **kwargs)
-    def wrapper(func):
-        @functools.wraps(func)
-        def logged_func(*a, **kw):
-            logger.info("Tool aufgerufen: %s", func.__name__)
-            write_heartbeat(func.__name__)
-            try:
-                result = func(*a, **kw)
-                if isinstance(result, dict) and "fehler" in result:
-                    logger.warning("Tool %s: %s", func.__name__, result["fehler"])
-                return result
-            except Exception as e:
-                logger.error("Tool %s Fehler: %s", func.__name__, e, exc_info=True)
-                raise
-        return decorator(logged_func)
-    return wrapper
 
-mcp.tool = _logged_tool
+class HeartbeatMiddleware(Middleware):
+    """Loggt jeden Tool-Aufruf und schreibt Heartbeat fuer Dashboard-Status."""
+
+    async def on_call_tool(self, context, call_next):
+        tool_name = context.params.name if context.params else "unknown"
+        logger.info("Tool aufgerufen: %s", tool_name)
+        write_heartbeat(tool_name)
+        try:
+            result = await call_next(context)
+            return result
+        except Exception as e:
+            logger.error("Tool %s Fehler: %s", tool_name, e, exc_info=True)
+            raise
+
+
+mcp.add_middleware(HeartbeatMiddleware())
 
 
 # ============================================================
@@ -92,14 +89,26 @@ def run_server():
         _dashboard_module._db = db  # Set shared database reference
 
         dash_port = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
-        config = uvicorn.Config(
-            dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
-        )
-        _dashboard_server = uvicorn.Server(config)
 
-        dashboard_thread = threading.Thread(target=_dashboard_server.run, daemon=True)
-        dashboard_thread.start()
-        logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
+        # Port-Konflikt pruefen (#293)
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", dash_port)) == 0:
+                logger.warning(
+                    "Port %d ist bereits belegt — vermutlich laeuft eine andere PBP-Instanz. "
+                    "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
+                    dash_port,
+                )
+                _dashboard_server = None
+            else:
+                config = uvicorn.Config(
+                    dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
+                )
+                _dashboard_server = uvicorn.Server(config)
+
+                dashboard_thread = threading.Thread(target=_dashboard_server.run, daemon=True)
+                dashboard_thread.start()
+                logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
     except Exception as e:
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 
@@ -133,6 +142,9 @@ def run_server():
             signal.signal(signal.SIGBREAK, _signal_handler)
     except (OSError, ValueError):
         pass  # Signals not available in all contexts
+
+    # Heartbeat beim Start schreiben (#295) — Dashboard zeigt sofort "Verbunden"
+    write_heartbeat("server_start")
 
     # Run MCP server (blocks on stdio)
     from . import __version__

@@ -981,14 +981,14 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
         <div className="mt-4 rounded-xl border border-amber/30 bg-amber/5 p-4">
           <p className="text-sm font-semibold text-amber">Claude Verbindung pr&uuml;fen</p>
           <p className="mt-1 text-xs text-muted">
-            &Ouml;ffne Claude Desktop und schau unten links: Siehst du ein Hammer-Symbol mit einer Zahl?
+            &Ouml;ffne Claude Desktop und pr&uuml;fe unter Einstellungen &gt; Entwickler ob PBP als MCP-Server angezeigt wird.
           </p>
           <div className="mt-2 space-y-1 text-xs text-muted">
             <p>Falls nicht:</p>
             <p>1. Ist das PBP-Konsolenfenster noch offen? (Nicht schlie&szlig;en!)</p>
             <p>2. Claude Desktop beenden: Rechtsklick auf Symbol in Taskleiste &rarr; Beenden</p>
             <p>3. Claude Desktop neu starten</p>
-            <p>4. Hammer-Symbol unten links pr&uuml;fen</p>
+            <p>4. Unter Einstellungen &gt; Entwickler den MCP-Status pr&uuml;fen</p>
           </div>
         </div>
       )}

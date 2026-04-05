@@ -278,7 +278,7 @@ export default function SettingsPage() {
               </div>
               <div className="glass-card p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                  <HardDrive size={14} className="text-emerald" />
+                  <HardDrive size={14} className="text-teal" />
                   Speicher
                 </div>
                 <p className="text-xs text-muted/60">Datenbank: <span className="text-ink">{health.db_size_mb} MB</span></p>
@@ -303,7 +303,7 @@ export default function SettingsPage() {
               <div className="mt-4 glass-card p-3">
                 <p className="text-xs text-muted/60">
                   MCP-Verbindung: <span className={`font-medium ${
-                    health.mcp_connection.status === "connected" ? "text-emerald" :
+                    health.mcp_connection.status === "connected" ? "text-teal" :
                     health.mcp_connection.status === "unknown" ? "text-amber" : "text-red-400"
                   }`}>{health.mcp_connection.status}</span>
                   {health.mcp_connection.last_tool && <> — Letztes Tool: <span className="text-ink">{health.mcp_connection.last_tool}</span></>}
@@ -327,7 +327,7 @@ export default function SettingsPage() {
                     </h3>
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="text-emerald font-medium">Nur lokal gespeichert:</span>
+                        <span className="text-teal font-medium">Nur lokal gespeichert:</span>
                         <p className="text-muted/60 mt-0.5">{privacy.data_flow.local_only.join(", ")}</p>
                       </div>
                       <div>

@@ -214,7 +214,7 @@ export default function App() {
       const connStatus = chrome.status?.mcp_connection?.status;
       if (connStatus && connStatus !== "connected") {
         pushToast(
-          "Claude Desktop scheint nicht verbunden zu sein. Bitte pr\u00fcfen: 1) L\u00e4uft das PBP-Fenster noch? 2) Claude Desktop neu starten 3) Hammer-Symbol unten links pr\u00fcfen.",
+          "Claude Desktop scheint nicht verbunden zu sein. Bitte pr\u00fcfen: 1) L\u00e4uft das PBP-Fenster noch? 2) Claude Desktop komplett beenden und neu starten 3) Unter Einstellungen > Entwickler den MCP-Status pr\u00fcfen.",
           "amber",
           { duration: 12000, dedupe: true }
         );
@@ -691,10 +691,10 @@ export default function App() {
               const conn = chrome.status?.mcp_connection;
               const st = conn?.status || "disconnected";
               const cfg = {
-                connected: { color: "text-emerald", bg: "bg-emerald/15", label: "Verbunden", Icon: Link2 },
+                connected: { color: "text-teal", bg: "bg-teal/15", label: "Verbunden", Icon: Link2 },
                 unknown: { color: "text-amber", bg: "bg-amber/15", label: "Unbekannt", Icon: Link2 },
-                disconnected: { color: "text-red-400", bg: "bg-red-400/15", label: "Nicht verbunden", Icon: Link2Off },
-              }[st] || { color: "text-red-400", bg: "bg-red-400/15", label: "Nicht verbunden", Icon: Link2Off };
+                disconnected: { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off },
+              }[st] || { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off };
               return (
                 <span
                   className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium ${cfg.bg} ${cfg.color}`}
@@ -1257,7 +1257,7 @@ export default function App() {
             {helpTab === "troubleshooting" && (
               <div className="space-y-2 text-sm text-muted/60">
                 {[
-                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Pruefe ob das PBP-Terminal/Fenster noch laeuft\n2. Klicke in Claude Desktop auf das Hammer-Symbol unten links — PBP muss dort als Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu oeffnen)\n4. Pruefe den MCP-Status im Dashboard-Header" },
+                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Pruefe ob das PBP-Terminal/Fenster noch laeuft\n2. Oeffne Claude Desktop Einstellungen > Entwickler — PBP muss dort als MCP-Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu oeffnen)\n4. Pruefe den MCP-Status im Dashboard-Header" },
                   { q: "Dashboard startet nicht", a: "1. Pruefe ob Port 8200 bereits belegt ist (anderes PBP-Fenster?)\n2. Starte das Dashboard ueber das Terminal: python start_dashboard.py\n3. Pruefe die Logs unter Einstellungen > Logs" },
                   { q: "Jobsuche findet keine Stellen", a: "1. Pruefe ob Quellen unter Einstellungen aktiviert sind\n2. Pruefe ob Suchkriterien (Keywords, Ort, Umkreis) gesetzt sind\n3. Manche Quellen brauchen einen Login (LinkedIn, XING)" },
                   { q: "Dokumente werden nicht erkannt", a: "1. Nur PDF, DOCX, DOC und TXT werden unterstuetzt\n2. Gescannte PDFs ohne Text-Layer koennen nicht analysiert werden\n3. Versuche 'Erneut analysieren' auf dem Dokument" },
