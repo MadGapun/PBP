@@ -1,11 +1,11 @@
 {
   "hints": [
     {
-      "id": "welcome",
+      "id": "v140",
       "type": "info",
-      "title": "Willkommen beim PBP!",
-      "text": "Dein persoenlicher Bewerbungs-Assistent ist einsatzbereit. Starte mit der Profil-Ersterfassung, um das volle Potenzial zu nutzen.",
-      "min_version": "1.0.0"
+      "title": "Neu in v1.4.0",
+      "text": "Datenschutz-Seite, Daten-Export, Health-Dashboard und erweiterte FAQ unter Einstellungen. Auto-Update-Hinweis zeigt neue Versionen an.",
+      "min_version": "1.4.0"
     }
   ]
 }
