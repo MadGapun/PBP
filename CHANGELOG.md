@@ -2,6 +2,11 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.4.3] - 2026-04-05
+
+### Bug Fixes
+- **#301**: `MiddlewareContext` hat kein `params`-Attribut — `context.message.name` statt `context.params.name` fuer Tool-Namen im Heartbeat
+
 ## [1.4.2] - 2026-04-05
 
 ### Bug Fixes

@@ -43,7 +43,7 @@ class HeartbeatMiddleware(Middleware):
     """Loggt jeden Tool-Aufruf und schreibt Heartbeat fuer Dashboard-Status."""
 
     async def on_call_tool(self, context, call_next):
-        tool_name = context.params.name if context.params else "unknown"
+        tool_name = context.message.name if context.message else "unknown"
         logger.info("Tool aufgerufen: %s", tool_name)
         write_heartbeat(tool_name)
         try:
