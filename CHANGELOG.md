@@ -2,6 +2,36 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.3.2] - 2026-04-05
+
+### Bug Fixes
+- **#279**: Onboarding-Crash 'chrome is not defined' bei neuem Profil behoben
+- **#280**: Versionsinkonsistenz bereinigt — pyproject.toml, Runtime und Changelog synchron
+- **#282**: README-Badge und CHANGELOG auf aktuellen Stand gebracht
+
+### Verbesserungen
+- **#281**: Browser-Regressionstests fuer Onboarding-Flow reaktiviert und auf React-Frontend aktualisiert
+- **#283**: Release-Gate Script (`release_check.py`) eingefuehrt — prueft Versionskonsistenz, skipped Tests und First-Run-Smoke
+
+## [1.3.0] - 2026-04-04
+
+### Neue Features
+- **macOS-Support**: Plattformunabhaengige Installation mit `install.sh`, Dashboard-Starter, Deinstaller (#276, #277, #278)
+- **MCP Heartbeat**: Verbindungsindikator im Dashboard-Header zeigt live ob Claude Desktop verbunden ist (#273)
+- **Setup-Verifikation**: Onboarding warnt wenn Claude nicht verbunden (#274)
+- **Kopier-Warnung**: Hinweis beim Prompt-Kopieren ohne aktive MCP-Verbindung (#275)
+- **Slider-Labels**: Scoring-Schieberegler mit "unwichtig / sehr wichtig" Beschriftung (#271)
+
+### Cross-Platform
+- `_setup_claude.py`, `switch_mode.py`, `start_dashboard.py` funktionieren auf Windows, macOS und Linux
+- Claude Desktop Config-Pfade fuer alle Plattformen
+- Chrome/Claude-Detection fuer macOS
+
+## [1.3.1] - 2026-04-04
+
+### Bug Fixes
+- **#279**: Onboarding-Crash 'chrome is not defined' — `chrome` aus AppContext geholt
+
 ## [1.2.1] - 2026-04-03
 
 ### Bug Fixes
