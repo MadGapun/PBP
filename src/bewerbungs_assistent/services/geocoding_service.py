@@ -59,7 +59,11 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
     try:
         from geopy.geocoders import Nominatim
         from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+    except ImportError:
+        logger.warning("geopy not installed — geocoding disabled")
+        return None
 
+    try:
         geolocator = Nominatim(user_agent=_USER_AGENT, timeout=5)
         _rate_limit()
 
@@ -86,9 +90,6 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
 
     except (GeocoderTimedOut, GeocoderServiceError) as e:
         logger.warning("Geocoding error for '%s': %s", location, e)
-        return None
-    except ImportError:
-        logger.warning("geopy not installed — geocoding disabled")
         return None
     except Exception as e:
         logger.warning("Unexpected geocoding error for '%s': %s", location, e)
