@@ -553,6 +553,10 @@ def register(mcp, db, logger):
         Firmen-Webseiten) in PBP zu uebertragen. Die Stelle wird automatisch
         bewertet und erscheint in stellen_anzeigen().
 
+        WICHTIG: Vor dem Anlegen wird automatisch geprueft ob bereits eine
+        Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei Duplikat
+        wird eine Warnung zurueckgegeben und die Stelle NICHT angelegt.
+
         Args:
             titel: Stellentitel (z.B. 'Senior Projektmanager PLM')
             firma: Firmenname
@@ -575,8 +579,57 @@ def register(mcp, db, logger):
         if existing_job:
             return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
 
-        # Cross-source duplicate detection (#222): Check if similar stelle exists
+        # Duplikat-Prüfung gegen bestehende Bewerbungen (#317)
         import re as _re
+        apps = db.get_applications()
+
+        # 1. URL-basierte Prüfung (stärkster Indikator)
+        if url:
+            url_norm = url.lower().rstrip("/")
+            for app in apps:
+                app_url = (app.get("url") or "").lower().rstrip("/")
+                if app_url and app_url == url_norm:
+                    return {
+                        "warnung": "duplikat_bewerbung",
+                        "nachricht": (
+                            f"Exaktes URL-Duplikat: Bewerbung {app['id'][:8]} bei "
+                            f"{app.get('company')} hat dieselbe URL "
+                            f"(Status: {app.get('status', 'unbekannt')}). "
+                            "Die Stelle wurde NICHT angelegt."
+                        ),
+                        "existing_application_id": app["id"][:8],
+                        "trotzdem_anlegen": False,
+                    }
+
+        # 2. Firma+Titel Fuzzy-Match
+        firma_lower = firma.lower()
+        titel_lower = titel.lower()
+        titel_words = set(titel_lower.split())
+        for app in apps:
+            app_company = (app.get("company") or "").lower()
+            app_title = (app.get("title") or "").lower()
+            # Firma-Match (fuzzy: Teilstring in beide Richtungen)
+            if firma_lower in app_company or app_company in firma_lower:
+                # Titel-Ähnlichkeit: mindestens 2 gemeinsame Wörter
+                app_words = set(app_title.split())
+                overlap = titel_words & app_words
+                if len(overlap) >= min(2, len(titel_words)):
+                    return {
+                        "warnung": "duplikat_bewerbung",
+                        "nachricht": (
+                            f"Mögliches Duplikat: Bewerbung {app['id'][:8]} bei "
+                            f"{app.get('company')} bereits vorhanden "
+                            f"(Status: {app.get('status', 'unbekannt')}, "
+                            f"Titel: '{app.get('title')}'). "
+                            "Die Stelle wurde NICHT angelegt. "
+                            "Falls es sich um eine andere Stelle handelt, "
+                            "verwende einen deutlich abweichenden Titel."
+                        ),
+                        "existing_application_id": app["id"][:8],
+                        "trotzdem_anlegen": False,
+                    }
+
+        # Cross-source duplicate detection (#222): Check if similar stelle exists
         norm_key = _re.sub(r'[^a-z0-9]', '', f"{firma}{titel}".lower())
         all_active = db.get_active_jobs(exclude_applied=False)
         for existing in all_active:
