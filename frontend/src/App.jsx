@@ -134,6 +134,7 @@ export default function App() {
   const [profileOnboardingOpen, setProfileOnboardingOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState("hilfe");
+  const [mcpHelpOpen, setMcpHelpOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const recentToastsRef = useRef(new Map());
   const liveUpdateTokenRef = useRef("");
@@ -686,23 +687,32 @@ export default function App() {
               })}
             </nav>
 
-            {/* MCP Connection Indicator (#273) */}
+            {/* MCP Connection Indicator (#273, #309: klickbar) */}
             {(() => {
               const conn = chrome.status?.mcp_connection;
               const st = conn?.status || "disconnected";
               const cfg = {
-                connected: { color: "text-teal", bg: "bg-teal/15", label: "Verbunden", Icon: Link2 },
-                unknown: { color: "text-amber", bg: "bg-amber/15", label: "Pr\u00fcfe\u2026", Icon: Link2 },
-                disconnected: { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off },
-              }[st] || { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off };
+                connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", label: "Verbunden", Icon: Link2 },
+                unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", label: "Pr\u00fcfe\u2026", Icon: Link2 },
+                disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", label: "Nicht verbunden", Icon: Link2Off },
+              }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", label: "Nicht verbunden", Icon: Link2Off };
+              const handleClick = () => {
+                if (st === "connected") {
+                  window.open("claude://", "_self");
+                } else {
+                  setMcpHelpOpen(true);
+                }
+              };
               return (
-                <span
-                  className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium ${cfg.bg} ${cfg.color}`}
-                  title={`MCP: ${cfg.label}${conn?.last_tool ? ` (${conn.last_tool})` : ""}`}
+                <button
+                  type="button"
+                  onClick={handleClick}
+                  className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium cursor-pointer transition-colors ${cfg.bg} ${cfg.color}`}
+                  title={st === "connected" ? "Claude Desktop \u00f6ffnen" : `MCP: ${cfg.label} \u2014 Klicke f\u00fcr Hilfe`}
                 >
                   <cfg.Icon size={13} />
                   <span className="hidden sm:inline">{cfg.label}</span>
-                </span>
+                </button>
               );
             })()}
 
@@ -1361,6 +1371,89 @@ export default function App() {
                 </a>
               </div>
             )}
+          </Modal>
+        )}
+
+        {/* MCP Verbindungshilfe-Dialog (#309) */}
+        {mcpHelpOpen && (
+          <Modal open={mcpHelpOpen} title="MCP-Verbindung" onClose={() => setMcpHelpOpen(false)}>
+            {(() => {
+              const conn = chrome.status?.mcp_connection;
+              const st = conn?.status || "disconnected";
+              return (
+                <div className="space-y-4 text-sm">
+                  {st === "unknown" && (
+                    <>
+                      <div className="glass-card p-3 border-amber/20 border">
+                        <h3 className="font-medium text-amber mb-1">Verbindung wird gepr&uuml;ft</h3>
+                        <p className="text-muted/60">
+                          Der MCP-Server hat sich k&uuml;rzlich gemeldet, aber die Verbindung ist nicht best&auml;tigt.
+                          Das kann passieren wenn Claude Desktop gerade neu gestartet wurde.
+                        </p>
+                      </div>
+                      <div className="glass-card p-3">
+                        <h3 className="font-medium text-ink mb-2">Verbindung testen</h3>
+                        <p className="text-muted/60 mb-3">
+                          &Ouml;ffne Claude Desktop und sende eine kurze Nachricht wie
+                          <span className="mx-1 px-1.5 py-0.5 bg-white/[0.06] rounded text-ink font-mono text-xs">Zeige meinen Profil-Status</span>
+                          um die Verbindung zu pr&uuml;fen.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { window.open("claude://", "_self"); setMcpHelpOpen(false); }}
+                          className="w-full py-2 px-4 rounded-lg bg-amber/15 text-amber font-medium hover:bg-amber/25 transition-colors"
+                        >
+                          Claude Desktop &ouml;ffnen &amp; testen
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {st === "disconnected" && (
+                    <>
+                      <div className="glass-card p-3 border-coral/20 border">
+                        <h3 className="font-medium text-coral mb-1">Nicht verbunden</h3>
+                        <p className="text-muted/60">
+                          Der MCP-Server antwortet nicht. Das bedeutet, dass Claude Desktop
+                          nicht l&auml;uft oder der Bewerbungs-Assistent nicht konfiguriert ist.
+                        </p>
+                      </div>
+                      <div className="glass-card p-3">
+                        <h3 className="font-medium text-ink mb-2">Fehlerbehebung</h3>
+                        <ol className="space-y-2 text-muted/60 list-decimal list-inside">
+                          <li>
+                            <strong className="text-ink">Claude Desktop &ouml;ffnen</strong>
+                            <span className="block ml-5 mt-0.5">Stelle sicher, dass Claude Desktop l&auml;uft (nicht nur der Browser).</span>
+                          </li>
+                          <li>
+                            <strong className="text-ink">MCP-Server pr&uuml;fen</strong>
+                            <span className="block ml-5 mt-0.5">
+                              In Claude Desktop: Einstellungen &rarr; Developer &rarr; &bdquo;bewerbungs-assistent&ldquo; sollte als MCP-Server gelistet sein.
+                            </span>
+                          </li>
+                          <li>
+                            <strong className="text-ink">Server-Status testen</strong>
+                            <span className="block ml-5 mt-0.5">
+                              Pr&uuml;fe ob <a href="http://localhost:8200" target="_blank" rel="noreferrer" className="text-sky underline">localhost:8200</a> erreichbar ist.
+                            </span>
+                          </li>
+                          <li>
+                            <strong className="text-ink">Claude Desktop neu starten</strong>
+                            <span className="block ml-5 mt-0.5">Beende Claude Desktop vollst&auml;ndig und starte es neu.</span>
+                          </li>
+                        </ol>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { window.open("claude://", "_self"); setMcpHelpOpen(false); }}
+                        className="w-full py-2 px-4 rounded-lg bg-coral/15 text-coral font-medium hover:bg-coral/25 transition-colors"
+                      >
+                        Claude Desktop &ouml;ffnen
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </Modal>
         )}
 
