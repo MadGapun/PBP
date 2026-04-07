@@ -2310,11 +2310,13 @@ class Database:
         # "all" shows everything grouped monthly
         if interval == "all":
             interval = "month"
-        fmt_map = {"week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
+        # #308: "day" für Tagesansicht, %W → konsistente ISO-Woche
+        fmt_map = {"day": "%Y-%m-%d", "week": "%Y-W%W", "month": "%Y-%m", "year": "%Y"}
         fmt = fmt_map.get(interval, "%Y-%m")
 
         # Time window limits (#125) — only for non-"all" views
         _time_limits = {
+            "day": "date('now', '-30 days')",
             "week": "date('now', '-12 weeks')",
             "month": "date('now', '-12 months')",
             "quarter": "date('now', '-24 months')",
@@ -2381,12 +2383,45 @@ class Database:
                 GROUP BY period ORDER BY period
             """, (pid,)).fetchall()
 
+        # #308: Fill gaps for week/day intervals so charts don't skip empty periods
+        all_periods = set(periods.keys()) | {r["period"] for r in job_rows if r["period"]}
+        if interval in ("week", "day") and all_periods:
+            from datetime import datetime as _dt, timedelta
+            sorted_p = sorted(all_periods)
+            if interval == "day":
+                try:
+                    start = _dt.strptime(sorted_p[0], "%Y-%m-%d")
+                    end = _dt.strptime(sorted_p[-1], "%Y-%m-%d")
+                    d = start
+                    while d <= end:
+                        key = d.strftime("%Y-%m-%d")
+                        if key not in periods:
+                            periods[key] = {"total": 0, "by_status": {}}
+                        d += timedelta(days=1)
+                except ValueError:
+                    pass
+            elif interval == "week":
+                try:
+                    def _week_to_date(w):
+                        y, wn = w.split("-W")
+                        return _dt.strptime(f"{y}-W{wn}-1", "%Y-W%W-%w")
+                    start = _week_to_date(sorted_p[0])
+                    end = _week_to_date(sorted_p[-1])
+                    d = start
+                    while d <= end:
+                        key = d.strftime("%Y-W%W")
+                        if key not in periods:
+                            periods[key] = {"total": 0, "by_status": {}}
+                        d += timedelta(weeks=1)
+                except ValueError:
+                    pass
+
         return {
             "interval": interval,
             "periods": sorted(periods.keys()),
             "applications": {p: d["total"] for p, d in sorted(periods.items())},
             "by_status": {p: d["by_status"] for p, d in sorted(periods.items())},
-            "jobs_found": {r["period"]: r["count"] for r in job_rows},
+            "jobs_found": {r["period"]: r["count"] for r in job_rows if r["period"]},
         }
 
     def get_score_stats(self) -> dict:
@@ -2519,12 +2554,21 @@ class Database:
             "AND (profile_id=? OR profile_id IS NULL)", (pid,)
         ).fetchone()[0]
 
-        # --- Overall totals ---
+        # --- Overall totals (#308: Beworben vs. Aussortiert unterscheiden) ---
         total_jobs_ever = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE (profile_id=? OR profile_id IS NULL)", (pid,)
         ).fetchone()[0]
+        # Jobs mit Bewerbung (haben Eintrag in applications)
+        total_applied = conn.execute(
+            "SELECT COUNT(DISTINCT j.hash) FROM jobs j "
+            "JOIN applications a ON a.job_hash = j.hash "
+            "WHERE (j.profile_id=? OR j.profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+        # Aussortiert = inaktiv OHNE Bewerbung
         total_dismissed = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL)", (pid,)
+            "SELECT COUNT(*) FROM jobs WHERE is_active=0 "
+            "AND hash NOT IN (SELECT DISTINCT job_hash FROM applications WHERE job_hash IS NOT NULL) "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
         ).fetchone()[0]
         total_active = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)", (pid,)
@@ -2633,8 +2677,10 @@ class Database:
                 "jobs_ever": total_jobs_ever,
                 "jobs_active": total_active,
                 "jobs_dismissed": total_dismissed,
+                "jobs_applied": total_applied,
                 "jobs_pinned": total_pinned,
                 "dismiss_rate": round(total_dismissed / total_jobs_ever * 100, 1) if total_jobs_ever else 0,
+                "hit_rate": round(total_applied / total_jobs_ever * 100, 1) if total_jobs_ever else 0,
             },
             "applications": {
                 "imported": imported,
