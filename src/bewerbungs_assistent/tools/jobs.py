@@ -22,6 +22,11 @@ def register(mcp, db, logger):
         Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
         Ergebnisse danach mit stellen_anzeigen() ansehen.
 
+        HINWEIS StepStone (#315): StepStone blockiert automatische Suche (Bot-Detection).
+        Fuer StepStone-Stellen nutze stattdessen Claude-in-Chrome:
+        1. Oeffne https://www.stepstone.de/jobs/{keyword}?radius=100&location={ort}
+        2. Uebernimm gefundene Stellen mit stelle_manuell_anlegen().
+
         Args:
             keywords: Suchbegriffe (Standard: aus Profil)
             quellen: Welche Portale durchsuchen (Standard: alle aktiven)
