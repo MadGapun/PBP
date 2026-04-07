@@ -6,9 +6,12 @@ color 0C
 set "BASEDIR=%~dp0"
 if "%BASEDIR:~-1%"=="\" set "BASEDIR=%BASEDIR:~0,-1%"
 
-set "DATA_DIR=%LOCALAPPDATA%\BewerbungsAssistent"
-set "RUNTIME_DIR=%DATA_DIR%\python"
-set "SRC_RUNTIME_DIR=%DATA_DIR%\src"
+set "BASE_INSTALL=%LOCALAPPDATA%\BewerbungsAssistent"
+set "APP_DIR=%BASE_INSTALL%\app"
+set "DATA_DIR=%BASE_INSTALL%\data"
+:: Legacy-Pfade (v1.4.x Kompatibilitaet)
+set "LEGACY_RUNTIME=%BASE_INSTALL%\python"
+set "LEGACY_SRC=%BASE_INSTALL%\src"
 set "LOCAL_RUNTIME_DIR=%BASEDIR%\python"
 set "LOGFILE=%BASEDIR%\deinstall_log.txt"
 
@@ -31,8 +34,8 @@ echo  ====================================================
 echo.
 echo  Was entfernt wird:
 echo    - MCP-Eintrag "bewerbungs-assistent" in Claude Desktop
-echo    - PBP-Runtime aus %LOCALAPPDATA%\BewerbungsAssistent
-echo    - Lokaler Python-Ordner im Installationsverzeichnis
+echo    - PBP-Runtime aus %APP_DIR%
+echo    - Windows Apps ^& Features Eintrag
 echo    - Desktop-Verknuepfung "PBP Bewerbungs-Portal"
 echo.
 echo  Hinweis:
@@ -79,10 +82,13 @@ if "!errorlevel!"=="0" (
 )
 
 echo.
-echo  [4/5] Entferne Runtime-Dateien...
+echo  [4/6] Entferne Runtime-Dateien...
 set "REMOVE_ERRORS=0"
-call :remove_path "%RUNTIME_DIR%" "Runtime in %DATA_DIR%\python"
-call :remove_path "%SRC_RUNTIME_DIR%" "Runtime in %DATA_DIR%\src"
+:: v1.5.0 Pfade (app/)
+call :remove_path "%APP_DIR%" "App-Verzeichnis %APP_DIR%"
+:: Legacy v1.4.x Pfade
+call :remove_path "%LEGACY_RUNTIME%" "Legacy Runtime in %BASE_INSTALL%\python"
+call :remove_path "%LEGACY_SRC%" "Legacy Source in %BASE_INSTALL%\src"
 call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\python"
 
 if exist "%BASEDIR%\install_log.txt" (
@@ -100,7 +106,16 @@ for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
 )
 
 echo.
-echo  [5/5] Optional: Alle Bewerbungsdaten loeschen
+echo  [5/6] Entferne Windows Apps ^& Features Eintrag...
+reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         [OK] Registry-Eintrag entfernt
+) else (
+    echo         [--] Registry-Eintrag war nicht vorhanden
+)
+
+echo.
+echo  [6/6] Optional: Alle Bewerbungsdaten loeschen
 set /p DELETE_DATA="  Soll %DATA_DIR% komplett geloescht werden? (j/n): "
 if /i "!DELETE_DATA!"=="j" (
     if exist "%DATA_DIR%" (

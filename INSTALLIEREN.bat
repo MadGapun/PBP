@@ -21,9 +21,12 @@ if "%BASEDIR:~-1%"=="\" set "BASEDIR=%BASEDIR:~0,-1%"
 
 set "PYTHON_DIR=%BASEDIR%\python"
 set "PYTHON=%PYTHON_DIR%\python.exe"
-set "DATA_DIR=%LOCALAPPDATA%\BewerbungsAssistent"
+set "BASE_INSTALL=%LOCALAPPDATA%\BewerbungsAssistent"
+set "APP_DIR=%BASE_INSTALL%\app"
+set "DATA_DIR=%BASE_INSTALL%\data"
 set "SRC_DIR=%BASEDIR%\src"
 set "LOGFILE=%BASEDIR%\install_log.txt"
+set "PBP_VERSION=1.5.0-beta.0"
 
 :: Python Embeddable Download
 set "PY_VERSION=3.12.10"
@@ -381,18 +384,46 @@ if !errorlevel! equ 0 (
 )
 :email_install_done
 
-:: Datenverzeichnis erstellen
+:: Verzeichnisstruktur erstellen (#297: app/ und data/ getrennt)
+if not exist "%BASE_INSTALL%" mkdir "%BASE_INSTALL%"
+if not exist "%APP_DIR%" mkdir "%APP_DIR%"
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
 if not exist "%DATA_DIR%\dokumente" mkdir "%DATA_DIR%\dokumente"
 if not exist "%DATA_DIR%\export" mkdir "%DATA_DIR%\export"
 if not exist "%DATA_DIR%\logs" mkdir "%DATA_DIR%\logs"
+
+:: Migration v1.4.x -> v1.5.0: Daten aus flacher Struktur verschieben (#297)
+if exist "%BASE_INSTALL%\pbp.db" (
+    echo [INFO] Migration: Verschiebe Daten von flach nach data/ >> "%LOGFILE%"
+    if not exist "%DATA_DIR%\pbp.db" move "%BASE_INSTALL%\pbp.db" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+    if exist "%BASE_INSTALL%\mcp_heartbeat.json" move "%BASE_INSTALL%\mcp_heartbeat.json" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)
+    if exist "%BASE_INSTALL%\dokumente" (
+        xcopy "%BASE_INSTALL%\dokumente" "%DATA_DIR%\dokumente\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+        rmdir /s /q "%BASE_INSTALL%\dokumente" 2>nul
+    )
+    if exist "%BASE_INSTALL%\export" (
+        xcopy "%BASE_INSTALL%\export" "%DATA_DIR%\export\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+        rmdir /s /q "%BASE_INSTALL%\export" 2>nul
+    )
+    if exist "%BASE_INSTALL%\logs" (
+        xcopy "%BASE_INSTALL%\logs" "%DATA_DIR%\logs\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+        rmdir /s /q "%BASE_INSTALL%\logs" 2>nul
+    )
+    :: Alte python/ und src/ aus flacher Struktur entfernen
+    if exist "%BASE_INSTALL%\python" rmdir /s /q "%BASE_INSTALL%\python" 2>nul
+    if exist "%BASE_INSTALL%\src" rmdir /s /q "%BASE_INSTALL%\src" 2>nul
+    echo         [OK] Migration von v1.4.x abgeschlossen
+    echo [OK] Migration abgeschlossen >> "%LOGFILE%"
+)
+
 echo         [OK] Datenordner erstellt
 echo [OK] Datenordner: %DATA_DIR% >> "%LOGFILE%"
 
-:: Runtime in festen Pfad kopieren (update-sichere Pfade fuer Claude Desktop)
+:: Runtime in festen Pfad kopieren (update-sichere Pfade fuer Claude Desktop, #297)
 echo.
 echo         Kopiere Runtime in festen Installationspfad...
-echo [INFO] Kopiere python + src nach %DATA_DIR% >> "%LOGFILE%"
+echo [INFO] Kopiere python + src nach %APP_DIR% >> "%LOGFILE%"
 
 :: Laufende PBP-Prozesse beenden (verhindert "Unzulaessiger SHARE-Vorgang")
 echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
@@ -411,32 +442,34 @@ if "!KILLED_PROCESSES!"=="1" (
     timeout /t 2 /nobreak >nul
 )
 
-:: python/ Ordner kopieren
+:: python/ Ordner kopieren (#297: nach app/)
 echo [DEBUG] Kopiere python-Ordner... >> "%LOGFILE%"
-if exist "%DATA_DIR%\python" rmdir /s /q "%DATA_DIR%\python" 2>nul
-if exist "%DATA_DIR%\python" (
+if exist "%APP_DIR%\python" rmdir /s /q "%APP_DIR%\python" 2>nul
+if exist "%APP_DIR%\python" (
     echo [WARN] python-Ordner konnte nicht geloescht werden, versuche ueberschreiben >> "%LOGFILE%"
 )
-xcopy "%PYTHON_DIR%" "%DATA_DIR%\python\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+xcopy "%PYTHON_DIR%" "%APP_DIR%\python\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
 echo [OK] python kopiert >> "%LOGFILE%"
 
-:: src/ Ordner kopieren
+:: src/ Ordner kopieren (#297: nach app/)
 echo [DEBUG] Kopiere src-Ordner... >> "%LOGFILE%"
 if not exist "%SRC_DIR%" goto :err_not_extracted
-if exist "%DATA_DIR%\src" rmdir /s /q "%DATA_DIR%\src" 2>nul
-xcopy "%SRC_DIR%" "%DATA_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+if exist "%APP_DIR%\src" rmdir /s /q "%APP_DIR%\src" 2>nul
+xcopy "%SRC_DIR%" "%APP_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
 echo [OK] src kopiert >> "%LOGFILE%"
 
-:: Startdateien nach DATA_DIR kopieren (Dashboard starten.bat + start_dashboard.py)
+:: Startdateien nach APP_DIR kopieren (Dashboard starten.bat + start_dashboard.py)
 echo [DEBUG] Kopiere Startdateien... >> "%LOGFILE%"
-if exist "%BASEDIR%\Dashboard starten.bat" copy /Y "%BASEDIR%\Dashboard starten.bat" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
-if exist "%BASEDIR%\start_dashboard.py" copy /Y "%BASEDIR%\start_dashboard.py" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
-if exist "%BASEDIR%\_selftest.py" copy /Y "%BASEDIR%\_selftest.py" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\Dashboard starten.bat" copy /Y "%BASEDIR%\Dashboard starten.bat" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\start_dashboard.py" copy /Y "%BASEDIR%\start_dashboard.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\_selftest.py" copy /Y "%BASEDIR%\_selftest.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\DEINSTALLIEREN.bat" copy /Y "%BASEDIR%\DEINSTALLIEREN.bat" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+if exist "%BASEDIR%\favicon.ico" copy /Y "%BASEDIR%\favicon.ico" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
 echo [OK] Startdateien kopiert >> "%LOGFILE%"
 
-echo         [OK] Runtime installiert in %DATA_DIR%
+echo         [OK] Runtime installiert in %APP_DIR%
 echo [OK] Runtime installiert >> "%LOGFILE%"
 echo.
 
@@ -497,14 +530,29 @@ echo [FEHLER] _setup_claude.py >> "%LOGFILE%"
 echo.
 
 :: -------------------------------------------
+:: Registry-Eintrag fuer Windows Apps & Features (#299)
+:: -------------------------------------------
+echo [DEBUG] Schreibe Registry-Eintrag >> "%LOGFILE%"
+set "REG_PATH=HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP"
+reg add "%REG_PATH%" /v DisplayName      /t REG_SZ    /d "PBP - Persoenliches Bewerbungs-Portal" /f >nul 2>&1
+reg add "%REG_PATH%" /v DisplayVersion   /t REG_SZ    /d "%PBP_VERSION%" /f >nul 2>&1
+reg add "%REG_PATH%" /v Publisher        /t REG_SZ    /d "MadGapun (github.com/MadGapun/PBP)" /f >nul 2>&1
+reg add "%REG_PATH%" /v InstallLocation  /t REG_SZ    /d "%APP_DIR%" /f >nul 2>&1
+reg add "%REG_PATH%" /v UninstallString  /t REG_SZ    /d "\"%APP_DIR%\DEINSTALLIEREN.bat\"" /f >nul 2>&1
+reg add "%REG_PATH%" /v NoModify         /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "%REG_PATH%" /v NoRepair         /t REG_DWORD /d 1 /f >nul 2>&1
+echo         [OK] In Windows Apps ^& Features eingetragen
+echo [OK] Registry-Eintrag geschrieben >> "%LOGFILE%"
+
+:: -------------------------------------------
 :: SCHRITT 4: Startdateien + Test
 :: -------------------------------------------
 echo [DEBUG] Starte Schritt 4 >> "%LOGFILE%"
 echo  [4/4] Erstelle Startdateien und teste...
 echo [4/4] Startdateien + Test... >> "%LOGFILE%"
 
-:: Desktop-Verknuepfung (zeigt auf DATA_DIR - stabil auch nach ZIP-Loeschung)
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%DATA_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%DATA_DIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
+:: Desktop-Verknuepfung (zeigt auf APP_DIR - stabil auch nach ZIP-Loeschung, #297)
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%APP_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%APP_DIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
 if !errorlevel! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
 if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 
@@ -554,7 +602,7 @@ echo.
 echo  ====================================================
 echo.
 echo    Deine Daten: %DATA_DIR%
-echo    Installation: %BASEDIR%
+echo    App-Code: %APP_DIR%
 echo    Log-Datei: %LOGFILE%
 echo.
 
@@ -573,7 +621,7 @@ if /i "!OPEN_DASH!" neq "j" goto :skip_dashboard
 
 echo.
 echo  Starte Dashboard...
-start "" "%DATA_DIR%\Dashboard starten.bat"
+start "" "%APP_DIR%\Dashboard starten.bat"
 timeout /t 3 /nobreak >nul
 echo  Dashboard laeuft auf http://localhost:8200
 echo.
