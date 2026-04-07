@@ -547,12 +547,19 @@ export default function ApplicationsPage() {
               <SectionHeading title={`Follow-ups (${followUps.length})`} />
               <div className="grid gap-1.5">
                 {followUps.map((followUp) => (
-                  <div key={followUp.id} className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
-                    followUp.faellig ? "bg-coral/8 border border-coral/15" : "bg-white/[0.03] border border-white/5"
-                  )}>
-                    <CalendarClock size={14} className={followUp.faellig ? "text-coral" : "text-muted/40"} />
-                    <span className="flex-1 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
+                  <div
+                    key={followUp.id}
+                    title={`${followUp.title} — ${followUp.company}`}
+                    onClick={() => openTimeline({ id: followUp.application_id })}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0",
+                      followUp.faellig
+                        ? "bg-coral/8 border border-coral/15 hover:bg-coral/15"
+                        : "bg-white/[0.03] border border-white/5 hover:bg-white/[0.07]"
+                    )}
+                  >
+                    <CalendarClock size={14} className={cn("shrink-0", followUp.faellig ? "text-coral" : "text-muted/40")} />
+                    <span className="flex-1 min-w-0 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
                     <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
                     <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
                   </div>
