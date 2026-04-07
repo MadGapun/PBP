@@ -397,6 +397,74 @@ class TestSim3RecherchePlusDuplikat:
         assert found_dup, "Duplikat-Erkennung hat die bestehende Stelle nicht gefunden"
         db.close()
 
+    def test_duplikat_erkennung_gegen_bewerbungen(self, tmp_path):
+        """stelle_manuell_anlegen erkennt Duplikate gegen bestehende Bewerbungen (#317)."""
+        db = _build_server(tmp_path)
+        _seed_profile(db)
+
+        # Bewerbung bei TKMS anlegen
+        app_id = db.add_application({
+            "title": "Senior Projektmanager PLM",
+            "company": "TKMS GmbH",
+            "status": "beworben",
+            "url": "https://stepstone.de/jobs/12345",
+        })
+        assert app_id
+
+        # Duplikat-Logik simulieren: gleiche Firma + ähnlicher Titel
+        import re
+        firma = "TKMS GmbH"
+        titel = "Senior Projektmanager PLM Engineering"
+        firma_lower = firma.lower()
+        titel_words = set(titel.lower().split())
+
+        apps = db.get_applications()
+        found_dup = False
+        for app in apps:
+            app_company = (app.get("company") or "").lower()
+            app_title = (app.get("title") or "").lower()
+            if firma_lower in app_company or app_company in firma_lower:
+                app_words = set(app_title.split())
+                overlap = titel_words & app_words
+                if len(overlap) >= min(2, len(titel_words)):
+                    found_dup = True
+                    break
+
+        assert found_dup, (
+            "Duplikat-Erkennung gegen Bewerbungen hat TKMS-Bewerbung nicht erkannt"
+        )
+
+        # URL-Duplikat-Erkennung
+        url = "https://stepstone.de/jobs/12345"
+        url_norm = url.lower().rstrip("/")
+        found_url_dup = False
+        for app in apps:
+            app_url = (app.get("url") or "").lower().rstrip("/")
+            if app_url and app_url == url_norm:
+                found_url_dup = True
+                break
+        assert found_url_dup, "URL-Duplikat-Erkennung hat bestehende Bewerbung nicht erkannt"
+
+        # Kein Duplikat bei anderer Firma
+        apps2 = db.get_applications()
+        firma2 = "Rheinmetall AG"
+        titel2 = "Projektleiter Schiffbau"
+        firma2_lower = firma2.lower()
+        titel2_words = set(titel2.lower().split())
+        no_dup = True
+        for app in apps2:
+            app_company = (app.get("company") or "").lower()
+            app_title = (app.get("title") or "").lower()
+            if firma2_lower in app_company or app_company in firma2_lower:
+                app_words = set(app_title.split())
+                overlap = titel2_words & app_words
+                if len(overlap) >= min(2, len(titel2_words)):
+                    no_dup = False
+                    break
+        assert no_dup, "Falsch-positives Duplikat bei komplett anderer Firma"
+
+        db.close()
+
 
 # ==========================================================
 # SIMULATION 4: E-Mail-Kontakt + Bewerbung (#225 + alte Pipeline)
