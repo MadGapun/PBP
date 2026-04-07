@@ -1039,7 +1039,7 @@ export default function App() {
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => closeWizard(false)}>
-                Spaeter
+                Später
               </Button>
             </div>
 

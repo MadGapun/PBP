@@ -41,7 +41,7 @@ def check_versions(fix=False):
     # __init__.py
     init_file = PROJECT_DIR / "src" / "bewerbungs_assistent" / "__init__.py"
     init_version = None
-    for line in init_file.read_text().splitlines():
+    for line in init_file.read_text(encoding="utf-8").splitlines():
         if line.startswith("__version__"):
             init_version = line.split("=")[1].strip().strip('"').strip("'")
             break
@@ -49,7 +49,7 @@ def check_versions(fix=False):
     # pyproject.toml
     pyproject_file = PROJECT_DIR / "pyproject.toml"
     pyproject_version = None
-    for line in pyproject_file.read_text().splitlines():
+    for line in pyproject_file.read_text(encoding="utf-8").splitlines():
         m = re.match(r'^version\s*=\s*"([^"]+)"', line)
         if m:
             pyproject_version = m.group(1)
@@ -58,7 +58,7 @@ def check_versions(fix=False):
     # CHANGELOG.md
     changelog_file = PROJECT_DIR / "CHANGELOG.md"
     changelog_version = None
-    for line in changelog_file.read_text().splitlines():
+    for line in changelog_file.read_text(encoding="utf-8").splitlines():
         m = re.match(r'^## \[([^\]]+)\]', line)
         if m:
             changelog_version = m.group(1)
@@ -78,7 +78,7 @@ def check_versions(fix=False):
             print(f"    {source}: {ver}")
         if fix and init_version:
             # Fix pyproject.toml
-            content = pyproject_file.read_text()
+            content = pyproject_file.read_text(encoding="utf-8")
             content = re.sub(r'^version = "[^"]+"', f'version = "{init_version}"', content, flags=re.MULTILINE)
             pyproject_file.write_text(content)
             ok(f"pyproject.toml auf {init_version} korrigiert")
@@ -97,7 +97,7 @@ def check_skipped_tests():
     critical_skips = []
 
     for test_file in test_dir.glob("*.py"):
-        content = test_file.read_text()
+        content = test_file.read_text(encoding="utf-8")
         for i, line in enumerate(content.splitlines(), 1):
             if "@pytest.mark.skip" in line and "onboarding" in line.lower():
                 critical_skips.append(f"{test_file.name}:{i}: {line.strip()}")
@@ -114,7 +114,7 @@ def check_skipped_tests():
 def check_badge():
     print("\n[3/4] README-Badge")
 
-    readme = (PROJECT_DIR / "README.md").read_text()
+    readme = (PROJECT_DIR / "README.md").read_text(encoding="utf-8")
     m = re.search(r'Tests-(\d+)(?:%20passing)?', readme)
     if not m:
         warn("Kein Test-Badge in README gefunden")

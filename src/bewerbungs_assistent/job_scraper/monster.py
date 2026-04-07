@@ -47,7 +47,9 @@ def search_monster(params: dict) -> list:
         for query in queries:
             try:
                 # Monster.de uses different URL patterns — try current one
-                url = f"https://www.monster.de/jobs/suche?q={quote(query)}&where=Deutschland"
+                regionen = kw_data.get("regionen", []) if isinstance(kw_data, dict) else []
+                location = regionen[0] if regionen else "Deutschland"
+                url = f"https://www.monster.de/jobs/suche?q={quote(query)}&where={quote(location)}"
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 time.sleep(random.uniform(2, 4))
 

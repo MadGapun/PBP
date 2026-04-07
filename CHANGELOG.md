@@ -2,6 +2,15 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.2] - 2026-04-08
+
+### Bug Fixes
+- **#339**: ICS-Gesamtexport defekt — statische Route `/api/meetings/export.ics` wurde von dynamischer `{meeting_id}` Route ueberschattet (Route-Reihenfolge korrigiert)
+- **#335**: Regionen in Jobsuche ignoriert — `regionen` aus Suchkriterien werden jetzt an Indeed (`l=`), Monster (`where=`), Bundesagentur (`wo=`), StepStone (`?where=`) und Freelancermap (`&ort=`) durchgereicht
+- **#334**: `release_check.py` crasht unter Windows — alle `read_text()` Aufrufe auf `encoding="utf-8"` umgestellt
+- **#338**: Heise-Fallback liefert generische Uebersichtsseiten — Kategorie-Links und Titel ohne konkrete Stellen-ID werden gefiltert
+- **#336**: First-Run-Wizard Button "Spaeter" blockiert Browser-Tests — Text auf "Spaeter" mit korrektem UTF-8 geaendert
+
 ## [1.4.3] - 2026-04-05
 
 ### Bug Fixes

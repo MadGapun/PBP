@@ -46,7 +46,9 @@ def search_indeed(params: dict) -> list:
 
         for query in queries:
             try:
-                url = f"https://de.indeed.com/jobs?q={quote(query)}&l=Deutschland"
+                regionen = kw_data.get("regionen", []) if isinstance(kw_data, dict) else []
+                location = regionen[0] if regionen else "Deutschland"
+                url = f"https://de.indeed.com/jobs?q={quote(query)}&l={quote(location)}"
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 time.sleep(random.uniform(3, 5))
 

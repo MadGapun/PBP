@@ -96,10 +96,16 @@ def search_heise_jobs(params: dict) -> list:
                         if not link_el:
                             continue
                         title = link_el.get_text(strip=True)
-                        if not title or len(title) < 5:
+                        if not title or len(title) < 10:
                             continue
                         href = link_el.get("href", "")
                         if not href or "/jobs/suche" in href:
+                            continue
+                        # Skip generic category/overview pages (#338)
+                        if re.match(r"^Jobs\s+\w+$", title):
+                            continue
+                        # Only accept URLs that point to actual job postings (with numeric ID)
+                        if "/jobs/" in href and not re.search(r"/jobs/\d+", href):
                             continue
                         url = href if href.startswith("http") else f"https://www.heise.de{href}"
 

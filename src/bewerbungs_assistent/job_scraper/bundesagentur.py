@@ -31,16 +31,25 @@ def search_bundesagentur(params: dict) -> list:
     Returns:
         List of job dicts
     """
-    keywords = params.get("keywords") or DEFAULT_KEYWORDS
+    kw_data = params.get("keywords", {})
+    if isinstance(kw_data, dict):
+        keywords = kw_data.get("general", DEFAULT_KEYWORDS)
+        regionen = kw_data.get("regionen", [])
+    else:
+        keywords = kw_data or DEFAULT_KEYWORDS
+        regionen = []
     criteria = params.get("criteria", {})
     jobs = []
 
     with httpx.Client(timeout=30) as client:
         for kw in keywords:
             try:
+                api_params = {"was": kw, "size": 25, "page": 1}
+                if regionen:
+                    api_params["wo"] = regionen[0]
                 resp = client.get(
                     API_URL,
-                    params={"was": kw, "size": 25, "page": 1},
+                    params=api_params,
                     headers={"X-API-Key": API_KEY}
                 )
                 if resp.status_code != 200:

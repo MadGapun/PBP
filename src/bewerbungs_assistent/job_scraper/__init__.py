@@ -156,23 +156,31 @@ def build_search_keywords(db) -> dict:
     if not all_kw:
         return {}
 
+    # First region or empty (used for location-aware URL building)
+    region = regionen[0] if regionen else ""
+
     # General keywords (for API sources)
     general = list(all_kw)
 
-    # StepStone: URL-based search
+    # StepStone: URL-based search (with region parameter if available)
     stepstone_urls = []
     for kw in all_kw:
         slug = kw.lower().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-        stepstone_urls.append(f"https://www.stepstone.de/jobs/{slug}")
+        base = f"https://www.stepstone.de/jobs/{slug}"
+        if region:
+            base += f"?where={quote(region)}"
+        stepstone_urls.append(base)
 
     # Hays: lowercase keywords for sitemap URL matching
     hays_keywords = [kw.lower().replace(" ", "-") for kw in all_kw]
 
-    # Freelancermap: query parameter URLs
-    freelancermap_urls = [
-        f"https://www.freelancermap.de/projektboerse.html?q={quote(kw)}"
-        for kw in all_kw
-    ]
+    # Freelancermap: query parameter URLs (with region if available)
+    freelancermap_urls = []
+    for kw in all_kw:
+        url = f"https://www.freelancermap.de/projektboerse.html?q={quote(kw)}"
+        if region:
+            url += f"&ort={quote(region)}"
+        freelancermap_urls.append(url)
 
     # freelance.de: skill-based URLs (keyword → Skill-Projekte)
     freelance_de_urls = [
@@ -185,6 +193,7 @@ def build_search_keywords(db) -> dict:
 
     return {
         "general": general,
+        "regionen": regionen,
         "stepstone_urls": stepstone_urls,
         "hays_keywords": hays_keywords,
         "freelancermap_urls": freelancermap_urls,
