@@ -2,6 +2,7 @@
   AppWindow,
   BarChart3,
   BriefcaseBusiness,
+  CalendarDays,
   ChevronDown,
   Copy,
   Coffee,
@@ -29,6 +30,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import JobsPage from "@/pages/JobsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
+import CalendarPage from "@/pages/CalendarPage";
 import StatsPage from "@/pages/StatsPage";
 import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
 
@@ -57,6 +59,7 @@ const TAB_CONFIG = [
   { id: "profil", title: "Profil", icon: UserRound, defaultMeta: "Lebenslauf-Basis und Vollständigkeit" },
   { id: "stellen", title: "Stellen", icon: BriefcaseBusiness, defaultMeta: "Treffer, Filter und Fit" },
   { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "TODOs, Follow-ups und Status" },
+  { id: "kalender", title: "Kalender", icon: CalendarDays, defaultMeta: "Termine und ICS-Export" },
   { id: "statistiken", title: "Statistiken", icon: BarChart3, defaultMeta: "Charts, Trends und Export" },
   { id: "einstellungen", title: "Einstellungen", icon: Settings2, defaultMeta: "Quellen, Suche und Verhalten" },
 ];
@@ -929,6 +932,7 @@ export default function App() {
           {page === "profil" ? <ProfilePage /> : null}
           {page === "stellen" ? <JobsPage /> : null}
           {page === "bewerbungen" ? <ApplicationsPage /> : null}
+          {page === "kalender" ? <CalendarPage /> : null}
           {page === "statistiken" ? <StatsPage /> : null}
           {page === "einstellungen" ? <SettingsPage /> : null}
         </main>
