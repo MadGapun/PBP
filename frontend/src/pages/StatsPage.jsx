@@ -199,7 +199,27 @@ export default function StatsPage() {
     <div id="page-statistiken" className="page active">
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Statistiken</h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick-select Presets (#307) */}
+          {[
+            { label: "30 Tage", value: "day" },
+            { label: "12 Wochen", value: "week" },
+            { label: "12 Monate", value: "month" },
+            { label: "Alles", value: "all" },
+          ].map((preset) => (
+            <button
+              key={preset.value}
+              type="button"
+              onClick={() => setInterval_(preset.value)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                interval === preset.value
+                  ? "bg-sky/15 text-sky"
+                  : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
           <SelectInput
             className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
             value={interval}
