@@ -7,6 +7,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Stable](https://img.shields.io/badge/Stable-v1.4.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Beta](https://img.shields.io/badge/Beta-v1.5.0--beta-orange.svg)](https://github.com/MadGapun/PBP/releases)
 [![Tests](https://img.shields.io/badge/Tests-383-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
@@ -300,6 +302,8 @@ Der Installer:
 3. **Doppelklicke `INSTALLIEREN.command`** — fertig!
 
 > **Voraussetzungen:** macOS 12+, Python 3.11+ (`brew install python@3.12`), [Claude Desktop](https://claude.ai/download)
+
+> **Beta testen?** Wer neue Features vorab ausprobieren möchte, findet die aktuelle Beta unter [Alle Releases](https://github.com/MadGapun/PBP/releases) (als "Pre-release" markiert). Beta-Versionen können instabil sein — Feedback ist willkommen!
 
 ### 2. Profil erstellen
 

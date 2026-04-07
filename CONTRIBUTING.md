@@ -40,10 +40,26 @@ Nutze das [Feature-Template](https://github.com/MadGapun/PBP/issues/new?template
 ### Code beitragen
 
 1. **Fork** das Repository
-2. Erstelle einen **Feature-Branch**: `git checkout -b feature/mein-feature`
+2. Erstelle einen **Feature-Branch** von `develop`: `git checkout develop && git checkout -b feature/mein-feature`
 3. Entwickle und teste lokal
 4. Stelle sicher, dass alle Tests grün sind: `python -m pytest tests/ -q`
-5. Erstelle einen **Pull Request** gegen `main`
+5. Erstelle einen **Pull Request** gegen `develop` (nicht gegen `main`!)
+
+### Branch-Strategie
+
+```
+main       → Nur stabile, produktionsreife Releases (= "Latest" auf GitHub)
+develop    → Laufende Entwicklung, Beta-Versionen (= Pre-release auf GitHub)
+feature/*  → Einzelne Features/Bugfixes, werden in develop gemergt
+```
+
+- **Stabile Releases** (z.B. `v1.4.3`) werden auf `main` getaggt → GitHub "Latest Release"
+- **Beta-Releases** (z.B. `v1.5.0-beta.1`) werden auf `develop` getaggt → GitHub "Pre-release"
+- Wenn eine Beta stabil genug ist, wird `develop` in `main` gemergt und als stabiler Release veröffentlicht
+
+### Tipp für die Zusammenarbeit mit Claude/Codex
+
+Claude (und andere KI-Assistenten) brauchen manchmal explizite, wiederholte Anweisungen — besonders bei komplexeren Aufgaben. Wenn etwas nicht beim ersten Mal klappt: Nochmal klar sagen, was genau erwartet wird. Das ist kein Fehler, sondern Teil des Workflows.
 
 ## Konventionen
 
