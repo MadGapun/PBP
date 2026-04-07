@@ -602,7 +602,7 @@ export default function ApplicationsPage() {
         title={`Timeline - ${timelineDialog.entry?.application?.title || ""}`}
         onClose={() => setTimelineDialog({ open: false, entry: null })}
         size="xl"
-        footer={<div className="flex justify-end"><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schließen</Button></div>}
+        footer={<div className="flex justify-between"><LinkButton size="sm" href={`/api/application/${timelineDialog.entry?.application?.id}/timeline/print`} target="_blank" rel="noreferrer"><Download size={14} /> Protokoll drucken</LinkButton><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schlie&szlig;en</Button></div>}
       >
         <div className="grid gap-5">
           {/* Application details & contact (#134 editable) */}
@@ -1155,6 +1155,29 @@ export default function ApplicationsPage() {
               </Button>
             </div>
           </Card>
+
+          {/* E-Mail & Termin-Einträge aus unified_timeline (#313) */}
+          {(timelineDialog.entry?.unified_timeline || []).filter(e => e._source === "email" || e._source === "meeting").length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+                Automatische Eintr&auml;ge
+              </p>
+              <div className="grid gap-1.5">
+                {(timelineDialog.entry?.unified_timeline || [])
+                  .filter(e => e._source === "email" || e._source === "meeting")
+                  .map((entry) => (
+                    <div key={entry.id} className="flex items-center gap-2 text-sm">
+                      <Badge tone={entry._source === "email" ? "sky" : "success"}>
+                        {entry._source === "email" ? "E-Mail" : "Termin"}
+                      </Badge>
+                      <span className="text-xs text-muted/40 shrink-0">{formatDate(entry.event_date)}</span>
+                      <span className="text-ink truncate">{entry.description}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </Card>
+          )}
 
           {/* Timeline events */}
           {(timelineDialog.entry?.events || []).length ? (

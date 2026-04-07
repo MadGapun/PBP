@@ -1256,12 +1256,129 @@ async def api_application_timeline(app_id: str):
     # Get linked documents
     documents = _db.get_documents_for_application(app_id)
 
+    # #313: Emails und Meetings als Timeline-Einträge einfügen
+    emails = _db.get_emails_for_application(app_id) if hasattr(_db, 'get_emails_for_application') else []
+    meetings = _db.get_meetings_for_application(app_id) if hasattr(_db, 'get_meetings_for_application') else []
+
+    # Unified timeline: events + emails + meetings chronologisch
+    unified_timeline = list(events)
+    for email in emails:
+        unified_timeline.append({
+            "id": email.get("id"),
+            "event_type": "email",
+            "event_date": email.get("received_at") or email.get("created_at", ""),
+            "description": f"E-Mail: {email.get('subject', '(Kein Betreff)')}",
+            "details": email.get("sender", ""),
+            "_source": "email",
+            "_email_id": email.get("id"),
+        })
+    for meeting in meetings:
+        unified_timeline.append({
+            "id": meeting.get("id"),
+            "event_type": "meeting",
+            "event_date": meeting.get("meeting_date", ""),
+            "description": f"Termin: {meeting.get('title', 'Termin')}",
+            "details": f"{meeting.get('location', '')} {meeting.get('platform', '')}".strip(),
+            "_source": "meeting",
+            "_meeting_id": meeting.get("id"),
+        })
+    # Chronologisch sortieren (neueste zuerst)
+    unified_timeline.sort(key=lambda e: e.get("event_date", ""), reverse=True)
+
     return {
         "application": application,
         "events": events,
+        "unified_timeline": unified_timeline,
         "job": job,
         "documents": documents,
+        "emails": emails,
+        "meetings": meetings,
     }
+
+
+@app.get("/api/application/{app_id}/timeline/print")
+async def api_application_timeline_print(app_id: str):
+    """Druckbare HTML-Seite des Bewerbungsprotokolls (#313)."""
+    conn = _db.connect()
+    app_row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
+    if not app_row:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    app_data = dict(app_row)
+
+    events = [dict(r) for r in conn.execute(
+        "SELECT * FROM application_events WHERE application_id = ? ORDER BY event_date ASC",
+        (app_id,)
+    ).fetchall()]
+    emails = _db.get_emails_for_application(app_id) if hasattr(_db, 'get_emails_for_application') else []
+    meetings = _db.get_meetings_for_application(app_id) if hasattr(_db, 'get_meetings_for_application') else []
+    documents = _db.get_documents_for_application(app_id)
+
+    # Build unified chronological entries
+    entries = []
+    for e in events:
+        entries.append({"date": e.get("event_date", ""), "type": "Ereignis",
+                        "text": e.get("description", "")})
+    for em in emails:
+        entries.append({"date": em.get("received_at") or em.get("sent_date", ""),
+                        "type": "E-Mail",
+                        "text": f"{em.get('subject', '(Kein Betreff)')} — {em.get('sender', '')}"})
+    for m in meetings:
+        entries.append({"date": m.get("meeting_date", ""), "type": "Termin",
+                        "text": f"{m.get('title', 'Termin')}" + (f" ({m.get('platform', '')})" if m.get('platform') else "")})
+    entries.sort(key=lambda x: x["date"])
+
+    # Build HTML
+    title = app_data.get("title", "Bewerbung")
+    company = app_data.get("company", "")
+    status = app_data.get("status", "")
+    applied_at = app_data.get("applied_at", "")
+
+    rows_html = ""
+    for e in entries:
+        rows_html += f"<tr><td>{e['date'][:10] if e['date'] else '-'}</td><td><strong>{e['type']}</strong></td><td>{e['text']}</td></tr>\n"
+
+    docs_html = ""
+    for d in documents:
+        docs_html += f"<li>{d.get('filename', '')} ({d.get('doc_type', '')})</li>\n"
+
+    html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Bewerbungsprotokoll — {title} bei {company}</title>
+<style>
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; color: #333; }}
+h1 {{ font-size: 1.4rem; margin-bottom: 0.3rem; }}
+h2 {{ font-size: 1.1rem; margin-top: 1.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }}
+.meta {{ color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; }}
+th, td {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }}
+th {{ background: #f5f5f5; font-weight: 600; }}
+ul {{ padding-left: 1.5rem; }}
+li {{ margin-bottom: 0.3rem; font-size: 0.85rem; }}
+.footer {{ margin-top: 2rem; font-size: 0.75rem; color: #999; border-top: 1px solid #eee; padding-top: 0.5rem; }}
+@media print {{ body {{ padding: 0; }} }}
+</style>
+</head>
+<body>
+<h1>Bewerbungsprotokoll</h1>
+<p class="meta"><strong>{title}</strong> bei {company}<br>
+Status: {status} | Beworben: {applied_at[:10] if applied_at else '-'} | ID: {app_id[:8]}</p>
+
+<h2>Chronologie ({len(entries)} Eintr&auml;ge)</h2>
+<table>
+<tr><th>Datum</th><th>Typ</th><th>Beschreibung</th></tr>
+{rows_html}
+</table>
+
+{"<h2>Verknüpfte Dokumente (" + str(len(documents)) + ")</h2><ul>" + docs_html + "</ul>" if documents else ""}
+
+<div class="footer">Erstellt von PBP Bewerbungs-Assistent | {datetime.now().strftime('%d.%m.%Y %H:%M')}</div>
+</body>
+</html>"""
+
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/jobs")
