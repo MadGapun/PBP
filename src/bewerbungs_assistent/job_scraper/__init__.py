@@ -399,6 +399,12 @@ def run_search(db, job_id: str, params: dict):
 
     completed = 0
 
+    # #316: Per-Source Status-Tracking (Fokus-Modus)
+    source_status = {}  # quelle -> {"status": ok|timeout|error|skipped, "count": N, "time_s": N}
+
+    for q in skipped_sources:
+        source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}
+
     # Phase 1: Run httpx-based scrapers in parallel (#234)
     if httpx_quellen:
         db.update_background_job(
@@ -407,32 +413,42 @@ def run_search(db, job_id: str, params: dict):
         )
         parallel_executor = ThreadPoolExecutor(max_workers=min(4, len(httpx_quellen)))
         futures = {}
+        _start_times = {}
         for quelle in httpx_quellen:
             try:
                 search_func = _load_scraper(quelle)
                 timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+                _start_times[quelle] = time.time()
                 futures[parallel_executor.submit(_run_with_loop, search_func, params)] = (quelle, timeout)
             except ImportError as e:
                 logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
                 skipped_sources.append(quelle)
+                source_status[quelle] = {"status": "error", "count": 0, "time_s": 0, "detail": str(e)}
 
         for future in futures:
             quelle, timeout = futures[future]
+            elapsed = round(time.time() - _start_times.get(quelle, time.time()), 1)
             try:
                 jobs = future.result(timeout=timeout)
                 all_jobs.extend(jobs)
                 logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
+                elapsed = round(time.time() - _start_times.get(quelle, time.time()), 1)
+                source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
             except FuturesTimeoutError:
                 logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
                 skipped_sources.append(quelle)
+                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout}
             except Exception as e:
                 logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
                 skipped_sources.append(quelle)
+                source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
             completed += 1
+            # #316: Fokus-Modus Progress mit Per-Source-Status
+            ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
             db.update_background_job(
                 job_id, "running",
                 progress=int((completed / total) * 100),
-                message=f"Fertig: {quelle} ({completed}/{total})"
+                message=f"{quelle}: {source_status[quelle]['status']} ({source_status[quelle]['count']} Stellen) | {ok_count}/{completed} Quellen OK"
             )
         parallel_executor.shutdown(wait=False)
 
@@ -444,6 +460,7 @@ def run_search(db, job_id: str, params: dict):
             progress=int((completed / total) * 100),
             message=f"Durchsuche {quelle}... ({completed}/{total})"
         )
+        _start = time.time()
         try:
             search_func = _load_scraper(quelle)
             timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
@@ -456,18 +473,24 @@ def run_search(db, job_id: str, params: dict):
                 logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
                 executor.shutdown(wait=False, cancel_futures=True)
                 skipped_sources.append(quelle)
+                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout}
                 continue
             finally:
                 executor.shutdown(wait=False)
 
+            elapsed = round(time.time() - _start, 1)
             all_jobs.extend(jobs)
             logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
+            source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
         except ImportError as e:
             logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
             skipped_sources.append(quelle)
+            source_status[quelle] = {"status": "error", "count": 0, "time_s": 0, "detail": str(e)[:100]}
         except Exception as e:
+            elapsed = round(time.time() - _start, 1)
             logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
             skipped_sources.append(quelle)
+            source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
 
     # Deduplicate — first by hash, then cross-source by normalized title+company (#59)
     seen_hashes = set()
@@ -623,6 +646,7 @@ def run_search(db, job_id: str, params: dict):
     result_data = {
         "total": len(unique),
         "quellen": {q: sum(1 for j in unique if j.get("source") == q) for q in quellen},
+        "quellen_status": source_status,  # #316: Per-Source Fokus-Modus
     }
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
