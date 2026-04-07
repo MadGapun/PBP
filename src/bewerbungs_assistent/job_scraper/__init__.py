@@ -1028,8 +1028,21 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if len(skill_miss) > len(skill_hits) and skill_miss:
             risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
-    # #180: Warnung bei fehlender Beschreibung
+    # #305: Hochschulabschluss-Erkennung
     desc = job.get("description") or ""
+    degree_required = _detect_degree_required(f"{job.get('title', '')} {desc}")
+    has_degree = _profile_has_degree(criteria)
+    if degree_required and not has_degree:
+        risks.insert(0,
+            "HOCHSCHULABSCHLUSS GEFORDERT — Stelle fordert formalen Abschluss "
+            "(Studium/Bachelor/Master). Dein Profil enthält keinen. "
+            "Risiko: Automatische ATS-Aussortierung möglich, "
+            "selbst bei passender Berufserfahrung."
+        )
+        factors["Hochschulabschluss fehlt"] = -2
+        total -= 2
+
+    # #180: Warnung bei fehlender Beschreibung
     if len(desc.strip()) < 50:
         risks.insert(0, "BESCHREIBUNG FEHLT — Score ist unzuverlässig! "
                      "Lade die Stellenbeschreibung nach (stelle_manuell_anlegen oder URL öffnen).")
@@ -1042,7 +1055,69 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         "factors": factors,
         "risks": risks,
         "beschreibung_vorhanden": len(desc.strip()) >= 50,
+        "hochschulabschluss_gefordert": degree_required,
     }
+
+
+# Hochschulabschluss-Erkennung (#305)
+_DEGREE_REQUIRED_PATTERNS = [
+    "abgeschlossenes studium",
+    "abgeschlossenes hochschulstudium",
+    "hochschulabschluss",
+    "universitaetsabschluss",
+    "universitätsabschluss",
+    "studienabschluss",
+    "akademischer abschluss",
+    "bachelor oder master",
+    "bachelor/master",
+    "master/bachelor",
+    "diplom oder master",
+    "diplom/master",
+    "bachelor of science",
+    "bachelor of engineering",
+    "bachelor of arts",
+    "master of science",
+    "master of engineering",
+    "master of arts",
+    "university degree",
+    "degree required",
+    "studium erforderlich",
+    "studium vorausgesetzt",
+    "studium im bereich",
+    "studium der informatik",
+    "studium der ingenieurwissenschaft",
+    "studium der wirtschaft",
+    "studium der betriebswirtschaft",
+    "studium des maschinenbau",
+    "studium in informatik",
+    "erfolgreich abgeschlossenes studium",
+]
+
+
+def _detect_degree_required(text: str) -> bool:
+    """Erkennt ob eine Stellenbeschreibung einen Hochschulabschluss fordert (#305)."""
+    text_lower = _normalize_for_matching(text)
+    return any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS)
+
+
+def _profile_has_degree(criteria: dict) -> bool:
+    """Prüft ob das Profil einen Hochschulabschluss enthält (#305)."""
+    education = criteria.get("_profile_education", [])
+    if not education:
+        return False
+    degree_keywords = {"bachelor", "master", "diplom", "magister", "doktor", "dr.",
+                       "phd", "mba", "staatsexamen", "promotion"}
+    for edu in education:
+        degree = (edu.get("degree") or "").lower()
+        if any(kw in degree for kw in degree_keywords):
+            return True
+        # Auch Studienfach prüfen — wenn degree leer, aber field_of_study "Informatik" o.ä.
+        field = (edu.get("field_of_study") or "").lower()
+        if field and ("studium" in degree or "university" in (edu.get("institution") or "").lower()
+                      or "hochschule" in (edu.get("institution") or "").lower()
+                      or "universität" in (edu.get("institution") or "").lower()):
+            return True
+    return False
 
 
 # Remote detection keywords

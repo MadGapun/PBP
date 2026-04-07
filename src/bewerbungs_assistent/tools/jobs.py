@@ -121,6 +121,7 @@ def register(mcp, db, logger):
         "befristet",
         "bereits_beworben",
         "duplikat",
+        "kein_hochschulabschluss",
         "sonstiges",
     ]
 
@@ -185,6 +186,8 @@ def register(mcp, db, logger):
             return "zeitarbeit"
         if "befristet" in lower:
             return "befristet"
+        if "hochschul" in lower or "studium" in lower or "abschluss" in lower or "ats" in lower:
+            return "kein_hochschulabschluss"
         return reason
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
@@ -719,6 +722,8 @@ def register(mcp, db, logger):
         if profile:
             skills = profile.get("skills", [])
             criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
+            # #305: Education für Hochschulabschluss-Erkennung
+            criteria["_profile_education"] = profile.get("education", [])
             prefs = profile.get("preferences", {})
             if prefs.get("min_gehalt"):
                 criteria["min_gehalt"] = prefs["min_gehalt"]

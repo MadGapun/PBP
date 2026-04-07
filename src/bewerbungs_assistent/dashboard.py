@@ -1319,6 +1319,12 @@ async def api_fit_analyse(job_hash: str):
     if not job:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
     criteria = _db.get_search_criteria()
+    # #305: Education + Skills für Hochschulabschluss-Erkennung
+    profile = _db.get_profile()
+    if profile:
+        skills = profile.get("skills", [])
+        criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
+        criteria["_profile_education"] = profile.get("education", [])
     return fit_analyse(job, criteria)
 
 

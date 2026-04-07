@@ -267,3 +267,71 @@ class TestBuildKeywords:
         # Indeed/Monster queries
         assert "PLM Consultant" in result["indeed_queries"]
         assert "Python" in result["monster_queries"]
+
+
+# === Hochschulabschluss-Erkennung (#305) ===
+
+class TestDegreeDetection:
+    """Fit-Analyse erkennt Hochschulabschluss-Anforderungen (#305)."""
+
+    def test_degree_required_detected(self):
+        """Stellenbeschreibung mit 'abgeschlossenes Studium' wird erkannt."""
+        from bewerbungs_assistent.job_scraper import _detect_degree_required
+        assert _detect_degree_required("Abgeschlossenes Studium im Bereich Informatik")
+        assert _detect_degree_required("Bachelor of Science required")
+        assert _detect_degree_required("Hochschulabschluss in Ingenieurwesen")
+
+    def test_degree_not_falsely_detected(self):
+        """Beschreibungen ohne Studium-Anforderung triggern keine Warnung."""
+        from bewerbungs_assistent.job_scraper import _detect_degree_required
+        assert not _detect_degree_required("10 Jahre Berufserfahrung im PLM-Umfeld")
+        assert not _detect_degree_required("Teamcenter Consultant gesucht")
+
+    def test_profile_has_degree(self):
+        """Profil mit Bachelor/Master wird korrekt erkannt."""
+        from bewerbungs_assistent.job_scraper import _profile_has_degree
+        assert _profile_has_degree({"_profile_education": [
+            {"degree": "Bachelor of Science", "field_of_study": "Informatik", "institution": "TU Hamburg"}
+        ]})
+        assert _profile_has_degree({"_profile_education": [
+            {"degree": "Master of Engineering", "field_of_study": "", "institution": ""}
+        ]})
+
+    def test_profile_without_degree(self):
+        """Profil ohne Studium wird korrekt erkannt."""
+        from bewerbungs_assistent.job_scraper import _profile_has_degree
+        assert not _profile_has_degree({"_profile_education": []})
+        assert not _profile_has_degree({})
+        assert not _profile_has_degree({"_profile_education": [
+            {"degree": "Ausbildung", "field_of_study": "Mechatronik", "institution": "IHK"}
+        ]})
+
+    def test_fit_analyse_degree_risk(self):
+        """Fit-Analyse erzeugt Risikowarnung wenn Studium gefordert aber fehlt."""
+        job = _job(
+            title="PLM Consultant",
+            description="Abgeschlossenes Studium im Bereich Ingenieurwesen. "
+                        "Erfahrung mit PLM/PDM-Systemen wie Teamcenter."
+        )
+        criteria = _criteria(muss=["PLM"])
+        criteria["_profile_education"] = []  # Kein Studium
+        result = fit_analyse(job, criteria)
+        assert result["hochschulabschluss_gefordert"] is True
+        assert any("HOCHSCHULABSCHLUSS" in r for r in result["risks"])
+        assert "Hochschulabschluss fehlt" in result["factors"]
+
+    def test_fit_analyse_no_risk_with_degree(self):
+        """Fit-Analyse erzeugt keine Warnung wenn Profil Studium enthält."""
+        job = _job(
+            title="PLM Consultant",
+            description="Abgeschlossenes Studium im Bereich Ingenieurwesen. "
+                        "Erfahrung mit PLM/PDM-Systemen wie Teamcenter."
+        )
+        criteria = _criteria(muss=["PLM"])
+        criteria["_profile_education"] = [
+            {"degree": "Diplom-Ingenieur", "field_of_study": "Maschinenbau",
+             "institution": "TU München"}
+        ]
+        result = fit_analyse(job, criteria)
+        assert result["hochschulabschluss_gefordert"] is True
+        assert not any("HOCHSCHULABSCHLUSS" in r for r in result["risks"])
