@@ -256,21 +256,31 @@ def register(mcp, db, logger):
         Bei 'passt_nicht' wird der Grund gespeichert und für künftige Suchen gelernt.
         Häufig genutzte Gründe führen automatisch zu Gewichtungsanpassungen.
 
+        WICHTIG: Die KI darf beim Aussortieren KEINE eigenen Ablehnungsgründe
+        erfinden! Nur die vordefinierten Gründe verwenden. Wenn kein passender
+        Grund vorhanden ist, den Nutzer fragen oder 'sonstiges' verwenden.
+        Eigene Gründe darf NUR der Nutzer über das Dashboard-Freitextfeld eingeben.
+
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
             grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gründe)
-            gründe: Liste von Gründen bei passt_nicht (Multi-Select, #108).
-                Vordefinierte Optionen:
+            gruende: Liste von Gründen bei passt_nicht (Multi-Select, #108).
+                NUR vordefinierte Optionen verwenden:
                 zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
                 zu_junior, zu_senior, unpassendes_arbeitsmodell,
                 firma_uninteressant, zeitarbeit, befristet, sonstiges
-                (oder eigener Freitext)
+                KEINE eigenen Gründe erfinden — bei Unsicherheit 'sonstiges'
+                verwenden oder den Nutzer fragen.
         """
         import json as _json
         if bewertung == "passt_nicht":
             # Support multi-select reasons (#108, #120)
-            reason_list = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
+            # #302: KI-erfundene Gründe auf 'sonstiges' normalisieren
+            raw_reasons = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
+            reason_list = list(dict.fromkeys(
+                r if r in ABLEHNUNGSGRUENDE else "sonstiges" for r in raw_reasons
+            ))
             if not reason_list:
                 return {
                     "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",

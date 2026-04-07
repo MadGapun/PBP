@@ -399,6 +399,11 @@ export default function JobsPage() {
         if (dismissed) setDismissedJobs((cur) => [{ ...dismissed, status: "aussortiert" }, ...cur]);
       });
       refreshChrome({ quiet: true });
+      // Reload dismiss reasons so custom reasons appear immediately (#302)
+      try {
+        const updated = await optionalApi("/api/dismiss-reasons");
+        if (updated) setDismissReasons(updated);
+      } catch (_) { /* ignore */ }
       pushToast("Stelle aussortiert.", "success");
       setDismissDialog(EMPTY_DISMISS_DIALOG);
     } catch (error) {
