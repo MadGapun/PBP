@@ -18,9 +18,20 @@ def get_claude_config_path():
 
 
 def get_data_dir():
-    """Gibt das Datenverzeichnis fuer die aktuelle Plattform zurueck."""
+    """Gibt das Datenverzeichnis fuer die aktuelle Plattform zurueck.
+
+    v1.5.0: Klare Trennung — App-Code in app/, Benutzerdaten in data/ (#297).
+    """
     if sys.platform == "win32":
-        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent")
+        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent", "data")
+    else:
+        return os.path.join(os.path.expanduser("~"), ".bewerbungs-assistent")
+
+
+def get_app_dir():
+    """Gibt das App-Verzeichnis (python + src) fuer die aktuelle Plattform zurueck (#297)."""
+    if sys.platform == "win32":
+        return os.path.join(os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent", "app")
     else:
         return os.path.join(os.path.expanduser("~"), ".bewerbungs-assistent")
 
@@ -30,12 +41,14 @@ def detect_mode(project_dir):
 
     Prueft in dieser Reihenfolge:
     1. .venv im Projektordner (Dev-Modus, macOS/Linux/Windows mit venv)
-    2. AppData/Datenverzeichnis (Official-Modus, stabiler Pfad — bevorzugt)
-    3. python/ im Projektordner (Fallback, z.B. aus Downloads)
+    2. AppData app/ Verzeichnis (Official v1.5+, #297 — bevorzugt)
+    3. AppData flach (Official v1.4.x Legacy — Rueckwaertskompatibilitaet)
+    4. python/ im Projektordner (Fallback, z.B. aus Downloads)
 
     Returns (mode, python_exe, src_dir, data_dir)
     """
     data_dir = get_data_dir()
+    app_dir = get_app_dir()
     src_dir_local = os.path.join(project_dir, "src")
 
     # 1. Dev-Modus: .venv existiert im Projektordner
@@ -47,23 +60,34 @@ def detect_mode(project_dir):
     if os.path.exists(venv_python):
         return "dev", venv_python, src_dir_local, data_dir
 
-    # 2. Official-Modus: Python im stabilen Datenverzeichnis (bevorzugt, #292/#297)
-    #    INSTALLIEREN.bat kopiert python + src nach AppData — stabiler als Downloads-Ordner
+    # 2. Official v1.5+ Modus: Python in app/ Unterverzeichnis (#297)
     if sys.platform == "win32":
         for appdata_python in [
-            os.path.join(data_dir, "python", "Scripts", "python.exe"),
-            os.path.join(data_dir, "python", "python.exe"),
+            os.path.join(app_dir, "python", "Scripts", "python.exe"),
+            os.path.join(app_dir, "python", "python.exe"),
         ]:
             if os.path.exists(appdata_python):
-                src_dir_appdata = os.path.join(data_dir, "src")
+                src_dir_appdata = os.path.join(app_dir, "src")
                 return "official", appdata_python, src_dir_appdata, data_dir
     else:
-        official_python = os.path.join(data_dir, "venv", "bin", "python")
+        official_python = os.path.join(app_dir, "venv", "bin", "python")
         if os.path.exists(official_python):
-            src_dir_appdata = os.path.join(data_dir, "src")
+            src_dir_appdata = os.path.join(app_dir, "src")
             return "official", official_python, src_dir_appdata, data_dir
 
-    # 3. Fallback: Python im Projektordner (Windows Embeddable aus Downloads)
+    # 3. Legacy v1.4.x Modus: Python flach in BewerbungsAssistent/ (Rueckwaertskompatibel)
+    legacy_base = os.path.dirname(data_dir) if sys.platform == "win32" else data_dir
+    if sys.platform == "win32":
+        for legacy_python in [
+            os.path.join(legacy_base, "python", "Scripts", "python.exe"),
+            os.path.join(legacy_base, "python", "python.exe"),
+        ]:
+            if os.path.exists(legacy_python):
+                src_dir_legacy = os.path.join(legacy_base, "src")
+                # Legacy data_dir = legacy_base (flache Struktur)
+                return "legacy", legacy_python, src_dir_legacy, legacy_base
+
+    # 4. Fallback: Python im Projektordner (Windows Embeddable aus Downloads)
     if sys.platform == "win32":
         for local_python in [
             os.path.join(project_dir, "python", "Scripts", "python.exe"),
@@ -72,12 +96,12 @@ def detect_mode(project_dir):
             if os.path.exists(local_python):
                 return "local", local_python, src_dir_local, data_dir
 
-    # 4. Nichts gefunden — Official-Pfad als Platzhalter (wird Warnung auslösen)
+    # 5. Nichts gefunden — Official-Pfad als Platzhalter (wird Warnung auslösen)
     if sys.platform == "win32":
-        fallback_python = os.path.join(data_dir, "python", "python.exe")
+        fallback_python = os.path.join(app_dir, "python", "python.exe")
     else:
-        fallback_python = os.path.join(data_dir, "venv", "bin", "python")
-    src_dir_fallback = os.path.join(data_dir, "src")
+        fallback_python = os.path.join(app_dir, "venv", "bin", "python")
+    src_dir_fallback = os.path.join(app_dir, "src")
     return "official", fallback_python, src_dir_fallback, data_dir
 
 
