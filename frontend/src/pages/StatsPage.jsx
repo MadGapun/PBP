@@ -205,6 +205,7 @@ export default function StatsPage() {
             value={interval}
             onChange={(e) => setInterval_(e.target.value)}
           >
+            <option value="day">T\u00e4glich</option>
             <option value="week">W\u00f6chentlich</option>
             <option value="month">Monatlich</option>
             <option value="quarter">Quartalsweise</option>
@@ -276,6 +277,7 @@ export default function StatsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <StatBox label="Stellen gesamt" value={totals.jobs_ever || 0} tone="neutral" />
                   <StatBox label="Aktiv" value={totals.jobs_active || 0} tone="success" />
+                  <StatBox label="Beworben" value={totals.jobs_applied || 0} sub={totals.hit_rate ? `${totals.hit_rate}% Trefferquote` : ""} tone="sky" />
                   <StatBox label="Aussortiert" value={totals.jobs_dismissed || 0} sub={totals.dismiss_rate ? `${totals.dismiss_rate}%` : ""} tone="danger" />
                   <StatBox label="Gepinnt" value={totals.jobs_pinned || 0} tone="amber" />
                 </div>
