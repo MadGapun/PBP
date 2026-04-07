@@ -15,7 +15,7 @@ import functools
 from fastmcp import FastMCP
 
 from .database import Database, get_data_dir
-from .heartbeat import write_heartbeat
+from .heartbeat import write_heartbeat, start_periodic_heartbeat
 
 # Logging: Datei + stderr (stdout ist für MCP-Protokoll reserviert!)
 from .logging_config import setup_logging
@@ -185,6 +185,8 @@ def run_server():
 
     # Heartbeat beim Start schreiben (#295) — Dashboard zeigt sofort "Verbunden"
     write_heartbeat("server_start")
+    # #304: Periodischer Heartbeat — Dashboard erkennt ob Server lebt (ohne Tool-Calls)
+    start_periodic_heartbeat()
 
     # Run MCP server (blocks on stdio)
     from . import __version__

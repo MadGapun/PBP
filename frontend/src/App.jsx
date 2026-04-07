@@ -692,7 +692,7 @@ export default function App() {
               const st = conn?.status || "disconnected";
               const cfg = {
                 connected: { color: "text-teal", bg: "bg-teal/15", label: "Verbunden", Icon: Link2 },
-                unknown: { color: "text-amber", bg: "bg-amber/15", label: "Unbekannt", Icon: Link2 },
+                unknown: { color: "text-amber", bg: "bg-amber/15", label: "Pr\u00fcfe\u2026", Icon: Link2 },
                 disconnected: { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off },
               }[st] || { color: "text-coral", bg: "bg-coral/15", label: "Nicht verbunden", Icon: Link2Off };
               return (
