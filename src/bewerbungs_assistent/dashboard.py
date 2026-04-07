@@ -1325,7 +1325,10 @@ async def api_fit_analyse(job_hash: str):
         skills = profile.get("skills", [])
         criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
         criteria["_profile_education"] = profile.get("education", [])
-    return fit_analyse(job, criteria)
+    result = fit_analyse(job, criteria)
+    # #306: Research notes (Claude-Analyse) mitsenden
+    result["research_notes"] = job.get("research_notes") or ""
+    return result
 
 
 @app.get("/api/applications")

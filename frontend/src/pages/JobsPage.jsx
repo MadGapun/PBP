@@ -1,4 +1,4 @@
-﻿import { Ban, BriefcaseBusiness, Check, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
+﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
 import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
@@ -1126,35 +1126,84 @@ export default function JobsPage() {
 
       <Modal
         open={fitDialog.open}
-        title={`Fit-Analyse - ${fitDialog.title}`}
-        onClose={() => setFitDialog({ open: false, title: "", analysis: null })}
-        footer={<div className="flex justify-end"><Button onClick={() => setFitDialog({ open: false, title: "", analysis: null })}>Schließen</Button></div>}
+        title={`Fit-Analyse \u2014 ${fitDialog.title}`}
+        onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
+        footer={<div className="flex justify-end"><Button onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schlie\u00dfen</Button></div>}
       >
         <div className="grid gap-4">
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gesamtscore</p>
             <p className="mt-3 text-4xl font-semibold text-ink">{fitDialog.analysis?.total_score ?? 0}</p>
+            {fitDialog.analysis?.hochschulabschluss_gefordert && (
+              <p className="mt-1 text-xs text-coral font-medium">Hochschulabschluss gefordert</p>
+            )}
           </Card>
+          {/* Scoring-Faktoren Aufschlüsselung (#306) */}
+          {fitDialog.analysis?.factors && Object.keys(fitDialog.analysis.factors).length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-sm font-semibold text-ink mb-2">Score-Faktoren</p>
+              <div className="grid gap-1">
+                {Object.entries(fitDialog.analysis.factors).map(([label, pts]) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-muted/70">{label}</span>
+                    <span className={`font-medium ${pts >= 0 ? "text-teal" : "text-coral"}`}>{pts >= 0 ? "+" : ""}{pts}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-sm font-semibold text-ink">MUSS-Treffer</p>
             <p className="mt-2 text-sm text-muted">{(fitDialog.analysis?.muss_hits || []).join(", ") || "Keine"}</p>
           </Card>
-          <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-sm font-semibold text-ink">Fehlende MUSS-Kriterien</p>
-            <p className="mt-2 text-sm text-muted">{(fitDialog.analysis?.missing_muss || []).join(", ") || "Keine"}</p>
-          </Card>
-          <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-sm font-semibold text-ink">Risiken</p>
-            <div className="mt-2 grid gap-2 text-sm text-muted">
-              {(fitDialog.analysis?.risks || []).length ? fitDialog.analysis.risks.map((risk) => <p key={risk}>{risk}</p>) : <p>Keine besonderen Risiken.</p>}
-            </div>
-          </Card>
+          {(fitDialog.analysis?.missing_muss || []).length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-sm font-semibold text-ink">Fehlende MUSS-Kriterien</p>
+              <p className="mt-2 text-sm text-coral/80">{fitDialog.analysis.missing_muss.join(", ")}</p>
+            </Card>
+          )}
+          {(fitDialog.analysis?.plus_hits || []).length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-sm font-semibold text-ink">PLUS-Treffer</p>
+              <p className="mt-2 text-sm text-teal/80">{fitDialog.analysis.plus_hits.join(", ")}</p>
+            </Card>
+          )}
+          {(fitDialog.analysis?.risks || []).length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-sm font-semibold text-ink">Risiken</p>
+              <div className="mt-2 grid gap-2 text-sm text-coral/70">
+                {fitDialog.analysis.risks.map((risk) => <p key={risk}>{risk}</p>)}
+              </div>
+            </Card>
+          )}
+          {/* Claude-Analyse / Research Notes (#306) */}
+          {fitDialog.analysis?.research_notes && (
+            <Card className="glass-card-soft rounded-xl shadow-none border border-sky/15">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-sky">Claude-Analyse</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(fitDialog.analysis.research_notes).then(
+                      () => pushToast("Analyse in Zwischenablage kopiert", "success"),
+                      () => pushToast("Kopieren fehlgeschlagen", "danger")
+                    );
+                  }}
+                  className="text-muted/40 hover:text-sky transition-colors"
+                  title="In Zwischenablage kopieren"
+                >
+                  <ClipboardCopy size={14} />
+                </button>
+              </div>
+              <p className="text-sm text-muted/70 whitespace-pre-line">{fitDialog.analysis.research_notes}</p>
+            </Card>
+          )}
           <Button
             variant="secondary"
             className="w-full"
             onClick={() => {
               const hash = fitDialog.hash || "";
-              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert für mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschätzung: Stärken, Schwächen, Risiken, und ob sich eine Bewerbung lohnt.`;
+              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert f\u00fcr mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einsch\u00e4tzung: St\u00e4rken, Schw\u00e4chen, Risiken, und ob sich eine Bewerbung lohnt.`;
               copyPrompt(prompt);
             }}
           >
