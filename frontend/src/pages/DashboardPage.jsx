@@ -212,6 +212,12 @@ export default function DashboardPage() {
     minimumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
     maximumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
   }).format(applicationsPerWeekRaw);
+  const appliedJobHashes = new Set(
+    (data.applications || [])
+      .filter((a) => a.job_hash && !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(a.status))
+      .map((a) => a.job_hash)
+  );
+  const unappliedJobsCount = data.jobs.filter((j) => !appliedJobHashes.has(j.hash)).length;
   const activeJobsCount = data.jobs.length;
   const salaryMetrics = buildAnnualSalaryMetrics(data.jobs);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
@@ -449,7 +455,7 @@ export default function DashboardPage() {
       )}
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben / ${activeJobsCount} offene Stellen`} tone="sky" />
+        <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben${unappliedJobsCount > 0 ? ` / ${unappliedJobsCount} unbearbeitete Stellen` : ""}`} tone="sky" />
         <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
         <MetricCard
           label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}

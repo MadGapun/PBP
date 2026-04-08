@@ -2,6 +2,11 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.10] - 2026-04-08
+
+### Verbesserungen
+- Dashboard Metrik-Karte: Zeigt jetzt nur unbearbeitete Stellen (ohne bereits beworbene). "20 geschrieben / 0 unbearbeitete Stellen" statt irreführend "3 aktive Stellen"
+
 ## [1.5.0-beta.9] - 2026-04-08
 
 ### Bug Fixes
