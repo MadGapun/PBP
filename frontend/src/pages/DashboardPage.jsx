@@ -449,7 +449,7 @@ export default function DashboardPage() {
       )}
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Bewerbungen" value={`${applicationsCount} / ${activeJobsCount}`} note={`${applicationsCount} gesamt / ${activeJobsCount} aktive Stellen`} tone="sky" />
+        <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben / ${activeJobsCount} offene Stellen`} tone="sky" />
         <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
         <MetricCard
           label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}

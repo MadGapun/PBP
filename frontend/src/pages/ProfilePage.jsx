@@ -7,6 +7,7 @@
   ChevronUp,
   Copy,
   Download,
+  FolderOpen,
   GraduationCap,
   Pencil,
   Plus,
@@ -358,7 +359,7 @@ function countExtractedFields(extractedFields) {
 }
 
 export default function ProfilePage() {
-  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, openCreateProfileModal } = useApp();
+  const { chrome, intent, clearIntent, reloadKey, refreshChrome, navigateTo, pushToast, copyPrompt, openCreateProfileModal } = useApp();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [draft, setDraft] = useState(EMPTY_PROFILE);
@@ -1570,12 +1571,18 @@ export default function ProfilePage() {
         <Card id="profil-dokumente" className="rounded-2xl">
           <SectionHeading
             title="Dokumente"
-            description="Upload, Ordnerimport und gezielte Claude-Analyse für einzelne Dokumente."
+            description="Upload und Schnell-Import. Suche, Filter und Verwaltung findest du im Docs-Tab."
             action={(
-              <Button type="button" variant="secondary" onClick={() => copyPrompt("/profil_erweiterung")}>
-                <Copy size={15} />
-                Profil-Prompt kopieren
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" onClick={() => copyPrompt("/profil_erweiterung")}>
+                  <Copy size={15} />
+                  Profil-Prompt kopieren
+                </Button>
+                <Button type="button" onClick={() => navigateTo("dokumente")}>
+                  <FolderOpen size={15} />
+                  Docs-Tab \u00f6ffnen
+                </Button>
+              </div>
             )}
           />
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
@@ -1624,14 +1631,14 @@ export default function ProfilePage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={() => documentFileInputRef.current?.click()}>
                       <Upload size={15} />
-                      Dateien auswählen
+                      Dateien ausw\u00e4hlen
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => documentFolderInputRef.current?.click()}
                     >
-                      Ordner auswählen
+                      Ordner ausw\u00e4hlen
                     </Button>
                   </div>
                   <input
@@ -1678,7 +1685,7 @@ export default function ProfilePage() {
                   <p className="mt-1 text-lg font-semibold text-amber">{pendingDocumentCount}</p>
                 </div>
                 <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivität</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivit\u00e4t</p>
                   <p className="mt-1 text-[12px] font-medium text-ink/90">{latestDocumentLabel}</p>
                 </div>
               </div>
@@ -1696,116 +1703,11 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <p className="mt-4 text-[12px] leading-relaxed text-muted/65">
-                Tipp: Dokumente mit Status <span className="text-teal/80">angewendet</span> sind bereits in dein Profil eingeflossen.
-                <br />
-                <span className="text-ink/85">Analysieren</span> kopiert einen Claude-Prompt für genau dieses Dokument,
-                <span className="text-ink/85"> Extraktion</span> zeigt bereits erkannte Felder zur Korrektur
-                und <span className="text-ink/85">Reanalyse vormerken</span> setzt nur den internen Status zurück.
-              </p>
+              <Button type="button" className="mt-4 w-full" onClick={() => navigateTo("dokumente")}>
+                <FolderOpen size={15} />
+                Alle Dokumente anzeigen ({documents.length})
+              </Button>
             </Card>
-          </div>
-          <div className="mt-5 grid gap-1.5">
-            {documents.length ? documents.map((item) => (
-              <div key={item.id} className="grid items-center gap-3 rounded-xl border border-white/[0.04] px-4 py-2.5 transition-colors hover:bg-white/[0.03]" style={{ gridTemplateColumns: "8rem 10.5rem minmax(0,1fr) 8.5rem auto" }}>
-                <SelectInput
-                  value={item.doc_type || "sonstiges"}
-                  className="!min-h-0 !rounded-md !px-2 !py-1 text-[11px]"
-                  onChange={async (event) => {
-                    const newType = event.target.value;
-                    const oldType = item.doc_type;
-                    updateDocumentLocally(item.id, () => ({ doc_type: newType }));
-                    try {
-                      await putJson(`/api/document/${item.id}/doc-type`, { doc_type: newType });
-                      await refreshChrome({ quiet: true });
-                      pushToast("Dokumenttyp aktualisiert.", "success");
-                    } catch (err) {
-                      updateDocumentLocally(item.id, () => ({ doc_type: oldType }));
-                      pushToast(`Fehler: ${err.message}`, "danger");
-                    }
-                  }}
-                >
-                  <option value="sonstiges">Sonstiges</option>
-                  <option value="lebenslauf">Lebenslauf</option>
-                  <option value="lebenslauf_vorlage">Lebenslauf (Vorlage)</option>
-                  <option value="anschreiben">Anschreiben</option>
-                  <option value="anschreiben_vorlage">Anschreiben (Vorlage)</option>
-                  <option value="zeugnis">Zeugnis</option>
-                  <option value="zertifikat">Zertifikat</option>
-                </SelectInput>
-                {(() => {
-                  const statusMeta = getDocumentStatusMeta(item.extraction_status);
-                  return (
-                    <div className="group relative inline-flex">
-                      <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
-                      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-64 -translate-x-1/2 translate-y-1 rounded-lg border border-white/12 bg-slate/95 px-2.5 py-2 text-[11px] leading-relaxed text-muted opacity-0 shadow-2xl transition-all duration-150 delay-0 group-hover:translate-y-0 group-hover:opacity-100 group-hover:delay-300">
-                        {statusMeta.help}
-                      </div>
-                    </div>
-                  );
-                })()}
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-ink">
-                    {item.filename}
-                    {(item.doc_type || "").endsWith("_vorlage") && (
-                      <span className="ml-1.5 inline-flex rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">VORLAGE</span>
-                    )}
-                  </p>
-                  {item.app_company && (
-                    <p className="truncate text-[11px] text-muted/40 mt-0.5">{item.app_company}{item.app_title ? ` \u2014 ${item.app_title}` : ""}</p>
-                  )}
-                </div>
-                <span className="text-[11px] text-muted/40">{formatDateTime(item.created_at)}</span>
-                <div className="flex justify-end gap-1.5">
-                  <button
-                    type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2 text-[11px] font-medium text-ink/85 transition-colors hover:bg-white/[0.1] hover:text-ink"
-                    title="Extraktion prüfen und korrigieren"
-                    onClick={() => openExtractionDialog(item)}
-                  >
-                    <Pencil size={13} />
-                    Extraktion
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-teal/30 bg-teal/10 px-2 text-[11px] font-medium text-teal transition-colors hover:bg-teal/18"
-                    title="Analyse-Prompt für Claude kopieren"
-                    onClick={() => copyDocumentAnalysisPrompt(item)}
-                  >
-                    <Sparkles size={13} />
-                    Analysieren
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-white/15 bg-white/[0.05] px-2 text-[11px] font-medium text-ink/85 transition-colors hover:bg-white/[0.1] hover:text-ink"
-                    title="Dokument intern für eine erneute Analyse vormerken"
-                    onClick={() =>
-                      quickAction(() => postJson(`/api/document/${item.id}/reanalyze`, {}), "Dokument für Reanalyse markiert", {
-                        localRefresh: true,
-                        syncChrome: true,
-                      })
-                    }
-                  >
-                    <RefreshCcw size={13} />
-                    Reanalyse vormerken
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-coral/20 bg-coral/[0.08] px-2 text-[11px] font-medium text-coral/90 transition-colors hover:bg-coral/15 hover:text-coral"
-                    title="Löschen"
-                    onClick={() =>
-                      quickAction(() => deleteRequest(`/api/document/${item.id}`), "Dokument gelöscht", {
-                        localRefresh: true,
-                        syncChrome: true,
-                      })
-                    }
-                  >
-                    <Trash2 size={13} />
-                    Löschen
-                  </button>
-                </div>
-              </div>
-            )) : <EmptyState title="Noch keine Dokumente" description="Lade Lebenslauf, Zeugnisse oder Anschreiben hoch. Bereits vorhandene Dokumente findest du im Docs-Tab." />}
           </div>
         </Card>
 

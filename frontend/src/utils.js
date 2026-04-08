@@ -1,6 +1,7 @@
 ﻿export const PAGE_IDS = [
   "dashboard",
   "profil",
+  "dokumente",
   "stellen",
   "bewerbungen",
   "kalender",

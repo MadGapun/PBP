@@ -665,43 +665,26 @@ def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
         context.close()
 
 
-def test_profile_document_analysis_button_copies_targeted_prompt(live_dashboard, browser):
-    """Profile documents copy a Claude prompt that targets exactly the chosen document."""
-    document_id = _seed_profile_document_workspace(live_dashboard["db"])
+def test_profile_documents_section_shows_status_and_docs_link(live_dashboard, browser):
+    """Profile documents section shows upload area, status dashboard, and link to Docs tab."""
+    _seed_profile_document_workspace(live_dashboard["db"])
 
     context = browser.new_context(viewport={"width": 1440, "height": 960})
     page = context.new_page()
-    page.add_init_script(
-        """
-        (() => {
-          window.__copiedText = "";
-          const clipboard = {
-            writeText: async (text) => {
-              window.__copiedText = text;
-            },
-          };
-          Object.defineProperty(navigator, "clipboard", {
-            value: clipboard,
-            configurable: true,
-          });
-        })();
-        """
-    )
 
     try:
         page.goto(live_dashboard["base_url"] + "#profil", wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
         page.get_by_role("heading", name="Profil", exact=True).wait_for(state="visible")
-        page.get_by_text("Recruiter-Mail.eml", exact=True).wait_for(state="visible")
 
-        page.locator("div").filter(has_text="Recruiter-Mail.eml").get_by_role("button", name="Analysieren").click()
-        page.wait_for_function("() => Boolean(window.__copiedText && window.__copiedText.length > 0)")
+        # Document section shows status dashboard (not individual document list)
+        page.get_by_role("heading", name="Dokumente").wait_for(state="visible")
+        page.get_by_text("Dateien oder Ordner hier hineinziehen").wait_for(state="visible")
 
-        copied = page.evaluate("() => window.__copiedText")
-        assert document_id in copied
-        assert 'extraktion_starten(document_ids=["' in copied
-        assert "Recruiter-Mail.eml" in copied
+        # "Docs-Tab oeffnen" button should be visible
+        docs_button = page.get_by_role("button", name="Docs-Tab")
+        docs_button.wait_for(state="visible")
     finally:
         context.close()
 

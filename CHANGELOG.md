@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.9] - 2026-04-08
+
+### Bug Fixes
+- **Docs-Tab unerreichbar:** `dokumente` fehlte in PAGE_IDS — Klick auf Docs-Tab landete auf Dashboard
+- **Dashboard Metrik-Karte:** "59/3" war verwirrend — zeigt jetzt klar "20" (Bewerbungen geschrieben) getrennt von "3 offene Stellen"
+
+### Verbesserungen
+- **Profil-Dokumente verschlankt:** Dokumentenliste aus Profil-Seite entfernt, nur noch Upload + Status-Dashboard + "Docs-Tab oeffnen"-Button. Volle Verwaltung im Docs-Tab.
+- **Docs-Tab: Upload integriert:** Drag & Drop + Datei/Ordner-Upload direkt im Docs-Tab (kein Umweg ueber Profil noetig)
+- **Docs-Tab: Durchsuchbare Bewerbungs-Dropdowns:** Bewerbungs-Filter und Verknuepfungs-Modal sind jetzt durchsuchbar (Freitext-Eingabe filtert die Liste)
+
+### Qualitaet
+- 390 Tests bestanden (1 Test an neues Profil-Layout angepasst)
+- Frontend-Build aktualisiert
+
 ## [1.5.0-beta.8] - 2026-04-08
 
 ### Layout-Redesign
