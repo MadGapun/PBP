@@ -8,6 +8,7 @@ cross-thread access (MCP thread + Dashboard thread).
 import sqlite3
 import json
 import os
+import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -29,15 +30,22 @@ def get_data_dir() -> Path:
     """Get the data directory, create if needed.
 
     Priority: BA_DATA_DIR env var > platform default.
-    Windows default: %LOCALAPPDATA%/BewerbungsAssistent
+    Windows default: %LOCALAPPDATA%/BewerbungsAssistent/data  (v1.5.0+)
     Linux default:   ~/.bewerbungs-assistent
+
+    v1.5.0 migration: if pbp.db exists in the old flat layout
+    (%LOCALAPPDATA%/BewerbungsAssistent/pbp.db) it is moved into the
+    new ``data/`` subdirectory automatically.
     """
     env_dir = os.environ.get("BA_DATA_DIR")
     if env_dir:
         data_dir = Path(env_dir)
     elif sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-        data_dir = base / "BewerbungsAssistent"
+        base_install = base / "BewerbungsAssistent"
+        data_dir = base_install / "data"
+        # v1.4.x → v1.5.0 migration: move DB from flat layout into data/
+        _migrate_flat_layout(base_install, data_dir)
     else:
         data_dir = Path.home() / ".bewerbungs-assistent"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -45,6 +53,56 @@ def get_data_dir() -> Path:
     (data_dir / "export").mkdir(exist_ok=True)
     (data_dir / "logs").mkdir(exist_ok=True)
     return data_dir
+
+
+def _migrate_flat_layout(base_install: Path, data_dir: Path) -> None:
+    """Move v1.4.x flat-layout files into the v1.5.0 data/ subdirectory.
+
+    Creates an automatic backup before moving anything.
+    """
+    old_db = base_install / "pbp.db"
+    new_db = data_dir / "pbp.db"
+    if not old_db.exists() or new_db.exists():
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    # Create backup before migration
+    create_backup(old_db, data_dir / "backups")
+    logger.info("v1.4.x Migration: verschiebe pbp.db nach data/")
+    shutil.move(str(old_db), str(new_db))
+    # Move WAL/SHM files if present
+    for suffix in ("-wal", "-shm"):
+        wal = base_install / f"pbp.db{suffix}"
+        if wal.exists():
+            shutil.move(str(wal), str(data_dir / f"pbp.db{suffix}"))
+    # Move subdirectories
+    for subdir in ("dokumente", "export", "logs"):
+        old_sub = base_install / subdir
+        new_sub = data_dir / subdir
+        if old_sub.exists() and not new_sub.exists():
+            shutil.move(str(old_sub), str(new_sub))
+    logger.info("v1.4.x Migration abgeschlossen")
+
+
+def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Optional[Path]:
+    """Create a timestamped backup of the database.
+
+    Returns the backup path on success, None if the source DB doesn't exist.
+    Rotates old backups to keep at most *max_backups*.
+    """
+    if not db_path.exists():
+        return None
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_path = backup_dir / f"pbp-backup-{timestamp}.db"
+    shutil.copy2(str(db_path), str(backup_path))
+    logger.info("Backup erstellt: %s", backup_path)
+    # Rotate: keep only the newest max_backups
+    backups = sorted(backup_dir.glob("pbp-backup-*.db"), key=lambda p: p.stat().st_mtime)
+    while len(backups) > max_backups:
+        oldest = backups.pop(0)
+        oldest.unlink()
+        logger.info("Altes Backup entfernt: %s", oldest)
+    return backup_path
 
 
 def get_db_path() -> Path:
@@ -134,6 +192,9 @@ class Database:
         else:
             current = int(row["value"])
             if current < SCHEMA_VERSION:
+                # Backup before schema migration
+                backup_dir = self.db_path.parent / "backups"
+                create_backup(self.db_path, backup_dir)
                 self._migrate(current, SCHEMA_VERSION)
         # Safety net: ensure is_pinned column exists (may be missing if a prior
         # v10 migration only added profile-scoped tables but not this column).

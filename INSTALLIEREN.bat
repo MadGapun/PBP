@@ -26,7 +26,12 @@ set "APP_DIR=%BASE_INSTALL%\app"
 set "DATA_DIR=%BASE_INSTALL%\data"
 set "SRC_DIR=%BASEDIR%\src"
 set "LOGFILE=%BASEDIR%\install_log.txt"
-set "PBP_VERSION=1.5.0-beta.0"
+
+:: Version dynamisch aus __init__.py lesen (#344)
+set "PBP_VERSION=unknown"
+if exist "%SRC_DIR%\bewerbungs_assistent\__init__.py" (
+    for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%SRC_DIR%\bewerbungs_assistent\__init__.py" 2^>nul') do set "PBP_VERSION=%%~v"
+)
 
 :: Python Embeddable Download
 set "PY_VERSION=3.12.10"
@@ -392,10 +397,29 @@ if not exist "%DATA_DIR%\dokumente" mkdir "%DATA_DIR%\dokumente"
 if not exist "%DATA_DIR%\export" mkdir "%DATA_DIR%\export"
 if not exist "%DATA_DIR%\logs" mkdir "%DATA_DIR%\logs"
 
-:: Migration v1.4.x -> v1.5.0: Daten aus flacher Struktur verschieben (#297)
+:: Backup erstellen BEVOR irgendetwas verschoben wird (#349)
+set "BACKUP_DIR=%DATA_DIR%\backups"
+if exist "%BASE_INSTALL%\pbp.db" (
+    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
+    echo [INFO] Erstelle Sicherung vor Migration... >> "%LOGFILE%"
+    copy "%BASE_INSTALL%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
+    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
+    echo [OK] Backup erstellt >> "%LOGFILE%"
+)
+if exist "%DATA_DIR%\pbp.db" (
+    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
+    echo [INFO] Erstelle Sicherung vor Update... >> "%LOGFILE%"
+    copy "%DATA_DIR%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
+    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
+    echo [OK] Backup erstellt >> "%LOGFILE%"
+)
+
+:: Migration v1.4.x -> v1.5.0: Daten aus flacher Struktur verschieben (#297, #341)
 if exist "%BASE_INSTALL%\pbp.db" (
     echo [INFO] Migration: Verschiebe Daten von flach nach data/ >> "%LOGFILE%"
     if not exist "%DATA_DIR%\pbp.db" move "%BASE_INSTALL%\pbp.db" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+    if exist "%BASE_INSTALL%\pbp.db-wal" move "%BASE_INSTALL%\pbp.db-wal" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
+    if exist "%BASE_INSTALL%\pbp.db-shm" move "%BASE_INSTALL%\pbp.db-shm" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
     if exist "%BASE_INSTALL%\mcp_heartbeat.json" move "%BASE_INSTALL%\mcp_heartbeat.json" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
     :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)
     if exist "%BASE_INSTALL%\dokumente" (

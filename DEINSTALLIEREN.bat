@@ -53,7 +53,7 @@ if /i "!CONFIRM!" neq "j" (
 )
 
 echo.
-echo  [1/5] Beende laufende PBP-Prozesse...
+echo  [1/7] Beende laufende PBP-Prozesse...
 call :stop_pbp_processes
 if "!STOPPED_COUNT!"=="0" (
     echo         [--] Keine laufenden PBP-Prozesse gefunden
@@ -62,7 +62,7 @@ if "!STOPPED_COUNT!"=="0" (
 )
 
 echo.
-echo  [2/5] Entferne Claude Desktop MCP-Eintrag...
+echo  [2/7] Entferne Claude Desktop MCP-Eintrag...
 call :remove_claude_entry
 set "CLAUDE_RESULT=!errorlevel!"
 if "!CLAUDE_RESULT!"=="0" echo         [OK] MCP-Eintrag entfernt
@@ -73,7 +73,7 @@ if "!CLAUDE_RESULT!"=="4" echo         [--] Claude-Config nicht gefunden
 if "!CLAUDE_RESULT!"=="5" echo         [!!] Fehler beim Entfernen des MCP-Eintrags
 
 echo.
-echo  [3/5] Entferne Desktop-Verknuepfung...
+echo  [3/7] Entferne Desktop-Verknuepfung...
 call :remove_shortcut
 if "!errorlevel!"=="0" (
     echo         [OK] Desktop-Verknuepfung entfernt
@@ -82,7 +82,7 @@ if "!errorlevel!"=="0" (
 )
 
 echo.
-echo  [4/6] Entferne Runtime-Dateien...
+echo  [4/7] Entferne Runtime-Dateien...
 set "REMOVE_ERRORS=0"
 :: v1.5.0 Pfade (app/)
 call :remove_path "%APP_DIR%" "App-Verzeichnis %APP_DIR%"
@@ -106,18 +106,40 @@ for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
 )
 
 echo.
-echo  [5/6] Entferne Windows Apps ^& Features Eintrag...
+echo  [5/7] Entferne Windows Apps ^& Features Eintrag...
 reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
 if !errorlevel! equ 0 (
     echo         [OK] Registry-Eintrag entfernt
 ) else (
     echo         [--] Registry-Eintrag war nicht vorhanden
 )
+:: Verifikation: pruefen ob der Key wirklich weg ist (#343)
+reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         [!!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
+    reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
+    echo [WARN] Registry retry >> "%LOGFILE%"
+)
 
 echo.
-echo  [6/6] Optional: Alle Bewerbungsdaten loeschen
-set /p DELETE_DATA="  Soll %DATA_DIR% komplett geloescht werden? (j/n): "
-if /i "!DELETE_DATA!"=="j" (
+echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
+echo.
+set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): "
+if /i "!CREATE_BACKUP!"=="j" (
+    set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
+    echo         Erstelle Backup...
+    powershell -ExecutionPolicy Bypass -NoProfile -Command "if (Test-Path '%DATA_DIR%') { Compress-Archive -Path '%DATA_DIR%\*' -DestinationPath '!BACKUP_ZIP!' -Force; Write-Host '        [OK] Backup erstellt: !BACKUP_ZIP!'; exit 0 } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
+    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
+)
+
+echo.
+echo  [7/7] Optional: Alle Bewerbungsdaten loeschen
+echo.
+echo         ACHTUNG: Dein Profil, alle Stellen und Bewerbungen
+echo         werden UNWIDERRUFLICH geloescht!
+echo.
+set /p DELETE_DATA="  Bist du sicher? Tippe LOESCHEN zum Bestaetigen: "
+if "!DELETE_DATA!"=="LOESCHEN" (
     if exist "%DATA_DIR%" (
         rmdir /s /q "%DATA_DIR%" >nul 2>&1
         if exist "%DATA_DIR%" (

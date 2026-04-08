@@ -341,7 +341,7 @@ export default function DashboardPage() {
       <div id="page-dashboard" className="page active">
         <PageHeader
           title="Dashboard"
-          description="Hier siehst du auf einen Blick, was als N\u00e4chstes zu tun ist."
+          description="Hier siehst du auf einen Blick, was als Nächstes zu tun ist."
           eyebrow="\u00dcbersicht"
         />
 
@@ -359,7 +359,7 @@ export default function DashboardPage() {
                 </p>
                 <p className="max-w-2xl text-sm text-muted/70">
                   Du musst nicht wissen, was du tun sollst — PBP zeigt dir bei jedem
-                  Schritt, was als N\u00e4chstes sinnvoll ist.
+                  Schritt, was als Nächstes sinnvoll ist.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Button onClick={() => navigateTo("profil")}>
@@ -480,7 +480,7 @@ export default function DashboardPage() {
             <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
             <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted">
-              {workspaceReadiness.description || "PBP zeigt dir hier immer, was als N\u00e4chstes sinnvoll ist."}
+              {workspaceReadiness.description || "PBP zeigt dir hier immer, was als Nächstes sinnvoll ist."}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">

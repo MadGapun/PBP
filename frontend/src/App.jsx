@@ -722,12 +722,17 @@ export default function App() {
             {/* Help Button (#75) */}
             <button
               type="button"
-              onClick={() => { setShowWizard(false); setHelpOpen(true); }}
+              onClick={() => { setWizardOpen(false); setHelpOpen(true); }}
               className="shrink-0 rounded-lg p-1.5 text-muted/50 hover:text-ink hover:bg-white/[0.04] transition-colors"
               title="Hilfe & Support"
             >
               <HelpCircle size={18} />
             </button>
+
+            {/* Version (#348) */}
+            <span className="hidden sm:inline text-[11px] text-muted/30 font-mono select-none" title={`PBP v${chrome.status?.version || "?"}`}>
+              v{chrome.status?.version || "?"}
+            </span>
 
             <div
               id="profile-switcher"

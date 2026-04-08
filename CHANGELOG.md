@@ -2,6 +2,22 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.5] - 2026-04-08
+
+### KRITISCH — Datensicherheit
+- **#341**: Profil-Migration v1.4.x → v1.5.0 gefixt — `get_data_dir()` zeigt jetzt korrekt auf `data/`-Unterordner, automatische Migration der flachen v1.4.x-Struktur
+- **#349**: Automatisches DB-Backup vor jeder Migration und vor jedem Schema-Upgrade (max. 5 Backups, rotierend)
+- **#345**: Deinstaller bietet jetzt Desktop-Backup an bevor Daten geloescht werden; Datenlöschung erfordert Eingabe von "LOESCHEN" statt einfachem "j/n"
+- **#343**: Registry-Eintrag wird nach Loeschung verifiziert und bei Bedarf erneut versucht
+
+### Bug Fixes
+- **#342**: Help-Button (?) funktionierte nicht — `setShowWizard` (undefined) durch `setWizardOpen` ersetzt
+- **#340**: Unicode-Escape `N\u00e4chstes` durch echtes `Nächstes` ersetzt (3 Stellen im Dashboard)
+
+### Verbesserungen
+- **#344**: Installer liest Version dynamisch aus `__init__.py` statt hardcoded `beta.0`
+- **#348**: Versionsnummer dezent im Dashboard-Header sichtbar (neben Help-Button)
+
 ## [1.5.0-beta.4] - 2026-04-08
 
 ### Verbesserungen
