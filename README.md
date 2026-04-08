@@ -167,36 +167,40 @@ Claude erkennt die versteckten Fähigkeiten hinter deinen Aktivitäten und über
 ### 🔍 Stellensuche über 15 Portale
 Eine Suche — alle relevanten Portale gleichzeitig. Kein Account nötig:
 
-**Festanstellung (11 Quellen):**
+**Schnelle Quellen (HTTP/API — Ergebnisse in Sekunden):**
 
-| Portal | Methode | Account nötig? |
-|--------|---------|---------------|
-| Bundesagentur für Arbeit | REST API | ❌ Nein |
-| StepStone | Playwright | ❌ Nein |
-| Hays | Sitemap + JSON-LD | ❌ Nein |
-| Monster | Playwright | ❌ Nein |
-| Indeed | Playwright | ❌ Nein |
-| ingenieur.de (VDI) | HTML Scraping | ❌ Nein |
-| Heise Jobs | HTML + JSON-LD | ❌ Nein |
-| Stellenanzeigen.de | HTML + JSON-LD | ❌ Nein |
-| Jobware | HTML + JSON-LD | ❌ Nein |
-| FERCHAU | HTML + JSON-LD | ❌ Nein |
-| Kimeta (Aggregator) | HTML Scraping | ❌ Nein |
+| Portal | Methode | Typ | Tempo |
+|--------|---------|-----|-------|
+| Bundesagentur fuer Arbeit | REST API | Festanstellung | ⚡ Schnell |
+| Hays | Sitemap + JSON-LD | Festanstellung | ⚡ Schnell |
+| ingenieur.de (VDI) | HTML Scraping | Festanstellung | ⚡ Schnell |
+| Heise Jobs | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
+| Stellenanzeigen.de | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
+| Jobware | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
+| FERCHAU | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
+| Kimeta (Aggregator) | HTML Scraping | Festanstellung | ⚡ Schnell |
+| freelance.de | HTML Scraping | Freelance | ⚡ Schnell |
+| GULP | HTML + JSON-LD | Freelance | ⚡ Schnell |
+| SOLCOM | HTML + JSON-LD | Freelance | ⚡ Schnell |
 
-**Freelance & Projekte (4 Quellen):**
+**Browser-Quellen (Playwright — benoetigen Chromium, 30s-3min):**
 
-| Portal | Methode | Account nötig? |
-|--------|---------|---------------|
-| Freelancermap | httpx + Fallback | ❌ Nein |
-| Freelance.de | HTML Scraping | ❌ Nein |
-| GULP | HTML + JSON-LD | ❌ Nein |
-| SOLCOM | HTML + JSON-LD | ❌ Nein |
+| Portal | Methode | Typ | Tempo |
+|--------|---------|-----|-------|
+| StepStone | Playwright (Browser) | Festanstellung | 🕐 1-3 Min |
+| Indeed | Playwright (Browser) | Festanstellung | 🕐 30-90s |
+| Monster | Playwright (Browser) | Festanstellung | 🕐 30-90s |
+| Freelancermap | HTML + Browser-Fallback | Freelance | 🕐 30-60s |
 
-> 💡 Du kannst in den Einstellungen frei wählen, welche Quellen aktiv sein sollen. Alle 18 Quellen funktionieren ohne Login.
+> 💡 Du kannst in den Einstellungen frei waehlen, welche Quellen aktiv sein sollen. Die Einstellungen zeigen dir per Badge an, welche Quellen schnell und welche langsam sind.
 >
-> 📌 **Gut zu wissen:** Die Spalte "Account nötig?" bezieht sich auf das **Finden** von Stellen. PBP durchsucht diese Portale für dich und zeigt dir die Ergebnisse. Für die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenbörsen selbst.
+> 🕐 **Warum dauern manche Quellen laenger?** Einige Portale (StepStone, Indeed, Monster) blockieren einfache HTTP-Anfragen und erfordern einen echten Browser (Chromium/Playwright). Das dauert laenger und kann manchmal in einen Timeout laufen. **Wenn eine Browser-Quelle nicht funktioniert**, hast du zwei Alternativen:
+> - **Claude suchen lassen:** Bitte Claude, direkt auf dem Portal zu suchen — z.B. *"Suche auf stepstone.de nach Python-Stellen in Hamburg"*. Claude oeffnet die Seite, liest die Ergebnisse und uebernimmt sie mit `stelle_manuell_anlegen()`.
+> - **Selbst suchen:** Oeffne das Portal im Browser, finde interessante Stellen und teile Claude den Link — er uebernimmt den Rest.
 >
-> ⚡ **Hinweis zum Kontingent:** Die Suche über viele Quellen gleichzeitig verbraucht entsprechend Token-Kontingent bei Claude. Mit dem Free-Plan empfehlen wir, zunächst nur 2–3 Quellen zu aktivieren (z.B. Bundesagentur + StepStone). Mit Claude Pro gibt es keine Einschränkung — dann kannst du alle Quellen gleichzeitig durchsuchen.
+> 📌 **Gut zu wissen:** Die Tabellen oben beziehen sich auf das **Finden** von Stellen. PBP durchsucht diese Portale fuer dich und zeigt dir die Ergebnisse. Fuer die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenboersen selbst.
+>
+> ⚡ **Hinweis zum Kontingent:** Die Suche ueber viele Quellen gleichzeitig verbraucht entsprechend Token-Kontingent bei Claude. Mit dem Free-Plan empfehlen wir, zunaechst nur 2-3 schnelle Quellen zu aktivieren (z.B. Bundesagentur + Hays + Kimeta). Mit Claude Pro gibt es keine Einschraenkung — dann kannst du alle Quellen gleichzeitig durchsuchen.
 
 ### 📊 Intelligentes Scoring & Fit-Analyse
 Jede Stelle bekommt einen Score basierend auf:

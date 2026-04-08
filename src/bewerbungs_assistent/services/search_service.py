@@ -60,6 +60,7 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "beta": info.get("beta", False),
             "veraltet": info.get("veraltet", False),
             "warnung": info.get("warnung"),
+            "geschwindigkeit": info.get("geschwindigkeit", "schnell"),
         }
         for key, info in source_registry.items()
     ]

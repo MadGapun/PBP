@@ -2,6 +2,16 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.4] - 2026-04-08
+
+### Verbesserungen
+- **#337**: Quellen-Transparenz und Nutzer-Fuehrung bei langsamen Browser-Quellen
+  - SOURCE_REGISTRY: Alle 17 Quellen mit `geschwindigkeit`-Feld (schnell/langsam/manuell) und Warnhinweisen fuer Browser-Quellen
+  - Frontend Quellen-Einstellungen: Geschwindigkeits-Badges (⚡ Schnell / 🕐 Browser / Manuell), Infobox mit Erklaerung und Tipp fuer Claude-Suche
+  - Such-Progress: Browser-Quellen werden namentlich und mit Zeitschaetzung angekuendigt
+  - Timeout-Meldung: Statt "Uebersprungen" jetzt konkreter Tipp "Lass Claude gezielt auf diesen Portalen suchen"
+  - README: Quellen-Tabelle nach Geschwindigkeit sortiert, neue Hinweisbox zu Browser-Quellen und Claude-Alternativsuche
+
 ## [1.5.0-beta.3] - 2026-04-08
 
 ### Bug Fixes

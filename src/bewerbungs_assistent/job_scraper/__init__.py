@@ -21,97 +21,118 @@ logger = logging.getLogger("bewerbungs_assistent.scraper")
 # controls which ones are actually used (default: none).
 
 SOURCE_REGISTRY = {
+    # ── Schnelle Quellen (HTTP/API, parallel, < 10s) ──────────────
     "bundesagentur": {
-        "name": "Bundesagentur für Arbeit",
-        "beschreibung": "Öffentliche Jobbörse der Arbeitsagentur. Größtes deutsches Stellenportal.",
+        "name": "Bundesagentur fuer Arbeit",
+        "beschreibung": "Oeffentliche Jobboerse der Arbeitsagentur. Groesstes deutsches Stellenportal.",
         "methode": "REST API",
         "login_erforderlich": False,
-    },
-    "stepstone": {
-        "name": "StepStone",
-        "beschreibung": "Großes deutsches Jobportal für Fach- und Führungskräfte.",
-        "methode": "Playwright (Browser)",
-        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "hays": {
         "name": "Hays",
         "beschreibung": "Personaldienstleister mit eigenem Stellenportal. Schwerpunkt Engineering & IT.",
         "methode": "Sitemap + JSON-LD",
         "login_erforderlich": False,
-    },
-    "freelancermap": {
-        "name": "Freelancermap",
-        "beschreibung": "Projektbörse für Freelancer und Selbstständige.",
-        "methode": "HTML Scraping + Playwright Fallback",
-        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "freelance_de": {
         "name": "freelance.de",
-        "beschreibung": "Projektbörse für Freelancer und IT-Projekte. Große Auswahl an Projekten in DACH.",
+        "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
-    },
-    "indeed": {
-        "name": "Indeed",
-        "beschreibung": "Größte Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
-        "methode": "Playwright (Browser)",
-        "login_erforderlich": False,
-    },
-    "monster": {
-        "name": "Monster",
-        "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
-        "methode": "Playwright (Browser)",
-        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "ingenieur_de": {
         "name": "ingenieur.de (VDI)",
         "beschreibung": "Engineering-Jobboerse des VDI. Spezialisiert auf Ingenieur- und Technik-Stellen.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "heise_jobs": {
         "name": "Heise Jobs",
         "beschreibung": "IT-Stellenmarkt von Heise Verlag. Starke IT/Admin-Community.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "gulp": {
         "name": "GULP",
         "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "solcom": {
         "name": "SOLCOM",
-        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister für IT-Projekte.",
+        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
-        "beschreibung": "Großes deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
+        "beschreibung": "Grosses deutsches Jobportal mit 3.2 Mio. Besuchern/Monat.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "jobware": {
         "name": "Jobware",
-        "beschreibung": "Premium-Jobportal für Spezialisten und Führungskräfte.",
+        "beschreibung": "Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "ferchau": {
         "name": "FERCHAU",
         "beschreibung": "Engineering & IT Personaldienstleister. Grosser Footprint in Engineering.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
     "kimeta": {
         "name": "Kimeta",
         "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
     },
-    # ── Beta-Quellen (inoffiziell, nicht in README beworben) ────
+    # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
+    "stepstone": {
+        "name": "StepStone",
+        "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
+        "methode": "Playwright (Browser)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "langsam",
+        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 1-3 Minuten dauern und laeuft manchmal in einen Timeout. Alternativ: Lass Claude gezielt auf stepstone.de suchen.",
+    },
+    "freelancermap": {
+        "name": "Freelancermap",
+        "beschreibung": "Projektboerse fuer Freelancer und Selbststaendige.",
+        "methode": "HTML Scraping + Playwright Fallback",
+        "login_erforderlich": False,
+        "geschwindigkeit": "langsam",
+        "warnung": "Nutzt bei Bedarf einen Browser als Fallback. Kann 30-60 Sekunden dauern.",
+    },
+    "indeed": {
+        "name": "Indeed",
+        "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
+        "methode": "Playwright (Browser)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "langsam",
+        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf indeed.com suchen.",
+    },
+    "monster": {
+        "name": "Monster",
+        "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
+        "methode": "Playwright (Browser)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "langsam",
+        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf monster.de suchen.",
+    },
+    # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
         "beschreibung": "LinkedIn-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
@@ -119,6 +140,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "veraltet": True,
         "beta": True,
+        "geschwindigkeit": "manuell",
         "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
         "hinweis": "Automatische Suche deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
@@ -129,6 +151,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "veraltet": True,
         "beta": True,
+        "geschwindigkeit": "manuell",
         "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
         "hinweis": "Automatische Suche deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
     },
@@ -462,12 +485,24 @@ def run_search(db, job_id: str, params: dict):
         parallel_executor.shutdown(wait=False)
 
     # Phase 2: Run playwright-based scrapers sequentially (#234)
-    for quelle in sequential_quellen:
-        completed += 1
+    if sequential_quellen:
+        est_time = len(sequential_quellen) * 60  # ~60s pro Browser-Quelle
+        source_names = ", ".join(
+            SOURCE_REGISTRY.get(q, {}).get("name", q) for q in sequential_quellen
+        )
         db.update_background_job(
             job_id, "running",
             progress=int((completed / total) * 100),
-            message=f"Durchsuche {quelle}... ({completed}/{total})"
+            message=f"Browser-Quellen starten ({source_names}) — kann {est_time // 60}-{est_time * 2 // 60} Min dauern..."
+        )
+
+    for quelle in sequential_quellen:
+        completed += 1
+        quelle_name = SOURCE_REGISTRY.get(quelle, {}).get("name", quelle)
+        db.update_background_job(
+            job_id, "running",
+            progress=int((completed / total) * 100),
+            message=f"Durchsuche {quelle_name}... ({completed}/{total}, Browser-Quelle)"
         )
         _start = time.time()
         try:
@@ -662,8 +697,18 @@ def run_search(db, job_id: str, params: dict):
 
     successful_sources = total - len(skipped_sources)
     msg_parts = [f"{len(unique)} Stellen gefunden (aus {successful_sources}/{total} Quellen)"]
-    if skipped_sources:
-        msg_parts.append(f"Uebersprungen: {', '.join(skipped_sources)}")
+    # #337: Nutzerfreundliche Meldungen bei Timeout/Fehler
+    timeout_sources = [q for q, s in source_status.items() if s.get("status") == "timeout"]
+    error_sources = [q for q, s in source_status.items() if s.get("status") == "error"]
+    if timeout_sources:
+        names = ", ".join(SOURCE_REGISTRY.get(q, {}).get("name", q) for q in timeout_sources)
+        msg_parts.append(f"Timeout: {names} (Tipp: Lass Claude gezielt auf diesen Portalen suchen)")
+    if error_sources:
+        names = ", ".join(SOURCE_REGISTRY.get(q, {}).get("name", q) for q in error_sources)
+        msg_parts.append(f"Fehler: {names}")
+    other_skipped = [q for q in skipped_sources if q not in timeout_sources and q not in error_sources]
+    if other_skipped:
+        msg_parts.append(f"Uebersprungen: {', '.join(other_skipped)}")
     stats = cleanup["stats"]
     if stats.get("duplikate_db") or stats.get("blacklist") or stats.get("bereits_bewertet") or stats.get("bereits_beworben"):
         details = []
