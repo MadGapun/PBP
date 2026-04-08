@@ -2304,6 +2304,85 @@ async def api_meetings_export_ics():
     )
 
 
+@app.get("/api/meetings/calendar")
+async def api_meetings_calendar(days: int = 90):
+    """Get all meetings + follow-ups for calendar view with collision detection (#267, #364)."""
+    meetings = _db.get_upcoming_meetings(days=days)
+    # Also include past meetings (last 30 days) for context
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    past_cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+    now = datetime.now().isoformat()
+    past_rows = conn.execute(
+        """SELECT m.*, a.title as app_title, a.company as app_company
+           FROM application_meetings m
+           LEFT JOIN applications a ON m.application_id = a.id
+           WHERE m.meeting_date >= ? AND m.meeting_date < ?
+             AND m.status != 'abgesagt'
+             AND (m.profile_id=? OR m.profile_id IS NULL)
+           ORDER BY m.meeting_date ASC""",
+        (past_cutoff, now, pid),
+    ).fetchall()
+    all_meetings = [dict(r) for r in past_rows] + meetings
+
+    # Include follow-ups with scheduled_date as calendar entries (#364)
+    follow_up_rows = conn.execute(
+        """SELECT f.*, a.title as app_title, a.company as app_company
+           FROM follow_ups f
+           LEFT JOIN applications a ON f.application_id = a.id
+           WHERE f.scheduled_date IS NOT NULL
+             AND f.scheduled_date >= ?
+             AND f.status = 'geplant'
+             AND (a.profile_id=? OR a.profile_id IS NULL)
+           ORDER BY f.scheduled_date ASC""",
+        (past_cutoff, pid),
+    ).fetchall()
+    follow_ups = []
+    for fu in follow_up_rows:
+        fu = dict(fu)
+        fu_type = fu.get("follow_up_type") or "nachfass"
+        label = {"nachfass": "Nachfassen", "erinnerung": "Erinnerung"}.get(fu_type, fu_type.replace("_", " ").title())
+        company = fu.get("app_company") or ""
+        title = fu.get("app_title") or ""
+        follow_ups.append({
+            "id": f"followup-{fu['id']}",
+            "title": f"{label}: {company}" if company else f"{label}: {title}" if title else label,
+            "meeting_date": fu["scheduled_date"],
+            "meeting_type": "followup",
+            "app_title": title,
+            "app_company": company,
+            "application_id": fu.get("application_id"),
+            "is_follow_up": True,
+            "status": fu.get("status", "geplant"),
+        })
+
+    # Collision detection (#267): find overlapping meetings (exclude follow-ups)
+    collisions = []
+    sorted_m = sorted(all_meetings, key=lambda x: x.get("meeting_date", ""))
+    for i, m1 in enumerate(sorted_m):
+        for m2 in sorted_m[i + 1:]:
+            try:
+                start1 = datetime.fromisoformat(m1["meeting_date"])
+                end1 = datetime.fromisoformat(m1.get("meeting_end") or m1["meeting_date"])
+                if end1 == start1:
+                    end1 = start1 + timedelta(hours=1)
+                start2 = datetime.fromisoformat(m2["meeting_date"])
+                if start2 < end1:
+                    collisions.append({
+                        "meeting_1": m1["id"],
+                        "meeting_2": m2["id"],
+                        "overlap_start": max(start1, start2).isoformat(),
+                    })
+            except (ValueError, TypeError):
+                continue
+
+    return {
+        "meetings": all_meetings + follow_ups,
+        "collisions": collisions,
+        "count": len(all_meetings) + len(follow_ups),
+    }
+
+
 @app.get("/api/meetings/{meeting_id}")
 async def api_get_meeting(meeting_id: str):
     """Get a single meeting."""
@@ -2459,85 +2538,6 @@ async def api_meeting_ics(meeting_id: str):
             "Content-Disposition": f'attachment; filename="termin-{meeting_id[:8]}.ics"',
         },
     )
-
-
-@app.get("/api/meetings/calendar")
-async def api_meetings_calendar(days: int = 90):
-    """Get all meetings + follow-ups for calendar view with collision detection (#267, #364)."""
-    meetings = _db.get_upcoming_meetings(days=days)
-    # Also include past meetings (last 30 days) for context
-    conn = _db.connect()
-    pid = _db.get_active_profile_id()
-    past_cutoff = (datetime.now() - timedelta(days=30)).isoformat()
-    now = datetime.now().isoformat()
-    past_rows = conn.execute(
-        """SELECT m.*, a.title as app_title, a.company as app_company
-           FROM application_meetings m
-           LEFT JOIN applications a ON m.application_id = a.id
-           WHERE m.meeting_date >= ? AND m.meeting_date < ?
-             AND m.status != 'abgesagt'
-             AND (m.profile_id=? OR m.profile_id IS NULL)
-           ORDER BY m.meeting_date ASC""",
-        (past_cutoff, now, pid),
-    ).fetchall()
-    all_meetings = [dict(r) for r in past_rows] + meetings
-
-    # Include follow-ups with scheduled_date as calendar entries (#364)
-    follow_up_rows = conn.execute(
-        """SELECT f.*, a.title as app_title, a.company as app_company
-           FROM follow_ups f
-           LEFT JOIN applications a ON f.application_id = a.id
-           WHERE f.scheduled_date IS NOT NULL
-             AND f.scheduled_date >= ?
-             AND f.status = 'geplant'
-             AND (a.profile_id=? OR a.profile_id IS NULL)
-           ORDER BY f.scheduled_date ASC""",
-        (past_cutoff, pid),
-    ).fetchall()
-    follow_ups = []
-    for fu in follow_up_rows:
-        fu = dict(fu)
-        fu_type = fu.get("follow_up_type") or "nachfass"
-        label = {"nachfass": "Nachfassen", "erinnerung": "Erinnerung"}.get(fu_type, fu_type.replace("_", " ").title())
-        company = fu.get("app_company") or ""
-        title = fu.get("app_title") or ""
-        follow_ups.append({
-            "id": f"followup-{fu['id']}",
-            "title": f"{label}: {company}" if company else f"{label}: {title}" if title else label,
-            "meeting_date": fu["scheduled_date"],
-            "meeting_type": "followup",
-            "app_title": title,
-            "app_company": company,
-            "application_id": fu.get("application_id"),
-            "is_follow_up": True,
-            "status": fu.get("status", "geplant"),
-        })
-
-    # Collision detection (#267): find overlapping meetings (exclude follow-ups)
-    collisions = []
-    sorted_m = sorted(all_meetings, key=lambda x: x.get("meeting_date", ""))
-    for i, m1 in enumerate(sorted_m):
-        for m2 in sorted_m[i + 1:]:
-            try:
-                start1 = datetime.fromisoformat(m1["meeting_date"])
-                end1 = datetime.fromisoformat(m1.get("meeting_end") or m1["meeting_date"])
-                if end1 == start1:
-                    end1 = start1 + timedelta(hours=1)
-                start2 = datetime.fromisoformat(m2["meeting_date"])
-                if start2 < end1:
-                    collisions.append({
-                        "meeting_1": m1["id"],
-                        "meeting_2": m2["id"],
-                        "overlap_start": max(start1, start2).isoformat(),
-                    })
-            except (ValueError, TypeError):
-                continue
-
-    return {
-        "meetings": all_meetings + follow_ups,
-        "collisions": collisions,
-        "count": len(all_meetings) + len(follow_ups),
-    }
 
 
 @app.put("/api/jobs/{job_hash}/score")
