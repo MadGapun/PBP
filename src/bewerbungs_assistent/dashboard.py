@@ -1704,11 +1704,69 @@ async def api_snapshot_description(app_id: str, request: Request):
 
 
 @app.get("/api/documents")
-async def api_documents():
-    """List all documents for the active profile."""
+async def api_documents(
+    q: str = "",
+    doc_type: str = "",
+    sort: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    per_page: int = 25,
+):
+    """List documents with search, filter, sort, pagination and application cross-reference (#360)."""
     pid = _db.get_active_profile_id()
-    docs = _db._get_documents(pid)
-    return {"documents": docs}
+    conn = _db.connect()
+
+    # Base query with LEFT JOIN to applications for cross-reference
+    base = """
+        FROM documents d
+        LEFT JOIN applications a ON d.linked_application_id = a.id
+        WHERE (d.profile_id=? OR d.profile_id IS NULL)
+    """
+    params = [pid]
+
+    # Fulltext search across filename and extracted_text
+    if q:
+        base += " AND (d.filename LIKE ? OR d.extracted_text LIKE ?)"
+        like = f"%{q}%"
+        params.extend([like, like])
+
+    # Filter by document type
+    if doc_type:
+        base += " AND d.doc_type = ?"
+        params.append(doc_type)
+
+    # Count total
+    total = conn.execute(f"SELECT COUNT(*) as cnt {base}", params).fetchone()["cnt"]
+
+    # Sort
+    allowed_sorts = {"created_at": "d.created_at", "filename": "d.filename", "doc_type": "d.doc_type"}
+    sort_col = allowed_sorts.get(sort, "d.created_at")
+    sort_dir = "ASC" if order.lower() == "asc" else "DESC"
+
+    # Paginate
+    offset = (max(1, page) - 1) * per_page
+    rows = conn.execute(
+        f"""SELECT d.*, a.company as app_company, a.title as app_title, a.status as app_status
+            {base}
+            ORDER BY {sort_col} {sort_dir}
+            LIMIT ? OFFSET ?""",
+        params + [per_page, offset],
+    ).fetchall()
+
+    # Available doc_types for filter dropdown
+    type_rows = conn.execute(
+        "SELECT DISTINCT doc_type FROM documents WHERE (profile_id=? OR profile_id IS NULL) AND doc_type IS NOT NULL ORDER BY doc_type",
+        (pid,),
+    ).fetchall()
+
+    return {
+        "documents": [dict(r) for r in rows],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": max(1, (total + per_page - 1) // per_page),
+        "doc_types": [r["doc_type"] for r in type_rows],
+    }
 
 
 @app.get("/api/documents/{doc_id}/download")
@@ -3448,6 +3506,7 @@ async def api_update_check():
               "update_available": False, "release_url": None}
     try:
         import httpx
+        from packaging.version import Version
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(
                 "https://api.github.com/repos/MadGapun/PBP/releases/latest",
@@ -3456,11 +3515,16 @@ async def api_update_check():
             if resp.status_code == 200:
                 data = resp.json()
                 latest = data.get("tag_name", "").lstrip("v")
-                if latest and latest != __version__:
-                    result["latest_version"] = latest
-                    result["update_available"] = True
-                    result["release_url"] = data.get("html_url")
-                    result["release_name"] = data.get("name", "")
+                if latest:
+                    try:
+                        is_newer = Version(latest) > Version(__version__)
+                    except Exception:
+                        is_newer = latest != __version__
+                    if is_newer:
+                        result["latest_version"] = latest
+                        result["update_available"] = True
+                        result["release_url"] = data.get("html_url")
+                        result["release_name"] = data.get("name", "")
     except Exception as exc:
         logger.debug("update check failed: %s", exc)
 

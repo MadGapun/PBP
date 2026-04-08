@@ -122,10 +122,20 @@ if exist "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" (
 echo  [1/4] Python einrichten...
 echo [1/4] Python einrichten... >> "%LOGFILE%"
 
-:: Python bereits vorhanden? (1. im ZIP-Ordner, 2. in DATA_DIR von frueherer Installation)
+:: Python bereits vorhanden? (1. im ZIP-Ordner, 2. in APP_DIR, 3. in DATA_DIR von frueherer Installation)
 if exist "%PYTHON%" goto :python_ready
 
-:: Fruehere Installation in DATA_DIR vorhanden? -> wiederverwenden statt neu downloaden
+:: #350: Fruehere Installation in APP_DIR vorhanden? (dort wird Python seit v1.5.0 installiert)
+if exist "%APP_DIR%\python\python.exe" (
+    echo [INFO] Python aus frueherer Installation gefunden: %APP_DIR%\python >> "%LOGFILE%"
+    echo         Python aus frueherer Installation gefunden.
+    if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
+    xcopy "%APP_DIR%\python" "%PYTHON_DIR%\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+    if exist "%PYTHON%" goto :python_ready
+    echo [WARN] Kopie fehlgeschlagen >> "%LOGFILE%"
+)
+
+:: Fallback: Fruehere Installation in DATA_DIR vorhanden? (aeltere Versionen)
 if exist "%DATA_DIR%\python\python.exe" (
     echo [INFO] Python aus frueherer Installation gefunden: %DATA_DIR%\python >> "%LOGFILE%"
     echo         Python aus frueherer Installation gefunden.
@@ -397,19 +407,22 @@ if not exist "%DATA_DIR%\dokumente" mkdir "%DATA_DIR%\dokumente"
 if not exist "%DATA_DIR%\export" mkdir "%DATA_DIR%\export"
 if not exist "%DATA_DIR%\logs" mkdir "%DATA_DIR%\logs"
 
-:: Backup erstellen BEVOR irgendetwas verschoben wird (#349)
+:: #351: Ein einziges Backup BEVOR irgendetwas verschoben wird (#349)
+:: Pruefe beide moeglichen DB-Standorte, sichere den neuesten.
 set "BACKUP_DIR=%DATA_DIR%\backups"
-if exist "%BASE_INSTALL%\pbp.db" (
-    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
-    echo [INFO] Erstelle Sicherung vor Migration... >> "%LOGFILE%"
-    copy "%BASE_INSTALL%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
-    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
-    echo [OK] Backup erstellt >> "%LOGFILE%"
-)
+set "BACKUP_DONE=0"
 if exist "%DATA_DIR%\pbp.db" (
     if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
     echo [INFO] Erstelle Sicherung vor Update... >> "%LOGFILE%"
     copy "%DATA_DIR%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
+    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
+    echo [OK] Backup erstellt >> "%LOGFILE%"
+    set "BACKUP_DONE=1"
+)
+if "!BACKUP_DONE!"=="0" if exist "%BASE_INSTALL%\pbp.db" (
+    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
+    echo [INFO] Erstelle Sicherung vor Migration... >> "%LOGFILE%"
+    copy "%BASE_INSTALL%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
     echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
     echo [OK] Backup erstellt >> "%LOGFILE%"
 )
@@ -509,6 +522,11 @@ if exist "%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe" set "CLAUDE_FOUND=1
 if exist "%LOCALAPPDATA%\AnthropicClaude\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%LOCALAPPDATA%\Programs\Claude\Claude.exe" set "CLAUDE_FOUND=1"
+:: #361: Windows Store Version erkennen
+for /d %%P in ("%LOCALAPPDATA%\Packages\Claude_*") do (
+    if exist "%%P\Claude.exe" set "CLAUDE_FOUND=1"
+    if exist "%%P\LocalCache\Roaming\Claude" set "CLAUDE_FOUND=1"
+)
 
 if "!CLAUDE_FOUND!"=="1" goto :claude_found
 

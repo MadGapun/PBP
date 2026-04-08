@@ -135,7 +135,11 @@ export default function StatsPage() {
   if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
 
   // --- Timeline chart data ---
-  const timelinePeriods = timeline?.periods || [];
+  // #358: Exclude incomplete current period to avoid misleading downward trend
+  const currentPeriod = timeline?.current_period;
+  const timelinePeriods = (timeline?.periods || []).filter(
+    (p) => interval === "all" || p !== currentPeriod,
+  );
   const timelineChartData = timelinePeriods.map((period) => ({
     name: period,
     Bewerbungen: timeline?.applications?.[period] || 0,
@@ -225,11 +229,11 @@ export default function StatsPage() {
             value={interval}
             onChange={(e) => setInterval_(e.target.value)}
           >
-            <option value="day">T\u00e4glich</option>
-            <option value="week">W\u00f6chentlich</option>
+            <option value="day">Taeglich</option>
+            <option value="week">Woechentlich</option>
             <option value="month">Monatlich</option>
             <option value="quarter">Quartalsweise</option>
-            <option value="year">J\u00e4hrlich</option>
+            <option value="year">Jaehrlich</option>
             <option value="all">Komplett</option>
           </SelectInput>
           <LinkButton

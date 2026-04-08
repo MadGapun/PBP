@@ -17,6 +17,7 @@
   Upload,
   UserCheck,
   Video,
+  X,
 } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -104,6 +105,9 @@ export default function DashboardPage() {
   });
   const [emailDetail, setEmailDetail] = useState(null);
   const [publicHints, setPublicHints] = useState([]);
+  const [dismissedHints, setDismissedHints] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("pbp_dismissed_hints") || "[]"); } catch { return []; }
+  });
 
   const loadData = useEffectEvent(async () => {
     if (!chrome.status?.has_profile) {
@@ -412,19 +416,33 @@ export default function DashboardPage() {
         <h1 className="font-display text-xl font-semibold text-ink">Dashboard</h1>
       </div>
 
-      {publicHints.length > 0 && (
+      {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
         <div className="mb-4 space-y-2">
-          {publicHints.map((hint) => (
+          {publicHints.filter((h) => !dismissedHints.includes(h.id)).map((hint) => (
             <div
               key={hint.id}
-              className={`rounded-lg border px-4 py-3 text-sm ${
+              className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
                 hint.type === "warning"
                   ? "border-amber-500/20 bg-amber-500/5 text-amber-200"
                   : "border-sky-500/20 bg-sky-500/5 text-sky-200"
               }`}
             >
-              {hint.title && <span className="font-medium">{hint.title} </span>}
-              {hint.text}
+              <div>
+                {hint.title && <span className="font-medium">{hint.title} </span>}
+                {hint.text}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = [...dismissedHints, hint.id];
+                  setDismissedHints(next);
+                  try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
+                }}
+                className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                title="Schliessen"
+              >
+                <X size={14} />
+              </button>
             </div>
           ))}
         </div>

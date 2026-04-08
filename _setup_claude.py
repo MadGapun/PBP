@@ -7,14 +7,38 @@ gestartet wird und setzt die Pfade entsprechend.
 import json, os, sys
 
 
-def get_claude_config_path():
-    """Gibt den Claude Desktop Config-Pfad fuer die aktuelle Plattform zurueck."""
+def get_claude_config_paths():
+    """Gibt alle Claude Desktop Config-Pfade fuer die aktuelle Plattform zurueck.
+
+    #361: Windows Store installiert Claude in einem Packages-Unterordner.
+    Wir geben alle gefundenen Pfade zurueck, damit beide Varianten bedient werden.
+    """
+    paths = []
     if sys.platform == "win32":
-        return os.path.join(os.environ.get("APPDATA", ""), "Claude", "claude_desktop_config.json")
+        # Standard-Pfad (Direktdownload von claude.ai)
+        std_path = os.path.join(os.environ.get("APPDATA", ""), "Claude", "claude_desktop_config.json")
+        paths.append(std_path)
+        # Windows Store Pfad (#361)
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        packages_dir = os.path.join(local_app, "Packages")
+        if os.path.isdir(packages_dir):
+            import glob
+            for pkg in glob.glob(os.path.join(packages_dir, "Claude_*")):
+                store_path = os.path.join(pkg, "LocalCache", "Roaming", "Claude", "claude_desktop_config.json")
+                store_dir = os.path.dirname(store_path)
+                # Nur hinzufuegen wenn das Verzeichnis existiert (Store-Version installiert)
+                if os.path.isdir(store_dir) or os.path.exists(store_path):
+                    paths.append(store_path)
     elif sys.platform == "darwin":
-        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Claude", "claude_desktop_config.json")
+        paths.append(os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Claude", "claude_desktop_config.json"))
     else:
-        return os.path.join(os.path.expanduser("~"), ".config", "Claude", "claude_desktop_config.json")
+        paths.append(os.path.join(os.path.expanduser("~"), ".config", "Claude", "claude_desktop_config.json"))
+    return paths
+
+
+def get_claude_config_path():
+    """Gibt den primaeren Claude Desktop Config-Pfad zurueck (Kompatibilitaet)."""
+    return get_claude_config_paths()[0]
 
 
 def get_data_dir():
@@ -107,13 +131,14 @@ def detect_mode(project_dir):
 
 # Projektverzeichnis = wo dieses Script liegt
 project_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = get_claude_config_path()
+config_paths = get_claude_config_paths()
+config_path = config_paths[0]  # Primaerer Pfad
 mode, python_exe, src_dir, data_dir = detect_mode(project_dir)
 
 print(f"[CLAUDE] Plattform: {sys.platform}")
 print(f"[CLAUDE] Modus:   {mode}")
 print(f"[CLAUDE] Projekt: {project_dir}")
-print(f"[CLAUDE] Config:  {config_path}")
+print(f"[CLAUDE] Config:  {config_paths}")
 print(f"[CLAUDE] Python:  {python_exe}")
 print(f"[CLAUDE] Source:  {src_dir}")
 print(f"[CLAUDE] Daten:   {data_dir}")
@@ -122,21 +147,6 @@ if not os.path.exists(python_exe):
     print(f"[CLAUDE] WARNUNG: Python nicht gefunden unter {python_exe}")
     if mode == "official":
         print(f"[CLAUDE] Tipp: Fuehre zuerst den Installer aus oder nutze den Dev-Modus (.venv)")
-
-# Bestehende Config laden oder neue erstellen
-config = {"mcpServers": {}}
-if os.path.exists(config_path):
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-        if "mcpServers" not in config:
-            config["mcpServers"] = {}
-        existing = list(config["mcpServers"].keys())
-        print(f"[CLAUDE] Bestehende MCP-Server: {existing}")
-    except Exception as e:
-        print(f"[CLAUDE] Config-Fehler (wird neu erstellt): {e}")
-else:
-    print("[CLAUDE] Keine bestehende Config gefunden, erstelle neue")
 
 # MCP Server eintragen
 mcp_entry = {
@@ -150,13 +160,30 @@ mcp_entry = {
 # PYTHONPATH immer setzen — stellt sicher dass bewerbungs_assistent gefunden wird
 mcp_entry["env"]["PYTHONPATH"] = src_dir
 
-config["mcpServers"]["bewerbungs-assistent"] = mcp_entry
+# #361: Config in alle erkannten Pfade schreiben (Standard + ggf. Windows Store)
+written = 0
+for cp in config_paths:
+    config = {"mcpServers": {}}
+    if os.path.exists(cp):
+        try:
+            with open(cp, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            if "mcpServers" not in config:
+                config["mcpServers"] = {}
+            existing = list(config["mcpServers"].keys())
+            print(f"[CLAUDE] {cp}: Bestehende MCP-Server: {existing}")
+        except Exception as e:
+            print(f"[CLAUDE] {cp}: Config-Fehler (wird neu erstellt): {e}")
+    else:
+        print(f"[CLAUDE] {cp}: Keine bestehende Config, erstelle neue")
 
-# Config-Verzeichnis erstellen falls noetig
-os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    config["mcpServers"]["bewerbungs-assistent"] = mcp_entry
 
-with open(config_path, "w", encoding="utf-8") as f:
-    json.dump(config, f, indent=2, ensure_ascii=False)
+    os.makedirs(os.path.dirname(cp), exist_ok=True)
+    with open(cp, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+    print(f"[CLAUDE] Config geschrieben: {cp}")
+    written += 1
 
-print(f"[CLAUDE] Config geschrieben ({mode}-Modus)")
+print(f"[CLAUDE] {written} Config-Datei(en) geschrieben ({mode}-Modus)")
 print("OK")

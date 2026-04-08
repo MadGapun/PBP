@@ -2382,14 +2382,17 @@ class Database:
             "month": "date('now', '-12 months')",
             "quarter": "date('now', '-24 months')",
         }
+        # #357: Use COALESCE(applied_at, created_at) so imported applications
+        # (which may lack applied_at) still appear in the timeline.
+        _effective_date = "COALESCE(NULLIF(applied_at, ''), created_at)"
         time_filter = ""
         if original_interval != "all" and interval in _time_limits:
-            time_filter = f"AND applied_at >= {_time_limits[interval]}"
-        time_filter_jobs = time_filter.replace("applied_at", "found_at")
+            time_filter = f"AND {_effective_date} >= {_time_limits[interval]}"
+        time_filter_jobs = time_filter.replace(_effective_date, "found_at")
 
-        # Normalize applied_at: strip timezone suffix and skip empty strings (#197)
-        _date_col = "substr(replace(applied_at, 'T', ' '), 1, 19)"
-        _date_filter = "AND applied_at IS NOT NULL AND applied_at != ''"
+        # Normalize date: strip timezone suffix and skip empty strings (#197)
+        _date_col = f"substr(replace({_effective_date}, 'T', ' '), 1, 19)"
+        _date_filter = f"AND {_effective_date} IS NOT NULL"
 
         if interval == "quarter":
             rows = conn.execute(f"""
@@ -2477,12 +2480,27 @@ class Database:
                 except ValueError:
                     pass
 
+        # #358: Determine current (incomplete) period so frontend can mark it
+        from datetime import datetime as _dt
+        _now = _dt.now()
+        if interval == "quarter":
+            current_period = f"{_now.year}-Q{(_now.month - 1) // 3 + 1}"
+        elif interval == "day":
+            current_period = _now.strftime("%Y-%m-%d")
+        elif interval == "week":
+            current_period = _now.strftime("%Y-W%W")
+        elif interval == "year":
+            current_period = _now.strftime("%Y")
+        else:
+            current_period = _now.strftime("%Y-%m")
+
         return {
             "interval": interval,
             "periods": sorted(periods.keys()),
             "applications": {p: d["total"] for p, d in sorted(periods.items())},
             "by_status": {p: d["by_status"] for p, d in sorted(periods.items())},
             "jobs_found": {r["period"]: r["count"] for r in job_rows if r["period"]},
+            "current_period": current_period,
         }
 
     def get_score_stats(self) -> dict:
@@ -3600,7 +3618,7 @@ class Database:
             """SELECT m.*, a.title as app_title, a.company as app_company
                FROM application_meetings m
                LEFT JOIN applications a ON m.application_id = a.id
-               WHERE m.status='geplant'
+               WHERE m.status != 'abgesagt'
                  AND m.meeting_date >= ?
                  AND m.meeting_date <= ?
                  AND (m.profile_id=? OR m.profile_id IS NULL)

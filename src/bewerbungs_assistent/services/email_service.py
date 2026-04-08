@@ -48,6 +48,13 @@ STATUS_PATTERNS = {
         "application has been received",
         "wir haben ihre bewerbung erhalten",
         "ihre bewerbung ist bei uns eingegangen",
+        # #362: Du-Anrede Varianten (z.B. TKMS/Lumesse TalentLink)
+        "vielen dank für deine bewerbung",
+        "herzlichen dank für deine bewerbung",
+        "deine bewerbung ist bei uns eingegangen",
+        "wir haben deine bewerbung erhalten",
+        "deine bewerbung erhalten",
+        "danke für deine bewerbung",
     ],
     "interview": [
         "einladen",
@@ -68,6 +75,13 @@ STATUS_PATTERNS = {
         "invite you to",
         "schedule a call",
         "phone screen",
+        # #362: Du-Anrede
+        "möchten dich gerne",
+        "moechten dich gerne",
+        "würden uns freuen dich",
+        "wuerden uns freuen dich",
+        "dich kennenlernen",
+        "laden dich ein",
     ],
     "abgelehnt": [
         "leider absagen",
@@ -84,6 +98,11 @@ STATUS_PATTERNS = {
         "position has been filled",
         "stelle wurde besetzt",
         "nicht mehr vakant",
+        # #362: Du-Anrede
+        "deine bewerbung leider",
+        "dir leider absagen",
+        "dir leider mitteilen",
+        "dich leider nicht",
     ],
     "angebot": [
         "vertragsentwurf",
@@ -95,6 +114,9 @@ STATUS_PATTERNS = {
         "gehaltsvorschlag",
         "vertragsunterlagen",
         "rahmenvertrag",
+        # #362: Du-Anrede
+        "freuen uns dir anbieten",
+        "dein vertragsangebot",
     ],
 }
 

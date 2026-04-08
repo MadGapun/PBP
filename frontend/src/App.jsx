@@ -31,6 +31,7 @@ import JobsPage from "@/pages/JobsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import CalendarPage from "@/pages/CalendarPage";
+import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
 
@@ -59,6 +60,7 @@ const TAB_CONFIG = [
   { id: "profil", title: "Profil", icon: UserRound, defaultMeta: "Lebenslauf-Basis und Vollständigkeit" },
   { id: "stellen", title: "Stellen", icon: BriefcaseBusiness, defaultMeta: "Treffer, Filter und Fit" },
   { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "TODOs, Follow-ups und Status" },
+  { id: "dokumente", title: "Docs", icon: FolderOpen, defaultMeta: "Suche, Filter und Querverweis" },
   { id: "kalender", title: "Kalender", icon: CalendarDays, defaultMeta: "Termine und ICS-Export" },
   { id: "statistiken", title: "Statistiken", icon: BarChart3, defaultMeta: "Charts, Trends und Export" },
   { id: "einstellungen", title: "Einstellungen", icon: Settings2, defaultMeta: "Quellen, Suche und Verhalten" },
@@ -422,6 +424,29 @@ export default function App() {
     };
   }, [syncLiveUpdates]);
 
+  // #359: Periodically poll connection status independently of DB changes.
+  // Without this, the Lebensanzeige only updates when the live-update token
+  // changes (i.e. on DB writes), leaving it stale at "disconnected".
+  useEffect(() => {
+    let cancelled = false;
+    const pollConnection = async () => {
+      if (cancelled) return;
+      try {
+        const status = await optionalApi("/api/status");
+        if (status?.mcp_connection && !cancelled) {
+          startTransition(() => {
+            setChrome((prev) => {
+              if (prev.status?.mcp_connection?.status === status.mcp_connection.status) return prev;
+              return { ...prev, status: { ...prev.status, mcp_connection: status.mcp_connection } };
+            });
+          });
+        }
+      } catch {}
+    };
+    const id = window.setInterval(pollConnection, 30000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
+
   function navigateTo(nextPage, nextIntent = null) {
     setIntent(nextIntent ? { page: nextPage, ...nextIntent, nonce: Date.now() } : null);
     setPage(nextPage);
@@ -640,6 +665,7 @@ export default function App() {
           <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8">
             <p className="brand-title shrink-0 text-[13px] font-medium text-ink/80">
               Persönliches Bewerbungs-Portal
+              <span className="ml-1.5 text-[10px] font-mono text-muted/30 align-baseline select-none">v{chrome.status?.version || "?"}</span>
             </p>
 
             <nav className="tabs flex min-w-0 flex-1 items-center gap-0.5">
@@ -728,11 +754,6 @@ export default function App() {
             >
               <HelpCircle size={18} />
             </button>
-
-            {/* Version (#348) */}
-            <span className="hidden sm:inline text-[11px] text-muted/30 font-mono select-none" title={`PBP v${chrome.status?.version || "?"}`}>
-              v{chrome.status?.version || "?"}
-            </span>
 
             <div
               id="profile-switcher"
@@ -937,6 +958,7 @@ export default function App() {
           {page === "profil" ? <ProfilePage /> : null}
           {page === "stellen" ? <JobsPage /> : null}
           {page === "bewerbungen" ? <ApplicationsPage /> : null}
+          {page === "dokumente" ? <DocumentsPage /> : null}
           {page === "kalender" ? <CalendarPage /> : null}
           {page === "statistiken" ? <StatsPage /> : null}
           {page === "einstellungen" ? <SettingsPage /> : null}
