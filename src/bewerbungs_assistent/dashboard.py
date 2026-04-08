@@ -568,6 +568,22 @@ async def api_update_document_type(doc_id: str, request: Request):
     return {"status": "ok"}
 
 
+@app.put("/api/document/{doc_id}/link")
+async def api_link_document(doc_id: str, request: Request):
+    """Change or remove document-application link (#366)."""
+    data = await request.json()
+    app_id = data.get("application_id") or None
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    # Verify document belongs to active profile
+    doc = conn.execute("SELECT id FROM documents WHERE id=? AND (profile_id=? OR profile_id IS NULL)", (doc_id, pid)).fetchone()
+    if not doc:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+    conn.execute("UPDATE documents SET linked_application_id=? WHERE id=?", (app_id, doc_id))
+    conn.commit()
+    return {"status": "ok"}
+
+
 def _document_type_label(doc_type: str | None) -> str:
     labels = {
         "lebenslauf": "Lebenslauf",
@@ -1707,12 +1723,14 @@ async def api_snapshot_description(app_id: str, request: Request):
 async def api_documents(
     q: str = "",
     doc_type: str = "",
+    application_id: str = "",
+    unlinked: str = "",
     sort: str = "created_at",
     order: str = "desc",
     page: int = 1,
     per_page: int = 25,
 ):
-    """List documents with search, filter, sort, pagination and application cross-reference (#360)."""
+    """List documents with search, filter, sort, pagination and application cross-reference (#360, #366)."""
     pid = _db.get_active_profile_id()
     conn = _db.connect()
 
@@ -1735,8 +1753,23 @@ async def api_documents(
         base += " AND d.doc_type = ?"
         params.append(doc_type)
 
-    # Count total
+    # Filter by application (#366)
+    if application_id:
+        base += " AND d.linked_application_id = ?"
+        params.append(application_id)
+
+    # Filter unlinked documents (#366)
+    if unlinked == "1":
+        base += " AND (d.linked_application_id IS NULL OR d.linked_application_id = '')"
+
+    # Count total + unlinked count for badge
     total = conn.execute(f"SELECT COUNT(*) as cnt {base}", params).fetchone()["cnt"]
+    unlinked_count = conn.execute(
+        """SELECT COUNT(*) as cnt FROM documents d
+           WHERE (d.profile_id=? OR d.profile_id IS NULL)
+             AND (d.linked_application_id IS NULL OR d.linked_application_id = '')""",
+        (pid,),
+    ).fetchone()["cnt"]
 
     # Sort
     allowed_sorts = {"created_at": "d.created_at", "filename": "d.filename", "doc_type": "d.doc_type"}
@@ -1759,13 +1792,25 @@ async def api_documents(
         (pid,),
     ).fetchall()
 
+    # Available applications for filter dropdown (#366)
+    app_rows = conn.execute(
+        """SELECT DISTINCT a.id, a.company, a.title
+           FROM documents d
+           JOIN applications a ON d.linked_application_id = a.id
+           WHERE (d.profile_id=? OR d.profile_id IS NULL)
+           ORDER BY a.company""",
+        (pid,),
+    ).fetchall()
+
     return {
         "documents": [dict(r) for r in rows],
         "total": total,
+        "unlinked_count": unlinked_count,
         "page": page,
         "per_page": per_page,
         "pages": max(1, (total + per_page - 1) // per_page),
         "doc_types": [r["doc_type"] for r in type_rows],
+        "applications": [dict(r) for r in app_rows],
     }
 
 
@@ -2418,7 +2463,7 @@ async def api_meeting_ics(meeting_id: str):
 
 @app.get("/api/meetings/calendar")
 async def api_meetings_calendar(days: int = 90):
-    """Get all meetings for calendar view with collision detection (#267)."""
+    """Get all meetings + follow-ups for calendar view with collision detection (#267, #364)."""
     meetings = _db.get_upcoming_meetings(days=days)
     # Also include past meetings (last 30 days) for context
     conn = _db.connect()
@@ -2430,13 +2475,45 @@ async def api_meetings_calendar(days: int = 90):
            FROM application_meetings m
            LEFT JOIN applications a ON m.application_id = a.id
            WHERE m.meeting_date >= ? AND m.meeting_date < ?
+             AND m.status != 'abgesagt'
              AND (m.profile_id=? OR m.profile_id IS NULL)
            ORDER BY m.meeting_date ASC""",
         (past_cutoff, now, pid),
     ).fetchall()
     all_meetings = [dict(r) for r in past_rows] + meetings
 
-    # Collision detection (#267): find overlapping meetings
+    # Include follow-ups with scheduled_date as calendar entries (#364)
+    follow_up_rows = conn.execute(
+        """SELECT f.*, a.title as app_title, a.company as app_company
+           FROM follow_ups f
+           LEFT JOIN applications a ON f.application_id = a.id
+           WHERE f.scheduled_date IS NOT NULL
+             AND f.scheduled_date >= ?
+             AND f.status = 'geplant'
+             AND (a.profile_id=? OR a.profile_id IS NULL)
+           ORDER BY f.scheduled_date ASC""",
+        (past_cutoff, pid),
+    ).fetchall()
+    follow_ups = []
+    for fu in follow_up_rows:
+        fu = dict(fu)
+        fu_type = fu.get("follow_up_type") or "nachfass"
+        label = {"nachfass": "Nachfassen", "erinnerung": "Erinnerung"}.get(fu_type, fu_type.replace("_", " ").title())
+        company = fu.get("app_company") or ""
+        title = fu.get("app_title") or ""
+        follow_ups.append({
+            "id": f"followup-{fu['id']}",
+            "title": f"{label}: {company}" if company else f"{label}: {title}" if title else label,
+            "meeting_date": fu["scheduled_date"],
+            "meeting_type": "followup",
+            "app_title": title,
+            "app_company": company,
+            "application_id": fu.get("application_id"),
+            "is_follow_up": True,
+            "status": fu.get("status", "geplant"),
+        })
+
+    # Collision detection (#267): find overlapping meetings (exclude follow-ups)
     collisions = []
     sorted_m = sorted(all_meetings, key=lambda x: x.get("meeting_date", ""))
     for i, m1 in enumerate(sorted_m):
@@ -2457,9 +2534,9 @@ async def api_meetings_calendar(days: int = 90):
                 continue
 
     return {
-        "meetings": all_meetings,
+        "meetings": all_meetings + follow_ups,
         "collisions": collisions,
-        "count": len(all_meetings),
+        "count": len(all_meetings) + len(follow_ups),
     }
 
 

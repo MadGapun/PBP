@@ -1101,37 +1101,8 @@ export default function ProfilePage() {
 
       <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
 
-      <div className="flex gap-6">
-        {/* Sticky sidebar navigation (#122) */}
-        <nav className="hidden lg:block w-48 shrink-0">
-          <div className="sticky top-6 space-y-1">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Navigation</p>
-            {[
-              ["profil-uebersicht", "Übersicht"],
-              ["profil-persoenlich", "Persönliche Daten"],
-              ["profil-suchkriterien", "Suchkriterien"],
-              ["profil-blacklist", "Blacklist"],
-              ["profil-erfahrung", "Berufserfahrung"],
-              ["profil-ausbildung", "Ausbildung"],
-              ["profil-skills", "Skills"],
-              ["profil-dokumente", "Dokumente"],
-            ].map(([id, label]) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                className="block rounded-lg px-3 py-1.5 text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                {label}
-              </a>
-            ))}
-          </div>
-        </nav>
-
-        <div className="min-w-0 flex-1 grid gap-6">
+      <div className="grid gap-6">
+        <div id="profil-uebersicht-wrapper" className="grid gap-6">
         <div id="profil-uebersicht" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {profileElementCards.map((item) => (
             <MetricCard
@@ -1773,12 +1744,17 @@ export default function ProfilePage() {
                     </div>
                   );
                 })()}
-                <p className="truncate text-[13px] font-medium text-ink">
-                  {item.filename}
-                  {(item.doc_type || "").endsWith("_vorlage") && (
-                    <span className="ml-1.5 inline-flex rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">VORLAGE</span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-ink">
+                    {item.filename}
+                    {(item.doc_type || "").endsWith("_vorlage") && (
+                      <span className="ml-1.5 inline-flex rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">VORLAGE</span>
+                    )}
+                  </p>
+                  {item.app_company && (
+                    <p className="truncate text-[11px] text-muted/40 mt-0.5">{item.app_company}{item.app_title ? ` \u2014 ${item.app_title}` : ""}</p>
                   )}
-                </p>
+                </div>
                 <span className="text-[11px] text-muted/40">{formatDateTime(item.created_at)}</span>
                 <div className="flex justify-end gap-1.5">
                   <button
@@ -1829,7 +1805,7 @@ export default function ProfilePage() {
                   </button>
                 </div>
               </div>
-            )) : <EmptyState title="Noch keine Dokumente" description="Lade Lebenslauf, Zeugnisse oder Anschreiben hoch." />}
+            )) : <EmptyState title="Noch keine Dokumente" description="Lade Lebenslauf, Zeugnisse oder Anschreiben hoch. Bereits vorhandene Dokumente findest du im Docs-Tab." />}
           </div>
         </Card>
 
@@ -1983,7 +1959,7 @@ export default function ProfilePage() {
           )}
         </Card>
       </div>
-      </div>{/* end flex layout */}
+      </div>{/* end grid layout */}
 
       <Modal
         open={positionDialog.open}

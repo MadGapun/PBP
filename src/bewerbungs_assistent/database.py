@@ -1460,11 +1460,17 @@ class Database:
         conn = self.connect()
         if profile_id:
             return [dict(r) for r in conn.execute(
-                "SELECT * FROM documents WHERE profile_id=? ORDER BY created_at DESC",
+                """SELECT d.*, a.company as app_company, a.title as app_title, a.status as app_status
+                   FROM documents d
+                   LEFT JOIN applications a ON d.linked_application_id = a.id
+                   WHERE d.profile_id=? ORDER BY d.created_at DESC""",
                 (profile_id,)
             ).fetchall()]
         return [dict(r) for r in conn.execute(
-            "SELECT * FROM documents ORDER BY created_at DESC"
+            """SELECT d.*, a.company as app_company, a.title as app_title, a.status as app_status
+               FROM documents d
+               LEFT JOIN applications a ON d.linked_application_id = a.id
+               ORDER BY d.created_at DESC"""
         ).fetchall()]
 
     def add_document(self, data: dict) -> str:

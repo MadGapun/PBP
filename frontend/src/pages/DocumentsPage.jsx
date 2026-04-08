@@ -1,13 +1,15 @@
-import { ChevronLeft, ChevronRight, Download, FileText, Link2, Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, Search, Unlink, X } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { api, apiUrl } from "@/api";
+import { api, apiUrl, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import {
   Badge,
+  Button,
   Card,
   EmptyState,
   LoadingPanel,
+  Modal,
   PageHeader,
   SelectInput,
 } from "@/components/ui";
@@ -31,19 +33,25 @@ function docTypeLabel(type) {
 export default function DocumentsPage() {
   const { reloadKey, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [] });
+  const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [], applications: [], unlinked_count: 0 });
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [docType, setDocType] = useState("");
+  const [appFilter, setAppFilter] = useState("");
+  const [unlinkedFilter, setUnlinkedFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("created_at");
   const [order, setOrder] = useState("desc");
+  const [expandedText, setExpandedText] = useState(null);
+  const [linkModal, setLinkModal] = useState({ open: false, doc: null, value: "" });
 
   const loadData = useEffectEvent(async () => {
     try {
       const params = new URLSearchParams({ page: String(page), per_page: "25", sort, order });
       if (activeQuery) params.set("q", activeQuery);
       if (docType) params.set("doc_type", docType);
+      if (appFilter) params.set("application_id", appFilter);
+      if (unlinkedFilter) params.set("unlinked", "1");
       const result = await api(`/api/documents?${params}`);
       setData(result);
     } catch (error) {
@@ -56,7 +64,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     setLoading(true);
     loadData();
-  }, [reloadKey, page, sort, order, activeQuery, docType]);
+  }, [reloadKey, page, sort, order, activeQuery, docType, appFilter, unlinkedFilter]);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -80,6 +88,20 @@ export default function DocumentsPage() {
     setPage(1);
   }
 
+  async function saveLink() {
+    if (!linkModal.doc) return;
+    try {
+      await putJson(`/api/document/${linkModal.doc.id}/link`, {
+        application_id: linkModal.value || null,
+      });
+      pushToast("Verkn\u00fcpfung aktualisiert", "success");
+      setLinkModal({ open: false, doc: null, value: "" });
+      loadData();
+    } catch (error) {
+      pushToast(`Fehler: ${error.message}`, "danger");
+    }
+  }
+
   if (loading && data.documents.length === 0) return <LoadingPanel />;
 
   return (
@@ -88,7 +110,7 @@ export default function DocumentsPage() {
         <PageHeader title="Dokumente" subtitle={`${data.total} Dokumente`} />
       </div>
 
-      {/* Search + Filters */}
+      {/* Search + Filters (#366) */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <form onSubmit={handleSearch} className="flex flex-1 items-center gap-2 min-w-[200px] max-w-md">
           <div className="relative flex-1">
@@ -129,6 +151,36 @@ export default function DocumentsPage() {
           ))}
         </SelectInput>
 
+        {/* Application filter (#366) */}
+        {data.applications?.length > 0 && (
+          <SelectInput
+            className="!h-9 !min-h-0 !w-auto !max-w-[14rem] !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+            value={appFilter}
+            onChange={(e) => { setAppFilter(e.target.value); setUnlinkedFilter(false); setPage(1); }}
+          >
+            <option value="">Alle Bewerbungen</option>
+            {data.applications.map((a) => (
+              <option key={a.id} value={a.id}>{a.company}{a.title ? ` — ${a.title}` : ""}</option>
+            ))}
+          </SelectInput>
+        )}
+
+        {/* Unlinked quick filter (#366) */}
+        {data.unlinked_count > 0 && (
+          <button
+            type="button"
+            onClick={() => { setUnlinkedFilter(!unlinkedFilter); setAppFilter(""); setPage(1); }}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+              unlinkedFilter
+                ? "bg-amber/15 text-amber"
+                : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+            }`}
+          >
+            <Unlink size={12} />
+            Nicht verkn\u00fcpft ({data.unlinked_count})
+          </button>
+        )}
+
         {/* Sort toggles */}
         <div className="flex items-center gap-1">
           {[
@@ -156,63 +208,93 @@ export default function DocumentsPage() {
       {data.documents.length === 0 ? (
         <EmptyState
           title="Keine Dokumente"
-          description={activeQuery || docType
-            ? "Keine Dokumente fuer diese Suche/Filter gefunden."
+          description={activeQuery || docType || appFilter || unlinkedFilter
+            ? "Keine Dokumente f\u00fcr diese Suche/Filter gefunden."
             : "Noch keine Dokumente vorhanden. Dokumente werden beim Upload und E-Mail-Import automatisch erfasst."
           }
         />
       ) : (
         <>
           <div className="grid gap-2">
-            {data.documents.map((doc) => (
-              <Card key={doc.id} className="rounded-xl">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-sky/10 shrink-0">
-                    <FileText size={18} className="text-sky" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-ink truncate">{doc.filename}</h3>
-                      <Badge tone="neutral">{docTypeLabel(doc.doc_type)}</Badge>
+            {data.documents.map((doc) => {
+              const isTextExpanded = expandedText === doc.id;
+              return (
+                <Card key={doc.id} className="rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-sky/10 shrink-0">
+                      <FileText size={18} className="text-sky" />
                     </div>
-                    {/* Application cross-reference (#360) */}
-                    {(doc.app_company || doc.app_title) && (
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium text-ink truncate">{doc.filename}</h3>
+                        <Badge tone="neutral">{docTypeLabel(doc.doc_type)}</Badge>
+                      </div>
+                      {/* Application cross-reference — clickable (#366) */}
+                      {(doc.app_company || doc.app_title) ? (
+                        <button
+                          type="button"
+                          onClick={() => navigateTo("bewerbungen", { highlight: doc.linked_application_id })}
+                          className="mt-0.5 flex items-center gap-1 text-sm text-sky/70 hover:text-sky transition-colors"
+                        >
+                          <Link2 size={11} />
+                          <span className="truncate">
+                            {doc.app_company}{doc.app_title ? ` \u2014 ${doc.app_title}` : ""}
+                          </span>
+                          {doc.app_status && (
+                            <Badge tone={doc.app_status === "abgelehnt" ? "danger" : doc.app_status === "interview" ? "amber" : "neutral"} className="ml-1">
+                              {doc.app_status}
+                            </Badge>
+                          )}
+                        </button>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verkn\u00fcpft</p>
+                      )}
+                      {/* Expandable text preview (#366) */}
+                      {doc.extracted_text && (
+                        <button
+                          type="button"
+                          className="mt-1 text-left text-xs text-muted/40 hover:text-muted/60 transition-colors w-full"
+                          onClick={() => setExpandedText(isTextExpanded ? null : doc.id)}
+                        >
+                          {isTextExpanded
+                            ? doc.extracted_text.slice(0, 500)
+                            : doc.extracted_text.slice(0, 150)}
+                          {doc.extracted_text.length > (isTextExpanded ? 500 : 150) && "\u2026"}
+                          {doc.extracted_text.length > 150 && (
+                            <span className="ml-1 text-sky/50">{isTextExpanded ? "weniger" : "mehr"}</span>
+                          )}
+                        </button>
+                      )}
+                      <div className="mt-1 text-[11px] text-muted/30">
+                        {doc.created_at && formatDate(doc.created_at)}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {/* Link/Unlink button (#366) */}
                       <button
                         type="button"
-                        onClick={() => navigateTo("bewerbungen")}
-                        className="mt-0.5 flex items-center gap-1 text-sm text-sky/70 hover:text-sky transition-colors"
+                        onClick={() => setLinkModal({
+                          open: true,
+                          doc,
+                          value: doc.linked_application_id || "",
+                        })}
+                        className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
+                        title="Verkn\u00fcpfung \u00e4ndern"
                       >
-                        <Link2 size={11} />
-                        <span className="truncate">
-                          {doc.app_company}{doc.app_title ? ` \u2014 ${doc.app_title}` : ""}
-                        </span>
-                        {doc.app_status && (
-                          <Badge tone={doc.app_status === "abgelehnt" ? "danger" : doc.app_status === "interview" ? "amber" : "sky"} className="ml-1">
-                            {doc.app_status}
-                          </Badge>
-                        )}
+                        <LinkIcon size={14} />
                       </button>
-                    )}
-                    {/* Text preview */}
-                    {doc.extracted_text && (
-                      <p className="mt-1 text-xs text-muted/40 line-clamp-1">
-                        {doc.extracted_text.slice(0, 150)}
-                      </p>
-                    )}
-                    <div className="mt-1 text-[11px] text-muted/30">
-                      {doc.created_at && formatDate(doc.created_at)}
+                      <a
+                        href={apiUrl(`/api/documents/${doc.id}/download`)}
+                        className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                        title="Herunterladen"
+                      >
+                        <Download size={14} />
+                      </a>
                     </div>
                   </div>
-                  <a
-                    href={apiUrl(`/api/documents/${doc.id}/download`)}
-                    className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
-                    title="Herunterladen"
-                  >
-                    <Download size={14} />
-                  </a>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
 
           {/* Pagination */}
@@ -227,7 +309,7 @@ export default function DocumentsPage() {
                 <ChevronLeft size={16} />
               </button>
               <span className="text-xs text-muted/50">
-                Seite {data.page} von {data.pages}
+                Seite {data.page} von {data.pages} ({data.total} Dokumente)
               </span>
               <button
                 type="button"
@@ -241,6 +323,34 @@ export default function DocumentsPage() {
           )}
         </>
       )}
+
+      {/* Link-Document Modal (#366) */}
+      <Modal
+        open={linkModal.open}
+        title="Dokument verkn\u00fcpfen"
+        description={linkModal.doc ? `${linkModal.doc.filename}` : ""}
+        onClose={() => setLinkModal({ open: false, doc: null, value: "" })}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setLinkModal({ open: false, doc: null, value: "" })}>
+              Abbrechen
+            </Button>
+            <Button onClick={saveLink}>
+              Speichern
+            </Button>
+          </div>
+        }
+      >
+        <SelectInput
+          value={linkModal.value}
+          onChange={(e) => setLinkModal((cur) => ({ ...cur, value: e.target.value }))}
+        >
+          <option value="">Nicht verkn\u00fcpft</option>
+          {(data.applications || []).map((a) => (
+            <option key={a.id} value={a.id}>{a.company}{a.title ? ` — ${a.title}` : ""}</option>
+          ))}
+        </SelectInput>
+      </Modal>
     </div>
   );
 }

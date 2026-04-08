@@ -2,6 +2,22 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.7] - 2026-04-08
+
+### Layout-Redesign
+- **#363**: Topbar-Overlap behoben — Version und MCP-Lebensanzeige aus der Topbar in eine globale linke Sidebar verschoben. Profil-Navigation ebenfalls in Sidebar integriert. Kein Overlap mehr bei 8 Tabs.
+
+### Bug Fixes
+- **#364**: Kalender zeigt jetzt alle Termine — Follow-ups als eigene Kategorie integriert, Status `tentativ` wird angezeigt, heutige Termine verschwinden nicht mehr in "Vergangene"
+- **#365**: Profil-Seite Dokumente-Sektion zeigt jetzt Bewerbungs-Querverweis (Firma + Jobtitel) pro Dokument
+
+### Verbesserungen
+- **#366**: Docs-Tab UX komplett ueberarbeitet — Bewerbungs-Filter, "Nicht verknuepft"-Schnellfilter, klickbare Firmenlinks, ausklappbare Textvorschau, "Verknuepfung aendern"-Modal, verbesserte Paginierung (Seite X von Y + Gesamtzahl)
+
+### Qualitaet
+- 390 Tests bestanden (0 Regressionen)
+- Frontend-Build aktualisiert
+
 ## [1.5.0-beta.5] - 2026-04-08
 
 ### KRITISCH — Datensicherheit

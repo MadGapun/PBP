@@ -1,4 +1,4 @@
-import { Calendar, CalendarClock, Clock, Download, ExternalLink, MapPin, Trash2, Video } from "lucide-react";
+import { Calendar, CalendarClock, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Trash2, Video } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest } from "@/api";
@@ -20,6 +20,7 @@ const MEETING_TYPE_LABELS = {
   telefoninterview: "Telefoninterview",
   assessment: "Assessment",
   kennenlernen: "Kennenlernen",
+  followup: "Follow-up",
   sonstiges: "Termin",
 };
 
@@ -29,7 +30,11 @@ function meetingTypeLabel(type) {
 
 function isPast(dateStr) {
   if (!dateStr) return false;
-  return new Date(dateStr) < new Date();
+  // A meeting is "past" only if its DATE is before today (not just its time) (#364)
+  const d = new Date(dateStr);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return false; // today is never "past"
+  return d < now;
 }
 
 function isToday(dateStr) {
@@ -146,6 +151,9 @@ export default function CalendarPage() {
                 {grouped[date].map((meeting) => {
                   const past = isPast(meeting.meeting_date);
                   const hasCollision = collisionIds.has(meeting.id);
+                  const isFollowUp = meeting.is_follow_up;
+                  const IconComp = isFollowUp ? ClipboardCheck : CalendarClock;
+                  const accent = isFollowUp ? "amber" : "sky";
                   return (
                     <Card
                       key={meeting.id}
@@ -158,14 +166,14 @@ export default function CalendarPage() {
                       <div className="flex items-start gap-3">
                         <div className={cn(
                           "mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg shrink-0",
-                          past ? "bg-white/[0.03]" : "bg-sky/10"
+                          past ? "bg-white/[0.03]" : isFollowUp ? "bg-amber/10" : "bg-sky/10"
                         )}>
-                          <CalendarClock size={18} className={past ? "text-muted/30" : "text-sky"} />
+                          <IconComp size={18} className={past ? "text-muted/30" : `text-${accent}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-medium text-ink truncate">{meeting.title}</h3>
-                            <Badge tone={past ? "neutral" : "sky"}>{meetingTypeLabel(meeting.meeting_type)}</Badge>
+                            <Badge tone={past ? "neutral" : isFollowUp ? "amber" : "sky"}>{meetingTypeLabel(meeting.meeting_type)}</Badge>
                             {hasCollision && <Badge tone="amber">Kollision</Badge>}
                           </div>
                           {(meeting.app_company || meeting.app_title) && (
@@ -208,21 +216,25 @@ export default function CalendarPage() {
                               <ExternalLink size={14} />
                             </a>
                           )}
-                          <a
-                            href={apiUrl(`/api/meetings/${meeting.id}/ics`)}
-                            className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
-                            title="ICS herunterladen"
-                          >
-                            <Download size={14} />
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => deleteMeeting(meeting.id)}
-                            className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
-                            title="Termin l\u00f6schen"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {!isFollowUp && (
+                            <>
+                              <a
+                                href={apiUrl(`/api/meetings/${meeting.id}/ics`)}
+                                className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                                title="ICS herunterladen"
+                              >
+                                <Download size={14} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => deleteMeeting(meeting.id)}
+                                className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
+                                title="Termin l\u00f6schen"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </Card>

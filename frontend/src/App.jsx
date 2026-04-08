@@ -665,7 +665,6 @@ export default function App() {
           <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8">
             <p className="brand-title shrink-0 text-[13px] font-medium text-ink/80">
               Persönliches Bewerbungs-Portal
-              <span className="ml-1.5 text-[10px] font-mono text-muted/30 align-baseline select-none">v{chrome.status?.version || "?"}</span>
             </p>
 
             <nav className="tabs flex min-w-0 flex-1 items-center gap-0.5">
@@ -715,35 +714,6 @@ export default function App() {
                 );
               })}
             </nav>
-
-            {/* MCP Connection Indicator (#273, #309: klickbar) */}
-            {(() => {
-              const conn = chrome.status?.mcp_connection;
-              const st = conn?.status || "disconnected";
-              const cfg = {
-                connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", label: "Verbunden", Icon: Link2 },
-                unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", label: "Pr\u00fcfe\u2026", Icon: Link2 },
-                disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", label: "Nicht verbunden", Icon: Link2Off },
-              }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", label: "Nicht verbunden", Icon: Link2Off };
-              const handleClick = () => {
-                if (st === "connected") {
-                  window.open("claude://", "_self");
-                } else {
-                  setMcpHelpOpen(true);
-                }
-              };
-              return (
-                <button
-                  type="button"
-                  onClick={handleClick}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium cursor-pointer transition-colors ${cfg.bg} ${cfg.color}`}
-                  title={st === "connected" ? "Claude Desktop \u00f6ffnen" : `MCP: ${cfg.label} \u2014 Klicke f\u00fcr Hilfe`}
-                >
-                  <cfg.Icon size={13} />
-                  <span className="hidden sm:inline">{cfg.label}</span>
-                </button>
-              );
-            })()}
 
             {/* Help Button (#75) */}
             <button
@@ -953,16 +923,88 @@ export default function App() {
         ) : null}
 
 
-        <main className="mx-auto w-full max-w-[92rem] px-5 pb-12 pt-4 sm:px-8">
-          {page === "dashboard" ? <DashboardPage /> : null}
-          {page === "profil" ? <ProfilePage /> : null}
-          {page === "stellen" ? <JobsPage /> : null}
-          {page === "bewerbungen" ? <ApplicationsPage /> : null}
-          {page === "dokumente" ? <DocumentsPage /> : null}
-          {page === "kalender" ? <CalendarPage /> : null}
-          {page === "statistiken" ? <StatsPage /> : null}
-          {page === "einstellungen" ? <SettingsPage /> : null}
-        </main>
+        <div className="mx-auto flex w-full max-w-[92rem] px-5 pt-4 sm:px-8">
+          {/* Global Sidebar (#363) */}
+          <aside className="hidden lg:block w-48 shrink-0 pr-6">
+            <div className="sticky top-16 space-y-3">
+              <p className="text-[10px] font-mono text-muted/30 select-none">
+                v{chrome.status?.version || "?"}
+              </p>
+
+              {/* MCP Connection Indicator (#273, #309, #363) */}
+              {(() => {
+                const conn = chrome.status?.mcp_connection;
+                const st = conn?.status || "disconnected";
+                const cfg = {
+                  connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
+                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pr\u00fcfe\u2026", Icon: Link2 },
+                  disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
+                }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
+                const handleClick = () => {
+                  if (st === "connected") {
+                    window.open("claude://", "_self");
+                  } else {
+                    setMcpHelpOpen(true);
+                  }
+                };
+                return (
+                  <button
+                    type="button"
+                    onClick={handleClick}
+                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium cursor-pointer transition-colors ${cfg.bg} ${cfg.color}`}
+                    title={st === "connected" ? "Claude Desktop \u00f6ffnen" : `MCP: ${cfg.label} \u2014 Klicke f\u00fcr Hilfe`}
+                  >
+                    <span className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
+                    <span>{cfg.label}</span>
+                  </button>
+                );
+              })()}
+
+              {/* Page-specific sidebar navigation */}
+              {page === "profil" && (
+                <>
+                  <div className="h-px bg-white/[0.06]" />
+                  <nav className="space-y-1">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Navigation</p>
+                    {[
+                      ["profil-uebersicht", "\u00dcbersicht"],
+                      ["profil-persoenlich", "Pers\u00f6nliche Daten"],
+                      ["profil-suchkriterien", "Suchkriterien"],
+                      ["profil-blacklist", "Blacklist"],
+                      ["profil-erfahrung", "Berufserfahrung"],
+                      ["profil-ausbildung", "Ausbildung"],
+                      ["profil-skills", "Skills"],
+                      ["profil-dokumente", "Dokumente"],
+                    ].map(([id, label]) => (
+                      <a
+                        key={id}
+                        href={`#${id}`}
+                        className="block rounded-lg px-3 py-1.5 text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                      >
+                        {label}
+                      </a>
+                    ))}
+                  </nav>
+                </>
+              )}
+            </div>
+          </aside>
+
+          <main className="min-w-0 flex-1 pb-12">
+            {page === "dashboard" ? <DashboardPage /> : null}
+            {page === "profil" ? <ProfilePage /> : null}
+            {page === "stellen" ? <JobsPage /> : null}
+            {page === "bewerbungen" ? <ApplicationsPage /> : null}
+            {page === "dokumente" ? <DocumentsPage /> : null}
+            {page === "kalender" ? <CalendarPage /> : null}
+            {page === "statistiken" ? <StatsPage /> : null}
+            {page === "einstellungen" ? <SettingsPage /> : null}
+          </main>
+        </div>
 
         <Modal
           open={createProfileOpen}
