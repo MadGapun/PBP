@@ -722,7 +722,7 @@ export default function App() {
             {/* Help Button (#75) */}
             <button
               type="button"
-              onClick={() => setHelpOpen(true)}
+              onClick={() => { setShowWizard(false); setHelpOpen(true); }}
               className="shrink-0 rounded-lg p-1.5 text-muted/50 hover:text-ink hover:bg-white/[0.04] transition-colors"
               title="Hilfe & Support"
             >
@@ -1024,7 +1024,7 @@ export default function App() {
         <div
           id="wizard-overlay"
           className={cn(
-            "glass-overlay fixed inset-0 z-[900] items-center justify-center px-4 py-6",
+            "glass-overlay fixed inset-x-0 bottom-0 top-[52px] z-[45] items-center justify-center px-4 py-6",
             showWizard ? "show flex" : "hidden"
           )}
         >

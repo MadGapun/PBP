@@ -14,23 +14,35 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows: force UTF-8 stdout so ANSI symbols don't crash (#334)
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
 PROJECT_DIR = Path(__file__).resolve().parent
 ERRORS = []
 WARNINGS = []
 
+# Safe symbols (ASCII fallback when encoding is not UTF-8)
+_UTF8 = getattr(sys.stdout, "encoding", "utf-8") or "utf-8"
+_SYM_OK = "+" if "utf" not in _UTF8.lower() else "\u2713"
+_SYM_FAIL = "X" if "utf" not in _UTF8.lower() else "\u2717"
+_SYM_WARN = "!" if "utf" not in _UTF8.lower() else "\u26a0"
+
 
 def error(msg):
     ERRORS.append(msg)
-    print(f"  \033[0;31m✗ {msg}\033[0m")
+    print(f"  \033[0;31m{_SYM_FAIL} {msg}\033[0m")
 
 
 def warn(msg):
     WARNINGS.append(msg)
-    print(f"  \033[1;33m⚠ {msg}\033[0m")
+    print(f"  \033[1;33m{_SYM_WARN} {msg}\033[0m")
 
 
 def ok(msg):
-    print(f"  \033[0;32m✓ {msg}\033[0m")
+    print(f"  \033[0;32m{_SYM_OK} {msg}\033[0m")
 
 
 # ── 1. Versionskonsistenz ──────────────────────────────────────
@@ -148,26 +160,33 @@ def check_first_run_smoke():
     try:
         result = subprocess.run(
             [sys.executable, "-c", """
-import tempfile, os, shutil
+import tempfile, os, shutil, sys
 d = tempfile.mkdtemp()
-os.environ['BA_DATA_DIR'] = d
-from bewerbungs_assistent.database import Database
-from bewerbungs_assistent.heartbeat import get_connection_status
-from bewerbungs_assistent.server import mcp
-db = Database(); db.initialize()
-# Profil anlegen
-pid = db.create_profile("Smoke Test", "smoke@test.de")
-assert db.get_profile() is not None, "Profil nicht angelegt"
-# Heartbeat
-status = get_connection_status()
-assert status['status'] in ('connected', 'unknown', 'disconnected')
-# Dashboard import
-from bewerbungs_assistent.dashboard import app
-db.close(); shutil.rmtree(d)
-print("OK")
+try:
+    os.environ['BA_DATA_DIR'] = d
+    from bewerbungs_assistent.database import Database
+    from bewerbungs_assistent.heartbeat import get_connection_status
+    from bewerbungs_assistent.server import mcp
+    db = Database(); db.initialize()
+    # Profil anlegen
+    pid = db.create_profile("Smoke Test", "smoke@test.de")
+    assert db.get_profile() is not None, "Profil nicht angelegt"
+    # Heartbeat
+    status = get_connection_status()
+    assert status['status'] in ('connected', 'unknown', 'disconnected')
+    # Dashboard import
+    from bewerbungs_assistent.dashboard import app
+    db.close()
+    print("OK")
+finally:
+    try:
+        shutil.rmtree(d, ignore_errors=True)
+    except Exception:
+        pass
 """],
             capture_output=True, text=True, timeout=30,
             cwd=str(PROJECT_DIR),
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
         if "OK" in result.stdout:
             ok("First-Run Smoke bestanden (Profil + Heartbeat + Dashboard)")

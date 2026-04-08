@@ -2,6 +2,16 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.3] - 2026-04-08
+
+### Bug Fixes
+- **#334**: `release_check.py` Windows-safe — UTF-8 stdout reconfigure, ASCII-Fallback-Symbole, Temp-Ordner Cleanup mit `try/finally`
+- **#336**: Wizard-Overlay blockiert Header nicht mehr — z-index unter Header (`z-45`), Overlay startet unterhalb Topbar, Hilfe-Button schliesst Wizard
+
+### Verbesserungen
+- README Test-Badge auf 390 aktualisiert
+- Frontend-Build aktualisiert
+
 ## [1.5.0-beta.2] - 2026-04-08
 
 ### Bug Fixes

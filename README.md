@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.4.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Beta](https://img.shields.io/badge/Beta-v1.5.0--beta-orange.svg)](https://github.com/MadGapun/PBP/releases)
-[![Tests](https://img.shields.io/badge/Tests-383-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-390-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](#mcp-schnittstelle)
 [![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
 
