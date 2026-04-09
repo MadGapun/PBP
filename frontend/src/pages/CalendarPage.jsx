@@ -1,4 +1,4 @@
-import { Calendar, CalendarClock, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Trash2, Video } from "lucide-react";
+import { Briefcase, Calendar, CalendarClock, ClipboardCheck, Clock, Download, ExternalLink, FileText, List, MapPin, Send, Trash2, Video } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest } from "@/api";
@@ -44,12 +44,39 @@ function isToday(dateStr) {
   return d.toDateString() === now.toDateString();
 }
 
+const CATEGORIES = [
+  { key: "termine", label: "Termine", icon: CalendarClock, color: "sky" },
+  { key: "bewerbungen", label: "Bewerbungen", icon: Send, color: "emerald" },
+  { key: "followups", label: "Follow-ups", icon: ClipboardCheck, color: "amber" },
+  { key: "dokumente", label: "Dokumente", icon: FileText, color: "violet" },
+];
+
+const CATEGORY_COLORS = {
+  termine: "bg-sky/10 text-sky",
+  bewerbungen: "bg-emerald-500/10 text-emerald-400",
+  followups: "bg-amber/10 text-amber",
+  dokumente: "bg-violet-500/10 text-violet-400",
+};
+
+function loadCategories() {
+  try {
+    const stored = localStorage.getItem("pbp-calendar-categories");
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return { termine: true, bewerbungen: true, followups: true, dokumente: true };
+}
+
 export default function CalendarPage() {
-  const { reloadKey, pushToast } = useApp();
+  const { reloadKey, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState([]);
   const [collisions, setCollisions] = useState([]);
   const [filter, setFilter] = useState("upcoming"); // upcoming | past | all
+  const [viewMode, setViewMode] = useState("kalender"); // kalender | log
+  const [categories, setCategories] = useState(loadCategories);
+  const [activityLog, setActivityLog] = useState([]);
+  const [logDays, setLogDays] = useState(90);
+  const [logLoading, setLogLoading] = useState(false);
 
   const loadData = useEffectEvent(async () => {
     try {
@@ -65,6 +92,31 @@ export default function CalendarPage() {
 
   useEffect(() => { loadData(); }, [reloadKey]);
 
+  const loadActivityLog = useEffectEvent(async () => {
+    setLogLoading(true);
+    try {
+      const activeCats = Object.entries(categories).filter(([, v]) => v).map(([k]) => k).join(",");
+      const data = await api(`/api/activity-log?days=${logDays}&categories=${activeCats}`);
+      setActivityLog(data?.entries || []);
+    } catch (error) {
+      pushToast(`Aktivitaetslog konnte nicht geladen werden: ${error.message}`, "danger");
+    } finally {
+      setLogLoading(false);
+    }
+  });
+
+  useEffect(() => {
+    if (viewMode === "log") loadActivityLog();
+  }, [viewMode, logDays, categories, reloadKey]);
+
+  function toggleCategory(key) {
+    setCategories((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem("pbp-calendar-categories", JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function deleteMeeting(id) {
     try {
       await deleteRequest(`/api/meetings/${id}`);
@@ -78,6 +130,10 @@ export default function CalendarPage() {
   const collisionIds = new Set(collisions.flatMap((c) => [c.meeting_1, c.meeting_2]));
 
   const filtered = meetings.filter((m) => {
+    // Category filter (#373)
+    if (m.is_follow_up && !categories.followups) return false;
+    if (!m.is_follow_up && !categories.termine) return false;
+    // Time filter
     if (filter === "upcoming") return !isPast(m.meeting_date);
     if (filter === "past") return isPast(m.meeting_date);
     return true;
@@ -95,27 +151,47 @@ export default function CalendarPage() {
 
   return (
     <div id="page-kalender" className="page active">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
         <PageHeader title="Kalender" subtitle={`${meetings.length} Termine`} />
         <div className="flex flex-wrap items-center gap-2">
-          {[
-            { label: "Kommende", value: "upcoming" },
-            { label: "Vergangene", value: "past" },
-            { label: "Alle", value: "all" },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setFilter(opt.value)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                filter === opt.value
-                  ? "bg-sky/15 text-sky"
-                  : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {/* View mode toggle */}
+          <button type="button" onClick={() => setViewMode("kalender")} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${viewMode === "kalender" ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
+            <Calendar size={12} className="inline mr-1" />Kalender
+          </button>
+          <button type="button" onClick={() => setViewMode("log")} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${viewMode === "log" ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
+            <List size={12} className="inline mr-1" />Aktivitaetslog
+          </button>
+          <span className="mx-1 h-4 w-px bg-white/10" />
+          {viewMode === "kalender" ? (
+            <>
+              {[
+                { label: "Kommende", value: "upcoming" },
+                { label: "Vergangene", value: "past" },
+                { label: "Alle", value: "all" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setFilter(opt.value)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                    filter === opt.value
+                      ? "bg-sky/15 text-sky"
+                      : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {[7, 30, 90, 365].map((d) => (
+                <button key={d} type="button" onClick={() => setLogDays(d)} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${logDays === d ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
+                  {d}d
+                </button>
+              ))}
+            </>
+          )}
           <LinkButton
             size="sm"
             href={apiUrl("/api/meetings/export.ics")}
@@ -123,12 +199,67 @@ export default function CalendarPage() {
             rel="noreferrer"
           >
             <Download size={14} />
-            ICS Export
+            ICS
           </LinkButton>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {/* Category toggles (#373) */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {CATEGORIES.map((cat) => {
+          const Icon = cat.icon;
+          const active = categories[cat.key];
+          return (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => toggleCategory(cat.key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors",
+                active ? CATEGORY_COLORS[cat.key] : "text-muted/30 bg-white/[0.02] line-through"
+              )}
+            >
+              <Icon size={12} />
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {viewMode === "log" ? (
+        /* Activity Log View (#373) */
+        logLoading ? <LoadingPanel /> : activityLog.length === 0 ? (
+          <EmptyState title="Keine Aktivitaeten" description={`Keine Eintraege in den letzten ${logDays} Tagen.`} />
+        ) : (
+          <div className="grid gap-1.5">
+            {activityLog.map((entry) => {
+              const catDef = CATEGORIES.find((c) => c.key === entry.category);
+              const Icon = catDef?.icon || Calendar;
+              return (
+                <button
+                  key={`${entry.category}-${entry.id}`}
+                  type="button"
+                  className="flex items-center gap-3 rounded-xl bg-white/[0.02] px-4 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
+                  onClick={() => {
+                    if (entry.link_type === "bewerbung" && entry.link_id) navigateTo("bewerbungen", { highlight: entry.link_id });
+                    else if (entry.link_type === "dokument") navigateTo("dokumente");
+                  }}
+                >
+                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg shrink-0", CATEGORY_COLORS[entry.category] || "bg-white/5 text-muted/40")}>
+                    <Icon size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink truncate">{entry.title}</p>
+                    {entry.subtitle && <p className="text-xs text-muted/40 truncate">{entry.subtitle}</p>}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted/30">{formatDate(entry.event_date)}</span>
+                  {entry.is_imported && <Badge tone="neutral" className="shrink-0">Import</Badge>}
+                </button>
+              );
+            })}
+          </div>
+        )
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="Keine Termine"
           description={filter === "upcoming"

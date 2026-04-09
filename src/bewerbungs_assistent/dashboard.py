@@ -1529,6 +1529,7 @@ async def api_update_application(app_id: str, request: Request):
         "portal_name", "bewerbungsart", "vermittler", "endkunde", "notes",
         "employment_type", "gehaltsvorstellung",
         "description_snapshot", "snapshot_date",
+        "applied_at", "is_imported",
     )
     conn = _db.connect()
     app_row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
@@ -1725,6 +1726,7 @@ async def api_documents(
     doc_type: str = "",
     application_id: str = "",
     unlinked: str = "",
+    extraction_status: str = "",
     sort: str = "created_at",
     order: str = "desc",
     page: int = 1,
@@ -1762,6 +1764,11 @@ async def api_documents(
     if unlinked == "1":
         base += " AND (d.linked_application_id IS NULL OR d.linked_application_id = '')"
 
+    # Filter by extraction status (#369)
+    if extraction_status:
+        base += " AND d.extraction_status = ?"
+        params.append(extraction_status)
+
     # Count total + unlinked count for badge
     total = conn.execute(f"SELECT COUNT(*) as cnt {base}", params).fetchone()["cnt"]
     unlinked_count = conn.execute(
@@ -1771,17 +1778,20 @@ async def api_documents(
         (pid,),
     ).fetchone()["cnt"]
 
-    # Sort
-    allowed_sorts = {"created_at": "d.created_at", "filename": "d.filename", "doc_type": "d.doc_type"}
+    # Sort (#369: nicht-analysierte zuerst als Option)
+    allowed_sorts = {"created_at": "d.created_at", "filename": "d.filename", "doc_type": "d.doc_type",
+                     "extraction_status": "d.extraction_status"}
     sort_col = allowed_sorts.get(sort, "d.created_at")
     sort_dir = "ASC" if order.lower() == "asc" else "DESC"
+    # Default: unanalyzed documents first, then by sort column
+    unanalyzed_prefix = "CASE WHEN d.extraction_status IN ('nicht_extrahiert', NULL, '') THEN 0 ELSE 1 END, "
 
     # Paginate
     offset = (max(1, page) - 1) * per_page
     rows = conn.execute(
         f"""SELECT d.*, a.company as app_company, a.title as app_title, a.status as app_status
             {base}
-            ORDER BY {sort_col} {sort_dir}
+            ORDER BY {unanalyzed_prefix}{sort_col} {sort_dir}
             LIMIT ? OFFSET ?""",
         params + [per_page, offset],
     ).fetchall()
@@ -1802,10 +1812,19 @@ async def api_documents(
         (pid,),
     ).fetchall()
 
+    # Count unanalyzed documents (#369)
+    unanalyzed_count = conn.execute(
+        """SELECT COUNT(*) as cnt FROM documents d
+           WHERE (d.profile_id=? OR d.profile_id IS NULL)
+             AND (d.extraction_status IS NULL OR d.extraction_status IN ('nicht_extrahiert', '', 'basis_analysiert'))""",
+        (pid,),
+    ).fetchone()["cnt"]
+
     return {
         "documents": [dict(r) for r in rows],
         "total": total,
         "unlinked_count": unlinked_count,
+        "unanalyzed_count": unanalyzed_count,
         "page": page,
         "per_page": per_page,
         "pages": max(1, (total + per_page - 1) // per_page),
@@ -2380,6 +2399,112 @@ async def api_meetings_calendar(days: int = 90):
         "meetings": all_meetings + follow_ups,
         "collisions": collisions,
         "count": len(all_meetings) + len(follow_ups),
+    }
+
+
+@app.get("/api/activity-log")
+async def api_activity_log(days: int = 90, categories: str = ""):
+    """Aggregated activity log from multiple sources (#373).
+
+    Categories: termine, bewerbungen, followups, dokumente (comma-separated).
+    If empty, returns all categories.
+    """
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    cat_set = set(c.strip() for c in categories.split(",") if c.strip()) if categories else None
+    entries = []
+
+    # 1. Meetings (termine)
+    if not cat_set or "termine" in cat_set:
+        rows = conn.execute(
+            """SELECT m.id, m.meeting_date as event_date, m.title, m.meeting_type,
+                      a.company as app_company, a.title as app_title, m.application_id
+               FROM application_meetings m
+               LEFT JOIN applications a ON m.application_id = a.id
+               WHERE m.meeting_date >= ? AND (m.profile_id=? OR m.profile_id IS NULL)
+               ORDER BY m.meeting_date DESC""",
+            (cutoff, pid),
+        ).fetchall()
+        for r in rows:
+            r = dict(r)
+            label = r.get("title") or r.get("meeting_type") or "Termin"
+            entries.append({
+                "id": r["id"], "category": "termine", "event_date": r["event_date"],
+                "title": label, "subtitle": f"{r.get('app_company', '')} — {r.get('app_title', '')}".strip(" —"),
+                "link_type": "bewerbung", "link_id": r.get("application_id"),
+            })
+
+    # 2. Applications (bewerbungen) — applied_at events
+    if not cat_set or "bewerbungen" in cat_set:
+        rows = conn.execute(
+            """SELECT id, title, company, applied_at, status, is_imported
+               FROM applications
+               WHERE COALESCE(applied_at, created_at) >= ?
+                 AND (profile_id=? OR profile_id IS NULL)
+               ORDER BY COALESCE(applied_at, created_at) DESC""",
+            (cutoff, pid),
+        ).fetchall()
+        for r in rows:
+            r = dict(r)
+            date = r.get("applied_at") or r.get("created_at") or ""
+            entries.append({
+                "id": r["id"], "category": "bewerbungen", "event_date": date,
+                "title": f"Bewerbung: {r['company']}" + (f" — {r['title']}" if r.get("title") else ""),
+                "subtitle": r.get("status", ""),
+                "link_type": "bewerbung", "link_id": r["id"],
+                "is_imported": bool(r.get("is_imported")),
+            })
+
+    # 3. Follow-ups
+    if not cat_set or "followups" in cat_set:
+        rows = conn.execute(
+            """SELECT f.id, f.scheduled_date as event_date, f.follow_up_type,
+                      f.status, a.company as app_company, a.title as app_title, f.application_id
+               FROM follow_ups f
+               LEFT JOIN applications a ON f.application_id = a.id
+               WHERE f.scheduled_date >= ?
+                 AND (a.profile_id=? OR a.profile_id IS NULL)
+               ORDER BY f.scheduled_date DESC""",
+            (cutoff, pid),
+        ).fetchall()
+        for r in rows:
+            r = dict(r)
+            label = {"nachfass": "Nachfassen", "erinnerung": "Erinnerung"}.get(r.get("follow_up_type", ""), r.get("follow_up_type", ""))
+            entries.append({
+                "id": r["id"], "category": "followups", "event_date": r["event_date"],
+                "title": label, "subtitle": f"{r.get('app_company', '')} — {r.get('app_title', '')}".strip(" —"),
+                "link_type": "bewerbung", "link_id": r.get("application_id"),
+                "status": r.get("status", ""),
+            })
+
+    # 4. Documents (incoming emails and uploads)
+    if not cat_set or "dokumente" in cat_set:
+        rows = conn.execute(
+            """SELECT d.id, d.created_at as event_date, d.filename, d.doc_type,
+                      a.company as app_company, a.title as app_title, d.linked_application_id
+               FROM documents d
+               LEFT JOIN applications a ON d.linked_application_id = a.id
+               WHERE d.created_at >= ? AND (d.profile_id=? OR d.profile_id IS NULL)
+               ORDER BY d.created_at DESC""",
+            (cutoff, pid),
+        ).fetchall()
+        for r in rows:
+            r = dict(r)
+            entries.append({
+                "id": r["id"], "category": "dokumente", "event_date": r["event_date"],
+                "title": r.get("filename", "Dokument"), "subtitle": r.get("doc_type", ""),
+                "link_type": "dokument" if not r.get("linked_application_id") else "bewerbung",
+                "link_id": r.get("linked_application_id") or r["id"],
+            })
+
+    # Sort all entries by date descending
+    entries.sort(key=lambda x: x.get("event_date", ""), reverse=True)
+
+    return {
+        "entries": entries,
+        "total": len(entries),
+        "days": days,
     }
 
 

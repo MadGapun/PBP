@@ -486,6 +486,7 @@ export default function ApplicationsPage() {
                             <FileText size={12} /> {application.document_count}
                           </span>
                         )}
+                        {application.is_imported ? <Badge tone="neutral">Import</Badge> : null}
                         {application.bewerbungsart && application.bewerbungsart !== "mit_dokumenten" && (
                           <Badge tone="neutral">{application.bewerbungsart === "ueber_portal" ? "Portal" : application.bewerbungsart === "elektronisch" ? "E-Mail" : application.bewerbungsart}</Badge>
                         )}
@@ -656,9 +657,12 @@ export default function ApplicationsPage() {
                   </a>
                 )}
               </div>
-              {app.applied_at && (
-                <p className="mt-1 text-xs text-muted/40">Beworben am: {formatDate(app.applied_at)}</p>
-              )}
+              <div className="mt-1 flex items-center gap-2">
+                {app.applied_at && (
+                  <span className="text-xs text-muted/40">Beworben am: {formatDate(app.applied_at)}</span>
+                )}
+                {app.is_imported ? <Badge tone="neutral">Importiert</Badge> : null}
+              </div>
 
               {/* Inline edit section (#134) */}
               <details className="mt-3 border-t border-white/[0.06] pt-3">
@@ -715,6 +719,42 @@ export default function ApplicationsPage() {
                       <option value="praktikum">Praktikum</option>
                       <option value="werkstudent">Werkstudent</option>
                     </SelectInput>
+                  </Field>
+                  <Field label="Bewerbungsdatum">
+                    <TextInput
+                      type="date"
+                      defaultValue={(app.applied_at || "").slice(0, 10)}
+                      onBlur={async (e) => {
+                        const newVal = e.target.value;
+                        if (newVal === (app.applied_at || "").slice(0, 10)) return;
+                        try {
+                          await putJson(`/api/applications/${app.id}`, { applied_at: newVal });
+                          await reloadTimeline(app.id);
+                          pushToast("Bewerbungsdatum aktualisiert.", "success");
+                        } catch (err) {
+                          pushToast(`Fehler: ${err.message}`, "danger");
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field label="Importiert">
+                    <label className="flex items-center gap-2 cursor-pointer mt-2">
+                      <input
+                        type="checkbox"
+                        defaultChecked={!!app.is_imported}
+                        onChange={async (e) => {
+                          try {
+                            await putJson(`/api/applications/${app.id}`, { is_imported: e.target.checked ? 1 : 0 });
+                            await reloadTimeline(app.id);
+                            pushToast(e.target.checked ? "Als importiert markiert." : "Import-Markierung entfernt.", "success");
+                          } catch (err) {
+                            pushToast(`Fehler: ${err.message}`, "danger");
+                          }
+                        }}
+                        className="rounded border-white/20 bg-white/5 text-sky focus:ring-sky/30"
+                      />
+                      <span className="text-sm text-muted/60">Bewerbung existierte vor PBP</span>
+                    </label>
                   </Field>
                 </div>
               </details>

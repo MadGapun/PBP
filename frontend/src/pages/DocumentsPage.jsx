@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, Search, Trash2, Unlink, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, RotateCcw, Search, Sparkles, Trash2, Unlink, Upload, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -33,15 +33,29 @@ function docTypeLabel(type) {
   return DOC_TYPE_LABELS[type] || type || "Sonstiges";
 }
 
+const EXTRACTION_STATUS = {
+  nicht_extrahiert: { label: "Nicht analysiert", tone: "danger" },
+  basis_analysiert: { label: "Basis", tone: "amber" },
+  analysiert: { label: "Analysiert", tone: "sky" },
+  angewendet: { label: "Angewendet", tone: "success" },
+  duplikat: { label: "Duplikat", tone: "neutral" },
+};
+
+function extractionBadge(status) {
+  const s = EXTRACTION_STATUS[status] || EXTRACTION_STATUS.nicht_extrahiert;
+  return s;
+}
+
 export default function DocumentsPage() {
   const { reloadKey, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [], applications: [], unlinked_count: 0 });
+  const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [], applications: [], unlinked_count: 0, unanalyzed_count: 0 });
   const [query, setQuery] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [docType, setDocType] = useState("");
   const [appFilter, setAppFilter] = useState("");
   const [unlinkedFilter, setUnlinkedFilter] = useState(false);
+  const [extractionFilter, setExtractionFilter] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("created_at");
   const [order, setOrder] = useState("desc");
@@ -65,6 +79,7 @@ export default function DocumentsPage() {
       if (docType) params.set("doc_type", docType);
       if (appFilter) params.set("application_id", appFilter);
       if (unlinkedFilter) params.set("unlinked", "1");
+      if (extractionFilter) params.set("extraction_status", extractionFilter);
       const result = await api(`/api/documents?${params}`);
       setData(result);
     } catch (error) {
@@ -77,7 +92,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     setLoading(true);
     loadData();
-  }, [reloadKey, page, sort, order, activeQuery, docType, appFilter, unlinkedFilter]);
+  }, [reloadKey, page, sort, order, activeQuery, docType, appFilter, unlinkedFilter, extractionFilter]);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -123,6 +138,16 @@ export default function DocumentsPage() {
       loadData();
     } catch (error) {
       pushToast(`Loeschen fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  async function reanalyzeDocument(docId) {
+    try {
+      await postJson(`/api/document/${docId}/reanalyze`, {});
+      pushToast("Dokument zur Analyse vorgemerkt", "success");
+      loadData();
+    } catch (error) {
+      pushToast(`Fehler: ${error.message}`, "danger");
     }
   }
 
@@ -295,6 +320,26 @@ export default function DocumentsPage() {
           </button>
         )}
 
+        {/* Unanalyzed quick filter (#369) */}
+        {data.unanalyzed_count > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = extractionFilter ? "" : "nicht_extrahiert";
+              setExtractionFilter(next);
+              setPage(1);
+            }}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+              extractionFilter
+                ? "bg-violet-500/15 text-violet-400"
+                : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+            }`}
+          >
+            <Sparkles size={12} />
+            Nicht analysiert ({data.unanalyzed_count})
+          </button>
+        )}
+
         {/* Sort toggles */}
         <div className="flex items-center gap-1">
           {[
@@ -322,7 +367,7 @@ export default function DocumentsPage() {
       {data.documents.length === 0 ? (
         <EmptyState
           title="Keine Dokumente"
-          description={activeQuery || docType || appFilter || unlinkedFilter
+          description={activeQuery || docType || appFilter || unlinkedFilter || extractionFilter
             ? "Keine Dokumente fuer diese Suche/Filter gefunden."
             : "Noch keine Dokumente vorhanden. Dokumente werden beim Upload und E-Mail-Import automatisch erfasst."
           }
@@ -342,6 +387,10 @@ export default function DocumentsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-medium text-ink truncate">{doc.filename}</h3>
                         <Badge tone="neutral">{docTypeLabel(doc.doc_type)}</Badge>
+                        {(() => {
+                          const eb = extractionBadge(doc.extraction_status);
+                          return <Badge tone={eb.tone}>{eb.label}</Badge>;
+                        })()}
                       </div>
                       {/* Application cross-reference — clickable (#366) */}
                       {(doc.app_company || doc.app_title) ? (
@@ -384,6 +433,17 @@ export default function DocumentsPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      {/* Reanalyze button (#369) — for already-analyzed docs: reset to re-analyze */}
+                      {doc.extraction_status && !["nicht_extrahiert", "", "basis_analysiert"].includes(doc.extraction_status) && (
+                        <button
+                          type="button"
+                          onClick={() => reanalyzeDocument(doc.id)}
+                          className="rounded-lg p-1.5 text-muted/30 hover:text-violet-400 transition-colors"
+                          title="Erneut analysieren"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      )}
                       {/* Link/Unlink button (#366) */}
                       <button
                         type="button"

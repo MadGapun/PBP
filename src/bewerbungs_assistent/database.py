@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 
 def _gen_id() -> str:
@@ -811,6 +811,14 @@ class Database:
             except Exception as e:
                 logger.warning("Migration v20->v21: %s", e)
             logger.info("Migration v20->v21: is_active cleanup (#382)")
+
+        if from_ver < 22:
+            # v22: Add is_imported flag for distinguishing native vs imported applications (#368)
+            try:
+                conn.execute("ALTER TABLE applications ADD COLUMN is_imported INTEGER DEFAULT 0")
+                logger.info("Migration v21->v22: is_imported Spalte hinzugefuegt (#368)")
+            except Exception:
+                pass  # Already exists
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
