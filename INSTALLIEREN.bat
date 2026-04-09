@@ -295,18 +295,28 @@ for /f "tokens=*" %%v in ('"%PYTHON%" --version 2^^^>^^^&1') do set PYVER=%%v
 echo         [OK] !PYVER!
 echo [OK] !PYVER! >> "%LOGFILE%"
 
-:: _pth sicherstellen
+:: _pth sicherstellen (import site + ../src)
 set "PTH_FILE="
 for %%f in ("%PYTHON_DIR%\python*._pth") do set "PTH_FILE=%%f"
 if not defined PTH_FILE goto :pth_ready_done
+:: import site muss entkommentiert sein, sonst findet Python pip/site-packages nicht (#386)
+findstr /C:"import site" "!PTH_FILE!" >nul 2>&1
+if !errorlevel! neq 0 echo import site>> "!PTH_FILE!"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content '!PTH_FILE!') -replace '^#import site','import site' | Set-Content '!PTH_FILE!'" 2>> "%LOGFILE%"
 findstr /C:"../src" "!PTH_FILE!" >nul 2>&1
 if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
+echo [OK] _pth konfiguriert >> "%LOGFILE%"
 :pth_ready_done
 
 :: pip pruefen
 "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
-if !errorlevel! neq 0 call :fix_pip
-echo         pip vorhanden, ueberspringe Upgrade
+if !errorlevel! neq 0 (
+    echo [WARN] pip nicht gefunden, versuche Nachinstallation... >> "%LOGFILE%"
+    call :fix_pip
+    "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
+    if !errorlevel! neq 0 goto :err_pip
+)
+echo         [OK] pip vorhanden
 echo [OK] pip vorhanden >> "%LOGFILE%"
 echo.
 
