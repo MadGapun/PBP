@@ -1,16 +1,21 @@
 import { Briefcase, Calendar, CalendarClock, ClipboardCheck, Clock, Download, ExternalLink, FileText, List, MapPin, Send, Trash2, Video } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { api, apiUrl, deleteRequest } from "@/api";
+import { api, apiUrl, deleteRequest, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import {
   Badge,
   Button,
   Card,
   EmptyState,
+  Field,
   LinkButton,
   LoadingPanel,
+  Modal,
   PageHeader,
+  SelectInput,
+  TextArea,
+  TextInput,
 } from "@/components/ui";
 import { cn, formatDate, formatDateTime } from "@/utils";
 
@@ -77,6 +82,8 @@ export default function CalendarPage() {
   const [activityLog, setActivityLog] = useState([]);
   const [logDays, setLogDays] = useState(90);
   const [logLoading, setLogLoading] = useState(false);
+  const [monthFilter, setMonthFilter] = useState(""); // #394: "" = alle, "2026-04" = April 2026
+  const [manualTermin, setManualTermin] = useState(null); // #394: manual meeting creation form
 
   const loadData = useEffectEvent(async () => {
     try {
@@ -133,11 +140,19 @@ export default function CalendarPage() {
     // Category filter (#373)
     if (m.is_follow_up && !categories.followups) return false;
     if (!m.is_follow_up && !categories.termine) return false;
+    // #394: Month filter
+    if (monthFilter && m.meeting_date) {
+      const mMonth = m.meeting_date.slice(0, 7);
+      if (mMonth !== monthFilter) return false;
+    }
     // Time filter
     if (filter === "upcoming") return !isPast(m.meeting_date);
     if (filter === "past") return isPast(m.meeting_date);
     return true;
   });
+
+  // #394: Available months for filter
+  const availableMonths = [...new Set(meetings.map((m) => (m.meeting_date || "").slice(0, 7)).filter(Boolean))].sort();
 
   const grouped = {};
   for (const m of filtered) {
@@ -204,7 +219,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Category toggles (#373) */}
+      {/* Category toggles (#373) + Month filter (#394) */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {CATEGORIES.map((cat) => {
           const Icon = cat.icon;
@@ -224,7 +239,71 @@ export default function CalendarPage() {
             </button>
           );
         })}
+        {/* #394: Month filter */}
+        {viewMode === "kalender" && availableMonths.length > 1 && (
+          <>
+            <span className="mx-1 h-4 w-px bg-white/10" />
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="rounded-lg bg-white/[0.03] border border-white/5 px-2 py-1 text-xs text-muted/60"
+            >
+              <option value="">Alle Monate</option>
+              {availableMonths.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </>
+        )}
+        <span className="mx-1 h-4 w-px bg-white/10" />
+        {/* #394: Manual meeting creation */}
+        <Button size="sm" variant="ghost" onClick={() => setManualTermin({
+          title: "", meeting_date: new Date().toISOString().slice(0, 16),
+          meeting_type: "sonstiges", location: "", notes: "",
+        })}>
+          + Neuer Termin
+        </Button>
       </div>
+
+      {/* #394: Manual meeting creation modal */}
+      {manualTermin && (
+        <Modal title="Neuen Termin anlegen" onClose={() => setManualTermin(null)}>
+          <div className="grid gap-4">
+            <Field label="Titel">
+              <TextInput value={manualTermin.title} onChange={(e) => setManualTermin((p) => ({ ...p, title: e.target.value }))} placeholder="z.B. Interview bei Firma XY" />
+            </Field>
+            <Field label="Datum & Uhrzeit">
+              <TextInput type="datetime-local" value={manualTermin.meeting_date} onChange={(e) => setManualTermin((p) => ({ ...p, meeting_date: e.target.value }))} />
+            </Field>
+            <Field label="Typ">
+              <SelectInput value={manualTermin.meeting_type} onChange={(e) => setManualTermin((p) => ({ ...p, meeting_type: e.target.value }))}>
+                {Object.entries(MEETING_TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Ort (optional)">
+              <TextInput value={manualTermin.location} onChange={(e) => setManualTermin((p) => ({ ...p, location: e.target.value }))} placeholder="z.B. Zoom, Buero, ..." />
+            </Field>
+            <Field label="Notizen (optional)">
+              <TextArea value={manualTermin.notes} onChange={(e) => setManualTermin((p) => ({ ...p, notes: e.target.value }))} rows={2} />
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setManualTermin(null)}>Abbrechen</Button>
+              <Button disabled={!manualTermin.title} onClick={async () => {
+                try {
+                  await postJson("/api/meetings", manualTermin);
+                  pushToast("Termin angelegt", "success");
+                  setManualTermin(null);
+                  loadData();
+                } catch (err) {
+                  pushToast(`Fehler: ${err.message}`, "danger");
+                }
+              }}>Anlegen</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {viewMode === "log" ? (
         /* Activity Log View (#373) */
@@ -289,10 +368,16 @@ export default function CalendarPage() {
                     <Card
                       key={meeting.id}
                       className={cn(
-                        "rounded-xl",
+                        "rounded-xl cursor-pointer hover:bg-white/[0.03] transition-colors",
                         past && "opacity-50",
                         hasCollision && "border-amber/30 border"
                       )}
+                      onClick={() => {
+                        // #395: Click opens application dossier
+                        if (meeting.application_id) {
+                          navigateTo("bewerbungen", { highlight: meeting.application_id });
+                        }
+                      }}
                     >
                       <div className="flex items-start gap-3">
                         <div className={cn(
@@ -335,7 +420,7 @@ export default function CalendarPage() {
                             <p className="mt-1.5 text-xs text-muted/40 line-clamp-2">{meeting.notes}</p>
                           )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           {meeting.meeting_url && (
                             <a
                               href={meeting.meeting_url}

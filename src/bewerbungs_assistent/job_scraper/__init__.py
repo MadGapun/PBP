@@ -114,7 +114,8 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + Playwright Fallback",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Nutzt bei Bedarf einen Browser als Fallback. Kann 30-60 Sekunden dauern.",
+        "warnung": "Nutzt bei Bedarf einen Browser als Fallback. Kann 30-60 Sekunden dauern.\nBei haeufigen Timeouts: Lass Claude direkt auf freelancermap.de suchen.",
+        "beta": True,
     },
     "indeed": {
         "name": "Indeed",
@@ -130,7 +131,8 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf monster.de suchen.",
+        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
+        "beta": True,
     },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
@@ -390,9 +392,13 @@ def run_search(db, job_id: str, params: dict):
     # #234: Playwright-basierte Scraper sequentiell, httpx-basierte parallel
     _PLAYWRIGHT_SOURCES = {"stepstone", "indeed", "monster", "freelancermap"}
 
-    # #252: Stepstone immer als letztes Portal starten
-    if "stepstone" in quellen:
-        quellen = [q for q in quellen if q != "stepstone"] + ["stepstone"]
+    # #402: Sort sources by reliability (fast API sources first, beta/unreliable last)
+    _SOURCE_PRIORITY = {
+        "bundesagentur": 1, "hays": 2, "freelance_de": 3, "ingenieur_de": 4,
+        "stepstone": 10, "indeed": 11, "freelancermap": 12, "monster": 13,
+    }
+    quellen = sorted(quellen, key=lambda q: _SOURCE_PRIORITY.get(q, 9))
+    # #252: Stepstone immer als letztes Portal starten (already handled by priority above)
 
     def _run_with_loop(fn, p):
         """Run scraper in thread with fresh asyncio event loop (#238)."""

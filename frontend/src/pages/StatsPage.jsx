@@ -136,12 +136,29 @@ export default function StatsPage() {
 
   // --- Timeline chart data ---
   // #358: Exclude incomplete current period to avoid misleading downward trend
+  // #396: But keep it when it's the ONLY period, so charts aren't empty
   const currentPeriod = timeline?.current_period;
-  const timelinePeriods = (timeline?.periods || []).filter(
-    (p) => interval === "all" || p !== currentPeriod,
-  );
+  const allPeriods = timeline?.periods || [];
+  const timelinePeriods = allPeriods.length <= 1
+    ? allPeriods
+    : allPeriods.filter((p) => interval === "all" || p !== currentPeriod);
+
+  // #396: Format period labels for readability (2026-W14 → KW 14, 2026-04-09 → 09.04.)
+  function formatPeriodLabel(period) {
+    const wMatch = period.match(/^\d{4}-W(\d+)$/);
+    if (wMatch) return `KW ${parseInt(wMatch[1], 10)}`;
+    const dMatch = period.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dMatch) return `${dMatch[3]}.${dMatch[2]}.`;
+    const mMatch = period.match(/^(\d{4})-(\d{2})$/);
+    if (mMatch) {
+      const months = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+      return months[parseInt(mMatch[2], 10) - 1] + " " + mMatch[1].slice(2);
+    }
+    return period;
+  }
+
   const timelineChartData = timelinePeriods.map((period) => ({
-    name: period,
+    name: formatPeriodLabel(period),
     Bewerbungen: timeline?.applications?.[period] || 0,
     "Neue Stellen": timeline?.jobs_found?.[period] || 0,
   }));
@@ -156,7 +173,7 @@ export default function StatsPage() {
   const statusKeys = [...allStatuses];
   const statusLabels = statusKeys.map((s) => statusLabel(s));
   const statusChartData = timelinePeriods.map((period) => {
-    const entry = { name: period };
+    const entry = { name: formatPeriodLabel(period) };
     for (let i = 0; i < statusKeys.length; i++) {
       entry[statusLabels[i]] = timeline?.by_status?.[period]?.[statusKeys[i]] || 0;
     }

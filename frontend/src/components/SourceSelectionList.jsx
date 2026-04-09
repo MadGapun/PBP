@@ -50,8 +50,9 @@ export default function SourceSelectionList({
           {" "}<Badge tone="success" className="gap-1 inline-flex"><Zap size={9} />Schnell</Badge>{" "}
           laufen parallel und liefern in Sekunden Ergebnisse.
           {" "}<Badge tone="amber" className="gap-1 inline-flex"><Clock size={9} />Browser</Badge>{" "}
-          Quellen benoetigen Google Chrome und koennen 1-3 Minuten dauern. Noch kein Chrome? <a href="https://www.google.com/chrome/" target="_blank" rel="noopener noreferrer" class="text-sky underline">Hier herunterladen</a>.
+          Quellen benoetigen Google Chrome und koennen 1-3 Minuten dauern. Noch kein Chrome? <a href="https://www.google.com/chrome/" target="_blank" rel="noopener noreferrer" className="text-sky underline">Hier herunterladen</a>.
           Wenn eine Browser-Quelle nicht funktioniert, kannst du Claude bitten, direkt auf dem Portal zu suchen und Stellen manuell zu uebernehmen.
+          Claude kann uebrigens auch dein Profil auf Jobportalen wie XING oder StepStone aktualisieren — frag einfach danach!
         </p>
       </div>
 

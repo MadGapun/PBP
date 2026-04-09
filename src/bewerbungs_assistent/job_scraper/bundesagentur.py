@@ -94,8 +94,23 @@ def search_bundesagentur(params: dict) -> list:
 DETAIL_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs/{refnr}"
 
 
+def _extract_text(data: dict, path: str) -> str:
+    """Extract string value from nested dict using dot-notation path."""
+    current = data
+    for key in path.split("."):
+        if isinstance(current, dict):
+            current = current.get(key, "")
+        else:
+            return ""
+    return current if isinstance(current, str) else ""
+
+
 def _fetch_ba_detail(client: httpx.Client, ref_nr: str) -> str:
-    """Fetch full job description from BA detail API."""
+    """Fetch full job description from BA detail API.
+
+    #387: The BA API v4 nests description fields in various locations.
+    We check multiple paths to handle both old and new response formats.
+    """
     try:
         resp = client.get(
             DETAIL_URL.format(refnr=ref_nr),
@@ -105,15 +120,35 @@ def _fetch_ba_detail(client: httpx.Client, ref_nr: str) -> str:
             return ""
         data = resp.json()
         parts = []
-        for field in ("stellenbeschreibung", "beruf", "branche", "taetigkeit"):
-            val = data.get(field, "")
-            if val and isinstance(val, str):
+
+        # Primary description fields (various nesting levels)
+        _fields = [
+            "stellenbeschreibung",
+            "stellenangebotsbeschreibung",
+            "stellenangebotsinhalte.stellenbeschreibung",
+            "stellenangebotsinhalte.beschreibung",
+            "beruf",
+            "branche",
+            "taetigkeit",
+            "arbeitgeberdarstellung",
+            "arbeitgeberdarstellungUrl",
+        ]
+        for path in _fields:
+            val = _extract_text(data, path)
+            if val and val not in parts:
                 parts.append(val)
-        # Also check nested arbeitgeberdarstellung
-        ag = data.get("arbeitgeberdarstellung", "")
-        if ag:
-            parts.append(ag)
-        return " | ".join(parts) if parts else ""
+
+        # Also check freieBezeichnung and details from top-level dict values
+        for key in ("freieBezeichnung", "externeUrl", "beschreibung"):
+            val = data.get(key, "")
+            if val and isinstance(val, str) and val not in parts:
+                parts.append(val)
+
+        desc = " | ".join(parts) if parts else ""
+        if not desc:
+            logger.debug("BA detail for %s: no description fields found in keys %s",
+                         ref_nr, list(data.keys()))
+        return desc
     except Exception as e:
         logger.debug("BA detail error for %s: %s", ref_nr, e)
         return ""

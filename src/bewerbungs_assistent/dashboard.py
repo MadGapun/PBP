@@ -1783,8 +1783,10 @@ async def api_documents(
                      "extraction_status": "d.extraction_status"}
     sort_col = allowed_sorts.get(sort, "d.created_at")
     sort_dir = "ASC" if order.lower() == "asc" else "DESC"
-    # Default: unanalyzed documents first, then by sort column
-    unanalyzed_prefix = "CASE WHEN d.extraction_status IN ('nicht_extrahiert', NULL, '') THEN 0 ELSE 1 END, "
+    # #388: Documents linked to archived applications sort to end
+    # Default: unanalyzed documents first, archived last, then by sort column
+    archive_suffix = "CASE WHEN a.status IN ('abgelehnt', 'zurueckgezogen', 'abgelaufen') THEN 1 ELSE 0 END, "
+    unanalyzed_prefix = f"CASE WHEN d.extraction_status IN ('nicht_extrahiert', NULL, '') THEN 0 ELSE 1 END, {archive_suffix}"
 
     # Paginate
     offset = (max(1, page) - 1) * per_page
@@ -2541,28 +2543,29 @@ async def api_delete_meeting(meeting_id: str):
 
 @app.post("/api/meetings")
 async def api_create_meeting(request: Request):
-    """Manually create a meeting for an application."""
+    """Manually create a meeting, optionally linked to an application (#394)."""
     data = await request.json()
     app_id = data.get("application_id")
     meeting_date = data.get("meeting_date")
-    if not app_id or not meeting_date:
+    if not meeting_date:
         return JSONResponse(
-            {"error": "application_id und meeting_date sind erforderlich"},
+            {"error": "meeting_date ist erforderlich"},
             status_code=400,
         )
     mid = _db.add_meeting({
-        "application_id": app_id,
+        "application_id": app_id or None,
         "title": data.get("title", "Termin"),
         "meeting_date": meeting_date,
         "meeting_end": data.get("meeting_end"),
         "location": data.get("location", ""),
         "meeting_url": data.get("meeting_url"),
-        "meeting_type": data.get("meeting_type", "interview"),
+        "meeting_type": data.get("meeting_type", "sonstiges"),
         "platform": data.get("platform"),
         "notes": data.get("notes"),
     })
-    # Add timeline event
-    _db.add_application_event(app_id, "termin_erstellt", f"Termin: {data.get('title', 'Termin')} am {meeting_date}")
+    # Add timeline event only if linked to an application
+    if app_id:
+        _db.add_application_event(app_id, "termin_erstellt", f"Termin: {data.get('title', 'Termin')} am {meeting_date}")
     return {"status": "ok", "id": mid}
 
 

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, RotateCcw, Search, Sparkles, Trash2, Unlink, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Download, FileText, Link2, LinkIcon, RotateCcw, Search, Sparkles, Trash2, Unlink, Upload, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -62,6 +62,7 @@ export default function DocumentsPage() {
   const [expandedText, setExpandedText] = useState(null);
   const [linkModal, setLinkModal] = useState({ open: false, doc: null, value: "", search: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // doc.id to confirm
+  const [expandedDoc, setExpandedDoc] = useState(null); // #390: expanded detail view
   const [uploadType, setUploadType] = useState("sonstiges");
   const [appSearch, setAppSearch] = useState("");
   const [appDropdownOpen, setAppDropdownOpen] = useState(false);
@@ -377,8 +378,13 @@ export default function DocumentsPage() {
           <div className="grid gap-2">
             {data.documents.map((doc) => {
               const isTextExpanded = expandedText === doc.id;
+              const isExpanded = expandedDoc === doc.id;
               return (
-                <Card key={doc.id} className="rounded-xl">
+                <Card
+                  key={doc.id}
+                  className={cn("rounded-xl cursor-pointer transition-colors", isExpanded ? "ring-1 ring-sky/20" : "hover:bg-white/[0.02]")}
+                  onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
+                >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-sky/10 shrink-0">
                       <FileText size={18} className="text-sky" />
@@ -432,9 +438,19 @@ export default function DocumentsPage() {
                         {doc.created_at && formatDate(doc.created_at)}
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       {/* Reanalyze button (#369) — for already-analyzed docs: reset to re-analyze */}
-                      {doc.extraction_status && !["nicht_extrahiert", "", "basis_analysiert"].includes(doc.extraction_status) && (
+                      {/* #391: Also show for basis_analysiert with Sparkles icon to indicate full analysis needed */}
+                      {doc.extraction_status === "basis_analysiert" ? (
+                        <button
+                          type="button"
+                          onClick={() => reanalyzeDocument(doc.id)}
+                          className="rounded-lg p-1.5 text-amber/50 hover:text-amber transition-colors"
+                          title="Vollanalyse starten (bisher nur Basis)"
+                        >
+                          <Sparkles size={14} />
+                        </button>
+                      ) : doc.extraction_status && !["nicht_extrahiert", ""].includes(doc.extraction_status) ? (
                         <button
                           type="button"
                           onClick={() => reanalyzeDocument(doc.id)}
@@ -443,7 +459,7 @@ export default function DocumentsPage() {
                         >
                           <RotateCcw size={14} />
                         </button>
-                      )}
+                      ) : null}
                       {/* Link/Unlink button (#366) */}
                       <button
                         type="button"
@@ -456,6 +472,19 @@ export default function DocumentsPage() {
                         title="Verknuepfung aendern"
                       >
                         <LinkIcon size={14} />
+                      </button>
+                      {/* #403: Copy communication ID */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const shortId = doc.id.slice(0, 8);
+                          navigator.clipboard.writeText(shortId);
+                          pushToast(`ID ${shortId} kopiert`, "success");
+                        }}
+                        className="rounded-lg p-1.5 text-muted/30 hover:text-amber transition-colors"
+                        title={`Kommunikations-ID kopieren (${doc.id.slice(0, 8)})`}
+                      >
+                        <Copy size={14} />
                       </button>
                       <a
                         href={apiUrl(`/api/documents/${doc.id}/download`)}
@@ -493,6 +522,44 @@ export default function DocumentsPage() {
                       )}
                     </div>
                   </div>
+                  {/* #390: Expanded document detail view */}
+                  {isExpanded && (
+                    <div className="mt-3 border-t border-white/[0.06] pt-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="text-xs text-muted/50 space-y-1">
+                          <p><span className="text-muted/30">ID:</span> {doc.id.slice(0, 8)}</p>
+                          <p><span className="text-muted/30">Typ:</span> {docTypeLabel(doc.doc_type)}</p>
+                          <p><span className="text-muted/30">Erstellt:</span> {doc.created_at ? formatDateTime(doc.created_at) : "k.A."}</p>
+                          <p><span className="text-muted/30">Status:</span> {extractionBadge(doc.extraction_status).label}</p>
+                          {doc.app_company && <p><span className="text-muted/30">Bewerbung:</span> {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}</p>}
+                        </div>
+                        <div className="flex flex-col gap-2 items-start sm:items-end">
+                          {(!doc.extraction_status || ["nicht_extrahiert", "", "basis_analysiert"].includes(doc.extraction_status)) && (
+                            <Button
+                              size="sm"
+                              onClick={() => reanalyzeDocument(doc.id)}
+                            >
+                              <Sparkles size={13} />
+                              {doc.extraction_status === "basis_analysiert" ? "Vollanalyse starten" : "Analysieren"}
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => window.open(apiUrl(`/api/documents/${doc.id}/download`), "_blank")}
+                          >
+                            <Download size={13} />
+                            Herunterladen
+                          </Button>
+                        </div>
+                      </div>
+                      {doc.extracted_text && (
+                        <div className="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.04] p-3 max-h-48 overflow-y-auto">
+                          <p className="text-xs text-muted/40 whitespace-pre-wrap">{doc.extracted_text.slice(0, 2000)}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
               );
             })}

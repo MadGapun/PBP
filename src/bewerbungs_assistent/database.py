@@ -2715,6 +2715,8 @@ class Database:
             ).fetchone()[0]
 
         # --- Response times (days from applied_at to first status change beyond 'beworben') ---
+        # #396: Exclude imported applications — their events were created at import time,
+        # not when the actual response arrived, leading to wildly inflated values (e.g. 643d)
         response_rows = conn.execute("""
             SELECT a.id,
                    CAST(julianday(MIN(e.event_date)) - julianday(a.applied_at) AS INTEGER) as days
@@ -2722,9 +2724,10 @@ class Database:
             JOIN application_events e ON a.id = e.application_id
             WHERE e.status IN ('abgelehnt', 'interview', 'zweitgespraech', 'angebot', 'abgelaufen')
             AND a.applied_at IS NOT NULL
+            AND COALESCE(a.is_imported, 0) = 0
             AND (a.profile_id=? OR a.profile_id IS NULL)
             GROUP BY a.id
-            HAVING days >= 0
+            HAVING days >= 0 AND days <= 365
         """, (pid,)).fetchall()
         response_days = [r["days"] for r in response_rows]
         avg_response = round(sum(response_days) / len(response_days), 1) if response_days else None

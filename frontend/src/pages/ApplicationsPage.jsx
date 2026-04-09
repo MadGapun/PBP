@@ -110,7 +110,7 @@ export default function ApplicationsPage() {
       if (options.reloadTimeline) {
         await reloadTimeline(applicationId);
       }
-      await refreshChrome({ quiet: true });
+      await refreshChrome({ quiet: true, forceReload: true });
       pushToast("Status aktualisiert.", "success");
     } catch (error) {
       if (options.rollbackStatus) {

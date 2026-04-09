@@ -264,22 +264,23 @@ def register(mcp, db, logger):
         Bei 'passt_nicht' wird der Grund gespeichert und für künftige Suchen gelernt.
         Häufig genutzte Gründe führen automatisch zu Gewichtungsanpassungen.
 
-        WICHTIG: Die KI darf beim Aussortieren KEINE eigenen Ablehnungsgründe
-        erfinden! Nur die vordefinierten Gründe verwenden. Wenn kein passender
-        Grund vorhanden ist, den Nutzer fragen oder 'sonstiges' verwenden.
-        Eigene Gründe darf NUR der Nutzer über das Dashboard-Freitextfeld eingeben.
+        STRENG VERBOTEN: Die KI darf KEINE eigenen Ablehnungsgruende erfinden,
+        generieren oder formulieren! Auch keine "intelligenten" Gruende wie
+        "Duplikat — bereits als Bewerbung xyz erfasst". AUSSCHLIESSLICH die
+        vordefinierten Gruende aus der Liste unten verwenden. Bei Unsicherheit
+        den Nutzer fragen oder 'sonstiges' waehlen. Jeder nicht-vordefinierte
+        Grund wird automatisch auf 'sonstiges' normalisiert.
 
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
-            grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gründe)
-            gruende: Liste von Gründen bei passt_nicht (Multi-Select, #108).
-                NUR vordefinierte Optionen verwenden:
+            grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
+            gruende: Liste von Gruenden bei passt_nicht (Multi-Select, #108).
+                ERLAUBTE WERTE (nur diese, nichts anderes!):
                 zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
                 zu_junior, zu_senior, unpassendes_arbeitsmodell,
-                firma_uninteressant, zeitarbeit, befristet, sonstiges
-                KEINE eigenen Gründe erfinden — bei Unsicherheit 'sonstiges'
-                verwenden oder den Nutzer fragen.
+                firma_uninteressant, zeitarbeit, befristet, bereits_beworben,
+                duplikat, kein_hochschulabschluss, sonstiges
         """
         import json as _json
         if bewertung == "passt_nicht":

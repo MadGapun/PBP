@@ -649,13 +649,18 @@ export default function JobsPage() {
         </span>
       </div>
 
-      {/* Progress bar during job search (#210) */}
+      {/* Progress bar during job search (#210, #400) */}
       {searchJob.running && (
         <div className="mb-4 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 font-medium text-sky-300">
               <span className="h-3 w-3 animate-spin rounded-full border-2 border-sky-500/30 border-t-sky-400" />
-              {searchJob.message || "Jobsuche läuft..."}
+              {(() => {
+                // #400: Parse source status from message for better display
+                const msg = searchJob.message || "Jobsuche läuft...";
+                const parts = msg.split(" | ");
+                return parts[0];
+              })()}
             </span>
             <span className="text-xs text-muted/50">{Math.round(searchJob.progress)}%</span>
           </div>
@@ -665,12 +670,16 @@ export default function JobsPage() {
               style={{ width: `${Math.max(2, searchJob.progress)}%` }}
             />
           </div>
+          {/* #400: Source progress summary */}
+          {searchJob.message?.includes(" | ") && (
+            <p className="mt-2 text-xs text-muted/40">{searchJob.message.split(" | ").slice(1).join(" — ")}</p>
+          )}
         </div>
       )}
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Aktive Stellen" value={jobsTotal || filteredJobs.length} note={filteredJobs.length !== (jobsTotal || filteredJobs.length) ? `${filteredJobs.length} angezeigt (Filter aktiv)` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
+          <MetricCard label="Aktive Stellen" value={filteredJobs.length} note={jobsTotal > filteredJobs.length ? `${jobsTotal} gesamt (${jobsTotal - filteredJobs.length} mit Bewerbung)` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}

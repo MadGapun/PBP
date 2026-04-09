@@ -366,6 +366,10 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
 
     best_match = None
     best_score = 0.0
+    best_app_date = ""  # #389: tie-breaking by recency
+
+    # #389: Archive statuses are deprioritized
+    _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
 
     for app in applications:
         score = 0.0
@@ -375,6 +379,8 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
         ansprechpartner = (app.get("ansprechpartner") or "").lower()
         title = (app.get("title") or "").lower()
         app_url = (app.get("url") or "").lower()
+        app_status = (app.get("status") or "").lower()
+        app_date = app.get("applied_at") or app.get("created_at") or ""
 
         # Strategy 1: Exact kontakt_email match → highest confidence
         if kontakt_email and kontakt_email == sender_email:
@@ -421,12 +427,29 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
                 if sender_domain in url_domain or url_domain.endswith(sender_domain):
                     score = max(score, 0.7)
 
+        # #389: Tie-breaking — prefer active (non-archived) applications and newer ones
+        is_better = False
         if score > best_score:
+            is_better = True
+        elif score == best_score and score > 0:
+            # Same score: prefer active over archived, then newer over older
+            best_is_archived = best_match and any(
+                a.get("id") == best_match and (a.get("status") or "").lower() in _archive_statuses
+                for a in applications
+            )
+            this_is_archived = app_status in _archive_statuses
+            if best_is_archived and not this_is_archived:
+                is_better = True
+            elif best_is_archived == this_is_archived and app_date > best_app_date:
+                is_better = True
+
+        if is_better:
             best_score = score
             best_match = app_id
+            best_app_date = app_date
 
-    # Minimum threshold
-    if best_score < 0.3:
+    # #389: Raise minimum threshold from 0.3 to 0.5 to reduce wrong associations
+    if best_score < 0.5:
         return None, 0.0
 
     return best_match, round(best_score, 2)

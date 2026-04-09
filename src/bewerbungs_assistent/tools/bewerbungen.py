@@ -288,12 +288,20 @@ def register(mcp, db, logger):
             notizen: Optionale Notizen zum Statuswechsel
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
         """
-        # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen
+        # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         if neuer_status == "beworben":
             app = db.get_application(bewerbung_id)
-            if app and not app.get("applied_at"):
-                from datetime import datetime
-                db.update_application(bewerbung_id, {"applied_at": datetime.now().isoformat()[:10]})
+            if app:
+                if not app.get("applied_at"):
+                    from datetime import datetime
+                    db.update_application(bewerbung_id, {"applied_at": datetime.now().isoformat()[:10]})
+                # #405: Stelle deaktivieren wenn Bewerbung auf "beworben" gesetzt
+                job_hash = app.get("job_hash")
+                if job_hash:
+                    try:
+                        db.dismiss_job(job_hash, reason="bewerbung_erstellt")
+                    except Exception:
+                        pass
 
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
         result = {

@@ -1459,7 +1459,8 @@ export default function ProfilePage() {
                     <Button variant="ghost" onClick={() => setEducationDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
                     <Button
                       variant="ghost"
-                      onClick={() =>
+                      onClick={() => {
+                        if (!window.confirm(`Ausbildung "${item.institution}" wirklich loeschen?`)) return;
                         quickAction(() => deleteRequest(`/api/education/${item.id}`), "Ausbildung gelöscht", {
                           onSuccess: () =>
                             startTransition(() => {
@@ -1471,8 +1472,8 @@ export default function ProfilePage() {
                                 };
                               });
                             }),
-                        })
-                      }
+                        });
+                      }}
                     >
                       <Trash2 size={15} />
                       Löschen
@@ -1542,7 +1543,8 @@ export default function ProfilePage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() =>
+                                onClick={() => {
+                                  if (!window.confirm(`Skill "${item.name}" wirklich löschen?`)) return;
                                   quickAction(() => deleteRequest(`/api/skill/${item.id}`), "Skill gelöscht", {
                                     onSuccess: () =>
                                       startTransition(() => {
@@ -1554,8 +1556,8 @@ export default function ProfilePage() {
                                           };
                                         });
                                       }),
-                                  })
-                                }
+                                  });
+                                }}
                               >
                                 <Trash2 size={13} />
                                 Löschen
@@ -1775,6 +1777,7 @@ export default function ProfilePage() {
                             variant="ghost"
                             onClick={(event) => {
                               event.stopPropagation();
+                              if (!window.confirm("Diesen Historieneintrag wirklich löschen?")) return;
                               quickAction(
                                 () => deleteRequest(`/api/extraction-history/${entry.id}`),
                                 "Historieneintrag gelöscht",

@@ -132,6 +132,33 @@ def build_workspace_summary(
                 "action_target": "bewerbungen",
             }
 
+    # #397: Inactivity detection — check when user last took meaningful action
+    from datetime import datetime, timedelta
+    inactivity_days = None
+    inactivity_hint = None
+    if applications:
+        last_dates = []
+        for a in applications:
+            for field in ("applied_at", "updated_at", "created_at"):
+                d = a.get(field)
+                if d:
+                    last_dates.append(d[:10])
+                    break
+        if last_dates:
+            try:
+                last_activity = max(last_dates)
+                days_since = (datetime.now() - datetime.strptime(last_activity, "%Y-%m-%d")).days
+                if days_since >= 7:
+                    inactivity_days = days_since
+                    if days_since >= 21:
+                        inactivity_hint = f"Seit {days_since} Tagen keine Aktivitaet — brauchst du Hilfe beim Wiedereinstieg?"
+                    elif days_since >= 14:
+                        inactivity_hint = f"Seit {days_since} Tagen nichts passiert — schau mal nach deinen offenen Bewerbungen."
+                    else:
+                        inactivity_hint = f"Letzte Aktivitaet vor {days_since} Tagen. Bleib dran!"
+            except (ValueError, TypeError):
+                pass
+
     # #180: Zähle aktive Jobs ohne Beschreibung — Dashboard-Hinweis
     jobs_ohne_beschreibung = sum(
         1 for j in jobs
@@ -172,6 +199,10 @@ def build_workspace_summary(
             "follow_ups_total": follow_up_summary["total"],
             "follow_ups_due": follow_up_summary["due"],
         },
+        "inactivity": {
+            "days": inactivity_days,
+            "hint": inactivity_hint,
+        } if inactivity_days else None,
         "readiness": readiness,
         "navigation": {
             "jobs_badge": format_nav_badge(len(jobs)),

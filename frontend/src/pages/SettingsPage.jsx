@@ -209,41 +209,25 @@ export default function SettingsPage() {
         <h1 className="font-display text-xl font-semibold text-ink">Einstellungen</h1>
       </div>
 
-      {/* #376: Sidebar layout for settings */}
-      <div className="flex gap-6">
-        <nav className="hidden md:flex w-44 shrink-0 flex-col gap-1">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setSettingsTab(t.id)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
-                settingsTab === t.id
-                  ? "bg-sky/15 text-sky"
-                  : "text-muted/50 hover:text-muted hover:bg-white/5"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        {/* Mobile: horizontal tabs */}
-        <div className="flex md:hidden gap-1 mb-4 overflow-x-auto w-full">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setSettingsTab(t.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                settingsTab === t.id
-                  ? "bg-sky/15 text-sky"
-                  : "text-muted/50 hover:text-muted hover:bg-white/5"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* #399: Horizontal tabs below header — consistent with other pages */}
+      <div className="flex flex-wrap gap-1 mb-6">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setSettingsTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              settingsTab === t.id
+                ? "bg-sky/15 text-sky"
+                : "text-muted/50 hover:text-muted hover:bg-white/5"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="grid gap-6 flex-1 min-w-0">
+      <div className="grid gap-6">
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
@@ -450,7 +434,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-      </div>{/* close flex sidebar layout */}
     </div>
   );
 }
