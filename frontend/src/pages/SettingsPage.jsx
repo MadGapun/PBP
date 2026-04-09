@@ -209,24 +209,41 @@ export default function SettingsPage() {
         <h1 className="font-display text-xl font-semibold text-ink">Einstellungen</h1>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 mb-6 overflow-x-auto">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSettingsTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              settingsTab === t.id
-                ? "bg-sky/15 text-sky"
-                : "text-muted/50 hover:text-muted hover:bg-white/5"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* #376: Sidebar layout for settings */}
+      <div className="flex gap-6">
+        <nav className="hidden md:flex w-44 shrink-0 flex-col gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSettingsTab(t.id)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors ${
+                settingsTab === t.id
+                  ? "bg-sky/15 text-sky"
+                  : "text-muted/50 hover:text-muted hover:bg-white/5"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        {/* Mobile: horizontal tabs */}
+        <div className="flex md:hidden gap-1 mb-4 overflow-x-auto w-full">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSettingsTab(t.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                settingsTab === t.id
+                  ? "bg-sky/15 text-sky"
+                  : "text-muted/50 hover:text-muted hover:bg-white/5"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-6 flex-1 min-w-0">
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
@@ -363,8 +380,30 @@ export default function SettingsPage() {
               </Button>
             </Card>
 
+            <Card className="rounded-2xl border border-amber/20 bg-amber/5">
+              <p className="text-xs text-muted">
+                Moechtest du Daten loeschen? Alle Optionen findest du im Tab{" "}
+                <button type="button" className="text-sky underline" onClick={() => setSettingsTab("gefahrenzone")}>Gefahrenzone</button>.
+              </p>
+            </Card>
+          </>
+        )}
+
+        {/* ── Logs Tab ── */}
+        {settingsTab === "logs" && (
+          <Card className="rounded-2xl">
+            <SectionHeading title="Runtime-Logs" description="Die letzten Zeilen aus dem Dashboard-Log fuer schnelle Diagnose." />
+            <div className="soft-scrollbar glass-log max-h-[28rem] overflow-y-auto p-4">
+              {logs.length ? logs.map((line, index) => <p key={`${index}-${line.slice(0, 20)}`}>{line}</p>) : <p>Keine Logs gefunden.</p>}
+            </div>
+          </Card>
+        )}
+
+        {/* ── Gefahrenzone Tab (#378: konsolidiert) ── */}
+        {settingsTab === "gefahrenzone" && (
+          <div className="grid gap-6">
             <Card className="glass-banner glass-banner-danger rounded-2xl">
-              <SectionHeading title="Alle Daten loeschen" description="DSGVO: Loescht Datenbank und Dokumente unwiderruflich." />
+              <SectionHeading title="Alle Daten loeschen (DSGVO)" description="Loescht Datenbank und Dokumente unwiderruflich. Das wird geloescht: Profil, Bewerbungen, Stellen, Dokumente, Einstellungen." />
               <div className="flex flex-col items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
@@ -385,45 +424,33 @@ export default function SettingsPage() {
                 </div>
               </div>
             </Card>
-          </>
-        )}
 
-        {/* ── Logs Tab ── */}
-        {settingsTab === "logs" && (
-          <Card className="rounded-2xl">
-            <SectionHeading title="Runtime-Logs" description="Die letzten Zeilen aus dem Dashboard-Log fuer schnelle Diagnose." />
-            <div className="soft-scrollbar glass-log max-h-[28rem] overflow-y-auto p-4">
-              {logs.length ? logs.map((line, index) => <p key={`${index}-${line.slice(0, 20)}`}>{line}</p>) : <p>Keine Logs gefunden.</p>}
-            </div>
-          </Card>
-        )}
-
-        {/* ── Gefahrenzone Tab ── */}
-        {settingsTab === "gefahrenzone" && (
-          <Card className="glass-banner glass-banner-danger rounded-2xl">
-            <SectionHeading title="Factory Reset" description="Loescht alle Daten und setzt die App in einen sauberen Zustand zurueck." />
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
-                  <ShieldAlert size={16} />
+            <Card className="glass-banner glass-banner-danger rounded-2xl">
+              <SectionHeading title="Factory Reset" description="Setzt die App in einen sauberen Zustand zurueck. Das wird geloescht: Alle Profile, Stellen, Bewerbungen, Dokumente — die App wird wie neu." />
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
+                    <ShieldAlert size={16} />
+                  </div>
+                  <p className="text-sm text-muted">
+                    Gib <strong className="text-ink">RESET</strong> ein, wenn du wirklich alles zuruecksetzen willst.
+                  </p>
                 </div>
-                <p className="text-sm text-muted">
-                  Gib <strong className="text-ink">RESET</strong> ein, wenn du wirklich alle Profile, Stellen, Dokumente und Bewerbungen loeschen willst.
-                </p>
+                <div className="flex items-end gap-3">
+                  <Field label="Bestaetigung">
+                    <TextInput className="!w-48" value={resetConfirm} onChange={(event) => setResetConfirm(event.target.value)} placeholder="RESET" />
+                  </Field>
+                  <Button variant="danger" disabled={resetConfirm !== "RESET"} onClick={performReset}>
+                    <TerminalSquare size={15} />
+                    Factory Reset
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-end gap-3">
-                <Field label="Bestaetigung">
-                  <TextInput className="!w-48" value={resetConfirm} onChange={(event) => setResetConfirm(event.target.value)} placeholder="RESET" />
-                </Field>
-                <Button variant="danger" disabled={resetConfirm !== "RESET"} onClick={performReset}>
-                  <TerminalSquare size={15} />
-                  Alles loeschen
-                </Button>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         )}
       </div>
+      </div>{/* close flex sidebar layout */}
     </div>
   );
 }

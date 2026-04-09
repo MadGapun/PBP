@@ -16,6 +16,7 @@
   Send,
   Upload,
   UserCheck,
+  RefreshCw,
   Video,
   X,
 } from "lucide-react";
@@ -105,6 +106,7 @@ export default function DashboardPage() {
   });
   const [emailDetail, setEmailDetail] = useState(null);
   const [publicHints, setPublicHints] = useState([]);
+  const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pbp_dismissed_hints") || "[]"); } catch { return []; }
   });
@@ -201,17 +203,50 @@ export default function DashboardPage() {
   const applicationTimestamps = (data.applications || [])
     .map((item) => Date.parse(item?.applied_at || item?.created_at || item?.updated_at || ""))
     .filter((timestamp) => Number.isFinite(timestamp));
-  const applicationsPerWeekRaw = (() => {
-    if (!applicationsCount) return 0;
-    if (!applicationTimestamps.length) return applicationsCount;
-    const earliest = Math.min(...applicationTimestamps);
-    const elapsedDays = Math.max(1, Math.ceil((Date.now() - earliest) / (1000 * 60 * 60 * 24)) + 1);
-    return applicationsCount / (elapsedDays / 7);
+  // #367: Multiple perspectives for applications per week
+  const metricPerspectives = (() => {
+    const fmt = (v) => new Intl.NumberFormat("de-DE", {
+      minimumFractionDigits: v > 0 && v < 10 ? 1 : 0,
+      maximumFractionDigits: v > 0 && v < 10 ? 1 : 0,
+    }).format(v);
+    const now = Date.now();
+    const day = 1000 * 60 * 60 * 24;
+    const perspectives = [];
+    // 0: Last 30 days
+    const last30 = applicationTimestamps.filter((t) => now - t <= 30 * day).length;
+    const weeks30 = 30 / 7;
+    perspectives.push({ value: fmt(applicationsCount ? last30 / weeks30 : 0), note: "Ø seit 1 Monat" });
+    // 1: Last 365 days
+    const last365 = applicationTimestamps.filter((t) => now - t <= 365 * day).length;
+    const weeks365 = 365 / 7;
+    perspectives.push({ value: fmt(applicationsCount ? last365 / weeks365 : 0), note: "Ø seit 1 Jahr" });
+    // 2: Total (all time)
+    if (applicationTimestamps.length) {
+      const earliest = Math.min(...applicationTimestamps);
+      const elapsedDays = Math.max(1, Math.ceil((now - earliest) / day) + 1);
+      perspectives.push({ value: fmt(applicationsCount / (elapsedDays / 7)), note: "Ø gesamt" });
+    } else {
+      perspectives.push({ value: fmt(applicationsCount), note: "Ø gesamt" });
+    }
+    // 3: Since PBP usage (profile created_at)
+    const profileCreated = Date.parse(data.statistics?.profile_created_at || "");
+    if (Number.isFinite(profileCreated)) {
+      const daysSince = Math.max(1, Math.ceil((now - profileCreated) / day) + 1);
+      perspectives.push({ value: fmt(applicationsCount / (daysSince / 7)), note: "Ø seit PBP-Start" });
+    } else {
+      perspectives.push(perspectives[2]); // fallback to total
+    }
+    // 4: Per analyzed job
+    const totalJobs = (data.statistics?.active_jobs || 0) + (data.statistics?.dismissed_jobs || 0);
+    if (totalJobs > 0) {
+      perspectives.push({ value: fmt(applicationsCount / totalJobs * 100), note: `pro 100 Stellen (${totalJobs} analysiert)` });
+    } else {
+      perspectives.push({ value: "—", note: "Noch keine Stellen analysiert" });
+    }
+    return perspectives;
   })();
-  const applicationsPerWeek = new Intl.NumberFormat("de-DE", {
-    minimumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
-    maximumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
-  }).format(applicationsPerWeekRaw);
+  const currentMetric = metricPerspectives[metricPerspective % metricPerspectives.length];
+  const applicationsPerWeek = currentMetric.value;
   const appliedJobHashes = new Set(
     (data.applications || [])
       .filter((a) => a.job_hash && !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(a.status))
@@ -456,7 +491,12 @@ export default function DashboardPage() {
 
       <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben${unappliedJobsCount > 0 ? ` / ${unappliedJobsCount} unbearbeitete Stellen` : ""}`} tone="sky" />
-        <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
+        <MetricCard
+          label={<span className="flex items-center gap-1.5">Bew. / Woche<button type="button" onClick={() => setMetricPerspective((p) => (p + 1) % metricPerspectives.length)} className="rounded p-0.5 text-muted/30 hover:text-sky transition-colors" title="Andere Perspektive"><RefreshCw size={11} /></button></span>}
+          value={applicationsPerWeek}
+          note={currentMetric.note}
+          tone="sky"
+        />
         <MetricCard
           label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
           value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}

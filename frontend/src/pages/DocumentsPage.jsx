@@ -1,7 +1,7 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, Search, Unlink, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download, FileText, Link2, LinkIcon, Search, Trash2, Unlink, Upload, X } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, apiUrl, postJson, putJson } from "@/api";
+import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
@@ -47,6 +47,7 @@ export default function DocumentsPage() {
   const [order, setOrder] = useState("desc");
   const [expandedText, setExpandedText] = useState(null);
   const [linkModal, setLinkModal] = useState({ open: false, doc: null, value: "", search: "" });
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // doc.id to confirm
   const [uploadType, setUploadType] = useState("sonstiges");
   const [appSearch, setAppSearch] = useState("");
   const [appDropdownOpen, setAppDropdownOpen] = useState(false);
@@ -111,6 +112,17 @@ export default function DocumentsPage() {
       loadData();
     } catch (error) {
       pushToast(`Fehler: ${error.message}`, "danger");
+    }
+  }
+
+  async function deleteDocument(docId) {
+    try {
+      await deleteRequest(`/api/document/${docId}`);
+      pushToast("Dokument geloescht", "success");
+      setDeleteConfirm(null);
+      loadData();
+    } catch (error) {
+      pushToast(`Loeschen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -392,6 +404,33 @@ export default function DocumentsPage() {
                       >
                         <Download size={14} />
                       </a>
+                      {deleteConfirm === doc.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => deleteDocument(doc.id)}
+                            className="rounded-lg px-2 py-1 text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors"
+                          >
+                            Ja
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(null)}
+                            className="rounded-lg px-2 py-1 text-xs text-muted/50 hover:text-ink transition-colors"
+                          >
+                            Nein
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirm(doc.id)}
+                          className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-red-400 transition-colors"
+                          title="Loeschen"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </Card>

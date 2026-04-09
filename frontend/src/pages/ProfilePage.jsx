@@ -512,7 +512,7 @@ export default function ProfilePage() {
     clearIntent();
   }, [intent]);
 
-  async function saveItem(type, dialog) {
+  async function saveItem(type, dialog, { keepOpen = false } = {}) {
     const draftValue = dialog.draft;
     try {
       if (type === "position") {
@@ -583,7 +583,11 @@ export default function ProfilePage() {
             return { ...current, skills: updated };
           });
         });
-        setSkillDialog({ open: false, draft: EMPTY_SKILL });
+        if (keepOpen) {
+          setSkillDialog({ open: true, draft: buildSkillDraft(EMPTY_SKILL) });
+        } else {
+          setSkillDialog({ open: false, draft: EMPTY_SKILL });
+        }
       }
       await refreshChrome({ quiet: true });
       pushToast("Eintrag gespeichert.", "success");
@@ -2005,6 +2009,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex gap-3">
                 <Button variant="ghost" onClick={() => setSkillDialog({ open: false, draft: EMPTY_SKILL })}>Abbrechen</Button>
+                <Button variant="ghost" onClick={() => saveItem("skill", skillDialog, { keepOpen: true })}>Speichern &amp; weiter</Button>
                 <Button onClick={() => saveItem("skill", skillDialog)}>Speichern</Button>
               </div>
             </div>

@@ -106,7 +106,7 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 1-3 Minuten dauern und laeuft manchmal in einen Timeout. Alternativ: Lass Claude gezielt auf stepstone.de suchen.",
+        "warnung": "Benoetigt Google Chrome. Kann 1-3 Minuten dauern. Alternativ: Lass Claude gezielt auf stepstone.de suchen.",
     },
     "freelancermap": {
         "name": "Freelancermap",
@@ -122,7 +122,7 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf indeed.com suchen.",
+        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf indeed.com suchen.",
     },
     "monster": {
         "name": "Monster",
@@ -130,7 +130,7 @@ SOURCE_REGISTRY = {
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt einen installierten Browser (Chromium). Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf monster.de suchen.",
+        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf monster.de suchen.",
     },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
