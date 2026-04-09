@@ -220,7 +220,7 @@ export default function App() {
       const connStatus = chrome.status?.mcp_connection?.status;
       if (connStatus && connStatus !== "connected") {
         pushToast(
-          "Claude Desktop scheint nicht verbunden zu sein. Bitte pr\u00fcfen: 1) L\u00e4uft das PBP-Fenster noch? 2) Claude Desktop komplett beenden und neu starten 3) Unter Einstellungen > Entwickler den MCP-Status pr\u00fcfen.",
+          "Claude Desktop scheint nicht verbunden zu sein. Bitte pruefen: 1) Laeuft das PBP-Fenster noch? 2) Claude Desktop komplett beenden und neu starten 3) Unter Einstellungen > Entwickler den MCP-Status pruefen.",
           "amber",
           { duration: 12000, dedupe: true }
         );
@@ -937,7 +937,7 @@ export default function App() {
                 const st = conn?.status || "disconnected";
                 const cfg = {
                   connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
-                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pr\u00fcfe\u2026", Icon: Link2 },
+                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe\u2026", Icon: Link2 },
                   disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
                 }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
                 const handleClick = () => {
@@ -952,7 +952,7 @@ export default function App() {
                     type="button"
                     onClick={handleClick}
                     className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium cursor-pointer transition-colors ${cfg.bg} ${cfg.color}`}
-                    title={st === "connected" ? "Claude Desktop \u00f6ffnen" : `MCP: ${cfg.label} \u2014 Klicke f\u00fcr Hilfe`}
+                    title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} \u2014 Klicke fuer Hilfe`}
                   >
                     <span className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
                     <span>{cfg.label}</span>
@@ -967,8 +967,8 @@ export default function App() {
                   <nav className="space-y-1">
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Navigation</p>
                     {[
-                      ["profil-uebersicht", "\u00dcbersicht"],
-                      ["profil-persoenlich", "Pers\u00f6nliche Daten"],
+                      ["profil-uebersicht", "Uebersicht"],
+                      ["profil-persoenlich", "Persoenliche Daten"],
                       ["profil-suchkriterien", "Suchkriterien"],
                       ["profil-blacklist", "Blacklist"],
                       ["profil-erfahrung", "Berufserfahrung"],

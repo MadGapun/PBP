@@ -1580,7 +1580,7 @@ export default function ProfilePage() {
                 </Button>
                 <Button type="button" onClick={() => navigateTo("dokumente")}>
                   <FolderOpen size={15} />
-                  Docs-Tab \u00f6ffnen
+                  Docs-Tab oeffnen
                 </Button>
               </div>
             )}
@@ -1631,14 +1631,14 @@ export default function ProfilePage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={() => documentFileInputRef.current?.click()}>
                       <Upload size={15} />
-                      Dateien ausw\u00e4hlen
+                      Dateien auswaehlen
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => documentFolderInputRef.current?.click()}
                     >
-                      Ordner ausw\u00e4hlen
+                      Ordner auswaehlen
                     </Button>
                   </div>
                   <input
@@ -1685,7 +1685,7 @@ export default function ProfilePage() {
                   <p className="mt-1 text-lg font-semibold text-amber">{pendingDocumentCount}</p>
                 </div>
                 <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivit\u00e4t</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivitaet</p>
                   <p className="mt-1 text-[12px] font-medium text-ink/90">{latestDocumentLabel}</p>
                 </div>
               </div>

@@ -9,7 +9,7 @@ sys.path.insert(0, SRC_DIR)
 # Datenverzeichnis setzen
 os.environ.setdefault(
     "BA_DATA_DIR",
-    os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "BewerbungsAssistent")
+    os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "BewerbungsAssistent", "data")
 )
 
 # Zentrales Logging aktivieren (schreibt in %BA_DATA_DIR%/logs/pbp.log)

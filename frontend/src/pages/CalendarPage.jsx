@@ -16,7 +16,7 @@ import { cn, formatDate, formatDateTime } from "@/utils";
 
 const MEETING_TYPE_LABELS = {
   interview: "Interview",
-  zweitgespraech: "2. Gespr\u00e4ch",
+  zweitgespraech: "2. Gespraech",
   telefoninterview: "Telefoninterview",
   assessment: "Assessment",
   kennenlernen: "Kennenlernen",
@@ -69,7 +69,7 @@ export default function CalendarPage() {
     try {
       await deleteRequest(`/api/meetings/${id}`);
       setMeetings((cur) => cur.filter((m) => m.id !== id));
-      pushToast("Termin gel\u00f6scht", "success");
+      pushToast("Termin geloescht", "success");
     } catch (error) {
       pushToast(`Fehler: ${error.message}`, "danger");
     }
@@ -133,7 +133,7 @@ export default function CalendarPage() {
           title="Keine Termine"
           description={filter === "upcoming"
             ? "Keine kommenden Termine. Termine werden automatisch aus E-Mails und Bewerbungen erkannt."
-            : "Keine Termine im gew\u00e4hlten Zeitraum."
+            : "Keine Termine im gewaehlten Zeitraum."
           }
         />
       ) : (
@@ -211,7 +211,7 @@ export default function CalendarPage() {
                               target="_blank"
                               rel="noreferrer"
                               className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
-                              title="Meeting-Link \u00f6ffnen"
+                              title="Meeting-Link oeffnen"
                             >
                               <ExternalLink size={14} />
                             </a>
@@ -229,7 +229,7 @@ export default function CalendarPage() {
                                 type="button"
                                 onClick={() => deleteMeeting(meeting.id)}
                                 className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
-                                title="Termin l\u00f6schen"
+                                title="Termin loeschen"
                               >
                                 <Trash2 size={14} />
                               </button>

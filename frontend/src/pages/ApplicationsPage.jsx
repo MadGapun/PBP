@@ -818,7 +818,7 @@ export default function ApplicationsPage() {
                     rows={8}
                     value={manualSnapshotText}
                     onChange={(e) => setManualSnapshotText(e.target.value)}
-                    placeholder="Stellenbeschreibung hier einf\u00fcgen..."
+                    placeholder="Stellenbeschreibung hier einfuegen..."
                   />
                   <div className="flex gap-2">
                     <Button

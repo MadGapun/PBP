@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 
 def _gen_id() -> str:
@@ -40,6 +40,13 @@ def get_data_dir() -> Path:
     env_dir = os.environ.get("BA_DATA_DIR")
     if env_dir:
         data_dir = Path(env_dir)
+        # Warn if BA_DATA_DIR points to parent instead of data/ subdirectory (#380)
+        if not (data_dir / "pbp.db").exists() and (data_dir / "data" / "pbp.db").exists():
+            logger.warning(
+                "BA_DATA_DIR zeigt auf '%s', aber pbp.db liegt in data/ Unterordner. "
+                "Korrigiere auf '%s/data'.", data_dir, data_dir
+            )
+            data_dir = data_dir / "data"
     elif sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
         base_install = base / "BewerbungsAssistent"
@@ -790,6 +797,20 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v19->v20: projects.customer_name, is_confidential (#246); jobs.research_notes (#240)")
+
+        if from_ver < 21:
+            # v21: Fix is_active for jobs with existing applications (#382, closes #375)
+            try:
+                fixed = conn.execute(
+                    """UPDATE jobs SET is_active = 0, dismiss_reason = 'bewerbung_erstellt'
+                    WHERE hash IN (SELECT job_hash FROM applications WHERE job_hash IS NOT NULL)
+                    AND is_active = 1"""
+                ).rowcount
+                if fixed:
+                    logger.info("Migration v20->v21: %d Jobs mit bestehenden Bewerbungen auf is_active=0 gesetzt (#382)", fixed)
+            except Exception as e:
+                logger.warning("Migration v20->v21: %s", e)
+            logger.info("Migration v20->v21: is_active cleanup (#382)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -2691,7 +2712,7 @@ class Database:
                    CAST(julianday(MIN(e.event_date)) - julianday(a.applied_at) AS INTEGER) as days
             FROM applications a
             JOIN application_events e ON a.id = e.application_id
-            WHERE e.status NOT IN ('beworben', 'offen', 'notiz', 'eingangsbestaetigung')
+            WHERE e.status IN ('abgelehnt', 'interview', 'zweitgespraech', 'angebot', 'abgelaufen')
             AND a.applied_at IS NOT NULL
             AND (a.profile_id=? OR a.profile_id IS NULL)
             GROUP BY a.id

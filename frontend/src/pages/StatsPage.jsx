@@ -182,7 +182,7 @@ export default function StatsPage() {
     .filter((s) => s.avg_score > 0)
     .map((s) => ({
       name: s.name,
-      "\u00d8 Score": Math.round(s.avg_score * 10) / 10,
+      "Ø Score": Math.round(s.avg_score * 10) / 10,
       "Max Score": s.max_score || 0,
     }));
 
@@ -316,9 +316,9 @@ export default function StatsPage() {
               <MetricCard label="Importiert" value={appStats.imported || 0} note="Vor Tool-Nutzung" tone="neutral" />
               <MetricCard label="Neu erstellt" value={appStats.new || 0} note="Seit Tool-Nutzung" tone="success" />
               <MetricCard
-                label={"\u00d8 Antwortzeit"}
+                label={"Ø Antwortzeit"}
                 value={response.average_days != null ? `${response.average_days} Tage` : "k.A."}
-                note={response.sample_size ? `Basierend auf ${response.sample_size} R\u00fcckmeldungen` : "Noch keine Daten"}
+                note={response.sample_size ? `Basierend auf ${response.sample_size} Rueckmeldungen` : "Noch keine Daten"}
                 tone="amber"
               />
               <MetricCard
@@ -455,7 +455,7 @@ export default function StatsPage() {
             )}
 
             {dismissData.length > 0 && (
-              <ChartCard title="Ablehnungsgr\u00fcnde (Top 10)">
+              <ChartCard title="Ablehnungsgruende (Top 10)">
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={dismissData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -483,7 +483,7 @@ export default function StatsPage() {
                   <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={100} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey={"\u00d8 Score"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey={"Ø Score"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
                   <Bar dataKey="Max Score" fill="#34d399" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -495,7 +495,7 @@ export default function StatsPage() {
             <Card className="rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Activity size={14} className="text-sky" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Letzte Aktivit\u00e4t</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Letzte Aktivitaet</p>
               </div>
               <div className="grid gap-1.5">
                 {extended.recent_activity.map((event, i) => (

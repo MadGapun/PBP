@@ -1128,7 +1128,7 @@ export default function JobsPage() {
         open={fitDialog.open}
         title={`Fit-Analyse \u2014 ${fitDialog.title}`}
         onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
-        footer={<div className="flex justify-end"><Button onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schlie\u00dfen</Button></div>}
+        footer={<div className="flex justify-end"><Button onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schliessen</Button></div>}
       >
         <div className="grid gap-4">
           <Card className="glass-card-soft rounded-xl shadow-none">
@@ -1203,7 +1203,7 @@ export default function JobsPage() {
             className="w-full"
             onClick={() => {
               const hash = fitDialog.hash || "";
-              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert f\u00fcr mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einsch\u00e4tzung: St\u00e4rken, Schw\u00e4chen, Risiken, und ob sich eine Bewerbung lohnt.`;
+              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert fuer mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschaetzung: Staerken, Schwaechen, Risiken, und ob sich eine Bewerbung lohnt.`;
               copyPrompt(prompt);
             }}
           >

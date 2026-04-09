@@ -308,7 +308,7 @@ export default function DashboardPage() {
     todoItems.push({
       id: "zombies",
       title: "Lange keine Antwort bekommen",
-      description: `${data.zombies.length} Bewerbung(en) warten seit \u00fcber 60 Tagen auf R\u00fcckmeldung.`,
+      description: `${data.zombies.length} Bewerbung(en) warten seit ueber 60 Tagen auf Rueckmeldung.`,
       tone: "amber",
       actionLabel: "Bewerbungen",
       action: () => navigateTo("bewerbungen"),
@@ -352,7 +352,7 @@ export default function DashboardPage() {
         <PageHeader
           title="Dashboard"
           description="Hier siehst du auf einen Blick, was als Nächstes zu tun ist."
-          eyebrow="\u00dcbersicht"
+          eyebrow="Uebersicht"
         />
 
         <div id="welcome-screen" className="grid gap-6">
@@ -570,32 +570,32 @@ export default function DashboardPage() {
                 {
                   title: "Erste Schritte",
                   items: [
-                    { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespr\u00e4ch erstellen", icon: PlayCircle },
+                    { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
                     { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
-                    { prompt: "/profil_erweiterung", label: "Profil erg\u00e4nzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
+                    { prompt: "/profil_erweiterung", label: "Profil ergaenzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
                   ],
                 },
                 {
                   title: "Jobsuche & Bewerbung",
                   items: [
-                    { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobb\u00f6rsen durchsuchen lassen", icon: Search },
+                    { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
                     { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
-                    { prompt: "/bewerbungs_uebersicht", label: "\u00dcbersicht", desc: "Was l\u00e4uft gerade?", icon: ClipboardList },
+                    { prompt: "/bewerbungs_uebersicht", label: "Uebersicht", desc: "Was laeuft gerade?", icon: ClipboardList },
                   ],
                 },
                 {
                   title: "Interview & Verhandlung",
                   items: [
-                    { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen \u00fcben", icon: Briefcase },
-                    { prompt: "/interview_simulation", label: "\u00dcbungsgespr\u00e4ch", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
+                    { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen ueben", icon: Briefcase },
+                    { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
                     { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins, isNew: true },
                   ],
                 },
                 {
                   title: "Analyse & Strategie",
                   items: [
-                    { prompt: "/profil_analyse", label: "St\u00e4rken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
-                    { prompt: "/profil_ueberpruefen", label: "Profil pr\u00fcfen", desc: "Fehler finden und korrigieren", icon: UserCheck },
+                    { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
+                    { prompt: "/profil_ueberpruefen", label: "Profil pruefen", desc: "Fehler finden und korrigieren", icon: UserCheck },
                     { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
                   ],
                 },

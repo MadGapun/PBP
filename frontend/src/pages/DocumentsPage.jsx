@@ -106,7 +106,7 @@ export default function DocumentsPage() {
       await putJson(`/api/document/${linkModal.doc.id}/link`, {
         application_id: linkModal.value || null,
       });
-      pushToast("Verkn\u00fcpfung aktualisiert", "success");
+      pushToast("Verknuepfung aktualisiert", "success");
       setLinkModal({ open: false, doc: null, value: "" });
       loadData();
     } catch (error) {
@@ -279,7 +279,7 @@ export default function DocumentsPage() {
             }`}
           >
             <Unlink size={12} />
-            Nicht verkn\u00fcpft ({data.unlinked_count})
+            Nicht verknuepft ({data.unlinked_count})
           </button>
         )}
 
@@ -311,7 +311,7 @@ export default function DocumentsPage() {
         <EmptyState
           title="Keine Dokumente"
           description={activeQuery || docType || appFilter || unlinkedFilter
-            ? "Keine Dokumente f\u00fcr diese Suche/Filter gefunden."
+            ? "Keine Dokumente fuer diese Suche/Filter gefunden."
             : "Noch keine Dokumente vorhanden. Dokumente werden beim Upload und E-Mail-Import automatisch erfasst."
           }
         />
@@ -349,7 +349,7 @@ export default function DocumentsPage() {
                           )}
                         </button>
                       ) : (
-                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verkn\u00fcpft</p>
+                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verknuepft</p>
                       )}
                       {/* Expandable text preview (#366) */}
                       {doc.extracted_text && (
@@ -381,7 +381,7 @@ export default function DocumentsPage() {
                           value: doc.linked_application_id || "",
                         })}
                         className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
-                        title="Verkn\u00fcpfung \u00e4ndern"
+                        title="Verknuepfung aendern"
                       >
                         <LinkIcon size={14} />
                       </button>
@@ -429,7 +429,7 @@ export default function DocumentsPage() {
       {/* Link-Document Modal (#366) */}
       <Modal
         open={linkModal.open}
-        title="Dokument verkn\u00fcpfen"
+        title="Dokument verknuepfen"
         description={linkModal.doc ? `${linkModal.doc.filename}` : ""}
         onClose={() => setLinkModal({ open: false, doc: null, value: "", search: "" })}
         footer={
@@ -457,7 +457,7 @@ export default function DocumentsPage() {
               className={cn("flex w-full px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]", !linkModal.value ? "text-sky font-medium" : "text-muted/60")}
               onClick={() => setLinkModal((cur) => ({ ...cur, value: "" }))}
             >
-              Nicht verkn\u00fcpft
+              Nicht verknuepft
             </button>
             {(data.applications || [])
               .filter((a) => {
