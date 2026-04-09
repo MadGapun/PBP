@@ -465,10 +465,22 @@ echo [INFO] Kopiere python + src nach %APP_DIR% >> "%LOGFILE%"
 :: Laufende PBP-Prozesse beenden (verhindert "Unzulaessiger SHARE-Vorgang")
 echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
 set "KILLED_PROCESSES=0"
+:: Suche nach python.exe UND pythonw.exe Prozessen mit PBP im CommandLine oder Pfad
+for %%I in (python.exe pythonw.exe) do (
+    for /f "tokens=2" %%p in ('tasklist /fi "imagename eq %%I" /fo list 2^>nul ^| findstr /i "PID"') do (
+        wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "bewerbungs_assistent BewerbungsAssistent uvicorn fastmcp" >nul 2>&1
+        if !errorlevel! equ 0 (
+            echo [INFO] Beende PBP-Prozess %%I PID %%p >> "%LOGFILE%"
+            taskkill /pid %%p /f >nul 2>&1
+            set "KILLED_PROCESSES=1"
+        )
+    )
+)
+:: Auch Prozesse beenden die aus dem APP_DIR laufen (z.B. alte Instanzen)
 for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr /i "PID"') do (
-    wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "bewerbungs_assistent" >nul 2>&1
+    wmic process where "ProcessId=%%p" get ExecutablePath 2>nul | findstr /i "BewerbungsAssistent" >nul 2>&1
     if !errorlevel! equ 0 (
-        echo [INFO] Beende PBP-Prozess PID %%p >> "%LOGFILE%"
+        echo [INFO] Beende alte PBP-Instanz PID %%p (aus APP_DIR) >> "%LOGFILE%"
         taskkill /pid %%p /f >nul 2>&1
         set "KILLED_PROCESSES=1"
     )
@@ -476,14 +488,19 @@ for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nu
 if "!KILLED_PROCESSES!"=="1" (
     echo         [OK] Laufende PBP-Prozesse beendet
     echo [OK] PBP-Prozesse beendet >> "%LOGFILE%"
-    timeout /t 2 /nobreak >nul
+    timeout /t 3 /nobreak >nul
 )
 
 :: python/ Ordner kopieren (#297: nach app/)
 echo [DEBUG] Kopiere python-Ordner... >> "%LOGFILE%"
 if exist "%APP_DIR%\python" rmdir /s /q "%APP_DIR%\python" 2>nul
 if exist "%APP_DIR%\python" (
-    echo [WARN] python-Ordner konnte nicht geloescht werden, versuche ueberschreiben >> "%LOGFILE%"
+    echo [WARN] python-Ordner konnte nicht geloescht werden, warte 3s... >> "%LOGFILE%"
+    timeout /t 3 /nobreak >nul
+    rmdir /s /q "%APP_DIR%\python" 2>nul
+)
+if exist "%APP_DIR%\python" (
+    echo [WARN] python-Ordner immer noch gesperrt, versuche ueberschreiben >> "%LOGFILE%"
 )
 xcopy "%PYTHON_DIR%" "%APP_DIR%\python\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
