@@ -146,10 +146,10 @@ if exist "%DATA_DIR%\python\python.exe" (
 )
 
 :: --- Python muss heruntergeladen werden ---
+:download_python
 echo.
-echo         Python ist noch nicht vorhanden.
-echo         Wird jetzt AUTOMATISCH heruntergeladen
-echo         und eingerichtet. Einfach warten!
+echo         Python wird heruntergeladen und eingerichtet...
+echo         Einfach warten!
 echo.
 
 :: 64-Bit pruefen
@@ -314,7 +314,12 @@ if !errorlevel! neq 0 (
     echo [WARN] pip nicht gefunden, versuche Nachinstallation... >> "%LOGFILE%"
     call :fix_pip
     "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
-    if !errorlevel! neq 0 goto :err_pip
+    if !errorlevel! neq 0 (
+        echo [WARN] pip immer noch defekt — loesche Python und lade neu herunter >> "%LOGFILE%"
+        echo         Kopierte Python-Installation defekt, lade neu herunter...
+        rmdir /s /q "%PYTHON_DIR%" 2>nul
+        goto :download_python
+    )
 )
 echo         [OK] pip vorhanden
 echo [OK] pip vorhanden >> "%LOGFILE%"
