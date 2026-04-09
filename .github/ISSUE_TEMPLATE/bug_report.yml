@@ -6,8 +6,27 @@ body:
   - type: markdown
     attributes:
       value: |
-        Danke, dass du dir die Zeit nimmst, einen Bug zu melden!
-        Je genauer du beschreibst, was passiert ist, desto schneller können wir helfen.
+        Danke für die Fehlermeldung! Je genauer du beschreibst was passiert ist,
+        desto schneller können wir helfen.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Betroffener Bereich
+      description: Wo ist das Problem aufgetreten?
+      options:
+        - Dashboard (Web-UI)
+        - MCP Tool (Claude Desktop Konversation)
+        - Jobsuche / Scraper
+        - Bewerbungen
+        - Profil / Lebenslauf
+        - Export (PDF/DOCX)
+        - Installation / Update
+        - E-Mail Import
+        - Statistiken
+        - Sonstiges
+    validations:
+      required: true
 
   - type: textarea
     id: description
@@ -23,7 +42,6 @@ body:
     attributes:
       label: Was hättest du erwartet?
       description: Was sollte stattdessen passieren?
-      placeholder: "Die Stellenliste sollte angezeigt werden."
     validations:
       required: true
 
@@ -39,45 +57,84 @@ body:
     validations:
       required: false
 
+  - type: input
+    id: pbp_version
+    attributes:
+      label: PBP-Version
+      description: >
+        Steht unten im Dashboard. Oder per Konsole:
+        python -c "from bewerbungs_assistent import __version__; print(__version__)"
+      placeholder: "z.B. 1.5.0-beta.10"
+    validations:
+      required: true
+
   - type: dropdown
     id: os
     attributes:
       label: Betriebssystem
       options:
-        - Windows 10
         - Windows 11
-        - macOS
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
         - Linux
         - Andere
     validations:
       required: true
 
-  - type: input
-    id: version
+  - type: dropdown
+    id: installation_type
     attributes:
-      label: PBP-Version
-      description: "Findest du unten im Dashboard oder via `python -c \"from bewerbungs_assistent import __version__; print(__version__)\"`"
-      placeholder: "z.B. 1.0.0"
+      label: Installation
+      description: Wie wurde PBP installiert / aktualisiert?
+      options:
+        - Frisch installiert (erste Installation)
+        - Update von einer älteren Version
+        - Ich bin nicht sicher
     validations:
-      required: false
+      required: true
 
   - type: dropdown
     id: claude_plan
     attributes:
       label: Claude Desktop Plan
+      description: Relevant für MCP-Tool-Limits und Timeout-Verhalten.
       options:
         - Free
         - Pro
         - Max
-        - Weiß ich nicht
+        - Ich weiß es nicht
+    validations:
+      required: false
+
+  - type: dropdown
+    id: worked_before
+    attributes:
+      label: Hat es vorher funktioniert?
+      options:
+        - "Ja — hat mal funktioniert, jetzt nicht mehr"
+        - "Nein — hat noch nie funktioniert"
+        - "Weiß ich nicht"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_message
+    attributes:
+      label: Fehlermeldung / Screenshot
+      description: Fehlermeldungen aus dem Browser oder der Claude-Konversation einfügen.
+      render: shell
     validations:
       required: false
 
   - type: textarea
     id: logs
     attributes:
-      label: Fehlermeldung / Logs
-      description: Falls vorhanden — Fehlermeldungen, Konsolenausgabe oder Screenshots.
+      label: Log-Auszug (pbp.log)
+      description: >
+        Windows: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+        macOS/Linux: ~/.bewerbungs-assistent/logs/pbp.log
+        Bitte die letzten 20-30 Zeilen rund um den Fehlerzeitpunkt einfügen.
       render: shell
     validations:
       required: false
