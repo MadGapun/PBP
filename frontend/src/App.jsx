@@ -991,6 +991,66 @@ export default function App() {
                   </nav>
                 </>
               )}
+
+              {page === "kalender" && (
+                <>
+                  <div className="h-px bg-white/[0.06]" />
+                  <nav className="space-y-1">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Ansicht</p>
+                    {[
+                      ["cal-view-kalender", "Kalender"],
+                      ["cal-view-log", "Aktivitaetslog"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        data-cal-action={id}
+                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </nav>
+                  <nav className="space-y-1 mt-3">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Zeitraum</p>
+                    {[
+                      ["cal-period-woche", "Woche"],
+                      ["cal-period-monat", "Monat"],
+                      ["cal-period-quartal", "Quartal"],
+                      ["cal-period-halbjahr", "Halbjahr"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        data-cal-action={id}
+                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </nav>
+                  <nav className="space-y-1 mt-3">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Filter</p>
+                    {[
+                      ["cal-filter-all", "Alle Termine"],
+                      ["cal-filter-upcoming", "Kommende"],
+                      ["cal-filter-past", "Vergangene"],
+                    ].map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        data-cal-action={id}
+                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </nav>
+                </>
+              )}
             </div>
           </aside>
 

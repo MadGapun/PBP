@@ -2601,15 +2601,12 @@ class Database:
         stats["active_jobs_by_source"] = {r["source"]: r["active_cnt"] for r in source_rows}
         return stats
 
-    def get_timeline_stats(self, interval: str = "month") -> dict:
+    def get_timeline_stats(self, interval: str = "month", time_range: str = "") -> dict:
         """Get application counts grouped by time interval for charts (#125).
 
-        Intervals determine the time window:
-        - week: last 12 weeks
-        - month: last 12 months
-        - quarter: last 8 quarters
-        - year: all years
-        - all: all data grouped by month
+        ``interval`` controls the grouping: day / week / month / quarter / year.
+        ``time_range`` optionally overrides the default time window:
+            30d, 90d, 6m, 12m, or empty for defaults.
         """
         conn = self.connect()
         pid = self.get_active_profile_id()
@@ -2623,12 +2620,24 @@ class Database:
         fmt = fmt_map.get(interval, "%Y-%m")
 
         # Time window limits (#125) — only for non-"all" views
-        _time_limits = {
+        # Note: SQLite does NOT support 'weeks' modifier — use days instead
+        _default_limits = {
             "day": "date('now', '-30 days')",
-            "week": "date('now', '-12 weeks')",
+            "week": "date('now', '-84 days')",
             "month": "date('now', '-12 months')",
             "quarter": "date('now', '-24 months')",
         }
+        # Parse optional time_range override
+        _range_map = {
+            "30d": "date('now', '-30 days')",
+            "90d": "date('now', '-90 days')",
+            "6m": "date('now', '-6 months')",
+            "12m": "date('now', '-12 months')",
+        }
+        _time_limits = _default_limits.copy()
+        if time_range and time_range in _range_map:
+            # Override the limit for the current interval
+            _time_limits[interval] = _range_map[time_range]
         # #357: Use COALESCE(applied_at, created_at) so imported applications
         # (which may lack applied_at) still appear in the timeline.
         _effective_date = "COALESCE(NULLIF(applied_at, ''), created_at)"

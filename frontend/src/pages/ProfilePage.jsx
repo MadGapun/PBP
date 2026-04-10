@@ -1333,28 +1333,6 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Button size="sm" variant="ghost" onClick={() => setPositionDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            if (!window.confirm("Position wirklich löschen? Alle zugehörigen Projekte werden ebenfalls gelöscht.")) return;
-                            quickAction(() => deleteRequest(`/api/position/${item.id}`), "Position gelöscht", {
-                              onSuccess: () =>
-                                startTransition(() => {
-                                  setProfile((current) => {
-                                    if (!current) return current;
-                                    return {
-                                      ...current,
-                                      positions: (current.positions || []).filter((position) => position.id !== item.id),
-                                    };
-                                  });
-                                }),
-                            });
-                          }}
-                        >
-                          <Trash2 size={15} />
-                          Löschen
-                        </Button>
                         <button type="button" onClick={() => togglePosition(item.id)} className="p-1">
                           <ChevronDown size={18} className={cn("text-muted transition-transform duration-200", isExpanded && "rotate-180")} />
                         </button>
@@ -1869,7 +1847,7 @@ export default function ProfilePage() {
         open={positionDialog.open}
         title={positionDialog.draft.id ? "Position bearbeiten" : "Neue Position"}
         onClose={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div>}
+        footer={<div className="flex items-center justify-between gap-3">{positionDialog.draft.id ? (<Button variant="danger" onClick={() => { if (!window.confirm("Position wirklich loeschen? Alle zugehoerigen Projekte werden ebenfalls geloescht.")) return; quickAction(() => deleteRequest(`/api/position/${positionDialog.draft.id}`), "Position geloescht", { onSuccess: () => { setPositionDialog({ open: false, draft: EMPTY_POSITION }); startTransition(() => { setProfile((c) => c ? { ...c, positions: (c.positions || []).filter((p) => p.id !== positionDialog.draft.id) } : c); }); } }); }}><Trash2 size={15} /> Loeschen</Button>) : <span />}<div className="flex gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div></div>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Firma">

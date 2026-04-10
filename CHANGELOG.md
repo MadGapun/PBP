@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.23] - 2026-04-10
+
+### Bug Fixes
+- **Kalender-Modals funktionslos** (#418, #419, #417): Alle drei Modals (Neuer Termin, Bearbeiten, Kategorien) waren defekt wegen fehlendem `open`-Prop — jetzt behoben
+- **Termin-Klick oeffnet falsche Seite** (#395): Follow-up-Termine mit Bewerbungs-Verknuepfung navigieren jetzt korrekt zur Bewerbung statt nichts zu tun
+- **Top-Stellen leer auf Dashboard**: Filter entfernte Stellen mit Score 0 — jetzt werden alle aktiven Stellen angezeigt, sortiert nach Score
+- **Statistiken woechentlich leer**: SQLite unterstuetzt `'-12 weeks'` nicht als Modifier — auf `'-84 days'` korrigiert
+- **Loeschen-Button Berufserfahrung**: Entfernt von der Profil-Hauptseite (versehentliches Klicken), jetzt nur im Bearbeitungs-Dialog verfuegbar
+
+### Features
+- **Grafischer Kalender-Grid**: Monatsansicht mit 7-Spalten-Tagesraster (Mo-So), alle Tage sichtbar auch ohne Termine; Wochen-, Quartal- und Halbjahres-Ansicht als kompakte Mini-Grids; Klick auf Tag erstellt neuen Termin mit Datum vorbelegt
+- **Kalender-Sidebar**: Navigations-Sidebar (wie Profil) mit Ansicht, Zeitraum und Filter-Kontrollen direkt unter dem Heartbeat
+- **Termin-Filter wiederhergestellt**: Alle/Kommende/Vergangene als Sidebar-Filter — war versehentlich entfernt worden
+- **Statistiken: Unabhaengige Zeitraum-Kontrollen**: Gruppierung (Taeglich/Woechentlich/Monatlich) und Zeitraum (30d/90d/6m/12m/Alles) sind jetzt zwei separate, unabhaengige Controls — z.B. taeglich ueber 12 Monate ist jetzt moeglich
+
 ## [1.5.0-beta.22] - 2026-04-10
 
 ### Features

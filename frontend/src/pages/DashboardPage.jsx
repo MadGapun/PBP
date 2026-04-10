@@ -848,7 +848,8 @@ export default function DashboardPage() {
                   (data.applications || []).map((a) => a.job_hash).filter(Boolean)
                 );
                 const topJobs = data.jobs
-                  .filter((j) => !appliedHashes.has(j.hash) && (j.score || 0) > 0)
+                  .filter((j) => !appliedHashes.has(j.hash))
+                  .sort((a, b) => (b.score || 0) - (a.score || 0))
                   .slice(0, 3);
                 return topJobs.length ? (
                   topJobs.map((job) => (

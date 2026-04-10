@@ -79,6 +79,9 @@ const VIEW_MODES = [
   { id: "halbjahr", label: "Halbjahr" },
 ];
 
+const DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const MONTH_NAMES = ["Januar", "Februar", "Maerz", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
 function getViewRange(mode, referenceDate) {
   const d = new Date(referenceDate);
   d.setHours(0, 0, 0, 0);
@@ -106,7 +109,7 @@ function getViewRange(mode, referenceDate) {
   return { start, end };
 }
 
-function navigateView(mode, referenceDate, direction) {
+function navigateViewPeriod(mode, referenceDate, direction) {
   const d = new Date(referenceDate);
   if (mode === "woche") d.setDate(d.getDate() + direction * 7);
   else if (mode === "monat") d.setMonth(d.getMonth() + direction);
@@ -136,12 +139,125 @@ function isInRange(dateStr, range) {
 }
 
 // Empty meeting form
-function emptyMeeting() {
+function emptyMeeting(dateStr) {
+  const date = dateStr || new Date().toISOString().slice(0, 16);
   return {
-    title: "", meeting_date: new Date().toISOString().slice(0, 16),
+    title: "", meeting_date: date,
     meeting_type: "sonstiges", location: "", notes: "",
     application_id: "", duration_minutes: 60, is_private: false, category_id: "",
   };
+}
+
+// Generate calendar grid days for a single month
+function getMonthGrid(year, month) {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Monday=0
+  const days = [];
+
+  // Padding from previous month
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = new Date(year, month, -i);
+    days.push({ date: d, isCurrentMonth: false });
+  }
+  // Current month days
+  for (let i = 1; i <= lastDay.getDate(); i++) {
+    days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+  }
+  // Padding to fill last week
+  while (days.length % 7 !== 0) {
+    const d = new Date(year, month + 1, days.length - startDow - lastDay.getDate() + 1);
+    days.push({ date: d, isCurrentMonth: false });
+  }
+  return days;
+}
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Calendar grid component for a single month
+function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, compact, collisionIds }) {
+  const days = getMonthGrid(year, month);
+  const todayKey = dateKey(new Date());
+
+  return (
+    <div>
+      {compact && (
+        <h3 className="mb-2 text-xs font-semibold text-muted/50">{MONTH_NAMES[month]} {year}</h3>
+      )}
+      <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden border border-white/[0.06]">
+        {/* Day name header */}
+        {DAY_NAMES.map((name) => (
+          <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-[10px] font-semibold text-muted/40 uppercase">
+            {name}
+          </div>
+        ))}
+        {/* Day cells */}
+        {days.map((day, idx) => {
+          const key = dateKey(day.date);
+          const meetings = meetingsByDate[key] || [];
+          const today = key === todayKey;
+          const past = day.date < new Date() && !today;
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "relative cursor-pointer transition-colors",
+                compact ? "min-h-[2rem] p-0.5" : "min-h-[5rem] p-1.5",
+                day.isCurrentMonth ? "bg-white/[0.015]" : "bg-transparent",
+                today && "bg-sky/5",
+                !today && "hover:bg-white/[0.04]",
+              )}
+              onClick={() => onDayClick(day.date)}
+            >
+              <span className={cn(
+                "text-[11px] font-medium",
+                today ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky text-shell font-bold" : "",
+                !today && day.isCurrentMonth ? (past ? "text-muted/30" : "text-ink/70") : "",
+                !today && !day.isCurrentMonth ? "text-muted/15" : "",
+              )}>
+                {day.date.getDate()}
+              </span>
+              {!compact && meetings.length > 0 && (
+                <div className="mt-0.5 space-y-0.5">
+                  {meetings.slice(0, 3).map((m) => {
+                    const hasCollision = collisionIds.has(m.id);
+                    const catColor = m.category_color || (m.is_private ? "#6b7280" : m.is_follow_up ? "#f59e0b" : "#0ea5e9");
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={cn(
+                          "block w-full truncate rounded px-1 py-px text-left text-[10px] font-medium transition-colors hover:brightness-125",
+                          hasCollision && "ring-1 ring-amber/50"
+                        )}
+                        style={{ backgroundColor: `${catColor}20`, color: catColor }}
+                        onClick={(e) => { e.stopPropagation(); onMeetingClick(m); }}
+                        title={`${m.is_private ? "Geblockt" : m.title} — ${formatDateTime(m.meeting_date)}`}
+                      >
+                        {m.is_private ? "Geblockt" : m.title}
+                      </button>
+                    );
+                  })}
+                  {meetings.length > 3 && (
+                    <span className="block text-[9px] text-muted/40 px-1">+{meetings.length - 3}</span>
+                  )}
+                </div>
+              )}
+              {compact && meetings.length > 0 && (
+                <div className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 gap-0.5">
+                  {meetings.slice(0, 3).map((m) => (
+                    <span key={m.id} className="inline-block h-1 w-1 rounded-full" style={{ backgroundColor: m.category_color || (m.is_private ? "#6b7280" : "#0ea5e9") }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function CalendarPage() {
@@ -151,7 +267,7 @@ export default function CalendarPage() {
   const [collisions, setCollisions] = useState([]);
   const [categories, setCategories] = useState([]); // meeting categories (#417)
   const [applications, setApplications] = useState([]); // for linking (#418)
-  const [filter, setFilter] = useState("upcoming");
+  const [filter, setFilter] = useState("all"); // all | upcoming | past
   const [viewMode, setViewMode] = useState("kalender");
   const [calendarView, setCalendarView] = useState("monat"); // #394
   const [viewRef, setViewRef] = useState(new Date()); // reference date for navigation
@@ -159,18 +275,49 @@ export default function CalendarPage() {
   const [activityLog, setActivityLog] = useState([]);
   const [logDays, setLogDays] = useState(90);
   const [logLoading, setLogLoading] = useState(false);
-  // Category filter: which meeting categories to show (#417)
   const [categoryFilter, setCategoryFilter] = useState(() => {
     try {
       const stored = localStorage.getItem("pbp-meeting-cat-filter");
       if (stored) return JSON.parse(stored);
     } catch { /* ignore */ }
-    return {}; // empty = all visible
+    return {};
   });
-  const [editMeeting, setEditMeeting] = useState(null); // null | { ...meeting data, _isNew: true/false }
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // meeting to delete
+  const [editMeeting, setEditMeeting] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [categoryManager, setCategoryManager] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", color: "#3b82f6", show_in_stats: true });
+
+  // Listen for sidebar navigation events
+  useEffect(() => {
+    function handleCalNav(e) {
+      const { action } = e.detail || {};
+      if (action === "cal-view-kalender") setViewMode("kalender");
+      else if (action === "cal-view-log") setViewMode("log");
+      else if (action === "cal-period-woche") { setCalendarView("woche"); setViewRef(new Date()); }
+      else if (action === "cal-period-monat") { setCalendarView("monat"); setViewRef(new Date()); }
+      else if (action === "cal-period-quartal") { setCalendarView("quartal"); setViewRef(new Date()); }
+      else if (action === "cal-period-halbjahr") { setCalendarView("halbjahr"); setViewRef(new Date()); }
+      else if (action === "cal-filter-all") setFilter("all");
+      else if (action === "cal-filter-upcoming") setFilter("upcoming");
+      else if (action === "cal-filter-past") setFilter("past");
+    }
+    document.addEventListener("cal-nav", handleCalNav);
+    return () => document.removeEventListener("cal-nav", handleCalNav);
+  }, []);
+
+  // Update sidebar active states
+  useEffect(() => {
+    document.querySelectorAll("[data-cal-action]").forEach((btn) => {
+      const action = btn.dataset.calAction;
+      const isActive =
+        action === `cal-view-${viewMode}` ||
+        action === `cal-period-${calendarView}` ||
+        action === `cal-filter-${filter}`;
+      btn.classList.toggle("bg-white/[0.06]", isActive);
+      btn.classList.toggle("text-ink", isActive);
+      btn.classList.toggle("text-muted/60", !isActive);
+    });
+  }, [viewMode, calendarView, filter]);
 
   const loadData = useEffectEvent(async () => {
     try {
@@ -216,17 +363,14 @@ export default function CalendarPage() {
     });
   }
 
-  // #417: Toggle meeting category filter
   function toggleCategoryFilter(catId) {
     setCategoryFilter((prev) => {
       const next = { ...prev, [catId]: prev[catId] === false ? true : false };
-      // If all are true/undefined, remove all keys (= show all)
       localStorage.setItem("pbp-meeting-cat-filter", JSON.stringify(next));
       return next;
     });
   }
 
-  // #419: Delete meeting with confirmation
   async function confirmDeleteMeeting() {
     if (!deleteConfirm) return;
     try {
@@ -239,7 +383,6 @@ export default function CalendarPage() {
     }
   }
 
-  // #418/#419: Save meeting (create or update)
   async function saveMeeting() {
     if (!editMeeting) return;
     const isNew = editMeeting._isNew;
@@ -254,7 +397,6 @@ export default function CalendarPage() {
       duration_minutes: editMeeting.duration_minutes ? Number(editMeeting.duration_minutes) : null,
       category_id: editMeeting.category_id || null,
     };
-    // Calculate meeting_end from duration
     if (payload.duration_minutes && payload.meeting_date) {
       const start = new Date(payload.meeting_date);
       const end = new Date(start.getTime() + payload.duration_minutes * 60 * 1000);
@@ -275,7 +417,6 @@ export default function CalendarPage() {
     }
   }
 
-  // #417: Category CRUD
   async function saveNewCategory() {
     if (!newCategory.name.trim()) return;
     try {
@@ -311,111 +452,97 @@ export default function CalendarPage() {
   }
 
   const collisionIds = new Set(collisions.flatMap((c) => [c.meeting_1, c.meeting_2]));
-
-  // #394: View range for calendar views
   const viewRange = getViewRange(calendarView, viewRef);
 
-  // Filter meetings
+  // Filter meetings for calendar grid
   const filtered = meetings.filter((m) => {
-    // Follow-up filter
     if (m.is_follow_up && !logCategories.followups) return false;
     if (!m.is_follow_up && !logCategories.termine) return false;
-    // #417: Meeting category filter
     if (m.category_id && categoryFilter[m.category_id] === false) return false;
-    // #394: Calendar view date range filter (in kalender mode)
-    if (viewMode === "kalender") {
-      if (!isInRange(m.meeting_date, viewRange)) return false;
-    } else {
-      // Time filter for non-view mode
-      if (filter === "upcoming") return !isPast(m.meeting_date);
-      if (filter === "past") return isPast(m.meeting_date);
-    }
+    // Apply time filter
+    if (filter === "upcoming" && isPast(m.meeting_date)) return false;
+    if (filter === "past" && !isPast(m.meeting_date)) return false;
     return true;
   });
 
-  const grouped = {};
+  // Group meetings by date for calendar grid
+  const meetingsByDate = {};
   for (const m of filtered) {
+    const key = (m.meeting_date || "").slice(0, 10);
+    if (!meetingsByDate[key]) meetingsByDate[key] = [];
+    meetingsByDate[key].push(m);
+  }
+
+  // Filtered meetings that are in the current view range (for the list below the grid)
+  const rangeFiltered = filtered.filter((m) => isInRange(m.meeting_date, viewRange));
+  const grouped = {};
+  for (const m of rangeFiltered) {
     const date = (m.meeting_date || "").slice(0, 10);
     if (!grouped[date]) grouped[date] = [];
     grouped[date].push(m);
   }
   const sortedDates = Object.keys(grouped).sort();
 
+  function handleDayClick(date) {
+    const isoDate = `${dateKey(date)}T09:00`;
+    setEditMeeting({ ...emptyMeeting(isoDate), _isNew: true });
+  }
+
+  function handleMeetingClick(meeting) {
+    if (meeting.application_id) {
+      navigateTo("bewerbungen", { highlight: meeting.application_id });
+    } else {
+      setEditMeeting({ ...meeting, _isNew: false });
+    }
+  }
+
+  // Generate months for multi-month views (quartal/halbjahr)
+  function getMonthsInRange() {
+    const months = [];
+    const d = new Date(viewRange.start);
+    while (d <= viewRange.end) {
+      months.push({ year: d.getFullYear(), month: d.getMonth() });
+      d.setMonth(d.getMonth() + 1);
+    }
+    return months;
+  }
+
   if (loading) return <LoadingPanel />;
 
   return (
     <div id="page-kalender" className="page active">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-4">
+      {/* Header: compact with essential controls */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <PageHeader title="Kalender" subtitle={`${meetings.length} Termine`} />
         <div className="flex flex-wrap items-center gap-2">
-          {/* View mode toggle */}
-          <button type="button" onClick={() => setViewMode("kalender")} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${viewMode === "kalender" ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
-            <Calendar size={12} className="inline mr-1" />Kalender
+          {/* Navigation arrows + label */}
+          <button type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, -1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
+            <ChevronLeft size={16} />
           </button>
-          <button type="button" onClick={() => setViewMode("log")} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${viewMode === "log" ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
-            <List size={12} className="inline mr-1" />Aktivitaetslog
+          <span className="text-sm font-medium text-ink min-w-[140px] text-center">
+            {viewMode === "kalender" ? formatViewLabel(calendarView, viewRange) : `Letzten ${logDays} Tage`}
+          </span>
+          <button type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, 1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
+            <ChevronRight size={16} />
+          </button>
+          <button type="button" onClick={() => setViewRef(new Date())} className="rounded-lg px-2 py-1 text-xs text-muted/40 hover:text-sky hover:bg-white/[0.04]">
+            Heute
           </button>
           <span className="mx-1 h-4 w-px bg-white/10" />
-          {viewMode === "kalender" ? (
-            <>
-              {/* #394: Calendar view modes */}
-              {VIEW_MODES.map((vm) => (
-                <button
-                  key={vm.id}
-                  type="button"
-                  onClick={() => { setCalendarView(vm.id); setViewRef(new Date()); }}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                    calendarView === vm.id
-                      ? "bg-sky/15 text-sky"
-                      : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
-                  }`}
-                >
-                  {vm.label}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              {[7, 30, 90, 365].map((d) => (
-                <button key={d} type="button" onClick={() => setLogDays(d)} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${logDays === d ? "bg-sky/15 text-sky" : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"}`}>
-                  {d}d
-                </button>
-              ))}
-            </>
-          )}
-          <LinkButton
-            size="sm"
-            href={apiUrl("/api/meetings/export.ics")}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download size={14} />
-            ICS
+          <Button size="sm" variant="ghost" onClick={() => setCategoryManager(true)}>
+            <Settings size={12} /> Kategorien
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditMeeting({ ...emptyMeeting(), _isNew: true })}>
+            <Plus size={12} /> Neuer Termin
+          </Button>
+          <LinkButton size="sm" href={apiUrl("/api/meetings/export.ics")} target="_blank" rel="noreferrer">
+            <Download size={14} /> ICS
           </LinkButton>
         </div>
       </div>
 
-      {/* #394: View navigation + Category toggles + New meeting button */}
+      {/* Category filter + log toggles (inline, below header) */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {viewMode === "kalender" && (
-          <>
-            <button type="button" onClick={() => setViewRef((d) => navigateView(calendarView, d, -1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-medium text-ink min-w-[140px] text-center">
-              {formatViewLabel(calendarView, viewRange)}
-            </span>
-            <button type="button" onClick={() => setViewRef((d) => navigateView(calendarView, d, 1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
-              <ChevronRight size={16} />
-            </button>
-            <button type="button" onClick={() => setViewRef(new Date())} className="rounded-lg px-2 py-1 text-xs text-muted/40 hover:text-sky hover:bg-white/[0.04]">
-              Heute
-            </button>
-            <span className="mx-1 h-4 w-px bg-white/10" />
-          </>
-        )}
-
-        {/* Activity log category toggles */}
         {viewMode === "log" && LOG_CATEGORIES.map((cat) => {
           const Icon = cat.icon;
           const active = logCategories[cat.key];
@@ -434,8 +561,6 @@ export default function CalendarPage() {
             </button>
           );
         })}
-
-        {/* #417: Meeting category filter toggles */}
         {viewMode === "kalender" && categories.length > 0 && (
           <>
             {categories.map((cat) => {
@@ -455,24 +580,13 @@ export default function CalendarPage() {
                 </button>
               );
             })}
-            <span className="mx-1 h-4 w-px bg-white/10" />
           </>
         )}
-
-        {/* Category management button (#417) */}
-        <Button size="sm" variant="ghost" onClick={() => setCategoryManager(true)}>
-          <Settings size={12} /> Kategorien
-        </Button>
-
-        {/* New meeting button (#418) */}
-        <Button size="sm" variant="ghost" onClick={() => setEditMeeting({ ...emptyMeeting(), _isNew: true })}>
-          <Plus size={12} /> Neuer Termin
-        </Button>
       </div>
 
-      {/* #418/#419: Meeting create/edit modal */}
+      {/* Modals */}
       {editMeeting && (
-        <Modal title={editMeeting._isNew ? "Neuen Termin anlegen" : "Termin bearbeiten"} onClose={() => setEditMeeting(null)}>
+        <Modal open={true} title={editMeeting._isNew ? "Neuen Termin anlegen" : "Termin bearbeiten"} onClose={() => setEditMeeting(null)}>
           <div className="grid gap-4">
             <Field label="Titel *">
               <TextInput value={editMeeting.title} onChange={(e) => setEditMeeting((p) => ({ ...p, title: e.target.value }))} placeholder="z.B. Interview bei Firma XY" />
@@ -537,9 +651,8 @@ export default function CalendarPage() {
         </Modal>
       )}
 
-      {/* #419: Delete confirmation modal */}
       {deleteConfirm && (
-        <Modal title="Termin loeschen" onClose={() => setDeleteConfirm(null)}>
+        <Modal open={true} title="Termin loeschen" onClose={() => setDeleteConfirm(null)}>
           <p className="text-sm text-muted mb-2">
             Soll der Termin <strong className="text-ink">&ldquo;{deleteConfirm.title}&rdquo;</strong> wirklich geloescht werden?
           </p>
@@ -555,9 +668,8 @@ export default function CalendarPage() {
         </Modal>
       )}
 
-      {/* #417: Category manager modal */}
       {categoryManager && (
-        <Modal title="Termin-Kategorien verwalten" onClose={() => setCategoryManager(false)}>
+        <Modal open={true} title="Termin-Kategorien verwalten" onClose={() => setCategoryManager(false)}>
           <div className="grid gap-3">
             {categories.map((cat) => (
               <div key={cat.id} className="flex items-center gap-3 rounded-xl border border-white/[0.05] px-4 py-2.5">
@@ -602,6 +714,7 @@ export default function CalendarPage() {
         </Modal>
       )}
 
+      {/* Main content */}
       {viewMode === "log" ? (
         /* Activity Log View */
         logLoading ? <LoadingPanel /> : activityLog.length === 0 ? (
@@ -635,156 +748,195 @@ export default function CalendarPage() {
             })}
           </div>
         )
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Keine Termine"
-          description="Keine Termine im gewaehlten Zeitraum."
-        />
       ) : (
-        <div className="grid gap-4">
-          {sortedDates.map((date) => (
-            <div key={date}>
-              <h2 className={cn(
-                "mb-2 text-sm font-semibold",
-                isToday(date) ? "text-sky" : isPast(date) ? "text-muted/40" : "text-ink"
-              )}>
-                {isToday(date) ? "Heute" : formatDate(date)}
-                {isToday(date) && <span className="ml-2 text-xs font-normal text-muted/50">({formatDate(date)})</span>}
-              </h2>
-              <div className="grid gap-2">
-                {grouped[date].map((meeting) => {
-                  const past = isPast(meeting.meeting_date);
-                  const hasCollision = collisionIds.has(meeting.id);
-                  const isFollowUp = meeting.is_follow_up;
-                  const isPrivate = meeting.is_private;
-                  const IconComp = isPrivate ? Lock : isFollowUp ? ClipboardCheck : CalendarClock;
-                  const accent = isPrivate ? "neutral" : isFollowUp ? "amber" : "sky";
-                  const catColor = meeting.category_color || null;
+        <>
+          {/* Calendar Grid */}
+          {calendarView === "monat" && (
+            <MonthGrid
+              year={viewRange.start.getFullYear()}
+              month={viewRange.start.getMonth()}
+              meetingsByDate={meetingsByDate}
+              onDayClick={handleDayClick}
+              onMeetingClick={handleMeetingClick}
+              compact={false}
+              collisionIds={collisionIds}
+            />
+          )}
+
+          {calendarView === "woche" && (
+            <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden border border-white/[0.06]">
+              {DAY_NAMES.map((name) => (
+                <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-[10px] font-semibold text-muted/40 uppercase">
+                  {name}
+                </div>
+              ))}
+              {(() => {
+                const days = [];
+                const d = new Date(viewRange.start);
+                const todayKey = dateKey(new Date());
+                while (d <= viewRange.end) {
+                  days.push(new Date(d));
+                  d.setDate(d.getDate() + 1);
+                }
+                return days.map((day) => {
+                  const key = dateKey(day);
+                  const dayMeetings = meetingsByDate[key] || [];
+                  const today = key === todayKey;
+                  const past = day < new Date() && !today;
                   return (
-                    <Card
-                      key={meeting.id}
+                    <div
+                      key={key}
                       className={cn(
-                        "rounded-xl cursor-pointer hover:bg-white/[0.03] transition-colors",
-                        past && "opacity-50",
-                        hasCollision && "border-amber/30 border",
-                        isPrivate && "bg-white/[0.02] border-white/[0.05] border"
+                        "min-h-[8rem] p-2 cursor-pointer transition-colors",
+                        today ? "bg-sky/5" : "bg-white/[0.015] hover:bg-white/[0.04]",
                       )}
-                      onClick={() => {
-                        // #395: Click opens application dossier or edit dialog
-                        if (isPrivate) {
-                          // Private → open edit dialog
-                          setEditMeeting({ ...meeting, _isNew: false });
-                        } else if (meeting.application_id && !isFollowUp) {
-                          navigateTo("bewerbungen", { highlight: meeting.application_id });
-                        } else if (!isFollowUp) {
-                          // No application link → open edit dialog
-                          setEditMeeting({ ...meeting, _isNew: false });
-                        }
-                      }}
+                      onClick={() => handleDayClick(day)}
                     >
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg shrink-0",
-                          past ? "bg-white/[0.03]" : isPrivate ? "bg-white/[0.04]" : isFollowUp ? "bg-amber/10" : "bg-sky/10"
-                        )} style={catColor && !isPrivate ? { backgroundColor: `${catColor}20` } : undefined}>
-                          <IconComp size={18} className={past ? "text-muted/30" : isPrivate ? "text-muted/40" : `text-${accent}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {isPrivate ? (
-                              <h3 className="font-medium text-muted/50">Geblockt</h3>
-                            ) : (
-                              <h3 className="font-medium text-ink truncate">{meeting.title}</h3>
-                            )}
-                            <Badge tone={past ? "neutral" : isPrivate ? "neutral" : isFollowUp ? "amber" : "sky"}>
-                              {isPrivate ? "Privat" : meetingTypeLabel(meeting.meeting_type)}
-                            </Badge>
-                            {meeting.category_name && !isPrivate && (
-                              <span className="rounded-lg px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${catColor || '#3b82f6'}20`, color: catColor || '#3b82f6' }}>
-                                {meeting.category_name}
-                              </span>
-                            )}
-                            {hasCollision && <Badge tone="amber">Kollision</Badge>}
-                          </div>
-                          {!isPrivate && (meeting.app_company || meeting.app_title) && (
-                            <p className="text-sm text-muted/50 mt-0.5 truncate">
-                              {meeting.app_title}{meeting.app_company ? ` — ${meeting.app_company}` : ""}
-                            </p>
-                          )}
-                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-muted/40">
-                            <span className="flex items-center gap-1">
-                              <Clock size={11} />
-                              {formatDateTime(meeting.meeting_date)}
-                              {meeting.meeting_end && ` – ${formatDateTime(meeting.meeting_end).split(", ").pop()}`}
-                              {!meeting.meeting_end && meeting.duration_minutes && ` (${meeting.duration_minutes} Min.)`}
-                            </span>
-                            {!isPrivate && meeting.location && (
-                              <span className="flex items-center gap-1">
-                                <MapPin size={11} />
-                                {meeting.location}
-                              </span>
-                            )}
-                            {!isPrivate && meeting.platform && (
-                              <span className="flex items-center gap-1">
-                                <Video size={11} />
-                                {meeting.platform}
-                              </span>
-                            )}
-                          </div>
-                          {!isPrivate && meeting.notes && (
-                            <p className="mt-1.5 text-xs text-muted/40 line-clamp-2">{meeting.notes}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          {!isPrivate && meeting.meeting_url && (
-                            <a
-                              href={meeting.meeting_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
-                              title="Meeting-Link oeffnen"
+                      <span className={cn(
+                        "text-xs font-medium",
+                        today ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky text-shell font-bold" : "",
+                        !today && (past ? "text-muted/30" : "text-ink/70"),
+                      )}>
+                        {day.getDate()}
+                      </span>
+                      <p className="text-[9px] text-muted/30 mt-0.5">{day.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })}</p>
+                      <div className="mt-1 space-y-0.5">
+                        {dayMeetings.map((m) => {
+                          const catColor = m.category_color || (m.is_private ? "#6b7280" : m.is_follow_up ? "#f59e0b" : "#0ea5e9");
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              className="block w-full truncate rounded px-1 py-px text-left text-[10px] font-medium transition-colors hover:brightness-125"
+                              style={{ backgroundColor: `${catColor}20`, color: catColor }}
+                              onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
+                              title={`${m.is_private ? "Geblockt" : m.title} — ${formatDateTime(m.meeting_date)}`}
                             >
-                              <ExternalLink size={14} />
-                            </a>
-                          )}
-                          {!isFollowUp && (
-                            <>
-                              {/* #419: Edit button */}
-                              <button
-                                type="button"
-                                onClick={() => setEditMeeting({ ...meeting, _isNew: false })}
-                                className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
-                                title="Termin bearbeiten"
-                              >
-                                <Edit3 size={14} />
-                              </button>
-                              <a
-                                href={apiUrl(`/api/meetings/${meeting.id}/ics`)}
-                                className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
-                                title="ICS herunterladen"
-                              >
-                                <Download size={14} />
-                              </a>
-                              {/* #419: Delete with confirmation */}
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirm(meeting)}
-                                className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
-                                title="Termin loeschen"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                              {m.is_private ? "Geblockt" : m.title}
+                            </button>
+                          );
+                        })}
                       </div>
-                    </Card>
+                    </div>
                   );
-                })}
-              </div>
+                });
+              })()}
             </div>
-          ))}
-        </div>
+          )}
+
+          {(calendarView === "quartal" || calendarView === "halbjahr") && (
+            <div className={cn("grid gap-4", calendarView === "quartal" ? "md:grid-cols-3" : "md:grid-cols-3 lg:grid-cols-3")}>
+              {getMonthsInRange().map(({ year, month }) => (
+                <MonthGrid
+                  key={`${year}-${month}`}
+                  year={year}
+                  month={month}
+                  meetingsByDate={meetingsByDate}
+                  onDayClick={handleDayClick}
+                  onMeetingClick={handleMeetingClick}
+                  compact={true}
+                  collisionIds={collisionIds}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Detail list below the grid for the current view range */}
+          {sortedDates.length > 0 && (
+            <div className="mt-6 grid gap-4">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted/40">
+                Termine im Zeitraum ({rangeFiltered.length})
+              </h2>
+              {sortedDates.map((date) => (
+                <div key={date}>
+                  <h3 className={cn(
+                    "mb-1.5 text-sm font-semibold",
+                    isToday(date) ? "text-sky" : isPast(date) ? "text-muted/40" : "text-ink"
+                  )}>
+                    {isToday(date) ? "Heute" : formatDate(date)}
+                    {isToday(date) && <span className="ml-2 text-xs font-normal text-muted/50">({formatDate(date)})</span>}
+                  </h3>
+                  <div className="grid gap-1.5">
+                    {grouped[date].map((meeting) => {
+                      const past = isPast(meeting.meeting_date);
+                      const hasCollision = collisionIds.has(meeting.id);
+                      const isFollowUp = meeting.is_follow_up;
+                      const isPrivate = meeting.is_private;
+                      const catColor = meeting.category_color || null;
+                      return (
+                        <Card
+                          key={meeting.id}
+                          className={cn(
+                            "rounded-xl cursor-pointer hover:bg-white/[0.03] transition-colors",
+                            past && "opacity-50",
+                            hasCollision && "border-amber/30 border",
+                            isPrivate && "bg-white/[0.02] border-white/[0.05] border"
+                          )}
+                          onClick={() => handleMeetingClick(meeting)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className={cn("text-sm font-medium truncate", isPrivate ? "text-muted/50" : "text-ink")}>
+                                  {isPrivate ? "Geblockt" : meeting.title}
+                                </h4>
+                                <Badge tone={past ? "neutral" : isPrivate ? "neutral" : isFollowUp ? "amber" : "sky"}>
+                                  {isPrivate ? "Privat" : meetingTypeLabel(meeting.meeting_type)}
+                                </Badge>
+                                {meeting.category_name && !isPrivate && (
+                                  <span className="rounded-lg px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${catColor || '#3b82f6'}20`, color: catColor || '#3b82f6' }}>
+                                    {meeting.category_name}
+                                  </span>
+                                )}
+                                {hasCollision && <Badge tone="amber">Kollision</Badge>}
+                              </div>
+                              {!isPrivate && (meeting.app_company || meeting.app_title) && (
+                                <p className="text-xs text-muted/50 mt-0.5 truncate">
+                                  {meeting.app_title}{meeting.app_company ? ` — ${meeting.app_company}` : ""}
+                                </p>
+                              )}
+                              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted/40">
+                                <span className="flex items-center gap-1">
+                                  <Clock size={11} />
+                                  {formatDateTime(meeting.meeting_date)}
+                                  {meeting.meeting_end && ` – ${formatDateTime(meeting.meeting_end).split(", ").pop()}`}
+                                  {!meeting.meeting_end && meeting.duration_minutes && ` (${meeting.duration_minutes} Min.)`}
+                                </span>
+                                {!isPrivate && meeting.location && (
+                                  <span className="flex items-center gap-1"><MapPin size={11} />{meeting.location}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              {!isPrivate && meeting.meeting_url && (
+                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Meeting-Link oeffnen">
+                                  <ExternalLink size={14} />
+                                </a>
+                              )}
+                              {!isFollowUp && (
+                                <>
+                                  <button type="button" onClick={() => setEditMeeting({ ...meeting, _isNew: false })} className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Termin bearbeiten">
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <a href={apiUrl(`/api/meetings/${meeting.id}/ics`)} className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors" title="ICS herunterladen">
+                                    <Download size={14} />
+                                  </a>
+                                  <button type="button" onClick={() => setDeleteConfirm(meeting)} className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors" title="Termin loeschen">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

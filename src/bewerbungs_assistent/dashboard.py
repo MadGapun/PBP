@@ -1947,9 +1947,10 @@ async def api_statistics():
 
 
 @app.get("/api/stats/timeline")
-async def api_stats_timeline(interval: str = "month"):
-    """Application timeline grouped by interval (week/month/quarter/year)."""
-    return _db.get_timeline_stats(interval)
+async def api_stats_timeline(interval: str = "month", range: str = ""):
+    """Application timeline grouped by interval (week/month/quarter/year).
+    Optional range param overrides time window: 30d, 90d, 6m, 12m."""
+    return _db.get_timeline_stats(interval, time_range=range)
 
 
 @app.get("/api/stats/scores")

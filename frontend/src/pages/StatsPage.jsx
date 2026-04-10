@@ -100,15 +100,21 @@ function StatBox({ label, value, sub, tone = "neutral" }) {
 export default function StatsPage() {
   const { reloadKey, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
-  const [interval, setInterval_] = useState("all");
+  const [granularity, setGranularity] = useState("month"); // day | week | month | quarter | year
+  const [timeRange, setTimeRange] = useState(""); // "" (default) | 30d | 90d | 6m | 12m
   const [timeline, setTimeline] = useState(null);
   const [scores, setScores] = useState(null);
   const [extended, setExtended] = useState(null);
 
-  const loadData = useEffectEvent(async (selectedInterval) => {
+  // Combined key for "all" view: granularity=all means show everything grouped monthly
+  const interval = granularity === "all" ? "all" : granularity;
+
+  const loadData = useEffectEvent(async (g, r) => {
     try {
+      const params = new URLSearchParams({ interval: g });
+      if (r) params.set("range", r);
       const [timelineData, scoreData, extendedData] = await Promise.all([
-        optionalApi(`/api/stats/timeline?interval=${selectedInterval}`),
+        optionalApi(`/api/stats/timeline?${params}`),
         optionalApi("/api/stats/scores"),
         optionalApi("/api/stats/extended"),
       ]);
@@ -129,8 +135,8 @@ export default function StatsPage() {
 
   useEffect(() => {
     setLoading(true);
-    loadData(interval);
-  }, [reloadKey, interval]);
+    loadData(granularity, timeRange);
+  }, [reloadKey, granularity, timeRange]);
 
   if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
 
@@ -221,19 +227,20 @@ export default function StatsPage() {
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Statistiken</h1>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Quick-select Presets (#307) */}
+          {/* Zeitraum (time range) */}
           {[
-            { label: "30 Tage", value: "day" },
-            { label: "12 Wochen", value: "week" },
-            { label: "12 Monate", value: "month" },
-            { label: "Alles", value: "all" },
+            { label: "30 Tage", value: "30d" },
+            { label: "90 Tage", value: "90d" },
+            { label: "6 Monate", value: "6m" },
+            { label: "12 Monate", value: "12m" },
+            { label: "Alles", value: "" },
           ].map((preset) => (
             <button
               key={preset.value}
               type="button"
-              onClick={() => setInterval_(preset.value)}
+              onClick={() => { setTimeRange(preset.value); if (preset.value === "" && granularity !== "all") setGranularity("all"); if (preset.value !== "" && granularity === "all") setGranularity("month"); }}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                interval === preset.value
+                timeRange === preset.value
                   ? "bg-sky/15 text-sky"
                   : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
               }`}
@@ -241,10 +248,12 @@ export default function StatsPage() {
               {preset.label}
             </button>
           ))}
+          <span className="mx-0.5 h-4 w-px bg-white/10" />
+          {/* Gruppierung (granularity) */}
           <SelectInput
             className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
-            value={interval}
-            onChange={(e) => setInterval_(e.target.value)}
+            value={granularity}
+            onChange={(e) => setGranularity(e.target.value)}
           >
             <option value="day">Taeglich</option>
             <option value="week">Woechentlich</option>
