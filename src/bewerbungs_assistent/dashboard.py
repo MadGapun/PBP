@@ -235,6 +235,38 @@ def _build_live_update_token_payload() -> dict:
     }
 
 
+def _get_active_profile_id() -> str | None:
+    """Return the current active profile id for profile-scoped API guards."""
+    return _db.get_active_profile_id() if _db else None
+
+
+def _get_application_row_for_active_profile(app_id: str):
+    """Fetch an application only if it belongs to the active profile."""
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return None
+    conn = _db.connect()
+    return conn.execute(
+        "SELECT * FROM applications WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+        (app_id, profile_id),
+    ).fetchone()
+
+
+def _get_meeting_row_for_active_profile(meeting_id: str):
+    """Fetch a meeting with application metadata, scoped to the active profile."""
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return None
+    conn = _db.connect()
+    return conn.execute(
+        """SELECT m.*, a.title as app_title, a.company as app_company, a.id as app_id
+           FROM application_meetings m
+           LEFT JOIN applications a ON m.application_id = a.id
+           WHERE m.id=? AND (m.profile_id=? OR m.profile_id IS NULL)""",
+        (meeting_id, profile_id),
+    ).fetchone()
+
+
 # === API Endpoints ===
 
 @app.get("/api/status")
@@ -554,7 +586,11 @@ async def api_delete_skill(skill_id: str):
 
 @app.delete("/api/document/{doc_id}")
 async def api_delete_document(doc_id: str):
-    _db.delete_document(doc_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+    if not _db.delete_document(doc_id, profile_id=profile_id):
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -562,9 +598,11 @@ async def api_delete_document(doc_id: str):
 async def api_update_document_type(doc_id: str, request: Request):
     data = await request.json()
     new_type = data.get("doc_type", "sonstiges")
-    conn = _db.connect()
-    conn.execute("UPDATE documents SET doc_type=? WHERE id=?", (new_type, doc_id))
-    conn.commit()
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+    if not _db.update_document_type(doc_id, new_type, profile_id=profile_id):
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -573,14 +611,11 @@ async def api_link_document(doc_id: str, request: Request):
     """Change or remove document-application link (#366)."""
     data = await request.json()
     app_id = data.get("application_id") or None
-    conn = _db.connect()
-    pid = _db.get_active_profile_id()
-    # Verify document belongs to active profile
-    doc = conn.execute("SELECT id FROM documents WHERE id=? AND (profile_id=? OR profile_id IS NULL)", (doc_id, pid)).fetchone()
-    if not doc:
+    profile_id = _get_active_profile_id()
+    if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    conn.execute("UPDATE documents SET linked_application_id=? WHERE id=?", (app_id, doc_id))
-    conn.commit()
+    if not _db.relink_document(doc_id, app_id, profile_id=profile_id):
+        return JSONResponse({"error": "Dokument oder Bewerbung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -1586,7 +1621,9 @@ async def api_link_document(app_id: str, request: Request):
     doc_id = data.get("document_id")
     if not doc_id:
         return JSONResponse({"error": "document_id ist Pflicht"}, status_code=400)
-    _db.link_document_to_application(doc_id, app_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.link_document_to_application(doc_id, app_id, profile_id=profile_id):
+        return JSONResponse({"error": "Dokument oder Bewerbung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -1838,8 +1875,10 @@ async def api_documents(
 @app.get("/api/documents/{doc_id}/download")
 async def api_download_document(doc_id: str):
     """Download/preview a document by ID."""
-    conn = _db.connect()
-    row = conn.execute("SELECT filename, filepath FROM documents WHERE id=?", (doc_id,)).fetchone()
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
+    row = _db.get_document(doc_id, profile_id=profile_id)
     if not row:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
     filepath = Path(row["filepath"])
@@ -2513,14 +2552,7 @@ async def api_activity_log(days: int = 90, categories: str = ""):
 @app.get("/api/meetings/{meeting_id}")
 async def api_get_meeting(meeting_id: str):
     """Get a single meeting."""
-    conn = _db.connect()
-    row = conn.execute(
-        """SELECT m.*, a.title as app_title, a.company as app_company
-           FROM application_meetings m
-           LEFT JOIN applications a ON m.application_id = a.id
-           WHERE m.id=?""",
-        (meeting_id,),
-    ).fetchone()
+    row = _get_meeting_row_for_active_profile(meeting_id)
     if not row:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
     return dict(row)
@@ -2530,14 +2562,22 @@ async def api_get_meeting(meeting_id: str):
 async def api_update_meeting(meeting_id: str, request: Request):
     """Update a meeting."""
     data = await request.json()
-    _db.update_meeting(meeting_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
+    if not _db.update_meeting(meeting_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/meetings/{meeting_id}")
 async def api_delete_meeting(meeting_id: str):
     """Cancel/delete a meeting."""
-    _db.delete_meeting(meeting_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
+    if not _db.delete_meeting(meeting_id, profile_id=profile_id):
+        return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -2552,6 +2592,8 @@ async def api_create_meeting(request: Request):
             {"error": "meeting_date ist erforderlich"},
             status_code=400,
         )
+    if app_id and not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     mid = _db.add_meeting({
         "application_id": app_id or None,
         "title": data.get("title", "Termin"),
@@ -2572,21 +2614,17 @@ async def api_create_meeting(request: Request):
 @app.get("/api/applications/{app_id}/meetings")
 async def api_get_application_meetings(app_id: str):
     """List all meetings for a specific application."""
-    meetings = _db.get_meetings_for_application(app_id)
+    profile_id = _get_active_profile_id()
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    meetings = _db.get_meetings_for_application(app_id, profile_id=profile_id)
     return {"meetings": meetings, "count": len(meetings)}
 
 
 @app.get("/api/meetings/{meeting_id}/ics")
 async def api_meeting_ics(meeting_id: str):
     """Export a single meeting as .ics file (#261, #263)."""
-    conn = _db.connect()
-    row = conn.execute(
-        """SELECT m.*, a.title as app_title, a.company as app_company, a.id as app_id
-           FROM application_meetings m
-           LEFT JOIN applications a ON m.application_id = a.id
-           WHERE m.id=?""",
-        (meeting_id,),
-    ).fetchone()
+    row = _get_meeting_row_for_active_profile(meeting_id)
     if not row:
         return JSONResponse({"error": "Meeting nicht gefunden"}, status_code=404)
 

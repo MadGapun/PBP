@@ -543,7 +543,8 @@ def register(mcp, db, logger):
         if not doc:
             return {"fehler": "Dokument nicht gefunden. Prüfe die ID mit dokumente_zur_analyse()."}
 
-        db.link_document_to_application(dokument_id, bewerbung_id)
+        if not db.link_document_to_application(dokument_id, bewerbung_id, profile_id=db.get_active_profile_id()):
+            return {"fehler": "Dokument oder Bewerbung gehoeren nicht zum aktiven Profil."}
         return {
             "status": "verknuepft",
             "dokument": doc["filename"],

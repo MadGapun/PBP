@@ -691,6 +691,119 @@ class TestApplicationDetail:
         assert r.status_code == 200
         assert len(r.json()["documents"]) == 2
 
+    def test_document_endpoints_reject_cross_profile_access(self, client, tmp_path):
+        """Dokument-Endpunkte duerfen keine fremden Profile lesen, aendern oder loeschen."""
+        import bewerbungs_assistent.dashboard as dash
+
+        pid_a = dash._db.create_profile("Profil A", "a@example.com")
+        app_a = dash._db.add_application({"title": "Job A", "company": "Firma A"})
+        doc_a_path = tmp_path / "profil-a.pdf"
+        doc_a_path.write_text("A", encoding="utf-8")
+        doc_a = dash._db.add_document({
+            "filename": "profil-a.pdf",
+            "filepath": str(doc_a_path),
+            "doc_type": "lebenslauf",
+        })
+
+        pid_b = dash._db.create_profile("Profil B", "b@example.com")
+        dash._db.switch_profile(pid_b)
+        app_b = dash._db.add_application({"title": "Job B", "company": "Firma B"})
+        doc_b_path = tmp_path / "profil-b.pdf"
+        doc_b_path.write_text("B", encoding="utf-8")
+        doc_b = dash._db.add_document({
+            "filename": "profil-b.pdf",
+            "filepath": str(doc_b_path),
+            "doc_type": "lebenslauf",
+        })
+
+        dash._db.switch_profile(pid_a)
+
+        relink = client.put(f"/api/document/{doc_a}/link", json={"application_id": app_b})
+        assert relink.status_code == 404
+        assert dash._db.get_document(doc_a, profile_id=pid_a)["linked_application_id"] is None
+
+        update_type = client.put(f"/api/document/{doc_b}/doc-type", json={"doc_type": "zeugnis"})
+        assert update_type.status_code == 404
+        assert dash._db.get_document(doc_b, profile_id=pid_b)["doc_type"] == "lebenslauf"
+
+        download = client.get(f"/api/documents/{doc_b}/download")
+        assert download.status_code == 404
+
+        delete = client.delete(f"/api/document/{doc_b}")
+        assert delete.status_code == 404
+        assert dash._db.get_document(doc_b, profile_id=pid_b) is not None
+
+        link_to_foreign_app = client.post(
+            f"/api/applications/{app_b}/link-document",
+            json={"document_id": doc_a},
+        )
+        assert link_to_foreign_app.status_code == 404
+        assert dash._db.get_document(doc_a, profile_id=pid_a)["linked_application_id"] is None
+
+        # Sanity check: same-profile link still works.
+        link_same_profile = client.post(
+            f"/api/applications/{app_a}/link-document",
+            json={"document_id": doc_a},
+        )
+        assert link_same_profile.status_code == 200
+        assert dash._db.get_document(doc_a, profile_id=pid_a)["linked_application_id"] == app_a
+
+    def test_meeting_endpoints_reject_cross_profile_access(self, client):
+        """Meeting-Endpunkte duerfen keine fremden Profile lesen oder veraendern."""
+        import bewerbungs_assistent.dashboard as dash
+
+        pid_a = dash._db.create_profile("Profil A", "a@example.com")
+        app_a = dash._db.add_application({"title": "Job A", "company": "Firma A"})
+
+        pid_b = dash._db.create_profile("Profil B", "b@example.com")
+        dash._db.switch_profile(pid_b)
+        app_b = dash._db.add_application({"title": "Job B", "company": "Firma B"})
+        meeting_b = dash._db.add_meeting({
+            "application_id": app_b,
+            "title": "B Termin",
+            "meeting_date": (datetime.now() + timedelta(days=3)).isoformat(),
+        })
+
+        dash._db.switch_profile(pid_a)
+
+        get_meeting = client.get(f"/api/meetings/{meeting_b}")
+        assert get_meeting.status_code == 404
+
+        update_meeting = client.put(f"/api/meetings/{meeting_b}", json={"title": "Manipuliert"})
+        assert update_meeting.status_code == 404
+        foreign_meeting = dash._db.get_meetings_for_application(app_b, profile_id=pid_b)[0]
+        assert foreign_meeting["title"] == "B Termin"
+
+        delete_meeting = client.delete(f"/api/meetings/{meeting_b}")
+        assert delete_meeting.status_code == 404
+        assert len(dash._db.get_meetings_for_application(app_b, profile_id=pid_b)) == 1
+
+        meeting_ics = client.get(f"/api/meetings/{meeting_b}/ics")
+        assert meeting_ics.status_code == 404
+
+        app_meetings = client.get(f"/api/applications/{app_b}/meetings")
+        assert app_meetings.status_code == 404
+
+        create_foreign = client.post(
+            "/api/meetings",
+            json={
+                "application_id": app_b,
+                "title": "Fremdtermin",
+                "meeting_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            },
+        )
+        assert create_foreign.status_code == 404
+
+        create_same = client.post(
+            "/api/meetings",
+            json={
+                "application_id": app_a,
+                "title": "Eigenes Meeting",
+                "meeting_date": (datetime.now() + timedelta(days=2)).isoformat(),
+            },
+        )
+        assert create_same.status_code == 200
+
 
 # ============================================================
 # Gespraechsnotizen
