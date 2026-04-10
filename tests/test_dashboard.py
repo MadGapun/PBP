@@ -1731,6 +1731,65 @@ class TestStatistics:
 
 
 # ============================================================
+# Email Download (#422)
+# ============================================================
+
+class TestEmailDownload:
+    def test_download_email_returns_file(self, client, tmp_path):
+        """Email download endpoint returns the original .eml file."""
+        client.post("/api/profile", json={"name": "Downloader", "email": "test@example.com"})
+        app_resp = client.post("/api/applications", json={
+            "title": "Dev", "company": "TestCo", "status": "beworben",
+        })
+        app_id = app_resp.json()["id"]
+
+        eml_file = tmp_path / "test_mail.eml"
+        eml_file.write_text("Subject: Hallo\nFrom: hr@testco.com\n\nWir freuen uns.")
+
+        import bewerbungs_assistent.dashboard as dash
+        email_id = dash._db.add_email({
+            "application_id": app_id,
+            "filename": "test_mail.eml",
+            "filepath": str(eml_file),
+            "subject": "Hallo",
+            "sender": "hr@testco.com",
+            "direction": "eingang",
+        })
+
+        resp = client.get(f"/api/emails/{email_id}/download")
+        assert resp.status_code == 200
+        assert b"Wir freuen uns" in resp.content
+
+    def test_download_email_not_found(self, client):
+        """Non-existent email ID returns 404."""
+        client.post("/api/profile", json={"name": "Tester"})
+        resp = client.get("/api/emails/nonexistent/download")
+        assert resp.status_code == 404
+
+    def test_download_email_missing_file(self, client):
+        """Email exists in DB but file is missing on disk."""
+        client.post("/api/profile", json={"name": "Tester", "email": "t@t.com"})
+        app_resp = client.post("/api/applications", json={
+            "title": "Job", "company": "Co", "status": "beworben",
+        })
+        app_id = app_resp.json()["id"]
+
+        import bewerbungs_assistent.dashboard as dash
+        email_id = dash._db.add_email({
+            "application_id": app_id,
+            "filename": "gone.eml",
+            "filepath": "/tmp/nonexistent_email_file.eml",
+            "subject": "Test",
+            "sender": "a@b.com",
+            "direction": "eingang",
+        })
+
+        resp = client.get(f"/api/emails/{email_id}/download")
+        assert resp.status_code == 404
+        assert "Dateisystem" in resp.json()["error"]
+
+
+# ============================================================
 # Factory Reset
 # ============================================================
 

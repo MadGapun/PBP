@@ -2,6 +2,18 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.24] - 2026-04-10
+
+### Features
+- **E-Mails anklickbar/downloadbar** (#422): E-Mails im Bewerbungs-Dossier sind jetzt Download-Links mit Download-Icon — Klick laedt die Original-.eml/.msg-Datei herunter
+- **Follow-ups Layout-Redesign** (#423): Follow-ups und Schnell-Import stehen jetzt als 2/3+1/3-Grid UEBER der Bewerbungsliste statt daneben; max 5 Follow-ups mit "Alle im Kalender"-Navigation
+
+### Backend
+- Neuer Endpoint `GET /api/emails/{email_id}/download` zum Herunterladen der Original-E-Mail-Datei (analog zu Dokument-Download)
+
+### Tests
+- 3 neue Tests fuer Email-Download: Datei-Rueckgabe, 404 bei unbekannter ID, 404 bei fehlender Datei (401 Tests gesamt)
+
 ## [1.5.0-beta.23] - 2026-04-10
 
 ### Bug Fixes

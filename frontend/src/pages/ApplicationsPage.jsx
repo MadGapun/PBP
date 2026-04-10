@@ -1,5 +1,5 @@
 ﻿import { Calendar, CalendarClock, Camera, Check, Download, ExternalLink, FileText, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useEffectEvent, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -41,8 +41,52 @@ const EMPTY_APPLICATION = {
 const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen"];
 const INTERVIEW_STATUSES = ["interview", "zweitgespraech", "interview_abgeschlossen"];
 
+function EmailUploadButton({ pushToast, onImported }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/emails/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        pushToast(data.error || "E-Mail-Upload fehlgeschlagen", "danger");
+        return;
+      }
+      const matchInfo = data.match?.application
+        ? ` → ${data.match.application.company} (${Math.round(data.match.confidence * 100)}%)`
+        : " (nicht zugeordnet)";
+      const statusInfo = data.detected_status?.status ? ` | Status: ${data.detected_status.status}` : "";
+      const meetingInfo = data.meetings?.length ? ` | ${data.meetings.length} Termin(e)` : "";
+      const docInfo = data.imported_documents ? ` | ${data.imported_documents} Dokument(e)` : "";
+      pushToast(`E-Mail importiert${matchInfo}${statusInfo}${meetingInfo}${docInfo}`, "success");
+      onImported?.();
+    } catch (err) {
+      pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept=".msg,.eml" className="hidden" onChange={handleUpload} />
+      <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
+        <Mail size={14} className="mr-1" />
+        {uploading ? "Importiere..." : "E-Mail importieren"}
+      </Button>
+    </>
+  );
+}
+
 export default function ApplicationsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo } = useApp();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
@@ -445,7 +489,59 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
-        <div className={cn("grid gap-6", followUps.length > 0 ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]" : "")}>
+        {/* #423: Follow-ups + Schnell-Import ABOVE the application list (2/3 + 1/3) */}
+        {followUps.length > 0 && (
+          <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
+            <Card className="rounded-2xl">
+              <div className="flex items-center justify-between">
+                <SectionHeading title={`Follow-ups (${followUps.length})`} />
+                <Button size="sm" variant="ghost" onClick={() => navigateTo("kalender", { filter: "followups" })}>
+                  Alle im Kalender
+                </Button>
+              </div>
+              <div className="grid gap-1.5">
+                {followUps.slice(0, 5).map((followUp) => (
+                  <div
+                    key={followUp.id}
+                    title={`${followUp.title} — ${followUp.company}`}
+                    onClick={() => openTimeline({ id: followUp.application_id })}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0",
+                      followUp.faellig
+                        ? "bg-coral/8 border border-coral/15 hover:bg-coral/15"
+                        : "bg-white/[0.03] border border-white/5 hover:bg-white/[0.07]"
+                    )}
+                  >
+                    <CalendarClock size={14} className={cn("shrink-0", followUp.faellig ? "text-coral" : "text-muted/40")} />
+                    <span className="flex-1 min-w-0 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
+                    <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
+                    <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
+                  </div>
+                ))}
+                {followUps.length > 5 && (
+                  <p className="text-xs text-muted/40 px-3 pt-1">+{followUps.length - 5} weitere im Kalender</p>
+                )}
+              </div>
+            </Card>
+            <Card className="rounded-2xl xl:self-start">
+              <h2 className="text-sm font-semibold text-ink">
+                <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
+                Schnell-Import
+              </h2>
+              <p className="mt-1 text-[11px] text-muted/50">
+                Dokumente oder E-Mails hier ablegen.
+              </p>
+              <div className="mt-3 grid gap-2">
+                <EmailUploadButton pushToast={pushToast} onImported={() => loadData()} />
+              </div>
+              <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
+                Dateien per Drag &amp; Drop auf die Seite ziehen
+              </div>
+            </Card>
+          </div>
+        )}
+
+        <div>
           <Card className="rounded-2xl">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <SectionHeading title="Bewerbungen" description="Statuswechsel werden direkt in der Historie vermerkt." />
@@ -543,31 +639,6 @@ export default function ApplicationsPage() {
             </div>
           </Card>
 
-          {followUps.length > 0 && (
-            <Card className="rounded-2xl">
-              <SectionHeading title={`Follow-ups (${followUps.length})`} />
-              <div className="grid gap-1.5">
-                {followUps.map((followUp) => (
-                  <div
-                    key={followUp.id}
-                    title={`${followUp.title} — ${followUp.company}`}
-                    onClick={() => openTimeline({ id: followUp.application_id })}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0",
-                      followUp.faellig
-                        ? "bg-coral/8 border border-coral/15 hover:bg-coral/15"
-                        : "bg-white/[0.03] border border-white/5 hover:bg-white/[0.07]"
-                    )}
-                  >
-                    <CalendarClock size={14} className={cn("shrink-0", followUp.faellig ? "text-coral" : "text-muted/40")} />
-                    <span className="flex-1 min-w-0 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
-                    <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
-                    <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
       </div>
 
@@ -1101,7 +1172,12 @@ export default function ApplicationsPage() {
               </p>
               <div className="mt-2 grid gap-1.5">
                 {timelineEmails.map((em) => (
-                  <div key={em.id} className="flex items-center gap-2 rounded-lg px-3 py-2 border border-white/[0.04] hover:bg-white/[0.03]">
+                  <a
+                    key={em.id}
+                    href={`/api/emails/${em.id}/download`}
+                    download={em.filename || true}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 border border-white/[0.04] hover:bg-white/[0.06] transition-colors cursor-pointer no-underline"
+                  >
                     <span className={`shrink-0 text-xs ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
                       {em.direction === "ausgang" ? "↗" : "↙"}
                     </span>
@@ -1115,7 +1191,8 @@ export default function ApplicationsPage() {
                     {em.detected_status && (
                       <Badge tone={statusTone(em.detected_status)}>{em.detected_status}</Badge>
                     )}
-                  </div>
+                    <Download size={14} className="shrink-0 text-muted/30 hover:text-sky transition-colors" />
+                  </a>
                 ))}
               </div>
             </Card>

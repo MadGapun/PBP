@@ -1941,6 +1941,23 @@ async def api_download_document(doc_id: str):
     return FileResponse(str(filepath), filename=row["filename"], media_type=mime or "application/octet-stream")
 
 
+@app.get("/api/emails/{email_id}/download")
+async def api_download_email(email_id: str):
+    """Download the original email file (.msg/.eml) by ID."""
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    row = _db.get_email(email_id, profile_id=profile_id)
+    if not row:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    filepath = Path(row.get("filepath", ""))
+    if not filepath.exists():
+        return JSONResponse({"error": "E-Mail-Datei nicht auf dem Dateisystem gefunden"}, status_code=404)
+    import mimetypes
+    mime, _ = mimetypes.guess_type(str(filepath))
+    return FileResponse(str(filepath), filename=row.get("filename", filepath.name), media_type=mime or "application/octet-stream")
+
+
 @app.get("/api/statistics")
 async def api_statistics():
     return _db.get_statistics()
