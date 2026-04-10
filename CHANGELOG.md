@@ -2,6 +2,58 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.19] - 2026-04-10
+
+### Bug Fixes
+- Profil-Isolation fuer Dokument-Endpunkte gehaertet: Download, Typ-Aenderung, Relinking und Loeschen akzeptieren nur noch Dokumente aus dem aktiven Profil
+- Meeting-Endpunkte gegen profilfremde IDs abgesichert: Einzelansicht, ICS, Update, Delete und Bewerbungs-Meetingliste pruefen jetzt das aktive Profil
+- `create_backup()` erzeugt Sicherungen jetzt SQLite-/WAL-sicher ueber die Backup-API statt ueber eine nackte Dateikopie
+- `release_check.py` smoke-testet das Repo jetzt mit `src/` auf dem Python-Pfad und meldet Versions-/Changelog-Mismatches klarer
+
+### Qualitaet
+- Neue Regressionstests fuer Cross-Profile-Dokumente, Cross-Profile-Meetings, WAL-Backups und den Release-Gate
+
+## [1.5.0-beta.18] - 2026-04-09
+
+### Verbesserungen
+- 19 umgesetzte Issues fuer den Beta-Feinschliff rund um Dashboard, Dokumente, Kalender, Settings und Import-/Analyse-Flows
+
+## [1.5.0-beta.17] - 2026-04-09
+
+### Bug Fixes
+- Installer laedt Python erneut, wenn eine kopierte Installation defekt ist (#386)
+
+## [1.5.0-beta.16] - 2026-04-09
+
+### Bug Fixes
+- Installer korrigiert `_pth`-Konfiguration bei vorhandener Python-Installation (#386)
+
+## [1.5.0-beta.15] - 2026-04-09
+
+### Qualitaet
+- Clean-Release ohne ZIP-Asset fuer den Installer-/Release-Pfad
+
+## [1.5.0-beta.14] - 2026-04-09
+
+### Qualitaet
+- Release-Stand fuer `v1.5.0-beta.14` konsolidiert
+
+## [1.5.0-beta.13] - 2026-04-09
+
+### Neue Features
+- Dokument-Analyse-Status im Dashboard und Import-Flag fuer uebernommene Daten
+- Aktivitaetslog fuer neuere Workspace-Aktionen
+
+## [1.5.0-beta.12] - 2026-04-09
+
+### Verbesserungen
+- Dokumente loeschbar, Metrik-Perspektiven nachgeschaerft, Chrome-/Skill-/Settings-UX erweitert
+
+## [1.5.0-beta.11] - 2026-04-09
+
+### Bug Fixes
+- Dual-DB-Probleme, Kalender-Kantenfaelle, Umlaute, Antwortzeiten und `is_active`-Handling stabilisiert
+
 ## [1.5.0-beta.10] - 2026-04-08
 
 ### Verbesserungen

@@ -82,20 +82,31 @@ def check_versions(fix=False):
         "CHANGELOG.md (top)": changelog_version,
     }
 
-    unique = set(v for v in versions.values() if v)
-    if len(unique) == 1:
-        ok(f"Alle Versionen konsistent: {unique.pop()}")
+    mismatches = []
+
+    if pyproject_version != init_version:
+        if fix and init_version:
+            content = pyproject_file.read_text(encoding="utf-8")
+            content = re.sub(r'^version = "[^"]+"', f'version = "{init_version}"', content, flags=re.MULTILINE)
+            pyproject_file.write_text(content, encoding="utf-8")
+            pyproject_version = init_version
+            versions["pyproject.toml"] = pyproject_version
+            ok(f"pyproject.toml auf {init_version} korrigiert")
+        else:
+            mismatches.append("pyproject.toml")
+
+    if changelog_version != init_version:
+        mismatches.append("CHANGELOG.md")
+
+    if not mismatches:
+        ok(f"Alle Versionen konsistent: {init_version}")
     else:
         for source, ver in versions.items():
             print(f"    {source}: {ver}")
-        if fix and init_version:
-            # Fix pyproject.toml
-            content = pyproject_file.read_text(encoding="utf-8")
-            content = re.sub(r'^version = "[^"]+"', f'version = "{init_version}"', content, flags=re.MULTILINE)
-            pyproject_file.write_text(content)
-            ok(f"pyproject.toml auf {init_version} korrigiert")
-        else:
-            error("Versionen sind inkonsistent! Nutze --fix oder korrigiere manuell.")
+        if "CHANGELOG.md" in mismatches:
+            error("CHANGELOG.md steht nicht auf dem aktuellen Release-Stand und muss manuell aktualisiert werden.")
+        if "pyproject.toml" in mismatches:
+            error("pyproject.toml steht nicht auf dem aktuellen Release-Stand.")
 
     return init_version
 
@@ -158,12 +169,17 @@ def check_first_run_smoke():
     print("\n[4/4] First-Run Smoke")
 
     try:
+        pythonpath = str(PROJECT_DIR / "src")
+        existing_pythonpath = os.environ.get("PYTHONPATH")
+        if existing_pythonpath:
+            pythonpath = pythonpath + os.pathsep + existing_pythonpath
         result = subprocess.run(
             [sys.executable, "-c", """
 import tempfile, os, shutil, sys
 d = tempfile.mkdtemp()
 try:
     os.environ['BA_DATA_DIR'] = d
+    sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
     from bewerbungs_assistent.database import Database
     from bewerbungs_assistent.heartbeat import get_connection_status
     from bewerbungs_assistent.server import mcp
@@ -186,7 +202,7 @@ finally:
 """],
             capture_output=True, text=True, timeout=30,
             cwd=str(PROJECT_DIR),
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONPATH": pythonpath},
         )
         if "OK" in result.stdout:
             ok("First-Run Smoke bestanden (Profil + Heartbeat + Dashboard)")

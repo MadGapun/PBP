@@ -101,7 +101,14 @@ def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Opti
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     backup_path = backup_dir / f"pbp-backup-{timestamp}.db"
-    shutil.copy2(str(db_path), str(backup_path))
+    src = sqlite3.connect(str(db_path))
+    dst = sqlite3.connect(str(backup_path))
+    try:
+        src.execute("PRAGMA busy_timeout=5000")
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
     logger.info("Backup erstellt: %s", backup_path)
     # Rotate: keep only the newest max_backups
     backups = sorted(backup_dir.glob("pbp-backup-*.db"), key=lambda p: p.stat().st_mtime)
@@ -1502,6 +1509,17 @@ class Database:
                ORDER BY d.created_at DESC"""
         ).fetchall()]
 
+    def get_document(self, doc_id: str, profile_id: str = None) -> dict | None:
+        """Get a single document, optionally scoped to a profile."""
+        conn = self.connect()
+        query = "SELECT * FROM documents WHERE id=?"
+        params: list[str] = [str(doc_id)]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        row = conn.execute(query, params).fetchone()
+        return dict(row) if row else None
+
     def add_document(self, data: dict) -> str:
         conn = self.connect()
         did = _gen_id()
@@ -1530,17 +1548,58 @@ class Database:
 
         return did
 
-    def delete_document(self, doc_id: str):
+    def update_document_type(self, doc_id: str, doc_type: str, profile_id: str = None) -> bool:
+        """Update a document type, optionally scoped to a profile."""
         conn = self.connect()
-        # Get filepath to delete file from disk
-        row = conn.execute("SELECT filepath FROM documents WHERE id = ?", (doc_id,)).fetchone()
-        if row and row["filepath"]:
+        query = "UPDATE documents SET doc_type=? WHERE id=?"
+        params: list[str] = [doc_type, str(doc_id)]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
+
+    def relink_document(self, doc_id: str, application_id: str | None, profile_id: str = None) -> bool:
+        """Relink or unlink a document, optionally scoped to a profile."""
+        conn = self.connect()
+        if not self.get_document(doc_id, profile_id=profile_id):
+            return False
+        if application_id is not None:
+            query = "SELECT 1 FROM applications WHERE id=?"
+            params: list[str] = [str(application_id)]
+            if profile_id is not None:
+                query += " AND (profile_id=? OR profile_id IS NULL)"
+                params.append(profile_id)
+            if not conn.execute(query, params).fetchone():
+                return False
+        query = "UPDATE documents SET linked_application_id=? WHERE id=?"
+        params = [application_id, str(doc_id)]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_document(self, doc_id: str, profile_id: str = None) -> bool:
+        conn = self.connect()
+        row = self.get_document(doc_id, profile_id=profile_id)
+        if not row:
+            return False
+        if row["filepath"]:
             try:
                 Path(row["filepath"]).unlink(missing_ok=True)
             except Exception as e:
                 logger.warning("Dokument-Datei konnte nicht gelöscht werden: %s", e)
-        conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        query = "DELETE FROM documents WHERE id = ?"
+        params: list[str] = [str(doc_id)]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     def _auto_link_documents(self, application_id: str, company: str):
         """Auto-link unlinked documents whose filename contains the company name."""
@@ -1706,31 +1765,52 @@ class Database:
 
         return result
 
-    def link_document_to_application(self, doc_id, application_id: int):
+    def link_document_to_application(self, doc_id, application_id: int, profile_id: str = None) -> bool:
         """Link a document to an application and create timeline entry (#176, #219)."""
         conn = self.connect()
-        conn.execute(
+        doc_row = self.get_document(str(doc_id), profile_id=profile_id)
+        if not doc_row:
+            return False
+        app_query = "SELECT 1 FROM applications WHERE id=?"
+        app_params: list[str] = [str(application_id)]
+        if profile_id is not None:
+            app_query += " AND (profile_id=? OR profile_id IS NULL)"
+            app_params.append(profile_id)
+        if not conn.execute(app_query, app_params).fetchone():
+            return False
+        update_query = (
             "UPDATE documents SET linked_application_id=?, "
-            "extraction_status='angewendet', last_extraction_at=? WHERE id=?",
-            (application_id, _now(), str(doc_id)),
+            "extraction_status='angewendet', last_extraction_at=? WHERE id=?"
         )
+        update_params: list[str] = [application_id, _now(), str(doc_id)]
+        if profile_id is not None:
+            update_query += " AND (profile_id=? OR profile_id IS NULL)"
+            update_params.append(profile_id)
+        cur = conn.execute(update_query, update_params)
+        if cur.rowcount == 0:
+            return False
         # Get filename for timeline entry (#176)
-        doc_row = conn.execute("SELECT filename FROM documents WHERE id=?", (str(doc_id),)).fetchone()
         filename = doc_row["filename"] if doc_row else "Dokument"
         conn.execute("""
             INSERT INTO application_events (application_id, status, event_date, notes)
             VALUES (?, 'dokument', ?, ?)
         """, (str(application_id), _now(), f"Dokument verknuepft: {filename}"))
         conn.commit()
+        return True
 
-    def get_documents_for_application(self, application_id: str) -> list:
+    def get_documents_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Return all documents linked to an application."""
         conn = self.connect()
-        return [dict(r) for r in conn.execute(
+        query = (
             "SELECT id, filename, filepath, doc_type, created_at, extraction_status "
-            "FROM documents WHERE linked_application_id=? ORDER BY created_at DESC",
-            (application_id,)
-        ).fetchall()]
+            "FROM documents WHERE linked_application_id=?"
+        )
+        params: list[str] = [application_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        query += " ORDER BY created_at DESC"
+        return [dict(r) for r in conn.execute(query, params).fetchall()]
 
     # === Jobs ===
 
@@ -3665,17 +3745,19 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_meetings_for_application(self, application_id: str) -> list:
+    def get_meetings_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Get all meetings for a specific application."""
         conn = self.connect()
-        rows = conn.execute(
-            """SELECT * FROM application_meetings
-               WHERE application_id=? ORDER BY meeting_date ASC""",
-            (application_id,),
-        ).fetchall()
+        query = "SELECT * FROM application_meetings WHERE application_id=?"
+        params: list[str] = [application_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        query += " ORDER BY meeting_date ASC"
+        rows = conn.execute(query, params).fetchall()
         return [dict(r) for r in rows]
 
-    def update_meeting(self, meeting_id: str, data: dict):
+    def update_meeting(self, meeting_id: str, data: dict, profile_id: str = None) -> bool:
         """Update meeting fields."""
         conn = self.connect()
         allowed = {"title", "meeting_date", "meeting_end", "location",
@@ -3686,19 +3768,28 @@ class Database:
             if k in allowed:
                 sets.append(f"{k}=?")
                 vals.append(v)
-        if sets:
-            vals.append(meeting_id)
-            conn.execute(
-                f"UPDATE application_meetings SET {', '.join(sets)} WHERE id=?",
-                vals,
-            )
-            conn.commit()
+        if not sets:
+            return False
+        query = f"UPDATE application_meetings SET {', '.join(sets)} WHERE id=?"
+        vals.append(meeting_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
+        conn.commit()
+        return cur.rowcount > 0
 
-    def delete_meeting(self, meeting_id: str):
+    def delete_meeting(self, meeting_id: str, profile_id: str = None) -> bool:
         """Delete a meeting."""
         conn = self.connect()
-        conn.execute("DELETE FROM application_meetings WHERE id=?", (meeting_id,))
+        query = "DELETE FROM application_meetings WHERE id=?"
+        params: list[str] = [meeting_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
 
 def _safe_float(val, default=None):
