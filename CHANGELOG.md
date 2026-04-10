@@ -2,6 +2,15 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.21] - 2026-04-10
+
+### Bug Fixes
+- Profil-Isolation fuer CV-Daten-Endpunkte gehaertet: Positionen, Ausbildung, Skills, Jobtitel und Projekte pruefen jetzt das aktive Profil bei PUT und DELETE
+- `PUT /api/applications/{app_id}/status` validiert jetzt das `status`-Feld und liefert 400 statt 500 bei fehlendem Pflichtfeld
+
+### Qualitaet
+- Regressionstests fuer Cross-Profile-Zugriffe auf alle 10 CV-Daten-Endpunkte
+
 ## [1.5.0-beta.20] - 2026-04-10
 
 ### Bug Fixes

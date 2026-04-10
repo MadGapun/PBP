@@ -1230,7 +1230,7 @@ class Database:
         conn.commit()
         return pid
 
-    def update_project(self, project_id: str, data: dict):
+    def update_project(self, project_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["name", "description", "role", "situation", "task",
                   "action", "result", "technologies", "duration",
@@ -1240,17 +1240,29 @@ class Database:
             if f in data:
                 sets.append(f"{f}=?")
                 vals.append(data[f])
-        if sets:
-            vals.append(project_id)
-            conn.execute(f"UPDATE projects SET {','.join(sets)} WHERE id=?", vals)
-            conn.commit()
-
-    def delete_project(self, project_id: str):
-        conn = self.connect()
-        conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        if not sets:
+            return False
+        query = "UPDATE projects SET {sets} WHERE id=?".format(sets=','.join(sets))
+        vals.append(project_id)
+        if profile_id is not None:
+            query += " AND position_id IN (SELECT id FROM positions WHERE profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
         conn.commit()
+        return cur.rowcount > 0
 
-    def update_position(self, position_id: str, data: dict):
+    def delete_project(self, project_id: str, profile_id: str = None) -> bool:
+        conn = self.connect()
+        query = "DELETE FROM projects WHERE id = ?"
+        params: list[str] = [project_id]
+        if profile_id is not None:
+            query += " AND position_id IN (SELECT id FROM positions WHERE profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
+
+    def update_position(self, position_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["company", "title", "location", "start_date", "end_date",
                   "is_current", "employment_type", "industry", "description",
@@ -1260,12 +1272,18 @@ class Database:
             if f in data:
                 sets.append(f"{f}=?")
                 vals.append(data[f])
-        if sets:
-            vals.append(position_id)
-            conn.execute(f"UPDATE positions SET {','.join(sets)} WHERE id=?", vals)
-            conn.commit()
+        if not sets:
+            return False
+        query = f"UPDATE positions SET {','.join(sets)} WHERE id=?"
+        vals.append(position_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
+        conn.commit()
+        return cur.rowcount > 0
 
-    def update_education(self, education_id: str, data: dict):
+    def update_education(self, education_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["institution", "degree", "field_of_study", "start_date",
                   "end_date", "grade", "description"]
@@ -1274,12 +1292,18 @@ class Database:
             if f in data:
                 sets.append(f"{f}=?")
                 vals.append(data[f])
-        if sets:
-            vals.append(education_id)
-            conn.execute(f"UPDATE education SET {','.join(sets)} WHERE id=?", vals)
-            conn.commit()
+        if not sets:
+            return False
+        query = f"UPDATE education SET {','.join(sets)} WHERE id=?"
+        vals.append(education_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
+        conn.commit()
+        return cur.rowcount > 0
 
-    def update_skill(self, skill_id: str, data: dict):
+    def update_skill(self, skill_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["name", "category", "level", "years_experience", "last_used_year"]
         sets, vals = [], []
@@ -1287,16 +1311,28 @@ class Database:
             if f in data:
                 sets.append(f"{f}=?")
                 vals.append(data[f])
-        if sets:
-            vals.append(skill_id)
-            conn.execute(f"UPDATE skills SET {','.join(sets)} WHERE id=?", vals)
-            conn.commit()
+        if not sets:
+            return False
+        query = f"UPDATE skills SET {','.join(sets)} WHERE id=?"
+        vals.append(skill_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
+        conn.commit()
+        return cur.rowcount > 0
 
-    def delete_position(self, position_id: str):
+    def delete_position(self, position_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
         # Projects are deleted automatically via ON DELETE CASCADE
-        conn.execute("DELETE FROM positions WHERE id = ?", (position_id,))
+        query = "DELETE FROM positions WHERE id = ?"
+        params: list[str] = [position_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     # === Education ===
 
@@ -1328,10 +1364,16 @@ class Database:
         conn.commit()
         return eid
 
-    def delete_education(self, education_id: str):
+    def delete_education(self, education_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
-        conn.execute("DELETE FROM education WHERE id = ?", (education_id,))
+        query = "DELETE FROM education WHERE id = ?"
+        params: list[str] = [education_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     # === Skills ===
 
@@ -1443,10 +1485,16 @@ class Database:
         conn.commit()
         return sid
 
-    def delete_skill(self, skill_id: str):
+    def delete_skill(self, skill_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
-        conn.execute("DELETE FROM skills WHERE id = ?", (skill_id,))
+        query = "DELETE FROM skills WHERE id = ?"
+        params: list[str] = [skill_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     # === Suggested Job Titles ===
 
@@ -1472,7 +1520,7 @@ class Database:
         conn.commit()
         return tid
 
-    def update_job_title(self, title_id: str, data: dict):
+    def update_job_title(self, title_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
         fields = ["title", "is_active", "confidence"]
         sets, vals = [], []
@@ -1480,15 +1528,27 @@ class Database:
             if f in data:
                 sets.append(f"{f}=?")
                 vals.append(data[f])
-        if sets:
-            vals.append(title_id)
-            conn.execute(f"UPDATE suggested_job_titles SET {','.join(sets)} WHERE id=?", vals)
-            conn.commit()
-
-    def delete_job_title(self, title_id: str):
-        conn = self.connect()
-        conn.execute("DELETE FROM suggested_job_titles WHERE id=?", (title_id,))
+        if not sets:
+            return False
+        query = f"UPDATE suggested_job_titles SET {','.join(sets)} WHERE id=?"
+        vals.append(title_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
         conn.commit()
+        return cur.rowcount > 0
+
+    def delete_job_title(self, title_id: str, profile_id: str = None) -> bool:
+        conn = self.connect()
+        query = "DELETE FROM suggested_job_titles WHERE id=?"
+        params: list[str] = [title_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
 
     # === Documents ===
 

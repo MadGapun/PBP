@@ -489,13 +489,17 @@ async def api_add_job_title(request: Request):
 @app.put("/api/job-title/{title_id}")
 async def api_update_job_title(title_id: str, request: Request):
     data = await request.json()
-    _db.update_job_title(title_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_job_title(title_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Jobtitel nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/job-title/{title_id}")
 async def api_delete_job_title(title_id: str):
-    _db.delete_job_title(title_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.delete_job_title(title_id, profile_id=profile_id):
+        return JSONResponse({"error": "Jobtitel nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -525,13 +529,17 @@ async def api_update_project(project_id: str, request: Request):
     data = await request.json()
     if not data.get("name", "").strip():
         return JSONResponse({"error": "Projektname ist ein Pflichtfeld"}, status_code=400)
-    _db.update_project(project_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_project(project_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Projekt nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/project/{project_id}")
 async def api_delete_project(project_id: str):
-    _db.delete_project(project_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.delete_project(project_id, profile_id=profile_id):
+        return JSONResponse({"error": "Projekt nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -556,39 +564,51 @@ async def api_add_skill(request: Request):
 @app.put("/api/position/{position_id}")
 async def api_update_position(position_id: str, request: Request):
     data = await request.json()
-    _db.update_position(position_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_position(position_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Position nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/position/{position_id}")
 async def api_delete_position(position_id: str):
-    _db.delete_position(position_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.delete_position(position_id, profile_id=profile_id):
+        return JSONResponse({"error": "Position nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.put("/api/education/{education_id}")
 async def api_update_education(education_id: str, request: Request):
     data = await request.json()
-    _db.update_education(education_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_education(education_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Ausbildung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/education/{education_id}")
 async def api_delete_education(education_id: str):
-    _db.delete_education(education_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.delete_education(education_id, profile_id=profile_id):
+        return JSONResponse({"error": "Ausbildung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.put("/api/skill/{skill_id}")
 async def api_update_skill(skill_id: str, request: Request):
     data = await request.json()
-    _db.update_skill(skill_id, data)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_skill(skill_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Skill nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
 @app.delete("/api/skill/{skill_id}")
 async def api_delete_skill(skill_id: str):
-    _db.delete_skill(skill_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.delete_skill(skill_id, profile_id=profile_id):
+        return JSONResponse({"error": "Skill nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -1556,10 +1576,13 @@ async def api_add_application(request: Request):
 @app.put("/api/applications/{app_id}/status")
 async def api_update_app_status(app_id: str, request: Request):
     data = await request.json()
+    new_status = data.get("status")
+    if not new_status:
+        return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
     profile_id = _get_active_profile_id()
     if not profile_id or not _db.update_application_status(
         app_id,
-        data["status"],
+        new_status,
         data.get("notes", ""),
         profile_id=profile_id,
     ):
