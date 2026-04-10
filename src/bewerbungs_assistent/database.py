@@ -2131,25 +2131,36 @@ class Database:
         self._auto_link_documents(aid, data.get("company", ""))
         return aid
 
-    def update_application_status(self, app_id: str, new_status: str,
-                                   notes: str = "", rejection_reason: str = ""):
+    def update_application_status(
+        self,
+        app_id: str,
+        new_status: str,
+        notes: str = "",
+        rejection_reason: str = "",
+        profile_id: str = None,
+    ) -> bool:
         conn = self.connect()
         now = _now()
+        params: list[str] = [new_status]
         if rejection_reason and new_status == "abgelehnt":
-            conn.execute(
-                "UPDATE applications SET status=?, rejection_reason=?, updated_at=? WHERE id=?",
-                (new_status, rejection_reason, now, app_id)
-            )
+            query = "UPDATE applications SET status=?, rejection_reason=?, updated_at=? WHERE id=?"
+            params.extend([rejection_reason, now, app_id])
         else:
-            conn.execute(
-                "UPDATE applications SET status=?, updated_at=? WHERE id=?",
-                (new_status, now, app_id)
-            )
+            query = "UPDATE applications SET status=?, updated_at=? WHERE id=?"
+            params.extend([now, app_id])
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        if cur.rowcount == 0:
+            conn.commit()
+            return False
         conn.execute("""
             INSERT INTO application_events (application_id, status, event_date, notes)
             VALUES (?, ?, ?, ?)
         """, (app_id, new_status, now, notes))
         conn.commit()
+        return True
 
     def delete_application(self, app_id: str):
         """Delete an application and all its events."""
@@ -2219,10 +2230,15 @@ class Database:
         )
         conn.commit()
 
-    def get_application(self, app_id: str) -> dict | None:
+    def get_application(self, app_id: str, profile_id: str = None) -> dict | None:
         """Get a single application with events."""
         conn = self.connect()
-        row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
+        query = "SELECT * FROM applications WHERE id=?"
+        params: list[str] = [app_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        row = conn.execute(query, params).fetchone()
         if not row:
             return None
         app = dict(row)
@@ -3020,14 +3036,17 @@ class Database:
             }
         return result
 
-    def save_fit_analyse(self, app_id: str, fit_data: dict):
+    def save_fit_analyse(self, app_id: str, fit_data: dict, profile_id: str = None) -> bool:
         """Save fit analysis result to an application (#84)."""
         conn = self.connect()
-        conn.execute(
-            "UPDATE applications SET fit_analyse=?, updated_at=? WHERE id=?",
-            (json.dumps(fit_data, ensure_ascii=False), _now(), app_id)
-        )
+        query = "UPDATE applications SET fit_analyse=?, updated_at=? WHERE id=?"
+        params: list[str] = [json.dumps(fit_data, ensure_ascii=False), _now(), app_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     def update_job(self, job_hash: str, data: dict):
         """Update editable fields of a job (#90)."""
@@ -3614,23 +3633,31 @@ class Database:
         conn.commit()
         return eid
 
-    def get_email(self, email_id: str) -> Optional[dict]:
+    def get_email(self, email_id: str, profile_id: str = None) -> Optional[dict]:
         """Get a single email by ID."""
         conn = self.connect()
-        row = conn.execute("SELECT * FROM application_emails WHERE id=?", (email_id,)).fetchone()
+        query = "SELECT * FROM application_emails WHERE id=?"
+        params: list[str] = [email_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        row = conn.execute(query, params).fetchone()
         if not row:
             return None
         d = dict(row)
         d["attachments_meta"] = json.loads(d.get("attachments_json") or "[]")
         return d
 
-    def get_emails_for_application(self, application_id: str) -> list:
+    def get_emails_for_application(self, application_id: str, profile_id: str = None) -> list:
         """List all emails linked to an application."""
         conn = self.connect()
-        rows = conn.execute(
-            "SELECT * FROM application_emails WHERE application_id=? ORDER BY sent_date DESC",
-            (application_id,),
-        ).fetchall()
+        query = "SELECT * FROM application_emails WHERE application_id=?"
+        params: list[str] = [application_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        query += " ORDER BY sent_date DESC"
+        rows = conn.execute(query, params).fetchall()
         result = []
         for row in rows:
             d = dict(row)
@@ -3652,7 +3679,7 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def update_email(self, email_id: str, data: dict):
+    def update_email(self, email_id: str, data: dict, profile_id: str = None) -> bool:
         """Update email fields (e.g., assign to application)."""
         conn = self.connect()
         allowed = {"application_id", "is_processed", "detected_status",
@@ -3663,19 +3690,28 @@ class Database:
             if k in allowed:
                 sets.append(f"{k}=?")
                 vals.append(v)
-        if sets:
-            vals.append(email_id)
-            conn.execute(
-                f"UPDATE application_emails SET {', '.join(sets)} WHERE id=?",
-                vals,
-            )
-            conn.commit()
+        if not sets:
+            return False
+        query = f"UPDATE application_emails SET {', '.join(sets)} WHERE id=?"
+        vals.append(email_id)
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            vals.append(profile_id)
+        cur = conn.execute(query, vals)
+        conn.commit()
+        return cur.rowcount > 0
 
-    def delete_email(self, email_id: str):
+    def delete_email(self, email_id: str, profile_id: str = None) -> bool:
         """Delete an email record."""
         conn = self.connect()
-        conn.execute("DELETE FROM application_emails WHERE id=?", (email_id,))
+        query = "DELETE FROM application_emails WHERE id=?"
+        params: list[str] = [email_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
         conn.commit()
+        return cur.rowcount > 0
 
     def get_all_emails(self) -> list:
         """Get all emails for the active profile."""

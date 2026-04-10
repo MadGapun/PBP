@@ -267,6 +267,14 @@ def _get_meeting_row_for_active_profile(meeting_id: str):
     ).fetchone()
 
 
+def _get_email_for_active_profile(email_id: str):
+    """Fetch an email only if it belongs to the active profile."""
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return None
+    return _db.get_email(email_id, profile_id=profile_id) if _db else None
+
+
 # === API Endpoints ===
 
 @app.get("/api/status")
@@ -1289,14 +1297,15 @@ async def api_generate_cv(format: str = "text"):
 @app.get("/api/application/{app_id}/timeline")
 async def api_application_timeline(app_id: str):
     """Get full event timeline for an application with job details and documents."""
+    profile_id = _get_active_profile_id()
+    app_row = _get_application_row_for_active_profile(app_id)
+    if not profile_id or not app_row:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     conn = _db.connect()
     events = [dict(r) for r in conn.execute(
         "SELECT * FROM application_events WHERE application_id = ? ORDER BY event_date DESC",
         (app_id,)
     ).fetchall()]
-    app_row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
-    if not app_row:
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     application = _db._serialize_application_row(app_row) if hasattr(_db, '_serialize_application_row') else dict(app_row)
 
     # Enrich with job details if linked
@@ -1305,11 +1314,11 @@ async def api_application_timeline(app_id: str):
         job = _db.get_job(application["job_hash"])
 
     # Get linked documents
-    documents = _db.get_documents_for_application(app_id)
+    documents = _db.get_documents_for_application(app_id, profile_id=profile_id)
 
     # #313: Emails und Meetings als Timeline-Einträge einfügen
-    emails = _db.get_emails_for_application(app_id) if hasattr(_db, 'get_emails_for_application') else []
-    meetings = _db.get_meetings_for_application(app_id) if hasattr(_db, 'get_meetings_for_application') else []
+    emails = _db.get_emails_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_emails_for_application') else []
+    meetings = _db.get_meetings_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_meetings_for_application') else []
 
     # Unified timeline: events + emails + meetings chronologisch
     unified_timeline = list(events)
@@ -1350,19 +1359,20 @@ async def api_application_timeline(app_id: str):
 @app.get("/api/application/{app_id}/timeline/print")
 async def api_application_timeline_print(app_id: str):
     """Druckbare HTML-Seite des Bewerbungsprotokolls (#313)."""
-    conn = _db.connect()
-    app_row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
-    if not app_row:
+    profile_id = _get_active_profile_id()
+    app_row = _get_application_row_for_active_profile(app_id)
+    if not profile_id or not app_row:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    conn = _db.connect()
     app_data = dict(app_row)
 
     events = [dict(r) for r in conn.execute(
         "SELECT * FROM application_events WHERE application_id = ? ORDER BY event_date ASC",
         (app_id,)
     ).fetchall()]
-    emails = _db.get_emails_for_application(app_id) if hasattr(_db, 'get_emails_for_application') else []
-    meetings = _db.get_meetings_for_application(app_id) if hasattr(_db, 'get_meetings_for_application') else []
-    documents = _db.get_documents_for_application(app_id)
+    emails = _db.get_emails_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_emails_for_application') else []
+    meetings = _db.get_meetings_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_meetings_for_application') else []
+    documents = _db.get_documents_for_application(app_id, profile_id=profile_id)
 
     # Build unified chronological entries
     entries = []
@@ -1546,7 +1556,14 @@ async def api_add_application(request: Request):
 @app.put("/api/applications/{app_id}/status")
 async def api_update_app_status(app_id: str, request: Request):
     data = await request.json()
-    _db.update_application_status(app_id, data["status"], data.get("notes", ""))
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _db.update_application_status(
+        app_id,
+        data["status"],
+        data.get("notes", ""),
+        profile_id=profile_id,
+    ):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -1566,8 +1583,14 @@ async def api_update_application(app_id: str, request: Request):
         "description_snapshot", "snapshot_date",
         "applied_at", "is_imported",
     )
+    profile_id = _get_active_profile_id()
+    if not profile_id:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     conn = _db.connect()
-    app_row = conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
+    app_row = conn.execute(
+        "SELECT * FROM applications WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+        (app_id, profile_id),
+    ).fetchone()
     if not app_row:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
 
@@ -1603,12 +1626,10 @@ async def api_update_application(app_id: str, request: Request):
     conn.execute(f"UPDATE applications SET {', '.join(sets)} WHERE id=?", vals)
 
     # Log change as timeline event
-    import uuid
-    event_id = str(uuid.uuid4())[:8]
     change_text = "Bewerbung bearbeitet: " + "; ".join(changes)
     conn.execute(
-        "INSERT INTO application_events (id, application_id, status, event_date, notes) VALUES (?, ?, ?, ?, ?)",
-        (event_id, app_id, "bearbeitet", now, change_text)
+        "INSERT INTO application_events (application_id, status, event_date, notes) VALUES (?, ?, ?, ?)",
+        (app_id, "bearbeitet", now, change_text)
     )
     conn.commit()
     return {"status": "ok", "changes": len(changes)}
@@ -1630,6 +1651,8 @@ async def api_link_document(app_id: str, request: Request):
 @app.post("/api/applications/{app_id}/notes")
 async def api_add_note(app_id: str, request: Request):
     """Add a timestamped note to an application."""
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     data = await request.json()
     text = (data.get("text") or "").strip()
     if not text:
@@ -1642,6 +1665,8 @@ async def api_add_note(app_id: str, request: Request):
 @app.put("/api/applications/{app_id}/notes/{event_id}")
 async def api_update_note(app_id: str, event_id: int, request: Request):
     """Update an existing note/event text."""
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     data = await request.json()
     text = (data.get("text") or "").strip()
     if not text:
@@ -1653,6 +1678,8 @@ async def api_update_note(app_id: str, event_id: int, request: Request):
 @app.delete("/api/applications/{app_id}/notes/{event_id}")
 async def api_delete_note(app_id: str, event_id: int):
     """Delete a note from the application timeline."""
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     _db.delete_application_event(event_id, app_id)
     return {"status": "ok"}
 
@@ -1664,6 +1691,8 @@ async def api_snapshot_description(app_id: str, request: Request):
     POST body: { "url": "https://..." }
     Uses simple HTTP fetch + HTML text extraction.
     """
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     data = await request.json()
     url = (data.get("url") or "").strip()
     if not url:
@@ -2155,23 +2184,30 @@ async def api_upload_email(file: UploadFile = File(...)):
 @app.post("/api/emails/{email_id}/confirm-match")
 async def api_confirm_email_match(email_id: str, request: Request):
     """Confirm or override auto-matched application for an email."""
+    profile_id = _get_active_profile_id()
     data = await request.json()
     app_id = data.get("application_id")
     if not app_id:
         return JSONResponse({"error": "application_id ist erforderlich"}, status_code=400)
 
-    em = _db.get_email(email_id)
-    if not em:
+    em = _get_email_for_active_profile(email_id)
+    if not profile_id or not em:
         return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
 
-    _db.update_email(email_id, {"application_id": app_id, "match_confidence": 1.0, "is_processed": 1})
+    _db.update_email(
+        email_id,
+        {"application_id": app_id, "match_confidence": 1.0, "is_processed": 1},
+        profile_id=profile_id,
+    )
 
     # Link any imported documents to the application
     for att in (em.get("attachments_meta") or []):
         doc_id = att.get("doc_id")
         if doc_id:
             try:
-                _db.link_document_to_application(doc_id, app_id)
+                _db.link_document_to_application(doc_id, app_id, profile_id=profile_id)
             except Exception:
                 pass
 
@@ -2203,21 +2239,23 @@ async def api_confirm_email_match(email_id: str, request: Request):
 @app.post("/api/emails/{email_id}/apply-status")
 async def api_apply_email_status(email_id: str, request: Request):
     """Apply the detected status from an email to the linked application."""
+    profile_id = _get_active_profile_id()
     data = await request.json()
     status = data.get("status")
     if not status:
         return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
 
-    em = _db.get_email(email_id)
-    if not em:
+    em = _get_email_for_active_profile(email_id)
+    if not profile_id or not em:
         return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
     if not em.get("application_id"):
         return JSONResponse({"error": "E-Mail ist keiner Bewerbung zugeordnet"}, status_code=400)
 
     app_id = em["application_id"]
-    _db.update_application_status(app_id, status)
+    if not _db.update_application_status(app_id, status, profile_id=profile_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     _db.add_application_event(app_id, status, f"Status aus E-Mail: {em.get('subject', '')}")
-    _db.update_email(email_id, {"is_processed": 1})
+    _db.update_email(email_id, {"is_processed": 1}, profile_id=profile_id)
 
     # Extract rejection feedback if applicable
     if status == "abgelehnt":
@@ -2239,7 +2277,7 @@ async def api_list_emails():
 @app.get("/api/emails/{email_id}")
 async def api_get_email(email_id: str):
     """Get a single email with full body."""
-    em = _db.get_email(email_id)
+    em = _get_email_for_active_profile(email_id)
     if not em:
         return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
     return em
@@ -2248,14 +2286,18 @@ async def api_get_email(email_id: str):
 @app.get("/api/applications/{app_id}/emails")
 async def api_get_application_emails(app_id: str):
     """List all emails linked to a specific application."""
-    emails = _db.get_emails_for_application(app_id)
+    profile_id = _get_active_profile_id()
+    if not profile_id or not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    emails = _db.get_emails_for_application(app_id, profile_id=profile_id)
     return {"emails": emails, "count": len(emails)}
 
 
 @app.delete("/api/emails/{email_id}")
 async def api_delete_email(email_id: str):
     """Delete an email."""
-    em = _db.get_email(email_id)
+    profile_id = _get_active_profile_id()
+    em = _get_email_for_active_profile(email_id)
     if not em:
         return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
     # Delete file from disk
@@ -2265,7 +2307,7 @@ async def api_delete_email(email_id: str):
             Path(filepath).unlink(missing_ok=True)
         except Exception:
             pass
-    _db.delete_email(email_id)
+    _db.delete_email(email_id, profile_id=profile_id)
     return {"status": "ok"}
 
 
@@ -2731,8 +2773,10 @@ async def api_update_job(job_hash: str, request: Request):
 @app.post("/api/applications/{app_id}/fit-analyse")
 async def api_save_app_fit_analyse(app_id: str, request: Request):
     """Save fit analysis result to an application (#84)."""
+    profile_id = _get_active_profile_id()
     data = await request.json()
-    _db.save_fit_analyse(app_id, data)
+    if not profile_id or not _db.save_fit_analyse(app_id, data, profile_id=profile_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
