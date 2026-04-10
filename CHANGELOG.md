@@ -2,196 +2,103 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
-## [1.5.0-beta.24] - 2026-04-10
+## [1.5.0] - 2026-04-10
 
-### Features
-- **E-Mails anklickbar/downloadbar** (#422): E-Mails im Bewerbungs-Dossier sind jetzt Download-Links mit Download-Icon — Klick laedt die Original-.eml/.msg-Datei herunter
-- **Follow-ups Layout-Redesign** (#423): Follow-ups und Schnell-Import stehen jetzt als 2/3+1/3-Grid UEBER der Bewerbungsliste statt daneben; max 5 Follow-ups mit "Alle im Kalender"-Navigation
+Das groesste Update seit dem ersten Public Release. 24 Beta-Iterationen, 100+ geschlossene Issues, 401 Tests.
 
-### Backend
-- Neuer Endpoint `GET /api/emails/{email_id}/download` zum Herunterladen der Original-E-Mail-Datei (analog zu Dokument-Download)
+### macOS-Unterstuetzung
 
-### Tests
-- 3 neue Tests fuer Email-Download: Datei-Rueckgabe, 404 bei unbekannter ID, 404 bei fehlender Datei (401 Tests gesamt)
+- **Offiziell unterstuetzt**: macOS funktioniert jetzt gleichwertig mit Windows — inklusive Doppelklick-Installer (`INSTALLIEREN.command`), Dashboard-Starter und Deinstaller
+- Plattformunabhaengige Scripts: `_setup_claude.py`, `switch_mode.py`, `start_dashboard.py` auf Windows, macOS und Linux
+- Claude Desktop Config-Pfade fuer alle Plattformen automatisch erkannt
 
-## [1.5.0-beta.23] - 2026-04-10
+### Kalender-System (komplett neu)
 
-### Bug Fixes
-- **Kalender-Modals funktionslos** (#418, #419, #417): Alle drei Modals (Neuer Termin, Bearbeiten, Kategorien) waren defekt wegen fehlendem `open`-Prop — jetzt behoben
-- **Termin-Klick oeffnet falsche Seite** (#395): Follow-up-Termine mit Bewerbungs-Verknuepfung navigieren jetzt korrekt zur Bewerbung statt nichts zu tun
-- **Top-Stellen leer auf Dashboard**: Filter entfernte Stellen mit Score 0 — jetzt werden alle aktiven Stellen angezeigt, sortiert nach Score
-- **Statistiken woechentlich leer**: SQLite unterstuetzt `'-12 weeks'` nicht als Modifier — auf `'-84 days'` korrigiert
-- **Loeschen-Button Berufserfahrung**: Entfernt von der Profil-Hauptseite (versehentliches Klicken), jetzt nur im Bearbeitungs-Dialog verfuegbar
+- **Grafischer Kalender-Grid**: Monatsansicht mit 7-Spalten-Tagesraster (Mo-So), Wochen-/Quartal-/Halbjahres-Ansicht als kompakte Mini-Grids
+- **Termine erstellen, bearbeiten, loeschen**: Vollstaendiges CRUD mit Dauer, Kategorie, Bewerbungs-Verknuepfung und Bestaetigungsdialog
+- **Benutzerdefinierte Kategorien**: System-Kategorien (Bewerbung, Interview, Privat) plus frei erstellbare mit Farbe und Statistik-Sichtbarkeit
+- **Kalender-Sidebar**: Navigations-Sidebar mit Ansicht, Zeitraum und Filter-Kontrollen (Alle/Kommende/Vergangene)
+- **Termin-Navigation**: Klick auf Bewerbungstermin oeffnet Dossier, Klick auf privaten Termin oeffnet Bearbeitungsdialog
+- **Private Eintraege**: Werden als "Geblockt" angezeigt und erscheinen nicht in Statistik/Aktivitaetslog
+- **Kollisionserkennung** fuer ueberlappende Termine
+- **.ics-Export** fuer einzelne Termine und Gesamtexport (RFC-5545)
 
-### Features
-- **Grafischer Kalender-Grid**: Monatsansicht mit 7-Spalten-Tagesraster (Mo-So), alle Tage sichtbar auch ohne Termine; Wochen-, Quartal- und Halbjahres-Ansicht als kompakte Mini-Grids; Klick auf Tag erstellt neuen Termin mit Datum vorbelegt
-- **Kalender-Sidebar**: Navigations-Sidebar (wie Profil) mit Ansicht, Zeitraum und Filter-Kontrollen direkt unter dem Heartbeat
-- **Termin-Filter wiederhergestellt**: Alle/Kommende/Vergangene als Sidebar-Filter — war versehentlich entfernt worden
-- **Statistiken: Unabhaengige Zeitraum-Kontrollen**: Gruppierung (Taeglich/Woechentlich/Monatlich) und Zeitraum (30d/90d/6m/12m/Alles) sind jetzt zwei separate, unabhaengige Controls — z.B. taeglich ueber 12 Monate ist jetzt moeglich
+### E-Mail-Pipeline
 
-## [1.5.0-beta.22] - 2026-04-10
+- **E-Mail-Import**: `.eml` und `.msg` Dateien hochladen — automatische Zuordnung zur passenden Bewerbung
+- **Status-Erkennung**: Eingehende E-Mails erkennen Bewerbungsstatus (Einladung, Absage, etc.) mit Konfidenzwert
+- **Termin-Extraktion**: Teams-/Zoom-Links und Datumsangaben werden automatisch als Termine angelegt
+- **Kontakt-Uebernahme**: Absender-Daten werden als Ansprechpartner in der Bewerbung gespeichert
+- **E-Mails downloadbar** (#422): E-Mails im Bewerbungs-Dossier sind jetzt anklickbare Download-Links mit neuem Endpoint `GET /api/emails/{id}/download`
+- **Outlook-Support**: `.msg`-Dateien funktionieren auch in der Windows-Installer-Version (extract-msg + setuptools)
 
-### Features
-- **Kalender CRUD** (#418, #419): "Neuer Termin" Button funktioniert jetzt vollstaendig mit Dauer, Kategorie, Bewerbungs-Verknuepfung; Termine koennen bearbeitet und mit Bestaetigungsdialog geloescht werden
-- **Benutzerdefinierte Kategorien** (#417): System-Kategorien (Bewerbung, Interview, Privat) und frei erstellbare Kategorien mit Farbe und Statistik-Sichtbarkeit; Filter-Checkboxen im Kalender
-- **Kalender-Ansichten** (#394): Umschaltbare Ansichten (Woche/Monat/Quartal/Halbjahr) mit Navigation; Private Eintraege werden als "Geblockt" (grau) angezeigt und erscheinen nicht in Statistik/Aktivitaetslog
-- **Termin-Navigation** (#395): Klick auf Bewerbungstermin oeffnet Bewerbungs-Dossier; Klick auf privaten/unverknuepften Termin oeffnet Bearbeitungsdialog
-- **Profil-Gefahrenzone** (#420): "Profil loeschen" wurde von der Profil-Seite in die Gefahrenzone der Einstellungen verschoben mit Profilnamen-Bestaetigung
-- **Dashboard-Redesign** (#421): "Im Fluss" + "Heute fuer dich" links (2/3), Schnellimport rechts (1/3); Anstehende Termine direkt unter "Im Fluss" (max 5, mit Klick-Navigation)
+### Dashboard-Redesign
 
-### Datenbank
-- Schema v23: `application_meetings.application_id` ist jetzt nullable (erlaubt manuelle Termine ohne Bewerbung), neue Spalten `is_private`, `duration_minutes`, `category_id`; neue Tabelle `meeting_categories`
+- **Neues Layout**: "Im Fluss" + "Heute fuer dich" links (2/3), Schnellimport rechts (1/3)
+- **Anstehende Termine**: Direkt unter "Im Fluss" (max 5, mit Klick-Navigation zum Kalender)
+- **Follow-ups ueber Bewerbungen** (#423): Follow-ups und Schnell-Import als 2/3+1/3-Grid ueber der Bewerbungsliste
+- **Top-Stellen**: Zeigt alle aktiven Stellen sortiert nach Score (nicht mehr nur Score > 0)
+- **Metriken**: Klar getrennte Zaehler fuer Bewerbungen und offene Stellen
+- **Aktivitaetslog**: Zeigt neuere Workspace-Aktionen
 
-## [1.5.0-beta.21] - 2026-04-10
+### Dokumenten-Management
 
-### Bug Fixes
-- Profil-Isolation fuer CV-Daten-Endpunkte gehaertet: Positionen, Ausbildung, Skills, Jobtitel und Projekte pruefen jetzt das aktive Profil bei PUT und DELETE
-- `PUT /api/applications/{app_id}/status` validiert jetzt das `status`-Feld und liefert 400 statt 500 bei fehlendem Pflichtfeld
+- **Docs-Tab**: Eigener Tab mit Drag & Drop Upload, Bewerbungs-Filter, durchsuchbaren Dropdowns, Textvorschau und Paginierung
+- **Dokumente loeschbar**: Im Docs-Tab und per API
+- **Bewerbungs-Querverweis**: Firma + Jobtitel pro Dokument sichtbar
+- **Analyse-Status**: Dashboard zeigt Fortschritt der Dokumentenanalyse
+- **OCR-Fallback**: Gescannte PDFs werden per pytesseract erkannt, `.doc`-Support via antiword
 
-### Qualitaet
-- Regressionstests fuer Cross-Profile-Zugriffe auf alle 10 CV-Daten-Endpunkte
+### Statistiken & Analyse
 
-## [1.5.0-beta.20] - 2026-04-10
+- **Unabhaengige Zeitraum-Kontrollen**: Gruppierung (Taeglich/Woechentlich/Monatlich) und Zeitraum (30d/90d/6m/12m/Alles) als separate Controls
+- **Lernender Score**: Ab 5+ gleichen Ablehnungen werden Scoring-Regler automatisch angepasst
+- **recherche_speichern()**: Analyse-Ergebnisse dauerhaft an Stellen/Bewerbungen speichern
 
-### Bug Fixes
-- Weitere Application-/Email-Endpunkte gegen profilfremde IDs abgesichert: Timeline, Print, Status, Notes, Snapshot, Fit-Analyse, E-Mail-Details, E-Mail-Loeschen, Match-Bestaetigung und Status-Uebernahme pruefen jetzt aktives Profil und aktive Bewerbung
-- Bewerbungsbearbeitung schreibt Timeline-Eintraege wieder schema-konform ohne String-ID und liefert bei echten Aenderungen keinen `datatype mismatch`-500er mehr
+### Profil & Einstellungen
 
-### Qualitaet
-- Regressionstests fuer Cross-Profile-Bewerbungen/E-Mails sowie Same-Profile-Bearbeitung und E-Mail-Aktionen ergaenzt
+- **Export & Backup zentralisiert**: Profil-Export (JSON), Datenbank-Backup (SQLite) und Komplett-Export (ZIP) in den Einstellungen unter "Datenschutz" zusammengefasst — nicht mehr auf der Profil-Seite verstreut
+- **Profil-Import**: Zuvor exportiertes Profil aus JSON wiederherstellen — ebenfalls in den Einstellungen
+- **Gefahrenzone**: "Profil loeschen" in die Einstellungen verschoben mit Profilnamen-Bestaetigung
+- **Loeschen-Buttons**: Nur noch im jeweiligen Bearbeitungs-Dialog (verhindert versehentliches Klicken)
+- **Datenschutz-Seite**: Datenfluss, Speicherorte, DSGVO-konforme Loeschfunktion
 
-## [1.5.0-beta.19] - 2026-04-10
+### Sicherheit
 
-### Bug Fixes
-- Profil-Isolation fuer Dokument-Endpunkte gehaertet: Download, Typ-Aenderung, Relinking und Loeschen akzeptieren nur noch Dokumente aus dem aktiven Profil
-- Meeting-Endpunkte gegen profilfremde IDs abgesichert: Einzelansicht, ICS, Update, Delete und Bewerbungs-Meetingliste pruefen jetzt das aktive Profil
-- `create_backup()` erzeugt Sicherungen jetzt SQLite-/WAL-sicher ueber die Backup-API statt ueber eine nackte Dateikopie
-- `release_check.py` smoke-testet das Repo jetzt mit `src/` auf dem Python-Pfad und meldet Versions-/Changelog-Mismatches klarer
+- **Profil-Isolation gehaertet**: Alle Endpunkte (Dokumente, Meetings, Bewerbungen, E-Mails, CV-Daten) pruefen das aktive Profil — kein Cross-Profile-Zugriff moeglich
+- **Status-Validierung**: `PUT /api/applications/{app_id}/status` liefert 400 statt 500 bei ungueltigem Status
+- **WAL-sichere Backups**: `create_backup()` nutzt die SQLite Backup-API statt Dateikopie
+- **Automatische Sicherungen**: DB-Backup vor jeder Migration und Schema-Upgrade (max. 5, rotierend)
+- **Deinstaller**: Bietet Desktop-Backup an, Datenlöschung erfordert Eingabe von "LOESCHEN"
 
-### Qualitaet
-- Neue Regressionstests fuer Cross-Profile-Dokumente, Cross-Profile-Meetings, WAL-Backups und den Release-Gate
+### Jobsuche & Quellen
 
-## [1.5.0-beta.18] - 2026-04-09
+- **Regionen**: Suchkriterien werden an Indeed, Monster, Bundesagentur, StepStone und Freelancermap durchgereicht
+- **Quellen-Transparenz**: Geschwindigkeits-Badges, Browser-Quellen-Warnungen, Timeout-Tipps
+- **Duplikat-Erkennung**: Cross-Source beim manuellen Anlegen von Stellen
+- **Blacklist**: Deaktiviert sofort alle aktiven Stellen des Unternehmens
+- **Scraper-Updates**: Jobware, Kimeta, Gulp komplett neugeschrieben; Heise-Fallback gefiltert
 
-### Verbesserungen
-- 19 umgesetzte Issues fuer den Beta-Feinschliff rund um Dashboard, Dokumente, Kalender, Settings und Import-/Analyse-Flows
+### Layout & Navigation
 
-## [1.5.0-beta.17] - 2026-04-09
+- **Globale Sidebar**: Version, MCP-Lebensanzeige und Profil-Navigation in linker Sidebar (kein Topbar-Overlap mehr bei 8 Tabs)
+- **Auto-Update-Hinweis**: Dashboard prueft GitHub auf neue Versionen
+- **Health-Dashboard**: System-Info in Einstellungen (Python/PBP-Version, Module, DB-Groesse, MCP-Status)
+- **FAQ & Hilfe**: 10 FAQ-Eintraege, 5 Troubleshooting-Guides, Akkordeon-Layout
+- **First-Run UX**: Klarer Primaerpfad (Kennenlerngespräch), kompakte Alternative-Buttons
 
-### Bug Fixes
-- Installer laedt Python erneut, wenn eine kopierte Installation defekt ist (#386)
+### Windows-Installer
 
-## [1.5.0-beta.16] - 2026-04-09
+- **Versions-Erkennung**: Liest Version dynamisch aus `__init__.py`
+- **Python-Reparatur**: Laedt Python erneut bei defekter Installation, korrigiert `_pth`-Konfiguration
+- **Registry-Verifizierung**: Eintrag wird nach Loeschung geprueft und bei Bedarf erneut versucht
 
-### Bug Fixes
-- Installer korrigiert `_pth`-Konfiguration bei vorhandener Python-Installation (#386)
+### Technisch
 
-## [1.5.0-beta.15] - 2026-04-09
-
-### Qualitaet
-- Clean-Release ohne ZIP-Asset fuer den Installer-/Release-Pfad
-
-## [1.5.0-beta.14] - 2026-04-09
-
-### Qualitaet
-- Release-Stand fuer `v1.5.0-beta.14` konsolidiert
-
-## [1.5.0-beta.13] - 2026-04-09
-
-### Neue Features
-- Dokument-Analyse-Status im Dashboard und Import-Flag fuer uebernommene Daten
-- Aktivitaetslog fuer neuere Workspace-Aktionen
-
-## [1.5.0-beta.12] - 2026-04-09
-
-### Verbesserungen
-- Dokumente loeschbar, Metrik-Perspektiven nachgeschaerft, Chrome-/Skill-/Settings-UX erweitert
-
-## [1.5.0-beta.11] - 2026-04-09
-
-### Bug Fixes
-- Dual-DB-Probleme, Kalender-Kantenfaelle, Umlaute, Antwortzeiten und `is_active`-Handling stabilisiert
-
-## [1.5.0-beta.10] - 2026-04-08
-
-### Verbesserungen
-- Dashboard Metrik-Karte: Zeigt jetzt nur unbearbeitete Stellen (ohne bereits beworbene). "20 geschrieben / 0 unbearbeitete Stellen" statt irreführend "3 aktive Stellen"
-
-## [1.5.0-beta.9] - 2026-04-08
-
-### Bug Fixes
-- **Docs-Tab unerreichbar:** `dokumente` fehlte in PAGE_IDS — Klick auf Docs-Tab landete auf Dashboard
-- **Dashboard Metrik-Karte:** "59/3" war verwirrend — zeigt jetzt klar "20" (Bewerbungen geschrieben) getrennt von "3 offene Stellen"
-
-### Verbesserungen
-- **Profil-Dokumente verschlankt:** Dokumentenliste aus Profil-Seite entfernt, nur noch Upload + Status-Dashboard + "Docs-Tab oeffnen"-Button. Volle Verwaltung im Docs-Tab.
-- **Docs-Tab: Upload integriert:** Drag & Drop + Datei/Ordner-Upload direkt im Docs-Tab (kein Umweg ueber Profil noetig)
-- **Docs-Tab: Durchsuchbare Bewerbungs-Dropdowns:** Bewerbungs-Filter und Verknuepfungs-Modal sind jetzt durchsuchbar (Freitext-Eingabe filtert die Liste)
-
-### Qualitaet
-- 390 Tests bestanden (1 Test an neues Profil-Layout angepasst)
-- Frontend-Build aktualisiert
-
-## [1.5.0-beta.8] - 2026-04-08
-
-### Layout-Redesign
-- **#363**: Topbar-Overlap behoben — Version und MCP-Lebensanzeige aus der Topbar in eine globale linke Sidebar verschoben. Profil-Navigation ebenfalls in Sidebar integriert. Kein Overlap mehr bei 8 Tabs.
-
-### Bug Fixes
-- **#364**: Kalender zeigt jetzt alle Termine — Follow-ups als eigene Kategorie integriert, Status `tentativ` wird angezeigt, heutige Termine verschwinden nicht mehr in "Vergangene". Route-Reihenfolge korrigiert (`/calendar` vor `/{meeting_id}`, gleicher Bug wie #339).
-- **#365**: Profil-Seite Dokumente-Sektion zeigt jetzt Bewerbungs-Querverweis (Firma + Jobtitel) pro Dokument
-
-### Verbesserungen
-- **#366**: Docs-Tab UX komplett ueberarbeitet — Bewerbungs-Filter, "Nicht verknuepft"-Schnellfilter, klickbare Firmenlinks, ausklappbare Textvorschau, "Verknuepfung aendern"-Modal, verbesserte Paginierung (Seite X von Y + Gesamtzahl)
-
-### Qualitaet
-- 390 Tests bestanden (0 Regressionen)
-- Frontend-Build aktualisiert
-
-## [1.5.0-beta.5] - 2026-04-08
-
-### KRITISCH — Datensicherheit
-- **#341**: Profil-Migration v1.4.x → v1.5.0 gefixt — `get_data_dir()` zeigt jetzt korrekt auf `data/`-Unterordner, automatische Migration der flachen v1.4.x-Struktur
-- **#349**: Automatisches DB-Backup vor jeder Migration und vor jedem Schema-Upgrade (max. 5 Backups, rotierend)
-- **#345**: Deinstaller bietet jetzt Desktop-Backup an bevor Daten geloescht werden; Datenlöschung erfordert Eingabe von "LOESCHEN" statt einfachem "j/n"
-- **#343**: Registry-Eintrag wird nach Loeschung verifiziert und bei Bedarf erneut versucht
-
-### Bug Fixes
-- **#342**: Help-Button (?) funktionierte nicht — `setShowWizard` (undefined) durch `setWizardOpen` ersetzt
-- **#340**: Unicode-Escape `N\u00e4chstes` durch echtes `Nächstes` ersetzt (3 Stellen im Dashboard)
-
-### Verbesserungen
-- **#344**: Installer liest Version dynamisch aus `__init__.py` statt hardcoded `beta.0`
-- **#348**: Versionsnummer dezent im Dashboard-Header sichtbar (neben Help-Button)
-
-## [1.5.0-beta.4] - 2026-04-08
-
-### Verbesserungen
-- **#337**: Quellen-Transparenz und Nutzer-Fuehrung bei langsamen Browser-Quellen
-  - SOURCE_REGISTRY: Alle 17 Quellen mit `geschwindigkeit`-Feld (schnell/langsam/manuell) und Warnhinweisen fuer Browser-Quellen
-  - Frontend Quellen-Einstellungen: Geschwindigkeits-Badges (⚡ Schnell / 🕐 Browser / Manuell), Infobox mit Erklaerung und Tipp fuer Claude-Suche
-  - Such-Progress: Browser-Quellen werden namentlich und mit Zeitschaetzung angekuendigt
-  - Timeout-Meldung: Statt "Uebersprungen" jetzt konkreter Tipp "Lass Claude gezielt auf diesen Portalen suchen"
-  - README: Quellen-Tabelle nach Geschwindigkeit sortiert, neue Hinweisbox zu Browser-Quellen und Claude-Alternativsuche
-
-## [1.5.0-beta.3] - 2026-04-08
-
-### Bug Fixes
-- **#334**: `release_check.py` Windows-safe — UTF-8 stdout reconfigure, ASCII-Fallback-Symbole, Temp-Ordner Cleanup mit `try/finally`
-- **#336**: Wizard-Overlay blockiert Header nicht mehr — z-index unter Header (`z-45`), Overlay startet unterhalb Topbar, Hilfe-Button schliesst Wizard
-
-### Verbesserungen
-- README Test-Badge auf 390 aktualisiert
-- Frontend-Build aktualisiert
-
-## [1.5.0-beta.2] - 2026-04-08
-
-### Bug Fixes
-- **#339**: ICS-Gesamtexport defekt — statische Route `/api/meetings/export.ics` wurde von dynamischer `{meeting_id}` Route ueberschattet (Route-Reihenfolge korrigiert)
-- **#335**: Regionen in Jobsuche ignoriert — `regionen` aus Suchkriterien werden jetzt an Indeed (`l=`), Monster (`where=`), Bundesagentur (`wo=`), StepStone (`?where=`) und Freelancermap (`&ort=`) durchgereicht
-- **#334**: `release_check.py` crasht unter Windows — alle `read_text()` Aufrufe auf `encoding="utf-8"` umgestellt
-- **#338**: Heise-Fallback liefert generische Uebersichtsseiten — Kategorie-Links und Titel ohne konkrete Stellen-ID werden gefiltert
-- **#336**: First-Run-Wizard Button "Spaeter" blockiert Browser-Tests — Text auf "Spaeter" mit korrektem UTF-8 geaendert
+- Schema-Version: 18 → 23
+- 73 Tools, 18 Prompts, 6 Resources
+- 401 Tests bestanden
+- Release-Gate (`release_check.py`) mit 5 Pruefungen: Versionskonsistenz, Skipped Tests, README-Badge, CHANGELOG-Inhalt, First-Run Smoke
 
 ## [1.4.3] - 2026-04-05
 

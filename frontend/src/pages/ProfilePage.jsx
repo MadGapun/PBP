@@ -386,7 +386,6 @@ export default function ProfilePage() {
     extraction: null,
     draftText: "{}",
   });
-  const importRef = useRef(null);
   const documentFileInputRef = useRef(null);
   const suppressProfileAutosaveRef = useRef(true);
   const lastSavedProfileSnapshotRef = useRef("");
@@ -785,21 +784,6 @@ export default function ProfilePage() {
     }
   }
 
-  async function importProfile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      await api("/api/profile/import", { method: "POST", body });
-      await refreshProfileContent({ syncChrome: true });
-      pushToast("Profil importiert.", "success");
-    } catch (error) {
-      pushToast(`Profilimport fehlgeschlagen: ${error.message}`, "danger");
-    } finally {
-      event.target.value = "";
-    }
-  }
 
   async function quickAction(fn, successText, options = {}) {
     try {
@@ -1059,35 +1043,8 @@ export default function ProfilePage() {
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Profil</h1>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => importRef.current?.click()}>
-            <Upload size={15} /> Importieren
-          </Button>
-          <Button variant="ghost" onClick={async () => {
-            const res = await api("/api/profile/export");
-            const blob = new Blob([JSON.stringify(res, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `profil_${draft.name || "backup"}.json`; a.click();
-            URL.revokeObjectURL(url);
-            pushToast("Profil exportiert", "success");
-          }}>
-            <Download size={15} /> Exportieren
-          </Button>
-          <Button variant="ghost" onClick={async () => {
-            try {
-              const resp = await fetch(apiUrl("/api/backup"));
-              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-              const blob = await resp.blob();
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url; a.download = `pbp_backup_${new Date().toISOString().slice(0, 10)}.db`; a.click();
-              URL.revokeObjectURL(url);
-              pushToast("Datenbank-Backup heruntergeladen", "success");
-            } catch (err) {
-              pushToast("Backup fehlgeschlagen: " + err.message, "danger");
-            }
-          }}>
-            <Download size={15} /> DB-Backup
+          <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
+            <Download size={15} /> Export & Backup
           </Button>
           <button
             type="button"
@@ -1098,8 +1055,6 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
-
-      <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
 
       <div className="grid gap-6">
         <div id="profil-uebersicht-wrapper" className="grid gap-6">

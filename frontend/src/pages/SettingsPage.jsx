@@ -1,7 +1,7 @@
-﻿import { Activity, Download, Eye, HardDrive, Package, ShieldAlert, TerminalSquare, Trash2 } from "lucide-react";
+﻿import { Activity, Database, Download, Eye, HardDrive, Package, ShieldAlert, TerminalSquare, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, deleteRequest, postJson } from "@/api";
+import { api, apiUrl, deleteRequest, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import {
@@ -192,6 +192,53 @@ export default function SettingsPage() {
     }
   }
 
+  const importRef = useRef(null);
+
+  async function exportProfile() {
+    try {
+      const res = await api("/api/profile/export");
+      const blob = new Blob([JSON.stringify(res, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `profil_export_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+      URL.revokeObjectURL(url);
+      pushToast("Profil exportiert", "success");
+    } catch (error) {
+      pushToast(`Export fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  async function downloadBackup() {
+    try {
+      const resp = await fetch(apiUrl("/api/backup"));
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `pbp_backup_${new Date().toISOString().slice(0, 10)}.db`; a.click();
+      URL.revokeObjectURL(url);
+      pushToast("Datenbank-Backup heruntergeladen", "success");
+    } catch (error) {
+      pushToast(`Backup fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  async function importProfile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      await api("/api/profile/import", { method: "POST", body });
+      await refreshChrome({ quiet: false });
+      pushToast("Profil importiert.", "success");
+    } catch (error) {
+      pushToast(`Profilimport fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   async function deleteAllData() {
     try {
       await deleteRequest("/api/privacy-delete-all", { confirm: "ALLES_LOESCHEN" });
@@ -366,11 +413,47 @@ export default function SettingsPage() {
             </Card>
 
             <Card className="rounded-2xl">
-              <SectionHeading title="Daten exportieren" description="Alle Daten als ZIP herunterladen (Backup / Portabilitaet)." />
-              <Button variant="secondary" onClick={exportData} disabled={exporting}>
-                <Download size={15} />
-                {exporting ? "Wird erstellt..." : "Export-Paket herunterladen"}
-              </Button>
+              <SectionHeading title="Daten & Backup" description="Daten exportieren, sichern oder aus einer Datei importieren." />
+              <div className="grid gap-3">
+                <div className="glass-card p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-ink">Komplett-Export (ZIP)</p>
+                    <p className="text-xs text-muted/50">Alle Profile, Bewerbungen, Dokumente und Einstellungen als ZIP-Paket.</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={exportData} disabled={exporting}>
+                    <Package size={14} />
+                    {exporting ? "Erstelle..." : "Herunterladen"}
+                  </Button>
+                </div>
+                <div className="glass-card p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-ink">Datenbank-Backup (SQLite)</p>
+                    <p className="text-xs text-muted/50">Rohe Datenbankdatei — fuer technische Wiederherstellung.</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={downloadBackup}>
+                    <Database size={14} /> Herunterladen
+                  </Button>
+                </div>
+                <div className="glass-card p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-ink">Profil exportieren (JSON)</p>
+                    <p className="text-xs text-muted/50">Nur das aktive Profil als JSON — fuer Uebertragung zwischen Installationen.</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={exportProfile}>
+                    <Download size={14} /> Exportieren
+                  </Button>
+                </div>
+                <div className="glass-card p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-ink">Profil importieren (JSON)</p>
+                    <p className="text-xs text-muted/50">Ein zuvor exportiertes Profil wiederherstellen.</p>
+                  </div>
+                  <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
+                  <Button variant="secondary" size="sm" onClick={() => importRef.current?.click()}>
+                    <Upload size={14} /> Importieren
+                  </Button>
+                </div>
+              </div>
             </Card>
 
             <Card className="rounded-2xl border border-amber/20 bg-amber/5">

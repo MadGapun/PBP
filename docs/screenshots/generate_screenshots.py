@@ -246,6 +246,40 @@ def _create_demo_data(db: Database):
     db.add_follow_up(app2_id, (now + timedelta(days=3)).date().isoformat())
     db.add_follow_up(app4_id, (now + timedelta(days=7)).date().isoformat())
 
+    # Meetings fuer Kalender-Tab
+    db.add_meeting({
+        "application_id": app1_id,
+        "title": "Erstgespraech TechCorp",
+        "meeting_date": (now + timedelta(days=2)).strftime("%Y-%m-%dT10:00:00"),
+        "meeting_url": "https://teams.microsoft.com/l/meetup-join/demo",
+        "platform": "teams",
+        "duration_minutes": 60,
+    })
+    db.add_meeting({
+        "application_id": app5_id,
+        "title": "Technisches Interview InnoConsult",
+        "meeting_date": (now + timedelta(days=5)).strftime("%Y-%m-%dT14:00:00"),
+        "meeting_url": "https://zoom.us/j/demo",
+        "platform": "zoom",
+        "duration_minutes": 90,
+    })
+    db.add_meeting({
+        "application_id": None,
+        "title": "Netzwerk-Treffen IT Hamburg",
+        "meeting_date": (now + timedelta(days=10)).strftime("%Y-%m-%dT18:00:00"),
+        "is_private": True,
+        "duration_minutes": 120,
+    })
+
+    # Demo-Dokument
+    db.add_document({
+        "filename": "Lebenslauf_Max_Mustermann.pdf",
+        "filepath": "/tmp/demo_cv.pdf",
+        "doc_type": "lebenslauf",
+        "extracted_text": "Senior Software Architect mit 15 Jahren Erfahrung...",
+        "extraction_status": "analysiert",
+    })
+
 
 def _start_dashboard(db_path: str, port: int):
     """Startet das Dashboard als Hintergrund-Thread."""
@@ -304,8 +338,10 @@ def _take_screenshots(port: int, output_dir: Path):
             ("profil", "02_profil.png", "Profil-Tab"),
             ("stellen", "03_stellen.png", "Stellen-Tab"),
             ("bewerbungen", "04_bewerbungen.png", "Bewerbungen-Tab"),
-            ("statistiken", "05_statistiken.png", "Statistiken-Tab"),
-            ("einstellungen", "06_einstellungen.png", "Einstellungen-Tab"),
+            ("dokumente", "05_dokumente.png", "Dokumente-Tab"),
+            ("kalender", "06_kalender.png", "Kalender-Tab"),
+            ("statistiken", "07_statistiken.png", "Statistiken-Tab"),
+            ("einstellungen", "08_einstellungen.png", "Einstellungen-Tab"),
         ]
 
         for hash_id, filename, desc in tabs:

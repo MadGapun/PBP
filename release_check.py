@@ -2,7 +2,7 @@
 
 Ausfuehren vor jedem Release:
   python release_check.py
-  python release_check.py --fix   # Korrigiert Versionen automatisch
+  python release_check.py --fix   # Korrigiert Versionen und Badge automatisch
 
 Exit-Code 0 = alles OK, 1 = Probleme gefunden.
 """
@@ -48,7 +48,7 @@ def ok(msg):
 # ── 1. Versionskonsistenz ──────────────────────────────────────
 
 def check_versions(fix=False):
-    print("\n[1/4] Versionskonsistenz")
+    print("\n[1/5] Versionskonsistenz")
 
     # __init__.py
     init_file = PROJECT_DIR / "src" / "bewerbungs_assistent" / "__init__.py"
@@ -114,7 +114,7 @@ def check_versions(fix=False):
 # ── 2. Skipped Tests ──────────────────────────────────────────
 
 def check_skipped_tests():
-    print("\n[2/4] Skipped Tests (kritische Pfade)")
+    print("\n[2/5] Skipped Tests (kritische Pfade)")
 
     test_dir = PROJECT_DIR / "tests"
     critical_skips = []
@@ -134,10 +134,11 @@ def check_skipped_tests():
 
 # ── 3. Test-Badge ──────────────────────────────────────────────
 
-def check_badge():
-    print("\n[3/4] README-Badge")
+def check_badge(fix=False):
+    print("\n[3/5] README-Badge")
 
-    readme = (PROJECT_DIR / "README.md").read_text(encoding="utf-8")
+    readme_file = PROJECT_DIR / "README.md"
+    readme = readme_file.read_text(encoding="utf-8")
     m = re.search(r'Tests-(\d+)(?:%20passing)?', readme)
     if not m:
         warn("Kein Test-Badge in README gefunden")
@@ -157,16 +158,43 @@ def check_badge():
             real_count = int(collected.group(1))
             if badge_count == real_count:
                 ok(f"Badge stimmt: {badge_count} Tests")
+            elif fix:
+                updated = readme.replace(f"Tests-{badge_count}", f"Tests-{real_count}")
+                readme_file.write_text(updated, encoding="utf-8")
+                ok(f"Badge von {badge_count} auf {real_count} korrigiert")
             else:
                 warn(f"Badge zeigt {badge_count}, gesammelt werden {real_count}")
     except Exception as e:
         warn(f"Test-Zaehlung fehlgeschlagen: {e}")
 
 
-# ── 4. First-Run Smoke ────────────────────────────────────────
+# ── 4. CHANGELOG-Inhalt ──────────────────────────────────────
+
+def check_changelog_content(version):
+    print("\n[4/5] CHANGELOG-Inhalt")
+
+    changelog = (PROJECT_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
+    # Pruefen ob der aktuelle Versions-Block existiert
+    version_header = f"## [{version}]"
+    if version_header not in changelog:
+        error(f"CHANGELOG enthaelt keinen Eintrag fuer {version}")
+        return
+
+    # Pruefen ob der Block nicht leer ist (mindestens eine Zeile mit ### darunter)
+    idx = changelog.index(version_header)
+    block = changelog[idx:].split("\n## [")[0] if "\n## [" in changelog[idx + 1:] else changelog[idx:]
+    has_sections = "###" in block
+    if not has_sections:
+        warn(f"CHANGELOG-Eintrag fuer {version} hat keine Unterabschnitte (### ...)")
+    else:
+        lines = [l for l in block.splitlines() if l.strip() and not l.startswith("#")]
+        ok(f"CHANGELOG-Eintrag fuer {version} vorhanden ({len(lines)} Zeilen)")
+
+
+# ── 5. First-Run Smoke ────────────────────────────────────────
 
 def check_first_run_smoke():
-    print("\n[4/4] First-Run Smoke")
+    print("\n[5/5] First-Run Smoke")
 
     try:
         pythonpath = str(PROJECT_DIR / "src")
@@ -221,9 +249,10 @@ if __name__ == "__main__":
     print("  PBP Release-Gate Check")
     print("=" * 50)
 
-    check_versions(fix=fix)
+    version = check_versions(fix=fix)
     check_skipped_tests()
-    check_badge()
+    check_badge(fix=fix)
+    check_changelog_content(version)
     check_first_run_smoke()
 
     print("\n" + "=" * 50)

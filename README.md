@@ -7,11 +7,11 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.4.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Beta](https://img.shields.io/badge/Beta-v1.5.0--beta-orange.svg)](https://github.com/MadGapun/PBP/releases)
-[![Tests](https://img.shields.io/badge/Tests-398-brightgreen.svg)](#tests)
+[![Stable](https://img.shields.io/badge/Stable-v1.5.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-401-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](#mcp-schnittstelle)
-[![Workflows](https://img.shields.io/badge/Workflows-16-ff69b4.svg)](#die-16-workflows)
+[![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](#die-18-workflows)
+[![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
 
 ---
 
@@ -244,7 +244,7 @@ Im Dashboard werden Stellen nach Typ getrennt dargestellt:
 - Ablehnungs-Muster-Analyse mit lernenden Ablehnungsgründen
 - **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
 
-### 📧 E-Mail-Integration (NEU in v0.29.0)
+### E-Mail-Integration
 Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
 
 - **Automatische Zuordnung** — E-Mails werden anhand von Absender-Domain, Firmenname, Betreff und Kontaktdaten automatisch der richtigen Bewerbung zugeordnet
@@ -269,17 +269,19 @@ Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
 - **Netzwerk-Strategie** — Networking-Plan für eine Zielfirma
 - **Branchen-Trends** — Welche Skills gerade gefragt sind
 
-### 🌐 Web-Dashboard
-Browser-Oberfläche auf `localhost:8200` mit 6 Tabs:
+### Web-Dashboard
+Browser-Oberfläche auf `localhost:8200` mit 8 Tabs und globaler Sidebar:
 
 | Tab | Funktion |
 |-----|----------|
-| **Dashboard** | Übersicht, Workspace-Guidance, nächste Schritte, Statistik-Vorschau |
-| **Profil** | Alles bearbeiten — Positionen, Skills, Ausbildung, Projekte. Drag & Drop Upload. Multi-Profil-Wechsler. |
+| **Dashboard** | "Im Fluss" + "Heute fuer dich", Schnellimport, anstehende Termine, Follow-ups, Workspace-Guidance |
+| **Profil** | Berufserfahrung, Skills, Ausbildung, Projekte bearbeiten. Multi-Profil-Wechsler in der Sidebar. |
 | **Stellen** | Jobs mit Fit-Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges, Pin/Unpin |
-| **Bewerbungen** | Pipeline, Detailansicht mit Stelleninfos + Dokumenten + Gesprächsnotizen, Archiv-Sektion |
-| **Statistiken** | 5 interaktive Charts: Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Score-Verteilung, Quellen-Scores |
-| **Einstellungen** | Quellen, System-Info, Datenschutz, Logs, Export |
+| **Bewerbungen** | Pipeline, Follow-ups ueber der Liste, Detailansicht mit Dossier + E-Mails + Notizen, Archiv |
+| **Dokumente** | Drag & Drop Upload, Ordner-Import, Bewerbungs-Verknuepfung, Textvorschau, Analyse-Status |
+| **Kalender** | Grafisches Monats-Grid, Wochen-/Quartal-/Halbjahres-Ansicht, CRUD, Kategorien, Filter |
+| **Statistiken** | 5 interaktive Charts, unabhaengige Gruppierung + Zeitraum, Timeline/Donut/Quellen/Scores |
+| **Einstellungen** | Quellen, System-Info, Datenschutz, Export & Backup, Logs, Gefahrenzone |
 
 ---
 
@@ -306,8 +308,6 @@ Der Installer:
 3. **Doppelklicke `INSTALLIEREN.command`** — fertig!
 
 > **Voraussetzungen:** macOS 12+, Python 3.11+ (`brew install python@3.12`), [Claude Desktop](https://claude.ai/download)
-
-> **Beta testen?** Wer neue Features vorab ausprobieren möchte, findet die aktuelle Beta unter [Alle Releases](https://github.com/MadGapun/PBP/releases) (als "Pre-release" markiert). Beta-Versionen können instabil sein — Feedback ist willkommen!
 
 ### 2. Profil erstellen
 
@@ -383,9 +383,9 @@ PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Cl
 | "Zeige meine Bewerbungsstatistiken" | Conversion-Rates und Übersicht |
 | "Plane einen Follow-up für die Bewerbung bei Firma XY" | Erinnerung in X Tagen |
 
-### Die 16 Workflows
+### Die 18 Workflows
 
-PBP bietet 16 gefuehrte Workflows. Je nach Claude-Client startest du sie entweder als Slash-Command (`/name`), über die kopierten PBP-Arbeitsanweisungen aus dem Dashboard oder einfach als natuerliche Anweisung:
+PBP bietet 18 gefuehrte Workflows. Je nach Claude-Client startest du sie entweder als Slash-Command (`/name`), über die kopierten PBP-Arbeitsanweisungen aus dem Dashboard oder einfach als natuerliche Anweisung:
 
 | Workflow | Slash-Command | Was er tut |
 |----------|--------------|-----------|
@@ -413,12 +413,10 @@ PBP bietet 16 gefuehrte Workflows. Je nach Claude-Client startest du sie entwede
 Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8200) wenn PBP läuft.
 
 **Dashboard-Tab:**
-- Workspace-Guidance zeigt dir den nächsten sinnvollen Schritt
-- Next-Steps-Banner mit kontextbezogenen Aktionen
-- Statistiken auf einen Blick
-- **Meeting-Widget** — Anstehende Termine mit Countdown ("in 3 Tagen", "morgen", "jetzt gleich"), Plattform-Badge (Teams/Zoom/Meet) und "Beitreten"-Button
-- **E-Mail-Übersicht** — Letzte importierte E-Mails mit Richtungsanzeige (↗ gesendet / ↙ empfangen), offene Zuordnungen, Klick für Details
-- **E-Mail-Upload** — .msg/.eml Dateien per Drag & Drop oder Upload-Button importieren
+- "Im Fluss" + "Heute fuer dich" (2/3) mit Schnellimport (1/3)
+- Anstehende Termine mit Countdown und "Beitreten"-Button
+- Workspace-Guidance zeigt den naechsten sinnvollen Schritt
+- E-Mail-Upload per Drag & Drop oder Upload-Button
 
 **Profil-Tab:**
 - Alle Daten bearbeiten (Klick auf ✏️)
@@ -446,13 +444,15 @@ Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8
 
 **Statistiken-Tab:**
 - 5 interaktive Charts (Chart.js): Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Fit-Score-Verteilung, Quellen-Detailvergleich
-- Umschaltbar: Woche / Monat / Quartal / Jahr
+- Unabhaengige Kontrollen: Gruppierung (Taeglich/Woechentlich/Monatlich) und Zeitraum (30d/90d/6m/12m/Alles)
 
 **Einstellungen-Tab:**
-- Aktive Jobportale auswählen
-- MUSS/PLUS/AUSSCHLUSS-Keywords
-- Firmen-Blacklist
-- Gehaltsfilter
+- Aktive Jobportale auswaehlen (mit Geschwindigkeits-Badges)
+- System-Info und Health-Dashboard
+- Datenschutz: Datenfluss-Uebersicht, Speicherorte
+- Export & Backup: Komplett-Export (ZIP), DB-Backup (SQLite), Profil-Export/-Import (JSON)
+- Runtime-Logs
+- Gefahrenzone: Factory Reset, Profil loeschen, Daten loeschen (DSGVO)
 
 ### Multi-Profil
 
@@ -635,13 +635,13 @@ Claude Desktop / claude.ai
     ▼
 server.py (FastMCP, Composition Root)
     │
-    ├──► tools/            ◄── 70 Tools in 8 Modulen
-    ├──► prompts.py        ◄── 16 Prompts (Workflows)
+    ├──► tools/            ◄── 73 Tools in 8 Modulen
+    ├──► prompts.py        ◄── 18 Prompts (Workflows)
     ├──► resources.py      ◄── 6 Resources
     │
     ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail, Geocoding, Scoring)
-    ├──► database.py       ◄── SQLite (22 Tabellen, WAL, Schema v18)
-    ├──► dashboard.py      ◄── FastAPI :8200, 85+ API-Endpoints
+    ├──► database.py       ◄── SQLite (29 Tabellen, WAL, Schema v23)
+    ├──► dashboard.py      ◄── FastAPI :8200, 100+ API-Endpoints
     ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     └──► job_scraper/      ◄── 18 Quellen
               ├── bundesagentur.py       (REST API)
@@ -665,7 +665,7 @@ server.py (FastMCP, Composition Root)
 
 ## MCP-Schnittstelle
 
-### 70 Tools in 8 Modulen
+### 73 Tools in 8 Modulen
 
 <details>
 <summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
@@ -813,7 +813,7 @@ server.py (FastMCP, Composition Root)
 
 ## Datenbank
 
-SQLite mit WAL-Mode, 22 Tabellen, Schema v18:
+SQLite mit WAL-Mode, 29 Tabellen, Schema v23:
 
 | Tabelle | Beschreibung |
 |---------|-------------|
@@ -837,7 +837,8 @@ SQLite mit WAL-Mode, 22 Tabellen, Schema v18:
 | `suggested_job_titles` | Vorgeschlagene Jobtitel |
 | `settings` | Konfiguration |
 | `dismiss_reasons` | Ablehnungsgruende (lernend, mit Nutzungszaehler) |
-| `scoring_config` | **NEU** — Konfigurierbare Scoring-Regler (#169) |
+| `scoring_config` | Konfigurierbare Scoring-Regler |
+| `meeting_categories` | Benutzerdefinierte Termin-Kategorien mit Farbe |
 
 **Datenspeicherung:**
 - Windows: `%LOCALAPPDATA%\BewerbungsAssistent\`
@@ -855,7 +856,7 @@ playwright install chromium
 # Alle Tests ausführen
 python -m pytest tests/ -v
 
-# 362 Tests, ~35 Sekunden
+# 401 Tests, ~40 Sekunden
 ```
 
 ---
@@ -885,16 +886,16 @@ python -m pytest tests/ -v
 
 > UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
 
-### Erster Start — So begrüßt dich PBP
+### Erster Start — So begruesst dich PBP
 ![Willkommen](docs/screenshots/00_willkommen.png)
 
-### Profil unvollständig — PBP zeigt dir den nächsten Schritt
-![Profil unvollständig](docs/screenshots/00b_profil_unvollstaendig.png)
+### Profil unvollstaendig — PBP zeigt dir den naechsten Schritt
+![Profil unvollstaendig](docs/screenshots/00b_profil_unvollstaendig.png)
 
 ### Alles eingerichtet — Dashboard im Normalbetrieb
-![Dashboard vollständig](docs/screenshots/00c_dashboard_vollstaendig.png)
+![Dashboard vollstaendig](docs/screenshots/00c_dashboard_vollstaendig.png)
 
-### Dashboard — Übersicht mit Workspace-Guidance
+### Dashboard — "Im Fluss", Termine und Schnellimport
 ![Dashboard](docs/screenshots/01_dashboard.png)
 
 ### Profil — Berufserfahrung, Skills, Ausbildung
@@ -903,100 +904,47 @@ python -m pytest tests/ -v
 ### Stellen — Scoring, Filter und Fit-Analyse
 ![Stellen](docs/screenshots/03_stellen.png)
 
-### Bewerbungen — Pipeline mit Follow-ups
+### Bewerbungen — Pipeline mit Follow-ups und Dossier
 ![Bewerbungen](docs/screenshots/04_bewerbungen.png)
 
-### Statistiken — Charts, Trends und Export
-![Statistiken](docs/screenshots/05_statistiken.png)
+### Dokumente — Upload, Verknuepfung und Analyse
+![Dokumente](docs/screenshots/05_dokumente.png)
 
-### Einstellungen — Quellen und Suchverhalten
-![Einstellungen](docs/screenshots/06_einstellungen.png)
+### Kalender — Grafisches Grid mit Kategorien
+![Kalender](docs/screenshots/06_kalender.png)
+
+### Statistiken — Charts mit flexiblen Zeitraeumen
+![Statistiken](docs/screenshots/07_statistiken.png)
+
+### Einstellungen — Quellen, Export & Backup, Datenschutz
+![Einstellungen](docs/screenshots/08_einstellungen.png)
 
 ---
 
 ## Changelog
 
-> Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+> Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v0.33.9 — Archiv-Zählung, Interview-Filter, Claude-Button entfernt (2026-03-26)
-- **ARCHIVE_STATUSES Encoding-Mismatch behoben** — Dashboard zählt archivierte Bewerbungen jetzt korrekt
-- **Interview-Filter zeigt alle Interview-Status** — `interview`, `zweitgespraech`, `interview_abgeschlossen`
-- **"Claude öffnen"-Button entfernt** — Endpoint `/api/claude-open` und zugehörige UI-Elemente bereinigt
-- 72 Tools, 362 Tests
+### v1.5.0 — Kalender, macOS, E-Mail-Pipeline, Dashboard-Redesign (2026-04-10)
 
-### v0.33.7 — TODOs in Readiness-Card, größere Modals (2026-03-26)
-- **Workspace-Readiness zeigt priorisierte TODOs** — Interview vorbereiten, Follow-ups, Jobsuche direkt im Dashboard
-- **interview_abgeschlossen** als neuer Bewerbungsstatus
-- **Modale Dialoge verbreitert** — Stellendetails und Bewerbungsansicht nutzen den Platz besser
-- 72 Tools, 362 Tests
+Das groesste Update seit dem ersten Public Release:
 
-### v0.33.3 — Stellenbeschreibung beim Crawlen mitspeichern (2026-03-25)
-- **Beschreibung direkt aus dem Scraping** — kein separater Nachladevorgang mehr nötig
-- Basis für zuverlässigere Fit-Scores und genauere Suchtreffer
-- 72 Tools, 362 Tests
+- **macOS offiziell unterstuetzt** — Doppelklick-Installer, Dashboard-Starter, Deinstaller
+- **Kalender-System** — Grafisches Grid, CRUD, benutzerdefinierte Kategorien, .ics-Export, Kollisionserkennung
+- **E-Mail-Pipeline** — Import (.msg/.eml), automatische Zuordnung, Status-Erkennung, Termin-Extraktion, E-Mails jetzt als Download-Links im Dossier
+- **Dashboard-Redesign** — "Im Fluss" + Schnellimport, Follow-ups ueber Bewerbungen
+- **Profil-Isolation gehaertet** — Alle Endpunkte gegen Cross-Profile-Zugriff abgesichert
+- **Export & Backup zentralisiert** — Komplett-Export, DB-Backup und Profil-Import in den Einstellungen
+- **Statistiken** — Unabhaengige Gruppierung und Zeitraum-Kontrollen, lernender Score
+- **Docs-Tab** — Eigener Tab mit Drag & Drop, Bewerbungs-Filter, Analyse-Status
+- Schema v23, 73 Tools, 18 Prompts, 401 Tests
 
-### v0.32.6 — Outlook-Mail-Import (.msg) im Installer (2026-03-24)
-- **setuptools/wheel vor extract-msg** — Installation unter Embeddable Python repariert
-- **Mail-Upload nutzt volle E-Mail-Intelligenz** — Meetings, Timeline-Events, Status-Erkennung
-- 72 Tools, 362 Tests
+### v1.4.3 (2026-04-05)
+- Heartbeat-Middleware auf FastMCP 3.x umgestellt
 
-### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
-- **Geführter Bewerbungs-Workflow** — kontextabhängige Aktionen pro Status
-- **Scoring-Regler-System** — 6 konfigurierbare Dimensionen
-- **Geocoding** — Entfernungsberechnung mit geopy + Nominatim
-- **ATS-konformer CV** — Calibri, keine Tabellen, Heading-Hierarchie
-- Schema v17, 70 Tools, 16 Prompts, 341 Tests
-
-### v0.32.1 — Bugfixes + Diagnose (2026-03-22)
-- **10 Bugfixes** (#178-#184, #154, #168, #176) — Source-Übernahme, Score-Verteilung, Beworben-Bonus, Grammatik, Beschreibung-Warnung, employment_type, Zurückgezogene ausblenden, Fuzzy-Matching
-- **Fuzzy-Keyword-Matching** (#183) — Synonyme (PLM→Teamcenter), Umlaute, Multi-Word-Split
-- **pbp_diagnose** — Gesundheitscheck mit auto_fix, findet Probleme und gibt Empfehlungen
-- **keyword_vorschlaege** — Analysiert tote Keywords und schlägt Änderungen vor
-- 72 Tools, 341 Tests
-
-### v0.32.0 — Erweiterter Bewerbungsbegleiter (2026-03-22)
-- **Geführter Bewerbungs-Workflow** (#170) — Neuer Status `in_vorbereitung`, kontextabhängige Aktionen pro Status mit Motivation, Vorbereitungs-Checkliste
-- **Scoring-Regler-System** (#169) — 6 konfigurierbare Dimensionen, 2 neue Tools
-- **Geocoding** (#167) — Automatische Entfernungsberechnung mit geopy+Nominatim
-- **ATS-konformer CV** (#174) — Calibri, keine Tabellen, Heading-Hierarchie
-- **Aufgewerteter Bewerbungsbericht** (#173) — Executive Summary, PBP-Branding, Quellenanalyse
-- **Drag & Drop Upload** (#176), **Auto-Dokumentzuordnung** (#177), **IDs überall** (#171)
-- **Auto-Save Stellenbeschreibung** (#172), **FAQ** (#175), **Blacklist bereinigt** (#168)
-- Schema v17, 70 Tools, 16 Prompts, 341 Tests
-
-### v0.30.0 — UX-Verbesserungen & Qualitaet (2026-03-20)
-- **Scrollbar-Gutter** verhindert Layout-Verschiebung bei Seitenwechsel (#147)
-- **Status-Charts** mit deutschen Anzeigenamen (#139) + Umlaut-Korrektur in ~300 Backend-Strings
-- **Datumsnormalisierung** im Profil-Editor fuer diverse Formate (#141)
-- **Interview-Termine** als Pseudo-Meetings im Dashboard-Widget (#140)
-- **Lazy Loading** mit Pagination fuer Stellenliste (20/50/100/Alle) (#145)
-- **Stellenanzeigen-Link** in Bewerbungsdetails (#146)
-- Token-Sync nach Dokumenttyp-Aenderung ohne Reload (#143)
-- 341 Tests
-
-### v0.29.0 — E-Mail-Integration: Parsing, Matching, Meetings (2026-03-20)
-- **E-Mail-Import** (.msg/.eml) mit automatischer Zuordnung zu Bewerbungen (6 Matching-Strategien)
-- **Status-Erkennung** aus E-Mail-Inhalt (Eingangsbestätigung, Interview, Absage, Angebot)
-- **Meeting-Extraktion** mit .ics-Support und Link-Erkennung (Teams, Zoom, Meet, WebEx)
-- **Dashboard Meeting-Widget** mit Countdown und "Beitreten"-Button
-- **Attachment-Import** mit SHA256-Duplikat-Erkennung
-- **Drag & Drop** für E-Mails ins Dashboard
-- Schema v15 (2 neue Tabellen: `application_emails`, `application_meetings`)
-- 341 Tests (46 neue E-Mail-Tests)
-
-### v0.22.0 — Bewerbungs-Detailansicht, Gesprächsnotizen & Dokument-Verknüpfung (2026-03-17)
-- **Detailansicht** komplett neu: Stelleninfos, Fit-Score, Quelle, Gehalt, aufklappbare Stellenbeschreibung
-- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
-- **Dokument-Verknüpfung**: Unterlagen direkt in der Bewerbung zuordnen
-- **Archiv-Fix**: Archivierte Bewerbungen werden wieder angezeigt
-- 62 Tools, 237 Tests
-
-### v0.21.1 — Multi-Profil-Härtung (2026-03-17)
-- Jobs profilgebunden gespeichert, Follow-ups/Statistiken profilisoliert
-- Alle Queries respektieren das aktive Profil durchgängig
-
-### v0.21.0 — Browser-Integration & Netzwerk-Quellen (2026-03-16)
-- **Persistent Browser Sessions** für Netzwerk-Portale (Beta-Feature, siehe Einstellungen)
+### v1.0.0 — Erster Public Release (2026-03-26)
+- 72 Tools, 16 Prompts, 18 Quellen, React 19 Dashboard
+- E-Mail-Integration, Multi-Profil, Scoring-Regler, Geocoding, CV-Export
 - Konfigurierbare DOM-Selektoren, Job-ID-Deduplizierung, Multi-Page-Pagination
 - Manueller Stellen-Import via `stelle_manuell_anlegen()`
 
