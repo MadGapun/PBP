@@ -506,242 +506,200 @@ export default function DashboardPage() {
         <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
       </div>
 
-      {impulse?.enabled && impulse?.impulse?.text && (
-        <Card className="mb-5 rounded-2xl border-amber-600/30 bg-amber-950/10">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400/60">
-                {impulse.impulse.title || "Heute für dich"}
-              </p>
-              <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
+      {/* #421: Dashboard-Redesign — 2/3 (Im Fluss + Heute fuer dich) + 1/3 (Schnellimport) */}
+      <div className="mb-5 grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <div className="grid gap-4">
+          {/* Im Fluss (Readiness Card) */}
+          <Card className="rounded-2xl">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
+                  <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+                  {jobsWithoutDescription > 0 ? (
+                    <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
+                <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
+                <p className="mt-1 max-w-3xl text-sm text-muted">
+                  {workspaceReadiness.description || "PBP zeigt dir hier immer, was als Nächstes sinnvoll ist."}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
+                  <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
+                    {workspaceReadiness.action_label}
+                  </Button>
+                ) : null}
+              </div>
             </div>
-            <button
-              className="shrink-0 text-xs text-muted/40 hover:text-muted"
-              title="Tagesimpuls ausblenden"
-              onClick={async () => {
-                try {
-                  await postJson("/api/daily-impulse/toggle");
-                  setImpulse((prev) => ({ ...prev, enabled: false }));
-                } catch {}
-              }}
-            >
-              ausblenden
-            </button>
+
+            {(todoItems.length > 0 || workspaceTodos.length > 0) && (
+              <div className="mt-4 grid gap-2">
+                {todoItems.map((todo) => (
+                  <div
+                    key={todo.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
+                  >
+                    <div className="min-w-0 flex items-center gap-2.5">
+                      <Badge tone={todo.tone}>
+                        {todo.id === "jobsuche" ? "Priorität 1" : todo.id === "interviews" ? "Priorität 2" : todo.id === "followups" ? "Priorität 3" : "Empfehlung"}
+                      </Badge>
+                      <div>
+                        <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
+                        <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={todo.action}>
+                      {todo.actionLabel}
+                    </Button>
+                  </div>
+                ))}
+                {workspaceTodos.slice(0, 2).map((todo) => (
+                  <div
+                    key={`ws-${todo.typ}-${todo.text}`}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
+                  >
+                    <div className="min-w-0 flex items-center gap-2.5">
+                      <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
+                      <div>
+                        <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
+                        <p className="mt-0.5 text-[12px] text-muted/60">
+                          {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
+                        </p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
+                      Öffnen
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Heute fuer dich (Impulse) */}
+          {impulse?.enabled && impulse?.impulse?.text && (
+            <Card className="rounded-2xl border-amber-600/30 bg-amber-950/10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400/60">
+                    {impulse.impulse.title || "Heute für dich"}
+                  </p>
+                  <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
+                </div>
+                <button
+                  className="shrink-0 text-xs text-muted/40 hover:text-muted"
+                  title="Tagesimpuls ausblenden"
+                  onClick={async () => {
+                    try {
+                      await postJson("/api/daily-impulse/toggle");
+                      setImpulse((prev) => ({ ...prev, enabled: false }));
+                    } catch {}
+                  }}
+                >
+                  ausblenden
+                </button>
+              </div>
+            </Card>
+          )}
+        </div>
+
+        {/* Schnellimport (rechte Spalte, 1/3) */}
+        <Card className="rounded-2xl xl:sticky xl:top-4 xl:self-start">
+          <h2 className="text-sm font-semibold text-ink">
+            <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
+            Schnell-Import
+          </h2>
+          <p className="mt-1 text-[11px] text-muted/50">
+            Dokumente oder E-Mails hier ablegen — PBP erkennt und verarbeitet sie automatisch.
+          </p>
+          <div className="mt-3 grid gap-2">
+            <EmailUploadButton pushToast={pushToast} />
+          </div>
+          <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
+            Dateien per Drag & Drop auf die Seite ziehen
           </div>
         </Card>
-      )}
+      </div>
 
-      <Card className="mb-5 rounded-2xl">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
-              <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
-              {jobsWithoutDescription > 0 ? (
-                <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
-              ) : null}
-            </div>
-            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
-            <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted">
-              {workspaceReadiness.description || "PBP zeigt dir hier immer, was als Nächstes sinnvoll ist."}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
-              <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
-                {workspaceReadiness.action_label}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {(todoItems.length > 0 || workspaceTodos.length > 0) && (
-          <div className="mt-4 grid gap-2">
-            {todoItems.map((todo) => (
-              <div
-                key={todo.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
-              >
-                <div className="min-w-0 flex items-center gap-2.5">
-                  <Badge tone={todo.tone}>
-                    {todo.id === "jobsuche" ? "Priorität 1" : todo.id === "interviews" ? "Priorität 2" : todo.id === "followups" ? "Priorität 3" : "Empfehlung"}
-                  </Badge>
-                  <div>
-                    <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
-                    <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
-                  </div>
-                </div>
-                <Button size="sm" variant="ghost" onClick={todo.action}>
-                  {todo.actionLabel}
-                </Button>
-              </div>
-            ))}
-            {workspaceTodos.slice(0, 2).map((todo) => (
-              <div
-                key={`ws-${todo.typ}-${todo.text}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
-              >
-                <div className="min-w-0 flex items-center gap-2.5">
-                  <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
-                  <div>
-                    <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
-                    <p className="mt-0.5 text-[12px] text-muted/60">
-                      {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
-                    </p>
-                  </div>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
-                  Öffnen
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <div id="dashboard-content" className="grid gap-5">
-        {/* #258: 2-Spalten-Layout (2/3 Im Fluss + 1/3 Upload-Box) */}
-        <div className="grid gap-3 xl:grid-cols-[2fr_1fr]">
-          <div className="grid gap-3">
-            <Card className="rounded-2xl">
-              <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
-              {[
-                {
-                  title: "Erste Schritte",
-                  items: [
-                    { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
-                    { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
-                    { prompt: "/profil_erweiterung", label: "Profil ergaenzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
-                  ],
-                },
-                {
-                  title: "Jobsuche & Bewerbung",
-                  items: [
-                    { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
-                    { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
-                    { prompt: "/bewerbungs_uebersicht", label: "Uebersicht", desc: "Was laeuft gerade?", icon: ClipboardList },
-                  ],
-                },
-                {
-                  title: "Interview & Verhandlung",
-                  items: [
-                    { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen ueben", icon: Briefcase },
-                    { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
-                    { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins, isNew: true },
-                  ],
-                },
-                {
-                  title: "Analyse & Strategie",
-                  items: [
-                    { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
-                    { prompt: "/profil_ueberpruefen", label: "Profil pruefen", desc: "Fehler finden und korrigieren", icon: UserCheck },
-                    { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
-                  ],
-                },
-              ].map((group) => (
-                <div key={group.title} className="mt-3">
-                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-teal/60">{group.title}</p>
-                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                    {group.items.map(({ prompt, label, desc, icon: Icon, isNew }) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        className="glass-tab flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition"
-                        onClick={() => copyPrompt(prompt)}
-                      >
-                        <Icon size={16} className="shrink-0 text-teal/50" />
-                        <div className="min-w-0">
-                          <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink/90">
-                            {label}
-                            {isNew ? <span className="rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">NEU</span> : null}
-                          </span>
-                          <span className="block truncate text-[11px] text-muted/60">{desc}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </Card>
-          </div>
-
-          {/* #259: Upload-Box (rechte Spalte) */}
-          <Card className="rounded-2xl xl:sticky xl:top-4 xl:self-start">
-            <h2 className="text-sm font-semibold text-ink">
-              <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
-              Schnell-Import
-            </h2>
-            <p className="mt-1 text-[11px] text-muted/50">
-              Dokumente oder E-Mails hier ablegen — PBP erkennt und verarbeitet sie automatisch.
-            </p>
-            <div className="mt-3 grid gap-2">
-              <EmailUploadButton pushToast={pushToast} />
-            </div>
-            <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
-              Dateien per Drag & Drop auf die Seite ziehen
-            </div>
-          </Card>
-        </div>
-
-        <div className="grid gap-3 xl:grid-cols-2">
-          <Card className="rounded-2xl">
+      {/* #421: Anstehende Termine direkt unter Im Fluss (nur wenn vorhanden, max 5) */}
+      {(() => {
+        const interviewPseudoMeetings = upcomingInterviewTodos
+          .filter((fu) => !data.meetings.some((m) => m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
+          .map((fu) => ({
+            id: `interview-${fu.id}`,
+            title: "Interview vorbereiten",
+            meeting_date: fu.scheduled_date + "T09:00:00",
+            app_company: fu.company || fu.title || "",
+            app_title: fu.title || "",
+            platform: null,
+            meeting_url: null,
+            application_id: fu.application_id,
+            _isInterview: true,
+          }));
+        const allMeetings = [...data.meetings, ...interviewPseudoMeetings]
+          .sort((a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || "")));
+        if (allMeetings.length === 0) return null;
+        return (
+          <Card className="mb-5 rounded-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-ink">
-                <Calendar size={14} className="mr-1.5 inline-block text-teal/60" />
+              <button
+                type="button"
+                className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
+                onClick={() => navigateTo("kalender")}
+              >
+                <Calendar size={14} className="text-teal/60" />
                 Anstehende Termine
-              </h2>
+              </button>
             </div>
             <div className="mt-3 grid gap-2">
-              {(() => {
-                // Merge real meetings with interview follow-ups (#140)
-                const interviewPseudoMeetings = upcomingInterviewTodos
-                  .filter((fu) => !data.meetings.some((m) => m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
-                  .map((fu) => ({
-                    id: `interview-${fu.id}`,
-                    title: "Interview vorbereiten",
-                    meeting_date: fu.scheduled_date + "T09:00:00",
-                    app_company: fu.company || fu.title || "",
-                    app_title: fu.title || "",
-                    platform: null,
-                    meeting_url: null,
-                    _isInterview: true,
-                  }));
-                const allMeetings = [...data.meetings, ...interviewPseudoMeetings]
-                  .sort((a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || "")));
-                return allMeetings.length > 0 ? allMeetings.slice(0, 5).map((meeting) => {
-                  const meetingDate = new Date(meeting.meeting_date);
-                  const now = new Date();
-                  const diffMs = meetingDate - now;
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                  const countdown =
-                    diffDays > 1
-                      ? `in ${diffDays} Tagen`
-                      : diffDays === 1
-                        ? "morgen"
-                        : diffHours > 0
-                          ? `in ${diffHours} Stunden`
-                          : diffMs > 0
-                            ? "jetzt gleich"
-                            : "vergangen";
-                  const isToday = diffDays === 0 && diffMs > 0;
-                  const platformIcon = meeting.platform === "teams" ? "Teams" :
-                    meeting.platform === "zoom" ? "Zoom" :
-                    meeting.platform === "google_meet" ? "Meet" : "";
-                  return (
-                    <div
-                      key={meeting.id}
-                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
-                        isToday
-                          ? "border-teal/30 bg-teal/5"
-                          : "border-white/[0.04]"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-ink">
-                          {meeting.title || meeting.app_title || "Termin"}
-                        </p>
+              {allMeetings.slice(0, 5).map((meeting) => {
+                const meetingDate = new Date(meeting.meeting_date);
+                const now = new Date();
+                const diffMs = meetingDate - now;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const countdown =
+                  diffDays > 1
+                    ? `in ${diffDays} Tagen`
+                    : diffDays === 1
+                      ? "morgen"
+                      : diffHours > 0
+                        ? `in ${diffHours} Stunden`
+                        : diffMs > 0
+                          ? "jetzt gleich"
+                          : "vergangen";
+                const isMeetingToday = diffDays === 0 && diffMs > 0;
+                const isPrivate = meeting.is_private;
+                const platformIcon = meeting.platform === "teams" ? "Teams" :
+                  meeting.platform === "zoom" ? "Zoom" :
+                  meeting.platform === "google_meet" ? "Meet" : "";
+                return (
+                  <div
+                    key={meeting.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.03] ${
+                      isMeetingToday
+                        ? "border-teal/30 bg-teal/5"
+                        : "border-white/[0.04]"
+                    }`}
+                    onClick={() => {
+                      // #395/#421: Click navigates to application or calendar
+                      if (isPrivate) {
+                        navigateTo("kalender");
+                      } else if (meeting.application_id) {
+                        navigateTo("bewerbungen", { highlight: meeting.application_id });
+                      } else {
+                        navigateTo("kalender");
+                      }
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-ink">
+                        {isPrivate ? "Geblockt" : (meeting.title || meeting.app_title || "Termin")}
+                      </p>
+                      {!isPrivate && (
                         <p className="text-[12px] text-muted/60">
                           {meeting.app_company && (
                             <span className="font-medium text-muted/80">{meeting.app_company} — </span>
@@ -754,84 +712,120 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </p>
-                        <p className={`mt-0.5 text-[11px] font-medium ${
-                          isToday ? "text-teal" : diffDays <= 3 ? "text-amber" : "text-muted/50"
-                        }`}>
-                          {countdown}
+                      )}
+                      {isPrivate && (
+                        <p className="text-[12px] text-muted/40">
+                          {formatDate(meeting.meeting_date)}{" "}
+                          {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
                         </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {/* .ics Export (#261, #263) */}
-                        {!meeting._isInterview && (
-                          <a href={`/api/meetings/${meeting.id}/ics`} download
-                            className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-muted/50 transition hover:bg-white/10 hover:text-ink"
-                            title="Als .ics exportieren">
-                            <Download size={12} /> .ics
-                          </a>
-                        )}
-                        {meeting._isInterview ? (
-                          <button
-                            type="button"
-                            onClick={() => copyPrompt("/interview_vorbereitung")}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
-                          >
-                            <Calendar size={14} />
-                            Vorbereiten
-                          </button>
-                        ) : meeting.meeting_url ? (
-                          <a
-                            href={meeting.meeting_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
-                          >
-                            <Video size={14} />
-                            Beitreten
-                          </a>
-                        ) : null}
-                      </div>
+                      )}
+                      <p className={`mt-0.5 text-[11px] font-medium ${
+                        isMeetingToday ? "text-teal" : diffDays <= 3 ? "text-amber" : "text-muted/50"
+                      }`}>
+                        {countdown}
+                      </p>
                     </div>
-                  );
-                }) : (
-                  <p className="py-4 text-center text-[13px] text-muted/50">
-                    Keine anstehenden Termine
-                  </p>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {!meeting._isInterview && !isPrivate && (
+                        <a href={`/api/meetings/${meeting.id}/ics`} download
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-muted/50 transition hover:bg-white/10 hover:text-ink"
+                          title="Als .ics exportieren">
+                          <Download size={12} /> .ics
+                        </a>
+                      )}
+                      {meeting._isInterview ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); copyPrompt("/interview_vorbereitung"); }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
+                        >
+                          <Calendar size={14} />
+                          Vorbereiten
+                        </button>
+                      ) : !isPrivate && meeting.meeting_url ? (
+                        <a
+                          href={meeting.meeting_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
+                        >
+                          <Video size={14} />
+                          Beitreten
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
                 );
-              })()}
+              })}
             </div>
           </Card>
+        );
+      })()}
 
-          {/* Kollisionserkennung (#267) */}
-          {(() => {
-            const sorted = [...data.meetings].sort((a, b) =>
-              String(a.meeting_date || "").localeCompare(String(b.meeting_date || ""))
-            );
-            const collisions = [];
-            for (let i = 0; i < sorted.length; i++) {
-              for (let j = i + 1; j < sorted.length; j++) {
-                const s1 = new Date(sorted[i].meeting_date);
-                const e1 = sorted[i].meeting_end ? new Date(sorted[i].meeting_end) : new Date(s1.getTime() + 3600000);
-                const s2 = new Date(sorted[j].meeting_date);
-                if (s2 < e1) collisions.push([sorted[i], sorted[j]]);
-              }
-            }
-            return collisions.length > 0 ? (
-              <Card className="rounded-2xl border-danger/20 bg-danger/5">
-                <p className="text-[12px] font-semibold text-danger">
-                  Terminkonflikt erkannt ({collisions.length})
-                </p>
-                {collisions.map(([m1, m2], idx) => (
-                  <p key={idx} className="mt-1 text-[11px] text-muted/60">
-                    <span className="font-medium text-ink">{m1.title || "Termin"}</span>
-                    {m1.app_company && ` (${m1.app_company})`} kollidiert mit{" "}
-                    <span className="font-medium text-ink">{m2.title || "Termin"}</span>
-                    {m2.app_company && ` (${m2.app_company})`}
-                  </p>
+      <div id="dashboard-content" className="grid gap-5">
+        {/* Schnellzugriff (full width) */}
+        <Card className="rounded-2xl">
+          <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
+          {[
+            {
+              title: "Erste Schritte",
+              items: [
+                { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
+                { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
+                { prompt: "/profil_erweiterung", label: "Profil ergaenzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
+              ],
+            },
+            {
+              title: "Jobsuche & Bewerbung",
+              items: [
+                { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
+                { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
+                { prompt: "/bewerbungs_uebersicht", label: "Uebersicht", desc: "Was laeuft gerade?", icon: ClipboardList },
+              ],
+            },
+            {
+              title: "Interview & Verhandlung",
+              items: [
+                { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen ueben", icon: Briefcase },
+                { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
+                { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins, isNew: true },
+              ],
+            },
+            {
+              title: "Analyse & Strategie",
+              items: [
+                { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
+                { prompt: "/profil_ueberpruefen", label: "Profil pruefen", desc: "Fehler finden und korrigieren", icon: UserCheck },
+                { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
+              ],
+            },
+          ].map((group) => (
+            <div key={group.title} className="mt-3">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-teal/60">{group.title}</p>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {group.items.map(({ prompt, label, desc, icon: Icon, isNew }) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="glass-tab flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition"
+                    onClick={() => copyPrompt(prompt)}
+                  >
+                    <Icon size={16} className="shrink-0 text-teal/50" />
+                    <div className="min-w-0">
+                      <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink/90">
+                        {label}
+                        {isNew ? <span className="rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">NEU</span> : null}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted/60">{desc}</span>
+                    </div>
+                  </button>
                 ))}
-              </Card>
-            ) : null;
-          })()}
-        </div>
+              </div>
+            </div>
+          ))}
+        </Card>
 
         <div className="grid gap-3 xl:grid-cols-2">
           <Card className="overflow-hidden rounded-2xl">

@@ -2501,10 +2501,21 @@ async def api_meetings_calendar(days: int = 90):
             except (ValueError, TypeError):
                 continue
 
+    # Enrich meetings with category info (#417)
+    _db.ensure_system_categories()
+    categories = _db.get_meeting_categories()
+    cat_map = {c["id"]: c for c in categories}
+    for m in all_meetings:
+        cat = cat_map.get(m.get("category_id"))
+        if cat:
+            m["category_name"] = cat["name"]
+            m["category_color"] = cat["color"]
+
     return {
         "meetings": all_meetings + follow_ups,
         "collisions": collisions,
         "count": len(all_meetings) + len(follow_ups),
+        "categories": categories,
     }
 
 
@@ -2521,19 +2532,26 @@ async def api_activity_log(days: int = 90, categories: str = ""):
     cat_set = set(c.strip() for c in categories.split(",") if c.strip()) if categories else None
     entries = []
 
-    # 1. Meetings (termine)
+    # 1. Meetings (termine) — exclude private meetings and categories with show_in_stats=0 (#394, #417)
     if not cat_set or "termine" in cat_set:
         rows = conn.execute(
             """SELECT m.id, m.meeting_date as event_date, m.title, m.meeting_type,
-                      a.company as app_company, a.title as app_title, m.application_id
+                      a.company as app_company, a.title as app_title, m.application_id,
+                      m.is_private, m.category_id, mc.show_in_stats as cat_show_in_stats
                FROM application_meetings m
                LEFT JOIN applications a ON m.application_id = a.id
+               LEFT JOIN meeting_categories mc ON m.category_id = mc.id
                WHERE m.meeting_date >= ? AND (m.profile_id=? OR m.profile_id IS NULL)
                ORDER BY m.meeting_date DESC""",
             (cutoff, pid),
         ).fetchall()
         for r in rows:
             r = dict(r)
+            # Skip private meetings and categories with show_in_stats=0 (#394, #417)
+            if r.get("is_private"):
+                continue
+            if r.get("cat_show_in_stats") == 0:
+                continue
             label = r.get("title") or r.get("meeting_type") or "Termin"
             entries.append({
                 "id": r["id"], "category": "termine", "event_date": r["event_date"],
@@ -2669,6 +2687,9 @@ async def api_create_meeting(request: Request):
         "meeting_type": data.get("meeting_type", "sonstiges"),
         "platform": data.get("platform"),
         "notes": data.get("notes"),
+        "is_private": data.get("is_private", False),
+        "duration_minutes": data.get("duration_minutes"),
+        "category_id": data.get("category_id"),
     })
     # Add timeline event only if linked to an application
     if app_id:
@@ -2769,6 +2790,53 @@ async def api_meeting_ics(meeting_id: str):
             "Content-Disposition": f'attachment; filename="termin-{meeting_id[:8]}.ics"',
         },
     )
+
+
+# === Meeting Categories (#417) ===
+
+@app.get("/api/meeting-categories")
+async def api_get_meeting_categories():
+    """List all meeting categories for the active profile."""
+    _db.ensure_system_categories()
+    categories = _db.get_meeting_categories()
+    return {"categories": categories}
+
+
+@app.post("/api/meeting-categories")
+async def api_create_meeting_category(request: Request):
+    """Create a custom meeting category."""
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return JSONResponse({"error": "Name ist erforderlich"}, status_code=400)
+    cid = _db.add_meeting_category({
+        "name": name,
+        "color": data.get("color", "#3b82f6"),
+        "show_in_stats": data.get("show_in_stats", True),
+    })
+    return {"status": "ok", "id": cid}
+
+
+@app.put("/api/meeting-categories/{category_id}")
+async def api_update_meeting_category(category_id: str, request: Request):
+    """Update a meeting category (name, color, show_in_stats)."""
+    data = await request.json()
+    if not _db.update_meeting_category(category_id, data):
+        return JSONResponse({"error": "Kategorie nicht gefunden oder Systemkategorie"}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.delete("/api/meeting-categories/{category_id}")
+async def api_delete_meeting_category(category_id: str, request: Request):
+    """Delete a custom category. Optional: reassign_to in body."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    reassign_to = data.get("reassign_to")
+    if not _db.delete_meeting_category(category_id, reassign_to=reassign_to):
+        return JSONResponse({"error": "Kategorie nicht gefunden oder Systemkategorie"}, status_code=400)
+    return {"status": "ok"}
 
 
 @app.put("/api/jobs/{job_hash}/score")

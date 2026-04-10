@@ -1089,18 +1089,13 @@ export default function ProfilePage() {
           }}>
             <Download size={15} /> DB-Backup
           </Button>
-          <Button variant="danger" onClick={async () => {
-            if (!window.confirm("Profil wirklich löschen? Alle zugehörigen Daten (Positionen, Skills, Dokumente) werden ebenfalls gelöscht.")) return;
-            try {
-              await api(`/api/profiles/${profile.id}`, { method: "DELETE" });
-              pushToast("Profil gelöscht", "success");
-              refreshChrome();
-            } catch (err) {
-              pushToast("Fehler beim Löschen: " + (err.message || err), "error");
-            }
-          }}>
-            <Trash2 size={15} /> Löschen
-          </Button>
+          <button
+            type="button"
+            className="text-xs text-muted/40 hover:text-coral transition-colors"
+            onClick={() => navigateTo("einstellungen", { tab: "gefahrenzone" })}
+          >
+            Profil loeschen? → Gefahrenzone
+          </button>
         </div>
       </div>
 

@@ -22,7 +22,7 @@ function formatBytes(bytes) {
 }
 
 export default function SettingsPage() {
-  const { reloadKey, refreshChrome, pushToast } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
   const [sources, setSources] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -33,8 +33,17 @@ export default function SettingsPage() {
   const [privacy, setPrivacy] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [profileDeleteConfirm, setProfileDeleteConfirm] = useState("");
   const [settingsTab, setSettingsTab] = useState("quellen");
   const loginPollersRef = useRef(new Map());
+
+  // Handle incoming tab intent from navigateTo (#420)
+  useEffect(() => {
+    if (intent?.page === "einstellungen" && intent?.tab) {
+      setSettingsTab(intent.tab);
+      clearIntent();
+    }
+  }, [intent]);
 
   const loadPage = useEffectEvent(async () => {
     try {
@@ -408,6 +417,41 @@ export default function SettingsPage() {
                 </div>
               </div>
             </Card>
+
+            {/* #420: Profile delete in danger zone */}
+            {chrome?.profile?.name && (
+              <Card className="glass-banner glass-banner-danger rounded-2xl">
+                <SectionHeading title="Profil loeschen" description={`Loescht das aktive Profil "${chrome.profile.name}" inkl. aller Positionen, Skills, Bewerbungen und Dokumente unwiderruflich.`} />
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
+                      <Trash2 size={16} />
+                    </div>
+                    <p className="text-sm text-muted">
+                      Gib den Profilnamen <strong className="text-ink">{chrome.profile.name}</strong> exakt ein, um das Profil zu loeschen.
+                    </p>
+                  </div>
+                  <div className="flex items-end gap-3">
+                    <Field label="Profilname bestaetigen">
+                      <TextInput className="!w-56" value={profileDeleteConfirm} onChange={(e) => setProfileDeleteConfirm(e.target.value)} placeholder={chrome.profile.name} />
+                    </Field>
+                    <Button variant="danger" disabled={profileDeleteConfirm !== chrome.profile.name} onClick={async () => {
+                      try {
+                        await deleteRequest(`/api/profiles/${chrome.profile.id}`);
+                        setProfileDeleteConfirm("");
+                        pushToast("Profil geloescht.", "success");
+                        refreshChrome();
+                      } catch (err) {
+                        pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+                      }
+                    }}>
+                      <Trash2 size={15} />
+                      Profil loeschen
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             <Card className="glass-banner glass-banner-danger rounded-2xl">
               <SectionHeading title="Factory Reset" description="Setzt die App in einen sauberen Zustand zurueck. Das wird geloescht: Alle Profile, Stellen, Bewerbungen, Dokumente — die App wird wie neu." />

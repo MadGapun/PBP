@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 
 
 def _gen_id() -> str:
@@ -826,6 +826,62 @@ class Database:
                 logger.info("Migration v21->v22: is_imported Spalte hinzugefuegt (#368)")
             except Exception:
                 pass  # Already exists
+
+        if from_ver < 23:
+            # v23: Calendar enhancements — nullable application_id, categories,
+            # private entries, duration (#394, #417, #418, #419)
+            try:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS application_meetings_new (
+                        id TEXT PRIMARY KEY,
+                        application_id TEXT REFERENCES applications(id) ON DELETE CASCADE,
+                        email_id TEXT REFERENCES application_emails(id) ON DELETE SET NULL,
+                        profile_id TEXT,
+                        title TEXT NOT NULL,
+                        meeting_date TEXT NOT NULL,
+                        meeting_end TEXT,
+                        location TEXT,
+                        meeting_url TEXT,
+                        meeting_type TEXT DEFAULT 'interview',
+                        platform TEXT,
+                        ics_data TEXT,
+                        notes TEXT,
+                        status TEXT DEFAULT 'geplant',
+                        is_private INTEGER DEFAULT 0,
+                        duration_minutes INTEGER,
+                        category_id TEXT,
+                        created_at TEXT
+                    );
+
+                    INSERT OR IGNORE INTO application_meetings_new
+                        (id, application_id, email_id, profile_id, title, meeting_date,
+                         meeting_end, location, meeting_url, meeting_type, platform,
+                         ics_data, notes, status, is_private, duration_minutes,
+                         category_id, created_at)
+                    SELECT id, application_id, email_id, profile_id, title, meeting_date,
+                           meeting_end, location, meeting_url, meeting_type, platform,
+                           ics_data, notes, status, 0, NULL, NULL, created_at
+                    FROM application_meetings;
+
+                    DROP TABLE IF EXISTS application_meetings;
+                    ALTER TABLE application_meetings_new RENAME TO application_meetings;
+
+                    CREATE INDEX IF NOT EXISTS idx_meetings_app ON application_meetings(application_id);
+                    CREATE INDEX IF NOT EXISTS idx_meetings_date ON application_meetings(meeting_date, status);
+
+                    CREATE TABLE IF NOT EXISTS meeting_categories (
+                        id TEXT PRIMARY KEY,
+                        profile_id TEXT,
+                        name TEXT NOT NULL,
+                        color TEXT DEFAULT '#3b82f6',
+                        show_in_stats INTEGER DEFAULT 1,
+                        is_system INTEGER DEFAULT 0,
+                        created_at TEXT
+                    );
+                """)
+                logger.info("Migration v22->v23: calendar enhancements (#394, #417, #418)")
+            except Exception as exc:
+                logger.warning("Migration v22->v23 partial: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -3799,11 +3855,12 @@ class Database:
             """INSERT INTO application_meetings
                (id, application_id, email_id, profile_id, title, meeting_date,
                 meeting_end, location, meeting_url, meeting_type, platform,
-                ics_data, notes, status, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                ics_data, notes, status, is_private, duration_minutes,
+                category_id, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 mid,
-                data["application_id"],
+                data.get("application_id"),
                 data.get("email_id"),
                 pid,
                 data.get("title", "Termin"),
@@ -3816,6 +3873,9 @@ class Database:
                 data.get("ics_data"),
                 data.get("notes"),
                 data.get("status", "geplant"),
+                1 if data.get("is_private") else 0,
+                data.get("duration_minutes"),
+                data.get("category_id"),
                 _now(),
             ),
         )
@@ -3857,7 +3917,8 @@ class Database:
         """Update meeting fields."""
         conn = self.connect()
         allowed = {"title", "meeting_date", "meeting_end", "location",
-                    "meeting_url", "meeting_type", "platform", "notes", "status"}
+                    "meeting_url", "meeting_type", "platform", "notes", "status",
+                    "is_private", "duration_minutes", "category_id", "application_id"}
         sets = []
         vals = []
         for k, v in data.items():
@@ -3886,6 +3947,108 @@ class Database:
         cur = conn.execute(query, params)
         conn.commit()
         return cur.rowcount > 0
+
+    # === Meeting Categories (#417) ===
+
+    def get_meeting_categories(self, profile_id: str = None) -> list:
+        """Get all meeting categories for a profile, including system categories."""
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        rows = conn.execute(
+            """SELECT * FROM meeting_categories
+               WHERE profile_id=? OR profile_id IS NULL OR is_system=1
+               ORDER BY is_system DESC, name ASC""",
+            (pid,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def ensure_system_categories(self, profile_id: str = None) -> None:
+        """Create default system categories if they don't exist for a profile."""
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        if not pid:
+            return
+        existing = conn.execute(
+            "SELECT name FROM meeting_categories WHERE profile_id=? AND is_system=1",
+            (pid,),
+        ).fetchall()
+        existing_names = {r["name"] for r in existing}
+        defaults = [
+            ("Bewerbung", "#0ea5e9", 1),
+            ("Interview", "#f59e0b", 1),
+            ("Privat", "#6b7280", 0),
+        ]
+        for name, color, show_stats in defaults:
+            if name not in existing_names:
+                conn.execute(
+                    """INSERT INTO meeting_categories
+                       (id, profile_id, name, color, show_in_stats, is_system, created_at)
+                       VALUES (?, ?, ?, ?, ?, 1, ?)""",
+                    (_gen_id(), pid, name, color, show_stats, _now()),
+                )
+        conn.commit()
+
+    def add_meeting_category(self, data: dict) -> str:
+        """Create a custom meeting category."""
+        conn = self.connect()
+        cid = _gen_id()
+        pid = self.get_active_profile_id()
+        conn.execute(
+            """INSERT INTO meeting_categories
+               (id, profile_id, name, color, show_in_stats, is_system, created_at)
+               VALUES (?, ?, ?, ?, ?, 0, ?)""",
+            (cid, pid, data["name"], data.get("color", "#3b82f6"),
+             1 if data.get("show_in_stats", True) else 0, _now()),
+        )
+        conn.commit()
+        return cid
+
+    def update_meeting_category(self, category_id: str, data: dict) -> bool:
+        """Update a custom meeting category (not system categories)."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        sets, vals = [], []
+        for k in ("name", "color", "show_in_stats"):
+            if k in data:
+                sets.append(f"{k}=?")
+                vals.append(data[k])
+        if not sets:
+            return False
+        vals.extend([category_id, pid])
+        cur = conn.execute(
+            f"UPDATE meeting_categories SET {', '.join(sets)} WHERE id=? AND profile_id=?",
+            vals,
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_meeting_category(self, category_id: str, reassign_to: str = None) -> bool:
+        """Delete a custom category. Optionally reassign meetings to another category."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        # Prevent deleting system categories
+        row = conn.execute(
+            "SELECT is_system FROM meeting_categories WHERE id=? AND profile_id=?",
+            (category_id, pid),
+        ).fetchone()
+        if not row or row["is_system"]:
+            return False
+        if reassign_to:
+            conn.execute(
+                "UPDATE application_meetings SET category_id=? WHERE category_id=? AND profile_id=?",
+                (reassign_to, category_id, pid),
+            )
+        else:
+            conn.execute(
+                "UPDATE application_meetings SET category_id=NULL WHERE category_id=? AND profile_id=?",
+                (category_id, pid),
+            )
+        conn.execute(
+            "DELETE FROM meeting_categories WHERE id=? AND profile_id=? AND is_system=0",
+            (category_id, pid),
+        )
+        conn.commit()
+        return True
 
 
 def _safe_float(val, default=None):
@@ -4187,7 +4350,7 @@ CREATE TABLE IF NOT EXISTS application_emails (
 
 CREATE TABLE IF NOT EXISTS application_meetings (
     id TEXT PRIMARY KEY,
-    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    application_id TEXT REFERENCES applications(id) ON DELETE CASCADE,
     email_id TEXT REFERENCES application_emails(id) ON DELETE SET NULL,
     profile_id TEXT,
     title TEXT NOT NULL,
@@ -4200,6 +4363,19 @@ CREATE TABLE IF NOT EXISTS application_meetings (
     ics_data TEXT,
     notes TEXT,
     status TEXT DEFAULT 'geplant',
+    is_private INTEGER DEFAULT 0,
+    duration_minutes INTEGER,
+    category_id TEXT,
+    created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS meeting_categories (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT '#3b82f6',
+    show_in_stats INTEGER DEFAULT 1,
+    is_system INTEGER DEFAULT 0,
     created_at TEXT
 );
 

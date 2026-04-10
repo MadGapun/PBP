@@ -2,6 +2,19 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.22] - 2026-04-10
+
+### Features
+- **Kalender CRUD** (#418, #419): "Neuer Termin" Button funktioniert jetzt vollstaendig mit Dauer, Kategorie, Bewerbungs-Verknuepfung; Termine koennen bearbeitet und mit Bestaetigungsdialog geloescht werden
+- **Benutzerdefinierte Kategorien** (#417): System-Kategorien (Bewerbung, Interview, Privat) und frei erstellbare Kategorien mit Farbe und Statistik-Sichtbarkeit; Filter-Checkboxen im Kalender
+- **Kalender-Ansichten** (#394): Umschaltbare Ansichten (Woche/Monat/Quartal/Halbjahr) mit Navigation; Private Eintraege werden als "Geblockt" (grau) angezeigt und erscheinen nicht in Statistik/Aktivitaetslog
+- **Termin-Navigation** (#395): Klick auf Bewerbungstermin oeffnet Bewerbungs-Dossier; Klick auf privaten/unverknuepften Termin oeffnet Bearbeitungsdialog
+- **Profil-Gefahrenzone** (#420): "Profil loeschen" wurde von der Profil-Seite in die Gefahrenzone der Einstellungen verschoben mit Profilnamen-Bestaetigung
+- **Dashboard-Redesign** (#421): "Im Fluss" + "Heute fuer dich" links (2/3), Schnellimport rechts (1/3); Anstehende Termine direkt unter "Im Fluss" (max 5, mit Klick-Navigation)
+
+### Datenbank
+- Schema v23: `application_meetings.application_id` ist jetzt nullable (erlaubt manuelle Termine ohne Bewerbung), neue Spalten `is_private`, `duration_minutes`, `category_id`; neue Tabelle `meeting_categories`
+
 ## [1.5.0-beta.21] - 2026-04-10
 
 ### Bug Fixes
