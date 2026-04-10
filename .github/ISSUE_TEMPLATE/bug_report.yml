@@ -6,24 +6,61 @@ body:
   - type: markdown
     attributes:
       value: |
-        Danke, dass du dir die Zeit nimmst, einen Bug zu melden!
-        Je genauer du beschreibst, was passiert ist, desto schneller können wir helfen.
+        ## Danke für deine Fehlermeldung!
+
+        Bitte lies kurz durch bevor du anfängst — das spart uns beiden Zeit:
+
+        **Schritt 1 — PBP-Version herausfinden:**
+        Steht ganz unten im Dashboard. Alternativ in der Konsole:
+        ```
+        python -c "from bewerbungs_assistent import __version__; print(__version__)"
+        ```
+
+        **Schritt 2 — Log-Datei vorbereiten:**
+        Die Log-Datei enthält fast immer den Hinweis was schiefgelaufen ist.
+        Öffne sie mit einem Texteditor und kopiere die letzten 20–30 Zeilen:
+        - **Windows:** `%LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log`
+          → In Explorer eingeben oder: `notepad %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log`
+        - **macOS/Linux:** `~/.bewerbungs-assistent/logs/pbp.log`
+
+        **Schritt 3 — Formular ausfüllen** (Pflichtfelder sind mit * markiert)
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Betroffener Bereich *"
+      description: Wo genau ist das Problem aufgetreten?
+      options:
+        - Dashboard (Web-UI im Browser)
+        - MCP Tool (Konversation in Claude Desktop)
+        - Jobsuche / Scraper
+        - Bewerbungen
+        - Profil / Lebenslauf
+        - Export (PDF/DOCX)
+        - Installation / Update
+        - E-Mail Import
+        - Statistiken
+        - Sonstiges
+    validations:
+      required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Was ist passiert?
-      description: Beschreibe das Problem so genau wie möglich.
-      placeholder: "Wenn ich auf 'Stellen' klicke, erscheint eine leere Seite..."
+      label: "Was ist passiert? *"
+      description: Beschreibe das Problem so genau wie möglich. Was hast du getan, was ist dann passiert?
+      placeholder: |
+        Beispiel: "Ich habe auf 'Jobsuche starten' geklickt. Nach 2 Minuten kam
+        die Fehlermeldung 'Timeout' und es wurden keine Stellen gefunden."
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Was hättest du erwartet?
+      label: "Was hättest du erwartet? *"
       description: Was sollte stattdessen passieren?
-      placeholder: "Die Stellenliste sollte angezeigt werden."
+      placeholder: "Beispiel: Die Jobsuche sollte Stellen finden und anzeigen."
     validations:
       required: true
 
@@ -31,53 +68,99 @@ body:
     id: steps
     attributes:
       label: Schritte zum Reproduzieren
-      description: Wie können wir das Problem nachstellen?
+      description: Wenn wir das Problem nachstellen können, finden wir es viel schneller. Optional aber sehr hilfreich.
       placeholder: |
-        1. Dashboard öffnen
-        2. Auf 'Stellen' klicken
-        3. ...
+        1. Dashboard öffnen (http://localhost:8200)
+        2. Auf "Jobsuche" klicken
+        3. "Suche starten" drücken
+        4. Nach 2 Minuten erscheint der Fehler
     validations:
       required: false
+
+  - type: input
+    id: pbp_version
+    attributes:
+      label: "PBP-Version *"
+      description: "Steht unten im Dashboard — oder per Konsole: python -c \"from bewerbungs_assistent import __version__; print(__version__)\""
+      placeholder: "z.B. 1.5.0-beta.10"
+    validations:
+      required: true
 
   - type: dropdown
     id: os
     attributes:
-      label: Betriebssystem
+      label: "Betriebssystem *"
       options:
-        - Windows 10
         - Windows 11
-        - macOS
+        - Windows 10
+        - macOS (Apple Silicon / M1–M4)
+        - macOS (Intel)
         - Linux
         - Andere
     validations:
       required: true
 
-  - type: input
-    id: version
+  - type: dropdown
+    id: installation_type
     attributes:
-      label: PBP-Version
-      description: "Findest du unten im Dashboard oder via `python -c \"from bewerbungs_assistent import __version__; print(__version__)\"`"
-      placeholder: "z.B. 1.0.0"
+      label: "Installation *"
+      description: Frisch installiert oder von einer älteren Version aktualisiert? Das ist wichtig für Migrations-Bugs.
+      options:
+        - Frisch installiert (erste Installation)
+        - Update von einer älteren Version (z.B. 1.4.x → 1.5.x)
+        - Ich bin nicht sicher
     validations:
-      required: false
+      required: true
+
+  - type: dropdown
+    id: worked_before
+    attributes:
+      label: "Hat es vorher funktioniert? *"
+      description: Hilft uns zu verstehen ob es eine Regression ist oder ein Erstproblem.
+      options:
+        - "Ja — hat früher funktioniert, seit kurzem nicht mehr"
+        - "Nein — hat noch nie funktioniert (z.B. direkt nach Installation)"
+        - "Weiß ich nicht"
+    validations:
+      required: true
 
   - type: dropdown
     id: claude_plan
     attributes:
       label: Claude Desktop Plan
+      description: Relevant für MCP-Tool-Limits und Timeout-Verhalten bei langen Operationen.
       options:
         - Free
         - Pro
         - Max
-        - Weiß ich nicht
+        - Ich weiß es nicht
+    validations:
+      required: false
+
+  - type: textarea
+    id: error_message
+    attributes:
+      label: Fehlermeldung oder Screenshot
+      description: |
+        Kopiere hier Fehlermeldungen aus dem Browser (F12 → Konsole) oder aus der Claude-Konversation.
+        Screenshots kannst du direkt hier einfügen (Drag & Drop oder Einfügen).
+      render: shell
     validations:
       required: false
 
   - type: textarea
     id: logs
     attributes:
-      label: Fehlermeldung / Logs
-      description: Falls vorhanden — Fehlermeldungen, Konsolenausgabe oder Screenshots.
+      label: Log-Auszug (pbp.log) — sehr hilfreich!
+      description: |
+        Öffne die Log-Datei und kopiere die letzten 20–30 Zeilen rund um den Fehlerzeitpunkt:
+        • Windows: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+        • macOS/Linux: ~/.bewerbungs-assistent/logs/pbp.log
+
+        Tipp: Suche nach Zeilen mit "ERROR" oder "WARNING" — die sind besonders relevant.
       render: shell
+      placeholder: |
+        2026-04-09 08:41:52 [bewerbungs_assistent.scraper] WARNING: ...
+        2026-04-09 08:41:52 [bewerbungs_assistent] ERROR: ...
     validations:
       required: false
