@@ -961,6 +961,83 @@ class TestApplicationDetail:
         assert delete_email.status_code == 200
         assert dash._db.get_email(email_id) is None
 
+    def test_cv_data_endpoints_reject_cross_profile_access(self, client):
+        """Positions, Education, Skills, Job-Titles und Projects duerfen keine fremden Profile aendern."""
+        import bewerbungs_assistent.dashboard as dash
+
+        pid_a = dash._db.create_profile("Profil A", "a@example.com")
+        conn = dash._db.connect()
+
+        pid_b = dash._db.create_profile("Profil B", "b@example.com")
+        dash._db.switch_profile(pid_b)
+        conn.execute(
+            "INSERT INTO positions (id, profile_id, company, title, start_date) VALUES (?,?,?,?,?)",
+            ("pos_b", pid_b, "Firma B", "Dev B", "2021-01-01"),
+        )
+        conn.execute(
+            "INSERT INTO education (id, profile_id, institution, degree, field_of_study, start_date) VALUES (?,?,?,?,?,?)",
+            ("edu_b", pid_b, "Uni B", "BSc", "Mathe", "2016-01-01"),
+        )
+        conn.execute(
+            "INSERT INTO skills (id, profile_id, name, level) VALUES (?,?,?,?)",
+            ("skill_b", pid_b, "Java", "advanced"),
+        )
+        conn.execute(
+            "INSERT INTO suggested_job_titles (id, profile_id, title, source, confidence) VALUES (?,?,?,?,?)",
+            ("jt_b", pid_b, "Manager", "manual", 1.0),
+        )
+        conn.execute(
+            "INSERT INTO projects (id, position_id, name, description) VALUES (?,?,?,?)",
+            ("proj_b", "pos_b", "Geheimprojekt", "Vertraulich"),
+        )
+        conn.commit()
+
+        dash._db.switch_profile(pid_a)
+
+        # Position: PUT und DELETE
+        assert client.put("/api/position/pos_b", json={"title": "HACKED"}).status_code == 404
+        assert conn.execute("SELECT title FROM positions WHERE id='pos_b'").fetchone()[0] == "Dev B"
+        assert client.delete("/api/position/pos_b").status_code == 404
+        assert conn.execute("SELECT id FROM positions WHERE id='pos_b'").fetchone() is not None
+
+        # Education: PUT und DELETE
+        assert client.put("/api/education/edu_b", json={"institution": "HACKED"}).status_code == 404
+        assert conn.execute("SELECT institution FROM education WHERE id='edu_b'").fetchone()[0] == "Uni B"
+        assert client.delete("/api/education/edu_b").status_code == 404
+        assert conn.execute("SELECT id FROM education WHERE id='edu_b'").fetchone() is not None
+
+        # Skill: PUT und DELETE
+        assert client.put("/api/skill/skill_b", json={"name": "HACKED"}).status_code == 404
+        assert conn.execute("SELECT name FROM skills WHERE id='skill_b'").fetchone()[0] == "Java"
+        assert client.delete("/api/skill/skill_b").status_code == 404
+        assert conn.execute("SELECT id FROM skills WHERE id='skill_b'").fetchone() is not None
+
+        # Job-Title: PUT und DELETE
+        assert client.put("/api/job-title/jt_b", json={"title": "HACKED"}).status_code == 404
+        assert conn.execute("SELECT title FROM suggested_job_titles WHERE id='jt_b'").fetchone()[0] == "Manager"
+        assert client.delete("/api/job-title/jt_b").status_code == 404
+        assert conn.execute("SELECT id FROM suggested_job_titles WHERE id='jt_b'").fetchone() is not None
+
+        # Project: PUT und DELETE
+        assert client.put("/api/project/proj_b", json={"name": "HACKED"}).status_code == 404
+        assert conn.execute("SELECT name FROM projects WHERE id='proj_b'").fetchone()[0] == "Geheimprojekt"
+        assert client.delete("/api/project/proj_b").status_code == 404
+        assert conn.execute("SELECT id FROM projects WHERE id='proj_b'").fetchone() is not None
+
+    def test_status_update_requires_status_field(self, client):
+        """PUT /api/applications/{app_id}/status muss 400 liefern wenn status fehlt."""
+        import bewerbungs_assistent.dashboard as dash
+
+        dash._db.create_profile("Tester", "t@example.com")
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma", "status": "offen"})
+
+        r = client.put(f"/api/applications/{app_id}/status", json={})
+        assert r.status_code == 400
+        assert "status" in r.json()["error"].lower()
+
+        r = client.put(f"/api/applications/{app_id}/status", json={"notes": "nur notiz"})
+        assert r.status_code == 400
+
 
 # ============================================================
 # Gespraechsnotizen
