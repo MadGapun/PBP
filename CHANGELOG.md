@@ -2,6 +2,15 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.0-beta.20] - 2026-04-10
+
+### Bug Fixes
+- Weitere Application-/Email-Endpunkte gegen profilfremde IDs abgesichert: Timeline, Print, Status, Notes, Snapshot, Fit-Analyse, E-Mail-Details, E-Mail-Loeschen, Match-Bestaetigung und Status-Uebernahme pruefen jetzt aktives Profil und aktive Bewerbung
+- Bewerbungsbearbeitung schreibt Timeline-Eintraege wieder schema-konform ohne String-ID und liefert bei echten Aenderungen keinen `datatype mismatch`-500er mehr
+
+### Qualitaet
+- Regressionstests fuer Cross-Profile-Bewerbungen/E-Mails sowie Same-Profile-Bearbeitung und E-Mail-Aktionen ergaenzt
+
 ## [1.5.0-beta.19] - 2026-04-10
 
 ### Bug Fixes

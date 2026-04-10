@@ -804,6 +804,163 @@ class TestApplicationDetail:
         )
         assert create_same.status_code == 200
 
+    def test_application_and_email_endpoints_reject_cross_profile_access(self, client):
+        """Bewerbungs- und E-Mail-Endpunkte duerfen keine fremden Profile lesen oder veraendern."""
+        import bewerbungs_assistent.dashboard as dash
+
+        pid_a = dash._db.create_profile("Profil A", "a@example.com")
+        app_a = dash._db.add_application({"title": "Job A", "company": "Firma A", "status": "offen"})
+
+        pid_b = dash._db.create_profile("Profil B", "b@example.com")
+        dash._db.switch_profile(pid_b)
+        app_b = dash._db.add_application({"title": "Job B", "company": "Firma B", "status": "offen"})
+        dash._db.add_application_note(app_b, "Geheime Notiz B")
+        conn = dash._db.connect()
+        note_event_id = conn.execute(
+            "SELECT id FROM application_events WHERE application_id=? AND status='notiz' ORDER BY id DESC LIMIT 1",
+            (app_b,),
+        ).fetchone()[0]
+        email_path = Path(os.environ["BA_DATA_DIR"]) / "profil-b-mail.eml"
+        email_path.write_text("Subject: Vertraulich", encoding="utf-8")
+        email_b = dash._db.add_email({
+            "application_id": app_b,
+            "filename": "profil-b-mail.eml",
+            "filepath": str(email_path),
+            "subject": "Interview nur fuer Profil B",
+            "sender": "hr@firma-b.de",
+            "recipients": "b@example.com",
+            "sent_date": "2026-04-10T10:00:00",
+            "body_text": "Vertraulicher Inhalt Profil B",
+        })
+
+        dash._db.switch_profile(pid_a)
+
+        assert client.get(f"/api/application/{app_b}/timeline").status_code == 404
+        assert client.get(f"/api/application/{app_b}/timeline/print").status_code == 404
+        assert client.put(
+            f"/api/applications/{app_b}/status",
+            json={"status": "zusage", "notes": "Profil A aendert Profil B"},
+        ).status_code == 404
+        assert dash._db.get_application(app_b)["status"] == "offen"
+
+        assert client.put(
+            f"/api/applications/{app_b}",
+            json={"company": "Manipulierte Firma"},
+        ).status_code == 404
+        assert dash._db.get_application(app_b)["company"] == "Firma B"
+
+        assert client.post(
+            f"/api/applications/{app_b}/notes",
+            json={"text": "Fremde Notiz"},
+        ).status_code == 404
+        assert client.put(
+            f"/api/applications/{app_b}/notes/{note_event_id}",
+            json={"text": "Ueberschrieben"},
+        ).status_code == 404
+        assert client.delete(f"/api/applications/{app_b}/notes/{note_event_id}").status_code == 404
+        note_row = dash._db.connect().execute(
+            "SELECT notes FROM application_events WHERE id=?",
+            (note_event_id,),
+        ).fetchone()
+        assert note_row["notes"] == "Geheime Notiz B"
+
+        assert client.post(
+            f"/api/applications/{app_b}/snapshot",
+            json={"url": "data:text/html,<html><body>Geheim</body></html>"},
+        ).status_code == 404
+        assert not dash._db.get_application(app_b).get("description_snapshot")
+
+        assert client.post(
+            f"/api/applications/{app_b}/fit-analyse",
+            json={"score": 13, "summary": "Manipuliert"},
+        ).status_code == 404
+        assert dash._db.get_application(app_b).get("fit_analyse") is None
+
+        assert client.get(f"/api/emails/{email_b}").status_code == 404
+        assert client.get(f"/api/applications/{app_b}/emails").status_code == 404
+        assert client.delete(f"/api/emails/{email_b}").status_code == 404
+        assert dash._db.get_email(email_b) is not None
+
+        assert client.post(
+            f"/api/emails/{email_b}/confirm-match",
+            json={"application_id": app_a},
+        ).status_code == 404
+        assert dash._db.get_email(email_b)["application_id"] == app_b
+
+        assert client.post(
+            f"/api/emails/{email_b}/apply-status",
+            json={"status": "abgelehnt"},
+        ).status_code == 404
+        assert dash._db.get_application(app_a)["status"] == "offen"
+        assert dash._db.get_application(app_b)["status"] == "offen"
+
+    def test_application_update_and_email_actions_work_same_profile(self, client):
+        """Same-Profile-Bearbeitung, E-Mail-Linking und Statusuebernahme bleiben funktionsfaehig."""
+        import bewerbungs_assistent.dashboard as dash
+
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Job", "company": "Firma Alt", "status": "offen"})
+        email_path = Path(os.environ["BA_DATA_DIR"]) / "profil-a-mail.eml"
+        email_path.write_text("Subject: Hallo", encoding="utf-8")
+        email_id = dash._db.add_email({
+            "filename": "profil-a-mail.eml",
+            "filepath": str(email_path),
+            "subject": "Intervieweinladung",
+            "sender": "hr@firma.de",
+            "recipients": "tester@example.com",
+            "sent_date": "2026-04-10T10:00:00",
+            "body_text": "Wir laden Sie zum Interview ein.",
+        })
+
+        get_email = client.get(f"/api/emails/{email_id}")
+        assert get_email.status_code == 200
+        assert get_email.json()["subject"] == "Intervieweinladung"
+
+        confirm_match = client.post(
+            f"/api/emails/{email_id}/confirm-match",
+            json={"application_id": app_id},
+        )
+        assert confirm_match.status_code == 200
+        assert dash._db.get_email(email_id)["application_id"] == app_id
+
+        list_emails = client.get(f"/api/applications/{app_id}/emails")
+        assert list_emails.status_code == 200
+        assert list_emails.json()["count"] == 1
+
+        apply_status = client.post(
+            f"/api/emails/{email_id}/apply-status",
+            json={"status": "interview"},
+        )
+        assert apply_status.status_code == 200
+        assert dash._db.get_application(app_id)["status"] == "interview"
+
+        update_application = client.put(
+            f"/api/applications/{app_id}",
+            json={"company": "Firma Neu"},
+        )
+        assert update_application.status_code == 200
+        assert update_application.json()["changes"] == 1
+        assert dash._db.get_application(app_id)["company"] == "Firma Neu"
+
+        save_fit = client.post(
+            f"/api/applications/{app_id}/fit-analyse",
+            json={"score": 42, "summary": "Passt gut"},
+        )
+        assert save_fit.status_code == 200
+        assert dash._db.get_application(app_id)["fit_analyse"]["score"] == 42
+
+        timeline = client.get(f"/api/application/{app_id}/timeline")
+        assert timeline.status_code == 200
+        assert any(event["status"] == "bearbeitet" for event in timeline.json()["events"])
+
+        printable = client.get(f"/api/application/{app_id}/timeline/print")
+        assert printable.status_code == 200
+        assert "Firma Neu" in printable.text
+
+        delete_email = client.delete(f"/api/emails/{email_id}")
+        assert delete_email.status_code == 200
+        assert dash._db.get_email(email_id) is None
+
 
 # ============================================================
 # Gespraechsnotizen
