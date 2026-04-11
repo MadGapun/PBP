@@ -403,6 +403,37 @@ def _take_screenshots(port: int, output_dir: Path):
         for hash_id, filename, desc in tabs:
             _screenshot(page, f"{base}#{hash_id}", output_dir / filename, desc)
 
+        # Dossier-Screenshot: Klick auf Bewerbungstitel oeffnet Timeline-Modal
+        print("  Erstelle Dossier-Screenshot...")
+        page.goto(f"{base}#bewerbungen")
+        page.wait_for_load_state("networkidle")
+        time.sleep(2)
+        _dismiss_toasts(page)
+        # Klick auf einen h3-Bewerbungstitel (oeffnet openTimeline)
+        titles = page.locator("h3.cursor-pointer").all()
+        if titles:
+            titles[0].click()
+            time.sleep(3)
+            _dismiss_toasts(page)
+        page.screenshot(path=str(output_dir / "04b_dossier.png"), full_page=False)
+        print(f"  Screenshot: 04b_dossier.png (Bewerbungs-Dossier)")
+
+        # Einstellungen Datenschutz-Tab Screenshot
+        print("  Erstelle Datenschutz-Screenshot...")
+        page.goto(f"{base}#einstellungen")
+        page.wait_for_load_state("networkidle")
+        time.sleep(1)
+        # Klick auf Datenschutz-Tab
+        tabs_btns = page.locator("button").all()
+        for btn in tabs_btns:
+            if "Datenschutz" in (btn.text_content() or ""):
+                btn.click()
+                break
+        time.sleep(1)
+        _dismiss_toasts(page)
+        page.screenshot(path=str(output_dir / "08b_datenschutz.png"), full_page=False)
+        print(f"  Screenshot: 08b_datenschutz.png (Einstellungen-Datenschutz)")
+
         browser.close()
 
 
