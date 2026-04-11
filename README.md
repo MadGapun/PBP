@@ -2,6 +2,8 @@
 
 <sup>An <b>ELWOSA</b> Project</sup>
 
+> **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German. Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
+
 > PBP verwaltet deine Bewerbungen, durchsucht diverse Stellenportale und gibt dir ehrliches Feedback zu deinen Unterlagen — mit konkreten Vorschlägen, wie es besser geht. Läuft lokal, kostet nichts, deine Daten bleiben bei dir.
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
