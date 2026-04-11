@@ -16,7 +16,7 @@ import {
   PageHeader,
   SelectInput,
 } from "@/components/ui";
-import { cn, formatDate } from "@/utils";
+import { cn, formatDate, formatDateTime } from "@/utils";
 
 const DOC_TYPE_LABELS = {
   lebenslauf: "Lebenslauf",
@@ -402,7 +402,7 @@ export default function DocumentsPage() {
                       {(doc.app_company || doc.app_title) ? (
                         <button
                           type="button"
-                          onClick={() => navigateTo("bewerbungen", { highlight: doc.linked_application_id })}
+                          onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { highlight: doc.linked_application_id }); }}
                           className="mt-0.5 flex items-center gap-1 text-sm text-sky/70 hover:text-sky transition-colors"
                         >
                           <Link2 size={11} />
