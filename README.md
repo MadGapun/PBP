@@ -227,14 +227,17 @@ Das groesste Update seit dem ersten Public Release:
 
 ## FAQ
 
+**Brauche ich ueberhaupt eine KI?**
+Nein! PBP ist ein eigenstaendiges Verwaltungstool. Ohne Claude kannst du: Bewerbungen verwalten, Dokumente organisieren, Termine planen, Statistiken auswerten, E-Mails importieren und Follow-ups tracken. Claude ist ein optionaler Sparringspartner — er kann dir Feedback geben, Anschreiben formulieren oder Interviews simulieren. Aber die Kernfunktionen laufen komplett ohne KI.
+
 **Brauche ich einen Claude Pro Account?**
-Nein — PBP funktioniert mit jedem Claude Desktop Account. Ein Pro-Account hat höhere Nutzungslimits, was bei vielen Jobsuchen hilfreich sein kann.
+Nein — PBP funktioniert mit jedem Claude Desktop Account, auch dem kostenlosen. Ein Pro-Account hat hoehere Nutzungslimits, was bei vielen Jobsuchen hilfreich sein kann.
 
 **Werden meine Daten in die Cloud geschickt?**
-Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (SQLite). Wenn du Claude nutzt (Gespräch, Anschreiben, Fit-Analyse), werden die relevanten Daten an Claude gesendet — wie bei jeder normalen Claude-Konversation.
+Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (SQLite). Wenn du Claude nutzt (Gespraech, Anschreiben, Fit-Analyse), werden die relevanten Daten an Claude gesendet — wie bei jeder normalen Claude-Konversation.
 
 **Kann ich PBP ohne Jobportale nutzen?**
-Ja! Du kannst PBP auch nur für Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
+Ja! Du kannst PBP auch nur fuer Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
 > 📖 **Weitere Fragen und Troubleshooting:** [Wiki → FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
 
