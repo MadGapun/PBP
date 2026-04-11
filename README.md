@@ -9,9 +9,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.5.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-401-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](#mcp-schnittstelle)
-[![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](#die-18-workflows)
+[![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
+[![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
+[![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
 
 ---
 
@@ -37,60 +38,43 @@ Die meisten Bewerber wissen es nicht. Sie schreiben ihren CV einmal, kopieren da
 
 **PBP ist dieser ehrliche Sparringspartner.**
 
-### Fang einfach an — mit dem, was du schon hast
-
-Du hast irgendwo einen Lebenslauf rumliegen? Ein altes Anschreiben? Projektbeschreibungen vom letzten Job? **Wirf alles rein.** PBP liest jedes Dokument, extrahiert die Fakten und baut daraus dein Profil. Alte Formulierungsfehler, schiefe Formatierungen, veraltete Buzzwords — werden nicht übernommen. Nur die harten Fakten: Was hast du gemacht, wo, wie lange, mit welchen Tools.
-
-> 💡 **Der schnellste Einstieg:** Lade deine letzte Bewerbung hoch und sag *"Analysiere meinen Lebenslauf"*. Du wirst überrascht sein, was dir auffällt — und was dir bisher keiner gesagt hat.
-
-Du kannst einzelne Dateien hochladen oder gleich einen ganzen Ordner mit Jahren an Unterlagen. Mit jedem Dokument wird dein Profil schärfer. Zeugnisse, Urkunden, Zertifikate, alte CVs — alles ist Rohmaterial.
-
 ### Was PBP anders macht
 
 PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absenden". PBP gibt dir **Perspektive, Struktur und ehrliches Feedback** — die Entscheidungen triffst du.
 
 | Du fragst dich... | PBP hilft dir so |
 |-------------------|-----------------|
-| *"Ist mein Lebenslauf gut genug?"* | **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen Recruiter? Mit konkreten Verbesserungsvorschlägen. |
-| *"Passe ich überhaupt auf die Stelle?"* | **Fit-Analyse** — PBP vergleicht dein Profil Punkt für Punkt mit der Stellenbeschreibung. Ehrlich, nicht schöngerechnet. |
+| *"Ist mein Lebenslauf gut genug?"* | **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen Recruiter? |
+| *"Passe ich überhaupt auf die Stelle?"* | **Fit-Analyse** — Punkt-für-Punkt-Vergleich Profil vs. Stelle. Ehrlich, nicht schöngerechnet. |
 | *"Was fehlt mir noch?"* | **Skill-Gap-Analyse** — Welche Fähigkeiten verlangt die Stelle, die du (noch) nicht hast? |
-| *"Wie bringe ich meine Erfahrung besser rüber?"* | **STAR-Methode** — PBP strukturiert deine Projekte nach Situation-Task-Action-Result. Das Format, das Recruiter lieben. |
-| *"Wie soll ich auf die Absage reagieren?"* | **Ablehnungs-Coaching** — Keine Durchhalteparolen, sondern ehrliche Analyse: Was kannst du beim nächsten Mal konkret besser machen? |
-| *"Was soll ich im Interview sagen?"* | **Interview-Simulation** — Claude spielt den Interviewer auf Basis der echten Stelle. Mit Feedback danach. |
-| *"Wie verhandle ich das Gehalt?"* | **Gehaltsverhandlung** — Markdaten, Strategie, konkrete Argumente. Kein Bauchgefühl. |
+| *"Was soll ich im Interview sagen?"* | **Interview-Simulation** — Claude spielt den Interviewer auf Basis der echten Stelle. |
+| *"Wie verhandle ich das Gehalt?"* | **Gehaltsverhandlung** — Markdaten, Strategie, konkrete Argumente. |
 
 ### Und wenn du mehr willst
 
-PBP kann auch die Fleißarbeit übernehmen — wenn du es möchtest:
+- **18 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 14 weitere
+- **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
+- **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
+- **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
+- **Bewerbungs-Tracking** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
+- **Scoring-Regler** — Konfiguriere, was dir wichtig ist. PBP sortiert automatisch
 
-- **18 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 14 weitere. Eine Suche, alle Ergebnisse, Duplikate automatisch erkannt.
-- **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills und Erfahrung nach Relevanz sortiert sind. Als DOCX, damit du den Feinschliff selbst machst.
-- **Personalisierte Anschreiben** — Kein Copy-Paste. Basierend auf deinem Profil und der konkreten Stelle.
-- **Bewerbungs-Tracking** — Pipeline von "offen" bis "Angebot" mit Timeline, Notizen und Statistiken. Live-Dashboard im Browser.
-- **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. PBP erkennt: Eingangsbestätigung, Einladung oder Absage? Termine werden extrahiert.
-- **Follow-ups & Erinnerungen** — Damit keine Bewerbung in Vergessenheit gerät.
-- **Geführter Bewerbungs-Workflow** — PBP zeigt dir bei jeder Bewerbung die nächsten Schritte. Von der Vorbereitung bis zum Angebot — immer genau eine Aktion, nie überfordert.
-- **Scoring-Regler-System** — Konfiguriere, was dir wichtig ist: Stellentyp, Entfernung, Remote, Gehalt. PBP sortiert automatisch.
-- **PDF-Bewerbungsbericht** — Arbeitsamt-tauglich mit Executive Summary, Quellenanalyse und PBP-Branding.
+> 📖 **Alle Features im Detail:** [Wiki → Dashboard](https://github.com/MadGapun/PBP/wiki/Dashboard) · [Workflows](https://github.com/MadGapun/PBP/wiki/Workflows) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
 
 ### Einfach reden — keine Befehle nötig
 
-Du musst keine Kommandos kennen. Keine spezielle Syntax. Keine Prompts formulieren. **Du redest einfach mit Claude, wie mit einem Menschen.**
-
-Sobald PBP läuft, weiß Claude wer du bist, was du suchst und wo du stehst. Du tippst einfach los:
+Du musst keine Kommandos kennen. **Du redest einfach mit Claude, wie mit einem Menschen.**
 
 > *"Schau mal über meinen Lebenslauf"*
 > *"Ich hab ne Absage bekommen, was mach ich falsch?"*
 > *"Bereite mich auf das Interview morgen vor"*
 > *"Suche was mit Python in Hamburg"*
 
-Claude versteht dich — auch mit Tippfehlern, halben Sätzen oder wenn du nicht genau weißt, wie man es "richtig" fragt. Und wenn etwas unklar ist, fragt Claude einfach nach. Kein Fehler, kein Absturz, kein "Befehl nicht erkannt".
+**🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache.
 
-**🎙️ Oder einfach sprechen:** Drück aufs Mikrofon in Claude Desktop und rede. Interview-Training, Profilerstellung, Feedback — alles geht auch per Sprache. Wie ein echtes Coaching-Gespräch am Küchentisch. Besonders beim Interview-Training macht das einen riesigen Unterschied: Du übst, frei zu antworten — nicht Texte zu tippen.
+---
 
-> 💡 **Für Power-User:** Es gibt 16 vorgefertigte Workflows (z.B. `interview_simulation`, `gefuehrte_bewerbung`). In Clients mit MCP-Prompt-Unterstützung kannst du sie als Slash-Command starten. Im Dashboard kopiert PBP dir aber bewusst auch eine fertige Arbeitsanweisung für Claude, damit es nicht von der jeweiligen Claude-Oberfläche abhängt. Optional bleibt es trotzdem — alles geht auch einfach im Gespräch.
-
-### Voraussetzungen
+## Voraussetzungen
 
 PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose App von Anthropic für Windows, Mac und Linux.
 
@@ -101,7 +85,6 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 | **Nachrichten** | ~20 pro Tag | ~45 pro 5 Stunden (5× mehr) | 5×–20× mehr als Pro |
 | **MCP-Tools (PBP)** | ✅ Funktioniert | ✅ Funktioniert | ✅ Funktioniert |
 | **Mikrofon/Sprache** | ✅ Ja | ✅ Ja | ✅ Ja |
-| **Limit-Reset** | Alle 5–8 Stunden | Alle 5–8 Stunden | Wöchentlich |
 
 > **Vorab, ganz offen:** Wir — die Macher von PBP — haben keinen Vertrag, keine Kooperation und keinen Verdienst durch Anthropic (die Firma hinter Claude). Wir verdienen nichts an diesem Tool. PBP ist ein Herzensprojekt, Open Source, kostenlos.
 >
@@ -121,187 +104,23 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 
 > **&#9888;&#65039; Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). **Kein Server, kein Account, kein Cloud-Speicher.** Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach. **Deine Bewerbungsdaten verlassen niemals deinen Computer.**
 
--
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
 - **Open Source & kostenlos.** PBP selbst kostet nichts. Du brauchst nur Claude Desktop (Free oder Pro).
 
 ---
 
-## Was PBP kann — Feature-Übersicht
-
-### 🗣️ Profilerstellung — aus Gespräch und Dokumenten
-Claude führt ein lockeres Interview und erfasst alles:
-- Persönliche Daten, Kontakt, Standort
-- Berufserfahrung mit Projekten (STAR-Methode)
-- Ausbildung, Zertifikate, Sprachen
-- Skills mit Level (1-5) und Aktualität
-- Gehaltsvorstellungen und Arbeitspräferenzen (Remote, Teilzeit, Reisebereitschaft)
-
-**Aber das Beste:** Du musst nicht bei Null anfangen. Lade einfach hoch, was du hast:
-
-- 📄 **Alte Lebensläufe** (PDF/DOCX) — auch wenn sie 5 Jahre alt sind
-- 📋 **Projektbeschreibungen** — aus alten Bewerbungen oder internen Dokumenten
-- 🎓 **Zeugnisse & Urkunden** — Abschlüsse, Zertifikate, Weiterbildungen
-- ✉️ **Frühere Bewerbungen** — Anschreiben enthalten oft die besten Selbstbeschreibungen
-- 📑 **Arbeitszeugnisse** — PBP extrahiert Positionen, Zeiträume und Aufgaben
-
-PBP liest jedes Dokument, extrahiert die Fakten und reichert dein Profil an. **Mit jedem Upload wird dein Profil schärfer** — mehr Skills, mehr Stationen, bessere Beschreibungen. Alte Formulierungsfehler oder veraltete Formate werden dabei nicht übernommen — nur die harten Fakten zählen.
-
-**Ordner-Import:** Du kannst auch ganze Ordner auf einmal importieren — PBP scannt rekursiv alle Dateien, erkennt die Dokumenttypen automatisch und verarbeitet alles in einem Durchgang. Ideal, wenn du einen `Bewerbungen/`-Ordner mit Jahren an Unterlagen hast.
-
-> 💡 **Tipp:** Du hast schon mal eine Bewerbung geschrieben? Lade sie als Erstes hoch. Das spart dir 80% der Profilersterfassung.
-
-### 💡 Erzähl auch, was dich sonst ausmacht
-
-Viele Bewerber unterschätzen, was sie neben dem Job alles können. PBP nicht.
-
-Erzähl Claude ruhig auch von:
-- **Ehrenamt** — Du trainierst die Jugend-Fußballmannschaft? Das ist Teamführung, Organisation, Konfliktlösung.
-- **Hobbys** — Du baust Drohnen? Das ist Elektronik, Problemlösung, technisches Verständnis. Du fotografierst? Liebe zum Detail, Kreativität, Bildbearbeitung.
-- **Nebenprojekte** — Du hast mal einen Online-Shop für Freunde aufgesetzt? Das ist E-Commerce, Webentwicklung, Eigeninitiative.
-- **Familiäres** — Du hast drei Jahre Angehörige gepflegt? Das ist Belastbarkeit, Empathie, Zeitmanagement unter Druck.
-
-Claude erkennt die versteckten Fähigkeiten hinter deinen Aktivitäten und übersetzt sie in die Sprache, die Recruiter verstehen. Das kann dazu führen, dass PBP dir Stellen vorschlägt, an die du selbst nie gedacht hättest — weil du gar nicht wusstest, dass dein Hobby eine gefragte Qualifikation ist.
-
-### 🔍 Stellensuche über 15 Portale
-Eine Suche — alle relevanten Portale gleichzeitig. Kein Account nötig:
-
-**Schnelle Quellen (HTTP/API — Ergebnisse in Sekunden):**
-
-| Portal | Methode | Typ | Tempo |
-|--------|---------|-----|-------|
-| Bundesagentur fuer Arbeit | REST API | Festanstellung | ⚡ Schnell |
-| Hays | Sitemap + JSON-LD | Festanstellung | ⚡ Schnell |
-| ingenieur.de (VDI) | HTML Scraping | Festanstellung | ⚡ Schnell |
-| Heise Jobs | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
-| Stellenanzeigen.de | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
-| Jobware | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
-| FERCHAU | HTML + JSON-LD | Festanstellung | ⚡ Schnell |
-| Kimeta (Aggregator) | HTML Scraping | Festanstellung | ⚡ Schnell |
-| freelance.de | HTML Scraping | Freelance | ⚡ Schnell |
-| GULP | HTML + JSON-LD | Freelance | ⚡ Schnell |
-| SOLCOM | HTML + JSON-LD | Freelance | ⚡ Schnell |
-
-**Browser-Quellen (Playwright — benoetigen Chromium, 30s-3min):**
-
-| Portal | Methode | Typ | Tempo |
-|--------|---------|-----|-------|
-| StepStone | Playwright (Browser) | Festanstellung | 🕐 1-3 Min |
-| Indeed | Playwright (Browser) | Festanstellung | 🕐 30-90s |
-| Monster | Playwright (Browser) | Festanstellung | 🕐 30-90s |
-| Freelancermap | HTML + Browser-Fallback | Freelance | 🕐 30-60s |
-
-> 💡 Du kannst in den Einstellungen frei waehlen, welche Quellen aktiv sein sollen. Die Einstellungen zeigen dir per Badge an, welche Quellen schnell und welche langsam sind.
->
-> 🕐 **Warum dauern manche Quellen laenger?** Einige Portale (StepStone, Indeed, Monster) blockieren einfache HTTP-Anfragen und erfordern einen echten Browser (Chromium/Playwright). Das dauert laenger und kann manchmal in einen Timeout laufen. **Wenn eine Browser-Quelle nicht funktioniert**, hast du zwei Alternativen:
-> - **Claude suchen lassen:** Bitte Claude, direkt auf dem Portal zu suchen — z.B. *"Suche auf stepstone.de nach Python-Stellen in Hamburg"*. Claude oeffnet die Seite, liest die Ergebnisse und uebernimmt sie mit `stelle_manuell_anlegen()`.
-> - **Selbst suchen:** Oeffne das Portal im Browser, finde interessante Stellen und teile Claude den Link — er uebernimmt den Rest.
->
-> 📌 **Gut zu wissen:** Die Tabellen oben beziehen sich auf das **Finden** von Stellen. PBP durchsucht diese Portale fuer dich und zeigt dir die Ergebnisse. Fuer die **Bewerbung selbst** kann es sein, dass das jeweilige Portal einen eigenen Account verlangt — z.B. Freelance.de, Freelancermap oder StepStone. Du siehst die Stelle und alle Details, aber um dich dort zu bewerben, brauchst du ggf. ein Konto beim Portal. Das ist kein PBP-Limit, sondern eine Regel der Stellenboersen selbst.
->
-> ⚡ **Hinweis zum Kontingent:** Die Suche ueber viele Quellen gleichzeitig verbraucht entsprechend Token-Kontingent bei Claude. Mit dem Free-Plan empfehlen wir, zunaechst nur 2-3 schnelle Quellen zu aktivieren (z.B. Bundesagentur + Hays + Kimeta). Mit Claude Pro gibt es keine Einschraenkung — dann kannst du alle Quellen gleichzeitig durchsuchen.
-
-### 📊 Intelligentes Scoring & Fit-Analyse
-Jede Stelle bekommt einen Score basierend auf:
-- **Entfernung** — 30/50/100/200km-Stufen, Stellen unter 30 km bevorzugt
-- **Keywords** — MUSS/PLUS/AUSSCHLUSS-Kriterien
-- **Gehalt** — Vergleich mit deiner Gehaltsvorstellung (Tagessatz ↔ Jahresgehalt automatisch normalisiert)
-- **Remote-Level** — Remote/Hybrid-Differenzierung mit Bonus
-- **Kompetenzen-Match** — Deine Skills vs. Stellenbeschreibung
-- **Bewerbungs-Signal** — Stellen ähnlich zu bisherigen Bewerbungen werden automatisch höher bewertet
-- **Duplikat-Erkennung** — Gleiche Stelle auf mehreren Portalen wird erkannt und zusammengeführt
-
-Im Dashboard werden Stellen nach Typ getrennt dargestellt:
-- **Linke Spalte:** Festanstellung
-- **Rechte Spalte:** Freelance/Projekt
-- Umschaltbar auf Listen-Ansicht per Knopfdruck
-- Paginierung mit frei wählbarer Seitengröße
-
-### 📝 Stellenspezifische Dokumente
-- **Angepasster Lebenslauf (DOCX)** — Skills und Positionen werden nach Relevanz für die Stelle umsortiert
-- **Personalisiertes Anschreiben (PDF/DOCX/MD/TXT)** — basierend auf Profil + Stellenbeschreibung
-- **Standard-Lebenslauf (PDF/DOCX/MD/TXT)** — für Initiativbewerbungen, jetzt auch als Markdown oder Klartext
-- **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen HR-Recruiter? Mit einstellbarer Gewichtung und konkreten Verbesserungsvorschlägen.
-
-> 📌 Immer DOCX beim angepassten CV — weil die letzten Feinschliffe ein Mensch machen sollte.
-
-### 📈 Bewerbungs-Tracking & Detailansicht
-- Status-Pipeline: offen → beworben → Interview → Angebot → angenommen/abgelehnt/abgelaufen
-- **Detailansicht pro Bewerbung** — Klick zeigt alles auf einen Blick:
-  - Stellenbeschreibung (aufklappbar), Fit-Score, Quelle, Gehalt, Standort, Remote-Level
-  - Kontaktdaten (Ansprechpartner + E-Mail)
-  - Verknüpfte Dokumente (Lebenslauf, Anschreiben, Zeugnisse)
-  - Chronologischer Verlauf mit Zeitstempeln
-- **Gesprächsnotizen** — Telefonnotizen, Interview-Feedback, Vorbereitung direkt zur Bewerbung
-  - Hinzufügen, Bearbeiten, Löschen mit Zeitstempeln
-  - Visuell getrennt von Statusänderungen
-- **Dokumente verknüpfen** — Unterlagen direkt aus der Detailansicht zuordnen
-- **Archiv** — Abgelehnte/zurückgezogene/abgelaufene Bewerbungen in eingeklappter Sektion
-- Conversion-Rates und **Statistik-Dashboard** (5 Charts: Timeline, Status-Donut, Quellen, Score-Verteilung)
-- Follow-up-Erinnerungen (automatisch geplant)
-- A/B-Tracking für Anschreiben-Stile
-- Ablehnungs-Muster-Analyse mit lernenden Ablehnungsgründen
-- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
-
-### E-Mail-Integration
-Importiere deine Bewerbungs-E-Mails (.msg oder .eml) — PBP erledigt den Rest:
-
-- **Automatische Zuordnung** — E-Mails werden anhand von Absender-Domain, Firmenname, Betreff und Kontaktdaten automatisch der richtigen Bewerbung zugeordnet
-- **Status-Erkennung** — Eingangsbestätigung, Interview-Einladung, Absage oder Angebot werden automatisch erkannt (Deutsch + Englisch)
-- **Termin-Extraktion** — Datum, Uhrzeit und Meeting-Links (Teams, Zoom, Google Meet, WebEx) werden aus dem E-Mail-Body und .ics-Anhängen extrahiert
-- **Meeting-Widget im Dashboard** — Anstehende Termine mit Countdown und direktem "Beitreten"-Button
-- **Attachment-Import** — E-Mail-Anhänge (PDF, DOCX) werden automatisch als Dokumente importiert, mit SHA256-Duplikat-Erkennung
-- **Absage-Feedback** — Konkretes Feedback aus Absage-Mails wird als Notiz in der Bewerbungs-Timeline gespeichert
-- **Drag & Drop** — .msg/.eml Dateien einfach ins Dashboard ziehen — automatische Erkennung und Verarbeitung
-- **Manuelle Termin-Erstellung** — Termine können auch ohne E-Mail direkt in der Bewerbungs-Detailansicht angelegt werden
-
-> 💡 **So funktioniert es:** E-Mail per Drag & Drop oder Upload-Button importieren → PBP parst die Mail, ordnet sie zu, erkennt den Status, extrahiert Termine und importiert Anhänge — alles in einem Schritt.
-
-### 🎯 KI-Coaching
-- **Interview-Simulation** — Claude spielt den Interviewer (auf Basis der echten Stelle)
-- **Gehaltsverhandlung** — Markdaten, Strategie, Argumente
-- **Ablehnungs-Coaching** — Empathische Analyse nach Absage mit konkreten Verbesserungsvorschlägen
-- **Geführte Bewerbung** — Erstellt aus einer URL oder Stellenbeschreibung alle Unterlagen (Fit-Analyse → CV → Anschreiben → Tracking). Du prüfst und verschickst selbst — PBP bewirbt sich nie automatisch für dich.
-- **Antwort-Formulierung** — Kontext für Recruiter-Antworten basierend auf Bewerbungshistorie
-- **Skill-Gap-Analyse** — Was dir für die Wunschstelle fehlt
-- **Profil-Analyse** — Stärken, Potenziale, Marktposition
-- **Netzwerk-Strategie** — Networking-Plan für eine Zielfirma
-- **Branchen-Trends** — Welche Skills gerade gefragt sind
-
-### Web-Dashboard
-Browser-Oberfläche auf `localhost:8200` mit 8 Tabs und globaler Sidebar:
-
-| Tab | Funktion |
-|-----|----------|
-| **Dashboard** | "Im Fluss" + "Heute fuer dich", Schnellimport, anstehende Termine, Follow-ups, Workspace-Guidance |
-| **Profil** | Berufserfahrung, Skills, Ausbildung, Projekte bearbeiten. Multi-Profil-Wechsler in der Sidebar. |
-| **Stellen** | Jobs mit Fit-Score, Split-View (Fest/Freelance), Sortierung, Paginierung, Quellen-Badges, Pin/Unpin |
-| **Bewerbungen** | Pipeline, Follow-ups ueber der Liste, Detailansicht mit Dossier + E-Mails + Notizen, Archiv |
-| **Dokumente** | Drag & Drop Upload, Ordner-Import, Bewerbungs-Verknuepfung, Textvorschau, Analyse-Status |
-| **Kalender** | Grafisches Monats-Grid, Wochen-/Quartal-/Halbjahres-Ansicht, CRUD, Kategorien, Filter |
-| **Statistiken** | 5 interaktive Charts, unabhaengige Gruppierung + Zeitraum, Timeline/Donut/Quellen/Scores |
-| **Einstellungen** | Quellen, System-Info, Datenschutz, Export & Backup, Logs, Gefahrenzone |
-
----
-
 ## Schnellstart
 
-### 1. Installation (Windows)
+### Windows (Empfohlen)
 
 1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
 2. **Entpacke** das ZIP in einen Ordner (z.B. `C:\PBP`)
 3. **Doppelklicke `INSTALLIEREN.bat`** — fertig!
 
-Der Installer:
-- Lädt Python herunter und richtet es ein
-- Installiert alle Pakete
-- Konfiguriert Claude Desktop automatisch
-- Erstellt eine Desktop-Verknüpfung
+> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
 
-> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download) (Free reicht zum Ausprobieren, [Pro empfohlen](#voraussetzungen) fuer taegliche Nutzung)
-
-### 1b. Installation (macOS)
+### macOS
 
 1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
 2. **Entpacke** das ZIP
@@ -309,576 +128,24 @@ Der Installer:
 
 > **Voraussetzungen:** macOS 12+, Python 3.11+ (`brew install python@3.12`), [Claude Desktop](https://claude.ai/download)
 
-### 2. Profil erstellen
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+> 📖 **Detaillierte Anleitungen, Claude Desktop Config und Fehlerbehebung:** [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation)
+
+### Erste Schritte
 
 Öffne Claude Desktop und sage:
 
 > **"Starte die Ersterfassung"**
 
-Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten):
+Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dein Profil auf.
+**Schneller geht's mit Dokumenten:** Lade deinen Lebenslauf als PDF oder DOCX hoch — PBP extrahiert die Daten automatisch.
 
-1. **Persönliche Daten** — Name, Kontakt, Standort
-2. **Berufserfahrung** — Positionen und Projekte (STAR-Methode)
-3. **Ausbildung & Skills** — mit Levels und Aktualität
-4. **Präferenzen** — Gehalt, Remote, Teilzeit, Reisebereitschaft
-
-**Schneller geht's mit Dokumenten:** Lade deinen Lebenslauf als PDF oder DOCX hoch — PBP extrahiert die Daten automatisch und fragt nur noch nach, was fehlt.
-
-### 3. Suchkriterien festlegen
-
-> **"Starte den Jobsuche-Workflow"**
-
-Claude hilft dir bei:
-- MUSS-Keywords (z.B. "Python", "Projektmanager")
-- PLUS-Keywords (z.B. "Remote", "Teamleitung")
-- AUSSCHLUSS-Keywords (z.B. "Praktikum", "Zeitarbeit")
-- Standort und Entfernungsradius
-- Gehaltsvorstellungen
-- Aktive Jobportale auswählen
-
-### 4. Jobs finden
-
-> **"Suche nach Stellen"**
-
-PBP durchsucht alle aktiven Portale, dedupliziert die Ergebnisse und bewertet jede Stelle. Im Dashboard siehst du die Ergebnisse sofort — sortiert nach Entfernung, Score oder Gehalt.
-
-### 5. Bewerben
-
-> **"Schreibe eine Bewerbung für die Stelle bei [Firma]"**
-
-PBP erstellt:
-1. Einen **angepassten Lebenslauf** (Skills und Erfahrung nach Relevanz sortiert)
-2. Ein **personalisiertes Anschreiben** (optional — manchmal reicht der CV)
-
-Beide Dokumente als DOCX zum Feinschliff.
-
-### 6. Nachverfolgen
-
-> **"Zeige meine Bewerbungen"**
-
-Behalte den Überblick: Status aktualisieren, Follow-ups planen, Statistiken auswerten.
-
----
-
-## Bedienungsanleitung
-
-### Wie spreche ich mit PBP?
-
-PBP wird komplett über natürliche Sprache gesteuert. Du tippst (oder sagst) Claude einfach, was du willst:
-
-| Was du sagen kannst | Was PBP tut |
-|--------------------|------------|
-| "Starte die Ersterfassung" | Profilerstellung im Gespräch |
-| "Lade meinen Lebenslauf" | Dokument-Upload und automatische Extraktion |
-| "Suche nach Python-Entwickler-Stellen in Hamburg" | Multi-Portal-Jobsuche |
-| "Zeige mir die besten Stellen" | Stellen nach Score sortiert |
-| "Mach eine Fit-Analyse für Stelle #3" | Detaillierter Vergleich Profil vs. Stelle |
-| "Schreibe ein Anschreiben für die Hays-Stelle" | Personalisiertes Anschreiben |
-| "Erstelle einen angepassten Lebenslauf für Firma XY" | Stellenspezifischer CV |
-| "Exportiere meinen Lebenslauf als DOCX" | Standard-CV-Export |
-| "Bereite mich auf das Interview bei Firma XY vor" | Interview-Simulation |
-| "Wie sollte ich beim Gehalt verhandeln?" | Gehaltsverhandlungs-Coaching |
-| "Bewerte meinen Lebenslauf für die Stelle bei Firma XY" | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
-| "Welche Skills fehlen mir für die Stelle?" | Skill-Gap-Analyse |
-| "Zeige meine Bewerbungsstatistiken" | Conversion-Rates und Übersicht |
-| "Plane einen Follow-up für die Bewerbung bei Firma XY" | Erinnerung in X Tagen |
-
-### Die 18 Workflows
-
-PBP bietet 18 gefuehrte Workflows. Je nach Claude-Client startest du sie entweder als Slash-Command (`/name`), über die kopierten PBP-Arbeitsanweisungen aus dem Dashboard oder einfach als natuerliche Anweisung:
-
-| Workflow | Slash-Command | Was er tut |
-|----------|--------------|-----------|
-| **Ersterfassung** | `/ersterfassung` | Komplettes Profil im Gespraech aufbauen |
-| **Profil-Erweiterung** | `/profil_erweiterung` | Profil aus Dokumenten erweitern |
-| **Profil ueberpruefen** | `/profil_ueberpruefen` | Fehler und Luecken finden |
-| **Profil-Analyse** | `/profil_analyse` | Staerken, Potenziale, Marktposition |
-| **Jobsuche** | `/jobsuche_workflow` | Gefuehrte 5-Schritte Stellensuche |
-| **Bewerbung vorbereiten** | `/bewerbung_vorbereitung` | **NEU** — Komplette Vorbereitung von Fit-Analyse bis Anschreiben (#170) |
-| **Bewerbung schreiben** | `/bewerbung_schreiben` | CV + Anschreiben fuer eine Stelle |
-| **Geführte Bewerbung** | `/auto_bewerbung` | Komplette Bewerbung aus URL/Stellentext — du prüfst und verschickst selbst |
-| **Bewerbungsuebersicht** | `/bewerbungs_uebersicht` | Komplettuebersicht aller Aktivitaeten |
-| **Ablehnungs-Coaching** | `/ablehnungs_coaching` | Empathische Analyse nach Absage |
-| **Interview-Vorbereitung** | `/interview_vorbereitung` | STAR-Antworten vorbereiten |
-| **Interview-Simulation** | `/interview_simulation` | Claude spielt den Interviewer |
-| **Gehaltsverhandlung** | `/gehaltsverhandlung` | Strategie und Argumente |
-| **Netzwerk-Strategie** | `/netzwerk_strategie` | Networking-Plan fuer Zielfirma |
-| **FAQ / Erste Schritte** | `/faq` | **NEU** — Interaktiver Guide: Wo stehe ich? Was kommt als Naechstes? (#175) |
-| **Willkommen** | `/willkommen` | Statusuebersicht und Einstiegshilfe |
-
-> 💡 **Tipp:** Wenn dein Claude-Client keine Slash-Commands versteht, nutze im Dashboard den Button **Prompt kopieren**. PBP kopiert dir dann die vollstaendige Arbeitsanweisung statt nur `/jobsuche_workflow`.
-
-### Das Web-Dashboard
-
-Das Dashboard startet automatisch auf [http://localhost:8200](http://localhost:8200) wenn PBP läuft.
-
-**Dashboard-Tab:**
-- "Im Fluss" + "Heute fuer dich" (2/3) mit Schnellimport (1/3)
-- Anstehende Termine mit Countdown und "Beitreten"-Button
-- Workspace-Guidance zeigt den naechsten sinnvollen Schritt
-- E-Mail-Upload per Drag & Drop oder Upload-Button
-
-**Profil-Tab:**
-- Alle Daten bearbeiten (Klick auf ✏️)
-- Skills mit Level und Kategorie
-- Projekte im STAR-Format
-- Jobtitel-Vorschläge
-
-**Stellen-Tab:**
-- Split-View: Festanstellung links, Freelance rechts (umschaltbar)
-- Sortierung: Entfernung (Standard), Score, Gehalt, Datum
-- Fit-Analyse per Klick
-- Bewerbungs-Wizard direkt aus der Stellenanzeige
-
-**Bewerbungen-Tab:**
-- Pipeline-Ansicht mit Status-Filter und Paginierung (30er Seiten)
-- **Detailansicht** (Klick auf Bewerbung): Stellendetails, Fit-Score, Quelle, Gehalt, Kontakt, Stellenbeschreibung, verknüpfte Dokumente, Gesprächsnotizen, Timeline
-- **Gesprächsnotizen**: Hinzufügen, Bearbeiten, Löschen — mit Zeitstempeln
-- **Dokument-Verknüpfung**: Unterlagen direkt zuordnen
-- **E-Mails zur Bewerbung**: Verknüpfte E-Mails mit Absender, Betreff, erkanntem Status
-- **Termine zur Bewerbung**: Anstehende/vergangene Meetings mit Plattform-Badge und "Beitreten"-Button
-- **Termin erstellen**: Manuelles Anlegen von Terminen (Titel, Datum, Uhrzeit, Meeting-URL) direkt in der Detailansicht
-- **Archiv**: Abgelehnte/zurückgezogene/abgelaufene Bewerbungen eingeklappt
-- Follow-up-Erinnerungen
-- PDF-Bewerbungsbericht + Excel-Export
-
-**Statistiken-Tab:**
-- 5 interaktive Charts (Chart.js): Bewerbungs-Timeline, Status-Donut, Quellen-Vergleich, Fit-Score-Verteilung, Quellen-Detailvergleich
-- Unabhaengige Kontrollen: Gruppierung (Taeglich/Woechentlich/Monatlich) und Zeitraum (30d/90d/6m/12m/Alles)
-
-**Einstellungen-Tab:**
-- Aktive Jobportale auswaehlen (mit Geschwindigkeits-Badges)
-- System-Info und Health-Dashboard
-- Datenschutz: Datenfluss-Uebersicht, Speicherorte
-- Export & Backup: Komplett-Export (ZIP), DB-Backup (SQLite), Profil-Export/-Import (JSON)
-- Runtime-Logs
-- Gefahrenzone: Factory Reset, Profil loeschen, Daten loeschen (DSGVO)
-
-### Multi-Profil
-
-Mehrere Benutzer auf einem PC? Kein Problem:
-
-> **"Zeige alle Profile"** — Profile auflisten
-> **"Wechsle zu Profil XY"** — Aktives Profil wechseln
-> **"Erstelle ein neues Profil für Anna"** — Neues Profil anlegen
-
-Im Dashboard steht der Profil-Wechsler direkt in der Navigationsleiste.
-
----
-
-## Jobportale — Accounts und rechtliche Hinweise
-
-### Welche Portale brauchen einen Account?
-
-| Portal | Account nötig? | Details |
-|--------|---------------|---------|
-| Bundesagentur | Nein | Öffentliche REST API |
-| StepStone | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Hays | Nein | Öffentliche Sitemap + strukturierte Daten |
-| Monster | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Indeed | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Freelancermap | Nein | Öffentlich einsehbare Projektlisten |
-| Freelance.de | Nein | Öffentlich einsehbare Projektlisten |
-| GULP | Nein | Öffentlich einsehbare Projektlisten |
-| SOLCOM | Nein | Öffentlich einsehbares Projektportal |
-| ingenieur.de (VDI) | Nein | Öffentliche Engineering-Jobbörse |
-| Heise Jobs | Nein | Öffentlicher IT-Stellenmarkt |
-| Stellenanzeigen.de | Nein | Öffentlich einsehbare Stellenanzeigen |
-| Jobware | Nein | Öffentlich einsehbare Stellenanzeigen |
-| FERCHAU | Nein | Öffentliche Stellenangebote |
-| Kimeta | Nein | Öffentlicher Job-Aggregator |
-
-### Rechtliche Einordnung
-
-PBP ist ein **persoenliches Werkzeug**, das in deinem Namen auf oeffentlich zugaengliche Jobportale zugreift — vergleichbar damit, dass du selbst im Browser suchst.
-
-**Was PBP tut:**
-- Durchsucht oeffentlich zugaengliche Stellenanzeigen
-- Speichert Stellendaten **nur lokal** auf deinem Rechner
-
-**Was PBP NICHT tut:**
-- Keine Daten anderer Nutzer scrapen (nur Stellenanzeigen)
-- Keine Accounts anlegen oder Passwoerter speichern
-- Keine Daten an Dritte weitergeben
-
-**Deine Verantwortung:**
-- Die Bundesagentur fuer Arbeit stellt eine **offizielle REST API** bereit, die zur Nutzung vorgesehen ist.
-- StepStone, Hays, Monster, Indeed, Freelancermap, Freelance.de, GULP, SOLCOM, ingenieur.de, Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU und Kimeta werden ueber oeffentlich zugaengliche Seiten durchsucht.
-
----
-
-## Installation im Detail
-
-### Windows (Empfohlen)
-
-1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
-2. **Entpacke** das ZIP in einen Ordner deiner Wahl (z.B. `C:\PBP`)
-3. **Doppelklicke `INSTALLIEREN.bat`** — der Rest passiert automatisch:
-   - Python wird heruntergeladen und eingerichtet
-   - Alle Pakete werden installiert
-   - Claude Desktop wird konfiguriert
-   - Eine Desktop-Verknüpfung wird erstellt
-
-> **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
-
-### macOS
-
-1. **[Claude Desktop fuer Mac](https://claude.ai/download) installieren**
-2. **Python 3.11+** installieren (falls nicht vorhanden):
-   ```bash
-   brew install python@3.12
-   ```
-3. **Repository klonen und Installer starten:**
-   ```bash
-   git clone https://github.com/MadGapun/PBP.git
-   cd PBP
-   bash installer/install.sh
-   ```
-   Der Installer macht automatisch:
-   - Virtuelle Umgebung erstellen
-   - Alle Pakete installieren
-   - Frontend bauen (falls Node.js/pnpm vorhanden)
-   - Claude Desktop konfigurieren
-   - Funktionstest durchfuehren
-
-4. **Claude Desktop beenden** (Menueleiste → Claude → Beenden) und **neu starten**
-5. In Claude eingeben: *"Starte den Bewerbungs-Assistenten"*
-
-> **Dashboard starten:** Doppelklick auf `Dashboard starten.command` oder: `.venv/bin/python start_dashboard.py`
-
-> **Voraussetzungen:** macOS 12+, Python 3.11+, [Claude Desktop](https://claude.ai/download)
-
-> **Deinstallieren:** `bash installer/deinstallieren.sh`
-
-### Linux / Manuell
-
-```bash
-# Repository klonen
-git clone https://github.com/MadGapun/PBP.git
-cd PBP
-
-# Installer (empfohlen — inkl. Claude Desktop Config):
-bash installer/install.sh
-
-# Oder manuell:
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[docs]"
-
-# Optional: Scraper mit Playwright
-pip install -e ".[all]"
-playwright install chromium
-```
-
-### Claude Desktop konfigurieren
-
-Die Installer (`INSTALLIEREN.bat`, `install.sh`) machen das automatisch. Fuer manuelle Konfiguration:
-
-| Plattform | Config-Pfad |
-|-----------|-------------|
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/Claude/claude_desktop_config.json` |
-
-Fuege folgenden Eintrag hinzu:
-
-```json
-{
-  "mcpServers": {
-    "bewerbungs-assistent": {
-      "command": "python",
-      "args": ["-m", "bewerbungs_assistent"],
-      "env": {
-        "BA_DATA_DIR": "/pfad/zu/deinen/daten"
-      }
-    }
-  }
-}
-```
-
-**Datenverzeichnis-Pfade:**
-| Plattform | Standard-Pfad |
-|-----------|---------------|
-| Windows | `%LOCALAPPDATA%\BewerbungsAssistent` |
-| macOS / Linux | `~/.bewerbungs-assistent` |
-
-### Nach der Installation
-
-**Windows:**
-```
-%LOCALAPPDATA%\BewerbungsAssistent\
-├── python\          ← Embedded Python (vom Installer)
-├── src\             ← PBP Source Code (vom Installer)
-├── pbp.db           ← Deine Datenbank (Profil, Jobs, Bewerbungen)
-├── dokumente\       ← Hochgeladene Dokumente
-├── export\          ← Generierte Lebenslaeufe und Anschreiben
-└── logs\            ← Protokolle
-```
-
-**macOS / Linux:**
-```
-~/.bewerbungs-assistent/
-├── pbp.db           ← Deine Datenbank
-├── dokumente\       ← Hochgeladene Dokumente
-├── export\          ← Generierte Lebenslaeufe und Anschreiben
-└── logs\            ← Protokolle
-```
-
----
-
-## Architektur
-
-```
-Claude Desktop / claude.ai
-    │
-    │ stdio (MCP Protocol)
-    ▼
-server.py (FastMCP, Composition Root)
-    │
-    ├──► tools/            ◄── 73 Tools in 8 Modulen
-    ├──► prompts.py        ◄── 18 Prompts (Workflows)
-    ├──► resources.py      ◄── 6 Resources
-    │
-    ├──► services/         ◄── Service-Layer (Profil, Suche, Workspace, E-Mail, Geocoding, Scoring)
-    ├──► database.py       ◄── SQLite (29 Tabellen, WAL, Schema v23)
-    ├──► dashboard.py      ◄── FastAPI :8200, 100+ API-Endpoints
-    ├──► export.py         ◄── Lebenslauf + Anschreiben (PDF/DOCX)
-    └──► job_scraper/      ◄── 18 Quellen
-              ├── bundesagentur.py       (REST API)
-              ├── stepstone.py           (Playwright)
-              ├── hays.py                (Sitemap + JSON-LD)
-              ├── freelancermap.py       (httpx + Playwright Fallback)
-              ├── freelance_de.py        (HTML Scraping)
-              ├── indeed.py              (Playwright)
-              ├── monster.py             (Playwright)
-              ├── ingenieur_de.py        (HTML Scraping)
-              ├── heise_jobs.py          (HTML + JSON-LD)
-              ├── gulp.py                (HTML + JSON-LD)
-              ├── solcom.py              (HTML + JSON-LD)
-              ├── stellenanzeigen_de.py  (HTML + JSON-LD)
-              ├── jobware.py             (HTML + JSON-LD)
-              ├── ferchau.py             (HTML + JSON-LD)
-              └── kimeta.py              (HTML Scraping)
-```
-
----
-
-## MCP-Schnittstelle
-
-### 73 Tools in 8 Modulen
-
-<details>
-<summary><strong>Profilverwaltung</strong> (16 Tools) — Profil, Multi-Profil, Erfassung, Jobtitel</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `profil_status` | Profilstatus und Übersicht |
-| `profil_zusammenfassung` | Vollständige Profilzusammenfassung |
-| `profil_erstellen` | Profil anlegen oder aktualisieren |
-| `profil_bearbeiten` | Einzelne Bereiche bearbeiten (hinzufügen, ändern, löschen) |
-| `position_hinzufuegen` | Berufserfahrung hinzufügen |
-| `projekt_hinzufuegen` | STAR-Projekt zu einer Position |
-| `ausbildung_hinzufuegen` | Ausbildungseintrag anlegen |
-| `skill_hinzufuegen` | Kompetenz mit Level und Kategorie |
-| `profile_auflisten` | Alle Profile auflisten |
-| `profil_wechseln` | Aktives Profil wechseln |
-| `neues_profil_erstellen` | Neues leeres Profil anlegen |
-| `profil_loeschen` | Profil löschen (mit Auto-Switch) |
-| `erfassung_fortschritt_lesen` | Ersterfassungs-Fortschritt |
-| `erfassung_fortschritt_speichern` | Fortschritt pro Bereich speichern |
-| `jobtitel_vorschlagen` | Passende Jobtitel aus Profil ableiten |
-| `jobtitel_verwalten` | Jobtitel bearbeiten/löschen/deaktivieren |
-
-</details>
-
-<details>
-<summary><strong>Dokumente</strong> (12 Tools) — Upload, Extraktion, Import/Export</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `dokument_profil_extrahieren` | Profildaten aus Dokument extrahieren |
-| `dokumente_zur_analyse` | Analysierbare Dokumente auflisten |
-| `extraktion_starten` | Dokument-Analyse starten |
-| `extraktion_ergebnis_speichern` | Ergebnis zwischenspeichern |
-| `extraktion_anwenden` | Daten auf Profil anwenden |
-| `extraktions_verlauf` | Historie aller Extraktionen |
-| `analyse_plan_erstellen` | Vorab-Plan für Batch-Analyse |
-| `dokumente_batch_analysieren` | Effiziente Batch-Analyse |
-| `dokumente_bulk_markieren` | Bulk-Markierung als analysiert |
-| `bewerbungs_dokumente_erkennen` | Firmen aus Dateinamen erkennen |
-| `profil_exportieren` | Profil als JSON-Backup |
-| `profil_importieren` | Profil aus JSON-Backup |
-
-</details>
-
-<details>
-<summary><strong>Jobsuche</strong> (6 Tools) — Suche, Bewertung, Analyse</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `jobsuche_starten` | Multi-Quellen Stellensuche |
-| `jobsuche_status` | Suchfortschritt abfragen |
-| `stellen_anzeigen` | Jobs mit Filter und Scoring |
-| `stelle_bewerten` | Job als passend/unpassend markieren |
-| `fit_analyse` | Detaillierte Fit-Analyse |
-| `stelle_manuell_anlegen` | Stelle manuell anlegen (z.B. von externen Portalen) |
-
-</details>
-
-<details>
-<summary><strong>Bewerbungen</strong> (8 Tools) — Tracking, Bearbeitung und Statistiken</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `bewerbung_erstellen` | Neue Bewerbung anlegen (inkl. manueller Job-Eintrag) |
-| `bewerbung_status_aendern` | Status aktualisieren |
-| `bewerbung_bearbeiten` | Bewerbung bearbeiten (Firma, Stelle, Status, Notizen) |
-| `bewerbung_loeschen` | Bewerbung löschen (mit Bestätigung) |
-| `bewerbung_notiz` | Gesprächsnotiz hinzufügen |
-| `bewerbung_details` | Detailansicht mit Timeline und Stellenbeschreibung |
-| `bewerbungen_anzeigen` | Alle Bewerbungen mit Statistiken |
-| `statistiken_abrufen` | Conversion Rates und Übersicht |
-
-</details>
-
-<details>
-<summary><strong>Analyse</strong> (13 Tools) — Gehalt, Trends, Skill-Gap, Follow-ups, Coaching, Scoring</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `gehalt_extrahieren` | Gehalt aus Stellenbeschreibung |
-| `gehalt_marktanalyse` | Gehaltsstatistiken ueber alle Stellen |
-| `firmen_recherche` | Firmendaten aggregieren |
-| `branchen_trends` | Gefragte Skills und Technologien |
-| `nachfass_planen` | Follow-up-Erinnerung planen |
-| `nachfass_anzeigen` | Alle Follow-ups zeigen |
-| `bewerbung_stil_tracken` | A/B-Tracking fuer Anschreiben |
-| `skill_gap_analyse` | Skill-Gap zwischen Profil und Stelle |
-| `ablehnungs_muster` | Ablehnungs-Analyse und Empfehlungen |
-| `antwort_formulieren` | Kontext fuer Recruiter-Antwort generieren |
-| `dokument_verknuepfen` | Dokument mit Bewerbung verknuepfen |
-| `scoring_konfigurieren` | **NEU** — Scoring-Regler einstellen (Stellentyp, Remote, Entfernung, Gehalt) (#169) |
-| `scoring_vorschau` | **NEU** — Score-Berechnung fuer eine Stelle im Detail anzeigen (#169) |
-
-</details>
-
-<details>
-<summary><strong>Export</strong> (5 Tools) — Lebenslauf, Analyse, Anschreiben, Bericht</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `lebenslauf_exportieren` | Standard-CV als PDF/DOCX/MD/TXT |
-| `lebenslauf_angepasst_exportieren` | Stellenspezifischer ATS-konformer CV (#174) |
-| `lebenslauf_bewerten` | 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter) |
-| `anschreiben_exportieren` | Anschreiben als PDF/DOCX/MD/TXT |
-| `bewerbungsbericht_exportieren` | **NEU** — Professioneller Bericht mit Executive Summary und PBP-Branding (#173) |
-
-</details>
-
-<details>
-<summary><strong>Suche & Einstellungen</strong> (4 Tools)</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `suchkriterien_setzen` | Keywords, Filter und Standort konfigurieren (inkl. Geocoding #167) |
-| `suchkriterien_bearbeiten` | Einzelne Keywords hinzufuegen/entfernen |
-| `suchkriterien_anzeigen` | Aktuelle Suchkriterien anzeigen |
-| `blacklist_verwalten` | Firmen/Keywords ausschliessen (bereinigt, #168) |
-
-</details>
-
-<details>
-<summary><strong>Workflows</strong> (3 Tools) — Workflow-Starter</summary>
-
-| Tool | Beschreibung |
-|------|-------------|
-| `workflow_starten` | Universeller Workflow-Starter (alle 16 Workflows) |
-| `jobsuche_workflow_starten` | Direkter Einstieg Jobsuche |
-| `ersterfassung_starten` | Direkter Einstieg Ersterfassung |
-
-</details>
-
-### 6 Resources
-
-| URI | Beschreibung |
-|-----|-------------|
-| `profil://aktuell` | Vollständiges Bewerberprofil |
-| `jobs://aktiv` | Aktive Stellenangebote (nach Score) |
-| `jobs://aussortiert` | Aussortierte Jobs mit Begründung |
-| `bewerbungen://alle` | Alle Bewerbungen mit Status |
-| `bewerbungen://statistik` | Bewerbungsstatistiken |
-| `config://suchkriterien` | Aktuelle Sucheinstellungen |
-
----
-
-## Datenbank
-
-SQLite mit WAL-Mode, 29 Tabellen, Schema v23:
-
-| Tabelle | Beschreibung |
-|---------|-------------|
-| `profile` | Bewerberprofil + Praeferenzen (Multi-Profil-faehig) |
-| `positions` | Berufserfahrung |
-| `projects` | STAR-Projekte (-> positions) |
-| `education` | Ausbildung |
-| `skills` | Kompetenzen (5 Kategorien, Level, Aktualitaet) |
-| `documents` | Hochgeladene Dokumente (auto-verknuepfbar mit Bewerbungen, #177) |
-| `extraction_history` | Extraktions-Verlauf |
-| `jobs` | Stellenangebote (15+ Quellen, `is_pinned`, `lat`/`lon` fuer Geocoding #167) |
-| `applications` | Bewerbungen (11 Status-Stufen inkl. `in_vorbereitung` #170, `source` #173) |
-| `application_events` | Bewerbungs-Timeline + Gespraechsnotizen + Dokument-Events (#176) |
-| `application_emails` | Importierte E-Mails mit Parsing-Ergebnis und Status-Erkennung |
-| `application_meetings` | Termine mit Datum, Meeting-URL, Plattform-Erkennung |
-| `search_criteria` | Suchfilter (inkl. `standort_lat`/`standort_lon` fuer Geocoding #167) |
-| `blacklist` | Ausschlussliste (nur `firma`/`keyword`, bereinigt #168) |
-| `background_jobs` | Async-Tasks |
-| `follow_ups` | Nachfass-Erinnerungen |
-| `user_preferences` | Benutzereinstellungen |
-| `suggested_job_titles` | Vorgeschlagene Jobtitel |
-| `settings` | Konfiguration |
-| `dismiss_reasons` | Ablehnungsgruende (lernend, mit Nutzungszaehler) |
-| `scoring_config` | Konfigurierbare Scoring-Regler |
-| `meeting_categories` | Benutzerdefinierte Termin-Kategorien mit Farbe |
-
-**Datenspeicherung:**
-- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\`
-- Linux: `~/.bewerbungs-assistent/`
-
----
-
-## Tests
-
-```bash
-# Setup
-pip install -e ".[all,dev]"
-playwright install chromium
-
-# Alle Tests ausführen
-python -m pytest tests/ -v
-
-# 401 Tests, ~40 Sekunden
-```
-
----
-
-## Technologie-Stack
-
-| Komponente | Technologie |
-|-----------|-------------|
-| **MCP Framework** | [FastMCP](https://github.com/jlowin/fastmcp) ≥2.0 |
-| **Web Framework** | [FastAPI](https://fastapi.tiangolo.com/) ≥0.115 |
-| **ASGI Server** | [Uvicorn](https://www.uvicorn.org/) ≥0.30 |
-| **Datenbank** | SQLite (WAL Mode) |
-| **PDF Export** | [fpdf2](https://github.com/py-pdf/fpdf2) ≥2.7 |
-| **Word Export** | [python-docx](https://python-docx.readthedocs.io/) ≥1.1 |
-| **PDF Import** | [pypdf](https://github.com/py-pdf/pypdf) ≥4.0 |
-| **Geocoding** | [geopy](https://geopy.readthedocs.io/) ≥2.4 (Nominatim/OpenStreetMap) |
-| **HTTP Client** | [httpx](https://www.python-httpx.org/) ≥0.27 |
-| **HTML Parsing** | [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/) ≥4.12 |
-| **Browser Automation** | [Playwright](https://playwright.dev/python/) ≥1.40 |
-| **E-Mail Parsing (.msg)** | [extract-msg](https://github.com/TeamMsgExtractor/msg-extractor) ≥0.48 |
-| **Kalender Parsing (.ics)** | [icalendar](https://github.com/collective/icalendar) ≥5.0 |
-| **Laufzeit** | Python ≥3.11 |
+> 📖 **Schritt-für-Schritt-Anleitung:** [Wiki → Erste Schritte](https://github.com/MadGapun/PBP/wiki/Erste-Schritte)
 
 ---
 
@@ -921,6 +188,22 @@ python -m pytest tests/ -v
 
 ---
 
+## Auf einen Blick
+
+| | |
+|---|---|
+| **Plattformen** | Windows, macOS, Linux |
+| **MCP-Tools** | 73 Tools in 8 Modulen |
+| **Workflows** | 18 gefuehrte Workflows |
+| **Jobportale** | 18 Quellen (11 schnell, 4 Browser, 3 manuell) |
+| **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
+| **Datenbank** | SQLite, 29 Tabellen, Schema v23 |
+| **Tests** | 401 bestanden |
+
+> 📖 **Technische Details:** [Wiki → Architektur](https://github.com/MadGapun/PBP/wiki/Architektur) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
+
+---
+
 ## Changelog
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
@@ -931,37 +214,14 @@ Das groesste Update seit dem ersten Public Release:
 
 - **macOS offiziell unterstuetzt** — Doppelklick-Installer, Dashboard-Starter, Deinstaller
 - **Kalender-System** — Grafisches Grid, CRUD, benutzerdefinierte Kategorien, .ics-Export, Kollisionserkennung
-- **E-Mail-Pipeline** — Import (.msg/.eml), automatische Zuordnung, Status-Erkennung, Termin-Extraktion, E-Mails jetzt als Download-Links im Dossier
+- **E-Mail-Pipeline** — Import (.msg/.eml), automatische Zuordnung, Status-Erkennung, Termin-Extraktion
 - **Dashboard-Redesign** — "Im Fluss" + Schnellimport, Follow-ups ueber Bewerbungen
-- **Profil-Isolation gehaertet** — Alle Endpunkte gegen Cross-Profile-Zugriff abgesichert
 - **Export & Backup zentralisiert** — Komplett-Export, DB-Backup und Profil-Import in den Einstellungen
-- **Statistiken** — Unabhaengige Gruppierung und Zeitraum-Kontrollen, lernender Score
-- **Docs-Tab** — Eigener Tab mit Drag & Drop, Bewerbungs-Filter, Analyse-Status
 - Schema v23, 73 Tools, 18 Prompts, 401 Tests
-
-### v1.4.3 (2026-04-05)
-- Heartbeat-Middleware auf FastMCP 3.x umgestellt
 
 ### v1.0.0 — Erster Public Release (2026-03-26)
 - 72 Tools, 16 Prompts, 18 Quellen, React 19 Dashboard
 - E-Mail-Integration, Multi-Profil, Scoring-Regler, Geocoding, CV-Export
-- Konfigurierbare DOM-Selektoren, Job-ID-Deduplizierung, Multi-Page-Pagination
-- Manueller Stellen-Import via `stelle_manuell_anlegen()`
-
-### v0.20.0 — Statistik-Dashboard & Bewerbungsbericht (2026-03-16)
-- **5 interaktive Charts** (Chart.js): Timeline, Status-Donut, Quellen, Score-Verteilung
-- **PDF-Bewerbungsbericht** (Arbeitsamt-tauglich) + Excel-Export
-- **`is_pinned`** ersetzt Score=99 (Schema v10), neuer Status `abgelaufen`
-- Paginierung + Archiv-Sektion für Bewerbungen
-
-### v0.19.0 — 8 neue Jobquellen, 15+ Quellen insgesamt (2026-03-16)
-- **8 neue Quellen**: ingenieur.de (VDI), Heise Jobs, Stellenanzeigen.de, Jobware, FERCHAU, Kimeta, GULP, SOLCOM
-- **15+ Quellen** insgesamt — von 9 fast verdoppelt
-
-### v0.18.0 — Mega-Release: 26 Issues, 61 Tools, 14 Workflows (2026-03-15)
-- **26 GitHub-Issues geschlossen**, Scoring komplett überarbeitet
-- **Bewerbungs-Management**: Bearbeiten, Löschen, Notizen, Details
-- 61 Tools, 14 Workflows, 190+ Tests
 
 ---
 
@@ -976,20 +236,7 @@ Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (S
 **Kann ich PBP ohne Jobportale nutzen?**
 Ja! Du kannst PBP auch nur für Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
-**Was passiert, wenn ein Portal sich ändert?**
-Scraper können brechen wenn Portale ihr Layout ändern. PBP fängt Fehler ab und überspringt defekte Quellen — die anderen 17 laufen weiter. Viele Scraper nutzen Multi-Strategie-Extraktion (HTML-Selektoren → JSON-LD Fallback), was sie robuster gegen Layout-Änderungen macht. Updates werden über neue Releases bereitgestellt.
-
-**Unterstützt PBP mehrere Sprachen?**
-Die Oberfläche und Workflows sind auf Deutsch. Jobtitel werden auf Deutsch und Englisch vorgeschlagen. Claude selbst kann in jeder Sprache kommunizieren.
-
-**Welche E-Mail-Formate werden unterstützt?**
-PBP kann .eml (Standard-E-Mail-Format) und .msg (Outlook) Dateien importieren. Die E-Mails werden automatisch geparst, der richtigen Bewerbung zugeordnet und auf Status-Änderungen (Eingangsbestätigung, Interview, Absage, Angebot) untersucht.
-
-**Wie funktioniert die automatische E-Mail-Zuordnung?**
-PBP vergleicht Absender-E-Mail, Domain, Firmenname, Betreff und Ansprechpartner mit deinen bestehenden Bewerbungen. Bei einer Übereinstimmung (Konfidenz ≥30%) wird die E-Mail automatisch zugeordnet. Du kannst die Zuordnung jederzeit manuell bestätigen oder ändern.
-
-**Werden E-Mail-Anhänge automatisch importiert?**
-Ja — PDF- und DOCX-Anhänge werden automatisch als Dokumente importiert. Dabei prüft PBP per SHA256-Hash, ob das Dokument bereits vorhanden ist, und vermeidet Duplikate.
+> 📖 **Weitere Fragen und Troubleshooting:** [Wiki → FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
 
 ---
 
