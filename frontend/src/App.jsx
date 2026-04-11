@@ -1394,6 +1394,9 @@ export default function App() {
                     <p className="px-3 pb-2.5 text-[12.5px]">{a}</p>
                   </details>
                 ))}
+                <div className="glass-card p-3 mt-2">
+                  <p className="text-[12px]">Ausfuehrliche FAQ, Anleitungen und Troubleshooting findest du im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">PBP Wiki</a>.</p>
+                </div>
               </div>
             )}
 
@@ -1416,7 +1419,7 @@ export default function App() {
                   </details>
                 ))}
                 <div className="glass-card p-3 mt-2">
-                  <p className="text-[12px]">Problem nicht geloest? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit einer Beschreibung und den Logs aus Einstellungen.</p>
+                  <p className="text-[12px]">Mehr Loesungen im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">Wiki</a>. Problem nicht geloest? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit Logs aus Einstellungen.</p>
                 </div>
               </div>
             )}
