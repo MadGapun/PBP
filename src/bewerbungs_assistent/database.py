@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 
 
 def _gen_id() -> str:
@@ -882,6 +882,14 @@ class Database:
                 logger.info("Migration v22->v23: calendar enhancements (#394, #417, #418)")
             except Exception as exc:
                 logger.warning("Migration v22->v23 partial: %s", exc)
+
+        if from_ver < 24:
+            # v24: Veröffentlichungsdatum für Stellen (#434)
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN veroeffentlicht_am TEXT")
+                logger.info("Migration v23->v24: veroeffentlicht_am Spalte hinzugefuegt (#434)")
+            except Exception:
+                pass  # Already exists
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -1952,8 +1960,9 @@ class Database:
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
-                    employment_type, is_pinned, lat, lon, profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    employment_type, is_pinned, lat, lon, veroeffentlicht_am,
+                    profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -1963,7 +1972,8 @@ class Database:
                 job.get("salary_min"), job.get("salary_max"),
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
-                new_pinned, job.get("lat"), job.get("lon"), job_pid,
+                new_pinned, job.get("lat"), job.get("lon"),
+                job.get("veroeffentlicht_am"), job_pid,
                 job.get("found_at", now), now
             ))
         conn.commit()
@@ -4211,6 +4221,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     lat REAL,
     lon REAL,
     research_notes TEXT,
+    veroeffentlicht_am TEXT,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
