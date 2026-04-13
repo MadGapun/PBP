@@ -145,3 +145,81 @@ def test_export_tool_prefers_application_source_for_report(tmp_db, monkeypatch):
 
     assert result["status"] == "erstellt"
     assert captured["report_data"]["applications"][0]["job_source"] == "freelance_de"
+
+
+def test_stellen_anzeigen_emoji_marker(tmp_db):
+    """#435: stellen_anzeigen setzt Emoji-Marker nach employment_type."""
+    tmp_db.create_profile("Test User", "test@example.com")
+    tmp_db.save_jobs([
+        {
+            "hash": "emoji-freelance-1",
+            "title": "Cloud Architekt Projekt",
+            "company": "FreeCorp",
+            "source": "manuell",
+            "description": "Ein Freelance-Projekt fuer Cloud-Architektur mit vielen Details",
+            "score": 8,
+            "employment_type": "freelance",
+        },
+        {
+            "hash": "emoji-fest-1",
+            "title": "Java Entwickler",
+            "company": "FestCorp",
+            "source": "manuell",
+            "description": "Eine Festanstellung als Java-Entwickler mit vielen Aufgaben",
+            "score": 7,
+            "employment_type": "festanstellung",
+        },
+        {
+            "hash": "emoji-other-1",
+            "title": "Zeitarbeit Data Science",
+            "company": "OtherCorp",
+            "source": "manuell",
+            "description": "Eine Zeitarbeit im Bereich Data Science mit spannenden Themen",
+            "score": 6,
+            "employment_type": "zeitarbeit",
+        },
+        {
+            "hash": "emoji-empty-1",
+            "title": "Unbekannter Typ",
+            "company": "EmptyCorp",
+            "source": "manuell",
+            "description": "Eine Stelle ohne angegebenen Typ und vielen weiteren Details",
+            "score": 5,
+        },
+    ])
+
+    fake_mcp = FakeMCP()
+    from bewerbungs_assistent.tools import jobs as jobs_mod
+    jobs_mod.register(fake_mcp, tmp_db, logging.getLogger("test"))
+
+    result = fake_mcp.tools["stellen_anzeigen"]()
+    # Index by original title (without emoji prefix)
+    stellen = {}
+    for s in result["stellen"]:
+        # Strip emoji prefix to map back to original title
+        for prefix in ("🟢 ", "🔵 ", "⚪ "):
+            if s["titel"].startswith(prefix):
+                stellen[s["titel"][len(prefix):]] = s
+                break
+
+    # Freelance → 🟢
+    fl = stellen["Cloud Architekt Projekt"]
+    assert fl["titel"].startswith("🟢")
+    assert fl["typ_label"] == "🟢 Freelance"
+    assert fl["typ"] == "freelance"
+
+    # Festanstellung → 🔵
+    fe = stellen["Java Entwickler"]
+    assert fe["titel"].startswith("🔵")
+    assert fe["typ_label"] == "🔵 Festanstellung"
+    assert fe["typ"] == "festanstellung"
+
+    # Zeitarbeit (sonstige) → ⚪
+    za = stellen["Zeitarbeit Data Science"]
+    assert za["titel"].startswith("⚪")
+    assert za["typ_label"] == "⚪ Sonstige"
+
+    # Kein employment_type → default 'festanstellung' from DB → 🔵
+    em = stellen["Unbekannter Typ"]
+    assert em["titel"].startswith("🔵")
+    assert em["typ_label"] == "🔵 Festanstellung"

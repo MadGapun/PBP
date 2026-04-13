@@ -10,6 +10,20 @@ from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
 
+
+def _extract_publish_date(project: dict) -> str | None:
+    """Extract publication date from freelancermap project data.
+
+    Tries multiple field names that freelancermap may use.
+    Returns ISO date string or None.
+    """
+    for key in ("publishedAt", "published_at", "createdAt", "created_at",
+                "created", "startDate", "start_date", "start"):
+        val = project.get(key)
+        if val and isinstance(val, str) and len(val) >= 10:
+            return val[:10]  # YYYY-MM-DD
+    return None
+
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelancermap")
 
 SEARCH_URLS = [
@@ -55,6 +69,9 @@ def search_freelancermap(params: dict) -> list:
                         "employment_type": "freelance",
                         "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                     }
+                    pub_date = _extract_publish_date(p)
+                    if pub_date:
+                        job["veroeffentlicht_am"] = pub_date
                     jobs.append(job)
 
                 time.sleep(1)
@@ -108,7 +125,7 @@ def _playwright_fallback(urls: list) -> list:
                         desc_html = p.get("description", "")
                         desc = BeautifulSoup(desc_html, "lxml").get_text() if desc_html else ""
 
-                        jobs.append({
+                        pw_job = {
                             "hash": stelle_hash("freelancermap.de", title),
                             "title": title,
                             "company": company,
@@ -118,7 +135,11 @@ def _playwright_fallback(urls: list) -> list:
                             "description": desc[:2000],
                             "employment_type": "freelance",
                             "remote_level": detect_remote_level(f"{title} {location} {desc}"),
-                        })
+                        }
+                        pub_date = _extract_publish_date(p)
+                        if pub_date:
+                            pw_job["veroeffentlicht_am"] = pub_date
+                        jobs.append(pw_job)
                     continue
 
                 # If JS extraction still fails, try DOM extraction

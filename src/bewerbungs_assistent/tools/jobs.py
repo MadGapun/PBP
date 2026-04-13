@@ -473,8 +473,22 @@ def register(mcp, db, logger):
                 "url": j.get("url", ""),
                 "gefunden_am": (j.get("found_at") or "")[:10],
             }
-            if j.get("employment_type"):
-                entry["typ"] = j["employment_type"]
+            if j.get("veroeffentlicht_am"):
+                entry["veroeffentlicht_am"] = j["veroeffentlicht_am"]
+            emp_type = j.get("employment_type") or ""
+            if emp_type == "freelance":
+                typ_emoji = "🟢"
+                typ_label = "🟢 Freelance"
+            elif emp_type == "festanstellung":
+                typ_emoji = "🔵"
+                typ_label = "🔵 Festanstellung"
+            else:
+                typ_emoji = "⚪"
+                typ_label = "⚪ Sonstige"
+            entry["titel"] = f"{typ_emoji} {entry['titel']}"
+            entry["typ_label"] = typ_label
+            if emp_type:
+                entry["typ"] = emp_type
             if j.get("salary_min"):
                 entry["gehalt_min"] = j["salary_min"]
                 entry["gehalt_max"] = j.get("salary_max")
@@ -740,4 +754,6 @@ def register(mcp, db, logger):
         if job_dict.get("description"):
             result["stellenbeschreibung"] = job_dict["description"][:2000]
         result["url"] = job_dict.get("url", "")
+        if job_dict.get("veroeffentlicht_am"):
+            result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
         return result

@@ -239,6 +239,14 @@ Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (S
 **Kann ich PBP ohne Jobportale nutzen?**
 Ja! Du kannst PBP auch nur fuer Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.
 
+### Browser nicht gefunden / Chrome nicht verbunden?
+
+1. Microsoft Edge schliessen (auch im System-Tray pruefen)
+2. Google Chrome manuell oeffnen falls nicht offen
+3. PBP-Suche erneut starten
+
+Hintergrund: PBP versucht den Standard-Browser zu steuern. Wenn Edge geoeffnet ist, kann PBP sich mit Edge statt Chrome verbinden und scheitert dann.
+
 > 📖 **Weitere Fragen und Troubleshooting:** [Wiki → FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
 
 ---
