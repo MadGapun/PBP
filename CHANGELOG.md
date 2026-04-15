@@ -2,6 +2,70 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.4] - 2026-04-15
+
+Schliesst die letzten Write-Back-Luecken im MCP-Server. Claude kann jetzt alles,
+was im Dashboard sichtbar ist, auch selbst pflegen — ohne Umweg ueber direktes SQL.
+
+### Warum dieses Release
+
+Ein Anwender hatte berichtet, dass "nicht alles von Claude zurueckgeschrieben wird".
+Pruefung hat bestaetigt: fuer Meetings, Emails, Stellen-Korrekturen und mehrere
+Dokument-Operationen gab es zwar die DB-Schicht, aber keine passenden MCP-Tools.
+Folge: Claude musste in manchen Situationen auf Desktop-Commander + direktes SQL
+ausweichen, was fehleranfaellig und fuer den Anwender nicht nachvollziehbar war.
+v1.5.4 schliesst diese Luecken. Die oeffentliche MCP-Schnittstelle waechst von
+73 auf **84 Tools**.
+
+### Neue MCP-Tools (11)
+
+**Meetings** (#444) — bisher nur lesbar ueber `bewerbung_details`, jetzt voll pflegbar:
+- `meeting_hinzufuegen` — Interview, Telefonat, Kennenlerngespraech etc. anlegen
+- `meeting_bearbeiten` — Datum, Typ, Ort, Plattform, Notizen, Status aendern
+- `meeting_loeschen` — mit Zwei-Phasen-Bestaetigung
+- `meetings_anzeigen` — gefiltert nach Bewerbung oder als Terminvorschau fuer die naechsten N Tage
+
+**Emails** (#445) — Posteingang war nur einlesbar, jetzt komplett zuordenbar:
+- `email_verknuepfen` — Email einer Bewerbung zuordnen (oder Verknuepfung loesen)
+- `email_loeschen` — mit Zwei-Phasen-Bestaetigung
+- `emails_anzeigen` — pro Bewerbung oder Liste aller nicht zugeordneten Emails
+
+**Stellen** (#446):
+- `stelle_bearbeiten` — Titel, Firma, Ort, Beschreibung korrigieren wenn der Scraper
+  etwas falsch uebernommen hat. Kein Umweg mehr ueber `stelle_manuell_anlegen` +
+  Loeschen der alten Stelle.
+
+**Dokumente** (#447):
+- `dokument_entverknuepfen` — Dokument von einer Bewerbung loesen (Gegenstueck zu `dokument_verknuepfen`)
+- `dokument_loeschen` — mit Zwei-Phasen-Bestaetigung, loescht auch die Datei auf Disk
+- `dokument_status_setzen` — Extraktions-Status manuell setzen (`nicht_extrahiert`,
+  `gestartet`, `extrahiert`, `angewendet`)
+
+### Erweiterte Tools
+
+- **`bewerbung_bearbeiten`** (#448): akzeptiert jetzt auch `cover_letter_path` und
+  `cv_path`. Damit lassen sich die in der Bewerbung hinterlegten Dokumentpfade
+  aendern, ohne erneut zu exportieren.
+
+### Prompts
+
+- `bewerbung_vorbereitung` und `interview_vorbereitung` erwaehnen die neuen
+  Meeting-Tools und `dokument_entverknuepfen`, damit Claude sie in den
+  richtigen Situationen anbietet.
+
+### Unter der Haube
+
+- 19 neue Regressionstests fuer alle neuen Tools (`tests/test_v154_writeback.py`)
+- `test_mcp_registry` prueft jetzt **84 Tools** (vorher 73)
+- `db.update_application` akzeptiert `cover_letter_path` und `cv_path` in der
+  Whitelist (#448)
+- Keine Schema-Aenderung, keine Migration — v1.5.3-Datenbanken laufen ohne Anpassung weiter
+
+### Upgrade
+
+Einfach die [neue Version herunterladen](https://github.com/MadGapun/PBP/releases/latest)
+und installieren. Bestehende Daten bleiben unveraendert.
+
 ## [1.5.3] - 2026-04-15
 
 Stabilisierungs-Release direkt nach dem Launch von v1.5. Keine neuen Features —

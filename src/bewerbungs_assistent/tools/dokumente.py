@@ -1162,3 +1162,102 @@ def register(mcp, db, logger):
             "nachricht": f"Profil importiert und aktiviert. "
                          "Das vorherige Profil wurde gespeichert und kann mit profil_wechseln() wieder aktiviert werden.",
         }
+
+    # === Dokument-Write-Tools (#447) =======================================
+    # Schreibzugriff auf Dokumente: Entverknuepfen, Loeschen, Status setzen.
+    # Bisher konnte Claude diese Operationen nur per direktem SQL ausfuehren.
+
+    _DOC_STATUS_VALUES = {"nicht_extrahiert", "gestartet", "extrahiert", "angewendet"}
+
+    @mcp.tool()
+    def dokument_entverknuepfen(dokument_id: str) -> dict:
+        """Entfernt die Verknuepfung eines Dokuments zu einer Bewerbung (#447).
+
+        Nutze dies, wenn eine automatische oder manuelle Zuordnung falsch ist
+        und das Dokument wieder 'unverknuepft' erscheinen soll. Das Dokument
+        selbst bleibt erhalten — nur die Verknuepfung wird geloest.
+
+        Args:
+            dokument_id: ID des Dokuments
+        """
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        if not doc.get("linked_application_id"):
+            return {
+                "status": "nicht_verknuepft",
+                "hinweis": "Das Dokument war bereits keiner Bewerbung zugeordnet.",
+            }
+        changed = db.relink_document(dokument_id, None, profile_id=profile_id)
+        if not changed:
+            return {"fehler": "Verknuepfung konnte nicht entfernt werden."}
+        return {
+            "status": "entverknuepft",
+            "dokument_id": dokument_id,
+            "dokument": doc.get("filename", ""),
+            "nachricht": (
+                f"Dokument '{doc.get('filename', '')}' ist nicht mehr mit einer "
+                "Bewerbung verknuepft."
+            ),
+        }
+
+    @mcp.tool()
+    def dokument_loeschen(dokument_id: str, bestaetigung: bool = False) -> dict:
+        """Loescht ein Dokument komplett — DB-Eintrag und physische Datei (#447).
+
+        ACHTUNG: Nicht rueckgaengig zu machen. Beim ersten Aufruf ohne
+        Bestaetigung wird nur eine Rueckfrage zurueckgegeben.
+
+        Args:
+            dokument_id: ID des Dokuments
+            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+        """
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        if not bestaetigung:
+            return {
+                "status": "bestaetigung_erforderlich",
+                "dokument_id": dokument_id,
+                "dokument": doc.get("filename", ""),
+                "hinweis": "Setze bestaetigung=True um Dokument und Datei unwiderruflich zu loeschen.",
+            }
+        deleted = db.delete_document(dokument_id, profile_id=profile_id)
+        if not deleted:
+            return {"fehler": "Dokument konnte nicht geloescht werden."}
+        return {
+            "status": "geloescht",
+            "dokument_id": dokument_id,
+            "nachricht": f"Dokument '{doc.get('filename', '')}' wurde geloescht.",
+        }
+
+    @mcp.tool()
+    def dokument_status_setzen(dokument_id: str, status: str) -> dict:
+        """Setzt den Extraktions-Status eines Dokuments manuell (#447).
+
+        Nutze dies z.B. nachdem du eine tiefere Analyse abgeschlossen hast und
+        das Dokument als 'angewendet' markieren willst, ohne `extraktion_anwenden`
+        noch einmal durchlaufen zu lassen.
+
+        Args:
+            dokument_id: ID des Dokuments
+            status: nicht_extrahiert, gestartet, extrahiert, angewendet
+        """
+        if status not in _DOC_STATUS_VALUES:
+            return {
+                "fehler": f"Ungueltiger Status '{status}'.",
+                "erlaubte_status": sorted(_DOC_STATUS_VALUES),
+            }
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        db.update_document_extraction_status(dokument_id, status)
+        return {
+            "status": "aktualisiert",
+            "dokument_id": dokument_id,
+            "extraction_status": status,
+            "nachricht": f"Dokument '{doc.get('filename', '')}' -> {status}.",
+        }

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "1.5.3"
+version = "1.5.4"
 description = "KI-gestützter Bewerbungsassistent — MCP Server für Claude Desktop"
 readme = {text = "KI-gestützter Bewerbungsassistent als MCP Server für Claude Desktop", content-type = "text/plain"}
 license = "MIT"
@@ -54,3 +54,8 @@ bewerbungs-assistent = "bewerbungs_assistent:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bewerbungs_assistent"]
+
+[tool.pytest.ini_options]
+# test_demo.py im Projekt-Root ist ein Dashboard-Launcher-Script, kein Pytest-Test.
+# Ohne testpaths wuerde pytest es einsammeln und beim Start des Uvicorn-Servers haengen.
+testpaths = ["tests"]
