@@ -4,6 +4,7 @@ import json
 import re
 from collections import Counter
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 
 def register(mcp, db, logger):
@@ -876,6 +877,96 @@ def register(mcp, db, logger):
                 })
         except Exception:
             pass
+
+        # --- 7. Dokumente-Integritaet (#441) ---
+        # Prueft ob physische Dateien zu den Dokumenten-DB-Eintraegen existieren.
+        # Nach dem v1.4.x → v1.5.0 Dual-DB-Migration-Bug koennen Files verloren gegangen sein.
+        try:
+            from ..database import get_data_dir
+            docs = db._get_documents()
+            if docs:
+                missing = []
+                missing_fixable = []
+                dokumente_dir = get_data_dir() / "dokumente"
+
+                for d in docs:
+                    fp = d.get("filepath")
+                    if not fp:
+                        continue
+                    if Path(fp).exists():
+                        continue
+                    # Datei fehlt — versuche sie im Standard-Dokumenten-Ordner zu finden
+                    entry = {
+                        "id": d.get("id", "")[:8],
+                        "filename": d.get("filename", ""),
+                        "doc_type": d.get("doc_type", ""),
+                        "erwartet_unter": fp,
+                    }
+                    filename = d.get("filename", "")
+                    candidate = dokumente_dir / filename if filename else None
+                    if candidate and candidate.exists():
+                        entry["gefunden_unter"] = str(candidate)
+                        missing_fixable.append((d, candidate, entry))
+                    else:
+                        missing.append(entry)
+
+                if auto_fix and missing_fixable:
+                    fixed_count = 0
+                    conn = db.connect()
+                    for d, candidate, entry in missing_fixable:
+                        try:
+                            conn.execute(
+                                "UPDATE documents SET filepath=? WHERE id=?",
+                                (str(candidate), d["id"]),
+                            )
+                            fixed_count += 1
+                        except Exception as exc:
+                            logger.debug("Auto-Fix filepath fehlgeschlagen fuer %s: %s", d.get("id"), exc)
+                    if fixed_count:
+                        conn.commit()
+                        fixes.append(
+                            f"{fixed_count} Dokumente: filepath auf gefundene Datei in dokumente/ umgebogen"
+                        )
+                    # Nicht-fixbare bleiben in missing, fixable wurden oben behandelt
+                else:
+                    # Ohne auto_fix: alle als Warnung/Problem melden
+                    for _, _, entry in missing_fixable:
+                        entry["loesung"] = (
+                            "Datei existiert im dokumente/-Ordner, aber DB zeigt auf alten Pfad. "
+                            "Nutze pbp_diagnose(auto_fix=True) zum Reparieren."
+                        )
+                        missing.append(entry)
+
+                if missing:
+                    anteil = len(missing) / len(docs) if docs else 0
+                    schwere = "kritisch" if anteil > 0.5 else "warnung"
+                    eintrag = {
+                        "bereich": "Dokumente",
+                        "problem": (
+                            f"{len(missing)} von {len(docs)} Dokumenten haben fehlende Dateien "
+                            "(DB-Eintrag vorhanden, Datei fehlt auf Disk). "
+                            "Moegliche Ursache: v1.4.x → v1.5.0 Dual-DB-Migration."
+                        ),
+                        "dokumente": missing[:10],
+                        "loesung": (
+                            "1) pbp_diagnose(auto_fix=True) fuer automatische Reparatur "
+                            "(findet Dateien im dokumente/-Ordner und korrigiert Pfade). "
+                            "2) Fehlende Dateien erneut hochladen. "
+                            "3) Verwaiste DB-Eintraege manuell entfernen."
+                        ),
+                    }
+                    if schwere == "kritisch":
+                        eintrag["schwere"] = "kritisch"
+                        probleme.append(eintrag)
+                    else:
+                        warnungen.append(eintrag)
+                else:
+                    info.append({
+                        "bereich": "Dokumente",
+                        "meldung": f"{len(docs)} Dokumente, alle physischen Dateien vorhanden.",
+                    })
+        except Exception as e:
+            logger.debug("Dokumente-Integritaetspruefung fehlgeschlagen: %s", e)
 
         # --- Ergebnis ---
         gesundheit = "kritisch" if probleme else "warnungen" if warnungen else "gesund"

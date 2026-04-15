@@ -2,6 +2,56 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.3] - 2026-04-15
+
+Stabilisierungs-Release direkt nach dem Launch von v1.5. Keine neuen Features —
+nur Bugfixes und bessere Selbstdiagnose, damit der Einstieg reibungslos laeuft.
+
+### Bug Fixes
+
+- **Fehlende Dokumente nach Upgrade automatisch reparieren** (#441)
+  Nach dem v1.4.x → v1.5.0 Upgrade konnten in seltenen Faellen physische Dokument-Dateien
+  verloren gehen: der DB-Eintrag war da, aber die PDF lag nicht mehr im `dokumente/`-Ordner.
+  Folge: `dokument_profil_extrahieren` lieferte leere Daten, Dokumente tauchten im Tab auf,
+  liessen sich aber nicht lesen.
+
+  **Was neu ist:** `pbp_diagnose()` prueft jetzt bei jedem Lauf, ob zu jedem Dokument-Eintrag
+  die Datei auf Disk existiert. Wenn Dateien fehlen, wird das explizit gemeldet — mit
+  Dateiname, Doc-Typ und erwartetem Pfad. Mit `pbp_diagnose(auto_fix=True)` werden Dateien,
+  die noch im Standard-`dokumente/`-Ordner liegen, automatisch wieder mit dem DB-Eintrag
+  verknuepft. Kein manuelles SQL mehr noetig.
+
+  *Betroffen:* Nutzer, die von v1.4.1 oder v1.4.3 auf v1.5.x upgegradet haben.
+  *Empfehlung nach dem Upgrade auf v1.5.3:* einmal `pbp_diagnose(auto_fix=True)` laufen
+  lassen.
+
+- **Klare Warnung wenn Stellen-Links auf Suchergebnisse zeigen** (#436)
+  Manche Scraper — vor allem fuer LinkedIn, freelance.de und Freelancermap — haben bisher
+  gelegentlich die URL der Suchergebnis-Seite gespeichert statt der konkreten Stellenanzeige.
+  Folge: Klick auf die URL landete auf einer generischen Suchseite, nicht auf der eigentlichen
+  Stelle.
+
+  **Was neu ist:** `stellen_anzeigen()`, `fit_analyse()` und `stelle_manuell_anlegen()` erkennen
+  solche Such-URLs jetzt automatisch und liefern ein neues Feld `url_warnung` zurueck. Damit
+  ist sofort klar, bei welchen Stellen der Link zu kurz greift und auf dem Portal nachgesucht
+  werden muss. Stellen werden weiterhin ganz normal angelegt und bewertet — nur die Warnung
+  ist neu.
+
+  *Der eigentliche Fix pro Portal* (Detail-URL im Scraper extrahieren statt Such-URL als
+  Fallback) folgt in v1.6.
+
+### Unter der Haube
+
+- 8 neue Regressionstests fuer #441 und #436 (Document-Integrity + URL-Heuristik)
+- **410 Tests** passing (vorher 402)
+- Keine Schema-Aenderung, keine Migration — v1.5.2-Datenbanken laufen ohne Anpassung weiter
+
+### Upgrade
+
+Einfach die [neue Version herunterladen](https://github.com/MadGapun/PBP/releases/latest) und
+installieren. Bestehende Daten bleiben unveraendert. Falls du von v1.4.x kommst und den
+Eindruck hast, dass Dokumente fehlen, fuehre einmal `pbp_diagnose(auto_fix=True)` aus.
+
 ## [1.5.2] - 2026-04-13
 
 ### Neue Features

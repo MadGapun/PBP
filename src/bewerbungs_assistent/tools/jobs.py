@@ -506,6 +506,14 @@ def register(mcp, db, logger):
             if len(desc.strip()) < 50:
                 entry["beschreibung_fehlt"] = True
                 entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
+            # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt statt auf Detail-Anzeige
+            from ..job_scraper import is_search_result_url
+            if j.get("url") and is_search_result_url(j["url"]):
+                entry["url_warnung"] = (
+                    "Diese URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
+                    "Stellenanzeige. Die Detail-URL konnte vom Scraper nicht extrahiert "
+                    "werden — suche die Stelle manuell auf dem Portal."
+                )
             formatted.append(entry)
 
         result = {
@@ -721,6 +729,15 @@ def register(mcp, db, logger):
         }
         if job.get("distance_km"):
             result["entfernung_km"] = job["distance_km"]
+        # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt
+        from ..job_scraper import is_search_result_url
+        if url and is_search_result_url(url):
+            result["url_warnung"] = (
+                "Die angegebene URL zeigt auf eine Suchergebnis-Seite, nicht auf die "
+                "konkrete Stellenanzeige. Die Stelle wurde trotzdem angelegt, aber der "
+                "Link wird zur Such-Seite zurueckfuehren. Falls moeglich die Detail-URL "
+                "der Stellenanzeige statt der Suchergebnis-URL nutzen."
+            )
         return result
 
     @mcp.tool()
@@ -754,6 +771,13 @@ def register(mcp, db, logger):
         if job_dict.get("description"):
             result["stellenbeschreibung"] = job_dict["description"][:2000]
         result["url"] = job_dict.get("url", "")
+        # #436: Warne wenn URL nur auf Suchergebnis-Seite zeigt
+        from ..job_scraper import is_search_result_url
+        if result["url"] and is_search_result_url(result["url"]):
+            result["url_warnung"] = (
+                "URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
+                "Stellenanzeige. Die Stelle muss manuell auf dem Portal gesucht werden."
+            )
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
         return result

@@ -745,6 +745,88 @@ def stelle_hash(domain: str, title: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
+# Heuristik fuer "URL zeigt auf Suchergebnis-Seite statt konkrete Stellenanzeige" (#436).
+# Wenn eine Stellen-URL auf eine generische Suchseite zeigt, kann der User sie nicht
+# direkt oeffnen — der Scraper hat keine Detail-URL extrahiert, nur die Such-URL.
+_SEARCH_URL_PATH_PATTERNS = (
+    "/jobs/search",           # linkedin.com/jobs/search/?keywords=...
+    "/projekte?",             # freelancermap.de/projekte?query=, freelance.de/projekte?skills=
+    "/projekte/",             # Liste/Kategorie-Seiten ohne Detail-Slug
+    "/projects/search",
+    "/search/project",        # freelance.de/search/project.php
+    "/stellenangebote?",      # stepstone /stellenangebote?where=...
+    "/jobs?",                 # indeed.de/jobs?q=
+    "/jobs/suche",            # xing.com/jobs/suche?...
+    "/suche?",                # generic /suche?q=
+)
+_SEARCH_URL_QUERY_KEYS = (
+    "query=", "keywords=", "q=", "skills=", "search=",
+    "searchterm=", "what=", "suchbegriff=",
+)
+# Konkrete Detail-URL-Marker — gewinnen gegenueber generischen Such-Pattern.
+_DETAIL_URL_PATH_MARKERS = (
+    "/jobs/view/",            # linkedin.com/jobs/view/1234
+    "/projekt/",              # freelancermap.de/projekt/titel-id
+    "/project/",
+    "/stellenanzeige",        # stepstone konkrete Anzeige
+    "/stellenangebote--",     # stepstone slug-artige Detail-URLs (SEO-Format mit --)
+    "/job/view",
+    "/viewjob",               # indeed.com/viewjob?jk=...
+    "/stelle/",
+    "/position/",
+)
+
+
+def is_search_result_url(url: str) -> bool:
+    """Return True if *url* looks like a generic search result page rather
+    than a concrete job listing (#436).
+
+    Best-effort heuristic: concrete detail-URL markers (``/jobs/view/``,
+    ``/projekt/<slug>``, ``/viewjob?jk=``, ...) outrank the generic search
+    patterns, so detail URLs that happen to contain a query string are
+    still classified as details. URLs that match known search paths or
+    that carry typical search query parameters (``?keywords=``, ``?q=``,
+    ...) are classified as search URLs.
+
+    Empty/missing URLs return False — callers handle missing URLs separately.
+    """
+    if not url or not isinstance(url, str):
+        return False
+    u = url.lower().strip()
+    if not u.startswith(("http://", "https://")):
+        return False
+
+    # Detail markers win. We require at least one alphanumeric char after
+    # the marker so ".../projekt/" (empty suffix) stays a search-style URL.
+    for marker in _DETAIL_URL_PATH_MARKERS:
+        idx = u.find(marker)
+        if idx < 0:
+            continue
+        rest = u[idx + len(marker):]
+        if re.match(r"[a-z0-9]", rest):
+            return False
+
+    # Strip scheme+host to look at path+query only
+    try:
+        without_scheme = u.split("://", 1)[1]
+        path_and_query = "/" + without_scheme.split("/", 1)[1] if "/" in without_scheme else "/"
+    except Exception:
+        path_and_query = u
+
+    for pat in _SEARCH_URL_PATH_PATTERNS:
+        if pat in path_and_query:
+            return True
+
+    # Query-param based matches (e.g. ...?keywords=plm&...)
+    if "?" in path_and_query:
+        query = path_and_query.split("?", 1)[1]
+        for key in _SEARCH_URL_QUERY_KEYS:
+            if key in query:
+                return True
+
+    return False
+
+
 def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> str:
     """Fetch job description from a detail page via httpx.
 

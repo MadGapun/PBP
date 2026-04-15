@@ -130,3 +130,45 @@ def test_freelancermap_search_extracts_projects_from_js_fixture(monkeypatch):
     assert "PLM Architektur" in jobs[0]["description"]
     assert fallback_called["value"] is False
     assert requests == ["https://www.freelancermap.de/projektboerse.html?q=PLM"]
+
+
+# ── #436: Search URL heuristic ─────────────────────────────────────
+
+def test_is_search_result_url_detects_known_search_pages():
+    from bewerbungs_assistent.job_scraper import is_search_result_url
+
+    search_urls = [
+        "https://www.linkedin.com/jobs/search/?keywords=%22PLM%22",
+        "https://www.freelancermap.de/projekte?query=PLM",
+        "https://www.freelance.de/projekte?skills=PLM%20PDM",
+        "https://www.freelance.de/search/project.php?search=PLM",
+        "https://de.indeed.com/jobs?q=projektmanager",
+        "https://www.stepstone.de/stellenangebote?where=hamburg&what=plm",
+        "https://www.xing.com/jobs/suche?keywords=plm",
+    ]
+    for u in search_urls:
+        assert is_search_result_url(u) is True, f"should flag as search: {u}"
+
+
+def test_is_search_result_url_accepts_detail_pages():
+    from bewerbungs_assistent.job_scraper import is_search_result_url
+
+    detail_urls = [
+        "https://www.linkedin.com/jobs/view/3826543210",
+        "https://www.linkedin.com/jobs/view/3826543210?trk=public_jobs_topcard",
+        "https://www.freelancermap.de/projekt/plm-berater-m-w-d-2956816",
+        "https://de.indeed.com/viewjob?jk=abc123",
+        "https://www.stepstone.de/stellenangebote--Senior-Engineer--hamburg/123456",
+        "https://www.xing.com/jobs/hamburg-plm-consultant-12345678",
+    ]
+    for u in detail_urls:
+        assert is_search_result_url(u) is False, f"should NOT flag as search: {u}"
+
+
+def test_is_search_result_url_handles_edge_cases():
+    from bewerbungs_assistent.job_scraper import is_search_result_url
+
+    assert is_search_result_url("") is False
+    assert is_search_result_url(None) is False
+    assert is_search_result_url("not-a-url") is False
+    assert is_search_result_url("ftp://example.com/jobs/search") is False
