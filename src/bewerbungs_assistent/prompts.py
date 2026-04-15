@@ -735,6 +735,7 @@ REGELN:
 - Alles MUSS personalisiert sein — nutze konkrete Projekte, Erfolge, Zahlen aus dem Profil
 - Sei ermutigend: "Du hast X Jahre Erfahrung in Y — das ist eine echte Stärke!"
 - Biete an: "Soll ich mit dir ein Probe-Interview ueben?"
+- Wenn der User den Gespraechstermin nennt: sofort mit meeting_hinzufuegen(bewerbung_id, datum, typ='interview', ...) speichern
 - Am Ende: "Soll ich den Status deiner Bewerbung bei {firma} auf 'interview' setzen?"
   → bewerbung_status_ändern(id, 'interview', notizen)"""
 
@@ -1480,6 +1481,10 @@ WICHTIGE REGELN
 - Nach JEDEM Schritt: Timeline-Eintrag erstellen mit bewerbung_notiz()
   z.B. "Fit-Analyse durchgefuehrt (Score: 78)" oder "CV angepasst und exportiert"
 - Automatisch dokument_verknuepfen() aufrufen wenn Dokumente erstellt werden
+- Wenn der User einen Gespraechstermin erwaehnt: SOFORT mit meeting_hinzufuegen() speichern
+  (typ='interview'|'telefon'|'video', datum als ISO-String)
+- Falsch zugeordnete Dokumente mit dokument_entverknuepfen() loesen, dann korrekt verknuepfen
+- Anschreiben-/CV-Pfade nach Export ueber bewerbung_bearbeiten(cover_letter_path=..., cv_path=...) ablegen
 - Den User NICHT mit allen Schritten auf einmal überfordern — immer nur den nächsten zeigen
 - Bei Unsicherheit: Aufmuntern! "Das sieht gut aus. Lass uns weitermachen."
 - Wenn der User frustriert wirkt: "Jeder Schritt zaehlt. Du machst das richtig."

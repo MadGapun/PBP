@@ -91,6 +91,18 @@ EXPECTED_TOOL_NAMES = {
     "keyword_vorschlaege",
     "pbp_diagnose",
     "recherche_speichern",
+    # v1.5.4: Write-Back-Gaps (#443-#448)
+    "meeting_hinzufuegen",
+    "meeting_bearbeiten",
+    "meeting_loeschen",
+    "meetings_anzeigen",
+    "email_verknuepfen",
+    "email_loeschen",
+    "emails_anzeigen",
+    "stelle_bearbeiten",
+    "dokument_entverknuepfen",
+    "dokument_loeschen",
+    "dokument_status_setzen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -184,7 +196,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 73
+        assert len(tools) == 84  # v1.5.4: +11 Write-Back-Tools (#443)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

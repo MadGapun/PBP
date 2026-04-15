@@ -1,4 +1,4 @@
-"""Jobsuche und Stellenverwaltung — 6 Tools."""
+"""Jobsuche und Stellenverwaltung — 7 Tools (#446: stelle_bearbeiten)."""
 
 import threading
 
@@ -781,3 +781,55 @@ def register(mcp, db, logger):
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
         return result
+
+    @mcp.tool()
+    def stelle_bearbeiten(
+        job_hash: str,
+        titel: str = "",
+        firma: str = "",
+        ort: str = "",
+        beschreibung: str = "",
+    ) -> dict:
+        """Aktualisiert Felder einer bestehenden Stelle (#446).
+
+        Nutze dies, um eine gescrapte oder manuell angelegte Stelle
+        nachtraeglich zu korrigieren oder zu verfeinern — z.B. wenn aus einer
+        E-Mail eine ausfuehrlichere Beschreibung hervorgeht oder die
+        Ortsangabe prezisiert werden muss.
+
+        Nur angegebene Felder werden geaendert. Leere Strings bleiben unveraendert.
+
+        Args:
+            job_hash: Hash der Stelle (aus stellen_anzeigen)
+            titel: Neuer Stellentitel
+            firma: Neuer Firmenname
+            ort: Neuer Arbeitsort
+            beschreibung: Neue Stellenbeschreibung
+        """
+        job = db.get_job(job_hash)
+        if not job:
+            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+
+        updates: dict = {}
+        if titel:
+            updates["title"] = titel
+        if firma:
+            updates["company"] = firma
+        if ort:
+            updates["location"] = ort
+        if beschreibung:
+            updates["description"] = beschreibung
+
+        if not updates:
+            return {"fehler": "Keine Aenderungen angegeben."}
+
+        db.update_job(job_hash, updates)
+        return {
+            "status": "aktualisiert",
+            "job_hash": job_hash,
+            "geaenderte_felder": list(updates.keys()),
+            "nachricht": (
+                f"Stelle '{updates.get('title') or job.get('title', '')}' "
+                f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
+            ),
+        }

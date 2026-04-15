@@ -1,4 +1,4 @@
-"""Bewerbungs-Management — 9 Tools (#170: geführter Workflow)."""
+"""Bewerbungs-Management — 16 Tools (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
 import hashlib
 
@@ -480,6 +480,8 @@ def register(mcp, db, logger):
         source: str = "",
         vermittler: str = "",
         endkunde: str = "",
+        cover_letter_path: str = "",
+        cv_path: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -499,6 +501,8 @@ def register(mcp, db, logger):
             source: Quelle der Stelle (stepstone, indeed, linkedin, manuell, etc.)
             vermittler: Name des Vermittlers/der Agentur
             endkunde: Name des Endkunden (bei Freelance/Vermittlung)
+            cover_letter_path: Pfad zum Anschreiben-PDF (#448)
+            cv_path: Pfad zum Lebenslauf-PDF (#448)
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -509,7 +513,8 @@ def register(mcp, db, logger):
                          ("notes", notes), ("ansprechpartner", ansprechpartner),
                          ("kontakt_email", kontakt_email), ("portal_name", portal_name),
                          ("bewerbungsart", bewerbungsart), ("employment_type", employment_type),
-                         ("source", source), ("vermittler", vermittler), ("endkunde", endkunde)]:
+                         ("source", source), ("vermittler", vermittler), ("endkunde", endkunde),
+                         ("cover_letter_path", cover_letter_path), ("cv_path", cv_path)]:
             if val:
                 updates[key] = val
 
@@ -665,3 +670,293 @@ def register(mcp, db, logger):
         stats["pipeline"] = pipeline
 
         return stats
+
+    # === Meetings (#444) ===================================================
+    # Schreibzugriff auf application_meetings. Bisher konnte Claude Interviews,
+    # Telefonate und Termine nur per direktem SQL anlegen — jetzt sauber ueber MCP.
+
+    _MEETING_TYPES = {
+        "interview", "telefon", "video", "vor_ort", "kennenlernen",
+        "zweitgespraech", "assessment", "probearbeiten", "vertrag", "sonstiges",
+    }
+    _MEETING_STATUS = {"geplant", "bestaetigt", "abgeschlossen", "abgesagt", "verschoben"}
+
+    @mcp.tool()
+    def meeting_hinzufuegen(
+        bewerbung_id: str,
+        datum: str,
+        typ: str = "interview",
+        platform: str = "",
+        ort: str = "",
+        titel: str = "",
+        notizen: str = "",
+        dauer_minuten: int = 0,
+        status: str = "geplant",
+    ) -> dict:
+        """Fuegt einen Termin (Interview, Telefonat, Video-Call) zu einer Bewerbung hinzu (#444).
+
+        Nutze dies immer wenn der Anwender einen Gespraechstermin erwaehnt. Das
+        Meeting erscheint anschliessend in `bewerbung_details()` und im Kalender.
+
+        Args:
+            bewerbung_id: ID der Bewerbung (aus bewerbungen_anzeigen)
+            datum: Datum/Uhrzeit als ISO-String (z.B. '2026-04-18T14:00' oder '2026-04-18 14:00')
+            typ: Meeting-Typ (interview, telefon, video, vor_ort, kennenlernen, zweitgespraech, assessment, probearbeiten, vertrag, sonstiges)
+            platform: Plattform bei Video-Calls (z.B. 'Teams', 'Zoom', 'Google Meet')
+            ort: Ort bei Vor-Ort-Terminen
+            titel: Optionaler Titel (Default: abgeleitet vom Typ)
+            notizen: Freie Notizen zum Termin
+            dauer_minuten: Geplante Dauer in Minuten (0 = unbekannt)
+            status: Status (geplant, bestaetigt, abgeschlossen, abgesagt, verschoben)
+        """
+        app = db.get_application(bewerbung_id)
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden. Prüfe die ID mit bewerbungen_anzeigen()."}
+        if not datum:
+            return {"fehler": "Datum ist ein Pflichtfeld."}
+        if typ not in _MEETING_TYPES:
+            return {
+                "fehler": f"Ungueltiger Typ '{typ}'.",
+                "erlaubte_typen": sorted(_MEETING_TYPES),
+            }
+        if status not in _MEETING_STATUS:
+            return {
+                "fehler": f"Ungueltiger Status '{status}'.",
+                "erlaubte_status": sorted(_MEETING_STATUS),
+            }
+
+        data = {
+            "application_id": bewerbung_id,
+            "title": titel or f"{typ.capitalize()} — {app.get('company', '')}".strip(" —"),
+            "meeting_date": datum,
+            "meeting_type": typ,
+            "platform": platform or None,
+            "location": ort,
+            "notes": notizen or None,
+            "status": status,
+            "duration_minutes": dauer_minuten or None,
+        }
+        meeting_id = db.add_meeting(data)
+        return {
+            "status": "angelegt",
+            "meeting_id": meeting_id,
+            "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+            "typ": typ,
+            "datum": datum,
+            "nachricht": (
+                f"{typ.capitalize()} am {datum} zu '{app.get('title', '')}' "
+                f"bei {app.get('company', '')} gespeichert."
+            ),
+        }
+
+    @mcp.tool()
+    def meeting_bearbeiten(
+        meeting_id: str,
+        titel: str = "",
+        datum: str = "",
+        ort: str = "",
+        platform: str = "",
+        notizen: str = "",
+        status: str = "",
+        dauer_minuten: int = 0,
+    ) -> dict:
+        """Aktualisiert einen bestehenden Termin (#444).
+
+        Nur die angegebenen Felder werden geaendert. Leere Strings bleiben unveraendert.
+        Nutze dies z.B. um einen Termin zu bestaetigen, zu verschieben oder Notizen zu ergaenzen.
+
+        Args:
+            meeting_id: ID des Meetings (aus meetings_anzeigen)
+            titel: Neuer Titel
+            datum: Neues Datum/Uhrzeit (ISO-String)
+            ort: Neuer Ort
+            platform: Neue Plattform
+            notizen: Neue Notizen (ueberschreibt bisherige)
+            status: Neuer Status (geplant, bestaetigt, abgeschlossen, abgesagt, verschoben)
+            dauer_minuten: Neue Dauer (0 = nicht aendern)
+        """
+        updates: dict = {}
+        if titel:
+            updates["title"] = titel
+        if datum:
+            updates["meeting_date"] = datum
+        if ort:
+            updates["location"] = ort
+        if platform:
+            updates["platform"] = platform
+        if notizen:
+            updates["notes"] = notizen
+        if status:
+            if status not in _MEETING_STATUS:
+                return {
+                    "fehler": f"Ungueltiger Status '{status}'.",
+                    "erlaubte_status": sorted(_MEETING_STATUS),
+                }
+            updates["status"] = status
+        if dauer_minuten:
+            updates["duration_minutes"] = dauer_minuten
+
+        if not updates:
+            return {"fehler": "Keine Aenderungen angegeben."}
+
+        profile_id = db.get_active_profile_id()
+        changed = db.update_meeting(meeting_id, updates, profile_id=profile_id)
+        if not changed:
+            return {"fehler": "Meeting nicht gefunden oder gehoert nicht zum aktiven Profil."}
+        return {
+            "status": "aktualisiert",
+            "meeting_id": meeting_id,
+            "geaenderte_felder": list(updates.keys()),
+        }
+
+    @mcp.tool()
+    def meeting_loeschen(meeting_id: str, bestaetigung: bool = False) -> dict:
+        """Loescht einen Termin (#444).
+
+        ACHTUNG: Nicht rueckgaengig zu machen. Beim ersten Aufruf ohne
+        Bestaetigung wird nur eine Rueckfrage zurueckgegeben.
+
+        Args:
+            meeting_id: ID des Meetings
+            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+        """
+        profile_id = db.get_active_profile_id()
+        if not bestaetigung:
+            return {
+                "status": "bestaetigung_erforderlich",
+                "meeting_id": meeting_id,
+                "hinweis": "Setze bestaetigung=True um den Termin unwiderruflich zu loeschen.",
+            }
+        deleted = db.delete_meeting(meeting_id, profile_id=profile_id)
+        if not deleted:
+            return {"fehler": "Meeting nicht gefunden oder gehoert nicht zum aktiven Profil."}
+        return {"status": "geloescht", "meeting_id": meeting_id}
+
+    @mcp.tool()
+    def meetings_anzeigen(bewerbung_id: str = "", tage: int = 30) -> dict:
+        """Zeigt Termine — entweder fuer eine bestimmte Bewerbung oder kommende im Zeitraum (#444).
+
+        Args:
+            bewerbung_id: Optional — wenn gesetzt, nur Termine zu dieser Bewerbung
+            tage: Wenn keine Bewerbung angegeben: Anzahl Tage in die Zukunft (Default: 30)
+        """
+        profile_id = db.get_active_profile_id()
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if not app:
+                return {"fehler": "Bewerbung nicht gefunden."}
+            meetings = db.get_meetings_for_application(bewerbung_id, profile_id=profile_id)
+            return {
+                "status": "ok",
+                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                "anzahl": len(meetings),
+                "meetings": meetings,
+            }
+        meetings = db.get_upcoming_meetings(days=tage)
+        return {
+            "status": "ok",
+            "zeitraum_tage": tage,
+            "anzahl": len(meetings),
+            "meetings": meetings,
+        }
+
+    # === E-Mails (#445) ====================================================
+    # Schreibzugriff auf application_emails. Tools um E-Mails manuell mit
+    # Bewerbungen zu verknuepfen, zu loeschen oder unmatched aufzulisten.
+
+    @mcp.tool()
+    def email_verknuepfen(email_id: str, bewerbung_id: str) -> dict:
+        """Verknuepft eine eingegangene E-Mail mit einer Bewerbung (#445).
+
+        Nutze dies fuer E-Mails die die Pipeline nicht automatisch zuordnen
+        konnte oder die falsch zugeordnet wurden. Setze `bewerbung_id` auf den
+        leeren String um die Verknuepfung zu entfernen (E-Mail wird wieder
+        'unmatched').
+
+        Args:
+            email_id: ID der E-Mail (aus emails_anzeigen)
+            bewerbung_id: ID der Bewerbung ODER leerer String zum Entkoppeln
+        """
+        profile_id = db.get_active_profile_id()
+        email = db.get_email(email_id, profile_id=profile_id)
+        if not email:
+            return {"fehler": "E-Mail nicht gefunden."}
+
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if not app:
+                return {"fehler": "Bewerbung nicht gefunden."}
+            changed = db.update_email(
+                email_id, {"application_id": bewerbung_id}, profile_id=profile_id
+            )
+            if not changed:
+                return {"fehler": "Verknuepfung konnte nicht aktualisiert werden."}
+            return {
+                "status": "verknuepft",
+                "email_id": email_id,
+                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                "betreff": email.get("subject", ""),
+            }
+        # bewerbung_id leer -> entkoppeln
+        changed = db.update_email(
+            email_id, {"application_id": None}, profile_id=profile_id
+        )
+        if not changed:
+            return {"fehler": "Entkoppelung konnte nicht aktualisiert werden."}
+        return {
+            "status": "entkoppelt",
+            "email_id": email_id,
+            "betreff": email.get("subject", ""),
+        }
+
+    @mcp.tool()
+    def email_loeschen(email_id: str, bestaetigung: bool = False) -> dict:
+        """Loescht eine E-Mail aus der Datenbank (#445).
+
+        Args:
+            email_id: ID der E-Mail
+            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+        """
+        profile_id = db.get_active_profile_id()
+        email = db.get_email(email_id, profile_id=profile_id)
+        if not email:
+            return {"fehler": "E-Mail nicht gefunden."}
+        if not bestaetigung:
+            return {
+                "status": "bestaetigung_erforderlich",
+                "email_id": email_id,
+                "betreff": email.get("subject", ""),
+                "hinweis": "Setze bestaetigung=True um die E-Mail unwiderruflich zu loeschen.",
+            }
+        deleted = db.delete_email(email_id, profile_id=profile_id)
+        if not deleted:
+            return {"fehler": "E-Mail konnte nicht geloescht werden."}
+        return {"status": "geloescht", "email_id": email_id}
+
+    @mcp.tool()
+    def emails_anzeigen(bewerbung_id: str = "") -> dict:
+        """Zeigt E-Mails — entweder zu einer Bewerbung oder alle nicht zugeordneten (#445).
+
+        Args:
+            bewerbung_id: Optional — wenn gesetzt, nur E-Mails dieser Bewerbung.
+                          Leer = alle noch nicht zugeordneten E-Mails (unmatched).
+        """
+        profile_id = db.get_active_profile_id()
+        if bewerbung_id:
+            app = db.get_application(bewerbung_id)
+            if not app:
+                return {"fehler": "Bewerbung nicht gefunden."}
+            emails = db.get_emails_for_application(bewerbung_id, profile_id=profile_id)
+            return {
+                "status": "ok",
+                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                "anzahl": len(emails),
+                "emails": emails,
+            }
+        emails = db.get_unmatched_emails()
+        return {
+            "status": "ok",
+            "filter": "unmatched",
+            "anzahl": len(emails),
+            "emails": emails,
+        }

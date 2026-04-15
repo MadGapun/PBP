@@ -10,7 +10,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.5.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-401-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-429-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-73-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -195,12 +195,12 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 73 Tools in 8 Modulen |
+| **MCP-Tools** | 84 Tools in 8 Modulen |
 | **Workflows** | 18 gefuehrte Workflows |
 | **Jobportale** | 18 Quellen (11 schnell, 4 Browser, 3 manuell) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite, 29 Tabellen, Schema v23 |
-| **Tests** | 401 bestanden |
+| **Tests** | 429 bestanden |
 
 > 📖 **Technische Details:** [Wiki → Architektur](https://github.com/MadGapun/PBP/wiki/Architektur) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
 

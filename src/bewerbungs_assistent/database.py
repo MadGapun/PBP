@@ -2297,7 +2297,7 @@ class Database:
         conn.commit()
 
     def update_application(self, app_id: str, data: dict):
-        """Update application fields (#181: erweitert um employment_type, source, vermittler, endkunde)."""
+        """Update application fields (#181: employment_type/source/vermittler/endkunde, #448: cover_letter_path/cv_path)."""
         conn = self.connect()
         now = _now()
         fields = []
@@ -2305,7 +2305,8 @@ class Database:
         allowed_keys = ("title", "company", "url", "notes", "ansprechpartner",
                         "kontakt_email", "portal_name", "bewerbungsart",
                         "employment_type", "source", "source_secondary",
-                        "vermittler", "endkunde", "applied_at")
+                        "vermittler", "endkunde", "applied_at",
+                        "cover_letter_path", "cv_path")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
