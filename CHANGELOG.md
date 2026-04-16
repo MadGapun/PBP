@@ -2,7 +2,7 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
-## [1.6.0] - 2026-04-16
+## [1.5.5] - 2026-04-16
 
 Feature-Release mit 7 geschlossenen Issues: Dashboard-Redesign, Scraper-Health-Monitoring,
 Report-Charts, Projekt-Datumsverwaltung und verbesserte URL-Erkennung.
