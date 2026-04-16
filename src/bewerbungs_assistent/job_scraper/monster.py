@@ -163,12 +163,15 @@ def search_monster(params: dict) -> list:
                 }""")
 
                 for raw in raw_jobs:
+                    from . import is_search_result_url
+                    link = raw["link"]
                     job = {
                         "hash": stelle_hash("monster.de", raw["title"]),
                         "title": raw["title"],
                         "company": raw["company"],
                         "location": raw["location"],
-                        "url": raw["link"],
+                        "url": link,
+                        "is_search_url": not link or is_search_result_url(link),
                         "source": "monster",
                         "description": raw["desc"],
                         "employment_type": "festanstellung",

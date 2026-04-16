@@ -37,6 +37,7 @@ const EXTRACTION_STATUS = {
   nicht_extrahiert: { label: "Nicht analysiert", tone: "danger" },
   basis_analysiert: { label: "Basis", tone: "amber" },
   analysiert: { label: "Analysiert", tone: "sky" },
+  analysiert_leer: { label: "Leer", tone: "neutral" },
   angewendet: { label: "Angewendet", tone: "success" },
   duplikat: { label: "Duplikat", tone: "neutral" },
 };

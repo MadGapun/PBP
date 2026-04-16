@@ -625,7 +625,7 @@ class TestSim6SchemaMigration:
     def test_schema_version_ist_20(self, tmp_path):
         db = _build_server(tmp_path)
         from bewerbungs_assistent.database import SCHEMA_VERSION
-        assert SCHEMA_VERSION == 24
+        assert SCHEMA_VERSION == 25
         db.close()
 
 

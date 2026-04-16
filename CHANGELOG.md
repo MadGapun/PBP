@@ -2,6 +2,68 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.6.0] - 2026-04-16
+
+Feature-Release mit 7 geschlossenen Issues: Dashboard-Redesign, Scraper-Health-Monitoring,
+Report-Charts, Projekt-Datumsverwaltung und verbesserte URL-Erkennung.
+
+### Neue Features
+
+- **Dashboard-Redesign** (#450): Buggy Schnell-Import entfernt, sauberer Dokument-Import
+  unterhalb der Anstehenden Termine neu eingebaut. "Naechster sinnvoller Schritt" und
+  "Heute fuer dich" auf volle Breite. GlobalDocumentDropZone ruft nicht mehr
+  `analyzeUploadedDocuments()` auf (Race-Condition-Fix).
+
+- **Scraper Health Tracking** (#432): Neues `scraper_health`-Monitoring mit
+  automatischer Deaktivierung nach 10 konsekutiven Fehlern. Dashboard zeigt farbige
+  Status-Dots pro Scraper. Neues MCP-Tool `scraper_diagnose` fuer Diagnose und
+  Reaktivierung. API-Endpoints `/api/scraper-health` und `/api/scraper-health/{name}/toggle`.
+
+- **Report-Charts** (#430): PDF- und Excel-Berichte enthalten jetzt optionale
+  matplotlib-Charts (Status-Torte, Bewerbungen/Monat, Quellen-Balken, Score-Verteilung).
+  Graceful Fallback wenn matplotlib nicht installiert ist. Excel-Charts ueber openpyxl.
+
+- **Projekt-Zeitraum** (#442): Projekte koennen jetzt `start_date` und `end_date`
+  speichern. Anzeige im Profil, in Exporten und im MCP-Tool `projekt_hinzufuegen`.
+
+### Verbesserungen
+
+- **Scraper URL-Erkennung** (#436): `is_search_url`-Flag wird beim Scraping direkt
+  in der DB persistiert statt nur zur Laufzeit per Heuristik erkannt. Heuristik bleibt
+  als Fallback fuer aeltere Eintraege.
+
+- **Report-Terminologie** (#431): "Aussortierte Stellen" → "Analysierte Stellen (aussortiert)"
+  in PDF und Excel Reports.
+
+- **Dokumente-Seite** (#450): Neuer `analysiert_leer`-Badge fuer leere Extraktionen.
+
+### Neue MCP-Tools (1)
+
+- `scraper_diagnose` (#432) — Scraper-Status pruefen und deaktivierte Scraper reaktivieren
+
+### Unter der Haube
+
+- Schema v24 → v25: `projects.start_date`, `projects.end_date`, `jobs.is_search_url`,
+  `scraper_health`-Tabelle
+- `matplotlib>=3.8` als optionale Dependency (Gruppe `docs`)
+- `test_mcp_registry` prueft jetzt **85 Tools** (vorher 84)
+- Alle 429 Tests gruen
+
+### Geschlossene Issues
+
+- #430 Report-Charts mit matplotlib
+- #431 Report-Terminologie
+- #432 Scraper Health Tracking
+- #436 Scraper-URLs: is_search_url Flag
+- #441 Fehlende Dokumente (bereits in v1.5.3 gefixt)
+- #442 Projekt start_date/end_date
+- #450 Dashboard Schnell-Import Bug
+
+### Upgrade
+
+Schema-Migration v24→v25 laeuft automatisch. Falls `matplotlib` gewuenscht:
+`pip install bewerbungs-assistent[docs]`. Bestehende Daten bleiben unveraendert.
+
 ## [1.5.4] - 2026-04-15
 
 Schliesst die letzten Write-Back-Luecken im MCP-Server. Claude kann jetzt alles,

@@ -3968,6 +3968,23 @@ async def api_health():
     }
 
 
+# === Scraper Health (#432) ===
+
+@app.get("/api/scraper-health")
+async def api_scraper_health():
+    """Return per-scraper health status for dashboard display."""
+    return {"scrapers": _db.get_scraper_health()}
+
+
+@app.post("/api/scraper-health/{name}/toggle")
+async def api_toggle_scraper(name: str, request: Request):
+    """Activate or deactivate a scraper."""
+    data = await request.json()
+    active = data.get("active", True)
+    _db.toggle_scraper(name, active)
+    return {"status": "ok", "scraper": name, "active": active}
+
+
 # === Privacy / Data Info (v1.4.0, #287) ===
 
 @app.get("/api/privacy-info")

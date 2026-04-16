@@ -1,4 +1,4 @@
-"""Jobsuche und Stellenverwaltung — 7 Tools (#446: stelle_bearbeiten)."""
+"""Jobsuche und Stellenverwaltung — 9 Tools (#446: stelle_bearbeiten, #432: scraper_diagnose)."""
 
 import threading
 
@@ -507,13 +507,19 @@ def register(mcp, db, logger):
                 entry["beschreibung_fehlt"] = True
                 entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
             # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt statt auf Detail-Anzeige
-            from ..job_scraper import is_search_result_url
-            if j.get("url") and is_search_result_url(j["url"]):
+            if j.get("is_search_url"):
                 entry["url_warnung"] = (
                     "Diese URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
                     "Stellenanzeige. Die Detail-URL konnte vom Scraper nicht extrahiert "
                     "werden — suche die Stelle manuell auf dem Portal."
                 )
+            elif j.get("url"):
+                from ..job_scraper import is_search_result_url
+                if is_search_result_url(j["url"]):
+                    entry["url_warnung"] = (
+                        "Diese URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
+                        "Stellenanzeige. Suche die Stelle manuell auf dem Portal."
+                    )
             formatted.append(entry)
 
         result = {
@@ -772,12 +778,18 @@ def register(mcp, db, logger):
             result["stellenbeschreibung"] = job_dict["description"][:2000]
         result["url"] = job_dict.get("url", "")
         # #436: Warne wenn URL nur auf Suchergebnis-Seite zeigt
-        from ..job_scraper import is_search_result_url
-        if result["url"] and is_search_result_url(result["url"]):
+        if job_dict.get("is_search_url"):
             result["url_warnung"] = (
                 "URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
                 "Stellenanzeige. Die Stelle muss manuell auf dem Portal gesucht werden."
             )
+        elif result["url"]:
+            from ..job_scraper import is_search_result_url
+            if is_search_result_url(result["url"]):
+                result["url_warnung"] = (
+                    "URL zeigt auf eine Suchergebnis-Seite. "
+                    "Stelle manuell auf dem Portal suchen."
+                )
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
         return result
@@ -832,4 +844,59 @@ def register(mcp, db, logger):
                 f"Stelle '{updates.get('title') or job.get('title', '')}' "
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
+        }
+
+    @mcp.tool()
+    def scraper_diagnose(
+        scraper_name: str = "",
+        aktion: str = "status"
+    ) -> dict:
+        """Zeigt den Gesundheitszustand aller Scraper oder reaktiviert einen deaktivierten Scraper (#432).
+
+        Args:
+            scraper_name: Name eines bestimmten Scrapers (z.B. 'stepstone', 'indeed'). Leer = alle anzeigen.
+            aktion: 'status' = Gesundheitsdaten anzeigen, 'reaktivieren' = deaktivierten Scraper wieder aktivieren.
+        """
+        health = db.get_scraper_health()
+        if not health:
+            return {
+                "status": "leer",
+                "nachricht": "Keine Scraper-Daten vorhanden. Starte zuerst eine Jobsuche."
+            }
+
+        if aktion == "reaktivieren" and scraper_name:
+            entry = next((h for h in health if h["scraper_name"] == scraper_name), None)
+            if not entry:
+                return {"fehler": f"Scraper '{scraper_name}' nicht gefunden."}
+            db.toggle_scraper(scraper_name, True)
+            return {
+                "status": "reaktiviert",
+                "scraper": scraper_name,
+                "nachricht": f"Scraper '{scraper_name}' wurde reaktiviert und wird bei der naechsten Suche wieder verwendet."
+            }
+
+        if scraper_name:
+            health = [h for h in health if h["scraper_name"] == scraper_name]
+            if not health:
+                return {"fehler": f"Scraper '{scraper_name}' nicht gefunden."}
+
+        scrapers = []
+        for h in health:
+            success_rate = round(h["total_successes"] / h["total_runs"] * 100) if h["total_runs"] else 0
+            scrapers.append({
+                "name": h["scraper_name"],
+                "aktiv": bool(h["is_active"]),
+                "letzter_lauf": h.get("last_run"),
+                "letzter_erfolg": h.get("last_success"),
+                "fehler_serie": h["consecutive_failures"],
+                "erfolgsrate": f"{success_rate}%",
+                "laeufe_gesamt": h["total_runs"],
+                "durchschn_zeit_s": round(h["avg_time_s"], 1),
+                "letzter_fehler": h.get("last_error"),
+            })
+
+        return {
+            "status": "ok",
+            "scraper_anzahl": len(scrapers),
+            "scrapers": scrapers,
         }

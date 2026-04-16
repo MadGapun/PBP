@@ -24,6 +24,8 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, optionalApi, postJson } from "@/api";
 import { useApp } from "@/app-context";
+import { createFileSignature, uploadDocumentFile } from "@/document-upload";
+import { extractDroppedFiles } from "@/file-drop";
 import {
   Badge,
   Button,
@@ -91,7 +93,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
 }
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, navigateTo, copyPrompt, pushToast } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, pushToast } = useApp();
   const lastLoadErrorRef = useRef({ message: "", at: 0 });
   const [loading, setLoading] = useState(true);
   const [impulse, setImpulse] = useState(null);
@@ -105,6 +107,7 @@ export default function DashboardPage() {
     emails: [],
   });
   const [emailDetail, setEmailDetail] = useState(null);
+  const [scraperHealth, setScraperHealth] = useState([]);
   const [publicHints, setPublicHints] = useState([]);
   const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
   const [dismissedHints, setDismissedHints] = useState(() => {
@@ -168,6 +171,11 @@ export default function DashboardPage() {
         if (impulseData) setImpulse(impulseData);
         setLoading(false);
       });
+
+      // #432: Scraper health (non-blocking)
+      optionalApi("/api/scraper-health")
+        .then((h) => { if (h?.scrapers?.length) setScraperHealth(h.scrapers); })
+        .catch(() => {});
 
       // #233: Hints from public GitHub source (non-blocking)
       optionalApi("/api/public/hints")
@@ -506,9 +514,8 @@ export default function DashboardPage() {
         <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
       </div>
 
-      {/* #421: Dashboard-Redesign — 2/3 (Im Fluss + Heute fuer dich) + 1/3 (Schnellimport) */}
-      <div className="mb-5 grid gap-4 xl:grid-cols-[2fr_1fr]">
-        <div className="grid gap-4">
+      {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
+      <div className="mb-5 grid gap-4">
           {/* Im Fluss (Readiness Card) */}
           <Card className="rounded-2xl">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -604,24 +611,6 @@ export default function DashboardPage() {
               </div>
             </Card>
           )}
-        </div>
-
-        {/* Schnellimport (rechte Spalte, 1/3) */}
-        <Card className="rounded-2xl xl:sticky xl:top-4 xl:self-start">
-          <h2 className="text-sm font-semibold text-ink">
-            <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
-            Schnell-Import
-          </h2>
-          <p className="mt-1 text-[11px] text-muted/50">
-            Dokumente oder E-Mails hier ablegen — PBP erkennt und verarbeitet sie automatisch.
-          </p>
-          <div className="mt-3 grid gap-2">
-            <EmailUploadButton pushToast={pushToast} />
-          </div>
-          <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
-            Dateien per Drag & Drop auf die Seite ziehen
-          </div>
-        </Card>
       </div>
 
       {/* #421: Anstehende Termine direkt unter Im Fluss (nur wenn vorhanden, max 5) */}
@@ -764,6 +753,9 @@ export default function DashboardPage() {
         );
       })()}
 
+      {/* #450: Dokument-Import (saubere Version, gleiche Logik wie Docs-Seite) */}
+      <DashboardDocumentImport pushToast={pushToast} refreshChrome={refreshChrome} />
+
       <div id="dashboard-content" className="grid gap-5">
         {/* Schnellzugriff (full width) */}
         <Card className="rounded-2xl">
@@ -842,6 +834,25 @@ export default function DashboardPage() {
                 Alle
               </Button>
             </div>
+            {/* #432: Compact scraper health dots */}
+            {scraperHealth.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted/50">
+                <span>Scraper:</span>
+                {scraperHealth.map((s) => {
+                  const ok = s.is_active && s.consecutive_failures < 3;
+                  const warn = s.is_active && s.consecutive_failures >= 3 && s.consecutive_failures < 10;
+                  const off = !s.is_active;
+                  const color = off ? "bg-red-500/60" : warn ? "bg-amber-400/80" : ok ? "bg-emerald-400/80" : "bg-zinc-500/40";
+                  const tip = `${s.scraper_name}: ${off ? "deaktiviert" : s.consecutive_failures > 0 ? `${s.consecutive_failures} Fehler` : "OK"} (${s.total_successes}/${s.total_runs} erfolgreich)`;
+                  return (
+                    <span key={s.scraper_name} className="flex items-center gap-1" title={tip}>
+                      <span className={`inline-block h-2 w-2 rounded-full ${color}`} />
+                      {s.scraper_name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-3 grid gap-2">
               {(() => {
                 const appliedHashes = new Set(
@@ -1102,6 +1113,67 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
         </Card>
       </div>
     </Modal>
+  );
+}
+
+
+function DashboardDocumentImport({ pushToast, refreshChrome }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  async function processFiles(files) {
+    if (!files?.length) return;
+    setUploading(true);
+    let count = 0;
+    try {
+      const signatures = new Set();
+      for (const file of files) {
+        const sig = createFileSignature(file);
+        if (signatures.has(sig)) continue;
+        signatures.add(sig);
+        await uploadDocumentFile(file);
+        count++;
+      }
+      if (count > 0) {
+        pushToast(`${count} Dokument${count > 1 ? "e" : ""} hochgeladen`, "success");
+        await refreshChrome({ forceReload: true });
+      }
+    } catch (err) {
+      pushToast(`Upload-Fehler: ${err.message}`, "danger");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Card className="mb-5 rounded-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Upload size={14} className="text-teal/60" />
+          <h2 className="text-sm font-semibold text-ink">Dokumente importieren</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <EmailUploadButton pushToast={pushToast} />
+          <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.csv,.json,.xml,.rtf" className="hidden"
+            onChange={async (e) => { await processFiles(Array.from(e.target.files || [])); if (fileRef.current) fileRef.current.value = ""; }} />
+          <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? "Importiere..." : "Dateien auswaehlen"}
+          </Button>
+        </div>
+      </div>
+      <div
+        className={`mt-3 rounded-xl border-2 border-dashed px-4 py-4 text-center text-xs transition ${
+          dragActive ? "border-sky/60 bg-sky/10 text-sky" : "border-white/10 text-muted/40"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget.contains(e.relatedTarget)) return; setDragActive(false); }}
+        onDrop={async (e) => { e.preventDefault(); setDragActive(false); const files = await extractDroppedFiles(e.dataTransfer); await processFiles(files); }}
+      >
+        {dragActive ? "Loslassen zum Hochladen" : "Dokumente oder E-Mails per Drag & Drop hier ablegen"}
+      </div>
+    </Card>
   );
 }
 

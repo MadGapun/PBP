@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
 
 
 def _gen_id() -> str:
@@ -891,6 +891,33 @@ class Database:
             except Exception:
                 pass  # Already exists
 
+        if from_ver < 25:
+            # v25: Projekt-Zeitraeume (#442), Scraper-URL-Flag (#436), Health-Tracking (#432)
+            for col, table in [
+                ("start_date TEXT", "projects"),
+                ("end_date TEXT", "projects"),
+                ("is_search_url INTEGER DEFAULT 0", "jobs"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col}")
+                except Exception:
+                    pass
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS scraper_health (
+                    scraper_name TEXT PRIMARY KEY,
+                    last_run TEXT,
+                    last_success TEXT,
+                    last_error TEXT,
+                    consecutive_failures INTEGER DEFAULT 0,
+                    total_runs INTEGER DEFAULT 0,
+                    total_successes INTEGER DEFAULT 0,
+                    avg_time_s REAL DEFAULT 0,
+                    is_active INTEGER DEFAULT 1
+                )
+            """)
+            logger.info("Migration v24->v25: projects.start_date/end_date (#442), "
+                        "jobs.is_search_url (#436), scraper_health (#432)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -1281,15 +1308,16 @@ class Database:
             INSERT INTO projects (id, position_id, name, description,
                 role, situation, task, action, result,
                 technologies, duration, customer_name, is_confidential,
-                sort_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sort_order, start_date, end_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             pid, position_id, data.get("name"), data.get("description"),
             data.get("role"), data.get("situation"), data.get("task"),
             data.get("action"), data.get("result"),
             data.get("technologies"), data.get("duration"),
             data.get("customer_name"), data.get("is_confidential", 0),
-            data.get("sort_order", 0)
+            data.get("sort_order", 0),
+            data.get("start_date"), data.get("end_date")
         ))
         conn.commit()
         return pid
@@ -1298,7 +1326,8 @@ class Database:
         conn = self.connect()
         fields = ["name", "description", "role", "situation", "task",
                   "action", "result", "technologies", "duration",
-                  "customer_name", "is_confidential"]
+                  "customer_name", "is_confidential",
+                  "start_date", "end_date"]
         sets, vals = [], []
         for f in fields:
             if f in data:
@@ -1961,8 +1990,8 @@ class Database:
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
                     employment_type, is_pinned, lat, lon, veroeffentlicht_am,
-                    profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    is_search_url, profile_id, found_at, updated_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -1973,8 +2002,9 @@ class Database:
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
                 new_pinned, job.get("lat"), job.get("lon"),
-                job.get("veroeffentlicht_am"), job_pid,
-                job.get("found_at", now), now
+                job.get("veroeffentlicht_am"),
+                1 if job.get("is_search_url") else 0,
+                job_pid, job.get("found_at", now), now
             ))
         conn.commit()
 
@@ -2419,6 +2449,64 @@ class Database:
             INSERT OR IGNORE INTO blacklist (profile_id, type, value, reason, created_at)
             VALUES (?, ?, ?, ?, ?)
         """, (pid, entry_type, value, reason, _now()))
+        conn.commit()
+
+    # --- Scraper Health (#432) ---
+
+    def update_scraper_health(self, name: str, status: str, count: int = 0,
+                              time_s: float = 0, detail: str = None):
+        """Persist per-scraper health after each search run."""
+        conn = self.connect()
+        now = _now()
+        existing = conn.execute(
+            "SELECT * FROM scraper_health WHERE scraper_name=?", (name,)
+        ).fetchone()
+        if existing:
+            total_runs = existing["total_runs"] + 1
+            total_successes = existing["total_successes"] + (1 if status == "ok" else 0)
+            avg_time = (existing["avg_time_s"] * existing["total_runs"] + time_s) / total_runs
+            if status == "ok":
+                conn.execute("""
+                    UPDATE scraper_health SET last_run=?, last_success=?,
+                        consecutive_failures=0, total_runs=?, total_successes=?,
+                        avg_time_s=? WHERE scraper_name=?
+                """, (now, now, total_runs, total_successes, avg_time, name))
+            else:
+                consec = existing["consecutive_failures"] + 1
+                conn.execute("""
+                    UPDATE scraper_health SET last_run=?, last_error=?,
+                        consecutive_failures=?, total_runs=?, total_successes=?,
+                        avg_time_s=? WHERE scraper_name=?
+                """, (now, detail or status, consec, total_runs,
+                      total_successes, avg_time, name))
+        else:
+            conn.execute("""
+                INSERT INTO scraper_health (scraper_name, last_run, last_success,
+                    last_error, consecutive_failures, total_runs, total_successes,
+                    avg_time_s, is_active)
+                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1)
+            """, (name, now,
+                  now if status == "ok" else None,
+                  None if status == "ok" else (detail or status),
+                  0 if status == "ok" else 1,
+                  1 if status == "ok" else 0))
+        conn.commit()
+
+    def get_scraper_health(self) -> list:
+        conn = self.connect()
+        try:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM scraper_health ORDER BY scraper_name"
+            ).fetchall()]
+        except Exception:
+            return []
+
+    def toggle_scraper(self, name: str, active: bool):
+        conn = self.connect()
+        conn.execute(
+            "UPDATE scraper_health SET is_active=?, consecutive_failures=0 WHERE scraper_name=?",
+            (1 if active else 0, name)
+        )
         conn.commit()
 
     def get_blacklist(self) -> list:
@@ -4149,7 +4237,9 @@ CREATE TABLE IF NOT EXISTS projects (
     duration TEXT,
     customer_name TEXT,
     is_confidential INTEGER DEFAULT 0,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    start_date TEXT,
+    end_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS education (
@@ -4223,6 +4313,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     lon REAL,
     research_notes TEXT,
     veroeffentlicht_am TEXT,
+    is_search_url INTEGER DEFAULT 0,
     profile_id TEXT,
     found_at TEXT,
     updated_at TEXT
@@ -4416,4 +4507,16 @@ CREATE TABLE IF NOT EXISTS scoring_config (
     UNIQUE(profile_id, dimension, sub_key)
 );
 CREATE INDEX IF NOT EXISTS idx_scoring_profile ON scoring_config(profile_id, dimension);
+
+CREATE TABLE IF NOT EXISTS scraper_health (
+    scraper_name TEXT PRIMARY KEY,
+    last_run TEXT,
+    last_success TEXT,
+    last_error TEXT,
+    consecutive_failures INTEGER DEFAULT 0,
+    total_runs INTEGER DEFAULT 0,
+    total_successes INTEGER DEFAULT 0,
+    avg_time_s REAL DEFAULT 0,
+    is_active INTEGER DEFAULT 1
+);
 """

@@ -107,7 +107,10 @@ def register(mcp, db, logger):
             if projects:
                 lines.append(f"  Projekte ({len(projects)}):")
                 for proj in projects:
-                    lines.append(f"    - {proj.get('name', '?')}: {proj.get('description', '')[:100]}")
+                    date_info = ""
+                    if proj.get("start_date") or proj.get("end_date"):
+                        date_info = f" ({proj.get('start_date', '?')} - {proj.get('end_date', 'heute')})"
+                    lines.append(f"    - {proj.get('name', '?')}{date_info}: {proj.get('description', '')[:100]}")
                     if proj.get("result"):
                         lines.append(f"      Ergebnis: {proj['result'][:100]}")
 
@@ -529,7 +532,9 @@ def register(mcp, db, logger):
         technologies: str = "",
         duration: str = "",
         customer_name: str = "",
-        is_confidential: bool = False
+        is_confidential: bool = False,
+        start_date: str = "",
+        end_date: str = ""
     ) -> dict:
         """Fügt ein Projekt zu einer Berufsposition hinzu (STAR-Methode).
 
@@ -546,6 +551,8 @@ def register(mcp, db, logger):
             duration: Dauer (z.B. "6 Monate", "2020-2021")
             customer_name: Name des Kunden/Endkunden (optional)
             is_confidential: True = Kundenname wird im CV-Export anonymisiert (#246)
+            start_date: Projektbeginn (YYYY-MM oder YYYY-MM-DD)
+            end_date: Projektende (YYYY-MM oder YYYY-MM-DD)
         """
         pid = db.add_project(position_id, {
             "name": name, "description": description, "role": role,
@@ -553,6 +560,8 @@ def register(mcp, db, logger):
             "result": result, "technologies": technologies, "duration": duration,
             "customer_name": customer_name or None,
             "is_confidential": 1 if is_confidential else 0,
+            "start_date": start_date or None,
+            "end_date": end_date or None,
         })
         result_data = {
             "status": "gespeichert",

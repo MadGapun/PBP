@@ -172,6 +172,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.multi_cell(0, 5, _safe_text(summary_text))
     pdf.ln(3)
 
+    # #430: Monthly application chart in summary
+    _embed_chart(pdf, _chart_monthly_bar(apps))
+
     # --- 1. Zusammenfassung ---
     _section_header(pdf, "1. Zusammenfassung")
     total_apps = stats.get("total_applications", len(apps))
@@ -190,7 +193,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         ("  davon im Prozess", str(interviews)),
         ("  davon Angebote", str(offers)),
         ("Aktive Stellen analysiert", str(active_jobs)),
-        ("Aussortierte Stellen", str(dismissed_jobs)),
+        ("Analysierte Stellen (aussortiert)", str(dismissed_jobs)),
         ("Durchschn. Fit-Score", f"{avg_score}" if avg_score else "k.A."),
         ("Spitzen-Fit-Score", f"{max_score}" if max_score else "k.A."),
         ("Interview-Rate", f"{interview_rate}%"),
@@ -207,6 +210,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     _section_header(pdf, "2. Bewerbungen nach Status")
     by_status = stats.get("applications_by_status", {})
     if by_status:
+        # #430: Chart (graceful fallback to colored bars if matplotlib missing)
+        _embed_chart(pdf, _chart_status_pie(by_status))
         for status_key, count in sorted(by_status.items(),
                                          key=lambda x: -x[1]):
             label = STATUS_LABELS.get(status_key, status_key)
@@ -223,6 +228,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     _section_header(pdf, "3. Quellenanalyse")
     by_source = stats.get("jobs_by_source", {})
     if by_source:
+        # #430: Source chart
+        _embed_chart(pdf, _chart_source_bar(by_source))
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_fill_color(230, 230, 230)
         pdf.cell(60, 5, "  Quelle", border=1, fill=True)
@@ -276,6 +283,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # --- 4. Score-Verteilung ---
     if score_dist:
         _section_header(pdf, "4. Fit-Score Verteilung")
+        # #430: Score distribution chart
+        _embed_chart(pdf, _chart_score_distribution(score_dist))
         pdf.set_font("Helvetica", "", 9)
         for bracket, count in sorted(score_dist.items()):
             bar_width = min(count, 120)
@@ -471,6 +480,189 @@ def _section_header(pdf, title: str):
     pdf.ln(2)
 
 
+# --- Chart helpers (#430) ---
+
+def _has_matplotlib() -> bool:
+    """Check if matplotlib is available."""
+    try:
+        import matplotlib
+        return True
+    except ImportError:
+        return False
+
+
+def _chart_to_bytes(fig) -> bytes:
+    """Render a matplotlib figure to PNG bytes."""
+    from io import BytesIO
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight",
+                facecolor=fig.get_facecolor(), edgecolor="none")
+    buf.seek(0)
+    return buf.read()
+
+
+def _chart_status_pie(by_status: dict) -> bytes | None:
+    """Pie chart of application status distribution."""
+    if not by_status or not _has_matplotlib():
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        labels = [STATUS_LABELS.get(k, k) for k in by_status]
+        sizes = list(by_status.values())
+        colors = [
+            "#{:02x}{:02x}{:02x}".format(*STATUS_COLORS.get(k, (100, 116, 139)))
+            for k in by_status
+        ]
+
+        fig, ax = plt.subplots(figsize=(4.5, 3))
+        fig.patch.set_facecolor("white")
+        wedges, texts, autotexts = ax.pie(
+            sizes, labels=labels, colors=colors, autopct="%1.0f%%",
+            startangle=90, textprops={"fontsize": 7},
+        )
+        for t in autotexts:
+            t.set_fontsize(7)
+            t.set_color("white")
+            t.set_fontweight("bold")
+        ax.set_title("Bewerbungen nach Status", fontsize=9, fontweight="bold")
+        data = _chart_to_bytes(fig)
+        plt.close(fig)
+        return data
+    except Exception as e:
+        logger.debug("Chart status_pie fehlgeschlagen: %s", e)
+        return None
+
+
+def _chart_monthly_bar(apps: list) -> bytes | None:
+    """Bar chart of applications per month."""
+    if not apps or not _has_matplotlib():
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        months = Counter()
+        for a in apps:
+            dt = (a.get("applied_at") or "")[:7]  # YYYY-MM
+            if dt and len(dt) == 7:
+                months[dt] += 1
+        if not months:
+            return None
+
+        sorted_months = sorted(months.keys())
+        labels = sorted_months
+        values = [months[m] for m in sorted_months]
+
+        fig, ax = plt.subplots(figsize=(5, 2.8))
+        fig.patch.set_facecolor("white")
+        bars = ax.bar(labels, values, color="#2196F3", width=0.6)
+        ax.set_title("Bewerbungen pro Monat", fontsize=9, fontweight="bold")
+        ax.set_ylabel("Anzahl", fontsize=8)
+        ax.tick_params(axis="x", rotation=45, labelsize=7)
+        ax.tick_params(axis="y", labelsize=7)
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.2,
+                    str(val), ha="center", va="bottom", fontsize=7)
+        fig.tight_layout()
+        data = _chart_to_bytes(fig)
+        plt.close(fig)
+        return data
+    except Exception as e:
+        logger.debug("Chart monthly_bar fehlgeschlagen: %s", e)
+        return None
+
+
+def _chart_source_bar(by_source: dict) -> bytes | None:
+    """Horizontal bar chart of jobs by source."""
+    if not by_source or not _has_matplotlib():
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        sorted_items = sorted(by_source.items(), key=lambda x: x[1])
+        labels = [s[0] for s in sorted_items]
+        values = [s[1] for s in sorted_items]
+        colors = [
+            "#{:02x}{:02x}{:02x}".format(*SOURCE_COLORS_PDF[i % len(SOURCE_COLORS_PDF)])
+            for i in range(len(labels))
+        ]
+
+        fig, ax = plt.subplots(figsize=(4.5, max(2, len(labels) * 0.4 + 1)))
+        fig.patch.set_facecolor("white")
+        bars = ax.barh(labels, values, color=colors, height=0.6)
+        ax.set_title("Stellen nach Quelle", fontsize=9, fontweight="bold")
+        ax.set_xlabel("Anzahl", fontsize=8)
+        ax.tick_params(axis="both", labelsize=7)
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                    str(val), ha="left", va="center", fontsize=7)
+        fig.tight_layout()
+        data = _chart_to_bytes(fig)
+        plt.close(fig)
+        return data
+    except Exception as e:
+        logger.debug("Chart source_bar fehlgeschlagen: %s", e)
+        return None
+
+
+def _chart_score_distribution(score_dist: dict) -> bytes | None:
+    """Bar chart of fit-score distribution."""
+    if not score_dist or not _has_matplotlib():
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        sorted_brackets = sorted(score_dist.keys())
+        labels = [f"Score {b}" for b in sorted_brackets]
+        values = [score_dist[b] for b in sorted_brackets]
+
+        fig, ax = plt.subplots(figsize=(4.5, 2.5))
+        fig.patch.set_facecolor("white")
+        bars = ax.bar(labels, values, color="#4CAF50", width=0.6)
+        ax.set_title("Fit-Score Verteilung", fontsize=9, fontweight="bold")
+        ax.set_ylabel("Anzahl Stellen", fontsize=8)
+        ax.tick_params(axis="both", labelsize=7)
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.2,
+                    str(val), ha="center", va="bottom", fontsize=7)
+        fig.tight_layout()
+        data = _chart_to_bytes(fig)
+        plt.close(fig)
+        return data
+    except Exception as e:
+        logger.debug("Chart score_distribution fehlgeschlagen: %s", e)
+        return None
+
+
+def _embed_chart(pdf, chart_data: bytes | None, max_width: int = 170):
+    """Embed a PNG chart into the PDF if data is available."""
+    if not chart_data:
+        return
+    import tempfile
+    import os
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        f.write(chart_data)
+        tmp_path = f.name
+    try:
+        # Check if chart would overflow page
+        if pdf.get_y() > 220:
+            pdf.add_page()
+        pdf.image(tmp_path, x=20, w=max_width)
+        pdf.ln(4)
+    except Exception as e:
+        logger.debug("Chart-Einbettung fehlgeschlagen: %s", e)
+    finally:
+        os.unlink(tmp_path)
+
+
 def generate_excel_report(report_data: dict, profile: Optional[dict],
                           output_path: Path) -> Path:
     """Generate an Excel Bewerbungsbericht (requires openpyxl)."""
@@ -527,7 +719,7 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
     stat_rows = [
         ("Bewerbungen gesamt", stats.get("total_applications", 0)),
         ("Aktive Stellen", stats.get("active_jobs", 0)),
-        ("Aussortierte Stellen", stats.get("dismissed_jobs", 0)),
+        ("Analysierte Stellen (aussortiert)", stats.get("dismissed_jobs", 0)),
         ("Durchschn. Fit-Score", stats.get("avg_score", "")),
         ("Spitzen-Score", stats.get("max_score", "")),
         ("Interview-Rate", f"{stats.get('interview_rate', 0)}%"),
@@ -559,6 +751,46 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
 
     ws2.column_dimensions["A"].width = 25
     ws2.column_dimensions["B"].width = 15
+
+    # #430: Excel charts (openpyxl built-in)
+    try:
+        from openpyxl.chart import PieChart, BarChart, Reference
+
+        by_status = stats.get("applications_by_status", {})
+        if by_status and row_start > 3:
+            pie = PieChart()
+            pie.title = "Bewerbungen nach Status"
+            pie.style = 10
+            status_count = len(by_status)
+            cats = Reference(ws2, min_col=1, min_row=row_start + 1,
+                             max_row=row_start + status_count)
+            vals = Reference(ws2, min_col=2, min_row=row_start + 1,
+                             max_row=row_start + status_count)
+            pie.add_data(vals, titles_from_data=False)
+            pie.set_categories(cats)
+            pie.width = 14
+            pie.height = 10
+            ws2.add_chart(pie, "D2")
+
+        by_source = stats.get("jobs_by_source", {})
+        if by_source:
+            bar = BarChart()
+            bar.type = "col"
+            bar.title = "Stellen nach Quelle"
+            bar.style = 10
+            bar.y_axis.title = "Anzahl"
+            source_count = len(by_source)
+            cats = Reference(ws2, min_col=1, min_row=source_start + 1,
+                             max_row=source_start + source_count)
+            vals = Reference(ws2, min_col=2, min_row=source_start + 1,
+                             max_row=source_start + source_count)
+            bar.add_data(vals, titles_from_data=False)
+            bar.set_categories(cats)
+            bar.width = 14
+            bar.height = 10
+            ws2.add_chart(bar, "D16")
+    except Exception as e:
+        logger.debug("Excel-Charts fehlgeschlagen: %s", e)
 
     wb.save(str(output_path))
     logger.info("Excel Bewerbungsbericht erstellt: %s", output_path)

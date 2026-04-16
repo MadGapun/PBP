@@ -1,6 +1,6 @@
 ﻿import { useEffect, useEffectEvent, useRef } from "react";
 
-import { analyzeUploadedDocuments, createFileSignature, isEmailFile, uploadDocumentFile, uploadEmailFile } from "@/document-upload";
+import { createFileSignature, isEmailFile, uploadDocumentFile, uploadEmailFile } from "@/document-upload";
 import {
   extractDroppedFiles,
   GLOBAL_FILE_DRAG_STATE_EVENT,
@@ -82,17 +82,11 @@ export default function GlobalDocumentDropZone({ hasActiveProfile, profileName, 
       }
     }
 
-    // Process document files normally
+    // Process document files normally (#450: kein analyzeUploadedDocuments mehr)
     for (const file of docFiles) {
       try {
         await uploadDocumentFile(file);
         uploaded += 1;
-        try {
-          await analyzeUploadedDocuments();
-        } catch (analysisError) {
-          failed += 1;
-          pushToast(`Analyse fehlgeschlagen (${file.name}): ${analysisError.message}`, "danger");
-        }
       } catch (uploadError) {
         failed += 1;
         pushToast(`Upload fehlgeschlagen (${file.name}): ${uploadError.message}`, "danger");
@@ -100,12 +94,12 @@ export default function GlobalDocumentDropZone({ hasActiveProfile, profileName, 
     }
 
     busyRef.current = false;
-    await refreshChrome();
+    await refreshChrome({ forceReload: true });
 
     const totalOk = uploaded + emailsImported;
     if (totalOk > 0 && failed === 0) {
       if (docFiles.length > 0) {
-        pushToast(`${uploaded} Datei(en) für ${profileName || "das aktive Profil"} hochgeladen und analysiert.`, "success");
+        pushToast(`${uploaded} Datei(en) für ${profileName || "das aktive Profil"} hochgeladen.`, "success");
       }
       return;
     }

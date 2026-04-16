@@ -77,6 +77,8 @@ const EMPTY_PROJECT = {
   name: "",
   role: "",
   duration: "",
+  start_date: "",
+  end_date: "",
   technologies: "",
   description: "",
   situation: "",
@@ -1346,7 +1348,7 @@ export default function ProfilePage() {
                                     <p className="text-sm font-semibold text-ink">{project.name || "Projekt"}</p>
                                     {project.role ? <Badge tone="sky">{project.role}</Badge> : null}
                                   </div>
-                                  {project.duration ? <p className="mt-1 text-[12px] text-muted/50">{project.duration}</p> : null}
+                                  {(project.start_date || project.end_date || project.duration) ? <p className="mt-1 text-[12px] text-muted/50">{project.start_date || project.end_date ? `${project.start_date || "?"} – ${project.end_date || "heute"}` : ""}{project.duration && (project.start_date || project.end_date) ? ` (${project.duration})` : project.duration || ""}</p> : null}
                                   {project.description ? <p className="mt-2 text-[12px] text-muted/70">{project.description}</p> : null}
                                   <div className="mt-2 grid gap-1 text-[12px]">
                                     {project.situation ? <p className="text-muted/70"><strong>S:</strong> {project.situation}</p> : null}
@@ -1876,6 +1878,12 @@ export default function ProfilePage() {
             </Field>
             <Field label="Technologien">
               <TextInput value={projectDialog.draft.technologies || ""} onChange={(event) => setProjectDialog((current) => ({ ...current, draft: { ...current.draft, technologies: event.target.value } }))} />
+            </Field>
+            <Field label="Projektbeginn">
+              <TextInput type="month" value={projectDialog.draft.start_date || ""} onChange={(event) => setProjectDialog((current) => ({ ...current, draft: { ...current.draft, start_date: event.target.value } }))} />
+            </Field>
+            <Field label="Projektende">
+              <TextInput type="month" value={projectDialog.draft.end_date || ""} onChange={(event) => setProjectDialog((current) => ({ ...current, draft: { ...current.draft, end_date: event.target.value } }))} />
             </Field>
           </div>
           <Field label="Beschreibung">

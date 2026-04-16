@@ -419,6 +419,15 @@ def run_search(db, job_id: str, params: dict):
         mod = importlib.import_module(f".{module_name}", package=__package__)
         return getattr(mod, func_name)
 
+    # #432: Filter out auto-deactivated scrapers
+    _deactivated = set()
+    try:
+        for h in db.get_scraper_health():
+            if not h.get("is_active"):
+                _deactivated.add(h["scraper_name"])
+    except Exception:
+        pass
+
     # #234: Separate httpx (parallel) and playwright (sequential) sources
     httpx_quellen = []
     sequential_quellen = []
@@ -426,6 +435,9 @@ def run_search(db, job_id: str, params: dict):
         if quelle in _deprecated_sources:
             logger.warning(
                 "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
+            skipped_sources.append(quelle)
+        elif quelle in _deactivated:
+            logger.info("%s: Auto-deaktiviert (zu viele Fehler). Reaktivierung via scraper_diagnose().", quelle)
             skipped_sources.append(quelle)
         elif quelle not in _SCRAPER_MAP:
             logger.warning("Unbekannte Quelle: %s", quelle)
@@ -692,6 +704,28 @@ def run_search(db, job_id: str, params: dict):
 
     db.save_jobs(unique)
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+
+    # #432: Persist scraper health after each search
+    for quelle, status_info in source_status.items():
+        try:
+            db.update_scraper_health(
+                quelle, status_info["status"],
+                status_info.get("count", 0),
+                status_info.get("time_s", 0),
+                status_info.get("detail")
+            )
+        except Exception as e:
+            logger.debug("Scraper health update failed for %s: %s", quelle, e)
+
+    # #432: Auto-deactivate scrapers with 10+ consecutive failures
+    try:
+        for h in db.get_scraper_health():
+            if h.get("consecutive_failures", 0) >= 10 and h.get("is_active"):
+                db.toggle_scraper(h["scraper_name"], False)
+                logger.info("Scraper '%s' nach %d Fehlern auto-deaktiviert",
+                            h["scraper_name"], h["consecutive_failures"])
+    except Exception as e:
+        logger.debug("Scraper auto-deactivation check failed: %s", e)
 
     result_data = {
         "total": len(unique),
