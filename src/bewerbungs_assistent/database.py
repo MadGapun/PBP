@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 
 
 def _gen_id() -> str:
@@ -917,6 +917,14 @@ class Database:
             """)
             logger.info("Migration v24->v25: projects.start_date/end_date (#442), "
                         "jobs.is_search_url (#436), scraper_health (#432)")
+
+        if from_ver < 26:
+            # v26: final_salary fuer abgeschlossene Bewerbungen (#460 / v1.5.7)
+            try:
+                conn.execute("ALTER TABLE applications ADD COLUMN final_salary TEXT DEFAULT ''")
+            except Exception:
+                pass
+            logger.info("Migration v25->v26: applications.final_salary (#460)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -2327,7 +2335,7 @@ class Database:
         conn.commit()
 
     def update_application(self, app_id: str, data: dict):
-        """Update application fields (#181: employment_type/source/vermittler/endkunde, #448: cover_letter_path/cv_path)."""
+        """Update application fields (#181: employment_type/source/vermittler/endkunde, #448: cover_letter_path/cv_path, #460: final_salary)."""
         conn = self.connect()
         now = _now()
         fields = []
@@ -2336,7 +2344,8 @@ class Database:
                         "kontakt_email", "portal_name", "bewerbungsart",
                         "employment_type", "source", "source_secondary",
                         "vermittler", "endkunde", "applied_at",
-                        "cover_letter_path", "cv_path")
+                        "cover_letter_path", "cv_path",
+                        "gehaltsvorstellung", "final_salary")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
@@ -3350,6 +3359,40 @@ class Database:
         )
         conn.commit()
 
+    def get_follow_up(self, follow_up_id: str) -> Optional[dict]:
+        """Get a single follow-up by ID (#453)."""
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM follow_ups WHERE id=?", (follow_up_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def update_follow_up(self, follow_up_id: str, data: dict):
+        """Update follow-up fields (scheduled_date, template). #453"""
+        conn = self.connect()
+        fields = []
+        values = []
+        for key in ("scheduled_date", "template", "follow_up_type"):
+            if key in data:
+                fields.append(f"{key}=?")
+                values.append(data[key])
+        if not fields:
+            return
+        values.append(follow_up_id)
+        conn.execute(f"UPDATE follow_ups SET {', '.join(fields)} WHERE id=?", values)
+        conn.commit()
+
+    def dismiss_open_followups_for_application(self, application_id: str, reason: str = "") -> int:
+        """Setze alle offenen Follow-ups einer Bewerbung auf 'hinfaellig' (z.B. bei Absage). #453"""
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE follow_ups SET status='hinfaellig', completed_at=? "
+            "WHERE application_id=? AND status='geplant'",
+            (_now(), application_id)
+        )
+        conn.commit()
+        return cur.rowcount or 0
+
     # === Settings ===
 
     def get_setting(self, key: str, default=None):
@@ -4347,6 +4390,7 @@ CREATE TABLE IF NOT EXISTS applications (
     description_snapshot TEXT,
     snapshot_date TEXT,
     gehaltsvorstellung TEXT DEFAULT '',
+    final_salary TEXT DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );

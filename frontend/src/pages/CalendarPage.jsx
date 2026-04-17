@@ -1,4 +1,4 @@
-import { Briefcase, Calendar, CalendarClock, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Download, Edit3, ExternalLink, FileText, Filter, List, Lock, MapPin, Palette, Plus, Send, Settings, Trash2, Video, X } from "lucide-react";
+import { Briefcase, Calendar, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Download, Edit3, ExternalLink, FileText, Filter, List, Lock, MapPin, Palette, Plus, Send, Settings, Trash2, Video, X, XCircle } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -913,8 +913,61 @@ export default function CalendarPage() {
                                   <ExternalLink size={14} />
                                 </a>
                               )}
-                              {!isFollowUp && (
+                              {isFollowUp ? (
+                                // #453 / v1.5.7: Follow-ups erledigen / hinfaellig
+                                meeting.status === "geplant" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const id = String(meeting.id).replace(/^followup-/, "");
+                                        try {
+                                          await postJson(`/api/follow-ups/${id}/complete`, {});
+                                          pushToast("Nachfass erledigt.", "success");
+                                          loadData();
+                                        } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
+                                      }}
+                                      className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                                      title="Als erledigt markieren"
+                                    >
+                                      <CheckCircle2 size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const id = String(meeting.id).replace(/^followup-/, "");
+                                        try {
+                                          await postJson(`/api/follow-ups/${id}/dismiss`, {});
+                                          pushToast("Nachfass hinfaellig.", "success");
+                                          loadData();
+                                        } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
+                                      }}
+                                      className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
+                                      title="Als hinfaellig markieren"
+                                    >
+                                      <XCircle size={14} />
+                                    </button>
+                                  </>
+                                )
+                              ) : (
                                 <>
+                                  {/* #453 / v1.5.7: Durchgefuehrt fuer vergangene geplante Meetings */}
+                                  {past && (meeting.status === "geplant" || meeting.status === "bestaetigt") && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await putJson(`/api/meetings/${meeting.id}`, { status: "durchgefuehrt" });
+                                          pushToast("Termin als durchgef\u00fchrt markiert.", "success");
+                                          loadData();
+                                        } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
+                                      }}
+                                      className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                                      title="Termin hat stattgefunden"
+                                    >
+                                      <CheckCircle2 size={14} />
+                                    </button>
+                                  )}
                                   <button type="button" onClick={() => setEditMeeting({ ...meeting, _isNew: false })} className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Termin bearbeiten">
                                     <Edit3 size={14} />
                                   </button>

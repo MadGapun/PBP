@@ -102,6 +102,7 @@ export default function ApplicationsPage() {
   const [sortMode, setSortMode] = useState("neueste"); // neueste | status | firma
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
+  const [acceptanceDialog, setAcceptanceDialog] = useState({ open: false, application: null, final_salary: "", description: "", start_date: "" });
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState("");
@@ -154,11 +155,47 @@ export default function ApplicationsPage() {
       }
       await refreshChrome({ quiet: true, forceReload: true });
       pushToast("Status aktualisiert.", "success");
+      // #455 / v1.5.7: Bei Zusage Abschluss-Dialog automatisch oeffnen
+      if (status === "angenommen") {
+        const app = applications.find((a) => a.id === applicationId)
+          || timelineDialog.entry?.application
+          || { id: applicationId };
+        setAcceptanceDialog({
+          open: true,
+          application: app,
+          final_salary: app.final_salary || "",
+          description: "",
+          start_date: new Date().toISOString().slice(0, 10),
+        });
+      }
     } catch (error) {
       if (options.rollbackStatus) {
         setTimelineStatusDraft(options.rollbackStatus);
       }
       pushToast(`Status konnte nicht aktualisiert werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function confirmAcceptance() {
+    const app = acceptanceDialog.application;
+    if (!app?.id) {
+      setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" });
+      return;
+    }
+    try {
+      if (acceptanceDialog.final_salary && acceptanceDialog.final_salary !== (app.final_salary || "")) {
+        await putJson(`/api/applications/${app.id}`, { final_salary: acceptanceDialog.final_salary });
+      }
+      await postJson(`/api/applications/${app.id}/adopt-position`, {
+        start_date: acceptanceDialog.start_date || undefined,
+        description: acceptanceDialog.description || undefined,
+      });
+      pushToast("Position ins Profil uebernommen und Gehalt gespeichert.", "success");
+      await refreshChrome({ quiet: true, forceReload: true });
+    } catch (error) {
+      pushToast(`Konnte Abschluss nicht speichern: ${error.message}`, "danger");
+    } finally {
+      setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" });
     }
   }
 
@@ -748,6 +785,7 @@ export default function ApplicationsPage() {
                     { key: "ansprechpartner", label: "Ansprechpartner" },
                     { key: "kontakt_email", label: "Kontakt-E-Mail" },
                     { key: "gehaltsvorstellung", label: "Gehaltsvorstellung", placeholder: "z.B. 65.000\u20ac/Jahr, 850\u20ac/Tag" },
+                    { key: "final_salary", label: "Tats\u00e4chliches Gehalt (nach Zusage)", placeholder: "z.B. 72.000\u20ac/Jahr" },
                     { key: "portal_name", label: "Portal" },
                     { key: "url", label: "URL" },
                   ].map(({ key, label, placeholder }) => (
@@ -1263,6 +1301,57 @@ export default function ApplicationsPage() {
           ) : (
             <EmptyState title="Keine Timeline-Einträge" description="Für diese Bewerbung liegt noch keine Historie vor." />
           )}
+        </div>
+      </Modal>
+
+      {/* #455 / v1.5.7: Abschluss-Dialog nach Zusage */}
+      <Modal
+        open={acceptanceDialog.open}
+        title={`Gl\u00fcckwunsch \u2014 Abschluss bei ${acceptanceDialog.application?.company || ""}`}
+        onClose={() => setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" })}
+        footer={(
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" })}>
+              Sp\u00e4ter
+            </Button>
+            <Button onClick={confirmAcceptance}>
+              \u00dcbernehmen und speichern
+            </Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-3">
+          <p className="text-sm text-muted/70">
+            Du hast die Zusage erhalten. Hier ein kleiner Abschluss-Flow:
+            Position ins Profil \u00fcbernehmen, Gehalt festhalten, optional eine Beschreibung erg\u00e4nzen.
+          </p>
+          <Field label="Position (wird als aktuelle Stelle angelegt)">
+            <TextInput value={acceptanceDialog.application?.title || ""} disabled />
+          </Field>
+          <Field label="Start-Datum">
+            <TextInput
+              type="date"
+              value={acceptanceDialog.start_date || ""}
+              onChange={(e) => setAcceptanceDialog((s) => ({ ...s, start_date: e.target.value }))}
+            />
+          </Field>
+          <Field label="Tats\u00e4chliches Gehalt (optional)">
+            <TextInput
+              placeholder="z.B. 72.000\u20ac/Jahr"
+              value={acceptanceDialog.final_salary}
+              onChange={(e) => setAcceptanceDialog((s) => ({ ...s, final_salary: e.target.value }))}
+            />
+          </Field>
+          <Field label="Beschreibung der Rolle (optional)">
+            <TextInput
+              placeholder="Kurzbeschreibung, z.B. Verantwortung, Team, Technologie"
+              value={acceptanceDialog.description}
+              onChange={(e) => setAcceptanceDialog((s) => ({ ...s, description: e.target.value }))}
+            />
+          </Field>
+          <p className="text-xs text-muted/50">
+            Offene Follow-ups wurden bereits automatisch als hinf\u00e4llig markiert.
+          </p>
         </div>
       </Modal>
     </div>

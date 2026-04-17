@@ -22,7 +22,7 @@
 } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, optionalApi, postJson } from "@/api";
+import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
@@ -715,7 +715,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {!meeting._isInterview && !isPrivate && (
+                      {!meeting._isInterview && !meeting.is_follow_up && !isPrivate && (
                         <a href={`/api/meetings/${meeting.id}/ics`} download
                           onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-muted/50 transition hover:bg-white/10 hover:text-ink"
@@ -732,6 +732,48 @@ export default function DashboardPage() {
                           <Calendar size={14} />
                           Vorbereiten
                         </button>
+                      ) : meeting.is_follow_up ? (
+                        // #453 / v1.5.7: Follow-ups abschliessen
+                        <>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const followId = String(meeting.id).replace(/^followup-/, "");
+                              try {
+                                await postJson(`/api/follow-ups/${followId}/complete`, {});
+                                pushToast("Nachfass als erledigt markiert.", "success");
+                                loadData();
+                                refreshChrome({ quiet: true });
+                              } catch (err) {
+                                pushToast(`Fehler: ${err.message}`, "danger");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
+                            title="Nachfass erledigt"
+                          >
+                            Erledigt
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const followId = String(meeting.id).replace(/^followup-/, "");
+                              try {
+                                await postJson(`/api/follow-ups/${followId}/dismiss`, {});
+                                pushToast("Nachfass als hinfaellig geschlossen.", "success");
+                                loadData();
+                                refreshChrome({ quiet: true });
+                              } catch (err) {
+                                pushToast(`Fehler: ${err.message}`, "danger");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-muted/70 transition hover:bg-white/10 hover:text-ink"
+                            title="Nicht mehr noetig"
+                          >
+                            Hinf&auml;llig
+                          </button>
+                        </>
                       ) : !isPrivate && meeting.meeting_url ? (
                         <a
                           href={meeting.meeting_url}
@@ -744,6 +786,27 @@ export default function DashboardPage() {
                           Beitreten
                         </a>
                       ) : null}
+                      {/* #453 / v1.5.7: Durchgefuehrt-Button fuer vergangene Meetings */}
+                      {!meeting._isInterview && !meeting.is_follow_up && !isPrivate && diffMs < 0 && (meeting.status === "geplant" || meeting.status === "bestaetigt") && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await putJson(`/api/meetings/${meeting.id}`, { status: "durchgefuehrt" });
+                              pushToast("Termin als durchgef\u00fchrt markiert.", "success");
+                              loadData();
+                              refreshChrome({ quiet: true });
+                            } catch (err) {
+                              pushToast(`Fehler: ${err.message}`, "danger");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
+                          title="Termin hat stattgefunden"
+                        >
+                          Durchgef&uuml;hrt
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

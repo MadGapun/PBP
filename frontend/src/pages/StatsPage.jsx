@@ -105,6 +105,7 @@ export default function StatsPage() {
   const [timeline, setTimeline] = useState(null);
   const [scores, setScores] = useState(null);
   const [extended, setExtended] = useState(null);
+  const [rejection, setRejection] = useState(null);
 
   // Combined key for "all" view: granularity=all means show everything grouped monthly
   const interval = granularity === "all" ? "all" : granularity;
@@ -113,10 +114,11 @@ export default function StatsPage() {
     try {
       const params = new URLSearchParams({ interval: g });
       if (r) params.set("range", r);
-      const [timelineData, scoreData, extendedData] = await Promise.all([
+      const [timelineData, scoreData, extendedData, rejectionData] = await Promise.all([
         optionalApi(`/api/stats/timeline?${params}`),
         optionalApi("/api/stats/scores"),
         optionalApi("/api/stats/extended"),
+        optionalApi("/api/rejection-patterns"),
       ]);
       if (!timelineData && !scoreData && !extendedData) {
         pushToast("Server nicht erreichbar.", "danger");
@@ -126,6 +128,7 @@ export default function StatsPage() {
       setTimeline(timelineData);
       setScores(scoreData);
       setExtended(extendedData);
+      setRejection(rejectionData);
       setLoading(false);
     } catch (error) {
       pushToast(`Statistiken konnten nicht geladen werden: ${error.message}`, "danger");
@@ -515,6 +518,58 @@ export default function StatsPage() {
               </ResponsiveContainer>
             </ChartCard>
           ) : null}
+
+          {/* Row 3b: Rejection patterns (#456 / v1.5.7) */}
+          {rejection && rejection.anzahl >= 3 && (
+            <Card className="rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={14} className="text-coral" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Was Absagen dir sagen</p>
+                </div>
+                <Badge tone="danger">{rejection.anzahl} Absagen</Badge>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Haeufigste Gruende</p>
+                  <div className="grid gap-1.5">
+                    {Object.entries(rejection.nach_grund || {}).slice(0, 6).map(([grund, count]) => (
+                      <div key={grund} className="flex items-center justify-between rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
+                        <span className="truncate text-ink">{grund}</span>
+                        <Badge tone="neutral">{count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Betroffene Firmen</p>
+                  <div className="grid gap-1.5">
+                    {Object.entries(rejection.nach_firma || {}).slice(0, 6).map(([firma, count]) => (
+                      <div key={firma} className="flex items-center justify-between rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
+                        <span className="truncate text-ink">{firma}</span>
+                        <Badge tone="neutral">{count === 1 ? "1 Absage" : `${count} Absagen`}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted/50">
+                  Eine systematische Haeufung weist oft auf ein konkretes Profil- oder Kommunikations-Thema hin.
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    navigator.clipboard?.writeText("/ablehnungs_coaching").catch(() => {});
+                    pushToast("Prompt /ablehnungs_coaching kopiert — in Claude Desktop einfuegen.", "success");
+                  }}
+                >
+                  Vertieft mit Claude besprechen
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {/* Row 4: Recent activity */}
           {(extended?.recent_activity || []).length > 0 && (
