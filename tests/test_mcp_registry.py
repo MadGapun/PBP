@@ -105,6 +105,11 @@ EXPECTED_TOOL_NAMES = {
     "dokument_status_setzen",
     # v1.5.6: Scraper Health (#432)
     "scraper_diagnose",
+    # v1.5.7: Journey-Abschluss (#453, #455)
+    "follow_up_erledigen",
+    "follow_up_hinfaellig",
+    "follow_up_verschieben",
+    "position_aus_bewerbung_uebernehmen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -198,7 +203,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 85  # v1.5.6: +scraper_diagnose (#432)
+        assert len(tools) == 89  # v1.5.7: +follow_up_erledigen/hinfaellig/verschieben, +position_aus_bewerbung_uebernehmen
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

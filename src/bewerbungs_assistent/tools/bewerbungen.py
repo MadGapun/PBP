@@ -109,6 +109,25 @@ STATUS_ACTIONS = {
         ],
         "motivation": "Los geht's! Der erste Schritt ist immer der wichtigste.",
     },
+    "angenommen": {
+        "beschreibung": "Glückwunsch, du hast den Job! Jetzt runden wir den Vorgang sauber ab.",
+        "aktionen": [
+            {"label": "Neue Position ins Profil übernehmen", "tool": "position_aus_bewerbung_uebernehmen", "prioritaet": 1},
+            {"label": "Tatsächliches Gehalt eintragen", "tool": "bewerbung_bearbeiten", "prioritaet": 2},
+            {"label": "Offene Bewerbungen archivieren / zurückziehen", "tool": "bewerbungen_anzeigen", "prioritaet": 3},
+            {"label": "Abschluss-Notiz festhalten", "tool": "bewerbung_notiz", "prioritaet": 4},
+        ],
+        "motivation": "Respekt — du hast den Weg bis zum Ziel durchgezogen. Zeit, die Früchte einzusammeln.",
+    },
+    "zurueckgezogen": {
+        "beschreibung": "Du hast diese Bewerbung zurückgezogen. Damit ist sie sauber geschlossen.",
+        "aktionen": [
+            {"label": "Grund als Notiz festhalten", "tool": "bewerbung_notiz", "prioritaet": 1},
+            {"label": "Ähnliche Stellen ansehen", "tool": "stellen_anzeigen", "prioritaet": 2},
+            {"label": "Neue Jobsuche starten", "tool": "jobsuche_starten", "prioritaet": 3},
+        ],
+        "motivation": "Bewusst nein zu sagen ist auch eine Entscheidung — sie schafft Platz für das Richtige.",
+    },
 }
 
 
@@ -245,6 +264,21 @@ def register(mcp, db, logger):
             )
             conn.commit()
 
+        # #462: Auto-Follow-up direkt beim Anlegen einer beworbenen Bewerbung
+        auto_followup_id = None
+        if status == "beworben":
+            try:
+                default_days = int(db.get_setting("followup_default_days", 7) or 7)
+            except Exception:
+                default_days = 7
+            if default_days > 0:
+                from datetime import datetime as dt_auto, timedelta as td_auto
+                when = (dt_auto.now() + td_auto(days=default_days)).date().isoformat()
+                try:
+                    auto_followup_id = db.add_follow_up(aid, when, "nachfass")
+                except Exception:
+                    auto_followup_id = None
+
         result = {
             "status": "erstellt",
             "bewerbung_id": aid[:8],
@@ -253,6 +287,8 @@ def register(mcp, db, logger):
             "bewerbungsstatus": status,
             "nachricht": f"Bewerbung bei {company} für '{title}' erfasst.",
         }
+        if auto_followup_id:
+            result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
 
         # #170: Bei in_vorbereitung direkt die nächsten Schritte zeigen
         if status == "in_vorbereitung":
@@ -289,6 +325,7 @@ def register(mcp, db, logger):
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
         """
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
+        auto_followup_id = None
         if neuer_status == "beworben":
             app = db.get_application(bewerbung_id)
             if app:
@@ -302,6 +339,28 @@ def register(mcp, db, logger):
                         db.dismiss_job(job_hash, reason="bewerbung_erstellt")
                     except Exception:
                         pass
+                # #462: Auto-Follow-up nach Tageslücke (Default 7d), falls keiner offen
+                try:
+                    default_days = int(db.get_setting("followup_default_days", 7) or 7)
+                except Exception:
+                    default_days = 7
+                if default_days > 0:
+                    existing = [fu for fu in db.get_pending_follow_ups()
+                                if fu.get("application_id") == bewerbung_id]
+                    if not existing:
+                        from datetime import datetime, timedelta
+                        when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
+                        auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
+
+        # #453: Offene Follow-ups schliessen wenn Bewerbung beendet ist
+        dismissed_followups = 0
+        if neuer_status in ("abgelehnt", "zurueckgezogen", "angenommen", "abgelaufen"):
+            try:
+                dismissed_followups = db.dismiss_open_followups_for_application(
+                    bewerbung_id, reason=f"Bewerbung auf {neuer_status} gesetzt"
+                )
+            except Exception:
+                pass
 
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
         result = {
@@ -309,12 +368,24 @@ def register(mcp, db, logger):
             "neuer_status": neuer_status,
             "nächste_aktionen": _get_context_actions(neuer_status),
         }
+        if auto_followup_id:
+            result["auto_follow_up"] = {
+                "id": auto_followup_id,
+                "hinweis": f"Nachfass-Erinnerung in {default_days} Tagen automatisch gesetzt. Mit follow_up_erledigen/follow_up_hinfaellig abschliessbar.",
+            }
+        if dismissed_followups:
+            result["follow_ups_geschlossen"] = dismissed_followups
         if neuer_status == "abgelehnt":
             actions = _get_context_actions("abgelehnt")
             result["motivation"] = actions.get("motivation", "")
             result["hinweis"] = "Nutze ablehnungs_muster() um Ablehnungsmuster zu analysieren und daraus zu lernen."
         elif neuer_status == "angenommen":
             result["nachricht"] = "Herzlichen Glückwunsch! Du hast es geschafft!"
+            result["naechste_schritte"] = (
+                "Uebernimm die neue Position mit position_aus_bewerbung_uebernehmen, "
+                "trage das verhandelte Gehalt via bewerbung_bearbeiten(final_salary=...) ein "
+                "und ziehe offene Parallel-Bewerbungen zurueck."
+            )
         return result
 
     @mcp.tool()
@@ -482,6 +553,8 @@ def register(mcp, db, logger):
         endkunde: str = "",
         cover_letter_path: str = "",
         cv_path: str = "",
+        gehaltsvorstellung: str = "",
+        final_salary: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -503,6 +576,8 @@ def register(mcp, db, logger):
             endkunde: Name des Endkunden (bei Freelance/Vermittlung)
             cover_letter_path: Pfad zum Anschreiben-PDF (#448)
             cv_path: Pfad zum Lebenslauf-PDF (#448)
+            gehaltsvorstellung: Geforderte Gehaltsvorstellung (Freitext, z.B. "85.000 EUR/Jahr")
+            final_salary: Tatsaechlich verhandeltes Gehalt nach Zusage (#460)
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -514,7 +589,8 @@ def register(mcp, db, logger):
                          ("kontakt_email", kontakt_email), ("portal_name", portal_name),
                          ("bewerbungsart", bewerbungsart), ("employment_type", employment_type),
                          ("source", source), ("vermittler", vermittler), ("endkunde", endkunde),
-                         ("cover_letter_path", cover_letter_path), ("cv_path", cv_path)]:
+                         ("cover_letter_path", cover_letter_path), ("cv_path", cv_path),
+                         ("gehaltsvorstellung", gehaltsvorstellung), ("final_salary", final_salary)]:
             if val:
                 updates[key] = val
 
@@ -679,7 +755,7 @@ def register(mcp, db, logger):
         "interview", "telefon", "video", "vor_ort", "kennenlernen",
         "zweitgespraech", "assessment", "probearbeiten", "vertrag", "sonstiges",
     }
-    _MEETING_STATUS = {"geplant", "bestaetigt", "abgeschlossen", "abgesagt", "verschoben"}
+    _MEETING_STATUS = {"geplant", "bestaetigt", "durchgefuehrt", "abgeschlossen", "abgesagt", "verschoben"}
 
     @mcp.tool()
     def meeting_hinzufuegen(
@@ -959,4 +1035,129 @@ def register(mcp, db, logger):
             "filter": "unmatched",
             "anzahl": len(emails),
             "emails": emails,
+        }
+
+    # === Follow-up Lifecycle (#453 / v1.5.7) ===
+
+    @mcp.tool()
+    def follow_up_erledigen(follow_up_id: str, notiz: str = "") -> dict:
+        """Markiert einen Follow-up (Nachfass-Erinnerung) als erledigt.
+
+        Auch findbar als: nachfass erledigt, nachfassen abhaken, follow up done.
+
+        Args:
+            follow_up_id: ID des Follow-ups
+            notiz: Optionale Notiz zu wie es erledigt wurde (wird an die Bewerbung gehaengt)
+        """
+        fu = db.get_follow_up(follow_up_id)
+        if not fu:
+            return {"fehler": "Follow-up nicht gefunden."}
+        if fu.get("status") != "geplant":
+            return {
+                "fehler": f"Follow-up ist bereits '{fu.get('status')}' — kann nicht erneut erledigt werden.",
+            }
+        db.complete_follow_up(follow_up_id, status="erledigt")
+        if notiz:
+            try:
+                db.add_application_note(fu["application_id"], f"Nachfass erledigt: {notiz}")
+            except Exception:
+                pass
+        return {
+            "status": "erledigt",
+            "follow_up_id": follow_up_id,
+            "nachricht": "Nachfass als erledigt markiert.",
+        }
+
+    @mcp.tool()
+    def follow_up_hinfaellig(follow_up_id: str, grund: str = "") -> dict:
+        """Markiert einen Follow-up als hinfaellig (z.B. weil Absage kam, kein Nachfassen mehr noetig).
+
+        Auch findbar als: nachfass schliessen, nachfassen entfernen, follow up dismiss.
+
+        Args:
+            follow_up_id: ID des Follow-ups
+            grund: Optional — warum hinfaellig (Absage erhalten, Bewerbung zurueckgezogen, ...)
+        """
+        fu = db.get_follow_up(follow_up_id)
+        if not fu:
+            return {"fehler": "Follow-up nicht gefunden."}
+        if fu.get("status") != "geplant":
+            return {
+                "fehler": f"Follow-up ist bereits '{fu.get('status')}'.",
+            }
+        db.complete_follow_up(follow_up_id, status="hinfaellig")
+        if grund:
+            try:
+                db.add_application_note(fu["application_id"], f"Nachfass hinfaellig: {grund}")
+            except Exception:
+                pass
+        return {
+            "status": "hinfaellig",
+            "follow_up_id": follow_up_id,
+        }
+
+    @mcp.tool()
+    def follow_up_verschieben(follow_up_id: str, neues_datum: str) -> dict:
+        """Verschiebt ein geplantes Follow-up auf ein neues Datum.
+
+        Args:
+            follow_up_id: ID des Follow-ups
+            neues_datum: Neues Datum (YYYY-MM-DD)
+        """
+        fu = db.get_follow_up(follow_up_id)
+        if not fu:
+            return {"fehler": "Follow-up nicht gefunden."}
+        if fu.get("status") != "geplant":
+            return {"fehler": f"Nur geplante Follow-ups koennen verschoben werden (aktuell: {fu.get('status')})."}
+        db.update_follow_up(follow_up_id, {"scheduled_date": neues_datum})
+        return {"status": "verschoben", "follow_up_id": follow_up_id, "neues_datum": neues_datum}
+
+    # === Abschluss-Flow (#455 / v1.5.7) ===
+
+    @mcp.tool()
+    def position_aus_bewerbung_uebernehmen(
+        bewerbung_id: str,
+        start_date: str = "",
+        description: str = "",
+    ) -> dict:
+        """Uebernimmt Titel und Firma einer angenommenen Bewerbung als neue Profil-Position.
+
+        Gedacht fuer den Abschluss-Flow nach Status=angenommen: die frischen Daten
+        (Stelle, Firma, Startdatum) werden als neue `positions`-Zeile im Profil angelegt,
+        ohne Daten doppelt eingeben zu muessen.
+
+        Args:
+            bewerbung_id: ID der angenommenen Bewerbung
+            start_date: Start-Datum (YYYY-MM-DD). Leer = heute.
+            description: Optionale Beschreibung der Rolle.
+        """
+        app = db.get_application(bewerbung_id)
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden."}
+        if not app.get("title") or not app.get("company"):
+            return {"fehler": "Bewerbung hat keine Stelle oder Firma hinterlegt."}
+        from datetime import datetime as _dt
+        effective_start = start_date or _dt.now().date().isoformat()
+        position_id = db.add_position({
+            "title": app["title"],
+            "company": app["company"],
+            "start_date": effective_start,
+            "end_date": "",
+            "is_current": 1,
+            "description": description or f"Uebernommen aus Bewerbung {bewerbung_id[:8]}",
+        })
+        try:
+            db.add_application_note(
+                bewerbung_id,
+                f"Position ins Profil uebernommen (position_id={position_id}, Start {effective_start})."
+            )
+        except Exception:
+            pass
+        return {
+            "status": "uebernommen",
+            "position_id": position_id,
+            "titel": app["title"],
+            "firma": app["company"],
+            "start": effective_start,
+            "nachricht": f"Position '{app['title']}' bei {app['company']} als aktuelle Stelle im Profil angelegt.",
         }

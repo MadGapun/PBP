@@ -2,6 +2,88 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.7] - 2026-04-17
+
+Journey-Abschluss-Release: die Bewerbungs-Pipeline wird an den drei Stellen vervollständigt,
+an denen sie bisher "versandet" ist — Zusage ohne Folgeaktionen, Follow-ups ohne
+Abschluss, Ablehnungsmuster ohne Sichtbarkeit. Fünf Issues aus der Produkt-Analyse
+vom 17.04.2026 plus das offene #453 zu Follow-up-Lifecycle.
+
+### Neue Features
+
+- **Abschluss-Flow bei `angenommen`** (#455): Bei Statuswechsel auf "angenommen"
+  öffnet sich automatisch ein Dialog im Dashboard: Position ins Profil übernehmen,
+  tatsächliches Gehalt eintragen, optionale Rollen-Beschreibung. STATUS_ACTIONS
+  enthält jetzt auch Einträge für `angenommen` und `zurueckgezogen`, die bisher
+  unbenutzt waren. Neue MCP-Tools `position_aus_bewerbung_uebernehmen` und
+  erweiterte `bewerbung_bearbeiten` (final_salary, gehaltsvorstellung).
+
+- **Ablehnungsmuster-Karte im Statistik-Tab** (#456): Ab 3 Absagen mit Grund
+  erscheint eine Karte "Was Absagen dir sagen" mit den häufigsten Gründen und
+  betroffenen Firmen. Button "Vertieft mit Claude besprechen" kopiert den
+  Coaching-Prompt. Konsumiert den bereits vorhandenen `GET /api/rejection-patterns`
+  Endpoint, der bisher nur via MCP sichtbar war.
+
+- **Tatsächliches Gehalt nach Zusage** (#460): Neues Feld `applications.final_salary`.
+  Im Bewerbungs-Dossier unter "Bewerbung bearbeiten" und im Abschluss-Dialog
+  pflegbar. Basis für die zukünftige "Meine Abschlüsse vs. Markt"-Auswertung.
+
+- **Auto-Follow-up nach `beworben`** (#462): Beim Statuswechsel auf `beworben`
+  (oder Anlage mit Status `beworben`) wird automatisch ein Nachfass-Follow-up
+  für T+7 angelegt — konfigurierbar via Setting `followup_default_days`. Kein
+  "ich hätte nachfassen sollen"-Moment mehr. Sichtbar als nächster Termin im
+  Dashboard.
+
+- **Follow-ups & Termine als erledigt / hinfällig markierbar** (#453): Im
+  Dashboard-Meeting-Widget und in der Kalender-Ansicht bekommen Follow-ups
+  Buttons "Erledigt" und "Hinfällig", vergangene Termine einen "Durchgeführt"-
+  Button. Neue MCP-Tools `follow_up_erledigen`, `follow_up_hinfaellig`,
+  `follow_up_verschieben`. Meeting-Status `durchgefuehrt` ist jetzt gültig.
+  **Automatisch:** Wird eine Bewerbung auf `abgelehnt`, `zurueckgezogen`,
+  `angenommen` oder `abgelaufen` gesetzt, werden offene Follow-ups automatisch
+  auf `hinfaellig` gesetzt.
+
+### Neue MCP-Tools (4)
+
+- `follow_up_erledigen` — Nachfass als durchgeführt abhaken (#453)
+- `follow_up_hinfaellig` — Nachfass als nicht mehr relevant schliessen (#453)
+- `follow_up_verschieben` — geplanten Nachfass auf anderen Termin schieben (#453)
+- `position_aus_bewerbung_uebernehmen` — nach Zusage neue Profil-Position anlegen (#455)
+
+### Neue API-Endpunkte
+
+- `POST /api/follow-ups/{id}/complete` — Follow-up abschliessen
+- `POST /api/follow-ups/{id}/dismiss` — Follow-up als hinfällig markieren
+- `PUT /api/follow-ups/{id}` — Follow-up verschieben / editieren
+- `POST /api/applications/{id}/adopt-position` — Position ins Profil übernehmen
+
+### Erweitert
+
+- `bewerbung_bearbeiten` akzeptiert jetzt auch `gehaltsvorstellung` und
+  `final_salary` (#460, v1.5.4 hatte cover_letter_path/cv_path ergänzt)
+- `PUT /api/applications/{id}` Whitelist um `final_salary`
+- Meeting-Status-Werte: `geplant, bestaetigt, durchgefuehrt, abgeschlossen, abgesagt, verschoben`
+
+### Unter der Haube
+
+- Schema v25 → v26: `applications.final_salary TEXT DEFAULT ''`
+- `test_mcp_registry` prüft jetzt **89 Tools** (vorher 85)
+- 11 neue Regressionstests in `tests/test_v157_flow_completion.py`
+- **434 Tests grün** (ohne Scraper-Suite, die bs4 benötigt)
+
+### Geschlossene Issues
+
+- #453 Follow-ups & Termine nicht bearbeitbar / nicht abschliessbar
+- #455 Status 'angenommen' ist eine Journey-Sackgasse
+- #456 ablehnungs_muster hat Tool und API, aber keinen UI-Platz
+- #460 Kein Feld für tatsächlich verhandeltes Gehalt
+- #462 Nach 'beworben' wird kein Follow-up automatisch geplant
+
+### Upgrade
+
+Schema-Migration v25→v26 läuft automatisch beim ersten Start. Bestehende Daten
+bleiben unverändert. Kein manueller Eingriff nötig.
+
 ## [1.5.6] - 2026-04-16
 
 Feature-Release mit 7 geschlossenen Issues: Dashboard-Redesign, Scraper-Health-Monitoring,

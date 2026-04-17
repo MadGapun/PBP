@@ -14,7 +14,7 @@ from html import escape
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi import FastAPI, Request, UploadFile, File, Form, Body
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -1602,7 +1602,7 @@ async def api_update_application(app_id: str, request: Request):
     allowed = (
         "title", "company", "url", "ansprechpartner", "kontakt_email",
         "portal_name", "bewerbungsart", "vermittler", "endkunde", "notes",
-        "employment_type", "gehaltsvorstellung",
+        "employment_type", "gehaltsvorstellung", "final_salary",
         "description_snapshot", "snapshot_date",
         "applied_at", "is_imported",
     )
@@ -3514,6 +3514,81 @@ async def api_follow_ups():
     for fu in follow_ups:
         fu["faellig"] = fu.get("scheduled_date", "") <= today
     return {"follow_ups": follow_ups, "faellige": sum(1 for f in follow_ups if f.get("faellig"))}
+
+
+@app.post("/api/follow-ups/{follow_up_id}/complete")
+async def api_follow_up_complete(follow_up_id: str, payload: dict = Body(default={})):
+    """Mark follow-up as erledigt (done). #453"""
+    fu = _db.get_follow_up(follow_up_id)
+    if not fu:
+        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
+    _db.complete_follow_up(follow_up_id, status="erledigt")
+    notiz = (payload or {}).get("notiz") or ""
+    if notiz and fu.get("application_id"):
+        try:
+            _db.add_application_note(fu["application_id"], f"Nachfass erledigt: {notiz}")
+        except Exception:
+            pass
+    return {"status": "erledigt", "id": follow_up_id}
+
+
+@app.post("/api/follow-ups/{follow_up_id}/dismiss")
+async def api_follow_up_dismiss(follow_up_id: str, payload: dict = Body(default={})):
+    """Mark follow-up as hinfaellig (no longer relevant). #453"""
+    fu = _db.get_follow_up(follow_up_id)
+    if not fu:
+        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
+    _db.complete_follow_up(follow_up_id, status="hinfaellig")
+    grund = (payload or {}).get("grund") or ""
+    if grund and fu.get("application_id"):
+        try:
+            _db.add_application_note(fu["application_id"], f"Nachfass hinfaellig: {grund}")
+        except Exception:
+            pass
+    return {"status": "hinfaellig", "id": follow_up_id}
+
+
+@app.put("/api/follow-ups/{follow_up_id}")
+async def api_follow_up_reschedule(follow_up_id: str, payload: dict = Body(...)):
+    """Update (reschedule/edit) a follow-up. #453"""
+    fu = _db.get_follow_up(follow_up_id)
+    if not fu:
+        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
+    allowed = {k: v for k, v in (payload or {}).items()
+               if k in ("scheduled_date", "template", "follow_up_type") and v is not None}
+    if not allowed:
+        return JSONResponse({"error": "no_valid_fields"}, status_code=400)
+    _db.update_follow_up(follow_up_id, allowed)
+    return {"status": "aktualisiert", "id": follow_up_id, "updated": list(allowed.keys())}
+
+
+@app.post("/api/applications/{app_id}/adopt-position")
+async def api_adopt_position(app_id: str, payload: dict = Body(default={})):
+    """Uebernimm Stelle/Firma als neue Profil-Position. #455 / v1.5.7"""
+    app_row = _db.get_application(app_id)
+    if not app_row:
+        return JSONResponse({"error": "application_not_found"}, status_code=404)
+    if not app_row.get("title") or not app_row.get("company"):
+        return JSONResponse({"error": "application_without_title_or_company"}, status_code=400)
+    from datetime import date as _date
+    start_date = (payload or {}).get("start_date") or _date.today().isoformat()
+    description = (payload or {}).get("description") or f"Uebernommen aus Bewerbung {app_id[:8]}"
+    position_id = _db.add_position({
+        "title": app_row["title"],
+        "company": app_row["company"],
+        "start_date": start_date,
+        "end_date": "",
+        "is_current": 1,
+        "description": description,
+    })
+    try:
+        _db.add_application_note(
+            app_id,
+            f"Position ins Profil uebernommen (position_id={position_id}, Start {start_date})."
+        )
+    except Exception:
+        pass
+    return {"status": "uebernommen", "position_id": position_id, "start_date": start_date}
 
 
 @app.get("/api/salary-stats")
