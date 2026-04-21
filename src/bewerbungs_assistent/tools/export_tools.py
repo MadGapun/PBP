@@ -45,16 +45,20 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def lebenslauf_exportieren(
-        format: str = "pdf",
+        format: str = "docx",
         angepasst_für: str = ""
     ) -> dict:
-        """Exportiert den Lebenslauf als PDF, DOCX, Markdown oder TXT-Datei.
+        """Exportiert den Lebenslauf als DOCX (Default), PDF, Markdown oder TXT-Datei.
 
         Erzeugt ein professionell formatiertes Dokument aus dem gespeicherten Profil.
         Die Datei wird im Bewerbungs-Assistent Datenordner gespeichert.
 
+        Default ist DOCX, weil ein direkt generiertes PDF typischerweise an Schrift,
+        Layout und Formulierung als KI-generiert erkennbar ist. DOCX erlaubt es dir,
+        das Dokument im eigenen Template nachzubearbeiten und erst dann zu finalisieren.
+
         Args:
-            format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
+            format: 'docx' (empfohlen), 'pdf', 'md' (Markdown) oder 'txt' (Klartext)
             angepasst_für: Optional — Firma/Stelle für die der CV angepasst wird (für Dateinamen)
         """
         profile = db.get_profile()
@@ -87,7 +91,7 @@ def register(mcp, db, logger):
         else:
             return {"fehler": "Format muss 'pdf', 'docx', 'md' oder 'txt' sein."}
 
-        return {
+        result = {
             "status": "erstellt",
             "datei": str(path),
             "format": format,
@@ -95,6 +99,13 @@ def register(mcp, db, logger):
                          "Die Datei liegt im Bewerbungs-Assistent Datenordner. "
                          "Du kannst sie auch im Dashboard unter http://localhost:8200 herunterladen."
         }
+        if format == "pdf":
+            result["empfehlung"] = (
+                "DOCX ist fuer Bewerbungen in der Regel besser geeignet: "
+                "DOCX manuell im eigenen Template nachbearbeiten und erst dann als PDF speichern. "
+                "Direkt generierte PDFs wirken haeufig KI-generiert."
+            )
+        return result
 
     @mcp.tool()
     def lebenslauf_angepasst_exportieren(
@@ -144,19 +155,23 @@ def register(mcp, db, logger):
         text: str,
         stelle: str,
         firma: str,
-        format: str = "pdf",
+        format: str = "docx",
         stellenbeschreibung: str = ""
     ) -> dict:
-        """Exportiert ein Anschreiben als PDF, DOCX, Markdown oder TXT-Datei.
+        """Exportiert ein Anschreiben als DOCX (Default), PDF, Markdown oder TXT-Datei.
 
         Nimmt den fertigen Anschreiben-Text und erzeugt ein formatiertes Dokument
         mit Absender, Datum, Betreffzeile und Text.
+
+        Default ist DOCX, weil ein direkt generiertes PDF typischerweise an Schrift,
+        Layout und Formulierung als KI-generiert erkennbar ist. DOCX erlaubt das
+        manuelle Nachbearbeiten im eigenen Template vor dem Versand.
 
         Args:
             text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'Software Architect')
             firma: Firmenname (z.B. 'TechCorp GmbH')
-            format: 'pdf', 'docx', 'md' (Markdown) oder 'txt' (Klartext)
+            format: 'docx' (empfohlen), 'pdf', 'md' (Markdown) oder 'txt' (Klartext)
             stellenbeschreibung: Optional — wird automatisch in der DB gespeichert (#172)
         """
         if not text.strip():
@@ -193,12 +208,19 @@ def register(mcp, db, logger):
         if stellenbeschreibung:
             _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
 
-        return {
+        result = {
             "status": "erstellt",
             "datei": str(path),
             "format": format,
             "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
         }
+        if format == "pdf":
+            result["empfehlung"] = (
+                "DOCX ist fuer Bewerbungen in der Regel besser geeignet: "
+                "DOCX manuell im eigenen Template nachbearbeiten und erst dann als PDF speichern. "
+                "Direkt generierte PDFs wirken haeufig KI-generiert."
+            )
+        return result
 
     @mcp.tool()
     def profil_report_exportieren(
