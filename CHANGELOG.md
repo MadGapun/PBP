@@ -2,6 +2,51 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+## [1.5.8] - 2026-04-21
+
+Bug-Fix- und Quick-Win-Release: kleine UX-Verbesserungen und zwei Fixes
+aus dem Alltagsbetrieb. Kein neuer grosser Arc, kein Scope-Creep — die
+Issues mit klarer Loesung werden weggearbeitet.
+
+### Fixes
+
+- **Kalender-Filter: Kategorien wurden doppelt angezeigt** (#451): Die Query
+  in `get_meeting_categories()` hat ueber `OR is_system=1` auch System-
+  Kategorien *anderer* Profile zurueckgegeben. Bei mehreren Profilen
+  erschienen "Bewerbung", "Interview", "Privat" dadurch mehrfach als
+  Filter-Chips im Kalender. Profile-Isolation ist jetzt wiederhergestellt.
+
+- **.eml-Import liess `body_text` leer** (#476): Thunderbird-Exports enthalten
+  oft nur `text/html` ohne `text/plain`-Part — `body_text` war dann leer, und
+  Downstream-Analysen (Status-Detection, Rejection-Feedback, Textsuche)
+  arbeiteten auf leeren Daten. Fix: Plaintext wird per BeautifulSoup aus dem
+  HTML abgeleitet, wenn kein Klartext-Part vorhanden ist.
+
+- **Drag-and-Drop-Duplikat-Import** (#476): Wenn der Import-Toast fuer den
+  User zu langsam erschien und er die Mail erneut ins Dashboard zog, wurde
+  die Mail doppelt importiert. `POST /api/emails/upload` prueft jetzt auf
+  identischen Sender+Subject+Sent-Date innerhalb der letzten 5 Minuten und
+  antwortet mit `409 Conflict` statt stillem Zweit-Import.
+
+### Neue Features
+
+- **mailto-Antworten-Button in der Bewerbungs-Timeline** (#477): Jede E-Mail
+  in der Bewerbungs-Timeline hat jetzt einen Antworten-Icon-Button, der den
+  Standard-Mail-Client (Thunderbird, Outlook, Apple Mail, ...) mit
+  vorausgefuelltem Empfaenger und `AW:`-Betreff oeffnet. Kein Backend- oder
+  API-Aufwand — nutzt das OS-mailto-Protokoll.
+
+- **DOCX als Default fuer Bewerbungs-Exporte** (#473): `lebenslauf_exportieren`
+  und `anschreiben_exportieren` exportieren jetzt standardmaessig als DOCX.
+  Direkt generierte PDFs wirken haeufig KI-generiert (Schrift, Layout, fehlende
+  persoenliche Anpassung) — DOCX zwingt zum Nachbearbeiten im eigenen Template,
+  das Ergebnis wirkt persoenlicher. Bei explizitem `format='pdf'` liefert das
+  Tool ein `empfehlung`-Feld, das auf den DOCX-Workflow hinweist (non-blocking).
+
+### UX
+
+- #479
+
 ## [1.5.7] - 2026-04-17
 
 Journey-Abschluss-Release: die Bewerbungs-Pipeline wird an den drei Stellen vervollständigt,

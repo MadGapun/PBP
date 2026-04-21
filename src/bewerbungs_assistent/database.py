@@ -3900,6 +3900,37 @@ class Database:
         conn.commit()
         return eid
 
+    def find_recent_duplicate_email(
+        self,
+        sender: str,
+        subject: str,
+        sent_date: Optional[str],
+        window_minutes: int = 5,
+    ) -> Optional[dict]:
+        """Finde eine bereits importierte Mail mit gleichem sender/subject/sent_date
+        die innerhalb der letzten ``window_minutes`` Minuten angelegt wurde.
+
+        Schuetzt vor dem Drag-and-Drop-Zweit-Import aus Thunderbird, wenn der Import-
+        Toast fuer den User nicht schnell genug erscheint und er die Mail erneut
+        hineinzieht (#476). Identisches sent_date verhindert False-Positives bei
+        Mails mit identischem Betreff von demselben Absender an unterschiedlichen
+        Tagen.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        row = conn.execute(
+            """SELECT id, subject, sender, sent_date, created_at
+               FROM application_emails
+               WHERE (profile_id=? OR profile_id IS NULL)
+                 AND sender=? AND subject=?
+                 AND (sent_date IS ? OR sent_date=?)
+                 AND created_at >= datetime('now', ?)
+               ORDER BY created_at DESC
+               LIMIT 1""",
+            (pid, sender, subject, sent_date, sent_date, f"-{int(window_minutes)} minutes"),
+        ).fetchone()
+        return dict(row) if row else None
+
     def get_email(self, email_id: str, profile_id: str = None) -> Optional[dict]:
         """Get a single email by ID."""
         conn = self.connect()
@@ -4107,7 +4138,7 @@ class Database:
         pid = profile_id or self.get_active_profile_id()
         rows = conn.execute(
             """SELECT * FROM meeting_categories
-               WHERE profile_id=? OR profile_id IS NULL OR is_system=1
+               WHERE profile_id=? OR profile_id IS NULL
                ORDER BY is_system DESC, name ASC""",
             (pid,),
         ).fetchall()

@@ -200,6 +200,34 @@ export async function copyToClipboard(text) {
   await navigator.clipboard.writeText(text);
 }
 
+const EMAIL_ADDRESS_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+
+export function extractEmailAddress(raw) {
+  if (!raw) return "";
+  const m = String(raw).match(EMAIL_ADDRESS_RE);
+  return m ? m[0] : "";
+}
+
+export function buildMailto({ to = "", subject = "", body = "", cc = "", bcc = "" } = {}) {
+  const address = extractEmailAddress(to);
+  if (!address) return "";
+  const params = [];
+  if (subject) params.push(`subject=${encodeURIComponent(subject)}`);
+  if (body) params.push(`body=${encodeURIComponent(body)}`);
+  if (cc) params.push(`cc=${encodeURIComponent(extractEmailAddress(cc) || cc)}`);
+  if (bcc) params.push(`bcc=${encodeURIComponent(extractEmailAddress(bcc) || bcc)}`);
+  const query = params.length ? `?${params.join("&")}` : "";
+  return `mailto:${address}${query}`;
+}
+
+export function buildReplyMailto(rawFromOrTo, originalSubject) {
+  const address = extractEmailAddress(rawFromOrTo);
+  if (!address) return "";
+  const clean = (originalSubject || "").trim();
+  const subject = clean && !/^(AW|RE):/i.test(clean) ? `AW: ${clean}` : clean || "AW:";
+  return buildMailto({ to: address, subject });
+}
+
 export function resolveLegacyAction(actionTarget = "") {
   if (!actionTarget) return null;
   if (actionTarget.includes("showPage('profil')")) {

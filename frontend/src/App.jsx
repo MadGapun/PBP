@@ -1066,6 +1066,33 @@ export default function App() {
           </main>
         </div>
 
+        <footer className="mt-auto border-t border-white/5 px-6 py-3 text-xs text-muted/50">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+            <span>PBP v{chrome.status?.version || "?"}</span>
+            <span aria-hidden="true" className="text-muted/30">·</span>
+            <a
+              href="https://github.com/MadGapun/PBP"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-ink"
+            >
+              Open Source auf GitHub
+              <ExternalLink size={10} aria-hidden="true" />
+            </a>
+            <span aria-hidden="true" className="text-muted/30">·</span>
+            <a
+              href="https://paypal.me/birzite"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-ink"
+              aria-label="Kaffee spendieren via PayPal"
+            >
+              <Coffee size={12} aria-hidden="true" />
+              Gefaellt dir PBP? Spendier mir einen Kaffee
+            </a>
+          </div>
+        </footer>
+
         <Modal
           open={createProfileOpen}
           title="Neues Profil anlegen"
