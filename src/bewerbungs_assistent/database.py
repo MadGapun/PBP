@@ -4107,7 +4107,7 @@ class Database:
         pid = profile_id or self.get_active_profile_id()
         rows = conn.execute(
             """SELECT * FROM meeting_categories
-               WHERE profile_id=? OR profile_id IS NULL OR is_system=1
+               WHERE profile_id=? OR profile_id IS NULL
                ORDER BY is_system DESC, name ASC""",
             (pid,),
         ).fetchall()
