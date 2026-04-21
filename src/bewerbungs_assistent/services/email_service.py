@@ -159,8 +159,29 @@ def _decode_header(value):
     return " ".join(parts)
 
 
+def _html_to_plaintext(html: str) -> str:
+    """Fallback-Konvertierung HTML -> Plaintext via BeautifulSoup."""
+    if not html:
+        return ""
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return ""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    text = soup.get_text(separator="\n")
+    lines = [ln.strip() for ln in text.splitlines()]
+    return "\n".join(ln for ln in lines if ln)
+
+
 def _get_text_parts(msg):
-    """Extract plain text and html from an email.message.Message."""
+    """Extract plain text and html from an email.message.Message.
+
+    Thunderbird-Exporte enthalten oft ausschliesslich text/html. In diesem Fall
+    wird body_text aus dem HTML abgeleitet, damit Textsuche und Downstream-
+    Analysen (Status-Detection, Rejection-Feedback, etc.) funktionieren (#476).
+    """
     text_parts = []
     html_parts = []
     if msg.is_multipart():
@@ -186,7 +207,11 @@ def _get_text_parts(msg):
                 html_parts.append(decoded)
             else:
                 text_parts.append(decoded)
-    return "\n".join(text_parts), "\n".join(html_parts)
+    body_text = "\n".join(text_parts)
+    body_html = "\n".join(html_parts)
+    if not body_text.strip() and body_html.strip():
+        body_text = _html_to_plaintext(body_html)
+    return body_text, body_html
 
 
 def _extract_attachments_eml(msg):

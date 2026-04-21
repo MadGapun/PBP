@@ -2041,6 +2041,31 @@ async def api_upload_email(file: UploadFile = File(...)):
             status_code=400,
         )
 
+    # Duplicate protection against rapid drag-and-drop double-imports (#476)
+    dup_email = _db.find_recent_duplicate_email(
+        sender=parsed.get("sender", ""),
+        subject=parsed.get("subject", ""),
+        sent_date=parsed.get("sent_date"),
+    )
+    if dup_email:
+        try:
+            Path(email_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+        return JSONResponse(
+            {
+                "error": "E-Mail bereits importiert",
+                "duplicate": True,
+                "existing_email_id": dup_email["id"],
+                "existing_created_at": dup_email.get("created_at"),
+                "message": (
+                    "Diese E-Mail wurde in den letzten 5 Minuten bereits importiert. "
+                    "Falls das ein Fehlalarm ist, warte einen Moment und versuche es erneut."
+                ),
+            },
+            status_code=409,
+        )
+
     # Detect direction (incoming vs outgoing)
     profile = _db.get_profile()
     profile_email = (profile or {}).get("email", "")
