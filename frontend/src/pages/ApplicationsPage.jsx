@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import {
   STATUS_OPTIONS,
+  buildReplyMailto,
   cn,
   formatCurrency,
   formatDate,
@@ -1110,29 +1111,49 @@ export default function ApplicationsPage() {
                 E-Mails ({timelineEmails.length})
               </p>
               <div className="mt-2 grid gap-1.5">
-                {timelineEmails.map((em) => (
-                  <a
-                    key={em.id}
-                    href={`/api/emails/${em.id}/download`}
-                    download={em.filename || true}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 border border-white/[0.04] hover:bg-white/[0.06] transition-colors cursor-pointer no-underline"
-                  >
-                    <span className={`shrink-0 text-xs ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
-                      {em.direction === "ausgang" ? "↗" : "↙"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink">{em.subject || "Ohne Betreff"}</p>
-                      <p className="text-xs text-muted/50">
-                        {em.direction === "ausgang" ? "An" : "Von"}: {em.direction === "ausgang" ? em.recipients : em.sender}
-                        {em.sent_date && <span className="ml-2">{formatDate(em.sent_date)}</span>}
-                      </p>
+                {timelineEmails.map((em) => {
+                  const replyTo = em.direction === "ausgang" ? em.recipients : em.sender;
+                  const replyMailto = buildReplyMailto(replyTo, em.subject);
+                  return (
+                    <div
+                      key={em.id}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 border border-white/[0.04] hover:bg-white/[0.06] transition-colors"
+                    >
+                      <span className={`shrink-0 text-xs ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
+                        {em.direction === "ausgang" ? "↗" : "↙"}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-ink">{em.subject || "Ohne Betreff"}</p>
+                        <p className="text-xs text-muted/50">
+                          {em.direction === "ausgang" ? "An" : "Von"}: {replyTo}
+                          {em.sent_date && <span className="ml-2">{formatDate(em.sent_date)}</span>}
+                        </p>
+                      </div>
+                      {em.detected_status && (
+                        <Badge tone={statusTone(em.detected_status)}>{em.detected_status}</Badge>
+                      )}
+                      {replyMailto && (
+                        <a
+                          href={replyMailto}
+                          className="shrink-0 text-muted/30 hover:text-sky transition-colors"
+                          title="Im Mail-Client antworten"
+                          aria-label="Im Mail-Client antworten"
+                        >
+                          <MessageSquareReply size={14} />
+                        </a>
+                      )}
+                      <a
+                        href={`/api/emails/${em.id}/download`}
+                        download={em.filename || true}
+                        className="shrink-0 text-muted/30 hover:text-sky transition-colors"
+                        title="E-Mail herunterladen"
+                        aria-label="E-Mail herunterladen"
+                      >
+                        <Download size={14} />
+                      </a>
                     </div>
-                    {em.detected_status && (
-                      <Badge tone={statusTone(em.detected_status)}>{em.detected_status}</Badge>
-                    )}
-                    <Download size={14} className="shrink-0 text-muted/30 hover:text-sky transition-colors" />
-                  </a>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           )}
