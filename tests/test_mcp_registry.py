@@ -101,6 +101,7 @@ EXPECTED_TOOL_NAMES = {
     "email_loeschen",
     "emails_anzeigen",
     "stelle_bearbeiten",
+    "stelle_mergen",
     "dokument_entverknuepfen",
     "dokument_loeschen",
     "dokument_status_setzen",
@@ -204,7 +205,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 90  # v1.6.0-beta.3: +google_jobs_url (#501)
+        assert len(tools) == 91  # v1.6.0-beta.11: +stelle_mergen (#470)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

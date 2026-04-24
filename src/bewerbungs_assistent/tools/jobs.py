@@ -699,69 +699,70 @@ def register(mcp, db, logger):
         if existing_job:
             return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
 
-        # Duplikat-Prüfung gegen bestehende Bewerbungen (#317)
-        import re as _re
+        # Duplikat-Pruefung (#317 + #471: gehaertete Erkennung)
+        from ..duplicate_detection import find_duplicate_job
+
         apps = db.get_applications()
+        # 1. Gegen existierende Bewerbungen pruefen
+        app_hit = find_duplicate_job(firma, titel, url, apps)
+        if app_hit:
+            app = app_hit["job"]
+            return {
+                "warnung": "duplikat_bewerbung",
+                "grund": app_hit["grund"],
+                "nachricht": (
+                    f"Moegliches Duplikat: Bewerbung {app['id'][:8]} bei "
+                    f"{app.get('company')} bereits vorhanden "
+                    f"(Status: {app.get('status', 'unbekannt')}, "
+                    f"Titel: '{app.get('title')}'). "
+                    f"Match-Grund: {app_hit['grund']}"
+                    + (f", gemeinsame Tokens: {app_hit.get('shared_tokens')}"
+                       if app_hit.get("shared_tokens") else "")
+                    + ". Die Stelle wurde NICHT angelegt. "
+                    "Falls es sich tatsaechlich um eine andere Stelle handelt, "
+                    "ergaenze den Titel eindeutig (z.B. Projekt- oder Team-Name) "
+                    "oder nutze stelle_mergen(), falls eine frueher angelegte "
+                    "Stelle die zweite Variante ersetzt."
+                ),
+                "existing_application_id": app["id"][:8],
+                "shared_tokens": app_hit.get("shared_tokens"),
+                "trotzdem_anlegen": False,
+            }
 
-        # 1. URL-basierte Prüfung (stärkster Indikator)
-        if url:
-            url_norm = url.lower().rstrip("/")
-            for app in apps:
-                app_url = (app.get("url") or "").lower().rstrip("/")
-                if app_url and app_url == url_norm:
-                    return {
-                        "warnung": "duplikat_bewerbung",
-                        "nachricht": (
-                            f"Exaktes URL-Duplikat: Bewerbung {app['id'][:8]} bei "
-                            f"{app.get('company')} hat dieselbe URL "
-                            f"(Status: {app.get('status', 'unbekannt')}). "
-                            "Die Stelle wurde NICHT angelegt."
-                        ),
-                        "existing_application_id": app["id"][:8],
-                        "trotzdem_anlegen": False,
-                    }
-
-        # 2. Firma+Titel Fuzzy-Match
-        firma_lower = firma.lower()
-        titel_lower = titel.lower()
-        titel_words = set(titel_lower.split())
-        for app in apps:
-            app_company = (app.get("company") or "").lower()
-            app_title = (app.get("title") or "").lower()
-            # Firma-Match (fuzzy: Teilstring in beide Richtungen)
-            if firma_lower in app_company or app_company in firma_lower:
-                # Titel-Ähnlichkeit: mindestens 2 gemeinsame Wörter
-                app_words = set(app_title.split())
-                overlap = titel_words & app_words
-                if len(overlap) >= min(2, len(titel_words)):
-                    return {
-                        "warnung": "duplikat_bewerbung",
-                        "nachricht": (
-                            f"Mögliches Duplikat: Bewerbung {app['id'][:8]} bei "
-                            f"{app.get('company')} bereits vorhanden "
-                            f"(Status: {app.get('status', 'unbekannt')}, "
-                            f"Titel: '{app.get('title')}'). "
-                            "Die Stelle wurde NICHT angelegt. "
-                            "Falls es sich um eine andere Stelle handelt, "
-                            "verwende einen deutlich abweichenden Titel."
-                        ),
-                        "existing_application_id": app["id"][:8],
-                        "trotzdem_anlegen": False,
-                    }
-
-        # Cross-source duplicate detection (#222): Check if similar stelle exists
-        norm_key = _re.sub(r'[^a-z0-9]', '', f"{firma}{titel}".lower())
-        all_active = db.get_active_jobs(exclude_applied=False)
-        for existing in all_active:
-            exist_key = _re.sub(r'[^a-z0-9]', '', f"{existing.get('company','')}{existing.get('title','')}".lower())
-            if norm_key == exist_key and existing["hash"] != job_hash:
-                return {
-                    "warnung": "duplikat_erkannt",
-                    "nachricht": f"Aehnliche Stelle existiert bereits: '{existing['title']}' bei {existing['company']} "
-                                 f"(Quelle: {existing.get('source', 'unbekannt')}, Hash: {existing['hash']}). "
-                                 "Falls du die Stelle trotzdem anlegen moechtest, aendere den Titel leicht ab.",
-                    "existing_hash": existing["hash"],
-                }
+        # 2. Cross-source Duplikat-Check gegen jobs (inkl. dismissed, #471)
+        all_jobs = db.get_active_jobs(exclude_applied=False)
+        # plus dismissed — #471 Fall "VirtoTech" fiel hier raus weil dismissed
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        dismissed_rows = conn.execute(
+            "SELECT * FROM jobs WHERE is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+        all_jobs_plus = list(all_jobs) + [dict(r) for r in dismissed_rows]
+        job_hit = find_duplicate_job(firma, titel, url, all_jobs_plus)
+        if job_hit and job_hit["job"].get("hash") != job_hash:
+            existing = job_hit["job"]
+            return {
+                "warnung": "duplikat_erkannt",
+                "grund": job_hit["grund"],
+                "nachricht": (
+                    f"Aehnliche Stelle existiert bereits: '{existing.get('title')}' "
+                    f"bei {existing.get('company')} "
+                    f"(Quelle: {existing.get('source', 'unbekannt')}, "
+                    f"Hash: {existing['hash']}, "
+                    f"{'aktiv' if existing.get('is_active') else 'aussortiert'}). "
+                    f"Match-Grund: {job_hit['grund']}"
+                    + (f", gemeinsame Tokens: {job_hit.get('shared_tokens')}"
+                       if job_hit.get("shared_tokens") else "")
+                    + ". Falls es sich um dieselbe Stelle handelt, ergaenze die "
+                    "bestehende ueber stelle_bearbeiten() oder mergen mit "
+                    "stelle_mergen(). Fuer eine neue separate Stelle den "
+                    "Titel eindeutig ausformulieren."
+                ),
+                "existing_hash": existing["hash"],
+                "shared_tokens": job_hit.get("shared_tokens"),
+            }
 
         criteria = db.get_search_criteria()
         job = {
@@ -826,6 +827,51 @@ def register(mcp, db, logger):
                 "konkrete Stellenanzeige. Die Stelle wurde trotzdem angelegt, aber der "
                 "Link wird zur Such-Seite zurueckfuehren. Falls moeglich die Detail-URL "
                 "der Stellenanzeige statt der Suchergebnis-URL nutzen."
+            )
+        return result
+
+    @mcp.tool()
+    def stelle_mergen(
+        master_hash: str,
+        duplikat_hash: str,
+        feld_strategie: dict | None = None,
+        dry_run: bool = True,
+    ) -> dict:
+        """Fuehrt zwei doppelt angelegte Stellen zusammen (#470).
+
+        Typischer Flow:
+        1. Erst ``dry_run=True`` (Default) aufrufen -> Vorschau mit Feld-
+           Entscheidungen, Konflikten und welche Bewerbungen umgehaengt werden.
+        2. Output pruefen, bei Konflikten ggf. ``feld_strategie`` mitgeben.
+        3. Mit ``dry_run=False`` finalisieren.
+
+        Args:
+            master_hash: Stelle, die erhalten bleibt.
+            duplikat_hash: Stelle, die aufgeloest (geloescht) wird.
+            feld_strategie: Optional dict pro Feld: 'master' | 'duplikat' |
+                'merge' (letzteres nur fuer 'description' sinnvoll).
+                Felder die nur im Duplikat gefuellt sind, werden IMMER automatisch
+                uebernommen; Felder die nur im Master gefuellt sind, bleiben.
+            dry_run: Default True. Bei True wird nichts geschrieben.
+
+        Returns:
+            dict mit 'status' ('vorschau'/'ok'), 'feld_entscheidungen',
+            'konflikte' (Liste Felder mit abweichenden Werten),
+            'umgehaengte_bewerbungen'.
+        """
+        if not master_hash or not duplikat_hash:
+            return {"fehler": "master_hash und duplikat_hash sind Pflicht"}
+        result = db.merge_jobs(
+            master_hash=master_hash,
+            duplicate_hash=duplikat_hash,
+            field_strategy=feld_strategie,
+            dry_run=dry_run,
+        )
+        if dry_run and "fehler" not in result:
+            result["hinweis"] = (
+                "Vorschau. Mit dry_run=False ausfuehren. "
+                "Bei Konflikten feld_strategie mitgeben "
+                "(z.B. {'description': 'merge', 'url': 'duplikat'})."
             )
         return result
 

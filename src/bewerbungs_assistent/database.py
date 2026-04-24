@@ -3400,6 +3400,155 @@ class Database:
             conn.execute(f"UPDATE jobs SET {','.join(sets)} WHERE hash=?", vals)
             conn.commit()
 
+    def merge_jobs(
+        self,
+        master_hash: str,
+        duplicate_hash: str,
+        field_strategy: Optional[dict] = None,
+        dry_run: bool = True,
+    ) -> dict:
+        """Merge zwei Stellen-Datensaetze (#470).
+
+        Verhalten:
+        - ``field_strategy``: dict pro Feld, Wert ``'master'`` (default),
+          ``'duplikat'`` oder ``'merge'`` (nur fuer description — konkateniert).
+        - Felder, die im Master leer/None sind und im Duplikat gefuellt, werden
+          automatisch uebernommen (egal welche Strategie, weil es keinen
+          Konflikt gibt).
+        - Referenzen aus ``applications.job_hash`` werden auf ``master_hash``
+          umgehaengt.
+        - Duplikat-Job wird geloescht.
+        - Alles in einer Transaktion. Bei ``dry_run=True`` wird nur der Plan
+          zurueckgegeben, nichts geschrieben.
+
+        Returns:
+            dict mit Schluesseln:
+              - ``status``: 'vorschau' bei dry_run, sonst 'ok'
+              - ``master``: {hash, title, company} des Masters
+              - ``duplikat``: dito
+              - ``feld_entscheidungen``: {feld: {vorher, nachher, quelle}}
+              - ``konflikte``: Liste von Feldern mit abweichenden Werten
+              - ``umgehaengte_bewerbungen``: Liste von application-IDs
+              - ``fehler``: Optional — Problemen wie 'nicht_gefunden'
+        """
+        conn = self.connect()
+        if master_hash == duplicate_hash:
+            return {"fehler": "master und duplikat sind identisch"}
+
+        master = self._find_job_row(master_hash)
+        duplicate = self._find_job_row(duplicate_hash)
+        if not master:
+            return {"fehler": "master_nicht_gefunden", "hash": master_hash}
+        if not duplicate:
+            return {"fehler": "duplikat_nicht_gefunden", "hash": duplicate_hash}
+
+        master_d = dict(master)
+        duplicate_d = dict(duplicate)
+        strategy = field_strategy or {}
+
+        # Merge-Plan aufbauen
+        mergeable_fields = (
+            "title", "company", "location", "url", "description", "score",
+            "remote_level", "distance_km", "salary_info", "salary_min",
+            "salary_max", "salary_type", "employment_type", "research_notes",
+            "veroeffentlicht_am", "lat", "lon",
+        )
+        feld_entscheidungen: dict = {}
+        konflikte: list[str] = []
+        new_values: dict = {}
+        for f in mergeable_fields:
+            mv = master_d.get(f)
+            dv = duplicate_d.get(f)
+            mv_filled = mv not in (None, "", 0)
+            dv_filled = dv not in (None, "", 0)
+            if mv == dv:
+                continue  # nichts zu tun
+            if not mv_filled and dv_filled:
+                # Master leer, Duplikat gefuellt -> automatisch
+                new_values[f] = dv
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": dv, "quelle": "duplikat_auto",
+                }
+                continue
+            if mv_filled and not dv_filled:
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": mv, "quelle": "master_auto",
+                }
+                continue
+            # Beide unterschiedlich gefuellt -> Konflikt
+            konflikte.append(f)
+            mode = strategy.get(f, "master")
+            if mode == "duplikat":
+                new_values[f] = dv
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": dv, "quelle": "duplikat",
+                }
+            elif mode == "merge" and f == "description":
+                merged = f"{mv}\n\n--- aus Duplikat {duplicate_hash[:8]} ---\n{dv}"
+                new_values[f] = merged
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": merged, "quelle": "merge",
+                }
+            else:
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": mv, "quelle": "master",
+                }
+
+        # Referenzen suchen
+        pid = self.get_active_profile_id()
+        apps_to_move = conn.execute(
+            "SELECT id FROM applications WHERE job_hash=? "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (duplicate_d["hash"], pid),
+        ).fetchall()
+        umgehaengte = [r["id"] for r in apps_to_move]
+
+        plan = {
+            "status": "vorschau" if dry_run else "ok",
+            "master": {
+                "hash": master_d["hash"],
+                "title": master_d.get("title"),
+                "company": master_d.get("company"),
+            },
+            "duplikat": {
+                "hash": duplicate_d["hash"],
+                "title": duplicate_d.get("title"),
+                "company": duplicate_d.get("company"),
+            },
+            "feld_entscheidungen": feld_entscheidungen,
+            "konflikte": konflikte,
+            "umgehaengte_bewerbungen": umgehaengte,
+            "neue_werte": new_values,
+        }
+
+        if dry_run:
+            return plan
+
+        # --- Ausfuehrung ---
+        try:
+            with conn:
+                # 1) Applications umhaengen
+                if umgehaengte:
+                    conn.execute(
+                        "UPDATE applications SET job_hash=?, updated_at=? "
+                        "WHERE job_hash=? AND (profile_id=? OR profile_id IS NULL)",
+                        (master_d["hash"], _now(), duplicate_d["hash"], pid),
+                    )
+                # 2) Master updaten mit neuen Werten
+                if new_values:
+                    sets = ", ".join(f"{k}=?" for k in new_values)
+                    vals = list(new_values.values()) + [_now(), master_d["hash"]]
+                    conn.execute(
+                        f"UPDATE jobs SET {sets}, updated_at=? WHERE hash=?",
+                        vals,
+                    )
+                # 3) Duplikat-Job loeschen
+                conn.execute("DELETE FROM jobs WHERE hash=?", (duplicate_d["hash"],))
+            plan["status"] = "ok"
+            return plan
+        except Exception as exc:
+            return {"fehler": "transaktion_fehlgeschlagen", "detail": str(exc)}
+
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
         conn = self.connect()

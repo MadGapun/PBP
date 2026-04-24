@@ -7,6 +7,43 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.11] - 2026-04-25
+
+Duplikat-Pruefung gehaertet + Merge-Tool fuer nachtraegliche
+Duplikat-Aufloesung. Der Real-Case aus #471 (zwei VirtoTech-Stellen
+innerhalb von 2 Stunden, Titel leicht umformuliert) wird jetzt erkannt;
+und fuer Altlasten gibt es `stelle_mergen()` mit Dry-Run-Default.
+
+### Added
+
+- **#470 `stelle_mergen()` MCP-Tool:** Fuehrt zwei doppelt angelegte
+  Stellen zusammen. Dry-Run standardmaessig aktiv — zeigt Vorschau
+  mit Feld-Entscheidungen, Konflikten und welche Bewerbungen
+  umgehaengt werden. Mit `dry_run=False` wird in einer Transaktion
+  ausgefuehrt (Applications umhaengen, Master-Felder mergen,
+  Duplikat-Job loeschen).
+- **`feld_strategie`-Parameter:** Pro Feld ueberschreibbar mit
+  `'master'` (Default), `'duplikat'` oder `'merge'` (fuer Description:
+  beide Texte werden konkateniert). Felder, die nur im Duplikat
+  gefuellt sind, werden immer automatisch uebernommen.
+- **`duplicate_detection.py`:** Neue gemeinsame Utility mit
+  `normalize_company_name()` und `find_duplicate_job()`. Erkennt:
+  Rechtsform-Suffixe (GmbH, Ltd., AG, KG, ...), Klammer-Zusaetze
+  (Endkunde/Abteilung), Umlaute, Domaenen-Keywords (PLM, SAP, ERP,
+  CAD, Teamcenter, ...), Zeitnaehe.
+- **12 Tests fuer Duplikat-Erkennung** + 9 Tests fuer `merge_jobs`.
+
+### Changed
+
+- **#471 `stelle_manuell_anlegen` Duplikat-Pruefung gehaertet:**
+  Der bisherige Token-Overlap-Check hat Fuzzy-Umformulierungen wie
+  `PLM Expert via VirtoTech` vs. `SAP / PLM Lead Consultant` nicht
+  erkannt. Neue Logik mit normalisierter Firma + Domain-Keyword-
+  Overlap + Zeitnaehe findet den Fall. Check laeuft jetzt ueber
+  **Bewerbungen UND Jobs** (inkl. dismissed), nicht nur Bewerbungen.
+- Duplikat-Warnung ist jetzt aussagekraeftiger (enthaelt
+  Match-Grund und gemeinsame Tokens).
+
 ## [1.6.0-beta.10] - 2026-04-24
 
 Bewerbungsbericht aufgewertet: Zeitraum und Erstellungszeitpunkt stehen
