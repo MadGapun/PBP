@@ -413,6 +413,26 @@ def run(verbose: bool = False) -> int:
 
     smoke.check("Google Jobs: Chrome-Adapter liefert URL + Hinweis", _google_jobs_adapter_manual)
 
+    # Beta.4: #488 Deprecated-UX, #487 Status-Badge-Endpoint
+    def _manual_sources_declared():
+        from bewerbungs_assistent.tools.jobs import _MANUAL_SOURCES
+        # LinkedIn/StepStone/XING muessen als manuell deklariert sein, damit sie
+        # im Hintergrund-Job uebersprungen und dem User separat gemeldet werden.
+        for key in ("linkedin", "stepstone", "xing", "indeed", "monster", "google_jobs"):
+            assert key in _MANUAL_SOURCES, key
+            assert _MANUAL_SOURCES[key], key  # nicht leer
+
+    smoke.check("#488: Manuelle Quellen sind deklariert", _manual_sources_declared)
+
+    def _last_finished_background_job():
+        from bewerbungs_assistent.database import Database
+        db = Database()
+        res = db.get_last_finished_background_job("jobsuche")
+        # Bei leerer DB None — aber Methode darf nicht crashen.
+        assert res is None or isinstance(res, dict), res
+
+    smoke.check("#487: get_last_finished_background_job verfuegbar", _last_finished_background_job)
+
     return smoke.summary()
 
 

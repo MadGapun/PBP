@@ -23,6 +23,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, deleteRequest, optionalApi, postJson } from "@/api";
 import { AppContext } from "@/app-context";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
+import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
@@ -959,6 +960,9 @@ export default function App() {
                   </button>
                 );
               })()}
+
+              {/* Jobsuche Status Badge (#487) */}
+              <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
 
               {/* Page-specific sidebar navigation */}
               {page === "profil" && (

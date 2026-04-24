@@ -2626,6 +2626,21 @@ class Database:
         d["result"] = json.loads(d["result"] or "null")
         return d
 
+    def get_last_finished_background_job(self, job_type: str) -> Optional[dict]:
+        """Return the most recently finished background job of the given type (#487)."""
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM background_jobs WHERE job_type=? AND status IN ('fertig','fehler') "
+            "ORDER BY updated_at DESC LIMIT 1",
+            (job_type,)
+        ).fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        d["params"] = json.loads(d["params"] or "{}")
+        d["result"] = json.loads(d["result"] or "null")
+        return d
+
     def get_running_background_job(self, job_type: Optional[str] = None) -> Optional[dict]:
         """Return the most recent running/pending background job of the given type."""
         conn = self.connect()

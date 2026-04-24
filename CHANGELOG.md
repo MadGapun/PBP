@@ -7,6 +7,64 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.4] - 2026-04-24
+
+Block B, Teil 3 (Finale): Scraper-Block ist inhaltlich durch — keine
+neuen Quellen mehr, stattdessen die UX-Luecken rund um die Jobsuche
+geschlossen. User sehen jetzt global, was gerade im Hintergrund laeuft,
+der LLM-Assistent pollt nicht mehr in Schleifen auf den Fortschritt,
+und deprecated Quellen werden vor dem Start klar gemeldet statt lautlos
+zu timeouten.
+
+### Added
+
+- **Status-Badge in der Sidebar** (#487). Live-Fortschritt der Jobsuche
+  global auf allen Seiten sichtbar, direkt unter der MCP-Verbindung.
+  Beim Uebergang running → fertig wird die Trefferzahl eingeblendet und
+  ein Klick springt zu den neu reingekommenen Stellen. Tailwind-Farben
+  an das bestehende Theme angepasst: iris (laeuft), teal (fertig),
+  amber (Timeout-Quellen). Neues Backend-Endpoint `/api/jobsuche/last`
+  liefert den letzten abgeschlossenen Job + Timeout-Zaehlung.
+- **`get_last_finished_background_job(job_type)`** auf `Database` —
+  sucht den juengsten Job in `status in ('fertig','fehler')`, parst
+  `params`/`result` als JSON. Wird vom neuen Endpoint genutzt, steht
+  aber auch anderen Status-Anzeigen offen.
+
+### Changed
+
+- **`jobsuche_starten` filtert manuelle Quellen vorher raus** (#488).
+  LinkedIn, XING, StepStone, Indeed, Monster und Google Jobs sind im
+  neuen Dict `_MANUAL_SOURCES` deklariert und werden vor dem
+  Background-Job weggefiltert. Der Aufruf kommt als
+  `manuelle_quellen`-Dict + Hinweistext zurueck — der User weiss
+  sofort, welche Quelle welchen Ersatzweg hat (JobSpy, Chrome-Extension,
+  `google_jobs_url`). Wenn *alle* gewaehlten Quellen manuell sind, gibt
+  es `status: nur_manuelle_quellen` und es startet kein Job.
+- **Workflow-Prompt in `_jobsuche_workflow`** (#486). Nach dem Start
+  explizit verboten, in einer Schleife auf `jobsuche_status()` zu
+  warten — stattdessen auf Sidebar-Badge verweisen und den Turn
+  beenden. Spart Tokens und verhindert Timeouts im Assistant-Turn.
+- **`nachricht`-Text** in `jobsuche_starten` erwaehnt die Sidebar-
+  Badge als primaeren Fortschritts-Kanal, `jobsuche_status()` nur als
+  Nachschlag fuer explizite Fragen.
+
+### Fixed
+
+- LLM pollt nicht mehr 5-10 Minuten lang auf `jobsuche_status` (#486).
+- Manuelle Quellen verursachen keinen stummen Timeout-Pfad mehr (#488).
+- Kein globaler Indikator fehlt mehr — Status sichtbar auf allen
+  Seiten (#487).
+
+### Known Issues
+
+- `scraper_adapter_v2`-Flag bleibt weiterhin aus. Das Umschalten auf
+  die Adapter-Pipeline wurde nach Beta.5 verschoben: nur 5 von 18
+  Quellen haben bisher einen Adapter, ein Flip wuerde die restlichen
+  13 abschneiden. Kommt zusammen mit dem Migrations-PR fuer den Rest
+  der Quellen.
+
+---
+
 ## [1.6.0-beta.3] - 2026-04-24
 
 Block B, Teil 2: zwei neue Job-Quellen dazu. LinkedIn + Indeed.de

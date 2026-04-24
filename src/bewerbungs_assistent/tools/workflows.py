@@ -143,8 +143,19 @@ Falls keine Quellen aktiv:
 
 SCHRITT 3: SUCHE STARTEN
 {f'Es gibt bereits {active_jobs} aktive Stellen aus früheren Suchen.' if active_jobs > 0 else 'Noch keine Stellen gefunden.'}
-→ Starte die Suche mit jobsuche_starten()
-→ Informiere den User über den Fortschritt mit jobsuche_status()
+→ Starte die Suche mit jobsuche_starten().
+→ WICHTIG (#486): Nach dem Start NICHT in einer Schleife auf jobsuche_status() warten.
+   Die Suche laeuft 5-10 Minuten im Hintergrund — ein Polling-Loop erschoepft dein
+   Kontext-Fenster, bevor sie fertig ist.
+   Stattdessen:
+   1. Zeige dem User die zurueckgegebene job_id und die Hinweismeldung.
+   2. Sag ihm, dass die Sidebar-Status-Badge im Dashboard den Fortschritt live zeigt.
+   3. Schlage vor: „Sag mir in ein paar Minuten 'Wie laeuft meine Jobsuche?' — ich
+      pruefe dann mit jobsuche_status('{{job_id}}') nach."
+   4. Beende den Workflow-Schritt hier. Kein weiteres jobsuche_status() im selben Turn.
+→ Wenn das Tool ein `manuelle_quellen`-Feld mitliefert, LISTE es dem User auf und
+   erklaere ihm, dass er diese Quellen ueber Claude-in-Chrome und die jeweils
+   empfohlenen Ersatz-Tools (jobspy_linkedin/jobspy_indeed/google_jobs_url) bedienen muss.
 
 SCHRITT 4: ERGEBNISSE SICHTEN
 → Zeige die Ergebnisse mit stellen_anzeigen()

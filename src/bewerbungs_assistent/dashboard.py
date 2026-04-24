@@ -3526,6 +3526,32 @@ async def api_jobsuche_running():
     }
 
 
+@app.get("/api/jobsuche/last")
+async def api_jobsuche_last():
+    """Return the most recently finished jobsuche job (#487 Status-Badge)."""
+    job = _db.get_last_finished_background_job("jobsuche")
+    if not job:
+        return {"vorhanden": False}
+    result = job.get("result") or {}
+    neue = int(result.get("neue_stellen") or 0) if isinstance(result, dict) else 0
+    timeout_quellen = 0
+    if isinstance(result, dict):
+        quellen = result.get("quellen") or {}
+        if isinstance(quellen, dict):
+            timeout_quellen = sum(
+                1 for v in quellen.values()
+                if isinstance(v, dict) and (v.get("status") == "timeout" or v.get("error"))
+            )
+    return {
+        "vorhanden": True,
+        "job_id": job.get("id"),
+        "status": job.get("status"),
+        "neue_stellen": neue,
+        "timeout_quellen": timeout_quellen,
+        "updated_at": job.get("updated_at"),
+    }
+
+
 # ============================================================
 # SMART AUTO-EXTRACTION & PROFILE BACKUP (PBP v0.8.0)
 # ============================================================

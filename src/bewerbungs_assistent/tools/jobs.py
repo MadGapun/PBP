@@ -2,6 +2,19 @@
 
 import threading
 
+# #488: Quellen, die NICHT automatisch laufen — Claude soll den User
+# VOR dem Start darueber informieren, damit er nicht 10 Minuten auf
+# stumme Timeouts wartet. Begruendung siehe SOURCE_REGISTRY (veraltet/
+# langsam/Claude-in-Chrome).
+_MANUAL_SOURCES = {
+    "linkedin": "LinkedIn (automatisch deaktiviert, #159) — nutze jobspy_linkedin oder Claude-in-Chrome",
+    "xing": "XING (automatisch deaktiviert, #107) — nutze Claude-in-Chrome",
+    "stepstone": "StepStone (Bot-Detection, #315) — nutze google_jobs_url oder Claude-in-Chrome",
+    "indeed": "Indeed (haeufig Timeout) — nutze jobspy_indeed",
+    "monster": "Monster (instabil) — nutze Claude-in-Chrome",
+    "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension oeffnen",
+}
+
 
 def register(mcp, db, logger):
     """Registriert Jobsuche-Tools."""
@@ -22,10 +35,13 @@ def register(mcp, db, logger):
         Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
         Ergebnisse danach mit stellen_anzeigen() ansehen.
 
-        HINWEIS StepStone (#315): StepStone blockiert automatische Suche (Bot-Detection).
-        Fuer StepStone-Stellen nutze stattdessen Claude-in-Chrome:
-        1. Oeffne https://www.stepstone.de/jobs/{keyword}?radius=100&location={ort}
-        2. Uebernimm gefundene Stellen mit stelle_manuell_anlegen().
+        HINWEIS #488: Wenn aktive Quellen dabei sind, die nur ueber
+        Claude-in-Chrome laufen (LinkedIn, StepStone, XING, Indeed,
+        Monster, Google Jobs), meldet dieses Tool sie im Feld
+        `manuelle_quellen` zurueck UND ueberspringt sie im
+        Hintergrund-Job — statt auf stumme Timeouts zu laufen. Claude
+        soll den User vor dem Start ueber diese Quellen informieren und
+        ihm empfehlen, sie via Chrome-Extension anzusteuern.
 
         Args:
             keywords: Suchbegriffe (Standard: aus Profil)
@@ -43,6 +59,23 @@ def register(mcp, db, logger):
                                  "Aktiviere Quellen im Dashboard unter Einstellungen → Job-Quellen, "
                                  "oder gib sie explizit an: quellen=['stepstone', 'bundesagentur']"
                 }
+
+        # #488: Manuelle/deprecated Quellen rausfiltern und separat melden.
+        manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
+        auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
+        manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
+
+        if not auto_quellen:
+            return {
+                "status": "nur_manuelle_quellen",
+                "manuelle_quellen": manuelle_info,
+                "nachricht": (
+                    "Alle ausgewaehlten Quellen laufen nur ueber Claude-in-Chrome "
+                    "oder sind deprecated — es gibt nichts zu automatisieren. "
+                    "Siehe manuelle_quellen fuer den jeweiligen Ersatzweg."
+                ),
+            }
+        quellen = auto_quellen
 
         # Prevent duplicate concurrent searches (#265)
         existing = db.get_running_background_job("jobsuche")
@@ -83,12 +116,26 @@ def register(mcp, db, logger):
 
         threading.Thread(target=_timeout_watchdog, daemon=True).start()
 
-        return {
+        nachricht = (
+            f"Jobsuche laeuft im Hintergrund auf {len(params['quellen'])} Portalen. "
+            f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
+            f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
+            f"Wenn du spaeter prueft willst: jobsuche_status('{job_id}'). "
+            f"Wenn fertig: stellen_anzeigen()."
+        )
+        result = {
             "job_id": job_id,
             "status": "gestartet",
-            "nachricht": f"Jobsuche läuft auf {len(params['quellen'])} Portalen. "
-                        f"Prüfe den Fortschritt mit jobsuche_status('{job_id}')."
+            "nachricht": nachricht,
         }
+        if manuelle_info:
+            result["manuelle_quellen"] = manuelle_info
+            result["hinweis"] = (
+                "Zusaetzlich muesstest du fuer folgende manuelle Quellen "
+                "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
+                "sie sind im Hintergrund-Job NICHT enthalten."
+            )
+        return result
 
     @mcp.tool()
     def jobsuche_status(job_id: str) -> dict:

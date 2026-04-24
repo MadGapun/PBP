@@ -12,6 +12,16 @@ eine Regression und blockt den Release bzw. bekommt ein Issue.
 
 ---
 
+## v1.6.0-beta.4 (Stand 24.04.2026)
+
+### Neu in Beta.4 (Block B Finale)
+- [x] Status-Badge in Sidebar zeigt Jobsuche-Fortschritt global (#487)
+- [x] `/api/jobsuche/last` liefert letzten abgeschlossenen Background-Job (#487)
+- [x] `jobsuche_starten` filtert manuelle Quellen vorher raus (#488)
+- [x] Workflow-Prompt verbietet Polling-Schleifen auf `jobsuche_status()` (#486)
+
+---
+
 ## v1.5.8 (Stand 21.04.2026, eingefroren als Baseline fuer v1.6.0)
 
 ### Installation / Setup
