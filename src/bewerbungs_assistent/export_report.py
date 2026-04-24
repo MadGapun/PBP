@@ -86,6 +86,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     score_dist = report_data.get("score_distribution", {})
     unapplied = report_data.get("unapplied_high_score", [])
     date_range = report_data.get("date_range", {})
+    rejection_patterns = report_data.get("rejection_patterns", {}) or {}
+    follow_up_summary = report_data.get("follow_ups", {}) or {}
+    bewerbungsart_dist = report_data.get("bewerbungsart", {}) or {}
 
     # Zeitraumfilter (#173)
     if zeitraum_von or zeitraum_bis:
@@ -107,15 +110,33 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     if name:
         _line_cell(pdf, 0, 7, _safe_text(name), align="C")
 
-    pdf.set_font("Helvetica", "", 9)
-    zeitraum = ""
-    if zeitraum_von and zeitraum_bis:
-        zeitraum = f"Zeitraum: {zeitraum_von} bis {zeitraum_bis}"
+    # Zeitraum (explicit or derived) + Erstellungsdatum immer prominent zeigen
+    pdf.set_font("Helvetica", "B", 10)
+    def _de_date(iso: str) -> str:
+        if not iso:
+            return ""
+        try:
+            return datetime.fromisoformat(iso[:10]).strftime("%d.%m.%Y")
+        except Exception:
+            return iso[:10]
+
+    if zeitraum_von or zeitraum_bis:
+        zeitraum_label = (
+            f"Zeitraum: {_de_date(zeitraum_von) or '–'} bis {_de_date(zeitraum_bis) or 'heute'}"
+        )
     elif date_range.get("first") and date_range.get("last"):
-        zeitraum = f"Zeitraum: {date_range['first'][:10]} bis {date_range['last'][:10]}"
-    if zeitraum:
-        _line_cell(pdf, 0, 5, _safe_text(zeitraum), align="C")
-    _line_cell(pdf, 0, 5, _safe_text(f"Erstellt: {datetime.now().strftime('%d.%m.%Y %H:%M')}"), align="C")
+        zeitraum_label = (
+            f"Zeitraum (aus Daten): {_de_date(date_range['first'])} bis {_de_date(date_range['last'])}"
+        )
+    else:
+        zeitraum_label = "Zeitraum: gesamter Verlauf"
+    _line_cell(pdf, 0, 6, _safe_text(zeitraum_label), align="C")
+    pdf.set_font("Helvetica", "", 9)
+    _line_cell(
+        pdf, 0, 5,
+        _safe_text(f"Erstellt am {datetime.now().strftime('%d.%m.%Y')} um {datetime.now().strftime('%H:%M')} Uhr"),
+        align="C",
+    )
     pdf.ln(6)
 
     # PBP Branding (#173)
@@ -132,10 +153,13 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         "1. Executive Summary",
         "2. Bewerbungen nach Status",
         "3. Quellenanalyse",
-        "4. Fit-Score Verteilung",
-        "5. Bewerbungsliste (detailliert)",
-        "6. Nicht beworben trotz gutem Score",
-        "7. Keyword-Analyse",
+        "4. Bewerbungsart-Verteilung",
+        "5. Fit-Score Verteilung",
+        "6. Bewerbungsliste (detailliert)",
+        "7. Ablehnungsgruende",
+        "8. Offene Follow-ups",
+        "9. Nicht beworben trotz gutem Score",
+        "10. Keyword-Analyse",
     ]
     pdf.set_font("Helvetica", "", 10)
     for item in toc_items:
@@ -151,10 +175,14 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     max_score = stats.get("max_score", 0)
 
     # Recalculate rates for filtered apps
+    # Interview-Zaehler inkl. Folge-Status: wer bei "angebot"/"angenommen" ist,
+    # hat zwingend vorher ein Interview gehabt.
     by_status_filtered = Counter(a.get("status", "offen") for a in apps)
     interviews = (by_status_filtered.get("interview", 0)
                   + by_status_filtered.get("zweitgespraech", 0)
-                  + by_status_filtered.get("interview_abgeschlossen", 0))
+                  + by_status_filtered.get("interview_abgeschlossen", 0)
+                  + by_status_filtered.get("angebot", 0)
+                  + by_status_filtered.get("angenommen", 0))
     offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
     in_vorb = by_status_filtered.get("in_vorbereitung", 0)
     submitted_apps = total_apps - in_vorb  # exclude in_vorbereitung (#198)
@@ -175,29 +203,19 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # #430: Monthly application chart in summary
     _embed_chart(pdf, _chart_monthly_bar(apps))
 
-    # --- 1. Zusammenfassung ---
-    _section_header(pdf, "1. Zusammenfassung")
-    total_apps = stats.get("total_applications", len(apps))
-    active_jobs = stats.get("active_jobs", 0)
-    dismissed_jobs = stats.get("dismissed_jobs", 0)
-    avg_score = stats.get("avg_score", 0)
-    max_score = stats.get("max_score", 0)
-    interview_rate = stats.get("interview_rate", 0)
-    offer_rate = stats.get("offer_rate", 0)
-
-    # Pipeline overview
+    # --- Pipeline-Kennzahlen (Teil von Executive Summary) ---
     pipeline_data = [
-        ("Bewerbungen gesamt", str(total_apps)),
-        ("  davon in Vorbereitung", str(by_status_filtered.get("in_vorbereitung", 0))),
+        ("Bewerbungen im Zeitraum", str(total_apps)),
+        ("  davon in Vorbereitung", str(in_vorb)),
         ("  davon beworben", str(by_status_filtered.get("beworben", 0))),
         ("  davon im Prozess", str(interviews)),
         ("  davon Angebote", str(offers)),
-        ("Aktive Stellen analysiert", str(active_jobs)),
-        ("Analysierte Stellen (aussortiert)", str(dismissed_jobs)),
-        ("Durchschn. Fit-Score", f"{avg_score}" if avg_score else "k.A."),
-        ("Spitzen-Fit-Score", f"{max_score}" if max_score else "k.A."),
-        ("Interview-Rate", f"{interview_rate}%"),
-        ("Angebots-Rate", f"{offer_rate}%"),
+        ("Aktive Stellen analysiert (gesamt)", str(active_jobs)),
+        ("Analysierte Stellen aussortiert (gesamt)", str(dismissed_jobs)),
+        ("Durchschn. Fit-Score (alle Jobs)", f"{avg_score}" if avg_score else "k.A."),
+        ("Spitzen-Fit-Score (alle Jobs)", f"{max_score}" if max_score else "k.A."),
+        ("Interview-Rate (Zeitraum)", f"{interview_rate}%"),
+        ("Angebots-Rate (Zeitraum)", f"{offer_rate}%"),
     ]
     for label, value in pipeline_data:
         pdf.set_font("Helvetica", "", 9)
@@ -280,9 +298,33 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
     pdf.ln(4)
 
-    # --- 4. Score-Verteilung ---
+    # --- 4. Bewerbungsart-Verteilung ---
+    if bewerbungsart_dist:
+        _section_header(pdf, "4. Bewerbungsart-Verteilung")
+        # Filter auf Zeitraum (wenn Zeitraum gesetzt, aus apps neu berechnen)
+        art_counter = Counter()
+        for a in apps:
+            art = (a.get("bewerbungsart") or "unbekannt").strip() or "unbekannt"
+            art_counter[art] += 1
+        art_total = sum(art_counter.values()) or 1
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(60, 5, "  Art", border=1, fill=True)
+        pdf.cell(30, 5, "Anzahl", border=1, fill=True, align="C")
+        pdf.cell(30, 5, "Anteil", border=1, fill=True, align="C")
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 8)
+        for art, count in sorted(art_counter.items(), key=lambda x: -x[1]):
+            pct = round(count / art_total * 100, 1)
+            pdf.cell(60, 4, _safe_text(f"  {art}"), border=1)
+            pdf.cell(30, 4, str(count), border=1, align="C")
+            pdf.cell(30, 4, f"{pct}%", border=1, align="C")
+            pdf.ln()
+        pdf.ln(4)
+
+    # --- 5. Score-Verteilung ---
     if score_dist:
-        _section_header(pdf, "4. Fit-Score Verteilung")
+        _section_header(pdf, "5. Fit-Score Verteilung")
         # #430: Score distribution chart
         _embed_chart(pdf, _chart_score_distribution(score_dist))
         pdf.set_font("Helvetica", "", 9)
@@ -294,8 +336,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             _line_cell(pdf, 15, 5, f"  {count}")
         pdf.ln(4)
 
-    # --- 5. Bewerbungsliste (detailliert, #173) ---
-    _section_header(pdf, "5. Bewerbungsliste (detailliert)")
+    # --- 6. Bewerbungsliste (detailliert, #173) ---
+    _section_header(pdf, "6. Bewerbungsliste (detailliert)")
     if apps:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(230, 230, 230)
@@ -351,8 +393,85 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
     pdf.ln(4)
 
-    # --- 6. Nicht beworben trotz gutem Score (#220) ---
-    _section_header(pdf, "6. Nicht beworben trotz gutem Fit-Score")
+    # --- 7. Ablehnungsgruende ---
+    _section_header(pdf, "7. Ablehnungsgruende")
+    if rejection_patterns and rejection_patterns.get("anzahl"):
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, _safe_text(
+            f"  {rejection_patterns['anzahl']} Ablehnung(en) insgesamt."
+        ))
+        by_reason = rejection_patterns.get("nach_grund", {}) or {}
+        if by_reason:
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_fill_color(255, 228, 230)
+            pdf.cell(110, 5, "  Grund", border=1, fill=True)
+            pdf.cell(30, 5, "Anzahl", border=1, fill=True, align="C")
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 8)
+            for grund, count in list(by_reason.items())[:15]:
+                grund_txt = (grund or "Kein Grund angegeben")[:70]
+                pdf.cell(110, 4, _safe_text(f"  {grund_txt}"), border=1)
+                pdf.cell(30, 4, str(count), border=1, align="C")
+                pdf.ln()
+        ablehnungen = rejection_patterns.get("ablehnungen", []) or []
+        if ablehnungen:
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "B", 8)
+            _line_cell(pdf, 0, 5, _safe_text("  Letzte Ablehnungen:"))
+            pdf.set_fill_color(255, 228, 230)
+            pdf.cell(50, 5, "  Firma", border=1, fill=True)
+            pdf.cell(65, 5, "Stelle", border=1, fill=True)
+            pdf.cell(25, 5, "Beworben", border=1, fill=True, align="C")
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 7)
+            for r in ablehnungen[:10]:
+                pdf.cell(50, 4, _safe_text((r.get("firma") or "")[:28]), border=1)
+                pdf.cell(65, 4, _safe_text((r.get("stelle") or "")[:38]), border=1)
+                pdf.cell(25, 4, _safe_text((r.get("beworben_am") or "")[:10]), border=1, align="C")
+                pdf.ln()
+    else:
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, "  Keine Ablehnungen im Zeitraum.")
+    pdf.ln(4)
+
+    # --- 8. Offene Follow-ups ---
+    _section_header(pdf, "8. Offene Follow-ups")
+    if follow_up_summary and follow_up_summary.get("pending"):
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, _safe_text(
+            f"  {follow_up_summary['pending']} offene Follow-ups "
+            f"({follow_up_summary.get('overdue', 0)} ueberfaellig)."
+        ))
+        items = follow_up_summary.get("items", []) or []
+        if items:
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_fill_color(255, 243, 224)
+            pdf.cell(50, 5, "  Firma", border=1, fill=True)
+            pdf.cell(55, 5, "Stelle", border=1, fill=True)
+            pdf.cell(25, 5, "Faellig", border=1, fill=True, align="C")
+            pdf.cell(25, 5, "Typ", border=1, fill=True, align="C")
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 7)
+            today_iso = datetime.now().date().isoformat()
+            for fu in items:
+                sched = (fu.get("scheduled_date") or "")[:10]
+                is_overdue = sched and sched < today_iso
+                if is_overdue:
+                    pdf.set_text_color(200, 60, 60)
+                pdf.cell(50, 4, _safe_text((fu.get("firma") or "")[:28]), border=1)
+                pdf.cell(55, 4, _safe_text((fu.get("stelle") or "")[:32]), border=1)
+                pdf.cell(25, 4, _safe_text(sched), border=1, align="C")
+                pdf.cell(25, 4, _safe_text((fu.get("follow_up_type") or "")[:12]), border=1, align="C")
+                pdf.ln()
+                if is_overdue:
+                    pdf.set_text_color(0, 0, 0)
+    else:
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, "  Keine offenen Follow-ups.")
+    pdf.ln(4)
+
+    # --- 9. Nicht beworben trotz gutem Score (#220) ---
+    _section_header(pdf, "9. Nicht beworben trotz gutem Fit-Score")
     if unapplied:
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
@@ -396,8 +515,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         _line_cell(pdf, 0, 5, "  Im Berichtszeitraum wurden keine Stellen mit gutem Score aussortiert.")
     pdf.ln(4)
 
-    # --- 7. Keyword-Analyse ---
-    _section_header(pdf, "7. Keyword-Analyse (Top-Begriffe in passenden Stellen)")
+    # --- 10. Keyword-Analyse ---
+    _section_header(pdf, "10. Keyword-Analyse (Top-Begriffe in passenden Stellen)")
     applied_descriptions = []
     for a in apps:
         desc = a.get("job_description") or ""
@@ -664,13 +783,21 @@ def _embed_chart(pdf, chart_data: bytes | None, max_width: int = 170):
 
 
 def generate_excel_report(report_data: dict, profile: Optional[dict],
-                          output_path: Path) -> Path:
+                          output_path: Path,
+                          zeitraum_von: str = "",
+                          zeitraum_bis: str = "") -> Path:
     """Generate an Excel Bewerbungsbericht (requires openpyxl)."""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     apps = report_data.get("applications", [])
     stats = report_data.get("statistics", {})
+
+    # Zeitraumfilter (Parity mit PDF)
+    if zeitraum_von or zeitraum_bis:
+        apps = [a for a in apps if
+                (not zeitraum_von or (a.get("applied_at") or "") >= zeitraum_von) and
+                (not zeitraum_bis or (a.get("applied_at") or "") <= zeitraum_bis + "T23:59:59")]
 
     wb = Workbook()
 
@@ -716,6 +843,35 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
 
     # --- Sheet 2: Statistik ---
     ws2 = wb.create_sheet("Statistik")
+
+    # Zeitraum + Erstellt am (kopfzeile)
+    def _de_date_xlsx(iso: str) -> str:
+        if not iso:
+            return ""
+        try:
+            return datetime.fromisoformat(iso[:10]).strftime("%d.%m.%Y")
+        except Exception:
+            return iso[:10]
+
+    meta_rows = []
+    if zeitraum_von or zeitraum_bis:
+        meta_rows.append(("Zeitraum",
+                          f"{_de_date_xlsx(zeitraum_von) or '-'} bis "
+                          f"{_de_date_xlsx(zeitraum_bis) or 'heute'}"))
+    date_range = report_data.get("date_range") or {}
+    if not meta_rows and date_range.get("first") and date_range.get("last"):
+        meta_rows.append(("Zeitraum (aus Daten)",
+                          f"{_de_date_xlsx(date_range['first'])} bis "
+                          f"{_de_date_xlsx(date_range['last'])}"))
+    meta_rows.append(("Erstellt am",
+                      datetime.now().strftime("%d.%m.%Y %H:%M")))
+    for idx, (label, val) in enumerate(meta_rows, 1):
+        c = ws2.cell(row=idx, column=1, value=label)
+        c.font = Font(bold=True)
+        ws2.cell(row=idx, column=2, value=val)
+
+    meta_offset = len(meta_rows) + 1  # Leerzeile zwischen Meta und Stats
+
     stat_rows = [
         ("Bewerbungen gesamt", stats.get("total_applications", 0)),
         ("Aktive Stellen", stats.get("active_jobs", 0)),
@@ -725,14 +881,15 @@ def generate_excel_report(report_data: dict, profile: Optional[dict],
         ("Interview-Rate", f"{stats.get('interview_rate', 0)}%"),
         ("Angebots-Rate", f"{stats.get('offer_rate', 0)}%"),
     ]
-    ws2.cell(row=1, column=1, value="Kennzahl").font = Font(bold=True)
-    ws2.cell(row=1, column=2, value="Wert").font = Font(bold=True)
-    for row_num, (label, val) in enumerate(stat_rows, 2):
+    header_row = meta_offset + 1
+    ws2.cell(row=header_row, column=1, value="Kennzahl").font = Font(bold=True)
+    ws2.cell(row=header_row, column=2, value="Wert").font = Font(bold=True)
+    for row_num, (label, val) in enumerate(stat_rows, header_row + 1):
         ws2.cell(row=row_num, column=1, value=label)
         ws2.cell(row=row_num, column=2, value=val)
 
     # Status breakdown
-    row_start = len(stat_rows) + 3
+    row_start = header_row + len(stat_rows) + 2
     ws2.cell(row=row_start, column=1, value="Status-Verteilung").font = Font(bold=True)
     for i, (status, count) in enumerate(
         stats.get("applications_by_status", {}).items(), row_start + 1

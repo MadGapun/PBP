@@ -2991,9 +2991,23 @@ async def api_zombie_applications(days: int = 60):
 
 
 @app.get("/api/applications/export")
-async def api_export_applications(format: str = "pdf"):
-    """Export applications as PDF or Excel."""
+async def api_export_applications(
+    format: str = "pdf",
+    from_: str = "",
+    to: str = "",
+    request: Request = None,
+):
+    """Export applications as PDF or Excel.
+
+    Query params:
+        format: 'pdf' (default) or 'xlsx'
+        from:   Start-Datum (YYYY-MM-DD), optional
+        to:     End-Datum (YYYY-MM-DD), optional
+    """
     from .export_report import generate_application_report
+    # FastAPI kann 'from' nicht als Parameter-Name nutzen -> aus request holen
+    zeitraum_von = (request.query_params.get("from") if request else "") or ""
+    zeitraum_bis = to or ""
     report_data = _db.get_report_data()
     profile = _db.get_profile()
     from .database import get_data_dir
@@ -3004,7 +3018,8 @@ async def api_export_applications(format: str = "pdf"):
         try:
             from .export_report import generate_excel_report
             path = export_dir / "bewerbungsbericht.xlsx"
-            generate_excel_report(report_data, profile, path)
+            generate_excel_report(report_data, profile, path,
+                                   zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis)
             return FileResponse(
                 str(path),
                 filename="Bewerbungsbericht.xlsx",
@@ -3017,7 +3032,8 @@ async def api_export_applications(format: str = "pdf"):
             )
     else:
         path = export_dir / "bewerbungsbericht.pdf"
-        generate_application_report(report_data, profile, path)
+        generate_application_report(report_data, profile, path,
+                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis)
         return FileResponse(
             str(path),
             filename="Bewerbungsbericht.pdf",

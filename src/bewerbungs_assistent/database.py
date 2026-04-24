@@ -2737,10 +2737,12 @@ class Database:
             "SELECT COUNT(*) FROM jobs WHERE is_pinned=1 AND is_active=1 AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchone()[0]
-        # Score statistics (excluding pinned/manual to avoid skew)
+        # Score statistics (excluding pinned/manual to avoid skew) —
+        # #471 follow-up: auch dismissed Jobs zaehlen, sonst weicht der
+        # "Spitzen-Score" von der Unapplied-Liste ab, die dismissed inkludiert.
         score_row = conn.execute(
             "SELECT AVG(score) as avg_score, MAX(score) as max_score, COUNT(*) as cnt "
-            "FROM jobs WHERE is_active=1 AND is_pinned=0 AND score>0 "
+            "FROM jobs WHERE is_pinned=0 AND score>0 "
             "AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchone()
@@ -2754,10 +2756,15 @@ class Database:
         in_vorb = stats["applications_by_status"].get("in_vorbereitung", 0)
         submitted = stats["total_applications"] - in_vorb
         if submitted > 0:
+            # Wer bei angebot/angenommen ist, hatte zwingend ein Interview —
+            # sonst faellt die Zahl, sobald Kandidaten weiter rutschen.
             interviews = (stats["applications_by_status"].get("interview", 0)
                           + stats["applications_by_status"].get("zweitgespraech", 0)
-                          + stats["applications_by_status"].get("interview_abgeschlossen", 0))
-            offers = stats["applications_by_status"].get("angebot", 0)
+                          + stats["applications_by_status"].get("interview_abgeschlossen", 0)
+                          + stats["applications_by_status"].get("angebot", 0)
+                          + stats["applications_by_status"].get("angenommen", 0))
+            offers = (stats["applications_by_status"].get("angebot", 0)
+                      + stats["applications_by_status"].get("angenommen", 0))
             stats["interview_rate"] = round(interviews / submitted * 100, 1)
             stats["offer_rate"] = round(offers / submitted * 100, 1)
         # Sources breakdown — count ALL jobs (active + dismissed) for historical accuracy (#125)
@@ -3258,18 +3265,45 @@ class Database:
             FROM applications WHERE (profile_id=? OR profile_id IS NULL)
         """, (pid,)).fetchone()
 
-        return {
-            "applications": [
-                self._serialize_application_row(
-                    {
-                        **dict(r),
-                        "job_source": self._preferred_application_source(
-                            dict(r).get("source"), dict(r).get("job_source")
-                        ),
-                    }
-                )
-                for r in apps
+        serialized_apps = [
+            self._serialize_application_row(
+                {
+                    **dict(r),
+                    "job_source": self._preferred_application_source(
+                        dict(r).get("source"), dict(r).get("job_source")
+                    ),
+                }
+            )
+            for r in apps
+        ]
+
+        # Bewerbungsart-Verteilung (#496 follow-up)
+        bewerbungsart = {}
+        for a in serialized_apps:
+            art = (a.get("bewerbungsart") or "unbekannt").strip() or "unbekannt"
+            bewerbungsart[art] = bewerbungsart.get(art, 0) + 1
+
+        # Follow-up-Uebersicht (#496 follow-up)
+        follow_ups = self.get_pending_follow_ups() or []
+        today_iso = datetime.now().date().isoformat()
+        overdue = [fu for fu in follow_ups if (fu.get("scheduled_date") or "") < today_iso]
+        follow_up_summary = {
+            "pending": len(follow_ups),
+            "overdue": len(overdue),
+            "items": [
+                {
+                    "firma": fu.get("company") or fu.get("application_company"),
+                    "stelle": fu.get("position") or fu.get("application_title"),
+                    "scheduled_date": fu.get("scheduled_date"),
+                    "follow_up_type": fu.get("follow_up_type"),
+                    "template": fu.get("template"),
+                }
+                for fu in follow_ups[:20]
             ],
+        }
+
+        return {
+            "applications": serialized_apps,
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
             "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
             "date_range": {
@@ -3277,6 +3311,9 @@ class Database:
                 "last": date_range["last"] if date_range else None,
             },
             "statistics": self.get_statistics(),
+            "rejection_patterns": self.get_rejection_patterns(),
+            "follow_ups": follow_up_summary,
+            "bewerbungsart": bewerbungsart,
         }
 
     # === Salary Data (PBP-014) ===

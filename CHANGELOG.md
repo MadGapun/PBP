@@ -7,6 +7,55 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.10] - 2026-04-24
+
+Bewerbungsbericht aufgewertet: Zeitraum und Erstellungszeitpunkt stehen
+jetzt prominent auf der Titelseite, das PDF hat drei neue Sektionen
+(Bewerbungsart-Verteilung, Ablehnungsgruende, offene Follow-ups), und
+Zahlen-Inkonsistenzen zwischen Spitzen-Score, Interview-Zahl und
+„Nicht beworben"-Liste sind behoben.
+
+### Added
+
+- **Titelseite**: „Zeitraum: DD.MM.YYYY bis DD.MM.YYYY" und
+  „Erstellt am DD.MM.YYYY um HH:MM Uhr" immer prominent sichtbar —
+  egal ob Zeitraum explizit gesetzt oder aus den Daten abgeleitet.
+- **Sektion 4 — Bewerbungsart-Verteilung**: Tabelle mit Anzahl und
+  Anteil pro Bewerbungsart (initiativ, direkt, Headhunter, ...).
+- **Sektion 7 — Ablehnungsgruende**: Ablehnungen insgesamt, Top-Gruende
+  (bis 15), letzte 10 abgelehnten Bewerbungen.
+- **Sektion 8 — Offene Follow-ups**: Alle offenen Nachfass-Termine,
+  ueberfaellige rot hervorgehoben.
+- **Zeitraum-Filter**: `GET /api/applications/export` akzeptiert jetzt
+  `from` und `to` als Query-Parameter. Die Statistik-Seite gibt den
+  aktuell ausgewaehlten Zeitraum (30d / 90d / 6m / 12m / Alles) beim
+  Export mit — sowohl fuer PDF als auch Excel.
+- **Excel-Bericht**: Zeitraum und Erstellungszeitpunkt stehen jetzt
+  als Kopfzeilen auf dem Statistik-Sheet. `generate_excel_report()`
+  akzeptiert `zeitraum_von` und `zeitraum_bis`.
+
+### Changed
+
+- Bewerbungsliste und Executive Summary benutzen jetzt dieselbe
+  kanonische Datenquelle (`db.get_report_data()`) — sowohl dashboard-
+  als auch MCP-Pfad. Doppel-Aggregation im MCP-Tool wurde entfernt.
+- Inhaltsverzeichnis von 7 auf 10 Eintraege erweitert, doppelter
+  „1. Zusammenfassung"-Block entfernt.
+
+### Fixed
+
+- **Spitzen-Score konsistent**: `max_score`/`avg_score` in
+  `get_statistics()` haben dismissed Jobs ausgeschlossen — die
+  „Nicht beworben"-Sektion zeigt sie aber an. Dadurch stand oben
+  z.B. „Spitzen-Score: 22", unten tauchten Stellen mit Score 27+ auf.
+  Dismissed Jobs werden jetzt mitgezaehlt.
+- **Interview-Rate korrekt**: Wer auf `angebot` oder `angenommen`
+  weitergerutscht ist, hatte zwingend ein Interview — zaehlte bisher
+  aber nicht mehr mit. Folge: Zahl sank, sobald Kandidaten
+  weiterkamen. Fix in `get_statistics()` und Bericht.
+- **Score-Anzeige konsistent**: Der stille „+5 Bonus fuer beworbene
+  Stellen" im MCP-Export-Tool ist entfernt. Rohe Fit-Scores ueberall.
+
 ## [1.6.0-beta.9] - 2026-04-24
 
 Prompt-Templates pro Dokumenttyp: Der „Analysieren"-Button im

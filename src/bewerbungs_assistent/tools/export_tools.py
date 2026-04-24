@@ -280,49 +280,9 @@ def register(mcp, db, logger):
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
         """
         profile = db.get_profile()
-        stats = db.get_statistics()
-        score_stats = db.get_score_stats()
-
-        # Gather application data with job info
-        apps = db.get_applications()
-        for a in apps:
-            if a.get("job_hash"):
-                job = db.get_job(a["job_hash"])
-                if job:
-                    a["score"] = job.get("score", 0) + 5  # #173: +5 Score-Bonus fuer beworbene Stellen
-                    a["job_source"] = db._preferred_application_source(
-                        a.get("source"), job.get("source", "")
-                    )
-                    a["is_pinned"] = job.get("is_pinned", False)
-                    a["job_description"] = job.get("description", "")
-                else:
-                    a["score"] = 5  # Beworbene Stelle ohne Job-Eintrag
-                    a["job_source"] = a.get("source") or "importiert"
-            else:
-                # #173: Importierte Bewerbungen (pre-PBP, kein Job-Hash)
-                a["score"] = 5
-                a["job_source"] = a.get("source") or "importiert (pre-PBP)"
-
-        # Score distribution (#178): use historical all-jobs distribution from DB stats
-        all_jobs = db.get_active_jobs()
-        score_dist = score_stats.get("score_distribution", {})
-
-        # Unapplied high-score jobs
-        applied_hashes = {a.get("job_hash") for a in apps if a.get("job_hash")}
-        unapplied = [j for j in all_jobs if j["hash"] not in applied_hashes and j.get("score", 0) >= 5]
-        unapplied.sort(key=lambda j: -j.get("score", 0))
-
-        # Date range
-        dates = [a.get("applied_at") for a in apps if a.get("applied_at")]
-        date_range = {"first": min(dates) if dates else "", "last": max(dates) if dates else ""}
-
-        report_data = {
-            "applications": apps,
-            "statistics": stats,
-            "score_distribution": score_dist,
-            "unapplied_high_score": unapplied[:20],
-            "date_range": date_range,
-        }
+        # Kanonische Report-Daten aus DB (inkl. rejection_patterns, follow_ups,
+        # bewerbungsart-Verteilung). Keine doppelte Aggregation hier.
+        report_data = db.get_report_data()
 
         export_dir = get_data_dir() / "export"
         export_dir.mkdir(exist_ok=True)
@@ -331,7 +291,9 @@ def register(mcp, db, logger):
         if format == "excel":
             from ..export_report import generate_excel_report
             path = export_dir / f"bewerbungsbericht_{name_slug}.xlsx"
-            generate_excel_report(report_data, profile, path)
+            generate_excel_report(report_data, profile, path,
+                                  zeitraum_von=zeitraum_von,
+                                  zeitraum_bis=zeitraum_bis)
         else:
             from ..export_report import generate_application_report
             path = export_dir / f"bewerbungsbericht_{name_slug}.pdf"
@@ -343,7 +305,7 @@ def register(mcp, db, logger):
             "status": "erstellt",
             "datei": str(path),
             "format": format,
-            "bewerbungen": len(apps),
+            "bewerbungen": len(report_data.get("applications", [])),
             "nachricht": f"Bewerbungsbericht als {format.upper()} exportiert: {path.name}."
         }
 

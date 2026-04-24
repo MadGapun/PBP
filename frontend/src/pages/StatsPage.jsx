@@ -65,6 +65,27 @@ const TOOLTIP_STYLE = {
   fontSize: 12,
 };
 
+function resolveTimeRangeDates(range) {
+  if (!range) return { from: "", to: "" };
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  const start = new Date(now);
+  if (range === "30d") start.setDate(start.getDate() - 30);
+  else if (range === "90d") start.setDate(start.getDate() - 90);
+  else if (range === "6m") start.setMonth(start.getMonth() - 6);
+  else if (range === "12m") start.setMonth(start.getMonth() - 12);
+  else return { from: "", to: "" };
+  return { from: start.toISOString().slice(0, 10), to };
+}
+
+function buildExportUrl(format, timeRange) {
+  const { from, to } = resolveTimeRangeDates(timeRange);
+  const params = new URLSearchParams({ format });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  return `/api/applications/export?${params.toString()}`;
+}
+
 function ChartCard({ title, children }) {
   return (
     <Card className="rounded-2xl">
@@ -267,7 +288,7 @@ export default function StatsPage() {
           </SelectInput>
           <LinkButton
             size="sm"
-            href={apiUrl("/api/applications/export?format=pdf")}
+            href={apiUrl(buildExportUrl("pdf", timeRange))}
             target="_blank"
             rel="noreferrer"
           >
@@ -276,7 +297,7 @@ export default function StatsPage() {
           </LinkButton>
           <LinkButton
             size="sm"
-            href={apiUrl("/api/applications/export?format=xlsx")}
+            href={apiUrl(buildExportUrl("xlsx", timeRange))}
             target="_blank"
             rel="noreferrer"
           >
