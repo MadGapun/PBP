@@ -2,6 +2,46 @@
 
 Alle wichtigen Änderungen am Bewerbungs-Assistent werden hier dokumentiert.
 
+Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
+Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
+**Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
+**Known Issues** (bekannt kaputt in diesem Release).
+
+## [1.6.0-beta.1] - 2026-04-24
+
+Block A: Regression-Protection-Foundation (#498). Rein additiv — keine
+bestehenden Flows veraendert. Ziel: Schutznetz fuer die folgenden Betas.
+
+### Added
+
+- **`docs/WORKING_FEATURES.md`** als verbindliche „Was funktioniert?"-
+  Liste. Baseline ist v1.5.8. Vor jedem Release wird abgeglichen; was von
+  `[x]` auf `[ ]` rutscht, blockt den Release.
+- **`scripts/smoke_test.py`** — deckt in <1 Minute die kritischen Flows
+  ab (Imports, DB-Init, Profil/Bewerbung/Dokument/Job/Termin CRUD,
+  Dashboard-Counts). 12/12 gruen als Voraussetzung fuer jede Beta-Promotion.
+- **`src/bewerbungs_assistent/feature_flags.py`** — zentrale Registry
+  fuer Feature-Flags mit Env-Var-Override (`PBP_FEATURES=flag1,flag2`).
+  Groessere Umbauten ab Beta.2 (Scraper-Adapter v2, Lifecycle-Events)
+  laufen nur hinter explizitem Opt-In.
+- **CHANGELOG-Format-Konvention** (dieser Header). Pro PR ist ein
+  Eintrag Pflicht — keine stillen Aenderungen mehr.
+
+### Changed
+
+- Version-Bump `1.5.8` → `1.6.0-beta.1` in `pyproject.toml` und
+  `src/bewerbungs_assistent/__init__.py`.
+
+### Known Issues
+
+- Stand entspricht v1.5.8, siehe `docs/WORKING_FEATURES.md`.
+- 28 Tests in `tests/test_v154_writeback.py` und `tests/test_v157_flow_completion.py`
+  sind bereits auf `main` rot (FastMCP-API-Upgrade: `mcp.call_tool` existiert
+  nicht mehr, ersetzt durch `add_tool`). Nicht durch Beta.1 verursacht —
+  muss im Laufe von v1.6.0 gefixt werden. Die Prod-Features (meeting_*,
+  follow_up_*) funktionieren laut Smoke-Test und manuellem Dashboard-Test
+  normal; nur die Test-Harness spricht eine nicht mehr existierende API an.
+
 ## [1.5.8] - 2026-04-21
 
 Bug-Fix- und Quick-Win-Release: kleine UX-Verbesserungen und zwei Fixes
