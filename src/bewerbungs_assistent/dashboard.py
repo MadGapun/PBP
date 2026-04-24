@@ -1853,8 +1853,13 @@ async def api_documents(
     if unlinked == "1":
         base += " AND (d.linked_application_id IS NULL OR d.linked_application_id = '')"
 
-    # Filter by extraction status (#369)
-    if extraction_status:
+    # Filter by extraction status (#369). #492: "nicht_extrahiert" ist
+    # fuer den UI-Filter ein Sammelbegriff fuer alle "nicht-fertigen"
+    # Stati (inkl. basis_analysiert + NULL + leer) — sonst stimmen
+    # Filter-Ergebnis und Zaehler nicht ueberein.
+    if extraction_status == "nicht_extrahiert":
+        base += " AND (d.extraction_status IS NULL OR d.extraction_status IN ('nicht_extrahiert', '', 'basis_analysiert'))"
+    elif extraction_status:
         base += " AND d.extraction_status = ?"
         params.append(extraction_status)
 

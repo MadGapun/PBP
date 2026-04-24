@@ -7,6 +7,42 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.5] - 2026-04-24
+
+Block C Start — drei Dashboard-Bugs aus dem Review gefixt. Kein neues
+Feature, sondern drei Details, die User-Vertrauen untergraben haben:
+Button ohne Funktion, Zaehler vs. Filter-Widerspruch, Termin, der nicht
+dort auftaucht, wo er erwartet wird.
+
+### Fixed
+
+- **#491 „Analysieren"-Button kopiert jetzt einen Analyse-Prompt** in
+  die Zwischenablage und bestaetigt das per Toast. Prompt referenziert
+  Dateiname, Typ und ggf. verknuepfte Bewerbung und verweist den LLM
+  direkt auf `dokumente_zur_analyse`. Backend-Flag (`reanalyze`) bleibt
+  erhalten — User bekommt zusaetzlich den kopierbaren Text.
+  Prompt-Template zentral in `buildAnalysisPrompt()` pflegbar.
+- **#492 Dokumente-Filter-Zaehler stimmt wieder mit der Liste ueberein**.
+  Der Zaehler „Nicht analysiert (N)" rechnete `nicht_extrahiert OR
+  basis_analysiert OR NULL`, der Filter filterte aber exakt nur auf
+  `nicht_extrahiert`. Fix: Filter-Parameter `nicht_extrahiert` ist nun
+  ein Sammelbegriff fuer alle „unfertigen" Stati — Zaehler und Liste
+  zeigen dieselben Dokumente.
+- **#495 Zweitgespraech-Termin erscheint in der Bewerbungs-Liste** als
+  Teil der neuen Sektion „Offene Aktionen". Bisher zeigte die Seite
+  nur `follow_ups`, Termine fehlten — jetzt wird auch
+  `/api/meetings?days=30` geladen und oben in der Aktions-Liste mit
+  eigenem Teal-Badge „Termin" dargestellt. Zweitgespraeche und
+  Interviews sind damit im Bewerbungs-Tab nicht mehr unsichtbar.
+
+### Changed
+
+- ApplicationsPage: Card „Follow-ups (N)" heisst jetzt „Offene
+  Aktionen (M+N)" und zeigt Termine + Nachfragen zusammen. Termine
+  zuerst (zeitkritisch), Follow-ups darunter.
+
+---
+
 ## [1.6.0-beta.4] - 2026-04-24
 
 Block B, Teil 3 (Finale): Scraper-Block ist inhaltlich durch — keine

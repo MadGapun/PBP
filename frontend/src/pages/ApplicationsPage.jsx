@@ -91,6 +91,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
+  const [upcomingMeetings, setUpcomingMeetings] = useState([]);
   const [applicationMeta, setApplicationMeta] = useState({ total: 0, filteredTotal: 0, archivedCount: 0 });
   const [filters, setFilters] = useState({
     query: "",
@@ -120,9 +121,10 @@ export default function ApplicationsPage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [applicationData, followUpData] = await Promise.all([
+      const [applicationData, followUpData, meetingsData] = await Promise.all([
         api(`/api/applications?limit=500&include_archived=${includeArchivedDataset ? "true" : "false"}`),
         api("/api/follow-ups"),
+        api("/api/meetings").catch(() => ({ meetings: [] })),  // #495
       ]);
       startTransition(() => {
         setApplications(applicationData?.applications || []);
@@ -132,6 +134,7 @@ export default function ApplicationsPage() {
           archivedCount: Number(applicationData?.archived_count || 0),
         });
         setFollowUps(followUpData?.follow_ups || []);
+        setUpcomingMeetings(meetingsData?.meetings || []);
         setLoading(false);
       });
     } catch (error) {
@@ -525,17 +528,37 @@ export default function ApplicationsPage() {
           </div>
         </Card>
 
-        {/* #423: Follow-ups + Schnell-Import ABOVE the application list (2/3 + 1/3) */}
-        {followUps.length > 0 && (
+        {/* #423 + #495: Offene Aktionen (Termine + Follow-ups) + Schnell-Import ABOVE the application list (2/3 + 1/3) */}
+        {(followUps.length > 0 || upcomingMeetings.length > 0) && (
           <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
             <Card className="rounded-2xl">
               <div className="flex items-center justify-between">
-                <SectionHeading title={`Follow-ups (${followUps.length})`} />
+                <SectionHeading title={`Offene Aktionen (${upcomingMeetings.length + followUps.length})`} />
                 <Button size="sm" variant="ghost" onClick={() => navigateTo("kalender", { filter: "followups" })}>
                   Alle im Kalender
                 </Button>
               </div>
               <div className="grid gap-1.5">
+                {/* #495: Anstehende Termine zuerst — Zweitgespraeche etc. sollen sichtbar sein */}
+                {upcomingMeetings.slice(0, 5).map((meeting) => (
+                  <div
+                    key={`m-${meeting.id}`}
+                    title={`${meeting.title || "Termin"} — ${meeting.app_company || ""}`}
+                    onClick={() => meeting.application_id ? openTimeline({ id: meeting.application_id }) : navigateTo("kalender")}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0 bg-teal/8 border border-teal/15 hover:bg-teal/15"
+                  >
+                    <Calendar size={14} className="shrink-0 text-teal" />
+                    <span className="flex-1 min-w-0 truncate text-ink font-medium">
+                      {meeting.title || "Termin"}
+                      {meeting.app_company ? ` \u2014 ${meeting.app_company}` : ""}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted/50">{formatDate(meeting.meeting_date)}</span>
+                    <Badge tone="success">Termin</Badge>
+                  </div>
+                ))}
+                {upcomingMeetings.length > 5 && (
+                  <p className="text-xs text-muted/40 px-3 pt-1">+{upcomingMeetings.length - 5} weitere Termine im Kalender</p>
+                )}
                 {followUps.slice(0, 5).map((followUp) => (
                   <div
                     key={followUp.id}
@@ -555,7 +578,7 @@ export default function ApplicationsPage() {
                   </div>
                 ))}
                 {followUps.length > 5 && (
-                  <p className="text-xs text-muted/40 px-3 pt-1">+{followUps.length - 5} weitere im Kalender</p>
+                  <p className="text-xs text-muted/40 px-3 pt-1">+{followUps.length - 5} weitere Nachfragen im Kalender</p>
                 )}
               </div>
             </Card>

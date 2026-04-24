@@ -16,7 +16,7 @@ import {
   PageHeader,
   SelectInput,
 } from "@/components/ui";
-import { cn, formatDate, formatDateTime } from "@/utils";
+import { cn, copyToClipboard, formatDate, formatDateTime } from "@/utils";
 
 const DOC_TYPE_LABELS = {
   lebenslauf: "Lebenslauf",
@@ -143,10 +143,44 @@ export default function DocumentsPage() {
     }
   }
 
+  // #491: Baut einen analyse-Prompt fuer ein Dokument. Zentrale Stelle,
+  // damit Verbesserungen hier global greifen.
+  function buildAnalysisPrompt(doc) {
+    const name = doc.filename || doc.id;
+    const typLabel = docTypeLabel(doc.doc_type);
+    const lines = [
+      `Bitte analysiere das PBP-Dokument \u201E${name}\u201C (Typ: ${typLabel}).`,
+    ];
+    if (doc.app_company || doc.app_title) {
+      const appLabel = [doc.app_company, doc.app_title].filter(Boolean).join(" \u2014 ");
+      lines.push(`Verknuepft mit Bewerbung: ${appLabel}`);
+    }
+    lines.push("", "Ruf dazu zuerst das MCP-Tool `dokumente_zur_analyse` auf, um den Volltext zu bekommen.",
+      "",
+      "Fokus der Analyse:",
+      "- Inhaltliche Kernaussagen",
+      "- Implizite Hinweise auf naechste Schritte / Timeline",
+      "- Strukturierte Daten extrahieren (Kontaktperson, Referenznummer, Bewerbungsstatus)",
+      "- Tonalitaet / Signal (Standardantwort vs. personalisiert?)",
+      "- Empfohlene naechste Aktion fuer den Bewerber",
+    );
+    return lines.join("\n");
+  }
+
   async function reanalyzeDocument(docId) {
+    const doc = data.documents.find((d) => d.id === docId);
     try {
       await postJson(`/api/document/${docId}/reanalyze`, {});
-      pushToast("Dokument zur Analyse vorgemerkt", "success");
+      if (doc) {
+        try {
+          await copyToClipboard(buildAnalysisPrompt(doc));
+          pushToast("Analyse-Prompt kopiert \u2014 in Claude einfuegen", "success");
+        } catch {
+          pushToast("Dokument vorgemerkt (Clipboard blockiert)", "success");
+        }
+      } else {
+        pushToast("Dokument zur Analyse vorgemerkt", "success");
+      }
       loadData();
     } catch (error) {
       pushToast(`Fehler: ${error.message}`, "danger");
