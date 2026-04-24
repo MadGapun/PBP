@@ -14,6 +14,32 @@
   --color-amber: 251 191 36;
   --color-coral: 251 113 133;
   --color-sky: 129 161 255;
+
+  /* Semantic surface-tokens (Beta.7) — Alpha-Varianten fuer Glass-Look */
+  --surface-overlay-weak: 255 255 255;   /* rgba(..., 0.04) fuer sanfte Hover */
+  --surface-overlay-soft: 255 255 255;   /* rgba(..., 0.06) fuer Borders */
+  --surface-overlay-strong: 255 255 255; /* rgba(..., 0.08) fuer aktive States */
+  --surface-shadow: 0 0 0;               /* rgba(..., 0.2) fuer Card-Schatten */
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --color-shell: 248 249 252;
+  --color-panel: 255 255 255;
+  --color-panel-strong: 242 244 248;
+  --color-ink: 24 28 42;
+  --color-muted: 100 112 136;
+  --color-line: 220 225 235;
+  --color-teal: 13 148 136;
+  --color-amber: 217 119 6;
+  --color-coral: 225 29 72;
+  --color-sky: 37 99 235;
+
+  /* Im Light-Mode sind Overlays dunkel, nicht hell */
+  --surface-overlay-weak: 20 24 40;
+  --surface-overlay-soft: 20 24 40;
+  --surface-overlay-strong: 20 24 40;
+  --surface-shadow: 20 24 40;
 }
 
 @layer base {
@@ -26,13 +52,13 @@
   body {
     @apply min-h-screen bg-shell font-sans text-ink antialiased;
     background-image:
-      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(94, 234, 212, 0.05), transparent),
-      radial-gradient(ellipse 60% 40% at 90% 5%, rgba(129, 161, 255, 0.04), transparent);
-    background-color: rgb(18 20 30);
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgb(var(--color-teal) / 0.05), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 5%, rgb(var(--color-sky) / 0.04), transparent);
+    background-color: rgb(var(--color-shell));
   }
 
   ::selection {
-    background: rgba(129, 161, 255, 0.22);
+    background: rgb(var(--color-sky) / 0.22);
     color: rgb(var(--color-ink));
   }
 }
@@ -53,7 +79,7 @@
   pointer-events: none;
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-image: radial-gradient(circle at center, rgb(var(--surface-overlay-weak) / 0.022) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 35%);
 }
@@ -68,7 +94,7 @@
   height: 36rem;
   width: 36rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(94, 234, 212, 0.045), rgba(129, 161, 255, 0.025) 50%, transparent 70%);
+  background: radial-gradient(circle, rgb(var(--color-teal) / 0.045), rgb(var(--color-sky) / 0.025) 50%, transparent 70%);
   filter: blur(80px);
 }
 
@@ -82,36 +108,36 @@
 
   .glass-topbar {
     @apply border-b backdrop-blur-2xl;
-    border-color: rgba(255, 255, 255, 0.08);
-    background: rgba(22, 25, 38, 0.85);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    border-color: rgb(var(--surface-overlay-strong) / 0.08);
+    background: rgb(var(--color-panel) / 0.85);
+    box-shadow: 0 1px 3px rgb(var(--surface-shadow) / 0.2);
   }
 
   .glass-card {
     @apply backdrop-blur-xl;
-    background: rgba(30, 34, 50, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
+    background: rgb(var(--color-panel) / 0.65);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.08);
+    box-shadow: 0 2px 6px rgb(var(--surface-shadow) / 0.15), 0 1px 2px rgb(var(--surface-shadow) / 0.1);
   }
 
   .glass-card-strong {
     @apply backdrop-blur-2xl;
-    background: rgba(34, 38, 56, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.12);
+    background: rgb(var(--color-panel-strong) / 0.82);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.1);
+    box-shadow: 0 4px 12px rgb(var(--surface-shadow) / 0.2), 0 1px 3px rgb(var(--surface-shadow) / 0.12);
   }
 
   .glass-card-soft {
     @apply backdrop-blur-lg;
-    background: rgba(26, 30, 44, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    background: rgb(var(--color-panel) / 0.55);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.07);
+    box-shadow: 0 1px 4px rgb(var(--surface-shadow) / 0.1);
   }
 
   .glass-card-muted {
     @apply backdrop-blur-lg;
-    background: rgba(24, 27, 40, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgb(var(--color-panel) / 0.45);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.06);
     box-shadow: none;
   }
 
@@ -119,60 +145,68 @@
   .hero-glow {
     @apply backdrop-blur-xl;
     background:
-      radial-gradient(ellipse 60% 50% at 5% 0%, rgba(94, 234, 212, 0.045), transparent),
-      radial-gradient(ellipse 50% 50% at 95% 100%, rgba(129, 161, 255, 0.04), transparent),
-      rgba(28, 32, 48, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      radial-gradient(ellipse 60% 50% at 5% 0%, rgb(var(--color-teal) / 0.045), transparent),
+      radial-gradient(ellipse 50% 50% at 95% 100%, rgb(var(--color-sky) / 0.04), transparent),
+      rgb(var(--color-panel) / 0.72);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.08);
+    box-shadow: 0 2px 8px rgb(var(--surface-shadow) / 0.15);
   }
 
   .glass-toolbar {
     @apply backdrop-blur-xl;
-    background: rgba(26, 30, 44, 0.65);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: rgb(var(--color-panel) / 0.65);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.07);
+    box-shadow: 0 1px 3px rgb(var(--surface-shadow) / 0.1);
   }
 
   .glass-tab {
     @apply text-ink backdrop-blur-lg transition-colors duration-200 ease-out;
-    background: rgba(26, 30, 44, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    background: rgb(var(--color-panel) / 0.45);
+    border: 1px solid rgb(var(--surface-overlay-strong) / 0.06);
+    box-shadow: 0 1px 2px rgb(var(--surface-shadow) / 0.06);
   }
 
   .glass-tab:hover {
-    background: rgba(34, 38, 54, 0.6);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgb(var(--color-panel-strong) / 0.6);
+    border-color: rgb(var(--surface-overlay-strong) / 0.1);
   }
 
   .glass-tab-active {
     @apply text-ink;
-    background: rgba(38, 42, 60, 0.75);
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    background: rgb(var(--color-panel-strong) / 0.75);
+    border-color: rgb(var(--surface-overlay-strong) / 0.12);
+    box-shadow: 0 2px 6px rgb(var(--surface-shadow) / 0.15);
   }
 
   /* ─── Inputs ─── */
 
   .glass-input {
     @apply w-full rounded-xl border px-4 py-3 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-muted/50 backdrop-blur-lg;
-    @apply file:mr-4 file:rounded-lg file:border-0 file:bg-white/[0.08] file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-white/[0.12];
-    background: rgba(16, 19, 30, 0.6);
-    border-color: rgba(255, 255, 255, 0.08);
+    @apply file:mr-4 file:rounded-lg file:border-0 file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink;
+    background: rgb(var(--color-shell) / 0.6);
+    border-color: rgb(var(--surface-overlay-strong) / 0.08);
+  }
+
+  .glass-input::file-selector-button {
+    background: rgb(var(--surface-overlay-strong) / 0.08);
+  }
+
+  .glass-input:hover::file-selector-button {
+    background: rgb(var(--surface-overlay-strong) / 0.12);
   }
 
   .glass-input:hover {
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: rgb(var(--surface-overlay-strong) / 0.14);
   }
 
   .glass-input:focus {
-    border-color: rgba(94, 234, 212, 0.4);
-    box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.08);
+    border-color: rgb(var(--color-teal) / 0.4);
+    box-shadow: 0 0 0 2px rgb(var(--color-teal) / 0.08);
   }
 
   .glass-input option,
   select option {
-    background: rgb(22 25 38);
+    background: rgb(var(--color-panel));
     color: rgb(var(--color-ink));
   }
 
@@ -193,42 +227,43 @@
   }
 
   .glass-banner-sky {
-    border-color: rgba(129, 161, 255, 0.16);
-    background: rgba(129, 161, 255, 0.07);
+    border-color: rgb(var(--color-sky) / 0.16);
+    background: rgb(var(--color-sky) / 0.07);
   }
 
   .glass-banner-amber {
-    border-color: rgba(251, 191, 36, 0.16);
-    background: rgba(251, 191, 36, 0.07);
+    border-color: rgb(var(--color-amber) / 0.16);
+    background: rgb(var(--color-amber) / 0.07);
   }
 
   .glass-banner-danger {
-    border-color: rgba(251, 113, 133, 0.16);
-    background: rgba(251, 113, 133, 0.07);
+    border-color: rgb(var(--color-coral) / 0.16);
+    background: rgb(var(--color-coral) / 0.07);
   }
 
   /* ─── Icons ─── */
 
   .glass-icon {
-    @apply flex items-center justify-center rounded-xl border bg-white/[0.05] text-ink;
-    border-color: rgba(255, 255, 255, 0.08);
+    @apply flex items-center justify-center rounded-xl border text-ink;
+    background: rgb(var(--surface-overlay-strong) / 0.05);
+    border-color: rgb(var(--surface-overlay-strong) / 0.08);
   }
 
   .glass-icon-sky {
-    border-color: rgba(129, 161, 255, 0.16);
-    background: rgba(129, 161, 255, 0.08);
+    border-color: rgb(var(--color-sky) / 0.16);
+    background: rgb(var(--color-sky) / 0.08);
     color: rgb(var(--color-sky));
   }
 
   .glass-icon-amber {
-    border-color: rgba(251, 191, 36, 0.16);
-    background: rgba(251, 191, 36, 0.08);
+    border-color: rgb(var(--color-amber) / 0.16);
+    background: rgb(var(--color-amber) / 0.08);
     color: rgb(var(--color-amber));
   }
 
   .glass-icon-danger {
-    border-color: rgba(251, 113, 133, 0.16);
-    background: rgba(251, 113, 133, 0.08);
+    border-color: rgb(var(--color-coral) / 0.16);
+    background: rgb(var(--color-coral) / 0.08);
     color: rgb(var(--color-coral));
   }
 
@@ -236,12 +271,12 @@
 
   .glass-log {
     @apply rounded-2xl border font-mono text-xs text-ink backdrop-blur-lg;
-    border-color: rgba(255, 255, 255, 0.07);
-    background: rgba(14, 16, 26, 0.88);
+    border-color: rgb(var(--surface-overlay-strong) / 0.07);
+    background: rgb(var(--color-shell) / 0.88);
   }
 
   .glass-overlay {
-    background: rgba(10, 12, 22, 0.55);
+    background: rgb(var(--color-shell) / 0.55);
     backdrop-filter: blur(16px);
   }
 }
@@ -250,7 +285,7 @@
 
 .soft-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(128, 140, 168, 0.25) transparent;
+  scrollbar-color: rgb(var(--color-muted) / 0.25) transparent;
 }
 
 .soft-scrollbar::-webkit-scrollbar {
@@ -263,12 +298,12 @@
 }
 
 .soft-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(128, 140, 168, 0.2);
+  background: rgb(var(--color-muted) / 0.2);
   border-radius: 999px;
 }
 
 .soft-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 140, 168, 0.35);
+  background: rgb(var(--color-muted) / 0.35);
 }
 
 @keyframes job-card-highlight-pulse {

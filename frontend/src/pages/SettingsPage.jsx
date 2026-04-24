@@ -1,9 +1,10 @@
-﻿import { Activity, Database, Download, Eye, HardDrive, Package, ShieldAlert, TerminalSquare, Trash2, Upload } from "lucide-react";
+﻿import { Activity, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import SourceSelectionList from "@/components/SourceSelectionList";
+import { hexToRgb, rgbToHex, THEME_TOKENS } from "@/theme";
 import {
   Badge,
   Button,
@@ -13,6 +14,168 @@ import {
   SectionHeading,
   TextInput,
 } from "@/components/ui";
+
+function ThemeEditor() {
+  const {
+    themeMode,
+    themeCustom,
+    setThemeMode,
+    setThemeColor,
+    resetThemeMode,
+    resetAllTheme,
+    defaultPalette,
+    pushToast,
+  } = useApp();
+  const [expanded, setExpanded] = useState(null); // "light" | "dark" | null
+
+  const modeButtons = [
+    { id: "system", label: "System", Icon: Monitor, hint: "Folge OS-Einstellung" },
+    { id: "light", label: "Hell", Icon: Sun, hint: "Immer helles Theme" },
+    { id: "dark", label: "Dunkel", Icon: Moon, hint: "Immer dunkles Theme" },
+  ];
+
+  function renderPaletteEditor(mode) {
+    const defaults = defaultPalette[mode];
+    const overrides = (themeCustom && themeCustom[mode]) || {};
+    return (
+      <div className="mt-3 grid gap-3 rounded-xl border border-line/40 bg-shell/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted">
+            Aenderungen werden lokal in deinem Browser gespeichert und sofort angewendet.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              resetThemeMode(mode);
+              pushToast(`${mode === "light" ? "Helles" : "Dunkles"} Theme auf Standard zurueckgesetzt`, "success");
+            }}
+          >
+            <RotateCcw size={14} /> Standard wiederherstellen
+          </Button>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {THEME_TOKENS.map(({ key, label, hint }) => {
+            const current = overrides[key] || defaults[key];
+            const isOverride = Boolean(overrides[key]);
+            const hex = rgbToHex(current);
+            return (
+              <div
+                key={key}
+                className="flex items-center gap-3 rounded-lg border border-line/30 bg-panel/40 p-2.5"
+              >
+                <input
+                  type="color"
+                  value={hex}
+                  onChange={(e) => {
+                    const rgb = hexToRgb(e.target.value);
+                    if (rgb) setThemeColor(mode, key, rgb);
+                  }}
+                  className="h-9 w-10 cursor-pointer rounded-md border border-line/40 bg-transparent"
+                  aria-label={`Farbe ${label}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-ink">
+                    {label}
+                    {isOverride && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider text-amber">Angepasst</span>
+                    )}
+                  </p>
+                  <p className="truncate text-[11px] text-muted">{hint}</p>
+                </div>
+                {isOverride && (
+                  <button
+                    type="button"
+                    onClick={() => setThemeColor(mode, key, null)}
+                    className="rounded-md p-1 text-muted hover:text-ink"
+                    title="Auf Standard zuruecksetzen"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center gap-3">
+        <div className="glass-icon glass-icon-sky h-10 w-10">
+          <Palette size={18} />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-ink">Erscheinungsbild</h2>
+          <p className="text-xs text-muted">Theme-Modus waehlen und Farben individuell anpassen.</p>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {modeButtons.map(({ id, label, Icon, hint }) => {
+          const active = themeMode === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setThemeMode(id)}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-colors ${
+                active
+                  ? "border-sky/40 bg-sky/10 text-sky"
+                  : "border-line/40 bg-shell/40 text-muted hover:text-ink hover:border-line/60"
+              }`}
+              title={hint}
+            >
+              <Icon size={18} />
+              <span className="text-sm font-medium">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-2">
+        {["light", "dark"].map((mode) => {
+          const isOpen = expanded === mode;
+          const overrideCount = Object.keys((themeCustom && themeCustom[mode]) || {}).length;
+          return (
+            <div key={mode} className="rounded-xl border border-line/40">
+              <button
+                type="button"
+                onClick={() => setExpanded(isOpen ? null : mode)}
+                className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-white/[0.03]"
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                  {mode === "light" ? <Sun size={15} /> : <Moon size={15} />}
+                  {mode === "light" ? "Helles Theme anpassen" : "Dunkles Theme anpassen"}
+                  {overrideCount > 0 && (
+                    <Badge tone="amber">{overrideCount} angepasst</Badge>
+                  )}
+                </span>
+                <span className="text-xs text-muted">{isOpen ? "Schliessen" : "Oeffnen"}</span>
+              </button>
+              {isOpen && <div className="px-3 pb-3">{renderPaletteEditor(mode)}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            resetAllTheme();
+            pushToast("Theme komplett auf Standard zurueckgesetzt", "success");
+          }}
+        >
+          <RotateCcw size={14} /> Alles zuruecksetzen
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 function formatBytes(bytes) {
   if (!bytes) return "0 B";
@@ -254,6 +417,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: "quellen", label: "Quellen" },
     { id: "system", label: "System" },
+    { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },
     { id: "logs", label: "Logs" },
     { id: "gefahrenzone", label: "Gefahrenzone" },
@@ -369,6 +533,9 @@ export default function SettingsPage() {
             )}
           </Card>
         )}
+
+        {/* ── Erscheinungsbild Tab (#475) ── */}
+        {settingsTab === "erscheinungsbild" && <ThemeEditor />}
 
         {/* ── Datenschutz Tab (#287) ── */}
         {settingsTab === "datenschutz" && (

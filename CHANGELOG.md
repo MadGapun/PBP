@@ -7,6 +7,44 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.7] - 2026-04-24
+
+Dark/Light Mode mit vollstaendig anpassbaren Paletten. Standard folgt
+der System-Einstellung, Umschalter in der Topbar, detaillierte
+Farb-Editoren pro Modus in den Einstellungen. Jede Aenderung laesst
+sich jederzeit auf den Standard zuruecksetzen.
+
+### Added
+
+- **#475 Dark/Light Mode:** Drei-Wege-Umschalter (System · Hell · Dunkel)
+  in der Topbar. Systemmodus respektiert `prefers-color-scheme` und
+  reagiert live auf OS-Wechsel. Auswahl persistiert in `localStorage`.
+- **Custom-Paletten:** Neuer Tab „Erscheinungsbild" in den Einstellungen
+  mit Color-Picker fuer alle 10 Theme-Tokens (App-Hintergrund, Cards,
+  Text, Borders und 4 Akzentfarben) pro Modus. Aenderungen greifen
+  sofort als inline CSS-Variablen auf `<html>`.
+- **Reset-Mechanismen:** Pro Token (Pfeil-Icon), pro Modus
+  („Standard wiederherstellen") und global („Alles zuruecksetzen").
+
+### Changed
+
+- **`styles.css` refaktoriert:** Alle hardcoded `rgba(...)`-Werte in
+  den `.glass-*`-Klassen auf CSS-Variablen (`rgb(var(--color-X) / α)`)
+  umgestellt. Basis fuer das Theme-Swapping via `[data-theme="light"]`.
+- **Semantische Surface-Tokens:** Neue Variablen
+  `--surface-overlay-{weak,soft,strong}` und `--surface-shadow`
+  trennen Overlay-Farben vom Theme-Modus (hell vs. dunkel).
+
+### Fixed
+
+- Light-Mode-Akzentfarben nutzen 600er-Varianten (teal-600, amber-600,
+  rose-600, blue-600) statt der 400/500er des Dark-Modes — fuer
+  WCAG-AA-Kontrast auf weissem Grund.
+
+### Closes
+
+- Epic **#500** (v1.6.0 UX-Finish): alle sechs Sub-Issues erledigt.
+
 ## [1.6.0-beta.6] - 2026-04-24
 
 Dashboard-Aktionen springen jetzt ueberall mit passendem Filter in

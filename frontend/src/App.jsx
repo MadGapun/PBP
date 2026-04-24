@@ -12,9 +12,12 @@
   HelpCircle,
   Link2,
   Link2Off,
+  Monitor,
+  Moon,
   Plus,
   Send,
   Settings2,
+  Sun,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -22,6 +25,14 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, deleteRequest, optionalApi, postJson } from "@/api";
 import { AppContext } from "@/app-context";
+import {
+  applyTheme,
+  DEFAULT_PALETTE,
+  loadCustom,
+  loadMode,
+  saveCustom,
+  saveMode,
+} from "@/theme";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
@@ -115,6 +126,62 @@ export default function App() {
   const [page, setPage] = useState(parsePageFromHash());
   const [intent, setIntent] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [themeMode, setThemeModeState] = useState(() => loadMode());
+  const [themeCustom, setThemeCustomState] = useState(() => loadCustom());
+
+  useEffect(() => {
+    applyTheme(themeMode, themeCustom);
+  }, [themeMode, themeCustom]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const media = window.matchMedia("(prefers-color-scheme: light)");
+    const handler = () => {
+      if (themeMode === "system") applyTheme("system", themeCustom);
+    };
+    if (media.addEventListener) media.addEventListener("change", handler);
+    else media.addListener(handler);
+    return () => {
+      if (media.removeEventListener) media.removeEventListener("change", handler);
+      else media.removeListener(handler);
+    };
+  }, [themeMode, themeCustom]);
+
+  function setThemeMode(mode) {
+    setThemeModeState(mode);
+    saveMode(mode);
+  }
+
+  function setThemeColor(mode, tokenKey, rgbString) {
+    setThemeCustomState((prev) => {
+      const next = {
+        light: { ...(prev.light || {}) },
+        dark: { ...(prev.dark || {}) },
+      };
+      if (rgbString) next[mode][tokenKey] = rgbString;
+      else delete next[mode][tokenKey];
+      saveCustom(next);
+      return next;
+    });
+  }
+
+  function resetThemeMode(mode) {
+    setThemeCustomState((prev) => {
+      const next = {
+        light: mode === "light" ? {} : { ...(prev.light || {}) },
+        dark: mode === "dark" ? {} : { ...(prev.dark || {}) },
+      };
+      saveCustom(next);
+      return next;
+    });
+  }
+
+  function resetAllTheme() {
+    setThemeModeState("system");
+    saveMode("system");
+    setThemeCustomState({ light: {}, dark: {} });
+    saveCustom({ light: {}, dark: {} });
+  }
   const [chrome, setChrome] = useState({
     loading: true,
     status: { has_profile: false },
@@ -655,6 +722,13 @@ export default function App() {
     executeAction,
     openCreateProfileModal: () => setCreateProfileOpen(true),
     openProfileOnboarding: reopenProfileOnboarding,
+    themeMode,
+    themeCustom,
+    setThemeMode,
+    setThemeColor,
+    resetThemeMode,
+    resetAllTheme,
+    defaultPalette: DEFAULT_PALETTE,
   };
 
   return (
@@ -715,6 +789,23 @@ export default function App() {
                 );
               })}
             </nav>
+
+            {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
+            {(() => {
+              const nextMode = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
+              const Icon = themeMode === "system" ? Monitor : themeMode === "light" ? Sun : Moon;
+              const label = themeMode === "system" ? "System" : themeMode === "light" ? "Hell" : "Dunkel";
+              return (
+                <button
+                  type="button"
+                  onClick={() => setThemeMode(nextMode)}
+                  className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+                  title={`Theme: ${label} — klicken fuer ${nextMode === "system" ? "System" : nextMode === "light" ? "Hell" : "Dunkel"}`}
+                >
+                  <Icon size={18} />
+                </button>
+              );
+            })()}
 
             {/* Help Button (#75) */}
             <button
