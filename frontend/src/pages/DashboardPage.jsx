@@ -332,7 +332,8 @@ export default function DashboardPage() {
       description: `${activeInterviewCount} Bewerbung(en) sind im Interview-Status.`,
       tone: "amber",
       actionLabel: "Vorbereiten",
-      action: () => copyPrompt("/interview_vorbereitung"),
+      // #483: Filter auf Interview + Tab wechseln, damit User die konkreten Bewerbungen sieht
+      action: () => navigateTo("bewerbungen", { filter: "interview" }),
     });
   }
 
@@ -343,7 +344,8 @@ export default function DashboardPage() {
       description: `Bei ${dueFollowUps.length} Bewerbung(en) solltest du nachhaken.`,
       tone: "sky",
       actionLabel: "Öffnen",
-      action: () => navigateTo("bewerbungen"),
+      // #484: Filter auf faellige Follow-ups
+      action: () => navigateTo("bewerbungen", { filter: "followups_due" }),
     });
   }
 
@@ -354,7 +356,8 @@ export default function DashboardPage() {
       description: `${data.zombies.length} Bewerbung(en) warten seit ueber 60 Tagen auf Rueckmeldung.`,
       tone: "amber",
       actionLabel: "Bewerbungen",
-      action: () => navigateTo("bewerbungen"),
+      // #485: Filter auf Zombies (ueber 60 Tage ohne Antwort)
+      action: () => navigateTo("bewerbungen", { filter: "zombies" }),
     });
   }
 

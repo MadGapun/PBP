@@ -7,6 +7,35 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.6] - 2026-04-24
+
+Dashboard-Aktionen springen jetzt ueberall mit passendem Filter in
+den Bewerbungs-Tab. Kein „hier sind alle 247 Bewerbungen, viel Spass
+beim Suchen" mehr.
+
+### Changed
+
+- **#483 „Interview vorbereiten"** kopiert keinen Prompt mehr, sondern
+  oeffnet den Bewerbungs-Tab mit Status-Filter `Interview`. Anzahl
+  stimmt mit dem Dashboard-Hinweis ueberein.
+- **#484 „Nachfragen nicht vergessen"** oeffnet den Bewerbungs-Tab
+  mit einem neuen Client-Filter `followups_due` — nur Bewerbungen, bei
+  denen ein Follow-up faellig ist (scheduled_date &le; heute).
+- **#485 „Lange keine Antwort"** oeffnet den Bewerbungs-Tab mit dem
+  neuen Filter `zombies` — nur Bewerbungen aus `/api/applications/zombies`
+  (Schwelle: 60 Tage ohne Antwort).
+
+### Added
+
+- ApplicationsPage liest `intent.filter` aus dem Navigations-Intent
+  und mappt ihn auf die lokale Filterlogik. Vorherige Filter werden
+  ueberschrieben, damit die Zahl mit dem Dashboard-Hinweis passt.
+- Sichtbarer „Filter: …" Banner oben im Filter-Bereich mit Zaehlung
+  (`N von M`) und Reset-Button, damit der User sieht, warum weniger
+  Bewerbungen angezeigt werden.
+
+---
+
 ## [1.6.0-beta.5] - 2026-04-24
 
 Block C Start — drei Dashboard-Bugs aus dem Review gefixt. Kein neues

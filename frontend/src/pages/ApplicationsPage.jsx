@@ -87,11 +87,13 @@ function EmailUploadButton({ pushToast, onImported }) {
 }
 
 export default function ApplicationsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
   const [upcomingMeetings, setUpcomingMeetings] = useState([]);
+  const [zombieApps, setZombieApps] = useState([]);  // #485
+  const [specialFilter, setSpecialFilter] = useState(null);  // #483/#484/#485
   const [applicationMeta, setApplicationMeta] = useState({ total: 0, filteredTotal: 0, archivedCount: 0 });
   const [filters, setFilters] = useState({
     query: "",
@@ -121,10 +123,11 @@ export default function ApplicationsPage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [applicationData, followUpData, meetingsData] = await Promise.all([
+      const [applicationData, followUpData, meetingsData, zombieData] = await Promise.all([
         api(`/api/applications?limit=500&include_archived=${includeArchivedDataset ? "true" : "false"}`),
         api("/api/follow-ups"),
         api("/api/meetings").catch(() => ({ meetings: [] })),  // #495
+        api("/api/applications/zombies").catch(() => ({ zombies: [] })),  // #485
       ]);
       startTransition(() => {
         setApplications(applicationData?.applications || []);
@@ -135,6 +138,7 @@ export default function ApplicationsPage() {
         });
         setFollowUps(followUpData?.follow_ups || []);
         setUpcomingMeetings(meetingsData?.meetings || []);
+        setZombieApps(zombieData?.zombies || []);
         setLoading(false);
       });
     } catch (error) {
@@ -147,6 +151,26 @@ export default function ApplicationsPage() {
     setLoading(true);
     loadPage();
   }, [reloadKey, includeArchivedDataset]);
+
+  // #483/#484/#485: Dashboard-TODOs uebergeben ein `filter`-Intent, das wir
+  // auf die lokalen Filter / Special-Filter abbilden. Bisher gesetzte Filter
+  // werden ueberschrieben, damit die Zahl mit dem Dashboard-Hinweis passt.
+  useEffect(() => {
+    if (!intent || intent.page !== "bewerbungen") return;
+    if (intent.filter === "interview") {
+      setFilters({ query: "", status: "interview", fromDate: "", toDate: "", stellenart: "", showArchived: false });
+      setSpecialFilter(null);
+      clearIntent();
+    } else if (intent.filter === "followups_due") {
+      setFilters({ query: "", status: "", fromDate: "", toDate: "", stellenart: "", showArchived: false });
+      setSpecialFilter("followups_due");
+      clearIntent();
+    } else if (intent.filter === "zombies") {
+      setFilters({ query: "", status: "", fromDate: "", toDate: "", stellenart: "", showArchived: false });
+      setSpecialFilter("zombies");
+      clearIntent();
+    }
+  }, [intent, clearIntent]);
 
   async function updateStatus(applicationId, status, options = {}) {
     try {
@@ -309,6 +333,12 @@ export default function ApplicationsPage() {
 
   if (loading) return <LoadingPanel label="Bewerbungen werden geladen..." />;
 
+  // #484/#485: Application-IDs fuer Special-Filter
+  const dueFollowUpAppIds = new Set(
+    followUps.filter((fu) => fu.faellig).map((fu) => fu.application_id).filter(Boolean)
+  );
+  const zombieAppIds = new Set(zombieApps.map((z) => z.id).filter(Boolean));
+
   const filteredApplications = applications.filter((application) => {
     const haystack = `${application.title || ""} ${application.company || ""} ${application.notes || ""}`.toLowerCase();
     const queryMatch = !deferredQuery || haystack.includes(deferredQuery.toLowerCase());
@@ -320,7 +350,10 @@ export default function ApplicationsPage() {
                       (!filters.toDate || (application.applied_at || "") <= filters.toDate + "T23:59:59");
     const artMatch = !filters.stellenart ||
       (filters.stellenart === "freelance" ? (application.job_employment_type && application.job_employment_type !== "festanstellung") : application.job_employment_type === "festanstellung" || !application.job_employment_type);
-    return queryMatch && statusMatch && dateMatch && artMatch;
+    const specialMatch = !specialFilter
+      || (specialFilter === "followups_due" && dueFollowUpAppIds.has(application.id))
+      || (specialFilter === "zombies" && zombieAppIds.has(application.id));
+    return queryMatch && statusMatch && dateMatch && artMatch && specialMatch;
   });
 
   // #245: Sortierung
@@ -476,6 +509,25 @@ export default function ApplicationsPage() {
 
         <Card className="rounded-2xl">
           <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
+          {/* #484/#485: Aktiver Dashboard-Filter (Follow-up / Zombie) sichtbar + resetbar */}
+          {specialFilter && (
+            <div className="mb-3 flex items-center gap-2 rounded-xl border border-sky/25 bg-sky/10 px-3 py-2 text-xs text-sky">
+              <span className="font-semibold">
+                {specialFilter === "followups_due" ? "Filter: Nachfrage faellig" : "Filter: Seit > 60 Tagen ohne Antwort"}
+              </span>
+              <span className="text-muted/60">
+                ({filteredApplications.length}
+                {specialFilter === "followups_due" ? ` von ${dueFollowUpAppIds.size}` : ` von ${zombieAppIds.size}`})
+              </span>
+              <button
+                type="button"
+                className="ml-auto rounded-md px-2 py-0.5 hover:bg-sky/20"
+                onClick={() => setSpecialFilter(null)}
+              >
+                Filter zuruecksetzen
+              </button>
+            </div>
+          )}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Button
               size="sm"

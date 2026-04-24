@@ -1,6 +1,6 @@
 """Bewerbungs-Assistent - KI-gestützter MCP Server für Claude Desktop."""
 
-__version__ = "1.6.0-beta.5"
+__version__ = "1.6.0-beta.6"
 
 
 def main():
