@@ -2295,6 +2295,9 @@ class Database:
         self._auto_link_documents(aid, data.get("company", ""))
         return aid
 
+    # Terminal-Status: hier werden offene Follow-ups automatisch hinfaellig (#493)
+    TERMINAL_STATUSES = ("abgelehnt", "zurueckgezogen", "angenommen", "abgelaufen", "abgesagt")
+
     def update_application_status(
         self,
         app_id: str,
@@ -2303,6 +2306,7 @@ class Database:
         rejection_reason: str = "",
         profile_id: str = None,
     ) -> bool:
+        """Aktualisiert den Status. Seiteneffekte siehe _apply_status_lifecycle()."""
         conn = self.connect()
         now = _now()
         params: list[str] = [new_status]
@@ -2324,7 +2328,51 @@ class Database:
             VALUES (?, ?, ?, ?)
         """, (app_id, new_status, now, notes))
         conn.commit()
+        # Lifecycle-Hooks (Event-System, minimal — #497): Follow-ups, Auto-Nachfrage
+        self._apply_status_lifecycle(app_id, new_status)
         return True
+
+    def _apply_status_lifecycle(self, app_id: str, new_status: str) -> dict:
+        """Zentrale Lifecycle-Hooks nach Statuswechsel (#493, #494, #497).
+
+        Returns dict mit keys:
+            dismissed_followups (int), new_followup_id (str|None), new_followup_date (str|None)
+        """
+        result = {"dismissed_followups": 0, "new_followup_id": None, "new_followup_date": None}
+        # #493: Offene Follow-ups schliessen bei terminalen Status
+        if new_status in self.TERMINAL_STATUSES:
+            try:
+                result["dismissed_followups"] = self.dismiss_open_followups_for_application(
+                    app_id, reason=f"Bewerbung auf {new_status} gesetzt"
+                )
+            except Exception:
+                pass
+        # #494: Nach Interview alte Follow-ups schliessen + Nachfrage-FU anlegen
+        elif new_status == "interview_abgeschlossen":
+            try:
+                result["dismissed_followups"] = self.dismiss_open_followups_for_application(
+                    app_id, reason="Interview abgeschlossen"
+                )
+            except Exception:
+                pass
+            raw = self.get_setting("followup_interview_delay_days", 14)
+            try:
+                delay_days = int(raw) if raw is not None else 14
+            except (TypeError, ValueError):
+                delay_days = 14
+            if delay_days > 0:
+                from datetime import datetime, timedelta
+                when = (datetime.now() + timedelta(days=delay_days)).date().isoformat()
+                try:
+                    fid = self.add_follow_up(
+                        app_id, when, follow_up_type="nachfass",
+                        template=f"Nachfrage nach Interview-Ergebnis (automatisch {delay_days} Tage nach Abschluss)",
+                    )
+                    result["new_followup_id"] = fid
+                    result["new_followup_date"] = when
+                except Exception:
+                    pass
+        return result
 
     def delete_application(self, app_id: str):
         """Delete an application and all its events."""

@@ -1580,6 +1580,10 @@ async def api_update_app_status(app_id: str, request: Request):
     if not new_status:
         return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
     profile_id = _get_active_profile_id()
+    # Zaehle offene Follow-ups vor dem Wechsel, damit UI das Lifecycle-Ergebnis anzeigen kann (#493/#494)
+    open_before = sum(
+        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
+    )
     if not profile_id or not _db.update_application_status(
         app_id,
         new_status,
@@ -1587,7 +1591,60 @@ async def api_update_app_status(app_id: str, request: Request):
         profile_id=profile_id,
     ):
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    open_after = sum(
+        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
+    )
+    lifecycle = {
+        "followups_dismissed": max(0, open_before - open_after),
+        "new_followup": None,
+    }
+    if new_status == "interview_abgeschlossen":
+        # jungster offener Follow-up wurde soeben vom Lifecycle-Hook angelegt
+        pending = [
+            fu for fu in _db.get_pending_follow_ups()
+            if fu.get("application_id") == app_id
+        ]
+        if pending:
+            latest = max(pending, key=lambda f: f.get("created_at") or "")
+            lifecycle["new_followup"] = {
+                "id": latest.get("id"),
+                "scheduled_date": latest.get("scheduled_date"),
+            }
+    return {"status": "ok", "lifecycle": lifecycle}
+
+
+@app.get("/api/settings/followup")
+async def api_get_followup_settings():
+    """Liest die Follow-up-Automations-Einstellungen (#494)."""
+    try:
+        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+    except Exception:
+        default_days = 7
+    try:
+        interview_delay = int(_db.get_setting("followup_interview_delay_days", 14) or 14)
+    except Exception:
+        interview_delay = 14
+    return {
+        "followup_default_days": default_days,
+        "followup_interview_delay_days": interview_delay,
+    }
+
+
+@app.put("/api/settings/followup")
+async def api_set_followup_settings(request: Request):
+    data = await request.json()
+    out: dict[str, int] = {}
+    for key in ("followup_default_days", "followup_interview_delay_days"):
+        if key in data:
+            try:
+                val = int(data[key])
+            except (TypeError, ValueError):
+                return JSONResponse({"error": f"{key} muss eine Zahl sein"}, status_code=400)
+            if val < 0 or val > 365:
+                return JSONResponse({"error": f"{key} muss zwischen 0 und 365 liegen"}, status_code=400)
+            _db.set_setting(key, val)
+            out[key] = val
+    return {"status": "ok", "gespeichert": out}
 
 
 @app.put("/api/applications/{app_id}")

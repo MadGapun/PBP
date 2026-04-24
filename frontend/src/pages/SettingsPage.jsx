@@ -1,7 +1,7 @@
-﻿import { Activity, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
+﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { api, apiUrl, deleteRequest, postJson } from "@/api";
+import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { hexToRgb, rgbToHex, THEME_TOKENS } from "@/theme";
@@ -198,6 +198,8 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [profileDeleteConfirm, setProfileDeleteConfirm] = useState("");
   const [settingsTab, setSettingsTab] = useState("quellen");
+  const [followupSettings, setFollowupSettings] = useState({ followup_default_days: 7, followup_interview_delay_days: 14 });
+  const [followupSaving, setFollowupSaving] = useState(false);
   const loginPollersRef = useRef(new Map());
 
   // Handle incoming tab intent from navigateTo (#420)
@@ -210,12 +212,13 @@ export default function SettingsPage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [sourceRows, logsData, impulseData, healthData, privacyData] = await Promise.all([
+      const [sourceRows, logsData, impulseData, healthData, privacyData, followupData] = await Promise.all([
         api("/api/sources"),
         api("/api/logs?lines=100"),
         api("/api/daily-impulse").catch(() => null),
         api("/api/health").catch(() => null),
         api("/api/privacy-info").catch(() => null),
+        api("/api/settings/followup").catch(() => null),
       ]);
       startTransition(() => {
         setSources(sourceRows || []);
@@ -223,6 +226,7 @@ export default function SettingsPage() {
         if (impulseData) setImpulseEnabled(impulseData.enabled !== false);
         setHealth(healthData);
         setPrivacy(privacyData);
+        if (followupData) setFollowupSettings(followupData);
         setLoading(false);
       });
     } catch (error) {
@@ -322,6 +326,21 @@ export default function SettingsPage() {
     } catch (error) {
       startTransition(() => setSources(previousSources));
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function saveFollowupSettings(next) {
+    setFollowupSaving(true);
+    try {
+      const saved = await putJson("/api/settings/followup", next);
+      if (saved?.gespeichert) {
+        setFollowupSettings((prev) => ({ ...prev, ...saved.gespeichert }));
+      }
+      pushToast("Follow-up-Einstellungen gespeichert", "success");
+    } catch (error) {
+      pushToast(`Speichern fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      setFollowupSaving(false);
     }
   }
 
@@ -481,6 +500,61 @@ export default function SettingsPage() {
               </label>
             </Card>
           </>
+        )}
+
+        {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
+        {settingsTab === "system" && (
+          <Card className="rounded-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="glass-icon glass-icon-amber h-10 w-10">
+                <Bell size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Follow-up-Automation</h2>
+                <p className="text-xs text-muted">
+                  Zeitraeume fuer automatisch erzeugte Follow-ups. 0 deaktiviert das jeweilige Auto-Follow-up.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Nachfrage nach Bewerbung (Tage)">
+                <div className="flex items-center gap-2">
+                  <TextInput
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={followupSettings.followup_default_days}
+                    onChange={(e) => setFollowupSettings((prev) => ({ ...prev, followup_default_days: e.target.value }))}
+                    onBlur={(e) => {
+                      const val = Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0));
+                      saveFollowupSettings({ followup_default_days: val });
+                    }}
+                    disabled={followupSaving}
+                  />
+                  <span className="text-sm text-muted">Tage</span>
+                </div>
+                <p className="mt-1 text-[11px] text-muted/70">Standard: 7. Wird beim Wechsel auf „beworben" angelegt, sofern keines offen ist.</p>
+              </Field>
+              <Field label="Nachfrage nach Interview (Tage)">
+                <div className="flex items-center gap-2">
+                  <TextInput
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={followupSettings.followup_interview_delay_days}
+                    onChange={(e) => setFollowupSettings((prev) => ({ ...prev, followup_interview_delay_days: e.target.value }))}
+                    onBlur={(e) => {
+                      const val = Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0));
+                      saveFollowupSettings({ followup_interview_delay_days: val });
+                    }}
+                    disabled={followupSaving}
+                  />
+                  <span className="text-sm text-muted">Tage</span>
+                </div>
+                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Wird nach „interview_abgeschlossen" automatisch erzeugt; alte Follow-ups dieser Bewerbung werden hinfaellig.</p>
+              </Field>
+            </div>
+          </Card>
         )}
 
         {/* ── System / Health Tab (#290) ── */}

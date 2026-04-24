@@ -7,6 +7,58 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.8] - 2026-04-24
+
+Follow-up-Lifecycle: Wenn eine Bewerbung terminal wird (abgelehnt,
+abgesagt, zurueckgezogen, angenommen, abgelaufen), verschwinden ihre
+offenen Follow-ups automatisch aus dem Dashboard. Und nach einem
+abgeschlossenen Interview wird automatisch eine Nachfrage-Erinnerung
+angelegt — Frist konfigurierbar.
+
+### Added
+
+- **#494 Auto-Nachfrage nach Interview:** Statuswechsel auf
+  `interview_abgeschlossen` schliesst alte Follow-ups und legt ein
+  neues „Nachfrage"-Follow-up an (Default 14 Tage, konfigurierbar,
+  0 = deaktiviert).
+- **Einstellungen → System: Follow-up-Automation:** Neuer Bereich
+  mit zwei Feldern:
+  - „Nachfrage nach Bewerbung" (`followup_default_days`, Default 7)
+  - „Nachfrage nach Interview" (`followup_interview_delay_days`, Default 14)
+- **HTTP-Endpoints:** `GET/PUT /api/settings/followup` fuer die Werte.
+- **HTTP-Status-Endpoint liefert Lifecycle-Info:** `PUT /api/applications/{id}/status`
+  gibt jetzt `lifecycle.followups_dismissed` und bei Interview-Abschluss
+  `lifecycle.new_followup` (id + scheduled_date) zurueck.
+
+### Changed
+
+- **#497 Event-System (minimal):** Lifecycle-Hooks wandern in
+  `Database.update_application_status()` → `_apply_status_lifecycle()`.
+  HTTP-Endpoint und MCP-Tool `bewerbung_status_aendern` nutzen jetzt
+  denselben Hook — vorher war die Dismiss-Logik nur im MCP-Tool,
+  sodass UI-Statuswechsel die Follow-ups nicht mitzogen (#493).
+- **Terminale Status vereinheitlicht:** Neue Konstante
+  `Database.TERMINAL_STATUSES = ("abgelehnt", "zurueckgezogen",
+  "angenommen", "abgelaufen", "abgesagt")` — `abgesagt` war vorher
+  nicht abgedeckt.
+
+### Fixed
+
+- **#493 Offene Follow-ups bei UI-Statuswechsel:** UI-seitiges
+  Setzen auf abgelehnt/abgesagt/... liess offene Follow-ups zurueck,
+  weil der HTTP-Endpoint die Dismiss-Logik umging. Jetzt zentral im
+  Database-Layer.
+
+### Deferred nach v1.7
+
+- **#474** (Bewerbungs-Ordner im Filesystem) — Migrations-Risiko,
+  eigener Release-Zyklus sinnvoll.
+- **#478** (Thunderbird-Add-On) + **#480** (Outlook-Add-In) —
+  Research-Phase nach bestehenden Add-Ons/MCP-Loesungen geplant,
+  dann als Sub-Repos mit klar definierter Upload-API.
+- **#481** (Kalender-Sync) — iCal-Export eventuell in spaeterer
+  v1.6.x-Beta, CalDAV/Graph-Sync fuer v1.7.
+
 ## [1.6.0-beta.7] - 2026-04-24
 
 Dark/Light Mode mit vollstaendig anpassbaren Paletten. Standard folgt

@@ -352,17 +352,15 @@ def register(mcp, db, logger):
                         when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
                         auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
 
-        # #453: Offene Follow-ups schliessen wenn Bewerbung beendet ist
-        dismissed_followups = 0
-        if neuer_status in ("abgelehnt", "zurueckgezogen", "angenommen", "abgelaufen"):
-            try:
-                dismissed_followups = db.dismiss_open_followups_for_application(
-                    bewerbung_id, reason=f"Bewerbung auf {neuer_status} gesetzt"
-                )
-            except Exception:
-                pass
-
+        # Lifecycle-Hooks (dismiss + auto-Nachfrage) laufen in
+        # db.update_application_status() selbst — siehe _apply_status_lifecycle (#493, #494, #497).
+        # Zaehlen vor/nach, damit der MCP-Caller das Ergebnis reporten kann.
+        open_before = sum(1 for fu in db.get_pending_follow_ups()
+                          if fu.get("application_id") == bewerbung_id)
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
+        pending_after = [fu for fu in db.get_pending_follow_ups()
+                         if fu.get("application_id") == bewerbung_id]
+        dismissed_followups = max(0, open_before - len(pending_after))
         result = {
             "status": "aktualisiert",
             "neuer_status": neuer_status,
@@ -375,6 +373,14 @@ def register(mcp, db, logger):
             }
         if dismissed_followups:
             result["follow_ups_geschlossen"] = dismissed_followups
+        if neuer_status == "interview_abgeschlossen" and pending_after:
+            # juengster offener Follow-up ist der automatisch angelegte
+            latest = max(pending_after, key=lambda f: f.get("created_at") or "")
+            result["nachfrage_follow_up"] = {
+                "id": latest.get("id"),
+                "scheduled_date": latest.get("scheduled_date"),
+                "hinweis": "Nachfrage-Follow-up automatisch gemaess Einstellung angelegt.",
+            }
         if neuer_status == "abgelehnt":
             actions = _get_context_actions("abgelehnt")
             result["motivation"] = actions.get("motivation", "")
