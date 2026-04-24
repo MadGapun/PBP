@@ -54,6 +54,11 @@ from .services.search_service import (
     summarize_active_sources,
 )
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
+from .document_analysis_prompts import (
+    TEMPLATES as DOC_ANALYSIS_TEMPLATES,
+    available_templates as doc_analysis_available_templates,
+    build_prompt as build_document_analysis_prompt,
+)
 
 logger = logging.getLogger("bewerbungs_assistent.dashboard")
 
@@ -666,47 +671,24 @@ def _document_type_label(doc_type: str | None) -> str:
     return labels.get(doc_type or "", doc_type or "Dokument")
 
 
-def _build_document_analysis_prompt(document: dict) -> str:
-    document_id = str(document.get("id") or "")
-    filename = str(document.get("filename") or "Unbekannte Datei")
-    doc_type = _document_type_label(document.get("doc_type"))
-    extraction_status = str(document.get("extraction_status") or "nicht_extrahiert")
-    is_email_document = Path(filename).suffix.lower() in {".eml", ".msg"}
-    extracted_available = bool(str(document.get("extracted_text") or "").strip())
-
-    extra_hint = (
-        "- Es handelt sich um eine E-Mail-Datei. BerÃ¼cksichtige Betreff, Absender, Nachrichtentext und erkennbare AnhÃ¤nge.\n"
-        if is_email_document
-        else ""
-    )
-    extracted_hint = (
-        "- Im PBP ist bereits extrahierter Text zu diesem Dokument vorhanden. Arbeite mit dem Dokument im aktiven Profil, nicht mit Vermutungen.\n"
-        if extracted_available
-        else "- Falls das Dokument keinen lesbaren Text liefert, melde das klar zurÃ¼ck und nenne den wahrscheinlichsten Grund.\n"
-    )
-
-    return f"""Bitte analysiere im aktiven PBP-Profil genau dieses Dokument und erweitere daraus mein Profil:
-
-- Dokument-ID: {document_id}
-- Dateiname: {filename}
-- Dokumenttyp in PBP: {doc_type}
-- Aktueller Extraktionsstatus: {extraction_status}
-
-Arbeite dabei bitte so:
-1. Nutze `extraktion_starten(document_ids=["{document_id}"], force=True)`, damit wirklich nur dieses Dokument geladen wird.
-2. Analysiere den Inhalt vollstÃ¤ndig auf profilrelevante Informationen.
-3. Speichere das Ergebnis mit `extraktion_ergebnis_speichern(...)`.
-4. Wende verwertbare Daten mit `extraktion_anwenden(...)` direkt auf das aktive Profil an.
-5. Fasse mir danach kurz zusammen:
-   - was Ã¼bernommen wurde
-   - was unsicher oder unklar blieb
-   - welche sinnvolle nÃ¤chste ErgÃ¤nzung ich noch liefern sollte
-
-Wichtig:
-- Stelle keine RÃ¼ckfrage, ob du das Dokument analysieren sollst. Fang direkt an.
-- Arbeite nur mit dem aktiven Profil.
-{extra_hint}{extracted_hint}Wenn das Dokument fachlich nichts fÃ¼r das Profil bringt, sag das klar und knapp.
-"""
+def _enrich_document_for_prompt(document: dict) -> dict:
+    """Laedt Bewerbungs-Kontext (Firma/Stelle) zum Dokument, falls verknuepft."""
+    enriched = dict(document)
+    enriched["doc_type_label"] = _document_type_label(document.get("doc_type"))
+    app_id = document.get("linked_application_id")
+    if app_id:
+        try:
+            conn = _db.connect()
+            row = conn.execute(
+                "SELECT company, position FROM applications WHERE id=?",
+                (app_id,),
+            ).fetchone()
+            if row:
+                enriched["app_company"] = row["company"]
+                enriched["app_title"] = row["position"]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("enrich document %s failed: %s", document.get("id"), exc)
+    return enriched
 
 
 def _format_email_document_text(parsed: dict) -> str:
@@ -882,9 +864,19 @@ async def api_get_document_extraction(doc_id: str):
     return {"extraction": entry}
 
 
+@app.get("/api/analysis-templates")
+async def api_list_analysis_templates():
+    """Return all available document-analysis templates (#496)."""
+    return {"templates": doc_analysis_available_templates()}
+
+
 @app.get("/api/document/{doc_id}/analysis-prompt")
-async def api_get_document_analysis_prompt(doc_id: str):
-    """Return a Claude-ready prompt that targets exactly one uploaded document."""
+async def api_get_document_analysis_prompt(doc_id: str, request: Request):
+    """Return a Claude-ready prompt that targets exactly one uploaded document.
+
+    Query params:
+        template: Optional key to force a specific template (#496).
+    """
     profile_id = _db.get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Kein aktives Profil vorhanden"}, status_code=400)
@@ -897,14 +889,29 @@ async def api_get_document_analysis_prompt(doc_id: str):
     if not row:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
 
-    document = dict(row)
+    document = _enrich_document_for_prompt(dict(row))
+    requested_template = request.query_params.get("template")
+    if requested_template and requested_template not in DOC_ANALYSIS_TEMPLATES:
+        return JSONResponse(
+            {"error": f"Template '{requested_template}' nicht bekannt",
+             "available_templates": doc_analysis_available_templates()},
+            status_code=400,
+        )
+
+    result = build_document_analysis_prompt(document, template_key=requested_template)
     return {
-        "prompt": _build_document_analysis_prompt(document),
+        "prompt": result["prompt"],
+        "template": result["template"],
+        "template_label": result["label"],
+        "apply_to_profile": result["apply_to_profile"],
+        "available_templates": doc_analysis_available_templates(),
         "document": {
             "id": document.get("id"),
             "filename": document.get("filename"),
             "doc_type": document.get("doc_type"),
             "extraction_status": document.get("extraction_status"),
+            "app_company": document.get("app_company"),
+            "app_title": document.get("app_title"),
         },
     }
 

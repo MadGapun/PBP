@@ -64,6 +64,8 @@ export default function DocumentsPage() {
   const [linkModal, setLinkModal] = useState({ open: false, doc: null, value: "", search: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null); // doc.id to confirm
   const [expandedDoc, setExpandedDoc] = useState(null); // #390: expanded detail view
+  const [templateChoice, setTemplateChoice] = useState({}); // #496: per-doc template override (docId -> templateKey)
+  const [availableTemplates, setAvailableTemplates] = useState([]); // #496: loaded once on mount
   const [uploadType, setUploadType] = useState("sonstiges");
   const [appSearch, setAppSearch] = useState("");
   const [appDropdownOpen, setAppDropdownOpen] = useState(false);
@@ -95,6 +97,13 @@ export default function DocumentsPage() {
     setLoading(true);
     loadData();
   }, [reloadKey, page, sort, order, activeQuery, docType, appFilter, unlinkedFilter, extractionFilter]);
+
+  // #496: Load analysis templates once for the template dropdown
+  useEffect(() => {
+    api("/api/analysis-templates")
+      .then((r) => setAvailableTemplates(r.templates || []))
+      .catch(() => {});
+  }, []);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -143,43 +152,25 @@ export default function DocumentsPage() {
     }
   }
 
-  // #491: Baut einen analyse-Prompt fuer ein Dokument. Zentrale Stelle,
-  // damit Verbesserungen hier global greifen.
-  function buildAnalysisPrompt(doc) {
-    const name = doc.filename || doc.id;
-    const typLabel = docTypeLabel(doc.doc_type);
-    const lines = [
-      `Bitte analysiere das PBP-Dokument \u201E${name}\u201C (Typ: ${typLabel}).`,
-    ];
-    if (doc.app_company || doc.app_title) {
-      const appLabel = [doc.app_company, doc.app_title].filter(Boolean).join(" \u2014 ");
-      lines.push(`Verknuepft mit Bewerbung: ${appLabel}`);
-    }
-    lines.push("", "Ruf dazu zuerst das MCP-Tool `dokumente_zur_analyse` auf, um den Volltext zu bekommen.",
-      "",
-      "Fokus der Analyse:",
-      "- Inhaltliche Kernaussagen",
-      "- Implizite Hinweise auf naechste Schritte / Timeline",
-      "- Strukturierte Daten extrahieren (Kontaktperson, Referenznummer, Bewerbungsstatus)",
-      "- Tonalitaet / Signal (Standardantwort vs. personalisiert?)",
-      "- Empfohlene naechste Aktion fuer den Bewerber",
-    );
-    return lines.join("\n");
-  }
-
-  async function reanalyzeDocument(docId) {
-    const doc = data.documents.find((d) => d.id === docId);
+  // #496: Prompt-Templates pro Dokumenttyp. Prompt wird serverseitig
+  // gebaut (src/bewerbungs_assistent/document_analysis_prompts.py).
+  async function reanalyzeDocument(docId, templateKey = null) {
+    const chosen = templateKey || templateChoice[docId] || null;
     try {
       await postJson(`/api/document/${docId}/reanalyze`, {});
-      if (doc) {
-        try {
-          await copyToClipboard(buildAnalysisPrompt(doc));
-          pushToast("Analyse-Prompt kopiert \u2014 in Claude einfuegen", "success");
-        } catch {
-          pushToast("Dokument vorgemerkt (Clipboard blockiert)", "success");
+      try {
+        const qs = chosen ? `?template=${encodeURIComponent(chosen)}` : "";
+        const response = await api(`/api/document/${docId}/analysis-prompt${qs}`);
+        if (response.available_templates && !availableTemplates.length) {
+          setAvailableTemplates(response.available_templates);
         }
-      } else {
-        pushToast("Dokument zur Analyse vorgemerkt", "success");
+        await copyToClipboard(response.prompt);
+        pushToast(
+          `Analyse-Prompt (${response.template_label}) kopiert \u2014 in Claude einfuegen`,
+          "success"
+        );
+      } catch {
+        pushToast("Dokument vorgemerkt (Clipboard/API blockiert)", "success");
       }
       loadData();
     } catch (error) {
@@ -569,15 +560,30 @@ export default function DocumentsPage() {
                           {doc.app_company && <p><span className="text-muted/30">Bewerbung:</span> {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}</p>}
                         </div>
                         <div className="flex flex-col gap-2 items-start sm:items-end">
-                          {(!doc.extraction_status || ["nicht_extrahiert", "", "basis_analysiert"].includes(doc.extraction_status)) && (
-                            <Button
-                              size="sm"
-                              onClick={() => reanalyzeDocument(doc.id)}
+                          {availableTemplates.length > 0 && (
+                            <SelectInput
+                              className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/10 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-[11px] !text-muted/60"
+                              value={templateChoice[doc.id] || ""}
+                              onChange={(e) => setTemplateChoice((prev) => ({ ...prev, [doc.id]: e.target.value }))}
+                              title="Analyse-Template"
                             >
-                              <Sparkles size={13} />
-                              {doc.extraction_status === "basis_analysiert" ? "Vollanalyse starten" : "Analysieren"}
-                            </Button>
+                              <option value="">Auto (nach Dokumenttyp)</option>
+                              {availableTemplates.map((t) => (
+                                <option key={t.key} value={t.key}>{t.label}</option>
+                              ))}
+                            </SelectInput>
                           )}
+                          <Button
+                            size="sm"
+                            onClick={() => reanalyzeDocument(doc.id)}
+                          >
+                            <Sparkles size={13} />
+                            {doc.extraction_status === "basis_analysiert"
+                              ? "Vollanalyse starten"
+                              : doc.extraction_status && !["nicht_extrahiert", ""].includes(doc.extraction_status)
+                                ? "Erneut analysieren"
+                                : "Analysieren"}
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"

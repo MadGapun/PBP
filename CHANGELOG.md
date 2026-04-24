@@ -7,6 +7,43 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.9] - 2026-04-24
+
+Prompt-Templates pro Dokumenttyp: Der „Analysieren"-Button im
+Dokumenten-Tab kopiert jetzt einen typ-spezifischen Prompt in die
+Zwischenablage — je nachdem ob das Dokument eine Bewerbungsbestaetigung,
+eine Stellenausschreibung, eine Absage, ein Vertrag, eine
+Gespraechsnotiz oder ein Profildokument ist. Auswahl geschieht
+automatisch, kann aber manuell ueberschrieben werden.
+
+### Added
+
+- **#496 Prompt-Templates pro Dokumenttyp:** 7 Templates in
+  `src/bewerbungs_assistent/document_analysis_prompts.py` (Bewerbungs-
+  bestaetigung, Stellenausschreibung, Absage, Gespraechsnotiz, Vertrag,
+  Profil-Aufbau, Fallback). Automatische Auswahl anhand `doc_type`,
+  Dateiname und bereits extrahiertem E-Mail-Text (via `STATUS_PATTERNS`
+  aus dem email_service).
+- **Neuer Endpoint** `GET /api/analysis-templates` — liefert die
+  komplette Template-Liste fuer UI-Dropdowns.
+- **Template-Dropdown im Dokumenten-Tab:** Im expandierten Dokument
+  kann der Nutzer das Template ueberschreiben (Default „Auto") bevor
+  er auf „Analysieren" klickt.
+- 25 neue Tests in `tests/test_document_analysis_prompts.py`.
+
+### Changed
+
+- `GET /api/document/{id}/analysis-prompt` akzeptiert jetzt
+  `?template=<key>` und liefert `template`, `template_label`,
+  `apply_to_profile` sowie `available_templates` mit.
+- Frontend: `DocumentsPage.buildAnalysisPrompt` entfernt — Prompt wird
+  jetzt serverseitig gebaut, damit beide Seiten dieselbe
+  Template-Definition verwenden.
+- „Analysieren"-Button in der expandierten Dokument-Ansicht erscheint
+  jetzt auch bei bereits analysierten Dokumenten (mit Label „Erneut
+  analysieren"), damit man mit einem anderen Template neu loslaufen
+  kann.
+
 ## [1.6.0-beta.8] - 2026-04-24
 
 Follow-up-Lifecycle: Wenn eine Bewerbung terminal wird (abgelehnt,
