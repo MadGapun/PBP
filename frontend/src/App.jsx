@@ -709,6 +709,47 @@ export default function App() {
     (readiness.action_target || "").toString().toLowerCase() !== "dashboard" &&
     (readiness.action_label || "").toString().toLowerCase() !== "dashboard ansehen";
 
+  async function startJobsuche(options = {}) {
+    // #461: Dashboard-Button soll die Suche wirklich starten statt nur
+    // den Prompt zu kopieren. Gibt bei Erfolg ein Toast + refresht Chrome,
+    // damit die Statusanzeige den neuen Job sieht.
+    try {
+      const result = await postJson("/api/jobsuche/start", options);
+      if (result?.status === "gestartet") {
+        pushToast(
+          `Jobsuche laeuft auf ${result.quellen?.length || 0} Portalen. Fortschritt siehst du in der Sidebar.`,
+          "teal",
+        );
+        refreshChrome();
+        return result;
+      }
+      if (result?.status === "laeuft_bereits") {
+        pushToast("Eine Jobsuche laeuft bereits.", "amber");
+        return result;
+      }
+      if (result?.status === "keine_quellen") {
+        pushToast(
+          "Keine Job-Quellen aktiviert \u2014 bitte unter Einstellungen \u2192 Job-Quellen auswaehlen.",
+          "amber",
+          { duration: 6000 },
+        );
+        return result;
+      }
+      if (result?.status === "nur_manuelle_quellen") {
+        pushToast(
+          "Alle gewaehlten Quellen laufen nur via Claude-in-Chrome.",
+          "amber",
+          { duration: 6000 },
+        );
+        return result;
+      }
+      return result;
+    } catch (error) {
+      pushToast(error?.message || "Jobsuche konnte nicht gestartet werden.", "rose");
+      throw error;
+    }
+  }
+
   const appContext = {
     page,
     intent,
@@ -719,6 +760,7 @@ export default function App() {
     navigateTo,
     pushToast,
     copyPrompt,
+    startJobsuche,
     executeAction,
     openCreateProfileModal: () => setCreateProfileOpen(true),
     openProfileOnboarding: reopenProfileOnboarding,

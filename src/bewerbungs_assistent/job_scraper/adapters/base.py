@@ -51,7 +51,12 @@ class JobPosting:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_job_dict(self) -> dict[str, Any]:
-        """Serialisiert in das Dict-Schema, das save_jobs() erwartet."""
+        """Serialisiert in das Dict-Schema, das save_jobs() erwartet.
+
+        Optional-Felder mit None werden weggelassen, damit die alten
+        Downstream-Pfade (Scoring, Salary-Heuristik) nicht auf None vs.
+        fehlender Key stolpern.
+        """
         out: dict[str, Any] = {
             "hash": self.hash,
             "title": self.title,
@@ -59,10 +64,11 @@ class JobPosting:
             "location": self.location,
             "url": self.url,
             "source": self.source,
-            "description": self.description,
             "employment_type": self.employment_type,
             "remote_level": self.remote_level,
         }
+        if self.description is not None:
+            out["description"] = self.description
         for key in ("distance_km", "salary_info", "salary_min", "salary_max",
                     "salary_type", "veroeffentlicht_am"):
             val = getattr(self, key)

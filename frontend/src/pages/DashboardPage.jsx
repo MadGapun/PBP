@@ -93,7 +93,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
 }
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, pushToast } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, pushToast, startJobsuche } = useApp();
   const lastLoadErrorRef = useRef({ message: "", at: 0 });
   const [loading, setLoading] = useState(true);
   const [impulse, setImpulse] = useState(null);
@@ -319,7 +319,8 @@ export default function DashboardPage() {
           : "Heute wurde noch keine Jobsuche durchgeführt.",
       tone: "danger",
       actionLabel: "Jetzt starten",
-      action: () => copyPrompt("/jobsuche_workflow"),
+      // #461: direkt Dashboard-Endpoint, kein Claude-Umweg
+      action: () => startJobsuche(),
     });
   }
 
@@ -948,7 +949,7 @@ export default function DashboardPage() {
                 ) : (
                   <p className="py-4 text-center text-[13px] text-muted/50">
                     Noch keine Stellen.{" "}
-                    <button type="button" className="text-teal/70 hover:text-teal" onClick={() => copyPrompt("/jobsuche_workflow")}>
+                    <button type="button" className="text-teal/70 hover:text-teal" onClick={() => startJobsuche()}>
                       Suche starten
                     </button>
                   </p>

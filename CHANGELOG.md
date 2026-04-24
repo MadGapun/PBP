@@ -7,6 +7,67 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.12] - 2026-04-25
+
+Adapter-v2-Flip (#499) + Jobsuche-Button ohne Claude (#461):
+Die neue Scraper-Architektur ist jetzt tatsaechlich zuschaltbar — ueber
+das Feature-Flag `scraper_adapter_v2` (Env-Var `PBP_FEATURES=scraper_adapter_v2`)
+laeuft die komplette Jobsuche-Pipeline durch den neuen Adapter-Orchestrator
+mit Fehler-Isolation pro Quelle. Zusaetzlich kann die Jobsuche jetzt direkt
+aus dem Dashboard gestartet werden, ohne den Umweg ueber Claude.
+Default bleibt der alte Pfad; der neue wird schrittweise haerter getestet.
+
+### Added
+
+- **Generischer `LegacyScraperAdapter`**: Wickelt jede
+  `search_*`-Funktion des Scraper-Pakets hinter die
+  `JobSourceAdapter`-Schnittstelle. Damit deckt die Registry ab
+  sofort **alle 20 Quellen** aus `_SCRAPER_MAP` ab (vorher: nur 5
+  spezialisierte Adapter), ohne pro Quelle eine Wrapper-Klasse zu
+  brauchen. Spezial-Adapter (Bundesagentur, Hays, JobSpy,
+  GoogleJobs) bleiben unveraendert und ueberschreiben den
+  generischen Eintrag.
+- **Feature-Flag-Pfad in `run_search()`**: `_load_scraper()` liefert
+  mit aktivem Flag einen Adapter-Aufruf statt der Direkt-Import-
+  Funktion. Timeout-Handling, Parallel-Lauf, Playwright-Serialisierung
+  und Progress-Reporting bleiben vollstaendig im alten Code —
+  veraendert wird nur der innere "Scraper holen"-Schritt.
+- **`adapter_pfad`-Feld im Jobsuche-Ergebnis**: `result.adapter_pfad`
+  = `"v2"` oder `"legacy"`, damit im Dashboard/Log nachvollziehbar
+  ist, welcher Pfad gelaufen ist.
+- **7 Smoke-Tests (`tests/test_scraper_adapter_v2.py`)**: Adapter
+  fuer jede `_SCRAPER_MAP`-Quelle vorhanden; Legacy-Adapter isoliert
+  Exceptions; Orchestrator reisst nicht um wenn ein Adapter crasht;
+  `run_search` routet ohne Flag durch den alten und mit Flag durch
+  den neuen Pfad.
+- **#461 `POST /api/jobsuche/start`**: Neuer Dashboard-Endpoint
+  spiegelt die Logik des MCP-Tools `jobsuche_starten` — filtert
+  manuelle Quellen (Claude-in-Chrome-only) heraus, blockt
+  Doppel-Starts laufender Jobs, startet den Scraper im Thread-Pool
+  mit Timeout-Watchdog.
+- **`startJobsuche()`-Helper im Frontend**: App-Context-Funktion
+  ruft den neuen Endpoint, zeigt Toast bei Erfolg/Fehler und
+  triggert Chrome-Refresh — die globale Statusanzeige aus #487
+  schaltet sofort auf "laeuft". 3 neue Dashboard-Tests.
+- **Button-Wiring**: DashboardPage (TODO-Karte + Leere-Suche-Hinweis)
+  und JobsPage (Banner + Empty-State) rufen jetzt `startJobsuche()`
+  statt `copyPrompt('/jobsuche_workflow')`. Nutzer ohne Claude
+  bekommen die Suche ohne KI-Umweg direkt aus dem UI.
+
+### Changed
+
+- `JobPosting.to_job_dict()` laesst `description=None` weg (nicht
+  mehr als `None` einschleusen), damit Downstream-Heuristiken wie
+  Employment-Type-Erkennung nicht auf `None[:500]` crashen.
+
+### Known Issues
+
+- Die Sub-Issues des Epics (#486 Polling-Fix, #487 globale
+  Statusanzeige, #488 Chrome-Fallback fuer deprecated Quellen, #489
+  Bundesagentur-Fix, #490 JobSpy-Stabilisierung, #461
+  Dashboard-Button) sind weiterhin offen und werden schrittweise
+  auf dem neuen Pfad umgesetzt.
+
 ## [1.6.0-beta.11] - 2026-04-25
 
 Duplikat-Pruefung gehaertet + Merge-Tool fuer nachtraegliche

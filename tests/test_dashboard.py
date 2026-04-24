@@ -1312,6 +1312,40 @@ class TestStatistics:
         assert body["status"] == "running"
         assert body["progress"] == 42
 
+    def test_jobsuche_start_ohne_aktive_quellen(self, client):
+        """POST /api/jobsuche/start ohne Quellen liefert keine_quellen (#461)."""
+        r = client.post("/api/jobsuche/start", json={})
+        assert r.status_code == 400
+        assert r.json()["status"] == "keine_quellen"
+
+    def test_jobsuche_start_ueberspringt_manuelle_quellen(self, client):
+        """Nur manuelle Quellen -> nur_manuelle_quellen (#461, #488)."""
+        r = client.post(
+            "/api/jobsuche/start",
+            json={"quellen": ["linkedin", "xing"]},
+        )
+        assert r.status_code == 400
+        body = r.json()
+        assert body["status"] == "nur_manuelle_quellen"
+        assert "linkedin" in body["manuelle_quellen"]
+
+    def test_jobsuche_start_erkennt_laufenden_job(self, client):
+        """Ein laufender Jobsuche-Job blockt weitere Starts (#461, #265)."""
+        import bewerbungs_assistent.dashboard as dash
+        running_id = dash._db.create_background_job(
+            "jobsuche", {"quellen": ["bundesagentur"]}
+        )
+        dash._db.update_background_job(running_id, "running", progress=10)
+
+        r = client.post(
+            "/api/jobsuche/start",
+            json={"quellen": ["bundesagentur"]},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "laeuft_bereits"
+        assert body["job_id"] == running_id
+
     def test_sources_default_all_inactive(self, client):
         """Quellen-API liefert standardmaessig alle Quellen als inaktiv."""
         r = client.get("/api/sources")

@@ -111,7 +111,7 @@ function jobNeedsDescriptionAttention(job) {
 }
 
 export default function JobsPage() {
-  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo } = useApp();
+  const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo, startJobsuche } = useApp();
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
@@ -617,7 +617,7 @@ export default function JobsPage() {
         title: "Erst die Jobsuche erneuern, dann wieder aussortieren",
         description: "Die Suche ist veraltet oder noch nie gelaufen. Neue Treffer bringen jetzt mehr als noch feinere Filter.",
         actionLabel: "Jobsuche starten",
-        action: () => copyPrompt("/jobsuche_workflow"),
+        action: () => startJobsuche(),
       };
     }
     if (filters.view === "dismissed" && dismissedJobs.length > 0) {
@@ -1122,7 +1122,7 @@ export default function JobsPage() {
               action={filters.view === "active" ? (
                 <div className="flex gap-3">
                   <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
-                  <Button variant="secondary" onClick={() => copyPrompt("/jobsuche_workflow")}>
+                  <Button variant="secondary" onClick={() => startJobsuche()}>
                     <Search size={15} />
                     Jobsuche starten
                   </Button>

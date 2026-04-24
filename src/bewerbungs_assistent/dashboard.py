@@ -3581,6 +3581,102 @@ async def api_background_job(job_id: str):
     return job
 
 
+@app.post("/api/jobsuche/start")
+async def api_jobsuche_start(payload: dict = Body(default={})):
+    """Startet eine Jobsuche direkt aus dem Dashboard (#461).
+
+    Spiegelt die Logik des MCP-Tools `jobsuche_starten` — manuelle
+    Quellen werden rausgefiltert, laufende Jobs verhindern Doppel-
+    Starts, der eigentliche Scrape laeuft im Thread.
+    """
+    import threading
+    from .tools.jobs import _MANUAL_SOURCES
+
+    keywords = payload.get("keywords") or None
+    quellen = payload.get("quellen") or []
+    nur_remote = bool(payload.get("nur_remote"))
+    max_entfernung_km = int(payload.get("max_entfernung_km") or 0)
+
+    if not quellen:
+        quellen = _db.get_profile_setting("active_sources", []) or []
+    if not quellen:
+        return JSONResponse(
+            {
+                "status": "keine_quellen",
+                "nachricht": (
+                    "Keine Job-Quellen aktiviert. Aktiviere Quellen unter "
+                    "Einstellungen \u2192 Job-Quellen."
+                ),
+            },
+            status_code=400,
+        )
+
+    manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
+    auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
+    manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
+
+    if not auto_quellen:
+        return JSONResponse(
+            {
+                "status": "nur_manuelle_quellen",
+                "manuelle_quellen": manuelle_info,
+                "nachricht": (
+                    "Alle ausgewaehlten Quellen laufen nur ueber Claude-in-Chrome "
+                    "oder sind deprecated \u2014 hier gibt es nichts zu automatisieren."
+                ),
+            },
+            status_code=400,
+        )
+
+    existing = _db.get_running_background_job("jobsuche")
+    if existing:
+        return {
+            "status": "laeuft_bereits",
+            "job_id": existing["id"],
+            "nachricht": "Eine Jobsuche laeuft bereits.",
+        }
+
+    params = {
+        "keywords": keywords,
+        "quellen": auto_quellen,
+        "nur_remote": nur_remote,
+        "max_entfernung_km": max_entfernung_km,
+    }
+    job_id = _db.create_background_job("jobsuche", params)
+
+    def _run_search():
+        try:
+            from .job_scraper import run_search
+            run_search(_db, job_id, params)
+        except Exception as exc:
+            logger.error("Jobsuche (Dashboard) fehlgeschlagen: %s", exc, exc_info=True)
+            _db.update_background_job(job_id, "fehler", message=str(exc))
+
+    thread = threading.Thread(target=_run_search, daemon=True)
+    thread.start()
+
+    def _timeout_watchdog():
+        thread.join(timeout=600)
+        if thread.is_alive():
+            logger.warning("Jobsuche (Dashboard) Timeout nach 10min (Job %s)", job_id)
+            _db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
+
+    threading.Thread(target=_timeout_watchdog, daemon=True).start()
+
+    result = {
+        "status": "gestartet",
+        "job_id": job_id,
+        "quellen": auto_quellen,
+        "nachricht": (
+            f"Jobsuche laeuft auf {len(auto_quellen)} Portalen. "
+            "Fortschritt in der Sidebar-Statusanzeige."
+        ),
+    }
+    if manuelle_info:
+        result["manuelle_quellen"] = manuelle_info
+    return result
+
+
 @app.get("/api/jobsuche/running")
 async def api_jobsuche_running():
     """Return whether a jobsuche background job is currently running."""

@@ -448,8 +448,35 @@ def run_search(db, job_id: str, params: dict):
             pass
         return fn(p)
 
+    # #499 Beta.12: Feature-Flag flip — wenn aktiv, Suche ueber Adapter-Pfad
+    from ..feature_flags import is_enabled as _flag_enabled
+    _use_adapters = _flag_enabled("scraper_adapter_v2")
+
     def _load_scraper(quelle):
-        """Load scraper function by source name."""
+        """Load scraper function by source name.
+
+        Mit Flag `scraper_adapter_v2` laueft die Suche ueber den
+        registrierten Adapter (Fehler-Isolation, typisierte Rueckgabe).
+        Ohne Flag laeuft der alte direkte Aufruf unveraendert weiter.
+        """
+        if _use_adapters:
+            from .adapters import get_adapter
+            adapter = get_adapter(quelle)
+            if adapter is None:
+                raise ImportError(f"Kein Adapter registriert: {quelle}")
+
+            def _adapter_call(p):
+                result = adapter.search(p)
+                # Legacy-Pipeline erwartet list[dict] — Adapter liefert
+                # typisierte JobPostings. Status-Fehler werden als Exception
+                # propagiert, damit das bestehende Error-Handling greift.
+                from .adapters import AdapterStatus
+                if result.status in (AdapterStatus.ERROR, AdapterStatus.NOT_CONFIGURED):
+                    raise RuntimeError(result.message or result.status.value)
+                return [posting.to_job_dict() for posting in result.postings]
+
+            return _adapter_call
+
         module_name, func_name = _SCRAPER_MAP[quelle]
         import importlib
         mod = importlib.import_module(f".{module_name}", package=__package__)
@@ -767,6 +794,7 @@ def run_search(db, job_id: str, params: dict):
         "total": len(unique),
         "quellen": {q: sum(1 for j in unique if j.get("source") == q) for q in quellen},
         "quellen_status": source_status,  # #316: Per-Source Fokus-Modus
+        "adapter_pfad": "v2" if _use_adapters else "legacy",  # #499 Beta.12
     }
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
