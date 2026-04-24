@@ -7,6 +7,59 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.2] - 2026-04-24
+
+Block B, Teil 1: Scraper-Architektur v2 (#499) als Fundament und
+Bundesagentur-Stabilisierung (#489). Das neue Adapter-Interface lebt
+parallel zur bestehenden `run_search()`-Pipeline — aktiviert wird es
+erst in Beta.4 hinter dem Feature-Flag `scraper_adapter_v2`. Kein
+bestehender Flow veraendert.
+
+### Added
+
+- **Adapter-Interface (`job_scraper/adapters/`)** — Vertragliche Basis
+  fuer Quellen-Adapter: `JobSourceAdapter`, `JobPosting`, `AdapterResult`,
+  `AdapterStatus`. Unbekannte Felder aus dem Source-Dict landen in
+  `JobPosting.extra` (keine Daten-Verluste beim Roundtrip).
+- **Adapter-Registry + Orchestrator** (`registry.py`, `orchestrator.py`)
+  — Double-Isolation: unbekannte `source_key` liefern `NOT_CONFIGURED`,
+  Exceptions im Adapter werden zu `AdapterResult(status=ERROR)`. Ein
+  kaputter Adapter reisst die anderen nicht mit.
+- **`BundesagenturAdapter` + `HaysAdapter`** — duenne Wrapper um die
+  bestehenden `search_*`-Funktionen. Referenz-Implementierungen fuer
+  weitere Migrationen in Beta.3/4.
+- **Smoke-Test erweitert** auf 16/16: Adapter-Registry, JobPosting-
+  Roundtrip, Fehler-Isolation im Orchestrator, BA-Retry via
+  `httpx.MockTransport` (503 → 503 → 200).
+
+### Changed
+
+- **Bundesagentur-API-Client (#489)**:
+  - iOS-App-User-Agent (`Jobsuche/2.12.0 … Alamofire/5.6.2`) — die API
+    mag einen Client-Kontext sehen statt leerem Python-UA.
+  - Retry+Exponential-Backoff (2s/4s/8s) fuer 500/502/503/504 und
+    `httpx.TimeoutException`/`TransportError`. Das „DNS cache overflow"-
+    503 verschwindet zuverlaessig nach 1–2 Retries.
+  - `umkreis_km` aus Dashboard-Criteria wird an die API durchgereicht.
+  - Detail-URL auf `pc/v4/jobdetails/{base64(refnr)}` umgestellt — die
+    alte `/jobs/{refnr}`-Route liefert seit Anfang 2026 403.
+  - `_fetch_ba_detail` liest camelCase-Felder
+    (`stellenangebotsBeschreibung`, `verguetungsangabe`, …) als
+    Primaerquelle, lowercase bleibt als Fallback.
+
+### Fixed
+
+- **BA-Suche lieferte nur ~20 Treffer mit 16-Zeichen-Beschreibung**:
+  Die neue API-Schema-Version hat camelCase-Keys. Beschreibungen sind
+  jetzt wieder 1000–2000 Zeichen lang (verifiziert an 100 Live-
+  Treffern: „Projektmanager Berlin Umkreis 50 km").
+
+### Known Issues
+
+- Feature-Flag `scraper_adapter_v2` bleibt in Beta.2 ausgeschaltet —
+  die Adapter-Schicht ist betriebsbereit, wird aber erst in Beta.4
+  von der Pipeline angesprochen.
+
 ## [1.6.0-beta.1] - 2026-04-24
 
 Block A: Regression-Protection-Foundation (#498). Rein additiv — keine
@@ -32,15 +85,17 @@ bestehenden Flows veraendert. Ziel: Schutznetz fuer die folgenden Betas.
 - Version-Bump `1.5.8` → `1.6.0-beta.1` in `pyproject.toml` und
   `src/bewerbungs_assistent/__init__.py`.
 
+### Fixed
+
+- **Test-Harness an FastMCP 2.12 angepasst**: Die 28 roten Tests in
+  `tests/test_v154_writeback.py` und `tests/test_v157_flow_completion.py`
+  liefen gegen die entfernte API `FastMCP.call_tool(name, args)`. Der
+  `_call`-Helper nutzt jetzt `await mcp.get_tool(name)` + `tool.run(args)`.
+  Reine Test-Anpassung, keine Feature-Aenderung. Full Suite: 440 passed.
+
 ### Known Issues
 
 - Stand entspricht v1.5.8, siehe `docs/WORKING_FEATURES.md`.
-- 28 Tests in `tests/test_v154_writeback.py` und `tests/test_v157_flow_completion.py`
-  sind bereits auf `main` rot (FastMCP-API-Upgrade: `mcp.call_tool` existiert
-  nicht mehr, ersetzt durch `add_tool`). Nicht durch Beta.1 verursacht —
-  muss im Laufe von v1.6.0 gefixt werden. Die Prod-Features (meeting_*,
-  follow_up_*) funktionieren laut Smoke-Test und manuellem Dashboard-Test
-  normal; nur die Test-Harness spricht eine nicht mehr existierende API an.
 
 ## [1.5.8] - 2026-04-21
 

@@ -23,7 +23,10 @@ from typing import Dict
 # Registrierte Flags. Default=False bedeutet: alter Code laeuft, neuer
 # Code nur mit explizitem Opt-In.
 FEATURES: Dict[str, bool] = {
-    # Beta-Platzhalter — erste echte Flags kommen mit Block B (#499) dazu.
+    # #499 (seit Beta.2): Scraper-Architektur v2 als opt-in Orchestrator-Pfad.
+    # Default=False: die gewohnte run_search()-Pipeline laeuft. Mit flag=True
+    # ruft die Pipeline die neuen Adapter ueber den Orchestrator auf.
+    "scraper_adapter_v2": False,
 }
 
 

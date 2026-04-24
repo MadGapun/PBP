@@ -37,7 +37,8 @@ def _build_server(tmp_path):
 
 
 async def _call(mcp, name, args=None):
-    result = await mcp.call_tool(name, args or {})
+    tool = await mcp.get_tool(name)
+    result = await tool.run(args or {})
     if hasattr(result, "structured_content") and result.structured_content:
         return result.structured_content
     import json
