@@ -43,10 +43,12 @@ eine Regression und blockt den Release bzw. bekommt ein Issue.
 - [x] `save_jobs` / `get_active_jobs` funktionieren
 - [x] Hays-Scraper liefert Treffer (Beispiel „PLM Hamburg")
 - [x] Manueller Stellen-Import via `stelle_manuell_anlegen`
-- [ ] Bundesagentur-Scraper: Timeout-Probleme (#489)
-- [ ] LinkedIn-Scraper: deprecated, haendischer Workflow (#488, #490)
-- [ ] StepStone-Scraper: Bot-Detection, haendischer Workflow (#488, #501)
-- [ ] Google Jobs: ueber JobSpy broken (#490), Alternative via Chrome (#501)
+- [x] Bundesagentur-Scraper: 100 Treffer mit Volltext, Retry-Logik (#489, Beta.2)
+- [x] JobSpy/LinkedIn als Quelle (#490, Beta.3) — optional via `pip install python-jobspy`
+- [x] JobSpy/Indeed.de als Quelle (#490, Beta.3) — optional via `pip install python-jobspy`
+- [x] Google Jobs via Chrome-Extension: `google_jobs_url` + `stelle_manuell_anlegen` (#501, Beta.3)
+- [ ] LinkedIn-Scraper (alt, Playwright): deprecated, UX-Hinweis fehlt (#488)
+- [ ] StepStone-Scraper: Bot-Detection, haendischer Workflow (#488)
 
 ### Termine / Kalender
 - [x] `add_meeting` + `get_upcoming_meetings`

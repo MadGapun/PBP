@@ -542,6 +542,42 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def google_jobs_url(
+        keyword: str,
+        zeitraum: str = "woche",
+        ort: str = "",
+    ) -> dict:
+        """Baut eine Google-Jobs-URL fuer Chrome-in-Claude (#501).
+
+        Google Jobs (`udm=8`) ist der groesste Aggregator in DE und
+        indexiert u.a. StepStone-Stellen. Ein direkter HTTP-Abruf wird
+        von Google zuverlaessig blockiert, ein eingeloggter Chrome-Tab
+        mit Claude-in-Chrome funktioniert aber stabil.
+
+        Workflow:
+        1. `google_jobs_url(keyword="PLM", ort="Hamburg")` aufrufen
+        2. URL in Chrome mit Claude-in-Chrome oeffnen
+        3. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
+
+        Args:
+            keyword: Suchbegriff (z.B. 'PLM Projektleiter').
+            zeitraum: 'tag' | 'woche' | 'monat'. Default 'woche'.
+            ort: Optionaler Ort (z.B. 'Hamburg'). Leer = Google nimmt
+                 den Standort aus dem eingeloggten Google-Account.
+        """
+        if not keyword:
+            return {"fehler": "keyword ist Pflichtfeld."}
+        from ..job_scraper.google_jobs import build_google_jobs_url
+        url = build_google_jobs_url(keyword, zeitraum=zeitraum, ort=ort or None)
+        return {
+            "url": url,
+            "hinweis": (
+                "Oeffne diese URL in Chrome mit Claude-in-Chrome und "
+                "uebernimm gefundene Stellen ueber stelle_manuell_anlegen()."
+            ),
+        }
+
+    @mcp.tool()
     def linkedin_browser_search(
         keywords: list[str] = None,
         location: str = "Deutschland",

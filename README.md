@@ -279,6 +279,10 @@ Hintergrund: PBP versucht den Standard-Browser zu steuern. Wenn Edge geoeffnet i
 **ELWOSA** — Fundament, Projektmanagement & Dateninfrastruktur
 > Die allererste PBP-Version lief direkt auf der ELWOSA-Datenbank — dort wurde der Prototyp entwickelt und erprobt, bevor er zur eigenständigen Anwendung umgebaut wurde. ELWOSA liefert bis heute Projektmanagement, Server-Infrastruktur, CI/CD-Prozesse und Entwicklungsmethodik.
 
+### Third-Party-Bibliotheken
+
+- **[python-jobspy](https://github.com/speedyapply/JobSpy)** (MIT) — seit v1.6.0-beta.3 als optionale Scraper-Quelle fuer LinkedIn und Indeed.de verwendet (#490). Kein API-Key, keine Kosten.
+
 ---
 
 <p align="center">

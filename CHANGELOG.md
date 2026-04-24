@@ -7,6 +7,59 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.3] - 2026-04-24
+
+Block B, Teil 2: zwei neue Job-Quellen dazu. LinkedIn + Indeed.de
+laufen jetzt ueber die MIT-lizenzierte Open-Source-Bibliothek
+`python-jobspy` (#490), Google Jobs ueber die Chrome-Extension (#501).
+Beides kostenlos, kein API-Key, kein Account ausser dem bereits
+eingeloggten Google-Browser. Bestehender Flow unveraendert — die
+neuen Quellen sind separat im Dashboard an/abschaltbar.
+
+### Added
+
+- **`jobspy_linkedin` + `jobspy_indeed`** als neue Scraper-Quellen
+  (#490). Dünner Python-Wrapper um `python-jobspy` (MIT, optionale
+  Dependency im Extra `scraper`). Liefert Titel, Firma, Ort, Volltext-
+  Beschreibung, Gehaltsspanne (falls vorhanden) und Direkt-URL.
+  - LinkedIn-spezifisch: Englische Keywords werden automatisch um
+    deutsche Aequivalente erweitert (`project manager` → zusaetzlich
+    `Projektleiter`), weil LinkedIn sonst keine sauberen DE-Treffer
+    filtert.
+  - Rate-Limit-Handling: HTTP 429 → Site wird fuer diesen Lauf
+    uebersprungen, andere Quellen laufen normal weiter.
+  - Graceful degrade, wenn `python-jobspy` nicht installiert ist:
+    `NOT_CONFIGURED` statt Crash.
+- **`google_jobs` als Quelle + MCP-Tool `google_jobs_url`** (#501).
+  Baut die stabile `https://www.google.com/search?q=...&udm=8`-URL mit
+  optionalem Zeitraum-Filter (`tbs=qdr:d|w|m`) und Ort. Scraping laeuft
+  ueber die Chrome-Extension mit dem eingeloggten Google-Account — der
+  zuverlaessig funktionierende Weg, weil Google direkte HTTP-Abrufe
+  blockt, den eingeloggten Browser aber nicht. Ingest wie bei LinkedIn
+  via `stelle_manuell_anlegen()`.
+- **Adapter-Wrapper** fuer alle drei neuen Quellen (`JobSpyLinkedInAdapter`,
+  `JobSpyIndeedAdapter`, `GoogleJobsChromeAdapter`). Integration in die
+  Adapter-Registry aus Beta.2 — `scraper_adapter_v2` bleibt weiterhin
+  aus, das Umschalten kommt in Beta.4.
+- **README-Attribution** fuer `python-jobspy` unter Credits →
+  Third-Party-Bibliotheken.
+- **Smoke-Test** auf 21/21: JobSpy Row-Mapping, LinkedIn-DE-Expansion,
+  graceful-without-package, Google-Jobs URL-Schema, Chrome-Adapter-
+  Hinweistext.
+
+### Changed
+
+- `SOURCE_REGISTRY` um drei Eintraege erweitert
+  (`jobspy_linkedin`, `jobspy_indeed`, `google_jobs`), alle mit
+  `beta: True`. `_SCRAPER_MAP` zeigt auf die neuen Module.
+- `pyproject.toml`: `python-jobspy>=1.1` im Extra `scraper`
+  hinzugefuegt (optional, keine Pflicht-Dependency fuer das Kernpaket).
+
+### Known Issues
+
+- JobSpy/Glassdoor und JobSpy/Google sind upstream broken
+  (jobspy#302) und bleiben bewusst deaktiviert.
+
 ## [1.6.0-beta.2] - 2026-04-24
 
 Block B, Teil 1: Scraper-Architektur v2 (#499) als Fundament und

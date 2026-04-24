@@ -227,8 +227,9 @@ def run(verbose: bool = False) -> int:
             available_adapters, get_adapter, JobSourceAdapter,
         )
         names = available_adapters()
-        assert "bundesagentur" in names and "hays" in names, \
-            f"Registry unvollstaendig: {names}"
+        for required in ("bundesagentur", "hays", "jobspy_linkedin",
+                          "jobspy_indeed", "google_jobs"):
+            assert required in names, f"Registry unvollstaendig: {required} fehlt in {names}"
         for name in names:
             adapter = get_adapter(name)
             assert isinstance(adapter, JobSourceAdapter), \
@@ -326,6 +327,91 @@ def run(verbose: bool = False) -> int:
             ba._RETRY_BACKOFF_BASE = orig_backoff
 
     smoke.check("BA-Scraper: Retry bis 200 bei transienten 503", _ba_retry_logic)
+
+    # 10. JobSpy-Mapping (#490) — ohne tatsaechliche JobSpy-Installation
+    def _jobspy_row_mapping():
+        from bewerbungs_assistent.job_scraper import jobspy_source as js
+
+        class _Row(dict):
+            def get(self, key, default=None):
+                return dict.get(self, key, default)
+
+        row = _Row({
+            "title": "Senior PLM Manager",
+            "company": "ACME AG",
+            "location": "Hamburg",
+            "description": "Leite unser PLM-Team.",
+            "job_url": "https://linkedin.com/jobs/view/123",
+            "job_url_direct": "https://acme.com/careers/123",
+            "is_remote": True,
+            "job_type": "fulltime",
+            "min_amount": "75000.0",
+            "max_amount": 95000,
+        })
+        mapped = js._map_row(row, "linkedin")
+        assert mapped["source"] == "jobspy_linkedin", mapped["source"]
+        assert mapped["title"] == "Senior PLM Manager"
+        assert mapped["remote_level"] == "remote"
+        assert mapped["url"] == "https://acme.com/careers/123", mapped["url"]
+        assert mapped["salary_min"] == 75000 and mapped["salary_max"] == 95000, mapped
+
+    smoke.check("JobSpy: Row-Mapping auf PBP-Schema", _jobspy_row_mapping)
+
+    def _jobspy_linkedin_keyword_expansion():
+        from bewerbungs_assistent.job_scraper.jobspy_source import (
+            _expand_keywords_for_linkedin,
+        )
+        expanded = _expand_keywords_for_linkedin(["project manager", "Systemadmin"])
+        assert "project manager" in expanded, expanded
+        assert "Projektleiter" in expanded, expanded
+        assert "Systemadmin" in expanded, expanded  # unbekannt → unveraendert
+
+    smoke.check("JobSpy: LinkedIn DE-Aequivalente", _jobspy_linkedin_keyword_expansion)
+
+    def _jobspy_graceful_without_package():
+        # Wenn python-jobspy fehlt, darf weder der Adapter noch die
+        # Suche crashen — Adapter liefert NOT_CONFIGURED, Suche 0.
+        from bewerbungs_assistent.job_scraper import jobspy_source as js
+        from bewerbungs_assistent.job_scraper.adapters import (
+            AdapterStatus, get_adapter,
+        )
+
+        orig = js._ensure_jobspy
+        js._ensure_jobspy = lambda: None  # simuliere fehlendes Package
+        try:
+            assert js.search_jobspy_linkedin({"keywords": {"general": ["PLM"]}}) == []
+            res = get_adapter("jobspy_indeed").search({"keywords": {"general": ["PLM"]}})
+            assert res.status == AdapterStatus.NOT_CONFIGURED, res.status
+            assert "python-jobspy" in (res.message or ""), res.message
+        finally:
+            js._ensure_jobspy = orig
+
+    smoke.check("JobSpy: graceful ohne installiertes Package", _jobspy_graceful_without_package)
+
+    # 11. Google Jobs (#501) — URL-Builder + Chrome-Adapter
+    def _google_jobs_url():
+        from bewerbungs_assistent.job_scraper.google_jobs import build_google_jobs_url
+
+        url = build_google_jobs_url("PLM Projektleiter", zeitraum="woche", ort="Hamburg")
+        assert url.startswith("https://www.google.com/search?"), url
+        assert "udm=8" in url, "udm=8 fehlt — nicht mehr Google-Jobs-Modus"
+        assert "tbs=qdr%3Aw" in url or "tbs=qdr:w" in url, url
+        assert "Hamburg" in url, url
+
+    smoke.check("Google Jobs: URL-Builder (udm=8 + Zeitraum + Ort)", _google_jobs_url)
+
+    def _google_jobs_adapter_manual():
+        from bewerbungs_assistent.job_scraper.adapters import (
+            AdapterStatus, get_adapter,
+        )
+        res = get_adapter("google_jobs").search(
+            {"keywords": {"general": ["PLM"], "regionen": ["Hamburg"]}}
+        )
+        assert res.status == AdapterStatus.NOT_CONFIGURED, res.status
+        assert "stelle_manuell_anlegen" in (res.message or ""), res.message
+        assert "google.com/search" in (res.message or ""), res.message
+
+    smoke.check("Google Jobs: Chrome-Adapter liefert URL + Hinweis", _google_jobs_adapter_manual)
 
     return smoke.summary()
 

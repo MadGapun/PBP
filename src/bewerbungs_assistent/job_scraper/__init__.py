@@ -99,6 +99,26 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
+    # ── JobSpy-basierte Quellen (#490, schnell, API-Scrapes via python-jobspy) ──
+    "jobspy_linkedin": {
+        "name": "LinkedIn (via JobSpy)",
+        "beschreibung": "LinkedIn-Stellen ueber die Open-Source-Bibliothek python-jobspy (MIT). "
+                         "Kein Login, keine API-Keys, kein Chrome noetig.",
+        "methode": "python-jobspy",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+        "warnung": "LinkedIn rate-limitet ab ca. Seite 10 pro IP — bei 429 wird die Site uebersprungen.",
+        "beta": True,
+    },
+    "jobspy_indeed": {
+        "name": "Indeed.de (via JobSpy)",
+        "beschreibung": "Indeed-Stellen ueber die Open-Source-Bibliothek python-jobspy (MIT). "
+                         "Deckt Indeed DE/EU stabil ab, inkl. Volltext.",
+        "methode": "python-jobspy",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+        "beta": True,
+    },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
         "name": "StepStone",
@@ -156,6 +176,19 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "manuell",
         "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
         "hinweis": "Automatische Suche deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
+    },
+    "google_jobs": {
+        "name": "Google Jobs (via Chrome)",
+        "beschreibung": "Groesster Aggregator fuer DE-Stellen — aggregiert StepStone, Jobware, "
+                         "Stellenanzeigen.de und Firmenwebseiten. Laeuft manuell ueber den "
+                         "eingeloggten Chrome-Browser (keine Bot-Detection). #501",
+        "methode": "Claude-in-Chrome (manuell)",
+        "login_erforderlich": True,
+        "geschwindigkeit": "manuell",
+        "warnung": "Benoetigt eingeloggten Google-Account in Chrome mit Claude-in-Chrome Extension.",
+        "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — in Chrome oeffnen "
+                    "und Treffer mit stelle_manuell_anlegen() uebernehmen.",
+        "beta": True,
     },
 }
 
@@ -248,6 +281,9 @@ _SCRAPER_MAP = {
     "jobware": ("jobware", "search_jobware"),
     "ferchau": ("ferchau", "search_ferchau"),
     "kimeta": ("kimeta", "search_kimeta"),
+    "jobspy_linkedin": ("jobspy_source", "search_jobspy_linkedin"),
+    "jobspy_indeed": ("jobspy_source", "search_jobspy_indeed"),
+    "google_jobs": ("google_jobs", "search_google_jobs"),
 }
 
 

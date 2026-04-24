@@ -14,11 +14,16 @@ from typing import Dict
 
 from .base import JobSourceAdapter
 from .bundesagentur_adapter import BundesagenturAdapter
+from .google_jobs_adapter import GoogleJobsChromeAdapter
 from .hays_adapter import HaysAdapter
+from .jobspy_adapter import JobSpyIndeedAdapter, JobSpyLinkedInAdapter
 
 _ADAPTERS: Dict[str, JobSourceAdapter] = {
     "bundesagentur": BundesagenturAdapter(),
     "hays": HaysAdapter(),
+    "jobspy_linkedin": JobSpyLinkedInAdapter(),
+    "jobspy_indeed": JobSpyIndeedAdapter(),
+    "google_jobs": GoogleJobsChromeAdapter(),
 }
 
 

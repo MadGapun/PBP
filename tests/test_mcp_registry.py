@@ -79,6 +79,7 @@ EXPECTED_TOOL_NAMES = {
     "bewerbung_details",
     "antwort_formulieren",
     "dokument_verknuepfen",
+    "google_jobs_url",
     "linkedin_browser_search",
     "stelle_manuell_anlegen",
     "kennlerngespraech_abschliessen",
@@ -203,7 +204,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 89  # v1.5.7: +follow_up_erledigen/hinfaellig/verschieben, +position_aus_bewerbung_uebernehmen
+        assert len(tools) == 90  # v1.6.0-beta.3: +google_jobs_url (#501)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:
