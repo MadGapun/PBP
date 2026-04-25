@@ -3641,14 +3641,46 @@ async def api_analyze_filename(request: Request):
 
 @app.get("/api/sources")
 async def api_sources():
-    """List all available job sources with active status."""
+    """List all available job sources with active status and health (#499)."""
     from .job_scraper import SOURCE_REGISTRY
     active = _db.get_profile_setting("active_sources", None)
     if active is None and _db.get_active_profile_id():
         active = get_default_active_source_keys(SOURCE_REGISTRY)
         _db.set_profile_setting("active_sources", active)
     active = active or []
-    return build_source_rows(SOURCE_REGISTRY, active)
+    rows = build_source_rows(SOURCE_REGISTRY, active)
+    health_by_name = {h["scraper_name"]: h for h in _db.get_scraper_health()}
+    for row in rows:
+        h = health_by_name.get(row["key"])
+        if not h:
+            row["health"] = None
+            continue
+        last_count = h.get("last_count") or 0
+        consec_silent = h.get("consecutive_silent") or 0
+        consec_fail = h.get("consecutive_failures") or 0
+        if not h.get("is_active"):
+            badge = "deaktiviert"
+        elif consec_fail > 0:
+            badge = "fehler"
+        elif consec_silent >= 3:
+            badge = "stumm"
+        elif last_count > 0:
+            badge = "ok"
+        elif h.get("last_run"):
+            badge = "leer"
+        else:
+            badge = "nie"
+        row["health"] = {
+            "last_run": h.get("last_run"),
+            "last_count": last_count,
+            "last_status_detail": h.get("last_status_detail"),
+            "consecutive_silent": consec_silent,
+            "consecutive_failures": consec_fail,
+            "avg_time_s": h.get("avg_time_s") or 0,
+            "is_active_health": bool(h.get("is_active")),
+            "badge": badge,
+        }
+    return rows
 
 
 @app.post("/api/sources")

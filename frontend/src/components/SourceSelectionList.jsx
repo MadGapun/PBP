@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, LoaderCircle, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
 
 import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
 
@@ -6,6 +6,49 @@ function loginTone(status) {
   if (status === "fehler") return "danger";
   if (status === "fertig") return "success";
   return "sky";
+}
+
+function healthBadge(health) {
+  if (!health || !health.last_run) return null;
+  const count = health.last_count ?? 0;
+  const time = health.avg_time_s ? ` / ${health.avg_time_s.toFixed(1)}s` : "";
+  switch (health.badge) {
+    case "ok":
+      return (
+        <Badge tone="success" className="gap-1" title={`Letzter Lauf: ${count} Treffer${time}`}>
+          <CheckCircle2 size={10} />
+          {count} Treffer{time}
+        </Badge>
+      );
+    case "stumm":
+      return (
+        <Badge tone="amber" className="gap-1" title={`Stumm seit ${health.consecutive_silent} Lauf(en)${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+          <VolumeX size={10} />
+          0 Treffer{time}
+        </Badge>
+      );
+    case "leer":
+      return (
+        <Badge tone="neutral" className="gap-1" title="Letzter Lauf brachte keine Treffer">
+          0 Treffer{time}
+        </Badge>
+      );
+    case "fehler":
+      return (
+        <Badge tone="danger" className="gap-1" title={`${health.consecutive_failures} Fehler in Folge`}>
+          <XCircle size={10} />
+          Fehler
+        </Badge>
+      );
+    case "deaktiviert":
+      return (
+        <Badge tone="neutral" className="gap-1" title="Automatisch deaktiviert nach mehreren stillen Laeufen">
+          Auto-Aus
+        </Badge>
+      );
+    default:
+      return null;
+  }
 }
 
 function speedBadge(geschwindigkeit) {
@@ -75,6 +118,7 @@ export default function SourceSelectionList({
                     {source.veraltet ? "Manuell" : source.active ? "Aktiv" : "Inaktiv"}
                   </Badge>
                   {speedBadge(source.geschwindigkeit)}
+                  {healthBadge(source.health)}
                   {source.beta ? (
                     <Badge tone="amber">Beta</Badge>
                   ) : null}

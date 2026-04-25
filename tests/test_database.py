@@ -484,3 +484,58 @@ class TestDismissReasons:
         gzn = [r for r in reasons if r["label"] == "gehalt_zu_niedrig"][0]
         assert zwe["usage_count"] == 1
         assert gzn["usage_count"] == 1
+
+
+# === Scraper Health (#499 / v1.6.0-beta.14) ===
+
+class TestScraperHealthSilent:
+    """Silent-Detection und Auto-Deactivation in update_scraper_health."""
+
+    def test_ok_with_results_is_ok(self, tmp_db):
+        result = tmp_db.update_scraper_health("foo", "ok", count=42, time_s=1.5)
+        assert result["state"] == "ok"
+        assert result["auto_deactivated"] is False
+        rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
+        assert rows["foo"]["last_count"] == 42
+        assert rows["foo"]["consecutive_silent"] == 0
+        assert rows["foo"]["is_active"] == 1
+
+    def test_ok_zero_count_is_silent(self, tmp_db):
+        result = tmp_db.update_scraper_health("bar", "ok", count=0, time_s=10)
+        assert result["state"] == "silent"
+        rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
+        assert rows["bar"]["consecutive_silent"] == 1
+        assert rows["bar"]["last_status_detail"] == "silent"
+        # total_successes darf NICHT hochgezaehlt werden
+        assert rows["bar"]["total_successes"] == 0
+
+    def test_silent_fast_run_marks_suspicious(self, tmp_db):
+        result = tmp_db.update_scraper_health("baz", "ok", count=0, time_s=0.5)
+        assert result["state"] == "silent"
+        assert result["detail"] == "verdaechtig schnell"
+
+    def test_consecutive_silent_auto_deactivates(self, tmp_db):
+        for _ in range(4):
+            r = tmp_db.update_scraper_health("quux", "ok", count=0, time_s=3)
+            assert r["auto_deactivated"] is False
+        # Lauf 5 -> Auto-Deaktivierung
+        r5 = tmp_db.update_scraper_health("quux", "ok", count=0, time_s=3)
+        assert r5["auto_deactivated"] is True
+        rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
+        assert rows["quux"]["is_active"] == 0
+        assert rows["quux"]["consecutive_silent"] == 5
+
+    def test_ok_resets_silent_counter(self, tmp_db):
+        tmp_db.update_scraper_health("mix", "ok", count=0, time_s=2)
+        tmp_db.update_scraper_health("mix", "ok", count=0, time_s=2)
+        tmp_db.update_scraper_health("mix", "ok", count=15, time_s=2)
+        rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
+        assert rows["mix"]["consecutive_silent"] == 0
+        assert rows["mix"]["last_count"] == 15
+
+    def test_toggle_resets_silent_counter(self, tmp_db):
+        for _ in range(3):
+            tmp_db.update_scraper_health("zap", "ok", count=0, time_s=2)
+        tmp_db.toggle_scraper("zap", True)
+        rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
+        assert rows["zap"]["consecutive_silent"] == 0

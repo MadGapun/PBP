@@ -1010,22 +1010,47 @@ def register(mcp, db, logger):
                 return {"fehler": f"Scraper '{scraper_name}' nicht gefunden."}
 
         scrapers = []
+        stumme = []
+        deaktiviert_auto = []
         for h in health:
             success_rate = round(h["total_successes"] / h["total_runs"] * 100) if h["total_runs"] else 0
-            scrapers.append({
+            consec_silent = h.get("consecutive_silent") or 0
+            last_count = h.get("last_count") or 0
+            entry = {
                 "name": h["scraper_name"],
                 "aktiv": bool(h["is_active"]),
                 "letzter_lauf": h.get("last_run"),
                 "letzter_erfolg": h.get("last_success"),
                 "fehler_serie": h["consecutive_failures"],
+                "stille_serie": consec_silent,
+                "letzte_treffer": last_count,
+                "letzter_status_detail": h.get("last_status_detail"),
                 "erfolgsrate": f"{success_rate}%",
                 "laeufe_gesamt": h["total_runs"],
                 "durchschn_zeit_s": round(h["avg_time_s"], 1),
                 "letzter_fehler": h.get("last_error"),
-            })
+            }
+            scrapers.append(entry)
+            if consec_silent >= 3 and h["is_active"]:
+                stumme.append(entry["name"])
+            if not h["is_active"] and consec_silent >= 5:
+                deaktiviert_auto.append(entry["name"])
 
-        return {
+        result = {
             "status": "ok",
             "scraper_anzahl": len(scrapers),
             "scrapers": scrapers,
         }
+        if stumme:
+            result["stumme_quellen"] = stumme
+            result["hinweis_stumm"] = (
+                f"{len(stumme)} Quelle(n) liefern seit mehreren Laeufen 0 Treffer. "
+                "Pruefe, ob Selektoren veraltet sind oder die Quelle den Standort nicht abdeckt."
+            )
+        if deaktiviert_auto:
+            result["auto_deaktiviert"] = deaktiviert_auto
+            result["hinweis_reaktivierung"] = (
+                "Diese Quellen wurden nach 5+ stillen Laeufen automatisch deaktiviert. "
+                "Reaktivierung via scraper_diagnose(scraper_name=..., aktion='reaktivieren')."
+            )
+        return result

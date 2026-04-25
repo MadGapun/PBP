@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 26
+SCHEMA_VERSION = 27
 
 
 def _gen_id() -> str:
@@ -925,6 +925,23 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v25->v26: applications.final_salary (#460)")
+
+        if from_ver < 27:
+            # v27: scraper_health-Wahrheit (#499 / v1.6.0-beta.14):
+            # ok+0-Treffer wird als "silent" getrackt, damit stumme Quellen
+            # (Indeed, XING & Co. die status=ok mit count=0 melden) erkannt
+            # und nach mehreren Stille-Laeufen automatisch deaktiviert werden.
+            for col in (
+                "last_count INTEGER DEFAULT 0",
+                "last_status_detail TEXT",
+                "consecutive_silent INTEGER DEFAULT 0",
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE scraper_health ADD COLUMN {col}")
+                except Exception:
+                    pass
+            logger.info("Migration v26->v27: scraper_health.last_count/"
+                        "last_status_detail/consecutive_silent (#499)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -2510,44 +2527,107 @@ class Database:
 
     # --- Scraper Health (#432) ---
 
+    # Schwelle, ab der eine stumme Quelle (status=ok+count=0) automatisch
+    # deaktiviert wird (#499 / v1.6.0-beta.14).
+    SILENT_AUTO_DEACTIVATE_THRESHOLD = 5
+
     def update_scraper_health(self, name: str, status: str, count: int = 0,
-                              time_s: float = 0, detail: str = None):
-        """Persist per-scraper health after each search run."""
+                              time_s: float = 0, detail: str = None) -> dict:
+        """Persist per-scraper health after each search run.
+
+        Returns a dict mit Status-Klassifikation (#499):
+        - state: "ok" | "silent" | "fail"
+        - auto_deactivated: True wenn consecutive_silent die Schwelle erreicht
+          und die Quelle deshalb deaktiviert wurde
+        """
+        # status=ok mit count=0 => "stumme" Quelle (z.B. Indeed/XING melden
+        # ok ohne Treffer). Wir tracken das als eigenen Zustand, damit die
+        # Quelle nicht ewig faelschlich als "gesund" gilt.
+        if status == "ok" and count <= 0:
+            state = "silent"
+        elif status == "ok":
+            state = "ok"
+        else:
+            state = "fail"
+
+        # Heuristik: ok + sehr kurze Laufzeit ist verdaechtig (Quelle hat
+        # vermutlich gar nicht angefragt, sondern ist sofort durchgefallen).
+        status_detail = detail
+        if state == "silent":
+            if time_s > 0 and time_s < 2:
+                status_detail = status_detail or "verdaechtig schnell"
+            else:
+                status_detail = status_detail or "silent"
+
         conn = self.connect()
         now = _now()
         existing = conn.execute(
             "SELECT * FROM scraper_health WHERE scraper_name=?", (name,)
         ).fetchone()
+        auto_deactivated = False
         if existing:
             total_runs = existing["total_runs"] + 1
-            total_successes = existing["total_successes"] + (1 if status == "ok" else 0)
+            total_successes = existing["total_successes"] + (1 if state == "ok" else 0)
             avg_time = (existing["avg_time_s"] * existing["total_runs"] + time_s) / total_runs
-            if status == "ok":
+            prev_silent = existing["consecutive_silent"] if "consecutive_silent" in existing.keys() else 0
+            if state == "ok":
                 conn.execute("""
                     UPDATE scraper_health SET last_run=?, last_success=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
-                        avg_time_s=? WHERE scraper_name=?
-                """, (now, now, total_runs, total_successes, avg_time, name))
+                        avg_time_s=?, last_count=?, last_status_detail=?,
+                        consecutive_silent=0 WHERE scraper_name=?
+                """, (now, now, total_runs, total_successes, avg_time,
+                      count, None, name))
+            elif state == "silent":
+                consec_silent = prev_silent + 1
+                conn.execute("""
+                    UPDATE scraper_health SET last_run=?,
+                        consecutive_failures=0, total_runs=?, total_successes=?,
+                        avg_time_s=?, last_count=?, last_status_detail=?,
+                        consecutive_silent=? WHERE scraper_name=?
+                """, (now, total_runs, total_successes, avg_time,
+                      count, status_detail, consec_silent, name))
+                if consec_silent >= self.SILENT_AUTO_DEACTIVATE_THRESHOLD \
+                        and existing["is_active"]:
+                    conn.execute(
+                        "UPDATE scraper_health SET is_active=0 WHERE scraper_name=?",
+                        (name,)
+                    )
+                    auto_deactivated = True
+                    logger.warning(
+                        "Scraper %s nach %d stillen Laeufen automatisch deaktiviert (#499)",
+                        name, consec_silent
+                    )
             else:
                 consec = existing["consecutive_failures"] + 1
                 conn.execute("""
                     UPDATE scraper_health SET last_run=?, last_error=?,
                         consecutive_failures=?, total_runs=?, total_successes=?,
-                        avg_time_s=? WHERE scraper_name=?
-                """, (now, detail or status, consec, total_runs,
-                      total_successes, avg_time, name))
+                        avg_time_s=?, last_count=?, last_status_detail=?
+                        WHERE scraper_name=?
+                """, (now, status_detail or status, consec, total_runs,
+                      total_successes, avg_time, count, status_detail, name))
         else:
             conn.execute("""
                 INSERT INTO scraper_health (scraper_name, last_run, last_success,
                     last_error, consecutive_failures, total_runs, total_successes,
-                    avg_time_s, is_active)
-                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1)
+                    avg_time_s, is_active, last_count, last_status_detail,
+                    consecutive_silent)
+                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?)
             """, (name, now,
-                  now if status == "ok" else None,
-                  None if status == "ok" else (detail or status),
-                  0 if status == "ok" else 1,
-                  1 if status == "ok" else 0))
+                  now if state == "ok" else None,
+                  None if state != "fail" else (status_detail or status),
+                  0 if state != "fail" else 1,
+                  1 if state == "ok" else 0,
+                  count,
+                  status_detail,
+                  1 if state == "silent" else 0))
         conn.commit()
+        return {
+            "state": state,
+            "auto_deactivated": auto_deactivated,
+            "detail": status_detail,
+        }
 
     def get_scraper_health(self) -> list:
         conn = self.connect()
@@ -2561,7 +2641,8 @@ class Database:
     def toggle_scraper(self, name: str, active: bool):
         conn = self.connect()
         conn.execute(
-            "UPDATE scraper_health SET is_active=?, consecutive_failures=0 WHERE scraper_name=?",
+            "UPDATE scraper_health SET is_active=?, consecutive_failures=0, "
+            "consecutive_silent=0 WHERE scraper_name=?",
             (1 if active else 0, name)
         )
         conn.commit()
@@ -4841,6 +4922,9 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     total_runs INTEGER DEFAULT 0,
     total_successes INTEGER DEFAULT 0,
     avg_time_s REAL DEFAULT 0,
-    is_active INTEGER DEFAULT 1
+    is_active INTEGER DEFAULT 1,
+    last_count INTEGER DEFAULT 0,
+    last_status_detail TEXT,
+    consecutive_silent INTEGER DEFAULT 0
 );
 """

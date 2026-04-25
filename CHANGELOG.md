@@ -7,6 +7,36 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.14] - 2026-04-25
+
+Scraper-Wahrheit (#499): Status `ok + 0 Treffer` wird nicht mehr als Erfolg
+verbucht, sondern als eigener Zustand `silent` getrackt. Stumme Quellen werden
+nach 5 stillen Laeufen automatisch deaktiviert, in der Settings-Page mit Badge
+gekennzeichnet und vom MCP-Tool `scraper_diagnose` prominent ausgewiesen.
+
+Hintergrund: Reale Tests aller 20 registrierten Adapter haben gezeigt, dass
+nur 4 Quellen (bundesagentur, stepstone, hays, freelance_de) wirklich Treffer
+liefern; 12-13 Adapter melden status=ok ohne Inhalt. Bisher zaehlten diese
+als gesund — die Auto-Deaktivierung griff nie. Jetzt sehen Nutzer und Claude
+sofort, welche Quellen tatsaechlich aktiv liefern.
+
+### Added
+- Schema v27: `scraper_health.last_count`, `last_status_detail`, `consecutive_silent`.
+- `update_scraper_health` differenziert `ok` / `silent` / `fail` und gibt das
+  Ergebnis-Dict zurueck (`state`, `auto_deactivated`, `detail`).
+- Auto-Deaktivierung von Quellen nach 5 stillen Laeufen in Folge.
+- `/api/sources` liefert pro Quelle ein `health`-Objekt mit `badge`
+  (`ok` / `stumm` / `leer` / `fehler` / `deaktiviert` / `nie`).
+- SettingsPage / `SourceSelectionList`: neue Health-Badge ("X Treffer / Ys",
+  "0 Treffer", "Auto-Aus") direkt neben dem Speed-Badge.
+- `scraper_diagnose` MCP-Tool gibt zusaetzlich `stumme_quellen`,
+  `auto_deaktiviert`, `hinweis_stumm`, `hinweis_reaktivierung` aus und
+  zeigt pro Eintrag `stille_serie`, `letzte_treffer`, `letzter_status_detail`.
+
+### Changed
+- `toggle_scraper` setzt zusaetzlich `consecutive_silent=0` zurueck, damit
+  reaktivierte Quellen nicht sofort wieder gegen die Schwelle laufen.
+
 ## [1.6.0-beta.13] - 2026-04-25
 
 UX-Quickfixes-Block + Mailto-Bugfix. Schliesst die fuer v1.6.0
