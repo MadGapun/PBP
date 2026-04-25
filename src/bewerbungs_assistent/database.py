@@ -257,7 +257,91 @@ class Database:
                 conn.execute("UPDATE profile SET is_active=1 WHERE id=?", (orphan["id"],))
                 conn.commit()
                 logger.warning("Kein aktives Profil gefunden — %s automatisch aktiviert", orphan["id"])
+        # #503: Dokument-Pfad-Reparatur nach Verzeichnisstruktur-Aenderungen.
+        # Wenn beim Update von v1.4.x → v1.5.x oder durch manuelle Eingriffe
+        # absolute Pfade in der DB veraltet sind, suchen wir die Dateien im
+        # aktuellen data_dir wieder und aktualisieren die Pfade still im
+        # Hintergrund. Vorher musste der User das per Hand SQL-skripten.
+        try:
+            self._repair_document_paths()
+        except Exception as e:
+            logger.debug("Pfad-Reparatur uebersprungen: %s", e)
         logger.info("Database initialized at %s", self.db_path)
+
+    def _repair_document_paths(self) -> int:
+        """Validiert alle `documents.filepath`-Eintraege und repariert
+        veraltete absolute Pfade nach Verzeichnisstruktur-Aenderungen
+        (#503).
+
+        Strategie:
+            1. Pruefe jeden filepath; wenn die Datei existiert: alles ok.
+            2. Wenn nicht: probiere bekannte Fallback-Stellen im aktuellen
+               data_dir (data/dokumente/<basename>, dokumente/<basename>,
+               data/dokumente/<profile_id>/<basename>).
+            3. Bei Treffer: Pfad in der DB still aktualisieren.
+
+        Returns: Anzahl reparierter Pfade.
+        """
+        conn = self.connect()
+        try:
+            cur = conn.execute(
+                "SELECT id, filepath, profile_id FROM documents "
+                "WHERE filepath IS NOT NULL AND filepath != ''"
+            )
+            rows = cur.fetchall()
+        except Exception:
+            return 0
+
+        if not rows:
+            return 0
+
+        data_dir = self.db_path.parent
+        repaired = 0
+        broken = 0
+
+        for r in rows:
+            doc_id = r["id"]
+            old_path = r["filepath"]
+            profile_id = r["profile_id"]
+            if Path(old_path).exists():
+                continue
+            broken += 1
+            basename = Path(old_path).name
+            candidates = [
+                data_dir / "dokumente" / basename,
+                data_dir / "dokumente" / (profile_id or "") / basename,
+                data_dir.parent / "dokumente" / basename,
+            ]
+            # Auch: wenn der alte Pfad ein .../BewerbungsAssistent/dokumente/...
+            # Format hat, dann das data/-Vorhaengen probieren.
+            if "BewerbungsAssistent" in old_path and "data" not in old_path:
+                fixed = old_path.replace(
+                    "BewerbungsAssistent" + os.sep + "dokumente",
+                    "BewerbungsAssistent" + os.sep + "data" + os.sep + "dokumente"
+                )
+                candidates.insert(0, Path(fixed))
+
+            for cand in candidates:
+                if cand and cand.exists():
+                    conn.execute(
+                        "UPDATE documents SET filepath=? WHERE id=?",
+                        (str(cand), doc_id)
+                    )
+                    repaired += 1
+                    break
+
+        if repaired:
+            conn.commit()
+            logger.warning(
+                "Dokument-Pfade repariert: %d von %d kaputten Eintraegen "
+                "automatisch korrigiert (#503).", repaired, broken
+            )
+        elif broken:
+            logger.info(
+                "Dokument-Pfade: %d Eintraege koennen nicht aufgeloest werden "
+                "(Datei wurde geloescht oder verschoben).", broken
+            )
+        return repaired
 
     def _migrate(self, from_ver: int, to_ver: int):
         """Run schema migrations."""

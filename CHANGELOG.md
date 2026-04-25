@@ -7,6 +7,58 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.21] - 2026-04-25
+
+Update-Pfad-Stabilisierung fuer v1.5.x -> v1.6.0 + UX-Polish.
+
+**#503 Dokument-Pfad-Auto-Reparatur**
+- Beim DB-Init validiert PBP jetzt alle `documents.filepath`-Eintraege.
+  Wenn die Datei nicht mehr am gespeicherten Pfad liegt, sucht es im
+  aktuellen `data_dir` an bekannten Fallback-Stellen (data/dokumente/,
+  dokumente/, data/dokumente/<profile_id>/) sowie das spezifische
+  Pattern aus dem User-Bug (`BewerbungsAssistent\dokumente\` ->
+  `BewerbungsAssistent\data\dokumente\`).
+- Bei Treffer wird der Pfad still in der DB aktualisiert; bei nicht-
+  auffindbarer Datei bleibt der Eintrag unveraendert (kein Datenverlust).
+- 4 neue Tests in `TestDocumentPathRepair`. Konkreter User-Workaround
+  aus dem Issue ist jetzt automatisiert.
+
+**#502 PBP-Icon fuer Desktop-Verknuepfung**
+- `assets/pbp.ico` mit Multi-Resolution (256/128/64/48/32/16) aus
+  `docs/pbp.png` generiert.
+- `INSTALLIEREN.bat` kopiert das Icon nach `%APP_DIR%\pbp.ico` und
+  setzt es als `IconLocation` der Desktop-Verknuepfung. Statt dem
+  generischen Batch-Symbol erscheint jetzt das PBP-Logo.
+
+**Update-Pfad 1.5.x -> 1.6.0 verifiziert**
+- Schema-Migration 23 -> 27 laeuft sauber durch (alle Zwischenschritte
+  v23->v24->v25->v26->v27 vorhanden, jeder Schritt ALTER TABLE-only).
+- Backup-Erstellung vor Migration funktioniert (`backups/pbp-backup-
+  YYYY-MM-DD_HH-MM-SS.db`).
+- Profil-Daten und bestehende Bewerbungen bleiben erhalten.
+- Neue Core-Deps (`python-jobspy`, `geopy`, `beautifulsoup4`, `lxml`)
+  werden ueber alle vier Installer-Wege (BAT/PS1/SH/GUI) installiert
+  (siehe beta.19).
+
+### Issues geschlossen / verschoben
+- **CLOSED** #497 Epic Bewerbung-Kalender (Sub-Issues alle erledigt)
+- **CLOSED** #498 Meta Regression Protection (Massnahmen umgesetzt)
+- **CLOSED** #499 Epic Scraper-v2 (Adapter + Health + Defekt + Timeouts)
+- **-> v1.6.1** #474 Bewerbungs-Ordner (eigenes Folge-Release, ~10-13h Arbeit)
+- **-> v1.7.0** #429 PyPI-Paket, #472 n:m Bewerbung-Stelle, #505 ID-Praefixe,
+  #504 Plugin-Plattform, #481 Termine an Thunderbird/Outlook
+
+**v1.6.0-Milestone: 0 offene Issues.**
+
+### Added
+- `_repair_document_paths()` in `Database.initialize()`.
+- 4 neue Tests fuer die Pfad-Reparatur.
+- `assets/pbp.ico` (Multi-Resolution PBP-Logo).
+
+### Changed
+- `INSTALLIEREN.bat` kopiert `assets/pbp.ico` ins App-Verzeichnis und
+  setzt `IconLocation` der Desktop-Verknuepfung.
+
 ## [1.6.0-beta.20] - 2026-04-25
 
 Per-Source-Timeouts + Glassdoor-Spam-Fix nach Real-Run-Bilanz (#500).

@@ -534,6 +534,9 @@ echo [OK] src kopiert >> "%LOGFILE%"
 :: Startdateien nach APP_DIR kopieren (Dashboard starten.bat + start_dashboard.py)
 echo [DEBUG] Kopiere Startdateien... >> "%LOGFILE%"
 if exist "%BASEDIR%\Dashboard starten.bat" copy /Y "%BASEDIR%\Dashboard starten.bat" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+:: PBP-Icon (#502) an stabilen Ort kopieren — die Desktop-.lnk zeigt
+:: spaeter darauf, statt das generische Batch-Symbol zu zeigen.
+if exist "%BASEDIR%\assets\pbp.ico" copy /Y "%BASEDIR%\assets\pbp.ico" "%APP_DIR%\pbp.ico" >> "%LOGFILE%" 2>&1
 if exist "%BASEDIR%\start_dashboard.py" copy /Y "%BASEDIR%\start_dashboard.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
 if exist "%BASEDIR%\_selftest.py" copy /Y "%BASEDIR%\_selftest.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
 if exist "%BASEDIR%\DEINSTALLIEREN.bat" copy /Y "%BASEDIR%\DEINSTALLIEREN.bat" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
@@ -628,7 +631,9 @@ echo  [4/4] Erstelle Startdateien und teste...
 echo [4/4] Startdateien + Test... >> "%LOGFILE%"
 
 :: Desktop-Verknuepfung (zeigt auf APP_DIR - stabil auch nach ZIP-Loeschung, #297)
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%APP_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%APP_DIR%'; $s.Description='PBP Dashboard'; $s.Save()" >nul 2>&1
+:: #502: IconLocation auf installiertes pbp.ico setzen, damit die
+:: Verknuepfung das PBP-Logo statt dem Standard-Batch-Symbol zeigt.
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%APP_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%APP_DIR%'; $s.Description='PBP Dashboard'; if (Test-Path '%APP_DIR%\pbp.ico') { $s.IconLocation='%APP_DIR%\pbp.ico,0' }; $s.Save()" >nul 2>&1
 if !errorlevel! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
 if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 

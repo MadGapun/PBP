@@ -539,3 +539,109 @@ class TestScraperHealthSilent:
         tmp_db.toggle_scraper("zap", True)
         rows = {h["scraper_name"]: h for h in tmp_db.get_scraper_health()}
         assert rows["zap"]["consecutive_silent"] == 0
+
+
+# === Dokument-Pfad-Reparatur (#503 / v1.6.0-beta.21) ===
+
+class TestDocumentPathRepair:
+    """Auto-Reparatur veralteter Dokument-Pfade nach Verzeichnisstruktur-
+    Aenderungen (z.B. v1.4.x -> v1.5.0 dokumente/ -> data/dokumente/)."""
+
+    def test_repair_finds_file_at_new_location(self, tmp_path):
+        from bewerbungs_assistent.database import Database
+        # Datei am korrekten Ort
+        (tmp_path / "dokumente").mkdir()
+        new_loc = tmp_path / "dokumente" / "cv.pdf"
+        new_loc.write_bytes(b"%PDF-x")
+        # DB mit veraltetem Pfad
+        db = Database(db_path=tmp_path / "pbp.db")
+        db.initialize()
+        db.save_profile({"name": "Test"})
+        old_abs = r"C:\AlteAblage\BewerbungsAssistent\dokumente\cv.pdf"
+        conn = db.connect()
+        conn.execute(
+            "INSERT INTO documents (id, filename, filepath, doc_type, profile_id, created_at, extraction_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("d1", "cv.pdf", old_abs, "lebenslauf", "", "2026-04-25", "fertig")
+        )
+        conn.commit()
+        # Re-init -> repair triggert
+        db2 = Database(db_path=tmp_path / "pbp.db")
+        db2.initialize()
+        new_path = db2.connect().execute(
+            "SELECT filepath FROM documents WHERE id=?", ("d1",)
+        ).fetchone()["filepath"]
+        from pathlib import Path
+        assert Path(new_path).exists()
+
+    def test_repair_handles_BewerbungsAssistent_dokumente_pattern(self, tmp_path):
+        r"""Klassischer User-Fall aus #503: Pfad in der DB referenziert
+        BewerbungsAssistent\dokumente\..., Datei liegt jetzt unter
+        BewerbungsAssistent\data\dokumente\..."""
+        from bewerbungs_assistent.database import Database
+        # Simuliere die echte Struktur
+        base = tmp_path / "BewerbungsAssistent"
+        (base / "data" / "dokumente").mkdir(parents=True)
+        target = base / "data" / "dokumente" / "doc.pdf"
+        target.write_bytes(b"%PDF")
+        db = Database(db_path=base / "data" / "pbp.db")
+        db.initialize()
+        db.save_profile({"name": "Test"})
+        # Veralteter Pfad ohne data/ im Mittelteil
+        old = str(base / "dokumente" / "doc.pdf")
+        conn = db.connect()
+        conn.execute(
+            "INSERT INTO documents (id, filename, filepath, doc_type, profile_id, created_at, extraction_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("d2", "doc.pdf", old, "anschreiben", "", "2026-04-25", "fertig")
+        )
+        conn.commit()
+        db2 = Database(db_path=base / "data" / "pbp.db")
+        db2.initialize()
+        from pathlib import Path
+        new_path = db2.connect().execute(
+            "SELECT filepath FROM documents WHERE id=?", ("d2",)
+        ).fetchone()["filepath"]
+        assert Path(new_path).exists()
+
+    def test_repair_leaves_intact_paths_alone(self, tmp_path):
+        from bewerbungs_assistent.database import Database
+        (tmp_path / "dokumente").mkdir()
+        good = tmp_path / "dokumente" / "good.pdf"
+        good.write_bytes(b"%PDF")
+        db = Database(db_path=tmp_path / "pbp.db")
+        db.initialize()
+        db.save_profile({"name": "Test"})
+        conn = db.connect()
+        conn.execute(
+            "INSERT INTO documents (id, filename, filepath, doc_type, profile_id, created_at, extraction_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("d3", "good.pdf", str(good), "lebenslauf", "", "2026-04-25", "fertig")
+        )
+        conn.commit()
+        # Re-init: Pfad sollte unveraendert bleiben
+        db2 = Database(db_path=tmp_path / "pbp.db")
+        db2.initialize()
+        result = db2.connect().execute(
+            "SELECT filepath FROM documents WHERE id=?", ("d3",)
+        ).fetchone()["filepath"]
+        assert result == str(good)
+
+    def test_repair_handles_truly_missing_files_gracefully(self, tmp_path):
+        from bewerbungs_assistent.database import Database
+        db = Database(db_path=tmp_path / "pbp.db")
+        db.initialize()
+        db.save_profile({"name": "Test"})
+        conn = db.connect()
+        conn.execute(
+            "INSERT INTO documents (id, filename, filepath, doc_type, profile_id, created_at, extraction_status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("d4", "weg.pdf", r"C:\nirgendwo\weg.pdf", "lebenslauf", "", "2026-04-25", "fertig")
+        )
+        conn.commit()
+        # Soll nicht crashen, Pfad bleibt aber alt
+        db2 = Database(db_path=tmp_path / "pbp.db")
+        db2.initialize()
+        # Eintrag bleibt - kein Loeschen, keine Exception
+        cnt = db2.connect().execute("SELECT COUNT(*) as c FROM documents").fetchone()["c"]
+        assert cnt == 1
