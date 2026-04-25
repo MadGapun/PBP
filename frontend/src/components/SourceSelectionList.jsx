@@ -86,18 +86,47 @@ export default function SourceSelectionList({
 }) {
   return (
     <div className="grid gap-3">
-      {/* Hinweis fuer Nutzer */}
-      <div className="rounded-xl border border-sky/20 bg-sky/5 px-4 py-3 mb-1">
-        <p className="text-xs text-muted">
-          <strong className="text-ink">Tipp:</strong> Quellen mit
-          {" "}<Badge tone="success" className="gap-1 inline-flex"><Zap size={9} />Schnell</Badge>{" "}
-          laufen parallel und liefern in Sekunden Ergebnisse.
-          {" "}<Badge tone="amber" className="gap-1 inline-flex"><Clock size={9} />Browser</Badge>{" "}
-          Quellen benoetigen Google Chrome und koennen 1-3 Minuten dauern. Noch kein Chrome? <a href="https://www.google.com/chrome/" target="_blank" rel="noopener noreferrer" className="text-sky underline">Hier herunterladen</a>.
-          Wenn eine Browser-Quelle nicht funktioniert, kannst du Claude bitten, direkt auf dem Portal zu suchen und Stellen manuell zu uebernehmen.
-          Claude kann uebrigens auch dein Profil auf Jobportalen wie XING oder StepStone aktualisieren — frag einfach danach!
-        </p>
-      </div>
+      {/* #509: Erweiterter Tipp-Text — vier Wege bei Quell-Problemen */}
+      <details className="rounded-xl border border-sky/20 bg-sky/5 px-4 py-3 mb-1 group">
+        <summary className="cursor-pointer text-xs text-muted list-none flex items-center justify-between">
+          <span>
+            <strong className="text-ink">Tipp:</strong> Vier Wege, eine Stelle ins PBP zu bekommen — auf Pfeil klicken zum Ausklappen.
+          </span>
+          <span className="text-muted/60 group-open:rotate-90 transition-transform">▶</span>
+        </summary>
+        <div className="mt-3 space-y-2 text-xs text-muted">
+          <p>
+            <strong className="text-ink">1. Eingebauter Scraper</strong> — Default-Weg.{" "}
+            <Badge tone="success" className="gap-1 inline-flex"><Zap size={9} />Schnell</Badge>{" "}
+            Quellen laufen parallel und liefern in Sekunden.{" "}
+            <Badge tone="amber" className="gap-1 inline-flex"><Clock size={9} />Browser</Badge>{" "}
+            Quellen brauchen Google Chrome und 1-3 Minuten.{" "}
+            <a href="https://www.google.com/chrome/" target="_blank" rel="noopener noreferrer" className="text-sky underline">Chrome herunterladen</a>
+          </p>
+          <p>
+            <strong className="text-ink">2. Claude in Chrome (Browser-Extension)</strong> — wenn der eingebaute
+            Scraper streikt (Login, dynamische Seiten, Captcha), kann Claude in Chrome die
+            Seite direkt im Browser durchgehen und Stellen ins PBP uebernehmen. Funktioniert
+            besonders gut bei XING und LinkedIn.
+          </p>
+          <p>
+            <strong className="text-ink">3. URL kopieren und in den Claude-Chat einfuegen</strong> —
+            schnellster Weg fuer Einzel-Stellen. Anzeige im Browser oeffnen, URL kopieren,
+            Claude im Chat schicken: <em>„Leg diese Stelle bitte an: &lt;url&gt;"</em>. Claude liest
+            die Anzeige selbst aus und legt sie inklusive Beschreibung, Firma und
+            Anforderungen an.
+          </p>
+          <p>
+            <strong className="text-ink">4. Manuell ueber <code>stelle_manuell_anlegen</code></strong> —
+            wenn keiner der oberen Wege funktioniert (Stelle nur als PDF/Mail/Screenshot
+            vorhanden). Claude bittest du dann, eine Stelle aus den Eckdaten anzulegen.
+          </p>
+          <p className="pt-2 text-muted/70 border-t border-sky/10">
+            Claude kann uebrigens auch dein Profil auf Jobportalen wie XING oder StepStone
+            aktualisieren — frag einfach danach!
+          </p>
+        </div>
+      </details>
 
       {sources.map((source) => {
         const loginJob = loginJobs[source.key];

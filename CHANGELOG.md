@@ -7,6 +7,56 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.22] - 2026-04-25
+
+Skill-Editor + Quellen-Hilfetext: drei User-Issues nach erstem Test-Lauf
+des stabilen Beta-Stands.
+
+**#511 Skill-Datenmodell-Erweiterung (Schema v28)**
+- Neue Felder: `start_year`, `end_year` (NULL = laeuft noch),
+  `level_current` (NULL = identisch mit peak)
+- "Seit (Jahr)" -> "Von (Jahr)" + neues Feld "Bis (Jahr) — leer = laufend"
+- Neues Feld "Aktuell verfuegbares Niveau (1-5)" — erscheint nur wenn
+  bis_jahr gesetzt (Skill ruht). Erlaubt Skills wie "PLM 2005 durchgehend
+  (Niveau 5)" sauber von "Skill X 2020-2022, Prinzip-Verstaendnis bleibt
+  (peak 4, current 2)" zu unterscheiden.
+- Status-Pille im Editor: gruenes "Aktiv seit YYYY" oder gelbes
+  "Skill ruht seit YYYY (aktiv VVVV-YYYY)"
+- Migration v27->v28: ALTER TABLE skills ADD COLUMN x3, plus automatische
+  Befuellung von `start_year` aus bestehenden `last_used_year - years_experience`.
+
+**#510 Bug: "Speichern & weiter" legt neuen Skill an statt zu navigieren**
+- Aus #42 (Pagination zum naechsten existierenden Skill) und #379
+  (serielle Anlage neuer Skills) war die Buchhaltung verloren gegangen —
+  beide Use-Cases hatten denselben Button mit der falschen Logik.
+- Jetzt kontextabhaengig (Variante 1 aus dem Issue):
+  - Bearbeiten-Modus + naechster Skill existiert -> springt zu Skill N+1
+  - Bearbeiten-Modus am Listen-Ende -> Felder leeren fuer neuen Anlege
+  - Anlege-Modus initial -> Felder leeren wie bisher
+
+**#509 Quellen-Hilfetext erweitert um 4 Wege**
+- Bisher: nur eine Alternative ("Claude bitten, manuell zu uebernehmen")
+  bei Quell-Problemen genannt — drei weitere lagen brach.
+- Jetzt: aufklappbares Detail-Element mit allen vier Wegen klar
+  beschrieben:
+  1. Eingebauter Scraper (Default)
+  2. Claude in Chrome (Browser-Extension)
+  3. URL kopieren und in den Claude-Chat einfuegen
+  4. Manuell ueber `stelle_manuell_anlegen`
+
+### Added
+- 3 neue Skill-Felder (Schema v28).
+- "Bis (Jahr)" + "Aktuell verfuegbares Niveau" + Status-Pille im Skill-Editor.
+- Aufklappbarer Vier-Wege-Hilfetext in der Quellen-Liste.
+
+### Changed
+- "Speichern & weiter" navigiert beim Bearbeiten zum naechsten existierenden
+  Skill statt Felder zu leeren.
+- "Seit (Jahr)" Feld umbenannt zu "Von (Jahr)".
+
+### Fixed
+- #510: Skill-Editor-Pagination + Anlege-Logik kollidieren nicht mehr.
+
 ## [1.6.0-beta.21] - 2026-04-25
 
 Update-Pfad-Stabilisierung fuer v1.5.x -> v1.6.0 + UX-Polish.

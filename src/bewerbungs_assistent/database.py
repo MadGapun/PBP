@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 27
+SCHEMA_VERSION = 28
 
 
 def _gen_id() -> str:
@@ -1027,6 +1027,37 @@ class Database:
             logger.info("Migration v26->v27: scraper_health.last_count/"
                         "last_status_detail/consecutive_silent (#499)")
 
+        if from_ver < 28:
+            # v28: Skill-Datenmodell-Erweiterung (#511 / v1.6.0-beta.22):
+            # - start_year/end_year statt nur "seit". end_year=NULL = laeuft noch.
+            # - level_current zusaetzlich zu level (= peak). NULL = identisch
+            #   mit peak (durchgehend genutzt). Wenn end_year gesetzt,
+            #   typischerweise level_current < peak.
+            for col in (
+                "start_year INTEGER",
+                "end_year INTEGER",
+                "level_current INTEGER",
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE skills ADD COLUMN {col}")
+                except Exception:
+                    pass
+            # Bestehende Daten migrieren: start_year aus last_used_year-years_experience
+            # ableiten (wenn beide vorhanden), sonst keine Aenderung.
+            try:
+                conn.execute("""
+                    UPDATE skills
+                    SET start_year = last_used_year - years_experience
+                    WHERE start_year IS NULL
+                      AND last_used_year IS NOT NULL
+                      AND years_experience IS NOT NULL
+                      AND years_experience > 0
+                """)
+            except Exception:
+                pass
+            logger.info("Migration v27->v28: skills.start_year/end_year/"
+                        "level_current (#511)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -1507,7 +1538,9 @@ class Database:
 
     def update_skill(self, skill_id: str, data: dict, profile_id: str = None) -> bool:
         conn = self.connect()
-        fields = ["name", "category", "level", "years_experience", "last_used_year"]
+        # #511: start_year, end_year, level_current dazu
+        fields = ["name", "category", "level", "years_experience", "last_used_year",
+                  "start_year", "end_year", "level_current"]
         sets, vals = [], []
         for f in fields:
             if f in data:
@@ -1676,13 +1709,33 @@ class Database:
         ).fetchone()
         if existing:
             return existing["id"]
+        # #511: Neue Felder. Backward-compat: wenn start_year nicht gegeben,
+        # aber last_used_year + years_experience da sind, ableiten.
+        start_year = data.get("start_year")
+        end_year = data.get("end_year")
+        level_current = data.get("level_current")
+        last_used_year = data.get("last_used_year")
+        years_experience = data.get("years_experience")
+        if start_year is None and last_used_year and years_experience:
+            try:
+                start_year = int(last_used_year) - int(years_experience)
+            except (TypeError, ValueError):
+                start_year = None
+        # Wenn end_year nicht gesetzt aber last_used_year, nutzen wir
+        # last_used_year als end_year-Hinweis (vorhandene Daten).
+        if end_year is None and last_used_year:
+            # nur als Hinweis — bleibt offen, wenn Skill aktiv ist
+            pass
         conn.execute("""
-            INSERT INTO skills (id, name, category, level, years_experience, last_used_year, profile_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO skills (id, name, category, level, years_experience,
+                                last_used_year, profile_id,
+                                start_year, end_year, level_current)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             sid, name, category,
-            data.get("level", 3), data.get("years_experience"),
-            data.get("last_used_year"), profile_id
+            data.get("level", 3), years_experience,
+            last_used_year, profile_id,
+            start_year, end_year, level_current
         ))
         conn.commit()
         return sid
@@ -4746,10 +4799,13 @@ CREATE TABLE IF NOT EXISTS skills (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     category TEXT DEFAULT 'fachlich',
-    level INTEGER DEFAULT 3,
-    years_experience INTEGER,
-    last_used_year INTEGER,
-    profile_id TEXT
+    level INTEGER DEFAULT 3,           -- = level_peak (hoechstes erreichtes Niveau)
+    years_experience INTEGER,           -- legacy, abgeleitet aus start_year/end_year
+    last_used_year INTEGER,             -- legacy, redundant zu end_year
+    profile_id TEXT,
+    start_year INTEGER,                 -- v28 (#511): Anfang der Skill-Nutzung
+    end_year INTEGER,                   -- v28: Ende; NULL = laeuft noch
+    level_current INTEGER               -- v28: aktuelles Niveau (NULL = wie peak)
 );
 
 CREATE TABLE IF NOT EXISTS suggested_job_titles (

@@ -100,9 +100,11 @@ const EMPTY_SKILL = {
   id: "",
   name: "",
   category: "fachlich",
-  level: 3,
-  years_experience: "",
-  since_year: "",
+  level: 3,                  // = level_peak (hoechstes Niveau)
+  years_experience: "",      // computed aus start_year/end_year (read-only)
+  since_year: "",            // alias fuer start_year (UI-Label "Von")
+  end_year: "",              // #511: leer = laufend
+  level_current: "",         // #511: leer = identisch mit peak
 };
 
 const SKILL_CATEGORY_LABELS = {
@@ -250,16 +252,23 @@ function buildSkillDraft(skill) {
   const currentYear = new Date().getFullYear();
   const normalized = { ...EMPTY_SKILL, ...(skill || {}) };
   const yearsExperience = parseOptionalInt(normalized.years_experience);
-  const existingSinceYear = parseOptionalInt(normalized.since_year);
+  // start_year aus Backend; fallback: alter since_year-Alias; sonst aus years_experience ableiten
+  const startYearRaw = normalized.start_year ?? normalized.since_year;
+  const existingSinceYear = parseOptionalInt(startYearRaw);
   const derivedSinceYear =
     yearsExperience === null
       ? ""
       : Math.min(currentYear, Math.max(1900, currentYear - Math.max(0, yearsExperience)));
+  const sinceYear = existingSinceYear === null ? derivedSinceYear : existingSinceYear;
+  const endYear = parseOptionalInt(normalized.end_year);
+  const levelCurrent = parseOptionalInt(normalized.level_current);
   return {
     ...normalized,
     category: normalizeSkillCategory(normalized.category),
     years_experience: yearsExperience === null ? "" : yearsExperience,
-    since_year: existingSinceYear === null ? derivedSinceYear : existingSinceYear,
+    since_year: sinceYear,
+    end_year: endYear === null ? "" : endYear,
+    level_current: levelCurrent === null ? "" : levelCurrent,
   };
 }
 
@@ -270,13 +279,23 @@ function buildSkillPayload(skillDraft) {
   const sinceYear = parseOptionalInt(skillDraft.since_year);
   const boundedSinceYear =
     sinceYear === null ? null : Math.min(currentYear, Math.max(1900, sinceYear));
+  // #511: end_year + level_current
+  const endYear = parseOptionalInt(skillDraft.end_year);
+  const boundedEndYear =
+    endYear === null ? null : Math.min(currentYear, Math.max(1900, endYear));
+  const levelCurrent = parseOptionalInt(skillDraft.level_current);
+  // Jahre Erfahrung neu: end_year - start_year (oder bis heute, wenn end_year leer)
+  const referenceYear = boundedEndYear ?? currentYear;
   const yearsExperience =
-    boundedSinceYear === null ? manualYears : Math.max(0, currentYear - boundedSinceYear);
+    boundedSinceYear === null ? manualYears : Math.max(0, referenceYear - boundedSinceYear);
   return {
     name: (skillDraft.name || "").trim(),
     category: skillDraft.category || "fachlich",
     level: Math.min(5, Math.max(1, level ?? 3)),
     years_experience: yearsExperience,
+    start_year: boundedSinceYear,
+    end_year: boundedEndYear,
+    level_current: levelCurrent === null ? null : Math.min(5, Math.max(1, levelCurrent)),
   };
 }
 
@@ -571,6 +590,7 @@ export default function ProfilePage() {
       if (type === "skill") {
         const payload = buildSkillPayload(draftValue);
         let savedId = draftValue.id;
+        const wasEditingExisting = Boolean(draftValue.id);
         if (draftValue.id) {
           await putJson(`/api/skill/${draftValue.id}`, payload);
         } else {
@@ -578,6 +598,10 @@ export default function ProfilePage() {
           savedId = created?.id || draftValue.id;
         }
         const nextSkill = { ...payload, id: savedId };
+        // #510: Im keepOpen-Modus den naechsten existierenden Skill laden,
+        // wenn wir gerade einen bestehenden bearbeitet haben. Sonst (am
+        // Listen-Ende oder im Anlege-Modus) Felder leeren wie bisher.
+        let nextDialogDraft = null;
         startTransition(() => {
           setProfile((current) => {
             if (!current) return current;
@@ -585,11 +609,22 @@ export default function ProfilePage() {
             const updated = draftValue.id
               ? existing.map((item) => (item.id === draftValue.id ? { ...item, ...nextSkill } : item))
               : [nextSkill, ...existing];
+            if (keepOpen && wasEditingExisting) {
+              const idx = updated.findIndex((item) => item.id === savedId);
+              if (idx >= 0 && idx < updated.length - 1) {
+                nextDialogDraft = buildSkillDraft(updated[idx + 1]);
+              }
+            }
             return { ...current, skills: updated };
           });
         });
         if (keepOpen) {
-          setSkillDialog({ open: true, draft: buildSkillDraft(EMPTY_SKILL) });
+          // Bearbeiten-Modus + naechster Skill existiert -> dahinspringen.
+          // Sonst Anlege-Modus: Felder leeren fuer naechsten neuen Skill.
+          setSkillDialog({
+            open: true,
+            draft: nextDialogDraft || buildSkillDraft(EMPTY_SKILL),
+          });
         } else {
           setSkillDialog({ open: false, draft: EMPTY_SKILL });
         }
@@ -2057,7 +2092,7 @@ export default function ProfilePage() {
               }}
             />
           </Field>
-          <Field label="Seit (Jahr)">
+          <Field label="Von (Jahr)">
             <TextInput
               type="number"
               min="1900"
@@ -2071,12 +2106,64 @@ export default function ProfilePage() {
                   draft: {
                     ...current.draft,
                     since_year: event.target.value,
-                    years_experience: years,
+                    years_experience: skillDialog.draft.end_year
+                      ? Math.max(0, parseOptionalInt(skillDialog.draft.end_year) - sinceYear)
+                      : years,
                   },
                 }));
               }}
             />
           </Field>
+          <Field label="Bis (Jahr) — leer = laufend">
+            <TextInput
+              type="number"
+              min="1900"
+              max={String(currentYear)}
+              placeholder="(laufend)"
+              value={skillDialog.draft.end_year}
+              onChange={(event) => {
+                setSkillDialog((current) => ({
+                  ...current,
+                  draft: { ...current.draft, end_year: event.target.value },
+                }));
+              }}
+            />
+          </Field>
+          {skillDialog.draft.end_year ? (
+            <Field label="Aktuell verfügbares Niveau (1–5)">
+              <TextInput
+                type="number"
+                min="1"
+                max="5"
+                placeholder={`= Spitzen-Niveau (${skillDialog.draft.level || 3})`}
+                value={skillDialog.draft.level_current}
+                onChange={(event) => {
+                  setSkillDialog((current) => ({
+                    ...current,
+                    draft: { ...current.draft, level_current: event.target.value },
+                  }));
+                }}
+              />
+              <p className="mt-1 text-[11px] text-muted/70">
+                Wenn der Skill ruht: das aktuell noch abrufbare Niveau (Prinzip-
+                Verstaendnis bleibt, Tiefe verfaellt).
+              </p>
+            </Field>
+          ) : null}
+          {skillDialog.draft.end_year ? (
+            <div className="md:col-span-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber/10 border border-amber/30 px-2 py-1 text-xs text-amber">
+                Skill ruht seit {skillDialog.draft.end_year}
+                {skillDialog.draft.since_year ? ` (aktiv ${skillDialog.draft.since_year}–${skillDialog.draft.end_year})` : ""}
+              </span>
+            </div>
+          ) : skillDialog.draft.since_year ? (
+            <div className="md:col-span-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-success/10 border border-success/30 px-2 py-1 text-xs text-success">
+                Aktiv seit {skillDialog.draft.since_year}
+              </span>
+            </div>
+          ) : null}
         </div>
       </Modal>
 
