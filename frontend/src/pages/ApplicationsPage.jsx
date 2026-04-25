@@ -829,7 +829,19 @@ export default function ApplicationsPage() {
               {(app.ansprechpartner || app.kontakt_email) && (
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted/70">
                   {app.ansprechpartner && <span>Kontakt: {app.ansprechpartner}</span>}
-                  {app.kontakt_email && <a href={`mailto:${app.kontakt_email}`} className="text-sky hover:underline">{app.kontakt_email}</a>}
+                  {app.kontakt_email && (() => {
+                    // #500 / #1.5.8-Mailto: Wenn kontakt_email als
+                    // "Name <addr@host>" gespeichert wurde, brach das alte
+                    // mailto-Link, weil der Mail-Client das ganze Token
+                    // nicht parsen kann. buildMailto extrahiert die reine
+                    // Adresse; bei einfachen Adressen ist es transparent.
+                    const mt = buildMailto({ to: app.kontakt_email });
+                    return mt ? (
+                      <a href={mt} className="text-sky hover:underline">{app.kontakt_email}</a>
+                    ) : (
+                      <span>{app.kontakt_email}</span>
+                    );
+                  })()}
                 </div>
               )}
               <div className="mt-1 flex flex-wrap items-center gap-3">

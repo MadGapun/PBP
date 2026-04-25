@@ -90,6 +90,16 @@ $PYTHON -m pip install -e "$PROJECT_DIR[all]" -q 2>/dev/null && \
     ok "Scraper + Dokumente installiert" || \
     warn "Optionale Pakete teilweise fehlgeschlagen"
 
+# Playwright-Browser (Chromium) — wird fuer stepstone, freelancermap-Fallback,
+# LinkedIn/XING-Browser-Login und einige weitere Quellen gebraucht (#500).
+# Ohne diesen Schritt erscheint zur Laufzeit "Executable doesn't exist".
+info "Installiere Chromium fuer Browser-Quellen..."
+if $PYTHON -m playwright install chromium 2>/dev/null; then
+    ok "Chromium-Browser installiert"
+else
+    warn "Chromium-Download fehlgeschlagen — Browser-Quellen (Stepstone/Freelancermap-Fallback/LinkedIn) eingeschraenkt"
+fi
+
 # ── 4. Frontend bauen ───────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}[4/7] Frontend (React UI) bauen...${NC}"

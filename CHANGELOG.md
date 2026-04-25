@@ -7,6 +7,80 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.19] - 2026-04-25
+
+Performance- und Installer-Robustheit (#500), plus systematischer
+Cross-Integration-Audit aller Beta-Issues mit den dabei gefundenen
+Luecken behoben.
+
+**Bundesagentur-Performance: Detail-API-Calls limitiert**
+- Vorher: Pro Stelle ein Detail-API-Call → bei 6 Keywords × 100 Treffer ≈
+  600 sequentielle Calls (5+ Minuten allein fuer BA).
+- Jetzt: Detail-Beschreibungen nur fuer die ersten 20 Treffer pro Keyword;
+  Rest behaelt die `beruf`-Kurzbeschreibung. Faktor ~4 schneller, kein
+  Volumenverlust.
+
+**Installer-Coverage geprueft + Luecken geschlossen**
+- `INSTALLIEREN.bat` (Windows-Embedded): `python-jobspy` (Core seit beta.16)
+  und `geopy` (Core seit langem) fehlten in der manuellen Paket-Liste —
+  ergaenzt. JobSpy-Quellen waren bei diesem Installer-Pfad heimlich tot.
+- `installer/install.sh` (macOS/Linux): `playwright install chromium`
+  fehlte komplett — ergaenzt. Vorher liefen Stepstone, Freelancermap-
+  Fallback, LinkedIn-Browser auf macOS/Linux nach `pip install` mit
+  "Executable doesn't exist".
+- `installer/setup_gui.py` (Windows-GUI / Setup.exe): nutzt
+  `pip install -e .[scraper,docs]` — aber `playwright install chromium`
+  fehlte. Ergaenzt mit Subprocess-Aufruf nach Extras-Installation.
+- `installer/install.ps1` (Windows-PowerShell): war bereits sauber
+  (`-e .[all]` + `playwright install chromium`).
+
+### Changed
+- `bundesagentur.py`: `_DETAIL_FETCH_LIMIT_PER_KW = 20`.
+- 3 Installer-Skripte ergaenzt.
+
+**Cross-Integration-Audit (Phase A: Test-Schulden, Phase B: Beta-Issues)**
+
+Phase A — bestehende Test-Schulden vor dem Audit beseitigt:
+- 3 Schema-Version-Asserts (`test_v010`, `test_email_service`,
+  `test_v120_simulations`) hatten harte `== <fixe Zahl>` und blockierten
+  jeden Schema-Bump unnoetig. Auf `>= <historische Untergrenze>`
+  umgestellt — Forward-Compat erhalten, Tests bleiben sinnvoll.
+- `test_mcp_registry`: `stil_auswertung` (Tool aus #406, fruehere Beta)
+  fehlte in `EXPECTED_TOOL_NAMES`, `tools_count` 91 → 92 korrigiert.
+- `test_daily_impulse_service::test_loads_140_entries` von hartem 140 auf
+  `>= 140` umgestellt (Pool waechst, aktuell 143).
+- README-Badge + Tabelle auf 533 Tests, 92 MCP-Tools, 22 Quellen,
+  Schema v27.
+
+Phase B — Beta-Issue-Cross-Audit:
+- B-1 SOURCE_REGISTRY ↔ _SCRAPER_MAP ↔ Adapter-v2-Registry: alle drei
+  alignen sauber bei 24 Quellen, alle 7 defekt-Eintraege haben grund
+  und manueller_fallback. ✓
+- B-3 `scraper_diagnose` zeigt alle 7 Zustaende (defekte_quellen,
+  stumme_quellen, auto_deaktiviert) korrekt. ✓
+- B-4 `/api/sources` liefert `defekt`, `defekt_grund`,
+  `manueller_fallback` fuer alle 7 defekten + `health` fuer alle. ✓
+- B-5 `update_scraper_health` differenziert ok/silent/fail sauber,
+  Heuristik "verdaechtig schnell" greift bei time_s<2s, Auto-Deactivate
+  nach 5 stillen Laeufen funktioniert. ✓
+- B-6 #506-Fix isoliert in der MCP-Tool-Logik (`bewerbung_erstellen`),
+  Dashboard-`api_add_application` ist transparent (kein Override). ✓
+- **B-7 LUECKE:** `build_search_keywords` reichte weder
+  `keywords_muss`/`keywords_plus` noch `greenhouse_companies` weiter.
+  linkedin/xing-Adapter lasen `keywords_muss` aus `kw_data` und bekamen
+  immer `[]`; Greenhouse-User konnten keine eigenen Slugs konfigurieren.
+  → Beide Schluessel jetzt im Output, 3 neue Tests.
+- **B-8 LUECKE:** Eine Mailto-Stelle in `ApplicationsPage.jsx` Zeile 832
+  baute `mailto:${app.kontakt_email}` als Template-String — bei
+  "Name <addr@host>"-Format geht der Link kaputt. → Mit `buildMailto`
+  gehaertet (transparent fuer einfache Adressen).
+- B-9 `get_default_active_source_keys` filtert defekt + login_erforderlich
+  korrekt: 14 aktiv von 24, 10 ausgeschlossen (7 defekte + 3 Login). ✓
+
+### Tests
+- 533/533 gruen (vorher 530, +3 neue).
+- Release-Gate-Check sauber.
+
 ## [1.6.0-beta.18] - 2026-04-25
 
 Scraper-Reanimation Phase 3 (#500): Selektor-Reparaturen + URL-Updates fuer

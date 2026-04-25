@@ -315,15 +315,26 @@ def build_search_keywords(db) -> dict:
     # Indeed/Monster: full search queries (with region if available)
     queries = list(all_kw)
 
+    # #500: greenhouse_companies aus criteria durchschleusen, damit der User
+    # eigene Greenhouse-Slugs (zusaetzlich zu DEFAULT_COMPANIES) konfigurieren
+    # kann. Beispiel-Eintrag in search_criteria:
+    #   {"greenhouse_companies": ["mein-arbeitgeber", "noch-einer"]}
+    greenhouse_companies = criteria.get("greenhouse_companies", []) or []
+
     return {
         "general": general,
         "regionen": regionen,
+        # linkedin/xing werten muss/plus separat aus, deshalb Original-Liste
+        # unbearbeitet weiterreichen.
+        "keywords_muss": list(muss),
+        "keywords_plus": list(plus),
         "stepstone_urls": stepstone_urls,
         "hays_keywords": hays_keywords,
         "freelancermap_urls": freelancermap_urls,
         "freelance_de_urls": freelance_de_urls,
         "indeed_queries": queries,
         "monster_queries": queries,
+        "greenhouse_companies": greenhouse_companies,
     }
 
 

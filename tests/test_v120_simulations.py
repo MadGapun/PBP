@@ -622,10 +622,11 @@ class TestSim6SchemaMigration:
         assert "research_notes" in col_names, f"research_notes fehlt in jobs: {col_names}"
         db.close()
 
-    def test_schema_version_ist_20(self, tmp_path):
+    def test_schema_version_ist_mindestens_20(self, tmp_path):
         db = _build_server(tmp_path)
         from bewerbungs_assistent.database import SCHEMA_VERSION
-        assert SCHEMA_VERSION == 26
+        # v20 fuehrte Sim-6-Migration ein; jeder weitere Bump ist OK.
+        assert SCHEMA_VERSION >= 20
         db.close()
 
 

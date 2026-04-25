@@ -19,9 +19,11 @@ from bewerbungs_assistent.services.daily_impulse_service import (
 # --- Content loading ---
 
 class TestContentLoading:
-    def test_loads_140_entries(self):
+    def test_loads_at_least_140_entries(self):
+        """Daily-Impulse-Pool waechst mit den Releases — wir verifizieren die
+        Untergrenze, nicht eine fixe Zahl. Bei 1.6.0-beta liegen wir bei 143."""
         data = _load_impulse()
-        assert len(data) == 140
+        assert len(data) >= 140
 
     def test_each_entry_has_required_fields(self):
         for entry in _load_impulse():

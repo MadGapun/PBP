@@ -36,6 +36,14 @@ DEFAULT_KEYWORDS = [
     "DevOps Engineer", "Consultant", "Product Manager",
 ]
 
+# #500: Limit fuer Detail-API-Calls pro Keyword. Vorher wurde fuer JEDE
+# der bis zu 100 Stellen pro Keyword die Detail-API aufgerufen — das macht
+# bei 6 Keywords 600 sequentielle Calls, also 5+ Minuten allein fuer BA.
+# Wir holen Detail-Beschreibungen jetzt nur fuer die ersten N Treffer pro
+# Keyword; fuer den Rest bleibt der `beruf`-String als Kurzbeschreibung.
+# Das beschleunigt BA um Faktor ~4 ohne Volumenverlust.
+_DETAIL_FETCH_LIMIT_PER_KW = 20
+
 
 def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> httpx.Response | None:
     """GET mit Retry+Backoff fuer transiente Fehler (#489).
@@ -115,15 +123,17 @@ def search_bundesagentur(params: dict) -> list:
                 data = resp.json()
                 stellenangebote = data.get("stellenangebote", [])
 
-                for s in stellenangebote:
+                for idx, s in enumerate(stellenangebote):
                     title = s.get("titel", "")
                     company = s.get("arbeitgeber", "Nicht angegeben")
                     location = s.get("arbeitsort", {}).get("ort", "")
                     ref_nr = s.get("refnr", "")
 
-                    # Fetch full description from detail API
+                    # Detail-API nur fuer die ersten N pro Keyword (#500),
+                    # sonst beruf-Kurzbeschreibung. Ergebnis: 4x schneller
+                    # ohne Volumenverlust.
                     description = s.get("beruf", "")
-                    if ref_nr:
+                    if ref_nr and idx < _DETAIL_FETCH_LIMIT_PER_KW:
                         description = _fetch_ba_detail(client, ref_nr) or description
 
                     job = {

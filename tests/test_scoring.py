@@ -262,11 +262,32 @@ class TestBuildKeywords:
         assert any("stepstone.de/jobs/plm-consultant" in url for url in result["stepstone_urls"])
         # Hays keywords
         assert "plm-consultant" in result["hays_keywords"]
-        # Freelancermap URLs
-        assert any("freelancermap.de" in url for url in result["freelancermap_urls"])
+        # Freelancermap URLs (#500: jetzt slug-basiert /projekte/<slug>)
+        assert any("freelancermap.de/projekte/" in url for url in result["freelancermap_urls"])
         # Indeed/Monster queries
         assert "PLM Consultant" in result["indeed_queries"]
         assert "Python" in result["monster_queries"]
+
+    def test_keywords_muss_durchgereicht(self, tmp_db):
+        """#500: keywords_muss bleibt als separater Key fuer linkedin/xing."""
+        tmp_db.set_search_criteria("keywords_muss", ["PLM"])
+        tmp_db.set_search_criteria("keywords_plus", ["Python"])
+        result = build_search_keywords(tmp_db)
+        assert result.get("keywords_muss") == ["PLM"]
+        assert result.get("keywords_plus") == ["Python"]
+
+    def test_greenhouse_companies_durchgereicht(self, tmp_db):
+        """#500: greenhouse_companies aus criteria erreicht den Adapter."""
+        tmp_db.set_search_criteria("keywords_muss", ["Python"])
+        tmp_db.set_search_criteria("greenhouse_companies", ["mein-arbeitgeber", "noch-einer"])
+        result = build_search_keywords(tmp_db)
+        assert result.get("greenhouse_companies") == ["mein-arbeitgeber", "noch-einer"]
+
+    def test_greenhouse_companies_default_empty(self, tmp_db):
+        """Ohne explizite Konfiguration ist greenhouse_companies leer (Adapter nutzt DEFAULT_COMPANIES)."""
+        tmp_db.set_search_criteria("keywords_muss", ["Python"])
+        result = build_search_keywords(tmp_db)
+        assert result.get("greenhouse_companies") == []
 
 
 # === Hochschulabschluss-Erkennung (#305) ===

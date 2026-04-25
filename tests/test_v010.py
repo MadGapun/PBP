@@ -8,9 +8,12 @@ from bewerbungs_assistent.job_scraper import extract_salary_from_text, estimate_
 # === Schema v9 ===
 
 class TestSchemaV9:
-    def test_schema_version_is_19(self, tmp_db):
-        """Schema version should be 19."""
-        assert SCHEMA_VERSION == 26
+    def test_schema_version_is_at_least_19(self, tmp_db):
+        """Schema version should be at least 19 (Salary-Estimation-Feature aus v0.10)."""
+        # Vorwaerts-kompatibel: jeder Schema-Bump >= 19 ist OK, neue
+        # Spalten dazuzunehmen ist normal. Frueher war hier ein hartes
+        # `== <fixe Zahl>` — das blockierte jeden Schema-Bump unnoetig.
+        assert SCHEMA_VERSION >= 19
 
     def test_salary_estimated_column(self, tmp_db):
         """jobs table should have salary_estimated column."""

@@ -352,18 +352,20 @@ echo [OK] Internet erreichbar >> "%LOGFILE%"
 :: Kernpakete installieren
 echo [DEBUG] Installiere Kernpakete... >> "%LOGFILE%"
 echo         Installiere Kernpakete...
-"%PYTHON%" -m pip install fastmcp uvicorn fastapi python-multipart httpx --no-warn-script-location >> "%LOGFILE%" 2>&1
+:: Kernpakete inkl. geopy (Umkreissuche) und python-jobspy
+:: (Indeed/LinkedIn-Booster, Core-Dep seit v1.6.0-beta.16, #500).
+"%PYTHON%" -m pip install fastmcp uvicorn fastapi python-multipart httpx geopy beautifulsoup4 lxml python-jobspy --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_packages
-echo         [OK] Kernpakete installiert
+echo         [OK] Kernpakete installiert (inkl. JobSpy + Geopy)
 echo [OK] Kernpakete installiert >> "%LOGFILE%"
 
-:: Optionale Pakete - Scraper
+:: Optionale Pakete - Scraper (Playwright fuer stepstone, freelancermap, etc.)
 echo [DEBUG] Optionale Pakete Scraper... >> "%LOGFILE%"
-"%PYTHON%" -m pip install playwright beautifulsoup4 lxml --no-warn-script-location >> "%LOGFILE%" 2>&1
+"%PYTHON%" -m pip install playwright --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 (
-    echo         [OK] Job-Scraper Pakete installiert
+    echo         [OK] Playwright installiert
     echo [DEBUG] Installiere Playwright Browser... >> "%LOGFILE%"
-    echo         Lade Browser fuer LinkedIn/XING-Suche...
+    echo         Lade Chromium fuer Stepstone/Freelancermap/LinkedIn...
     "%PYTHON%" -m playwright install chromium >> "%LOGFILE%" 2>&1
     if !errorlevel! equ 0 echo         [OK] Job-Scraper komplett installiert
     if !errorlevel! neq 0 echo         [--] Browser-Download fehlgeschlagen

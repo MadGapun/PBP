@@ -403,6 +403,26 @@ class InstallerApp:
                     self._log("⚠ Einige Zusatzpakete konnten nicht installiert werden", "warn")
                     self._log("  Kernfunktionen sind trotzdem verfügbar.", "warn")
 
+            # Playwright-Browser (Chromium) fuer Browser-basierte Quellen (#500):
+            # stepstone, freelancermap-Fallback, LinkedIn/XING-Login, Monster.
+            # Ohne diesen Schritt erscheint zur Laufzeit "Executable doesn't exist".
+            if self.install_scraper.get():
+                self._log("Lade Chromium-Browser fuer Stepstone/Freelancermap/LinkedIn...", "info")
+                try:
+                    cmd = [venv_python, "-m", "playwright", "install", "chromium"]
+                    proc = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=600,
+                    )
+                    if proc.returncode == 0:
+                        self._log("✓ Chromium-Browser installiert", "ok")
+                    else:
+                        self._log("⚠ Chromium-Download fehlgeschlagen — Browser-Quellen eingeschraenkt", "warn")
+                except Exception as e:
+                    self._log(f"⚠ Chromium-Installation uebersprungen: {e}", "warn")
+
             # Step 4: Create data directories
             self._set_step(4, "Erstelle Datenverzeichnisse...")
             data_dir = os.path.join(os.environ.get('LOCALAPPDATA', install_dir), DATA_DIR_NAME)
