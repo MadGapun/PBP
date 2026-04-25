@@ -85,29 +85,30 @@ def search_stellenanzeigen_de(params: dict) -> list:
                     except Exception:
                         continue
 
-                # Fallback: HTML card extraction
+                # Fallback: /job/<slug>-Anchors einsammeln (#500).
+                # Stellenanzeigen.de hat kein JSON-LD und keine <article>-Cards
+                # mehr im SSR-HTML — die echten Job-Links haben aber ein
+                # stabiles `/job/<slug>` Format mit lesbarem Titel-Text.
                 if not any(j["source"] == "stellenanzeigen_de" for j in jobs):
-                    cards = soup.select(
-                        "article, .job-item, [class*='stellenangebot'], "
-                        "[class*='job-card'], .search-result-item"
-                    )
-                    seen = set()
-                    for card in cards[:25]:
-                        link_el = card.find("a", href=True)
-                        if not link_el:
+                    seen_hrefs = set()
+                    for a in soup.select('a[href^="/job/"]'):
+                        href = a.get("href", "").strip()
+                        if not href or href in seen_hrefs:
                             continue
-                        title = link_el.get_text(strip=True)
-                        if not title or len(title) < 5 or title in seen:
+                        title = a.get_text(strip=True)
+                        # Es gibt Wrapper-Links ohne Text; den nehmen wir nicht.
+                        if not title or len(title) < 8:
                             continue
-                        seen.add(title)
-
-                        href = link_el.get("href", "")
+                        seen_hrefs.add(href)
                         url = href if href.startswith("http") else f"https://www.stellenanzeigen.de{href}"
-                        if "/stellenangebote/" in url and "?" in url:
-                            continue  # search page link, not a job
 
-                        comp_el = card.find(class_=re.compile(r"company|firma|arbeitgeber", re.I))
-                        loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I))
+                        # Card-Container fuer Firma/Ort suchen
+                        card = a.find_parent(["article", "li", "div"])
+                        comp_el = None
+                        loc_el = None
+                        if card is not None:
+                            comp_el = card.find(class_=re.compile(r"company|firma|arbeitgeber|employer", re.I))
+                            loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I))
 
                         jobs.append({
                             "hash": stelle_hash("stellenanzeigen.de", title),

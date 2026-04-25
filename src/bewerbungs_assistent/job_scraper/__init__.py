@@ -62,6 +62,11 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        # #500: SSR-HTML enthaelt nur Kategorie-Links, keine Stellen.
+        # Vermutlich SPA-rendered. Browser-Tab via Chrome-Extension noetig.
+        "defekt": True,
+        "defekt_grund": "SSR-HTML zeigt nur Kategorien (Jobs Informatik/Softwareentwickler/...) — Stellen werden client-seitig nachgeladen",
+        "manueller_fallback": "https://jobs.heise.de/?keywords=Python (im Browser oder Chrome-Extension)",
     },
     "gulp": {
         "name": "GULP",
@@ -114,6 +119,9 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        "defekt": True,
+        "defekt_grund": "Such-Endpunkt liefert nur Kategorie-Liste (235 Berufsgruppen-Links), Stellen werden via JavaScript nachgeladen",
+        "manueller_fallback": "https://www.kimeta.de/jobs?q=Python&l=Hamburg (im Browser oder Chrome-Extension)",
     },
     # ── JobSpy-basierte Quellen (#490, schnell, API-Scrapes via python-jobspy) ──
     "jobspy_linkedin": {
@@ -290,13 +298,13 @@ def build_search_keywords(db) -> dict:
     # Hays: lowercase keywords for sitemap URL matching
     hays_keywords = [kw.lower().replace(" ", "-") for kw in all_kw]
 
-    # Freelancermap: query parameter URLs (with region if available)
+    # Freelancermap: slug-basierte URLs (#500). Die alte
+    # /projektboerse.html?q=... Endpunkt leitet jetzt 301 auf /projekte
+    # ohne Query-Parameter um. Das neue Schema ist /projekte/<keyword-slug>.
     freelancermap_urls = []
     for kw in all_kw:
-        url = f"https://www.freelancermap.de/projektboerse.html?q={quote(kw)}"
-        if region:
-            url += f"&ort={quote(region)}"
-        freelancermap_urls.append(url)
+        slug = kw.lower().strip().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+        freelancermap_urls.append(f"https://www.freelancermap.de/projekte/{slug}")
 
     # freelance.de: skill-based URLs (keyword → Skill-Projekte)
     freelance_de_urls = [

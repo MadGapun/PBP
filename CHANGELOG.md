@@ -7,6 +7,61 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.18] - 2026-04-25
+
+Scraper-Reanimation Phase 3 (#500): Selektor-Reparaturen + URL-Updates fuer
+zwei weitere Quellen, die "still" mit HTTP 200 ohne Treffer dastanden.
+Diagnose-Befund: kimeta + heise_jobs sind echte SPAs (SSR liefert nur
+Kategorie-Listen) — diese werden korrekt als defekt markiert.
+
+**Stellenanzeigen.de repariert** (25 Live-Treffer)
+- Bisheriger Selektor `article, .job-item, [class*='stellenangebot']` matcht
+  im aktuellen DOM nichts. Die Seite hat ueberhaupt keine `<article>` mehr.
+- Echte Job-Links haben jetzt das stabile Schema `/job/<slug>` mit Titel-
+  Text. Neuer Selektor `a[href^="/job/"]` liefert 50 Anchors, davon 25
+  einzigartige Stellen.
+
+**Freelancermap repariert** (22 Projekte in 1.7s)
+- Alte URL `projektboerse.html?q=Python&ort=Hamburg` 301-redirected jetzt
+  auf `/projekte` — und schluckt dabei den Query-String. Adapter holte
+  immer die Homepage statt Such-Ergebnisse.
+- Neues URL-Schema: `/projekte/<keyword-slug>` (slug-basiert).
+  `build_search_keywords` baut die Slugs jetzt entsprechend.
+- Adapter zieht `a[href*="/projekt/"]` aus dem HTML; die alte
+  `projectsObject`-JS-Extraktion bleibt als zweiter Pfad fuer den Fall,
+  dass die Seite den Embedded-State zurueckbringt.
+
+**Als defekt markiert: kimeta + heise_jobs**
+- kimeta `/jobs?q=...` liefert 235 Links zu Berufsgruppen-Kategorien
+  (Abteilungsleiter, Account-Manager, Altenpflege, ...), aber keine
+  einzelnen Stellen — die werden client-seitig per JS nachgeladen.
+- heise jobs.heise.de zeigt nur Themen-Aggregationen (Jobs Informatik,
+  Jobs Softwareentwickler), keine konkreten Postings im SSR.
+- Beide sichtbar gesperrt mit Chrome-Extension-Workaround-URL, wie in
+  beta.16 fuer ferchau/gulp/ingenieur_de eingefuehrt.
+
+### Aktuelle Trefferquote (vorher 7 → jetzt 9 liefernde Quellen)
+| Quelle | Treffer (Live) |
+|---|---|
+| bundesagentur | 600 |
+| freelance_de | 60 |
+| hays | 50 |
+| jobspy_indeed | 37 |
+| stepstone | 25 |
+| jobspy_linkedin | 25 |
+| **stellenanzeigen_de** (neu) | **25** |
+| **freelancermap** (neu) | **22** |
+| greenhouse | DACH-Pool 2535 |
+| arbeitnow | 1-17 |
+
+### Changed
+- `freelancermap.py`: Neue HTML-Strategie + Header, slug-basierte URL.
+- `stellenanzeigen_de.py`: Selektor `a[href^="/job/"]` statt Card-Suche.
+- `__init__.py`: `freelancermap_urls` als slug-URLs gebaut.
+
+### Defekt markiert
+- `kimeta`, `heise_jobs` mit konkretem Grund + manueller Fallback.
+
 ## [1.6.0-beta.17] - 2026-04-25
 
 Scraper-Reanimation Phase 2 (#500): Zwei vollstaendig kostenlose, key-freie

@@ -32,28 +32,51 @@ SEARCH_URLS = [
 ]
 
 
-def search_freelancermap(params: dict) -> list:
-    """Search Freelancermap by extracting embedded JS project state."""
-    jobs = []
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+    "Accept-Language": "de-DE,de;q=0.9",
+}
 
-    # Dynamic keywords from DB, fallback to hardcoded
+
+def search_freelancermap(params: dict) -> list:
+    """Search Freelancermap.
+
+    Strategie (aktualisiert 2026-04-25 / #500):
+        1. Zuerst die neuen slug-URLs (/projekte/<keyword>) per HTML
+           parsen. Echte Projekt-Anchors haben das Schema /projekt/<slug>.
+        2. Falls vorhanden, Embedded-JS `projectsObject` extrahieren —
+           liefert reichere Daten (Veroeffentlichungs-Datum, Beschreibung).
+        3. Wenn beides 0 ergibt: Playwright-Fallback fuer SPA-Render.
+    """
+    jobs = []
+    seen_urls: set[str] = set()
+
     kw_data = params.get("keywords", {})
     urls = kw_data.get("freelancermap_urls", SEARCH_URLS)
 
-    with httpx.Client(timeout=30, follow_redirects=True) as client:
+    with httpx.Client(timeout=20, follow_redirects=True, headers=_HEADERS) as client:
         for url in urls:
             try:
                 resp = client.get(url)
                 if resp.status_code != 200:
                     continue
 
+                # Strategie 2: embedded projectsObject (alt, falls Server es noch liefert)
                 projects = _extract_projects_from_js(resp.text)
                 for p in projects:
                     title = p.get("title", "")
+                    if not title:
+                        continue
                     company = p.get("poster", {}).get("company", "Freelancermap")
                     locations = p.get("locations", [])
                     location = locations[0].get("name", "") if locations else ""
                     slug = p.get("slug", "")
+                    pjob_url = f"https://www.freelancermap.de/projekt/{slug}" if slug else url
+                    if pjob_url in seen_urls:
+                        continue
+                    seen_urls.add(pjob_url)
 
                     desc_html = p.get("description", "")
                     desc = BeautifulSoup(desc_html, "lxml").get_text() if desc_html else ""
@@ -63,7 +86,7 @@ def search_freelancermap(params: dict) -> list:
                         "title": title,
                         "company": company,
                         "location": location,
-                        "url": f"https://www.freelancermap.de/projekt/{slug}" if slug else url,
+                        "url": pjob_url,
                         "is_search_url": not bool(slug),
                         "source": "freelancermap",
                         "description": desc[:2000],
@@ -75,11 +98,44 @@ def search_freelancermap(params: dict) -> list:
                         job["veroeffentlicht_am"] = pub_date
                     jobs.append(job)
 
-                time.sleep(1)
+                # Strategie 1: HTML /projekt/-Anchors einsammeln (neue Seite seit 2026)
+                if not projects:
+                    soup = BeautifulSoup(resp.text, "lxml")
+                    for a in soup.select('a[href*="/projekt/"]'):
+                        href = a.get("href", "").strip()
+                        if not href or "/projekt/" not in href:
+                            continue
+                        title = a.get_text(strip=True)
+                        if not title or len(title) < 8:
+                            continue
+                        full_url = href if href.startswith("http") else f"https://www.freelancermap.de{href}"
+                        if full_url in seen_urls:
+                            continue
+                        seen_urls.add(full_url)
+                        # Card-Container fuer Ort
+                        card = a.find_parent(["article", "li", "div"])
+                        location = ""
+                        if card is not None:
+                            loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I))
+                            if loc_el:
+                                location = loc_el.get_text(strip=True)[:80]
+                        jobs.append({
+                            "hash": stelle_hash("freelancermap.de", title),
+                            "title": title,
+                            "company": "Freelancermap",
+                            "location": location,
+                            "url": full_url,
+                            "source": "freelancermap",
+                            "description": "",
+                            "employment_type": "freelance",
+                            "remote_level": detect_remote_level(f"{title} {location}"),
+                        })
+
+                time.sleep(0.8)
             except Exception as e:
                 logger.error("Freelancermap error: %s", e)
 
-    # Fallback to Playwright if httpx returned nothing
+    # Fallback to Playwright if both strategies returned nothing
     if not jobs:
         logger.info("Freelancermap: httpx lieferte 0 Ergebnisse, versuche Playwright-Fallback...")
         jobs = _playwright_fallback(urls)
