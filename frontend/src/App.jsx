@@ -12,6 +12,7 @@
   HelpCircle,
   Link2,
   Link2Off,
+  Menu,
   Monitor,
   Moon,
   Plus,
@@ -36,6 +37,7 @@ import {
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
+import Sidebar from "@/components/Sidebar";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import DashboardPage from "@/pages/DashboardPage";
@@ -209,6 +211,11 @@ export default function App() {
   const [helpTab, setHelpTab] = useState("hilfe");
   const [mcpHelpOpen, setMcpHelpOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
+  // #508: Sidebar-Collapsed-State (persistiert)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("pbp-sidebar-collapsed") === "1"; }
+    catch { return false; }
+  });
   const recentToastsRef = useRef(new Map());
   const liveUpdateTokenRef = useRef("");
   const liveUpdateSeenRef = useRef(false);
@@ -523,6 +530,18 @@ export default function App() {
     }
   }
 
+  // #508: Sidebar-Collapse persistieren
+  function toggleSidebar() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("pbp-sidebar-collapsed", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }
+
+  // #508: Aktueller Seitentitel fuer die Top-Bar
+  const currentPageTitle = TAB_CONFIG.find((t) => t.id === page)?.title || "";
+
   async function executeAction(action) {
     if (!action) return;
     if (action.prompt) {
@@ -773,64 +792,56 @@ export default function App() {
     defaultPalette: DEFAULT_PALETTE,
   };
 
+  // #508: Sidebar-Badges fuer alle Bereiche
+  const sidebarBadges = {
+    profil: chrome.workspace?.navigation?.profile_badge,
+    stellen: chrome.workspace?.navigation?.jobs_badge,
+    bewerbungen: chrome.workspace?.navigation?.applications_badge,
+    einstellungen: chrome.workspace?.navigation?.settings_badge,
+  };
+  const sidebarMeta = {
+    dashboard: readiness.label || TAB_CONFIG[0].defaultMeta,
+  };
+
   return (
     <AppContext.Provider value={appContext}>
-      <div className="app-shell">
+      <div className="app-shell flex min-h-screen">
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
 
+        {/* Linke Sidebar — Hauptnavigation (#508) */}
+        <Sidebar
+          tabs={TAB_CONFIG}
+          activePage={page}
+          onSelectPage={navigateTo}
+          badges={sidebarBadges}
+          meta={sidebarMeta}
+          brand={{
+            version: `v${import.meta.env.VITE_APP_VERSION || "1.6.0"}`,
+            connected: !!chrome.profile,
+          }}
+          collapsed={sidebarCollapsed}
+          onToggle={toggleSidebar}
+        />
+
+        {/* Hauptbereich (rechts neben Sidebar) */}
+        <div className="flex-1 min-w-0 flex flex-col">
         <header className="app-topbar glass-topbar sticky top-0 z-50">
-          <div className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8">
-            <p className="brand-title shrink-0 text-[13px] font-medium text-ink/80">
-              Persönliches Bewerbungs-Portal
-            </p>
+          <div className="flex w-full items-center gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8">
+            {/* #508: Hamburger zum Sidebar-Toggle (besonders fuer schmale Viewports) */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              title={sidebarCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
+            >
+              <Menu size={18} />
+            </button>
 
-            <nav className="tabs flex min-w-0 flex-1 items-center gap-0.5">
-              {TAB_CONFIG.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = page === tab.id;
-                const badge =
-                  tab.id === "profil"
-                    ? chrome.workspace?.navigation?.profile_badge
-                    : tab.id === "stellen"
-                      ? chrome.workspace?.navigation?.jobs_badge
-                      : tab.id === "bewerbungen"
-                        ? chrome.workspace?.navigation?.applications_badge
-                        : tab.id === "einstellungen"
-                          ? chrome.workspace?.navigation?.settings_badge
-                          : null;
-                const meta =
-                  tab.id === "dashboard" ? readiness.label || tab.defaultMeta : tab.defaultMeta;
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={cn(
-                      "tab relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150",
-                      isActive
-                        ? "bg-white/[0.08] text-ink"
-                        : "text-muted hover:text-ink hover:bg-white/[0.04]"
-                    )}
-                    data-page={tab.id}
-                    onClick={() => navigateTo(tab.id)}
-                  >
-                    <Icon size={15} className={isActive ? "text-sky" : ""} />
-                    <span>{tab.title}</span>
-                    <span id={`tab-meta-${tab.id}`} className="sr-only">{meta}</span>
-                    {badge ? (
-                      <span
-                        id={`tab-badge-${tab.id}`}
-                        className="tab-badge ml-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-[10px] font-bold leading-none text-shell"
-                      >
-                        {badge}
-                      </span>
-                    ) : (
-                      <span id={`tab-badge-${tab.id}`} className="hidden">{badge}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
+            {/* #508: Seitentitel kontextuell (Hauptbereich) — als div, weil
+                jede Page ihren eigenen <h1> hat. */}
+            <div className="page-breadcrumb text-[14px] font-semibold text-ink/90 flex-1 min-w-0 truncate">
+              {currentPageTitle}
+            </div>
 
             {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
             {(() => {
@@ -1764,6 +1775,8 @@ export default function App() {
           refreshChrome={refreshChrome}
           pushToast={pushToast}
         />
+        </div>
+        {/* Ende Hauptbereich-Wrapper (#508) */}
       </div>
     </AppContext.Provider>
   );

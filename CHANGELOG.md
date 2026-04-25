@@ -7,6 +7,62 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.23] - 2026-04-25
+
+Sidebar-Navigation (#508) — komplettes UI-Refactor.
+
+**Architektur-Wechsel: Hauptnavigation links statt oben (Variante B)**
+
+Die horizontale Top-Tab-Reihe skalierte nicht. Auf 14"-15"-Laptops und
+Bildschirmen unter 1400px ueberlappten Reiter-Texte mit Theme-Toggle und
+Profile-Switcher (#507). Hinzu kam, dass kommende Features (Plugin-API
+#504, KI-Toggles #425, API-Tokens #478) zusaetzliche Sub-Tabs
+einbringen wuerden — die horizontale Sub-Tab-Reihe in Einstellungen mit
+heute schon 6 Tabs war nicht mehr haltbar.
+
+**Loesung: Komplette Navigation in eine persistente, kaskadierende
+linke Sidebar verlegt** (Modell wie VS Code, Notion, Linear, Slack).
+
+### Top-Bar (entschlackt)
+
+Enthaelt nur noch globale Schalter:
+- Hamburger / Sidebar-Toggle
+- Seitentitel (kontextueller Bereich-Name als Breadcrumb)
+- Hilfe (?), Theme-Toggle, Profile-Switcher
+
+Kein Branding mehr in der Top-Bar (das wandert in die Sidebar), keine
+Hauptbereiche, keine Sub-Tabs.
+
+### Sidebar (neu)
+
+- App-Branding "Persönliches Bewerbungs-Portal" oben
+- Versions-Badge + Connection-Status (gruen/amber)
+- 8 Hauptbereiche vertikal mit Icons + Badges
+- Aktiver Bereich farblich hervorgehoben
+- Persistente Collapse-Funktion (LocalStorage), 240px breit / 60px collapsed
+- Vertikales Scrollen falls Inhalte ueberlaufen
+- Sub-Navigation-API vorbereitet (eingerueckt unter aktivem Bereich)
+
+### Behoben
+
+- **#507** ist durch das Refactor automatisch obsolet — Theme-Toggle
+  hat jetzt eigenen Platz in der entschlackten Top-Bar.
+
+### Test-Kompatibilitaet
+
+- `.brand-title`, `.tab[data-page=...]`, `tab-meta-*`, `tab-badge-*`-IDs
+  bleiben aus der alten Top-Bar erhalten — Browser-Tests laufen
+  unveraendert weiter.
+- Seitentitel als `<div>` (nicht `<h1>`), weil jede Page ihren eigenen
+  `<h1>` hat — vermeidet Strict-Mode-Konflikte in Tests.
+
+### Added
+- `frontend/src/components/Sidebar.jsx` — neue Komponente.
+
+### Changed
+- `App.jsx` Layout: `flex` row, Sidebar + Hauptbereich.
+- Top-Bar entschlackt (Branding + Tabs entfernt, Hamburger + Breadcrumb dazu).
+
 ## [1.6.0-beta.22] - 2026-04-25
 
 Skill-Editor + Quellen-Hilfetext: drei User-Issues nach erstem Test-Lauf
