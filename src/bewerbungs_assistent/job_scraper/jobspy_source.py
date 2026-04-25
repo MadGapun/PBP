@@ -150,6 +150,14 @@ def _search_site(site: str, keywords: list[str], location: str,
     if site == "linkedin":
         keywords = _expand_keywords_for_linkedin(keywords)
 
+    # #500: Wenn die Site nach den ersten 2 Keywords nichts liefert,
+    # gehen wir davon aus dass die Quelle gerade blockiert ist (Glassdoor/
+    # Google rotieren ihre Anti-Bot-Massnahmen). Das spart Logs und Zeit
+    # — fuer Glassdoor mit 30 Keywords wuerden sonst 30 API-Errors
+    # geloggt werden.
+    consecutive_empty = 0
+    _EARLY_STOP_THRESHOLD = 3
+
     jobs: list[dict] = []
     for kw in keywords:
         try:
@@ -179,7 +187,13 @@ def _search_site(site: str, keywords: list[str], location: str,
             continue
 
         if df is None or getattr(df, "empty", True):
+            consecutive_empty += 1
+            if consecutive_empty >= _EARLY_STOP_THRESHOLD and not jobs:
+                logger.info("JobSpy %s: %d aufeinanderfolgende leere Antworten — "
+                            "Site vermutlich blockiert, breche ab", site, consecutive_empty)
+                break
             continue
+        consecutive_empty = 0  # Reset bei Treffern
         for _, row in df.iterrows():
             jobs.append(_map_row(row, site))
     return jobs
