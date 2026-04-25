@@ -29,8 +29,11 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
-# URL-Varianten: Jobware hat URLs in der Vergangenheit geaendert (#235)
+# URL-Varianten: Jobware hat URLs in der Vergangenheit geaendert (#235, #500).
+# 2026-04-25: /suche/ und /stellenangebote/ liefern HTTP 404; /jobs ist die
+# aktuelle Such-URL.
 _SEARCH_URLS = [
+    "https://www.jobware.de/jobs",
     "https://www.jobware.de/suche/",
     "https://www.jobware.de/stellenangebote/",
     "https://www.jobware.de/jobs/",

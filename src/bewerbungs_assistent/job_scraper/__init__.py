@@ -49,6 +49,12 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        # #500: Live-Test 2026-04-25 — alle bekannten URLs liefern HTTP 404.
+        # Quelle bleibt im Registry sichtbar, ist aber gesperrt; Reaktivierung
+        # nur ueber bewussten "Trotzdem aktivieren"-Klick.
+        "defekt": True,
+        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25)",
+        "manueller_fallback": "https://www.ingenieur.de/jobs (im Browser oder Chrome-Extension oeffnen)",
     },
     "heise_jobs": {
         "name": "Heise Jobs",
@@ -63,6 +69,10 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        # #500: Live-Test 2026-04-25 — alle bekannten Such-URLs HTTP 404.
+        "defekt": True,
+        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25, vermutlich SPA-Migration)",
+        "manueller_fallback": "https://www.gulp.de/ (im Browser nach IT-Projekten suchen)",
     },
     "solcom": {
         "name": "SOLCOM",
@@ -70,6 +80,9 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        "defekt": True,
+        "defekt_grund": "Anti-Bot-Schutz (HTTP 403 seit 2026-04-25)",
+        "manueller_fallback": "https://www.solcom.de/projekte (Browser oder Chrome-Extension)",
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
@@ -91,6 +104,9 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+        "defekt": True,
+        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25)",
+        "manueller_fallback": "https://www.ferchau.com/de/de (Karriere-Bereich im Browser)",
     },
     "kimeta": {
         "name": "Kimeta",
@@ -118,6 +134,27 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         "beta": True,
+    },
+    "jobspy_glassdoor": {
+        "name": "Glassdoor (via JobSpy)",
+        "beschreibung": "Glassdoor-Stellen ueber python-jobspy (MIT). Liefert oft 0 — "
+                         "Glassdoor blockiert API-Zugriffe haeufig. Wird trotzdem mitversucht.",
+        "methode": "python-jobspy",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+        "beta": True,
+        "warnung": "Glassdoor blockiert API-Zugriffe haeufig — niedrige Trefferquote erwartet.",
+    },
+    "jobspy_google": {
+        "name": "Google Jobs (via JobSpy)",
+        "beschreibung": "Google-Jobs-Aggregator ueber python-jobspy (MIT). Indiziert StepStone, "
+                         "Indeed, LinkedIn und Dutzende DACH-Boards in einer Anfrage.",
+        "methode": "python-jobspy",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+        "beta": True,
+        "warnung": "Google blockiert automatisierte Jobsuche oft — wenn 0 Treffer, "
+                    "ueber Google-Jobs-Karte in der Chrome-Extension manuell suchen.",
     },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
@@ -153,6 +190,9 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "langsam",
         "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
         "beta": True,
+        "defekt": True,
+        "defekt_grund": "monster.de antwortet nicht (Connect-Timeout 2026-04-25)",
+        "manueller_fallback": "https://www.monster.de (im Browser pruefen, ggf. Chrome-Extension)",
     },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
@@ -283,6 +323,8 @@ _SCRAPER_MAP = {
     "kimeta": ("kimeta", "search_kimeta"),
     "jobspy_linkedin": ("jobspy_source", "search_jobspy_linkedin"),
     "jobspy_indeed": ("jobspy_source", "search_jobspy_indeed"),
+    "jobspy_glassdoor": ("jobspy_source", "search_jobspy_glassdoor"),
+    "jobspy_google": ("jobspy_source", "search_jobspy_google"),
     "google_jobs": ("google_jobs", "search_google_jobs"),
 }
 
@@ -492,10 +534,18 @@ def run_search(db, job_id: str, params: dict):
         pass
 
     # #234: Separate httpx (parallel) and playwright (sequential) sources
+    # #500: Defekt-Flag in SOURCE_REGISTRY blockiert die Quelle automatisch.
     httpx_quellen = []
     sequential_quellen = []
+    defekt_skipped = {}
     for quelle in quellen:
-        if quelle in _deprecated_sources:
+        info = SOURCE_REGISTRY.get(quelle, {})
+        if info.get("defekt"):
+            grund = info.get("defekt_grund") or "Quelle als defekt markiert"
+            logger.warning("%s: defekt — %s. Manuell ueber Chrome-Extension nutzen.", quelle, grund)
+            skipped_sources.append(quelle)
+            defekt_skipped[quelle] = grund
+        elif quelle in _deprecated_sources:
             logger.warning(
                 "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
             skipped_sources.append(quelle)
@@ -516,7 +566,15 @@ def run_search(db, job_id: str, params: dict):
     source_status = {}  # quelle -> {"status": ok|timeout|error|skipped, "count": N, "time_s": N}
 
     for q in skipped_sources:
-        source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}
+        if q in defekt_skipped:
+            source_status[q] = {
+                "status": "skipped",
+                "count": 0,
+                "time_s": 0,
+                "detail": f"defekt: {defekt_skipped[q]}",
+            }
+        else:
+            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}
 
     # Phase 1: Run httpx-based scrapers in parallel (#234)
     if httpx_quellen:

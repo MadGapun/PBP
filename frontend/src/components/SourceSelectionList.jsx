@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
 
 import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
 
@@ -103,20 +103,30 @@ export default function SourceSelectionList({
         const loginJob = loginJobs[source.key];
         const loginRunning = loginJob?.status === "running";
         const loginReady = loginJob?.status === "fertig";
+        const isDefekt = Boolean(source.defekt);
 
         return (
           <Card
             key={source.key}
             data-source-key={source.key}
-            className="glass-card-soft rounded-xl shadow-none"
+            className={`glass-card-soft rounded-xl shadow-none ${isDefekt ? "opacity-60" : ""}`}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-ink">{source.name}</span>
-                  <Badge tone={source.active ? "success" : "neutral"}>
-                    {source.veraltet ? "Manuell" : source.active ? "Aktiv" : "Inaktiv"}
-                  </Badge>
+                  <span className={`text-sm font-semibold ${isDefekt ? "text-muted line-through decoration-muted/40" : "text-ink"}`}>
+                    {source.name}
+                  </span>
+                  {isDefekt ? (
+                    <Badge tone="danger" className="gap-1">
+                      <Ban size={10} />
+                      Defekt
+                    </Badge>
+                  ) : (
+                    <Badge tone={source.active ? "success" : "neutral"}>
+                      {source.veraltet ? "Manuell" : source.active ? "Aktiv" : "Inaktiv"}
+                    </Badge>
+                  )}
                   {speedBadge(source.geschwindigkeit)}
                   {healthBadge(source.health)}
                   {source.beta ? (
@@ -136,13 +146,41 @@ export default function SourceSelectionList({
                   ) : null}
                 </div>
                 <p className="text-sm text-muted">{source.beschreibung}</p>
-                {source.login_erforderlich && !source.beta ? (
+                {isDefekt ? (
+                  <div className="mt-1 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Ban size={13} className="shrink-0 text-danger" />
+                      <span className="text-xs font-semibold text-danger">
+                        Automatische Suche aktuell nicht moeglich
+                      </span>
+                    </div>
+                    {source.defekt_grund ? (
+                      <p className="text-xs text-muted">{source.defekt_grund}</p>
+                    ) : null}
+                    {source.manueller_fallback ? (
+                      <p className="text-xs text-muted">
+                        <strong className="text-ink">Workaround:</strong> Per Chrome-Extension
+                        <a
+                          href={String(source.manueller_fallback).split(" ")[0]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-1 inline-flex items-center gap-1 text-sky underline"
+                        >
+                          {(String(source.manueller_fallback).split(" ")[0] || "").replace(/^https?:\/\//, "").slice(0, 50)}
+                          <ExternalLink size={10} />
+                        </a>
+                        {" "}oeffnen und passende Stellen via <code className="text-ink">stelle_manuell_anlegen</code> nach PBP uebernehmen.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {!isDefekt && source.login_erforderlich && !source.beta ? (
                   <p className="text-xs text-amber">
                     Beim ersten Start oeffnet sich ein Browser-Fenster zur Anmeldung. Danach laeuft
                     die Suche mit gespeicherter Session weiter.
                   </p>
                 ) : null}
-                {source.warnung ? (
+                {!isDefekt && source.warnung ? (
                   <div className="mt-1 rounded-lg border border-amber/30 bg-amber/10 px-3 py-2">
                     <div className="mb-1 flex items-center gap-1.5">
                       <AlertTriangle size={13} className="shrink-0 text-amber" />
@@ -158,7 +196,7 @@ export default function SourceSelectionList({
                 {loginJob?.message ? (
                   <p className="text-xs text-muted">{loginJob.message}</p>
                 ) : null}
-                {source.active && source.profil_optimierung ? (
+                {!isDefekt && source.active && source.profil_optimierung ? (
                   <div className="mt-1 rounded-lg border border-amber/15 bg-amber/5 px-3 py-2">
                     <p className="text-xs text-amber">{source.profil_optimierung}</p>
                   </div>
@@ -166,7 +204,7 @@ export default function SourceSelectionList({
               </div>
 
               <div className="flex shrink-0 self-center items-center gap-3">
-                {source.login_erforderlich && !loginReady ? (
+                {!isDefekt && source.login_erforderlich && !loginReady ? (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -179,8 +217,11 @@ export default function SourceSelectionList({
                 ) : null}
                 <CheckboxInput
                   className="shrink-0 flex-none self-center"
-                  checked={Boolean(source.active)}
+                  checked={Boolean(source.active) && !isDefekt}
+                  disabled={isDefekt}
+                  title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur per Chrome-Extension nutzbar." : undefined}
                   onChange={(event) => {
+                    if (isDefekt) return;
                     const checked = event.target.checked;
                     onToggle?.(source, checked, {
                       trigger: "checkbox",

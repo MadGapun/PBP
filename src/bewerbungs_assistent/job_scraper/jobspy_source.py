@@ -132,8 +132,15 @@ def _normalize_job_type(job_type: str) -> str:
 
 
 def _search_site(site: str, keywords: list[str], location: str,
-                  max_results: int = 25, hours_old: int = 168) -> list[dict]:
-    """Einmaliger Aufruf gegen eine einzelne JobSpy-Site."""
+                  max_results: int = 25, hours_old: int = 168,
+                  google_search_term: str | None = None) -> list[dict]:
+    """Einmaliger Aufruf gegen eine einzelne JobSpy-Site.
+
+    `country_indeed` wird IMMER auf "Germany" gesetzt — JobSpy crasht
+    intern, wenn None uebergeben wird (Country.from_string ruft .strip()
+    auf). Fuer Sites, die das Argument ignorieren (linkedin, glassdoor,
+    google), ist das harmlos.
+    """
     scrape = _ensure_jobspy()
     if scrape is None:
         return []
@@ -146,15 +153,22 @@ def _search_site(site: str, keywords: list[str], location: str,
     jobs: list[dict] = []
     for kw in keywords:
         try:
-            df = scrape(
+            kwargs = dict(
                 site_name=[site],
                 search_term=kw,
                 location=location or "Germany",
-                country_indeed="Germany" if site == "indeed" else None,
+                country_indeed="Germany",  # #500: NIE None — crasht
                 results_wanted=max_results,
                 hours_old=hours_old,
                 verbose=0,
             )
+            if site == "google":
+                # Google-Jobs nutzt `google_search_term` zusaetzlich,
+                # damit Google die Anfrage als Job-Suche erkennt.
+                kwargs["google_search_term"] = (
+                    google_search_term or f"{kw} jobs near {location or 'Germany'}"
+                )
+            df = scrape(**kwargs)
         except Exception as exc:  # jobspy wirft RateLimitException u.a.
             name = type(exc).__name__
             if "429" in str(exc) or "RateLimit" in name:
@@ -171,8 +185,8 @@ def _search_site(site: str, keywords: list[str], location: str,
     return jobs
 
 
-def search_jobspy_linkedin(params: dict) -> list[dict]:
-    """LinkedIn via python-jobspy (#490)."""
+def _extract_kw_region(params: dict) -> tuple[list[str], str]:
+    """Helper: extrahiert keywords + erste Region aus PBP-params."""
     kw_data = params.get("keywords", {})
     if isinstance(kw_data, dict):
         keywords = kw_data.get("general", [])
@@ -181,6 +195,12 @@ def search_jobspy_linkedin(params: dict) -> list[dict]:
         keywords = kw_data or []
         regionen = []
     location = regionen[0] if regionen else "Germany"
+    return keywords, location
+
+
+def search_jobspy_linkedin(params: dict) -> list[dict]:
+    """LinkedIn via python-jobspy (#490)."""
+    keywords, location = _extract_kw_region(params)
     jobs = _search_site("linkedin", keywords, location, max_results=25)
     logger.info("JobSpy/LinkedIn: %d Stellen gefunden", len(jobs))
     return jobs
@@ -188,14 +208,29 @@ def search_jobspy_linkedin(params: dict) -> list[dict]:
 
 def search_jobspy_indeed(params: dict) -> list[dict]:
     """Indeed.de via python-jobspy (#490)."""
-    kw_data = params.get("keywords", {})
-    if isinstance(kw_data, dict):
-        keywords = kw_data.get("general", [])
-        regionen = kw_data.get("regionen", [])
-    else:
-        keywords = kw_data or []
-        regionen = []
-    location = regionen[0] if regionen else "Germany"
+    keywords, location = _extract_kw_region(params)
     jobs = _search_site("indeed", keywords, location, max_results=50)
     logger.info("JobSpy/Indeed: %d Stellen gefunden", len(jobs))
+    return jobs
+
+
+def search_jobspy_glassdoor(params: dict) -> list[dict]:
+    """Glassdoor.de via python-jobspy (#500)."""
+    keywords, location = _extract_kw_region(params)
+    jobs = _search_site("glassdoor", keywords, location, max_results=30)
+    logger.info("JobSpy/Glassdoor: %d Stellen gefunden", len(jobs))
+    return jobs
+
+
+def search_jobspy_google(params: dict) -> list[dict]:
+    """Google Jobs via python-jobspy (#500).
+
+    Massiver Aggregator — Google Jobs indexiert StepStone, Indeed,
+    LinkedIn, Stellenanzeigen.de und Dutzende weitere Boards. Per
+    JobSpy laeuft die Anfrage automatisiert (im Gegensatz zur
+    Chrome-Extension-Variante in google_jobs.py / #501).
+    """
+    keywords, location = _extract_kw_region(params)
+    jobs = _search_site("google", keywords, location, max_results=50)
+    logger.info("JobSpy/Google: %d Stellen gefunden", len(jobs))
     return jobs

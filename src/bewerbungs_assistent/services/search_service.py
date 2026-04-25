@@ -36,12 +36,13 @@ def get_default_active_source_keys(source_registry: dict) -> list[str]:
     """Return the default source selection for a fresh profile.
 
     Quellen mit notwendigem Erst-Login bleiben standardmaessig deaktiviert,
-    alle anderen werden vorausgewaehlt.
+    ebenso als `defekt` markierte (#500). Alle anderen werden vorausgewaehlt.
     """
     return [
         key
         for key, info in source_registry.items()
         if not info.get("login_erforderlich", False)
+        and not info.get("defekt", False)
     ]
 
 
@@ -61,6 +62,12 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "veraltet": info.get("veraltet", False),
             "warnung": info.get("warnung"),
             "geschwindigkeit": info.get("geschwindigkeit", "schnell"),
+            # #500: Defekt-Klassifikation. Wenn `defekt` True ist, blockiert
+            # run_search die Quelle automatisch; das Frontend zeigt sie
+            # ausgegraut + mit Chrome-Extension-Fallback-Hinweis.
+            "defekt": info.get("defekt", False),
+            "defekt_grund": info.get("defekt_grund"),
+            "manueller_fallback": info.get("manueller_fallback"),
         }
         for key, info in source_registry.items()
     ]

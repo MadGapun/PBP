@@ -1009,6 +1009,18 @@ def register(mcp, db, logger):
             if not health:
                 return {"fehler": f"Scraper '{scraper_name}' nicht gefunden."}
 
+        # #500: Defekt-Quellen aus SOURCE_REGISTRY anreichern
+        from ..job_scraper import SOURCE_REGISTRY
+        defekte = []
+        for key, info in SOURCE_REGISTRY.items():
+            if info.get("defekt"):
+                defekte.append({
+                    "name": key,
+                    "anzeigename": info.get("name", key),
+                    "grund": info.get("defekt_grund"),
+                    "manueller_fallback": info.get("manueller_fallback"),
+                })
+
         scrapers = []
         stumme = []
         deaktiviert_auto = []
@@ -1041,6 +1053,14 @@ def register(mcp, db, logger):
             "scraper_anzahl": len(scrapers),
             "scrapers": scrapers,
         }
+        if defekte:
+            result["defekte_quellen"] = defekte
+            result["hinweis_defekt"] = (
+                f"{len(defekte)} Quelle(n) sind aktuell als defekt markiert "
+                "(URL veraltet, Bot-Schutz oder Timeout). Sie werden nicht "
+                "automatisch durchsucht. Workaround: Chrome-Extension oeffnen "
+                "und Stellen via stelle_manuell_anlegen nach PBP uebernehmen."
+            )
         if stumme:
             result["stumme_quellen"] = stumme
             result["hinweis_stumm"] = (

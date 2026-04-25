@@ -384,7 +384,9 @@ class TestProfileIsolation:
             source["key"] for source in client.get("/api/sources").json() if source["active"]
         }
         expected_defaults = {
-            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+            key
+            for key, source in SOURCE_REGISTRY.items()
+            if not source.get("login_erforderlich") and not source.get("defekt")
         }
         assert active_defaults_b == expected_defaults
         assert client.get("/api/search-criteria").json() == {}
@@ -1497,8 +1499,19 @@ class TestStatistics:
         assert len(data) >= 1
         assert all(source["active"] is False for source in data)
 
+    def test_sources_api_exposes_defekt_fields(self, client):
+        """#500: /api/sources liefert pro Quelle defekt/grund/manueller_fallback."""
+        client.post("/api/profile", json={"name": "Tester"})
+        rows = client.get("/api/sources").json()
+        defekt = [s for s in rows if s.get("defekt")]
+        assert defekt, "Es muss mindestens eine defekt-markierte Quelle geben (gulp/ferchau/...)."
+        for s in defekt:
+            assert s["defekt"] is True
+            assert s["defekt_grund"], f"defekte Quelle {s['key']} ohne Grund"
+            assert s["active"] is False  # defekt -> nicht voraktiviert
+
     def test_sources_default_with_profile_excludes_login_required(self, client):
-        """Frisches Profil aktiviert alle Quellen ausser LinkedIn/XING."""
+        """Frisches Profil aktiviert alle Quellen ausser LinkedIn/XING und defekte (#500)."""
         from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
 
         client.post("/api/profile", json={"name": "Tester"})
@@ -1507,7 +1520,9 @@ class TestStatistics:
 
         active = {source["key"] for source in r.json() if source["active"]}
         expected = {
-            key for key, source in SOURCE_REGISTRY.items() if not source.get("login_erforderlich")
+            key
+            for key, source in SOURCE_REGISTRY.items()
+            if not source.get("login_erforderlich") and not source.get("defekt")
         }
         assert active == expected
 

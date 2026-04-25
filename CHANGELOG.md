@@ -7,6 +7,54 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.16] - 2026-04-25
+
+Scraper-Reanimation Phase 1 (#500): Job-Suche ist Kern-Mehrwert von PBP — eine
+Veroeffentlichung ohne funktionierende Quellen ist nicht release-wuerdig. Die
+Diagnose aus beta.14 hat gezeigt, dass von 17 Quellen real nur 2 lieferten.
+Diese Beta loest die wichtigsten Befunde:
+
+**Booster JobSpy ausgebaut (Indeed 37 + LinkedIn 25 Treffer live bestaetigt):**
+- `python-jobspy` von Optional-Extra in Core-Dependency hochgezogen — der
+  Booster war bisher in den meisten Installationen schlicht nicht aktiv.
+- Bug `country_indeed=None` gefixt — JobSpy crashte intern an
+  `Country.from_string(None).strip()`. LinkedIn lieferte deshalb 0 Treffer.
+- Neue Quellen `jobspy_glassdoor` und `jobspy_google` ergaenzt. Glassdoor
+  und Google werden oft blockiert, laufen aber bei Erfolg als breite
+  Aggregatoren mit.
+- Registry waechst von 20 auf 22 Quellen.
+
+**Defekte Quellen sichtbar gesperrt (statt heimlich aussortiert):**
+- Neue SOURCE_REGISTRY-Felder `defekt`, `defekt_grund`, `manueller_fallback`.
+- Live-Diagnose 2026-04-25 markiert: ferchau, gulp, ingenieur_de, solcom,
+  monster — bekannt defekt (HTTP 404 / 403 / Timeout).
+- `run_search` ueberspringt defekte Quellen, schreibt Skip-Detail
+  `defekt: <grund>` ins Status-Tracking. Keine stillen Phantom-Erfolge mehr.
+- `get_default_active_source_keys` aktiviert defekte Quellen nicht mehr
+  vorab beim ersten Profil.
+- Frontend `SourceSelectionList`: defekte Quellen werden ausgegraut
+  (opacity 60%, Name durchgestrichen), Toggle ist disabled mit
+  Tooltip-Hinweis. Roter "Defekt"-Badge + Hinweisbox mit dem konkreten
+  Grund und dem Chrome-Extension-Workaround (URL-Link, der den
+  manuellen Import via `stelle_manuell_anlegen` empfiehlt).
+- `scraper_diagnose` MCP-Tool listet `defekte_quellen` mit Grund und
+  Fallback-URL prominent.
+
+**Jobware-URL-Update:**
+- Live-Test 2026-04-25: `/jobs` liefert 200, `/suche/` und `/stellenangebote/`
+  404. Neue URL als erstes in der Probe-Liste.
+
+### Added
+- 1 neuer Test (`test_sources_api_exposes_defekt_fields`).
+- 4 neue JobSpy-Site-Funktionen (`search_jobspy_glassdoor/_google` + Helper).
+
+### Changed
+- `python-jobspy` als Core-Dependency (vorher `[scraper]`-Extra).
+- `build_source_rows` und `get_default_active_source_keys` respektieren
+  `defekt`-Flag.
+- 2 bestehende Tests (`test_sources_default_*`, `test_profile_specific_*`)
+  filtern erwartete Defaults nun auch nach `defekt`.
+
 ## [1.6.0-beta.15] - 2026-04-25
 
 Bugfix #506: `bewerbung_erstellen` ignorierte den `status`-Parameter, wenn
