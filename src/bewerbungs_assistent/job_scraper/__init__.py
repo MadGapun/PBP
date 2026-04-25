@@ -501,9 +501,32 @@ def run_search(db, job_id: str, params: dict):
     # Deprecated sources (#159): skip with warning
     _deprecated_sources = {"linkedin", "xing"}
 
-    # Per-source timeout: 90 seconds default, Stepstone 180s (#200, #248, #252)
+    # Per-source timeout (#500 / Real-Run-Bilanz 2026-04-25): pauschale
+    # 90s sind fuer mehrere Quellen zu kurz, wenn der User viele Keywords
+    # konfiguriert hat. Quellen die regelmaessig durchliefen aber knapp am
+    # Limit waren bekommen jetzt einen erhoehten Timeout. Stepstone bleibt
+    # bei 180s Sonderbehandlung, alle anderen aus der Map werden hier
+    # nachgeschlagen.
     _SOURCE_TIMEOUT = 90
     _STEPSTONE_TIMEOUT = 180
+    _SOURCE_TIMEOUT_MAP = {
+        "stepstone": 180,
+        "bundesagentur": 180,    # Detail-API-Calls fuer 1980+ Treffer
+        "freelance_de": 180,     # ~40 Keywords x Detail-Page
+        "jobspy_indeed": 150,    # Lief in Real-Run 114s — knapp am 90s-Limit
+        "jobspy_linkedin": 120,  # LinkedIn-Rate-Limit pro Page
+        "freelancermap": 120,    # Slug-URL pro Keyword
+        "indeed": 120,           # Playwright + Anti-Bot
+        "monster": 120,          # Playwright + Anti-Bot
+        # Schnelle API-Quellen behalten 90s (default):
+        # arbeitnow, greenhouse, hays, jobspy_glassdoor, jobspy_google,
+        # stellenanzeigen_de, jobware, kimeta, heise_jobs, ferchau, gulp,
+        # solcom, ingenieur_de, google_jobs, linkedin, xing
+    }
+
+    def _timeout_for(quelle: str) -> int:
+        return _SOURCE_TIMEOUT_MAP.get(quelle, _SOURCE_TIMEOUT)
+
     skipped_sources = []
 
     # #234: Playwright-basierte Scraper sequentiell, httpx-basierte parallel
@@ -627,7 +650,7 @@ def run_search(db, job_id: str, params: dict):
         for quelle in httpx_quellen:
             try:
                 search_func = _load_scraper(quelle)
-                timeout = _STEPSTONE_TIMEOUT if quelle == "stepstone" else _SOURCE_TIMEOUT
+                timeout = _timeout_for(quelle)
                 _start_times[quelle] = time.time()
                 futures[parallel_executor.submit(_run_with_loop, search_func, params)] = (quelle, timeout)
             except ImportError as e:

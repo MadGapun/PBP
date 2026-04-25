@@ -7,6 +7,50 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.20] - 2026-04-25
+
+Per-Source-Timeouts + Glassdoor-Spam-Fix nach Real-Run-Bilanz (#500).
+Echter Such-Lauf mit den Live-Suchkriterien zeigte: 5 Quellen lieferten
+zu langsam und wurden in den 90s-Default-Timeout gekillt — obwohl sie
+echte Daten haben.
+
+**Per-Source-Timeout-Map** ersetzt die pauschale 90s/180s-Logik:
+- `bundesagentur`: 180s (war 90s) — bei 1981 Treffern braucht der
+  Detail-API-Loop Zeit, selbst mit dem Performance-Limit aus beta.19
+- `freelance_de`: 180s (war 90s) — bei vielen User-Keywords (~40)
+  und Detail-Pages pro Treffer
+- `jobspy_indeed`: 150s (war 90s) — Real-Run lief 114s, knapp am Limit
+- `jobspy_linkedin`: 120s (war 90s) — LinkedIn-Rate-Limits pro Page
+- `freelancermap`, `indeed`, `monster`: 120s (war 90s) — Anti-Bot bzw.
+  Slug-URL-Multi-Keyword
+- Alle uebrigen API-Quellen behalten 90s (default).
+
+**JobSpy Glassdoor: Early-Stop bei aufeinanderfolgenden leeren Antworten**
+(beta.19 hotfix, 08ef144): Real-Run zeigte 30 sequentielle "Error
+encountered in API response"-Logs fuer Glassdoor — die Quelle ist
+geblockt, sinnlos weiterzuversuchen. Nach 3 leeren Antworten und 0
+bisherigen Treffern wird die Site abgebrochen. Reset bei jedem
+Treffer, damit kurze Aussetzer nicht falsch terminieren. Wirkt fuer
+alle JobSpy-Sites.
+
+### Real-Run-Bilanz mit aktuellen Live-Suchkriterien (10 Muss-Keywords + 31 Plus, Region Hamburg)
+
+Aktiv liefernd:
+- bundesagentur: **1981 Treffer** (41.8s, danach Timeout bei 90s — jetzt 180s)
+- jobspy_indeed: **702** (114s — jetzt 150s Limit)
+- freelancermap: **488** (Slug-URL pro Keyword, Timeout reduziert)
+- hays: **50** (42.7s, ok)
+- arbeitnow: **49** (sub-second)
+- stellenanzeigen_de: **25** (81.2s, ok)
+- greenhouse: **16** (DACH-Filter aktiv)
+
+Vorher Timeout, jetzt mehr Spielraum:
+- stepstone, freelance_de, jobspy_linkedin, indeed, monster
+
+### Changed
+- `__init__.py`: `_SOURCE_TIMEOUT_MAP` + Helper `_timeout_for(quelle)`,
+  zwei Aufrufer entsprechend angepasst.
+
 ## [1.6.0-beta.19] - 2026-04-25
 
 Performance- und Installer-Robustheit (#500), plus systematischer
