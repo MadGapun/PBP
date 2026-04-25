@@ -7,6 +7,26 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.15] - 2026-04-25
+
+Bugfix #506: `bewerbung_erstellen` ignorierte den `status`-Parameter, wenn
+`bereits_beworben=False` gesetzt war — der Status wurde immer auf
+`in_vorbereitung` ueberschrieben. Jetzt wird ein expliziter Status
+respektiert (z.B. `zurueckgezogen` fuer Inbound-Anfragen, die ohne
+Bewerbung sofort abgelehnt werden). Default-Verhalten bleibt unveraendert:
+ohne expliziten `status` mappt `bereits_beworben=False` weiterhin auf
+`in_vorbereitung`.
+
+### Fixed
+- #506: `bewerbung_erstellen(bereits_beworben=False, status="zurueckgezogen")`
+  legt die Bewerbung mit Status `zurueckgezogen` an statt sie auf
+  `in_vorbereitung` zu zwingen. Spart einen unnoetigen
+  `bewerbung_status_aendern`-Call und vermeidet einen falschen
+  Status-Eintrag in der Timeline.
+
+### Added
+- 4 Regressionstests fuer #506 in `test_v157_flow_completion.py`.
+
 ## [1.6.0-beta.14] - 2026-04-25
 
 Scraper-Wahrheit (#499): Status `ok + 0 Treffer` wird nicht mehr als Erfolg

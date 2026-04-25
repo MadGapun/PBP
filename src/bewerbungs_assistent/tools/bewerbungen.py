@@ -188,7 +188,13 @@ def register(mcp, db, logger):
             stellenbeschreibung: Optional: Vollständige Stellenbeschreibung (#172) — wird automatisch gespeichert
         """
         # #170: Wenn der User sich noch nicht beworben hat → in_vorbereitung
-        if not bereits_beworben:
+        # #506: Aber NUR, wenn der Aufrufer keinen expliziten Status gesetzt hat.
+        # `status="beworben"` ist der implizite Default — in diesem Fall
+        # interpretieren wir "noch nicht beworben" als "in_vorbereitung".
+        # Wenn jemand `bereits_beworben=False, status="zurueckgezogen"` ueber-
+        # gibt, soll der Status respektiert werden (z.B. Inbound-Anfrage,
+        # die ohne Bewerbung sofort abgelehnt wurde).
+        if not bereits_beworben and status == "beworben":
             status = "in_vorbereitung"
 
         # Check for duplicate applications (#63)

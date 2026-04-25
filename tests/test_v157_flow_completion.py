@@ -215,3 +215,52 @@ def test_schema_hat_final_salary_spalte(tmp_path):
     conn = db.connect()
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(applications)").fetchall()]
     assert "final_salary" in cols
+
+
+# ==================== #506: bewerbung_erstellen respektiert expliziten Status ====================
+
+def test_506_explicit_status_with_bereits_beworben_false(tmp_path):
+    """#506: status='zurueckgezogen' + bereits_beworben=False -> wird respektiert."""
+    mcp, db = _build_server(tmp_path)
+    res = _run(mcp, "bewerbung_erstellen", {
+        "title": "Senior PLM Architekt",
+        "company": "Beispiel GmbH",
+        "bereits_beworben": False,
+        "status": "zurueckgezogen",
+        "notes": "Per Klick als unpassend abgelehnt",
+    })
+    assert res.get("status") == "erstellt"
+    assert res.get("bewerbungsstatus") == "zurueckgezogen"
+
+
+def test_506_default_status_with_bereits_beworben_false_uses_in_vorbereitung(tmp_path):
+    """#506: ohne explizites status + bereits_beworben=False -> in_vorbereitung (Default-Verhalten)."""
+    mcp, db = _build_server(tmp_path)
+    res = _run(mcp, "bewerbung_erstellen", {
+        "title": "Backend Engineer",
+        "company": "Default GmbH",
+        "bereits_beworben": False,
+    })
+    assert res.get("bewerbungsstatus") == "in_vorbereitung"
+
+
+def test_506_default_call_uses_beworben(tmp_path):
+    """#506: bereits_beworben=True (Default) + kein status -> beworben."""
+    mcp, db = _build_server(tmp_path)
+    res = _run(mcp, "bewerbung_erstellen", {
+        "title": "Data Engineer",
+        "company": "Standard GmbH",
+    })
+    assert res.get("bewerbungsstatus") == "beworben"
+
+
+def test_506_explicit_abgelehnt_with_bereits_beworben_false(tmp_path):
+    """#506: weitere Status-Werte (abgelehnt) werden ebenfalls respektiert."""
+    mcp, db = _build_server(tmp_path)
+    res = _run(mcp, "bewerbung_erstellen", {
+        "title": "Inbound-Anfrage",
+        "company": "Recruiter Y",
+        "bereits_beworben": False,
+        "status": "abgelehnt",
+    })
+    assert res.get("bewerbungsstatus") == "abgelehnt"
