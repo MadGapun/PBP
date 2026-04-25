@@ -466,8 +466,100 @@ def register(mcp, db, logger):
             "titel": row["title"],
             "firma": row["company"],
             "stil": stil,
-            "hinweis": "Stil wurde als Event gespeichert. Nutze statistiken_abrufen() "
-                       "um später Rücklaufquoten pro Stil zu analysieren.",
+            "hinweis": "Stil wurde als Event gespeichert. Nutze stil_auswertung() "
+                       "um Rücklaufquoten pro Stil zu sehen.",
+        }
+
+    @mcp.tool()
+    def stil_auswertung() -> dict:
+        """Wertet getrackte Anschreiben-Stile aus: Welcher Stil bringt mehr Interviews/Angebote? (#454)
+
+        Liest alle stil_tracking-Events aus application_events und joined gegen
+        den aktuellen Status der jeweiligen Bewerbung. Berechnet pro Stil:
+        Anzahl, Interview-Quote, Angebots-Quote, Absage-Quote.
+
+        Mindestens 3 Bewerbungen pro Stil noetig damit eine Quote
+        ausgegeben wird (sonst zu rauschig).
+        """
+        conn = db.connect()
+        rows = conn.execute("""
+            SELECT e.notes, e.application_id, a.status
+            FROM application_events e
+            JOIN applications a ON a.id = e.application_id
+            WHERE e.status = 'stil_tracking'
+            ORDER BY e.event_date ASC
+        """).fetchall()
+
+        if not rows:
+            return {
+                "status": "keine_daten",
+                "hinweis": "Noch keine Stil-Trackings vorhanden. Nutze bewerbung_stil_tracken() "
+                           "nach jedem Anschreiben.",
+                "stile": {},
+            }
+
+        # Letzten Stil pro Bewerbung gewinnen lassen (falls mehrfach getrackt)
+        latest_per_app = {}
+        for r in rows:
+            notes = r["notes"] or ""
+            m = re.match(r"Anschreiben-Stil:\s*(\w+)", notes)
+            if not m:
+                continue
+            latest_per_app[r["application_id"]] = (m.group(1).lower(), r["status"])
+
+        if not latest_per_app:
+            return {
+                "status": "keine_daten",
+                "hinweis": "Stil-Events vorhanden, aber Format nicht parsebar.",
+                "stile": {},
+            }
+
+        INTERVIEW_STATES = {"interview", "zweitgespraech"}
+        OFFER_STATES = {"angebot", "angenommen"}
+        REJECT_STATES = {"abgelehnt", "abgesagt"}
+
+        per_stil: dict[str, dict] = {}
+        for app_id, (stil, app_status) in latest_per_app.items():
+            bucket = per_stil.setdefault(stil, {
+                "anzahl": 0,
+                "interviews": 0,
+                "angebote": 0,
+                "absagen": 0,
+                "in_prozess": 0,
+            })
+            bucket["anzahl"] += 1
+            if app_status in INTERVIEW_STATES:
+                bucket["interviews"] += 1
+                bucket["in_prozess"] += 1
+            elif app_status in OFFER_STATES:
+                bucket["interviews"] += 1
+                bucket["angebote"] += 1
+            elif app_status in REJECT_STATES:
+                bucket["absagen"] += 1
+            else:
+                bucket["in_prozess"] += 1
+
+        MIN_SAMPLES = 3
+        for stil, bucket in per_stil.items():
+            n = bucket["anzahl"]
+            if n >= MIN_SAMPLES:
+                bucket["interview_quote"] = round(bucket["interviews"] / n * 100, 1)
+                bucket["angebots_quote"] = round(bucket["angebote"] / n * 100, 1)
+                bucket["absage_quote"] = round(bucket["absagen"] / n * 100, 1)
+            else:
+                bucket["hinweis"] = f"Nur {n} Bewerbungen — fuer Quoten mindestens {MIN_SAMPLES} noetig."
+
+        sortiert = sorted(
+            per_stil.items(),
+            key=lambda kv: kv[1].get("interview_quote", -1),
+            reverse=True,
+        )
+
+        return {
+            "status": "ok",
+            "gesamt_getrackt": sum(b["anzahl"] for b in per_stil.values()),
+            "stile": {k: v for k, v in sortiert},
+            "min_samples_fuer_quoten": MIN_SAMPLES,
         }
 
     @mcp.tool()

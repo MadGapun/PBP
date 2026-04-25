@@ -1722,6 +1722,25 @@ async def api_update_application(app_id: str, request: Request):
     return {"status": "ok", "changes": len(changes)}
 
 
+@app.put("/api/applications/{app_id}/research-notes")
+async def api_update_research_notes(app_id: str, request: Request):
+    """Speichert Firmen-Recherche-Notizen am verknuepften Job des Dossiers (#463)."""
+    profile_id = _get_active_profile_id()
+    app_row = _get_application_row_for_active_profile(app_id)
+    if not profile_id or not app_row:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    job_hash = app_row["job_hash"] if "job_hash" in app_row.keys() else None
+    if not job_hash:
+        return JSONResponse(
+            {"error": "Bewerbung ist nicht mit einer Stelle verknuepft. Recherche kann nicht gespeichert werden."},
+            status_code=400,
+        )
+    data = await request.json()
+    notes = data.get("research_notes", "")
+    _db.update_job(job_hash, {"research_notes": notes})
+    return {"status": "ok"}
+
+
 @app.post("/api/applications/{app_id}/link-document")
 async def api_link_document(app_id: str, request: Request):
     """Link an existing document to an application."""
@@ -2049,6 +2068,155 @@ async def api_stats_scores():
 async def api_stats_extended():
     """Extended statistics: daily activity, response times, dismiss reasons, import vs new (#135)."""
     return _db.get_extended_stats()
+
+
+@app.get("/api/keyword-suggestions")
+async def api_keyword_suggestions():
+    """Keyword-Vorschlaege auf Basis aktiver Stellen (#458). Nutzt MCP-Tool-Logik."""
+    import re as _re
+    from collections import Counter as _Counter
+
+    criteria = _db.get_search_criteria()
+    muss = [kw.lower() for kw in criteria.get("keywords_muss", [])]
+    plus = [kw.lower() for kw in criteria.get("keywords_plus", [])]
+    ausschluss = [kw.lower() for kw in criteria.get("keywords_ausschluss", [])]
+    alle_keywords = set(muss + plus)
+
+    jobs = _db.get_active_jobs(exclude_blacklisted=True)
+    if not jobs:
+        return {"status": "keine_jobs", "aktive_stellen": 0}
+    if len(jobs) < 20:
+        return {"status": "zu_wenig_jobs", "aktive_stellen": len(jobs), "min_jobs": 20}
+
+    good_jobs = [j for j in jobs if j.get("score", 0) >= 3]
+    bad_jobs = [j for j in jobs if j.get("score", 0) <= 1]
+
+    _stopwords = {
+        "und", "oder", "der", "die", "das", "den", "dem", "ein", "eine",
+        "ist", "sind", "hat", "haben", "wird", "werden", "mit", "von",
+        "fuer", "für", "als", "bei", "zur", "zum", "auf", "aus", "nach",
+        "nicht", "auch", "sich", "wir", "sie", "uns", "ihr", "ihre",
+        "unser", "unsere", "deine", "ihre", "m/w/d", "m/w", "gmbh",
+        "bieten", "suchen", "ihre", "gerne", "dich", "dein", "team",
+        "arbeit", "deutsch", "english", "stelle", "stellen", "job",
+    }
+
+    def _terms(text: str) -> list[str]:
+        words = _re.findall(r"[a-zA-ZäöüÄÖÜß]{4,}", text.lower())
+        return [w for w in words if w not in _stopwords]
+
+    good_words: _Counter[str] = _Counter()
+    bad_words: _Counter[str] = _Counter()
+    for j in good_jobs:
+        text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+        for term in _terms(text):
+            good_words[term] += 1
+    for j in bad_jobs:
+        text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+        for term in _terms(text):
+            bad_words[term] += 1
+
+    vorschlaege_plus: list[dict] = []
+    min_freq = max(2, len(good_jobs) // 4) if good_jobs else 2
+    for term, count in good_words.most_common(50):
+        if term not in alle_keywords and count >= min_freq:
+            ratio = count / max(1, bad_words.get(term, 0))
+            if ratio >= 2:
+                vorschlaege_plus.append({
+                    "keyword": term,
+                    "in_guten_stellen": count,
+                    "in_schlechten_stellen": bad_words.get(term, 0),
+                })
+
+    vorschlaege_ausschluss: list[dict] = []
+    min_bad_freq = max(2, len(bad_jobs) // 4) if bad_jobs else 2
+    for term, count in bad_words.most_common(30):
+        if term not in alle_keywords and term not in ausschluss and count >= min_bad_freq:
+            ratio = count / max(1, good_words.get(term, 0))
+            if ratio >= 3:
+                vorschlaege_ausschluss.append({
+                    "keyword": term,
+                    "in_schlechten_stellen": count,
+                    "in_guten_stellen": good_words.get(term, 0),
+                })
+
+    return {
+        "status": "ok",
+        "aktive_stellen": len(jobs),
+        "gut_bewertet": len(good_jobs),
+        "schlecht_bewertet": len(bad_jobs),
+        "vorschlaege_plus": vorschlaege_plus[:10],
+        "vorschlaege_ausschluss": vorschlaege_ausschluss[:5],
+    }
+
+
+@app.get("/api/stats/style")
+async def api_stats_style():
+    """Anschreiben-Stil-Auswertung: Welcher Stil bringt mehr Interviews/Angebote? (#454)."""
+    import re as _re
+
+    conn = _db.connect()
+    rows = conn.execute(
+        """
+        SELECT e.notes, e.application_id, a.status
+        FROM application_events e
+        JOIN applications a ON a.id = e.application_id
+        WHERE e.status = 'stil_tracking'
+        ORDER BY e.event_date ASC
+        """
+    ).fetchall()
+
+    if not rows:
+        return {"status": "keine_daten", "stile": {}, "min_samples_fuer_quoten": 3}
+
+    latest_per_app: dict[str, tuple[str, str]] = {}
+    for r in rows:
+        notes = r["notes"] or ""
+        m = _re.match(r"Anschreiben-Stil:\s*(\w+)", notes)
+        if not m:
+            continue
+        latest_per_app[r["application_id"]] = (m.group(1).lower(), r["status"])
+
+    INTERVIEW_STATES = {"interview", "zweitgespraech"}
+    OFFER_STATES = {"angebot", "angenommen"}
+    REJECT_STATES = {"abgelehnt", "abgesagt"}
+
+    per_stil: dict[str, dict] = {}
+    for stil, app_status in latest_per_app.values():
+        bucket = per_stil.setdefault(stil, {
+            "anzahl": 0, "interviews": 0, "angebote": 0, "absagen": 0, "in_prozess": 0,
+        })
+        bucket["anzahl"] += 1
+        if app_status in INTERVIEW_STATES:
+            bucket["interviews"] += 1
+            bucket["in_prozess"] += 1
+        elif app_status in OFFER_STATES:
+            bucket["interviews"] += 1
+            bucket["angebote"] += 1
+        elif app_status in REJECT_STATES:
+            bucket["absagen"] += 1
+        else:
+            bucket["in_prozess"] += 1
+
+    MIN_SAMPLES = 3
+    for bucket in per_stil.values():
+        n = bucket["anzahl"]
+        if n >= MIN_SAMPLES:
+            bucket["interview_quote"] = round(bucket["interviews"] / n * 100, 1)
+            bucket["angebots_quote"] = round(bucket["angebote"] / n * 100, 1)
+            bucket["absage_quote"] = round(bucket["absagen"] / n * 100, 1)
+
+    sortiert = sorted(
+        per_stil.items(),
+        key=lambda kv: kv[1].get("interview_quote", -1),
+        reverse=True,
+    )
+    return {
+        "status": "ok",
+        "gesamt_getrackt": sum(b["anzahl"] for b in per_stil.values()),
+        "stile": dict(sortiert),
+        "min_samples_fuer_quoten": MIN_SAMPLES,
+    }
 
 
 # === E-Mail Integration (#136) ===
@@ -2426,6 +2594,60 @@ async def api_get_application_emails(app_id: str):
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     emails = _db.get_emails_for_application(app_id, profile_id=profile_id)
     return {"emails": emails, "count": len(emails)}
+
+
+@app.post("/api/emails/{email_id}/create-application")
+async def api_create_application_from_email(email_id: str, request: Request):
+    """Erzeugt eine neue Bewerbung aus einer unzugeordneten E-Mail und verknuepft sie (#459).
+
+    Body (optional): {title, company} — Felder zum manuellen Ueberschreiben der heuristischen
+    Werte. Default: Subject als Titel, Sender-Domain als Firma.
+    """
+    profile_id = _get_active_profile_id()
+    em = _get_email_for_active_profile(email_id)
+    if not profile_id or not em:
+        return JSONResponse({"error": "E-Mail nicht gefunden"}, status_code=404)
+    if em.get("application_id"):
+        return JSONResponse(
+            {"error": "E-Mail ist bereits einer Bewerbung zugeordnet"},
+            status_code=400,
+        )
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    sender = (em.get("sender") or "").strip()
+    subject = (em.get("subject") or "").strip()
+    sender_domain = ""
+    if "@" in sender:
+        domain_part = sender.rsplit("@", 1)[-1]
+        domain_part = domain_part.split(">")[0].strip()
+        sender_domain = domain_part.split(".")[0] if domain_part else ""
+
+    title = (data.get("title") or "").strip() or subject or "Initiativ-Anfrage"
+    company = (data.get("company") or "").strip() or sender_domain or "Unbekannt"
+
+    aid = _db.add_application({
+        "title": title,
+        "company": company,
+        "status": "offen",
+        "notes": f"Aus E-Mail erstellt: {subject}",
+    })
+    _db.update_email(
+        email_id,
+        {"application_id": aid, "match_confidence": 1.0, "is_processed": 1},
+        profile_id=profile_id,
+    )
+    for att in (em.get("attachments_meta") or []):
+        doc_id = att.get("doc_id")
+        if doc_id:
+            try:
+                _db.link_document_to_application(doc_id, aid, profile_id=profile_id)
+            except Exception:
+                pass
+    return {"status": "ok", "id": aid, "title": title, "company": company}
 
 
 @app.delete("/api/emails/{email_id}")

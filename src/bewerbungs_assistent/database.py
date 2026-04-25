@@ -3387,7 +3387,7 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
-        allowed = ("title", "company", "location", "description")
+        allowed = ("title", "company", "location", "description", "research_notes")
         sets, vals = [], []
         for f in allowed:
             if f in data:

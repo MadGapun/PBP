@@ -7,6 +7,71 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.13] - 2026-04-25
+
+UX-Quickfixes-Block + Mailto-Bugfix. Schliesst die fuer v1.6.0
+geplanten kleinen Luecken in der Posteingang-/Bewerbungs-/Stats-/
+Profil-/Kalender-Welt. Mail-Integration-Arc (#469, #478, #480) wurde
+nach Recherche auf v1.7.0 verschoben.
+
+### Added
+
+- **#454 stil_auswertung MCP-Tool + /api/stats/style + StatsPage-Card**:
+  Aggregiert alle bewerbung_stil_tracken-Eintraege ueber alle
+  Bewerbungen und berechnet pro Stil Anzahl + Interview-/Angebots-/
+  Absage-Quote (MIN_SAMPLES=3). Damit ist die Daten-Senke aus #454
+  endlich auswertbar — sowohl fuer Claude (MCP-Tool) als auch im UI
+  (StatsPage Card "Anschreiben-Stile im Vergleich").
+- **#457 termin-spezifischer Interview-Prep-Button**: CalendarPage
+  zeigt fuer Interview-Meetings (interview, telefoninterview, video,
+  vor_ort, kennenlernen, zweitgespraech) einen Briefcase-Button,
+  der `/interview_vorbereitung stelle="..." firma="..."` mit dem
+  konkreten Meeting-Kontext in die Zwischenablage kopiert.
+  DashboardPage-Schnellzugriff verwendet ebenfalls den Termin-Kontext.
+- **#458 keyword_vorschlaege im UI**: Neuer Endpoint
+  `GET /api/keyword-suggestions` (Status: keine_jobs / zu_wenig_jobs
+  / ok, MIN_JOBS=20). ProfilePage zeigt in der Suchkriterien-Card
+  Plus-/Minus-Buttons, die direkt in keywords_plus / keywords_ausschluss
+  schreiben — ohne Umweg ueber Claude.
+- **#459 Posteingang fuer unzugeordnete Mails**: Neuer Endpoint
+  `POST /api/emails/{email_id}/create-application` legt eine Bewerbung
+  aus einer Mail an und verknuepft die Mail. Title-Fallback aus
+  Subject, Company-Fallback aus Sender-Domain. EmailDetailModal zeigt
+  fuer unzugeordnete Mails einen "Neue Bewerbung daraus erstellen"-
+  Button.
+- **#463 Firmen-Recherche-Sektion im Dossier**: Neuer Endpoint
+  `PUT /api/applications/{app_id}/research-notes` speichert
+  Recherche-Notizen am verknuepften Job (research_notes-Spalte).
+  ApplicationsPage-Dossier zeigt nach den Stellendetails eine Card
+  "Firmen-Recherche" mit "Mit Claude aktualisieren"-Button (kopiert
+  `/firmen_recherche firma=...`), TextArea und Speichern-Button.
+- **#467 Sprach-Tipp im Tagesimpuls-Pool**: 3 neue Tipps zu Mikrofon-
+  Eingabe in Claude Desktop — gerade fuer Profil-Aufbau und
+  Interview-Training relevant.
+- **8 neue Dashboard-Tests** decken alle neuen Endpoints ab.
+
+### Fixed
+
+- **Mailto-Links im EmailDetailModal**: "Von:"/"An:" zeigte sich
+  zuvor nur als Text-Zeile; ein Klick startete keinen Mail-Client.
+  Modal hat jetzt Sender-/Recipient-Mailto-Links und einen prominenten
+  "Antworten"-Button im Footer (Subject mit "AW:"-Prefix). Im
+  Dossier-Email-List ist die Gegenpartei-Adresse ebenfalls als
+  Mailto-Link klickbar (zusaetzlich zum Reply-Icon-Button).
+
+### Changed
+
+- **#469, #478, #480 nach v1.7.0 verschoben**: Thunderbird-MCP-
+  Integration, Thunderbird-Add-On und Outlook-Add-In bilden in v1.7.0
+  einen koordinierten Mail-Integration-Arc auf einer gemeinsamen
+  anbieter-agnostischen Import-Abstraktion. Der bestehende
+  POST /api/emails/{id}/create-application-Endpoint (#459) reicht
+  fuer den manuellen via-Claude-Desktop-Workflow.
+- **#465 abgesorbiert in #425**: Aehnliche-Stellen-Idee wandert in
+  den Lokales-LLM-Plan (Embeddings via sqlite-vec); Issue als
+  "not planned" geschlossen.
+- **Database.update_job** erlaubt jetzt `research_notes` als Feld.
+
 ## [1.6.0-beta.12] - 2026-04-25
 
 Adapter-v2-Flip (#499) + Jobsuche-Button ohne Claude (#461):

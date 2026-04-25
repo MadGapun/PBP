@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Calendar, Clock, Download, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, Calendar, Clock, Download, PenLine, TrendingUp } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 import {
   Area,
@@ -127,6 +127,7 @@ export default function StatsPage() {
   const [scores, setScores] = useState(null);
   const [extended, setExtended] = useState(null);
   const [rejection, setRejection] = useState(null);
+  const [styleStats, setStyleStats] = useState(null);
 
   // Combined key for "all" view: granularity=all means show everything grouped monthly
   const interval = granularity === "all" ? "all" : granularity;
@@ -135,11 +136,12 @@ export default function StatsPage() {
     try {
       const params = new URLSearchParams({ interval: g });
       if (r) params.set("range", r);
-      const [timelineData, scoreData, extendedData, rejectionData] = await Promise.all([
+      const [timelineData, scoreData, extendedData, rejectionData, styleData] = await Promise.all([
         optionalApi(`/api/stats/timeline?${params}`),
         optionalApi("/api/stats/scores"),
         optionalApi("/api/stats/extended"),
         optionalApi("/api/rejection-patterns"),
+        optionalApi("/api/stats/style"),
       ]);
       if (!timelineData && !scoreData && !extendedData) {
         pushToast("Server nicht erreichbar.", "danger");
@@ -150,6 +152,7 @@ export default function StatsPage() {
       setScores(scoreData);
       setExtended(extendedData);
       setRejection(rejectionData);
+      setStyleStats(styleData);
       setLoading(false);
     } catch (error) {
       pushToast(`Statistiken konnten nicht geladen werden: ${error.message}`, "danger");
@@ -589,6 +592,44 @@ export default function StatsPage() {
                   Vertieft mit Claude besprechen
                 </Button>
               </div>
+            </Card>
+          )}
+
+          {/* Row 3c: Anschreiben-Stil-Auswertung (#454) */}
+          {styleStats?.status === "ok" && Object.keys(styleStats.stile || {}).length > 0 && (
+            <Card className="rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <PenLine size={14} className="text-sky" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Anschreiben-Stile im Vergleich</p>
+                </div>
+                <Badge tone="neutral">{styleStats.gesamt_getrackt} getrackt</Badge>
+              </div>
+              <div className="grid gap-1.5">
+                {Object.entries(styleStats.stile).map(([stil, bucket]) => {
+                  const hasQuoten = typeof bucket.interview_quote === "number";
+                  return (
+                    <div key={stil} className="rounded-lg border border-white/[0.04] px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-medium text-ink capitalize">{stil}</span>
+                        <Badge tone="neutral">{bucket.anzahl} {bucket.anzahl === 1 ? "Bewerbung" : "Bewerbungen"}</Badge>
+                      </div>
+                      {hasQuoten ? (
+                        <div className="mt-1.5 flex items-center gap-3 text-xs text-muted/70">
+                          <span>Interview-Quote: <span className="text-ink font-medium">{bucket.interview_quote}%</span></span>
+                          <span>Angebote: <span className="text-ink font-medium">{bucket.angebots_quote}%</span></span>
+                          <span>Absagen: <span className="text-ink font-medium">{bucket.absage_quote}%</span></span>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted/50">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil noetig.`}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-xs text-muted/50">
+                Stil per <code className="text-ink/70">bewerbung_stil_tracken()</code> nach jedem Anschreiben festhalten — Claude macht das nach dem Standard-Workflow automatisch.
+              </p>
             </Card>
           )}
 

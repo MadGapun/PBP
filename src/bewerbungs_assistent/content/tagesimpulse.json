@@ -138,5 +138,8 @@
   {"id": "impuls_137", "text": "Was heute klein wirkt, kann morgen der Teil sein, der alles traegt.", "tags": ["ermutigend", "alltag"], "contexts": ["default"]},
   {"id": "impuls_138", "text": "Manchmal ist Hoffnung einfach gute Routine.", "tags": ["ermutigend", "alltag"], "contexts": ["default"]},
   {"id": "impuls_139", "text": "Du darfst dir Zeit lassen, solange du dich nicht aufgibst.", "tags": ["ermutigend", "alltag"], "contexts": ["default"]},
-  {"id": "impuls_140", "text": "Bleib freundlich zu dir. Du arbeitest hier nicht gegen dich.", "tags": ["ermutigend", "alltag"], "contexts": ["default"]}
+  {"id": "impuls_140", "text": "Bleib freundlich zu dir. Du arbeitest hier nicht gegen dich.", "tags": ["ermutigend", "alltag"], "contexts": ["default"]},
+  {"id": "impuls_141", "text": "Tipp: Du kannst Claude auch per Mikrofon ansprechen statt zu tippen. Spart Tippfinger und macht Interview-Training natuerlicher.", "tags": ["tipp", "alltag"], "contexts": ["default"]},
+  {"id": "impuls_142", "text": "Tipp: Mikrofon-Knopf in Claude Desktop gedrueckt halten und einfach reden. Profil aufbauen geht so oft schneller als zu tippen.", "tags": ["tipp", "profil"], "contexts": ["default", "profile_building", "onboarding"]},
+  {"id": "impuls_143", "text": "Tipp: Interview-Training klappt besser, wenn du Claude per Sprache antwortest. Naeher dran am echten Gespraech.", "tags": ["tipp", "alltag"], "contexts": ["default"]}
 ]

@@ -8,6 +8,7 @@
   Download,
   HandCoins,
   Mail,
+  MessageSquareReply,
   Mic,
   Network,
   PlayCircle,
@@ -37,6 +38,9 @@ import {
   SelectInput,
 } from "@/components/ui";
 import {
+  buildMailto,
+  buildReplyMailto,
+  extractEmailAddress,
   formatCurrency,
   formatDate,
   readinessTone,
@@ -730,7 +734,12 @@ export default function DashboardPage() {
                       {meeting._isInterview ? (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); copyPrompt("/interview_vorbereitung"); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const stelle = meeting.app_title ? ` stelle="${meeting.app_title}"` : "";
+                            const firma = meeting.app_company ? ` firma="${meeting.app_company}"` : "";
+                            copyPrompt(`/interview_vorbereitung${stelle}${firma}`);
+                          }}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
                         >
                           <Calendar size={14} />
@@ -1046,6 +1055,16 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
     }
   }
 
+  async function createApplicationFromEmail() {
+    try {
+      const result = await postJson(`/api/emails/${email.id}/create-application`, {});
+      pushToast(`Bewerbung "${result.title}" @ ${result.company} angelegt.`, "success");
+      onUpdate();
+    } catch (err) {
+      pushToast(`Bewerbung konnte nicht angelegt werden: ${err.message}`, "danger");
+    }
+  }
+
   async function applyStatus(status) {
     setApplying(true);
     try {
@@ -1069,6 +1088,11 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
     }
   }
 
+  const replyTo = email.direction === "ausgang" ? email.recipients : email.sender;
+  const replyMailto = buildReplyMailto(replyTo, email.subject);
+  const senderMailto = buildMailto({ to: email.sender });
+  const recipientsMailto = buildMailto({ to: email.recipients });
+
   return (
     <Modal
       open={true}
@@ -1077,7 +1101,18 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
       footer={
         <div className="flex justify-between">
           <Button variant="ghost" className="text-coral" onClick={deleteEmail}>Löschen</Button>
-          <Button onClick={onClose}>Schließen</Button>
+          <div className="flex gap-2">
+            {replyMailto && (
+              <a
+                href={replyMailto}
+                className="inline-flex items-center gap-1 rounded-lg bg-sky/15 px-3 py-1.5 text-sm font-semibold text-sky hover:bg-sky/25 transition-colors"
+                title={`Im Mail-Client antworten an ${extractEmailAddress(replyTo)}`}
+              >
+                <MessageSquareReply size={14} /> Antworten
+              </a>
+            )}
+            <Button onClick={onClose}>Schließen</Button>
+          </div>
         </div>
       }
     >
@@ -1086,11 +1121,19 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
           <div className="grid gap-1.5 text-sm">
             <div className="flex gap-2">
               <span className="w-16 shrink-0 text-muted/50">Von:</span>
-              <span className="text-ink">{email.sender}</span>
+              {senderMailto ? (
+                <a href={senderMailto} className="text-sky hover:underline">{email.sender}</a>
+              ) : (
+                <span className="text-ink">{email.sender}</span>
+              )}
             </div>
             <div className="flex gap-2">
               <span className="w-16 shrink-0 text-muted/50">An:</span>
-              <span className="text-ink">{email.recipients}</span>
+              {recipientsMailto ? (
+                <a href={recipientsMailto} className="text-sky hover:underline">{email.recipients}</a>
+              ) : (
+                <span className="text-ink">{email.recipients}</span>
+              )}
             </div>
             <div className="flex gap-2">
               <span className="w-16 shrink-0 text-muted/50">Datum:</span>
@@ -1176,6 +1219,17 @@ function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate })
             <p className="mt-1 text-xs text-muted/50">
               Auto-Match Konfidenz: {Math.round(email.match_confidence * 100)}%
             </p>
+          )}
+          {/* #459: Bewerbung neu erstellen, wenn keine passt */}
+          {!email.application_id && (
+            <div className="mt-3 border-t border-white/[0.04] pt-3">
+              <p className="text-xs text-muted/50 mb-2">
+                Keine passende Bewerbung? Lege eine neue aus dieser E-Mail an — Subject als Titel, Absender-Domain als Firma.
+              </p>
+              <Button size="sm" variant="secondary" onClick={createApplicationFromEmail}>
+                Neue Bewerbung daraus erstellen
+              </Button>
+            </div>
           )}
         </Card>
       </div>

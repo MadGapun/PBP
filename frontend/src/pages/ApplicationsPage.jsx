@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import {
   STATUS_OPTIONS,
+  buildMailto,
   buildReplyMailto,
   cn,
   formatCurrency,
@@ -87,7 +88,7 @@ function EmailUploadButton({ pushToast, onImported }) {
 }
 
 export default function ApplicationsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo, intent, clearIntent } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo, intent, clearIntent, copyPrompt } = useApp();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
@@ -117,6 +118,8 @@ export default function ApplicationsPage() {
   const [timelineStatusDraft, setTimelineStatusDraft] = useState(EMPTY_APPLICATION.status);
   const [timelineMeetings, setTimelineMeetings] = useState([]);
   const [timelineEmails, setTimelineEmails] = useState([]);
+  const [researchDraft, setResearchDraft] = useState("");
+  const [researchSaving, setResearchSaving] = useState(false);
 
   const deferredQuery = useDeferredValue(filters.query);
   const includeArchivedDataset = filters.showArchived || ARCHIVE_STATUSES.includes(filters.status);
@@ -251,6 +254,7 @@ export default function ApplicationsPage() {
       setDocuments(docs?.documents || []);
       setTimelineMeetings(meetings?.meetings || []);
       setTimelineEmails(emails?.emails || []);
+      setResearchDraft(timeline?.job?.research_notes || "");
       setNewNoteText("");
       setEditingNoteId(null);
       setDocSearchQuery("");
@@ -995,6 +999,55 @@ export default function ApplicationsPage() {
             </Card>
           ) : null}
 
+          {/* #463: Firmen-Recherche-Sektion */}
+          {timelineDialog.entry?.job ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Firmen-Recherche</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    const firma = timelineDialog.entry.job.company || timelineDialog.entry.application?.company || "";
+                    copyPrompt(`/firmen_recherche firma="${firma}"`);
+                  }}
+                >
+                  Mit Claude aktualisieren
+                </Button>
+              </div>
+              <TextArea
+                rows={6}
+                value={researchDraft}
+                onChange={(event) => setResearchDraft(event.target.value)}
+                placeholder="Notizen zur Firma — Kennzahlen, Kultur, News, Ansprechpartner. Claude kann das per Button oben generieren."
+                className="mt-2"
+              />
+              <div className="mt-2 flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={researchSaving || researchDraft === (timelineDialog.entry?.job?.research_notes || "")}
+                  onClick={async () => {
+                    setResearchSaving(true);
+                    try {
+                      await putJson(
+                        `/api/applications/${timelineDialog.entry.application.id}/research-notes`,
+                        { research_notes: researchDraft },
+                      );
+                      pushToast("Firmen-Recherche gespeichert.", "success");
+                      await reloadTimeline(timelineDialog.entry.application.id);
+                    } catch (err) {
+                      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+                    } finally {
+                      setResearchSaving(false);
+                    }
+                  }}
+                >
+                  Speichern
+                </Button>
+              </div>
+            </Card>
+          ) : null}
+
           {/* Fit-Analyse (#84) */}
           {timelineDialog.entry?.application?.fit_analyse ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
@@ -1189,6 +1242,7 @@ export default function ApplicationsPage() {
                 {timelineEmails.map((em) => {
                   const replyTo = em.direction === "ausgang" ? em.recipients : em.sender;
                   const replyMailto = buildReplyMailto(replyTo, em.subject);
+                  const partnerMailto = buildMailto({ to: replyTo });
                   return (
                     <div
                       key={em.id}
@@ -1200,7 +1254,12 @@ export default function ApplicationsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-ink">{em.subject || "Ohne Betreff"}</p>
                         <p className="text-xs text-muted/50">
-                          {em.direction === "ausgang" ? "An" : "Von"}: {replyTo}
+                          {em.direction === "ausgang" ? "An" : "Von"}:{" "}
+                          {partnerMailto ? (
+                            <a href={partnerMailto} className="text-sky hover:underline">{replyTo}</a>
+                          ) : (
+                            <span>{replyTo}</span>
+                          )}
                           {em.sent_date && <span className="ml-2">{formatDate(em.sent_date)}</span>}
                         </p>
                       </div>

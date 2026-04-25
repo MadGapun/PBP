@@ -261,7 +261,7 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
 }
 
 export default function CalendarPage() {
-  const { reloadKey, pushToast, navigateTo } = useApp();
+  const { reloadKey, pushToast, navigateTo, copyPrompt } = useApp();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState([]);
   const [collisions, setCollisions] = useState([]);
@@ -951,6 +951,21 @@ export default function CalendarPage() {
                                 )
                               ) : (
                                 <>
+                                  {/* #457: Termin-spezifischer Interview-Prep */}
+                                  {!past && ["interview", "telefoninterview", "video", "vor_ort", "kennenlernen", "zweitgespraech"].includes(meeting.meeting_type) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const stelle = meeting.app_title ? ` stelle="${meeting.app_title}"` : "";
+                                        const firma = meeting.app_company ? ` firma="${meeting.app_company}"` : "";
+                                        copyPrompt(`/interview_vorbereitung${stelle}${firma}`);
+                                      }}
+                                      className="rounded-lg p-1.5 text-muted/30 hover:text-amber transition-colors"
+                                      title="Auf dieses Interview vorbereiten"
+                                    >
+                                      <Briefcase size={14} />
+                                    </button>
+                                  )}
                                   {/* #453 / v1.5.7: Durchgefuehrt fuer vergangene geplante Meetings */}
                                   {past && (meeting.status === "geplant" || meeting.status === "bestaetigt") && (
                                     <button

@@ -370,6 +370,7 @@ export default function ProfilePage() {
   const [blacklistForm, setBlacklistForm] = useState({ type: "firma", value: "" });
   const [completeness, setCompleteness] = useState({ completeness: 0 });
   const [extractions, setExtractions] = useState([]);
+  const [keywordSuggestions, setKeywordSuggestions] = useState(null);
   const [positionDialog, setPositionDialog] = useState({ open: false, draft: EMPTY_POSITION });
   const [projectDialog, setProjectDialog] = useState({ open: false, positionId: "", draft: EMPTY_PROJECT });
   const [educationDialog, setEducationDialog] = useState({ open: false, draft: EMPTY_EDUCATION });
@@ -415,12 +416,14 @@ export default function ProfilePage() {
         api("/api/extractions"),
         api("/api/search-criteria"),
         api("/api/blacklist"),
+        optionalApi("/api/keyword-suggestions"),
       ]);
       const profileData = results[0].status === "fulfilled" ? results[0].value : null;
       const completenessData = results[1].status === "fulfilled" ? results[1].value : null;
       const extractionData = results[2].status === "fulfilled" ? results[2].value : null;
       const searchCriteria = results[3].status === "fulfilled" ? results[3].value : {};
       const blacklistRows = results[4].status === "fulfilled" ? results[4].value : [];
+      const keywordSuggestionsData = results[5].status === "fulfilled" ? results[5].value : null;
       const nextDraft = toDraft(profileData);
       const nextCriteriaDraft = criteriaToDraft(searchCriteria || {});
       suppressProfileAutosaveRef.current = true;
@@ -436,6 +439,7 @@ export default function ProfilePage() {
         setBlacklist(blacklistRows || []);
         setCompleteness(completenessData || { completeness: 0 });
         setExtractions(extractionData?.extractions || []);
+        setKeywordSuggestions(keywordSuggestionsData);
         setLoading(false);
       });
     } catch (error) {
@@ -1133,6 +1137,62 @@ export default function ProfilePage() {
 
         <Card id="profil-suchkriterien" className="rounded-2xl">
           <SectionHeading title="Suchkriterien" description="Keywords und Gewichtungen für Matching und Scoring." />
+          {/* #458: Keyword-Vorschlaege aus aktiven Stellen */}
+          {keywordSuggestions?.status === "ok" && (keywordSuggestions.vorschlaege_plus?.length > 0 || keywordSuggestions.vorschlaege_ausschluss?.length > 0) && (
+            <div className="mb-4 rounded-xl border border-sky/20 bg-sky/[0.04] p-3">
+              <p className="text-xs font-semibold text-sky/80 mb-2">
+                Vorschlaege aus deinen {keywordSuggestions.aktive_stellen} aktiven Stellen
+              </p>
+              {keywordSuggestions.vorschlaege_plus?.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
+                    Haeufig in gut bewerteten Stellen, fehlen in deinen PLUS-Keywords
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {keywordSuggestions.vorschlaege_plus.map((s) => (
+                      <button
+                        key={s.keyword}
+                        type="button"
+                        onClick={() => setCriteriaDraft((current) => {
+                          const existing = current.keywords_plus || [];
+                          if (existing.includes(s.keyword)) return current;
+                          return { ...current, keywords_plus: [...existing, s.keyword] };
+                        })}
+                        className="rounded-lg bg-success/15 px-2.5 py-1 text-xs text-success transition hover:bg-success/25"
+                        title={`In ${s.in_guten_stellen} guten / ${s.in_schlechten_stellen} schlechten Stellen — klicken zum Hinzufuegen`}
+                      >
+                        + {s.keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {keywordSuggestions.vorschlaege_ausschluss?.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
+                    Haeufig in schlecht bewerteten Stellen — als Ausschluss empfohlen
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {keywordSuggestions.vorschlaege_ausschluss.map((s) => (
+                      <button
+                        key={s.keyword}
+                        type="button"
+                        onClick={() => setCriteriaDraft((current) => {
+                          const existing = current.keywords_ausschluss || [];
+                          if (existing.includes(s.keyword)) return current;
+                          return { ...current, keywords_ausschluss: [...existing, s.keyword] };
+                        })}
+                        className="rounded-lg bg-danger/15 px-2.5 py-1 text-xs text-danger transition hover:bg-danger/25"
+                        title={`In ${s.in_schlechten_stellen} schlechten / ${s.in_guten_stellen} guten Stellen — klicken zum Ausschliessen`}
+                      >
+                        − {s.keyword}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid gap-4">
             {[
               ["MUSS-Keywords", "keywords_muss", "sky", "z.B. Data Scientist"],

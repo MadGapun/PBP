@@ -1346,6 +1346,149 @@ class TestStatistics:
         assert body["status"] == "laeuft_bereits"
         assert body["job_id"] == running_id
 
+    def test_create_application_from_email(self, client):
+        """POST /api/emails/{id}/create-application erzeugt Bewerbung + verknuepft Mail (#459)."""
+        import bewerbungs_assistent.dashboard as dash
+        client.post("/api/profile", json={"name": "Tester"})
+        eid = dash._db.add_email({
+            "subject": "Initiative Anfrage Senior Backend",
+            "sender": "recruiter@acmecorp.de",
+            "recipients": "me@example.com",
+            "direction": "eingang",
+        })
+        r = client.post(f"/api/emails/{eid}/create-application", json={})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "ok"
+        assert "id" in body
+        assert body["company"] == "acmecorp"
+        assert "Initiative" in body["title"]
+
+        # E-Mail ist nun verknuepft
+        em = dash._db.get_email(eid)
+        assert em["application_id"] == body["id"]
+
+    def test_create_application_from_email_already_linked(self, client):
+        """Verknuepfte E-Mails koennen nicht doppelt verknuepft werden (#459)."""
+        import bewerbungs_assistent.dashboard as dash
+        client.post("/api/profile", json={"name": "Tester"})
+        existing_app = dash._db.add_application({"title": "X", "company": "Y"})
+        eid = dash._db.add_email({
+            "subject": "Test", "sender": "a@b.de",
+            "application_id": existing_app, "direction": "eingang",
+        })
+        r = client.post(f"/api/emails/{eid}/create-application", json={})
+        assert r.status_code == 400
+        assert "bereits" in r.json()["error"].lower()
+
+    def test_keyword_suggestions_no_jobs(self, client):
+        """/api/keyword-suggestions ohne Jobs → keine_jobs (#458)."""
+        r = client.get("/api/keyword-suggestions")
+        assert r.status_code == 200
+        assert r.json()["status"] == "keine_jobs"
+
+    def test_keyword_suggestions_zu_wenig_jobs(self, client):
+        """/api/keyword-suggestions unter 20 Jobs → zu_wenig_jobs (#458)."""
+        import bewerbungs_assistent.dashboard as dash
+        jobs = [
+            {
+                "hash": f"j{i}", "title": f"Job {i}", "company": "F",
+                "url": f"http://x/{i}", "description": "Python Backend Senior",
+                "source": "test", "score": 4,
+            } for i in range(5)
+        ]
+        dash._db.save_jobs(jobs)
+        r = client.get("/api/keyword-suggestions")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "zu_wenig_jobs"
+        assert body["min_jobs"] == 20
+
+    def test_stats_style_no_data(self, client):
+        """/api/stats/style ohne Trackings → keine_daten (#454)."""
+        r = client.get("/api/stats/style")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "keine_daten"
+        assert body["stile"] == {}
+
+    def test_stats_style_aggregiert_pro_stil(self, client):
+        """/api/stats/style aggregiert Anzahl + Quoten pro Stil (#454)."""
+        import bewerbungs_assistent.dashboard as dash
+        from datetime import datetime, timezone
+
+        def _track(app_id: str, stil: str) -> None:
+            conn = dash._db.connect()
+            conn.execute(
+                "INSERT INTO application_events (application_id, status, event_date, notes) "
+                "VALUES (?, 'stil_tracking', ?, ?)",
+                (app_id, datetime.now(timezone.utc).isoformat(), f"Anschreiben-Stil: {stil}"),
+            )
+            conn.commit()
+
+        for i in range(3):
+            app_id = dash._db.add_application({
+                "title": f"Job {i}", "company": "F",
+                "status": "interview" if i < 2 else "abgelehnt",
+            })
+            _track(app_id, "formell")
+
+        for i in range(2):
+            app_id = dash._db.add_application({
+                "title": f"Other {i}", "company": "G", "status": "beworben",
+            })
+            _track(app_id, "kreativ")
+
+        r = client.get("/api/stats/style")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "ok"
+        assert body["gesamt_getrackt"] == 5
+        formell = body["stile"]["formell"]
+        assert formell["anzahl"] == 3
+        assert formell["interviews"] == 2
+        assert formell["interview_quote"] == round(2 / 3 * 100, 1)
+        # kreativ unter MIN_SAMPLES → keine Quote, dafuer Hinweis
+        kreativ = body["stile"]["kreativ"]
+        assert kreativ["anzahl"] == 2
+        assert "interview_quote" not in kreativ
+
+    def test_research_notes_save(self, client):
+        """PUT /api/applications/{id}/research-notes speichert auf job_hash (#463)."""
+        import bewerbungs_assistent.dashboard as dash
+        client.post("/api/profile", json={"name": "Tester"})
+        dash._db.save_jobs([{
+            "hash": "jobhash1", "title": "Senior Backend",
+            "company": "ACME", "url": "http://x/1",
+            "description": "...", "source": "test", "score": 5,
+        }])
+        app_id = dash._db.add_application({
+            "title": "Senior Backend", "company": "ACME",
+            "job_hash": "jobhash1",
+        })
+
+        r = client.put(
+            f"/api/applications/{app_id}/research-notes",
+            json={"research_notes": "Firma macht KI im Healthcare-Sektor."},
+        )
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+
+        job = dash._db.get_job("jobhash1")
+        assert job["research_notes"] == "Firma macht KI im Healthcare-Sektor."
+
+    def test_research_notes_without_job_link(self, client):
+        """Bewerbung ohne job_hash liefert 400 (#463)."""
+        import bewerbungs_assistent.dashboard as dash
+        client.post("/api/profile", json={"name": "Tester"})
+        app_id = dash._db.add_application({"title": "Solo", "company": "X"})
+        r = client.put(
+            f"/api/applications/{app_id}/research-notes",
+            json={"research_notes": "..."},
+        )
+        assert r.status_code == 400
+        assert "nicht mit einer Stelle" in r.json()["error"]
+
     def test_sources_default_all_inactive(self, client):
         """Quellen-API liefert standardmaessig alle Quellen als inaktiv."""
         r = client.get("/api/sources")
