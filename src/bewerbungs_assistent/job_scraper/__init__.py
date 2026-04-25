@@ -145,6 +145,24 @@ SOURCE_REGISTRY = {
         "beta": True,
         "warnung": "Glassdoor blockiert API-Zugriffe haeufig — niedrige Trefferquote erwartet.",
     },
+    # ── Freie Aggregatoren ohne API-Key (#500) ──
+    "arbeitnow": {
+        "name": "Arbeitnow",
+        "beschreibung": "Freier deutscher Job-Aggregator mit offener REST-API. "
+                         "Schwerpunkt Tech/Remote, kein API-Key, 100 Stellen pro Seite.",
+        "methode": "REST API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "greenhouse": {
+        "name": "Greenhouse Boards",
+        "beschreibung": "Greenhouse-Karriereseiten mehrerer DACH-relevanter Firmen "
+                         "(N26, Celonis, HelloFresh, GetYourGuide, Datadog, Elastic, Cloudflare, "
+                         "MongoDB, GitLab, Twilio). Kein API-Key noetig.",
+        "methode": "Public Job-Board-API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
     "jobspy_google": {
         "name": "Google Jobs (via JobSpy)",
         "beschreibung": "Google-Jobs-Aggregator ueber python-jobspy (MIT). Indiziert StepStone, "
@@ -325,6 +343,8 @@ _SCRAPER_MAP = {
     "jobspy_indeed": ("jobspy_source", "search_jobspy_indeed"),
     "jobspy_glassdoor": ("jobspy_source", "search_jobspy_glassdoor"),
     "jobspy_google": ("jobspy_source", "search_jobspy_google"),
+    "arbeitnow": ("arbeitnow", "search_arbeitnow"),
+    "greenhouse": ("greenhouse", "search_greenhouse"),
     "google_jobs": ("google_jobs", "search_google_jobs"),
 }
 

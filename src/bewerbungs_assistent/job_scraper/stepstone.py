@@ -66,51 +66,90 @@ def search_stepstone(params: dict) -> list:
                     logger.debug("StepStone: Keine Job-Cards auf %s", url)
                     continue
 
-                # Multi-strategy extraction
+                # Multi-strategy extraction. Reihenfolge nach Reliability:
+                #   1. JSON-LD JobPosting (strukturiert, autoritativ)
+                #   2. <article> mit gefiltertem Titel (UI-Chips ausgeschlossen)
+                #   3. Anchors als Fallback
+                # #500: Vorher liefen die Strategien in umgekehrter Reihenfolge
+                # — Strategy 1 schnappte UI-Filter-Chips ("Neuer als 24h",
+                # "Teilweise Home-Office") und blockierte Strategy 3 vom
+                # Laufen. Jetzt erst JSON-LD, dann Articles mit Filter.
                 raw_jobs = page.evaluate("""() => {
                     const results = [];
                     const seen = new Set();
+                    const UI_NOISE = /^(neuer als|teilweise|nur |auf unternehmenswebsite|filter|sortieren|merken|ergebnisse|ansicht|jetzt suchen|vor \\d|gestern|heute|abos)/i;
 
-                    // Strategy 1: article elements (classic StepStone)
-                    for (const card of document.querySelectorAll('article')) {
-                        const titleEl = card.querySelector('a[href*="/stellenangebot"]') ||
-                                       card.querySelector('h2 a, h3 a') ||
-                                       card.querySelector('a[href*="/jobs/"]');
-                        if (!titleEl) continue;
-                        const title = titleEl.textContent?.trim() || '';
-                        if (!title || title.length < 5 || seen.has(title)) continue;
-                        seen.add(title);
-                        let link = titleEl.getAttribute('href') || '';
-                        if (link && !link.startsWith('http')) link = 'https://www.stepstone.de' + link;
-
-                        // Company: sibling or child elements
-                        const companyEl = card.querySelector(
-                            '[class*="company" i], [class*="Company" i], ' +
-                            '[data-at="job-item-company-name"], span[class*="subtitle"]'
-                        );
-                        const locationEl = card.querySelector(
-                            '[class*="location" i], [class*="Location" i], ' +
-                            '[data-at="job-item-location"]'
-                        );
-
-                        results.push({
-                            title,
-                            link,
-                            company: companyEl?.textContent?.trim() || 'Unbekannt',
-                            location: locationEl?.textContent?.trim() || '',
-                        });
+                    // Strategy 1: JSON-LD JobPosting (zuverlaessig)
+                    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+                        try {
+                            const data = JSON.parse(script.textContent || '');
+                            const items = data['@graph'] || (Array.isArray(data) ? data : [data]);
+                            for (const item of items) {
+                                if (!item || item['@type'] !== 'JobPosting') continue;
+                                const title = (item.title || '').trim();
+                                if (!title || seen.has(title)) continue;
+                                seen.add(title);
+                                let location = '';
+                                const jl = item.jobLocation;
+                                if (Array.isArray(jl)) {
+                                    location = jl.map(x => x?.address?.addressLocality).filter(Boolean).join(', ');
+                                } else if (jl) {
+                                    location = jl.address?.addressLocality || '';
+                                }
+                                results.push({
+                                    title,
+                                    link: item.url || '',
+                                    company: item.hiringOrganization?.name || 'Unbekannt',
+                                    location,
+                                });
+                            }
+                        } catch (e) {}
                     }
 
-                    // Strategy 2: Links to /stellenangebot/ (fallback if no articles)
+                    // Strategy 2: article elements — nur wenn das Title-Anchor
+                    // tatsaechlich auf eine Stellenangebot-Seite zeigt UND der
+                    // Titel kein UI-Filter-String ist.
+                    if (results.length < 5) {
+                        for (const card of document.querySelectorAll('article')) {
+                            const titleEl = card.querySelector('a[href*="/stellenangebot"]');
+                            if (!titleEl) continue;
+                            const link = titleEl.getAttribute('href') || '';
+                            if (!link || !/\\/stellenangebot/.test(link)) continue;
+                            const title = (titleEl.textContent || '').trim();
+                            if (!title || title.length < 8 || seen.has(title)) continue;
+                            if (UI_NOISE.test(title)) continue;
+                            seen.add(title);
+                            const fullLink = link.startsWith('http') ? link : 'https://www.stepstone.de' + link;
+
+                            const companyEl = card.querySelector(
+                                '[data-at="job-item-company-name"], ' +
+                                '[class*="company" i], [class*="Company" i], ' +
+                                'span[class*="subtitle"]'
+                            );
+                            const locationEl = card.querySelector(
+                                '[data-at="job-item-location"], ' +
+                                '[class*="location" i], [class*="Location" i]'
+                            );
+
+                            results.push({
+                                title,
+                                link: fullLink,
+                                company: companyEl?.textContent?.trim() || 'Unbekannt',
+                                location: locationEl?.textContent?.trim() || '',
+                            });
+                        }
+                    }
+
+                    // Strategy 3: Pure anchor-Fallback (selten noetig)
                     if (results.length === 0) {
                         for (const a of document.querySelectorAll('a[href*="/stellenangebot"]')) {
-                            const title = a.textContent?.trim() || '';
-                            if (!title || title.length < 5 || seen.has(title)) continue;
+                            const title = (a.textContent || '').trim();
+                            if (!title || title.length < 8 || seen.has(title)) continue;
+                            if (UI_NOISE.test(title)) continue;
                             seen.add(title);
                             let link = a.getAttribute('href') || '';
                             if (link && !link.startsWith('http')) link = 'https://www.stepstone.de' + link;
 
-                            // Walk up to find card container
                             let card = a.closest('article, li, div[class*="card" i], div[class*="Card" i]');
                             if (!card) card = a.parentElement?.parentElement || a.parentElement;
 
@@ -123,28 +162,6 @@ def search_stepstone(params: dict) -> list:
                                 company: companyEl?.textContent?.trim() || 'Unbekannt',
                                 location: locationEl?.textContent?.trim() || '',
                             });
-                        }
-                    }
-
-                    // Strategy 3: JSON-LD structured data
-                    if (results.length === 0) {
-                        for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
-                            try {
-                                const data = JSON.parse(script.textContent);
-                                const items = data['@graph'] || (Array.isArray(data) ? data : [data]);
-                                for (const item of items) {
-                                    if (item['@type'] !== 'JobPosting') continue;
-                                    const title = item.title || '';
-                                    if (!title || seen.has(title)) continue;
-                                    seen.add(title);
-                                    results.push({
-                                        title,
-                                        link: item.url || '',
-                                        company: item.hiringOrganization?.name || 'Unbekannt',
-                                        location: item.jobLocation?.address?.addressLocality || '',
-                                    });
-                                }
-                            } catch (e) {}
                         }
                     }
 

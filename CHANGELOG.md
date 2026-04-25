@@ -7,6 +7,56 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.17] - 2026-04-25
+
+Scraper-Reanimation Phase 2 (#500): Zwei vollstaendig kostenlose, key-freie
+Aggregatoren neu hinzugefuegt + Stepstone-Parser repariert. Marktabdeckung
+sprunghaft erweitert ohne Abhaengigkeit von kostenpflichtigen Diensten.
+
+**Neue Quellen (beide ohne API-Key, ohne Login):**
+- **Arbeitnow** (`arbeitnow.com/api/job-board-api`) — freier deutscher Job-
+  Aggregator mit offener REST-API. 100 Stellen pro Seite, bis zu 3 Seiten
+  pro Lauf. Live-Test 2026-04-25: 17 Python-Stellen deutschlandweit, 1 in
+  Hamburg.
+- **Greenhouse Boards** (`boards-api.greenhouse.io`) — direkte
+  Karriereseiten-API von 10 kuratierten DACH-relevanten Firmen (N26,
+  Celonis, HelloFresh, GetYourGuide, Datadog, Elastic, Cloudflare,
+  MongoDB, GitLab, Twilio). Zusammen 2535 Stellen im Pool;
+  Region-Filter mit DACH-Toleranz (Hamburg matcht auch
+  Germany/Europe/EMEA/Remote). User kann eigene Greenhouse-Slugs ueber
+  das Suchkriterium `greenhouse_companies` ergaenzen.
+
+**Stepstone-Parser repariert:**
+- Bisher schnappte Strategy 1 (alle `<article>`) UI-Filter-Chips als
+  Stellen-Titel ("Neuer als 24h", "Teilweise Home-Office",
+  "Auf Unternehmenswebsite"). 32 Stellen wurden gefunden, aber alle
+  unbrauchbar.
+- Neue Reihenfolge: JSON-LD `JobPosting` zuerst (autoritativ),
+  dann `<article>` mit UI-Noise-Regex-Filter und Pflicht auf
+  `/stellenangebot`-Link, dann Anchor-Fallback.
+
+**Recherche-Ergebnisse die wir NICHT umsetzen** (User-Direktive
+"darf nichts kosten"):
+- Adzuna API → erfordert Account-Registrierung trotz Free-Tier.
+- Jooble API → erfordert API-Key.
+- Apify / Unified.to / TheirStack → kostenpflichtig.
+- Lever Postings API → 0/15 Slug-Treffer; spaeter mit User-Liste.
+
+### Added
+- `job_scraper/arbeitnow.py` (~140 Zeilen).
+- `job_scraper/greenhouse.py` (~170 Zeilen) inklusive `DEFAULT_COMPANIES`-
+  Liste und DACH-Toleranzen fuer Region-Match.
+- 2 neue Eintraege in `SOURCE_REGISTRY` und `_SCRAPER_MAP`.
+
+### Changed
+- `stepstone.py`: Multi-Strategy-Reihenfolge, JSON-LD prefereed,
+  UI-Noise-Filter.
+
+### Confirmed working
+- freelance_de liefert direkt 60 Projekte pro Lauf — frueheres
+  `fail`-Status war transient. Kein Code-Fix noetig, naechste
+  Suche normalisiert die Health-Daten.
+
 ## [1.6.0-beta.16] - 2026-04-25
 
 Scraper-Reanimation Phase 1 (#500): Job-Suche ist Kern-Mehrwert von PBP — eine
