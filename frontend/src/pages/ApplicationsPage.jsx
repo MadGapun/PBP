@@ -789,7 +789,50 @@ export default function ApplicationsPage() {
         title={`Timeline - ${timelineDialog.entry?.application?.title || ""}`}
         onClose={() => setTimelineDialog({ open: false, entry: null })}
         size="xl"
-        footer={<div className="flex justify-between"><LinkButton size="sm" href={`/api/application/${timelineDialog.entry?.application?.id}/timeline/print`} target="_blank" rel="noreferrer"><Download size={14} /> Protokoll drucken</LinkButton><Button onClick={() => setTimelineDialog({ open: false, entry: null })}>Schlie&szlig;en</Button></div>}
+        footer={(() => {
+          const appId = timelineDialog.entry?.application?.id;
+          // beta.31 / #474: ZIP-Export mit Optionen
+          const buildZipUrl = (opts) => {
+            const params = new URLSearchParams();
+            if (opts.dokumente) params.set("dokumente", "1"); else params.set("dokumente", "0");
+            if (opts.mails) params.set("mails", "1"); else params.set("mails", "0");
+            if (opts.pdf) params.set("pdf", "1");
+            return `/api/application/${appId}/export.zip?${params}`;
+          };
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                <LinkButton
+                  size="sm"
+                  href={`/api/application/${appId}/timeline/print`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Download size={14} /> Protokoll drucken
+                </LinkButton>
+                <LinkButton
+                  size="sm"
+                  variant="ghost"
+                  href={buildZipUrl({ dokumente: true, mails: true, pdf: false })}
+                  title="Komplettes Dossier als ZIP herunterladen (Bericht, Stelle, Notizen, Termine.ics, Mails, Dokumente)"
+                >
+                  <Download size={14} /> Als ZIP exportieren
+                </LinkButton>
+                <LinkButton
+                  size="sm"
+                  variant="ghost"
+                  href={buildZipUrl({ dokumente: true, mails: true, pdf: true })}
+                  title="ZIP mit zusaetzlichem PDF-Bericht (etwas langsamer, da Browser im Hintergrund rendert)"
+                >
+                  <Download size={14} /> ZIP + PDF
+                </LinkButton>
+              </div>
+              <Button onClick={() => setTimelineDialog({ open: false, entry: null })}>
+                Schlie&szlig;en
+              </Button>
+            </div>
+          );
+        })()}
       >
         <div className="grid gap-5">
           {/* Application details & contact (#134 editable) */}

@@ -7,6 +7,58 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.31] - 2026-04-26
+
+Bewerbungs-ZIP-Export (#474, neu geloest).
+
+**Statt** "Ordner pro Bewerbung" mit Datei-System-Reorganisation
+(urspruenglicher Plan in #474, geschaetzt 10-13h, viele Risiken):
+**On-demand-ZIP-Export** auf Knopfdruck — kein Schema-Bump, keine
+Pfad-Migration, gleicher User-Mehrwert.
+
+**Neuer Endpoint:** `GET /api/application/{id}/export.zip`
+
+**Phase 1 (immer dabei):**
+- `00_INHALT.md` — Uebersicht
+- `01_Bewerbungsprotokoll.html` — vollstaendiges Bewerbungs-Dossier
+  (das beta.28-Protokoll mit Statistik, Status-Historie, etc.)
+- `02_Stellenanzeige.html` — Original-Stellenbeschreibung mit Link
+- `03_Notizen.md` — alle Notizen
+- `04_Termine.ics` — RFC-5545-konform, importierbar in Outlook,
+  Thunderbird, Apple Calendar
+- `05_Mail-Verlauf.md` — strukturierte Zusammenfassung mit Body
+
+**Phase 2 (optional via Query-Params):**
+- `?dokumente=1` (default) — Original-Files unter `dokumente/`
+- `?mails=1` (default) — Original `.eml`/`.msg`-Files unter `mails/`
+- `?pdf=1` (default off) — zusaetzliches PDF des Berichts via
+  Playwright (haben wir seit beta.16 als Core-Dep installiert)
+
+**Frontend** im Bewerbungs-Detail-Modal:
+- Button "Protokoll drucken" bleibt
+- Neu: "Als ZIP exportieren" (Komplett-Dossier, schnell)
+- Neu: "ZIP + PDF" (mit Playwright-PDF, etwas langsamer)
+
+**Phase 3** (visueller Timeline-Kalender im Bericht, 1-6 Monate
+Span mit Stationen) wandert nach **v1.7.0** zu den UI-Visualisierungs-
+Themen.
+
+**Issue #474 geschlossen** mit Verweis auf den ZIP-Export — die
+Bewerbungs-Ordner-Idee aus #474 ist damit funktional umgesetzt,
+ohne dass PBP die User-Festplatte umorganisieren muss.
+
+### Added
+- `dashboard.py::api_application_export_zip` (~140 Zeilen) plus
+  fuenf Render-Helfer (`_render_stelle_html`, `_render_notes_md`,
+  `_render_mails_md`, `_render_termine_ics`, `_render_inhalt_md`,
+  `_render_html_to_pdf`).
+- 3 neue Buttons im Bewerbungs-Detail-Modal Footer.
+
+### Changed
+- `api_application_timeline_print` refaktoriert — HTML-Render-Logik
+  als wiederverwendbare Funktion `_build_application_print_html`,
+  damit der ZIP-Endpoint sie nutzt.
+
 ## [1.6.0-beta.30] - 2026-04-25
 
 UI-Konsolidierung: Variante A aus #508 vollstaendig umgesetzt (mittlere

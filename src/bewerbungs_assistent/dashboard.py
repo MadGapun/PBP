@@ -1383,19 +1383,28 @@ async def api_application_timeline(app_id: str):
     }
 
 
-@app.get("/api/application/{app_id}/timeline/print")
-async def api_application_timeline_print(app_id: str):
-    """Druckbare HTML-Seite des Bewerbungsprotokolls (#313 / beta.28).
+def _build_application_print_html(app_id: str) -> str | None:
+    """Baut das HTML-Protokoll fuer eine Bewerbung (#313 / beta.28).
 
-    Ausfuehrliches Protokoll: Statistik-Block (Reaktionszeit, Aktivitaets-
-    Zaehler), Status-Historie, getrennte Sektionen fuer E-Mails, Termine,
-    Dokumente, Notizen.
+    Liefert None, wenn die Bewerbung nicht zum aktiven Profil gehoert.
+    Wird genutzt von:
+      - /api/application/{id}/timeline/print (HTML-Anzeige, beta.28)
+      - /api/application/{id}/export.zip (ZIP-Inhalt, beta.31)
     """
     from html import escape as _esc
     profile_id = _get_active_profile_id()
     app_row = _get_application_row_for_active_profile(app_id)
     if not profile_id or not app_row:
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+        return None
+    return _render_application_print_html(app_id, app_row, profile_id, _esc)
+
+
+def _render_application_print_html(app_id, app_row, profile_id, _esc):
+    """Eigentlicher HTML-Renderer (beta.28 Protokoll, refaktoriert beta.31).
+
+    Wurde aus api_application_timeline_print extrahiert, damit der ZIP-
+    Endpoint denselben Code wiederverwenden kann.
+    """
     conn = _db.connect()
     app_data = dict(app_row)
 
@@ -1692,8 +1701,352 @@ a {{ color: #3182ce; }}
 </body>
 </html>"""
 
+    return html
+
+
+@app.get("/api/application/{app_id}/timeline/print")
+async def api_application_timeline_print(app_id: str):
+    """Druckbare HTML-Seite des Bewerbungsprotokolls (#313 / beta.28)."""
+    html = _build_application_print_html(app_id)
+    if html is None:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     from starlette.responses import HTMLResponse
     return HTMLResponse(content=html)
+
+
+@app.get("/api/application/{app_id}/export.zip")
+async def api_application_export_zip(
+    app_id: str,
+    dokumente: int = 1,
+    mails: int = 1,
+    pdf: int = 0,
+):
+    """Vollstaendiger Bewerbungs-Export als ZIP (#474 / beta.31).
+
+    Ersetzt das urspruenglich angedachte "Ordner pro Bewerbung"-Feature
+    aus #474: statt das Dateisystem zu reorganisieren, packt PBP auf
+    Knopfdruck alles zusammen, was zu einer Bewerbung gehoert:
+
+    Phase 1 (immer dabei):
+      - 00_INHALT.md          — Uebersicht des ZIP-Inhalts
+      - 01_Bewerbungsprotokoll.html
+      - 02_Stellenanzeige.html
+      - 03_Notizen.md
+      - 04_Termine.ics        — importierbar in Outlook/Thunderbird/Apple Calendar
+      - 05_Mail-Verlauf.md    — strukturierte Zusammenfassung
+
+    Phase 2 (optional via Query-Params):
+      - dokumente/<file>      — Original-Files (default an, ?dokumente=0 abschalten)
+      - mails/<file>          — Original .eml/.msg falls vorhanden (default an)
+      - 01_Bewerbungsprotokoll.pdf — Playwright-PDF zusaetzlich (?pdf=1)
+    """
+    import io, zipfile, re as _re
+    from html import escape as _esc
+    from datetime import datetime as _dt
+    from pathlib import Path as _Path
+
+    profile_id = _get_active_profile_id()
+    app_row = _get_application_row_for_active_profile(app_id)
+    if not profile_id or not app_row:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    app_data = dict(app_row)
+
+    # Daten zusammensammeln
+    conn = _db.connect()
+    events = [dict(r) for r in conn.execute(
+        "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date ASC",
+        (app_id,)
+    ).fetchall()]
+    emails = (
+        _db.get_emails_for_application(app_id, profile_id=profile_id)
+        if hasattr(_db, "get_emails_for_application") else []
+    )
+    meetings = (
+        _db.get_meetings_for_application(app_id, profile_id=profile_id)
+        if hasattr(_db, "get_meetings_for_application") else []
+    )
+    documents = _db.get_documents_for_application(app_id, profile_id=profile_id)
+    job = None
+    if app_data.get("job_hash"):
+        row = conn.execute("SELECT * FROM jobs WHERE hash=?", (app_data["job_hash"],)).fetchone()
+        if row:
+            job = dict(row)
+
+    # Slug fuer Datei-Namen
+    def _slug(s, maxlen=40):
+        s = (s or "").strip()
+        s = _re.sub(r"[^\w\s-]", "", s, flags=_re.U)
+        s = _re.sub(r"\s+", "-", s)
+        return s[:maxlen] or "bewerbung"
+
+    applied_at = (app_data.get("applied_at") or "")[:10]
+    folder_slug = f"{applied_at}_{_slug(app_data.get('company'))}_{_slug(app_data.get('title'))}__{app_id[:8]}"
+    folder_slug = folder_slug.strip("_-")
+
+    # 01: Bewerbungsprotokoll-HTML
+    bericht_html = _render_application_print_html(app_id, app_row, profile_id, _esc)
+
+    # 02: Stellenanzeige als HTML
+    stelle_html = _render_stelle_html(app_data, job, _esc)
+
+    # 03: Notizen als Markdown
+    notizen_md = _render_notes_md(app_data, events)
+
+    # 04: Termine als ICS
+    termine_ics = _render_termine_ics(app_data, meetings)
+
+    # 05: Mail-Verlauf als Markdown
+    mails_md = _render_mails_md(app_data, emails)
+
+    # 00: Inhalt-Uebersicht
+    inhalt_md = _render_inhalt_md(
+        app_data, len(events), len(emails), len(meetings), len(documents),
+        include_dokumente=bool(dokumente), include_mails=bool(mails),
+        include_pdf=bool(pdf),
+    )
+
+    # ZIP zusammenbauen
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("00_INHALT.md", inhalt_md)
+        zf.writestr("01_Bewerbungsprotokoll.html", bericht_html)
+        zf.writestr("02_Stellenanzeige.html", stelle_html)
+        zf.writestr("03_Notizen.md", notizen_md)
+        zf.writestr("04_Termine.ics", termine_ics)
+        zf.writestr("05_Mail-Verlauf.md", mails_md)
+
+        # Phase 2: PDF via Playwright, falls angefordert
+        if pdf:
+            try:
+                pdf_bytes = _render_html_to_pdf(bericht_html)
+                if pdf_bytes:
+                    zf.writestr("01_Bewerbungsprotokoll.pdf", pdf_bytes)
+            except Exception as e:
+                logger.warning("ZIP-Export: PDF-Konvertierung fehlgeschlagen: %s", e)
+
+        # Phase 2: Original-Dokumente
+        if dokumente:
+            for d in documents:
+                fp = d.get("filepath")
+                if not fp:
+                    continue
+                src = _Path(fp)
+                if not src.exists():
+                    continue
+                target = f"dokumente/{src.name}"
+                try:
+                    zf.write(src, target)
+                except Exception as e:
+                    logger.warning("ZIP-Export: Dokument %s konnte nicht gepackt werden: %s", src.name, e)
+
+        # Phase 2: Original-Mail-Files
+        if mails:
+            for em in emails:
+                fp = em.get("filepath")
+                if not fp:
+                    continue
+                src = _Path(fp)
+                if not src.exists():
+                    continue
+                target = f"mails/{src.name}"
+                try:
+                    zf.write(src, target)
+                except Exception as e:
+                    logger.warning("ZIP-Export: Mail %s konnte nicht gepackt werden: %s", src.name, e)
+
+    buf.seek(0)
+    from starlette.responses import StreamingResponse as _Stream
+    filename = f"{folder_slug}.zip"
+    return _Stream(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Helper fuer Bewerbungs-ZIP-Export (#474 / beta.31) ──────────────────
+
+def _render_stelle_html(app_data: dict, job: dict | None, _esc) -> str:
+    """Stellenanzeige als HTML (im ZIP)."""
+    title = _esc(str(app_data.get("title", "")))
+    company = _esc(str(app_data.get("company", "")))
+    url = _esc(str(app_data.get("url") or (job and job.get("url")) or ""))
+    location = _esc(str((job and job.get("location")) or ""))
+    description = (job and job.get("description")) or app_data.get("notes") or ""
+    description_html = _esc(description).replace("\n", "<br>\n")
+    return f"""<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>Stelle — {title} bei {company}</title>
+<style>body{{font-family:-apple-system,Segoe UI,sans-serif;max-width:800px;margin:2rem auto;padding:1rem;line-height:1.5}}
+h1{{font-size:1.5rem;margin-bottom:0.3rem}}.meta{{color:#666;margin-bottom:1.5rem}}</style></head>
+<body><h1>{title}</h1><p class="meta"><strong>{company}</strong>{f" — {location}" if location else ""}
+{f'<br><a href="{url}">{url}</a>' if url else ''}</p>
+<section>{description_html or '<em>Keine Stellenbeschreibung gespeichert.</em>'}</section></body></html>"""
+
+
+def _render_notes_md(app_data: dict, events: list) -> str:
+    """Notizen als Markdown."""
+    lines = [
+        f"# Notizen — {app_data.get('title', '')} bei {app_data.get('company', '')}",
+        "",
+        f"Bewerbungs-ID: `{app_data.get('id', '')[:8]}`",
+        "",
+    ]
+    notes = [e for e in events if e.get("status") == "notiz" or (e.get("notes") and not e.get("status"))]
+    if not notes:
+        lines.append("_Keine Notizen vorhanden._")
+        return "\n".join(lines)
+    for n in notes:
+        date = (n.get("event_date") or "")[:10]
+        text = n.get("notes") or n.get("description") or ""
+        lines.append(f"## {date}")
+        lines.append("")
+        lines.append(text)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _render_mails_md(app_data: dict, emails: list) -> str:
+    """Mail-Verlauf als strukturierter Markdown-Output."""
+    lines = [
+        f"# Mail-Verlauf — {app_data.get('title', '')} bei {app_data.get('company', '')}",
+        "",
+        f"Insgesamt {len(emails)} E-Mails.",
+        "",
+    ]
+    if not emails:
+        lines.append("_Keine E-Mails verknuepft._")
+        return "\n".join(lines)
+    for em in sorted(emails, key=lambda x: x.get("received_at") or x.get("sent_date") or ""):
+        date = (em.get("received_at") or em.get("sent_date") or "")[:10]
+        direction = "Eingehend" if em.get("direction") == "eingang" else "Ausgehend"
+        partner = em.get("sender") if em.get("direction") == "eingang" else em.get("recipients")
+        lines.append(f"## {date} — {direction}")
+        lines.append("")
+        lines.append(f"**Von/An:** {partner or '—'}")
+        lines.append(f"**Betreff:** {em.get('subject') or '(Kein Betreff)'}")
+        lines.append("")
+        body = (em.get("body_text") or "").strip()
+        if body:
+            lines.append("```")
+            lines.append(body[:3000] + ("..." if len(body) > 3000 else ""))
+            lines.append("```")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _render_termine_ics(app_data: dict, meetings: list) -> str:
+    """Termine als ICS (RFC 5545 minimal). Importierbar in jeden Kalender."""
+    from datetime import datetime as _dt
+    def _ics_dt(s):
+        if not s:
+            return None
+        try:
+            d = _dt.fromisoformat(s.replace(" ", "T")[:19])
+            return d.strftime("%Y%m%dT%H%M%S")
+        except Exception:
+            try:
+                d = _dt.fromisoformat(s[:10])
+                return d.strftime("%Y%m%dT000000")
+            except Exception:
+                return None
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//PBP//Bewerbungs-Assistent//DE",
+        f"X-WR-CALNAME:{app_data.get('title', '')} bei {app_data.get('company', '')}",
+    ]
+    for i, m in enumerate(meetings):
+        start = _ics_dt(m.get("meeting_date"))
+        end = _ics_dt(m.get("meeting_end")) or start
+        if not start:
+            continue
+        uid = f"{app_data.get('id', 'app')[:8]}-meeting-{i}@pbp"
+        title = (m.get("title") or "Termin").replace("\n", " ")
+        location = (m.get("location") or m.get("platform") or "").replace("\n", " ")
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            f"DTSTART:{start}",
+            f"DTEND:{end}",
+            f"SUMMARY:{title}",
+            f"LOCATION:{location}" if location else "",
+            f"DESCRIPTION:Bewerbung {app_data.get('title', '')} bei {app_data.get('company', '')}",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    # ICS will lines no longer than 75 octets; we keep it simple here.
+    return "\r\n".join(line for line in lines if line)
+
+
+def _render_inhalt_md(app_data, n_events, n_emails, n_meetings, n_dokumente,
+                      include_dokumente=True, include_mails=True, include_pdf=False) -> str:
+    """ZIP-Inhalt-Uebersicht als Markdown."""
+    from datetime import datetime as _dt
+    lines = [
+        f"# Bewerbungs-Export — {app_data.get('title', '')} bei {app_data.get('company', '')}",
+        "",
+        f"Exportiert am: {_dt.now().strftime('%d.%m.%Y %H:%M')}",
+        f"Bewerbungs-ID: `{app_data.get('id', '')}`",
+        f"Status: **{app_data.get('status', '')}**",
+        f"Beworben am: {app_data.get('applied_at', '')[:10] or '—'}",
+        "",
+        "## Inhalt dieses ZIP",
+        "",
+        "| Datei | Beschreibung |",
+        "|---|---|",
+        "| `00_INHALT.md` | Diese Uebersicht |",
+        "| `01_Bewerbungsprotokoll.html` | Vollstaendiges Bewerbungs-Dossier (in Browser oeffnen oder drucken) |",
+    ]
+    if include_pdf:
+        lines.append("| `01_Bewerbungsprotokoll.pdf` | Selbiges als PDF |")
+    lines += [
+        "| `02_Stellenanzeige.html` | Original-Stellenbeschreibung mit Link zur Anzeige |",
+        f"| `03_Notizen.md` | Alle Notizen ({n_events} Timeline-Eintraege gesamt) |",
+        f"| `04_Termine.ics` | {n_meetings} Termin(e), in Outlook/Thunderbird/Apple Calendar importierbar |",
+        f"| `05_Mail-Verlauf.md` | {n_emails} E-Mail(s) als Zusammenfassung |",
+    ]
+    if include_dokumente:
+        lines.append(f"| `dokumente/` | {n_dokumente} verknuepfte Original-Datei(en) |")
+    if include_mails:
+        lines.append("| `mails/` | Original-Mail-Dateien (.eml/.msg) falls vorhanden |")
+    lines += [
+        "",
+        "## Tipps zum Lesen",
+        "",
+        "- **HTML-Dateien** im Browser oeffnen (Doppelklick).",
+        "- **Markdown-Dateien** mit jedem Text-Editor lesbar; Renderer wie VS Code, Obsidian oder GitHub formatieren sie schoen.",
+        "- **`.ics`** in deinen Kalender importieren — alle verknuepften Termine kommen sauber rein.",
+        "",
+        "Erstellt von [PBP — Persoenliches Bewerbungs-Portal](https://github.com/MadGapun/PBP).",
+    ]
+    return "\n".join(lines)
+
+
+def _render_html_to_pdf(html: str) -> bytes | None:
+    """HTML -> PDF via Playwright (Phase 2). None bei Fehlern.
+
+    Playwright ist seit beta.16 Core-Dep, damit ist die Konvertierung
+    ohne neue Dependency moeglich.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        logger.info("PDF-Export: Playwright nicht verfuegbar")
+        return None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.set_content(html, wait_until="load")
+            pdf_bytes = page.pdf(format="A4", print_background=True,
+                                  margin={"top": "1.5cm", "bottom": "1.5cm",
+                                          "left": "1.5cm", "right": "1.5cm"})
+            browser.close()
+            return pdf_bytes
+    except Exception as e:
+        logger.warning("PDF-Export ueber Playwright fehlgeschlagen: %s", e)
+        return None
 
 
 @app.get("/api/jobs")
