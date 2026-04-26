@@ -7,6 +7,59 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.30] - 2026-04-25
+
+UI-Konsolidierung: Variante A aus #508 vollstaendig umgesetzt (mittlere
+Sidebar entfaellt, Top-Bar uebernimmt globale Status-Indikatoren), plus
+Hover-to-Expand fuer collapsed Sidebar und v1.7.0-Roadmap-Dokument.
+
+**Sidebar-Konsolidierung (User-Wunsch "zwei Menueleisten zusammenfassen")**
+
+- Mittlere Sidebar (Version + MCP-Badge + JobsucheStatus + Profil-/
+  Kalender-Sub-Navigation) entfaellt komplett.
+- Page-spezifische Sub-Navigation (8 Profil-Sektionen, Kalender-Filter)
+  wandert in die linke Sidebar als **eingerueckte Sub-Items unter dem
+  aktiven Hauptbereich** (kaskadierend wie VS Code/Linear).
+- Sidebar-Brand reduziert auf reinen App-Namen — keine Doppelung mit
+  den globalen Status-Indikatoren.
+
+**Top-Bar als globale Status-Zeile (User-Feedback "Titel gequetscht,
+besser auf der Page")**
+
+- Page-Breadcrumb in der Top-Bar entfaellt (jede Page hat ihr eigenes
+  prominentes h1).
+- Stattdessen: Hamburger | Version (v1.6.0-beta.30) | MCP-Badge
+  (3-stufig, klickbar) | JobsucheStatus | Spacer | Theme | Hilfe |
+  Profil.
+
+**Hover-to-Expand fuer collapsed Sidebar (User-Wunsch)**
+
+- Wenn Sidebar collapsed (60px Layout-Breite), klappt sie bei Hover
+  automatisch als Overlay aus (240px) — Layout springt nicht.
+- Beim Verlassen klappt sie wieder ein.
+- Manueller Toggle bleibt erhalten zum Pinnen/Loesen.
+- Visuell sauber: Schatten unter der ausgeklappten Overlay-Sidebar.
+
+**v1.7.0-Roadmap-Dokumentation**
+
+- `docs/ROADMAP_v1.7.0.md` angelegt — strategische Uebersicht der
+  Local-LLM-Foundation (Ollama-Sidecar), Phasen A/B/C+D, Begleitende
+  Issues, Risiken, Nicht-Ziele.
+- `README.md` mit neuem Roadmap-Abschnitt verlinkt darauf.
+- Detail-Issue [#512](https://github.com/MadGapun/PBP/issues/512)
+  bleibt das lebende Sammel-Dokument fuer Anwendungsfaelle.
+
+### Changed
+- `Sidebar.jsx`: hover-to-expand mit Overlay-Mechanik (Layout-Breite
+  bleibt 60px, inneres Panel wird position:absolute mit Schatten);
+  Brand-Block reduziert; `footerSlot`-Prop fuer Slot-Inhalte.
+- `App.jsx`: alte mittlere Sidebar entfernt (~135 Zeilen weg),
+  `sidebarSubNavigation` berechnet pro Page, Top-Bar-Layout neu.
+- `README.md`: neuer Roadmap-Abschnitt vor dem Changelog.
+
+### Added
+- `docs/ROADMAP_v1.7.0.md` (~150 Zeilen).
+
 ## [1.6.0-beta.29] - 2026-04-25
 
 Keyword-Vorschlaege grundlegend ueberarbeitet (#User-Feedback nach beta.28).

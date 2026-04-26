@@ -18,6 +18,7 @@
  * nur die Anzeige in der Sidebar).
  */
 
+import { useState } from "react";
 import { ChevronDown, ChevronRight, Link2, Link2Off } from "lucide-react";
 
 import { cn } from "@/utils";
@@ -34,55 +35,57 @@ export default function Sidebar({
   tabs,
   activePage,
   onSelectPage,
+  // subNavigation: { items: [{id, label, active?}], onSelect: (id) => void }
+  // wird nur unter dem aktiven Hauptbereich eingerueckt angezeigt.
   subNavigation = null,
   badges = {},
   meta = {},
   brand = {},
   collapsed = false,
   onToggle,
+  // beta.30: Slot fuer zusaetzliche Inhalte am unteren Rand der Sidebar
+  // — typisch fuer Live-Status-Badges (z.B. JobsucheStatusBadge).
+  footerSlot = null,
 }) {
+  // beta.30 / User-Feedback: Wenn Sidebar collapsed, soll sie bei Hover
+  // automatisch ausklappen (Overlay), beim Verlassen wieder einklappen.
+  // Layout-Breite bleibt 60px, damit der Inhalt rechts nicht springt;
+  // das innere Panel floatet dann als Overlay.
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const visualCollapsed = collapsed && !hoverExpanded;
+  const isFloatingOverlay = collapsed && hoverExpanded;
+
   return (
     <aside
       className={cn(
-        "app-sidebar shrink-0 bg-shell/80 backdrop-blur-md border-r border-white/8",
-        "flex flex-col h-screen sticky top-0 z-40 transition-all duration-200",
+        "app-sidebar shrink-0 relative transition-[width] duration-200",
         collapsed ? "w-[60px]" : "w-[240px]"
       )}
       aria-label="Hauptnavigation"
+      onMouseEnter={() => collapsed && setHoverExpanded(true)}
+      onMouseLeave={() => setHoverExpanded(false)}
     >
-      {/* Brand-Block — Versionsnummer + 3-stufiger MCP-Status (beta.24) */}
+      {/* Innerer Container — sticky-positioniert, breitet sich beim
+          Hover ueber den Layout-Wrapper aus (Overlay), ohne den
+          Layout-Flow zu beeinflussen. */}
+      <div
+        className={cn(
+          "sticky top-0 h-screen flex flex-col bg-shell/80 backdrop-blur-md border-r border-white/8",
+          "transition-[width,box-shadow] duration-200",
+          visualCollapsed ? "w-[60px]" : "w-[240px]",
+          isFloatingOverlay && "absolute top-0 left-0 z-50 shadow-2xl shadow-black/40",
+          !isFloatingOverlay && "z-40"
+        )}
+      >
+      {/* Brand-Block — beta.30 / User-Feedback nach beta.28:
+          Version + MCP-Status wandern in die Top-Bar als globale
+          Status-Indikatoren. Sidebar zeigt nur noch den App-Namen,
+          damit nichts doppelt erscheint. */}
       <div className="px-4 py-4 border-b border-white/8">
-        {!collapsed ? (
-          <>
-            <p className="brand-title text-[13px] font-semibold text-ink leading-tight">
-              Persönliches<br/>Bewerbungs-Portal
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
-              {brand.version ? (
-                <span className="font-mono text-muted/40">v{brand.version}</span>
-              ) : null}
-              {brand.connectionStatus ? (() => {
-                const cfg = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
-                return (
-                  <button
-                    type="button"
-                    onClick={brand.onConnectionClick}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors",
-                      "hover:bg-white/[0.06]",
-                      cfg.color
-                    )}
-                    title={brand.connectionStatus === "connected"
-                      ? "Claude Desktop oeffnen"
-                      : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
-                  >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
-                    <span className="font-medium">{cfg.label}</span>
-                  </button>
-                );
-              })() : null}
-            </div>
-          </>
+        {!visualCollapsed ? (
+          <p className="brand-title text-[13px] font-semibold text-ink leading-tight">
+            Persönliches<br/>Bewerbungs-Portal
+          </p>
         ) : (
           <span className="text-[13px] font-semibold text-ink" title="Persönliches Bewerbungs-Portal">
             PBP
@@ -108,14 +111,14 @@ export default function Sidebar({
                     isActive
                       ? "bg-white/[0.08] text-ink"
                       : "text-muted hover:text-ink hover:bg-white/[0.04]",
-                    collapsed && "justify-center"
+                    visualCollapsed && "justify-center"
                   )}
                   data-page={tab.id}
                   onClick={() => onSelectPage?.(tab.id)}
-                  title={collapsed ? tab.title : undefined}
+                  title={visualCollapsed ? tab.title : undefined}
                 >
                   <Icon size={16} className={isActive ? "text-sky shrink-0" : "shrink-0"} />
-                  {!collapsed && (
+                  {!visualCollapsed && (
                     <>
                       <span className="flex-1 text-left">{tab.title}</span>
                       {badge ? (
@@ -132,7 +135,7 @@ export default function Sidebar({
                   )}
                 </button>
                 {/* Sub-Navigation (kaskadierend, nur unter aktivem Bereich) */}
-                {!collapsed && subItems ? (
+                {!visualCollapsed && subItems ? (
                   <ul className="ml-6 mt-0.5 mb-1 space-y-0.5 border-l border-white/8 pl-2">
                     {subItems.items.map((sub) => (
                       <li key={sub.id}>
@@ -160,18 +163,26 @@ export default function Sidebar({
         </ul>
       </nav>
 
+      {/* Footer-Slot — z.B. JobsucheStatusBadge (beta.30) */}
+      {!visualCollapsed && footerSlot ? (
+        <div className="border-t border-white/8 px-3 py-2">
+          {footerSlot}
+        </div>
+      ) : null}
+
       {/* Toggle-Button am Boden */}
       {onToggle ? (
         <button
           type="button"
           onClick={onToggle}
           className="border-t border-white/8 px-4 py-2.5 text-[11px] text-muted/60 hover:text-ink hover:bg-white/[0.03] transition-colors flex items-center justify-center gap-1.5"
-          title={collapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
+          title={visualCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
         >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} className="rotate-90" />}
-          {!collapsed && <span>Einklappen</span>}
+          {visualCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} className="rotate-90" />}
+          {!visualCollapsed && <span>Einklappen</span>}
         </button>
       ) : null}
+      </div>
     </aside>
   );
 }

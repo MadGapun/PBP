@@ -803,6 +803,43 @@ export default function App() {
     dashboard: readiness.label || TAB_CONFIG[0].defaultMeta,
   };
 
+  // #508 / beta.30: Sub-Navigation pro aktiver Page in die linke Sidebar
+  // verlagern (frueher in der mittleren Sidebar). Page-spezifische
+  // Sektionen-Sprungmarken bzw. Filter werden eingerueckt unter dem
+  // aktiven Hauptbereich angezeigt.
+  let sidebarSubNavigation = null;
+  if (page === "profil") {
+    sidebarSubNavigation = {
+      items: [
+        { id: "profil-uebersicht", label: "Uebersicht" },
+        { id: "profil-persoenlich", label: "Persoenliche Daten" },
+        { id: "profil-suchkriterien", label: "Suchkriterien" },
+        { id: "profil-blacklist", label: "Blacklist" },
+        { id: "profil-erfahrung", label: "Berufserfahrung" },
+        { id: "profil-ausbildung", label: "Ausbildung" },
+        { id: "profil-skills", label: "Skills" },
+        { id: "profil-dokumente", label: "Dokumente" },
+      ],
+      onSelect: (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    };
+  } else if (page === "kalender") {
+    // Kalender nutzt einen Custom-Event statt Anchor-Sprungmarken
+    sidebarSubNavigation = {
+      items: [
+        { id: "cal-view-kalender", label: "Kalender" },
+        { id: "cal-view-log", label: "Aktivitaetslog" },
+        { id: "cal-period-woche", label: "  Woche" },
+        { id: "cal-period-monat", label: "  Monat" },
+        { id: "cal-period-quartal", label: "  Quartal" },
+        { id: "cal-period-halbjahr", label: "  Halbjahr" },
+        { id: "cal-filter-all", label: "Alle Termine" },
+        { id: "cal-filter-upcoming", label: "Kommende" },
+        { id: "cal-filter-past", label: "Vergangene" },
+      ],
+      onSelect: (id) => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } })),
+    };
+  }
+
   return (
     <AppContext.Provider value={appContext}>
       <div className="app-shell flex min-h-screen">
@@ -813,6 +850,7 @@ export default function App() {
           tabs={TAB_CONFIG}
           activePage={page}
           onSelectPage={navigateTo}
+          subNavigation={sidebarSubNavigation}
           badges={sidebarBadges}
           meta={sidebarMeta}
           brand={{
@@ -836,7 +874,7 @@ export default function App() {
         {/* Hauptbereich (rechts neben Sidebar) */}
         <div className="flex-1 min-w-0 flex flex-col">
         <header className="app-topbar glass-topbar sticky top-0 z-50">
-          <div className="flex w-full items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-8">
+          <div className="flex w-full items-center gap-x-3 gap-y-2 px-5 py-2.5 sm:px-8">
             {/* #508: Hamburger zum Sidebar-Toggle (besonders fuer schmale Viewports) */}
             <button
               type="button"
@@ -847,11 +885,47 @@ export default function App() {
               <Menu size={20} />
             </button>
 
-            {/* #508 + beta.24: Seitentitel prominenter (User-Feedback "wirkt
-                gequetscht"). div statt h1, weil jede Page ihr eigenes h1 hat. */}
-            <div className="page-breadcrumb text-[18px] font-semibold text-ink flex-1 min-w-0 truncate">
-              {currentPageTitle}
-            </div>
+            {/* beta.30 / User-Feedback nach beta.28: Top-Bar = globale
+                Status-Indikatoren. Page-Titel wandert in die Page selbst
+                (jede Page hat ohnehin ihr eigenes h1). */}
+            <span className="font-mono text-[11px] text-muted/50 select-none whitespace-nowrap">
+              v{chrome.status?.version || "?"}
+            </span>
+
+            {/* MCP Connection Indicator (#273, #309, #363) — 3-stufig */}
+            {(() => {
+              const conn = chrome.status?.mcp_connection;
+              const st = conn?.status || "disconnected";
+              const cfg = {
+                connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
+                unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe…", Icon: Link2 },
+                disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
+              }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
+              const handleClick = () => {
+                if (st === "connected") {
+                  window.open("claude://", "_self");
+                } else {
+                  setMcpHelpOpen(true);
+                }
+              };
+              return (
+                <button
+                  type="button"
+                  onClick={handleClick}
+                  className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium cursor-pointer transition-colors whitespace-nowrap ${cfg.bg} ${cfg.color}`}
+                  title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                >
+                  <span className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
+                  <span>{cfg.label}</span>
+                </button>
+              );
+            })()}
+
+            {/* Stellensuche-Status (#487) */}
+            <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
+
+            {/* Spacer schiebt die rechten Buttons nach rechts */}
+            <div className="flex-1 min-w-0" />
 
             {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
             {(() => {
@@ -1083,139 +1157,9 @@ export default function App() {
             das Fenster zu schmal wird. Nichts darf verschwinden — der User
             will lieber scrollen als verlieren. */}
         <div className="flex w-full px-5 pt-4 sm:px-8 overflow-x-auto">
-          {/* Global Sidebar (#363) — jetzt immer sichtbar */}
-          <aside className="block w-48 shrink-0 pr-6">
-            <div className="sticky top-16 space-y-3">
-              <p className="text-[10px] font-mono text-muted/30 select-none">
-                v{chrome.status?.version || "?"}
-              </p>
-
-              {/* MCP Connection Indicator (#273, #309, #363) */}
-              {(() => {
-                const conn = chrome.status?.mcp_connection;
-                const st = conn?.status || "disconnected";
-                const cfg = {
-                  connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
-                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe\u2026", Icon: Link2 },
-                  disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
-                }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
-                const handleClick = () => {
-                  if (st === "connected") {
-                    window.open("claude://", "_self");
-                  } else {
-                    setMcpHelpOpen(true);
-                  }
-                };
-                return (
-                  <button
-                    type="button"
-                    onClick={handleClick}
-                    className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium cursor-pointer transition-colors ${cfg.bg} ${cfg.color}`}
-                    title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} \u2014 Klicke fuer Hilfe`}
-                  >
-                    <span className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
-                    <span>{cfg.label}</span>
-                  </button>
-                );
-              })()}
-
-              {/* Jobsuche Status Badge (#487) */}
-              <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
-
-              {/* Page-specific sidebar navigation */}
-              {page === "profil" && (
-                <>
-                  <div className="h-px bg-white/[0.06]" />
-                  <nav className="space-y-1">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Navigation</p>
-                    {[
-                      ["profil-uebersicht", "Uebersicht"],
-                      ["profil-persoenlich", "Persoenliche Daten"],
-                      ["profil-suchkriterien", "Suchkriterien"],
-                      ["profil-blacklist", "Blacklist"],
-                      ["profil-erfahrung", "Berufserfahrung"],
-                      ["profil-ausbildung", "Ausbildung"],
-                      ["profil-skills", "Skills"],
-                      ["profil-dokumente", "Dokumente"],
-                    ].map(([id, label]) => (
-                      <a
-                        key={id}
-                        href={`#${id}`}
-                        className="block rounded-lg px-3 py-1.5 text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }}
-                      >
-                        {label}
-                      </a>
-                    ))}
-                  </nav>
-                </>
-              )}
-
-              {page === "kalender" && (
-                <>
-                  <div className="h-px bg-white/[0.06]" />
-                  <nav className="space-y-1">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Ansicht</p>
-                    {[
-                      ["cal-view-kalender", "Kalender"],
-                      ["cal-view-log", "Aktivitaetslog"],
-                    ].map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        data-cal-action={id}
-                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
-                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </nav>
-                  <nav className="space-y-1 mt-3">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Zeitraum</p>
-                    {[
-                      ["cal-period-woche", "Woche"],
-                      ["cal-period-monat", "Monat"],
-                      ["cal-period-quartal", "Quartal"],
-                      ["cal-period-halbjahr", "Halbjahr"],
-                    ].map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        data-cal-action={id}
-                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
-                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </nav>
-                  <nav className="space-y-1 mt-3">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/40">Filter</p>
-                    {[
-                      ["cal-filter-all", "Alle Termine"],
-                      ["cal-filter-upcoming", "Kommende"],
-                      ["cal-filter-past", "Vergangene"],
-                    ].map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        data-cal-action={id}
-                        className="block w-full rounded-lg px-3 py-1.5 text-left text-[13px] text-muted/60 transition-colors hover:bg-white/[0.06] hover:text-ink"
-                        onClick={() => document.dispatchEvent(new CustomEvent("cal-nav", { detail: { action: id } }))}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </nav>
-                </>
-              )}
-            </div>
-          </aside>
-
+          {/* beta.30: alte mittlere Sidebar entfernt (Variante A aus #508).
+              Inhalte sind jetzt in der linken Sidebar (Sub-Nav, Footer-Slot
+              fuer JobsucheStatusBadge). Layout schlanker. */}
           <main className="min-w-0 flex-1 pb-12">
             {page === "dashboard" ? <DashboardPage /> : null}
             {page === "profil" ? <ProfilePage /> : null}

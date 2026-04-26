@@ -206,6 +206,12 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 
 ---
 
+## Roadmap
+
+> **v1.7.0 wird ein tiefer Eingriff** mit Local-LLM-Foundation (Ollama-Sidecar).
+> Strategische Uebersicht: [docs/ROADMAP_v1.7.0.md](docs/ROADMAP_v1.7.0.md)
+> Detail-Issue mit Anwendungsfaellen: [#512](https://github.com/MadGapun/PBP/issues/512)
+
 ## Changelog
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
