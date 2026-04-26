@@ -54,6 +54,11 @@ function positiveSalary(value) {
 }
 
 function buildAnnualSalaryMetrics(jobs = []) {
+  // v1.6.2 Bugfix: vorher wurde bei "≥1 echte Gehaltsangabe vorhanden" der
+  // gesamte Pool an geschätzten Gehältern verworfen. Bei 2 echten + 272
+  // geschätzten Stellen fielen also 272 raus — die Karte zeigte nur 2
+  // Datenpunkte. Jetzt: alle Zeilen kombinieren; allEstimated bleibt true
+  // nur wenn KEINE echten existieren (→ "(geschätzt)"-Label).
   const realRows = [];
   const estimatedRows = [];
   for (const job of jobs) {
@@ -70,17 +75,23 @@ function buildAnnualSalaryMetrics(jobs = []) {
     }
   }
 
-  const hasReal = realRows.length > 0;
-  const rows = hasReal ? realRows : estimatedRows;
-  const allEstimated = !hasReal && estimatedRows.length > 0;
+  const rows = [...realRows, ...estimatedRows];
+  const allEstimated = realRows.length === 0 && estimatedRows.length > 0;
 
-  const annualRows = rows.filter((row) => row.salaryType === "jaehrlich");
+  // beta.26: Plausibilitaets-Filter fuer Jahresgehaelter — Tagessaetze mit
+  // faelschlich salary_type=jaehrlich raus. (v1.6.2: zur Konsistenz mit JobsPage)
+  const ANNUAL_MIN_PLAUSIBLE = 20000;
+  const annualRows = rows.filter(
+    (row) => row.salaryType === "jaehrlich" && row.min >= ANNUAL_MIN_PLAUSIBLE
+  );
   if (!annualRows.length) {
     return {
-      jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
+      jobsWithSalary: rows.length,
       annualBasisCount: 0,
       averageMin: null,
       averageMax: null,
+      bandMin: null,
+      bandMax: null,
       allEstimated,
     };
   }
@@ -88,10 +99,14 @@ function buildAnnualSalaryMetrics(jobs = []) {
   const mins = annualRows.map((row) => row.min);
   const maxs = annualRows.map((row) => row.max);
   return {
-    jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
+    jobsWithSalary: rows.length,
     annualBasisCount: annualRows.length,
     averageMin: Math.round(mins.reduce((sum, value) => sum + value, 0) / mins.length),
     averageMax: Math.round(maxs.reduce((sum, value) => sum + value, 0) / maxs.length),
+    // v1.6.2: echte Min/Max-Spanne fuer "Bandbreite"-Kachel — gleiche
+    // Semantik wie in JobsPage, damit beide Tabs konsistent sind.
+    bandMin: Math.min(...mins),
+    bandMax: Math.max(...maxs),
     allEstimated,
   };
 }
@@ -280,13 +295,18 @@ export default function DashboardPage() {
       : hasSalaryMax
         ? Math.round(salaryMax)
         : null;
+  // v1.6.2: Bandbreite = echte Min/Max-Spanne (gleiche Semantik wie JobsPage).
+  const bandMin = Number(salaryMetrics.bandMin);
+  const bandMax = Number(salaryMetrics.bandMax);
+  const hasBandMin = Number.isFinite(bandMin);
+  const hasBandMax = Number.isFinite(bandMax);
   const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
-  const salaryBandText = hasSalaryMin && hasSalaryMax
-    ? `${fmtNum(salaryMin)} – ${fmtNum(salaryMax)} EUR`
-    : hasSalaryMin
-      ? formatCurrency(salaryMin)
-      : hasSalaryMax
-        ? formatCurrency(salaryMax)
+  const salaryBandText = hasBandMin && hasBandMax
+    ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
+    : hasBandMin
+      ? formatCurrency(bandMin)
+      : hasBandMax
+        ? formatCurrency(bandMax)
         : "Keine Angabe";
   const lastSearchAt = chrome.searchStatus?.last_search || "";
   const searchDaysAgo = Number(chrome.searchStatus?.days_ago);
@@ -486,6 +506,19 @@ export default function DashboardPage() {
               <div>
                 {hint.title && <span className="font-medium">{hint.title} </span>}
                 {hint.text}
+                {hint.url ? (
+                  <>
+                    {" "}
+                    <a
+                      href={hint.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      {hint.url_label || "Mehr erfahren"} →
+                    </a>
+                  </>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -518,7 +551,12 @@ export default function DashboardPage() {
           note={salaryCount > 0 ? `Auf Basis von ${salaryCount} Stellen mit Jahresgehalt` : "Noch keine Gehaltsdaten"}
           tone="success"
         />
-        <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
+        <MetricCard
+          label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
+          value={salaryBandText}
+          note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} Stellen` : "Echte Min/Max-Spanne über alle Stellen"}
+          tone="success"
+        />
       </div>
 
       {/* #450: Layout auf volle Breite — Schnellimport entfernt */}

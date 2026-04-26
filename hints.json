@@ -1,11 +1,13 @@
 {
   "hints": [
     {
-      "id": "v160",
+      "id": "v162",
       "type": "info",
-      "title": "Neu in v1.6.0",
-      "text": "Linke Sidebar-Navigation (#508), kompletter Bewerbungs-ZIP-Export (#474), reanimierte Scraper (Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow), Skill-Datenmodell mit Datumsbereich und aktuellem Level, ueberarbeitete Keyword-Vorschlaege.",
-      "min_version": "1.6.0"
+      "title": "Neu in v1.6.2",
+      "text": "Stable-Foundation-Release: Linke Sidebar-Navigation, kompletter Bewerbungs-ZIP-Export, reanimierte Scraper (Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow), Skill-Datenmodell mit Datumsbereich und aktuellem Level, ueberarbeitete Keyword-Vorschlaege.",
+      "url": "https://github.com/MadGapun/PBP/releases/latest",
+      "url_label": "Release-Notes ansehen",
+      "min_version": "1.6.2"
     }
   ]
 }

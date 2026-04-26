@@ -79,10 +79,12 @@ function buildAnnualSalaryMetrics(jobs = []) {
     }
   }
 
-  // Prefer real data; fall back to estimated
-  const hasReal = realRows.length > 0;
-  const rows = hasReal ? realRows : estimatedRows;
-  const allEstimated = !hasReal && estimatedRows.length > 0;
+  // v1.6.2 Bugfix: vorher wurde bei "≥1 echte Gehaltsangabe" der gesamte
+  // geschätzte Pool verworfen — bei 2 echten + 272 geschätzten zeigte die
+  // Bandbreite-Karte nur 2 Datenpunkte. Jetzt: alle kombinieren;
+  // allEstimated bleibt true nur wenn KEINE echten existieren.
+  const rows = [...realRows, ...estimatedRows];
+  const allEstimated = realRows.length === 0 && estimatedRows.length > 0;
 
   // beta.26: Plausibilitaets-Filter fuer Jahresgehaelter (Tagessaetze
   // mit faelschlich salary_type=jaehrlich raus).
@@ -92,7 +94,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
   );
   if (!annualRows.length) {
     return {
-      jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
+      jobsWithSalary: rows.length,
       annualBasisCount: 0,
       averageMin: null,
       averageMax: null,
@@ -109,7 +111,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
   // EUR hat, muss die Bandbreite auch bis 94.500 gehen — das ist die
   // intuitive Interpretation. Durchschnitt bleibt separat als "Mittelwert".
   return {
-    jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
+    jobsWithSalary: rows.length,
     annualBasisCount: annualRows.length,
     averageMin: Math.round(mins.reduce((sum, value) => sum + value, 0) / mins.length),
     averageMax: Math.round(maxs.reduce((sum, value) => sum + value, 0) / maxs.length),

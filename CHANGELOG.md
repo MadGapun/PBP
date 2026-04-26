@@ -7,59 +7,313 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
-## [1.6.1] - 2026-04-26 — Foundation-Release (Stable)
+## [1.6.2] - 2026-04-26 — Foundation-Release (Stable)
 
 > **Hinweis zur Versionsnummer:** Der Sprint hatte 35 Beta-Iterationen
-> als `v1.6.0-beta.NN`. Beim Stable-Release wurde der Tag `v1.6.0`
-> durch GitHubs „Immutable releases"-Feature unbrauchbar (Tag-Name fuer
-> immer reserviert nach versehentlichem Erstellen mit Lock). Daher
-> startet die Stable-Linie mit **v1.6.1**.
+> als `v1.6.0-beta.NN`. Beim Stable-Release wurden zwei Tag-Namen
+> (v1.6.0 und v1.6.1) durch GitHubs „Immutable releases"-Feature
+> unbrauchbar. Daher ist die offizielle Foundation-Stable-Version
+> **v1.6.2**. Inhaltlich entspricht sie beta.35 + den Polituren aus
+> dem Release-Sweep + drei Hotfixes (siehe „Was in v1.6.2 dazu kam").
 
-Stabiler Abschluss von 35 Beta-Iterationen seit v1.5.8. Keine neuen
-Features gegenueber beta.35 — kleinere Polituren und Konsistenz-Fixes
-fuer die offizielle Veroeffentlichung als Latest.
+**v1.6.2 ist der Foundation-Release.** Zwei Tage, 35 Beta-Iterationen,
+ungezaehlte „Komm, das ist noch nicht ganz richtig"-Schleifen. Hier ist
+das Ergebnis.
 
-### Added
-- **`PBP_HINTS_URL` ENV-Variable** — Hints-Quelle konfigurierbar (Cloud-URL,
-  lokaler Pfad oder `off`). Brauchen wir fuer Screenshot-Generierung,
-  Tests und Air-Gap-Setups, bei denen GitHub-Pulls stoeren.
-- **31 neue Tagesimpulse mit mehr Biss** — fokussiert auf konkrete
-  Bewerbungs-Absurditaeten (Anzeigen-Bullshit-Bingo, Lebenslauf-
-  Wahrheiten, Sende-Druck, Schalt-ab-Wochenenden). 17 platte/generische
-  Sprueche aussortiert. Total: 169 statt 143.
-- **Bob/Anna Mustermann als Demo-Persona** — Screenshot-Generator nutzt
-  jetzt klare Test-Identitaeten statt einer realistisch klingenden
-  fiktiven Person.
+---
 
-### Changed
-- **Versionen** — `pyproject.toml`, `__init__.py`, `frontend/package.json`
-  alle auf `1.6.0` (Frontend war noch auf `1.2.0` driftet).
-- **`hints.json`** — alter v1.4.0-Hinweis durch v1.6.0-Beschreibung ersetzt.
-- **Installer-Scripts auf v1.6.0-Stand**:
-  - `INSTALLIEREN.bat` Header von `v0.11.0` auf `v1.6.0`
-  - `installer/install.ps1` Header von `v1.0` auf `v1.6.0`,
-    Test-Dashboard nutzt jetzt Port `8201` (vorher: Vite-Dev-Port `5173`),
-    User-Output zeigt Produktions-Port `8200`
-  - `installer/setup_gui.py` `APP_VERSION` von `0.1.0` auf `1.6.0`
-- **README.md** — Stable-Badge auf v1.6.0, Schema v28, 24 Quellen
-  (17 aktiv liefernd, 7 mit Chrome-Workaround), Tools 92, neuer
-  v1.6.0-Changelog-Eintrag.
-- **Wiki-Seiten aktualisiert** — Home, Jobportale (komplett neu mit
-  JobSpy/Greenhouse/Arbeitnow), Architektur (Schema v28, 92 Tools),
-  MCP-Tools, Dashboard, Tab-Bewerbungen (ZIP-Export), Tab-Profil
-  (Skill-Datenmodell mit start_year/end_year/level_current).
-- **Demo-Script (`generate_screenshots.py`)** — nutzt jetzt
-  `set_profile_setting` fuer `active_sources` (vorher global, deshalb
-  `0/24`-Counter im Dashboard) und setzt `PBP_HINTS_URL` lokal.
+### Was in v1.6.2 zusaetzlich dazu kam (Hotfixes)
 
-### Fixed
-- Serena-Memory `scraper_architecture` listete `keywords_kann` als
-  Schluessel — falsch, korrekt ist `keywords_plus`. Korrigiert.
+Drei User-Findings nach v1.6.1, die das Bild rund machen:
 
-### Known Issues
-- 10 Tests im PDF-Export schlagen ohne `fpdf2` fehl. Optional-Dep, in der
-  installierten Distribution korrekt ueber `[docs]` Extra abgedeckt.
-  Test-Venv installiert nur Core-Deps. 527/537 = 98% Pass-Rate.
+- **🐛 Gehaltsbandbreite zeigte nur 2 Stellen statt 274.** Bei 2 echten
+  Gehalts-Inseraten + 272 geschaetzten hat der Frontend-Filter alle
+  geschaetzten verworfen, sobald auch nur ein einziges echtes vorhanden
+  war. Jetzt werden beide kombiniert; das „(geschaetzt)"-Label
+  erscheint nur noch wenn KEINE echten existieren.
+- **🔧 „Gehaltsbandbreite" rechnete in Dashboard und Stellen-Tab
+  unterschiedlich.** Dashboard nahm Mittelwert-Min/Max, Stellen-Tab
+  echtes Min/Max — gleiche Karten-Bezeichnung, verschiedene Zahlen.
+  Jetzt beide auf echte Min/Max-Spanne, gleicher Note-Text.
+- **🔗 Update-Banner mit Click-Through.** Der „Neu in vX.Y.Z"-Banner
+  hatte keinen Link auf die Release-Notes. Jetzt rendert er das
+  optionale `url`-Feld als klickbaren Pfeil → ueberraschend nuetzlich,
+  fuehrt direkt zum Latest-Release auf GitHub.
+
+---
+
+### Was du als Nutzer davon hast
+
+#### 🔍 Endlich findet die Jobsuche wieder Stellen
+
+Vorher: Du hast PBP installiert und drei Quellen lieferten zuverlaessig.
+Heise-Jobs hat HTTP 200 zurueckgegeben aber „0 Treffer", und keiner hat
+dir gesagt warum. Stepstone war ein Wuerfelspiel. LinkedIn? Vergiss es.
+
+Jetzt: **17 von 24 Quellen liefern aktiv.** Indeed, LinkedIn, Glassdoor,
+Google Jobs — alle ohne API-Key, ohne Login, ohne Kosten (ueber JobSpy).
+Greenhouse-Boards von Tech-Companies (Stripe, Airbnb, GitHub) kannst du
+mit deinen eigenen Slugs ergaenzen. Arbeitnow als EU-Aggregator. Plus
+DACH-Klassiker: Bundesagentur, Stepstone, Hays, Stellenanzeigen.de.
+
+Und die 7 Quellen die durch Cloudflare/Captcha tot sind? Werden im
+Dashboard **sichtbar ausgegraut** mit Hinweis auf den Chrome-Extension-
+Workaround. Nicht versteckt, nicht still aussortiert — klar als „kann
+gerade nicht" markiert, damit du Bescheid weisst.
+
+#### 🎨 Neue Sidebar — endlich uebersichtlich auf jedem Bildschirm
+
+Die alte Top-Tab-Reihe war auf 1400px Breite ein Drama: Theme-Toggle
+ueberlappt Profile-Switcher, auf Laptops gar nicht mehr bedienbar. Jetzt
+gibt's eine **persistente linke Sidebar mit Hover-to-Expand** — zugeklappt
+nimmt sie 60px, beim Druebermausen schiebt sie sich als Overlay auf 240px
+raus. Pfad-Breadcrumb (`/Profil/Skills`, `/Einstellungen/Quellen`) oben
+in der Topbar zeigt dir wo du gerade bist.
+
+Status-Block in der Sidebar: PBP-Version + MCP-Heartbeat + Live-
+Jobsuche-Status. Sub-Navigation pro Bereich kaskadiert eingerueckt
+unter dem aktiven Eintrag. Niemand verliert mehr den Ueberblick wo
+gerade was passiert.
+
+#### 📦 Komplett-ZIP fuer jede Bewerbung
+
+Frueher: deine Bewerbung lebt verstreut in `dokumente/`, `mails/`, der
+DB, vielleicht im Anschreiben-Ordner deines Mailprogramms. Wenn ein
+Coach drueberschauen soll oder du in einem halben Jahr zurueckblickst,
+sammelst du muehsam zusammen.
+
+Jetzt: **Drei Buttons in der Bewerbungsansicht.** „Protokoll drucken",
+„Als ZIP", „ZIP + PDF". Du kriegst ein einziges ZIP-File mit:
+`bericht.html` (Hauptprotokoll mit Timeline), `stelle.html`,
+`notizen.md`, `termine.ics`, `mails.md`, dem `dokumente/`-Ordner mit
+deinen verknuepften Lebenslaeufen und Anschreiben, dem `mails/`-Ordner
+mit den Original-`.eml`/`.msg`-Dateien, einer `INHALT.md`-Uebersicht
+und auf Wunsch einem `bericht.pdf` (per Playwright generiert).
+
+Ideal fuer: dem Coach schicken, dem Steuerberater (Werbungskosten!),
+oder dem zukuenftigen Du in zwei Jahren der nochmal schauen will wie
+dieser Job damals lief.
+
+#### 🎯 Skills mit echtem Datumsbereich
+
+Bisher: Du hast bei einem Skill „6 Jahre Erfahrung" eingegeben und PBP
+hat mit `currentYear - 6` zurueckgerechnet — am Ende stand dann „seit
+2018", auch wenn du den Skill von 2010 bis 2024 hattest und seitdem
+nichts mehr.
+
+Jetzt: **`start_year`, `end_year`, `level` (best je) und `level_current`
+(heute)** als getrennte Felder. Die Skill-Karte zeigt einen ehrlichen
+Datumsbereich. Der Editor visualisiert beide Levels als 5-Punkt-Skala
+— gefuellt = was du mal warst, halb-transparent = die Differenz zu
+heute. Das gleiche fuer das Stellen-Scoring: wenn die Stelle 5/5
+verlangt und dein `level_current` ist 3/5, kommt das in der Fit-
+Analyse als „Auffrischung empfehlenswert" raus.
+
+#### 🧠 Bessere Keyword-Vorschlaege
+
+Frueher hat dir die Keyword-Vorschlags-Maschine „kunden", „sowie",
+„aufgaben" als „passende Begriffe" angeboten. Total nichtssagend —
+weil die Stopword-Liste zu kurz war und keine TF-IDF-Gewichtung lief.
+
+Jetzt: erweiterte Stopwords, **TF-IDF-Specificity** (Begriffe die in
+deinen erfolgreichen Bewerbungen oft vorkommen aber in den abgelehnten
+selten — die sind interessant), **Quellen-Trennung applied vs dismissed**
+(was hat Treffer ergeben? was wurde aussortiert?), und vor allem:
+strikte Exklusion. Wenn du auf Manager-Stellen beworben hast, schlaegt
+PBP nicht mehr „manager" als Aussortier-Begriff vor.
+
+#### 📅 Statistik mit ISO-Wochen, die wirklich stimmt
+
+Vorher: „Wir sind in KW 17, aber das Chart endet bei KW 15." User-Bug.
+Grund: SQLite kennt `%V` nicht (das ist ISO-Woche), `%W` ist eine
+andere Semantik, und obendrein wurde die laufende Periode nochmal
+extra rausgefiltert.
+
+Jetzt: ISO-Wochen-Aggregation in Python (`_iso_week_key`), aktuelle
+Periode bleibt drin, Chart endet wirklich da wo du gerade bist.
+
+#### 🎲 169 Tagesimpulse mit mehr Biss
+
+143 wurden's nicht — 169 sind's. 31 neue Sprueche, 17 platte raus
+(„bleib freundlich zu dir" — Wartezimmer-Niveau, weg damit). Neue
+Schwerpunkte:
+
+- **Anzeigen-Bullshit-Bingo:** *„'Familiaere Atmosphaere' ist Code fuer
+  'der Chef ist auch der Onkel'"*
+- **Lebenslauf-Wahrheiten:** *„Niemand glaubt 'teamfaehig'. Beweise
+  stattdessen 'kommt vor 9 Uhr Mails'"*
+- **Sende-Druck:** *„Schicke heute eine ab. Morgen-Du wird Heute-Du
+  dafuer Cookies geben."*
+- **12 Schalt-ab-Wochenend-Sprueche:** *„Sonntagabend ist nicht der
+  Anfang von Montag. Es ist das Ende von Sonntag."*
+
+Die Auswahl bleibt deterministisch nach Datum + Kontext, also kein
+Spam — pro Tag genau ein passender Spruch.
+
+#### 🆔 Eigenes Icon, klare Identitaet
+
+Nicht mehr das generische Windows-Batch-Icon auf dem Desktop, sondern
+das **PBP-Logo** in vier Aufloesungen (16/32/48/256). Multi-Resolution
+ICO. Im Browser-Tab + im Dashboard-Header siehst du den Stern mit den
+Hoeren-Schwingen, der mittlerweile zur Brand gehoert.
+
+---
+
+### Sonstiges
+
+- **8 Wiki-Seiten aktualisiert** — Home, Jobportale, Architektur,
+  MCP-Tools, Dashboard, Tab-Bewerbungen, Tab-Profil, Installation
+- **13 Screenshots regeneriert** mit Bob/Anna Mustermann als
+  Demo-Personas (statt fiktiver realer Person)
+- **Installer durchgesweept** — Versionen synchron, Port 8200 ueberall,
+  Playwright + Chromium standardmaessig
+
+---
+
+---
+
+### Sprint-Verlauf — wie aus 35 Betas die Stable-Foundation wurde
+
+Wenn du sehen willst wie der Sprint sich aufgebaut hat, hier die Themen
+in chronologischer Reihenfolge. Die einzelnen Beta-Eintraege weiter unten
+in diesem Changelog haben die vollen Details.
+
+| Phase | Betas | Thema |
+|---|---|---|
+| **Foundation** | beta.1–9 | Erste Layer fuer das Layout-Refactor (#508) und den Bewerbungs-Export (#474). MCP-Tools von 84 auf 92. Adapter-v2-Flip, Jobsuche ohne Claude (#461), Duplikat-Merge-Tool (#471). |
+| **Scraper-Reanimation Phase 1** | beta.10–16 | Job-Suche als Kern-Mehrwert ernstgenommen (#499/#500). Diagnose: von 17 Quellen lieferten real nur 2. Adapter-v2 mit `AdapterStatus`, `scraper_health`-Tabelle, Silent-Detection. JobSpy als Core-Dependency (vorher Optional → bei den meisten Installationen nicht aktiv). geopy + Playwright + Chromium standardmaessig im Installer. |
+| **Scraper-Reanimation Phase 2** | beta.17–20 | Arbeitnow + Greenhouse als neue DACH-Adapter. Glassdoor + Google ueber JobSpy. Stellenalter-Filter via `veroeffentlicht_am`. JobSpy `country_indeed=None`-Fix. Early-stop nach 3 consecutive empty pages. Selektor-Reparaturen + URL-Updates fuer „still 200"-Quellen. |
+| **Identity** | beta.21 | Multi-Resolution `assets/pbp.ico` (16/32/48/256). Desktop-Shortcut zeigt PBP-Logo statt generischem Batch-Icon (#502). |
+| **Stabilitaets-Welle** | beta.22 | UX-Quickfixes-Block, Mailto-Bugfix, Bewerbungsbericht aufgewertet (Zeitraum, Erstellungszeitpunkt). |
+| **Layout-Refactor #508** | beta.23–25 | Variante B aus #508: linke Sidebar mit Sub-Navigation, Hover-to-Expand-Overlay, Skill-Editor mit Punkt-Visualisierung. Race-Condition-Fix in `saveItem keepOpen` (beta.25 hat den Skill-Verschwinde-Bug aus beta.22 endgueltig erledigt). |
+| **Polish** | beta.26–28 | Stellen-Page (Layout, Filter, Anzeige, Gehalt, Freelance-Farbe). Min-Score-Filter mit UI-Slider. Bewerbungsprotokoll vollstaendig ausgebaut. |
+| **Algorithmus** | beta.29 | Keyword-Vorschlaege grundlegend ueberarbeitet — Stopwords erweitert, TF-IDF Specificity, applied-vs-dismissed Datasource, strikte Exklusion. |
+| **Variante A finalisiert** | beta.30 | UI-Konsolidierung: mittlere Sidebar entfaellt, Top-Bar uebernimmt globale Status-Indikatoren. Hover-to-Expand finalisiert. Erste Skizze v1.7.0-Roadmap (Local-LLM). |
+| **ZIP-Export #474** | beta.31 | Kompletter Bewerbungs-Export als ZIP statt persistenter Ordner-Struktur. Inhalt: bericht.html, stelle.html, notizen.md, termine.ics, mails.md, dokumente/, mails/, INHALT.md, optional bericht.pdf via Playwright. |
+| **Skill-Datenmodell** | beta.32 | Schema v28: `start_year`, `end_year`, `level_current`. Skill-Karte zeigt echten Datumsbereich statt zurueckgerechnetem `currentYear − years_experience`. Editor mit 5-Punkt-Visualisierung. |
+| **Statistik-Korrektheit** | beta.33–34 | ISO-Wochen-Aggregation in Python (SQLite kennt `%V` nicht). beta.34 = Hotfix `_now`-Shadowing in `_group_by_iso_week` (UnboundLocalError). |
+| **Synchronisation** | beta.35 | Layout-Endspiel nach User-Screenshot. **`api_keyword_suggestions`** und MCP-Tool **`keyword_vorschlaege`** synchronisiert (vorher zwei Implementierungen, eine veraltet — deshalb hat das Frontend trotz beta.29-Fix weiter „kunden, sowie, aufgaben" gezeigt). Strict exclusion: `good_words.get(term, 0) == 0`. |
+| **Stable-Sweep** | v1.6.1 / v1.6.2 | Versions-Sync ueber alle 3 Komponenten, `hints.json` aktualisiert, Installer-Header gleichgezogen, `PBP_HINTS_URL` ENV-Variable, 31 neue Tagesimpulse + 17 platte raus, Bob/Anna Mustermann als Demo-Persona, Wiki + Screenshots. v1.6.2 Hotfixes: Salary-Filter, Bandbreite-Konsistenz, Banner-Klickbarkeit. |
+
+**Insgesamt:** 36 Commits seit v1.5.8, 35 Beta-Releases zwischen
+24.04. und 26.04.2026, ein Stable. Spitzentag war der 25.04. mit
+~17 Betas an einem Tag.
+
+---
+
+### 🔧 Technischer Anhang (fuer Entwickler / Power-User)
+
+<details>
+<summary>Aufklappen: API-Aenderungen, Schema, Library-Updates</summary>
+
+#### Datenbank
+
+- **Schema v28** — `skills.start_year`, `skills.end_year`,
+  `skills.level_current` (zusaetzlich zu bestehendem `level`)
+- ALTER-only Migration; automatisches Backup vor jedem Migration-Run
+- ISO-Wochen-Aggregation per `_iso_week_key()` und
+  `_group_by_iso_week()` in Python (SQLite kennt `%V` nicht)
+
+#### Backend
+
+- **92 MCP-Tools in 8 Modulen** (Profil, Dokumente, Jobsuche,
+  Bewerbungen, Analyse, Export, Suche, Workflows). Vorher 84.
+- **`api_keyword_suggestions`** und MCP-Tool **`keyword_vorschlaege`**
+  jetzt synchronisiert. Vorher zwei getrennte Implementierungen, eine
+  davon veraltet (deshalb hat das Frontend trotz beta.29-Fix weiter
+  „kunden, sowie, aufgaben" angezeigt — gefixt in beta.35)
+- **`api_application_export_zip`** — neuer Endpoint mit Hilfsfunktionen
+  `_render_application_print_html`, `_build_application_print_html`,
+  `_render_stelle_html`, `_render_notes_md`, `_render_mails_md`,
+  `_render_termine_ics`, `_render_inhalt_md`, `_render_html_to_pdf`
+- **`PBP_HINTS_URL` ENV-Variable** — Hints-Quelle konfigurierbar
+  (Cloud-URL, lokaler Pfad, oder `off`). Erlaubt deterministische
+  Screenshots/Tests und Air-Gap-Setups
+- **Fix `_now`-Shadowing in `_group_by_iso_week`** (beta.34 Hotfix):
+  `_dt.now().isocalendar()` direkt nutzen, nicht ueber lokale `_now`-
+  Variable die spaeter zugewiesen wird (UnboundLocalError)
+
+#### Scraper-Architektur (`job_scraper/`)
+
+- **Adapter v2 mit `AdapterStatus` Enum** — `OK`, `EMPTY`, `BLOCKED`,
+  `TIMEOUT`, `ERROR`
+- **`scraper_health`-Tabelle** — success_rate, last_run, error_message
+  pro Quelle
+- **Silent-Detection** — ≥10 EMPTY-Runs in Folge ohne ein OK markieren
+  Quelle automatisch als `defekt="scraper"`
+- **24 Quellen in `SOURCE_REGISTRY`**:
+  - International ueber JobSpy: Indeed (DE/AT/CH), LinkedIn,
+    Glassdoor, Google Jobs, ZipRecruiter
+  - DACH-spezifisch: Bundesagentur, Hays, Stepstone, Stellenanzeigen.de,
+    Jobware, Arbeitnow (NEU), Greenhouse (NEU), BA-Jobboerse, Xing
+  - Freelance: freelance.de, Freelancermap, Twago
+  - Sichtbar ausgegraut: ingenieur.de, Heise Jobs, GULP, SOLCOM,
+    FERCHAU, Kimeta, Monster
+- **Per-Source-Timeouts** in `_SOURCE_TIMEOUT_MAP` (JobSpy 120s,
+  Greenhouse 30s, Arbeitnow 45s, Default 60s)
+- **`build_search_keywords`** liefert jetzt zusaetzlich
+  `keywords_muss`, `greenhouse_companies` (User-Custom-Slugs)
+- **JobSpy `country_indeed=None`-Fix** fuer Multi-Country-Calls
+- **Early-stop nach 3 consecutive empty pages** in JobSpy-Iteration
+
+#### Frontend
+
+- **React 19** mit `useEffectEvent`
+- **Vite 8**, Tailwind CSS, lucide-react, recharts
+- **Sidebar-Component** (`frontend/src/components/Sidebar.jsx`) mit
+  `isFloatingOverlay`-State fuer Hover-to-Expand
+- **Top-Bar** mit `currentSubPath`-State, reset bei `navigateTo`
+- **Skill-Editor** mit 5-Punkt-Visualisierung fuer `level` +
+  `level_current`
+- **`buildMailto`-Helper** fuer „Name &lt;addr&gt;"-Format
+- **Race-Condition-Fix in `saveItem` keepOpen-Modus**:
+  `nextDialogDraft` VOR `setProfile` berechnen, nicht innerhalb
+  `startTransition`-Callback (laeuft sonst async)
+- **`<h1 className="sr-only">`** auf allen 8 Pages — Browser-Tests
+  suchen `#page-X h1`, sr-only ist der Kompromiss
+- **`bandMin`/`bandMax`** auf JobsPage fuer echte Min/Max-Range statt
+  zurueckgerechneter Verteilung
+
+#### Installer-Konsistenz
+
+- `INSTALLIEREN.bat` Header `v0.11.0` → `v1.6.2`
+- `installer/install.ps1` Header `v1.0` → `v1.6.2`, Test-Dashboard
+  nutzt Port `8201` (vorher: Vite-Dev-Port `5173`), User-Output zeigt
+  Produktions-Port `8200`
+- `installer/setup_gui.py` `APP_VERSION` `0.1.0` → `1.6.1`
+- Frontend-Version (`frontend/package.json`) war `1.2.0` driftet,
+  jetzt `1.6.2` synchron mit pyproject + Backend
+
+#### Schluss-Versions-Sync
+
+- `pyproject.toml` `[project] version = "1.6.2"`
+- `src/bewerbungs_assistent/__init__.py` `__version__ = "1.6.2"`
+- `frontend/package.json` `"version": "1.6.2"`
+
+#### Bekannte Test-Failures
+
+- **10/537 Tests scheitern** (98% Pass-Rate). Alle Failures sind
+  PDF-Generation-Tests, die `fpdf2` benoetigen. In der installierten
+  Distribution korrekt ueber `[docs]`-Extra abgedeckt; das Test-Venv
+  installiert nur Core-Deps. **Kein Production-Bug.**
+
+#### Library-Updates (Auswahl)
+
+- `python-jobspy >= 1.1` — von Optional zu Core-Dep
+- `playwright >= 1.40` mit Chromium-Bundle
+- `geopy >= 2.4` von Optional zu Core-Dep
+- React `19.x`, Vite `8.x`
+
+</details>
+
+## [1.6.1] - 2026-04-26 — Zwischen-Release (siehe v1.6.2)
+
+Zwischen-Release wegen GitHub-Tag-Lock auf `v1.6.0`. Inhaltlich
+identisch mit beta.35 + Versions-Sync und Polish — der eigentliche
+Foundation-Release-Eintrag ist **v1.6.2** (oben). v1.6.1 wurde noch
+am gleichen Tag von v1.6.2 abgeloest, weil drei User-Findings
+(Salary-Filter, Bandbreite, Banner-Klickbarkeit) noch nachgezogen
+werden mussten.
 
 ## [1.6.0-beta.35] - 2026-04-26
 
