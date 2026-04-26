@@ -7,7 +7,13 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
-## [1.6.0] - 2026-04-26 — Foundation-Release (Stable)
+## [1.6.1] - 2026-04-26 — Foundation-Release (Stable)
+
+> **Hinweis zur Versionsnummer:** Der Sprint hatte 35 Beta-Iterationen
+> als `v1.6.0-beta.NN`. Beim Stable-Release wurde der Tag `v1.6.0`
+> durch GitHubs „Immutable releases"-Feature unbrauchbar (Tag-Name fuer
+> immer reserviert nach versehentlichem Erstellen mit Lock). Daher
+> startet die Stable-Linie mit **v1.6.1**.
 
 Stabiler Abschluss von 35 Beta-Iterationen seit v1.5.8. Keine neuen
 Features gegenueber beta.35 — kleinere Polituren und Konsistenz-Fixes

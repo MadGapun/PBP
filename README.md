@@ -9,7 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.6.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.6.1-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-537-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-92-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
@@ -216,7 +216,13 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### v1.6.0 — Sidebar-Layout, ZIP-Export, Scraper-Reanimation, Skill-Datenmodell (2026-04-26)
+### v1.6.1 — Foundation-Release (Stable, 2026-04-26)
+
+Stabiler Abschluss von 35 Beta-Iterationen. Versionsnummer-Hinweis: der
+urspruengliche `v1.6.0`-Tag wurde durch GitHubs „Immutable releases"-
+Feature unbrauchbar; die Stable-Linie startet daher bei v1.6.1.
+
+### v1.6.0-beta.* (2026-04-23 bis 2026-04-26) — Sprint-Themen
 
 Foundation-Release nach 35 Beta-Iterationen — alles unter der Haube ueberholt:
 
