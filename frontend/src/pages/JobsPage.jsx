@@ -84,12 +84,8 @@ function buildAnnualSalaryMetrics(jobs = []) {
   const rows = hasReal ? realRows : estimatedRows;
   const allEstimated = !hasReal && estimatedRows.length > 0;
 
-  // beta.26 / User-Feedback: Plausibilitaets-Filter fuer Jahresgehaelter.
-  // Manche Scraper schreiben Tagessaetze (z.B. 850 EUR/Tag) faelschlich
-  // mit `salary_type=jaehrlich`. Werte unter 20.000 EUR/Jahr sind in DACH
-  // praktisch nie ein echtes Vollzeit-Jahresgehalt — die schliessen wir
-  // aus dem Durchschnitt aus, damit nicht 2 Tagessaetze den ganzen
-  // Durchschnitt verzerren.
+  // beta.26: Plausibilitaets-Filter fuer Jahresgehaelter (Tagessaetze
+  // mit faelschlich salary_type=jaehrlich raus).
   const ANNUAL_MIN_PLAUSIBLE = 20000;
   const annualRows = rows.filter(
     (row) => row.salaryType === "jaehrlich" && row.min >= ANNUAL_MIN_PLAUSIBLE
@@ -100,17 +96,25 @@ function buildAnnualSalaryMetrics(jobs = []) {
       annualBasisCount: 0,
       averageMin: null,
       averageMax: null,
+      bandMin: null,
+      bandMax: null,
       allEstimated,
     };
   }
 
   const mins = annualRows.map((row) => row.min);
   const maxs = annualRows.map((row) => row.max);
+  // beta.32 / User-Feedback: "Bandbreite" muss die echte Spanne sein.
+  // Vorher: Durchschnitt der Min- und Max-Werte. Wenn eine Stelle 94.500
+  // EUR hat, muss die Bandbreite auch bis 94.500 gehen — das ist die
+  // intuitive Interpretation. Durchschnitt bleibt separat als "Mittelwert".
   return {
     jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
     annualBasisCount: annualRows.length,
     averageMin: Math.round(mins.reduce((sum, value) => sum + value, 0) / mins.length),
     averageMax: Math.round(maxs.reduce((sum, value) => sum + value, 0) / maxs.length),
+    bandMin: Math.min(...mins),
+    bandMax: Math.max(...maxs),
     allEstimated,
   };
 }
@@ -525,12 +529,17 @@ export default function JobsPage() {
         ? Math.round(salaryMax)
         : null;
   const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
-  const salaryBandText = hasSalaryMin && hasSalaryMax
-    ? `${fmtNum(salaryMin)} – ${fmtNum(salaryMax)} EUR`
-    : hasSalaryMin
-      ? formatCurrency(salaryMin)
-      : hasSalaryMax
-        ? formatCurrency(salaryMax)
+  // beta.32 / User-Feedback: echte Bandbreite, nicht Durchschnitt der Spannen
+  const bandMin = Number(salaryMetrics.bandMin);
+  const bandMax = Number(salaryMetrics.bandMax);
+  const hasBandMin = Number.isFinite(bandMin);
+  const hasBandMax = Number.isFinite(bandMax);
+  const salaryBandText = hasBandMin && hasBandMax
+    ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
+    : hasBandMin
+      ? formatCurrency(bandMin)
+      : hasBandMax
+        ? formatCurrency(bandMax)
         : "Keine Angabe";
   const latestJobUpdate = (currentList.length ? currentList : allJobs).reduce(
     (latest, job) => {
@@ -729,7 +738,14 @@ export default function JobsPage() {
             note={salaryCount > 0 ? `Auf Basis von ${salaryCount} Stellen mit Jahresgehalt` : "Noch keine Gehaltsdaten"}
             tone="success"
           />
-          <MetricCard label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`} value={salaryBandText} note="Durchschnittliche Min/Max-Spanne" tone="success" />
+          <MetricCard
+            label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
+            value={salaryBandText}
+            note={salaryCount > 0
+              ? `Niedrigster bis höchster Wert über ${salaryCount} Stellen`
+              : "Echte Min/Max-Spanne ueber alle Stellen"}
+            tone="success"
+          />
           <MetricCard
             label="Durchschnittsscore"
             value={averageScore}

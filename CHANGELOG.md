@@ -7,6 +7,50 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.32] - 2026-04-26
+
+User-Feedback-Beta nach beta.31. Drei klare Fixes; zwei Punkte
+brauchen User-Klaerung (siehe README/Issue).
+
+**Skill-Editor: Punkte statt Zahl (User: "1=hoch oder 1=niedrig?")**
+- Spitzen-Niveau und "Aktuell verfuegbares Niveau" jetzt als 5
+  klickbare Punkte (analog zur Listen-Ansicht). Klar erkennbar:
+  voller Punkt = aktiv, je mehr Punkte gefuellt, desto hoeher das
+  Niveau.
+- Beschreibungs-Texte daneben: "Grundkenntnisse / Erweiterte
+  Grundkenntnisse / Solide Praxiserfahrung / Fortgeschritten / Experte"
+- Bei "Aktuell" statt Punkt-Niveau eine "(= Spitzen-Niveau X)"-
+  Anzeige, wenn der User den Wert nicht explizit gesetzt hat.
+  Zuruecksetzen-Button daneben.
+
+**Einstellungen Sub-Navigation in Sidebar (Konsequenz mit beta.30)**
+- Settings-Tabs (Quellen, System, Erscheinungsbild, Datenschutz, Logs,
+  Gefahrenzone) wandern in die linke Sidebar als kaskadierende Sub-
+  Items unter "Einstellungen", analog zu Profil/Kalender.
+- Dispatch via CustomEvent `settings-nav` an die SettingsPage —
+  bestehende horizontale Tab-Reihe in der Page bleibt vorerst als
+  Backup, koennte spaeter komplett entfernt werden.
+
+**Gehaltsbandbreite zeigt echte Min/Max (User: "94.500 EUR Stelle, aber
+Bandbreite endet bei 74.750")**
+- Vorher: Durchschnitt der Min- und Max-Werte (74.750 = avg(maxs) bei
+  2 Stellen mit unterschiedlichen Spannen).
+- Jetzt: `bandMin = Min(alle Min)`, `bandMax = Max(alle Max)` — die
+  echte Spanne ueber alle Stellen. User-intuitive Interpretation.
+- Note-Text: "Niedrigster bis hoechster Wert ueber X Stellen".
+- Durchschnitt bleibt als separate Karte, mathematisch unveraendert.
+
+### Klaerung benoetigt (kommt ggf. in beta.33)
+
+- **Header-Layout-Reihenfolge**: User: "Titel rechts, anderes
+  untereinander links". Aktueller Stand: Top-Bar hat Hamburger |
+  Version | MCP | JobsucheStatus | Spacer | Theme | Hilfe | Profil.
+  Brauchen Screenshot.
+- **Statistik-Bug**: "wir sind bereits einige Kalenderwochen weiter
+  als angezeigt, diese Woche ueber 400 Stellen gefunden". Vermutung:
+  `found_at`-Feld nicht konsistent gesetzt, oder die `currentPeriod`-
+  Filter-Logik filtert die laufende Woche raus. Brauchen Screenshot.
+
 ## [1.6.0-beta.31] - 2026-04-26
 
 Bewerbungs-ZIP-Export (#474, neu geloest).

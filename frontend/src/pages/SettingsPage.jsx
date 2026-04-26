@@ -210,6 +210,16 @@ export default function SettingsPage() {
     }
   }, [intent]);
 
+  // beta.32: Sidebar-Sub-Nav fuer Einstellungen schickt CustomEvent
+  useEffect(() => {
+    const handler = (e) => {
+      const tab = e.detail?.tab;
+      if (tab) setSettingsTab(tab);
+    };
+    document.addEventListener("settings-nav", handler);
+    return () => document.removeEventListener("settings-nav", handler);
+  }, []);
+
   const loadPage = useEffectEvent(async () => {
     try {
       const [sourceRows, logsData, impulseData, healthData, privacyData, followupData] = await Promise.all([

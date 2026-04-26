@@ -2108,15 +2108,39 @@ export default function ProfilePage() {
               <option value="sprache">Sprache</option>
             </SelectInput>
           </Field>
-          <Field label="Level (1–5)">
-            <TextInput type="number" min="1" max="5" value={skillDialog.draft.level} onChange={(event) => {
-              const raw = event.target.value;
-              if (raw === "") { setSkillDialog((c) => ({ ...c, draft: { ...c.draft, level: "" } })); return; }
-              const n = Number(raw);
-              if (!Number.isFinite(n)) return;
-              const clamped = Math.min(5, Math.max(1, Math.round(n)));
-              setSkillDialog((c) => ({ ...c, draft: { ...c.draft, level: clamped } }));
-            }} />
+          <Field label="Spitzen-Niveau (zum Zeitpunkt der Erfahrung)">
+            {/* beta.32 / User-Feedback: Punkte statt Zahl, damit klar wird
+                dass 5 Punkte = bestes Niveau (analog zur Listen-Ansicht). */}
+            {(() => {
+              const value = Math.max(1, Math.min(5, Number(skillDialog.draft.level) || 3));
+              const setLevel = (n) => setSkillDialog((c) => ({ ...c, draft: { ...c.draft, level: n } }));
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        aria-label={`Level ${n} von 5`}
+                        onClick={() => setLevel(n)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border transition-all",
+                          n <= value
+                            ? "bg-sky border-sky"
+                            : "bg-transparent border-muted/30 hover:border-muted/60"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted/60">
+                    {value === 1 ? "Grundkenntnisse" :
+                     value === 2 ? "Erweiterte Grundkenntnisse" :
+                     value === 3 ? "Solide Praxiserfahrung" :
+                     value === 4 ? "Fortgeschritten" : "Experte"}
+                  </span>
+                </div>
+              );
+            })()}
           </Field>
           <Field label="Jahre Erfahrung">
             <TextInput
@@ -2175,24 +2199,59 @@ export default function ProfilePage() {
             />
           </Field>
           {skillDialog.draft.end_year ? (
-            <Field label="Aktuell verfügbares Niveau (1–5)">
-              <TextInput
-                type="number"
-                min="1"
-                max="5"
-                placeholder={`= Spitzen-Niveau (${skillDialog.draft.level || 3})`}
-                value={skillDialog.draft.level_current}
-                onChange={(event) => {
-                  setSkillDialog((current) => ({
-                    ...current,
-                    draft: { ...current.draft, level_current: event.target.value },
-                  }));
-                }}
-              />
-              <p className="mt-1 text-[11px] text-muted/70">
-                Wenn der Skill ruht: das aktuell noch abrufbare Niveau (Prinzip-
-                Verstaendnis bleibt, Tiefe verfaellt).
-              </p>
+            <Field label="Aktuell verfügbares Niveau">
+              {/* beta.32: Punkte mit "leerem" Default = wie Spitze */}
+              {(() => {
+                const peak = Math.max(1, Math.min(5, Number(skillDialog.draft.level) || 3));
+                const raw = skillDialog.draft.level_current;
+                const isEmpty = raw === "" || raw === null || raw === undefined;
+                const value = isEmpty ? peak : Math.max(1, Math.min(5, Number(raw) || peak));
+                const setCurrent = (n) => setSkillDialog((c) => ({
+                  ...c, draft: { ...c.draft, level_current: n }
+                }));
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1.5">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            aria-label={`Aktuelles Level ${n} von 5`}
+                            onClick={() => setCurrent(n)}
+                            className={cn(
+                              "h-5 w-5 rounded-full border transition-all",
+                              n <= value
+                                ? (isEmpty ? "bg-sky/40 border-sky/40" : "bg-amber border-amber")
+                                : "bg-transparent border-muted/30 hover:border-muted/60"
+                            )}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted/60">
+                        {isEmpty ? `(= Spitzen-Niveau ${peak})` :
+                         value === 1 ? "Grundkenntnisse" :
+                         value === 2 ? "Erweiterte Grundkenntnisse" :
+                         value === 3 ? "Solide Praxiserfahrung" :
+                         value === 4 ? "Fortgeschritten" : "Experte"}
+                      </span>
+                      {!isEmpty && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted/50 hover:text-muted underline"
+                          onClick={() => setCurrent("")}
+                        >
+                          zuruecksetzen
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted/70">
+                      Wenn der Skill ruht: das aktuell noch abrufbare Niveau (Prinzip-
+                      Verstaendnis bleibt, Tiefe verfaellt). Leer = identisch mit Spitzen-Niveau.
+                    </p>
+                  </>
+                );
+              })()}
             </Field>
           ) : null}
           {skillDialog.draft.end_year ? (

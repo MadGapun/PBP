@@ -822,6 +822,21 @@ export default function App() {
       ],
       onSelect: (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
     };
+  } else if (page === "einstellungen") {
+    // beta.32: Settings-Tabs in die Sidebar verlagern (User-Wunsch
+    // "Konsequenz mit der neuen Menueleiste"). Custom Event analog
+    // zur Kalender-Logik.
+    sidebarSubNavigation = {
+      items: [
+        { id: "settings-quellen", label: "Quellen" },
+        { id: "settings-system", label: "System" },
+        { id: "settings-erscheinungsbild", label: "Erscheinungsbild" },
+        { id: "settings-datenschutz", label: "Datenschutz" },
+        { id: "settings-logs", label: "Logs" },
+        { id: "settings-gefahrenzone", label: "Gefahrenzone" },
+      ],
+      onSelect: (id) => document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab: id.replace("settings-", "") } })),
+    };
   } else if (page === "kalender") {
     // Kalender nutzt einen Custom-Event statt Anchor-Sprungmarken
     sidebarSubNavigation = {
