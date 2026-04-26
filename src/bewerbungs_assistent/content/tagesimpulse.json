@@ -167,5 +167,9 @@
   {"id": "impuls_183", "text": "Lies ein Buch. Triff jemanden. Mach Mittagsschlaf. Alles davon zaehlt.", "tags": ["wochenende", "ruhe"], "contexts": ["weekend", "feiertag"]},
   {"id": "impuls_184", "text": "Du arbeitest fuer ein Leben — nicht ein Leben fuer die Arbeit.", "tags": ["wochenende", "ernst"], "contexts": ["weekend", "feiertag"]},
   {"id": "impuls_185", "text": "Heute musst du nichts beweisen. Nicht einmal dir selbst.", "tags": ["wochenende", "ruhe"], "contexts": ["weekend", "feiertag"]},
-  {"id": "impuls_186", "text": "Wochenende ist eine Verabredung mit dir selbst. Nicht absagen.", "tags": ["wochenende", "ermutigend"], "contexts": ["weekend"]}
+  {"id": "impuls_186", "text": "Wochenende ist eine Verabredung mit dir selbst. Nicht absagen.", "tags": ["wochenende", "ermutigend"], "contexts": ["weekend"]},
+
+  {"id": "impuls_187", "text": "Falls dieser Spruch heute klingt wie aus einem Glueckskeks: ja, manche tun das. Lies ihn morgen nochmal.", "tags": ["meta", "humor"], "contexts": ["default"]},
+  {"id": "impuls_188", "text": "Nicht jeder Tagesimpuls muss sofort einleuchten. Manche brauchen einen Kaffee Bedenkzeit.", "tags": ["meta", "humor"], "contexts": ["default"]},
+  {"id": "impuls_189", "text": "Die Weisheit eines Bambusstaebchen-Spruchs ist proportional zur Erschoepfung des Lesers.", "tags": ["meta", "humor"], "contexts": ["default"]}
 ]

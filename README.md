@@ -109,6 +109,7 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
 - **Open Source & kostenlos.** PBP selbst kostet nichts. Du brauchst nur Claude Desktop (Free oder Pro).
+- **Tagesimpulse mit Glueckskeks-Charakter.** 169 kuratierte Sprueche, einer pro Tag, kontextbezogen. Manche sind klar, andere lesen sich beim ersten Mal wie billig uebersetzte Bambusstaebchen-Weisheiten — da brauchst du zwei Schluck Kaffee, dann ergibt's Sinn. Oder auch nicht. *It's not a bug, it's a feature.*
 
 ---
 
