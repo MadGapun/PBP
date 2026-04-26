@@ -132,23 +132,37 @@ extra rausgefiltert.
 Jetzt: ISO-Wochen-Aggregation in Python (`_iso_week_key`), aktuelle
 Periode bleibt drin, Chart endet wirklich da wo du gerade bist.
 
-#### 🎲 169 Tagesimpulse mit mehr Biss
+#### 🎲 172 Tagesimpulse mit mehr Biss
 
-143 wurden's nicht — 169 sind's. 31 neue Sprueche, 17 platte raus
-(„bleib freundlich zu dir" — Wartezimmer-Niveau, weg damit). Neue
-Schwerpunkte:
+143 wurden's nicht — 172 sind's. 31 neue Sprueche, 17 platte raus
+(„bleib freundlich zu dir" — Wartezimmer-Niveau, weg damit), plus drei
+selbstironische Meta-Sprueche (siehe „Glueckskeks-Disclaimer" weiter
+unten). Neue Schwerpunkte mit klaren Beispielen:
 
-- **Anzeigen-Bullshit-Bingo:** *„'Familiaere Atmosphaere' ist Code fuer
-  'der Chef ist auch der Onkel'"*
-- **Lebenslauf-Wahrheiten:** *„Niemand glaubt 'teamfaehig'. Beweise
-  stattdessen 'kommt vor 9 Uhr Mails'"*
-- **Sende-Druck:** *„Schicke heute eine ab. Morgen-Du wird Heute-Du
-  dafuer Cookies geben."*
-- **12 Schalt-ab-Wochenend-Sprueche:** *„Sonntagabend ist nicht der
-  Anfang von Montag. Es ist das Ende von Sonntag."*
+- **Anzeigen-Bullshit-Bingo** — sezieren was Stellenanzeigen wirklich meinen:
+  > *„'Familiaere Atmosphaere' ist Code fuer 'der Chef ist auch der Onkel'."*
+  > *„'Hands-on Mentalitaet' heisst oft: kein Budget, kein Team, viel Hoffnung."*
+- **Sende-Druck** — gegen das Tagelang-am-Anschreiben-Schleifen:
+  > *„Eine perfekte Bewerbung in der Schublade ist statistisch genauso erfolgreich wie keine."*
+  > *„Senden ist die einzige unverzichtbare Phase. Alles andere ist Zubehoer."*
+- **Absagen mit Schulterzucken:**
+  > *„Wer dir nach dem Erstgespraech absagt, hat dir gerade zwei Wochen Pendelweg geschenkt."*
+- **Schalt-ab-Wochenend-Sprueche** — 12 neue, alle in Richtung „heute reicht":
+  > *„Sonntagabend ist nicht der Anfang von Montag. Es ist das Ende von Sonntag."*
+  > *„Niemand wird dich am Montag fragen, ob du den Sonntag optimiert hast."*
 
 Die Auswahl bleibt deterministisch nach Datum + Kontext, also kein
 Spam — pro Tag genau ein passender Spruch.
+
+> **🥠 Glueckskeks-Disclaimer (v1.6.2):** Einige Sprueche lesen sich beim
+> ersten Mal wie etwas frei uebersetzte Bambusstaebchen-Weisheiten. Das
+> ist Absicht und Feature — manchmal dauert's einen Schluck Kaffee bis
+> der Sinn aufpoppt, manchmal bleibt's Raetsel. *It's not a bug, it's a
+> feature.* Drei selbstironische Meta-Sprueche kommentieren das
+> Phaenomen direkt im Pool (impuls_187–189) — wenn du also mal mit
+> Augenrollen vorm Dashboard sitzt, kann am gleichen Tag ein
+> *„Falls dieser Spruch heute klingt wie aus einem Glueckskeks: ja,
+> manche tun das. Lies ihn morgen nochmal."* hochkommen.
 
 #### 🆔 Eigenes Icon, klare Identitaet
 

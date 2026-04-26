@@ -161,3 +161,35 @@ Phase C+D wandert auf **v1.8.0**.
 **Naechster Schritt nach v1.6.0-final:** Sub-Issues fuer Phase A aus
 #512 ableiten und priorisieren (Embedding-Layer als Foundation,
 weil 3 von 5 Use-Cases darauf aufbauen).
+
+---
+
+## Bonus-Idee: Community-Tagesimpulse (v1.7.0 oder v1.8.0)
+
+Nach dem Glueckskeks-Disclaimer in v1.6.2 ist die naechste Frage: warum
+nicht die Community Sprueche beisteuern lassen? Das laeuft als optionale
+Erweiterung des bestehenden Tagesimpuls-Systems.
+
+**Mechanismus:** GitHub-Issue mit Template (Spruch + optional Autor +
+Kontext-Tags) → Maintainer labelt `impuls-approved` → GitHub-Action
+zieht nightly in `community_impulse.json` auf `main` → PBP fetcht zur
+Laufzeit (analog `hints.json`, `PBP_COMMUNITY_URL` ENV-Override) →
+Tagesimpuls-Box rendert Spruch plus dezent `— @autorname` mit Klick
+auf das Original-Issue.
+
+**Marketing-Aufhaenger:** „Schreib mir deinen Bewerbungs-Mutmach-Spruch
+— wenn er passt, bekommt jeder PBP-Nutzer dein Wisdom-Bit in zufaelligen
+Momenten serviert, mit deinem Namen drunter falls du willst." Plus
+organischer Footer-Link „Eigenen Spruch beisteuern →" unter der
+Tagesimpuls-Box im Dashboard.
+
+**Aufwand:** ~1-2 Tage. Issue-Template, JSON-Schema mit Author-Feld,
+Fetch + Cache, Frontend-Attribution, optional Auto-Sync-Action.
+
+**Risiken:** Spam/Trolling (durch Approval-Label moderiert),
+niemand reicht ein (eingebaute Sprueche bleiben als Fallback),
+Urheberrecht (Issue-Template muss MIT-Lizenz-Erklaerung enthalten).
+
+Tracking-Issue: siehe v1.7.0-Milestone (wird im Release-Sweep
+angelegt). Phase A oder eigenstaendiger v1.7.x-Hotfix — entscheidet
+sich nach Local-LLM-Foundation.
