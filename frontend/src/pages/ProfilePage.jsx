@@ -591,6 +591,20 @@ export default function ProfilePage() {
         const payload = buildSkillPayload(draftValue);
         let savedId = draftValue.id;
         const wasEditingExisting = Boolean(draftValue.id);
+        // #510 / beta.25: Naechsten Skill VORAB bestimmen — vor dem
+        // setProfile-Update, weil setProfile-Updater asynchron laeuft und
+        // wir den Wert sofort fuer setSkillDialog brauchen. Mein beta.22-
+        // Fix hatte den Wert im Updater-Callback berechnet, der lief aber
+        // wegen startTransition zu spaet (Race Condition).
+        const skillsList = Array.isArray(profile?.skills) ? profile.skills : [];
+        const currentIdx = wasEditingExisting
+          ? skillsList.findIndex((item) => item.id === draftValue.id)
+          : -1;
+        const nextSkillItem =
+          keepOpen && wasEditingExisting && currentIdx >= 0 && currentIdx < skillsList.length - 1
+            ? skillsList[currentIdx + 1]
+            : null;
+
         if (draftValue.id) {
           await putJson(`/api/skill/${draftValue.id}`, payload);
         } else {
@@ -598,10 +612,6 @@ export default function ProfilePage() {
           savedId = created?.id || draftValue.id;
         }
         const nextSkill = { ...payload, id: savedId };
-        // #510: Im keepOpen-Modus den naechsten existierenden Skill laden,
-        // wenn wir gerade einen bestehenden bearbeitet haben. Sonst (am
-        // Listen-Ende oder im Anlege-Modus) Felder leeren wie bisher.
-        let nextDialogDraft = null;
         startTransition(() => {
           setProfile((current) => {
             if (!current) return current;
@@ -609,12 +619,6 @@ export default function ProfilePage() {
             const updated = draftValue.id
               ? existing.map((item) => (item.id === draftValue.id ? { ...item, ...nextSkill } : item))
               : [nextSkill, ...existing];
-            if (keepOpen && wasEditingExisting) {
-              const idx = updated.findIndex((item) => item.id === savedId);
-              if (idx >= 0 && idx < updated.length - 1) {
-                nextDialogDraft = buildSkillDraft(updated[idx + 1]);
-              }
-            }
             return { ...current, skills: updated };
           });
         });
@@ -623,7 +627,7 @@ export default function ProfilePage() {
           // Sonst Anlege-Modus: Felder leeren fuer naechsten neuen Skill.
           setSkillDialog({
             open: true,
-            draft: nextDialogDraft || buildSkillDraft(EMPTY_SKILL),
+            draft: nextSkillItem ? buildSkillDraft(nextSkillItem) : buildSkillDraft(EMPTY_SKILL),
           });
         } else {
           setSkillDialog({ open: false, draft: EMPTY_SKILL });

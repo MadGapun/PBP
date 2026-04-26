@@ -7,6 +7,35 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.25] - 2026-04-25
+
+#510 endgueltig gefixt — beta.22-Fix war fehlerhaft (Race Condition).
+
+**Problem:** Beim Bearbeiten eines bestehenden Skills (Pagination 79/99
+o.ae.) springt "Speichern & weiter" weiterhin auf "neuer Skill anlegen"
+statt zum naechsten existierenden Skill — obwohl beta.22 das angeblich
+gefixt hatte.
+
+**Ursache:** Mein beta.22-Fix berechnete `nextDialogDraft` im
+`setProfile`-Updater-Callback. Das war innerhalb von `startTransition`
+und lief asynchron. `setSkillDialog` lief direkt danach synchron,
+bevor der Updater-Callback ausgefuehrt wurde — die Variable war zum
+Zeitpunkt des Reads immer noch `null`. Race Condition.
+
+**Fix:** Den naechsten Skill **vor** dem `setProfile`-Update aus dem
+aktuellen `profile`-State ablesen. So ist der Wert deterministisch
+verfuegbar fuer `setSkillDialog`. Da Skill-Update die Reihenfolge nicht
+aendert, ist `profile.skills[currentIdx + 1]` korrekt.
+
+User-Workflow funktioniert jetzt: 100 extrahierte Skills aus Lebenslauf-
+Upload mit "Speichern & weiter" durchklicken springt deterministisch
+durch 1/100 → 2/100 → ... → 100/100 → leerer Anlegemodus.
+
+### Fixed
+- #510 v2: Race Condition zwischen `startTransition` und
+  `setSkillDialog` aufgeloest, indem `nextSkillItem` vor dem Update
+  berechnet wird.
+
 ## [1.6.0-beta.24] - 2026-04-25
 
 Sidebar-Polish nach erstem User-Feedback zu beta.23.
