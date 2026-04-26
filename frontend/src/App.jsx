@@ -1078,9 +1078,13 @@ export default function App() {
         ) : null}
 
 
-        <div className="mx-auto flex w-full max-w-[92rem] px-5 pt-4 sm:px-8">
-          {/* Global Sidebar (#363) */}
-          <aside className="hidden lg:block w-48 shrink-0 pr-6">
+        {/* beta.26 / User-Feedback: Statt die rechte Sidebar bei < lg
+            auszublenden, lassen wir den Inhalt horizontal scrollen, wenn
+            das Fenster zu schmal wird. Nichts darf verschwinden — der User
+            will lieber scrollen als verlieren. */}
+        <div className="flex w-full px-5 pt-4 sm:px-8 overflow-x-auto">
+          {/* Global Sidebar (#363) — jetzt immer sichtbar */}
+          <aside className="block w-48 shrink-0 pr-6">
             <div className="sticky top-16 space-y-3">
               <p className="text-[10px] font-mono text-muted/30 select-none">
                 v{chrome.status?.version || "?"}

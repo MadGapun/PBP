@@ -7,6 +7,57 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.26] - 2026-04-25
+
+Stellen-Page-Polish: 5 User-Findings nach beta.25.
+
+**Layout: rechte Sidebar bleibt sichtbar** statt bei <1024px zu
+verschwinden. Stattdessen scrollt der Inhalt horizontal. User-Wunsch:
+"besser scrollen als irgendwas verlieren".
+
+**Stellenalter-Filter repariert (#251 / Bug seit beta.25)**
+- Filter pruefte das Feld `published_at`, das DB-Feld heisst aber
+  `veroeffentlicht_am` (seit Schema v24). Filter griff bei den meisten
+  Stellen nicht.
+- Default fuer frische Installationen oder neue Quellen: 21 Tage. Vorher
+  griff der Filter ueberhaupt nicht, wenn `last_search_at` fehlte —
+  User wurde mit jahrealten Stellen erschlagen.
+- Mit last_search_at: max(7, intervall*2). Beispiel: Vor 3 Tagen
+  gesucht -> jetzt nur Stellen <= 7 Tage alt.
+
+**Anzeige-Bug "X mit Bewerbung" repariert**
+- Die Karte "Aktive Stellen" zeigte vorher pauschal `gesamt - aktiv`
+  als "mit Bewerbung". Falsch — die Differenz enthaelt aussortierte
+  ("passt nicht"), durch UI-Filter ausgeblendete und anders unsichtbare
+  Stellen.
+- Jetzt 3 separate Zaehler: `mit Bewerbung` (echte applications),
+  `aussortiert` (dismissed_jobs), `ausgefiltert` (Rest). Beispiel:
+  "459 gesamt (1 mit Bewerbung, 1 aussortiert, 0 ausgefiltert)".
+
+**Gehaltsdurchschnitt-Plausibilitaet**
+- Manche Scraper schreiben Tagessaetze (z.B. 850 EUR/Tag) faelschlich
+  mit `salary_type=jaehrlich`. Bei nur 2 Stellen mit Jahresgehalt
+  ergab das absurde Durchschnitte (User-Beobachtung: "die naechste
+  Stelle hat min/max ueber dem Durchschnitt").
+- Neuer Plausibilitaets-Filter: Werte unter 20.000 EUR/Jahr werden aus
+  dem Durchschnitt ausgeschlossen. In DACH ist das praktisch nie ein
+  echtes Vollzeit-Jahresgehalt.
+
+**Freelance-/Selbstaendigen-Projekte sichtbar abgegrenzt**
+- Job-Karten mit `employment_type=freelance` haben jetzt einen lila
+  Hauch (border-violet/25, bg-violet/[0.02]).
+- Pinned (amber) hat weiterhin Vorrang vor Freelance-Faerbung.
+- User-Wunsch von frueher, jetzt umgesetzt.
+
+### Changed
+- `App.jsx`: Layout-Wrapper ohne `mx-auto max-w` + `overflow-x-auto`,
+  rechte Sidebar ohne `hidden lg:block`.
+- `JobsPage.jsx`: 3-Wege-Aufteilung "Aktive Stellen"-Note;
+  Plausibilitaets-Filter in `buildAnnualSalaryMetrics`; Freelance-
+  Card-Faerbung.
+- `job_scraper/__init__.py`: Stellenalter-Filter pruef jetzt korrektes
+  Feld + Default 21 Tage.
+
 ## [1.6.0-beta.25] - 2026-04-25
 
 #510 endgueltig gefixt — beta.22-Fix war fehlerhaft (Race Condition).

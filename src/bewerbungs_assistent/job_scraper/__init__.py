@@ -855,23 +855,45 @@ def run_search(db, job_id: str, params: dict):
     except Exception as e:
         logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
 
-    # #251: Stellenalter automatisch begrenzen (2x Suchintervall, min 7 Tage)
-    last_search_at = db.get_profile_setting("last_search_at", None)
-    if last_search_at:
-        try:
-            from datetime import datetime, timedelta
+    # #251 / beta.26: Stellenalter automatisch begrenzen
+    # Strategie:
+    #   - Wenn last_search_at existiert: max_age = max(7, intervall*2)
+    #     Beispiel: vor 3 Tagen gesucht -> max_age 7 Tage (eng)
+    #     Beispiel: vor 14 Tagen gesucht -> max_age 28 Tage (offen)
+    #   - Ohne last_search_at (frische Installation / neue Quelle):
+    #     Default 21 Tage. User soll nicht mit jahrealten Stellen
+    #     erschlagen werden, auch wenn er das erste Mal sucht.
+    #   - Stellen ohne Datum (weder found_at noch veroeffentlicht_am):
+    #     bleiben drin (defensiv — wir wissen nicht ob sie alt sind).
+    # Bug-Fix (User-Feedback beta.25): Vorher wurde `published_at`
+    # gepruft, das DB-Feld heisst aber `veroeffentlicht_am` -> Filter
+    # griff bei fast keiner Stelle.
+    try:
+        from datetime import datetime, timedelta
+        now_dt = datetime.now()
+        last_search_at = db.get_profile_setting("last_search_at", None)
+        if last_search_at:
             last_dt = datetime.fromisoformat(last_search_at)
-            now_dt = datetime.now()
             interval = (now_dt - last_dt).days
             max_age_days = max(7, interval * 2)
-            cutoff_dt = (now_dt - timedelta(days=max_age_days)).isoformat()
-            before_age = len(unique)
-            unique = [j for j in unique if (j.get("found_at") or j.get("published_at") or "9999") >= cutoff_dt[:10]]
-            if before_age > len(unique):
-                logger.info("Stellenalter-Filter: %d von %d Stellen aelter als %d Tage",
-                            before_age - len(unique), before_age, max_age_days)
-        except Exception as e:
-            logger.debug("Stellenalter-Filter fehlgeschlagen: %s", e)
+            reason = f"intervall*2 seit letzter Suche ({interval}d)"
+        else:
+            max_age_days = 21
+            reason = "Default fuer frische Installation/neue Quelle"
+        cutoff_dt = (now_dt - timedelta(days=max_age_days)).isoformat()
+        cutoff_date = cutoff_dt[:10]
+        before_age = len(unique)
+        unique = [
+            j for j in unique
+            if (j.get("found_at") or j.get("veroeffentlicht_am") or "9999")[:10] >= cutoff_date
+        ]
+        if before_age > len(unique):
+            logger.info(
+                "Stellenalter-Filter: %d von %d Stellen aelter als %d Tage entfernt (%s)",
+                before_age - len(unique), before_age, max_age_days, reason
+            )
+    except Exception as e:
+        logger.debug("Stellenalter-Filter fehlgeschlagen: %s", e)
 
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
     min_score_threshold = criteria.get("min_score_schwelle", 1)

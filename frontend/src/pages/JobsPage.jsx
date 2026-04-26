@@ -84,7 +84,16 @@ function buildAnnualSalaryMetrics(jobs = []) {
   const rows = hasReal ? realRows : estimatedRows;
   const allEstimated = !hasReal && estimatedRows.length > 0;
 
-  const annualRows = rows.filter((row) => row.salaryType === "jaehrlich");
+  // beta.26 / User-Feedback: Plausibilitaets-Filter fuer Jahresgehaelter.
+  // Manche Scraper schreiben Tagessaetze (z.B. 850 EUR/Tag) faelschlich
+  // mit `salary_type=jaehrlich`. Werte unter 20.000 EUR/Jahr sind in DACH
+  // praktisch nie ein echtes Vollzeit-Jahresgehalt — die schliessen wir
+  // aus dem Durchschnitt aus, damit nicht 2 Tagessaetze den ganzen
+  // Durchschnitt verzerren.
+  const ANNUAL_MIN_PLAUSIBLE = 20000;
+  const annualRows = rows.filter(
+    (row) => row.salaryType === "jaehrlich" && row.min >= ANNUAL_MIN_PLAUSIBLE
+  );
   if (!annualRows.length) {
     return {
       jobsWithSalary: hasReal ? realRows.length : estimatedRows.length,
@@ -679,7 +688,36 @@ export default function JobsPage() {
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Aktive Stellen" value={filteredJobs.length} note={jobsTotal > filteredJobs.length ? `${jobsTotal} gesamt (${jobsTotal - filteredJobs.length} mit Bewerbung)` : jobsWithSalary > 0 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}` : "Keine Gehaltsdaten"} tone="success" />
+          <MetricCard
+            label="Aktive Stellen"
+            value={filteredJobs.length}
+            note={(() => {
+              // beta.26 / User-Feedback: Differenzierung zwischen
+              //   - mit Bewerbung (echte applications, appliedJobHashes)
+              //   - aussortiert (dismissed via "passt nicht")
+              //   - anders ausgefiltert (UI-Filter, Score, etc.)
+              // statt pauschal "X mit Bewerbung" wie vorher.
+              const withApplication = appliedJobHashes.size;
+              const dismissedCount = dismissedJobs.length;
+              const filteredOut = Math.max(
+                0,
+                jobsTotal - filteredJobs.length - withApplication - dismissedCount
+              );
+              if (jobsTotal > filteredJobs.length) {
+                const parts = [];
+                if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
+                if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
+                if (filteredOut > 0) parts.push(`${filteredOut} ausgefiltert`);
+                return parts.length > 0
+                  ? `${jobsTotal} gesamt (${parts.join(", ")})`
+                  : `${jobsTotal} gesamt`;
+              }
+              return jobsWithSalary > 0
+                ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}`
+                : "Keine Gehaltsdaten";
+            })()}
+            tone="success"
+          />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
@@ -948,7 +986,12 @@ export default function JobsPage() {
                 className={cn(
                   "flex flex-col rounded-xl transition-[border-color,box-shadow,background-color] duration-300",
                   highlightedJobHash === String(job.hash) && "job-card-highlight",
-                  job.is_pinned && "border-amber/20 bg-amber/[0.02]"
+                  job.is_pinned && "border-amber/20 bg-amber/[0.02]",
+                  // beta.26 / User-Feedback: Freelance-/Selbstaendigen-
+                  // Projekte sichtbar von Festanstellungen unterscheiden.
+                  // Pinned hat Vorrang (amber); ansonsten lila Hauch fuer
+                  // employment_type=freelance.
+                  !job.is_pinned && job.employment_type === "freelance" && "border-violet-400/25 bg-violet-400/[0.02]"
                 )}
               >
                 <div className="flex-1 space-y-3">
