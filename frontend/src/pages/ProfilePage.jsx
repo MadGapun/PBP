@@ -1182,16 +1182,21 @@ export default function ProfilePage() {
 
         <Card id="profil-suchkriterien" className="rounded-2xl">
           <SectionHeading title="Suchkriterien" description="Keywords und Gewichtungen für Matching und Scoring." />
-          {/* #458: Keyword-Vorschlaege aus aktiven Stellen */}
+          {/* #458 / beta.29: Keyword-Vorschlaege aus Bewerbungen vs Aussortierten */}
           {keywordSuggestions?.status === "ok" && (keywordSuggestions.vorschlaege_plus?.length > 0 || keywordSuggestions.vorschlaege_ausschluss?.length > 0) && (
             <div className="mb-4 rounded-xl border border-sky/20 bg-sky/[0.04] p-3">
-              <p className="text-xs font-semibold text-sky/80 mb-2">
+              <p className="text-xs font-semibold text-sky/80 mb-1">
                 Vorschlaege aus deinen {keywordSuggestions.aktive_stellen} aktiven Stellen
               </p>
+              {keywordSuggestions.datenquelle ? (
+                <p className="text-[11px] text-muted/60 mb-2 italic">
+                  Basis: {keywordSuggestions.datenquelle}
+                </p>
+              ) : null}
               {keywordSuggestions.vorschlaege_plus?.length > 0 && (
                 <div className="mb-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
-                    Haeufig in gut bewerteten Stellen, fehlen in deinen PLUS-Keywords
+                    Haeufig in deinen Bewerbungen, fehlen in deinen PLUS-Keywords
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {keywordSuggestions.vorschlaege_plus.map((s) => (
@@ -1215,7 +1220,7 @@ export default function ProfilePage() {
               {keywordSuggestions.vorschlaege_ausschluss?.length > 0 && (
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
-                    Haeufig in schlecht bewerteten Stellen — als Ausschluss empfohlen
+                    Haeufig in von dir aussortierten Stellen — als Ausschluss empfohlen
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {keywordSuggestions.vorschlaege_ausschluss.map((s) => (

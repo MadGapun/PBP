@@ -1094,12 +1094,23 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def keyword_vorschlaege() -> dict:
-        """Analysiert aktive Stellen und schlägt Keyword-Anpassungen vor (#184).
+        """Analysiert Bewerbungen vs. abgelehnte Stellen und schlägt
+        Keyword-Anpassungen vor (#184 / #500 v1.6.0-beta.29).
 
-        Prüft welche Keywords in den Stellenbeschreibungen häufig vorkommen
-        aber NICHT in den Suchkriterien enthalten sind, und umgekehrt.
+        Datenquelle (in dieser Reihenfolge):
+            1. Beste Quelle: Stellen mit Bewerbung vs. dismissed Stellen.
+               Was unterscheidet die Stellen, die du ANGEFASST hast,
+               von denen, die du ABGELEHNT hast?
+            2. Fallback: gut/schlecht bewertete aktive Stellen
+               (alter Score-basierter Mechanismus, falls noch zu wenig
+               Bewerbungen/Ablehnungen vorhanden).
 
-        Ideal nach einer Jobsuche: 'Passen meine Keywords noch?'
+        TF-IDF-aehnliche Spezifitaets-Heuristik: Begriffe die in zu
+        vielen Quellen vorkommen werden abgewertet (Stoppwoerter sind
+        nicht alle Stoppwoerter, manche sind nur "in jeder
+        Stellenbeschreibung haeufig"). Ohne tiefere LLM-Analyse, aber
+        deutlich brauchbarer als die alte Implementierung — siehe
+        v1.7.0 Local-LLM-Roadmap fuer den naechsten Schritt.
         """
         criteria = db.get_search_criteria()
         muss = [kw.lower() for kw in criteria.get("keywords_muss", [])]
@@ -1107,82 +1118,167 @@ def register(mcp, db, logger):
         ausschluss = [kw.lower() for kw in criteria.get("keywords_ausschluss", [])]
         alle_keywords = set(muss + plus)
 
-        jobs = db.get_active_jobs(exclude_blacklisted=True)
-        if not jobs:
-            return {"nachricht": "Keine aktiven Stellen. Starte zuerst eine Jobsuche."}
+        # Erweiterte Stoppwoerter: typische DACH-Stellenbeschreibungs-Floskeln,
+        # die fast in jeder Anzeige vorkommen und keine Aussagekraft haben.
+        _stopwords = {
+            # Funktionswoerter
+            "und", "oder", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer", "einem", "einen",
+            "ist", "sind", "war", "waren", "hat", "habe", "haben", "wird", "werden", "wurde", "wurden",
+            "mit", "ohne", "von", "vor", "nach", "fuer", "für", "als", "bei", "zur", "zum", "zu",
+            "auf", "aus", "nach", "ueber", "über", "unter", "durch", "an", "am", "im", "in", "ins",
+            "nicht", "auch", "sich", "wir", "sie", "uns", "ihr", "ihre", "ihren", "ihrer",
+            "unser", "unsere", "unseren", "unserer", "unserem", "unseres",
+            "deine", "dein", "dich", "dir", "du", "ihrer", "diese", "dieser", "diesem",
+            # Typische Stellenanzeigen-Floskeln
+            "team", "stelle", "stellen", "job", "jobs", "position", "rolle",
+            "aufgabe", "aufgaben", "taetigkeit", "taetigkeiten",
+            "anforderung", "anforderungen", "kenntnisse", "kenntnis", "erfahrung", "erfahrungen",
+            "kollege", "kollegen", "kolleginnen", "mitarbeiter", "mitarbeitern", "mitarbeiterinnen",
+            "kunde", "kunden", "kundinnen", "partner", "partnern",
+            "unternehmen", "firma", "gmbh", "ag", "co", "kg", "ohg", "sa",
+            "bereich", "bereiche", "abteilung", "abteilungen",
+            "projekt", "projekte", "projekten",
+            "arbeit", "arbeiten", "arbeitsplatz", "arbeitsplaetze",
+            "moeglichkeit", "moeglichkeiten",
+            "deutsch", "deutsche", "deutschen", "english", "englisch",
+            "bieten", "bietet", "suchen", "sucht", "gerne", "gern",
+            "sowie", "sowohl", "sowie", "ebenso", "auch",
+            "erstellung", "erstellen", "umsetzung", "umsetzen", "durchfuehrung",
+            "verantwortung", "verantwortlich",
+            "qualifikation", "qualifikationen", "ausbildung",
+            "stunden", "tage", "tag", "wochen", "woche",
+            "montag", "dienstag", "mittwoch", "donnerstag", "freitag",
+            "monat", "monaten", "jahr", "jahre", "jahren",
+            "m/w/d", "m/w", "w/m/d", "w/m", "d/m/w",
+            # Generic Verbs
+            "macht", "machen", "tun", "tuen", "geht", "gehen", "kommt", "kommen",
+            "gibt", "geben", "nehmen", "nimmt", "wird", "werden",
+            "kann", "koennen", "muss", "muessen", "soll", "sollen", "will", "wollen",
+        }
 
-        # Zähle häufige Begriffe in gut bewerteten Stellen
-        good_jobs = [j for j in jobs if j.get("score", 0) >= 3]
-        bad_jobs = [j for j in jobs if j.get("score", 0) <= 1]
+        def _extract_terms(text):
+            # Min 5 Zeichen — eliminiert "team", "ihre", "team" etc.
+            words = re.findall(r'[a-zA-ZäöüÄÖÜß]{5,}', text.lower())
+            return [w for w in words if w not in _stopwords]
+
+        # Versuch 1: Bewerbungen vs. abgelehnte Stellen (User-Wunsch)
+        applications = db.get_applications()
+        applied_hashes = {
+            a["job_hash"] for a in applications
+            if a.get("job_hash") and a.get("status") not in (
+                "abgelehnt", "zurueckgezogen", "abgelaufen", "passt_nicht"
+            )
+        }
+        dismissed_jobs = db.get_dismissed_jobs() if hasattr(db, "get_dismissed_jobs") else []
+
+        all_jobs = db.get_active_jobs(exclude_blacklisted=True)
+        applied_job_objs = [j for j in all_jobs if j.get("hash") in applied_hashes]
+        # Falls bereits-beworben Stellen aussortiert sind, in dismissed_jobs schauen
+        if not applied_job_objs and applied_hashes and dismissed_jobs:
+            applied_job_objs = [j for j in dismissed_jobs if j.get("hash") in applied_hashes]
+
+        # Datenquellen-Wahl: applied vs dismissed bevorzugt, sonst Score-Fallback
+        use_application_source = (
+            len(applied_job_objs) >= 3 and len(dismissed_jobs) >= 3
+        )
+
+        if use_application_source:
+            good_jobs = applied_job_objs
+            bad_jobs = [j for j in dismissed_jobs if j.get("hash") not in applied_hashes]
+            datenquelle = (
+                f"Vergleich: {len(good_jobs)} Stellen mit Bewerbung "
+                f"vs. {len(bad_jobs)} aussortierte Stellen"
+            )
+        else:
+            # Fallback: alte Score-basierte Logik (zirkulaer, aber besser als gar nichts)
+            good_jobs = [j for j in all_jobs if j.get("score", 0) >= 3]
+            bad_jobs = [j for j in all_jobs if j.get("score", 0) <= 1]
+            datenquelle = (
+                f"Score-Vergleich (kein Bewerbungs-Vergleich moeglich, "
+                f"Bewerbungen: {len(applied_job_objs)}, "
+                f"Aussortiert: {len(dismissed_jobs)})"
+            )
+
+        if not all_jobs:
+            return {"nachricht": "Keine aktiven Stellen. Starte zuerst eine Jobsuche."}
 
         from collections import Counter as _Counter
         good_words = _Counter()
         bad_words = _Counter()
+        # Document Frequency — fuer TF-IDF-Spezifitaets-Heuristik
+        all_jobs_count = max(1, len(all_jobs))
+        doc_freq = _Counter()
 
-        # Relevante Fachbegriffe extrahieren (Wörter > 3 Zeichen, keine Stoppwörter)
-        _stopwords = {"und", "oder", "der", "die", "das", "den", "dem", "ein", "eine",
-                      "ist", "sind", "hat", "haben", "wird", "werden", "mit", "von",
-                      "fuer", "für", "als", "bei", "zur", "zum", "auf", "aus", "nach",
-                      "nicht", "auch", "sich", "wir", "sie", "uns", "ihr", "ihre",
-                      "unser", "unsere", "deine", "ihre", "m/w/d", "m/w", "gmbh",
-                      "bieten", "suchen", "ihre", "gerne", "dich", "dein", "team",
-                      "arbeit", "deutsch", "english", "stelle", "stellen", "job"}
-
-        def _extract_terms(text):
-            words = re.findall(r'[a-zA-ZäöüÄÖÜß]{4,}', text.lower())
-            return [w for w in words if w not in _stopwords]
-
+        for j in all_jobs:
+            text = f"{j.get('title', '')} {(j.get('description') or '')[:1500]}"
+            unique_terms = set(_extract_terms(text))
+            for term in unique_terms:
+                doc_freq[term] += 1
         for j in good_jobs:
-            text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+            text = f"{j.get('title', '')} {(j.get('description') or '')[:1500]}"
             for term in _extract_terms(text):
                 good_words[term] += 1
         for j in bad_jobs:
-            text = f"{j.get('title', '')} {(j.get('description') or '')[:1000]}"
+            text = f"{j.get('title', '')} {(j.get('description') or '')[:1500]}"
             for term in _extract_terms(text):
                 bad_words[term] += 1
 
-        # Vorschläge berechnen
+        # Spezifitaets-Filter: Begriffe die in mehr als 70% aller Stellen
+        # vorkommen sind nicht aussagekraeftig, auch wenn sie nicht in
+        # den Stoppwoertern sind.
+        TOO_GENERIC_THRESHOLD = 0.7
+        too_generic = {
+            term for term, count in doc_freq.items()
+            if count / all_jobs_count > TOO_GENERIC_THRESHOLD
+        }
+
         vorschlaege_plus = []
         vorschlaege_ausschluss = []
 
         min_freq = max(2, len(good_jobs) // 4) if good_jobs else 2
-        for term, count in good_words.most_common(50):
-            if term not in alle_keywords and count >= min_freq:
-                # Kommt häufig in guten Jobs vor, aber nicht in Keywords
-                ratio = count / max(1, bad_words.get(term, 0))
-                if ratio >= 2:  # Mindestens doppelt so häufig in guten Jobs
-                    vorschlaege_plus.append({
-                        "keyword": term,
-                        "in_guten_stellen": count,
-                        "in_schlechten_stellen": bad_words.get(term, 0),
-                    })
+        for term, count in good_words.most_common(80):
+            if term in alle_keywords or term in too_generic:
+                continue
+            if count < min_freq:
+                continue
+            ratio = count / max(1, bad_words.get(term, 0))
+            if ratio >= 2:
+                vorschlaege_plus.append({
+                    "keyword": term,
+                    "in_guten_stellen": count,
+                    "in_schlechten_stellen": bad_words.get(term, 0),
+                })
 
         min_bad_freq = max(2, len(bad_jobs) // 4) if bad_jobs else 2
-        for term, count in bad_words.most_common(30):
-            if term not in alle_keywords and term not in ausschluss and count >= min_bad_freq:
-                ratio = count / max(1, good_words.get(term, 0))
-                if ratio >= 3:  # Dreimal häufiger in schlechten Jobs
-                    vorschlaege_ausschluss.append({
-                        "keyword": term,
-                        "in_schlechten_stellen": count,
-                        "in_guten_stellen": good_words.get(term, 0),
-                    })
+        for term, count in bad_words.most_common(50):
+            if term in alle_keywords or term in ausschluss or term in too_generic:
+                continue
+            if count < min_bad_freq:
+                continue
+            ratio = count / max(1, good_words.get(term, 0))
+            if ratio >= 3:
+                vorschlaege_ausschluss.append({
+                    "keyword": term,
+                    "in_schlechten_stellen": count,
+                    "in_guten_stellen": good_words.get(term, 0),
+                })
 
         # Keywords die in keiner Stelle vorkommen (tote Keywords)
         from ..job_scraper import _fuzzy_keyword_match
         tote_keywords = []
         all_text = " ".join(
             f"{j.get('title', '')} {(j.get('description') or '')[:500]}"
-            for j in jobs
+            for j in all_jobs
         ).lower()
         for kw in muss + plus:
             if not _fuzzy_keyword_match(kw, all_text):
                 tote_keywords.append(kw)
 
         return {
-            "aktive_stellen": len(jobs),
+            "aktive_stellen": len(all_jobs),
             "gut_bewertet": len(good_jobs),
             "schlecht_bewertet": len(bad_jobs),
+            "datenquelle": datenquelle,  # neu: erklaert die Vorschlags-Basis
             "aktuelle_keywords": {
                 "muss": muss,
                 "plus": plus,

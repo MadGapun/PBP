@@ -7,6 +7,65 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.29] - 2026-04-25
+
+Keyword-Vorschlaege grundlegend ueberarbeitet (#User-Feedback nach beta.28).
+
+**User-Befund:** "Plus-Vorschlaege sind nichtssagend (kunden, sowie,
+aufgaben, ueber, ...), Minus-Vorschlaege sind genau die Begriffe, die
+ich im Plus haben will (manager, consultant)."
+
+**Drei Probleme im alten Algorithmus:**
+
+1. **Tautologische Datenquelle:** Klassifiziert wurde nach `score >= 3`
+   (gut) vs `score <= 1` (schlecht). Der Score wird aber AUS den
+   Keywords berechnet — die Vorschlaege waren also ein Echo der
+   bestehenden Keywords statt ein Lernsignal.
+
+2. **Stop-Words zu eng:** "kunden", "sowie", "aufgaben", "ueber",
+   "bereich", "erstellung" sind in 70%+ aller Stellen drin — keine
+   Aussagekraft, aber nicht in der alten Stop-Word-Liste.
+
+3. **Min-Wortlaenge zu niedrig:** 4 Zeichen erlaubt "ihre", "team",
+   "ueber" als Kandidaten.
+
+**Loesung (ohne LLM, datengetrieben):**
+
+1. **Datenquelle umgestellt:** Stellen mit Bewerbung vs. von dir
+   aussortierte Stellen. Beantwortet die User-Frage: "Was unterscheidet
+   die Stellen, fuer die ich mich beworben habe, von denen die ich
+   abgelehnt habe?"
+   - Wenn keine ausreichenden Daten (>=3 Bewerbungen + >=3 Aussortierte)
+     vorhanden: Fallback auf alten Score-Vergleich, klar als
+     `Score-Vergleich (kein Bewerbungs-Vergleich moeglich)` markiert.
+
+2. **Stop-Word-Liste massiv erweitert** auf 100+ DACH-typische
+   Stellenanzeigen-Floskeln (kunden, mitarbeiter, anforderungen,
+   verantwortung, montag-freitag, m/w/d, ...).
+
+3. **TF-IDF-Spezifitaets-Filter:** Begriffe die in mehr als 70% aller
+   aktiven Stellen vorkommen werden ausgeschlossen — auch wenn sie
+   nicht in der Stop-Word-Liste sind. Eliminiert generische Begriffe
+   automatisch.
+
+4. **Min-Wortlaenge auf 5 Zeichen** erhoeht.
+
+5. **Frontend zeigt Datenquelle** transparent: "Basis: Vergleich:
+   X Stellen mit Bewerbung vs. Y aussortierte Stellen" oder
+   "Basis: Score-Vergleich (kein Bewerbungs-Vergleich moeglich)".
+
+**Ollama-Sammel-Issue (#512) angelegt** fuer v1.7.0 — sammelt die
+Anwendungsfaelle, fuer die eine lokale LLM den naechsten Sprung in
+Qualitaet bringt (z.B. echte semantische Differenzierung "Windchill
+vs Teamcenter") ohne das Claude-Konto des Users zu belasten.
+
+### Changed
+- `tools/analyse.py::keyword_vorschlaege`: komplett neu — Datenquelle,
+  Stop-Words, TF-IDF-Filter.
+- `pages/ProfilePage.jsx`: Frontend zeigt Datenquelle transparent;
+  Labels umformuliert auf "haeufig in deinen Bewerbungen" /
+  "haeufig in von dir aussortierten Stellen".
+
 ## [1.6.0-beta.28] - 2026-04-25
 
 Bewerbungsprotokoll vollstaendig ausgebaut (#User-Feedback "darf gerne
