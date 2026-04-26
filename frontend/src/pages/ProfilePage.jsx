@@ -1091,20 +1091,19 @@ export default function ProfilePage() {
 
   return (
     <div id="page-profil" className="page active">
-      <div className="mb-6 flex flex-row-reverse items-center justify-between gap-4">
-        <h1 className="font-display text-xl font-semibold text-ink">Profil</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
-            <Download size={15} /> Export & Backup
-          </Button>
-          <button
-            type="button"
-            className="text-xs text-muted/40 hover:text-coral transition-colors"
-            onClick={() => navigateTo("einstellungen", { tab: "gefahrenzone" })}
-          >
-            Profil loeschen? → Gefahrenzone
-          </button>
-        </div>
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Profil</h1>
+      <div className="mb-6 flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
+          <Download size={15} /> Export & Backup
+        </Button>
+        <button
+          type="button"
+          className="text-xs text-muted/40 hover:text-coral transition-colors"
+          onClick={() => navigateTo("einstellungen", { tab: "gefahrenzone" })}
+        >
+          Profil loeschen? → Gefahrenzone
+        </button>
       </div>
 
       <div className="grid gap-6">
@@ -1571,22 +1570,57 @@ export default function ProfilePage() {
                         {SKILL_CATEGORY_LABELS[category] || category}
                       </p>
                       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                        {skills.map((item) => (
-                          <Card key={item.id} className="glass-card-soft rounded-xl shadow-none">
+                        {skills.map((item) => {
+                          // beta.35 / User-Feedback:
+                          // 1. Erfahrungsjahre korrekt aus start_year/end_year ableiten
+                          //    (vorher: "seit 2008" obwohl von=2002, bis=2020)
+                          // 2. level_current bevorzugt anzeigen (aktuelles Niveau ist
+                          //    interessanter als Spitzen-Niveau, falls vorhanden)
+                          const startYear = parseOptionalInt(item.start_year);
+                          const endYear = parseOptionalInt(item.end_year);
+                          const yearsExp = startYear
+                            ? Math.max(0, (endYear ?? currentYear) - startYear)
+                            : (parseOptionalInt(item.years_experience) ?? null);
+                          const peakLevel = parseOptionalInt(item.level) ?? 0;
+                          const currentLevel = parseOptionalInt(item.level_current);
+                          const displayLevel = currentLevel !== null ? currentLevel : peakLevel;
+                          const isResting = endYear !== null;
+                          // Zeitraum-Text
+                          let zeitraum;
+                          if (startYear && endYear) {
+                            zeitraum = `${startYear}–${endYear}`;
+                          } else if (startYear) {
+                            zeitraum = `seit ${startYear}`;
+                          } else if (yearsExp !== null) {
+                            zeitraum = `seit ${Math.max(1900, currentYear - yearsExp)}`;
+                          } else {
+                            zeitraum = null;
+                          }
+                          return (
+                          <Card key={item.id} className={`glass-card-soft rounded-xl shadow-none ${isResting ? "opacity-80" : ""}`}>
                             <div className="flex items-center justify-between">
                               <Badge tone="sky">{SKILL_CATEGORY_LABELS[normalizeSkillCategory(item.category)]}</Badge>
-                              <div className="flex items-center gap-1" title={`Level ${item.level ?? "?"}`}>
+                              <div
+                                className="flex items-center gap-1"
+                                title={
+                                  currentLevel !== null
+                                    ? `Aktuell ${currentLevel}/5 (Spitze ${peakLevel}/5)`
+                                    : `Level ${peakLevel}/5`
+                                }
+                              >
                                 {[1, 2, 3, 4, 5].map((dot) => (
                                   <button
                                     key={dot}
                                     type="button"
                                     className={`h-2.5 w-2.5 rounded-full transition-colors ${
-                                      dot <= (item.level ?? 0)
-                                        ? (item.level ?? 0) <= 2 ? "bg-amber" : (item.level ?? 0) <= 3 ? "bg-sky" : "bg-teal"
+                                      dot <= displayLevel
+                                        ? isResting
+                                          ? displayLevel <= 2 ? "bg-amber/70" : "bg-amber"
+                                          : displayLevel <= 2 ? "bg-amber" : displayLevel <= 3 ? "bg-sky" : "bg-teal"
                                         : "bg-white/[0.08] hover:bg-white/[0.2]"
                                     }`}
                                     onClick={async () => {
-                                      const newLevel = dot === item.level ? dot - 1 : dot;
+                                      const newLevel = dot === peakLevel ? dot - 1 : dot;
                                       try {
                                         await putJson(`/api/skill/${item.id}`, { ...item, level: newLevel });
                                         setProfile((prev) => ({
@@ -1604,9 +1638,14 @@ export default function ProfilePage() {
                             </div>
                             <h3 className="mt-2 text-sm font-semibold text-ink">{item.name}</h3>
                             <p className="mt-1 text-[12px] text-muted/50">
-                              {item.years_experience
-                                ? `${item.years_experience} Jahre Erfahrung - seit ${Math.max(1900, currentYear - Math.max(0, Number(item.years_experience) || 0))}`
-                                : "Ohne Erfahrungsjahre"}
+                              {yearsExp !== null && zeitraum
+                                ? `${yearsExp} Jahre Erfahrung · ${zeitraum}`
+                                : zeitraum || "Ohne Erfahrungsjahre"}
+                              {isResting && currentLevel !== null && currentLevel < peakLevel ? (
+                                <span className="ml-2 text-amber/80">
+                                  · ruht (Spitze {peakLevel}/5)
+                                </span>
+                              ) : null}
                             </p>
                             <div className="mt-3 flex gap-2">
                               <Button size="sm" variant="ghost" onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(item) })}>Bearbeiten</Button>
@@ -1634,7 +1673,8 @@ export default function ProfilePage() {
                               </Button>
                             </div>
                           </Card>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

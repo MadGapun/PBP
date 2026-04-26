@@ -460,8 +460,9 @@ export default function ApplicationsPage() {
 
   return (
     <div id="page-bewerbungen" className="page active">
-      <div className="mb-6 flex flex-row-reverse items-baseline justify-between gap-4">
-        <h1 className="font-display text-xl font-semibold text-ink">Bewerbungen</h1>
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Bewerbungen</h1>
+      <div className="mb-6 flex items-baseline justify-end gap-4">
         <div className="flex gap-2">
           <LinkButton size="sm" href={apiUrl("/api/cv/export/docx")} target="_blank" rel="noreferrer">
             <Download size={14} />

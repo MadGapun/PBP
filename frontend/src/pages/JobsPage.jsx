@@ -661,8 +661,9 @@ export default function JobsPage() {
 
   return (
     <div id="page-stellen" className="page active">
-      <div className="mb-6 flex flex-row-reverse items-baseline gap-2 justify-end">
-        <h1 className="font-display text-xl font-semibold text-ink">Stellen</h1>
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Stellen</h1>
+      <div className="mb-6 flex items-baseline gap-2">
         <span className="text-[11px] text-muted/40">
           {searchJob.running
     ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`

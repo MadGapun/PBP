@@ -205,8 +205,10 @@ export default function DocumentsPage() {
 
   return (
     <div id="page-dokumente" className="page active">
-      <div className="mb-6 flex flex-wrap flex-row-reverse items-baseline justify-between gap-4">
-        <PageHeader title="Dokumente" subtitle={`${data.total} Dokumente`} />
+      {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
+      <h1 className="sr-only">Dokumente</h1>
+      <p className="text-xs text-muted/50 mb-2">{data.total} Dokumente</p>
+      <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
       </div>
 
       {/* Upload area */}

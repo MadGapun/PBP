@@ -1249,19 +1249,22 @@ def register(mcp, db, logger):
                     "in_schlechten_stellen": bad_words.get(term, 0),
                 })
 
+        # beta.35: Term darf nur Ausschluss sein, wenn er in KEINER
+        # User-Bewerbung vorkommt — sonst empfiehlt PBP echte Zielbegriffe
+        # zur Ablehnung (User-Beobachtung mit "manager"/"consultant").
         min_bad_freq = max(2, len(bad_jobs) // 4) if bad_jobs else 2
         for term, count in bad_words.most_common(50):
             if term in alle_keywords or term in ausschluss or term in too_generic:
                 continue
             if count < min_bad_freq:
                 continue
-            ratio = count / max(1, good_words.get(term, 0))
-            if ratio >= 3:
-                vorschlaege_ausschluss.append({
-                    "keyword": term,
-                    "in_schlechten_stellen": count,
-                    "in_guten_stellen": good_words.get(term, 0),
-                })
+            if good_words.get(term, 0) > 0:
+                continue
+            vorschlaege_ausschluss.append({
+                "keyword": term,
+                "in_schlechten_stellen": count,
+                "in_guten_stellen": 0,
+            })
 
         # Keywords die in keiner Stelle vorkommen (tote Keywords)
         from ..job_scraper import _fuzzy_keyword_match

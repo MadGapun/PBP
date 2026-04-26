@@ -454,9 +454,9 @@ export default function SettingsPage() {
 
   return (
     <div id="page-einstellungen" className="page active">
-      <div className="mb-6 flex flex-row-reverse items-baseline justify-between gap-4">
-        <h1 className="font-display text-xl font-semibold text-ink">Einstellungen</h1>
-      </div>
+      {/* beta.35: h1 visuell weg, Top-Bar zeigt Breadcrumb. Sr-only fuer
+          Tests + Screenreader. */}
+      <h1 className="sr-only">Einstellungen</h1>
 
       {/* #399: Horizontal tabs below header — consistent with other pages */}
       <div className="flex flex-wrap gap-1 mb-6">

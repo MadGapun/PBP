@@ -211,6 +211,8 @@ export default function App() {
   const [helpTab, setHelpTab] = useState("hilfe");
   const [mcpHelpOpen, setMcpHelpOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
+  // beta.35: aktiver Sub-Pfad fuer Top-Bar-Breadcrumb
+  const [currentSubPath, setCurrentSubPath] = useState("");
   // #508: Sidebar-Collapsed-State (persistiert)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem("pbp-sidebar-collapsed") === "1"; }
@@ -525,6 +527,7 @@ export default function App() {
   function navigateTo(nextPage, nextIntent = null) {
     setIntent(nextIntent ? { page: nextPage, ...nextIntent, nonce: Date.now() } : null);
     setPage(nextPage);
+    setCurrentSubPath("");  // beta.35: Sub-Pfad bei Hauptbereich-Wechsel reseten
     if (window.location.hash !== `#${nextPage}`) {
       window.location.hash = nextPage;
     }
@@ -807,6 +810,7 @@ export default function App() {
   // verlagern (frueher in der mittleren Sidebar). Page-spezifische
   // Sektionen-Sprungmarken bzw. Filter werden eingerueckt unter dem
   // aktiven Hauptbereich angezeigt.
+  // beta.35: Sub-Pfad-Tracking fuer Top-Bar-Breadcrumb (z.B. "/Profil/Skills")
   let sidebarSubNavigation = null;
   if (page === "profil") {
     sidebarSubNavigation = {
@@ -820,7 +824,21 @@ export default function App() {
         { id: "profil-skills", label: "Skills" },
         { id: "profil-dokumente", label: "Dokumente" },
       ],
-      onSelect: (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      onSelect: (id) => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Sub-Pfad fuer Top-Bar-Breadcrumb (id: "profil-skills" -> "Skills")
+        const labels = {
+          "profil-uebersicht": "Uebersicht",
+          "profil-persoenlich": "Persoenliche Daten",
+          "profil-suchkriterien": "Suchkriterien",
+          "profil-blacklist": "Blacklist",
+          "profil-erfahrung": "Berufserfahrung",
+          "profil-ausbildung": "Ausbildung",
+          "profil-skills": "Skills",
+          "profil-dokumente": "Dokumente",
+        };
+        setCurrentSubPath(labels[id] || "");
+      },
     };
   } else if (page === "einstellungen") {
     // beta.32: Settings-Tabs in die Sidebar verlagern (User-Wunsch
@@ -835,7 +853,20 @@ export default function App() {
         { id: "settings-logs", label: "Logs" },
         { id: "settings-gefahrenzone", label: "Gefahrenzone" },
       ],
-      onSelect: (id) => document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab: id.replace("settings-", "") } })),
+      onSelect: (id) => {
+        const tab = id.replace("settings-", "");
+        document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab } }));
+        // beta.35: Sub-Pfad fuer Top-Bar
+        const labels = {
+          "quellen": "Quellen",
+          "system": "System",
+          "erscheinungsbild": "Erscheinungsbild",
+          "datenschutz": "Datenschutz",
+          "logs": "Logs",
+          "gefahrenzone": "Gefahrenzone",
+        };
+        setCurrentSubPath(labels[tab] || "");
+      },
     };
   } else if (page === "kalender") {
     // Kalender nutzt einen Custom-Event statt Anchor-Sprungmarken
@@ -884,13 +915,14 @@ export default function App() {
           }}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
+          footerSlot={<JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />}
         />
 
         {/* Hauptbereich (rechts neben Sidebar) */}
         <div className="flex-1 min-w-0 flex flex-col">
         <header className="app-topbar glass-topbar sticky top-0 z-50">
           <div className="flex w-full items-center gap-x-3 gap-y-2 px-5 py-2.5 sm:px-8">
-            {/* #508: Hamburger zum Sidebar-Toggle (besonders fuer schmale Viewports) */}
+            {/* #508: Hamburger zum Sidebar-Toggle */}
             <button
               type="button"
               onClick={toggleSidebar}
@@ -900,48 +932,30 @@ export default function App() {
               <Menu size={20} />
             </button>
 
-            {/* beta.33 / User-Feedback: Version + MCP-Status untereinander
-                gestackt links — Top-Bar zeigt globale Status-Indikatoren
-                kompakt; der Page-Titel wandert in die Page selbst (rechts
-                im Page-Header). */}
-            <div className="flex flex-col gap-0.5 leading-tight">
-              <span className="font-mono text-[10px] text-muted/50 select-none whitespace-nowrap">
-                v{chrome.status?.version || "?"}
-              </span>
-              {(() => {
-                const conn = chrome.status?.mcp_connection;
-                const st = conn?.status || "disconnected";
-                const cfg = {
-                  connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
-                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe…", Icon: Link2 },
-                  disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
-                }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
-                const handleClick = () => {
-                  if (st === "connected") {
-                    window.open("claude://", "_self");
-                  } else {
-                    setMcpHelpOpen(true);
-                  }
-                };
-                return (
-                  <button
-                    type="button"
-                    onClick={handleClick}
-                    className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium cursor-pointer transition-colors whitespace-nowrap ${cfg.bg} ${cfg.color}`}
-                    title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
-                  >
-                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
-                    <span>{cfg.label}</span>
-                  </button>
-                );
-              })()}
+            {/* beta.35 / User-Wunsch: Brand + Logo + Pfad in der Top-Bar.
+                Logo links, dann "Persoenliches Bewerbungs-Portal" (PBP),
+                dann der aktuelle Pfad als Breadcrumb. Status-Indikatoren
+                wandern in die Sidebar. */}
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <img
+                src="/static/dashboard/pbp.png"
+                alt="PBP"
+                className="h-7 w-7 shrink-0 rounded-md"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+              <div className="flex items-baseline gap-2 min-w-0 truncate">
+                <span className="font-display text-[15px] font-semibold text-ink whitespace-nowrap">
+                  PBP
+                </span>
+                <span className="text-[12px] text-muted/50 whitespace-nowrap hidden md:inline">
+                  Persönliches Bewerbungs-Portal
+                </span>
+                <span className="text-muted/30 select-none">·</span>
+                <span className="text-[14px] font-medium text-ink/80 whitespace-nowrap truncate">
+                  /{currentPageTitle}{currentSubPath ? `/${currentSubPath}` : ""}
+                </span>
+              </div>
             </div>
-
-            {/* Stellensuche-Status (#487) */}
-            <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
-
-            {/* Spacer schiebt die rechten Buttons nach rechts */}
-            <div className="flex-1 min-w-0" />
 
             {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
             {(() => {

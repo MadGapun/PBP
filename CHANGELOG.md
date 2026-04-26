@@ -7,6 +7,89 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.35] - 2026-04-26
+
+Layout-Klaerung-Endspiel (User-Wunsch nach Screenshot) + 3 weitere
+User-Findings.
+
+**Top-Bar = App-Identitaet (Logo + Brand + Pfad)**
+
+Frueher: Top-Bar zeigte Status-Indikatoren. User: "Persoenliches
+Bewerbungs-Portal sollte da rein, mit Logo, dann der aktuelle Pfad
+(/Profil/Skills)."
+
+Jetzt:
+- PBP-Logo (assets/pbp.png) + "PBP" + "Persoenliches Bewerbungs-Portal"
+- Aktueller Pfad als Breadcrumb: `/Dashboard`, `/Profil`, `/Profil/Skills`,
+  `/Einstellungen/Quellen` etc.
+- Sub-Pfad wird beim Klick auf Sidebar-Sub-Items getrackt; bei Hauptbereichswechsel reset.
+
+**Sidebar = Status-Block + Hauptnavigation + Suchstatus**
+
+Frueher: App-Branding oben in der Sidebar.
+Jetzt:
+- Status-Block oben: Version, MCP-Heartbeat (untereinander)
+- 8 Hauptbereiche mit Sub-Items
+- Suchstatus im Footer-Slot
+
+**Pages: kein eigenes h1 mehr im sichtbaren Header**
+
+Page-Titel wandern komplett in die Top-Bar als Breadcrumb. h1 bleibt
+als `sr-only` fuer Screenreader und Test-Selektoren erhalten.
+Aktion-Buttons (Export & Backup, Profil-Loeschen, ZIP-Export, etc.)
+bleiben im Page-Header sichtbar.
+
+**Skill-Uebersicht: Erfahrungsjahre + level_current korrekt anzeigen
+(User-Befund)**
+
+Vorher: "18 Jahre Erfahrung - seit 2008" obwohl User Von=2002 / Bis=2020
+gesetzt hatte. Berechnung war `currentYear - years_experience` —
+ignorierte `start_year`/`end_year` aus Schema v28.
+
+Jetzt:
+- Aktive Skills: "X Jahre Erfahrung · seit YYYY"
+- Ruhende Skills: "X Jahre Erfahrung · YYYY-YYYY · ruht (Spitze N/5)"
+- Punkte-Anzeige zeigt **level_current** wenn gesetzt (User-Wunsch:
+  "aktuell verfuegbares Niveau ist interessanter als Spitze"), sonst
+  level (peak). Hover-Tooltip zeigt beide Werte.
+- Ruhende Skill-Cards visuell leicht gedimmt.
+
+**Keyword-Vorschlaege: Dashboard-Endpoint hatte alte Logik (User-Befund
+"kunden, sowie, aufgaben werden noch vorgeschlagen")**
+
+Beta.29 hatte den Algorithmus im **MCP-Tool** (`tools/analyse.py`)
+ueberarbeitet, aber das Frontend ruft den **Dashboard-Endpoint**
+`/api/keyword-suggestions` auf — der noch die alte kurze Stop-Word-Liste
+und 4-Zeichen-Mindestlaenge hatte. Klassischer "zwei Implementierungen,
+eine vergessen"-Bug.
+
+Jetzt synchron: Dashboard-Endpoint hat dieselbe erweiterte Stop-Word-
+Liste, 5-Zeichen-Mindestlaenge, TF-IDF-Spezifitaets-Filter und
+Bewerbungs-vs-Aussortierten-Datenquelle.
+
+**Plus: Strikteres Ausschluss-Kriterium (User-Beobachtung "manager,
+consultant als Ausschluss obwohl ich mich darauf beworben habe")**
+
+Vorher: `bad_count / good_count >= 3` -> als Ausschluss empfehlen.
+Problem: Wenn `manager` in 1 Bewerbung und 50 Aussortierten vorkam,
+wurde es als Ausschluss empfohlen — obwohl der User aktiv eine
+Manager-Stelle beworben hatte.
+
+Jetzt: Ausschluss-Vorschlag nur wenn `good_words.get(term, 0) == 0` —
+also wenn der Begriff in **keiner** User-Bewerbung vorkommt. So koennen
+echte Zielbegriffe nie irrtuemlich zur Ablehnung empfohlen werden.
+
+### Changed
+- `Sidebar.jsx`: Status-Block (Version + MCP) untereinander.
+- `App.jsx`: Top-Bar mit Logo + Brand + Pfad-Breadcrumb; `currentSubPath`-State.
+- 7 Pages: h1 sr-only, Layout-Container ohne `flex-row-reverse`.
+- `ProfilePage.jsx`: Skill-Card-Anzeige nutzt start_year/end_year/level_current.
+- `dashboard.py::api_keyword_suggestions`: synchron mit MCP-Tool-Logik.
+- `tools/analyse.py::keyword_vorschlaege`: strict-exclusion (good_count == 0).
+
+### Added
+- `frontend/public/pbp.png` — Logo-Asset fuer Top-Bar.
+
 ## [1.6.0-beta.34] - 2026-04-26
 
 Hotfix Statistik (mein Fehler in beta.33).

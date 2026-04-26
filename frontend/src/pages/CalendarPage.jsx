@@ -511,9 +511,10 @@ export default function CalendarPage() {
 
   return (
     <div id="page-kalender" className="page active">
-      {/* Header: compact with essential controls */}
-      <div className="mb-4 flex flex-wrap flex-row-reverse items-center justify-between gap-3">
-        <PageHeader title="Kalender" subtitle={`${meetings.length} Termine`} />
+      {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
+      <h1 className="sr-only">Kalender</h1>
+      <p className="text-xs text-muted/50 mb-2">{meetings.length} Termine</p>
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Navigation arrows + label */}
           <button type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, -1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">

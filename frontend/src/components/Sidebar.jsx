@@ -77,17 +77,43 @@ export default function Sidebar({
           !isFloatingOverlay && "z-40"
         )}
       >
-      {/* Brand-Block — beta.30 / User-Feedback nach beta.28:
-          Version + MCP-Status wandern in die Top-Bar als globale
-          Status-Indikatoren. Sidebar zeigt nur noch den App-Namen,
-          damit nichts doppelt erscheint. */}
-      <div className="px-4 py-4 border-b border-white/8">
+      {/* Status-Block (beta.35 / User-Feedback): App-Branding wandert in
+          die Top-Bar; Sidebar zeigt nur die laufenden Status-Indikatoren
+          untereinander — Version, MCP-Heartbeat, Suchstatus. */}
+      <div className="px-4 py-3 border-b border-white/8">
         {!visualCollapsed ? (
-          <p className="brand-title text-[13px] font-semibold text-ink leading-tight">
-            Persönliches<br/>Bewerbungs-Portal
-          </p>
+          <div className="flex flex-col gap-1.5">
+            {/* brand-title bleibt als verstecktes Element fuer Tests-Selektoren */}
+            <span className="brand-title sr-only">Persönliches Bewerbungs-Portal</span>
+            {brand.version ? (
+              <span className="font-mono text-[10px] text-muted/40 select-none whitespace-nowrap">
+                v{brand.version}
+              </span>
+            ) : null}
+            {brand.connectionStatus ? (() => {
+              const cfg = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
+              return (
+                <button
+                  type="button"
+                  onClick={brand.onConnectionClick}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors w-fit",
+                    "hover:bg-white/[0.06]",
+                    cfg.color
+                  )}
+                  title={brand.connectionStatus === "connected"
+                    ? "Claude Desktop oeffnen"
+                    : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
+                  <span>{cfg.label}</span>
+                </button>
+              );
+            })() : null}
+            {/* Suchstatus erscheint hier ueber den Footer-Slot */}
+          </div>
         ) : (
-          <span className="text-[13px] font-semibold text-ink" title="Persönliches Bewerbungs-Portal">
+          <span className="text-[13px] font-semibold text-ink block text-center" title="Persönliches Bewerbungs-Portal">
             PBP
           </span>
         )}

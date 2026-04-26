@@ -251,8 +251,9 @@ export default function StatsPage() {
 
   return (
     <div id="page-statistiken" className="page active">
-      <div className="mb-6 flex flex-wrap flex-row-reverse items-baseline justify-between gap-4">
-        <h1 className="font-display text-xl font-semibold text-ink">Statistiken</h1>
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Statistiken</h1>
+      <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {/* Zeitraum (time range) */}
           {[

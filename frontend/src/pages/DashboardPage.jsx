@@ -469,9 +469,8 @@ export default function DashboardPage() {
 
   return (
     <div id="page-dashboard" className="page active">
-      <div className="mb-6 flex flex-row-reverse items-baseline gap-4 justify-end">
-        <h1 className="font-display text-xl font-semibold text-ink">Dashboard</h1>
-      </div>
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Dashboard</h1>
 
       {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
         <div className="mb-4 space-y-2">
