@@ -125,10 +125,15 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
   const [followUps, setFollowUps] = useState([]);
+  // beta.27: Min-Score-Schwelle aus Suchkriterien als Default-UI-Filter.
+  // Damit greift die persistente Einstellung auch in der Anzeige —
+  // bestehende DB-Eintraege mit Score < Schwelle werden ausgeblendet,
+  // ohne dass sie geloescht werden.
+  const persistentMinScore = Number(chrome?.search_criteria?.min_score_schwelle ?? 0);
   const [filters, setFilters] = useState({
     query: "",
     source: "",
-    minScore: "0",
+    minScore: String(Math.max(0, persistentMinScore)),
     remote: "",
     salaryOnly: false,
     sort: "score_desc",

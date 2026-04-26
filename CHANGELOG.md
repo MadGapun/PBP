@@ -7,6 +7,31 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.27] - 2026-04-25
+
+Mindest-Score-Filter mit UI (#User-Feedback).
+
+**Problem:** Stellen mit Score 1 fluteten die Liste — viele davon waren
+geographisch weit weg oder hatten nur einen marginalen Keyword-Treffer.
+Backend hatte schon einen `min_score_schwelle`-Filter (Default 1), aber
+keine UI-Steuerung.
+
+**Loesung:**
+- Neuer Slider in der Profil-Seite (im Suchkriterien-Block, direkt unter
+  den Gewichtungen): "Mindest-Score 0-20".
+- Mit Hinweisen: 0-1 = sehr offen, 3-5 = mittel/empfohlen, 10+ = nur
+  klar passende Stellen.
+- Greift beim **naechsten Such-Lauf** (Backend-Filter) UND als
+  Default-UI-Filter in der Stellen-Liste — bestehende DB-Eintraege mit
+  Score < Schwelle werden ausgeblendet, ohne sie zu loeschen.
+
+### Added
+- `min_score_schwelle` in `criteriaToDraft` / `criteriaDraftToPayload`
+  (ProfilePage).
+- Slider-UI mit Erklaerungs-Hinweis.
+- JobsPage initialisiert `filters.minScore` aus
+  `chrome.search_criteria.min_score_schwelle`.
+
 ## [1.6.0-beta.26] - 2026-04-25
 
 Stellen-Page-Polish: 5 User-Findings nach beta.25.

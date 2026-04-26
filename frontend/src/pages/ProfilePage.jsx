@@ -209,6 +209,11 @@ function criteriaToDraft(criteria) {
     gewichtung_naehe: criteria?.gewichtung?.naehe ?? 2,
     gewichtung_fern_malus: criteria?.gewichtung?.fern_malus ?? 3,
     gewichtung_gehalt: criteria?.gewichtung?.gehalt ?? 1,
+    // beta.27 / User-Feedback: Mindest-Score, ab dem eine Stelle ueberhaupt
+    // angezeigt wird. Backend hatte das schon (`min_score_schwelle`,
+    // Default 1), aber ohne UI. Stellen mit Score 1 sind oft 100km weg
+    // und unbrauchbar — User will eine eigene Untergrenze.
+    min_score_schwelle: criteria?.min_score_schwelle ?? 1,
   };
 }
 
@@ -238,6 +243,7 @@ function criteriaDraftToPayload(criteriaDraft) {
       fern_malus: Number(criteriaDraft.gewichtung_fern_malus),
       gehalt: Number(criteriaDraft.gewichtung_gehalt),
     },
+    min_score_schwelle: Number(criteriaDraft.min_score_schwelle) || 1,
   };
 }
 
@@ -1315,6 +1321,36 @@ export default function ProfilePage() {
             <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
               {weightingCards.map((card) => renderWeightRow(card))}
             </div>
+
+            {/* beta.27: Min-Score-Schwelle (#User-Feedback nach beta.26)
+                Stellen unter dieser Score-Schwelle landen gar nicht erst in
+                der Datenbank. Default 1; User mit vielen unbrauchbaren
+                Treffern (geo weit, schwacher Fit) erhoeht das auf 3-5. */}
+            <Field label="Mindest-Score (Stellen unter dieser Schwelle werden ausgefiltert)">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={20}
+                  step={1}
+                  value={Number(criteriaDraft.min_score_schwelle) || 1}
+                  onChange={(event) => setCriteriaDraft((current) => ({
+                    ...current,
+                    min_score_schwelle: Number(event.target.value),
+                  }))}
+                  className="flex-1 h-1.5 cursor-pointer appearance-none rounded-full bg-sky/20 accent-sky"
+                />
+                <span className="w-12 text-right text-sm font-bold tabular-nums text-sky">
+                  {Number(criteriaDraft.min_score_schwelle) || 1}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted/50">
+                <strong>0–1:</strong> sehr offen — Stellen mit minimalem Keyword-Treffer kommen rein.{" "}
+                <strong>3–5:</strong> mittel — empfohlen.{" "}
+                <strong>10+:</strong> nur klar passende Stellen. Greift beim
+                naechsten Such-Lauf; bestehende Stellen bleiben sichtbar.
+              </p>
+            </Field>
 
             <div id="profil-blacklist" className="mt-2 border-t border-white/8 pt-5">
               <SectionHeading title="Blacklist" description="Ausschlüsse für Firmen oder Keywords." />
