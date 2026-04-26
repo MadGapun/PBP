@@ -3199,7 +3199,9 @@ class Database:
                     end_period = sorted_p[-1]
                     # Auch die laufende ISO-Woche aufnehmen (User-Wunsch:
                     # nicht filtern, sichtbar lassen).
-                    iso_now = _now.isocalendar()
+                    # Beta.34: lokales _dt nutzen (Module-Level _now()
+                    # liefert String, nicht datetime).
+                    iso_now = _dt.now().isocalendar()
                     cur_key = f"{iso_now.year}-W{iso_now.week:02d}"
                     if cur_key > end_period:
                         end_period = cur_key

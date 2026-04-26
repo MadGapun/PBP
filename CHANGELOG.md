@@ -7,6 +7,42 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.34] - 2026-04-26
+
+Hotfix Statistik (mein Fehler in beta.33).
+
+**Bug:** `Statistiken konnten nicht geladen werden: Internal Server Error`
+beim Wechsel auf "Woechentlich" oder beim Laden der Statistik-Seite mit
+`interval=week`.
+
+**Ursache:** In meinem ISO-Wochen-Refactor hatte ich `_now.isocalendar()`
+**vor** der lokalen Zuweisung `_now = _dt.now()` verwendet — das Module-
+Level `_now()` (Funktion, gibt String) wurde durch lokales Variable-
+Shadowing zu `UnboundLocalError`. Die Statistik-Seite hat dann den
+500er kassiert.
+
+**Fix:** `_dt.now().isocalendar()` direkt nutzen statt auf eine lokale
+Variable zu verlassen, die in dem Block noch nicht existiert.
+
+Smoketest gegen alle 6 Intervals (day/week/month/quarter/year/all)
+laeuft sauber durch:
+```
+day      OK current_period=2026-04-26
+week     OK current_period=2026-W17
+month    OK current_period=2026-04
+quarter  OK current_period=2026-Q2
+year     OK current_period=2026
+all      OK current_period=2026-04
+```
+
+### Klaerungsbedarf zum Header-Layout
+
+User-Feedback: "Persoenliches Bewerbungs-Portal immer noch links in der
+Menueleiste, Version+MCP noch rechts auf der Content-Seite."
+
+Wird in beta.35 umgesetzt sobald die genaue Zielposition geklaert ist
+(siehe Issue-Antwort).
+
 ## [1.6.0-beta.33] - 2026-04-26
 
 Header-Layout-Klarstellung + ISO-Wochen-Fix nach User-Screenshot.
