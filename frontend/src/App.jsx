@@ -816,8 +816,18 @@ export default function App() {
           badges={sidebarBadges}
           meta={sidebarMeta}
           brand={{
-            version: `v${import.meta.env.VITE_APP_VERSION || "1.6.0"}`,
-            connected: !!chrome.profile,
+            // Echte Server-Version (beta.24 / User-Feedback): vorher hardcoded
+            version: chrome.status?.version || null,
+            // 3-stufige MCP-Connection-Logik wie das alte rechte Sidebar-Badge
+            connectionStatus: chrome.status?.mcp_connection?.status || "unknown",
+            onConnectionClick: () => {
+              const st = chrome.status?.mcp_connection?.status;
+              if (st === "connected") {
+                window.open("claude://", "_self");
+              } else {
+                setMcpHelpOpen(true);
+              }
+            },
           }}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
@@ -826,20 +836,20 @@ export default function App() {
         {/* Hauptbereich (rechts neben Sidebar) */}
         <div className="flex-1 min-w-0 flex flex-col">
         <header className="app-topbar glass-topbar sticky top-0 z-50">
-          <div className="flex w-full items-center gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8">
+          <div className="flex w-full items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-8">
             {/* #508: Hamburger zum Sidebar-Toggle (besonders fuer schmale Viewports) */}
             <button
               type="button"
               onClick={toggleSidebar}
-              className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              className="shrink-0 rounded-lg p-2 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
               title={sidebarCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
             >
-              <Menu size={18} />
+              <Menu size={20} />
             </button>
 
-            {/* #508: Seitentitel kontextuell (Hauptbereich) — als div, weil
-                jede Page ihren eigenen <h1> hat. */}
-            <div className="page-breadcrumb text-[14px] font-semibold text-ink/90 flex-1 min-w-0 truncate">
+            {/* #508 + beta.24: Seitentitel prominenter (User-Feedback "wirkt
+                gequetscht"). div statt h1, weil jede Page ihr eigenes h1 hat. */}
+            <div className="page-breadcrumb text-[18px] font-semibold text-ink flex-1 min-w-0 truncate">
               {currentPageTitle}
             </div>
 

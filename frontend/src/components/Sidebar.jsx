@@ -18,9 +18,17 @@
  * nur die Anzeige in der Sidebar).
  */
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Link2, Link2Off } from "lucide-react";
 
 import { cn } from "@/utils";
+
+// MCP-Connection-Status-Konfig (3-stufig, gleiche Logik wie das alte
+// Sidebar-Badge in App.jsx — beta.24 / User-Feedback nach beta.23)
+const CONN_CONFIG = {
+  connected:    { color: "text-teal",  dot: "bg-teal",     label: "Verbunden",      Icon: Link2 },
+  unknown:      { color: "text-amber", dot: "bg-amber",    label: "Pruefe…",   Icon: Link2 },
+  disconnected: { color: "text-coral", dot: "bg-coral",    label: "Nicht verbunden", Icon: Link2Off },
+};
 
 export default function Sidebar({
   tabs,
@@ -42,29 +50,38 @@ export default function Sidebar({
       )}
       aria-label="Hauptnavigation"
     >
-      {/* Brand-Block */}
+      {/* Brand-Block — Versionsnummer + 3-stufiger MCP-Status (beta.24) */}
       <div className="px-4 py-4 border-b border-white/8">
         {!collapsed ? (
           <>
             <p className="brand-title text-[13px] font-semibold text-ink leading-tight">
               Persönliches<br/>Bewerbungs-Portal
             </p>
-            {brand.version || brand.connected !== undefined ? (
-              <div className="mt-2 flex items-center gap-2 text-[10px] text-muted/60">
-                {brand.version ? <span>{brand.version}</span> : null}
-                {brand.connected !== undefined ? (
-                  <span className="inline-flex items-center gap-1">
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        brand.connected ? "bg-success" : "bg-amber/60"
-                      )}
-                    />
-                    {brand.connected ? "Verbunden" : "Offline"}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+              {brand.version ? (
+                <span className="font-mono text-muted/40">v{brand.version}</span>
+              ) : null}
+              {brand.connectionStatus ? (() => {
+                const cfg = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
+                return (
+                  <button
+                    type="button"
+                    onClick={brand.onConnectionClick}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors",
+                      "hover:bg-white/[0.06]",
+                      cfg.color
+                    )}
+                    title={brand.connectionStatus === "connected"
+                      ? "Claude Desktop oeffnen"
+                      : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
+                    <span className="font-medium">{cfg.label}</span>
+                  </button>
+                );
+              })() : null}
+            </div>
           </>
         ) : (
           <span className="text-[13px] font-semibold text-ink" title="Persönliches Bewerbungs-Portal">

@@ -7,6 +7,35 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.24] - 2026-04-25
+
+Sidebar-Polish nach erstem User-Feedback zu beta.23.
+
+**Linke Sidebar: echte Version + 3-stufige MCP-Status-Logik**
+- Vorher zeigte die linke Sidebar hardcoded "v1.6.0" und ein 2-stufiges
+  Verbunden/Offline-Badge (basierend auf `chrome.profile`).
+- Jetzt: `chrome.status.version` (zeigt z.B. "v1.6.0-beta.24") +
+  3-stufiges Badge (Verbunden/Pruefe…/Nicht verbunden) mit derselben
+  Klick-Logik wie das Badge in der alten rechten Sidebar — bei
+  "Verbunden" oeffnet es Claude Desktop, sonst die MCP-Hilfe.
+
+**Header: Page-Titel prominenter (User-Feedback "wirkt gequetscht")**
+- Schriftgroesse 14px → 18px, vollwertig `font-semibold text-ink`.
+- Hamburger-Icon von 18px → 20px, mehr Padding um den Titel.
+
+**Alte rechte Sidebar bleibt vorerst stehen**
+- User-Entscheidung: linke Sidebar bekommt erst die richtige Logik,
+  dann entscheidet der User selber ob die rechte als redundant entfernt
+  werden soll. Diese Beta haelt sich strikt an "linke Sidebar
+  korrigieren, alte Sidebar nicht anfassen".
+
+### Changed
+- `Sidebar.jsx`: Brand-Block bekommt 3-stufiges MCP-Badge (Click-Handler
+  per Prop) statt 2-stufiges Boolean.
+- `App.jsx`: `chrome.status.version` und `chrome.status.mcp_connection`
+  fliessen jetzt in die Sidebar; Header-Layout: groessere Schrift +
+  Padding.
+
 ## [1.6.0-beta.23] - 2026-04-25
 
 Sidebar-Navigation (#508) — komplettes UI-Refactor.
