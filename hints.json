@@ -1,11 +1,11 @@
 {
   "hints": [
     {
-      "id": "v140",
+      "id": "v160",
       "type": "info",
-      "title": "Neu in v1.4.0",
-      "text": "Datenschutz-Seite, Daten-Export, Health-Dashboard und erweiterte FAQ unter Einstellungen. Auto-Update-Hinweis zeigt neue Versionen an.",
-      "min_version": "1.4.0"
+      "title": "Neu in v1.6.0",
+      "text": "Linke Sidebar-Navigation (#508), kompletter Bewerbungs-ZIP-Export (#474), reanimierte Scraper (Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow), Skill-Datenmodell mit Datumsbereich und aktuellem Level, ueberarbeitete Keyword-Vorschlaege.",
+      "min_version": "1.6.0"
     }
   ]
 }

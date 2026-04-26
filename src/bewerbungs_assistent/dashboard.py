@@ -315,21 +315,32 @@ async def api_public_hints():
         return cache["data"]
 
     from . import __version__
-    hints_url = (
-        "https://raw.githubusercontent.com/MadGapun/PBP/main/hints.json"
+    # PBP_HINTS_URL kann auf "off" oder einen lokalen file://-Pfad gesetzt werden,
+    # z.B. fuer Screenshot-Generierung oder Tests, in denen Cloud-Pulls stoeren.
+    hints_url = os.environ.get(
+        "PBP_HINTS_URL",
+        "https://raw.githubusercontent.com/MadGapun/PBP/main/hints.json",
     )
     result = {"hints": [], "version": __version__}
+    if hints_url.lower() == "off":
+        api_public_hints._cache = {"ts": now, "data": result}
+        return result
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(hints_url)
-            if resp.status_code == 200:
-                data = resp.json()
-                hints = data if isinstance(data, list) else data.get("hints", [])
-                result["hints"] = [
-                    h for h in hints
-                    if not h.get("min_version") or h["min_version"] <= __version__
-                ]
+        if hints_url.startswith(("file://", "./", "/")) or os.path.isabs(hints_url):
+            local_path = hints_url[len("file://"):] if hints_url.startswith("file://") else hints_url
+            with open(local_path, "r", encoding="utf-8") as fh:
+                import json as _json
+                data = _json.load(fh)
+        else:
+            import httpx
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(hints_url)
+                data = resp.json() if resp.status_code == 200 else {}
+        hints = data if isinstance(data, list) else data.get("hints", [])
+        result["hints"] = [
+            h for h in hints
+            if not h.get("min_version") or h["min_version"] <= __version__
+        ]
     except Exception as exc:
         logger.debug("hints fetch failed: %s", exc)
 

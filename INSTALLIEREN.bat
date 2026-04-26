@@ -4,7 +4,7 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v0.11.0
+:: PBP Installer v1.6.0
 :: Fix: Erkennung wenn BAT aus ZIP heraus gestartet wird
 :: Fix: Fehler-melden Hinweis bei allen Fehlern
 :: Fix: setuptools+wheel vor extract-msg (embeddable Python)
@@ -50,7 +50,7 @@ if not exist "%SRC_DIR%" goto :err_not_extracted
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v0.11.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer v1.6.0 - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -61,7 +61,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v0.11.0
+echo    Installer v1.6.0
 echo.
 echo  ====================================================
 echo.

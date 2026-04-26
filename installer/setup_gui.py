@@ -43,7 +43,7 @@ except ImportError:
 # Constants
 # ============================================================
 APP_NAME = "Bewerbungs-Assistent"
-APP_VERSION = "0.1.0"
+APP_VERSION = "1.6.0"
 DEFAULT_INSTALL_DIR = os.path.join(os.environ.get('LOCALAPPDATA', ''), 'BewerbungsAssistent')
 DATA_DIR_NAME = "BewerbungsAssistent"
 PYTHON_MIN_VERSION = (3, 11)

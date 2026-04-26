@@ -33,16 +33,16 @@ def _create_demo_data(db: Database):
     now = datetime.now()
     import hashlib
 
-    # ── Profil: Lisa Berger, Medienkauffrau ──
+    # ── Profil: Bob Mustermann, Marketing & Media-Profi ──
     db.save_profile({
-        "name": "Lisa Berger",
-        "email": "lisa.berger@example.com",
+        "name": "Bob Mustermann",
+        "email": "bob.mustermann@example.com",
         "phone": "+49 221 9876543",
         "address": "Lindenallee 8",
         "city": "Koeln",
         "postal_code": "50667",
         "summary": (
-            "Medienkauffrau Digital & Print mit 8 Jahren Erfahrung in Verlagen und Agenturen. "
+            "Marketing & Media-Profi mit 8 Jahren Erfahrung in Verlagen und Agenturen. "
             "Schwerpunkte: Mediaplanung, Kampagnensteuerung, Anzeigenverkauf und "
             "Social-Media-Marketing. Erfahrung mit Programmatic Advertising und Datenanalyse."
         ),
@@ -118,21 +118,19 @@ def _create_demo_data(db: Database):
         "end_date": "2020",
     })
 
-    # ── Suchkriterien ──
-    db.set_setting("search_criteria", {
-        "keywords_muss": ["Mediaplanung", "Marketing Manager", "Kampagnenmanagement"],
-        "keywords_plus": ["Social Media", "Programmatic", "Remote", "Hybrid"],
-        "keywords_ausschluss": ["Praktikum", "Werkstudent", "Volontariat"],
-        "regionen": ["Koeln", "Duesseldorf", "Remote"],
-        "umkreis_km": 50,
-    })
+    # ── Suchkriterien (key-value via set_search_criteria) ──
+    db.set_search_criteria("keywords_muss", ["Mediaplanung", "Marketing Manager", "Kampagnenmanagement"])
+    db.set_search_criteria("keywords_plus", ["Social Media", "Programmatic", "Remote", "Hybrid"])
+    db.set_search_criteria("keywords_nicht", ["Praktikum", "Werkstudent", "Volontariat"])
+    db.set_search_criteria("orte", ["Koeln", "Duesseldorf", "Remote"])
+    db.set_search_criteria("max_entfernung_km", 50)
 
-    # ── Aktive Quellen ──
-    db.set_setting("active_sources", [
+    # ── Aktive Quellen (profile-scoped, sonst zaehlt das Dashboard 0/24) ──
+    db.set_profile_setting("active_sources", [
         "bundesagentur", "stepstone", "hays", "indeed", "kimeta",
         "stellenanzeigen_de", "jobware",
     ])
-    db.set_setting("last_search_at", now.isoformat())
+    db.set_profile_setting("last_search_at", now.isoformat())
 
     # ── 15 Jobs fuer volle Stellenliste ──
     jobs = [
@@ -342,6 +340,12 @@ def _start_dashboard(db_path: str, port: int):
     import uvicorn
     os.environ["BA_DATA_DIR"] = str(Path(db_path).parent)
     os.environ["BA_DASHBOARD_PORT"] = str(port)
+    # Hints aus lokalem Repo laden statt von GitHub-main, damit Screenshots
+    # immer den Stand der aktuellen Branch zeigen (sonst hinkt der Banner
+    # zwischen Beta-Releases hinterher).
+    os.environ["PBP_HINTS_URL"] = str(
+        Path(__file__).resolve().parent.parent.parent / "hints.json"
+    )
 
     from bewerbungs_assistent.dashboard import app, start_dashboard
     start_dashboard(Database(db_path=db_path))
@@ -458,8 +462,8 @@ def _take_onboarding_screenshots(port: int, output_dir: Path, db_path: str):
         db = Database(db_path=db_path)
         db.initialize()
         db.save_profile({
-            "name": "Heike Mustermann",
-            "email": "heike@example.com",
+            "name": "Anna Mustermann",
+            "email": "anna@example.com",
             "summary": "",
         })
         db.close()

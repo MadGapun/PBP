@@ -33,7 +33,7 @@ function Write-Info($msg) { Write-Host "  → $msg" -ForegroundColor Cyan }
 # Header
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   Bewerbungs-Assistent — Installer v1.0     ║" -ForegroundColor Cyan
+Write-Host "║   Bewerbungs-Assistent — Installer v1.6.0   ║" -ForegroundColor Cyan
 Write-Host "║   KI-gestuetztes Bewerbungsmanagement       ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
 
@@ -354,7 +354,9 @@ db.initialize()
 
 # Start dashboard in thread
 def run():
-    uvicorn.run(app, host="127.0.0.1", port=5173, log_level="error")
+    # Test-Port (8201) statt Produktions-Port (8200), damit Test
+    # nicht mit laufendem MCP-Server kollidiert.
+    uvicorn.run(app, host="127.0.0.1", port=8201, log_level="error")
 
 import bewerbungs_assistent.dashboard as dash
 dash._db = db
@@ -363,9 +365,9 @@ t.start()
 time.sleep(2)
 
 try:
-    resp = urllib.request.urlopen("http://127.0.0.1:5173/api/status", timeout=5)
+    resp = urllib.request.urlopen("http://127.0.0.1:8201/api/status", timeout=5)
     data = resp.read().decode()
-    print(f"  Dashboard erreichbar auf http://localhost:5173")
+    print(f"  Dashboard-Stack laeuft (Test-Port 8201)")
     print(f"  Status: {data[:100]}")
     sys.exit(0)
 except Exception as e:
@@ -380,7 +382,7 @@ $dashOK = $LASTEXITCODE -eq 0
 Remove-Item $dashFile -ErrorAction SilentlyContinue
 
 if ($dashOK) {
-    Write-OK "Dashboard funktioniert auf http://localhost:5173"
+    Write-OK "Dashboard-Stack funktioniert (Produktions-Port: 8200)"
 } else {
     Write-Warn "Dashboard-Test fehlgeschlagen (nicht kritisch, MCP funktioniert trotzdem)"
 }
@@ -394,7 +396,7 @@ Write-Host ""
 Write-Host "  Projektverzeichnis:  $projectDir" -ForegroundColor White
 Write-Host "  Daten:               $dataDir" -ForegroundColor White
 Write-Host "  Claude Config:       $claudeConfig" -ForegroundColor White
-Write-Host "  Dashboard:           http://localhost:5173" -ForegroundColor Cyan
+Write-Host "  Dashboard:           http://localhost:8200" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  So geht's weiter:" -ForegroundColor Yellow
 Write-Host "  1. Claude Desktop komplett beenden (Tray-Icon → Beenden)" -ForegroundColor White
@@ -405,7 +407,7 @@ Write-Host ""
 Write-Host "  Dashboard jetzt oeffnen?" -ForegroundColor Yellow
 $openBrowser = Read-Host "  (j/n)"
 if ($openBrowser -eq "j" -or $openBrowser -eq "J") {
-    Start-Process "http://localhost:5173"
+    Start-Process "http://localhost:8200"
 }
 
 Write-Host ""

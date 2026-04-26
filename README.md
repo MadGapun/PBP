@@ -9,7 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.5.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.6.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-537-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-92-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
@@ -54,7 +54,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **18 Jobportale gleichzeitig durchsuchen** — StepStone, Indeed, Hays, Bundesagentur und 14 weitere
+- **24 Jobportale konfiguriert, 17 davon aktiv liefernd** — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; 7 weitere sind als „defekt" sichtbar markiert mit Chrome-Extension-Workaround
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
@@ -195,11 +195,11 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 84 Tools in 8 Modulen |
+| **MCP-Tools** | 92 Tools in 8 Modulen |
 | **Workflows** | 18 gefuehrte Workflows |
-| **Jobportale** | 22 Quellen (9 aktiv liefernd, 5 als defekt markiert mit Chrome-Workaround, 3 manuell-only, weitere Beta) |
+| **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite, 29 Tabellen, Schema v27 |
+| **Datenbank** | SQLite (WAL), Schema v28 |
 | **Tests** | 537 bestanden |
 
 > 📖 **Technische Details:** [Wiki → Architektur](https://github.com/MadGapun/PBP/wiki/Architektur) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
@@ -215,6 +215,22 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 ## Changelog
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v1.6.0 — Sidebar-Layout, ZIP-Export, Scraper-Reanimation, Skill-Datenmodell (2026-04-26)
+
+Foundation-Release nach 35 Beta-Iterationen — alles unter der Haube ueberholt:
+
+- **Linke Sidebar-Navigation (#508)** — neuer Layout-Refactor (Variante B): Top-Nav weg, Sidebar mit Hover-to-Expand-Overlay, Status-Block (Version + MCP-Heartbeat), Sub-Navigation pro Bereich, Path-Breadcrumb in der Top-Bar.
+- **Bewerbungs-ZIP-Export (#474)** — kompletter Export pro Bewerbung als ZIP: bericht.html, stelle.html, notizen.md, termine.ics, mails.md, dokumente/, mails/, INHALT.md, optional bericht.pdf via Playwright.
+- **Scraper reanimiert (#502, #499, Phase 1-3)** — Adapter v2 mit AdapterStatus, scraper_health-Tabelle, Silent-Detection. JobSpy als Core-Dependency: Indeed/LinkedIn/Glassdoor/Google ohne API-Key, ohne Kosten. Greenhouse + Arbeitnow als neue DACH-Adapter. Tote Quellen sichtbar ausgegraut mit Chrome-Extension-Fallback.
+- **Skill-Datenmodell Schema v28** — `start_year`, `end_year`, `level_current`. Skill-Editor mit Punkt-Visualisierung (5 Dots), Skill-Karte zeigt echten Datumsbereich statt zurueckgerechnetem `currentYear - years_experience`.
+- **Keyword-Vorschlaege ueberarbeitet** — erweiterte Stopwords, TF-IDF Specificity, applied vs dismissed Datasource, strikte Exklusion (good_words==0). Frontend-Endpoint und MCP-Tool synchronisiert.
+- **Statistik ISO-Wochen-Aggregation** — Python `_iso_week_key`, da SQLite `%V` nicht kennt; current-period nicht mehr ausgefiltert (vorher endete Chart bei KW-1).
+- **Eigenes PBP-Icon (#502)** — multi-resolution `assets/pbp.ico`, Desktop-Verknuepfung zeigt PBP-Logo statt generischem Batch-Icon.
+- **Konfigurierbare Hints-Quelle** — neue `PBP_HINTS_URL` ENV-Variable (lokaler Pfad oder `off`) fuer Tests und Screenshots.
+- **Installer-Konsistenz** — INSTALLIEREN.bat / install.ps1 / install.sh / setup_gui.py auf v1.6.0-Stand, Port 8200 ueberall, Playwright + Chromium standardmaessig.
+
+Schema v28, 92 Tools, 18 Prompts, 537 Tests bestanden, 24 Quellen.
 
 ### v1.5.0 — Kalender, macOS, E-Mail-Pipeline, Dashboard-Redesign (2026-04-10)
 

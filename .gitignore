@@ -47,3 +47,6 @@ logs/
 # Installer-Artefakte
 python-*-embed-*.zip
 get-pip.py
+
+# Serena MCP-Server projekt-lokale Memories (privat, nicht ins Repo)
+.serena/

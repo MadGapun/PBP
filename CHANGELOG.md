@@ -7,6 +7,54 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0] - 2026-04-26 — Foundation-Release (Stable)
+
+Stabiler Abschluss von 35 Beta-Iterationen seit v1.5.8. Keine neuen
+Features gegenueber beta.35 — kleinere Polituren und Konsistenz-Fixes
+fuer die offizielle Veroeffentlichung als Latest.
+
+### Added
+- **`PBP_HINTS_URL` ENV-Variable** — Hints-Quelle konfigurierbar (Cloud-URL,
+  lokaler Pfad oder `off`). Brauchen wir fuer Screenshot-Generierung,
+  Tests und Air-Gap-Setups, bei denen GitHub-Pulls stoeren.
+- **31 neue Tagesimpulse mit mehr Biss** — fokussiert auf konkrete
+  Bewerbungs-Absurditaeten (Anzeigen-Bullshit-Bingo, Lebenslauf-
+  Wahrheiten, Sende-Druck, Schalt-ab-Wochenenden). 17 platte/generische
+  Sprueche aussortiert. Total: 169 statt 143.
+- **Bob/Anna Mustermann als Demo-Persona** — Screenshot-Generator nutzt
+  jetzt klare Test-Identitaeten statt einer realistisch klingenden
+  fiktiven Person.
+
+### Changed
+- **Versionen** — `pyproject.toml`, `__init__.py`, `frontend/package.json`
+  alle auf `1.6.0` (Frontend war noch auf `1.2.0` driftet).
+- **`hints.json`** — alter v1.4.0-Hinweis durch v1.6.0-Beschreibung ersetzt.
+- **Installer-Scripts auf v1.6.0-Stand**:
+  - `INSTALLIEREN.bat` Header von `v0.11.0` auf `v1.6.0`
+  - `installer/install.ps1` Header von `v1.0` auf `v1.6.0`,
+    Test-Dashboard nutzt jetzt Port `8201` (vorher: Vite-Dev-Port `5173`),
+    User-Output zeigt Produktions-Port `8200`
+  - `installer/setup_gui.py` `APP_VERSION` von `0.1.0` auf `1.6.0`
+- **README.md** — Stable-Badge auf v1.6.0, Schema v28, 24 Quellen
+  (17 aktiv liefernd, 7 mit Chrome-Workaround), Tools 92, neuer
+  v1.6.0-Changelog-Eintrag.
+- **Wiki-Seiten aktualisiert** — Home, Jobportale (komplett neu mit
+  JobSpy/Greenhouse/Arbeitnow), Architektur (Schema v28, 92 Tools),
+  MCP-Tools, Dashboard, Tab-Bewerbungen (ZIP-Export), Tab-Profil
+  (Skill-Datenmodell mit start_year/end_year/level_current).
+- **Demo-Script (`generate_screenshots.py`)** — nutzt jetzt
+  `set_profile_setting` fuer `active_sources` (vorher global, deshalb
+  `0/24`-Counter im Dashboard) und setzt `PBP_HINTS_URL` lokal.
+
+### Fixed
+- Serena-Memory `scraper_architecture` listete `keywords_kann` als
+  Schluessel — falsch, korrekt ist `keywords_plus`. Korrigiert.
+
+### Known Issues
+- 10 Tests im PDF-Export schlagen ohne `fpdf2` fehl. Optional-Dep, in der
+  installierten Distribution korrekt ueber `[docs]` Extra abgedeckt.
+  Test-Venv installiert nur Core-Deps. 527/537 = 98% Pass-Rate.
+
 ## [1.6.0-beta.35] - 2026-04-26
 
 Layout-Klaerung-Endspiel (User-Wunsch nach Screenshot) + 3 weitere
