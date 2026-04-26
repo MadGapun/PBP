@@ -1385,7 +1385,13 @@ async def api_application_timeline(app_id: str):
 
 @app.get("/api/application/{app_id}/timeline/print")
 async def api_application_timeline_print(app_id: str):
-    """Druckbare HTML-Seite des Bewerbungsprotokolls (#313)."""
+    """Druckbare HTML-Seite des Bewerbungsprotokolls (#313 / beta.28).
+
+    Ausfuehrliches Protokoll: Statistik-Block (Reaktionszeit, Aktivitaets-
+    Zaehler), Status-Historie, getrennte Sektionen fuer E-Mails, Termine,
+    Dokumente, Notizen.
+    """
+    from html import escape as _esc
     profile_id = _get_active_profile_id()
     app_row = _get_application_row_for_active_profile(app_id)
     if not profile_id or not app_row:
@@ -1400,34 +1406,207 @@ async def api_application_timeline_print(app_id: str):
     emails = _db.get_emails_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_emails_for_application') else []
     meetings = _db.get_meetings_for_application(app_id, profile_id=profile_id) if hasattr(_db, 'get_meetings_for_application') else []
     documents = _db.get_documents_for_application(app_id, profile_id=profile_id)
+    job = None
+    if app_data.get("job_hash"):
+        job_row = conn.execute(
+            "SELECT * FROM jobs WHERE hash=?", (app_data["job_hash"],)
+        ).fetchone()
+        if job_row:
+            job = dict(job_row)
 
-    # Build unified chronological entries
+    # ── Statistik-Block ─────────────────────────────────────────────
+    from datetime import datetime as _dt
+    today = _dt.now()
+
+    def _parse_date(s):
+        if not s:
+            return None
+        try:
+            return _dt.fromisoformat(s.replace(" ", "T")[:19])
+        except Exception:
+            try:
+                return _dt.fromisoformat(s[:10])
+            except Exception:
+                return None
+
+    applied_dt = _parse_date(app_data.get("applied_at"))
+    days_since_applied = (today - applied_dt).days if applied_dt else None
+
+    # Reaktionszeit: erste eingehende E-Mail nach Bewerbung oder erstes
+    # Status-Wechsel-Event (eingangsbestaetigung/interview).
+    first_response_dt = None
+    for em in sorted(emails, key=lambda x: x.get("received_at") or x.get("sent_date") or ""):
+        if em.get("direction") == "eingang":
+            d = _parse_date(em.get("received_at") or em.get("sent_date"))
+            if d and (not applied_dt or d >= applied_dt):
+                first_response_dt = d
+                break
+    if not first_response_dt:
+        for ev in events:
+            if ev.get("status") in ("eingangsbestaetigung", "interview", "zweitgespraech",
+                                     "abgelehnt", "angebot"):
+                d = _parse_date(ev.get("event_date"))
+                if d and (not applied_dt or d >= applied_dt):
+                    first_response_dt = d
+                    break
+    response_days = (first_response_dt - applied_dt).days if (first_response_dt and applied_dt) else None
+
+    # Letzte Aktivitaet
+    last_activity_candidates = []
+    for ev in events:
+        d = _parse_date(ev.get("event_date"))
+        if d: last_activity_candidates.append(d)
+    for em in emails:
+        d = _parse_date(em.get("received_at") or em.get("sent_date"))
+        if d: last_activity_candidates.append(d)
+    for m in meetings:
+        d = _parse_date(m.get("meeting_date"))
+        if d: last_activity_candidates.append(d)
+    last_activity = max(last_activity_candidates) if last_activity_candidates else None
+    days_since_activity = (today - last_activity).days if last_activity else None
+
+    # Status-Historie nur Status-Wechsel-Events
+    status_changes = [
+        e for e in events
+        if e.get("status") and e.get("status") not in ("notiz", "")
+    ]
+    # E-Mail-Direction-Aufschluesselung
+    emails_in = [em for em in emails if em.get("direction") == "eingang"]
+    emails_out = [em for em in emails if em.get("direction") == "ausgang"]
+    # Notizen separat
+    notes = [e for e in events if e.get("status") == "notiz" or (e.get("notes") and not e.get("status"))]
+
+    # Build unified chronological entries (kompletter Zeitstrahl)
     entries = []
     for e in events:
-        entries.append({"date": e.get("event_date", ""), "type": "Ereignis",
-                        "text": e.get("description", "")})
+        entries.append({
+            "date": e.get("event_date", ""),
+            "type": "Status" if e.get("status") and e.get("status") != "notiz" else "Notiz",
+            "text": (f"{e.get('status', '')}: " if e.get("status") and e.get("status") != "notiz" else "") + (e.get("notes") or e.get("description") or ""),
+        })
     for em in emails:
-        entries.append({"date": em.get("received_at") or em.get("sent_date", ""),
-                        "type": "E-Mail",
-                        "text": f"{em.get('subject', '(Kein Betreff)')} — {em.get('sender', '')}"})
+        direction = "Eingehend" if em.get("direction") == "eingang" else "Ausgehend"
+        entries.append({
+            "date": em.get("received_at") or em.get("sent_date", ""),
+            "type": f"E-Mail ({direction})",
+            "text": f"{em.get('subject', '(Kein Betreff)')} — {em.get('sender', '') if em.get('direction')=='eingang' else em.get('recipients', '')}",
+        })
     for m in meetings:
-        entries.append({"date": m.get("meeting_date", ""), "type": "Termin",
-                        "text": f"{m.get('title', 'Termin')}" + (f" ({m.get('platform', '')})" if m.get('platform') else "")})
+        entries.append({
+            "date": m.get("meeting_date", ""),
+            "type": "Termin",
+            "text": f"{m.get('title', 'Termin')}" + (f" ({m.get('platform', '')})" if m.get('platform') else ""),
+        })
     entries.sort(key=lambda x: x["date"])
 
-    # Build HTML
-    title = app_data.get("title", "Bewerbung")
-    company = app_data.get("company", "")
-    status = app_data.get("status", "")
+    # ── HTML rendern ────────────────────────────────────────────────
+    title = _esc(str(app_data.get("title", "Bewerbung")))
+    company = _esc(str(app_data.get("company", "")))
+    status = _esc(str(app_data.get("status", "")))
     applied_at = app_data.get("applied_at", "")
+    url = _esc(str(app_data.get("url") or (job.get("url") if job else "") or ""))
 
+    def _stat(label, value, hint=None):
+        return f"""<div class="stat"><div class="stat-label">{_esc(label)}</div><div class="stat-value">{_esc(str(value))}</div>{f'<div class="stat-hint">{_esc(hint)}</div>' if hint else ''}</div>"""
+
+    stats_blocks = [
+        _stat("Bewerbung gesendet", applied_at[:10] if applied_at else "—",
+              f"vor {days_since_applied} Tagen" if days_since_applied is not None else None),
+        _stat("Letzte Aktivitaet", last_activity.strftime("%d.%m.%Y") if last_activity else "—",
+              f"vor {days_since_activity} Tagen" if days_since_activity is not None else None),
+        _stat("Reaktionszeit", f"{response_days} Tage" if response_days is not None else "Noch keine Reaktion",
+              first_response_dt.strftime("%d.%m.%Y") if first_response_dt else None),
+        _stat("Aktueller Status", status, None),
+        _stat("Status-Wechsel", str(len(status_changes))),
+        _stat("E-Mails", f"{len(emails)} ({len(emails_in)} ein, {len(emails_out)} aus)"),
+        _stat("Termine", str(len(meetings))),
+        _stat("Dokumente", str(len(documents))),
+        _stat("Notizen", str(len(notes))),
+        _stat("Timeline-Eintraege", str(len(entries))),
+    ]
+
+    stats_html = '<div class="stat-grid">' + "".join(stats_blocks) + "</div>"
+
+    # Status-Historie
+    history_html = ""
+    if status_changes:
+        history_html = "<h2>Status-Historie</h2><ol class='status-history'>"
+        for ev in status_changes:
+            d = ev.get("event_date", "")[:10] or "—"
+            st = _esc(str(ev.get("status", "")))
+            note = _esc(str(ev.get("notes") or ev.get("description") or ""))
+            history_html += f"<li><strong>{d}</strong> — <span class='badge'>{st}</span>"
+            if note:
+                history_html += f"<div class='note-text'>{note}</div>"
+            history_html += "</li>"
+        history_html += "</ol>"
+
+    # Chronologie (komplett)
     rows_html = ""
     for e in entries:
-        rows_html += f"<tr><td>{e['date'][:10] if e['date'] else '-'}</td><td><strong>{e['type']}</strong></td><td>{e['text']}</td></tr>\n"
+        rows_html += f"<tr><td class='date-col'>{_esc(e['date'][:10] if e['date'] else '-')}</td><td><strong>{_esc(e['type'])}</strong></td><td>{_esc(e['text'])}</td></tr>\n"
 
+    # E-Mails-Block
+    emails_html = ""
+    if emails:
+        emails_html = "<h2>E-Mail-Korrespondenz</h2><table><tr><th>Datum</th><th>Richtung</th><th>Von / An</th><th>Betreff</th></tr>"
+        for em in sorted(emails, key=lambda x: x.get("received_at") or x.get("sent_date") or ""):
+            d = (em.get("received_at") or em.get("sent_date") or "")[:10]
+            direction = "Eingehend" if em.get("direction") == "eingang" else "Ausgehend"
+            partner = em.get("sender") if em.get("direction") == "eingang" else em.get("recipients")
+            emails_html += f"<tr><td class='date-col'>{_esc(d)}</td><td>{_esc(direction)}</td><td>{_esc(partner or '')}</td><td>{_esc(em.get('subject') or '(Kein Betreff)')}</td></tr>"
+        emails_html += "</table>"
+
+    # Termine-Block
+    meetings_html = ""
+    if meetings:
+        meetings_html = "<h2>Termine</h2><table><tr><th>Datum</th><th>Titel</th><th>Plattform</th></tr>"
+        for m in sorted(meetings, key=lambda x: x.get("meeting_date") or ""):
+            d = (m.get("meeting_date") or "")[:10]
+            meetings_html += f"<tr><td class='date-col'>{_esc(d)}</td><td>{_esc(m.get('title') or 'Termin')}</td><td>{_esc(m.get('platform') or '—')}</td></tr>"
+        meetings_html += "</table>"
+
+    # Dokumente-Block
     docs_html = ""
-    for d in documents:
-        docs_html += f"<li>{d.get('filename', '')} ({d.get('doc_type', '')})</li>\n"
+    if documents:
+        docs_html = "<h2>Verknuepfte Dokumente</h2><table><tr><th>Datei</th><th>Typ</th><th>Hinzugefuegt</th></tr>"
+        for d in documents:
+            created = (d.get("created_at") or "")[:10]
+            docs_html += f"<tr><td>{_esc(d.get('filename') or '')}</td><td>{_esc(d.get('doc_type') or '—')}</td><td class='date-col'>{_esc(created)}</td></tr>"
+        docs_html += "</table>"
+
+    # Notizen-Block
+    notes_html = ""
+    if notes:
+        notes_html = "<h2>Notizen</h2><div class='notes'>"
+        for n in notes:
+            d = (n.get("event_date") or "")[:10]
+            text = _esc(n.get("notes") or n.get("description") or "")
+            notes_html += f"<div class='note'><div class='note-date'>{d}</div><div class='note-text'>{text}</div></div>"
+        notes_html += "</div>"
+
+    # Stelle-Block
+    job_html = ""
+    if job or url:
+        job_html = "<h2>Stelle</h2><dl class='kv'>"
+        if job and job.get("location"):
+            job_html += f"<dt>Standort</dt><dd>{_esc(job['location'])}</dd>"
+        if job and job.get("source"):
+            job_html += f"<dt>Quelle</dt><dd>{_esc(job['source'])}</dd>"
+        if job and job.get("salary_min"):
+            sal = f"{job.get('salary_min')}{' – ' + str(job.get('salary_max')) if job.get('salary_max') else ''}"
+            job_html += f"<dt>Gehalt</dt><dd>{_esc(sal)}</dd>"
+        if url:
+            job_html += f"<dt>Link</dt><dd><a href='{url}'>{url[:80]}</a></dd>"
+        contact_partner = app_data.get("ansprechpartner") or ""
+        contact_email = app_data.get("kontakt_email") or ""
+        if contact_partner or contact_email:
+            job_html += f"<dt>Ansprechpartner</dt><dd>{_esc(contact_partner)}{' — <a href=\"mailto:' + _esc(contact_email) + '\">' + _esc(contact_email) + '</a>' if contact_email else ''}</dd>"
+        if app_data.get("bewerbungsart"):
+            job_html += f"<dt>Bewerbungsart</dt><dd>{_esc(app_data['bewerbungsart'])}</dd>"
+        if app_data.get("lebenslauf_variante"):
+            job_html += f"<dt>Lebenslauf</dt><dd>{_esc(app_data['lebenslauf_variante'])}</dd>"
+        job_html += "</dl>"
 
     html = f"""<!DOCTYPE html>
 <html lang="de">
@@ -1435,33 +1614,81 @@ async def api_application_timeline_print(app_id: str):
 <meta charset="utf-8">
 <title>Bewerbungsprotokoll — {title} bei {company}</title>
 <style>
-body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; color: #333; }}
-h1 {{ font-size: 1.4rem; margin-bottom: 0.3rem; }}
-h2 {{ font-size: 1.1rem; margin-top: 1.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }}
-.meta {{ color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }}
-table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; }}
-th, td {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }}
-th {{ background: #f5f5f5; font-weight: 600; }}
-ul {{ padding-left: 1.5rem; }}
-li {{ margin-bottom: 0.3rem; font-size: 0.85rem; }}
-.footer {{ margin-top: 2rem; font-size: 0.75rem; color: #999; border-top: 1px solid #eee; padding-top: 0.5rem; }}
-@media print {{ body {{ padding: 0; }} }}
+* {{ box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+       max-width: 880px; margin: 0 auto; padding: 2rem; color: #2a2a2a; line-height: 1.45; }}
+header {{ border-bottom: 3px solid #2c5282; padding-bottom: 1rem; margin-bottom: 1.2rem; }}
+h1 {{ font-size: 1.55rem; margin: 0 0 0.3rem; color: #1a365d; }}
+h2 {{ font-size: 1.1rem; margin-top: 1.8rem; margin-bottom: 0.6rem;
+      border-bottom: 1px solid #cbd5e0; padding-bottom: 0.25rem; color: #2c5282; }}
+.subtitle {{ color: #4a5568; font-size: 1rem; }}
+.meta {{ color: #718096; font-size: 0.85rem; margin-top: 0.4rem; }}
+.stat-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+              gap: 0.6rem; margin: 0.8rem 0 1.2rem; }}
+.stat {{ background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.6rem 0.8rem; }}
+.stat-label {{ font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+               color: #718096; margin-bottom: 0.2rem; }}
+.stat-value {{ font-size: 1.05rem; font-weight: 600; color: #2d3748; }}
+.stat-hint {{ font-size: 0.72rem; color: #a0aec0; margin-top: 0.15rem; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.4rem; }}
+th, td {{ text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid #edf2f7; vertical-align: top; }}
+th {{ background: #edf2f7; font-weight: 600; color: #2d3748; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }}
+.date-col {{ white-space: nowrap; color: #718096; font-variant-numeric: tabular-nums; width: 1%; }}
+ol.status-history {{ list-style: none; padding-left: 0; counter-reset: step; }}
+ol.status-history li {{ counter-increment: step; padding: 0.5rem 0; border-bottom: 1px solid #edf2f7; }}
+ol.status-history li::before {{ content: counter(step); display: inline-block;
+       width: 1.6rem; height: 1.6rem; line-height: 1.6rem; text-align: center;
+       background: #2c5282; color: white; border-radius: 50%; margin-right: 0.6rem;
+       font-size: 0.75rem; font-weight: 600; }}
+.badge {{ display: inline-block; padding: 0.15rem 0.5rem; background: #ebf8ff; color: #2c5282;
+          border-radius: 4px; font-size: 0.78rem; font-weight: 500; }}
+.note-text {{ margin-top: 0.3rem; margin-left: 2.2rem; color: #4a5568; font-style: italic; font-size: 0.85rem; }}
+.notes .note {{ background: #fffaf0; border-left: 3px solid #ed8936; padding: 0.5rem 0.8rem; margin-bottom: 0.6rem; border-radius: 0 4px 4px 0; }}
+.notes .note-date {{ font-size: 0.75rem; color: #a0aec0; margin-bottom: 0.2rem; font-variant-numeric: tabular-nums; }}
+.notes .note-text {{ margin: 0; color: #2d3748; font-style: normal; font-size: 0.88rem; }}
+dl.kv {{ display: grid; grid-template-columns: 9rem 1fr; gap: 0.4rem 1rem; margin: 0.5rem 0; }}
+dl.kv dt {{ color: #718096; font-size: 0.85rem; }}
+dl.kv dd {{ margin: 0; color: #2d3748; font-size: 0.9rem; }}
+a {{ color: #3182ce; }}
+.footer {{ margin-top: 2.5rem; font-size: 0.72rem; color: #a0aec0;
+           border-top: 1px solid #edf2f7; padding-top: 0.6rem; text-align: center; }}
+@media print {{
+  body {{ padding: 1cm; max-width: none; }}
+  h2 {{ page-break-after: avoid; }}
+  table, dl, .stat-grid {{ page-break-inside: avoid; }}
+  .stat-grid {{ grid-template-columns: repeat(5, 1fr); }}
+}}
 </style>
 </head>
 <body>
-<h1>Bewerbungsprotokoll</h1>
-<p class="meta"><strong>{title}</strong> bei {company}<br>
-Status: {status} | Beworben: {applied_at[:10] if applied_at else '-'} | ID: {app_id[:8]}</p>
+<header>
+  <h1>Bewerbungsprotokoll</h1>
+  <p class="subtitle"><strong>{title}</strong> bei {company}</p>
+  <p class="meta">ID {_esc(app_id[:8])} | Erstellt {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
+</header>
 
-<h2>Chronologie ({len(entries)} Eintr&auml;ge)</h2>
+<h2>Kennzahlen</h2>
+{stats_html}
+
+{job_html}
+
+{history_html}
+
+{emails_html}
+
+{meetings_html}
+
+{notes_html}
+
+{docs_html}
+
+<h2>Vollstaendige Chronologie ({len(entries)} Eintraege)</h2>
 <table>
 <tr><th>Datum</th><th>Typ</th><th>Beschreibung</th></tr>
-{rows_html}
+{rows_html if rows_html else '<tr><td colspan="3" style="text-align:center;color:#a0aec0;">Keine Eintraege.</td></tr>'}
 </table>
 
-{"<h2>Verknüpfte Dokumente (" + str(len(documents)) + ")</h2><ul>" + docs_html + "</ul>" if documents else ""}
-
-<div class="footer">Erstellt von PBP Bewerbungs-Assistent | {datetime.now().strftime('%d.%m.%Y %H:%M')}</div>
+<div class="footer">Erstellt von PBP Bewerbungs-Assistent — {datetime.now().strftime('%d.%m.%Y %H:%M')}</div>
 </body>
 </html>"""
 

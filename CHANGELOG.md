@@ -7,6 +7,60 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.28] - 2026-04-25
+
+Bewerbungsprotokoll vollstaendig ausgebaut (#User-Feedback "darf gerne
+ausfuehrlicher sein").
+
+**Vorher:** schmaler Header + flache Chronologie-Tabelle + Doku-Liste.
+
+**Jetzt:** vollstaendiges Bewerbungs-Dossier mit:
+
+1. **Kennzahlen-Block** mit 10 Kacheln:
+   - Bewerbung gesendet (Datum + "vor X Tagen")
+   - Letzte Aktivitaet (Datum + "vor X Tagen")
+   - **Reaktionszeit** (Tage zwischen Bewerbung und erster
+     eingehender E-Mail / Status-Wechsel-Event)
+   - Aktueller Status
+   - Anzahl Status-Wechsel
+   - E-Mails (mit Aufschluesselung ein/aus)
+   - Termine
+   - Dokumente
+   - Notizen
+   - Timeline-Eintraege gesamt
+
+2. **Stelle-Block** (Standort, Quelle, Gehalt, Link, Ansprechpartner,
+   Bewerbungsart, Lebenslauf-Variante).
+
+3. **Status-Historie** als nummerierte Liste mit Status-Badges +
+   passender Notiz pro Schritt — zeigt klar den Verlauf:
+   beworben -> eingangsbestaetigung -> interview -> ...
+
+4. **E-Mail-Korrespondenz** als Tabelle mit Datum, Richtung
+   (Eingehend/Ausgehend), Partner, Betreff.
+
+5. **Termine** mit Datum + Plattform.
+
+6. **Notizen-Block** als hervorgehobene "Sticky-Notes" mit Datum und
+   Inhalt — visuell abgesetzt mit oranger Linie.
+
+7. **Verknuepfte Dokumente** mit Typ und Hinzufuegungsdatum.
+
+8. **Vollstaendige Chronologie** als Tabelle (alle Eintraege chrono
+   sortiert).
+
+**Layout:**
+- Professioneller Header mit blauer Akzentlinie
+- Section-Titel mit Unterstrich
+- Print-Styles: 5-spaltige Stat-Grid, page-break-Hinweise
+- Saubere Typografie, tabular-nums fuer Datumsspalten
+- Status-Wechsel-Liste mit Counter-Badges
+- HTML-Escaping konsistent (Sicherheit)
+
+### Changed
+- `dashboard.py::api_application_timeline_print`: komplett neu
+  geschrieben (~200 -> ~280 Zeilen).
+
 ## [1.6.0-beta.27] - 2026-04-25
 
 Mindest-Score-Filter mit UI (#User-Feedback).
