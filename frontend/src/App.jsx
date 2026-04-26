@@ -900,41 +900,42 @@ export default function App() {
               <Menu size={20} />
             </button>
 
-            {/* beta.30 / User-Feedback nach beta.28: Top-Bar = globale
-                Status-Indikatoren. Page-Titel wandert in die Page selbst
-                (jede Page hat ohnehin ihr eigenes h1). */}
-            <span className="font-mono text-[11px] text-muted/50 select-none whitespace-nowrap">
-              v{chrome.status?.version || "?"}
-            </span>
-
-            {/* MCP Connection Indicator (#273, #309, #363) — 3-stufig */}
-            {(() => {
-              const conn = chrome.status?.mcp_connection;
-              const st = conn?.status || "disconnected";
-              const cfg = {
-                connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
-                unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe…", Icon: Link2 },
-                disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
-              }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
-              const handleClick = () => {
-                if (st === "connected") {
-                  window.open("claude://", "_self");
-                } else {
-                  setMcpHelpOpen(true);
-                }
-              };
-              return (
-                <button
-                  type="button"
-                  onClick={handleClick}
-                  className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium cursor-pointer transition-colors whitespace-nowrap ${cfg.bg} ${cfg.color}`}
-                  title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
-                >
-                  <span className={`inline-block h-2 w-2 rounded-full ${cfg.dot}`} />
-                  <span>{cfg.label}</span>
-                </button>
-              );
-            })()}
+            {/* beta.33 / User-Feedback: Version + MCP-Status untereinander
+                gestackt links — Top-Bar zeigt globale Status-Indikatoren
+                kompakt; der Page-Titel wandert in die Page selbst (rechts
+                im Page-Header). */}
+            <div className="flex flex-col gap-0.5 leading-tight">
+              <span className="font-mono text-[10px] text-muted/50 select-none whitespace-nowrap">
+                v{chrome.status?.version || "?"}
+              </span>
+              {(() => {
+                const conn = chrome.status?.mcp_connection;
+                const st = conn?.status || "disconnected";
+                const cfg = {
+                  connected: { color: "text-teal", bg: "bg-teal/15 hover:bg-teal/25", dot: "bg-teal", label: "Verbunden", Icon: Link2 },
+                  unknown: { color: "text-amber", bg: "bg-amber/15 hover:bg-amber/25", dot: "bg-amber", label: "Pruefe…", Icon: Link2 },
+                  disconnected: { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off },
+                }[st] || { color: "text-coral", bg: "bg-coral/15 hover:bg-coral/25", dot: "bg-coral", label: "Nicht verbunden", Icon: Link2Off };
+                const handleClick = () => {
+                  if (st === "connected") {
+                    window.open("claude://", "_self");
+                  } else {
+                    setMcpHelpOpen(true);
+                  }
+                };
+                return (
+                  <button
+                    type="button"
+                    onClick={handleClick}
+                    className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium cursor-pointer transition-colors whitespace-nowrap ${cfg.bg} ${cfg.color}`}
+                    title={st === "connected" ? "Claude Desktop oeffnen" : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                  >
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                    <span>{cfg.label}</span>
+                  </button>
+                );
+              })()}
+            </div>
 
             {/* Stellensuche-Status (#487) */}
             <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />

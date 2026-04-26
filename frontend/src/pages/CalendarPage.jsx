@@ -512,7 +512,7 @@ export default function CalendarPage() {
   return (
     <div id="page-kalender" className="page active">
       {/* Header: compact with essential controls */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap flex-row-reverse items-center justify-between gap-3">
         <PageHeader title="Kalender" subtitle={`${meetings.length} Termine`} />
         <div className="flex flex-wrap items-center gap-2">
           {/* Navigation arrows + label */}

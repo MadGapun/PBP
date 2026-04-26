@@ -168,13 +168,13 @@ export default function StatsPage() {
   if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
 
   // --- Timeline chart data ---
-  // #358: Exclude incomplete current period to avoid misleading downward trend
-  // #396: But keep it when it's the ONLY period, so charts aren't empty
+  // beta.33 / User-Feedback: laufende Periode NICHT mehr wegfiltern
+  // (User: "wir sind schon KW 17, Statistik geht aber nur bis KW 15").
+  // Die laufende Periode wird stattdessen visuell als "(unvollst.)"
+  // markiert — siehe formatPeriodLabel weiter unten.
   const currentPeriod = timeline?.current_period;
   const allPeriods = timeline?.periods || [];
-  const timelinePeriods = allPeriods.length <= 1
-    ? allPeriods
-    : allPeriods.filter((p) => interval === "all" || p !== currentPeriod);
+  const timelinePeriods = allPeriods;
 
   // #396: Format period labels for readability (2026-W14 → KW 14, 2026-04-09 → 09.04.)
   function formatPeriodLabel(period) {
@@ -251,7 +251,7 @@ export default function StatsPage() {
 
   return (
     <div id="page-statistiken" className="page active">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-4">
+      <div className="mb-6 flex flex-wrap flex-row-reverse items-baseline justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Statistiken</h1>
         <div className="flex flex-wrap items-center gap-2">
           {/* Zeitraum (time range) */}

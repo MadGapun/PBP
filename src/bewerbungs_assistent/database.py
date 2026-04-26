@@ -26,6 +26,61 @@ def _gen_id() -> str:
     return str(uuid.uuid4())[:8]
 
 
+def _iso_week_key(date_str: str) -> str | None:
+    """Konvertiert YYYY-MM-DD oder YYYY-MM-DD HH:MM:SS in ISO-Wochenschluessel
+    'YYYY-Www' (#User-Feedback nach beta.32 — SQLite kann kein %V).
+
+    Beispiel: '2026-04-26' -> '2026-W17' (statt '%W' = 16).
+    """
+    if not date_str:
+        return None
+    try:
+        from datetime import datetime as _dt
+        d = _dt.fromisoformat(date_str.replace(" ", "T")[:19])
+        iso = d.isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+    except Exception:
+        try:
+            from datetime import datetime as _dt
+            d = _dt.fromisoformat(date_str[:10])
+            iso = d.isocalendar()
+            return f"{iso.year}-W{iso.week:02d}"
+        except Exception:
+            return None
+
+
+def _group_by_iso_week(rows) -> list[dict]:
+    """Gruppiert sqlite3.Row-Liste {dt, status} nach ISO-Woche.
+    Liefert das Format das die get_timeline_stats-Aggregation erwartet:
+    [{'period': 'YYYY-Www', 'count': N, 'status': str}, ...].
+    """
+    grouped = {}
+    for r in rows:
+        period = _iso_week_key(r["dt"])
+        if not period:
+            continue
+        status = r["status"]
+        key = (period, status)
+        grouped[key] = grouped.get(key, 0) + 1
+    return [
+        {"period": p, "count": c, "status": s}
+        for (p, s), c in sorted(grouped.items())
+    ]
+
+
+def _group_by_iso_week_count(rows) -> list[dict]:
+    """Gruppiert sqlite3.Row-Liste {dt} nach ISO-Woche, mit Count.
+    Liefert: [{'period': 'YYYY-Www', 'count': N}, ...].
+    """
+    counts = {}
+    for r in rows:
+        period = _iso_week_key(r["dt"])
+        if not period:
+            continue
+        counts[period] = counts.get(period, 0) + 1
+    return [{"period": p, "count": c} for p, c in sorted(counts.items())]
+
+
 def get_data_dir() -> Path:
     """Get the data directory, create if needed.
 
@@ -3058,6 +3113,15 @@ class Database:
                 {_date_filter} {time_filter}
                 GROUP BY period, status ORDER BY period
             """, (pid,)).fetchall()
+        elif interval == "week":
+            # beta.33: ISO-Wochengruppierung in Python (SQLite kennt kein %V).
+            raw = conn.execute(f"""
+                SELECT {_date_col} as dt, status
+                FROM applications
+                WHERE (profile_id=? OR profile_id IS NULL)
+                {_date_filter} {time_filter}
+            """, (pid,)).fetchall()
+            rows = _group_by_iso_week(raw)
         else:
             rows = conn.execute(f"""
                 SELECT strftime('{fmt}', {_date_col}) as period,
@@ -3090,6 +3154,15 @@ class Database:
                 {time_filter_jobs}
                 GROUP BY period ORDER BY period
             """, (pid,)).fetchall()
+        elif interval == "week":
+            # beta.33: ISO-Wochengruppierung in Python
+            raw_jobs = conn.execute(f"""
+                SELECT found_at as dt
+                FROM jobs WHERE found_at IS NOT NULL
+                AND (profile_id=? OR profile_id IS NULL)
+                {time_filter_jobs}
+            """, (pid,)).fetchall()
+            job_rows = _group_by_iso_week_count(raw_jobs)
         else:
             job_rows = conn.execute(f"""
                 SELECT strftime('{fmt}', found_at) as period, COUNT(*) as count
@@ -3118,18 +3191,27 @@ class Database:
                     pass
             elif interval == "week":
                 try:
-                    def _week_to_date(w):
+                    # beta.33: ISO-Woche fuer Gap-Fill
+                    def _iso_week_to_date(w):
                         y, wn = w.split("-W")
-                        return _dt.strptime(f"{y}-W{wn}-1", "%Y-W%W-%w")
-                    start = _week_to_date(sorted_p[0])
-                    end = _week_to_date(sorted_p[-1])
+                        return _dt.strptime(f"{y}-W{wn}-1", "%G-W%V-%u")
+                    start = _iso_week_to_date(sorted_p[0])
+                    end_period = sorted_p[-1]
+                    # Auch die laufende ISO-Woche aufnehmen (User-Wunsch:
+                    # nicht filtern, sichtbar lassen).
+                    iso_now = _now.isocalendar()
+                    cur_key = f"{iso_now.year}-W{iso_now.week:02d}"
+                    if cur_key > end_period:
+                        end_period = cur_key
+                    end = _iso_week_to_date(end_period)
                     d = start
                     while d <= end:
-                        key = d.strftime("%Y-W%W")
+                        iso = d.isocalendar()
+                        key = f"{iso.year}-W{iso.week:02d}"
                         if key not in periods:
                             periods[key] = {"total": 0, "by_status": {}}
                         d += timedelta(weeks=1)
-                except ValueError:
+                except (ValueError, AttributeError):
                     pass
 
         # #358: Determine current (incomplete) period so frontend can mark it
@@ -3140,7 +3222,11 @@ class Database:
         elif interval == "day":
             current_period = _now.strftime("%Y-%m-%d")
         elif interval == "week":
-            current_period = _now.strftime("%Y-W%W")
+            # beta.33 / User-Feedback: ISO-Kalenderwoche statt %W,
+            # damit die Anzeige mit der Woche im User-Kalender uebereinstimmt
+            # (Beispiel 26.04.2026: %W = 16, ISO = 17 — User sieht Letzteres).
+            iso = _now.isocalendar()
+            current_period = f"{iso.year}-W{iso.week:02d}"
         elif interval == "year":
             current_period = _now.strftime("%Y")
         else:

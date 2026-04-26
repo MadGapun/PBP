@@ -205,7 +205,7 @@ export default function DocumentsPage() {
 
   return (
     <div id="page-dokumente" className="page active">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-4">
+      <div className="mb-6 flex flex-wrap flex-row-reverse items-baseline justify-between gap-4">
         <PageHeader title="Dokumente" subtitle={`${data.total} Dokumente`} />
       </div>
 

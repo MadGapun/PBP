@@ -454,7 +454,7 @@ export default function SettingsPage() {
 
   return (
     <div id="page-einstellungen" className="page active">
-      <div className="mb-6 flex items-baseline justify-between gap-4">
+      <div className="mb-6 flex flex-row-reverse items-baseline justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Einstellungen</h1>
       </div>
 

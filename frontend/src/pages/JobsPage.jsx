@@ -661,7 +661,7 @@ export default function JobsPage() {
 
   return (
     <div id="page-stellen" className="page active">
-      <div className="mb-6 flex items-baseline gap-2">
+      <div className="mb-6 flex flex-row-reverse items-baseline gap-2 justify-end">
         <h1 className="font-display text-xl font-semibold text-ink">Stellen</h1>
         <span className="text-[11px] text-muted/40">
           {searchJob.running

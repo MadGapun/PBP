@@ -7,6 +7,48 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.0-beta.33] - 2026-04-26
+
+Header-Layout-Klarstellung + ISO-Wochen-Fix nach User-Screenshot.
+
+**Header-Layout (User-Wunsch nach Screenshot)**
+- Top-Bar: Version + MCP-Badge **untereinander gestackt links**
+  (vorher nebeneinander). Kompakter und passt zum Hamburger-Block.
+- Page-Header: **Titel rechts, Aktions-Buttons links** — alle 8 Pages
+  (Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender,
+  Statistiken, Einstellungen) per `flex-row-reverse` umgekehrt.
+
+**Statistik: ISO-Wochen + laufende KW sichtbar (User: "wir haben KW 17,
+Chart endet bei KW 15")**
+
+Zwei Bugs zusammen:
+1. **Filter-Logik** zog die `current_period` aus dem Chart raus
+   (Annahme: "unvollstaendige Woche"). Bei einem User der heute KW 17
+   sieht und die Statistik bei KW 15 endet, fehlt also nicht nur die
+   laufende Woche, sondern auch noch die Vorwoche — irritierend.
+2. **`%W` vs ISO-KW**: Python und SQLite verwenden `%W` (Montag-basiert,
+   0-53), nicht ISO-`%V` (1-53). Beispiel 26.04.2026: `%W = 16`, ISO = 17.
+   User-Kalender zeigt ISO, PBP zeigte `%W` — Differenz von 1 Woche.
+
+**Loesung:**
+- Backend: `_iso_week_key(date)`-Helper + `_group_by_iso_week*`-Funktionen.
+  Wochen-Aggregation passiert jetzt in Python via `isocalendar()`, nicht
+  per SQLite-`strftime`. Funktioniert fuer applications + jobs.
+- `current_period` fuer Wochen-Intervall: `iso.year-Wiso.week`.
+- Gap-Fill verwendet `%G-W%V-%u` (ISO) statt `%Y-W%W-%w`.
+- Frontend filtert die laufende Woche **nicht mehr** weg —
+  `timelinePeriods = allPeriods` direkt.
+
+### Changed
+- `App.jsx`: Top-Bar Version+MCP vertikal gestackt.
+- 8 Page-Header-Container: `flex-row-reverse` ergaenzt.
+- `database.py::get_timeline_stats`: ISO-Wochen-Logik + Gap-Fill.
+- `StatsPage.jsx`: kein currentPeriod-Filter mehr.
+
+### Added
+- `_iso_week_key()`, `_group_by_iso_week()`, `_group_by_iso_week_count()`
+  als Module-Level-Helper in `database.py`.
+
 ## [1.6.0-beta.32] - 2026-04-26
 
 User-Feedback-Beta nach beta.31. Drei klare Fixes; zwei Punkte

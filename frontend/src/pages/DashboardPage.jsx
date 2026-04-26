@@ -469,7 +469,7 @@ export default function DashboardPage() {
 
   return (
     <div id="page-dashboard" className="page active">
-      <div className="mb-6 flex items-baseline gap-4">
+      <div className="mb-6 flex flex-row-reverse items-baseline gap-4 justify-end">
         <h1 className="font-display text-xl font-semibold text-ink">Dashboard</h1>
       </div>
 

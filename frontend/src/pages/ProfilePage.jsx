@@ -1091,7 +1091,7 @@ export default function ProfilePage() {
 
   return (
     <div id="page-profil" className="page active">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex flex-row-reverse items-center justify-between gap-4">
         <h1 className="font-display text-xl font-semibold text-ink">Profil</h1>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
