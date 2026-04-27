@@ -303,6 +303,83 @@ def register(mcp, db, logger):
             conn.commit()
             return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
 
+    def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
+                                       collect_hints: bool = True) -> dict:
+        """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
+
+        Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
+        dismiss_reasons-Statistik. Wird von stelle_bewerten UND von
+        stellen_bulk_bewerten aufgerufen, damit Audit/Lerneffekt/Statistik in
+        beiden Wegen identisch durchlaufen (#514: Anti-DB-Bypass-Pattern).
+
+        Args:
+            job_hash: Hash der Stelle
+            reason_list: bereits validierte/normalisierte Gruende
+            collect_hints: bei Bulk auf False setzen — Tipps werden dann nur
+                in der Aggregat-Antwort summiert, nicht pro Einzelaufruf
+        """
+        import json as _json
+        reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
+
+        # #168: Duplikat-Erkennung
+        dup_info = None
+        if "duplikat" in reason_list:
+            dup_info = _detect_duplicate(job_hash)
+
+        db.dismiss_job(job_hash, reason_str)
+
+        # Track rejection counts for learning (#66)
+        counts = db.get_setting("dismiss_counts", {})
+        hints = []
+        for g in reason_list:
+            normalized = g.lower().strip()
+            counts[normalized] = counts.get(normalized, 0) + 1
+
+            # Suggest scoring adjustments (#169) when patterns are strong
+            if collect_hints and counts.get(normalized, 0) >= 3:
+                if normalized == "zu_weit_entfernt":
+                    hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren).")
+                elif normalized == "gehalt_zu_niedrig":
+                    hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
+                elif normalized in ("zeitarbeit", "befristet"):
+                    hints.append(f"Tipp: Setze '{g}' im Scoring-Regler auf 'Komplett Ignorieren' (scoring_konfigurieren).")
+                elif normalized == "firma_uninteressant":
+                    job = db.get_job(job_hash)
+                    if job:
+                        hints.append(
+                            f"Tipp: Moechtest du '{job.get('company', '')}' auf die Blacklist setzen? "
+                            f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{job.get('company', '')}')."
+                        )
+
+        db.set_setting("dismiss_counts", counts)
+        db.increment_dismiss_reason_usage(reason_list)
+
+        # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern
+        auto_adjustments = []
+        for g in reason_list:
+            normalized = g.lower().strip()
+            cnt = counts.get(normalized, 0)
+            if cnt >= 5:
+                _auto = _auto_adjust_scoring(db, normalized, cnt)
+                if _auto:
+                    auto_adjustments.append(_auto)
+        if collect_hints and auto_adjustments:
+            hints.append("Scoring wurde automatisch angepasst: " + "; ".join(auto_adjustments))
+
+        return {
+            "counts": counts,
+            "hints": hints,
+            "auto_adjustments": auto_adjustments,
+            "duplikat_info": dup_info,
+        }
+
+    def _normalize_reason_list(grund: str = "", gruende: list[str] = None) -> list[str]:
+        """Normalisiert Eingabe-Gruende auf erlaubte Werte (#302)."""
+        raw_reasons = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
+        return list(dict.fromkeys(
+            r if r in ABLEHNUNGSGRUENDE else "sonstiges" for r in raw_reasons
+        ))
+
     @mcp.tool()
     def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
@@ -318,6 +395,10 @@ def register(mcp, db, logger):
         den Nutzer fragen oder 'sonstiges' waehlen. Jeder nicht-vordefinierte
         Grund wird automatisch auf 'sonstiges' normalisiert.
 
+        FUER MEHRERE STELLEN AUF EINMAL: Nutze 'stellen_bulk_bewerten' mit
+        Filtern wie min_score, titel_enthaelt_nicht, beschreibung_enthaelt_nicht.
+        Spart Tokens und respektiert die PBP-Lifecycle-Logik (#514).
+
         Args:
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
@@ -329,74 +410,18 @@ def register(mcp, db, logger):
                 firma_uninteressant, zeitarbeit, befristet, bereits_beworben,
                 duplikat, kein_hochschulabschluss, sonstiges
         """
-        import json as _json
         if bewertung == "passt_nicht":
-            # Support multi-select reasons (#108, #120)
-            # #302: KI-erfundene Gründe auf 'sonstiges' normalisieren
-            raw_reasons = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
-            reason_list = list(dict.fromkeys(
-                r if r in ABLEHNUNGSGRUENDE else "sonstiges" for r in raw_reasons
-            ))
+            reason_list = _normalize_reason_list(grund, gruende)
             if not reason_list:
                 return {
                     "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
                     "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
                 }
-            reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
 
-            # #168: Duplikat-Erkennung
-            dup_info = None
-            if "duplikat" in reason_list:
-                dup_info = _detect_duplicate(job_hash)
-
-            db.dismiss_job(job_hash, reason_str)
-
-            # #168: Ablehnungsgründe gehören NICHT in die Blacklist!
-            # Sie werden als dismiss_reason bei der Stelle gespeichert und
-            # in dismiss_reasons für Statistiken getrackt.
-            # Nur explizite Firmen-Blacklist-Anfragen → blacklist_verwalten()
-
-            # Track rejection counts for learning (#66)
-            counts = db.get_setting("dismiss_counts", {})
-            hints = []
-            for g in reason_list:
-                normalized = g.lower().strip()
-                counts[normalized] = counts.get(normalized, 0) + 1
-
-                # Suggest scoring adjustments (#169) when patterns are strong
-                if counts.get(normalized, 0) >= 3:
-                    if normalized == "zu_weit_entfernt":
-                        hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren).")
-                    elif normalized == "gehalt_zu_niedrig":
-                        hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
-                    elif normalized in ("zeitarbeit", "befristet"):
-                        hints.append(f"Tipp: Setze '{g}' im Scoring-Regler auf 'Komplett Ignorieren' (scoring_konfigurieren).")
-                    elif normalized == "firma_uninteressant":
-                        # Suggest adding company to blacklist
-                        job = db.get_job(job_hash)
-                        if job:
-                            hints.append(
-                                f"Tipp: Moechtest du '{job.get('company', '')}' auf die Blacklist setzen? "
-                                f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{job.get('company', '')}')."
-                            )
-
-            db.set_setting("dismiss_counts", counts)
-            db.increment_dismiss_reason_usage(reason_list)
-
-            # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern
-            auto_adjustments = []
-            for g in reason_list:
-                normalized = g.lower().strip()
-                cnt = counts.get(normalized, 0)
-                if cnt >= 5:
-                    _auto = _auto_adjust_scoring(db, normalized, cnt)
-                    if _auto:
-                        auto_adjustments.append(_auto)
-            if auto_adjustments:
-                hints.append(
-                    "Scoring wurde automatisch angepasst: "
-                    + "; ".join(auto_adjustments)
-                )
+            ctx = _apply_dismiss_with_lifecycle(job_hash, reason_list, collect_hints=True)
+            counts = ctx["counts"]
+            hints = ctx["hints"]
+            dup_info = ctx["duplikat_info"]
 
             result = {
                 "status": "aussortiert",
@@ -412,6 +437,231 @@ def register(mcp, db, logger):
             db.restore_job(job_hash)
             return {"status": "als_passend_markiert"}
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
+
+    @mcp.tool()
+    def stellen_bulk_bewerten(
+        bewertung: str,
+        grund: str = "",
+        gruende: list[str] = None,
+        dry_run: bool = True,
+        # Filter (alle optional, kombinierbar mit AND-Logik)
+        min_score: int = None,
+        max_score: int = None,
+        min_alter_tage: int = None,
+        max_alter_tage: int = None,
+        quelle: str = "",
+        firma: str = "",
+        titel_enthaelt: list[str] = None,
+        titel_enthaelt_nicht: list[str] = None,
+        beschreibung_enthaelt_nicht: list[str] = None,
+        max_treffer: int = 0,
+    ) -> dict:
+        """Bewertet mehrere aktive Stellen auf einmal anhand von Filtern (#514).
+
+        ANTI-DB-BYPASS: Nutze dieses Tool fuer das Aussortieren grosser Mengen
+        von Stellen. NIEMALS direkt in die SQLite-Datei schreiben — die
+        PBP-Logik (Audit-Log, Lerneffekte, Auto-Adjust-Scoring,
+        dismiss_reasons-Statistik) wird hier durchlaufen, bei direkten
+        DB-Writes nicht.
+
+        SICHERHEITS-DEFAULT: dry_run=True. Erst Vorschau (Anzahl Treffer +
+        erste 10 Beispiele), dann mit dry_run=False ausfuehren. Das ist
+        bewusst nicht verhandelbar — der Filter trifft sonst zu viel.
+
+        REAL-CASE: Bei einer Suche kommen 500 Stellen, davon 200 falsches
+        Fachgebiet. Anstatt 200 Einzelaufrufe von stelle_bewerten:
+
+            stellen_bulk_bewerten(
+                bewertung='passt_nicht',
+                gruende=['falsches_fachgebiet'],
+                titel_enthaelt_nicht=['Pflege', 'Vertrieb'],
+                dry_run=True  # erst pruefen!
+            )
+
+        Args:
+            bewertung: 'passt' oder 'passt_nicht'
+            grund / gruende: wie bei stelle_bewerten. ABLEHNUNGSGRUENDE-Liste
+                gilt analog. KI darf KEINE eigenen Gruende erfinden.
+            dry_run: bei True (Default) wird NICHTS veraendert, nur Preview.
+                Bei False: alle Treffer werden tatsaechlich bewertet.
+            min_score / max_score: Score-Bereich (None = unbegrenzt)
+            min_alter_tage / max_alter_tage: relativ zu found_at
+            quelle: Quelle als String (z.B. 'bundesagentur')
+            firma: Firmenname (case-insensitive Substring-Match)
+            titel_enthaelt: AND-Liste — Titel muss ALLE Begriffe enthalten
+            titel_enthaelt_nicht: NOR-Liste — Titel darf KEINEN davon enthalten
+            beschreibung_enthaelt_nicht: NOR-Liste fuer Beschreibung —
+                Hauptwerkzeug fuer Fachgebiets-Aussortierung
+            max_treffer: harter Cap auf die Anzahl Treffer (0 = kein Limit).
+                Sinnvoll wenn man nicht sicher ist wie weit der Filter trifft.
+
+        Returns:
+            dry_run=True:
+                {"dry_run": True, "anzahl_treffer": N, "vorschau": [...10 Stellen...]}
+            dry_run=False:
+                {"dry_run": False, "bearbeitet": N, "ablehnungs_statistik": {...},
+                 "hinweise": [...], "stichprobe_bearbeitet": [...erste 5...]}
+        """
+        from datetime import datetime, timedelta
+
+        # 1) Bewertung validieren
+        if bewertung not in ("passt", "passt_nicht"):
+            return {"fehler": "Ungueltige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
+
+        reason_list: list[str] = []
+        if bewertung == "passt_nicht":
+            reason_list = _normalize_reason_list(grund, gruende)
+            if not reason_list:
+                return {
+                    "fehler": "Mindestens ein Ablehnungsgrund ist erforderlich.",
+                    "verfuegbare_gruende": ABLEHNUNGSGRUENDE,
+                }
+
+        # 2) Kandidaten laden — semantisch unterschiedlicher Pool je Aktion:
+        #    - 'passt_nicht' (Aussortieren) wirkt auf aktuell aktive Stellen
+        #    - 'passt' (Restore) wirkt auf bereits dismissed Stellen
+        if bewertung == "passt":
+            candidates = db.get_dismissed_jobs()
+            # Anschliessend manuell auf min_score / quelle filtern
+            if quelle:
+                candidates = [j for j in candidates if (j.get("source") or "") == quelle]
+            if min_score is not None and min_score > 0:
+                candidates = [j for j in candidates if int(j.get("score") or 0) >= min_score]
+        else:
+            db_filters = {}
+            if quelle:
+                db_filters["source"] = quelle
+            if min_score is not None and min_score > 0:
+                db_filters["min_score"] = min_score
+            candidates = db.get_active_jobs(filters=db_filters or None)
+
+        # 3) In-Memory-Filter fuer alles was die DB-API nicht direkt anbietet
+        now = datetime.now()
+        firma_lc = (firma or "").lower().strip()
+        title_must = [t.lower() for t in (titel_enthaelt or []) if t]
+        title_must_not = [t.lower() for t in (titel_enthaelt_nicht or []) if t]
+        desc_must_not = [t.lower() for t in (beschreibung_enthaelt_nicht or []) if t]
+
+        def _matches(job: dict) -> bool:
+            score = int(job.get("score") or 0)
+            if max_score is not None and score > max_score:
+                return False
+            # Alter
+            found_at = job.get("found_at") or ""
+            if min_alter_tage is not None or max_alter_tage is not None:
+                if not found_at:
+                    return False
+                try:
+                    found_dt = datetime.fromisoformat(found_at.replace("Z", "+00:00").split("+")[0])
+                except (ValueError, TypeError):
+                    return False
+                age_days = (now - found_dt).days
+                if min_alter_tage is not None and age_days < min_alter_tage:
+                    return False
+                if max_alter_tage is not None and age_days > max_alter_tage:
+                    return False
+            # Firma
+            if firma_lc and firma_lc not in (job.get("company") or "").lower():
+                return False
+            # Titel-Filter
+            title_lc = (job.get("title") or "").lower()
+            if title_must and not all(t in title_lc for t in title_must):
+                return False
+            if title_must_not and any(t in title_lc for t in title_must_not):
+                return False
+            # Beschreibung
+            if desc_must_not:
+                desc_lc = (job.get("description") or "").lower()
+                if any(t in desc_lc for t in desc_must_not):
+                    return False
+            return True
+
+        matched = [j for j in candidates if _matches(j)]
+        if max_treffer and max_treffer > 0:
+            matched = matched[:max_treffer]
+
+        # 4) Dry-Run: nur Vorschau zurueck
+        if dry_run:
+            preview = [
+                {
+                    "hash": (j.get("hash") or "")[:12],
+                    "title": j.get("title"),
+                    "company": j.get("company"),
+                    "score": j.get("score"),
+                    "source": j.get("source"),
+                    "found_at": (j.get("found_at") or "")[:10],
+                }
+                for j in matched[:10]
+            ]
+            return {
+                "dry_run": True,
+                "bewertung": bewertung,
+                "gruende": reason_list if bewertung == "passt_nicht" else None,
+                "anzahl_treffer": len(matched),
+                "vorschau": preview,
+                "hinweis": (
+                    f"{len(matched)} Stellen wuerden bewertet werden. "
+                    "Pruefe die Vorschau und rufe das Tool erneut mit dry_run=False auf, "
+                    "um die Aenderung tatsaechlich anzuwenden."
+                ),
+            }
+
+        # 5) Tatsaechliche Anwendung — durch die echte Lifecycle-Logik
+        if not matched:
+            return {
+                "dry_run": False,
+                "bearbeitet": 0,
+                "hinweis": "Kein Treffer mit den gegebenen Filtern.",
+            }
+
+        bearbeitet = 0
+        last_counts: dict = {}
+        bulk_auto_adjustments: list[str] = []
+        sample_processed: list[dict] = []
+        for j in matched:
+            job_hash = j.get("hash")
+            if not job_hash:
+                continue
+            try:
+                if bewertung == "passt_nicht":
+                    ctx = _apply_dismiss_with_lifecycle(job_hash, reason_list, collect_hints=False)
+                    last_counts = ctx["counts"]
+                    bulk_auto_adjustments.extend(ctx["auto_adjustments"])
+                else:  # passt
+                    db.restore_job(job_hash)
+                bearbeitet += 1
+                if len(sample_processed) < 5:
+                    sample_processed.append({
+                        "hash": (job_hash or "")[:12],
+                        "title": j.get("title"),
+                        "company": j.get("company"),
+                    })
+            except Exception as exc:
+                logger.warning("Bulk-Bewertung fuer %s fehlgeschlagen: %s", job_hash, exc)
+
+        # Aggregierte Hinweise — nur einmal, nicht pro Eintrag
+        hinweise = []
+        if bulk_auto_adjustments:
+            unique_adj = list(dict.fromkeys(bulk_auto_adjustments))
+            hinweise.append(
+                f"Scoring wurde {len(bulk_auto_adjustments)}x automatisch angepasst "
+                f"({len(unique_adj)} eindeutige Aenderungen): " + "; ".join(unique_adj[:5])
+            )
+
+        result = {
+            "dry_run": False,
+            "bewertung": bewertung,
+            "gruende": reason_list if bewertung == "passt_nicht" else None,
+            "bearbeitet": bearbeitet,
+            "stichprobe_bearbeitet": sample_processed,
+        }
+        if last_counts:
+            result["ablehnungs_statistik"] = {
+                k: v for k, v in sorted(last_counts.items(), key=lambda x: -x[1])[:5]
+            }
+        if hinweise:
+            result["hinweise"] = hinweise
+        return result
 
     @mcp.tool()
     def stellen_anzeigen(

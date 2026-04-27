@@ -1362,3 +1362,246 @@ def register(mcp, db, logger):
             "laenge": len(text),
             "hinweis": "Die Recherche ist jetzt dauerhaft gespeichert und bleibt über Chat-Sessions hinweg verfügbar."
         }
+
+    # ========================================================================
+    # v1.6.3 / #514 — Capability-Awareness + Limitation-Reporting
+    # ========================================================================
+
+    @mcp.tool()
+    def pbp_capabilities(kategorie: str = "") -> dict:
+        """Liefert eine kuratierte Uebersicht aller PBP-MCP-Faehigkeiten (#514).
+
+        ZWECK: Wenn du als KI unklar bist was PBP fuer eine User-Anfrage anbieten
+        kann — RUFE DIESES TOOL AUF, bevor du auf andere Tools (Filesystem,
+        sqlite-MCP, Direct-DB-Write) ausweichst. Direkte Eingriffe in die
+        SQLite-Datei umgehen die PBP-Lifecycle-Logik und korrumpieren die
+        Datenkonsistenz.
+
+        Args:
+            kategorie: Optional. Eine der folgenden Kategorien fuer Detail-View:
+                'profil', 'jobsuche', 'bewerbungen', 'dokumente', 'kalender',
+                'analyse', 'export', 'workflows', 'einstellungen', 'system'.
+                Leer = Uebersicht aller Kategorien.
+        """
+        catalog = {
+            "profil": {
+                "use_case": "Profil aufbauen, bearbeiten, exportieren. Skills, Berufserfahrung, Ausbildung, Praeferenzen.",
+                "hauptwerkzeuge": [
+                    "ersterfassung_starten — Gefuehrtes Profil-Interview",
+                    "dokument_profil_extrahieren — CV-Upload -> Profilfelder",
+                    "profil_bearbeiten / position_hinzufuegen / skill_hinzufuegen / ausbildung_hinzufuegen",
+                    "profile_auflisten / profil_wechseln / neues_profil_erstellen — Multi-Profil",
+                    "profil_exportieren / profil_importieren — Backup & Migration",
+                ],
+            },
+            "jobsuche": {
+                "use_case": "Stellen suchen, bewerten, sortieren. Suchkriterien, Quellen-Diagnose, Scoring.",
+                "hauptwerkzeuge": [
+                    "jobsuche_starten — Hintergrund-Suche auf konfigurierten Quellen",
+                    "jobsuche_status — Fortschritt einer laufenden Suche",
+                    "stellen_anzeigen — Liste mit Filter (Score, Quelle, Alter)",
+                    "stelle_bewerten — EINZELNE Stelle aussortieren oder als-passend",
+                    "stellen_bulk_bewerten — VIELE Stellen mit Filter aussortieren (#514). IMMER bevorzugen wenn mehr als ~10 Stellen betroffen. dry_run=True Default.",
+                    "stelle_bearbeiten / stelle_manuell_anlegen / stelle_mergen",
+                    "fit_analyse — Profil-vs-Stelle Punkt-fuer-Punkt-Vergleich",
+                    "scoring_konfigurieren / scoring_vorschau — Gewichtungs-Regler",
+                    "suchkriterien_setzen / _bearbeiten / _anzeigen",
+                    "blacklist_verwalten — Firmen/Keywords ausschliessen",
+                    "scraper_diagnose — Welche Quellen liefern aktuell?",
+                ],
+            },
+            "bewerbungen": {
+                "use_case": "Bewerbungen anlegen, tracken, Status, Notizen, Follow-ups, Anschreiben, Dossier.",
+                "hauptwerkzeuge": [
+                    "bewerbung_erstellen / _bearbeiten / _loeschen / _details",
+                    "bewerbung_status_aendern — Lifecycle (offen -> eingeladen -> ...)",
+                    "bewerbungen_anzeigen — Liste mit Filtern",
+                    "bewerbung_notiz — Notizen je Bewerbung",
+                    "anschreiben_exportieren / lebenslauf_angepasst_exportieren — Tailored Export",
+                    "antwort_formulieren — E-Mail-Antwort generieren",
+                    "nachfass_planen / nachfass_anzeigen — Follow-up-Tracking",
+                    "follow_up_erledigen / _hinfaellig / _verschieben",
+                    "kennlerngespraech_abschliessen — Interview-Nachgang",
+                    "bewerbungsbericht_exportieren — PDF-Bericht",
+                    "ablehnungs_muster — Was wird oft abgelehnt?",
+                ],
+            },
+            "dokumente": {
+                "use_case": "Dokumente hochladen, analysieren, mit Bewerbungen verknuepfen.",
+                "hauptwerkzeuge": [
+                    "dokumente_zur_analyse — Liste der noch nicht analysierten Dokumente",
+                    "dokumente_batch_analysieren — Mehrere Dokumente analysieren",
+                    "bewerbungs_dokumente_erkennen — Auto-Klassifikation",
+                    "dokumente_bulk_markieren — Status-Bulk-Update",
+                    "dokument_verknuepfen / dokument_entverknuepfen — Bewerbungs-Zuordnung",
+                    "dokument_status_setzen / dokument_loeschen",
+                    "dokument_profil_extrahieren — CV -> Profil-Daten",
+                ],
+            },
+            "kalender": {
+                "use_case": "Termine, Meetings, ICS-Export.",
+                "hauptwerkzeuge": [
+                    "meeting_hinzufuegen / _bearbeiten / _loeschen / meetings_anzeigen",
+                ],
+            },
+            "analyse": {
+                "use_case": "Stellen-, Markt-, Skill-, Stil-Auswertungen. Recherche speichern.",
+                "hauptwerkzeuge": [
+                    "fit_analyse — Profil vs Stelle",
+                    "skill_gap_analyse — Welche Skills fehlen fuer Wunschstellen?",
+                    "lebenslauf_bewerten — 3-Perspektiven-Analyse (Recruiter/ATS/Berater)",
+                    "gehalt_marktanalyse / branchen_trends — Marktdaten",
+                    "firmen_recherche — Hintergrund zu einer Firma",
+                    "keyword_vorschlaege — Welche Keywords aus erfolgreichen Bewerbungen?",
+                    "stil_auswertung — Schreibstil-Profil",
+                    "analyse_plan_erstellen — Welche Analysen sind sinnvoll?",
+                    "recherche_speichern — Permanente Notiz fuer Profil/Stelle/Bewerbung",
+                ],
+            },
+            "export": {
+                "use_case": "CV, Anschreiben, Bericht, Backup, ZIP-Export.",
+                "hauptwerkzeuge": [
+                    "lebenslauf_exportieren / lebenslauf_angepasst_exportieren — PDF/DOCX",
+                    "anschreiben_exportieren — PDF/DOCX",
+                    "bewerbungsbericht_exportieren — PDF-Pipeline-Report",
+                    "profil_report_exportieren — Profil-Snapshot",
+                    "profil_exportieren — Vollstaendiges Profil als JSON-Backup",
+                ],
+            },
+            "workflows": {
+                "use_case": "Mehrstufige Gespraechsfuehrung mit dem User.",
+                "hauptwerkzeuge": [
+                    "workflow_starten — Generischer Workflow-Einstieg",
+                    "ersterfassung_starten — Profil-Onboarding",
+                    "jobsuche_workflow_starten — Geleitete Suchkriterien-Ergaenzung",
+                ],
+            },
+            "einstellungen": {
+                "use_case": "Job-Quellen, Scoring-Gewichtung, Such-Radius, Mindest-Score, Blacklist, Jobtitel.",
+                "hauptwerkzeuge": [
+                    "scoring_konfigurieren / scoring_vorschau",
+                    "blacklist_verwalten",
+                    "jobtitel_vorschlagen / jobtitel_verwalten",
+                ],
+            },
+            "system": {
+                "use_case": "Diagnose, Capability-Discovery, Limitation-Reporting.",
+                "hauptwerkzeuge": [
+                    "pbp_diagnose — System-Health-Check",
+                    "pbp_capabilities — Diese Tool-Uebersicht (#514)",
+                    "pbp_grenze_melden — Wenn PBP fuer eine Aufgabe nichts hat (#514). ANSTATT auf andere Tools auszuweichen.",
+                    "scraper_diagnose — Job-Quellen-Status",
+                ],
+            },
+        }
+
+        if not kategorie:
+            return {
+                "ueberblick": (
+                    "PBP-MCP bietet 95 Tools in 10 Kategorien. Ruf dieses Tool mit "
+                    "kategorie='profil', 'jobsuche', 'bewerbungen', 'dokumente', "
+                    "'kalender', 'analyse', 'export', 'workflows', 'einstellungen' "
+                    "oder 'system' fuer Detail-View auf."
+                ),
+                "anti_bypass_hinweis": (
+                    "WICHTIG: Wenn ein User ueber Bewerbungs-Daten redet, nutze IMMER "
+                    "PBP-Tools — niemals direkte Eingriffe in die SQLite-Datei oder "
+                    "Filesystem-Tools. Bei fehlender Tool-Abdeckung: pbp_grenze_melden."
+                ),
+                "kategorien": {
+                    name: {"use_case": data["use_case"], "tool_count": len(data["hauptwerkzeuge"])}
+                    for name, data in catalog.items()
+                },
+            }
+
+        kat_lower = kategorie.lower().strip()
+        if kat_lower not in catalog:
+            return {
+                "fehler": f"Unbekannte Kategorie '{kategorie}'.",
+                "verfuegbare_kategorien": sorted(catalog.keys()),
+            }
+
+        return {
+            "kategorie": kat_lower,
+            "use_case": catalog[kat_lower]["use_case"],
+            "tools": catalog[kat_lower]["hauptwerkzeuge"],
+        }
+
+    @mcp.tool()
+    def pbp_grenze_melden(
+        was_versucht: str,
+        warum_pbp_nicht_passt: str,
+        vorschlag: str = "",
+    ) -> dict:
+        """Meldet eine PBP-Tool-Grenze, die ein neues Issue rechtfertigt (#514).
+
+        ZWECK: Wenn du als KI eine User-Anfrage hast, fuer die PBP keine
+        passenden Tools bietet — STATT auf Filesystem-MCP, sqlite-MCP oder
+        direkte DB-Writes auszuweichen, melde die Grenze hier.
+
+        Args:
+            was_versucht: Was wollte der User tun? (1-2 Saetze)
+            warum_pbp_nicht_passt: Welche PBP-Tools hast du gepruft und warum
+                reichen sie nicht? (1-3 Saetze)
+            vorschlag: Optional — wie koennte ein passendes Tool aussehen?
+        """
+        from datetime import datetime as _dt
+        from urllib.parse import quote
+        from .. import __version__ as _ver
+        from ..database import get_data_dir
+
+        # 1) Loggen
+        try:
+            log_path = get_data_dir() / "limitations.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(
+                    f"[{_dt.now().isoformat()}] v{_ver}\n"
+                    f"  Was: {was_versucht}\n"
+                    f"  Warum nicht: {warum_pbp_nicht_passt}\n"
+                    f"  Vorschlag: {vorschlag or '(keiner)'}\n"
+                    f"---\n"
+                )
+        except Exception as exc:
+            logger.warning("limitations.log konnte nicht geschrieben werden: %s", exc)
+
+        # 2) Issue-Body vorbereiten
+        issue_title = f"PBP-Grenze gemeldet: {was_versucht[:60]}"
+        issue_body = (
+            f"## Was wollte der User tun?\n\n{was_versucht}\n\n"
+            f"## Warum reichen die bestehenden PBP-Tools nicht?\n\n"
+            f"{warum_pbp_nicht_passt}\n\n"
+        )
+        if vorschlag:
+            issue_body += f"## Vorschlag fuer ein neues Tool / Erweiterung\n\n{vorschlag}\n\n"
+        issue_body += (
+            f"---\n\n"
+            f"_Gemeldet aus PBP v{_ver} via `pbp_grenze_melden`. "
+            f"Anti-DB-Bypass-Pattern (#514)._"
+        )
+
+        gh_url = (
+            "https://github.com/MadGapun/PBP/issues/new"
+            f"?title={quote(issue_title)}"
+            f"&body={quote(issue_body)}"
+            f"&labels=enhancement"
+        )
+
+        return {
+            "status": "gemeldet",
+            "hinweis_fuer_user": (
+                "Die fehlende Tool-Abdeckung wurde erkannt und in der lokalen "
+                "limitations.log dokumentiert. PBP wird nicht durch direkten "
+                "DB-Eingriff umgangen — stattdessen kann der unten verlinkte "
+                "GitHub-Issue-Entwurf gepostet werden, damit das Feature in "
+                "einer kuenftigen Version landet."
+            ),
+            "gh_issue_url": gh_url,
+            "vorgeschlagener_issue_titel": issue_title,
+            "vorgeschlagener_issue_body": issue_body,
+            "moeglicher_workaround": (
+                "Bis ein passendes Tool existiert: User kann die Aktion "
+                "manuell im PBP-Dashboard (http://localhost:8200) durchfuehren — "
+                "dort werden alle Lifecycle-Hooks korrekt ausgeloest."
+            ),
+        }

@@ -113,6 +113,10 @@ EXPECTED_TOOL_NAMES = {
     "follow_up_hinfaellig",
     "follow_up_verschieben",
     "position_aus_bewerbung_uebernehmen",
+    # v1.6.3: Anti-DB-Bypass-Pattern (#514)
+    "stellen_bulk_bewerten",
+    "pbp_capabilities",
+    "pbp_grenze_melden",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -206,7 +210,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 92  # v1.6.0-beta.11: +stelle_mergen (#470); plus stil_auswertung (#406)
+        assert len(tools) == 95  # v1.6.3: +stellen_bulk_bewerten / pbp_capabilities / pbp_grenze_melden (#514)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

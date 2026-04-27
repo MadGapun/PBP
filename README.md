@@ -9,9 +9,9 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.6.2-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.6.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-537-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-92-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
+[![Tools](https://img.shields.io/badge/MCP_Tools-95-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
 [![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
@@ -196,7 +196,7 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 92 Tools in 8 Modulen |
+| **MCP-Tools** | 95 Tools in 8 Modulen |
 | **Workflows** | 18 gefuehrte Workflows |
 | **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
@@ -216,6 +216,26 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 ## Changelog
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
+
+Drei Hebel um zu verhindern dass Claude bei groesseren Datenmengen
+die PBP-Lifecycle-Logik durch direkte SQLite-Writes umgeht:
+
+- **`stellen_bulk_bewerten`** — Filter-basiertes Bulk-Aussortieren mit
+  `dry_run=True` Default. Loest den Real-Case „500 Stellen, hunderte
+  falsches Fachgebiet, sortier mir die alle aus" in einem Tool-Call
+  statt 200 Einzelaufrufen.
+- **`pbp_capabilities`** — Read-only Meta-Tool das Claude eine
+  kuratierte Tool-Uebersicht liefert (10 Kategorien). Damit Claude
+  weiss was PBP kann, bevor es auf andere MCP-Tools ausweicht.
+- **`pbp_grenze_melden`** — Wenn PBP fuer einen Use-Case nichts hat,
+  wird die Grenze geloggt und ein vorausgefuellter GitHub-Issue-Body
+  geliefert. Strukturierte Reibung beim Bypass-Versuch.
+
+Plus: PBP-MCP-Server-Instructions die beim Initialize-Handshake an
+Claude gesendet werden — Anti-Bypass-Hinweis ist damit Teil des
+System-Kontextes, nicht erst Reaktion auf einen Workaround-Versuch.
 
 ### v1.6.2 — Foundation-Release (Stable, 2026-04-26)
 

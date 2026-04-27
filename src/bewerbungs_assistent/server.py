@@ -41,9 +41,41 @@ try:
 except Exception as e:
     logger.warning("Zombie-Job-Cleanup fehlgeschlagen: %s", e)
 
+# PBP-MCP Instruktionen — werden beim MCP-Initialize-Handshake an
+# Claude Desktop gesendet und sind Teil des System-Kontextes fuer diesen
+# Server. v1.6.3 / #514: Anti-DB-Bypass-Pattern explizit machen.
+PBP_INSTRUCTIONS = """\
+PBP (Persoenliches Bewerbungs-Portal) ist die Quelle fuer ALLE
+Bewerbungs-bezogenen Aktionen. Wenn der User ueber Stellen, Bewerbungen,
+Lebenslauf, Anschreiben, Dokumente, Termine, Statistiken, Suche oder
+Profil redet, NUTZE PBP-Tools.
+
+NIEMALS direkt in die SQLite-Datei (pbp.db) schreiben oder ueber andere
+MCP-Tools (Filesystem, sqlite, Desktop-Commander) an PBP-Daten gehen.
+Direkte DB-Writes umgehen die PBP-Lifecycle-Logik (Audit-Log,
+Status-Triggers, Lerneffekte, Backup-Hooks, Validierungen) und
+korrumpieren die Datenkonsistenz.
+
+GROSSE MENGEN VON STELLEN AUSSORTIEREN — nicht 200x stelle_bewerten
+aufrufen, sondern 'stellen_bulk_bewerten' mit Filtern (min_score,
+titel_enthaelt_nicht, beschreibung_enthaelt_nicht, ...) und
+dry_run=True (Default) → erst Vorschau, dann mit dry_run=False
+anwenden.
+
+UEBERSICHT WAS PBP KANN — bei Unklarheit rufe 'pbp_capabilities()' auf.
+Das Tool liefert kuratierte, nach Use-Cases gruppierte Tool-Listen.
+
+WENN PBP NICHTS PASSENDES BIETET — rufe 'pbp_grenze_melden(...)' mit
+einer kurzen Beschreibung auf. Das informiert den User UND legt einen
+Datensatz fuer ein potentielles GitHub-Issue an. Niemals stillschweigend
+auf Workarounds ausweichen — die fehlende Tool-Abdeckung ist Wert
+gemeldet zu werden, damit PBP daraus lernt.
+"""
+
 # Create MCP server
 mcp = FastMCP(
     "Bewerbungs-Assistent",
+    instructions=PBP_INSTRUCTIONS,
 )
 
 

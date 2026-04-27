@@ -7,6 +7,124 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.3] - 2026-04-27 — Anti-DB-Bypass-Pattern (#514)
+
+Hotfix-Release nach Real-Case-Beobachtung am Tag nach Foundation-Release:
+**Claude greift bei groesseren Datenmengen zu Workarounds und schreibt
+direkt in die SQLite-Datei** — weil PBP fuer einige reale Aufgaben
+(z.B. „aussortier mir alle 200 Stellen mit falschem Fachgebiet") keine
+adaequate Tool-Abdeckung hat. Direkte DB-Writes umgehen aber die
+PBP-Lifecycle-Logik (Audit-Log, Status-Triggers, Lerneffekte,
+Backup-Hooks, Validierungen) und korrumpieren die Datenkonsistenz.
+
+v1.6.3 adressiert das Anti-Pattern aus drei Richtungen gleichzeitig.
+
+### 🪖 Drei Hebel gegen den DB-Bypass
+
+#### 1. `stellen_bulk_bewerten` — der konkrete Schmerz
+
+Filterbasierte Bulk-Bewertung von Stellen mit `dry_run=True` als Default.
+Loest den 500-Stellen-Real-Case: hunderte Treffer mit falschem
+Fachgebiet aussortieren in einem einzigen Tool-Call statt 200x
+`stelle_bewerten`.
+
+Filter (kombinierbar mit AND-Logik):
+- `min_score` / `max_score`
+- `min_alter_tage` / `max_alter_tage`
+- `quelle` (z.B. `bundesagentur`)
+- `firma` (case-insensitive Substring)
+- `titel_enthaelt` / `titel_enthaelt_nicht` (Listen)
+- `beschreibung_enthaelt_nicht` (Listen — Hauptwerkzeug fuer Fachgebiets-
+  Aussortierung)
+- `max_treffer` (harter Cap)
+
+Beispiel:
+
+```
+stellen_bulk_bewerten(
+    bewertung='passt_nicht',
+    gruende=['falsches_fachgebiet'],
+    titel_enthaelt_nicht=['Pflege', 'Vertrieb'],
+    dry_run=True   # erst pruefen!
+)
+→ {"dry_run": True, "anzahl_treffer": 137, "vorschau": [...10 Stellen...]}
+```
+
+Die ganze Lifecycle-Logik (`dismiss_counts`-Lerneffekt, Auto-Adjust-
+Scoring, `dismiss_reasons`-Statistik) laeuft auch beim Bulk durch — die
+neue Helper-Funktion `_apply_dismiss_with_lifecycle` wird sowohl von
+`stelle_bewerten` als auch von `stellen_bulk_bewerten` aufgerufen.
+
+#### 2. `pbp_capabilities` — Awareness statt Workaround
+
+Read-only Meta-Tool das eine **kuratierte Uebersicht** aller PBP-
+Faehigkeiten liefert, gegliedert nach 10 Kategorien (profil, jobsuche,
+bewerbungen, dokumente, kalender, analyse, export, workflows,
+einstellungen, system). Aufruf:
+
+```
+pbp_capabilities()                       # Uebersicht aller Kategorien
+pbp_capabilities('jobsuche')             # Konkrete Tool-Liste der Kategorie
+```
+
+Wenn Claude unklar ist was PBP fuer eine User-Anfrage anbietet, ruft es
+dieses Tool auf — **bevor** es auf andere Tools (Filesystem-MCP,
+sqlite-MCP, Direct-DB-Write) ausweicht.
+
+#### 3. `pbp_grenze_melden` — strukturierte Reibung beim Bypass-Versuch
+
+Wenn Claude trotz `pbp_capabilities` keine passende Funktion findet,
+ist das ein Signal **dass etwas im Tool-Catalog fehlt** — nicht eine
+Einladung zum DB-Bypass. Das neue Tool:
+
+1. **Loggt** die fehlende Tool-Abdeckung nach `data/limitations.log`
+   (mit Zeitstempel + Versions-Info)
+2. **Liefert einen vorausgefuellten GitHub-Issue-Body** den der User
+   direkt bei `github.com/MadGapun/PBP/issues/new` als Issue eroeffnen
+   kann (mit URL-encodeten Query-Params zum direkten Vor-Ausfuellen)
+3. **Schlaegt einen sauberen Workaround vor** — meistens „im Dashboard
+   manuell durchfuehren, da werden alle Hooks korrekt ausgeloest"
+
+Damit wird jede unbedeckte Tool-Luecke ueber Zeit zu einem GitHub-Issue
+und damit zu einem zukuenftigen Tool — statt still durch DB-Bypass
+„geloest" zu werden.
+
+### Zusaetzlich: PBP-MCP-Server-Instructions
+
+FastMCP unterstuetzt einen `instructions`-String der beim
+MCP-Initialize-Handshake an Claude Desktop gesendet wird und Teil des
+System-Kontextes fuer den PBP-MCP wird. v1.6.3 fuegt einen knappen
+Anti-Bypass-Prompt ein, der drei Punkte adressiert:
+
+- „PBP ist die Quelle fuer ALLE bewerbungs-bezogenen Aktionen"
+- „NIEMALS direkt in die SQLite-Datei oder ueber andere MCP-Tools an
+  PBP-Daten gehen — Lifecycle-Logik wird umgangen"
+- „Bei Unklarheit `pbp_capabilities()`, bei Grenze `pbp_grenze_melden()`"
+
+Damit sieht Claude den Anti-Bypass-Hinweis schon **bevor** das erste
+Tool aufgerufen wird, nicht erst wenn ein Workaround droht.
+
+### Stats
+
+- **95 MCP-Tools** in 10 Kategorien (vorher 92)
+- **15 Tests fuer den neuen Code** (6 Bulk-Tool, 6 Capabilities/Grenze,
+  3 Registry) — alle gruen
+- **PBP-Server-Instructions: 1270 Zeichen** Anti-Bypass-Prompt
+
+### Migration
+
+- Keine Schema-Aenderungen
+- Keine Breaking API-Changes — `stelle_bewerten` Verhalten unveraendert
+- Frontend unveraendert (alle neuen Tools sind MCP-only)
+
+### Fixes
+
+- 2 MCP-Registry-Tests aktualisiert auf Tool-Count 95 + neue Namen
+- `pbp_diagnose` Helper-Funktion `_apply_dismiss_with_lifecycle`
+  extrahiert (vorher inline in `stelle_bewerten`)
+
+---
+
 ## [1.6.2] - 2026-04-26 — Foundation-Release (Stable)
 
 > **Hinweis zur Versionsnummer:** Der Sprint hatte 35 Beta-Iterationen
