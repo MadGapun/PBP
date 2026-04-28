@@ -48,7 +48,7 @@ function extractionBadge(status) {
 }
 
 export default function DocumentsPage() {
-  const { reloadKey, pushToast, navigateTo } = useApp();
+  const { reloadKey, pushToast, navigateTo, copyPrompt } = useApp();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [], applications: [], unlinked_count: 0, unanalyzed_count: 0 });
   const [query, setQuery] = useState("");
@@ -252,6 +252,42 @@ export default function DocumentsPage() {
           <input ref={folderInputRef} className="hidden" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xml,.rtf,.msg,.eml" webkitdirectory="" directory="" onChange={async (e) => { await processFiles(e.target.files); e.target.value = ""; }} />
         </div>
       </Card>
+
+      {/* #537 v1.6.5: Analyse-Banner — sichtbar wenn nicht-analysierte Dokumente vorhanden.
+          Vorher musste der User den Workflow im Dashboard suchen ("Profil ergaenzen") —
+          jetzt direkt im Docs-Tab erreichbar wo die Dokumente liegen. */}
+      {data.unanalyzed_count > 0 && (
+        <Card className="mb-4 rounded-xl border-violet-500/20 bg-violet-500/[0.06]">
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <Sparkles size={18} className="text-violet-400 shrink-0" />
+            <div className="flex-1 min-w-[240px]">
+              <div className="text-sm font-medium text-ink">
+                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} noch nicht analysiert
+              </div>
+              <div className="text-xs text-muted/70">
+                Claude extrahiert automatisch Skills, Berufserfahrung, Ausbildung und mehr —
+                je nach Dokumenttyp. Prompt kopieren und in Claude Desktop einfuegen.
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                await copyPrompt("/profil_erweiterung");
+                pushToast(
+                  "Analyse-Prompt kopiert — in Claude Desktop einfuegen",
+                  "success",
+                  { duration: 3000 }
+                );
+              }}
+            >
+              <Copy size={14} className="mr-1" />
+              Analyse-Prompt kopieren
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Search + Filters (#366) */}
       <div className="mb-4 flex flex-wrap items-center gap-3">

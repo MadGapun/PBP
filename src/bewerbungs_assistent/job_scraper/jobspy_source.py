@@ -74,7 +74,18 @@ def _map_row(row: Any, site: str) -> dict:
         val = row.get(name, default) if hasattr(row, "get") else default
         if val is None:
             return default
-        return str(val)
+        # v1.6.5 (#550): pandas-NaN wuerde zu String "nan" konvertiert werden
+        # und dann als Firmenname auftauchen. Abfangen.
+        try:
+            import math
+            if isinstance(val, float) and math.isnan(val):
+                return default
+        except Exception:
+            pass
+        s = str(val).strip()
+        if s.lower() in ("nan", "none", "null", "<na>"):
+            return default
+        return s
 
     title = _g("title")
     company = _g("company", "Nicht angegeben")

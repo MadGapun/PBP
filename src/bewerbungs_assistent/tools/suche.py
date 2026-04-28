@@ -1,4 +1,4 @@
-"""Suchkriterien und Blacklist-Verwaltung — 4 Tools."""
+"""Suchkriterien und Blacklist-Verwaltung — 5 Tools (#559: blacklist_anwenden)."""
 
 
 def register(mcp, db, logger):
@@ -13,6 +13,9 @@ def register(mcp, db, logger):
         standort: str = "",
         stellentypen: list[str] = None,
         max_entfernung: dict = None,
+        min_gehalt: float = None,
+        min_tagessatz: float = None,
+        min_stundensatz: float = None,
         custom_kriterien: dict = None
     ) -> dict:
         """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
@@ -37,6 +40,10 @@ def register(mcp, db, logger):
             max_entfernung: Max. Entfernung pro Stellentyp in km (#166).
                 z.B. {"festanstellung": 50, "freelance": 200, "teilzeit": 30}
                 Die Entfernung beeinflusst das Fit-Scoring als Malus.
+            min_gehalt: Wunsch-Jahresgehalt in EUR (#544). Beeinflusst Fit-Scoring
+                via Gehalt-Dimension (Malus bei deutlich niedrigerem Angebot).
+            min_tagessatz: Wunsch-Tagessatz in EUR fuer Freelance (#544).
+            min_stundensatz: Wunsch-Stundensatz in EUR fuer Teilzeit/Werkstudent (#544).
             custom_kriterien: Eigene Kriterien mit Gewichtung, z.B. {"homeoffice": 8, "gehalt": 7}
         """
         if keywords_muss:
@@ -53,6 +60,14 @@ def register(mcp, db, logger):
             db.set_search_criteria("stellentypen", stellentypen or ["festanstellung"])
         if max_entfernung is not None:
             db.set_search_criteria("max_entfernung", max_entfernung)
+        # #544: Gehalts-Wuensche als top-level Parameter (nicht mehr in custom_kriterien
+        # versteckt). Scoring liest sie aus criteria.get("min_gehalt"/...).
+        if min_gehalt is not None:
+            db.set_search_criteria("min_gehalt", float(min_gehalt))
+        if min_tagessatz is not None:
+            db.set_search_criteria("min_tagessatz", float(min_tagessatz))
+        if min_stundensatz is not None:
+            db.set_search_criteria("min_stundensatz", float(min_stundensatz))
         if custom_kriterien:
             db.set_search_criteria("custom_kriterien", custom_kriterien)
 
@@ -205,3 +220,101 @@ def register(mcp, db, logger):
                 "hinweis": "Nutze blacklist_verwalten('entfernen', entry_id=<id>) um Einträge zu entfernen."
             }
         return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen', 'anzeigen' oder 'entfernen'."}
+
+    @mcp.tool()
+    def blacklist_anwenden(dry_run: bool = True) -> dict:
+        """Wendet die aktuelle Blacklist retroaktiv auf alle aktiven Stellen an (#559).
+
+        Wenn die Blacklist NACH einer Jobsuche erweitert wird, bleiben Stellen
+        der neuen Blacklist-Firmen weiter aktiv. Dieses Tool sortiert sie
+        nachtraeglich aus, ohne die Suche neu starten zu muessen.
+
+        Args:
+            dry_run: True (Standard) zeigt nur die Vorschau, False fuehrt aus.
+
+        Returns:
+            dry_run=True: {"betroffen": N, "vorschau": [...10...]}
+            dry_run=False: {"deaktiviert": N, "betroffene_firmen": [...]}
+        """
+        bl_entries = db.get_blacklist()
+        bl_firms = [e["value"] for e in bl_entries if e.get("type") == "firma"]
+        bl_keywords = [e["value"] for e in bl_entries if e.get("type") == "keyword"]
+
+        if not bl_firms and not bl_keywords:
+            return {
+                "status": "leer",
+                "nachricht": "Blacklist ist leer. Nutze blacklist_verwalten('hinzufuegen', ...).",
+            }
+
+        # Aktive Stellen laden (ohne Blacklist-Filter, sonst sehen wir nichts)
+        active = db.get_active_jobs()
+        bl_firms_lc = [f.lower() for f in bl_firms]
+        bl_keywords_lc = [k.lower() for k in bl_keywords]
+
+        matched = []
+        for j in active:
+            company_lc = (j.get("company") or "").lower()
+            title_lc = (j.get("title") or "").lower()
+            firma_treffer = next(
+                (f for f in bl_firms_lc if f and (f in company_lc or company_lc in f)),
+                None,
+            )
+            kw_treffer = next(
+                (k for k in bl_keywords_lc if k and (k in company_lc or k in title_lc)),
+                None,
+            )
+            if firma_treffer or kw_treffer:
+                matched.append({
+                    "job": j,
+                    "trigger": "firma" if firma_treffer else "keyword",
+                    "wert": firma_treffer or kw_treffer,
+                })
+
+        if not matched:
+            return {
+                "status": "kein_treffer",
+                "nachricht": "Keine aktiven Stellen passen zur Blacklist. Nichts zu tun.",
+            }
+
+        if dry_run:
+            preview = [
+                {
+                    "hash": (m["job"].get("hash") or "")[:12],
+                    "titel": m["job"].get("title"),
+                    "firma": m["job"].get("company"),
+                    "blacklist_typ": m["trigger"],
+                    "blacklist_wert": m["wert"],
+                }
+                for m in matched[:10]
+            ]
+            return {
+                "dry_run": True,
+                "betroffen": len(matched),
+                "vorschau": preview,
+                "hinweis": (
+                    f"{len(matched)} aktive Stelle(n) wuerden aussortiert. "
+                    "Erneut mit dry_run=False aufrufen, um sie zu deaktivieren."
+                ),
+            }
+
+        # Tatsaechlich anwenden — nutzt db.dismiss_job (resolve_job_hash inside),
+        # damit profile-scoped Hashes korrekt aufgeloest werden.
+        deaktiviert = 0
+        firmen_betroffen: dict[str, int] = {}
+        for m in matched:
+            job_hash = m["job"].get("hash")
+            if not job_hash:
+                continue
+            reason = f"{m['trigger']}_blacklisted"
+            try:
+                db.dismiss_job(job_hash, reason)
+                deaktiviert += 1
+                firma = m["job"].get("company") or "?"
+                firmen_betroffen[firma] = firmen_betroffen.get(firma, 0) + 1
+            except Exception as exc:
+                logger.warning("blacklist_anwenden: %s fehlgeschlagen: %s", job_hash, exc)
+        return {
+            "dry_run": False,
+            "deaktiviert": deaktiviert,
+            "betroffene_firmen": dict(sorted(firmen_betroffen.items(), key=lambda x: -x[1])[:10]),
+        }

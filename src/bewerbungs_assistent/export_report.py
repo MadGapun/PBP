@@ -89,6 +89,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     rejection_patterns = report_data.get("rejection_patterns", {}) or {}
     follow_up_summary = report_data.get("follow_ups", {}) or {}
     bewerbungsart_dist = report_data.get("bewerbungsart", {}) or {}
+    # v1.6.5 #540: neue Felder
+    aussortiert = report_data.get("stellen_aussortiert", {}) or {}
+    interviews_historisch = report_data.get("interviews_historisch_total", 0)
 
     # Zeitraumfilter (#173)
     if zeitraum_von or zeitraum_bis:
@@ -198,7 +201,30 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         f"Insgesamt wurden {active_jobs + dismissed_jobs} Stellen analysiert."
     )
     pdf.multi_cell(0, 5, _safe_text(summary_text))
-    pdf.ln(3)
+    pdf.ln(2)
+
+    # v1.6.5 #540: „Habe mich gekuemmert"-Beweis im Executive Summary.
+    # Zeigt aktive Filter-Arbeit, nicht nur Erfolgs-Zahlen — wichtig fuer
+    # User die belegen wollen dass sie sich strukturiert mit der Suche
+    # auseinandergesetzt haben (1014 von 1016 Stellen wurden NICHT
+    # ignoriert, sondern aktiv aussortiert).
+    seen = aussortiert.get("anzahl_gesichtet", 0)
+    dismissed_count = aussortiert.get("anzahl_total", 0)
+    aktiv_count = aussortiert.get("anzahl_aktiv", 0)
+    if seen > 0:
+        pdf.set_font("Helvetica", "B", 9)
+        _line_cell(pdf, 0, 5, _safe_text("Aktive Filter-Arbeit:"))
+        pdf.set_font("Helvetica", "", 8)
+        funnel_text = (
+            f"  Du hast {seen} Stelle(n) gesichtet. Davon wurden "
+            f"{dismissed_count} aktiv aussortiert (mit Grund), "
+            f"{aktiv_count} sind noch in Bearbeitung. "
+            f"Auf {total_apps} hast du dich beworben — "
+            f"{interviews_historisch} davon erreichten ein Interview "
+            f"(historisch, inkl. spaeter abgelehnter)."
+        )
+        pdf.multi_cell(0, 4.5, _safe_text(funnel_text))
+        pdf.ln(3)
 
     # #430: Monthly application chart in summary
     _embed_chart(pdf, _chart_monthly_bar(apps))
@@ -269,14 +295,26 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
     pdf.ln(2)
 
-    # Bewerbungen nach Quelle mit Erfolgsquote (#173)
+    # Bewerbungen nach Quelle mit Erfolgsquote (#173, fix #540 v1.6.5)
+    # v1.6.5: has_reached_interview-Flag (#530) statt nur aktueller Status —
+    # Bewerbungen die nach Interview auf abgelehnt/abgelaufen rutschten
+    # zaehlen jetzt korrekt mit. Vorher zeigte die Tabelle Interviews=0
+    # fuer alle Quellen ausser headhunter, obwohl real mehrere durchlaufen
+    # waren.
     app_by_source = {}
     for a in apps:
         src = a.get("job_source") or a.get("source") or "unbekannt"
         if src not in app_by_source:
             app_by_source[src] = {"total": 0, "interview": 0}
         app_by_source[src]["total"] += 1
-        if a.get("status") in ("interview", "zweitgespraech", "interview_abgeschlossen", "angebot", "angenommen"):
+        # Primaere Quelle: has_reached_interview Flag (Schema v29)
+        # Fallback: aktueller Status (fuer alte DBs ohne Flag)
+        reached_interview = (
+            bool(a.get("has_reached_interview"))
+            or a.get("status") in ("interview", "zweitgespraech", "interview_abgeschlossen",
+                                    "angebot", "angenommen")
+        )
+        if reached_interview:
             app_by_source[src]["interview"] += 1
 
     if app_by_source:
@@ -433,6 +471,38 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, "  Keine Ablehnungen im Zeitraum.")
     pdf.ln(4)
+
+    # --- 7b. Aktiv aussortierte Stellen (#540, v1.6.5) ---
+    # User-Wunsch: „die Passt-Nicht-Statistik ist weg" — diese Sub-Sektion
+    # zeigt was der User selbst aussortiert hat (Stellen-Filter), als
+    # Komplement zu Sektion 7 (Bewerbungs-Ablehnungen durch Recruiter).
+    top_dismiss = aussortiert.get("top_gruende", {}) or {}
+    if top_dismiss:
+        _section_header(pdf, "7b. Eigene Aussortierungen (Stellen)")
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, _safe_text(
+            f"  {aussortiert.get('anzahl_total', 0)} Stelle(n) hast du selbst "
+            f"als 'passt nicht' markiert — mit folgenden Gruenden:"
+        ))
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(255, 243, 224)
+        pdf.cell(110, 5, "  Grund", border=1, fill=True)
+        pdf.cell(30, 5, "Anzahl", border=1, fill=True, align="C")
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 8)
+        for grund, count in list(top_dismiss.items())[:15]:
+            grund_txt = (grund or "(kein Grund)")[:70]
+            pdf.cell(110, 4, _safe_text(f"  {grund_txt}"), border=1)
+            pdf.cell(30, 4, str(count), border=1, align="C")
+            pdf.ln()
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(120, 120, 120)
+        _line_cell(pdf, 0, 4, _safe_text(
+            "  Diese Aussortierungen sind aktive Filter-Arbeit — keine ignorierten Stellen."
+        ))
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(4)
 
     # --- 8. Offene Follow-ups ---
     _section_header(pdf, "8. Offene Follow-ups")

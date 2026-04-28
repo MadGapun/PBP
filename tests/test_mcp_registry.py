@@ -50,6 +50,7 @@ EXPECTED_TOOL_NAMES = {
     "bewerbungen_anzeigen",
     "statistiken_abrufen",
     "suchkriterien_setzen",
+    "blacklist_anwenden",
     "blacklist_verwalten",
     "lebenslauf_exportieren",
     "lebenslauf_angepasst_exportieren",
@@ -210,7 +211,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 95  # v1.6.3: +stellen_bulk_bewerten / pbp_capabilities / pbp_grenze_melden (#514)
+        assert len(tools) == 96  # v1.6.5: +blacklist_anwenden (#559)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

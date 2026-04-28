@@ -718,12 +718,60 @@ export default function SettingsPage() {
 
         {/* ── Logs Tab ── */}
         {settingsTab === "logs" && (
-          <Card className="rounded-2xl">
-            <SectionHeading title="Runtime-Logs" description="Die letzten Zeilen aus dem Dashboard-Log fuer schnelle Diagnose." />
-            <div className="soft-scrollbar glass-log max-h-[28rem] overflow-y-auto p-4">
-              {logs.length ? logs.map((line, index) => <p key={`${index}-${line.slice(0, 20)}`}>{line}</p>) : <p>Keine Logs gefunden.</p>}
-            </div>
-          </Card>
+          <div className="grid gap-4">
+            {/* v1.6.5 (#542): Bug-Report-Card mit Log-Download */}
+            <Card className="rounded-2xl border-sky/20 bg-sky/[0.03]">
+              <SectionHeading
+                title="Bug gefunden? Log mitsenden."
+                description="Der Download enthaelt die letzten Eintraege des Runtime-Logs. Beim Issue auf GitHub bitte als Anhang mitsenden — beschleunigt die Analyse drastisch."
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const resp = await fetch(apiUrl("/api/system/logs/download"));
+                      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                      const blob = await resp.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      const ts = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+                      a.href = url;
+                      a.download = `pbp-log-${ts}.log`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                      pushToast("Log heruntergeladen — bei Bug-Report als Anhang mitsenden", "success", { duration: 4000 });
+                    } catch (error) {
+                      pushToast(`Log-Download fehlgeschlagen: ${error.message}`, "danger");
+                    }
+                  }}
+                >
+                  Log-Datei herunterladen
+                </Button>
+                <a
+                  href="https://github.com/MadGapun/PBP/issues/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-sky hover:underline"
+                >
+                  Issue auf GitHub aufmachen →
+                </a>
+              </div>
+              <p className="mt-3 text-[11px] text-muted/60">
+                <strong className="text-amber/80">Datenschutz-Hinweis:</strong> Das Logfile kann persoenliche Daten enthalten (Firmennamen, Pfade, Job-Hashes). Pruefe es kurz vor dem Hochladen oder schwaerze sensible Stellen.
+              </p>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <SectionHeading title="Runtime-Logs (Live-Vorschau)" description="Die letzten Zeilen aus dem Dashboard-Log fuer schnelle Diagnose." />
+              <div className="soft-scrollbar glass-log max-h-[28rem] overflow-y-auto p-4">
+                {logs.length ? logs.map((line, index) => <p key={`${index}-${line.slice(0, 20)}`}>{line}</p>) : <p>Keine Logs gefunden.</p>}
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* ── Gefahrenzone Tab (#378: konsolidiert) ── */}

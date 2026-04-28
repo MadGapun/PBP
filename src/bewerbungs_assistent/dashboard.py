@@ -147,7 +147,7 @@ async def index():
             _generate_dashboard_error_html(
                 message="Das Dashboard-Frontend wurde nicht gefunden.",
                 details=f"Erwarteter Pfad: {DASHBOARD_BUILD_HTML}",
-                hint="Bitte Frontend-Build ausfÃ¼hren, z. B. mit 'pnpm run build:web'.",
+                hint="Bitte Frontend-Build ausführen, z. B. mit 'pnpm run build:web'.",
             ),
             status_code=500,
         )
@@ -203,9 +203,10 @@ def _get_follow_up_summary() -> dict:
 
 def _build_workspace_summary() -> dict:
     """Aggregate the current workspace state for dashboard navigation and guidance."""
+    # #534 v1.6.5: exclude_blacklisted=True konsistent zur Stellen-Liste
     return build_workspace_summary(
         profile=_db.get_profile(),
-        jobs=_db.get_active_jobs(exclude_applied=True),
+        jobs=_db.get_active_jobs(exclude_applied=True, exclude_blacklisted=True),
         applications=_db.get_applications(),
         source_summary=_get_source_summary(),
         search_status=_get_search_status_payload(),
@@ -293,7 +294,11 @@ async def api_status():
         "version": __version__,
         "has_profile": profile is not None,
         "profile_name": summary["name"],
-        "active_jobs": len(_db.get_active_jobs(exclude_applied=True)),
+        # #534 v1.6.5: exclude_blacklisted=True angleichen an die Stellen-Liste,
+        # die /api/jobs?active=true&exclude_blacklisted=true aufruft. Vorher
+        # zaehlte die Sidebar Blacklist-Stellen mit, die Liste sortierte sie aus
+        # — Counter-Drift war die Folge (Sidebar 2, Liste 1).
+        "active_jobs": len(_db.get_active_jobs(exclude_applied=True, exclude_blacklisted=True)),
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
         "mcp_connection": get_connection_status(),
@@ -957,7 +962,7 @@ async def api_update_document_extraction(doc_id: str, request: Request):
 
     history = _db.get_extraction_history(profile_id=profile["id"], document_id=doc_id)
     if not history:
-        return JSONResponse({"error": "Keine Extraktion fÃ¼r dieses Dokument vorhanden"}, status_code=404)
+        return JSONResponse({"error": "Keine Extraktion für dieses Dokument vorhanden"}, status_code=404)
 
     extraction = history[0]
     conn = _db.connect()
@@ -2923,7 +2928,7 @@ async def api_upload_email(file: UploadFile = File(...)):
     ext = Path(incoming_name).suffix.lower()
     if ext not in (".msg", ".eml"):
         return JSONResponse(
-            {"error": "Nur .msg und .eml Dateien werden unterstÃ¼tzt."},
+            {"error": "Nur .msg und .eml Dateien werden unterstützt."},
             status_code=400,
         )
 
@@ -4386,7 +4391,7 @@ async def api_start_source_login(source_key: str):
     if source is None:
         return JSONResponse({"error": "Quelle nicht gefunden"}, status_code=404)
     if not source.get("login_erforderlich"):
-        return JSONResponse({"error": "FÃ¼r diese Quelle ist kein Login erforderlich"}, status_code=400)
+        return JSONResponse({"error": "Für diese Quelle ist kein Login erforderlich"}, status_code=400)
 
     job_id = _db.create_background_job("quellen_login", {"source": source_key})
 
@@ -4404,7 +4409,17 @@ async def api_start_source_login(source_key: str):
 
                 ready = ensure_xing_session(progress_callback=lambda message: _progress(message, 40))
             else:
-                raise ValueError(f"Login-Flow fÃ¼r Quelle '{source_key}' ist nicht implementiert")
+                # v1.6.5 (#541): klare Fehlermeldung statt generischem Exception-Text.
+                # Falls ein zukuenftiger Source `login_erforderlich=True` hat, aber
+                # ohne Implementation hier, kriegt der User wenigstens einen
+                # nuetzlichen Hinweis statt eines kryptischen Fehlers.
+                raise ValueError(
+                    f"Quelle '{source_key}' braucht keinen Login-Flow im Dashboard — "
+                    f"nutze sie direkt ueber jobsuche_starten oder die zustaendige "
+                    f"Browser-/Chrome-Extension. Falls du hier landest, war "
+                    f"login_erforderlich faelschlich auf True gesetzt — bitte als "
+                    f"Issue auf GitHub melden."
+                )
 
             if ready:
                 _db.update_background_job(
@@ -4423,7 +4438,7 @@ async def api_start_source_login(source_key: str):
                     result={"source": source_key, "session_ready": False},
                 )
         except Exception as exc:
-            logger.error("Login-Start fÃ¼r %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
+            logger.error("Login-Start für %s fehlgeschlagen: %s", source_key, exc, exc_info=True)
             _db.update_background_job(
                 job_id,
                 "fehler",
@@ -4438,7 +4453,7 @@ async def api_start_source_login(source_key: str):
         "status": "gestartet",
         "job_id": job_id,
         "source": source_key,
-        "nachricht": f"{source['name']}: Browser wird fÃ¼r den Login gestartet, falls noch keine Session vorhanden ist.",
+        "nachricht": f"{source['name']}: Browser wird für den Login gestartet, falls noch keine Session vorhanden ist.",
     }
 
 
@@ -4837,6 +4852,71 @@ async def api_export_profile():
     return FileResponse(str(filepath), filename=filename, media_type="application/json")
 
 
+# v1.6.5 (#542): Log-Download fuer Bug-Reports.
+# Pfad ist je nach Plattform anders + tief in AppData verschachtelt — User-
+# Friction beim Bug-Report-Workflow. Endpoint macht's einen Klick weg.
+
+@app.get("/api/system/logs/download")
+async def api_download_logs():
+    """Liefert die aktuelle pbp.log als Download — fuer Bug-Reports (#542)."""
+    from .logging_config import get_log_path
+    from datetime import datetime as _dt
+    import os as _os
+    log_path = get_log_path()
+    if not log_path or not _os.path.isfile(str(log_path)):
+        return JSONResponse(
+            {"error": "Logfile nicht gefunden", "expected_path": str(log_path) if log_path else "(unbekannt)"},
+            status_code=404,
+        )
+    timestamp = _dt.now().strftime("%Y-%m-%d_%H%M%S")
+    return FileResponse(
+        str(log_path),
+        filename=f"pbp-log-{timestamp}.log",
+        media_type="text/plain; charset=utf-8",
+    )
+
+
+@app.get("/api/system/logs/info")
+async def api_logs_info():
+    """Kompakte Info zum Logfile (Groesse, letzte Warnungen) — fuer Settings-UI."""
+    from .logging_config import get_log_path
+    import os as _os
+    log_path = get_log_path()
+    if not log_path or not _os.path.isfile(str(log_path)):
+        return {"available": False}
+    size_bytes = _os.path.getsize(str(log_path))
+    # Letzte ~50 Zeilen einlesen, daraus WARNING/ERROR zaehlen
+    warn_lines: list[str] = []
+    err_count = 0
+    warn_count = 0
+    try:
+        with open(str(log_path), "r", encoding="utf-8", errors="replace") as f:
+            # Performant: letzten 64KB lesen
+            try:
+                f.seek(max(0, size_bytes - 65536))
+                content = f.read()
+            except (OSError, ValueError):
+                content = f.read()
+            for line in content.splitlines()[-200:]:
+                if "ERROR" in line:
+                    err_count += 1
+                    if len(warn_lines) < 5:
+                        warn_lines.append(line[:160])
+                elif "WARNING" in line:
+                    warn_count += 1
+    except Exception as exc:
+        logger.warning("Log-Info-Read fehlgeschlagen: %s", exc)
+    return {
+        "available": True,
+        "size_bytes": size_bytes,
+        "size_kb": round(size_bytes / 1024, 1),
+        "path": str(log_path),
+        "recent_errors": err_count,
+        "recent_warnings": warn_count,
+        "last_error_lines": warn_lines,
+    }
+
+
 @app.post("/api/profile/import")
 async def api_import_profile(file: UploadFile = File(...)):
     """Import a profile from JSON backup file."""
@@ -4972,27 +5052,27 @@ async def api_analyze_documents(request: Request):
     phone_match = _re.search(r'(?:Tel\.?|Telefon|Phone|Mobil|Handy)[:\s]*([+\d\s()/.-]{8,20})', combined_text, _re.IGNORECASE)
     if phone_match:
         pers["phone"] = phone_match.group(1).strip()
-    addr_match = _re.search(r'(\w[\w\s.-]+(?:str(?:\.|aÃŸe|asse)|weg|gasse|platz|ring|allee)\s*\d+\w?)', combined_text, _re.IGNORECASE)
+    addr_match = _re.search(r'(\w[\w\s.-]+(?:str(?:\.|ae|asse)|weg|gasse|platz|ring|allee)\s*\d+\w?)', combined_text, _re.IGNORECASE)
     if addr_match:
         pers["address"] = addr_match.group(1).strip()
-    plz_city = _re.search(r'(\d{5})\s+([A-ZÃ„Ã–Ãœa-zÃ¤Ã¶Ã¼][a-zÃ¤Ã¶Ã¼ÃŸ]+(?:\s+[a-zÃ¤Ã¶Ã¼ÃŸ]+)*)', combined_text)
+    plz_city = _re.search(r'(\d{5})\s+([A-Za-zäöü][a-zäöü]+(?:\s+[a-zäöü]+)*)', combined_text)
     if plz_city:
         pers["plz"] = plz_city.group(1)
         pers["city"] = plz_city.group(2).strip()
-    name_match = _re.search(r'^([A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+(?:\s+[A-ZÃ„Ã–Ãœ][a-zÃ¤Ã¶Ã¼ÃŸ]+)+)\s*$', combined_text[:500], _re.MULTILINE)
+    name_match = _re.search(r'^([A-Z][a-zäöü]+(?:\s+[A-Z][a-zäöü]+)+)\s*$', combined_text[:500], _re.MULTILINE)
     if name_match:
         pers["name"] = name_match.group(1).strip()
     bday_match = _re.search(r'(?:Geburtsdatum|geb\.|geboren)[:\s]*(\d{1,2}[./]\d{1,2}[./]\d{4})', combined_text, _re.IGNORECASE)
     if bday_match:
         pers["birthday"] = bday_match.group(1)
-    nat_match = _re.search(r'(?:Nationalit(?:Ã¤|ae)t|Staatsangeh(?:Ã¶|oe)rigkeit)[:\s]*([A-ZÃ„Ã–Ãœa-zÃ¤Ã¶Ã¼ÃŸ]+)', combined_text, _re.IGNORECASE)
+    nat_match = _re.search(r'(?:Nationalit(?:ä|ae)t|Staatsangeh(?:ö|oe)rigkeit)[:\s]*([A-Za-zäöü]+)', combined_text, _re.IGNORECASE)
     if nat_match:
         pers["nationality"] = nat_match.group(1).strip()
     if pers:
         extracted["persoenliche_daten"] = pers
 
     skill_patterns = _re.findall(
-        r'(?:Kenntnisse|Skills|Kompetenzen|Faehigkeiten|FÃ¤higkeiten|Technologien)[:\s]*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n[A-Z])',
+        r'(?:Kenntnisse|Skills|Kompetenzen|Faehigkeiten|Fähigkeiten|Technologien)[:\s]*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n[A-Z])',
         combined_text, _re.IGNORECASE
     )
     if skill_patterns:
@@ -5088,7 +5168,7 @@ async def api_factory_reset(request: Request):
     if data.get("confirm") != "RESET":
         return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
     _db.reset_all_data()
-    return {"status": "ok", "message": "Alle Daten gelÃ¶scht. Neustart empfohlen."}
+    return {"status": "ok", "message": "Alle Daten gelöscht. Neustart empfohlen."}
 
 
 @app.delete("/api/extraction-history/{entry_id}")

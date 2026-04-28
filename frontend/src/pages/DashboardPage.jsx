@@ -7,7 +7,10 @@
   ClipboardList,
   Download,
   HandCoins,
+  Info,
+  Lightbulb,
   Mail,
+  MailPlus,
   MessageSquareReply,
   Mic,
   Network,
@@ -15,6 +18,7 @@
   PlusCircle,
   Search,
   Send,
+  TrendingDown,
   Upload,
   UserCheck,
   RefreshCw,
@@ -131,6 +135,16 @@ export default function DashboardPage() {
   const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pbp_dismissed_hints") || "[]"); } catch { return []; }
+  });
+  // v1.6.5 (#543): Schnellzugriff-Hilfstext minimierbar, Status persistent.
+  // Default offen — User soll beim ersten Mal sehen was die Karten machen.
+  const [quickAccessHelpOpen, setQuickAccessHelpOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem("pbp_dashboard_quickhelp_open");
+      return saved === null ? true : saved === "1";
+    } catch {
+      return true;
+    }
   });
 
   const loadData = useEffectEvent(async () => {
@@ -872,14 +886,43 @@ export default function DashboardPage() {
       <div id="dashboard-content" className="grid gap-5">
         {/* Schnellzugriff (full width) */}
         <Card className="rounded-2xl">
-          <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
+          </div>
+          {/* v1.6.5 (#543): Erklaerungs-Hinweis was Klick macht. Default offen,
+              minimierbar, Status persistent in localStorage — selbe Optik wie
+              der Quellen-Tipp in Einstellungen (SourceSelectionList.jsx).
+              WICHTIG: Nur dieser Hilfstext ist einklappbar — die Karten kommen
+              SEPARAT darunter und bleiben immer sichtbar. */}
+          <details
+            className="mt-1.5 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 group"
+            open={quickAccessHelpOpen}
+            onToggle={(e) => {
+              const next = e.currentTarget.open;
+              setQuickAccessHelpOpen(next);
+              try { localStorage.setItem("pbp_dashboard_quickhelp_open", next ? "1" : "0"); } catch {}
+            }}
+          >
+            <summary className="cursor-pointer list-none flex items-center gap-2 text-[12px] text-muted/80">
+              <Info size={13} className="shrink-0 text-sky/70" />
+              <span className="flex-1">
+                <strong className="text-ink/90">Was ist der Schnellzugriff?</strong>
+              </span>
+              <span className="text-muted/50 text-[10px] group-open:rotate-90 transition-transform shrink-0">▶</span>
+            </summary>
+            <p className="mt-2 pl-[21px] text-[12px] text-muted/80 leading-relaxed">
+              Beispiel-Prompts fuer Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
+              kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfuegen und absenden.
+              Du kannst auch frei mit Claude reden; das hier sind nur Vorschlaege fuer haeufige Workflows.
+            </p>
+          </details>
           {[
             {
               title: "Erste Schritte",
               items: [
                 { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
                 { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
-                { prompt: "/profil_erweiterung", label: "Profil ergaenzen", desc: "Unterlagen auswerten lassen", icon: PlusCircle, isNew: true },
+                { prompt: "/profil_erweiterung", label: "Dokumente analysieren", desc: "Profil ergaenzen, Skills extrahieren, CV bewerten", icon: PlusCircle, isNew: true },
               ],
             },
             {
@@ -888,6 +931,8 @@ export default function DashboardPage() {
                 { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
                 { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
                 { prompt: "/bewerbungs_uebersicht", label: "Uebersicht", desc: "Was laeuft gerade?", icon: ClipboardList },
+                // v1.6.5 (#543): /auto_bewerbung im Schnellzugriff
+                { prompt: "/auto_bewerbung", label: "Inbound erfassen", desc: "Recruiter hat sich gemeldet", icon: MailPlus, isNew: true },
               ],
             },
             {
@@ -904,6 +949,15 @@ export default function DashboardPage() {
                 { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
                 { prompt: "/profil_ueberpruefen", label: "Profil pruefen", desc: "Fehler finden und korrigieren", icon: UserCheck },
                 { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
+                // v1.6.5 (#543): /ablehnungs_coaching im Schnellzugriff
+                { prompt: "/ablehnungs_coaching", label: "Aus Absagen lernen", desc: "Muster erkennen, Strategie anpassen", icon: TrendingDown, isNew: true },
+              ],
+            },
+            {
+              // v1.6.5 (#543): neue Kategorie fuer /tipps_und_tricks
+              title: "Zum Nachlesen",
+              items: [
+                { prompt: "/tipps_und_tricks", label: "Tipps & Tricks", desc: "Versteckte Funktionen entdecken", icon: Lightbulb, isNew: true },
               ],
             },
           ].map((group) => (

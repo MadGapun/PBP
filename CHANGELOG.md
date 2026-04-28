@@ -7,6 +7,143 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.5] - 2026-04-29 — Real-Case-Polish (10 Quick-Fixes)
+
+Folgerelease nach v1.6.4, getrieben von einem zweiten echten Suchsprint.
+Diesmal kein einziger neuer Hauptbug, dafuer ein Bouquet kleiner
+Inkonsistenzen die einzeln nervten und in Summe das Kribbeln „die Tool-
+Antworten passen nicht zueinander" aufrechterhielten. Zehn Issues in
+einem Rutsch — Tool-Signaturen, Filter-Symmetrie, Datenhygiene und der
+seit zwei Releases verschobene Score-Drift bei Bulk-Aussortierung.
+
+### 🎯 Tool-Signaturen & API-Konsistenz
+
+- **#544 — `suchkriterien_setzen` akzeptiert `min_gehalt`,
+  `min_tagessatz`, `min_stundensatz` als Top-Level-Parameter.**
+  Vorher waren sie in `custom_kriterien` versteckt, das Scoring las
+  sie aber direkt aus `criteria.get("min_gehalt")` — Setzen ueber das
+  Tool wirkte deshalb nicht. Jetzt direkt parametrisierbar.
+- **#549 — `jobsuche_status` liefert `bereinigung` nicht mehr doppelt.**
+  Vorher tauchte das Aufraeum-Statistik-Dict gleichzeitig im Top-Level
+  und in `ergebnis.bereinigung` auf. Jetzt einmalig top-level.
+- **#553 — `scraper_diagnose` schluesselt Trefferzaehlung sauber auf.**
+  Statt einem ambigen `letzte_treffer` jetzt drei klare Felder:
+  - `letzte_rohtreffer` (was der Scraper geliefert hat)
+  - `letzte_gefilterte_treffer` (nach MUSS/AUSSCHLUSS/Score-Filter)
+  - `letzte_neue_treffer` (wirklich neu in der DB, Duplikate raus)
+  Schema v30 erweitert `scraper_health` um `last_filtered_count` und
+  `last_new_count`. `letzte_treffer` bleibt als Backward-Compat-Alias.
+
+### 🔍 Filter- & Match-Konsistenz
+
+- **#545 — Genderform-Filter trifft alle Schreibvarianten.** Ausschluss
+  „Werkstudent" filtert jetzt auch „Werkstudierende" und „Werkstudentin",
+  „Praktikant" trifft „Praktikum", „Praktikantin" und „Pflichtpraktikum".
+  Plus Azubi/Trainee/Junior-Stems. Realisiert ueber einen erweiterten
+  `_SYNONYM_MAP`-Eintrag — keine separate Pipeline.
+- **#546 — Word-Boundary fuer Kurz-Keywords (≤4 Zeichen).** „AI"
+  matchte vorher in „Mainz", „ML" in „HTML", „PM" in „Compiler".
+  Kurz-Keywords werden jetzt mit `\b…\b`-Regex verglichen, lange
+  Keywords behalten Substring-Match (damit „Python" weiter
+  „Pythonentwicklung" trifft).
+- **#550 — Pandas-NaN als Firmenname „nan" gefiltert.** Der JobSpy-
+  Mapper konvertierte `float('nan')` per `str(val)` zu `"nan"` und
+  zeigte das als Firmenname an. Jetzt: pre-check via `math.isnan`,
+  String-Filter `{"nan", "none", "null", "<na>"}` als Sicherheitsnetz,
+  defensiv auch in `run_search`-Dedup.
+- **#556 — `stellen_bulk_bewerten` und `stellen_anzeigen` nutzen
+  identische „aktiv"-Definition.** Bulk-Pfad rief vorher
+  `get_active_jobs(filters=...)` ohne `exclude_blacklisted`,
+  `stellen_anzeigen` mit. Bulk-Aussortierung griff dadurch auf
+  Stellen zu, die im UI gar nicht mehr sichtbar waren. Jetzt
+  identisch — Counter und Liste sehen denselben Pool.
+- **#557 — `quelle="linkedin"` trifft auch `jobspy_linkedin`.**
+  Filter waren bisher exact-match, JobSpy-Quellen heissen aber
+  `jobspy_<site>`. Jetzt: Partial-Match wenn die Quelle keinen
+  Unterstrich enthaelt (kompatibel zu „bundesagentur"/„manuell"
+  exact-match). Greift in `get_active_jobs` und im Restore-Pfad
+  von `stellen_bulk_bewerten`.
+
+### 🧠 Lerneffekt-Robustheit
+
+- **#558 — Score-Drift bei Bulk-Aussortierung gestoppt.** Der
+  Auto-Adjust-Hook (`_auto_adjust_scoring`) wurde pro Einzelaufruf
+  getriggert — bei einer Bulk-Aussortierung von 100 Stellen kletterte
+  `(count − 5) × 0.5` mit jedem Aufruf weiter und der Malus driftete
+  ins Extreme. Jetzt: Bulk-Pfad nutzt `skip_auto_adjust=True` und
+  triggert den Lerneffekt EINMALIG am Ende mit dem Final-Count.
+  Plus klare Drift-Warnung in den `hinweise` mit Empfehlung
+  `fit_analyse` neu laufen zu lassen.
+
+### 🛠 Neues Werkzeug
+
+- **#559 — `blacklist_anwenden`-Tool fuer retroaktive Anwendung.**
+  Wenn die Blacklist NACH einer Suche erweitert wird, blieben Stellen
+  der neu schwarzgelisteten Firmen weiter aktiv — der einzige
+  Workaround war eine neue Suche. Neues Tool laeuft mit
+  `dry_run=True`-Default-Vorschau, dann gezielt mit
+  `dry_run=False` ausfuehren. Nutzt intern `db.dismiss_job` damit der
+  PBP-Lifecycle (Audit-Log, Statistik) ueberspielt wird.
+
+### Stats
+
+- **96 MCP-Tools** (vorher 95): +`blacklist_anwenden` (#559)
+- **13 neue Tests** in `tests/test_v165_quickfixes.py`, alle gruen.
+- **Schema v30** (vorher v29) — ALTER-only Migration, zwei neue
+  Spalten in `scraper_health`.
+- 10 v1.6.4-Test-Issues geschlossen, alle in einem Release.
+
+### Migration
+
+- **Datenbank:** automatischer Schema-Upgrade beim ersten Start.
+  Backwards-Compat: alte Diagnose-Aufrufer kriegen weiter
+  `letzte_treffer`. Score-Adjustments aus v1.6.4 bleiben unveraendert.
+- **MCP:** `min_gehalt`/`min_tagessatz`/`min_stundensatz` und
+  `blacklist_anwenden` sind reine Erweiterungen — keine Breaking
+  Changes. `quelle`-Partial-Match laesst die alte Exakt-Filter-Logik
+  weiter funktionieren.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.5.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.4] - 2026-04-28 — Bug-Bash (8 Issues)
 
 Hotfix-Release zwei Tage nach Foundation. User-Bug-Bash mit Beobachtungen

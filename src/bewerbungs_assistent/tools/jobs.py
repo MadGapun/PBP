@@ -147,17 +147,24 @@ def register(mcp, db, logger):
         job = db.get_background_job(job_id)
         if job is None:
             return {"fehler": "Unbekannte Job-ID"}
+        # v1.6.5 (#549): bereinigung wurde sowohl in `ergebnis.bereinigung`
+        # als auch top-level zurueckgegeben — doppelt. Wir extrahieren sie
+        # einmalig auf top-level und entfernen sie aus `ergebnis`.
+        ergebnis = None
+        bereinigung = None
+        if job["status"] == "fertig" and isinstance(job.get("result"), dict):
+            ergebnis = dict(job["result"])
+            bereinigung = ergebnis.pop("bereinigung", None)
+        elif job["status"] == "fertig":
+            ergebnis = job["result"]
         result = {
             "status": job["status"],
             "fortschritt": f"{job['progress']}%",
             "nachricht": job["message"],
-            "ergebnis": job["result"] if job["status"] == "fertig" else None,
+            "ergebnis": ergebnis,
         }
-        # Include cleanup stats if available (#153)
-        if job["status"] == "fertig" and isinstance(job.get("result"), dict):
-            bereinigung = job["result"].get("bereinigung")
-            if bereinigung:
-                result["bereinigung"] = bereinigung
+        if bereinigung:
+            result["bereinigung"] = bereinigung
         return result
 
     # Standard rejection reasons for learning (#66)
@@ -304,7 +311,8 @@ def register(mcp, db, logger):
             return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
 
     def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
-                                       collect_hints: bool = True) -> dict:
+                                       collect_hints: bool = True,
+                                       skip_auto_adjust: bool = False) -> dict:
         """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
 
         Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
@@ -317,6 +325,9 @@ def register(mcp, db, logger):
             reason_list: bereits validierte/normalisierte Gruende
             collect_hints: bei Bulk auf False setzen — Tipps werden dann nur
                 in der Aggregat-Antwort summiert, nicht pro Einzelaufruf
+            skip_auto_adjust: v1.6.5 (#558) — Bulk-Path uebernimmt den
+                Auto-Adjust selbst (einmalig am Ende). Verhindert dass jeder
+                der 100 Einzelaufrufe das Scoring weiter eskaliert (Drift).
         """
         import json as _json
         reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
@@ -354,17 +365,21 @@ def register(mcp, db, logger):
         db.set_setting("dismiss_counts", counts)
         db.increment_dismiss_reason_usage(reason_list)
 
-        # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern
+        # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern.
+        # v1.6.5 (#558): Bei Bulk wird das einmalig am Ende ausgefuehrt, nicht
+        # pro Einzelaufruf. Sonst eskaliert (count-5)*0.5 mit jedem Job und
+        # treibt den Score-Malus immer weiter ins Negative ("Score-Drift").
         auto_adjustments = []
-        for g in reason_list:
-            normalized = g.lower().strip()
-            cnt = counts.get(normalized, 0)
-            if cnt >= 5:
-                _auto = _auto_adjust_scoring(db, normalized, cnt)
-                if _auto:
-                    auto_adjustments.append(_auto)
-        if collect_hints and auto_adjustments:
-            hints.append("Scoring wurde automatisch angepasst: " + "; ".join(auto_adjustments))
+        if not skip_auto_adjust:
+            for g in reason_list:
+                normalized = g.lower().strip()
+                cnt = counts.get(normalized, 0)
+                if cnt >= 5:
+                    _auto = _auto_adjust_scoring(db, normalized, cnt)
+                    if _auto:
+                        auto_adjustments.append(_auto)
+            if collect_hints and auto_adjustments:
+                hints.append("Scoring wurde automatisch angepasst: " + "; ".join(auto_adjustments))
 
         return {
             "counts": counts,
@@ -523,8 +538,15 @@ def register(mcp, db, logger):
         if bewertung == "passt":
             candidates = db.get_dismissed_jobs()
             # Anschliessend manuell auf min_score / quelle filtern
+            # v1.6.5 (#557): Partial-Match analog get_active_jobs
             if quelle:
-                candidates = [j for j in candidates if (j.get("source") or "") == quelle]
+                q_lc = quelle.lower()
+                if "_" in quelle or quelle in ("manuell", "google_jobs"):
+                    candidates = [j for j in candidates
+                                  if (j.get("source") or "").lower() == q_lc]
+                else:
+                    candidates = [j for j in candidates
+                                  if q_lc in (j.get("source") or "").lower()]
             if min_score is not None and min_score > 0:
                 candidates = [j for j in candidates if int(j.get("score") or 0) >= min_score]
         else:
@@ -533,7 +555,13 @@ def register(mcp, db, logger):
                 db_filters["source"] = quelle
             if min_score is not None and min_score > 0:
                 db_filters["min_score"] = min_score
-            candidates = db.get_active_jobs(filters=db_filters or None)
+            # v1.6.5 (#556): Gleiche aktiv-Definition wie stellen_anzeigen —
+            # Blacklist-gefilterte Stellen sollen nicht doppelt von einer
+            # Bulk-Aussortierung beruehrt werden.
+            candidates = db.get_active_jobs(
+                filters=db_filters or None,
+                exclude_blacklisted=True,
+            )
 
         # 3) In-Memory-Filter fuer alles was die DB-API nicht direkt anbietet
         now = datetime.now()
@@ -624,9 +652,14 @@ def register(mcp, db, logger):
                 continue
             try:
                 if bewertung == "passt_nicht":
-                    ctx = _apply_dismiss_with_lifecycle(job_hash, reason_list, collect_hints=False)
+                    # v1.6.5 (#558): skip_auto_adjust=True — wir triggern den
+                    # Lerneffekt nur einmal am Ende, mit dem Final-Count.
+                    ctx = _apply_dismiss_with_lifecycle(
+                        job_hash, reason_list,
+                        collect_hints=False,
+                        skip_auto_adjust=True,
+                    )
                     last_counts = ctx["counts"]
-                    bulk_auto_adjustments.extend(ctx["auto_adjustments"])
                 else:  # passt
                     db.restore_job(job_hash)
                 bearbeitet += 1
@@ -639,13 +672,32 @@ def register(mcp, db, logger):
             except Exception as exc:
                 logger.warning("Bulk-Bewertung fuer %s fehlgeschlagen: %s", job_hash, exc)
 
+        # v1.6.5 (#558): EINMALIG nach der Bulk-Schleife den Auto-Adjust ausloesen.
+        # Verhindert Score-Drift (s. _apply_dismiss_with_lifecycle Doc).
+        if bewertung == "passt_nicht" and bearbeitet > 0:
+            for g in reason_list:
+                normalized = g.lower().strip()
+                cnt = last_counts.get(normalized, 0)
+                if cnt >= 5:
+                    _auto = _auto_adjust_scoring(db, normalized, cnt)
+                    if _auto:
+                        bulk_auto_adjustments.append(_auto)
+
         # Aggregierte Hinweise — nur einmal, nicht pro Eintrag
         hinweise = []
         if bulk_auto_adjustments:
             unique_adj = list(dict.fromkeys(bulk_auto_adjustments))
             hinweise.append(
-                f"Scoring wurde {len(bulk_auto_adjustments)}x automatisch angepasst "
-                f"({len(unique_adj)} eindeutige Aenderungen): " + "; ".join(unique_adj[:5])
+                f"Scoring wurde automatisch angepasst "
+                f"({len(unique_adj)} Aenderung(en)): " + "; ".join(unique_adj[:5])
+            )
+            # v1.6.5 (#558): Klare Drift-Warnung mit Hinweis auf
+            # Score-Recompute — sonst wundert man sich ueber niedrige Scores.
+            hinweise.append(
+                "Hinweis: Bestehende Stellen-Scores wurden nicht neu berechnet. "
+                "Falls Du danach in stellen_anzeigen niedrigere Scores siehst, "
+                "ist das die Folge der Scoring-Anpassung — fuer einen "
+                "konsistenten Stand 'fit_analyse' auf einzelne Stellen neu laufen lassen."
             )
 
         result = {
@@ -1152,6 +1204,27 @@ def register(mcp, db, logger):
             if prefs.get("min_tagessatz"):
                 criteria["min_tagessatz"] = prefs["min_tagessatz"]
         result = _fit_analyse(job_dict, criteria)
+
+        # v1.6.5 (#539, Folge von #535): Fit-Score zurueck in jobs.score
+        # persistieren. Vorher rechnete fit_analyse on-demand mit Profile-
+        # Daten + Risk-Faktoren (z.B. -2 fuer Hochschulabschluss), aber
+        # jobs.score blieb auf dem reinen Scrape-Wert haengen — Listen
+        # zeigten alten Wert, fit_analyse einen anderen.
+        # Der Fit-Score ist „mehr wert" weil er Profile + Risiken
+        # beruecksichtigt; daher ueberschreibt er den Scrape-Score.
+        new_score = result.get("total_score")
+        if new_score is not None and isinstance(new_score, (int, float)):
+            try:
+                old_score = job_dict.get("score")
+                if old_score != new_score:
+                    db.update_job(job_hash, {"score": int(new_score)})
+                    result["score_aktualisiert"] = {
+                        "alter_score": old_score,
+                        "neuer_score": int(new_score),
+                    }
+            except Exception as exc:
+                logger.warning("Score-Persistierung nach fit_analyse fehlgeschlagen: %s", exc)
+
         # Include job description in result (#55) so Claude can use it for analysis
         if job_dict.get("description"):
             result["stellenbeschreibung"] = job_dict["description"][:2000]
@@ -1310,6 +1383,14 @@ def register(mcp, db, logger):
                 "letzter_erfolg": h.get("last_success"),
                 "fehler_serie": h["consecutive_failures"],
                 "stille_serie": consec_silent,
+                # v1.6.5 (#553): drei klare Felder statt einem ambigen "letzte_treffer".
+                # letzte_rohtreffer = was der Scraper geliefert hat,
+                # letzte_gefilterte_treffer = nach MUSS/AUSSCHLUSS/Score-Filter,
+                # letzte_neue_treffer = wirklich neu in der DB (Duplikate raus).
+                "letzte_rohtreffer": last_count,
+                "letzte_gefilterte_treffer": h.get("last_filtered_count") or 0,
+                "letzte_neue_treffer": h.get("last_new_count") or 0,
+                # Backward-compat-Alias (Frontend/Notes nutzen evtl. noch den alten Namen)
                 "letzte_treffer": last_count,
                 "letzter_status_detail": h.get("last_status_detail"),
                 "erfolgsrate": f"{success_rate}%",

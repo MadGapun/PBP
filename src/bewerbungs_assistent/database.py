@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 29
+SCHEMA_VERSION = 30
 
 
 def _gen_id() -> str:
@@ -1152,6 +1152,22 @@ class Database:
                 logger.warning("Backfill has_reached_interview teilweise fehlgeschlagen: %s", exc)
             logger.info("Migration v28->v29: applications.has_reached_interview (#530)")
 
+        if from_ver < 30:
+            # v30 / #553 v1.6.5: Trefferzaehlung pro Scraper aufschluesseln.
+            # last_count war ambig: Roh-Zahl vom Scraper? Nach Filter? Neu in DB?
+            # Wir behalten last_count als raw und ergaenzen filtered/new fuer
+            # Diagnose-Transparenz.
+            for col in (
+                "last_filtered_count INTEGER DEFAULT 0",
+                "last_new_count INTEGER DEFAULT 0",
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE scraper_health ADD COLUMN {col}")
+                except Exception:
+                    pass
+            logger.info("Migration v29->v30: scraper_health.last_filtered_count/"
+                        "last_new_count (#553)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -2223,10 +2239,18 @@ class Database:
 
     # === Jobs ===
 
-    def save_jobs(self, jobs: list):
+    def save_jobs(self, jobs: list) -> dict:
+        """Persistiert Jobs (INSERT OR REPLACE).
+
+        v1.6.5 (#553): Liefert Statistik zurueck:
+        - new_per_source: dict[source, count] — Stellen, die noch nicht in der
+          DB waren (echte Neuzugaenge).
+        - total: insgesamt verarbeitete Jobs.
+        """
         conn = self.connect()
         now = _now()
         active_pid = self.get_active_profile_id()
+        new_per_source: dict[str, int] = {}
         for job in jobs:
             job_pid = job.get("profile_id") or active_pid
             stored_hash = self.resolve_job_hash(job["hash"], job_pid)
@@ -2236,6 +2260,7 @@ class Database:
             existing = conn.execute(
                 "SELECT score, is_pinned FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
+            is_new = existing is None
             if existing:
                 if existing["is_pinned"]:
                     new_pinned = 1
@@ -2262,7 +2287,11 @@ class Database:
                 1 if job.get("is_search_url") else 0,
                 job_pid, job.get("found_at", now), now
             ))
+            if is_new:
+                src = job.get("source") or "unbekannt"
+                new_per_source[src] = new_per_source.get(src, 0) + 1
         conn.commit()
+        return {"new_per_source": new_per_source, "total": len(jobs)}
 
     def get_active_jobs(self, filters: Optional[dict] = None,
                         exclude_blacklisted: bool = False,
@@ -2280,8 +2309,17 @@ class Database:
         params: list = [pid]
         if filters:
             if filters.get("source"):
-                query += " AND source=?"
-                params.append(filters["source"])
+                # v1.6.5 (#557): Partial-Match fuer source — "linkedin" muss
+                # auch "jobspy_linkedin" treffen, "indeed" auch "jobspy_indeed".
+                # Exact-Match nur wenn Quelle bereits voll qualifiziert ist.
+                src = filters["source"]
+                if "_" in src or src in ("manuell", "google_jobs"):
+                    query += " AND source=?"
+                    params.append(src)
+                else:
+                    query += " AND (source=? OR source LIKE ?)"
+                    params.append(src)
+                    params.append(f"%{src}%")
             if filters.get("employment_type"):
                 query += " AND employment_type=?"
                 params.append(filters["employment_type"])
@@ -2787,13 +2825,19 @@ class Database:
     SILENT_AUTO_DEACTIVATE_THRESHOLD = 5
 
     def update_scraper_health(self, name: str, status: str, count: int = 0,
-                              time_s: float = 0, detail: str = None) -> dict:
+                              time_s: float = 0, detail: str = None,
+                              filtered_count: int = None,
+                              new_count: int = None) -> dict:
         """Persist per-scraper health after each search run.
 
         Returns a dict mit Status-Klassifikation (#499):
         - state: "ok" | "silent" | "fail"
         - auto_deactivated: True wenn consecutive_silent die Schwelle erreicht
           und die Quelle deshalb deaktiviert wurde
+
+        v1.6.5 (#553): filtered_count = nach MUSS/AUSSCHLUSS/Score-Filter,
+        new_count = neu in der DB gespeicherte Stellen (Duplikate raus).
+        Wenn None, werden die Felder nicht aktualisiert.
         """
         # status=ok mit count=0 => "stumme" Quelle (z.B. Indeed/XING melden
         # ok ohne Treffer). Wir tracken das als eigenen Zustand, damit die
@@ -2820,28 +2864,36 @@ class Database:
             "SELECT * FROM scraper_health WHERE scraper_name=?", (name,)
         ).fetchone()
         auto_deactivated = False
+        # v1.6.5 (#553): filtered_count/new_count nur updaten wenn explizit gesetzt
+        _fc_clause = ", last_filtered_count=?" if filtered_count is not None else ""
+        _nc_clause = ", last_new_count=?" if new_count is not None else ""
+        _extra_vals = []
+        if filtered_count is not None:
+            _extra_vals.append(int(filtered_count))
+        if new_count is not None:
+            _extra_vals.append(int(new_count))
         if existing:
             total_runs = existing["total_runs"] + 1
             total_successes = existing["total_successes"] + (1 if state == "ok" else 0)
             avg_time = (existing["avg_time_s"] * existing["total_runs"] + time_s) / total_runs
             prev_silent = existing["consecutive_silent"] if "consecutive_silent" in existing.keys() else 0
             if state == "ok":
-                conn.execute("""
+                conn.execute(f"""
                     UPDATE scraper_health SET last_run=?, last_success=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=0 WHERE scraper_name=?
+                        consecutive_silent=0{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, now, total_runs, total_successes, avg_time,
-                      count, None, name))
+                      count, None, *_extra_vals, name))
             elif state == "silent":
                 consec_silent = prev_silent + 1
-                conn.execute("""
+                conn.execute(f"""
                     UPDATE scraper_health SET last_run=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=? WHERE scraper_name=?
+                        consecutive_silent=?{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, total_runs, total_successes, avg_time,
-                      count, status_detail, consec_silent, name))
+                      count, status_detail, consec_silent, *_extra_vals, name))
                 if consec_silent >= self.SILENT_AUTO_DEACTIVATE_THRESHOLD \
                         and existing["is_active"]:
                     conn.execute(
@@ -2855,20 +2907,21 @@ class Database:
                     )
             else:
                 consec = existing["consecutive_failures"] + 1
-                conn.execute("""
+                conn.execute(f"""
                     UPDATE scraper_health SET last_run=?, last_error=?,
                         consecutive_failures=?, total_runs=?, total_successes=?,
-                        avg_time_s=?, last_count=?, last_status_detail=?
+                        avg_time_s=?, last_count=?, last_status_detail=?{_fc_clause}{_nc_clause}
                         WHERE scraper_name=?
                 """, (now, status_detail or status, consec, total_runs,
-                      total_successes, avg_time, count, status_detail, name))
+                      total_successes, avg_time, count, status_detail, *_extra_vals, name))
         else:
+            # v1.6.5 (#553): filtered/new auch beim ersten Insert mitnehmen
             conn.execute("""
                 INSERT INTO scraper_health (scraper_name, last_run, last_success,
                     last_error, consecutive_failures, total_runs, total_successes,
                     avg_time_s, is_active, last_count, last_status_detail,
-                    consecutive_silent)
-                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?)
+                    consecutive_silent, last_filtered_count, last_new_count)
+                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?, ?, ?)
             """, (name, now,
                   now if state == "ok" else None,
                   None if state != "fail" else (status_detail or status),
@@ -2876,7 +2929,9 @@ class Database:
                   1 if state == "ok" else 0,
                   count,
                   status_detail,
-                  1 if state == "silent" else 0))
+                  1 if state == "silent" else 0,
+                  int(filtered_count) if filtered_count is not None else 0,
+                  int(new_count) if new_count is not None else 0))
         conn.commit()
         return {
             "state": state,
@@ -3632,6 +3687,9 @@ class Database:
         # Chancen, obwohl der User die Stellen aktiv ausgemustert hatte. Jetzt:
         # is_active=1 erzwingen + auch Stellen ausschliessen, deren Firma bereits
         # eine Bewerbung hat (Vermittler/Endkunde-Beziehung).
+        # v1.6.5 (#540): Zusaetzlich Blacklist-Firmen ausschliessen — die hatten
+        # vorher trotzdem in der Liste gestanden (z.B. CONTACT Software trotz
+        # explizitem User-Ausschluss).
         unapplied_high = conn.execute("""
             SELECT j.hash, j.title, j.company, j.score, j.source,
                    j.dismiss_reason, j.is_active, j.found_at
@@ -3646,6 +3704,9 @@ class Database:
                   SELECT 1 FROM applications a2
                   WHERE a2.profile_id IS j.profile_id
                     AND LOWER(TRIM(a2.company)) = LOWER(TRIM(j.company))
+              )
+              AND LOWER(TRIM(j.company)) NOT IN (
+                  SELECT LOWER(TRIM(value)) FROM blacklist WHERE type='firma'
               )
             ORDER BY j.score DESC LIMIT 30
         """, (pid,)).fetchall()
@@ -3693,6 +3754,50 @@ class Database:
             ],
         }
 
+        # v1.6.5 (#540): Stellen-Aussortier-Statistik fuer den Bericht.
+        # Aggregiert dismiss_reason aus jobs.is_active=0 (vom User aktiv
+        # aussortierte Stellen). Macht im Bericht klar: 1014 von 1016
+        # Stellen wurden NICHT „ignoriert", sondern aktiv mit Grund
+        # gefiltert — wichtiger Beweis fuer „der User hat sich gekuemmert".
+        import json as _json
+        from collections import Counter as _Counter
+        dismiss_counter: _Counter = _Counter()
+        dismissed_total = 0
+        for row in conn.execute(
+            "SELECT dismiss_reason FROM jobs WHERE is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL) AND dismiss_reason IS NOT NULL "
+            "AND dismiss_reason != ''",
+            (pid,)
+        ).fetchall():
+            raw = row["dismiss_reason"] or ""
+            dismissed_total += 1
+            # dismiss_reason kann JSON-Array oder Klartext sein
+            if raw.startswith("["):
+                try:
+                    for r in _json.loads(raw):
+                        dismiss_counter[str(r)] += 1
+                except (ValueError, TypeError):
+                    dismiss_counter[raw[:60]] += 1
+            else:
+                dismiss_counter[raw[:60]] += 1
+
+        # Total Jobs (gesichtet) und beworbene-Anteil
+        total_jobs_seen = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()[0]
+        active_jobs = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()[0]
+
+        # Interviews historisch (nutzt has_reached_interview, #530)
+        interviews_total = conn.execute(
+            "SELECT COUNT(*) FROM applications WHERE has_reached_interview=1 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()[0]
+
         return {
             "applications": serialized_apps,
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
@@ -3705,6 +3810,14 @@ class Database:
             "rejection_patterns": self.get_rejection_patterns(),
             "follow_ups": follow_up_summary,
             "bewerbungsart": bewerbungsart,
+            # #540: neue Felder fuer Bericht-Erweiterung
+            "stellen_aussortiert": {
+                "anzahl_total": dismissed_total,
+                "anzahl_gesichtet": total_jobs_seen,
+                "anzahl_aktiv": active_jobs,
+                "top_gruende": dict(dismiss_counter.most_common(10)),
+            },
+            "interviews_historisch_total": interviews_total,
         }
 
     # === Salary Data (PBP-014) ===
@@ -3773,12 +3886,19 @@ class Database:
         return cur.rowcount > 0
 
     def update_job(self, job_hash: str, data: dict):
-        """Update editable fields of a job (#90)."""
+        """Update editable fields of a job (#90).
+
+        v1.6.5 (#539): score in allowed-Liste aufgenommen, damit fit_analyse
+        und stelle_bearbeiten ihren neu berechneten Score zurueckschreiben
+        koennen. Vorher wurde der Score-Update stillschweigend verworfen
+        (Whitelist-Filter), v1.6.4-Score-Recompute wirkte daher nur auf
+        Test-Ebene, nicht in der echten DB.
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
-        allowed = ("title", "company", "location", "description", "research_notes")
+        allowed = ("title", "company", "location", "description", "research_notes", "score")
         sets, vals = [], []
         for f in allowed:
             if f in data:
@@ -5239,6 +5359,8 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     is_active INTEGER DEFAULT 1,
     last_count INTEGER DEFAULT 0,
     last_status_detail TEXT,
-    consecutive_silent INTEGER DEFAULT 0
+    consecutive_silent INTEGER DEFAULT 0,
+    last_filtered_count INTEGER DEFAULT 0,
+    last_new_count INTEGER DEFAULT 0
 );
 """

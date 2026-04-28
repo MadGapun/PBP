@@ -249,11 +249,16 @@ SOURCE_REGISTRY = {
                          "Stellenanzeigen.de und Firmenwebseiten. Laeuft manuell ueber den "
                          "eingeloggten Chrome-Browser (keine Bot-Detection). #501",
         "methode": "Claude-in-Chrome (manuell)",
-        "login_erforderlich": True,
+        # v1.6.5 (#541): kein klassischer Login-Flow noetig — aktivieren reicht.
+        # Vorher loeste der Login-Button einen Backend-Fehler aus, weil
+        # api_start_source_login keinen google_jobs-Branch hatte.
+        "login_erforderlich": False,
+        "manueller_fallback": True,
         "geschwindigkeit": "manuell",
-        "warnung": "Benoetigt eingeloggten Google-Account in Chrome mit Claude-in-Chrome Extension.",
+        "warnung": "Benoetigt einen Google-Account in Chrome mit Claude-in-Chrome-Extension.",
         "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — in Chrome oeffnen "
-                    "und Treffer mit stelle_manuell_anlegen() uebernehmen.",
+                    "und Treffer mit stelle_manuell_anlegen() uebernehmen. Kein Login-Click "
+                    "im Dashboard noetig.",
         "beta": True,
     },
 }
@@ -737,6 +742,16 @@ def run_search(db, job_id: str, params: dict):
             skipped_sources.append(quelle)
             source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
 
+    # v1.6.5 (#550): Defensiv NaN-Strings ("nan", "none", "<NA>") aus
+    # Firmenname filtern, falls ein Scraper sie versehentlich durchlaesst.
+    _nan_strings = {"nan", "none", "null", "<na>", "n/a"}
+    for job in all_jobs:
+        company = job.get("company")
+        if isinstance(company, str) and company.strip().lower() in _nan_strings:
+            job["company"] = "Nicht angegeben"
+        elif company is None:
+            job["company"] = "Nicht angegeben"
+
     # Deduplicate — first by hash, then cross-source by normalized title+company (#59)
     seen_hashes = set()
     seen_titles = {}  # normalized_key -> first job
@@ -907,8 +922,16 @@ def run_search(db, job_id: str, params: dict):
     cleanup = _post_search_cleanup(db, unique)
     unique = cleanup["jobs"]
 
-    db.save_jobs(unique)
+    save_stats = db.save_jobs(unique) or {}
+    new_per_source = save_stats.get("new_per_source", {}) if isinstance(save_stats, dict) else {}
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+
+    # v1.6.5 (#553): pro Quelle ermitteln, wie viele Stellen nach Filtering
+    # uebrig geblieben sind (= in `unique` enthalten).
+    filtered_per_source: dict[str, int] = {}
+    for j in unique:
+        s = j.get("source") or "unbekannt"
+        filtered_per_source[s] = filtered_per_source.get(s, 0) + 1
 
     # #432: Persist scraper health after each search
     for quelle, status_info in source_status.items():
@@ -917,7 +940,9 @@ def run_search(db, job_id: str, params: dict):
                 quelle, status_info["status"],
                 status_info.get("count", 0),
                 status_info.get("time_s", 0),
-                status_info.get("detail")
+                status_info.get("detail"),
+                filtered_count=filtered_per_source.get(quelle, 0),
+                new_count=new_per_source.get(quelle, 0),
             )
         except Exception as e:
             logger.debug("Scraper health update failed for %s: %s", quelle, e)
@@ -1146,7 +1171,39 @@ _SYNONYM_MAP = {
     "devops": ["site reliability", "sre", "platform engineer"],
     "maschinenbau": ["mechanical engineering", "maschinenbauingenieur"],
     "vertrieb": ["sales", "account manager", "business development"],
+    # v1.6.5 (#545): Gender-/Stem-Varianten — vor allem fuer AUSSCHLUSS-Keywords
+    # ("Werkstudent" filtert nicht "Werkstudierende" weg, "Praktikant" nicht
+    # "Praktikum"/"Praktikantin"). Bidirektional uebers SYNONYM_MAP geloest.
+    "werkstudent": ["werkstudentin", "werkstudenten", "werkstudentinnen",
+                    "werkstudierend", "werkstudierende", "werkstudierender",
+                    "werkstudierenden", "studentische hilfskraft", "shk"],
+    "praktikant": ["praktikantin", "praktikanten", "praktikantinnen",
+                   "praktikum", "praktikumsplatz", "pflichtpraktikum",
+                   "praktikumsstelle", "intern", "internship"],
+    "praktikum": ["praktikant", "praktikantin", "praktikanten",
+                  "praktikumsplatz", "pflichtpraktikum", "praktikumsstelle",
+                  "intern", "internship"],
+    "azubi": ["auszubildende", "auszubildender", "ausbildung",
+              "lehrling", "berufsausbildung"],
+    "ausbildung": ["azubi", "auszubildende", "auszubildender",
+                   "lehrling", "berufsausbildung"],
+    "trainee": ["traineeprogramm", "traineeship", "graduate program"],
+    "junior": ["berufseinsteiger", "berufseinsteigerin", "absolvent",
+               "absolventin", "einsteiger", "einsteigerin"],
 }
+
+# v1.6.5 (#546): Kurz-Keywords ohne Wortgrenze treffen falsch (z.B. "ai" in
+# "Mainz", "ml" in "html", "pm" in "compiler"). Fuer Keywords <= 4 Zeichen
+# wenden wir Word-Boundary-Match an statt reinem Substring.
+_SHORT_KW_BOUNDARY_THRESHOLD = 4
+
+
+def _word_boundary_match(keyword: str, text: str) -> bool:
+    """Match keyword nur an Wortgrenzen (regex \\b). Fuer Kurz-Keywords (#546)."""
+    if not keyword:
+        return False
+    pattern = r"(?<![\w])" + re.escape(keyword) + r"(?![\w])"
+    return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
 def _normalize_for_matching(text: str) -> str:
@@ -1167,7 +1224,8 @@ def _fuzzy_keyword_match(keyword: str, text: str) -> bool:
     """Fuzzy-Keyword-Matching: Substring + Synonyme + Umlaut-Normalisierung (#183).
 
     Matcht wenn:
-    1. Keyword als Substring im Text (exakt)
+    1. Keyword als Substring im Text (exakt) — bei Kurz-Keywords (<=4 Zeichen)
+       mit Word-Boundary-Regex (#546).
     2. Normalisiertes Keyword im normalisierten Text (Umlaute)
     3. Einzelne Wörter des Keywords matchen alle (Multi-Word Split)
     4. Ein Synonym des Keywords im Text vorkommt
@@ -1175,31 +1233,56 @@ def _fuzzy_keyword_match(keyword: str, text: str) -> bool:
     kw_lower = keyword.lower().strip()
     text_lower = text.lower()
 
-    # 1. Exakter Substring-Match
-    if kw_lower in text_lower:
-        return True
+    # v1.6.5 (#546): Kurz-Keywords brauchen Word-Boundary-Match —
+    # sonst matcht "AI" in "Mainz", "ML" in "HTML", "PM" in "compiler".
+    is_short = len(kw_lower) <= _SHORT_KW_BOUNDARY_THRESHOLD and " " not in kw_lower
+
+    # 1. Exakter Substring-Match (mit Word-Boundary fuer Kurz-Keywords)
+    if is_short:
+        if _word_boundary_match(kw_lower, text_lower):
+            return True
+    else:
+        if kw_lower in text_lower:
+            return True
 
     # 2. Umlaut-normalisierter Match
     kw_norm = _normalize_for_matching(kw_lower)
     text_norm = _normalize_for_matching(text_lower)
-    if kw_norm in text_norm:
-        return True
+    if is_short:
+        if _word_boundary_match(kw_norm, text_norm):
+            return True
+    else:
+        if kw_norm in text_norm:
+            return True
 
     # 3. Multi-Word: Alle Einzelwörter müssen im Text vorkommen
     #    z.B. "PLM Projektleiter" matcht "Projektleiter (m/w/d) im Bereich PLM"
     words = re.split(r'[\s\-/]+', kw_lower)
     if len(words) > 1:
-        if all(w in text_lower or _normalize_for_matching(w) in text_norm for w in words if len(w) > 1):
+        def _word_in(w: str) -> bool:
+            if len(w) <= 1:
+                return True
+            if len(w) <= _SHORT_KW_BOUNDARY_THRESHOLD:
+                return (_word_boundary_match(w, text_lower) or
+                        _word_boundary_match(_normalize_for_matching(w), text_norm))
+            return w in text_lower or _normalize_for_matching(w) in text_norm
+        if all(_word_in(w) for w in words):
             return True
 
-    # 4. Synonym-Match
+    # 4. Synonym-Match (inkl. Genderform-Stems aus #545)
     for syn_key, synonyms in _SYNONYM_MAP.items():
         if syn_key == kw_lower or kw_lower in synonyms:
             # Prüfe ob das Keyword oder ein Synonym im Text vorkommt
             all_terms = [syn_key] + synonyms
             for term in all_terms:
-                if term in text_lower or _normalize_for_matching(term) in text_norm:
-                    return True
+                term_norm = _normalize_for_matching(term)
+                if len(term) <= _SHORT_KW_BOUNDARY_THRESHOLD and " " not in term:
+                    if (_word_boundary_match(term, text_lower) or
+                            _word_boundary_match(term_norm, text_norm)):
+                        return True
+                else:
+                    if term in text_lower or term_norm in text_norm:
+                        return True
 
     return False
 

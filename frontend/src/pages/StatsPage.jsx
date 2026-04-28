@@ -559,9 +559,11 @@ export default function StatsPage() {
                   <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Haeufigste Gruende</p>
                   <div className="grid gap-1.5">
                     {Object.entries(rejection.nach_grund || {}).slice(0, 6).map(([grund, count]) => (
-                      <div key={grund} className="flex items-center justify-between rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
-                        <span className="truncate text-ink">{grund}</span>
-                        <Badge tone="neutral">{count}</Badge>
+                      // v1.6.5: items-start statt items-center + break-words statt truncate,
+                      // damit lange Begruendungen umbrechen statt zu ueberlaufen.
+                      <div key={grund} className="flex items-start justify-between gap-3 rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
+                        <span className="flex-1 min-w-0 break-words text-ink leading-snug">{grund}</span>
+                        <Badge tone="neutral" className="shrink-0 mt-0.5">{count}</Badge>
                       </div>
                     ))}
                   </div>
@@ -570,9 +572,9 @@ export default function StatsPage() {
                   <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Betroffene Firmen</p>
                   <div className="grid gap-1.5">
                     {Object.entries(rejection.nach_firma || {}).slice(0, 6).map(([firma, count]) => (
-                      <div key={firma} className="flex items-center justify-between rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
-                        <span className="truncate text-ink">{firma}</span>
-                        <Badge tone="neutral">{count === 1 ? "1 Absage" : `${count} Absagen`}</Badge>
+                      <div key={firma} className="flex items-start justify-between gap-3 rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
+                        <span className="flex-1 min-w-0 break-words text-ink leading-snug">{firma}</span>
+                        <Badge tone="neutral" className="shrink-0 mt-0.5">{count === 1 ? "1 Absage" : `${count} Absagen`}</Badge>
                       </div>
                     ))}
                   </div>

@@ -35,23 +35,34 @@ def _result(raw):
     return raw
 
 
+def _call(mcp, name, args):
+    """v1.6.5: FastMCP 2.12 entfernte mcp.call_tool — wir nutzen tool.run()."""
+    async def _run():
+        tool = await mcp.get_tool(name)
+        res = await tool.run(args)
+        if hasattr(res, "structured_content"):
+            return res.structured_content
+        return res
+    return asyncio.run(_run())
+
+
 # ============= #528 — Umlaut bei suchkriterien_bearbeiten ========
 def test_528_suchkriterien_umlaut(setup_env):
     """suchkriterien_bearbeiten akzeptiert sowohl 'hinzufuegen' als auch 'hinzufügen'."""
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("suchkriterien_bearbeiten", {
+    raw = _call(mcp, "suchkriterien_bearbeiten", {
         "kategorie": "muss",
         "aktion": "hinzufügen",
         "werte": ["Python"],
-    }))
+    })
     result = _result(raw)
     assert result.get("status") == "hinzugefuegt", f"Expected success, got: {result}"
 
-    raw2 = asyncio.run(mcp.call_tool("suchkriterien_bearbeiten", {
+    raw2 = _call(mcp, "suchkriterien_bearbeiten", {
         "kategorie": "muss",
         "aktion": "hinzufuegen",
         "werte": ["FastAPI"],
-    }))
+    })
     result2 = _result(raw2)
     assert result2.get("status") == "hinzugefuegt"
 
@@ -68,10 +79,10 @@ def test_529_bewerbung_bearbeiten_applied_at(setup_env):
     assert before, "applied_at sollte initial gesetzt sein (auto)"
 
     # Korrektur via DD.MM.YYYY
-    raw = asyncio.run(mcp.call_tool("bewerbung_bearbeiten", {
+    raw = _call(mcp, "bewerbung_bearbeiten", {
         "bewerbung_id": bid,
         "applied_at": "24.03.2026",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") == "aktualisiert"
     assert "applied_at" in result.get("geänderte_felder", [])
@@ -84,10 +95,10 @@ def test_529_bewerbung_bearbeiten_applied_at_invalid(setup_env):
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
     bid = db.add_application({"title": "Test", "company": "TestCorp"})
-    raw = asyncio.run(mcp.call_tool("bewerbung_bearbeiten", {
+    raw = _call(mcp, "bewerbung_bearbeiten", {
         "bewerbung_id": bid,
         "applied_at": "kein-datum",
-    }))
+    })
     result = _result(raw)
     assert "fehler" in result
 
@@ -134,18 +145,18 @@ def test_531_duplikat_vermittler_endkunde(setup_env):
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
     # Erste Bewerbung: Vermittler-Sicht
-    raw = asyncio.run(mcp.call_tool("bewerbung_erstellen", {
+    raw = _call(mcp, "bewerbung_erstellen", {
         "title": "Senior PLM Functional Expert (m/w/d)",
         "company": "IQ Intelligentes Ingenieur Management (Endkunde: Siemens Energy)",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") in ("erstellt", "angelegt")  # Erste = OK
 
     # Zweite mit Endkunden-Sicht — sollte als Duplikat erkannt werden
-    raw2 = asyncio.run(mcp.call_tool("bewerbung_erstellen", {
+    raw2 = _call(mcp, "bewerbung_erstellen", {
         "title": "Senior PLM Functional Expert (Internal) (m/w/d) — Mülheim",
         "company": "Siemens Energy (via IQ Intelligentes Ingenieur Management GmbH)",
-    }))
+    })
     result2 = _result(raw2)
     assert result2.get("status") == "duplikat", f"Erwartet Duplikat-Status, bekommen: {result2}"
     assert result2.get("match_typ") in ("fuzzy_firma_titel", "email_oder_ansprechpartner")
@@ -155,12 +166,12 @@ def test_531_kein_duplikat_bei_unterschiedlicher_firma(setup_env):
     """Verschiedene Firmen sind KEIN Duplikat (kein false positive)."""
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
-    asyncio.run(mcp.call_tool("bewerbung_erstellen", {
+    _call(mcp, "bewerbung_erstellen", {
         "title": "Python Developer", "company": "Bechtle AG",
-    }))
-    raw = asyncio.run(mcp.call_tool("bewerbung_erstellen", {
+    })
+    raw = _call(mcp, "bewerbung_erstellen", {
         "title": "Python Developer", "company": "Adesso SE",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") != "duplikat"
 
@@ -185,10 +196,10 @@ def test_535_score_recompute_after_description_update(setup_env):
     db.set_search_criteria("keywords_plus", ["fastapi", "postgres"])
 
     # Beschreibung mit Plus-Keywords erweitern -> Score sollte steigen
-    raw = asyncio.run(mcp.call_tool("stelle_bearbeiten", {
+    raw = _call(mcp, "stelle_bearbeiten", {
         "job_hash": "testhash01",
         "beschreibung": "Python FastAPI Postgres Senior Backend Developer",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") == "aktualisiert"
     # Score-Recompute sollte stattgefunden haben
