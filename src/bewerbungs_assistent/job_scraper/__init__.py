@@ -1476,10 +1476,57 @@ _DEGREE_REQUIRED_PATTERNS = [
 ]
 
 
-def _detect_degree_required(text: str) -> bool:
-    """Erkennt ob eine Stellenbeschreibung einen Hochschulabschluss fordert (#305)."""
+# #536 v1.6.4: Quereinsteiger-/Abschwaechungs-Klauseln erkennen.
+# Wenn die Stellenbeschreibung explizit Quereinsteiger einlaedt oder die
+# formale Anforderung relativiert, soll die Hochschulabschluss-Warnung
+# NICHT triggern. Vorher: "Career changers welcome" wurde ignoriert,
+# Score wurde zu Unrecht reduziert (-2), User abgeschreckt.
+_DEGREE_RELAXATION_PATTERNS = [
+    "career changers welcome",
+    "career changers are welcome",
+    "quereinsteiger willkommen",
+    "quereinsteiger sind willkommen",
+    "quereinsteiger:innen willkommen",
+    "auch quereinsteiger",
+    "oder vergleichbare qualifikation",
+    "oder vergleichbar",
+    "alternativ einschlaegige berufserfahrung",
+    "alternativ einschlägige berufserfahrung",
+    "auch ohne studium moeglich",
+    "auch ohne studium möglich",
+    "kein studium erforderlich",
+    "kein abschluss erforderlich",
+    "abschluss nicht zwingend",
+    "no degree required",
+    "degree not required",
+    "or equivalent experience",
+    "or comparable experience",
+    "or comparable field",
+    "comparable qualification",
+    "auch ohne abschluss",
+]
+
+
+def _has_degree_relaxation(text: str) -> bool:
+    """True wenn der Text Quereinsteiger-/Abschwaechungs-Klauseln enthaelt (#536)."""
     text_lower = _normalize_for_matching(text)
-    return any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS)
+    return any(pat in text_lower for pat in _DEGREE_RELAXATION_PATTERNS)
+
+
+def _detect_degree_required(text: str) -> bool:
+    """Erkennt ob eine Stellenbeschreibung einen Hochschulabschluss fordert (#305).
+
+    v1.6.4 (#536): Quereinsteiger-Klauseln werden jetzt beruecksichtigt.
+    Wenn die Beschreibung explizit Quereinsteiger einlaedt, wird die formale
+    Anforderung als nicht-bindend gewertet (False zurueckgegeben).
+    """
+    text_lower = _normalize_for_matching(text)
+    if not any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS):
+        return False
+    # Pattern hat angeschlagen — pruefe ob abgeschwaecht
+    if _has_degree_relaxation(text_lower):
+        return False
+    return True
 
 
 def _profile_has_degree(criteria: dict) -> bool:

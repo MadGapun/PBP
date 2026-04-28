@@ -103,7 +103,10 @@ def register(mcp, db, logger):
             import json
             current = json.loads(current) if current else []
 
-        if aktion == "hinzufuegen":
+        # v1.6.4 (#528): Umlaut UND ASCII-Variante akzeptieren — KI-Aufrufer
+        # wechseln je nach Kontext. Fehlermeldung nutzte selbst den Umlaut.
+        action_norm = (aktion or "").strip().lower()
+        if action_norm in ("hinzufügen", "hinzufuegen", "add"):
             current_set = set(w.lower() for w in current)
             added = []
             for w in werte:
@@ -112,13 +115,13 @@ def register(mcp, db, logger):
                     added.append(w)
             db.set_search_criteria(key, current)
             return {"status": "hinzugefuegt", "kategorie": kategorie, "hinzugefuegt": added, "gesamt": len(current)}
-        elif aktion == "entfernen":
+        elif action_norm in ("entfernen", "remove"):
             remove_set = set(w.lower() for w in werte)
             removed = [w for w in current if w.lower() in remove_set]
             current = [w for w in current if w.lower() not in remove_set]
             db.set_search_criteria(key, current)
             return {"status": "entfernt", "kategorie": kategorie, "entfernt": removed, "gesamt": len(current)}
-        return {"fehler": "Aktion muss 'hinzufügen' oder 'entfernen' sein."}
+        return {"fehler": "Aktion muss 'hinzufuegen'/'hinzufügen' oder 'entfernen' sein."}
 
     @mcp.tool()
     def suchkriterien_anzeigen() -> dict:

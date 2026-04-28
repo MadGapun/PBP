@@ -1,6 +1,115 @@
 """Bewerbungs-Management — 16 Tools (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
 import hashlib
+import re
+
+
+def _normalize_company_for_dedup(name: str) -> str:
+    """Normalisiert Firmennamen fuer Duplikat-Erkennung (#531).
+
+    Entfernt Klammerzusaetze (Vermittler/Endkunde-Hinweise), Rechtsform-
+    Suffixe (GmbH/AG/SE/KG), Sonderzeichen — vergleicht so dass
+    'IQ Intelligentes Ingenieur Management (Endkunde: Siemens Energy)'
+    und 'Siemens Energy (via IQ Intelligentes Ingenieur Management GmbH)'
+    als verwandt erkennbar werden.
+    """
+    if not name:
+        return ""
+    s = str(name).lower().strip()
+    # Klammern komplett raus (Vermittler, Endkunde, via, Stadt)
+    s = re.sub(r"\([^)]*\)", " ", s)
+    # Rechtsform-Suffixe
+    for suffix in (" gmbh", " ag", " se", " kg", " kgaa", " ohg", " gbr",
+                   " e.k.", " ek", " ug", " mbh", " ltd", " inc", " corp"):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+    # Sonderzeichen / Doppel-Whitespace
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _normalize_title_for_dedup(title: str) -> str:
+    """Normalisiert Stellentitel fuer Duplikat-Erkennung (#531).
+
+    Entfernt Klammerzusaetze (m/w/d), Stadt-Suffixe wie '— Muelheim',
+    Standard-Modifier wie '(Internal)' oder '(Senior)'.
+    """
+    if not title:
+        return ""
+    s = str(title).lower().strip()
+    s = re.sub(r"\([^)]*\)", " ", s)
+    # Em-dash + Stadt-Suffix
+    s = re.sub(r"[—–-]\s*[\w\s]+$", "", s)
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def _company_tokens_full(name: str) -> set[str]:
+    """Tokens aus dem GANZEN Firmennamen inkl. Klammerinhalt — fuer
+    Vermittler/Endkunde-Erkennung. Filtert generische Begriffe."""
+    if not name:
+        return set()
+    s = str(name).lower()
+    # Sonderzeichen raus, aber Klammern UND Inhalt drin lassen
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    s = re.sub(r"\s+", " ", s).strip()
+    stop = {"gmbh", "ag", "se", "kg", "kgaa", "ohg", "gbr", "ek", "ug", "mbh",
+            "ltd", "inc", "corp", "via", "endkunde", "kunde", "im", "auftrag",
+            "von", "bei", "und", "the", "and", "of"}
+    return {t for t in s.split() if len(t) >= 4 and t not in stop}
+
+
+def _is_company_overlap(a: str, b: str) -> bool:
+    """True wenn zwei normalisierte Firmennamen-Strings Tokens gemeinsam haben."""
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if a in b or b in a:
+        return True
+    tokens_a = {t for t in a.split() if len(t) >= 4}
+    tokens_b = {t for t in b.split() if len(t) >= 4}
+    overlap = tokens_a & tokens_b
+    return len(overlap) >= 2
+
+
+def _is_vermittler_endkunde_match(orig_a: str, orig_b: str) -> bool:
+    """True wenn zwei Firmennamen die gleiche Vermittler/Endkunde-Beziehung
+    beschreiben (z.B. 'IQ ... (Endkunde: Siemens)' vs 'Siemens (via IQ ...)').
+
+    Vergleicht Tokens INKL. Klammerinhalt — wenn beide Strings mehrere
+    seltene Tokens gemeinsam haben (>= 2), ist es vermutlich der gleiche
+    Vorgang aus Vermittler- oder Endkunden-Sicht.
+    """
+    tok_a = _company_tokens_full(orig_a)
+    tok_b = _company_tokens_full(orig_b)
+    overlap = tok_a & tok_b
+    return len(overlap) >= 2
+
+
+def _normalize_date(value: str) -> str:
+    """Normalisiert ein Datum auf YYYY-MM-DD (#529).
+
+    Akzeptiert: YYYY-MM-DD, DD.MM.YYYY, ISO-Timestamps wie 2026-04-28T12:00:00.
+    Liefert "" bei nicht-erkennbaren Eingaben (Caller meldet Fehler).
+    """
+    if not value:
+        return ""
+    s = str(value).strip()
+    # ISO-Timestamp -> Datum nehmen
+    if "T" in s:
+        s = s.split("T", 1)[0]
+    # YYYY-MM-DD direkt
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", s):
+        return s
+    # DD.MM.YYYY
+    m = re.match(r"^(\d{1,2})\.(\d{1,2})\.(\d{4})$", s)
+    if m:
+        d, mo, y = m.groups()
+        return f"{y}-{int(mo):02d}-{int(d):02d}"
+    return ""
 
 
 # Status-zu-Aktionen Mapping (#170): Kontextabhängige Aktionen pro Status
@@ -197,17 +306,80 @@ def register(mcp, db, logger):
         if not bereits_beworben and status == "beworben":
             status = "in_vorbereitung"
 
-        # Check for duplicate applications (#63)
+        # Check for duplicate applications (#63 / #531 v1.6.4)
+        # v1.6.4: Erweitert um fuzzy-match (Vermittler/Endkunde-Beziehungen
+        # und Stadt-/Internal-Suffixe). Vorher exakt company.lower() ==
+        # company.lower() — verfehlt z.B. "IQ ... (Endkunde: Siemens)" vs
+        # "Siemens (via IQ ...)". Plus Email-/Ansprechpartner-Match als
+        # zusaetzliches Signal.
         existing_apps = db.get_applications()
+        norm_company = _normalize_company_for_dedup(company)
+        norm_title = _normalize_title_for_dedup(title)
+        norm_email = (kontakt_email or "").lower().strip()
+        norm_ansprech = (ansprechpartner or "").lower().strip()
+
         for existing in existing_apps:
-            if (existing.get("company", "").lower() == company.lower() and
-                    existing.get("title", "").lower() == title.lower()):
+            ex_company = existing.get("company", "")
+            ex_title = existing.get("title", "")
+            ex_email = (existing.get("kontakt_email") or "").lower().strip()
+            ex_ansprech = (existing.get("ansprechpartner") or "").lower().strip()
+
+            # 1) Exakt-Match (alte Logik)
+            if ex_company.lower() == company.lower() and ex_title.lower() == title.lower():
                 return {
                     "status": "duplikat",
+                    "match_typ": "exakt",
                     "bestehende_bewerbung_id": existing["id"][:8],
                     "nachricht": f"Es gibt bereits eine Bewerbung bei {company} für '{title}' "
                                  f"(Status: {existing.get('status', '?')}). "
                                  "Nutze bewerbung_bearbeiten() um diese zu aktualisieren."
+                }
+
+            # 2) Fuzzy-Match: aehnliche Firma + aehnlicher Titel
+            ex_norm_company = _normalize_company_for_dedup(ex_company)
+            ex_norm_title = _normalize_title_for_dedup(ex_title)
+            # Variante a: nach Klammer-Strip (gleiche Firma in zwei Schreibweisen)
+            company_match_clean = _is_company_overlap(norm_company, ex_norm_company)
+            # Variante b: Vermittler/Endkunde-Beziehung (z.B. "X (via Y)" vs "Y (Endkunde: X)")
+            company_match_vermittler = _is_vermittler_endkunde_match(company, ex_company)
+            company_match = company_match_clean or company_match_vermittler
+            title_match = (norm_title == ex_norm_title) or (
+                norm_title and ex_norm_title and (
+                    norm_title in ex_norm_title or ex_norm_title in norm_title
+                )
+            )
+            if company_match and title_match:
+                return {
+                    "status": "duplikat",
+                    "match_typ": "fuzzy_firma_titel",
+                    "bestehende_bewerbung_id": existing["id"][:8],
+                    "bestehend_firma": ex_company,
+                    "bestehend_titel": ex_title,
+                    "nachricht": (
+                        f"Aehnliche Bewerbung gefunden: '{ex_title}' bei {ex_company} "
+                        f"(Status: {existing.get('status', '?')}). "
+                        f"Vermutlich Vermittler/Endkunde-Beziehung oder Titelvariante. "
+                        f"Falls neue Bewerbung trotzdem gewuenscht: notes='Klarstellen, dass dies eine eigene Bewerbung ist'."
+                    )
+                }
+
+            # 3) Email- oder Ansprechpartner-Match plus aehnlicher Titel
+            #    (sehr starkes Signal — gleicher Recruiter zur gleichen Stelle)
+            if title_match and (
+                (norm_email and ex_email and norm_email == ex_email) or
+                (norm_ansprech and ex_ansprech and norm_ansprech == ex_ansprech)
+            ):
+                return {
+                    "status": "duplikat",
+                    "match_typ": "email_oder_ansprechpartner",
+                    "bestehende_bewerbung_id": existing["id"][:8],
+                    "bestehend_firma": ex_company,
+                    "bestehend_titel": ex_title,
+                    "nachricht": (
+                        f"Identischer Ansprechpartner/Email + aehnlicher Titel: "
+                        f"'{ex_title}' bei {ex_company} (Status: {existing.get('status', '?')}). "
+                        f"Sehr wahrscheinlich Duplikat."
+                    )
                 }
 
         # If no job_hash given, create a manual job entry so it appears in stellen_anzeigen
@@ -313,7 +485,8 @@ def register(mcp, db, logger):
         bewerbung_id: str,
         neuer_status: str,
         notizen: str = "",
-        ablehnungsgrund: str = ""
+        ablehnungsgrund: str = "",
+        auto_follow_up: bool = True,
     ) -> dict:
         """Ändert den Status einer Bewerbung (Bewerbungsstatus ändern/aktualisieren).
 
@@ -329,6 +502,10 @@ def register(mcp, db, logger):
             neuer_status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen
             notizen: Optionale Notizen zum Statuswechsel
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
+            auto_follow_up: Default True. Wenn False, wird beim Wechsel auf
+                'beworben' kein automatischer Nachfass-Follow-up nach 7 Tagen
+                angelegt (#522). Sinnvoll wenn der Recruiter ausdruecklich
+                zugesagt hat sich zu melden.
         """
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         auto_followup_id = None
@@ -346,17 +523,19 @@ def register(mcp, db, logger):
                     except Exception:
                         pass
                 # #462: Auto-Follow-up nach Tageslücke (Default 7d), falls keiner offen
-                try:
-                    default_days = int(db.get_setting("followup_default_days", 7) or 7)
-                except Exception:
-                    default_days = 7
-                if default_days > 0:
-                    existing = [fu for fu in db.get_pending_follow_ups()
-                                if fu.get("application_id") == bewerbung_id]
-                    if not existing:
-                        from datetime import datetime, timedelta
-                        when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
-                        auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
+                # #522: nur wenn auto_follow_up=True (Default)
+                if auto_follow_up:
+                    try:
+                        default_days = int(db.get_setting("followup_default_days", 7) or 7)
+                    except Exception:
+                        default_days = 7
+                    if default_days > 0:
+                        existing = [fu for fu in db.get_pending_follow_ups()
+                                    if fu.get("application_id") == bewerbung_id]
+                        if not existing:
+                            from datetime import datetime, timedelta
+                            when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
+                            auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
 
         # Lifecycle-Hooks (dismiss + auto-Nachfrage) laufen in
         # db.update_application_status() selbst — siehe _apply_status_lifecycle (#493, #494, #497).
@@ -567,6 +746,7 @@ def register(mcp, db, logger):
         cv_path: str = "",
         gehaltsvorstellung: str = "",
         final_salary: str = "",
+        applied_at: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -590,10 +770,20 @@ def register(mcp, db, logger):
             cv_path: Pfad zum Lebenslauf-PDF (#448)
             gehaltsvorstellung: Geforderte Gehaltsvorstellung (Freitext, z.B. "85.000 EUR/Jahr")
             final_salary: Tatsaechlich verhandeltes Gehalt nach Zusage (#460)
+            applied_at: Bewerbungsdatum nachtraeglich setzen/korrigieren (#529).
+                Format YYYY-MM-DD oder leer (= unveraendert). Akzeptiert auch
+                "DD.MM.YYYY" und ISO-Timestamps; Datum wird normalisiert.
         """
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
+
+        # #529: applied_at separat normalisieren
+        applied_at_norm = ""
+        if applied_at:
+            applied_at_norm = _normalize_date(applied_at)
+            if not applied_at_norm:
+                return {"fehler": f"applied_at '{applied_at}' nicht erkannt. Erwartet YYYY-MM-DD oder DD.MM.YYYY."}
 
         updates = {}
         for key, val in [("title", title), ("company", company), ("url", url),
@@ -602,7 +792,8 @@ def register(mcp, db, logger):
                          ("bewerbungsart", bewerbungsart), ("employment_type", employment_type),
                          ("source", source), ("vermittler", vermittler), ("endkunde", endkunde),
                          ("cover_letter_path", cover_letter_path), ("cv_path", cv_path),
-                         ("gehaltsvorstellung", gehaltsvorstellung), ("final_salary", final_salary)]:
+                         ("gehaltsvorstellung", gehaltsvorstellung), ("final_salary", final_salary),
+                         ("applied_at", applied_at_norm)]:
             if val:
                 updates[key] = val
 

@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 28
+SCHEMA_VERSION = 29
 
 
 def _gen_id() -> str:
@@ -1112,6 +1112,45 @@ class Database:
                 pass
             logger.info("Migration v27->v28: skills.start_year/end_year/"
                         "level_current (#511)")
+
+        if from_ver < 29:
+            # v29 / #530 v1.6.4: applications.has_reached_interview Flag.
+            # Vorher zaehlte die Statistik nur den AKTUELLEN Status — Interviews
+            # die in 'abgelehnt' oder 'abgelaufen' rutschten verschwanden aus
+            # den Zahlen. Das verzerrte Track-Record-Statistiken (User-Issue:
+            # statt 7 Interviews wurden nur 1 angezeigt).
+            try:
+                conn.execute(
+                    "ALTER TABLE applications ADD COLUMN has_reached_interview INTEGER DEFAULT 0"
+                )
+            except Exception:
+                pass
+            # Backfill aus application_events: alle Bewerbungen die jemals
+            # einen 'interview*'-Status hatten kriegen das Flag.
+            try:
+                conn.execute("""
+                    UPDATE applications
+                    SET has_reached_interview = 1
+                    WHERE id IN (
+                        SELECT DISTINCT application_id
+                        FROM application_events
+                        WHERE status LIKE 'interview%'
+                           OR status = 'zweitgespraech'
+                           OR status = 'angebot'
+                           OR status = 'angenommen'
+                    )
+                """)
+                # Plus: aktueller Status ist Interview-Stufe oder darueber
+                conn.execute("""
+                    UPDATE applications
+                    SET has_reached_interview = 1
+                    WHERE status IN ('interview', 'zweitgespraech',
+                                     'interview_abgeschlossen',
+                                     'angebot', 'angenommen')
+                """)
+            except Exception as exc:
+                logger.warning("Backfill has_reached_interview teilweise fehlgeschlagen: %s", exc)
+            logger.info("Migration v28->v29: applications.has_reached_interview (#530)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -2499,6 +2538,15 @@ class Database:
             INSERT INTO application_events (application_id, status, event_date, notes)
             VALUES (?, ?, ?, ?)
         """, (aid, data.get("status", "beworben"), now, "Bewerbung erstellt"))
+        # #530 v1.6.4: has_reached_interview-Flag setzen, falls die Bewerbung
+        # bereits mit Interview-Stufen-Status angelegt wird (z.B. via Import).
+        initial_status = data.get("status", "beworben")
+        if initial_status in ("interview", "zweitgespraech", "interview_abgeschlossen",
+                               "angebot", "angenommen"):
+            conn.execute(
+                "UPDATE applications SET has_reached_interview=1 WHERE id=?",
+                (aid,)
+            )
         conn.commit()
         # Auto-link documents by company name match
         self._auto_link_documents(aid, data.get("company", ""))
@@ -2548,6 +2596,21 @@ class Database:
             dismissed_followups (int), new_followup_id (str|None), new_followup_date (str|None)
         """
         result = {"dismissed_followups": 0, "new_followup_id": None, "new_followup_date": None}
+        # #530 v1.6.4: has_reached_interview-Flag setzen sobald die Bewerbung
+        # eine Interview-Stufe durchlaufen hat. Bleibt TRUE auch wenn der
+        # Status spaeter auf abgelehnt/abgelaufen wechselt — sonst zaehlt die
+        # Statistik nur das AKTUELLE Status und verliert historische Interviews.
+        if new_status in ("interview", "zweitgespraech", "interview_abgeschlossen",
+                           "angebot", "angenommen"):
+            try:
+                conn = self.connect()
+                conn.execute(
+                    "UPDATE applications SET has_reached_interview=1 WHERE id=?",
+                    (app_id,)
+                )
+                conn.commit()
+            except Exception:
+                pass
         # #493: Offene Follow-ups schliessen bei terminalen Status
         if new_status in self.TERMINAL_STATUSES:
             try:
@@ -3029,13 +3092,23 @@ class Database:
         in_vorb = stats["applications_by_status"].get("in_vorbereitung", 0)
         submitted = stats["total_applications"] - in_vorb
         if submitted > 0:
-            # Wer bei angebot/angenommen ist, hatte zwingend ein Interview —
-            # sonst faellt die Zahl, sobald Kandidaten weiter rutschen.
-            interviews = (stats["applications_by_status"].get("interview", 0)
-                          + stats["applications_by_status"].get("zweitgespraech", 0)
-                          + stats["applications_by_status"].get("interview_abgeschlossen", 0)
-                          + stats["applications_by_status"].get("angebot", 0)
-                          + stats["applications_by_status"].get("angenommen", 0))
+            # #530 v1.6.4: has_reached_interview-Flag bevorzugen — zaehlt
+            # Bewerbungen die JEMALS eine Interview-Stufe hatten, auch wenn
+            # sie spaeter auf abgelehnt/abgelaufen rutschten. Vorher zaehlten
+            # nur aktuelle Status, was Track-Record-Statistik verzerrte.
+            interviews_total_row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM applications "
+                "WHERE has_reached_interview=1 AND status != 'in_vorbereitung' "
+                "AND (profile_id=? OR profile_id IS NULL)",
+                (pid,)
+            ).fetchone()
+            interviews = interviews_total_row["cnt"] if interviews_total_row else 0
+            stats["interview_count_total"] = interviews
+            stats["interview_count_current"] = (
+                stats["applications_by_status"].get("interview", 0)
+                + stats["applications_by_status"].get("zweitgespraech", 0)
+                + stats["applications_by_status"].get("interview_abgeschlossen", 0)
+            )
             offers = (stats["applications_by_status"].get("angebot", 0)
                       + stats["applications_by_status"].get("angenommen", 0))
             stats["interview_rate"] = round(interviews / submitted * 100, 1)
@@ -3554,14 +3627,26 @@ class Database:
             GROUP BY bracket ORDER BY bracket
         """, (pid,)).fetchall()
 
-        # High-score jobs NOT applied to — inkl. aussortierte (#220)
+        # High-score jobs NOT applied to — NUR aktive (#532, v1.6.4):
+        # Vorher waren auch dismissed-Stellen drin; das suggerierte verschwendete
+        # Chancen, obwohl der User die Stellen aktiv ausgemustert hatte. Jetzt:
+        # is_active=1 erzwingen + auch Stellen ausschliessen, deren Firma bereits
+        # eine Bewerbung hat (Vermittler/Endkunde-Beziehung).
         unapplied_high = conn.execute("""
             SELECT j.hash, j.title, j.company, j.score, j.source,
                    j.dismiss_reason, j.is_active, j.found_at
             FROM jobs j
             LEFT JOIN applications a ON j.hash = a.job_hash
-            WHERE a.id IS NULL AND j.score >= 5 AND j.is_pinned=0
-            AND (j.profile_id=? OR j.profile_id IS NULL)
+            WHERE a.id IS NULL
+              AND j.score >= 5
+              AND j.is_pinned = 0
+              AND j.is_active = 1
+              AND (j.profile_id=? OR j.profile_id IS NULL)
+              AND NOT EXISTS (
+                  SELECT 1 FROM applications a2
+                  WHERE a2.profile_id IS j.profile_id
+                    AND LOWER(TRIM(a2.company)) = LOWER(TRIM(j.company))
+              )
             ORDER BY j.score DESC LIMIT 30
         """, (pid,)).fetchall()
 
@@ -4980,6 +5065,7 @@ CREATE TABLE IF NOT EXISTS applications (
     snapshot_date TEXT,
     gehaltsvorstellung TEXT DEFAULT '',
     final_salary TEXT DEFAULT '',
+    has_reached_interview INTEGER DEFAULT 0,
     created_at TEXT,
     updated_at TEXT
 );

@@ -470,49 +470,46 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         _line_cell(pdf, 0, 5, "  Keine offenen Follow-ups.")
     pdf.ln(4)
 
-    # --- 9. Nicht beworben trotz gutem Score (#220) ---
+    # --- 9. Nicht beworben trotz gutem Score (#220, fix #532 v1.6.4) ---
     _section_header(pdf, "9. Nicht beworben trotz gutem Fit-Score")
     if unapplied:
         pdf.set_font("Helvetica", "", 8)
-        _line_cell(pdf, 0, 5, _safe_text(
-            f"  {len(unapplied)} Stellen mit Score >= 5 ohne Bewerbung:"
-        ))
+        # v1.6.4: Header zeigt was wirklich in der Tabelle landet, nicht Pool-Groesse
+        max_rows = 30
+        shown = min(len(unapplied), max_rows)
+        if len(unapplied) > max_rows:
+            header_text = (
+                f"  Top {max_rows} von {len(unapplied)} aktiven Stellen mit Score >= 5 "
+                f"ohne Bewerbung (sortiert nach Score):"
+            )
+        else:
+            header_text = (
+                f"  {len(unapplied)} aktive Stelle{'n' if len(unapplied) != 1 else ''} "
+                f"mit Score >= 5 ohne Bewerbung:"
+            )
+        _line_cell(pdf, 0, 5, _safe_text(header_text))
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(255, 243, 224)
-        pdf.cell(50, 5, "Firma", border=1, fill=True)
-        pdf.cell(65, 5, "Position", border=1, fill=True)
+        pdf.cell(55, 5, "Firma", border=1, fill=True)
+        pdf.cell(70, 5, "Position", border=1, fill=True)
         pdf.cell(13, 5, "Score", border=1, fill=True, align="C")
-        pdf.cell(20, 5, "Quelle", border=1, fill=True, align="C")
+        pdf.cell(22, 5, "Quelle", border=1, fill=True, align="C")
         pdf.cell(22, 5, "Gefunden", border=1, fill=True, align="C")
-        pdf.cell(20, 5, "Grund", border=1, fill=True, align="C")
         pdf.ln()
         pdf.set_font("Helvetica", "", 7)
-        for j in unapplied[:20]:
-            company = (j.get("company") or "")[:28]
-            title = (j.get("title") or "")[:38]
-            reason = ""
-            if not j.get("is_active"):
-                raw = j.get("dismiss_reason") or ""
-                # dismiss_reason kann JSON-Array oder String sein
-                if raw.startswith("["):
-                    import json as _json
-                    try:
-                        reasons = _json.loads(raw)
-                        reason = ", ".join(str(r) for r in reasons)[:20]
-                    except Exception:
-                        reason = raw[:20]
-                else:
-                    reason = raw[:20] if raw else "aussort."
-            pdf.cell(50, 4, _safe_text(company), border=1)
-            pdf.cell(65, 4, _safe_text(title), border=1)
+        # v1.6.4: cap to max_rows, keine Grund-Spalte mehr (DB liefert nur is_active=1)
+        for j in unapplied[:max_rows]:
+            company = (j.get("company") or "")[:32]
+            title = (j.get("title") or "")[:42]
+            pdf.cell(55, 4, _safe_text(company), border=1)
+            pdf.cell(70, 4, _safe_text(title), border=1)
             pdf.cell(13, 4, str(j.get("score", "")), border=1, align="C")
-            pdf.cell(20, 4, _safe_text((j.get("source") or "")[:12]), border=1, align="C")
+            pdf.cell(22, 4, _safe_text((j.get("source") or "")[:14]), border=1, align="C")
             pdf.cell(22, 4, _safe_text((j.get("found_at") or "")[:10]), border=1, align="C")
-            pdf.cell(20, 4, _safe_text(reason), border=1, align="C")
             pdf.ln()
     else:
         pdf.set_font("Helvetica", "", 8)
-        _line_cell(pdf, 0, 5, "  Im Berichtszeitraum wurden keine Stellen mit gutem Score aussortiert.")
+        _line_cell(pdf, 0, 5, "  Keine offenen Stellen mit gutem Score (alle bewertet oder beworben).")
     pdf.ln(4)
 
     # --- 10. Keyword-Analyse ---

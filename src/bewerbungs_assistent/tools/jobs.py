@@ -1215,7 +1215,29 @@ def register(mcp, db, logger):
             return {"fehler": "Keine Aenderungen angegeben."}
 
         db.update_job(job_hash, updates)
-        return {
+
+        # #535 v1.6.4: Score nach Beschreibungs-/Titel-Update neu berechnen.
+        # Vorher blieb der persistente score-Wert in jobs.score auf dem Stand
+        # der initialen Scrape-Beschreibung — fit_analyse rechnete live mit
+        # der neuen Beschreibung, stellen_anzeigen mit dem alten score.
+        # Drei verschiedene Werte fuer dieselbe Stelle waren die Folge.
+        score_recomputed = None
+        if "description" in updates or "title" in updates:
+            try:
+                from ..job_scraper import calculate_score
+                criteria = db.get_search_criteria()
+                fresh_job = db.get_job(job_hash) or {}
+                new_score = calculate_score(fresh_job, criteria)
+                if new_score is not None:
+                    db.update_job(job_hash, {"score": new_score})
+                    score_recomputed = {
+                        "alter_score": job.get("score"),
+                        "neuer_score": new_score,
+                    }
+            except Exception as exc:
+                logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s", job_hash, exc)
+
+        result = {
             "status": "aktualisiert",
             "job_hash": job_hash,
             "geaenderte_felder": list(updates.keys()),
@@ -1224,6 +1246,9 @@ def register(mcp, db, logger):
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
         }
+        if score_recomputed:
+            result["score_neu_berechnet"] = score_recomputed
+        return result
 
     @mcp.tool()
     def scraper_diagnose(

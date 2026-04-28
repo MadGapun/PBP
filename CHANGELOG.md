@@ -7,6 +7,108 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.4] - 2026-04-28 — Bug-Bash (8 Issues)
+
+Hotfix-Release zwei Tage nach Foundation. User-Bug-Bash mit Beobachtungen
+aus dem realen 500-Stellen-Sprint von gestern: viele kleine Inkonsistenzen,
+die einzeln nicht weh tun, in Summe aber das Vertrauen in die Zahlen
+unterhoehlen. Adressiert acht Issues in einem Rutsch.
+
+### 🎯 Statistik-Korrektheit
+
+- **#530 — Track-Record-Statistik beruecksichtigt jetzt historische
+  Interviews.** Vorher zaehlte die Statistik nur den AKTUELLEN Status:
+  Bewerbungen die nach dem Interview auf `abgelehnt` oder `abgelaufen`
+  rutschten verschwanden aus den Zahlen — statt 7 realer Interviews
+  zeigte die Statistik nur 1. Schema v29 fuegt
+  `applications.has_reached_interview` als Flag hinzu (gesetzt sobald
+  die Bewerbung jemals eine Interview-Stufe erreicht hat, bleibt TRUE
+  auch bei spaeteren Statuswechseln). Backfill aus
+  `application_events`-Timeline ueber alle bestehenden Bewerbungen.
+  Neuer Statistik-Key: `interview_count_total`.
+- **#535 — Score wird nach `stelle_bearbeiten` neu berechnet.** Vorher
+  blieb `jobs.score` auf dem Stand der initialen Scrape-Beschreibung,
+  `fit_analyse` rechnete live mit der neuen Beschreibung — drei
+  verschiedene Werte fuer dieselbe Stelle waren die Folge. Jetzt
+  triggert ein Recompute-Hook bei `description`- oder `title`-Updates.
+- **#532 — Report-Sektion 9 „Nicht beworben trotz gutem Fit-Score"
+  zeigt nur noch echte unbearbeitete Stellen.** Vorher waren auch
+  aktiv aussortierte Stellen drin (z.B. mit `falsches_fachgebiet` als
+  Grund) — Bewerbungen bei der gleichen Firma wurden ignoriert. Jetzt
+  filtert die SQL auf `is_active=1` UND blendet Stellen aus deren
+  Firma bereits eine Bewerbung hat. Plus Header-Off-by-10-Bug
+  behoben (Header sagte 30, Tabelle zeigte 20).
+
+### 🔧 Tool-Konsistenz
+
+- **#528 — `suchkriterien_bearbeiten` akzeptiert Umlaut UND ASCII.**
+  Vorher schlug `aktion="hinzufügen"` fehl mit einer Fehlermeldung
+  die selbst den Umlaut nutzte. KI-Aufrufer wechseln je nach Kontext
+  zwischen beiden Schreibweisen — beide sind jetzt akzeptiert.
+- **#522 — Auto-Follow-up beim Statuswechsel auf `beworben` ist
+  abschaltbar.** `bewerbung_status_aendern` nimmt jetzt
+  `auto_follow_up: bool = True`. Sinnvoll wenn der Recruiter bereits
+  zugesagt hat sich zu melden — vorher musste der automatisch
+  angelegte Nachfass nachtraeglich auf `hinfaellig` gesetzt werden.
+- **#529 — `bewerbung_bearbeiten` kann `applied_at` nachtraeglich
+  setzen oder korrigieren.** Akzeptiert YYYY-MM-DD, DD.MM.YYYY und
+  ISO-Timestamps. Bei E-Mail-Auto-Match fehlte das Datum oft, der
+  einzige Workaround war Direct-DB — jetzt sauber ueber das Tool.
+- **#531 — Duplikat-Erkennung in `bewerbung_erstellen` mit
+  Vermittler/Endkunde-Heuristik.** Vorher war die Pruefung nur
+  exakt-match auf `company.lower() == company.lower()`. Verfehlte
+  daher Faelle wie „IQ Intelligentes Ingenieur Management
+  (Endkunde: Siemens Energy)" vs „Siemens Energy (via IQ ...)".
+  Jetzt drei Match-Stufen:
+  1. Exakt-match (alte Logik)
+  2. Fuzzy-match auf normalisierte Firma + Titel (Klammer-Strip,
+     Rechtsform-Suffix-Strip, Stadt-Suffix-Strip)
+  3. Vermittler/Endkunde-Token-Overlap (>= 2 seltene Tokens
+     gemeinsam INKL. Klammerinhalt)
+  Plus: Email-/Ansprechpartner-Match liefert sehr starkes Signal.
+
+### 🧠 Heuristik-Verbesserungen
+
+- **#536 — Quereinsteiger-Klauseln heben Hochschulabschluss-Warnung
+  auf.** `fit_analyse` triggerte „HOCHSCHULABSCHLUSS GEFORDERT — ATS-
+  Aussortierung moeglich" auch wenn die Stellenbeschreibung explizit
+  „Career changers welcome" oder „Quereinsteiger willkommen" enthielt.
+  Jetzt: 22 Abschwaechungs-Patterns (deutsch + englisch) deaktivieren
+  die Warnung. Score-Reduktion (-2) entfaellt entsprechend.
+
+### ✅ Bereits gefixt durch v1.6.3
+
+- **#517 — Auto-Hinfaellig bei Statuswechsel auf `abgelehnt`/
+  `zurueckgezogen`/`angenommen`.** Die Lifecycle-Logik
+  (`_apply_status_lifecycle` mit `TERMINAL_STATUSES`) existiert seit
+  v1.5.7 (#493). Issue trat auf weil Claude vor v1.6.3 teilweise
+  direkt in die DB schrieb und damit den Lifecycle umging. Mit dem
+  Anti-DB-Bypass-Pattern aus v1.6.3 (Server-Instructions +
+  `pbp_capabilities` + `pbp_grenze_melden`) ist das verhindert.
+- **#516 — Follow-up-Zaehlung Banner vs Filter.** Folgte aus #517 —
+  mit dem konsistenten Lifecycle-Pfad ist die Drift weg.
+
+### Stats
+
+- **96 MCP-Tools** (vorher 95): kein neues Tool ergaenzt — die Fixes
+  laufen ueber bestehende Tools (`bewerbung_bearbeiten`,
+  `bewerbung_status_aendern`, `bewerbung_erstellen`,
+  `stelle_bearbeiten`, `suchkriterien_bearbeiten`).
+- **9 neue Tests** in `test_v164_bugfixes.py`, alle gruen.
+- **Schema v29** (vorher v28) — ALTER-only Migration mit Backfill.
+- 8 Issues geschlossen oder als bereits gefixt markiert.
+
+### Migration
+
+- **Datenbank:** automatischer Schema-Upgrade beim ersten Start.
+  Bestehende Bewerbungen werden aus der `application_events`-
+  Timeline backfilled — jede Bewerbung die jemals einen
+  Interview-Status hatte bekommt das Flag.
+- **MCP:** `auto_follow_up` und `applied_at` sind optionale Parameter
+  mit ruckwaerts-kompatiblen Defaults — kein Caller-Update noetig.
+
+---
+
 ## [1.6.3] - 2026-04-27 — Anti-DB-Bypass-Pattern (#514)
 
 Hotfix-Release nach Real-Case-Beobachtung am Tag nach Foundation-Release:
