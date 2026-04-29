@@ -914,15 +914,23 @@ export default function DashboardPage() {
               Beispiel-Prompts fuer Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
               kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfuegen und absenden.
               Du kannst auch frei mit Claude reden; das hier sind nur Vorschlaege fuer haeufige Workflows.
+              Die <strong className="text-ink/90">vollstaendige Liste aller Prompts</strong> findest
+              du unter „Hilfe &amp; Support" → Reiter „Prompts".
             </p>
           </details>
+          {/* v1.6.7 (#561): Kuratiertes 4×3-Grid (12 Karten in 4 Kategorien).
+               Entfernt: Uebersicht, Netzwerk aufbauen, Tipps & Tricks (sind im
+               Hilfe-Reiter „Prompts" verfuegbar — siehe #562). Umbenannt:
+               Erste Schritte → Profil, Profil pruefen → Profil-Check.
+               Begründung: Schnellzugriff dient als Werbe-Screenshot der haeufigsten
+               Workflows; vollstaendiger Prompt-Katalog gehoert in die Hilfe. */}
           {[
             {
-              title: "Erste Schritte",
+              title: "Profil",
               items: [
                 { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
                 { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
-                { prompt: "/profil_erweiterung", label: "Dokumente analysieren", desc: "Profil ergaenzen, Skills extrahieren, CV bewerten", icon: PlusCircle, isNew: true },
+                { prompt: "/profil_erweiterung", label: "Dokumente analysieren", desc: "Profil ergaenzen, Skills extrahieren, CV bewerten", icon: PlusCircle },
               ],
             },
             {
@@ -930,34 +938,23 @@ export default function DashboardPage() {
               items: [
                 { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
                 { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
-                { prompt: "/bewerbungs_uebersicht", label: "Uebersicht", desc: "Was laeuft gerade?", icon: ClipboardList },
-                // v1.6.5 (#543): /auto_bewerbung im Schnellzugriff
-                { prompt: "/auto_bewerbung", label: "Inbound erfassen", desc: "Recruiter hat sich gemeldet", icon: MailPlus, isNew: true },
+                { prompt: "/auto_bewerbung", label: "Inbound erfassen", desc: "Recruiter hat sich gemeldet", icon: MailPlus },
               ],
             },
             {
               title: "Interview & Verhandlung",
               items: [
                 { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen ueben", icon: Briefcase },
-                { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic, isNew: true },
-                { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins, isNew: true },
+                { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic },
+                { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins },
               ],
             },
             {
               title: "Analyse & Strategie",
               items: [
                 { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
-                { prompt: "/profil_ueberpruefen", label: "Profil pruefen", desc: "Fehler finden und korrigieren", icon: UserCheck },
-                { prompt: "/netzwerk_strategie", label: "Netzwerk aufbauen", desc: "Kontakte gezielt nutzen", icon: Network, isNew: true },
-                // v1.6.5 (#543): /ablehnungs_coaching im Schnellzugriff
-                { prompt: "/ablehnungs_coaching", label: "Aus Absagen lernen", desc: "Muster erkennen, Strategie anpassen", icon: TrendingDown, isNew: true },
-              ],
-            },
-            {
-              // v1.6.5 (#543): neue Kategorie fuer /tipps_und_tricks
-              title: "Zum Nachlesen",
-              items: [
-                { prompt: "/tipps_und_tricks", label: "Tipps & Tricks", desc: "Versteckte Funktionen entdecken", icon: Lightbulb, isNew: true },
+                { prompt: "/profil_ueberpruefen", label: "Profil-Check", desc: "Fehler finden und korrigieren", icon: UserCheck },
+                { prompt: "/ablehnungs_coaching", label: "Aus Absagen lernen", desc: "Muster erkennen, Strategie anpassen", icon: TrendingDown },
               ],
             },
           ].map((group) => (

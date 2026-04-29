@@ -91,9 +91,16 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                 break
 
     # 4. Gehalt (pro 10% Abweichung)
+    # v1.6.7 (#552): Geschaetzte Gehaelter (salary_estimated=True) bekommen
+    # einen 0.5x-Multiplikator — sonst verzerren spekulative Werte die Score-
+    # Sortierung. Der Anwender sieht im fit_analyse-Output transparent, dass
+    # der Gehalts-Beitrag aus einer Schaetzung stammt.
     gehalt_cfg = cfg.get(("gehalt", "pro_10_prozent"))
     if gehalt_cfg and gehalt_cfg["value"] != 0:
         salary_min = job.get("salary_min")
+        salary_estimated = bool(job.get("salary_estimated"))
+        # Multiplikator: 0.5x wenn geschaetzt, sonst 1.0x
+        gehalt_multiplikator = 0.5 if salary_estimated else 1.0
         if salary_min:
             # Get user preferences for salary
             criteria = db.get_search_criteria()
@@ -102,27 +109,35 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                 pref = criteria.get("min_tagessatz", 0)
                 if isinstance(pref, (int, float)) and pref > 0:
                     pct_diff = (salary_min - pref) / pref * 100
-                    points = round(pct_diff / 10) * gehalt_cfg["value"]
+                    points = round(pct_diff / 10) * gehalt_cfg["value"] * gehalt_multiplikator
                     points = max(-5, min(5, points))  # Cap
                     if points != 0:
                         total_adj += points
+                        detail = f"{pct_diff:+.0f}% vom Wunsch"
+                        if salary_estimated:
+                            detail += " (geschaetzt, 0.5x)"
                         adjustments.append({
                             "dimension": "Gehalt/Rate",
-                            "detail": f"{pct_diff:+.0f}% vom Wunsch",
-                            "punkte": points
+                            "detail": detail,
+                            "punkte": points,
+                            "source": "geschaetzt" if salary_estimated else "extrahiert",
                         })
             else:
                 pref = criteria.get("min_gehalt", 0)
                 if isinstance(pref, (int, float)) and pref > 0:
                     pct_diff = (salary_min - pref) / pref * 100
-                    points = round(pct_diff / 10) * gehalt_cfg["value"]
+                    points = round(pct_diff / 10) * gehalt_cfg["value"] * gehalt_multiplikator
                     points = max(-5, min(5, points))
                     if points != 0:
                         total_adj += points
+                        detail = f"{pct_diff:+.0f}% vom Wunsch"
+                        if salary_estimated:
+                            detail += " (geschaetzt, 0.5x)"
                         adjustments.append({
                             "dimension": "Gehalt/Rate",
-                            "detail": f"{pct_diff:+.0f}% vom Wunsch",
-                            "punkte": points
+                            "detail": detail,
+                            "punkte": points,
+                            "source": "geschaetzt" if salary_estimated else "extrahiert",
                         })
 
     # 5. Ausschluss-Keywords (nur negativ, #169)

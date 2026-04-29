@@ -123,6 +123,92 @@ function normalizeProfiles(profiles) {
   }));
 }
 
+// v1.6.7 (#562): Prompts-Tab in Hilfe & Support — listet alle MCP-Prompts.
+function PromptsTab({ pushToast, copyPrompt }) {
+  const [prompts, setPrompts] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/prompts")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => { if (alive) setPrompts(data?.prompts || []); })
+      .catch((e) => { if (alive) setError(e.message); });
+    return () => { alive = false; };
+  }, []);
+
+  if (error) {
+    return <p className="text-sm text-coral">Prompts konnten nicht geladen werden: {error}</p>;
+  }
+  if (prompts === null) {
+    return <p className="text-sm text-muted/60">Lade...</p>;
+  }
+
+  const filtered = filter
+    ? prompts.filter((p) =>
+        (p.titel + " " + p.name + " " + p.beschreibung).toLowerCase().includes(filter.toLowerCase())
+      )
+    : prompts;
+
+  // Gruppieren nach Kategorie (Reihenfolge bleibt erhalten dank stabiler Sort vom Backend)
+  const grouped = {};
+  for (const p of filtered) {
+    if (!grouped[p.kategorie]) grouped[p.kategorie] = [];
+    grouped[p.kategorie].push(p);
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted/70">
+        Vollstaendige Liste aller {prompts.length} verfuegbaren MCP-Prompts. Klick auf „Kopieren"
+        kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfuegen und absenden.
+      </p>
+      <input
+        type="text"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        placeholder="Filter nach Titel oder Beschreibung..."
+        className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+      />
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted/60">Keine Prompts gefunden.</p>
+      ) : (
+        Object.entries(grouped).map(([kategorie, items]) => (
+          <div key={kategorie}>
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal/70 mb-2">
+              {kategorie}
+            </h3>
+            <div className="space-y-1.5">
+              {items.map((p) => (
+                <div
+                  key={p.name}
+                  className="glass-card flex items-start justify-between gap-3 px-3 py-2.5 rounded-lg"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-ink">{p.titel}</p>
+                    <p className="text-[11px] text-muted/50 font-mono">/{p.name}</p>
+                    {p.beschreibung && (
+                      <p className="text-[12px] text-muted/70 mt-0.5">{p.beschreibung}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyPrompt(`/${p.name}`)}
+                    className="shrink-0 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-[11px] font-medium px-2.5 py-1.5 transition-colors"
+                  >
+                    Kopieren
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const TOAST_DEDUP_WINDOW_MS = 5000;
   const [page, setPage] = useState(parsePageFromHash());
@@ -1402,6 +1488,7 @@ export default function App() {
             <div className="flex gap-1 mb-4 border-b border-white/8 pb-2 overflow-x-auto">
               {[
                 { id: "hilfe", label: "Hilfe" },
+                { id: "prompts", label: "Prompts" },
                 { id: "faq", label: "FAQ" },
                 { id: "troubleshooting", label: "Probleme" },
                 { id: "bug", label: "Bug melden" },
@@ -1533,6 +1620,10 @@ export default function App() {
                   </a>
                 </div>
               </div>
+            )}
+
+            {helpTab === "prompts" && (
+              <PromptsTab pushToast={pushToast} copyPrompt={copyPrompt} />
             )}
 
             {helpTab === "faq" && (

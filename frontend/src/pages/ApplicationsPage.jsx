@@ -407,6 +407,16 @@ export default function ApplicationsPage() {
         tone: "danger",
         title: "Fällige Nachfassaktionen zuerst schließen",
         description: `${dueFollowUps.length} Follow-up(s) sind fällig oder überfällig. Aktualisiere Status und Notizen, bevor neue Fälle liegen bleiben.`,
+        // v1.6.7 (#515): Banner ist jetzt klickbar — setzt den Follow-up-Filter
+        // und scrollt zur „Offene Aktionen"-Sektion. Vorher rein informativ.
+        actionLabel: "Fällige anzeigen",
+        action: () => {
+          setSpecialFilter("followups_due");
+          setTimeout(() => {
+            const target = document.getElementById("offene-aktionen");
+            if (target?.scrollIntoView) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 50);
+        },
       };
     }
     if (draftApplicationsCount > 0) {
@@ -587,7 +597,7 @@ export default function ApplicationsPage() {
 
         {/* #423 + #495: Offene Aktionen (Termine + Follow-ups) + Schnell-Import ABOVE the application list (2/3 + 1/3) */}
         {(followUps.length > 0 || upcomingMeetings.length > 0) && (
-          <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
+          <div id="offene-aktionen" className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
             <Card className="rounded-2xl">
               <div className="flex items-center justify-between">
                 <SectionHeading title={`Offene Aktionen (${upcomingMeetings.length + followUps.length})`} />

@@ -7,6 +7,101 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.7] - 2026-04-29 — Schnellzugriff-Cleanup + Quick-Wins (#561, #562, #515, #552)
+
+Folge-Release am gleichen Tag, getrieben von User-Feedback: „Wir haben die
+Schnellzugriff-Aufraeumung (#561, #562) bei v1.6.6 vergessen — und es sind
+immer noch 42 Issues offen". Diese Runde holt das nach.
+
+### 🎨 Frontend
+
+- **#561 — Schnellzugriff zurueck auf kuratiertes 4×3-Grid.** Werbe-
+  Screenshot-tauglich, 12 Karten in 4 Kategorien:
+  - „Profil" (vorher „Erste Schritte"): Kennenlernen, Wo stehe ich?,
+    Dokumente analysieren
+  - „Jobsuche & Bewerbung": Jobsuche starten, Bewerbung schreiben,
+    Inbound erfassen
+  - „Interview & Verhandlung": Interview vorbereiten, Uebungsgespraech,
+    Gehalt verhandeln
+  - „Analyse & Strategie": Staerken erkennen, Profil-Check (vorher
+    „Profil pruefen"), Aus Absagen lernen
+  Entfernt: „Uebersicht", „Netzwerk aufbauen", „Tipps & Tricks" —
+  diese sind im neuen Hilfe-Reiter „Prompts" verfuegbar.
+
+- **#562 — Hilfe & Support: Neuer Reiter „Prompts".** Vollstaendige
+  Liste aller verfuegbaren MCP-Prompts mit Befehl, Titel,
+  Kurzbeschreibung und „Kopieren"-Button. Filter-Suchfeld oben.
+  Gruppiert nach denselben Kategorien wie der Schnellzugriff plus
+  „Weitere" fuer Prompts, die im Schnellzugriff nicht auftauchen
+  (`/profil_sync`, `/faq`, `/bewerbung_vorbereitung`).
+
+- **#515 — Banner „Faellige Nachfassaktionen zuerst schliessen" hat
+  jetzt einen Klick.** Setzt den Spezial-Filter „Nachfrage faellig"
+  und scrollt zur „Offene Aktionen"-Sektion. Vorher rein informativ.
+
+### 🔧 Backend
+
+- **`GET /api/prompts`** — neuer Endpoint, listet alle verfuegbaren
+  MCP-Prompts mit Metadaten (Kategorie, Titel, Kurzbeschreibung).
+  Stabile Sortierung nach Kategorie + Titel.
+
+### 🐛 Score-Drift
+
+- **#552 — `salary_estimated=True` reduziert den Gehalts-Score-Beitrag
+  um 50%.** Vorher hatten alle Stellen mit geschaetztem Gehalt den
+  vollen Score-Faktor (Gewicht 8) — was die Sortierung verzerrte, weil
+  spekulative Werte gleich behandelt wurden wie extrahierte. Jetzt:
+  geschaetzte Gehaelter zaehlen nur halb, im `fit_analyse`-Output gibt
+  es ein neues Feld `source: "geschaetzt" | "extrahiert"` und der
+  Detail-Text enthaelt „(geschaetzt, 0.5x)".
+
+### Stats
+
+- **96 MCP-Tools** (unveraendert)
+- **5 neue Tests** in `tests/test_v167_quickfixes.py`, alle gruen (92 total)
+- 4 Issues in dieser Runde geschlossen: #515, #552, #561, #562
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.7.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.7.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.6] - 2026-04-29 — Bewerbungsbericht-Aufwertung (#540)
 
 Mittwoch-Morgen-Sprint zur Aufwertung des PDF-Bewerbungsberichts. Treiber:

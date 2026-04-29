@@ -932,6 +932,82 @@ async def api_get_document_analysis_prompt(doc_id: str, request: Request):
     }
 
 
+@app.get("/api/prompts")
+async def api_list_prompts():
+    """v1.6.7 (#562): Listet alle verfuegbaren MCP-Prompts mit Metadaten.
+
+    Liefert pro Prompt: name, kategorie, titel, beschreibung. Der eigentliche
+    Prompt-Body wird weiter ueber /api/workflow-prompt/{name} on-demand
+    geladen, damit dieser Index leichtgewichtig bleibt.
+    """
+    from .tools.workflows import _prompt_registry
+    prompts_funcs = _prompt_registry(_db)
+
+    # Kategorisierung + UI-Metadaten — abgestimmt auf den Schnellzugriff
+    # nach #561, plus „Weitere" fuer alles was im Schnellzugriff nicht
+    # auftaucht.
+    META = {
+        # PROFIL
+        "ersterfassung":          {"kategorie": "Profil", "titel": "Kennenlernen",
+                                   "beschreibung": "Profil im Gespraech erstellen"},
+        "willkommen":             {"kategorie": "Profil", "titel": "Wo stehe ich?",
+                                   "beschreibung": "Dein aktueller Stand"},
+        "profil_erweiterung":     {"kategorie": "Profil", "titel": "Dokumente analysieren",
+                                   "beschreibung": "Profil ergaenzen, Skills extrahieren, CV bewerten"},
+        "profil_sync":            {"kategorie": "Profil", "titel": "Profil-Sync",
+                                   "beschreibung": "Profil mit hochgeladenen Dokumenten abgleichen"},
+        "bewerbungs_uebersicht":  {"kategorie": "Profil", "titel": "Uebersicht",
+                                   "beschreibung": "Was laeuft gerade?"},
+        # JOBSUCHE & BEWERBUNG
+        "jobsuche_workflow":      {"kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche starten",
+                                   "beschreibung": "Jobboersen durchsuchen lassen"},
+        "bewerbung_schreiben":    {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung schreiben",
+                                   "beschreibung": "Anschreiben erstellen lassen"},
+        "auto_bewerbung":         {"kategorie": "Jobsuche & Bewerbung", "titel": "Inbound erfassen",
+                                   "beschreibung": "Recruiter hat sich gemeldet"},
+        "bewerbung_vorbereitung": {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
+                                   "beschreibung": "Schritt fuer Schritt zur fertigen Bewerbung"},
+        # INTERVIEW & VERHANDLUNG
+        "interview_vorbereitung": {"kategorie": "Interview & Verhandlung", "titel": "Interview vorbereiten",
+                                   "beschreibung": "Typische Fragen ueben"},
+        "interview_simulation":   {"kategorie": "Interview & Verhandlung", "titel": "Uebungsgespraech",
+                                   "beschreibung": "Probelauf mit Claude"},
+        "gehaltsverhandlung":     {"kategorie": "Interview & Verhandlung", "titel": "Gehalt verhandeln",
+                                   "beschreibung": "Strategie besprechen"},
+        # ANALYSE & STRATEGIE
+        "profil_analyse":         {"kategorie": "Analyse & Strategie", "titel": "Staerken erkennen",
+                                   "beschreibung": "Was kann ich besonders gut?"},
+        "profil_ueberpruefen":    {"kategorie": "Analyse & Strategie", "titel": "Profil-Check",
+                                   "beschreibung": "Fehler finden und korrigieren"},
+        "ablehnungs_coaching":    {"kategorie": "Analyse & Strategie", "titel": "Aus Absagen lernen",
+                                   "beschreibung": "Muster erkennen, Strategie anpassen"},
+        "netzwerk_strategie":     {"kategorie": "Analyse & Strategie", "titel": "Netzwerk aufbauen",
+                                   "beschreibung": "Kontakte gezielt nutzen"},
+        # WEITERE
+        "tipps_und_tricks":       {"kategorie": "Weitere", "titel": "Tipps & Tricks",
+                                   "beschreibung": "Versteckte Funktionen entdecken"},
+        "faq":                    {"kategorie": "Weitere", "titel": "FAQ",
+                                   "beschreibung": "Erste-Schritte-Guide"},
+    }
+
+    out = []
+    for name in sorted(prompts_funcs.keys()):
+        meta = META.get(name, {})
+        out.append({
+            "name": name,
+            "kategorie": meta.get("kategorie", "Weitere"),
+            "titel": meta.get("titel", name),
+            "beschreibung": meta.get("beschreibung", ""),
+        })
+    # Stabile Sortierung: erst nach Kategorie-Reihenfolge, dann nach Titel
+    KATEGORIE_REIHEN = [
+        "Profil", "Jobsuche & Bewerbung", "Interview & Verhandlung",
+        "Analyse & Strategie", "Weitere",
+    ]
+    out.sort(key=lambda p: (KATEGORIE_REIHEN.index(p["kategorie"]) if p["kategorie"] in KATEGORIE_REIHEN else 999, p["titel"]))
+    return {"prompts": out, "count": len(out)}
+
+
 @app.get("/api/workflow-prompt/{workflow_name}")
 async def api_get_workflow_prompt(workflow_name: str):
     """Return the resolved workflow instructions instead of a raw slash command."""
