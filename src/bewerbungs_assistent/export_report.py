@@ -77,8 +77,15 @@ def _line_cell(pdf, w, h, text="", **kwargs):
 def generate_application_report(report_data: dict, profile: Optional[dict],
                                 output_path: Path,
                                 zeitraum_von: str = "",
-                                zeitraum_bis: str = "") -> Path:
-    """Generate a comprehensive PDF Bewerbungsbericht (#173 aufgewertet)."""
+                                zeitraum_bis: str = "",
+                                report_settings: Optional[dict] = None) -> Path:
+    """Generate a comprehensive PDF Bewerbungsbericht (#173 aufgewertet).
+
+    v1.6.6 (#540): Erweitert um Arbeitsamt-Tauglichkeit. Optionale Bericht-
+    Einstellungen (BA-Vermittlungsnummer, Aktenzeichen, Berater-Name,
+    Beraterkommentar-Block) werden NUR gerendert, wenn ausgefuellt — der
+    Bericht funktioniert weiter fuer Anwender ohne Arbeitsamt-Bezug.
+    """
     from fpdf import FPDF
 
     apps = report_data.get("applications", [])
@@ -92,6 +99,27 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # v1.6.5 #540: neue Felder
     aussortiert = report_data.get("stellen_aussortiert", {}) or {}
     interviews_historisch = report_data.get("interviews_historisch_total", 0)
+    # v1.6.6 #540: Optionale Settings — Master-Toggle 'arbeitsamt_block_enabled'
+    # entscheidet, ob der BA-Block ueberhaupt gerendert wird. So koennen die
+    # ausgefuellten Felder im Profil bleiben, der Bericht zeigt sie aber nur
+    # wenn der Haken gesetzt ist (User kann den Bericht auch fuer andere
+    # Zwecke nutzen, ohne die Felder loeschen zu muessen).
+    settings = report_settings or {}
+    arbeitsamt_enabled = bool(settings.get("arbeitsamt_block_enabled"))
+    ba_vermittlungsnummer = (settings.get("ba_vermittlungsnummer") or "").strip()
+    ba_aktenzeichen = (settings.get("ba_aktenzeichen") or "").strip()
+    ba_berater_name = (settings.get("ba_berater_name") or "").strip()
+    ba_berater_stelle = (settings.get("ba_berater_stelle") or "").strip()
+    show_berater_kommentar = bool(settings.get("berater_kommentar_block"))
+    # Nur anzeigen wenn Toggle an UND mindestens ein Feld gefuellt
+    has_arbeitsamt_block = arbeitsamt_enabled and any([
+        ba_vermittlungsnummer, ba_aktenzeichen,
+        ba_berater_name, ba_berater_stelle
+    ])
+
+    # v1.6.6: Aktivitaetsprotokoll und Quellen-Aktivitaet werden aus den
+    # vorhandenen Daten zusammengebaut — kein neuer DB-Aufruf noetig.
+    quellen_aktivitaet = report_data.get("scraper_health") or report_data.get("quellen_aktivitaet") or []
 
     # Zeitraumfilter (#173)
     if zeitraum_von or zeitraum_bis:
@@ -99,8 +127,27 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 (not zeitraum_von or (a.get("applied_at") or "") >= zeitraum_von) and
                 (not zeitraum_bis or (a.get("applied_at") or "") <= zeitraum_bis + "T23:59:59")]
 
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=20)
+    # v1.6.6: FPDF-Subclass mit Footer (Erstellt am + Seite X / Y).
+    # alias_nb_pages() ersetzt {nb} bei Build-Ende durch die Gesamt-Seitenzahl.
+    _erstellt_am_str = (
+        f"Erstellt am {datetime.now().strftime('%d.%m.%Y')} um "
+        f"{datetime.now().strftime('%H:%M')} Uhr"
+    )
+
+    class ReportPDF(FPDF):
+        def footer(self):
+            # 15mm vom unteren Rand
+            self.set_y(-15)
+            self.set_font("Helvetica", "I", 7)
+            self.set_text_color(120, 120, 120)
+            self.cell(0, 4, _safe_text(_erstellt_am_str), align="L")
+            self.cell(0, 4, _safe_text(f"Seite {self.page_no()} / {{nb}}"),
+                     align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            self.set_text_color(0, 0, 0)
+
+    pdf = ReportPDF()
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=22)
 
     # --- Title Page with PBP Branding (#173) ---
     pdf.add_page()
@@ -150,6 +197,37 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
 
+    # v1.6.6 #540: Optionaler Arbeitsamt-Block auf der Cover-Page —
+    # nur sichtbar wenn Master-Toggle an UND mindestens ein Feld gefuellt.
+    if has_arbeitsamt_block:
+        pdf.set_draw_color(180, 180, 180)
+        pdf.set_fill_color(245, 247, 250)
+        pdf.set_line_width(0.3)
+        # Hintergrund-Box mit Padding (left/right margin = 30mm)
+        box_start_y = pdf.get_y()
+        ba_lines = []
+        if ba_vermittlungsnummer:
+            ba_lines.append(("Vermittlungsnummer", ba_vermittlungsnummer))
+        if ba_aktenzeichen:
+            ba_lines.append(("Aktenzeichen", ba_aktenzeichen))
+        if ba_berater_name:
+            ba_lines.append(("Berater(in)", ba_berater_name))
+        if ba_berater_stelle:
+            ba_lines.append(("Beratungsstelle", ba_berater_stelle))
+        # Box-Hoehe: Header (7) + Zeilen (5 each) + Padding (4)
+        box_height = 11 + len(ba_lines) * 5
+        pdf.rect(30, box_start_y, 150, box_height, style="DF")
+        pdf.set_y(box_start_y + 2)
+        pdf.set_font("Helvetica", "B", 10)
+        _line_cell(pdf, 0, 6, _safe_text("Vorlage fuer das Arbeitsamt"), align="C")
+        for label, value in ba_lines:
+            pdf.set_x(36)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.cell(50, 5, _safe_text(f"{label}:"))
+            pdf.set_font("Helvetica", "B", 9)
+            _line_cell(pdf, 0, 5, _safe_text(value))
+        pdf.set_y(box_start_y + box_height + 4)
+
     # --- Inhaltsverzeichnis (#173) ---
     _section_header(pdf, "Inhaltsverzeichnis")
     toc_items = [
@@ -163,7 +241,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         "8. Offene Follow-ups",
         "9. Nicht beworben trotz gutem Score",
         "10. Keyword-Analyse",
+        "11. Aktivitaetsprotokoll",
+        "12. Quellen-Aktivitaet (Suchaufwand)",
+        "13. Bewerbungs-Trichter",
     ]
+    if show_berater_kommentar:
+        toc_items.append("14. Beraterkommentar")
     pdf.set_font("Helvetica", "", 10)
     for item in toc_items:
         _line_cell(pdf, 0, 6, _safe_text(f"    {item}"))
@@ -224,6 +307,28 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             f"(historisch, inkl. spaeter abgelehnter)."
         )
         pdf.multi_cell(0, 4.5, _safe_text(funnel_text))
+        pdf.ln(2)
+
+        # v1.6.6 #540: Effort-Proxy — geschaetzter Zeitaufwand.
+        # Heuristik (vorsichtig konservativ): Bewerbung 30min, Aussortierung
+        # 1min, Interview 90min, Follow-up 5min. Hilft Anwendern den realen
+        # Aufwand sichtbar zu machen (z.B. fuer Arbeitsamt-Nachweis).
+        effort_minutes = (
+            total_apps * 30
+            + dismissed_count * 1
+            + interviews_historisch * 90
+            + (follow_up_summary.get("pending", 0) + follow_up_summary.get("overdue", 0)) * 5
+        )
+        effort_hours = effort_minutes / 60
+        pdf.set_font("Helvetica", "B", 9)
+        _line_cell(pdf, 0, 5, _safe_text("Geschaetzter Zeitaufwand:"))
+        pdf.set_font("Helvetica", "", 8)
+        effort_text = (
+            f"  ~{effort_hours:.0f} Stunden (Bewerbungen 30min, Aussortierung "
+            f"1min, Interviews 90min, Follow-ups 5min — konservative Schaetzung "
+            f"ohne Vorbereitungs- und Recherchezeit)."
+        )
+        pdf.multi_cell(0, 4.5, _safe_text(effort_text))
         pdf.ln(3)
 
     # #430: Monthly application chart in summary
@@ -629,28 +734,153 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 pdf.ln()
     pdf.ln(4)
 
-    # --- Footer with PBP Branding (#173) ---
-    pdf.ln(8)
-    pdf.set_draw_color(31, 78, 121)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(31, 78, 121)
-    _line_cell(pdf, 0, 5, _safe_text(
-        "Erstellt mit PBP (Persönliches Bewerbungs-Portal)"
-    ), align="C")
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_text_color(100, 100, 100)
-    _line_cell(pdf, 0, 4, _safe_text(
-        "PBP ist ein KI-gestütztes Bewerbungsmanagement-Tool, das den gesamten "
-        "Bewerbungsprozess von der Stellensuche bis zum Angebot strukturiert und automatisiert."
-    ), align="C")
-    _line_cell(pdf, 0, 4, _safe_text(
-        f"https://github.com/MadGapun/PBP | {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ), align="C")
-    pdf.set_text_color(0, 0, 0)
-    _line_cell(pdf, 0, 4, _safe_text("* = manuell hinzugefügte Stelle (gepinnt)"), align="C")
+    # === v1.6.6 #540: Neue Sektionen 11, 12, 13 (+ optional 14) ===
 
+    # --- 11. Aktivitaetsprotokoll (chronologische Timeline) ---
+    pdf.add_page()
+    _section_header(pdf, "11. Aktivitaetsprotokoll")
+    pdf.set_font("Helvetica", "", 8)
+    _line_cell(pdf, 0, 5, _safe_text(
+        "  Chronologie aller wichtigen Bewerbungs-Ereignisse im Berichtszeitraum."
+    ))
+    pdf.ln(1)
+    timeline_events = []
+    for a in apps:
+        applied_at = (a.get("applied_at") or "")[:10]
+        title = a.get("title") or ""
+        company = a.get("company") or ""
+        status = STATUS_LABELS.get(a.get("status") or "", a.get("status") or "")
+        if applied_at:
+            timeline_events.append((
+                applied_at, "Bewerbung", f"{company} - {title}", status,
+            ))
+        last_event_at = (a.get("last_event_at") or a.get("updated_at") or "")[:10]
+        if last_event_at and last_event_at != applied_at and a.get("status"):
+            timeline_events.append((
+                last_event_at, "Statuswechsel", f"{company} - {title}", status,
+            ))
+    timeline_events.sort(reverse=True)
+    if timeline_events:
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(22, 5, "Datum", border=1, fill=True, align="C")
+        pdf.cell(28, 5, "Ereignis", border=1, fill=True, align="C")
+        pdf.cell(95, 5, "Bewerbung", border=1, fill=True)
+        pdf.cell(35, 5, "Status", border=1, fill=True, align="C")
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 7)
+        for date, evt, target, status in timeline_events[:60]:
+            try:
+                date_de = datetime.fromisoformat(date).strftime("%d.%m.%Y")
+            except Exception:
+                date_de = date
+            pdf.cell(22, 4, date_de, border=1, align="C")
+            pdf.cell(28, 4, _safe_text(evt[:18]), border=1, align="C")
+            pdf.cell(95, 4, _safe_text(target[:60]), border=1)
+            pdf.cell(35, 4, _safe_text(status[:22]), border=1, align="C")
+            pdf.ln()
+        if len(timeline_events) > 60:
+            pdf.set_font("Helvetica", "I", 7)
+            _line_cell(pdf, 0, 4, _safe_text(
+                f"  ... weitere {len(timeline_events) - 60} Ereignisse nicht angezeigt."
+            ))
+    else:
+        _line_cell(pdf, 0, 5, _safe_text(
+            "  Keine Aktivitaeten im Berichtszeitraum erfasst."
+        ))
+    pdf.ln(4)
+
+    # --- 12. Quellen-Aktivitaet (Suchaufwand) ---
+    _section_header(pdf, "12. Quellen-Aktivitaet (Suchaufwand)")
+    pdf.set_font("Helvetica", "", 8)
+    _line_cell(pdf, 0, 5, _safe_text(
+        "  Belegt den Suchaufwand: welche Job-Portale wurden durchsucht, "
+        "wie haeufig, mit welcher Trefferzahl."
+    ))
+    pdf.ln(1)
+    if quellen_aktivitaet:
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(40, 5, "Quelle", border=1, fill=True)
+        pdf.cell(25, 5, "Suchlaeufe", border=1, fill=True, align="C")
+        pdf.cell(25, 5, "Erfolgreich", border=1, fill=True, align="C")
+        pdf.cell(28, 5, "Letzte Treffer", border=1, fill=True, align="C")
+        pdf.cell(30, 5, "Letzter Lauf", border=1, fill=True, align="C")
+        pdf.cell(20, 5, "Status", border=1, fill=True, align="C")
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 7)
+        for q in quellen_aktivitaet:
+            name = (q.get("scraper_name") or q.get("name") or "")[:18]
+            total_runs = q.get("total_runs") or 0
+            total_succ = q.get("total_successes") or 0
+            last_count = q.get("last_count") or q.get("letzte_rohtreffer") or 0
+            last_run = (q.get("last_run") or "")[:10]
+            try:
+                last_run_de = datetime.fromisoformat(last_run).strftime("%d.%m.%Y") if last_run else "-"
+            except Exception:
+                last_run_de = last_run or "-"
+            aktiv = "aktiv" if q.get("is_active") else "inaktiv"
+            pdf.cell(40, 4, _safe_text(name), border=1)
+            pdf.cell(25, 4, str(total_runs), border=1, align="C")
+            pdf.cell(25, 4, str(total_succ), border=1, align="C")
+            pdf.cell(28, 4, str(last_count), border=1, align="C")
+            pdf.cell(30, 4, last_run_de, border=1, align="C")
+            pdf.cell(20, 4, aktiv, border=1, align="C")
+            pdf.ln()
+    else:
+        _line_cell(pdf, 0, 5, _safe_text(
+            "  Keine Quellen-Aktivitaet erfasst (noch keine Suchen durchgefuehrt)."
+        ))
+    pdf.ln(4)
+
+    # --- 13. Bewerbungs-Trichter (Funnel, #521) ---
+    _section_header(pdf, "13. Bewerbungs-Trichter")
+    pdf.set_font("Helvetica", "", 8)
+    _line_cell(pdf, 0, 5, _safe_text(
+        "  Visualisiert die Konversion von Sichtung bis Angebot."
+    ))
+    pdf.ln(2)
+    funnel_stages = [
+        ("Stellen gesichtet", aussortiert.get("anzahl_gesichtet", 0)),
+        ("Stellen aktiv aussortiert", aussortiert.get("anzahl_total", 0)),
+        ("Bewerbungen verschickt", total_apps),
+        ("Antwort erhalten", total_apps - by_status_filtered.get("offen", 0) - by_status_filtered.get("beworben", 0)),
+        ("Interview erreicht", interviews_historisch),
+        ("Angebot erhalten", offers),
+    ]
+    funnel_max = max((v for _, v in funnel_stages if v), default=0) or 1
+    for label, value in funnel_stages:
+        bar_width = max(2, int(value / funnel_max * 130)) if value else 2
+        pct = round(value / funnel_max * 100, 1) if funnel_max else 0
+        pdf.set_font("Helvetica", "", 8)
+        pdf.cell(50, 5, _safe_text(f"  {label}"))
+        pdf.set_fill_color(56, 189, 248)
+        pdf.cell(bar_width, 5, "", fill=True)
+        pdf.set_font("Helvetica", "B", 8)
+        _line_cell(pdf, 0, 5, _safe_text(f"  {value} ({pct:.0f}%)"))
+    pdf.ln(4)
+
+    # --- 14. Beraterkommentar (optional) ---
+    if show_berater_kommentar:
+        _section_header(pdf, "14. Beraterkommentar")
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, _safe_text(
+            "  Platz fuer handschriftliche Anmerkungen oder gemeinsame Notizen "
+            "aus dem Beratungsgespraech."
+        ))
+        pdf.ln(2)
+        pdf.set_draw_color(180, 180, 180)
+        pdf.set_line_width(0.2)
+        # 8 leere Zeilen mit Trennlinien
+        line_y = pdf.get_y() + 4
+        for _ in range(8):
+            pdf.line(15, line_y, 195, line_y)
+            line_y += 7
+        pdf.set_y(line_y)
+        pdf.ln(2)
+
+    # v1.6.6: Old closing-footer-block entfernt — Cover-Page-Branding +
+    # Per-Seite-Footer (Erstellt am + Seite X/Y) reichen aus.
     pdf.output(str(output_path))
     logger.info("PDF Bewerbungsbericht erstellt: %s", output_path)
     return output_path
@@ -852,8 +1082,16 @@ def _embed_chart(pdf, chart_data: bytes | None, max_width: int = 170):
 def generate_excel_report(report_data: dict, profile: Optional[dict],
                           output_path: Path,
                           zeitraum_von: str = "",
-                          zeitraum_bis: str = "") -> Path:
-    """Generate an Excel Bewerbungsbericht (requires openpyxl)."""
+                          zeitraum_bis: str = "",
+                          report_settings: Optional[dict] = None) -> Path:
+    """Generate an Excel Bewerbungsbericht (requires openpyxl).
+
+    v1.6.6 (#540): Akzeptiert report_settings fuer Signatur-Parity mit dem
+    PDF-Generator. Aktuell wird `report_settings` im Excel-Export nicht
+    visuell genutzt (Excel ist primaer fuer Daten-Auswertung gedacht), die
+    Signatur ist aber bereit fuer kuenftige Erweiterung.
+    """
+    _ = report_settings  # vorgehalten fuer kuenftige Excel-Erweiterungen
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 

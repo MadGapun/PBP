@@ -3818,6 +3818,8 @@ class Database:
                 "top_gruende": dict(dismiss_counter.most_common(10)),
             },
             "interviews_historisch_total": interviews_total,
+            # v1.6.6 (#540): Scraper-Health fuer Sektion „Quellen-Aktivitaet"
+            "scraper_health": self.get_scraper_health(),
         }
 
     # === Salary Data (PBP-014) ===

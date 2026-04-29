@@ -283,6 +283,15 @@ def register(mcp, db, logger):
         # Kanonische Report-Daten aus DB (inkl. rejection_patterns, follow_ups,
         # bewerbungsart-Verteilung). Keine doppelte Aggregation hier.
         report_data = db.get_report_data()
+        # v1.6.6 (#540): Optionale Bericht-Einstellungen
+        report_settings = {
+            "arbeitsamt_block_enabled": bool(db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
+            "ba_vermittlungsnummer": db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
+            "ba_aktenzeichen": db.get_profile_setting("report_ba_aktenzeichen", "") or "",
+            "ba_berater_name": db.get_profile_setting("report_ba_berater_name", "") or "",
+            "ba_berater_stelle": db.get_profile_setting("report_ba_berater_stelle", "") or "",
+            "berater_kommentar_block": bool(db.get_profile_setting("report_berater_kommentar_block", False)),
+        }
 
         export_dir = get_data_dir() / "export"
         export_dir.mkdir(exist_ok=True)
@@ -293,13 +302,15 @@ def register(mcp, db, logger):
             path = export_dir / f"bewerbungsbericht_{name_slug}.xlsx"
             generate_excel_report(report_data, profile, path,
                                   zeitraum_von=zeitraum_von,
-                                  zeitraum_bis=zeitraum_bis)
+                                  zeitraum_bis=zeitraum_bis,
+                                  report_settings=report_settings)
         else:
             from ..export_report import generate_application_report
             path = export_dir / f"bewerbungsbericht_{name_slug}.pdf"
             generate_application_report(report_data, profile, path,
                                         zeitraum_von=zeitraum_von,
-                                        zeitraum_bis=zeitraum_bis)
+                                        zeitraum_bis=zeitraum_bis,
+                                        report_settings=report_settings)
 
         return {
             "status": "erstellt",

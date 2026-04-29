@@ -78,11 +78,17 @@ function resolveTimeRangeDates(range) {
   return { from: start.toISOString().slice(0, 10), to };
 }
 
-function buildExportUrl(format, timeRange) {
-  const { from, to } = resolveTimeRangeDates(timeRange);
+function buildExportUrl(format, timeRange, customFrom, customTo) {
   const params = new URLSearchParams({ format });
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
+  // v1.6.6: explizites von-bis hat Vorrang vor dem Preset-Range
+  if (customFrom || customTo) {
+    if (customFrom) params.set("from", customFrom);
+    if (customTo) params.set("to", customTo);
+  } else {
+    const { from, to } = resolveTimeRangeDates(timeRange);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+  }
   return `/api/applications/export?${params.toString()}`;
 }
 
@@ -123,6 +129,9 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState("month"); // day | week | month | quarter | year
   const [timeRange, setTimeRange] = useState(""); // "" (default) | 30d | 90d | 6m | 12m
+  // v1.6.6 (#540): manueller Zeitraum-Picker fuer den Bericht-Export
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [timeline, setTimeline] = useState(null);
   const [scores, setScores] = useState(null);
   const [extended, setExtended] = useState(null);
@@ -292,7 +301,7 @@ export default function StatsPage() {
           </SelectInput>
           <LinkButton
             size="sm"
-            href={apiUrl(buildExportUrl("pdf", timeRange))}
+            href={apiUrl(buildExportUrl("pdf", timeRange, customFrom, customTo))}
             target="_blank"
             rel="noreferrer"
           >
@@ -301,7 +310,7 @@ export default function StatsPage() {
           </LinkButton>
           <LinkButton
             size="sm"
-            href={apiUrl(buildExportUrl("xlsx", timeRange))}
+            href={apiUrl(buildExportUrl("xlsx", timeRange, customFrom, customTo))}
             target="_blank"
             rel="noreferrer"
           >
@@ -309,6 +318,38 @@ export default function StatsPage() {
             Excel
           </LinkButton>
         </div>
+      </div>
+
+      {/* v1.6.6 (#540): manueller Zeitraum fuer den Bericht-Export */}
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-muted/70">
+        <span>Bericht-Zeitraum manuell:</span>
+        <input
+          type="date"
+          value={customFrom}
+          onChange={(e) => setCustomFrom(e.target.value)}
+          className="rounded-lg border border-white/5 bg-white/[0.03] px-2 py-1 text-ink"
+          aria-label="Zeitraum von"
+        />
+        <span>bis</span>
+        <input
+          type="date"
+          value={customTo}
+          onChange={(e) => setCustomTo(e.target.value)}
+          className="rounded-lg border border-white/5 bg-white/[0.03] px-2 py-1 text-ink"
+          aria-label="Zeitraum bis"
+        />
+        {(customFrom || customTo) && (
+          <button
+            type="button"
+            onClick={() => { setCustomFrom(""); setCustomTo(""); }}
+            className="text-[11px] text-muted/60 hover:text-ink underline"
+          >
+            zuruecksetzen
+          </button>
+        )}
+        <span className="ml-2 text-[11px] text-muted/50">
+          (ueberschreibt die Preset-Auswahl oben — leer = Preset gilt)
+        </span>
       </div>
 
       {!hasData && !extended ? (

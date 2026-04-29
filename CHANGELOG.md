@@ -7,6 +7,120 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.6] - 2026-04-29 — Bewerbungsbericht-Aufwertung (#540)
+
+Mittwoch-Morgen-Sprint zur Aufwertung des PDF-Bewerbungsberichts. Treiber:
+Anwender, die ihren Bericht beim Arbeitsamt vorlegen muessen, brauchen
+einen formal-tauglichen Beleg ihrer Bewerbungs-Aktivitaeten — vollstaendig,
+nachvollziehbar, beeindruckend. Gleichzeitig darf der Bericht nicht
+verkomplizieren fuer Anwender, die ihn nur fuer sich selbst nutzen.
+
+### 🎯 Neuer Inhalt im Bericht
+
+- **Cover-Page:** Optionaler Arbeitsamt-Block (BA-Vermittlungsnummer,
+  Aktenzeichen, Berater-Name, Beratungsstelle) — nur sichtbar wenn der
+  Master-Toggle aktiv ist UND mindestens ein Feld gefuellt. Felder bleiben
+  beim Toggle-Aus erhalten — kein Loeschen/Neueintippen noetig.
+- **Sektion 11 „Aktivitaetsprotokoll":** Chronologische Timeline aller
+  wichtigen Bewerbungs-Ereignisse (Bewerbung, Statuswechsel) mit Datum,
+  Bewerbung, Status. Bis zu 60 Eintraege.
+- **Sektion 12 „Quellen-Aktivitaet":** Suchaufwand pro Job-Portal — wie
+  oft durchsucht, wie viele Treffer, letzter Lauf. Liefert das Argument
+  „ich habe meinen Suchaufwand strukturiert dokumentiert".
+- **Sektion 13 „Bewerbungs-Trichter":** Funnel-Visualisierung gesichtet →
+  aussortiert → beworben → Antwort → Interview → Angebot mit Balken und
+  Prozentangaben (#521).
+- **Sektion 14 „Beraterkommentar" (optional):** Acht leere Linien fuer
+  handschriftliche Anmerkungen — nur sichtbar wenn Toggle aktiv.
+- **Effort-Proxy in Executive Summary:** Geschaetzter Zeitaufwand
+  (Bewerbungen 30min, Aussortierung 1min, Interviews 90min, Follow-ups
+  5min) — konservative Untergrenze ohne Vorbereitungszeit.
+- **Per-Seite-Footer:** „Erstellt am ... | Seite X / Y" auf jeder Seite.
+  Loest den alten redundanten Closing-Block am Berichtende ab.
+
+### 🔧 Tool-Konsistenz
+
+- **`/api/settings/report`** GET/PUT — speichert Bericht-Optionen pro
+  Profil. Felder: `arbeitsamt_block_enabled` (bool, Master-Toggle),
+  `ba_vermittlungsnummer`, `ba_aktenzeichen`, `ba_berater_name`,
+  `ba_berater_stelle`, `berater_kommentar_block` (bool).
+- **`generate_application_report` und `generate_excel_report`** akzeptieren
+  jetzt `report_settings: dict | None`. Backwards-kompatibel — alte Aufrufe
+  ohne den Parameter funktionieren weiter.
+- **`get_report_data()`** liefert zusaetzlich `scraper_health` fuer die
+  neue Quellen-Aktivitaets-Sektion.
+
+### 🎨 Frontend
+
+- **Einstellungen → System** hat eine neue Card „Bewerbungsbericht" mit
+  Master-Toggle, vier optionalen Feldern und Beraterkommentar-Toggle.
+  Felder sind ausgegraut wenn der Master-Toggle aus ist.
+- **Statistiken-Seite** hat einen manuellen Zeitraum-Picker (von-bis)
+  fuer den Bericht-Export. Ueberschreibt die Preset-Auswahl wenn
+  ausgefuellt; leer = Preset gilt weiter.
+
+### 🐛 Fixes
+
+- **#560** — `/tipps_und_tricks` und `/profil_sync` waren in
+  prompts.py registriert, aber nicht im `_prompt_registry` der
+  Workflows-Datei. Folge: Klick auf die Karten im Schnellzugriff zeigte
+  „Anleitung konnte nicht geladen werden". Jetzt Delegation an die
+  FastMCP-Prompt-Registry.
+
+### Stats
+
+- **96 MCP-Tools** (unveraendert)
+- **10 neue Tests** in `tests/test_v166_bericht.py`, alle gruen
+- Bericht-Sektionen: 10 → 13 (+ optional 14)
+
+### Migration
+
+- Keine Schema-Migration noetig. Neue Settings landen in `settings`-Table
+  als profile-scoped Keys (`{pid}:report_*`).
+- Bestehende Berichts-Aufrufe ohne `report_settings`-Parameter funktionieren
+  unveraendert — neuer Block wird einfach nicht gerendert.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.6.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.6.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.5] - 2026-04-29 — Real-Case-Polish (10 Quick-Fixes)
 
 Folgerelease nach v1.6.4, getrieben von einem zweiten echten Suchsprint.

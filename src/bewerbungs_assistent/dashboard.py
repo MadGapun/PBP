@@ -2216,6 +2216,50 @@ async def api_update_app_status(app_id: str, request: Request):
     return {"status": "ok", "lifecycle": lifecycle}
 
 
+@app.get("/api/settings/report")
+async def api_get_report_settings():
+    """Liest Bewerbungsbericht-Einstellungen (v1.6.6, #540).
+
+    Alle Felder sind optional. Nicht gesetzte Felder werden im Bericht
+    nicht gerendert — der Bericht funktioniert auch ohne Arbeitsamt-Daten.
+    """
+    return {
+        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
+        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
+        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
+        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
+        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
+        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
+    }
+
+
+@app.put("/api/settings/report")
+async def api_set_report_settings(request: Request):
+    """Speichert Bewerbungsbericht-Einstellungen (v1.6.6, #540)."""
+    data = await request.json()
+    allowed_strings = (
+        "ba_vermittlungsnummer", "ba_aktenzeichen",
+        "ba_berater_name", "ba_berater_stelle",
+    )
+    out: dict = {}
+    for key in allowed_strings:
+        if key in data:
+            val = (str(data[key]) if data[key] is not None else "").strip()
+            if len(val) > 200:
+                return JSONResponse(
+                    {"error": f"{key} darf maximal 200 Zeichen lang sein"},
+                    status_code=400,
+                )
+            _db.set_profile_setting(f"report_{key}", val)
+            out[key] = val
+    for bool_key in ("arbeitsamt_block_enabled", "berater_kommentar_block"):
+        if bool_key in data:
+            flag = bool(data[bool_key])
+            _db.set_profile_setting(f"report_{bool_key}", flag)
+            out[bool_key] = flag
+    return {"status": "ok", "gespeichert": out}
+
+
 @app.get("/api/settings/followup")
 async def api_get_followup_settings():
     """Liest die Follow-up-Automations-Einstellungen (#494)."""
@@ -3922,6 +3966,17 @@ async def api_export_applications(
     zeitraum_bis = to or ""
     report_data = _db.get_report_data()
     profile = _db.get_profile()
+    # v1.6.6 (#540): Optionale Bericht-Einstellungen einlesen — nur gesetzte
+    # Werte werden im Bericht angezeigt. So funktioniert der Bericht weiter
+    # fuer Anwender, die NICHT ans Arbeitsamt reporten.
+    report_settings = {
+        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
+        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
+        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
+        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
+        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
+        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
+    }
     from .database import get_data_dir
     export_dir = get_data_dir() / "export"
     export_dir.mkdir(exist_ok=True)
@@ -3931,7 +3986,8 @@ async def api_export_applications(
             from .export_report import generate_excel_report
             path = export_dir / "bewerbungsbericht.xlsx"
             generate_excel_report(report_data, profile, path,
-                                   zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis)
+                                   zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
+                                   report_settings=report_settings)
             return FileResponse(
                 str(path),
                 filename="Bewerbungsbericht.xlsx",
@@ -3945,7 +4001,8 @@ async def api_export_applications(
     else:
         path = export_dir / "bewerbungsbericht.pdf"
         generate_application_report(report_data, profile, path,
-                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis)
+                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
+                                    report_settings=report_settings)
         return FileResponse(
             str(path),
             filename="Bewerbungsbericht.pdf",

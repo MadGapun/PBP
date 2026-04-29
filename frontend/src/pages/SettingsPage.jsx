@@ -200,6 +200,16 @@ export default function SettingsPage() {
   const [settingsTab, setSettingsTab] = useState("quellen");
   const [followupSettings, setFollowupSettings] = useState({ followup_default_days: 7, followup_interview_delay_days: 14 });
   const [followupSaving, setFollowupSaving] = useState(false);
+  // v1.6.6 (#540): Bewerbungsbericht-Einstellungen — Arbeitsamt-Block + Beraterkommentar
+  const [reportSettings, setReportSettings] = useState({
+    arbeitsamt_block_enabled: false,
+    ba_vermittlungsnummer: "",
+    ba_aktenzeichen: "",
+    ba_berater_name: "",
+    ba_berater_stelle: "",
+    berater_kommentar_block: false,
+  });
+  const [reportSaving, setReportSaving] = useState(false);
   const loginPollersRef = useRef(new Map());
 
   // Handle incoming tab intent from navigateTo (#420)
@@ -222,13 +232,14 @@ export default function SettingsPage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [sourceRows, logsData, impulseData, healthData, privacyData, followupData] = await Promise.all([
+      const [sourceRows, logsData, impulseData, healthData, privacyData, followupData, reportData] = await Promise.all([
         api("/api/sources"),
         api("/api/logs?lines=100"),
         api("/api/daily-impulse").catch(() => null),
         api("/api/health").catch(() => null),
         api("/api/privacy-info").catch(() => null),
         api("/api/settings/followup").catch(() => null),
+        api("/api/settings/report").catch(() => null),
       ]);
       startTransition(() => {
         setSources(sourceRows || []);
@@ -237,6 +248,7 @@ export default function SettingsPage() {
         setHealth(healthData);
         setPrivacy(privacyData);
         if (followupData) setFollowupSettings(followupData);
+        if (reportData) setReportSettings((prev) => ({ ...prev, ...reportData }));
         setLoading(false);
       });
     } catch (error) {
@@ -336,6 +348,22 @@ export default function SettingsPage() {
     } catch (error) {
       startTransition(() => setSources(previousSources));
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
+    }
+  }
+
+  // v1.6.6 (#540): Bericht-Einstellungen speichern
+  async function saveReportSettings(next) {
+    setReportSaving(true);
+    try {
+      const saved = await putJson("/api/settings/report", next);
+      if (saved?.gespeichert) {
+        setReportSettings((prev) => ({ ...prev, ...saved.gespeichert }));
+      }
+      pushToast("Bericht-Einstellungen gespeichert", "success");
+    } catch (error) {
+      pushToast(`Speichern fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      setReportSaving(false);
     }
   }
 
@@ -564,6 +592,114 @@ export default function SettingsPage() {
                 <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Wird nach „interview_abgeschlossen" automatisch erzeugt; alte Follow-ups dieser Bewerbung werden hinfaellig.</p>
               </Field>
             </div>
+          </Card>
+        )}
+
+        {/* ── v1.6.6 (#540): Bewerbungsbericht-Einstellungen ── */}
+        {settingsTab === "system" && (
+          <Card className="rounded-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="glass-icon glass-icon-sky h-10 w-10">
+                <Activity size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Bewerbungsbericht</h2>
+                <p className="text-xs text-muted">
+                  Optionale Felder fuer den PDF-/Excel-Bericht. Nuetzlich fuer Anwender, die ihren
+                  Bericht beim Arbeitsamt vorlegen — sonst einfach den Haken weglassen.
+                </p>
+              </div>
+            </div>
+
+            {/* Master-Toggle: Arbeitsamt-Block ein/aus */}
+            <label className="flex items-center gap-3 cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={!!reportSettings.arbeitsamt_block_enabled}
+                onChange={(e) => {
+                  const flag = e.target.checked;
+                  setReportSettings((prev) => ({ ...prev, arbeitsamt_block_enabled: flag }));
+                  saveReportSettings({ arbeitsamt_block_enabled: flag });
+                }}
+                disabled={reportSaving}
+                className="h-4 w-4 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium text-ink">Arbeitsamt-Vorlagenblock im Bericht anzeigen</p>
+                <p className="text-[11px] text-muted/70">
+                  Wenn aktiv, wird auf der Cover-Page ein Block mit Vermittlungsnummer, Aktenzeichen und Berater-Daten gerendert.
+                  Ohne Haken werden die Felder ignoriert — du musst sie nicht loeschen.
+                </p>
+              </div>
+            </label>
+
+            <div className={`grid gap-3 sm:grid-cols-2 ${reportSettings.arbeitsamt_block_enabled ? "" : "opacity-50 pointer-events-none"}`}>
+              <Field label="Vermittlungsnummer">
+                <TextInput
+                  type="text"
+                  maxLength={200}
+                  value={reportSettings.ba_vermittlungsnummer}
+                  onChange={(e) => setReportSettings((prev) => ({ ...prev, ba_vermittlungsnummer: e.target.value }))}
+                  onBlur={(e) => saveReportSettings({ ba_vermittlungsnummer: e.target.value })}
+                  disabled={reportSaving || !reportSettings.arbeitsamt_block_enabled}
+                  placeholder="z.B. 123ABC456"
+                />
+              </Field>
+              <Field label="Aktenzeichen">
+                <TextInput
+                  type="text"
+                  maxLength={200}
+                  value={reportSettings.ba_aktenzeichen}
+                  onChange={(e) => setReportSettings((prev) => ({ ...prev, ba_aktenzeichen: e.target.value }))}
+                  onBlur={(e) => saveReportSettings({ ba_aktenzeichen: e.target.value })}
+                  disabled={reportSaving || !reportSettings.arbeitsamt_block_enabled}
+                  placeholder="z.B. 12345/2026"
+                />
+              </Field>
+              <Field label="Berater(in)">
+                <TextInput
+                  type="text"
+                  maxLength={200}
+                  value={reportSettings.ba_berater_name}
+                  onChange={(e) => setReportSettings((prev) => ({ ...prev, ba_berater_name: e.target.value }))}
+                  onBlur={(e) => saveReportSettings({ ba_berater_name: e.target.value })}
+                  disabled={reportSaving || !reportSettings.arbeitsamt_block_enabled}
+                  placeholder="Name der Beratungsperson"
+                />
+              </Field>
+              <Field label="Beratungsstelle">
+                <TextInput
+                  type="text"
+                  maxLength={200}
+                  value={reportSettings.ba_berater_stelle}
+                  onChange={(e) => setReportSettings((prev) => ({ ...prev, ba_berater_stelle: e.target.value }))}
+                  onBlur={(e) => saveReportSettings({ ba_berater_stelle: e.target.value })}
+                  disabled={reportSaving || !reportSettings.arbeitsamt_block_enabled}
+                  placeholder="z.B. Agentur fuer Arbeit Bremen"
+                />
+              </Field>
+            </div>
+
+            {/* Sub-Toggle: Beraterkommentar-Block am Berichtende */}
+            <label className="mt-5 flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!reportSettings.berater_kommentar_block}
+                onChange={(e) => {
+                  const flag = e.target.checked;
+                  setReportSettings((prev) => ({ ...prev, berater_kommentar_block: flag }));
+                  saveReportSettings({ berater_kommentar_block: flag });
+                }}
+                disabled={reportSaving}
+                className="h-4 w-4 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium text-ink">Beraterkommentar-Block am Berichtende</p>
+                <p className="text-[11px] text-muted/70">
+                  Fuegt am Ende des Berichts leere Linien fuer handschriftliche Anmerkungen ein.
+                </p>
+              </div>
+            </label>
           </Card>
         )}
 
