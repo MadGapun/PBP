@@ -243,10 +243,9 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         "10. Keyword-Analyse",
         "11. Aktivitaetsprotokoll",
         "12. Quellen-Aktivitaet (Suchaufwand)",
-        "13. Bewerbungs-Trichter",
     ]
     if show_berater_kommentar:
-        toc_items.append("14. Beraterkommentar")
+        toc_items.append("13. Beraterkommentar")
     pdf.set_font("Helvetica", "", 10)
     for item in toc_items:
         _line_cell(pdf, 0, 6, _safe_text(f"    {item}"))
@@ -286,50 +285,17 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.multi_cell(0, 5, _safe_text(summary_text))
     pdf.ln(2)
 
-    # v1.6.5 #540: „Habe mich gekuemmert"-Beweis im Executive Summary.
-    # Zeigt aktive Filter-Arbeit, nicht nur Erfolgs-Zahlen — wichtig fuer
-    # User die belegen wollen dass sie sich strukturiert mit der Suche
-    # auseinandergesetzt haben (1014 von 1016 Stellen wurden NICHT
-    # ignoriert, sondern aktiv aussortiert).
-    seen = aussortiert.get("anzahl_gesichtet", 0)
-    dismissed_count = aussortiert.get("anzahl_total", 0)
-    aktiv_count = aussortiert.get("anzahl_aktiv", 0)
-    if seen > 0:
-        pdf.set_font("Helvetica", "B", 9)
-        _line_cell(pdf, 0, 5, _safe_text("Aktive Filter-Arbeit:"))
-        pdf.set_font("Helvetica", "", 8)
-        funnel_text = (
-            f"  Du hast {seen} Stelle(n) gesichtet. Davon wurden "
-            f"{dismissed_count} aktiv aussortiert (mit Grund), "
-            f"{aktiv_count} sind noch in Bearbeitung. "
-            f"Auf {total_apps} hast du dich beworben — "
-            f"{interviews_historisch} davon erreichten ein Interview "
-            f"(historisch, inkl. spaeter abgelehnter)."
-        )
-        pdf.multi_cell(0, 4.5, _safe_text(funnel_text))
-        pdf.ln(2)
-
-        # v1.6.6 #540: Effort-Proxy — geschaetzter Zeitaufwand.
-        # Heuristik (vorsichtig konservativ): Bewerbung 30min, Aussortierung
-        # 1min, Interview 90min, Follow-up 5min. Hilft Anwendern den realen
-        # Aufwand sichtbar zu machen (z.B. fuer Arbeitsamt-Nachweis).
-        effort_minutes = (
-            total_apps * 30
-            + dismissed_count * 1
-            + interviews_historisch * 90
-            + (follow_up_summary.get("pending", 0) + follow_up_summary.get("overdue", 0)) * 5
-        )
-        effort_hours = effort_minutes / 60
-        pdf.set_font("Helvetica", "B", 9)
-        _line_cell(pdf, 0, 5, _safe_text("Geschaetzter Zeitaufwand:"))
-        pdf.set_font("Helvetica", "", 8)
-        effort_text = (
-            f"  ~{effort_hours:.0f} Stunden (Bewerbungen 30min, Aussortierung "
-            f"1min, Interviews 90min, Follow-ups 5min — konservative Schaetzung "
-            f"ohne Vorbereitungs- und Recherchezeit)."
-        )
-        pdf.multi_cell(0, 4.5, _safe_text(effort_text))
-        pdf.ln(3)
+    # v1.6.8: „Aktive Filter-Arbeit" und „Geschaetzter Zeitaufwand"
+    # entfernt. Begruendung (User-Feedback nach Real-Lauf):
+    # - „Aktive Filter-Arbeit" suggeriert „nur 1 Stelle wuerdig befunden",
+    #   weil viele Bewerbungen ueber Direct-Add (manuell, ueber Chat)
+    #   angelegt werden — nicht ueber stelle_bewerten('passt'). Die Zahl
+    #   ist ohne Kontext irrefuehrend.
+    # - „Geschaetzter Zeitaufwand" lag mit 63h fuer realen Aufwand um
+    #   Groessenordnungen daneben (echter Aufwand: Stunden bis Tage pro
+    #   Stelle inkl. Recherche, Anschreiben, Korrekturen, Interview-
+    #   Vorbereitung, Dossiers). Heuristik traegt nicht.
+    # Beide Bloecke kommen erst zurueck, wenn die Datenbasis stimmt.
 
     # #430: Monthly application chart in summary
     _embed_chart(pdf, _chart_monthly_bar(apps))
@@ -833,36 +799,15 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         ))
     pdf.ln(4)
 
-    # --- 13. Bewerbungs-Trichter (Funnel, #521) ---
-    _section_header(pdf, "13. Bewerbungs-Trichter")
-    pdf.set_font("Helvetica", "", 8)
-    _line_cell(pdf, 0, 5, _safe_text(
-        "  Visualisiert die Konversion von Sichtung bis Angebot."
-    ))
-    pdf.ln(2)
-    funnel_stages = [
-        ("Stellen gesichtet", aussortiert.get("anzahl_gesichtet", 0)),
-        ("Stellen aktiv aussortiert", aussortiert.get("anzahl_total", 0)),
-        ("Bewerbungen verschickt", total_apps),
-        ("Antwort erhalten", total_apps - by_status_filtered.get("offen", 0) - by_status_filtered.get("beworben", 0)),
-        ("Interview erreicht", interviews_historisch),
-        ("Angebot erhalten", offers),
-    ]
-    funnel_max = max((v for _, v in funnel_stages if v), default=0) or 1
-    for label, value in funnel_stages:
-        bar_width = max(2, int(value / funnel_max * 130)) if value else 2
-        pct = round(value / funnel_max * 100, 1) if funnel_max else 0
-        pdf.set_font("Helvetica", "", 8)
-        pdf.cell(50, 5, _safe_text(f"  {label}"))
-        pdf.set_fill_color(56, 189, 248)
-        pdf.cell(bar_width, 5, "", fill=True)
-        pdf.set_font("Helvetica", "B", 8)
-        _line_cell(pdf, 0, 5, _safe_text(f"  {value} ({pct:.0f}%)"))
-    pdf.ln(4)
+    # v1.6.8: Sektion 13 „Bewerbungs-Trichter" entfernt — die Stufen waren
+    # in sich nicht schluessig (1027 aussortiert + 68 beworben passte nicht
+    # zu 1028 gesichtet, weil Bewerbungen auch ueber Direct-Add aus
+    # externen Quellen kommen, nicht nur aus dem gesichteten Pool). Kommt
+    # zurueck wenn die Datenmodellierung das sauber abbildet.
 
-    # --- 14. Beraterkommentar (optional) ---
+    # --- 13. Beraterkommentar (optional) ---
     if show_berater_kommentar:
-        _section_header(pdf, "14. Beraterkommentar")
+        _section_header(pdf, "13. Beraterkommentar")
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
             "  Platz fuer handschriftliche Anmerkungen oder gemeinsame Notizen "

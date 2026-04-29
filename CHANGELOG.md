@@ -7,6 +7,92 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.8] - 2026-04-29 — Bericht-Hotfix: irrefuehrende Bloecke entfernt
+
+Hotfix nach Real-Sicht des v1.6.6/1.6.7-Berichts. Drei Bloecke produzierten
+Zahlen, die zwar plausibel aussahen aber inhaltlich nicht trugen — und dadurch
+schlechter waren als kein Block. Konsequenz: raus, bis die Datenbasis stimmt.
+
+### 🗑 Entfernt aus dem Bewerbungsbericht
+
+- **„Aktive Filter-Arbeit"-Block (Executive Summary).** Suggerierte „nur
+  1 Stelle wuerdig befunden", weil der Zaehler ueber `dismiss_reason`/
+  `is_active=0` lief. In der Realitaet werden viele Bewerbungen ueber den
+  Chat per Direct-Add angelegt — die zugehoerige Stelle wurde nie ueber
+  `stelle_bewerten('passt')` markiert und blieb in `aktiv` haengen oder
+  in `aussortiert` mit Grund `bewerbung_erstellt`. Die Zahl ist ohne
+  Kontext irrefuehrend.
+- **„Geschaetzter Zeitaufwand"-Block (Executive Summary).** Heuristik
+  (Bewerbungen 30min, Aussortierung 1min, Interviews 90min) lag um
+  Groessenordnungen daneben — realer Aufwand sind Stunden bis Tage pro
+  Stelle (Recherche, Anschreiben-Iteration, Korrektur Umlaute/Format,
+  Interview-Vorbereitung, Dossiers fuer Trainings/Firmen-Studium). 63h
+  fuer 4 Monate ist ein Witz.
+- **Sektion 13 „Bewerbungs-Trichter".** Die Stufen waren in sich nicht
+  schluessig: 1027 aktiv aussortiert + 68 beworben passt nicht zu 1028
+  gesichtet, weil Bewerbungen auch ueber Direct-Add aus externen Quellen
+  kommen, nicht nur aus dem gesichteten Pool. Solange die Modellierung
+  diesen Pfad nicht abbildet, ist der Trichter ein Zerrspiegel.
+
+### 📐 Bericht-Struktur jetzt
+
+10 Hauptsektionen + 2 neue (11 Aktivitaetsprotokoll, 12 Quellen-Aktivitaet)
++ optional 13 Beraterkommentar. Cover-Page Arbeitsamt-Block bleibt.
+Footer „Erstellt am ... | Seite X / Y" auf jeder Seite bleibt.
+
+### 🎯 Designprinzip festgehalten
+
+In `CLAUDE.md` als Regel ergaenzt: **Kennzahlen, deren Datenbasis nicht
+zuverlaessig ist, kommen nicht in den Bericht.** Lieber eine Sektion
+weglassen als eine irrefuehrende Zahl drucken.
+
+### Stats
+
+- **96 MCP-Tools** (unveraendert)
+- **Tests:** 14 v1.6.6/v1.6.7 grun, ein Test angepasst (#540 erwartet jetzt
+  Trichter/Effort als „nicht im Text").
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.8.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.8.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.7] - 2026-04-29 — Schnellzugriff-Cleanup + Quick-Wins (#561, #562, #515, #552)
 
 Folge-Release am gleichen Tag, getrieben von User-Feedback: „Wir haben die

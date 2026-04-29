@@ -138,7 +138,12 @@ def test_540_berater_kommentar_block_only_when_enabled(setup_env):
 
 # ============= Neue Sektionen vorhanden ===============
 def test_540_neue_sektionen_in_toc(setup_env):
-    """Inhaltsverzeichnis enthaelt die drei neuen Sektionen."""
+    """Inhaltsverzeichnis enthaelt die zwei verbleibenden neuen Sektionen.
+
+    v1.6.8: 'Bewerbungs-Trichter' und 'Geschaetzter Zeitaufwand' wurden
+    entfernt, weil die Datenbasis die Aussagen nicht zuverlaessig deckt
+    (Bewerbungen auch ueber Direct-Add, Effort-Heuristik traegt nicht).
+    """
     db, tmpdir = setup_env
     profile = db.get_profile()
     out = Path(tmpdir) / "toc.pdf"
@@ -146,24 +151,10 @@ def test_540_neue_sektionen_in_toc(setup_env):
     text = _pdf_text(out)
     assert "Aktivitaetsprotokoll" in text
     assert "Quellen-Aktivitaet" in text
-    assert "Trichter" in text
-
-
-def test_540_effort_proxy_in_executive_summary(setup_env):
-    """Effort-Proxy 'Geschaetzter Zeitaufwand' wird gezeigt wenn Daten vorhanden."""
-    db, tmpdir = setup_env
-    # Brauche etwas Daten
-    db.add_application({"title": "Test Job", "company": "TestCorp"})
-    db.save_jobs([{
-        "hash": "j1", "title": "T", "company": "C", "url": "x",
-        "source": "manuell", "score": 50,
-    }])
-    db.dismiss_job("j1", "falsches_fachgebiet")
-    profile = db.get_profile()
-    out = Path(tmpdir) / "effort.pdf"
-    _generate_pdf(db, profile, out)
-    text = _pdf_text(out)
-    assert "Geschaetzter Zeitaufwand" in text
+    # v1.6.8: Trichter ist raus
+    assert "Bewerbungs-Trichter" not in text
+    # v1.6.8: Effort-Proxy ist raus
+    assert "Geschaetzter Zeitaufwand" not in text
 
 
 # ============= Zeitraum-Filter ===============

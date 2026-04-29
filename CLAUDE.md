@@ -105,6 +105,26 @@ durch das verbrannt. Konsequenzen:
 - Bei kaputtem Release: NICHT taglock loesen — neue Patch-Version (vX.Y.Z+1)
   veroeffentlichen.
 
+## Bericht-Designprinzip (v1.6.8)
+
+**Kennzahlen, deren Datenbasis nicht zuverlaessig ist, kommen nicht in den
+Bewerbungsbericht.** Lieber eine Sektion weglassen als eine irrefuehrende
+Zahl drucken. Konkrete Faelle aus v1.6.8:
+
+- „Aktive Filter-Arbeit" suggerierte „nur 1 wuerdig" — vergass dass viele
+  Bewerbungen ueber Direct-Add aus dem Chat kommen, nicht ueber
+  `stelle_bewerten('passt')`. Raus.
+- „Geschaetzter Zeitaufwand" mit 30min/Bewerbung war Groessenordnungen
+  unter Realwert (Stunden bis Tage pro Stelle inkl. Anschreiben-Iteration,
+  Format-/Umlaut-Korrekturen, Interview-Vorbereitung). Raus.
+- „Bewerbungs-Trichter" stufte aussortiert+beworben in sich
+  widerspruechlich, weil Bewerbungen auch von ausserhalb des gesichteten
+  Pools kommen. Raus.
+
+Bevor eine neue Kennzahl in den Bericht eingebaut wird: pruefen, ob die
+Datenbasis ALLE Pfade abdeckt, die zu dem Wert beitragen. Wenn nein:
+weglassen.
+
 ## Anti-DB-Bypass-Pattern (#514)
 
 Claude darf NICHT direkt in die SQLite schreiben. Alle Mutationen laufen
