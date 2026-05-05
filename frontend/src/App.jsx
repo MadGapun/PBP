@@ -123,6 +123,112 @@ function normalizeProfiles(profiles) {
   }));
 }
 
+// v1.7.0 (#571): Globale Suche im Header — DB-weit ueber alle Entitaeten.
+function GlobalSearch({ navigateTo }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query || query.length < 2) {
+      setResults(null);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const data = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=6`)
+          .then((r) => r.ok ? r.json() : null);
+        setResults(data);
+        setOpen(true);
+      } catch {
+        setResults(null);
+      } finally {
+        setLoading(false);
+      }
+    }, 280);
+    return () => debounceRef.current && clearTimeout(debounceRef.current);
+  }, [query]);
+
+  function handleResultClick(item) {
+    setOpen(false);
+    setQuery("");
+    setResults(null);
+    if (item.url) {
+      window.location.hash = item.url.replace(/^#/, "");
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative shrink-0 hidden md:block">
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => results && setOpen(true)}
+        placeholder="Suchen..."
+        className="w-48 lg:w-64 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 text-[13px] text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+      />
+      {open && results && results.total > 0 && (
+        <div className="absolute right-0 top-full mt-1 w-[420px] max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-[var(--surface-1,_#1a1d23)] shadow-2xl shadow-black/40 z-[60]">
+          {results.groups.map((group) => (
+            <div key={group.kind} className="border-b border-white/5 last:border-b-0">
+              <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.15em] text-teal/70">
+                {group.label}
+              </p>
+              <ul>
+                {group.items.map((item) => (
+                  <li key={`${item.kind}-${item.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleResultClick(item)}
+                      className="w-full text-left px-3 py-2 hover:bg-white/[0.04] transition-colors"
+                    >
+                      <p className="text-[13px] font-medium text-ink truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-muted/60 truncate">
+                        {item.subtitle}
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p className="px-3 py-1.5 text-[10px] text-muted/40 border-t border-white/5">
+            {results.total} Treffer
+          </p>
+        </div>
+      )}
+      {open && results && results.total === 0 && query.length >= 2 && (
+        <div className="absolute right-0 top-full mt-1 w-[420px] rounded-xl border border-white/10 bg-[var(--surface-1,_#1a1d23)] p-4 shadow-2xl shadow-black/40 z-[60]">
+          <p className="text-sm text-muted/60">Keine Treffer fuer „{query}"</p>
+        </div>
+      )}
+      {loading && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/40 text-[10px]">
+          ...
+        </div>
+      )}
+    </div>
+  );
+}
+
 // v1.6.7 (#562): Prompts-Tab in Hilfe & Support — listet alle MCP-Prompts.
 function PromptsTab({ pushToast, copyPrompt }) {
   const [prompts, setPrompts] = useState(null);
@@ -1065,6 +1171,9 @@ export default function App() {
                 </span>
               </div>
             </div>
+
+            {/* v1.7.0 (#571): Globale Suche */}
+            <GlobalSearch navigateTo={navigateTo} />
 
             {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
             {(() => {

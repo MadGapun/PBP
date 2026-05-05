@@ -7,6 +7,62 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.3] - 2026-05-05 — Globale Suche + Doku-Kategorien
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+### 🔍 Globale Suche (#571)
+
+- **Neuer Endpoint `GET /api/search?q=...&limit=N`** — DB-weite Suche
+  ueber 6 Entitaeten: Bewerbungen, Stellen, Skills, Dokumente, E-Mails,
+  Termine. Treffer werden gruppiert nach Entitaet zurueckgegeben (mit
+  typisierten IDs aus #505).
+- **Header-Suchleiste** (`<GlobalSearch>`) im Frontend, debounced 280ms,
+  Dropdown mit gruppierten Treffern, Klick navigiert zur jeweiligen
+  Detail-Seite. Ausserhalb-Click schliesst das Dropdown.
+
+### 📂 Doku-Kategorien-Verfeinerung (#538)
+
+`_detect_doc_type` erkennt jetzt **6 neue Cluster** zusaetzlich zu den
+bestehenden — vorher landeten 58% aller Dokumente in 'sonstiges'.
+
+Neue Typen:
+- **`recruiter_anfrage`** — Inbound-Mails mit Vakanz-Anfragen
+- **`interview_transkript`** — Mitschriften / Transcripts
+- **`interview_einladung`** — Einladungen zu Vorstellungsgespraechen
+- **`eingangsbestaetigung`** — „Vielen Dank fuer Ihre Bewerbung"
+- **`absage`** — „Leider muessen wir Ihnen mitteilen"
+- **`angebot`** — Vertragsangebote, Projektangebote
+- **`vorbereitung`** erweitert: erkennt jetzt auch „Spickzettel"
+
+Pattern-Matching erfolgt zuerst per Filename, dann per Inhalt
+(Schluesselsatz-Heuristik). Die alten Typen (lebenslauf, anschreiben,
+zeugnis, ...) sind unveraendert.
+
+### Stats
+
+- **100 MCP-Tools** (unveraendert)
+- **12 neue Tests** in `tests/test_v170_beta3.py`, alle gruen (116 total)
+- **Neue Backend-Endpoints:** `GET /api/search`
+- **Frontend:** neuer `<GlobalSearch>`-Header-Component
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.3.zip](https://github.com/MadGapun/repo/archive/refs/tags/v1.7.0-beta.3.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.1/beta.2
+
+Einfach drueberinstallieren — keine Schema-Migration in beta.3.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.2] - 2026-05-05 — Lokale AI Real + Stilarchiv
 
 > ⚠️ **Pre-Release / Beta** — empfohlen nur fuer Tester. Stable bleibt v1.6.9.

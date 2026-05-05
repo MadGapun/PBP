@@ -4399,21 +4399,46 @@ async def api_upload_document(
 
 
 def _detect_doc_type(filename: str, text: str) -> str | None:
-    """Auto-detect document type from filename and extracted text (#131)."""
+    """Auto-detect document type from filename and extracted text (#131, #538).
+
+    v1.7.0-beta.3 (#538): Erweitert um neue Cluster, weil 'sonstiges' vorher
+    58% aller Dokumente aufgesogen hat. Neue Typen:
+    - 'recruiter_anfrage' — Inbound-Mails von Headhuntern/Recruitern
+    - 'interview_transkript', 'interview_einladung'
+    - 'eingangsbestaetigung'
+    - 'absage'
+    - 'angebot' (Vertragsangebot)
+    """
     fname = filename.lower()
     text_lower = (text or "").lower()[:2000]
 
     # Special cases: known internal/reference documents
     if any(kw in fname for kw in ["master-wissen", "bewerbungs-master", "wissen"]):
         return "referenz"
-    # Test/draft documents â†’ sonstiges
+    # Test/draft documents → sonstiges
     if any(kw in fname for kw in ["test", "chaotisch", "draft", "entwurf", "tmp"]):
         return "sonstiges"
-    # Templates/Vorlagen â€” generic CVs not tied to a specific application
+    # Templates/Vorlagen — generic CVs not tied to a specific application
     if any(kw in fname for kw in ["template", "vorlage", "standard", "generic", "muster"]):
         return "vorlage"
 
-    # Filename patterns (order matters â€” more specific first)
+    # v1.7.0-beta.3 (#538): Neue Cluster — Reihenfolge wichtig (spezifisch zuerst)
+    if any(kw in fname for kw in ["transkript", "transcript", "mitschrift"]):
+        return "interview_transkript"
+    if any(kw in fname for kw in ["einladung", "invitation"]) and any(kw in fname for kw in ["interview", "vorstell", "gespraech", "gespräch"]):
+        return "interview_einladung"
+    if any(kw in fname for kw in ["eingangsbestaetigung", "eingangsbestätigung", "confirmation", "bewerbungseingang"]):
+        return "eingangsbestaetigung"
+    if any(kw in fname for kw in ["absage", "rejection", "abgelehnt"]):
+        return "absage"
+    if any(kw in fname for kw in ["arbeitsvertrag", "vertrag", "offer", "angebot", "projektangebot"]):
+        return "angebot"
+    if any(kw in fname for kw in ["spickzettel", "spick", "cheat-sheet", "cheatsheet"]):
+        return "vorbereitung"
+    if any(kw in fname for kw in ["recruiter", "headhunter", "vakanz", "opportunity", "anfrage"]):
+        return "recruiter_anfrage"
+
+    # Filename patterns (order matters — more specific first)
     if any(kw in fname for kw in ["vorbereitung", "preparation", "interview-prep"]):
         return "vorbereitung"
     if any(kw in fname for kw in ["projektliste", "project-list", "projekte"]):
@@ -4435,7 +4460,7 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
     if any(kw in fname for kw in ["portfolio", "mappe", "arbeitsproben"]):
         return "portfolio"
 
-    # .md files are rarely cover letters â€” treat as reference/sonstiges
+    # .md files are rarely cover letters — treat as reference/sonstiges
     if fname.endswith(".md"):
         return "referenz"
 
@@ -4447,9 +4472,35 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
                            "hiermit bewerbe", "ihre stellenanzeige", "dear"]
         project_keywords = ["auftraggeber", "technologien", "projektbeschreibung",
                             "projektlaufzeit", "projektzeitraum", "kunde"]
+        # v1.7.0-beta.3 (#538): neue Inhalts-Cluster
+        recruiter_keywords = ["offene vakanz", "ich bin auf sie aufmerksam geworden",
+                              "haetten sie interesse", "darf ich ihnen die stelle vorstellen",
+                              "stellenanzeige", "open position", "would you be interested"]
+        absage_keywords = ["leider muessen wir ihnen mitteilen", "leider müssen wir ihnen",
+                           "absage", "we regret to inform", "decided not to proceed",
+                           "haben uns fuer einen anderen kandidaten"]
+        einladung_keywords = ["wir freuen uns sie kennenzulernen", "vorstellungsgespraech",
+                              "moechten wir sie zu einem", "interview einladen",
+                              "we would like to invite you"]
+        eingangs_keywords = ["bestaetigung des eingangs", "vielen dank fuer ihre bewerbung",
+                             "thank you for your application"]
+
         cv_hits = sum(1 for kw in cv_keywords if kw in text_lower)
         letter_hits = sum(1 for kw in letter_keywords if kw in text_lower)
         project_hits = sum(1 for kw in project_keywords if kw in text_lower)
+        recruiter_hits = sum(1 for kw in recruiter_keywords if kw in text_lower)
+        absage_hits = sum(1 for kw in absage_keywords if kw in text_lower)
+        einladung_hits = sum(1 for kw in einladung_keywords if kw in text_lower)
+        eingangs_hits = sum(1 for kw in eingangs_keywords if kw in text_lower)
+
+        if absage_hits >= 1:
+            return "absage"
+        if einladung_hits >= 1:
+            return "interview_einladung"
+        if eingangs_hits >= 1:
+            return "eingangsbestaetigung"
+        if recruiter_hits >= 1:
+            return "recruiter_anfrage"
         if project_hits >= 2:
             return "projektliste"
         if letter_hits >= 2:
@@ -5484,6 +5535,154 @@ async def api_health():
         "modules": modules,
         "mcp_connection": get_connection_status(),
     }
+
+
+# === Globale Suche (v1.7.0 #571) ===
+
+@app.get("/api/search")
+async def api_global_search(q: str = "", limit: int = 8):
+    """DB-weite Suche ueber alle Entitaeten (#571).
+
+    Stufe 2: Eine Suche, gruppierte Treffer pro Entitaet.
+    Suchstring case-insensitive in Titel/Firma/Beschreibung/Notes/Filename.
+    """
+    query = (q or "").strip().lower()
+    if len(query) < 2:
+        return {"query": q, "groups": [], "total": 0,
+                "hint": "Mindestens 2 Zeichen eingeben"}
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    pattern = f"%{query}%"
+
+    groups = []
+    total = 0
+
+    # 1. Bewerbungen
+    apps = conn.execute(
+        "SELECT id, title, company, status FROM applications "
+        "WHERE (LOWER(title) LIKE ? OR LOWER(company) LIKE ? OR LOWER(notes) LIKE ?) "
+        "AND (profile_id=? OR profile_id IS NULL) LIMIT ?",
+        (pattern, pattern, pattern, pid, limit)
+    ).fetchall()
+    if apps:
+        items = [{
+            "kind": "application",
+            "id": a["id"],
+            "id_typed": f"APP-{a['id'][:8]}",
+            "title": a["title"] or "(ohne Titel)",
+            "subtitle": f"{a['company'] or ''} · {a['status'] or 'offen'}",
+            "url": f"#bewerbungen?id={a['id']}",
+        } for a in apps]
+        groups.append({"label": "Bewerbungen", "kind": "application", "items": items})
+        total += len(items)
+
+    # 2. Stellen
+    jobs = conn.execute(
+        "SELECT hash, title, company, source, score, is_active FROM jobs "
+        "WHERE (LOWER(title) LIKE ? OR LOWER(company) LIKE ? OR LOWER(description) LIKE ?) "
+        "AND (profile_id=? OR profile_id IS NULL) ORDER BY is_active DESC, score DESC LIMIT ?",
+        (pattern, pattern, pattern, pid, limit)
+    ).fetchall()
+    if jobs:
+        items = [{
+            "kind": "job",
+            "id": j["hash"],
+            "id_typed": f"JOB-{(j['hash'] or '').split(':')[-1][:8]}",
+            "title": j["title"] or "(ohne Titel)",
+            "subtitle": f"{j['company'] or ''} · {j['source'] or ''} · Score {j['score'] or 0}{' (aussortiert)' if not j['is_active'] else ''}",
+            "url": f"#stellen?hash={j['hash']}",
+        } for j in jobs]
+        groups.append({"label": "Stellen", "kind": "job", "items": items})
+        total += len(items)
+
+    # 3. Skills (aus profile)
+    profile = _db.get_profile()
+    if profile:
+        skills = profile.get("skills") or []
+        matched_skills = [s for s in skills
+                          if query in (s.get("name") or "").lower()][:limit]
+        if matched_skills:
+            items = [{
+                "kind": "skill",
+                "id": s.get("id"),
+                "title": s.get("name"),
+                "subtitle": f"Level {s.get('level') or '?'}/5"
+                           + (f" seit {s.get('start_year')}" if s.get('start_year') else ""),
+                "url": "#profil?tab=skills",
+            } for s in matched_skills]
+            groups.append({"label": "Skills", "kind": "skill", "items": items})
+            total += len(items)
+
+    # 4. Dokumente
+    try:
+        docs = conn.execute(
+            "SELECT id, filename, doc_type FROM documents "
+            "WHERE LOWER(filename) LIKE ? "
+            "AND (profile_id=? OR profile_id IS NULL) LIMIT ?",
+            (pattern, pid, limit)
+        ).fetchall()
+        if docs:
+            items = [{
+                "kind": "document",
+                "id": d["id"],
+                "id_typed": f"DOC-{d['id'][:8]}",
+                "title": d["filename"],
+                "subtitle": f"Typ: {d['doc_type'] or 'sonstiges'}",
+                "url": f"#dokumente?id={d['id']}",
+            } for d in docs]
+            groups.append({"label": "Dokumente", "kind": "document", "items": items})
+            total += len(items)
+    except Exception:
+        pass
+
+    # 5. E-Mails
+    try:
+        emails = conn.execute(
+            "SELECT id, subject, sender_email, application_id FROM application_emails "
+            "WHERE LOWER(subject) LIKE ? OR LOWER(sender_email) LIKE ? "
+            "OR LOWER(plain_body) LIKE ? LIMIT ?",
+            (pattern, pattern, pattern, limit)
+        ).fetchall()
+        if emails:
+            items = [{
+                "kind": "email",
+                "id": e["id"],
+                "id_typed": f"EML-{e['id'][:8]}",
+                "title": e["subject"] or "(ohne Betreff)",
+                "subtitle": f"Von: {e['sender_email'] or '?'}",
+                "url": (f"#bewerbungen?id={e['application_id']}"
+                       if e['application_id'] else "#bewerbungen"),
+            } for e in emails]
+            groups.append({"label": "E-Mails", "kind": "email", "items": items})
+            total += len(items)
+    except Exception:
+        pass
+
+    # 6. Termine
+    try:
+        meetings = conn.execute(
+            "SELECT m.id, m.title, m.notes, m.meeting_date, a.company, a.id as app_id "
+            "FROM application_meetings m LEFT JOIN applications a ON a.id = m.application_id "
+            "WHERE LOWER(m.title) LIKE ? OR LOWER(m.notes) LIKE ? LIMIT ?",
+            (pattern, pattern, limit)
+        ).fetchall()
+        if meetings:
+            items = [{
+                "kind": "meeting",
+                "id": m["id"],
+                "id_typed": f"APT-{m['id'][:8]}",
+                "title": m["title"] or "(ohne Titel)",
+                "subtitle": f"{m['company'] or '?'} · {(m['meeting_date'] or '')[:10]}",
+                "url": (f"#bewerbungen?id={m['app_id']}"
+                       if m['app_id'] else "#kalender"),
+            } for m in meetings]
+            groups.append({"label": "Termine", "kind": "meeting", "items": items})
+            total += len(items)
+    except Exception:
+        pass
+
+    return {"query": q, "groups": groups, "total": total}
 
 
 # === Recap-Funktion (v1.7.0 #576) ===
