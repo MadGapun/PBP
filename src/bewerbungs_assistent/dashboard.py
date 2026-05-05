@@ -5486,6 +5486,174 @@ async def api_health():
     }
 
 
+# === Recap-Funktion (v1.7.0 #576) ===
+
+@app.get("/api/recap")
+async def api_recap():
+    """Liefert eine Zusammenfassung dessen, was seit dem letzten Login passiert ist.
+
+    'Letzter Login' wird als profile_setting `last_login_at` gespeichert
+    und beim ersten /api/recap-Aufruf einer Session aktualisiert. Bei
+    leerer DB oder erstem Aufruf werden die letzten 72h als Fenster genutzt.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    last_login_iso = _db.get_profile_setting("last_login_at", None)
+    fallback_window_hours = 72
+    if last_login_iso:
+        try:
+            since = datetime.fromisoformat(str(last_login_iso).replace("Z", "+00:00"))
+            if since.tzinfo is None:
+                since = since.replace(tzinfo=timezone.utc)
+        except Exception:
+            since = datetime.now(timezone.utc) - timedelta(hours=fallback_window_hours)
+    else:
+        since = datetime.now(timezone.utc) - timedelta(hours=fallback_window_hours)
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    since_iso = since.isoformat()
+
+    # Aggregationen
+    new_jobs = conn.execute(
+        "SELECT COUNT(*) AS n FROM jobs WHERE found_at >= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (since_iso, pid)
+    ).fetchone()["n"]
+
+    top_jobs_rows = conn.execute(
+        "SELECT * FROM jobs WHERE found_at >= ? AND is_active=1 "
+        "AND (profile_id=? OR profile_id IS NULL) "
+        "ORDER BY score DESC LIMIT 3",
+        (since_iso, pid)
+    ).fetchall()
+    top_jobs = [_db._serialize_job_row(r) for r in top_jobs_rows]
+
+    new_apps = conn.execute(
+        "SELECT COUNT(*) AS n FROM applications WHERE created_at >= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (since_iso, pid)
+    ).fetchone()["n"]
+
+    status_changes = 0
+    try:
+        status_changes = conn.execute(
+            "SELECT COUNT(*) AS n FROM application_events WHERE event_at >= ? "
+            "AND event_type='status_change'",
+            (since_iso,)
+        ).fetchone()["n"]
+    except Exception:
+        pass
+
+    new_emails = 0
+    try:
+        new_emails = conn.execute(
+            "SELECT COUNT(*) AS n FROM application_emails WHERE created_at >= ?",
+            (since_iso,)
+        ).fetchone()["n"]
+    except Exception:
+        pass
+
+    # Faellige Follow-ups (heute oder ueberfaellig)
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    overdue_followups = 0
+    try:
+        overdue_followups = conn.execute(
+            "SELECT COUNT(*) AS n FROM follow_ups WHERE due_date <= ? AND status='offen' "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (today_iso, pid)
+        ).fetchone()["n"]
+    except Exception:
+        pass
+
+    # Anstehende Termine (next 7 days)
+    upcoming_meetings = 0
+    try:
+        in_7_days = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        upcoming_meetings = conn.execute(
+            "SELECT COUNT(*) AS n FROM application_meetings "
+            "WHERE meeting_date >= ? AND meeting_date <= ?",
+            (datetime.now(timezone.utc).isoformat(), in_7_days)
+        ).fetchone()["n"]
+    except Exception:
+        pass
+
+    # last_login_at aktualisieren — beim naechsten Aufruf gilt das Fenster ab jetzt
+    _db.set_profile_setting("last_login_at", datetime.now(timezone.utc).isoformat())
+
+    has_anything = any([
+        new_jobs, new_apps, status_changes, new_emails,
+        overdue_followups, upcoming_meetings,
+    ])
+
+    return {
+        "since": since_iso,
+        "has_anything": bool(has_anything),
+        "new_jobs": new_jobs,
+        "top_jobs": top_jobs,
+        "new_applications": new_apps,
+        "new_emails": new_emails,
+        "status_changes": status_changes,
+        "overdue_followups": overdue_followups,
+        "upcoming_meetings": upcoming_meetings,
+    }
+
+
+# === Lokale AI Status (v1.7.0 #512, #583) ===
+
+@app.get("/api/llm/status")
+async def api_llm_status():
+    """Liefert den Status der lokalen AI fuer den Sidebar-Indicator und
+    den Settings-Bereich.
+
+    In beta.1 ist nur die Erkennung implementiert — kein echter Aufruf.
+    Echte Ollama-Tasks laufen ab beta.2 los.
+    """
+    from .services.llm_service import get_llm_service
+    svc = get_llm_service(_db)
+    s = svc.get_status(force_refresh=False)
+    # UI-State aus den Daten ableiten
+    if not s.ollama_available:
+        ui_state = "not_installed"
+    elif not s.available_models:
+        ui_state = "no_model"
+    elif s.user_state == "off":
+        ui_state = "off"
+    elif s.user_state == "paused":
+        ui_state = "paused"
+    elif s.user_state == "active":
+        ui_state = "active"
+    else:
+        ui_state = "unknown"
+    return {
+        "ui_state": ui_state,
+        "ollama_available": s.ollama_available,
+        "ollama_endpoint": s.ollama_endpoint,
+        "available_models": s.available_models,
+        "selected_model": s.selected_model,
+        "user_state": s.user_state,
+        "error": s.error,
+    }
+
+
+@app.put("/api/llm/state")
+async def api_llm_set_state(request: Request):
+    """Setzt den User-State (off|paused|active) fuer die lokale AI."""
+    data = await request.json()
+    state = (data.get("state") or "").strip().lower()
+    if state not in ("off", "paused", "active"):
+        return JSONResponse(
+            {"error": "state muss 'off', 'paused' oder 'active' sein"},
+            status_code=400,
+        )
+    _db.set_profile_setting("llm_local_state", state)
+    # Cache invalidieren damit naechster /status den neuen Wert sieht
+    from .services.llm_service import get_llm_service
+    svc = get_llm_service(_db)
+    svc.get_status(force_refresh=True)
+    return {"status": "ok", "state": state}
+
+
 # === Scraper Health (#432) ===
 
 @app.get("/api/scraper-health")

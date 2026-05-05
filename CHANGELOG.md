@@ -7,6 +7,140 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.1] - 2026-05-05 — Foundation: Lokale AI + Typisierte IDs + Recap
+
+**Pre-Release** — der Auftakt zur v1.7.0-Serie. Master-Roadmap: #575.
+v1.6.9 bleibt der „Latest"-Stand fuer normale Anwender.
+
+Beta.1 legt vier Grundsteine, auf denen die naechsten Betas aufbauen.
+Echte Features fuer den Anwender folgen in beta.2 — diese Beta ist
+**Foundation-Arbeit**.
+
+### 🤖 Lokale AI — Foundation (#512, #583)
+
+- **`services/llm_service.py`** — zentraler Dispatcher fuer alle LLM-Aufrufe.
+  Routing-Tabelle entscheidet pro Task-Typ: Lokal (Ollama) bevorzugt,
+  Claude als Fallback, Manuell als letzter Ausweg.
+- **Aufgabenteilung im Code festgeschrieben:**
+  - Lokal-faehig: CLASSIFY_DOCUMENT, EXTRACT_SKILLS, MATCH_JOB_TO_SKILLS,
+    EXTRACT_SALARY, COMPARE_JOBS, FIND_SIMILAR_JOBS
+  - Claude-bevorzugt: GENERATE_COVER_LETTER, INTERVIEW_COACHING,
+    SALARY_NEGOTIATION, COMPANY_RESEARCH, GENERATE_DAILY_IMPULSE
+- **Status-Erkennung mit 30s-Caching** — HTTP-Check auf
+  `localhost:11434/api/tags`. Mock-Modus via `PBP_LLM_MOCK=1` fuer Tests.
+- **API-Endpoints** `/api/llm/status` (GET) und `/api/llm/state` (PUT)
+  fuer Frontend-Anbindung.
+
+**In beta.1 noch nicht aktiv:** echte Ollama-Calls. Wenn LOCAL gewaehlt
+wuerde, faellt der Service auf CLAUDE zurueck. Echte Anbindung +
+Setup-Wizard kommt in beta.2.
+
+### 🤖 Lokale AI — UI-Indicator (#583)
+
+- **Status-Indicator in der Sidebar** unter dem MCP-Indicator. Fuenf
+  Zustaende: rot (nicht installiert), gelb (kein Modell), grau
+  (deaktiviert), gelb (pausiert), gruen (aktiv).
+- **Erklaerungs-Modal** beim Klick: Vorteile (Tokens-sparen UND
+  kostenlos!), Nachteile (4-5 GB Modell, RAM-Bedarf), Hinweis dass die
+  Einrichtung in der naechsten Beta kommt.
+- **60s-Polling** im App-State haelt den Indicator aktuell.
+
+### 🆔 Typisierte IDs (#505 — Variante A, nicht-breaking)
+
+- Neuer Helper `services/typed_ids.py`:
+  - `format_id(IdKind.APPLICATION, "42061e46")` → `"APP-42061e46"`
+  - `parse_id("APP-42061e46")` → `(IdKind.APPLICATION, "42061e46")`
+  - `validate_id(IdKind.APPLICATION, value)` — wirft `TypedIdMismatch`
+    bei falschem Praefix, durchwinkt nackte Hex-IDs (Backwards-Compat)
+- **12 Entitaetstypen** definiert: APP (Bewerbung), JOB (Stelle), DOC
+  (Dokument), EVT (Event), APT (Termin), EML (E-Mail), PRO (Profil),
+  POS (Position), PRJ (Projekt), SKL (Skill), EDU (Ausbildung),
+  FUP (Follow-up).
+- **Serializer-Erweiterung:** `_serialize_application_row` und
+  `_serialize_job_row` ergaenzen `id_typed` und `hash_typed` neben den
+  unveraenderten Feldern. Keine Breaking-Changes fuer Frontend.
+- **Erste Tool-Adoption:** `bewerbung_details` validiert die ID am
+  Eingang — bei Uebergabe von z.B. `DOC-d60ac54b` kommt eine klare
+  Fehlermeldung statt „Bewerbung nicht gefunden".
+
+### 🆕 Recap-Funktion (#576)
+
+- **Neuer Endpoint `/api/recap`** — aggregiert was seit dem letzten
+  Login passiert ist:
+  - Neue Stellen (mit Top-3 nach Score)
+  - Neue Bewerbungen
+  - Neue E-Mails
+  - Statuswechsel
+  - Faellige Follow-ups
+  - Anstehende Termine (naechste 7 Tage)
+- **`last_login_at`** wird beim Aufruf aktualisiert — naechste Recap
+  zeigt das Fenster ab jetzt. Erst-Aufruf nutzt 72h-Fenster.
+- **Recap-Card auf dem Dashboard** zeigt die Zaehler als anklickbare
+  Bloecke (springen direkt zum jeweiligen Bereich).
+- **Auto-Hide** wenn nichts passiert ist (`has_anything=false`).
+- **Manuell ausblendbar** bis morgen via [x]-Button (LocalStorage).
+
+### 📦 Versionierung & Pre-Release
+
+- **`v1.7.0-beta.1`** wird mit `gh release create --prerelease`
+  veroeffentlicht — **NICHT** als „Latest". v1.6.9 (oder spaetere
+  Hotfixes) bleibt der empfohlene Stand fuer normale Anwender.
+- **SemVer**: `1.7.0-beta.1` → `-beta.N` → `-rc.1` → `1.7.0` final.
+- **Hotfix-Lane** auf v1.6.x bleibt offen — falls dort Bugs auftauchen,
+  patchen wir parallel zu den 1.7-Betas.
+
+### Stats
+
+- **97 MCP-Tools** (unveraendert)
+- **20 neue Tests** in `tests/test_v170_beta1_foundation.py`, alle gruen (120 total)
+- **2 neue Backend-Module:** `llm_service.py`, `typed_ids.py`
+- **2 neue API-Endpoints:** `/api/recap`, `/api/llm/status` (+`/api/llm/state` PUT)
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Hinweis:** Dies ist ein **Pre-Release / Beta**. Empfohlen nur fuer Tester
+oder zum Ausprobieren — der stabile Stand bleibt v1.6.9.
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.1.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.1.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+git checkout v1.7.0-beta.1
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ) · [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.6.9] - 2026-05-05 — Hash- & Datum-Hygiene + Quick-Wins
 
 Sammel-Release fuer das Bug-Cluster aus den letzten Test-Sessions: drei

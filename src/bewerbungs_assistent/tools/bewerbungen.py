@@ -836,8 +836,20 @@ def register(mcp, db, logger):
         Das vollständige Dossier — alles auf einen Blick für Interview-Vorbereitung.
 
         Args:
-            bewerbung_id: ID der Bewerbung
+            bewerbung_id: ID der Bewerbung. Akzeptiert sowohl die nackte
+                Hex-ID (z.B. '42061e46') als auch die typisierte Form
+                'APP-42061e46'. Bei falschem Praefix (z.B. 'DOC-...') gibt
+                es eine klare Fehlermeldung.
         """
+        # v1.7.0 (#505): Typ-Pruefung am Tool-Eingang. Wenn ein User
+        # versehentlich eine Dokument-ID uebergibt, sehen wir das sofort.
+        from ..services.typed_ids import validate_id, IdKind, TypedIdMismatch
+        try:
+            bewerbung_id = validate_id(IdKind.APPLICATION, bewerbung_id)
+        except TypedIdMismatch as e:
+            return {"fehler": str(e),
+                    "hinweis": "Du hast eine ID des falschen Typs uebergeben. "
+                               "Bewerbungs-IDs haben das Praefix 'APP-'."}
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}

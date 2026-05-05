@@ -296,6 +296,9 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState("hilfe");
   const [mcpHelpOpen, setMcpHelpOpen] = useState(false);
+  // v1.7.0 (#583): Lokale-AI-Status + Erklaerungs-Modal
+  const [llmStatus, setLlmStatus] = useState({ ui_state: "not_installed" });
+  const [llmHelpOpen, setLlmHelpOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   // beta.35: aktiver Sub-Pfad fuer Top-Bar-Breadcrumb
   const [currentSubPath, setCurrentSubPath] = useState("");
@@ -607,6 +610,23 @@ export default function App() {
       } catch {}
     };
     const id = window.setInterval(pollConnection, 30000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
+
+  // v1.7.0 (#583): Lokale-AI-Status pollen — alle 60s ein Check.
+  useEffect(() => {
+    let cancelled = false;
+    const pollLlm = async () => {
+      if (cancelled) return;
+      try {
+        const data = await optionalApi("/api/llm/status");
+        if (data?.ui_state && !cancelled) {
+          startTransition(() => setLlmStatus(data));
+        }
+      } catch {}
+    };
+    pollLlm();
+    const id = window.setInterval(pollLlm, 60000);
     return () => { cancelled = true; window.clearInterval(id); };
   }, []);
 
@@ -998,6 +1018,9 @@ export default function App() {
                 setMcpHelpOpen(true);
               }
             },
+            // v1.7.0 (#583): Lokale-AI-Status-Indicator (unter MCP)
+            llmState: llmStatus?.ui_state || "not_installed",
+            onLlmClick: () => setLlmHelpOpen(true),
           }}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
@@ -1762,6 +1785,71 @@ export default function App() {
                 </a>
               </div>
             )}
+          </Modal>
+        )}
+
+        {/* v1.7.0 (#583): Lokale-AI-Erklaerungs-Modal */}
+        {llmHelpOpen && (
+          <Modal open={llmHelpOpen} title="Lokale KI" onClose={() => setLlmHelpOpen(false)}>
+            <div className="space-y-4 text-sm text-muted/70">
+              <div className="glass-card p-3 border-coral/20 border">
+                <h3 className="font-medium text-ink mb-1">
+                  {llmStatus.ui_state === "active" ? "Lokale KI ist aktiv" :
+                   llmStatus.ui_state === "paused" ? "Lokale KI ist pausiert" :
+                   llmStatus.ui_state === "no_model" ? "Ollama erkannt — kein Modell" :
+                   llmStatus.ui_state === "off" ? "Lokale KI ist deaktiviert" :
+                   "Lokale KI ist nicht installiert"}
+                </h3>
+                <p>
+                  {llmStatus.ui_state === "not_installed"
+                    ? "Eine lokale KI auf deinem Rechner uebernimmt Routine-Aufgaben fuer PBP — z.B. Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren."
+                    : `Modell: ${llmStatus.selected_model || "noch nicht gewaehlt"}`}
+                </p>
+              </div>
+
+              <div className="glass-card p-3">
+                <h3 className="font-medium text-ink mb-2">Vorteile</h3>
+                <ul className="space-y-1 text-[13px]">
+                  <li>✅ Spart Claude-Tokens <strong>UND</strong> ist kostenlos</li>
+                  <li>✅ Funktioniert auch ohne Internet</li>
+                  <li>✅ Daten verlassen das Geraet nie (Datenschutz)</li>
+                  <li>✅ Schneller bei Standard-Aufgaben</li>
+                </ul>
+              </div>
+
+              <div className="glass-card p-3">
+                <h3 className="font-medium text-ink mb-2">Was du wissen solltest</h3>
+                <ul className="space-y-1 text-[13px]">
+                  <li>⚠️ Einmalig 4–5 GB Modell herunterladen</li>
+                  <li>⚠️ Braucht 8–16 GB freien RAM beim Arbeiten</li>
+                  <li>⚠️ Kreatives (Anschreiben) bleibt bei Claude</li>
+                </ul>
+              </div>
+
+              <div className="glass-card p-3 border-amber/20 border">
+                <p className="text-[12px]">
+                  <strong className="text-amber">Hinweis:</strong> Die Einrichtung der lokalen KI kommt
+                  in der naechsten Beta-Version. Aktuell ist nur die Status-Anzeige aktiv.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setLlmHelpOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-sm text-muted/60 hover:text-ink hover:bg-white/[0.04]"
+                >
+                  Spaeter
+                </button>
+                <a
+                  href="#einstellungen?tab=ai"
+                  onClick={() => setLlmHelpOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-sm bg-sky/15 text-sky hover:bg-sky/25 inline-flex items-center gap-1.5"
+                >
+                  Mehr erfahren
+                </a>
+              </div>
+            </div>
           </Modal>
         )}
 

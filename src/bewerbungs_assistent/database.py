@@ -1443,6 +1443,13 @@ class Database:
             return None
         job = dict(row)
         job["hash"] = self._public_job_hash(job.get("hash"), job.get("profile_id"))
+        # v1.7.0 (#505): typisierte ID — `hash_typed` mit JOB-Praefix
+        try:
+            from .services.typed_ids import format_id, IdKind
+            if job.get("hash"):
+                job["hash_typed"] = format_id(IdKind.JOB, job["hash"])
+        except Exception:
+            pass
         # v1.6.9 (#574): dismiss_reason wird mal als Plain-String, mal als
         # JSON-Array gespeichert. Wir normalisieren beim Lesen IMMER auf:
         #   - dismiss_reason: Plain-String (erster Grund) — fuer Backwards-Compat
@@ -1473,6 +1480,17 @@ class Database:
             return None
         app = dict(row)
         app["job_hash"] = self._public_job_hash(app.get("job_hash"), app.get("profile_id"))
+        # v1.7.0 (#505): typisierte ID-Felder ergaenzen — `id` und `job_hash`
+        # bleiben unveraendert (Backwards-Compat), zusaetzlich gibt es
+        # `id_typed` und `job_hash_typed` mit Praefix.
+        try:
+            from .services.typed_ids import format_id, IdKind
+            if app.get("id"):
+                app["id_typed"] = format_id(IdKind.APPLICATION, app["id"])
+            if app.get("job_hash"):
+                app["job_hash_typed"] = format_id(IdKind.JOB, app["job_hash"])
+        except Exception:
+            pass
         if app.get("fit_analyse"):
             try:
                 app["fit_analyse"] = json.loads(app["fit_analyse"])

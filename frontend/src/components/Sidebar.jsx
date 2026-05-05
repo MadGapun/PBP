@@ -31,6 +31,16 @@ const CONN_CONFIG = {
   disconnected: { color: "text-coral", dot: "bg-coral",    label: "Nicht verbunden", Icon: Link2Off },
 };
 
+// v1.7.0 (#583): Status-Indicator-Konfig fuer die lokale AI.
+// Fuenf Zustaende — siehe ../bewerbungs_assistent/services/llm_service.py.
+const LLM_CONFIG = {
+  not_installed: { color: "text-coral",     dot: "bg-coral",    label: "Lokale KI: aus" },
+  no_model:      { color: "text-amber",     dot: "bg-amber",    label: "Lokale KI: kein Modell" },
+  off:           { color: "text-muted/40",  dot: "bg-muted/40", label: "Lokale KI: deaktiviert" },
+  paused:        { color: "text-amber/80",  dot: "bg-amber/80", label: "Lokale KI: pausiert" },
+  active:        { color: "text-teal",      dot: "bg-teal",     label: "Lokale KI: aktiv" },
+};
+
 export default function Sidebar({
   tabs,
   activePage,
@@ -104,6 +114,25 @@ export default function Sidebar({
                   title={brand.connectionStatus === "connected"
                     ? "Claude Desktop oeffnen"
                     : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
+                  <span>{cfg.label}</span>
+                </button>
+              );
+            })() : null}
+            {/* v1.7.0 (#583): Lokale-AI-Status-Indicator unter dem MCP-Indicator */}
+            {brand.llmState ? (() => {
+              const cfg = LLM_CONFIG[brand.llmState] || LLM_CONFIG.not_installed;
+              return (
+                <button
+                  type="button"
+                  onClick={brand.onLlmClick}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors w-fit",
+                    "hover:bg-white/[0.06]",
+                    cfg.color
+                  )}
+                  title={`${cfg.label} — Klicke fuer Details`}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
                   <span>{cfg.label}</span>

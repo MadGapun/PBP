@@ -883,6 +883,9 @@ export default function DashboardPage() {
       {/* #450: Dokument-Import (saubere Version, gleiche Logik wie Docs-Seite) */}
       <DashboardDocumentImport pushToast={pushToast} refreshChrome={refreshChrome} />
 
+      {/* v1.7.0 (#576): Recap-Card — was hat sich seit deinem letzten Besuch getan */}
+      <RecapCard pushToast={pushToast} navigateTo={navigateTo} />
+
       <div id="dashboard-content" className="grid gap-5">
         {/* Schnellzugriff (full width) */}
         <Card className="rounded-2xl">
@@ -1127,6 +1130,135 @@ export default function DashboardPage() {
   );
 }
 
+
+// v1.7.0 (#576): Recap-Card — zeigt was sich seit dem letzten Besuch getan hat.
+// Wenn nichts passiert ist, wird die Card komplett ausgeblendet (auto-hide).
+// User kann mit dem [x] auch manuell ausblenden bis morgen (LocalStorage-Flag).
+function RecapCard({ pushToast, navigateTo }) {
+  const [recap, setRecap] = useState(null);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      const flag = localStorage.getItem("pbp_recap_dismissed_until");
+      if (flag && Number(flag) > Date.now()) return true;
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/recap")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data && !cancelled) setRecap(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  if (dismissed || !recap || !recap.has_anything) return null;
+
+  const blocks = [];
+  if (recap.new_jobs > 0) {
+    blocks.push({
+      icon: Search, color: "text-sky", label: "Neue Stellen",
+      value: recap.new_jobs,
+      onClick: () => navigateTo?.("stellen"),
+    });
+  }
+  if (recap.new_applications > 0) {
+    blocks.push({
+      icon: Send, color: "text-teal", label: "Neue Bewerbungen",
+      value: recap.new_applications,
+      onClick: () => navigateTo?.("bewerbungen"),
+    });
+  }
+  if (recap.new_emails > 0) {
+    blocks.push({
+      icon: Mail, color: "text-amber", label: "Neue E-Mails",
+      value: recap.new_emails,
+      onClick: () => navigateTo?.("bewerbungen"),
+    });
+  }
+  if (recap.status_changes > 0) {
+    blocks.push({
+      icon: MessageSquareReply, color: "text-teal/80", label: "Statuswechsel",
+      value: recap.status_changes,
+      onClick: () => navigateTo?.("bewerbungen"),
+    });
+  }
+  if (recap.overdue_followups > 0) {
+    blocks.push({
+      icon: ClipboardList, color: "text-coral", label: "Faellige Follow-ups",
+      value: recap.overdue_followups,
+      onClick: () => navigateTo?.("bewerbungen"),
+    });
+  }
+  if (recap.upcoming_meetings > 0) {
+    blocks.push({
+      icon: Calendar, color: "text-sky", label: "Anstehende Termine",
+      value: recap.upcoming_meetings,
+      onClick: () => navigateTo?.("kalender"),
+    });
+  }
+
+  return (
+    <Card className="rounded-2xl border-sky/15 bg-sky/[0.04]">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">Was hat sich getan?</h2>
+          <p className="text-[11px] text-muted/60 mt-0.5">
+            Aktivitaet seit deinem letzten Besuch
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            // Bis morgen ausblenden (24h)
+            try {
+              localStorage.setItem(
+                "pbp_recap_dismissed_until",
+                String(Date.now() + 24 * 60 * 60 * 1000)
+              );
+            } catch {}
+            setDismissed(true);
+          }}
+          className="text-muted/40 hover:text-ink text-xs"
+          title="Bis morgen ausblenden"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {blocks.map((b, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={b.onClick}
+            className="glass-card flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-white/[0.04] transition"
+          >
+            <b.icon size={16} className={b.color} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-muted/60">{b.label}</p>
+              <p className="text-lg font-semibold text-ink">{b.value}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+      {recap.top_jobs?.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <p className="text-[11px] text-muted/60 mb-1.5">Top neue Stellen:</p>
+          <ul className="space-y-1">
+            {recap.top_jobs.slice(0, 3).map((j) => (
+              <li key={j.hash} className="text-[12px] text-muted/80">
+                <span className="text-teal/70 font-mono mr-1.5">[{j.score}]</span>
+                <span className="text-ink/90">{j.title}</span>
+                <span className="text-muted/50"> bei {j.company}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate }) {
   const [assignApp, setAssignApp] = useState(email.application_id || "");
