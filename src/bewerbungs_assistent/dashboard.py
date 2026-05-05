@@ -2306,6 +2306,8 @@ async def api_get_report_settings():
         "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
         "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
         "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
+        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus — fokussiert auf taegliche Aktivitaet
+        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
     }
 
 
@@ -2328,7 +2330,7 @@ async def api_set_report_settings(request: Request):
                 )
             _db.set_profile_setting(f"report_{key}", val)
             out[key] = val
-    for bool_key in ("arbeitsamt_block_enabled", "berater_kommentar_block"):
+    for bool_key in ("arbeitsamt_block_enabled", "berater_kommentar_block", "taetigkeitsbericht_mode"):
         if bool_key in data:
             flag = bool(data[bool_key])
             _db.set_profile_setting(f"report_{bool_key}", flag)
@@ -4065,6 +4067,8 @@ async def api_export_applications(
         "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
         "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
         "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
+        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
+        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
     }
     from .database import get_data_dir
     export_dir = get_data_dir() / "export"
@@ -5558,6 +5562,132 @@ async def api_privacy_self_disclosure():
         filename="PBP_Datenauskunft.pdf",
         media_type="application/pdf",
     )
+
+
+# === Aktivitaets-Heatmap (v1.7.0 #579) ===
+
+@app.get("/api/stats/heatmap")
+async def api_stats_heatmap(days: int = 365):
+    """Liefert Tages-Aktivitaet fuer die Heatmap (#579).
+
+    Aggregiert pro Tag die Anzahl Aktionen aus:
+    - Bewerbungen (applied_at)
+    - Statuswechsel (application_events)
+    - Termine (application_meetings.meeting_date)
+    - Follow-ups (scheduled_date)
+    - Notizen (created_at)
+
+    Rueckgabe: Liste von {date: 'YYYY-MM-DD', count: N, breakdown: {...}}
+    """
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+
+    days = max(30, min(int(days or 365), 730))
+    today = datetime.now().date()
+    cutoff = (today - timedelta(days=days)).isoformat()
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    counts = defaultdict(lambda: {"applications": 0, "events": 0, "meetings": 0, "followups": 0})
+
+    # Bewerbungen
+    try:
+        rows = conn.execute(
+            "SELECT applied_at FROM applications "
+            "WHERE applied_at >= ? AND (profile_id=? OR profile_id IS NULL)",
+            (cutoff, pid)
+        ).fetchall()
+        for r in rows:
+            d = (r["applied_at"] or "")[:10]
+            if d >= cutoff:
+                counts[d]["applications"] += 1
+    except Exception:
+        pass
+
+    # Status-Events
+    try:
+        rows = conn.execute(
+            "SELECT event_at FROM application_events WHERE event_at >= ?",
+            (cutoff,)
+        ).fetchall()
+        for r in rows:
+            d = (r["event_at"] or "")[:10]
+            if d >= cutoff:
+                counts[d]["events"] += 1
+    except Exception:
+        pass
+
+    # Termine
+    try:
+        rows = conn.execute(
+            "SELECT meeting_date FROM application_meetings WHERE meeting_date >= ?",
+            (cutoff,)
+        ).fetchall()
+        for r in rows:
+            d = (r["meeting_date"] or "")[:10]
+            if d >= cutoff:
+                counts[d]["meetings"] += 1
+    except Exception:
+        pass
+
+    # Follow-ups
+    try:
+        rows = conn.execute(
+            "SELECT scheduled_date FROM follow_ups WHERE scheduled_date >= ?",
+            (cutoff,)
+        ).fetchall()
+        for r in rows:
+            d = (r["scheduled_date"] or "")[:10]
+            if d >= cutoff:
+                counts[d]["followups"] += 1
+    except Exception:
+        pass
+
+    result = []
+    for day_str, data in sorted(counts.items()):
+        total = sum(data.values())
+        if total > 0:
+            result.append({"date": day_str, "count": total, "breakdown": dict(data)})
+
+    return {
+        "from": cutoff,
+        "to": today.isoformat(),
+        "days": days,
+        "total_active_days": len(result),
+        "max_per_day": max((r["count"] for r in result), default=0),
+        "data": result,
+    }
+
+
+# === Skill-Zeitraeume API (v1.7.0 #572) ===
+
+@app.get("/api/skills/{skill_id}/periods")
+async def api_skill_periods(skill_id: str):
+    """Liste der Zeitraeume eines Skills (#572)."""
+    return {"periods": _db.get_skill_periods(skill_id)}
+
+
+@app.post("/api/skills/{skill_id}/periods")
+async def api_add_skill_period(skill_id: str, request: Request):
+    """Neuen Zeitraum hinzufuegen (#572)."""
+    data = await request.json()
+    sp_id = _db.add_skill_period(
+        skill_id,
+        start_year=data.get("start_year"),
+        end_year=data.get("end_year"),
+        level=data.get("level"),
+        notes=data.get("notes") or "",
+    )
+    return {"status": "created", "id": sp_id}
+
+
+@app.delete("/api/skills/periods/{period_id}")
+async def api_delete_skill_period(period_id: str):
+    """Skill-Zeitraum loeschen (#572)."""
+    ok = _db.delete_skill_period(period_id)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "deleted"}
 
 
 # === Application-Jobs / Aufwand / Stellen-Vergleich (v1.7.0-beta.11) ===

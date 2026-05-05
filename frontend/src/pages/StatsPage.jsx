@@ -103,6 +103,113 @@ function ChartCard({ title, children }) {
   );
 }
 
+// v1.7.0-beta.12 (#579): GitHub-Style Activity Heatmap
+function ActivityHeatmap({ data, days }) {
+  const dataByDate = new Map((data || []).map((d) => [d.date, d]));
+  const today = new Date();
+  // Wochenraster aufbauen — letzte X Tage, ausgerichtet auf Montag-Sonntag
+  const cells = [];
+  const start = new Date(today);
+  start.setDate(start.getDate() - (days - 1));
+  // Auf Montag der Startwoche zurueckspringen
+  const startDow = (start.getDay() + 6) % 7; // 0=Mo .. 6=So
+  start.setDate(start.getDate() - startDow);
+  const cur = new Date(start);
+  while (cur <= today) {
+    const iso = cur.toISOString().slice(0, 10);
+    const inRange = (today - cur) / 86400000 <= days;
+    cells.push({ date: iso, entry: inRange ? dataByDate.get(iso) : null, inRange });
+    cur.setDate(cur.getDate() + 1);
+  }
+  // In Wochen-Spalten (7 Zeilen) gruppieren
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const max = Math.max(1, ...((data || []).map((d) => d.count || 0)));
+  function bucket(count) {
+    if (!count) return 0;
+    const ratio = count / max;
+    if (ratio < 0.25) return 1;
+    if (ratio < 0.5) return 2;
+    if (ratio < 0.75) return 3;
+    return 4;
+  }
+  const colors = [
+    "rgba(255,255,255,0.04)",
+    "rgba(56,189,248,0.25)",
+    "rgba(56,189,248,0.5)",
+    "rgba(56,189,248,0.75)",
+    "rgba(56,189,248,1)",
+  ];
+
+  // Monatslabels: Index der ersten Woche pro Monat
+  const monthLabels = [];
+  let lastMonth = -1;
+  weeks.forEach((week, i) => {
+    const firstInRange = week.find((c) => c.inRange);
+    if (!firstInRange) return;
+    const m = new Date(firstInRange.date).getMonth();
+    if (m !== lastMonth) {
+      monthLabels.push({ index: i, label: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"][m] });
+      lastMonth = m;
+    }
+  });
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="inline-flex flex-col gap-1">
+        <div className="ml-7 flex gap-[3px] text-[9px] text-muted/40">
+          {weeks.map((_, i) => {
+            const lbl = monthLabels.find((m) => m.index === i);
+            return (
+              <div key={i} className="w-[11px] text-left">
+                {lbl ? lbl.label : ""}
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex gap-[3px]">
+          <div className="flex flex-col justify-between pr-1 text-[9px] text-muted/40">
+            <span>Mo</span>
+            <span>Mi</span>
+            <span>Fr</span>
+            <span>So</span>
+          </div>
+          {weeks.map((week, wi) => (
+            <div key={wi} className="flex flex-col gap-[3px]">
+              {week.map((cell, di) => {
+                const count = cell.entry?.count || 0;
+                const b = cell.inRange ? bucket(count) : 0;
+                const tip = cell.inRange
+                  ? `${cell.date}: ${count} Aktion${count !== 1 ? "en" : ""}`
+                  : "";
+                return (
+                  <div
+                    key={di}
+                    title={tip}
+                    className="h-[11px] w-[11px] rounded-[2px]"
+                    style={{
+                      background: colors[b],
+                      opacity: cell.inRange ? 1 : 0.3,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="ml-7 mt-1 flex items-center gap-2 text-[10px] text-muted/40">
+          <span>weniger</span>
+          {colors.map((c, i) => (
+            <div key={i} className="h-[10px] w-[10px] rounded-[2px]" style={{ background: c }} />
+          ))}
+          <span>mehr</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatBox({ label, value, sub, tone = "neutral" }) {
   const toneClasses = {
     sky: "border-sky/15 bg-sky/[0.06]",
@@ -137,6 +244,9 @@ export default function StatsPage() {
   const [extended, setExtended] = useState(null);
   const [rejection, setRejection] = useState(null);
   const [styleStats, setStyleStats] = useState(null);
+  // v1.7.0-beta.12 (#579): Activity-Heatmap
+  const [heatmap, setHeatmap] = useState(null);
+  const [heatmapDays, setHeatmapDays] = useState(365);
 
   // Combined key for "all" view: granularity=all means show everything grouped monthly
   const interval = granularity === "all" ? "all" : granularity;
@@ -145,12 +255,13 @@ export default function StatsPage() {
     try {
       const params = new URLSearchParams({ interval: g });
       if (r) params.set("range", r);
-      const [timelineData, scoreData, extendedData, rejectionData, styleData] = await Promise.all([
+      const [timelineData, scoreData, extendedData, rejectionData, styleData, heatmapData] = await Promise.all([
         optionalApi(`/api/stats/timeline?${params}`),
         optionalApi("/api/stats/scores"),
         optionalApi("/api/stats/extended"),
         optionalApi("/api/rejection-patterns"),
         optionalApi("/api/stats/style"),
+        optionalApi(`/api/stats/heatmap?days=${heatmapDays}`),
       ]);
       if (!timelineData && !scoreData && !extendedData) {
         pushToast("Server nicht erreichbar.", "danger");
@@ -162,6 +273,7 @@ export default function StatsPage() {
       setExtended(extendedData);
       setRejection(rejectionData);
       setStyleStats(styleData);
+      setHeatmap(heatmapData);
       setLoading(false);
     } catch (error) {
       pushToast(`Statistiken konnten nicht geladen werden: ${error.message}`, "danger");
@@ -172,7 +284,7 @@ export default function StatsPage() {
   useEffect(() => {
     setLoading(true);
     loadData(granularity, timeRange);
-  }, [reloadKey, granularity, timeRange]);
+  }, [reloadKey, granularity, timeRange, heatmapDays]);
 
   if (loading) return <LoadingPanel label="Statistiken werden geladen..." />;
 
@@ -424,6 +536,52 @@ export default function StatsPage() {
               />
             </div>
           )}
+
+          {/* v1.7.0-beta.12 (#579): Activity-Heatmap */}
+          <Card className="rounded-2xl">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Activity size={14} className="text-sky" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                  Aktivitaets-Heatmap
+                </p>
+                {heatmap?.total_active_days != null && (
+                  <span className="ml-2 text-[11px] text-muted/50">
+                    {heatmap.total_active_days} aktive Tage
+                    {heatmap.max_per_day ? ` · max. ${heatmap.max_per_day}/Tag` : ""}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {[
+                  { label: "90 T", value: 90 },
+                  { label: "180 T", value: 180 },
+                  { label: "365 T", value: 365 },
+                  { label: "730 T", value: 730 },
+                ].map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setHeatmapDays(p.value)}
+                    className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      heatmapDays === p.value
+                        ? "bg-sky/15 text-sky"
+                        : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {heatmap && heatmap.data && heatmap.data.length > 0 ? (
+              <ActivityHeatmap data={heatmap.data} days={heatmapDays} />
+            ) : (
+              <p className="py-6 text-center text-sm text-muted/40">
+                Noch keine Aktivitaeten erfasst. Sobald du Bewerbungen, Termine oder Follow-ups anlegst, erscheint hier ein Aktivitaetsmuster.
+              </p>
+            )}
+          </Card>
 
           {/* Row 1: Timeline + Status */}
           <div className="grid gap-6 xl:grid-cols-2">

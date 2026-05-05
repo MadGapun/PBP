@@ -111,6 +111,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     ba_berater_name = (settings.get("ba_berater_name") or "").strip()
     ba_berater_stelle = (settings.get("ba_berater_stelle") or "").strip()
     show_berater_kommentar = bool(settings.get("berater_kommentar_block"))
+    # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus — Cover-Titel und
+    # zusaetzlicher Tagesgrupplerter Aktivitaetsblock; ideal fuer Vermittler-
+    # Vorlagen ("Was wurde getan?" statt "Wie laeuft es?").
+    taetigkeitsbericht_mode = bool(settings.get("taetigkeitsbericht_mode"))
     # Nur anzeigen wenn Toggle an UND mindestens ein Feld gefuellt
     has_arbeitsamt_block = arbeitsamt_enabled and any([
         ba_vermittlungsnummer, ba_aktenzeichen,
@@ -152,7 +156,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # --- Title Page with PBP Branding (#173) ---
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 22)
-    _line_cell(pdf, 0, 15, _safe_text("Bewerbungsbericht"), align="C")
+    cover_title = "Taetigkeitsbericht" if taetigkeitsbericht_mode else "Bewerbungsbericht"
+    _line_cell(pdf, 0, 15, _safe_text(cover_title), align="C")
 
     # Subtitle with name and date range
     pdf.set_font("Helvetica", "", 11)
@@ -755,6 +760,46 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             "  Keine Aktivitaeten im Berichtszeitraum erfasst."
         ))
     pdf.ln(4)
+
+    # v1.7.0-beta.12 (#582): Tagesgruppierte Aktivitaets-Uebersicht —
+    # nur im Taetigkeitsbericht-Modus. Buendelt alle Ereignisse pro Tag,
+    # so dass Vermittler/Berater auf einen Blick sehen, an welchen Tagen
+    # aktiv gearbeitet wurde und was konkret passiert ist.
+    if taetigkeitsbericht_mode and timeline_events:
+        from collections import defaultdict as _dd
+        per_day = _dd(list)
+        for date, evt, target, status in timeline_events:
+            per_day[date].append((evt, target, status))
+        pdf.add_page()
+        _section_header(pdf, "11a. Taegliche Aktivitaets-Uebersicht")
+        pdf.set_font("Helvetica", "", 8)
+        _line_cell(pdf, 0, 5, _safe_text(
+            "  Aktivitaeten gebuendelt pro Tag — als Nachweis konkreter Bemuehungen."
+        ))
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(28, 5, "Datum", border=1, fill=True, align="C")
+        pdf.cell(15, 5, "Aktionen", border=1, fill=True, align="C")
+        pdf.cell(137, 5, "Details", border=1, fill=True)
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 7)
+        for day in sorted(per_day.keys(), reverse=True)[:90]:
+            try:
+                day_de = datetime.fromisoformat(day).strftime("%d.%m.%Y")
+            except Exception:
+                day_de = day
+            entries = per_day[day]
+            details = "; ".join(
+                f"{evt}: {target}" for evt, target, _status in entries[:3]
+            )
+            if len(entries) > 3:
+                details += f"; +{len(entries) - 3} weitere"
+            pdf.cell(28, 4, day_de, border=1, align="C")
+            pdf.cell(15, 4, str(len(entries)), border=1, align="C")
+            pdf.cell(137, 4, _safe_text(details[:90]), border=1)
+            pdf.ln()
+        pdf.ln(4)
 
     # --- 12. Quellen-Aktivitaet (Suchaufwand) ---
     _section_header(pdf, "12. Quellen-Aktivitaet (Suchaufwand)")

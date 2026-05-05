@@ -7,6 +7,49 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.12] - 2026-05-05 — Profil + Stats: Heatmap, Skill-Zeitraeume, Taetigkeitsbericht
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Drei zusammenhaengende Erweiterungen, die das Profil-/Stats-Erlebnis
+abrunden — und dem Vermittler-Bericht einen neuen Modus geben.
+
+### 📊 Aktivitaets-Heatmap (#579)
+
+- GitHub-Style Contribution-Graph in *Statistiken* (Sektion ueber den
+  Zeitraum-/Status-Charts).
+- Aggregiert pro Tag aus **Bewerbungen, Statuswechseln, Terminen, Follow-ups**.
+- Zeitraum-Wahl `90 / 180 / 365 / 730 Tage` direkt am Kopf der Card.
+- Tooltip pro Zelle: Datum + Anzahl Aktionen. Empty-State erklaert das Feature
+  fuer Erstnutzer.
+- Backend: `GET /api/stats/heatmap?days=N` (clamped auf 30..730).
+
+### 🕓 Skill-Zeitraeume API (#572)
+
+- `GET/POST /api/skills/{skill_id}/periods` und `DELETE /api/skills/periods/{period_id}`.
+- Diskontinuierliche Zeitraeume pro Skill (z.B. „Python 2018–2022, dann
+  2024–jetzt") inkl. `start_year`, `end_year`, `level_at_period`, `notes`.
+- Backend bereit; UI im Profil folgt in beta.13. MCP-Tool
+  `skill_zeitraum_hinzufuegen` ist seit beta.5 nutzbar.
+
+### 📋 Taetigkeitsbericht-Modus (#582)
+
+- Neue Bericht-Einstellung **„Taetigkeitsbericht-Modus"** in
+  *Einstellungen → Bericht*.
+- Wenn aktiv: Cover-Titel wird zu **„Taetigkeitsbericht"** (statt
+  „Bewerbungsbericht") und der PDF-Bericht erhaelt eine zusaetzliche
+  Sektion **„11a. Taegliche Aktivitaets-Uebersicht"** — Aktivitaeten gebuendelt
+  pro Tag, ideal als Nachweis konkreter Bemuehungen fuer Vermittler/Berater.
+- Bestehende Sektionen bleiben unveraendert; der Modus ist additiv.
+
+### Tests
+
+- `tests/test_v170_beta12.py`: 8 Tests fuer Heatmap (Clamping, Empty,
+  Application-Pfad), Skill-Zeitraeume (CRUD, 404), Taetigkeitsbericht
+  (Settings-Persistenz, PDF-Smoke-Test).
+
+---
+
 ## [1.7.0-beta.11] - 2026-05-05 — Bewerbungs-Detail-Erweiterungen
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

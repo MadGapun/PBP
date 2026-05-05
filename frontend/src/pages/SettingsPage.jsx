@@ -464,6 +464,8 @@ export default function SettingsPage() {
     ba_berater_name: "",
     ba_berater_stelle: "",
     berater_kommentar_block: false,
+    // v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
+    taetigkeitsbericht_mode: false,
   });
   const [reportSaving, setReportSaving] = useState(false);
   const loginPollersRef = useRef(new Map());
@@ -957,6 +959,29 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-ink">Beraterkommentar-Block am Berichtende</p>
                 <p className="text-[11px] text-muted/70">
                   Fuegt am Ende des Berichts leere Linien fuer handschriftliche Anmerkungen ein.
+                </p>
+              </div>
+            </label>
+
+            {/* v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus */}
+            <label className="mt-3 flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!reportSettings.taetigkeitsbericht_mode}
+                onChange={(e) => {
+                  const flag = e.target.checked;
+                  setReportSettings((prev) => ({ ...prev, taetigkeitsbericht_mode: flag }));
+                  saveReportSettings({ taetigkeitsbericht_mode: flag });
+                }}
+                disabled={reportSaving}
+                className="h-4 w-4 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium text-ink">Taetigkeitsbericht-Modus</p>
+                <p className="text-[11px] text-muted/70">
+                  Fokus auf taegliche Aktivitaet als Nachweis fuer Vermittler/Berater.
+                  Cover-Titel wird zu „Taetigkeitsbericht" und der Bericht enthaelt eine
+                  zusaetzliche tagesgruppierte Uebersicht aller Bewerbungs-Ereignisse.
                 </p>
               </div>
             </label>
