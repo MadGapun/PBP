@@ -7,6 +7,41 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-rc.1] - 2026-05-05 — Release Candidate
+
+> ⚠️ **Pre-Release / Release Candidate**. Stable bleibt v1.6.9.
+> Wenn rc.1 gruen durch Real-World-Test laeuft, geht **v1.7.0 final**
+> als neues `--latest` raus.
+
+Erstes Release-Candidate fuer v1.7.0. Funktional identisch zu beta.13 —
+keine neuen Features, nur Versions-Bump zur Signalisierung „Feature-Freeze
+fuer v1.7.0 erreicht, Test-Phase".
+
+### 🆕 Was ist seit v1.6.9 dazugekommen?
+
+Sammelt alle v1.7.0-Betas in einer Uebersicht:
+
+- **Lokale AI (Ollama)** — beta.1: opt-in Sidecar, Status-Indicator, PBP-Router.
+- **Typed IDs (Variante A)** — beta.1: Praefixe APP-/JOB-/DOC-/MTG-, parallel zu nackten IDs.
+- **n:m Bewerbung↔Stelle (#472)** — beta.5: Junction-Tabelle, primaer/Versionen.
+- **Kontaktdatenbank (#563)** — beta.4..beta.10: 8 MCP-Tools + Frontend-Page + Detail-Inline-Add.
+- **Bewerbungs-Detail (beta.11)** — Stellen pro Bewerbung, Stellen-Vergleich (#580), Aufwand & Kosten (#568).
+- **Stats & Bericht (beta.12)** — Activity-Heatmap (#579), Skill-Zeitraeume API (#572),
+  Taetigkeitsbericht-Modus (#582).
+- **Bug-Fixes (beta.13)** — Follow-up-Typ-Hygiene (#518), Termine-CSV-Export (#578).
+- **Datenmodell** — Schema v31 → v35, Hash-Hygiene scoped, neue Tabellen
+  (`contacts`, `application_jobs`, `skill_periods`, `application_costs`).
+
+### Stable-Release-Pfad
+
+- v1.6.9 bleibt `--latest` bis v1.7.0 final.
+- rc.1 wird als `--prerelease` veroeffentlicht.
+- **Nach Real-World-Test** (Endnutzer + Maintainer): v1.7.0 final als neues
+  `--latest`, v1.6.x rutscht in Wartungs-Modus (kritische Bug-Fixes nur
+  noch bei akuten Problemen).
+
+---
+
 ## [1.7.0-beta.13] - 2026-05-05 — Bug-Fixes & Polish
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
