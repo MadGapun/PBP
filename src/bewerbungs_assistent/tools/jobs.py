@@ -896,17 +896,19 @@ def register(mcp, db, logger):
         zeitraum: str = "woche",
         ort: str = "",
     ) -> dict:
-        """Baut eine Google-Jobs-URL fuer Chrome-in-Claude (#501).
+        """Baut eine Google-Jobs-URL fuer Chrome-in-Claude (#501, #573).
 
         Google Jobs (`udm=8`) ist der groesste Aggregator in DE und
         indexiert u.a. StepStone-Stellen. Ein direkter HTTP-Abruf wird
         von Google zuverlaessig blockiert, ein eingeloggter Chrome-Tab
         mit Claude-in-Chrome funktioniert aber stabil.
 
-        Workflow:
+        Workflow (v1.7.0-beta.14, #573):
         1. `google_jobs_url(keyword="PLM", ort="Hamburg")` aufrufen
         2. URL in Chrome mit Claude-in-Chrome oeffnen
-        3. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
+        3. Mit dem mitgelieferten `extraction_js` strukturierte Job-Daten
+           via `javascript_tool()` aus dem DOM ziehen (statt Rohtext-Parsing)
+        4. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
 
         Args:
             keyword: Suchbegriff (z.B. 'PLM Projektleiter').
@@ -918,11 +920,45 @@ def register(mcp, db, logger):
             return {"fehler": "keyword ist Pflichtfeld."}
         from ..job_scraper.google_jobs import build_google_jobs_url
         url = build_google_jobs_url(keyword, zeitraum=zeitraum, ort=ort or None)
+        # v1.7.0-beta.14 (#573): JS-Snippet fuer DOM-Extraktion mitliefern.
+        # Mehrere Selektor-Pfade probieren, weil Google die Klassen-Hashes
+        # haeufig rotiert. Wenn keiner matcht, faellt der Aufrufer auf
+        # get_page_text() + manuelles Parsen zurueck.
+        extraction_js = """
+(() => {
+  // Google Jobs (udm=8) — DOM-Selektoren (Stand Mai 2026).
+  // Klassen rotieren, daher mehrere Strategien.
+  const cards = Array.from(document.querySelectorAll(
+    '[data-ved][role="listitem"], li[data-ved], div.PwjeAc'
+  ));
+  const getText = (el, sel) => {
+    if (!el) return '';
+    const node = sel ? el.querySelector(sel) : el;
+    return (node?.innerText || node?.textContent || '').trim();
+  };
+  const results = cards.slice(0, 30).map((el, idx) => {
+    const titel = getText(el, '.PUpOsf, .BjJfJf, [role="heading"]');
+    const firma = getText(el, '.a3jPc, .vNEEBe, .nJlQNd');
+    const ort   = getText(el, '.tJ9zfc, .Qk80Jf');
+    const link = el.querySelector('a[href]')?.href || '';
+    return {
+      idx, titel, firma, ort, link,
+      _raw: el.innerText?.slice(0, 200),
+    };
+  }).filter((r) => r.titel || r.firma);
+  return { count: results.length, jobs: results };
+})()
+""".strip()
         return {
             "url": url,
+            "extraction_js": extraction_js,
             "hinweis": (
-                "Oeffne diese URL in Chrome mit Claude-in-Chrome und "
-                "uebernimm gefundene Stellen ueber stelle_manuell_anlegen()."
+                "Oeffne diese URL in Chrome mit Claude-in-Chrome. Nutze dann "
+                "javascript_tool() mit `extraction_js` um strukturierte "
+                "Job-Daten direkt aus dem DOM zu ziehen — vermeidet "
+                "Rohtext-Parsing. Pro Treffer: titel, firma, ort, link. "
+                "Falls keine Treffer: Selektoren wurden von Google rotiert, "
+                "Fallback ueber get_page_text()."
             ),
         }
 

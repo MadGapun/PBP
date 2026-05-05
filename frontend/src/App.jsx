@@ -1939,10 +1939,11 @@ export default function App() {
                 </ul>
               </div>
 
-              <div className="glass-card p-3 border-amber/20 border">
+              <div className="glass-card p-3 border-sky/20 border">
                 <p className="text-[12px]">
-                  <strong className="text-amber">Hinweis:</strong> Die Einrichtung der lokalen KI kommt
-                  in der naechsten Beta-Version. Aktuell ist nur die Status-Anzeige aktiv.
+                  <strong className="text-sky">Einrichten:</strong> In <em>Einstellungen → Lokale KI</em>
+                  findest du den Setup-Wizard mit empfohlenen Modellen (Klein/Mittel/Gross).
+                  Modell-Download laeuft synchron — kann je nach Groesse 1–10 Minuten dauern.
                 </p>
               </div>
 

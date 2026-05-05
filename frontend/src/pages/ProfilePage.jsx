@@ -400,6 +400,9 @@ export default function ProfilePage() {
   const [projectDialog, setProjectDialog] = useState({ open: false, positionId: "", draft: EMPTY_PROJECT });
   const [educationDialog, setEducationDialog] = useState({ open: false, draft: EMPTY_EDUCATION });
   const [skillDialog, setSkillDialog] = useState({ open: false, draft: EMPTY_SKILL });
+  // v1.7.0-beta.14 (#571 Stufe 1): In-Page-Filter fuer Skills.
+  // Live-Filter ueber name + category, client-seitig.
+  const [skillFilter, setSkillFilter] = useState("");
   const [expandedPositions, setExpandedPositions] = useState({});
   const [expandedExtractionId, setExpandedExtractionId] = useState("");
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -1555,9 +1558,47 @@ export default function ProfilePage() {
 
           <Card id="profil-skills" className="rounded-2xl">
             <SectionHeading title="Skills" description="Kompetenzen für Matching und Fit-Analyse." action={<Button onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(EMPTY_SKILL) })}><Plus size={15} />Skill</Button>} />
+            {/* v1.7.0-beta.14 (#571 Stufe 1): Live-Filter ueber Skill-Liste —
+                hilfreich wenn man einen bestimmten Skill bearbeiten/loeschen will. */}
+            {(profile.skills?.length || 0) > 6 && (
+              <div className="mb-4 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={skillFilter}
+                  onChange={(e) => setSkillFilter(e.target.value)}
+                  placeholder="Skill suchen (Name oder Kategorie)..."
+                  className="w-full max-w-sm rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-sm text-ink placeholder:text-muted/40 focus:border-sky/40 focus:outline-none"
+                  aria-label="Skill-Filter"
+                />
+                {skillFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setSkillFilter("")}
+                    className="text-[11px] text-muted/60 hover:text-ink underline"
+                  >
+                    zuruecksetzen
+                  </button>
+                )}
+              </div>
+            )}
             {profile.skills?.length ? (() => {
+              const filterQ = skillFilter.trim().toLowerCase();
+              const filteredSkills = filterQ
+                ? profile.skills.filter((s) =>
+                    (s.name || "").toLowerCase().includes(filterQ)
+                    || (s.category || "").toLowerCase().includes(filterQ)
+                    || (SKILL_CATEGORY_LABELS[normalizeSkillCategory(s.category)] || "").toLowerCase().includes(filterQ)
+                  )
+                : profile.skills;
+              if (filteredSkills.length === 0) {
+                return (
+                  <p className="py-6 text-center text-sm text-muted/40">
+                    Kein Skill matcht „{skillFilter}". <button onClick={() => setSkillFilter("")} className="text-sky underline">Filter zuruecksetzen</button>
+                  </p>
+                );
+              }
               const groups = {};
-              for (const skill of profile.skills) {
+              for (const skill of filteredSkills) {
                 const cat = normalizeSkillCategory(skill.category);
                 if (!groups[cat]) groups[cat] = [];
                 groups[cat].push(skill);

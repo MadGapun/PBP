@@ -7,7 +7,89 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
-## [1.7.0-rc.1] - 2026-05-05 — Release Candidate
+## [1.7.0-beta.14] - 2026-05-05 — Audit-Sweep, LLM-Tests vervollstaendigt, rc.1 zurueckgezogen
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Feedback nach rc.1: „Du sagtest morgens 10 Tage, jetzt nach 10h rc?
+Du hast nicht alles getestet." — zu Recht. **rc.1 wurde zurueckgezogen**
+(siehe Hinweis im rc.1-Release-Body), Versionen sind auf beta.14.
+
+Diese Beta schliesst die Test- und Akzeptanzkriterien-Luecken, die in
+rc.1 kaschiert waren:
+
+### 🔍 Audit der „schon implementiert"-Issues
+
+Jedes der 5 als „im Code vorhanden" gefuehrten v1.7-Issues wurde gegen
+seine eigentlichen Akzeptanzkriterien geprueft. Drei Luecken gefunden:
+
+- **#583 — Modal-Hinweistext veraltet.** Der Erklaerungs-Modal sagte
+  „Einrichtung kommt in der naechsten Beta-Version" — der Setup-Wizard
+  ist seit beta.2 in *Einstellungen → Lokale KI* drin. Text korrigiert,
+  verweist jetzt auf den existierenden Wizard.
+- **#571 Stufe 1 — In-Page-Filter im Profil fehlte.** Skill-Liste hatte
+  keinen Live-Filter; der globale Header-Search ist ein Workaround,
+  aber nicht der Use-Case aus dem Issue („schnell einen Skill bearbeiten").
+  Filter-Input ueber Skills nachgezogen (erscheint ab >6 Skills).
+- **#573 — DOM-Extraktions-JS fehlte.** `google_jobs_url`-Tool lieferte
+  nur die URL und Hinweis-Text, kein JS-Snippet. Tool liefert jetzt
+  `extraction_js` mit fuer `javascript_tool()` direkt nutzbarem
+  `querySelectorAll`-Code (Selektoren mit Fallback-Strategie).
+- **#505 — README-Doku fehlte.** Typed-IDs-Sektion mit Praefix-Tabelle
+  (APP-/JOB-/DOC-/MTG-/CON-) und Nicht-breaking-Hinweis ergaenzt.
+
+#576, #577 sind ohne Aenderung komplett — werden mit Audit-Bestaetigung
+geschlossen.
+
+### 🧪 LLM-Pfad systematisch getestet (#512)
+
+Die 38 LLM-Tests aus beta.1/beta.2 waren reine Mock-Tests. Echte
+HTTP-Layer + alle 5 API-Endpunkte hatten **0 TestClient-Tests**. In
+beta.14 hinzugefuegt:
+
+- **`tests/test_v170_beta14_llm_audit.py`** (18 Tests):
+  - HTTP-API: `/api/llm/status`, `/state`, `/model`, `/pull`,
+    `/recommended-models` (success, validation, fehlertolerant).
+  - `_check_ollama` mit gemocktem `urllib.request` — Erfolg, leere
+    Modell-Liste, Timeout, Connection-Refused.
+  - `_ollama_generate` mit Mock-Response — extrahiert `response`-Feld,
+    handelt leere Antworten korrekt.
+  - End-to-End `run(CLASSIFY_DOCUMENT)` mit gemocktem Ollama — Status-
+    und Generate-Calls in der richtigen Reihenfolge, Backend=LOCAL,
+    Parser greift, Kategorie wird korrekt zurueckgegeben.
+  - Fallback-Pfad: wenn `_ollama_generate` mid-call crasht, faellt
+    `run()` auf CLAUDE statt zu crashen.
+  - Paused-State: `select_backend` ignoriert LOCAL auch bei verfuegbarem
+    Ollama, faellt auf CLAUDE.
+  - `trigger_pull` Erfolg + Fehlerpfad.
+
+- **`tests/test_v170_beta14_audit_gaps.py`** (5 Tests):
+  - #573 google_jobs_url liefert `extraction_js` mit DOM-Selektoren
+  - #573 End-to-End ueber FastMCP-Tool-Call
+  - #583 App.jsx Modal-Hinweistext nicht mehr veraltet
+  - #505 README enthaelt vollstaendige Typed-IDs-Sektion
+  - #571 Stufe 1 Filter-State + Input + Filter-Logik in ProfilePage.jsx
+
+### Was beta.14 NICHT macht
+
+- Keine echten End-to-End-Tests gegen einen echten Ollama-Server. Das
+  muss waehrend des User-Tests passieren — kein Auto-Test denkbar ohne
+  Ollama-Installation in der Test-Umgebung.
+- 12 vor-bestehende `mcp.call_tool`-Test-Failures (FastMCP 2.12-Migration
+  laut CLAUDE.md ausstehend) bleiben unangetastet — keine Regression.
+
+### Ablauf bis rc.2
+
+User testet beta.14. Wenn ok → rc.2. Wenn neue Bugs gefunden → beta.15.
+
+---
+
+## [1.7.0-rc.1] - 2026-05-05 — Release Candidate (zurueckgezogen)
+
+> ❌ **VERFRUEHT VERSENDET — siehe v1.7.0-beta.14.** rc.1 hat die
+> Akzeptanzkriterien der „in Code"-Issues nicht sauber gegen die
+> Realitaet gepruft. Tag bleibt aus Tag-Lock-Gruenden bestehen,
+> aber das Release wurde im GitHub-Body als zurueckgezogen markiert.
 
 > ⚠️ **Pre-Release / Release Candidate**. Stable bleibt v1.6.9.
 > Wenn rc.1 gruen durch Real-World-Test laeuft, geht **v1.7.0 final**

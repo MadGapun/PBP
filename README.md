@@ -10,7 +10,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.6.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-537-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-760-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-95-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -200,8 +200,25 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Workflows** | 18 gefuehrte Workflows |
 | **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v28 |
-| **Tests** | 537 bestanden |
+| **Datenbank** | SQLite (WAL), Schema v35 |
+| **Tests** | 760 bestanden |
+
+### Typed IDs (v1.7.0, #505)
+
+PBP-IDs haben ab v1.7.0 sichtbare Praefixe — du erkennst auf einen Blick,
+um was fuer eine Entitaet es geht:
+
+| Praefix | Entitaet | Beispiel |
+|---|---|---|
+| `APP-` | Bewerbung (Application) | `APP-42061e46` |
+| `JOB-` | Stelle (Job) | `JOB-2b19d4c6` |
+| `DOC-` | Dokument | `DOC-d60ac54b` |
+| `MTG-` | Termin/Meeting | `MTG-7f33ac90` |
+| `CON-` | Kontakt (v1.7.0 #563) | `CON-5b8a2d11` |
+
+**Nicht-breaking:** Tools akzeptieren weiterhin nackte 8-Hex-IDs ohne
+Praefix (`42061e46`). Die Praefixe erscheinen in Listen-/Detail-Antworten
+und in der UI; intern bleibt die ID gleich.
 
 > 📖 **Technische Details:** [Wiki → Architektur](https://github.com/MadGapun/PBP/wiki/Architektur) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
 
