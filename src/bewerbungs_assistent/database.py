@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 31
+SCHEMA_VERSION = 32
 
 
 def _gen_id() -> str:
@@ -1233,6 +1233,36 @@ class Database:
                 migrated_jobs, migrated_reasons,
             )
 
+        if from_ver < 32:
+            # v32 / #577 v1.7.0-beta.2: Stilarchiv fuer Anschreiben/Lebenslauf.
+            # Tabelle versions speichert Texte mit Metadaten — beim Erstellen
+            # einer neuen Version werden die letzten N als Kontext fuer Claude
+            # mitgegeben. Verlinkung optional zur Bewerbung (fuer Erfolgs-
+            # Markierung: hat dieses Anschreiben ein Interview ausgeloest?).
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS document_versions (
+                        id TEXT PRIMARY KEY,
+                        profile_id TEXT NOT NULL,
+                        kind TEXT NOT NULL,
+                        title TEXT,
+                        content TEXT NOT NULL,
+                        word_count INTEGER DEFAULT 0,
+                        application_id TEXT,
+                        outcome TEXT,
+                        created_at TEXT NOT NULL,
+                        notes TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_document_versions_profile_kind "
+                    "ON document_versions(profile_id, kind, created_at DESC)"
+                )
+                conn.commit()
+            except Exception as exc:
+                logger.warning("document_versions-Migration fehlgeschlagen: %s", exc)
+            logger.info("Migration v31->v32: document_versions-Tabelle (#577)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -2049,6 +2079,66 @@ class Database:
             params.append(profile_id)
         row = conn.execute(query, params).fetchone()
         return dict(row) if row else None
+
+    # === Stilarchiv (v1.7.0 #577) ===
+
+    def add_document_version(self, data: dict) -> str:
+        """Speichert eine Version eines Anschreibens/Lebenslaufs im Archiv.
+
+        Required: kind ('cover_letter'|'cv'|'other'), content
+        Optional: title, application_id, outcome, notes
+        """
+        conn = self.connect()
+        vid = _gen_id()
+        pid = data.get("profile_id") or self.get_active_profile_id() or ""
+        content = data.get("content") or ""
+        word_count = len(content.split())
+        conn.execute("""
+            INSERT INTO document_versions
+                (id, profile_id, kind, title, content, word_count,
+                 application_id, outcome, created_at, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            vid, pid,
+            data.get("kind") or "other",
+            data.get("title") or "",
+            content,
+            word_count,
+            data.get("application_id") or None,
+            data.get("outcome") or None,
+            _now(),
+            data.get("notes") or None,
+        ))
+        conn.commit()
+        return vid
+
+    def get_recent_document_versions(self, kind: str, limit: int = 5,
+                                       only_with_outcome: bool = False) -> list[dict]:
+        """Liefert die letzten Versionen eines Doku-Typs als Kontext.
+
+        v1.7.0 (#577): Wird beim Generieren neuer Anschreiben als Kontext
+        an Claude/lokale AI mitgegeben — damit Stil/Tonalitaet erhalten
+        bleibt.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM document_versions WHERE profile_id=? AND kind=?"
+        params: list = [pid or "", kind]
+        if only_with_outcome:
+            query += " AND outcome IS NOT NULL AND outcome != ''"
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(int(limit))
+        return [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    def update_document_version_outcome(self, version_id: str, outcome: str) -> bool:
+        """Markiert eine Version als erfolgreich/erfolglos (interview, abgelehnt, ohne_antwort)."""
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE document_versions SET outcome=? WHERE id=?",
+            (outcome, version_id)
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
     def add_document(self, data: dict) -> str:
         conn = self.connect()
@@ -5475,4 +5565,19 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     last_filtered_count INTEGER DEFAULT 0,
     last_new_count INTEGER DEFAULT 0
 );
+
+-- v1.7.0 (#577) Stilarchiv fuer Anschreiben/Lebenslauf-Versionen
+CREATE TABLE IF NOT EXISTS document_versions (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT,
+    content TEXT NOT NULL,
+    word_count INTEGER DEFAULT 0,
+    application_id TEXT,
+    outcome TEXT,
+    created_at TEXT NOT NULL,
+    notes TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_document_versions_profile_kind ON document_versions(profile_id, kind, created_at DESC);
 """

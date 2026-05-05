@@ -253,6 +253,7 @@ def test_migration_idempotent(setup_env):
     conn.execute("UPDATE settings SET value='30' WHERE key='schema_version'")
     conn.commit()
     db.initialize()
-    # Sollte ohne Crash laufen, schema_version zurueck auf 31
+    # Sollte ohne Crash laufen, schema_version aktualisiert auf den jeweils
+    # aktuellen Stand (jede neue Beta erhoeht die Version weiter)
     sv = conn.execute("SELECT value FROM settings WHERE key='schema_version'").fetchone()[0]
-    assert sv == "31"
+    assert int(sv) >= 31

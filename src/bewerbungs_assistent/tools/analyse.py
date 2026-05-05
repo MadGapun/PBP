@@ -434,6 +434,104 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def stilarchiv_speichern(
+        kind: str,
+        content: str,
+        title: str = "",
+        application_id: str = "",
+        outcome: str = "",
+        notes: str = "",
+    ) -> dict:
+        """Speichert eine Anschreiben- oder Lebenslauf-Version im Stilarchiv (#577).
+
+        Beim naechsten Generieren werden die letzten Versionen als Kontext
+        mitgegeben — Claude bleibt im User-Stil und nutzt erfolgreiche
+        Formulierungen wieder.
+
+        Args:
+            kind: 'cover_letter', 'cv' oder 'other'.
+            content: Der vollstaendige Text der Version.
+            title: Optionaler Titel (z.B. Firma+Position).
+            application_id: Optionale Bewerbung zum Verlinken.
+            outcome: Optional 'interview', 'abgelehnt', 'ohne_antwort' —
+                kann spaeter via stilarchiv_outcome_setzen ergaenzt werden.
+            notes: Freitext-Anmerkungen.
+        """
+        if kind not in ("cover_letter", "cv", "other"):
+            return {"fehler": "kind muss 'cover_letter', 'cv' oder 'other' sein."}
+        if not content or not content.strip():
+            return {"fehler": "content darf nicht leer sein."}
+        vid = db.add_document_version({
+            "kind": kind,
+            "title": title,
+            "content": content,
+            "application_id": application_id or None,
+            "outcome": outcome or None,
+            "notes": notes,
+        })
+        return {"status": "gespeichert", "version_id": vid, "kind": kind}
+
+    @mcp.tool()
+    def stilarchiv_kontext(kind: str = "cover_letter", limit: int = 5) -> dict:
+        """Liefert die letzten N Versionen als Kontext fuer eine Neu-Generierung (#577).
+
+        Nutze das BEVOR du ein neues Anschreiben/Lebenslauf schreibst —
+        damit der Stil konsistent bleibt und erfolgreiche Formulierungen
+        nicht verloren gehen.
+
+        Args:
+            kind: 'cover_letter' oder 'cv'.
+            limit: Anzahl der Versionen (Default 5).
+        """
+        if kind not in ("cover_letter", "cv", "other"):
+            return {"fehler": "kind muss 'cover_letter', 'cv' oder 'other' sein."}
+        versions = db.get_recent_document_versions(kind, limit=limit)
+        if not versions:
+            return {
+                "kind": kind,
+                "anzahl": 0,
+                "hinweis": "Noch keine gespeicherten Versionen — beim ersten Mal "
+                           "frei schreiben, dann via stilarchiv_speichern() ablegen.",
+            }
+        # Kontextueller Output: nur relevante Felder, mit Erfolgs-Markierung
+        return {
+            "kind": kind,
+            "anzahl": len(versions),
+            "versionen": [
+                {
+                    "id": v["id"],
+                    "title": v.get("title") or "",
+                    "word_count": v.get("word_count") or 0,
+                    "outcome": v.get("outcome") or "unbekannt",
+                    "created_at": v.get("created_at"),
+                    "content_excerpt": (v.get("content") or "")[:500],
+                }
+                for v in versions
+            ],
+            "hinweis": (
+                "Nutze diese Versionen als Stil-Vorlage. Erfolgreiche "
+                "(outcome='interview') besonders beachten. KEINEN Inhalt 1:1 "
+                "kopieren — Stil und Tonfall uebernehmen, Inhalt neu auf die "
+                "konkrete Stelle ausrichten."
+            ),
+        }
+
+    @mcp.tool()
+    def stilarchiv_outcome_setzen(version_id: str, outcome: str) -> dict:
+        """Markiert eine Stilarchiv-Version mit Erfolgs-Status (#577).
+
+        Args:
+            version_id: ID der Version (aus stilarchiv_speichern bekommen).
+            outcome: 'interview' | 'abgelehnt' | 'ohne_antwort' | 'angebot' |
+                'zurueckgezogen'.
+        """
+        valid = {"interview", "abgelehnt", "ohne_antwort", "angebot", "zurueckgezogen"}
+        if outcome not in valid:
+            return {"fehler": f"outcome muss eines von {sorted(valid)} sein."}
+        ok = db.update_document_version_outcome(version_id, outcome)
+        return {"status": "gespeichert" if ok else "nicht_gefunden", "version_id": version_id, "outcome": outcome}
+
+    @mcp.tool()
     def bewerbung_stil_tracken(bewerbung_id: str, stil: str, notizen: str = "") -> dict:
         """Speichert den Anschreiben-Stil einer Bewerbung für A/B-Tracking.
 

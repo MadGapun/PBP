@@ -5654,6 +5654,78 @@ async def api_llm_set_state(request: Request):
     return {"status": "ok", "state": state}
 
 
+@app.put("/api/llm/model")
+async def api_llm_set_model(request: Request):
+    """Setzt das aktive Modell. Wird beim naechsten LLM-Aufruf verwendet."""
+    data = await request.json()
+    model = (data.get("model") or "").strip()
+    if not model:
+        return JSONResponse({"error": "model ist Pflicht"}, status_code=400)
+    _db.set_profile_setting("llm_local_model", model)
+    from .services.llm_service import get_llm_service
+    svc = get_llm_service(_db)
+    svc.get_status(force_refresh=True)
+    return {"status": "ok", "model": model}
+
+
+@app.post("/api/llm/pull")
+async def api_llm_pull(request: Request):
+    """Triggert einen Modell-Download in Ollama.
+
+    Aktuell synchron — kann bei grossen Modellen mehrere Minuten dauern.
+    Frontend sollte einen Loading-State zeigen.
+    """
+    data = await request.json()
+    model = (data.get("model") or "").strip()
+    if not model:
+        return JSONResponse({"error": "model ist Pflicht"}, status_code=400)
+    from .services.llm_service import get_llm_service
+    svc = get_llm_service(_db)
+    result = svc.trigger_pull(model)
+    if result.get("status") == "error":
+        return JSONResponse(result, status_code=502)
+    # Status-Cache invalidieren — neues Modell ist jetzt da
+    svc.get_status(force_refresh=True)
+    return result
+
+
+@app.get("/api/llm/recommended-models")
+async def api_llm_recommended_models():
+    """Liefert die kuratierte Liste der von PBP empfohlenen Modelle.
+
+    UI nutzt das fuer den Setup-Wizard (drei Standardgroessen + Eigenes).
+    """
+    return {
+        "models": [
+            {
+                "id": "llama3.2:3b",
+                "label": "Klein",
+                "name": "Llama 3.2 3B",
+                "size_gb": 2.0,
+                "ram_gb": 8,
+                "description": "Laeuft auf jedem PC mit 8 GB RAM",
+            },
+            {
+                "id": "qwen2.5:7b",
+                "label": "Standard (empfohlen)",
+                "name": "Qwen 2.5 7B",
+                "size_gb": 4.7,
+                "ram_gb": 16,
+                "description": "Empfohlen, gutes Deutsch, laeuft mit 16 GB RAM",
+                "recommended": True,
+            },
+            {
+                "id": "qwen2.5:14b",
+                "label": "Gross",
+                "name": "Qwen 2.5 14B",
+                "size_gb": 9.0,
+                "ram_gb": 32,
+                "description": "Power-User mit dedizierter GPU",
+            },
+        ],
+    }
+
+
 # === Scraper Health (#432) ===
 
 @app.get("/api/scraper-health")

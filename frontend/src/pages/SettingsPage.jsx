@@ -177,6 +177,262 @@ function ThemeEditor() {
   );
 }
 
+// v1.7.0 (#583, #512): Settings-Bereich „Lokale KI".
+// Vor Installation: Erklaerung + Modell-Auswahl + Einrichten-Button.
+// Nach Installation: Status, Aktiv/Pausiert/Aus, Modell wechseln, Statistik.
+function LocalAITab({ pushToast }) {
+  const [status, setStatus] = useState(null);
+  const [recommended, setRecommended] = useState([]);
+  const [pulling, setPulling] = useState(false);
+  const [pullModel, setPullModel] = useState(null);
+
+  const reloadStatus = useEffectEvent(async () => {
+    try {
+      const data = await api("/api/llm/status");
+      setStatus(data);
+    } catch (err) {
+      pushToast(`Lokale-KI-Status: ${err.message}`, "danger");
+    }
+  });
+
+  useEffect(() => {
+    reloadStatus();
+    api("/api/llm/recommended-models")
+      .then((d) => setRecommended(d?.models || []))
+      .catch(() => {});
+  }, []);
+
+  if (!status) {
+    return <Card className="rounded-2xl"><p className="text-sm text-muted/60">Lade Lokale-KI-Status...</p></Card>;
+  }
+
+  async function setState(state) {
+    try {
+      await putJson("/api/llm/state", { state });
+      await reloadStatus();
+      pushToast(`Status gesetzt: ${state}`, "success");
+    } catch (err) {
+      pushToast(`Konnte Status nicht setzen: ${err.message}`, "danger");
+    }
+  }
+
+  async function selectModel(modelId) {
+    try {
+      await putJson("/api/llm/model", { model: modelId });
+      await reloadStatus();
+      pushToast(`Modell gesetzt: ${modelId}`, "success");
+    } catch (err) {
+      pushToast(`Konnte Modell nicht setzen: ${err.message}`, "danger");
+    }
+  }
+
+  async function pullModelTrigger(modelId) {
+    setPulling(true);
+    setPullModel(modelId);
+    try {
+      pushToast(`Lade ${modelId}... das kann einige Minuten dauern.`, "amber", { duration: 10000 });
+      const result = await postJson("/api/llm/pull", { model: modelId });
+      if (result?.status === "error") {
+        pushToast(`Download fehlgeschlagen: ${result.error}`, "danger");
+      } else {
+        pushToast(`${modelId} ist installiert.`, "success");
+        await selectModel(modelId);
+        await setState("active");
+      }
+    } catch (err) {
+      pushToast(`Download fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setPulling(false);
+      setPullModel(null);
+      await reloadStatus();
+    }
+  }
+
+  // ── Variante A: nicht installiert ─────────────────────────────────
+  if (status.ui_state === "not_installed") {
+    return (
+      <Card className="rounded-2xl">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-ink">Lokale KI</h2>
+          <p className="text-xs text-muted">Status: Nicht installiert</p>
+        </div>
+
+        <div className="glass-card p-4 mb-4 border-coral/15">
+          <h3 className="font-medium text-ink mb-2">Was ist das?</h3>
+          <p className="text-sm text-muted/80 mb-3">
+            Eine lokale KI auf deinem Rechner uebernimmt Routine-Aufgaben fuer PBP — z.B.
+            Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+              <p className="font-medium text-teal mb-1.5">✅ Vorteile</p>
+              <ul className="space-y-0.5 text-[13px] text-muted/70">
+                <li>Spart Claude-Tokens UND ist kostenlos</li>
+                <li>Funktioniert auch ohne Internet</li>
+                <li>Daten verlassen das Geraet nie</li>
+                <li>Schneller bei Standard-Aufgaben</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-amber mb-1.5">⚠️ Nachteile</p>
+              <ul className="space-y-0.5 text-[13px] text-muted/70">
+                <li>Einmalig 4–5 GB Modell herunterladen</li>
+                <li>Braucht 8–16 GB freien RAM</li>
+                <li>Kreatives bleibt bei Claude</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card p-4 mb-4">
+          <h3 className="font-medium text-ink mb-2">Voraussetzung: Ollama</h3>
+          <p className="text-sm text-muted/80 mb-2">
+            Du brauchst Ollama auf deinem Rechner — der Sidecar, der die lokale KI laeuft.
+          </p>
+          <a
+            href="https://ollama.com/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sky text-sm hover:underline"
+          >
+            Ollama herunterladen → ollama.com/download
+          </a>
+          <p className="text-[12px] text-muted/60 mt-2">
+            Nach der Installation startet Ollama automatisch. PBP erkennt es dann hier.
+            Anschliessend kannst du unten ein Modell auswaehlen.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={reloadStatus}
+          className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-sm text-ink hover:bg-white/[0.08]"
+        >
+          Status neu pruefen
+        </button>
+
+        {status.error && (
+          <p className="mt-3 text-[11px] text-coral/70 font-mono">
+            Erkennungs-Fehler: {status.error}
+          </p>
+        )}
+      </Card>
+    );
+  }
+
+  // ── Variante B: Ollama da, kein Modell ────────────────────────────
+  if (status.ui_state === "no_model") {
+    return (
+      <Card className="rounded-2xl">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-ink">Lokale KI — Modell auswaehlen</h2>
+          <p className="text-xs text-muted">Ollama erkannt. Jetzt ein Modell laden.</p>
+        </div>
+        <div className="space-y-2">
+          {recommended.map((m) => (
+            <div key={m.id} className="glass-card p-3 flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-ink">{m.name}</p>
+                  {m.recommended && <span className="rounded bg-teal/15 px-1.5 py-0.5 text-[10px] font-bold text-teal">EMPFOHLEN</span>}
+                </div>
+                <p className="text-[12px] text-muted/70">
+                  {m.size_gb} GB · braucht {m.ram_gb} GB RAM · {m.description}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={pulling}
+                onClick={() => pullModelTrigger(m.id)}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-sky/15 text-sky text-sm font-medium hover:bg-sky/25 disabled:opacity-50"
+              >
+                {pulling && pullModel === m.id ? "Laedt..." : `${m.size_gb} GB laden`}
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[11px] text-muted/60">
+          Empfehlung: Standard (Qwen 2.5 7B) — gutes Deutsch, vernuenftiger Speicher-Bedarf.
+          Du kannst spaeter jederzeit das Modell wechseln.
+        </p>
+      </Card>
+    );
+  }
+
+  // ── Variante C: Modell installiert (off / paused / active) ────────
+  return (
+    <Card className="rounded-2xl">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Lokale KI</h2>
+          <p className="text-xs text-muted">
+            Modell: <span className="font-mono">{status.selected_model || "—"}</span>
+            {" · "}
+            Status: <span className={
+              status.ui_state === "active" ? "text-teal" :
+              status.ui_state === "paused" ? "text-amber" : "text-muted/50"
+            }>
+              {status.ui_state}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3 mb-4">
+        {[
+          { value: "active", label: "Aktiv", desc: "Tasks lokal" },
+          { value: "paused", label: "Pausiert", desc: "Tasks an Claude" },
+          { value: "off", label: "Aus", desc: "wie nicht installiert" },
+        ].map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setState(opt.value)}
+            className={`glass-card p-3 text-left rounded-lg transition ${
+              status.ui_state === opt.value
+                ? "border-teal/40 bg-teal/[0.06]"
+                : "border-white/5 hover:bg-white/[0.04]"
+            }`}
+          >
+            <p className="text-sm font-medium text-ink">{opt.label}</p>
+            <p className="text-[11px] text-muted/60">{opt.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {status.available_models?.length > 1 && (
+        <div className="mb-4">
+          <p className="text-[11px] text-muted/60 mb-1">Modell wechseln:</p>
+          <div className="flex flex-wrap gap-2">
+            {status.available_models.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => selectModel(m)}
+                className={`px-2.5 py-1 rounded-md text-[12px] font-mono ${
+                  status.selected_model === m
+                    ? "bg-sky/20 text-sky"
+                    : "bg-white/[0.03] text-muted/70 hover:bg-white/[0.06]"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-white/5 pt-3">
+        <p className="text-[11px] text-muted/60">
+          Endpoint: <span className="font-mono">{status.ollama_endpoint}</span>
+          {" · "}
+          {status.available_models?.length || 0} Modell(e) installiert
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 function formatBytes(bytes) {
   if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
@@ -473,6 +729,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: "quellen", label: "Quellen" },
+    { id: "ai", label: "Lokale KI" },
     { id: "system", label: "System" },
     { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },
@@ -539,6 +796,9 @@ export default function SettingsPage() {
             </Card>
           </>
         )}
+
+        {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
+        {settingsTab === "ai" && <LocalAITab pushToast={pushToast} />}
 
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
         {settingsTab === "system" && (

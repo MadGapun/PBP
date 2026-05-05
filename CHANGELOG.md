@@ -7,6 +7,132 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.2] - 2026-05-05 — Lokale AI Real + Stilarchiv
+
+> ⚠️ **Pre-Release / Beta** — empfohlen nur fuer Tester. Stable bleibt v1.6.9.
+
+Macht aus der beta.1-Foundation ein **funktionierendes lokales AI-Setup**.
+Plus das erste echte Anwender-Feature: das Stilarchiv fuer Anschreiben/
+Lebenslaeufe. Mit der lokalen AI muss Claude nicht mehr „bei null" anfangen
+wenn ein neues Anschreiben geschrieben wird.
+
+### 🤖 Lokale AI — echte Ollama-Integration (#512)
+
+- **`LLMService.run()` ist jetzt echt** — synchroner HTTP-Call an
+  `POST /api/generate` mit JSON-Response, Fallback auf Claude wenn Aufruf
+  scheitert oder Modell fehlt.
+- **Prompt-Builders + Response-Parsers** fuer die ersten zwei Tasks:
+  - `CLASSIFY_DOCUMENT`: 10 Kategorien (lebenslauf, anschreiben, ...),
+    deterministisches Ein-Wort-Output, Parser mit Fallback auf
+    'sonstiges' bei unbekanntem Output
+  - `EXTRACT_SKILLS`: kommagetrennte Liste, Parser entfernt Bullets/
+    Whitespace/Praefix-Striche
+- **`LLMService.list_models()`** — liste der lokal verfuegbaren Ollama-
+  Modelle mit Metadaten.
+- **`LLMService.trigger_pull(model_name)`** — synchroner Modell-Download
+  via `POST /api/pull`. Streaming-Fortschritt kommt spaeter.
+
+### 🛠 Neue API-Endpoints (#583)
+
+- **`PUT /api/llm/model`** — Aktives Modell setzen.
+- **`POST /api/llm/pull`** — Modell-Download triggern.
+- **`GET /api/llm/recommended-models`** — Liste der von PBP empfohlenen
+  Modelle (Llama 3.2 3B / Qwen 2.5 7B / Qwen 2.5 14B) mit Metadaten.
+
+### 🎨 Frontend — Settings-Bereich „Lokale KI"
+
+Neuer Tab in den Einstellungen mit drei Modi:
+
+- **Nicht installiert:** Erklaerung mit Vor-/Nachteilen, Link zu
+  ollama.com/download, „Status neu pruefen"-Button.
+- **Ollama erkannt, kein Modell:** Modell-Auswahl mit Klein/Standard/Gross,
+  „GB laden"-Button mit Toast bei Erfolg/Fehler. Standard-Modell wird
+  automatisch nach Download als aktiv gesetzt.
+- **Modell installiert:** Status-Karte (Modell, Aktiv/Pausiert/Aus),
+  Modell-Wechsler bei mehreren installierten Modellen, Endpoint-Anzeige.
+
+### ✍️ Stilarchiv (#577)
+
+- **Schema v32:** Neue Tabelle `document_versions` mit Feldern
+  `kind`, `title`, `content`, `word_count`, `application_id`, `outcome`,
+  `created_at`, `notes`. Index auf `(profile_id, kind, created_at DESC)`.
+- **DB-Helpers:** `add_document_version`, `get_recent_document_versions`
+  (mit Filter `only_with_outcome`), `update_document_version_outcome`.
+- **3 neue MCP-Tools:**
+  - **`stilarchiv_speichern`** — eine Anschreiben-/Lebenslauf-Version
+    ablegen (mit optionaler Verknuepfung zur Bewerbung + Outcome).
+  - **`stilarchiv_kontext`** — die letzten N Versionen als Kontext fuer
+    Claude/lokale AI bei der Generierung. Der Hinweis-Text instruiert
+    explizit: „Stil und Tonfall uebernehmen, Inhalt neu auf die konkrete
+    Stelle ausrichten" — kein 1:1-Kopieren.
+  - **`stilarchiv_outcome_setzen`** — nachtraegliches Markieren mit
+    `interview` / `abgelehnt` / `ohne_antwort` / `angebot` /
+    `zurueckgezogen`. Erlaubt Erfolgs-bias bei der Kontext-Auswahl.
+
+### 🔧 Release-Hygiene
+
+- **`release_check.py`** versteht jetzt PEP-440-/SemVer-Aequivalenz.
+  `1.7.0-beta.1` (SemVer) und `1.7.0b1` (PEP 440 kanonisch) gelten als
+  identisch. Vorher war ein Pre-Release-Tag im pyproject.toml ein
+  Release-Blocker.
+
+### Stats
+
+- **100 MCP-Tools** (vorher 97): +`stilarchiv_speichern`, `stilarchiv_kontext`, `stilarchiv_outcome_setzen` (#577)
+- **18 neue Tests** in `tests/test_v170_beta2.py`, alle gruen (104 total)
+- **Schema v32** (vorher v31) — neue Tabelle `document_versions`
+- **3 neue API-Endpoints** + erweiterte LLM-Service-Klasse
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Dies ist ein **Pre-Release / Beta**. Empfohlen nur fuer Tester — der stabile Stand bleibt v1.6.9.
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.2.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.2.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+git checkout v1.7.0-beta.2
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade (v31 → v32) laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Lokale AI ausprobieren
+
+Nach dem Update auf v1.7.0-beta.2:
+
+1. **Ollama installieren:** [ollama.com/download](https://ollama.com/download) (Windows/macOS/Linux)
+2. PBP-Dashboard oeffnen → Sidebar zeigt jetzt 🟡 „Lokale KI: kein Modell"
+3. **Einstellungen → Lokale KI** → „Standard (Qwen 2.5 7B, 4.7 GB)" laden
+4. Nach dem Download steht der Indicator auf 🟢 Aktiv — fertig.
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ) · [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.1] - 2026-05-05 — Foundation: Lokale AI + Typisierte IDs + Recap
 
 **Pre-Release** — der Auftakt zur v1.7.0-Serie. Master-Roadmap: #575.

@@ -84,7 +84,20 @@ def check_versions(fix=False):
 
     mismatches = []
 
-    if pyproject_version != init_version:
+    # v1.7.0: Pre-Release-Versionen werden in PEP 440 als '1.7.0b1' kanonisch
+    # normalisiert, in SemVer/npm als '1.7.0-beta.1'. Beide Schreibweisen sind
+    # aequivalent — wir vergleichen normalisiert.
+    def _normalize_version(v: str) -> str:
+        if not v:
+            return ""
+        s = v.lower()
+        # SemVer-Style → PEP 440: '1.7.0-beta.1' → '1.7.0b1', '-rc.1' → 'rc1'
+        s = re.sub(r"-?beta\.?(\d+)", r"b\1", s)
+        s = re.sub(r"-?alpha\.?(\d+)", r"a\1", s)
+        s = re.sub(r"-?rc\.?(\d+)", r"rc\1", s)
+        return s
+
+    if _normalize_version(pyproject_version) != _normalize_version(init_version):
         if fix and init_version:
             content = pyproject_file.read_text(encoding="utf-8")
             content = re.sub(r'^version = "[^"]+"', f'version = "{init_version}"', content, flags=re.MULTILINE)
@@ -95,7 +108,7 @@ def check_versions(fix=False):
         else:
             mismatches.append("pyproject.toml")
 
-    if changelog_version != init_version:
+    if _normalize_version(changelog_version) != _normalize_version(init_version):
         mismatches.append("CHANGELOG.md")
 
     if not mismatches:

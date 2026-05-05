@@ -89,6 +89,9 @@ EXPECTED_TOOL_NAMES = {
     "suchkriterien_anzeigen",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
+    "stilarchiv_kontext",
+    "stilarchiv_outcome_setzen",
+    "stilarchiv_speichern",
     "scoring_vorschau",
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
@@ -212,7 +215,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 97  # v1.6.9: +scores_neu_berechnen (#554)
+        assert len(tools) == 100  # v1.7.0-beta.2: +stilarchiv_speichern/kontext/outcome_setzen (#577)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

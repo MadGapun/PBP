@@ -249,8 +249,7 @@ class LLMService:
     def run(self, task: TaskKind, payload: dict) -> TaskResult:
         """Fuehrt einen Task auf dem besten verfuegbaren Backend aus.
 
-        In v1.7.0-beta.1 sind nur die Routing-Logik und ein Mock-Pfad
-        implementiert. Echte Ollama-Calls kommen in beta.2.
+        v1.7.0-beta.2: Echte Ollama-Calls fuer lokale Tasks.
         """
         backend = self.select_backend(task)
 
@@ -263,10 +262,13 @@ class LLMService:
             )
 
         if backend == Backend.LOCAL:
-            # In beta.1 noch nicht implementiert → Fallback auf Claude
-            logger.debug("LOCAL backend selected for %s but not yet implemented "
-                         "in v1.7.0-beta.1, falling back to CLAUDE", task)
-            backend = Backend.CLAUDE
+            # v1.7.0-beta.2: Echter Ollama-Call
+            try:
+                return self._run_local(task, payload)
+            except Exception as exc:
+                logger.warning("Local LLM call failed for %s: %s — falling back to CLAUDE",
+                               task, exc)
+                backend = Backend.CLAUDE
 
         if backend == Backend.CLAUDE:
             return TaskResult(
@@ -289,6 +291,172 @@ class LLMService:
                 "erledigt werden — bitte manuell."
             ),
         )
+
+    # ── Echte Ollama-Anbindung (v1.7.0-beta.2) ─────────────────────
+
+    def _run_local(self, task: TaskKind, payload: dict) -> TaskResult:
+        """Fuehrt einen Task gegen den lokalen Ollama-Server aus.
+
+        Pro Task-Typ gibt es einen Prompt-Builder, der den Roh-Input in
+        einen LLM-Prompt verwandelt und das Ergebnis zurueck-parst.
+        """
+        status = self.get_status()
+        model = status.selected_model or (status.available_models[0] if status.available_models else None)
+        if not model:
+            raise RuntimeError("Kein Ollama-Modell installiert.")
+
+        builder = _PROMPT_BUILDERS.get(task)
+        if builder is None:
+            raise NotImplementedError(f"Lokaler Task '{task.value}' nicht implementiert.")
+
+        prompt = builder(payload)
+        start = time.time()
+        response_text = self._ollama_generate(model, prompt)
+        duration_ms = int((time.time() - start) * 1000)
+
+        parser = _RESPONSE_PARSERS.get(task, lambda s: {"raw": s})
+        result_payload = parser(response_text)
+
+        return TaskResult(
+            backend=Backend.LOCAL,
+            success=True,
+            payload=result_payload,
+            metrics={"backend": "ollama", "model": model, "duration_ms": duration_ms},
+        )
+
+    def _ollama_generate(self, model: str, prompt: str, max_tokens: int = 800) -> str:
+        """Synchroner HTTP-Call an `POST /api/generate`. Stream off, JSON-Antwort.
+
+        Liefert das `response`-Feld als String zurueck. Wirft Exception bei
+        Fehler — der Aufrufer muss das fangen.
+        """
+        import json
+        import urllib.request
+        body = json.dumps({
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_predict": max_tokens, "temperature": 0.2},
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self._status.ollama_endpoint}/api/generate",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=120.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("response", "")
+
+    def list_models(self) -> list[dict]:
+        """Liste der lokal verfuegbaren Ollama-Modelle (mit Metadaten)."""
+        try:
+            import json
+            import urllib.request
+            req = urllib.request.Request(
+                f"{self._status.ollama_endpoint}/api/tags",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("models", []) or []
+        except Exception:
+            return []
+
+    def trigger_pull(self, model_name: str) -> dict:
+        """Loest einen Modell-Download in Ollama aus (asynchron via Stream).
+
+        Aktuell: synchroner Call, wartet bis Download fertig oder Fehler.
+        Fuer beta.2 reicht das. Fortschritts-Streaming kommt spaeter.
+        """
+        import json
+        import urllib.request
+        body = json.dumps({"name": model_name, "stream": False}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self._status.ollama_endpoint}/api/pull",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=600.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return {"status": data.get("status", "ok"), "model": model_name}
+        except Exception as exc:
+            return {"status": "error", "model": model_name, "error": str(exc)[:200]}
+
+
+# ── Prompt-Builders & Response-Parsers ────────────────────────────
+
+def _build_classify_document_prompt(payload: dict) -> str:
+    text = (payload.get("text") or "")[:3000]
+    filename = payload.get("filename") or ""
+    return (
+        "Du bist ein deutschsprachiger Klassifikator fuer Bewerbungs-Dokumente.\n"
+        "Klassifiziere das folgende Dokument in eine dieser Kategorien:\n"
+        "- lebenslauf\n"
+        "- anschreiben\n"
+        "- arbeitszeugnis\n"
+        "- ausbildungszeugnis\n"
+        "- zertifikat\n"
+        "- foto\n"
+        "- email\n"
+        "- stellenanzeige\n"
+        "- bewerbungsantwort\n"
+        "- sonstiges\n\n"
+        "Antworte AUSSCHLIESSLICH mit dem Kategorie-Schluessel, kein "
+        "Erklaerungstext, keine Anfuehrungszeichen.\n\n"
+        f"Dateiname: {filename}\n\n"
+        f"Inhalt (Auszug):\n{text}"
+    )
+
+
+def _parse_classify_document(raw: str) -> dict:
+    cleaned = (raw or "").strip().lower().split()[0] if raw else ""
+    cleaned = cleaned.strip(".,;:'\"`")
+    valid = {"lebenslauf", "anschreiben", "arbeitszeugnis", "ausbildungszeugnis",
+             "zertifikat", "foto", "email", "stellenanzeige", "bewerbungsantwort",
+             "sonstiges"}
+    if cleaned not in valid:
+        return {"category": "sonstiges", "confidence": 0.3, "raw": raw}
+    return {"category": cleaned, "confidence": 0.85, "raw": raw}
+
+
+def _build_extract_skills_prompt(payload: dict) -> str:
+    text = (payload.get("text") or "")[:4000]
+    return (
+        "Extrahiere alle technischen und fachlichen Skills aus dem folgenden "
+        "Lebenslauf. Antworte mit einer kommagetrennten Liste, KEINE "
+        "Erklaerungen, KEINE Bullet-Points, KEINE Nummern.\n\n"
+        f"{text}"
+    )
+
+
+def _parse_extract_skills(raw: str) -> dict:
+    # Erst inhaltlich normalisieren, dann splitten — messy Outputs (Bullets,
+    # Nummerierung, Praefix-Strich) entfernen.
+    cleaned = []
+    for s in (raw or "").split(","):
+        token = s.strip()
+        # Fuehrenden Bullet/Strich/Asterisk weg
+        while token and token[0] in "-*•·–—":
+            token = token[1:].strip()
+        # Nachfolgenden Punkt/Komma/Kolon weg
+        token = token.strip(".,;:'\"`")
+        if token and len(token) <= 60:
+            cleaned.append(token)
+    return {"skills": cleaned, "count": len(cleaned)}
+
+
+_PROMPT_BUILDERS = {
+    TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
+    TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
+}
+
+_RESPONSE_PARSERS = {
+    TaskKind.CLASSIFY_DOCUMENT: _parse_classify_document,
+    TaskKind.EXTRACT_SKILLS: _parse_extract_skills,
+}
 
 
 # ── Singleton-Helper ───────────────────────────────────────────────
