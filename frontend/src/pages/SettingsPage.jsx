@@ -1084,6 +1084,33 @@ export default function SettingsPage() {
               )}
             </Card>
 
+            {/* v1.7.0-beta.17 (#581): DSGVO Art. 15 — Selbstauskunft als PDF */}
+            <Card className="rounded-2xl">
+              <SectionHeading
+                title="Datenauskunft (DSGVO Art. 15)"
+                description="PDF-Bericht: Welche Daten hat PBP gespeichert, wo liegen sie, seit wann."
+              />
+              <div className="glass-card p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-ink">Selbstauskunft als PDF erstellen</p>
+                  <p className="text-xs text-muted/50">
+                    Strukturierter Bericht: Profil, Skills, Berufserfahrung, Dokumenten-/Bewerbungs-/
+                    Stellen-/Termine-Anzahlen, Speicherort. Inhalte deiner Dokumente und E-Mails sind
+                    NICHT enthalten — nur die Meta-Information dass sie existieren.
+                  </p>
+                </div>
+                <a
+                  href={apiUrl("/api/privacy/self-disclosure.pdf")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm font-medium text-ink hover:bg-white/[0.08]"
+                >
+                  <Download size={14} />
+                  PDF
+                </a>
+              </div>
+            </Card>
+
             <Card className="rounded-2xl">
               <SectionHeading title="Daten & Backup" description="Daten exportieren, sichern oder aus einer Datei importieren." />
               <div className="grid gap-3">

@@ -2795,6 +2795,141 @@ async def api_stats_scores():
     return _db.get_score_stats()
 
 
+@app.get("/api/stats/score-over-time")
+async def api_stats_score_over_time(interval: str = "month", weeks: int = 26):
+    """Fit-Score-Verteilung ueber Zeit als Histogramm pro Periode (#520).
+
+    Liefert pro Zeit-Bucket (week/month) die Anzahl Stellen pro Score-Range.
+    Ideal als Stacked-Bar-Chart: X=Zeit, Y=Anzahl, Farbe=Score-Bucket.
+
+    Score-Buckets: 0-30 (rot), 30-60 (amber), 60-80 (gelb), 80-100 (gruen).
+    """
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+
+    interval = interval if interval in ("week", "month") else "month"
+    weeks = max(4, min(int(weeks or 26), 104))
+    cutoff_date = (datetime.now() - timedelta(weeks=weeks)).date().isoformat()
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    sql = (
+        "SELECT score, found_at FROM jobs "
+        "WHERE found_at >= ? AND is_pinned = 0 "
+        "AND (profile_id=? OR profile_id IS NULL) "
+        "AND score IS NOT NULL"
+    )
+    rows = conn.execute(sql, (cutoff_date, pid)).fetchall()
+
+    def _bucket(score):
+        if score < 30: return "0-30"
+        if score < 60: return "30-60"
+        if score < 80: return "60-80"
+        return "80-100"
+
+    def _period_key(iso_date):
+        if not iso_date: return None
+        try:
+            d = datetime.fromisoformat(iso_date[:10])
+        except Exception:
+            return None
+        if interval == "week":
+            iso_year, iso_week, _ = d.isocalendar()
+            return f"{iso_year}-W{iso_week:02d}"
+        return d.strftime("%Y-%m")
+
+    # period -> bucket -> count
+    grid = defaultdict(lambda: defaultdict(int))
+    for r in rows:
+        p = _period_key(r["found_at"])
+        if p:
+            grid[p][_bucket(r["score"] or 0)] += 1
+
+    periods = sorted(grid.keys())
+    buckets = ["0-30", "30-60", "60-80", "80-100"]
+    return {
+        "interval": interval,
+        "weeks": weeks,
+        "periods": periods,
+        "buckets": buckets,
+        "data": [
+            {"period": p, **{b: grid[p].get(b, 0) for b in buckets}}
+            for p in periods
+        ],
+        "total": sum(sum(v.values()) for v in grid.values()),
+    }
+
+
+@app.post("/api/documents/bulk-analyze-prep")
+async def api_documents_bulk_prepare(request: Request):
+    """Bereitet eine Bulk-Analyse-Aufforderung fuer Claude vor (#533).
+
+    Body: {
+        "filter_unverknuepft_nur": bool,
+        "filter_status_offen_nur": bool,
+        "max_dokumente": int (default 20, cap 50)
+    }
+
+    Wir lassen die eigentliche Analyse von Claude (via MCP-Tool
+    `dokumente_batch_analysieren`) erledigen. Dieser Endpoint:
+    1. Sammelt die passenden Dokument-IDs (Filter angewendet)
+    2. Liefert eine Prompt-Vorlage fuer Claude zurueck
+    3. UI kopiert die Vorlage in die Zwischenablage und sagt dem User
+       „Diesen Prompt in Claude einfuegen"
+
+    Damit ist die Bulk-Aktion nicht mehr 'unsichtbar' — sie ist eine
+    klare 1-Klick-Aktion mit Filtern.
+    """
+    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    f_unverknuepft = bool((data or {}).get("filter_unverknuepft_nur"))
+    f_status_offen = bool((data or {}).get("filter_status_offen_nur"))
+    cap = max(1, min(int((data or {}).get("max_dokumente") or 20), 50))
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    sql = (
+        "SELECT id, filename, doc_type, extraction_status, "
+        "linked_application_id, created_at "
+        "FROM documents "
+        "WHERE (profile_id=? OR profile_id IS NULL)"
+    )
+    params: list = [pid]
+    if f_unverknuepft:
+        sql += " AND linked_application_id IS NULL"
+    if f_status_offen:
+        sql += " AND (extraction_status IS NULL OR extraction_status='nicht_extrahiert' OR extraction_status='ausstehend')"
+    sql += " ORDER BY created_at DESC LIMIT ?"
+    params.append(cap)
+
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    if not rows:
+        return {
+            "status": "empty",
+            "count": 0,
+            "message": "Keine Dokumente passen zum Filter.",
+        }
+
+    ids = [r["id"] for r in rows]
+    file_lines = [
+        f"- {r['filename']} (Typ: {r.get('doc_type') or 'unbekannt'}, "
+        f"ID: {r['id']})"
+        for r in rows
+    ]
+    prompt = (
+        "Bitte analysiere diese Dokumente in PBP — extrahiere Profil-Daten, "
+        "klassifiziere und markiere abgeschlossen.\n\n"
+        f"Dokumente ({len(rows)}):\n" + "\n".join(file_lines) + "\n\n"
+        f"Tool-Aufruf: dokumente_batch_analysieren(dokument_ids={ids})"
+    )
+    return {
+        "status": "ok",
+        "count": len(rows),
+        "ids": ids,
+        "prompt": prompt,
+        "documents": rows,
+    }
+
+
 @app.get("/api/stats/extended")
 async def api_stats_extended():
     """Extended statistics: daily activity, response times, dismiss reasons, import vs new (#135)."""

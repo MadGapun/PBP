@@ -7,6 +7,53 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.17] - 2026-05-05 — Nice-to-haves: Score-Histogramm, Bulk-Doku-Prep, DSGVO-Button
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Schliesst die letzten 3 Nice-to-have-Issues fuer v1.7. Damit sind ALLE
+v1.7.0-Issues erledigt — Voraussetzung fuer rc.
+
+### ✨ Added
+
+- **#520 Fit-Score-Verteilung ueber Zeit.** Neuer API-Endpoint
+  `GET /api/stats/score-over-time?interval=month|week&weeks=N` liefert
+  ein Stacked-Histogramm-Format pro Zeit-Bucket mit 4 Score-Buckets
+  (0-30, 30-60, 60-80, 80-100). Ideal fuer Trend-Analyse: „werden
+  meine Treffer ueber die Zeit besser?"
+- **#533 Bulk-Doku-Vorbereitung.** Neuer Endpoint
+  `POST /api/documents/bulk-analyze-prep` filtert offene/unverknuepfte
+  Dokumente und gibt eine fertige `dokumente_batch_analysieren`-
+  Prompt-Vorlage zurueck — UI kopiert sie in die Zwischenablage und
+  der User fuegt sie in Claude ein. Damit ist die Bulk-Aktion sichtbar
+  und 1-Klick statt versteckt.
+- **#581 DSGVO Art. 15 Selbstauskunft.** Frontend-Button im Datenschutz-
+  Tab fuehrt zum bereits bestehenden `/api/privacy/self-disclosure.pdf`-
+  Endpoint. PDF enthaelt Profil, Skills, Berufserfahrung, Anzahlen
+  (Bewerbungen, Stellen, Dokumente, Termine) + Speicherort — KEINE
+  Dokument- oder E-Mail-Inhalte (DSGVO-konform).
+
+### Tests
+
+- `tests/test_v170_beta17_nice_to_haves.py`: 8 neue Tests
+  (3 fuer #520 — empty, with jobs, weeks-Clamping;
+   3 fuer #533 — empty pool, prompt-Vorlage, max-Cap;
+   2 fuer #581 — PDF-Smoke + Frontend-Button-Pruefung).
+- **778 Tests gesamt, alle gruen.**
+
+### v1.7-Sprint-Status
+
+Nach beta.17 sind alle 19 v1.7-Issues entweder erledigt oder begruendet
+verschoben:
+- ✅ **15 erledigt:** #472, #505, #512, #518, #520, #523, #526, #527,
+  #533, #563, #568, #571, #572, #573, #576, #577, #578, #579, #580,
+  #581, #582, #583
+- 🔁 **6 auf v1.8 verschoben:** #478, #480, #481, #524, #525 (External
+  Inbound), #564 (Portal-Profile)
+- ❌ **1 closed-no-repro:** #555 (Cross-Portal-Dubletten)
+
+---
+
 ## [1.7.0-beta.16] - 2026-05-05 — Daten-Quality-Bugs: E-Mail-Matching, BA-URLs, Freelancermap-Beschreibungen
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
