@@ -2671,15 +2671,28 @@ async def api_documents(
         (pid,),
     ).fetchone()["cnt"]
 
-    # Sort (#369: nicht-analysierte zuerst als Option)
+    # Sort (#369: nicht-analysierte zuerst als Option, #569: Workflow-Sortierung)
     allowed_sorts = {"created_at": "d.created_at", "filename": "d.filename", "doc_type": "d.doc_type",
                      "extraction_status": "d.extraction_status"}
     sort_col = allowed_sorts.get(sort, "d.created_at")
     sort_dir = "ASC" if order.lower() == "asc" else "DESC"
     # #388: Documents linked to archived applications sort to end
-    # Default: unanalyzed documents first, archived last, then by sort column
+    # v1.6.9 (#569): Workflow-Sortierung — nicht_extrahiert > basis_analysiert >
+    # extrahiert > angewendet > verworfen/duplikat. Rank-Werte: kleiner = oben.
     archive_suffix = "CASE WHEN a.status IN ('abgelehnt', 'zurueckgezogen', 'abgelaufen') THEN 1 ELSE 0 END, "
-    unanalyzed_prefix = f"CASE WHEN d.extraction_status IN ('nicht_extrahiert', NULL, '') THEN 0 ELSE 1 END, {archive_suffix}"
+    workflow_rank = (
+        "CASE COALESCE(d.extraction_status, 'nicht_extrahiert') "
+        "WHEN 'nicht_extrahiert' THEN 0 "
+        "WHEN '' THEN 0 "
+        "WHEN 'basis_analysiert' THEN 1 "
+        "WHEN 'extrahiert' THEN 2 "
+        "WHEN 'manuell_korrigiert' THEN 2 "
+        "WHEN 'angewendet' THEN 3 "
+        "WHEN 'verworfen' THEN 4 "
+        "WHEN 'duplikat' THEN 4 "
+        "ELSE 5 END, "
+    )
+    unanalyzed_prefix = workflow_rank + archive_suffix
 
     # Paginate
     offset = (max(1, page) - 1) * per_page
@@ -4195,6 +4208,50 @@ async def api_upload_document(
             {"error": "Temporaere Word-Datei (~$...) wird nicht importiert."},
             status_code=400,
         )
+
+    # v1.6.9 (#570): Hash-basierte Deduplizierung. Wenn dasselbe File-Inhalt
+    # bereits im aktiven Profil existiert, kein Duplikat anlegen — stattdessen
+    # das vorhandene Dokument verknuepfen (falls applicationId mitgegeben) und
+    # in der Antwort `duplicate_of` setzen.
+    import hashlib
+    content_hash = hashlib.sha256(content).hexdigest()
+    profile_id = _get_active_profile_id() if _db else None
+    existing_doc = None
+    if profile_id:
+        try:
+            conn = _db.connect()
+            row = conn.execute(
+                "SELECT id, filename FROM documents "
+                "WHERE content_hash=? AND profile_id=? LIMIT 1",
+                (content_hash, profile_id),
+            ).fetchone()
+            if row:
+                existing_doc = dict(row)
+        except Exception:
+            # content_hash-Spalte gibt's erst ab Migration v32 — bei aelteren
+            # Schemas einfach durchlaufen lassen (kein Dedup, aber kein Crash).
+            pass
+
+    if existing_doc:
+        # Schon da — nicht doppelt speichern. Nur ggf. mit Application verknuepfen.
+        did = existing_doc["id"]
+        linked_app = None
+        if link_application_id:
+            try:
+                _db.link_document_to_application(did, str(link_application_id))
+                linked_app = str(link_application_id)
+            except Exception as e:
+                logger.warning("Failed to link existing doc %s to app %s: %s",
+                               did, link_application_id, e)
+        return {
+            "status": "duplicate",
+            "document_id": did,
+            "filename": existing_doc.get("filename"),
+            "duplicate_of": did,
+            "linked_application_id": linked_app,
+            "nachricht": "Dokument war schon vorhanden — wurde nur verknuepft.",
+        }
+
     doc_dir = _get_active_profile_document_dir()
     stored_filename, filepath = _resolve_upload_filepath(doc_dir, incoming_name)
     with open(filepath, "wb") as f:
@@ -4249,6 +4306,8 @@ async def api_upload_document(
         "extracted_text": extracted,
         "linked_position_id": position_id or None,
         "linked_application_id": link_application_id or (email_context or {}).get("match_application_id"),
+        # v1.6.9 (#570): Hash mitspeichern fuer kuenftige Duplikat-Erkennung
+        "content_hash": content_hash,
     })
 
     # Auto-link to application if requested

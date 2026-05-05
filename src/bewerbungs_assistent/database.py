@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 30
+SCHEMA_VERSION = 31
 
 
 def _gen_id() -> str:
@@ -1168,6 +1168,71 @@ class Database:
             logger.info("Migration v29->v30: scraper_health.last_filtered_count/"
                         "last_new_count (#553)")
 
+        if from_ver < 31:
+            # v31 / #574 v1.6.9: Hash-Format vereinheitlichen.
+            # Vorher gab es zwei Formate in der jobs-Tabelle:
+            #   Format A (alt):  hash = '33c272d736ba'                 # nackter Hash
+            #   Format B (neu):  hash = '{profile_id}:33c272d736ba'    # scoped
+            # stellen_anzeigen() matchte nur Format B → 35 Alteintraege wurden
+            # unterschlagen. Migration: alle Format-A-Eintraege auf Format B
+            # umstellen, sofern sie eine profile_id haben.
+            #
+            # Wichtig: applications.job_hash ist FK auf jobs.hash mit ON DELETE
+            # SET NULL — das greift nicht bei UPDATE. Deshalb FK temporaer
+            # deaktivieren und beide Tabellen synchron updaten.
+            migrated_jobs = 0
+            try:
+                conn.execute("PRAGMA foreign_keys=OFF")
+                cur1 = conn.execute(
+                    "UPDATE jobs SET hash = profile_id || ':' || hash "
+                    "WHERE hash NOT LIKE '%:%' AND profile_id IS NOT NULL AND profile_id != ''"
+                )
+                migrated_jobs = cur1.rowcount
+                # applications.job_hash mit-migrieren (nur dort wo es Sinn macht)
+                conn.execute(
+                    "UPDATE applications SET job_hash = profile_id || ':' || job_hash "
+                    "WHERE job_hash IS NOT NULL AND job_hash != '' AND job_hash NOT LIKE '%:%' "
+                    "AND profile_id IS NOT NULL AND profile_id != ''"
+                )
+                conn.commit()
+            except Exception as exc:
+                migrated_jobs = -1
+                logger.warning("Hash-Migration fehlgeschlagen: %s", exc)
+            finally:
+                conn.execute("PRAGMA foreign_keys=ON")
+
+            # v31 / #574 Fix 2: dismiss_reason Format vereinheitlichen.
+            # Mal als String "falsches_fachgebiet", mal als JSON
+            # '["falsches_fachgebiet","duplikat"]'. Wir migrieren alle plain
+            # strings auf JSON-Array-Format. Reader-Code akzeptiert weiter
+            # beide Formate als Sicherheitsgurt.
+            migrated_reasons = 0
+            try:
+                rows = conn.execute(
+                    "SELECT hash, dismiss_reason FROM jobs "
+                    "WHERE dismiss_reason IS NOT NULL AND dismiss_reason != '' "
+                    "AND dismiss_reason NOT LIKE '[%]'"
+                ).fetchall()
+                for r in rows:
+                    raw = r["dismiss_reason"]
+                    # Bereits JSON? skip
+                    if raw.startswith("["):
+                        continue
+                    new_val = json.dumps([raw], ensure_ascii=False)
+                    conn.execute(
+                        "UPDATE jobs SET dismiss_reason=? WHERE hash=?",
+                        (new_val, r["hash"]),
+                    )
+                    migrated_reasons += 1
+            except Exception as exc:
+                logger.warning("dismiss_reason-Migration fehlgeschlagen: %s", exc)
+
+            logger.info(
+                "Migration v30->v31: hash-Format=%d Eintraege migriert, "
+                "dismiss_reason=%d normalisiert (#574)",
+                migrated_jobs, migrated_reasons,
+            )
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -1378,6 +1443,28 @@ class Database:
             return None
         job = dict(row)
         job["hash"] = self._public_job_hash(job.get("hash"), job.get("profile_id"))
+        # v1.6.9 (#574): dismiss_reason wird mal als Plain-String, mal als
+        # JSON-Array gespeichert. Wir normalisieren beim Lesen IMMER auf:
+        #   - dismiss_reason: Plain-String (erster Grund) — fuer Backwards-Compat
+        #   - dismiss_reasons: Liste aller Gruende — fuer Konsumenten die alle wollen
+        raw_reason = job.get("dismiss_reason")
+        if raw_reason:
+            try:
+                if isinstance(raw_reason, str) and raw_reason.startswith("["):
+                    parsed = json.loads(raw_reason)
+                    if isinstance(parsed, list):
+                        job["dismiss_reasons"] = parsed
+                        job["dismiss_reason"] = parsed[0] if parsed else ""
+                    else:
+                        job["dismiss_reasons"] = [str(parsed)]
+                        job["dismiss_reason"] = str(parsed)
+                else:
+                    job["dismiss_reasons"] = [str(raw_reason)]
+                    job["dismiss_reason"] = str(raw_reason)
+            except (json.JSONDecodeError, TypeError):
+                job["dismiss_reasons"] = [str(raw_reason)]
+        else:
+            job["dismiss_reasons"] = []
         return job
 
     def _serialize_application_row(self, row: sqlite3.Row | dict | None) -> Optional[dict]:
@@ -2851,10 +2938,15 @@ class Database:
 
         # Heuristik: ok + sehr kurze Laufzeit ist verdaechtig (Quelle hat
         # vermutlich gar nicht angefragt, sondern ist sofort durchgefallen).
+        # v1.6.9 (#547): Auch ok + 0 Treffer + sehr LANGE Laufzeit (>60s) ist
+        # verdaechtig — Beispiel jobware: status=ok, count=0, time_s=237s.
+        # Sieht aus wie ein Timeout der vom Scraper als ok gemeldet wird.
         status_detail = detail
         if state == "silent":
             if time_s > 0 and time_s < 2:
                 status_detail = status_detail or "verdaechtig schnell"
+            elif time_s > 60:
+                status_detail = status_detail or "silent_timeout"
             else:
                 status_detail = status_detail or "silent"
 

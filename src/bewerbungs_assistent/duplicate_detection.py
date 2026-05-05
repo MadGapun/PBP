@@ -114,10 +114,19 @@ def _title_similarity(t1: str, t2: str) -> tuple[float, set[str]]:
 
 
 def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
+    """Parse ISO-Timestamp und gib IMMER ein tz-aware datetime zurueck (#565).
+
+    Wenn der Timestamp keine Timezone-Info hat (Legacy-Eintraege), nehmen wir
+    UTC an — sonst crasht jede spaetere Subtraktion mit `datetime.now(UTC)`.
+    """
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        from datetime import timezone
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except (ValueError, TypeError):
         return None
 
@@ -145,7 +154,10 @@ def find_duplicate_job(
 
     norm_firma = normalize_company_name(firma)
     url_norm = (url or "").strip().lower().rstrip("/") if url else ""
-    now = now or datetime.now()
+    # v1.6.9 (#565, #567): tz-aware now — vorher war das naive und crashte
+    # gegen aware found_at-Werte aus der DB.
+    from datetime import timezone
+    now = now or datetime.now(timezone.utc)
 
     best: Optional[dict] = None
     best_score = 0.0

@@ -645,9 +645,13 @@ def run_search(db, job_id: str, params: dict):
 
     # Phase 1: Run httpx-based scrapers in parallel (#234)
     if httpx_quellen:
+        # v1.6.9 (#551): Initialisierungs-Phase explizit signalisieren —
+        # vorher zeigte die UI 60-90s lang "0%" mit statischem Text und
+        # sprang dann auf 11% → User dachte das System haengt. Jetzt 5%
+        # mit klarem "Initialisiere..."-Label.
         db.update_background_job(
-            job_id, "running", progress=0,
-            message=f"Durchsuche {len(httpx_quellen)} Quellen parallel..."
+            job_id, "running", progress=5,
+            message=f"Initialisiere {len(httpx_quellen)} Quellen..."
         )
         parallel_executor = ThreadPoolExecutor(max_workers=min(4, len(httpx_quellen)))
         futures = {}
@@ -966,8 +970,23 @@ def run_search(db, job_id: str, params: dict):
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
 
-    successful_sources = total - len(skipped_sources)
-    msg_parts = [f"{len(unique)} Stellen gefunden (aus {successful_sources}/{total} Quellen)"]
+    # v1.6.9 (#548): Counter konsequent aus source_status ableiten — sonst
+    # kommen Diskrepanzen zwischen `total` (Eingangs-Liste) und `source_status`
+    # (tatsaechlich gelaufene Quellen) zustande, die in "10/18" enden ohne
+    # dass sich die Mathematik nachvollziehen laesst.
+    ok_count = sum(1 for s in source_status.values() if s.get("status") == "ok")
+    skipped_count = sum(1 for s in source_status.values() if s.get("status") == "skipped")
+    timeout_count = sum(1 for s in source_status.values() if s.get("status") == "timeout")
+    error_count = sum(1 for s in source_status.values() if s.get("status") == "error")
+    sources_total = len(source_status)
+    successful_sources = ok_count
+    msg_parts = [
+        f"{len(unique)} Stellen gefunden ({ok_count} von {sources_total} Quellen ok"
+        + (f", {skipped_count} uebersprungen" if skipped_count else "")
+        + (f", {timeout_count} Timeout" if timeout_count else "")
+        + (f", {error_count} Fehler" if error_count else "")
+        + ")"
+    ]
     # #337: Nutzerfreundliche Meldungen bei Timeout/Fehler
     timeout_sources = [q for q, s in source_status.items() if s.get("status") == "timeout"]
     error_sources = [q for q, s in source_status.items() if s.get("status") == "error"]

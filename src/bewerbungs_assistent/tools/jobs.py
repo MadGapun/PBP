@@ -927,6 +927,76 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def scores_neu_berechnen(
+        nur_aktive: bool = True,
+        max_stellen: int = 0,
+    ) -> dict:
+        """Rechnet die Fit-Scores aller (aktiven) Stellen neu (#554, v1.6.9).
+
+        Sinnvoll nach Aenderungen an:
+        - Suchkriterien (`suchkriterien_setzen`/`suchkriterien_bearbeiten`)
+        - Profil (relevante Skills, Wunsch-Gehalt, Standort)
+        - Scoring-Regler (`scoring_konfigurieren`)
+        - Geocoding-Cache (Standort-Aenderungen)
+
+        Geht jede Stelle einmal durch `calculate_score()` und persistiert
+        den neuen Wert via `db.update_job(hash, {"score": ...})`. Auto-
+        Adjust-Hooks werden NICHT getriggert — das ist ein reiner Recompute.
+
+        Args:
+            nur_aktive: True (Standard) = nur is_active=1; False = auch aussortierte.
+            max_stellen: 0 = unbegrenzt, sonst harter Cap (sinnvoll fuer Tests).
+        """
+        from ..job_scraper import calculate_score
+        criteria = db.get_search_criteria()
+        if nur_aktive:
+            jobs = db.get_active_jobs()
+        else:
+            conn = db.connect()
+            pid = db.get_active_profile_id()
+            rows = conn.execute(
+                "SELECT * FROM jobs WHERE (profile_id=? OR profile_id IS NULL)",
+                (pid,)
+            ).fetchall()
+            jobs = [db._serialize_job_row(r) for r in rows]
+
+        if max_stellen and max_stellen > 0:
+            jobs = jobs[:max_stellen]
+
+        recomputed = 0
+        unchanged = 0
+        deltas: list[int] = []
+        for j in jobs:
+            old_score = int(j.get("score") or 0)
+            try:
+                new_score = int(calculate_score(j, criteria))
+            except Exception as e:
+                logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s",
+                               j.get("hash"), e)
+                continue
+            if new_score != old_score:
+                try:
+                    db.update_job(j.get("hash"), {"score": new_score})
+                    recomputed += 1
+                    deltas.append(new_score - old_score)
+                except Exception as e:
+                    logger.warning("update_job fuer %s fehlgeschlagen: %s",
+                                   j.get("hash"), e)
+            else:
+                unchanged += 1
+
+        avg_delta = sum(deltas) / len(deltas) if deltas else 0
+        return {
+            "status": "fertig",
+            "verarbeitet": len(jobs),
+            "geaendert": recomputed,
+            "unveraendert": unchanged,
+            "durchschnittliche_aenderung": round(avg_delta, 1),
+            "max_anstieg": max(deltas) if deltas else 0,
+            "max_rueckgang": min(deltas) if deltas else 0,
+        }
+
+    @mcp.tool()
     def linkedin_browser_search(
         keywords: list[str] = None,
         location: str = "Deutschland",
@@ -1001,21 +1071,30 @@ def register(mcp, db, logger):
         if existing_job:
             return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
 
-        # Duplikat-Pruefung (#317 + #471: gehaertete Erkennung)
+        # Duplikat-Pruefung (#317 + #471 + v1.6.9 #567: zweistufig)
+        # Stufe A: laufende Bewerbung mit Titel-Match → blocken
+        # Stufe B: identische AKTIVE Stelle → idempotent vorhandenen Hash zurueck
+        # Stufe C: aussortierte/abgelehnte Eintraege blocken NICHT mehr
         from ..duplicate_detection import find_duplicate_job
 
-        apps = db.get_applications()
-        # 1. Gegen existierende Bewerbungen pruefen
-        app_hit = find_duplicate_job(firma, titel, url, apps)
+        # v1.6.9 (#567): nur LAUFENDE Bewerbungen blocken — abgeschlossene
+        # (abgelehnt/abgelaufen/zurueckgezogen/angenommen) sind kein Hindernis
+        # fuer eine neue Bewerbung bei der gleichen Firma auf eine andere Stelle.
+        TERMINAL_STATUSES = ("abgelehnt", "abgelaufen", "zurueckgezogen", "angenommen")
+        all_apps = db.get_applications()
+        running_apps = [a for a in all_apps
+                        if (a.get("status") or "") not in TERMINAL_STATUSES]
+
+        # Stufe A — laufende Bewerbung mit Titel-Match?
+        app_hit = find_duplicate_job(firma, titel, url, running_apps)
         if app_hit:
             app = app_hit["job"]
             return {
                 "warnung": "duplikat_bewerbung",
                 "grund": app_hit["grund"],
                 "nachricht": (
-                    f"Moegliches Duplikat: Bewerbung {app['id'][:8]} bei "
-                    f"{app.get('company')} bereits vorhanden "
-                    f"(Status: {app.get('status', 'unbekannt')}, "
+                    f"Moegliches Duplikat: laufende Bewerbung {app['id'][:8]} bei "
+                    f"{app.get('company')} (Status: {app.get('status', 'unbekannt')}, "
                     f"Titel: '{app.get('title')}'). "
                     f"Match-Grund: {app_hit['grund']}"
                     + (f", gemeinsame Tokens: {app_hit.get('shared_tokens')}"
@@ -1031,40 +1110,30 @@ def register(mcp, db, logger):
                 "trotzdem_anlegen": False,
             }
 
-        # 2. Cross-source Duplikat-Check gegen jobs (inkl. dismissed, #471)
-        all_jobs = db.get_active_jobs(exclude_applied=False)
-        # plus dismissed — #471 Fall "VirtoTech" fiel hier raus weil dismissed
-        conn = db.connect()
-        pid = db.get_active_profile_id()
-        dismissed_rows = conn.execute(
-            "SELECT * FROM jobs WHERE is_active=0 "
-            "AND (profile_id=? OR profile_id IS NULL)",
-            (pid,)
-        ).fetchall()
-        all_jobs_plus = list(all_jobs) + [dict(r) for r in dismissed_rows]
-        job_hit = find_duplicate_job(firma, titel, url, all_jobs_plus)
-        if job_hit and job_hit["job"].get("hash") != job_hash:
-            existing = job_hit["job"]
+        # Stufe B — identische AKTIVE Stelle (is_active=1) → idempotent
+        # vorhandenen Hash zurueckgeben statt blocken. Aussortierte Stellen
+        # blocken NICHT, weil sie schon mal aktiv abgelehnt wurden.
+        active_jobs = db.get_active_jobs(exclude_applied=False)
+        active_hit = find_duplicate_job(firma, titel, url, active_jobs)
+        if active_hit and active_hit["job"].get("hash") != job_hash:
+            existing = active_hit["job"]
             return {
-                "warnung": "duplikat_erkannt",
-                "grund": job_hit["grund"],
+                "warnung": "duplikat_aktive_stelle",
+                "status": "bereits_vorhanden",
+                "grund": active_hit["grund"],
                 "nachricht": (
-                    f"Aehnliche Stelle existiert bereits: '{existing.get('title')}' "
-                    f"bei {existing.get('company')} "
+                    f"Identische aktive Stelle existiert bereits: "
+                    f"'{existing.get('title')}' bei {existing.get('company')} "
                     f"(Quelle: {existing.get('source', 'unbekannt')}, "
-                    f"Hash: {existing['hash']}, "
-                    f"{'aktiv' if existing.get('is_active') else 'aussortiert'}). "
-                    f"Match-Grund: {job_hit['grund']}"
-                    + (f", gemeinsame Tokens: {job_hit.get('shared_tokens')}"
-                       if job_hit.get("shared_tokens") else "")
-                    + ". Falls es sich um dieselbe Stelle handelt, ergaenze die "
-                    "bestehende ueber stelle_bearbeiten() oder mergen mit "
-                    "stelle_mergen(). Fuer eine neue separate Stelle den "
-                    "Titel eindeutig ausformulieren."
+                    f"Hash: {existing['hash']}). Es wird der vorhandene Hash "
+                    "zurueckgegeben — kein Duplikat in der DB."
                 ),
+                "hash": existing["hash"],
                 "existing_hash": existing["hash"],
-                "shared_tokens": job_hit.get("shared_tokens"),
+                "shared_tokens": active_hit.get("shared_tokens"),
             }
+        # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
+        # darf durchgehen.
 
         criteria = db.get_search_criteria()
         job = {

@@ -1179,11 +1179,11 @@ export default function ApplicationsPage() {
                 const appId = timelineDialog.entry?.application?.id;
                 for (const file of files) {
                   try {
-                    const result = await uploadDocumentFile(file);
-                    if (result?.document_id && appId) {
-                      await postJson(`/api/applications/${appId}/link-document`, { document_id: result.document_id });
-                    }
-                    pushToast(`'${file.name}' hochgeladen und verknüpft.`, "success");
+                    // v1.6.9 (#570): applicationId direkt mitgeben — Backend
+                    // verknuepft automatisch und dedupliziert per Datei-Hash.
+                    const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
+                    const note = result?.duplicate_of ? "verknuepft (war schon vorhanden)" : "hochgeladen und verknuepft";
+                    pushToast(`'${file.name}' ${note}.`, "success");
                   } catch (err) {
                     pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
                   }
@@ -1200,11 +1200,10 @@ export default function ApplicationsPage() {
                   const appId = timelineDialog.entry?.application?.id;
                   for (const file of ev.target.files) {
                     try {
-                      const result = await uploadDocumentFile(file);
-                      if (result?.document_id && appId) {
-                        await postJson(`/api/applications/${appId}/link-document`, { document_id: result.document_id });
-                      }
-                      pushToast(`'${file.name}' hochgeladen und verknüpft.`, "success");
+                      // v1.6.9 (#570): applicationId direkt mitgeben (siehe Drop-Handler oben).
+                      const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
+                      const note = result?.duplicate_of ? "verknuepft (war schon vorhanden)" : "hochgeladen und verknuepft";
+                      pushToast(`'${file.name}' ${note}.`, "success");
                     } catch (err) {
                       pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
                     }

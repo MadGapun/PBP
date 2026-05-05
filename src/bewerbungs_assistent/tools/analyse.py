@@ -1083,6 +1083,28 @@ def register(mcp, db, logger):
         else:
             result["nachricht"] = "Es gibt Verbesserungsmöglichkeiten. Schau dir die Warnungen an."
 
+        # v1.6.9 (#574): Hash-Format-Konsistenz-Check.
+        # Nach Migration v31 sollten alle Eintraege mit profile_id im
+        # Format '{pid}:hash' vorliegen. Mischformen sind ein Hinweis auf
+        # eine fehlgeschlagene oder unvollstaendige Migration.
+        try:
+            conn = db.connect()
+            mixed = conn.execute(
+                "SELECT COUNT(*) AS n FROM jobs "
+                "WHERE hash NOT LIKE '%:%' AND profile_id IS NOT NULL AND profile_id != ''"
+            ).fetchone()
+            mixed_count = mixed["n"] if mixed else 0
+            if mixed_count > 0:
+                warnungen.append({
+                    "bereich": "Datenbank",
+                    "problem": f"{mixed_count} Stellen haben altes Hash-Format (ohne profile_id-Praefix)",
+                    "loesung": "Diese Eintraege werden bei Bedarf von _job_hash_candidates() trotzdem gefunden, "
+                               "aber stellen_anzeigen() koennte sie unterschlagen. Schema-Migration v31 erneut "
+                               "ausfuehren oder Issue auf GitHub melden.",
+                })
+        except Exception:
+            pass
+
         # Bugreport-Hinweis bei kritischen Problemen
         if probleme:
             result["bugreport_hinweis"] = (

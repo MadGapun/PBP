@@ -88,6 +88,7 @@ EXPECTED_TOOL_NAMES = {
     "suchkriterien_bearbeiten",
     "suchkriterien_anzeigen",
     "scoring_konfigurieren",
+    "scores_neu_berechnen",
     "scoring_vorschau",
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
@@ -211,7 +212,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 96  # v1.6.5: +blacklist_anwenden (#559)
+        assert len(tools) == 97  # v1.6.9: +scores_neu_berechnen (#554)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

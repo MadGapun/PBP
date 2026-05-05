@@ -7,6 +7,136 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.9] - 2026-05-05 — Hash- & Datum-Hygiene + Quick-Wins
+
+Sammel-Release fuer das Bug-Cluster aus den letzten Test-Sessions: drei
+zusammenhaengende Bugs (#565, #567, #574) hatten dieselbe Wurzel —
+inkonsistente Datentypen die unter bestimmten Umstaenden zu Daten-
+Korruption fuehrten ("Tool meldet 'angelegt', Stelle ist nicht
+auffindbar"). Plus 5 Quick-Wins on top.
+
+### 🚨 Kritischer Bug-Cluster gefixt
+
+- **#565 + #567 — `datetime` tz-aware durchgezogen.** `find_duplicate_job`
+  verglich `datetime.now()` (naive) mit `found_at` aus der DB (aware) und
+  warf `TypeError: can't subtract offset-naive and offset-aware datetimes`.
+  `_parse_iso` gibt jetzt IMMER tz-aware zurueck (Legacy-naive Werte werden
+  als UTC interpretiert), `find_duplicate_job` nutzt
+  `datetime.now(timezone.utc)`.
+
+- **#567 — Duplikat-Filter zweistufig korrigiert.** Vorher blockte JEDER
+  alte Eintrag bei einer Firma — selbst wenn die Bewerbung schon
+  abgelehnt war oder die Stelle aussortiert. Jetzt:
+  - **Stufe A:** Laufende Bewerbung (NICHT abgelehnt/abgelaufen/
+    zurueckgezogen/angenommen) mit Titel-Match → blocken.
+  - **Stufe B:** Identische AKTIVE Stelle → idempotent vorhandenen
+    Hash zurueckgeben (statt blocken).
+  - **Stufe C:** Aussortierte/abgeschlossene Eintraege blocken NICHT.
+
+- **#574 — Hash-Format Migration v31.** Die `jobs`-Tabelle hatte zwei
+  Hash-Formate gemischt: `33c272d736ba` (Format A, alt) und
+  `e913acc3:33c272d736ba` (Format B, scoped). `stellen_anzeigen()`
+  matchte nur Format B → 35 Alteintraege wurden unterschlagen.
+  Migration vereinheitlicht alle auf Format B (FK temporaer deaktiviert,
+  applications.job_hash mit-migriert).
+
+- **#574 Fix 2 — `dismiss_reason` Format vereinheitlicht.** Mal als
+  Plain-String, mal als JSON-Array gespeichert. Migration normalisiert
+  Plain-Strings zu `["..."]`. `_serialize_job_row` liefert jetzt
+  defensiv beide Varianten:
+  - `dismiss_reason` (Plain-String, erstes Element) — fuer Backwards-Compat
+  - `dismiss_reasons` (Liste) — fuer Konsumenten die alle Gruende wollen
+
+### 🐛 Direkt-Upload-Duplikate (#570)
+
+- Frontend: `uploadDocumentFile(file, docType, { applicationId })` —
+  Backend verknuepft beim Upload automatisch.
+- Backend: SHA256-Hash-basierte Deduplizierung. Wenn dasselbe File-Inhalt
+  schon im aktiven Profil existiert, wird **kein neues Dokument
+  angelegt** — stattdessen das vorhandene verknuepft. Antwort enthaelt
+  `duplicate_of: <doc_id>`.
+
+### ⚡ Quick-Wins on top
+
+- **#547 — Auto-Quarantaene erweitert.** Status=ok + count=0 +
+  time_s>60s wird jetzt als `silent_timeout` markiert (vorher nur
+  „silent"). Beispiel: jobware mit 237s Laufzeit → eindeutig als
+  haengend erkennbar.
+- **#548 — Quellen-Counter mathematisch korrekt.** Vorher „10/18" ohne
+  nachvollziehbare Mathematik. Jetzt aus `quellen_status` abgeleitet:
+  `"X von Y Quellen ok, Z uebersprungen, W Timeout, V Fehler"`.
+- **#551 — Fortschritts-Phase explizit.** Statt 60-90s lang „0% —
+  Durchsuche 11 Quellen parallel..." beginnt der Lauf jetzt bei 5% mit
+  „Initialisiere 11 Quellen..." — User sieht sofort dass etwas passiert.
+- **#569 — Dokumentenliste Workflow-Sortierung.** Standard-Sort:
+  `nicht_extrahiert > basis_analysiert > extrahiert/manuell_korrigiert >
+  angewendet > verworfen/duplikat`, dann Datum DESC. Bei 167+ Dokumenten
+  findet der User die TODO-Eintraege ohne Filter zu setzen.
+- **#554 — Neues MCP-Tool `scores_neu_berechnen`.** Recompute aller
+  (aktiven) Stellen-Scores. Sinnvoll nach Aenderungen an Suchkriterien,
+  Profil oder Scoring-Reglern. Mit `nur_aktive` und `max_stellen` als
+  optionale Parameter. Liefert delta-Statistik (durchschnittliche
+  Aenderung, max Anstieg/Rueckgang).
+
+### Stats
+
+- **97 MCP-Tools** (vorher 96): +`scores_neu_berechnen` (#554)
+- **12 neue Tests** in `tests/test_v169_hash_datum.py`, alle gruen (103 total)
+- **Schema v31** (vorher v30) — Hash-Format-Migration + dismiss_reason-Normalisierung
+- 9 Issues geschlossen: #547, #548, #551, #554, #565, #567, #569, #570, #574
+
+### Migration
+
+- **Datenbank:** automatischer Schema-Upgrade beim ersten Start.
+  - Hash-Migration: Format-A-Eintraege werden zu Format B umgestellt
+    (idempotent, FK temporaer deaktiviert).
+  - dismiss_reason: Plain-Strings werden zu `["..."]` normalisiert.
+  - Backup laeuft eh automatisch beim Upgrade (Ordner `data\backups\`).
+- **API:** Tool-Returnwert `stelle_manuell_anlegen` enthaelt jetzt im
+  Idempotenz-Fall `status: "bereits_vorhanden"` und den existierenden
+  `hash`. Aufrufer sollten beide Faelle handhaben.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.9.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.9.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.8] - 2026-04-29 — Bericht-Hotfix: irrefuehrende Bloecke entfernt
 
 Hotfix nach Real-Sicht des v1.6.6/1.6.7-Berichts. Drei Bloecke produzierten

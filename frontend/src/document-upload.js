@@ -11,10 +11,19 @@ export function isEmailFile(file) {
   return EMAIL_EXTENSIONS.has(name.slice(name.lastIndexOf(".")));
 }
 
-export async function uploadDocumentFile(file, docType = "sonstiges") {
+export async function uploadDocumentFile(file, docType = "sonstiges", options = {}) {
+  // v1.6.9 (#570): optional applicationId fuer Direkt-Upload aus einer
+  // Bewerbungs-Detailansicht — Backend verknuepft dann automatisch und
+  // legt keine Duplikate an.
   const body = new FormData();
   body.append("file", file);
   body.append("doc_type", docType);
+  if (options.applicationId) {
+    body.append("link_application_id", String(options.applicationId));
+  }
+  if (options.positionId) {
+    body.append("position_id", String(options.positionId));
+  }
   return api("/api/documents/upload", { method: "POST", body });
 }
 
