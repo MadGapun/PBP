@@ -1248,6 +1248,18 @@ export default function ApplicationsPage() {
             pushToast={pushToast}
           />
 
+          {/* v1.7.0-beta.11 (#472): Mehrere Stellen pro Bewerbung */}
+          <ApplicationJobsSection
+            applicationId={timelineDialog.entry?.application?.id}
+            pushToast={pushToast}
+          />
+
+          {/* v1.7.0-beta.11 (#568): Aufwand-Uebersicht */}
+          <ApplicationAufwandSection
+            applicationId={timelineDialog.entry?.application?.id}
+            pushToast={pushToast}
+          />
+
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
@@ -1584,6 +1596,497 @@ export default function ApplicationsPage() {
   );
 }
 
+
+// v1.7.0-beta.11 (#472, #580): Mehrere Stellen pro Bewerbung + Stellen-Vergleich.
+function ApplicationJobsSection({ applicationId, pushToast }) {
+  const [jobs, setJobs] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [available, setAvailable] = useState([]);
+  const [search, setSearch] = useState("");
+  const [versionLabel, setVersionLabel] = useState("");
+  const [compareWith, setCompareWith] = useState(null);
+
+  async function reload() {
+    if (!applicationId) return;
+    try {
+      const data = await fetch(`/api/applications/${applicationId}/jobs`)
+        .then((r) => (r.ok ? r.json() : null));
+      setJobs(data?.jobs || []);
+    } catch {}
+  }
+
+  useEffect(() => {
+    reload();
+  }, [applicationId]);
+
+  async function loadAvailable() {
+    try {
+      const data = await fetch("/api/jobs?filter=alle&limit=100")
+        .then((r) => (r.ok ? r.json() : null));
+      setAvailable(data?.jobs || []);
+    } catch {}
+  }
+
+  async function linkJob(jobHash) {
+    try {
+      await fetch(`/api/applications/${applicationId}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_hash: jobHash,
+          version_label: versionLabel || undefined,
+        }),
+      });
+      pushToast("Stelle verknuepft", "success");
+      await reload();
+      setAdding(false);
+      setSearch("");
+      setVersionLabel("");
+    } catch (err) {
+      pushToast(`Verknuepfen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  async function unlinkJob(jobHash) {
+    try {
+      await fetch(`/api/applications/${applicationId}/jobs/${encodeURIComponent(jobHash)}`, {
+        method: "DELETE",
+      });
+      pushToast("Verknuepfung entfernt", "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  // Wenn nur die primaere Stelle existiert (= bereits ueber applications.job_hash
+  // sichtbar), zeigen wir die Sektion nicht — sie waere redundant.
+  if (jobs.length <= 1 && !adding) {
+    return (
+      <Card className="glass-card-soft rounded-xl shadow-none">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-1">
+          Verknuepfte Stellen
+        </p>
+        <p className="text-[12px] text-muted/50 mb-2">
+          Falls sich diese Bewerbung auf mehrere Stellen-Varianten bezieht (z.B. Repost,
+          Vermittler+Endkunde-Sicht).
+        </p>
+        <button
+          type="button"
+          onClick={() => { setAdding(true); loadAvailable(); }}
+          className="text-[11px] text-sky hover:underline inline-flex items-center gap-1"
+        >
+          <Plus size={11} /> Weitere Stelle verknuepfen
+        </button>
+      </Card>
+    );
+  }
+
+  const filteredAvail = search
+    ? available.filter((j) =>
+        ((j.title || "") + " " + (j.company || ""))
+          .toLowerCase()
+          .includes(search.toLowerCase()))
+    : available;
+
+  return (
+    <>
+      <Card className="glass-card-soft rounded-xl shadow-none">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+          Verknuepfte Stellen ({jobs.length})
+        </p>
+        <ul className="space-y-1.5 mb-2">
+          {jobs.map((j) => (
+            <li key={j.hash} className="flex items-start justify-between gap-2 text-[12px]">
+              <div className="flex-1 min-w-0">
+                <span className="text-ink font-medium">{j.title}</span>
+                {j.link_primary && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-teal/15 text-teal px-1.5 py-0.5 text-[9px]">
+                    primaer
+                  </span>
+                )}
+                {j.link_version && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-[9px]">
+                    {j.link_version}
+                  </span>
+                )}
+                <p className="text-muted/50 text-[11px]">
+                  {j.company} · {j.source} · Score {j.score || 0}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {jobs.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setCompareWith(j.hash)}
+                    className="text-muted/40 hover:text-sky text-[11px]"
+                    title="Mit anderer Stelle vergleichen"
+                  >
+                    🆚
+                  </button>
+                )}
+                {!j.link_primary && (
+                  <button
+                    type="button"
+                    onClick={() => unlinkJob(j.hash)}
+                    className="text-muted/40 hover:text-coral text-[11px]"
+                    title="Verknuepfung entfernen"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {!adding && (
+          <button
+            type="button"
+            onClick={() => { setAdding(true); loadAvailable(); }}
+            className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+          >
+            <Plus size={11} /> Weitere Stelle
+          </button>
+        )}
+        {adding && (
+          <div className="border-t border-white/5 pt-2 mt-2">
+            <div className="flex flex-wrap gap-2 mb-2">
+              <input
+                type="text"
+                value={versionLabel}
+                onChange={(e) => setVersionLabel(e.target.value)}
+                placeholder="Version-Bezeichnung (z.B. Repost, Vermittler-Sicht)"
+                className="flex-1 min-w-[200px] rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+              />
+            </div>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Stelle suchen..."
+              className="w-full rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink mb-2"
+              autoFocus
+            />
+            <div className="max-h-48 overflow-y-auto space-y-0.5">
+              {filteredAvail.slice(0, 15).map((j) => (
+                <button
+                  key={j.hash}
+                  type="button"
+                  onClick={() => linkJob(j.hash)}
+                  className="w-full text-left px-2 py-1 rounded text-[12px] text-ink hover:bg-white/[0.04]"
+                >
+                  {j.title}
+                  <span className="text-muted/50 ml-1.5">· {j.company}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setSearch(""); setVersionLabel(""); }}
+              className="mt-2 text-[11px] text-muted/50 hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          </div>
+        )}
+      </Card>
+      {compareWith && (
+        <StellenVergleichModal
+          hashA={jobs.find((j) => j.link_primary)?.hash || jobs[0]?.hash}
+          hashB={compareWith}
+          onClose={() => setCompareWith(null)}
+          pushToast={pushToast}
+        />
+      )}
+    </>
+  );
+}
+
+// v1.7.0-beta.11 (#580): Stellen-Vergleichs-Modal — strukturierter Diff.
+function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    fetch(`/api/jobs/compare?a=${encodeURIComponent(hashA)}&b=${encodeURIComponent(hashB)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setData)
+      .catch((err) => pushToast?.(`Vergleich fehlgeschlagen: ${err.message}`, "danger"));
+  }, [hashA, hashB]);
+  if (!data) {
+    return (
+      <Modal open title="Stellen-Vergleich" onClose={onClose}>
+        <p className="text-sm text-muted/60">Lade Vergleich...</p>
+      </Modal>
+    );
+  }
+  if (data.fehler) {
+    return (
+      <Modal open title="Stellen-Vergleich" onClose={onClose}>
+        <p className="text-sm text-coral">{data.fehler}</p>
+      </Modal>
+    );
+  }
+  const a = data.stelle_a;
+  const b = data.stelle_b;
+  const v = data.vergleich;
+  return (
+    <Modal open title="Stellen-Vergleich" onClose={onClose}>
+      <div className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-3">
+          {[a, b].map((s, idx) => (
+            <div key={idx} className="glass-card p-3">
+              <p className="text-[10px] uppercase text-muted/50 mb-1">
+                {idx === 0 ? "Stelle A" : "Stelle B"}
+              </p>
+              <p className="font-semibold text-ink">{s.title}</p>
+              <p className="text-[12px] text-muted/70">{s.company}</p>
+              <div className="mt-2 space-y-0.5 text-[11px] text-muted/60">
+                <p>Score: <span className="text-ink">{s.score || 0}</span></p>
+                <p>Quelle: <span className="text-ink">{s.source}</span></p>
+                <p>Standort: <span className="text-ink">{s.location || "—"}</span></p>
+                <p>Gehalt: {s.salary_min ? `${s.salary_min}–${s.salary_max || "?"} €` : "—"}</p>
+                <p>Status: {s.is_active ? "aktiv" : "aussortiert"}</p>
+                <p>Beschreibung: {s.description_length} Zeichen</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="glass-card p-3">
+          <p className="text-[10px] uppercase text-muted/50 mb-2">Vergleich</p>
+          <div className="space-y-1.5 text-[12px]">
+            <p>
+              <span className="text-muted/60">Score-Diff:</span>{" "}
+              <span className="font-mono">{v.score_diff > 0 ? "+" : ""}{v.score_diff}</span>{" "}
+              <span className="text-muted/40">(A − B)</span>
+            </p>
+            <p>
+              <span className="text-muted/60">Beschreibung-Overlap:</span>{" "}
+              <span className="font-mono">{v.beschreibung_overlap_pct}%</span>
+            </p>
+            <p>
+              <span className="text-muted/60">Gleiche Firma:</span>{" "}
+              {v.gleiche_firma ? "✓ Ja" : "✗ Nein"}
+            </p>
+            {v.titel_gemeinsam.length > 0 && (
+              <p>
+                <span className="text-muted/60">Titel — gemeinsam:</span>{" "}
+                <span className="text-teal">{v.titel_gemeinsam.slice(0, 8).join(", ")}</span>
+              </p>
+            )}
+            {v.titel_nur_a.length > 0 && (
+              <p>
+                <span className="text-muted/60">Titel — nur A:</span>{" "}
+                <span className="text-amber">{v.titel_nur_a.slice(0, 6).join(", ")}</span>
+              </p>
+            )}
+            {v.titel_nur_b.length > 0 && (
+              <p>
+                <span className="text-muted/60">Titel — nur B:</span>{" "}
+                <span className="text-amber">{v.titel_nur_b.slice(0, 6).join(", ")}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-white/5">
+          <Button size="sm" variant="ghost" onClick={onClose}>Schliessen</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// v1.7.0-beta.11 (#568): Aufwand-Uebersicht pro Bewerbung.
+function ApplicationAufwandSection({ applicationId, pushToast }) {
+  const [data, setData] = useState(null);
+  const [costForm, setCostForm] = useState({
+    kategorie: "tool",
+    betrag_eur: "",
+    beschreibung: "",
+  });
+  const [costsList, setCostsList] = useState([]);
+  const [adding, setAdding] = useState(false);
+
+  async function reload() {
+    if (!applicationId) return;
+    try {
+      const sumD = await fetch(`/api/applications/${applicationId}/aufwand`)
+        .then((r) => (r.ok ? r.json() : null));
+      setData(sumD);
+      const costsD = await fetch(`/api/applications/${applicationId}/costs`)
+        .then((r) => (r.ok ? r.json() : null));
+      setCostsList(costsD?.costs || []);
+    } catch {}
+  }
+
+  useEffect(() => {
+    reload();
+  }, [applicationId]);
+
+  async function addCost() {
+    const betrag = parseFloat(costForm.betrag_eur);
+    if (!betrag || betrag <= 0) {
+      pushToast("Betrag muss > 0 sein", "danger");
+      return;
+    }
+    try {
+      await fetch(`/api/applications/${applicationId}/costs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: costForm.kategorie,
+          amount: betrag,
+          description: costForm.beschreibung,
+        }),
+      });
+      pushToast(`${betrag.toFixed(2)} € erfasst`, "success");
+      setCostForm({ kategorie: "tool", betrag_eur: "", beschreibung: "" });
+      setAdding(false);
+      await reload();
+    } catch (err) {
+      pushToast(`Erfassen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  async function deleteCost(id) {
+    try {
+      await fetch(`/api/costs/${id}`, { method: "DELETE" });
+      await reload();
+    } catch {}
+  }
+
+  if (!data) return null;
+  const hasAnyCost =
+    (data.kosten_summe_eur > 0) ||
+    (data.reisekosten_brutto_eur > 0) ||
+    (data.termine_anzahl > 0);
+
+  return (
+    <Card className="glass-card-soft rounded-xl shadow-none">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+        Aufwand fuer diese Bewerbung
+      </p>
+      {!hasAnyCost && !adding && (
+        <p className="text-[12px] text-muted/50 mb-2">
+          Trage Reisekosten, Tool-Abos oder Pruefungs-Gebuehren ein — fuer einen
+          ehrlichen Blick auf den realen Aufwand pro Bewerbung.
+        </p>
+      )}
+      {hasAnyCost && (
+        <div className="grid grid-cols-2 gap-2 mb-2 text-[11px]">
+          {data.termine_anzahl > 0 && (
+            <div>
+              <p className="text-muted/50">Termine</p>
+              <p className="text-ink font-medium">{data.termine_anzahl}</p>
+            </div>
+          )}
+          {data.termine_dauer_min_summe > 0 && (
+            <div>
+              <p className="text-muted/50">Dauer (gesamt)</p>
+              <p className="text-ink font-medium">{Math.round(data.termine_dauer_min_summe / 60)} h</p>
+            </div>
+          )}
+          {data.vorbereitungszeit_min_summe > 0 && (
+            <div>
+              <p className="text-muted/50">Vorbereitung</p>
+              <p className="text-ink font-medium">{Math.round(data.vorbereitungszeit_min_summe / 60)} h</p>
+            </div>
+          )}
+          {data.reisekosten_brutto_eur > 0 && (
+            <div>
+              <p className="text-muted/50">Reisekosten netto</p>
+              <p className="text-ink font-medium">{data.reisekosten_netto_eur.toFixed(2)} €</p>
+            </div>
+          )}
+          {data.kosten_summe_eur > 0 && (
+            <div>
+              <p className="text-muted/50">Sonstige Kosten</p>
+              <p className="text-ink font-medium">{data.kosten_summe_eur.toFixed(2)} €</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {costsList.length > 0 && (
+        <ul className="space-y-1 mb-2 border-t border-white/5 pt-2">
+          {costsList.map((c) => (
+            <li key={c.id} className="flex items-center justify-between text-[11px]">
+              <div className="flex-1 min-w-0">
+                <span className="text-ink font-mono">{(c.amount || 0).toFixed(2)} €</span>
+                <span className="ml-1.5 text-muted/50">{c.kind}</span>
+                {c.description && (
+                  <span className="ml-1.5 text-muted/40 truncate">— {c.description}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => deleteCost(c.id)}
+                className="text-muted/40 hover:text-coral text-[11px] shrink-0"
+              >
+                <X size={11} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding ? (
+        <div className="border-t border-white/5 pt-2 space-y-1.5">
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={costForm.kategorie}
+              onChange={(e) => setCostForm({ ...costForm, kategorie: e.target.value })}
+              className="rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            >
+              <option value="tool">Tool/Abo</option>
+              <option value="pruefung">Pruefung</option>
+              <option value="reise">Reise</option>
+              <option value="fortbildung">Fortbildung</option>
+              <option value="sonstiges">Sonstiges</option>
+            </select>
+            <input
+              type="number"
+              step="0.01"
+              value={costForm.betrag_eur}
+              onChange={(e) => setCostForm({ ...costForm, betrag_eur: e.target.value })}
+              placeholder="EUR"
+              className="w-20 rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            />
+            <input
+              type="text"
+              value={costForm.beschreibung}
+              onChange={(e) => setCostForm({ ...costForm, beschreibung: e.target.value })}
+              placeholder="z.B. LinkedIn Premium 1 Monat"
+              className="flex-1 min-w-[150px] rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            />
+            <button
+              type="button"
+              onClick={addCost}
+              className="rounded bg-sky/15 text-sky px-2 py-1 text-[11px] hover:bg-sky/25"
+            >
+              Speichern
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              className="text-[11px] text-muted/50 hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+        >
+          <Plus size={11} /> Kosten erfassen
+        </button>
+      )}
+    </Card>
+  );
+}
 
 // v1.7.0-beta.10 (#563): Beteiligte Personen pro Bewerbung.
 // Empty State erklaert was es ist. Add-Button oeffnet Inline-Suche oder

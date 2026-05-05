@@ -5560,6 +5560,131 @@ async def api_privacy_self_disclosure():
     )
 
 
+# === Application-Jobs / Aufwand / Stellen-Vergleich (v1.7.0-beta.11) ===
+
+@app.get("/api/applications/{app_id}/jobs")
+async def api_app_jobs(app_id: str):
+    """Alle Stellen, die mit einer Bewerbung verknuepft sind (#472)."""
+    jobs = _db.get_jobs_for_application(app_id)
+    return {"jobs": jobs, "count": len(jobs)}
+
+
+@app.post("/api/applications/{app_id}/jobs")
+async def api_link_app_job(app_id: str, request: Request):
+    """Eine Stelle mit einer Bewerbung verknuepfen (#472)."""
+    data = await request.json()
+    job_hash = data.get("job_hash") or ""
+    if not job_hash:
+        return JSONResponse({"error": "job_hash ist Pflicht"}, status_code=400)
+    link_id = _db.link_application_to_job(
+        app_id, job_hash,
+        version_label=data.get("version_label") or "",
+        is_primary=bool(data.get("is_primary", False)),
+    )
+    return {"status": "linked", "id": link_id}
+
+
+@app.delete("/api/applications/{app_id}/jobs/{job_hash:path}")
+async def api_unlink_app_job(app_id: str, job_hash: str):
+    """Stellen-Verknuepfung von einer Bewerbung entfernen (#472)."""
+    ok = _db.unlink_application_job(app_id, job_hash)
+    if not ok:
+        return JSONResponse({"error": "Verknuepfung nicht gefunden"}, status_code=404)
+    return {"status": "unlinked"}
+
+
+@app.get("/api/applications/{app_id}/aufwand")
+async def api_app_aufwand(app_id: str):
+    """Aufwand-Aggregation pro Bewerbung (#568)."""
+    return _db.get_aufwand_summary(application_id=app_id)
+
+
+@app.get("/api/applications/{app_id}/costs")
+async def api_app_costs(app_id: str):
+    """Kosten-Liste pro Bewerbung (#568)."""
+    return {"costs": _db.list_application_costs(application_id=app_id)}
+
+
+@app.post("/api/applications/{app_id}/costs")
+async def api_app_add_cost(app_id: str, request: Request):
+    """Kosten zu einer Bewerbung erfassen (#568)."""
+    data = await request.json()
+    try:
+        cid = _db.add_application_cost({
+            "application_id": app_id,
+            "kind": data.get("kind") or "sonstiges",
+            "amount": data.get("amount") or 0,
+            "description": data.get("description"),
+            "incurred_at": data.get("incurred_at"),
+        })
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"status": "created", "id": cid}
+
+
+@app.delete("/api/costs/{cost_id}")
+async def api_delete_cost(cost_id: str):
+    """Kosten-Eintrag loeschen (#568)."""
+    ok = _db.delete_application_cost(cost_id)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "deleted"}
+
+
+@app.get("/api/jobs/compare")
+async def api_jobs_compare(a: str, b: str):
+    """Vergleicht zwei Stellen strukturiert (#580). Frontend-friendly Variante."""
+    from .services.typed_ids import strip_prefix
+    ha = strip_prefix(a)
+    hb = strip_prefix(b)
+    ja = _db.get_job(ha)
+    jb = _db.get_job(hb)
+    if not ja or not jb:
+        return JSONResponse({"fehler": "Mindestens eine Stelle nicht gefunden"}, status_code=404)
+    import re
+    def _tokens(text):
+        return set(re.findall(r"[a-zäöüß0-9]+", (text or "").lower())) - {
+            "und", "der", "die", "das", "ein", "eine", "fuer", "im", "mit",
+            "bei", "von", "zu", "in", "an", "the", "and", "for", "with",
+        }
+    title_a = _tokens(ja.get("title", ""))
+    title_b = _tokens(jb.get("title", ""))
+    desc_a = _tokens(ja.get("description", ""))
+    desc_b = _tokens(jb.get("description", ""))
+    common_title = title_a & title_b
+    return {
+        "stelle_a": {
+            "hash": ja.get("hash"), "title": ja.get("title"),
+            "company": ja.get("company"), "score": ja.get("score"),
+            "source": ja.get("source"),
+            "salary_min": ja.get("salary_min"), "salary_max": ja.get("salary_max"),
+            "location": ja.get("location"),
+            "is_active": bool(ja.get("is_active")),
+            "description_length": len(ja.get("description") or ""),
+        },
+        "stelle_b": {
+            "hash": jb.get("hash"), "title": jb.get("title"),
+            "company": jb.get("company"), "score": jb.get("score"),
+            "source": jb.get("source"),
+            "salary_min": jb.get("salary_min"), "salary_max": jb.get("salary_max"),
+            "location": jb.get("location"),
+            "is_active": bool(jb.get("is_active")),
+            "description_length": len(jb.get("description") or ""),
+        },
+        "vergleich": {
+            "titel_gemeinsam": sorted(common_title),
+            "titel_nur_a": sorted(title_a - title_b),
+            "titel_nur_b": sorted(title_b - title_a),
+            "beschreibung_overlap_pct": (
+                round(len(desc_a & desc_b) / max(len(desc_a | desc_b), 1) * 100, 1)
+                if (desc_a or desc_b) else 0
+            ),
+            "score_diff": (ja.get("score") or 0) - (jb.get("score") or 0),
+            "gleiche_firma": (ja.get("company") or "").lower().strip() == (jb.get("company") or "").lower().strip(),
+        },
+    }
+
+
 # === Kontakte API (v1.7.0 #563) ===
 
 @app.get("/api/contacts")

@@ -7,6 +7,68 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.11] - 2026-05-05 — Bewerbungs-Detail-Erweiterungen
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Drei neue Komponenten in der Bewerbungs-Detail-Ansicht:
+
+### 🔗 Mehrere Stellen pro Bewerbung (#472)
+
+- Neue Section `<ApplicationJobsSection>` zeigt alle verknuepften
+  Stellen mit `primaer`/`Version`-Chips
+- **Empty State** erklaert Use-Cases: „Repost", „Vermittler+Endkunde-Sicht"
+- **Inline-Add-Workflow** mit Versions-Label-Eingabe + Stellen-Suche
+- **🆚-Button** an jeder Zeile (wenn ≥2 Stellen) oeffnet Stellen-Vergleich
+
+### 🆚 Stellen-Vergleichs-Modal (#580)
+
+- `<StellenVergleichModal>` zeigt strukturierten Diff zweier Stellen:
+  - Side-by-Side: Score, Quelle, Standort, Gehalt, Beschreibungs-Laenge
+  - Vergleich: Score-Diff, Beschreibung-Overlap-%, Titel-gemeinsam/nur-A/nur-B
+- `GET /api/jobs/compare?a=...&b=...` als Backend
+
+### 💰 Aufwand-Card (#568)
+
+- `<ApplicationAufwandSection>` zeigt aggregierten Aufwand:
+  Termine-Anzahl/Dauer, Vorbereitungszeit, Reisekosten netto, sonstige Kosten
+- **Empty State** erklaert: „Trage Reisekosten, Tool-Abos oder Pruefungs-
+  Gebuehren ein — fuer einen ehrlichen Blick auf den realen Aufwand."
+- **Inline-Erfassung**: Kategorie-Dropdown, Betrag, Beschreibung, ein Klick speichert
+- Liste bestehender Kosten mit Loeschen-Button
+
+### 🛠️ 8 neue API-Endpoints
+
+- `GET/POST /api/applications/{id}/jobs` — n:m-Verknuepfung
+- `DELETE /api/applications/{id}/jobs/{hash}` — Entknuepfen
+- `GET /api/applications/{id}/aufwand` — Aufwand-Aggregation
+- `GET/POST /api/applications/{id}/costs` — Kosten-Liste/CRUD
+- `DELETE /api/costs/{id}` — Kosten loeschen
+- `GET /api/jobs/compare?a=...&b=...` — Stellen-Vergleich
+
+### Stats
+
+- **121 MCP-Tools** (unveraendert)
+- **8 neue Tests** in `tests/test_v170_beta11.py`, alle gruen (191 total)
+- **3 neue Frontend-Components** in `ApplicationsPage.jsx`
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.11.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.11.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.10
+
+Einfach drueberinstallieren — keine Schema-Migration in beta.11.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.10] - 2026-05-05 — Kontakte-Frontend (#563)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
