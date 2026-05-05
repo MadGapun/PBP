@@ -7,6 +7,39 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.13] - 2026-05-05 — Bug-Fixes & Polish
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Sammel-Beta mit Bug-Fixes und kleinen Verbesserungen vor dem rc.1.
+
+### 🐛 Fixed
+
+- **#518 Follow-up-Typ-Hygiene wird respektiert** — Banner und „Faellige
+  Nachfassaktionen"-Filter zaehlen ab jetzt **nur** Follow-ups vom Typ
+  `nachfass`. Interview-Erinnerungen, Danke-Mails, Info-Notizen bleiben
+  sichtbar, loesen aber keinen Banner-Alarm mehr aus.
+  - API: `GET /api/follow-ups` liefert pro Eintrag jetzt zusaetzlich
+    `faellig_datum` (rein Datums-Pruefung) und `banner_typ` (typ-basiert).
+    Das Bestand-Feld `faellig` ist jetzt typ-sensitiv (`nachfass + Datum`).
+  - Recap-Endpoint: korrekte SQL-Spalte (`scheduled_date` statt `due_date`)
+    und Status (`geplant`) — vorher schwiegen die Counts in einer Exception.
+
+### ✨ Added
+
+- **#578 CSV-Export fuer Termine** — `GET /api/meetings/export.csv?from=&to=`,
+  vervollstaendigt die CSV-Familie (Bewerbungen, Stellen, Kontakte, Termine
+  jetzt alle exportierbar). Route-Reihenfolge in dashboard.py beachtet, damit
+  FastAPI nicht auf `/api/meetings/{meeting_id}` matcht.
+
+### Tests
+
+- `tests/test_v170_beta13.py`: 4 neue Tests (Banner-Hygiene fuer 3 Follow-up-
+  Typen, Unbekannter-Typ-Normalisierung, Termine-CSV-Export-Smoke,
+  Bewerbungen-CSV-Datums-Format).
+
+---
+
 ## [1.7.0-beta.12] - 2026-05-05 — Profil + Stats: Heatmap, Skill-Zeitraeume, Taetigkeitsbericht
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

@@ -3791,6 +3791,48 @@ async def api_activity_log(days: int = 90, categories: str = ""):
     }
 
 
+@app.get("/api/meetings/export.csv")
+async def api_meetings_csv(from_: str = "", to: str = "",
+                            request: Request = None):
+    """Termine als CSV exportieren (#578).
+
+    v1.7.0-beta.13: Ergaenzt CSV-Export-Familie. MUSS vor der Parameter-
+    Route /api/meetings/{meeting_id} stehen, sonst matcht FastAPI das
+    `export.csv` als meeting_id und liefert 404.
+    """
+    zeitraum_von = (request.query_params.get("from") if request else "") or from_
+    zeitraum_bis = to or ""
+    conn = _db.connect()
+    pid = _db.get_active_profile_id()
+    sql = (
+        "SELECT m.*, a.title AS app_title, a.company AS app_company "
+        "FROM application_meetings m "
+        "LEFT JOIN applications a ON m.application_id = a.id "
+        "WHERE (a.profile_id=? OR a.profile_id IS NULL OR m.application_id IS NULL)"
+    )
+    params: list = [pid]
+    if zeitraum_von:
+        sql += " AND m.meeting_date >= ?"
+        params.append(zeitraum_von)
+    if zeitraum_bis:
+        sql += " AND m.meeting_date <= ?"
+        params.append(zeitraum_bis + "T23:59:59")
+    sql += " ORDER BY m.meeting_date DESC"
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    columns = [
+        ("ID", "id"),
+        ("Datum/Zeit", "meeting_date"),
+        ("Titel", "title"),
+        ("Typ", "meeting_type"),
+        ("Bewerbung Firma", "app_company"),
+        ("Bewerbung Stelle", "app_title"),
+        ("Ort", "location"),
+        ("Status", "status"),
+        ("Notizen", "notes"),
+    ]
+    return _csv_response(rows, columns, "termine.csv")
+
+
 @app.get("/api/meetings/{meeting_id}")
 async def api_get_meeting(meeting_id: str):
     """Get a single meeting."""
@@ -4940,13 +4982,28 @@ async def api_jobsuche_last():
 
 @app.get("/api/follow-ups")
 async def api_follow_ups():
-    """Get all follow-ups with due status."""
+    """Get all follow-ups with due status.
+
+    v1.7.0-beta.13 (#518): `faellig` ist jetzt typ-sensitiv. Nur Follow-ups
+    vom Typ `nachfass` (oder unbekannte/legacy) loesen den Banner aus —
+    Interview-Erinnerungen, Danke-Mails und Notizen werden zwar angezeigt,
+    aber nicht als „Nachfrage faellig" gewertet.
+    """
     follow_ups = _db.get_pending_follow_ups()
     from datetime import date
     today = date.today().isoformat()
+    BANNER_TYPES = {"nachfass", None, ""}  # legacy entries ohne Typ als nachfass behandeln
     for fu in follow_ups:
-        fu["faellig"] = fu.get("scheduled_date", "") <= today
-    return {"follow_ups": follow_ups, "faellige": sum(1 for f in follow_ups if f.get("faellig"))}
+        is_due_date = fu.get("scheduled_date", "") <= today
+        is_banner_type = (fu.get("follow_up_type") or "") in BANNER_TYPES
+        fu["faellig"] = bool(is_due_date and is_banner_type)
+        # Beide Felder fuer Frontend-Filter (Banner vs. „demnaechst")
+        fu["faellig_datum"] = bool(is_due_date)
+        fu["banner_typ"] = bool(is_banner_type)
+    return {
+        "follow_ups": follow_ups,
+        "faellige": sum(1 for f in follow_ups if f.get("faellig")),
+    }
 
 
 @app.post("/api/follow-ups/{follow_up_id}/complete")
@@ -6005,6 +6062,11 @@ async def api_contacts_csv():
     return _csv_response(contacts, columns, "kontakte.csv")
 
 
+# Hinweis: /api/meetings/export.csv steht weiter oben in dieser Datei,
+# bevor /api/meetings/{meeting_id}, weil FastAPI Routen sonst auf den
+# Parameter matched und 404 liefert (#578 in beta.13).
+
+
 # === Globale Suche (v1.7.0 #571) ===
 
 @app.get("/api/search")
@@ -6222,12 +6284,16 @@ async def api_recap():
         pass
 
     # Faellige Follow-ups (heute oder ueberfaellig)
+    # v1.7.0-beta.13 (#518): nur Typ `nachfass` (+ legacy) zaehlen als Banner-faellig.
     today_iso = datetime.now(timezone.utc).date().isoformat()
     overdue_followups = 0
     try:
         overdue_followups = conn.execute(
-            "SELECT COUNT(*) AS n FROM follow_ups WHERE due_date <= ? AND status='offen' "
-            "AND (profile_id=? OR profile_id IS NULL)",
+            "SELECT COUNT(*) AS n FROM follow_ups f "
+            "JOIN applications a ON f.application_id = a.id "
+            "WHERE f.scheduled_date <= ? AND f.status='geplant' "
+            "AND (f.follow_up_type IS NULL OR f.follow_up_type='' OR f.follow_up_type='nachfass') "
+            "AND (a.profile_id=? OR a.profile_id IS NULL)",
             (today_iso, pid)
         ).fetchone()["n"]
     except Exception:
