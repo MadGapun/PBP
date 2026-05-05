@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 34
+SCHEMA_VERSION = 35
 
 
 def _gen_id() -> str:
@@ -1420,6 +1420,49 @@ class Database:
             except Exception as exc:
                 logger.warning("skill_periods-Migration fehlgeschlagen: %s", exc)
 
+        if from_ver < 35:
+            # v35 / #568 v1.7.0-beta.6: Bewerbungsaufwand erfassen.
+            # Erweitert application_meetings um Vorbereitungszeit, Runden-
+            # Zaehler, Reise-Daten. Neue Tabelle application_costs fuer
+            # versteckte Kosten (Tool-Abos, Pruefungen, etc.).
+            for col in (
+                "runde_nr INTEGER",
+                "vorbereitungszeit_min INTEGER",
+                "reise_modus TEXT",
+                "reisekosten_brutto REAL",
+                "reisekosten_erstattet REAL",
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE application_meetings ADD COLUMN {col}")
+                except Exception:
+                    pass
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS application_costs (
+                        id TEXT PRIMARY KEY,
+                        application_id TEXT,
+                        profile_id TEXT NOT NULL,
+                        kind TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        description TEXT,
+                        incurred_at TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_application_costs_app "
+                    "ON application_costs(application_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_application_costs_profile "
+                    "ON application_costs(profile_id)"
+                )
+                conn.commit()
+            except Exception as exc:
+                logger.warning("application_costs-Migration fehlgeschlagen: %s", exc)
+            logger.info("Migration v34->v35: application_meetings erweitert + "
+                        "application_costs (#568)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -2236,6 +2279,128 @@ class Database:
             params.append(profile_id)
         row = conn.execute(query, params).fetchone()
         return dict(row) if row else None
+
+    # === Bewerbungsaufwand / Kosten (v1.7.0 #568) ===
+
+    def add_application_cost(self, data: dict) -> str:
+        """Speichert einen Kosten-Eintrag (Tool-Abo, Pruefungs-Gebuehr, etc.).
+
+        kind: 'tool', 'pruefung', 'reise', 'fortbildung', 'sonstiges'.
+        amount in EUR (positive Zahl).
+        """
+        conn = self.connect()
+        cid = _gen_id()
+        pid = data.get("profile_id") or self.get_active_profile_id() or ""
+        kind = data.get("kind") or "sonstiges"
+        amount = float(data.get("amount") or 0)
+        if amount < 0:
+            raise ValueError("amount muss >= 0 sein.")
+        conn.execute(
+            "INSERT INTO application_costs "
+            "(id, application_id, profile_id, kind, amount, description, "
+            " incurred_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (cid, data.get("application_id"), pid, kind, amount,
+             data.get("description") or None,
+             data.get("incurred_at") or None,
+             _now())
+        )
+        conn.commit()
+        return cid
+
+    def list_application_costs(self, application_id: str = None,
+                                  kind: str = "") -> list[dict]:
+        """Liste aller Kostenpositionen, optional gefiltert."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM application_costs WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
+        if application_id:
+            query += " AND application_id=?"
+            params.append(application_id)
+        if kind:
+            query += " AND kind=?"
+            params.append(kind)
+        query += " ORDER BY incurred_at DESC, created_at DESC"
+        return [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    def delete_application_cost(self, cost_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM application_costs WHERE id=?", (cost_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def update_meeting_aufwand(self, meeting_id: str,
+                                 runde_nr: int = None,
+                                 vorbereitungszeit_min: int = None,
+                                 reise_modus: str = None,
+                                 reisekosten_brutto: float = None,
+                                 reisekosten_erstattet: float = None) -> bool:
+        """Aktualisiert die Aufwand-Felder eines Meetings (v1.7.0 #568)."""
+        conn = self.connect()
+        sets, vals = [], []
+        if runde_nr is not None:
+            sets.append("runde_nr=?")
+            vals.append(int(runde_nr))
+        if vorbereitungszeit_min is not None:
+            sets.append("vorbereitungszeit_min=?")
+            vals.append(int(vorbereitungszeit_min))
+        if reise_modus is not None:
+            sets.append("reise_modus=?")
+            vals.append(reise_modus)
+        if reisekosten_brutto is not None:
+            sets.append("reisekosten_brutto=?")
+            vals.append(float(reisekosten_brutto))
+        if reisekosten_erstattet is not None:
+            sets.append("reisekosten_erstattet=?")
+            vals.append(float(reisekosten_erstattet))
+        if not sets:
+            return False
+        vals.append(meeting_id)
+        cur = conn.execute(
+            f"UPDATE application_meetings SET {','.join(sets)} WHERE id=?",
+            vals
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_aufwand_summary(self, application_id: str = None) -> dict:
+        """Aggregiert Aufwand pro Bewerbung (oder gesamt)."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        # Costs
+        cost_q = "SELECT COALESCE(SUM(amount), 0) AS total FROM application_costs " \
+                 "WHERE (profile_id=? OR profile_id IS NULL)"
+        cost_params = [pid]
+        if application_id:
+            cost_q += " AND application_id=?"
+            cost_params.append(application_id)
+        total_costs = conn.execute(cost_q, cost_params).fetchone()["total"] or 0
+        # Reisekosten
+        meet_q = (
+            "SELECT COALESCE(SUM(reisekosten_brutto), 0) AS reise_brutto, "
+            "COALESCE(SUM(reisekosten_erstattet), 0) AS reise_erstattet, "
+            "COALESCE(SUM(vorbereitungszeit_min), 0) AS prep_min, "
+            "COALESCE(SUM(duration_minutes), 0) AS dur_min, "
+            "COUNT(*) AS termine "
+            "FROM application_meetings"
+        )
+        meet_params: list = []
+        if application_id:
+            meet_q += " WHERE application_id=?"
+            meet_params.append(application_id)
+        m = conn.execute(meet_q, meet_params).fetchone()
+        reise_brutto = m["reise_brutto"] or 0
+        reise_erstattet = m["reise_erstattet"] or 0
+        return {
+            "kosten_summe_eur": float(total_costs),
+            "reisekosten_brutto_eur": float(reise_brutto),
+            "reisekosten_erstattet_eur": float(reise_erstattet),
+            "reisekosten_netto_eur": float(reise_brutto - reise_erstattet),
+            "vorbereitungszeit_min_summe": int(m["prep_min"] or 0),
+            "termine_dauer_min_summe": int(m["dur_min"] or 0),
+            "termine_anzahl": int(m["termine"] or 0),
+        }
 
     # === n:m Bewerbung-Stelle (v1.7.0 #472) ===
 
@@ -5995,7 +6160,13 @@ CREATE TABLE IF NOT EXISTS application_meetings (
     is_private INTEGER DEFAULT 0,
     duration_minutes INTEGER,
     category_id TEXT,
-    created_at TEXT
+    created_at TEXT,
+    -- v1.7.0 (#568) Bewerbungsaufwand
+    runde_nr INTEGER,
+    vorbereitungszeit_min INTEGER,
+    reise_modus TEXT,
+    reisekosten_brutto REAL,
+    reisekosten_erstattet REAL
 );
 
 CREATE TABLE IF NOT EXISTS meeting_categories (
@@ -6114,4 +6285,18 @@ CREATE TABLE IF NOT EXISTS skill_periods (
     FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_skill_periods_skill ON skill_periods(skill_id);
+
+-- v1.7.0 (#568) Bewerbungsaufwand — versteckte Kosten
+CREATE TABLE IF NOT EXISTS application_costs (
+    id TEXT PRIMARY KEY,
+    application_id TEXT,
+    profile_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT,
+    incurred_at TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_application_costs_app ON application_costs(application_id);
+CREATE INDEX IF NOT EXISTS idx_application_costs_profile ON application_costs(profile_id);
 """

@@ -7,6 +7,62 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.6] - 2026-05-05 — Bewerbungsaufwand (#568)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+### 💰 Bewerbungsaufwand (#568)
+
+Schwerpunkt: realer Aufwand pro Bewerbung sichtbar machen — Reisekosten,
+Tool-Abos, Vorbereitungszeit, Interview-Runden.
+
+#### Schema v35
+
+- **`application_meetings` erweitert** um:
+  - `runde_nr` — Welche Interview-Runde (1, 2, 3...)
+  - `vorbereitungszeit_min` — Wie lange Vorbereitung
+  - `reise_modus` — `vor_ort` / `video` / `telefon` / `hybrid`
+  - `reisekosten_brutto` / `reisekosten_erstattet` — fuer Differenz-Auswertung
+- **Neue Tabelle `application_costs`:** id, application_id (optional —
+  ermoeglicht „untype"-Kosten wie Tool-Abos die nicht 1:1 einer Bewerbung
+  zugeordnet sind), profile_id, kind, amount, description, incurred_at.
+- Indizes auf `application_id` und `profile_id`.
+
+#### 5 neue MCP-Tools
+
+- **`meeting_aufwand_setzen`** — Aufwand-Felder an einem bestehenden Termin
+  setzen (Runde, Vorbereitungszeit, Reisekosten brutto/erstattet)
+- **`kosten_erfassen`** — neue Kosten-Position (kategorie, betrag_eur,
+  beschreibung, optional bewerbung_id und datum)
+- **`kosten_anzeigen`** — Liste mit Filter und automatischer Summe
+- **`kosten_loeschen`**
+- **`aufwand_uebersicht`** — Aggregation pro Bewerbung (oder gesamt):
+  Kosten-Summe, Reisekosten brutto/erstattet/netto, Vorbereitungszeit-
+  Summe, Termin-Dauer-Summe, Termin-Anzahl
+
+### Stats
+
+- **121 MCP-Tools** (vorher 116): +5 neue
+- **14 neue Tests** in `tests/test_v170_beta6.py`, alle gruen (161 total)
+- **Schema v35** (vorher v34) — `application_meetings` erweitert + neue Tabelle `application_costs`
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.6.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.6.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.5
+
+Einfach drueberinstallieren — Schema-Migration v34 → v35 laeuft automatisch.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.5] - 2026-05-05 — n:m Bewerbung-Stelle + Skills-Zeitraeume + Stellen-Vergleich
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

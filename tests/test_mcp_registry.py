@@ -45,6 +45,7 @@ EXPECTED_TOOL_NAMES = {
     "profil_exportieren",
     "profil_importieren",
     "aehnliche_stellen_finden",
+    "aufwand_uebersicht",
     "bewerbung_stelle_entknuepfen",
     "bewerbung_stelle_verknuepfen",
     "bewerbung_stellen_anzeigen",
@@ -57,6 +58,10 @@ EXPECTED_TOOL_NAMES = {
     "kontakt_verknuepfen",
     "kontakte_auflisten",
     "kontakte_zu_bewerbung",
+    "kosten_anzeigen",
+    "kosten_erfassen",
+    "kosten_loeschen",
+    "meeting_aufwand_setzen",
     "jobsuche_status",
     "stelle_bewerten",
     "stellen_anzeigen",
@@ -231,7 +236,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 116  # v1.7.0-beta.5: +8 (n:m + Stellen-Vergleich + Skill-Periods, #472/#572/#580)
+        assert len(tools) == 121  # v1.7.0-beta.6: +5 (Aufwand: meeting_aufwand_setzen, kosten_erfassen/anzeigen/loeschen, aufwand_uebersicht, #568)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

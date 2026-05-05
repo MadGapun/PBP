@@ -1327,6 +1327,110 @@ def register(mcp, db, logger):
         db.update_follow_up(follow_up_id, {"scheduled_date": neues_datum})
         return {"status": "verschoben", "follow_up_id": follow_up_id, "neues_datum": neues_datum}
 
+    # === v1.7.0-beta.6: Bewerbungsaufwand (#568) ===
+
+    @mcp.tool()
+    def meeting_aufwand_setzen(
+        meeting_id: str,
+        runde: int = None,
+        vorbereitung_minuten: int = None,
+        reise_modus: str = "",
+        reisekosten_brutto: float = None,
+        reisekosten_erstattet: float = None,
+    ) -> dict:
+        """Setzt Aufwand-Daten an einem bestehenden Termin (#568).
+
+        Args:
+            meeting_id: ID des Termins.
+            runde: Welche Interview-Runde (1, 2, 3...) bei Mehr-Runden-Interviews.
+            vorbereitung_minuten: Wieviel Zeit floss in Vorbereitung (Recherche,
+                Folien, Antworten ueben).
+            reise_modus: 'vor_ort' / 'video' / 'telefon' / 'hybrid'.
+            reisekosten_brutto: Selbst getragene Reisekosten in EUR.
+            reisekosten_erstattet: Davon vom Arbeitgeber erstattet (zur Differenz-
+                Auswertung).
+        """
+        ok = db.update_meeting_aufwand(
+            meeting_id,
+            runde_nr=runde,
+            vorbereitungszeit_min=vorbereitung_minuten,
+            reise_modus=reise_modus or None,
+            reisekosten_brutto=reisekosten_brutto,
+            reisekosten_erstattet=reisekosten_erstattet,
+        )
+        if not ok:
+            return {"fehler": "Meeting nicht gefunden oder keine Aenderungen angegeben."}
+        return {"status": "aktualisiert", "meeting_id": meeting_id}
+
+    @mcp.tool()
+    def kosten_erfassen(
+        kategorie: str,
+        betrag_eur: float,
+        beschreibung: str = "",
+        bewerbung_id: str = "",
+        datum: str = "",
+    ) -> dict:
+        """Erfasst eine Kosten-Position (z.B. Tool-Abo, Pruefungs-Gebuehr) (#568).
+
+        Args:
+            kategorie: 'tool' | 'pruefung' | 'reise' | 'fortbildung' | 'sonstiges'.
+            betrag_eur: Betrag in EUR (positive Zahl).
+            beschreibung: Was war es genau (z.B. 'LinkedIn Premium 1 Monat').
+            bewerbung_id: Optional eine Bewerbung verknuepfen.
+            datum: ISO-Datum wann angefallen. Leer = heute.
+        """
+        valid = ("tool", "pruefung", "reise", "fortbildung", "sonstiges")
+        if kategorie not in valid:
+            return {"fehler": f"kategorie muss eines von {valid} sein."}
+        if betrag_eur < 0:
+            return {"fehler": "Betrag muss >= 0 sein."}
+        from ..services.typed_ids import strip_prefix
+        from datetime import datetime as _dt
+        try:
+            cid = db.add_application_cost({
+                "application_id": strip_prefix(bewerbung_id) if bewerbung_id else None,
+                "kind": kategorie,
+                "amount": betrag_eur,
+                "description": beschreibung or None,
+                "incurred_at": datum or _dt.now().date().isoformat(),
+            })
+        except ValueError as e:
+            return {"fehler": str(e)}
+        return {"status": "gespeichert", "kosten_id": cid}
+
+    @mcp.tool()
+    def kosten_anzeigen(bewerbung_id: str = "", kategorie: str = "") -> dict:
+        """Listet Kostenpositionen, optional gefiltert (#568)."""
+        from ..services.typed_ids import strip_prefix
+        items = db.list_application_costs(
+            application_id=strip_prefix(bewerbung_id) if bewerbung_id else None,
+            kind=kategorie,
+        )
+        total = sum((c.get("amount") or 0) for c in items)
+        return {
+            "anzahl": len(items),
+            "summe_eur": round(total, 2),
+            "kosten": items,
+        }
+
+    @mcp.tool()
+    def kosten_loeschen(kosten_id: str) -> dict:
+        """Loescht eine Kosten-Position."""
+        ok = db.delete_application_cost(kosten_id)
+        return {"status": "geloescht" if ok else "nicht_gefunden"}
+
+    @mcp.tool()
+    def aufwand_uebersicht(bewerbung_id: str = "") -> dict:
+        """Aggregiert den Aufwand pro Bewerbung oder ueber alles (#568).
+
+        Liefert: Reisekosten brutto/erstattet/netto, Vorbereitungszeit-Summe
+        in Minuten, Termin-Dauer in Minuten, Anzahl Termine, Summe sonstiger
+        Kosten.
+        """
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id) if bewerbung_id else None
+        return db.get_aufwand_summary(application_id=bid)
+
     # === Abschluss-Flow (#455 / v1.5.7) ===
 
     @mcp.tool()
