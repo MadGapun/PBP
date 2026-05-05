@@ -6422,6 +6422,87 @@ async def api_llm_pull(request: Request):
     return result
 
 
+@app.post("/api/jobs/refresh-freelancermap-descriptions")
+async def api_refresh_freelancermap_descriptions(request: Request):
+    """Holt Beschreibungen fuer Freelancermap-Stellen ohne Beschreibung nach (#527).
+
+    Body: {"max": 50}  // optional, Default 50, Max 200.
+
+    Geht den Bestand der aktiven Freelancermap-Stellen durch, fetcht pro
+    Stelle mit fehlender Beschreibung die Detail-Seite und persistiert die
+    extrahierte Beschreibung. Rate-limited (0.3s Sleep) damit Freelancermap
+    nicht blockt.
+    """
+    import httpx
+    import re
+    import time as _time
+    from bs4 import BeautifulSoup
+
+    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    cap = max(1, min(int((data or {}).get("max") or 50), 200))
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    rows = conn.execute(
+        "SELECT hash, url FROM jobs "
+        "WHERE source='freelancermap' AND is_active=1 "
+        "AND (description IS NULL OR description = '' OR LENGTH(description) < 50) "
+        "AND url LIKE '%freelancermap.de/projekt/%' "
+        "AND (profile_id=? OR profile_id IS NULL) "
+        "LIMIT ?",
+        (pid, cap)
+    ).fetchall()
+
+    if not rows:
+        return {"status": "ok", "updated": 0, "checked": 0,
+                "message": "Keine Freelancermap-Stellen ohne Beschreibung im Bestand."}
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        "Accept-Language": "de-DE,de;q=0.9",
+    }
+
+    updated = 0
+    errors = 0
+    with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        for r in rows:
+            try:
+                resp = client.get(r["url"])
+                if resp.status_code != 200:
+                    errors += 1
+                    continue
+                soup = BeautifulSoup(resp.text, "lxml")
+                description = ""
+                for sel in ("[class*='project-description']",
+                            "[class*='description']", "main", "article"):
+                    el = soup.select_one(sel)
+                    if el:
+                        txt = el.get_text(separator=" ", strip=True)
+                        if len(txt) > 100:
+                            description = txt[:2000]
+                            break
+                if description:
+                    _db.update_job(r["hash"], {"description": description})
+                    updated += 1
+                _time.sleep(0.3)
+            except Exception as exc:
+                errors += 1
+    return {
+        "status": "ok",
+        "checked": len(rows),
+        "updated": updated,
+        "errors": errors,
+        "remaining_in_db": _db.connect().execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE source='freelancermap' "
+            "AND is_active=1 AND (description IS NULL OR description='' OR LENGTH(description) < 50) "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()["n"],
+    }
+
+
 @app.get("/api/llm/recommended-models")
 async def api_llm_recommended_models():
     """Liefert die kuratierte Liste der von PBP empfohlenen Modelle.

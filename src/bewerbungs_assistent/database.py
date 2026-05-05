@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 35
+SCHEMA_VERSION = 36
 
 
 def _gen_id() -> str:
@@ -1462,6 +1462,31 @@ class Database:
                 logger.warning("application_costs-Migration fehlgeschlagen: %s", exc)
             logger.info("Migration v34->v35: application_meetings erweitert + "
                         "application_costs (#568)")
+
+        if from_ver < 36:
+            # v36 / #526 v1.7.0-beta.16: Bundesagentur-URLs reparieren.
+            # Bestand-Daten haben URLs der Form
+            # `https://www.arbeitsagentur.de/jobsuche/suche?id={refnr}` —
+            # die landen auf der Suchergebnis-Seite, nicht der Stellen-
+            # anzeige. Korrekt waere `/jobsuche/jobdetail/{refnr}`.
+            # Der Scraper-Code ist seit beta.7 korrekt; diese Migration
+            # bringt den Bestand auf den neuen Stand.
+            try:
+                cur = conn.execute(
+                    "UPDATE jobs "
+                    "SET url = REPLACE(url, "
+                    "  'arbeitsagentur.de/jobsuche/suche?id=', "
+                    "  'arbeitsagentur.de/jobsuche/jobdetail/') "
+                    "WHERE source='bundesagentur' "
+                    "AND url LIKE '%arbeitsagentur.de/jobsuche/suche?id=%'"
+                )
+                migrated_count = cur.rowcount
+                conn.commit()
+                logger.info("Migration v35->v36: %d Bundesagentur-URLs "
+                            "auf jobdetail-Format umgestellt (#526).",
+                            migrated_count)
+            except Exception as exc:
+                logger.warning("Bundesagentur-URL-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",

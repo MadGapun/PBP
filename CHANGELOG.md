@@ -7,6 +7,57 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.16] - 2026-05-05 — Daten-Quality-Bugs: E-Mail-Matching, BA-URLs, Freelancermap-Beschreibungen
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+### 🐛 Fixed
+
+- **#523 E-Mail-Matching: Leitprinzip „Im Zweifel unverknuepft."**
+  - Default-Threshold von 0.5 auf **0.90** angehoben.
+  - **Domain-Signal-Pflicht:** ein Auto-Match braucht jetzt mindestens
+    ein Domain-Signal (kontakt_email-Match, kontakt_email-Domain-Match,
+    Firma-in-Sender-Domain, oder URL-Domain-Match). Reine Firmen-im-
+    Betreff- oder Title-Treffer reichen nicht mehr.
+  - Strategy-Scores angehoben: kontakt_email-Domain 0.8 → 0.9,
+    Firma-in-Sender-Domain 0.75 → 0.9, URL-Domain-Match 0.7 → 0.85.
+  - Konsequenz: weniger Auto-Matches, mehr unverknuepfte Mails — wie
+    vom User gefordert. „Lieber zehn Mails manuell zuordnen als eine
+    falsch automatisch."
+
+- **#526 Bundesagentur-URLs: Bestand reparieren.**
+  - Schema v35 → **v36**: Migration aktualisiert alle 249 betroffenen
+    Bestand-URLs von `jobsuche/suche?id=...` (Suchergebnis-Seite) auf
+    `jobsuche/jobdetail/{refnr}` (Stellenanzeige). Scraper-Code war
+    bereits seit beta.7 korrekt; jetzt auch der Bestand.
+
+- **#527 Freelancermap-Beschreibungen.**
+  - Detail-Fetch-Limit von 30 auf **75** pro Such-URL angehoben — bei
+    4 Such-URLs entspricht das Maximum 300 Detail-Requests pro Run.
+  - Neuer Endpoint `POST /api/jobs/refresh-freelancermap-descriptions`
+    holt fehlende Beschreibungen im Bestand nach (rate-limited 0.3s,
+    max 50/Aufruf, hartes Cap 200).
+
+### 📋 Issue-Triage
+
+- **#555 Cross-Portal-Dubletten:** geschlossen als „Verdacht ohne Repro".
+  Kein Bug-Indiz im Code-Review gefunden. Wird neu eroeffnet sobald ein
+  reproduzierbarer Test-Case vorliegt.
+- **#564 Portal-spezifische Such-Profile:** auf v1.8 verschoben (zu
+  grosser UI-Eingriff fuer v1.7).
+- **#478, #480, #481, #524, #525 (Externer Inbound):** auf v1.8
+  verschoben — Thunderbird/Outlook/Mail-Newsletter sind ein eigener
+  Sprint.
+
+### Tests
+
+- `tests/test_v170_beta16_bugs.py`: 10 neue Tests
+  (4 fuer #523 — Threshold + Domain-Pflicht; 3 fuer #526 — Migration
+  idempotent + nur bundesagentur betroffen; 3 fuer #527 — Refresh-API
+  + Scraper-Limit-Code-Pruefung). **770 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.15] - 2026-05-05 — Test-Hygiene: alle Tests gruen
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

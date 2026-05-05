@@ -103,9 +103,13 @@ def search_freelancermap(params: dict) -> list:
                     soup = BeautifulSoup(resp.text, "lxml")
                     # v1.7.0-beta.7 (#527): Detail-Fetch-Limit pro Suche, damit
                     # wir nicht 200 Detail-Requests rauspeitschen — die ersten
-                    # 30 Stellen bekommen Beschreibung, der Rest bleibt nur
-                    # mit Titel (vorher: alle ohne Beschreibung).
-                    DETAIL_FETCH_LIMIT = 30
+                    # 75 Stellen bekommen Beschreibung, der Rest bleibt nur
+                    # mit Titel.
+                    # v1.7.0-beta.16: Limit von 30 -> 75 angehoben. Bei 4 Such-
+                    # URLs entspricht das einem Maximal-Budget von 300 Detail-
+                    # Requests pro Run — bei 0.3s Sleep also ~90s reine Politeness.
+                    # Zielwert: weniger als 10% der aktiven Stellen ohne Beschreibung.
+                    DETAIL_FETCH_LIMIT = 75
                     fetched = 0
                     for a in soup.select('a[href*="/projekt/"]'):
                         href = a.get("href", "").strip()

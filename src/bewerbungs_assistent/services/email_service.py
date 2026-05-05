@@ -376,6 +376,12 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     2. Sender email exactly matches application kontakt_email
     3. Company name appears in subject or sender
     4. Ansprechpartner name appears in sender
+
+    v1.7.0-beta.16 (#523): Leitprinzip „Im Zweifel unverknuepft."
+    Default-Threshold von 0.5 auf **0.90** erhoeht UND Domain-Pflicht-
+    kriterium: ein Auto-Match braucht mindestens EIN Domain-Signal
+    (kontakt_email-Match, Domain-Match, oder URL-Domain-Match) — reine
+    Firmenname-im-Betreff-Treffer reichen NICHT mehr.
     """
     if not applications:
         return None, 0.0
@@ -392,12 +398,17 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     best_match = None
     best_score = 0.0
     best_app_date = ""  # #389: tie-breaking by recency
+    best_has_domain_signal = False  # v1.7.0 #523: Domain-Pflicht
 
     # #389: Archive statuses are deprioritized
     _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
 
     for app in applications:
         score = 0.0
+        # v1.7.0-beta.16 (#523): explizit tracken ob ein Domain-Signal vorliegt.
+        # Ohne Domain-Signal kommt KEIN Auto-Match zustande, egal wie hoch
+        # der Score ueber andere Strategien wird.
+        has_domain_signal = False
         app_id = app.get("id")
         company = (app.get("company") or "").lower()
         kontakt_email = (app.get("kontakt_email") or "").lower()
@@ -407,17 +418,19 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
         app_status = (app.get("status") or "").lower()
         app_date = app.get("applied_at") or app.get("created_at") or ""
 
-        # Strategy 1: Exact kontakt_email match → highest confidence
+        # Strategy 1: Exact kontakt_email match → highest confidence (Domain-Signal)
         if kontakt_email and kontakt_email == sender_email:
             score = max(score, 0.95)
+            has_domain_signal = True
 
-        # Strategy 2: Domain match (kontakt_email domain)
+        # Strategy 2: Domain match (kontakt_email domain) — Domain-Signal
         if kontakt_email and "@" in kontakt_email:
             app_domain = kontakt_email.split("@", 1)[1]
             if sender_domain and sender_domain == app_domain:
-                score = max(score, 0.8)
+                score = max(score, 0.9)  # v1.7.0 #523: angehoben (war 0.8)
+                has_domain_signal = True
 
-        # Strategy 3: Company name in sender/subject
+        # Strategy 3: Company name in sender/subject (KEIN Domain-Signal)
         if company and len(company) > 2:
             # Exact company in sender
             if company in match_text:
@@ -425,11 +438,12 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
             # Company in subject
             if company in subject:
                 score = max(score, 0.65)
-            # Domain contains company (e.g. "siemens" in "siemens.com")
+            # Domain contains company (e.g. "siemens" in "siemens.com") — Domain-Signal!
             if sender_domain and company.replace(" ", "").replace("-", "") in sender_domain.replace("-", ""):
-                score = max(score, 0.75)
+                score = max(score, 0.9)  # v1.7.0 #523: angehoben (war 0.75)
+                has_domain_signal = True
 
-        # Strategy 4: Job title in subject
+        # Strategy 4: Job title in subject (KEIN Domain-Signal)
         if title and len(title) > 4:
             # Look for significant words from title in subject
             title_words = [w for w in title.split() if len(w) > 3]
@@ -438,19 +452,20 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
                 if matches >= 2 or (matches >= 1 and len(title_words) <= 2):
                     score = max(score, 0.6)
 
-        # Strategy 5: Ansprechpartner in sender
+        # Strategy 5: Ansprechpartner in sender (KEIN Domain-Signal)
         if ansprechpartner and len(ansprechpartner) > 3:
             name_parts = [p for p in ansprechpartner.split() if len(p) > 2]
             if name_parts and all(p in sender for p in name_parts):
                 score = max(score, 0.5)
 
-        # Strategy 6: URL domain match
+        # Strategy 6: URL domain match — Domain-Signal
         if app_url and sender_domain:
             url_match = re.search(r'://([^/]+)', app_url)
             if url_match:
                 url_domain = url_match.group(1).lower()
                 if sender_domain in url_domain or url_domain.endswith(sender_domain):
-                    score = max(score, 0.7)
+                    score = max(score, 0.85)  # v1.7.0 #523: angehoben (war 0.7)
+                    has_domain_signal = True
 
         # #389: Tie-breaking — prefer active (non-archived) applications and newer ones
         is_better = False
@@ -472,9 +487,17 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
             best_score = score
             best_match = app_id
             best_app_date = app_date
+            best_has_domain_signal = has_domain_signal
 
-    # #389: Raise minimum threshold from 0.3 to 0.5 to reduce wrong associations
-    if best_score < 0.5:
+    # v1.7.0-beta.16 (#523): „Im Zweifel unverknuepft."
+    # Threshold auf 0.90 angehoben (war 0.5) UND Domain-Signal-Pflicht.
+    # Eine Mail wird nur dann automatisch zugeordnet wenn:
+    #   - Score >= 0.90 UND
+    #   - mindestens ein Domain-Signal positiv ist
+    #     (kontakt_email-Match, kontakt_email-Domain-Match,
+    #      Firma-in-Sender-Domain, oder URL-Domain-Match)
+    # Reine Firmen-im-Betreff- oder Titel-Treffer reichen nicht mehr.
+    if best_score < 0.90 or not best_has_domain_signal:
         return None, 0.0
 
     return best_match, round(best_score, 2)
