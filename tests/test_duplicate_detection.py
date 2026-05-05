@@ -1,6 +1,6 @@
 """Tests for src/bewerbungs_assistent/duplicate_detection.py (#471)."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from bewerbungs_assistent.duplicate_detection import (
     find_duplicate_job,
@@ -118,8 +118,13 @@ def test_gleiche_firma_anderer_bereich_kein_match_ohne_zeitnaehe():
 
 
 def test_zeitnaehe_ohne_titel_match_schwache_warnung():
-    """Gleiche Firma, innerhalb 72h, keine Domain-Keyword-Ueberlappung."""
-    t_minus_1h = (datetime.now() - timedelta(hours=1)).isoformat()
+    """Gleiche Firma, innerhalb 72h, keine Domain-Keyword-Ueberlappung.
+
+    v1.7.0-beta.15: Timestamps muessen tz-aware UTC sein, sonst kollidiert
+    `datetime.now()` lokal mit `datetime.now(timezone.utc)` im Code und
+    `hours_ago` wird negativ (Test schlaegt in Nicht-UTC-Zonen fehl).
+    """
+    t_minus_1h = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     existing = [
         {"hash": "h1", "company": "Foo GmbH",
          "title": "Frontend Developer", "url": "",

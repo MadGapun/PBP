@@ -72,12 +72,20 @@ def _get_bulk_tool():
 
 
 def _call_bulk(**kwargs):
-    """Ruft das MCP-Tool synchron auf."""
+    """Ruft das MCP-Tool synchron auf.
+
+    v1.7.0-beta.15: Migriert auf FastMCP-2.12+-API
+    (`mcp.call_tool` existiert nicht mehr; siehe CLAUDE.md).
+    """
     import asyncio
     from bewerbungs_assistent.server import mcp
-    tool = _get_bulk_tool()
-    # FastMCP-Tools werden ueber call_tool aufgerufen
-    return asyncio.run(mcp.call_tool("stellen_bulk_bewerten", kwargs))
+    async def _run():
+        tool = await mcp.get_tool("stellen_bulk_bewerten")
+        res = await tool.run(kwargs)
+        if hasattr(res, "structured_content"):
+            return res.structured_content
+        return res
+    return asyncio.run(_run())
 
 
 def test_dry_run_titel_enthaelt_nicht(setup_env_with_jobs):

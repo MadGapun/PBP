@@ -38,7 +38,25 @@ def _result(raw):
         raw = raw.structured_content
     if isinstance(raw, list):
         raw = raw[0] if raw else {}
+    # FastMCP 2.12+ wraps single-value results in {"result": ...}
+    if isinstance(raw, dict) and set(raw.keys()) == {"result"}:
+        raw = raw["result"]
     return raw
+
+
+def _call(mcp, name, args):
+    """FastMCP 2.12+ Tool-Call-Helper (siehe CLAUDE.md).
+
+    `mcp.call_tool` existiert in FastMCP 2.12 nicht mehr. Stattdessen:
+    `await mcp.get_tool(name); await tool.run(args)`.
+    """
+    async def _run():
+        tool = await mcp.get_tool(name)
+        res = await tool.run(args)
+        if hasattr(res, "structured_content"):
+            return res.structured_content
+        return res
+    return asyncio.run(_run())
 
 
 def test_server_instructions_present():
@@ -56,7 +74,7 @@ def test_server_instructions_present():
 def test_capabilities_overview(setup_env):
     """pbp_capabilities() ohne kategorie liefert Uebersicht aller Bereiche."""
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("pbp_capabilities", {}))
+    raw = _call(mcp, "pbp_capabilities", {})
     result = _result(raw)
     assert "kategorien" in result
     assert "anti_bypass_hinweis" in result
@@ -68,7 +86,7 @@ def test_capabilities_overview(setup_env):
 def test_capabilities_detail(setup_env):
     """pbp_capabilities('jobsuche') liefert konkrete Tool-Liste."""
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("pbp_capabilities", {"kategorie": "jobsuche"}))
+    raw = _call(mcp, "pbp_capabilities", {"kategorie": "jobsuche"})
     result = _result(raw)
     assert result.get("kategorie") == "jobsuche"
     assert "tools" in result
@@ -80,7 +98,7 @@ def test_capabilities_detail(setup_env):
 def test_capabilities_unknown_kategorie(setup_env):
     """Unbekannte Kategorie liefert Fehler mit verfuegbarer Liste."""
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("pbp_capabilities", {"kategorie": "frittenbude"}))
+    raw = _call(mcp, "pbp_capabilities", {"kategorie": "frittenbude"})
     result = _result(raw)
     assert "fehler" in result
     assert "verfuegbare_kategorien" in result
@@ -90,11 +108,11 @@ def test_grenze_melden_logs_and_returns_issue_body(setup_env):
     """pbp_grenze_melden() loggt nach limitations.log + liefert Issue-Body."""
     db, tmpdir = setup_env
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("pbp_grenze_melden", {
+    raw = _call(mcp, "pbp_grenze_melden", {
         "was_versucht": "Alle Bewerbungen aus 2024 archivieren",
         "warum_pbp_nicht_passt": "bewerbungen_bulk_status_aendern existiert nicht",
         "vorschlag": "Bulk-Status-Aenderung mit Filter aelter_als",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") == "gemeldet"
     assert "gh_issue_url" in result
@@ -111,10 +129,10 @@ def test_grenze_melden_logs_and_returns_issue_body(setup_env):
 def test_grenze_melden_without_vorschlag(setup_env):
     """vorschlag ist optional — der Issue-Body funktioniert auch ohne."""
     from bewerbungs_assistent.server import mcp
-    raw = asyncio.run(mcp.call_tool("pbp_grenze_melden", {
+    raw = _call(mcp, "pbp_grenze_melden", {
         "was_versucht": "Foo",
         "warum_pbp_nicht_passt": "Bar",
-    }))
+    })
     result = _result(raw)
     assert result.get("status") == "gemeldet"
     assert "vorgeschlagener_issue_body" in result

@@ -7,6 +7,34 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.15] - 2026-05-05 — Test-Hygiene: alle Tests gruen
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Auftrag: „bis alle tests und simulationen auf gruen sind". Diese
+Beta migriert die ausstehenden FastMCP-2.12-API-Aufrufe und fixt einen
+tz-naive-Timezone-Bug im Duplikat-Erkennungs-Test.
+
+### 🧪 Fixed (Tests)
+
+- **`tests/test_capabilities_grenze.py`** (5 Tests) — `mcp.call_tool` ist
+  in FastMCP 2.12+ entfernt. Migriert auf `await mcp.get_tool(name);
+  await tool.run(args)` via `_call`-Helper (siehe CLAUDE.md).
+- **`tests/test_stellen_bulk_bewerten.py`** (6 Tests) — gleicher Fix in
+  `_call_bulk()`.
+- **`tests/test_duplicate_detection.py`** (1 Test) — `t_minus_1h` war
+  `datetime.now()` ohne tz. Bei Lokalzeit ≠ UTC kollidiert das mit dem
+  tz-aware `datetime.now(timezone.utc)` im Code (negative `hours_ago`,
+  Test schlaegt fehl). Fix: tz-aware UTC im Test.
+
+### Status
+
+- **760 Tests bestanden, 0 Failures** (vorher: 747 passed, 13 failed).
+- Damit ist die Vorbedingung „alle Tests gruen" erfuellt — Voraussetzung
+  fuer beta.16 (Daten-Quality-Bugs) und beta.17 (Nice-to-haves).
+
+---
+
 ## [1.7.0-beta.14] - 2026-05-05 — Audit-Sweep, LLM-Tests vervollstaendigt, rc.1 zurueckgezogen
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
