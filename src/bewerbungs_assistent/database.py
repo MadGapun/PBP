@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 32
+SCHEMA_VERSION = 33
 
 
 def _gen_id() -> str:
@@ -1263,6 +1263,62 @@ class Database:
                 logger.warning("document_versions-Migration fehlgeschlagen: %s", exc)
             logger.info("Migration v31->v32: document_versions-Tabelle (#577)")
 
+        if from_ver < 33:
+            # v33 / #563 v1.7.0-beta.4: Kontaktdatenbank.
+            # Personen als zentrale Entitaet mit Historie ueber Bewerbungen,
+            # Stellen, Mails und Meetings. Rollen als JSON-Array Tags
+            # (recruiter, hiring_manager, interviewer, hr, kollege, mentor, ...).
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS contacts (
+                        id TEXT PRIMARY KEY,
+                        profile_id TEXT NOT NULL,
+                        full_name TEXT NOT NULL,
+                        email TEXT,
+                        phone TEXT,
+                        linkedin_url TEXT,
+                        company TEXT,
+                        position TEXT,
+                        tags TEXT,
+                        notes TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_contacts_profile ON contacts(profile_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company)"
+                )
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS contact_links (
+                        id TEXT PRIMARY KEY,
+                        contact_id TEXT NOT NULL,
+                        target_kind TEXT NOT NULL,
+                        target_id TEXT NOT NULL,
+                        role TEXT,
+                        notes TEXT,
+                        created_at TEXT NOT NULL,
+                        FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_contact_links_contact "
+                    "ON contact_links(contact_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_contact_links_target "
+                    "ON contact_links(target_kind, target_id)"
+                )
+                conn.commit()
+            except Exception as exc:
+                logger.warning("contacts-Migration fehlgeschlagen: %s", exc)
+            logger.info("Migration v32->v33: contacts + contact_links (#563)")
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -2079,6 +2135,196 @@ class Database:
             params.append(profile_id)
         row = conn.execute(query, params).fetchone()
         return dict(row) if row else None
+
+    # === Kontaktdatenbank (v1.7.0 #563) ===
+
+    def add_contact(self, data: dict) -> str:
+        """Legt einen neuen Kontakt an. full_name ist Pflicht.
+
+        tags: Liste von Strings, wird intern als JSON serialisiert.
+        Rollen-Beispiele: 'recruiter', 'hiring_manager', 'interviewer',
+        'hr', 'kollege', 'mentor'.
+        """
+        conn = self.connect()
+        cid = _gen_id()
+        pid = data.get("profile_id") or self.get_active_profile_id() or ""
+        full_name = (data.get("full_name") or "").strip()
+        if not full_name:
+            raise ValueError("full_name ist Pflicht.")
+        tags = data.get("tags") or []
+        if not isinstance(tags, list):
+            tags = [str(tags)]
+        now = _now()
+        conn.execute("""
+            INSERT INTO contacts
+                (id, profile_id, full_name, email, phone, linkedin_url,
+                 company, position, tags, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            cid, pid, full_name,
+            data.get("email") or None,
+            data.get("phone") or None,
+            data.get("linkedin_url") or None,
+            data.get("company") or None,
+            data.get("position") or None,
+            json.dumps(tags, ensure_ascii=False),
+            data.get("notes") or None,
+            now, now,
+        ))
+        conn.commit()
+        return cid
+
+    def get_contact(self, contact_id: str) -> Optional[dict]:
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        row = conn.execute(
+            "SELECT * FROM contacts WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+            (contact_id, pid)
+        ).fetchone()
+        if row is None:
+            return None
+        return self._serialize_contact_row(row)
+
+    def list_contacts(self, search: str = "", role: str = "",
+                      company: str = "") -> list[dict]:
+        """Liste aller Kontakte des aktiven Profils. Optional gefiltert."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        query = "SELECT * FROM contacts WHERE (profile_id=? OR profile_id IS NULL)"
+        params: list = [pid]
+        if search:
+            pattern = f"%{search.lower()}%"
+            query += (" AND (LOWER(full_name) LIKE ? OR LOWER(email) LIKE ? "
+                      "OR LOWER(company) LIKE ?)")
+            params.extend([pattern, pattern, pattern])
+        if company:
+            query += " AND LOWER(company) LIKE ?"
+            params.append(f"%{company.lower()}%")
+        query += " ORDER BY full_name"
+        rows = conn.execute(query, params).fetchall()
+        contacts = [self._serialize_contact_row(r) for r in rows]
+        if role:
+            contacts = [c for c in contacts if role in (c.get("tags") or [])]
+        return contacts
+
+    def update_contact(self, contact_id: str, data: dict) -> bool:
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        allowed = ("full_name", "email", "phone", "linkedin_url",
+                   "company", "position", "notes")
+        sets, vals = [], []
+        for f in allowed:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if "tags" in data:
+            tags = data["tags"]
+            if not isinstance(tags, list):
+                tags = [str(tags)]
+            sets.append("tags=?")
+            vals.append(json.dumps(tags, ensure_ascii=False))
+        if not sets:
+            return False
+        sets.append("updated_at=?")
+        vals.extend([_now(), contact_id, pid])
+        cur = conn.execute(
+            f"UPDATE contacts SET {','.join(sets)} "
+            f"WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+            vals
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_contact(self, contact_id: str) -> bool:
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        cur = conn.execute(
+            "DELETE FROM contacts WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+            (contact_id, pid)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def link_contact(self, contact_id: str, target_kind: str, target_id: str,
+                      role: str = "", notes: str = "") -> Optional[str]:
+        """Verknuepft einen Kontakt mit einem Bewerbung/Meeting/Job/Company.
+
+        target_kind: 'application', 'meeting', 'job', 'company'.
+        Doppelte Verknuepfungen (gleicher Kontakt → gleiches Ziel mit gleicher Rolle)
+        werden ignoriert (idempotent).
+        """
+        if target_kind not in ("application", "meeting", "job", "company"):
+            raise ValueError(
+                f"target_kind muss application/meeting/job/company sein, nicht {target_kind!r}"
+            )
+        conn = self.connect()
+        # Idempotent: wenn schon verknuepft mit selber Rolle, return existing
+        existing = conn.execute(
+            "SELECT id FROM contact_links "
+            "WHERE contact_id=? AND target_kind=? AND target_id=? AND COALESCE(role,'')=COALESCE(?,'')",
+            (contact_id, target_kind, target_id, role or "")
+        ).fetchone()
+        if existing:
+            return existing["id"]
+        lid = _gen_id()
+        conn.execute(
+            "INSERT INTO contact_links (id, contact_id, target_kind, target_id, role, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (lid, contact_id, target_kind, target_id, role or None, notes or None, _now())
+        )
+        conn.commit()
+        return lid
+
+    def unlink_contact(self, link_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM contact_links WHERE id=?", (link_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_contact_links(self, contact_id: str) -> list[dict]:
+        """Liste aller Verknuepfungen eines Kontakts (Bewerbungen/Meetings/Jobs/Firmen)."""
+        conn = self.connect()
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM contact_links WHERE contact_id=? ORDER BY created_at DESC",
+            (contact_id,)
+        ).fetchall()]
+
+    def get_contacts_for_target(self, target_kind: str, target_id: str) -> list[dict]:
+        """Alle Kontakte zu einem Ziel (Bewerbung/Meeting/Job/Firma)."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT c.*, l.role as link_role, l.id as link_id "
+            "FROM contacts c JOIN contact_links l ON l.contact_id = c.id "
+            "WHERE l.target_kind=? AND l.target_id=? "
+            "ORDER BY c.full_name",
+            (target_kind, target_id)
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = self._serialize_contact_row(r)
+            d["link_role"] = r["link_role"] if "link_role" in r.keys() else None
+            d["link_id"] = r["link_id"] if "link_id" in r.keys() else None
+            result.append(d)
+        return result
+
+    def _serialize_contact_row(self, row) -> dict:
+        if row is None:
+            return None
+        d = dict(row)
+        # Tags-Liste aus JSON deserialisieren
+        try:
+            d["tags"] = json.loads(d.get("tags") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            d["tags"] = []
+        # Typisierte ID hinzufuegen (#505)
+        try:
+            from .services.typed_ids import format_id, IdKind
+            # Kontakte haben kein eigenes IdKind — wir nutzen 'CON'
+            # Kuenftig bei Bedarf in IdKind aufnehmen; hier minimal
+            d["id_typed"] = f"CON-{(d.get('id') or '')[:8]}"
+        except Exception:
+            pass
+        return d
 
     # === Stilarchiv (v1.7.0 #577) ===
 
@@ -5580,4 +5826,36 @@ CREATE TABLE IF NOT EXISTS document_versions (
     notes TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_document_versions_profile_kind ON document_versions(profile_id, kind, created_at DESC);
+
+-- v1.7.0 (#563) Kontaktdatenbank
+CREATE TABLE IF NOT EXISTS contacts (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    linkedin_url TEXT,
+    company TEXT,
+    position TEXT,
+    tags TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_contacts_profile ON contacts(profile_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
+CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company);
+
+CREATE TABLE IF NOT EXISTS contact_links (
+    id TEXT PRIMARY KEY,
+    contact_id TEXT NOT NULL,
+    target_kind TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    role TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);
+CREATE INDEX IF NOT EXISTS idx_contact_links_target ON contact_links(target_kind, target_id);
 """

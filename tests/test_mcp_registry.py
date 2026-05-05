@@ -41,6 +41,14 @@ EXPECTED_TOOL_NAMES = {
     "profil_exportieren",
     "profil_importieren",
     "jobsuche_starten",
+    "kontakt_anlegen",
+    "kontakt_anzeigen",
+    "kontakt_bearbeiten",
+    "kontakt_entknuepfen",
+    "kontakt_loeschen",
+    "kontakt_verknuepfen",
+    "kontakte_auflisten",
+    "kontakte_zu_bewerbung",
     "jobsuche_status",
     "stelle_bewerten",
     "stellen_anzeigen",
@@ -215,7 +223,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 100  # v1.7.0-beta.2: +stilarchiv_speichern/kontext/outcome_setzen (#577)
+        assert len(tools) == 108  # v1.7.0-beta.4: +8 kontakt_*-Tools (#563)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

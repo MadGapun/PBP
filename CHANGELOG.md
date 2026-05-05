@@ -7,6 +7,82 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.4] - 2026-05-05 — Kontaktdatenbank Backend (#563)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+### 👥 Kontaktdatenbank — Backend
+
+Schema, DB-Helpers, MCP-Tools fuer eine zentrale Personen-Entitaet mit
+Historie ueber Bewerbungen, Stellen, Mails und Meetings.
+
+**Designprinzip:** Rollen als Tags (JSON-Array), nicht als eigener Typ.
+Eine Person kann z.B. gleichzeitig 'recruiter' und 'hiring_manager' sein —
+in verschiedenen Kontexten verschiedene Rollen.
+
+### 🗃️ Schema v33
+
+- **`contacts`-Tabelle:** id, profile_id, full_name, email, phone,
+  linkedin_url, company, position, tags (JSON), notes, created_at, updated_at.
+- **`contact_links`-Tabelle:** Verknuepft Kontakt mit Bewerbung/Meeting/
+  Job/Firma + optionale Rolle in diesem Kontext + Notizen. FK CASCADE-DELETE
+  auf contacts.id.
+- Indizes auf `profile_id`, `email`, `company`, plus zwei auf contact_links
+  fuer schnelle Forward+Reverse-Lookups.
+
+### 🛠️ DB-API
+
+- `add_contact`, `get_contact`, `update_contact`, `delete_contact`
+- `list_contacts(search, role, company)` mit drei Filtern
+- `link_contact(contact_id, target_kind, target_id, role)` — idempotent
+  (gleicher Kontakt + Ziel + Rolle = vorhandene Link-ID zurueck)
+- `get_contact_links(contact_id)` — Forward-Lookup
+- `get_contacts_for_target(target_kind, target_id)` — Reverse-Lookup
+- `_serialize_contact_row` mit `tags` als Liste (nicht JSON-String) und
+  `id_typed` mit `CON-`-Praefix
+
+### 🤖 8 neue MCP-Tools
+
+- `kontakt_anlegen` — mit Pflichtfeld `name` und optionalen `email`,
+  `firma`, `position`, `telefon`, `linkedin_url`, `rollen`, `notizen`
+- `kontakt_anzeigen` — Detail inkl. Verknuepfungen
+- `kontakte_auflisten` — mit Filtern `suche`, `rolle`, `firma`
+- `kontakt_bearbeiten` — partielle Updates (None = nicht aendern)
+- `kontakt_loeschen` — mit `bestaetigung=True`
+- `kontakt_verknuepfen` — `ziel_typ`-Mapping (bewerbung→application,
+  meeting/termin→meeting, stelle/job→job, firma→company)
+- `kontakt_entknuepfen`
+- `kontakte_zu_bewerbung` — Reverse-Lookup pro Bewerbung mit Rollen
+
+### Stats
+
+- **108 MCP-Tools** (vorher 100): +8 `kontakt_*`-Tools (#563)
+- **16 neue Tests** in `tests/test_v170_beta4.py`, alle gruen (132 total)
+- **Schema v33** (vorher v32) — neue Tabellen `contacts`, `contact_links`
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.4.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.4.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.3
+
+Einfach drueberinstallieren — Schema-Migration v32 → v33 laeuft automatisch.
+
+#### Frontend-UI
+
+Die UI fuer Kontakte (Liste, Detail, „Beteiligte"-Sektion in Bewerbungen)
+folgt in beta.5/6. In beta.4 sind die Kontakte ueber die MCP-Tools
+(Claude) bereits voll nutzbar.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.3] - 2026-05-05 — Globale Suche + Doku-Kategorien
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
