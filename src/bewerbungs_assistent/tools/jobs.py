@@ -1201,6 +1201,228 @@ def register(mcp, db, logger):
             )
         return result
 
+    # === v1.7.0-beta.5: n:m + Stellen-Vergleich (#472, #580) ===
+
+    @mcp.tool()
+    def bewerbung_stelle_verknuepfen(
+        bewerbung_id: str,
+        stellen_hash: str,
+        version_label: str = "",
+        ist_primaer: bool = False,
+    ) -> dict:
+        """Verknuepft eine Bewerbung mit einer (zusaetzlichen) Stelle (#472).
+
+        Use-Case: Eine Bewerbung kann sich auf MEHRERE Stellen-Versionen
+        beziehen — z.B. wenn eine Firma die Stelle re-postet, oder wenn
+        man sich gleichzeitig auf zwei verwandte Stellen bewirbt
+        (Vermittler + Endkunde, oder Senior + Lead Variante).
+
+        Args:
+            bewerbung_id: ID der Bewerbung (mit oder ohne APP-Praefix).
+            stellen_hash: Hash der Stelle (mit oder ohne JOB-Praefix).
+            version_label: Optionale Bezeichnung (z.B. 'Senior-Variante',
+                'Repost vom 15.05.', 'Endkunde-Sicht').
+            ist_primaer: Wenn True, wird diese Verknuepfung als primaer
+                gesetzt (alle anderen werden auf nicht-primaer gesetzt).
+        """
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id)
+        jhash = strip_prefix(stellen_hash)
+        try:
+            link_id = db.link_application_to_job(
+                bid, jhash, version_label=version_label,
+                is_primary=ist_primaer
+            )
+        except Exception as e:
+            return {"fehler": f"Verknuepfung fehlgeschlagen: {e}"}
+        return {
+            "status": "verknuepft",
+            "link_id": link_id,
+            "bewerbung_id": bewerbung_id,
+            "stellen_hash": stellen_hash,
+        }
+
+    @mcp.tool()
+    def bewerbung_stelle_entknuepfen(bewerbung_id: str, stellen_hash: str) -> dict:
+        """Entfernt eine Stellen-Verknuepfung von einer Bewerbung."""
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id)
+        jhash = strip_prefix(stellen_hash)
+        ok = db.unlink_application_job(bid, jhash)
+        return {"status": "entfernt" if ok else "nicht_gefunden"}
+
+    @mcp.tool()
+    def bewerbung_stellen_anzeigen(bewerbung_id: str) -> dict:
+        """Listet alle Stellen, die mit einer Bewerbung verknuepft sind (#472).
+
+        Wenn die Bewerbung ein klassisches `applications.job_hash` hat,
+        ist es als is_primary=True hier mit drin (durch Migration).
+        """
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id)
+        jobs = db.get_jobs_for_application(bid)
+        return {
+            "bewerbung_id": bewerbung_id,
+            "anzahl": len(jobs),
+            "stellen": jobs,
+        }
+
+    @mcp.tool()
+    def stelle_vergleichen(hash_a: str, hash_b: str) -> dict:
+        """Vergleicht zwei Stellen strukturiert (#580).
+
+        Liefert eine Gegenueberstellung von Skills (gemeinsam / nur A /
+        nur B), Gehalt, Standort, Stellenart, Score und
+        Beschreibungs-Laenge. Sehr hilfreich um zu erkennen ob zwei
+        Stellen wirklich verschieden sind oder nur Schreibvarianten.
+        """
+        from ..services.typed_ids import strip_prefix
+        ha = strip_prefix(hash_a)
+        hb = strip_prefix(hash_b)
+        ja = db.get_job(ha)
+        jb = db.get_job(hb)
+        if not ja or not jb:
+            return {"fehler": "Mindestens eine der Stellen wurde nicht gefunden."}
+
+        def _tokens(text):
+            import re
+            return set(re.findall(r"[a-zäöüß0-9]+", (text or "").lower())) - {
+                "und", "der", "die", "das", "ein", "eine", "fuer", "im", "mit",
+                "bei", "von", "zu", "in", "an", "the", "and", "for", "with",
+            }
+
+        title_a = _tokens(ja.get("title", ""))
+        title_b = _tokens(jb.get("title", ""))
+        desc_a = _tokens(ja.get("description", ""))
+        desc_b = _tokens(jb.get("description", ""))
+
+        common_title = title_a & title_b
+        only_a_title = title_a - title_b
+        only_b_title = title_b - title_a
+
+        return {
+            "stelle_a": {
+                "hash": ja.get("hash"),
+                "title": ja.get("title"),
+                "company": ja.get("company"),
+                "score": ja.get("score"),
+                "source": ja.get("source"),
+                "salary_min": ja.get("salary_min"),
+                "salary_max": ja.get("salary_max"),
+                "location": ja.get("location"),
+                "remote_level": ja.get("remote_level"),
+                "employment_type": ja.get("employment_type"),
+                "is_active": bool(ja.get("is_active")),
+                "description_length": len((ja.get("description") or "")),
+            },
+            "stelle_b": {
+                "hash": jb.get("hash"),
+                "title": jb.get("title"),
+                "company": jb.get("company"),
+                "score": jb.get("score"),
+                "source": jb.get("source"),
+                "salary_min": jb.get("salary_min"),
+                "salary_max": jb.get("salary_max"),
+                "location": jb.get("location"),
+                "remote_level": jb.get("remote_level"),
+                "employment_type": jb.get("employment_type"),
+                "is_active": bool(jb.get("is_active")),
+                "description_length": len((jb.get("description") or "")),
+            },
+            "vergleich": {
+                "titel_gemeinsam": sorted(common_title),
+                "titel_nur_a": sorted(only_a_title),
+                "titel_nur_b": sorted(only_b_title),
+                "beschreibung_overlap_pct": (
+                    round(len(desc_a & desc_b) / max(len(desc_a | desc_b), 1) * 100, 1)
+                    if (desc_a or desc_b) else 0
+                ),
+                "score_diff": (ja.get("score") or 0) - (jb.get("score") or 0),
+                "gleiche_firma": (ja.get("company") or "").lower().strip() == (jb.get("company") or "").lower().strip(),
+            },
+        }
+
+    @mcp.tool()
+    def aehnliche_stellen_finden(stellen_hash: str, max_treffer: int = 5) -> dict:
+        """Findet aehnliche Stellen zu einer gegebenen Stelle (#580).
+
+        Algorithmus: Token-Overlap zwischen Title+Description. Bewerbungen
+        und Stellen mit gleichem Hash werden ausgeschlossen. Liefert
+        zusaetzlich den Outcome-Status (erfolgreich/abgelehnt/aussortiert)
+        wenn vorhanden — als Lern-Signal.
+        """
+        from ..services.typed_ids import strip_prefix
+        h = strip_prefix(stellen_hash)
+        target = db.get_job(h)
+        if not target:
+            return {"fehler": "Stelle nicht gefunden."}
+
+        import re
+        def _tokens(text):
+            return set(re.findall(r"[a-zäöüß0-9]+", (text or "").lower())) - {
+                "und", "der", "die", "das", "ein", "eine", "fuer", "im", "mit",
+                "bei", "von", "zu", "in", "an", "the", "and", "for", "with",
+                "stelle", "position", "rolle", "team", "wir", "sie",
+            }
+        target_tokens = _tokens(target.get("title", "") + " " + (target.get("description") or "")[:1500])
+        if not target_tokens:
+            return {"hinweis": "Stelle hat zu wenig Text fuer Aehnlichkeits-Berechnung."}
+
+        # Alle anderen Stellen durchgehen
+        all_jobs = db.get_active_jobs() + db.get_dismissed_jobs()
+        scored = []
+        for j in all_jobs:
+            if j.get("hash") == target.get("hash"):
+                continue
+            jt = _tokens(j.get("title", "") + " " + (j.get("description") or "")[:1500])
+            if not jt:
+                continue
+            inter = target_tokens & jt
+            union = target_tokens | jt
+            jaccard = len(inter) / len(union) if union else 0
+            if jaccard < 0.05:
+                continue
+            scored.append((jaccard, j))
+
+        # Top N
+        scored.sort(key=lambda x: -x[0])
+        top = scored[:max_treffer]
+
+        # Bewerbungen pruefen — gibt's zu der Stelle eine?
+        results = []
+        for sim, j in top:
+            apps = db.get_applications_for_job(j.get("hash"))
+            outcome = None
+            if apps:
+                statuses = [a.get("status") for a in apps]
+                if any(s in ("interview", "zweitgespraech",
+                            "interview_abgeschlossen", "angebot",
+                            "angenommen") for s in statuses):
+                    outcome = "interview_erreicht"
+                elif "abgelehnt" in statuses:
+                    outcome = "abgelehnt"
+                else:
+                    outcome = f"status:{statuses[0]}" if statuses else None
+            elif not j.get("is_active"):
+                outcome = f"aussortiert:{j.get('dismiss_reason') or 'unbekannt'}"
+            results.append({
+                "hash": j.get("hash"),
+                "title": j.get("title"),
+                "company": j.get("company"),
+                "similarity": round(sim, 2),
+                "outcome": outcome,
+            })
+
+        return {
+            "vergleichsstelle": {
+                "hash": target.get("hash"),
+                "title": target.get("title"),
+                "company": target.get("company"),
+            },
+            "anzahl": len(results),
+            "aehnliche": results,
+        }
+
     @mcp.tool()
     def stelle_mergen(
         master_hash: str,

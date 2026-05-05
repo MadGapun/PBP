@@ -18,7 +18,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 33
+SCHEMA_VERSION = 34
 
 
 def _gen_id() -> str:
@@ -1319,6 +1319,107 @@ class Database:
                 logger.warning("contacts-Migration fehlgeschlagen: %s", exc)
             logger.info("Migration v32->v33: contacts + contact_links (#563)")
 
+        if from_ver < 34:
+            # v34 / #472 + #572 v1.7.0-beta.5: n:m Bewerbung-Stelle +
+            # Skill-Zeitraum-Splitting.
+            #
+            # n:m Bewerbung-Stelle: applications.job_hash bleibt erhalten als
+            # 'primary' (Backwards-Compat); zusaetzlich application_jobs als
+            # Junction. Bestand wird migriert: jeder application mit job_hash
+            # bekommt einen Eintrag in application_jobs.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS application_jobs (
+                        id TEXT PRIMARY KEY,
+                        application_id TEXT NOT NULL,
+                        job_hash TEXT NOT NULL,
+                        version_label TEXT,
+                        is_primary INTEGER DEFAULT 0,
+                        added_at TEXT NOT NULL,
+                        UNIQUE(application_id, job_hash)
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_application_jobs_app "
+                    "ON application_jobs(application_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_application_jobs_job "
+                    "ON application_jobs(job_hash)"
+                )
+                # Bestand migrieren
+                migrated_aj = 0
+                rows = conn.execute(
+                    "SELECT id, job_hash FROM applications "
+                    "WHERE job_hash IS NOT NULL AND job_hash != ''"
+                ).fetchall()
+                for r in rows:
+                    aj_id = _gen_id()
+                    try:
+                        conn.execute(
+                            "INSERT OR IGNORE INTO application_jobs "
+                            "(id, application_id, job_hash, is_primary, added_at) "
+                            "VALUES (?, ?, ?, 1, ?)",
+                            (aj_id, r["id"], r["job_hash"], _now())
+                        )
+                        migrated_aj += 1
+                    except Exception:
+                        pass
+                conn.commit()
+                logger.info("Migration v33->v34: application_jobs Junction angelegt, "
+                            "%d Bestands-Verknuepfungen migriert (#472)", migrated_aj)
+            except Exception as exc:
+                logger.warning("application_jobs-Migration fehlgeschlagen: %s", exc)
+
+            # Skill-Zeitraeume: skill_periods erlaubt diskontinuierliche
+            # Zeitraeume pro Skill. skills.start_year/end_year aus v28
+            # bleiben unveraendert — werden bei Existenz nach skill_periods
+            # gespiegelt.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS skill_periods (
+                        id TEXT PRIMARY KEY,
+                        skill_id TEXT NOT NULL,
+                        start_year INTEGER,
+                        end_year INTEGER,
+                        level_at_period INTEGER,
+                        notes TEXT,
+                        created_at TEXT,
+                        FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_skill_periods_skill "
+                    "ON skill_periods(skill_id)"
+                )
+                # Bestand spiegeln
+                migrated_sp = 0
+                try:
+                    rows = conn.execute(
+                        "SELECT id, start_year, end_year, level FROM skills "
+                        "WHERE start_year IS NOT NULL"
+                    ).fetchall()
+                    for r in rows:
+                        sp_id = _gen_id()
+                        try:
+                            conn.execute(
+                                "INSERT INTO skill_periods "
+                                "(id, skill_id, start_year, end_year, level_at_period, created_at) "
+                                "VALUES (?, ?, ?, ?, ?, ?)",
+                                (sp_id, r["id"], r["start_year"],
+                                 r["end_year"], r["level"], _now())
+                            )
+                            migrated_sp += 1
+                        except Exception:
+                            pass
+                    conn.commit()
+                except Exception:
+                    pass
+                logger.info("Migration v33->v34: skill_periods angelegt, "
+                            "%d Bestands-Zeitraeume migriert (#572)", migrated_sp)
+            except Exception as exc:
+                logger.warning("skill_periods-Migration fehlgeschlagen: %s", exc)
+
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
             (str(to_ver),)
@@ -2135,6 +2236,135 @@ class Database:
             params.append(profile_id)
         row = conn.execute(query, params).fetchone()
         return dict(row) if row else None
+
+    # === n:m Bewerbung-Stelle (v1.7.0 #472) ===
+
+    def link_application_to_job(self, application_id: str, job_hash: str,
+                                  version_label: str = "",
+                                  is_primary: bool = False) -> str:
+        """Verknuepft eine Bewerbung mit einer (zusaetzlichen) Stelle.
+
+        Idempotent: gleiche Kombi gibt vorhandene ID zurueck. Wenn
+        is_primary=True, wird zuvor jede andere Verknuepfung der Bewerbung
+        auf is_primary=0 gesetzt (es gibt nur eine primary pro Bewerbung).
+        """
+        conn = self.connect()
+        # v1.7.0: Hash auf scoped Form aufloesen (Format B aus #574)
+        resolved = self.resolve_job_hash(job_hash) or job_hash
+        job_hash = resolved
+        # Idempotent
+        existing = conn.execute(
+            "SELECT id FROM application_jobs WHERE application_id=? AND job_hash=?",
+            (application_id, job_hash)
+        ).fetchone()
+        if existing:
+            if is_primary:
+                conn.execute(
+                    "UPDATE application_jobs SET is_primary=0 "
+                    "WHERE application_id=? AND id != ?",
+                    (application_id, existing["id"])
+                )
+                conn.execute(
+                    "UPDATE application_jobs SET is_primary=1 WHERE id=?",
+                    (existing["id"],)
+                )
+                conn.commit()
+            return existing["id"]
+        if is_primary:
+            conn.execute(
+                "UPDATE application_jobs SET is_primary=0 WHERE application_id=?",
+                (application_id,)
+            )
+        aj_id = _gen_id()
+        conn.execute(
+            "INSERT INTO application_jobs "
+            "(id, application_id, job_hash, version_label, is_primary, added_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (aj_id, application_id, job_hash, version_label or None,
+             1 if is_primary else 0, _now())
+        )
+        conn.commit()
+        return aj_id
+
+    def unlink_application_job(self, application_id: str, job_hash: str) -> bool:
+        conn = self.connect()
+        resolved = self.resolve_job_hash(job_hash) or job_hash
+        cur = conn.execute(
+            "DELETE FROM application_jobs WHERE application_id=? AND job_hash=?",
+            (application_id, resolved)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_jobs_for_application(self, application_id: str) -> list[dict]:
+        """Alle Stellen, die mit einer Bewerbung verknuepft sind.
+
+        Liefert die kompletten Job-Rows + zusaetzliches Feld
+        `version_label` und `is_primary` aus der Junction.
+        """
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT j.*, aj.version_label as link_version, aj.is_primary as link_primary, "
+            "aj.id as link_id "
+            "FROM jobs j JOIN application_jobs aj ON aj.job_hash = j.hash "
+            "WHERE aj.application_id=? "
+            "ORDER BY aj.is_primary DESC, aj.added_at DESC",
+            (application_id,)
+        ).fetchall()
+        result = []
+        for r in rows:
+            d = self._serialize_job_row(r)
+            d["link_version"] = r["link_version"] if "link_version" in r.keys() else None
+            d["link_primary"] = bool(r["link_primary"]) if "link_primary" in r.keys() else False
+            d["link_id"] = r["link_id"] if "link_id" in r.keys() else None
+            result.append(d)
+        return result
+
+    def get_applications_for_job(self, job_hash: str) -> list[dict]:
+        """Alle Bewerbungen, die mit einer Stelle verknuepft sind."""
+        conn = self.connect()
+        resolved = self.resolve_job_hash(job_hash) or job_hash
+        rows = conn.execute(
+            "SELECT a.* FROM applications a "
+            "JOIN application_jobs aj ON aj.application_id = a.id "
+            "WHERE aj.job_hash=? "
+            "ORDER BY a.created_at DESC",
+            (resolved,)
+        ).fetchall()
+        return [self._serialize_application_row(r) for r in rows]
+
+    # === Skill-Zeitraeume (v1.7.0 #572) ===
+
+    def add_skill_period(self, skill_id: str, start_year: int = None,
+                          end_year: int = None, level: int = None,
+                          notes: str = "") -> str:
+        """Fuegt einem Skill einen weiteren Zeitraum hinzu (diskontinuierlich)."""
+        conn = self.connect()
+        sp_id = _gen_id()
+        conn.execute(
+            "INSERT INTO skill_periods "
+            "(id, skill_id, start_year, end_year, level_at_period, notes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (sp_id, skill_id, start_year, end_year, level, notes or None, _now())
+        )
+        conn.commit()
+        return sp_id
+
+    def get_skill_periods(self, skill_id: str) -> list[dict]:
+        """Alle Zeitraeume eines Skills, sortiert nach start_year DESC."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM skill_periods WHERE skill_id=? "
+            "ORDER BY COALESCE(end_year, 9999) DESC, start_year DESC",
+            (skill_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_skill_period(self, period_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM skill_periods WHERE id=?", (period_id,))
+        conn.commit()
+        return cur.rowcount > 0
 
     # === Kontaktdatenbank (v1.7.0 #563) ===
 
@@ -5858,4 +6088,30 @@ CREATE TABLE IF NOT EXISTS contact_links (
 );
 CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);
 CREATE INDEX IF NOT EXISTS idx_contact_links_target ON contact_links(target_kind, target_id);
+
+-- v1.7.0 (#472) n:m Bewerbung-Stelle Junction
+CREATE TABLE IF NOT EXISTS application_jobs (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL,
+    job_hash TEXT NOT NULL,
+    version_label TEXT,
+    is_primary INTEGER DEFAULT 0,
+    added_at TEXT NOT NULL,
+    UNIQUE(application_id, job_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_application_jobs_app ON application_jobs(application_id);
+CREATE INDEX IF NOT EXISTS idx_application_jobs_job ON application_jobs(job_hash);
+
+-- v1.7.0 (#572) Skill-Zeitraeume (diskontinuierlich)
+CREATE TABLE IF NOT EXISTS skill_periods (
+    id TEXT PRIMARY KEY,
+    skill_id TEXT NOT NULL,
+    start_year INTEGER,
+    end_year INTEGER,
+    level_at_period INTEGER,
+    notes TEXT,
+    created_at TEXT,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_skill_periods_skill ON skill_periods(skill_id);
 """

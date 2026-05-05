@@ -7,6 +7,81 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.5] - 2026-05-05 — n:m Bewerbung-Stelle + Skills-Zeitraeume + Stellen-Vergleich
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Schwerpunkt-Schema-Update — drei zusammengehoerige Themen, alle in einer
+Migration v34.
+
+### 🔗 n:m Bewerbung-Stelle (#472)
+
+- **Neue Tabelle `application_jobs`** als Junction zwischen Applications
+  und Jobs. `is_primary`-Flag pro Bewerbung (eine primaere Stelle), 
+  `version_label` fuer Bezeichnung der Variante.
+- **Migration v33→v34:** Bestand wird automatisch migriert — jede
+  Bewerbung mit `applications.job_hash` bekommt einen Eintrag in
+  `application_jobs` mit `is_primary=1`. `applications.job_hash`
+  bleibt erhalten (Backwards-Compat).
+- **Idempotente Verknuepfung:** gleicher (application, job)-Kombi gibt
+  vorhandene Link-ID zurueck.
+- **Primary-Uniqueness:** Wenn `is_primary=True` gesetzt wird, wird
+  jede andere Verknuepfung der Bewerbung auf `is_primary=0` gesetzt.
+
+#### 4 neue MCP-Tools
+
+- `bewerbung_stelle_verknuepfen` — eine Bewerbung mit weiteren Stellen
+  verknuepfen (z.B. Repost, Vermittler+Endkunde-Sicht, mehrere Varianten)
+- `bewerbung_stelle_entknuepfen`
+- `bewerbung_stellen_anzeigen` — Forward-Lookup
+- `aehnliche_stellen_finden` — Token-Overlap-Algorithmus, liefert
+  Top N aehnliche Stellen + Outcome-Hinweis (interview/abgelehnt/aussortiert)
+
+### 🎯 Skills-Zeitraeume (#572)
+
+- **Neue Tabelle `skill_periods`** fuer diskontinuierliche Erfahrung —
+  z.B. „Java 2010-2015, Pause, dann 2022-heute". Pro Zeitraum kann
+  ein eigenes Niveau (level 1-5) gesetzt werden.
+- **Migration v33→v34:** Bestand aus `skills.start_year`/`end_year`
+  (v28) wird automatisch in `skill_periods` gespiegelt.
+
+#### 3 neue MCP-Tools
+
+- `skill_zeitraum_hinzufuegen` — weitere Periode anlegen
+- `skill_zeitraeume_anzeigen` — Liste der Zeitraeume
+- `skill_zeitraum_loeschen`
+
+### 🆚 Stellen-Vergleich (#580)
+
+- **`stelle_vergleichen(hash_a, hash_b)`** — strukturierte Gegen-
+  ueberstellung: Titel-Overlap (gemeinsam/nur A/nur B), Beschreibungs-
+  Overlap-Prozent, Score-Diff, Standort, Stellenart, Salary-Bereich,
+  „gleiche Firma?".
+- **`aehnliche_stellen_finden(hash, max_treffer)`** — siehe oben.
+
+### Stats
+
+- **116 MCP-Tools** (vorher 108): +4 (n:m), +3 (skill_periods), +1 (`stelle_vergleichen`), +1 (`aehnliche_stellen_finden`)
+- **15 neue Tests** in `tests/test_v170_beta5.py`, alle gruen (147 total)
+- **Schema v34** (vorher v33) — `application_jobs` + `skill_periods` Tabellen, mit Bestands-Migration
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.5.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.4
+
+Einfach drueberinstallieren — Schema-Migration v33 → v34 laeuft automatisch.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.4] - 2026-05-05 — Kontaktdatenbank Backend (#563)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

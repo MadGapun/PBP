@@ -26,6 +26,10 @@ EXPECTED_TOOL_NAMES = {
     "projekt_hinzufuegen",
     "ausbildung_hinzufuegen",
     "skill_hinzufuegen",
+    "skill_zeitraeume_anzeigen",
+    "skill_zeitraum_hinzufuegen",
+    "skill_zeitraum_loeschen",
+    "stelle_vergleichen",
     "profile_auflisten",
     "profil_wechseln",
     "neues_profil_erstellen",
@@ -40,6 +44,10 @@ EXPECTED_TOOL_NAMES = {
     "extraktions_verlauf",
     "profil_exportieren",
     "profil_importieren",
+    "aehnliche_stellen_finden",
+    "bewerbung_stelle_entknuepfen",
+    "bewerbung_stelle_verknuepfen",
+    "bewerbung_stellen_anzeigen",
     "jobsuche_starten",
     "kontakt_anlegen",
     "kontakt_anzeigen",
@@ -223,7 +231,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 108  # v1.7.0-beta.4: +8 kontakt_*-Tools (#563)
+        assert len(tools) == 116  # v1.7.0-beta.5: +8 (n:m + Stellen-Vergleich + Skill-Periods, #472/#572/#580)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

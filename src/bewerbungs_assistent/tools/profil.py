@@ -639,6 +639,54 @@ def register(mcp, db, logger):
         })
         return {"status": "gespeichert", "skill_id": sid}
 
+    # --- v1.7.0 (#572) Skill-Zeitraeume (diskontinuierlich) ---
+
+    @mcp.tool()
+    def skill_zeitraum_hinzufuegen(
+        skill_id: str,
+        start_jahr: int = None,
+        end_jahr: int = None,
+        level: int = None,
+        notizen: str = "",
+    ) -> dict:
+        """Fuegt einem Skill einen weiteren Zeitraum hinzu (#572).
+
+        Sinnvoll bei Skills mit diskontinuierlicher Erfahrung — z.B. eine
+        Programmiersprache 2010-2015 genutzt, Pause, dann 2022-heute wieder.
+        Pro Zeitraum kann ein eigenes Niveau (level 1-5) gesetzt werden.
+
+        Args:
+            skill_id: ID des Skills.
+            start_jahr: Beginn des Zeitraums (Jahr als Zahl).
+            end_jahr: Ende. None = laeuft noch.
+            level: Niveau 1-5 in diesem Zeitraum.
+            notizen: Freitext (z.B. 'bei TestCorp im Team Backend').
+        """
+        try:
+            sp_id = db.add_skill_period(
+                skill_id, start_year=start_jahr, end_year=end_jahr,
+                level=level, notes=notizen
+            )
+        except Exception as e:
+            return {"fehler": f"Fehler beim Anlegen: {e}"}
+        return {"status": "angelegt", "zeitraum_id": sp_id}
+
+    @mcp.tool()
+    def skill_zeitraeume_anzeigen(skill_id: str) -> dict:
+        """Listet alle Zeitraeume eines Skills (#572)."""
+        periods = db.get_skill_periods(skill_id)
+        return {
+            "skill_id": skill_id,
+            "anzahl": len(periods),
+            "zeitraeume": periods,
+        }
+
+    @mcp.tool()
+    def skill_zeitraum_loeschen(zeitraum_id: str) -> dict:
+        """Loescht einen Skill-Zeitraum."""
+        ok = db.delete_skill_period(zeitraum_id)
+        return {"status": "geloescht" if ok else "nicht_gefunden"}
+
     # --- Multi-Profil (4 Tools) ---
 
     @mcp.tool()
