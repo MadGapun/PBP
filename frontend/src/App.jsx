@@ -21,6 +21,7 @@
   Sun,
   Trash2,
   UserRound,
+  UsersRound,
 } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -40,6 +41,7 @@ import ProfileOnboarding from "@/components/ProfileOnboarding";
 import Sidebar from "@/components/Sidebar";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
+import ContactsPage from "@/pages/ContactsPage";
 import DashboardPage from "@/pages/DashboardPage";
 import JobsPage from "@/pages/JobsPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -74,6 +76,7 @@ const TAB_CONFIG = [
   { id: "profil", title: "Profil", icon: UserRound, defaultMeta: "Lebenslauf-Basis und Vollständigkeit" },
   { id: "stellen", title: "Stellen", icon: BriefcaseBusiness, defaultMeta: "Treffer, Filter und Fit" },
   { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "TODOs, Follow-ups und Status" },
+  { id: "kontakte", title: "Kontakte", icon: UsersRound, defaultMeta: "Personen mit Rollen und Historie" },
   { id: "dokumente", title: "Docs", icon: FolderOpen, defaultMeta: "Suche, Filter und Querverweis" },
   { id: "kalender", title: "Kalender", icon: CalendarDays, defaultMeta: "Termine und ICS-Export" },
   { id: "statistiken", title: "Statistiken", icon: BarChart3, defaultMeta: "Charts, Trends und Export" },
@@ -1413,6 +1416,7 @@ export default function App() {
             {page === "profil" ? <ProfilePage /> : null}
             {page === "stellen" ? <JobsPage /> : null}
             {page === "bewerbungen" ? <ApplicationsPage /> : null}
+            {page === "kontakte" ? <ContactsPage /> : null}
             {page === "dokumente" ? <DocumentsPage /> : null}
             {page === "kalender" ? <CalendarPage /> : null}
             {page === "statistiken" ? <StatsPage /> : null}

@@ -5560,6 +5560,87 @@ async def api_privacy_self_disclosure():
     )
 
 
+# === Kontakte API (v1.7.0 #563) ===
+
+@app.get("/api/contacts")
+async def api_list_contacts(search: str = "", role: str = "", company: str = ""):
+    """Liste aller Kontakte des aktiven Profils (#563)."""
+    contacts = _db.list_contacts(search=search, role=role, company=company)
+    return {"contacts": contacts, "count": len(contacts)}
+
+
+@app.post("/api/contacts")
+async def api_create_contact(request: Request):
+    """Neuen Kontakt anlegen (#563)."""
+    data = await request.json()
+    try:
+        cid = _db.add_contact(data)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"status": "created", "id": cid}
+
+
+@app.put("/api/contacts/{contact_id}")
+async def api_update_contact(contact_id: str, request: Request):
+    """Kontakt aktualisieren (#563)."""
+    data = await request.json()
+    ok = _db.update_contact(contact_id, data)
+    if not ok:
+        return JSONResponse({"error": "Kontakt nicht gefunden oder keine Aenderungen"}, status_code=404)
+    return {"status": "updated"}
+
+
+@app.delete("/api/contacts/{contact_id}")
+async def api_delete_contact(contact_id: str):
+    """Kontakt loeschen (#563). FK CASCADE entfernt Verknuepfungen."""
+    ok = _db.delete_contact(contact_id)
+    if not ok:
+        return JSONResponse({"error": "Kontakt nicht gefunden"}, status_code=404)
+    return {"status": "deleted"}
+
+
+@app.get("/api/contacts/{contact_id}/links")
+async def api_contact_links(contact_id: str):
+    """Alle Verknuepfungen eines Kontakts (#563)."""
+    return {"links": _db.get_contact_links(contact_id)}
+
+
+@app.post("/api/contacts/{contact_id}/links")
+async def api_link_contact(contact_id: str, request: Request):
+    """Verknuepft Kontakt mit Bewerbung/Meeting/Stelle/Firma (#563)."""
+    data = await request.json()
+    target_kind = data.get("target_kind") or ""
+    target_id = data.get("target_id") or ""
+    role = data.get("role") or ""
+    notes = data.get("notes") or ""
+    if target_kind not in ("application", "meeting", "job", "company"):
+        return JSONResponse(
+            {"error": "target_kind muss application/meeting/job/company sein"},
+            status_code=400,
+        )
+    try:
+        link_id = _db.link_contact(contact_id, target_kind, target_id, role=role, notes=notes)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"status": "linked", "id": link_id}
+
+
+@app.delete("/api/contacts/links/{link_id}")
+async def api_unlink_contact(link_id: str):
+    """Loescht eine Kontakt-Verknuepfung (#563)."""
+    ok = _db.unlink_contact(link_id)
+    if not ok:
+        return JSONResponse({"error": "Verknuepfung nicht gefunden"}, status_code=404)
+    return {"status": "unlinked"}
+
+
+@app.get("/api/applications/{app_id}/contacts")
+async def api_application_contacts(app_id: str):
+    """Liste aller Kontakte zu einer Bewerbung (#563)."""
+    contacts = _db.get_contacts_for_target("application", app_id)
+    return {"contacts": contacts, "count": len(contacts)}
+
+
 # === CSV-Export (v1.7.0 #578) ===
 
 def _csv_response(rows: list[dict], columns: list[tuple[str, str]],

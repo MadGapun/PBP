@@ -1242,6 +1242,12 @@ export default function ApplicationsPage() {
             )}
           </Card>
 
+          {/* v1.7.0-beta.10 (#563): Beteiligte Personen */}
+          <ApplicationContactsSection
+            applicationId={timelineDialog.entry?.application?.id}
+            pushToast={pushToast}
+          />
+
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
@@ -1578,6 +1584,245 @@ export default function ApplicationsPage() {
   );
 }
 
+
+// v1.7.0-beta.10 (#563): Beteiligte Personen pro Bewerbung.
+// Empty State erklaert was es ist. Add-Button oeffnet Inline-Suche oder
+// Direkt-Anlage-Dialog.
+function ApplicationContactsSection({ applicationId, pushToast }) {
+  const [contacts, setContacts] = useState([]);
+  const [allContacts, setAllContacts] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState("");
+  const [linkRole, setLinkRole] = useState("recruiter");
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const ROLES = [
+    { v: "recruiter", l: "Recruiter" },
+    { v: "hiring_manager", l: "Hiring Manager" },
+    { v: "interviewer", l: "Interviewer" },
+    { v: "hr", l: "HR" },
+    { v: "kollege", l: "Kollege" },
+    { v: "mentor", l: "Mentor" },
+  ];
+
+  async function reload() {
+    if (!applicationId) return;
+    try {
+      const data = await fetch(`/api/applications/${applicationId}/contacts`)
+        .then((r) => (r.ok ? r.json() : null));
+      setContacts(data?.contacts || []);
+    } catch {}
+  }
+
+  async function loadAllContacts() {
+    try {
+      const data = await fetch("/api/contacts").then((r) => (r.ok ? r.json() : null));
+      setAllContacts(data?.contacts || []);
+    } catch {}
+  }
+
+  useEffect(() => {
+    reload();
+  }, [applicationId]);
+
+  async function linkExisting(contactId) {
+    try {
+      await fetch(`/api/contacts/${contactId}/links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_kind: "application",
+          target_id: applicationId,
+          role: linkRole,
+        }),
+      });
+      pushToast("Verknuepft", "success");
+      await reload();
+      setAdding(false);
+      setSearch("");
+    } catch (err) {
+      pushToast(`Verknuepfen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  async function createAndLink() {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const created = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: newName.trim(),
+          tags: [linkRole],
+        }),
+      }).then((r) => r.json());
+      if (created?.id) {
+        await fetch(`/api/contacts/${created.id}/links`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_kind: "application",
+            target_id: applicationId,
+            role: linkRole,
+          }),
+        });
+        pushToast(`„${newName}" angelegt und verknuepft`, "success");
+        setNewName("");
+        setAdding(false);
+        await reload();
+      }
+    } catch (err) {
+      pushToast(`Anlegen fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function unlink(linkId) {
+    try {
+      await fetch(`/api/contacts/links/${linkId}`, { method: "DELETE" });
+      pushToast("Entfernt", "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  const filteredAll = search
+    ? allContacts.filter((c) =>
+        (c.full_name + " " + (c.email || "") + " " + (c.company || ""))
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+    : allContacts;
+
+  return (
+    <Card className="glass-card-soft rounded-xl shadow-none">
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+        Beteiligte Personen
+      </p>
+
+      {contacts.length === 0 && !adding && (
+        <div className="text-center py-4 text-muted/50">
+          <p className="text-[12px] mb-2">
+            Noch niemand verknuepft. Wer war beim Interview dabei? Wer hat angeschrieben?
+          </p>
+          <button
+            type="button"
+            onClick={() => { setAdding(true); loadAllContacts(); }}
+            className="text-[12px] text-sky hover:underline inline-flex items-center gap-1"
+          >
+            <Plus size={12} /> Person hinzufuegen
+          </button>
+        </div>
+      )}
+
+      {contacts.length > 0 && (
+        <ul className="space-y-1.5 mb-2">
+          {contacts.map((c) => (
+            <li key={c.link_id} className="flex items-center justify-between gap-2 text-[12px]">
+              <div className="flex-1 min-w-0">
+                <span className="text-ink font-medium">{c.full_name}</span>
+                {c.link_role && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-[9px]">
+                    {ROLES.find((r) => r.v === c.link_role)?.l || c.link_role}
+                  </span>
+                )}
+                {c.company && (
+                  <span className="ml-1.5 text-muted/50 text-[11px]">{c.company}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => unlink(c.link_id)}
+                className="text-muted/40 hover:text-coral text-[11px]"
+                title="Verknuepfung entfernen"
+              >
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!adding && contacts.length > 0 && (
+        <button
+          type="button"
+          onClick={() => { setAdding(true); loadAllContacts(); }}
+          className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+        >
+          <Plus size={11} /> Weitere Person
+        </button>
+      )}
+
+      {adding && (
+        <div className="border-t border-white/5 pt-2 mt-2">
+          <div className="flex flex-wrap gap-2 mb-2">
+            <select
+              value={linkRole}
+              onChange={(e) => setLinkRole(e.target.value)}
+              className="rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            >
+              {ROLES.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}
+            </select>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Vorhandenen Kontakt suchen..."
+              className="flex-1 min-w-[150px] rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setSearch(""); setNewName(""); }}
+              className="text-[11px] text-muted/50 hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          </div>
+          {filteredAll.length > 0 && (
+            <div className="max-h-32 overflow-y-auto space-y-0.5 mb-2">
+              {filteredAll.slice(0, 10).map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => linkExisting(c.id)}
+                  className="w-full text-left px-2 py-1 rounded text-[12px] text-ink hover:bg-white/[0.04]"
+                >
+                  {c.full_name}
+                  {c.company && <span className="text-muted/50 ml-1.5">· {c.company}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="text-[11px] text-muted/50 mb-1">
+            Oder neue Person anlegen:
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Vor- und Nachname"
+              className="flex-1 rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
+            />
+            <button
+              type="button"
+              disabled={!newName.trim() || creating}
+              onClick={createAndLink}
+              className="rounded bg-sky/15 text-sky px-2 py-1 text-[12px] hover:bg-sky/25 disabled:opacity-50"
+            >
+              {creating ? "..." : "Anlegen"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function MeetingCreator({ applicationId, pushToast, onCreated }) {
   const [open, setOpen] = useState(false);

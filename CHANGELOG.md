@@ -7,6 +7,77 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.10] - 2026-05-05 — Kontakte-Frontend (#563)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Frontend zur Kontaktdatenbank aus beta.4 — End-User-fuehrend mit
+Empty-States, Erst-Aktion-Buttons und vordefinierten Rollen.
+
+### 👥 Neue Page „Kontakte"
+
+- **Tab in der Sidebar** (zwischen Bewerbungen und Docs)
+- **Empty State** erklaert was Kontakte sind:
+  > „Kontakte sind Personen, die mit deiner Jobsuche zu tun haben —
+  > Recruiter, Hiring Manager, Interviewer, Mentoren, Kollegen."
+  Mit „Ersten Kontakt anlegen"-Button.
+- **Liste** als Cards (3-Spalten-Grid auf grossen Screens) mit Rolle-Chips
+- **Filter:** Volltext-Suche (Name/E-Mail/Firma) + Rollen-Dropdown
+- **Detail-Dialog** mit allen Feldern (Name pflicht, Email/Telefon/Firma/
+  Position/LinkedIn optional), 8 vordefinierte Rollen-Tags zum
+  Anklicken, Notizen-Feld
+- **Verknuepfungs-Liste** im Dialog (welche Bewerbungen/Termine ist
+  diese Person verknuepft mit)
+- **Loeschen** mit Bestaetigungs-Dialog (FK CASCADE entfernt
+  Verknuepfungen automatisch)
+
+### 🔗 „Beteiligte Personen" in Bewerbungs-Detail
+
+Neue Sektion in `<ApplicationContactsSection>` im Bewerbungs-Modal:
+
+- **Empty State:** „Noch niemand verknuepft. Wer war beim Interview dabei?"
+- **Inline-Add-Workflow** ohne Modal:
+  - Rolle-Dropdown (Recruiter/Hiring Manager/Interviewer/HR/...)
+  - Suche im vorhandenen Kontakt-Pool
+  - ODER Direkt-Anlage „Neue Person anlegen" mit Vor-und-Nachname
+- **Bestehende Verknuepfungen** als Liste mit Rolle-Chip + ✕-Button zum
+  Entfernen
+
+### 🛠️ 8 neue API-Endpoints
+
+- `GET /api/contacts?search=&role=&company=` — Liste mit Filter
+- `POST /api/contacts` — Anlegen
+- `PUT /api/contacts/{id}` — Aktualisieren
+- `DELETE /api/contacts/{id}` — Loeschen
+- `GET /api/contacts/{id}/links` — Forward-Lookup
+- `POST /api/contacts/{id}/links` — Verknuepfen
+- `DELETE /api/contacts/links/{link_id}` — Entknuepfen
+- `GET /api/applications/{id}/contacts` — Reverse-Lookup pro Bewerbung
+
+### Stats
+
+- **121 MCP-Tools** (unveraendert)
+- **11 neue Tests** in `tests/test_v170_beta10.py`, alle gruen (183 total)
+- **Neue Frontend-Datei:** `pages/ContactsPage.jsx` (368 Zeilen)
+- **Erweiterte Frontend-Datei:** `pages/ApplicationsPage.jsx` (+`ApplicationContactsSection`)
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.10.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.10.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update von beta.9
+
+Einfach drueberinstallieren — keine Schema-Migration in beta.10.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.9] - 2026-05-05 — CSV-Export + Datenschutz-Selbstauskunft
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
