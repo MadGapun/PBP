@@ -7,6 +7,56 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.9] - 2026-05-05 — CSV-Export + Datenschutz-Selbstauskunft
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+(beta.8 — External Inbound Thunderbird/Outlook/iCal — wurde uebersprungen
+weil externes Tooling-Setup beim User noetig ist.)
+
+### 📊 CSV-Export (#578)
+
+- **`GET /api/applications/export.csv`** — Bewerbungen als CSV
+- **`GET /api/jobs/export.csv?filter=alle|aktiv|aussortiert`** — Stellen
+- **`GET /api/contacts/export.csv`** — Kontakte (Tags als '; '-getrennt)
+- **UTF-8 mit BOM** — Excel oeffnet ohne Encoding-Probleme
+- **Deutsches Datumsformat** (DD.MM.YYYY) bei ISO-Datums-Feldern
+- **Pflicht-Spalten in Deutsch** — keine techniknames
+
+### 🔒 Datenschutz-Selbstauskunft (#581)
+
+- **`GET /api/privacy/self-disclosure.pdf`** — DSGVO-Art-15-tauglicher
+  Datenauskunft-PDF
+- 5 Sektionen: Persoenliche Daten / Datenumfang (Anzahlen) /
+  Speicher-Orte / Daten-Externalisierung (was an wen geht) / Hinweise
+- **Keine sensitiven Inhalte** — nur Metadaten und Anzahlen
+- Funktioniert auch ohne Profil (Fallback-Text)
+- Verwendung: Beratungsgespraech, Datenschutz-Behoerde, Erklaerung
+  fuer Familie/Freunde
+
+### Stats
+
+- **121 MCP-Tools** (unveraendert)
+- **6 neue Tests** in `tests/test_v170_beta9.py`, alle gruen (172 total)
+- **4 neue API-Endpoints** (3 CSV + 1 DSGVO)
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.9.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.9.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update
+
+Einfach drueberinstallieren — keine Schema-Migration in beta.9.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.7] - 2026-05-05 — Bug-Aufraeumung (#518, #526, #527)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

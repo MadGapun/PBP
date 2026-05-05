@@ -831,6 +831,149 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     return output_path
 
 
+def generate_data_self_disclosure(db, profile: Optional[dict],
+                                    output_path: Path) -> Path:
+    """Erstellt eine PDF-Datenauskunft fuer den User (v1.7.0 #581).
+
+    Listet ALLE Daten die PBP ueber den User gespeichert hat — ohne
+    sensitive Inhalte. Geeignet fuer DSGVO Art. 15 / persoenliche
+    Selbstauskunft.
+    """
+    from fpdf import FPDF
+    from .database import get_data_dir
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.add_page()
+
+    # Title
+    pdf.set_font("Helvetica", "B", 18)
+    _line_cell(pdf, 0, 12, _safe_text("Datenauskunft (DSGVO Art. 15)"), align="C")
+    pdf.set_font("Helvetica", "", 10)
+    name = profile.get("name") if profile else "(kein Profil)"
+    _line_cell(pdf, 0, 6, _safe_text(name or "(ohne Namen)"), align="C")
+    _line_cell(
+        pdf, 0, 5,
+        _safe_text(f"Erstellt am {datetime.now().strftime('%d.%m.%Y')}"),
+        align="C",
+    )
+    pdf.ln(8)
+
+    # Section: Persoenliche Daten
+    _section_header(pdf, "1. Persoenliche Daten")
+    pdf.set_font("Helvetica", "", 9)
+    if profile:
+        fields = [
+            ("Name", profile.get("name")),
+            ("E-Mail", profile.get("email")),
+            ("Telefon", profile.get("phone")),
+            ("Adresse", profile.get("address")),
+            ("Stadt", profile.get("city")),
+            ("PLZ", profile.get("plz")),
+            ("Land", profile.get("country")),
+            ("Geburtsdatum", profile.get("birthday")),
+            ("Nationalitaet", profile.get("nationality")),
+        ]
+        for label, val in fields:
+            if val:
+                pdf.cell(50, 5, _safe_text(f"  {label}:"))
+                _line_cell(pdf, 0, 5, _safe_text(str(val)))
+    else:
+        _line_cell(pdf, 0, 5, "  Kein Profil vorhanden.")
+    pdf.ln(4)
+
+    # Counts (no contents)
+    _section_header(pdf, "2. Datenumfang (nur Anzahlen, keine Inhalte)")
+    pdf.set_font("Helvetica", "", 9)
+    counts = []
+    try:
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        for label, sql in [
+            ("Bewerbungen",
+             "SELECT COUNT(*) FROM applications WHERE profile_id=? OR profile_id IS NULL"),
+            ("Stellen",
+             "SELECT COUNT(*) FROM jobs WHERE profile_id=? OR profile_id IS NULL"),
+            ("Dokumente (Metadaten)",
+             "SELECT COUNT(*) FROM documents WHERE profile_id=? OR profile_id IS NULL"),
+            ("Termine/Meetings",
+             "SELECT COUNT(*) FROM application_meetings"),
+            ("E-Mails",
+             "SELECT COUNT(*) FROM application_emails"),
+            ("Skills",
+             "SELECT COUNT(*) FROM skills WHERE profile_id=?"),
+            ("Kontakte",
+             "SELECT COUNT(*) FROM contacts WHERE profile_id=? OR profile_id IS NULL"),
+            ("Follow-ups",
+             "SELECT COUNT(*) FROM follow_ups"),
+        ]:
+            try:
+                params = (pid, pid) if "?" in sql and sql.count("?") == 2 else ((pid,) if "?" in sql else ())
+                row = conn.execute(sql, params).fetchone()
+                n = row[0] if row else 0
+                counts.append((label, n))
+            except Exception:
+                counts.append((label, "—"))
+    except Exception:
+        pass
+    for label, n in counts:
+        pdf.cell(60, 5, _safe_text(f"  {label}:"))
+        _line_cell(pdf, 0, 5, str(n))
+    pdf.ln(4)
+
+    # Speicher-Orte
+    _section_header(pdf, "3. Speicher-Orte")
+    pdf.set_font("Helvetica", "", 9)
+    try:
+        data_dir = get_data_dir()
+        _line_cell(pdf, 0, 5, _safe_text(f"  Datenbank: {data_dir / 'pbp.db'}"))
+        _line_cell(pdf, 0, 5, _safe_text(f"  Dokumente: {data_dir / 'dokumente'}"))
+        _line_cell(pdf, 0, 5, _safe_text(f"  Backups:   {data_dir / 'backups'}"))
+    except Exception as e:
+        _line_cell(pdf, 0, 5, f"  Pfad konnte nicht ermittelt werden: {e}")
+    pdf.ln(4)
+
+    # Externalisierung
+    _section_header(pdf, "4. Daten-Externalisierung")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.multi_cell(0, 4.5, _safe_text(
+        "  PBP speichert Daten standardmaessig nur lokal auf deinem Geraet. "
+        "Externe Dienste werden nur dann genutzt, wenn du sie explizit aktivierst:"
+    ))
+    pdf.ln(1)
+    _line_cell(pdf, 0, 4.5, _safe_text(
+        "  - Aktive Job-Quellen: senden anonymisierte Suchanfragen "
+        "(Keywords, Region) an die jeweiligen Job-Portale."
+    ))
+    _line_cell(pdf, 0, 4.5, _safe_text(
+        "  - Claude (MCP): nur Daten, die du Claude aktiv im Chat zur "
+        "Verfuegung stellst."
+    ))
+    _line_cell(pdf, 0, 4.5, _safe_text(
+        "  - Lokale AI (Ollama, optional): laeuft komplett auf deinem Geraet, "
+        "keine Daten verlassen den PC."
+    ))
+    pdf.ln(4)
+
+    # Datenschutz-Hinweis
+    _section_header(pdf, "5. Hinweise")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.multi_cell(0, 4, _safe_text(
+        "  Diese PDF enthaelt keine Passwoerter, API-Keys oder vollstaendige "
+        "Dokumenten-Inhalte — nur Metadaten und Anzahlen. Sie ist gedacht zur "
+        "eigenen Verwendung (Beratungsgespraech, Datenschutz-Behoerde, oder "
+        "zur Erklaerung an Familie/Freunde was PBP ueber dich speichert)."
+    ))
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(120, 120, 120)
+    _line_cell(pdf, 0, 4, _safe_text(
+        f"  Erstellt mit PBP — github.com/MadGapun/PBP — {datetime.now().isoformat(timespec='minutes')}"
+    ))
+
+    pdf.output(str(output_path))
+    logger.info("PDF Datenauskunft erstellt: %s", output_path)
+    return output_path
+
+
 def _section_header(pdf, title: str):
     """Draw a section header with background."""
     pdf.set_font("Helvetica", "B", 11)

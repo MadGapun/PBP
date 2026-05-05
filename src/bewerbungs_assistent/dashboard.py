@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Request, UploadFile, File, Form, Body
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 
@@ -5535,6 +5535,138 @@ async def api_health():
         "modules": modules,
         "mcp_connection": get_connection_status(),
     }
+
+
+# === Datenschutz-Selbstauskunft (v1.7.0 #581) ===
+
+@app.get("/api/privacy/self-disclosure.pdf")
+async def api_privacy_self_disclosure():
+    """Erstellt ein PDF mit allen ueber den User gespeicherten Daten (#581).
+
+    DSGVO-Art-15-tauglich. Enthaelt keine sensitive Dokumente-Inhalte —
+    nur Metadaten + Anzahlen.
+    """
+    from .export_report import generate_data_self_disclosure
+    profile = _db.get_profile()
+    from .database import get_data_dir
+    export_dir = get_data_dir() / "export"
+    export_dir.mkdir(exist_ok=True)
+    path = export_dir / "datenauskunft.pdf"
+    generate_data_self_disclosure(_db, profile, path)
+    return FileResponse(
+        str(path),
+        filename="PBP_Datenauskunft.pdf",
+        media_type="application/pdf",
+    )
+
+
+# === CSV-Export (v1.7.0 #578) ===
+
+def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
+                   filename: str) -> Response:
+    """Hilfsfunktion fuer CSV-Antworten mit UTF-8-BOM und de-Locale.
+
+    columns ist [(label, db_field), ...]. Header in Deutsch, Daten als
+    Strings (Datums-Formatierung DD.MM.YYYY).
+    """
+    import csv
+    import io
+    from datetime import datetime
+
+    out = io.StringIO()
+    writer = csv.writer(out, delimiter=",", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow([label for label, _ in columns])
+    for row in rows:
+        line = []
+        for _, key in columns:
+            val = row.get(key) if isinstance(row, dict) else None
+            if val is None:
+                line.append("")
+                continue
+            # Datums-Erkennung
+            sval = str(val)
+            if isinstance(val, str) and len(sval) >= 10 and sval[4] == "-" and sval[7] == "-":
+                try:
+                    line.append(datetime.fromisoformat(sval[:10]).strftime("%d.%m.%Y"))
+                    continue
+                except Exception:
+                    pass
+            line.append(sval)
+        writer.writerow(line)
+    body = "﻿" + out.getvalue()  # UTF-8-BOM fuer Excel
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/applications/export.csv")
+async def api_applications_csv():
+    """Bewerbungen als CSV exportieren (#578)."""
+    apps = _db.get_applications()
+    columns = [
+        ("ID", "id"),
+        ("Firma", "company"),
+        ("Titel", "title"),
+        ("Status", "status"),
+        ("Beworben am", "applied_at"),
+        ("Quelle", "source"),
+        ("Bewerbungsart", "bewerbungsart"),
+        ("URL", "url"),
+        ("Ansprechpartner", "ansprechpartner"),
+        ("Kontakt-E-Mail", "kontakt_email"),
+        ("Notizen", "notes"),
+    ]
+    return _csv_response(apps, columns, "bewerbungen.csv")
+
+
+@app.get("/api/jobs/export.csv")
+async def api_jobs_csv(filter: str = "alle"):
+    """Stellen als CSV exportieren (#578)."""
+    if filter == "aussortiert":
+        jobs = _db.get_dismissed_jobs()
+    elif filter == "aktiv":
+        jobs = _db.get_active_jobs()
+    else:
+        jobs = _db.get_active_jobs() + _db.get_dismissed_jobs()
+    columns = [
+        ("Hash", "hash"),
+        ("Firma", "company"),
+        ("Titel", "title"),
+        ("Standort", "location"),
+        ("Score", "score"),
+        ("Quelle", "source"),
+        ("Stellenart", "employment_type"),
+        ("Remote", "remote_level"),
+        ("Gefunden am", "found_at"),
+        ("Status", "is_active"),
+        ("URL", "url"),
+    ]
+    return _csv_response(jobs, columns, f"stellen_{filter}.csv")
+
+
+@app.get("/api/contacts/export.csv")
+async def api_contacts_csv():
+    """Kontakte als CSV exportieren (#578)."""
+    contacts = _db.list_contacts()
+    columns = [
+        ("ID", "id"),
+        ("Name", "full_name"),
+        ("E-Mail", "email"),
+        ("Telefon", "phone"),
+        ("LinkedIn", "linkedin_url"),
+        ("Firma", "company"),
+        ("Position", "position"),
+        ("Tags", "tags"),
+        ("Notizen", "notes"),
+        ("Erstellt am", "created_at"),
+    ]
+    # Tags-Liste fuer CSV als kommagetrennte String
+    for c in contacts:
+        if isinstance(c.get("tags"), list):
+            c["tags"] = "; ".join(c["tags"])
+    return _csv_response(contacts, columns, "kontakte.csv")
 
 
 # === Globale Suche (v1.7.0 #571) ===
