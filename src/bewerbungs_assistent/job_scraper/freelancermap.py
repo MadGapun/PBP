@@ -101,6 +101,12 @@ def search_freelancermap(params: dict) -> list:
                 # Strategie 1: HTML /projekt/-Anchors einsammeln (neue Seite seit 2026)
                 if not projects:
                     soup = BeautifulSoup(resp.text, "lxml")
+                    # v1.7.0-beta.7 (#527): Detail-Fetch-Limit pro Suche, damit
+                    # wir nicht 200 Detail-Requests rauspeitschen — die ersten
+                    # 30 Stellen bekommen Beschreibung, der Rest bleibt nur
+                    # mit Titel (vorher: alle ohne Beschreibung).
+                    DETAIL_FETCH_LIMIT = 30
+                    fetched = 0
                     for a in soup.select('a[href*="/projekt/"]'):
                         href = a.get("href", "").strip()
                         if not href or "/projekt/" not in href:
@@ -119,6 +125,27 @@ def search_freelancermap(params: dict) -> list:
                             loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I))
                             if loc_el:
                                 location = loc_el.get_text(strip=True)[:80]
+                        # Detail-Fetch (#527): Beschreibung holen
+                        description = ""
+                        if fetched < DETAIL_FETCH_LIMIT:
+                            try:
+                                d_resp = client.get(full_url, timeout=10.0)
+                                if d_resp.status_code == 200:
+                                    d_soup = BeautifulSoup(d_resp.text, "lxml")
+                                    # Typische Container-Klassen probieren
+                                    for sel in ("[class*='project-description']",
+                                                "[class*='description']",
+                                                "main", "article"):
+                                        el = d_soup.select_one(sel)
+                                        if el:
+                                            txt = el.get_text(separator=" ", strip=True)
+                                            if len(txt) > 100:
+                                                description = txt[:2000]
+                                                break
+                                    fetched += 1
+                                    time.sleep(0.3)
+                            except Exception:
+                                pass
                         jobs.append({
                             "hash": stelle_hash("freelancermap.de", title),
                             "title": title,
@@ -126,9 +153,9 @@ def search_freelancermap(params: dict) -> list:
                             "location": location,
                             "url": full_url,
                             "source": "freelancermap",
-                            "description": "",
+                            "description": description,
                             "employment_type": "freelance",
-                            "remote_level": detect_remote_level(f"{title} {location}"),
+                            "remote_level": detect_remote_level(f"{title} {location} {description[:200]}"),
                         })
 
                 time.sleep(0.8)

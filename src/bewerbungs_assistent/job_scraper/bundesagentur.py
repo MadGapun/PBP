@@ -136,12 +136,15 @@ def search_bundesagentur(params: dict) -> list:
                     if ref_nr and idx < _DETAIL_FETCH_LIMIT_PER_KW:
                         description = _fetch_ba_detail(client, ref_nr) or description
 
+                    # v1.7.0-beta.7 (#526): Direkte jobdetail-URL statt
+                    # jobsuche/suche?id=... — letzteres landet auf der
+                    # Suchergebnis-Seite und nicht in der Stellenanzeige.
                     job = {
                         "hash": stelle_hash("arbeitsagentur.de", title),
                         "title": title,
                         "company": company,
                         "location": location,
-                        "url": f"https://www.arbeitsagentur.de/jobsuche/suche?id={ref_nr}",
+                        "url": f"https://www.arbeitsagentur.de/jobsuche/jobdetail/{ref_nr}",
                         "source": "bundesagentur",
                         "description": description[:2000],
                         "employment_type": "festanstellung",

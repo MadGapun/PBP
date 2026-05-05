@@ -4927,9 +4927,31 @@ class Database:
 
     # === Follow-ups (PBP-014) ===
 
+    # v1.7.0 (#518) Follow-up-Typ-Hygiene
+    # Banner und „Faellige Nachfassaktionen"-Filter zaehlen NUR den Typ
+    # `nachfass`. Interview-Erinnerungen / sonstige Notizen gehoeren in
+    # die anderen Typen, lösen keinen Alarm aus.
+    FOLLOWUP_TYPES = {
+        "nachfass": "Nachfass — bei Stille nachhaken (loest Banner aus)",
+        "interview_erinnerung": "Interview-Erinnerung (kein Banner)",
+        "danke": "Danke-Mail (kein Banner)",
+        "info": "Info / Notiz (kein Banner)",
+        "sonstiges": "Sonstiges",
+    }
+
     def add_follow_up(self, application_id: str, scheduled_date: str,
                       follow_up_type: str = "nachfass", template: str = "") -> str:
-        """Schedule a follow-up for an application."""
+        """Schedule a follow-up for an application.
+
+        v1.7.0 (#518): follow_up_type wird gegen FOLLOWUP_TYPES validiert —
+        unbekannte Typen werden auf 'sonstiges' normalisiert (statt
+        stillschweigend als 'nachfass' zu landen, was Banner-Alarme
+        ausgeloest haette).
+        """
+        if follow_up_type not in self.FOLLOWUP_TYPES:
+            logger.warning("Unbekannter follow_up_type %r → normalisiert auf 'sonstiges'",
+                           follow_up_type)
+            follow_up_type = "sonstiges"
         conn = self.connect()
         fid = _gen_id()
         conn.execute("""

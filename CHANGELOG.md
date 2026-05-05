@@ -7,6 +7,60 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.7] - 2026-05-05 — Bug-Aufraeumung (#518, #526, #527)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+### 🐛 #518 — Follow-up-Typ-Hygiene
+
+- **Neuer `FOLLOWUP_TYPES`-Katalog** in `database.py`:
+  - `nachfass` — Nachfass bei Stille (loest Banner aus)
+  - `interview_erinnerung` — Interview-Erinnerung (kein Banner)
+  - `danke` — Danke-Mail (kein Banner)
+  - `info` — Info / Notiz (kein Banner)
+  - `sonstiges`
+- **`add_follow_up` validiert** den Typ. Unbekannte Typen werden auf
+  `sonstiges` normalisiert (vorher landeten sie stillschweigend als
+  `nachfass` und loesten Banner-Alarme aus).
+
+### 🐛 #526 — Bundesagentur-Scraper URL
+
+- URL-Format umgestellt von `jobsuche/suche?id={ref_nr}` (Suchergebnis-
+  Seite) auf `jobsuche/jobdetail/{ref_nr}` (direkte Stellenanzeige).
+- Bestehende Stellen mit alter URL bleiben erhalten — neue Stellen
+  bekommen die Detail-URL.
+
+### 🐛 #527 — Freelancermap fehlende Beschreibung
+
+- HTML-Path (Strategie 1, neue Seite seit 2026) holt jetzt fuer die
+  ersten 30 Stellen pro Suche die Detail-Beschreibung nach. Vorher gingen
+  alle Stellen ohne Beschreibung in den Pool und Score-Berechnung lief
+  nur auf dem Titel.
+- Limit auf 30 ist konservativ — verhindert dass eine grosse Suche
+  hunderte Detail-Requests rauspeitscht.
+
+### Stats
+
+- **121 MCP-Tools** (unveraendert)
+- **5 neue Tests** in `tests/test_v170_beta7.py`, alle gruen (166 total)
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+> ⚠️ Pre-Release / Beta. Stable bleibt v1.6.9.
+
+#### Windows
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.7.zip](https://github.com/MadGapun/repo/archive/refs/tags/v1.7.0-beta.7.zip)
+2. **Entpacken** + Doppelklick auf **`INSTALLIEREN.bat`**
+
+#### Update
+
+Einfach drueberinstallieren — keine Schema-Migration in beta.7.
+
+📖 [v1.7.0 Roadmap](https://github.com/MadGapun/PBP/issues/575)
+
+---
+
 ## [1.7.0-beta.6] - 2026-05-05 — Bewerbungsaufwand (#568)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
