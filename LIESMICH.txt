@@ -1,0 +1,46 @@
+================================================================
+  PBP - Persoenliches Bewerbungs-Portal
+================================================================
+
+Diese ZIP enthaelt PBP — deinen KI-gestuetzten Bewerbungsassistenten
+fuer Claude Desktop.
+
+
+  WAS DU JETZT TUN MUSST:
+  ------------------------
+
+  Windows:    Doppelklick auf  INSTALLIEREN.bat
+  macOS:      Doppelklick auf  INSTALLIEREN.command
+  Linux:      bash installer/install.sh   (im Terminal)
+
+  -> Das Setup richtet alles automatisch ein.
+  -> Dauer: ca. 3-5 Minuten.
+  -> Du brauchst NICHTS selber installieren.
+
+
+  VORAUSSETZUNG:
+  --------------
+
+  Claude Desktop ist installiert.
+  Falls noch nicht: https://claude.ai/download
+
+
+  NACH DER INSTALLATION:
+  ----------------------
+
+  Auf dem Desktop liegt eine Verknuepfung
+  "PBP Bewerbungs-Portal" — Doppelklick startet das Dashboard.
+
+  Claude Desktop einmal komplett beenden und neu starten,
+  damit die PBP-Tools verfuegbar werden.
+
+
+  HILFE:
+  ------
+
+  Anleitung & FAQ:  https://github.com/MadGapun/PBP/wiki
+  Bugs / Fragen:    https://github.com/MadGapun/PBP/issues
+  Dokumentation:    siehe README.md
+
+
+================================================================

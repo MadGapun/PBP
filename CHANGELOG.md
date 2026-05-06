@@ -7,6 +7,85 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.18] - 2026-05-05 — Aufraeumen + Installer-Polish + Issue-Triage
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Code-Aufraeumen + Installer-Verbesserungen + Backlog-Triage. Keine
+funktionalen Aenderungen — Polish-Beta vor dem User-Test.
+
+### 🧹 Aufraeumen
+
+- **v1.4-Migration entfernt** (`_migrate_flat_layout` in `database.py`).
+  v1.5 ist seit > 1 Jahr Standard, der Move-Code ist toter Code. Wer
+  noch auf v1.4 ist, muss zuerst v1.6.9 installieren — die hat die
+  Move-Logik noch.
+- **`shutil`-Import entfernt** (war nur fuer die v1.4-Migration noetig).
+- **CLAUDE.md** — „v1.6.5 ist Latest" auf v1.6.9 aktualisiert + Hinweis
+  zur laufenden v1.7.0-Beta-Reihe.
+
+### 🔧 Installer-Polish (`INSTALLIEREN.bat`)
+
+- **Header zeigt dynamische Version** statt hardgekodet „v1.6.0".
+- **Claude-Desktop-Erkennung erweitert** auf 7 Pfade (statt 4):
+  zusaetzlich `anthropic-claude/`, `Program Files (x86)`,
+  `USERPROFILE\AppData\...`, plus PATH-Fallback (`where Claude.exe`)
+  und Konfig-Fallback (wenn `%APPDATA%\Claude\claude_desktop_config.json`
+  existiert, ist Claude offensichtlich da). WinStore-Detection auch
+  fuer neuere `Packages\AnthropicPBC.Claude*`.
+- **Process-Check:** wenn Claude waehrend der Installation laeuft, fragt
+  der Installer den User aktiv zum Beenden auf — ohne Neustart nimmt
+  Claude die neue MCP-Konfig nicht auf.
+- **Setup-Helper-Integritaets-Check:** prueft beim Start ob
+  `_setup_claude.py`, `_selftest.py`, `start_dashboard.py` vorhanden
+  sind, mit klarer Fehlermeldung wenn das ZIP unvollstaendig entpackt
+  wurde.
+
+### 📦 ZIP-Download entrümpelt (`.gitattributes`)
+
+GitHub-ZIP-Download (`archive/refs/tags/...zip`) enthaelt ab beta.18
+nur noch wirklich install-relevante Dateien. Dev-Doku, Test-Suite,
+Build-Tooling werden via `git archive`-`export-ignore` gefiltert:
+
+- Dev-Doku (`AGENTS.md`, `CONTRIBUTING.md`, `DOKUMENTATION.md`,
+  `OPTIMIERUNGEN.md`, `TESTVERSION.md`, `ZUSTAND.md`, `CLAUDE.md`)
+- Dev-Tools (`release_check.py`, `test_demo.py`, `switch_mode.py`)
+- Test-Suite (`tests/`)
+- CI/Workflows (`.github/`, `.gitignore`, `.gitattributes`)
+- Workspace-Manifest (`pnpm-workspace.yaml`)
+
+Endnutzer sehen jetzt nur noch ~10 Dateien im Root statt 30+.
+
+### 📄 Neue Datei: `LIESMICH.txt`
+
+3-Zeilen-Klartext-Anleitung im ZIP-Root: welche Datei doppelklicken
+fuer welches OS, was die Voraussetzung ist, wo Hilfe steht. Damit
+brauchen Endnutzer nicht das ganze README zu lesen.
+
+### 📋 Issue-Triage
+
+Nach dem Audit (User-Frage „sind alle Issues weg?") aufgeraeumt:
+
+- **Geschlossen:** #575 (v1.7.0-Sprint-Master, ist durch),
+  #512 (Lokale-LLM-Epic — Foundation umgesetzt), #469 (Duplikat
+  von #478/#480/#481).
+- **Auf v1.8 verschoben + roadmap-Label:** #504 (Plugin-Plattform —
+  trug faelschlich „v1.7" im Titel, ist aber nicht in v1.7).
+- **Mit roadmap-Label markiert:** #513 (Community-Tagesimpulse),
+  #452 (Interview-Training-Arc).
+- **Bleiben offen ohne v1.7-Anspruch:** 6 v1.8-gelabelte Issues
+  (External Inbound + Portal-Profile + Plugin-Plattform), 6
+  roadmap-Issues (Future Work, kein konkretes Release-Ziel).
+
+**Status: 0 offene v1.7-Issues. 12 offen mit klarer Verortung.**
+
+### Tests
+
+- Volle Regression: **778 Tests gruen** (keine Aenderung — beta.18
+  ist Polish, kein neuer Funktional-Code).
+
+---
+
 ## [1.7.0-beta.17] - 2026-05-05 — Nice-to-haves: Score-Histogramm, Bulk-Doku-Prep, DSGVO-Button
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

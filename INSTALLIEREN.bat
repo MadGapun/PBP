@@ -4,15 +4,21 @@ title PBP Bewerbungs-Assistent - Setup
 color 0F
 
 :: -------------------------------------------
-:: PBP Installer v1.6.0
-:: Fix: Erkennung wenn BAT aus ZIP heraus gestartet wird
-:: Fix: Fehler-melden Hinweis bei allen Fehlern
-:: Fix: setuptools+wheel vor extract-msg (embeddable Python)
-:: Fix: Klare Fehlermeldung wenn Outlook-Import scheitert
-:: Fix: Versionserkennung korrigiert
-:: Fix: Dashboard + Startdateien nach DATA_DIR kopieren
-:: Fix: Python nur downloaden wenn noch nicht vorhanden
-:: Fix: Desktop-Shortcut zeigt auf DATA_DIR (stabil)
+:: PBP Installer
+::
+:: Versionsanzeige im UI ist DYNAMISCH — wird aus
+:: src/bewerbungs_assistent/__init__.py gelesen (PBP_VERSION).
+::
+:: v1.7.0-beta.18:
+::   - Claude-Desktop-Erkennung erweitert (PATH, laufender Prozess)
+::   - Hinweis wenn Claude laeuft (sauber beenden fuer Konfig-Reload)
+::   - Header zeigt dynamische Version statt hardgekodet
+:: v1.6.0:
+::   - Erkennung wenn BAT aus ZIP heraus gestartet wird
+::   - Fehler-melden Hinweis bei allen Fehlern
+::   - setuptools+wheel vor extract-msg (embeddable Python)
+::   - Dashboard + Startdateien nach DATA_DIR kopieren
+::   - Desktop-Shortcut zeigt auf DATA_DIR (stabil)
 :: -------------------------------------------
 
 :: Variablen
@@ -41,8 +47,14 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 
 :: -------------------------------------------
 :: Integritaets-Check: Wurde das ZIP richtig entpackt?
+:: v1.7.0-beta.18: zusaetzlich pruefen ob die Setup-Helper-Skripte
+:: vorhanden sind — falls nicht, klare Fehlermeldung mit Hinweis,
+:: wo das Problem liegt.
 :: -------------------------------------------
 if not exist "%SRC_DIR%" goto :err_not_extracted
+if not exist "%BASEDIR%\_setup_claude.py" goto :err_setup_helper_missing
+if not exist "%BASEDIR%\_selftest.py" goto :err_setup_helper_missing
+if not exist "%BASEDIR%\start_dashboard.py" goto :err_setup_helper_missing
 
 :: -------------------------------------------
 :: Logging initialisieren
@@ -50,7 +62,7 @@ if not exist "%SRC_DIR%" goto :err_not_extracted
 if exist "%LOGFILE%" for %%F in ("%LOGFILE%") do if %%~zF GTR 1000000 del "%LOGFILE%" 2>nul
 
 echo ================================================== >> "%LOGFILE%"
-echo PBP Installer v1.6.0 - %date% %time% >> "%LOGFILE%"
+echo PBP Installer (Version aus __init__.py) - %date% %time% >> "%LOGFILE%"
 echo System: %OS% %PROCESSOR_ARCHITECTURE% >> "%LOGFILE%"
 echo User: %USERNAME% >> "%LOGFILE%"
 echo Pfad: %BASEDIR% >> "%LOGFILE%"
@@ -61,7 +73,7 @@ echo  ====================================================
 echo.
 echo    PBP - Persoenliches Bewerbungs-Portal
 echo    Dein KI-Bewerbungshelfer
-echo    Installer v1.6.0
+echo    Version: %PBP_VERSION%
 echo.
 echo  ====================================================
 echo.
@@ -555,14 +567,34 @@ echo  [3/4] Verbinde mit Claude Desktop...
 echo [3/4] Claude Desktop... >> "%LOGFILE%"
 
 set "CLAUDE_FOUND=0"
+:: v1.7.0-beta.18: erweiterte Pfad-Liste (Anthropic rotiert die Install-Pfade
+:: zwischen Releases). Reihenfolge nach Haeufigkeit, frueher Treffer = Stop.
 if exist "%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%LOCALAPPDATA%\AnthropicClaude\Claude.exe" set "CLAUDE_FOUND=1"
-if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_FOUND=1"
 if exist "%LOCALAPPDATA%\Programs\Claude\Claude.exe" set "CLAUDE_FOUND=1"
+if exist "%LOCALAPPDATA%\anthropic-claude\Claude.exe" set "CLAUDE_FOUND=1"
+if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_FOUND=1"
+if exist "%ProgramFiles(x86)%\Claude\Claude.exe" set "CLAUDE_FOUND=1"
+if exist "%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe" set "CLAUDE_FOUND=1"
 :: #361: Windows Store Version erkennen
 for /d %%P in ("%LOCALAPPDATA%\Packages\Claude_*") do (
     if exist "%%P\Claude.exe" set "CLAUDE_FOUND=1"
     if exist "%%P\LocalCache\Roaming\Claude" set "CLAUDE_FOUND=1"
+)
+for /d %%P in ("%LOCALAPPDATA%\Packages\AnthropicPBC.Claude*") do (
+    if exist "%%P\Claude.exe" set "CLAUDE_FOUND=1"
+    if exist "%%P\LocalCache\Roaming\Claude" set "CLAUDE_FOUND=1"
+)
+:: PATH-Fallback: Claude.exe ueber `where` finden (z.B. Custom-Install)
+if "!CLAUDE_FOUND!"=="0" (
+    where Claude.exe >nul 2>&1
+    if !errorlevel! equ 0 set "CLAUDE_FOUND=1"
+)
+:: Konfig-Verzeichnis-Fallback: wenn %APPDATA%\Claude\claude_desktop_config.json
+:: existiert, ist Claude offensichtlich schon mal installiert/genutzt worden
+if "!CLAUDE_FOUND!"=="0" if exist "%APPDATA%\Claude\claude_desktop_config.json" (
+    echo [INFO] Claude-Konfig vorhanden trotz fehlender exe — Erkennung als 'gefunden' >> "%LOGFILE%"
+    set "CLAUDE_FOUND=1"
 )
 
 if "!CLAUDE_FOUND!"=="1" goto :claude_found
@@ -585,14 +617,39 @@ echo.
 echo         [OK] Claude Desktop gefunden
 echo [OK] Claude Desktop gefunden >> "%LOGFILE%"
 :: Store Claude path for later opening (#24)
+:: v1.7.0-beta.18: erweiterte Pfade synchron zur Erkennung oben
 set "CLAUDE_EXE="
 if exist "%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\Programs\claude-desktop\Claude.exe"
 if exist "%LOCALAPPDATA%\AnthropicClaude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\AnthropicClaude\Claude.exe"
-if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles%\Claude\Claude.exe"
 if exist "%LOCALAPPDATA%\Programs\Claude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\Programs\Claude\Claude.exe"
+if exist "%LOCALAPPDATA%\anthropic-claude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPDATA%\anthropic-claude\Claude.exe"
+if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles%\Claude\Claude.exe"
+if exist "%ProgramFiles(x86)%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles(x86)%\Claude\Claude.exe"
+if exist "%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe" set "CLAUDE_EXE=%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe"
 
 set "CLAUDE_DIR=%APPDATA%\Claude"
 if not exist "%CLAUDE_DIR%" mkdir "%CLAUDE_DIR%"
+
+:: v1.7.0-beta.18: Pruefen ob Claude gerade laeuft — wenn ja, Hinweis zum
+:: Beenden, weil Claude die MCP-Konfiguration nur beim Start einliest.
+:: Ohne Beenden + Neustart wuerde die neue PBP-Version nicht uebernommen.
+tasklist /FI "IMAGENAME eq Claude.exe" 2>nul | findstr /I "Claude.exe" >nul
+if !errorlevel! equ 0 (
+    echo.
+    echo  ----------------------------------------------------
+    echo  HINWEIS: Claude Desktop laeuft gerade.
+    echo  ----------------------------------------------------
+    echo  Claude muss kurz beendet werden, damit die neue
+    echo  PBP-Konfiguration uebernommen wird (MCP-Server-Konfig
+    echo  wird nur beim Claude-Start eingelesen).
+    echo.
+    echo  Bitte schliesse Claude Desktop jetzt komplett
+    echo    (Rechtsklick auf Tray-Icon ^> Beenden).
+    echo  Danach Enter druecken um fortzufahren.
+    echo.
+    pause >nul
+    echo [INFO] Claude lief vor Konfig-Update >> "%LOGFILE%"
+)
 
 echo [DEBUG] Starte _setup_claude.py >> "%LOGFILE%"
 "%PYTHON%" "%BASEDIR%\_setup_claude.py" >> "%LOGFILE%" 2>&1
@@ -739,6 +796,32 @@ echo    4. Im ENTPACKTEN Ordner die INSTALLIEREN.bat starten
 echo.
 echo  WICHTIG: Nicht einfach die BAT-Datei aus dem ZIP
 echo  herausziehen - das ganze ZIP muss entpackt werden!
+echo.
+call :show_support_info
+pause
+exit /b 1
+
+:err_setup_helper_missing
+echo [FEHLER] Setup-Helper-Skripte fehlen >> "%LOGFILE%" 2>nul
+echo.
+echo  ****************************************************
+echo  *  FEHLER: Setup-Dateien unvollstaendig            *
+echo  ****************************************************
+echo.
+echo  Eine oder mehrere dieser Dateien fehlen:
+echo    - _setup_claude.py
+echo    - _selftest.py
+echo    - start_dashboard.py
+echo.
+echo  Vermutlich wurde das ZIP nur teilweise entpackt
+echo  oder einzelne Dateien sind beim Auspacken verloren
+echo  gegangen.
+echo.
+echo  SO GEHT ES RICHTIG:
+echo    1. Lade die ZIP nochmal komplett herunter
+echo    2. Pruefe die Datei auf Vollstaendigkeit
+echo    3. Entpacke die GESAMTE ZIP
+echo    4. Im entpackten Ordner INSTALLIEREN.bat starten
 echo.
 call :show_support_info
 pause

@@ -8,7 +8,6 @@ cross-thread access (MCP thread + Dashboard thread).
 import sqlite3
 import json
 import os
-import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -88,9 +87,11 @@ def get_data_dir() -> Path:
     Windows default: %LOCALAPPDATA%/BewerbungsAssistent/data  (v1.5.0+)
     Linux default:   ~/.bewerbungs-assistent
 
-    v1.5.0 migration: if pbp.db exists in the old flat layout
-    (%LOCALAPPDATA%/BewerbungsAssistent/pbp.db) it is moved into the
-    new ``data/`` subdirectory automatically.
+    Notes:
+    - Die alte v1.4.x-zu-v1.5-Layout-Migration (Flat → data/) wurde in
+      v1.7.0-beta.18 entfernt. Wer noch auf v1.4 ist (sehr unwahrscheinlich,
+      v1.5 ist seit > 1 Jahr Standard) muss zuerst v1.6.9 installieren —
+      die hat die Move-Logik noch.
     """
     env_dir = os.environ.get("BA_DATA_DIR")
     if env_dir:
@@ -104,10 +105,7 @@ def get_data_dir() -> Path:
             data_dir = data_dir / "data"
     elif sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-        base_install = base / "BewerbungsAssistent"
-        data_dir = base_install / "data"
-        # v1.4.x → v1.5.0 migration: move DB from flat layout into data/
-        _migrate_flat_layout(base_install, data_dir)
+        data_dir = base / "BewerbungsAssistent" / "data"
     else:
         data_dir = Path.home() / ".bewerbungs-assistent"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -115,34 +113,6 @@ def get_data_dir() -> Path:
     (data_dir / "export").mkdir(exist_ok=True)
     (data_dir / "logs").mkdir(exist_ok=True)
     return data_dir
-
-
-def _migrate_flat_layout(base_install: Path, data_dir: Path) -> None:
-    """Move v1.4.x flat-layout files into the v1.5.0 data/ subdirectory.
-
-    Creates an automatic backup before moving anything.
-    """
-    old_db = base_install / "pbp.db"
-    new_db = data_dir / "pbp.db"
-    if not old_db.exists() or new_db.exists():
-        return
-    data_dir.mkdir(parents=True, exist_ok=True)
-    # Create backup before migration
-    create_backup(old_db, data_dir / "backups")
-    logger.info("v1.4.x Migration: verschiebe pbp.db nach data/")
-    shutil.move(str(old_db), str(new_db))
-    # Move WAL/SHM files if present
-    for suffix in ("-wal", "-shm"):
-        wal = base_install / f"pbp.db{suffix}"
-        if wal.exists():
-            shutil.move(str(wal), str(data_dir / f"pbp.db{suffix}"))
-    # Move subdirectories
-    for subdir in ("dokumente", "export", "logs"):
-        old_sub = base_install / subdir
-        new_sub = data_dir / subdir
-        if old_sub.exists() and not new_sub.exists():
-            shutil.move(str(old_sub), str(new_sub))
-    logger.info("v1.4.x Migration abgeschlossen")
 
 
 def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Optional[Path]:

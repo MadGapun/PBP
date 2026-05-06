@@ -1,0 +1,45 @@
+# v1.7.0-beta.18 (#598): Dev-only-Dateien aus dem GitHub-ZIP-Download ausschliessen.
+# `export-ignore` greift nur bei `git archive` — also genau dem ZIP-Download
+# ueber `archive/refs/tags/...zip`. Im normalen `git clone` und im Repo
+# bleiben die Dateien wie immer sichtbar.
+#
+# Hintergrund: Endnutzer laden das ZIP runter und sehen 30+ Dateien im Root,
+# wovon die meisten Dev-Doku oder Build-Tooling sind. Verklick-Risiko hoch.
+# Mit dieser Liste sehen sie nur noch die wirklich install-relevanten Dateien.
+
+# === Entwickler-Dokumentation (nicht fuer Endnutzer) ===
+AGENTS.md            export-ignore
+CLAUDE.md            export-ignore
+CONTRIBUTING.md      export-ignore
+DOKUMENTATION.md     export-ignore
+OPTIMIERUNGEN.md     export-ignore
+TESTVERSION.md       export-ignore
+ZUSTAND.md           export-ignore
+
+# === Dev-Tools (nicht fuer Endnutzer) ===
+release_check.py     export-ignore
+test_demo.py         export-ignore
+switch_mode.py       export-ignore
+
+# === Test-Suite (laeuft nicht beim Endnutzer) ===
+tests/               export-ignore
+
+# === CI/CD (irrelevant nach Download) ===
+.github/             export-ignore
+.gitignore           export-ignore
+.gitattributes       export-ignore
+
+# === Build-Manifest fuer Workspaces (irrelevant fuer Setup) ===
+pnpm-workspace.yaml  export-ignore
+
+# === Frontend-Source (gebaute Assets liegen schon unter src/.../static/) ===
+# Werden NICHT excludiert — manche Power-User wollen das vielleicht
+# anpassen koennen. frontend/node_modules ist sowieso nicht im Repo.
+
+# === Zeilenenden — Konsistenz erzwingen ===
+*.py    text eol=lf
+*.bat   text eol=crlf
+*.command text eol=lf
+*.sh    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf

@@ -1,7 +1,9 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
-React-Frontend + SQLite. v1.6.5 ist Latest auf GitHub.
+React-Frontend + SQLite. **v1.6.9** ist Latest auf GitHub. v1.7.0 laeuft
+in der Beta-Reihe (zuletzt beta.18) — wird `--latest` erst nach
+abgeschlossenem User-Test (User-Wort).
 
 ## Release-Workflow (Pflicht-Checkliste)
 
