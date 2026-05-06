@@ -81,8 +81,22 @@ Nach dem Audit (User-Frage „sind alle Issues weg?") aufgeraeumt:
 
 ### Tests
 
-- Volle Regression: **778 Tests gruen** (keine Aenderung — beta.18
-  ist Polish, kein neuer Funktional-Code).
+- **Migration-Beweis v1.6.9 → beta.18:** `tests/test_v170_beta18_migration_from_169.py`
+  legt eine echte v1.6.9-DB an (Schema v31, mit Profil, Position, Skill,
+  Stelle inkl. alter BA-URL, Bewerbung, Dokument, Follow-up), faehrt
+  `Database.initialize()` darueber und verifiziert:
+  - Migration v31 → v32 → v33 → v34 → v35 → v36 laeuft komplett durch
+  - Backup wird automatisch in `data/backups/pbp-backup-*.db` angelegt
+    *bevor* die Migration startet
+  - Alle 6 Datenarten bleiben unveraendert erhalten
+  - Bestand-BA-URL wird auf `/jobsuche/jobdetail/` umgestellt (#526)
+  - Andere URLs (Indeed, etc.) bleiben unangetastet
+  - Neue Tabellen (`contacts`, `application_jobs`, `skill_periods`,
+    `application_costs`, `document_versions`, `contact_links`) sind nach
+    der Migration alle da
+  - Neue v1.7-Features (Skill-Zeitraum hinzufuegen, Kontakt anlegen,
+    Bewerbung↔Stelle n:m verknuepfen) funktionieren sofort
+- Volle Regression: **784 Tests gruen** (vorher 778; +6 Migration-Tests).
 
 ---
 
