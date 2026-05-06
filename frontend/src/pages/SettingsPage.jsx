@@ -180,6 +180,76 @@ function ThemeEditor() {
 // v1.7.0 (#583, #512): Settings-Bereich „Lokale KI".
 // Vor Installation: Erklaerung + Modell-Auswahl + Einrichten-Button.
 // Nach Installation: Status, Aktiv/Pausiert/Aus, Modell wechseln, Statistik.
+// v1.7.0-beta.22: PBP-Start-Datum-Feld im Bericht-Tab.
+// Daten vor diesem Datum werden im Bewerbungsbericht grau markiert und
+// als „nachtraeglich erfasst, moeglicherweise unvollstaendig" gekennzeichnet.
+// Auto-Detect aus application_events ist Default; User kann ueberschreiben.
+function PbpStartDateField({ pushToast }) {
+  const [data, setData] = useState(null);
+  const [editing, setEditing] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function reload() {
+    try {
+      const d = await api("/api/settings/pbp-start-date");
+      setData(d);
+      setEditing(d.override || "");
+    } catch (err) {
+      pushToast(`PBP-Start-Datum laden fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await putJson("/api/settings/pbp-start-date", { date: editing || "" });
+      await reload();
+      pushToast(editing ? "PBP-Start-Datum gesetzt" : "Auf Auto-Detect zurueckgesetzt", "success");
+    } catch (err) {
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!data) return null;
+
+  return (
+    <div className="mt-5 glass-card p-3 border-sky/15 border">
+      <p className="text-sm font-medium text-ink mb-1">PBP-Nutzung gestartet am</p>
+      <p className="text-[11px] text-muted/70 mb-3">
+        Steuert, ab welchem Datum die Bewerbungen im Bericht als „mit PBP erfasst" gelten.
+        Daten davor werden im PDF grau markiert (nachtraeglich erfasst, ggf. unvollstaendig).
+        Default: Auto-Detect aus dem ersten Bewerbungs-Ereignis (<strong className="text-ink">{data.auto_detect || "noch keine Daten"}</strong>).
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          type="date"
+          value={editing}
+          onChange={(e) => setEditing(e.target.value)}
+          disabled={saving}
+          className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 text-[13px] text-ink"
+        />
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saving ? "..." : "Speichern"}
+        </Button>
+        {data.override && (
+          <Button size="sm" variant="secondary" onClick={() => { setEditing(""); save(); }} disabled={saving}>
+            Auf Auto-Detect zuruecksetzen
+          </Button>
+        )}
+      </div>
+      <p className="text-[11px] text-muted/50 mt-2">
+        Aktuell wirksam: <strong className="text-ink">{data.effective || "—"}</strong>
+        {data.override ? " (User-Override)" : " (Auto-Detect)"}
+      </p>
+    </div>
+  );
+}
+
+
 // v1.7.0-beta.20: Auto-Aktionen-Tab
 // Schwellwerte fuer Auto-Expire (Bewerbung -> abgelaufen) und
 // Auto-Followup-Reconciler. Manueller Trigger fuer Sofort-Lauf.
@@ -1134,6 +1204,9 @@ export default function SettingsPage() {
                 </p>
               </div>
             </label>
+
+            {/* v1.7.0-beta.22: PBP-Start-Datum konfigurierbar */}
+            <PbpStartDateField pushToast={pushToast} />
           </Card>
         )}
 

@@ -5073,6 +5073,41 @@ class Database:
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
 
+    def get_pbp_first_active_at(self) -> Optional[str]:
+        """Liefert das Datum, ab dem PBP aktiv genutzt wurde (#beta.22).
+
+        Logik:
+        1. Wenn `pbp_first_active_at` als Setting gesetzt ist (User-Override) → das.
+        2. Sonst: kleinstes `event_date` der `application_events`. Jede
+           Bewerbungs-Aktion in PBP erzeugt ein Event, daher ist das ein
+           verlaesslicher Marker fuer den Zeitpunkt der ersten echten Nutzung.
+        3. Wenn weder Setting noch Events: None (PBP noch nicht aktiv genutzt).
+
+        Rueckgabe: ISO-Datum (YYYY-MM-DD) oder None.
+        """
+        override = self.get_setting("pbp_first_active_at", None)
+        if override:
+            return str(override)[:10]
+        try:
+            conn = self.connect()
+            row = conn.execute(
+                "SELECT MIN(event_date) AS first_event FROM application_events"
+            ).fetchone()
+            first = row["first_event"] if row else None
+            return first[:10] if first else None
+        except Exception:
+            return None
+
+    def set_pbp_first_active_at(self, iso_date: Optional[str]):
+        """Setzt PBP-Start-Datum als User-Override. None = Auto-Detect aus DB."""
+        if iso_date is None or iso_date == "":
+            # Setting entfernen damit Auto-Detect wieder greift
+            conn = self.connect()
+            conn.execute("DELETE FROM settings WHERE key='pbp_first_active_at'")
+            conn.commit()
+            return
+        self.set_setting("pbp_first_active_at", str(iso_date)[:10])
+
     def get_profile_setting(self, key: str, default=None):
         """Get a setting scoped to the active profile.
 

@@ -78,7 +78,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                                 output_path: Path,
                                 zeitraum_von: str = "",
                                 zeitraum_bis: str = "",
-                                report_settings: Optional[dict] = None) -> Path:
+                                report_settings: Optional[dict] = None,
+                                pbp_first_active_at: Optional[str] = None) -> Path:
     """Generate a comprehensive PDF Bewerbungsbericht (#173 aufgewertet).
 
     v1.6.6 (#540): Erweitert um Arbeitsamt-Tauglichkeit. Optionale Bericht-
@@ -186,6 +187,19 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     else:
         zeitraum_label = "Zeitraum: gesamter Verlauf"
     _line_cell(pdf, 0, 6, _safe_text(zeitraum_label), align="C")
+
+    # v1.7.0-beta.22 (#beta.22): PBP-Nutzung-Beginn auf Cover anzeigen.
+    # Daten vor diesem Datum wurden importiert/manuell erfasst und sind
+    # moeglicherweise unvollstaendig — diese Information gehoert prominent
+    # auf die Cover-Page, damit der Leser den Bericht richtig einordnen kann.
+    if pbp_first_active_at:
+        pdf.set_font("Helvetica", "", 9)
+        _line_cell(
+            pdf, 0, 5,
+            _safe_text(f"PBP-Nutzung seit {_de_date(pbp_first_active_at)}"),
+            align="C",
+        )
+
     pdf.set_font("Helvetica", "", 9)
     _line_cell(
         pdf, 0, 5,
@@ -264,31 +278,59 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     avg_score = stats.get("avg_score", 0)
     max_score = stats.get("max_score", 0)
 
-    # Recalculate rates for filtered apps
-    # Interview-Zaehler inkl. Folge-Status: wer bei "angebot"/"angenommen" ist,
-    # hat zwingend vorher ein Interview gehabt.
+    # Recalculate rates for filtered apps.
+    # v1.7.0-beta.22: Track-Record-Sicht statt nur aktueller Status.
+    # Vorher zaehlte nur wer JETZT noch im Interview-Status ist — Bewerbungen
+    # die ein Interview hatten und danach abgelehnt/abgelaufen sind, fielen
+    # raus. Jetzt: has_reached_interview-Flag, das wird beim ersten Interview-
+    # Status-Wechsel gesetzt und bleibt. Damit ist die Quote eine ehrliche
+    # Track-Record-Zahl, nicht nur ein Snapshot der laufenden Verhandlungen.
     by_status_filtered = Counter(a.get("status", "offen") for a in apps)
-    interviews = (by_status_filtered.get("interview", 0)
-                  + by_status_filtered.get("zweitgespraech", 0)
-                  + by_status_filtered.get("interview_abgeschlossen", 0)
-                  + by_status_filtered.get("angebot", 0)
-                  + by_status_filtered.get("angenommen", 0))
-    offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
     in_vorb = by_status_filtered.get("in_vorbereitung", 0)
     submitted_apps = total_apps - in_vorb  # exclude in_vorbereitung (#198)
-    interview_rate = round(interviews / submitted_apps * 100, 1) if submitted_apps else 0
+    interviews_track_record = sum(
+        1 for a in apps
+        if a.get("has_reached_interview") and a.get("status") != "in_vorbereitung"
+    )
+    # Aktuell laufende Interview-Phasen — separat fuer Pipeline-Anzeige
+    interviews_current = (by_status_filtered.get("interview", 0)
+                          + by_status_filtered.get("zweitgespraech", 0)
+                          + by_status_filtered.get("interview_abgeschlossen", 0))
+    offers = by_status_filtered.get("angebot", 0) + by_status_filtered.get("angenommen", 0)
+    interview_rate = round(interviews_track_record / submitted_apps * 100, 1) if submitted_apps else 0
     offer_rate = round(offers / submitted_apps * 100, 1) if submitted_apps else 0
 
     # Summary text
     pdf.set_font("Helvetica", "", 9)
     summary_text = (
         f"Im Berichtszeitraum wurden {total_apps} Bewerbungen erfasst. "
-        f"Die Interview-Rate liegt bei {interview_rate}%, "
-        f"die Angebotsrate bei {offer_rate}%. "
+        f"Davon haben {interviews_track_record} jemals eine Interview-Phase erreicht "
+        f"(Track-Record-Interview-Rate: {interview_rate}%). "
+        f"Die Angebotsrate liegt bei {offer_rate}%. "
         f"Insgesamt wurden {active_jobs + dismissed_jobs} Stellen analysiert."
     )
     pdf.multi_cell(0, 5, _safe_text(summary_text))
     pdf.ln(2)
+
+    # Pre-PBP-Hinweis (wenn relevant)
+    if pbp_first_active_at:
+        try:
+            pre_pbp_count = sum(
+                1 for a in apps
+                if (a.get("applied_at") or "")[:10] < pbp_first_active_at[:10]
+            )
+        except Exception:
+            pre_pbp_count = 0
+        if pre_pbp_count > 0:
+            pdf.set_font("Helvetica", "I", 8)
+            pdf.set_text_color(120, 120, 120)
+            _line_cell(pdf, 0, 4, _safe_text(
+                f"Hinweis: {pre_pbp_count} Bewerbungen aus der Zeit vor PBP-Nutzung "
+                f"({_de_date(pbp_first_active_at)}) sind in der Liste markiert (kursiv/grau). "
+                "Sie wurden nachtraeglich erfasst und koennten unvollstaendig sein."
+            ))
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
 
     # v1.6.8: „Aktive Filter-Arbeit" und „Geschaetzter Zeitaufwand"
     # entfernt. Begruendung (User-Feedback nach Real-Lauf):
@@ -310,13 +352,14 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         ("Bewerbungen im Zeitraum", str(total_apps)),
         ("  davon in Vorbereitung", str(in_vorb)),
         ("  davon beworben", str(by_status_filtered.get("beworben", 0))),
-        ("  davon im Prozess", str(interviews)),
+        ("  davon aktuell im Interview-Prozess", str(interviews_current)),
         ("  davon Angebote", str(offers)),
+        ("Track-Record: jemals Interview erreicht", str(interviews_track_record)),
         ("Aktive Stellen analysiert (gesamt)", str(active_jobs)),
         ("Analysierte Stellen aussortiert (gesamt)", str(dismissed_jobs)),
         ("Durchschn. Fit-Score (alle Jobs)", f"{avg_score}" if avg_score else "k.A."),
         ("Spitzen-Fit-Score (alle Jobs)", f"{max_score}" if max_score else "k.A."),
-        ("Interview-Rate (Zeitraum)", f"{interview_rate}%"),
+        ("Interview-Rate (Track-Record)", f"{interview_rate}%"),
         ("Angebots-Rate (Zeitraum)", f"{offer_rate}%"),
     ]
     for label, value in pipeline_data:
@@ -465,15 +508,23 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.cell(30, 5, "Kontakt", border=1, fill=True)
         pdf.ln()
         pdf.set_font("Helvetica", "", 6.5)
+        # v1.7.0-beta.22: Pre-PBP-Daten grau hinterlegen (Asterisk + grauer Text).
+        pre_pbp_marker = (pbp_first_active_at or "")[:10]
         for idx, a in enumerate(apps):
+            date_str = (a.get("applied_at") or "")[:10]
+            is_pre_pbp = bool(pre_pbp_marker and date_str and date_str < pre_pbp_marker)
+
             # Alternating row colors (#173)
             if idx % 2 == 1:
                 pdf.set_fill_color(245, 247, 250)
                 fill = True
             else:
                 fill = False
+            # Pre-PBP: dezenter grauer Hintergrund
+            if is_pre_pbp:
+                pdf.set_fill_color(238, 238, 238)
+                fill = True
 
-            date_str = (a.get("applied_at") or "")[:10]
             company = (a.get("company") or "")[:20]
             title = (a.get("title") or "")[:28]
             status_key = a.get("status", "")
@@ -487,24 +538,48 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             art = (a.get("bewerbungsart") or "")[:10]
             kontakt = (a.get("ansprechpartner") or "")[:18]
 
+            # Pre-PBP: Asterisk vor dem Datum + grauer Text
+            date_display = ("† " + date_str) if is_pre_pbp else date_str
+            if is_pre_pbp:
+                pdf.set_text_color(110, 110, 110)
+
             # Status color badge
             r, g, b = STATUS_COLORS.get(status_key, (100, 116, 139))
 
-            pdf.cell(18, 4, _safe_text(date_str), border=1, fill=fill)
+            pdf.cell(18, 4, _safe_text(date_display), border=1, fill=fill)
             pdf.cell(35, 4, _safe_text(company), border=1, fill=fill)
             pdf.cell(45, 4, _safe_text(title), border=1, fill=fill)
-            # Status with color
+            # Status with color (immer farbig — auch fuer Pre-PBP)
             pdf.set_fill_color(r, g, b)
             pdf.set_text_color(255, 255, 255)
             pdf.cell(22, 4, _safe_text(status), border=1, fill=True, align="C")
-            pdf.set_text_color(0, 0, 0)
-            if idx % 2 == 1:
+            # Text-Color zurueck auf grau wenn Pre-PBP
+            pdf.set_text_color(110 if is_pre_pbp else 0,
+                                110 if is_pre_pbp else 0,
+                                110 if is_pre_pbp else 0)
+            if is_pre_pbp:
+                pdf.set_fill_color(238, 238, 238)
+            elif idx % 2 == 1:
                 pdf.set_fill_color(245, 247, 250)
             pdf.cell(15, 4, _safe_text(source), border=1, fill=fill, align="C")
             pdf.cell(10, 4, _safe_text(str(score)), border=1, fill=fill, align="C")
             pdf.cell(15, 4, _safe_text(art), border=1, fill=fill, align="C")
             pdf.cell(30, 4, _safe_text(kontakt), border=1, fill=fill)
+            pdf.set_text_color(0, 0, 0)  # zurueck zum Default
             pdf.ln()
+
+        # Legende fuer Pre-PBP-Markierung
+        if pbp_first_active_at and any(
+            (a.get("applied_at") or "")[:10] < pbp_first_active_at[:10] for a in apps if a.get("applied_at")
+        ):
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(110, 110, 110)
+            _line_cell(pdf, 0, 4, _safe_text(
+                f"† Bewerbung vor PBP-Nutzung ({_de_date(pbp_first_active_at)}) — "
+                "nachtraeglich erfasst, Daten moeglicherweise unvollstaendig."
+            ))
+            pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
 
     # --- 7. Ablehnungsgruende ---

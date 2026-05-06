@@ -2319,6 +2319,45 @@ async def api_update_app_status(app_id: str, request: Request):
     return {"status": "ok", "lifecycle": lifecycle}
 
 
+@app.get("/api/settings/pbp-start-date")
+async def api_get_pbp_start_date():
+    """Liefert das PBP-Start-Datum (User-Override oder Auto-Detect)."""
+    auto = None
+    try:
+        conn = _db.connect()
+        row = conn.execute(
+            "SELECT MIN(event_date) AS first_event FROM application_events"
+        ).fetchone()
+        if row and row["first_event"]:
+            auto = row["first_event"][:10]
+    except Exception:
+        pass
+    override = _db.get_setting("pbp_first_active_at", None)
+    return {
+        "effective": _db.get_pbp_first_active_at(),
+        "override": override,
+        "auto_detect": auto,
+    }
+
+
+@app.put("/api/settings/pbp-start-date")
+async def api_set_pbp_start_date(request: Request):
+    """Setzt User-Override fuer PBP-Start-Datum, oder loescht ihn (Auto-Detect)."""
+    data = await request.json()
+    iso = (data.get("date") or "").strip()
+    if iso == "" or iso.lower() == "auto":
+        _db.set_pbp_first_active_at(None)
+        return {"status": "ok", "mode": "auto_detect",
+                "effective": _db.get_pbp_first_active_at()}
+    # Validierung: YYYY-MM-DD
+    import re
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", iso):
+        return JSONResponse(
+            {"error": "Datum muss im Format YYYY-MM-DD sein"}, status_code=400)
+    _db.set_pbp_first_active_at(iso)
+    return {"status": "ok", "mode": "override", "effective": iso}
+
+
 @app.get("/api/settings/report")
 async def api_get_report_settings():
     """Liest Bewerbungsbericht-Einstellungen (v1.6.6, #540).
@@ -4274,6 +4313,8 @@ async def api_export_applications(
         # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
         "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
     }
+    # v1.7.0-beta.22: PBP-Nutzung-Beginn fuer Cover-Page + Pre-PBP-Markierung
+    pbp_first_active_at = _db.get_pbp_first_active_at()
     from .database import get_data_dir
     export_dir = get_data_dir() / "export"
     export_dir.mkdir(exist_ok=True)
@@ -4299,7 +4340,8 @@ async def api_export_applications(
         path = export_dir / "bewerbungsbericht.pdf"
         generate_application_report(report_data, profile, path,
                                     zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
-                                    report_settings=report_settings)
+                                    report_settings=report_settings,
+                                    pbp_first_active_at=pbp_first_active_at)
         return FileResponse(
             str(path),
             filename="Bewerbungsbericht.pdf",

@@ -7,6 +7,48 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.22] - 2026-05-06 — Bewerbungsbericht-Findings (Track-Record + PBP-Start)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Vier zusammenhaengende Bericht-Findings aus dem User-Test in beta.20.
+
+### 🐛 Fixed
+
+- **Interview-Rate war massiv verzerrt nach unten.** Die Executive Summary
+  zaehlte nur Bewerbungen die **aktuell** im Interview-Status sind. Wer
+  Interview hatte und danach abgelehnt/abgelaufen wurde, fiel raus —
+  bei 11 Track-Record-Interviews sah der Bericht nur 3 (3.6%) statt 13.3%.
+  **Fix:** Bericht nutzt jetzt das `has_reached_interview`-Flag (das beim
+  ersten Interview-Statuswechsel gesetzt wird und bleibt). Die Quote heisst
+  jetzt klar **„Track-Record-Interview-Rate"**. Pipeline zeigt zusaetzlich
+  „aktuell im Interview-Prozess" als Snapshot.
+
+### ✨ Added
+
+- **PBP-Start-Datum prominent auf Cover-Page.** Steht direkt unter dem
+  Zeitraum: *„PBP-Nutzung seit DD.MM.YYYY"*. Damit weiss der Leser sofort
+  ob die Daten vollstaendig sind oder nachtraeglich erfasst.
+- **Auto-Detect aus `application_events`** — kleinster `event_date` =
+  erste echte PBP-Aktivitaet. User kann ueberschreiben (z.B. wenn der Start
+  bewusst auf einen frueheren oder spaeteren Stichtag fixiert werden soll).
+- **Setting-API:** `GET/PUT /api/settings/pbp-start-date`. Frontend-Feld
+  im Bericht-Tab unter den Arbeitsamt-Settings.
+- **Pre-PBP-Bewerbungen werden im Bericht grau hinterlegt.** Datums-Spalte
+  bekommt ein „†"-Marker, der gesamte Zeilen-Text ist dezent grau.
+  Legende unter der Liste: *„† Bewerbung vor PBP-Nutzung — nachtraeglich
+  erfasst, Daten moeglicherweise unvollstaendig."* Plus Hinweis-Block in
+  der Executive Summary mit der Anzahl der Pre-PBP-Bewerbungen.
+
+### Tests
+
+- `tests/test_v170_beta22_bericht_findings.py`: 8 neue Tests
+  (Auto-Detect, User-Override, API-Validierung, PDF-Generierung mit
+  Track-Record-Logik, Pre-PBP-Markierung).
+- **826 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.21] - 2026-05-06 — Navigation-Bug + LinkedIn-Anreicherung
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
