@@ -298,13 +298,35 @@ def register(mcp, db, logger):
         """
         # #170: Wenn der User sich noch nicht beworben hat → in_vorbereitung
         # #506: Aber NUR, wenn der Aufrufer keinen expliziten Status gesetzt hat.
-        # `status="beworben"` ist der implizite Default — in diesem Fall
-        # interpretieren wir "noch nicht beworben" als "in_vorbereitung".
-        # Wenn jemand `bereits_beworben=False, status="zurueckgezogen"` ueber-
-        # gibt, soll der Status respektiert werden (z.B. Inbound-Anfrage,
-        # die ohne Bewerbung sofort abgelehnt wurde).
         if not bereits_beworben and status == "beworben":
             status = "in_vorbereitung"
+
+        # v1.7.0-beta.20: Schutzgitter gegen Recruiter-Anfragen-Missbrauch.
+        # Vorher gab es einen Workaround: bewerbung_erstellen(bereits_beworben=False,
+        # status="zurueckgezogen") fuer Inbound-Anfragen, die nie eine Bewerbung waren.
+        # Das verfaelscht die Statistik (Quoten zaehlen das als "submitted").
+        # Jetzt: blockieren mit Hinweis auf das richtige Tool.
+        if not bereits_beworben and status in ("zurueckgezogen", "abgelehnt"):
+            return {
+                "fehler": (
+                    "Eine Inbound-Ablehnung gehoert nicht in die Bewerbungs-Tabelle. "
+                    "Sie wuerde deine Bewerbungs-Statistik verfaelschen "
+                    "(Quoten zaehlen sie als 'submitted')."
+                ),
+                "vorschlag_tool": "recruiter_anfrage_ablehnen",
+                "vorschlag_aufruf": (
+                    f"recruiter_anfrage_ablehnen(firma=\"{company}\", "
+                    f"titel=\"{title}\", grund=\"<dein-grund>\")"
+                ),
+                "begruendung": (
+                    "Bei Recruiter-Anfragen ohne Bewerbung wird KEIN "
+                    "applications-Eintrag angelegt. Stattdessen wird die "
+                    "Stelle in der jobs-Tabelle als ausgemustert markiert "
+                    "(is_active=0 mit dismiss_reason). Dadurch bleibt die "
+                    "Markt-Beobachtung erhalten ohne deine Track-Record-"
+                    "Statistik zu verfaelschen."
+                ),
+            }
 
         # Check for duplicate applications (#63 / #531 v1.6.4)
         # v1.6.4: Erweitert um fuzzy-match (Vermittler/Endkunde-Beziehungen
@@ -507,6 +529,38 @@ def register(mcp, db, logger):
                 angelegt (#522). Sinnvoll wenn der Recruiter ausdruecklich
                 zugesagt hat sich zu melden.
         """
+        # v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
+        # ("warte_auf_rueckmeldung", "abgesagt") die durch das alte Tool
+        # einfach durchgewunken wurden — Statistik konnte sie nicht einordnen.
+        # Schema-v37-Migration repariert den Bestand, hier verhindern wir das
+        # erneute Eindringen.
+        VALID_STATUSES = {
+            "in_vorbereitung", "offen", "beworben",
+            "eingangsbestaetigung", "interview", "zweitgespraech",
+            "interview_abgeschlossen", "angebot", "angenommen",
+            "abgelehnt", "zurueckgezogen", "abgelaufen",
+        }
+        if neuer_status not in VALID_STATUSES:
+            # Frueher genutzte Custom-Status auf den jetzt offiziellen Wert mappen
+            mapping = {
+                "warte_auf_rueckmeldung": "eingangsbestaetigung",
+                "abgesagt": "abgelaufen",
+            }
+            if neuer_status in mapping:
+                return {
+                    "fehler": (
+                        f"Status '{neuer_status}' existiert nicht mehr. "
+                        f"Nutze stattdessen '{mapping[neuer_status]}'."
+                    ),
+                    "vorschlag_status": mapping[neuer_status],
+                }
+            return {
+                "fehler": (
+                    f"Unbekannter Status '{neuer_status}'. "
+                    f"Erlaubt: {sorted(VALID_STATUSES)}"
+                ),
+            }
+
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         auto_followup_id = None
         if neuer_status == "beworben":
@@ -1418,6 +1472,191 @@ def register(mcp, db, logger):
         """Loescht eine Kosten-Position."""
         ok = db.delete_application_cost(kosten_id)
         return {"status": "geloescht" if ok else "nicht_gefunden"}
+
+    # === v1.7.0-beta.20: Recruiter-Anfrage-Tools ===
+    # Ein Recruiter meldet sich, ich entscheide gegen die Stelle ohne mich
+    # ueberhaupt zu bewerben. Das ist KEINE Bewerbung — es darf also keinen
+    # applications-Eintrag geben (verfaelscht sonst die Statistik). Die
+    # Stelle wird trotzdem in jobs angelegt (fuer Markt-Beobachtung) und
+    # sofort dismissed.
+
+    @mcp.tool()
+    def recruiter_anfrage_ablehnen(
+        firma: str,
+        titel: str,
+        grund: str,
+        notizen: str = "",
+        url: str = "",
+    ) -> dict:
+        """Lehnt eine Recruiter-Anfrage ab OHNE Bewerbung anzulegen.
+
+        Wann nutzen: Ein Recruiter (LinkedIn-DM, E-Mail, Anruf) bietet eine
+        Stelle an. Du entscheidest sofort dagegen — Standort passt nicht,
+        Branche stimmt nicht, Gehalt unrealistisch, Tonalitaet unprofessionell
+        etc. Es kommt zu KEINER Bewerbung.
+
+        Was passiert:
+        1. Eine Stelle wird in `jobs` angelegt (source='recruiter_inbound')
+        2. Diese Stelle wird sofort dismissed (is_active=0, dismiss_reason=grund)
+        3. KEIN applications-Eintrag wird angelegt
+        4. Notizen werden in research_notes der Stelle gespeichert
+
+        Vorteil ggue. bewerbung_erstellen(status='zurueckgezogen'):
+        - Track-Record-Statistik bleibt sauber (zaehlt nicht als 'submitted')
+        - Markt-Beobachtung trotzdem moeglich (Stelle ist im Bestand)
+        - Semantisch korrekt: keine Bewerbung war geplant, also keine erfasst
+
+        Args:
+            firma: Firma die angefragt hat
+            titel: Stellentitel der angefragten Position
+            grund: Warum abgelehnt (z.B. 'standort', 'gehalt', 'branche')
+            notizen: Optional ausfuehrlicher Notiz fuer's Recherche-Archiv
+            url: Optionaler Link zur Anfrage / Stelle
+        """
+        if not firma or not titel:
+            return {"fehler": "firma und titel sind Pflichtfelder."}
+        if not grund:
+            return {"fehler": "grund ist Pflicht — sonst lernt PBP nichts ueber Ablehnungsmuster."}
+
+        from ..job_scraper import stelle_hash
+        from datetime import datetime as _dt
+        h = stelle_hash("recruiter_inbound", f"{firma}-{titel}")
+        notiz_block = (
+            f"[{_dt.now().strftime('%Y-%m-%d')}] Recruiter-Anfrage abgelehnt. "
+            f"Grund: {grund}."
+        )
+        if notizen:
+            notiz_block += f" Notizen: {notizen}"
+
+        # Stelle anlegen (oder finden falls Hash schon existiert)
+        existing = db.get_job(h)
+        if existing:
+            target_hash = existing["hash"]
+            # Vorhandene Stelle: Notiz anhaengen + dismiss falls noch aktiv
+            cur_notes = (existing.get("research_notes") or "")
+            new_notes = (cur_notes + "\n\n" + notiz_block).strip() if cur_notes else notiz_block
+            db.update_job(target_hash, {"research_notes": new_notes})
+        else:
+            db.save_jobs([{
+                "hash": h,
+                "title": titel,
+                "company": firma,
+                "url": url or "",
+                "source": "recruiter_inbound",
+                "description": notiz_block,
+                "research_notes": notiz_block,
+                "score": 0,
+            }])
+            target_hash = h
+
+        # Sofort ausmustern
+        db.dismiss_job(target_hash, reason=grund)
+
+        # Lerneffekt: dismiss_count fuer den Grund hochzaehlen damit
+        # AblehnungsMuster-Statistik den Inbound-Pfad mitbekommt
+        try:
+            db.increment_dismiss_reason_usage([grund])
+        except Exception:
+            pass
+
+        return {
+            "status": "abgelehnt",
+            "stelle_hash": target_hash,
+            "firma": firma,
+            "titel": titel,
+            "grund": grund,
+            "nachricht": (
+                f"Recruiter-Anfrage von {firma} ({titel}) als "
+                f"'{grund}' abgelehnt. KEIN Bewerbungs-Eintrag erzeugt — "
+                "deine Statistik bleibt sauber."
+            ),
+        }
+
+    @mcp.tool()
+    def bewerbung_zu_anfrage_konvertieren(
+        bewerbung_id: str,
+        grund: str = "war_nur_anfrage",
+    ) -> dict:
+        """Konvertiert einen faelschlich angelegten Bewerbungseintrag zu einer abgelehnten Recruiter-Anfrage.
+
+        Wann nutzen: Beim Audit der Bewerbungsliste faellt auf, dass ein Eintrag
+        mit Status 'zurueckgezogen' oder 'abgelehnt' eigentlich nie eine Bewerbung
+        war — es war nur eine Anfrage die du sofort abgelehnt hast. Dieses Tool:
+
+        1. Loescht den applications-Eintrag (Statistik bleibt sauber)
+        2. Behaelt die verknuepfte Stelle, dismisst sie mit dem gegebenen Grund
+        3. Schreibt die Notizen aus der Bewerbung in research_notes der Stelle
+
+        Args:
+            bewerbung_id: ID der zu konvertierenden Bewerbung
+            grund: Dismiss-Reason fuer die Stelle (default 'war_nur_anfrage')
+        """
+        app = db.get_application(bewerbung_id)
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden."}
+        if app.get("status") not in ("zurueckgezogen", "abgelehnt", "in_vorbereitung"):
+            return {
+                "fehler": (
+                    f"Konvertierung nur erlaubt fuer Status zurueckgezogen, "
+                    f"abgelehnt oder in_vorbereitung. Aktuell: {app.get('status')}."
+                )
+            }
+
+        from datetime import datetime as _dt
+        notiz_archiv = (
+            f"[{_dt.now().strftime('%Y-%m-%d')}] Konvertiert von "
+            f"applications->dismissed. Urspruenglicher Status: "
+            f"{app.get('status')}. "
+        )
+        if app.get("notes"):
+            notiz_archiv += f"Notizen: {app['notes']}"
+        if app.get("rejection_reason"):
+            notiz_archiv += f" Rejection: {app['rejection_reason']}"
+
+        job_hash = app.get("job_hash")
+        if job_hash:
+            try:
+                cur = db.get_job(job_hash)
+                if cur:
+                    cur_notes = (cur.get("research_notes") or "")
+                    new_notes = (cur_notes + "\n\n" + notiz_archiv).strip() if cur_notes else notiz_archiv
+                    db.update_job(job_hash, {"research_notes": new_notes})
+                db.dismiss_job(job_hash, reason=grund)
+            except Exception:
+                pass
+        else:
+            # Keine Stelle verknuepft — neue inbound-Stelle aus den Bewerbungs-Daten anlegen
+            from ..job_scraper import stelle_hash
+            h = stelle_hash("recruiter_inbound", f"{app['company']}-{app['title']}")
+            db.save_jobs([{
+                "hash": h,
+                "title": app["title"],
+                "company": app["company"],
+                "url": app.get("url") or "",
+                "source": "recruiter_inbound",
+                "description": notiz_archiv,
+                "research_notes": notiz_archiv,
+                "score": 0,
+            }])
+            db.dismiss_job(h, reason=grund)
+            job_hash = h
+
+        # Bewerbung loeschen — FK-Cascade entfernt application_events / follow_ups
+        db.delete_application(bewerbung_id)
+        # Verifikation: ist sie wirklich weg?
+        check = db.get_application(bewerbung_id)
+        return {
+            "status": "konvertiert" if check is None else "fehlgeschlagen",
+            "bewerbung_id": bewerbung_id[:8],
+            "stelle_hash": job_hash,
+            "grund": grund,
+            "nachricht": (
+                f"Bewerbung {bewerbung_id[:8]} ({app.get('company')}/"
+                f"{app.get('title')}) zu Recruiter-Anfrage konvertiert. "
+                "Statistik wird ab sofort sauber sein."
+            ),
+        }
+
 
     @mcp.tool()
     def aufwand_uebersicht(bewerbung_id: str = "") -> dict:

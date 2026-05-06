@@ -220,7 +220,10 @@ def test_schema_hat_final_salary_spalte(tmp_path):
 # ==================== #506: bewerbung_erstellen respektiert expliziten Status ====================
 
 def test_506_explicit_status_with_bereits_beworben_false(tmp_path):
-    """#506: status='zurueckgezogen' + bereits_beworben=False -> wird respektiert."""
+    """#506 (umgekehrt in v1.7.0-beta.20): bereits_beworben=False + status='zurueckgezogen'
+    wird jetzt BLOCKIERT — der frueher genutzte Workaround fuer Inbound-Anfragen
+    verfaelschte die Statistik. Ersetzt durch das neue Tool recruiter_anfrage_ablehnen.
+    """
     mcp, db = _build_server(tmp_path)
     res = _run(mcp, "bewerbung_erstellen", {
         "title": "Senior PLM Architekt",
@@ -229,8 +232,10 @@ def test_506_explicit_status_with_bereits_beworben_false(tmp_path):
         "status": "zurueckgezogen",
         "notes": "Per Klick als unpassend abgelehnt",
     })
-    assert res.get("status") == "erstellt"
-    assert res.get("bewerbungsstatus") == "zurueckgezogen"
+    assert "fehler" in res
+    assert res.get("vorschlag_tool") == "recruiter_anfrage_ablehnen"
+    # KEIN applications-Eintrag wurde angelegt
+    assert len(db.get_applications()) == 0
 
 
 def test_506_default_status_with_bereits_beworben_false_uses_in_vorbereitung(tmp_path):
@@ -255,7 +260,9 @@ def test_506_default_call_uses_beworben(tmp_path):
 
 
 def test_506_explicit_abgelehnt_with_bereits_beworben_false(tmp_path):
-    """#506: weitere Status-Werte (abgelehnt) werden ebenfalls respektiert."""
+    """#506 (umgekehrt in v1.7.0-beta.20): bereits_beworben=False + status='abgelehnt'
+    wird jetzt ebenfalls blockiert — gleicher Pfad wie 'zurueckgezogen'.
+    """
     mcp, db = _build_server(tmp_path)
     res = _run(mcp, "bewerbung_erstellen", {
         "title": "Inbound-Anfrage",
@@ -263,4 +270,5 @@ def test_506_explicit_abgelehnt_with_bereits_beworben_false(tmp_path):
         "bereits_beworben": False,
         "status": "abgelehnt",
     })
-    assert res.get("bewerbungsstatus") == "abgelehnt"
+    assert "fehler" in res
+    assert res.get("vorschlag_tool") == "recruiter_anfrage_ablehnen"

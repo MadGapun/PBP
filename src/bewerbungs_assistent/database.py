@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 36
+SCHEMA_VERSION = 37
 
 
 def _gen_id() -> str:
@@ -1457,6 +1457,50 @@ class Database:
                             migrated_count)
             except Exception as exc:
                 logger.warning("Bundesagentur-URL-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 37:
+            # v37 / v1.7.0-beta.20: Status-Hygiene-Migration.
+            # Bestand enthielt undefinierte Status-Werte:
+            #   warte_auf_rueckmeldung -> eingangsbestaetigung
+            #     (User-Vorgabe: semantisch identisch)
+            #   abgesagt -> abgelaufen
+            #     (User-Vorgabe: meist Auto-Verfall, nicht Eigen-Rueckzug)
+            # Plus: ein application_event pro Migration als Audit-Trail.
+            try:
+                migrated = []
+                for old, new, note in (
+                    ("warte_auf_rueckmeldung", "eingangsbestaetigung",
+                     "Auto-Migration v37: warte_auf_rueckmeldung -> eingangsbestaetigung"),
+                    ("abgesagt", "abgelaufen",
+                     "Auto-Migration v37: abgesagt -> abgelaufen"),
+                ):
+                    affected = conn.execute(
+                        "SELECT id FROM applications WHERE status=?", (old,)
+                    ).fetchall()
+                    for r in affected:
+                        conn.execute(
+                            "UPDATE applications SET status=?, updated_at=? WHERE id=?",
+                            (new, _now(), r[0])
+                        )
+                        try:
+                            conn.execute(
+                                "INSERT INTO application_events "
+                                "(application_id, status, event_date, notes) "
+                                "VALUES (?, ?, ?, ?)",
+                                (r[0], new, _now(), note)
+                            )
+                        except Exception:
+                            pass
+                    if affected:
+                        migrated.append(f"{old}->{new}: {len(affected)}")
+                conn.commit()
+                if migrated:
+                    logger.info("Migration v36->v37 (Status-Hygiene): %s",
+                                "; ".join(migrated))
+                else:
+                    logger.info("Migration v36->v37: keine alten Status-Werte gefunden")
+            except Exception as exc:
+                logger.warning("Status-Hygiene-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",

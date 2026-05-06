@@ -6547,6 +6547,205 @@ async def api_global_search(q: str = "", limit: int = 8):
 
 # === Recap-Funktion (v1.7.0 #576) ===
 
+# === v1.7.0-beta.20: Auto-Aktionen (Expire + Followup-Reconciler) ===
+
+def _run_auto_expire(now_iso: str) -> dict:
+    """Setzt Bewerbungen ohne Aktivitaet seit N Tagen auf 'abgelaufen'.
+
+    Settings:
+    - `expire_default_days` (Default 60): fuer status='beworben'
+    - `expire_eingangsbestaetigung_days` (Default 30): fuer status='eingangsbestaetigung'
+
+    Logik:
+    - Letzter Stichtag = max(applied_at, last_event_at)
+    - Wenn Stichtag + threshold < now: Status -> 'abgelaufen' + Event schreiben.
+    - 'in_vorbereitung' wird NICHT abgelaufen (User arbeitet noch dran).
+    - Stati 'interview', 'zweitgespraech', 'angebot', 'angenommen' bleiben
+      unangetastet (laufende Verhandlung).
+    """
+    from datetime import datetime, timedelta
+    try:
+        d_default = int(_db.get_setting("expire_default_days", 60) or 60)
+    except Exception:
+        d_default = 60
+    try:
+        d_eb = int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30)
+    except Exception:
+        d_eb = 30
+
+    now = datetime.fromisoformat(now_iso) if isinstance(now_iso, str) else datetime.now()
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    expired = []
+    for status, threshold in (("beworben", d_default),
+                              ("eingangsbestaetigung", d_eb)):
+        cutoff = (now - timedelta(days=threshold)).date().isoformat()
+        rows = conn.execute(
+            "SELECT a.id, a.company, a.title, a.applied_at, "
+            "  COALESCE((SELECT MAX(event_date) FROM application_events "
+            "            WHERE application_id=a.id), a.applied_at) AS last_seen "
+            "FROM applications a "
+            "WHERE a.status=? "
+            "AND (a.profile_id=? OR a.profile_id IS NULL) "
+            "AND a.applied_at IS NOT NULL",
+            (status, pid)
+        ).fetchall()
+        for r in rows:
+            last_seen = (r["last_seen"] or r["applied_at"] or "")[:10]
+            if last_seen and last_seen < cutoff:
+                conn.execute(
+                    "UPDATE applications SET status='abgelaufen', updated_at=? WHERE id=?",
+                    (now.isoformat(), r["id"])
+                )
+                conn.execute(
+                    "INSERT INTO application_events "
+                    "(application_id, status, event_date, notes) VALUES (?, ?, ?, ?)",
+                    (r["id"], "abgelaufen", now.isoformat(),
+                     f"Auto-Expire: {threshold}d ohne Aktivitaet "
+                     f"(letzter Stand {last_seen}, vorher: {status}).")
+                )
+                expired.append({
+                    "id": r["id"], "company": r["company"], "title": r["title"],
+                    "previous_status": status, "last_seen": last_seen,
+                })
+    conn.commit()
+    return {"expired_count": len(expired), "expired": expired,
+            "thresholds": {"beworben": d_default,
+                           "eingangsbestaetigung": d_eb}}
+
+
+def _run_auto_followup_reconciler(now_iso: str) -> dict:
+    """Stellt sicher dass jede aktive Bewerbung einen offenen Follow-up hat.
+
+    Setting: `followup_default_days` (Default 7) — Tage nach letztem Stand
+    bis zum naechsten geplanten FU.
+
+    Logik:
+    - Aktive Bewerbungen (status in beworben/eingangsbestaetigung) ohne
+      offenen 'geplant'-Follow-up bekommen einen automatisch.
+    - scheduled_date = max(applied_at, last_event_at) + N Tage
+    - Wenn das Datum bereits in der Vergangenheit liegt: heute + 1d
+      (User soll nicht 50 ueberfaellige FUs auf einmal bekommen).
+    """
+    from datetime import datetime, timedelta
+    try:
+        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+    except Exception:
+        default_days = 7
+
+    now = datetime.fromisoformat(now_iso) if isinstance(now_iso, str) else datetime.now()
+    today = now.date()
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    rows = conn.execute(
+        "SELECT a.id, a.company, a.title, a.applied_at, "
+        "  COALESCE((SELECT MAX(event_date) FROM application_events "
+        "            WHERE application_id=a.id), a.applied_at) AS last_seen "
+        "FROM applications a "
+        "WHERE a.status IN ('beworben', 'eingangsbestaetigung') "
+        "AND (a.profile_id=? OR a.profile_id IS NULL) "
+        "AND a.applied_at IS NOT NULL "
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM follow_ups f "
+        "  WHERE f.application_id=a.id AND f.status='geplant' "
+        "  AND (f.follow_up_type='nachfass' OR f.follow_up_type IS NULL)"
+        ")",
+        (pid,)
+    ).fetchall()
+
+    created = []
+    for r in rows:
+        last_seen = (r["last_seen"] or r["applied_at"] or "")[:10]
+        try:
+            base = datetime.fromisoformat(last_seen).date()
+        except Exception:
+            base = today
+        scheduled = base + timedelta(days=default_days)
+        if scheduled < today:
+            scheduled = today + timedelta(days=1)
+        try:
+            fid = _db.add_follow_up(
+                r["id"], scheduled.isoformat(),
+                follow_up_type="nachfass",
+                template=(
+                    f"Auto-Reconciler: {default_days}d nach letzter Aktivitaet "
+                    "({last_seen}). Nachfrage senden falls keine Antwort?"
+                ).format(last_seen=last_seen)
+            )
+            created.append({
+                "id": fid, "application_id": r["id"],
+                "company": r["company"], "scheduled": scheduled.isoformat(),
+            })
+        except Exception:
+            pass
+    return {"created_count": len(created), "created": created,
+            "default_days": default_days}
+
+
+@app.post("/api/auto-actions/run")
+async def api_run_auto_actions():
+    """Triggert die Auto-Engine: Expire + FU-Reconciler.
+
+    Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
+    oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
+    Idempotent: mehrfacher Aufruf am selben Tag erzeugt keine Duplikate.
+    """
+    from datetime import datetime
+    now = datetime.now().isoformat()
+    expire_result = _run_auto_expire(now)
+    fu_result = _run_auto_followup_reconciler(now)
+    # Letzten Lauf protokollieren
+    _db.set_setting("auto_actions_last_run_at", now)
+    return {
+        "ran_at": now,
+        "expire": expire_result,
+        "followup_reconciler": fu_result,
+    }
+
+
+@app.get("/api/auto-actions/status")
+async def api_auto_actions_status():
+    """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck."""
+    last = _db.get_setting("auto_actions_last_run_at", "") or ""
+    return {
+        "last_run_at": last,
+        "settings": {
+            "expire_default_days": int(_db.get_setting("expire_default_days", 60) or 60),
+            "expire_eingangsbestaetigung_days":
+                int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30),
+            "followup_default_days":
+                int(_db.get_setting("followup_default_days", 7) or 7),
+        },
+    }
+
+
+@app.put("/api/auto-actions/settings")
+async def api_set_auto_actions_settings(request: Request):
+    """Setzt die Schwellwerte fuer Auto-Expire + Auto-Followup."""
+    data = await request.json()
+    out = {}
+    for key, lo, hi in (
+        ("expire_default_days", 7, 365),
+        ("expire_eingangsbestaetigung_days", 7, 180),
+        ("followup_default_days", 1, 60),
+    ):
+        if key in data:
+            try:
+                v = int(data[key])
+            except (TypeError, ValueError):
+                return JSONResponse({"error": f"{key} muss eine Zahl sein"},
+                                     status_code=400)
+            if not (lo <= v <= hi):
+                return JSONResponse(
+                    {"error": f"{key} muss zwischen {lo} und {hi} liegen"},
+                    status_code=400)
+            _db.set_setting(key, v)
+            out[key] = v
+    return {"status": "ok", "gespeichert": out}
+
+
 @app.get("/api/recap")
 async def api_recap():
     """Liefert eine Zusammenfassung dessen, was seit dem letzten Login passiert ist.

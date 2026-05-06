@@ -7,6 +7,76 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.20] - 2026-05-06 — Recruiter-Anfragen + Status-Hygiene + Auto-Engine
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Vier zusammenhaengende Bewerbungs-Workflow-Reparaturen die User-Test in
+beta.18/19 aufgedeckt hatte.
+
+### 🆕 Recruiter-Anfragen sauber abbilden (semantischer Fix)
+
+**Problem:** Eine Recruiter-Anfrage die du sofort ablehnst wurde als
+Bewerbung mit Status `zurueckgezogen` angelegt — semantisch falsch und
+verfaelschte deine Track-Record-Statistik (Quoten zaehlten sie als
+"submitted").
+
+**Fix in 3 Stufen:**
+1. Neuer MCP-Tool `recruiter_anfrage_ablehnen(firma, titel, grund, ...)`
+   legt nur eine ausgemusterte Stelle an (KEIN applications-Eintrag).
+2. `bewerbung_erstellen()` blockt den frueheren Workaround
+   (`bereits_beworben=False + status=zurueckgezogen/abgelehnt`) mit
+   klarer Fehlermeldung und Tool-Vorschlag.
+3. Neuer MCP-Tool `bewerbung_zu_anfrage_konvertieren(bewerbung_id)`
+   bereinigt Bestand: loescht den falschen applications-Eintrag und
+   dismisst die verknuepfte Stelle.
+
+### 🐛 Status-Hygiene
+
+**Problem:** In der DB tauchten Status-Werte auf die nirgendwo definiert
+waren (`warte_auf_rueckmeldung`, `abgesagt`) — `bewerbung_status_aendern`
+liess sie ungeprueft durch und die Statistik konnte sie nicht einordnen.
+
+**Fix:**
+- **Schema v36 → v37 Migration:** Bestand-Reparatur — aus
+  `warte_auf_rueckmeldung` wird `eingangsbestaetigung` (User-Vorgabe),
+  aus `abgesagt` wird `abgelaufen` (User-Vorgabe). Audit-Event pro
+  Eintrag.
+- `bewerbung_status_aendern()` validiert `neuer_status` jetzt gegen die
+  offizielle Whitelist mit Mapping-Hinweis fuer alte Werte.
+
+### ⚙️ Auto-Engine (#Workflow)
+
+**Problem:** Bewerbungen verharrten ewig auf `beworben` — keine Logik
+setzt sie auto auf `abgelaufen`. Nachfass-Erinnerungen wurden nur 1×
+beim Anlegen der Bewerbung erzeugt — wenn der User sie erledigte oder
+verwarf, riss der Faden ab.
+
+**Fix:**
+- Neuer Endpoint `POST /api/auto-actions/run` triggert beide Engines:
+  - **Auto-Expire:** setzt aktive Bewerbungen ohne Aktivitaet > N Tage
+    auf `abgelaufen` (Default 60d fuer `beworben`, 30d fuer
+    `eingangsbestaetigung`).
+  - **Auto-Followup-Reconciler:** legt fehlende Nachfass-Follow-ups
+    automatisch an (Default 7d nach letzter Aktivitaet). Idempotent —
+    legt keine Duplikate an wenn schon ein offener FU existiert.
+- Settings-Tab **„Automatik"** im Frontend mit konfigurierbaren
+  Schwellwerten + Sofort-Lauf-Button.
+- `GET /api/auto-actions/status` liefert die aktuellen Settings + den
+  Zeitpunkt des letzten Laufs.
+
+### Tests
+
+- `tests/test_v170_beta20_recruiter_anfrage_auto.py`: 15 neue Tests
+  (Recruiter-Anfragen-Tool, Konvertierung, Status-Whitelist, Auto-Expire,
+  Auto-FU-Reconciler, Settings-Validierung, Idempotenz).
+- Schema-v37-Test (`tests/test_v170_beta18_migration_from_169.py`)
+  generalisiert auf aktuelle SCHEMA_VERSION.
+- Vorhandene Tests #506 angepasst (alter Workaround wird jetzt blockiert).
+- **812 Tests gruen.**
+
+---
+
 ## [1.7.0-beta.19] - 2026-05-06 — User-Test-Findings + Kontakt-Import
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

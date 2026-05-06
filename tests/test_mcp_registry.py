@@ -18,6 +18,9 @@ from bewerbungs_assistent.tools import register_all  # noqa: E402
 
 
 EXPECTED_TOOL_NAMES = {
+    # v1.7.0-beta.20: Recruiter-Anfragen-Tools
+    "recruiter_anfrage_ablehnen",
+    "bewerbung_zu_anfrage_konvertieren",
     "profil_status",
     "profil_zusammenfassung",
     "profil_bearbeiten",
@@ -236,7 +239,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 121  # v1.7.0-beta.6: +5 (Aufwand: meeting_aufwand_setzen, kosten_erfassen/anzeigen/loeschen, aufwand_uebersicht, #568)
+        assert len(tools) == 123  # v1.7.0-beta.20: +2 (recruiter_anfrage_ablehnen, bewerbung_zu_anfrage_konvertieren)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:

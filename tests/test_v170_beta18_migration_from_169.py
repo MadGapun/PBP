@@ -251,19 +251,24 @@ def v169_data_dir():
 
 
 def test_migration_runs_to_v36(v169_data_dir):
-    """Migration v31 -> v36 laeuft komplett durch ohne Fehler."""
+    """Migration v31 -> aktuelle SCHEMA_VERSION laeuft komplett durch ohne Fehler.
+
+    (Test-Name ist historisch — laeuft in beta.20+ bis v37.)
+    """
     data_dir, _ = v169_data_dir
     from bewerbungs_assistent.database import Database, SCHEMA_VERSION
 
-    assert SCHEMA_VERSION == 36, f"Erwartete SCHEMA_VERSION=36, ist {SCHEMA_VERSION}"
+    assert SCHEMA_VERSION >= 36, f"SCHEMA_VERSION muss >= 36 sein, ist {SCHEMA_VERSION}"
 
     db = Database()
-    db.initialize()  # Sollte v31 -> v36 migrieren
+    db.initialize()  # Sollte v31 -> aktuelles Schema migrieren
     conn = db.connect()
     row = conn.execute(
         "SELECT value FROM settings WHERE key='schema_version'"
     ).fetchone()
-    assert row["value"] == "36", f"Schema-Version nach Migration: {row['value']}"
+    assert row["value"] == str(SCHEMA_VERSION), (
+        f"Schema-Version nach Migration: {row['value']}, erwartet {SCHEMA_VERSION}"
+    )
     db.close()
 
 

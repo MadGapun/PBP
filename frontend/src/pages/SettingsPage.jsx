@@ -180,6 +180,152 @@ function ThemeEditor() {
 // v1.7.0 (#583, #512): Settings-Bereich „Lokale KI".
 // Vor Installation: Erklaerung + Modell-Auswahl + Einrichten-Button.
 // Nach Installation: Status, Aktiv/Pausiert/Aus, Modell wechseln, Statistik.
+// v1.7.0-beta.20: Auto-Aktionen-Tab
+// Schwellwerte fuer Auto-Expire (Bewerbung -> abgelaufen) und
+// Auto-Followup-Reconciler. Manueller Trigger fuer Sofort-Lauf.
+function AutoActionsTab({ pushToast }) {
+  const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+
+  async function reload() {
+    try {
+      const data = await api("/api/auto-actions/status");
+      setStatus(data);
+    } catch (err) {
+      pushToast(`Status laden fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function saveSetting(key, value) {
+    setSaving(true);
+    try {
+      await putJson("/api/auto-actions/settings", { [key]: value });
+      await reload();
+      pushToast("Gespeichert", "success");
+    } catch (err) {
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runNow() {
+    setRunning(true);
+    try {
+      const r = await postJson("/api/auto-actions/run", {});
+      setLastResult(r);
+      await reload();
+      const e = r.expire?.expired_count || 0;
+      const f = r.followup_reconciler?.created_count || 0;
+      pushToast(
+        e + f === 0
+          ? "Auto-Aktionen liefen — nichts zu tun."
+          : `${e} abgelaufen, ${f} neue Follow-ups`,
+        "success"
+      );
+    } catch (err) {
+      pushToast(`Lauf fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (!status) {
+    return <Card className="rounded-2xl"><p className="text-sm text-muted/60">Lade...</p></Card>;
+  }
+
+  const s = status.settings;
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Automatik fuer Bewerbungs-Lifecycle"
+        description="PBP setzt Bewerbungen ohne Aktivitaet automatisch auf 'abgelaufen' und legt fehlende Nachfass-Erinnerungen an."
+      />
+
+      <div className="space-y-5">
+        <div className="glass-card p-4 space-y-3">
+          <h3 className="font-medium text-ink text-sm">Auto-Ablauf (Status -&gt; abgelaufen)</h3>
+          <p className="text-[12px] text-muted/60">
+            Bewerbungen werden auf <strong>abgelaufen</strong> gesetzt wenn seit
+            der letzten Aktivitaet die folgende Zahl an Tagen ohne Antwort
+            verstrichen ist. Sie sind dann nicht weg — falls doch noch was
+            kommt, kannst du sie jederzeit zurueckholen.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Status 'beworben' nach (Tage)">
+              <input
+                type="number" min={7} max={365}
+                defaultValue={s.expire_default_days}
+                onBlur={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (v && v !== s.expire_default_days) saveSetting("expire_default_days", v);
+                }}
+                disabled={saving}
+                className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
+              />
+            </Field>
+            <Field label="Status 'eingangsbestaetigung' nach (Tage)">
+              <input
+                type="number" min={7} max={180}
+                defaultValue={s.expire_eingangsbestaetigung_days}
+                onBlur={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (v && v !== s.expire_eingangsbestaetigung_days) saveSetting("expire_eingangsbestaetigung_days", v);
+                }}
+                disabled={saving}
+                className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div className="glass-card p-4 space-y-3">
+          <h3 className="font-medium text-ink text-sm">Auto-Followup (Nachfass-Erinnerungen)</h3>
+          <p className="text-[12px] text-muted/60">
+            Wenn eine aktive Bewerbung keinen offenen Nachfass-Follow-up hat,
+            wird automatisch einer angelegt — N Tage nach der letzten Aktivitaet.
+            Der Faden reisst nicht mehr ab wenn du den ersten Follow-up als
+            erledigt markierst.
+          </p>
+          <Field label="Nachfass-Erinnerung nach (Tage seit letzter Aktivitaet)">
+            <input
+              type="number" min={1} max={60}
+              defaultValue={s.followup_default_days}
+              onBlur={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (v && v !== s.followup_default_days) saveSetting("followup_default_days", v);
+              }}
+              disabled={saving}
+              className="w-full max-w-xs rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
+            />
+          </Field>
+        </div>
+
+        <div className="glass-card p-4 space-y-3">
+          <h3 className="font-medium text-ink text-sm">Sofort-Lauf</h3>
+          <p className="text-[12px] text-muted/60">
+            Letzter Lauf: <strong>{status.last_run_at || "noch nie"}</strong>
+          </p>
+          <Button size="sm" onClick={runNow} disabled={running}>
+            {running ? "Laeuft..." : "Jetzt durchlaufen"}
+          </Button>
+          {lastResult && (
+            <div className="text-[12px] text-muted/60 space-y-1">
+              <p>Letzter Lauf: <strong className="text-ink">{lastResult.expire?.expired_count || 0}</strong> abgelaufen, <strong className="text-ink">{lastResult.followup_reconciler?.created_count || 0}</strong> Follow-ups neu angelegt.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
@@ -732,6 +878,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: "quellen", label: "Quellen" },
     { id: "ai", label: "Lokale KI" },
+    { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
     { id: "system", label: "System" },
     { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },
@@ -801,6 +948,8 @@ export default function SettingsPage() {
 
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
         {settingsTab === "ai" && <LocalAITab pushToast={pushToast} />}
+
+        {settingsTab === "automatik" && <AutoActionsTab pushToast={pushToast} />}
 
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
         {settingsTab === "system" && (
