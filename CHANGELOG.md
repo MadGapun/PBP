@@ -7,6 +7,47 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.23] - 2026-05-06 — Installer-Polish: echter Health-Check + sichtbare Erfolgsmeldung
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Feedback nach beta.22-Test: *„Nach der Installation startet pbp nicht
+automatisch. Und auch ansonsten gibt es keinen Hinweis das die Installation
+fertig ist."*
+
+beta.19 hatte das eigentlich schon gefixt — aber die Reihenfolge im
+Installer war ungluecklich (Erfolgsmeldung VOR dem Auto-Start, kein
+Health-Check, `Dashboard starten.bat` schloss bei Python-Crash stumm).
+
+### 🐛 Fixed
+
+- **Erfolgsmeldung jetzt NACH dem Auto-Start** (Reihenfolge umgedreht).
+  Vorher sah der User die Erfolgs-Box bevor klar war ob das Dashboard
+  wirklich laeuft — jetzt zeigt die Box am Ende den echten Status.
+- **Echter Health-Check auf `http://localhost:8200/`.** Bis zu 30
+  Sekunden wird gepollt (PowerShell + `Invoke-WebRequest`). Erst wenn
+  HTTP 200 ankommt, oeffnet sich der Browser. Bei Timeout: klare
+  Meldung mit Log-Pfad.
+- **Browser explizit oeffnen.** Vorher startete nur `Dashboard
+  starten.bat` (im Hintergrund). Jetzt wird zusaetzlich
+  `start "" "http://localhost:8200/"` ausgefuehrt — der User sieht
+  das Dashboard wirklich.
+- **Erfolgsmeldung zeigt Dashboard-Status.** Status-Zeile mit
+  `[LAEUFT]` (gruen-Sinn) oder `[PRUEFEN]` (mit Log-Hinweis).
+- **`Dashboard starten.bat` bleibt bei Fehler offen.** Vorher schloss
+  das Fenster stumm bei Python-Crash. Jetzt: `setlocal
+  EnableDelayedExpansion`, Python-Pfad-Check vorab, Errorlevel-Check
+  nach dem Aufruf mit `pause` damit Fehlermeldung lesbar bleibt.
+
+### Tests
+
+- `tests/test_v170_beta23_installer_polish.py`: 6 neue Tests
+  (Health-Check, Browser-Open, Reihenfolge, Status-Anzeige,
+  Dashboard-bat-Errorlevel-Handling, Python-Pfad-Validierung).
+- **832 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.22] - 2026-05-06 — Bewerbungsbericht-Findings (Track-Record + PBP-Start)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

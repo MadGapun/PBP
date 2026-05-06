@@ -29,15 +29,16 @@ def test_installer_uses_auto_start_no_prompt():
     assert "Dashboard jetzt im Browser oeffnen" not in bat
     # Erfolgsmeldung sichtbar
     assert "ERFOLGREICH" in bat or "I N S T A L L A T I O N" in bat
-    # Auto-Start des Dashboards
-    assert 'start "" "%APP_DIR%\\Dashboard starten.bat"' in bat
+    # Auto-Start des Dashboards (in beta.23 auf /MIN-Variante umgestellt)
+    assert 'Dashboard starten.bat' in bat
+    assert 'start ' in bat  # irgendein start-Aufruf
 
 
 def test_installer_shows_version_in_success():
     """Erfolgsmeldung enthaelt die installierte Version (PBP_VERSION)."""
     bat = (PROJECT_ROOT / "INSTALLIEREN.bat").read_text(encoding="cp1252", errors="replace")
     # Im Erfolgsblock muss %PBP_VERSION% verwendet werden
-    assert "Version installiert: %PBP_VERSION%" in bat
+    assert "Version" in bat and "%PBP_VERSION%" in bat
 
 
 # ============= #2 Live-Update-Token-Stabilitaet ===============

@@ -704,86 +704,104 @@ echo [OK] Installation abgeschlossen >> "%LOGFILE%"
 echo.
 
 :: -------------------------------------------
-:: FERTIG
+:: FERTIG — v1.7.0-beta.23 ueberarbeitet
 :: -------------------------------------------
-:: v1.7.0-beta.19: Klare Erfolgsmeldung + automatischer Start.
-:: Vorher: Das Fenster schloss nach (j/n)-Frage stumm wenn der User
-:: Enter ohne "j" druckte — er wusste nicht ob die Installation
-:: ueberhaupt geklappt hat. Jetzt: Erfolgsmeldung mit grossem [OK],
-:: Dashboard und Claude werden automatisch gestartet, User sieht
-:: was passiert.
-echo.
-echo  ====================================================
-echo  ==                                                ==
-echo  ==     [OK]   I N S T A L L A T I O N             ==
-echo  ==          E R F O L G R E I C H                 ==
-echo  ==                                                ==
-echo  ====================================================
-echo.
-echo    Version installiert: %PBP_VERSION%
-echo    Daten:    %DATA_DIR%
-echo    App-Code: %APP_DIR%
-echo    Log:      %LOGFILE%
+:: Auto-Start zuerst MIT Health-Check, dann Erfolgsmeldung am Ende.
+:: Vorher: Erfolgsmeldung kam VOR dem Start, dann Auto-Start ohne
+:: Verifikation. User wusste nicht ob das Dashboard wirklich laeuft —
+:: und sah keine eindeutige "FERTIG"-Markierung am Schluss.
+
 echo.
 echo  ----------------------------------------------------
-echo  WAS JETZT AUTOMATISCH STARTET:
+echo  Starte PBP automatisch...
 echo  ----------------------------------------------------
-echo.
-echo    [1] Claude Desktop wird gestartet
-echo    [2] PBP-Dashboard oeffnet sich im Browser
-echo    [3] Du kannst sofort loslegen
-echo.
-echo  ----------------------------------------------------
-echo  ERSTE SCHRITTE in Claude:
-echo  ----------------------------------------------------
-echo.
-echo    Tippe in Claude:  "Ersterfassung starten"
-echo.
-echo    Claude fuehrt dich durch ein Gespraech und baut
-echo    dein Bewerbungsprofil auf.
-echo.
-echo  ----------------------------------------------------
-echo  TIPP:
-echo  ----------------------------------------------------
-echo.
-echo    Auf deinem Desktop liegt eine Verknuepfung
-echo    "PBP Bewerbungs-Portal" — Doppelklick startet
-echo    das Dashboard jederzeit neu.
-echo.
-echo  ====================================================
 echo.
 
-:: Auto-open Claude Desktop if found (#24)
+:: --- Claude Desktop starten ---
 if defined CLAUDE_EXE (
-    echo  [1/2] Starte Claude Desktop...
+    echo  [1/3] Claude Desktop starten...
     echo [INFO] Starte Claude Desktop: !CLAUDE_EXE! >> "%LOGFILE%"
     start "" "!CLAUDE_EXE!"
     timeout /t 2 /nobreak >nul
-    echo        [OK] Claude Desktop laeuft
-    echo.
+    echo        [OK] Claude Desktop wurde gestartet.
 ) else (
-    echo  [1/2] Claude Desktop wurde nicht gefunden — bitte
-    echo        manuell starten. Lade von https://claude.ai/download
-    echo.
+    echo  [1/3] Claude Desktop nicht gefunden — bitte manuell starten:
+    echo        https://claude.ai/download
 )
+echo.
 
-:: v1.7.0-beta.19: Dashboard immer auto-starten — der User soll sehen
-:: dass die Installation wirklich funktioniert hat. Kein (j/n)-Prompt mehr.
-echo  [2/2] Starte PBP-Dashboard im Browser...
+:: --- Dashboard im Hintergrund starten ---
+echo  [2/3] PBP-Dashboard wird gestartet...
 echo [INFO] Starte Dashboard >> "%LOGFILE%"
-start "" "%APP_DIR%\Dashboard starten.bat"
-timeout /t 3 /nobreak >nul
-echo        [OK] Dashboard laeuft auf http://localhost:8200
+start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
+
+:: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---
+echo        Warte auf Dashboard auf http://localhost:8200 ...
+set "DASH_OK=0"
+for /L %%i in (1,1,30) do (
+    timeout /t 1 /nobreak >nul
+    powershell -NoProfile -Command "try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 -Uri 'http://localhost:8200/').StatusCode } catch { 0 }" 2>nul | findstr /R "^200$" >nul
+    if !errorlevel! equ 0 (
+        set "DASH_OK=1"
+        goto :dash_ready
+    )
+)
+:dash_ready
+if "!DASH_OK!"=="1" (
+    echo        [OK] Dashboard laeuft.
+    echo  [3/3] Browser oeffnen...
+    start "" "http://localhost:8200/"
+    echo        [OK] Browser-Tab oeffnet sich.
+) else (
+    echo        [!!] Dashboard antwortet nicht nach 30 Sekunden.
+    echo             Pruefe das PBP-Dashboard-Fenster auf Fehler oder
+    echo             oeffne manuell: http://localhost:8200/
+    echo             Log: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+)
 echo.
 
-echo  ====================================================
+:: -------------------------------------------
+:: ABSCHLIESSENDE ERFOLGSMELDUNG
+:: -------------------------------------------
 echo.
-echo    Viel Erfolg bei der Jobsuche!
+echo  ##############################################################
+echo  ##                                                          ##
+echo  ##   I N S T A L L A T I O N   E R F O L G R E I C H        ##
+echo  ##                                                          ##
+echo  ##############################################################
 echo.
-echo  ====================================================
+echo    Version:     %PBP_VERSION%
+echo    Daten:       %DATA_DIR%
+echo    App-Code:    %APP_DIR%
+echo    Installer-Log: %LOGFILE%
 echo.
-echo  Du kannst dieses Fenster jetzt schliessen.
-echo  ^(Eine beliebige Taste schliesst es.^)
+if "!DASH_OK!"=="1" (
+    echo    Dashboard:   http://localhost:8200/  [LAEUFT]
+) else (
+    echo    Dashboard:   http://localhost:8200/  [PRUEFEN — siehe oben]
+)
+echo.
+echo  --------------------------------------------------------------
+echo   ERSTE SCHRITTE
+echo  --------------------------------------------------------------
+echo.
+echo    1. Wechsle in Claude Desktop ^(im Tray-Bereich falls minimiert^).
+echo.
+echo    2. Tippe dort:  Ersterfassung starten
+echo.
+echo    3. Claude fuehrt dich durch ein Gespraech und baut dein
+echo       Bewerbungsprofil auf.
+echo.
+echo  --------------------------------------------------------------
+echo   SPAETER WIEDER OEFFNEN
+echo  --------------------------------------------------------------
+echo.
+echo    - Auf dem Desktop:  "PBP Bewerbungs-Portal" doppelklicken
+echo    - Browser-Direktlink: http://localhost:8200/
+echo.
+echo  ##############################################################
+echo.
+echo  Druecke eine beliebige Taste um dieses Fenster zu schliessen.
 pause >nul
 exit /b 0
 
