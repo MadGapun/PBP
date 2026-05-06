@@ -7,6 +7,42 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.21] - 2026-05-06 — Navigation-Bug + LinkedIn-Anreicherung
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Zwei User-Test-Findings aus beta.20.
+
+### 🐛 Fixed
+
+- **2-Klick-Bug bei Navigation auf Kontakte.** `kontakte` fehlte in
+  `frontend/src/utils.js:PAGE_IDS`. Folge: `parsePageFromHash()` lehnte
+  den Hash `#kontakte` als unbekannt ab und fiel auf `dashboard`
+  zurueck. Beim 1. Klick: `setPage("kontakte")` + Hash-Update →
+  `hashchange`-Listener feuert → `parsePageFromHash` liefert
+  `"dashboard"` zurueck → `setPage("dashboard")` ueberschreibt sofort.
+  Beim 2. Klick blieb der Hash stabil weil er bereits gesetzt war.
+  Fix: `kontakte` in `PAGE_IDS` aufgenommen.
+
+### ✨ Added
+
+- **LinkedIn-Anreicherung fuer Kontakte (#563).** Wenn beim Kontakt
+  eine `linkedin.com/in/...`-URL eingetragen ist, erscheint ein
+  Button **„Daten holen"**. Backend (`POST /api/contacts/enrich-from-
+  linkedin`) erzeugt einen Claude-in-Chrome-Prompt mit JS-Selektoren
+  fuer Name, Position, Firma, Standort, Skills. Der User kopiert den
+  Prompt in Claude — Claude oeffnet das Profil im **eingeloggten**
+  Chrome-Tab und liest die Daten via `javascript_tool()`. LinkedIn
+  blockt direkten Server-Scraping (Login-Wall, Bot-Detection); der
+  Umweg ueber den eingeloggten Browser-Tab umgeht die Sperren.
+
+### Tests
+
+- `tests/test_v170_beta21_fixes.py`: 6 neue Tests.
+- **818 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.20] - 2026-05-06 — Recruiter-Anfragen + Status-Hygiene + Auto-Engine
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

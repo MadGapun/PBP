@@ -4,6 +4,10 @@
   "dokumente",
   "stellen",
   "bewerbungen",
+  "kontakte",  // v1.7.0-beta.21: war in PAGE_IDS vergessen — fuehrte zum
+                // 2-Klick-Bug (1. Klick setzte hash, hashchange-Listener
+                // verwarf 'kontakte' als unbekannt, fiel auf dashboard
+                // zurueck; erst 2. Klick blieb stabil)
   "kalender",
   "statistiken",
   "einstellungen",

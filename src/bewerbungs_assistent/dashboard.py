@@ -6222,6 +6222,105 @@ async def api_create_contact(request: Request):
     return {"status": "created", "id": cid}
 
 
+@app.post("/api/contacts/enrich-from-linkedin")
+async def api_contact_enrich_from_linkedin(request: Request):
+    """Erstellt einen Claude-in-Chrome-Prompt zur LinkedIn-Anreicherung (#563).
+
+    v1.7.0-beta.21: User-Feedback — wenn ein LinkedIn-Link beim Kontakt
+    eingegeben wird, sollte PBP daraus weitere Daten ziehen koennen.
+    LinkedIn blockt direkten Scraping zuverlaessig (Login-Wall, Bot-
+    Detection), aber im **eingeloggten Chrome-Tab** mit der Claude-in-
+    Chrome-Extension funktioniert es stabil.
+
+    Body: {"contact_id": "..."} ODER {"linkedin_url": "..."}
+
+    Antwort: ein Prompt-Block den der User in Claude einfuegt. Claude
+    oeffnet dann die LinkedIn-URL ueber javascript_tool, extrahiert die
+    sichtbaren Felder (Name, Position, Firma, Standort, Skills) und
+    aktualisiert den Kontakt via `/api/contacts/{id}`.
+    """
+    data = await request.json()
+    cid = (data.get("contact_id") or "").strip()
+    li_url = (data.get("linkedin_url") or "").strip()
+
+    if cid:
+        contact = _db.get_contact(cid)
+        if not contact:
+            return JSONResponse({"error": "Kontakt nicht gefunden"}, status_code=404)
+        li_url = li_url or contact.get("linkedin_url") or ""
+    if not li_url:
+        return JSONResponse(
+            {"error": "linkedin_url fehlt — entweder im Body oder am Kontakt hinterlegen"},
+            status_code=400,
+        )
+    if "linkedin.com/in/" not in li_url:
+        return JSONResponse(
+            {"error": "URL ist keine LinkedIn-Profil-URL (linkedin.com/in/...)"},
+            status_code=400,
+        )
+
+    # JS-Snippet fuer DOM-Extraktion. Selektoren rotieren bei LinkedIn,
+    # daher mehrere Strategien.
+    extraction_js = """
+(() => {
+  const text = (sel) => {
+    const el = document.querySelector(sel);
+    return (el?.innerText || el?.textContent || '').trim();
+  };
+  const all = (sel) => Array.from(document.querySelectorAll(sel))
+    .map((el) => (el?.innerText || el?.textContent || '').trim())
+    .filter(Boolean);
+  return {
+    name: text('h1') || text('h2'),
+    headline: text('.text-body-medium') || text('[data-generated-suggestion-target]'),
+    location: text('.text-body-small.inline.t-black--light.break-words')
+              || text('.pv-text-details__left-panel'),
+    current_position: text('[data-field="experience"] li:first-child .t-bold span')
+                       || text('.pv-text-details__right-panel'),
+    company: text('.pv-text-details__right-panel .inline-show-more-text')
+              || text('section[data-section="experience"] .pvs-entity__path-node'),
+    skills: all('section[data-section="skills"] .pvs-entity__path-node, [data-field="skills"] .pvs-entity__path-node').slice(0, 10),
+    about_excerpt: text('section[data-section="summary"] .pvs-entity__path-node')?.slice(0, 400),
+    _source_url: window.location.href,
+    _selector_health: {
+      h1: !!document.querySelector('h1'),
+      sections: document.querySelectorAll('section').length,
+    },
+  };
+})()
+""".strip()
+
+    prompt = (
+        f"PBP — LinkedIn-Profil-Anreicherung\n\n"
+        f"1. Oeffne im eingeloggten Chrome-Tab: {li_url}\n"
+        f"2. Fuehre dieses JavaScript aus (javascript_tool):\n\n"
+        f"{extraction_js}\n\n"
+        f"3. Aktualisiere den Kontakt mit den extrahierten Feldern via "
+        f"PUT /api/contacts/{cid or '<contact_id>'}.\n\n"
+        f"Felder-Mapping (LinkedIn → Kontakt):\n"
+        f"  name → full_name\n"
+        f"  headline → position\n"
+        f"  company → company\n"
+        f"  location → notes (anhaengen)\n"
+        f"  about_excerpt → notes (anhaengen)\n\n"
+        f"Wenn die Selektoren leer zurueckkommen (LinkedIn rotiert sie haeufig),\n"
+        f"falle auf get_page_text() zurueck und extrahiere manuell."
+    )
+
+    return {
+        "status": "ok",
+        "linkedin_url": li_url,
+        "contact_id": cid or None,
+        "prompt": prompt,
+        "extraction_js": extraction_js,
+        "hinweis": (
+            "LinkedIn-Profile koennen nicht direkt vom Server gescrapt werden "
+            "(Login-Wall, Bot-Detection). Nutze diesen Prompt mit Claude-in-"
+            "Chrome — der eingeloggte Browser-Tab umgeht die Sperren."
+        ),
+    }
+
+
 @app.put("/api/contacts/{contact_id}")
 async def api_update_contact(contact_id: str, request: Request):
     """Kontakt aktualisieren (#563)."""

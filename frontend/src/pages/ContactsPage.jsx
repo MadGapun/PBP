@@ -188,11 +188,54 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
           </Field>
         </div>
         <Field label="LinkedIn">
-          <TextInput
-            value={form.linkedin_url}
-            onChange={(e) => setForm({ ...form, linkedin_url: e.target.value })}
-            placeholder="https://linkedin.com/in/..."
-          />
+          <div className="flex items-stretch gap-2">
+            <TextInput
+              className="flex-1"
+              value={form.linkedin_url}
+              onChange={(e) => setForm({ ...form, linkedin_url: e.target.value })}
+              placeholder="https://linkedin.com/in/..."
+            />
+            {/* v1.7.0-beta.21: Wenn LinkedIn-URL gesetzt → Daten via
+                Claude-in-Chrome holen. LinkedIn blockt direkten Scraping;
+                der Prompt-Block muss in Claude eingefuegt werden. */}
+            {form.linkedin_url && form.linkedin_url.includes("linkedin.com/in/") && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await postJson("/api/contacts/enrich-from-linkedin", {
+                      contact_id: contact?.id || "",
+                      linkedin_url: form.linkedin_url,
+                    });
+                    if (res?.prompt) {
+                      try {
+                        await navigator.clipboard.writeText(res.prompt);
+                        pushToast(
+                          "Prompt in Zwischenablage. In Claude einfuegen — der eingeloggte Chrome-Tab holt die LinkedIn-Daten.",
+                          "success",
+                          { duration: 8000 }
+                        );
+                      } catch {
+                        pushToast("Prompt erzeugt. Bitte aus dem Backend-Response kopieren.", "info");
+                      }
+                    }
+                  } catch (err) {
+                    pushToast(`Anreichern fehlgeschlagen: ${err.message}`, "danger");
+                  }
+                }}
+                className="rounded-lg border border-sky/20 bg-sky/[0.08] px-3 text-[12px] text-sky hover:bg-sky/[0.15] whitespace-nowrap"
+                title="LinkedIn-Daten via Claude-in-Chrome holen"
+              >
+                Daten holen
+              </button>
+            )}
+          </div>
+          {form.linkedin_url && form.linkedin_url.includes("linkedin.com/in/") && (
+            <p className="mt-1 text-[11px] text-muted/50">
+              <span className="text-sky">„Daten holen"</span> erzeugt einen Claude-Prompt.
+              Claude oeffnet das Profil im eingeloggten Chrome-Tab und liest Name/Position/Firma.
+            </p>
+          )}
         </Field>
 
         <div>
