@@ -7,6 +7,55 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.19] - 2026-05-06 — User-Test-Findings + Kontakt-Import
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Vier konkrete Findings aus dem User-Test der beta.18 — alle gefixt.
+
+### 🐛 Fixed
+
+- **Installer schloss stumm.** Nach erfolgreicher Installation kam ein
+  `(j/n)`-Prompt — wer Enter ohne `j` druckte, wusste nicht ob die
+  Installation geklappt hat. Jetzt: klare Erfolgsmeldung mit Box-Banner,
+  Versionsanzeige, **automatischer Start** von Claude + Dashboard ohne
+  Rueckfrage.
+- **Dashboard-Flackern.** Der Live-Update-Token wurde aus der mtime/size
+  von `pbp.db-wal` und `-shm` berechnet. Im WAL-Modus aendert SQLite die
+  WAL-Datei aber bei JEDEM Read (Snapshot-Header). Folge: Polling alle 2s
+  sah den Token jedes Mal als geaendert → permanenter `refreshChrome` →
+  Dashboard-Flackern. **Fix:** Token wird jetzt aus Tabellen-COUNTs +
+  `MAX(updated_at)` aufgebaut. Reine Lese-Polls aendern nichts → stabil;
+  echte Schreibvorgaenge erhoehen den Counter → Live-Update funktioniert.
+- **„Mehr erfahren"-Link im Lokale-KI-Modal landete im Dashboard.**
+  Vorher: `<a href="#einstellungen?tab=ai">` — Hash-Anchor unterstuetzt
+  kein `?tab=...`, daher landete der User stumm in der Default-Seite.
+  Jetzt: `navigateTo("einstellungen", { tab: "ai" })`.
+
+### ✨ Added
+
+- **#563 Kontakt-Import-Wizard.** Neuer Button „Importieren" auf der
+  Kontakte-Seite oeffnet einen Wizard, der zwei Quellen abklopft:
+  - **Aus Bewerbungen:** alle distinct (ansprechpartner, kontakt_email)-
+    Tupel aus dem `applications`-Bestand, die noch nicht als Kontakt
+    angelegt sind. Standard-Tag „recruiter", vor-selektiert.
+  - **Aus E-Mail-Dokumenten:** Regex-Extraktion der E-Mail-Adressen
+    aus `extracted_text` der Dokumente mit `doc_type='email'`. Pro
+    E-Mail wird gelistet, in wie vielen Mails sie gefunden wurde.
+    NICHT vor-selektiert (Heuristik, kann Muell enthalten).
+  - Bestehende Kontakte (Match per E-Mail) werden ausgefiltert.
+  - **Stellen werden NICHT abgeklopft** (User-Vorgabe: Rauschen, erst
+    wenn Stelle zur Bewerbung wird, ist es relevant).
+  - Backend: `GET /api/contacts/discover` (Vorschau) und
+    `POST /api/contacts/import-discovered` (Anlage).
+
+### Tests
+
+- `tests/test_v170_beta19_fixes.py`: 13 neue Tests.
+- Volle Regression: **797 Tests gruen**.
+
+---
+
 ## [1.7.0-beta.18] - 2026-05-05 — Aufraeumen + Installer-Polish + Issue-Triage
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

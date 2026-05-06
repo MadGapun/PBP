@@ -1955,13 +1955,20 @@ export default function App() {
                 >
                   Spaeter
                 </button>
-                <a
-                  href="#einstellungen?tab=ai"
-                  onClick={() => setLlmHelpOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-sm bg-sky/15 text-sky hover:bg-sky/25 inline-flex items-center gap-1.5"
+                <button
+                  type="button"
+                  onClick={() => {
+                    // v1.7.0-beta.19: navigateTo statt Hash-Link.
+                    // Vorher: Hash-Link nach einstellungen mit Tab-Query —
+                    // Hash erlaubt kein ?tab=ai, daher landete der User stumm
+                    // im Dashboard.
+                    setLlmHelpOpen(false);
+                    navigateTo("einstellungen", { tab: "ai" });
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm bg-sky/15 text-sky hover:bg-sky/25 inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   Mehr erfahren
-                </a>
+                </button>
               </div>
             </div>
           </Modal>

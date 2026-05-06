@@ -706,68 +706,84 @@ echo.
 :: -------------------------------------------
 :: FERTIG
 :: -------------------------------------------
+:: v1.7.0-beta.19: Klare Erfolgsmeldung + automatischer Start.
+:: Vorher: Das Fenster schloss nach (j/n)-Frage stumm wenn der User
+:: Enter ohne "j" druckte — er wusste nicht ob die Installation
+:: ueberhaupt geklappt hat. Jetzt: Erfolgsmeldung mit grossem [OK],
+:: Dashboard und Claude werden automatisch gestartet, User sieht
+:: was passiert.
 echo.
 echo  ====================================================
-echo.
-echo    FERTIG - Alles installiert!
-echo.
+echo  ==                                                ==
+echo  ==     [OK]   I N S T A L L A T I O N             ==
+echo  ==          E R F O L G R E I C H                 ==
+echo  ==                                                ==
 echo  ====================================================
 echo.
-echo  WICHTIG: Claude Desktop muss im Hintergrund laufen!
-echo  --------------------------------------------------------
-echo  Der Bewerbungs-Assistent laeuft ALS TEIL von Claude
-echo  Desktop. Ohne Claude Desktop funktioniert nichts.
-echo  Claude Desktop muss IMMER im Hintergrund laufen wenn
-echo  du den Bewerbungs-Assistent nutzen willst.
-echo.
-echo  SO GEHT ES WEITER:
-echo.
-echo    1. Claude Desktop starten ^(wird jetzt geoeffnet^)
-echo.
-echo    2. In Claude eintippen:
-echo.
-echo       "Ersterfassung starten"
-echo.
-echo       Claude fuehrt dich durch ein Gespraech und
-echo       baut dein Bewerbungsprofil auf.
+echo    Version installiert: %PBP_VERSION%
+echo    Daten:    %DATA_DIR%
+echo    App-Code: %APP_DIR%
+echo    Log:      %LOGFILE%
 echo.
 echo  ----------------------------------------------------
+echo  WAS JETZT AUTOMATISCH STARTET:
+echo  ----------------------------------------------------
 echo.
-echo    TIPP: Auf deinem Desktop findest du jetzt
-echo    "PBP Bewerbungs-Portal" - damit kannst du
-echo    das Browser-Dashboard jederzeit oeffnen.
+echo    [1] Claude Desktop wird gestartet
+echo    [2] PBP-Dashboard oeffnet sich im Browser
+echo    [3] Du kannst sofort loslegen
+echo.
+echo  ----------------------------------------------------
+echo  ERSTE SCHRITTE in Claude:
+echo  ----------------------------------------------------
+echo.
+echo    Tippe in Claude:  "Ersterfassung starten"
+echo.
+echo    Claude fuehrt dich durch ein Gespraech und baut
+echo    dein Bewerbungsprofil auf.
+echo.
+echo  ----------------------------------------------------
+echo  TIPP:
+echo  ----------------------------------------------------
+echo.
+echo    Auf deinem Desktop liegt eine Verknuepfung
+echo    "PBP Bewerbungs-Portal" — Doppelklick startet
+echo    das Dashboard jederzeit neu.
 echo.
 echo  ====================================================
-echo.
-echo    Deine Daten: %DATA_DIR%
-echo    App-Code: %APP_DIR%
-echo    Log-Datei: %LOGFILE%
 echo.
 
 :: Auto-open Claude Desktop if found (#24)
 if defined CLAUDE_EXE (
-echo  Starte Claude Desktop...
-echo [INFO] Starte Claude Desktop: !CLAUDE_EXE! >> "%LOGFILE%"
-start "" "!CLAUDE_EXE!"
-timeout /t 2 /nobreak >nul
-echo  [OK] Claude Desktop gestartet
-echo.
+    echo  [1/2] Starte Claude Desktop...
+    echo [INFO] Starte Claude Desktop: !CLAUDE_EXE! >> "%LOGFILE%"
+    start "" "!CLAUDE_EXE!"
+    timeout /t 2 /nobreak >nul
+    echo        [OK] Claude Desktop laeuft
+    echo.
+) else (
+    echo  [1/2] Claude Desktop wurde nicht gefunden — bitte
+    echo        manuell starten. Lade von https://claude.ai/download
+    echo.
 )
 
-set /p OPEN_DASH="  Dashboard jetzt im Browser oeffnen? ^(j/n^): "
-if /i "!OPEN_DASH!" neq "j" goto :skip_dashboard
-
-echo.
-echo  Starte Dashboard...
+:: v1.7.0-beta.19: Dashboard immer auto-starten — der User soll sehen
+:: dass die Installation wirklich funktioniert hat. Kein (j/n)-Prompt mehr.
+echo  [2/2] Starte PBP-Dashboard im Browser...
+echo [INFO] Starte Dashboard >> "%LOGFILE%"
 start "" "%APP_DIR%\Dashboard starten.bat"
 timeout /t 3 /nobreak >nul
-echo  Dashboard laeuft auf http://localhost:8200
+echo        [OK] Dashboard laeuft auf http://localhost:8200
 echo.
 
-:skip_dashboard
-echo  Viel Erfolg bei der Jobsuche!
+echo  ====================================================
 echo.
-echo  Druecke eine beliebige Taste zum Schliessen...
+echo    Viel Erfolg bei der Jobsuche!
+echo.
+echo  ====================================================
+echo.
+echo  Du kannst dieses Fenster jetzt schliessen.
+echo  ^(Eine beliebige Taste schliesst es.^)
 pause >nul
 exit /b 0
 

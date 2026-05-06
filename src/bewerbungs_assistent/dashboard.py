@@ -215,22 +215,49 @@ def _build_workspace_summary() -> dict:
 
 
 def _build_live_update_token_payload() -> dict:
-    """Build a stable token that changes whenever persisted DB files change."""
-    profile_id = _db.get_active_profile_id() if _db else ""
-    db_path = Path(getattr(_db, "db_path", "")) if _db else None
-    parts = [str(profile_id or "")]
+    """Build a stable token that changes whenever the DB content changes.
 
-    if db_path:
-        # Include SQLite main db plus WAL/SHM sidecars.
-        for suffix in ("", "-wal", "-shm"):
-            path = Path(f"{db_path}{suffix}")
-            if not path.exists():
-                continue
-            try:
-                stat = path.stat()
-            except OSError:
-                continue
-            parts.append(f"{path.name}:{stat.st_mtime_ns}:{stat.st_size}")
+    v1.7.0-beta.19 (Dashboard-Flackern-Fix): vorher war der Token ein
+    Hash aus der mtime/size der Haupt-DB **plus -wal/-shm-Sidecars**.
+    Im WAL-Modus aendert SQLite die `-wal`-Datei aber bei JEDEM Read
+    (Snapshot-Reads beruehren WAL-Header). Folge: Polling alle 2s sah
+    den Token bei jedem Tick als geaendert, refreshChrome wurde
+    permanent getriggert und das Dashboard hat geflackert.
+
+    Fix: Token wird aus Datenbank-COUNTs der wichtigsten mutations-
+    relevanten Tabellen + den juengsten updated_at/event_at-Zeitstempeln
+    aufgebaut. Reine Lese-Polls aendern keinen dieser Werte → Token
+    stabil. Inserts/Updates/Deletes aendern ihn unmittelbar → Live-
+    Update funktioniert weiterhin.
+    """
+    profile_id = _db.get_active_profile_id() if _db else ""
+    parts: list[str] = [str(profile_id or "")]
+
+    if _db is not None:
+        try:
+            conn = _db.connect()
+            row = conn.execute(
+                "SELECT "
+                "  (SELECT COUNT(*) FROM applications) AS a_cnt, "
+                "  (SELECT COALESCE(MAX(updated_at), '') FROM applications) AS a_up, "
+                "  (SELECT COUNT(*) FROM jobs) AS j_cnt, "
+                "  (SELECT COALESCE(MAX(updated_at), '') FROM jobs) AS j_up, "
+                "  (SELECT COUNT(*) FROM application_events) AS e_cnt, "
+                "  (SELECT COUNT(*) FROM follow_ups) AS f_cnt, "
+                "  (SELECT COUNT(*) FROM application_meetings) AS m_cnt, "
+                "  (SELECT COUNT(*) FROM documents) AS d_cnt"
+            ).fetchone()
+            if row is not None:
+                parts.append(
+                    "agg:"
+                    f"{row['a_cnt']}|{row['a_up']}|{row['j_cnt']}|{row['j_up']}"
+                    f"|{row['e_cnt']}|{row['f_cnt']}|{row['m_cnt']}|{row['d_cnt']}"
+                )
+        except Exception:
+            # Fallback: Aggregat-Query schlaegt fehl (z.B. fehlende Tabelle).
+            # Dann nur Profile-ID — Token aendert sich nur bei Profilwechsel.
+            # Schlechter als ideal, aber besser als Flackern.
+            pass
 
     raw = "|".join(parts)
     token = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
@@ -6014,6 +6041,174 @@ async def api_list_contacts(search: str = "", role: str = "", company: str = "")
     """Liste aller Kontakte des aktiven Profils (#563)."""
     contacts = _db.list_contacts(search=search, role=role, company=company)
     return {"contacts": contacts, "count": len(contacts)}
+
+
+@app.get("/api/contacts/discover")
+async def api_contacts_discover():
+    """Vorschau-Kandidaten fuer Kontakt-Import aus Bewerbungen + E-Mail-Dokumenten.
+
+    v1.7.0-beta.19: User-Feedback — Kontakte als neues Feature brauchen
+    einen einfachen Weg, bestehende Daten (Bewerbungen, Mails) zu
+    importieren. Stellen werden NICHT abgeklopft (User-Vorgabe: zu viel
+    Rauschen, erst wenn Stelle zur Bewerbung wird ist es relevant).
+
+    Sammelt:
+    1. Aus `applications`: distinct (ansprechpartner, kontakt_email)-Paare,
+       die nicht leer sind und noch keinen Kontakt mit dieser E-Mail haben.
+    2. Aus `documents` mit doc_type='email' und vorhandenem extracted_text:
+       E-Mail-Adressen via Regex aus dem Text extrahieren, gruppieren.
+
+    Antwortet mit beiden Listen — der Frontend-Wizard zeigt sie und der
+    User entscheidet welche tatsaechlich importiert werden.
+    """
+    import re
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    # 1. Bewerbungs-Ansprechpartner
+    rows = conn.execute(
+        "SELECT DISTINCT TRIM(ansprechpartner) AS name, "
+        "  TRIM(LOWER(kontakt_email)) AS email, company "
+        "FROM applications "
+        "WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND (TRIM(IFNULL(ansprechpartner, '')) != '' "
+        "  OR TRIM(IFNULL(kontakt_email, '')) != '')",
+        (pid,)
+    ).fetchall()
+    existing_emails = {
+        (r["email"] or "").strip().lower()
+        for r in conn.execute(
+            "SELECT email FROM contacts WHERE profile_id=?", (pid,)
+        ).fetchall()
+        if r["email"]
+    }
+    from_apps = []
+    seen = set()
+    for r in rows:
+        name = (r["name"] or "").strip()
+        email = (r["email"] or "").strip().lower()
+        company = (r["company"] or "").strip()
+        # Schluessel zur Dedup: email > name+company
+        key = email or f"{name}|{company}".lower()
+        if not key or key in seen:
+            continue
+        if email and email in existing_emails:
+            continue  # schon als Kontakt vorhanden
+        if not name and not email:
+            continue
+        seen.add(key)
+        from_apps.append({
+            "full_name": name or email.split("@")[0],
+            "email": email,
+            "company": company,
+            "source": "bewerbung",
+            "tags": ["recruiter"],  # vorgeschlagene Default-Rolle
+        })
+
+    # 2. Mail-Dokumente
+    email_re = re.compile(r"[\w\.-]+@[\w\.-]+\.[\w]{2,}")
+    rows = conn.execute(
+        "SELECT id, filename, extracted_text "
+        "FROM documents WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND doc_type='email' AND extracted_text IS NOT NULL "
+        "AND LENGTH(extracted_text) > 20",
+        (pid,)
+    ).fetchall()
+    from_mails: dict[str, dict] = {}
+    for r in rows:
+        text = r["extracted_text"] or ""
+        # Limitieren — nur die ersten 4 KB des extracted_text durchsuchen
+        # (typischer Header-Bereich), spart Rechenzeit bei langen Mails
+        for m in email_re.findall(text[:4000]):
+            email = m.lower().strip(".,;:")
+            if email in existing_emails:
+                continue
+            if email.endswith((".png", ".jpg", ".gif")):  # Bilder skippen
+                continue
+            if email not in from_mails:
+                from_mails[email] = {
+                    "full_name": email.split("@")[0],
+                    "email": email,
+                    "company": email.split("@", 1)[1].split(".")[0].title()
+                                if "@" in email else "",
+                    "source": "email",
+                    "tags": [],
+                    "found_in": [],
+                }
+            if r["filename"] and r["filename"] not in from_mails[email]["found_in"]:
+                from_mails[email]["found_in"].append(r["filename"])
+
+    return {
+        "from_applications": from_apps,
+        "from_emails": list(from_mails.values()),
+        "summary": {
+            "applications_count": len(from_apps),
+            "emails_count": len(from_mails),
+            "total_existing_contacts": len(existing_emails),
+        },
+    }
+
+
+@app.post("/api/contacts/import-discovered")
+async def api_contacts_import_discovered(request: Request):
+    """Importiert ausgewaehlte Kandidaten als echte Kontakte (#563).
+
+    Body: {
+      "candidates": [
+        {"full_name": "...", "email": "...", "company": "...", "tags": [...]},
+        ...
+      ]
+    }
+    """
+    data = await request.json()
+    candidates = data.get("candidates") or []
+    if not isinstance(candidates, list):
+        return JSONResponse({"error": "candidates muss eine Liste sein"}, status_code=400)
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    existing_emails = {
+        (r["email"] or "").strip().lower()
+        for r in conn.execute(
+            "SELECT email FROM contacts WHERE profile_id=?", (pid,)
+        ).fetchall()
+        if r["email"]
+    }
+
+    created = 0
+    skipped = 0
+    errors = []
+    for cand in candidates:
+        if not isinstance(cand, dict):
+            continue
+        email = (cand.get("email") or "").strip().lower()
+        name = (cand.get("full_name") or "").strip()
+        if not name and not email:
+            skipped += 1
+            continue
+        if email and email in existing_emails:
+            skipped += 1
+            continue
+        try:
+            _db.add_contact({
+                "full_name": name or email.split("@")[0],
+                "email": email or None,
+                "company": (cand.get("company") or "").strip() or None,
+                "tags": cand.get("tags") or [],
+                "notes": cand.get("notes") or "",
+            })
+            if email:
+                existing_emails.add(email)
+            created += 1
+        except Exception as exc:
+            errors.append({"name": name, "email": email, "error": str(exc)[:200]})
+
+    return {
+        "status": "ok",
+        "created": created,
+        "skipped": skipped,
+        "errors": errors,
+    }
 
 
 @app.post("/api/contacts")

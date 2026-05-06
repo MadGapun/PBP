@@ -1,6 +1,7 @@
 import {
   Briefcase,
   ChevronRight,
+  Download,
   ExternalLink,
   Mail,
   Phone,
@@ -278,6 +279,8 @@ export default function ContactsPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [dialogContact, setDialogContact] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // v1.7.0-beta.19: Kontakt-Import aus Bewerbungen + Mails
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -323,9 +326,15 @@ export default function ContactsPage() {
             Personen mit Rollen und Historie ueber Bewerbungen, Stellen und Termine
           </p>
         </div>
-        <Button size="sm" onClick={handleNew}>
-          <Plus size={14} className="mr-1" /> Neuer Kontakt
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* v1.7.0-beta.19: Kontakt-Import aus Bewerbungen + Mails */}
+          <Button size="sm" variant="secondary" onClick={() => setImportDialogOpen(true)}>
+            <Download size={14} className="mr-1" /> Importieren
+          </Button>
+          <Button size="sm" onClick={handleNew}>
+            <Plus size={14} className="mr-1" /> Neuer Kontakt
+          </Button>
+        </div>
       </div>
 
       {!isEmpty && (
@@ -411,6 +420,229 @@ export default function ContactsPage() {
           pushToast={pushToast}
         />
       )}
+
+      {importDialogOpen && (
+        <ImportDiscoverDialog
+          onClose={() => setImportDialogOpen(false)}
+          onImported={(n) => {
+            pushToast(`${n} Kontakte importiert.`, "success");
+            reload();
+            setImportDialogOpen(false);
+          }}
+          pushToast={pushToast}
+        />
+      )}
     </div>
+  );
+}
+
+
+// v1.7.0-beta.19: Kontakt-Import-Wizard
+// Liefert eine Vorschau aller Kandidaten aus Bewerbungen + Mail-Dokumenten,
+// User waehlt aus, dann Import. Kein Auto-Import — immer User-bestaetigt.
+function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api("/api/contacts/discover")
+      .then((d) => {
+        if (cancelled) return;
+        setData(d);
+        // Default: alle aus Bewerbungen vor-selektiert (hochwertige Quelle),
+        // Mails NICHT vorausgewaehlt (Heuristik, kann Muell enthalten).
+        const initial = new Set();
+        (d?.from_applications || []).forEach((c, i) => initial.add(`app-${i}`));
+        setSelected(initial);
+      })
+      .catch((err) => pushToast(`Laden fehlgeschlagen: ${err.message}`, "danger"))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  function toggle(key) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleAll(prefix, list) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = list.every((_, i) => next.has(`${prefix}-${i}`));
+      list.forEach((_, i) => {
+        if (allSelected) next.delete(`${prefix}-${i}`);
+        else next.add(`${prefix}-${i}`);
+      });
+      return next;
+    });
+  }
+
+  async function handleImport() {
+    if (!data) return;
+    const candidates = [];
+    (data.from_applications || []).forEach((c, i) => {
+      if (selected.has(`app-${i}`)) candidates.push(c);
+    });
+    (data.from_emails || []).forEach((c, i) => {
+      if (selected.has(`mail-${i}`)) candidates.push(c);
+    });
+    if (candidates.length === 0) {
+      pushToast("Keine Kontakte ausgewaehlt.", "warning");
+      return;
+    }
+    setImporting(true);
+    try {
+      const res = await postJson("/api/contacts/import-discovered", { candidates });
+      onImported(res?.created || 0);
+    } catch (err) {
+      pushToast(`Import fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Modal open onClose={onClose} title="Kontakte importieren">
+        <p className="text-sm text-muted/60">Suche Kandidaten in Bewerbungen und Mails...</p>
+      </Modal>
+    );
+  }
+
+  const apps = data?.from_applications || [];
+  const mails = data?.from_emails || [];
+  const totalSelected = selected.size;
+
+  if (apps.length === 0 && mails.length === 0) {
+    return (
+      <Modal open onClose={onClose} title="Kontakte importieren">
+        <div className="text-sm text-muted/70 space-y-3">
+          <p>
+            Keine neuen Kontakt-Kandidaten gefunden. Entweder hast du noch keine
+            Bewerbungen mit Ansprechpartner erfasst, oder alle gefundenen Personen
+            sind bereits als Kontakt angelegt.
+          </p>
+          <p className="text-[12px] text-muted/50">
+            Tipp: Bewerbungen mit gefuelltem Feld <em>Ansprechpartner</em> oder
+            <em> Kontakt-E-Mail</em> sind die beste Quelle.
+          </p>
+          <div className="flex justify-end pt-2">
+            <Button variant="secondary" size="sm" onClick={onClose}>Schliessen</Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Kontakte importieren">
+      <div className="space-y-4">
+        <p className="text-[12px] text-muted/60">
+          Aus deinen Bewerbungen und E-Mail-Dokumenten konnten {apps.length + mails.length} potenzielle Kontakte gefunden werden.
+          Waehle aus, welche du als Kontakt anlegen moechtest. Bestehende Kontakte sind ausgefiltert.
+        </p>
+
+        {apps.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-ink">
+                Aus Bewerbungen ({apps.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => toggleAll("app", apps)}
+                className="text-[11px] text-sky hover:underline"
+              >
+                Alle umschalten
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1.5">
+              {apps.map((c, i) => (
+                <label key={`app-${i}`} className="flex items-start gap-2 p-2 rounded-md hover:bg-white/[0.03] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(`app-${i}`)}
+                    onChange={() => toggle(`app-${i}`)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink truncate">{c.full_name}</p>
+                    <p className="text-[11px] text-muted/60 truncate">
+                      {c.email && <span>{c.email}</span>}
+                      {c.email && c.company && " · "}
+                      {c.company && <span>{c.company}</span>}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mails.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-ink">
+                Aus Mail-Dokumenten ({mails.length})
+                <span className="ml-2 text-[10px] uppercase tracking-wide text-amber/80">
+                  Heuristik — pruefe sorgfaeltig
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => toggleAll("mail", mails)}
+                className="text-[11px] text-sky hover:underline"
+              >
+                Alle umschalten
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1.5">
+              {mails.map((c, i) => (
+                <label key={`mail-${i}`} className="flex items-start gap-2 p-2 rounded-md hover:bg-white/[0.03] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(`mail-${i}`)}
+                    onChange={() => toggle(`mail-${i}`)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink truncate">{c.full_name}</p>
+                    <p className="text-[11px] text-muted/60 truncate">
+                      {c.email}
+                      {c.found_in?.length > 0 && (
+                        <span className="ml-2 text-muted/40">
+                          aus {c.found_in.length} {c.found_in.length === 1 ? "Mail" : "Mails"}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-3 border-t border-white/5">
+          <p className="text-[12px] text-muted/60">
+            {totalSelected} ausgewaehlt
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={onClose} disabled={importing}>
+              Abbrechen
+            </Button>
+            <Button size="sm" onClick={handleImport} disabled={importing || totalSelected === 0}>
+              {importing ? "Importiere..." : `${totalSelected} importieren`}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
