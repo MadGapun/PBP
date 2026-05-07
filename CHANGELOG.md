@@ -7,6 +7,60 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.25] - 2026-05-07 — Lokale-AI-Mehrwert: Auto-Klassifikation Mails + Dokumente, UI-Polish
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Vorgabe: *„Wichtig ist mir halt, das wenn moeglich und wenn der User
+das installiert hat, das die lokale LLM da besser und effizienter
+eingebunden ist. Das diese einen spuerbaren Mehrwert bietet."*
+
+### 🐛 Fixed (#591)
+
+- **Modellname zeigte `—`** trotz „1 Modell installiert".
+  Ursache: `selected_model` war `null` solange User nicht explizit ein
+  Modell ausgewaehlt hatte. Jetzt: **Auto-Select** wenn nur 1 Modell
+  installiert ist (in `_check_ollama` direkt).
+- **`models_detail`** im Status-Endpoint: Liste mit `name`, `size_bytes`,
+  `parameter_size`, `family` aus Ollama-`/api/tags`-Response.
+
+### ✨ Added (#591/#592)
+
+- **Modell-Detail-Liste im LocalAITab** mit Groesse + Parameter-Anzahl.
+  Aktives Modell mit „aktiv"-Badge hervorgehoben.
+- **„Weiteres Modell installieren"-Block** auch im `active`-Zustand
+  sichtbar (vorher nur bei `no_model`). Zeigt empfohlene Modelle die
+  noch nicht installiert sind, mit Ein-Klick-Pull.
+- **„Was laeuft lokal?"-Erklaerbox** im LocalAITab listet die 4
+  unterstuetzten Tasks (classify_document, extract_skills,
+  match_job_to_skills, classify_email).
+- **Klarer pausiert-Text:** „Wie 'Aus' — alle Tasks gehen an Claude"
+  statt „Tasks an Claude".
+
+### ✨ Added — Spuerbarer Mehrwert mit lokaler AI
+
+- **Auto-Mail-Klassifikation** in der Auto-Engine.
+  `_run_auto_classify_emails` als dritter Schritt in
+  `POST /api/auto-actions/run`: eingehende Mails ohne `detected_status`
+  werden via `classify_email` LLM-Task klassifiziert. Idempotent.
+  Wenn lokale AI nicht aktiv: skipped (kein Claude-Fallback ohne
+  User-Trigger).
+- **Auto-Doku-Klassifikation** als vierter Schritt.
+  `_run_auto_classify_documents`: Dokumente mit `doc_type='sonstiges'`
+  und vorhandenem `extracted_text` werden via `classify_document`
+  zu spezifischeren Kategorien (lebenslauf, anschreiben, ...) befoerdert.
+- → **Spuerbarer Mehrwert:** wenn Ollama aktiv ist, sortieren sich
+  Mails und Dokumente von selbst ein. Ohne lokale AI: business as usual.
+
+### Tests
+
+- `tests/test_v170_beta25_lokale_ai_mehrwert.py`: 11 neue Tests
+  (Auto-Select, models_detail, Auto-Mail/Doku-Klassifikation,
+  Idempotenz, UI-Snapshot).
+- **858 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.24] - 2026-05-07 — Lokale-AI-Vertiefung: Auto-Aussortieren + Mail-Klassifikation + UX
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

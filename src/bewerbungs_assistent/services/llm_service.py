@@ -104,6 +104,10 @@ class LLMStatus:
     available_models: list[str] = field(default_factory=list)
     """Liste der lokal vorhandenen Modelle (gefuellt wenn ollama_available)."""
 
+    models_detail: list[dict] = field(default_factory=list)
+    """v1.7.0-beta.25: Liste von {name, size_bytes, modified_at, family,
+    parameter_size} fuer UI-Anzeige (#591/#592)."""
+
     selected_model: Optional[str] = None
     """Aktuell gewaehltes Default-Modell (aus profile_settings)."""
 
@@ -195,7 +199,13 @@ class LLMService:
         return self._status
 
     def _check_ollama(self) -> None:
-        """HTTP-Check ob Ollama laeuft. Aktualisiert self._status."""
+        """HTTP-Check ob Ollama laeuft. Aktualisiert self._status.
+
+        v1.7.0-beta.25 (#591/#592):
+        - models_detail wird gepflegt mit name + size + modified_at fuer UI
+        - Auto-Select: wenn nur 1 Modell installiert und kein selected_model,
+          wird das einzige Modell automatisch zum Default
+        """
         try:
             import urllib.request
             import json
@@ -207,16 +217,37 @@ class LLMService:
                 if resp.status != 200:
                     self._status.ollama_available = False
                     self._status.available_models = []
+                    self._status.models_detail = []
                     self._status.error = f"HTTP {resp.status}"
                     return
                 data = json.loads(resp.read().decode("utf-8"))
                 models = data.get("models", []) or []
+                names = [m.get("name", "") for m in models if m.get("name")]
                 self._status.ollama_available = True
-                self._status.available_models = [m.get("name", "") for m in models if m.get("name")]
+                self._status.available_models = names
+                self._status.models_detail = [
+                    {
+                        "name": m.get("name", ""),
+                        "size_bytes": m.get("size", 0),
+                        "modified_at": m.get("modified_at", ""),
+                        "family": (m.get("details") or {}).get("family", ""),
+                        "parameter_size": (m.get("details") or {}).get("parameter_size", ""),
+                    }
+                    for m in models if m.get("name")
+                ]
                 self._status.error = None
+                # Auto-Select wenn genau 1 Modell + nichts selected
+                if not self._status.selected_model and len(names) == 1:
+                    self._status.selected_model = names[0]
+                    if self.db is not None:
+                        try:
+                            self.db.set_profile_setting("llm_local_model", names[0])
+                        except Exception:
+                            pass
         except Exception as e:
             self._status.ollama_available = False
             self._status.available_models = []
+            self._status.models_detail = []
             self._status.error = str(e)[:200]
 
     # ── Backend-Auswahl ────────────────────────────────────────────

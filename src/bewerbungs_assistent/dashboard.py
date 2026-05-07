@@ -6825,9 +6825,133 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
             "default_days": default_days}
 
 
+def _run_auto_classify_emails(now_iso: str, max_emails: int = 30) -> dict:
+    """Klassifiziert eingehende Mails ohne `detected_status` via lokale AI.
+
+    v1.7.0-beta.25: Greift nur wenn lokale AI aktiv + Modell installiert ist.
+    Sonst skipped — Claude-Pending wuerde Tokens kosten ohne User-Trigger.
+
+    Pro Mail: classify_email-Task → Kategorie wird in `detected_status`
+    geschrieben. Idempotent: bewertet keine Mail erneut die schon einen
+    `detected_status` hat.
+    """
+    from .services.llm_service import get_llm_service, TaskKind, Backend
+    svc = get_llm_service(_db)
+    s = svc.get_status()
+    if not s.ollama_available or s.user_state != "active" or not s.available_models:
+        return {
+            "skipped": True,
+            "reason": "Lokale AI nicht aktiv (off/paused oder Ollama down)",
+            "classified": 0,
+        }
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, subject, sender, body_text "
+            "FROM application_emails "
+            "WHERE direction='eingang' "
+            "AND (detected_status IS NULL OR detected_status='') "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "ORDER BY created_at DESC LIMIT ?",
+            (pid, max_emails)
+        ).fetchall()
+    except Exception as exc:
+        return {"skipped": True, "reason": str(exc)[:200], "classified": 0}
+
+    classified = 0
+    errors = 0
+    for r in rows:
+        try:
+            result = svc.run(TaskKind.CLASSIFY_EMAIL, {
+                "sender": r["sender"] or "",
+                "subject": r["subject"] or "",
+                "body": (r["body_text"] or "")[:2000],
+            })
+            if result.success and result.payload:
+                category = result.payload.get("category")
+                confidence = result.payload.get("confidence", 0.5)
+                if category:
+                    conn.execute(
+                        "UPDATE application_emails "
+                        "SET detected_status=?, detected_status_confidence=? "
+                        "WHERE id=?",
+                        (category, confidence, r["id"])
+                    )
+                    classified += 1
+        except Exception:
+            errors += 1
+    conn.commit()
+    return {
+        "skipped": False,
+        "checked": len(rows),
+        "classified": classified,
+        "errors": errors,
+    }
+
+
+def _run_auto_classify_documents(now_iso: str, max_docs: int = 30) -> dict:
+    """Klassifiziert Dokumente mit `doc_type='sonstiges'` via lokale AI.
+
+    v1.7.0-beta.25: greift nur wenn lokale AI aktiv ist. Dokumente die
+    schon eine spezifischere Klasse haben (lebenslauf, anschreiben, ...)
+    werden nicht angetastet. Idempotent.
+    """
+    from .services.llm_service import get_llm_service, TaskKind
+    svc = get_llm_service(_db)
+    s = svc.get_status()
+    if not s.ollama_available or s.user_state != "active" or not s.available_models:
+        return {
+            "skipped": True,
+            "reason": "Lokale AI nicht aktiv",
+            "classified": 0,
+        }
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT id, filename, extracted_text "
+            "FROM documents "
+            "WHERE doc_type='sonstiges' "
+            "AND extracted_text IS NOT NULL AND LENGTH(extracted_text) > 50 "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "ORDER BY created_at DESC LIMIT ?",
+            (pid, max_docs)
+        ).fetchall()
+    except Exception as exc:
+        return {"skipped": True, "reason": str(exc)[:200], "classified": 0}
+
+    classified = 0
+    errors = 0
+    for r in rows:
+        try:
+            result = svc.run(TaskKind.CLASSIFY_DOCUMENT, {
+                "filename": r["filename"] or "",
+                "text": (r["extracted_text"] or "")[:3000],
+            })
+            if result.success and result.payload:
+                category = result.payload.get("category")
+                # Nur ueberschreiben wenn LLM was Spezifisches sagt
+                if category and category != "sonstiges":
+                    conn.execute(
+                        "UPDATE documents SET doc_type=? WHERE id=?",
+                        (category, r["id"])
+                    )
+                    classified += 1
+        except Exception:
+            errors += 1
+    conn.commit()
+    return {
+        "skipped": False,
+        "checked": len(rows),
+        "classified": classified,
+        "errors": errors,
+    }
+
+
 @app.post("/api/auto-actions/run")
 async def api_run_auto_actions():
-    """Triggert die Auto-Engine: Expire + FU-Reconciler.
+    """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify + Doku-Classify.
 
     Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
     oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
@@ -6837,12 +6961,17 @@ async def api_run_auto_actions():
     now = datetime.now().isoformat()
     expire_result = _run_auto_expire(now)
     fu_result = _run_auto_followup_reconciler(now)
-    # Letzten Lauf protokollieren
+    # v1.7.0-beta.25: Mail- + Doku-Auto-Klassifikation. Lokale AI sortiert
+    # neue Mails + Dokumente von selbst ein wenn aktiv.
+    mail_result = _run_auto_classify_emails(now)
+    doc_result = _run_auto_classify_documents(now)
     _db.set_setting("auto_actions_last_run_at", now)
     return {
         "ran_at": now,
         "expire": expire_result,
         "followup_reconciler": fu_result,
+        "mail_classify": mail_result,
+        "document_classify": doc_result,
     }
 
 
@@ -7033,6 +7162,7 @@ async def api_llm_status():
         "ollama_available": s.ollama_available,
         "ollama_endpoint": s.ollama_endpoint,
         "available_models": s.available_models,
+        "models_detail": s.models_detail,  # v1.7.0-beta.25 (#591/#592)
         "selected_model": s.selected_model,
         "user_state": s.user_state,
         "error": s.error,

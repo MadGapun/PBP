@@ -596,9 +596,12 @@ function LocalAITab({ pushToast }) {
 
       <div className="grid gap-2 sm:grid-cols-3 mb-4">
         {[
-          { value: "active", label: "Aktiv", desc: "Tasks lokal" },
-          { value: "paused", label: "Pausiert", desc: "Tasks an Claude" },
-          { value: "off", label: "Aus", desc: "wie nicht installiert" },
+          { value: "active", label: "Aktiv",
+            desc: "PBP nutzt das lokale Modell wo moeglich" },
+          { value: "paused", label: "Pausiert",
+            desc: "Wie 'Aus' — alle Tasks gehen an Claude" },
+          { value: "off", label: "Aus",
+            desc: "Wie nicht installiert" },
         ].map((opt) => (
           <button
             key={opt.value}
@@ -616,33 +619,32 @@ function LocalAITab({ pushToast }) {
         ))}
       </div>
 
-      {/* v1.7.0-beta.24: Modell-Wechsel auch bei nur 1 Modell sichtbar
-          (zeigt aktuelles Modell + Hinweis wie weitere installieren) */}
-      {status.available_models?.length >= 1 && (
-        <div className="mb-4">
-          <p className="text-[11px] text-muted/60 mb-1">
-            {status.available_models.length === 1
-              ? "Aktives Modell (im Terminal `ollama pull <name>` fuer weitere):"
-              : "Modell wechseln:"}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {status.available_models.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => selectModel(m)}
-                className={`px-2.5 py-1 rounded-md text-[12px] font-mono ${
-                  status.selected_model === m
-                    ? "bg-sky/20 text-sky"
-                    : "bg-white/[0.03] text-muted/70 hover:bg-white/[0.06]"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* v1.7.0-beta.25 (#591/#592): Modell-Detail-Liste mit Groesse +
+          „Weitere installieren"-Block immer sichtbar */}
+      <ModelDetailList
+        status={status}
+        recommended={recommended}
+        onSelect={selectModel}
+        onPull={pullModelTrigger}
+        pulling={pulling}
+        pullModel={pullModel}
+      />
+
+      {/* v1.7.0-beta.25 (#591): Tasks-Erklaerbox — was laeuft eigentlich lokal */}
+      <div className="glass-card p-3 mb-4 border-sky/10">
+        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide mb-2">
+          Was laeuft lokal?
+        </p>
+        <ul className="text-[12px] text-muted/80 space-y-1 list-disc list-inside">
+          <li><strong>Doku-Klassifikation</strong> — neue Uploads werden eingeordnet (Lebenslauf, Anschreiben, Mail, ...)</li>
+          <li><strong>Skill-Extraktion</strong> — Skills aus Lebenslauf-Text ziehen</li>
+          <li><strong>Stellen-Profil-Match</strong> — `stellen_auto_aussortieren` filtert profilbasiert</li>
+          <li><strong>Mail-Klassifikation</strong> — eingehende Mails werden kategorisiert</li>
+        </ul>
+        <p className="text-[11px] text-muted/50 mt-2">
+          Kreatives (Anschreiben, Coaching) bleibt bei Claude.
+        </p>
+      </div>
 
       {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}
       <TestConnectionBlock />
@@ -657,6 +659,101 @@ function LocalAITab({ pushToast }) {
     </Card>
   );
 }
+
+// v1.7.0-beta.25 (#591/#592): Modell-Liste mit Groesse + Pull-Buttons
+// fuer weitere Modelle (auch im 'active'-Zustand sichtbar).
+function ModelDetailList({ status, recommended, onSelect, onPull, pulling, pullModel }) {
+  const installed = status.models_detail || [];
+  const installedNames = new Set((status.available_models || []));
+  const moreToInstall = (recommended || []).filter((m) => !installedNames.has(m.id));
+
+  return (
+    <div className="mb-4">
+      <p className="text-[11px] text-muted/60 mb-1.5">Installierte Modelle:</p>
+      <div className="space-y-1.5 mb-3">
+        {installed.length === 0 && status.available_models?.length > 0 && (
+          /* Fallback wenn models_detail noch nicht in der Antwort ist */
+          status.available_models.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onSelect(m)}
+              className={`w-full glass-card p-2 flex items-center justify-between text-left ${
+                status.selected_model === m
+                  ? "border-sky/40 bg-sky/[0.05]"
+                  : "border-white/5 hover:bg-white/[0.04]"
+              }`}
+            >
+              <span className="text-[13px] font-mono text-ink">{m}</span>
+              {status.selected_model === m && (
+                <span className="text-[10px] font-bold text-sky uppercase">aktiv</span>
+              )}
+            </button>
+          ))
+        )}
+        {installed.map((m) => (
+          <button
+            key={m.name}
+            type="button"
+            onClick={() => onSelect(m.name)}
+            className={`w-full glass-card p-2 flex items-center justify-between text-left ${
+              status.selected_model === m.name
+                ? "border-sky/40 bg-sky/[0.05]"
+                : "border-white/5 hover:bg-white/[0.04]"
+            }`}
+          >
+            <div className="flex-1 min-w-0">
+              <span className="text-[13px] font-mono text-ink">{m.name}</span>
+              {m.parameter_size && (
+                <span className="ml-2 text-[10px] text-muted/50">{m.parameter_size}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] text-muted/50">{formatBytes(m.size_bytes)}</span>
+              {status.selected_model === m.name && (
+                <span className="text-[10px] font-bold text-sky uppercase">aktiv</span>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {moreToInstall.length > 0 && (
+        <details className="glass-card p-2">
+          <summary className="text-[12px] cursor-pointer text-sky">
+            + Weiteres Modell installieren ({moreToInstall.length} Vorschlaege)
+          </summary>
+          <div className="space-y-1.5 mt-2">
+            {moreToInstall.map((m) => (
+              <div key={m.id} className="flex items-center justify-between gap-2 p-2 rounded bg-white/[0.02]">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-medium text-ink">
+                    {m.name}
+                    {m.recommended && (
+                      <span className="ml-2 rounded bg-teal/15 px-1 py-0.5 text-[9px] font-bold text-teal">EMPFOHLEN</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-muted/50">
+                    {m.size_gb} GB · braucht {m.ram_gb} GB RAM
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={pulling}
+                  onClick={() => onPull(m.id)}
+                  className="shrink-0 px-2 py-1 rounded text-[11px] bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
+                >
+                  {pulling && pullModel === m.id ? "Laedt..." : "Laden"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 
 // v1.7.0-beta.24 (#584): Test-Verbindung-Diagnose
 function TestConnectionBlock() {
