@@ -7,6 +7,98 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.33] - 2026-05-07 — Scraper-Robustheit-Upgrade (#590 Aufgabe C)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Aufgabe C des #590-Stuetzpfeilers: Scraper sollen sich selbst heilen
+und nicht still leiden, wenn ein Portal kurzzeitig zickt.
+
+### ✨ Added — Auto-Reactivate-Mechanik
+
+- **Schema v39 → v40**: `scraper_health` bekommt `reactivate_at`,
+  `reactivate_attempt`, `retry_after`.
+- **Bei Auto-Deaktivierung** (n stille Laeufe in Folge) wird ein
+  Probe-Run nach 24h geplant. Bei wiederholtem Fail: Backoff-Stufen
+  **24h → 48h → 72h → 168h** (1 Woche).
+- **Bei OK-Run**: alle Reactivate-Felder werden geleert + Scraper
+  reaktiviert. Selbstheilung ohne User-Klick.
+- **Manuelles Toggle uebersteuert** die Heuristik (clear all probe state).
+
+### ✨ Added — HTTP-429 Retry-After-Respect
+
+- Adapter koennen `set_scraper_retry_after(name, iso)` setzen wenn ein
+  Portal `429 Too Many Requests` mit `Retry-After`-Header schickt.
+- `is_scraper_held_by_retry_after(name)` gibt den Block-Zeitpunkt
+  zurueck wenn er in der Zukunft liegt — sonst None.
+
+### ✨ Added — Health-Score UI
+
+- Neuer **`ScraperHealthCard`** im Quellen-Tab der Einstellungen:
+  - Erfolgsquote pro Scraper (auf Basis total_runs/total_successes)
+  - Status-Dots (OK / Warnung / Stumm / Probe geplant / Aus)
+  - Letzter Lauf, Anzahl Fehler/Stille, Probe-Run-Countdown,
+    Retry-After-Countdown
+  - „Jetzt reaktivieren" / „Deaktivieren"-Buttons pro Scraper
+- **Auto-Engine-6.-Schritt** `_run_scraper_probe` listet faellige
+  Probe-Runs in `/api/auto-actions/run`.
+
+### ✨ Added — API-Endpoints
+
+- `GET /api/scraper-health/probes-due` — Liste der faelligen Probe-Runs
+- `POST /api/scraper-health/{name}/probe-result` — Adapter meldet
+  `{success: true|false}`
+- `POST /api/scraper-health/{name}/retry-after` — Adapter setzt
+  Retry-After-Wert
+
+### Tests
+
+- `tests/test_v170_beta33_robustheit.py`: 16 neue Tests
+- **981 Tests gesamt, alle gruen.**
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.33.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.33.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.32] - 2026-05-07 — Stellenbeschreibung-Trennung + Portal-Such-Profile
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

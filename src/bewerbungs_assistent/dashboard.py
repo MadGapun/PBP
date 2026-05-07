@@ -7081,10 +7081,37 @@ def _run_analyze_user_patterns(now_iso: str, days: int = 30,
     }
 
 
+def _run_scraper_probe(now_iso: str) -> dict:
+    """v1.7.0-beta.33 (#590-C.1): pruefe ob ausgeschalterte Scraper
+    fuer einen Probe-Run faellig sind. Markiert sie als 'due' — der
+    User triggert den Probe-Run dann selbst (oder die naechste
+    automatische Suche faehrt sie als kandidaten an).
+
+    Wir schalten Scraper hier NICHT automatisch wieder an — der User
+    soll das Deaktivieren / Reaktivieren bewusst sehen. Stattdessen
+    listen wir die faelligen Scraper im Health-Score-Tab.
+    """
+    try:
+        due = _db.get_scrapers_due_for_probe()
+    except Exception:
+        due = []
+    return {
+        "due_count": len(due),
+        "due": [
+            {
+                "name": d.get("scraper_name"),
+                "reactivate_at": d.get("reactivate_at"),
+                "attempt": d.get("reactivate_attempt"),
+            }
+            for d in due
+        ],
+    }
+
+
 @app.post("/api/auto-actions/run")
 async def api_run_auto_actions():
     """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
-    Doku-Classify + Pattern-Analyse.
+    Doku-Classify + Pattern-Analyse + Scraper-Probe.
 
     Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
     oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
@@ -7101,6 +7128,8 @@ async def api_run_auto_actions():
     # v1.7.0-beta.28 (#594 Stufe 3): LLM-Pattern-Analyse als 5. Schritt.
     # Greift nur wenn lokale AI aktiv und genug events vorhanden sind.
     patterns_result = _run_analyze_user_patterns(now)
+    # v1.7.0-beta.33 (#590-C.1): Probe-Run-Faelligkeit pruefen
+    probe_result = _run_scraper_probe(now)
     _db.set_setting("auto_actions_last_run_at", now)
     return {
         "ran_at": now,
@@ -7109,6 +7138,7 @@ async def api_run_auto_actions():
         "mail_classify": mail_result,
         "document_classify": doc_result,
         "pattern_analysis": patterns_result,
+        "scraper_probe": probe_result,
     }
 
 
@@ -8096,6 +8126,45 @@ async def api_toggle_scraper(name: str, request: Request):
     active = data.get("active", True)
     _db.toggle_scraper(name, active)
     return {"status": "ok", "scraper": name, "active": active}
+
+
+# v1.7.0-beta.33 (#590 Aufgabe C): Auto-Reactivate-Mechanik
+
+@app.get("/api/scraper-health/probes-due")
+async def api_scraper_probes_due():
+    """Liefert die Scraper, deren Auto-Reactivate-Probe-Run faellig ist."""
+    return {"due": _db.get_scrapers_due_for_probe()}
+
+
+@app.post("/api/scraper-health/{name}/probe-result")
+async def api_scraper_probe_result(name: str, request: Request):
+    """Adapter meldet das Ergebnis eines Probe-Runs.
+
+    Body: {"success": true|false, "hours": <optional>}
+    Bei success=True wird der Scraper reaktiviert. Bei success=False
+    wird die naechste Backoff-Stufe geplant (24h/48h/72h/168h).
+    """
+    data = await request.json()
+    out = _db.schedule_scraper_probe(
+        name,
+        success=bool(data.get("success", False)),
+        hours=data.get("hours"),
+    )
+    return {"status": "ok", **out}
+
+
+@app.post("/api/scraper-health/{name}/retry-after")
+async def api_scraper_retry_after(name: str, request: Request):
+    """Adapter setzt Retry-After (HTTP 429) fuer einen Scraper.
+
+    Body: {"retry_after": "2026-05-07T15:30:00"}
+    """
+    data = await request.json()
+    ts = data.get("retry_after")
+    if not ts:
+        return JSONResponse({"error": "retry_after Pflicht"}, status_code=400)
+    _db.set_scraper_retry_after(name, ts)
+    return {"status": "ok", "scraper": name, "retry_after": ts}
 
 
 # === Privacy / Data Info (v1.4.0, #287) ===

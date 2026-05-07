@@ -495,6 +495,170 @@ function TelemetrySharingCard({ pushToast }) {
 }
 
 
+// v1.7.0-beta.33 (#590-C): Health-Score-Tab im Quellen-Bereich.
+// Zeigt pro Scraper Erfolgsquote, Fehlerstatus, Auto-Reactivate-Plan
+// (mit Countdown bis Probe-Run) und Reaktivieren-Button.
+function ScraperHealthCard({ pushToast }) {
+  const [scrapers, setScrapers] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      const r = await api("/api/scraper-health");
+      setScrapers(r?.scrapers || []);
+    } catch {}
+  }
+  useEffect(() => { reload(); }, []);
+
+  function statusOf(s) {
+    if (!s.is_active) {
+      if (s.reactivate_at) return "probing";
+      return "off";
+    }
+    if (s.consecutive_failures >= 3) return "warn";
+    if (s.consecutive_silent >= 2) return "silent";
+    if (s.total_runs > 0 && s.total_successes / s.total_runs >= 0.7) return "ok";
+    if (s.total_runs > 0) return "warn";
+    return "unknown";
+  }
+
+  const STATUS_CONFIG = {
+    ok:       { color: "bg-teal/80",   label: "OK" },
+    warn:     { color: "bg-amber/80",  label: "Warnung" },
+    silent:   { color: "bg-amber/80",  label: "Stumm" },
+    probing:  { color: "bg-amber/40",  label: "Probe geplant" },
+    off:      { color: "bg-coral/70",  label: "Aus" },
+    unknown:  { color: "bg-muted/40",  label: "Unbekannt" },
+  };
+
+  function relativeTime(iso) {
+    if (!iso) return "—";
+    try {
+      const ts = new Date(iso);
+      const now = new Date();
+      const diffH = Math.round((ts - now) / 3600000);
+      if (Math.abs(diffH) < 1) return "in <1h";
+      if (diffH < 0) return `vor ${Math.abs(diffH)}h`;
+      if (diffH < 24) return `in ${diffH}h`;
+      return `in ${Math.round(diffH / 24)}d`;
+    } catch {
+      return iso.slice(0, 10);
+    }
+  }
+
+  async function reactivate(name) {
+    setBusy(true);
+    try {
+      await postJson(`/api/scraper-health/${name}/probe-result`, { success: true });
+      pushToast(`${name} reaktiviert`, "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deactivate(name) {
+    setBusy(true);
+    try {
+      await postJson(`/api/scraper-health/${name}/toggle`, { active: false });
+      pushToast(`${name} deaktiviert`, "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (scrapers.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Quellen-Health"
+        description="Erfolgsquote pro Scraper, Auto-Reactivate-Plan und Reaktivieren-Buttons."
+      />
+      <div className="space-y-2">
+        {scrapers.map((s) => {
+          const status = statusOf(s);
+          const cfg = STATUS_CONFIG[status];
+          const successRate = s.total_runs > 0
+            ? Math.round((s.total_successes / s.total_runs) * 100)
+            : 0;
+          return (
+            <div key={s.scraper_name} className="glass-card p-3 text-[12px]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className={`inline-block h-2 w-2 rounded-full ${cfg.color} shrink-0`} />
+                  <span className="font-medium text-ink truncate">{s.scraper_name}</span>
+                  <span className="text-[10px] text-muted/50">[{cfg.label}]</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-muted/60 shrink-0">
+                  <span>{successRate}% Quote</span>
+                  <span>·</span>
+                  <span>{s.total_successes}/{s.total_runs}</span>
+                </div>
+              </div>
+              <div className="mt-1.5 grid grid-cols-2 gap-2 text-[10px] text-muted/50">
+                <div>
+                  Letzter Lauf: {s.last_run ? new Date(s.last_run).toLocaleString("de-DE") : "—"}
+                </div>
+                {s.consecutive_failures > 0 && (
+                  <div className="text-coral/80">
+                    {s.consecutive_failures} Fehler in Folge
+                  </div>
+                )}
+                {s.consecutive_silent > 0 && (
+                  <div className="text-amber/80">
+                    {s.consecutive_silent} Mal stumm
+                  </div>
+                )}
+                {s.reactivate_at && (
+                  <div className="text-amber/80">
+                    Probe-Run {relativeTime(s.reactivate_at)} (Versuch {s.reactivate_attempt})
+                  </div>
+                )}
+                {s.retry_after && (
+                  <div className="text-coral/80">
+                    Retry-After {relativeTime(s.retry_after)}
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 flex gap-2">
+                {!s.is_active && (
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => reactivate(s.scraper_name)}
+                    disabled={busy}
+                  >
+                    Jetzt reaktivieren
+                  </Button>
+                )}
+                {s.is_active && (
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => deactivate(s.scraper_name)}
+                    disabled={busy}
+                  >
+                    Deaktivieren
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+
 // v1.7.0-beta.22: PBP-Start-Datum-Feld im Bericht-Tab.
 // Daten vor diesem Datum werden im Bewerbungsbericht grau markiert und
 // als „nachtraeglich erfasst, moeglicherweise unvollstaendig" gekennzeichnet.
@@ -1508,6 +1672,9 @@ export default function SettingsPage() {
                 onStartLogin={startSourceLogin}
               />
             </Card>
+
+            {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
+            <ScraperHealthCard pushToast={pushToast} />
 
             <Card className="rounded-2xl">
               <SectionHeading title="Dashboard" description="Allgemeine Dashboard-Einstellungen." />

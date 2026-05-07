@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 39
+SCHEMA_VERSION = 40
 
 
 def _gen_id() -> str:
@@ -1589,6 +1589,28 @@ class Database:
                 logger.info("Migration v38->v39: portal_search_profiles angelegt")
             except Exception as exc:
                 logger.warning("Such-Profile-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 40:
+            # v40 / v1.7.0-beta.33 (#590 Aufgabe C): Robustheit-Upgrade.
+            # scraper_health bekommt:
+            # - reactivate_at: Zeitpunkt fuer naechsten Probe-Run nach
+            #   Auto-Deaktivierung. NULL=kein Probe geplant.
+            # - reactivate_attempt: Zaehler fuer exponential Backoff
+            #   (24h, 48h, 72h, 168h).
+            # - retry_after: respektiert HTTP-429 Retry-After-Header.
+            for col in (
+                "reactivate_at TEXT",
+                "reactivate_attempt INTEGER DEFAULT 0",
+                "retry_after TEXT",
+            ):
+                try:
+                    conn.execute(
+                        f"ALTER TABLE scraper_health ADD COLUMN {col}"
+                    )
+                except Exception:
+                    pass
+            conn.commit()
+            logger.info("Migration v39->v40: scraper_health Auto-Reactivate-Felder")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -3863,11 +3885,18 @@ class Database:
             avg_time = (existing["avg_time_s"] * existing["total_runs"] + time_s) / total_runs
             prev_silent = existing["consecutive_silent"] if "consecutive_silent" in existing.keys() else 0
             if state == "ok":
+                # v1.7.0-beta.33 (#590-C.1): bei OK Probe-Run-Plan
+                # zuruecksetzen + Scraper reaktivieren falls er wegen
+                # Auto-Deaktivierung im "Probing"-Modus war.
                 conn.execute(f"""
                     UPDATE scraper_health SET last_run=?, last_success=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=0{_fc_clause}{_nc_clause} WHERE scraper_name=?
+                        consecutive_silent=0,
+                        reactivate_at=NULL, reactivate_attempt=0,
+                        retry_after=NULL,
+                        is_active=1
+                        {_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, now, total_runs, total_successes, avg_time,
                       count, None, *_extra_vals, name))
             elif state == "silent":
@@ -3881,14 +3910,23 @@ class Database:
                       count, status_detail, consec_silent, *_extra_vals, name))
                 if consec_silent >= self.SILENT_AUTO_DEACTIVATE_THRESHOLD \
                         and existing["is_active"]:
+                    # v1.7.0-beta.33 (#590-C.1): Auto-Reactivate-Mechanik —
+                    # nach Auto-Deaktivierung wird ein Probe-Run nach 24h
+                    # geplant. Bei Erfolg wird der Scraper reaktiviert,
+                    # sonst exponential Backoff (48h, 72h, 168h).
+                    from datetime import datetime, timedelta
+                    next_probe = (datetime.now() + timedelta(hours=24)).isoformat()
                     conn.execute(
-                        "UPDATE scraper_health SET is_active=0 WHERE scraper_name=?",
-                        (name,)
+                        "UPDATE scraper_health SET is_active=0, "
+                        "reactivate_at=?, reactivate_attempt=1 "
+                        "WHERE scraper_name=?",
+                        (next_probe, name)
                     )
                     auto_deactivated = True
                     logger.warning(
-                        "Scraper %s nach %d stillen Laeufen automatisch deaktiviert (#499)",
-                        name, consec_silent
+                        "Scraper %s nach %d stillen Laeufen automatisch "
+                        "deaktiviert (#499). Probe-Run ab %s",
+                        name, consec_silent, next_probe
                     )
             else:
                 consec = existing["consecutive_failures"] + 1
@@ -3933,11 +3971,111 @@ class Database:
         except Exception:
             return []
 
+    # === v1.7.0-beta.33 (#590 Aufgabe C.1): Auto-Reactivate-Mechanik ===
+
+    # Backoff-Stufen in Stunden: nach 1. Fail 24h, dann 48h, 72h, 168h (1 Woche).
+    _REACTIVATE_BACKOFF_HOURS = (24, 48, 72, 168)
+
+    def get_scrapers_due_for_probe(self) -> list:
+        """Liefert die Scraper, deren Probe-Run faellig ist (reactivate_at <= jetzt
+        und is_active=0). Wird vom Auto-Engine-Tick abgefragt — der ruft dann
+        die jeweiligen Adapter im Probe-Mode auf."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        conn = self.connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM scraper_health "
+                "WHERE is_active=0 AND reactivate_at IS NOT NULL "
+                "AND reactivate_at <= ? "
+                "ORDER BY reactivate_at",
+                (now,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception:
+            return []
+
+    def schedule_scraper_probe(self, name: str, *, success: Optional[bool] = None,
+                                hours: Optional[int] = None) -> dict:
+        """Plant den naechsten Probe-Run fuer einen deaktivierten Scraper.
+
+        Wenn success=True: Scraper wird reaktiviert (is_active=1), Backoff-
+        Counter zurueckgesetzt.
+        Wenn success=False: naechste Backoff-Stufe wird gesetzt (24h → 48h → 72h → 168h).
+        Wenn hours uebergeben: explizite Dauer (statt automatischer Backoff).
+        """
+        from datetime import datetime, timedelta
+        conn = self.connect()
+        if success:
+            conn.execute(
+                "UPDATE scraper_health SET is_active=1, "
+                "reactivate_at=NULL, reactivate_attempt=0, "
+                "consecutive_silent=0, consecutive_failures=0 "
+                "WHERE scraper_name=?",
+                (name,)
+            )
+            conn.commit()
+            return {"name": name, "reactivated": True}
+        existing = conn.execute(
+            "SELECT reactivate_attempt FROM scraper_health WHERE scraper_name=?",
+            (name,)
+        ).fetchone()
+        attempt = (existing["reactivate_attempt"] or 0) + 1 if existing else 1
+        if hours is None:
+            idx = min(attempt - 1, len(self._REACTIVATE_BACKOFF_HOURS) - 1)
+            hours = self._REACTIVATE_BACKOFF_HOURS[idx]
+        next_probe = (datetime.now() + timedelta(hours=hours)).isoformat()
+        conn.execute(
+            "UPDATE scraper_health SET reactivate_at=?, "
+            "reactivate_attempt=? WHERE scraper_name=?",
+            (next_probe, attempt, name)
+        )
+        conn.commit()
+        return {
+            "name": name,
+            "reactivated": False,
+            "next_probe": next_probe,
+            "attempt": attempt,
+            "backoff_hours": hours,
+        }
+
+    def set_scraper_retry_after(self, name: str, retry_after_iso: str) -> None:
+        """Setzt den HTTP 429 Retry-After-Wert. Adapter sollten den vor dem
+        naechsten Aufruf pruefen und ggf. zurueckhalten."""
+        conn = self.connect()
+        conn.execute(
+            "UPDATE scraper_health SET retry_after=? WHERE scraper_name=?",
+            (retry_after_iso, name)
+        )
+        conn.commit()
+
+    def is_scraper_held_by_retry_after(self, name: str) -> Optional[str]:
+        """Wenn retry_after in der Zukunft liegt, gibt diesen Zeitpunkt zurueck,
+        sonst None. Adapter pruefen das vor jedem Aufruf."""
+        from datetime import datetime
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT retry_after FROM scraper_health WHERE scraper_name=?",
+            (name,)
+        ).fetchone()
+        if not row or not row["retry_after"]:
+            return None
+        try:
+            ts = datetime.fromisoformat(row["retry_after"])
+            if ts > datetime.now():
+                return row["retry_after"]
+        except Exception:
+            pass
+        return None
+
     def toggle_scraper(self, name: str, active: bool):
+        # v1.7.0-beta.33: bei manuellem Toggle Auto-Reactivate-Plan
+        # zuruecksetzen — User uebersteuert die Heuristik.
         conn = self.connect()
         conn.execute(
             "UPDATE scraper_health SET is_active=?, consecutive_failures=0, "
-            "consecutive_silent=0 WHERE scraper_name=?",
+            "consecutive_silent=0, reactivate_at=NULL, reactivate_attempt=0, "
+            "retry_after=NULL WHERE scraper_name=?",
             (1 if active else 0, name)
         )
         conn.commit()
@@ -6989,7 +7127,11 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     last_status_detail TEXT,
     consecutive_silent INTEGER DEFAULT 0,
     last_filtered_count INTEGER DEFAULT 0,
-    last_new_count INTEGER DEFAULT 0
+    last_new_count INTEGER DEFAULT 0,
+    -- v1.7.0-beta.33 (#590 Aufgabe C): Auto-Reactivate
+    reactivate_at TEXT,
+    reactivate_attempt INTEGER DEFAULT 0,
+    retry_after TEXT
 );
 
 -- v1.7.0 (#577) Stilarchiv fuer Anschreiben/Lebenslauf-Versionen
