@@ -1074,7 +1074,18 @@ export default function ApplicationsPage() {
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    const firma = timelineDialog.entry.job.company || timelineDialog.entry.application?.company || "";
+                    // v1.7.0-beta.24 (#587): Aktuellster Firmen-Stand zuerst.
+                    // Vorher zog `job.company` Vorrang — die Stelle wird aber
+                    // beim Anlegen "eingefroren" und veraltet, sobald Vermittler
+                    // den Endkunden bestaetigt. Jetzt:
+                    //   1. application.endkunde (verbindlichster Wert wenn gesetzt)
+                    //   2. application.company (User-aktualisierbar)
+                    //   3. job.company (Snapshot bei Anlage, kann veralten)
+                    const app = timelineDialog.entry.application || {};
+                    const firma = (app.endkunde && app.endkunde.trim())
+                      || (app.company && app.company.trim())
+                      || timelineDialog.entry.job?.company
+                      || "";
                     copyPrompt(`/firmen_recherche firma="${firma}"`);
                   }}
                 >

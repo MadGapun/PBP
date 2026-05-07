@@ -121,13 +121,19 @@ def test_512_llm_service_singleton():
 
 
 def test_512_status_when_ollama_not_running():
-    """Bei fehlendem Ollama: ollama_available=False, kein Crash."""
+    """Bei fehlendem Ollama: ollama_available=False, kein Crash.
+
+    v1.7.0-beta.24: Test ist jetzt robust gegen ein auf der Test-Maschine
+    laufendes Ollama (z.B. wenn Dev-Maschine selbst Ollama Desktop nutzt).
+    Wir mocken urllib.request explizit auf Connection-Refused.
+    """
+    from unittest.mock import patch
     from bewerbungs_assistent.services.llm_service import LLMService
-    # Mock-Modus AUS, damit echter HTTP-Check laeuft (sollte fehlschlagen)
     os.environ.pop("PBP_LLM_MOCK", None)
     svc = LLMService()
-    status = svc.get_status(force_refresh=True)
-    # Kein Ollama auf Test-System → not available
+    with patch("urllib.request.urlopen",
+               side_effect=ConnectionRefusedError("simulated no ollama")):
+        status = svc.get_status(force_refresh=True)
     assert status.ollama_available is False
     assert status.error is not None
 
@@ -196,17 +202,21 @@ def test_512_user_state_paused_blocks_local(setup_env):
 # ============= #583 LLM-Status-API ===============
 
 def test_583_status_api_returns_ui_state(setup_env):
-    """Endpoint liefert ui_state fuer den Sidebar-Indicator."""
+    """Endpoint liefert ui_state fuer den Sidebar-Indicator.
+
+    v1.7.0-beta.24: urllib gemockt damit Test auch auf Maschinen mit
+    laufendem Ollama Desktop deterministisch ist.
+    """
+    from unittest.mock import patch
     db, _ = setup_env
     os.environ.pop("PBP_LLM_MOCK", None)
-    # Reset singleton damit der DB-Zustand reflektiert wird
     from bewerbungs_assistent.services.llm_service import reset_llm_service, get_llm_service
     reset_llm_service()
     svc = get_llm_service(db)
-    s = svc.get_status(force_refresh=True)
-    # Test-System hat kein Ollama → ui_state sollte 'not_installed' sein
+    with patch("urllib.request.urlopen",
+               side_effect=ConnectionRefusedError("simulated no ollama")):
+        s = svc.get_status(force_refresh=True)
     assert not s.ollama_available
-    # API-Logik nachbauen
     if not s.ollama_available:
         ui_state = "not_installed"
     elif not s.available_models:

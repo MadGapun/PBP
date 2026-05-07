@@ -616,9 +616,15 @@ function LocalAITab({ pushToast }) {
         ))}
       </div>
 
-      {status.available_models?.length > 1 && (
+      {/* v1.7.0-beta.24: Modell-Wechsel auch bei nur 1 Modell sichtbar
+          (zeigt aktuelles Modell + Hinweis wie weitere installieren) */}
+      {status.available_models?.length >= 1 && (
         <div className="mb-4">
-          <p className="text-[11px] text-muted/60 mb-1">Modell wechseln:</p>
+          <p className="text-[11px] text-muted/60 mb-1">
+            {status.available_models.length === 1
+              ? "Aktives Modell (im Terminal `ollama pull <name>` fuer weitere):"
+              : "Modell wechseln:"}
+          </p>
           <div className="flex flex-wrap gap-2">
             {status.available_models.map((m) => (
               <button
@@ -638,7 +644,10 @@ function LocalAITab({ pushToast }) {
         </div>
       )}
 
-      <div className="border-t border-white/5 pt-3">
+      {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}
+      <TestConnectionBlock />
+
+      <div className="border-t border-white/5 pt-3 mt-3">
         <p className="text-[11px] text-muted/60">
           Endpoint: <span className="font-mono">{status.ollama_endpoint}</span>
           {" · "}
@@ -646,6 +655,100 @@ function LocalAITab({ pushToast }) {
         </p>
       </div>
     </Card>
+  );
+}
+
+// v1.7.0-beta.24 (#584): Test-Verbindung-Diagnose
+function TestConnectionBlock() {
+  const { pushToast } = useApp();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function runTest() {
+    setRunning(true);
+    setResult(null);
+    try {
+      const r = await postJson("/api/llm/test-connection", {});
+      setResult(r);
+    } catch (err) {
+      pushToast(`Test fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="border-t border-white/5 pt-3 mt-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+          Test-Verbindung
+        </p>
+        <Button size="sm" onClick={runTest} disabled={running}>
+          {running ? "Teste..." : "Jetzt testen"}
+        </Button>
+      </div>
+
+      {!result && !running && (
+        <p className="text-[11px] text-muted/40">
+          Schickt einen Klassifizierungs-Task an Ollama und misst die Antwortzeit.
+        </p>
+      )}
+
+      {result && (
+        <div className="space-y-2 text-[12px]">
+          <div className="grid gap-1">
+            <p>
+              Ollama:{" "}
+              <span className={result.ollama_available ? "text-teal" : "text-coral"}>
+                {result.ollama_available ? "erreichbar" : "nicht erreichbar"}
+              </span>
+            </p>
+            <p>
+              Endpoint:{" "}
+              <span className="font-mono text-muted/70">{result.ollama_endpoint}</span>
+            </p>
+            <p>
+              Installierte Modelle:{" "}
+              <span className="text-ink">
+                {(result.available_models || []).join(", ") || "—"}
+              </span>
+            </p>
+            <p>
+              Aktives Modell:{" "}
+              <span className="font-mono text-sky">{result.selected_model || "—"}</span>
+            </p>
+            <p>
+              State:{" "}
+              <span className={
+                result.user_state === "active" ? "text-teal" :
+                result.user_state === "paused" ? "text-amber" : "text-muted/50"
+              }>{result.user_state}</span>
+            </p>
+          </div>
+          {result.test_roundtrip?.skipped ? (
+            <div className="glass-card p-2 text-amber">
+              ⚠ Test-Roundtrip skipped: {result.test_roundtrip.reason}
+            </div>
+          ) : result.test_roundtrip?.success ? (
+            <div className="glass-card p-2 text-teal">
+              ✓ Test-Roundtrip erfolgreich — Backend:{" "}
+              <strong>{result.test_roundtrip.backend}</strong>, Latenz:{" "}
+              <strong>{result.test_roundtrip.duration_ms} ms</strong>
+              {result.test_roundtrip.result_payload?.category && (
+                <>
+                  {" · "}Klassifikation:{" "}
+                  <strong>{result.test_roundtrip.result_payload.category}</strong>
+                </>
+              )}
+            </div>
+          ) : result.test_roundtrip?.error ? (
+            <div className="glass-card p-2 text-coral">
+              ✗ Test-Roundtrip fehlgeschlagen: {result.test_roundtrip.error}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }
 

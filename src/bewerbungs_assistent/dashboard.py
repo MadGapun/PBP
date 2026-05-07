@@ -7039,6 +7039,71 @@ async def api_llm_status():
     }
 
 
+@app.post("/api/llm/test-connection")
+async def api_llm_test_connection():
+    """Diagnose-Snapshot fuer Lokale-AI-Setup (#584).
+
+    Liefert auf einen Schlag:
+    - Ollama erreichbar
+    - Liste installierter Modelle
+    - Aktuell ausgewaehltes Modell
+    - User-State (off/paused/active)
+    - Test-Roundtrip mit classify_document — Latenz + Result
+    """
+    from .services.llm_service import get_llm_service, TaskKind, Backend
+    import time
+    svc = get_llm_service(_db)
+    s = svc.get_status(force_refresh=True)
+
+    result = {
+        "ollama_available": s.ollama_available,
+        "ollama_endpoint": s.ollama_endpoint,
+        "available_models": s.available_models,
+        "selected_model": s.selected_model,
+        "user_state": s.user_state,
+        "error": s.error,
+        "test_roundtrip": None,
+    }
+
+    # Test-Roundtrip nur wenn alles bereit
+    if s.ollama_available and s.available_models and s.user_state == "active":
+        start = time.time()
+        try:
+            tr = svc.run(TaskKind.CLASSIFY_DOCUMENT, {
+                "filename": "test_lebenslauf.pdf",
+                "text": (
+                    "Markus Mustermann, geb. 01.01.1980. Berufserfahrung: "
+                    "Senior PLM Architect bei ACME GmbH (2018-heute). "
+                    "Skills: PRO.FILE, Teamcenter, SAP PLM."
+                ),
+            })
+            duration_ms = int((time.time() - start) * 1000)
+            result["test_roundtrip"] = {
+                "success": tr.success,
+                "backend": tr.backend.value if tr.backend else "?",
+                "duration_ms": duration_ms,
+                "result_payload": tr.payload,
+                "fallback_message": tr.fallback_message,
+            }
+        except Exception as exc:
+            result["test_roundtrip"] = {
+                "success": False,
+                "error": str(exc)[:300],
+            }
+    else:
+        result["test_roundtrip"] = {
+            "skipped": True,
+            "reason": (
+                "Voraussetzungen fuer Test-Roundtrip nicht erfuellt: "
+                f"ollama_available={s.ollama_available}, "
+                f"models={len(s.available_models)}, "
+                f"user_state={s.user_state}"
+            ),
+        }
+
+    return result
+
+
 @app.put("/api/llm/state")
 async def api_llm_set_state(request: Request):
     """Setzt den User-State (off|paused|active) fuer die lokale AI."""

@@ -51,6 +51,7 @@ class TaskKind(str, Enum):
     EXTRACT_SALARY = "extract_salary"
     COMPARE_JOBS = "compare_jobs"
     FIND_SIMILAR_JOBS = "find_similar_jobs"
+    CLASSIFY_EMAIL = "classify_email"  # v1.7.0-beta.24
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -78,6 +79,7 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.EXTRACT_SALARY:       [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.COMPARE_JOBS:         [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.FIND_SIMILAR_JOBS:    [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.CLASSIFY_EMAIL:       [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -448,14 +450,122 @@ def _parse_extract_skills(raw: str) -> dict:
     return {"skills": cleaned, "count": len(cleaned)}
 
 
+# v1.7.0-beta.24 (#586): match_job_to_skills — profil-basiertes Aussortieren
+# ohne Filter-Listen. Lokale AI bekommt das Profil + die Stelle und entscheidet
+# binaer "passt"/"passt_nicht"/"unsicher" mit kurzer Begruendung.
+
+def _build_match_job_to_skills_prompt(payload: dict) -> str:
+    profile_skills = payload.get("profile_skills") or []
+    profile_position = (payload.get("profile_position") or "").strip()
+    profile_seniority = (payload.get("profile_seniority") or "").strip()
+    job_title = (payload.get("job_title") or "").strip()
+    job_company = (payload.get("job_company") or "").strip()
+    job_description = (payload.get("job_description") or "")[:1500]
+
+    skills_str = ", ".join(profile_skills[:15]) if profile_skills else "keine erfasst"
+    return (
+        "Du bewertest ob eine Stelle zu einem Bewerber-Profil passt.\n\n"
+        "PROFIL DES BEWERBERS:\n"
+        f"  Aktuelle/letzte Position: {profile_position or 'keine erfasst'}\n"
+        f"  Karriere-Stufe: {profile_seniority or 'unbekannt'}\n"
+        f"  Top-Skills: {skills_str}\n\n"
+        "STELLE:\n"
+        f"  Titel: {job_title}\n"
+        f"  Firma: {job_company}\n"
+        f"  Beschreibung (Auszug): {job_description}\n\n"
+        "FRAGE: Wuerde es Sinn machen wenn diese Person sich auf diese Stelle "
+        "bewirbt?\n\n"
+        "Antworte AUSSCHLIESSLICH im Format (genau eine Zeile):\n"
+        "ENTSCHEIDUNG | KURZBEGRUENDUNG\n\n"
+        "ENTSCHEIDUNG ist eines von:\n"
+        "  PASST           — Skills + Karriere-Stufe + Branche stimmen\n"
+        "  PASST_NICHT     — falsche Branche, falsche Stufe (Junior bei "
+        "Senior-Profil), oder Skills haben nichts gemeinsam\n"
+        "  UNSICHER        — koennte passen, je nach Detail\n\n"
+        "Beispiele:\n"
+        "  PASST | Senior PLM-Architect-Profil + Stelle 'PLM Solution Architect' "
+        "passt thematisch und auf Stufe.\n"
+        "  PASST_NICHT | Senior-Profil mit 20J Erfahrung passt nicht zu einer "
+        "Junior/Werkstudenten-Stelle als Technischer Zeichner.\n"
+        "  UNSICHER | SAP-Bezug ist im Profil schwach, koennte mit Lerneffort gehen.\n\n"
+        "DEINE ANTWORT:"
+    )
+
+
+def _parse_match_job_to_skills(raw: str) -> dict:
+    raw_clean = (raw or "").strip()
+    if not raw_clean:
+        return {"decision": "UNSICHER", "reason": "Keine LLM-Antwort", "raw": raw}
+    # Erste nicht-leere Zeile + entlang | splitten
+    line = next((l.strip() for l in raw_clean.split("\n") if l.strip()), "")
+    parts = [p.strip() for p in line.split("|", 1)]
+    decision = parts[0].upper().strip(".,;:'\"`")
+    reason = parts[1] if len(parts) > 1 else ""
+    if decision not in ("PASST", "PASST_NICHT", "UNSICHER"):
+        # Versuche Auto-Heuristik aus dem Roh-Text
+        lower = raw_clean.lower()
+        if "passt nicht" in lower or "not match" in lower:
+            decision = "PASST_NICHT"
+        elif "passt" in lower:
+            decision = "PASST"
+        else:
+            decision = "UNSICHER"
+    return {
+        "decision": decision,
+        "reason": reason[:200] if reason else "",
+        "raw": raw,
+    }
+
+
+# v1.7.0-beta.24 (NEU): classify_email — eingehende Mails zu Bewerbungs-
+# Mails klassifizieren (Antwort, Eingangsbestaetigung, Absage, Spam, etc.)
+
+def _build_classify_email_prompt(payload: dict) -> str:
+    sender = (payload.get("sender") or "").strip()[:100]
+    subject = (payload.get("subject") or "").strip()[:200]
+    body = (payload.get("body") or "")[:2000]
+    return (
+        "Du klassifizierst eine eingehende Bewerbungs-E-Mail.\n\n"
+        f"Absender: {sender}\n"
+        f"Betreff: {subject}\n\n"
+        f"Body (Auszug):\n{body}\n\n"
+        "Antworte AUSSCHLIESSLICH mit einer Kategorie aus:\n"
+        "  eingangsbestaetigung — automatischer Empfangsbestaetigung\n"
+        "  einladung_interview  — Interview/Kennenlerngespraech-Einladung\n"
+        "  absage              — Bewerbung abgelehnt\n"
+        "  rueckfrage          — Recruiter fragt nach Unterlagen oder Termin\n"
+        "  angebot             — Vertragsangebot\n"
+        "  newsletter          — Job-Newsletter / Marketing\n"
+        "  spam                — Phishing oder Werbung\n"
+        "  sonstiges           — sonstige Mail im Bewerbungs-Kontext\n\n"
+        "Kategorie:"
+    )
+
+
+def _parse_classify_email(raw: str) -> dict:
+    valid = {
+        "eingangsbestaetigung", "einladung_interview", "absage",
+        "rueckfrage", "angebot", "newsletter", "spam", "sonstiges",
+    }
+    cleaned = (raw or "").strip().lower().split()[0] if raw else ""
+    cleaned = cleaned.strip(".,;:'\"`")
+    if cleaned not in valid:
+        return {"category": "sonstiges", "confidence": 0.3, "raw": raw}
+    return {"category": cleaned, "confidence": 0.85, "raw": raw}
+
+
 _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
+    TaskKind.MATCH_JOB_TO_SKILLS: _build_match_job_to_skills_prompt,
+    TaskKind.CLASSIFY_EMAIL: _build_classify_email_prompt,
 }
 
 _RESPONSE_PARSERS = {
     TaskKind.CLASSIFY_DOCUMENT: _parse_classify_document,
     TaskKind.EXTRACT_SKILLS: _parse_extract_skills,
+    TaskKind.MATCH_JOB_TO_SKILLS: _parse_match_job_to_skills,
+    TaskKind.CLASSIFY_EMAIL: _parse_classify_email,
 }
 
 

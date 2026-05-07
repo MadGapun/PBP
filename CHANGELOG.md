@@ -7,6 +7,64 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.24] - 2026-05-07 — Lokale-AI-Vertiefung: Auto-Aussortieren + Mail-Klassifikation + UX
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Auftrag: *„welche Issues haben wir schon, setze diese fuer die naechste
+Beta um. Achte dabei darauf wo du die lokale AI besser einbinden kannst und
+wo diese noch optimaler unterstuetzen oder vorarbeiten kann."*
+
+Diese Beta vertieft die lokale AI massiv: zwei neue LLM-Tasks +
+zwei UX-Verbesserungen + ein Bug-Fix.
+
+### ✨ Added
+
+- **#586 Profil-basiertes Auto-Aussortieren via lokale AI.**
+  Statt Filter-Listen zu pflegen entscheidet die lokale AI pro Stelle,
+  ob sie zum Profil passt. Skaliert mit beliebigen Berufsfeldern —
+  Senior-PLM, Junior-Tech, Studenten, Service-Berufe.
+  - `MATCH_JOB_TO_SKILLS` als echten LLM-Task implementiert
+    (Prompt-Builder + Parser fuer PASST/PASST_NICHT/UNSICHER)
+  - Neuer MCP-Tool `stellen_auto_aussortieren(max_stellen, min_score, dry_run)`
+    iteriert durch unbewertete Stellen, lokale AI entscheidet, bei
+    PASST_NICHT → `dismiss_job` mit LLM-Begruendung in research_notes
+  - Idempotent + ehrlicher Fallback wenn Ollama nicht laeuft
+
+- **NEU: `classify_email` LLM-Task.** Lokale AI klassifiziert eingehende
+  Mails in 8 Kategorien: eingangsbestaetigung, einladung_interview,
+  absage, rueckfrage, angebot, newsletter, spam, sonstiges. Vorbereitung
+  fuer Auto-Status-Updates aus Mail-Inhalten.
+
+- **#584 Test-Verbindung-Button** im Lokale-KI-Settings-Tab.
+  POST `/api/llm/test-connection` liefert komplette Diagnose:
+  Ollama-Erreichbarkeit, Modelle, aktiver State, Test-Roundtrip mit
+  Latenz-Messung und Klassifikations-Result.
+
+- **#585 Auto-Detect-Banner** auf dem Dashboard.
+  Wenn Ollama erreichbar + Modell installiert + PBP-State `off` →
+  freundlicher Banner mit „Aktivieren"-Button.
+  Dismiss merkt sich 7 Tage in localStorage.
+
+### 🐛 Fixed
+
+- **#587 firmen_recherche-Befehl zeigte veraltete Daten.**
+  Frontend-Logik priorisierte `job.company` (Snapshot bei Anlage, kann
+  veralten wenn Vermittler den Endkunden bestaetigt). Jetzt:
+  `application.endkunde` → `application.company` → `job.company`.
+
+- **Modell-Wechsel-UI im LocalAITab** auch bei nur einem installierten
+  Modell sichtbar (vorher versteckt, machte Nachinstallation eines
+  weiteren Modells unsichtbar).
+
+### Tests
+
+- `tests/test_v170_beta24_lokale_ai_vertiefung.py`: 13 neue Tests
+- Vorhandene Tests robuster gegen laufendes Host-Ollama (mit Mock-urllib)
+- **847 Tests gesamt, alle gruen.**
+
+---
+
 ## [1.7.0-beta.23] - 2026-05-06 — Installer-Polish: echter Health-Check + sichtbare Erfolgsmeldung
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

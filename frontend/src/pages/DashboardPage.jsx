@@ -886,6 +886,9 @@ export default function DashboardPage() {
       {/* v1.7.0 (#576): Recap-Card — was hat sich seit deinem letzten Besuch getan */}
       <RecapCard pushToast={pushToast} navigateTo={navigateTo} />
 
+      {/* v1.7.0-beta.24 (#585): Auto-Detect-Banner fuer Lokale KI */}
+      <LocalAiAutoDetectBanner pushToast={pushToast} navigateTo={navigateTo} />
+
       <div id="dashboard-content" className="grid gap-5">
         {/* Schnellzugriff (full width) */}
         <Card className="rounded-2xl">
@@ -1134,6 +1137,90 @@ export default function DashboardPage() {
 // v1.7.0 (#576): Recap-Card — zeigt was sich seit dem letzten Besuch getan hat.
 // Wenn nichts passiert ist, wird die Card komplett ausgeblendet (auto-hide).
 // User kann mit dem [x] auch manuell ausblenden bis morgen (LocalStorage-Flag).
+// v1.7.0-beta.24 (#585): Auto-Detect-Banner — wenn Ollama erreichbar ist
+// aber PBP-Lokale-KI auf 'off' steht, freundlicher Hinweis mit Aktivieren-CTA.
+// Dismiss merkt sich 7 Tage in localStorage.
+function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
+  const [status, setStatus] = useState(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    // Dismiss-Check
+    try {
+      const until = localStorage.getItem("pbp_local_ai_banner_dismissed_until");
+      if (until && new Date(until) > new Date()) {
+        setDismissed(true);
+        return;
+      }
+    } catch {}
+    fetch("/api/llm/status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setStatus(d))
+      .catch(() => {});
+  }, []);
+
+  if (dismissed || !status) return null;
+
+  // Trigger-Bedingung: Ollama erreichbar, mind. 1 Modell, aber State=off
+  const trigger = status.ollama_available
+    && (status.available_models?.length || 0) > 0
+    && status.user_state === "off";
+  if (!trigger) return null;
+
+  function dismissForWeek() {
+    try {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      localStorage.setItem("pbp_local_ai_banner_dismissed_until", d.toISOString());
+    } catch {}
+    setDismissed(true);
+  }
+
+  async function activate() {
+    try {
+      await postJson("/api/llm/state", { state: "active" });
+      pushToast("Lokale KI aktiviert.", "success");
+      setDismissed(true);
+    } catch (err) {
+      pushToast(`Aktivieren fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl border-sky/30 bg-sky/[0.06]">
+      <div className="flex items-start gap-3">
+        <div className="text-2xl">🟡</div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-ink mb-1">
+            Ollama erkannt — willst du PBP-Lokale-KI aktivieren?
+          </p>
+          <p className="text-[12px] text-muted/70 mb-3">
+            Spart Claude-Tokens fuer Standard-Aufgaben (Doku-Klassifikation,
+            Skill-Extraktion, Stellen-Vorfilterung). Daten bleiben lokal.
+            Aktuell installiert: <strong className="text-ink">{(status.available_models || []).join(", ")}</strong>
+          </p>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={activate}>
+              Aktivieren
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => navigateTo("einstellungen", { tab: "ai" })}>
+              In Einstellungen ansehen
+            </Button>
+            <button
+              type="button"
+              onClick={dismissForWeek}
+              className="text-[11px] text-muted/60 hover:text-ink underline ml-2"
+            >
+              Spaeter (7 Tage)
+            </button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
 function RecapCard({ pushToast, navigateTo }) {
   const [recap, setRecap] = useState(null);
   const [dismissed, setDismissed] = useState(() => {

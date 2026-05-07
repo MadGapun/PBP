@@ -1651,6 +1651,175 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def stellen_auto_aussortieren(
+        max_stellen: int = 50,
+        min_score: int = 0,
+        dry_run: bool = False,
+    ) -> dict:
+        """Profil-basiertes Auto-Aussortieren via lokaler AI (#586).
+
+        Statt Filter-Listen zu pflegen entscheidet die lokale AI pro Stelle,
+        ob sie zum Profil passt. Skaliert mit beliebigen Berufsfeldern —
+        funktioniert fuer Senior-PLM genauso wie fuer Studenten oder
+        Service-Berufe.
+
+        Pro Stelle (max_stellen, sortiert nach Score absteigend):
+        - LLM-Anfrage `match_job_to_skills` mit Profil-Kontext + Stelle
+        - PASST_NICHT → dismiss_job mit Grund 'profil_match_negativ' und
+          LLM-Begruendung in research_notes
+        - UNSICHER → unangetastet (User entscheidet manuell)
+        - PASST → unangetastet
+
+        Voraussetzung: Lokale AI aktiv (Ollama laeuft, Modell installiert).
+        Fallback: ohne Lokale AI gibt es eine ehrliche Meldung — keine
+        Heuristik-Raterei.
+
+        Args:
+            max_stellen: Maximum Stellen pro Lauf (Default 50, Schutz gegen
+                         lange Token-Runs).
+            min_score: Mindest-Score-Schwelle. Stellen darunter werden gar
+                       nicht erst der LLM vorgelegt (Default 0 = alle).
+            dry_run: Wenn True, nur Vorschau ohne dismiss-Aktionen.
+
+        Idempotent: bewertet keine Stelle erneut die schon `passt_nicht`
+        oder eine Bewerbung hat.
+        """
+        from ..services.llm_service import get_llm_service, TaskKind, Backend
+
+        svc = get_llm_service(db)
+        status = svc.get_status(force_refresh=True)
+        if not status.ollama_available or not status.available_models:
+            return {
+                "fehler": "Lokale AI nicht verfuegbar.",
+                "hinweis": (
+                    "Stellen_auto_aussortieren braucht Ollama + ein installiertes "
+                    "Modell. Pruefe Einstellungen → Lokale KI."
+                ),
+                "ollama_available": status.ollama_available,
+                "available_models": status.available_models,
+            }
+        if status.user_state != "active":
+            return {
+                "fehler": f"Lokale AI ist im State '{status.user_state}'.",
+                "hinweis": "Setze State auf 'active' in Einstellungen → Lokale KI.",
+            }
+
+        # Profil-Kontext sammeln
+        profile = db.get_profile() or {}
+        profile_skills = [
+            s.get("name", "") for s in (profile.get("skills") or [])[:15]
+        ]
+        positions = profile.get("positions") or []
+        latest_pos = positions[0] if positions else {}
+        profile_position = latest_pos.get("title", "")
+        # Heuristik: Karriere-Stufe aus aktueller Position + Jahren ableiten
+        years = 0
+        for p in positions:
+            try:
+                start = int((p.get("start_date") or "0000")[:4])
+                end_raw = (p.get("end_date") or "")[:4]
+                end = int(end_raw) if end_raw.isdigit() else 2026
+                if start > 1900:
+                    years += max(0, end - start)
+            except Exception:
+                pass
+        if years >= 10:
+            profile_seniority = f"Senior ({years} Jahre Erfahrung)"
+        elif years >= 5:
+            profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
+        elif years >= 1:
+            profile_seniority = f"Junior ({years} Jahre Erfahrung)"
+        else:
+            profile_seniority = "Berufseinsteiger / Berufsanfaenger"
+
+        # Kandidaten holen — aktive, noch nicht bewertete Stellen
+        all_active = db.get_active_jobs()
+        # Filter: keine Bewerbung, kein dismiss-Reason
+        candidates = [
+            j for j in all_active
+            if not j.get("dismiss_reason")
+            and (j.get("score") or 0) >= min_score
+        ]
+        candidates.sort(key=lambda j: -(j.get("score") or 0))
+        candidates = candidates[:max_stellen]
+
+        if not candidates:
+            return {
+                "status": "leer",
+                "nachricht": "Keine ungerateten Stellen oberhalb min_score.",
+                "geprueft": 0, "passt_nicht": 0, "unsicher": 0, "passt": 0,
+            }
+
+        passt_nicht_results = []
+        unsicher_results = []
+        passt_results = []
+        errors = []
+
+        for job in candidates:
+            try:
+                payload = {
+                    "profile_skills": profile_skills,
+                    "profile_position": profile_position,
+                    "profile_seniority": profile_seniority,
+                    "job_title": job.get("title") or "",
+                    "job_company": job.get("company") or "",
+                    "job_description": (job.get("description") or "")[:1500],
+                }
+                result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
+                if not result.success:
+                    errors.append({
+                        "hash": job["hash"],
+                        "title": job.get("title"),
+                        "error": result.fallback_message or "unknown",
+                    })
+                    continue
+                decision = (result.payload or {}).get("decision", "UNSICHER")
+                reason = (result.payload or {}).get("reason", "")
+                entry = {
+                    "hash": job["hash"],
+                    "title": job.get("title"),
+                    "company": job.get("company"),
+                    "score": job.get("score"),
+                    "reason": reason,
+                }
+                if decision == "PASST_NICHT":
+                    if not dry_run:
+                        # Notiz in research_notes anhaengen, dann dismiss
+                        try:
+                            cur_notes = (job.get("research_notes") or "")
+                            new_notes = (cur_notes + "\n\n" + f"[Auto-Aussortierung] {reason}").strip() if cur_notes else f"[Auto-Aussortierung] {reason}"
+                            db.update_job(job["hash"], {"research_notes": new_notes})
+                            db.dismiss_job(job["hash"], reason="profil_match_negativ")
+                        except Exception as exc:
+                            errors.append({
+                                "hash": job["hash"], "error": str(exc)[:200],
+                            })
+                    passt_nicht_results.append(entry)
+                elif decision == "PASST":
+                    passt_results.append(entry)
+                else:
+                    unsicher_results.append(entry)
+            except Exception as exc:
+                errors.append({
+                    "hash": job.get("hash"), "error": str(exc)[:200],
+                })
+
+        return {
+            "status": "ok",
+            "dry_run": dry_run,
+            "geprueft": len(candidates),
+            "passt_nicht": len(passt_nicht_results),
+            "unsicher": len(unsicher_results),
+            "passt": len(passt_results),
+            "errors_count": len(errors),
+            "passt_nicht_details": passt_nicht_results[:20],
+            "unsicher_details": unsicher_results[:10],
+            "passt_details": passt_results[:10],
+            "errors": errors[:5],
+            "modell": status.selected_model,
+        }
+
+    @mcp.tool()
     def scraper_diagnose(
         scraper_name: str = "",
         aktion: str = "status"

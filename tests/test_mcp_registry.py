@@ -18,6 +18,8 @@ from bewerbungs_assistent.tools import register_all  # noqa: E402
 
 
 EXPECTED_TOOL_NAMES = {
+    # v1.7.0-beta.24: Profil-basiertes Auto-Aussortieren via lokaler AI
+    "stellen_auto_aussortieren",
     # v1.7.0-beta.20: Recruiter-Anfragen-Tools
     "recruiter_anfrage_ablehnen",
     "bewerbung_zu_anfrage_konvertieren",
@@ -239,7 +241,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 123  # v1.7.0-beta.20: +2 (recruiter_anfrage_ablehnen, bewerbung_zu_anfrage_konvertieren)
+        assert len(tools) == 124  # v1.7.0-beta.24: +1 (stellen_auto_aussortieren)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:
