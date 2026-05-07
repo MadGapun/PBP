@@ -7069,6 +7069,187 @@ async def api_activity_stats():
     }
 
 
+def _fill_dismiss_reasons(out: dict, conn, pid: str) -> None:
+    """Hilfs-Funktion fuer _aggregate_user_activity — wird unabhaengig
+    von Activity-Events befuellt (basiert auf jobs.dismiss_reason)."""
+    try:
+        rows = conn.execute(
+            "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
+            "WHERE dismiss_reason IS NOT NULL AND dismiss_reason != '' "
+            "AND is_active=0 AND (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY dismiss_reason ORDER BY n DESC LIMIT 5",
+            (pid,)
+        ).fetchall()
+        out["dismiss_reasons_top"] = [
+            {"reason": r["dismiss_reason"], "count": r["n"]}
+            for r in rows
+        ]
+    except Exception:
+        pass
+
+
+def _aggregate_user_activity(days: int = 30) -> dict:
+    """v1.7.0-beta.27 (#594 Stufe 2): Deterministische Aggregation der
+    Activity-Events der letzten N Tage. Output-Schema bleibt stabil
+    fuer LLM-Pattern-Analyse in Stufe 3.
+
+    Liefert:
+    - top_pages: Top-5 besuchte Seiten mit Klick-Volumen + Verweildauer
+    - workflow_stats: gestartet/abgeschlossen/abgebrochen pro workflow
+    - top_filters: haeufigste Filter-Anwendungen
+    - dismiss_reasons_top: Top-3 dismiss-Reasons aus jobs-Tabelle (#586)
+    - anti_patterns: Erkannte Anti-Patterns (Suchverhalten)
+    """
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    out: dict = {
+        "window_days": days,
+        "since": cutoff,
+        "total_events": 0,
+        "top_pages": [],
+        "workflow_stats": {},
+        "top_filters": [],
+        "dismiss_reasons_top": [],
+        "anti_patterns": [],
+    }
+
+    # Total
+    try:
+        out["total_events"] = conn.execute(
+            "SELECT COUNT(*) AS n FROM user_activity_events "
+            "WHERE timestamp >= ? AND (profile_id=? OR profile_id IS NULL)",
+            (cutoff, pid)
+        ).fetchone()["n"]
+    except Exception:
+        out["total_events"] = 0
+
+    # Top-Pages: Klicks + Dwell pro Seite (nur wenn Events vorhanden)
+    if out["total_events"] == 0:
+        # Trotzdem dismiss_reasons aus jobs holen — sind unabhaengig von
+        # activity events. Skip nur die Activity-Aggregate.
+        _fill_dismiss_reasons(out, conn, pid)
+        return out
+
+    # Top-Pages
+    try:
+        rows = conn.execute(
+            "SELECT page, "
+            "  SUM(CASE WHEN event_type='click' THEN 1 ELSE 0 END) AS clicks, "
+            "  SUM(CASE WHEN event_type='page_view' THEN 1 ELSE 0 END) AS views, "
+            "  SUM(CASE WHEN event_type='dwell' "
+            "    THEN CAST(json_extract(metadata_json,'$.duration_ms') AS INTEGER) "
+            "    ELSE 0 END) AS dwell_total_ms "
+            "FROM user_activity_events "
+            "WHERE timestamp >= ? AND page IS NOT NULL "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY page ORDER BY views DESC LIMIT 5",
+            (cutoff, pid)
+        ).fetchall()
+        out["top_pages"] = [
+            {
+                "page": r["page"],
+                "views": r["views"] or 0,
+                "clicks": r["clicks"] or 0,
+                "dwell_minutes": round((r["dwell_total_ms"] or 0) / 60000, 1),
+                # Anti-Pattern-Hinweis: viele Klicks pro View = Sucht-Verhalten
+                "clicks_per_view": (
+                    round((r["clicks"] or 0) / r["views"], 1) if r["views"] else 0.0
+                ),
+            }
+            for r in rows
+        ]
+    except Exception:
+        pass
+
+    # Workflow-Stats
+    try:
+        rows = conn.execute(
+            "SELECT action AS workflow, event_type, COUNT(*) AS n "
+            "FROM user_activity_events "
+            "WHERE timestamp >= ? AND event_type IN "
+            "('workflow_start','workflow_abort','workflow_complete') "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY action, event_type",
+            (cutoff, pid)
+        ).fetchall()
+        wf: dict = {}
+        for r in rows:
+            wfid = r["workflow"] or "?"
+            wf.setdefault(wfid, {"start": 0, "abort": 0, "complete": 0})
+            key = r["event_type"].replace("workflow_", "")
+            wf[wfid][key] = r["n"]
+        out["workflow_stats"] = wf
+    except Exception:
+        pass
+
+    # Top-Filters
+    try:
+        rows = conn.execute(
+            "SELECT json_extract(metadata_json,'$.filter') AS filter_name, "
+            "  COUNT(*) AS n "
+            "FROM user_activity_events "
+            "WHERE timestamp >= ? AND event_type='filter_apply' "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY filter_name ORDER BY n DESC LIMIT 5",
+            (cutoff, pid)
+        ).fetchall()
+        out["top_filters"] = [
+            {"filter": r["filter_name"] or "?", "count": r["n"]}
+            for r in rows if r["filter_name"]
+        ]
+    except Exception:
+        pass
+
+    # Top-Dismiss-Reasons (aus jobs.dismiss_reason)
+    _fill_dismiss_reasons(out, conn, pid)
+
+    # Anti-Patterns:
+    # 1. Hohe Klick-pro-View-Quote (Sucht-Verhalten)
+    for p in out["top_pages"]:
+        if p["clicks_per_view"] >= 8 and p["views"] >= 5:
+            out["anti_patterns"].append({
+                "kind": "high_clicks_per_view",
+                "page": p["page"],
+                "value": p["clicks_per_view"],
+                "message": (
+                    f"Auf der Seite '{p['page']}' wird viel geklickt "
+                    f"({p['clicks_per_view']} Klicks pro Besuch). "
+                    "Vermutlich Sucht-Verhalten — Filter oder Sortierung "
+                    "koennten optimiert werden."
+                ),
+            })
+    # 2. Workflow-Abbruch-Quote > 40%
+    for wfid, wf in out["workflow_stats"].items():
+        starts = wf.get("start", 0)
+        aborts = wf.get("abort", 0)
+        if starts >= 5 and aborts / starts > 0.4:
+            out["anti_patterns"].append({
+                "kind": "high_abort_rate",
+                "workflow": wfid,
+                "value": round(aborts / starts * 100, 0),
+                "message": (
+                    f"Workflow '{wfid}' wird in {round(aborts/starts*100)}% "
+                    "der Faelle abgebrochen. UX-Schwaeche?"
+                ),
+            })
+
+    return out
+
+
+@app.get("/api/activity/aggregate")
+async def api_activity_aggregate(days: int = 30):
+    """Gibt aggregierte Lern-Daten zurueck (#594 Stufe 2).
+
+    Frontend nutzt das fuer Recap-Card und spaeter Stufe 3 als Input
+    fuer LLM-Pattern-Analyse.
+    """
+    days = max(1, min(int(days or 30), 180))
+    return _aggregate_user_activity(days)
+
+
 @app.delete("/api/activity/clear")
 async def api_activity_clear():
     """Loescht alle Activity-Events des aktiven Profils.

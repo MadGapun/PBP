@@ -7,6 +7,46 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.27] - 2026-05-07 — Lern-System Stufe 2: Aggregation + Anti-Pattern-Detection
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Stufe 2 von #594 — Aggregation der Lern-Daten + Anti-Pattern-Erkennung.
+
+### ✨ Added
+
+- **`GET /api/activity/aggregate?days=30`** liefert deterministische
+  Aggregate (kein LLM nötig — Stufe 3 baut darauf auf):
+  - `top_pages` — meistbesuchte Seiten mit Views/Klicks/Verweildauer
+  - `workflow_stats` — start/abort/complete pro Workflow
+  - `top_filters` — am häufigsten angewendete Filter
+  - `dismiss_reasons_top` — top Aussortier-Gründe
+  - `anti_patterns` — erkannte UX-Probleme
+
+- **Anti-Pattern-Detection** (User-Vorgabe: Klicks/Scroll = Sucht-Verhalten):
+  - `high_clicks_per_view` — Seite wird viel angeklickt → Filter optimieren
+  - `high_abort_rate` — Workflow >40% abgebrochen → UX-Schwäche
+
+- **Recap-Card „Was PBP gelernt hat"** auf Dashboard.
+  Zeigt Top-Pages, Top-Filters, Dismiss-Reasons, Workflow-Stats und Anti-
+  Pattern-Hinweise. Erst sichtbar ab 50+ Events ODER 1+ Anti-Pattern
+  (sonst zu dünne Datenbasis).
+
+### Tests
+
+- `tests/test_v170_beta27_aggregation.py`: 9 neue Tests
+- **884 Tests gesamt, alle grün.**
+
+### Stufenplan-Fortschritt
+
+- [x] Stufe 1: Foundation — beta.26
+- [x] Stufe 2: Aggregation + Recap-Card — beta.27
+- [ ] Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop — beta.28
+- [ ] Stufe 4: Adaptive UI — beta.29
+- [ ] Stufe 5: Telemetrie-Sharing — beta.30
+
+---
+
 ## [1.7.0-beta.26] - 2026-05-07 — Lern-System Stufe 1: Foundation (#594)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
