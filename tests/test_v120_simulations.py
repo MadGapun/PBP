@@ -593,7 +593,8 @@ class TestSim5PromptsRegistrierung:
         assert "interview_simulation" in names
         assert "gehaltsverhandlung" in names
 
-        assert len(names) == 18, f"Erwartet 18 Prompts, gefunden {len(names)}: {names}"
+        # v1.7.0-beta.37 (#599): +5 Elwosa-Bridge-Prompts
+        assert len(names) >= 18, f"Mindestens 18 Prompts erwartet, gefunden {len(names)}: {names}"
         db.close()
         os.environ.pop("BA_DATA_DIR", None)
 

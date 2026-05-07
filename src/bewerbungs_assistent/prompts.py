@@ -1589,3 +1589,113 @@ Zeige die Tipps nach Relevanz:
 - Viele Ablehnungen? → Bewerbungs-Tipps und Muster-Analyse
 Sprich Deutsch und per Du. Sei ermutigend.
 """
+
+    # === v1.7.0-beta.37 (#599): Elwosa-Bridge-Prompts ============
+
+    @mcp.prompt()
+    def elwosa_status_anzeigen() -> str:
+        """Zeigt was Elwosa heute gemacht und gesagt hat."""
+        return """Hol Elwosas aktuellen Status und die letzten Nachrichten:
+
+1. Rufe `elwosa_status()` auf — zeigt Stimmung, AI-State, ungelesene Nachrichten
+2. Rufe `elwosa_lesen(limit=10)` auf — letzte 10 Nachrichten
+3. Fasse zusammen:
+   - Heutige Anzahl Nachrichten + Tageszeit der letzten
+   - Aktuelle Stimmung (mood) + warum (basierend auf Bewerbungs-Lage)
+   - Was Elwosa heute besonders erwaehnt hat (status_change-Linien hervorheben)
+
+Sprich Deutsch und per Du. Halte den Bericht kurz — Elwosa selbst ist
+auch nicht geschwaetzig."""
+
+    @mcp.prompt()
+    def elwosa_pause_anfordern(minuten: int = 60) -> str:
+        """Pausiert Elwosa fuer X Minuten."""
+        return f"""User moechte dass Elwosa fuer {minuten} Minuten Ruhe gibt.
+
+1. Rufe `elwosa_pause(minuten={minuten})` auf
+2. Bestaetige knapp: "Elwosa schweigt jetzt fuer {minuten} Minuten."
+3. Erklaere kurz wie der User Elwosa frueher zurueckholen kann
+   (Settings -> Lokale KI -> Elwosa -> Toggle aus + ein)
+
+Wichtig: Das Tool postet automatisch Elwosas Pause-Notiz in den Stream
+('Pausiert. Kein Stress, ich auch.'). Du musst das nicht manuell schreiben.
+
+Sprich Deutsch und per Du."""
+
+    @mcp.prompt()
+    def elwosa_antworten(text: str = "") -> str:
+        """Schreibt Elwosa eine Antwort/Reaktion auf etwas was der User sagt."""
+        return f"""User moechte dass du im Namen von Elwosa etwas postest:
+
+User-Text: "{text}"
+
+So gehst du vor:
+
+1. Rufe `elwosa_lesen(limit=5)` um den Tonfall des Tages zu kennen
+2. Formuliere eine knappe, lakonische Antwort fuer Elwosa
+
+WICHTIG — Sprach-DNA von Elwosa (sonst blockt der Tonfall-Validator):
+- KEINE Ausrufezeichen
+- KEINE Emojis
+- 'du' nicht 'Sie' / 'Ihr' / 'Ihnen'
+- Max 280 Zeichen
+- Lakonisch, britisch ironisch, Hochsprache
+- Endphrasen wie 'Vermerkt.' / 'Vom Tisch.' / 'Markiert.' wenn passend
+
+3. Rufe `elwosa_schreiben(content="...", trigger_kind="user_question")` auf
+4. Bei Sprach-DNA-Verstoss: Reformuliere und versuche es nochmal
+
+Beispiele guten Elwosa-Tonfalls:
+- "Gern geschehen. War nichts."
+- "Verstanden. Weniger Lyrik."
+- "Vermerkt. Bleibe dran."
+
+Sprich Deutsch und per Du in deiner eigenen Antwort an den User —
+in der Elwosa-Linie aber den Elwosa-Stil treffen."""
+
+    @mcp.prompt()
+    def elwosa_linie_lehren(beobachtung: str = "") -> str:
+        """Schlaegt Elwosa eine neue Linie zum Lernen vor."""
+        return f"""User moechte Elwosa eine neue Linie beibringen.
+
+Beobachtung/Anlass: "{beobachtung}"
+
+So gehst du vor:
+
+1. Identifiziere den passenden Cluster:
+   student / service / trade / tech_junior / tech_senior /
+   engineering_senior / freelance / executive / mixed / global / tip /
+   idle / easter_egg
+
+2. Identifiziere die passende Trigger-Klasse (z.B. 'idle',
+   'auto_dismiss_ran', 'mail_received', 'tip', etc.)
+
+3. Formuliere eine Linie die Elwosas Sprach-DNA entspricht:
+   - KEINE Ausrufezeichen / Emojis / 'Sie'
+   - Max 280 Zeichen
+   - Lakonisch, britisch ironisch
+   - Endphrase wie 'Vermerkt.' / 'Vom Tisch.' / 'Markiert.' bevorzugt
+
+4. Rufe `elwosa_linie_vorschlagen(cluster=..., trigger_kind=...,
+   content="...", auto_aktivieren=False)` auf
+
+5. Sage dem User: "Vorgeschlagen. User kann in Settings -> Lokale KI
+   -> Elwosa unter 'Vorgeschlagene Linien' genehmigen oder verwerfen."
+
+Sprich Deutsch und per Du."""
+
+    @mcp.prompt()
+    def elwosa_zurueckholen() -> str:
+        """Aktiviert Elwosa wenn sie ausgeschaltet wurde."""
+        return """User moechte Elwosa wieder aktivieren.
+
+1. Rufe `elwosa_tonfall(modus="standard")` auf — das setzt enabled=True
+   zurueck und stellt den Standard-Tonfall wieder her
+2. Rufe `elwosa_status()` um zu zeigen dass sie wieder aktiv ist
+3. Bestaetige knapp: "Elwosa ist zurueck."
+4. Optional: poste eine Begruessungsnachricht via
+   `elwosa_schreiben(content="Bin zurueck. Modell warm. Was hab ich verpasst?",
+                       trigger_kind="ai_state_change")`
+
+Sprich Deutsch und per Du."""
+

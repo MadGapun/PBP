@@ -39,6 +39,7 @@ import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
 import Sidebar from "@/components/Sidebar";
+import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import ContactsPage from "@/pages/ContactsPage";
@@ -1076,12 +1077,13 @@ export default function App() {
       },
     };
   } else if (page === "einstellungen") {
-    // beta.32: Settings-Tabs in die Sidebar verlagern (User-Wunsch
-    // "Konsequenz mit der neuen Menueleiste"). Custom Event analog
-    // zur Kalender-Logik.
+    // beta.32: Settings-Tabs in die Sidebar verlagern.
+    // beta.37 (#599): Lokale KI + Automatik ergaenzt — fehlten vorher.
     sidebarSubNavigation = {
       items: [
         { id: "settings-quellen", label: "Quellen" },
+        { id: "settings-ai", label: "Lokale KI" },
+        { id: "settings-automatik", label: "Automatik" },
         { id: "settings-system", label: "System" },
         { id: "settings-erscheinungsbild", label: "Erscheinungsbild" },
         { id: "settings-datenschutz", label: "Datenschutz" },
@@ -1091,9 +1093,10 @@ export default function App() {
       onSelect: (id) => {
         const tab = id.replace("settings-", "");
         document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab } }));
-        // beta.35: Sub-Pfad fuer Top-Bar
         const labels = {
           "quellen": "Quellen",
+          "ai": "Lokale KI",
+          "automatik": "Automatik",
           "system": "System",
           "erscheinungsbild": "Erscheinungsbild",
           "datenschutz": "Datenschutz",
@@ -1153,7 +1156,16 @@ export default function App() {
           }}
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
-          footerSlot={<JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />}
+          footerSlot={
+            <>
+              <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
+              {/* v1.7.0-beta.37 (#599): Elwosa-Live-Statusanzeige */}
+              <ElwosaSidebarChat
+                collapsed={sidebarCollapsed}
+                onToast={pushToast}
+              />
+            </>
+          }
         />
 
         {/* Hauptbereich (rechts neben Sidebar) */}

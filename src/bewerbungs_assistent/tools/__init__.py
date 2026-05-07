@@ -11,7 +11,7 @@ Alle 47 MCP-Tools sind in 8 Domain-Module aufgeteilt:
 - workflows: Workflow-Starter (3 Tools) — Prompts als Tools für claude.ai
 """
 
-from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte
+from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa
 
 
 def register_all(mcp, db, logger):
@@ -25,3 +25,4 @@ def register_all(mcp, db, logger):
     analyse.register(mcp, db, logger)
     workflows.register(mcp, db, logger)
     kontakte.register(mcp, db, logger)  # v1.7.0 #563
+    elwosa.register(mcp, db, logger)    # v1.7.0-beta.37 #599

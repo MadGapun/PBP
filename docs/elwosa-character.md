@@ -600,11 +600,59 @@ ai_state_change     → AI wechselt von off → active oder umgekehrt
 ```
 
 ### Anti-Spam-Regeln
-- **Max 1 Nachricht pro 90 Sekunden**
-- **Max 8 Nachrichten pro Tag** (auch bei aktiver AI — Idle-Drosselung)
+
+**WICHTIG:** Elwosa ist primaer Statusanzeige. Die Frequenz-Drosselung
+greift NICHT bei aktiver AI-Arbeit — sonst sieht der User nicht was
+passiert. Drosselung gilt nur fuer „weiches" Geplauder.
+
+**Hart begrenzt (immer):**
+- **Max 1 Nachricht pro 90 Sekunden** — UX-Schutz, verhindert Spam
 - **Tipp-Klasse max 1x pro 24h**
 - **Easter Egg max 1x pro 7 Tage** (gleicher Trigger)
 - **Welcome 1x ever** pro Profil
+
+**Frequenz-abhaengig (Idle / Tipp / Welt-Bezug):**
+
+Der Frequenz-Slider in den Settings (`elwosa_frequency`) drosselt
+**nur** die nicht-AI-Linien:
+
+| Slider-Stufe | Idle-Linien/Tag | Welt-Linien/Tag | Tipp/Tag |
+|---|---|---|---|
+| `ruhig` | max 2 | max 1 (morgens) | max 0 (nur 1x/Woche) |
+| `standard` (Default) | max 4 | max 2 | max 1 |
+| `aktiv` | max 6 | max 3 | max 1 |
+
+**Unbegrenzt (Status/Hard-Trigger):**
+- `llm_task_running` — solange LLM tatsaechlich arbeitet, Update jede
+  Phase (Start, Progress-Hint, Ende). User darf nie ratlos sein.
+- `mail_received`, `auto_dismiss_ran`, `pattern_insight`,
+  `status_change`, `job_new_high_score` — kommen WANN sie passieren,
+  egal welcher Slider-Stand.
+
+**Beispiel:**
+Der User dreht auf „ruhig" und es kommt eine Auto-Aussortierung mit
+35 ausgemusterten Stellen plus zwei Eingangsbestaetigungs-Mails. Was
+Elwosa schreibt:
+
+```
+Auto-Aussortierung: 35 Stellen vom Tisch.        ← status (unbegrenzt)
+Eingangsbestaetigung von BMW.                    ← status (unbegrenzt)
+Eingangsbestaetigung von Phoenix Contact.        ← status (unbegrenzt)
+```
+
+und KEIN zusaetzliches Idle-Geplauder.
+
+Der User dreht auf „aktiv" und es passiert nichts:
+
+```
+Guten Morgen. Markt ist heute ruhig.             ← welt (max 3/tag)
+Drei Wochen seit deiner letzten Bewerbung. ...   ← idle (max 6/tag)
+Tipp: Sag Claude `Wochenrueckblick`. ...         ← tipp (max 1/tag)
+```
+
+So bleibt Elwosa **Statusanzeige** ohne unter dem Frequenz-Slider zu
+verstummen wenn was passiert, und **Begleiter** ohne zu schwafeln
+wenn nichts ansteht.
 
 ## 10. Implementierungs-Plan (in v1.7)
 

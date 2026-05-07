@@ -7102,6 +7102,126 @@ def _run_analyze_user_patterns(now_iso: str, days: int = 30,
     }
 
 
+def _run_elwosa_speak(now_iso: str) -> dict:
+    """v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine als Auto-Engine-Step.
+
+    Pruefte alle Trigger-Klassen die zu *neuen* Daten passen seit dem
+    letzten Auto-Engine-Lauf:
+    - Welt-Trigger (Tageszeit, Wochentag)
+    - Idle-Trigger wenn lange Stille
+    - Profile-spezifische Linien
+
+    Hard-Trigger (mail_received, auto_dismiss_ran, status_change) werden
+    NICHT hier gefeuert — die kommen direkt aus den jeweiligen
+    Aktionen (z.B. _run_auto_classify_emails ruft elwosa.speak nach jeder
+    klassifizierten Mail).
+
+    Greift nur wenn:
+    - elwosa_enabled (User-Setting)
+    - lokale AI nicht 'off'
+    - kein Cooldown / Limit erreicht
+    """
+    try:
+        from .services import elwosa, profile_classifier
+    except Exception:
+        return {"skipped": True, "reason": "elwosa-module nicht verfuegbar"}
+
+    settings = _db.get_elwosa_settings()
+    if not settings.get("enabled"):
+        return {"skipped": True, "reason": "elwosa_enabled=False"}
+
+    # Cluster ableiten
+    profile = _db.get_profile()
+    detection = profile_classifier.detect_profile_type(profile)
+    cluster = detection.get("type", "mixed")
+
+    posted = []
+
+    # 1. Welt-Trigger
+    world_trigger = elwosa.detect_world_trigger()
+    if world_trigger:
+        msg_id = elwosa.speak(_db, world_trigger, ctx={
+            "count": _count_new_jobs_today(),
+            "days": _days_since_last_application(),
+        }, cluster=cluster)
+        if msg_id:
+            posted.append({"trigger": world_trigger, "id": msg_id})
+
+    # 2. Idle-Trigger (wenn lange keine Nachricht)
+    last_at = _db.get_last_elwosa_message_at()
+    is_long_idle = False
+    if last_at:
+        try:
+            from datetime import datetime, timedelta
+            last_dt = datetime.fromisoformat(last_at)
+            if (datetime.now() - last_dt) > timedelta(hours=4):
+                is_long_idle = True
+        except Exception:
+            pass
+    else:
+        is_long_idle = True
+
+    if is_long_idle:
+        msg_id = elwosa.speak(_db, "idle", ctx={
+            "count": _count_pending_applications(),
+            "days": _days_since_last_application(),
+        }, cluster=cluster)
+        if msg_id:
+            posted.append({"trigger": "idle", "id": msg_id})
+
+    return {"posted_count": len(posted), "posted": posted}
+
+
+def _count_new_jobs_today() -> int:
+    """Hilfs-Funktion fuer Elwosa-Variablen."""
+    try:
+        from datetime import datetime
+        today = datetime.now().date().isoformat()
+        pid = _db.get_active_profile_id()
+        conn = _db.connect()
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE date(found_at) = date(?) "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (today, pid)
+        ).fetchone()
+        return row["n"] if row else 0
+    except Exception:
+        return 0
+
+
+def _days_since_last_application() -> int:
+    try:
+        from datetime import datetime
+        pid = _db.get_active_profile_id()
+        conn = _db.connect()
+        row = conn.execute(
+            "SELECT MAX(applied_at) AS last FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        if not row or not row["last"]:
+            return 0
+        last = datetime.fromisoformat(row["last"])
+        return (datetime.now() - last).days
+    except Exception:
+        return 0
+
+
+def _count_pending_applications() -> int:
+    try:
+        pid = _db.get_active_profile_id()
+        conn = _db.connect()
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM applications "
+            "WHERE status='beworben' "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        return row["n"] if row else 0
+    except Exception:
+        return 0
+
+
 def _run_scraper_probe(now_iso: str) -> dict:
     """v1.7.0-beta.33 (#590-C.1): pruefe ob ausgeschalterte Scraper
     fuer einen Probe-Run faellig sind. Markiert sie als 'due' — der
@@ -7151,6 +7271,8 @@ async def api_run_auto_actions():
     patterns_result = _run_analyze_user_patterns(now)
     # v1.7.0-beta.33 (#590-C.1): Probe-Run-Faelligkeit pruefen
     probe_result = _run_scraper_probe(now)
+    # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
+    elwosa_result = _run_elwosa_speak(now)
     _db.set_setting("auto_actions_last_run_at", now)
     return {
         "ran_at": now,
@@ -7160,7 +7282,104 @@ async def api_run_auto_actions():
         "document_classify": doc_result,
         "pattern_analysis": patterns_result,
         "scraper_probe": probe_result,
+        "elwosa": elwosa_result,
     }
+
+
+# === v1.7.0-beta.37 (#599): Elwosa API ============================
+
+@app.get("/api/elwosa/messages")
+async def api_elwosa_messages(limit: int = 20, since: str = ""):
+    msgs = _db.get_elwosa_messages(
+        limit=max(1, min(int(limit or 20), 100)),
+        since_iso=since or None,
+    )
+    return {"messages": msgs, "count": len(msgs)}
+
+
+@app.post("/api/elwosa/messages/mark-read")
+async def api_elwosa_mark_read():
+    n = _db.mark_elwosa_messages_read()
+    return {"status": "ok", "marked": n}
+
+
+@app.delete("/api/elwosa/messages/{message_id}")
+async def api_elwosa_dismiss(message_id: int):
+    ok = _db.dismiss_elwosa_message(int(message_id))
+    if not ok:
+        return JSONResponse({"error": "Nachricht nicht gefunden"},
+                             status_code=404)
+    return {"status": "ok"}
+
+
+@app.get("/api/elwosa/settings")
+async def api_elwosa_settings_get():
+    return _db.get_elwosa_settings()
+
+
+@app.put("/api/elwosa/settings")
+async def api_elwosa_settings_put(request: Request):
+    data = await request.json()
+    try:
+        return _db.set_elwosa_settings(**data)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/api/elwosa/pause")
+async def api_elwosa_pause(request: Request):
+    from datetime import datetime, timedelta
+    data = await request.json()
+    try:
+        mins = int(data.get("minuten", 60))
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "minuten muss eine Zahl sein"},
+                             status_code=400)
+    if mins < 1 or mins > 1440:
+        return JSONResponse(
+            {"error": "minuten muss zwischen 1 und 1440 (24h) liegen"},
+            status_code=400)
+    until = (datetime.now() + timedelta(minutes=mins)).isoformat()
+    _db.set_elwosa_settings(paused_until=until)
+    return {"status": "pausiert", "paused_until": until, "minuten": mins}
+
+
+@app.get("/api/elwosa/pending-lines")
+async def api_elwosa_pending():
+    items = _db.get_elwosa_pending_lines()
+    return {"pending": items, "count": len(items)}
+
+
+@app.post("/api/elwosa/pending-lines/{line_id}/approve")
+async def api_elwosa_approve(line_id: int):
+    ok = _db.approve_elwosa_pending_line(int(line_id))
+    if not ok:
+        return JSONResponse({"error": "Linie nicht gefunden"},
+                             status_code=404)
+    return {"status": "approved"}
+
+
+@app.delete("/api/elwosa/pending-lines/{line_id}")
+async def api_elwosa_reject(line_id: int):
+    ok = _db.reject_elwosa_pending_line(int(line_id))
+    if not ok:
+        return JSONResponse({"error": "Linie nicht gefunden"},
+                             status_code=404)
+    return {"status": "rejected"}
+
+
+@app.get("/api/elwosa/status")
+async def api_elwosa_status_endpoint():
+    """Status-Snapshot fuer das Frontend (Polling)."""
+    from .services.elwosa import get_status
+    try:
+        from .services.llm_service import get_llm_service
+        svc = get_llm_service(_db)
+        s = svc.get_status()
+        ai_state = s.user_state if s.ollama_available else "off"
+    except Exception:
+        ai_state = "active"
+    return get_status(_db, ai_state=ai_state)
 
 
 @app.get("/api/auto-actions/status")

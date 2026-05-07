@@ -1269,7 +1269,164 @@ function LocalAITab({ pushToast }) {
           {status.available_models?.length || 0} Modell(e) installiert
         </p>
       </div>
+
+      {/* v1.7.0-beta.37 (#599): Elwosa-Konfiguration */}
+      <ElwosaSettingsSection pushToast={pushToast} />
     </Card>
+  );
+}
+
+// v1.7.0-beta.37 (#599): Elwosa-Settings-Section im Lokale-KI-Tab.
+function ElwosaSettingsSection({ pushToast }) {
+  const [settings, setSettings] = useState(null);
+  const [pending, setPending] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      const [s, p] = await Promise.all([
+        api("/api/elwosa/settings"),
+        api("/api/elwosa/pending-lines"),
+      ]);
+      setSettings(s);
+      setPending(p?.pending || []);
+    } catch {}
+  }
+  useEffect(() => { reload(); }, []);
+
+  async function update(patch) {
+    setBusy(true);
+    try {
+      const next = await putJson("/api/elwosa/settings", patch);
+      setSettings(next);
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveLine(id) {
+    try {
+      await postJson(`/api/elwosa/pending-lines/${id}/approve`, {});
+      pushToast("Linie aktiviert", "success");
+      reload();
+    } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
+  }
+
+  async function rejectLine(id) {
+    try {
+      await deleteRequest(`/api/elwosa/pending-lines/${id}`);
+      pushToast("Linie verworfen", "success");
+      reload();
+    } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
+  }
+
+  if (!settings) return null;
+
+  return (
+    <div className="border-t border-white/5 pt-4 mt-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal/15 text-[11px] font-semibold text-teal">E</span>
+        <h3 className="text-sm font-semibold text-ink">Elwosa</h3>
+      </div>
+      <p className="mb-3 text-[12px] text-muted/70">
+        Live-Statusanzeige der lokalen AI in der Sidebar. Kommentiert was im Hintergrund passiert, gibt gelegentlich Tipps zu Claude und PBP.
+      </p>
+
+      <label className="flex cursor-pointer items-start gap-3 mb-3">
+        <input
+          type="checkbox"
+          checked={!!settings.enabled}
+          onChange={(e) => update({ enabled: e.target.checked })}
+          disabled={busy}
+          className="mt-1 h-4 w-4 cursor-pointer"
+        />
+        <span className="text-sm text-ink">Elwosa aktiv (wenn lokale AI laeuft)</span>
+      </label>
+
+      {settings.enabled && (
+        <div className="space-y-3">
+          <div>
+            <p className="text-[11px] font-medium text-muted/70 mb-1">Frequenz (fuer Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
+            <div className="flex gap-2">
+              {["ruhig", "standard", "aktiv"].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => update({ frequency: f })}
+                  disabled={busy}
+                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.frequency === f
+                    ? "border-teal bg-teal/15 text-teal"
+                    : "border-white/10 text-muted hover:border-white/30"}`}
+                >
+                  {f === "ruhig" ? "Ruhig (3/Tag)" : f === "standard" ? "Standard (8)" : "Aktiv (15)"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-medium text-muted/70 mb-1">Tonfall</p>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { id: "standard", label: "Standard" },
+                { id: "sachlich", label: "Sachlicher" },
+                { id: "humorvoll", label: "Mehr Humor" },
+                { id: "minimal", label: "Minimal (1/Tag)" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => update({ tonfall_modus: m.id })}
+                  disabled={busy}
+                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.tonfall_modus === m.id
+                    ? "border-teal bg-teal/15 text-teal"
+                    : "border-white/10 text-muted hover:border-white/30"}`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {pending.length > 0 && (
+            <div className="border-t border-white/5 pt-3">
+              <p className="text-[11px] font-medium text-muted/70 mb-2">
+                Vorgeschlagene Linien (von Claude) — {pending.length}
+              </p>
+              <div className="space-y-2">
+                {pending.map((p) => (
+                  <div key={p.id} className="rounded-md border border-white/10 bg-white/[0.02] p-2 text-[11px]">
+                    <p className="text-muted/85 italic">„{p.content}"</p>
+                    <p className="mt-1 text-[9px] text-muted/40">
+                      {p.cluster} · {p.trigger_kind}
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <Button size="xs" onClick={() => approveLine(p.id)}>Akzeptieren</Button>
+                      <Button size="xs" variant="secondary" onClick={() => rejectLine(p.id)}>Verwerfen</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {settings.paused_until && new Date(settings.paused_until) > new Date() && (
+            <div className="rounded-md border border-amber/20 bg-amber/[0.04] p-2 text-[11px] text-amber/80">
+              Pausiert bis {new Date(settings.paused_until).toLocaleString("de-DE")}.{" "}
+              <button
+                type="button"
+                onClick={() => update({ paused_until: "" })}
+                className="underline hover:text-amber"
+              >
+                Zurueckholen
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

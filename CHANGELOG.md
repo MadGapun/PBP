@@ -7,6 +7,134 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.37] - 2026-05-07 — Elwosa: Live-Statusanzeige der lokalen AI mit Persönlichkeit (#599)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+**Highlight-Feature** des v1.7-Sprints. Elwosa ist die Live-Statusanzeige
+der lokalen AI in der linken Sidebar — mit eigener Persoenlichkeit
+(geschlechtsfrei, britisch ironisch, lakonisch). Kommentiert was die
+lokale AI gerade tut, gibt Tipps zu Claude und PBP.
+
+### ✨ Added — Elwosa Backend
+
+- **Schema v40 → v41**: `elwosa_messages` (Stream pro Profil) +
+  `elwosa_pending_lines` (Claude-Vorschlaege)
+- **`services/elwosa_lines.py`** mit ~140 Linien aus
+  `docs/elwosa-character.md`, organisiert nach 9 Profil-Cluster +
+  Status/Welt/Tipp/Easter-Egg-Pools
+- **`services/elwosa.py`** mit:
+  - **Sprach-DNA-Validator** (verbietet Ausrufezeichen, Emojis,
+    Hoeflichkeits-`Ihre/Ihnen`, Anrede mit „Sie")
+  - Trigger-Engine + Auswahl-Algorithmus (seen-Set 7 Tage)
+  - Anti-Spam: 90s-Cooldown, frequenz-abhaengige Idle/Welt/Tipp-Limits
+  - **Status-Trigger UNBEGRENZT** — Elwosa schweigt nicht wenn die AI
+    arbeitet (Status-Anzeige-Charakter)
+  - Stimmungs-Drift (melancholisch / beschuetzend / aufmerksam / standard)
+- **Auto-Engine-Step `_run_elwosa_speak`** (7. Schritt im taeglichen Lauf)
+
+### ✨ Added — MCP-Bridge (Claude als Uebersetzer)
+
+User können nicht direkt mit Elwosa schreiben — aber Claude kann es:
+
+- `elwosa_lesen` — Verlauf abrufen
+- `elwosa_schreiben` — Im Namen von Elwosa posten (Tonfall validiert!)
+- `elwosa_pause` — Schweigen anordnen (1 min - 24 h)
+- `elwosa_tonfall` — `standard`/`sachlich`/`humorvoll`/`minimal`/`aus`
+- `elwosa_linie_vorschlagen` — Pool erweitern, User genehmigt in Settings
+- `elwosa_status` — Stimmung + Trigger-State
+
+Plus **5 neue MCP-Prompts** in `prompts.py`: `elwosa_status_anzeigen`,
+`elwosa_pause_anfordern`, `elwosa_antworten`, `elwosa_linie_lehren`,
+`elwosa_zurueckholen` — kommen automatisch in der Hilfe-Uebersicht.
+
+### ✨ Added — API + Settings
+
+- **9 neue API-Endpoints** unter `/api/elwosa/*`
+- **5 neue Profile-Settings**: enabled, frequency (ruhig/standard/aktiv),
+  tonfall_modus, triggers_disabled, paused_until
+
+### 🎨 Frontend
+
+- **`<ElwosaSidebarChat />`** in der linken Sidebar:
+  - Avatar Teal-Kreis mit „E", Header „⊙ Elwosa"
+  - Crossfade beim Polling (alle 30s)
+  - **Klickbare Code-Spans** in Tipps → Clipboard + Toast „kopiert"
+  - 👁 ausblenden (30 min Session-Hide)
+  - „⋯" Pause/Verlauf-loeschen
+  - Bei Sidebar-Collapsed: nur Avatar mit Pulse + Hover-Overlay
+- **`<ElwosaSettingsSection />`** im „Lokale KI"-Tab:
+  - Aktivierung, Frequenz-Slider, Tonfall-Modus
+  - Pending-Linien-Genehmigung (von Claude vorgeschlagen)
+  - Pause-Zustand sichtbar + zurueckholbar
+
+### 🐛 Fixed — Sidebar-Sub-Navigation
+
+Aktueller Code in `App.jsx` zeigte nur 6 von 8 Settings-Tabs in der
+Sidebar. **Fix mit drin**: `Lokale KI` und `Automatik` sind jetzt
+sichtbar — User muss nicht mehr ueber Workarounds dahin navigieren.
+
+### Tests
+
+- `tests/test_v170_beta37_elwosa.py`: 31 neue Tests
+- **Tonfall-Waechter-Test**: alle ~140 Linien im Pool werden gegen die
+  Sprach-DNA validiert
+- **1057 Tests gesamt, alle gruen.**
+
+### MCP-Stand
+
+- **133 Tools** (von 127, +6 Elwosa)
+- **23 Prompts** (von 18, +5 Elwosa-Bridge)
+
+### Doku
+
+- **`docs/elwosa-character.md`** ist die Source of Truth fuer den
+  Linien-Pool. Bei Aenderungen IMMER beide Dateien synchron halten
+  (Doku + `services/elwosa_lines.py`).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.37.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.37.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.36] - 2026-05-07 — Workday-DAX + Student-Cluster + Recommendations-UI (#590 fertig)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

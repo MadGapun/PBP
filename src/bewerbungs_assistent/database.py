@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 40
+SCHEMA_VERSION = 41
 
 
 def _gen_id() -> str:
@@ -1589,6 +1589,51 @@ class Database:
                 logger.info("Migration v38->v39: portal_search_profiles angelegt")
             except Exception as exc:
                 logger.warning("Such-Profile-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 41:
+            # v41 / v1.7.0-beta.37 (#599): Elwosa — Live-Statusanzeige
+            # mit eigener Persoenlichkeit. elwosa_messages haelt den
+            # Stream pro Profil, elwosa_pending_lines die von Claude
+            # vorgeschlagenen aber noch nicht vom User genehmigten Linien.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS elwosa_messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        content TEXT NOT NULL,
+                        trigger_kind TEXT,
+                        trigger_ref TEXT,
+                        cluster TEXT,
+                        created_at TEXT NOT NULL,
+                        read_at TEXT,
+                        is_dismissed INTEGER DEFAULT 0
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_em_profile_ts "
+                    "ON elwosa_messages(profile_id, created_at DESC)"
+                )
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS elwosa_pending_lines (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        cluster TEXT NOT NULL,
+                        trigger_kind TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        suggested_at TEXT NOT NULL,
+                        approved_at TEXT,
+                        rejected_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_epl_profile "
+                    "ON elwosa_pending_lines(profile_id, suggested_at DESC)"
+                )
+                conn.commit()
+                logger.info("Migration v40->v41: Elwosa-Tabellen "
+                            "(elwosa_messages + elwosa_pending_lines) angelegt")
+            except Exception as exc:
+                logger.warning("Elwosa-Migration fehlgeschlagen: %s", exc)
 
         if from_ver < 40:
             # v40 / v1.7.0-beta.33 (#590 Aufgabe C): Robustheit-Upgrade.
@@ -5873,6 +5918,195 @@ class Database:
             for r in rows
         ]
 
+    # === v1.7.0-beta.37 (#599): Elwosa-Helpers ===
+
+    def add_elwosa_message(self, content: str, trigger_kind: str = "",
+                            trigger_ref: str = "", cluster: str = "") -> int:
+        """Schreibt eine Elwosa-Nachricht in den Stream des aktiven Profils."""
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        cur = conn.execute(
+            "INSERT INTO elwosa_messages "
+            "(profile_id, content, trigger_kind, trigger_ref, cluster, "
+            " created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (pid, content, trigger_kind, trigger_ref, cluster, _now())
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+
+    def get_elwosa_messages(self, limit: int = 20,
+                             since_iso: Optional[str] = None) -> list:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        if since_iso:
+            rows = conn.execute(
+                "SELECT * FROM elwosa_messages "
+                "WHERE (profile_id=? OR profile_id IS NULL) "
+                "AND created_at > ? "
+                "AND is_dismissed=0 "
+                "ORDER BY created_at DESC LIMIT ?",
+                (pid, since_iso, int(limit))
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM elwosa_messages "
+                "WHERE (profile_id=? OR profile_id IS NULL) "
+                "AND is_dismissed=0 "
+                "ORDER BY created_at DESC LIMIT ?",
+                (pid, int(limit))
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def count_elwosa_messages_today(self) -> int:
+        from datetime import datetime
+        today = datetime.now().date().isoformat()
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM elwosa_messages "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND date(created_at) = date(?)",
+            (pid, today)
+        ).fetchone()
+        return row["n"] if row else 0
+
+    def count_elwosa_messages_in_window(self, kind: str,
+                                          window_seconds: int) -> int:
+        """Anzahl Nachrichten einer Trigger-Klasse im Zeitfenster (Spam-Schutz)."""
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(seconds=window_seconds)).isoformat()
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM elwosa_messages "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND trigger_kind=? AND created_at >= ?",
+            (pid, kind, cutoff)
+        ).fetchone()
+        return row["n"] if row else 0
+
+    def get_last_elwosa_message_at(self) -> Optional[str]:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT MAX(created_at) AS last FROM elwosa_messages "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        return row["last"] if row and row["last"] else None
+
+    def mark_elwosa_messages_read(self) -> int:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        now = _now()
+        cur = conn.execute(
+            "UPDATE elwosa_messages SET read_at=? "
+            "WHERE (profile_id=? OR profile_id IS NULL) AND read_at IS NULL",
+            (now, pid)
+        )
+        conn.commit()
+        return cur.rowcount
+
+    def dismiss_elwosa_message(self, message_id: int) -> bool:
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE elwosa_messages SET is_dismissed=1 WHERE id=?",
+            (int(message_id),)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def add_elwosa_pending_line(self, cluster: str, trigger_kind: str,
+                                  content: str) -> int:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        cur = conn.execute(
+            "INSERT INTO elwosa_pending_lines "
+            "(profile_id, cluster, trigger_kind, content, suggested_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (pid, cluster, trigger_kind, content, _now())
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+
+    def get_elwosa_pending_lines(self) -> list:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM elwosa_pending_lines "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND approved_at IS NULL AND rejected_at IS NULL "
+            "ORDER BY suggested_at DESC",
+            (pid,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def approve_elwosa_pending_line(self, line_id: int) -> bool:
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE elwosa_pending_lines SET approved_at=? WHERE id=?",
+            (_now(), int(line_id))
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def reject_elwosa_pending_line(self, line_id: int) -> bool:
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE elwosa_pending_lines SET rejected_at=? WHERE id=?",
+            (_now(), int(line_id))
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_elwosa_settings(self) -> dict:
+        return {
+            "enabled": bool(self.get_profile_setting("elwosa_enabled", True)),
+            "frequency": str(self.get_profile_setting(
+                "elwosa_frequency", "standard"
+            ) or "standard"),
+            "tonfall_modus": str(self.get_profile_setting(
+                "elwosa_tonfall_modus", "standard"
+            ) or "standard"),
+            "triggers_disabled": json.loads(
+                self.get_profile_setting("elwosa_triggers_disabled",
+                                         "[]") or "[]"
+            ),
+            "paused_until": self.get_profile_setting(
+                "elwosa_paused_until", ""
+            ) or "",
+        }
+
+    def set_elwosa_settings(self, **fields) -> dict:
+        valid_freq = {"ruhig", "standard", "aktiv"}
+        valid_modus = {"standard", "sachlich", "humorvoll", "minimal", "aus"}
+        if "enabled" in fields and fields["enabled"] is not None:
+            self.set_profile_setting("elwosa_enabled", bool(fields["enabled"]))
+        if "frequency" in fields and fields["frequency"]:
+            if fields["frequency"] not in valid_freq:
+                raise ValueError(
+                    f"frequency muss eines von {sorted(valid_freq)} sein"
+                )
+            self.set_profile_setting("elwosa_frequency", fields["frequency"])
+        if "tonfall_modus" in fields and fields["tonfall_modus"]:
+            if fields["tonfall_modus"] not in valid_modus:
+                raise ValueError(
+                    f"tonfall_modus muss eines von {sorted(valid_modus)} sein"
+                )
+            self.set_profile_setting(
+                "elwosa_tonfall_modus", fields["tonfall_modus"]
+            )
+        if "triggers_disabled" in fields and fields["triggers_disabled"] is not None:
+            self.set_profile_setting(
+                "elwosa_triggers_disabled",
+                json.dumps(fields["triggers_disabled"], ensure_ascii=False)
+            )
+        if "paused_until" in fields and fields["paused_until"] is not None:
+            self.set_profile_setting(
+                "elwosa_paused_until", fields["paused_until"] or ""
+            )
+        return self.get_elwosa_settings()
+
     def count_llm_corrections(self, since_iso: Optional[str] = None) -> int:
         """Zaehlt Events vom Typ 'llm_correction' (User hat eine LLM-Entscheidung
         ueberstimmt — das ist Trainingsmaterial fuer adaptive Prompts)."""
@@ -7269,4 +7503,30 @@ CREATE TABLE IF NOT EXISTS portal_search_profiles (
     UNIQUE(profile_id, portal)
 );
 CREATE INDEX IF NOT EXISTS idx_psp_profile_portal ON portal_search_profiles(profile_id, portal);
+
+-- v1.7.0-beta.37 (#599): Elwosa-Stream + Pending-Lines (Claude-Vorschlaege)
+CREATE TABLE IF NOT EXISTS elwosa_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    content TEXT NOT NULL,
+    trigger_kind TEXT,
+    trigger_ref TEXT,
+    cluster TEXT,
+    created_at TEXT NOT NULL,
+    read_at TEXT,
+    is_dismissed INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_em_profile_ts ON elwosa_messages(profile_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS elwosa_pending_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    cluster TEXT NOT NULL,
+    trigger_kind TEXT NOT NULL,
+    content TEXT NOT NULL,
+    suggested_at TEXT NOT NULL,
+    approved_at TEXT,
+    rejected_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_epl_profile ON elwosa_pending_lines(profile_id, suggested_at DESC);
 """

@@ -117,6 +117,13 @@ EXPECTED_TOOL_NAMES = {
     "suchprofil_lesen",
     "suchprofil_aktualisieren",
     "suchprofile_auflisten",
+    # v1.7.0-beta.37 (#599): Elwosa-Bridge
+    "elwosa_lesen",
+    "elwosa_schreiben",
+    "elwosa_pause",
+    "elwosa_tonfall",
+    "elwosa_linie_vorschlagen",
+    "elwosa_status",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
     "stilarchiv_kontext",
@@ -173,6 +180,12 @@ EXPECTED_PROMPT_NAMES = {
     "bewerbung_vorbereitung",
     "profil_sync",
     "tipps_und_tricks",
+    # v1.7.0-beta.37 (#599): Elwosa-Bridge-Prompts
+    "elwosa_status_anzeigen",
+    "elwosa_pause_anfordern",
+    "elwosa_antworten",
+    "elwosa_linie_lehren",
+    "elwosa_zurueckholen",
 }
 
 EXPECTED_RESOURCE_NAMES = {
@@ -245,8 +258,8 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 127  # v1.7.0-beta.32: +3 (suchprofil_lesen/aktualisieren/auflisten)
-        assert len(prompts) == 18
+        assert len(tools) == 133  # v1.7.0-beta.37: +6 Elwosa-Tools (lesen/schreiben/pause/tonfall/linie_vorschlagen/status)
+        assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:
         db.close()
