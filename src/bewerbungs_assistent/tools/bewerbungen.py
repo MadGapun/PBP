@@ -412,6 +412,12 @@ def register(mcp, db, logger):
             existing = db.get_job(effective_hash)
             if not existing:
                 from datetime import datetime
+                # v1.7.0-beta.32 (#588): KEIN notes-Fallback mehr fuer
+                # description. Wenn der Aufrufer die Stellenbeschreibung
+                # nicht gibt, bleibt das Feld leer — sonst landen Notizen
+                # ("Vermittler ist X, Endkunde-Kandidaten sind Y") als
+                # Stellenbeschreibung in der DB und verschmutzen alle
+                # downstream-Tools (fit_analyse, Anschreiben).
                 db.save_jobs([{
                     "hash": effective_hash,
                     "title": title,
@@ -419,7 +425,7 @@ def register(mcp, db, logger):
                     "location": "",
                     "url": url,
                     "source": "manuell",
-                    "description": stellenbeschreibung or notes or "",
+                    "description": stellenbeschreibung or "",
                     "score": 0,
                     "is_pinned": True,
                     "remote_level": "unbekannt",
@@ -434,6 +440,20 @@ def register(mcp, db, logger):
             if linked_job:
                 source = linked_job.get("source", "") or ""
 
+        # v1.7.0-beta.32 (#588): description_snapshot ist der read-mostly
+        # Originalwortlaut der Stellenanzeige — explizit getrennt von
+        # `notes` (mutable, eigene Recherche). Bei Anlage einer Bewerbung
+        # snapshot wir den Job-Text falls vorhanden, sonst die explizit
+        # uebergebene stellenbeschreibung.
+        snapshot_text = stellenbeschreibung or ""
+        if effective_hash and not snapshot_text:
+            try:
+                _job = db.get_job(effective_hash) or {}
+                snapshot_text = _job.get("description") or ""
+            except Exception:
+                snapshot_text = ""
+        from datetime import datetime as _dt_snap
+
         aid = db.add_application({
             "title": title, "company": company, "url": url,
             "job_hash": effective_hash, "status": status,
@@ -445,6 +465,8 @@ def register(mcp, db, logger):
             "kontakt_email": kontakt_email,
             "portal_name": portal_name,
             "source": source,
+            "description_snapshot": snapshot_text,
+            "snapshot_date": _dt_snap.now().isoformat() if snapshot_text else "",
         })
 
         # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
@@ -801,10 +823,22 @@ def register(mcp, db, logger):
         gehaltsvorstellung: str = "",
         final_salary: str = "",
         applied_at: str = "",
+        stellenbeschreibung_original: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
         Nur die angegebenen Felder werden geändert, leere Felder bleiben unverändert.
+
+        STRIKTE FELDTRENNUNG (v1.7.0-beta.32 / #588):
+        - `stellenbeschreibung_original` = wortgetreuer Originalwortlaut
+          der Stellenanzeige (read-mostly). Hier KEINE Notizen, keine
+          Recherche, kein Vermittler-Kontext. Wird in `description_snapshot`
+          gespeichert und ist Grundlage fuer Anschreiben/Fit-Analyse/CV.
+        - `notes` = eigene Recherche, Termin-Vorbereitung, Fragenlisten,
+          Vermittler-Kontext, Endkunde-Mutmassungen. Mutable.
+
+        Beim erstmaligen Setzen von stellenbeschreibung_original wird
+        snapshot_date auf jetzt gesetzt.
 
         Args:
             bewerbung_id: ID der Bewerbung
@@ -827,6 +861,9 @@ def register(mcp, db, logger):
             applied_at: Bewerbungsdatum nachtraeglich setzen/korrigieren (#529).
                 Format YYYY-MM-DD oder leer (= unveraendert). Akzeptiert auch
                 "DD.MM.YYYY" und ISO-Timestamps; Datum wird normalisiert.
+            stellenbeschreibung_original: Wortgetreuer Originalwortlaut
+                der Stellenanzeige (#588). Wird in description_snapshot
+                gespeichert. NICHT fuer Notizen verwenden.
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -850,6 +887,12 @@ def register(mcp, db, logger):
                          ("applied_at", applied_at_norm)]:
             if val:
                 updates[key] = val
+
+        # v1.7.0-beta.32 (#588): description_snapshot als getrenntes Feld
+        if stellenbeschreibung_original:
+            from datetime import datetime as _dt_now
+            updates["description_snapshot"] = stellenbeschreibung_original
+            updates["snapshot_date"] = _dt_now.now().isoformat()
 
         if not updates:
             return {"fehler": "Keine Änderungen angegeben."}

@@ -7,6 +7,96 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.32] - 2026-05-07 — Stellenbeschreibung-Trennung + Portal-Such-Profile
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Zwei Issues, gebuendelt:
+
+### 🐛 Fixed — #588 Stellenbeschreibung sauber trennen
+
+- **Wurzel-Bug**: `bewerbung_erstellen` schrieb `notes` als Fallback in
+  `jobs.description` wenn keine `stellenbeschreibung` mitgegeben wurde.
+  Dadurch landeten Recherche-Notizen ("Vermittler PBCN, Endkunde-
+  Kandidaten Benteler/CLAAS") als Stellenbeschreibung in der DB und
+  haben downstream alle Tools verschmutzt (Anschreiben, Fit-Analyse).
+- **Fix**: Notes-Fallback entfernt — wenn keine Stellenbeschreibung
+  uebergeben wird, bleibt `description` leer.
+- **Snapshot-Mechanik**: `applications.description_snapshot` wird jetzt
+  beim Anlegen automatisch befuellt (aus jobs.description ODER explizit
+  uebergebener stellenbeschreibung) — eingefroren und read-mostly.
+- **`bewerbung_bearbeiten(stellenbeschreibung_original=...)`**: neuer
+  Parameter zum nachtraeglichen Setzen des Originalwortlauts.
+- **`get_application`**: Stellenbeschreibung wird zuerst aus
+  description_snapshot gelesen, nur als Fallback aus jobs.description.
+
+### ✨ Added — #564 Portal-spezifische Such-Profile
+
+LinkedIn/StepStone/XING brauchen andere Suchbegriffe als die naiven
+`keywords_muss`. LinkedIn z.B. matcht generisches `PLM` mit ~90% Muell,
+und Phrase-Match `"PLM Architect"` liefert 0 Treffer. Diese Lessons
+landen jetzt in einer DB-Tabelle.
+
+- **Schema v38 → v39**: neue Tabelle `portal_search_profiles`
+- **DB-Helpers**: `get_portal_search_profile`, `update_portal_search_profile`,
+  `list_portal_search_profiles`
+- **3 neue MCP-Tools**:
+  - `suchprofil_lesen(portal)` — Chrome-Extension liest VOR jeder Suche
+  - `suchprofil_aktualisieren(portal, primaere_suchen, ...)` — Lessons pflegen
+  - `suchprofile_auflisten()` — Uebersicht aller Profile
+- **LinkedIn-Default-Profil** mit den gesammelten Lessons:
+  - Primaer: `PDM` (Branchen-Filter), `PLM Berater`, `Product Lifecycle Management`
+  - Sekundaer: `PLM` ZWINGEND mit Branchen-Filter
+  - Nicht verwenden: `PLM Architect`/`PLM Manager` (Phrase-Match=0), `PRO.FILE` (Produktname)
+
+### Tests
+
+- `tests/test_v170_beta32_findings.py`: 12 neue Tests
+- **965 Tests gesamt, alle gruen.**
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.32.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.32.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.31] - 2026-05-07 — User-Test-Findings: Stellen-Detail + Bericht-Polish
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

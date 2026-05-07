@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 38
+SCHEMA_VERSION = 39
 
 
 def _gen_id() -> str:
@@ -1559,6 +1559,36 @@ class Database:
                             "(user_activity_events + learning_insights) angelegt")
             except Exception as exc:
                 logger.warning("Lern-System-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 39:
+            # v39 / v1.7.0-beta.32 (#564): portal_search_profiles —
+            # portal-spezifische Suchbegriffe + Filter + "nicht-verwenden"-
+            # Liste. Wird von Chrome-Extension-Quellen (LinkedIn, XING,
+            # StepStone) genutzt um die naive `keywords_muss`-Suche durch
+            # erprobte Such-Idiosynkrasien zu ersetzen.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS portal_search_profiles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        portal TEXT NOT NULL,
+                        primaere_suchen_json TEXT DEFAULT '[]',
+                        sekundaere_suchen_json TEXT DEFAULT '[]',
+                        nicht_verwenden_json TEXT DEFAULT '[]',
+                        notizen TEXT DEFAULT '',
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(profile_id, portal)
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_psp_profile_portal "
+                    "ON portal_search_profiles(profile_id, portal)"
+                )
+                conn.commit()
+                logger.info("Migration v38->v39: portal_search_profiles angelegt")
+            except Exception as exc:
+                logger.warning("Such-Profile-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -3486,12 +3516,16 @@ class Database:
             linked_job = self.get_job(stored_job_hash, pid)
             if linked_job:
                 source = linked_job.get("source", "") or ""
+        # v1.7.0-beta.32 (#588): description_snapshot mit gespeichert
+        # damit der Originalwortlaut der Stellenanzeige read-mostly
+        # erhalten bleibt — getrennt von `notes`.
         conn.execute("""
             INSERT INTO applications (id, job_hash, profile_id, title, company, url, status,
                 applied_at, cover_letter_path, cv_path, notes, created_at,
                 bewerbungsart, lebenslauf_variante, ansprechpartner,
-                kontakt_email, portal_name, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                kontakt_email, portal_name, source,
+                description_snapshot, snapshot_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             aid, stored_job_hash, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
@@ -3503,6 +3537,8 @@ class Database:
             data.get("kontakt_email", ""),
             data.get("portal_name", ""),
             source,
+            data.get("description_snapshot", ""),
+            data.get("snapshot_date", ""),
         ))
         # Add initial event
         conn.execute("""
@@ -3636,7 +3672,9 @@ class Database:
                         "employment_type", "source", "source_secondary",
                         "vermittler", "endkunde", "applied_at",
                         "cover_letter_path", "cv_path",
-                        "gehaltsvorstellung", "final_salary")
+                        "gehaltsvorstellung", "final_salary",
+                        # v1.7.0-beta.32 (#588): Originalwortlaut-Snapshot
+                        "description_snapshot", "snapshot_date")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
@@ -3703,12 +3741,21 @@ class Database:
             "SELECT * FROM application_events WHERE application_id=? ORDER BY event_date",
             (app_id,)
         ).fetchall()]
-        # Also load linked job description if available
-        if app.get("job_hash"):
+        # v1.7.0-beta.32 (#588): description_snapshot ist die Source-of-Truth
+        # fuer die wortgetreue Stellenanzeige (read-mostly, eingefroren bei
+        # Anlage). Nur als Fallback auf jobs.description zugreifen wenn der
+        # Snapshot leer ist (alte Bewerbungen ohne snapshot).
+        snapshot = (app.get("description_snapshot") or "").strip()
+        if snapshot:
+            app["stellenbeschreibung"] = snapshot
+            app["stellenbeschreibung_quelle"] = "snapshot"
+            app["stellenbeschreibung_date"] = app.get("snapshot_date", "")
+        elif app.get("job_hash"):
             job = conn.execute("SELECT description, url FROM jobs WHERE hash=?",
                                (app["job_hash"],)).fetchone()
             if job:
                 app["stellenbeschreibung"] = dict(job).get("description", "")
+                app["stellenbeschreibung_quelle"] = "jobs.description (Fallback)"
                 if not app.get("url"):
                     app["url"] = dict(job).get("url", "")
         return self._serialize_application_row(app)
@@ -5497,6 +5544,197 @@ class Database:
             pass
         return ts
 
+    # === v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile ===
+
+    # LinkedIn-Default-Profil mit den gesammelten Lessons aus #564.
+    # Wird beim ersten Lesen automatisch angelegt — User kann es danach
+    # frei aendern.
+    _LINKEDIN_DEFAULT = {
+        "primaere_suchen": [
+            {
+                "keywords": "PDM",
+                "filter": {
+                    "branche": ["Maschinenbau", "Automotive",
+                                "Industrieautomation"],
+                    "erfahrungslevel": ["mid_senior", "director"],
+                },
+                "notiz": "PDM ist seltener als PLM, treffsicherer.",
+            },
+            {
+                "keywords": "PLM Berater",
+                "notiz": "DACH-spezifisch, treffsicher.",
+            },
+            {
+                "keywords": "Product Lifecycle Management",
+                "notiz": "Ausgeschriebener Begriff schlaegt Abkuerzung.",
+            },
+        ],
+        "sekundaere_suchen": [
+            {
+                "keywords": "PLM",
+                "filter": {
+                    "branche": ["Maschinenbau", "Automotive",
+                                "Industrieautomation"],
+                },
+                "notiz": (
+                    "ZWINGEND mit Branchen-Filter — sonst matcht jede "
+                    "3-Buchstaben-Abkuerzung."
+                ),
+            },
+        ],
+        "nicht_verwenden": [
+            {
+                "wert": "PLM Architect",
+                "grund": "Phrase-Match liefert 0 Treffer (LinkedIn).",
+            },
+            {
+                "wert": "PLM Manager",
+                "grund": "Phrase-Match liefert 0 Treffer (LinkedIn).",
+            },
+            {
+                "wert": "PRO.FILE",
+                "grund": "Produktname, keine Stellenbezeichnung.",
+            },
+        ],
+        "notizen": (
+            "LinkedIn-Volltextsuche scannt ueber Beschreibung statt nur "
+            "Titel. Generische Begriffe wie 'PLM' matchen viel Muell. "
+            "Branchen-Filter sind wichtiger als Phrase-Match."
+        ),
+    }
+
+    def get_portal_search_profile(self, portal: str) -> dict:
+        """Liefert das Such-Profil fuer ein Portal (LinkedIn/StepStone/XING).
+
+        Wenn noch keins existiert: legt ein leeres Profil an. Fuer
+        LinkedIn werden zusaetzlich die Default-Lessons aus #564 vorbefuellt
+        (PDM/PLM Berater/PLM mit Branchen-Filter; PLM Architect raus).
+        """
+        portal = (portal or "").strip().lower()
+        if not portal:
+            return {}
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM portal_search_profiles "
+            "WHERE (profile_id=? OR profile_id IS NULL) AND portal=? LIMIT 1",
+            (pid, portal)
+        ).fetchone()
+        if not row:
+            # Default-Profil anlegen
+            now = _now()
+            if portal == "linkedin":
+                payload = self._LINKEDIN_DEFAULT
+            else:
+                payload = {
+                    "primaere_suchen": [],
+                    "sekundaere_suchen": [],
+                    "nicht_verwenden": [],
+                    "notizen": "",
+                }
+            conn.execute(
+                "INSERT INTO portal_search_profiles "
+                "(profile_id, portal, primaere_suchen_json, "
+                " sekundaere_suchen_json, nicht_verwenden_json, "
+                " notizen, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    pid, portal,
+                    json.dumps(payload.get("primaere_suchen", []),
+                               ensure_ascii=False),
+                    json.dumps(payload.get("sekundaere_suchen", []),
+                               ensure_ascii=False),
+                    json.dumps(payload.get("nicht_verwenden", []),
+                               ensure_ascii=False),
+                    payload.get("notizen", ""),
+                    now, now,
+                )
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM portal_search_profiles "
+                "WHERE (profile_id=? OR profile_id IS NULL) AND portal=? "
+                "LIMIT 1",
+                (pid, portal)
+            ).fetchone()
+
+        try:
+            primaere = json.loads(row["primaere_suchen_json"] or "[]")
+        except Exception:
+            primaere = []
+        try:
+            sekundaere = json.loads(row["sekundaere_suchen_json"] or "[]")
+        except Exception:
+            sekundaere = []
+        try:
+            nicht = json.loads(row["nicht_verwenden_json"] or "[]")
+        except Exception:
+            nicht = []
+        return {
+            "id": row["id"],
+            "portal": row["portal"],
+            "primaere_suchen": primaere,
+            "sekundaere_suchen": sekundaere,
+            "nicht_verwenden": nicht,
+            "notizen": row["notizen"] or "",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def update_portal_search_profile(self, portal: str, *,
+                                      primaere_suchen: Optional[list] = None,
+                                      sekundaere_suchen: Optional[list] = None,
+                                      nicht_verwenden: Optional[list] = None,
+                                      notizen: Optional[str] = None) -> dict:
+        """Aktualisiert ein Such-Profil. Nur die uebergebenen Felder werden
+        ueberschrieben. None heisst „nicht aendern"."""
+        portal = (portal or "").strip().lower()
+        if not portal:
+            raise ValueError("portal darf nicht leer sein")
+        # Stellt sicher dass das Profil existiert
+        self.get_portal_search_profile(portal)
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        sets = []
+        vals: list = []
+        if primaere_suchen is not None:
+            sets.append("primaere_suchen_json=?")
+            vals.append(json.dumps(primaere_suchen, ensure_ascii=False))
+        if sekundaere_suchen is not None:
+            sets.append("sekundaere_suchen_json=?")
+            vals.append(json.dumps(sekundaere_suchen, ensure_ascii=False))
+        if nicht_verwenden is not None:
+            sets.append("nicht_verwenden_json=?")
+            vals.append(json.dumps(nicht_verwenden, ensure_ascii=False))
+        if notizen is not None:
+            sets.append("notizen=?")
+            vals.append(notizen)
+        if not sets:
+            return self.get_portal_search_profile(portal)
+        sets.append("updated_at=?")
+        vals.append(_now())
+        vals.extend([pid, portal])
+        conn.execute(
+            f"UPDATE portal_search_profiles SET {', '.join(sets)} "
+            "WHERE (profile_id=? OR profile_id IS NULL) AND portal=?",
+            vals
+        )
+        conn.commit()
+        return self.get_portal_search_profile(portal)
+
+    def list_portal_search_profiles(self) -> list:
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT portal, updated_at FROM portal_search_profiles "
+            "WHERE profile_id=? OR profile_id IS NULL ORDER BY portal",
+            (pid,)
+        ).fetchall()
+        return [
+            {"portal": r["portal"], "updated_at": r["updated_at"]}
+            for r in rows
+        ]
+
     def count_llm_corrections(self, since_iso: Optional[str] = None) -> int:
         """Zaehlt Events vom Typ 'llm_correction' (User hat eine LLM-Entscheidung
         ueberstimmt — das ist Trainingsmaterial fuer adaptive Prompts)."""
@@ -6875,4 +7113,18 @@ CREATE TABLE IF NOT EXISTS learning_insights (
     dismissed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_li_profile_active ON learning_insights(profile_id, is_active, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS portal_search_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    portal TEXT NOT NULL,
+    primaere_suchen_json TEXT DEFAULT '[]',
+    sekundaere_suchen_json TEXT DEFAULT '[]',
+    nicht_verwenden_json TEXT DEFAULT '[]',
+    notizen TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, portal)
+);
+CREATE INDEX IF NOT EXISTS idx_psp_profile_portal ON portal_search_profiles(profile_id, portal);
 """

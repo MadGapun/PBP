@@ -43,15 +43,15 @@ def test_schema_v38_creates_tables(setup_env):
     assert "learning_insights" in tables
 
 
-def test_schema_version_is_38(setup_env):
+def test_schema_version_at_least_38(setup_env):
     db = setup_env
     from bewerbungs_assistent.database import SCHEMA_VERSION
-    assert SCHEMA_VERSION == 38
+    assert SCHEMA_VERSION >= 38
     conn = db.connect()
     row = conn.execute(
         "SELECT value FROM settings WHERE key='schema_version'"
     ).fetchone()
-    assert row["value"] == "38"
+    assert int(row["value"]) >= 38
 
 
 # ============= add_activity_event + Batch ===============

@@ -318,3 +318,76 @@ def register(mcp, db, logger):
             "deaktiviert": deaktiviert,
             "betroffene_firmen": dict(sorted(firmen_betroffen.items(), key=lambda x: -x[1])[:10]),
         }
+
+    # === v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile ===
+    #
+    # Wenn die Chrome-Extension auf LinkedIn/StepStone/XING sucht, soll
+    # sie NICHT die naiven `keywords_muss` einsetzen — die sind fuer
+    # Volltext-Filtern nach dem Scraping gebaut. LinkedIn akzeptiert z.B.
+    # Phrase-Match `"PLM Architect"` nicht (0 Treffer), und 3-Buchstaben-
+    # Abkuerzungen wie `PLM` matchen massenhaft Muell. Diese Tools
+    # speichern erprobte Suchbegriffe pro Portal.
+
+    @mcp.tool()
+    def suchprofil_lesen(portal: str) -> dict:
+        """Liefert das gespeicherte Such-Profil fuer ein Portal (#564).
+
+        Wird von der Chrome-Extension VOR jeder Suche aufgerufen, damit
+        statt der naiven `keywords_muss` die portal-spezifisch erprobten
+        Suchbegriffe + Filter eingesetzt werden.
+
+        Args:
+            portal: 'linkedin' | 'xing' | 'stepstone' | ...
+
+        Rueckgabe-Struktur:
+            primaere_suchen: list[{keywords, filter?, notiz?}]
+            sekundaere_suchen: list[{keywords, filter?, notiz?}]
+            nicht_verwenden: list[{wert, grund}]
+            notizen: str
+        """
+        if not portal:
+            return {"fehler": "portal-Parameter ist Pflicht"}
+        return db.get_portal_search_profile(portal)
+
+    @mcp.tool()
+    def suchprofil_aktualisieren(
+        portal: str,
+        primaere_suchen: list = None,
+        sekundaere_suchen: list = None,
+        nicht_verwenden: list = None,
+        notizen: str = None,
+    ) -> dict:
+        """Aktualisiert das Such-Profil eines Portals (#564).
+
+        Nur die uebergebenen Felder werden ueberschrieben — leer/None
+        heisst „nicht aendern".
+
+        Args:
+            portal: 'linkedin' | 'xing' | 'stepstone' | ...
+            primaere_suchen: Liste von Suchen, die zuerst probiert werden.
+                Format: [{"keywords": "PDM", "filter": {"branche": [...]},
+                          "notiz": "treffsicher"}]
+            sekundaere_suchen: Liste von Such-Fallbacks (z.B. generischere
+                Begriffe, die ohne Filter Muell liefern).
+            nicht_verwenden: Liste von ausgeschlossenen Suchen.
+                Format: [{"wert": "PLM Architect", "grund": "0 Treffer"}]
+            notizen: Freitext mit Lessons.
+        """
+        if not portal:
+            return {"fehler": "portal-Parameter ist Pflicht"}
+        try:
+            return db.update_portal_search_profile(
+                portal,
+                primaere_suchen=primaere_suchen,
+                sekundaere_suchen=sekundaere_suchen,
+                nicht_verwenden=nicht_verwenden,
+                notizen=notizen,
+            )
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+
+    @mcp.tool()
+    def suchprofile_auflisten() -> dict:
+        """Listet alle gespeicherten Portal-Such-Profile (#564)."""
+        items = db.list_portal_search_profiles()
+        return {"profile": items, "anzahl": len(items)}

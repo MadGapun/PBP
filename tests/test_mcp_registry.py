@@ -113,6 +113,10 @@ EXPECTED_TOOL_NAMES = {
     "profil_report_exportieren",
     "suchkriterien_bearbeiten",
     "suchkriterien_anzeigen",
+    # v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile
+    "suchprofil_lesen",
+    "suchprofil_aktualisieren",
+    "suchprofile_auflisten",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
     "stilarchiv_kontext",
@@ -241,7 +245,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 124  # v1.7.0-beta.24: +1 (stellen_auto_aussortieren)
+        assert len(tools) == 127  # v1.7.0-beta.32: +3 (suchprofil_lesen/aktualisieren/auflisten)
         assert len(prompts) == 18
         assert len(resources) == 6
     finally:
