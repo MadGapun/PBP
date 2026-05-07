@@ -5376,6 +5376,58 @@ class Database:
         conn.commit()
         return cur.rowcount
 
+    # === v1.7.0-beta.30 (#594 Stufe 5): Telemetrie-Sharing-Settings ===
+
+    def get_telemetry_settings(self) -> dict:
+        """Telemetrie-Sharing-Konfiguration. User-Vorgabe:
+        - Default OFF (nur „groessere Sachen" oder wiederholte Patterns)
+        - Interval-konfigurierbar (Wochen-Default, abschaltbar mit 0)
+        - Mail-Adresse: PBP-Service@Elwosa.de (User-Vorgabe)
+        """
+        # WICHTIG: 0 ist eine valide explizite Wahl ("nie automatisch"),
+        # darf nicht durch `or 7` auf den Default zurueckfallen.
+        raw_iv = self.get_profile_setting("telemetry_share_interval_days", 7)
+        try:
+            interval = int(raw_iv) if raw_iv is not None else 7
+        except (TypeError, ValueError):
+            interval = 7
+        return {
+            "enabled": bool(self.get_profile_setting("telemetry_share_enabled", False)),
+            "interval_days": interval,
+            "last_share_at": self.get_profile_setting("telemetry_share_last_at", "") or "",
+            "recipient": self.get_setting(
+                "telemetry_share_recipient", "PBP-Service@Elwosa.de"
+            ) or "PBP-Service@Elwosa.de",
+        }
+
+    def set_telemetry_settings(self, *, enabled: Optional[bool] = None,
+                               interval_days: Optional[int] = None) -> dict:
+        if enabled is not None:
+            self.set_profile_setting("telemetry_share_enabled", bool(enabled))
+        if interval_days is not None:
+            iv = int(interval_days)
+            if iv not in (0, 7, 14, 30):
+                raise ValueError("interval_days muss 0, 7, 14 oder 30 sein")
+            self.set_profile_setting("telemetry_share_interval_days", iv)
+        return self.get_telemetry_settings()
+
+    def mark_telemetry_shared(self, when_iso: Optional[str] = None) -> str:
+        ts = when_iso or _now()
+        self.set_profile_setting("telemetry_share_last_at", ts)
+        # Auch die Insights, die geshared wurden, markieren
+        try:
+            conn = self.connect()
+            pid = self.get_active_profile_id()
+            conn.execute(
+                "UPDATE learning_insights SET is_shared=1 "
+                "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+                (pid,)
+            )
+            conn.commit()
+        except Exception:
+            pass
+        return ts
+
     def count_llm_corrections(self, since_iso: Optional[str] = None) -> int:
         """Zaehlt Events vom Typ 'llm_correction' (User hat eine LLM-Entscheidung
         ueberstimmt — das ist Trainingsmaterial fuer adaptive Prompts)."""

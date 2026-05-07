@@ -305,6 +305,196 @@ function LearningPrivacyCard({ pushToast }) {
 }
 
 
+// v1.7.0-beta.30 (#594 Stufe 5): Telemetrie-Sharing.
+// User-Vorgabe: Default OFF, wochenweise (nicht taeglich), abschaltbar.
+// Empfaenger: PBP-Service@Elwosa.de. Nichts geht automatisch raus —
+// User klickt mailto:-Link, sieht Vorschau, kann selbst pruefen.
+function TelemetrySharingCard({ pushToast }) {
+  const [settings, setSettings] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  async function reload() {
+    try {
+      const s = await api("/api/telemetry/settings");
+      setSettings(s);
+    } catch (err) {
+      pushToast(`Telemetrie-Settings laden: ${err.message}`, "danger");
+    }
+  }
+  useEffect(() => { reload(); }, []);
+
+  async function loadPreview() {
+    setBusy(true);
+    try {
+      const p = await api("/api/telemetry/preview");
+      setPreview(p);
+      setShowPreview(true);
+    } catch (err) {
+      pushToast(`Vorschau laden: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleEnabled(e) {
+    const enabled = e.target.checked;
+    setBusy(true);
+    try {
+      await putJson("/api/telemetry/settings", { enabled });
+      await reload();
+      pushToast(
+        enabled
+          ? "Telemetrie-Sharing aktiviert. Du wirst nur wochenweise gefragt."
+          : "Telemetrie-Sharing deaktiviert. Es geht nichts raus.",
+        "success"
+      );
+    } catch (err) {
+      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeInterval(e) {
+    const v = parseInt(e.target.value, 10);
+    setBusy(true);
+    try {
+      await putJson("/api/telemetry/settings", { interval_days: v });
+      await reload();
+      pushToast(
+        v === 0 ? "Auto-Trigger deaktiviert" : `Intervall: alle ${v} Tage`,
+        "success"
+      );
+    } catch (err) {
+      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openMail() {
+    if (!preview) return;
+    const url =
+      `mailto:${encodeURIComponent(preview.recipient)}` +
+      `?subject=${encodeURIComponent(preview.mail.subject)}` +
+      `&body=${encodeURIComponent(preview.mail.body)}`;
+    window.open(url, "_blank");
+    // Server-seitig den Share markieren — verhindert Doppel-Sendung
+    // im Intervall.
+    postJson("/api/telemetry/mark-shared", {})
+      .then(() => reload())
+      .catch(() => {});
+  }
+
+  if (!settings) return null;
+
+  const trigger = preview?.trigger || {};
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Telemetrie-Sharing (optional)"
+        description={`Hilf das Lern-System fuer alle PBP-Nutzer zu verbessern, indem du anonymisierte Erkenntnisse an ${settings.recipient} schickst — wochenweise (nicht taeglich), opt-in, jederzeit abschaltbar.`}
+      />
+      <div className="space-y-3">
+        <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15">
+          <input
+            type="checkbox"
+            checked={!!settings.enabled}
+            onChange={toggleEnabled}
+            disabled={busy}
+            className="mt-1 h-4 w-4 cursor-pointer"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-ink">
+              Telemetrie-Sharing aktiv
+            </p>
+            <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+              Wenn aktiv: PBP zeigt dir <strong>wochenweise</strong> (nicht
+              taeglich) eine Vorschau, was geteilt werden koennte. Du
+              entscheidest jedes Mal selbst, ob du die Mail tatsaechlich
+              abschickst.
+            </p>
+            <p className="text-[11px] text-muted/50 mt-2">
+              <strong>Was wird geteilt:</strong> nur signifikante Insights
+              (≥ 5x beobachtet ODER score ≥ 0.8), aggregierte Zahlen,
+              anonymisierte Workflow-Stats. <strong>Was NICHT:</strong>
+              Profildaten, Job-Titel, Firmen, Anschreiben, Mails.
+            </p>
+          </div>
+        </label>
+
+        {settings.enabled && (
+          <div className="glass-card p-3 border-sky/15 border space-y-2">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm text-ink">Frage mich…</span>
+              <SelectInput
+                value={String(settings.interval_days)}
+                onChange={changeInterval}
+                disabled={busy}
+              >
+                <option value="0">Nie automatisch (nur manuell)</option>
+                <option value="7">Wochenweise (Standard)</option>
+                <option value="14">Alle 2 Wochen</option>
+                <option value="30">Monatlich</option>
+              </SelectInput>
+            </label>
+            {settings.last_share_at && (
+              <p className="text-[11px] text-muted/50">
+                Letzter Share: {new Date(settings.last_share_at).toLocaleString("de-DE")}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="secondary" size="sm" onClick={loadPreview} disabled={busy}>
+            Jetzt Vorschau anzeigen
+          </Button>
+          {trigger.due === false && trigger.reason && (
+            <span className="text-[11px] text-muted/50">{trigger.reason}</span>
+          )}
+        </div>
+
+        {showPreview && preview && (
+          <div className="glass-card p-3 border-teal/20 border space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-ink">Vorschau-Mail</p>
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                className="text-[11px] text-muted/40 hover:text-ink"
+              >
+                schliessen
+              </button>
+            </div>
+            <p className="text-[11px] text-muted/50">
+              Empfaenger: <span className="font-mono text-ink">{preview.recipient}</span>
+            </p>
+            <p className="text-[11px] text-muted/50">
+              Betreff: <span className="text-ink">{preview.mail.subject}</span>
+            </p>
+            <pre className="text-[11px] font-mono text-muted/80 bg-black/20 p-2 rounded max-h-64 overflow-auto whitespace-pre-wrap">
+              {preview.mail.body}
+            </pre>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={openMail}>
+                In Mail-Client oeffnen
+              </Button>
+              <span className="text-[11px] text-muted/50">
+                Du kannst die Mail noch bearbeiten oder verwerfen — nichts geht automatisch raus.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+
 // v1.7.0-beta.22: PBP-Start-Datum-Feld im Bericht-Tab.
 // Daten vor diesem Datum werden im Bewerbungsbericht grau markiert und
 // als „nachtraeglich erfasst, moeglicherweise unvollstaendig" gekennzeichnet.
@@ -1633,6 +1823,9 @@ export default function SettingsPage() {
 
             {/* v1.7.0-beta.26 (#594 Stufe 1): Lern-System-Privacy */}
             <LearningPrivacyCard pushToast={pushToast} />
+
+            {/* v1.7.0-beta.30 (#594 Stufe 5): Telemetrie-Sharing */}
+            <TelemetrySharingCard pushToast={pushToast} />
 
             {/* v1.7.0-beta.17 (#581): DSGVO Art. 15 — Selbstauskunft als PDF */}
             <Card className="rounded-2xl">

@@ -7413,6 +7413,210 @@ async def api_dismiss_learning_insight(insight_id: int):
     return {"status": "ok", "dismissed": insight_id}
 
 
+# === v1.7.0-beta.30 (#594 Stufe 5): Telemetrie-Sharing ===
+
+def _telemetry_significant_insights(insights: list) -> list:
+    """Filtert „groessere Sachen" (User-Vorgabe): nur wiederholte oder
+    starke Insights. Ein Insight gilt als signifikant wenn:
+    - observed_count >= 5 (wurde mehrfach beobachtet), ODER
+    - score >= 0.8 (hoher LLM-Confidence)
+
+    Damit landet KEIN One-Off-Hinweis in der Telemetrie.
+    """
+    out = []
+    for i in insights:
+        score = float(i.get("score") or 0.0)
+        obs = int(i.get("observed_count") or 0)
+        if obs >= 5 or score >= 0.8:
+            out.append(i)
+    return out
+
+
+def _build_telemetry_payload() -> dict:
+    """Anonymisiertes Aggregat fuer das Telemetrie-Sharing.
+
+    Privacy-Garantie:
+    - KEINE Profil-Daten (kein Name, keine Skills, keine Position)
+    - KEINE Job-Daten (keine Titel, keine Firmen)
+    - KEINE Domain-Inhalte (keine Bewerbungs-Notes, keine Anschreiben)
+    - NUR aggregierte Zahlen + Insight-Titel/Empfehlung (in der LLM-
+      Analyse abstrahiert, ohne PII)
+    """
+    from . import __version__ as _APP_VERSION
+
+    aggregate = _aggregate_user_activity(30)
+    try:
+        all_insights = _db.list_learning_insights(only_active=True, limit=50)
+    except Exception:
+        all_insights = []
+    significant = _telemetry_significant_insights(all_insights)
+
+    # llm_correction-Count als Lerneffekt-Indikator
+    try:
+        llm_corrections = _db.count_llm_corrections()
+    except Exception:
+        llm_corrections = 0
+
+    return {
+        "app_version": _APP_VERSION,
+        "schema_version": 38,
+        "window_days": aggregate.get("window_days", 30),
+        "total_events": aggregate.get("total_events", 0),
+        "anti_patterns": aggregate.get("anti_patterns", []),
+        "workflow_stats": aggregate.get("workflow_stats", {}),
+        "top_filters": aggregate.get("top_filters", []),
+        "dismiss_reasons_top": aggregate.get("dismiss_reasons_top", []),
+        "llm_corrections": llm_corrections,
+        "significant_insights": [
+            {
+                "kind": i.get("kind"),
+                "scope": i.get("scope"),
+                "title": i.get("title"),
+                "recommendation": i.get("recommendation", ""),
+                "observed_count": i.get("observed_count"),
+                "score": i.get("score"),
+            }
+            for i in significant
+        ],
+        "insight_total": len(all_insights),
+        "insight_significant": len(significant),
+    }
+
+
+def _format_telemetry_mail(payload: dict) -> dict:
+    """Erzeugt Subject + Body fuer das Mail-Sharing. Plain Text damit
+    der User vor dem Senden sehen kann was rausgeht."""
+    from datetime import datetime
+    lines = []
+    lines.append(f"PBP-Telemetrie (v{payload.get('app_version', '?')})")
+    lines.append(f"Erstellt: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    lines.append(f"Fenster: letzte {payload.get('window_days', 30)} Tage")
+    lines.append("")
+    lines.append(f"Events gesamt: {payload.get('total_events', 0)}")
+    lines.append(f"LLM-Korrekturen: {payload.get('llm_corrections', 0)}")
+    lines.append(
+        f"Insights: {payload.get('insight_significant', 0)} signifikant von "
+        f"{payload.get('insight_total', 0)} gesamt"
+    )
+    lines.append("")
+
+    if payload.get("anti_patterns"):
+        lines.append("Anti-Patterns:")
+        for ap in payload["anti_patterns"][:5]:
+            lines.append(f"  - {ap.get('kind')}: {ap.get('message', '')[:160]}")
+        lines.append("")
+
+    if payload.get("dismiss_reasons_top"):
+        lines.append("Top-Aussortier-Gruende:")
+        for r in payload["dismiss_reasons_top"][:5]:
+            lines.append(f"  - {r.get('reason')}: {r.get('count')}x")
+        lines.append("")
+
+    if payload.get("significant_insights"):
+        lines.append("Signifikante Insights (>= 5x beobachtet ODER score>=0.8):")
+        for i in payload["significant_insights"][:10]:
+            lines.append(
+                f"  [{i.get('kind')}] {i.get('title')} "
+                f"(beobachtet {i.get('observed_count', 0)}x)"
+            )
+            if i.get("recommendation"):
+                lines.append(f"    -> {i['recommendation'][:200]}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("Diese Mail enthaelt KEINE persoenlichen Daten:")
+    lines.append("- keine Job-Titel, keine Firmen, keine Profile-Inhalte")
+    lines.append("- nur aggregierte Zahlen + abstrahierte Insights")
+    lines.append("")
+    lines.append("Generiert von PBP — https://github.com/MadGapun/PBP")
+    return {
+        "subject": (
+            f"PBP-Telemetrie v{payload.get('app_version', '?')} "
+            f"({payload.get('insight_significant', 0)} Insights)"
+        ),
+        "body": "\n".join(lines),
+    }
+
+
+def _telemetry_should_trigger() -> dict:
+    """Pruefe ob es Zeit ist, Telemetrie zu teilen. Greift die User-Vorgabe:
+    - nur wenn enabled
+    - nur wenn interval_days seit letztem Share vergangen
+    - nur wenn signifikante Insights vorliegen
+    """
+    from datetime import datetime, timezone
+    s = _db.get_telemetry_settings()
+    if not s["enabled"]:
+        return {"due": False, "reason": "telemetry_share_enabled=False"}
+    iv = s["interval_days"]
+    if iv == 0:
+        return {"due": False, "reason": "interval_days=0 (deaktiviert)"}
+    last = s["last_share_at"]
+    if last:
+        try:
+            last_dt = datetime.fromisoformat(last)
+            now = datetime.now(last_dt.tzinfo) if last_dt.tzinfo else datetime.now()
+            delta = (now - last_dt).days
+            if delta < iv:
+                return {
+                    "due": False,
+                    "reason": f"erst in {iv - delta} Tag(en) faellig",
+                    "next_in_days": iv - delta,
+                }
+        except Exception:
+            pass
+
+    payload = _build_telemetry_payload()
+    if payload.get("insight_significant", 0) == 0:
+        return {
+            "due": False,
+            "reason": "Keine signifikanten Insights — User wird nicht gespammt",
+        }
+    return {"due": True, "payload": payload}
+
+
+@app.get("/api/telemetry/settings")
+async def api_telemetry_settings():
+    return _db.get_telemetry_settings()
+
+
+@app.put("/api/telemetry/settings")
+async def api_set_telemetry_settings(request: Request):
+    data = await request.json()
+    try:
+        out = _db.set_telemetry_settings(
+            enabled=data.get("enabled"),
+            interval_days=data.get("interval_days"),
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return out
+
+
+@app.get("/api/telemetry/preview")
+async def api_telemetry_preview():
+    """Vorschau, was geshared wuerde — User MUSS das vor dem Senden
+    sehen koennen (User-Vorgabe / Privacy First)."""
+    payload = _build_telemetry_payload()
+    mail = _format_telemetry_mail(payload)
+    s = _db.get_telemetry_settings()
+    return {
+        "payload": payload,
+        "mail": mail,
+        "recipient": s["recipient"],
+        "trigger": _telemetry_should_trigger(),
+    }
+
+
+@app.post("/api/telemetry/mark-shared")
+async def api_telemetry_mark_shared():
+    """Wird vom Frontend aufgerufen NACHDEM der User die Mail tatsaechlich
+    abgeschickt hat (mailto-Link wurde geklickt). Es gibt keinen Server-
+    seitigen Versand — bleibt User-Hand."""
+    ts = _db.mark_telemetry_shared()
+    return {"status": "ok", "shared_at": ts}
+
+
 @app.get("/api/learning/hints")
 async def api_get_learning_hints(page: str = "", limit: int = 3):
     """v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints, gefiltert nach Page.
