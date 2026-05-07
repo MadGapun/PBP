@@ -20,6 +20,7 @@ import {
   TextInput,
 } from "@/components/ui";
 import { cn, formatCurrency, formatDateTime, textExcerpt } from "@/utils";
+import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -665,6 +666,8 @@ export default function JobsPage() {
     <div id="page-stellen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Stellen</h1>
+      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
+      <AdaptiveHintBanner page="stellen" />
       <div className="mb-6 flex items-baseline gap-2">
         <span className="text-[11px] text-muted/40">
           {searchJob.running

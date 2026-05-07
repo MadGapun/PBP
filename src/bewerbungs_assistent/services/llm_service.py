@@ -624,10 +624,39 @@ def _parse_analyze_user_patterns(raw: str) -> dict:
             "kind": t,
             "title": title[:120],
             "recommendation": recommendation[:300],
+            # v1.7.0-beta.29 (#594 Stufe 4): Heuristische Page-Zuordnung
+            # damit AdaptiveHintBanner weiss, wo das Insight gehoert.
+            "scope": _heuristic_scope_for_insight(t, title, recommendation),
         })
         if len(insights) >= 3:
             break
     return {"insights": insights, "count": len(insights), "raw": raw}
+
+
+def _heuristic_scope_for_insight(kind: str, title: str, recommendation: str) -> str:
+    """Heuristik: Aus Titel + Empfehlung + Kind die wahrscheinliche Seite
+    ableiten, fuer die das Insight relevant ist. Wird vom Frontend
+    fuer den AdaptiveHintBanner genutzt.
+
+    Rueckgabewerte: "page:dashboard" | "page:stellen" | "page:bewerbungen"
+                    | "page:profil" | "page:einstellungen" | "page:kontakte"
+                    | "global" (kein klares Match)
+    """
+    text = f"{title} {recommendation}".lower()
+    # Reihenfolge: spezifischer zuerst
+    if any(k in text for k in ("stelle", "job", "score", "filter", "aussortier", "dismiss")):
+        return "page:stellen"
+    if any(k in text for k in ("bewerbung", "anschreiben", "follow-up", "follow up")):
+        return "page:bewerbungen"
+    if any(k in text for k in ("profil", "skill", "lebenslauf")):
+        return "page:profil"
+    if any(k in text for k in ("kontakt", "recruiter", "linkedin")):
+        return "page:kontakte"
+    if any(k in text for k in ("einstellung", "lokale ai", "modell", "ollama")):
+        return "page:einstellungen"
+    if kind == "ux_friction":
+        return "page:dashboard"
+    return "global"
 
 
 # v1.7.0-beta.24 (NEU): classify_email — eingehende Mails zu Bewerbungs-

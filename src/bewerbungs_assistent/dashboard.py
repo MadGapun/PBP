@@ -7030,6 +7030,7 @@ def _run_analyze_user_patterns(now_iso: str, days: int = 30,
             _db.upsert_learning_insight({
                 "kind": ins.get("kind", "unknown"),
                 "title": ins.get("title", "")[:120],
+                "scope": ins.get("scope") or "global",
                 "details": {
                     "recommendation": ins.get("recommendation", ""),
                     "source": "llm_pattern_analysis",
@@ -7410,6 +7411,37 @@ async def api_dismiss_learning_insight(insight_id: int):
         return JSONResponse({"error": "Insight nicht gefunden"},
                              status_code=404)
     return {"status": "ok", "dismissed": insight_id}
+
+
+@app.get("/api/learning/hints")
+async def api_get_learning_hints(page: str = "", limit: int = 3):
+    """v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints, gefiltert nach Page.
+
+    Liefert max `limit` aktive Insights, deren `scope` zur uebergebenen Page
+    passt (z.B. `page=stellen` matcht `scope='page:stellen'`). Insights mit
+    `scope='global'` werden nur zurueckgegeben wenn `page=''`.
+
+    Frontend nutzt das fuer den AdaptiveHintBanner: jede Listen-Seite zeigt
+    nur die fuer sie relevanten KI-Empfehlungen.
+    """
+    try:
+        all_items = _db.list_learning_insights(only_active=True, limit=50)
+    except Exception:
+        all_items = []
+    page = (page or "").strip().lower()
+    if page:
+        scope_match = f"page:{page}"
+        filtered = [
+            i for i in all_items
+            if (i.get("scope") or "") == scope_match
+        ]
+    else:
+        filtered = [i for i in all_items if (i.get("scope") or "") == "global"]
+    return {
+        "hints": filtered[: max(1, min(int(limit or 3), 10))],
+        "count": len(filtered),
+        "page": page or "global",
+    }
 
 
 @app.post("/api/learning/analyze")

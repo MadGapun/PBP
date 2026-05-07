@@ -31,6 +31,7 @@ import {
   statusTone,
   textExcerpt,
 } from "@/utils";
+import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -472,6 +473,8 @@ export default function ApplicationsPage() {
     <div id="page-bewerbungen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Bewerbungen</h1>
+      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
+      <AdaptiveHintBanner page="bewerbungen" />
       <div className="mb-6 flex items-baseline justify-end gap-4">
         <div className="flex gap-2">
           <LinkButton size="sm" href={apiUrl("/api/cv/export/docx")} target="_blank" rel="noreferrer">

@@ -49,6 +49,7 @@ import {
   formatDate,
   readinessTone,
 } from "@/utils";
+import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 
 function positiveSalary(value) {
   if (value === null || typeof value === "undefined") return null;
@@ -505,6 +506,8 @@ export default function DashboardPage() {
     <div id="page-dashboard" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Dashboard</h1>
+      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
+      <AdaptiveHintBanner page="dashboard" />
 
       {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
         <div className="mb-4 space-y-2">

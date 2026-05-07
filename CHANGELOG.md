@@ -7,6 +7,96 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.29] - 2026-05-07 — Lern-System Stufe 4: Adaptive UI
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Stufe 4 von #594 — die LLM-Erkenntnisse aus Stufe 3 finden jetzt direkt
+auf der jeweiligen Seite ihren Weg zum User: kleine, dezente
+Hint-Banner mit „Vorschlag anwenden" / „Nicht mehr anzeigen".
+
+### ✨ Added — Adaptive Hints
+
+- **Heuristische Page-Zuordnung im LLM-Parser**: jeder Insight bekommt
+  ein `scope` (`page:stellen` / `page:bewerbungen` / `page:profil` /
+  `page:kontakte` / `page:einstellungen` / `page:dashboard` / `global`),
+  abgeleitet aus Titel + Empfehlung + Kind.
+- **Neuer Endpoint** `GET /api/learning/hints?page=<id>&limit=2`
+  liefert nur die Insights, die zur aktuellen Seite passen.
+- **`AdaptiveHintBanner`-Component** (Frontend):
+  - Holt `/api/learning/hints?page=<page>` beim Mount
+  - Zeigt max 2 Hints pro Seite, dezent in Teal
+  - „Nicht mehr anzeigen" → server-seitiges Dismiss
+  - Session-X → nur lokal ausblenden (localStorage)
+  - „Vorschlag anwenden" Button bei `filter_recommendation` (optional via
+    `onApply`-Prop, von der Page selbst gehandhabt)
+- **Eingebaut auf**: Dashboard, Stellen, Bewerbungen.
+
+### Designprinzip
+
+Adaptive UI darf nicht aufdringlich sein. Drei Schutz-Schichten:
+1. LLM-Pattern-Analyse greift erst ab 50+ Events (Stufe 3 / beta.28)
+2. Pro Seite max 2 Hints sichtbar
+3. Server-Dismiss + Session-Dismiss + automatische Versions-Revalidierung
+   nach 30 Tagen (Stufe 5-Vorgriff in beta.28)
+
+### Tests
+
+- `tests/test_v170_beta29_adaptive_ui.py`: 15 neue Tests
+- **921 Tests gesamt, alle gruen** (1 Hygiene-Test laeuft erst nach
+  CHANGELOG-Update sauber durch).
+
+### Stufenplan-Fortschritt
+
+- [x] Stufe 1: Foundation — beta.26
+- [x] Stufe 2: Aggregation + Recap-Card — beta.27
+- [x] Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop + adaptive Prompts — beta.28
+- [x] Stufe 4: Adaptive UI — beta.29
+- [ ] Stufe 5: Telemetrie-Sharing (wochenweise, opt-in, abschaltbar) — beta.30
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.29.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.29.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.28] - 2026-05-07 — Lern-System Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
