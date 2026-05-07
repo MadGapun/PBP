@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 37
+SCHEMA_VERSION = 38
 
 
 def _gen_id() -> str:
@@ -1501,6 +1501,64 @@ class Database:
                     logger.info("Migration v36->v37: keine alten Status-Werte gefunden")
             except Exception as exc:
                 logger.warning("Status-Hygiene-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 38:
+            # v38 / v1.7.0-beta.26: Lern-System-Foundation (#594 Stufe 1).
+            # `user_activity_events` sammelt UI-Klicks, Tab-Wechsel, Scroll,
+            # Verweildauer, Workflow-Abbrueche. `learning_insights` speichert
+            # aggregierte Erkenntnisse (Top-3-dismiss-Reasons, Anti-Patterns).
+            # `app_version` ermoeglicht Update-Reset.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS user_activity_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        event_type TEXT NOT NULL,
+                        entity_type TEXT,
+                        entity_id TEXT,
+                        page TEXT,
+                        action TEXT,
+                        metadata_json TEXT DEFAULT '{}',
+                        session_id TEXT,
+                        app_version TEXT,
+                        timestamp TEXT NOT NULL
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_uae_profile_ts "
+                    "ON user_activity_events(profile_id, timestamp DESC)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_uae_event_type "
+                    "ON user_activity_events(event_type, timestamp DESC)"
+                )
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS learning_insights (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        kind TEXT NOT NULL,
+                        scope TEXT,
+                        title TEXT NOT NULL,
+                        details_json TEXT DEFAULT '{}',
+                        score REAL DEFAULT 0.0,
+                        observed_count INTEGER DEFAULT 1,
+                        first_seen_at TEXT NOT NULL,
+                        last_seen_at TEXT NOT NULL,
+                        app_version_at_creation TEXT,
+                        is_active INTEGER DEFAULT 1,
+                        is_shared INTEGER DEFAULT 0,
+                        dismissed_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_li_profile_active "
+                    "ON learning_insights(profile_id, is_active, last_seen_at DESC)"
+                )
+                conn.commit()
+                logger.info("Migration v37->v38: Lern-System-Tabellen "
+                            "(user_activity_events + learning_insights) angelegt")
+            except Exception as exc:
+                logger.warning("Lern-System-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -5073,6 +5131,118 @@ class Database:
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
 
+    # === Lern-System (v1.7.0-beta.26, #594 Stufe 1) ===
+
+    def add_activity_event(self, data: dict) -> int:
+        """Speichert ein User-Activity-Event (UI-Klick, Tab-Wechsel, Scroll, ...).
+
+        Wird ueber `POST /api/activity/track` befuellt. Gehoert zu Issue #594.
+
+        Args (alle optional ausser event_type):
+            event_type: Pflicht. z.B. 'page_view', 'click', 'filter_apply',
+                        'workflow_abort', 'scroll', 'dwell', 'llm_correction'
+            entity_type: optional, z.B. 'application', 'job', 'document'
+            entity_id: optional, ID des betroffenen Datensatzes
+            page: optional, Seiten-ID (z.B. 'bewerbungen', 'stellen')
+            action: optional, Sub-Action (z.B. 'create', 'edit', 'delete')
+            metadata: optional dict, wird als JSON gespeichert
+            session_id: optional, fuer Sitzungs-Aggregation
+            app_version: aktuelle PBP-Version (fuer Update-Reset)
+        """
+        if not (data.get("learning_enabled", True)):
+            # Falls Setting deaktiviert ist, NICHT speichern
+            return 0
+        conn = self.connect()
+        cur = conn.execute(
+            "INSERT INTO user_activity_events "
+            "(profile_id, event_type, entity_type, entity_id, page, action, "
+            " metadata_json, session_id, app_version, timestamp) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                self.get_active_profile_id(),
+                data.get("event_type"),
+                data.get("entity_type"),
+                data.get("entity_id"),
+                data.get("page"),
+                data.get("action"),
+                json.dumps(data.get("metadata") or {}, ensure_ascii=False),
+                data.get("session_id"),
+                data.get("app_version"),
+                _now(),
+            )
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+
+    def add_activity_events_batch(self, events: list) -> int:
+        """Bulk-Insert mehrerer Events (vom Frontend gepoolt geschickt)."""
+        if not events:
+            return 0
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = [
+            (
+                pid,
+                e.get("event_type"),
+                e.get("entity_type"),
+                e.get("entity_id"),
+                e.get("page"),
+                e.get("action"),
+                json.dumps(e.get("metadata") or {}, ensure_ascii=False),
+                e.get("session_id"),
+                e.get("app_version"),
+                e.get("timestamp") or _now(),
+            )
+            for e in events if e.get("event_type")
+        ]
+        conn.executemany(
+            "INSERT INTO user_activity_events "
+            "(profile_id, event_type, entity_type, entity_id, page, action, "
+            " metadata_json, session_id, app_version, timestamp) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows
+        )
+        conn.commit()
+        return len(rows)
+
+    def get_activity_event_count(self) -> int:
+        """Anzahl gespeicherter Events fuer das aktive Profil."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM user_activity_events "
+            "WHERE profile_id=? OR profile_id IS NULL", (pid,)
+        ).fetchone()
+        return row["n"] if row else 0
+
+    def clear_activity_events(self) -> int:
+        """Loescht ALLE Activity-Events fuer das aktive Profil. Domain-Daten
+        bleiben unangetastet. Fuer „Lerndaten loeschen"-Button."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        cur = conn.execute(
+            "DELETE FROM user_activity_events "
+            "WHERE profile_id=? OR profile_id IS NULL", (pid,)
+        )
+        conn.commit()
+        return cur.rowcount
+
+    def prune_activity_events_older_than(self, days: int) -> int:
+        """Aufraeumen: alte Events loeschen (Default-Cleanup nach 90 Tagen).
+        Wird vom Auto-Engine-Tick aufgerufen."""
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        conn = self.connect()
+        cur = conn.execute(
+            "DELETE FROM user_activity_events WHERE timestamp < ?", (cutoff,)
+        )
+        conn.commit()
+        return cur.rowcount
+
+    def is_learning_enabled(self) -> bool:
+        """Profil-Setting `learning_enabled` (Default True, User-Vorgabe)."""
+        return bool(self.get_profile_setting("learning_enabled", True))
+
     def get_pbp_first_active_at(self) -> Optional[str]:
         """Liefert das Datum, ab dem PBP aktiv genutzt wurde (#beta.22).
 
@@ -6395,4 +6565,39 @@ CREATE TABLE IF NOT EXISTS application_costs (
 );
 CREATE INDEX IF NOT EXISTS idx_application_costs_app ON application_costs(application_id);
 CREATE INDEX IF NOT EXISTS idx_application_costs_profile ON application_costs(profile_id);
+
+-- v1.7.0-beta.26 (#594 Stufe 1) Lern-System-Foundation
+CREATE TABLE IF NOT EXISTS user_activity_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    event_type TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    page TEXT,
+    action TEXT,
+    metadata_json TEXT DEFAULT '{}',
+    session_id TEXT,
+    app_version TEXT,
+    timestamp TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_uae_profile_ts ON user_activity_events(profile_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_uae_event_type ON user_activity_events(event_type, timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS learning_insights (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    kind TEXT NOT NULL,
+    scope TEXT,
+    title TEXT NOT NULL,
+    details_json TEXT DEFAULT '{}',
+    score REAL DEFAULT 0.0,
+    observed_count INTEGER DEFAULT 1,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    app_version_at_creation TEXT,
+    is_active INTEGER DEFAULT 1,
+    is_shared INTEGER DEFAULT 0,
+    dismissed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_li_profile_active ON learning_insights(profile_id, is_active, last_seen_at DESC);
 """

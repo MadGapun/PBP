@@ -50,6 +50,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
+import { initActivityTracking, track } from "@/activity-tracking";
 
 const DEFAULT_WORKSPACE = {
   has_profile: false,
@@ -670,7 +671,24 @@ export default function App() {
     optionalApi("/api/update-check").then((data) => {
       if (data?.update_available) setUpdateInfo(data);
     });
+    // v1.7.0-beta.26 (#594 Stufe 1): Activity-Tracking initialisieren
+    optionalApi("/api/status").then((s) => {
+      const ver = s?.pbp_version || "unknown";
+      initActivityTracking(ver);
+      // Initial Page-View
+      try { track.pageView(parsePageFromHash()); } catch {}
+    });
   }, []);
+
+  // v1.7.0-beta.26: Verweildauer-Tracking — beim Page-Wechsel emit dwell-Event
+  const _pageEntryRef = useRef({ page: null, ts: Date.now() });
+  useEffect(() => {
+    const prev = _pageEntryRef.current;
+    if (prev.page && prev.page !== page) {
+      try { track.dwell(prev.page, Date.now() - prev.ts); } catch {}
+    }
+    _pageEntryRef.current = { page, ts: Date.now() };
+  }, [page]);
 
   useEffect(() => {
     window.addEventListener("hashchange", syncHash);
@@ -746,6 +764,8 @@ export default function App() {
     if (window.location.hash !== `#${nextPage}`) {
       window.location.hash = nextPage;
     }
+    // v1.7.0-beta.26 (#594 Stufe 1): Page-View tracken
+    try { track.pageView(nextPage); } catch {}
   }
 
   // #508: Sidebar-Collapse persistieren

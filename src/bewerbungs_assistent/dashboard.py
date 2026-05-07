@@ -7016,6 +7016,87 @@ async def api_set_auto_actions_settings(request: Request):
     return {"status": "ok", "gespeichert": out}
 
 
+# === v1.7.0-beta.26 (#594 Stufe 1): Lern-System-Foundation ===
+
+@app.post("/api/activity/track")
+async def api_activity_track(request: Request):
+    """Speichert User-Activity-Events fuer den Lerneffekt (#594 Stufe 1).
+
+    Frontend pooled Events und schickt sie alle ~10s als Batch.
+    Wenn `learning_enabled` (Profil-Setting) auf False steht: schweigend
+    verworfen, kein 4xx — sonst wuerde das Frontend permanent retryen.
+
+    Body: {"events": [{event_type, page, action, ...}, ...]}
+    """
+    if not _db.is_learning_enabled():
+        # Silent-Discard wenn User Tracking deaktiviert hat
+        return {"status": "disabled", "stored": 0}
+    data = await request.json()
+    events = data.get("events") or []
+    if not isinstance(events, list):
+        return JSONResponse({"error": "events muss eine Liste sein"},
+                             status_code=400)
+    n = _db.add_activity_events_batch(events)
+    return {"status": "ok", "stored": n}
+
+
+@app.get("/api/activity/stats")
+async def api_activity_stats():
+    """Liefert Anzahl + ein paar Aggregat-Daten fuer den Datenschutz-Tab."""
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    try:
+        total = _db.get_activity_event_count()
+        oldest_row = conn.execute(
+            "SELECT MIN(timestamp) AS first FROM user_activity_events "
+            "WHERE profile_id=? OR profile_id IS NULL", (pid,)
+        ).fetchone()
+        types_rows = conn.execute(
+            "SELECT event_type, COUNT(*) AS n FROM user_activity_events "
+            "WHERE profile_id=? OR profile_id IS NULL "
+            "GROUP BY event_type ORDER BY n DESC LIMIT 10",
+            (pid,)
+        ).fetchall()
+    except Exception:
+        total = 0
+        oldest_row = None
+        types_rows = []
+    return {
+        "total_events": total,
+        "oldest_event_at": (oldest_row and oldest_row["first"]) or None,
+        "by_type": [{"type": r["event_type"], "count": r["n"]} for r in types_rows],
+        "learning_enabled": _db.is_learning_enabled(),
+    }
+
+
+@app.delete("/api/activity/clear")
+async def api_activity_clear():
+    """Loescht alle Activity-Events des aktiven Profils.
+    Domain-Daten bleiben unangetastet."""
+    n = _db.clear_activity_events()
+    return {"status": "ok", "deleted": n}
+
+
+@app.get("/api/settings/learning")
+async def api_get_learning_settings():
+    """Lern-System-Settings (Default On, User-Vorgabe)."""
+    return {
+        "learning_enabled": _db.is_learning_enabled(),
+    }
+
+
+@app.put("/api/settings/learning")
+async def api_set_learning_settings(request: Request):
+    """Setzt das Lern-System-Setting (kann jederzeit aus-/eingeschaltet werden)."""
+    data = await request.json()
+    if "learning_enabled" in data:
+        flag = bool(data["learning_enabled"])
+        _db.set_profile_setting("learning_enabled", flag)
+        return {"status": "ok", "learning_enabled": flag}
+    return JSONResponse({"error": "learning_enabled ist Pflicht"},
+                         status_code=400)
+
+
 @app.get("/api/recap")
 async def api_recap():
     """Liefert eine Zusammenfassung dessen, was seit dem letzten Login passiert ist.

@@ -7,6 +7,64 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.26] - 2026-05-07 — Lern-System Stufe 1: Foundation (#594)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Erste Stufe von Issue #594 — Lern-System. Sammelt UI-Verhalten lokal,
+damit spaetere Stufen (Aggregation → LLM-Analyse → Adaptive UI →
+Telemetrie-Sharing) darauf aufbauen koennen.
+
+### ✨ Added — Foundation
+
+- **Schema v37 → v38:** zwei neue Tabellen
+  - `user_activity_events` — UI-Klicks, Tab-Wechsel, Verweildauer,
+    Scroll, Filter, Workflow-Abbrueche; mit `app_version` fuer
+    spaeteren Update-Reset
+  - `learning_insights` — aggregierte Erkenntnisse (kommt in Stufe 2+)
+- **Frontend-Tracking-Hook** (`activity-tracking.js`):
+  - Buffer mit 10s-Flush-Intervall, sendBeacon beim Tab-Schliessen
+  - Pre-baked Helpers: `pageView`, `click`, `filterApply`, `dwell`,
+    `scroll` (gedrosselt), `workflowStart/Abort/Complete`,
+    `llmCorrection`
+  - Performance-Impact < 1 ms pro Aufruf (rein lokales Buffering)
+- **Privacy-Setting `learning_enabled`** (Default On per User-Vorgabe).
+  In *Einstellungen → Datenschutz* mit klarer Erklaerung was lokal
+  gesammelt wird + jederzeit ausschaltbar.
+- **API-Endpoints:**
+  - `POST /api/activity/track` — Batch-Insert. Silent-Discard wenn
+    Setting deaktiviert.
+  - `GET /api/activity/stats` — Anzahl + Verteilung nach Event-Typ
+    fuer den Datenschutz-Tab
+  - `DELETE /api/activity/clear` — alle Events des Profils loeschen,
+    Domain-Daten unangetastet
+  - `GET/PUT /api/settings/learning` — Toggle
+- **Page-View + Verweildauer** automatisch beim Tab-Wechsel in App.jsx
+  via `track.pageView()` und `track.dwell()`.
+
+### Designprinzipien (User-Vorgabe)
+
+- Daten **bleiben lokal** — kein externer Telemetrie-Call
+- **Default On** mit klarem Onboarding-Hinweis
+- **Tracking-Tiefe TIEF**: Klicks/Scroll als Anti-Patterns,
+  Verweildauer als Positiv-Signal
+- **Reversibel**: Lerndaten loeschen ohne Domain-Datenverlust
+
+### Tests
+
+- `tests/test_v170_beta26_lern_foundation.py`: 17 neue Tests
+- **875 Tests gesamt, alle gruen.**
+
+### Stufenplan-Fortschritt
+
+- [x] Stufe 1: Foundation (Schema, Tracking-Hook, Privacy) — beta.26
+- [ ] Stufe 2: Aggregation + Recap-Card — beta.27
+- [ ] Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop — beta.28
+- [ ] Stufe 4: Adaptive UI — beta.29
+- [ ] Stufe 5: Telemetrie-Sharing — beta.30
+
+---
+
 ## [1.7.0-beta.25] - 2026-05-07 — Lokale-AI-Mehrwert: Auto-Klassifikation Mails + Dokumente, UI-Polish
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

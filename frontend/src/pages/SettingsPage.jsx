@@ -180,6 +180,131 @@ function ThemeEditor() {
 // v1.7.0 (#583, #512): Settings-Bereich „Lokale KI".
 // Vor Installation: Erklaerung + Modell-Auswahl + Einrichten-Button.
 // Nach Installation: Status, Aktiv/Pausiert/Aus, Modell wechseln, Statistik.
+// v1.7.0-beta.26 (#594 Stufe 1): Lern-System-Privacy
+// Default On, klare Erklaerung was lokal gesammelt wird, jederzeit aus.
+function LearningPrivacyCard({ pushToast }) {
+  const [stats, setStats] = useState(null);
+  const [setting, setSetting] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      const [s, cfg] = await Promise.all([
+        api("/api/activity/stats"),
+        api("/api/settings/learning"),
+      ]);
+      setStats(s);
+      setSetting(cfg);
+    } catch (err) {
+      pushToast(`Lern-System-Status laden: ${err.message}`, "danger");
+    }
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function toggleLearning(e) {
+    const flag = e.target.checked;
+    setBusy(true);
+    try {
+      await putJson("/api/settings/learning", { learning_enabled: flag });
+      // Frontend-Hook synchron updaten
+      const mod = await import("@/activity-tracking");
+      mod.setLearningEnabled(flag);
+      await reload();
+      pushToast(
+        flag
+          ? "Lern-Modus aktiviert. Daten bleiben lokal."
+          : "Lern-Modus deaktiviert. Bestehende Daten bleiben — du kannst sie unten loeschen.",
+        "success"
+      );
+    } catch (err) {
+      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearData() {
+    if (!confirm("Wirklich ALLE gesammelten Lern-Daten loeschen? Domain-Daten (Bewerbungen, Stellen, etc.) bleiben unangetastet.")) return;
+    setBusy(true);
+    try {
+      const res = await deleteRequest("/api/activity/clear");
+      pushToast(`${res?.deleted || 0} Lern-Events geloescht.`, "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!stats || !setting) return null;
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Lern-System (Privatsphaere)"
+        description="PBP kann aus deinem Verhalten lernen, um sich anzupassen — alle Daten bleiben LOKAL."
+      />
+      <div className="space-y-3">
+        <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15">
+          <input
+            type="checkbox"
+            checked={!!setting.learning_enabled}
+            onChange={toggleLearning}
+            disabled={busy}
+            className="mt-1 h-4 w-4 cursor-pointer"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-ink">
+              Lern-Modus aktiv (empfohlen)
+            </p>
+            <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+              Wenn aktiv, sammelt PBP <strong>lokal</strong> Klicks, Scroll-
+              und Verweildauer-Daten in der eigenen DB. Diese Daten <strong>verlassen
+              deinen Rechner NICHT</strong>. Sie helfen PBP, sich an deinen Workflow
+              anzupassen — z.B. haeufig genutzte Filter als Default zu lernen,
+              ueberfluessige Klicks zu erkennen, oder mit der lokalen AI Muster
+              auszuwerten. Du kannst es jederzeit ausschalten.
+            </p>
+            <p className="text-[11px] text-muted/50 mt-2">
+              <strong>Vorteil:</strong> PBP wird mit der Zeit treffsicherer in
+              Auto-Aussortierung, Filter-Vorschlaegen und passt UI an dein
+              Verhalten an. Ohne Lern-Modus bleibt PBP statisch wie heute.
+            </p>
+          </div>
+        </label>
+        <div className="glass-card p-3 text-[12px] text-muted/70">
+          <p><strong className="text-ink">{stats.total_events}</strong> Events insgesamt erfasst</p>
+          {stats.oldest_event_at && (
+            <p>Aeltester Eintrag: {new Date(stats.oldest_event_at).toLocaleDateString("de-DE")}</p>
+          )}
+          {stats.by_type?.length > 0 && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[11px] text-muted/60">
+                Verteilung nach Event-Typ ({stats.by_type.length})
+              </summary>
+              <ul className="mt-1 space-y-0.5 text-[11px]">
+                {stats.by_type.map((t) => (
+                  <li key={t.type} className="font-mono">
+                    {t.type}: {t.count}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+        {stats.total_events > 0 && (
+          <Button variant="secondary" size="sm" onClick={clearData} disabled={busy}>
+            Alle Lern-Daten loeschen
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+
 // v1.7.0-beta.22: PBP-Start-Datum-Feld im Bericht-Tab.
 // Daten vor diesem Datum werden im Bewerbungsbericht grau markiert und
 // als „nachtraeglich erfasst, moeglicherweise unvollstaendig" gekennzeichnet.
@@ -1505,6 +1630,9 @@ export default function SettingsPage() {
                 </div>
               )}
             </Card>
+
+            {/* v1.7.0-beta.26 (#594 Stufe 1): Lern-System-Privacy */}
+            <LearningPrivacyCard pushToast={pushToast} />
 
             {/* v1.7.0-beta.17 (#581): DSGVO Art. 15 — Selbstauskunft als PDF */}
             <Card className="rounded-2xl">
