@@ -2,14 +2,14 @@
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
 React-Frontend + SQLite. **v1.6.9** ist Latest auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt **beta.36**) — wird `--latest` erst nach
+in der Beta-Reihe (zuletzt **beta.37**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
 
-## Stand 2026-05-07 (Sprint-Tag mit 11 Releases)
+## Stand 2026-05-07 (Sprint-Tag mit 12 Releases)
 
-**Schema:** v40 — `scraper_health` mit Auto-Reactivate-Feldern.
-**Tests:** 1026 grün.
-**MCP-Tools:** 127.
+**Schema:** v41 — `elwosa_messages` + `elwosa_pending_lines` (#599).
+**Tests:** 1057 grün.
+**MCP-Tools:** 133, **Prompts:** 23.
 **Quellen:** 33+ (10 neue heute aus #590).
 
 ### Heute geschlossene Issues
@@ -26,6 +26,11 @@ abgeschlossenem User-Test (User-Wort).
 - **#590** Quellen-Strategie (gross) — beta.33-36:
   Auto-Reactivate, 10 neue Quellen-Adapter, Profile-Detection,
   9 Cluster, Recommendations-UI
+- **#599** Elwosa — beta.37:
+  Live-Statusanzeige der lokalen AI in der linken Sidebar mit eigener
+  Persoenlichkeit (geschlechtsfrei, britisch ironisch). 6 MCP-Tools
+  als Bridge fuer Claude, 5 Bridge-Prompts, ~140 Linien kuratiert,
+  Sprach-DNA-Validator, Settings-Section im Lokale-KI-Tab.
 
 ### Aktuelle Architektur-Highlights
 
@@ -49,19 +54,38 @@ abgeschlossenem User-Test (User-Wort).
 - **Quellen-Rotation (#590-C.4)** wurde aus #590 herausgehalten —
   betrifft den job_runner-Orchestrator, eigenes Issue empfohlen.
 
-### Elwosa (#599) — kommt in v1.7 als Highlight-Feature
+### Elwosa (#599) — shipped in beta.37
 
 Live-Statusanzeige der lokalen AI in der linken Sidebar. Eigene Persoenlichkeit
 (geschlechtsfrei, britisch ironisch, lakonisch). Kommentiert was die lokale AI
 gerade tut, gibt Tipps zu Claude-Workflows und PBP-Features.
 
-- **Charakter-Briefing + Linien-Pool (~140 Linien):** [`docs/elwosa-character.md`](docs/elwosa-character.md)
-- **Implementierungs-Spec:** [Issue #599](https://github.com/MadGapun/PBP/issues/599)
-- **Slot:** v1.7.0-beta.37 oder .38, vor v1.7-Stable
-- **Pflege-Regel:** wenn neue Linien hinzugefuegt werden, Tonfall-DNA in `docs/elwosa-character.md` einhalten — keine Ausrufezeichen, keine Emojis, „du" nicht „Sie", lakonische Untertreibung
-- **Verbindung zum Lern-System (#594):** Trigger fuer `auto_dismiss_ran`,
-  `pattern_insight`, `mail_received` kommen aus dem bestehenden Activity-
-  Tracking + Auto-Engine. Keine neue Infrastruktur noetig.
+**Wichtige Files:**
+- `docs/elwosa-character.md` — Charakter-Briefing + Linien-Pool (~140 Linien)
+- `src/bewerbungs_assistent/services/elwosa_lines.py` — Linien-Pool im Code
+- `src/bewerbungs_assistent/services/elwosa.py` — Trigger-Engine + Validator
+- `src/bewerbungs_assistent/tools/elwosa.py` — 6 MCP-Tools (Bridge fuer Claude)
+
+**Pflege-Regel bei neuen Linien:**
+- Beide Files synchron halten (Doku + `elwosa_lines.py`)
+- Sprach-DNA: keine Ausrufezeichen, keine Emojis, kein `Ihre/Ihnen`
+- `Sie` als 3.-Person-Pronomen (Firma/Recruiter) ist erlaubt — siehe
+  Sektion 3 in `docs/elwosa-character.md`
+- Lakonische Untertreibung, max 280 Zeichen pro Linie
+- Tonfall-Waechter-Test (`test_all_pool_lines_pass_validator`) bei
+  jeder Aenderung gruen halten
+
+**Frequenz-Logik:**
+- **Status-Trigger UNBEGRENZT** (mail_received, auto_dismiss_ran,
+  status_change, ...) — Elwosa schweigt nicht wenn die AI arbeitet
+- Idle/Welt/Tipp werden nach Frequenz-Slider gedrosselt
+  (ruhig=2 idle/Tag, standard=4, aktiv=6)
+- Cooldown: 90s zwischen zwei beliebigen Nachrichten
+
+**MCP-Bridge:** User kommunizieren NICHT direkt mit Elwosa — Claude
+ist der Uebersetzer. 6 Tools: `elwosa_lesen`, `elwosa_schreiben` (Tonfall
+validiert!), `elwosa_pause`, `elwosa_tonfall`, `elwosa_linie_vorschlagen`,
+`elwosa_status`. Plus 5 Bridge-Prompts in `prompts.py`.
 
 ## Release-Workflow (Pflicht-Checkliste)
 

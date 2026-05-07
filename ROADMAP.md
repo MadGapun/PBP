@@ -1,6 +1,6 @@
 # PBP — Roadmap
 
-> Stand: 2026-05-07 (v1.7.0-beta.36, 1026 Tests gruen)
+> Stand: 2026-05-07 (v1.7.0-beta.37, 1057 Tests gruen, 12 Releases an einem Tag)
 
 Diese Datei haelt den Strategie-Stand fest, was als naechstes ansteht
 und welche Issues warum zurueckgestellt werden.
@@ -8,8 +8,22 @@ und welche Issues warum zurueckgestellt werden.
 ## Aktueller Release-Stand
 
 - **v1.6.9** ist aktuell als „Latest" markiert (Stable)
-- **v1.7.0-beta.36** ist der juengste Pre-Release
+- **v1.7.0-beta.37** ist der juengste Pre-Release — Elwosa als Highlight-Feature
 - v1.7.0 wechselt erst nach erfolgreichem User-Test auf "Latest"
+
+## Heute geschlossene Issues (2026-05-07)
+
+| # | Titel | Releases |
+|---|---|---|
+| #594 | Lern-System (5 Stufen) | beta.26-30 |
+| #595 | Stellen-Detail wenn is_active=0 | beta.31 |
+| #596 | Keyword-Analyse 3 Bugs | beta.31 |
+| #597 | Dokumente pro Bewerbung im Bericht | beta.31 |
+| #598 | Quellen-Aktivitaet Volumen | beta.31 |
+| #588 | Stellenbeschreibung sauber trennen | beta.32 |
+| #564 | Portal-spezifische Such-Profile | beta.32 |
+| #590 | Quellen-Strategie (gross, A+B+C) | beta.33-36 |
+| #599 | Elwosa (Live-Statusanzeige) | beta.37 |
 
 ## Offene Issues nach Strategie
 
@@ -58,19 +72,13 @@ und welche Issues warum zurueckgestellt werden.
 - Darauf aufbauend: #478/#480/#481/#524 Mail-/Kalender-Plug-Ins
 - #525 Newsletter-Ingest als optionales Plug-In
 
-### Highlight-Feature fuer v1.7-Stable
-
-- **#599 Elwosa** — Live-Statusanzeige der lokalen AI mit eigener
-  Persoenlichkeit. Spec abgeschlossen, Linien-Pool kuratiert
-  (~140 Linien in [`docs/elwosa-character.md`](docs/elwosa-character.md)).
-  **Kommt in beta.37/38 vor v1.7-Stable** als sichtbares Statement
-  fuer den Lern-System-Sprint. Geschaetzter Aufwand: ~7h netto
-  (Backend + Frontend + Tests).
-
-### Andere Spielereien
+### Spielereien
 
 - **#513 Community-Tagesimpulse** — gleiches Submission-Pattern wie
-  spaetere Elwosa-Community-Linien.
+  spaetere Elwosa-Community-Linien (#599).
+- **Elwosa-Tonfall-Tuning** nach erstem User-Test der beta.37 — falls
+  einzelne Linien zu schraeg/zu nett rueberkommen, dismiss-Rate
+  beobachten und Pool-Eintraege deaktivieren oder umformulieren.
 
 ## Nicht-Code-Themen
 

@@ -67,6 +67,28 @@ Geschlecht. Wird per Trigger ausgeloest:
 - Aufforderungs-Saetze („Du solltest …") ausser ironisch
 - Fragezeichen-Tiraden — wenn Frage, dann rhetorisch
 - Selbst-Geschlechtsmarkierung („der Elwosa", „die Elwosa")
+- **Hoeflichkeits-Anrede an den User** — erkennbar an den eindeutigen
+  Formen `Ihre`, `Ihren`, `Ihrer`, `Ihrem`, `Ihres`, `Ihnen`. Diese
+  sind hart verboten (Sprach-DNA-Validator).
+
+### Wichtige Praezisierung — `Sie` ist nicht pauschal verboten
+
+Das alleinstehende „Sie" ist im Deutschen mehrdeutig und bleibt
+erlaubt, wenn es **3. Person Plural** meint (Firma, Recruiter, „die"):
+
+✓ erlaubt:
+> *„Sie wollen einen Kassierer? Du koenntest den Laden mit links schmeissen."*
+> *„Sie haben sich fuer jemand anderen entschieden."*
+> *„'Sie meinen 'Senior bezahlt aber Junior arbeitet'."*
+
+✗ verboten (Hoeflichkeits-Anrede an den User):
+> *„Ich habe Ihre Bewerbung gepoliert."* — `Ihre` triggert Validator
+> *„Ich gratuliere Ihnen."* — `Ihnen` triggert Validator
+
+**Faustregel fuer Linien-Beitraege:** Wenn man `Sie` schreibt und es
+durch `die [Firma/Recruiter]` ersetzen kann, ist es OK. Wenn es nur
+durch `du` ersetzt werden koennte, ist es Hoeflichkeits-Anrede und
+verboten — dann lieber konsequent das `du` benutzen.
 
 ### Persoenlichkeits-Quotient (Mix-Verhaeltnis)
 
