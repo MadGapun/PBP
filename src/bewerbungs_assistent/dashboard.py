@@ -5323,6 +5323,27 @@ async def api_profile_completeness():
     return get_profile_completeness(_db.get_profile())
 
 
+# v1.7.0-beta.35 (#590 Aufgabe B): Profil-Typ-Erkennung + Quellen-Empfehlung
+@app.get("/api/profile/recommended-sources")
+async def api_profile_recommended_sources():
+    """Heuristische Profil-Klassifikation + empfohlene Quellen-Liste.
+
+    Liefert:
+        type: 'student'|'service'|'trade'|'tech_junior'|'tech_senior'
+              |'engineering_senior'|'freelance'|'executive'|'mixed'
+        confidence: 0.0..1.0
+        reasons: [...]   — was die Heuristik begruendet hat
+        label: Mensch-lesbares Label
+        recommended: ['bundesagentur', ...] — empfohlene Quellen-IDs
+        rationale: Kurztext fuer das UI
+
+    User-Vorgabe (#590): PBP wird nicht nur fuer High-Performer gebaut.
+    Die Empfehlung gibt jedem Profil-Typ einen sinnvollen Quellen-Cluster.
+    """
+    from .services.profile_classifier import recommend_sources
+    return recommend_sources(_db.get_profile())
+
+
 @app.get("/api/extractions")
 async def api_extraction_history():
     """Get extraction history for the active profile."""

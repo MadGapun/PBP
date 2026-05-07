@@ -1,0 +1,300 @@
+"""Profil-Klassifikation + Quellen-Cluster (#590 Aufgabe B).
+
+User-Vorgabe: PBP wird nicht nur fuer High-Performer gebaut. Studenten,
+Kassiererinnen, Pfleger, Handwerker — alle sollen sinnvolle Suchquellen
+empfohlen bekommen, nicht nur LinkedIn/Workday.
+
+Heuristik laeuft offline auf dem aktuellen Profil und gibt einen
+Cluster-Schluessel zurueck. Der Schluessel mappt auf eine empfohlene
+Quellen-Liste. Der User behaelt das letzte Wort — Empfehlungen sind
+nicht-bindend, er kann jede Quelle einzeln zu-/abschalten.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+
+PROFILE_TYPE_LABELS = {
+    "student":            "Student / Werkstudent",
+    "service":            "Service / Dienstleistung",
+    "trade":              "Handwerk / Trade",
+    "tech_junior":        "Tech-Einsteiger (Junior)",
+    "tech_senior":        "Tech-Senior",
+    "engineering_senior": "Engineering-Senior",
+    "freelance":          "Freelancer",
+    "executive":          "Fuehrungskraft",
+    "mixed":              "Gemischt / Unbekannt",
+}
+
+
+# Keyword-Indikatoren fuer Service-Berufe (Pflege, Hotel, Gastro, Einzelhandel).
+_SERVICE_KEYWORDS = {
+    "pflege", "altenpflege", "krankenpflege", "kassier", "verkauf",
+    "verkaeufer", "verkaeuferin", "hotel", "gastro", "kellner", "kellnerin",
+    "service", "barista", "rezeption", "reinigung", "putzhilfe",
+    "einzelhandel", "filialleiter", "filialleitung",
+}
+
+_TRADE_KEYWORDS = {
+    "elektrik", "elektriker", "schlosser", "schreiner", "tischler",
+    "maler", "lackierer", "klempner", "installateur", "dachdecker",
+    "maurer", "fliesenleger", "bauhelfer", "kfz-mechan",
+    "monteur", "azubi", "geselle", "meister",
+}
+
+_TECH_KEYWORDS = {
+    "developer", "engineer", "entwickler", "programmierer",
+    "softwareentwickler", "softwareentwicklung", "fullstack",
+    "backend", "frontend", "devops", "data", "ml", "ai", "ki",
+    "architect", "architekt", "cto", "tech-lead", "tech lead",
+}
+
+_ENGINEERING_KEYWORDS = {
+    "konstrukteur", "konstrukteurin", "konstruktion", "techniker",
+    "techn. zeichner", "produktion", "fertigung", "qualitaet",
+    "instandhalt", "wartung", "maschinenbau", "elektrotechnik",
+    "verfahrens", "produktionsingenieur", "vertriebsingenieur",
+    "plm", "pdm", "cad", "cae", "cam",
+}
+
+_EXECUTIVE_KEYWORDS = {
+    "geschaeftsfuehrer", "geschäftsführer", "gf", "head of", "leiter",
+    "leitung", "ceo", "coo", "cto", "cfo", "vp ", "vorstand",
+    "director", "managing director",
+}
+
+_FREELANCE_KEYWORDS = {
+    "freelance", "freiberuflich", "freelancer", "selbstaendig",
+    "selbstständig", "freier mitarbeiter",
+}
+
+
+def _years_of_experience(positions: list) -> int:
+    """Summe der vollendeten Jahre aus den Position-Datenbereichen."""
+    total = 0
+    from datetime import datetime
+    this_year = datetime.now().year
+    for p in positions or []:
+        start_raw = (p.get("start_date") or "0000")[:4]
+        end_raw = (p.get("end_date") or "")[:4]
+        if not start_raw.isdigit():
+            continue
+        start = int(start_raw)
+        if start < 1900:
+            continue
+        end = int(end_raw) if end_raw.isdigit() else this_year
+        total += max(0, end - start)
+    return total
+
+
+def _is_currently_studying(profile: dict) -> bool:
+    """Heuristik: laufendes Studium = end_year leer/Zukunft + degree-Indikator."""
+    edu = profile.get("education") or []
+    from datetime import datetime
+    this_year = datetime.now().year
+    for e in edu:
+        end_raw = (e.get("end_year") or e.get("end_date") or "")
+        end_str = str(end_raw)[:4]
+        is_running = (
+            not end_str
+            or end_str in ("0", "0000", "")
+            or (end_str.isdigit() and int(end_str) >= this_year)
+        )
+        if not is_running:
+            continue
+        degree = (
+            e.get("degree") or e.get("type") or e.get("field") or ""
+        ).lower()
+        if any(t in degree for t in (
+            "bachelor", "master", "diplom", "studium", "student",
+            "phd", "promotion",
+        )):
+            return True
+    return False
+
+
+def _has_keyword_match(text: str, kws: set) -> bool:
+    txt = text.lower()
+    return any(kw in txt for kw in kws)
+
+
+def _aggregate_text(profile: dict) -> str:
+    """Bringt Position-Titles + Skills + Bezeichnungen in einen Suchstring."""
+    parts: list = []
+    for p in profile.get("positions") or []:
+        parts.append(p.get("title") or "")
+        parts.append((p.get("description") or "")[:200])
+    for s in profile.get("skills") or []:
+        parts.append(s.get("name") or "")
+    return " ".join(parts)
+
+
+def detect_profile_type(profile: Optional[dict]) -> dict:
+    """Klassifiziert ein Profil in einen Cluster-Schluessel.
+
+    Rueckgabe:
+        {
+            "type": "student" | "service" | "trade" | "tech_junior" | ...,
+            "confidence": 0.0..1.0,
+            "reasons": [...],
+            "label": "Mensch-lesbares Label",
+        }
+    """
+    if not profile:
+        return {
+            "type": "mixed", "confidence": 0.0,
+            "reasons": ["Kein Profil"],
+            "label": PROFILE_TYPE_LABELS["mixed"],
+        }
+
+    positions = profile.get("positions") or []
+    text = _aggregate_text(profile)
+    years = _years_of_experience(positions)
+    studying = _is_currently_studying(profile)
+    latest_pos = positions[0] if positions else {}
+    latest_title = (latest_pos.get("title") or "").lower()
+    reasons: list = []
+
+    # 1. Student — laufendes Studium ueberschreibt fast alles
+    if studying and years <= 3:
+        reasons.append("laufendes Studium erkannt")
+        return {
+            "type": "student", "confidence": 0.85,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["student"],
+        }
+
+    # 2. Freelance — wenn Position-Titles oder Beschreibung das anzeigen
+    if _has_keyword_match(text, _FREELANCE_KEYWORDS):
+        reasons.append("Freelance-Indikator in Position oder Skill")
+        return {
+            "type": "freelance", "confidence": 0.75,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["freelance"],
+        }
+
+    # 3. Executive — Title-Indikator + 10+ Jahre
+    if _has_keyword_match(latest_title, _EXECUTIVE_KEYWORDS) and years >= 10:
+        reasons.append(f"Executive-Title + {years}J Erfahrung")
+        return {
+            "type": "executive", "confidence": 0.8,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["executive"],
+        }
+
+    # 4. Trade
+    if _has_keyword_match(text, _TRADE_KEYWORDS):
+        reasons.append("Handwerk-Indikator (Beruf)")
+        return {
+            "type": "trade", "confidence": 0.75,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["trade"],
+        }
+
+    # 5. Service
+    if _has_keyword_match(text, _SERVICE_KEYWORDS):
+        reasons.append("Service-Indikator (Beruf)")
+        return {
+            "type": "service", "confidence": 0.75,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["service"],
+        }
+
+    # 6. Engineering Senior
+    if _has_keyword_match(text, _ENGINEERING_KEYWORDS) and years >= 5:
+        reasons.append(f"Engineering-Indikator + {years}J Erfahrung")
+        return {
+            "type": "engineering_senior", "confidence": 0.8,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["engineering_senior"],
+        }
+
+    # 7. Tech (Junior vs Senior)
+    if _has_keyword_match(text, _TECH_KEYWORDS):
+        if years >= 7:
+            reasons.append(f"Tech-Indikator + {years}J Erfahrung")
+            return {
+                "type": "tech_senior", "confidence": 0.85,
+                "reasons": reasons,
+                "label": PROFILE_TYPE_LABELS["tech_senior"],
+            }
+        reasons.append(f"Tech-Indikator + {years}J Erfahrung (junior)")
+        return {
+            "type": "tech_junior", "confidence": 0.7,
+            "reasons": reasons,
+            "label": PROFILE_TYPE_LABELS["tech_junior"],
+        }
+
+    reasons.append("Keine eindeutige Indikator-Gruppe")
+    return {
+        "type": "mixed", "confidence": 0.3,
+        "reasons": reasons,
+        "label": PROFILE_TYPE_LABELS["mixed"],
+    }
+
+
+# === Cluster-Definitionen — Default-Quellen-Empfehlung pro Typ. ===
+#
+# Quellen-IDs muessen im SOURCE_REGISTRY existieren. Reihenfolge bedeutet
+# Empfehlungs-Prioritaet (an erster Stelle = unbedingt aktivieren).
+PROFILE_TYPE_CLUSTERS: dict[str, list[str]] = {
+    "student": [
+        "bundesagentur", "kimeta", "personio", "meinestadt", "arbeitnow",
+    ],
+    "service": [
+        "bundesagentur", "meinestadt", "personio", "jobspy_indeed", "kimeta",
+    ],
+    "trade": [
+        "bundesagentur", "meinestadt", "personio", "kimeta",
+    ],
+    "tech_junior": [
+        "jobspy_indeed", "jobspy_linkedin", "arbeitnow",
+        "himalayas", "remotive", "remoteok",
+        "workable", "personio", "greenhouse",
+    ],
+    "tech_senior": [
+        "jobspy_linkedin", "greenhouse", "workable", "personio",
+        "himalayas", "remotive", "remoteok",
+        "jobspy_indeed",
+    ],
+    "engineering_senior": [
+        "jobspy_linkedin", "ingenieur_de", "personio", "workable",
+        "stellenanzeigen_de", "jobspy_indeed", "ferchau", "hays",
+    ],
+    "freelance": [
+        "freelance_de", "freelancermap", "gulp", "solcom", "hays",
+    ],
+    "executive": [
+        "jobspy_linkedin", "personio", "workable", "greenhouse",
+    ],
+    "mixed": [
+        "bundesagentur", "jobspy_indeed", "personio", "workable",
+    ],
+}
+
+
+def recommend_sources(profile: Optional[dict]) -> dict:
+    """Liefert die empfohlenen Quellen fuer das Profil.
+
+    Rueckgabe:
+        {
+            "type": "...", "label": "...", "confidence": 0.x,
+            "reasons": [...],
+            "recommended": ["bundesagentur", "kimeta", ...],
+            "rationale": "Kurzer Erklaer-Text fuer das UI",
+        }
+    """
+    detection = detect_profile_type(profile)
+    cluster_key = detection["type"]
+    sources = PROFILE_TYPE_CLUSTERS.get(cluster_key, [])
+    rationale = (
+        f"Erkannt als {detection['label']}. PBP empfiehlt diese {len(sources)} "
+        "Quellen — der Empfehlung folgen oder einzelne Quellen abwaehlen "
+        "ist jederzeit moeglich."
+    )
+    return {
+        **detection,
+        "recommended": sources,
+        "rationale": rationale,
+    }

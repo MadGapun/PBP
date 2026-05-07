@@ -190,6 +190,32 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
+    # ── #590 Aufgabe B.5: Tech-Remote-Cluster ──
+    "himalayas": {
+        "name": "Himalayas (Remote)",
+        "beschreibung": "Remote-only Job-Aggregator mit Schwerpunkt Tech. "
+                         "Public JSON-API, kein Auth, gute DACH-Abdeckung "
+                         "ueber country=DE-Filter.",
+        "methode": "REST API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "remotive": {
+        "name": "Remotive (Remote)",
+        "beschreibung": "Kuratierter Remote-Job-Aggregator. Public REST API "
+                         "mit Suchstring-Parameter.",
+        "methode": "REST API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "remoteok": {
+        "name": "RemoteOK",
+        "beschreibung": "Remote-only Aggregator (englischsprachig). Liefert komplette "
+                         "Stellenliste als JSON-Feed. Schwerpunkt Tech/Marketing.",
+        "methode": "REST API (JSON-Feed)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
     "greenhouse": {
         "name": "Greenhouse Boards",
         "beschreibung": "Greenhouse-Karriereseiten mehrerer DACH-relevanter Firmen "
@@ -402,6 +428,10 @@ _SCRAPER_MAP = {
     "personio": ("personio", "search_personio"),
     "workable": ("workable", "search_workable"),
     "meinestadt": ("meinestadt", "search_meinestadt"),
+    # v1.7.0-beta.35 (#590 Aufgabe B.5): Tech-Remote-Cluster
+    "himalayas": ("himalayas", "search_himalayas"),
+    "remotive": ("remotive", "search_remotive"),
+    "remoteok": ("remoteok", "search_remoteok"),
 }
 
 

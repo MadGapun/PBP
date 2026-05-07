@@ -7,6 +7,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.35] - 2026-05-07 — Profile-Cluster + Tech-Remote (#590 Aufgabe B.1+B.2+B.5)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Aufgabe B von #590: PBP erkennt jetzt automatisch den Profil-Typ und
+empfiehlt passende Quellen-Cluster. Plus drei neue Tech-Remote-Quellen.
+
+### ✨ Added — Profile-Detection & Cluster-Empfehlung
+
+- **Neuer Service** `services/profile_classifier.py`:
+  - `detect_profile_type(profile)` — Heuristik, klassifiziert in
+    `student / service / trade / tech_junior / tech_senior /
+    engineering_senior / freelance / executive / mixed`
+  - Bewertet aktuelle Position, Skills, Berufserfahrung,
+    laufendes Studium
+  - Liefert `confidence` + `reasons` (transparent fuer den User)
+- **9 Quellen-Cluster** vordefiniert. Beispiele:
+  - **service**: bundesagentur, meinestadt, personio, jobspy_indeed, kimeta
+  - **trade**: bundesagentur, meinestadt, personio, kimeta
+  - **tech_senior**: jobspy_linkedin, greenhouse, workable, personio,
+    himalayas, remotive, remoteok, jobspy_indeed
+  - **freelance**: freelance_de, freelancermap, gulp, solcom, hays
+- **Neuer API-Endpoint** `GET /api/profile/recommended-sources`:
+  liefert Profil-Typ, Empfehlungs-Liste + Begruendung. Frontend
+  kann das fuer „Empfohlene Quellen aktivieren?"-Dialog nutzen.
+
+### ✨ Added — Tech-Remote-Cluster (B.5)
+
+Drei neue Quellen, alle Public-API ohne Auth:
+
+- **Himalayas** — `https://himalayas.app/jobs/api?country=DE` —
+  Remote-only Aggregator mit DACH-Filter
+- **Remotive** — `https://remotive.com/api/remote-jobs` —
+  kuratierter Remote-Job-Aggregator, Suchstring-Parameter
+- **RemoteOK** — `https://remoteok.com/api` —
+  englischsprachiger Remote-Aggregator (erstes Element ist Metadaten)
+
+### Profil-Typ-Reichweite
+
+| Zielgruppe | Cluster-Quellen |
+|---|---|
+| Student / Werkstudent | bundesagentur, kimeta, personio, meinestadt, arbeitnow |
+| Service | bundesagentur, meinestadt, personio, jobspy_indeed, kimeta |
+| Handwerk | bundesagentur, meinestadt, personio, kimeta |
+| Tech-Junior | jobspy_indeed, jobspy_linkedin, arbeitnow, **himalayas, remotive, remoteok**, workable, personio, greenhouse |
+| Tech-Senior | jobspy_linkedin, greenhouse, workable, personio, **himalayas, remotive, remoteok**, jobspy_indeed |
+| Engineering-Senior | jobspy_linkedin, ingenieur_de, personio, workable, stellenanzeigen_de, jobspy_indeed, ferchau, hays |
+| Freelance | freelance_de, freelancermap, gulp, solcom, hays |
+| Executive | jobspy_linkedin, personio, workable, greenhouse |
+
+### Tests
+
+- `tests/test_v170_beta35_profile_cluster.py`: 19 neue Tests
+- **1013 Tests gesamt, alle gruen** — vierstellig erreicht.
+
+### Hinweis
+
+`PROFILE_TYPE_CLUSTERS` referenziert NUR Quellen, die in
+`SOURCE_REGISTRY` existieren — neuer Sicherheits-Test verhindert
+Ghost-Quellen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.35.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.35.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.34] - 2026-05-07 — Universelle Quellen (#590 Aufgabe A)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
