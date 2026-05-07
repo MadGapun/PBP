@@ -240,6 +240,8 @@ def detect_profile_type(profile: Optional[dict]) -> dict:
 # Empfehlungs-Prioritaet (an erster Stelle = unbedingt aktivieren).
 PROFILE_TYPE_CLUSTERS: dict[str, list[str]] = {
     "student": [
+        # v1.7.0-beta.36: Student-Cluster mit den dedizierten Quellen
+        "praktikum_de", "studentjob", "berufsstart",
         "bundesagentur", "kimeta", "personio", "meinestadt", "arbeitnow",
     ],
     "service": [
@@ -254,19 +256,21 @@ PROFILE_TYPE_CLUSTERS: dict[str, list[str]] = {
         "workable", "personio", "greenhouse",
     ],
     "tech_senior": [
-        "jobspy_linkedin", "greenhouse", "workable", "personio",
-        "himalayas", "remotive", "remoteok",
-        "jobspy_indeed",
+        # v1.7.0-beta.36: Workday-DAX dazu (Konzern-Stellen)
+        "jobspy_linkedin", "workday_dax", "greenhouse", "workable",
+        "personio", "himalayas", "remotive", "remoteok", "jobspy_indeed",
     ],
     "engineering_senior": [
-        "jobspy_linkedin", "ingenieur_de", "personio", "workable",
-        "stellenanzeigen_de", "jobspy_indeed", "ferchau", "hays",
+        # v1.7.0-beta.36: Workday-DAX als Top-Empfehlung fuer Konzern-Stellen
+        "workday_dax", "jobspy_linkedin", "ingenieur_de", "personio",
+        "workable", "stellenanzeigen_de", "jobspy_indeed", "ferchau", "hays",
     ],
     "freelance": [
         "freelance_de", "freelancermap", "gulp", "solcom", "hays",
     ],
     "executive": [
-        "jobspy_linkedin", "personio", "workable", "greenhouse",
+        # v1.7.0-beta.36: Workday-DAX fuer Konzern-Fuehrungspositionen
+        "workday_dax", "jobspy_linkedin", "personio", "workable", "greenhouse",
     ],
     "mixed": [
         "bundesagentur", "jobspy_indeed", "personio", "workable",

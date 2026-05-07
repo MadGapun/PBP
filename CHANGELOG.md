@@ -7,6 +7,109 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.36] - 2026-05-07 — Workday-DAX + Student-Cluster + Recommendations-UI (#590 fertig)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Letzte Stufe von Issue #590 — alle Aufgaben (A, B, C) sind damit umgesetzt:
+
+### ✨ Added — B.4 Student-Cluster (3 neue Adapter)
+
+- **Praktikum.de** RSS — groesste DACH-Plattform fuer Praktika und
+  Werkstudenten, Suchwort-Parameter im RSS
+- **StudentJob.de** RSS — Studenten- und Werkstudenten-Stellen
+- **Berufsstart.de** RSS — Karriere-Einstieg fuer Studenten und Absolventen
+  (Trainee, Junior, Praktika, Direkteinstieg)
+
+### ✨ Added — B.3 Workday-DAX-Cluster
+
+- **Workday-Cluster** mit kuratierter Liste 10 grosser DACH-Konzerne:
+  Siemens, SAP, Bosch, Continental, ZF, Schaeffler, Knorr-Bremse,
+  KraussMaffei, Heidelberg, Vitesco
+- **Public Workday-API** `/wday/cxs/{tenant}/{site}/jobs` per POST
+- User-Erweiterbar via `workday_firmen`-Suchkriterium
+  (Format: `'BMW|bmw|wd1|external'`)
+
+### 🎨 Added — Frontend Recommendations-Card
+
+- **Neuer `RecommendedSourcesCard`** im Quellen-Tab der Einstellungen:
+  - Zeigt erkannten Profil-Typ (`student`, `service`, `tech_senior`, …)
+    + Confidence + transparente Begruendung
+  - Listet empfohlene Quellen mit ✓/+ Badge (aktiv vs. fehlend)
+  - **„X fehlende Quellen aktivieren"-Button** — One-Click-Aktivierung
+    aller Empfehlungen, die noch nicht aktiv sind
+  - User kann jederzeit einzelne Quellen wieder abschalten
+
+### Cluster-Updates
+
+- **Student-Cluster** an erster Stelle: praktikum_de, studentjob, berufsstart
+- **Tech-Senior**: + workday_dax als Konzern-Quelle
+- **Engineering-Senior**: workday_dax an erster Stelle
+- **Executive**: + workday_dax fuer Konzern-Fuehrungspositionen
+
+### Tests
+
+- `tests/test_v170_beta36_workday_student.py`: 13 neue Tests
+- **1026 Tests gesamt, alle gruen.**
+
+### #590 Stuetzpfeiler abgeschlossen
+
+| Aufgabe | Stand |
+|---|---|
+| **A** Universelle Quellen | ✓ Personio, Workable, Meinestadt (beta.34) |
+| **B.1** Profile-Detection | ✓ 9 Cluster (beta.35) |
+| **B.2** Cluster-Definitionen | ✓ + Recommendations-API + UI (beta.35/36) |
+| **B.3** Workday-DAX-Cluster | ✓ 10 Konzerne (beta.36) |
+| **B.4** Student-Cluster | ✓ Praktikum.de + StudentJob + Berufsstart (beta.36) |
+| **B.5** Tech-Remote-Cluster | ✓ Himalayas + Remotive + RemoteOK (beta.35) |
+| **C.1** Auto-Reactivate | ✓ 24h/48h/72h/168h Backoff (beta.33) |
+| **C.2** Retry-After (HTTP-429) | ✓ (beta.33) |
+| **C.3** Health-Score-UI | ✓ ScraperHealthCard (beta.33) |
+| **C.4** Quellen-Rotation | offen (kein Adapter-Schutz, eigenes Issue empfohlen) |
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.36.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.36.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.35] - 2026-05-07 — Profile-Cluster + Tech-Remote (#590 Aufgabe B.1+B.2+B.5)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

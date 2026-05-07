@@ -216,6 +216,42 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
+    # ── #590 Aufgabe B.4: Student-Cluster ──
+    "praktikum_de": {
+        "name": "Praktikum.de",
+        "beschreibung": "Groesste DACH-Plattform fuer Praktika und Werkstudenten-"
+                         "Stellen. RSS-Feed mit Suchwort-Parameter.",
+        "methode": "RSS",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "studentjob": {
+        "name": "StudentJob.de",
+        "beschreibung": "Studentenjobs und Werkstudentenstellen in DACH. "
+                         "Public RSS-Feed.",
+        "methode": "RSS",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "berufsstart": {
+        "name": "Berufsstart.de",
+        "beschreibung": "Karriere-Einstieg fuer Studenten und Absolventen "
+                         "(Trainee, Junior, Praktika, Direkteinstieg).",
+        "methode": "RSS",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    # ── #590 Aufgabe B.3: Workday-DAX-Cluster ──
+    "workday_dax": {
+        "name": "Workday-DAX-Cluster",
+        "beschreibung": "Public Workday-Career-Sites grosser DACH-Konzerne "
+                         "(Siemens, SAP, Bosch, Continental, ZF, Schaeffler, "
+                         "Knorr-Bremse, KraussMaffei, Heidelberg, Vitesco). "
+                         "Erweiterbar via workday_firmen-Suchkriterium.",
+        "methode": "Workday wd/cxs JSON-API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "mittel",
+    },
     "greenhouse": {
         "name": "Greenhouse Boards",
         "beschreibung": "Greenhouse-Karriereseiten mehrerer DACH-relevanter Firmen "
@@ -432,6 +468,11 @@ _SCRAPER_MAP = {
     "himalayas": ("himalayas", "search_himalayas"),
     "remotive": ("remotive", "search_remotive"),
     "remoteok": ("remoteok", "search_remoteok"),
+    # v1.7.0-beta.36 (#590 Aufgabe B.3+B.4): Student- + Workday-Cluster
+    "praktikum_de": ("praktikum_de", "search_praktikum_de"),
+    "studentjob": ("studentjob", "search_studentjob"),
+    "berufsstart": ("berufsstart", "search_berufsstart"),
+    "workday_dax": ("workday_dax", "search_workday_dax"),
 }
 
 

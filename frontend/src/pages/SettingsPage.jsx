@@ -495,6 +495,140 @@ function TelemetrySharingCard({ pushToast }) {
 }
 
 
+// v1.7.0-beta.36 (#590 Aufgabe B): Profil-basierte Quellen-Empfehlung.
+// Zeigt den erkannten Profil-Typ + die empfohlenen Quellen + einen
+// "Empfohlene Quellen aktivieren"-Button. User-Vorgabe: PBP fuer alle
+// Profil-Typen, nicht nur High-Performer.
+function RecommendedSourcesCard({ sources, onToggle, pushToast }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api("/api/profile/recommended-sources")
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!data) return null;
+  if (data.type === "mixed" && data.confidence < 0.5) {
+    // Wenig Datengrundlage — Card ausblenden statt Halb-Wahres zu zeigen
+    return null;
+  }
+
+  const recommended = data.recommended || [];
+  const sourceByKey = new Map(
+    (sources || []).map((s) => [s.key, s])
+  );
+  const enabledIds = new Set(
+    (sources || [])
+      .filter((s) => s.active)
+      .map((s) => s.key)
+  );
+  const missing = recommended.filter((id) => !enabledIds.has(id));
+
+  async function activateAll() {
+    setBusy(true);
+    let activated = 0;
+    for (const id of missing) {
+      const src = sourceByKey.get(id);
+      if (!src) continue;
+      try {
+        await onToggle(src, true);
+        activated += 1;
+      } catch {}
+    }
+    pushToast(
+      activated > 0
+        ? `${activated} Quelle${activated === 1 ? "" : "n"} aktiviert.`
+        : "Bereits alles aktiv.",
+      "success"
+    );
+    setBusy(false);
+  }
+
+  return (
+    <Card className="rounded-2xl">
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="text-left">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+            Empfohlene Quellen fuer dein Profil
+          </p>
+          <p className="text-sm text-ink mt-1">
+            {data.label}
+            {missing.length > 0 && (
+              <span className="ml-2 text-amber/80">
+                · {missing.length} noch nicht aktiv
+              </span>
+            )}
+          </p>
+        </div>
+        <span className="text-muted/40 text-xs">{collapsed ? "▼" : "▲"}</span>
+      </button>
+
+      {!collapsed && (
+        <div className="mt-3 space-y-3">
+          <p className="text-[12px] text-muted/70">{data.rationale}</p>
+
+          {data.reasons?.length > 0 && (
+            <details>
+              <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/50">
+                Wie PBP das erkannt hat
+              </summary>
+              <ul className="mt-1.5 ml-4 list-disc text-[11px] text-muted/60">
+                {data.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          <div>
+            <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
+              Empfohlen ({recommended.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {recommended.map((id) => {
+                const isEnabled = enabledIds.has(id);
+                const cls = isEnabled
+                  ? "bg-teal/15 border-teal/30 text-teal"
+                  : "bg-amber/[0.04] border-amber/20 text-amber/80";
+                return (
+                  <span
+                    key={id}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] ${cls}`}
+                  >
+                    {isEnabled ? "✓" : "+"}
+                    {id}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          {missing.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button onClick={activateAll} disabled={busy} size="sm">
+                {missing.length} fehlende empfohlene Quelle{missing.length === 1 ? "" : "n"} aktivieren
+              </Button>
+              <span className="text-[11px] text-muted/50">
+                Du kannst jede Quelle einzeln auch wieder abschalten.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+
 // v1.7.0-beta.33 (#590-C): Health-Score-Tab im Quellen-Bereich.
 // Zeigt pro Scraper Erfolgsquote, Fehlerstatus, Auto-Reactivate-Plan
 // (mit Countdown bis Probe-Run) und Reaktivieren-Button.
@@ -1663,6 +1797,13 @@ export default function SettingsPage() {
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
+            {/* v1.7.0-beta.36 (#590 Aufgabe B): Profil-basierte Quellen-Empfehlung */}
+            <RecommendedSourcesCard
+              sources={sources}
+              onToggle={toggleSource}
+              pushToast={pushToast}
+            />
+
             <Card className="rounded-2xl">
               <SectionHeading title="Quellen" description="Welche Jobportale aktiv durchsucht werden." />
               <SourceSelectionList
