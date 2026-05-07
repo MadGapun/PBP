@@ -2,8 +2,52 @@
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
 React-Frontend + SQLite. **v1.6.9** ist Latest auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt beta.18) — wird `--latest` erst nach
+in der Beta-Reihe (zuletzt **beta.36**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
+
+## Stand 2026-05-07 (Sprint-Tag mit 11 Releases)
+
+**Schema:** v40 — `scraper_health` mit Auto-Reactivate-Feldern.
+**Tests:** 1026 grün.
+**MCP-Tools:** 127.
+**Quellen:** 33+ (10 neue heute aus #590).
+
+### Heute geschlossene Issues
+
+- **#594** Lern-System (5 Stufen) — beta.26-30:
+  Foundation, Aggregation, LLM-Pattern-Analyse + Korrektur-Loop,
+  Adaptive UI, Telemetrie-Sharing (opt-in, wochenweise)
+- **#595** Stellen-Detail-Bug bei is_active=0 — beta.31
+- **#596** Keyword-Analyse 3 Bugs (Eigenname, ???-Zeile, PDM) — beta.31
+- **#597** Dokumente pro Bewerbung im Bericht — beta.31
+- **#598** Quellen-Aktivität Volumen (statt nur letzte Treffer) — beta.31
+- **#588** Stellenbeschreibung sauber von Notizen trennen — beta.32
+- **#564** Portal-spezifische Such-Profile (LinkedIn-Lessons) — beta.32
+- **#590** Quellen-Strategie (gross) — beta.33-36:
+  Auto-Reactivate, 10 neue Quellen-Adapter, Profile-Detection,
+  9 Cluster, Recommendations-UI
+
+### Aktuelle Architektur-Highlights
+
+- **`services/profile_classifier.py`** — heuristische Profil-Erkennung
+  in 9 Cluster (student/service/trade/tech_junior/tech_senior/
+  engineering_senior/freelance/executive/mixed) + Quellen-Empfehlung
+  pro Cluster
+- **`services/llm_service.py`** — TaskKind-Routing-Table (Local/Claude/Manual)
+  mit den Tasks: classify_document, extract_skills, match_job_to_skills,
+  classify_email, analyze_user_patterns, generate_cover_letter, ...
+- **`scraper_health` mit Auto-Reactivate** — Backoff 24h/48h/72h/168h
+  bei silent failures, automatische Reaktivierung bei OK-Run
+- **Activity-Tracking + LLM-Insights** — `user_activity_events` +
+  `learning_insights` Tabellen, AdaptiveHintBanner pro Page (#594)
+
+### Nicht im Sprint, aber wichtig zu wissen
+
+- **Plugin-Plattform** (#504) ist explizit User-Vorgabe fuer v1.8 —
+  Mail-Integrationen (#481/#480/#478) und Newsletter-Ingest (#525)
+  sollen als Plug-Ins kommen, nicht als Kern-Code.
+- **Quellen-Rotation (#590-C.4)** wurde aus #590 herausgehalten —
+  betrifft den job_runner-Orchestrator, eigenes Issue empfohlen.
 
 ## Release-Workflow (Pflicht-Checkliste)
 
