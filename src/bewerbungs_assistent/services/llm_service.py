@@ -52,6 +52,7 @@ class TaskKind(str, Enum):
     COMPARE_JOBS = "compare_jobs"
     FIND_SIMILAR_JOBS = "find_similar_jobs"
     CLASSIFY_EMAIL = "classify_email"  # v1.7.0-beta.24
+    ANALYZE_USER_PATTERNS = "analyze_user_patterns"  # v1.7.0-beta.28 (#594 Stufe 3)
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -80,6 +81,7 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.COMPARE_JOBS:         [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.FIND_SIMILAR_JOBS:    [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.CLASSIFY_EMAIL:       [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.ANALYZE_USER_PATTERNS:[Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -493,13 +495,32 @@ def _build_match_job_to_skills_prompt(payload: dict) -> str:
     job_company = (payload.get("job_company") or "").strip()
     job_description = (payload.get("job_description") or "")[:1500]
 
+    # v1.7.0-beta.28 (#594 Stufe 3): adaptive Anreicherung. Wenn der User
+    # immer aus den gleichen Gruenden aussortiert (z.B. "falsches_fachgebiet"
+    # in 80% der Faelle), dann sieht die LLM diese Top-3 jetzt im Prompt
+    # und kann das Muster anwenden statt jede Stelle isoliert zu betrachten.
+    dismiss_reasons_top = payload.get("dismiss_reasons_top") or []
+    learned_block = ""
+    if dismiss_reasons_top:
+        formatted = "\n".join(
+            f"  - {r.get('reason')} ({r.get('count')} Mal aussortiert)"
+            for r in dismiss_reasons_top[:3] if r.get("reason")
+        )
+        if formatted:
+            learned_block = (
+                "\nGELERNT: Dieser Bewerber sortiert typischerweise aus wegen:\n"
+                f"{formatted}\n"
+                "Wenn die Stelle eines dieser Muster trifft, eher PASST_NICHT.\n"
+            )
+
     skills_str = ", ".join(profile_skills[:15]) if profile_skills else "keine erfasst"
     return (
         "Du bewertest ob eine Stelle zu einem Bewerber-Profil passt.\n\n"
         "PROFIL DES BEWERBERS:\n"
         f"  Aktuelle/letzte Position: {profile_position or 'keine erfasst'}\n"
         f"  Karriere-Stufe: {profile_seniority or 'unbekannt'}\n"
-        f"  Top-Skills: {skills_str}\n\n"
+        f"  Top-Skills: {skills_str}\n"
+        f"{learned_block}\n"
         "STELLE:\n"
         f"  Titel: {job_title}\n"
         f"  Firma: {job_company}\n"
@@ -548,6 +569,67 @@ def _parse_match_job_to_skills(raw: str) -> dict:
     }
 
 
+# v1.7.0-beta.28 (#594 Stufe 3): analyze_user_patterns — bekommt das
+# Aggregat aus Stufe 2 und liefert max 3 verstaendliche Insights mit
+# Empfehlung. Format ist strikt parseable.
+
+def _build_analyze_user_patterns_prompt(payload: dict) -> str:
+    import json as _json
+    aggregate = payload.get("aggregate") or {}
+    return (
+        "Du analysierst das Nutzungs-Verhalten eines PBP-Nutzers und "
+        "lieferst maximal 3 nachvollziehbare Insights mit Empfehlung.\n\n"
+        "Merke: Klicks und Scroll sind Anti-Patterns (User sucht), lange "
+        "Verweildauer ist gut (User liest).\n\n"
+        f"Daten der letzten {aggregate.get('window_days', 30)} Tage:\n"
+        f"{_json.dumps(aggregate, ensure_ascii=False, indent=2)[:3000]}\n\n"
+        "Antworte AUSSCHLIESSLICH im Format (genau ein Insight pro Zeile, "
+        "max 3 Zeilen):\n\n"
+        "TYP|TITEL|EMPFEHLUNG\n\n"
+        "TYP ist eines von:\n"
+        "  filter_recommendation — wiederkehrender Filter koennte Default werden\n"
+        "  ux_friction          — Anti-Pattern (viele Klicks, hoher Abort)\n"
+        "  workflow_optimization — Workflow ist auffaellig haeufig/abgebrochen\n"
+        "  dismiss_pattern      — Aussortier-Muster zeigt etwas Besonderes\n"
+        "  positive_signal      — User-Verhalten zeigt Mastery, kein Eingriff noetig\n\n"
+        "Beispiele:\n"
+        "filter_recommendation|Score-Filter ueber 70 als Default|Du wendest filter_score>=70 fast jedes Mal an. PBP koennte das als Default setzen.\n"
+        "ux_friction|Stellen-Seite hat 12 Klicks pro Besuch|Vermutlich findest du nicht direkt was du suchst — engere Filter koennten helfen.\n"
+        "dismiss_pattern|85% deiner Aussortierungen sind 'falsches_fachgebiet'|PBP koennte Stellen mit dem Begriff im Titel automatisch vorfiltern.\n\n"
+        "Wenn KEIN Pattern interessant genug ist: gib nur eine leere Zeile zurueck.\n\n"
+        "DEINE ANTWORT:"
+    )
+
+
+def _parse_analyze_user_patterns(raw: str) -> dict:
+    valid_types = {
+        "filter_recommendation", "ux_friction", "workflow_optimization",
+        "dismiss_pattern", "positive_signal",
+    }
+    insights = []
+    for line in (raw or "").split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        parts = [p.strip() for p in line.split("|", 2)]
+        if len(parts) < 3:
+            continue
+        t, title, recommendation = parts
+        t = t.lower().strip(".,;:'\"`")
+        if t not in valid_types:
+            continue
+        if not title or not recommendation:
+            continue
+        insights.append({
+            "kind": t,
+            "title": title[:120],
+            "recommendation": recommendation[:300],
+        })
+        if len(insights) >= 3:
+            break
+    return {"insights": insights, "count": len(insights), "raw": raw}
+
+
 # v1.7.0-beta.24 (NEU): classify_email — eingehende Mails zu Bewerbungs-
 # Mails klassifizieren (Antwort, Eingangsbestaetigung, Absage, Spam, etc.)
 
@@ -590,6 +672,7 @@ _PROMPT_BUILDERS = {
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
     TaskKind.MATCH_JOB_TO_SKILLS: _build_match_job_to_skills_prompt,
     TaskKind.CLASSIFY_EMAIL: _build_classify_email_prompt,
+    TaskKind.ANALYZE_USER_PATTERNS: _build_analyze_user_patterns_prompt,
 }
 
 _RESPONSE_PARSERS = {
@@ -597,6 +680,7 @@ _RESPONSE_PARSERS = {
     TaskKind.EXTRACT_SKILLS: _parse_extract_skills,
     TaskKind.MATCH_JOB_TO_SKILLS: _parse_match_job_to_skills,
     TaskKind.CLASSIFY_EMAIL: _parse_classify_email,
+    TaskKind.ANALYZE_USER_PATTERNS: _parse_analyze_user_patterns,
 }
 
 

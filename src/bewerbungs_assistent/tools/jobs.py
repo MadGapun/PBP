@@ -449,6 +449,45 @@ def register(mcp, db, logger):
                 result["duplikat_erkannt"] = dup_info
             return result
         elif bewertung == "passt":
+            # v1.7.0-beta.28 (#594 Stufe 3): LLM-Correction-Loop. Wenn die
+            # Stelle vorher von der LLM via Auto-Aussortierung weggeraeumt
+            # wurde (`dismiss_reason='profil_match_negativ'`), dann ist das
+            # eine Korrektur durch den User — Trainingsmaterial fuer die
+            # adaptive Prompts.
+            try:
+                from ..tools.jobs import _resolve  # type: ignore
+            except Exception:
+                _resolve = None
+            try:
+                conn = db.connect()
+                resolved_hash = db.resolve_job_hash(job_hash)
+                if resolved_hash:
+                    row = conn.execute(
+                        "SELECT title, company, dismiss_reason FROM jobs "
+                        "WHERE hash=?", (resolved_hash,)
+                    ).fetchone()
+                    if row and (row["dismiss_reason"] or "") == "profil_match_negativ":
+                        # User korrigiert die LLM-Entscheidung
+                        try:
+                            db.add_activity_event({
+                                "event_type": "llm_correction",
+                                "entity_type": "job",
+                                "entity_id": resolved_hash,
+                                "page": "stellen",
+                                "action": "user_overrides_dismiss",
+                                "metadata": {
+                                    "title": row["title"],
+                                    "company": row["company"],
+                                    "previous_dismiss_reason":
+                                        row["dismiss_reason"],
+                                },
+                                "learning_enabled":
+                                    db.is_learning_enabled(),
+                            })
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             db.restore_job(job_hash)
             return {"status": "als_passend_markiert"}
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
@@ -1743,6 +1782,27 @@ def register(mcp, db, logger):
         candidates.sort(key=lambda j: -(j.get("score") or 0))
         candidates = candidates[:max_stellen]
 
+        # v1.7.0-beta.28 (#594 Stufe 3): adaptive Prompt-Anreicherung —
+        # Top-3 dismiss_reasons des Users bekommt die LLM mit, damit sie
+        # bekannte Anti-Muster wiedererkennen kann.
+        dismiss_reasons_top: list[dict] = []
+        try:
+            conn = db.connect()
+            pid = db.get_active_profile_id()
+            rows = conn.execute(
+                "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
+                "WHERE dismiss_reason IS NOT NULL AND dismiss_reason != '' "
+                "AND is_active=0 AND (profile_id=? OR profile_id IS NULL) "
+                "GROUP BY dismiss_reason ORDER BY n DESC LIMIT 3",
+                (pid,)
+            ).fetchall()
+            dismiss_reasons_top = [
+                {"reason": r["dismiss_reason"], "count": r["n"]}
+                for r in rows
+            ]
+        except Exception:
+            pass
+
         if not candidates:
             return {
                 "status": "leer",
@@ -1764,6 +1824,7 @@ def register(mcp, db, logger):
                     "job_title": job.get("title") or "",
                     "job_company": job.get("company") or "",
                     "job_description": (job.get("description") or "")[:1500],
+                    "dismiss_reasons_top": dismiss_reasons_top,
                 }
                 result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
                 if not result.success:

@@ -7,6 +7,127 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.28] - 2026-05-07 — Lern-System Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Stufe 3 von #594 — die lokale LLM analysiert das aggregierte
+Nutzungs-Verhalten, gibt verstaendliche Empfehlungen, und lernt mit
+wenn der User ihre Entscheidungen korrigiert.
+
+### ✨ Added — LLM-Pattern-Analyse
+
+- **Neuer LLM-Task `ANALYZE_USER_PATTERNS`** im LLM-Service. Bekommt
+  das Aggregat aus Stufe 2 und liefert max 3 Insights im strikten Format
+  `TYP|TITEL|EMPFEHLUNG`. Typen:
+  - `filter_recommendation` — Filter koennte Default werden
+  - `ux_friction` — Anti-Pattern (viele Klicks, hoher Abort)
+  - `workflow_optimization` — auffaellig haeufiger/abgebrochener Workflow
+  - `dismiss_pattern` — Aussortier-Muster
+  - `positive_signal` — User zeigt Mastery, kein Eingriff noetig
+- **Persistenz `learning_insights`-Tabelle** (Schema v38, lag schon bereit).
+  Helpers: `upsert_learning_insight`, `list_learning_insights`,
+  `dismiss_learning_insight`, `deactivate_outdated_insights`.
+- **Auto-Engine-5.-Schritt**: `_run_analyze_user_patterns` laeuft
+  automatisch im taeglichen Auto-Actions-Lauf. Greift nur:
+  - wenn `learning_enabled=True`,
+  - mindestens 50 Events in den letzten 30 Tagen vorliegen (sonst zu duenn),
+  - lokale AI aktiv + Modell installiert (sonst keine Token verbrennen).
+- **API-Endpoints:**
+  - `GET /api/learning/insights?only_active=1&limit=20`
+  - `DELETE /api/learning/insights/{id}` (User: „Nicht mehr anzeigen")
+  - `POST /api/learning/analyze` (manueller Trigger)
+
+### ✨ Added — Korrektur-Loop
+
+- **Tracking, wenn der User die LLM ueberstimmt**: bei
+  `stelle_bewerten('passt')` auf einer Stelle, die vorher von der
+  Auto-Aussortierung als `profil_match_negativ` weggeraeumt wurde, wird
+  ein `llm_correction`-Event aufgezeichnet. Das ist Trainingsmaterial
+  fuer adaptive Prompts und ein Indikator dafuer, wie gut die lokale
+  AI mit dem Profil harmoniert.
+- **DB-Helper** `count_llm_corrections(since_iso)` fuer Auswertung.
+
+### ✨ Added — Adaptive Prompts
+
+- **`match_job_to_skills`-Prompt-Anreicherung**: wenn der Bewerber Top-3
+  Aussortier-Gruende hat (z.B. „falsches_fachgebiet 50×"), bekommt die
+  LLM diese im Prompt mit. Dann muss sie nicht jede Stelle isoliert
+  bewerten, sondern erkennt bekannte Anti-Muster.
+
+### ✨ Added — Update-Reset-Mechanik (User-Vorgabe Stufe 5 vorgezogen)
+
+- Bei jedem Auto-Engine-Lauf wird `deactivate_outdated_insights` mit
+  der aktuellen App-Version aufgerufen. Insights, die fuer eine andere
+  Version erstellt wurden und seit > 30 Tagen nicht mehr beobachtet
+  wurden, werden deaktiviert. Beim Update werden Insights also
+  automatisch revalidiert.
+
+### 🎨 Frontend
+
+- **`LearningInsightsCard`** zeigt jetzt zusaetzlich zu den deterministischen
+  Aggregaten auch die LLM-generierten Insights — als eigenes Segment
+  „KI-Erkenntnisse aus deinem Verhalten" mit Empfehlung + Counter +
+  „nicht mehr anzeigen"-Button.
+- Header-Counter zeigt zusaetzlich `n KI-Insight(s)` neben den
+  Anti-Pattern-Hinweisen.
+
+### Tests
+
+- `tests/test_v170_beta28_llm_pattern.py`: 23 neue Tests
+- **907 Tests gesamt, alle gruen.**
+
+### Stufenplan-Fortschritt
+
+- [x] Stufe 1: Foundation — beta.26
+- [x] Stufe 2: Aggregation + Recap-Card — beta.27
+- [x] Stufe 3: LLM-Pattern-Analyse + Korrektur-Loop + adaptive Prompts — beta.28
+- [ ] Stufe 4: Adaptive UI — beta.29
+- [ ] Stufe 5: Telemetrie-Sharing — beta.30
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.28.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.28.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.27] - 2026-05-07 — Lern-System Stufe 2: Aggregation + Anti-Pattern-Detection
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

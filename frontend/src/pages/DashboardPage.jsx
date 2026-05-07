@@ -1231,6 +1231,7 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
 // Card wird ausgeblendet bei < 50 Events (zu wenig Daten fuer Insights).
 function LearningInsightsCard({ pushToast, navigateTo }) {
   const [data, setData] = useState(null);
+  const [llmInsights, setLlmInsights] = useState([]);
   const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
@@ -1239,12 +1240,31 @@ function LearningInsightsCard({ pushToast, navigateTo }) {
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled) setData(d); })
       .catch(() => {});
+    // v1.7.0-beta.28 (#594 Stufe 3): LLM-Insights nachladen wenn vorhanden
+    fetch("/api/learning/insights?only_active=1&limit=10")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d?.insights) setLlmInsights(d.insights); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
+  const dismissInsight = async (id) => {
+    try {
+      const r = await fetch(`/api/learning/insights/${id}`, { method: "DELETE" });
+      if (r.ok) {
+        setLlmInsights((cur) => cur.filter((x) => x.id !== id));
+      }
+    } catch {}
+  };
+
   if (!data) return null;
-  // Mindestens 50 Events oder ein Anti-Pattern, sonst kein Mehrwert
-  if (data.total_events < 50 && (data.anti_patterns || []).length === 0) {
+  // Mindestens 50 Events oder ein Anti-Pattern oder ein LLM-Insight,
+  // sonst kein Mehrwert.
+  if (
+    data.total_events < 50
+    && (data.anti_patterns || []).length === 0
+    && llmInsights.length === 0
+  ) {
     return null;
   }
 
@@ -1264,6 +1284,11 @@ function LearningInsightsCard({ pushToast, navigateTo }) {
             {data.anti_patterns?.length > 0 && (
               <span className="ml-2 text-amber">
                 · {data.anti_patterns.length} Hinweis{data.anti_patterns.length === 1 ? "" : "e"}
+              </span>
+            )}
+            {llmInsights.length > 0 && (
+              <span className="ml-2 text-teal">
+                · {llmInsights.length} KI-Insight{llmInsights.length === 1 ? "" : "s"}
               </span>
             )}
           </p>
@@ -1350,6 +1375,51 @@ function LearningInsightsCard({ pushToast, navigateTo }) {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* LLM-Insights (v1.7.0-beta.28 / #594 Stufe 3) */}
+          {llmInsights.length > 0 && (
+            <div className="lg:col-span-2">
+              <p className="text-[11px] font-semibold text-teal/80 uppercase mb-2">
+                KI-Erkenntnisse aus deinem Verhalten
+              </p>
+              <div className="space-y-1.5">
+                {llmInsights.map((ins) => (
+                  <div
+                    key={ins.id}
+                    className="glass-card p-3 text-[12px] border-teal/20 bg-teal/[0.03]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal/10 text-teal">
+                            {ins.kind?.replace(/_/g, " ")}
+                          </span>
+                          <span className="font-medium text-ink">{ins.title}</span>
+                        </div>
+                        {ins.recommendation && (
+                          <p className="text-[11px] text-muted/70 mt-1.5">
+                            {ins.recommendation}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted/40 mt-1">
+                          {ins.observed_count}× beobachtet
+                          {ins.app_version_at_creation && ` · seit v${ins.app_version_at_creation}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => dismissInsight(ins.id)}
+                        className="text-[10px] text-muted/40 hover:text-coral"
+                        title="Nicht mehr anzeigen"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

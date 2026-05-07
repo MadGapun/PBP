@@ -6949,9 +6949,112 @@ def _run_auto_classify_documents(now_iso: str, max_docs: int = 30) -> dict:
     }
 
 
+def _run_analyze_user_patterns(now_iso: str, days: int = 30,
+                                min_events: int = 50) -> dict:
+    """v1.7.0-beta.28 (#594 Stufe 3): laesst die lokale LLM die letzten N Tage
+    Activity-Aggregat analysieren und max 3 Insights ableiten.
+
+    Greift nur wenn:
+    - learning_enabled (User-Setting an)
+    - Mindestens `min_events` events vorhanden (sonst Mustererkennung sinnlos)
+    - Lokale AI aktiv + Modell installiert (sonst keine Kosten verursachen)
+
+    Veraltete Insights (andere Version, > 30 Tage nicht mehr beobachtet)
+    werden VORHER deaktiviert — beim Update wird also automatisch
+    revalidiert (User-Vorgabe Stufe 5).
+    """
+    from .services.llm_service import get_llm_service, TaskKind
+    from . import __version__ as _APP_VERSION
+
+    if not _db.is_learning_enabled():
+        return {"skipped": True, "reason": "learning_enabled=False",
+                "insights": 0}
+
+    # Update-Reset-Mechanik (User-Vorgabe): bei neuer Version Insights
+    # erneut validieren. Alte Insights, die nicht mehr beobachtet werden,
+    # werden hier weggeraeumt.
+    try:
+        deactivated = _db.deactivate_outdated_insights(_APP_VERSION)
+    except Exception:
+        deactivated = 0
+
+    aggregate = _aggregate_user_activity(days)
+    if aggregate.get("total_events", 0) < min_events:
+        return {
+            "skipped": True,
+            "reason": (
+                f"Nur {aggregate.get('total_events', 0)} Events in letzten "
+                f"{days} Tagen — Mindestschwelle {min_events} fuer "
+                "Mustererkennung nicht erreicht."
+            ),
+            "insights": 0,
+            "deactivated_outdated": deactivated,
+        }
+
+    svc = get_llm_service(_db)
+    s = svc.get_status()
+    if not s.ollama_available or s.user_state != "active" or not s.available_models:
+        return {
+            "skipped": True,
+            "reason": "Lokale AI nicht aktiv (off/paused oder Ollama down)",
+            "insights": 0,
+            "deactivated_outdated": deactivated,
+        }
+
+    try:
+        result = svc.run(TaskKind.ANALYZE_USER_PATTERNS, {
+            "aggregate": aggregate,
+        })
+    except Exception as exc:
+        return {
+            "skipped": True,
+            "reason": f"LLM-Aufruf fehlgeschlagen: {str(exc)[:200]}",
+            "insights": 0,
+            "deactivated_outdated": deactivated,
+        }
+
+    if not result.success or not result.payload:
+        return {
+            "skipped": True,
+            "reason": result.error or "LLM-Antwort leer",
+            "insights": 0,
+            "deactivated_outdated": deactivated,
+        }
+
+    insights = result.payload.get("insights") or []
+    persisted = 0
+    for idx, ins in enumerate(insights):
+        try:
+            # Score: erstes Insight am wichtigsten, abnehmend
+            score = round(1.0 - (idx * 0.2), 2)
+            _db.upsert_learning_insight({
+                "kind": ins.get("kind", "unknown"),
+                "title": ins.get("title", "")[:120],
+                "details": {
+                    "recommendation": ins.get("recommendation", ""),
+                    "source": "llm_pattern_analysis",
+                    "window_days": days,
+                },
+                "score": score,
+                "app_version": _APP_VERSION,
+            })
+            persisted += 1
+        except Exception:
+            pass
+
+    return {
+        "skipped": False,
+        "insights": persisted,
+        "deactivated_outdated": deactivated,
+        "window_days": days,
+        "events_analysed": aggregate.get("total_events", 0),
+    }
+
+
 @app.post("/api/auto-actions/run")
 async def api_run_auto_actions():
-    """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify + Doku-Classify.
+    """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
+    Doku-Classify + Pattern-Analyse.
 
     Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
     oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
@@ -6965,6 +7068,9 @@ async def api_run_auto_actions():
     # neue Mails + Dokumente von selbst ein wenn aktiv.
     mail_result = _run_auto_classify_emails(now)
     doc_result = _run_auto_classify_documents(now)
+    # v1.7.0-beta.28 (#594 Stufe 3): LLM-Pattern-Analyse als 5. Schritt.
+    # Greift nur wenn lokale AI aktiv und genug events vorhanden sind.
+    patterns_result = _run_analyze_user_patterns(now)
     _db.set_setting("auto_actions_last_run_at", now)
     return {
         "ran_at": now,
@@ -6972,6 +7078,7 @@ async def api_run_auto_actions():
         "followup_reconciler": fu_result,
         "mail_classify": mail_result,
         "document_classify": doc_result,
+        "pattern_analysis": patterns_result,
     }
 
 
@@ -7276,6 +7383,48 @@ async def api_set_learning_settings(request: Request):
         return {"status": "ok", "learning_enabled": flag}
     return JSONResponse({"error": "learning_enabled ist Pflicht"},
                          status_code=400)
+
+
+@app.get("/api/learning/insights")
+async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
+    """Liefert die LLM-generierten + heuristischen learning_insights
+    (v1.7.0-beta.28 / #594 Stufe 3).
+
+    Frontend nutzt das fuer die LearningInsightsCard im Dashboard und
+    die Adaptive-UI-Hinweise (Stufe 4).
+    """
+    only = bool(int(only_active or 1))
+    lim = max(1, min(int(limit or 20), 100))
+    try:
+        items = _db.list_learning_insights(only_active=only, limit=lim)
+    except Exception:
+        items = []
+    return {"insights": items, "count": len(items)}
+
+
+@app.delete("/api/learning/insights/{insight_id}")
+async def api_dismiss_learning_insight(insight_id: int):
+    """User klickt 'Nicht mehr anzeigen' auf einem Insight."""
+    ok = _db.dismiss_learning_insight(int(insight_id))
+    if not ok:
+        return JSONResponse({"error": "Insight nicht gefunden"},
+                             status_code=404)
+    return {"status": "ok", "dismissed": insight_id}
+
+
+@app.post("/api/learning/analyze")
+async def api_run_learning_analysis(request: Request):
+    """Manueller Trigger fuer LLM-Pattern-Analyse (z.B. 'Jetzt analysieren'
+    Button in der UI). Auto-Engine ruft das ohnehin periodisch auf."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    days = max(1, min(int(data.get("days", 30) or 30), 180))
+    min_events = max(1, int(data.get("min_events", 50) or 50))
+    from datetime import datetime
+    return _run_analyze_user_patterns(
+        datetime.now().isoformat(), days=days, min_events=min_events)
 
 
 @app.get("/api/recap")

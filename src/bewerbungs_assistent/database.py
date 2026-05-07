@@ -5243,6 +5243,160 @@ class Database:
         """Profil-Setting `learning_enabled` (Default True, User-Vorgabe)."""
         return bool(self.get_profile_setting("learning_enabled", True))
 
+    # === v1.7.0-beta.28 (#594 Stufe 3): learning_insights CRUD ===
+
+    def upsert_learning_insight(self, data: dict) -> int:
+        """Speichert oder aktualisiert ein learning_insight.
+
+        Wenn ein aktives Insight mit gleichem (profile_id, kind, title) existiert,
+        wird `observed_count` inkrementiert und `last_seen_at` aktualisiert.
+        Sonst wird ein neuer Eintrag angelegt.
+
+        Args:
+            kind: filter_recommendation | ux_friction | workflow_optimization |
+                  dismiss_pattern | positive_signal
+            title: kurzer Titel
+            details: dict, wird als JSON gespeichert (z.B. {"recommendation": "..."})
+            score: 0.0-1.0 fuer Sortierung
+            scope: optional, z.B. "page:stellen" oder "workflow:erfassen"
+            app_version: aktuelle PBP-Version (fuer Update-Reset)
+        """
+        pid = self.get_active_profile_id()
+        kind = data.get("kind") or "unknown"
+        title = data.get("title") or ""
+        details = data.get("details") or {}
+        score = float(data.get("score") or 0.0)
+        scope = data.get("scope")
+        app_version = data.get("app_version")
+
+        conn = self.connect()
+        # Existierendes aktives Insight suchen
+        existing = conn.execute(
+            "SELECT id, observed_count FROM learning_insights "
+            "WHERE (profile_id=? OR (profile_id IS NULL AND ? IS NULL)) "
+            "AND kind=? AND title=? AND is_active=1 LIMIT 1",
+            (pid, pid, kind, title)
+        ).fetchone()
+
+        now = _now()
+        if existing:
+            conn.execute(
+                "UPDATE learning_insights SET "
+                "observed_count=observed_count+1, "
+                "last_seen_at=?, score=?, details_json=? "
+                "WHERE id=?",
+                (now, score, json.dumps(details, ensure_ascii=False),
+                 existing["id"])
+            )
+            conn.commit()
+            return existing["id"]
+        cur = conn.execute(
+            "INSERT INTO learning_insights "
+            "(profile_id, kind, scope, title, details_json, score, "
+            " observed_count, first_seen_at, last_seen_at, "
+            " app_version_at_creation, is_active, is_shared) "
+            "VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1, 0)",
+            (pid, kind, scope, title,
+             json.dumps(details, ensure_ascii=False), score,
+             now, now, app_version)
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+
+    def list_learning_insights(self, only_active: bool = True,
+                               limit: int = 20) -> list:
+        """Liefert die aktuellsten learning_insights fuer das aktive Profil."""
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        sql = (
+            "SELECT id, kind, scope, title, details_json, score, "
+            "observed_count, first_seen_at, last_seen_at, "
+            "app_version_at_creation, is_active, is_shared, dismissed_at "
+            "FROM learning_insights "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+        )
+        if only_active:
+            sql += "AND is_active=1 "
+        sql += "ORDER BY score DESC, last_seen_at DESC LIMIT ?"
+        rows = conn.execute(sql, (pid, int(limit))).fetchall()
+        out = []
+        for r in rows:
+            try:
+                details = json.loads(r["details_json"] or "{}")
+            except Exception:
+                details = {}
+            out.append({
+                "id": r["id"],
+                "kind": r["kind"],
+                "scope": r["scope"],
+                "title": r["title"],
+                "details": details,
+                "recommendation": details.get("recommendation", ""),
+                "score": r["score"],
+                "observed_count": r["observed_count"],
+                "first_seen_at": r["first_seen_at"],
+                "last_seen_at": r["last_seen_at"],
+                "app_version_at_creation": r["app_version_at_creation"],
+                "is_active": bool(r["is_active"]),
+                "is_shared": bool(r["is_shared"]),
+                "dismissed_at": r["dismissed_at"],
+            })
+        return out
+
+    def dismiss_learning_insight(self, insight_id: int) -> bool:
+        """Markiert ein Insight als dismissed (User klickt 'Nicht mehr anzeigen')."""
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE learning_insights SET is_active=0, dismissed_at=? "
+            "WHERE id=?",
+            (_now(), int(insight_id))
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def deactivate_outdated_insights(self, current_version: str) -> int:
+        """Bei Version-Update: Insights, die fuer eine aeltere Version erstellt
+        wurden und seit > 30 Tagen nicht mehr beobachtet wurden, deaktivieren.
+
+        Hintergrund: User-Verhalten kann sich nach Update aendern. Alte Insights
+        sollen erneut validiert werden, statt 1:1 weiter angezeigt zu werden.
+        """
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE learning_insights SET is_active=0, "
+            "dismissed_at=COALESCE(dismissed_at, ?) "
+            "WHERE is_active=1 "
+            "AND (app_version_at_creation IS NULL "
+            "     OR app_version_at_creation != ?) "
+            "AND last_seen_at < ?",
+            (_now(), current_version, cutoff)
+        )
+        conn.commit()
+        return cur.rowcount
+
+    def count_llm_corrections(self, since_iso: Optional[str] = None) -> int:
+        """Zaehlt Events vom Typ 'llm_correction' (User hat eine LLM-Entscheidung
+        ueberstimmt — das ist Trainingsmaterial fuer adaptive Prompts)."""
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        if since_iso:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM user_activity_events "
+                "WHERE event_type='llm_correction' AND timestamp >= ? "
+                "AND (profile_id=? OR profile_id IS NULL)",
+                (since_iso, pid)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM user_activity_events "
+                "WHERE event_type='llm_correction' "
+                "AND (profile_id=? OR profile_id IS NULL)",
+                (pid,)
+            ).fetchone()
+        return row["n"] if row else 0
+
     def get_pbp_first_active_at(self) -> Optional[str]:
         """Liefert das Datum, ab dem PBP aktiv genutzt wurde (#beta.22).
 
