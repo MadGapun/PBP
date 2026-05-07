@@ -162,6 +162,34 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
+    # ── #590 Aufgabe A: Universelle Quellen fuer ALLE Profil-Typen ──
+    "personio": {
+        "name": "Personio (DACH-Mittelstand)",
+        "beschreibung": "Personio ist DACH-spezifischer ATS, im KMU sehr verbreitet. "
+                         "Stellen quer durch alle Branchen + Skill-Level (Azubi bis "
+                         "Geschaeftsfuehrer). Fuer Service/Pflege/Hotel/Einzelhandel "
+                         "oft die einzige zentrale Quelle.",
+        "methode": "Public XML-Feed (jobs.personio.de/xml)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "workable": {
+        "name": "Workable (Public Postings)",
+        "beschreibung": "Internationaler ATS, viele KMU-Kunden. Public Widget API "
+                         "pro Firma. Mid-Level breit gestreut, auch nicht-Tech.",
+        "methode": "Public Widget API",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
+    "meinestadt": {
+        "name": "meinestadt.de (Regional)",
+        "beschreibung": "Regionale DACH-Stellenseite mit Schwerpunkt Service-, Trade- "
+                         "und Pflege-Berufe (Kassierer, Hotel, Gastro, Handwerk). "
+                         "Schliesst die Luecke zu JobSpy/LinkedIn fuer nicht-Tech.",
+        "methode": "RSS-Feed pro Stadt",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+    },
     "greenhouse": {
         "name": "Greenhouse Boards",
         "beschreibung": "Greenhouse-Karriereseiten mehrerer DACH-relevanter Firmen "
@@ -370,6 +398,10 @@ _SCRAPER_MAP = {
     "arbeitnow": ("arbeitnow", "search_arbeitnow"),
     "greenhouse": ("greenhouse", "search_greenhouse"),
     "google_jobs": ("google_jobs", "search_google_jobs"),
+    # v1.7.0-beta.34 (#590 Aufgabe A): Universelle Quellen
+    "personio": ("personio", "search_personio"),
+    "workable": ("workable", "search_workable"),
+    "meinestadt": ("meinestadt", "search_meinestadt"),
 }
 
 

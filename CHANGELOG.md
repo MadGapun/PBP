@@ -7,6 +7,99 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.34] - 2026-05-07 — Universelle Quellen (#590 Aufgabe A)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Aufgabe A des #590-Stuetzpfeilers: drei neue Quellen, die Stellen ueber
+**alle Profil-Typen** liefern — nicht nur fuer High-Performer (User-
+Vorgabe: „Studenten oder Kassiererin oder oder oder...").
+
+### ✨ Added — Personio
+
+- Public XML-Feed `https://{firma}.jobs.personio.de/xml`
+- DACH-spezifischer ATS, im KMU sehr verbreitet
+- Stellen quer durch Branchen + Skill-Level (Azubi bis Geschaeftsfuehrer)
+- Kuratierte Default-Liste (11 Firmen) + User-eigene `personio_firmen`
+- Filter auf Keywords + Region, Mapping auf festanstellung/freelance/teilzeit/praktikum
+
+### ✨ Added — Workable
+
+- Public Widget API `https://apply.workable.com/api/v1/widget/accounts/{firma}`
+- Internationaler ATS, viele KMU-Kunden mit DACH-Stellen
+- Mid-Level breit gestreut, auch nicht-Tech
+- Kuratierte Default-Liste (8 Firmen) + User-eigene `workable_firmen`
+
+### ✨ Added — meinestadt.de (Regional)
+
+- RSS-Feed pro Stadt `https://www.meinestadt.de/{stadt}/jobs/rss?w={kw}`
+- **Schwerpunkt Service-, Trade- und Pflege-Berufe** (Kassierer, Hotel,
+  Gastro, Pflege, Handwerk) — schliesst die Luecke zu JobSpy/LinkedIn
+  fuer nicht-Tech
+- Region-zu-Slug-Mapping fuer 19 DACH-Staedte (Hamburg, Berlin, Muenchen,
+  Koeln, Frankfurt, Stuttgart, Duesseldorf, Dortmund, Essen, Leipzig,
+  Bremen, Dresden, Hannover, Nuernberg, Duisburg, Bochum, ...)
+- Wenn Region nicht im Mapping: Quelle wird sauber uebersprungen
+  statt 404-Spam
+
+### Tests
+
+- `tests/test_v170_beta34_universal_quellen.py`: 13 neue Tests (mit
+  HTTP-Mocking, kein Netz-Zugriff im Test)
+- **994 Tests gesamt, alle gruen.**
+
+### Profil-Typ-Reichweite
+
+| Zielgruppe | Vorher | Jetzt |
+|---|---|---|
+| Service (Kassierer, Pflege, Gastro) | Bundesagentur, Indeed | + meinestadt, personio |
+| Handwerk | Bundesagentur | + meinestadt |
+| KMU-Mid-Level (alle Branchen) | LinkedIn (eingeschraenkt) | + personio, workable |
+| Student/Werkstudent | kimeta | + personio (intern-Schedule) |
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.34.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.34.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.33] - 2026-05-07 — Scraper-Robustheit-Upgrade (#590 Aufgabe C)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
