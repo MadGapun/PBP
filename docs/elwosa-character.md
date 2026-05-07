@@ -644,7 +644,228 @@ ai_state_change     → AI wechselt von off → active oder umgekehrt
 - Tipps-Klick in Clipboard
 - ~30 Tests insgesamt
 
-## 11. Pflege-Hinweise
+## 11. MCP-Bridge — Claude liest und schreibt Elwosa
+
+User koennen NICHT direkt mit Elwosa kommunizieren (User-Vorgabe: kein
+zweiter Chat neben Claude). Stattdessen ist Claude der Uebersetzer:
+ueber MCP-Tools liest Claude den Elwosa-Stream und kann auch fuer
+Elwosa schreiben oder neue Linien anlernen.
+
+### Tool-Spec — `tools/elwosa.py` (neu)
+
+```python
+@mcp.tool()
+def elwosa_lesen(limit: int = 20, since_iso: str = "") -> dict:
+    """Liest die letzten Elwosa-Nachrichten aus dem Stream.
+
+    Use Cases:
+    - User fragt 'was hat Elwosa heute gesagt?'
+    - User fragt 'was meinte Elwosa zu der Bewerbung bei Phoenix?'
+    - Claude will den Tonfall des aktuellen Tages mitbekommen bevor
+      es selbst eine Linie fuer Elwosa schreibt
+    """
+
+@mcp.tool()
+def elwosa_schreiben(
+    content: str,
+    trigger_kind: str = "manual_via_claude",
+    trigger_ref: str = "",
+) -> dict:
+    """Schreibt eine Nachricht IM NAMEN VON Elwosa in den Stream.
+
+    Wichtig: Claude muss die Sprach-DNA aus docs/elwosa-character.md
+    einhalten. Die Nachricht erscheint im Sidebar-Stream als waere
+    sie von Elwosa selbst getriggert.
+
+    Use Cases:
+    - User: 'Sag Elwosa danke fuer den Tipp gestern'
+      → Claude ruft elwosa_schreiben("Gern geschehen. War nichts.")
+    - User-Aktion: 'Ich hab heute drei Stellen aussortiert'
+      → Claude beobachtet, ruft elwosa_schreiben mit passendem Kontext
+
+    Tonfall-Waechter:
+    - KEINE Ausrufezeichen
+    - KEINE Emojis
+    - 'du' nicht 'Sie'
+    - max 280 Zeichen
+    Verstoss => HTTP 400 mit Hinweis auf docs/elwosa-character.md.
+
+    trigger_kind: 'manual_via_claude' | 'user_question' | 'claude_handoff'
+    trigger_ref: optionaler Bezug (application_id, job_hash, ...)
+    """
+
+@mcp.tool()
+def elwosa_pause(minuten: int = 60) -> dict:
+    """Pausiert Elwosa fuer X Minuten.
+
+    Use Case: User: 'Sag Elwosa er soll mal eine Stunde Ruhe geben'
+    Wirkung: Trigger-Engine ueberspringt automatische Linien, eine
+    einzige Pause-Nachricht wird gepostet
+    ('Pausiert. Kein Stress, ich auch.'), dann Stille bis zur Frist.
+    """
+
+@mcp.tool()
+def elwosa_tonfall(modus: str) -> dict:
+    """Stellt den Elwosa-Tonfall um.
+
+    Args:
+        modus: 'standard' | 'sachlich' | 'humorvoll' | 'minimal' | 'aus'
+            - standard:   Default, wie in docs/elwosa-character.md
+            - sachlich:   Kein Ironie-Anteil, nur Status-Linien
+            - humorvoll:  Mehr Easter Eggs + Idle-Linien
+            - minimal:    Nur 1 Linie pro Tag (morgens)
+            - aus:        Equivalent zu Setting 'elwosa_enabled=False'
+
+    Use Case: User: 'Sag Elwosa heute mal sachlicher'
+    """
+
+@mcp.tool()
+def elwosa_linie_vorschlagen(
+    cluster: str,
+    trigger_kind: str,
+    content: str,
+    auto_aktivieren: bool = False,
+) -> dict:
+    """Schlaegt eine neue Linie fuer den Elwosa-Pool vor (Pool-Erweiterung).
+
+    Tonfall-Check und Validierung:
+    - cluster MUSS in PROFILE_TYPE_CLUSTERS sein (siehe #590)
+      ODER 'global' / 'tip' / 'idle' / 'easter_egg'
+    - trigger_kind MUSS in den definierten Trigger-Klassen sein
+    - content: max 280 Zeichen, kein Ausrufezeichen, kein Emoji,
+      'du' nicht 'Sie'
+
+    Use Cases:
+    - User: 'Elwosa, lerne diese Linie: ...' → Claude ruft mit auto_aktivieren=False
+    - Claude beobachtet wiederkehrendes Muster und schlaegt eine
+      passende Status-Linie vor
+    - Bei auto_aktivieren=True landet die Linie sofort im Pool des
+      aktiven Profils. Bei False: 'pending'-Bucket (User kann in
+      Settings genehmigen).
+    """
+
+@mcp.tool()
+def elwosa_status() -> dict:
+    """Liefert Elwosa-Status + aktuelle Stimmung + Trigger-State.
+
+    Rueckgabe:
+        is_active: bool
+        ai_state: 'active' | 'paused' | 'off' | 'no_model'
+        mood: 'standard' | 'melancholisch' | 'beschuetzend' | 'aufmerksam' | 'gelangweilt'
+        unread_messages: int
+        messages_today: int
+        tonfall_modus: str
+        next_idle_in_minutes: int
+        pool_size_total: int
+        pool_size_pending: int
+
+    Use Cases:
+    - User fragt 'wie geht's Elwosa heute?'
+    - Claude will wissen, ob es selbst eine Linie schreiben soll
+      oder ob Elwosa bald von alleine spricht
+    """
+```
+
+### Lese/Schreibe-Sicherheit
+
+- **`elwosa_schreiben`** validiert die Sprach-DNA hart — Claude muss
+  sich an die Regeln halten. Bei Tonfall-Verstoss: 400-Fehler mit
+  Hinweis welche Regel verletzt wurde. Claude kann dann nochmal
+  formulieren.
+- **`elwosa_linie_vorschlagen`** mit `auto_aktivieren=False` (Default)
+  legt die Linie in den `pending`-Bucket. User-Genehmigung im
+  Settings-Tab. So bleibt der Pool kuratiert.
+- **`elwosa_pause`** maximal 24h, danach automatisch zurueck zu active.
+
+### Erweiterung in `learning_insights` (#594)
+
+Wenn der User Linien per Klick dismisst, lernt Elwosa daraus:
+
+```python
+# Pseudo-Code in services/elwosa.py
+def on_message_dismissed(message_id):
+    msg = get_message(message_id)
+    pool_entry = find_pool_entry(msg.content)
+    if pool_entry:
+        increment_dismiss_count(pool_entry)
+        if dismiss_rate(pool_entry) > 0.5 and observed >= 5:
+            deactivate_pool_entry(pool_entry, profile_id=msg.profile_id)
+            # Insight in learning_insights speichern
+            db.upsert_learning_insight({
+                "kind": "ux_friction",
+                "scope": "elwosa",
+                "title": "Elwosa-Linie 'X' wird oft weggeklickt",
+                "details": {"line": pool_entry.content[:80]},
+            })
+```
+
+So entwickelt sich der Pool **per Profil** weiter, statt statisch zu
+bleiben — Claude kann ueber `elwosa_status` sehen, welche Linien
+deaktiviert sind, und ggf. Ersatz vorschlagen.
+
+## 12. Settings-UI (Tab „Lokale KI")
+
+Pflicht-Erweiterung: **Sidebar-Sub-Navigation fuer Settings vervollstaendigen**.
+Aktueller Stand (App.jsx) fehlt die Eintraege fuer Tabs `ai`
+(Lokale KI) und `automatik` (Auto-Actions). Wird mit Elwosa-Sprint
+zusammen gefixt.
+
+### Layout im „Lokale KI"-Tab
+
+```
+┌─ Lokale KI ─────────────────────────────────────┐
+│  [bestehende Modell-Auswahl + Status]            │
+└─────────────────────────────────────────────────┘
+
+┌─ Elwosa ─────────────────────────────────────────┐
+│  Elwosa ist die Statusanzeige der lokalen AI.    │
+│  Sie kommentiert was im Hintergrund passiert.    │
+│                                                   │
+│  ☑ Elwosa aktiv (wenn lokale AI laeuft)          │
+│                                                   │
+│  Frequenz                                         │
+│  Ruhig (3) ─────●──── Standard (8) ─── Aktiv (15)│
+│                                                   │
+│  Tonfall-Modus                                    │
+│  ⦿ Standard  ○ Sachlicher  ○ Mehr Humor  ○ Minimal│
+│                                                   │
+│  Trigger-Klassen                                  │
+│  ☑ Profil-spezifische Linien                     │
+│  ☑ Status (was die AI gerade tut)                │
+│  ☑ Tipps & Tricks                                 │
+│  ☑ Welt-Bezug (Tageszeit, Feiertage)             │
+│  ☑ Easter Eggs                                    │
+│                                                   │
+│  Vorgeschlagene Linien (von Claude):              │
+│   • "Diese Stelle bei {firma} ist heute reingekommen"│
+│     [Akzeptieren] [Verwerfen]                     │
+│                                                   │
+│  [Verlauf anzeigen]  [Pool zuruecksetzen]        │
+└─────────────────────────────────────────────────┘
+```
+
+### Settings-API (neu)
+
+```
+GET    /api/elwosa/settings        → aktuelles Setting
+PUT    /api/elwosa/settings        → toggles, frequenz, tonfall, trigger-klassen
+POST   /api/elwosa/pause            → minuten=N (oder via MCP-Tool)
+GET    /api/elwosa/pending-lines   → von Claude vorgeschlagene Linien
+POST   /api/elwosa/pending-lines/{id}/approve
+DELETE /api/elwosa/pending-lines/{id}
+```
+
+### Profile-Setting-Keys (neu)
+
+```
+elwosa_enabled              boolean, default True
+elwosa_frequency            "ruhig" | "standard" | "aktiv"  (default "standard")
+elwosa_tonfall_modus        "standard" | "sachlich" | "humorvoll" | "minimal"
+elwosa_triggers_disabled    JSON-Array von disabled Trigger-Klassen
+elwosa_paused_until         ISO-Timestamp oder leer
+```
+
+## 13. Pflege-Hinweise
 
 ### Linien hinzufuegen
 1. In **diesem Dokument** unter dem richtigen Cluster einfuegen
