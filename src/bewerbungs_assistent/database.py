@@ -4729,6 +4729,71 @@ class Database:
             (pid,)
         ).fetchone()[0]
 
+        # v1.7.0-beta.31 (#598): Quellen-Volumen pro Quelle.
+        # Abschnitt 12 zeigt jetzt die Gesamtzahlen, statt nur „letzte
+        # Treffer" (die aus scraper_health kamen). Damit klar wird welche
+        # Quelle wirklich produktiv ist.
+        source_volume_rows = conn.execute(
+            "SELECT j.source, "
+            " COUNT(*) AS total, "
+            " SUM(CASE WHEN j.is_active=1 THEN 1 ELSE 0 END) AS active, "
+            " SUM(CASE WHEN j.is_active=0 AND j.dismiss_reason IS NOT NULL "
+            "          AND j.dismiss_reason != '' "
+            "     THEN 1 ELSE 0 END) AS dismissed, "
+            " SUM(CASE WHEN EXISTS ("
+            "     SELECT 1 FROM applications a WHERE a.job_hash=j.hash"
+            "  ) THEN 1 ELSE 0 END) AS applied "
+            "FROM jobs j "
+            "WHERE (j.profile_id=? OR j.profile_id IS NULL) "
+            "AND j.source IS NOT NULL AND j.source != '' "
+            "GROUP BY j.source "
+            "ORDER BY total DESC",
+            (pid,)
+        ).fetchall()
+        source_volume = [
+            {
+                "source": r["source"],
+                "total": r["total"] or 0,
+                "active": r["active"] or 0,
+                "dismissed": r["dismissed"] or 0,
+                "applied": r["applied"] or 0,
+            }
+            for r in source_volume_rows
+        ]
+
+        # v1.7.0-beta.31 (#597): Dokumenten-Anzahl pro Bewerbung.
+        # SQL aggregiert Anzahl + dominanten doc_type pro application_id.
+        try:
+            doc_rows = conn.execute(
+                "SELECT linked_application_id AS app_id, "
+                " COUNT(*) AS doc_count, "
+                " SUM(CASE WHEN doc_type='lebenslauf' THEN 1 ELSE 0 END) AS cv, "
+                " SUM(CASE WHEN doc_type='anschreiben' THEN 1 ELSE 0 END) AS cl, "
+                " SUM(CASE WHEN doc_type='zeugnis' THEN 1 ELSE 0 END) AS cert, "
+                " SUM(CASE WHEN doc_type='projektliste' THEN 1 ELSE 0 END) AS proj, "
+                " SUM(CASE WHEN doc_type='email' OR doc_type='mail' THEN 1 ELSE 0 END) AS mail, "
+                " SUM(CASE WHEN doc_type IS NULL OR doc_type='sonstiges' "
+                "          THEN 1 ELSE 0 END) AS other "
+                "FROM documents "
+                "WHERE linked_application_id IS NOT NULL "
+                "AND (profile_id=? OR profile_id IS NULL) "
+                "GROUP BY linked_application_id",
+                (pid,)
+            ).fetchall()
+        except Exception:
+            doc_rows = []
+        documents_per_application = {}
+        for r in doc_rows:
+            documents_per_application[str(r["app_id"])] = {
+                "total": r["doc_count"] or 0,
+                "lebenslauf": r["cv"] or 0,
+                "anschreiben": r["cl"] or 0,
+                "zeugnis": r["cert"] or 0,
+                "projektliste": r["proj"] or 0,
+                "email": r["mail"] or 0,
+                "sonstiges": r["other"] or 0,
+            }
+
         # Interviews historisch (nutzt has_reached_interview, #530)
         interviews_total = conn.execute(
             "SELECT COUNT(*) FROM applications WHERE has_reached_interview=1 "
@@ -4758,6 +4823,10 @@ class Database:
             "interviews_historisch_total": interviews_total,
             # v1.6.6 (#540): Scraper-Health fuer Sektion „Quellen-Aktivitaet"
             "scraper_health": self.get_scraper_health(),
+            # v1.7.0-beta.31 (#598): Quellen-Volumen (Gesamttreffer)
+            "source_volume": source_volume,
+            # v1.7.0-beta.31 (#597): Dokumenten-Anzahl pro Bewerbung
+            "documents_per_application": documents_per_application,
         }
 
     # === Salary Data (PBP-014) ===

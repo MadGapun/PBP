@@ -7,6 +7,95 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.31] - 2026-05-07 — User-Test-Findings: Stellen-Detail + Bericht-Polish
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Vier User-Test-Findings vom heutigen Tag, gebuendelt:
+
+### 🐛 Fixed
+
+- **#595 — Stellen-Detail leer wenn `is_active=0`**: Wenn eine Bewerbung
+  auf eine Stelle verlinkt, die wegen `bewerbung_erstellt` aussortiert
+  wurde, war die Detail-Ansicht leer.
+  - Neuer Endpoint **`GET /api/jobs/{hash}`** liefert Stellen-Details
+    unabhaengig von `is_active`
+  - Neue Component **`InlineJobDetailModal`** in `ApplicationsPage` —
+    Klick auf den Stellen-Hash oeffnet ein Read-Only-Modal mit
+    Hinweis "Diese Stelle ist aussortiert"
+- **#596 Bug 1 — Eigenname als Keyword**: Profil-Vorname/Nachname werden
+  jetzt aus der Keyword-Extraktion gefiltert (vorher tauchte „markus 12x"
+  als Keyword auf, weil er in eigenen Anschreiben/Notizen vorkommt).
+- **#596 Bug 2 — `???`-Zeile in PDF**: Tokens, die latin-1 nicht
+  darstellen kann (Emoji, CJK), werden ausgelassen statt als `???`
+  ausgegeben.
+- **#596 Bug 3 — `PDM` fehlt**: Tokenisierung umgestellt von `text.split()`
+  auf `re.findall(r"[a-zäöüß]{3,}", text)` — splittet jetzt sauber
+  zwischen Slashes/Bindestrichen, sodass „PDM/PLM" als zwei separate
+  Tokens erkannt wird.
+
+### ✨ Added — Bewerbungsbericht
+
+- **#597 — Abschnitt „12b. Dokumente pro Bewerbung"**: Aufwands-
+  Indikator pro Bewerbung. Kategorien: einfach (1 Doku) / standard (2-3) /
+  aufwaendig (4+). Pro Bewerbung Tabelle mit Anzahl Lebenslaeufen,
+  Anschreiben, Zeugnissen, Mails, Sonstiges.
+- **#598 — Abschnitt 12 zeigt jetzt Volumen statt nur „letzte Treffer"**:
+  Tabelle mit Gefunden / Aktiv / Aussortiert / Beworben / Konversion pro
+  Quelle. Macht klar welche Quelle wirklich produktiv ist.
+- **#598 — Klare Abgrenzung zwischen Abschnitt 3 und 12**: jeder Abschnitt
+  hat jetzt einen Hinweis-Text.
+  - Abschnitt 3 = **Qualitaet** pro Quelle (Erfolgsquote)
+  - Abschnitt 12 = **Volumen** pro Quelle (Gesamttreffer)
+
+### Tests
+
+- `tests/test_v170_beta31_user_test_findings.py`: 13 neue Tests
+- **953 Tests gesamt, alle gruen.**
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.31.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.31.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.30] - 2026-05-07 — Lern-System Stufe 5: Telemetrie-Sharing (opt-in, wochenweise)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

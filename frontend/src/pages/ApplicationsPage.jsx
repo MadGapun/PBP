@@ -32,6 +32,7 @@ import {
   textExcerpt,
 } from "@/utils";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
+import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -108,6 +109,8 @@ export default function ApplicationsPage() {
   const [sortMode, setSortMode] = useState("neueste"); // neueste | status | firma
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
+  // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
+  const [jobDetailHash, setJobDetailHash] = useState(null);
   const [acceptanceDialog, setAcceptanceDialog] = useState({ open: false, application: null, final_salary: "", description: "", start_date: "" });
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -475,6 +478,14 @@ export default function ApplicationsPage() {
       <h1 className="sr-only">Bewerbungen</h1>
       {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
       <AdaptiveHintBanner page="bewerbungen" />
+
+      {/* v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt */}
+      {jobDetailHash && (
+        <InlineJobDetailModal
+          jobHash={jobDetailHash}
+          onClose={() => setJobDetailHash(null)}
+        />
+      )}
       <div className="mb-6 flex items-baseline justify-end gap-4">
         <div className="flex gap-2">
           <LinkButton size="sm" href={apiUrl("/api/cv/export/docx")} target="_blank" rel="noreferrer">
@@ -867,8 +878,8 @@ export default function ApplicationsPage() {
                     {app.job_hash && (
                       <button
                         className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
-                        title="Zur Stelle wechseln"
-                        onClick={() => { window.location.hash = "stellen"; }}
+                        title="Stelle anzeigen"
+                        onClick={() => setJobDetailHash(app.job_hash)}
                       ><ExternalLink size={8} className="mr-0.5 inline" />Stelle: {app.job_hash?.slice(0, 8)}</button>
                     )}
                   </div>

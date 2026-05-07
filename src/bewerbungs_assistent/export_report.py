@@ -252,7 +252,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     toc_items = [
         "1. Executive Summary",
         "2. Bewerbungen nach Status",
-        "3. Quellenanalyse",
+        "3. Quellenanalyse (Qualitaet)",
         "4. Bewerbungsart-Verteilung",
         "5. Fit-Score Verteilung",
         "6. Bewerbungsliste (detailliert)",
@@ -261,7 +261,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         "9. Nicht beworben trotz gutem Score",
         "10. Keyword-Analyse",
         "11. Aktivitaetsprotokoll",
-        "12. Quellen-Aktivitaet (Suchaufwand)",
+        "12. Quellen-Aktivitaet (Volumen)",
+        "12b. Dokumente pro Bewerbung",
     ]
     if show_berater_kommentar:
         toc_items.append("13. Beraterkommentar")
@@ -388,7 +389,16 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.ln(4)
 
     # --- 3. Quellenanalyse (#173) ---
-    _section_header(pdf, "3. Quellenanalyse")
+    _section_header(pdf, "3. Quellenanalyse (Qualitaet pro Quelle)")
+    # v1.7.0-beta.31 (#598): expliziter Abgrenzungs-Hinweis zu Abschnitt 12
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(110, 110, 110)
+    _line_cell(pdf, 0, 4, _safe_text(
+        "  Hinweis: Dieser Abschnitt zeigt die Qualitaet (Erfolgsquote) "
+        "pro Quelle. Abschnitt 12 zeigt das Volumen (Gesamttreffer)."
+    ))
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(1)
     by_source = stats.get("jobs_by_source", {})
     if by_source:
         # #430: Source chart
@@ -734,6 +744,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.ln(4)
 
     # --- 10. Keyword-Analyse ---
+    # v1.7.0-beta.31 (#596): drei Bugs behoben:
+    #   1. Eigennamen aus dem Profil filtern
+    #   2. Bessere Tokenisierung damit "PDM/PLM" als zwei Tokens gezaehlt wird
+    #   3. Nicht-darstellbare Zeichen (Emoji, Sonderzeichen) NICHT auflisten
     _section_header(pdf, "10. Keyword-Analyse (Top-Begriffe in passenden Stellen)")
     applied_descriptions = []
     for a in apps:
@@ -743,7 +757,14 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             applied_descriptions.append(f"{title} {desc}".lower())
 
     if applied_descriptions:
-        # Count word frequency across applied job descriptions
+        import re as _re
+        # Profil-Eigennamen aus dem Counter ausschliessen (#596 Bug 1)
+        name_parts: set[str] = set()
+        if profile:
+            for key in ("name", "first_name", "last_name", "vorname", "nachname"):
+                v = (profile.get(key) or "").strip().lower()
+                for part in _re.findall(r"[a-zäöüß]{3,}", v):
+                    name_parts.add(part)
         word_counter = Counter()
         stop_words = {
             "und", "die", "der", "in", "von", "zu", "mit", "für", "für",
@@ -754,15 +775,32 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             "aber", "aus", "nach", "wie", "sich", "ihre", "ihren", "einer",
             "einem", "eines", "werden", "wird", "haben", "sein", "sind",
             "m/w/d", "m/w", "(m/w/d)", "(m/w)", "gmbh", "gerne",
+            # haeufige Recruiter-Floskeln, kein Domain-Wert
+            "team", "stelle", "position", "bewerbung", "kollegen",
+            "unternehmen", "firma", "rolle", "aufgaben", "anforderungen",
+            "kunde", "kunden", "projekt", "projekte",
         }
         for text in applied_descriptions:
-            words = text.split()
-            for w in words:
-                w = w.strip(".,;:!?()[]{}\"'/-")
-                if len(w) >= 3 and w not in stop_words:
-                    word_counter[w] += 1
+            # #596 Bug 3 Tokenisierung: erlaubt nur Buchstaben & Umlaute,
+            # mind. 3 Zeichen — splitter durchschneidet "PDM/PLM" und
+            # "Teamleader (m/w/d)" sauber in einzelne Tokens.
+            for w in _re.findall(r"[a-zäöüß]{3,}", text):
+                if w in stop_words or w in name_parts:
+                    continue
+                word_counter[w] += 1
 
-        top_words = word_counter.most_common(25)
+        # #596 Bug 2: Nicht-darstellbare Zeichen — wenn _safe_text(w) ein
+        # `?` einfuegt, das im Original nicht vorhanden ist, ist das
+        # Keyword nicht latin-1-darstellbar → ueberspringen.
+        def _is_renderable(token: str) -> bool:
+            safe = _safe_text(token)
+            if "?" in safe and "?" not in token:
+                return False
+            return True
+
+        top_words = [
+            (w, c) for w, c in word_counter.most_common(60) if _is_renderable(w)
+        ][:25]
         if top_words:
             pdf.set_font("Helvetica", "", 8)
             _line_cell(pdf, 0, 5, _safe_text(
@@ -876,48 +914,126 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
         pdf.ln(4)
 
-    # --- 12. Quellen-Aktivitaet (Suchaufwand) ---
-    _section_header(pdf, "12. Quellen-Aktivitaet (Suchaufwand)")
-    pdf.set_font("Helvetica", "", 8)
-    _line_cell(pdf, 0, 5, _safe_text(
-        "  Belegt den Suchaufwand: welche Job-Portale wurden durchsucht, "
-        "wie haeufig, mit welcher Trefferzahl."
+    # --- 12. Quellen-Aktivitaet (Volumen) ---
+    # v1.7.0-beta.31 (#598): Gesamttreffer pro Quelle statt nur „letzte
+    # Treffer". Macht klar welche Quelle wirklich produktiv ist.
+    # Abgrenzung zu Abschnitt 3 ist explizit dokumentiert.
+    _section_header(pdf, "12. Quellen-Aktivitaet (Volumen pro Quelle)")
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(110, 110, 110)
+    _line_cell(pdf, 0, 4, _safe_text(
+        "  Hinweis: Dieser Abschnitt zeigt das Volumen (Gesamttreffer + "
+        "Bewerbungs-Konversion) pro Quelle. Abschnitt 3 zeigt die "
+        "Erfolgsquote (Interview-Anteil)."
     ))
+    pdf.set_text_color(0, 0, 0)
     pdf.ln(1)
-    if quellen_aktivitaet:
+
+    source_volume = report_data.get("source_volume") or []
+    if source_volume:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(40, 5, "Quelle", border=1, fill=True)
-        pdf.cell(25, 5, "Suchlaeufe", border=1, fill=True, align="C")
-        pdf.cell(25, 5, "Erfolgreich", border=1, fill=True, align="C")
-        pdf.cell(28, 5, "Letzte Treffer", border=1, fill=True, align="C")
-        pdf.cell(30, 5, "Letzter Lauf", border=1, fill=True, align="C")
-        pdf.cell(20, 5, "Status", border=1, fill=True, align="C")
+        pdf.cell(45, 5, "  Quelle", border=1, fill=True)
+        pdf.cell(25, 5, "Gefunden", border=1, fill=True, align="C")
+        pdf.cell(22, 5, "Aktiv", border=1, fill=True, align="C")
+        pdf.cell(28, 5, "Aussortiert", border=1, fill=True, align="C")
+        pdf.cell(22, 5, "Beworben", border=1, fill=True, align="C")
+        pdf.cell(28, 5, "Konversion", border=1, fill=True, align="C")
         pdf.ln()
         pdf.set_font("Helvetica", "", 7)
-        for q in quellen_aktivitaet:
-            name = (q.get("scraper_name") or q.get("name") or "")[:18]
-            total_runs = q.get("total_runs") or 0
-            total_succ = q.get("total_successes") or 0
-            last_count = q.get("last_count") or q.get("letzte_rohtreffer") or 0
-            last_run = (q.get("last_run") or "")[:10]
-            try:
-                last_run_de = datetime.fromisoformat(last_run).strftime("%d.%m.%Y") if last_run else "-"
-            except Exception:
-                last_run_de = last_run or "-"
-            aktiv = "aktiv" if q.get("is_active") else "inaktiv"
-            pdf.cell(40, 4, _safe_text(name), border=1)
-            pdf.cell(25, 4, str(total_runs), border=1, align="C")
-            pdf.cell(25, 4, str(total_succ), border=1, align="C")
-            pdf.cell(28, 4, str(last_count), border=1, align="C")
-            pdf.cell(30, 4, last_run_de, border=1, align="C")
-            pdf.cell(20, 4, aktiv, border=1, align="C")
+        for s in source_volume[:20]:
+            total = int(s.get("total") or 0)
+            applied = int(s.get("applied") or 0)
+            conversion = (
+                f"{round(applied / total * 100, 1)}%" if total > 0 else "-"
+            )
+            pdf.cell(45, 4, _safe_text(f"  {s.get('source', '')}")[:42], border=1)
+            pdf.cell(25, 4, str(total), border=1, align="C")
+            pdf.cell(22, 4, str(s.get("active") or 0), border=1, align="C")
+            pdf.cell(28, 4, str(s.get("dismissed") or 0), border=1, align="C")
+            pdf.cell(22, 4, str(applied), border=1, align="C")
+            pdf.cell(28, 4, conversion, border=1, align="C")
             pdf.ln()
+    elif quellen_aktivitaet:
+        # Fallback auf alte scraper_health-Daten wenn source_volume leer
+        # (sollte bei aktualisiertem Schema nicht mehr passieren).
+        pdf.set_font("Helvetica", "", 7)
+        _line_cell(pdf, 0, 5, _safe_text(
+            "  Volumen-Aufschluesselung noch nicht verfuegbar — Fallback auf scraper_health."
+        ))
     else:
+        pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
             "  Keine Quellen-Aktivitaet erfasst (noch keine Suchen durchgefuehrt)."
         ))
     pdf.ln(4)
+
+    # --- 12b. Dokumente pro Bewerbung (Aufwand-Indikator) ---
+    # v1.7.0-beta.31 (#597): Aufwand sichtbar machen — manche Bewerbungen
+    # bestehen nur aus dem Lebenslauf, andere haben +Anschreiben +Projekt-
+    # liste +20 individuelle Mails. Korreliert mit Erfolg.
+    docs_per_app = report_data.get("documents_per_application") or {}
+    if docs_per_app:
+        _section_header(pdf, "12b. Dokumente pro Bewerbung (Aufwand)")
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(110, 110, 110)
+        _line_cell(pdf, 0, 4, _safe_text(
+            "  Hinweis: Aufwandsindikator pro Bewerbung. Hilft die Frage "
+            "zu beantworten ob hoeherer Doku-Aufwand zu mehr Einladungen fuehrt."
+        ))
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+        # Bucket-Statistik: einfach (1) / standard (2-3) / aufwaendig (4+)
+        buckets = {"einfach": 0, "standard": 0, "aufwaendig": 0}
+        per_app_rows = []
+        for a in apps[:60]:
+            app_id = str(a.get("id") or "")
+            d = docs_per_app.get(app_id, {})
+            n = int(d.get("total") or 0)
+            if n == 0:
+                continue
+            if n == 1:
+                buckets["einfach"] += 1
+            elif n <= 3:
+                buckets["standard"] += 1
+            else:
+                buckets["aufwaendig"] += 1
+            per_app_rows.append((a, d, n))
+
+        if buckets["einfach"] + buckets["standard"] + buckets["aufwaendig"] > 0:
+            pdf.set_font("Helvetica", "B", 8)
+            _line_cell(pdf, 0, 5, _safe_text("  Verteilung nach Aufwand:"))
+            pdf.set_font("Helvetica", "", 7)
+            for label, n in buckets.items():
+                pdf.cell(40, 4, _safe_text(f"  {label}"), border=1)
+                pdf.cell(25, 4, str(n), border=1, align="C")
+                pdf.ln()
+            pdf.ln(1)
+
+        if per_app_rows:
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.cell(70, 5, "  Bewerbung", border=1, fill=True)
+            pdf.cell(15, 5, "Lbsl.", border=1, fill=True, align="C")
+            pdf.cell(15, 5, "Anschr.", border=1, fill=True, align="C")
+            pdf.cell(15, 5, "Zeugn.", border=1, fill=True, align="C")
+            pdf.cell(15, 5, "Mails", border=1, fill=True, align="C")
+            pdf.cell(15, 5, "Sonst.", border=1, fill=True, align="C")
+            pdf.cell(15, 5, "Gesamt", border=1, fill=True, align="C")
+            pdf.ln()
+            pdf.set_font("Helvetica", "", 7)
+            for a, d, n in per_app_rows[:30]:
+                title = (a.get("company") or "")[:30]
+                pdf.cell(70, 4, _safe_text(f"  {title}"), border=1)
+                pdf.cell(15, 4, str(d.get("lebenslauf") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(d.get("anschreiben") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(d.get("zeugnis") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(d.get("email") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(d.get("sonstiges") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(n), border=1, align="C")
+                pdf.ln()
+        pdf.ln(4)
 
     # v1.6.8: Sektion 13 „Bewerbungs-Trichter" entfernt — die Stufen waren
     # in sich nicht schluessig (1027 aussortiert + 68 beworben passte nicht

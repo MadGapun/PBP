@@ -4263,6 +4263,10 @@ async def api_update_job(job_hash: str, request: Request):
     return {"status": "ok"}
 
 
+# v1.7.0-beta.31 (#595): GET /api/jobs/{hash} wird weiter unten nach
+# /api/jobs/compare registriert (Routing-Reihenfolge!). Siehe dort.
+
+
 @app.post("/api/applications/{app_id}/fit-analyse")
 async def api_save_app_fit_analyse(app_id: str, request: Request):
     """Save fit analysis result to an application (#84)."""
@@ -6074,6 +6078,31 @@ async def api_jobs_compare(a: str, b: str):
             "gleiche_firma": (ja.get("company") or "").lower().strip() == (jb.get("company") or "").lower().strip(),
         },
     }
+
+
+# v1.7.0-beta.31 (#595): GET /api/jobs/{hash} — bewusst NACH
+# /api/jobs/compare (oben) registriert, damit FastAPI die statische
+# Compare-Route zuerst matcht.
+@app.get("/api/jobs/{job_hash}")
+async def api_get_job_detail(job_hash: str):
+    """Liefert Job-Details unabhaengig von is_active.
+
+    Anwendungsfall: Bewerbung verlinkt auf eine Stelle, die nach
+    `bewerbung_erstellt` aussortiert wurde — die Detail-Ansicht muss
+    trotzdem aufrufbar sein.
+    """
+    pid = _db.get_active_profile_id()
+    resolved = _db.resolve_job_hash(job_hash)
+    if not resolved:
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    conn = _db.connect()
+    row = conn.execute(
+        "SELECT * FROM jobs WHERE hash=? AND (profile_id=? OR profile_id IS NULL)",
+        (resolved, pid)
+    ).fetchone()
+    if not row:
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    return _db._serialize_job_row(row)
 
 
 # === Kontakte API (v1.7.0 #563) ===

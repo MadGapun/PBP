@@ -200,8 +200,9 @@ def test_mail_subject_includes_version_and_count(setup_env):
         _build_telemetry_payload, _format_telemetry_mail
     )
     mail = _format_telemetry_mail(_build_telemetry_payload())
+    from bewerbungs_assistent import __version__ as _v
     assert "PBP-Telemetrie" in mail["subject"]
-    assert "1.7.0-beta.30" in mail["subject"]
+    assert _v in mail["subject"]
 
 
 # ============= API ===============
