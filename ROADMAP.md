@@ -58,12 +58,19 @@ und welche Issues warum zurueckgestellt werden.
 - Darauf aufbauend: #478/#480/#481/#524 Mail-/Kalender-Plug-Ins
 - #525 Newsletter-Ingest als optionales Plug-In
 
-### Spielereien (jederzeit moeglich)
+### Highlight-Feature fuer v1.7-Stable
 
-- **„Marvin"-Statusanzeige** wenn lokale AI arbeitet — humorvolle
-  Live-Kommentare im Stil von Douglas Adams' depressivem Roboter.
-  Eigenes Issue, sehr begrenzter Aufwand.
-- **#513 Community-Tagesimpulse** in der gleichen Kategorie.
+- **#599 Elwosa** — Live-Statusanzeige der lokalen AI mit eigener
+  Persoenlichkeit. Spec abgeschlossen, Linien-Pool kuratiert
+  (~140 Linien in [`docs/elwosa-character.md`](docs/elwosa-character.md)).
+  **Kommt in beta.37/38 vor v1.7-Stable** als sichtbares Statement
+  fuer den Lern-System-Sprint. Geschaetzter Aufwand: ~7h netto
+  (Backend + Frontend + Tests).
+
+### Andere Spielereien
+
+- **#513 Community-Tagesimpulse** — gleiches Submission-Pattern wie
+  spaetere Elwosa-Community-Linien.
 
 ## Nicht-Code-Themen
 

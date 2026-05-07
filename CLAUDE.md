@@ -49,6 +49,20 @@ abgeschlossenem User-Test (User-Wort).
 - **Quellen-Rotation (#590-C.4)** wurde aus #590 herausgehalten —
   betrifft den job_runner-Orchestrator, eigenes Issue empfohlen.
 
+### Elwosa (#599) — kommt in v1.7 als Highlight-Feature
+
+Live-Statusanzeige der lokalen AI in der linken Sidebar. Eigene Persoenlichkeit
+(geschlechtsfrei, britisch ironisch, lakonisch). Kommentiert was die lokale AI
+gerade tut, gibt Tipps zu Claude-Workflows und PBP-Features.
+
+- **Charakter-Briefing + Linien-Pool (~140 Linien):** [`docs/elwosa-character.md`](docs/elwosa-character.md)
+- **Implementierungs-Spec:** [Issue #599](https://github.com/MadGapun/PBP/issues/599)
+- **Slot:** v1.7.0-beta.37 oder .38, vor v1.7-Stable
+- **Pflege-Regel:** wenn neue Linien hinzugefuegt werden, Tonfall-DNA in `docs/elwosa-character.md` einhalten — keine Ausrufezeichen, keine Emojis, „du" nicht „Sie", lakonische Untertreibung
+- **Verbindung zum Lern-System (#594):** Trigger fuer `auto_dismiss_ran`,
+  `pattern_insight`, `mail_received` kommen aus dem bestehenden Activity-
+  Tracking + Auto-Engine. Keine neue Infrastruktur noetig.
+
 ## Release-Workflow (Pflicht-Checkliste)
 
 Bevor ein neuer Release gebaut wird:
