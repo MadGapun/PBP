@@ -20,6 +20,7 @@ import { api, deleteRequest, postJson } from "@/api";
 
 const HIDE_KEY = "pbp_elwosa_hidden_until";
 const POLL_INTERVAL_MS = 30 * 1000;
+const HEARTBEAT_INTERVAL_MS = 60 * 60 * 1000; // 1 Stunde
 const HIDE_DURATION_MS = 30 * 60 * 1000; // 30 Minuten Session-Hide
 
 function readHiddenUntil() {
@@ -96,7 +97,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
   const [isHovering, setIsHovering] = useState(false);
   const pollRef = useRef(null);
 
-  // Polling
+  // Polling + Heartbeat
   useEffect(() => {
     let cancelled = false;
     async function fetchAll() {
@@ -110,11 +111,30 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
         setStatus(st);
       } catch {}
     }
+    // v1.7.0-beta.40 (#609): Heartbeat fuer Welt-Trigger + Welcome
+    async function heartbeat() {
+      try {
+        await postJson("/api/elwosa/heartbeat", {});
+        // sofort danach Messages neu laden
+        if (!cancelled) await fetchAll();
+      } catch {}
+    }
     fetchAll();
+    heartbeat();  // einmal beim Mount
     pollRef.current = setInterval(fetchAll, POLL_INTERVAL_MS);
+    const heartbeatInterval = setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
+    // Beim Tab-Sichtbar-werden: Heartbeat ausloesen
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        heartbeat();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
       if (pollRef.current) clearInterval(pollRef.current);
+      clearInterval(heartbeatInterval);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 

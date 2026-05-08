@@ -5114,6 +5114,9 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
 
     threading.Thread(target=_timeout_watchdog, daemon=True).start()
 
+    # v1.7.0-beta.40 (#609): Elwosa kommentiert den Suchstart
+    _elwosa_speak_safe("llm_task_running", ctx={"count": len(auto_quellen)})
+
     result = {
         "status": "gestartet",
         "job_id": job_id,
@@ -6992,6 +6995,19 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
             "default_days": default_days}
 
 
+def _elwosa_speak_safe(trigger_kind: str, ctx: dict = None,
+                        cluster: str = None) -> None:
+    """Hilfs-Funktion: ruft elwosa.speak() ohne dass Fehler den Aufrufer
+    stoeren. Wird von allen Aktions-Hooks genutzt — Elwosa-Probleme duerfen
+    nie die eigentliche Aktion blockieren.
+    """
+    try:
+        from .services import elwosa as _elwosa
+        _elwosa.speak(_db, trigger_kind, ctx=ctx or {}, cluster=cluster)
+    except Exception:
+        pass
+
+
 def _run_auto_classify_emails(now_iso: str, max_emails: int = 30) -> dict:
     """Klassifiziert eingehende Mails ohne `detected_status` via lokale AI.
 
@@ -7049,6 +7065,9 @@ def _run_auto_classify_emails(now_iso: str, max_emails: int = 30) -> dict:
         except Exception:
             errors += 1
     conn.commit()
+    # v1.7.0-beta.40 (#609): Elwosa-Hook
+    if classified > 0:
+        _elwosa_speak_safe("mail_classify", ctx={"count": classified})
     return {
         "skipped": False,
         "checked": len(rows),
@@ -7108,6 +7127,9 @@ def _run_auto_classify_documents(now_iso: str, max_docs: int = 30) -> dict:
         except Exception:
             errors += 1
     conn.commit()
+    # v1.7.0-beta.40 (#609): Elwosa-Hook
+    if classified > 0:
+        _elwosa_speak_safe("mail_classify", ctx={"count": classified})
     return {
         "skipped": False,
         "checked": len(rows),
@@ -7304,6 +7326,9 @@ def _run_extract_contacts(now_iso: str, max_items: int = 20) -> dict:
             except Exception:
                 pass
 
+    # v1.7.0-beta.40 (#609): Elwosa-Hook
+    if extracted > 0:
+        _elwosa_speak_safe("auto_dismiss_ran", ctx={"count": extracted})
     return {
         "skipped": False,
         "checked": len(new_apps),
@@ -7579,6 +7604,49 @@ async def api_elwosa_reject(line_id: int):
         return JSONResponse({"error": "Linie nicht gefunden"},
                              status_code=404)
     return {"status": "rejected"}
+
+
+@app.post("/api/elwosa/heartbeat")
+async def api_elwosa_heartbeat():
+    """v1.7.0-beta.40 (#609): Frontend-Heartbeat fuer Welt-Trigger.
+
+    Wird vom Frontend ~1x/h aufgerufen + bei Tab-Sichtbar-werden.
+    Prueft:
+    - Welcome-Nachricht falls noch keine Messages existieren
+    - Welt-Trigger (morning/evening/weekend/...) falls passend zur Tageszeit
+    - Idle-Trigger falls > 4h Stille
+    """
+    from .services import elwosa
+    settings = _db.get_elwosa_settings()
+    if not settings.get("enabled"):
+        return {"posted": 0, "reason": "elwosa_enabled=False"}
+
+    posted = []
+
+    # 1. Welcome (1x ever)
+    msgs = _db.get_elwosa_messages(limit=1)
+    if not msgs:
+        try:
+            from .services.elwosa_lines import WELCOME_MESSAGE
+            mid = elwosa.speak_raw(_db, WELCOME_MESSAGE,
+                                    trigger_kind="welcome")
+            posted.append({"trigger": "welcome", "id": mid})
+        except Exception:
+            pass
+
+    # 2. Welt-Trigger
+    world_trigger = elwosa.detect_world_trigger()
+    if world_trigger:
+        try:
+            mid = elwosa.speak(_db, world_trigger, ctx={
+                "count": _count_new_jobs_today(),
+            })
+            if mid:
+                posted.append({"trigger": world_trigger, "id": mid})
+        except Exception:
+            pass
+
+    return {"posted": len(posted), "details": posted}
 
 
 @app.get("/api/elwosa/status")

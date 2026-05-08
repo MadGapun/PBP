@@ -145,6 +145,13 @@ STATUS_LINES: dict[str, list[str]] = {
         "Eigentlich sollte ich das in zwei Sekunden schaffen. Aber das Modell ist klein und die Stellen sind viele. Geduld.",
         "Waehrend ich das durchsehe, hast du schon zu Mittag gegessen? Du solltest. Das hier dauert.",
     ],
+    # v1.7.0-beta.40 (#609): Jobsuche laeuft
+    "llm_task_running": [
+        "Jobsuche laeuft auf {count} Portalen. Mach was Vernuenftiges, ich melde mich.",
+        "Suche gestartet. {count} Quellen, ich pruefe sie der Reihe nach.",
+        "{count} Portale werden durchsucht. Ich seh nach was dabei ist.",
+        "Suche laeuft. Manche Portale dauern, manche schweigen — ich filtere durch.",
+    ],
 }
 
 
@@ -206,6 +213,11 @@ WORLD_LINES: dict[str, list[str]] = {
 # === Reaktion auf Status-Wechsel (Sektion 8.13) ==================
 
 STATUS_CHANGE_LINES: dict[str, list[str]] = {
+    "bewerbung_angelegt": [
+        "Bewerbung bei {firma} angelegt. Vermerkt.",
+        "{firma} kommt auf die Liste. Markiert.",
+        "Neue Bewerbung: {firma}. Auge drauf.",
+    ],
     "absage": [
         "Absage von {firma}. Deren Verlust. Ehrlich.",
         "Sie haben sich fuer jemand anderen entschieden. Vermutlich jemanden der billiger ist und genauso wenig kann. Weiter.",

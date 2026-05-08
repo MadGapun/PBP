@@ -476,6 +476,16 @@ def register(mcp, db, logger):
             except Exception:
                 pass  # Job existiert evtl. nicht
 
+        # v1.7.0-beta.40 (#609): Elwosa-Hook bei neuer Bewerbung
+        try:
+            from ..services import elwosa as _elwosa
+            _elwosa.speak(db, "bewerbung_angelegt", ctx={
+                "firma": company,
+                "ref": aid,
+            })
+        except Exception:
+            pass
+
         # #224: Notiz als ersten Timeline-Eintrag speichern
         if notes:
             from datetime import datetime as dt_now
@@ -583,10 +593,13 @@ def register(mcp, db, logger):
                 ),
             }
 
+        # v1.7.0-beta.40 (#609): App holen wir immer, damit Elwosa-Hook
+        # weiter unten die Firma kennt.
+        app = db.get_application(bewerbung_id)
+
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         auto_followup_id = None
         if neuer_status == "beworben":
-            app = db.get_application(bewerbung_id)
             if app:
                 if not app.get("applied_at"):
                     from datetime import datetime
@@ -619,6 +632,24 @@ def register(mcp, db, logger):
         open_before = sum(1 for fu in db.get_pending_follow_ups()
                           if fu.get("application_id") == bewerbung_id)
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
+        # v1.7.0-beta.40 (#609): Elwosa-Hook bei Status-Wechsel
+        try:
+            from ..services import elwosa as _elwosa
+            _trigger_map = {
+                "abgelehnt": "absage",
+                "eingangsbestaetigung": "eingangsbestaetigung",
+                "interview": "interview_einladung",
+                "zweitgespraech": "interview_einladung",
+                "angenommen": "angenommen",
+                "zurueckgezogen": "zurueckgezogen",
+                "abgelaufen": "abgelaufen",
+            }
+            t = _trigger_map.get(neuer_status)
+            if t:
+                _firma = (app or {}).get("company") or ""
+                _elwosa.speak(db, t, ctx={"firma": _firma, "ref": bewerbung_id})
+        except Exception:
+            pass
         pending_after = [fu for fu in db.get_pending_follow_ups()
                          if fu.get("application_id") == bewerbung_id]
         dismissed_followups = max(0, open_before - len(pending_after))

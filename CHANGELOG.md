@@ -7,6 +7,99 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.40] - 2026-05-07 — Elwosa-Hooks: Bot reagiert jetzt wirklich (#609 Hot-Fix)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Test-Finding: Elwosa hat in einer 3,5h-Session **gar nichts** kommentiert
+trotz laufender Jobsuche. Konzeptioneller Fehler — Elwosa sprang nur per
+Auto-Engine an, der zudem selten lief. **Keine direkten Hooks** in die
+laufenden Aktionen.
+
+### 🐛 Fixed — #609 Hooks an allen wichtigen Aktions-Quellen
+
+Direkte `elwosa.speak()`-Calls in:
+
+- **`/api/jobsuche/start`** → `llm_task_running` mit Quellen-Anzahl
+  („Jobsuche laeuft auf {count} Portalen. Mach was Vernuenftiges, ich melde mich.")
+- **`_run_auto_classify_emails`** → `mail_classify` mit Anzahl klassifizierter Mails
+- **`_run_auto_classify_documents`** → `mail_classify` analog
+- **`_run_extract_contacts`** → `auto_dismiss_ran` mit Anzahl extrahierter Kontakte
+- **`bewerbung_erstellen`** → `bewerbung_angelegt` mit Firmenname
+- **`bewerbung_status_aendern`** → trigger_map auf:
+  - `abgelehnt` → `absage`-Linien
+  - `eingangsbestaetigung` → `eingangsbestaetigung`-Linien
+  - `interview` / `zweitgespraech` → `interview_einladung`-Linien
+  - `angenommen` → `angenommen`-Linien (*„Endlich. Ich war kurz davor denen selbst zu schreiben."*)
+
+### ✨ Added — Heartbeat-Endpoint + Welcome
+
+- **`POST /api/elwosa/heartbeat`**: Frontend-Heartbeat fuer:
+  - **Welcome-Nachricht** (1x ever bei erster Aktivierung)
+  - **Welt-Trigger** (morning/evening/weekend/...) basierend auf Tageszeit
+- **Frontend** ruft Heartbeat:
+  - 1x beim Mount der ElwosaSidebarChat-Component
+  - Alle 60 Minuten
+  - Bei `visibilitychange` (Tab wird wieder sichtbar)
+
+### ✨ Added — Linien-Pool-Erweiterung
+
+- Neue STATUS_CHANGE_LINES `bewerbung_angelegt` (3 Linien)
+- Neue STATUS_LINES `llm_task_running` (4 Linien fuer Jobsuche-Start)
+
+### Tests
+
+- `tests/test_v170_beta40_elwosa_hooks.py`: 11 neue Tests
+- **1119 Tests gesamt, alle gruen**
+
+### Hilfs-Funktion
+
+`_elwosa_speak_safe()` in dashboard.py kapselt den `speak()`-Aufruf so,
+dass Elwosa-Probleme NIE die eigentliche Aktion blockieren.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.40.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.40.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.39] - 2026-05-07 — Kontakte-Reife: Kategorien mit Farben + LLM-Auto-Import (#606 + #608)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
