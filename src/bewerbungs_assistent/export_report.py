@@ -490,13 +490,36 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.ln(4)
 
     # --- 5. Score-Verteilung ---
-    if score_dist:
+    # v1.7.0-beta.38 (#607): geordnete Liste statt sortiertem dict —
+    # Reihenfolge ist jetzt nach Score-Wert aufsteigend (niedrig oben).
+    # Buckets sind dynamisch aus dem Max-Score abgeleitet.
+    score_dist_ordered = report_data.get("score_distribution_ordered") or []
+    if not score_dist_ordered and score_dist:
+        # Backwards-Compat: alter Dict-Stil → in geordnete Liste umwandeln
+        # mit der alten 0/1-3/4-6/7-9/10+-Reihenfolge falls erkannt.
+        legacy_order = ["0", "1-3", "4-6", "7-9", "10+"]
+        score_dist_ordered = [
+            {"bracket": k, "cnt": score_dist[k]}
+            for k in legacy_order if k in score_dist
+        ]
+        # zusaetzlich alle anderen Keys nach Bracket-Lower sortiert
+        unknown = sorted(
+            [k for k in score_dist if k not in legacy_order],
+            key=lambda b: int((b.split("-")[0] or "0").rstrip("+"))
+        )
+        for k in unknown:
+            score_dist_ordered.append({"bracket": k, "cnt": score_dist[k]})
+
+    if score_dist_ordered:
         _section_header(pdf, "5. Fit-Score Verteilung")
-        # #430: Score distribution chart
         _embed_chart(pdf, _chart_score_distribution(score_dist))
         pdf.set_font("Helvetica", "", 9)
-        for bracket, count in sorted(score_dist.items()):
-            bar_width = min(count, 120)
+        max_count = max((item["cnt"] for item in score_dist_ordered), default=1) or 1
+        for item in score_dist_ordered:
+            bracket = item["bracket"]
+            count = item["cnt"]
+            # Balken proportional zum max_count, max 120 Punkte breit
+            bar_width = max(2, min(120, int(count / max_count * 120)))
             pdf.cell(30, 5, _safe_text(f"  Score {bracket}"))
             pdf.set_fill_color(76, 175, 80)
             pdf.cell(bar_width, 5, "", fill=True)
@@ -1360,7 +1383,17 @@ def _chart_score_distribution(score_dist: dict) -> bytes | None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        sorted_brackets = sorted(score_dist.keys())
+        # v1.7.0-beta.38 (#607): Sortierung nach Score-Lower-Bound,
+        # nicht alphabetisch — sonst landet "10+" zwischen "1-3" und
+        # "16-30".
+        def _bucket_lower(b: str) -> int:
+            """'0' -> 0, '16-30' -> 16, '76-90+' -> 76"""
+            head = b.split("-")[0].rstrip("+")
+            try:
+                return int(head)
+            except ValueError:
+                return 0
+        sorted_brackets = sorted(score_dist.keys(), key=_bucket_lower)
         labels = [f"Score {b}" for b in sorted_brackets]
         values = [score_dist[b] for b in sorted_brackets]
 

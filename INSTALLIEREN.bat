@@ -754,8 +754,9 @@ if "!DASH_OK!"=="1" (
     echo        [OK] Browser-Tab oeffnet sich.
 ) else (
     echo        [!!] Dashboard antwortet nicht nach 30 Sekunden.
-    echo             Pruefe das PBP-Dashboard-Fenster auf Fehler oder
-    echo             oeffne manuell: http://localhost:8200/
+    echo  [3/3] Browser oeffnen trotzdem (falls alte Instanz laeuft)...
+    start "" "http://localhost:8200/"
+    echo             Falls leer: Pruefe das PBP-Dashboard-Fenster auf Fehler.
     echo             Log: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
 )
 echo.

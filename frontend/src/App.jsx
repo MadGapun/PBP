@@ -1163,6 +1163,15 @@ export default function App() {
               <ElwosaSidebarChat
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}
+                onNavigateToSettings={(tab) => {
+                  navigateTo("einstellungen");
+                  // beta.38 (#601): direkt zum Lokale-KI-Tab springen
+                  setTimeout(() => {
+                    document.dispatchEvent(
+                      new CustomEvent("settings-nav", { detail: { tab: tab || "ai" } })
+                    );
+                  }, 50);
+                }}
               />
             </>
           }

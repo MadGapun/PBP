@@ -1349,22 +1349,102 @@ function ElwosaSettingsSection({ pushToast }) {
         <div className="space-y-3">
           <div>
             <p className="text-[11px] font-medium text-muted/70 mb-1">Frequenz (fuer Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
-            <div className="flex gap-2">
-              {["ruhig", "standard", "aktiv"].map((f) => (
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "ruhig", label: "Ruhig (3/Tag)" },
+                { id: "standard", label: "Standard (8)" },
+                { id: "aktiv", label: "Aktiv (15)" },
+                { id: "unbegrenzt", label: "Unbegrenzt" },
+              ].map((f) => (
                 <button
-                  key={f}
+                  key={f.id}
                   type="button"
-                  onClick={() => update({ frequency: f })}
+                  onClick={() => update({ frequency: f.id })}
                   disabled={busy}
-                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.frequency === f
+                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.frequency === f.id
                     ? "border-teal bg-teal/15 text-teal"
                     : "border-white/10 text-muted hover:border-white/30"}`}
                 >
-                  {f === "ruhig" ? "Ruhig (3/Tag)" : f === "standard" ? "Standard (8)" : "Aktiv (15)"}
+                  {f.label}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* v1.7.0-beta.38 (#601): Power-User-Block */}
+          <details className="border-t border-white/5 pt-3">
+            <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/50 mb-2">
+              Power-User-Optionen
+            </summary>
+
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-[11px] font-medium text-muted/70 mb-1">
+                  Cooldown zwischen Nachrichten ({settings.cooldown_seconds || 90}s)
+                </p>
+                <input
+                  type="range"
+                  min={10}
+                  max={300}
+                  step={10}
+                  value={settings.cooldown_seconds || 90}
+                  onChange={(e) => update({ cooldown_seconds: parseInt(e.target.value, 10) })}
+                  disabled={busy}
+                  className="w-full"
+                />
+                <p className="text-[10px] text-muted/50">
+                  Niedriger = schneller (10s minimum). Standard 90s.
+                </p>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!settings.comment_user_actions}
+                  onChange={(e) => update({ comment_user_actions: e.target.checked })}
+                  disabled={busy}
+                  className="mt-0.5 h-3.5 w-3.5"
+                />
+                <span className="text-[11px] text-muted">
+                  Auch manuelle User-Aktionen kommentieren (klicken, sortieren, oeffnen)
+                </span>
+              </label>
+
+              <div>
+                <p className="text-[11px] font-medium text-muted/70 mb-1">Trigger-Klassen ausschalten</p>
+                <div className="space-y-1">
+                  {[
+                    { id: "idle", label: "Idle (Stille-Linien)" },
+                    { id: "world", label: "Welt-Bezug (Tageszeit, Feiertage)" },
+                    { id: "tip", label: "Tipps & Tricks" },
+                    { id: "easter_egg", label: "Easter Eggs" },
+                  ].map((t) => {
+                    const disabled = (settings.triggers_disabled || []).includes(t.id);
+                    return (
+                      <label key={t.id} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={disabled}
+                          onChange={(e) => {
+                            const cur = settings.triggers_disabled || [];
+                            const next = e.target.checked
+                              ? [...cur, t.id]
+                              : cur.filter((x) => x !== t.id);
+                            update({ triggers_disabled: next });
+                          }}
+                          disabled={busy}
+                          className="h-3 w-3"
+                        />
+                        <span className="text-[11px] text-muted">
+                          {t.label} {disabled && <span className="text-coral/70">(aus)</span>}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </details>
 
           <div>
             <p className="text-[11px] font-medium text-muted/70 mb-1">Tonfall</p>

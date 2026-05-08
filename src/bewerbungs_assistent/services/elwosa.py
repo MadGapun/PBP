@@ -174,7 +174,16 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
 
     Status-Trigger (mail_received, auto_dismiss_ran, status_change, etc.)
     sind UNBEGRENZT. Nur idle/world/tip werden gedrosselt.
+
+    v1.7.0-beta.38 (#601):
+    - 'unbegrenzt'-Frequenz hebt alle Limits auf
+    - triggers_disabled deaktiviert ganze Klassen
     """
+    # Disabled-Liste pruefen (Power-User kann ganze Klassen abschalten)
+    disabled = settings.get("triggers_disabled") or []
+    if trigger_kind in disabled:
+        return False
+
     if trigger_kind in (
         "llm_task_running", "mail_received", "auto_dismiss_ran",
         "pattern_insight", "status_change", "job_new_high_score",
@@ -183,6 +192,9 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
     ):
         return True
     freq = settings.get("frequency", "standard")
+    if freq == "unbegrenzt":
+        # Power-User: keine Drosselung
+        return True
     limits = FREQUENCY_LIMITS.get(freq, FREQUENCY_LIMITS["standard"])
 
     if trigger_kind == "idle":
@@ -253,7 +265,9 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
                 return None
         except Exception:
             pass
-    if is_in_cooldown(db):
+    # v1.7.0-beta.38 (#601): cooldown aus Settings (Default 90s)
+    cooldown = int(settings.get("cooldown_seconds") or 90)
+    if is_in_cooldown(db, seconds=cooldown):
         return None
     if not can_post_class(db, trigger_kind, settings):
         return None

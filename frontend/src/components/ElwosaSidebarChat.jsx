@@ -14,7 +14,7 @@
  * - Bei AI off: einzige Status-Nachricht, dann still
  */
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, MoreHorizontal, Pause, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
 import { api, deleteRequest, postJson } from "@/api";
 
@@ -88,7 +88,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -254,11 +254,18 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast }) {
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted/70">
             Elwosa
           </span>
-          {status.mood && status.mood !== "standard" && (
-            <span className="text-[9px] text-muted/40">· {status.mood}</span>
-          )}
         </div>
         <div className="flex items-center gap-1">
+          {/* v1.7.0-beta.38 (#601): Zahnrad statt mood-Anzeige.
+              Klick fuehrt zu Einstellungen -> Lokale KI -> Elwosa. */}
+          <button
+            type="button"
+            onClick={() => onNavigateToSettings?.("ai")}
+            className="text-muted/40 hover:text-ink"
+            title="Elwosa-Einstellungen oeffnen"
+          >
+            <Settings size={12} />
+          </button>
           <button
             type="button"
             onClick={hideForSession}

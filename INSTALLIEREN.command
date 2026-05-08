@@ -171,9 +171,41 @@ if [ -d "$CLAUDE_DIR" ]; then
     echo -e "  2. Claude Desktop neu starten"
     echo -e "  3. Eintippen: ${CYAN}Starte den Bewerbungs-Assistenten${NC}"
     echo ""
-    echo -e "  Dashboard starten:"
-    echo -e "    Doppelklick auf ${CYAN}Dashboard starten.command${NC}"
-    echo -e "    Oder: ${CYAN}http://localhost:8200${NC}"
+fi
+
+# v1.7.0-beta.38 (#600): Auto-Start Dashboard + Browser oeffnen
+echo -e "  ${BOLD}PBP-Dashboard wird gestartet...${NC}"
+
+# Dashboard im Hintergrund starten
+DASH_LAUNCHER="$PROJECT_DIR/Dashboard starten.command"
+if [ -f "$DASH_LAUNCHER" ]; then
+    chmod +x "$DASH_LAUNCHER" 2>/dev/null
+    nohup "$DASH_LAUNCHER" > /dev/null 2>&1 &
+    echo -e "    [OK] Dashboard-Prozess gestartet."
+else
+    echo -e "    [!!] Dashboard-Launcher nicht gefunden: $DASH_LAUNCHER"
+fi
+
+# Health-Check bis Port 8200 antwortet, max 30 Sekunden
+echo -n "    Warte auf Dashboard auf http://localhost:8200 "
+DASH_OK=0
+for i in $(seq 1 30); do
+    if curl -sf --max-time 1 http://localhost:8200/ -o /dev/null 2>/dev/null; then
+        DASH_OK=1
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
+echo ""
+
+if [ "$DASH_OK" = "1" ]; then
+    echo -e "    [OK] Dashboard laeuft. Oeffne Browser..."
+    open "http://localhost:8200/"
+else
+    echo -e "    [!!] Dashboard antwortet nicht nach 30 Sekunden."
+    echo -e "         Oeffne Browser trotzdem — falls eine alte Instanz laeuft."
+    open "http://localhost:8200/" 2>/dev/null || true
 fi
 
 echo ""

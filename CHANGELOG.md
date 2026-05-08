@@ -7,6 +7,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.38] - 2026-05-07 — User-Test-Findings: Score-Buckets + Elwosa-Polish + Installer-Fix
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Drei User-Test-Findings vom Abend gebuendelt.
+
+### 🐛 Fixed — #607 Score-Buckets
+
+Bewerbungsbericht Abschnitt 5 hatte zwei Probleme:
+- Statische Aufteilung `0/1-3/4-6/7-9/10+` aus alter Scoring-Aera, in der heute praktisch alles im `10+`-Bucket landet
+- Sortierung nach Anzahl statt Score-Wert (sah aus wie `0 / 1-3 / 10+ / 4-6 / 7-9`)
+
+**Fix:** `_make_score_buckets(max_score)`-Funktion erzeugt dynamisch
+5–6 Buckets aus dem Max-Score (auf 5er-Schritte gerundet, niedriger
+Score zuerst). Bei Max ≤ 10 Fallback auf alte Aufteilung. Tabelle +
+Chart sortieren jetzt nach Score-Wert. Balken-Breite proportional zum
+Max-Count, nicht absolut.
+
+### ✨ Added/Fixed — #601 Elwosa-Polish
+
+- **`mood`-Anzeige im Sidebar-Header entfernt** (war Insider-Info ohne
+  Mehrwert: „beschuetzend" hat User verwirrt)
+- **Zahnrad-Icon** rechts neben dem Header → Klick fuehrt direkt zu
+  *Einstellungen → Lokale KI → Elwosa-Section*
+- **Power-User-Optionen** als ausklappbare Section in den Settings:
+  - **Cooldown-Slider** (10s–300s, Default 90s)
+  - **Toggle „Auch manuelle User-Aktionen kommentieren"** (Setup
+    fuer #601 Continuous-Comment-Modus, Hooks kommen separat)
+  - **Trigger-Klassen einzeln aus-/einschalten**: Idle / Welt-Bezug /
+    Tipps & Tricks / Easter Eggs
+  - **Frequenz `unbegrenzt`** als 4. Option — kein Idle/Welt/Tipp-Limit
+    fuer Power-User
+- Backend respektiert alle neuen Settings in `can_post_class()` +
+  `is_in_cooldown()`
+
+### 🐛 Fixed — #600 Installer-Autostart
+
+- **macOS** (`INSTALLIEREN.command`): hatte vorher KEIN Auto-Browser-
+  Open. Jetzt: Dashboard wird im Hintergrund gestartet, Health-Check
+  bis Port 8200 antwortet (max 30s), `open` oeffnet den Browser
+- **Linux** (`installer/install.sh`): analog mit `xdg-open`-Fallback,
+  funktioniert mit und ohne Desktop-Environment
+- **Windows** (`INSTALLIEREN.bat`): Browser wird jetzt AUCH geoeffnet
+  wenn Health-Check fehlschlaegt — damit der Update-Pfad funktioniert,
+  bei dem eine alte Instanz noch auf dem Port haengt
+
+### Tests
+
+- `tests/test_v170_beta38_findings.py`: 19 neue Tests
+- **1074 Tests gesamt, alle gruen.**
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.38.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.38.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.37] - 2026-05-07 — Elwosa: Live-Statusanzeige der lokalen AI mit Persönlichkeit (#599)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

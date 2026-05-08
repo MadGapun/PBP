@@ -203,19 +203,60 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║         Installation erfolgreich!            ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  Starten:"
-echo -e "    ${CYAN}$VENV_DIR/bin/python -m bewerbungs_assistent${NC}  (MCP Server)"
-echo -e "    ${CYAN}$VENV_DIR/bin/python start_dashboard.py${NC}       (Dashboard)"
-echo ""
-echo -e "  Dashboard: ${CYAN}http://localhost:8200${NC}"
 echo -e "  Daten:     $BA_DATA_DIR"
+echo ""
 
 if [ "$PLATFORM" = "macos" ]; then
-    echo ""
     echo -e "  ${YELLOW}So geht's weiter:${NC}"
     echo -e "  1. Claude Desktop komplett beenden (Menueleiste → Claude → Beenden)"
     echo -e "  2. Claude Desktop neu starten"
     echo -e "  3. Eingeben: 'Starte den Bewerbungs-Assistenten'"
+    echo ""
+fi
+
+# v1.7.0-beta.38 (#600): Auto-Start Dashboard + Browser oeffnen.
+# Vorher musste der User manuell `start_dashboard.py` aufrufen oder
+# `http://localhost:8200` selbst eintippen — das wurde uebersehen.
+echo -e "  ${YELLOW}PBP-Dashboard wird gestartet...${NC}"
+
+# Im Hintergrund starten
+nohup "$VENV_DIR/bin/python" "$PROJECT_DIR/start_dashboard.py" \
+      > /dev/null 2>&1 &
+DASH_PID=$!
+echo -e "    [OK] Dashboard-Prozess gestartet (PID $DASH_PID)."
+
+# Health-Check bis Port 8200 antwortet, max 30 Sekunden
+echo -n "    Warte auf Dashboard "
+DASH_OK=0
+for i in $(seq 1 30); do
+    if curl -sf --max-time 1 http://localhost:8200/ -o /dev/null 2>/dev/null; then
+        DASH_OK=1
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
+echo ""
+
+# Browser-Oeffnen je Plattform
+open_browser() {
+    local url="http://localhost:8200/"
+    if [ "$PLATFORM" = "macos" ]; then
+        open "$url" 2>/dev/null || true
+    elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$url" >/dev/null 2>&1 &
+    else
+        echo "    Bitte oeffne im Browser: $url"
+    fi
+}
+
+if [ "$DASH_OK" = "1" ]; then
+    echo -e "    [OK] Dashboard laeuft auf http://localhost:8200"
+    open_browser
+else
+    echo -e "    [!!] Dashboard antwortet nicht nach 30 Sekunden."
+    echo -e "         Oeffne Browser trotzdem — falls eine alte Instanz laeuft."
+    open_browser
 fi
 
 echo ""

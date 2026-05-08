@@ -4835,20 +4835,37 @@ class Database:
             ORDER BY a.applied_at DESC
         """, (pid,)).fetchall()
 
-        # Score distribution (non-pinned only) – all jobs for historical accuracy (#178)
-        score_dist = conn.execute("""
-            SELECT
-                CASE
-                    WHEN score = 0 THEN '0'
-                    WHEN score BETWEEN 1 AND 3 THEN '1-3'
-                    WHEN score BETWEEN 4 AND 6 THEN '4-6'
-                    WHEN score BETWEEN 7 AND 9 THEN '7-9'
-                    ELSE '10+'
-                END as bracket, COUNT(*) as cnt
-            FROM jobs WHERE is_pinned=0
-            AND (profile_id=? OR profile_id IS NULL)
-            GROUP BY bracket ORDER BY bracket
-        """, (pid,)).fetchall()
+        # v1.7.0-beta.38 (#607): Dynamische Score-Buckets statt statisch
+        # 0/1-3/4-6/7-9/10+. Aktuelle Scoring-Werte sind typisch 0-100,
+        # die alte Aufteilung warf alles >= 10 in einen Bucket — keine
+        # Aussagekraft. Buckets werden jetzt aus dem Max-Score abgeleitet.
+        max_score_row = conn.execute(
+            "SELECT MAX(score) AS m FROM jobs WHERE is_pinned=0 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchone()
+        max_score = int((max_score_row and max_score_row["m"]) or 0)
+        buckets = _make_score_buckets(max_score)
+        score_dist_dict: dict[str, int] = {b[2]: 0 for b in buckets}
+        rows = conn.execute(
+            "SELECT score FROM jobs WHERE is_pinned=0 "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+        for r in rows:
+            s = int(r["score"] or 0)
+            for lo, hi, label in buckets:
+                if lo <= s <= hi:
+                    score_dist_dict[label] += 1
+                    break
+
+        # Bucket-Reihenfolge erhalten — niedriger Score zuerst.
+        # In den naechsten Bauteilen (PDF/Excel) muss diese Reihenfolge
+        # respektiert werden, deshalb kommt's als Liste-of-Pairs.
+        score_dist = [
+            {"bracket": label, "cnt": score_dist_dict[label]}
+            for _lo, _hi, label in buckets
+        ]
 
         # High-score jobs NOT applied to — NUR aktive (#532, v1.6.4):
         # Vorher waren auch dismissed-Stellen drin; das suggerierte verschwendete
@@ -5033,7 +5050,13 @@ class Database:
 
         return {
             "applications": serialized_apps,
+            # v1.7.0-beta.38 (#607): score_distribution ist jetzt eine
+            # Liste-of-Pairs damit die Bucket-Reihenfolge (sortiert nach
+            # Score-Wert aufsteigend) im Frontend/PDF erhalten bleibt.
+            # Frontend faellt auf dict-Form zurueck wenn noetig (Backwards-
+            # Compat).
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
+            "score_distribution_ordered": score_dist,
             "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
             "date_range": {
                 "first": date_range["first"] if date_range else None,
@@ -6075,10 +6098,17 @@ class Database:
             "paused_until": self.get_profile_setting(
                 "elwosa_paused_until", ""
             ) or "",
+            # v1.7.0-beta.38 (#601): Power-User-Optionen
+            "cooldown_seconds": int(self.get_profile_setting(
+                "elwosa_cooldown_seconds", 90
+            ) or 90),
+            "comment_user_actions": bool(self.get_profile_setting(
+                "elwosa_comment_user_actions", False
+            )),
         }
 
     def set_elwosa_settings(self, **fields) -> dict:
-        valid_freq = {"ruhig", "standard", "aktiv"}
+        valid_freq = {"ruhig", "standard", "aktiv", "unbegrenzt"}
         valid_modus = {"standard", "sachlich", "humorvoll", "minimal", "aus"}
         if "enabled" in fields and fields["enabled"] is not None:
             self.set_profile_setting("elwosa_enabled", bool(fields["enabled"]))
@@ -6104,6 +6134,20 @@ class Database:
         if "paused_until" in fields and fields["paused_until"] is not None:
             self.set_profile_setting(
                 "elwosa_paused_until", fields["paused_until"] or ""
+            )
+        # v1.7.0-beta.38 (#601): Power-User-Optionen
+        if "cooldown_seconds" in fields and fields["cooldown_seconds"] is not None:
+            try:
+                cd = int(fields["cooldown_seconds"])
+            except (TypeError, ValueError):
+                raise ValueError("cooldown_seconds muss eine Zahl sein")
+            if cd < 10 or cd > 3600:
+                raise ValueError("cooldown_seconds muss zwischen 10 und 3600 liegen")
+            self.set_profile_setting("elwosa_cooldown_seconds", cd)
+        if "comment_user_actions" in fields and fields["comment_user_actions"] is not None:
+            self.set_profile_setting(
+                "elwosa_comment_user_actions",
+                bool(fields["comment_user_actions"])
             )
         return self.get_elwosa_settings()
 
@@ -7003,6 +7047,43 @@ def _safe_float(val, default=None):
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _make_score_buckets(max_score: int, num_buckets: int = 6) -> list[tuple]:
+    """v1.7.0-beta.38 (#607): Dynamische Score-Bucket-Aufteilung.
+
+    Aktuelle Scoring-Werte sind typisch 0-100. Die alte Aufteilung
+    0/1-3/4-6/7-9/10+ warf alles >= 10 in einen Bucket. Diese Funktion
+    erzeugt 5-6 sinnvolle Buckets basierend auf dem Max-Score:
+
+    - max_score <= 10:  Legacy-Aufteilung (0 / 1-3 / 4-6 / 7-9 / 10+)
+    - max_score >  10:  gleichgrosse Buckets, auf 5er gerundet,
+                        niedrigster zuerst (sortiert nach Score-Wert)
+
+    Rueckgabe: Liste von (lower, upper, label)-Tuples.
+    """
+    if max_score <= 10:
+        return [
+            (0, 0, "0"),
+            (1, 3, "1-3"),
+            (4, 6, "4-6"),
+            (7, 9, "7-9"),
+            (10, 10000, "10+"),
+        ]
+    # Step auf naechste 5 runden, mind. 5
+    step = max(5, round(max_score / num_buckets / 5) * 5)
+    buckets: list[tuple] = []
+    lo = 0
+    while lo <= max_score:
+        hi = lo + step - 1
+        if hi >= max_score:
+            label = f"{lo}-{max_score}+"
+            buckets.append((lo, 10000, label))
+            break
+        label = f"{lo}-{hi}"
+        buckets.append((lo, hi, label))
+        lo += step
+    return buckets
 
 
 SCHEMA_SQL = """
