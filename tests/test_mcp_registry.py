@@ -124,6 +124,12 @@ EXPECTED_TOOL_NAMES = {
     "elwosa_tonfall",
     "elwosa_linie_vorschlagen",
     "elwosa_status",
+    # v1.7.0-beta.39 (#608 + #606): Kontakt-Kategorien + Auto-Import
+    "kontakt_kategorien_auflisten",
+    "kontakt_kategorie_anlegen",
+    "kontakt_kategorie_bearbeiten",
+    "kontakt_kategorie_loeschen",
+    "kontakte_aus_bestand_importieren",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
     "stilarchiv_kontext",
@@ -258,7 +264,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 133  # v1.7.0-beta.37: +6 Elwosa-Tools (lesen/schreiben/pause/tonfall/linie_vorschlagen/status)
+        assert len(tools) == 138  # v1.7.0-beta.39: +5 Kontakt-Kategorien-Tools (4) + kontakte_aus_bestand_importieren
         assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:

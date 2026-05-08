@@ -7,6 +7,124 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.39] - 2026-05-07 — Kontakte-Reife: Kategorien mit Farben + LLM-Auto-Import (#606 + #608)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+Zwei groesse Kontakte-Issues gebuendelt — **Kategorien** als eigene
+Entity mit Farben + **LLM-basierter Auto-Import** aus Bestand und
+laufenden Bewerbungen.
+
+### ✨ Added — #608 Kontakt-Kategorien
+
+- **Schema v41 → v42**: `contact_categories` (id, name, slug, color,
+  sort_order, is_system) + `contacts.is_pending` + `contacts.extracted_from`
+- **7 Default-Kategorien** mit handverlesenen Farben:
+  Recruiter (Teal), HR (Blue), Ansprechpartner (Purple), Endkunde (Amber),
+  Vermittler (Pink), Referenz (Sky), Sonstiges (Gray)
+- **16-Farben-Palette** in `services/contact_colors.py` mit Auto-Vergabe
+  beim Anlegen ohne explizite Farbe
+- **5 neue API-Endpoints**:
+  `GET/POST /api/contacts/categories`, `PUT/DELETE /api/contacts/categories/{id}`,
+  `POST /api/contacts/categories/migrate-tags`
+- **4 neue MCP-Tools**: `kontakt_kategorien_auflisten`,
+  `kontakt_kategorie_anlegen` (mit/ohne Farbe), `kontakt_kategorie_bearbeiten`,
+  `kontakt_kategorie_loeschen`
+- **Loesch-Schutz**: `is_system=1` und Kategorien mit zugewiesenen Kontakten
+  koennen nicht geloescht werden
+- **Migration legacy tags**: `migrate_legacy_tags_to_categories()` promoted
+  bestehende CSV-Tag-Strings zu Kategorien mit Auto-Farbe
+
+### ✨ Added — #606 LLM-Auto-Import
+
+- **Neuer LLM-Task `EXTRACT_CONTACTS`** in `llm_service.py`:
+  - Pipe-Format: `NAME | EMAIL | KATEGORIE | ROLLE | CONFIDENCE`
+  - Max 5 Kontakte pro Aufruf
+  - Confidence < 0.5 wird verworfen (nur sichere Extraktionen)
+- **MCP-Tool `kontakte_aus_bestand_importieren(dry_run=True)`** als
+  One-Shot-Migration: scannt alle Bewerbungen ohne `extracted_from`-Marker
+  und legt LLM-extrahierte Kontakte als pending an
+- **Auto-Engine-Step `_run_extract_contacts`** als 8. Schritt — laeuft
+  taeglich auf neuen Bewerbungen
+- **`is_pending`-Workflow**: extrahierte Kontakte sind initial unsichtbar
+  in der Liste, User genehmigt oder verwirft sie ueber Banner
+- **Idempotent**: Bewerbungen mit existing `extracted_from='application:<id>'`
+  Kontakt werden uebersprungen
+- **3 neue API-Endpoints**: `GET /api/contacts/pending`,
+  `POST /api/contacts/pending/{id}/approve`, `DELETE /api/contacts/pending/{id}`
+
+### 🎨 Frontend
+
+- **`<RoleChip>`** liest jetzt Farben dynamisch aus
+  `/api/contacts/categories` (Cache + Window-Event fuer Live-Refresh)
+- **`<PendingContactsBanner>`** in der Kontakte-Page: Amber-Banner mit
+  Akzeptieren/Verwerfen pro pending-Kontakt
+- **`<CategoryManagementSection>`** als ausklappbare Card:
+  - Liste mit Color-Picker (HTML5 `<input type="color">`)
+  - Inline-Edit fuer Name (onBlur speichert)
+  - Anzahl Kontakte pro Kategorie sichtbar
+  - „+ Neue Kategorie"-Input + Auto-Farb-Vergabe vom Backend
+  - Loeschen-Knopf nur fuer non-System-Kategorien
+
+### MCP-Stand
+
+- **138 Tools** (von 133, +5)
+- **23 Prompts** (unveraendert)
+
+### Tests
+
+- `tests/test_v170_beta39_kontakte.py`: 34 neue Tests
+- **1108 Tests gesamt, alle gruen**
+
+### Bezug zum Lern-System (#594)
+
+Auto-Import nutzt die bestehende Local-LLM-Infrastruktur. Wenn der User
+die lokale AI ausschaltet, laeuft der Auto-Engine-Step entsprechend
+nicht — manuelle Anlage funktioniert wie bisher.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.39.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.39.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.38] - 2026-05-07 — User-Test-Findings: Score-Buckets + Elwosa-Polish + Installer-Fix
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

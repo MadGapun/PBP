@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 41
+SCHEMA_VERSION = 42
 
 
 def _gen_id() -> str:
@@ -1635,6 +1635,52 @@ class Database:
             except Exception as exc:
                 logger.warning("Elwosa-Migration fehlgeschlagen: %s", exc)
 
+        if from_ver < 42:
+            # v42 / v1.7.0-beta.39 (#608): Kontakt-Kategorien als eigene
+            # Entity mit Farben. tags-Feld in contacts bleibt erhalten und
+            # wird als Slug-Liste (CSV) interpretiert. Beim Lesen werden
+            # Slugs zu Categories aufgeloest.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS contact_categories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        name TEXT NOT NULL,
+                        slug TEXT NOT NULL,
+                        color TEXT NOT NULL,
+                        sort_order INTEGER DEFAULT 0,
+                        is_system INTEGER DEFAULT 0,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT,
+                        UNIQUE(profile_id, slug)
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_cc_profile "
+                    "ON contact_categories(profile_id)"
+                )
+                # contacts.pending_bucket fuer Auto-Import-Vorschlaege
+                # (#606): Kontakte die LLM extrahiert hat, die User noch
+                # genehmigen muss. Statt eigener Tabelle ein Flag auf
+                # contacts (Approval-Workflow ist genauso effektiv).
+                try:
+                    conn.execute(
+                        "ALTER TABLE contacts ADD COLUMN is_pending INTEGER DEFAULT 0"
+                    )
+                except Exception:
+                    pass
+                try:
+                    conn.execute(
+                        "ALTER TABLE contacts ADD COLUMN extracted_from TEXT"
+                    )
+                except Exception:
+                    pass
+                conn.commit()
+                logger.info("Migration v41->v42: contact_categories + "
+                            "is_pending angelegt")
+            except Exception as exc:
+                logger.warning("Kategorien-Migration fehlgeschlagen: %s", exc)
+
         if from_ver < 40:
             # v40 / v1.7.0-beta.33 (#590 Aufgabe C): Robustheit-Upgrade.
             # scraper_health bekommt:
@@ -2744,11 +2790,15 @@ class Database:
         if not isinstance(tags, list):
             tags = [str(tags)]
         now = _now()
+        # v1.7.0-beta.39 (#606): is_pending + extracted_from fuer LLM-Auto-Import.
+        # Beim Auto-Import (per LLM) is_pending=1, User genehmigt in der UI;
+        # Hand-Anlage bleibt is_pending=0 (sofort sichtbar).
         conn.execute("""
             INSERT INTO contacts
                 (id, profile_id, full_name, email, phone, linkedin_url,
-                 company, position, tags, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 company, position, tags, notes, created_at, updated_at,
+                 is_pending, extracted_from)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             cid, pid, full_name,
             data.get("email") or None,
@@ -2759,6 +2809,8 @@ class Database:
             json.dumps(tags, ensure_ascii=False),
             data.get("notes") or None,
             now, now,
+            int(data.get("is_pending") or 0),
+            data.get("extracted_from") or None,
         ))
         conn.commit()
         return cid
@@ -2833,6 +2885,260 @@ class Database:
         )
         conn.commit()
         return cur.rowcount > 0
+
+    # === v1.7.0-beta.39 (#608): Kontakt-Kategorien ===
+
+    def _ensure_default_categories(self) -> int:
+        """Legt die 7 Default-Kategorien fuer das aktive Profil an,
+        falls noch keine vorhanden sind. Idempotent."""
+        from .services.contact_colors import DEFAULT_CATEGORIES
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        existing = conn.execute(
+            "SELECT slug FROM contact_categories "
+            "WHERE profile_id=? OR profile_id IS NULL",
+            (pid,)
+        ).fetchall()
+        existing_slugs = {r["slug"] for r in existing}
+        added = 0
+        now = _now()
+        for cat in DEFAULT_CATEGORIES:
+            if cat["slug"] in existing_slugs:
+                continue
+            conn.execute(
+                "INSERT INTO contact_categories "
+                "(profile_id, name, slug, color, sort_order, is_system, "
+                " created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+                (pid, cat["name"], cat["slug"], cat["color"],
+                 cat["sort_order"], now, now)
+            )
+            added += 1
+        if added:
+            conn.commit()
+        return added
+
+    def list_contact_categories(self) -> list:
+        """Liefert alle Kategorien des aktiven Profils + Anzahl Kontakte."""
+        # Defaults sicherstellen
+        self._ensure_default_categories()
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM contact_categories "
+            "WHERE profile_id=? OR profile_id IS NULL "
+            "ORDER BY sort_order ASC, name ASC",
+            (pid,)
+        ).fetchall()
+        # Kontakt-Anzahl pro Kategorie
+        contacts = conn.execute(
+            "SELECT tags FROM contacts "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND COALESCE(is_pending,0)=0",
+            (pid,)
+        ).fetchall()
+        count_per_slug: dict[str, int] = {}
+        for c in contacts:
+            tags_raw = c["tags"] or ""
+            slugs = []
+            try:
+                if tags_raw.startswith("["):
+                    slugs = json.loads(tags_raw)
+                else:
+                    slugs = [t.strip() for t in tags_raw.split(",") if t.strip()]
+            except Exception:
+                slugs = []
+            for s in slugs:
+                count_per_slug[s] = count_per_slug.get(s, 0) + 1
+        return [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "slug": r["slug"],
+                "color": r["color"],
+                "sort_order": r["sort_order"],
+                "is_system": bool(r["is_system"]),
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"],
+                "contact_count": count_per_slug.get(r["slug"], 0),
+            }
+            for r in rows
+        ]
+
+    def add_contact_category(self, name: str, color: str = "",
+                              sort_order: int = 0) -> int:
+        """Legt eine neue Kategorie an. Wenn color leer: Auto-Farbe aus Palette."""
+        from .services.contact_colors import pick_next_color, slug_for_name
+        if not name or not name.strip():
+            raise ValueError("name darf nicht leer sein")
+        slug = slug_for_name(name)
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        # Duplikat-Check
+        existing = conn.execute(
+            "SELECT id FROM contact_categories "
+            "WHERE (profile_id=? OR profile_id IS NULL) AND slug=? LIMIT 1",
+            (pid, slug)
+        ).fetchone()
+        if existing:
+            raise ValueError(f"Kategorie mit Slug '{slug}' existiert bereits")
+        if not color:
+            existing_colors = [r["color"] for r in conn.execute(
+                "SELECT color FROM contact_categories "
+                "WHERE (profile_id=? OR profile_id IS NULL)",
+                (pid,)
+            ).fetchall()]
+            color = pick_next_color(existing_colors)
+        if not sort_order:
+            max_order = conn.execute(
+                "SELECT COALESCE(MAX(sort_order), 0) AS m "
+                "FROM contact_categories "
+                "WHERE profile_id=? OR profile_id IS NULL", (pid,)
+            ).fetchone()
+            sort_order = (max_order["m"] or 0) + 10
+        now = _now()
+        cur = conn.execute(
+            "INSERT INTO contact_categories "
+            "(profile_id, name, slug, color, sort_order, is_system, "
+            " created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+            (pid, name.strip(), slug, color, sort_order, now, now)
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+
+    def update_contact_category(self, category_id: int,
+                                 name: Optional[str] = None,
+                                 color: Optional[str] = None,
+                                 sort_order: Optional[int] = None) -> bool:
+        from .services.contact_colors import slug_for_name
+        conn = self.connect()
+        sets = []
+        vals: list = []
+        if name is not None and name.strip():
+            sets.append("name=?")
+            vals.append(name.strip())
+            sets.append("slug=?")
+            vals.append(slug_for_name(name))
+        if color is not None and color:
+            sets.append("color=?")
+            vals.append(color)
+        if sort_order is not None:
+            sets.append("sort_order=?")
+            vals.append(int(sort_order))
+        if not sets:
+            return False
+        sets.append("updated_at=?")
+        vals.append(_now())
+        vals.append(int(category_id))
+        cur = conn.execute(
+            f"UPDATE contact_categories SET {', '.join(sets)} WHERE id=?",
+            vals
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_contact_category(self, category_id: int) -> dict:
+        """Loescht eine Kategorie. is_system=1 ist geschuetzt.
+
+        Rueckgabe:
+            {deleted: True} wenn ok
+            {fehler: '...', betroffene_kontakte: N} wenn blockiert
+        """
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT name, slug, is_system FROM contact_categories WHERE id=?",
+            (int(category_id),)
+        ).fetchone()
+        if not row:
+            return {"fehler": "Kategorie nicht gefunden"}
+        if row["is_system"]:
+            return {
+                "fehler": "System-Kategorie kann nicht geloescht werden",
+                "hinweis": "Du kannst Name + Farbe aendern, aber nicht loeschen.",
+            }
+        # Pruefen ob noch Kontakte zugeordnet
+        slug = row["slug"]
+        pid = self.get_active_profile_id()
+        contacts = conn.execute(
+            "SELECT tags FROM contacts "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+        affected = 0
+        for c in contacts:
+            tags_raw = c["tags"] or ""
+            try:
+                if tags_raw.startswith("["):
+                    slugs = json.loads(tags_raw)
+                else:
+                    slugs = [t.strip() for t in tags_raw.split(",") if t.strip()]
+                if slug in slugs:
+                    affected += 1
+            except Exception:
+                pass
+        if affected > 0:
+            return {
+                "fehler": f"Kategorie ist noch {affected} Kontakt(en) zugeordnet",
+                "betroffene_kontakte": affected,
+                "hinweis": (
+                    "Entferne die Kategorie zuerst aus den Kontakten oder "
+                    "weise eine andere Kategorie zu."
+                ),
+            }
+        cur = conn.execute(
+            "DELETE FROM contact_categories WHERE id=?",
+            (int(category_id),)
+        )
+        conn.commit()
+        return {"deleted": cur.rowcount > 0}
+
+    def migrate_legacy_tags_to_categories(self) -> int:
+        """Sammelt einzigartige Tag-Werte aus contacts.tags und legt
+        passende contact_categories an (mit Auto-Farbe). Idempotent.
+        """
+        from .services.contact_colors import slug_for_name
+        pid = self.get_active_profile_id()
+        conn = self.connect()
+        # Bestehende Slugs sammeln
+        existing = {r["slug"] for r in conn.execute(
+            "SELECT slug FROM contact_categories "
+            "WHERE profile_id=? OR profile_id IS NULL", (pid,)
+        ).fetchall()}
+        # Alle Tag-Strings einsammeln
+        contacts = conn.execute(
+            "SELECT tags FROM contacts "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND tags IS NOT NULL AND tags != ''",
+            (pid,)
+        ).fetchall()
+        seen_slugs: set = set()
+        seen_names: dict = {}  # slug -> original name
+        for c in contacts:
+            tags_raw = c["tags"] or ""
+            try:
+                if tags_raw.startswith("["):
+                    raw_tags = json.loads(tags_raw)
+                else:
+                    raw_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+            except Exception:
+                continue
+            for t in raw_tags:
+                if not isinstance(t, str):
+                    continue
+                slug = slug_for_name(t)
+                if slug in existing or slug in seen_slugs:
+                    continue
+                seen_slugs.add(slug)
+                seen_names[slug] = t
+        added = 0
+        for slug in seen_slugs:
+            try:
+                self.add_contact_category(seen_names[slug])
+                added += 1
+            except Exception:
+                pass
+        return added
 
     def link_contact(self, contact_id: str, target_kind: str, target_id: str,
                       role: str = "", notes: str = "") -> Optional[str]:
@@ -7477,7 +7783,10 @@ CREATE TABLE IF NOT EXISTS contacts (
     tags TEXT,
     notes TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT
+    updated_at TEXT,
+    -- v1.7.0-beta.39 (#606): Auto-Import via LLM legt is_pending=1 an
+    is_pending INTEGER DEFAULT 0,
+    extracted_from TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_contacts_profile ON contacts(profile_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
@@ -7610,4 +7919,19 @@ CREATE TABLE IF NOT EXISTS elwosa_pending_lines (
     rejected_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_epl_profile ON elwosa_pending_lines(profile_id, suggested_at DESC);
+
+-- v1.7.0-beta.39 (#608): Kontakt-Kategorien mit Farben
+CREATE TABLE IF NOT EXISTS contact_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    color TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0,
+    is_system INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    UNIQUE(profile_id, slug)
+);
+CREATE INDEX IF NOT EXISTS idx_cc_profile ON contact_categories(profile_id);
 """

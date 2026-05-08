@@ -53,6 +53,7 @@ class TaskKind(str, Enum):
     FIND_SIMILAR_JOBS = "find_similar_jobs"
     CLASSIFY_EMAIL = "classify_email"  # v1.7.0-beta.24
     ANALYZE_USER_PATTERNS = "analyze_user_patterns"  # v1.7.0-beta.28 (#594 Stufe 3)
+    EXTRACT_CONTACTS = "extract_contacts"  # v1.7.0-beta.39 (#606)
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -82,6 +83,7 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.FIND_SIMILAR_JOBS:    [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.CLASSIFY_EMAIL:       [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.ANALYZE_USER_PATTERNS:[Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.EXTRACT_CONTACTS:     [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -696,12 +698,94 @@ def _parse_classify_email(raw: str) -> dict:
     return {"category": cleaned, "confidence": 0.85, "raw": raw}
 
 
+# v1.7.0-beta.39 (#606): extract_contacts — extrahiert Personen aus
+# Bewerbungs-/Mail-/Dokument-Texten. Format: PIPE-getrennt, eine Person
+# pro Zeile. Kategorie wird aus Kontext abgeleitet, Confidence pro Zeile.
+
+def _build_extract_contacts_prompt(payload: dict) -> str:
+    """Baut Prompt fuer Kontakt-Extraktion aus Text + Kontext.
+
+    payload = {
+        text: str,                         # Bewerbung/Mail/Dokument
+        context_company: str,              # bekannte Firma (falls schon)
+        bekannte_kategorien: list[str],    # Slugs der vorhandenen Kategorien
+    }
+    """
+    text = (payload.get("text") or "")[:3000]
+    company = payload.get("context_company") or ""
+    cats = payload.get("bekannte_kategorien") or [
+        "recruiter", "hr", "ansprechpartner", "endkunde",
+        "vermittler", "referenz", "sonstiges",
+    ]
+    return (
+        "Du extrahierst Personen-Kontakte aus Bewerbungs-Mails, "
+        "Anschreiben oder Recherche-Texten.\n\n"
+        f"FIRMA-KONTEXT: {company or 'unbekannt'}\n\n"
+        f"TEXT:\n{text}\n\n"
+        "FRAGE: Welche realen Personen werden genannt?\n\n"
+        "Antworte AUSSCHLIESSLICH eine Person pro Zeile, max 5 Personen, "
+        "im Format:\n"
+        "NAME | EMAIL | KATEGORIE | ROLLE | CONFIDENCE\n\n"
+        "Wo:\n"
+        "- NAME: Vor- und Nachname (Pflicht)\n"
+        "- EMAIL: leer wenn nicht im Text genannt\n"
+        f"- KATEGORIE: eines von {', '.join(cats)}\n"
+        "- ROLLE: kurze Beschreibung (max 30 Zeichen)\n"
+        "- CONFIDENCE: 0.1-1.0 (wie sicher bist du)\n\n"
+        "Beispiele:\n"
+        "Anna Mueller | a.mueller@acme.de | hr | Recruiterin ACME | 0.95\n"
+        "Stefan Klein |  | ansprechpartner | Fachbereichs-Lead | 0.7\n\n"
+        "Wenn KEINE Personen im Text: gib eine leere Zeile zurueck.\n"
+        "DEINE ANTWORT:"
+    )
+
+
+def _parse_extract_contacts(raw: str) -> dict:
+    valid_kategorien = {
+        "recruiter", "hr", "ansprechpartner", "endkunde",
+        "vermittler", "referenz", "sonstiges",
+    }
+    contacts: list[dict] = []
+    for line in (raw or "").split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 3:
+            continue
+        # Padding mit leeren Strings falls Zeile kuerzer
+        while len(parts) < 5:
+            parts.append("")
+        name, email, kategorie, rolle, conf_raw = parts[:5]
+        if not name or len(name) < 3:
+            continue
+        kategorie = kategorie.lower().strip(".,;:'\"`")
+        # Erlaubt auch Custom-Kategorien (User kann eigene definieren).
+        # Defaults werden gegen die feste Liste geprueft.
+        try:
+            confidence = float(conf_raw) if conf_raw else 0.5
+            confidence = max(0.0, min(1.0, confidence))
+        except ValueError:
+            confidence = 0.5
+        contacts.append({
+            "name": name[:120],
+            "email": email if "@" in email else "",
+            "kategorie": kategorie or "sonstiges",
+            "rolle": rolle[:60],
+            "confidence": confidence,
+        })
+        if len(contacts) >= 5:
+            break
+    return {"contacts": contacts, "count": len(contacts), "raw": raw}
+
+
 _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
     TaskKind.MATCH_JOB_TO_SKILLS: _build_match_job_to_skills_prompt,
     TaskKind.CLASSIFY_EMAIL: _build_classify_email_prompt,
     TaskKind.ANALYZE_USER_PATTERNS: _build_analyze_user_patterns_prompt,
+    TaskKind.EXTRACT_CONTACTS: _build_extract_contacts_prompt,
 }
 
 _RESPONSE_PARSERS = {
@@ -710,6 +794,7 @@ _RESPONSE_PARSERS = {
     TaskKind.MATCH_JOB_TO_SKILLS: _parse_match_job_to_skills,
     TaskKind.CLASSIFY_EMAIL: _parse_classify_email,
     TaskKind.ANALYZE_USER_PATTERNS: _parse_analyze_user_patterns,
+    TaskKind.EXTRACT_CONTACTS: _parse_extract_contacts,
 }
 
 

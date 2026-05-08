@@ -33,8 +33,65 @@ const ROLE_OPTIONS = [
 
 const ROLE_LABELS = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label]));
 
+// v1.7.0-beta.39 (#608): Categories-Cache als Modul-State (1x pro Session
+// nachgeladen, refreshen bei Aenderungen via window-Event).
+let _categoriesCache = null;
+const CATEGORIES_EVENT = "pbp-contact-categories-changed";
+
+async function loadCategories() {
+  if (_categoriesCache !== null) return _categoriesCache;
+  try {
+    const r = await api("/api/contacts/categories");
+    _categoriesCache = r?.categories || [];
+  } catch {
+    _categoriesCache = [];
+  }
+  return _categoriesCache;
+}
+
+function invalidateCategoriesCache() {
+  _categoriesCache = null;
+  window.dispatchEvent(new CustomEvent(CATEGORIES_EVENT));
+}
+
+function useCategories() {
+  const [cats, setCats] = useState(_categoriesCache || []);
+  useEffect(() => {
+    let cancelled = false;
+    if (_categoriesCache === null) {
+      loadCategories().then((c) => { if (!cancelled) setCats(c); });
+    }
+    const handler = () => {
+      loadCategories().then((c) => { if (!cancelled) setCats(c); });
+    };
+    window.addEventListener(CATEGORIES_EVENT, handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(CATEGORIES_EVENT, handler);
+    };
+  }, []);
+  return cats;
+}
+
 function RoleChip({ role }) {
-  const label = ROLE_LABELS[role] || role;
+  const cats = useCategories();
+  const cat = cats.find((c) => c.slug === role);
+  const label = cat?.name || ROLE_LABELS[role] || role;
+  // v1.7.0-beta.39 (#608): Farbe aus Kategorie statt fest sky
+  const color = cat?.color;
+  if (color) {
+    return (
+      <span
+        className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+        style={{
+          backgroundColor: color + "26",  // 15% Alpha
+          color: color,
+        }}
+      >
+        {label}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center rounded-full bg-sky/15 text-sky px-2 py-0.5 text-[10px] font-medium">
       {label}
@@ -314,6 +371,249 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
   );
 }
 
+// v1.7.0-beta.39 (#606): Banner mit Pending-Kontakten (von LLM extrahiert,
+// warten auf User-Genehmigung). Nicht angezeigt wenn keine pending da.
+function PendingContactsBanner({ pushToast, onChange }) {
+  const [pending, setPending] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      const r = await api("/api/contacts/pending");
+      setPending(r?.pending || []);
+    } catch {}
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function approve(id) {
+    setBusy(true);
+    try {
+      await postJson(`/api/contacts/pending/${id}/approve`, {});
+      pushToast("Kontakt genehmigt", "success");
+      await reload();
+      onChange?.();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reject(id) {
+    setBusy(true);
+    try {
+      await deleteRequest(`/api/contacts/pending/${id}`);
+      pushToast("Kontakt verworfen", "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (pending.length === 0) return null;
+
+  return (
+    <Card className="rounded-2xl mb-4 border-amber/30 bg-amber/[0.04]">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber/80">
+            Vorschlaege von der lokalen AI
+          </p>
+          <p className="text-sm text-ink mt-1">
+            {pending.length} Kontakt{pending.length === 1 ? "" : "e"} aus
+            Bewerbungen/Mails extrahiert — warten auf deine Genehmigung
+          </p>
+        </div>
+      </div>
+      <div className="space-y-2 mt-3">
+        {pending.slice(0, 10).map((c) => (
+          <div key={c.id} className="glass-card p-2 flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium text-ink">{c.full_name}</p>
+              <p className="text-[11px] text-muted/60">
+                {c.position && <>{c.position}</>}
+                {c.position && c.company && " · "}
+                {c.company}
+                {c.email && (
+                  <span className="ml-2 text-muted/40">{c.email}</span>
+                )}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(c.tags || []).map((t) => <RoleChip key={t} role={t} />)}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button size="xs" onClick={() => approve(c.id)} disabled={busy}>
+                Akzeptieren
+              </Button>
+              <Button size="xs" variant="secondary" onClick={() => reject(c.id)} disabled={busy}>
+                Verwerfen
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {pending.length > 10 && (
+        <p className="text-[11px] text-muted/50 mt-2">
+          +{pending.length - 10} weitere — genehmige diese erst, dann kommen die naechsten.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+
+// v1.7.0-beta.39 (#608): Kategorien-Verwaltung als ausklappbare Card.
+// Zeigt Liste mit Farb-Swatch + Name + Anzahl Kontakte. Inline-Edit
+// (Klick auf Farbe oeffnet color-Input). Loesch-Schutz fuer is_system + zugewiesene.
+function CategoryManagementSection({ pushToast }) {
+  const [cats, setCats] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  async function reload() {
+    try {
+      const r = await api("/api/contacts/categories");
+      setCats(r?.categories || []);
+      invalidateCategoriesCache();
+    } catch {}
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function addNew() {
+    if (!newName.trim()) return;
+    setBusy(true);
+    try {
+      await postJson("/api/contacts/categories", { name: newName.trim() });
+      pushToast(`Kategorie "${newName.trim()}" angelegt`, "success");
+      setNewName("");
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateColor(id, color) {
+    try {
+      await putJson(`/api/contacts/categories/${id}`, { color });
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    }
+  }
+
+  async function updateName(id, name) {
+    if (!name.trim()) return;
+    try {
+      await putJson(`/api/contacts/categories/${id}`, { name: name.trim() });
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    }
+  }
+
+  async function removeCat(id, name) {
+    if (!confirm(`Kategorie "${name}" wirklich loeschen?`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/contacts/categories/${id}`, { method: "DELETE" });
+      const data = await r.json();
+      if (!r.ok || data.fehler) {
+        pushToast(data.fehler || "Loeschen fehlgeschlagen", "danger");
+        return;
+      }
+      pushToast(`"${name}" geloescht`, "success");
+      await reload();
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl mb-4">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="text-left">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+            Kategorien verwalten
+          </p>
+          <p className="text-sm text-ink mt-1">
+            {cats.length} Kategorie{cats.length === 1 ? "" : "n"} mit Farben
+          </p>
+        </div>
+        <span className="text-muted/40 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-2">
+          {cats.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-white/[0.03]">
+              <input
+                type="color"
+                value={c.color}
+                onChange={(e) => updateColor(c.id, e.target.value)}
+                className="h-7 w-10 rounded cursor-pointer border border-white/10"
+                title="Farbe aendern"
+              />
+              <input
+                type="text"
+                defaultValue={c.name}
+                onBlur={(e) => {
+                  if (e.target.value !== c.name) updateName(c.id, e.target.value);
+                }}
+                className="flex-1 bg-transparent text-[13px] text-ink focus:outline-none focus:bg-white/[0.04] px-2 py-1 rounded"
+              />
+              <span className="text-[10px] text-muted/40 font-mono shrink-0">
+                {c.contact_count} Kontakt{c.contact_count === 1 ? "" : "e"}
+              </span>
+              {c.is_system ? (
+                <span className="text-[10px] text-muted/40 italic shrink-0">System</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => removeCat(c.id, c.name)}
+                  disabled={busy}
+                  className="text-muted/40 hover:text-coral shrink-0"
+                  title="Kategorie loeschen"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+
+          <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addNew()}
+              placeholder="Neue Kategorie (z.B. Headhunter)"
+              className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-2 py-1.5 text-[12px] text-ink placeholder-muted/40 focus:border-teal/40 focus:outline-none"
+            />
+            <Button size="xs" onClick={addNew} disabled={busy || !newName.trim()}>
+              <Plus size={12} /> Anlegen
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+
 export default function ContactsPage() {
   const { reloadKey, pushToast } = useApp();
   const [loading, setLoading] = useState(true);
@@ -379,6 +679,12 @@ export default function ContactsPage() {
           </Button>
         </div>
       </div>
+
+      {/* v1.7.0-beta.39 (#606): Pending-Banner */}
+      <PendingContactsBanner pushToast={pushToast} onChange={reload} />
+
+      {/* v1.7.0-beta.39 (#608): Kategorien-Verwaltung (collapsible) */}
+      <CategoryManagementSection pushToast={pushToast} />
 
       {!isEmpty && (
         <div className="mb-5 flex flex-wrap items-center gap-2">

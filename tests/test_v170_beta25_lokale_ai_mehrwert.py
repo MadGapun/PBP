@@ -202,9 +202,11 @@ def test_auto_classify_emails_idempotent(setup_env):
             from fastapi.testclient import TestClient
             from bewerbungs_assistent.dashboard import app
             client = TestClient(app)
-            client.post("/api/auto-actions/run")
-    # LLM darf nicht aufgerufen worden sein
-    assert call_count["n"] == 0
+            r = client.post("/api/auto-actions/run").json()
+    # Mail-Klassifikation darf NICHT erneut laufen (Mail hat schon detected_status).
+    # v1.7.0-beta.39: Auto-Engine hat 7 Steps inkl. extract_contacts/elwosa —
+    # LLM kann von DENEN aufgerufen werden, nur nicht von mail_classify.
+    assert r.get("mail_classify", {}).get("classified", 0) == 0
     # Status bleibt absage
     row = db.connect().execute(
         "SELECT detected_status FROM application_emails WHERE id=?", (eid,)

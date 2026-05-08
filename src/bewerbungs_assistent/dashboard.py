@@ -6128,6 +6128,123 @@ async def api_get_job_detail(job_hash: str):
 
 # === Kontakte API (v1.7.0 #563) ===
 
+# v1.7.0-beta.39 (#608): Kontakt-Kategorien CRUD
+
+@app.get("/api/contacts/categories")
+async def api_list_contact_categories():
+    items = _db.list_contact_categories()
+    return {"categories": items, "count": len(items)}
+
+
+@app.post("/api/contacts/categories")
+async def api_add_contact_category(request: Request):
+    data = await request.json()
+    try:
+        cid = _db.add_contact_category(
+            name=data.get("name") or "",
+            color=data.get("color") or "",
+            sort_order=int(data.get("sort_order") or 0),
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"status": "ok", "id": cid}
+
+
+@app.put("/api/contacts/categories/{category_id}")
+async def api_update_contact_category(category_id: int, request: Request):
+    data = await request.json()
+    ok = _db.update_contact_category(
+        category_id,
+        name=data.get("name"),
+        color=data.get("color"),
+        sort_order=data.get("sort_order"),
+    )
+    if not ok:
+        return JSONResponse({"error": "Kategorie nicht gefunden oder keine Aenderung"},
+                             status_code=404)
+    return {"status": "ok"}
+
+
+@app.delete("/api/contacts/categories/{category_id}")
+async def api_delete_contact_category(category_id: int):
+    out = _db.delete_contact_category(category_id)
+    if out.get("fehler"):
+        return JSONResponse(out, status_code=409)
+    return out
+
+
+@app.post("/api/contacts/categories/migrate-tags")
+async def api_migrate_legacy_tags():
+    """One-Shot: bestehende Tag-Strings zu Kategorien promoten."""
+    n = _db.migrate_legacy_tags_to_categories()
+    return {"status": "ok", "migrated_count": n}
+
+
+# v1.7.0-beta.39 (#606): Pending-Contact-Workflow
+
+@app.get("/api/contacts/pending")
+async def api_list_pending_contacts():
+    """Liste aller LLM-extrahierten Kontakte, die User-Genehmigung
+    benoetigen (is_pending=1)."""
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    rows = conn.execute(
+        "SELECT * FROM contacts "
+        "WHERE (profile_id=? OR profile_id IS NULL) AND is_pending=1 "
+        "ORDER BY created_at DESC",
+        (pid,)
+    ).fetchall()
+    items = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["tags"] = json.loads(d.get("tags") or "[]")
+        except Exception:
+            d["tags"] = []
+        items.append(d)
+    return {"pending": items, "count": len(items)}
+
+
+@app.post("/api/contacts/pending/{contact_id}/approve")
+async def api_approve_pending_contact(contact_id: str):
+    """Genehmigt einen pending-Kontakt — setzt is_pending=0."""
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    cur = conn.execute(
+        "UPDATE contacts SET is_pending=0, updated_at=? "
+        "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",
+        (_db_now(), contact_id, pid)
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return JSONResponse({"error": "Pending-Kontakt nicht gefunden"},
+                             status_code=404)
+    return {"status": "approved"}
+
+
+@app.delete("/api/contacts/pending/{contact_id}")
+async def api_reject_pending_contact(contact_id: str):
+    """Verwirft einen pending-Kontakt (loescht ihn komplett)."""
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    cur = conn.execute(
+        "DELETE FROM contacts "
+        "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",
+        (contact_id, pid)
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return JSONResponse({"error": "Pending-Kontakt nicht gefunden"},
+                             status_code=404)
+    return {"status": "rejected"}
+
+
+def _db_now():
+    """Helper damit wir _now() aus database.py nicht importieren muessen."""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 @app.get("/api/contacts")
 async def api_list_contacts(search: str = "", role: str = "", company: str = ""):
     """Liste aller Kontakte des aktiven Profils (#563)."""
@@ -7102,6 +7219,99 @@ def _run_analyze_user_patterns(now_iso: str, days: int = 30,
     }
 
 
+def _run_extract_contacts(now_iso: str, max_items: int = 20) -> dict:
+    """v1.7.0-beta.39 (#606): scannt neue Bewerbungen + Mails seit dem
+    letzten Lauf nach Personen-Kontakten und legt sie als pending an.
+
+    Greift nur wenn:
+    - Lokale AI aktiv + Modell installiert
+    - Mindestens 1 Bewerbung/Mail mit Inhalt vorhanden
+
+    Hooks bei manuellem `bewerbung_erstellen` triggern dasselbe Tool
+    (siehe tools/bewerbungen.py).
+    """
+    from .services.llm_service import get_llm_service, TaskKind
+    svc = get_llm_service(_db)
+    s = svc.get_status()
+    if not s.ollama_available or s.user_state != "active" or not s.available_models:
+        return {
+            "skipped": True,
+            "reason": "Lokale AI nicht aktiv",
+            "extracted": 0,
+        }
+
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+
+    # Bekannte Kategorien-Slugs holen
+    bekannte = [c["slug"] for c in _db.list_contact_categories()]
+
+    # Neue Bewerbungen ohne extracted_from-Marker
+    new_apps = conn.execute(
+        "SELECT a.id, a.title, a.company, a.notes, a.description_snapshot, "
+        "a.ansprechpartner, a.kontakt_email "
+        "FROM applications a "
+        "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+        "AND a.created_at >= datetime('now', '-7 days') "
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM contacts c "
+        "  WHERE c.extracted_from = 'application:' || a.id"
+        ") "
+        "ORDER BY a.created_at DESC LIMIT ?",
+        (pid, max_items)
+    ).fetchall()
+
+    extracted = 0
+    skipped = 0
+    for app_row in new_apps:
+        text_parts = [
+            app_row["company"] or "",
+            app_row["ansprechpartner"] or "",
+            app_row["kontakt_email"] or "",
+            (app_row["description_snapshot"] or "")[:1500],
+            (app_row["notes"] or "")[:1500],
+        ]
+        text = "\n".join([p for p in text_parts if p])
+        if not text.strip():
+            skipped += 1
+            continue
+        try:
+            result = svc.run(TaskKind.EXTRACT_CONTACTS, {
+                "text": text,
+                "context_company": app_row["company"] or "",
+                "bekannte_kategorien": bekannte,
+            })
+        except Exception:
+            skipped += 1
+            continue
+        if not result.success or not result.payload:
+            skipped += 1
+            continue
+        for c in result.payload.get("contacts") or []:
+            if c.get("confidence", 0) < 0.5:
+                continue  # zu unsicher, ueberspringen
+            try:
+                _db.add_contact({
+                    "full_name": c.get("name", ""),
+                    "email": c.get("email", ""),
+                    "company": app_row["company"] or "",
+                    "position": c.get("rolle", ""),
+                    "tags": [c.get("kategorie", "sonstiges")],
+                    "is_pending": 1,
+                    "extracted_from": f"application:{app_row['id']}",
+                })
+                extracted += 1
+            except Exception:
+                pass
+
+    return {
+        "skipped": False,
+        "checked": len(new_apps),
+        "extracted": extracted,
+        "errors": skipped,
+    }
+
+
 def _run_elwosa_speak(now_iso: str) -> dict:
     """v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine als Auto-Engine-Step.
 
@@ -7271,6 +7481,8 @@ async def api_run_auto_actions():
     patterns_result = _run_analyze_user_patterns(now)
     # v1.7.0-beta.33 (#590-C.1): Probe-Run-Faelligkeit pruefen
     probe_result = _run_scraper_probe(now)
+    # v1.7.0-beta.39 (#606): Auto-Extract Contacts
+    contacts_result = _run_extract_contacts(now)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
     elwosa_result = _run_elwosa_speak(now)
     _db.set_setting("auto_actions_last_run_at", now)
@@ -7282,6 +7494,7 @@ async def api_run_auto_actions():
         "document_classify": doc_result,
         "pattern_analysis": patterns_result,
         "scraper_probe": probe_result,
+        "extract_contacts": contacts_result,
         "elwosa": elwosa_result,
     }
 
