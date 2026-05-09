@@ -5707,6 +5707,74 @@ async def api_factory_reset(request: Request):
     return {"status": "ok", "message": "Alle Daten gelöscht. Neustart empfohlen."}
 
 
+# === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
+
+@app.post("/api/danger/launch-uninstaller")
+async def api_launch_uninstaller(request: Request):
+    """Startet `DEINSTALLIEREN.bat` als detached Konsolen-Prozess.
+
+    User muss `DEINSTALLIEREN` als Bestaetigung schicken. Der gestartete
+    Prozess oeffnet ein eigenes cmd-Fenster, der User klickt sich dann
+    durch die Deinstaller-Prompts (Backup, Daten loeschen, etc).
+
+    Nur Windows. Auf macOS/Linux waere `installer/deinstallieren.sh`
+    der Pfad — wird in einem spaeteren Beta nachgezogen.
+    """
+    import os
+    import platform
+    import subprocess
+    data = await request.json()
+    if data.get("confirm") != "DEINSTALLIEREN":
+        return JSONResponse(
+            {"error": "Bestaetigung fehlt (confirm: DEINSTALLIEREN)"},
+            status_code=400,
+        )
+    if platform.system() != "Windows":
+        return JSONResponse(
+            {"error": "Nur Windows. Auf macOS/Linux bitte den Skript-Pfad "
+                      "installer/deinstallieren.sh im Repo nutzen."},
+            status_code=400,
+        )
+
+    base_install = os.path.join(
+        os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent"
+    )
+    bat_path = os.path.join(base_install, "app", "DEINSTALLIEREN.bat")
+    if not os.path.isfile(bat_path):
+        return JSONResponse(
+            {"error": f"Deinstaller nicht gefunden unter {bat_path}. "
+                      "Du laeufst vermutlich aus einer Dev-Checkout-Version "
+                      "oder die Installation war unvollstaendig."},
+            status_code=404,
+        )
+    # Detached Start — eigenes Fenster, neuer Prozess-Tree, damit der
+    # Deinstaller den Dashboard-Python-Prozess gefahrlos killen kann
+    # (Schritt [1/7] :stop_pbp_processes in der .bat).
+    DETACHED_PROCESS = 0x00000008
+    CREATE_NEW_CONSOLE = 0x00000010
+    CREATE_NEW_PROCESS_GROUP = 0x00000200
+    try:
+        subprocess.Popen(
+            ["cmd.exe", "/c", "start", "", "/D", os.path.dirname(bat_path),
+             "cmd.exe", "/c", bat_path],
+            creationflags=(DETACHED_PROCESS | CREATE_NEW_CONSOLE
+                           | CREATE_NEW_PROCESS_GROUP),
+            close_fds=True,
+        )
+    except Exception as exc:
+        return JSONResponse(
+            {"error": f"Konnte Deinstaller nicht starten: {exc}"},
+            status_code=500,
+        )
+    return {
+        "status": "started",
+        "bat_path": bat_path,
+        "hint": ("Ein neues Konsolen-Fenster ist offen. Folge den "
+                 "Anweisungen dort. Claude Desktop und Ollama muessen "
+                 "separat manuell deinstalliert werden."),
+    }
+
+
 @app.delete("/api/extraction-history/{entry_id}")
 async def api_delete_extraction_entry(entry_id: str):
     """Delete a single extraction history entry."""

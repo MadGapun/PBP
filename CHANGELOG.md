@@ -7,6 +7,87 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.43] - 2026-05-09 — Komplett-Deinstallation aus der Gefahrenzone (#621)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Folge-Feature zu #620: jetzt wo der Deinstaller funktioniert, kann er
+auch direkt aus den **Settings → Gefahrenzone** angestossen werden —
+ohne dass der User in den Datei-Explorer muss um `DEINSTALLIEREN.bat`
+zu suchen.
+
+### ✨ Added — „PBP komplett deinstallieren"-Card in Gefahrenzone
+
+- Neue vierte Card unter **Settings → Gefahrenzone**
+- Bestaetigung per Tippen von `DEINSTALLIEREN`
+- Klar sichtbarer Hinweis was **NICHT** mit-deinstalliert wird:
+  - **Claude Desktop** (eigenstaendige App von Anthropic)
+  - **Ollama** (eigenstaendige App fuer lokale AI)
+  - **System-Python** (falls eigene Installation neben PBP existiert)
+- Button startet `DEINSTALLIEREN.bat` als detached cmd-Prozess —
+  der laeuft in eigenem Konsolen-Fenster und kann den Dashboard-
+  Python gleich gefahrlos killen (Schritt [1/7] der .bat)
+
+### ✨ Added — `POST /api/danger/launch-uninstaller`
+
+- Body: `{confirm: "DEINSTALLIEREN"}`
+- Falsche/fehlende Bestaetigung → 400
+- Nur Windows (auf macOS/Linux 400 mit Hinweis auf shell-Skript)
+- Wenn `%LOCALAPPDATA%\BewerbungsAssistent\app\DEINSTALLIEREN.bat`
+  fehlt (Dev-Checkout) → 404 mit klarer Meldung
+- Spawnt detached subprocess mit `DETACHED_PROCESS | CREATE_NEW_CONSOLE
+  | CREATE_NEW_PROCESS_GROUP` — neuer Prozess-Tree, eigenes Fenster
+
+### Tests
+
+- 5 neue Tests (`test_v170_beta43_uninstall_launcher.py`):
+  Bestaetigungs-Pflicht, Wrong-Confirm-Block, Non-Windows-Reject,
+  404-bei-fehlender-bat, Frontend-Section-vorhanden
+- 4 passed + 1 skipped (Non-Windows-Test wird auf Windows uebersprungen)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.43.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.43.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.42] - 2026-05-09 — Deinstaller-Hotfix: Apps-Liste + AppData-Reste (#620)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.

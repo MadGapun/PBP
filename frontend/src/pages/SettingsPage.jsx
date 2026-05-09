@@ -2630,9 +2630,96 @@ export default function SettingsPage() {
                 </div>
               </div>
             </Card>
+
+            {/* v1.7.0-beta.43 (#621): Komplett-Deinstallation aus der Gefahrenzone */}
+            <UninstallSection pushToast={pushToast} />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// v1.7.0-beta.43 (#621): Komplett-Deinstallation aus der Gefahrenzone.
+// Startet DEINSTALLIEREN.bat als detached cmd-Fenster — der User klickt
+// sich dann durch die Deinstaller-Prompts (Backup, Daten loeschen, ...).
+// Hinweis: Claude Desktop und Ollama werden NICHT mit-deinstalliert.
+function UninstallSection({ pushToast }) {
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function launch() {
+    setBusy(true);
+    try {
+      const result = await postJson("/api/danger/launch-uninstaller", {
+        confirm: "DEINSTALLIEREN",
+      });
+      pushToast(
+        result?.hint || "Deinstaller gestartet — folge dem neuen Konsolen-Fenster",
+        "success"
+      );
+      setConfirm("");
+    } catch (err) {
+      pushToast(`Fehler: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="glass-banner glass-banner-danger rounded-2xl">
+      <SectionHeading
+        title="PBP komplett deinstallieren"
+        description="Entfernt PBP von diesem Rechner: Programmdateien, Registry-Eintrag, Desktop-Verknuepfung und MCP-Eintrag in Claude Desktop. Im Deinstaller wirst du gefragt ob du auch deine Bewerbungsdaten loeschen willst."
+      />
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3 text-[12px] text-amber/90">
+          <strong className="text-amber">Wichtig — was NICHT mit deinstalliert wird:</strong>
+          <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
+            <li>
+              <strong>Claude Desktop</strong> — Anthropics App. Bleibt installiert.
+              Manuell ueber <em>Windows Apps &amp; Features</em> entfernen wenn gewuenscht.
+            </li>
+            <li>
+              <strong>Ollama</strong> — falls du es fuer die lokale AI installiert hast.
+              Bleibt installiert. Manuell ueber <em>Windows Apps &amp; Features</em> entfernen.
+            </li>
+            <li>
+              <strong>Python</strong> — falls du eine eigene Installation neben PBP nutzt.
+              PBPs eigenes Python (im AppData) wird komplett entfernt.
+            </li>
+          </ul>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
+            <Trash2 size={16} />
+          </div>
+          <p className="text-sm text-muted">
+            Gib <strong className="text-ink">DEINSTALLIEREN</strong> ein, um die
+            Komplett-Deinstallation zu starten. Es oeffnet sich ein neues
+            Konsolen-Fenster mit den Deinstaller-Prompts.
+          </p>
+        </div>
+        <div className="flex items-end gap-3">
+          <Field label="Bestaetigung">
+            <TextInput
+              className="!w-56"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="DEINSTALLIEREN"
+            />
+          </Field>
+          <Button
+            variant="danger"
+            disabled={confirm !== "DEINSTALLIEREN" || busy}
+            onClick={launch}
+          >
+            <Trash2 size={15} />
+            Deinstaller starten
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }
