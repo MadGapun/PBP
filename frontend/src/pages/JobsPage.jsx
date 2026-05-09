@@ -1,4 +1,4 @@
-﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
+﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
 import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
@@ -152,6 +152,7 @@ export default function JobsPage() {
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
+  const [refetchBusy, setRefetchBusy] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [applicationDialog, setApplicationDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [blacklistDialog, setBlacklistDialog] = useState(EMPTY_BLACKLIST_DIALOG);
@@ -1506,6 +1507,50 @@ export default function JobsPage() {
                   <p className="text-sm font-semibold text-ink">Beschreibung zuerst nachziehen</p>
                   <p className="mt-1 text-sm text-muted">
                     Für diese Stelle fehlt eine belastbare Beschreibung. Der Score ist deshalb nur eine Vororientierung und kein sauberes Urteil.
+                  </p>
+                  {/* v1.7.0-beta.44 (#622): Per-Klick-Refetch via Backend (1 HTTP-GET) */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      disabled={refetchBusy}
+                      onClick={async () => {
+                        if (!detailDialog.job?.hash) return;
+                        setRefetchBusy(true);
+                        try {
+                          const res = await postJson(
+                            `/api/jobs/${detailDialog.job.hash}/refetch-description`,
+                            {}
+                          );
+                          pushToast(`Beschreibung nachgeladen (${res.chars} Zeichen)`, "success");
+                          // Dialog-Job mit neuem Stand updaten + im Hintergrund Liste reloaden
+                          const updated = await api(`/api/jobs/${detailDialog.job.hash}`);
+                          if (updated) {
+                            setDetailDialog((d) => ({ ...d, job: updated }));
+                          }
+                          await loadPage({ silent: true });
+                        } catch (err) {
+                          pushToast(`Nachladen fehlgeschlagen: ${err.message}`, "danger");
+                        } finally {
+                          setRefetchBusy(false);
+                        }
+                      }}
+                    >
+                      <Download size={14} />
+                      {refetchBusy ? "Lade..." : "Beschreibung jetzt nachladen"}
+                    </Button>
+                    {detailDialog.job.url ? (
+                      <a
+                        href={detailDialog.job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-amber/30 px-3 py-1.5 text-xs text-amber hover:bg-amber/10"
+                      >
+                        <ExternalLink size={12} /> Im Browser oeffnen + manuell kopieren
+                      </a>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted/60">
+                    Tipp: Du kannst auch Claude bitten — <code className="text-amber">stellenbeschreibung_nachladen</code> als Tool. Massen-Nachzug laeuft sowieso im Hintergrund (max 8 pro Auto-Run, mit Backoff).
                   </p>
                 </Card>
               ) : null}

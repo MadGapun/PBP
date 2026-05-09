@@ -1343,6 +1343,46 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def stellenbeschreibung_nachladen(stellen_hash: str) -> dict:
+        """Holt die Beschreibung einer Stelle aus ihrer URL nach (v1.7.0-beta.44, #622).
+
+        Wenn der Score einer Stelle unzuverlaessig wirkt weil die
+        Beschreibung leer oder zu kurz ist, ruft dieses Tool die URL
+        auf, parsed sie und schreibt die Beschreibung zurueck in die DB.
+
+        Eine HTTP-GET pro Aufruf — bewusst nicht fuer Massen-Crawl
+        gedacht. Fuer Bulk-Refetch nutzt PBP den Auto-Engine-Step
+        `_run_auto_refetch_descriptions` (max 8 Stellen pro Lauf).
+
+        Liefert {status, chars, preview} bei Erfolg, sonst
+        {status: "fehler", grund}.
+        """
+        from ..services.typed_ids import strip_prefix
+        from ..job_scraper import fetch_description_from_detail
+        import httpx
+        h = strip_prefix(stellen_hash)
+        job = db.get_job(h)
+        if not job:
+            return {"status": "fehler", "grund": "Stelle nicht gefunden",
+                    "stellen_hash": stellen_hash}
+        url = (job.get("url") or "").strip()
+        if not url:
+            return {"status": "fehler",
+                    "grund": "Stelle hat keine URL — bitte ueber stelle_bearbeiten manuell pflegen"}
+        try:
+            with httpx.Client(follow_redirects=True, timeout=15,
+                              headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
+                text = fetch_description_from_detail(url, client, timeout=15)
+        except Exception as exc:
+            return {"status": "fehler", "grund": f"HTTP-Fehler: {exc}"}
+        if not text or len(text) < 50:
+            return {"status": "fehler",
+                    "grund": "Keine brauchbare Beschreibung gefunden — Login-Wall oder Bot-Block?",
+                    "url": url, "got_chars": len(text or "")}
+        db.update_job(h, {"description": text})
+        return {"status": "ok", "chars": len(text), "preview": text[:200]}
+
+    @mcp.tool()
     def stelle_vergleichen(hash_a: str, hash_b: str) -> dict:
         """Vergleicht zwei Stellen strukturiert (#580).
 

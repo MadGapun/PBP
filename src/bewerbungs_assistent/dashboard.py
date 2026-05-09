@@ -4263,6 +4263,75 @@ async def api_update_job(job_hash: str, request: Request):
     return {"status": "ok"}
 
 
+# v1.7.0-beta.44 (#622): Beschreibung von URL nachladen (Layer B)
+@app.post("/api/jobs/{job_hash}/refetch-description")
+async def api_refetch_description(job_hash: str):
+    """Holt die Beschreibung einer Stelle aus ihrer URL nach.
+
+    Genutzt vom JobsPage-Button 'Beschreibung nachladen'. Macht EINEN
+    HTTP-GET auf job.url, parsed mit BeautifulSoup, speichert in
+    jobs.description. Bei Fehler (404, Bot-Block, leerer Treffer)
+    wird der `description_fetch_failed_count` hochgezaehlt — Layer C
+    nutzt das fuer Backoff.
+    """
+    import httpx
+    from .job_scraper import fetch_description_from_detail
+    job = _db.get_job(job_hash)
+    if not job:
+        return JSONResponse({"error": "Stelle nicht gefunden"},
+                             status_code=404)
+    url = (job.get("url") or "").strip()
+    if not url:
+        return JSONResponse(
+            {"error": "Stelle hat keine URL — Beschreibung muss manuell "
+                      "ueber 'Bearbeiten' eingetragen werden."},
+            status_code=400,
+        )
+    try:
+        with httpx.Client(follow_redirects=True, timeout=15,
+                           headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
+            text = fetch_description_from_detail(url, client, timeout=15)
+    except Exception as exc:
+        _bump_refetch_failure(job_hash)
+        return JSONResponse(
+            {"error": f"HTTP-Fehler: {exc}", "url": url},
+            status_code=502,
+        )
+    if not text or len(text) < 50:
+        _bump_refetch_failure(job_hash)
+        return JSONResponse(
+            {"error": "Keine brauchbare Beschreibung gefunden — "
+                      "evtl. Login-Wall oder Bot-Block. Probiere die URL "
+                      "im Browser zu oeffnen und manuell zu kopieren.",
+             "url": url, "got_chars": len(text or "")},
+            status_code=404,
+        )
+    _db.update_job(job_hash, {"description": text})
+    _reset_refetch_failure(job_hash)
+    return {
+        "status": "ok",
+        "chars": len(text),
+        "preview": text[:200],
+    }
+
+
+def _bump_refetch_failure(job_hash: str) -> None:
+    """Notiert eine fehlgeschlagene Beschreibungs-Holung (fuer Backoff in Layer C)."""
+    try:
+        key = f"refetch_fail:{job_hash}"
+        prev = int(_db.get_setting(key, "0") or "0")
+        _db.set_setting(key, str(prev + 1))
+    except Exception:
+        pass
+
+
+def _reset_refetch_failure(job_hash: str) -> None:
+    try:
+        _db.set_setting(f"refetch_fail:{job_hash}", "0")
+    except Exception:
+        pass
+
+
 # v1.7.0-beta.31 (#595): GET /api/jobs/{hash} wird weiter unten nach
 # /api/jobs/compare registriert (Routing-Reihenfolge!). Siehe dort.
 
@@ -7063,6 +7132,84 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
             "default_days": default_days}
 
 
+def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
+    """v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Stellenbeschreibungen.
+
+    Iteriert ueber bis zu max_jobs aktive Stellen mit leerer/zu kurzer
+    Beschreibung und versucht sie via httpx + fetch_description_from_detail
+    nachzuziehen. Mit Backoff: Stellen mit >= 3 Fehlversuchen werden
+    fuer diesen Lauf uebersprungen (gespeichert in settings als
+    `refetch_fail:{hash}`).
+
+    Bewusst niedriger max_jobs-Default — wir bombardieren keine
+    fremden Server. User kann manuell pro Stelle nachschieben (Layer B).
+
+    Postet eine zusammenfassende Elwosa-Linie wenn was passiert ist.
+    """
+    import httpx
+    from .job_scraper import fetch_description_from_detail
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    rows = conn.execute(
+        "SELECT hash, url FROM jobs "
+        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
+        "AND url IS NOT NULL AND url != '' "
+        "AND (description IS NULL OR LENGTH(description) < 50) "
+        "LIMIT ?",
+        (pid, max_jobs * 3)  # Overshoot — manche werden via Backoff geskippt
+    ).fetchall()
+
+    successes = 0
+    failures = 0
+    skipped_backoff = 0
+    processed = 0
+    try:
+        with httpx.Client(follow_redirects=True, timeout=15,
+                           headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
+            for row in rows:
+                if processed >= max_jobs:
+                    break
+                h = row["hash"]
+                # Backoff: skip nach 3+ Failures
+                fail_count = 0
+                try:
+                    fail_count = int(_db.get_setting(f"refetch_fail:{h}", "0") or "0")
+                except Exception:
+                    pass
+                if fail_count >= 3:
+                    skipped_backoff += 1
+                    continue
+                processed += 1
+                try:
+                    text = fetch_description_from_detail(row["url"], client, timeout=15)
+                except Exception:
+                    text = ""
+                if text and len(text) >= 50:
+                    _db.update_job(h, {"description": text})
+                    _reset_refetch_failure(h)
+                    successes += 1
+                else:
+                    _bump_refetch_failure(h)
+                    failures += 1
+    except Exception:
+        pass
+
+    if successes > 0 or failures > 0:
+        _elwosa_speak_safe("auto_refetch_descriptions", ctx={
+            "count": successes,
+            "failed": failures,
+        })
+
+    return {
+        "ran_at": now_iso,
+        "found_candidates": len(rows),
+        "processed": processed,
+        "successes": successes,
+        "failures": failures,
+        "skipped_backoff": skipped_backoff,
+    }
+
+
 def _elwosa_speak_safe(trigger_kind: str, ctx: dict = None,
                         cluster: str = None) -> None:
     """Hilfs-Funktion: ruft elwosa.speak() ohne dass Fehler den Aufrufer
@@ -7576,6 +7723,8 @@ async def api_run_auto_actions():
     probe_result = _run_scraper_probe(now)
     # v1.7.0-beta.39 (#606): Auto-Extract Contacts
     contacts_result = _run_extract_contacts(now)
+    # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
+    refetch_result = _run_auto_refetch_descriptions(now)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
     elwosa_result = _run_elwosa_speak(now)
     _db.set_setting("auto_actions_last_run_at", now)
@@ -7588,6 +7737,7 @@ async def api_run_auto_actions():
         "pattern_analysis": patterns_result,
         "scraper_probe": probe_result,
         "extract_contacts": contacts_result,
+        "auto_refetch_descriptions": refetch_result,
         "elwosa": elwosa_result,
     }
 

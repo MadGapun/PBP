@@ -152,6 +152,13 @@ STATUS_LINES: dict[str, list[str]] = {
         "{count} Portale werden durchsucht. Ich seh nach was dabei ist.",
         "Suche laeuft. Manche Portale dauern, manche schweigen — ich filtere durch.",
     ],
+    # v1.7.0-beta.44 (#622): Auto-Refetch fehlender Beschreibungen
+    "auto_refetch_descriptions": [
+        "{count} Beschreibungen nachgeladen. Bei {failed} hat's nicht geklappt — meistens Login-Wall oder Bot-Block.",
+        "Beschreibungen geholt: {count} sauber, {failed} verweigert. Den Rest bleibt manuell.",
+        "{count} Stellen jetzt mit Beschreibung. Score wird damit zuverlaessiger.",
+        "{failed} Stellen geben ihre Beschreibung nicht her — [link:job_filter:missing_desc|schau sie dir an], evtl. lohnt manuelle Pflege.",
+    ],
 }
 
 
@@ -300,6 +307,9 @@ TIP_LINES: list[str] = [
     "PBP kann CV als DOCX und PDF exportieren. Falls du eine Variante mit Foto und ohne brauchst.",
     "Profil-Report-Export als PDF, falls jemand dein Profil sehen will ohne Login.",
     "Ich lerne aus deinem Verhalten. Drei Wochen, dann werd ich treffsicherer. Aktuell bin ich noch raten.",
+    # v1.7.0-beta.44 (#622): Hinweis auf fehlende Beschreibungen
+    "Stellen ohne Beschreibung im Pool — Score wird dann unzuverlaessig. [link:job_filter:missing_desc|Liste oeffnen], dann pro Stelle 'Nachladen' druecken oder Claude bitten.",
+    "Falls dir Stellen mit unsicherem Score auffallen: oft fehlt die Beschreibung. Sag Claude `stellenbeschreibung_nachladen fuer Stelle X` — es laedt's dann.",
 ]
 
 
