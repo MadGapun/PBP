@@ -1,15 +1,30 @@
 # PBP — Roadmap
 
-> Stand: 2026-05-07 (v1.7.0-beta.37, 1057 Tests gruen, 12 Releases an einem Tag)
+> Stand: 2026-05-09 (v1.7.0-beta.45, 1188 Tests gruen, 8 Releases an diesem Tag)
 
 Diese Datei haelt den Strategie-Stand fest, was als naechstes ansteht
 und welche Issues warum zurueckgestellt werden.
 
 ## Aktueller Release-Stand
 
-- **v1.6.9** ist aktuell als „Latest" markiert (Stable)
-- **v1.7.0-beta.37** ist der juengste Pre-Release — Elwosa als Highlight-Feature
-- v1.7.0 wechselt erst nach erfolgreichem User-Test auf "Latest"
+- **v1.6.10** ist „Latest" markiert (Stable, Hotfix Deinstaller-Bug)
+- **v1.7.0-beta.45** ist der juengste Pre-Release — Wiki-Snippets als
+  kontextuelle Elwosa-Hints
+- v1.7.0 wechselt erst nach erfolgreichem User-Test auf „Latest"
+
+## Heute neu (2026-05-09)
+
+| # | Titel | Releases |
+|---|---|---|
+| #614 | Elwosa-Varianz + Markup + Anti-Repeat | beta.41 |
+| #612 | tonfall_modus verdrahten + Settings-Reflektion | beta.41 |
+| #620 | Deinstaller-Fix Self-Relocation | v1.6.10 + beta.42 |
+| #621 | Gefahrenzone-Deinstall-Button | beta.43 |
+| #622 | Stellenbeschreibung nachladen (Auto + Per-Klick + MCP) | beta.44 |
+| #623 | Wiki-Snippets als kontextuelle Elwosa-Hints + Repo-Cleanup | beta.45 |
+
+Plus voller Wiki-Pflege-Pass: 17 Pages aktualisiert + 3 neue Pages
+(Elwosa, Lern-System, Profile-Cluster).
 
 ## Heute geschlossene Issues (2026-05-07)
 
