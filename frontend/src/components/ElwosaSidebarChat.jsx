@@ -82,6 +82,10 @@ function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
             e.stopPropagation();
             if (tok.linkType === "pause") {
               onPause?.(parseInt(tok.linkId, 10) || 60);
+            } else if (tok.linkType === "wiki") {
+              // v1.7.0-beta.45 (#623): Wiki-Deep-Link in neuem Tab
+              const url = `https://github.com/MadGapun/PBP/wiki/${encodeURIComponent(tok.linkId)}`;
+              window.open(url, "_blank", "noopener,noreferrer");
             } else {
               onNavigate?.(tok.linkType, tok.linkId);
             }

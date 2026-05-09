@@ -7890,6 +7890,93 @@ def _map_settings_change_to_sub(target: str, payload: dict) -> str:
     return ""
 
 
+# === Wiki-Hint-Endpoint (#623, v1.7.0-beta.45) ====================
+
+@app.post("/api/wiki/request-hint")
+async def api_wiki_request_hint(request: Request):
+    """v1.7.0-beta.45 (#623): Frontend triggert pro Page-Mount einen
+    kontextuellen Wiki-Hint von Elwosa.
+
+    Body: {page: "jobs"} (siehe page_route in den Snippet-Files).
+
+    Drosselung:
+    - Max 1 Wiki-Hint pro Route pro Tag (pro Profil)
+    - Snippets die heute schon kamen (irgendeine Route) werden nicht
+      nochmal geliefert — Repeat erst wenn Pool durch
+    - Wenn elwosa_enabled=False: silent skip
+
+    Liefert {posted: 0|1, snippet_id?, reason?}.
+    """
+    from .services import elwosa
+    from .services import wiki_snippets
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+    page = (data.get("page") or "").strip()
+    if not page:
+        return JSONResponse({"error": "page required"}, status_code=400)
+
+    settings = _db.get_elwosa_settings()
+    if not settings.get("enabled"):
+        return {"posted": 0, "reason": "elwosa_disabled"}
+
+    # Per-Route-Cap: 1 Wiki-Hint pro Route pro Tag (pro Profil)
+    pid = _db.get_active_profile_id()
+    today = datetime.now().date().isoformat()
+    conn = _db.connect()
+    same_route_today = conn.execute(
+        "SELECT 1 FROM elwosa_messages "
+        "WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND trigger_kind='wiki_hint' "
+        "AND trigger_ref LIKE ? "
+        "AND date(created_at)=date(?) LIMIT 1",
+        (pid, f"{page}:%", today)
+    ).fetchone()
+    if same_route_today:
+        return {"posted": 0, "reason": "already_today_for_route"}
+
+    # Bereits gezeigte Snippet-IDs (irgendeine Route) → fuer Pool-Filter
+    rows = conn.execute(
+        "SELECT trigger_ref FROM elwosa_messages "
+        "WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND trigger_kind='wiki_hint' "
+        "AND date(created_at) >= date(?, '-7 days')",
+        (pid, today)
+    ).fetchall()
+    seen_ids = set()
+    for r in rows:
+        ref = r["trigger_ref"] or ""
+        # trigger_ref format: "{route}:{snippet_id}"
+        if ":" in ref:
+            seen_ids.add(ref.split(":", 1)[1])
+
+    snippet = wiki_snippets.pick_snippet_for_route(page, seen_ids=seen_ids)
+    if not snippet:
+        return {"posted": 0, "reason": "no_snippets_for_route"}
+
+    # Direkt persistieren — bypass cooldown weil User-getrieben
+    try:
+        elwosa.validate_tonfall(snippet["body"])
+    except Exception as exc:
+        return JSONResponse(
+            {"posted": 0, "reason": f"snippet_validator_failed: {exc}",
+             "snippet_id": snippet["id"]},
+            status_code=500,
+        )
+    msg_id = _db.add_elwosa_message(
+        content=snippet["body"],
+        trigger_kind="wiki_hint",
+        trigger_ref=f"{page}:{snippet['id']}",
+    )
+    return {
+        "posted": 1,
+        "id": msg_id,
+        "snippet_id": snippet["id"],
+        "wiki_page": snippet["wiki_page"],
+    }
+
+
 @app.post("/api/elwosa/heartbeat")
 async def api_elwosa_heartbeat():
     """v1.7.0-beta.40 (#609): Frontend-Heartbeat fuer Welt-Trigger.

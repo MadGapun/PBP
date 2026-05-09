@@ -7,6 +7,122 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.45] - 2026-05-09 — Wiki-Snippets als kontextuelle Elwosa-Hints (#623) + Repo-Cleanup
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Idee: Elwosa/Ollama mit dem PBP-Wiki verbinden, damit kontextuelle
+Hinweise aus dem Wiki im Sidebar-Chat eingeblendet werden — kleine
+Snippets, kein ganzer Artikel.
+
+### ✨ Added — Wiki-Snippet-System (#623)
+
+**Neuer Snippet-Speicher** unter `docs/wiki-snippets/`:
+- 16 kuratierte Snippets fuer 8 Page-Routen + 3 globale
+- Jede Datei: YAML-Frontmatter (`id`, `page_route`, `wiki_page`, `title`)
+  + 1-2-Saetze-Body mit `[link:wiki:Seite|Linktext]`-Markup
+- Dokumentation in `docs/wiki-snippets/README.md`
+
+**Backend-Service** `services/wiki_snippets.py`:
+- Laedt alle Snippets beim Modul-Import, indexiert nach Route
+- `pick_snippet_for_route(route, seen_ids)` mit Anti-Repeat-Logik
+- 7-Tage-Pool-Memory damit User nicht dieselbe Linie immer wieder sieht
+
+**Endpoint** `POST /api/wiki/request-hint`:
+- Body: `{page: "stellen"}` (siehe `TAB_CONFIG` in App.jsx)
+- Drosselung: max **1 Wiki-Hint pro Route pro Tag** (pro Profil)
+- Pickt aus Pool exclusiv der heute schon gezeigten IDs
+- Postet als `wiki_hint`-Trigger in den Elwosa-Stream
+- Validiert Tonfall vor dem Posten — fehlerhafte Snippets werden
+  nicht gespeichert
+
+**Frontend-Hook** in `App.jsx`:
+- Bei jedem Page-Wechsel (800ms debounce) wird der Endpoint gerufen
+- Backend deduppt — kein Spam-Risiko bei Schnell-Klicks
+- Snippet erscheint dann im Elwosa-Sidebar-Chat
+
+**Markup-Erweiterung** `[link:wiki:Tab-Stellen|nachlesen]`:
+- Frontend-Renderer (in `ElwosaSidebarChat.jsx`) öffnet
+  `https://github.com/MadGapun/PBP/wiki/Tab-Stellen` in neuem Tab
+- Validator markup-aware: Sprach-DNA-Pruefung greift auf gestripten Text
+
+### 🧹 Changed — Repo-Cleanup: Doku-Files in `docs/`
+
+Damit die README in der GitHub-Datei-Liste schneller sichtbar ist
+(weniger Files im Root), wurden 6 reine Doku-Files nach `docs/` verschoben:
+
+- `DOKUMENTATION.md` → `docs/`
+- `OPTIMIERUNGEN.md` → `docs/`
+- `ROADMAP.md` → `docs/`
+- `TESTVERSION.md` → `docs/`
+- `ZUSTAND.md` → `docs/`
+- `LIESMICH.txt` → `docs/`
+
+`git mv` benutzt — Historie bleibt sauber. Im Root bleiben:
+README.md, LICENSE, CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md,
+SECURITY.md (GitHub-Standards), CLAUDE.md, AGENTS.md (Agent-Tools),
+INSTALLIEREN.bat/.command, DEINSTALLIEREN.bat, Dashboard starten.bat/
+.command (User-Doppelklick), Build-Configs.
+
+### Tests
+
+- 18 neue Tests (`test_v170_beta45_wiki_snippets.py`):
+  Loader, Pool-Auswahl, Endpoint-Verhalten (4 Szenarien),
+  Per-Route-Per-Tag-Dedup, Markup-Validator, Reload
+- **1188 / 1188 gruen** + 1 skipped (+18 vs. beta.44)
+
+### Known Issues
+
+- Wiki-Pflege: 17 Wiki-Seiten existieren bereits, sollten aber gegen
+  v1.7-Features (Elwosa, neue Quellen, Lern-System) durchgesehen werden.
+  Eigene Pflege-Beta sinnvoll.
+- Snippets manuell kuratiert (nicht aus Wiki gefetcht). Bei groeßeren
+  Wiki-Aenderungen muessen die Snippets manuell aktualisiert werden.
+  Auto-Sync waere ein moegliches Folge-Issue.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.45.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.45.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.44] - 2026-05-09 — Stellenbeschreibung nachladen: Auto + Per-Klick + MCP (#622)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

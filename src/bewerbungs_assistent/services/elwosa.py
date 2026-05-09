@@ -220,6 +220,9 @@ _HARD_TRIGGER_KINDS = {
     # v1.7.0-beta.41 (#612): Settings-Selbst-Reflektion ist eine
     # User-getriebene Hard-Reaktion und unbegrenzt
     "settings_change", "user_action",
+    # v1.7.0-beta.45 (#623): Wiki-Hints sind kontextuelle Page-Hints
+    # mit eigener Per-Route-Drosselung im Endpoint
+    "wiki_hint",
 }
 
 

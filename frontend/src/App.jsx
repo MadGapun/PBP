@@ -332,6 +332,17 @@ export default function App() {
     applyTheme(themeMode, themeCustom);
   }, [themeMode, themeCustom]);
 
+  // v1.7.0-beta.45 (#623): Wiki-Hint pro Page-Mount triggern.
+  // Backend deduppt per Profil/Route/Tag — wir feuern bei jedem
+  // Wechsel, kein Spam-Risiko.
+  useEffect(() => {
+    if (!page) return;
+    const t = setTimeout(() => {
+      postJson("/api/wiki/request-hint", { page }).catch(() => {});
+    }, 800); // kurze Verzoegerung — vermeidet Burst bei Schnell-Klicks
+    return () => clearTimeout(t);
+  }, [page]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
     const media = window.matchMedia("(prefers-color-scheme: light)");
