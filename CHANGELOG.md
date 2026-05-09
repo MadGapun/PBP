@@ -7,6 +7,92 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.6.10] - 2026-05-09 — Hotfix: Deinstaller raeumt jetzt sauber auf (#620)
+
+Reiner Patch-Release auf der 1.6-Linie. **Nur eine Aenderung:** Bug-Fix
+im Deinstaller. Keine neuen Features, keine Schema-Migration, kein
+Code-Risiko fuer bestehende Installationen.
+
+### 🐛 Fixed — `DEINSTALLIEREN.bat` (#620)
+
+User-Report aus v1.6.9: nach „Deinstallieren" bleibt der **Eintrag in
+Windows Apps & Features** stehen, plus der Ordner unter
+`%LOCALAPPDATA%\BewerbungsAssistent\` ist noch da.
+
+**Bug 1 — Self-Deletion-Race:** Beim Aufruf ueber *Apps & Features*
+lief die `DEINSTALLIEREN.bat` aus `%LOCALAPPDATA%\BewerbungsAssistent\app\`
+und loeschte in Schritt [4] genau diesen Ordner — also sich selbst.
+cmd.exe liest .bat-Skripte just-in-time von Disk und brach still ab.
+Folge: Schritt [5] (Registry-Eintrag entfernen) feuerte nie.
+
+→ **Self-Relocation am Skript-Anfang:** wenn `BASEDIR == APP_DIR`,
+kopiere die .bat nach `%TEMP%\PBP-Deinstaller-XXXX.bat` und starte
+von dort neu. Die TEMP-Kopie kann APP_DIR sicher loeschen.
+
+**Bug 1 Defense-in-Depth:** Reihenfolge umgedreht — **Registry-Eintrag
+wird jetzt VOR `rmdir APP_DIR` entfernt**.
+
+**Bug 2 — `BASE_INSTALL` Parent bleibt:** Der Stamm-Ordner
+`%LOCALAPPDATA%\BewerbungsAssistent\` wurde nie entfernt.
+→ **`rmdir %BASE_INSTALL%` am Ende** (ohne `/s`-Flag — entfernt nur
+wenn leer). Wenn der User die Daten behaelt, bleibt der Ordner mit
+den Daten stehen — kein Datenverlust.
+
+### Migration fuer Bestands-User
+
+Wer bereits v1.6.9 installiert hat: einfach **drueberinstallieren** mit
+v1.6.10. Der neue Installer ueberschreibt die `DEINSTALLIEREN.bat` in
+`%APP_DIR%`. Ab dann funktioniert die Deinstallation sauber, auch
+ueber „Apps & Features".
+
+### Bezug
+
+Identischer Fix ist auch in der 1.7-Beta-Linie als
+**v1.7.0-beta.42** gelandet.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.6.10.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.6.10.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.6.9] - 2026-05-05 — Hash- & Datum-Hygiene + Quick-Wins
 
 Sammel-Release fuer das Bug-Cluster aus den letzten Test-Sessions: drei
