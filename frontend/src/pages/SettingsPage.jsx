@@ -1299,11 +1299,48 @@ function ElwosaSettingsSection({ pushToast }) {
     try {
       const next = await putJson("/api/elwosa/settings", patch);
       setSettings(next);
+      // v1.7.0-beta.41 (#612): Selbst-Reflektion. Pro geaendertem Feld
+      // einen User-Action-Hook feuern — Backend mappt auf eine
+      // Reflektions-Linie. Throttle: nur Reflektion fuer das prominenteste
+      // Feld im Patch (sonst spammt der Slider).
+      const target = pickReflectionTarget(patch);
+      if (target) {
+        try {
+          await postJson("/api/elwosa/user-action", {
+            action: "settings_change",
+            target,
+            payload: buildPayload(target, patch),
+          });
+        } catch {}
+      }
     } catch (err) {
       pushToast(`Fehler: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
+  }
+
+  function pickReflectionTarget(patch) {
+    // Reihenfolge nach Aussagekraft — wir picken nur EINS pro Update-Call,
+    // damit nicht 4 Reflektions-Linien in 2 Sekunden landen
+    for (const k of [
+      "tonfall_modus", "frequency", "comment_user_actions",
+      "triggers_disabled", "cooldown_seconds", "enabled", "paused_until",
+    ]) {
+      if (k in patch && patch[k] !== undefined) return k;
+    }
+    return null;
+  }
+
+  function buildPayload(target, patch) {
+    if (target === "triggers_disabled") {
+      const prev = settings?.triggers_disabled || [];
+      const next = patch.triggers_disabled || [];
+      const added = next.filter((x) => !prev.includes(x));
+      const removed = prev.filter((x) => !next.includes(x));
+      return { value: next, added, removed };
+    }
+    return { value: patch[target] };
   }
 
   async function approveLine(id) {

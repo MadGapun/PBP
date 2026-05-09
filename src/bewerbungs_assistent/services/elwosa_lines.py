@@ -172,40 +172,82 @@ IDLE_LINES: list[str] = [
 
 
 # === Welt-Bezogen (Sektion 8.12) =================================
+#
+# Pool-Erweiterung in v1.7.0-beta.41 (#614): mind. 5-8 Linien pro
+# Welt-Trigger — vorher gab's nur 1-3, was bei mehrfachem Trigger pro
+# Tag (z.B. Freitagabend mehrere Stunden lang) zu identischen
+# Wiederholungen gefuehrt hat. Markdown-Markup `**wort**` und
+# `[link:pause:N|label]` werden vom Frontend gerendert (Klick auf den
+# pause-Link triggert die elwosa_pause-API).
 
 WORLD_LINES: dict[str, list[str]] = {
     "morning": [
         "Guten Morgen. {count} neue Stellen heute Nacht reingekommen.",
         "Morgen. Frueh dran fuer Bewerbungen, gut so.",
         "Guten Morgen. Heute schaffen wir das.",
+        "Tag eins von vielen. Erste Tasse, dann gucken wir die Liste durch.",
+        "Frueher Vogel. Stellenmarkt ist noch lau, aber das aendert sich gleich.",
+        "Guten Morgen. Pipeline geprueft, nichts verbrannt ueber Nacht.",
+        "Gestartet. Modell warm. Wir koennen.",
     ],
     "evening": [
         "Spaeter Abend. Du arbeitest noch? Kann verstehen, kann auch nicht. Du entscheidest.",
         "Tag geht zu Ende. {count} Sachen erledigt. Keine schlechte Bilanz.",
+        "Achtzehn Uhr. Recruiter sind durch. Du noch hier — okay, ich auch.",
+        "Abend. Wenn du was Wichtiges fertig kriegen willst, [link:pause:90|halt mich kurz still].",
+        "Feierabendzeit fuer normale Menschen. Wir machen wohl noch ein bisschen.",
+        "Tag ausklingen lassen. Ich bleib leise wenn du noch konzentriert bist.",
     ],
     "late_night": [
         "Drei Uhr morgens. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung.",
         "Halb zwei. Was machst du noch hier.",
+        "Mitternacht durch. Anschreiben werden um diese Uhrzeit selten besser.",
+        "Eins durch, zwei naht. Falls Konzentration: weiter. Falls Trotz: Bett.",
+        "**Nacht.** Sieh zu dass du morgen noch funktionierst.",
+        "Spaete Stunde. Ich bleib wach. Du musst nicht.",
     ],
     "monday_morning": [
         "Montag. Stellenmarkt waehlt sich gerade ein. Eine Stunde Geduld.",
+        "Wochenstart. Recruiter laufen ihren Posteingang durch — Antworten heute moeglich.",
+        "Montag, frueh. Erstmal Mails. Dann Liste. Dann Kaffee Nummer zwei.",
+        "Erster Werktag der Woche. Energie aufsparen, der Mittwoch wird haerter.",
+        "Montag. Noch nicht jammern. Erst mal sehen was reinkommt.",
     ],
     "friday_evening": [
         "Freitagabend. Recruiter sind im Wochenende. Du auch, falls du willst.",
+        "Sechzehn Uhr Freitag. Damit ist der Stellenmarkt offiziell zu. Bis Montag friert er ein.",
+        "Ja, ja. Ich weiss, du arbeitest noch. Wollte nur erwaehnen, dass sonst niemand mehr da ist.",
+        "**Freitag.** Geh raus. Triff Menschen. Bewerbungen kann ich auch alleine sortieren.",
+        "Es ist Wochenende. Falls du in Zeitnot bist und das fertig machen willst — [link:pause:120|sag's, ich halte mich raus].",
+        "Vermutlich verschwendet — aber ich erwaehne es: Wochenende. Recruiter ruhen. Modell auch.",
+        "Achtzehn Uhr Freitag. Statistisch werden Bewerbungen ab jetzt 73% spaeter gelesen. Falls dich das interessiert.",
+        "Wochenende. Goennen wir uns das. Beide.",
     ],
     "weekend": [
         "Wochenende. Stellenmarkt schlaeft. Ich auch fast.",
         "Sonntag. Bewerbungsmarkt ruht. Wir warten auf Montag.",
+        "Samstag. Du hast frei. Falls du was machst, [link:pause:240|mach's ohne mich].",
+        "**Wochenende.** Selbst die fleissigsten Recruiter sind beim Brunch.",
+        "Pause-Modus, Markt ist still. Falls dir was einfaellt — Notiz reicht, der Rest hat Zeit.",
+        "Wochenend-Stille. Ich speichere mir alles fuer Montagmorgen.",
     ],
     "holiday_christmas": [
         "Heiligabend. Selbst der Stellenmarkt schweigt. Tu's auch.",
+        "Weihnachten. Recruiter sind weg, Anschreiben warten. Iss was.",
+        "**Heiligabend.** Pause. Echte. Nicht so wie meine.",
+        "Christtag. Kein Recruiter wird heute Mails lesen. Versuch's gar nicht erst.",
     ],
     "holiday_summer": [
         "Sommerloch. Niemand stellt ein, alle in Cala-irgendwo. Wir auch fast.",
+        "August. Stellenmarkt im Off-Modus. Kommt im September zurueck mit Wucht.",
+        "Sommer. Halb leere Buero, halbe Bewerbungs-Antwort-Quote. Statistisch belegt.",
+        "Hitze und Stille. Selbst meine Linien werden langsamer.",
     ],
     "return_after_break": [
         "Lange weg. Ich auch. Wo waren wir?",
         "{days} Tage Pause. Stellenmarkt war auch faul. Wir gleichen ab.",
+        "Zurueck. Modell warm, Liste laenger als gehofft. Wir arbeiten uns durch.",
+        "Wieder da. Ich hab nichts geloescht. Alles wie du's gelassen hast.",
     ],
 }
 
@@ -297,6 +339,77 @@ AI_STATE_LINES: dict[str, str] = {
     "no_model": "Ich bin da, aber ohne Modell. Wie ein Schauspieler ohne Drehbuch.",
     "paused": "Pausiert. Kein Stress, ich auch.",
     "back_active": "Bin zurueck. Modell warm. Was hab ich verpasst?",
+}
+
+
+# === Settings-Selbst-Reflektion (#612, beta.41) ==================
+#
+# Wenn der User in den Settings rumdreht, kommentiert Elwosa knapp.
+# Sub-Trigger entspricht dem geaenderten Feld + Wert. Frontend ruft
+# POST /api/elwosa/user-action mit `{action: "settings_change",
+# target: <feld>, payload: {value: <wert>}}` — Backend mappt auf eine
+# der untenstehenden Sub-Linien.
+
+SETTINGS_REFLECTION_LINES: dict[str, list[str]] = {
+    "frequency_ruhig": [
+        "Frequenz auf ruhig. Verstanden, weniger Geplauder.",
+        "Ruhig also. Wenn was wichtig ist, sag ich's trotzdem.",
+    ],
+    "frequency_standard": [
+        "Standard. Mittelmass kann auch Tugend sein.",
+        "Frequenz wieder mittig. Vermerkt.",
+    ],
+    "frequency_aktiv": [
+        "Aktiv. Du moechtest mehr von mir hoeren — riskant, aber bitte.",
+    ],
+    "frequency_unbegrenzt": [
+        "Unbegrenzt. Mutig. Ich werde mich beherrschen.",
+        "Keine Grenzen. Ich versuche, das Vertrauen nicht zu missbrauchen.",
+    ],
+    "tonfall_humorvoll": [
+        "Mehr Humor. Versuche ich. Britisch unterkuehlt bleibt's trotzdem.",
+        "Humorvoll. Beim Stellenmarkt schwer, aber gut.",
+    ],
+    "tonfall_sachlich": [
+        "Sachlich. Auch gut. Weniger Selbstgespraeche.",
+        "Sachmodus. Status, nichts weiter.",
+    ],
+    "tonfall_minimal": [
+        "Minimal. Eine Linie pro Tag. Mache ich draus etwas Memorables.",
+        "Minimal also. Dann zaehlt jedes Wort.",
+    ],
+    "tonfall_standard": [
+        "Standard-Tonfall. Wie gewohnt.",
+    ],
+    "tonfall_aus": [
+        "Aus. Verstanden. Bin nicht beleidigt.",
+    ],
+    "trigger_disabled": [
+        "Trigger-Klasse aus. Verstehe, du brauchst Ruhe an der Stelle.",
+        "Eine Klasse weniger. Vermerkt.",
+    ],
+    "trigger_enabled": [
+        "Trigger wieder an. Auge auf, ich auch.",
+    ],
+    "comment_user_actions_on": [
+        "Auch User-Aktionen kommentieren. Anstrengend fuer dich, anstrengender fuer mich.",
+        "Ich schaue dir jetzt staerker zu. Du hast es so gewollt.",
+    ],
+    "comment_user_actions_off": [
+        "User-Aktionen wieder aus. Ich schaue weg. Versprochen.",
+    ],
+    "cooldown_changed": [
+        "Cooldown geaendert. Ich passe mich an.",
+    ],
+    "enabled_off": [
+        "Aus. Bis spaeter dann.",
+    ],
+    "paused": [
+        "Pausiert. Kein Stress, ich auch.",
+    ],
+    "paused_resumed": [
+        "Bin zurueck. Was hab ich verpasst.",
+    ],
 }
 
 

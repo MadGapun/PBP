@@ -7606,6 +7606,72 @@ async def api_elwosa_reject(line_id: int):
     return {"status": "rejected"}
 
 
+@app.post("/api/elwosa/user-action")
+async def api_elwosa_user_action(request: Request):
+    """v1.7.0-beta.41 (#612): User-Aktion-Hook.
+
+    Frontend ruft diesen Endpoint, wenn der User eine relevante UI-
+    Aktion ausgelost hat — primaer fuer Settings-Selbst-Reflektion
+    (Schalter umlegen → Elwosa quittiert kurz).
+
+    Body: {action, target?, payload?}
+    - action="settings_change" + target=<feld> + payload={value}
+      → mappt auf SETTINGS_REFLECTION_LINES-Sub-Trigger und postet eine
+        Reflektions-Linie (auch bei sachlich/cooldown).
+
+    Andere actions werden derzeit still verworfen — Erweiterungen
+    (job_dismissed, status_changed, ...) kommen mit den naechsten Betas.
+    """
+    from .services import elwosa
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+    action = (data.get("action") or "").strip()
+    target = (data.get("target") or "").strip()
+    payload = data.get("payload") or {}
+    if not action:
+        return JSONResponse({"error": "action required"}, status_code=400)
+
+    if action == "settings_change":
+        sub = _map_settings_change_to_sub(target, payload)
+        if not sub:
+            return {"posted": 0, "reason": "no_reflection_for_target"}
+        mid = elwosa.speak_settings_reflection(_db, sub)
+        if mid:
+            return {"posted": 1, "id": mid, "sub": sub}
+        return {"posted": 0, "reason": "suppressed"}
+
+    return {"posted": 0, "reason": "unknown_action"}
+
+
+def _map_settings_change_to_sub(target: str, payload: dict) -> str:
+    """Mappt Settings-Feld + Wert auf einen SETTINGS_REFLECTION_LINES-Key."""
+    val = payload.get("value")
+    if target == "frequency" and isinstance(val, str):
+        return f"frequency_{val}"
+    if target == "tonfall_modus" and isinstance(val, str):
+        return f"tonfall_{val}"
+    if target == "comment_user_actions":
+        return "comment_user_actions_on" if val else "comment_user_actions_off"
+    if target == "triggers_disabled":
+        # payload kann list-of-strings sein; reflektieren ob enable/disable
+        if payload.get("added"):
+            return "trigger_disabled"
+        if payload.get("removed"):
+            return "trigger_enabled"
+        return "trigger_disabled"
+    if target == "cooldown_seconds":
+        return "cooldown_changed"
+    if target == "enabled":
+        return "enabled_off" if not val else ""
+    if target == "paused_until":
+        if val:
+            return "paused"
+        return "paused_resumed"
+    return ""
+
+
 @app.post("/api/elwosa/heartbeat")
 async def api_elwosa_heartbeat():
     """v1.7.0-beta.40 (#609): Frontend-Heartbeat fuer Welt-Trigger.

@@ -5,7 +5,27 @@ React-Frontend + SQLite. **v1.6.9** ist Latest auf GitHub. v1.7.0 laeuft
 in der Beta-Reihe (zuletzt **beta.37**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
 
-## Stand 2026-05-07 (Sprint-Tag mit 12 Releases)
+## Stand 2026-05-09 (User-Test-Findings beta.41)
+
+**Schema:** v42 (zuletzt `contact_categories` aus #607 in beta.39).
+**Tests:** 1147 grün (+28 neue für #614 + #612).
+**MCP-Tools:** 138, **Prompts:** 23.
+**Quellen:** 33+.
+
+### beta.41 — #614 + #612 (User-Test-Findings vom 8. Mai)
+
+- **#614 Elwosa-Varianz** — Welt-Trigger-Pools auf 4-8 Linien ausgebaut
+  (vorher 1-3); Markup-Support `**bold**` und `[link:pause:N|label]`;
+  `pick_line()` mit Same-Day-Anti-Repeat (zwei Filter-Schichten:
+  not-7-days, dann not-today; Repeat erst wenn Pool fuer den Tag durch).
+- **#612 Settings-Verdrahtung** — `tonfall_modus` jetzt funktional in
+  `can_post_class()`: `aus`→alles blockt, `sachlich`→idle/world/tip/easter
+  blockt, `minimal`→Hard-Cap 1/Tag. Neuer Endpoint
+  `POST /api/elwosa/user-action` + `speak_settings_reflection()` Helper
+  + `SETTINGS_REFLECTION_LINES` Pool. Frontend feuert Hook auf jede
+  Settings-Aenderung (1 Reflektion pro Patch via `pickReflectionTarget`).
+
+### Stand 2026-05-07 (Sprint-Tag mit 12 Releases)
 
 **Schema:** v41 — `elwosa_messages` + `elwosa_pending_lines` (#599).
 **Tests:** 1057 grün.

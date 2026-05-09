@@ -38,28 +38,112 @@ function setHiddenUntil(ts) {
 }
 
 /**
- * Wandelt `Backticks` in einer Linie in klickbare Code-Spans um.
- * Bei Klick wird der Code-Inhalt in die Clipboard kopiert.
+ * v1.7.0-beta.41 (#614): Markup-Renderer fuer Elwosa-Linien.
+ *
+ * Unterstuetzt drei Markup-Formen, die parallel im Text vorkommen koennen:
+ * 1. `Backtick-Code` → klickbarer Code-Span, kopiert in Clipboard
+ * 2. **Wort** → fett (max 1-2 mal pro Linie, dezent)
+ * 3. [link:type:id|label] → klickbarer Link
+ *    - type=pause + id=N → ruft elwosa_pause(N)
+ *    - type=application + id=hash → navigiert zur Bewerbung
+ *    - type=job + id=hash → navigiert zur Stelle
+ *
+ * Reihenfolge: erst Links extrahieren (greedy), dann Bold, dann Code.
  */
-function renderWithCodeSpans(text, onCopy) {
+const LINK_RE = /\[link:([a-z_]+):([^|\]]+)\|([^\]]+)\]/g;
+const BOLD_RE = /\*\*([^*]+)\*\*/g;
+const CODE_RE = /`[^`]+`/g;
+
+function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
   if (!text) return null;
-  const parts = text.split(/(`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`")) {
-      const code = part.slice(1, -1);
-      return (
-        <button
-          key={i}
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onCopy(code); }}
-          className="font-mono text-[11px] underline-offset-2 underline decoration-dotted decoration-teal/50 hover:text-teal cursor-pointer"
-          title="Klicken um zu kopieren"
-        >
-          {code}
-        </button>
-      );
+  // Tokenize: erst Links rauspflicken, dann auf jeden Teil Bold + Code anwenden
+  const tokens = [];
+  let lastIdx = 0;
+  let m;
+  LINK_RE.lastIndex = 0;
+  while ((m = LINK_RE.exec(text)) !== null) {
+    if (m.index > lastIdx) {
+      tokens.push({ type: "plain", text: text.slice(lastIdx, m.index) });
     }
-    return <span key={i}>{part}</span>;
+    tokens.push({ type: "link", linkType: m[1], linkId: m[2], label: m[3] });
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < text.length) {
+    tokens.push({ type: "plain", text: text.slice(lastIdx) });
+  }
+
+  return tokens.flatMap((tok, ti) => {
+    if (tok.type === "link") {
+      return [
+        <button
+          key={`l-${ti}`}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (tok.linkType === "pause") {
+              onPause?.(parseInt(tok.linkId, 10) || 60);
+            } else {
+              onNavigate?.(tok.linkType, tok.linkId);
+            }
+          }}
+          className="text-teal hover:text-teal/80 underline decoration-dotted decoration-teal/40 underline-offset-2 cursor-pointer"
+          title={tok.linkType === "pause"
+            ? `Elwosa fuer ${tok.linkId} Minuten pausieren`
+            : `${tok.linkType}: ${tok.linkId}`}
+        >
+          {tok.label}
+        </button>,
+      ];
+    }
+    // Plain-Text: Bold + Code anwenden
+    return renderBoldAndCode(tok.text, ti, onCopy);
+  });
+}
+
+function renderBoldAndCode(text, baseKey, onCopy) {
+  // Erst Bold extrahieren
+  const parts = [];
+  let lastIdx = 0;
+  let m;
+  BOLD_RE.lastIndex = 0;
+  while ((m = BOLD_RE.exec(text)) !== null) {
+    if (m.index > lastIdx) {
+      parts.push({ type: "code-or-text", text: text.slice(lastIdx, m.index) });
+    }
+    parts.push({ type: "bold", text: m[1] });
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < text.length) {
+    parts.push({ type: "code-or-text", text: text.slice(lastIdx) });
+  }
+
+  return parts.flatMap((p, pi) => {
+    const key = `${baseKey}-${pi}`;
+    if (p.type === "bold") {
+      return [<strong key={key} className="font-semibold text-ink">{p.text}</strong>];
+    }
+    // Code-Spans im plain Text
+    const segs = p.text.split(CODE_RE);
+    const codes = p.text.match(CODE_RE) || [];
+    const out = [];
+    segs.forEach((seg, si) => {
+      if (seg) out.push(<span key={`${key}-s${si}`}>{seg}</span>);
+      if (si < codes.length) {
+        const code = codes[si].slice(1, -1);
+        out.push(
+          <button
+            key={`${key}-c${si}`}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onCopy?.(code); }}
+            className="font-mono text-[11px] underline-offset-2 underline decoration-dotted decoration-teal/50 hover:text-teal cursor-pointer"
+            title="Klicken um zu kopieren"
+          >
+            {code}
+          </button>
+        );
+      }
+    });
+    return out;
   });
 }
 
@@ -89,7 +173,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings, onNavigate }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -244,7 +328,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
             <div className="space-y-2">
               {messages.slice(-3).map((m) => (
                 <p key={m.id} className="text-[11px] leading-relaxed text-muted/80">
-                  {renderWithCodeSpans(m.content, copyCode)}
+                  {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
                 </p>
               ))}
             </div>
@@ -355,7 +439,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
               className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
             >
               <p className="text-[11px] leading-relaxed text-muted/85">
-                {renderWithCodeSpans(m.content, copyCode)}
+                {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
               </p>
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-[9px] text-muted/30">

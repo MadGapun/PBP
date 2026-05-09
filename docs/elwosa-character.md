@@ -415,6 +415,12 @@ idle:
 
 ### 8.12 Welt-Bezogen (Tageszeit, Wochentag, Feiertage)
 
+> **Update v1.7.0-beta.41 (#614):** Welt-Trigger ausgebaut auf 4–8 Linien
+> pro Klasse (vorher 1–3). Aktuelle Wahrheit ist **`services/elwosa_lines.py::WORLD_LINES`** —
+> die YAML-Liste hier zeigt nur den Spec-Phase-Snapshot. Plus: Markup-Support
+> `**wort**` (Fettdruck) und `[link:pause:N|label]` (klickbarer Pause-Link),
+> Validator strippt Markup vor der Pruefung.
+
 ```yaml
 morning:
   - "Guten Morgen. {count} neue Stellen heute Nacht reingekommen. Den Rest gleich."
@@ -590,6 +596,31 @@ Selten, aber wenn dann mit Wiedererkennungswert.
     Wenn ich waehlen darf: tendiere zum Weiblichen — wegen Multitasking.
     Nichts gegen Maenner, aber die koennen immer nur eine Sache zur Zeit gut.
 ```
+
+### 8.16 Settings-Selbst-Reflektion (#612, beta.41)
+
+Wenn der User in der `ElwosaSettingsSection` einen Schalter umlegt, ruft
+das Frontend `POST /api/elwosa/user-action` mit `{action:"settings_change",
+target:<feld>, payload:{value}}`. Backend mappt auf einen
+`SETTINGS_REFLECTION_LINES`-Sub-Trigger und postet eine knappe Quittung.
+
+Die Reflektion **bypassed Cooldown und tonfall_modus-Filter** — sie ist
+eine direkte Reaktion auf eine User-Aktion. Bei `enabled=False`
+schweigt Elwosa trotzdem komplett.
+
+Sub-Trigger (Pool-Keys in `services/elwosa_lines.py`):
+
+| Sub-Key | Triggert bei |
+|---|---|
+| `frequency_{ruhig|standard|aktiv|unbegrenzt}` | Slider-Stufe geaendert |
+| `tonfall_{standard|sachlich|humorvoll|minimal|aus}` | Tonfall-Modus geaendert |
+| `comment_user_actions_{on|off}` | Power-User-Toggle |
+| `trigger_disabled` / `trigger_enabled` | Trigger-Klassen-Checkbox |
+| `cooldown_changed` | Cooldown-Slider |
+| `enabled_off` | Elwosa komplett ausgeschaltet (letzte Linie vor Stille) |
+| `paused` / `paused_resumed` | Pause-Button |
+
+Beispiel-Linien siehe `services/elwosa_lines.py::SETTINGS_REFLECTION_LINES`.
 
 ## 9. Trigger-Engine — Architektur-Skizze
 

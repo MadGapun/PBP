@@ -7,6 +7,160 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.41] - 2026-05-09 — Elwosa: Varianz, Markup, Settings-Verdrahtung (#614 + #612)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
+
+User-Test der beta.40: drei Probleme bei Elwosa.
+
+1. Welt-Trigger wie `friday_evening` hatten **nur eine Linie** — bei
+   stuendlichem Heartbeat wiederholte Elwosa identisch.
+2. Settings `tonfall_modus` und `comment_user_actions` waren **Dekoration**,
+   wurden im Picker bzw. Frontend nirgendwo gelesen.
+3. Fettdruck-Akzent + klickbare „kurz still sein"-Aktion fehlten.
+
+### ✨ Added — Linien-Pool-Erweiterung (#614)
+
+Welt-Trigger ausgebaut auf 4–8 Linien (vorher 1–3):
+
+| Trigger | vorher | jetzt |
+|---|---|---|
+| `friday_evening` | 1 | 8 |
+| `weekend` | 2 | 6 |
+| `monday_morning` | 1 | 5 |
+| `late_night` | 2 | 6 |
+| `evening` | 2 | 6 |
+| `morning` | 3 | 7 |
+| `holiday_christmas` | 1 | 4 |
+| `holiday_summer` | 1 | 4 |
+| `return_after_break` | 2 | 4 |
+
+Mit stilistischer Varianz: ungeduldig-ironisch, nerdig, leise, mit
+Rueckfrage-Charakter — alle weiterhin Sprach-DNA-konform.
+
+### ✨ Added — Markup-Support (#614)
+
+- **`**Wort**`-Syntax** rendert als Fettdruck (max. dezent, 1 pro Linie)
+- **`[link:type:id|label]`-Syntax** rendert als klickbarer Link:
+  - `link:pause:N` → Klick ruft `/api/elwosa/pause` mit `minuten=N`
+  - `link:application:hash` → Navigation zur Bewerbung (Frontend-Hook)
+  - `link:job:hash` → Navigation zur Stelle
+- **Validator markup-aware:** Laenge zaehlt gestrippten Text, verbotene
+  Patterns (`!`, `Ihre`, Emojis) werden auch im Bold-/Link-Inhalt erkannt
+  → keine Schmuggel-Pfade
+
+Beispiel aus dem `friday_evening`-Pool:
+> *„Es ist Wochenende. Falls du in Zeitnot bist und das fertig machen willst — [sag's, ich halte mich raus]"* (klickbar → 2h Pause)
+
+### 🐛 Fixed — Anti-Wiederholung gleicher Tag (#614)
+
+`pick_line()` hat jetzt zwei Filter-Schichten:
+
+1. Nicht in den letzten 7 Tagen verwendet (Fallback: voller Pool)
+2. Nicht heute bereits gepostet (Fallback: Schicht 1)
+
+Vorher: einziger 7-Tage-Filter mit Hard-Fallback → wenn der Pool nur eine
+Linie hatte, kam die immer wieder. Jetzt: gleicher Tag = exklusiv solange
+Auswahl moeglich.
+
+### 🐛 Fixed — `tonfall_modus` jetzt wirksam (#612)
+
+In `services/elwosa.py::can_post_class()`:
+
+- **`aus`** → blockiert alle Klassen (entspricht `enabled=False`)
+- **`sachlich`** → blockiert idle/world/tip/easter_egg, nur Status passt
+- **`minimal`** → harter Cap **1 Linie pro Tag** ueber alle Klassen
+- **`humorvoll`** → unveraendert (Pool-Gewichtung kommt spaeter)
+
+### ✨ Added — Settings-Selbst-Reflektion (#612)
+
+**Neuer Endpoint** `POST /api/elwosa/user-action` mit Body
+`{action, target, payload}`. Frontend feuert ihn nach jeder Settings-
+Aenderung in der `ElwosaSettingsSection`. Backend mappt auf einen der
+neuen `SETTINGS_REFLECTION_LINES`-Pools und postet eine knappe Quittung:
+
+| Aktion | Beispiel-Reflektion |
+|---|---|
+| Frequenz auf „aktiv" | *„Aktiv. Du moechtest mehr von mir hoeren — riskant, aber bitte."* |
+| Tonfall „humorvoll" | *„Mehr Humor. Versuche ich. Britisch unterkuehlt bleibt's trotzdem."* |
+| `comment_user_actions` an | *„Auch User-Aktionen kommentieren. Anstrengend fuer dich, anstrengender fuer mich."* |
+| Trigger-Klasse aus | *„Trigger-Klasse aus. Verstehe, du brauchst Ruhe an der Stelle."* |
+
+**Bypassed** Cooldown und `tonfall_modus`-Filter — die Reflektion ist
+eine direkte User-Quittung und soll auch im sachlichen Modus kommen.
+Bei `enabled=False` (Elwosa komplett aus) wird trotzdem geschwiegen.
+
+### Settings-Hook im Frontend
+
+`ElwosaSettingsSection.update()` ruft jetzt zusaetzlich zu `PUT
+/api/elwosa/settings` einen `POST /api/elwosa/user-action` mit dem
+prominentesten geaenderten Feld. **Throttle:** nur EIN Reflektion-Hook
+pro Patch (nicht 4 Linien wenn der Slider 4 Stufen runtergeht).
+
+### Tests
+
+- 26 neue Tests in `test_v170_beta41_elwosa_polish.py`
+  (Pool-Groesse, Validator-Markup-Strip, Bold-Akzeptanz,
+  Link-Akzeptanz, Bang-im-Bold-Block, Hoeflichkeits-im-Link-Block,
+  Same-Day-Anti-Repeat, tonfall-modus-Verdrahtung,
+  Settings-Reflektion-API, Bestaendigkeit der neuen Linien gegen
+  Tonfall-Waechter)
+- Bestehende 31 Tests in `test_v170_beta37_elwosa.py` weiterhin gruen
+- Tonfall-Waechter `test_all_pool_lines_pass_validator` deckt jetzt
+  ~50 zusaetzliche Linien ab
+
+### Known Issues
+
+- `tonfall_modus="humorvoll"` lockert noch keine Limits (Easter-Eggs
+  bevorzugen kommt mit beta.42)
+- Auto-Scroll + adaptive Hoehe + Aktions-Link-Navigation (#611) sind
+  separat geplant fuer beta.42 — heute nur die Markup-Render-Foundation
+- Issue #613 (Quellen-Migration: source='manuell' enthaelt eigentlich
+  LinkedIn) bekommt eine eigene Beta wegen Daten-Migration
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.41.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.41.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.40] - 2026-05-07 — Elwosa-Hooks: Bot reagiert jetzt wirklich (#609 Hot-Fix)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.9.
