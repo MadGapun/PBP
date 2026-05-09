@@ -7,6 +7,147 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.46] - 2026-05-10 — Bug-Sweep: 7 Bugs gefixt (#604, #618, #602, #619, #610, #603, #615)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Sammel-Release fuer Bug-Cluster der letzten Test-Sessions. Sieben User-
+Test-Findings sauber gefixt, plus ein Bonus-TZ-Bug der bei Tag-Wechsel
+um Mitternacht (UTC vs. Lokalzeit) Limits inkonsistent gemacht hat.
+
+### 🐛 Fixed — #604 „intern" als Praktikum-Synonym entfernt
+
+`_SYNONYM_MAP["praktikum"]` enthielt `"intern"` — false positive auf
+`"internationalen Kunden"` / `"interne Kommunikation"` in deutschen
+Stellentexten. Score sprang ohne Vorwarnung auf 0.
+
+→ `"intern"` entfernt, `"internship"` (englisch, eindeutig) bleibt.
+
+### 🐛 Fixed — #618 `stelle_bearbeiten` akzeptiert jetzt Kurz-Hash
+
+`stellen_anzeigen()` liefert `id` als 8-Zeichen-Hash, andere Tools
+(`fit_analyse`, `scoring_vorschau`) akzeptieren diesen — `stelle_bearbeiten`
+verlangte aber den vollen 12-Zeichen-Hash.
+
+→ `_find_job_row` mit Prefix-LIKE-Fallback fuer kurze Hashes.
+Konsistent zur 8-Zeichen-Anzeige.
+
+### 🐛 Fixed — #602 `applied_at` Default + Report-Fallback
+
+Inbound-Recruiter-Anfragen via `bewerbung_erstellen` ohne explizites
+`applied_at` haben das Feld leer gelassen → 14 verwaiste Eintraege
+erschienen im Bewerbungsbericht ohne Datum.
+
+→ Default = heute wenn `status != 'in_vorbereitung'`. Plus Report-
+Generator nutzt `created_at` als Fallback fuer ggf. existierende
+Altlasten.
+
+### 🐛 Fixed — #619 PDF-Export Unicode-Pfeil-Crash
+
+`profil_report_exportieren(format='pdf')` schlug fehl an `→` (U+2192)
+weil Helvetica-Standard-Font kein Unicode kann.
+
+→ `safe()`-Helper erweitert: Pfeile (`→`/`←`/`⇒`/...), Bullets,
+typographische Anfuehrungszeichen, Mathe-Symbole werden auf ASCII
+gemappt. Letzter Fallback: `latin-1` mit `errors='replace'` — kein
+Crash mehr, nur einzelne `?`-Zeichen wo Unicode unbekannt.
+
+### 🐛 Fixed — #610 `stellen_auto_aussortieren` outputSchema-Validierung
+
+Fehler-Pfade (Ollama nicht da, kein Profil) hatten andere Keys als
+Success-Pfade — MCP outputSchema-Check schlug fehl.
+
+→ Uniformes Schema mit allen Pflicht-Keys (`status`, `geprueft`,
+`passt_nicht`, ...) auch im Fehler-Fall via `_err()`-Helper.
+Plus Try/Except um den ganzen Body damit unhandled Exceptions auch
+strukturiert returnen.
+
+### 🐛 Fixed — #603 Fit-Score=0 durch PBP-Notizen in `description`
+
+Wenn Claude redaktionelle Analyse (`Auffaelliges:`, `PBP-Notiz:`) in
+`jobs.description` schrieb und diese ein Ausschluss-Keyword enthielt
+(z.B. „Hands-on"), sabotierte das die Score-Berechnung.
+
+→ Neuer Helper `_strip_pbp_notes()` schneidet alles ab dem ersten
+Trenner ab (`---`, `## Auffaelliges:`, `## PBP-Notizen:`, ...).
+`calculate_score` benutzt den bereinigten Text fuer Ausschluss-
+Matching.
+
+### 🐛 Fixed — #615 `kontakt_verknuepfen` klare Fehlermeldungen
+
+`FOREIGN KEY constraint failed` ohne Kontext — User wusste nicht ob
+Kontakt, Bewerbung oder Stelle fehlt.
+
+→ `link_contact` macht explizite Existenz-Checks vor INSERT mit
+klaren Meldungen (`„Kontakt nicht gefunden"`, `„Bewerbung nicht
+gefunden"`, `„Stelle nicht gefunden — evtl. orphaned FK (#616)"`).
+Plus Kurz-Hash-Aufloesung fuer `target_id` (analog zu anderen Tools).
+
+### 🐛 Fixed (Bonus) — Elwosa Frequenz-Limits TZ-Bug
+
+`_count_today` / `_count_all_today` / `_seen_today` verglichen lokales
+Datum gegen UTC-Datum (created_at wird in UTC gespeichert). Folge:
+um Mitternacht (lokal) sprang der Counter unbemerkt zurueck.
+
+→ Konsistent UTC-Date verwenden in `services/elwosa.py` und im
+Wiki-Hint-Endpoint. Drei Tests die nach dem Datum-Wechsel rot waren
+sind wieder gruen.
+
+### Vertagt nach beta.47
+
+- **#616** Verwaiste `stellen_id` in Bewerbungen — braucht Daten-
+  Migration ueber bestehende DB
+- **#613** Quellen-Migration `manuell` → `linkedin` (URL-Detection +
+  Migration-Tool)
+
+### Tests
+
+- 14 neue Tests in `test_v170_beta46_bug_sweep.py` (alle 7 Bugs)
+- **1202 / 1202 gruen** + 1 skipped (+14 vs. beta.45)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.46.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.46.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.45] - 2026-05-09 — Wiki-Snippets als kontextuelle Elwosa-Hints (#623) + Repo-Cleanup
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

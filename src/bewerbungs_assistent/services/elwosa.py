@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import random
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .elwosa_lines import (
@@ -159,7 +159,9 @@ def _seen_recently(db, content: str, days: int = 7) -> bool:
 def _seen_today(db, content: str) -> bool:
     """v1.7.0-beta.41 (#614): exakter Kalendertag-Filter (anti same-day-Repeat)."""
     pid = db.get_active_profile_id()
-    today = datetime.now().date().isoformat()
+    # v1.7.0-beta.46 (Bonus): UTC-Date wegen TZ-Mismatch mit _now()
+    # in database.py (created_at wird in UTC gespeichert).
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = db.connect()
     row = conn.execute(
         "SELECT 1 FROM elwosa_messages "
@@ -281,7 +283,9 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
 def _count_all_today(db) -> int:
     """v1.7.0-beta.41 (#612): Gesamtzahl Linien heute (fuer modus=minimal)."""
     pid = db.get_active_profile_id()
-    today = datetime.now().date().isoformat()
+    # v1.7.0-beta.46 (Bonus): UTC-Date wegen TZ-Mismatch mit _now()
+    # in database.py (created_at wird in UTC gespeichert).
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = db.connect()
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM elwosa_messages "
@@ -294,7 +298,9 @@ def _count_all_today(db) -> int:
 
 def _count_today(db, trigger_kind: str) -> int:
     pid = db.get_active_profile_id()
-    today = datetime.now().date().isoformat()
+    # v1.7.0-beta.46 (Bonus): UTC-Date wegen TZ-Mismatch mit _now()
+    # in database.py (created_at wird in UTC gespeichert).
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = db.connect()
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM elwosa_messages "

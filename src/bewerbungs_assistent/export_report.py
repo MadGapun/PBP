@@ -853,7 +853,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.ln(1)
     timeline_events = []
     for a in apps:
-        applied_at = (a.get("applied_at") or "")[:10]
+        # v1.7.0-beta.46 (#602): Fallback auf created_at wenn applied_at
+        # leer ist (Inbound-Recruiter-Anfragen). Vorher kamen die als
+        # ? oder leeres Datum im Bericht.
+        applied_at = (a.get("applied_at") or a.get("created_at") or "")[:10]
         title = a.get("title") or ""
         company = a.get("company") or ""
         status = STATUS_LABELS.get(a.get("status") or "", a.get("status") or "")

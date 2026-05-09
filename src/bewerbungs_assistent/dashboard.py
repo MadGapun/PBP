@@ -7922,8 +7922,10 @@ async def api_wiki_request_hint(request: Request):
         return {"posted": 0, "reason": "elwosa_disabled"}
 
     # Per-Route-Cap: 1 Wiki-Hint pro Route pro Tag (pro Profil)
+    # v1.7.0-beta.46: UTC-Date weil created_at in UTC gespeichert wird.
     pid = _db.get_active_profile_id()
-    today = datetime.now().date().isoformat()
+    from datetime import timezone
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = _db.connect()
     same_route_today = conn.execute(
         "SELECT 1 FROM elwosa_messages "

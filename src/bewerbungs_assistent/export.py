@@ -1102,10 +1102,29 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
     def safe(text):
         if not text: return ""
         if font_name == "Helvetica":
+            # v1.7.0-beta.46 (#619): Unicode-Zeichen die Helvetica nicht
+            # unterstuetzt \u2014 ASCII-Fallback. Vorher knallte der PDF-Export
+            # an `\u2192` (Pfeil) den Claude in Projekt-Ergebnissen oft
+            # einsetzt.
             for k, v in {"\u00e4": "ae", "\u00f6": "oe", "\u00fc": "ue",
                          "\u00c4": "Ae", "\u00d6": "Oe", "\u00dc": "Ue",
-                         "\u00df": "ss", "\u2013": "-", "\u2014": "-"}.items():
+                         "\u00df": "ss", "\u2013": "-", "\u2014": "-",
+                         # Pfeile
+                         "\u2192": "->", "\u2190": "<-", "\u2194": "<->",
+                         "\u21d2": "=>", "\u21d0": "<=", "\u21d4": "<=>",
+                         # Bullets / Sonstiges
+                         "\u2022": "*", "\u00b7": "*", "\u2026": "...",
+                         "\u201e": "\"", "\u201c": "\"", "\u201d": "\"",
+                         "\u2018": "'", "\u2019": "'",
+                         # Mathe
+                         "\u00b1": "+/-", "\u00d7": "x", "\u00f7": "/",
+                         "\u2264": "<=", "\u2265": ">="}.items():
                 text = text.replace(k, v)
+            # Letzter Fallback: alles was nicht latin-1 ist mit '?' ersetzen
+            try:
+                text.encode("latin-1")
+            except UnicodeEncodeError:
+                text = text.encode("latin-1", errors="replace").decode("latin-1")
         return text
 
     def next_line():

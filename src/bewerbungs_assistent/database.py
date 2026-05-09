@@ -1892,7 +1892,12 @@ class Database:
         return candidates
 
     def _find_job_row(self, job_hash: str, profile_id: Optional[str] = None) -> Optional[sqlite3.Row]:
-        """Find a job for the requested profile, including legacy unscoped rows."""
+        """Find a job for the requested profile, including legacy unscoped rows.
+
+        v1.7.0-beta.46 (#618): Bei kurzen Hashes (< 12 Zeichen) wird ein
+        Prefix-LIKE-Lookup gemacht, damit `stelle_bearbeiten` & Co.
+        konsistent zur 8-Zeichen-Anzeige in `stellen_anzeigen` arbeiten.
+        """
         conn = self.connect()
         pid = profile_id or self.get_active_profile_id()
         for candidate in self._job_hash_candidates(job_hash, pid):
@@ -1903,6 +1908,23 @@ class Database:
                 ).fetchone()
             else:
                 row = conn.execute("SELECT * FROM jobs WHERE hash=?", (candidate,)).fetchone()
+            if row is not None:
+                return row
+        # #618: Prefix-LIKE-Fallback fuer kurze Hashes
+        if job_hash and len(job_hash) < 12:
+            short = job_hash
+            if pid:
+                # Scoped-Lookup: pid:short% ODER short% ohne Prefix (legacy)
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE (hash LIKE ? OR hash LIKE ?) "
+                    "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+                    (f"{pid}:{short}%", f"{short}%", pid),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE hash LIKE ? LIMIT 1",
+                    (f"%{short}%",),
+                ).fetchone()
             if row is not None:
                 return row
         return None
@@ -3147,12 +3169,56 @@ class Database:
         target_kind: 'application', 'meeting', 'job', 'company'.
         Doppelte Verknuepfungen (gleicher Kontakt → gleiches Ziel mit gleicher Rolle)
         werden ignoriert (idempotent).
+
+        v1.7.0-beta.46 (#615): Explizite Existenz-Pruefung vor INSERT
+        damit der User eine klare Meldung bekommt statt
+        'FOREIGN KEY constraint failed'. Auch Kurz-Hash-Aufloesung fuer
+        target_id (Stelle / Bewerbung) — analog zu anderen Tools.
         """
         if target_kind not in ("application", "meeting", "job", "company"):
             raise ValueError(
                 f"target_kind muss application/meeting/job/company sein, nicht {target_kind!r}"
             )
         conn = self.connect()
+        # Existenz des Kontakts pruefen — der einzige FK in contact_links
+        contact_row = conn.execute(
+            "SELECT id FROM contacts WHERE id=? LIMIT 1", (contact_id,)
+        ).fetchone()
+        if not contact_row:
+            raise ValueError(
+                f"Kontakt nicht gefunden: {contact_id}. "
+                "Pruefe die ID mit kontakte_auflisten()."
+            )
+        # Existenz des Ziels (best-effort) — nicht harter FK, aber wir
+        # warnen den Caller statt eines spaeteren orphaned Links
+        if target_kind == "application":
+            row = conn.execute("SELECT id FROM applications WHERE id=? OR id LIKE ? LIMIT 1",
+                               (target_id, f"{target_id}%")).fetchone()
+            if row:
+                target_id = row["id"]
+            else:
+                raise ValueError(
+                    f"Bewerbung nicht gefunden: {target_id}. "
+                    "Pruefe die ID mit bewerbungen_anzeigen()."
+                )
+        elif target_kind == "job":
+            row = conn.execute("SELECT hash FROM jobs WHERE hash=? OR hash LIKE ? LIMIT 1",
+                               (target_id, f"%:{target_id}%")).fetchone()
+            if row:
+                target_id = row["hash"]
+            else:
+                raise ValueError(
+                    f"Stelle nicht gefunden: {target_id}. "
+                    "Die referenzierte Stelle existiert nicht (mehr) in der Datenbank "
+                    "— evtl. orphaned FK (#616). Pruefe mit stellen_anzeigen()."
+                )
+        elif target_kind == "meeting":
+            row = conn.execute("SELECT id FROM meetings WHERE id=? OR id LIKE ? LIMIT 1",
+                               (target_id, f"{target_id}%")).fetchone()
+            if row:
+                target_id = row["id"]
+            else:
+                raise ValueError(f"Meeting nicht gefunden: {target_id}.")
         # Idempotent: wenn schon verknuepft mit selber Rolle, return existing
         existing = conn.execute(
             "SELECT id FROM contact_links "

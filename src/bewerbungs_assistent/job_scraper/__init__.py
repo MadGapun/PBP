@@ -1299,12 +1299,16 @@ _SYNONYM_MAP = {
     "werkstudent": ["werkstudentin", "werkstudenten", "werkstudentinnen",
                     "werkstudierend", "werkstudierende", "werkstudierender",
                     "werkstudierenden", "studentische hilfskraft", "shk"],
+    # v1.7.0-beta.46 (#604): "intern" entfernt — false positives auf
+    # "internationalen Kunden" / "interne Kommunikation" in deutschen
+    # Stellentexten. "internship" bleibt — kommt nur in englischsprachigen
+    # Anzeigen vor und ist dort unmissverstaendlich.
     "praktikant": ["praktikantin", "praktikanten", "praktikantinnen",
                    "praktikum", "praktikumsplatz", "pflichtpraktikum",
-                   "praktikumsstelle", "intern", "internship"],
+                   "praktikumsstelle", "internship"],
     "praktikum": ["praktikant", "praktikantin", "praktikanten",
                   "praktikumsplatz", "pflichtpraktikum", "praktikumsstelle",
-                  "intern", "internship"],
+                  "internship"],
     "azubi": ["auszubildende", "auszubildender", "ausbildung",
               "lehrling", "berufsausbildung"],
     "ausbildung": ["azubi", "auszubildende", "auszubildender",
@@ -1409,6 +1413,33 @@ def _fuzzy_keyword_match(keyword: str, text: str) -> bool:
     return False
 
 
+# v1.7.0-beta.46 (#603): PBP-Notizen-Trenner. Wenn Claude (oder ein
+# anderer Agent) redaktionelle Analyse in jobs.description schreibt,
+# soll das Scoring nur den Original-Text bewerten, nicht Notizen mit
+# Ausschluss-Keywords drin (z.B. "Hands-on" als Teil einer Analyse).
+# Konvention: Ein '---' am Zeilenanfang oder eine '## Auffaelliges:'-
+# Zeile markiert den Beginn der Notizen.
+import re as _re_pbpnotes
+
+_PBP_NOTES_RE = _re_pbpnotes.compile(
+    r"(\n[ \t]*-{3,}[ \t]*\n)"           # ---
+    r"|(\n[ \t]*##\s*(Auffaelliges|Auffälliges|PBP-Notizen|Analyse)\b)"
+    r"|(\n[ \t]*Gehaltsschaetzung lt\. PBP:)"
+    r"|(\n[ \t]*PBP-Notiz:)",
+    _re_pbpnotes.IGNORECASE,
+)
+
+
+def _strip_pbp_notes(description: str) -> str:
+    """Schneidet alles ab dem ersten PBP-Notizen-Trenner ab."""
+    if not description:
+        return ""
+    m = _PBP_NOTES_RE.search(description)
+    if m:
+        return description[:m.start()].strip()
+    return description
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -1426,7 +1457,14 @@ def calculate_score(job: dict, criteria: dict) -> int:
     description = job.get("description", "") or ""
     title = job.get("title", "") or ""
     has_description = len(description.strip()) > 50  # Mindestens 50 Zeichen fuer sinnvollen Match
-    text = f"{title} {description}".lower()
+
+    # v1.7.0-beta.46 (#603): PBP-Notizen aus der Beschreibung
+    # ausblenden bevor wir matchen. Claude schreibt manchmal redaktionelle
+    # Analysen ('Auffaelliges:', 'Gehaltsschaetzung lt. PBP:') in
+    # jobs.description — diese koennen Ausschluss-Keywords enthalten und
+    # das Scoring sabotieren.
+    description_for_score = _strip_pbp_notes(description)
+    text = f"{title} {description_for_score}".lower()
     w = _parse_weights(criteria)
 
     # #180: Markiere Jobs ohne Beschreibung damit Claude/Frontend warnen kann

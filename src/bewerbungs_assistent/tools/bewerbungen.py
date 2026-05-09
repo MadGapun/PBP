@@ -454,6 +454,13 @@ def register(mcp, db, logger):
                 snapshot_text = ""
         from datetime import datetime as _dt_snap
 
+        # v1.7.0-beta.46 (#602): applied_at-Default. Inbound-Recruiter-
+        # Anfragen kamen vorher ohne applied_at rein -> 14 verwaiste
+        # Eintraege im Bericht. Default = heute (oder created_at als
+        # Fallback bei status='in_vorbereitung').
+        if status != "in_vorbereitung" and not applied_at:
+            applied_at = _dt_snap.now().isoformat()[:10]
+
         aid = db.add_application({
             "title": title, "company": company, "url": url,
             "job_hash": effective_hash, "status": status,

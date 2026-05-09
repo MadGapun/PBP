@@ -1676,9 +1676,19 @@ def register(mcp, db, logger):
             ort: Neuer Arbeitsort
             beschreibung: Neue Stellenbeschreibung
         """
-        job = db.get_job(job_hash)
+        # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
+        # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
+        # tun das aber. Konsistenz: resolve_job_hash erlaubt beides.
+        from ..services.typed_ids import strip_prefix
+        h = strip_prefix(job_hash)
+        resolved = db.resolve_job_hash(h)
+        if not resolved:
+            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+        job = db.get_job(resolved)
         if not job:
             return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+        # Ab hier den vollen aufgeloesten Hash verwenden
+        job_hash = resolved
 
         updates: dict = {}
         if titel:
@@ -1763,25 +1773,39 @@ def register(mcp, db, logger):
         Idempotent: bewertet keine Stelle erneut die schon `passt_nicht`
         oder eine Bewerbung hat.
         """
-        from ..services.llm_service import get_llm_service, TaskKind, Backend
+        # v1.7.0-beta.46 (#610): Try/except um den ganzen Body, alle
+        # Returns mit uniformem Schema. Vorher: outputSchema-Validierungs-
+        # fehler weil error-Pfade andere Keys hatten als Success-Pfade.
+        def _err(msg: str, **extra) -> dict:
+            base = {
+                "status": "fehler",
+                "fehler": msg,
+                "geprueft": 0, "passt_nicht": 0, "unsicher": 0, "passt": 0,
+                "errors_count": 0,
+                "passt_nicht_details": [], "unsicher_details": [],
+                "passt_details": [], "errors": [],
+                "modell": "",
+            }
+            base.update(extra)
+            return base
 
-        svc = get_llm_service(db)
-        status = svc.get_status(force_refresh=True)
-        if not status.ollama_available or not status.available_models:
-            return {
-                "fehler": "Lokale AI nicht verfuegbar.",
-                "hinweis": (
-                    "Stellen_auto_aussortieren braucht Ollama + ein installiertes "
-                    "Modell. Pruefe Einstellungen → Lokale KI."
-                ),
-                "ollama_available": status.ollama_available,
-                "available_models": status.available_models,
-            }
-        if status.user_state != "active":
-            return {
-                "fehler": f"Lokale AI ist im State '{status.user_state}'.",
-                "hinweis": "Setze State auf 'active' in Einstellungen → Lokale KI.",
-            }
+        try:
+            from ..services.llm_service import get_llm_service, TaskKind, Backend
+
+            svc = get_llm_service(db)
+            status = svc.get_status(force_refresh=True)
+            if not status.ollama_available or not status.available_models:
+                return _err(
+                    "Lokale AI nicht verfuegbar.",
+                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Pruefe Einstellungen -> Lokale KI.",
+                )
+            if status.user_state != "active":
+                return _err(
+                    f"Lokale AI ist im State '{status.user_state}'.",
+                    hinweis="Setze State auf 'active' in Einstellungen -> Lokale KI.",
+                )
+        except Exception as exc:
+            return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
 
         # Profil-Kontext sammeln
         profile = db.get_profile() or {}
@@ -1844,11 +1868,10 @@ def register(mcp, db, logger):
             pass
 
         if not candidates:
-            return {
-                "status": "leer",
-                "nachricht": "Keine ungerateten Stellen oberhalb min_score.",
-                "geprueft": 0, "passt_nicht": 0, "unsicher": 0, "passt": 0,
-            }
+            return _err(
+                "Keine ungerateten Stellen oberhalb min_score.",
+                status="leer",
+            )
 
         passt_nicht_results = []
         unsicher_results = []
@@ -1905,9 +1928,14 @@ def register(mcp, db, logger):
                     "hash": job.get("hash"), "error": str(exc)[:200],
                 })
 
+        try:
+            modell_name = status.selected_model or ""
+        except Exception:
+            modell_name = ""
         return {
             "status": "ok",
             "dry_run": dry_run,
+            "fehler": "",
             "geprueft": len(candidates),
             "passt_nicht": len(passt_nicht_results),
             "unsicher": len(unsicher_results),
@@ -1917,7 +1945,7 @@ def register(mcp, db, logger):
             "unsicher_details": unsicher_results[:10],
             "passt_details": passt_results[:10],
             "errors": errors[:5],
-            "modell": status.selected_model,
+            "modell": modell_name,
         }
 
     @mcp.tool()
