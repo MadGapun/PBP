@@ -1,4 +1,29 @@
 @echo off
+:: ============================================================
+:: PBP Deinstaller — Self-Relocation (Fix #620)
+:: ============================================================
+:: Wenn die .bat aus %APP_DIR% laeuft (Apps & Features-Aufruf),
+:: kopieren wir uns nach %TEMP% und starten von dort neu. Sonst
+:: wuerde Schritt [4/7] (rmdir APP_DIR) das laufende Skript
+:: loeschen — cmd.exe liest Skripte just-in-time von Disk und
+:: bricht still ab. Folge: Registry-Eintrag bleibt, Apps-Liste
+:: zeigt PBP weiterhin an.
+:: ============================================================
+set "PBP_BASEDIR=%~dp0"
+if "%PBP_BASEDIR:~-1%"=="\" set "PBP_BASEDIR=%PBP_BASEDIR:~0,-1%"
+set "PBP_APP_DIR_CHECK=%LOCALAPPDATA%\BewerbungsAssistent\app"
+if /i "%PBP_BASEDIR%"=="%PBP_APP_DIR_CHECK%" if not "%PBP_DEINST_RELOCATED%"=="1" goto :pbp_relocate
+goto :pbp_main
+
+:pbp_relocate
+set "PBP_RELOC_BAT=%TEMP%\PBP-Deinstaller-%RANDOM%%RANDOM%.bat"
+copy /Y "%~f0" "%PBP_RELOC_BAT%" >nul
+set PBP_DEINST_RELOCATED=1
+cmd /c ""%PBP_RELOC_BAT%""
+del /Q "%PBP_RELOC_BAT%" >nul 2>&1
+exit /b 0
+
+:pbp_main
 setlocal EnableDelayedExpansion
 title PBP Bewerbungs-Assistent - Deinstallation
 color 0C
@@ -82,7 +107,27 @@ if "!errorlevel!"=="0" (
 )
 
 echo.
-echo  [4/7] Entferne Runtime-Dateien...
+echo  [4/7] Entferne Windows Apps ^& Features Eintrag...
+:: #620: Registry VOR Verzeichnis-Loeschung entfernen. Falls die Self-
+:: Relocation am Skript-Anfang aus irgendeinem Grund nicht greift,
+:: stellt diese Reihenfolge mindestens sicher dass der Apps-Eintrag
+:: weg ist (das war der prominenteste User-Sichtbare Bug).
+reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         [OK] Registry-Eintrag entfernt
+) else (
+    echo         [--] Registry-Eintrag war nicht vorhanden
+)
+:: Verifikation: pruefen ob der Key wirklich weg ist (#343)
+reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo         [!!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
+    reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
+    echo [WARN] Registry retry >> "%LOGFILE%"
+)
+
+echo.
+echo  [5/7] Entferne Runtime-Dateien...
 set "REMOVE_ERRORS=0"
 :: v1.5.0 Pfade (app/)
 call :remove_path "%APP_DIR%" "App-Verzeichnis %APP_DIR%"
@@ -103,22 +148,6 @@ if exist "%BASEDIR%\install_log.txt" (
 
 for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
     if exist "%%~fF" del /q "%%~fF" >nul 2>&1
-)
-
-echo.
-echo  [5/7] Entferne Windows Apps ^& Features Eintrag...
-reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
-if !errorlevel! equ 0 (
-    echo         [OK] Registry-Eintrag entfernt
-) else (
-    echo         [--] Registry-Eintrag war nicht vorhanden
-)
-:: Verifikation: pruefen ob der Key wirklich weg ist (#343)
-reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" >nul 2>&1
-if !errorlevel! equ 0 (
-    echo         [!!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
-    reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
-    echo [WARN] Registry retry >> "%LOGFILE%"
 )
 
 echo.
@@ -159,6 +188,17 @@ if "!DELETE_DATA!"=="LOESCHEN" (
     echo         [OK] Bewerbungsdaten bleiben erhalten
     echo [INFO] Bewerbungsdaten wurden beibehalten >> "%LOGFILE%"
     set "DATA_RESULT=kept"
+)
+
+:: #620: Stamm-Ordner BASE_INSTALL entfernen wenn leer
+:: rmdir ohne /s loescht NUR leere Verzeichnisse — sicher.
+:: Wenn der User die Daten behalten hat, bleibt %DATA_DIR% drin und
+:: damit auch %BASE_INSTALL% — kein Datenverlust.
+rmdir "%BASE_INSTALL%" 2>nul
+if exist "%BASE_INSTALL%" (
+    echo [INFO] %BASE_INSTALL% nicht entfernt (enthaelt noch Daten) >> "%LOGFILE%"
+) else (
+    echo [OK] %BASE_INSTALL% Stamm-Ordner entfernt >> "%LOGFILE%"
 )
 
 echo.
