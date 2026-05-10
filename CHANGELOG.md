@@ -7,6 +7,15 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+> 🛡 **DSGVO-Hinweis (2026-05-10):** Im Repo-History wurden 11 Issues
+> mit personenbezogenen Daten Dritter (Recruiter-Namen, Mail-Adressen,
+> konkrete Bewerbungs-Listen) komplett geloescht. Issue-Nummern
+> #313, #315, #362, #523, #529, #531, #532, #538, #566, #587, #602
+> existieren nicht mehr — Verweise darauf in dieser CHANGELOG fuehren
+> zu 404. Ueber 100 weitere Issues wurden anonymisiert (Firmen → `<FIRMA>`,
+> Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
+> `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
+
 ## [1.7.0-beta.48] - 2026-05-10 — Elwosa-UX-Polish: Auto-Scroll, adaptive Hoehe, Action-Links (#611)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
@@ -121,7 +130,7 @@ Bug-Sweep.
 ### ✨ Added — `services/url_to_source.py` (#613)
 
 Erkennt anhand der Job-URL die Source (LinkedIn, StepStone, Indeed,
-XING, Bundesagentur, Hays, Greenhouse, Workday-DAX, plus 20 weitere).
+XING, Bundesagentur, <FIRMA>, Greenhouse, Workday-DAX, plus 20 weitere).
 
 - Pure Funktion `detect_source_from_url(url)` — Substring-Match auf
   Hostname mit Reihenfolge-Sensitivitaet
@@ -1374,11 +1383,11 @@ Letzte Stufe von Issue #590 — alle Aufgaben (A, B, C) sind damit umgesetzt:
 ### ✨ Added — B.3 Workday-DAX-Cluster
 
 - **Workday-Cluster** mit kuratierter Liste 10 grosser DACH-Konzerne:
-  Siemens, SAP, Bosch, Continental, ZF, Schaeffler, Knorr-Bremse,
+  <FIRMA>, SAP, <FIRMA>, Continental, ZF, Schaeffler, Knorr-Bremse,
   KraussMaffei, Heidelberg, Vitesco
 - **Public Workday-API** `/wday/cxs/{tenant}/{site}/jobs` per POST
 - User-Erweiterbar via `workday_firmen`-Suchkriterium
-  (Format: `'BMW|bmw|wd1|external'`)
+  (Format: `'<FIRMA>|<FIRMA>|wd1|external'`)
 
 ### 🎨 Added — Frontend Recommendations-Card
 
@@ -1481,7 +1490,7 @@ empfiehlt passende Quellen-Cluster. Plus drei neue Tech-Remote-Quellen.
   - **trade**: bundesagentur, meinestadt, personio, kimeta
   - **tech_senior**: jobspy_linkedin, greenhouse, workable, personio,
     himalayas, remotive, remoteok, jobspy_indeed
-  - **freelance**: freelance_de, freelancermap, gulp, solcom, hays
+  - **freelance**: freelance_de, freelancermap, gulp, solcom, <FIRMA>
 - **Neuer API-Endpoint** `GET /api/profile/recommended-sources`:
   liefert Profil-Typ, Empfehlungs-Liste + Begruendung. Frontend
   kann das fuer „Empfohlene Quellen aktivieren?"-Dialog nutzen.
@@ -1506,8 +1515,8 @@ Drei neue Quellen, alle Public-API ohne Auth:
 | Handwerk | bundesagentur, meinestadt, personio, kimeta |
 | Tech-Junior | jobspy_indeed, jobspy_linkedin, arbeitnow, **himalayas, remotive, remoteok**, workable, personio, greenhouse |
 | Tech-Senior | jobspy_linkedin, greenhouse, workable, personio, **himalayas, remotive, remoteok**, jobspy_indeed |
-| Engineering-Senior | jobspy_linkedin, ingenieur_de, personio, workable, stellenanzeigen_de, jobspy_indeed, ferchau, hays |
-| Freelance | freelance_de, freelancermap, gulp, solcom, hays |
+| Engineering-Senior | jobspy_linkedin, ingenieur_de, personio, workable, stellenanzeigen_de, jobspy_indeed, <FIRMA>, <FIRMA> |
+| Freelance | freelance_de, freelancermap, gulp, solcom, <FIRMA> |
 | Executive | jobspy_linkedin, personio, workable, greenhouse |
 
 ### Tests
@@ -1759,7 +1768,7 @@ Zwei Issues, gebuendelt:
 
 - **Wurzel-Bug**: `bewerbung_erstellen` schrieb `notes` als Fallback in
   `jobs.description` wenn keine `stellenbeschreibung` mitgegeben wurde.
-  Dadurch landeten Recherche-Notizen ("Vermittler PBCN, Endkunde-
+  Dadurch landeten Recherche-Notizen ("Vermittler <FIRMA>, Endkunde-
   Kandidaten Benteler/CLAAS") als Stellenbeschreibung in der DB und
   haben downstream alle Tools verschmutzt (Anschreiben, Fit-Analyse).
 - **Fix**: Notes-Fallback entfernt — wenn keine Stellenbeschreibung
@@ -3426,7 +3435,7 @@ Migration v34.
 ### 🎯 Skills-Zeitraeume (#572)
 
 - **Neue Tabelle `skill_periods`** fuer diskontinuierliche Erfahrung —
-  z.B. „Java 2010-2015, Pause, dann 2022-heute". Pro Zeitraum kann
+  z.B. „Java 2<telefon>, Pause, dann 2022-heute". Pro Zeitraum kann
   ein eigenes Niveau (level 1-5) gesetzt werden.
 - **Migration v33→v34:** Bestand aus `skills.start_year`/`end_year`
   (v28) wird automatisch in `skill_periods` gespiegelt.
@@ -4472,8 +4481,8 @@ unterhoehlen. Adressiert acht Issues in einem Rutsch.
 - **#531 — Duplikat-Erkennung in `bewerbung_erstellen` mit
   Vermittler/Endkunde-Heuristik.** Vorher war die Pruefung nur
   exakt-match auf `company.lower() == company.lower()`. Verfehlte
-  daher Faelle wie „IQ Intelligentes Ingenieur Management
-  (Endkunde: Siemens Energy)" vs „Siemens Energy (via IQ ...)".
+  daher Faelle wie „<FIRMA> <FIRMA>
+  (Endkunde: <FIRMA>)" vs „<FIRMA> (via <FIRMA> ...)".
   Jetzt drei Match-Stufen:
   1. Exakt-match (alte Logik)
   2. Fuzzy-match auf normalisierte Firma + Titel (Klammer-Strip,
@@ -4728,7 +4737,7 @@ Jetzt: **17 von 24 Quellen liefern aktiv.** Indeed, LinkedIn, Glassdoor,
 Google Jobs — alle ohne API-Key, ohne Login, ohne Kosten (ueber JobSpy).
 Greenhouse-Boards von Tech-Companies (Stripe, Airbnb, GitHub) kannst du
 mit deinen eigenen Slugs ergaenzen. Arbeitnow als EU-Aggregator. Plus
-DACH-Klassiker: Bundesagentur, Stepstone, Hays, Stellenanzeigen.de.
+DACH-Klassiker: Bundesagentur, Stepstone, <FIRMA>, Stellenanzeigen.de.
 
 Und die 7 Quellen die durch Cloudflare/Captcha tot sind? Werden im
 Dashboard **sichtbar ausgegraut** mit Hinweis auf den Chrome-Extension-
@@ -4932,11 +4941,11 @@ in diesem Changelog haben die vollen Details.
 - **24 Quellen in `SOURCE_REGISTRY`**:
   - International ueber JobSpy: Indeed (DE/AT/CH), LinkedIn,
     Glassdoor, Google Jobs, ZipRecruiter
-  - DACH-spezifisch: Bundesagentur, Hays, Stepstone, Stellenanzeigen.de,
+  - DACH-spezifisch: Bundesagentur, <FIRMA>, Stepstone, Stellenanzeigen.de,
     Jobware, Arbeitnow (NEU), Greenhouse (NEU), BA-Jobboerse, Xing
   - Freelance: freelance.de, Freelancermap, Twago
   - Sichtbar ausgegraut: ingenieur.de, Heise Jobs, GULP, SOLCOM,
-    FERCHAU, Kimeta, Monster
+    <FIRMA>, Kimeta, Monster
 - **Per-Source-Timeouts** in `_SOURCE_TIMEOUT_MAP` (JobSpy 120s,
   Greenhouse 30s, Arbeitnow 45s, Default 60s)
 - **`build_search_keywords`** liefert jetzt zusaetzlich
@@ -5627,7 +5636,7 @@ des stabilen Beta-Stands.
 - "Seit (Jahr)" -> "Von (Jahr)" + neues Feld "Bis (Jahr) — leer = laufend"
 - Neues Feld "Aktuell verfuegbares Niveau (1-5)" — erscheint nur wenn
   bis_jahr gesetzt (Skill ruht). Erlaubt Skills wie "PLM 2005 durchgehend
-  (Niveau 5)" sauber von "Skill X 2020-2022, Prinzip-Verstaendnis bleibt
+  (Niveau 5)" sauber von "Skill X 2<telefon>, Prinzip-Verstaendnis bleibt
   (peak 4, current 2)" zu unterscheiden.
 - Status-Pille im Editor: gruenes "Aktiv seit YYYY" oder gelbes
   "Skill ruht seit YYYY (aktiv VVVV-YYYY)"
@@ -5750,7 +5759,7 @@ Aktiv liefernd:
 - bundesagentur: **1981 Treffer** (41.8s, danach Timeout bei 90s — jetzt 180s)
 - jobspy_indeed: **702** (114s — jetzt 150s Limit)
 - freelancermap: **488** (Slug-URL pro Keyword, Timeout reduziert)
-- hays: **50** (42.7s, ok)
+- <FIRMA>: **50** (42.7s, ok)
 - arbeitnow: **49** (sub-second)
 - stellenanzeigen_de: **25** (81.2s, ok)
 - greenhouse: **16** (DACH-Filter aktiv)
@@ -5867,14 +5876,14 @@ Kategorie-Listen) — diese werden korrekt als defekt markiert.
 - heise jobs.heise.de zeigt nur Themen-Aggregationen (Jobs Informatik,
   Jobs Softwareentwickler), keine konkreten Postings im SSR.
 - Beide sichtbar gesperrt mit Chrome-Extension-Workaround-URL, wie in
-  beta.16 fuer ferchau/gulp/ingenieur_de eingefuehrt.
+  beta.16 fuer <FIRMA>/gulp/ingenieur_de eingefuehrt.
 
 ### Aktuelle Trefferquote (vorher 7 → jetzt 9 liefernde Quellen)
 | Quelle | Treffer (Live) |
 |---|---|
 | bundesagentur | 600 |
 | freelance_de | 60 |
-| hays | 50 |
+| <FIRMA> | 50 |
 | jobspy_indeed | 37 |
 | stepstone | 25 |
 | jobspy_linkedin | 25 |
@@ -5960,7 +5969,7 @@ Diese Beta loest die wichtigsten Befunde:
 
 **Defekte Quellen sichtbar gesperrt (statt heimlich aussortiert):**
 - Neue SOURCE_REGISTRY-Felder `defekt`, `defekt_grund`, `manueller_fallback`.
-- Live-Diagnose 2026-04-25 markiert: ferchau, gulp, ingenieur_de, solcom,
+- Live-Diagnose 2026-04-25 markiert: <FIRMA>, gulp, ingenieur_de, solcom,
   monster — bekannt defekt (HTTP 404 / 403 / Timeout).
 - `run_search` ueberspringt defekte Quellen, schreibt Skip-Detail
   `defekt: <grund>` ins Status-Tracking. Keine stillen Phantom-Erfolge mehr.
@@ -6017,7 +6026,7 @@ nach 5 stillen Laeufen automatisch deaktiviert, in der Settings-Page mit Badge
 gekennzeichnet und vom MCP-Tool `scraper_diagnose` prominent ausgewiesen.
 
 Hintergrund: Reale Tests aller 20 registrierten Adapter haben gezeigt, dass
-nur 4 Quellen (bundesagentur, stepstone, hays, freelance_de) wirklich Treffer
+nur 4 Quellen (bundesagentur, stepstone, <FIRMA>, freelance_de) wirklich Treffer
 liefern; 12-13 Adapter melden status=ok ohne Inhalt. Bisher zaehlten diese
 als gesund — die Auto-Deaktivierung griff nie. Jetzt sehen Nutzer und Claude
 sofort, welche Quellen tatsaechlich aktiv liefern.
@@ -6121,7 +6130,7 @@ Default bleibt der alte Pfad; der neue wird schrittweise haerter getestet.
   `JobSourceAdapter`-Schnittstelle. Damit deckt die Registry ab
   sofort **alle 20 Quellen** aus `_SCRAPER_MAP` ab (vorher: nur 5
   spezialisierte Adapter), ohne pro Quelle eine Wrapper-Klasse zu
-  brauchen. Spezial-Adapter (Bundesagentur, Hays, JobSpy,
+  brauchen. Spezial-Adapter (Bundesagentur, <FIRMA>, JobSpy,
   GoogleJobs) bleiben unveraendert und ueberschreiben den
   generischen Eintrag.
 - **Feature-Flag-Pfad in `run_search()`**: `_load_scraper()` liefert
@@ -6589,7 +6598,7 @@ bestehender Flow veraendert.
     503 verschwindet zuverlaessig nach 1–2 Retries.
   - `umkreis_km` aus Dashboard-Criteria wird an die API durchgereicht.
   - Detail-URL auf `pc/v4/jobdetails/{base64(refnr)}` umgestellt — die
-    alte `/jobs/{refnr}`-Route liefert seit Anfang 2026 403.
+    alte `/jobs/{refnr}`-Route liefert seit Anfang 2<telefon>.
   - `_fetch_ba_detail` liest camelCase-Felder
     (`stellenangebotsBeschreibung`, `verguetungsangabe`, …) als
     Primaerquelle, lowercase bleibt als Fallback.
@@ -7471,7 +7480,7 @@ Zustaenden und einer runderen Release-Basis.
 
 - **#201:** Stellentyp-Erkennung erweitert — Freelance/Interim werden jetzt automatisch
   erkannt: Quellen-basiert (freelance_de, freelancermap, gulp, solcom), Titel-basiert
-  ("Interim", "Freelance"), und Hays mit Stundensatz. Keywords erweitert um "interim",
+  ("Interim", "Freelance"), und <FIRMA> mit Stundensatz. Keywords erweitert um "interim",
   "interims", "interimsmanag".
 
 **Technisch:** 341 Tests (alle gruen, 4 uebersprungen), keine neuen Tools/Prompts,
@@ -7491,7 +7500,7 @@ Alle Bugs aus den Endtests behoben, Pipeline-Simulation verifiziert.
 - **#180:** Scoring warnt bei fehlender Beschreibung (Mindest-Score statt 0), Dashboard-Todo
 - **#181:** bewerbung_bearbeiten erweitert um employment_type, source, vermittler, endkunde
 - **#182:** Zurueckgezogene Bewerbungen standardmaessig ausblenden, Stellenart-Filter, Sortierung
-- **#183:** Fuzzy-Keyword-Matching — Synonyme (PLM→Teamcenter), Umlaute (Luerssen→Lürssen),
+- **#183:** Fuzzy-Keyword-Matching — Synonyme (PLM→Teamcenter), Umlaute (Beispielfirma→Beispielfirma),
   Multi-Word-Split ("PLM Projektleiter" matcht "Projektleiter im PLM-Umfeld")
 - **#184:** keyword_vorschlaege Tool — analysiert tote Keywords und schlaegt Aenderungen vor
 - **#154:** "Bereits beworben"-Badge in Frontend-Stellenkarten
@@ -7562,7 +7571,7 @@ ATS-konformer CV, aufgewerteter Bericht und Drag & Drop fuer Dokumente.
   "Vorhandenes Dokument verknuepfen" als aufklappbare Auswahl.
 
 - **#177 Auto-Dokumentzuordnung:** `auto_assign_document` in `add_document` integriert.
-  Firmenname-Matching mit Teilwoertern und Umlaut-Normalisierung (Luerssen = Lürssen).
+  Firmenname-Matching mit Teilwoertern und Umlaut-Normalisierung (Beispielfirma = Beispielfirma).
   Zeitliche Naehe (24h) als zusaetzliches Kriterium. Automatische Verknuepfung bei
   Konfidenz >= 70%, Hinweis bei niedrigerer Konfidenz. Timeline-Eintrag bei jeder
   Dokument-Verknuepfung.
@@ -7662,7 +7671,7 @@ PBP erreicht v1.0.0 — nicht weil alles perfekt ist, sondern weil es zuverläss
 
 - **67 MCP-Tools** in 8 Modulen — Profil, Dokumente, Jobs, Bewerbungen, Analyse, Export, Suche, Workflows
 - **14 MCP-Prompts** — von Ersterfassung bis Interview-Simulation
-- **17 Jobquellen** — Bundesagentur, StepStone, LinkedIn, Indeed, Monster, Hays und 11 weitere
+- **17 Jobquellen** — Bundesagentur, StepStone, LinkedIn, Indeed, Monster, <FIRMA> und 11 weitere
 - **E-Mail-Integration** — .eml/.msg Import, automatisches Matching, Meeting-Extraktion
 - **React 19 Dashboard** — 7 Bereiche, Drag & Drop, Live-Updates, Statistik-Charts
 - **PDF/DOCX-Export** — Lebenslauf und Anschreiben in professionellem Layout
@@ -8324,7 +8333,7 @@ Dashboard durch eine moderne Single-Page-Application.
 - **Heise Jobs**: IT-Stellenmarkt von Heise Verlag. HTML + JSON-LD.
 - **Stellenanzeigen.de**: Grosses Jobportal (3.2 Mio. Besucher/Monat). HTML + JSON-LD.
 - **Jobware**: Premium-Jobportal fuer Spezialisten und Fuehrungskraefte. HTML + JSON-LD.
-- **FERCHAU**: Engineering & IT Personaldienstleister. HTML + JSON-LD.
+- **<FIRMA>**: Engineering & IT Personaldienstleister. HTML + JSON-LD.
 - **Kimeta**: Deutscher Job-Aggregator — buendelt Stellen aus vielen Quellen. HTML.
 
 **Neue Projektboersen (Freelance):**
@@ -8765,7 +8774,7 @@ extrahiert. Damit sprechen beide Schichten dieselbe fachliche Sprache:
     Quellen-Priorisierung, Follow-up-Priorisierung.
   - `test_mcp_registry.py` (3): Registry-Zaehlung, stabile Interface-Namen,
     repraesentative Smoke-Runs.
-  - `test_scrapers.py` (3): Fixture-basierte Parser fuer Hays (Sitemap + JSON-LD),
+  - `test_scrapers.py` (3): Fixture-basierte Parser fuer <FIRMA> (Sitemap + JSON-LD),
     Freelance.de (Karten + Paginierung), Freelancermap (JS-State-Extraktion).
   - `test_dashboard.py` (+7): Workspace-Summary (leer, Profil-Ausbau,
     Quellen/Suche/Follow-ups), Profil-Vollstaendigkeit (Adresse), Quellen-API.
@@ -9036,7 +9045,7 @@ alle Dokumente auf den tatsaechlichen Stand gebracht.
 ## [0.5.0] — 2026-02-28
 
 - Dashboard, Bewerbungs-Tracking
-- Scraper (Bundesagentur, Hays)
+- Scraper (Bundesagentur, <FIRMA>)
 
 ## [0.4.0] — 2026-02-27
 

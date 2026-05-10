@@ -62,7 +62,7 @@ ueber das der User seine Daten auch visuell verwalten kann.
 |--------|---------|-------|--------|
 | **Bundesagentur fuer Arbeit** | REST API | Nein | ✓ |
 | **StepStone** | Browser-Automation (Playwright) | Nein | ✓ |
-| **Hays** | Sitemap + JSON-LD | Nein | ✓ |
+| **<FIRMA>** | Sitemap + JSON-LD | Nein | ✓ |
 | **Freelancermap** | httpx + Playwright Fallback | Nein | ✓ |
 | **Freelance.de** | HTML-Scraping | Nein | ✓ |
 | **Indeed** | Browser-Automation (Playwright) | Nein | ✓ |

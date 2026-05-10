@@ -87,7 +87,7 @@ eigenen Application- oder Domain-Service entkoppelt.
 
 ### 3. Scraper-Abdeckung ist besser, aber noch selektiv
 
-Fixtures fuer Hays, Freelance.de und Freelancermap sind ein guter Anfang.
+Fixtures fuer <FIRMA>, Freelance.de und Freelancermap sind ein guter Anfang.
 Die riskanteren oder haeufig wechselnden Pfade sind damit aber noch nicht
 vollstaendig abgesichert. Sinnvoll waeren als naechstes mindestens
 `bundesagentur` und ein Playwright-/Fallback-Pfad.

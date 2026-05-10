@@ -18,7 +18,7 @@ Auto-Analyse und Dashboard-Tests.
 ## In diesem Arbeitsblock ergaenzt
 
 - MCP-Registry-Smoke-Tests fuer Tools, Prompts und Resources
-- erste Scraper-Fixture-Tests fuer Hays, freelance.de und Freelancermap
+- erste Scraper-Fixture-Tests fuer <FIRMA>, freelance.de und Freelancermap
 - erster kleiner Service-Layer mit `services/profile_service.py`
 - ausgebauter Service-Layer mit `services/search_service.py` und `services/workspace_service.py`
 - zusaetzliche Dashboard-Tests fuer Quellen- und Suchstatus-Endpunkte

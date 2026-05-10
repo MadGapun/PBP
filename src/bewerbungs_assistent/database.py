@@ -3518,7 +3518,7 @@ class Database:
             company_parts = [company]
             company_normalized = self._normalize_umlauts(company)
             company_parts_normalized = [company_normalized]
-            # Also try individual words > 3 chars (e.g. "Luerssen" from "Luerssen Werft")
+            # Also try individual words > 3 chars (e.g. "Werft" from "Beispiel Werft GmbH")
             for part in company.split():
                 if len(part) > 3:
                     company_parts.append(part.lower())

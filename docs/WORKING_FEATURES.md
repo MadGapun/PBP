@@ -51,7 +51,7 @@ eine Regression und blockt den Release bzw. bekommt ein Issue.
 
 ### Jobs / Stellen
 - [x] `save_jobs` / `get_active_jobs` funktionieren
-- [x] Hays-Scraper liefert Treffer (Beispiel „PLM Hamburg")
+- [x] <FIRMA>-Scraper liefert Treffer (Beispiel „PLM Hamburg")
 - [x] Manueller Stellen-Import via `stelle_manuell_anlegen`
 - [x] Bundesagentur-Scraper: 100 Treffer mit Volltext, Retry-Logik (#489, Beta.2)
 - [x] JobSpy/LinkedIn als Quelle (#490, Beta.3) — optional via `pip install python-jobspy`

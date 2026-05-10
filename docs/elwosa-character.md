@@ -157,7 +157,7 @@ Die Drei-Zustaende-Logik:
 │  ╰─────────────────────────╯ │
 │  ╭─────────────────────────╮ │
 │  │ Eingangsbestaetigung    │ │
-│  │ von Phoenix Contact.    │ │
+│  │ von <FIRMA>.    │ │
 │  │                      11:03│ │
 │  ╰─────────────────────────╯ │
 │  Elwosa schreibt …            │
@@ -260,7 +260,7 @@ Linien ohne Variablen sind statisch.
 - "Restaurant sucht Bedienung, Trinkgeld 'kommt zur Bezahlung dazu'. Wieder mal die alte Geschichte."
 - "Pflegekraft, Nachtdienst, drei Heime in Rotation. Pflegen koennen die — Personal nicht. Vom Tisch."
 - "Examinierte Altenpflegerin gesucht, Tarif, eigener Wagen, geregelte Pausen. Gibt's also doch. Markiert."
-- "Edeka sucht Filialleiter, Marken-Standort, akzeptables Gehalt. Schau's dir an."
+- "<FIRMA> sucht Filialleiter, Marken-Standort, akzeptables Gehalt. Schau's dir an."
 - "{firma}: 'Wir sind eine Familie'. Du erinnerst dich was Familie bedeutet — meistens unbezahlte Ueberstunden. Vermerkt."
 ```
 
@@ -689,8 +689,8 @@ Elwosa schreibt:
 
 ```
 Auto-Aussortierung: 35 Stellen vom Tisch.        ← status (unbegrenzt)
-Eingangsbestaetigung von BMW.                    ← status (unbegrenzt)
-Eingangsbestaetigung von Phoenix Contact.        ← status (unbegrenzt)
+Eingangsbestaetigung von <FIRMA>.                    ← status (unbegrenzt)
+Eingangsbestaetigung von <FIRMA>.        ← status (unbegrenzt)
 ```
 
 und KEIN zusaetzliches Idle-Geplauder.
