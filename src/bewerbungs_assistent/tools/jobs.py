@@ -1139,6 +1139,15 @@ def register(mcp, db, logger):
 
         from ..job_scraper import stelle_hash, calculate_score, extract_salary_from_text, estimate_salary
 
+        # v1.7.0-beta.47 (#613): Wenn quelle="manuell" der Default ist
+        # aber die URL klar auf eine bekannte Quelle zeigt, wird das
+        # uebersteuert. Explizit gesetzte quelle bleibt unveraendert.
+        if quelle == "manuell" and url:
+            from ..services.url_to_source import detect_source_from_url
+            detected = detect_source_from_url(url)
+            if detected != "manuell":
+                quelle = detected
+
         job_hash = stelle_hash(quelle, f"{firma} {titel}")
 
         # Check for duplicates (#219: nur echte DB-Treffer, nicht scope-Prefix)
@@ -2055,3 +2064,213 @@ def register(mcp, db, logger):
                 "Reaktivierung via scraper_diagnose(scraper_name=..., aktion='reaktivieren')."
             )
         return result
+
+    @mcp.tool()
+    def quellen_aus_urls_korrigieren(dry_run: bool = True) -> dict:
+        """v1.7.0-beta.47 (#613): Korrigiert source='manuell' anhand der job-URL.
+
+        Geht durch alle Stellen mit source='manuell' (egal ob aktiv oder
+        aussortiert) und prueft die URL. Wenn die URL einer bekannten
+        Quelle zugeordnet werden kann (LinkedIn, StepStone, Indeed, ...),
+        wird source umgesetzt.
+
+        Args:
+            dry_run: Wenn True (Default), nur Vorschau ohne Aenderung.
+                     Mit dry_run=False wird tatsaechlich geschrieben.
+
+        Returns:
+            count_total, count_changed, changes (Liste der geplanten
+            oder durchgefuehrten Aenderungen pro Stelle).
+
+        Idempotent: ein zweiter Lauf nach Erfolg findet 0 Kandidaten.
+        """
+        from ..services.url_to_source import detect_source_from_url
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        rows = conn.execute(
+            "SELECT hash, title, company, url, source FROM jobs "
+            "WHERE source='manuell' AND url IS NOT NULL AND url != '' "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+        changes = []
+        applied = 0
+        for r in rows:
+            new_source = detect_source_from_url(r["url"])
+            if new_source != "manuell":
+                changes.append({
+                    "hash": r["hash"],
+                    "title": (r["title"] or "")[:60],
+                    "company": (r["company"] or "")[:40],
+                    "url": (r["url"] or "")[:80],
+                    "source_alt": "manuell",
+                    "source_neu": new_source,
+                })
+                if not dry_run:
+                    try:
+                        conn.execute(
+                            "UPDATE jobs SET source=? WHERE hash=?",
+                            (new_source, r["hash"])
+                        )
+                        applied += 1
+                    except Exception as exc:
+                        changes[-1]["fehler"] = str(exc)[:200]
+        if not dry_run:
+            conn.commit()
+        return {
+            "status": "vorschau" if dry_run else "ausgefuehrt",
+            "count_total": len(rows),
+            "count_changed": len(changes),
+            "count_applied": applied,
+            "changes": changes[:50],
+            "hinweis": (
+                "dry_run=True — kein Schreibvorgang. Nochmal mit "
+                "dry_run=False aufrufen um die Aenderungen zu speichern."
+                if dry_run else
+                f"{applied} Stellen umgestellt. Konversion in der Quellen-"
+                "Statistik des Bewerbungsbericht jetzt korrekter."
+            ),
+        }
+
+    @mcp.tool()
+    def verwaiste_stellenrefs_bereinigen(
+        strategie: str = "report",
+        dry_run: bool = True,
+    ) -> dict:
+        """v1.7.0-beta.47 (#616): Findet/bereinigt verwaiste job_hash-Refs in Bewerbungen.
+
+        Bewerbungen koennen einen `job_hash` referenzieren, dessen Stelle
+        nicht (mehr) in der `jobs`-Tabelle existiert. Folge: stelle_bearbeiten
+        scheitert, fit_analyse hat keinen Kontext, kontakt_verknuepfen
+        bricht ab (#615).
+
+        Args:
+            strategie: 'report' (Default) — nur auflisten ohne Aenderung.
+                       'rekonstruieren' — eine Platzhalter-Stelle anlegen aus
+                         title/company/url der Bewerbung.
+                       'leeren' — job_hash der Bewerbung auf '' setzen.
+            dry_run: Bei 'rekonstruieren'/'leeren' Vorschau ohne Schreibvorgang.
+
+        Returns:
+            count_total, count_orphaned, list von Bewerbungen mit Detail.
+        """
+        if strategie not in ("report", "rekonstruieren", "leeren"):
+            return {"fehler": "strategie muss 'report', 'rekonstruieren' "
+                              "oder 'leeren' sein."}
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        # Alle Bewerbungen mit nicht-leerem job_hash
+        apps = conn.execute(
+            "SELECT id, job_hash, title, company, url, status FROM applications "
+            "WHERE job_hash IS NOT NULL AND job_hash != '' "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+        orphans = []
+        for a in apps:
+            jh = a["job_hash"]
+            # Existiert die Stelle? db.get_job liest die jobs-Tabelle —
+            # resolve_job_hash hier nicht nutzbar weil das nur den Hash
+            # transformiert, nicht die Existenz prueft.
+            if db.get_job(jh) is None:
+                orphans.append({
+                    "application_id": a["id"][:8],
+                    "_full_id": a["id"],  # intern fuer cleanup
+                    "title": (a["title"] or "")[:60],
+                    "company": (a["company"] or "")[:40],
+                    "url": (a["url"] or "")[:80],
+                    "status": a["status"],
+                    "missing_job_hash": jh,
+                })
+        applied = 0
+        actions: list[dict] = []
+        if strategie != "report" and not dry_run:
+            from datetime import datetime as _dt
+            from ..job_scraper import stelle_hash as _stelle_hash
+            for o in orphans:
+                aid_short = o["application_id"]
+                full_app_id = o["_full_id"]
+                if strategie == "leeren":
+                    try:
+                        # NULL statt '' — '' wuerde FK-Constraint verletzen
+                        # weil hash='' nicht in jobs existiert.
+                        conn.execute(
+                            "UPDATE applications SET job_hash=NULL WHERE id=?",
+                            (full_app_id,)
+                        )
+                        applied += 1
+                        actions.append({"application_id": aid_short,
+                                        "aktion": "job_hash auf NULL gesetzt"})
+                    except Exception as exc:
+                        actions.append({"application_id": aid_short,
+                                        "fehler": str(exc)[:200]})
+                elif strategie == "rekonstruieren":
+                    try:
+                        # Platzhalter-Stelle anlegen mit denselben Daten
+                        company = o["company"] or "Unbekannt"
+                        title = o["title"] or "Unbekannte Stelle"
+                        url = o["url"] or ""
+                        from ..services.url_to_source import detect_source_from_url
+                        source = detect_source_from_url(url) if url else "manuell"
+                        new_hash = _stelle_hash(source, f"{company} {title}")
+                        existing = db.get_job(new_hash)
+                        if not existing:
+                            db.save_jobs([{
+                                "hash": new_hash,
+                                "title": title,
+                                "company": company,
+                                "location": "",
+                                "url": url,
+                                "source": source,
+                                "description": (
+                                    "[Rekonstruiert v1.7.0-beta.47 (#616)] "
+                                    "Diese Stelle wurde aus einer Bewerbung "
+                                    "rekonstruiert weil die urspruengliche "
+                                    "Stelle nicht mehr in der jobs-Tabelle "
+                                    "existierte."
+                                ),
+                                "score": 0,
+                                "is_pinned": False,
+                                "remote_level": "unbekannt",
+                                "employment_type": "festanstellung",
+                                "found_at": _dt.now().isoformat(),
+                            }])
+                            # save_jobs setzt is_active immer auf 1 —
+                            # Platzhalter sollen nicht im aktiven Pool sein
+                            scoped_for_active = db._scope_job_hash(new_hash)
+                            conn.execute(
+                                "UPDATE jobs SET is_active=0, "
+                                "dismiss_reason='rekonstruiert_orphan_616' "
+                                "WHERE hash=?",
+                                (scoped_for_active,)
+                            )
+                        # Bewerbung auf den neuen Hash umstellen
+                        scoped_hash = db._scope_job_hash(new_hash)
+                        conn.execute(
+                            "UPDATE applications SET job_hash=? WHERE id=?",
+                            (scoped_hash, full_app_id)
+                        )
+                        applied += 1
+                        actions.append({"application_id": aid_short,
+                                        "aktion": f"rekonstruiert als {new_hash[:12]}"})
+                    except Exception as exc:
+                        actions.append({"application_id": aid_short,
+                                        "fehler": str(exc)[:200]})
+            conn.commit()
+        return {
+            "status": "vorschau" if (strategie == "report" or dry_run) else "ausgefuehrt",
+            "strategie": strategie,
+            "dry_run": dry_run,
+            "count_total_apps": len(apps),
+            "count_orphaned": len(orphans),
+            "count_applied": applied,
+            "orphans": orphans[:50],
+            "actions": actions[:50],
+            "hinweis": (
+                "Strategie 'report' = nur auflisten. 'rekonstruieren' "
+                "legt eine Platzhalter-Stelle an (is_active=0). 'leeren' "
+                "setzt job_hash der Bewerbung auf ''."
+                if strategie == "report" or dry_run else
+                f"{applied} Bewerbung(en) bereinigt mit Strategie '{strategie}'."
+            ),
+        }

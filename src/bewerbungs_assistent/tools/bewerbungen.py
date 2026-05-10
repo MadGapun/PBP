@@ -418,13 +418,19 @@ def register(mcp, db, logger):
                 # ("Vermittler ist X, Endkunde-Kandidaten sind Y") als
                 # Stellenbeschreibung in der DB und verschmutzen alle
                 # downstream-Tools (fit_analyse, Anschreiben).
+                # v1.7.0-beta.47 (#613): URL-basierte Source-Detection
+                # statt hartkodiert 'manuell' — wenn die URL klar auf
+                # LinkedIn/StepStone/etc. zeigt, wird das gespeichert.
+                # Sonst Fallback 'manuell'.
+                from ..services.url_to_source import detect_source_from_url
+                detected_source = detect_source_from_url(url)
                 db.save_jobs([{
                     "hash": effective_hash,
                     "title": title,
                     "company": company,
                     "location": "",
                     "url": url,
-                    "source": "manuell",
+                    "source": detected_source,
                     "description": stellenbeschreibung or "",
                     "score": 0,
                     "is_pinned": True,

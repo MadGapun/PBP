@@ -7,6 +7,132 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.47] - 2026-05-10 — Daten-Migrationen (#613, #616) + 2 neue MCP-Tools
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Schliesst die letzten zwei Bugs aus dem User-Test-Cluster — beide
+brauchten echte Daten-Migrationen, deshalb separate Beta nach dem
+Bug-Sweep.
+
+### ✨ Added — `services/url_to_source.py` (#613)
+
+Erkennt anhand der Job-URL die Source (LinkedIn, StepStone, Indeed,
+XING, Bundesagentur, Hays, Greenhouse, Workday-DAX, plus 20 weitere).
+
+- Pure Funktion `detect_source_from_url(url)` — Substring-Match auf
+  Hostname mit Reihenfolge-Sensitivitaet
+- Fallback `'manuell'` bei unbekannter Domain oder leerem URL
+- Behandelt URLs ohne Schema (`linkedin.com/jobs/123`)
+
+### ✨ Added — `quellen_aus_urls_korrigieren` MCP-Tool (#613)
+
+Migriert bestehende `source='manuell'`-Eintraege auf die korrekte
+Source basierend auf der URL.
+
+- `dry_run=True` (Default) zeigt Vorschau ohne Schreibvorgang
+- `dry_run=False` schreibt
+- Idempotent — zweiter Lauf nach Erfolg findet 0 Kandidaten
+
+Beispiel-Output:
+```json
+{"status": "ausgefuehrt", "count_total": 17, "count_changed": 16,
+ "count_applied": 16, "changes": [{"hash": "...", "source_alt": "manuell",
+ "source_neu": "linkedin"}]}
+```
+
+### ✨ Added — Hot-Path-Detection in `stelle_manuell_anlegen` + `bewerbung_erstellen`
+
+Beim Anlegen einer neuen Stelle wird die URL jetzt sofort gegen die
+Pattern-Liste geprueft. Wenn eine bekannte Quelle erkannt wird, wird
+diese statt `'manuell'` gespeichert. Explizit gesetzte `quelle` bleibt
+unveraendert.
+
+So wachsen keine neuen verwaisten `source='manuell'`-Eintraege nach.
+
+### ✨ Added — `verwaiste_stellenrefs_bereinigen` MCP-Tool (#616)
+
+Findet Bewerbungen mit `job_hash` der nicht (mehr) in `jobs` existiert
+(orphaned FK). Drei Strategien:
+
+| Strategie | Verhalten |
+|---|---|
+| `report` (Default) | Nur auflisten, kein Schreibvorgang |
+| `leeren` | `applications.job_hash` auf NULL setzen (FK-konform) |
+| `rekonstruieren` | Platzhalter-Stelle aus title/company/url anlegen mit `is_active=0`, `dismiss_reason='rekonstruiert_orphan_616'`. Bewerbung wird auf den neuen Hash umgestellt |
+
+Plus jede Strategie unterstuetzt `dry_run=True/False`.
+
+Bei `rekonstruieren` wird auch die URL durch `detect_source_from_url`
+gefuehrt — die Platzhalter-Stelle haengt also gleich an der richtigen
+Quelle.
+
+### Tests
+
+- 13 neue Tests (`test_v170_beta47_data_migrations.py`)
+- MCP-Tool-Count: 139 → **141** (+2 Migrations-Tools)
+- **1215 / 1215 gruen** + 1 skipped (+13 vs. beta.46)
+
+### Wie du die Migration laufen laesst
+
+In Claude Desktop:
+
+```
+„Lass quellen_aus_urls_korrigieren mit dry_run laufen und zeig mir die Vorschau"
+→ Claude ruft das Tool, du siehst was sich aendert
+
+„Wenn das passt, mach es scharf"
+→ Claude ruft mit dry_run=False
+```
+
+Analog fuer `verwaiste_stellenrefs_bereinigen`. Empfohlen: erst
+`strategie='report'`, dann je nach Anzahl entweder `leeren`
+(schnell, einfach) oder `rekonstruieren` (mehr Arbeit fuer PBP, aber
+spaeter kein Datenverlust).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.47.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.47.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.46] - 2026-05-10 — Bug-Sweep: 7 Bugs gefixt (#604, #618, #602, #619, #610, #603, #615)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
