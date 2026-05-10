@@ -16,6 +16,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.49] - 2026-05-10 — Post-Interview-Reflexion (#464): strukturierter Fragebogen
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Schliesst eine Lifecycle-Luecke nach `interview_abgeschlossen` —
+strukturierter Fragebogen statt Freitext-Notizen. Erste Stufe von
+[#452 Interview-Training-Arc](https://github.com/MadGapun/PBP/issues/452):
+die hier gespeicherten Reflexionen sind spaeter wiederverwendbar bei der
+naechsten Interview-Vorbereitung.
+
+### Schema v42 → v43
+
+Neue Tabelle `interview_reflections` mit Feldern:
+- `application_id` (FK ON DELETE CASCADE)
+- `was_lief_gut`, `was_lief_schlecht`, `was_war_ueberraschend`
+- `gefuehl` (1=mies bis 5=super)
+- `next_steps`, `wiederverwendbare_antwort`
+- Standard-Audit-Felder (created_at/updated_at/profile_id)
+
+Eine Reflexion pro Bewerbung (eindeutig per `application_id`). Fuer
+mehrere Reflexionen pro Bewerbung waere ein eigenes Folge-Issue noetig.
+
+### Neue MCP-Tools
+
+| Tool | Zweck |
+|---|---|
+| `interview_reflexion_speichern(bewerbung_id, was_lief_gut, was_lief_schlecht, was_war_ueberraschend, gefuehl, next_steps, wiederverwendbare_antwort)` | Anlegen oder Aktualisieren. Idempotent. |
+| `interview_reflexion_lesen(bewerbung_id)` | Liest die Reflexion zu einer Bewerbung |
+| `interview_reflexionen_anzeigen(limit=20)` | Liste der letzten Reflexionen — fuer Lerneffekt vor naechstem Interview |
+
+MCP-Tool-Count: 141 → **144**.
+
+### Workflow
+
+1. Status auf `interview_abgeschlossen` setzen
+2. Claude bitten: *„Reflexion fuer Bewerbung A-0042 speichern"*
+3. Claude fragt durch (was lief gut, ueberraschend, ...) und ruft das Tool
+4. Bei naechster Interview-Vorbereitung: *„zeig mir Reflexionen aus letzter Zeit"*
+
+### Tests
+
+- 12 neue Tests (`test_v170_beta49_interview_reflexion.py`)
+- **1238 / 1238 gruen** + 1 skipped (+13 vs. beta.48)
+
+### Bewusst nicht enthalten
+
+- **Frontend-Card** auf der Bewerbungs-Detail-Seite — kommt mit
+  beta.50 oder als Teil von #452. Aktuell laeuft alles ueber Claude.
+- **LLM-gestuetzte Auto-Vorschlaege** beim Befuellen — User bestimmt
+  selbst was er reflektiert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.49.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.49.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.48] - 2026-05-10 — Elwosa-UX-Polish: Auto-Scroll, adaptive Hoehe, Action-Links (#611)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

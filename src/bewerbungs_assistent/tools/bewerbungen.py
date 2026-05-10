@@ -1806,3 +1806,95 @@ def register(mcp, db, logger):
             "start": effective_start,
             "nachricht": f"Position '{app['title']}' bei {app['company']} als aktuelle Stelle im Profil angelegt.",
         }
+
+    # === Post-Interview-Reflexion (#464, v1.7.0-beta.49) ============
+
+    @mcp.tool()
+    def interview_reflexion_speichern(
+        bewerbung_id: str,
+        was_lief_gut: str = "",
+        was_lief_schlecht: str = "",
+        was_war_ueberraschend: str = "",
+        gefuehl: int = 0,
+        next_steps: str = "",
+        wiederverwendbare_antwort: str = "",
+    ) -> dict:
+        """v1.7.0-beta.49 (#464): Strukturierte Reflexion nach einem Interview.
+
+        Statt Freitext in `bewerbung_notiz` wird hier ein strukturierter
+        Fragebogen abgelegt — wiederverwendbar bei der naechsten
+        Interview-Vorbereitung. Erste Stufe von #452 (Interview-
+        Training-Arc).
+
+        Args:
+            bewerbung_id: ID der Bewerbung (akzeptiert auch kurzen Hash).
+            was_lief_gut: was hast du gut hinbekommen? (1-3 Saetze)
+            was_lief_schlecht: wo hat es geknirscht? (1-3 Saetze)
+            was_war_ueberraschend: was hast du NICHT erwartet? (Frage,
+                Stimmung, Ablauf)
+            gefuehl: 1 (mies) bis 5 (super) — Bauchgefuehl direkt nach Interview
+            next_steps: was macht der User als naechstes? (Nachfass, warten, ...)
+            wiederverwendbare_antwort: Falls eine konkrete Antwort gut
+                lief — fuer die Stilarchiv-Wiederverwendung.
+
+        Idempotent: zweiter Aufruf updated dieselbe Reflexion.
+        Sammelpunkt fuer Pattern-Analyse beim Lern-System.
+        """
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id)
+        app = db.get_application(bid)
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden",
+                    "bewerbung_id": bewerbung_id}
+        if gefuehl and not 1 <= int(gefuehl) <= 5:
+            return {"fehler": "gefuehl muss zwischen 1 und 5 liegen"}
+        rid = db.upsert_interview_reflection(bid, {
+            "was_lief_gut": was_lief_gut,
+            "was_lief_schlecht": was_lief_schlecht,
+            "was_war_ueberraschend": was_war_ueberraschend,
+            "gefuehl": int(gefuehl) if gefuehl else None,
+            "next_steps": next_steps,
+            "wiederverwendbare_antwort": wiederverwendbare_antwort,
+        })
+        # Auch eine kurze Notiz an die Bewerbung haengen damit die Reflexion
+        # im Verlauf sichtbar ist
+        try:
+            db.add_application_note(
+                bid, "Interview-Reflexion gespeichert (siehe interview_reflexion_lesen)."
+            )
+        except Exception:
+            pass
+        return {
+            "status": "gespeichert",
+            "reflexion_id": rid,
+            "bewerbung_id": bewerbung_id,
+            "firma": app.get("company"),
+            "stelle": app.get("title"),
+        }
+
+    @mcp.tool()
+    def interview_reflexion_lesen(bewerbung_id: str) -> dict:
+        """Liest die gespeicherte Reflexion zu einer Bewerbung. Leer wenn keine vorhanden."""
+        from ..services.typed_ids import strip_prefix
+        bid = strip_prefix(bewerbung_id)
+        r = db.get_interview_reflection(bid)
+        if not r:
+            return {"status": "leer",
+                    "bewerbung_id": bewerbung_id,
+                    "hinweis": "Noch keine Reflexion gespeichert. "
+                               "Nutze interview_reflexion_speichern."}
+        return {"status": "vorhanden", "reflexion": r}
+
+    @mcp.tool()
+    def interview_reflexionen_anzeigen(limit: int = 20) -> dict:
+        """Liste der letzten Interview-Reflexionen (fuer Lerneffekt vor naechstem Interview).
+
+        Sortiert nach updated_at desc. Zeigt firma + stelle + gefuehl
+        + Kurz-Auszug pro Eintrag. Hilft beim Pre-Interview-Lesen:
+        was lief gut bei aehnlichen Stellen, was war ueberraschend.
+        """
+        items = db.list_interview_reflections(limit=max(1, min(int(limit), 100)))
+        return {
+            "anzahl": len(items),
+            "reflexionen": items,
+        }

@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 42
+SCHEMA_VERSION = 43
 
 
 def _gen_id() -> str:
@@ -1634,6 +1634,40 @@ class Database:
                             "(elwosa_messages + elwosa_pending_lines) angelegt")
             except Exception as exc:
                 logger.warning("Elwosa-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 43:
+            # v43 / v1.7.0-beta.49 (#464): Post-Interview-Reflexion.
+            # Strukturierter Fragebogen nach Interview, fuer spaetere
+            # Wiederverwendung beim naechsten Interview (Pre-Stufe von
+            # #452 Interview-Training-Arc).
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS interview_reflections (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+                        profile_id TEXT,
+                        was_lief_gut TEXT,
+                        was_lief_schlecht TEXT,
+                        was_war_ueberraschend TEXT,
+                        gefuehl INTEGER,
+                        next_steps TEXT,
+                        wiederverwendbare_antwort TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ir_app "
+                    "ON interview_reflections(application_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ir_profile "
+                    "ON interview_reflections(profile_id)"
+                )
+                conn.commit()
+                logger.info("Migration v42->v43: interview_reflections angelegt")
+            except Exception as exc:
+                logger.warning("Reflexions-Migration fehlgeschlagen: %s", exc)
 
         if from_ver < 42:
             # v42 / v1.7.0-beta.39 (#608): Kontakt-Kategorien als eigene
@@ -7402,6 +7436,83 @@ class Database:
         conn.commit()
         return True
 
+    # === Interview-Reflexion (#464, v1.7.0-beta.49) ============
+
+    def upsert_interview_reflection(self, application_id: str, data: dict) -> int:
+        """Anlegen oder Aktualisieren der Reflexion fuer eine Bewerbung.
+
+        Eine Bewerbung kann mehrere Interviews haben — wir nutzen
+        application_id als Primary-Key der Reflexion (eine Reflexion
+        pro Bewerbung). Fuer mehrere Reflexionen pro Bewerbung muesste
+        man auf event_id-Basis wechseln (Folge-Issue).
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        now = _now()
+        existing = conn.execute(
+            "SELECT id FROM interview_reflections WHERE application_id=?",
+            (application_id,)
+        ).fetchone()
+        fields = ("was_lief_gut", "was_lief_schlecht", "was_war_ueberraschend",
+                   "gefuehl", "next_steps", "wiederverwendbare_antwort")
+        if existing:
+            sets = []
+            vals = []
+            for f in fields:
+                if f in data:
+                    sets.append(f"{f}=?")
+                    vals.append(data[f])
+            if not sets:
+                return existing["id"]
+            sets.append("updated_at=?")
+            vals.append(now)
+            vals.append(existing["id"])
+            conn.execute(
+                f"UPDATE interview_reflections SET {','.join(sets)} WHERE id=?",
+                vals
+            )
+            conn.commit()
+            return existing["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO interview_reflections "
+                "(application_id, profile_id, was_lief_gut, was_lief_schlecht, "
+                " was_war_ueberraschend, gefuehl, next_steps, "
+                " wiederverwendbare_antwort, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (application_id, pid,
+                 data.get("was_lief_gut") or "",
+                 data.get("was_lief_schlecht") or "",
+                 data.get("was_war_ueberraschend") or "",
+                 data.get("gefuehl"),
+                 data.get("next_steps") or "",
+                 data.get("wiederverwendbare_antwort") or "",
+                 now)
+            )
+            conn.commit()
+            return cur.lastrowid
+
+    def get_interview_reflection(self, application_id: str) -> Optional[dict]:
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM interview_reflections WHERE application_id=?",
+            (application_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def list_interview_reflections(self, limit: int = 50) -> list:
+        """Letzte Reflexionen fuer Lerneffekt-Auswertung."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute(
+            "SELECT r.*, a.company, a.title FROM interview_reflections r "
+            "LEFT JOIN applications a ON a.id = r.application_id "
+            "WHERE (r.profile_id=? OR r.profile_id IS NULL) "
+            "ORDER BY r.updated_at DESC, r.created_at DESC LIMIT ?",
+            (pid, limit)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
 
 def _safe_float(val, default=None):
     """Sanitize float values for JSON serialization (inf/nan -> default)."""
@@ -7645,6 +7756,23 @@ CREATE TABLE IF NOT EXISTS application_events (
     notes TEXT,
     parent_event_id INTEGER REFERENCES application_events(id) ON DELETE SET NULL
 );
+
+-- v43 / v1.7.0-beta.49 (#464): Post-Interview-Reflexion
+CREATE TABLE IF NOT EXISTS interview_reflections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    profile_id TEXT,
+    was_lief_gut TEXT,
+    was_lief_schlecht TEXT,
+    was_war_ueberraschend TEXT,
+    gefuehl INTEGER,
+    next_steps TEXT,
+    wiederverwendbare_antwort TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ir_app ON interview_reflections(application_id);
+CREATE INDEX IF NOT EXISTS idx_ir_profile ON interview_reflections(profile_id);
 
 CREATE TABLE IF NOT EXISTS search_criteria (
     profile_id TEXT NOT NULL DEFAULT '',
