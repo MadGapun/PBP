@@ -25,15 +25,11 @@ from urllib.parse import quote_plus
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, stelle_hash, make_session
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.arbeitnow")
 
 _BASE = "https://www.arbeitnow.com/api/job-board-api"
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/json",
-}
 _MAX_PAGES = 3  # 100 jobs/page → bis zu 300 Stellen pro Lauf
 
 
@@ -145,7 +141,9 @@ def search_arbeitnow(params: dict) -> list[dict]:
     seen_slugs: set[str] = set()
 
     try:
-        with httpx.Client(timeout=15, headers=_HEADERS, follow_redirects=True) as client:
+        # v1.7.0-beta.50 (#624): zentraler make_session-Helper statt
+        # eigenem _HEADERS+httpx.Client-Setup.
+        with make_session(content_type="json", timeout=15) as client:
             for page in range(1, _MAX_PAGES + 1):
                 try:
                     data = _fetch_page(client, primary, page)

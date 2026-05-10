@@ -322,7 +322,7 @@ def test_remoteok_skips_first_metadata_element():
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = sample
-    with patch("bewerbungs_assistent.job_scraper.remoteok.httpx.Client") as mock_cls:
+    with patch("bewerbungs_assistent.job_scraper.remoteok.make_session") as mock_cls:
         client = MagicMock()
         client.get.return_value = resp
         mock_cls.return_value.__enter__.return_value = client
@@ -344,7 +344,7 @@ def test_remoteok_filters_by_tag():
     resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = sample
-    with patch("bewerbungs_assistent.job_scraper.remoteok.httpx.Client") as mock_cls:
+    with patch("bewerbungs_assistent.job_scraper.remoteok.make_session") as mock_cls:
         client = MagicMock()
         client.get.return_value = resp
         mock_cls.return_value.__enter__.return_value = client

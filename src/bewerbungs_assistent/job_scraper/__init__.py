@@ -2,18 +2,147 @@
 
 Provides SOURCE_REGISTRY for all available job sources,
 dynamic keyword building from DB criteria, and the run_search orchestrator.
+
+v1.7.0-beta.50 (#624 Phase 1): Zentrale HTTP-Helper. Bisher hat jeder
+Scraper sein eigenes _HEADERS-Dict + Timeout + httpx-Setup definiert
+(5 verschiedene User-Agent-Strings, Timeouts 12-30s, kein einheitliches
+Retry-Pattern). Neue Helpers:
+
+- PBP_USER_AGENT — einheitlicher UA mit Kontakt-URL
+- make_session(content_type, timeout, ...) — vorkonfigurierter httpx.Client
+- with_retry(...) — Decorator fuer transient-error-Retry mit exponential backoff
+
+Migration in einzelnen Scrapern erfolgt schrittweise (siehe #624 Phase 1).
 """
 
+import functools
 import hashlib
 import json
 import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import quote
 
+import httpx
+
 logger = logging.getLogger("bewerbungs_assistent.scraper")
+
+
+# === Zentrale HTTP-Konstanten + Helpers (#624 Phase 1) ============
+
+PBP_VERSION = "1.7"  # Major.Minor — bei jedem Major-Bump anpassen
+PBP_USER_AGENT = (
+    f"PBP-Bewerbungs-Assistent/{PBP_VERSION} "
+    "(+https://github.com/MadGapun/PBP)"
+)
+
+_ACCEPT_HEADERS = {
+    "json": "application/json",
+    "rss": "application/rss+xml, application/xml;q=0.9",
+    "xml": "application/xml, text/xml;q=0.9",
+    "html": "text/html,application/xhtml+xml",
+    "any": "*/*",
+}
+
+DEFAULT_TIMEOUT = 15.0
+
+
+def make_session(
+    content_type: str = "json",
+    timeout: float = DEFAULT_TIMEOUT,
+    extra_headers: Optional[dict] = None,
+    user_agent: Optional[str] = None,
+    follow_redirects: bool = True,
+) -> httpx.Client:
+    """Liefert einen vorkonfigurierten httpx.Client mit PBP-Standards.
+
+    Verwendung:
+        with make_session(content_type="json") as client:
+            r = client.get(url)
+
+    Args:
+        content_type: 'json' (Default), 'rss', 'xml', 'html', 'any'
+        timeout: Request-Timeout in Sekunden (Default 15)
+        extra_headers: zusaetzliche/ueberschreibende Header
+        user_agent: Override fuer User-Agent (sonst PBP_USER_AGENT)
+        follow_redirects: Default True (httpx ist sonst False)
+    """
+    headers = {
+        "User-Agent": user_agent or PBP_USER_AGENT,
+        "Accept": _ACCEPT_HEADERS.get(content_type, _ACCEPT_HEADERS["any"]),
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    return httpx.Client(
+        headers=headers,
+        timeout=timeout,
+        follow_redirects=follow_redirects,
+    )
+
+
+# Status-Codes die als transient gelten und Retry rechtfertigen
+_RETRY_STATUS_CODES = frozenset({500, 502, 503, 504, 429})
+
+
+def with_retry(
+    max_attempts: int = 3,
+    backoff_base: float = 2.0,
+    retry_status: frozenset = _RETRY_STATUS_CODES,
+):
+    """Decorator: wiederholt eine HTTP-Funktion bei transienten Fehlern.
+
+    Erkennt:
+    - HTTP-Status in retry_status (Default 500/502/503/504/429)
+    - httpx.TransportError (Connection-Probleme)
+    - httpx.TimeoutException
+
+    Backoff: exponential. Bei 429 mit Retry-After-Header wird der hoehere
+    Wert genommen.
+
+    Die dekorierte Funktion muss eine httpx.Response zurueckgeben.
+    """
+    def deco(fn: Callable):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            last_exc = None
+            for attempt in range(max_attempts):
+                try:
+                    resp = fn(*args, **kwargs)
+                    if (isinstance(resp, httpx.Response)
+                            and resp.status_code in retry_status):
+                        wait = backoff_base * (2 ** attempt)
+                        if resp.status_code == 429:
+                            ra = resp.headers.get("Retry-After")
+                            try:
+                                wait = max(wait, float(ra)) if ra else wait
+                            except (TypeError, ValueError):
+                                pass
+                        if attempt < max_attempts - 1:
+                            logger.debug(
+                                "Retry %d/%d nach Status %d (wait %.1fs)",
+                                attempt + 1, max_attempts, resp.status_code, wait
+                            )
+                            time.sleep(wait)
+                            continue
+                    return resp
+                except (httpx.TransportError, httpx.TimeoutException) as exc:
+                    last_exc = exc
+                    if attempt < max_attempts - 1:
+                        wait = backoff_base * (2 ** attempt)
+                        logger.debug(
+                            "Retry %d/%d nach %s (wait %.1fs)",
+                            attempt + 1, max_attempts, type(exc).__name__, wait
+                        )
+                        time.sleep(wait)
+                        continue
+                    raise
+            if last_exc:
+                raise last_exc
+            return None
+        return wrapper
+    return deco
 
 
 # ── Source Registry ─────────────────────────────────────────────

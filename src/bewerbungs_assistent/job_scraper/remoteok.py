@@ -13,19 +13,13 @@ from __future__ import annotations
 import logging
 import re
 
-import httpx
-
-from . import stelle_hash
+from . import make_session, stelle_hash
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.remoteok")
 
 _BASE = "https://remoteok.com/api"
-_HEADERS = {
-    # RemoteOK blockiert leere/anonyme UAs — explizit als Bot kennzeichnen
-    # mit Kontakt-Hinweis (Best Practice)
-    "User-Agent": "PBP-Bewerbungs-Assistent (https://github.com/MadGapun/PBP)",
-    "Accept": "application/json",
-}
+# RemoteOK blockiert leere/anonyme UAs — der zentrale PBP_USER_AGENT
+# enthaelt schon den Kontakt-Hinweis (Best Practice).
 _TIMEOUT = 12
 
 
@@ -75,8 +69,8 @@ def search_remoteok(params: dict) -> list[dict]:
 
     found: list[dict] = []
     try:
-        with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS,
-                          follow_redirects=True) as client:
+        # v1.7.0-beta.50 (#624): zentraler make_session-Helper
+        with make_session(content_type="json", timeout=_TIMEOUT) as client:
             r = client.get(_BASE)
             if r.status_code != 200:
                 logger.debug("RemoteOK HTTP %d", r.status_code)

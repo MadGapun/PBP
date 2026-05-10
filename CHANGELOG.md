@@ -16,6 +16,90 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.50] - 2026-05-10 — Scraper-Helpers Phase 1 (#624): make_session, with_retry, PBP_USER_AGENT
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Erste Phase der Scraper-Konsolidierung. Audit ueber alle 32 Scraper
+ergab: 5 verschiedene User-Agent-Strings, Timeouts 12-30s ohne Pattern,
+Retry-Logik nur in 1 Scraper. Diese Beta legt die zentrale Foundation —
+Migration der einzelnen Scraper erfolgt schrittweise.
+
+### ✨ Added — `job_scraper/__init__.py` Helpers
+
+- **`PBP_USER_AGENT`** — einheitlicher UA mit Kontakt-URL:
+  `PBP-Bewerbungs-Assistent/1.7 (+https://github.com/MadGapun/PBP)`
+- **`make_session(content_type, timeout, ...)`** — vorkonfigurierter
+  `httpx.Client` als Context-Manager. Content-Types: json/rss/xml/html/any.
+  Standard-Timeout 15s. Standards koennen via `extra_headers`/`user_agent`
+  ueberschrieben werden (z.B. `bundesagentur` braucht iOS-App-UA).
+- **`with_retry(max_attempts, backoff_base, retry_status)`** — Decorator
+  fuer transient-error-Retry. Erkennt 500/502/503/504/429 und
+  `httpx.TransportError`/`TimeoutException`. Exponential backoff,
+  respektiert `Retry-After`-Header bei 429.
+
+### Changed — Migrationen `arbeitnow` + `remoteok` als Beispiel
+
+Beide Scraper migriert von eigenen `_HEADERS`-Dicts auf `make_session()`.
+Verhalten unveraendert — User-Agent ist jetzt der zentrale PBP-String.
+Kein neuer Code, nur weniger Boilerplate (-7 Zeilen pro Scraper).
+
+### Migrations-Pfad fuer die anderen 30 Scraper
+
+In #624 dokumentiert. Phase 2 wird die offiziellen-API-Scraper
+migrieren (greenhouse, personio, workday_dax, remotive, himalayas,
+workable, bundesagentur). Phase 3 die HTML-/Browser-Scraper.
+
+### Tests
+
+- 17 neue Tests (`test_v170_beta50_scraper_helpers.py`) — Helper +
+  Migrations-Verifikation + Smoke-Test mit Mock-Response
+- 2 alte Tests an neue Patch-Targets angepasst
+- **1255 / 1255 gruen** + 1 skipped (+17 vs. beta.49)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.50.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.50.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.49] - 2026-05-10 — Post-Interview-Reflexion (#464): strukturierter Fragebogen
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
