@@ -147,9 +147,25 @@ if hits:
 **Das gilt sowohl fuer Code-getriebene Issue-Creation (via `gh` CLI im
 Code) als auch fuer Claude-Chat-getriebene Issue-Creation.**
 
-Background: am 2026-05-10 wurden 68 historische Issues + 2 Comments
-nachtraeglich anonymisiert (siehe `scripts/scrub_pii.py` Header). Das
-darf nicht nochmal passieren.
+Background: am 2026-05-10 wurden in 3 Sweep-Passes ~155 historische
+Issue-Bodies + 9 Comments nachtraeglich anonymisiert. Das darf nicht
+nochmal passieren — siehe `scripts/scrub_pii.py` Header.
+
+**WICHTIG zur Edit-History:** GitHub zeigt fuer Issue-Bodies eine
+`edited`-Markierung mit Zugriff auf die Vorgaenger-Versionen — auch
+fuer non-Admins in oeffentlichen Repos. Anonymisierung der CURRENT
+Version macht die Original-PII NICHT ungeschehen. Fuer wirklich
+sensible Faelle ist Issue-LOESCHUNG (via GraphQL `deleteIssue`)
+notwendig, was aber:
+- Issue-Nummer unwiederbringlich verbrennt (#602 → wird nie wieder vergeben)
+- alle Comments mit-loescht
+- Cross-References im CHANGELOG / Code zu Dead-Links macht
+
+Bei Zweifel: Issue-Loeschung ist die einzige sichere Option.
+
+**Praeventiv:** vor JEDEM `gh issue create` (sowohl in Code als auch
+Claude-Chat) den Scrubber laufen lassen. So entsteht das Problem
+gar nicht erst.
 
 ## Release-Workflow (Pflicht-Checkliste)
 

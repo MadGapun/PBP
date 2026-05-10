@@ -61,44 +61,83 @@ from typing import Iterable
 
 # === User-Identifizierung ========================================
 _USER_PATTERNS = [
-    re.compile(r"\bMarkus\s+Birzite\b"),
-    re.compile(r"\bBirzite\b"),
+    re.compile(r"\bMarkus\s+Birzite\b", re.IGNORECASE),
+    re.compile(r"\bBirzite\b", re.IGNORECASE),
+    re.compile(r"\bMarkus['’]s?\b"),  # Possessiv: Markus' / Markus's
 ]
 
-# === Konkrete Firmennamen aus Bewerbungs-Kontext =================
-_FIRMA_PATTERNS = [
-    # DAX-Konzerne / bekannte Marken
-    re.compile(r"\bAudi\b"),
-    re.compile(r"\bBMW(?:\s+Group)?\b"),
-    re.compile(r"\bBosch\b"),
-    re.compile(r"\bMercedes(?:-Benz)?\b"),
-    re.compile(r"\bRheinmetall\b"),
-    re.compile(r"\bSiemens(?:\s+Energy)?\b"),
-    re.compile(r"\bThyssenkrupp\b", re.IGNORECASE),
-    re.compile(r"\bVolkswagen\b"),
-    # Mittelstand / spezifische Firmen
-    re.compile(r"\bPhoenix Contact\b"),
-    re.compile(r"\bhagebau\b"),
-    re.compile(r"\bEdeka\b"),
-    re.compile(r"\bH(ä|ae|�)rtling(?:\s+Hamburg)?\b"),
-    re.compile(r"\bGerman LNG(?:\s+Terminal)?\b"),
-    # Recruiter / Personaldienstleister
-    re.compile(r"\bAPRIORI\b"),
-    re.compile(r"\bAS Innovative(?:\s+IT)?\b"),
-    re.compile(r"\bDxP Services\b"),
-    re.compile(r"\bECS Engineering\b"),
-    re.compile(r"\bFERCHAU(?:\s+GmbH)?\b"),
-    re.compile(r"\bHays\b"),
-    re.compile(r"\bHiSimply(?:\s+GmbH)?\b"),
-    re.compile(r"\bIQ(?:\s+Engineering)?\b"),
-    re.compile(r"\bITC Infotech\b"),
-    re.compile(r"\bProgressive Recruitment\b"),
-    re.compile(r"\bRandstad(?:\s+Professional)?\b"),
-    re.compile(r"\bSoorce\b"),
-    re.compile(r"\bTC Thomas Consulting\b"),
-    re.compile(r"\bThomas Consulting\b"),
-    re.compile(r"\bYER(?:\s+Staffing)?\b"),
+# === Personennamen (Recruiter, HR-Kontakte) ======================
+_PERSON_LITERAL = [
+    r"Sheirry\s+Singh",
+    r"Kiani\s+Webb",
+    r"Saskia\s+van\s+Wijk",
+    r"R\.\s+Molnar",
+    r"Sebastian\s+Hentzelt",
 ]
+_PERSON_PATTERNS = [re.compile(rf"\b{p}\b") for p in _PERSON_LITERAL]
+
+# === Konkrete Firmennamen — case-insensitive =====================
+# Reihenfolge: spezifischere Patterns zuerst (z.B. "Lürssen Werft" vor "Lürssen")
+_FIRMA_LITERAL = [
+    # Bewerbungs-Targets / Endkunden
+    r"L(?:ü|ue|�)rssen(?:[\s\-]+Werft)?(?:\s+Bremen)?",
+    r"L(?:ue)rssen",
+    r"TKMS(?:\s+GmbH)?",
+    r"Intelligentes\s+Ingenieur(?:\s+Management)?(?:\s+GmbH)?",
+    r"PBCN",
+    r"Rheinmetall",
+    r"Siemens(?:\s+Energy)?",
+    r"BMW(?:\s+Group)?",
+    r"Bosch",
+    r"Mercedes(?:-Benz)?",
+    r"Audi",
+    r"Volkswagen",
+    r"Phoenix\s+Contact",
+    r"hagebau",
+    r"Edeka",
+    r"Thyssenkrupp",
+    r"H(?:ä|ae|�)rtling(?:\s+Hamburg)?",
+    r"German\s+LNG(?:\s+Terminal)?",
+    # Recruiter / Personaldienstleister
+    r"APRIORI",
+    r"AS\s+Innovative(?:\s+IT)?",
+    r"DxP\s+Services",
+    r"ECS\s+(?:Engineering|GmbH)",
+    r"FERCHAU(?:\s+GmbH)?",
+    r"Hays",
+    r"HiSimply(?:\s+GmbH)?",
+    r"\bIQ\b(?!\.\w)",  # IQ aber nicht IQ.something
+    r"ITC\s+Infotech",
+    r"Progressive\s+Recruitment",
+    r"Randstad(?:\s+Professional)?",
+    r"Soorce",
+    r"TC\s+Thomas\s+Consulting",
+    r"Thomas\s+Consulting",
+    r"YER(?:\s+Staffing)?",
+    # Tech-/Engineering-Firmen
+    r"Bechtle(?:\s+PLM(?:\s+Deutschland)?)?(?:\s+GmbH)?",
+    r"CIDEON(?:\s+Software(?:\s*&\s*Services)?)?(?:\s+GmbH)?",
+    r"PartSpace(?:\s+GmbH)?",
+    r"Teccon(?:\s+GmbH)?",
+    r"Kaiser\s+Personalberatung(?:\s+GmbH)?",
+    r"BHD(?:\s+GmbH)?",
+    r"Rite-Hite(?:\s+GmbH)?",
+    r"TOMRA(?:\s+Sorting)?(?:\s+GmbH)?",
+    r"CENIT(?:\s+AG)?",
+    r"Questax(?:\s+Experts)?(?:\s+GmbH)?",
+    r"Leuchtmehr(?:\s+GmbH)?",
+    r"CONTACT\s+Software(?:\s+GmbH)?",
+    r"Masa\s+GmbH",
+    r"NVL(?:\s+B\.V\.\s*&\s*Co\.\s*KG)?",
+]
+_FIRMA_PATTERNS = [re.compile(rf"\b{p}\b", re.IGNORECASE) for p in _FIRMA_LITERAL]
+
+# Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
+_GERMAN_CORP_RE = re.compile(
+    r"\b[A-ZÄÖÜ][\wÄÖÜäöüß\.\-/&]+(?:\s+[A-ZÄÖÜ&][\wÄÖÜäöüß\.\-/&]*){0,4}"
+    r"\s+(?:GmbH|AG|KG|SE|UG|e\.V\.|gGmbH|mbH|GbR)"
+    r"(?:\s*&\s*Co\.?(?:\s*KG)?)?\b"
+)
 
 # === Mail-Adressen ===============================================
 _EMAIL_RE = re.compile(r"[\w\.\-+]+@[\w\.\-]+\.[a-zA-Z]{2,}")
@@ -132,10 +171,17 @@ def find_pii(text: str) -> list[str]:
     for p in _USER_PATTERNS:
         for m in set(p.findall(text)):
             hits.append(f"USER: {m}")
+    for p in _PERSON_PATTERNS:
+        for m in set(p.findall(text)):
+            hits.append(f"PERSON: {m}")
     for p in _FIRMA_PATTERNS:
         for m in set(p.findall(text)):
             label = m if isinstance(m, str) else " ".join(filter(None, m))
             hits.append(f"FIRMA: {label}")
+    for m in set(_GERMAN_CORP_RE.findall(text)):
+        label = m if isinstance(m, str) else " ".join(filter(None, m))
+        if "<" not in label and "musterfirma" not in label.lower():
+            hits.append(f"CORP: {label}")
     for m in set(_EMAIL_RE.findall(text)):
         if not _is_safe_email(m):
             hits.append(f"EMAIL: {m}")
@@ -151,8 +197,11 @@ def scrub_text(text: str) -> str:
         return text
     for p in _USER_PATTERNS:
         text = p.sub("<USER>", text)
+    for p in _PERSON_PATTERNS:
+        text = p.sub("<PERSON>", text)
     for p in _FIRMA_PATTERNS:
         text = p.sub("<FIRMA>", text)
+    text = _GERMAN_CORP_RE.sub("<FIRMA>", text)
     text = _EMAIL_RE.sub(
         lambda m: m.group() if _is_safe_email(m.group()) else "<email-anonymisiert>",
         text,
