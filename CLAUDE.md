@@ -107,6 +107,50 @@ ist der Uebersetzer. 6 Tools: `elwosa_lesen`, `elwosa_schreiben` (Tonfall
 validiert!), `elwosa_pause`, `elwosa_tonfall`, `elwosa_linie_vorschlagen`,
 `elwosa_status`. Plus 5 Bridge-Prompts in `prompts.py`.
 
+## Issue-Erstellung — DSGVO-Pflicht (kritisch)
+
+**KEIN Issue darf Personen-Namen, Firmen-Namen oder Kontaktdaten enthalten.**
+Issues sind oeffentlich einsehbar, ein Verstoss ist DSGVO-relevant fuer
+den User UND die Dritten. Auch in Reproduktions-Beispielen, Bug-
+Beschreibungen, Test-Daten.
+
+**Vor jedem `gh issue create` IMMER durch den Anonymisierer laufen lassen:**
+
+```bash
+python scripts/scrub_pii.py --check < /tmp/issue_body.md
+# exit 0 → sauber, kann raus
+# exit 1 → Treffer aufgelistet, vorher anonymisieren
+```
+
+Oder programmatisch:
+
+```python
+from scripts.scrub_pii import scrub_text, find_pii
+hits = find_pii(body)
+if hits:
+    body = scrub_text(body)  # wendet Replace-Mapping an
+```
+
+**Replace-Konvention:**
+- Personen-Namen → `<USER>` (User selbst) oder `<PERSON>` (Dritte)
+- Konkrete Firmen → `<FIRMA>` (alle gleich, nicht durchnummeriert)
+- E-Mail-Adressen (echt) → `<email-anonymisiert>`
+- Telefonnummern (echt) → `<telefon>`
+- Konkrete Stellen-IDs / Hashes → bleiben erlaubt (interne IDs ohne externe Bedeutung)
+
+**Was bleibt erlaubt im Issue:**
+- GitHub-Username `MadGapun` (oeffentlicher Repo-Owner)
+- Generische Branchen ("Maschinenbau", "Tech-Senior")
+- Test-Mails wie `bewerbung@firma.de`, `test@example.com`
+- DAX/Branchenindizes ohne konkrete Firma
+
+**Das gilt sowohl fuer Code-getriebene Issue-Creation (via `gh` CLI im
+Code) als auch fuer Claude-Chat-getriebene Issue-Creation.**
+
+Background: am 2026-05-10 wurden 68 historische Issues + 2 Comments
+nachtraeglich anonymisiert (siehe `scripts/scrub_pii.py` Header). Das
+darf nicht nochmal passieren.
+
 ## Release-Workflow (Pflicht-Checkliste)
 
 Bevor ein neuer Release gebaut wird:
