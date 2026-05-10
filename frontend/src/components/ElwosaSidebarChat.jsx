@@ -13,8 +13,8 @@
  * - Bei Sidebar collapsed: nur Avatar mit Pulse + Hover-Overlay
  * - Bei AI off: einzige Status-Nachricht, dann still
  */
-import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
 import { api, deleteRequest, postJson } from "@/api";
 
@@ -184,6 +184,12 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
   const [showMenu, setShowMenu] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const pollRef = useRef(null);
+  // v1.7.0-beta.48 (#611): Sticky-Bottom-Auto-Scroll
+  const scrollRef = useRef(null);
+  const stickyRef = useRef(true);  // True = User ist am Ende
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [unreadBelow, setUnreadBelow] = useState(0);
+  const lastMessageCountRef = useRef(0);
 
   // Polling + Heartbeat
   useEffect(() => {
@@ -234,6 +240,50 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
     const t = setTimeout(() => setHidden(false), remaining);
     return () => clearTimeout(t);
   }, [hidden]);
+
+  // v1.7.0-beta.48 (#611): Sticky-Bottom-Auto-Scroll.
+  // - Wenn User am Ende ist (innerhalb 30px Toleranz): bei neuen
+  //   Nachrichten automatisch nach unten scrollen.
+  // - Wenn User aktiv nach oben gescrollt hat: nicht aufdraengen,
+  //   stattdessen "X neue Nachrichten unten"-Indicator zeigen.
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom < 30;
+    stickyRef.current = atBottom;
+    if (atBottom) {
+      setShowJumpToBottom(false);
+      setUnreadBelow(0);
+    }
+  }
+
+  function jumpToBottom() {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    stickyRef.current = true;
+    setShowJumpToBottom(false);
+    setUnreadBelow(0);
+  }
+
+  // Auto-Scroll bei neuen Nachrichten — nur wenn sticky-bottom aktiv
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const newCount = messages.length;
+    const wasMore = newCount > lastMessageCountRef.current;
+    if (stickyRef.current) {
+      // User ist am Ende → mitscrollen
+      el.scrollTop = el.scrollHeight;
+    } else if (wasMore) {
+      // User ist oben → Counter hochzaehlen + Indicator zeigen
+      const delta = newCount - lastMessageCountRef.current;
+      setUnreadBelow((u) => u + delta);
+      setShowJumpToBottom(true);
+    }
+    lastMessageCountRef.current = newCount;
+  }, [messages]);
 
   // Wenn AI off + Settings disabled: kompletter Hide
   if (!status) return null;
@@ -420,47 +470,69 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
         </div>
       </div>
 
-      <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
-        {messages.length === 0 && (
-          <p className="text-[10px] text-muted/40 italic">
-            {status.ai_state === "active"
-              ? "Elwosa ist still. Wenn die AI arbeitet, redet sie."
-              : `Elwosa: ${status.ai_state}`}
-          </p>
-        )}
-        {groupedByDay.map((item, i) => {
-          if (item.type === "day") {
+      {/* v1.7.0-beta.48 (#611): Adaptive Hoehe + Sticky-Bottom-Scroll.
+          min-h: garantierte Mindestgroesse. max-h: 60vh begrenzt nach
+          oben damit der Sidebar-Footer (Versions-Block) sichtbar bleibt.
+          relative fuer den Indicator-Button. */}
+      <div className="relative">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="space-y-2 min-h-[150px] max-h-[60vh] overflow-y-auto pr-1"
+        >
+          {messages.length === 0 && (
+            <p className="text-[10px] text-muted/40 italic">
+              {status.ai_state === "active"
+                ? "Elwosa ist still. Wenn die AI arbeitet, redet sie."
+                : `Elwosa: ${status.ai_state}`}
+            </p>
+          )}
+          {groupedByDay.map((item, i) => {
+            if (item.type === "day") {
+              return (
+                <div key={`day-${i}`} className="text-[9px] uppercase tracking-wider text-muted/30 pt-1">
+                  ── {item.label} ──
+                </div>
+              );
+            }
+            const m = item.msg;
             return (
-              <div key={`day-${i}`} className="text-[9px] uppercase tracking-wider text-muted/30 pt-1">
-                ── {item.label} ──
+              <div
+                key={m.id}
+                className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
+              >
+                <p className="text-[11px] leading-relaxed text-muted/85">
+                  {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
+                </p>
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-[9px] text-muted/30">
+                    {relativeTime(m.created_at)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => dismissMessage(m.id)}
+                    className="text-muted/20 opacity-0 group-hover:opacity-100 hover:text-coral transition-opacity"
+                    title="Diese Nachricht ausblenden"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
               </div>
             );
-          }
-          const m = item.msg;
-          return (
-            <div
-              key={m.id}
-              className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
-            >
-              <p className="text-[11px] leading-relaxed text-muted/85">
-                {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
-              </p>
-              <div className="mt-1 flex items-center justify-between">
-                <span className="text-[9px] text-muted/30">
-                  {relativeTime(m.created_at)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => dismissMessage(m.id)}
-                  className="text-muted/20 opacity-0 group-hover:opacity-100 hover:text-coral transition-opacity"
-                  title="Diese Nachricht ausblenden"
-                >
-                  <X size={11} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
+          })}
+        </div>
+        {/* Indicator: User hat hoch gescrollt + neue Nachricht kam */}
+        {showJumpToBottom && (
+          <button
+            type="button"
+            onClick={jumpToBottom}
+            className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-teal/90 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg hover:bg-teal transition-all"
+            title="Zu den neuesten Nachrichten springen"
+          >
+            <ChevronDown size={11} />
+            {unreadBelow > 0 ? `${unreadBelow} neu` : "neueste"}
+          </button>
+        )}
       </div>
     </div>
   );

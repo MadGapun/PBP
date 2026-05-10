@@ -136,7 +136,7 @@ def test_all_pool_lines_pass_validator():
         try:
             filled = line.format(
                 firma="ACME", count=3, title="X", score=80, percent=20,
-                days=5, tool="x", wochentag="Montag",
+                days=5, tool="x", wochentag="Montag", ref="abc123",
             )
         except (KeyError, ValueError):
             filled = line

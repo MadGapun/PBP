@@ -121,7 +121,12 @@ def detect_world_trigger() -> Optional[str]:
 # === Variablen-Einsetzung ========================================
 
 def fill_template(line: str, ctx: dict) -> str:
-    """Ersetzt Platzhalter ({firma}, {count}, {days}, ...) durch Kontext."""
+    """Ersetzt Platzhalter ({firma}, {count}, {days}, ...) durch Kontext.
+
+    v1.7.0-beta.48 (#611): {ref} (z.B. application_id) ist auch
+    verfuegbar, damit Linien Action-Links auf konkrete Eintraege
+    bauen koennen: `[link:application:{ref}|Bewerbung oeffnen]`.
+    """
     if "{" not in line:
         return line
     try:
@@ -132,6 +137,7 @@ def fill_template(line: str, ctx: dict) -> str:
             "score": ctx.get("score", 0),
             "percent": ctx.get("percent", 0),
             "days": ctx.get("days", 0),
+            "ref": ctx.get("ref", ""),
             "tool": ctx.get("tool", ""),
             "wochentag": ctx.get("wochentag", ""),
         })

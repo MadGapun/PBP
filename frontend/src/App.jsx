@@ -1183,6 +1183,24 @@ export default function App() {
                     );
                   }, 50);
                 }}
+                onNavigate={(linkType, linkId) => {
+                  // v1.7.0-beta.48 (#611): Action-Link-Routing aus
+                  // Elwosa-Linien. Markup [link:type:id|label] feuert
+                  // diesen Handler.
+                  if (linkType === "application") {
+                    navigateTo("bewerbungen", { applicationId: linkId });
+                  } else if (linkType === "job") {
+                    navigateTo("stellen", { jobHash: linkId });
+                  } else if (linkType === "job_filter") {
+                    if (linkId === "missing_desc") {
+                      navigateTo("stellen", { missingDescriptionOnly: true });
+                    } else {
+                      navigateTo("stellen");
+                    }
+                  } else if (linkType === "page") {
+                    navigateTo(linkId);
+                  }
+                }}
               />
             </>
           }

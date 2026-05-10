@@ -7,6 +7,109 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 **Fixed** (Bugs), **Deprecated** (bald weg), **Removed** (weg),
 **Known Issues** (bekannt kaputt in diesem Release).
 
+## [1.7.0-beta.48] - 2026-05-10 — Elwosa-UX-Polish: Auto-Scroll, adaptive Hoehe, Action-Links (#611)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Schliesst den letzten echten Bug aus dem User-Test-Cluster der letzten
+Wochen.
+
+### ✨ Auto-Scroll mit Sticky-Bottom (#611)
+
+`ElwosaSidebarChat` scrollt jetzt automatisch zur neuesten Nachricht —
+**aber nur wenn der User am Ende ist**. Wenn er hochgescrollt hat um
+eine alte Nachricht zu lesen, wird das nicht weggerissen.
+
+- `useLayoutEffect` synchronisiert den Scroll mit dem DOM-Update
+- 30px-Toleranz fuer „am Ende" (User scrollt nicht millimeter-genau)
+- Pattern wie in Slack/Discord/Twitter
+
+### ✨ „Neue Nachrichten unten"-Indicator
+
+Wenn der User oben ist und eine neue Nachricht kommt, erscheint ein
+Teal-Pill-Button am unteren Rand der Chat-Box: **„X neu"** mit
+Down-Chevron. Klick scrollt nach unten und reaktiviert Sticky-Bottom.
+
+### ✨ Adaptive Hoehe
+
+Vorher: starres `max-h-[260px]`.
+Jetzt: `min-h-[150px] max-h-[60vh]` — auf grossen Screens (4K) wachsen
+die Bubbles auf bis zu ~600-700px, auf kleinen bleiben sie kompakt.
+
+### ✨ Action-Link-Routing (#611)
+
+Der `[link:type:id|label]`-Markup-Renderer bekommt vier neue Routen
+ueber `App.jsx::onNavigate`:
+
+| Markup | Wirkung |
+|---|---|
+| `[link:application:abc12345|...]` | Navigation zu Bewerbungen mit Fokus auf abc12345 |
+| `[link:job:hash|...]` | Navigation zu Stellen mit Fokus auf hash |
+| `[link:job_filter:missing_desc|...]` | Stellen-Page mit Filter „Nur ohne Beschreibung" |
+| `[link:page:xxx|...]` | Direkter Page-Wechsel |
+
+Plus die schon vorhandenen `[link:pause:N|...]` und `[link:wiki:Page|...]`.
+
+### ✨ Pool-Linien mit Action-Links
+
+`STATUS_CHANGE_LINES` haben jetzt pro Trigger mind. eine Variante mit
+`[link:application:{ref}|...]`-Markup. Beim Triggern wird `{ref}`
+durch die `application_id` ersetzt — Klick fuehrt direkt zur
+Bewerbung.
+
+Beispiel-Linien:
+- `"Absage von {firma}. [link:application:{ref}|Akte schliessen] und naechste angehen."`
+- `"**Interview** bei {firma}. [link:application:{ref}|Vorbereitung oeffnen]."`
+- `"Angenommen bei {firma}. [link:application:{ref}|Verlauf ansehen]. Glueckwunsch."`
+
+### Tests
+
+- 10 neue Tests (`test_v170_beta48_elwosa_ux.py`)
+- **1224 / 1224 gruen** + 1 skipped (+9 vs. beta.47)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.48.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.48.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.47] - 2026-05-10 — Daten-Migrationen (#613, #616) + 2 neue MCP-Tools
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

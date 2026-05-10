@@ -200,8 +200,8 @@ def test_new_lines_pass_tonfall_validator():
         STATUS_CHANGE_LINES, STATUS_LINES,
     )
     for line in STATUS_CHANGE_LINES["bewerbung_angelegt"]:
-        # Mit dummy-Variable
-        validate_tonfall(line.format(firma="ACME"))
+        # Mit dummy-Variable (ref ab beta.48 fuer Action-Links)
+        validate_tonfall(line.format(firma="ACME", ref="abc12345"))
     for line in STATUS_LINES["llm_task_running"]:
         validate_tonfall(line.format(count=3))
 

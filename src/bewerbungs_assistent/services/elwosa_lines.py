@@ -264,30 +264,35 @@ WORLD_LINES: dict[str, list[str]] = {
 STATUS_CHANGE_LINES: dict[str, list[str]] = {
     "bewerbung_angelegt": [
         "Bewerbung bei {firma} angelegt. Vermerkt.",
-        "{firma} kommt auf die Liste. Markiert.",
+        "{firma} kommt auf die Liste. [link:application:{ref}|Markiert].",
         "Neue Bewerbung: {firma}. Auge drauf.",
     ],
     "absage": [
         "Absage von {firma}. Deren Verlust. Ehrlich.",
         "Sie haben sich fuer jemand anderen entschieden. Vermutlich jemanden der billiger ist und genauso wenig kann. Weiter.",
+        "Absage von {firma}. [link:application:{ref}|Akte schliessen] und naechste angehen.",
     ],
     "eingangsbestaetigung": [
         "{firma} hat empfangen. Beruhigt mich, dass die Post noch funktioniert.",
         "Eingangsbestaetigung. Mehr ist es allerdings nicht.",
+        "Eingangsbestaetigung von {firma}. [link:application:{ref}|Status auf wartend].",
     ],
     "interview_einladung": [
         "Interview-Einladung von {firma}. Markiert. Hemd buegeln, Notizen mitnehmen.",
         "{firma} will dich sehen. Statistisch gut, gefuehlsmaessig auch.",
+        "**Interview** bei {firma}. [link:application:{ref}|Vorbereitung oeffnen].",
     ],
     "angenommen": [
         "Endlich. Ich war kurz davor denen selbst zu schreiben.",
         "Angenommen. Glueckwunsch. Ich behalte den Rest dieser Stellen-Sammlung trotzdem im Auge, falls du nochmal vorbeikommst. Was du nicht musst.",
+        "Angenommen bei {firma}. [link:application:{ref}|Verlauf ansehen]. Glueckwunsch.",
     ],
     "zurueckgezogen": [
         "Zurueckgezogen. Du wirst gewusst haben warum.",
     ],
     "abgelaufen": [
         "Abgelaufen. {firma} hat nicht reagiert. Statistik zeigt: bei vielen endet's so.",
+        "{firma}: abgelaufen. [link:application:{ref}|Schauen ob noch was geht].",
     ],
 }
 
