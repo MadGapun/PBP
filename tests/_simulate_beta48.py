@@ -316,6 +316,37 @@ def main():
     results["Elwosa Status-Lifecycle"] = run_section(
         "Elwosa Status-Lifecycle (Action-Link)", elwosa_status_change)
 
+    # === #464: Interview-Reflexion (beta.49) ===
+    def reflexion():
+        # Bewerbung mit Status interview_abgeschlossen anlegen
+        aid = db.add_application({
+            "title": "Sim-Interview-Job", "company": "Reflex GmbH",
+            "status": "interview_abgeschlossen", "applied_at": "2026-04-15",
+        })
+        # Speichern
+        out1 = asyncio.run(_call_tool(mcp, "interview_reflexion_speichern", {
+            "bewerbung_id": aid,
+            "was_lief_gut": "Cultural-Fit-Frage gut beantwortet",
+            "was_lief_schlecht": "Tech-Tiefe Aras-Migration",
+            "was_war_ueberraschend": "Drei Personen statt einer",
+            "gefuehl": 4,
+            "next_steps": "Nachfass am Freitag",
+        }))
+        assert out1["status"] == "gespeichert"
+        # Lesen
+        out2 = asyncio.run(_call_tool(mcp, "interview_reflexion_lesen",
+                                       {"bewerbung_id": aid}))
+        assert out2["status"] == "vorhanden"
+        assert out2["reflexion"]["gefuehl"] == 4
+        # Liste
+        out3 = asyncio.run(_call_tool(mcp, "interview_reflexionen_anzeigen",
+                                       {"limit": 5}))
+        assert out3["anzahl"] >= 1
+        print(f"  Reflexion fuer A-{aid[:8]} gespeichert + gelesen + gelistet")
+
+    results["#464 Interview-Reflexion"] = run_section(
+        "#464 Interview-Reflexion (beta.49)", reflexion)
+
     # === Bericht-Export ===
     def bericht():
         out = asyncio.run(_call_tool(mcp, "bewerbungsbericht_exportieren",
