@@ -31,15 +31,11 @@ from xml.etree import ElementTree as ET
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, stelle_hash, make_session
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.personio")
 
 _BASE_TPL = "https://{firma}.jobs.personio.de/xml"
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/xml, text/xml",
-}
 _MAX_WORKERS = 5
 _TIMEOUT = 12
 
@@ -182,8 +178,8 @@ def search_personio(params: dict) -> list[dict]:
     firmen = list(dict.fromkeys(custom + DEFAULT_COMPANIES))
 
     found: list[dict] = []
-    with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS,
-                       follow_redirects=True) as client:
+    # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
+    with make_session(content_type="xml", timeout=_TIMEOUT) as client:
         with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
             futures = {pool.submit(_fetch_firma, client, f): f for f in firmen}
             for fut in as_completed(futures):

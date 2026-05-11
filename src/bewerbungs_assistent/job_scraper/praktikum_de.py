@@ -16,15 +16,11 @@ from xml.etree import ElementTree as ET
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, stelle_hash, make_session
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.praktikum_de")
 
 _BASE = "https://www.praktikum.de/rss.xml"
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/rss+xml, application/xml",
-}
 _TIMEOUT = 12
 
 
@@ -79,8 +75,8 @@ def search_praktikum_de(params: dict) -> list[dict]:
     primary_kw = keywords[0] if keywords else None
     found: list[dict] = []
     try:
-        with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS,
-                          follow_redirects=True) as client:
+        # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
+        with make_session(content_type="rss", timeout=_TIMEOUT) as client:
             params_q = {"suchwort": primary_kw} if primary_kw else {}
             r = client.get(_BASE, params=params_q)
             if r.status_code != 200:

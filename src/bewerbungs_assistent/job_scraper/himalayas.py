@@ -16,15 +16,11 @@ import re
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, stelle_hash, make_session
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.himalayas")
 
 _BASE = "https://himalayas.app/jobs/api"
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/json",
-}
 _TIMEOUT = 12
 _MAX_PAGES = 3
 
@@ -88,8 +84,8 @@ def search_himalayas(params: dict) -> list[dict]:
     found: list[dict] = []
     seen: set = set()
     try:
-        with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS,
-                          follow_redirects=True) as client:
+        # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
+        with make_session(content_type="json", timeout=_TIMEOUT) as client:
             for page in range(1, _MAX_PAGES + 1):
                 try:
                     r = client.get(_BASE, params={

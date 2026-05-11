@@ -2066,6 +2066,52 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def quellen_health_check(quellen: list[str] = [], parallel: bool = True) -> dict:
+        """v1.7.0-beta.51 (#624 Phase 2): Aktiver Probe-Check fuer Job-Quellen.
+
+        Macht pro Quelle einen minimalen HTTP-Request (1 Stelle, keine
+        Filter) um zu pruefen ob die API/Feed-Endpoint erreichbar ist.
+        Ergaenzt scraper_diagnose (das auf Liefer-Statistiken basiert) —
+        hier kommt die Info „API selbst erreichbar JA/NEIN" aus einem
+        echten Request.
+
+        Args:
+            quellen: Liste der zu pruefenden Source-Keys. Wenn leer:
+                alle mit definiertem Probe (~12 Quellen).
+            parallel: Wenn True (Default), Probes parallel via Threads.
+
+        Returns:
+            count_total, count_reachable, results (Liste pro Quelle).
+            Pro Quelle: source, reachable, http_status, latency_ms, error.
+
+        Use Case:
+            User: „Warum kommen von <Quelle> seit Tagen keine Treffer?"
+            Claude: ruft quellen_health_check mit dieser Quelle, sagt:
+            „API liefert 503 seit 3 Sekunden — ist temporär weg."
+            ODER „API liefert 200 — die Suche selbst ist das Problem,
+            evtl. liegt's an deinen Suchbegriffen."
+        """
+        from ..job_scraper.health import check_source, get_probable_sources
+        from concurrent.futures import ThreadPoolExecutor
+        targets = quellen if quellen else get_probable_sources()
+        if parallel and len(targets) > 1:
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results = list(pool.map(check_source, targets))
+        else:
+            results = [check_source(s) for s in targets]
+        reachable = sum(1 for r in results if r.get("reachable"))
+        return {
+            "count_total": len(results),
+            "count_reachable": reachable,
+            "count_unreachable": len(results) - reachable,
+            "results": results,
+            "hinweis": (
+                f"{reachable} von {len(results)} Quellen erreichbar. "
+                "Ergaenzend zur Liefer-Statistik in scraper_diagnose."
+            ),
+        }
+
+    @mcp.tool()
     def quellen_aus_urls_korrigieren(dry_run: bool = True) -> dict:
         """v1.7.0-beta.47 (#613): Korrigiert source='manuell' anhand der job-URL.
 

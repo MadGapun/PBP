@@ -37,6 +37,7 @@ EXPECTED_TOOL_NAMES = {
     "stelle_vergleichen",
     "stellenbeschreibung_nachladen",
     "quellen_aus_urls_korrigieren",
+    "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
     "profile_auflisten",
     "profil_wechseln",
@@ -270,7 +271,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 144  # v1.7.0-beta.49 (#464): + interview_reflexion_speichern/lesen/anzeigen
+        assert len(tools) == 145  # v1.7.0-beta.51 (#624 Phase 2): + quellen_health_check
         assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:

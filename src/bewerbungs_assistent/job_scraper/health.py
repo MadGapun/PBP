@@ -1,0 +1,218 @@
+"""Health-Check fuer Job-Quellen (#624 Phase 2).
+
+Pingt API-/Feed-Endpoints minimal an (1 Stelle, keine Filter), um zu
+unterscheiden ob „0 Treffer heute" an unserer Suche oder an einer
+toten/blockierten Quelle liegt.
+
+Ergaenzt die existierende `scraper_health`-Logik (#590) die nur
+ueber Liefer-Statistiken die Quelle einschaetzt — health_check() macht
+einen aktiven Probe-Request OHNE Suche. Wert: schnellere Diagnose,
+gerade wenn der User selbst „warum kommt nichts mehr von X?" fragt.
+
+Verwendung:
+    from .health import check_source, check_all_sources
+    result = check_source("arbeitnow")
+    # → {source, reachable, http_status, latency_ms, error?, ...}
+
+    all_results = check_all_sources()
+    # → list[dict]
+
+User-Vorgabe „keine Live-HTTP-Calls in Tests" wird respektiert: Die
+Funktionen werden in Tests via Mock von httpx aufgerufen.
+"""
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any, Optional
+
+import httpx
+
+from . import SOURCE_REGISTRY, make_session
+
+logger = logging.getLogger("bewerbungs_assistent.scraper.health")
+
+
+# Pro Quelle: (HTTP-Methode, URL, Content-Type, optionaler Request-Body)
+# Das sind minimale Probe-Requests — eine Stelle, keine Filter.
+_PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
+    # === Offizielle JSON-APIs ===
+    "bundesagentur": (
+        "GET",
+        "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs"
+        "?was=test&size=1",
+        "json",
+        None,
+    ),
+    "arbeitnow": (
+        "GET",
+        "https://www.arbeitnow.com/api/job-board-api?page=1",
+        "json",
+        None,
+    ),
+    "greenhouse": (
+        "GET",
+        "https://boards-api.greenhouse.io/v1/boards/airbnb/jobs",
+        "json",
+        None,
+    ),
+    "remoteok": (
+        "GET",
+        "https://remoteok.com/api",
+        "json",
+        None,
+    ),
+    "remotive": (
+        "GET",
+        "https://remotive.com/api/remote-jobs?limit=1",
+        "json",
+        None,
+    ),
+    "himalayas": (
+        "GET",
+        "https://himalayas.app/jobs/api?country=DE",
+        "json",
+        None,
+    ),
+    "workable": (
+        "GET",
+        "https://apply.workable.com/api/v3/accounts/n26/jobs?limit=1",
+        "json",
+        None,
+    ),
+    "workday_dax": (
+        "POST",
+        "https://wd3.myworkdayjobs.com/wday/cxs/sap/SAPCareers/jobs",
+        "json",
+        {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""},
+    ),
+    # === RSS / XML ===
+    "berufsstart": (
+        "GET",
+        "https://www.berufsstart.de/jobs/rss",
+        "rss",
+        None,
+    ),
+    "studentjob": (
+        "GET",
+        "https://www.studentjob.de/rss/jobs",
+        "rss",
+        None,
+    ),
+    "praktikum_de": (
+        "GET",
+        "https://www.praktikum.de/rss.xml",
+        "rss",
+        None,
+    ),
+    "personio": (
+        "GET",
+        "https://hellofresh.jobs.personio.de/xml",  # bekannte Public-Personio-Site
+        "xml",
+        None,
+    ),
+}
+
+_TIMEOUT = 10.0  # Health-Check ist nur Ping — keine 30s-Wartezeit
+
+
+def check_source(source_key: str, timeout: float = _TIMEOUT) -> dict[str, Any]:
+    """Probet eine einzelne Quelle. Liefert ein strukturiertes Result-Dict.
+
+    Result-Schema:
+        source: str           — Source-Key
+        reachable: bool       — True bei HTTP 2xx
+        http_status: int|None — Status-Code, None bei Connection-Fehler
+        latency_ms: int|None  — Round-Trip in ms
+        method: str           — GET/POST
+        url: str              — Probe-URL
+        error: str|None       — Bei Connection-Fehler / Timeout / unbekannter Quelle
+        notes: str|None       — Optional, z.B. „returned 0 jobs" wenn Schema OK aber leer
+    """
+    if source_key not in SOURCE_REGISTRY:
+        return {
+            "source": source_key,
+            "reachable": False,
+            "http_status": None,
+            "latency_ms": None,
+            "method": "",
+            "url": "",
+            "error": "unknown_source",
+        }
+    if source_key not in _PROBES:
+        return {
+            "source": source_key,
+            "reachable": False,
+            "http_status": None,
+            "latency_ms": None,
+            "method": "",
+            "url": "",
+            "error": "no_probe_defined",
+            "notes": "Quelle hat keine API/Feed (z.B. Browser-/JobSpy-basiert)",
+        }
+    method, url, content_type, body = _PROBES[source_key]
+    start = time.perf_counter()
+    try:
+        with make_session(content_type=content_type, timeout=timeout) as client:
+            if method == "GET":
+                resp = client.get(url)
+            elif method == "POST":
+                resp = client.post(url, json=body or {})
+            else:
+                return {
+                    "source": source_key, "reachable": False,
+                    "http_status": None, "latency_ms": None,
+                    "method": method, "url": url,
+                    "error": f"unsupported_method:{method}",
+                }
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        return {
+            "source": source_key,
+            "reachable": 200 <= resp.status_code < 300,
+            "http_status": resp.status_code,
+            "latency_ms": latency_ms,
+            "method": method,
+            "url": url,
+            "error": None,
+        }
+    except httpx.TimeoutException:
+        return {
+            "source": source_key, "reachable": False,
+            "http_status": None,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "method": method, "url": url,
+            "error": "timeout",
+        }
+    except httpx.TransportError as exc:
+        return {
+            "source": source_key, "reachable": False,
+            "http_status": None,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "method": method, "url": url,
+            "error": f"transport:{type(exc).__name__}",
+        }
+    except Exception as exc:
+        logger.warning("health_check unerwartet fehlgeschlagen fuer %s: %s",
+                        source_key, exc)
+        return {
+            "source": source_key, "reachable": False,
+            "http_status": None,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "method": method, "url": url,
+            "error": f"exception:{type(exc).__name__}:{str(exc)[:80]}",
+        }
+
+
+def check_all_sources(timeout: float = _TIMEOUT) -> list[dict[str, Any]]:
+    """Probet alle Quellen mit Probe-Definition. Liefert Liste aller Results.
+
+    Reihenfolge entspricht dem Eintrag in _PROBES. Pro Quelle ein
+    HTTP-Request — bei 12 Quellen ca. 12s im worst case (sequenziell).
+    Fuer parallele Ausfuehrung muss der Aufrufer ThreadPoolExecutor nutzen.
+    """
+    return [check_source(k, timeout=timeout) for k in _PROBES.keys()]
+
+
+def get_probable_sources() -> list[str]:
+    """Liste aller Source-Keys fuer die ein Probe definiert ist."""
+    return list(_PROBES.keys())

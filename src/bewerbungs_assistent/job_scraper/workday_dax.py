@@ -25,15 +25,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, stelle_hash, make_session
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.workday_dax")
 
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-}
 _MAX_WORKERS = 5
 _TIMEOUT = 15
 _PAGE_SIZE = 20
@@ -180,8 +175,8 @@ def search_workday_dax(params: dict) -> list[dict]:
     )
 
     found: list[dict] = []
-    with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS,
-                       follow_redirects=True) as client:
+    # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
+    with make_session(content_type="json", timeout=_TIMEOUT) as client:
         with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
             futures = {
                 pool.submit(_fetch_firma, client, *f, primary_kw): f

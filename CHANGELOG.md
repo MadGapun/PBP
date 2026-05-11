@@ -16,6 +16,126 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.51] - 2026-05-11 — Scraper Phase 2 (#624): 9 weitere Migrations + Health-Check
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Phase 2 der Scraper-Konsolidierung. 9 weitere Scraper auf zentralen
+`make_session()`-Helper migriert, plus aktiver Probe-Health-Check als
+Diagnose-Tool.
+
+### Migrationen — 9 weitere Scraper auf `make_session()`
+
+Vorher: jeder Scraper mit eigenem `_HEADERS = {...}`-Dict + `httpx.Client(...)`.
+Jetzt: zentraler Helper aus #624 Phase 1.
+
+| Scraper | Content-Type |
+|---|---|
+| `greenhouse.py` | json (Boards-API) |
+| `remotive.py` | json |
+| `himalayas.py` | json |
+| `workable.py` | json |
+| `workday_dax.py` | json |
+| `berufsstart.py` | rss |
+| `studentjob.py` | rss |
+| `praktikum_de.py` | rss |
+| `personio.py` | xml |
+
+Verhalten unveraendert. Boilerplate -7 Zeilen pro Scraper, einheitlicher
+User-Agent, einheitlicher Timeout-Default (15s). `bundesagentur` bleibt
+unangetastet wegen seiner spezifischen Retry- + iOS-App-UA-Logik.
+
+### ✨ Added — Health-Check für Quellen (`job_scraper/health.py`)
+
+Aktiver Probe-Check pro Quelle: minimaler HTTP-Request (1 Stelle,
+keine Filter), liefert Latenz + HTTP-Status. Ergaenzt
+`scraper_diagnose` (das auf Liefer-Statistiken basiert) — hier kommt
+die Info „API selbst erreichbar JA/NEIN" aus einem echten Request.
+
+12 Quellen mit Probe-Definition: `bundesagentur`, `arbeitnow`,
+`greenhouse`, `remoteok`, `remotive`, `himalayas`, `workable`,
+`workday_dax`, `berufsstart`, `studentjob`, `praktikum_de`, `personio`.
+
+Browser-/JobSpy-basierte Quellen melden `no_probe_defined` — fuer die
+ist der Health-Check nicht sinnvoll.
+
+### ✨ Added — MCP-Tool `quellen_health_check`
+
+```python
+quellen_health_check(quellen=[], parallel=True) -> dict
+```
+
+- `quellen=[]` → alle Quellen mit Probe (~12)
+- `quellen=["arbeitnow", "remoteok"]` → nur die genannten
+- `parallel=True` → ThreadPool mit 8 Workern (Default)
+
+Result-Schema pro Quelle: `source`, `reachable`, `http_status`,
+`latency_ms`, `error`, `method`, `url`. Plus aggregiertes
+`count_total` / `count_reachable`.
+
+**Use Case:** *„Warum kommen von <Quelle> seit Tagen keine Treffer?"*
+→ Claude ruft das Tool, sagt: *„API liefert 503 — temporär weg"* ODER
+*„API liefert 200 — Suche selbst ist das Problem, evtl. liegts an deinen
+Suchbegriffen."*
+
+MCP-Tool-Count: 144 → **145**.
+
+### Tests
+
+- 12 neue Tests (`test_v170_beta51_health_check.py`)
+- 2 alte Tests bereits in beta.50 angepasst — weitere 9 Migrations
+  brauchen keine Test-Anpassung weil keine Tests die Scraper direkt mocken
+- **1267 / 1267 gruen** + 1 skipped (+12 vs. beta.50)
+
+### Was offen bleibt (Phase 3 in #624)
+
+- JSON-LD nachruesten in 4 HTML-Scrapern
+- Adzuna-API-Adapter
+- bundesagentur.py auf neue Helpers migrieren (vorsichtig wegen Retry-Logik)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.51.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.51.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.50] - 2026-05-10 — Scraper-Helpers Phase 1 (#624): make_session, with_retry, PBP_USER_AGENT
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

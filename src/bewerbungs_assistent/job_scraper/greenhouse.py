@@ -31,15 +31,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import httpx
 
-from . import detect_remote_level, stelle_hash
+from . import detect_remote_level, make_session, stelle_hash
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.greenhouse")
 
 _BASE_TPL = "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; PBP-Bewerbungs-Assistent)",
-    "Accept": "application/json",
-}
 
 # Kuratierte Default-Liste, alle live geprueft 2026-04-25.
 # Schwerpunkt DACH-Tech-Unternehmen; ergaenzt um internationale, die in
@@ -183,7 +179,8 @@ def search_greenhouse(params: dict) -> list[dict]:
     companies = list(dict.fromkeys(custom_companies + DEFAULT_COMPANIES))
 
     found: list[dict] = []
-    with httpx.Client(timeout=_TIMEOUT, headers=_HEADERS, follow_redirects=True) as client:
+    # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
+    with make_session(content_type="json", timeout=_TIMEOUT) as client:
         with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
             futures = {pool.submit(_fetch_company, client, c): c for c in companies}
             for fut in as_completed(futures):
