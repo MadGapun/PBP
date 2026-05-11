@@ -11,6 +11,7 @@ from ..database import get_data_dir
 
 def register(mcp, db, logger):
     """Register all document-related tools."""
+    from . import ki_gate
 
     @mcp.tool()
     def dokument_profil_extrahieren(document_id: str) -> dict:
@@ -28,6 +29,9 @@ def register(mcp, db, logger):
         Args:
             document_id: ID oder Dateiname des Dokuments
         """
+        gate = ki_gate(db, "dokumentenanalyse")
+        if gate is not None:
+            return gate
         conn = db.connect()
         pid = db.get_active_profile_id()
         if not pid:

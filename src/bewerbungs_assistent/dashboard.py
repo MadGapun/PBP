@@ -8339,6 +8339,37 @@ async def api_set_learning_settings(request: Request):
                          status_code=400)
 
 
+@app.get("/api/settings/ki-features")
+async def api_get_ki_features():
+    """Granulare KI-Steuerung (#425, beta.56). 8 Toggles, default True."""
+    return {"features": _db.get_ki_features()}
+
+
+@app.put("/api/settings/ki-features")
+async def api_set_ki_features(request: Request):
+    """Setzt KI-Feature-Toggles. Akzeptiert {features: {...}} oder Top-Level."""
+    data = await request.json()
+    payload = data.get("features", data)
+    if not isinstance(payload, dict):
+        return JSONResponse({"error": "JSON-Body mit features-Dict erwartet"},
+                              status_code=400)
+    fields = {}
+    for k in _db.KI_FEATURES:
+        if k in payload:
+            fields[k] = bool(payload[k])
+    if not fields:
+        return JSONResponse(
+            {"error": "Mindestens ein bekannter Toggle muss gesetzt sein",
+             "erlaubt": sorted(_db.KI_FEATURES)},
+            status_code=400,
+        )
+    try:
+        cfg = _db.set_ki_features(**fields)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"status": "ok", "features": cfg}
+
+
 @app.get("/api/learning/insights")
 async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
     """Liefert die LLM-generierten + heuristischen learning_insights

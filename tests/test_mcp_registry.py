@@ -174,6 +174,9 @@ EXPECTED_TOOL_NAMES = {
     "stellen_bulk_bewerten",
     "pbp_capabilities",
     "pbp_grenze_melden",
+    # v1.7.0-beta.56 (#425): Granulare KI-Steuerung
+    "ki_features_lesen",
+    "ki_features_setzen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -273,7 +276,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 147  # v1.7.0-beta.54 (#605): + kontakte_aus_bewerbungen_extrahieren
+        assert len(tools) == 149  # v1.7.0-beta.56 (#425): + ki_features_lesen/setzen
         assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:

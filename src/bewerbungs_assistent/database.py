@@ -7500,6 +7500,46 @@ class Database:
         ).fetchone()
         return dict(row) if row else None
 
+    # === Granulare KI-Feature-Steuerung (#425, v1.7.0-beta.56) =====
+
+    KI_FEATURES = (
+        "master",            # Master-Switch (False = alles aus)
+        "jobsuche",          # Jobsuche via Claude (sonst nur Dashboard-Button)
+        "dokumentenanalyse", # Profildaten aus Dokumenten extrahieren
+        "stellenanalyse",    # Fit-Analyse, Skill-Gap, Score-Refinement
+        "bewerbungserstellung",  # Anschreiben + angepasster CV via Claude
+        "coaching",          # Interview-Sim, Gehaltsverhandlung
+        "ersterfassung",     # Profil-Gespraech via Claude
+        "guidance",          # Dashboard-Hinweise die auf Claude verweisen
+    )
+
+    def get_ki_features(self) -> dict:
+        """Liefert dict mit allen 8 KI-Feature-Toggles. Default: alles True."""
+        out = {}
+        for f in self.KI_FEATURES:
+            val = self.get_profile_setting(f"ki_{f}_enabled", "true")
+            out[f] = str(val).lower() in ("true", "1", "yes")
+        return out
+
+    def set_ki_features(self, **fields) -> dict:
+        """Aktualisiert KI-Feature-Toggles. Liefert aktuellen Stand."""
+        for k, v in fields.items():
+            if k not in self.KI_FEATURES:
+                raise ValueError(f"Unbekanntes KI-Feature: {k}. "
+                                 f"Erlaubt: {sorted(self.KI_FEATURES)}")
+            self.set_profile_setting(f"ki_{k}_enabled",
+                                       "true" if v else "false")
+        return self.get_ki_features()
+
+    def is_ki_feature_enabled(self, feature: str) -> bool:
+        """Prueft ob ein konkretes Feature nutzbar ist (master AND specific)."""
+        if feature not in self.KI_FEATURES:
+            return True  # Unbekanntes Feature: nicht blocken
+        cfg = self.get_ki_features()
+        if not cfg.get("master", True):
+            return False
+        return cfg.get(feature, True)
+
     def list_interview_reflections(self, limit: int = 50) -> list:
         """Letzte Reflexionen fuer Lerneffekt-Auswertung."""
         conn = self.connect()

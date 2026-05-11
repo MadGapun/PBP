@@ -16,6 +16,107 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.56] - 2026-05-11 — Granulare KI-Steuerung (#425)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User kann Claudes KI-Funktionen jetzt einzeln an- oder ausschalten.
+Default: alles aktiv. Sinnvoll fuer User die nur die Tracking-Features
+nutzen wollen, kostenbewusste Token-Verbraucher, oder Phasen wo nur
+manuell gepflegt werden soll.
+
+### ✨ Master-Switch + 7 Feature-Toggles
+
+Settings -> Lokale KI -> neue Sektion "KI-Unterstuetzung (Claude)" ganz oben:
+
+- **Master-Switch** — wenn aus blockt JEDE KI-Operation mit klarem Hinweis
+- **Jobsuche via Claude** — Dashboard-Button bleibt unabhaengig
+- **Dokumentenanalyse** — Profil aus Lebenslauf-Uploads
+- **Stellenanalyse / Fit-Bewertung** — fit_analyse, skill_gap_analyse
+- **Bewerbungs-Erstellung** — angepasster CV, Fachprofil, Anschreiben
+- **Coaching** — Interview-Sim, Ablehnungs-Analyse, Verhandlung
+- **Profil-Ersterfassung** — gefuehrtes Interview
+- **KI-Hinweise** — Dashboard-Recommendations die auf Claude verweisen
+
+Manuelle Tools (Profil pflegen, Bewerbungen tracken, Standard-CV-Export)
+und der Dashboard-"Jetzt suchen"-Button bleiben **immer** verfuegbar —
+auch bei Master=False. Das ist explizit so designt damit PBP nie ganz
+nutzlos wird.
+
+### Backend-Gates an 7 Hot-Tools
+
+`jobsuche_starten`, `fit_analyse`, `skill_gap_analyse`, `ablehnungs_muster`,
+`lebenslauf_angepasst_exportieren`, `fachprofil_exportieren`,
+`anschreiben_exportieren`, `dokument_profil_extrahieren`,
+`ersterfassung_starten` — alle pruefen vor Ausfuehrung den passenden
+Toggle und liefern bei Block ein freundliches `{ki_blockiert: true,
+hinweis, alternative}` zurueck statt zu crashen oder still zu schweigen.
+
+### MCP-Tools fuer Claude
+
+- **`ki_features_lesen()`** — aktueller Stand aller 8 Toggles
+- **`ki_features_setzen(master=..., jobsuche=..., ...)`** — partielle
+  Updates, Validierung, persistiert pro Profil
+
+Damit kann ein User auch via Chat sagen "schalte Coaching ab" und
+Claude reagiert direkt.
+
+### REST-API
+
+- `GET /api/settings/ki-features` → `{features: {...}}`
+- `PUT /api/settings/ki-features` mit `{features: {...}}` ODER Top-Level
+  `{master: false, ...}`. Unbekannte Keys werden ignoriert (forward-
+  compatible).
+
+### Tests
+
+- **21 neue Tests** (`test_v170_beta56_ki_features.py`): DB-Schicht,
+  MCP-Tool-Schicht, Backend-Gates fuer alle 7 betroffenen Tools,
+  REST-API-Endpoints
+- MCP-Registry-Test angepasst (149 statt 147 Tools, +2 neue)
+- **1333 / 1333 gruen**
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.56.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.56.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.55] - 2026-05-11 — PyPI-Packaging + MCP Registry vorbereitet (#429)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

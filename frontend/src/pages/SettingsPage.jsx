@@ -1009,6 +1009,127 @@ function AutoActionsTab({ pushToast }) {
 }
 
 
+// v1.7.0-beta.56 (#425): Granulare KI-Steuerung — Master + 7 Feature-Toggles.
+// Greift fuer Claude-getriebene Tools (Jobsuche, Fit-Analyse, CV-Anpassung,
+// Anschreiben, Doku-Analyse, Coaching, Ersterfassung, Hinweise).
+const KI_FEATURE_DEFS = [
+  { id: "jobsuche", label: "Jobsuche via Claude",
+    desc: "Erlaubt Claude, jobsuche_starten() aufzurufen. Dashboard-Button bleibt unabhaengig nutzbar." },
+  { id: "dokumentenanalyse", label: "Dokumentenanalyse",
+    desc: "Profil-Daten aus hochgeladenen Lebenslaeufen, Zeugnissen und Anschreiben extrahieren." },
+  { id: "stellenanalyse", label: "Stellenanalyse / Fit-Bewertung",
+    desc: "Fit-Analyse, Skill-Gap-Analyse und Score-Verfeinerung fuer einzelne Stellen." },
+  { id: "bewerbungserstellung", label: "Bewerbungs-Erstellung",
+    desc: "Angepasste Lebenslaeufe, Fachprofile und Anschreiben generieren." },
+  { id: "coaching", label: "Interview- und Verhandlungs-Coaching",
+    desc: "Interview-Vorbereitung, Gehaltsverhandlung, Ablehnungs-Analyse." },
+  { id: "ersterfassung", label: "Profil-Ersterfassung via Claude",
+    desc: "Gefuehrtes Profil-Interview. Profil bleibt manuell pflegbar wenn aus." },
+  { id: "guidance", label: "KI-Hinweise im Dashboard",
+    desc: "Hinweise und Empfehlungen die explizit auf Claude verweisen." },
+];
+
+function KIFeaturesCard({ pushToast }) {
+  const [features, setFeatures] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      const data = await api("/api/settings/ki-features");
+      setFeatures(data?.features || null);
+    } catch (err) {
+      pushToast(`KI-Steuerung laden: ${err.message}`, "danger");
+    }
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function patch(field, value) {
+    setBusy(true);
+    try {
+      const res = await putJson("/api/settings/ki-features",
+        { features: { [field]: value } });
+      if (res?.features) setFeatures(res.features);
+      pushToast(value
+        ? `${field} aktiviert.`
+        : `${field} deaktiviert.`, "success");
+    } catch (err) {
+      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!features) {
+    return (
+      <Card className="rounded-2xl">
+        <p className="text-sm text-muted/60">Lade KI-Steuerung...</p>
+      </Card>
+    );
+  }
+
+  const masterOff = !features.master;
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="KI-Unterstuetzung (Claude)"
+        description="Welche KI-Funktionen Claude in PBP nutzen darf. Default: alles aktiv. Aenderungen wirken sofort."
+      />
+
+      <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">
+        <input
+          type="checkbox"
+          checked={!!features.master}
+          onChange={(e) => patch("master", e.target.checked)}
+          disabled={busy}
+          className="mt-1 h-4 w-4 cursor-pointer"
+        />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-ink">Master-Schalter</p>
+          <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+            Wenn aus: Claude blockt ALLE KI-Operationen mit einem Hinweis,
+            wo du das wieder anschaltest. Manuelle Tools (Profil pflegen,
+            Bewerbungen tracken, Standard-CV exportieren) und der
+            Dashboard-Button "Jetzt suchen" bleiben unabhaengig nutzbar.
+          </p>
+        </div>
+      </label>
+
+      <div className={`space-y-2 ${masterOff ? "opacity-50" : ""}`}>
+        {KI_FEATURE_DEFS.map((f) => (
+          <label
+            key={f.id}
+            className="flex items-start gap-3 cursor-pointer p-3 glass-card"
+          >
+            <input
+              type="checkbox"
+              checked={!!features[f.id]}
+              onChange={(e) => patch(f.id, e.target.checked)}
+              disabled={busy || masterOff}
+              className="mt-1 h-4 w-4 cursor-pointer"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-ink">{f.label}</p>
+              <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+                {f.desc}
+              </p>
+            </div>
+          </label>
+        ))}
+      </div>
+
+      {masterOff && (
+        <p className="mt-3 text-[12px] text-amber/80">
+          Master-Schalter ist aus — die einzelnen Toggles sind ohne Wirkung,
+          bis der Master wieder aktiv ist.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
@@ -2114,7 +2235,12 @@ export default function SettingsPage() {
         )}
 
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
-        {settingsTab === "ai" && <LocalAITab pushToast={pushToast} />}
+        {settingsTab === "ai" && (
+          <>
+            <KIFeaturesCard pushToast={pushToast} />
+            <LocalAITab pushToast={pushToast} />
+          </>
+        )}
 
         {settingsTab === "automatik" && <AutoActionsTab pushToast={pushToast} />}
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 def register(mcp, db, logger):
     """Register all 9 analysis/KI-feature tools."""
+    from . import ki_gate
 
     @mcp.tool()
     def gehalt_extrahieren(job_hash: str) -> dict:
@@ -231,6 +232,9 @@ def register(mcp, db, logger):
         Args:
             job_hash: Hash einer spezifischen Stelle (leer = alle aktiven Stellen analysieren)
         """
+        gate = ki_gate(db, "stellenanalyse")
+        if gate is not None:
+            return gate
         profile = db.get_profile()
         if not profile:
             return {"fehler": "Kein aktives Profil. Erstelle zuerst eins mit /ersterfassung."}
@@ -300,6 +304,9 @@ def register(mcp, db, logger):
         Zeigt Trends bei Ablehnungen: welche Firmen, welche Gründe,
         und leitet daraus Verbesserungsvorschläge ab.
         """
+        gate = ki_gate(db, "coaching")
+        if gate is not None:
+            return gate
         patterns = db.get_rejection_patterns()
         if patterns["anzahl"] == 0:
             return patterns
@@ -1724,4 +1731,79 @@ def register(mcp, db, logger):
                 "manuell im PBP-Dashboard (http://localhost:8200) durchfuehren — "
                 "dort werden alle Lifecycle-Hooks korrekt ausgeloest."
             ),
+        }
+
+    # === Granulare KI-Steuerung (#425, v1.7.0-beta.56) =====================
+
+    @mcp.tool()
+    def ki_features_lesen() -> dict:
+        """Liefert den aktuellen Stand der KI-Feature-Toggles.
+
+        Acht Schalter: master + 7 Feature-Bereiche (jobsuche,
+        dokumentenanalyse, stellenanalyse, bewerbungserstellung,
+        coaching, ersterfassung, guidance). Default: alles True.
+
+        Use Case: User fragt 'welche KI-Features sind bei mir an?'
+        oder Claude will vor einer KI-Operation pruefen ob er darf.
+        """
+        cfg = db.get_ki_features()
+        return {
+            "features": cfg,
+            "alle_aktiv": all(cfg.values()),
+            "master_aus": not cfg.get("master", True),
+            "hinweis": (
+                "master=False blockt alles. Einzelne Features lassen sich "
+                "via ki_features_setzen(jobsuche=False, ...) gezielt ab- "
+                "oder anschalten."
+            ),
+        }
+
+    @mcp.tool()
+    def ki_features_setzen(
+        master: bool | None = None,
+        jobsuche: bool | None = None,
+        dokumentenanalyse: bool | None = None,
+        stellenanalyse: bool | None = None,
+        bewerbungserstellung: bool | None = None,
+        coaching: bool | None = None,
+        ersterfassung: bool | None = None,
+        guidance: bool | None = None,
+    ) -> dict:
+        """Aktualisiert KI-Feature-Toggles. Nur uebergebene Werte werden gesetzt.
+
+        Args (jeweils True/False, None = unveraendert):
+            master: Master-Switch. False = alle KI-Features blockt.
+            jobsuche: Jobsuche via Claude (Dashboard-Button bleibt immer).
+            dokumentenanalyse: Profildaten aus Dokumenten extrahieren.
+            stellenanalyse: Fit-Analyse, Skill-Gap, Score-Refinement.
+            bewerbungserstellung: Anschreiben + angepasster CV via Claude.
+            coaching: Interview-Sim, Gehaltsverhandlung.
+            ersterfassung: Profil-Gespraech via Claude.
+            guidance: Dashboard-Hinweise die auf Claude verweisen.
+        """
+        fields = {
+            k: v for k, v in {
+                "master": master,
+                "jobsuche": jobsuche,
+                "dokumentenanalyse": dokumentenanalyse,
+                "stellenanalyse": stellenanalyse,
+                "bewerbungserstellung": bewerbungserstellung,
+                "coaching": coaching,
+                "ersterfassung": ersterfassung,
+                "guidance": guidance,
+            }.items() if v is not None
+        }
+        if not fields:
+            return {
+                "fehler": "Mindestens ein Feld muss gesetzt werden.",
+                "aktueller_stand": db.get_ki_features(),
+            }
+        try:
+            cfg = db.set_ki_features(**fields)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        return {
+            "status": "gespeichert",
+            "geaendert": fields,
+            "features": cfg,
         }

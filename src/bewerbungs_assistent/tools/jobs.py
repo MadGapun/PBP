@@ -18,6 +18,7 @@ _MANUAL_SOURCES = {
 
 def register(mcp, db, logger):
     """Registriert Jobsuche-Tools."""
+    from . import ki_gate
 
     @mcp.tool()
     def jobsuche_starten(
@@ -49,6 +50,15 @@ def register(mcp, db, logger):
             nur_remote: Nur Remote-Stellen
             max_entfernung_km: Maximale Entfernung in km (0 = kein Limit)
         """
+        # #425: KI-Gate. Dashboard-Button bleibt unabhaengig nutzbar.
+        gate = ki_gate(db, "jobsuche")
+        if gate is not None:
+            gate["alternative"] = (
+                "Dashboard -> Stellen -> 'Jetzt suchen' laeuft unabhaengig "
+                "vom KI-Toggle und nutzt deine aktiven Quellen."
+            )
+            return gate
+
         # Default sources from DB settings (all disabled by default)
         if not quellen:
             quellen = db.get_profile_setting("active_sources", [])
@@ -1601,6 +1611,9 @@ def register(mcp, db, logger):
         Args:
             job_hash: Hash der Stelle (von stellen_anzeigen)
         """
+        gate = ki_gate(db, "stellenanalyse")
+        if gate is not None:
+            return gate
         from ..job_scraper import fit_analyse as _fit_analyse
         job_dict = db.get_job(job_hash)
         if not job_dict:

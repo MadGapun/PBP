@@ -12,6 +12,7 @@ from ..prompts import build_kennlerngespraech_prompt
 
 def register(mcp, db, logger):
     """Registriert Workflow-Tools (Prompt-Wrapper)."""
+    from . import ki_gate
 
     def _get_prompt_text(name: str) -> str:
         """Holt den Prompt-Text aus dem registrierten MCP-Prompt."""
@@ -92,6 +93,14 @@ def register(mcp, db, logger):
     def ersterfassung_starten() -> dict:
         """Startet die Ersterfassung — ein lockeres Interview zur Profilerfassung,
         wie ein Kaffeegespräch. Kann jederzeit unterbrochen und später fortgesetzt werden."""
+        gate = ki_gate(db, "ersterfassung")
+        if gate is not None:
+            gate["alternative"] = (
+                "Profil manuell pflegen via Dashboard -> Profil oder ueber "
+                "die einzelnen Tools (profil_bearbeiten, position_hinzufuegen, "
+                "skill_hinzufuegen ...)."
+            )
+            return gate
         return workflow_starten(name="ersterfassung")
 
 
