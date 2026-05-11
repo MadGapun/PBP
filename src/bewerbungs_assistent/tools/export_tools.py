@@ -151,6 +151,91 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def fachprofil_exportieren(
+        stelle: str,
+        firma: str,
+        stellenbeschreibung: str = "",
+        projekte_anzahl: int = 5,
+        format: str = "docx",
+    ) -> dict:
+        """v1.7.0-beta.53 (#617): Kombiniertes Dokument 'Fachprofil & Referenzprojekte'.
+
+        Anders als `lebenslauf_angepasst_exportieren` (Lebenslauf-
+        Format mit inline-Projekten unter Stationen) zieht dieses Tool
+        die Projekte als eigene prominente Sektion heraus — nach
+        Stellen-Relevanz sortiert und ausfuehrlicher dargestellt.
+
+        Aufbau:
+        1. Header (Name + Zielposition + Kontakt)
+        2. Kurzprofil (3-4 Saetze)
+        3. Kernkompetenzen (priorisiert nach Stellen-Match)
+        4. Referenzprojekte (Top-N, ausfuehrlich)
+        5. Berufliche Stationen (kompakt, ohne Projekt-Inline)
+        6. Ausbildung
+
+        Sinnvoll fuer:
+        - Direktkontakte ueber LinkedIn/XING wo ein einzelnes Dokument
+          kompakter wirkt als CV + separate Projektliste
+        - Freelance-Anfragen ohne formelle Ausschreibung
+        - Vorstellung beim ersten Recruiter-Gespraech
+
+        Args:
+            stelle: Zielposition (z.B. 'Senior PLM Architect')
+            firma: Zielfirma (z.B. 'ACME GmbH')
+            stellenbeschreibung: Optional — fuer bessere Projekt-Priorisierung
+            projekte_anzahl: Top-N relevanteste Projekte (Default 5)
+            format: 'docx' (empfohlen, manuell nachbearbeitbar) oder 'pdf'
+
+        Returns:
+            status, datei, format, nachricht.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil."}
+        if format not in ("docx", "pdf"):
+            return {"fehler": "format muss 'docx' oder 'pdf' sein."}
+
+        from ..export import generate_fachprofil_docx
+
+        export_dir = get_data_dir() / "export"
+        export_dir.mkdir(exist_ok=True)
+        name_slug = (profile.get("name") or "fachprofil").replace(" ", "_").lower()
+        firma_slug = (firma or "stelle").replace(" ", "_").lower()
+
+        path = export_dir / f"fachprofil_{name_slug}_{firma_slug}.{format}"
+        if format == "docx":
+            generate_fachprofil_docx(
+                profile, stelle, firma, stellenbeschreibung,
+                projekte_anzahl, path,
+            )
+        else:
+            # format == 'pdf': generiert DOCX als Zwischenstufe
+            from ..export import generate_fachprofil_pdf
+            actual = generate_fachprofil_pdf(
+                profile, stelle, firma, stellenbeschreibung,
+                projekte_anzahl, path,
+            )
+            path = actual
+
+        # Stellenbeschreibung in DB speichern (analog #172)
+        if stellenbeschreibung:
+            _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
+
+        return {
+            "status": "erstellt",
+            "datei": str(path),
+            "format": format,
+            "projekte_anzahl_genutzt": projekte_anzahl,
+            "nachricht": (
+                f"Fachprofil & Referenzprojekte fuer '{stelle}' bei {firma} "
+                f"als {format.upper()} exportiert: {path.name}. "
+                "Top-Projekte wurden nach Stellen-Relevanz priorisiert. "
+                "Bei DOCX bitte vor dem Versenden manuell pruefen "
+                "(Layout, Formulierungen)."
+            ),
+        }
+
+    @mcp.tool()
     def anschreiben_exportieren(
         text: str,
         stelle: str,

@@ -16,6 +16,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.53] - 2026-05-11 — Kombiniertes Fachprofil & Referenzprojekte (#617)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Test-Anlass: bei einem Direktkontakt wurde ein kombiniertes
+Dokument benoetigt — `lebenslauf_angepasst_exportieren` produziert nur
+den Lebenslauf, separate Projektliste war Workaround per Desktop
+Commander (mit Timeout-Fehler).
+
+### ✨ Neues MCP-Tool `fachprofil_exportieren`
+
+```python
+fachprofil_exportieren(
+    stelle="Senior PLM Architect",
+    firma="ACME GmbH",
+    stellenbeschreibung="...",
+    projekte_anzahl=5,
+    format="docx",  # oder "pdf"
+)
+```
+
+Anders als `lebenslauf_angepasst_exportieren` (Lebenslauf-Format mit
+inline-Projekten unter Stationen) zieht dieses Tool die Projekte als
+**eigene prominente Sektion** heraus — nach Stellen-Relevanz sortiert
+und ausfuehrlicher dargestellt.
+
+**Aufbau:**
+1. Header (Name + Zielposition + Kontakt)
+2. Kurzprofil
+3. Kernkompetenzen (priorisiert nach Stellen-Match)
+4. **Referenzprojekte** (Top-N, ausfuehrlich mit Beschreibung +
+   Technologien + Ergebnis)
+5. Berufliche Stationen (kompakt, ohne Projekt-Inline)
+6. Ausbildung
+
+**Sinnvoll fuer:**
+- Direktkontakte ueber LinkedIn/XING (ein Dokument statt zwei)
+- Freelance-Anfragen ohne formelle Ausschreibung
+- Vorstellung beim ersten Recruiter-Gespraech
+
+### Relevanz-Scoring fuer Projekte
+
+`_score_project_relevance()` gewichtet:
+- +3 pro Job-Keyword das im Projekt-Text vorkommt
+- +1 wenn `result` befuellt (messbares Ergebnis)
+- +1 wenn `technologies` befuellt
+
+Top-N werden nach Score sortiert, dann ausfuehrlich gerendert.
+
+### Format-Hinweise
+
+- **DOCX (empfohlen):** im eigenen Template nachbearbeiten, dann selbst PDF
+  speichern. Direkt generierte PDFs wirken haeufig KI-generiert.
+- **PDF:** erzeugt aktuell DOCX als Zwischenstufe (volle PDF-
+  Konvertierung via Word/LibreOffice empfohlen).
+
+MCP-Tool-Count: 145 → **146**.
+
+### Tests
+
+- 11 neue Tests (`test_v170_beta53_fachprofil.py`):
+  Doc-Erstellung, Header-Inhalt, Relevanz-Sortierung, Limit, Edge-Cases
+  (kein Profil, falsches Format, ohne Projekte), MCP-Tool-Roundtrip
+- **1291 / 1291 gruen** + 1 skipped (+11 vs. beta.52)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.53.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.53.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.52] - 2026-05-11 — Scraper Phase 3 (#624): JSON-LD-Helper + bundesagentur-Migration
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

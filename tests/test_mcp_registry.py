@@ -87,6 +87,7 @@ EXPECTED_TOOL_NAMES = {
     "blacklist_verwalten",
     "lebenslauf_exportieren",
     "lebenslauf_angepasst_exportieren",
+    "fachprofil_exportieren",
     "anschreiben_exportieren",
     "gehalt_extrahieren",
     "gehalt_marktanalyse",
@@ -271,7 +272,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 145  # v1.7.0-beta.51 (#624 Phase 2): + quellen_health_check
+        assert len(tools) == 146  # v1.7.0-beta.53 (#617): + fachprofil_exportieren
         assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:

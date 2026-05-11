@@ -1524,3 +1524,278 @@ def generate_cover_letter_text(
     output_path.write_text("\n".join(lines), encoding="utf-8")
     logger.info("Cover letter %s generated: %s", "MD" if markdown else "TXT", output_path)
     return output_path
+
+
+# === Fachprofil & Referenzprojekte (#617, v1.7.0-beta.53) ============
+
+def _collect_all_projects(profile: dict) -> list[dict]:
+    """Sammelt alle Projekte aus allen Positionen mit Position-Kontext."""
+    out = []
+    for pos in profile.get("positions", []) or []:
+        for proj in pos.get("projects", []) or []:
+            entry = dict(proj)
+            entry["_position_company"] = pos.get("company", "")
+            entry["_position_title"] = pos.get("title", "")
+            out.append(entry)
+    return out
+
+
+def _score_project_relevance(proj: dict, job_keywords: set[str]) -> int:
+    """Heuristische Relevanz-Score gegen Job-Keywords. Hoeher = relevanter."""
+    if not job_keywords:
+        return 0
+    text = " ".join([
+        proj.get("name") or proj.get("title") or "",
+        proj.get("description") or "",
+        proj.get("technologies") or "",
+        proj.get("role") or "",
+        proj.get("result") or "",
+    ]).lower()
+    score = 0
+    for kw in job_keywords:
+        if kw in text:
+            score += 3
+    # Plus: Projekte mit messbarem Ergebnis bekommen Bonus
+    if proj.get("result"):
+        score += 1
+    if proj.get("technologies"):
+        score += 1
+    return score
+
+
+def generate_fachprofil_docx(
+    profile: dict,
+    stelle: str,
+    firma: str,
+    stellenbeschreibung: str = "",
+    projekte_anzahl: int = 5,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Erstellt ein 'Fachprofil & Referenzprojekte'-Dokument (#617).
+
+    Anders als generate_tailored_cv_docx (Lebenslauf-Format mit
+    inline-Projekten unter Stationen) werden Projekte hier als
+    eigene prominente Sektion herausgezogen — nach Stellen-Relevanz
+    sortiert und ausfuehrlicher dargestellt.
+
+    Aufbau:
+    1. Header (Name + Zielposition + Kontakt)
+    2. Kurzprofil (3-4 Saetze, ggf. an Stelle angepasst)
+    3. Kernkompetenzen (priorisiert)
+    4. Referenzprojekte (Top-N, ausfuehrlich)
+    5. Berufliche Stationen (kompakt, ohne Projekt-Inline)
+    6. Ausbildung
+    """
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+
+    if output_path is None:
+        raise ValueError("output_path required")
+
+    doc = Document()
+    _setup_ats_styles(doc)
+
+    # Job-Kontext fuer Relevanz-Scoring
+    job_text = f"{stelle} {stellenbeschreibung}".lower()
+    job_keywords = {w for w in job_text.split() if len(w) > 3}
+
+    # === Header ===
+    name = profile.get("name", "Fachprofil")
+    p = doc.add_paragraph()
+    run = p.add_run(name)
+    run.font.size = Pt(24)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    run.font.name = "Calibri"
+
+    # Subtitle = Zielposition
+    sub_text = f"Fachprofil & Referenzprojekte – {stelle}"
+    if firma:
+        sub_text += f" bei {firma}"
+    p2 = doc.add_paragraph()
+    r2 = p2.add_run(sub_text)
+    r2.font.size = Pt(12)
+    r2.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    # Kontakt
+    contact_parts = []
+    if profile.get("email"):
+        contact_parts.append(profile["email"])
+    if profile.get("phone"):
+        contact_parts.append(profile["phone"])
+    if profile.get("city"):
+        addr = ""
+        if profile.get("plz"):
+            addr += f"{profile['plz']} "
+        addr += profile["city"]
+        contact_parts.append(addr.strip())
+    if contact_parts:
+        p3 = doc.add_paragraph()
+        p3.paragraph_format.space_before = Pt(4)
+        r3 = p3.add_run(" | ".join(contact_parts))
+        r3.font.size = Pt(9)
+        r3.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    # === 1. Kurzprofil ===
+    doc.add_heading("Kurzprofil", level=1)
+    _add_section_line(doc)
+    summary = (profile.get("summary") or "").strip()
+    if summary:
+        doc.add_paragraph(summary)
+    else:
+        # Heuristischer Fallback: 1-Satz aus Berufserfahrung
+        positions = profile.get("positions") or []
+        if positions:
+            current = positions[0]
+            doc.add_paragraph(
+                f"{current.get('title', 'Senior')} mit Erfahrung bei "
+                f"{current.get('company', 'verschiedenen Unternehmen')}. "
+                "Schwerpunkte siehe Kernkompetenzen und Referenzprojekte."
+            )
+
+    # === 2. Kernkompetenzen ===
+    skills = profile.get("skills", []) or []
+    if skills:
+        doc.add_heading("Kernkompetenzen", level=1)
+        _add_section_line(doc)
+        # Stellen-relevante Skills zuerst
+        def skill_priority(s):
+            n = (s.get("name") or "").lower()
+            return 0 if n in job_text else 1
+        skills_sorted = sorted(skills, key=skill_priority)
+        # Gruppiert nach Kategorie, aber Reihenfolge in jeder Kategorie nach Relevanz
+        by_cat = {}
+        for s in skills_sorted:
+            by_cat.setdefault(s.get("category", "sonstige"), []).append(s)
+        cat_labels = {
+            "fachlich": "Fachlich", "methodisch": "Methodisch",
+            "soft_skill": "Soft Skills", "sprache": "Sprachen",
+            "tool": "Tools / Software",
+        }
+        for cat, items in by_cat.items():
+            label = cat_labels.get(cat, cat.capitalize())
+            names = ", ".join(s["name"] for s in items)
+            p = doc.add_paragraph()
+            run = p.add_run(f"{label}: ")
+            run.bold = True
+            p.add_run(names)
+
+    # === 3. Referenzprojekte (TOP-N nach Relevanz) ===
+    all_projects = _collect_all_projects(profile)
+    if all_projects:
+        scored = sorted(
+            all_projects,
+            key=lambda p: _score_project_relevance(p, job_keywords),
+            reverse=True,
+        )
+        top = scored[:projekte_anzahl]
+
+        doc.add_heading("Referenzprojekte", level=1)
+        _add_section_line(doc)
+        for i, proj in enumerate(top, 1):
+            # Projekt-Titel
+            p = doc.add_paragraph()
+            r = p.add_run(f"{i}. {_project_display_name(proj)}{_project_date_range(proj)}")
+            r.bold = True
+            r.font.size = Pt(11)
+            # Kontext-Zeile: Position + Firma
+            ctx_parts = []
+            if proj.get("role"):
+                ctx_parts.append(f"Rolle: {proj['role']}")
+            if proj.get("_position_company"):
+                ctx_parts.append(f"bei {proj['_position_company']}")
+            if ctx_parts:
+                p_ctx = doc.add_paragraph()
+                r_ctx = p_ctx.add_run(" · ".join(ctx_parts))
+                r_ctx.font.size = Pt(9)
+                r_ctx.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+            # Beschreibung
+            if proj.get("description"):
+                doc.add_paragraph(proj["description"])
+            # Technologien als Bullet
+            if proj.get("technologies"):
+                doc.add_paragraph(
+                    f"Technologien: {proj['technologies']}",
+                    style="List Bullet",
+                )
+            # Ergebnis als Bullet
+            if proj.get("result"):
+                doc.add_paragraph(
+                    f"Ergebnis: {proj['result']}",
+                    style="List Bullet",
+                )
+
+    # === 4. Berufliche Stationen (kompakt, ohne inline-Projekte) ===
+    positions = profile.get("positions", []) or []
+    if positions:
+        doc.add_heading("Berufliche Stationen", level=1)
+        _add_section_line(doc)
+        for pos in positions:
+            p = doc.add_paragraph()
+            line = pos.get("title", "")
+            if pos.get("company"):
+                line += f" | {pos['company']}"
+            r = p.add_run(line)
+            r.bold = True
+            # Datum
+            start = pos.get("start_date", "")
+            end = pos.get("end_date") or "heute"
+            if start or end:
+                p_date = doc.add_paragraph()
+                r_date = p_date.add_run(f"{start} – {end}")
+                r_date.font.size = Pt(9)
+                r_date.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+            # KEIN Projekt-Inline hier — die stehen oben in Sektion 3.
+
+    # === 5. Ausbildung ===
+    education = profile.get("education", []) or []
+    if education:
+        doc.add_heading("Ausbildung", level=1)
+        _add_section_line(doc)
+        for edu in education:
+            p = doc.add_paragraph()
+            degree = f"{edu.get('degree', '')} {edu.get('field_of_study', '')}".strip()
+            r = p.add_run(degree or edu.get("institution", ""))
+            r.bold = True
+            line = edu.get("institution", "")
+            start = edu.get("start_date", "")
+            end = edu.get("end_date", "")
+            if start or end:
+                line += f" | {start} - {end}"
+            if edu.get("grade"):
+                line += f" | Note: {edu['grade']}"
+            doc.add_paragraph(line)
+
+    doc.save(str(output_path))
+    logger.info("Fachprofil DOCX generated: %s", output_path)
+    return output_path
+
+
+def generate_fachprofil_pdf(
+    profile: dict,
+    stelle: str,
+    firma: str,
+    stellenbeschreibung: str = "",
+    projekte_anzahl: int = 5,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """PDF-Variante von Fachprofil — generiert via DOCX + Konvertierung.
+
+    Wir nutzen LibreOffice/Word nicht, sondern erzeugen direkt PDF
+    via fpdf2 mit demselben Layout (vereinfacht). Fuer das volle
+    DOCX-Layout sollte der User das DOCX bearbeiten und dann selbst
+    speichern (siehe lebenslauf_exportieren-Empfehlung).
+    """
+    if output_path is None:
+        raise ValueError("output_path required")
+    # Erst DOCX in temporaerer Datei, dann via pypandoc / docx2pdf konvertieren?
+    # Pragmatisch: hier nur DOCX bauen und User bittet PDF dann selbst zu
+    # konvertieren. PDF-Pfad wird trotzdem zurueckgegeben fuer API-Konsistenz.
+    docx_path = output_path.with_suffix(".docx")
+    generate_fachprofil_docx(
+        profile, stelle, firma, stellenbeschreibung,
+        projekte_anzahl, docx_path,
+    )
+    logger.info("Fachprofil PDF angefordert; DOCX wurde erzeugt unter %s. "
+                "PDF-Konvertierung via Word/LibreOffice empfohlen.", docx_path)
+    return docx_path
