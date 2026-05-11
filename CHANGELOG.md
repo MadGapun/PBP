@@ -16,6 +16,123 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.52] - 2026-05-11 — Scraper Phase 3 (#624): JSON-LD-Helper + bundesagentur-Migration
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Phase 3 der Scraper-Konsolidierung. Statt JSON-LD blind in alle HTML-
+Scraper nachzuruesten (kein klarer Mehrwert wo Detail-Fetch bereits
+JSON-LD nutzt) ein gezielterer Cut: zentrales JSON-LD-Extract als
+wiederverwendbarer Helper, plus die letzte fehlende Scraper-Migration.
+
+### ✨ Added — `extract_jobposting_jsonld(html, max_chars=2000)` Helper
+
+Aus `fetch_description_from_detail` extrahiert. Gibt das volle
+JobPosting-Dict (`title`, `description`, `datePosted`, `validThrough`,
+`employmentType`, `hiringOrganization`, `jobLocation`, `baseSalary`, ...)
+statt nur der Beschreibung. Description ist HTML-gestripped, max
+`max_chars` Zeichen.
+
+Robust:
+- Akzeptiert JSON-LD als einzelnes Item, Array, oder im `@graph`-Envelope
+- Ueberspringt malformed JSON-Scripts und probiert den naechsten
+- Filtert auf `@type=JobPosting` (ignoriert `WebSite`, `Article`, ...)
+
+`fetch_description_from_detail` nutzt jetzt diesen Helper intern statt
+eigenem Parsing — Verhalten unveraendert, nur sauberer.
+
+### Changed — bundesagentur.py auf `make_session()` migriert
+
+Letzter Standard-Scraper migriert. Kniffliger als die anderen weil
+`bundesagentur` einen iOS-App-User-Agent erwartet (`Jobsuche/2.12.0
+(de.arbeitsagentur.jobboerse; iOS 16) Alamofire/5.6.2`) und einen
+`X-API-Key`-Header. `make_session(user_agent=..., extra_headers=...)`
+unterstuetzt diese Overrides genau dafuer.
+
+Eigene Retry-Logik (`_request_with_retry`) bleibt — sie hat eine
+spezifische 3-Versuchs-Strategie mit exponential backoff fuer 503/DNS-
+overflow-Faelle (#489) die der generische `with_retry()`-Decorator nicht
+1:1 abbildet.
+
+Per-Request-Header-Override entfernt (war nach session-level redundant).
+
+### Wieso nicht „JSON-LD blind nachruesten"?
+
+Audit-Erkenntnis: 5 der „HTML-only"-Scraper nutzen `fetch_description_
+from_detail` fuer Detail-Beschreibungen — das ruft jetzt
+`extract_jobposting_jsonld` intern auf. JSON-LD-Lesen ist also
+faktisch in 8 weiteren Scrapern aktiv, ohne dass ich die einzeln
+anfassen musste.
+
+JSON-LD AUF LISTING-Seiten (statt Detail) bringt nur in seltenen Faellen
+zusaetzlichen Wert — und ist Source-spezifisch. Wenn das mal noetig
+wird, koennen Scraper jetzt einfach `extract_jobposting_jsonld()`
+importieren.
+
+### Tests
+
+- 13 neue Tests (`test_v170_beta52_jsonld_helper.py`):
+  Basis-Extraktion, HTML-Strip in Description, Array/`@graph`-Envelope,
+  Multi-Scripts, Malformed-JSON, Max-Chars-Limit, Migration-Verifikation
+- **1280 / 1280 gruen** + 1 skipped (+13 vs. beta.51)
+
+### Bilanz Scraper-Audit-Cycle (#624)
+
+Alle 3 Phasen abgeschlossen:
+- **Phase 1** (beta.50): `make_session`, `with_retry`, `PBP_USER_AGENT`
+  + 2 Migrations
+- **Phase 2** (beta.51): 9 weitere Migrations + Health-Check + MCP-Tool
+- **Phase 3** (beta.52): JSON-LD-Helper extrahiert + bundesagentur-Migration
+
+Stand danach: **alle 12 API/Feed-Scraper auf zentralen Helpers**, alle
+8 Scraper mit Detail-Fetch profitieren von `extract_jobposting_jsonld`,
+plus aktiver `quellen_health_check` als Diagnose. HTML-only- und
+Browser-Scraper bleiben individuell — bei denen waere Konsolidierung
+risikobelastet.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.52.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.52.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.51] - 2026-05-11 — Scraper Phase 2 (#624): 9 weitere Migrations + Health-Check
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

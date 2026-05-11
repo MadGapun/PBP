@@ -1343,34 +1343,71 @@ def is_search_result_url(url: str) -> bool:
     return False
 
 
+def extract_jobposting_jsonld(html: str, max_chars: int = 2000) -> dict:
+    """Extrahiert JobPosting-Daten aus JSON-LD-Script-Tags.
+
+    v1.7.0-beta.52 (#624 Phase 3): aus fetch_description_from_detail
+    extrahiert, damit jeder HTML-Scraper strukturierte Daten lesen
+    kann (statt eigene Parser zu schreiben).
+
+    Liefert ein dict mit den Standard-JobPosting-Feldern (siehe
+    schema.org/JobPosting):
+
+        title, description, datePosted, validThrough,
+        employmentType, hiringOrganization (dict), jobLocation (dict),
+        baseSalary (dict), industry, qualifications, ...
+
+    Description ist plain-text (HTML gestripped, max max_chars Zeichen).
+
+    Liefert {} wenn keine JobPosting-JSON-LD im HTML.
+    """
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+                items = data if isinstance(data, list) else data.get("@graph", [data])
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("@type") != "JobPosting":
+                        continue
+                    result = dict(item)
+                    desc = item.get("description", "")
+                    if desc:
+                        text = BeautifulSoup(desc, "html.parser").get_text(
+                            separator=" ", strip=True
+                        )
+                        result["description"] = text[:max_chars]
+                    return result
+            except Exception:
+                continue
+        return {}
+    except Exception:
+        return {}
+
+
 def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> str:
     """Fetch job description from a detail page via httpx.
 
-    Tries JSON-LD first, then common HTML content selectors.
-    Returns plain text description (max 2000 chars) or empty string.
+    Tries JSON-LD first (via extract_jobposting_jsonld), then common
+    HTML content selectors. Returns plain text description (max 2000
+    chars) or empty string.
     """
     try:
         from bs4 import BeautifulSoup
         resp = client.get(url, timeout=timeout)
         if resp.status_code != 200:
             return ""
+
+        # Strategy 1: JSON-LD structured data — uses zentralen Helper
+        jp = extract_jobposting_jsonld(resp.text)
+        if jp.get("description"):
+            return jp["description"]
+
+        # Strategy 2: Common content selectors als Fallback
         soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Strategy 1: JSON-LD structured data
-        for script in soup.find_all("script", type="application/ld+json"):
-            try:
-                data = json.loads(script.string or "")
-                items = data if isinstance(data, list) else data.get("@graph", [data])
-                for item in items:
-                    if item.get("@type") == "JobPosting":
-                        desc = item.get("description", "")
-                        if desc:
-                            text = BeautifulSoup(desc, "html.parser").get_text(separator=" ", strip=True)
-                            return text[:2000]
-            except Exception:
-                continue
-
-        # Strategy 2: Common content selectors
         for selector in [
             "[class*='job-description']", "[class*='jobDescription']",
             "[class*='stellenbeschreibung']", "[class*='description']",

@@ -15,7 +15,7 @@ import time
 
 import httpx
 
-from . import stelle_hash, detect_remote_level
+from . import detect_remote_level, make_session, stelle_hash
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.bundesagentur")
 
@@ -51,11 +51,13 @@ def _request_with_retry(client: httpx.Client, url: str, params: dict | None = No
     Liefert None bei permanenten Fehlern oder nach erschoepften Retries,
     damit der Caller einfach `continue`-en kann.
     """
-    headers = {"X-API-Key": API_KEY, "User-Agent": USER_AGENT}
+    # v1.7.0-beta.52 (#624 Phase 3): Headers kommen jetzt von make_session.
+    # Per-Request-Override nicht mehr noetig — der Client hat X-API-Key
+    # und iOS-User-Agent schon gesetzt.
     last_exc: Exception | None = None
     for attempt in range(1, _RETRY_MAX + 1):
         try:
-            resp = client.get(url, params=params, headers=headers)
+            resp = client.get(url, params=params)
             if resp.status_code == 200:
                 return resp
             if resp.status_code in _RETRY_STATUS and attempt < _RETRY_MAX:
@@ -103,7 +105,14 @@ def search_bundesagentur(params: dict) -> list:
     umkreis = criteria.get("umkreis_km") or params.get("umkreis") or 100
     jobs = []
 
-    with httpx.Client(timeout=30) as client:
+    # v1.7.0-beta.52 (#624 Phase 3): make_session mit iOS-App-UA-Override.
+    # API erwartet diesen UA fuer stabile Ergebnisse (#489).
+    with make_session(
+        content_type="json",
+        timeout=30,
+        user_agent=USER_AGENT,
+        extra_headers={"X-API-Key": API_KEY},
+    ) as client:
         for kw in keywords:
             try:
                 api_params = {
