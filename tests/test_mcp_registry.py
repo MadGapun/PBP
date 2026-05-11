@@ -138,6 +138,7 @@ EXPECTED_TOOL_NAMES = {
     "kontakt_kategorie_bearbeiten",
     "kontakt_kategorie_loeschen",
     "kontakte_aus_bestand_importieren",
+    "kontakte_aus_bewerbungen_extrahieren",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
     "stilarchiv_kontext",
@@ -272,7 +273,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 146  # v1.7.0-beta.53 (#617): + fachprofil_exportieren
+        assert len(tools) == 147  # v1.7.0-beta.54 (#605): + kontakte_aus_bewerbungen_extrahieren
         assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
         assert len(resources) == 6
     finally:

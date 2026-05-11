@@ -413,3 +413,204 @@ def register(mcp, db, logger):
                 "Genehmigung in Kontakte-Tab."
             ),
         }
+
+    # === v1.7.0-beta.54 (#605): Erweiterte Reverse-Extraktion ===
+
+    @mcp.tool()
+    def kontakte_aus_bewerbungen_extrahieren(
+        nur_ohne_kontakte: bool = True,
+        max_bewerbungen: int = 20,
+        dry_run: bool = True,
+    ) -> dict:
+        """v1.7.0-beta.54 (#605): Reverse-Extraktion von Kontakten aus Bewerbungen.
+
+        Erweitert `kontakte_aus_bestand_importieren` um drei wichtige
+        Quellen:
+        - `application_events.notes` (Timeline-Notizen mit Gespraechs-
+          partnern)
+        - Verknuepfte Dokumente (außer cv_path / cover_letter_path —
+          das sind eigene Texte, keine Dritt-Kontaktdaten)
+        - Konfigurierbares max_bewerbungen statt Hard-Cap 100
+
+        Args:
+            nur_ohne_kontakte: True (Default) = nur Bewerbungen die noch
+                keinen verknuepften Kontakt haben (extracted_from leer).
+                False = alle, auch schon mal extrahierte (ueberschreibt
+                NICHT, legt nur neue an).
+            max_bewerbungen: Sicherheits-Cap pro Lauf (Default 20).
+            dry_run: True (Default) = nur Vorschau ohne Schreiben.
+
+        Returns:
+            status, geprueft, kandidaten, extrahiert (0 bei dry_run),
+            fehler, vorschau_sample (10 erste Kandidaten bei dry_run).
+
+        Idempotent. Sicher: bei `extracted_from='application:<id>'`-
+        Markierung werden Bewerbungen uebersprungen (außer
+        nur_ohne_kontakte=False).
+        """
+        from ..services.llm_service import get_llm_service, TaskKind
+        svc = get_llm_service(db)
+        s = svc.get_status(force_refresh=True)
+        if not s.ollama_available or not s.available_models:
+            return {
+                "fehler": "Lokale AI nicht verfuegbar.",
+                "hinweis": "Ollama + installiertes Modell noetig.",
+            }
+        if s.user_state != "active":
+            return {
+                "fehler": f"Lokale AI im State '{s.user_state}'.",
+                "hinweis": "Setze State auf 'active' in Lokale-KI-Settings.",
+            }
+
+        bekannte = [c["slug"] for c in db.list_contact_categories()]
+        pid = db.get_active_profile_id()
+        conn = db.connect()
+
+        # Bewerbungs-Auswahl mit/ohne Filter
+        if nur_ohne_kontakte:
+            rows = conn.execute(
+                "SELECT a.id, a.title, a.company, a.notes, "
+                "a.description_snapshot, a.ansprechpartner, a.kontakt_email, "
+                "a.cv_path, a.cover_letter_path "
+                "FROM applications a "
+                "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM contacts c "
+                "  WHERE c.extracted_from = 'application:' || a.id"
+                ") "
+                "ORDER BY a.created_at DESC LIMIT ?",
+                (pid, max_bewerbungen)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT a.id, a.title, a.company, a.notes, "
+                "a.description_snapshot, a.ansprechpartner, a.kontakt_email, "
+                "a.cv_path, a.cover_letter_path "
+                "FROM applications a "
+                "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+                "ORDER BY a.created_at DESC LIMIT ?",
+                (pid, max_bewerbungen)
+            ).fetchall()
+
+        candidates: list[dict] = []
+        extracted = 0
+        errors = 0
+        for app_row in rows:
+            text_parts = [
+                f"Firma: {app_row['company']}" if app_row["company"] else "",
+                f"Stelle: {app_row['title']}" if app_row["title"] else "",
+                f"Ansprechpartner-Hint: {app_row['ansprechpartner']}"
+                    if app_row["ansprechpartner"] else "",
+                f"Kontakt-Email: {app_row['kontakt_email']}"
+                    if app_row["kontakt_email"] else "",
+            ]
+            # Stellenbeschreibung
+            if app_row["description_snapshot"]:
+                text_parts.append(
+                    f"Stellenbeschreibung:\n{app_row['description_snapshot'][:1500]}"
+                )
+            # Notizen
+            if app_row["notes"]:
+                text_parts.append(f"Notizen:\n{app_row['notes'][:1500]}")
+            # Events (Timeline-Notizen)
+            try:
+                event_rows = conn.execute(
+                    "SELECT status, event_date, notes "
+                    "FROM application_events "
+                    "WHERE application_id=? AND notes IS NOT NULL "
+                    "AND notes != '' ORDER BY event_date DESC LIMIT 10",
+                    (app_row["id"],)
+                ).fetchall()
+                for ev in event_rows:
+                    snippet = (ev["notes"] or "")[:500]
+                    if snippet:
+                        text_parts.append(
+                            f"Event {ev['event_date'][:10]} ({ev['status']}): {snippet}"
+                        )
+            except Exception:
+                pass
+            # Verknuepfte Dokumente (außer cv/cover_letter)
+            try:
+                docs = db.get_documents_for_application(app_row["id"], pid) or []
+                cv_path = (app_row["cv_path"] or "").lower()
+                cover_path = (app_row["cover_letter_path"] or "").lower()
+                for d in docs:
+                    fname = (d.get("filename") or "").lower()
+                    fpath = (d.get("filepath") or "").lower()
+                    if (fname == cv_path or fpath == cv_path
+                            or fname == cover_path or fpath == cover_path):
+                        continue
+                    # Skip CV-/Anschreiben-typische Dokument-Typen
+                    if d.get("doc_type") in ("cv", "lebenslauf", "anschreiben",
+                                               "cover_letter"):
+                        continue
+                    text_parts.append(
+                        f"Dokument {d.get('filename', '')}: "
+                        f"(Typ: {d.get('doc_type', 'unbekannt')})"
+                    )
+            except Exception:
+                pass
+
+            text = "\n".join([p for p in text_parts if p]).strip()
+            if not text:
+                continue
+            try:
+                result = svc.run(TaskKind.EXTRACT_CONTACTS, {
+                    "text": text[:5000],  # cap fuer LLM-Kontext
+                    "context_company": app_row["company"] or "",
+                    "bekannte_kategorien": bekannte,
+                })
+            except Exception:
+                errors += 1
+                continue
+            if not result.success or not result.payload:
+                errors += 1
+                continue
+            for c in result.payload.get("contacts") or []:
+                if c.get("confidence", 0) < 0.5:
+                    continue
+                candidate = {
+                    "name": c.get("name", ""),
+                    "email": c.get("email", ""),
+                    "telefon": c.get("telefon", ""),
+                    "rolle": c.get("rolle", ""),
+                    "kategorie": c.get("kategorie", "sonstiges"),
+                    "firma": c.get("firma") or app_row["company"] or "",
+                    "from_application": app_row["id"][:8],
+                    "from_company": app_row["company"] or "",
+                    "from_title": app_row["title"] or "",
+                    "confidence": round(c.get("confidence", 0), 2),
+                }
+                candidates.append(candidate)
+                if not dry_run:
+                    try:
+                        db.add_contact({
+                            "full_name": candidate["name"],
+                            "email": candidate["email"],
+                            "phone": candidate["telefon"],
+                            "company": candidate["firma"],
+                            "position": candidate["rolle"],
+                            "tags": [candidate["kategorie"]],
+                            "is_pending": 1,
+                            "extracted_from": f"application:{app_row['id']}",
+                        })
+                        extracted += 1
+                    except Exception:
+                        errors += 1
+
+        return {
+            "status": "vorschau" if dry_run else "ausgefuehrt",
+            "geprueft": len(rows),
+            "kandidaten": len(candidates),
+            "extrahiert": 0 if dry_run else extracted,
+            "fehler": errors,
+            "vorschau_sample": candidates[:10] if dry_run else None,
+            "hinweis": (
+                f"Dry-Run mit max_bewerbungen={max_bewerbungen}. "
+                "Mit dry_run=False werden die Kontakte als 'pending' angelegt "
+                "und muessen via UI/MCP-Tool genehmigt werden."
+                if dry_run else
+                f"{extracted} Kontakte als 'pending' angelegt. "
+                "Genehmigung in Kontakte-Tab."
+            ),
+        }

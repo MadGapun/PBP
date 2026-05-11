@@ -16,6 +16,111 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.54] - 2026-05-11 — Reverse-Kontakt-Extraktion (#605)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Hinweis: ca. 70-80 Bewerbungen haben Recruiter/HR-Kontakte die
+nur als Freitext in `applications.notes` stecken, aber nicht als
+strukturierte `contacts`-Eintraege. Dieses Tool zieht sie nachtraeglich
+heraus.
+
+### ✨ Neues MCP-Tool `kontakte_aus_bewerbungen_extrahieren`
+
+```python
+kontakte_aus_bewerbungen_extrahieren(
+    nur_ohne_kontakte=True,   # nur Apps ohne extracted_from-Marker
+    max_bewerbungen=20,        # Sicherheits-Cap
+    dry_run=True,              # nur Vorschau
+)
+```
+
+**Erweitert** das bestehende `kontakte_aus_bestand_importieren` (#606)
+um drei wichtige Quellen die das Original verpasst:
+
+| Neu | Alt |
+|---|---|
+| `application_events.notes` (Timeline-Notizen mit Gespraechspartnern) | nur app.notes |
+| Verknuepfte Dokumente (außer cv/cover_letter) | nur Stellenbeschreibung |
+| Konfigurierbares max_bewerbungen | Hard-Cap 100 |
+
+**Workflow:**
+```
+Du: „Lass kontakte_aus_bewerbungen_extrahieren mit dry_run laufen"
+→ Claude prueft die Top-20 Bewerbungen ohne Kontakte
+→ Du bekommst eine Vorschau-Liste
+
+Du: „Wenn das passt, mach es scharf"
+→ dry_run=False, Kontakte werden als 'pending' angelegt
+→ Genehmigung in Kontakte-Tab → akzeptieren oder verwerfen
+```
+
+### Sicherheits-Logik
+
+- Confidence-Filter: < 0.5 wird verworfen
+- LLM-Input-Cap: 5000 Zeichen pro Bewerbung
+- CV/Anschreiben werden ausgeschlossen (eigene Texte, keine Dritt-Kontaktdaten)
+- Idempotent: zweiter Lauf mit `nur_ohne_kontakte=True` findet die schon extrahierten nicht mehr
+- Pending-Markierung: Kontakte werden nicht ohne User-Genehmigung produktiv
+
+MCP-Tool-Count: 146 → **147**.
+
+### Tests
+
+- 9 neue Tests (`test_v170_beta54_reverse_kontakt.py`):
+  Skip-Pfade (AI nicht verfuegbar/paused), Dry-Run, Apply, Filter
+  `nur_ohne_kontakte`, max_bewerbungen-Cap, Confidence-Filter,
+  Event-Notes-Inclusion
+- **1300 / 1300 gruen** + 1 skipped (+9 vs. beta.53)
+
+### Bezug
+
+- #606: bestehender Auto-Engine-Step, der nur neue Bewerbungen scannt
+- #607: Kontakt-Kategorien (kontakte_kategorien_auflisten)
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.54.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.54.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.53] - 2026-05-11 — Kombiniertes Fachprofil & Referenzprojekte (#617)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
