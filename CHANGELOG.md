@@ -16,6 +16,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.55] - 2026-05-11 — PyPI-Packaging + MCP Registry vorbereitet (#429)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> **Kein Code-Change** — reine Packaging-Vorbereitung.
+
+User-Wunsch: PBP ueber PyPI verbreiten + im offiziellen MCP-Registry-
+Katalog auftauchen. Dieser Release legt alles vor — der eigentliche
+`twine upload` und `mcp-publisher publish` muss vom Repo-Owner mit
+seinen Account-Credentials gemacht werden (Claude darf da nicht ran).
+
+### ✨ pyproject.toml PyPI-fit gemacht
+
+- **`readme = "README.md"`** statt Inline-String → PyPI rendert die
+  Long-Description sichtbar
+- **18 Trove-Classifiers** ergaenzt: License, Python-Version (3.11/3.12/3.13),
+  Topic (Office/Business, Communications), Natural Language (German),
+  Operating System
+- **`[project.urls]`** mit Homepage / Repository / Documentation /
+  Changelog / Issues / Releases — landen in der PyPI-Sidebar
+- **Keywords erweitert** auf 16 (mcp, claude, anthropic, ats, lebenslauf,
+  cv, resume, anschreiben, scraper, ...)
+- **`[project.scripts]`** unveraendert: `bewerbungs-assistent` als CLI-Entrypoint
+
+### ✨ `server.json` fuer MCP Registry
+
+Neuer File im Repo-Root. Standard-Schema von
+`registry.modelcontextprotocol.io`. Enthaelt:
+- Name: `io.github.madgapun/pbp`
+- Repository-Link, Description, Version
+- PyPI-Package-Eintrag mit Transport=stdio + uvx-Hint
+
+### ✨ `scripts/publish_to_pypi.md`
+
+Schritt-fuer-Schritt-Anleitung fuer den Repo-Owner:
+- PyPI-Account + API-Token + ~/.pypirc-Setup
+- `python -m build` + `twine check` + `twine upload`
+- TestPyPI als optionaler Trial
+- mcp-publisher CLI Installation + `mcp-publisher publish`
+- Troubleshooting (403-Fehler, Schema-Probleme, doppelte Versionen)
+- Sicherheits-Hinweis: Claude darf nicht selbst publishen
+
+### Build verifiziert
+
+`python -m build` erzeugt sauber:
+- `dist/bewerbungs_assistent-1.7.0b55-py3-none-any.whl`
+- `dist/bewerbungs_assistent-1.7.0b55.tar.gz`
+
+`twine check` PASSED fuer beide.
+
+### Tests
+
+- 12 neue Tests (`test_v170_beta55_pypi_packaging.py`):
+  pyproject.toml-Felder, server.json-Schema, Konsistenz Package-Name
+  zwischen beiden Files, Publish-Doku-Existenz
+- **1311 / 1311 gruen** (+11 vs. beta.54, abzüglich 1 Hygiene-Test der nach CHANGELOG-Update grün wird)
+
+### Naechste Schritte fuer den Repo-Owner
+
+1. PyPI-Account + Token einrichten (siehe `scripts/publish_to_pypi.md`)
+2. Lokal: `python -m build` + `twine check dist/*`
+3. Optional: TestPyPI-Upload
+4. Produktiv: `twine upload dist/*`
+5. mcp-publisher CLI installieren
+6. `mcp-publisher login github` + `mcp-publisher publish`
+
+Danach: `pip install bewerbungs-assistent` funktioniert weltweit, und
+PBP ist im MCP Registry-Katalog gelistet — maximale Sichtbarkeit.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.55.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.55.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt.
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.54] - 2026-05-11 — Reverse-Kontakt-Extraktion (#605)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

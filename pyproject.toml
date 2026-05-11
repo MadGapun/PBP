@@ -4,15 +4,38 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "1.7.0b54"
-description = "KI-gestützter Bewerbungsassistent — MCP Server für Claude Desktop"
-readme = {text = "KI-gestützter Bewerbungsassistent als MCP Server für Claude Desktop", content-type = "text/plain"}
+version = "1.7.0b55"
+description = "PBP — KI-gestuetzter Bewerbungsassistent als MCP-Server fuer Claude Desktop. Stellensuche, Bewerbungs-Tracking, Lebenslauf-/Anschreiben-Generierung, Interview-Coaching."
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
     { name = "Markus Birzite" }
 ]
-keywords = ["mcp", "claude", "bewerbung", "job-search", "career"]
+keywords = [
+    "mcp", "model-context-protocol", "claude", "claude-desktop",
+    "anthropic", "ai", "llm",
+    "bewerbung", "job-search", "career", "ats",
+    "lebenslauf", "cv", "resume", "anschreiben", "cover-letter",
+    "scraper", "stellensuche", "personalvermittlung",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Topic :: Office/Business :: Scheduling",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Communications",
+    "Natural Language :: German",
+]
 
 dependencies = [
     "fastmcp>=2.0",
@@ -56,6 +79,14 @@ dev = [
 all = [
     "bewerbungs-assistent[scraper,docs,export,email]",
 ]
+
+[project.urls]
+Homepage = "https://github.com/MadGapun/PBP"
+Repository = "https://github.com/MadGapun/PBP"
+Documentation = "https://github.com/MadGapun/PBP/wiki"
+Changelog = "https://github.com/MadGapun/PBP/blob/main/CHANGELOG.md"
+Issues = "https://github.com/MadGapun/PBP/issues"
+Releases = "https://github.com/MadGapun/PBP/releases"
 
 [project.scripts]
 bewerbungs-assistent = "bewerbungs_assistent:main"
