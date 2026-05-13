@@ -674,16 +674,25 @@ def register(mcp, db, logger):
         - Empfohlene Vorgehensweise
 
         Rufe dieses Tool ZUERST auf, bevor du mit der Analyse beginnst.
+
+        v1.7.0-beta.59 (#635): Response-Payload reduziert (nur 3 Datei-
+        Vorschauen pro Batch statt aller). Byte-Counter nutzt CAST AS
+        BLOB damit UTF-8-Sonderzeichen korrekt gezaehlt werden.
         """
+        import time as _t
+        _t0 = _t.time()
         profile = db.get_profile()
         if not profile:
             return {"fehler": "Kein aktives Profil."}
 
         conn = db.connect()
         pid = profile["id"]
+        # #635: LENGTH(BLOB) liefert Bytes — bei UTF-8 mit Umlauten/Sonderzeichen
+        # ist das praeziser als LENGTH() (Char-Count). Verhindert Underestimation
+        # die zu zu-grossen Batches fuehrt.
         all_docs = conn.execute(
             "SELECT id, filename, doc_type, extraction_status, "
-            "LENGTH(extracted_text) as text_laenge, created_at "
+            "LENGTH(CAST(extracted_text AS BLOB)) as text_laenge, created_at "
             "FROM documents WHERE profile_id=? AND extracted_text IS NOT NULL "
             "AND extracted_text != '' ORDER BY filename",
             (pid,)
@@ -696,13 +705,15 @@ def register(mcp, db, logger):
         # Duplikate erkennen
         unique, dup_ids = _find_duplicates(nicht_analysiert)
 
-        # Batches berechnen (max 50KB Text pro Batch)
-        MAX_BATCH_BYTES = 50000
+        # Batches berechnen (max 30KB Text pro Batch — nach unten korrigiert
+        # in #635 weil 50KB + JSON-Overhead + Aktuelles-Profil regelmaessig
+        # ueber MCP-Transport-Grenzen ging)
+        MAX_BATCH_BYTES = 30000
         batches = []
         current_batch = []
         current_size = 0
         for doc in sorted(unique, key=lambda d: d.get("text_laenge", 0)):
-            size = doc.get("text_laenge", 0)
+            size = doc.get("text_laenge", 0) or 0
             if current_size + size > MAX_BATCH_BYTES and current_batch:
                 batches.append(current_batch)
                 current_batch = []
@@ -719,8 +730,21 @@ def register(mcp, db, logger):
             if firma:
                 firmen.add(firma)
 
-        total_bytes = sum(d.get("text_laenge", 0) for d in unique)
-        return {
+        total_bytes = sum((d.get("text_laenge") or 0) for d in unique)
+        # #635: Pro Batch nur 3 Datei-Vorschauen + Counter — vorher alle
+        # Dateinamen, was bei vielen Docs die Response sprengen konnte.
+        batches_summary = []
+        for i, b in enumerate(batches):
+            previews = [d["filename"] for d in b[:3]]
+            batches_summary.append({
+                "nr": i + 1,
+                "dokumente": len(b),
+                "bytes": sum((d.get("text_laenge") or 0) for d in b),
+                "dateien_vorschau": previews,
+                "weitere_dateien": max(0, len(b) - 3),
+            })
+
+        result = {
             "status": "ok",
             "dokumente_gesamt": len(docs),
             "bereits_analysiert": len(bereits_analysiert),
@@ -730,25 +754,26 @@ def register(mcp, db, logger):
             "geschaetzte_batches": len(batches),
             "total_text_bytes": total_bytes,
             "geschaetzte_tokens": total_bytes // 4,
-            "erkannte_firmen": sorted(firmen),
-            "batches": [
-                {"nr": i + 1, "dokumente": len(b),
-                 "bytes": sum(d.get("text_laenge", 0) for d in b),
-                 "dateien": [d["filename"] for d in b]}
-                for i, b in enumerate(batches)
-            ],
+            "erkannte_firmen": sorted(firmen)[:50],  # #635: Hard-Cap
+            "batches": batches_summary,
             "empfehlung": (
                 f"{len(dup_ids)} Duplikate werden automatisch übersprungen. "
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
                 f"Nutze dokumente_batch_analysieren() für den nächsten Batch."
             ),
         }
+        logger.info(
+            "analyse_plan_erstellen: %d Docs, %d Batches, %d Bytes, %.2fs",
+            len(docs), len(batches), total_bytes, _t.time() - _t0,
+        )
+        return result
 
     @mcp.tool()
     def dokumente_batch_analysieren(
         batch_nr: int = 1,
-        max_text_bytes: int = 50000,
-        max_dokumente: int = 10,
+        max_text_bytes: int = 30000,
+        max_dokumente: int = 8,
+        max_bytes_per_doc: int = 8000,
         profil_mitsenden: bool = True,
     ) -> dict:
         """Analysiert den nächsten Batch von Dokumenten — effizient und Token-sparend.
@@ -764,22 +789,43 @@ def register(mcp, db, logger):
         5. Wende an mit extraktion_anwenden()
         6. Wiederhole mit batch_nr=2, 3, ... bis alle durch
 
+        v1.7.0-beta.59 (#635): Defaults nach unten korrigiert
+        (max_text_bytes 50k -> 30k, max_dokumente 10 -> 8). Neuer
+        Parameter `max_bytes_per_doc` (default 8000) — wenn ein einzelnes
+        Dokument groesser ist wird der Text getrunkated mit Marker.
+        Vorher konnte ein einzelnes 200KB-PDF die ganze MCP-Response
+        sprengen und in den 4-Minuten-Timeout laufen.
+
         Args:
-            batch_nr: Welcher Batch (1-basiert). Standard: 1 (erster Batch).
-            max_text_bytes: Maximale Text-Bytes pro Batch (Token-Budget). Standard: 50000 (~12.5K Tokens).
-            max_dokumente: Maximale Anzahl Dokumente pro Batch. Standard: 10.
-            profil_mitsenden: Wenn True (Standard), wird das Profil mitgesendet. Bei Folge-Batches
-                auf False setzen um Tokens zu sparen.
+            batch_nr: Welcher Batch (1-basiert). Standard: 1.
+            max_text_bytes: Maximale Text-Bytes pro Batch (Token-Budget).
+                Standard: 30000 (~7.5K Tokens). Hard-Cap: 50000.
+            max_dokumente: Maximale Anzahl Dokumente pro Batch. Standard: 8.
+            max_bytes_per_doc: Pro-Doku-Limit. Default 8000 (~2K Tokens).
+                Laengerer Text wird getrunkated mit Marker.
+            profil_mitsenden: Wenn True (Standard), wird das Profil mitgesendet.
+                Bei Folge-Batches auf False setzen um Tokens zu sparen.
         """
+        import time as _t
+        _t0 = _t.time()
+        # Hard-Cap: schuetzt vor versehentlich riesigem Argument
+        max_text_bytes = max(1000, min(int(max_text_bytes or 30000), 50000))
+        max_dokumente = max(1, min(int(max_dokumente or 8), 20))
+        max_bytes_per_doc = max(500, min(int(max_bytes_per_doc or 8000), 20000))
+
         profile = db.get_profile()
         if not profile:
             return {"fehler": "Kein aktives Profil."}
 
         conn = db.connect()
         pid = profile["id"]
+        # #635: LENGTH(BLOB) -> Bytes statt Chars (UTF-8 korrekt)
         rows = conn.execute(
-            "SELECT * FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
-            "AND extracted_text IS NOT NULL AND extracted_text != '' ORDER BY LENGTH(extracted_text)",
+            "SELECT id, filename, doc_type, extraction_status, extracted_text, "
+            "LENGTH(CAST(extracted_text AS BLOB)) as text_laenge "
+            "FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
+            "AND extracted_text IS NOT NULL AND extracted_text != '' "
+            "ORDER BY LENGTH(CAST(extracted_text AS BLOB))",
             (pid,)
         ).fetchall()
         all_docs = [dict(r) for r in rows]
@@ -788,29 +834,28 @@ def register(mcp, db, logger):
             return {"status": "fertig", "nachricht": "Alle Dokumente sind bereits analysiert."}
 
         # Duplikate erkennen und automatisch markieren
-        for d in all_docs:
-            d["text_laenge"] = len(d.get("extracted_text", ""))
         unique, dup_ids = _find_duplicates(all_docs)
 
-        # Duplikate als analysiert markieren
         for dup_id in dup_ids:
             db.update_document_extraction_status(dup_id, "duplikat")
         if dup_ids:
             logger.info("Batch: %d Duplikate automatisch markiert", len(dup_ids))
 
-        # Batches berechnen
-        sorted_docs = sorted(unique, key=lambda d: d.get("text_laenge", 0))
+        # Batches berechnen — basieren auf der **getrunkated** Groesse,
+        # damit auch bei langen Dokumenten der Batch nicht ueber den Cap geht.
+        sorted_docs = sorted(unique, key=lambda d: (d.get("text_laenge") or 0))
         batches = []
         current_batch = []
         current_size = 0
         for doc in sorted_docs:
-            size = doc.get("text_laenge", 0)
-            if (current_size + size > max_text_bytes or len(current_batch) >= max_dokumente) and current_batch:
+            doc_size = min((doc.get("text_laenge") or 0), max_bytes_per_doc)
+            if (current_size + doc_size > max_text_bytes
+                    or len(current_batch) >= max_dokumente) and current_batch:
                 batches.append(current_batch)
                 current_batch = []
                 current_size = 0
             current_batch.append(doc)
-            current_size += size
+            current_size += doc_size
         if current_batch:
             batches.append(current_batch)
 
@@ -826,15 +871,33 @@ def register(mcp, db, logger):
             "extraction_type": "batch",
         })
 
-        # Dokumente aufbereiten (nur Text + Metadaten, KEIN Profil bei Folge-Batches)
+        # Dokumente aufbereiten — Text getrunkated wenn ueber Cap.
         dokumente = []
+        truncations = 0
         for doc in batch:
+            text = doc.get("extracted_text") or ""
+            text_bytes = text.encode("utf-8", errors="replace")
+            full_len = len(text_bytes)
+            truncated = False
+            if full_len > max_bytes_per_doc:
+                # Auf Char-Grenze trunkaten damit kein Mojibake entsteht
+                # (UTF-8 Multi-Byte-Sequence darf nicht in der Mitte gecuttet werden).
+                text = text_bytes[:max_bytes_per_doc].decode("utf-8", errors="ignore")
+                text += (
+                    f"\n\n[... gekuerzt: weitere {full_len - max_bytes_per_doc} Bytes "
+                    f"nicht uebertragen. extraktion_starten([\"{doc['id']}\"]) fuer "
+                    f"Vollzugriff]"
+                )
+                truncated = True
+                truncations += 1
             dokumente.append({
                 "id": doc["id"],
                 "filename": doc["filename"],
                 "doc_type": doc.get("doc_type", "sonstiges"),
-                "text_laenge": doc["text_laenge"],
-                "extrahierter_text": doc.get("extracted_text", ""),
+                "text_laenge_original": full_len,
+                "text_laenge_uebertragen": len(text.encode("utf-8", errors="replace")),
+                "gekuerzt": truncated,
+                "extrahierter_text": text,
             })
 
         result = {
@@ -844,6 +907,7 @@ def register(mcp, db, logger):
             "batches_gesamt": len(batches),
             "dokumente_in_batch": len(dokumente),
             "duplikate_uebersprungen": len(dup_ids),
+            "dokumente_gekuerzt": truncations,
             "dokumente": dokumente,
             "anleitung": (
                 "Analysiere die Dokumente und extrahiere Profildaten. "
@@ -854,16 +918,23 @@ def register(mcp, db, logger):
         }
 
         if profil_mitsenden:
+            # Skills auf max 100 limitieren — bei sehr grossen Profilen
+            # macht der String sonst die Response auch fett.
+            skills_all = [s.get("name") for s in profile.get("skills", []) if s.get("name")]
             result["aktuelles_profil"] = {
                 "name": profile.get("name"),
-                "summary": profile.get("summary"),
+                "summary": (profile.get("summary") or "")[:500],
                 "positionen_anzahl": len(profile.get("positions", [])),
-                "skills": [s.get("name") for s in profile.get("skills", [])],
-                "skills_anzahl": len(profile.get("skills", [])),
+                "skills": skills_all[:100],
+                "skills_anzahl": len(skills_all),
             }
         else:
             result["profil_hinweis"] = "Profil wurde im ersten Batch gesendet. Nutze das gleiche Profil als Referenz."
 
+        logger.info(
+            "dokumente_batch_analysieren: batch %d/%d, %d Docs, %d gekuerzt, %.2fs",
+            batch_nr, len(batches), len(dokumente), truncations, _t.time() - _t0,
+        )
         return result
 
     @mcp.tool()

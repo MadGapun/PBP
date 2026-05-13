@@ -16,6 +16,101 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.59] - 2026-05-13 — MCP-Timeout in Doku-Analyse-Pipeline (#635)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> 🔥 **Bugfix-Release** — Core-Feature war komplett blockiert.
+
+User-Report mit Diagnose im Issue: `analyse_plan_erstellen` und
+`dokumente_batch_analysieren` liefen in den 4-Minuten-Timeout im
+Claude-Desktop-MCP-Relay. Server-Log zeigte: Tool-Aufruf empfangen,
+aber Response kam beim Client nie an. Hypothese (bestaetigt):
+**Response-Payload ueber MCP-Transport-Grenze**.
+
+### 🐛 Drei zusammenhaengende Fixes
+
+**1. `analyse_plan_erstellen` — Response-Payload reduziert:**
+- Pro Batch nur noch 3 Datei-Vorschauen + Counter (vorher: alle
+  Dateinamen aller Batches → bei 75 Docs schnell 5-10 KB)
+- `erkannte_firmen` Hard-Cap auf 50 Eintraege
+- Default `MAX_BATCH_BYTES` von 50000 auf 30000 reduziert
+
+**2. `dokumente_batch_analysieren` — Pro-Doku-Truncation:**
+- Neuer Parameter `max_bytes_per_doc` (Default 8000 ~ 2K Tokens)
+- Bei laengerem Text wird auf Char-Grenze getrunkated (kein
+  UTF-8-Mojibake) und ein Marker eingefuegt: „[... gekuerzt:
+  weitere N Bytes nicht uebertragen. extraktion_starten([id]) fuer
+  Vollzugriff]"
+- Hard-Caps auf alle Argumente (max_text_bytes <= 50000,
+  max_dokumente <= 20, max_bytes_per_doc <= 20000) — schuetzt vor
+  versehentlich riesigen Werten
+- `aktuelles_profil`: Skills auf 100 gecapped, Summary auf 500
+  Zeichen gecapped (Counter zeigt aber die volle Anzahl)
+
+**3. Bytes statt Chars im Counter:**
+- `LENGTH(extracted_text)` -> `LENGTH(CAST(extracted_text AS BLOB))`.
+- SQLite `LENGTH()` liefert Char-Count fuer TEXT, nicht Bytes —
+  bei UTF-8-Sonderzeichen war die Schaetzung um Faktor 1.0-2.0 zu
+  klein, was Batches sprengen konnte.
+
+**4. Timing-Logs:**
+- Beide Tools loggen jetzt `tool: N Docs, M Batches, X.XXs`
+- Bei zukuenftigen Performance-Issues sieht man im Log sofort ob
+  das Tool selbst haengt oder der Transport.
+
+### Tests
+
+- 7 neue Tests (`test_v170_beta59_doku_payload.py`):
+  Plan-Compactness, Truncation, Hard-Caps gegen Argument-Tricks,
+  Profile-Section-Cap
+- 1340 / 1340 gruen
+
+### Migration / Breaking Changes
+
+Keine. Alle Aenderungen sind defensive Limits — alte Argumente
+funktionieren weiter, werden nur ggf hard-gecapped.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.59.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.59.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.58] - 2026-05-11 — Doku-Verarbeitung deckt alle Faelle ab (#634)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
