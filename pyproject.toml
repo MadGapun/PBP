@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "1.7.0b57"
+version = "1.7.0b58"
 description = "PBP — KI-gestuetzter Bewerbungsassistent als MCP-Server fuer Claude Desktop. Stellensuche, Bewerbungs-Tracking, Lebenslauf-/Anschreiben-Generierung, Interview-Coaching."
 readme = "README.md"
 license = "MIT"

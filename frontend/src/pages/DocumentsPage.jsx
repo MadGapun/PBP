@@ -254,30 +254,38 @@ export default function DocumentsPage() {
       </Card>
 
       {/* #537 v1.6.5: Analyse-Banner — sichtbar wenn nicht-analysierte Dokumente vorhanden.
-          v1.7.0-beta.57 (#633): Wording-Polish — User-Feedback "war nicht klar wo die
-          Analyse gestartet wird". Jetzt explizit Step-by-Step. */}
+          v1.7.0-beta.57 (#633): Wording-Polish.
+          v1.7.0-beta.58 (#634): Default-Prompt erweitert auf "Dokumente verarbeiten" —
+          deckt nicht nur CV/Profil, sondern auch Mail-Korrespondenz, Anhaenge,
+          Termin-Bestaetigungen ab. Klassifizierungs-Prompt routet zum passenden Workflow. */}
       {data.unanalyzed_count > 0 && (
         <Card className="mb-4 rounded-xl border-violet-500/20 bg-violet-500/[0.06]">
           <div className="flex flex-wrap items-start gap-3 px-4 py-3">
             <Sparkles size={18} className="text-violet-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-[240px]">
               <div className="text-sm font-medium text-ink">
-                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} koennen analysiert werden
+                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} koennen verarbeitet werden
               </div>
               <div className="text-xs text-muted/70 mt-1 leading-snug">
-                Claude liest deine CVs, Zeugnisse und Anschreiben und extrahiert
-                <strong className="text-ink"> Berufserfahrung, Ausbildung, Skills und Projekte </strong>
-                automatisch ins Profil — du musst nichts manuell tippen.
+                Claude klassifiziert jedes hochgeladene Dokument und macht das Passende:
+                <strong className="text-ink"> Profil-Daten</strong> aus CVs/Zeugnissen,
+                <strong className="text-ink"> Status-Updates</strong> bei Absagen/Einladungen/Angeboten,
+                <strong className="text-ink"> Anhang-Verknuepfung</strong> bei firmenspezifischen Anschreiben,
+                <strong className="text-ink"> Termin-Anlage</strong> bei Interview-Bestaetigungen.
               </div>
               <details className="mt-2 text-[11px] text-muted/70">
                 <summary className="cursor-pointer text-muted hover:text-ink">
                   So gehts (3 Schritte)
                 </summary>
                 <ol className="mt-1.5 ml-4 list-decimal space-y-0.5">
-                  <li>Button rechts klicken — der Analyse-Prompt landet in der Zwischenablage</li>
+                  <li>Button rechts klicken — der Verarbeitungs-Prompt landet in der Zwischenablage</li>
                   <li>Wechsle zu Claude Desktop und fuege den Prompt mit <kbd className="px-1 rounded bg-shell/60">Strg+V</kbd> ein</li>
-                  <li>Claude extrahiert die Daten und fragt dich vor jedem Eintrag um Bestaetigung</li>
+                  <li>Claude klassifiziert die Dokumente und fragt vor jeder Aktion um Bestaetigung</li>
                 </ol>
+                <p className="mt-1.5 text-muted/50">
+                  Nur Profil-Daten? Nutze stattdessen den Befehl
+                  <code className="ml-1 px-1 rounded bg-shell/60">/profil_erweiterung</code>
+                </p>
               </details>
             </div>
             <Button
@@ -285,16 +293,16 @@ export default function DocumentsPage() {
               size="sm"
               variant="secondary"
               onClick={async () => {
-                await copyPrompt("/profil_erweiterung");
+                await copyPrompt("/dokumente_verarbeiten");
                 pushToast(
-                  "Analyse-Prompt kopiert — jetzt in Claude Desktop einfuegen",
+                  "Verarbeitungs-Prompt kopiert — jetzt in Claude Desktop einfuegen",
                   "success",
                   { duration: 3500 }
                 );
               }}
             >
               <Copy size={14} className="mr-1" />
-              Analyse-Prompt kopieren
+              Dokumente verarbeiten
             </Button>
           </div>
         </Card>

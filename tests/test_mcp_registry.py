@@ -204,6 +204,8 @@ EXPECTED_PROMPT_NAMES = {
     "elwosa_antworten",
     "elwosa_linie_lehren",
     "elwosa_zurueckholen",
+    # v1.7.0-beta.58 (#634): Sammel-Prompt fuer alle Doku-Typen
+    "dokumente_verarbeiten",
 }
 
 EXPECTED_RESOURCE_NAMES = {
@@ -277,7 +279,7 @@ def test_mcp_registry_counts(tmp_path):
     try:
         tools, prompts, resources = _collect_names(mcp)
         assert len(tools) == 149  # v1.7.0-beta.56 (#425): + ki_features_lesen/setzen
-        assert len(prompts) == 23  # v1.7.0-beta.37: +5 Elwosa-Prompts
+        assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:
         db.close()

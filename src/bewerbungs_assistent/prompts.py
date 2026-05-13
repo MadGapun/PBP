@@ -1205,6 +1205,179 @@ REGELN
 """
 
     @mcp.prompt()
+    def dokumente_verarbeiten() -> str:
+        """Hochgeladene Dokumente klassifizieren und passend ins PBP einarbeiten.
+
+        Anders als /profil_erweiterung (das ausschliesslich auf CV-Daten zielt)
+        deckt dieser Prompt ALLE Faelle ab, in denen ein User Dokumente
+        hochlaedt: CVs/Zeugnisse fuers Profil, Mail-Korrespondenz mit
+        Bewerbungs-Status-Update, firmenspezifische Anschreiben/CV-
+        Varianten zur Bewerbungs-Verknuepfung, Termin-Bestaetigungen
+        usw. Der Prompt klassifiziert pro Dokument und routet zum
+        passenden Workflow."""
+        profile = db.get_profile()
+        conn = db.connect()
+        unhandled = []
+        if profile:
+            rows = conn.execute(
+                "SELECT id, filename, doc_type, extraction_status, application_id "
+                "FROM documents WHERE profile_id=? AND "
+                "extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
+                "AND extracted_text IS NOT NULL AND extracted_text != '' "
+                "ORDER BY created_at DESC LIMIT 30",
+                (profile["id"],)
+            ).fetchall()
+            unhandled = [dict(r) for r in rows]
+
+        doc_list = "\n".join(
+            f"  - [{d.get('doc_type', '?')}] {d['filename']} "
+            f"(ID: {d['id']}{', verknuepft' if d.get('application_id') else ''})"
+            for d in unhandled[:15]
+        ) if unhandled else "  Keine offenen Dokumente."
+
+        return f"""Du verarbeitest hochgeladene Dokumente fuer den User. Hochgeladen
+heisst: der User will dass sich PBP darum kuemmert. Dein Job ist
+NICHT nur Profil-Erweiterung — sondern alles was logisch passt:
+
+═══════════════════════════════════════════════════
+AKTUELLER STAND
+═══════════════════════════════════════════════════
+Profil: {'Ja — ' + profile.get('name', '') if profile else 'NEIN, lege erst eines an'}
+Offene Dokumente: {len(unhandled)}
+{doc_list}
+
+═══════════════════════════════════════════════════
+SCHRITT 1: TEXTE LADEN
+═══════════════════════════════════════════════════
+
+Rufe extraktion_starten() auf um die Dokument-Texte fuer alle offenen
+Dokumente zu laden. (Du kannst document_ids einschraenken, oder leer
+lassen fuer alle.)
+
+═══════════════════════════════════════════════════
+SCHRITT 2: PRO DOKUMENT KLASSIFIZIEREN
+═══════════════════════════════════════════════════
+
+Lies den Text und entscheide in welche der vier Kategorien das Dokument faellt:
+
+A) PROFIL-RELEVANT (CV, Zeugnis, Zertifikat, Projektliste)
+   → Berufserfahrung, Ausbildung, Skills, Projekte fuers Profil extrahieren
+   → Pfad: profil_erweiterung-Logik (siehe unten Schritt 3A)
+
+B) MAIL-KORRESPONDENZ (Absage, Einladung, Jobangebot, Recruiter-Anfrage)
+   → Bewerbung identifizieren (welche Firma, welche Stelle?)
+   → Status-Update: abgelehnt / interview / angebot / etc.
+   → Mail-Inhalt als Notiz oder snapshot an die Bewerbung haengen
+   → Pfad: Schritt 3B
+
+C) BEWERBUNGS-ANHANG (firmenspezifischer CV, fertiges Anschreiben)
+   → Bewerbung identifizieren (Firma im Dateinamen oder Inhalt)
+   → Dokument an die Bewerbung verknuepfen via dokument_verknuepfen
+   → ggf cv_path / cover_letter_path in der Bewerbung setzen
+   → Pfad: Schritt 3C
+
+D) TERMIN-BESTAETIGUNG (Interview-Einladung mit Datum, Kalendereintrag)
+   → Bewerbung identifizieren
+   → meeting_hinzufuegen mit Datum/Uhrzeit/Modus
+   → Status der Bewerbung ggf auf 'interview' setzen
+   → Pfad: Schritt 3D
+
+WICHTIG: Mehrfach-Klassifikation ist erlaubt — z.B. eine
+Interview-Einladung ist B + D gleichzeitig (Status-Update +
+Termin anlegen). Mach beides.
+
+═══════════════════════════════════════════════════
+SCHRITT 3A — PROFIL-RELEVANTES DOKUMENT
+═══════════════════════════════════════════════════
+
+Extrahiere strukturiert:
+- Persoenliche Daten: Name, E-Mail, Telefon, Adresse, Geburtstag
+- Positionen: Firma, Titel, Zeitraum, Aufgaben, Erfolge, Technologien
+- Projekte: Name, Rolle, STAR-Details, Technologien, Dauer
+- Ausbildung: Institution, Abschluss, Fachrichtung, Zeitraum, Note
+- Skills: Name, Kategorie, Level, last_used_year
+- Zusammenfassung / Kurzprofil
+
+Mit bestehendem Profil vergleichen, Konflikte sammeln.
+extraktion_ergebnis_speichern(extraction_id, ...) und
+extraktion_anwenden(extraction_id, bereiche, konflikte_loesungen).
+
+═══════════════════════════════════════════════════
+SCHRITT 3B — MAIL-KORRESPONDENZ
+═══════════════════════════════════════════════════
+
+1. Identifiziere die Bewerbung:
+   - Firma + Stellentitel im Mail-Inhalt
+   - bewerbungen_anzeigen() falls noetig zur Liste
+   - Bei mehreren Treffern: User fragen
+2. Erkenne den Mail-Typ:
+   - Absage → bewerbung_status_aendern(bewerbung_id, "abgelehnt", rejection_reason="...")
+   - Interview-Einladung → bewerbung_status_aendern(bewerbung_id, "interview")
+   - Zweitgespraech → bewerbung_status_aendern(bewerbung_id, "zweitgespraech")
+   - Angebot → bewerbung_status_aendern(bewerbung_id, "angebot")
+   - Recruiter-Anfrage zu NEUER Position → bewerbung_erstellen
+3. Mail-Inhalt sichern:
+   - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>")
+   - Optional: dokument_verknuepfen(document_id, application_id) damit das
+     Original-PDF an der Bewerbung haengt
+4. Bei Absagen mit erkennbarem Grund: rejection_reason im
+   Status-Update mitgeben — fuer Lerneffekt + Statistik.
+
+═══════════════════════════════════════════════════
+SCHRITT 3C — BEWERBUNGS-ANHANG
+═══════════════════════════════════════════════════
+
+1. Firma aus Dateiname / Inhalt extrahieren
+2. Passende Bewerbung finden (bewerbung_stellen_anzeigen, Match auf Firma)
+3. Bei genau einem Treffer:
+   - dokument_verknuepfen(document_id, application_id)
+   - bewerbung_bearbeiten(application_id, cv_path=... ODER cover_letter_path=...)
+4. Bei keinem Treffer + erkennbarer Firma: User fragen ob Bewerbung
+   neu angelegt werden soll (bewerbung_erstellen)
+
+═══════════════════════════════════════════════════
+SCHRITT 3D — TERMIN-BESTAETIGUNG
+═══════════════════════════════════════════════════
+
+1. Datum/Uhrzeit + Modus (vor Ort / Remote / Telefon) aus dem Text ziehen
+2. Bewerbung identifizieren (siehe 3B)
+3. meeting_hinzufuegen(application_id, datum, modus, beschreibung, ...)
+4. Wenn Bewerbungs-Status noch nicht 'interview' / 'zweitgespraech':
+   bewerbung_status_aendern entsprechend
+5. Bei mehreren Terminen im selben Doku alle anlegen
+
+═══════════════════════════════════════════════════
+SCHRITT 4: USER-ZUSAMMENFASSUNG
+═══════════════════════════════════════════════════
+
+Am Ende EINEN konsolidierten Bericht:
+
+"Ich habe N Dokumente verarbeitet:
+ • X Profil-Updates (Y Positionen, Z Skills neu)
+ • A Bewerbungen aktualisiert (Statuswechsel zu ...)
+ • B Anhaenge an Bewerbungen verknuepft
+ • C Termine angelegt
+ • D Konflikte / Unklarheiten — bitte klaeren: ..."
+
+Bei Unklarheiten gezielt nachfragen statt zu raten.
+
+═══════════════════════════════════════════════════
+REGELN
+═══════════════════════════════════════════════════
+1. Sprich Deutsch und per Du
+2. NIE einfach drueber-schreiben — bei Konflikten oder Unsicherheit fragen
+3. Auto-Matching nur bei hoher Konfidenz (>0.8). Sonst User fragen.
+4. Bei Absagen: das ist ein wichtiger Lifecycle-Event. Lieber
+   einmal zu viel "ist das die Absage zu Bewerbung X bei Firma Y?"
+   fragen als die falsche Bewerbung zu schliessen.
+5. Bei Status-Updates die ein Datum nahelegen: applied_at oder
+   event_at korrekt setzen (nicht today() wenn das Doku ein altes
+   Datum traegt).
+6. Wenn ein Doku gar nicht zuordbar ist: extraction_status auf
+   'erledigt_unklar' setzen statt es immer wieder anzubieten.
+"""
+
+    @mcp.prompt()
     def profil_erweiterung() -> str:
         """Dokumente analysieren und Profil automatisch erweitern — Smart Auto-Extraction."""
         profile = db.get_profile()

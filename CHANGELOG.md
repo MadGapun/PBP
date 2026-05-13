@@ -16,6 +16,108 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.58] - 2026-05-11 — Doku-Verarbeitung deckt alle Faelle ab (#634)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Feedback (Folge zu #633): "Bei hochgeladenen Dokumenten geht es
+ja nicht immer nur darum das Profil zu erweitern, sondern auch um
+Mails von Absagen, Einladungen, Jobangeboten — und das soll
+automatisch im PBP uebernommen werden, sonst waere es ja nicht
+hochgeladen worden."
+
+Stimmt. Der Banner und der dahinter liegende Prompt waren bisher
+einseitig auf CV-Daten optimiert. Die MCP-Tools fuer Mail-Matching,
+Status-Updates und Termin-Anlage existierten zwar, wurden aber im
+Default-Workflow nicht angeboten.
+
+### ✨ Neuer Sammel-Prompt `/dokumente_verarbeiten`
+
+Klassifiziert pro Dokument und routet zum passenden Sub-Workflow:
+
+- **A) Profil-relevant** (CV / Zeugnis / Zertifikat / Projektliste)
+  → Berufserfahrung, Skills, Ausbildung, Projekte extrahieren
+- **B) Mail-Korrespondenz** (Absage / Einladung / Angebot /
+  Recruiter-Anfrage) → Bewerbung identifizieren, Status aendern
+  (`bewerbung_status_aendern`), Mail-Snapshot als Notiz anhaengen
+- **C) Bewerbungs-Anhang** (firmenspezifischer CV / fertiges
+  Anschreiben) → `dokument_verknuepfen` + `cv_path` /
+  `cover_letter_path` in der Bewerbung setzen
+- **D) Termin-Bestaetigung** (Interview-Einladung mit Datum)
+  → `meeting_hinzufuegen` + ggf Status-Hebung auf `interview` oder
+  `zweitgespraech`
+
+Mehrfach-Klassifikation explizit erlaubt — eine Interview-Einladung
+ist typisch B + D.
+
+### Banner in DocumentsPage erweitert
+
+- Wording: "X Dokumente koennen verarbeitet werden" (nicht mehr
+  "analysiert")
+- Aufzaehlung der vier Aktionsklassen direkt im Banner
+- Button: "Dokumente verarbeiten" (war: "Analyse-Prompt kopieren")
+- Hinweis im Aufklapp-Detail: `/profil_erweiterung` bleibt fuer
+  reine Profil-Power-User
+
+### MCP-Prompt-Liste erweitert
+
+Insgesamt jetzt **24 Prompts** (vorher 23). `/profil_erweiterung`
+bleibt unveraendert als schmaler Pfad.
+
+### Wiki
+
+[Profil aus Dokumenten](https://github.com/MadGapun/PBP/wiki/Profil-aus-Dokumenten)
+ueberarbeitet — deckt jetzt explizit alle vier Faelle und erklaert
+wann der schmale `/profil_erweiterung` statt `/dokumente_verarbeiten`
+passt.
+
+### Tests
+
+- `test_mcp_registry.py` aktualisiert (24 Prompts statt 23,
+  +`dokumente_verarbeiten` in EXPECTED_PROMPT_NAMES)
+- 1333 / 1333 gruen
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.58.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.58.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.57] - 2026-05-11 — User-Test-Quick-Wins (#626 + #628 + #629 + #633)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
