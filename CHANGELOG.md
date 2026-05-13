@@ -16,6 +16,119 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.57] - 2026-05-11 — User-Test-Quick-Wins (#626 + #628 + #629 + #633)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Vier kleine Findings aus der User-Test-Mail vom 2026-05-11 — die Bugs
+und die offensichtlichen UX-Polituren in einem Sammel-Patch. Die
+groesseren Findings (eigene Quellen #627, Live-Updates #630, KI-Budget-
+Transparenz #632, Status-Datums-Editing #631) sind als eigene Issues
+fuer spaetere Iterationen geplant.
+
+### ✨ Theme-Presets (#626)
+
+Settings -> Erscheinungsbild -> neue Sektion "Farb-Schema" mit
+**4 vorbelegten Schemen** als Quick-Apply-Buttons:
+
+- **PBP Standard** — Original-Schema (teal/amber/coral/sky)
+- **Modern Blau** — kuehler Blauton, ruhiger fuer lange Sessions
+- **Warm Sand** — warme Erdtoene, weicher Kontrast
+- **High Contrast** — maximaler Kontrast, Barrierefreiheit
+
+Jeder Preset setzt alle 10 Tokens fuer Hell + Dunkel auf einmal.
+Custom-Override pro Token bleibt moeglich (gewinnt ueber Preset).
+Persistenz im `localStorage` parallel zum bisherigen Custom-State.
+
+### 🐛 Bug: Doku-Doppel-Upload beim Drag (#628)
+
+Window-Level `GlobalDocumentDropZone` und Page-eigene Drop-Zonen
+(`DocumentsPage`, `ApplicationsPage`, `ProfilePage`, `DashboardPage`)
+hatten beide `drop`-Listener. Bei einem Drop in eine Page-Zone
+verarbeiteten BEIDE Handler die Datei → Doppel-Upload.
+
+Fix: Window-Handler prueft jetzt `event.defaultPrevented` und
+ueberspringt die Datei wenn die Page sie schon hatte. Dedup-Logik
+(`signatures`-Set) bleibt als zweite Sicherung erhalten.
+
+### 🐛 Bug: Status-Dropdown scrollt Page mit (#629)
+
+Klassisches Wheel-Bubbling am Listen-Ende des SelectInput-Portals:
+wenn die scrollbare Liste am unteren Rand ankam, scrollte das
+Mausrad weiter die Hauptseite. Fix in `components/ui.jsx` an
+**einer zentralen Stelle**:
+
+- `overscrollBehavior: "contain"` als CSS-Property
+- `onWheel={(e) => e.stopPropagation()}` als zweite Sicherung
+  (browser ohne overscroll-behavior-Support)
+
+Wirkt fuer **alle** SelectInputs in der App.
+
+### ✨ Onboarding-Polish (#633)
+
+User-Feedback "die Profil-Gewichtung war anfangs nicht klar" und
+"unklar wo die Doku-Analyse gestartet wird":
+
+**ProfilePage Suchkriterien-Section:**
+- Neue Erklaerungs-Box ueber den Slidern: "Wie das Scoring funktioniert"
+- Klarere Slider-Labels ("MUSS-Kriterium", "PLUS-Punkte" statt nur
+  "MUSS"/"PLUS")
+- Tooltips mit konkreten Beispielen pro Slider (z.B. "MUSS=5: Stelle
+  ohne dieses Skill bekommt deutlichen Score-Abzug")
+
+**DocumentsPage Analyse-Banner:**
+- Neuer Wording-Lead: "Claude liest deine CVs, Zeugnisse und Anschreiben
+  und extrahiert Berufserfahrung, Ausbildung, Skills und Projekte
+  automatisch — du musst nichts manuell tippen"
+- Aufklappbare Schritt-fuer-Schritt-Anleitung "So gehts (3 Schritte)"
+- Klarere Toast-Meldung nach Klick
+
+### Tests
+
+- 1333 / 1333 gruen — alle Aenderungen sind frontend-only oder
+  defensive Code-Aenderungen, keine neuen Backend-Tests noetig
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.57.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.57.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.56] - 2026-05-11 — Granulare KI-Steuerung (#425)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

@@ -42,8 +42,135 @@ export const DEFAULT_PALETTE = {
   },
 };
 
+// v1.7.0-beta.57 (#626): Vorbelegte Theme-Presets fuer User die nicht
+// jeden Token einzeln einstellen wollen. Jeder Preset enthaelt komplette
+// Paletten fuer light + dark; "default" entspricht der DEFAULT_PALETTE
+// und dient als Reset-Anker. Custom-Overrides ueberschreiben Preset-Werte
+// pro Token (Mischbetrieb erlaubt).
+export const THEME_PRESETS = [
+  {
+    id: "default",
+    label: "PBP Standard",
+    description: "Original-Schema mit teal/amber/coral/sky-Akzenten.",
+    palette: DEFAULT_PALETTE,
+  },
+  {
+    id: "modern_blue",
+    label: "Modern Blau",
+    description: "Kuehler Blauton dominant, ruhiger fuer lange Sessions.",
+    palette: {
+      dark: {
+        shell: "14 18 32",
+        panel: "22 30 50",
+        "panel-strong": "32 42 66",
+        ink: "228 236 252",
+        muted: "150 168 200",
+        line: "60 78 116",
+        teal: "94 220 230",
+        amber: "245 196 90",
+        coral: "246 130 155",
+        sky: "108 152 255",
+      },
+      light: {
+        shell: "240 245 252",
+        panel: "255 255 255",
+        "panel-strong": "228 236 248",
+        ink: "20 32 56",
+        muted: "92 110 142",
+        line: "200 216 236",
+        teal: "20 130 154",
+        amber: "200 124 26",
+        coral: "210 50 100",
+        sky: "30 96 220",
+      },
+    },
+  },
+  {
+    id: "warm_sand",
+    label: "Warm Sand",
+    description: "Warme Erdtoene, weicher als der Standard.",
+    palette: {
+      dark: {
+        shell: "30 25 22",
+        panel: "44 36 32",
+        "panel-strong": "56 46 40",
+        ink: "246 236 222",
+        muted: "176 158 138",
+        line: "94 76 60",
+        teal: "120 200 168",
+        amber: "248 188 92",
+        coral: "246 138 110",
+        sky: "186 168 218",
+      },
+      light: {
+        shell: "250 244 234",
+        panel: "255 250 242",
+        "panel-strong": "242 232 218",
+        ink: "52 38 28",
+        muted: "128 102 78",
+        line: "224 208 184",
+        teal: "32 136 110",
+        amber: "200 118 28",
+        coral: "200 76 60",
+        sky: "120 96 168",
+      },
+    },
+  },
+  {
+    id: "high_contrast",
+    label: "High Contrast",
+    description: "Maximaler Kontrast — Barrierefreiheit, Sehschwache.",
+    palette: {
+      dark: {
+        shell: "0 0 0",
+        panel: "16 16 20",
+        "panel-strong": "30 30 38",
+        ink: "255 255 255",
+        muted: "200 204 214",
+        line: "120 124 140",
+        teal: "0 255 200",
+        amber: "255 220 60",
+        coral: "255 100 110",
+        sky: "120 180 255",
+      },
+      light: {
+        shell: "255 255 255",
+        panel: "255 255 255",
+        "panel-strong": "240 240 244",
+        ink: "0 0 0",
+        muted: "60 64 76",
+        line: "120 124 140",
+        teal: "0 110 96",
+        amber: "168 96 0",
+        coral: "190 16 56",
+        sky: "20 64 200",
+      },
+    },
+  },
+];
+
 const STORAGE_MODE = "pbp-theme-mode";
 const STORAGE_CUSTOM = "pbp-theme-custom";
+const STORAGE_PRESET = "pbp-theme-preset";
+
+export function loadPreset() {
+  try {
+    const raw = localStorage.getItem(STORAGE_PRESET);
+    if (!raw) return "default";
+    return THEME_PRESETS.some((p) => p.id === raw) ? raw : "default";
+  } catch {
+    return "default";
+  }
+}
+
+export function savePreset(id) {
+  try { localStorage.setItem(STORAGE_PRESET, id); } catch { /* ignore */ }
+}
+
+export function getPresetPalette(id) {
+  const preset = THEME_PRESETS.find((p) => p.id === id);
+  return preset ? preset.palette : DEFAULT_PALETTE;
+}
 
 export function rgbToHex(rgbString) {
   if (!rgbString) return "#000000";
@@ -98,17 +225,26 @@ export function resolveActiveMode(mode) {
   return "dark";
 }
 
-export function applyTheme(mode, custom) {
+export function applyTheme(mode, custom, presetId) {
   if (typeof document === "undefined") return;
   const active = resolveActiveMode(mode);
   const root = document.documentElement;
   root.setAttribute("data-theme", active);
+  // v1.7.0-beta.57 (#626): Preset-Palette als Basis. Custom-Override
+  // pro Token gewinnt. Wenn presetId nicht gegeben oder "default":
+  // setzen wir keine CSS-Variablen aus Preset, damit die styles.css-
+  // Defaults greifen (Backwards-Compat zur alten Logik).
+  const preset = presetId && presetId !== "default"
+    ? getPresetPalette(presetId)[active] || {}
+    : null;
   const overrides = (custom && custom[active]) || {};
   // alle Token-Overrides setzen, unbenutzte entfernen
   THEME_TOKENS.forEach(({ key }) => {
     const varName = `--color-${key}`;
     if (overrides[key]) {
       root.style.setProperty(varName, overrides[key]);
+    } else if (preset && preset[key]) {
+      root.style.setProperty(varName, preset[key]);
     } else {
       root.style.removeProperty(varName);
     }

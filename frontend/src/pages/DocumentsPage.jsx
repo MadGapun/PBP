@@ -254,20 +254,31 @@ export default function DocumentsPage() {
       </Card>
 
       {/* #537 v1.6.5: Analyse-Banner — sichtbar wenn nicht-analysierte Dokumente vorhanden.
-          Vorher musste der User den Workflow im Dashboard suchen ("Profil ergaenzen") —
-          jetzt direkt im Docs-Tab erreichbar wo die Dokumente liegen. */}
+          v1.7.0-beta.57 (#633): Wording-Polish — User-Feedback "war nicht klar wo die
+          Analyse gestartet wird". Jetzt explizit Step-by-Step. */}
       {data.unanalyzed_count > 0 && (
         <Card className="mb-4 rounded-xl border-violet-500/20 bg-violet-500/[0.06]">
-          <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <Sparkles size={18} className="text-violet-400 shrink-0" />
+          <div className="flex flex-wrap items-start gap-3 px-4 py-3">
+            <Sparkles size={18} className="text-violet-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-[240px]">
               <div className="text-sm font-medium text-ink">
-                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} noch nicht analysiert
+                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} koennen analysiert werden
               </div>
-              <div className="text-xs text-muted/70">
-                Claude extrahiert automatisch Skills, Berufserfahrung, Ausbildung und mehr —
-                je nach Dokumenttyp. Prompt kopieren und in Claude Desktop einfuegen.
+              <div className="text-xs text-muted/70 mt-1 leading-snug">
+                Claude liest deine CVs, Zeugnisse und Anschreiben und extrahiert
+                <strong className="text-ink"> Berufserfahrung, Ausbildung, Skills und Projekte </strong>
+                automatisch ins Profil — du musst nichts manuell tippen.
               </div>
+              <details className="mt-2 text-[11px] text-muted/70">
+                <summary className="cursor-pointer text-muted hover:text-ink">
+                  So gehts (3 Schritte)
+                </summary>
+                <ol className="mt-1.5 ml-4 list-decimal space-y-0.5">
+                  <li>Button rechts klicken — der Analyse-Prompt landet in der Zwischenablage</li>
+                  <li>Wechsle zu Claude Desktop und fuege den Prompt mit <kbd className="px-1 rounded bg-shell/60">Strg+V</kbd> ein</li>
+                  <li>Claude extrahiert die Daten und fragt dich vor jedem Eintrag um Bestaetigung</li>
+                </ol>
+              </details>
             </div>
             <Button
               type="button"
@@ -276,9 +287,9 @@ export default function DocumentsPage() {
               onClick={async () => {
                 await copyPrompt("/profil_erweiterung");
                 pushToast(
-                  "Analyse-Prompt kopiert — in Claude Desktop einfuegen",
+                  "Analyse-Prompt kopiert — jetzt in Claude Desktop einfuegen",
                   "success",
-                  { duration: 3000 }
+                  { duration: 3500 }
                 );
               }}
             >

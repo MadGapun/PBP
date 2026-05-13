@@ -1023,13 +1023,51 @@ export default function ProfilePage() {
   const topDocumentTypes = Object.entries(documentTypeCounts)
     .sort(([, leftCount], [, rightCount]) => Number(rightCount) - Number(leftCount))
     .slice(0, 4);
+  // v1.7.0-beta.57 (#633): Klarere Erklaerungen je Slider mit konkretem
+  // Score-Effekt-Beispiel (User-Feedback "Gewichtung war anfangs nicht klar").
   const weightingCards = [
-    { label: "MUSS", key: "gewichtung_muss", chip: "Pflicht", desc: "Harte Kriterien mit höchster Priorität.", color: "teal" },
-    { label: "PLUS", key: "gewichtung_plus", chip: "Bonus", desc: "Zusatzpunkte für passende Bonuskriterien.", color: "sky" },
-    { label: "Remote", key: "gewichtung_remote", chip: "Modus", desc: "Gewichtung für Homeoffice und Hybrid.", color: "sky" },
-    { label: "Nähe", key: "gewichtung_naehe", chip: "Standort", desc: "Fokus auf Pendel- und Präsenztreffer.", color: "teal" },
-    { label: "Fern-Malus", key: "gewichtung_fern_malus", chip: "Abzug", desc: "Höherer Wert = stärkerer Abzug bei Distanz.", color: "coral" },
-    { label: "Gehalt", key: "gewichtung_gehalt", chip: "Vergütung", desc: "Gehaltsangaben stärker ins Ranking einbeziehen.", color: "amber" },
+    {
+      label: "MUSS-Kriterium",
+      key: "gewichtung_muss",
+      chip: "Pflicht",
+      desc: "Harte Anforderungen aus deinem Profil. MUSS=5: Stelle ohne dieses Skill bekommt einen deutlichen Score-Abzug. MUSS=0: das Kriterium ist für das Ranking irrelevant.",
+      color: "teal",
+    },
+    {
+      label: "PLUS-Punkte",
+      key: "gewichtung_plus",
+      chip: "Bonus",
+      desc: "Nice-to-have-Skills. Höherer Wert = mehr Score-Bonus pro Match. Wirkt nur additiv, blockt nichts.",
+      color: "sky",
+    },
+    {
+      label: "Remote",
+      key: "gewichtung_remote",
+      chip: "Modus",
+      desc: "Wie stark Remote-/Hybrid-Stellen aufgewertet werden. Hoch = Remote-Stellen rutschen nach oben, auch wenn andere Kriterien schwächer matchen.",
+      color: "sky",
+    },
+    {
+      label: "Nähe",
+      key: "gewichtung_naehe",
+      chip: "Standort",
+      desc: "Wie stark Stellen in Pendel-Nähe (< 50 km) aufgewertet werden. Bei Vor-Ort-Präferenz hoch setzen.",
+      color: "teal",
+    },
+    {
+      label: "Fern-Malus",
+      key: "gewichtung_fern_malus",
+      chip: "Abzug",
+      desc: "Score-Abzug bei Distanz > 200 km (ohne Remote-Option). Hoch = ferne Stellen sind quasi unsichtbar. 0 = Distanz egal.",
+      color: "coral",
+    },
+    {
+      label: "Gehalt",
+      key: "gewichtung_gehalt",
+      chip: "Vergütung",
+      desc: "Wie stark Gehaltsangaben in der Ausschreibung ins Ranking einfliessen. Stellen ohne Gehaltsangabe werden dadurch nicht bestraft.",
+      color: "amber",
+    },
   ];
 
   const normalizeWeight = (value) => {
@@ -1325,6 +1363,15 @@ export default function ProfilePage() {
               <p className="mt-1 text-xs text-muted/40">Entfernung beeinflusst den Fit-Score als Malus. Freelance hat standardmaessig eine hoehere Toleranz.</p>
             </Field>
 
+            {/* v1.7.0-beta.57 (#633): Erklaerung was die Gewichtung ueberhaupt tut. */}
+            <div className="mt-2 rounded-xl border border-sky/20 bg-sky/[0.05] p-3 text-[12px] text-muted/80">
+              <p className="leading-snug">
+                <strong className="text-ink">Wie das Scoring funktioniert:</strong>{" "}
+                Jede gefundene Stelle bekommt einen Score von 0-100. Diese Regler bestimmen,
+                wie stark einzelne Faktoren ins Ranking einfliessen. Hoeher = wichtiger.
+                Wert auf 0 = Faktor wird ignoriert. Mouse-over auf den Label-Text fuer Details.
+              </p>
+            </div>
             <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
               {weightingCards.map((card) => renderWeightRow(card))}
             </div>

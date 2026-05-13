@@ -32,8 +32,11 @@ import {
   DEFAULT_PALETTE,
   loadCustom,
   loadMode,
+  loadPreset,
   saveCustom,
   saveMode,
+  savePreset,
+  THEME_PRESETS,
 } from "@/theme";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
@@ -327,10 +330,12 @@ export default function App() {
   const [reloadKey, setReloadKey] = useState(0);
   const [themeMode, setThemeModeState] = useState(() => loadMode());
   const [themeCustom, setThemeCustomState] = useState(() => loadCustom());
+  // v1.7.0-beta.57 (#626): Aktiver Theme-Preset (default = "default")
+  const [themePreset, setThemePresetState] = useState(() => loadPreset());
 
   useEffect(() => {
-    applyTheme(themeMode, themeCustom);
-  }, [themeMode, themeCustom]);
+    applyTheme(themeMode, themeCustom, themePreset);
+  }, [themeMode, themeCustom, themePreset]);
 
   // v1.7.0-beta.45 (#623): Wiki-Hint pro Page-Mount triggern.
   // Backend deduppt per Profil/Route/Tag — wir feuern bei jedem
@@ -347,7 +352,7 @@ export default function App() {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
     const media = window.matchMedia("(prefers-color-scheme: light)");
     const handler = () => {
-      if (themeMode === "system") applyTheme("system", themeCustom);
+      if (themeMode === "system") applyTheme("system", themeCustom, themePreset);
     };
     if (media.addEventListener) media.addEventListener("change", handler);
     else media.addListener(handler);
@@ -391,6 +396,17 @@ export default function App() {
     saveMode("system");
     setThemeCustomState({ light: {}, dark: {} });
     saveCustom({ light: {}, dark: {} });
+    setThemePresetState("default");
+    savePreset("default");
+  }
+
+  // v1.7.0-beta.57 (#626): Preset auswaehlen — wischt Custom-Overrides
+  // BEWUSST NICHT, damit User auf Preset-Basis weiter feinjustieren
+  // koennen. Reset-Buttons im Settings-UI raeumen die Overrides explizit.
+  function setThemePreset(presetId) {
+    const valid = THEME_PRESETS.some((p) => p.id === presetId) ? presetId : "default";
+    setThemePresetState(valid);
+    savePreset(valid);
   }
   const [chrome, setChrome] = useState({
     loading: true,
@@ -1040,6 +1056,10 @@ export default function App() {
     resetThemeMode,
     resetAllTheme,
     defaultPalette: DEFAULT_PALETTE,
+    // v1.7.0-beta.57 (#626): Theme-Presets
+    themePreset,
+    setThemePreset,
+    themePresets: THEME_PRESETS,
   };
 
   // #508: Sidebar-Badges fuer alle Bereiche

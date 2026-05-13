@@ -138,6 +138,13 @@ export default function GlobalDocumentDropZone({ hasActiveProfile, profileName, 
 
     async function onWindowDrop(event) {
       if (!isFileDragEvent(event)) return;
+      // #628: Wenn eine Page-Drop-Zone den Drop bereits verarbeitet hat
+      // (preventDefault + stopPropagation), nicht doppelt hochladen.
+      // Der defaultPrevented-Check faengt das Sub-Tree-Handling.
+      if (event.defaultPrevented) {
+        hideOverlay();
+        return;
+      }
       event.preventDefault();
       hideOverlay();
       const files = await extractDroppedFiles(event.dataTransfer);

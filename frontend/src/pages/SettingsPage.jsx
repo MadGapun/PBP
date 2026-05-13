@@ -24,6 +24,9 @@ function ThemeEditor() {
     resetThemeMode,
     resetAllTheme,
     defaultPalette,
+    themePreset,
+    setThemePreset,
+    themePresets,
     pushToast,
   } = useApp();
   const [expanded, setExpanded] = useState(null); // "light" | "dark" | null
@@ -35,7 +38,13 @@ function ThemeEditor() {
   ];
 
   function renderPaletteEditor(mode) {
-    const defaults = defaultPalette[mode];
+    // v1.7.0-beta.57 (#626): Aktiver Preset ist die Basis fuer "current"
+    // und fuer die Color-Picker-Vorbelegung. Bei "default" greifen die
+    // klassischen DEFAULT_PALETTE-Werte.
+    const presetObj = themePresets.find((p) => p.id === themePreset);
+    const defaults = (presetObj && presetObj.id !== "default")
+      ? (presetObj.palette[mode] || defaultPalette[mode])
+      : defaultPalette[mode];
     const overrides = (themeCustom && themeCustom[mode]) || {};
     return (
       <div className="mt-3 grid gap-3 rounded-xl border border-line/40 bg-shell/40 p-4">
@@ -133,6 +142,55 @@ function ThemeEditor() {
             </button>
           );
         })}
+      </div>
+
+      {/* v1.7.0-beta.57 (#626): Vorbelegte Farb-Schemen */}
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/70">
+          Farb-Schema
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {themePresets.map((preset) => {
+            const active = themePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  setThemePreset(preset.id);
+                  pushToast(`Farb-Schema: ${preset.label}`, "success",
+                    { duration: 2200 });
+                }}
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  active
+                    ? "border-teal/40 bg-teal/10 text-ink"
+                    : "border-line/40 bg-shell/40 text-muted hover:text-ink hover:border-line/60"
+                }`}
+                title={preset.description}
+              >
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  {/* Mini-Palette als Vorschau */}
+                  {["teal", "amber", "coral", "sky"].map((tk) => (
+                    <span
+                      key={tk}
+                      className="h-3 w-3 rounded-full border border-white/10"
+                      style={{ background: `rgb(${preset.palette.dark[tk]})` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm font-medium leading-tight">{preset.label}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted/60">
+                  {preset.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] text-muted/60">
+          Ein Schema setzt alle Farben fuer Hell + Dunkel auf einmal.
+          Einzelne Tokens lassen sich darunter weiter individuell anpassen
+          (Custom-Override pro Token).
+        </p>
       </div>
 
       <div className="grid gap-2">

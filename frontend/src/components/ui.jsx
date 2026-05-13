@@ -367,6 +367,14 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
               ...pos,
               background: "rgba(30, 34, 52, 0.95)",
               maxHeight: "14rem",
+              // #629: verhindert dass Mausrad die Page mit-scrollt wenn das
+              // Dropdown sein Scroll-Limit erreicht hat (overscroll-bubble).
+              overscrollBehavior: "contain",
+            }}
+            onWheel={(e) => {
+              // Defensive zusaetzlich zu overscroll-behavior: stoppt Bubbling
+              // an Browser/Kontexten die overscroll-behavior nicht honorieren.
+              e.stopPropagation();
             }}
           >
             <div className="p-1">
