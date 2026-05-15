@@ -4189,6 +4189,70 @@ class Database:
         )
         conn.commit()
 
+    def update_application_event_date(
+        self,
+        event_id: int,
+        new_date: str,
+        app_id: str | None = None,
+    ) -> dict:
+        """v1.7.0-beta.60 (#631): Status-Wechsel-Datum nachtraeglich korrigieren.
+
+        Akzeptiert YYYY-MM-DD oder ISO-Timestamp. Liefert dict mit
+        old_date / new_date / status zurueck (oder fehler-dict).
+        """
+        from datetime import datetime as _dt
+        if not new_date:
+            return {"fehler": "new_date ist Pflicht."}
+        # Normalisierung: YYYY-MM-DD oder ISO. Bei reinem Datum Mittag setzen
+        # damit timezone-sensitive Auswertung stabil ist.
+        normalized = None
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%Y-%m-%dT%H:%M:%S",
+                    "%Y-%m-%dT%H:%M:%S.%f"):
+            try:
+                parsed = _dt.strptime(new_date, fmt)
+                if fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+                    parsed = parsed.replace(hour=12)
+                normalized = parsed.isoformat()
+                break
+            except ValueError:
+                continue
+        if not normalized:
+            try:
+                normalized = _dt.fromisoformat(
+                    new_date.replace("Z", "+00:00")
+                ).isoformat()
+            except (ValueError, AttributeError):
+                return {
+                    "fehler": f"Datum '{new_date}' nicht erkannt. "
+                              "Erwartet YYYY-MM-DD oder DD.MM.YYYY."
+                }
+
+        conn = self.connect()
+        # Eventuell Cross-Profile blocken: app_id wenn gegeben muss matchen
+        sql = "SELECT id, application_id, status, event_date FROM application_events WHERE id=?"
+        params: list = [int(event_id)]
+        if app_id is not None:
+            sql += " AND application_id=?"
+            params.append(app_id)
+        row = conn.execute(sql, params).fetchone()
+        if not row:
+            return {"fehler": "Event nicht gefunden."}
+
+        old_date = row["event_date"]
+        conn.execute(
+            "UPDATE application_events SET event_date=? WHERE id=?",
+            (normalized, int(event_id)),
+        )
+        conn.commit()
+        return {
+            "status": "ok",
+            "event_id": int(event_id),
+            "application_id": row["application_id"],
+            "event_status": row["status"],
+            "old_date": old_date,
+            "new_date": normalized,
+        }
+
     def delete_application_event(self, event_id: int, app_id: str):
         """Delete a single event (only 'notiz' type should be deletable)."""
         conn = self.connect()

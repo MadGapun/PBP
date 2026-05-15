@@ -218,9 +218,16 @@ export default function Sidebar({
         </ul>
       </nav>
 
-      {/* Footer-Slot — z.B. JobsucheStatusBadge (beta.30) */}
+      {/* Footer-Slot — z.B. JobsucheStatusBadge + Elwosa-Chat.
+          v1.7.0-beta.60 (#625): Footer-Slot wird gecapped (max 42vh) und
+          schrumpft wenn die nav-Liste mehr Platz braucht. Innen scrollt
+          Elwosa wie gewohnt. Vorher konnte Elwosa bis 60vh werden und das
+          Hauptmenue verdraengen. */}
       {!visualCollapsed && footerSlot ? (
-        <div className="border-t border-white/8 px-3 py-2">
+        <div
+          className="border-t border-white/8 px-3 py-2 flex-shrink min-h-0 max-h-[42vh] overflow-y-auto"
+          style={{ flexShrink: 1 }}
+        >
           {footerSlot}
         </div>
       ) : null}

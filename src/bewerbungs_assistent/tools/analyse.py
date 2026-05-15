@@ -9,7 +9,7 @@ from pathlib import Path
 
 def register(mcp, db, logger):
     """Register all 9 analysis/KI-feature tools."""
-    from . import ki_gate
+    from . import ki_gate, get_recent_tool_calls, get_slow_tool_calls
 
     @mcp.tool()
     def gehalt_extrahieren(job_hash: str) -> dict:
@@ -1806,4 +1806,75 @@ def register(mcp, db, logger):
             "status": "gespeichert",
             "geaendert": fields,
             "features": cfg,
+        }
+
+    # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
+
+    @mcp.tool()
+    def pbp_mcp_diagnose(
+        limit: int = 30,
+        nur_langsame: bool = False,
+        threshold_sec: float = 5.0,
+    ) -> dict:
+        """Liefert MCP-Tool-Call-Telemetrie fuer Diagnose von Hangern/Timeouts.
+
+        Use Case: Wenn ein Tool im Claude Desktop in einen 4-Minuten-Timeout
+        laeuft, hilft dieses Tool zu sehen ob der Server den Tool-Call ueberhaupt
+        empfangen und verarbeitet hat — und wie lange er dafuer brauchte.
+
+        Liefert:
+        - Liste der letzten N Tool-Calls (neueste zuerst) mit Dauer + Status
+        - Optional gefiltert auf langsame Calls (Default: >= 5 Sek)
+        - Aktuelle Server-PID + Plattform-Info
+
+        Args:
+            limit: Max Anzahl Calls (Default 30, max 200)
+            nur_langsame: True = nur Calls >= threshold_sec
+            threshold_sec: Schwelle fuer "langsam" (Default 5.0)
+        """
+        import os as _os
+        import platform as _pf
+        import sys as _sys
+        from .. import __version__
+
+        limit = max(1, min(int(limit or 30), 200))
+        if nur_langsame:
+            calls = get_slow_tool_calls(limit, threshold_sec)
+        else:
+            calls = get_recent_tool_calls(limit)
+
+        # Stats
+        ok_count = sum(1 for c in calls if c.get("status") == "ok")
+        fehler_count = sum(1 for c in calls if c.get("status") == "fehler")
+        exception_count = sum(1 for c in calls if c.get("status") == "exception")
+
+        # Convert "at" timestamps to readable
+        from datetime import datetime
+        for c in calls:
+            try:
+                c["at_iso"] = datetime.fromtimestamp(c["at"]).isoformat(timespec="seconds")
+            except Exception:
+                c["at_iso"] = str(c.get("at", ""))
+
+        return {
+            "status": "ok",
+            "server_pid": _os.getpid(),
+            "pbp_version": __version__,
+            "python_version": _sys.version.split()[0],
+            "platform": _pf.platform(),
+            "tool_calls": calls,
+            "stats": {
+                "anzahl": len(calls),
+                "ok": ok_count,
+                "fehler": fehler_count,
+                "exception": exception_count,
+                "langsame_threshold_sec": threshold_sec,
+            },
+            "hinweis": (
+                "Wenn ein Tool in Claude Desktop timeout, aber HIER nicht "
+                "auftaucht: der MCP-Server hat den Aufruf nie empfangen "
+                "(Transport-Problem). Wenn es auftaucht mit hoher Dauer: "
+                "der Tool-Code selbst haengt — bitte Issue mit den "
+                "args_summary-Daten oeffnen."
+            ),
         }

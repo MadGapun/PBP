@@ -2574,6 +2574,26 @@ async def api_delete_note(app_id: str, event_id: int):
     return {"status": "ok"}
 
 
+@app.put("/api/applications/{app_id}/events/{event_id}/date")
+async def api_update_event_date(app_id: str, event_id: int, request: Request):
+    """v1.7.0-beta.60 (#631): Status-Wechsel-Datum nachtraeglich korrigieren.
+
+    Body: { "event_date": "YYYY-MM-DD" } oder ISO-Timestamp.
+    """
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    data = await request.json()
+    new_date = (data.get("event_date") or data.get("new_date") or "").strip()
+    if not new_date:
+        return JSONResponse(
+            {"error": "event_date ist Pflicht (YYYY-MM-DD)"}, status_code=400,
+        )
+    result = _db.update_application_event_date(event_id, new_date, app_id=app_id)
+    if "fehler" in result:
+        return JSONResponse({"error": result["fehler"]}, status_code=400)
+    return result
+
+
 @app.post("/api/applications/{app_id}/snapshot")
 async def api_snapshot_description(app_id: str, request: Request):
     """Fetch job description from URL and save as snapshot (#124).
@@ -8797,6 +8817,71 @@ async def api_llm_status():
         "selected_model": s.selected_model,
         "user_state": s.user_state,
         "error": s.error,
+    }
+
+
+@app.post("/api/llm/start")
+async def api_llm_start():
+    """v1.7.0-beta.60 (#637): Versucht Ollama als Detached-Subprocess zu spawnen.
+
+    Use Case: Lokale KI wurde via Taskmanager / Reboot gestoppt. PBP zeigt
+    'nicht erreichbar', aber der User hat keinen Weg das aus dem Dashboard
+    heraus zu starten. Dieses Endpoint spawnt `ollama serve` als
+    losgeloesten Prozess (Crash von PBP killed Ollama nicht).
+
+    Pollt nicht selbst — Frontend prueft via /api/llm/status nach.
+    """
+    import subprocess
+    import platform as _pf
+    from .services.llm_service import get_llm_service
+
+    svc = get_llm_service(_db)
+    s = svc.get_status(force_refresh=True)
+    if s.ollama_available:
+        return {"status": "already_running", "endpoint": s.ollama_endpoint}
+
+    try:
+        kwargs = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+        }
+        if _pf.system() == "Windows":
+            # DETACHED_PROCESS = 0x00000008
+            # CREATE_NEW_PROCESS_GROUP = 0x00000200
+            # → Ollama lebt weiter wenn PBP-Server killed wird
+            kwargs["creationflags"] = 0x00000008 | 0x00000200
+        else:
+            kwargs["start_new_session"] = True
+        proc = subprocess.Popen(["ollama", "serve"], **kwargs)
+    except FileNotFoundError:
+        return JSONResponse(
+            {
+                "status": "not_installed",
+                "error": "Ollama-Binary nicht im PATH gefunden.",
+                "hilfe_url": "https://ollama.com/download",
+                "hinweis": (
+                    "Lade Ollama von ollama.com/download herunter. Nach "
+                    "Installation startet es automatisch — dieser Button "
+                    "wird dann ueberfluessig."
+                ),
+            },
+            status_code=404,
+        )
+    except OSError as exc:
+        return JSONResponse(
+            {"status": "error", "error": f"Spawn fehlgeschlagen: {exc}"},
+            status_code=500,
+        )
+
+    return {
+        "status": "starting",
+        "pid": proc.pid,
+        "hinweis": (
+            "Ollama wurde gestartet. Status wird in den naechsten "
+            "10-30 Sekunden auf 'verfuegbar' wechseln. Pruefe via "
+            "/api/llm/status."
+        ),
     }
 
 

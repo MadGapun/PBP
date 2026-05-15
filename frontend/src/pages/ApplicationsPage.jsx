@@ -115,6 +115,9 @@ export default function ApplicationsPage() {
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState("");
+  // v1.7.0-beta.60 (#631): Inline-Edit fuer Status-Wechsel-Datum
+  const [editingDateEventId, setEditingDateEventId] = useState(null);
+  const [editingDateValue, setEditingDateValue] = useState("");
   const [docSearchQuery, setDocSearchQuery] = useState("");
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
@@ -324,6 +327,29 @@ export default function ApplicationsPage() {
       pushToast("Notiz gelöscht.", "success");
     } catch (error) {
       pushToast(`Notiz konnte nicht gelöscht werden: ${error.message}`, "danger");
+    }
+  }
+
+  // v1.7.0-beta.60 (#631): Status-Wechsel-Datum nachtraeglich aenderbar.
+  async function updateEventDate(eventId) {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    const newDate = (editingDateValue || "").trim();
+    if (!newDate) {
+      pushToast("Bitte ein Datum eingeben.", "danger");
+      return;
+    }
+    try {
+      await putJson(
+        `/api/applications/${appId}/events/${eventId}/date`,
+        { event_date: newDate },
+      );
+      setEditingDateEventId(null);
+      setEditingDateValue("");
+      await reloadTimeline(appId);
+      pushToast("Event-Datum korrigiert.", "success");
+    } catch (error) {
+      pushToast(`Datum konnte nicht aktualisiert werden: ${error.message}`, "danger");
     }
   }
 
@@ -1505,7 +1531,52 @@ export default function ApplicationsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <Badge tone={statusTone(event.status || event.event_type)}>{event.status || event.event_type || "notiz"}</Badge>
-                    <p className="text-[12px] text-muted/50">{formatDateTime(event.event_date)}</p>
+                    {/* v1.7.0-beta.60 (#631): Inline-Edit fuer Event-Datum */}
+                    {editingDateEventId === event.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="date"
+                          value={editingDateValue}
+                          onChange={(e) => setEditingDateValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") updateEventDate(event.id);
+                            if (e.key === "Escape") setEditingDateEventId(null);
+                          }}
+                          className="text-[12px] px-1 py-0.5 rounded bg-shell/60 border border-line/40 text-ink"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          className="text-teal hover:text-teal/80"
+                          onClick={() => updateEventDate(event.id)}
+                          title="Datum speichern"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="text-muted hover:text-ink"
+                          onClick={() => setEditingDateEventId(null)}
+                          title="Abbrechen"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-[12px] text-muted/50 hover:text-ink hover:underline cursor-pointer"
+                        onClick={() => {
+                          setEditingDateEventId(event.id);
+                          // ISO -> YYYY-MM-DD
+                          const iso = event.event_date || "";
+                          setEditingDateValue(iso.slice(0, 10));
+                        }}
+                        title="Datum aendern"
+                      >
+                        {formatDateTime(event.event_date)}
+                      </button>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     {editingNoteId === event.id ? (

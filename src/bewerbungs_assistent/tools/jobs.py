@@ -18,7 +18,7 @@ _MANUAL_SOURCES = {
 
 def register(mcp, db, logger):
     """Registriert Jobsuche-Tools."""
-    from . import ki_gate
+    from . import ki_gate, time_tool
 
     @mcp.tool()
     def jobsuche_starten(
@@ -406,6 +406,7 @@ def register(mcp, db, logger):
         ))
 
     @mcp.tool()
+    @time_tool(logger, "stelle_bewerten")
     def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
@@ -503,6 +504,7 @@ def register(mcp, db, logger):
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
     @mcp.tool()
+    @time_tool(logger, "stellen_bulk_bewerten")
     def stellen_bulk_bewerten(
         bewertung: str,
         grund: str = "",

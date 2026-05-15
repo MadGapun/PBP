@@ -37,12 +37,13 @@ def test_jump_to_bottom_button_with_unread_count():
 
 
 def test_adaptive_height_replaces_fixed_max_height():
-    """min-h-[150px] und max-h-[60vh] (oder vergleichbar) statt
-    starrem max-h-[260px]."""
+    """Adaptive Hoehe statt starrem Pixel-Wert.
+    v1.7.0-beta.60 (#625): Reduziert auf min-h-[100px] / max-h-[32vh]
+    damit das Hauptmenue oben Vorrang hat. Vorher 150px / 60vh."""
     src = SIDEBAR_CHAT.read_text(encoding="utf-8")
-    # Alte fixe Hoehe darf nicht mehr da sein im scrollbaren Container
-    assert "min-h-[150px]" in src
-    assert "60vh" in src or "70vh" in src or "500px" in src or "600px" in src
+    # Mindestgroesse + relative Maxgroesse (vh) muessen da sein
+    assert "min-h-[100px]" in src or "min-h-[150px]" in src
+    assert any(token in src for token in ("32vh", "40vh", "60vh", "70vh"))
 
 
 def test_action_link_routing_in_app_jsx():

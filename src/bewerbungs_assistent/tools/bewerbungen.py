@@ -254,8 +254,38 @@ def _get_context_actions(status: str) -> dict:
 
 def register(mcp, db, logger):
     """Registriert Bewerbungs-Tools."""
+    from . import time_tool
 
     @mcp.tool()
+    @time_tool(logger, "bewerbung_event_datum_setzen")
+    def bewerbung_event_datum_setzen(
+        event_id: int,
+        neues_datum: str,
+        bewerbung_id: str = "",
+    ) -> dict:
+        """v1.7.0-beta.60 (#631): Korrigiert das Datum eines Status-Wechsel-Events.
+
+        Use Case: User hat den Status erst spaeter eingetragen als die
+        eigentliche Aenderung passiert ist (z.B. heute 'abgelehnt' geklickt,
+        aber Absage kam am 2026-04-15). Mit diesem Tool laesst sich das
+        Event-Datum nachtraeglich korrigieren — Statistik (Reaktionszeit etc)
+        wird damit korrekt.
+
+        Args:
+            event_id: ID des Events (siehe `bewerbung_details` -> events)
+            neues_datum: YYYY-MM-DD oder DD.MM.YYYY oder ISO-Timestamp
+            bewerbung_id: Optional — Cross-Profile-Schutz (wenn gesetzt, muss
+                der Event zur angegebenen Bewerbung gehoeren)
+        """
+        result = db.update_application_event_date(
+            event_id=event_id,
+            new_date=neues_datum,
+            app_id=(bewerbung_id or None),
+        )
+        return result
+
+    @mcp.tool()
+    @time_tool(logger, "bewerbung_erstellen")
     def bewerbung_erstellen(
         title: str,
         company: str,
@@ -548,6 +578,7 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    @time_tool(logger, "bewerbung_status_aendern")
     def bewerbung_status_aendern(
         bewerbung_id: str,
         neuer_status: str,
@@ -848,6 +879,7 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    @time_tool(logger, "bewerbung_bearbeiten")
     def bewerbung_bearbeiten(
         bewerbung_id: str,
         title: str = "",

@@ -16,6 +16,143 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.60] - 2026-05-14 — User-Test-Quartet: Sidebar + MCP-Diagnose + Datums-Editing + Ollama-Start (#625 + #636 + #631 + #637)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Vier zusammenhaengende Quality-of-Life-Aenderungen aus der laufenden
+User-Test-Schleife.
+
+### 🐛 #625 Sidebar: Hauptmenue von Elwosa-Panel verdraengt
+
+Bei expandierten Sub-Menues (z.B. Kalender) wurde das obere Hauptmenue
+vom darunterliegenden Elwosa-Panel teilweise ueberlagert. Fix:
+
+- `Sidebar.jsx` Footer-Slot: `flex-shrink min-h-0 max-h-[42vh] overflow-y-auto`
+  — schrumpft wenn die nav mehr Platz braucht, scrollt intern statt
+  ueberzulaufen
+- `ElwosaSidebarChat.jsx`: max-h-[60vh] -> max-h-[32vh],
+  min-h-[150px] -> min-h-[100px]
+
+### ✨ #636 MCP-Tool-Telemetrie fuer Hang/Timeout-Diagnose
+
+Nach #635 (Response-Timeout in Doku-Pipeline) gibt es jetzt einen
+generischen `time_tool`-Decorator und ein neues MCP-Tool:
+
+- **`time_tool(logger, name)`** Decorator (in `tools/__init__.py`):
+  - misst Dauer jedes Tool-Calls
+  - schreibt Eintrag in Ringbuffer (200 Calls)
+  - loggt WARNING bei Slow-Calls (>= 5s)
+  - kennzeichnet Status als `ok` / `fehler` / `exception`
+- **`pbp_mcp_diagnose`** MCP-Tool: liefert die letzten N Tool-Calls
+  (oder nur langsame), Server-PID, PBP/Python-Version, Plattform.
+  Hilft zu unterscheiden ob ein Timeout am Tool-Code liegt (Call ist
+  im Buffer mit hoher Dauer) oder am Transport (Call ist gar nicht
+  da).
+
+Decorator erstmal angewendet auf Hot-Path-Tools die in Issue-Reports
+auftauchten: `bewerbung_erstellen`, `bewerbung_status_aendern`,
+`bewerbung_bearbeiten`, `stelle_bewerten`, `stellen_bulk_bewerten`.
+Weitere Tools koennen mit minimalem Boilerplate folgen.
+
+### ✨ #631 Status-Wechsel-Datum nachtraeglich aenderbar
+
+`applied_at` (Bewerbungsdatum) war bereits editierbar (#529). Was
+fehlte: Datum von Status-Wechsel-Events ("abgelehnt am",
+"interview am" etc) konnte nicht korrigiert werden, wenn der User
+den Status erst spaeter eintraegt als die eigentliche Aenderung
+passiert ist.
+
+- **DB-Methode** `update_application_event_date(event_id, new_date,
+  app_id)` mit Date-Normalisierung (akzeptiert YYYY-MM-DD,
+  DD.MM.YYYY, ISO-Timestamp)
+- **REST-Endpoint** `PUT /api/applications/:appId/events/:eventId/date`
+- **MCP-Tool** `bewerbung_event_datum_setzen(event_id, neues_datum,
+  bewerbung_id)`
+- **Frontend** Inline-Edit in der Bewerbungs-Timeline (Klick aufs
+  Event-Datum oeffnet `<input type="date">`, Enter speichert,
+  Escape bricht ab)
+
+### ✨ #637 Lokale KI (Ollama) aus PBP heraus starten
+
+Wenn Ollama via Taskmanager / Reboot / `taskkill` gestoppt wurde, gab
+es bisher keinen Weg, sie aus dem Dashboard heraus wieder zu starten —
+der User musste manuell in die Konsole.
+
+- **Neuer Endpoint** `POST /api/llm/start` spawnt `ollama serve` als
+  **Detached-Subprocess** (Crash von PBP killed Ollama nicht).
+  - Windows: `creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`
+  - macOS/Linux: `start_new_session=True`
+  - Bei `FileNotFoundError` (Ollama-Binary nicht im PATH) -> 404 mit
+    klarer Fehlermeldung + Link zu ollama.com/download
+  - Bei `already_running` -> 200 ohne Spawn-Versuch
+- **Frontend**: Im Settings-Tab "Lokale KI", wenn `ui_state ==
+  not_installed`, jetzt zwei Sektionen:
+  1. **"Vielleicht nur gestoppt?"** mit Button "Ollama starten" —
+     spawnt + pollt 30s lang (alle 2s) ob Status auf `available` wechselt
+  2. Bisherige "Noch nicht installiert?"-Sektion mit Download-Link
+     bleibt darunter
+
+Stufe 2 (Auto-Restart aus dem Heartbeat) und Stufe 3 (PBP-Lifecycle-
+Integration) sind im Issue dokumentiert und folgen spaeter.
+
+### Tests
+
+- 16 neue Tests (`test_v170_beta60_trio.py`):
+  Decorator-Tracking (ok/fehler/exception/slow), pbp_mcp_diagnose,
+  Date-Update DB-Layer (DE/ISO Format, unbekannte Event-IDs),
+  MCP-Tool, REST-Endpoint, Ollama-Start (already_running /
+  not_installed / spawned)
+- `test_v170_beta48_elwosa_ux.py` an neue Sidebar-Hoehen angepasst
+- `test_mcp_registry.py` aktualisiert (151 statt 149 Tools,
+  +`pbp_mcp_diagnose`, +`bewerbung_event_datum_setzen`)
+- 1356 / 1356 gruen
+
+### Migration / Breaking Changes
+
+Keine. Alles additiv. Decorator wraps existing tools transparent.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.60.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.60.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.59] - 2026-05-13 — MCP-Timeout in Doku-Analyse-Pipeline (#635)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

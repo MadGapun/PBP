@@ -471,14 +471,14 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
       </div>
 
       {/* v1.7.0-beta.48 (#611): Adaptive Hoehe + Sticky-Bottom-Scroll.
-          min-h: garantierte Mindestgroesse. max-h: 60vh begrenzt nach
-          oben damit der Sidebar-Footer (Versions-Block) sichtbar bleibt.
-          relative fuer den Indicator-Button. */}
+          v1.7.0-beta.60 (#625): max-h auf 32vh reduziert + min-h auf 100px,
+          damit das Hauptmenue oben Vorrang hat. Der umgebende Sidebar-Footer
+          cappt zusaetzlich auf 42vh und scrollt wenn noetig. */}
       <div className="relative">
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="space-y-2 min-h-[150px] max-h-[60vh] overflow-y-auto pr-1"
+          className="space-y-2 min-h-[100px] max-h-[32vh] overflow-y-auto pr-1"
         >
           {messages.length === 0 && (
             <p className="text-[10px] text-muted/40 italic">

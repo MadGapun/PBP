@@ -177,6 +177,10 @@ EXPECTED_TOOL_NAMES = {
     # v1.7.0-beta.56 (#425): Granulare KI-Steuerung
     "ki_features_lesen",
     "ki_features_setzen",
+    # v1.7.0-beta.60 (#636): MCP-Tool-Telemetrie fuer Hang/Timeout-Diagnose
+    "pbp_mcp_diagnose",
+    # v1.7.0-beta.60 (#631): Status-Wechsel-Datum nachtraeglich aenderbar
+    "bewerbung_event_datum_setzen",
 }
 
 EXPECTED_PROMPT_NAMES = {
@@ -278,7 +282,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 149  # v1.7.0-beta.56 (#425): + ki_features_lesen/setzen
+        assert len(tools) == 151  # v1.7.0-beta.60: + pbp_mcp_diagnose, + bewerbung_event_datum_setzen
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

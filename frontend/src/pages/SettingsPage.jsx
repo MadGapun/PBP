@@ -1256,17 +1256,72 @@ function LocalAITab({ pushToast }) {
     }
   }
 
-  // ── Variante A: nicht installiert ─────────────────────────────────
+  // ── Variante A: nicht installiert / nicht erreichbar ──────────────
   if (status.ui_state === "not_installed") {
     return (
       <Card className="rounded-2xl">
         <div className="mb-4">
           <h2 className="text-base font-semibold text-ink">Lokale KI</h2>
-          <p className="text-xs text-muted">Status: Nicht installiert</p>
+          <p className="text-xs text-muted">Status: Nicht erreichbar</p>
+        </div>
+
+        {/* v1.7.0-beta.60 (#637): Versuch Ollama zu starten — wenn nur
+            gestoppt (Taskmanager/Reboot), startet das Backend Ollama als
+            Detached-Subprocess. Wenn nicht installiert, kommt eine klare
+            Fehlermeldung mit Download-Link. */}
+        <div className="glass-card p-4 mb-4 border-sky/20">
+          <h3 className="font-medium text-ink mb-2">Vielleicht nur gestoppt?</h3>
+          <p className="text-sm text-muted/80 mb-3">
+            Wenn Ollama vorher schonmal lief (z.B. nach Reboot oder Taskmanager-Stop),
+            kann PBP versuchen es erneut zu starten — kein manueller Start in der
+            Konsole noetig.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            onClick={async () => {
+              pushToast("Ollama wird gestartet...", "neutral", { duration: 2000 });
+              try {
+                const r = await postJson("/api/llm/start", {});
+                if (r.status === "already_running") {
+                  pushToast("Ollama lief bereits — Status wird neu geladen.", "success");
+                  await reloadStatus();
+                  return;
+                }
+                if (r.status === "starting") {
+                  pushToast("Ollama startet — Status wird in 10-30s aktualisiert.", "success", { duration: 4000 });
+                  // Polling: alle 2s, max 15 Versuche (= 30s)
+                  let attempt = 0;
+                  const poll = setInterval(async () => {
+                    attempt += 1;
+                    await reloadStatus();
+                    const fresh = await api("/api/llm/status");
+                    if (fresh?.ollama_available) {
+                      clearInterval(poll);
+                      pushToast("Ollama ist verbunden.", "success");
+                    } else if (attempt >= 15) {
+                      clearInterval(poll);
+                      pushToast("Status nach 30s noch nicht verbunden — pruefe Logs.", "amber");
+                    }
+                  }, 2000);
+                }
+              } catch (err) {
+                // Backend-Antwort mit not_installed-status hat error-Body
+                const msg = err?.message || String(err);
+                if (msg.includes("not_installed") || msg.includes("404")) {
+                  pushToast("Ollama-Binary nicht gefunden — bitte herunterladen.", "danger", { duration: 5000 });
+                } else {
+                  pushToast(`Start fehlgeschlagen: ${msg}`, "danger");
+                }
+              }
+            }}
+          >
+            Ollama starten
+          </Button>
         </div>
 
         <div className="glass-card p-4 mb-4 border-coral/15">
-          <h3 className="font-medium text-ink mb-2">Was ist das?</h3>
+          <h3 className="font-medium text-ink mb-2">Noch nicht installiert?</h3>
           <p className="text-sm text-muted/80 mb-3">
             Eine lokale KI auf deinem Rechner uebernimmt Routine-Aufgaben fuer PBP — z.B.
             Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren.
@@ -1306,8 +1361,8 @@ function LocalAITab({ pushToast }) {
             Ollama herunterladen → ollama.com/download
           </a>
           <p className="text-[12px] text-muted/60 mt-2">
-            Nach der Installation startet Ollama automatisch. PBP erkennt es dann hier.
-            Anschliessend kannst du unten ein Modell auswaehlen.
+            Nach der Installation startet Ollama automatisch. PBP erkennt es dann hier
+            und du kannst sie kuenftig auch ueber den "Ollama starten"-Button oben re-starten.
           </p>
         </div>
 
