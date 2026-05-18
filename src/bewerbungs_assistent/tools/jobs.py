@@ -1828,6 +1828,19 @@ def register(mcp, db, logger):
                     f"Lokale AI ist im State '{status.user_state}'.",
                     hinweis="Setze State auf 'active' in Einstellungen -> Lokale KI.",
                 )
+            # v1.7.0-beta.62 (#638): Pre-Warmup damit der erste Modell-Call
+            # nicht 50-60s Cold-Load + MCP-Timeout ausloest. Warmup ist
+            # idempotent — bei warmem Modell Millisekunden, bei kaltem max 90s.
+            try:
+                warmup_result = svc.warmup()
+                if warmup_result.get("status") == "warm":
+                    logger.info(
+                        "Ollama-Warmup vor stellen_auto_aussortieren: %.2fs",
+                        warmup_result.get("duration_sec", 0),
+                    )
+            except Exception as warmup_exc:
+                # Warmup-Fehler nicht fatal — falls Bulk-Call durchgeht, ok
+                logger.warning("Warmup-Fehler (ignoriert): %s", warmup_exc)
         except Exception as exc:
             return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
 

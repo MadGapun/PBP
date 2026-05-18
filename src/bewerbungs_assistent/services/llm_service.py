@@ -366,6 +366,11 @@ class LLMService:
 
         Liefert das `response`-Feld als String zurueck. Wirft Exception bei
         Fehler — der Aufrufer muss das fangen.
+
+        v1.7.0-beta.62 (#638): keep_alive=60m schickt Ollama den Hint dass
+        das Modell 60 Minuten lang im RAM gehalten werden soll. Sonst
+        entlaedt Ollama nach 5 Min Inaktivitaet und der naechste Aufruf
+        zahlt 50-60s Cold-Load — was MCP-Timeouts ausloest.
         """
         import json
         import urllib.request
@@ -374,6 +379,7 @@ class LLMService:
             "prompt": prompt,
             "stream": False,
             "options": {"num_predict": max_tokens, "temperature": 0.2},
+            "keep_alive": "60m",  # #638: Modell warm halten
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{self._status.ollama_endpoint}/api/generate",
@@ -384,6 +390,55 @@ class LLMService:
         with urllib.request.urlopen(req, timeout=120.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("response", "")
+
+    def warmup(self, model: str | None = None) -> dict:
+        """v1.7.0-beta.62 (#638): Modell vorab laden um Cold-Load-Latenz zu vermeiden.
+
+        Sendet einen Dummy-Request mit num_predict=1 + keep_alive=60m,
+        damit das Modell sofort verfuegbar ist und 60 Minuten warm bleibt.
+        Idempotent — wenn Modell schon warm, kostet das Millisekunden.
+
+        Aufruf vor Bulk-Operationen (stellen_auto_aussortieren etc) oder
+        regelmaessig aus dem Heartbeat.
+        """
+        import json
+        import time as _t
+        import urllib.request
+        s = self.get_status(force_refresh=False)
+        if not s.ollama_available:
+            return {"status": "no_ollama", "error": s.error or "Ollama nicht erreichbar"}
+        m = model or s.selected_model
+        if not m:
+            return {"status": "no_model"}
+        t0 = _t.time()
+        body = json.dumps({
+            "model": m,
+            "prompt": "ready",
+            "stream": False,
+            "options": {"num_predict": 1, "temperature": 0.0},
+            "keep_alive": "60m",
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{s.ollama_endpoint}/api/generate",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=90.0) as resp:
+                resp.read()
+        except Exception as exc:
+            return {
+                "status": "error",
+                "model": m,
+                "error": f"{type(exc).__name__}: {exc}"[:200],
+                "duration_sec": round(_t.time() - t0, 2),
+            }
+        return {
+            "status": "warm",
+            "model": m,
+            "duration_sec": round(_t.time() - t0, 2),
+        }
 
     def list_models(self) -> list[dict]:
         """Liste der lokal verfuegbaren Ollama-Modelle (mit Metadaten)."""

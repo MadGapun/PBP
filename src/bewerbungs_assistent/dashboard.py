@@ -8785,16 +8785,17 @@ async def api_recap():
 # === Lokale AI Status (v1.7.0 #512, #583) ===
 
 @app.get("/api/llm/status")
-async def api_llm_status():
+async def api_llm_status(refresh: int = 0):
     """Liefert den Status der lokalen AI fuer den Sidebar-Indicator und
     den Settings-Bereich.
 
-    In beta.1 ist nur die Erkennung implementiert — kein echter Aufruf.
-    Echte Ollama-Tasks laufen ab beta.2 los.
+    v1.7.0-beta.62 (#638): Query-Param `?refresh=1` erzwingt einen frischen
+    Check (statt 30s-Cache). Wichtig wenn der User gerade Ollama gestoppt
+    oder gestartet hat und sofort sehen will ob es greift.
     """
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    s = svc.get_status(force_refresh=False)
+    s = svc.get_status(force_refresh=bool(refresh))
     # UI-State aus den Daten ableiten
     if not s.ollama_available:
         ui_state = "not_installed"
@@ -8818,6 +8819,19 @@ async def api_llm_status():
         "user_state": s.user_state,
         "error": s.error,
     }
+
+
+@app.post("/api/llm/warmup")
+async def api_llm_warmup():
+    """v1.7.0-beta.62 (#638): Triggert manuell einen Warmup-Ping an Ollama.
+
+    Nuetzlich vor Bulk-Operationen oder wenn der User merkt dass die naechste
+    Aktion sonst Cold-Load-Verzoegerung haette. Im Normalfall macht der
+    Heartbeat-Loop das automatisch alle 4 Minuten.
+    """
+    from .services.llm_service import get_llm_service
+    svc = get_llm_service(_db)
+    return svc.warmup()
 
 
 @app.post("/api/llm/start")

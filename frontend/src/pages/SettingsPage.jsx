@@ -1194,9 +1194,13 @@ function LocalAITab({ pushToast }) {
   const [pulling, setPulling] = useState(false);
   const [pullModel, setPullModel] = useState(null);
 
-  const reloadStatus = useEffectEvent(async () => {
+  const reloadStatus = useEffectEvent(async (force = false) => {
     try {
-      const data = await api("/api/llm/status");
+      // v1.7.0-beta.62 (#638): force=true bypasst den 30s-Cache und liefert
+      // immer einen frischen Status. Wichtig beim Tab-Mount damit User
+      // nicht 30s lang den Status vor seiner Aktion sieht.
+      const url = force ? "/api/llm/status?refresh=1" : "/api/llm/status";
+      const data = await api(url);
       setStatus(data);
     } catch (err) {
       pushToast(`Lokale-KI-Status: ${err.message}`, "danger");
@@ -1204,7 +1208,9 @@ function LocalAITab({ pushToast }) {
   });
 
   useEffect(() => {
-    reloadStatus();
+    // v1.7.0-beta.62: beim Tab-Mount IMMER force-refresh — User sieht
+    // den echten Status, nicht den 30s-Cache.
+    reloadStatus(true);
     api("/api/llm/recommended-models")
       .then((d) => setRecommended(d?.models || []))
       .catch(() => {});

@@ -16,6 +16,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.62] - 2026-05-14 — Ollama Cold-Start-Fix (#638)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Report (#638): Erster Ollama-Aufruf nach Inaktivitaet kostet
+50-60s Cold-Load → MCP-Timeout schlaegt zu bei `stellen_auto_aussortieren`
+und anderen Bulk-Tools. Ollama entlaedt das Modell nach 5 Minuten
+Inaktivitaet aus dem RAM (Default `keep_alive=5m`).
+
+### ✨ Vier zusammenhaengende Fixes
+
+**1. `keep_alive: 60m` in jedem `/api/generate`-Call**
+- `LLMService._ollama_generate` schickt jetzt `keep_alive=60m` im
+  Payload — Ollama behaelt das Modell 60 Min im RAM
+- Effekt: nach dem ersten Cold-Load bleibt das Modell aktiv solange
+  ueberhaupt Calls reinkommen oder der Warmup-Loop laeuft
+
+**2. Neue `warmup()`-Methode + `/api/llm/warmup`-Endpoint**
+- `LLMService.warmup(model=None)` schickt einen Dummy-Request
+  (`prompt="ready", num_predict=1, keep_alive=60m`)
+- Idempotent: bei warmem Modell Millisekunden, bei kaltem max 90s
+- REST: `POST /api/llm/warmup` macht das Gleiche fuer Frontend
+
+**3. Background-Warmup-Loop**
+- Neuer Thread in `heartbeat.py`: `start_ollama_warmup_loop(db)`
+- Schickt alle 4 Minuten einen Warmup-Ping (Ollama-Default `keep_alive`
+  ist 5 Min → 4 Min Intervall verhindert Entladen)
+- Nur aktiv wenn `user_state == "active"` (bei paused/off keinen RAM blockieren)
+- Wird in `server.py:run_server()` neben dem bestehenden
+  `start_periodic_heartbeat()` gestartet
+
+**4. Pre-Warmup vor `stellen_auto_aussortieren`**
+- Direkt nach dem `ollama_available`-Check wird `svc.warmup()` aufgerufen
+- Wenn das Modell kalt ist, zahlt der User den Cold-Load EINMAL hier
+  (max 90s) statt MCP-Timeout zu riskieren
+
+### ✨ Bonus: Status-Force-Refresh
+
+`GET /api/llm/status?refresh=1` bypasst den 30s-Cache. Frontend nutzt
+das beim Tab-Mount in Settings → Lokale KI — User sieht den echten
+aktuellen Status, nicht 30s alten Cache. Wichtig wenn er gerade Ollama
+gestoppt/gestartet hat und sofort nachsehen will.
+
+### Was du jetzt merken solltest
+
+- `stellen_auto_aussortieren` laeuft auch bei kaltem Modell durch (Warmup
+  vorne dran)
+- Solange Lokale-KI auf `active` steht, bleibt das Modell quasi immer
+  warm (Background-Loop alle 4 Min)
+- Nach `taskkill ollama` und Restart via #637-Button: Status-Anzeige in
+  Settings ist sofort frisch (kein 30s-Wartezimmer mehr)
+
+### Tests
+
+- 8 neue Tests (`test_v170_beta62_ollama_warmup.py`):
+  keep_alive im Payload, warmup() Erfolg/Fehler/Edge-Cases,
+  API-Endpoints, force_refresh-Param, Heartbeat-Loop-Idempotenz
+- 1364 / 1364 gruen
+
+### Migration / Breaking Changes
+
+Keine. Alles additiv. Wenn Ollama nicht laeuft: Loop ist no-op.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.62.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.62.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.61] - 2026-05-14 — Hotfix: Sidebar-Menue hat jetzt wirklich Vorrang (#625)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

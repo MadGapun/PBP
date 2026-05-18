@@ -15,7 +15,7 @@ import functools
 from fastmcp import FastMCP
 
 from .database import Database, get_data_dir
-from .heartbeat import write_heartbeat, start_periodic_heartbeat
+from .heartbeat import write_heartbeat, start_periodic_heartbeat, start_ollama_warmup_loop
 
 # Logging: Datei + stderr (stdout ist für MCP-Protokoll reserviert!)
 from .logging_config import setup_logging
@@ -219,6 +219,10 @@ def run_server():
     write_heartbeat("server_start")
     # #304: Periodischer Heartbeat — Dashboard erkennt ob Server lebt (ohne Tool-Calls)
     start_periodic_heartbeat()
+    # #638 (v1.7.0-beta.62): Ollama-Warmup-Loop — haelt das lokale Modell warm
+    # damit der erste Aufruf nach Inaktivitaet nicht 50-60s Cold-Load kostet
+    # (MCP-Timeout-Risiko). Nur aktiv wenn user_state='active'.
+    start_ollama_warmup_loop(db)
 
     # Run MCP server (blocks on stdio)
     from . import __version__

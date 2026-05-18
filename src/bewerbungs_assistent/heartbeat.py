@@ -78,6 +78,54 @@ def start_periodic_heartbeat() -> None:
     logger.debug("Periodischer Heartbeat gestartet (alle %ds)", _PERIODIC_INTERVAL)
 
 
+# === Ollama Warmup-Loop (#638, beta.62) ============================
+# Haelt das Ollama-Modell warm, damit der erste Aufruf nach Inaktivitaet
+# nicht 50-60s Cold-Load kostet (was MCP-Timeouts ausloest).
+
+_OLLAMA_WARMUP_INTERVAL = 240  # 4 Minuten (Ollama default keep_alive ist 5 min)
+_ollama_warmup_thread: threading.Thread | None = None
+
+
+def start_ollama_warmup_loop(db) -> None:
+    """Startet einen Background-Thread der alle 4 Minuten einen Warmup-Ping
+    an Ollama schickt. Wird nur einmal pro Prozess gestartet.
+
+    Bedingung: User-State muss 'active' sein. Bei 'paused'/'off' ueberspringen
+    wir — der User will dass die KI gerade nicht laeuft, also auch keinen RAM
+    blockieren.
+    """
+    global _ollama_warmup_thread
+    if _ollama_warmup_thread and _ollama_warmup_thread.is_alive():
+        return
+
+    def _warmup_loop():
+        # Lazy import um circular imports zu vermeiden
+        from .services.llm_service import get_llm_service
+        while True:
+            try:
+                svc = get_llm_service(db)
+                status = svc.get_status(force_refresh=False)
+                if status.ollama_available and status.user_state == "active":
+                    result = svc.warmup()
+                    if result.get("status") == "warm":
+                        logger.debug("Ollama warm gehalten: %s in %.2fs",
+                                       result.get("model"),
+                                       result.get("duration_sec", 0))
+                    elif result.get("status") == "error":
+                        logger.warning("Ollama warmup-Fehler: %s",
+                                          result.get("error"))
+            except Exception as exc:
+                logger.debug("Warmup-Loop Exception (ignoriert): %s", exc)
+            time.sleep(_OLLAMA_WARMUP_INTERVAL)
+
+    _ollama_warmup_thread = threading.Thread(
+        target=_warmup_loop, daemon=True, name="ollama-warmup"
+    )
+    _ollama_warmup_thread.start()
+    logger.info("Ollama-Warmup-Loop gestartet (alle %ds)",
+                  _OLLAMA_WARMUP_INTERVAL)
+
+
 def read_heartbeat() -> dict | None:
     """Liest Heartbeat-Datei. Gibt None zurueck wenn nicht vorhanden."""
     try:
