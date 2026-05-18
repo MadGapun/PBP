@@ -570,6 +570,30 @@ def _build_match_job_to_skills_prompt(payload: dict) -> str:
                 "Wenn die Stelle eines dieser Muster trifft, eher PASST_NICHT.\n"
             )
 
+    # v1.7.0-beta.63 (#638 Stufe 3): KONKRETE Few-Shot-Beispiele.
+    # Aggregat-Reasons (oben) zeigen das Muster, hier kommen die echten
+    # Stellen-Titel + Firmen-Namen + Grund — das laesst die LLM
+    # "warum diese und nicht jene" verstehen. Max 5 Beispiele um den
+    # Prompt nicht zu sprengen.
+    recent_dismissals = payload.get("recent_dismissals") or []
+    fewshot_block = ""
+    if recent_dismissals:
+        examples = []
+        for d in recent_dismissals[:5]:
+            t = (d.get("title") or "").strip()
+            c = (d.get("company") or "").strip()
+            r = (d.get("dismiss_reason") or "").strip()
+            if t or c:
+                examples.append(
+                    f"  - '{t}' bei '{c}' → PASST_NICHT (Grund: {r or 'unbekannt'})"
+                )
+        if examples:
+            fewshot_block = (
+                "\nBEISPIELE — diese Stellen hat der Bewerber zuletzt selbst abgelehnt:\n"
+                + "\n".join(examples) + "\n"
+                "Nutze diese Muster fuer die Bewertung der neuen Stelle.\n"
+            )
+
     skills_str = ", ".join(profile_skills[:15]) if profile_skills else "keine erfasst"
     return (
         "Du bewertest ob eine Stelle zu einem Bewerber-Profil passt.\n\n"
@@ -577,7 +601,7 @@ def _build_match_job_to_skills_prompt(payload: dict) -> str:
         f"  Aktuelle/letzte Position: {profile_position or 'keine erfasst'}\n"
         f"  Karriere-Stufe: {profile_seniority or 'unbekannt'}\n"
         f"  Top-Skills: {skills_str}\n"
-        f"{learned_block}\n"
+        f"{learned_block}{fewshot_block}\n"
         "STELLE:\n"
         f"  Titel: {job_title}\n"
         f"  Firma: {job_company}\n"

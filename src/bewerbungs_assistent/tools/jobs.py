@@ -16,6 +16,154 @@ _MANUAL_SOURCES = {
 }
 
 
+def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
+    """v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach Jobsuche.
+
+    Bedingungen:
+    - Lokale-KI aktiv (Ollama erreichbar + user_state='active')
+    - Setting `auto_dismiss_after_search` ist True (Default True wenn KI aktiv)
+    - Der Such-Job war erfolgreich (Status 'erledigt')
+
+    Laeuft synchron im Background-Thread des Such-Jobs (nicht in einem
+    neuen Thread), damit der `mit Ollama analysiert`-Schritt im jobsuche-
+    Job sichtbar ist und User nicht parallel klicken kann was sich
+    inkonsistent verhaelt.
+    """
+    import logging as _log
+    log = _log.getLogger("bewerbungs_assistent.tools.jobs")
+    try:
+        # Setting pruefen
+        setting = db.get_profile_setting("auto_dismiss_after_search", "true")
+        if str(setting).lower() in ("false", "0", "no", "off"):
+            log.info("auto_dismiss_after_search ist OFF — uebersprungen")
+            return
+
+        # Ollama-Status pruefen
+        from ..services.llm_service import get_llm_service
+        svc = get_llm_service(db)
+        s = svc.get_status(force_refresh=False)
+        if not s.ollama_available or s.user_state != "active":
+            log.info(
+                "auto_dismiss: Ollama nicht aktiv (avail=%s, state=%s) — uebersprungen",
+                s.ollama_available, s.user_state,
+            )
+            return
+
+        # Such-Job-Status pruefen
+        job = db.get_background_job(job_id)
+        if not job or job.get("status") != "erledigt":
+            log.info("auto_dismiss: Such-Job nicht erledigt — uebersprungen")
+            return
+
+        # Erst die Stellen pruefen, dann auto-dismiss aufrufen
+        active_jobs = db.get_active_jobs()
+        if not active_jobs:
+            log.info("auto_dismiss: keine aktiven Stellen — uebersprungen")
+            return
+
+        log.info(
+            "auto_dismiss: starte stellen_auto_aussortieren nach Job %s (%d aktive Stellen)",
+            job_id, len(active_jobs),
+        )
+
+        # Direkt die DB-/LLM-Logik aufrufen statt das MCP-Tool durchzugehen
+        # (waere Wrapper-on-Wrapper). Wir nutzen den selben Code-Pfad via
+        # Direktimport, ohne MCP-Decorator-Overhead.
+        from ..services.llm_service import TaskKind, Backend
+        # Limit auf 30 Stellen pro Auto-Run damit es nicht 10 Min Modell-RAM blockt
+        max_pro_run = 30
+        profile = db.get_profile() or {}
+        profile_skills = [
+            sk.get("name", "") for sk in (profile.get("skills") or [])[:15]
+        ]
+        positions = profile.get("positions") or []
+        profile_position = positions[0].get("title", "") if positions else ""
+        # #638 Stufe 3: Lernkontext einmal pro Auto-Run laden (statt pro Stelle)
+        try:
+            dismiss_reasons_raw = db.get_dismiss_reasons() or []
+            # Top-3 nach usage_count
+            dismiss_top = [
+                {"reason": r.get("label"), "count": r.get("usage_count", 0)}
+                for r in dismiss_reasons_raw[:3]
+                if r.get("usage_count", 0) > 0
+            ]
+        except Exception:
+            dismiss_top = []
+        try:
+            recent_dismissals = db.get_recent_user_dismissals(limit=10)
+        except Exception:
+            recent_dismissals = []
+        bewertet = 0
+        aussortiert = 0
+        try:
+            for jobitem in active_jobs[:max_pro_run]:
+                if jobitem.get("score") is not None and jobitem.get("score", 0) < 0:
+                    continue
+                # Skip wenn schon eine Bewerbung dazu existiert
+                job_hash = jobitem.get("hash", "")
+                try:
+                    has_app = db.connect().execute(
+                        "SELECT 1 FROM applications WHERE job_hash=? LIMIT 1",
+                        (job_hash,)
+                    ).fetchone()
+                except Exception:
+                    has_app = None
+                if has_app:
+                    continue
+                payload = {
+                    "job_title": jobitem.get("title", ""),
+                    "job_company": jobitem.get("company", ""),
+                    "job_description": (jobitem.get("description") or "")[:1500],
+                    "profile_position": profile_position,
+                    "profile_skills": profile_skills,
+                    # #638 Stufe 3: Few-Shot-Lernschleife
+                    "dismiss_reasons_top": dismiss_top,
+                    "recent_dismissals": recent_dismissals,
+                }
+                try:
+                    result = svc.run_task(TaskKind.MATCH_JOB_TO_SKILLS, payload)
+                except Exception:
+                    continue
+                bewertet += 1
+                if not result.success or not result.payload:
+                    continue
+                verdict = (result.payload.get("verdict") or "").lower()
+                reason = result.payload.get("reason", "") or ""
+                if verdict == "passt_nicht":
+                    try:
+                        db.dismiss_job(
+                            jobitem.get("hash", ""),
+                            reason=f"auto:profil_match_negativ:{reason[:120]}",
+                        )
+                        aussortiert += 1
+                    except Exception:
+                        pass
+        except Exception as exc:
+            log.warning("auto_dismiss-Schleife abgebrochen: %s", exc)
+
+        # Ergebnis im Background-Job-Ergebnis vermerken
+        try:
+            job = db.get_background_job(job_id)
+            ergebnis = job.get("ergebnis") or {}
+            ergebnis["auto_aussortiert"] = {
+                "bewertet": bewertet,
+                "aussortiert": aussortiert,
+                "von_aktiven": len(active_jobs),
+            }
+            db.update_background_job(job_id, "erledigt", ergebnis=ergebnis)
+        except Exception:
+            pass
+
+        log.info(
+            "auto_dismiss: fertig — %d/%d bewertet, %d aussortiert",
+            bewertet, max_pro_run, aussortiert,
+        )
+
+    except Exception as exc:
+        # Nicht-fatal — Auto-Dismiss ist optional, Suche selbst war OK
+        log.warning("auto_dismiss-Hook fehlgeschlagen (ignoriert): %s", exc)
+
+
 def register(mcp, db, logger):
     """Registriert Jobsuche-Tools."""
     from . import ki_gate, time_tool
@@ -110,6 +258,10 @@ def register(mcp, db, logger):
             try:
                 from ..job_scraper import run_search
                 run_search(db, job_id, params)
+                # v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach
+                # erfolgreicher Suche — laeuft im selben Background-Thread
+                # damit User keine extra Aktion machen muss.
+                _maybe_auto_dismiss_after_search(db, job_id)
             except Exception as e:
                 logger.error("Jobsuche fehlgeschlagen: %s", e, exc_info=True)
                 db.update_background_job(job_id, "fehler", message=str(e))
@@ -1904,6 +2056,12 @@ def register(mcp, db, logger):
         except Exception:
             pass
 
+        # v1.7.0-beta.63 (#638 Stufe 3): konkrete Few-Shot-Beispiele
+        try:
+            recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)
+        except Exception:
+            recent_dismissals_fewshot = []
+
         if not candidates:
             return _err(
                 "Keine ungerateten Stellen oberhalb min_score.",
@@ -1925,6 +2083,8 @@ def register(mcp, db, logger):
                     "job_company": job.get("company") or "",
                     "job_description": (job.get("description") or "")[:1500],
                     "dismiss_reasons_top": dismiss_reasons_top,
+                    # v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele
+                    "recent_dismissals": recent_dismissals_fewshot,
                 }
                 result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
                 if not result.success:

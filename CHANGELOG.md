@@ -16,6 +16,124 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.63] - 2026-05-14 — Ollama wird zur Hintergrund-KI (#638 Stufe 1 + 3)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+User-Wunsch: "Ich möchte ja fast, dass Ollama im Hintergrund mitläuft
+und auch lernt bei jedem Klick den ich mache." Erste zwei Stufen aus
+[#638](https://github.com/MadGapun/pbp/issues/638) — jetzt sichtbar.
+
+### ✨ A) Auto-Aussortierung nach jeder Jobsuche (#638 Stufe 1)
+
+Bisher musste man `stellen_auto_aussortieren()` manuell anstossen
+(MCP-Tool oder Chat). Jetzt laeuft das **automatisch** nach jeder
+erfolgreichen Jobsuche im selben Background-Thread:
+
+- Hook in `jobsuche_starten` → nach erfolgreichem Scraper-Run wird
+  `_maybe_auto_dismiss_after_search()` aufgerufen
+- Bedingungen: Ollama erreichbar + `user_state=active` + Setting
+  `auto_dismiss_after_search=true` (Default ON)
+- Max 30 Stellen pro Auto-Run damit das Modell-RAM nicht 10 Minuten
+  blockt waehrend der User noch klicken will
+- Ergebnis landet im Job-`ergebnis` als `auto_aussortiert:
+  {bewertet, aussortiert, von_aktiven}`
+- Aussortier-Grund praefixed mit `auto:profil_match_negativ:` damit
+  man manuelle von automatischen Aussortierungen unterscheiden kann
+
+Was der User merkt: "Jobsuche druecken → 30 Stellen rein → 10 davon
+sind nach 2 Min schon weg, mit Begruendung."
+
+### ✨ B) Few-Shot-Lernschleife aus deinen Bewertungen (#638 Stufe 3)
+
+Bisher hatte das `match_job_to_skills`-Modell nur ein Aggregat
+("der User sortiert oft wegen 'falsches_fachgebiet' aus"). Jetzt sieht
+es **konkrete Beispiele** der letzten Aussortierungen:
+
+```
+BEISPIELE — diese Stellen hat der Bewerber zuletzt selbst abgelehnt:
+  - 'Junior Frontend Developer' bei 'Startup XY' → PASST_NICHT
+    (Grund: falsches_seniority_level)
+  - 'Sales Manager' bei 'Big Corp' → PASST_NICHT
+    (Grund: falsches_fachgebiet)
+  - ...
+```
+
+- Neuer DB-Helper `db.get_recent_user_dismissals(limit=20)`
+- Filtert `auto:`-Dismissals raus damit keine Echokammer entsteht
+  (sonst wuerde Ollama von seinen eigenen Entscheidungen lernen
+  statt von den User-Entscheidungen)
+- Top-5 werden in den Prompt eingebaut (Token-Cap)
+- Greift sowohl im Auto-Hook (A) als auch im manuellen
+  `stellen_auto_aussortieren`
+
+Was der User merkt: je laenger du dabei bist und je mehr du selber
+aussortierst, desto besser werden Ollamas Auto-Entscheidungen.
+
+### Was BEWUSST nicht in beta.63 ist
+
+- **Score-Anreicherung fuer Stellen ohne Beschreibung** (#638 Stufe 2)
+  — braucht einen neuen LLM-Task `enrich_score_minimal`, kommt separat
+- **Klick-Reihen-Tipps** ("du machst immer X dann Y, Tipp Z") — die
+  Infrastruktur (`user_activity_events`, `analyze_user_patterns`,
+  `AdaptiveHintBanner`) existiert seit #594, neue Event-Typen werden
+  in einer Polish-Welle nachgereicht
+- **Genauigkeits-Tracking** (false-positives bei Ollama-Entscheidungen)
+  — Helper `track.llmCorrection` existiert schon, Dashboard-Stat fehlt
+
+### Tests
+
+- 10 neue Tests (`test_v170_beta63_auto_learn.py`):
+  Few-Shot-Block im Prompt, Cap auf 5 Beispiele, `get_recent_user_dismissals`-
+  Filter gegen Auto-Dismiss-Echokammer, Auto-Hook-Bedingungen
+- 1374 / 1374 gruen
+
+### Migration / Breaking Changes
+
+Keine. Setting `auto_dismiss_after_search` ist optional (Default ON),
+alles laeuft additiv neben den bestehenden Manuell-Pfaden.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.63.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.63.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.62] - 2026-05-14 — Ollama Cold-Start-Fix (#638)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

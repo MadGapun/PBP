@@ -4629,6 +4629,34 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    def get_recent_user_dismissals(self, limit: int = 20) -> list:
+        """v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele aus User-Verhalten.
+
+        Liefert die letzten N manuell vom User abgelehnten Stellen mit
+        Titel, Firma und Begruendung. Aggregat-Reasons sind via
+        `get_dismiss_reasons()` schon da — diese Liste hier ist die
+        zusaetzliche KONKRETE Ebene fuer Few-Shot-Prompting.
+
+        Filter:
+        - Nur Stellen mit is_active=0 (= aussortiert)
+        - Nur Stellen mit dismiss_reason != 'auto:%' (= manuell, nicht
+          schon vom Auto-Tool gemacht — sonst Echokammer)
+        - Sortiert nach updated_at DESC (Neueste zuerst)
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        rows = conn.execute(
+            "SELECT title, company, dismiss_reason, updated_at "
+            "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND is_active=0 "
+            "AND dismiss_reason IS NOT NULL "
+            "AND dismiss_reason != '' "
+            "AND dismiss_reason NOT LIKE 'auto:%' "
+            "ORDER BY updated_at DESC LIMIT ?",
+            (pid, int(limit))
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def add_dismiss_reason(self, label: str) -> int:
         """Add a custom dismiss reason. Returns the new id."""
         pid = self.get_active_profile_id() or ""
