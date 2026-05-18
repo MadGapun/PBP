@@ -148,8 +148,12 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Hauptbereiche */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      {/* Hauptbereiche.
+          v1.7.0-beta.61 (#625 Folge-Fix): flex-shrink-0 → Menue hat
+          IMMER Vorrang und schrumpft nicht. Elwosa-Footer unten passt
+          sich an. Scrollt nur wenn das Menue laenger als der gesamte
+          Viewport ist (z.B. <500px Hoehe). */}
+      <nav className="flex-shrink-0 overflow-y-auto px-2 py-3" style={{ maxHeight: "calc(100vh - 180px)" }}>
         <ul className="space-y-0.5">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -219,14 +223,15 @@ export default function Sidebar({
       </nav>
 
       {/* Footer-Slot — z.B. JobsucheStatusBadge + Elwosa-Chat.
-          v1.7.0-beta.60 (#625): Footer-Slot wird gecapped (max 42vh) und
-          schrumpft wenn die nav-Liste mehr Platz braucht. Innen scrollt
-          Elwosa wie gewohnt. Vorher konnte Elwosa bis 60vh werden und das
-          Hauptmenue verdraengen. */}
+          v1.7.0-beta.61 (#625 Folge-Fix): Footer bekommt flex: 1 1 0 +
+          min-h-0 → fuellt den Rest aus den die nav nicht braucht.
+          Elwosa innen passt sich via h-full an. So waechst Elwosa auf
+          grossen Screens, schrumpft auf kleinen, und das Menue ist
+          IMMER voll sichtbar (es sei denn der Screen ist absurd klein). */}
       {!visualCollapsed && footerSlot ? (
         <div
-          className="border-t border-white/8 px-3 py-2 flex-shrink min-h-0 max-h-[42vh] overflow-y-auto"
-          style={{ flexShrink: 1 }}
+          className="border-t border-white/8 px-3 py-2 overflow-y-auto"
+          style={{ flex: "1 1 0", minHeight: 0 }}
         >
           {footerSlot}
         </div>

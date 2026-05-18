@@ -471,14 +471,16 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
       </div>
 
       {/* v1.7.0-beta.48 (#611): Adaptive Hoehe + Sticky-Bottom-Scroll.
-          v1.7.0-beta.60 (#625): max-h auf 32vh reduziert + min-h auf 100px,
-          damit das Hauptmenue oben Vorrang hat. Der umgebende Sidebar-Footer
-          cappt zusaetzlich auf 42vh und scrollt wenn noetig. */}
+          v1.7.0-beta.61 (#625 Folge-Fix): Keine festen vh-Werte mehr.
+          Container darueber gibt via flex:1 + min-h:0 vor wieviel Platz
+          zur Verfuegung steht — Elwosa fuellt das aus und scrollt intern.
+          Auf grossen Screens wird Elwosa entsprechend gross. */}
       <div className="relative">
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="space-y-2 min-h-[100px] max-h-[32vh] overflow-y-auto pr-1"
+          className="space-y-2 min-h-[80px] overflow-y-auto pr-1"
+          style={{ maxHeight: "100%" }}
         >
           {messages.length === 0 && (
             <p className="text-[10px] text-muted/40 italic">

@@ -16,6 +16,87 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.61] - 2026-05-14 — Hotfix: Sidebar-Menue hat jetzt wirklich Vorrang (#625)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> 🔥 **Hotfix** zu beta.60 — der Sidebar-Fix war halbgar.
+
+User-Feedback nach beta.60: das obere Menue muss man immer noch scrollen,
+obwohl auf dem Screen genug Platz waere. Elwosa war zwar gecapped (max
+42vh), aber das war oft trotzdem zu viel, und die nav hatte
+`flex-1` (= konkurriert mit Elwosa um Platz statt Vorrang zu haben).
+
+### 🐛 Korrektur
+
+- **`Sidebar.jsx` nav**: `flex-1 overflow-y-auto` → `flex-shrink-0
+  overflow-y-auto` mit `maxHeight: calc(100vh - 180px)`. Heisst: das
+  Menue nimmt seine Inhalts-Hoehe (alle Items inkl. Sub-Items sind
+  IMMER voll sichtbar) und scrollt nur dann intern, wenn der Viewport
+  absurd klein ist (z.B. unter 500px Hoehe).
+- **`Sidebar.jsx` Footer-Slot**: jetzt `flex: 1 1 0; minHeight: 0;
+  overflow-y-auto` — fuellt den Rest aus den die nav nicht braucht.
+  Kein `max-h-[42vh]` mehr.
+- **`ElwosaSidebarChat.jsx`**: keine festen vh-Werte mehr im Scroll-
+  Container. `min-h-[80px]` + `maxHeight: 100%` — passt sich an den
+  Footer-Container an. Auf grossen Screens waechst Elwosa entsprechend,
+  auf kleinen schrumpft sie.
+
+### Verhalten
+
+| Viewport | Verhalten |
+|---|---|
+| Gross (z.B. 1080p+) | Menue komplett sichtbar, Elwosa nimmt sehr viel Platz |
+| Normal (~768-900px) | Menue komplett, Elwosa fuellt den Rest |
+| Klein (~500-700px) | Menue komplett, Elwosa schrumpft auf min 80px + scrollt intern |
+| Absurd klein (<500px) | Menue scrollt selber — sonst nichts mehr platzierbar |
+
+### Tests
+
+- `test_v170_beta48_elwosa_ux.py` angepasst (kein vh-Wert mehr in
+  ElwosaSidebarChat)
+- 1356 / 1356 gruen
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.61.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.61.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.60] - 2026-05-14 — User-Test-Quartet: Sidebar + MCP-Diagnose + Datums-Editing + Ollama-Start (#625 + #636 + #631 + #637)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

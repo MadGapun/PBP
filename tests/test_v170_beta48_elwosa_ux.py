@@ -38,12 +38,14 @@ def test_jump_to_bottom_button_with_unread_count():
 
 def test_adaptive_height_replaces_fixed_max_height():
     """Adaptive Hoehe statt starrem Pixel-Wert.
-    v1.7.0-beta.60 (#625): Reduziert auf min-h-[100px] / max-h-[32vh]
-    damit das Hauptmenue oben Vorrang hat. Vorher 150px / 60vh."""
+    v1.7.0-beta.61 (#625): Container darueber bestimmt Hoehe (flex:1 +
+    min-h:0), Elwosa fuellt mit maxHeight: 100% — keine vh-Werte mehr
+    hier drin, sonst kollidiert es wieder mit dem Menue-Vorrang."""
     src = SIDEBAR_CHAT.read_text(encoding="utf-8")
-    # Mindestgroesse + relative Maxgroesse (vh) muessen da sein
-    assert "min-h-[100px]" in src or "min-h-[150px]" in src
-    assert any(token in src for token in ("32vh", "40vh", "60vh", "70vh"))
+    # Mindestgroesse muss da sein, damit Elwosa nicht ganz verschwindet
+    assert "min-h-[80px]" in src or "min-h-[100px]" in src or "min-h-[150px]" in src
+    # maxHeight: 100% (Container-relativ) statt vh
+    assert "maxHeight" in src or "max-h-full" in src
 
 
 def test_action_link_routing_in_app_jsx():
