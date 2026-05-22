@@ -215,7 +215,12 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
-## [1.7.0-beta.64] - 2026-05-14 — Installer-Autostart, Doku-Tiefenanalyse, Job-Dedup (#639 + #640 + #641)
+## [1.7.0-beta.64] - 2026-05-14 — Installer-Autostart, Doku-Tiefenanalyse, Job-Dedup (#639 + #640)
+
+<!-- Hinweis: das urspruengliche Job-Dedup-Issue (#641) wurde nachtraeglich
+     geloescht (DSGVO — enthielt einen Firmennamen in der Edit-History).
+     Das Feature selbst ist Teil dieses Releases. -->
+
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
 
@@ -253,7 +258,7 @@ ein End-Status behandelt:
 (`extraktion_starten`, `analyse_plan_erstellen` und die Prompts haben
 basis_analysiert schon korrekt einbezogen.)
 
-### ✨ #641 Job-Duplikat-Erkennung beim Ingest
+### ✨ Job-Duplikat-Erkennung beim Ingest
 
 Dieselbe Stelle landete mehrfach mit verschiedenen Hashes (verschiedene
 Quellen / Zeitpunkte). Jetzt:

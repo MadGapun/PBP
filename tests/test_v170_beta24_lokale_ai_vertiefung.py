@@ -129,6 +129,11 @@ def test_586_stellen_auto_aussortieren_dry_run(setup_env):
     svc._status.user_state = "active"
     svc._status.selected_model = "mock:7b"
     svc._status.last_check_at = 9999999999
+    # v1.7.0-beta.66: get_status(force_refresh=True) wuerde sonst die ECHTE
+    # Ollama-Instanz proben (environment-abhaengig -> flaky). Hart den
+    # Mock-Status zurueckgeben. Warmup (#638) macht echten HTTP-Call -> no-op.
+    svc.get_status = lambda force_refresh=False: svc._status
+    svc.warmup = lambda model=None: {"status": "warm", "model": "mock:7b"}
 
     # Mock _ollama_generate: PASST fuer Senior, PASST_NICHT fuer Zeichner
     call_count = {"n": 0}
@@ -217,6 +222,8 @@ def test_584_test_connection_full_diagnose(setup_env):
     svc._status.user_state = "active"
     svc._status.selected_model = "mock:7b"
     svc._status.last_check_at = 9999999999
+    # v1.7.0-beta.66: echte Ollama-Probe ausschalten (flaky)
+    svc.get_status = lambda force_refresh=False: svc._status
 
     with patch.object(svc, "_ollama_generate", return_value="lebenslauf"):
         with patch("bewerbungs_assistent.services.llm_service.get_llm_service",
