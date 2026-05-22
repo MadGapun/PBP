@@ -4707,6 +4707,56 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    def get_ollama_accuracy_stats(self) -> dict:
+        """v1.7.0-beta.66 (#638 Stufe 5): Genauigkeit der Ollama-Auto-Entscheidungen.
+
+        Misst wie oft die automatische Aussortierung (dismiss_reason mit
+        'auto:'-Prefix) vom User spaeter korrigiert wurde:
+        - auto_aussortiert_gesamt: alle je auto-aussortierten Stellen
+        - reaktiviert: davon wieder is_active=1 (User-Korrektur = false positive)
+        - mit_bewerbung: davon mit einer Bewerbung verknuepft (starke Korrektur)
+        - genauigkeit_prozent: 100 * (1 - korrigiert/gesamt)
+
+        Liefert nur belastbare Zahlen — bei < 5 Auto-Entscheidungen wird
+        `genauigkeit_prozent` als None zurueckgegeben (zu wenig Datenbasis).
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        # Alle je auto-aussortierten Stellen (auch wieder reaktivierte —
+        # dismiss_reason bleibt als historische Spur erhalten)
+        total = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND dismiss_reason LIKE 'auto:%'",
+            (pid,)
+        ).fetchone()["n"]
+        # Davon wieder aktiv = User hat die Auto-Entscheidung zurueckgenommen
+        reaktiviert = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND dismiss_reason LIKE 'auto:%' AND is_active=1",
+            (pid,)
+        ).fetchone()["n"]
+        # Davon mit Bewerbung verknuepft = starke Korrektur (Ollama lag falsch)
+        mit_bewerbung = conn.execute(
+            "SELECT COUNT(DISTINCT j.hash) AS n FROM jobs j "
+            "JOIN applications a ON a.job_hash = j.hash "
+            "WHERE (j.profile_id=? OR j.profile_id IS NULL) "
+            "AND j.dismiss_reason LIKE 'auto:%'",
+            (pid,)
+        ).fetchone()["n"]
+        korrigiert = reaktiviert  # reaktivierte sind die messbaren Korrekturen
+        genauigkeit = None
+        if total >= 5:
+            genauigkeit = round(100 * (1 - korrigiert / total), 1)
+        return {
+            "auto_aussortiert_gesamt": total,
+            "reaktiviert": reaktiviert,
+            "mit_bewerbung": mit_bewerbung,
+            "genauigkeit_prozent": genauigkeit,
+            "datenbasis_ausreichend": total >= 5,
+        }
+
     def get_recent_user_dismissals(self, limit: int = 20) -> list:
         """v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele aus User-Verhalten.
 

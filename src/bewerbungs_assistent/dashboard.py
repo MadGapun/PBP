@@ -8821,6 +8821,16 @@ async def api_llm_status(refresh: int = 0):
     }
 
 
+@app.get("/api/llm/accuracy")
+async def api_llm_accuracy():
+    """v1.7.0-beta.66 (#638 Stufe 5): Genauigkeit der Ollama-Auto-Aussortierung.
+
+    Wie oft hat der User eine automatische Aussortierung korrigiert?
+    Dashboard kann das als Vertrauens-Indikator anzeigen.
+    """
+    return _db.get_ollama_accuracy_stats()
+
+
 @app.post("/api/llm/warmup")
 async def api_llm_warmup():
     """v1.7.0-beta.62 (#638): Triggert manuell einen Warmup-Ping an Ollama.

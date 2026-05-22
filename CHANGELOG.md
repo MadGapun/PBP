@@ -16,6 +16,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.66] - 2026-05-14 — KI-Transparenz: Token-Klassen + Ollama-Genauigkeit (#632 Stufe 1 + #638 Stufe 5)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+### ✨ #632 Stufe 1 — Token-/Kosten-Klassen in `pbp_capabilities`
+
+`pbp_capabilities()` (ohne Kategorie) liefert jetzt eine Sektion
+`aufwand_klassen` mit vier Stufen, damit Claude VOR einer Operation
+einschaetzen kann was sie kostet:
+
+- **gratis_db** — reine DB-/Scraper-Operationen, keine Tokens
+  (jobsuche_starten, stellen_anzeigen, bewerbung_*, ...)
+- **lokal_guenstig** — Ollama, kostenlos aber RAM/Zeit
+  (stellen_auto_aussortieren, dokument_profil_extrahieren lokal)
+- **claude_mittel** — ~2-10k Tokens (fit_analyse, anschreiben_exportieren)
+- **claude_teuer_bulk** — 25k+ Tokens, VOR Start Volumen nennen
+  (stellen_bulk_bewerten, batch via Claude)
+
+Plus `aufwand_hinweis`: bei teuren Bulk-Ops dem User das Volumen
+nennen, lokale AI bevorzugen wenn Tokens gespart werden sollen.
+
+### ✨ #638 Stufe 5 — Ollama-Genauigkeits-Tracking
+
+Wie zuverlaessig sind die automatischen Aussortierungen? Neuer Helper
+`db.get_ollama_accuracy_stats()` misst, wie oft der User eine
+`auto:`-Aussortierung spaeter korrigiert hat:
+
+- `auto_aussortiert_gesamt` — alle je auto-aussortierten Stellen
+- `reaktiviert` — davon wieder aktiv (User-Korrektur = false positive)
+- `mit_bewerbung` — davon mit Bewerbung verknuepft (starke Korrektur)
+- `genauigkeit_prozent` — 100·(1 − korrigiert/gesamt), erst ab 5
+  Auto-Entscheidungen (sonst None — zu duenne Datenbasis)
+
+Exponiert in `pbp_mcp_diagnose` (Feld `ollama_genauigkeit`) und ueber
+`GET /api/llm/accuracy` fuers Dashboard. Filtert manuelle
+Aussortierungen korrekt aus (nur `auto:`-Prefix zaehlt).
+
+### Was von #638 noch offen ist
+
+- **Stufe 4** Klick-Reihen-Tipps — die `analyze_user_patterns`-
+  Infrastruktur (#594) laeuft, neue Event-Typen fuer Sortier-/
+  Filter-Muster sind reine Frontend-Verkabelung und folgen separat.
+
+### Tests
+
+- 7 neue Tests (`test_v170_beta66_ki_transparenz.py`):
+  Aufwand-Klassen im Capabilities-Overview, Genauigkeits-Stats
+  (Datenbasis-Schwelle, Korrektur-Zaehlung, Manual-Filter), MCP +
+  REST-Endpoint
+- 1379 / 1381 gruen (2 rote = pre-existing beta24 Ollama-Connection)
+
+### Migration / Breaking Changes
+
+Keine. Reine additive Read-Operationen.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.66.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.66.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.65] - 2026-05-14 — Auto-Aussortierung repariert + Score-Anreicherung (#638 Stufe 1/2/3)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

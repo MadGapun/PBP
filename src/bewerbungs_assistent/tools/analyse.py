@@ -1622,6 +1622,47 @@ def register(mcp, db, logger):
             },
         }
 
+        # v1.7.0-beta.66 (#632 Stufe 1): statische Aufwand-Klassen pro Tool.
+        # Hilft der KI VOR dem Aufruf einzuschaetzen ob eine Operation
+        # Token kostet (Claude) oder gratis ist (lokal/DB), und bei
+        # Bulk-Operationen vorzuwarnen.
+        aufwand_klassen = {
+            "gratis_db": {
+                "beschreibung": "Reine DB-/Scraper-Operationen, KEINE LLM-Tokens.",
+                "beispiele": [
+                    "jobsuche_starten", "stellen_anzeigen", "bewerbung_*",
+                    "stelle_bewerten", "meeting_*", "kosten_*", "profil_bearbeiten",
+                    "suchkriterien_*", "blacklist_verwalten", "statistiken_abrufen",
+                ],
+            },
+            "lokal_guenstig": {
+                "beschreibung": "Lokale AI (Ollama) — kostenlos, aber RAM/Zeit. "
+                                "Erster Aufruf nach Pause ~50s Cold-Load (#638).",
+                "beispiele": [
+                    "stellen_auto_aussortieren (~1 Call je Stelle)",
+                    "dokument_profil_extrahieren (lokal wenn Ollama aktiv)",
+                    "dokumente_batch_analysieren",
+                ],
+            },
+            "claude_mittel": {
+                "beschreibung": "Claude-Tokens, einzelne Operation. ~2-10k Tokens.",
+                "beispiele": [
+                    "fit_analyse", "skill_gap_analyse", "anschreiben_exportieren",
+                    "lebenslauf_angepasst_exportieren", "firmen_recherche",
+                    "antwort_formulieren",
+                ],
+            },
+            "claude_teuer_bulk": {
+                "beschreibung": "Claude-Tokens in Menge. Bei vielen Items schnell "
+                                "25k+ Tokens. VOR Start dem User Volumen nennen.",
+                "beispiele": [
+                    "stellen_bulk_bewerten (skaliert mit Anzahl Stellen)",
+                    "dokumente_batch_analysieren via Claude (statt lokal)",
+                    "bewerbungsbericht_exportieren (grosse Profile)",
+                ],
+            },
+        }
+
         if not kategorie:
             return {
                 "ueberblick": (
@@ -1634,6 +1675,14 @@ def register(mcp, db, logger):
                     "WICHTIG: Wenn ein User ueber Bewerbungs-Daten redet, nutze IMMER "
                     "PBP-Tools — niemals direkte Eingriffe in die SQLite-Datei oder "
                     "Filesystem-Tools. Bei fehlender Tool-Abdeckung: pbp_grenze_melden."
+                ),
+                # #632: Token-/Kosten-Transparenz
+                "aufwand_klassen": aufwand_klassen,
+                "aufwand_hinweis": (
+                    "Vor Bulk-Operationen der Klasse 'claude_teuer_bulk' dem User "
+                    "kurz das geschaetzte Token-Volumen nennen. Lokale AI "
+                    "(Ollama) ist immer kostenlos — wenn der User Tokens sparen "
+                    "will, lokale Tasks bevorzugen (Settings -> KI-Steuerung)."
                 ),
                 "kategorien": {
                     name: {"use_case": data["use_case"], "tool_count": len(data["hauptwerkzeuge"])}
@@ -1856,6 +1905,12 @@ def register(mcp, db, logger):
             except Exception:
                 c["at_iso"] = str(c.get("at", ""))
 
+        # v1.7.0-beta.66 (#638 Stufe 5): Ollama-Auto-Entscheidungs-Genauigkeit
+        try:
+            ollama_accuracy = db.get_ollama_accuracy_stats()
+        except Exception:
+            ollama_accuracy = {}
+
         return {
             "status": "ok",
             "server_pid": _os.getpid(),
@@ -1863,6 +1918,7 @@ def register(mcp, db, logger):
             "python_version": _sys.version.split()[0],
             "platform": _pf.platform(),
             "tool_calls": calls,
+            "ollama_genauigkeit": ollama_accuracy,
             "stats": {
                 "anzahl": len(calls),
                 "ok": ok_count,
