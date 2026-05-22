@@ -16,6 +16,115 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.64] - 2026-05-14 — Installer-Autostart, Doku-Tiefenanalyse, Job-Dedup (#639 + #640 + #641)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Drei Findings aus der laufenden Test-Schleife — Installer-UX, ein
+Doku-Analyse-Bug und Job-Duplikate.
+
+### ✨ #639 Installer startet PBP automatisch
+
+Beobachtung: nach der Installation passierte (gefuehlt) nichts. Befund:
+
+- **CLI-Installer** (`INSTALLIEREN.bat`, `INSTALLIEREN.command`,
+  `install.sh`) starten das Dashboard + oeffnen den Browser **schon
+  seit beta.23/38** automatisch — hier war nichts zu tun.
+- **GUI-Installer** (`setup_gui.py` / setup.exe) hatte den Bug: der
+  "Dashboard oeffnen"-Button startete `test_demo.py` — das laeuft mit
+  **Demo-Daten in einem TEMP-Verzeichnis**, nicht der echten
+  Installation. Gefixt: nutzt jetzt `start_dashboard.py` mit dem echten
+  Datenverzeichnis, startet automatisch beim Erreichen der Done-Page
+  (Thread, kein GUI-Freeze) + Health-Check auf Port 8200.
+- Irrefuehrenden Text "(verfuegbar wenn Claude Desktop laeuft)"
+  korrigiert — das Dashboard laeuft eigenstaendig.
+
+### 🐛 #640 Doku-Tiefenanalyse: basis_analysiert galt als "fertig"
+
+`basis_analysiert` ist ein **Zwischen**-Status (nur Regex-Basics, die
+KI-Tiefenanalyse fehlt noch). An einer Stelle wurde er faelschlich wie
+ein End-Status behandelt:
+
+- **`db`-Naechste-Schritte-Guidance** zaehlte nur `nicht_extrahiert` —
+  jetzt auch `basis_analysiert`. Verweist auf `/dokumente_verarbeiten`.
+- **`dokumente_zur_analyse`** trennt jetzt explizit `nie_analysiert` vs
+  `nur_basis_extraktion` und liefert einen `hinweis_tiefenanalyse`, damit
+  klar wird WAS noch aussteht.
+
+(`extraktion_starten`, `analyse_plan_erstellen` und die Prompts haben
+basis_analysiert schon korrekt einbezogen.)
+
+### ✨ #641 Job-Duplikat-Erkennung beim Ingest
+
+Dieselbe Stelle landete mehrfach mit verschiedenen Hashes (verschiedene
+Quellen / Zeitpunkte). Jetzt:
+
+- Neuer Helper `db._dedup_key(title, company)` — normalisiert Titel +
+  Firma (Umlaute, Rechtsform-Suffixe GmbH/AG/..., Klammerzusaetze)
+- `save_jobs` prueft vor dem Insert ob eine **aktive** Stelle mit
+  gleichem Key aber anderem Hash existiert (im selben Batch UND in der DB)
+- Treffer → neuer Eintrag wird `is_active=0`, `dismiss_reason='duplikat'`,
+  mit Verweis auf den Original-Hash in `research_notes` (Audit-Trail bleibt)
+- Rueckgabe enthaelt jetzt `duplikate_erkannt`
+
+**Bonus-Fix dabei:** Re-Ingestion einer vom User aussortierten Stelle
+reaktiviert sie nicht mehr und ueberschreibt ihren `dismiss_reason`/
+Notizen nicht (vorher setzte `INSERT OR REPLACE` die Zeile komplett neu).
+
+### Tests
+
+- 9 neue Tests (`test_v170_beta64_dedup_analyse.py`): Dedup
+  (Content-Match, Suffix-Normalisierung, Audit-Note, Cross-Batch,
+  Dismissed-State-Preservation) + Doku-Status-Trennung
+- 1381 / 1383 gruen — die 2 roten (`test_v170_beta24` Ollama-Connection)
+  sind **pre-existing + environment-abhaengig** (echte Ollama-Probe),
+  keine beta.64-Regression
+
+### Migration / Breaking Changes
+
+Keine. Dedup-Check ist additiv, alter Lifecycle bleibt erhalten.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.64.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.64.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.63] - 2026-05-14 — Ollama wird zur Hintergrund-KI (#638 Stufe 1 + 3)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

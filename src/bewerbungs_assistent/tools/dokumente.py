@@ -92,6 +92,12 @@ def register(mcp, db, logger):
         if profile is None:
             return {"status": "kein_profil"}
 
+        # v1.7.0-beta.64 (#640): Status-Stufen explizit trennen.
+        # 'nicht_extrahiert'/'' = nie angefasst
+        # 'basis_analysiert'    = nur Regex-Basics, KI-Tiefenanalyse FEHLT
+        # 'angewendet'/sonstige = tief analysiert
+        # Sowohl nie-angefasste ALS AUCH nur-Basis gelten als "zu analysieren".
+        _PENDING = ("nicht_extrahiert", "", "basis_analysiert", None)
         docs = profile.get("documents", [])
         analysierbare = [
             {
@@ -101,17 +107,30 @@ def register(mcp, db, logger):
                 "hat_text": bool(d.get("extracted_text")),
                 "text_laenge": len(d.get("extracted_text", "")),
                 "extraction_status": d.get("extraction_status", "nicht_extrahiert"),
-                "bereits_analysiert": d.get("extraction_status", "") not in ("nicht_extrahiert", "", "basis_analysiert"),
+                "bereits_analysiert": d.get("extraction_status", "") not in _PENDING,
+                "nur_basis": d.get("extraction_status", "") == "basis_analysiert",
             }
             for d in docs
             if d.get("extracted_text")
         ]
         neue = [d for d in analysierbare if not d["bereits_analysiert"]]
+        nur_basis = [d for d in analysierbare if d["nur_basis"]]
+        nie_analysiert = [
+            d for d in neue if not d["nur_basis"]
+        ]
         return {
             "status": "ok",
             "dokumente_gesamt": len(docs),
             "analysierbare": len(analysierbare),
             "neue_dokumente": len(neue),
+            # #640: separate Zaehler damit klar wird WAS noch aussteht
+            "nie_analysiert": len(nie_analysiert),
+            "nur_basis_extraktion": len(nur_basis),
+            "hinweis_tiefenanalyse": (
+                f"{len(nur_basis)} Dokument(e) haben nur die Basis-Extraktion "
+                "(Regex) durchlaufen — die KI-Tiefenanalyse fehlt noch. "
+                "Nutze /dokumente_verarbeiten oder extraktion_starten()."
+            ) if nur_basis else "",
             "dokumente": analysierbare,
         }
 

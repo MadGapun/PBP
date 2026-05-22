@@ -3675,6 +3675,24 @@ class Database:
 
     # === Jobs ===
 
+    def _dedup_key(self, title: str, company: str) -> str:
+        """v1.7.0-beta.64 (#641): Inhalts-Schluessel fuer Job-Duplikat-Erkennung.
+
+        Normalisiert Titel + Firma so dass dieselbe Stelle von verschiedenen
+        Quellen / zu verschiedenen Zeitpunkten den gleichen Key bekommt —
+        auch wenn ihr Hash (URL/Timestamp-basiert) unterschiedlich ist.
+        """
+        import re as _re
+        t = self._normalize_umlauts((title or "").strip())
+        c = self._normalize_umlauts((company or "").strip())
+        # Rechtsform-Suffixe + Klammerzusaetze raus (analog Bewerbungs-Dedup)
+        c = _re.sub(r"\(.*?\)", "", c)
+        c = _re.sub(r"\b(gmbh|ag|se|kg|kgaa|ohg|gbr|ug|co|mbh|e\.?v\.?|inc|ltd|llc)\b", "", c)
+        # Alles ausser Buchstaben/Ziffern weg
+        t = _re.sub(r"[^a-z0-9]+", "", t)
+        c = _re.sub(r"[^a-z0-9]+", "", c)
+        return f"{t}|{c}"
+
     def save_jobs(self, jobs: list) -> dict:
         """Persistiert Jobs (INSERT OR REPLACE).
 
@@ -3682,11 +3700,22 @@ class Database:
         - new_per_source: dict[source, count] — Stellen, die noch nicht in der
           DB waren (echte Neuzugaenge).
         - total: insgesamt verarbeitete Jobs.
+
+        v1.7.0-beta.64 (#641): Inhalts-Duplikat-Erkennung. Wenn eine Stelle
+        mit gleichem normalisierten Titel+Firma aber anderem Hash schon
+        aktiv existiert, wird der neue Eintrag als `duplikat` markiert
+        (is_active=0) mit Verweis auf den Original-Hash in research_notes.
+        So bleibt der Audit-Trail erhalten, aber die Stelle erscheint nicht
+        doppelt in der aktiven Liste.
         """
         conn = self.connect()
         now = _now()
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
+        duplikate = 0
+        # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
+        # (key -> stored_hash des Originals)
+        dedup_index: dict[str, str] = {}
         for job in jobs:
             job_pid = job.get("profile_id") or active_pid
             stored_hash = self.resolve_job_hash(job["hash"], job_pid)
@@ -3694,7 +3723,8 @@ class Database:
             new_score = job.get("score", 0)
             new_pinned = 1 if job.get("is_pinned") else 0
             existing = conn.execute(
-                "SELECT score, is_pinned FROM jobs WHERE hash=?", (stored_hash,)
+                "SELECT score, is_pinned, is_active, dismiss_reason, research_notes "
+                "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
             if existing:
@@ -3702,13 +3732,56 @@ class Database:
                     new_pinned = 1
                 if existing["score"] and existing["score"] > new_score:
                     new_score = existing["score"]
+
+            # #641: Inhalts-Duplikat-Check (nur fuer NEUE Stellen, nicht fuer
+            # Updates an einem schon existierenden Hash)
+            is_active = 1
+            dismiss_reason = None
+            research_notes = job.get("research_notes")
+            if not is_new:
+                # v1.7.0-beta.64 (#641): Bestehenden Lifecycle-State erhalten —
+                # re-ingestion darf eine vom User aussortierte Stelle NICHT
+                # reaktivieren oder ihren dismiss_reason/Notizen ueberschreiben.
+                # (INSERT OR REPLACE wuerde sonst die ganze Zeile neu schreiben.)
+                is_active = existing["is_active"] if existing["is_active"] is not None else 1
+                dismiss_reason = existing["dismiss_reason"]
+                if existing["research_notes"]:
+                    research_notes = existing["research_notes"]
+            if is_new:
+                key = self._dedup_key(job.get("title", ""), job.get("company", ""))
+                original_hash = dedup_index.get(key)
+                if original_hash is None:
+                    # Auch gegen bereits in der DB liegende aktive Stellen pruefen
+                    row = conn.execute(
+                        "SELECT hash, title, company FROM jobs "
+                        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
+                        (job_pid,)
+                    ).fetchall()
+                    for r in row:
+                        if self._dedup_key(r["title"], r["company"]) == key and r["hash"] != stored_hash:
+                            original_hash = r["hash"]
+                            break
+                if original_hash and original_hash != stored_hash:
+                    is_active = 0
+                    dismiss_reason = "duplikat"
+                    pub_orig = self._public_job_hash(original_hash, job_pid)
+                    research_notes = (
+                        f"Duplikat von {pub_orig} (gleicher Titel+Firma, "
+                        f"andere Quelle/Hash). Automatisch erkannt beim Ingest."
+                    )
+                    duplikate += 1
+                else:
+                    # Diese Stelle wird das Original fuer kuenftige Keys
+                    dedup_index[key] = stored_hash
+
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
                     employment_type, is_pinned, lat, lon, veroeffentlicht_am,
-                    is_search_url, profile_id, found_at, updated_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    is_search_url, profile_id, found_at, updated_at, is_active,
+                    dismiss_reason, research_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -3721,13 +3794,18 @@ class Database:
                 new_pinned, job.get("lat"), job.get("lon"),
                 job.get("veroeffentlicht_am"),
                 1 if job.get("is_search_url") else 0,
-                job_pid, job.get("found_at", now), now
+                job_pid, job.get("found_at", now), now, is_active,
+                dismiss_reason, research_notes
             ))
-            if is_new:
+            if is_new and is_active:
                 src = job.get("source") or "unbekannt"
                 new_per_source[src] = new_per_source.get(src, 0) + 1
         conn.commit()
-        return {"new_per_source": new_per_source, "total": len(jobs)}
+        return {
+            "new_per_source": new_per_source,
+            "total": len(jobs),
+            "duplikate_erkannt": duplikate,
+        }
 
     def get_active_jobs(self, filters: Optional[dict] = None,
                         exclude_blacklisted: bool = False,
@@ -6876,15 +6954,21 @@ class Database:
                           "action_type": "dashboard", "action_target": "showPage('profil'); setTimeout(showEducationForm, 200)",
                           "action_label": "+ Ausbildung"})
 
-        # Check documents for extraction
+        # Check documents for extraction.
+        # v1.7.0-beta.64 (#640): basis_analysiert ist ein ZWISCHEN-Status
+        # (nur Regex-Basics gelaufen, KI-Tiefenanalyse fehlt noch) — muss
+        # genauso als "zu analysieren" gelten wie nicht_extrahiert. Vorher
+        # wurde nur nicht_extrahiert gezaehlt, sodass basis_analysiert-Docs
+        # als "fertig" galten und nie tief analysiert wurden.
         docs = profile.get("documents", [])
-        unextracted = [d for d in docs if d.get("extraction_status") == "nicht_extrahiert"
+        unextracted = [d for d in docs
+                       if d.get("extraction_status") in ("nicht_extrahiert", "basis_analysiert", "", None)
                        and d.get("extracted_text")]
         if unextracted:
             steps.append({"aktion": f"{len(unextracted)} Dokument(e) analysieren",
                           "prioritaet": "hoch",
-                          "beschreibung": "Hochgeladene Dokumente wurden noch nicht ausgewertet — Claude kann die Daten extrahieren.",
-                          "action_type": "prompt", "prompt": "/profil_erweiterung"})
+                          "beschreibung": "Hochgeladene Dokumente warten auf die KI-Tiefenanalyse — Claude kann die Daten extrahieren.",
+                          "action_type": "prompt", "prompt": "/dokumente_verarbeiten"})
         elif not docs:
             # No documents at all — suggest upload
             steps.append({"aktion": "Dokumente hochladen", "prioritaet": "mittel",

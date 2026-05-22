@@ -578,12 +578,18 @@ class InstallerApp:
             "Nächste Schritte:\n"
             "  1. Claude Desktop neu starten\n"
             "  2. In Claude eintippen: \"Ersterfassung starten\"\n\n"
-            f"Browser-Dashboard: http://localhost:8200\n"
-            f"(verfügbar wenn Claude Desktop läuft)"
+            f"Das Dashboard läuft eigenständig auf http://localhost:8200\n"
+            f"(unabhängig von Claude Desktop)."
         )
         self.done_info.configure(text=info)
         self._venv_python = venv_python
         self._show_page("done")
+        # v1.7.0-beta.64 (#639): Dashboard automatisch starten + Browser
+        # oeffnen sobald die Done-Page erscheint — konsistent mit den
+        # CLI-Installern (.bat/.command/.sh) die das seit beta.23/38 tun.
+        # Laeuft in einem Thread damit die GUI nicht 30s einfriert.
+        import threading
+        threading.Thread(target=self._open_dashboard, daemon=True).start()
 
     def _show_error(self, message):
         """Show error page."""
@@ -594,24 +600,42 @@ class InstallerApp:
         self._show_page("error")
 
     def _open_dashboard(self):
-        """Start the demo dashboard."""
+        """Startet das echte PBP-Dashboard (nicht die Demo) und oeffnet den Browser.
+
+        v1.7.0-beta.64 (#639): Vorher wurde test_demo.py gestartet — das
+        nutzt ein TEMP-Verzeichnis mit DEMO-Daten, nicht die echte
+        Installation. Jetzt start_dashboard.py mit dem echten Datendir.
+        """
         try:
             project_dir = os.path.join(self.install_dir.get(), "bewerbungs-assistent")
-            demo_script = os.path.join(project_dir, "test_demo.py")
-            if os.path.exists(demo_script):
-                subprocess.Popen([self._venv_python, demo_script],
-                                  creationflags=subprocess.CREATE_NO_WINDOW
-                                  if sys.platform == 'win32' else 0)
+            launcher = os.path.join(project_dir, "start_dashboard.py")
+            if not os.path.exists(launcher):
+                # Fallback fuer alte Layouts
+                launcher = os.path.join(project_dir, "test_demo.py")
+            if os.path.exists(launcher):
+                subprocess.Popen(
+                    [self._venv_python, launcher],
+                    cwd=project_dir,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                    if sys.platform == 'win32' else 0,
+                )
+                # Health-Check: bis Port 8200 antwortet (max 30s)
                 import time
-                time.sleep(3)
-            # Open browser
+                import urllib.request
+                for _ in range(30):
+                    try:
+                        urllib.request.urlopen("http://localhost:8200/", timeout=1)
+                        break
+                    except Exception:
+                        time.sleep(1)
+            # Browser oeffnen
             import webbrowser
             webbrowser.open("http://localhost:8200")
         except Exception as e:
             messagebox.showinfo("Hinweis",
                                 f"Dashboard konnte nicht gestartet werden.\n"
-                                f"Starte Claude Desktop und öffne dann\n"
-                                f"http://localhost:8200 im Browser.\n\n{e}")
+                                f"Oeffne spaeter http://localhost:8200 im Browser\n"
+                                f"oder die Desktop-Verknuepfung 'PBP Bewerbungs-Portal'.\n\n{e}")
 
     def run(self):
         """Start the installer GUI."""
