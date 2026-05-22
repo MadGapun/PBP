@@ -1188,6 +1188,52 @@ function KIFeaturesCard({ pushToast }) {
   );
 }
 
+// v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop-Anzeige.
+// Zeigt wie viele Stellen Ollama automatisch aussortiert hat und — sobald
+// genug Datenbasis (>= 5) — wie treffsicher die Auto-Entscheidungen waren
+// (gemessen daran wie oft der User sie korrigiert hat).
+function OllamaAccuracyCard() {
+  const [acc, setAcc] = useState(null);
+  useEffect(() => {
+    api("/api/llm/accuracy").then(setAcc).catch(() => {});
+  }, []);
+  if (!acc || !acc.auto_aussortiert_gesamt) {
+    return null; // Noch keine Auto-Aussortierungen → Card ausblenden
+  }
+  const genau = acc.genauigkeit_prozent;
+  const genauColor = genau == null ? "text-muted/50"
+    : genau >= 85 ? "text-teal"
+    : genau >= 65 ? "text-amber" : "text-coral";
+  return (
+    <div className="glass-card p-3 mb-4 border-teal/15">
+      <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide mb-2">
+        Ollama-Leistung (Auto-Aussortierung)
+      </p>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-lg font-bold text-ink">{acc.auto_aussortiert_gesamt}</p>
+          <p className="text-[10px] text-muted/60">automatisch<br/>aussortiert</p>
+        </div>
+        <div>
+          <p className="text-lg font-bold text-amber">{acc.reaktiviert}</p>
+          <p className="text-[10px] text-muted/60">von dir<br/>zurueckgeholt</p>
+        </div>
+        <div>
+          <p className={`text-lg font-bold ${genauColor}`}>
+            {genau == null ? "—" : `${genau}%`}
+          </p>
+          <p className="text-[10px] text-muted/60">Treffer-<br/>genauigkeit</p>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted/50 mt-2">
+        {acc.datenbasis_ausreichend
+          ? "Genauigkeit = Anteil der Auto-Entscheidungen, die du NICHT korrigiert hast. Je mehr du selbst aussortierst, desto besser lernt Ollama (Few-Shot)."
+          : "Genauigkeit wird ab 5 Auto-Entscheidungen angezeigt — noch zu wenig Datenbasis."}
+      </p>
+    </div>
+  );
+}
+
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
@@ -1498,6 +1544,9 @@ function LocalAITab({ pushToast }) {
           Kreatives (Anschreiben, Coaching) bleibt bei Claude.
         </p>
       </div>
+
+      {/* v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop — Ollama-Leistung */}
+      <OllamaAccuracyCard />
 
       {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}
       <TestConnectionBlock />

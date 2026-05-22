@@ -16,6 +16,83 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.67] - 2026-05-14 — Ollama-Leistungs-Anzeige: #638 vollstaendig
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+
+Letztes fehlendes Stueck von #638: der **Feedback-Loop im Dashboard**.
+Backend (`/api/llm/accuracy`, beta.66) gab es schon — jetzt die Anzeige.
+
+### ✨ Ollama-Leistung-Card (Settings → Lokale KI)
+
+Neue Card im Lokale-KI-Tab (nur sichtbar wenn Ollama schon Stellen
+auto-aussortiert hat):
+
+- **automatisch aussortiert** — Gesamtzahl der `auto:`-Aussortierungen
+- **von dir zurueckgeholt** — wie oft du eine Auto-Entscheidung
+  korrigiert hast (reaktiviert)
+- **Treffergenauigkeit** — Anteil der nicht-korrigierten Entscheidungen
+  (farbcodiert: gruen ≥85%, amber ≥65%, coral darunter). Erscheint erst
+  ab 5 Auto-Entscheidungen (sonst zu duenne Datenbasis).
+
+Damit ist **#638 komplett** — alle 5 Stufen umgesetzt:
+1. Auto-Aussortierung nach Jobsuche (beta.63/65)
+2. Score-Anreicherung fuer duenne Beschreibungen (beta.65)
+3. Few-Shot-Lernschleife aus Bewertungen (beta.63/65)
+4. Heartbeat/Warmup-Service (beta.62)
+5. Genauigkeits-Tracking + Dashboard-Anzeige (beta.66/67)
+
+### Tests
+
+- Backend unveraendert (Endpoint + Stats seit beta.66 getestet),
+  Aenderung ist reine Frontend-Card
+- 1394 / 1394 gruen
+
+### Migration / Breaking Changes
+
+Keine. Reine Anzeige.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.67.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.67.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.66] - 2026-05-14 — KI-Transparenz: Token-Klassen + Ollama-Genauigkeit (#632 Stufe 1 + #638 Stufe 5)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
