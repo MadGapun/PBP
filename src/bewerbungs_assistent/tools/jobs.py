@@ -49,10 +49,14 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
             )
             return
 
-        # Such-Job-Status pruefen
+        # Such-Job-Status pruefen.
+        # v1.7.0-beta.65 (#638): run_search setzt status='fertig', NICHT
+        # 'erledigt'. Der beta.63-Check auf 'erledigt' war falsch — der Hook
+        # sprang IMMER raus und lief nie. Beide Werte akzeptieren.
         job = db.get_background_job(job_id)
-        if not job or job.get("status") != "erledigt":
-            log.info("auto_dismiss: Such-Job nicht erledigt — uebersprungen")
+        if not job or job.get("status") not in ("fertig", "erledigt"):
+            log.info("auto_dismiss: Such-Job nicht fertig (status=%s) — uebersprungen",
+                     job.get("status") if job else None)
             return
 
         # Erst die Stellen pruefen, dann auto-dismiss aufrufen
@@ -95,6 +99,7 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
             recent_dismissals = []
         bewertet = 0
         aussortiert = 0
+        angereichert = 0
         try:
             for jobitem in active_jobs[:max_pro_run]:
                 if jobitem.get("score") is not None and jobitem.get("score", 0) < 0:
@@ -110,10 +115,11 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
                     has_app = None
                 if has_app:
                     continue
+                desc = (jobitem.get("description") or "").strip()
                 payload = {
                     "job_title": jobitem.get("title", ""),
                     "job_company": jobitem.get("company", ""),
-                    "job_description": (jobitem.get("description") or "")[:1500],
+                    "job_description": desc[:1500],
                     "profile_position": profile_position,
                     "profile_skills": profile_skills,
                     # #638 Stufe 3: Few-Shot-Lernschleife
@@ -121,15 +127,19 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
                     "recent_dismissals": recent_dismissals,
                 }
                 try:
-                    result = svc.run_task(TaskKind.MATCH_JOB_TO_SKILLS, payload)
+                    # v1.7.0-beta.65 (#638): FIX — Methode heisst run() nicht
+                    # run_task(); Parser liefert 'decision' nicht 'verdict'.
+                    # In beta.63 lief der Hook deshalb nie durch (AttributeError
+                    # wurde verschluckt). Jetzt korrekt.
+                    result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
                 except Exception:
                     continue
                 bewertet += 1
                 if not result.success or not result.payload:
                     continue
-                verdict = (result.payload.get("verdict") or "").lower()
+                decision = (result.payload.get("decision") or "").upper()
                 reason = result.payload.get("reason", "") or ""
-                if verdict == "passt_nicht":
+                if decision == "PASST_NICHT":
                     try:
                         db.dismiss_job(
                             jobitem.get("hash", ""),
@@ -138,25 +148,53 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
                         aussortiert += 1
                     except Exception:
                         pass
+                elif decision == "PASST":
+                    # v1.7.0-beta.65 (#638 Stufe 2): Score-Anreicherung.
+                    # Stellen ohne (oder mit duenner) Beschreibung haben oft
+                    # Score 0 und versacken unten in der Liste — obwohl Ollama
+                    # sie als passend einstuft. Wir heben sie auf einen
+                    # moderaten Score damit sie sichtbar werden. Nur wenn
+                    # noch nicht hoeher bewertet + nicht gepinnt.
+                    cur_score = jobitem.get("score") or 0
+                    thin_desc = len(desc) < 120
+                    if thin_desc and cur_score < 35 and not jobitem.get("is_pinned"):
+                        try:
+                            db.update_job(jobitem.get("hash", ""),
+                                          {"score": 35})
+                            angereichert += 1
+                        except Exception:
+                            pass
         except Exception as exc:
             log.warning("auto_dismiss-Schleife abgebrochen: %s", exc)
 
-        # Ergebnis im Background-Job-Ergebnis vermerken
+        # Ergebnis im Background-Job vermerken.
+        # v1.7.0-beta.65 (#638): Feld heisst 'result' (nicht 'ergebnis'),
+        # update_background_job-kwarg ebenfalls 'result='. Status 'fertig'
+        # erhalten (nicht auf 'erledigt' umbiegen). beta.63 nutzte falsche
+        # Namen -> TypeError verschluckt -> nichts gespeichert.
         try:
             job = db.get_background_job(job_id)
-            ergebnis = job.get("ergebnis") or {}
-            ergebnis["auto_aussortiert"] = {
+            result_data = job.get("result") or {}
+            if not isinstance(result_data, dict):
+                result_data = {}
+            result_data["auto_aussortiert"] = {
                 "bewertet": bewertet,
                 "aussortiert": aussortiert,
+                "score_angereichert": angereichert,
                 "von_aktiven": len(active_jobs),
             }
-            db.update_background_job(job_id, "erledigt", ergebnis=ergebnis)
-        except Exception:
-            pass
+            db.update_background_job(
+                job_id, job.get("status", "fertig"),
+                progress=job.get("progress", 100),
+                message=job.get("message", ""),
+                result=result_data,
+            )
+        except Exception as exc:
+            log.warning("auto_dismiss: Ergebnis-Speicherung fehlgeschlagen: %s", exc)
 
         log.info(
-            "auto_dismiss: fertig — %d/%d bewertet, %d aussortiert",
-            bewertet, max_pro_run, aussortiert,
+            "auto_dismiss: fertig — %d/%d bewertet, %d aussortiert, %d angereichert",
+            bewertet, max_pro_run, aussortiert, angereichert,
         )
 
     except Exception as exc:

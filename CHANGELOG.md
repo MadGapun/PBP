@@ -16,6 +16,109 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.65] - 2026-05-14 — Auto-Aussortierung repariert + Score-Anreicherung (#638 Stufe 1/2/3)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> 🔥 **Wichtig:** der in beta.63 angekuendigte Auto-Dismiss-Hook
+> funktionierte tatsaechlich NIE — beta.65 macht ihn erstmals lauffaehig.
+
+Beim Bauen von #638 Stufe 2 ist aufgefallen, dass der Auto-Aussortier-
+Hook aus beta.63 wegen **vier** Fehlern komplett tot war:
+
+| Bug | Wirkung |
+|---|---|
+| Status-Check auf `"erledigt"` | `run_search` setzt `"fertig"` → Hook sprang immer sofort raus |
+| `svc.run_task(...)` | Methode heisst `run()` → AttributeError, verschluckt |
+| `payload.get("verdict")` | Parser liefert `decision` → immer None |
+| `update_background_job(..., ergebnis=)` | kwarg heisst `result=` → TypeError, verschluckt |
+
+Alle vier gefixt. Der Hook laeuft jetzt wirklich durch.
+
+### ✨ #638 Stufe 2 — Score-Anreicherung fuer duenne Beschreibungen
+
+Stellen ohne (oder mit sehr kurzer) Beschreibung haben oft Score 0 und
+versacken unten in der Liste — obwohl Ollama sie als passend einstuft.
+Der Auto-Hook hebt solche Stellen jetzt auf einen moderaten Score (35),
+wenn Ollama `PASST` sagt:
+
+- Nur bei duenner Beschreibung (`< 120` Zeichen)
+- Nur wenn aktueller Score `< 35` und nicht gepinnt
+- Ergebnis im Job-Status als `score_angereichert`
+
+So werden „blinde" Stellen sichtbar statt unsichtbar zu bleiben.
+
+### Was jetzt nach einer Jobsuche passiert (wenn Ollama aktiv)
+
+1. Scraper laeuft → neue Stellen in DB
+2. **Auto-Dismiss** (jetzt funktional): Ollama bewertet bis zu 30
+   Stellen, sortiert `PASST_NICHT` aus (Grund mit `auto:`-Prefix)
+3. **Score-Anreicherung**: `PASST`-Stellen mit duenner Beschreibung
+   bekommen Score 35
+4. **Few-Shot-Lernen** (beta.63 Stufe 3, lief auch erst jetzt wirklich):
+   die letzten 5 manuellen Aussortierungen sind als Beispiele im Prompt
+5. Ergebnis steht im `jobsuche_status` unter `auto_aussortiert`
+
+### Tests
+
+- 4 neue Tests (`test_v170_beta65_auto_dismiss_enrich.py`): Dismiss
+  greift wirklich, Score-Anreicherung, fette Beschreibung unangetastet,
+  Ergebnis-Recording
+- 1372 / 1374 gruen (die 2 roten beta24-Ollama-Connection-Tests sind
+  pre-existing + environment-abhaengig)
+
+### Was von #638 noch offen ist
+
+- **Stufe 4**: Klick-Reihen-Tipps (Infrastruktur via #594 da, neue
+  Event-Typen folgen)
+- **Stufe 5**: Genauigkeits-Tracking der Ollama-Entscheidungen
+  (false-positives via `track.llmCorrection`)
+
+### Migration / Breaking Changes
+
+Keine. Score-Anreicherung ist additiv, betrifft nur Score-0-Stellen
+mit duenner Beschreibung.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.65.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.65.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.64] - 2026-05-14 — Installer-Autostart, Doku-Tiefenanalyse, Job-Dedup (#639 + #640 + #641)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
