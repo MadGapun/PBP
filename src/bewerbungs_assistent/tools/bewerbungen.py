@@ -1344,7 +1344,48 @@ def register(mcp, db, logger):
         profile_id = db.get_active_profile_id()
         email = db.get_email(email_id, profile_id=profile_id)
         if not email:
-            return {"fehler": "E-Mail nicht gefunden."}
+            # v1.7.0-beta.70 (#644): Fallback auf den Dokument-Store.
+            # Hochgeladene .eml/.msg landen als `documents`, nicht als gepollte
+            # `emails` — die IDs sehen identisch aus. Statt "E-Mail nicht
+            # gefunden" pruefen wir ob es ein Mail-DOKUMENT mit der ID gibt
+            # und verknuepfen transparent ueber linked_application_id.
+            if bewerbung_id:
+                app = db.get_application(bewerbung_id)
+                if not app:
+                    return {"fehler": "Bewerbung nicht gefunden."}
+                try:
+                    conn = db.connect()
+                    doc = conn.execute(
+                        "SELECT id FROM documents WHERE id=? "
+                        "AND (profile_id=? OR profile_id IS NULL)",
+                        (email_id, profile_id),
+                    ).fetchone()
+                    if doc:
+                        conn.execute(
+                            "UPDATE documents SET linked_application_id=? WHERE id=?",
+                            (bewerbung_id, email_id),
+                        )
+                        conn.commit()
+                        return {
+                            "status": "verknuepft",
+                            "document_id": email_id,
+                            "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                            "hinweis": (
+                                "Die ID gehoerte zu einem hochgeladenen "
+                                "Mail-DOKUMENT (nicht zu einer gepollten "
+                                "E-Mail) — ueber den Dokument-Store verknuepft."
+                            ),
+                        }
+                except Exception:
+                    pass
+            return {
+                "fehler": "Weder E-Mail noch Dokument mit dieser ID gefunden.",
+                "hinweis": (
+                    "IDs aus emails_anzeigen() sind E-Mails, IDs aus "
+                    "dokumente_zur_analyse() sind Dokumente. Beide werden hier "
+                    "akzeptiert — pruefe ob die ID stimmt."
+                ),
+            }
 
         if bewerbung_id:
             app = db.get_application(bewerbung_id)

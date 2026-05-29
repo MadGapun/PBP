@@ -29,7 +29,11 @@ def _call(mcp, name, args):
     async def _run():
         tool = await mcp.get_tool(name)
         res = await tool.run(args)
-        return res.structured_content if hasattr(res, "structured_content") else res
+        sc = res.structured_content if hasattr(res, "structured_content") else res
+        # FastMCP wrappt manche dict-Returns als {"result": {...}} — auspacken
+        if isinstance(sc, dict) and set(sc.keys()) == {"result"}:
+            return sc["result"]
+        return sc
     return asyncio.run(_run())
 
 
@@ -76,7 +80,7 @@ def test_642_real_company_with_hyphen_intact(setup_env):
     mcp = _mcp(db, dokumente)
     _add_doc(db, "Lebenslauf;Mustermann,Max; Beispiel-Systems.pdf")
     result = _call(mcp, "bewerbungs_dokumente_erkennen", {"auto_erstellen": False})
-    firmen = [e["firma"] for e in result.get("erkannt", [])]
+    firmen = [e["firma"] for e in result.get("firmen", [])]
     assert any("Beispiel" in f for f in firmen), f"Firma verstuemmelt: {firmen}"
     assert "Systems" not in firmen
 
@@ -87,7 +91,7 @@ def test_642_legit_company_still_detected(setup_env):
     mcp = _mcp(db, dokumente)
     _add_doc(db, "Anschreiben;Mustermann,Max-Musterfirma GmbH.pdf")
     result = _call(mcp, "bewerbungs_dokumente_erkennen", {"auto_erstellen": False})
-    firmen = [e["firma"] for e in result.get("erkannt", [])]
+    firmen = [e["firma"] for e in result.get("firmen", [])]
     assert any("Musterfirma" in f for f in firmen), f"Echte Firma nicht erkannt: {firmen}"
 
 

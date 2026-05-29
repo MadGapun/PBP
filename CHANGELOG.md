@@ -16,6 +16,93 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.70] - 2026-05-29 — Doku-Fixes: Phantom-Bewerbungen + Mail-Doku-Verknuepfung (#642 + #644)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> 🔧 **Ersetzt die defekten Zwischen-Releases beta.68 + beta.69** — diese
+> gingen mit unvollstaendigem Code / roten Tests raus (Edit-Fehler meinerseits).
+> **beta.70 ist die erste saubere Version dieser Fixes, 1401/1401 gruen.**
+> beta.68 + beta.69 NICHT installieren.
+
+### 🐛 #642 Keine Phantom-Bewerbungen mehr aus CV-Dateinamen
+
+`bewerbungs_dokumente_erkennen(auto_erstellen=True)` legte aus generischen
+CV-Varianten Phantom-Bewerbungen an (Bewerbung bei „Ausfuehrlich",
+„freelancer", „SC", „SL"; „Dassault-Systems" zu „Systems" verstuemmelt).
+`_extract_firma_from_filename` neu aufgebaut:
+
+- **Trenner-Logik:** enthaelt der Rest nach dem DocType-Praefix ein `;`,
+  ist die Firma der Teil nach dem **letzten** `;` (darf Bindestriche tragen
+  -> „Dassault-Systems" bleibt ganz); sonst der Teil nach dem **ersten** `-`
+- **Blacklist** (umlaut-normalisiert): freelancer, ausfuehrlich,
+  deutsch/english, master, version, mit/ohne-foto, kurz/lang, …
+- **Kuerzel-Filter:** ≤ 3 Zeichen ohne Kleinbuchstaben (SC, SL, BWI) =
+  Initialen, keine Firma
+- **Zahlen/Datum-Filter**
+
+### 🐛 #644 `email_verknuepfen` akzeptiert jetzt auch Dokument-IDs
+
+Hochgeladene `.eml`/`.msg` landen als `documents`, gepollte IMAP-Mails als
+`emails` — die IDs sehen identisch aus. `email_verknuepfen` mit einer
+Dokument-ID lieferte „E-Mail nicht gefunden". Jetzt: Fallback-Lookup im
+Dokument-Store + transparente Verknuepfung via `linked_application_id`,
+klare Fehlermeldung bei wirklich unbekannter ID.
+
+### Geparkt
+
+**#643** (Doku-Routing nach `doc_type`) ueberschneidet sich mit dem
+bestehenden `/dokumente_verarbeiten`-Prompt — nach v1.8.0 verschoben.
+
+### Tests
+
+- 5 neue Tests (`test_v170_beta68_doku_fixes.py`)
+- **1401 / 1401 gruen**
+
+### Migration / Breaking Changes
+
+Keine. Beide Aenderungen sind defensiv/additiv.
+
+### 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+#### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.70.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.70.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+#### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+#### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+#### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+#### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.67] - 2026-05-14 — Ollama-Leistungs-Anzeige: #638 vollstaendig
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
