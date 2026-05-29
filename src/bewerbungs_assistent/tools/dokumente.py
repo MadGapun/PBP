@@ -662,33 +662,42 @@ def register(mcp, db, logger):
         "Systems" verstuemmelt zu werden).
         """
         base = os.path.splitext(filename)[0]
-        # [^-]+? non-greedy stoppt am ERSTEN Bindestrich nach dem Namen,
-        # (.+) greedy nimmt den gesamten Rest als Firma (inkl. Bindestriche).
-        patterns = [
-            r'(?:Lebenslauf|CV|Anschreiben)[;,]\s*[^-]+?-\s*(.+)',
-            r'(?:Lebenslauf|CV|Anschreiben)\s+[^-]+?-\s*(.+)',
-        ]
-        for pattern in patterns:
-            match = re.match(pattern, base, re.IGNORECASE)
-            if match:
-                firma = match.group(1).strip()
-                firma_norm = _norm_firma(firma)
-                # Generische Nicht-Firma-Tokens raus (umlaut-normalisiert)
-                if firma_norm in _FIRMA_SKIP_WORDS:
-                    return None
-                # Leerer Token nach Normalisierung (nur Sonderzeichen/Zahlen)
-                if not firma_norm:
-                    return None
-                # Kuerzel ablehnen: <= 3 Zeichen UND keine Kleinbuchstaben
-                # (z.B. "SC", "SL", "BWI" — Initialen, keine echte Firma)
-                stripped = firma.replace(".", "").replace("-", "").replace(" ", "")
-                if len(stripped) <= 3 and not any(c.islower() for c in stripped):
-                    return None
-                # Reine Zahlen / Datum ablehnen (z.B. 20260203)
-                if re.fullmatch(r'[\d\s.\-_]+', firma):
-                    return None
-                return firma
-        return None
+        # DocType-Praefix entfernen (Lebenslauf/CV/Anschreiben + Trenner).
+        m = re.match(r'(?:Lebenslauf|CV|Anschreiben)[;,\s]+(.+)', base, re.IGNORECASE)
+        if not m:
+            return None
+        rest = m.group(1).strip()
+
+        # Name/Firma-Trenner bestimmen. Gemischte Formate in der Praxis:
+        #   "Name,Vorname; Firma-Mit-Bindestrich"  -> Trenner ';'
+        #   "Name,Vorname-Firma"                    -> Trenner '-'
+        # Wenn ein ';' vorhanden ist, ist die Firma der Teil nach dem LETZTEN
+        # ';' (Firma darf dann Bindestriche enthalten -> "Dassault-Systems"
+        # bleibt ganz). Sonst nach dem ERSTEN '-' (Name traegt selbst keinen
+        # Bindestrich). Behebt das #642-Verstuemmeln zu "Systems".
+        if ";" in rest:
+            firma = rest.rsplit(";", 1)[1].strip()
+        elif "-" in rest:
+            firma = rest.split("-", 1)[1].strip()
+        else:
+            return None
+
+        firma_norm = _norm_firma(firma)
+        # Generische Nicht-Firma-Tokens raus (umlaut-normalisiert)
+        if firma_norm in _FIRMA_SKIP_WORDS:
+            return None
+        # Leerer Token nach Normalisierung (nur Sonderzeichen/Zahlen)
+        if not firma_norm:
+            return None
+        # Kuerzel ablehnen: <= 3 Zeichen UND keine Kleinbuchstaben
+        # (z.B. "SC", "SL", "BWI" — Initialen, keine echte Firma)
+        stripped = firma.replace(".", "").replace("-", "").replace(" ", "")
+        if len(stripped) <= 3 and not any(c.islower() for c in stripped):
+            return None
+        # Reine Zahlen / Datum ablehnen (z.B. 20260203)
+        if re.fullmatch(r'[\d\s.\-_]+', firma):
+            return None
+        return firma
 
     def _extract_doc_type_from_filename(filename: str) -> str:
         """Erkennt den Dokumenttyp aus dem Dateinamen."""
