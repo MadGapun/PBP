@@ -631,6 +631,22 @@ def register(mcp, db, logger):
 
     # ── Hilfsfunktion: Firma aus Dateiname extrahieren ───────────────────
 
+    # v1.7.0-beta.68 (#642): erweiterte Nicht-Firma-Blacklist (umlaut-normalisiert)
+    _FIRMA_SKIP_WORDS = {
+        "ausfuehrlich", "frankenstein", "freelance", "freelancer", "allgemein",
+        "vorlage", "template", "entwurf", "draft", "final", "neu", "alt",
+        "kopie", "copy", "kurz", "lang", "deutsch", "english", "englisch",
+        "anonym", "anonymisiert", "blanko", "blank", "master", "standard",
+        "aktuell", "version", "foto", "mitfoto", "ohnefoto",
+    }
+
+    def _norm_firma(token: str) -> str:
+        """Normalisiert einen Firma-Token fuer Blacklist-Vergleich (#642)."""
+        t = token.lower().strip()
+        for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+            t = t.replace(uml, repl)
+        return re.sub(r"[^a-z0-9]", "", t)
+
     def _extract_firma_from_filename(filename: str) -> str | None:
         """Extrahiert den Firmennamen aus CV/Lebenslauf-Dateinamen.
 
@@ -638,22 +654,38 @@ def register(mcp, db, logger):
         - Lebenslauf;Mustermann,Max-FIRMA.pdf
         - CV;Mustermann,Max-FIRMA.docx
         - Anschreiben;Mustermann,Max-FIRMA.pdf
+
+        v1.7.0-beta.68 (#642): Greift nicht mehr bei generischen CV-Varianten
+        (Kuerzel SC/SL, Sprach-/Versions-Suffixe, "ausfuehrlich"/"freelancer"),
+        und behandelt firmeninterne Bindestriche korrekt (nimmt den GESAMTEN
+        Rest nach dem Namen -> "Beispiel-Systems" bleibt ganz statt zu
+        "Systems" verstuemmelt zu werden).
         """
         base = os.path.splitext(filename)[0]
+        # [^-]+? non-greedy stoppt am ERSTEN Bindestrich nach dem Namen,
+        # (.+) greedy nimmt den gesamten Rest als Firma (inkl. Bindestriche).
         patterns = [
-            r'(?:Lebenslauf|CV|Anschreiben)[;,]\s*[^-]+-\s*(.+)',
-            r'(?:Lebenslauf|CV|Anschreiben)\s+[^-]+-\s*(.+)',
+            r'(?:Lebenslauf|CV|Anschreiben)[;,]\s*[^-]+?-\s*(.+)',
+            r'(?:Lebenslauf|CV|Anschreiben)\s+[^-]+?-\s*(.+)',
         ]
         for pattern in patterns:
             match = re.match(pattern, base, re.IGNORECASE)
             if match:
                 firma = match.group(1).strip()
-                # Filter non-company values
-                skip_words = {"ausfuehrlich", "frankenstein", "freelance", "allgemein",
-                              "vorlage", "template", "entwurf", "draft"}
-                if firma.lower() in skip_words:
+                firma_norm = _norm_firma(firma)
+                # Generische Nicht-Firma-Tokens raus (umlaut-normalisiert)
+                if firma_norm in _FIRMA_SKIP_WORDS:
                     return None
-                if re.match(r'^\d{8}$', firma):  # Date like 20260203
+                # Leerer Token nach Normalisierung (nur Sonderzeichen/Zahlen)
+                if not firma_norm:
+                    return None
+                # Kuerzel ablehnen: <= 3 Zeichen UND keine Kleinbuchstaben
+                # (z.B. "SC", "SL", "BWI" — Initialen, keine echte Firma)
+                stripped = firma.replace(".", "").replace("-", "").replace(" ", "")
+                if len(stripped) <= 3 and not any(c.islower() for c in stripped):
+                    return None
+                # Reine Zahlen / Datum ablehnen (z.B. 20260203)
+                if re.fullmatch(r'[\d\s.\-_]+', firma):
                     return None
                 return firma
         return None
