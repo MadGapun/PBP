@@ -1578,8 +1578,28 @@ def register(mcp, db, logger):
                     "stellen_hash": stellen_hash}
         url = (job.get("url") or "").strip()
         if not url:
-            return {"status": "fehler",
-                    "grund": "Stelle hat keine URL — bitte ueber stelle_bearbeiten manuell pflegen"}
+            return {
+                "status": "fehler",
+                "grund": (
+                    "Stelle hat keine URL — Detail-URL der Anzeige nachpflegen via "
+                    f"stelle_bearbeiten('{stellen_hash}', url='https://...') "
+                    "und dann erneut versuchen."
+                ),
+                "vorschlag_tool": "stelle_bearbeiten",
+                "vorschlag_aufruf": f"stelle_bearbeiten('{stellen_hash}', url='https://...')",
+            }
+        if job.get("is_search_url"):
+            return {
+                "status": "fehler",
+                "grund": (
+                    "Stelle hat nur eine Such-URL gespeichert (Quelle hat die "
+                    "Detail-URL nicht ausgeliefert, #645-Fallback). "
+                    f"Detail-URL nachreichen via stelle_bearbeiten('{stellen_hash}', url='https://...')."
+                ),
+                "url": url,
+                "vorschlag_tool": "stelle_bearbeiten",
+                "vorschlag_aufruf": f"stelle_bearbeiten('{stellen_hash}', url='https://...')",
+            }
         try:
             with httpx.Client(follow_redirects=True, timeout=15,
                               headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
@@ -1873,8 +1893,9 @@ def register(mcp, db, logger):
         firma: str = "",
         ort: str = "",
         beschreibung: str = "",
+        url: str = "",
     ) -> dict:
-        """Aktualisiert Felder einer bestehenden Stelle (#446).
+        """Aktualisiert Felder einer bestehenden Stelle (#446, #645).
 
         Nutze dies, um eine gescrapte oder manuell angelegte Stelle
         nachtraeglich zu korrigieren oder zu verfeinern — z.B. wenn aus einer
@@ -1883,12 +1904,19 @@ def register(mcp, db, logger):
 
         Nur angegebene Felder werden geaendert. Leere Strings bleiben unveraendert.
 
+        v1.7.0-beta.71 (#645): `url` ist jetzt setzbar. Bei URL-Update wird
+        `is_search_url` automatisch aus der URL bestimmt (Detail- vs.
+        Such-URL), damit stellenbeschreibung_nachladen die Stelle wieder
+        nachladen kann.
+
         Args:
             job_hash: Hash der Stelle (aus stellen_anzeigen)
             titel: Neuer Stellentitel
             firma: Neuer Firmenname
             ort: Neuer Arbeitsort
             beschreibung: Neue Stellenbeschreibung
+            url: Neue Stellen-URL. Wird auch genutzt um nach #645 leere
+                URL-Felder bei XING/Stepstone/Email-Stellen nachzupflegen.
         """
         # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
         # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
@@ -1913,6 +1941,10 @@ def register(mcp, db, logger):
             updates["location"] = ort
         if beschreibung:
             updates["description"] = beschreibung
+        if url:
+            from ..job_scraper import is_search_result_url
+            updates["url"] = url
+            updates["is_search_url"] = is_search_result_url(url)
 
         if not updates:
             return {"fehler": "Keine Aenderungen angegeben."}
@@ -1951,6 +1983,16 @@ def register(mcp, db, logger):
         }
         if score_recomputed:
             result["score_neu_berechnet"] = score_recomputed
+        # #645: Wenn die neue URL eine Such-URL ist, das wie bei
+        # stelle_manuell_anlegen transparent zurueckmelden — sonst denkt
+        # der User der Link sei voll funktionsfaehig.
+        if "url" in updates and updates.get("is_search_url"):
+            result["url_warnung"] = (
+                "Die uebergebene URL zeigt auf eine Suchergebnis-Seite, nicht auf die "
+                "konkrete Stellenanzeige. Sie wurde trotzdem gespeichert. "
+                "stellenbeschreibung_nachladen wird damit voraussichtlich nichts "
+                "Brauchbares zurueckliefern — fuer das Nachladen die Detail-URL nachreichen."
+            )
         return result
 
     @mcp.tool()

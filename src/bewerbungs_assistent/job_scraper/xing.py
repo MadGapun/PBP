@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from . import stelle_hash, detect_remote_level
+from . import stelle_hash, detect_remote_level, is_search_result_url
 from .browser_config import (
     get_selectors,
     build_js_extractor,
@@ -260,7 +260,7 @@ def search_xing(params: dict, progress_callback=None) -> list:
 
                         page_stellen = 0
                         for raw in raw_jobs:
-                            job = _process_raw_job(raw, seen_job_ids)
+                            job = _process_raw_job(raw, seen_job_ids, search_url=url)
                             if job:
                                 stellen.append(job)
                                 page_stellen += 1
@@ -379,8 +379,16 @@ def ensure_xing_session(progress_callback=None) -> bool:
             browser.close()
 
 
-def _process_raw_job(raw: dict, seen_job_ids: set) -> dict | None:
-    """Process a raw JS-extracted XING job into a job dict."""
+def _process_raw_job(raw: dict, seen_job_ids: set, search_url: str = "") -> dict | None:
+    """Process a raw JS-extracted XING job into a job dict.
+
+    #645: URL-Fallback-Kaskade.
+    1) Detail-Link aus der Extraktion (raw["link"]) wenn vorhanden.
+    2) Wenn leer, aber jobId da: Detail-URL aus jobId rekonstruieren
+       (`https://www.xing.com/jobs/{jobId}`) — XING-Detail-URLs folgen
+       diesem stabilen Schema.
+    3) Sonst die uebergebene Such-URL als Fallback + is_search_url=True.
+    """
     title = _clean(raw.get("title", ""))
     if not title or len(title) < 5:
         return None
@@ -392,7 +400,15 @@ def _process_raw_job(raw: dict, seen_job_ids: set) -> dict | None:
             return None
         seen_job_ids.add(job_id)
 
-    link = raw.get("link", "")
+    link = (raw.get("link") or "").strip()
+    if link and not link.startswith("http"):
+        link = "https://www.xing.com" + (link if link.startswith("/") else "/" + link)
+    if not link and job_id:
+        link = f"https://www.xing.com/jobs/{job_id}"
+    if not link:
+        link = search_url
+    is_search = not link or is_search_result_url(link)
+
     company = _clean(raw.get("company", "")) or "Unbekannt"
     location = _clean(raw.get("location", ""))
     desc = raw.get("desc", "")
@@ -413,6 +429,7 @@ def _process_raw_job(raw: dict, seen_job_ids: set) -> dict | None:
         "company": company,
         "location": location,
         "url": link,
+        "is_search_url": is_search,
         "source": "xing",
         "description": desc,
         "employment_type": employment,

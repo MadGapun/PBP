@@ -7174,6 +7174,10 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
         "SELECT hash, url FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
         "AND url IS NOT NULL AND url != '' "
+        # #645: Such-URL-Stellen ausschliessen — sonst landet als
+        # "Beschreibung" der Anriss der Suchergebnis-Seite, nicht die
+        # echte Anzeige, und der Score wird wieder unzuverlaessig.
+        "AND COALESCE(is_search_url, 0) = 0 "
         "AND (description IS NULL OR LENGTH(description) < 50) "
         "LIMIT ?",
         (pid, max_jobs * 3)  # Overshoot — manche werden via Backoff geskippt

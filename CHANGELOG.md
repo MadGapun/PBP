@@ -16,6 +16,67 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.71] - 2026-05-31 — Regression-Fix: leere jobs.url bei XING/Stepstone (#645)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> Reiner Bugfix-Release. Keine Schema-Aenderung. 9 neue Tests
+> (`test_v17_url_regression_645.py`), 1410/1410 gruen.
+
+### 🐛 #645 Stellen-URLs werden wieder gespeichert (Detail- oder Such-Fallback)
+
+Bei der Durchsicht am 29.05.2026 fielen 7 von 8 aktiven Stellen mit
+**leerem url-Feld** auf — XING/Stepstone/E-Mail-Quellen. Folge:
+`stellenbeschreibung_nachladen` (#622) bricht mit "Stelle hat keine URL"
+ab, der User kann die Anzeige nicht oeffnen, der Score basiert nur auf
+dem Titel und wird unzuverlaessig. Regression hinter #436 (v1.5.3, dort
+nur Detection + Warnung — der eigentliche Fallback pro Portal war nie
+ueberall implementiert, nur in `monster.py` / `freelancermap.py`).
+
+**Scraper — URL-Fallback-Kaskade jetzt einheitlich:**
+
+- **`xing.py` `_process_raw_job`** — Reihenfolge: (1) Detail-Link aus
+  der Karte; (2) wenn leer aber `jobId` vorhanden, Detail-URL aus jobId
+  rekonstruieren (`https://www.xing.com/jobs/{jobId}`); (3) sonst
+  aktuelle Such-URL eintragen + `is_search_url=True`. Relative Links
+  werden mit Host vorgeklebt.
+- **`stepstone.py`** — pro Stelle: relative Links absolutieren
+  (JSON-LD-Posts liefern manchmal ohne Host), und wenn am Ende immer
+  noch kein Detail-Link da ist, Such-URL als Fallback +
+  `is_search_url=True`. `_fetch_detail_descriptions` ueberspringt
+  Such-URL-Stellen (sonst landet der Anriss der Suchergebnis-Seite als
+  "Beschreibung" und verfaelscht das Scoring).
+
+**DB-Schicht — URL nachpflegbar:**
+
+- `Database.update_job` hat `url` und `is_search_url` jetzt in der
+  Allowed-List (vorher Whitelist-Drop ohne Warnung).
+- `stelle_bearbeiten(<hash>, url="...")` akzeptiert URL als Parameter
+  und setzt `is_search_url` automatisch via `is_search_result_url()`.
+  Bei nachgereichter Such-URL gibt's `url_warnung` wie bei
+  `stelle_manuell_anlegen`.
+
+**Tool-Schicht — bessere Fehler-Meldung:**
+
+- `stellenbeschreibung_nachladen` zeigt jetzt einen konkreten
+  copy-paste-fertigen Vorschlag: `stelle_bearbeiten('<hash>', url='https://...')`.
+  Vorher wurde auf `stelle_bearbeiten` verwiesen, das den `url`-Parameter
+  gar nicht akzeptierte — der Workaround lief ins Leere.
+- Separater Fehler-Branch wenn die gespeicherte URL eine Such-URL ist
+  (kein sinnloser HTTP-Fetch der Suchseite mehr).
+- `_run_auto_refetch_descriptions` (Auto-Engine-Step aus #622)
+  ueberspringt Such-URL-Stellen via `COALESCE(is_search_url, 0) = 0`.
+
+**Noch offen (eigene Issues empfohlen):**
+
+- AK3 "E-Mail-Quelle ohne Link: definierter Umgang" — Schema-Erweiterung
+  mit eigener Migration, separat zu trennen
+- AK5 "Datenheilung fuer bestehende leere Stellen" — eine optionale
+  Migration `quellen_aus_urls_korrigieren`-aehnlich
+- medac/Workday-Deep-Link-Pattern aus Kommentar #4582087088 — eigene
+  Untersuchung im Workday-Adapter
+
+---
+
 ## [1.7.0-beta.70] - 2026-05-29 — Doku-Fixes: Phantom-Bewerbungen + Mail-Doku-Verknuepfung (#642 + #644)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

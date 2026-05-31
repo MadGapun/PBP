@@ -5786,12 +5786,16 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
-        allowed = ("title", "company", "location", "description", "research_notes", "score")
+        allowed = ("title", "company", "location", "description", "research_notes",
+                   "score", "url", "is_search_url")
         sets, vals = [], []
         for f in allowed:
             if f in data:
                 sets.append(f"{f}=?")
-                vals.append(data[f])
+                val = data[f]
+                if f == "is_search_url":
+                    val = 1 if val else 0
+                vals.append(val)
         if sets:
             sets.append("updated_at=?")
             vals.append(_now())

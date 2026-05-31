@@ -8,7 +8,7 @@ import logging
 import random
 import time
 
-from . import stelle_hash, detect_remote_level
+from . import stelle_hash, detect_remote_level, is_search_result_url
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.stepstone")
 
@@ -169,12 +169,31 @@ def search_stepstone(params: dict) -> list:
                 }""")
 
                 for raw in raw_jobs:
+                    # #645: URL-Fallback-Kaskade.
+                    # 1) Detail-Link aus der Extraktion (JSON-LD oder Card)
+                    # 2) Relative Links absolutieren (JSON-LD liefert manche
+                    #    Stepstone-Posts ohne Host).
+                    # 3) Wenn am Ende immer noch kein Detail-Link da ist:
+                    #    Such-URL als Fallback eintragen + is_search_url=True
+                    #    setzen, damit der User die Anzeige zumindest oeffnen
+                    #    kann und stellenbeschreibung_nachladen sauber
+                    #    differenziert.
+                    link = (raw.get("link") or "").strip()
+                    if link and not link.startswith("http"):
+                        if link.startswith("/"):
+                            link = "https://www.stepstone.de" + link
+                        else:
+                            link = "https://www.stepstone.de/" + link
+                    if not link:
+                        link = url
+                    is_search = not link or is_search_result_url(link)
                     job = {
                         "hash": stelle_hash("stepstone.de", raw["title"]),
                         "title": raw["title"],
                         "company": raw["company"],
                         "location": raw["location"],
-                        "url": raw["link"],
+                        "url": link,
+                        "is_search_url": is_search,
                         "source": "stepstone",
                         "description": "",
                         "employment_type": "festanstellung",
@@ -197,9 +216,16 @@ def search_stepstone(params: dict) -> list:
 
 
 def _fetch_detail_descriptions(page, jobs):
-    """Navigate to each job's detail page and extract description."""
+    """Navigate to each job's detail page and extract description.
+
+    #645: Such-URLs werden hier uebersprungen — sonst landet als
+    "Beschreibung" der erste Treffer-Block der Suchergebnis-Seite und
+    verfaelscht das Scoring.
+    """
     for job in jobs:
         if job.get("description") or not job.get("url"):
+            continue
+        if job.get("is_search_url"):
             continue
         try:
             page.goto(job["url"], wait_until="domcontentloaded", timeout=20000)
