@@ -125,6 +125,62 @@ def test_xing_process_raw_job_absolutizes_relative_link():
 # ── #645 / DB-Schicht ────────────────────────────────────────────────
 
 
+def test_save_jobs_warns_on_empty_url_from_scraper_source(tmp_db, caplog):
+    """#645 Hard-Guard: leere URL aus bekannter Scraper-Quelle wird
+    gewarnt + auto-is_search_url=True markiert."""
+    tmp_db.create_profile("Test User", "test@example.com")
+    with caplog.at_level(logging.WARNING, logger="bewerbungs_assistent.database"):
+        res = tmp_db.save_jobs([
+            {
+                "hash": "guard-stepstone-empty",
+                "title": "Senior Architekt",
+                "company": "TestFirma-A",
+                "source": "stepstone",
+                "url": "",
+                "description": "",
+                "score": 5,
+                "employment_type": "festanstellung",
+            },
+        ])
+    # Quellen-Counter im Result-Dict
+    assert "leere_url_warnungen" in res
+    assert res["leere_url_warnungen"] == {"stepstone": 1}
+    # WARN-Log mit Quelle + Issue-Verweis
+    assert any("stepstone" in r.message and "#645" in r.message
+               for r in caplog.records)
+    # Defensiv-Markierung is_search_url=1 wurde gesetzt
+    job = tmp_db.get_job("guard-stepstone-empty")
+    assert int(job.get("is_search_url") or 0) == 1
+
+
+def test_save_jobs_silent_for_manuell_or_email_without_url(tmp_db, caplog):
+    """#645: manuell + email sind erlaubte Quellen ohne URL — keine Warnung."""
+    tmp_db.create_profile("Test User", "test@example.com")
+    with caplog.at_level(logging.WARNING, logger="bewerbungs_assistent.database"):
+        res = tmp_db.save_jobs([
+            {
+                "hash": "guard-manuell-empty",
+                "title": "Hand-eingetragene Stelle",
+                "company": "TestFirma-B",
+                "source": "manuell",
+                "url": "",
+                "score": 5,
+                "employment_type": "festanstellung",
+            },
+            {
+                "hash": "guard-email-empty",
+                "title": "Recruiter-Mail-Stelle",
+                "company": "TestFirma-C",
+                "source": "email",
+                "url": "",
+                "score": 5,
+                "employment_type": "festanstellung",
+            },
+        ])
+    assert "leere_url_warnungen" not in res
+    assert not any("#645" in r.message for r in caplog.records)
+
+
 def test_update_job_persists_url(tmp_db):
     """#645: update_job darf url schreiben (vorher Whitelist-Drop)."""
     tmp_db.create_profile("Test User", "test@example.com")

@@ -16,6 +16,31 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.72] - 2026-05-31 — Hard-Guard fuer leere URLs aus Scraper-Quellen (#645)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Direktes Follow-up zu beta.71.
+> 2 neue Tests, 1410/1410 gruen.
+
+### 🛡 #645 `save_jobs` blockt leere URLs aus Scraper-Quellen
+
+Defense-in-Depth zusaetzlich zum Scraper-Fix in beta.71: Wenn irgendein
+Scraper (alles ausser `manuell`, `email`, `recruiter_inbound`) eine Stelle
+mit leerer `url` durchschiebt, fuegt `save_jobs` jetzt aktiv ein
+`is_search_url=True` ein UND loggt eine WARN-Zeile mit Quelle, Titel
+und Firma — sichtbar in `pbp_diagnose` / scraper_health.
+
+Garantie nach #645: `jobs.url` ist ab jetzt entweder eine Detail-URL
+oder (mit Markierung) eine Such-URL — niemals wieder ein leeres Feld
+ohne Indikator. Selbst wenn ein zukuenftiger Scraper-Refactor wieder
+den Fallback "vergisst", wird die Stelle korrekt als Such-URL behandelt
+und der User sieht in den Logs sofort, dass ein Scraper-Bug entstanden ist.
+
+`save_jobs` liefert jetzt zusaetzlich `leere_url_warnungen: {source: count}`
+im Result-Dict zurueck, falls Stellen ohne URL ankamen. job_runner und
+scraper_health koennen das weiterreichen.
+
+---
+
 ## [1.7.0-beta.71] - 2026-05-31 — Regression-Fix: leere jobs.url bei XING/Stepstone (#645)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

@@ -3707,17 +3707,45 @@ class Database:
         (is_active=0) mit Verweis auf den Original-Hash in research_notes.
         So bleibt der Audit-Trail erhalten, aber die Stelle erscheint nicht
         doppelt in der aktiven Liste.
+
+        v1.7.0-beta.72 (#645): Hard-Guard gegen leere URLs aus Scraper-Quellen.
+        Wenn ein Scraper (alles ausser 'manuell' und 'email') eine Stelle ohne
+        URL durchschiebt, wird das mit WARN-log markiert und `is_search_url`
+        defensiv auf True gesetzt — damit der UI-Fallback greift und
+        stellenbeschreibung_nachladen die Stelle nicht ins Leere schickt.
+        Garantie aus #645: jobs.url-Inhalt ist entweder Detail-URL oder
+        (mit Markierung) Such-URL; nie wieder leeres Feld ohne Indikator.
         """
         conn = self.connect()
         now = _now()
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
         duplikate = 0
+        leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
         dedup_index: dict[str, str] = {}
+        # #645: Quellen, bei denen leere URL strukturell OK ist.
+        # Alle anderen (XING, Stepstone, LinkedIn, Indeed, Bundesagentur,
+        # Hays, Greenhouse, ...) MUESSEN eine URL liefern — sonst Regression.
+        _URL_OPTIONAL_SOURCES = {"manuell", "email", "recruiter_inbound"}
         for job in jobs:
             job_pid = job.get("profile_id") or active_pid
+            # #645: Guard fuer leere URLs aus Scraper-Quellen.
+            src = (job.get("source") or "").strip()
+            url_val = (job.get("url") or "").strip()
+            if not url_val and src and src not in _URL_OPTIONAL_SOURCES:
+                logger.warning(
+                    "save_jobs: leere URL aus Scraper-Quelle %r (title=%r, "
+                    "company=%r) — Regression-Indikator fuer #645, setze "
+                    "is_search_url=1 als Fallback",
+                    src, (job.get("title") or "")[:80],
+                    (job.get("company") or "")[:60],
+                )
+                # Defensiv: is_search_url=True markieren, damit Auto-Refetch
+                # und stellenbeschreibung_nachladen die Stelle korrekt skippen
+                job["is_search_url"] = True
+                leere_url_quellen[src] = leere_url_quellen.get(src, 0) + 1
             stored_hash = self.resolve_job_hash(job["hash"], job_pid)
             # Preserve existing score/pin state for pinned or manually scored jobs
             new_score = job.get("score", 0)
@@ -3801,11 +3829,16 @@ class Database:
                 src = job.get("source") or "unbekannt"
                 new_per_source[src] = new_per_source.get(src, 0) + 1
         conn.commit()
-        return {
+        result = {
             "new_per_source": new_per_source,
             "total": len(jobs),
             "duplikate_erkannt": duplikate,
         }
+        if leere_url_quellen:
+            # #645: sichtbar machen, damit job_runner / scraper_health das
+            # an scraper_diagnose weiterreichen koennen.
+            result["leere_url_warnungen"] = leere_url_quellen
+        return result
 
     def get_active_jobs(self, filters: Optional[dict] = None,
                         exclude_blacklisted: bool = False,
