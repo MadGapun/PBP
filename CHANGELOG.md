@@ -16,6 +16,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.73] - 2026-05-31 — URL-Aging-Auto-Cleanup + Ollama-Validator (#645)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.
+> Funktionsreich. **27 neue Tests** (18 url_health + 9 qualitaet_pruefen),
+> Suite 1437/1437 gruen. Keine Schema-Aenderung.
+
+### 🩺 Neuer Service `services/url_health.py`
+
+Wiederverwendbarer Pure-Python-Health-Checker fuer Job-URLs:
+
+- HTTP-Status + Bot-Block-Marker
+- 17 lokalisierte "Stelle vergeben/expired"-Marker (DE + EN, Greenhouse,
+  Workday, Arbeitsagentur, generisch)
+- **Workday-SPA-Sonderfall**: HTML-Body ist nur ein Skeleton, Stellen-
+  Existenz nur ueber `wday/cxs/{tenant}/{site}/job/{path}`-API testbar.
+  Workday-API-404 wird als `EXPIRED` klassifiziert. So fallen Workday-
+  Stellen wie `b9f0bbe25d09` (Nexperia Material Supply) ab denen die HTML
+  weiterhin 200 OK liefert obwohl die Stelle weg ist.
+- **Title-Token-Cross-Check** fuer statisches HTML: wenn keine
+  signaltragenden Title-Tokens im Body stehen, hat der Server eine
+  Generic-Replacement-Seite geliefert -> `EXPIRED`.
+- 7 Status-Werte: `OK`, `EXPIRED`, `HTTP_404`, `HTTP_ERROR`, `TIMEOUT`,
+  `BLOCKED` (Cloudflare/Captcha), `LEER`.
+- `should_dismiss`-Property: True nur fuer `EXPIRED` + `HTTP_404`. 5xx,
+  Timeout, Blocked sind transient — kein Auto-Aussortieren.
+
+### 🛠 Neues MCP-Tool `stellen_qualitaet_pruefen`
+
+```
+stellen_qualitaet_pruefen(
+    max_stellen=50,
+    nur_problematische=True,
+    auto_aussortieren=False,
+    mit_ollama_validierung=False,
+)
+```
+
+Geht pro aktiver Stelle durch und kategorisiert:
+- `url_404`, `url_expired` -> Aussortier-Kandidat (`auto_aussortieren=True`
+  -> dismiss als `'veraltet_url'`)
+- `url_blocked`, `url_timeout` -> NICHT aussortieren (transient)
+- `beschreibung_fehlt` -> Hinweis fuer Claude
+- `search_url` -> Markierung dass nur Such-URL gespeichert (#645-Fallback)
+- `ok` -> alles fein
+
+Default ist Vorschau-Modus (`auto_aussortieren=False`), liefert Hinweis
+mit `auto_aussortieren=True`-Empfehlung wenn dismiss-Kandidaten gefunden.
+
+### 🤖 Ollama-Validator fuer Stellenbeschreibungs-Vollstaendigkeit
+
+Neuer `TaskKind.VALIDATE_JOB_QUALITY` im LLM-Service. Routing:
+LOCAL > CLAUDE > MANUAL — bei aktiver Lokaler AI laeuft Ollama mit
+strukturiertem JSON-Output:
+
+```
+{
+  "vollstaendig": true|false,
+  "score": 0-10,
+  "vorhanden": ["aufgaben", "anforderungen", "gehalt", ...],
+  "fehlt": ["..."],
+  "begruendung": "1-2 Saetze",
+  "claude_action": "nachladen" | "manuell_ergaenzen" | "keine"
+}
+```
+
+`claude_action` macht Claude direkt actionable: bei `"nachladen"` wird
+`stellenbeschreibung_nachladen` empfohlen, bei `"manuell_ergaenzen"`
+soll Claude beim User nachfragen oder via WebSearch ergaenzen.
+
+Robust gegen Markdown-Codefence und Vor-/Nachspann (kommt vor bei
+einigen Ollama-Modellen). Wird ueber `mit_ollama_validierung=True` in
+`stellen_qualitaet_pruefen` integriert.
+
+### 🔁 Auto-Engine-Step `_run_url_aging_check`
+
+Laeuft pro Engine-Tick (alle paar Minuten), prueft bis zu **10 aktive
+Stellen** pro Lauf auf URL-Health, sortiert 404 + expired auto-aus mit
+`dismiss_reason='veraltet_url'`. **24h-Backoff** pro Stelle nach
+erfolgreichem Check (Setting `url_aging_lastok:{hash}`) — keine
+Server-Bombardierung.
+
+Such-URL-Stellen werden uebersprungen (`is_search_url=1`). Elwosa
+bekommt eine neue Trigger-Linie `auto_url_aging` mit 4 lakonischen
+Varianten zur Meldung.
+
+### Tests
+
+- `tests/test_v17_url_health_645.py` — 18 Tests (Workday-API-Routing,
+  Marker-Erkennung, Title-Token-Match, Mock-httpx-Client)
+- `tests/test_v17_qualitaet_pruefen_645.py` — 9 Tests (Parser-Robustheit
+  inkl. Codefence + Prefix, MCP-Tool-Klassifikation, Auto-Aussortieren)
+
+Volle Suite: **1437 passed, 1 skipped** (vorher 1410).
+
+---
+
 ## [1.7.0-beta.72] - 2026-05-31 — Hard-Guard fuer leere URLs aus Scraper-Quellen (#645)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Direktes Follow-up zu beta.71.

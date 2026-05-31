@@ -54,6 +54,7 @@ class TaskKind(str, Enum):
     CLASSIFY_EMAIL = "classify_email"  # v1.7.0-beta.24
     ANALYZE_USER_PATTERNS = "analyze_user_patterns"  # v1.7.0-beta.28 (#594 Stufe 3)
     EXTRACT_CONTACTS = "extract_contacts"  # v1.7.0-beta.39 (#606)
+    VALIDATE_JOB_QUALITY = "validate_job_quality"  # v1.7.0-beta.73 (#645)
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -84,6 +85,7 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.CLASSIFY_EMAIL:       [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.ANALYZE_USER_PATTERNS:[Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.EXTRACT_CONTACTS:     [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.VALIDATE_JOB_QUALITY: [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -858,6 +860,104 @@ def _parse_extract_contacts(raw: str) -> dict:
     return {"contacts": contacts, "count": len(contacts), "raw": raw}
 
 
+def _build_validate_job_quality_prompt(payload: dict) -> str:
+    """Prompt fuer Stellenbeschreibungs-Qualitaets-Check (#645).
+
+    Input: {title, company, location, description, url, source}
+    Erwartete Antwort (JSON):
+      {
+        "vollstaendig": true|false,
+        "score": 0-10,
+        "vorhanden": ["aufgaben", "anforderungen", "gehalt", "standort", "remote", "kontakt", "benefits"],
+        "fehlt": ["..."],
+        "begruendung": "kurz, 1-2 Saetze",
+        "claude_action": "nachladen"|"manuell_ergaenzen"|"keine"
+      }
+    """
+    title = (payload.get("title") or "")[:200]
+    company = (payload.get("company") or "")[:120]
+    location = (payload.get("location") or "")[:120]
+    source = (payload.get("source") or "")[:40]
+    url = (payload.get("url") or "")[:300]
+    desc = (payload.get("description") or "")[:2500]
+    return f"""Du bist ein Qualitaets-Validator fuer Stellenanzeigen-Daten.
+Pruefe ob diese Stellenanzeige vollstaendig genug ist um eine Bewerbung zu erstellen.
+
+STELLE:
+Titel: {title}
+Firma: {company}
+Ort: {location}
+Quelle: {source}
+URL: {url}
+Beschreibung:
+{desc}
+
+Pruefe ob folgende Inhalte erkennbar sind:
+- aufgaben: Was sind die taeglichen Aufgaben?
+- anforderungen: Welche Skills/Erfahrung wird verlangt?
+- gehalt: Gehaltsangabe oder Range vorhanden?
+- standort: Konkreter Ort genannt?
+- remote: Remote/Hybrid/vor-Ort-Angabe vorhanden?
+- kontakt: Ansprechperson oder Kontakt-Email/Telefon?
+- benefits: Benefits oder Goodies erwaehnt?
+
+Bewerte einen Vollstaendigkeits-Score von 0 (leer) bis 10 (perfekt).
+Bewerte "vollstaendig": True ab Score 6.
+Setze "claude_action":
+  - "nachladen" wenn URL existiert und Beschreibung leer/zu kurz ist
+    (Claude soll stellenbeschreibung_nachladen ausfuehren)
+  - "manuell_ergaenzen" wenn URL fehlt oder dauerhaft nicht erreichbar
+    (Claude soll User fragen oder via Websuche ergaenzen)
+  - "keine" wenn alles fein
+
+Antworte NUR mit einem JSON-Objekt. Kein Vorspann, keine Markdown-Codefence.
+Beispiel:
+{{"vollstaendig":true,"score":8,"vorhanden":["aufgaben","anforderungen","standort","remote"],"fehlt":["gehalt","kontakt","benefits"],"begruendung":"Klare Aufgabenbeschreibung und Anforderungen, Gehalt fehlt aber ueblich.","claude_action":"keine"}}
+"""
+
+
+def _parse_validate_job_quality(raw: str) -> dict:
+    """Parse Ollama-Antwort fuer VALIDATE_JOB_QUALITY.
+
+    Robust gegen Markdown-Codefences und Vor-/Nachspann.
+    """
+    import json
+    import re as _re
+    text = (raw or "").strip()
+    # Codefence entfernen
+    if text.startswith("```"):
+        text = _re.sub(r"^```[a-z]*\s*", "", text)
+        text = _re.sub(r"\s*```\s*$", "", text)
+    # JSON-Block extrahieren (greedy match auf ersten { ... })
+    m = _re.search(r"\{[\s\S]*\}", text)
+    if m:
+        text = m.group(0)
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return {
+            "vollstaendig": False,
+            "score": 0,
+            "vorhanden": [],
+            "fehlt": [],
+            "begruendung": "LLM-Antwort nicht parsebar",
+            "claude_action": "manuell_ergaenzen",
+            "raw": raw[:300],
+        }
+    # Normalisierung
+    out = {
+        "vollstaendig": bool(data.get("vollstaendig")),
+        "score": int(data.get("score") or 0),
+        "vorhanden": list(data.get("vorhanden") or []),
+        "fehlt": list(data.get("fehlt") or []),
+        "begruendung": str(data.get("begruendung") or "")[:300],
+        "claude_action": str(data.get("claude_action") or "keine"),
+    }
+    if out["claude_action"] not in ("nachladen", "manuell_ergaenzen", "keine"):
+        out["claude_action"] = "keine"
+    return out
+
+
 _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
@@ -865,6 +965,7 @@ _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_EMAIL: _build_classify_email_prompt,
     TaskKind.ANALYZE_USER_PATTERNS: _build_analyze_user_patterns_prompt,
     TaskKind.EXTRACT_CONTACTS: _build_extract_contacts_prompt,
+    TaskKind.VALIDATE_JOB_QUALITY: _build_validate_job_quality_prompt,
 }
 
 _RESPONSE_PARSERS = {
@@ -874,6 +975,7 @@ _RESPONSE_PARSERS = {
     TaskKind.CLASSIFY_EMAIL: _parse_classify_email,
     TaskKind.ANALYZE_USER_PATTERNS: _parse_analyze_user_patterns,
     TaskKind.EXTRACT_CONTACTS: _parse_extract_contacts,
+    TaskKind.VALIDATE_JOB_QUALITY: _parse_validate_job_quality,
 }
 
 

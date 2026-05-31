@@ -7234,6 +7234,115 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     }
 
 
+def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
+    """v1.7.0-beta.73 (#645): URL-Aging-Check.
+
+    Pruefe pro Lauf bis zu max_jobs aktive Stellen auf URL-Health:
+      - 404 / Hard-Error -> dismiss als 'veraltet_url'
+      - "Stelle vergeben"-Marker im Body -> dismiss
+      - Workday-API-404 -> dismiss (SPA-Sonderfall)
+      - Title-Token-Mismatch -> dismiss (Server-Replacement)
+
+    Bewusst niedriger Default — wir bombardieren keine fremden Server,
+    und ein langsamer Crawl ist akzeptabel weil die Engine ohnehin alle
+    paar Minuten laeuft. Mit Backoff: Stellen die einen URL-Aging-Check
+    erfolgreich durchlaufen haben werden fuer 24h nicht erneut geprueft
+    (in settings als 'url_aging_lastok:{hash}').
+
+    Nicht-dismiss-relevante Status (timeout, blocked, http_error 5xx)
+    werden NUR geloggt, nicht aussortiert — koennen transient sein.
+    """
+    from .services.url_health import check_job_url_health, HealthStatus
+    from datetime import datetime, timezone, timedelta
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    rows = conn.execute(
+        "SELECT hash, url, title FROM jobs "
+        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
+        "AND url IS NOT NULL AND url != '' "
+        "AND COALESCE(is_search_url, 0) = 0 "
+        "LIMIT ?",
+        (pid, max_jobs * 3),  # Overshoot fuer Backoff-Skip
+    ).fetchall()
+
+    now_dt = datetime.now(timezone.utc)
+    backoff_window = timedelta(hours=24)
+    checked = 0
+    dismissed = 0
+    expired_hashes: list[str] = []
+    skipped_backoff = 0
+    by_status: dict[str, int] = {}
+
+    try:
+        import httpx
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=15.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/131.0.0.0 Safari/537.36",
+                "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+            },
+        ) as client:
+            for row in rows:
+                if checked >= max_jobs:
+                    break
+                h = row["hash"]
+                last_ok = _db.get_setting(f"url_aging_lastok:{h}", "") or ""
+                if last_ok:
+                    try:
+                        last_dt = datetime.fromisoformat(last_ok)
+                        if now_dt - last_dt < backoff_window:
+                            skipped_backoff += 1
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+                checked += 1
+                try:
+                    health = check_job_url_health(
+                        row["url"], row["title"], client=client,
+                    )
+                except Exception:
+                    by_status["unhandled"] = by_status.get("unhandled", 0) + 1
+                    continue
+                by_status[health.status.value] = by_status.get(
+                    health.status.value, 0
+                ) + 1
+                if health.should_dismiss:
+                    try:
+                        _db.dismiss_job(h, "veraltet_url")
+                        dismissed += 1
+                        expired_hashes.append(h)
+                    except Exception:
+                        pass
+                elif health.status == HealthStatus.OK:
+                    # 24h-Backoff fuer naechsten Check setzen
+                    try:
+                        _db.set_setting(
+                            f"url_aging_lastok:{h}", now_dt.isoformat()
+                        )
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    if dismissed > 0:
+        _elwosa_speak_safe("auto_url_aging", ctx={
+            "count": dismissed,
+            "checked": checked,
+        })
+
+    return {
+        "ran_at": now_iso,
+        "checked": checked,
+        "dismissed": dismissed,
+        "by_status": by_status,
+        "skipped_backoff": skipped_backoff,
+        "expired_hashes": expired_hashes[:5],  # erste 5 fuer Audit
+    }
+
+
 def _elwosa_speak_safe(trigger_kind: str, ctx: dict = None,
                         cluster: str = None) -> None:
     """Hilfs-Funktion: ruft elwosa.speak() ohne dass Fehler den Aufrufer
@@ -7749,6 +7858,8 @@ async def api_run_auto_actions():
     contacts_result = _run_extract_contacts(now)
     # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
     refetch_result = _run_auto_refetch_descriptions(now)
+    # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
+    url_aging_result = _run_url_aging_check(now)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
     elwosa_result = _run_elwosa_speak(now)
     _db.set_setting("auto_actions_last_run_at", now)
@@ -7762,6 +7873,7 @@ async def api_run_auto_actions():
         "scraper_probe": probe_result,
         "extract_contacts": contacts_result,
         "auto_refetch_descriptions": refetch_result,
+        "url_aging_check": url_aging_result,
         "elwosa": elwosa_result,
     }
 

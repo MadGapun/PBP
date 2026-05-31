@@ -159,6 +159,13 @@ STATUS_LINES: dict[str, list[str]] = {
         "{count} Stellen jetzt mit Beschreibung. Score wird damit zuverlaessiger.",
         "{failed} Stellen geben ihre Beschreibung nicht her — [link:job_filter:missing_desc|schau sie dir an], evtl. lohnt manuelle Pflege.",
     ],
+    # v1.7.0-beta.73 (#645): URL-Aging-Check sortiert veraltete Stellen aus
+    "auto_url_aging": [
+        "{count} Stellen entfernt deren URL nicht mehr funktioniert. War vermutlich besetzt.",
+        "URL-Check: {count} Eintraege als veraltet markiert. Server sagte 404 oder Workday meldete weg.",
+        "{count} verwaiste Stellen aussortiert. Spart Score-Berechnung fuer Dinge die nicht mehr existieren.",
+        "Aus {checked} Pruefungen sind {count} expired — die Aushaenge an den Pinnwaenden draussen wechseln auch schneller als die Welt es zugibt.",
+    ],
 }
 
 

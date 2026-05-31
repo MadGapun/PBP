@@ -1614,6 +1614,190 @@ def register(mcp, db, logger):
         return {"status": "ok", "chars": len(text), "preview": text[:200]}
 
     @mcp.tool()
+    def stellen_qualitaet_pruefen(
+        max_stellen: int = 50,
+        nur_problematische: bool = True,
+        auto_aussortieren: bool = False,
+        mit_ollama_validierung: bool = False,
+    ) -> dict:
+        """Prueft URL-Health + Beschreibungs-Vollstaendigkeit aktiver Stellen (#645).
+
+        Geht pro aktiver Stelle durch:
+        1. URL-Reachability (HTTP-Status + Bot-Block-Erkennung)
+        2. Body-Marker "Stelle vergeben/expired"
+        3. Workday-API-Cross-Check fuer Workday-SPAs
+        4. Title-Token-Match Body vs. Titel (hat Server-Replacement geliefert?)
+        5. Beschreibungs-Laenge (>= 50 Zeichen)
+
+        Kategorisiert in:
+            ok              — alles fein
+            url_leer        — kein URL gespeichert (manuell/email-Quellen
+                              ausser sie sollten eine URL haben)
+            url_404         — Hard 404
+            url_expired     — Marker oder Workday-API sagt: weg
+            url_blocked     — Bot-Block (URL ok, aber Server blockt — kein
+                              Aussortier-Grund)
+            url_timeout     — kein Response (KEIN Aussortier-Grund, kann
+                              transient sein)
+            beschreibung_fehlt — URL ok, aber description leer/zu kurz
+            search_url      — URL ist nur Such-URL (is_search_url=1)
+
+        Args:
+            max_stellen: Maximum aktiver Stellen pro Lauf (Schutz gegen
+                lange Token-Runs).
+            nur_problematische: Default True — nur Stellen mit Befund
+                zurueckliefern, nicht die OK-Stellen einzeln auflisten.
+            auto_aussortieren: Default False (Vorschau). Bei True werden
+                Stellen mit url_404 oder url_expired sofort via
+                dismiss_job(reason='veraltet_url') ausgemustert.
+            mit_ollama_validierung: Default False. Bei True wird zusaetzlich
+                Ollama (lokale AI) genutzt um pro Stelle die Beschreibungs-
+                Vollstaendigkeit zu bewerten — liefert pro Stelle einen
+                "ollama"-Block mit {vollstaendig, score, vorhanden, fehlt,
+                begruendung, claude_action}. Nur sinnvoll wenn lokale AI
+                aktiv ist; sonst kostet jeder Stelle einen Claude-Pending-
+                Call. Empfohlene Reihenfolge: erst URL-Health, dann
+                gezielt Ollama-Validierung.
+
+        Liefert:
+            {
+                "geprueft": N,
+                "befunde": {kategorie: count},
+                "details": [...],  # immer alle Probleme, OK nur wenn !nur_problematische
+                "aussortiert": M,  # nur wenn auto_aussortieren=True
+                "ollama": {used, model, ...}  # nur wenn mit_ollama_validierung
+            }
+        """
+        from ..services.url_health import (
+            check_job_url_health, HealthStatus,
+        )
+        active = db.get_active_jobs()[:max_stellen]
+        befunde: dict[str, int] = {}
+        details: list[dict] = []
+        aussortiert = 0
+
+        # httpx-Client einmal teilen ueber alle Checks
+        import httpx
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=15.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/131.0.0.0 Safari/537.36",
+                "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+            },
+        ) as client:
+            for job in active:
+                h = job.get("hash")
+                pub_h = h.split(":", 1)[-1][:8] if h else "?"
+                url = (job.get("url") or "").strip()
+                title = job.get("title") or ""
+                source = (job.get("source") or "").strip()
+                desc = job.get("description") or ""
+                is_search = bool(job.get("is_search_url"))
+
+                kategorie: list[str] = []
+                detail = {
+                    "hash": pub_h,
+                    "title": title[:80],
+                    "company": (job.get("company") or "")[:60],
+                    "source": source,
+                    "url": url,
+                }
+
+                if is_search:
+                    kategorie.append("search_url")
+
+                if not url:
+                    # Email/manuell ohne URL ist OK, andere Quellen sind ein
+                    # Indiz auf #645-Regression — aber bereits durch save_jobs
+                    # geguarded; hier nur fuer Reporting.
+                    if source not in ("manuell", "email", "recruiter_inbound"):
+                        kategorie.append("url_leer")
+                    health = None
+                else:
+                    health = check_job_url_health(url, title, client=client)
+                    if health.status == HealthStatus.HTTP_404:
+                        kategorie.append("url_404")
+                    elif health.status == HealthStatus.EXPIRED:
+                        kategorie.append("url_expired")
+                    elif health.status == HealthStatus.TIMEOUT:
+                        kategorie.append("url_timeout")
+                    elif health.status == HealthStatus.BLOCKED:
+                        kategorie.append("url_blocked")
+                    elif health.status == HealthStatus.HTTP_ERROR:
+                        kategorie.append("url_http_error")
+                    detail["health"] = health.to_dict()
+
+                if not desc or len(desc) < 50:
+                    kategorie.append("beschreibung_fehlt")
+
+                # Auto-aussortieren
+                if auto_aussortieren and health and health.should_dismiss:
+                    try:
+                        db.dismiss_job(h, "veraltet_url")
+                        aussortiert += 1
+                        detail["aussortiert"] = True
+                    except Exception as exc:
+                        detail["aussortier_fehler"] = str(exc)[:200]
+
+                # Optional: Ollama-Validierung der Beschreibung
+                if mit_ollama_validierung:
+                    try:
+                        from ..services.llm_service import (
+                            get_llm_service, TaskKind, Backend,
+                        )
+                        svc = get_llm_service(db)
+                        r = svc.run(TaskKind.VALIDATE_JOB_QUALITY, {
+                            "title": job.get("title") or "",
+                            "company": job.get("company") or "",
+                            "location": job.get("location") or "",
+                            "description": desc,
+                            "url": url,
+                            "source": source,
+                        })
+                        if r.backend == Backend.LOCAL and r.success:
+                            detail["ollama"] = r.payload
+                            if r.payload.get("claude_action") == "nachladen":
+                                if "ollama_action_nachladen" not in kategorie:
+                                    kategorie.append("ollama_action_nachladen")
+                            elif r.payload.get("claude_action") == "manuell_ergaenzen":
+                                if "ollama_action_manuell" not in kategorie:
+                                    kategorie.append("ollama_action_manuell")
+                    except Exception as exc:
+                        detail["ollama_fehler"] = str(exc)[:200]
+
+                if not kategorie:
+                    kategorie.append("ok")
+
+                for k in kategorie:
+                    befunde[k] = befunde.get(k, 0) + 1
+                detail["kategorien"] = kategorie
+
+                if (not nur_problematische) or kategorie != ["ok"]:
+                    details.append(detail)
+
+        result = {
+            "geprueft": len(active),
+            "befunde": befunde,
+            "details": details,
+        }
+        if auto_aussortieren:
+            result["aussortiert"] = aussortiert
+        else:
+            zum_aussortieren = sum(
+                befunde.get(k, 0) for k in ("url_404", "url_expired")
+            )
+            if zum_aussortieren > 0:
+                result["hinweis"] = (
+                    f"{zum_aussortieren} Stellen mit veralteter URL gefunden. "
+                    "Erneut mit auto_aussortieren=True aufrufen um sie als "
+                    "'veraltet_url' zu dismissen."
+                )
+        return result
+
+    @mcp.tool()
     def stelle_vergleichen(hash_a: str, hash_b: str) -> dict:
         """Vergleicht zwei Stellen strukturiert (#580).
 
