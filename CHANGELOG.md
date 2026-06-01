@@ -16,6 +16,56 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.74] - 2026-06-01 — Bulk-Tools-Timeout-Schutz (#646)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Reiner Bugfix-
+> Release fuer #646. 4 neue Tests, 1441 passed insgesamt.
+
+### 🐛 #646 `stellen_auto_aussortieren` + `stellen_bulk_bewerten` Timeout-Schutz
+
+Reproduzierbarer Fehler vor beta.74: beide Bulk-Tools liefen in den
+4-Minuten-MCP-Client-Timeout, machten den Massen-Aussortier-Use-Case
+(genau wofuer #514 sie gebaut hatte) unbenutzbar.
+
+**Ursache `stellen_auto_aussortieren`:** N sequentielle Ollama-Calls,
+default `max_stellen=50`. Lokales LLM braucht 5-30s pro Call →
+50 × 10s = 8 Min Wall-Clock → Timeout.
+
+**Ursache `stellen_bulk_bewerten`:** Verdacht SQLite-Lock-Konflikt mit
+dem parallelen Auto-Engine-Step `_run_auto_refetch_descriptions` der
+pro Stelle 15s httpx-Timeout hat und in dieser Zeit die DB-Connection
+haelt.
+
+### Fix in beta.74
+
+- **`stellen_auto_aussortieren`**:
+  - Default `max_stellen` von **50 → 10**, mit Hard-Cap auf 30.
+  - Neuer Parameter `max_dauer_sek=180` (Wall-Clock-Budget), gedeckelt
+    auf 240s (unter dem MCP-Client-Timeout).
+  - Wall-Clock-Check vor jedem Ollama-Call. Bei Erreichen: Abbruch mit
+    `status='teilweise'`, `kandidaten_gesamt`, `unverarbeitet` und
+    Hinweis "erneut aufrufen um die Reste zu bearbeiten (idempotent)".
+- **`stellen_bulk_bewerten`**:
+  - Neues internes 90s-Wall-Clock-Budget.
+  - Check nach DB-Load (Lock-Verdacht-Frueherkennung) und pro Stelle
+    in der Bulk-Apply-Schleife.
+  - Bei Timeout: `status='timeout'`, klare Fehler-Meldung mit Tipp
+    (engere Filter / kurz warten bis Auto-Engine-Step durch ist),
+    `verarbeitet`-Counter mit `stichprobe_bearbeitet` fuer Audit.
+
+### Tests
+
+`tests/test_v17_bulk_timeout_646.py` (4 Tests):
+- Defensive Caps werden eingehalten (max_stellen >30 → 30, max_dauer
+  >240 → 240).
+- `status='teilweise'` mit Teil-Ergebnis bei Budget-Erschoepfung.
+- Normaler Dry-Run mit wenigen Treffern ist schnell (< 90s Budget).
+- Fehler-Pfade (ungueltige Bewertung) sofort zurueck, kein Budget-Verbrauch.
+
+Volle Suite: **1441 passed, 1 skipped** (vorher 1437).
+
+---
+
 ## [1.7.0-beta.73] - 2026-05-31 — URL-Aging-Auto-Cleanup + Ollama-Validator (#645)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10.

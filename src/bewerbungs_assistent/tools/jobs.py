@@ -751,6 +751,12 @@ def register(mcp, db, logger):
             max_treffer: harter Cap auf die Anzahl Treffer (0 = kein Limit).
                 Sinnvoll wenn man nicht sicher ist wie weit der Filter trifft.
 
+        v1.7.0-beta.74 (#646): Wall-Clock-Budget von 90 Sekunden. Falls
+        ein Lauf laenger braucht (z.B. weil _run_auto_refetch_descriptions
+        parallel die DB sperrt), wird mit `status='timeout'` abgebrochen
+        statt stumm zu haengen. Reduziere max_treffer oder warte bis der
+        Auto-Engine-Step durch ist.
+
         Returns:
             dry_run=True:
                 {"dry_run": True, "anzahl_treffer": N, "vorschau": [...10 Stellen...]}
@@ -759,6 +765,33 @@ def register(mcp, db, logger):
                  "hinweise": [...], "stichprobe_bearbeitet": [...erste 5...]}
         """
         from datetime import datetime, timedelta
+        import time as _time
+
+        # #646: Wall-Clock-Budget — Schutz gegen DB-Lock-Konflikt mit
+        # _run_auto_refetch_descriptions (das pro Stelle 15s httpx-Timeout
+        # hat und dabei die DB-Connection halten kann).
+        _BULK_BUDGET_SEK = 90
+        _bulk_started_at = _time.monotonic()
+
+        def _budget_left() -> float:
+            return _BULK_BUDGET_SEK - (_time.monotonic() - _bulk_started_at)
+
+        def _timeout_result(stage: str, processed: int = 0) -> dict:
+            return {
+                "status": "timeout",
+                "fehler": (
+                    f"Zeit-Budget ({_BULK_BUDGET_SEK}s) waehrend '{stage}' "
+                    "erreicht. Mehrere Aufrufe mit engeren Filtern (max_treffer, "
+                    "min_score) probieren — oder kurz warten bis "
+                    "auto_refetch_descriptions durch ist."
+                ),
+                "dauer_sek": round(_time.monotonic() - _bulk_started_at, 1),
+                "verarbeitet": processed,
+                "hinweis": (
+                    "#646: stellen_bulk_bewerten hat ein Sicherheits-Budget "
+                    "um stilles Haengen zu vermeiden."
+                ),
+            }
 
         # 1) Bewertung validieren
         if bewertung not in ("passt", "passt_nicht"):
@@ -845,6 +878,12 @@ def register(mcp, db, logger):
                     return False
             return True
 
+        # #646: Nach DB-Load Budget pruefen — wenn schon abgelaufen ist es
+        # ein DB-Lock-Verdacht (auto_refetch_descriptions oder anderes hat
+        # die Connection geblockt).
+        if _budget_left() <= 0:
+            return _timeout_result("db_load")
+
         matched = [j for j in candidates if _matches(j)]
         if max_treffer and max_treffer > 0:
             matched = matched[:max_treffer]
@@ -888,6 +927,23 @@ def register(mcp, db, logger):
         bulk_auto_adjustments: list[str] = []
         sample_processed: list[dict] = []
         for j in matched:
+            # #646: Budget-Check pro Stelle. Bei DB-Lock-Verdacht (jeder
+            # dismiss_job kann blocken) brechen wir mit Teil-Ergebnis ab.
+            if _budget_left() <= 0:
+                return {
+                    "status": "timeout",
+                    "dry_run": False,
+                    "bearbeitet": bearbeitet,
+                    "verbleibend": len(matched) - bearbeitet,
+                    "fehler": (
+                        f"Zeit-Budget ({_BULK_BUDGET_SEK}s) waehrend Bulk-Apply "
+                        f"erreicht. {bearbeitet} Stellen bearbeitet, "
+                        f"{len(matched) - bearbeitet} unverarbeitet. Bei den "
+                        "verbleibenden kann der naechste Aufruf weitermachen."
+                    ),
+                    "dauer_sek": round(_time.monotonic() - _bulk_started_at, 1),
+                    "stichprobe_bearbeitet": sample_processed,
+                }
             job_hash = j.get("hash")
             if not job_hash:
                 continue
@@ -2181,11 +2237,12 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def stellen_auto_aussortieren(
-        max_stellen: int = 50,
+        max_stellen: int = 10,
         min_score: int = 0,
         dry_run: bool = False,
+        max_dauer_sek: int = 180,
     ) -> dict:
-        """Profil-basiertes Auto-Aussortieren via lokaler AI (#586).
+        """Profil-basiertes Auto-Aussortieren via lokaler AI (#586, #646).
 
         Statt Filter-Listen zu pflegen entscheidet die lokale AI pro Stelle,
         ob sie zum Profil passt. Skaliert mit beliebigen Berufsfeldern —
@@ -2203,16 +2260,32 @@ def register(mcp, db, logger):
         Fallback: ohne Lokale AI gibt es eine ehrliche Meldung — keine
         Heuristik-Raterei.
 
+        v1.7.0-beta.74 (#646): Hard-Cap auf max_stellen=10 (vorher 50) +
+        Wall-Clock-Budget max_dauer_sek=180s. Bei Erreichen des Budgets
+        wird mit `status='teilweise'` und allen bis dahin verarbeiteten
+        Stellen zurueckgegeben — kein stilles 4-Min-Timeout mehr.
+        Idempotent fortsetzbar: ein erneuter Aufruf bearbeitet die nicht
+        verarbeiteten Reste.
+
         Args:
-            max_stellen: Maximum Stellen pro Lauf (Default 50, Schutz gegen
-                         lange Token-Runs).
+            max_stellen: Maximum Stellen pro Lauf (Default 10, war 50 vor
+                         beta.74). Schutz gegen MCP-Timeout. Bei mehr
+                         Stellen mehrere Laeufe machen.
             min_score: Mindest-Score-Schwelle. Stellen darunter werden gar
                        nicht erst der LLM vorgelegt (Default 0 = alle).
             dry_run: Wenn True, nur Vorschau ohne dismiss-Aktionen.
+            max_dauer_sek: Wall-Clock-Budget in Sekunden (Default 180).
+                Bei Erreichen wird mit Teil-Ergebnis abgebrochen.
 
         Idempotent: bewertet keine Stelle erneut die schon `passt_nicht`
         oder eine Bewerbung hat.
         """
+        import time as _time
+        run_started_at = _time.monotonic()
+        # Defensive Caps (#646): MCP-Client gibt nach 4 Min auf, deshalb
+        # NIE ueber 240s budget und nie ueber 30 Stellen pro Run.
+        max_stellen = max(1, min(int(max_stellen or 10), 30))
+        max_dauer_sek = max(30, min(int(max_dauer_sek or 180), 240))
         # v1.7.0-beta.46 (#610): Try/except um den ganzen Body, alle
         # Returns mit uniformem Schema. Vorher: outputSchema-Validierungs-
         # fehler weil error-Pfade andere Keys hatten als Success-Pfade.
@@ -2336,8 +2409,21 @@ def register(mcp, db, logger):
         unsicher_results = []
         passt_results = []
         errors = []
+        budget_erschoepft = False  # #646
+        unverarbeitet = 0  # #646
 
-        for job in candidates:
+        for idx, job in enumerate(candidates):
+            # #646: Wall-Clock-Budget-Check vor jedem Ollama-Call.
+            # Verhindert das stille 4-Min-Timeout.
+            elapsed = _time.monotonic() - run_started_at
+            if elapsed >= max_dauer_sek:
+                budget_erschoepft = True
+                unverarbeitet = len(candidates) - idx
+                logger.info(
+                    "stellen_auto_aussortieren: Budget %ds erschoepft nach %d/%d Stellen",
+                    max_dauer_sek, idx, len(candidates),
+                )
+                break
             try:
                 payload = {
                     "profile_skills": profile_skills,
@@ -2393,11 +2479,18 @@ def register(mcp, db, logger):
             modell_name = status.selected_model or ""
         except Exception:
             modell_name = ""
-        return {
-            "status": "ok",
+        # #646: Status differenziert nach Budget-Erschoepfung
+        verarbeitet = (
+            len(passt_nicht_results) + len(unsicher_results)
+            + len(passt_results) + len(errors)
+        )
+        run_status = "teilweise" if budget_erschoepft else "ok"
+        result_payload = {
+            "status": run_status,
             "dry_run": dry_run,
             "fehler": "",
-            "geprueft": len(candidates),
+            "geprueft": verarbeitet,
+            "kandidaten_gesamt": len(candidates),
             "passt_nicht": len(passt_nicht_results),
             "unsicher": len(unsicher_results),
             "passt": len(passt_results),
@@ -2407,7 +2500,17 @@ def register(mcp, db, logger):
             "passt_details": passt_results[:10],
             "errors": errors[:5],
             "modell": modell_name,
+            "dauer_sek": round(_time.monotonic() - run_started_at, 1),
         }
+        if budget_erschoepft:
+            result_payload["unverarbeitet"] = unverarbeitet
+            result_payload["hinweis"] = (
+                f"Zeit-Budget von {max_dauer_sek}s erreicht — {unverarbeitet} "
+                "Stellen unverarbeitet. Erneut aufrufen um die Reste zu "
+                "bearbeiten (idempotent — bereits aussortierte werden "
+                "uebersprungen)."
+            )
+        return result_payload
 
     @mcp.tool()
     def scraper_diagnose(
