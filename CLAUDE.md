@@ -1,9 +1,41 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
-React-Frontend + SQLite. **v1.6.9** ist Latest auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt **beta.37**) — wird `--latest` erst nach
+React-Frontend + SQLite. **v1.6.10** ist Stable auf GitHub. v1.7.0 laeuft
+in der Beta-Reihe (zuletzt **beta.74**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
+
+## ⛔ Master-Plan-First (HART, seit 2026-06-01)
+
+**Vor JEDEM Code-Change MUSS ein Master-Plan-Eintrag existieren** —
+mindestens als ⬜ Stub mit Issue-Verweis. Sonst keine Implementierung.
+
+- **Wiki:** [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan)
+  (Cluster-Ebene A–J) + [Master-Plan-Optimierung](https://github.com/MadGapun/PBP/wiki/Master-Plan-Optimierung)
+  (Risiken/Trade-offs) + 9 Sub-Plaene `Plan-{Cluster}.md` mit Issue-Detail
+- **Reihenfolge:** (1) Plan-Eintrag aufnehmen → (2) Issue erstellen (mit
+  PII-Scrub) → (3) Code → (4) Tests → (5) Wiki-Eintrag → (6) Plan auf ✅
+  setzen → (7) Release
+- **Akzeptanzkriterium:** ✅ nur wenn **alle drei** zutreffen: Code im
+  Repo + Tests gruen + Wiki-Eintrag vorhanden. Sonst bleibt 🟨 oder ⬜.
+- **Ausnahmen:** keine. Auch nicht fuer "schnelle Hotfixes" — die kommen
+  als ⬜-Eintrag in den Plan, werden umgesetzt, und derselbe Commit
+  setzt sie auf ✅ und schiebt den Wiki-Stub nach.
+
+Beispiel-Workflow fuer ein neues Feature:
+
+```
+1. Master-Plan-Eintrag: "B17 — Neue Quelle XYZ scrapen (#999)"  ⬜
+2. Issue #999 anlegen (mit PII-Scrub)
+3. Code in src/bewerbungs_assistent/job_scraper/xyz.py
+4. Tests in tests/test_xyz.py — gruen
+5. Wiki-Eintrag (Jobportale ergaenzen, ggf. eigene Seite)
+6. Master-Plan: B17 auf ✅, Plan-Jobsuche.md auf Issue-Level erweitern
+7. Release-Workflow (Version-Bump, CHANGELOG, Commit, Tag, GH-Release)
+```
+
+**Bei Verstoss:** der Code-Change ist nicht abgeschlossen. Im naechsten
+Commit nachholen.
 
 ## Stand 2026-05-09 (User-Test-Findings beta.41)
 
