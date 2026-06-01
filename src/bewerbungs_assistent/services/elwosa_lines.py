@@ -166,6 +166,20 @@ STATUS_LINES: dict[str, list[str]] = {
         "{count} verwaiste Stellen aussortiert. Spart Score-Berechnung fuer Dinge die nicht mehr existieren.",
         "Aus {checked} Pruefungen sind {count} expired — die Aushaenge an den Pinnwaenden draussen wechseln auch schneller als die Welt es zugibt.",
     ],
+    # v1.7.0-beta.76 (#651, E12): Auto-Tiefenanalyse fuer basis_analysiert-Docs
+    "auto_deep_analysis": [
+        "{count} Dokumente tiefer durchgeguckt. Steht jetzt nicht mehr 'halb analysiert' dran.",
+        "Ollama hat sich {count} Eintraege vorgenommen. Davon {umklassifiziert} besser einsortiert.",
+        "{count} Dokumente vom Halb-Stand auf Voll-Stand. Klein aber fein.",
+        "Die Ablage wurde leiser — {count} Eintraege sortiert. Wenig Drama, wenig Aufwand.",
+    ],
+    # v1.7.0-beta.76 (#650, D15): Nachfass-Trigger bei staleness >=14d
+    "auto_followup_overdue": [
+        "{count} Bewerbungen warten seit {first_days}+ Tagen. Bei {first_company} koenntest du anstossen.",
+        "Stiller wird's nicht — {count} Eintraege ohne Reaktion. Ein Nachfass ist diskreter als Schweigen verlaengern.",
+        "Du wartest seit {first_days} Tagen auf {first_company}. Diskret nachfragen ist erlaubt.",
+        "{count} Faden hat sich verheddert. Bei {first_company} ist ein leichtes Schubsen erlaubt.",
+    ],
 }
 
 

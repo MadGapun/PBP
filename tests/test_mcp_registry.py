@@ -37,6 +37,8 @@ EXPECTED_TOOL_NAMES = {
     "stelle_vergleichen",
     "stellenbeschreibung_nachladen",
     "stellen_qualitaet_pruefen",
+    "onboarding_hints_anzeigen",
+    "onboarding_hint_dismiss",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
@@ -283,7 +285,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 152  # v1.7.0-beta.73 (#645): + stellen_qualitaet_pruefen
+        assert len(tools) == 154  # v1.7.0-beta.76 (#652): + onboarding_hints_anzeigen/_dismiss
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

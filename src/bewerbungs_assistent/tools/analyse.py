@@ -1972,3 +1972,56 @@ def register(mcp, db, logger):
                 "args_summary-Daten oeffnen."
             ),
         }
+
+    # === G11 (#652, beta.76): Onboarding-Hints fuer ungenutzte Features ===
+
+    @mcp.tool()
+    def onboarding_hints_anzeigen() -> dict:
+        """Liefert aktive Onboarding-Hints fuer ungenutzte Features (#652).
+
+        Pro Hint wird die Condition geprueft (z.B. "0 Suchprofile + 3+
+        Bewerbungen"), bereits weggeklickte Hints werden uebersprungen.
+        Frontend zeigt die zurueckgegebenen Hints als kleine Tipp-Cards
+        in den jeweiligen Tabs.
+
+        Use Case: User hat Features im Code, kennt sie aber nicht. Statt
+        ihn mit Onboarding-Walkthrough zu nerven kommen die Tipps
+        kontextuell wenn sie wirklich relevant sind (z.B. die
+        Aufwand-Erfassung erst nach 5 Terminen).
+
+        Liefert: {hints: [...], anzahl: N}. Bei Fehler eine leere Liste —
+        Hints duerfen nie blocken.
+        """
+        from ..services.onboarding_hints import list_active_hints
+        try:
+            hints = list_active_hints(db)
+        except Exception as exc:
+            logger.warning("onboarding_hints_anzeigen failed: %s", exc)
+            return {"hints": [], "anzahl": 0, "fehler": str(exc)[:200]}
+        return {
+            "hints": hints,
+            "anzahl": len(hints),
+            "hinweis": (
+                "Pro Hint kann der User mit onboarding_hint_dismiss(hint_id) "
+                "die Card wegklicken — sie kommt dann nie wieder."
+            ) if hints else None,
+        }
+
+    @mcp.tool()
+    def onboarding_hint_dismiss(hint_id: str) -> dict:
+        """Markiert einen Onboarding-Hint als dauerhaft weggeklickt (#652).
+
+        Die Hint-ID wird in `profile_settings.onboarding_hints_dismissed`
+        gespeichert (JSON-Liste). Beim naechsten `onboarding_hints_anzeigen`
+        erscheint sie nicht mehr — selbst wenn die Condition weiterhin
+        zutrifft.
+
+        Args:
+            hint_id: Stabile ID des Hints (z.B. 'g11_suchprofile_anlegen').
+                Bekannte IDs liefert `onboarding_hints_anzeigen`.
+
+        Liefert {dismissed: True, hint_id, total_dismissed} bei Erfolg.
+        Bei unbekannter ID: {error, bekannte_ids: [...]}.
+        """
+        from ..services.onboarding_hints import dismiss_hint
+        return dismiss_hint(db, hint_id)

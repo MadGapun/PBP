@@ -1071,7 +1071,73 @@ def register(mcp, db, logger):
             ]
 
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
-        result["nächste_aktionen"] = _get_context_actions(app.get("status", ""))
+        actions = _get_context_actions(app.get("status", ""))
+
+        # D15 (#650, beta.76): Bei staleness >=7d einen prioritaeren Nachfass-
+        # Eintrag voranstellen. Liest das letzte Event und vergleicht mit jetzt.
+        try:
+            from datetime import datetime, timezone, timedelta
+            AKTIVE = (
+                "offen", "in_vorbereitung", "beworben",
+                "eingangsbestaetigung", "interview", "zweitgespraech",
+            )
+            if app.get("status") in AKTIVE and app.get("events"):
+                last_event = max(
+                    app["events"],
+                    key=lambda e: e.get("event_date", ""),
+                )
+                last_date_str = last_event.get("event_date") or ""
+                last_dt = None
+                if last_date_str:
+                    for parser in (
+                        lambda s: datetime.fromisoformat(s.replace("Z", "+00:00")),
+                        lambda s: datetime.fromisoformat(s),
+                    ):
+                        try:
+                            last_dt = parser(last_date_str)
+                            if last_dt.tzinfo is None:
+                                last_dt = last_dt.replace(tzinfo=timezone.utc)
+                            break
+                        except (ValueError, TypeError):
+                            continue
+                if last_dt:
+                    age = datetime.now(timezone.utc) - last_dt
+                    if age >= timedelta(days=14):
+                        actions = {
+                            "beschreibung": (
+                                f"Wartest du seit {age.days} Tagen auf Antwort — "
+                                "hoechste Zeit nachzufassen."
+                            ),
+                            "aktionen": [
+                                {
+                                    "label": f"Nachfass-Mail an {app.get('company', 'Firma')} verfassen",
+                                    "tool": "antwort_formulieren",
+                                    "prioritaet": 1,
+                                },
+                                {
+                                    "label": "Status auf 'zurueckgezogen' setzen",
+                                    "tool": "bewerbung_status_aendern",
+                                    "status": "zurueckgezogen",
+                                    "prioritaet": 5,
+                                },
+                            ] + (actions.get("aktionen", []) or []),
+                            "motivation": (
+                                f"Ohne aktives Zutun bleibt's bei {app.get('company', 'der Firma')} "
+                                "still — bei manchen ueberbrueckt das System einen Nachfass-Anstoss."
+                            ),
+                            "staleness_tage": age.days,
+                        }
+                    elif age >= timedelta(days=7):
+                        actions["staleness_hinweis"] = (
+                            f"Seit {age.days} Tagen kein Update — ein Nachfass "
+                            "waere bald angebracht."
+                        )
+                        actions["staleness_tage"] = age.days
+        except Exception as exc:
+            logger.warning("staleness-Check fuer Bewerbung %s fehlgeschlagen: %s",
+                           app.get("id"), exc)
+
+        result["nächste_aktionen"] = actions
 
         return result
 

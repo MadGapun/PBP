@@ -16,6 +16,78 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.76] - 2026-06-01 — Auto-Steps + Nachfass + Onboarding-Hints (#650 + #651 + #652)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Zweiter Master-Plan-First-
+> Release. **Drei neue Auto-Engine-Steps + 2 neue MCP-Tools + 1 neuer Service.**
+> 10 neue Tests, **1462 passed**.
+
+### 🤖 #651 (E12) Auto-Tiefenanalyse-Step
+
+Neuer `_run_auto_deep_analysis(now_iso, max_docs=3)` in `dashboard.py`:
+
+- Holt bis zu 3 Dokumente pro Lauf aus `extraction_status='basis_analysiert'`
+- Pro Doc: Ollama-`CLASSIFY_DOCUMENT`-Call -> ggf. neuer `doc_type`
+- Setzt `extraction_status='analysiert'` nach erfolgreicher Verarbeitung
+- **Backoff** bei 3+ Fehlern pro Doc (Setting `deep_analysis_fail:{doc_id}`)
+- Bei `Lokale AI nicht aktiv`: schneller Skip mit klarer Meldung
+- Elwosa-Linie `auto_deep_analysis` (4 Varianten)
+- Hook in `_run_auto_actions`
+
+Reality-Check zeigte 16 Docs in `basis_analysiert` ohne weitere Verarbeitung —
+dieser Step wird sie nach und nach auflösen.
+
+### 📨 #650 (D15) Nachfass-Trigger bei Status ohne Update >7d
+
+Neuer `_run_check_stale_applications(now_iso)`:
+
+- Iteriert ueber Bewerbungen in aktiven Statuses
+  (`offen`/`in_vorbereitung`/`beworben`/`eingangsbestaetigung`/`interview`/`zweitgespraech`)
+- Prueft letztes `application_events.event_date`
+- **>=7 Tage**: setzt `stale_app_lastnotified:{app_id}` -> Frontend kann das aufgreifen
+- **>=14 Tage**: zusaetzlich Elwosa-Linie `auto_followup_overdue` (4 Varianten)
+- **Re-Notify-Window 5 Tage** — kein Spam, kein Daily-Reminder
+- Idempotent: wenn neueres Event als letzte Notification -> Counter-Reset
+
+Plus: in `bewerbung_details:nächste_aktionen` taucht bei >=14d ein
+prioritärer Nachfass-Eintrag auf, der die generischen Workflow-Vorschläge
+verdrängt (mit Anzahl Tage seit letztem Event).
+
+### 🛟 #652 (G11) Onboarding-Hints Backend
+
+Neuer Service `services/onboarding_hints.py` + 2 MCP-Tools:
+
+- **`onboarding_hints_anzeigen()`** — liefert aktive Hints (Condition erfüllt
+  + nicht dismissed). 3 Hint-Definitionen aus dem Reality-Check:
+  - `g11_suchprofile_anlegen` (0 Suchprofile + >=3 Bewerbungen)
+  - `g11_aufwand_tracken` (>=5 Meetings + 0 Reisekosten/Vorbereitungszeit)
+  - `g11_interview_reflexion` (>=2 Interview-Bewerbungen + 0 Reflexionen)
+- **`onboarding_hint_dismiss(hint_id)`** — persistiert die Wegklick-Entscheidung
+  in `profile_settings.onboarding_hints_dismissed` (JSON-Liste)
+
+Backend-only — Frontend-Cards kommen als separate Beta. Claude kann die Hints
+aber jetzt schon im Chat anzeigen wenn der User danach fragt.
+
+### Tests
+
+10 neue in `tests/test_v17_optimierungen_beta76.py`:
+- 3 fuer `_run_auto_deep_analysis` (Skip ohne Ollama, normaler Lauf, Backoff)
+- 2 fuer `_run_check_stale_applications` (7d/14d finden, Idempotenz)
+- 5 fuer Onboarding-Hints (leeres Profil, Trigger, Dismiss-Persistierung,
+  unbekannte ID, MCP-Tool)
+
+MCP-Tool-Count: **152 → 154** (+2).
+Volle Suite: **1462 passed, 1 skipped** (vorher 1452).
+
+### Master-Plan-First
+
+Zweiter Release nach Einfuehrung der Disziplin. Alle drei Items waren als
+⬜ + Issue (#650, #651, #652) im Master-Plan bevor der Code begann. Jetzt
+auf ✅ + Sub-Plaene Plan-Bewerbungen, Plan-Dokumente, Plan-Frontend
+aktualisiert.
+
+---
+
 ## [1.7.0-beta.75] - 2026-06-01 — Reality-Check-Optimierungen (#647 + #648 + #649)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Drei kleine Optimierungen

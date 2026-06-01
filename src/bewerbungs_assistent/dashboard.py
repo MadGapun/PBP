@@ -7389,6 +7389,151 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
     }
 
 
+def _run_check_stale_applications(now_iso: str) -> dict:
+    """D15 (#650, beta.76): Nachfass-Trigger fuer Bewerbungen ohne Update >7d.
+
+    Iteriert ueber alle Bewerbungen in aktiven Statuses
+    (`beworben`, `interview`, `zweitgespraech`, `eingangsbestaetigung`,
+    `offen`, `in_vorbereitung`). Prueft das Datum des letzten Timeline-
+    Events.
+
+    - **>=7d ohne Update**: setzt `stale_app_lastnotified_at` (ISO) als
+      Setting `stale_app_lastnotified:{app_id}`. Wird vom Frontend
+      bzw. `bewerbung_details:nächste_aktionen` aufgegriffen.
+    - **>=14d ohne Update**: zusaetzlich Elwosa-Linie
+      `auto_followup_overdue` triggern (mit Anzahl der ueberfaelligen).
+
+    Idempotent: Setting trackt das letzte Bescheid-Datum, sodass wir den
+    User nicht jeden Tag fragen. Re-Trigger erst nach weiteren 5 Tagen.
+
+    Pure DB-Operation — kein LLM-Call, laeuft immer (auch ohne Ollama).
+    """
+    from datetime import datetime, timedelta, timezone
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    AKTIVE_STATUSES = (
+        "offen", "in_vorbereitung", "beworben",
+        "eingangsbestaetigung", "interview", "zweitgespraech",
+    )
+    TERMINAL_STATUSES = (
+        "abgelehnt", "zurueckgezogen", "abgelaufen",
+        "angenommen", "interview_abgeschlossen",
+    )
+    # Aktive Bewerbungen + ihre letzten Events holen.
+    try:
+        rows = conn.execute(
+            "SELECT a.id, a.title, a.company, a.status, "
+            "       (SELECT MAX(event_date) "
+            "        FROM application_events e "
+            "        WHERE e.application_id = a.id) AS last_event_date "
+            "FROM applications a "
+            "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+            "AND a.status IN " + str(AKTIVE_STATUSES),
+            (pid,)
+        ).fetchall()
+    except Exception as exc:
+        return {"skipped": True, "reason": str(exc)[:200], "stale_7d": 0}
+
+    now_dt = datetime.now(timezone.utc)
+    stale_7d = []
+    stale_14d = []
+    fresh_reset = 0
+    re_notify_window = timedelta(days=5)
+
+    for r in rows:
+        last_str = r["last_event_date"] or ""
+        if not last_str:
+            continue
+        # Datum robust parsen — events haben mal ISO mit, mal ohne Timezone
+        last_dt = None
+        for fmt_try in (
+            lambda s: datetime.fromisoformat(s.replace("Z", "+00:00")),
+            lambda s: datetime.fromisoformat(s),
+        ):
+            try:
+                last_dt = fmt_try(last_str)
+                if last_dt.tzinfo is None:
+                    last_dt = last_dt.replace(tzinfo=timezone.utc)
+                break
+            except (ValueError, TypeError):
+                continue
+        if last_dt is None:
+            continue
+        age = now_dt - last_dt
+        app_id = r["id"]
+
+        # Bereits notified? Erst nach `re_notify_window` erneut.
+        last_notified_iso = _db.get_setting(
+            f"stale_app_lastnotified:{app_id}", ""
+        ) or ""
+        last_notified_dt = None
+        if last_notified_iso:
+            try:
+                last_notified_dt = datetime.fromisoformat(last_notified_iso)
+            except (ValueError, TypeError):
+                last_notified_dt = None
+
+        # Wenn die Bewerbung wieder frisch ist (neueres Event als letzte
+        # Notification): Counter loeschen
+        if last_notified_dt and last_dt > last_notified_dt:
+            try:
+                _db.set_setting(f"stale_app_lastnotified:{app_id}", "")
+                fresh_reset += 1
+            except Exception:
+                pass
+            continue
+
+        # Re-Notify-Window noch nicht abgelaufen → skip
+        if last_notified_dt and (now_dt - last_notified_dt) < re_notify_window:
+            continue
+
+        if age >= timedelta(days=14):
+            stale_14d.append({
+                "id": app_id,
+                "title": (r["title"] or "")[:80],
+                "company": (r["company"] or "")[:60],
+                "status": r["status"],
+                "tage_seit_letztem_event": age.days,
+            })
+            try:
+                _db.set_setting(
+                    f"stale_app_lastnotified:{app_id}", now_dt.isoformat()
+                )
+            except Exception:
+                pass
+        elif age >= timedelta(days=7):
+            stale_7d.append({
+                "id": app_id,
+                "title": (r["title"] or "")[:80],
+                "company": (r["company"] or "")[:60],
+                "status": r["status"],
+                "tage_seit_letztem_event": age.days,
+            })
+            try:
+                _db.set_setting(
+                    f"stale_app_lastnotified:{app_id}", now_dt.isoformat()
+                )
+            except Exception:
+                pass
+
+    if stale_14d:
+        _elwosa_speak_safe("auto_followup_overdue", ctx={
+            "count": len(stale_14d),
+            "first_company": stale_14d[0]["company"] if stale_14d else "",
+            "first_days": stale_14d[0]["tage_seit_letztem_event"] if stale_14d else 0,
+        })
+
+    return {
+        "ran_at": now_iso,
+        "checked": len(rows),
+        "stale_7d": len(stale_7d),
+        "stale_14d": len(stale_14d),
+        "fresh_reset": fresh_reset,
+        "stale_7d_details": stale_7d[:5],
+        "stale_14d_details": stale_14d[:5],
+    }
+
+
 def _elwosa_speak_safe(trigger_kind: str, ctx: dict = None,
                         cluster: str = None) -> None:
     """Hilfs-Funktion: ruft elwosa.speak() ohne dass Fehler den Aufrufer
@@ -7529,6 +7674,137 @@ def _run_auto_classify_documents(now_iso: str, max_docs: int = 30) -> dict:
         "checked": len(rows),
         "classified": classified,
         "errors": errors,
+    }
+
+
+def _run_auto_deep_analysis(now_iso: str, max_docs: int = 3) -> dict:
+    """E12 (#651, beta.76): Auto-Tiefenanalyse fuer basis_analysiert-Docs.
+
+    Lokale-AI-Schritt der bis zu `max_docs` Dokumente pro Lauf aus dem
+    `extraction_status='basis_analysiert'`-Bucket nimmt und tiefer
+    verarbeitet:
+
+    1. `CLASSIFY_DOCUMENT`-Call holt ggf. spezifischere `doc_type`.
+    2. `extraction_status` wird auf `analysiert` gesetzt — das Doku
+       gilt damit als tiefenanalysiert und verschwindet aus dem
+       `dokumente_zur_analyse`-Default-Filter.
+    3. Backoff: nach 3 Fehlversuchen pro Doc wird es fuer 7d skippt
+       (Setting `deep_analysis_fail:{doc_id}` zaehlt Fehler).
+
+    Voraussetzung: Lokale AI aktiv (Ollama, user_state='active').
+    Sonst Skip mit klarer Meldung — keine Claude-Tokens verbrennen
+    fuer Hintergrund-Tasks.
+
+    Bewusst niedriger Default (3/Lauf) weil Ollama-Latenz pro Call
+    ~5-15s. Bei der Auto-Engine-Frequenz von ~5min ergibt das pro
+    Stunde ~36 Docs — mehr als jeder echte User in einer Woche
+    produziert.
+    """
+    from .services.llm_service import get_llm_service, TaskKind
+    svc = get_llm_service(_db)
+    s = svc.get_status()
+    if not s.ollama_available or s.user_state != "active" or not s.available_models:
+        return {
+            "skipped": True,
+            "reason": "Lokale AI nicht aktiv",
+            "processed": 0,
+        }
+    pid = _db.get_active_profile_id()
+    conn = _db.connect()
+    try:
+        # Overshoot — manche werden via Backoff geskippt
+        rows = conn.execute(
+            "SELECT id, filename, doc_type, extracted_text "
+            "FROM documents "
+            "WHERE extraction_status = 'basis_analysiert' "
+            "AND extracted_text IS NOT NULL AND LENGTH(extracted_text) >= 200 "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "ORDER BY created_at DESC LIMIT ?",
+            (pid, max_docs * 3)
+        ).fetchall()
+    except Exception as exc:
+        return {"skipped": True, "reason": str(exc)[:200], "processed": 0}
+
+    processed = 0
+    classified_anders = 0
+    failures = 0
+    skipped_backoff = 0
+    for r in rows:
+        if processed >= max_docs:
+            break
+        doc_id = r["id"]
+        # Backoff-Check: bei 3+ Fehlern in <7d nicht erneut versuchen
+        fail_count = 0
+        try:
+            fail_count = int(_db.get_setting(f"deep_analysis_fail:{doc_id}", "0") or "0")
+        except Exception:
+            pass
+        if fail_count >= 3:
+            skipped_backoff += 1
+            continue
+        try:
+            result = svc.run(TaskKind.CLASSIFY_DOCUMENT, {
+                "filename": r["filename"] or "",
+                "text": (r["extracted_text"] or "")[:3000],
+            })
+        except Exception:
+            try:
+                _db.set_setting(f"deep_analysis_fail:{doc_id}", str(fail_count + 1))
+            except Exception:
+                pass
+            failures += 1
+            continue
+
+        new_category: str | None = None
+        if result.success and result.payload:
+            cat = result.payload.get("category")
+            if cat and cat != "sonstiges" and cat != r["doc_type"]:
+                new_category = cat
+
+        try:
+            if new_category:
+                conn.execute(
+                    "UPDATE documents SET doc_type=?, extraction_status='analysiert' "
+                    "WHERE id=?",
+                    (new_category, doc_id)
+                )
+                classified_anders += 1
+            else:
+                # Auch ohne neue Klasse: das Doku ist jetzt tiefenanalysiert
+                # (LLM hat es gesehen, keine bessere Klasse gefunden).
+                conn.execute(
+                    "UPDATE documents SET extraction_status='analysiert' WHERE id=?",
+                    (doc_id,)
+                )
+            processed += 1
+            # Backoff-Counter zuruecksetzen (nur bei Erfolg)
+            try:
+                _db.set_setting(f"deep_analysis_fail:{doc_id}", "0")
+            except Exception:
+                pass
+        except Exception:
+            try:
+                _db.set_setting(f"deep_analysis_fail:{doc_id}", str(fail_count + 1))
+            except Exception:
+                pass
+            failures += 1
+
+    conn.commit()
+
+    if processed > 0:
+        _elwosa_speak_safe("auto_deep_analysis", ctx={
+            "count": processed,
+            "umklassifiziert": classified_anders,
+        })
+
+    return {
+        "skipped": False,
+        "ran_at": now_iso,
+        "candidates_total": len(rows),
+        "processed": processed,
+        "classified_anders": classified_anders,
+        "failures": failures,
+        "skipped_backoff": skipped_backoff,
     }
 
 
@@ -7895,6 +8171,8 @@ async def api_run_auto_actions():
     # neue Mails + Dokumente von selbst ein wenn aktiv.
     mail_result = _run_auto_classify_emails(now)
     doc_result = _run_auto_classify_documents(now)
+    # v1.7.0-beta.76 (#651 E12): Tiefenanalyse fuer basis_analysiert-Docs
+    deep_analysis_result = _run_auto_deep_analysis(now)
     # v1.7.0-beta.28 (#594 Stufe 3): LLM-Pattern-Analyse als 5. Schritt.
     # Greift nur wenn lokale AI aktiv und genug events vorhanden sind.
     patterns_result = _run_analyze_user_patterns(now)
@@ -7906,6 +8184,8 @@ async def api_run_auto_actions():
     refetch_result = _run_auto_refetch_descriptions(now)
     # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
     url_aging_result = _run_url_aging_check(now)
+    # v1.7.0-beta.76 (#650 D15): Nachfass-Trigger bei staleness
+    stale_apps_result = _run_check_stale_applications(now)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
     elwosa_result = _run_elwosa_speak(now)
     _db.set_setting("auto_actions_last_run_at", now)
@@ -7915,11 +8195,13 @@ async def api_run_auto_actions():
         "followup_reconciler": fu_result,
         "mail_classify": mail_result,
         "document_classify": doc_result,
+        "deep_analysis": deep_analysis_result,
         "pattern_analysis": patterns_result,
         "scraper_probe": probe_result,
         "extract_contacts": contacts_result,
         "auto_refetch_descriptions": refetch_result,
         "url_aging_check": url_aging_result,
+        "stale_applications": stale_apps_result,
         "elwosa": elwosa_result,
     }
 
