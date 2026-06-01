@@ -178,12 +178,11 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        # #500: Live-Test 2026-04-25 — alle bekannten URLs liefern HTTP 404.
-        # Quelle bleibt im Registry sichtbar, ist aber gesperrt; Reaktivierung
-        # nur ueber bewussten "Trotzdem aktivieren"-Klick.
-        "defekt": True,
-        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25)",
-        "manueller_fallback": "https://www.ingenieur.de/jobs (im Browser oder Chrome-Extension oeffnen)",
+        # #653 (B12, beta.77): URL-Migration — neue Job-Subdomain jobs.ingenieur.de.
+        # Alte URL `/jobs/` ist seit 2026-04-25 dauerhaft 404. Scraper-Code in
+        # `ingenieur_de.py` muss auf die neue Subdomain umgestellt werden.
+        "url_aktualisiert_am": "2026-06-01 (Issue #653)",
+        "manueller_fallback": "https://jobs.ingenieur.de/ (im Browser oder Chrome-Extension oeffnen)",
     },
     "heise_jobs": {
         "name": "Heise Jobs",
@@ -211,11 +210,14 @@ SOURCE_REGISTRY = {
     "solcom": {
         "name": "SOLCOM",
         "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
-        "methode": "HTML Scraping + JSON-LD",
+        "methode": "Chrome-Extension only",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        "defekt": True,
-        "defekt_grund": "Anti-Bot-Schutz (HTTP 403 seit 2026-04-25)",
+        # #653 (B12, beta.77): Cloudflare Bot-Block seit 2026-04-25
+        # dauerhaft aktiv (auch mit User-Agent-Spoofing 403). Quelle nur
+        # noch via Chrome-Extension nutzbar. Aus Auto-Scraper-Liste raus.
+        "deprecated": True,
+        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur Chrome-Extension",
         "manueller_fallback": "https://www.solcom.de/projekte (Browser oder Chrome-Extension)",
     },
     "stellenanzeigen_de": {
@@ -224,6 +226,21 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
+    },
+    "adzuna": {
+        "name": "Adzuna",
+        "beschreibung": (
+            "Aggregator-Jobsuche mit 19-Laender-Abdeckung. REST-API, "
+            "deutsche Stellen, kostenlose Registrierung auf developer.adzuna.com. "
+            "Liefert Aggregations-Coverage aehnlich Bundesagentur."
+        ),
+        "methode": "REST-API (JSON)",
+        "login_erforderlich": False,
+        "geschwindigkeit": "schnell",
+        # #654 (B17, beta.77): User muss app_id + app_key in Settings tragen.
+        "api_key_erforderlich": True,
+        "api_key_settings": ["adzuna_app_id", "adzuna_app_key"],
+        "registrierungs_url": "https://developer.adzuna.com/",
     },
     "jobware": {
         "name": "Jobware",
@@ -238,9 +255,11 @@ SOURCE_REGISTRY = {
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        "defekt": True,
-        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25)",
-        "manueller_fallback": "https://www.ferchau.com/de/de (Karriere-Bereich im Browser)",
+        # #653 (B12, beta.77): URL-Migration zu touch.ferchau.com Karriere-
+        # Plattform. Vermutlich SPA mit eigenem JSON-Endpoint. Erstmal HTML-
+        # Scraping versuchen, ggf. Playwright-Update in B18.
+        "url_aktualisiert_am": "2026-06-01 (Issue #653)",
+        "manueller_fallback": "https://touch.ferchau.com/de/de?type=3 (im Browser oder Chrome-Extension)",
     },
     "kimeta": {
         "name": "Kimeta",
@@ -435,9 +454,14 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "langsam",
         "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
         "beta": True,
-        "defekt": True,
-        "defekt_grund": "monster.de antwortet nicht (Connect-Timeout 2026-04-25)",
-        "manueller_fallback": "https://www.monster.de (im Browser pruefen, ggf. Chrome-Extension)",
+        # #653 (B12, beta.77): Monster Europe transitioning seit 08/2025.
+        # monster.de leitet auf monster.com/de/ um, dort gibt es aber nur
+        # noch CV-Development-Services, keine Job-Listings mehr. Quelle
+        # ist de facto tot — als deprecated markieren, aus Auto-Scraper-
+        # Liste raus.
+        "deprecated": True,
+        "deprecated_grund": "Monster Europe Domain transitioning seit 08/2025 — keine deutschen Job-Listings mehr (siehe aimgroup.com 08/2025)",
+        "manueller_fallback": "https://www.indeed.com/de/ als Alternative — Monster Germany hat keine Stellen mehr",
     },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
@@ -581,6 +605,7 @@ _SCRAPER_MAP = {
     "stellenanzeigen_de": ("stellenanzeigen_de", "search_stellenanzeigen_de"),
     "jobware": ("jobware", "search_jobware"),
     "ferchau": ("ferchau", "search_ferchau"),
+    "adzuna": ("adzuna", "search_adzuna"),
     "kimeta": ("kimeta", "search_kimeta"),
     "jobspy_linkedin": ("jobspy_source", "search_jobspy_linkedin"),
     "jobspy_indeed": ("jobspy_source", "search_jobspy_indeed"),

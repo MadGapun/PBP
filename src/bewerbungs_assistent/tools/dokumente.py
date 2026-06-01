@@ -1369,6 +1369,73 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokument_typen_anzeigen(mit_verteilung: bool = True) -> dict:
+        """Listet alle bekannten Dokumenten-Typen + Aktion-Vorschlag (#655 E14).
+
+        Hilft Claude und User beim Discovery:
+        - Welche Typen kennt PBP?
+        - Welche Aktion sollte pro Typ ausgefuehrt werden?
+        - Welche haben einen Per-Typ-Extraktor (strukturierte Felder)?
+        - Wie sieht die Verteilung in der aktuellen DB aus?
+
+        Args:
+            mit_verteilung: True (Standard) = pro Typ die Anzahl der
+                Dokumente in der DB mitliefern. False = nur die Typ-Definitionen.
+
+        Liefert: {typen: [...], gesamt_dokumente, hinweis}.
+        """
+        from ..services.document_handlers import list_known_types
+        types_info = list_known_types()
+
+        if mit_verteilung:
+            conn = db.connect()
+            pid = db.get_active_profile_id()
+            try:
+                rows = conn.execute(
+                    "SELECT doc_type, COUNT(*) AS n FROM documents "
+                    "WHERE (profile_id=? OR profile_id IS NULL) "
+                    "GROUP BY doc_type",
+                    (pid,)
+                ).fetchall()
+                counts = {r["doc_type"]: r["n"] for r in rows}
+                for t in types_info:
+                    t["dokumente_in_db"] = counts.get(t["typ"], 0)
+                # Unbekannte Typen die nicht in KNOWN_TYPES sind?
+                bekannt = {t["typ"] for t in types_info}
+                unbekannte = [
+                    {"typ": dt, "dokumente_in_db": cnt}
+                    for dt, cnt in counts.items() if dt not in bekannt and dt
+                ]
+                gesamt = sum(counts.values())
+            except Exception as exc:
+                logger.warning("dokument_typen_anzeigen Verteilung: %s", exc)
+                unbekannte = []
+                gesamt = 0
+        else:
+            unbekannte = []
+            gesamt = None
+
+        result = {
+            "typen": types_info,
+            "anzahl_typen": len(types_info),
+            "hinweis": (
+                "Nutze update_document_type(doc_id, typ) um Doku-Typ "
+                "manuell zu setzen. Per-Typ-Handler-Aktionen siehe "
+                "'claude_action'-Spalte."
+            ),
+        }
+        if mit_verteilung:
+            result["gesamt_dokumente"] = gesamt
+            if unbekannte:
+                result["unbekannte_typen_in_db"] = unbekannte
+                result["unbekannte_typen_hinweis"] = (
+                    "Diese doc_type-Werte sind in der DB, aber nicht in "
+                    "KNOWN_TYPES dokumentiert — pruefen ob Typ obsolet ist "
+                    "oder Handler-Eintrag ergaenzt werden sollte."
+                )
+        return result
+
+    @mcp.tool()
     def dokument_status_setzen(dokument_id: str, status: str) -> dict:
         """Setzt den Extraktions-Status eines Dokuments manuell (#447).
 

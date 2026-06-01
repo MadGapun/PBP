@@ -16,6 +16,93 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.77] - 2026-06-01 — Scraper-Reanimation + Adzuna + Doku-Typen (#653 + #654 + #655)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Dritter Master-Plan-First-
+> Release.** Scraper-URL-Updates, neuer Adzuna-Adapter, Doku-Klassifikator
+> erweitert + Per-Typ-Handler-System. **22 neue Tests, 1484 passed.**
+
+### 🔧 #653 (B12) Scraper-Reanimation + Deprecation
+
+Live-Probes der 7 als defekt markierten Quellen aus `scraper_diagnose`:
+
+- **`ferchau`** ✅ — URL-Migration zu `touch.ferchau.com`. Scraper-Code und
+  SOURCE_REGISTRY aktualisiert. Vorher `/de/de/jobs` 404 seit 2026-04-25.
+- **`ingenieur_de`** ✅ — URL-Migration zur eigenen Subdomain
+  `jobs.ingenieur.de`. Scraper-Code und SOURCE_REGISTRY aktualisiert.
+- **`monster`** ❌ → **deprecated**. Monster Europe Domain transitioning
+  seit 08/2025, keine deutschen Job-Listings mehr — nur noch CV-Service.
+  Manueller Fallback: Indeed.
+- **`solcom`** ❌ → **deprecated** (`chrome_extension_only`). Cloudflare
+  Bot-Block dauerhaft aktiv (HTTP 403), nur noch via Chrome-Extension.
+- **`gulp`**, **`kimeta`**, **`heise_jobs`** — bleiben als ⬜ in #656
+  (Playwright-Integration als eigenes Issue).
+
+### 🆕 #654 (B17) Neuer Adapter: Adzuna API
+
+Adzuna bietet eine kostenlose REST-API mit deutschen Job-Listings — gute
+Ergaenzung zu Bundesagentur und Ersatz fuer die deprecated/blockierten
+Quellen.
+
+- Neuer Adapter `job_scraper/adzuna.py` (~170 LOC)
+- Voraussetzung: `adzuna_app_id` + `adzuna_app_key` in Settings (kostenlose
+  Registrierung auf `developer.adzuna.com`)
+- Ohne Keys: schneller Skip mit klarer Meldung
+- REST + JSON, keine SPA-Probleme, keine Bot-Walls
+- Bonus: liefert Gehalts-Predictions als `salary_estimated=1`
+
+### 📁 #655 (E14) Doku-Typen erweitern + Per-Typ-Handler-System
+
+**Teil A — Klassifikator erweitert** (`_detect_doc_type` in `dashboard.py`):
+
+Drei neue `doc_type`-Werte aus dem Reality-Check:
+- `interview_bestaetigung` (anders als `interview_einladung` — schon zugesagt)
+- `projekt_update` (Zwischenfeedback / Status-Update vom Recruiter)
+- `gespraechs_feedback` (Persoenliche Rueckmeldung nach Gespraech)
+- `vermittler_korrespondenz` (in KNOWN_TYPES gelistet, manuell setzbar)
+
+Filename- + Content-Patterns mit konkreten Beispielen aus den 200
+echten Markus-Dokumenten.
+
+**Teil B — Per-Typ-Handler-System** (`services/document_handlers.py`):
+
+Jeder bekannte Typ hat:
+- `extract_fields(doc)` — typspezifische Felder via Regex (Recruiter-
+  Email, Termin-Datum/Uhrzeit/Platform, Feedback-Tendenz positiv/negativ)
+- `claude_action` — konkrete naechste Aktion ("Status auf 'interview' aendern
+  + Termin im Kalender anlegen" statt generisch "Doku ansehen")
+
+22 Typ-Definitionen in `KNOWN_TYPES`. Pro Typ: Beschreibung + Aktion +
+hat_extraktor-Flag.
+
+**Teil C — Neuer MCP-Tool `dokument_typen_anzeigen`**:
+
+Listet alle bekannten Typen + Beschreibung + Action-Vorschlag + Anzahl
+in der DB. Hilft Discovery und zeigt **unbekannte_typen_in_db** wenn
+Werte in der DB stehen die nicht in `KNOWN_TYPES` dokumentiert sind —
+Signal fuer "Handler-Eintrag fehlt noch".
+
+### Tests
+
+22 neue in `tests/test_v17_optimierungen_beta77.py`:
+- 6 fuer B12 (SOURCE_REGISTRY-Updates, Scraper-Code-Aktualisierung)
+- 5 fuer B17 (Adzuna-Adapter Skip-Verhalten, Mapping, Credentials)
+- 11 fuer E14 (3 neue Filename-Patterns, Content-Detection, Per-Typ-
+  Handler, MCP-Tool)
+
+MCP-Tool-Count: **154 → 155** (+ `dokument_typen_anzeigen`).
+Quellen-Count: **34 → 35** (+ `adzuna`).
+Volle Suite: **1484 passed, 1 skipped** (vorher 1462).
+
+### Master-Plan-First
+
+Dritter Release. Alle Items als ⬜ + Issue im Plan bevor Code begann
+(B12 #653, B17 #654, E14 #655). Plus zwei neue Roadmap-Items:
+- B18 #656 — Playwright-Adapter fuer SPA-Quellen (gulp/kimeta/heise_jobs)
+- B13 — Probe-URL-Inventar pflegen (unveraendert offen)
+
+---
+
 ## [1.7.0-beta.76] - 2026-06-01 — Auto-Steps + Nachfass + Onboarding-Hints (#650 + #651 + #652)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Zweiter Master-Plan-First-

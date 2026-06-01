@@ -37,9 +37,18 @@ def search_ferchau(params: dict) -> list:
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         for query in queries:
             try:
+                # #653 (B12, beta.77): URL-Migration zu touch.ferchau.com
+                # neue Karriere-Plattform. Alte /de/de/jobs ist seit
+                # 2026-04-25 dauerhaft 404. Neue Plattform ist vermutlich
+                # SPA, JSON-LD koennte aber im SSR-HTML stehen.
                 resp = client.get(
-                    "https://www.ferchau.com/de/de/jobs",
-                    params={"search": query},
+                    "https://touch.ferchau.com/de/de",
+                    params={
+                        "search": query,
+                        "type": 3,  # type=3 ist Festanstellung/Direktanstellung
+                        "sortingType": "actuality",
+                        "sortingDirection": "DESC",
+                    },
                 )
                 if resp.status_code != 200:
                     logger.debug("FERCHAU HTTP %d for '%s'", resp.status_code, query)
@@ -102,7 +111,16 @@ def search_ferchau(params: dict) -> list:
                         seen.add(title)
 
                         href = link_el.get("href", "")
-                        url = href if href.startswith("http") else f"https://www.ferchau.com{href}"
+                        # #653: bei der neuen touch.ferchau.com-Plattform
+                        # kommen relative Links wie /de/de/...; auch alte
+                        # ferchau.com-Links bleiben fuer historische
+                        # Backward-Compat funktional.
+                        if href.startswith("http"):
+                            url = href
+                        elif href.startswith("/de/"):
+                            url = f"https://touch.ferchau.com{href}"
+                        else:
+                            url = f"https://www.ferchau.com{href}"
                         if "/jobs?" in url:
                             continue  # search page link
 

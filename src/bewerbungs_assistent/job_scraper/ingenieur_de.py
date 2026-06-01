@@ -37,10 +37,10 @@ def search_ingenieur_de(params: dict) -> list:
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         for query in queries:
             try:
-                url = f"https://www.ingenieur.de/jobs/suche/?q={httpx.QueryParams({'q': query})['q']}"
+                url = f"https://jobs.ingenieur.de/suche?q={httpx.QueryParams({'q': query})['q']}"
                 # ingenieur.de uses /jobs/suche/ with q parameter
                 resp = client.get(
-                    "https://www.ingenieur.de/jobs/suche/",
+                    "https://jobs.ingenieur.de/suche",
                     params={"q": query, "sort": "date"},
                 )
                 if resp.status_code != 200:
@@ -102,7 +102,16 @@ def _parse_card(card) -> dict | None:
     href = link_el.get("href", "")
     if not href:
         return None
-    url = href if href.startswith("http") else f"https://www.ingenieur.de{href}"
+    # #653 (B12, beta.77): URL-Migration zu jobs.ingenieur.de Subdomain.
+    # Relative Links koennen entweder auf jobs.ingenieur.de zeigen
+    # (neuer Pfad) oder auf den alten www.ingenieur.de — wir muessen
+    # darauf vertrauen dass der relativen href schon korrekt rendert.
+    if href.startswith("http"):
+        url = href
+    elif href.startswith("/jobs/") or href.startswith("/suche"):
+        url = f"https://jobs.ingenieur.de{href}"
+    else:
+        url = f"https://www.ingenieur.de{href}"
 
     # Skip non-job links (categories, etc.)
     if "/jobs/suche" in url or "/jobs/tag/" in url:

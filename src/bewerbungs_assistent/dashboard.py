@@ -4770,6 +4770,11 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         return "interview_transkript"
     if any(kw in fname for kw in ["einladung", "invitation"]) and any(kw in fname for kw in ["interview", "vorstell", "gespraech", "gespräch"]):
         return "interview_einladung"
+    # #655 (E14, beta.77): Vor dem generischen "confirmation"-Match die
+    # spezifische Interview-Bestaetigung pruefen — sonst landet "Interview
+    # confirmation - 24_..." in eingangsbestaetigung statt interview_bestaetigung.
+    if "interview confirmation" in fname or "interview-confirmation" in fname:
+        return "interview_bestaetigung"
     if any(kw in fname for kw in ["eingangsbestaetigung", "eingangsbestätigung", "confirmation", "bewerbungseingang"]):
         return "eingangsbestaetigung"
     if any(kw in fname for kw in ["absage", "rejection", "abgelehnt"]):
@@ -4778,6 +4783,28 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         return "angebot"
     if any(kw in fname for kw in ["spickzettel", "spick", "cheat-sheet", "cheatsheet"]):
         return "vorbereitung"
+    # #655 (E14, beta.77): Interview-Bestaetigung — speziell die Termin-
+    # Bestaetigungs-Mails nach erfolgter Einladung. Unterscheidet sich
+    # von interview_einladung (initial Anfrage vs. konkrete Termin-Zusage).
+    if any(kw in fname for kw in [
+        "interview confirmation", "interview-confirmation",
+        "confidential - interview", "confirmation - 24_",  # Datums-Pattern
+        "confirmation - 20_", "confirmation - 13_",
+    ]):
+        return "interview_bestaetigung"
+    # #655 (E14): Projekt-Update-/Zwischenfeedback-Mails von Recruitern.
+    if any(kw in fname for kw in [
+        "zwischenfeedback", "update zum projekt", "update zur projekt",
+        "update zum projektanfrage",
+    ]):
+        return "projekt_update"
+    # #655 (E14): Persoenliche Rueckmeldung nach Gespraech.
+    if any(kw in fname for kw in [
+        "persoenliche rueckmeldung", "persönliche rückmeldung",
+        "persoenliche rueckmeldung zum projekt",
+        "personal feedback",
+    ]):
+        return "gespraechs_feedback"
     # #649 (E13, beta.75): erweiterte Filename-Patterns fuer moderne
     # Recruiter-Outreach. Vorher: Recall-Problem bei "X hat Ihnen eine
     # Nachricht gesendet", "Wir suchen einen ...", "Live <ROLE> Roles..".
@@ -4873,6 +4900,29 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
                               "we would like to invite you"]
         eingangs_keywords = ["bestaetigung des eingangs", "vielen dank fuer ihre bewerbung",
                              "thank you for your application"]
+        # #655 (E14, beta.77): neue Content-Marker fuer 3 neue doc_types
+        interview_bestaetigung_keywords = [
+            "termin bestaetigt", "termin bestätigt",
+            "interview confirmed", "confirmation of our",
+            "wir bestaetigen den interview-termin",
+            "bestaetigung des interview-termins",
+            "der termin findet statt am",
+            "your interview is scheduled for",
+        ]
+        projekt_update_keywords = [
+            "zwischenfeedback", "kurzes update zu",
+            "update zum projekt", "status-update zum projekt",
+            "stand der dinge", "stand zum projekt",
+            "auf den prozess gespannt warten",
+            "update on the project",
+        ]
+        gespraechs_feedback_keywords = [
+            "rueckmeldung zum gespraech", "rückmeldung zum gespräch",
+            "feedback zum gespraech", "feedback zum gespräch",
+            "nach unserem gespraech",
+            "feedback nach dem interview",
+            "feedback on our conversation",
+        ]
 
         cv_hits = sum(1 for kw in cv_keywords if kw in text_lower)
         letter_hits = sum(1 for kw in letter_keywords if kw in text_lower)
@@ -4881,7 +4931,25 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         absage_hits = sum(1 for kw in absage_keywords if kw in text_lower)
         einladung_hits = sum(1 for kw in einladung_keywords if kw in text_lower)
         eingangs_hits = sum(1 for kw in eingangs_keywords if kw in text_lower)
+        # #655 (E14)
+        interview_bestaetigung_hits = sum(
+            1 for kw in interview_bestaetigung_keywords if kw in text_lower
+        )
+        projekt_update_hits = sum(
+            1 for kw in projekt_update_keywords if kw in text_lower
+        )
+        gespraechs_feedback_hits = sum(
+            1 for kw in gespraechs_feedback_keywords if kw in text_lower
+        )
 
+        # Reihenfolge: spezifischere Marker zuerst, damit z.B. eine
+        # Interview-Bestaetigung nicht in "interview_einladung" landet.
+        if interview_bestaetigung_hits >= 1:
+            return "interview_bestaetigung"
+        if projekt_update_hits >= 1:
+            return "projekt_update"
+        if gespraechs_feedback_hits >= 1:
+            return "gespraechs_feedback"
         if absage_hits >= 1:
             return "absage"
         if einladung_hits >= 1:
