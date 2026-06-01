@@ -1,6 +1,124 @@
 """Jobsuche und Stellenverwaltung — 9 Tools (#446: stelle_bearbeiten, #432: scraper_diagnose)."""
 
+import re
 import threading
+from collections import Counter
+from typing import Optional
+
+
+def _aehnliche_outcome_pattern(
+    db, target_job: dict, *, schwellwert: int = 3, max_check: int = 15,
+) -> Optional[dict]:
+    """#648 (C17): Outcome-Pattern-Erkennung fuer fit_analyse.
+
+    Pruefe ob >= `schwellwert` aehnliche Stellen aus dem **gleichen** Grund
+    aussortiert wurden. Wenn ja: liefere strukturierten Warning-Eintrag.
+
+    Args:
+        db: Database-Instanz.
+        target_job: Job-Dict mit `hash`, `title`, `description`.
+        schwellwert: Mindestanzahl gleichgesinnter Aussortierungen (Default 3).
+        max_check: Max Anzahl aehnlicher zu pruefen (Performance-Cap).
+
+    Returns:
+        None wenn kein Pattern, sonst dict mit:
+        - risk_text: kurzer Risiko-Hinweis fuer den risks-Block
+        - top_grund: der dominante dismiss_reason
+        - anzahl: wie viele aussortierte Aehnliche
+        - beispiele: bis zu 3 (hash, title, company) als Referenz
+
+    Idempotent + read-only. Pure-Helper, kein State.
+    """
+    STOPS = {
+        "und", "der", "die", "das", "ein", "eine", "fuer", "im", "mit",
+        "bei", "von", "zu", "in", "an", "the", "and", "for", "with",
+        "stelle", "position", "rolle", "team", "wir", "sie",
+    }
+
+    def _tokens(text):
+        return set(re.findall(r"[a-zäöüß0-9]+", (text or "").lower())) - STOPS
+
+    target_tokens = _tokens(
+        (target_job.get("title", "") or "") + " "
+        + ((target_job.get("description") or "")[:1500])
+    )
+    if not target_tokens:
+        return None
+
+    target_hash = target_job.get("hash")
+    try:
+        dismissed = db.get_dismissed_jobs()
+    except Exception:
+        return None
+
+    # Aehnlichkeit nach Jaccard, gleicher Filter wie aehnliche_stellen_finden
+    scored = []
+    for j in dismissed:
+        if j.get("hash") == target_hash:
+            continue
+        if not j.get("dismiss_reason"):
+            continue
+        jt = _tokens(
+            (j.get("title", "") or "") + " "
+            + ((j.get("description") or "")[:1500])
+        )
+        if not jt:
+            continue
+        inter = target_tokens & jt
+        union = target_tokens | jt
+        jaccard = len(inter) / len(union) if union else 0
+        if jaccard < 0.10:  # haerterer Schwellwert als aehnliche_stellen_finden,
+            continue        # wir wollen nur klar aehnliche im Pattern-Check
+        scored.append((jaccard, j))
+
+    scored.sort(key=lambda x: -x[0])
+    top = scored[:max_check]
+    if len(top) < schwellwert:
+        return None
+
+    # Gruende zaehlen — `dismiss_reason` kann Plain-String oder JSON-Liste sein
+    # (Database._serialize_job_row normalisiert das schon)
+    reason_counter: Counter = Counter()
+    by_reason: dict[str, list] = {}
+    for _sim, j in top:
+        reasons = j.get("dismiss_reasons") or []
+        if not reasons and j.get("dismiss_reason"):
+            reasons = [j["dismiss_reason"]]
+        for r in reasons:
+            r_clean = str(r).strip()
+            if not r_clean:
+                continue
+            reason_counter[r_clean] += 1
+            by_reason.setdefault(r_clean, []).append(j)
+
+    if not reason_counter:
+        return None
+
+    top_reason, count = reason_counter.most_common(1)[0]
+    if count < schwellwert:
+        return None
+
+    beispiele = [
+        {
+            "hash": (j.get("hash") or "")[-12:],
+            "title": (j.get("title") or "")[:80],
+            "company": (j.get("company") or "")[:60],
+        }
+        for j in by_reason[top_reason][:3]
+    ]
+    risk_text = (
+        f"Aufmerksamkeit: {count} aehnliche Stellen wurden wegen "
+        f"'{top_reason}' aussortiert. Pruefe ob das hier auch zutrifft."
+    )
+    return {
+        "risk_text": risk_text,
+        "top_grund": top_reason,
+        "anzahl": count,
+        "beispiele": beispiele,
+    }
+
+
+
 
 # #488: Quellen, die NICHT automatisch laufen — Claude soll den User
 # VOR dem Start darueber informieren, damit er nicht 10 Minuten auf
@@ -2124,6 +2242,24 @@ def register(mcp, db, logger):
                 )
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
+
+        # #648 (C17, beta.75): Outcome-Pattern-Signal aus aehnlichen Stellen.
+        # Wenn drei oder mehr aehnliche Stellen aus dem gleichen Grund
+        # aussortiert wurden, ist das ein starkes Lern-Signal — Risk-
+        # Eintrag mit Top-Grund und Beispiel-Refs.
+        try:
+            outcome_warning = _aehnliche_outcome_pattern(
+                db, job_dict, schwellwert=3, max_check=15,
+            )
+            if outcome_warning:
+                if "risks" not in result or not isinstance(result["risks"], list):
+                    result["risks"] = []
+                result["risks"].append(outcome_warning["risk_text"])
+                result["outcome_pattern"] = outcome_warning
+        except Exception as exc:
+            logger.warning("Outcome-Pattern-Check fuer %s fehlgeschlagen: %s",
+                           job_hash, exc)
+
         return result
 
     @mcp.tool()

@@ -1663,14 +1663,52 @@ def register(mcp, db, logger):
             },
         }
 
+        # #647 (H12): Tool-Count-Sync — getrennt zwischen gesamt (echte Tool-
+        # Anzahl im MCP-Registry) und kuratiert (Hauptwerkzeuge in diesem
+        # Catalog). Vorher war "95 Tools" hardcoded und widersprach dem
+        # tatsaechlichen 152er-Inventar.
+        tools_kuratiert = sum(
+            len(data["hauptwerkzeuge"]) for data in catalog.values()
+        )
+        # Echte Tool-Anzahl aus der MCP-Registrierung herausziehen. Bei
+        # Ausfall (FastMCP API-Wechsel) defensiv weglassen statt zu crashen.
+        tools_gesamt: int | None = None
+        try:
+            registered = getattr(mcp, "_tool_manager", None)
+            if registered is not None and hasattr(registered, "_tools"):
+                tools_gesamt = len(registered._tools)
+            else:
+                # Fallback: FastMCP 2.x list_tools (sync wrapper)
+                fn = getattr(mcp, "list_tools_sync", None)
+                if callable(fn):
+                    tools_gesamt = len(fn())
+        except Exception:
+            tools_gesamt = None
+
         if not kategorie:
+            count_text = (
+                f"PBP-MCP bietet {tools_gesamt or '~152'} Tools "
+                f"(davon {tools_kuratiert} kuratierte in 10 Kategorien)."
+            ) if tools_gesamt and tools_gesamt != tools_kuratiert else (
+                f"PBP-MCP bietet {tools_kuratiert} Tools in 10 Kategorien."
+            )
             return {
                 "ueberblick": (
-                    "PBP-MCP bietet 95 Tools in 10 Kategorien. Ruf dieses Tool mit "
+                    f"{count_text} Ruf dieses Tool mit "
                     "kategorie='profil', 'jobsuche', 'bewerbungen', 'dokumente', "
                     "'kalender', 'analyse', 'export', 'workflows', 'einstellungen' "
                     "oder 'system' fuer Detail-View auf."
                 ),
+                # #647: getrennte Counts fuer Discoverability
+                "tools_gesamt": tools_gesamt,
+                "tools_kuratiert": tools_kuratiert,
+                "tools_hinweis": (
+                    f"{tools_kuratiert} kuratierte Haupt-Tools sind in den "
+                    f"Kategorien gelistet. Die restlichen "
+                    f"{(tools_gesamt or 0) - tools_kuratiert} Tools sind interne "
+                    "Helper (Stilarchiv, Erfassung, Bridges, ...) — Vollliste "
+                    "im Wiki unter MCP-Tools."
+                ) if tools_gesamt and tools_gesamt > tools_kuratiert else None,
                 "anti_bypass_hinweis": (
                     "WICHTIG: Wenn ein User ueber Bewerbungs-Daten redet, nutze IMMER "
                     "PBP-Tools — niemals direkte Eingriffe in die SQLite-Datei oder "

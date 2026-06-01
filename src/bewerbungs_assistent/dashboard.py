@@ -4778,7 +4778,23 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         return "angebot"
     if any(kw in fname for kw in ["spickzettel", "spick", "cheat-sheet", "cheatsheet"]):
         return "vorbereitung"
-    if any(kw in fname for kw in ["recruiter", "headhunter", "vakanz", "opportunity", "anfrage"]):
+    # #649 (E13, beta.75): erweiterte Filename-Patterns fuer moderne
+    # Recruiter-Outreach. Vorher: Recall-Problem bei "X hat Ihnen eine
+    # Nachricht gesendet", "Wir suchen einen ...", "Live <ROLE> Roles..".
+    if any(kw in fname for kw in [
+        "recruiter", "headhunter", "vakanz", "opportunity", "anfrage",
+        "projektanfrage", "projektangebot",
+        "hat ihnen eine nachricht gesendet",
+        "neue recruiting-nachricht", "recruiting-nachricht",
+        "wir suchen einen", "wir suchen eine",
+        "sie sind der richtige kandidat",
+        "neuer job fuer dich", "neuer job für dich",
+        "live ", "live_",  # "Live German Solution Architect Roles.."
+        "interested?", "interested_",  # englische Outreach
+        "follow-up on my last email",
+        "follow-up on my project",
+        "consulting opportunity",
+    ]):
         return "recruiter_anfrage"
 
     # Filename patterns (order matters — more specific first)
@@ -4816,9 +4832,39 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         project_keywords = ["auftraggeber", "technologien", "projektbeschreibung",
                             "projektlaufzeit", "projektzeitraum", "kunde"]
         # v1.7.0-beta.3 (#538): neue Inhalts-Cluster
-        recruiter_keywords = ["offene vakanz", "ich bin auf sie aufmerksam geworden",
-                              "haetten sie interesse", "darf ich ihnen die stelle vorstellen",
-                              "stellenanzeige", "open position", "would you be interested"]
+        # #649 (E13, beta.75): Recall-Erweiterung fuer moderne Outreach-Pattern.
+        # Vorher fielen LinkedIn/XING-Standard-Texte und englischsprachige
+        # Recruiter-Mails durch und landeten in 'sonstiges'.
+        recruiter_keywords = [
+            "offene vakanz", "ich bin auf sie aufmerksam geworden",
+            "haetten sie interesse", "darf ich ihnen die stelle vorstellen",
+            "stellenanzeige", "open position", "would you be interested",
+            # LinkedIn/XING-Outreach
+            "hat ihnen eine nachricht gesendet",
+            "neue recruiting-nachricht",
+            "ich habe ihr profil",
+            "ihr profil hat mich",
+            "auf ihr profil aufmerksam",
+            "i came across your profile",
+            "i found your profile",
+            "your background caught my attention",
+            # Projekt-/Headhunter-Outreach
+            "wir suchen einen", "wir suchen eine",
+            "wir haben aktuell eine", "wir haben eine spannende",
+            "projektanfrage", "projektangebot",
+            "consulting opportunity",
+            "freelance opportunity", "contract opportunity",
+            "live roles", "live position", "live vacancy",
+            "are you interested", "would you be open to",
+            "let me know if you are interested",
+            "please let me know",
+            # Recruiter-Signaturen-Phrasen
+            "talent acquisition", "talent partner",
+            "ich freue mich auf ihre rueckmeldung",
+            "ich freue mich auf eine rueckmeldung",
+            "ich wuerde mich freuen von ihnen zu hoeren",
+            "looking forward to hearing from you",
+        ]
         absage_keywords = ["leider muessen wir ihnen mitteilen", "leider müssen wir ihnen",
                            "absage", "we regret to inform", "decided not to proceed",
                            "haben uns fuer einen anderen kandidaten"]

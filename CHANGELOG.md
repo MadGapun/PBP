@@ -16,6 +16,94 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.75] - 2026-06-01 — Reality-Check-Optimierungen (#647 + #648 + #649)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Drei kleine Optimierungen
+> aus dem Reality-Check-Bericht 2026-06-01. **11 neue Tests, 1452 passed**.
+> Erster Release nach Einfuehrung der Master-Plan-First-Disziplin.
+
+### 🛠 #647 (H12) `pbp_capabilities` Tool-Count-Sync
+
+Vorher hardcoded "PBP-MCP bietet 95 Tools" — real sind es **152**. Der
+Reality-Check hat diese Diskrepanz aufgedeckt. Jetzt liefert
+`pbp_capabilities()` zwei getrennte Counts:
+
+- `tools_gesamt` — echte Anzahl aus dem MCP-Registry (ermittelt via
+  `_tool_manager._tools` mit Fallback auf `list_tools_sync`)
+- `tools_kuratiert` — Anzahl der Tools in den 10 User-Facing-Kategorien
+- `tools_hinweis` — erklaert die Differenz wenn sie existiert
+
+Plus: der `ueberblick`-Text spiegelt jetzt die echten Counts statt der
+veralteten 95.
+
+### 🛠 #648 (C17) Outcome-Signal in `fit_analyse`
+
+Wenn drei oder mehr aehnliche Stellen aus dem **gleichen Grund**
+aussortiert wurden, weist `fit_analyse` jetzt darauf hin:
+
+```json
+{
+  ...
+  "risks": [
+    ...,
+    "Aufmerksamkeit: 5 aehnliche Stellen wurden wegen 'falsches_fachgebiet' aussortiert. Pruefe ob das hier auch zutrifft."
+  ],
+  "outcome_pattern": {
+    "risk_text": "...",
+    "top_grund": "falsches_fachgebiet",
+    "anzahl": 5,
+    "beispiele": [{"hash": "...", "title": "...", "company": "..."}, ...]
+  }
+}
+```
+
+Neue Pure-Helper-Funktion `_aehnliche_outcome_pattern(db, target_job)` —
+nutzt Token-Jaccard (>= 0.10) gegen `db.get_dismissed_jobs()`, zaehlt
+`dismiss_reasons` und triggert ab dem Schwellwert. Read-only, keine
+State-Aenderung. Bei Fehler: stille Exception-Aufnahme, fit_analyse
+gibt trotzdem normales Ergebnis.
+
+### 🛠 #649 (E13) Recall-Fix Recruiter-Anfrage-Klassifikator
+
+Reality-Check zeigte: 16 von ~20 Recruiter-Mails wurden als `sonstiges`
+klassifiziert statt als `recruiter_anfrage`. Ursache: `_detect_doc_type`
+in `dashboard.py` hatte zu enge Filename- und Content-Keyword-Listen.
+
+Erweitert um:
+
+- **Filename-Patterns:** `"hat ihnen eine nachricht gesendet"`,
+  `"neue recruiting-nachricht"`, `"wir suchen einen"`, `"sie sind der
+  richtige kandidat"`, `"neuer job fuer dich"`, `"live "`, `"interested?"`,
+  `"follow-up on my last email"`, `"consulting opportunity"`, ...
+- **Content-Keywords:** LinkedIn/XING-Outreach (`"ich habe ihr profil"`,
+  `"i came across your profile"`, `"talent acquisition"`,
+  `"looking forward to hearing from you"`, ...), Projekt-/Headhunter-
+  Outreach (`"wir haben aktuell eine"`, `"projektanfrage"`,
+  `"freelance opportunity"`, ...)
+
+### Tests
+
+11 neue in `tests/test_v17_optimierungen_beta75.py`:
+
+- 2 fuer `pbp_capabilities` (getrennte Counts, ueberblick-Text passt)
+- 3 fuer `_aehnliche_outcome_pattern` (Trigger ab 3, kein Trigger bei 2,
+  kein Trigger bei verschiedenen Gruenden)
+- 5 fuer `_detect_doc_type` (LinkedIn-Outreach, englische Outreach,
+  deutsche Outreach, Content-Phrasen, Regression-Schutz mit 6 echten
+  Subjects aus dem Reality-Check)
+- 1 Precision-Test (Eingangsbestaetigung bleibt eigenstaendig)
+
+Volle Suite: **1452 passed, 1 skipped** (vorher 1441).
+
+### Master-Plan-First
+
+Erster Release nach Einfuehrung der Master-Plan-First-Disziplin in
+CLAUDE.md. Workflow-Bewaehrung: alle 3 Items wurden ERST im Master-Plan
+als ⬜ + Issue-Refs eingetragen (C17, E13, H12), DANN umgesetzt, jetzt
+auf ✅ gesetzt + Wiki ergaenzt. Hat funktioniert.
+
+---
+
 ## [1.7.0-beta.74] - 2026-06-01 — Bulk-Tools-Timeout-Schutz (#646)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Reiner Bugfix-
