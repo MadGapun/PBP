@@ -16,6 +16,70 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.88] - 2026-06-02 — Elwosa KI-freies Safety-Net (#669, Teil 1)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+8 neue Tests, 1611 passed.** Keine Schema-Aenderung. **Ohne lokale KI.**
+
+### Hintergrund (#669)
+
+Elwosa schwieg seit Sonntag — `messages_today: 0` am Dienstag, nicht mal die Morgen-Linie. Diagnose: zwei KI-freie Luecken im Trigger-Pfad.
+
+**Wichtig:** #669 fordert mittelfristig eine zweistufige KI-Architektur (Ollama-Live-Generierung als Standard, Claude-Eskalation). Das ist **Ebene 1/2** und bleibt offen (Plan F15). Diese Beta liefert das **KI-freie Fundament**: Elwosa darf nie wieder dauerhaft schweigen, egal ob Ollama laeuft oder nicht.
+
+### Fixed
+
+- **Validierungs-Retry in `speak()`** (`_pick_valid_line`): Vorher fiel Elwosa fuer einen Tick still, wenn die zufaellig gewaehlte Linie die Sprach-DNA-Validierung nicht bestand (eine kaputte Linie → Schweigen). Jetzt werden bis zu 6 Kandidaten probiert, bevor aufgegeben wird.
+- **Tageslebenszeichen-Garantie** (`ensure_daily_lifesign`): Die Morgen-Linie feuerte nur, wenn die Auto-Engine im 6-11-Uhr-Fenster tickte. Tickt sie erst nachmittags, gab `detect_world_trigger()` an einem Wochentag `None` → Schweigen den ganzen Tag. Jetzt: wenn HEUTE noch nichts gepostet wurde und es nach 6 Uhr ist, wird die passende Tageszeit-Linie aus dem rotierenden Pool gepostet — unabhaengig vom engen Welt-Trigger-Fenster. Respektiert weiterhin enabled/pause/cooldown/tonfall_modus.
+
+### Changed
+
+- `dashboard.py:_run_elwosa_speak` ruft nach den Welt-/Idle-Checks `ensure_daily_lifesign` auf, falls noch nichts gepostet wurde.
+- Der rotierende Fallback-Pool (`pick_line` faellt auf den vollen Pool zurueck, wenn alle Linien der letzten 7 Tage gesehen wurden) war bereits vorhanden und greift weiterhin — `pending: 0` fuehrt damit nie zu Dauerschweigen.
+
+### Bekannt nicht enthalten (Ebene 1/2, Plan F15)
+
+- **Ollama-Live-Generierung bei Events** (Standardweg laut #669) — optional, separate Beta. Braucht lokale KI.
+- **Claude-Eskalation** fuer anspruchsvolle Situationen — separate Beta.
+
+### Schema
+
+**Keine Schema-Aenderung.** Reine Logik in `services/elwosa.py` + `dashboard.py`. Schema bleibt v45.
+
+### Tests
+
+8 neue in `tests/test_v17_elwosa_lifesign_669.py` — Validierungs-Retry (kaputte Linie uebersprungen), Tageslebenszeichen (Vormittag + Nachmittag), kein Doppel-Post, tiefe Nacht, disabled. Volle Suite: **1611 passed, 1 skipped** (vorher 1603).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.88.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.88.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.87] - 2026-06-02 — Duplikat-Erkennung verfeinert + force-Override (#670)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+6 neue/geaenderte Tests, 1603 passed.** Keine Schema-Aenderung.

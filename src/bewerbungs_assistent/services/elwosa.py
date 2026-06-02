@@ -396,16 +396,13 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
         if sub in SETTINGS_REFLECTION_LINES:
             pool = SETTINGS_REFLECTION_LINES[sub]
 
-    line = pick_line(db, pool, ctx)
+    # v1.7.0-beta.88 (#669): Validierungs-Retry. Vorher fiel Elwosa fuer
+    # diesen Tick still, wenn die zufaellig gewaehlte Linie die Sprach-DNA-
+    # Validierung nicht bestand. Jetzt werden bis zu N Kandidaten probiert,
+    # bevor aufgegeben wird — eine einzelne kaputte Linie verursacht kein
+    # Schweigen mehr.
+    line = _pick_valid_line(db, pool, ctx)
     if not line:
-        return None
-    try:
-        validate_tonfall(line)
-    except TonfallError as exc:
-        logger.warning(
-            "Linie verstoesst gegen Sprach-DNA: %s — Linie: %r",
-            exc, line
-        )
         return None
 
     msg_id = db.add_elwosa_message(
@@ -415,6 +412,76 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
         cluster=cluster or ctx.get("cluster") or "",
     )
     return msg_id
+
+
+def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6) -> Optional[str]:
+    """Waehlt eine Linie und validiert sie gegen die Sprach-DNA (#669).
+
+    Probiert bis zu `max_tries` Kandidaten — eine einzelne Linie, die die
+    Validierung nicht besteht, fuehrt nicht mehr zu Stille.
+    """
+    if not pool:
+        return None
+    seen: set = set()
+    for _ in range(max_tries):
+        line = pick_line(db, pool, ctx)
+        if not line or line in seen:
+            continue
+        seen.add(line)
+        try:
+            validate_tonfall(line)
+            return line
+        except TonfallError as exc:
+            logger.warning(
+                "Linie verstoesst gegen Sprach-DNA (uebersprungen): %s — %r",
+                exc, line,
+            )
+            continue
+    return None
+
+
+def ensure_daily_lifesign(db, cluster: Optional[str] = None) -> Optional[int]:
+    """v1.7.0-beta.88 (#669): Garantiert mindestens ein Lebenszeichen pro Tag.
+
+    Architektur-Hintergrund: die normale Welt-Trigger-Logik feuert die
+    Morgen-Linie nur, wenn die Auto-Engine im 6-11-Uhr-Fenster tickt. Tickt
+    sie erst nachmittags, gibt `detect_world_trigger()` an einem Wochentag
+    None zurueck — und Elwosa schwieg den ganzen Tag (#669, "heute Dienstag
+    kam keine Morgen-Linie").
+
+    Diese Funktion ist das KI-freie Sicherheitsnetz: wenn HEUTE noch keine
+    Nachricht gepostet wurde und es nicht mehr tiefe Nacht ist (>= 6 Uhr),
+    wird die passende Tageszeit-Linie aus dem rotierenden Pool gepostet —
+    unabhaengig vom engen Welt-Trigger-Fenster. Respektiert weiterhin
+    enabled/pause/cooldown/tonfall_modus (ueber speak()).
+
+    Rein deterministisch — keine lokale KI noetig (das ist Ebene 1, optional).
+    """
+    settings = db.get_elwosa_settings()
+    if not settings.get("enabled"):
+        return None
+    # Schon eine Nachricht heute? Dann ist das Lebenszeichen erfuellt.
+    if _count_all_today(db) > 0:
+        return None
+    now = datetime.now()
+    if now.hour < 6:
+        # tiefe Nacht — kein erzwungenes Lebenszeichen
+        return None
+    # Passende Tageszeit-Linie waehlen (rotierender Pool via pick_line).
+    # Bevorzugt eine echte Welt-Linie; faellt auf idle zurueck.
+    weekday = now.weekday()
+    if weekday == 0 and now.hour <= 11:
+        trigger = "monday_morning"
+    elif now.hour < 11:
+        trigger = "morning"
+    elif now.hour >= 19:
+        trigger = "evening"
+    elif weekday >= 5:
+        trigger = "weekend"
+    else:
+        # Werktag-Nachmittag ohne Welt-Trigger -> idle als Lebenszeichen
+        trigger = "idle"
+    return speak(db, trigger, ctx={"count": 0, "days": 0}, cluster=cluster)
 
 
 def speak_settings_reflection(db, sub: str, ctx: Optional[dict] = None) -> Optional[int]:

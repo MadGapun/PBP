@@ -8268,6 +8268,18 @@ def _run_elwosa_speak(now_iso: str) -> dict:
         if msg_id:
             posted.append({"trigger": "idle", "id": msg_id})
 
+    # 3. v1.7.0-beta.88 (#669): Tageslebenszeichen-Garantie. Wenn nach den
+    # Welt-/Idle-Checks HEUTE immer noch nichts gepostet wurde, sorgt das
+    # KI-freie Sicherheitsnetz fuer mindestens eine Linie (z.B. die Morgen-
+    # Linie, auch wenn die Engine erst nachmittags tickt).
+    if not posted:
+        try:
+            msg_id = elwosa.ensure_daily_lifesign(_db, cluster=cluster)
+            if msg_id:
+                posted.append({"trigger": "daily_lifesign", "id": msg_id})
+        except Exception as exc:
+            logger.debug("ensure_daily_lifesign fehlgeschlagen: %s", exc)
+
     return {"posted_count": len(posted), "posted": posted}
 
 
