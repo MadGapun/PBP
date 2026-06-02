@@ -75,10 +75,25 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
             dim = "entfernung_fest"
 
         # Find the matching distance bracket
-        brackets = sorted(
-            [(int(k[1]), v) for k, v in cfg.items() if k[0] == dim],
-            key=lambda x: x[0]
-        )
+        # v1.7.0-beta.81 (#661): Bracket-Key kann historisch als '50km'
+        # statt '50' gespeichert sein — int('50km') wuerde crashen. Robust
+        # parsen: nur Ziffern extrahieren, alles ohne Ziffern wird verworfen.
+        def _parse_bracket(raw) -> int | None:
+            if isinstance(raw, (int, float)):
+                return int(raw)
+            if not isinstance(raw, str):
+                return None
+            digits = "".join(ch for ch in raw if ch.isdigit())
+            return int(digits) if digits else None
+
+        brackets_raw = []
+        for k, v in cfg.items():
+            if k[0] != dim:
+                continue
+            parsed = _parse_bracket(k[1])
+            if parsed is not None:
+                brackets_raw.append((parsed, v))
+        brackets = sorted(brackets_raw, key=lambda x: x[0])
         for bracket_km, entry in brackets:
             if distance_km <= bracket_km:
                 if entry["value"] != 0:

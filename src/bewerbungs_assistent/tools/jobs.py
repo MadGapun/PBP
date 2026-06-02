@@ -6,6 +6,116 @@ from collections import Counter
 from typing import Optional
 
 
+def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
+    """v1.7.0-beta.81 (#662): Klare 3-Stufen-Empfehlung im fit_analyse-Result.
+
+    Soll Claude vor diplomatischen Weichspuelern bewahren ("Trefferchance
+    nicht hoch, aber realistisch vorhanden"). Stattdessen liefert die
+    Heuristik einen eindeutigen Verdict, den Claude direkt zitieren kann:
+
+    - EMPFOHLEN: passt, Bewerbung sinnvoll
+    - BEDINGT: Methodenluecke ueberbrueckbar, aber transparent adressieren
+    - NICHT_EMPFOHLEN: fachlicher Gap zu gross oder k.o.-Kriterium fehlt
+
+    Drei k.o.-Kriterien:
+    1. Stellenbeschreibung fehlt komplett -> Score ist unzuverlaessig
+    2. Hochschulabschluss gefordert, fehlt im Profil -> ATS-Risiko
+    3. MUSS-Keywords komplett verfehlt -> kein fachlicher Anker
+
+    Sonst Score-Buckets:
+    - >= 75: EMPFOHLEN
+    - 50-74: BEDINGT
+    - <  50: NICHT_EMPFOHLEN
+    """
+    score = fit_result.get("total_score", 0) or 0
+    risks = fit_result.get("risks") or []
+    muss_hits = fit_result.get("muss_hits") or []
+    missing_muss = fit_result.get("missing_muss") or []
+    desc_ok = fit_result.get("beschreibung_vorhanden", True)
+    degree_required = fit_result.get("hochschulabschluss_gefordert", False)
+
+    ko_gruende: list[str] = []
+    if not desc_ok:
+        ko_gruende.append(
+            "Stellenbeschreibung fehlt — keine fachliche Bewertung moeglich. "
+            "Beschreibung nachladen vor Empfehlung."
+        )
+    if degree_required:
+        # Wenn die Stelle einen Hochschulabschluss fordert UND die Risk-
+        # Liste den "Hochschulabschluss fehlt"-Hinweis enthaelt, ist das
+        # ein klares ATS-Risiko.
+        for r in risks:
+            if isinstance(r, str) and "Hochschulabschluss fehlt" in r:
+                ko_gruende.append(
+                    "Hochschulabschluss gefordert, aber im Profil nicht "
+                    "hinterlegt — ATS sortiert mit hoher Wahrscheinlichkeit "
+                    "automatisch aus."
+                )
+                break
+    if not muss_hits and missing_muss:
+        ko_gruende.append(
+            f"Kein einziges MUSS-Keyword im Profil belegt "
+            f"({len(missing_muss)} fehlen) — kein fachlicher Anker."
+        )
+
+    if ko_gruende:
+        return {
+            "kategorie": "NICHT_EMPFOHLEN",
+            "score": score,
+            "ko_gruende": ko_gruende,
+            "begruendung": (
+                "K.o.-Kriterium getroffen. " + ko_gruende[0]
+                + " Bewerbung lohnt nur, wenn das vorher transparent "
+                "adressiert wird (oder im Profil korrigiert)."
+            ),
+            "kurz": (
+                "Nicht empfohlen — " + ko_gruende[0].split(" — ")[0].lower()
+            ),
+        }
+
+    if score >= 75:
+        return {
+            "kategorie": "EMPFOHLEN",
+            "score": score,
+            "begruendung": (
+                f"Score {score}/100 mit {len(muss_hits)} MUSS-Treffern. "
+                "Profil deckt die Stelle solide ab. Bewerbung lohnt sich."
+            ),
+            "kurz": "Empfohlen — Profil passt zur Stelle.",
+        }
+
+    if score >= 50:
+        offene_lucken = (
+            f"{len(missing_muss)} MUSS-Keywords fehlen" if missing_muss else
+            "Nebenpunkte ueberbrueckbar"
+        )
+        return {
+            "kategorie": "BEDINGT",
+            "score": score,
+            "begruendung": (
+                f"Score {score}/100 mit {len(muss_hits)} MUSS-Treffern. "
+                f"{offene_lucken}. Lohnt sich nur, wenn die Luecken im "
+                "Anschreiben transparent adressiert werden (z.B. mit "
+                "transferierbarer Methodenkompetenz)."
+            ),
+            "kurz": (
+                "Bedingt empfohlen — Methodenluecke. "
+                "Im Anschreiben offen adressieren."
+            ),
+        }
+
+    return {
+        "kategorie": "NICHT_EMPFOHLEN",
+        "score": score,
+        "begruendung": (
+            f"Score {score}/100 — fachlicher Gap zu gross. "
+            "Bewerbung lohnt sich nicht ohne klaren Naehe-Bezug "
+            "(z.B. Kontakt im Unternehmen oder klarer Pivot-Plan)."
+        ),
+        "kurz": "Nicht empfohlen — Gap zu gross.",
+    }
+
+
 def _aehnliche_outcome_pattern(
     db, target_job: dict, *, schwellwert: int = 3, max_check: int = 15,
 ) -> Optional[dict]:
@@ -2259,6 +2369,13 @@ def register(mcp, db, logger):
         except Exception as exc:
             logger.warning("Outcome-Pattern-Check fuer %s fehlgeschlagen: %s",
                            job_hash, exc)
+
+        # v1.7.0-beta.81 (#662): Klare 3-Stufen-Empfehlung im Result.
+        # Soll Claude davon abhalten, in Weichspueler-Sprache zu verfallen
+        # ("Trefferchance nicht hoch, aber realistisch vorhanden") — statt-
+        # dessen liefert die Heuristik eine eindeutige Aussage, die Claude
+        # direkt zitieren kann.
+        result["empfehlung"] = _build_empfehlung(result, job_dict)
 
         return result
 

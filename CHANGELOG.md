@@ -16,6 +16,79 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.81] - 2026-06-02 — User-Test-Findings (#659 + #661 + #662 + #663)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Vier Bug- und Prompt-Findings aus dem Live-Test von beta.80 — alle additiv. **+14 neue Tests, 1540 passed.** Keine Schema-Aenderung.
+
+### Fixed
+
+- **#659 (bug)** `profil_bearbeiten` akzeptiert jetzt **beide Schreibweisen** (`ändern`/`aendern`, `löschen`/`loeschen`, `hinzufügen`/`hinzufuegen`) und beide Bereich-Varianten (`persönlich`/`persoenlich`, `präferenzen`/`praeferenzen`). Vorher schlug der dokumentierte Umlaut-Wert mit "Ungueltige Kombination" fehl und trieb Anwender unnoetig in den DB-Bypass.
+- **#661 (bug)** `scoring_vorschau` crasht nicht mehr bei Entfernungs-Brackets mit Einheit (z.B. `'50km'`). Neuer Parse-Helper extrahiert defensiv den numerischen Anteil; Brackets ohne Ziffern werden uebersprungen statt einen `ValueError` zu werfen.
+
+### Added
+
+- **#662 (enhancement)** `fit_analyse` liefert jetzt ein scharfes `empfehlung`-Feld mit drei Kategorien: **EMPFOHLEN / BEDINGT / NICHT_EMPFOHLEN** plus `begruendung`, `kurz` und ggf. `ko_gruende`. Drei k.o.-Kriterien (fehlende Stellenbeschreibung, geforderter Hochschulabschluss + nicht im Profil, 0 MUSS-Treffer) ueberschreiben selbst hohen Score. Score-Buckets: ≥75 EMPFOHLEN, 50-74 BEDINGT, <50 NICHT_EMPFOHLEN.
+- **#663 Teil 2 (prompt)** CLAUDE.md enthaelt jetzt das harte Verbot, eigene Ablehnungsgruende zu erfinden — mit kompletter Whitelist und Negativ-Beispielen (`abgelaufen`, `windchill_fehlt`, ...). Plus den scharfen Fit-Analyse-Verdict-Zitierstil ohne Weichspueler.
+
+### Changed
+
+- CLAUDE.md: zwei neue Sektionen
+  - "STRENG: keine eigenen Ablehnungsgruende erfinden (#663 Teil 2)" mit Whitelist + Verbot
+  - "Fit-Analyse-Verdict scharf zitieren (#662)" mit konkreten Vorher-/Nachher-Sprach-Beispielen
+- `fit_analyse`-Response um Feld `empfehlung: {kategorie, score, begruendung, kurz, ko_gruende?}` erweitert. Bestehende Felder unveraendert.
+- 14 neue Tests in `tests/test_v17_userbugs_beta81.py`.
+
+### Bekannt nicht enthalten (kommt spaeter)
+
+- **#663 Teil 1 (Settings-UI)** — Ablehnungsgruende in Einstellungen editierbar machen. Braucht Backend-Settings + Frontend-Section. User hat im Issue selbst geschrieben: "Kurzfristig reicht die CLAUDE.md-Verschaerfung allein." → zurueckgestellt fuer eine eigene Beta.
+
+### Schema
+
+**Keine Schema-Aenderung.** beta.81 ist reine Bug- und Prompt-Politur. Schema bleibt v44.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.81.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.81.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. \`C:\PBP\`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **\`INSTALLIEREN.bat\`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf \`INSTALLIEREN.command\`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+\`\`\`
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner \`data\backups\\\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.80] - 2026-06-02 — Dokument-Routing Phase 3 (#643, E11)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Sechster Master-Plan-First-

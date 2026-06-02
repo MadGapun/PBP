@@ -207,6 +207,23 @@ def register(mcp, db, logger):
         if daten is None:
             daten = {}
 
+        # v1.7.0-beta.81 (#659): Umlaut-Normalisierung fuer bereich + aktion.
+        # Die Tool-Docstring fuehrt die deutschen Umlaut-Varianten als kanonisch
+        # auf ("ändern", "löschen", "hinzufügen", "persönlich", "präferenzen"),
+        # der Code matcht aber nur die ASCII-Form. Vorher schlug der Aufruf mit
+        # Umlaut mit "Ungueltige Kombination" fehl — das hat User in den
+        # DB-Bypass getrieben. Hier beide Schreibweisen akzeptieren.
+        def _normalize_de(value: str) -> str:
+            if not isinstance(value, str):
+                return value
+            s = value.strip().lower()
+            for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+                s = s.replace(uml, repl)
+            return s
+
+        bereich = _normalize_de(bereich)
+        aktion = _normalize_de(aktion)
+
         if bereich == "persoenlich":
             if aktion == "aendern":
                 profile = db.get_profile()

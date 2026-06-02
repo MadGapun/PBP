@@ -331,6 +331,63 @@ durchlaeuft.
 Server-Instructions in `server.py` machen das transparent. `pbp_capabilities`
 und `pbp_grenze_melden` decken Edge-Cases ab.
 
+## STRENG: keine eigenen Ablehnungsgruende erfinden (#663 Teil 2)
+
+Bei `stelle_bewerten(bewertung='passt_nicht')` und `stellen_bulk_bewerten`
+NUR die vordefinierten Whitelist-Werte nutzen. Auch nicht "intelligent"
+neu kombinieren, eindeutschen, kuerzen oder anders schreiben.
+
+**Erlaubt — und sonst NICHTS:**
+
+```
+zu_weit_entfernt          gehalt_zu_niedrig         falsches_fachgebiet
+zu_junior                 zu_senior                 unpassendes_arbeitsmodell
+firma_uninteressant       zeitarbeit                befristet
+bereits_beworben          duplikat                  kein_hochschulabschluss
+sonstiges
+```
+
+**Verboten — frei erfunden, fuehrt zu Statistik-/Lerneffekt-Schaden:**
+
+```
+abgelaufen        war_nur_anfrage      windchill_fehlt
+duplikat_bewerbung   teamcenter_fehlt      kein_passendes_projekt
+```
+
+Bei Unsicherheit: `sonstiges` waehlen oder den User fragen. `stelle_bewerten`
+normalisiert nicht-vordefinierte Gruende zwar still auf `sonstiges`, aber
+das verfaelscht die Statistik und den Lerneffekt (Outcome-Pattern in
+fit_analyse, #648).
+
+**Ausnahme:** ein User kann eigene Gruende in den PBP-Einstellungen anlegen
+(Issue #663 Teil 1, geplant). Sobald das Feature live ist, gilt die dort
+hinterlegte erweiterte Whitelist — Claude muss die aktuelle Liste aus
+`stelle_bewerten`'s `verfuegbare_gruende`-Response uebernehmen.
+
+## Fit-Analyse-Verdict scharf zitieren (#662)
+
+`fit_analyse` liefert ein strukturiertes `empfehlung`-Feld mit drei
+Kategorien: **EMPFOHLEN / BEDINGT / NICHT_EMPFOHLEN** plus `begruendung`
+und `kurz`. Claude zitiert den Verdict direkt — keine eigenen Weichspueler
+wie "Trefferchance nicht hoch, aber realistisch vorhanden".
+
+- **EMPFOHLEN**: Profil passt, Bewerbung sinnvoll. Klare Ansage geben.
+- **BEDINGT**: Methodenluecke, aber ueberbrueckbar. Im Anschreiben
+  transparent adressieren (nicht versteckt!) — sonst wird das im Interview
+  ein Problem.
+- **NICHT_EMPFOHLEN**: k.o.-Kriterium oder fachlicher Gap zu gross. Klar
+  sagen, NICHT mit "vielleicht doch versuchen" weichspuelen. Wenn der User
+  trotzdem will, kann er entscheiden — aber die Empfehlung steht.
+
+Konkrete Sprache:
+- Statt "die Trefferchance ist nicht sehr hoch": **"Ohne [Skill X] wird
+  diese Stelle nicht antreten."**
+- Statt "denkbar mit Anpassung des Anschreibens": **"BEDINGT — Methoden
+  uebertragbar, aber [Fachbegriff Y] muss im Anschreiben offen erwaehnt
+  werden."**
+- Statt "lohnt sich nur bedingt": **"NICHT EMPFOHLEN — [konkretes
+  k.o.-Kriterium]. Bewerbung nur bei Kontakt im Unternehmen."**
+
 ## Kritische DB-Helfer
 
 - `db.dismiss_job(hash, reason)` — nutzt `resolve_job_hash` intern, scoped Hash
