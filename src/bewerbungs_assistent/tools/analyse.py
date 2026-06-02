@@ -338,15 +338,40 @@ def register(mcp, db, logger):
         return patterns
 
     @mcp.tool()
-    def nachfass_planen(bewerbung_id: str, tage: int = 7, typ: str = "nachfass") -> dict:
+    def nachfass_planen(
+        bewerbung_id: str,
+        tage: int = 7,
+        typ: str = "nachfass",
+        wenn_dublette: str = "melden",
+    ) -> dict:
         """Plant eine Nachfass-Erinnerung für eine Bewerbung.
 
         Erstellt einen Follow-up Eintrag mit Datum und Template-Vorschlag.
+
+        v1.7.0-beta.83 (#665): Dubletten-Check. Wenn bereits ein offener
+        Nachfass (typ='nachfass', status='geplant') fuer dieselbe Bewerbung
+        existiert, wird je nach `wenn_dublette` reagiert:
+
+        - `melden` (Default): KEIN neuer Eintrag wird angelegt. Stattdessen
+          liefert das Tool `status='dublette_offen'` zurueck — mit Details
+          zum bestehenden Nachfass und konkreten Handlungsoptionen.
+          Claude soll dann den User fragen und mit dem expliziten
+          `wenn_dublette`-Wert erneut aufrufen.
+        - `vorhandenen_erledigen`: bestehenden offenen Nachfass auf
+          `gesendet` setzen + neuen anlegen. Default-Empfehlung wenn der
+          User aktiv neu plant.
+        - `vorhandenen_verschieben`: bestehenden offenen Nachfass auf das
+          neue Datum aktualisieren statt einen zweiten anzulegen.
+        - `trotzdem_neu`: bestehenden lassen + zusaetzlich neuen anlegen
+          (das alte Verhalten — bewusst zweite Dublette wollen).
 
         Args:
             bewerbung_id: ID der Bewerbung
             tage: Tage ab heute bis zum Follow-up (Standard: 7)
             typ: Art des Follow-ups: nachfass, danke, info
+            wenn_dublette: Verhalten bei bereits offenem Nachfass —
+                melden (Default), vorhandenen_erledigen,
+                vorhandenen_verschieben, trotzdem_neu
         """
         apps = db.get_applications()
         app = next((a for a in apps if a["id"] == bewerbung_id), None)
@@ -354,6 +379,94 @@ def register(mcp, db, logger):
             return {"fehler": "Bewerbung nicht gefunden. Prüfe die ID mit bewerbungen_anzeigen()."}
 
         scheduled = (datetime.now(timezone.utc) + timedelta(days=tage)).strftime("%Y-%m-%d")
+
+        # v1.7.0-beta.83 (#665): Dubletten-Check
+        # NUR fuer typ='nachfass' — danke/info-Follow-ups sind situativ
+        # und sollen NICHT dedupliziert werden.
+        existing_open: list[dict] = []
+        if typ == "nachfass":
+            try:
+                pending = db.get_pending_follow_ups()
+                existing_open = [
+                    fu for fu in pending
+                    if fu.get("application_id") == bewerbung_id
+                    and (fu.get("follow_up_type") or "nachfass") == "nachfass"
+                ]
+            except Exception:
+                existing_open = []
+
+        if existing_open and wenn_dublette == "melden":
+            ex = existing_open[0]
+            return {
+                "status": "dublette_offen",
+                "bewerbung": app["title"],
+                "firma": app["company"],
+                "bestehender_nachfass": {
+                    "follow_up_id": ex.get("id"),
+                    "geplant_fuer": ex.get("scheduled_date"),
+                    "follow_up_type": ex.get("follow_up_type") or "nachfass",
+                },
+                "gewuenschtes_neues_datum": scheduled,
+                "optionen": {
+                    "vorhandenen_erledigen": (
+                        "Bestehenden als 'gesendet' markieren und neuen "
+                        f"fuer {scheduled} anlegen (Default-Empfehlung, "
+                        "wenn der User sich aktiv neu kuemmert)."
+                    ),
+                    "vorhandenen_verschieben": (
+                        f"Bestehenden Nachfass auf {scheduled} "
+                        "verschieben statt zweiten anzulegen."
+                    ),
+                    "trotzdem_neu": (
+                        "Beide behalten — nur waehlen wenn bewusst gewollt."
+                    ),
+                },
+                "naechster_aufruf": (
+                    "Frage den User. Dann nachfass_planen(bewerbung_id, "
+                    f"tage={tage}, wenn_dublette='<wahl>') erneut aufrufen."
+                ),
+            }
+
+        # Wenn Dublette behandelt werden soll: alte Loeschung/Verschiebung VOR Insert
+        dublette_aktion: dict | None = None
+        if existing_open and wenn_dublette == "vorhandenen_erledigen":
+            ex = existing_open[0]
+            try:
+                db.complete_follow_up(ex["id"], status="gesendet")
+                dublette_aktion = {
+                    "alter_follow_up_id": ex["id"],
+                    "aktion": "erledigt_markiert",
+                    "alter_status": "gesendet",
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Dubletten-Erledigung fehlgeschlagen fuer %s: %s",
+                    ex.get("id"), exc,
+                )
+        elif existing_open and wenn_dublette == "vorhandenen_verschieben":
+            ex = existing_open[0]
+            try:
+                db.update_follow_up(ex["id"], {"scheduled_date": scheduled})
+                # KEIN neuer Insert — nur Update. Result direkt zurueckgeben.
+                return {
+                    "status": "verschoben",
+                    "follow_up_id": ex["id"],
+                    "bewerbung": app["title"],
+                    "firma": app["company"],
+                    "alter_termin": ex.get("scheduled_date"),
+                    "neuer_termin": scheduled,
+                    "typ": typ,
+                    "hinweis": (
+                        "Bestehender Nachfass wurde auf das neue Datum "
+                        "verschoben — kein zweiter Eintrag angelegt."
+                    ),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Dubletten-Verschiebung fehlgeschlagen fuer %s: %s",
+                    ex.get("id"), exc,
+                )
+        # trotzdem_neu fuehrt einfach durch zum normalen Insert unten.
 
         templates = {
             "nachfass": (
@@ -385,7 +498,7 @@ def register(mcp, db, logger):
         template = templates.get(typ, templates["nachfass"])
         fid = db.add_follow_up(bewerbung_id, scheduled, typ, template)
 
-        return {
+        result = {
             "status": "geplant",
             "follow_up_id": fid,
             "bewerbung": app["title"],
@@ -395,6 +508,10 @@ def register(mcp, db, logger):
             "template": template,
             "hinweis": "Das Template ist ein Vorschlag — passe es gerne an bevor du es versendest.",
         }
+        # #665: Dubletten-Handhabung im Result transparent machen
+        if dublette_aktion:
+            result["dublette_behandelt"] = dublette_aktion
+        return result
 
     @mcp.tool()
     def nachfass_anzeigen() -> dict:

@@ -16,6 +16,62 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.83] - 2026-06-02 — nachfass_planen Dubletten-Check (#665 MCP-Teil)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+6 neue Tests, 1551 passed.** Keine Schema-Aenderung.
+
+### Fixed / Changed
+
+- **#665 (MCP-Teil)** `nachfass_planen()` legt nicht mehr stillschweigend einen zweiten Nachfass an, wenn fuer dieselbe Bewerbung schon ein offener existiert. Neuer Parameter `wenn_dublette` mit vier Modi:
+  - **`melden`** (Default) — KEIN Insert, liefert `status="dublette_offen"` mit Details zum bestehenden Nachfass + drei konkreten Handlungsoptionen. Claude fragt den User und ruft mit explizitem `wenn_dublette` erneut auf.
+  - **`vorhandenen_erledigen`** — alten auf `gesendet` + neuen anlegen (Default-Empfehlung, wenn User aktiv neu plant).
+  - **`vorhandenen_verschieben`** — alten auf das neue Datum verschieben statt zweiten Eintrag.
+  - **`trotzdem_neu`** — alten lassen + neuen anlegen (Legacy-Verhalten fuer bewusste Dubletten).
+- Dubletten-Check greift NUR fuer `typ='nachfass'`. `danke`/`info`-Follow-ups sind situativ und werden NICHT dedupliziert.
+- Tool-Signatur bleibt kompatibel: `wenn_dublette='melden'` ist Default, bestehende Aufrufer brechen nicht — sie erhalten bei Dublette jetzt eine klare Meldung statt einen versteckten zweiten Eintrag.
+- 6 neue Tests in `tests/test_v17_nachfass_dublette_665.py`.
+
+### Bekannt nicht enthalten (eigene Beta)
+
+- **#665 Frontend-Teil** (Direkt-Abhaken-Button in "Offene Aktionen" und Bewerbungs-Detail) — braucht React-Komponenten + Frontend-Build. Plan-Eintrag **D18** ⬜.
+- **#666 (groß, eigenes Issue)** generisches Aufgaben-/Todo-System pro Bewerbung mit eigener `tasks`-Tabelle, freien Custom-Todos und drei neuen MCP-Tools. Baut auf #665 auf. Plan-Eintrag **D19** ⬜.
+- **#667** Minus-Keywords (weiche Score-Abwertung zusaetzlich zu harten Ausschluss-Keywords). Betrifft 11 Dateien (Schema + Scoring-Engine + 3 MCP-Tools + Frontend) — bewusst aus dieser Beta rausgehalten, kommt als eigene Beta. Plan-Eintrag **B19** ⬜.
+
+### Schema
+
+**Keine Schema-Aenderung.** beta.83 ist additiv (1 Parameter + Dubletten-Logik). Schema bleibt v44.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.83.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.83.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.82] - 2026-06-02 — `stelle_reaktivieren` + Pre-Release-Issue-Check (#664)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Nachzieher zu beta.81 fuer Issue #664 — das waehrend des beta.81-Release-Prozesses dazwischen kam. **+5 neue Tests, 1545 passed.** Keine Schema-Aenderung.
