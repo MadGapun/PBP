@@ -191,6 +191,8 @@ function criteriaToDraft(criteria) {
   return {
     keywords_muss: [...(criteria?.keywords_muss || [])],
     keywords_plus: [...(criteria?.keywords_plus || [])],
+    // #667 (B20): Minus-Keywords — weiche Score-Abwertung
+    keywords_minus: [...(criteria?.keywords_minus || [])],
     keywords_ausschluss: [...(criteria?.keywords_ausschluss || [])],
     regionen: [...(criteria?.regionen || [])],
     min_gehalt: criteria?.min_gehalt ?? "",
@@ -205,6 +207,7 @@ function criteriaToDraft(criteria) {
     max_entfernung_werkstudent: maxEnt.werkstudent ?? DEFAULT_MAX_ENTFERNUNG.werkstudent,
     gewichtung_muss: criteria?.gewichtung?.muss ?? 2,
     gewichtung_plus: criteria?.gewichtung?.plus ?? 1,
+    gewichtung_minus: criteria?.gewichtung?.minus ?? 1,
     gewichtung_remote: criteria?.gewichtung?.remote ?? 2,
     gewichtung_naehe: criteria?.gewichtung?.naehe ?? 2,
     gewichtung_fern_malus: criteria?.gewichtung?.fern_malus ?? 3,
@@ -221,6 +224,7 @@ function criteriaDraftToPayload(criteriaDraft) {
   return {
     keywords_muss: criteriaDraft.keywords_muss,
     keywords_plus: criteriaDraft.keywords_plus,
+    keywords_minus: criteriaDraft.keywords_minus,
     keywords_ausschluss: criteriaDraft.keywords_ausschluss,
     regionen: criteriaDraft.regionen,
     min_gehalt: criteriaDraft.min_gehalt === "" ? null : Number(criteriaDraft.min_gehalt),
@@ -238,6 +242,7 @@ function criteriaDraftToPayload(criteriaDraft) {
     gewichtung: {
       muss: Number(criteriaDraft.gewichtung_muss),
       plus: Number(criteriaDraft.gewichtung_plus),
+      minus: Number(criteriaDraft.gewichtung_minus),
       remote: Number(criteriaDraft.gewichtung_remote),
       naehe: Number(criteriaDraft.gewichtung_naehe),
       fern_malus: Number(criteriaDraft.gewichtung_fern_malus),
@@ -1041,6 +1046,13 @@ export default function ProfilePage() {
       color: "sky",
     },
     {
+      label: "MINUS-Abzug",
+      key: "gewichtung_minus",
+      chip: "Malus",
+      desc: "Score-Abzug pro Minus-Keyword-Treffer (#667). Weiche Abwertung — die Stelle bleibt sichtbar, rutscht aber nach unten. 0 = Minus-Keywords ohne Wirkung.",
+      color: "coral",
+    },
+    {
       label: "Remote",
       key: "gewichtung_remote",
       chip: "Modus",
@@ -1287,7 +1299,8 @@ export default function ProfilePage() {
             {[
               ["MUSS-Keywords", "keywords_muss", "sky", "z.B. Data Scientist"],
               ["PLUS-Keywords", "keywords_plus", "success", "z.B. Python, Machine Learning"],
-              ["Ausschluss-Keywords", "keywords_ausschluss", "danger", "z.B. Praktikum, Junior"],
+              ["MINUS-Keywords (weiche Abwertung)", "keywords_minus", "amber", "z.B. Automotive, SAP-only"],
+              ["Ausschluss-Keywords (harter Filter)", "keywords_ausschluss", "danger", "z.B. Praktikum, Junior"],
               ["Regionen", "regionen", "amber", "z.B. Hamburg, Berlin"],
             ].map(([label, key, tone, placeholder]) => (
               <Field key={key} label={label}>

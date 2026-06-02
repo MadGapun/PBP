@@ -16,6 +16,67 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.89] - 2026-06-02 — Frontend: Minus-Keywords-Sektion (#667 B20)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Erste **Frontend**-Beta der B20/C20/D18/D19-Reihe. Keine neuen Tests (Backend unveraendert), Frontend gebaut.
+
+### Added — Frontend
+
+- **#667 (B20): Minus-Keywords-Sektion im Suchkriterien-Editor** (ProfilePage). Neue vierte Keyword-Kategorie zwischen PLUS und Ausschluss:
+  - **MINUS-Keywords (weiche Abwertung)** — Chip-Editor mit amber-Farbe, Platzhalter "z.B. Automotive, SAP-only"
+  - **Ausschluss-Keywords (harter Filter)** — Label klargestellt zur Abgrenzung
+  - Neuer **Gewicht-Slider "MINUS-Abzug"** (coral) in der Gewichtungs-Sektion — steuert den Score-Malus pro Treffer (0 = wirkungslos). Speichert ueber `criteria.gewichtung.minus`.
+- Verdrahtet an das bestehende Backend aus beta.84 (`keywords_minus` + `gewichtung.minus`). Speichern/Laden ueber `/api/search-criteria` ohne Backend-Aenderung.
+
+### Frontend-Build
+
+- `pnpm exec vite build` gruen. Neue Assets unter `static/dashboard/assets/` committed, alte Hash-Datei `git rm`-t. CSS unveraendert.
+
+### Bekannt nicht enthalten (kommen in eigenen Frontend-Betas)
+
+Die Backend + REST-API fuer alle drei sind seit beta.85 fertig — die React-Sektionen folgen einzeln, weil sie in grosse stateful Pages (SettingsPage ~3000 Zeilen, ApplicationsPage ~2500) integriert werden und im Live-Dev-Umfeld visuell verifiziert werden sollten:
+
+- **C20** — Ablehnungsgruende-Editor im Tab Einstellungen (REST: `GET/POST/PATCH /api/dismiss-reasons`)
+- **D19** — Tasks-pro-Bewerbung-Sektion im Bewerbungs-Detail (REST: `/api/applications/{id}/tasks`)
+- **D18** — Direkt-Abhaken-Buttons in "Offene Aktionen" (REST: `/api/tasks/{id}/complete`, `/api/follow-ups/{id}/complete`)
+
+Alle drei sind ueber MCP-Tools bereits voll bedienbar — Claude kann sie sofort nutzen.
+
+### Schema
+
+**Keine Schema-Aenderung.** Schema bleibt v45.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.89.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.89.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.88] - 2026-06-02 — Elwosa KI-freies Safety-Net (#669, Teil 1)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+8 neue Tests, 1611 passed.** Keine Schema-Aenderung. **Ohne lokale KI.**
