@@ -56,8 +56,10 @@ def test_run_auto_deep_analysis_skipt_ohne_ollama(tmp_db, monkeypatch):
 
 
 def test_run_auto_deep_analysis_verarbeitet_basis_docs(tmp_db, monkeypatch):
-    """#651: Wenn Lokale AI an und Docs in basis_analysiert: bis zu N werden
-    verarbeitet, extraction_status wird auf 'analysiert' gesetzt."""
+    """#651/#658: Wenn Lokale AI an und Docs in basis_analysiert: bis zu N
+    werden verarbeitet. extraction_status wird auf 'angewendet' gesetzt
+    (beta.78 #658: vorher 'analysiert' — Halbschritt, fuehrte zum Stuck-
+    Bug bei Korrespondenz-Docs)."""
     tmp_db.create_profile("Test User", "test@example.com")
     pid = tmp_db.get_active_profile_id()
     conn = tmp_db.connect()
@@ -112,12 +114,13 @@ def test_run_auto_deep_analysis_verarbeitet_basis_docs(tmp_db, monkeypatch):
     assert result["skipped"] is False
     assert result["processed"] == 3
     assert result["classified_anders"] == 2  # erste 2 Calls
-    # 2 Docs sind jetzt auf 'analysiert' + doc_type='recruiter_anfrage'
-    analysiert = conn.execute(
-        "SELECT COUNT(*) AS n FROM documents WHERE extraction_status='analysiert' "
+    # beta.78 (#658): Status ist jetzt 'angewendet' statt 'analysiert' —
+    # Korrespondenz braucht keinen weiteren Schritt mehr.
+    angewendet = conn.execute(
+        "SELECT COUNT(*) AS n FROM documents WHERE extraction_status='angewendet' "
         "AND (profile_id=? OR profile_id IS NULL)", (pid,)
     ).fetchone()["n"]
-    assert analysiert >= 3
+    assert angewendet >= 3
 
 
 def test_run_auto_deep_analysis_backoff_nach_3_fehlern(tmp_db, monkeypatch):

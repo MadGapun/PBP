@@ -16,6 +16,113 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.78] - 2026-06-02 — Dokument-Lifecycle Phase 1 (#658, E15)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Vierter Master-Plan-First-
+> Release: Plan-Eintrag E15 → Issue #658 → Code → 8 neue Tests → Wiki ✅ → Commit.
+
+### Hintergrund (#658)
+
+Korrespondenz-Dokumente (Absagen, Einladungen, Recruiter-Anfragen, LinkedIn-/
+XING-Benachrichtigungen) blieben dauerhaft auf `extraction_status='basis_analysiert'`
+haengen und tauchten beim naechsten `analyse_plan_erstellen()`-Lauf erneut auf.
+Ursache: Der Status-Uebergang `basis_analysiert` → `angewendet` haengt allein
+am Profildaten-Pfad (`extraktion_anwenden()`). Korrespondenz liefert aber keine
+Profildaten und durchlaeuft `extraktion_anwenden()` nie — daher der Stuck.
+
+Phase 1 entkoppelt das Lifecycle-Ende von der Profildaten-Bedingung. Phase 2
+(#657, lifecycle-Spalte) und Phase 3 (#643, doc_type-Routing) folgen.
+
+### Fixed
+
+- **#658 (E15): `_run_auto_deep_analysis` setzt jetzt `angewendet` statt `analysiert`.**
+  Der Halbschritt `analysiert` war redundant — wenn das LLM ein Doku gesehen
+  hat, ist der Auto-Pfad fuer Korrespondenz fertig. (`dashboard.py:7836,7844`)
+- **`dokument_status_setzen()`-Whitelist erweitert.** Vorher waren nur
+  `{nicht_extrahiert, gestartet, extrahiert, angewendet}` erlaubt — der Auto-
+  Pfad vergibt aber auch `basis_analysiert`, `analysiert`, `analysiert_leer`,
+  `duplikat`, `verworfen`. Manuelles Zuruecksetzen ist damit jetzt durchgaengig
+  moeglich. (`tools/dokumente.py:_DOC_STATUS_VALUES`)
+
+### Added
+
+- **MCP-Tool `dokumente_korrespondenz_abschliessen(dry_run=True)`.** Raeumt
+  Altlasten ab: findet alle Korrespondenz-Typen
+  (`sonstiges`/`recruiter_anfrage`/`absage`/`einladung`/`eingangsbestaetigung`/
+  `interview_*`/`gespraechs_feedback`/`projekt_update`/`vermittler_korrespondenz`)
+  im `basis_analysiert`/`analysiert`/`analysiert_leer`-Bucket und hebt sie
+  auf `angewendet`. Parameter `zusaetzliche_doc_types` erlaubt projekt-
+  spezifische Typen. **DB-only — physische Dateien bleiben unberuehrt.**
+  Profil-Docs (Lebenslauf/Anschreiben/Projektliste/Zeugnis) werden NIE
+  durch dieses Tool angefasst — die brauchen `extraktion_anwenden()`.
+- 8 neue Tests in `tests/test_v17_doc_lifecycle_658.py` decken: dry-run-
+  Vorschau, Schutz von Profil-Docs, Erweiterungsparameter, Auto-Deep-
+  Status-Fix, Whitelist-Erweiterung.
+
+### Changed
+
+- MCP-Tool-Count: 155 → **156** (neuer Repair-Tool).
+- Plan-Dokumente.md: E15 ✅, neuer Phase-1-Abschnitt, naechste Iteration
+  zeigt jetzt E16 (#657, lifecycle-Spalte) als naechsten Schritt.
+- Master-Plan.md: E15 (#658) + E16 (#657) als neue Eintraege im Cluster E.
+- `_run_auto_deep_analysis` pflegt jetzt `last_extraction_at` mit (vorher
+  nur Status).
+
+### Migration
+
+Keine Schema-Aenderung. Keine DB-Migration. Phase 1 ist additiv und
+reversibel — `dokumente_korrespondenz_abschliessen` schreibt nur in
+`extraction_status` + `last_extraction_at`, die bestehenden Werte koennen
+manuell zurueckgesetzt werden.
+
+### Bekannt nicht enthalten (kommt in Phase 2/3)
+
+- **Lifecycle-Spalte `aktiv`/`archiviert`/`veraltet`** (#657, E16) → Phase 2.
+- **Doc-Type-Routing mit typspezifischen Aktionen** (#643, E11) → Phase 3.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.78.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.78.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.77] - 2026-06-01 — Scraper-Reanimation + Adzuna + Doku-Typen (#653 + #654 + #655)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Dritter Master-Plan-First-

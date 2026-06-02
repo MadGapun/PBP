@@ -7746,16 +7746,20 @@ def _run_auto_classify_documents(now_iso: str, max_docs: int = 30) -> dict:
 
 
 def _run_auto_deep_analysis(now_iso: str, max_docs: int = 3) -> dict:
-    """E12 (#651, beta.76): Auto-Tiefenanalyse fuer basis_analysiert-Docs.
+    """E12 (#651, beta.76; E15 #658, beta.78): Auto-Tiefenanalyse fuer basis_analysiert-Docs.
 
     Lokale-AI-Schritt der bis zu `max_docs` Dokumente pro Lauf aus dem
     `extraction_status='basis_analysiert'`-Bucket nimmt und tiefer
     verarbeitet:
 
     1. `CLASSIFY_DOCUMENT`-Call holt ggf. spezifischere `doc_type`.
-    2. `extraction_status` wird auf `analysiert` gesetzt — das Doku
-       gilt damit als tiefenanalysiert und verschwindet aus dem
-       `dokumente_zur_analyse`-Default-Filter.
+    2. `extraction_status` wird auf `angewendet` gesetzt — das Doku
+       gilt damit als endgueltig verarbeitet und verschwindet aus
+       `analyse_plan_erstellen()`/`dokumente_batch_analysieren()`.
+       (beta.78 #658: vorher wurde hier `analysiert` gesetzt; das war
+       semantisch ein Halbschritt und liess Korrespondenz-Docs im
+       Plan haengen, weil `extraktion_anwenden()` mangels Profildaten
+       nie aufgerufen wurde.)
     3. Backoff: nach 3 Fehlversuchen pro Doc wird es fuer 7d skippt
        (Setting `deep_analysis_fail:{doc_id}` zaehlt Fehler).
 
@@ -7831,18 +7835,24 @@ def _run_auto_deep_analysis(now_iso: str, max_docs: int = 3) -> dict:
 
         try:
             if new_category:
+                # beta.78 (#658): direkt auf `angewendet` heben, nicht auf
+                # `analysiert`. LLM hat das Doku gesehen und neu klassifiziert
+                # — fuer Korrespondenz ist das der finale Schritt, und fuer
+                # Profil-Docs uebernimmt extraktion_anwenden() das Setzen
+                # ohnehin nochmal (idempotent).
                 conn.execute(
-                    "UPDATE documents SET doc_type=?, extraction_status='analysiert' "
+                    "UPDATE documents SET doc_type=?, extraction_status='angewendet', last_extraction_at=? "
                     "WHERE id=?",
-                    (new_category, doc_id)
+                    (new_category, now_iso, doc_id)
                 )
                 classified_anders += 1
             else:
                 # Auch ohne neue Klasse: das Doku ist jetzt tiefenanalysiert
-                # (LLM hat es gesehen, keine bessere Klasse gefunden).
+                # (LLM hat es gesehen, keine bessere Klasse gefunden) — auf
+                # `angewendet` heben statt `analysiert` (#658).
                 conn.execute(
-                    "UPDATE documents SET extraction_status='analysiert' WHERE id=?",
-                    (doc_id,)
+                    "UPDATE documents SET extraction_status='angewendet', last_extraction_at=? WHERE id=?",
+                    (now_iso, doc_id)
                 )
             processed += 1
             # Backoff-Counter zuruecksetzen (nur bei Erfolg)

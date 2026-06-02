@@ -1302,7 +1302,29 @@ def register(mcp, db, logger):
     # Schreibzugriff auf Dokumente: Entverknuepfen, Loeschen, Status setzen.
     # Bisher konnte Claude diese Operationen nur per direktem SQL ausfuehren.
 
-    _DOC_STATUS_VALUES = {"nicht_extrahiert", "gestartet", "extrahiert", "angewendet"}
+    # v1.7.0-beta.78 (#658, E15): Whitelist um die Stati erweitert, die der
+    # Auto-Pfad tatsaechlich vergibt. Vorher fehlten `basis_analysiert`,
+    # `analysiert`, `analysiert_leer`, `duplikat`, `verworfen` — dadurch
+    # konnte `dokument_status_setzen` z.B. ein Doku nicht manuell auf
+    # `basis_analysiert` zuruecksetzen.
+    _DOC_STATUS_VALUES = {
+        "nicht_extrahiert", "gestartet", "extrahiert",
+        "basis_analysiert", "analysiert", "analysiert_leer",
+        "angewendet", "duplikat", "verworfen",
+    }
+
+    # v1.7.0-beta.78 (#658, E15): Korrespondenz-Typen, die keine Profildaten
+    # liefern und deshalb nie ueber extraktion_anwenden() gehen. Wenn sie
+    # nach Basis-Extraktion oder Tiefenanalyse keinen weiteren Schritt
+    # brauchen, sollen sie via dokumente_korrespondenz_abschliessen()
+    # auf `angewendet` wandern.
+    _KORRESPONDENZ_DOC_TYPES = {
+        "sonstiges", "recruiter_anfrage", "angebot",
+        "absage", "einladung", "eingangsbestaetigung",
+        "interview_bestaetigung", "interview_einladung",
+        "gespraechs_feedback", "projekt_update",
+        "vermittler_korrespondenz",
+    }
 
     @mcp.tool()
     def dokument_entverknuepfen(dokument_id: str) -> dict:
@@ -1445,7 +1467,9 @@ def register(mcp, db, logger):
 
         Args:
             dokument_id: ID des Dokuments
-            status: nicht_extrahiert, gestartet, extrahiert, angewendet
+            status: nicht_extrahiert, gestartet, extrahiert,
+                basis_analysiert, analysiert, analysiert_leer,
+                angewendet, duplikat, verworfen
         """
         if status not in _DOC_STATUS_VALUES:
             return {
@@ -1463,3 +1487,127 @@ def register(mcp, db, logger):
             "extraction_status": status,
             "nachricht": f"Dokument '{doc.get('filename', '')}' -> {status}.",
         }
+
+    @mcp.tool()
+    def dokumente_korrespondenz_abschliessen(
+        dry_run: bool = True,
+        zusaetzliche_doc_types: list = None,
+    ) -> dict:
+        """Schliesst Korrespondenz-Dokumente ab — `basis_analysiert`/`analysiert` -> `angewendet` (#658, E15).
+
+        Hintergrund: Dokumente ohne Profildaten (Absagen, Einladungen,
+        Recruiter-Anfragen, Benachrichtigungen) durchlaufen nie
+        `extraktion_anwenden()`. Sie bleiben deshalb dauerhaft im
+        `basis_analysiert`-Bucket haengen und tauchen bei jedem
+        `analyse_plan_erstellen()`-Lauf erneut auf. Dieses Tool raeumt
+        sie in einem Rutsch ab — Status wird auf `angewendet` gehoben,
+        damit sie aus dem Plan verschwinden. Physische Dateien bleiben
+        unberuehrt; Verknuepfungen zu Bewerbungen bleiben erhalten.
+
+        Sicherheits-Hinweise:
+        - **DB-only**: aendert nur `extraction_status` + `last_extraction_at`.
+          Es werden keine Dateien gelesen, geschrieben oder geloescht.
+        - **Konservativ**: nur Korrespondenz-Typen (siehe
+          `_KORRESPONDENZ_DOC_TYPES`). Lebenslaeufe, Anschreiben,
+          Projektlisten u.a. werden NIE durch dieses Tool angefasst —
+          die brauchen `extraktion_anwenden()`.
+        - **dry_run=True (Default)**: zeigt nur die Treffer, schreibt nichts.
+          Erst mit `dry_run=False` wird umgesetzt.
+
+        Args:
+            dry_run: True (Default) = nur Vorschau; False = tatsaechlich umsetzen.
+            zusaetzliche_doc_types: Optional Liste weiterer doc_type-Werte,
+                die zusaetzlich zur Default-Korrespondenz-Whitelist als
+                "abschliessbar" zaehlen sollen (z.B. ein neuer interner Typ).
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        types = set(_KORRESPONDENZ_DOC_TYPES)
+        if zusaetzliche_doc_types:
+            for t in zusaetzliche_doc_types:
+                if isinstance(t, str) and t.strip():
+                    types.add(t.strip())
+
+        conn = db.connect()
+        pid = profile["id"]
+        placeholders = ",".join("?" * len(types))
+        rows = conn.execute(
+            "SELECT id, filename, doc_type, extraction_status, "
+            "COALESCE(linked_application_id, 0) AS aid, "
+            "COALESCE(created_at,'') AS created_at "
+            "FROM documents "
+            "WHERE profile_id=? "
+            "AND extraction_status IN ('basis_analysiert','analysiert','analysiert_leer') "
+            f"AND doc_type IN ({placeholders}) "
+            "ORDER BY created_at DESC",
+            (pid, *sorted(types)),
+        ).fetchall()
+        kandidaten = [dict(r) for r in rows]
+
+        result = {
+            "status": "vorschau" if dry_run else "abgeschlossen",
+            "dry_run": dry_run,
+            "kandidaten_anzahl": len(kandidaten),
+            "kandidaten": [
+                {
+                    "id": k["id"],
+                    "filename": k["filename"],
+                    "doc_type": k["doc_type"],
+                    "extraction_status_vorher": k["extraction_status"],
+                    "linked_application_id": k["aid"] or None,
+                }
+                for k in kandidaten
+            ],
+            "hinweis": (
+                "DB-only. Physische Dateien bleiben unberuehrt. "
+                "Verknuepfungen zu Bewerbungen bleiben erhalten."
+            ),
+        }
+
+        if dry_run or not kandidaten:
+            if not kandidaten:
+                # Bei "nichts zu tun": auch im Live-Modus konsistente
+                # umgesetzt_anzahl=0 setzen, damit Caller einheitlich
+                # auswerten koennen.
+                if not dry_run:
+                    result["status"] = "abgeschlossen"
+                    result["umgesetzt_anzahl"] = 0
+                result["nachricht"] = (
+                    "Keine Korrespondenz-Dokumente im "
+                    "basis_analysiert/analysiert-Bucket gefunden — "
+                    "nichts zu tun."
+                )
+            else:
+                result["nachricht"] = (
+                    f"{len(kandidaten)} Korrespondenz-Dokument(e) wuerden "
+                    "auf `angewendet` gesetzt. Setze `dry_run=False` "
+                    "um umzusetzen."
+                )
+            return result
+
+        # Tatsaechlicher Schreib-Pfad: ueber bestehenden DB-Helfer,
+        # nicht roh in conn.execute() — so bleibt last_extraction_at
+        # konsistent gepflegt.
+        umgesetzt = 0
+        for k in kandidaten:
+            try:
+                db.update_document_extraction_status(k["id"], "angewendet")
+                umgesetzt += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Korrespondenz-Abschluss fehlgeschlagen fuer %s: %s",
+                    k["id"], exc,
+                )
+
+        logger.info(
+            "dokumente_korrespondenz_abschliessen: %d/%d auf `angewendet` gesetzt",
+            umgesetzt, len(kandidaten),
+        )
+        result["umgesetzt_anzahl"] = umgesetzt
+        result["nachricht"] = (
+            f"{umgesetzt} von {len(kandidaten)} Korrespondenz-"
+            "Dokument(en) auf `angewendet` gesetzt. Dateien unberuehrt."
+        )
+        return result
