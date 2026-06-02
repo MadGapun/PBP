@@ -16,6 +16,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.85] - 2026-06-02 — Backend-Bundle: Tasks + Ablehnungsgrunde-Editor + Scraper-Auto-Skip (#666 + #663 + #668)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Backend-only.** Schema-Aenderung v44→v45 mit Auto-Backup. **+22 neue Tests, 1584 passed.**
+
+### Geplanter Scope vs. tatsaechlich geliefert
+
+Diese Beta sollte urspruenglich Backend + Frontend fuer B20+C20+D18+D19 + Bug #668 in einem Wurf liefern. Realistisch-pragmatischer Schwenk: Backend ist solide getestet (22 neue Tests), Frontend (4 Sektionen + Direkt-Abhaken-Buttons) kommt in **beta.86** mit User-Live-Feedback. Die Backend-Bestandteile sind ueber MCP-Tools voll nutzbar — Claude kann alle vier Themen direkt bedienen, ohne dass das Frontend nachgezogen sein muss.
+
+### Schema v44 → v45 (additiv, mit Auto-Backup)
+
+- **Neue Tabelle `tasks`** (#666 D19): id, application_id, profile_id, typ, titel, beschreibung, faellig_am, status (offen/erledigt/hinfaellig), erledigt_am, notiz, created_at, updated_at. Plus 3 Indizes (app_id, status+faellig_am, profile_id+status).
+- **Neue Spalte `dismiss_reasons.is_active`** (#663 C20). Default 1. Erlaubt Deaktivierung statt Loeschen — Statistik bleibt erhalten.
+- Pre-Migration-Backup automatisch unter `data/backups/pbp.db.bak-pre-v45-tasks-<timestamp>`.
+
+### Added — MCP-Tools
+
+**Tasks (#666 D19) — 4 neue Tools in `tools/tasks.py`:**
+- `todo_anlegen(bewerbung_id, titel, faellig_am="", beschreibung="", typ="custom")` — typ custom/nachfass/termin/vorbereitung
+- `todo_erledigen(todo_id, notiz="")` — idempotent, markiert als 'erledigt' mit optionaler Abschluss-Notiz
+- `todo_reaktivieren(todo_id)` — setzt zurueck auf 'offen'
+- `todos_anzeigen(bewerbung_id="", nur_offen=False)` — sortiert nach status + faellig_am
+
+**Ablehnungsgruende (#663 C20) — 4 neue Tools in `tools/suche.py`:**
+- `ablehnungsgruende_anzeigen(nur_aktiv=False)` — mit Verwendungs-Haeufigkeit
+- `ablehnungsgrund_anlegen(label)` — neuer Custom-Grund, Duplikat-Check
+- `ablehnungsgrund_umbenennen(grund_id, neues_label)` — historische Werte in jobs-Tabelle bleiben unveraendert
+- `ablehnungsgrund_aktivieren_setzen(grund_id, aktiv)` — Deaktivierung statt Loeschen
+
+### Added — REST-Endpoints (fuer kommendes Frontend in beta.86)
+
+- `PATCH /api/dismiss-reasons/{id}` — label + is_active in einem Call
+- `GET /api/applications/{id}/tasks?offen=N` — Tasks pro Bewerbung
+- `GET /api/tasks?offen=N` — alle Tasks des aktiven Profils
+- `POST /api/applications/{id}/tasks` — Task anlegen
+- `POST /api/tasks/{id}/complete` — erledigen mit Notiz
+- `POST /api/tasks/{id}/reopen` — wieder oeffnen
+- `DELETE /api/tasks/{id}` — loeschen
+
+### Changed
+
+- **`stelle_bewerten` akzeptiert jetzt Custom-Ablehnungsgruende.** Wenn der User via `ablehnungsgrund_anlegen` einen Grund angelegt hat und dieser `is_active=1` ist, wird er in `_normalize_reason_list` nicht mehr auf 'sonstiges' normalisiert (#663 C20). Beispiel: nach `ablehnungsgrund_anlegen("kein_homeoffice")` ist `stelle_bewerten(..., gruende=["kein_homeoffice"])` zulaessig.
+
+### Fixed
+
+- **#668** Defekte Scraper blockieren nicht mehr die Gesamt-Suche. Zusaetzlich zur bestehenden `is_active=0`-Filter wird jetzt auch `consecutive_failures >= 5` als "dauerhaft defekt" behandelt und vor dem Start des Search-Jobs ausgefiltert. Vorher liefen Quellen wie ferchau/gulp/ingenieur_de/heise_jobs/kimeta/solcom trotz 8 Fehlern in Serie weiter mit, weil die Auto-Deaktivierung nicht griff — Folge: 10-Min-Total-Timeout mit 0 Ergebnissen. Hard-Skip-Schwelle bei 5 Fehlern in Serie ist Kompromiss aus Toleranz (kurze Aussetzer ueberbruecken) und Selbstschutz.
+
+### Migration
+
+Schema v44 → v45 ist ALTER-only, idempotent und reversibel. Vor der Migration wird automatisch ein Backup unter `%LOCALAPPDATA%\BewerbungsAssistent\data\backups\` angelegt.
+
+**Rollback (falls noetig):**
+1. PBP beenden.
+2. Backup-Datei aus `data\backups\` zurueck nach `data\pbp.db` kopieren.
+3. Alte PBP-Version installieren.
+
+### Tests
+
+22 neue:
+- `tests/test_v17_tasks_d19_666.py` — Tasks-Tabelle + 4 Tools (12 Tests)
+- `tests/test_v17_ablehnungsgruende_c20_663.py` — Schema + 4 Tools + dyn. Whitelist (10 Tests)
+
+MCP-Tool-Count: 162 → **170** (+8). Volle Suite: **1584 passed, 1 skipped** (vorher 1562).
+
+### Bekannt nicht enthalten (kommt in eigenen Betas)
+
+- **Frontend-Sektionen** fuer B20 (Minus-Keywords) + C20 (Ablehnungsgruende-Editor) + D19 (Tasks pro Bewerbung) + D18 (Direkt-Abhaken-Buttons). Backend + REST-API sind alle vorbereitet — die Frontend-Komponenten kommen mit deinem Live-Feedback in **beta.86**.
+- **Teilergebnis-Persistierung bei Gesamt-Timeout** (#668-Subitem) — separat in beta.86, weil das den Job-Runner anfasst.
+- **#670** (Bug) `stelle_manuell_anlegen` Duplikat-Erkennung zu grob → Plan-Eintrag **B22 ⬜** (separate Beta).
+- **#669** (Feature) Elwosa Ollama-Live-Generierung → Plan-Eintrag **F15 ⬜** (separate Beta wie geplant).
+- **#671** (Feature) Wiedergaenger-Erkenner mit Ollama-Vorabfilter → Plan-Eintrag **F16 ⬜** (separate Beta, baut auf #669 auf).
+
+### Pre-Release-Issue-Check
+
+Vor dem Release wurde die offene Issue-Liste nochmal abgerufen (Regel aus beta.82). **Zwei neue Issues sind waehrend der Backend-Arbeit dazwischen gekommen** (#670, #671) — bewusst aus diesem Backend-Bundle rausgehalten und als Plan-Items B22/F15/F16 dokumentiert. Die Regel funktioniert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.85.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.85.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner \`data\backups\\\`).
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.84] - 2026-06-02 — Minus-Keywords als weiche Score-Abwertung (#667, B19)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+11 neue Tests, 1562 passed.** Keine Schema-Aenderung.

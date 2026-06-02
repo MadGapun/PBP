@@ -816,11 +816,32 @@ def register(mcp, db, logger):
             "duplikat_info": dup_info,
         }
 
+    def _get_active_custom_reasons() -> set:
+        """v45 (#663 C20, beta.85): Zusaetzlich erlaubte Custom-Gruende
+        aus der DB. is_custom=1 AND is_active=1. Kann fehlschlagen wenn
+        is_active-Spalte (noch) nicht da ist — dann leerer Set."""
+        try:
+            rows = db.get_dismiss_reasons() or []
+            return {
+                r["label"] for r in rows
+                if r.get("is_custom") and r.get("is_active", 1)
+            }
+        except Exception:
+            return set()
+
     def _normalize_reason_list(grund: str = "", gruende: list[str] = None) -> list[str]:
-        """Normalisiert Eingabe-Gruende auf erlaubte Werte (#302)."""
+        """Normalisiert Eingabe-Gruende auf erlaubte Werte (#302).
+
+        v45 (#663 C20, beta.85): Custom-Gruende des Users (aus
+        dismiss_reasons-Tabelle, is_custom=1, is_active=1) sind
+        zusaetzlich zur ABLEHNUNGSGRUENDE-Whitelist erlaubt — der
+        User hat sie explizit angelegt.
+        """
+        custom_allowed = _get_active_custom_reasons()
+        allowed = set(ABLEHNUNGSGRUENDE) | custom_allowed
         raw_reasons = [_normalize_dismiss_reason(r) for r in (gruende or ([grund] if grund else []))]
         return list(dict.fromkeys(
-            r if r in ABLEHNUNGSGRUENDE else "sonstiges" for r in raw_reasons
+            r if r in allowed else "sonstiges" for r in raw_reasons
         ))
 
     @mcp.tool()

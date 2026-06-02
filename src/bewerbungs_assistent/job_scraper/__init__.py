@@ -849,11 +849,27 @@ def run_search(db, job_id: str, params: dict):
         return getattr(mod, func_name)
 
     # #432: Filter out auto-deactivated scrapers
+    # #668 (B21, beta.85): ZUSAETZLICH zu is_active=0 jetzt auch
+    # consecutive_failures>=5 als "dauerhaft defekt" behandeln. Hintergrund:
+    # ferchau/gulp/heise_jobs/kimeta/solcom standen mit 8 Fehlern in
+    # Serie weiter auf is_active=1 (Auto-Deaktivierung griff nicht) und
+    # blockierten den Gesamt-Job bis zum 10-Min-Timeout. Hard-Skip-Schwelle
+    # = 5: kompromiss zwischen Toleranz und Selbstschutz.
     _deactivated = set()
+    _broken_skipped: dict[str, int] = {}
     try:
         for h in db.get_scraper_health():
+            name = h.get("scraper_name")
+            if not name:
+                continue
             if not h.get("is_active"):
-                _deactivated.add(h["scraper_name"])
+                _deactivated.add(name)
+                continue
+            # #668: dauerhaft defekt obwohl is_active=1
+            failures = h.get("consecutive_failures") or 0
+            if failures >= 5:
+                _deactivated.add(name)
+                _broken_skipped[name] = failures
     except Exception:
         pass
 
@@ -874,7 +890,16 @@ def run_search(db, job_id: str, params: dict):
                 "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
             skipped_sources.append(quelle)
         elif quelle in _deactivated:
-            logger.info("%s: Auto-deaktiviert (zu viele Fehler). Reaktivierung via scraper_diagnose().", quelle)
+            broken_n = _broken_skipped.get(quelle)
+            if broken_n:
+                # #668: dauerhaft-defekt-Skip (consecutive_failures >= 5)
+                logger.warning(
+                    "%s: Auto-skip — %d Fehler in Serie. Reaktivierung "
+                    "via scraper_diagnose().",
+                    quelle, broken_n,
+                )
+            else:
+                logger.info("%s: Auto-deaktiviert (zu viele Fehler). Reaktivierung via scraper_diagnose().", quelle)
             skipped_sources.append(quelle)
         elif quelle not in _SCRAPER_MAP:
             logger.warning("Unbekannte Quelle: %s", quelle)
@@ -896,6 +921,17 @@ def run_search(db, job_id: str, params: dict):
                 "count": 0,
                 "time_s": 0,
                 "detail": f"defekt: {defekt_skipped[q]}",
+            }
+        elif q in _broken_skipped:
+            # #668: dauerhaft defekt, automatisch geskippt
+            source_status[q] = {
+                "status": "skipped",
+                "count": 0,
+                "time_s": 0,
+                "detail": (
+                    f"auto-skip: {_broken_skipped[q]} Fehler in Serie. "
+                    "scraper_diagnose() zum Reaktivieren."
+                ),
             }
         else:
             source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}

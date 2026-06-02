@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 44
+SCHEMA_VERSION = 45
 
 
 def _gen_id() -> str:
@@ -258,6 +258,23 @@ class Database:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_documents_lifecycle "
                 "ON documents(lifecycle, profile_id)"
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        # v45 (#666 D19): Safety net fuer Task-Indizes. Analog zur v44-
+        # Begruendung — bei alten DBs ist die Tabelle erst nach _migrate da,
+        # die Indizes ziehen wir hier idempotent nach.
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_app ON tasks(application_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, faellig_am)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_profile ON tasks(profile_id, status)"
             )
             conn.commit()
         except Exception:
@@ -1779,6 +1796,64 @@ class Database:
                 logger.info("Migration v43->v44: documents.lifecycle + Index angelegt")
             except Exception as exc:
                 logger.warning("Lifecycle-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 45:
+            # v45 / v1.7.0-beta.85 (#666 D19): Generisches Task-System pro
+            # Bewerbung. Eigene Tabelle, NICHT generalisierte follow_ups —
+            # damit der bestehende Nachfass-Flow nicht touched wird.
+            #
+            # `typ`-Werte: custom | nachfass | termin | vorbereitung
+            # `status`: offen | erledigt | hinfaellig
+            #
+            # Plus: v45 (#663 Teil 1 / C20): dismiss_reasons.is_active
+            # damit der User Gruende deaktivieren kann ohne sie zu loeschen
+            # (Statistik bleibt erhalten).
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS tasks (
+                        id TEXT PRIMARY KEY,
+                        application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+                        profile_id TEXT,
+                        typ TEXT NOT NULL DEFAULT 'custom',
+                        titel TEXT NOT NULL,
+                        beschreibung TEXT,
+                        faellig_am TEXT,
+                        status TEXT NOT NULL DEFAULT 'offen',
+                        erledigt_am TEXT,
+                        notiz TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_tasks_app "
+                    "ON tasks(application_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_tasks_status "
+                    "ON tasks(status, faellig_am)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_tasks_profile "
+                    "ON tasks(profile_id, status)"
+                )
+                conn.commit()
+                logger.info("Migration v44->v45: tasks-Tabelle angelegt (#666 D19)")
+            except Exception as exc:
+                logger.warning("Tasks-Migration fehlgeschlagen: %s", exc)
+
+            # C20: dismiss_reasons.is_active (Standard 1 = aktiv)
+            try:
+                conn.execute(
+                    "ALTER TABLE dismiss_reasons ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+                )
+                conn.execute(
+                    "UPDATE dismiss_reasons SET is_active=1 WHERE is_active IS NULL"
+                )
+                conn.commit()
+                logger.info("Migration v44->v45: dismiss_reasons.is_active angelegt (#663 C20)")
+            except Exception as exc:
+                logger.warning("dismiss_reasons.is_active-Migration: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -6064,6 +6139,145 @@ class Database:
         "sonstiges": "Sonstiges",
     }
 
+    # === Tasks/Todos (v45, #666 D19) ===
+
+    _TASK_TYPES = ("custom", "nachfass", "termin", "vorbereitung")
+    _TASK_STATUS = ("offen", "erledigt", "hinfaellig")
+
+    def add_task(self, data: dict) -> str:
+        """Legt einen Todo/Task fuer eine Bewerbung an (#666 D19)."""
+        application_id = data.get("application_id")
+        if not application_id:
+            raise ValueError("application_id ist Pflicht")
+        titel = (data.get("titel") or "").strip()
+        if not titel:
+            raise ValueError("titel ist Pflicht")
+        typ = data.get("typ", "custom")
+        if typ not in self._TASK_TYPES:
+            typ = "custom"
+        tid = _gen_id()
+        profile_id = data.get("profile_id") or self.get_active_profile_id() or ""
+        conn = self.connect()
+        conn.execute("""
+            INSERT INTO tasks (id, application_id, profile_id, typ, titel,
+                beschreibung, faellig_am, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'offen', ?, ?)
+        """, (
+            tid, application_id, profile_id, typ, titel,
+            data.get("beschreibung") or "",
+            data.get("faellig_am") or None,
+            _now(), _now(),
+        ))
+        conn.commit()
+        return tid
+
+    def get_task(self, task_id: str) -> Optional[dict]:
+        conn = self.connect()
+        row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_tasks(
+        self,
+        application_id: str | None = None,
+        nur_offen: bool = False,
+        profile_id: str | None = None,
+    ) -> list[dict]:
+        """Listet Tasks. Default: alle Tasks des aktiven Profils."""
+        conn = self.connect()
+        clauses: list[str] = []
+        params: list = []
+        if application_id is not None:
+            clauses.append("application_id=?")
+            params.append(application_id)
+        if nur_offen:
+            clauses.append("status='offen'")
+        if profile_id is None:
+            profile_id = self.get_active_profile_id()
+        if profile_id:
+            clauses.append("(profile_id=? OR profile_id IS NULL OR profile_id='')")
+            params.append(profile_id)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = conn.execute(
+            f"SELECT * FROM tasks{where} "
+            "ORDER BY CASE status WHEN 'offen' THEN 0 ELSE 1 END, "
+            "COALESCE(faellig_am, '9999-12-31'), created_at",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def update_task(self, task_id: str, data: dict) -> bool:
+        """Update tasks-Felder (titel, beschreibung, faellig_am, typ, notiz)."""
+        conn = self.connect()
+        allowed = ("titel", "beschreibung", "faellig_am", "typ", "notiz")
+        fields, values = [], []
+        for k in allowed:
+            if k in data:
+                fields.append(f"{k}=?")
+                values.append(data[k])
+        if not fields:
+            return False
+        fields.append("updated_at=?")
+        values.extend([_now(), task_id])
+        cur = conn.execute(
+            f"UPDATE tasks SET {', '.join(fields)} WHERE id=?", values,
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def complete_task(self, task_id: str, status: str = "erledigt",
+                      notiz: str = "") -> bool:
+        if status not in self._TASK_STATUS:
+            raise ValueError(f"Ungueltiger Status: {status}")
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE tasks SET status=?, erledigt_am=?, notiz=COALESCE(NULLIF(?, ''), notiz), updated_at=? "
+            "WHERE id=?",
+            (status, _now(), notiz, _now(), task_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def reopen_task(self, task_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE tasks SET status='offen', erledigt_am=NULL, updated_at=? "
+            "WHERE id=?",
+            (_now(), task_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def delete_task(self, task_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM tasks WHERE id=?", (task_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+    # === Dismiss-Reason-Verwaltung erweitert (v45 C20, #663 Teil 1) ===
+    # add_dismiss_reason(label) -> int existiert bereits (Zeile 4939). Diese
+    # Helfer ergaenzen es: gezieltes Update + is_active-Toggle (Default 1
+    # via Migration). Die alte Signatur bleibt unveraendert.
+
+    def update_dismiss_reason(self, reason_id: int, label: str) -> bool:
+        label = (label or "").strip()
+        if not label:
+            raise ValueError("label ist Pflicht")
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE dismiss_reasons SET label=? WHERE id=?", (label, reason_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def set_dismiss_reason_active(self, reason_id: int, is_active: bool) -> bool:
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE dismiss_reasons SET is_active=? WHERE id=?",
+            (1 if is_active else 0, reason_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
     def add_follow_up(self, application_id: str, scheduled_date: str,
                       follow_up_type: str = "nachfass", template: str = "") -> str:
         """Schedule a follow-up for an application.
@@ -8254,8 +8468,29 @@ CREATE TABLE IF NOT EXISTS dismiss_reasons (
     is_custom INTEGER DEFAULT 0,
     usage_count INTEGER DEFAULT 0,
     profile_id TEXT,
-    created_at TEXT
+    created_at TEXT,
+    -- v45 (#663 C20): Deaktivierung statt Loeschen, damit Statistik erhalten bleibt
+    is_active INTEGER NOT NULL DEFAULT 1
 );
+
+-- v45 (#666 D19): Generisches Task/Todo-System pro Bewerbung
+CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    profile_id TEXT,
+    typ TEXT NOT NULL DEFAULT 'custom',
+    titel TEXT NOT NULL,
+    beschreibung TEXT,
+    faellig_am TEXT,
+    status TEXT NOT NULL DEFAULT 'offen',
+    erledigt_am TEXT,
+    notiz TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_app ON tasks(application_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, faellig_am);
+CREATE INDEX IF NOT EXISTS idx_tasks_profile ON tasks(profile_id, status);
 
 CREATE TABLE IF NOT EXISTS application_emails (
     id TEXT PRIMARY KEY,

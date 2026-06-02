@@ -4499,6 +4499,86 @@ async def api_add_dismiss_reason(request: Request):
     return {"status": "ok", "id": rid}
 
 
+# v45 (#663 C20, beta.85): Ablehnungsgruende-Verwaltung
+@app.patch("/api/dismiss-reasons/{reason_id}")
+async def api_update_dismiss_reason(reason_id: int, request: Request):
+    """Umbenennen + Aktiv-Toggle in einem Endpoint."""
+    data = await request.json()
+    if "label" in data:
+        try:
+            ok = _db.update_dismiss_reason(reason_id, data["label"])
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        if not ok:
+            return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    if "is_active" in data:
+        ok = _db.set_dismiss_reason_active(reason_id, bool(data["is_active"]))
+        if not ok:
+            return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok"}
+
+
+# v45 (#666 D19, beta.85): Tasks-API
+@app.get("/api/applications/{application_id}/tasks")
+async def api_list_tasks_for_app(application_id: str, offen: int = 0):
+    """Liefert Tasks fuer eine Bewerbung."""
+    return _db.list_tasks(application_id=application_id, nur_offen=bool(offen))
+
+
+@app.get("/api/tasks")
+async def api_list_all_tasks(offen: int = 0):
+    """Liefert alle Tasks des aktiven Profils."""
+    return _db.list_tasks(nur_offen=bool(offen))
+
+
+@app.post("/api/applications/{application_id}/tasks")
+async def api_add_task(application_id: str, request: Request):
+    data = await request.json()
+    if not (data.get("titel") or "").strip():
+        return JSONResponse({"error": "titel ist Pflicht"}, status_code=400)
+    try:
+        tid = _db.add_task({
+            "application_id": application_id,
+            "titel": data.get("titel"),
+            "beschreibung": data.get("beschreibung") or "",
+            "faellig_am": data.get("faellig_am") or None,
+            "typ": data.get("typ") or "custom",
+        })
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"status": "ok", "id": tid}
+
+
+@app.post("/api/tasks/{task_id}/complete")
+async def api_complete_task(task_id: str, request: Request):
+    payload = {}
+    try:
+        payload = await request.json()
+    except Exception:
+        pass
+    notiz = (payload or {}).get("notiz") or ""
+    ok = _db.complete_task(task_id, status="erledigt", notiz=notiz)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.post("/api/tasks/{task_id}/reopen")
+async def api_reopen_task(task_id: str):
+    ok = _db.reopen_task(task_id)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.delete("/api/tasks/{task_id}")
+async def api_delete_task(task_id: str):
+    ok = _db.delete_task(task_id)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok"}
+
+
 @app.get("/api/blacklist")
 async def api_blacklist():
     return _db.get_blacklist()

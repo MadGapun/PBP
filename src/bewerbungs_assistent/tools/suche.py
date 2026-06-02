@@ -414,3 +414,130 @@ def register(mcp, db, logger):
         """Listet alle gespeicherten Portal-Such-Profile (#564)."""
         items = db.list_portal_search_profiles()
         return {"profile": items, "anzahl": len(items)}
+
+    # === Ablehnungsgruende-Verwaltung (#663 C20, beta.85) ==================
+    # Erweitert die hardcoded Whitelist um User-Custom-Eintraege. is_custom=1
+    # + is_active=1 -> wird in stelle_bewerten zusaetzlich akzeptiert.
+
+    @mcp.tool()
+    def ablehnungsgruende_anzeigen(nur_aktiv: bool = False) -> dict:
+        """Listet alle Ablehnungsgruende (Standard + Custom) mit Verwendungs-Haeufigkeit (#663 C20).
+
+        Args:
+            nur_aktiv: True = nur aktive Gruende. False (Default) zeigt alle
+                inkl. deaktivierte.
+        """
+        rows = db.get_dismiss_reasons() or []
+        items = []
+        for r in rows:
+            entry = {
+                "id": r.get("id"),
+                "label": r.get("label"),
+                "is_custom": bool(r.get("is_custom")),
+                "usage_count": r.get("usage_count", 0),
+                "is_active": bool(r.get("is_active", 1)),
+                "created_at": r.get("created_at"),
+            }
+            if nur_aktiv and not entry["is_active"]:
+                continue
+            items.append(entry)
+        items.sort(key=lambda x: (-x["usage_count"], x["label"] or ""))
+        return {
+            "status": "ok",
+            "anzahl": len(items),
+            "gruende": items,
+        }
+
+    @mcp.tool()
+    def ablehnungsgrund_anlegen(label: str) -> dict:
+        """Legt einen neuen Custom-Ablehnungsgrund an (#663 C20).
+
+        Wenn der Grund schon existiert (gleicher Label im Profil-Scope),
+        wird das gemeldet ohne Duplikat anzulegen.
+
+        Args:
+            label: Kurzbezeichnung (z.B. 'kein_homeoffice', 'falsche_branche').
+                Snake_case empfohlen, Umlaute erlaubt.
+        """
+        label = (label or "").strip()
+        if not label:
+            return {"fehler": "label ist Pflicht."}
+        # Existenz-Check
+        try:
+            existing = next(
+                (r for r in (db.get_dismiss_reasons() or []) if r.get("label") == label),
+                None,
+            )
+            if existing:
+                return {
+                    "status": "bereits_vorhanden",
+                    "id": existing.get("id"),
+                    "label": label,
+                    "is_active": bool(existing.get("is_active", 1)),
+                    "hinweis": (
+                        "Nutze ablehnungsgrund_aktivieren_setzen(id, True) "
+                        "falls deaktiviert, oder ablehnungsgrund_umbenennen "
+                        "wenn du einen aehnlichen meintest."
+                    ),
+                }
+        except Exception:
+            pass
+        rid = db.add_dismiss_reason(label)
+        return {
+            "status": "angelegt",
+            "id": rid,
+            "label": label,
+            "is_custom": True,
+            "is_active": True,
+            "hinweis": (
+                "Custom-Grund ab sofort in stelle_bewerten/stellen_bulk_bewerten "
+                "akzeptiert. Mit ablehnungsgrund_aktivieren_setzen(id, False) "
+                "deaktivierbar."
+            ),
+        }
+
+    @mcp.tool()
+    def ablehnungsgrund_umbenennen(grund_id: int, neues_label: str) -> dict:
+        """Benennt einen Custom-Ablehnungsgrund um (#663 C20).
+
+        Hinweis: bereits gespeicherte dismiss_reason-Werte in der jobs-Tabelle
+        werden NICHT mit umgeschrieben. Diese behalten den alten Label-Wert
+        als historische Spur (Statistik-Treue).
+
+        Args:
+            grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
+            neues_label: Neuer Label-Text
+        """
+        try:
+            changed = db.update_dismiss_reason(grund_id, neues_label)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        if not changed:
+            return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+        return {
+            "status": "umbenannt",
+            "id": grund_id,
+            "neues_label": neues_label,
+        }
+
+    @mcp.tool()
+    def ablehnungsgrund_aktivieren_setzen(grund_id: int, aktiv: bool) -> dict:
+        """Aktiviert/Deaktiviert einen Ablehnungsgrund (#663 C20).
+
+        Deaktivierte Gruende werden nicht mehr in stelle_bewerten akzeptiert
+        (Treffer fallen auf 'sonstiges' zurueck), bleiben aber in
+        ablehnungsgruende_anzeigen() sichtbar mit `is_active=False` und in
+        den Statistiken erhalten.
+
+        Args:
+            grund_id: ID des Grunds
+            aktiv: True = aktivieren, False = deaktivieren
+        """
+        changed = db.set_dismiss_reason_active(grund_id, bool(aktiv))
+        if not changed:
+            return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+        return {
+            "status": "aktualisiert",
+            "id": grund_id,
+            "is_active": bool(aktiv),
+        }
