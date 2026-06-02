@@ -87,6 +87,7 @@ EXPECTED_TOOL_NAMES = {
     "jobsuche_status",
     "stelle_bewerten",
     "stelle_reaktivieren",
+    "stelle_wiedergaenger_pruefen",
     "todo_anlegen",
     "todo_erledigen",
     "todo_reaktivieren",
@@ -301,7 +302,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 170  # v1.7.0-beta.85: + 4 todo_* (#666 D19) + 4 ablehnungsgrund_* (#663 C20)
+        assert len(tools) == 171  # v1.7.0-beta.86 (#671): + stelle_wiedergaenger_pruefen
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

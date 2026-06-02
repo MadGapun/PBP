@@ -16,6 +16,79 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.86] - 2026-06-02 — Wiedergaenger-Erkenner, KI-frei (#671)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+13 neue Tests, 1597 passed.** Keine Schema-Aenderung. **Komplett ohne lokale KI** (Architektur-Leitplanke aus #671).
+
+### Hintergrund (#671)
+
+Dieselbe Stelle (bzw. ihre Geschwister derselben Firma + Domaene) taucht ueber verschiedene Scrapes immer wieder als "neuer Fund" auf und wird jedes Mal bis zur vollen Detailbewertung durchgeschleift — obwohl sie schon mehrfach aus identischem Grund verworfen wurde. Konkret: Tchibo GmbH PLM-Rolle wurde 2x als `falsches_fachgebiet` aussortiert, taucht beim 3. Scrape (neuer Hash, andere Quelle) wieder als frischer Fund auf.
+
+**Architektur-Leitplanke (User-Vorgabe):** PBP-Kernfunktionen duerfen lokale KI NIE voraussetzen. Manche User wollen bewusst gar kein Ollama. Daher die gestufte Verteidigung:
+
+- **Ebene 0 — deterministischer DB-Check (immer, ohne KI):** traegt das Feature allein.
+- **Ebene 1 — Ollama (optional):** semantische Verfeinerung — in dieser Beta NICHT enthalten, bleibt Plan-Item F16-Sub.
+- **Ebene 2 — Claude-Kontext in `fit_analyse`:** greift unabhaengig von Ollama.
+
+beta.86 liefert **Ebene 0 + Ebene 2** — beide KI-frei.
+
+### Added
+
+- **`services/wiedergaenger.py`** (Ebene 0, reines Python): `find_wiedergaenger_pattern(db, company, title, schwellwert=2)` sucht aussortierte Stellen DERSELBEN FIRMA mit Titel-Domaenen-Token-Ueberlappung, aggregiert nach `dismiss_reason`. Firmen-Normalisierung (Rechtsform-Suffixe raus: "Tchibo GmbH" == "Tchibo"), Domaenen-Token-Extraktion (generische Rollen-/Gender-Woerter raus, nur fachliche Tokens wie "plm" zaehlen als Ueberlappung). `auto:`-Prefix-Normalisierung.
+- **MCP-Tool `stelle_wiedergaenger_pruefen(job_hash="", firma="", titel="", schwellwert=2, auto_aussortieren=False)`** — exponiert Ebene 0. Mit `auto_aussortieren=True` + `job_hash` wird die Stelle direkt mit `dismiss_reason='wiedergaenger:<grund>'` aussortiert. Default nur melden.
+- **Ebene 2 in `fit_analyse`:** firma-verankerter Wiedergaenger-Check (im Gegensatz zum bestehenden token-Jaccard `outcome_pattern`, das ueber alle Firmen geht). Neues Result-Feld `wiedergaenger` + Risk-Eintrag.
+- 13 neue Tests in `tests/test_v17_wiedergaenger_671.py` — alle ohne Ollama.
+
+### Changed
+
+- **`_build_empfehlung` (fit_analyse-Verdict):** ein Wiedergaenger mit **fachlichem** k.o.-Grund (`falsches_fachgebiet`/`zu_junior`/`zu_senior`/`kein_hochschulabschluss`/`unpassendes_arbeitsmodell`) und `anzahl >= 2` setzt die Empfehlung auf `NICHT_EMPFOHLEN`. Nicht-fachliche Gruende (Gehalt, Entfernung) taugen NICHT als k.o. — die koennen sich aendern.
+- MCP-Tool-Count: 170 → **171**.
+
+### Abgrenzung zu #670
+
+- **#670** (active duplicates): identische *aktive* Stellen derselben Firma → Anlage-Block.
+- **#671** (revenants): frueher *verworfene* Stellen, die wiederkommen → Auto-Markierung/Aussortierung.
+
+### Schema
+
+**Keine Schema-Aenderung.** Nutzt die bestehende `jobs`-Tabelle (`is_active=0` + `dismiss_reason`). Schema bleibt v45.
+
+### Bekannt nicht enthalten
+
+- **Ebene 1 (Ollama-Verfeinerung):** optional, separate Beta. Plan-Sub-Item zu F16.
+- **Auto-Engine-Step** der neue Stellen beim Scrapen automatisch gegen die Wiedergaenger-Historie prueft — kommt separat. Aktuell: Tool-Aufruf durch Claude + fit_analyse-Kontext.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.86.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.86.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.85] - 2026-06-02 — Backend-Bundle: Tasks + Ablehnungsgrunde-Editor + Scraper-Auto-Skip (#666 + #663 + #668)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Backend-only.** Schema-Aenderung v44→v45 mit Auto-Backup. **+22 neue Tests, 1584 passed.**

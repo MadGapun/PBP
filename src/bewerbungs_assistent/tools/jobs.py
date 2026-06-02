@@ -33,8 +33,24 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
     missing_muss = fit_result.get("missing_muss") or []
     desc_ok = fit_result.get("beschreibung_vorhanden", True)
     degree_required = fit_result.get("hochschulabschluss_gefordert", False)
+    # v1.7.0-beta.86 (#671 Ebene 2): Wiedergaenger als k.o.-Signal — aber NUR
+    # bei fachlichen Gruenden (falsches_fachgebiet etc.). Gehalt/Entfernung
+    # koennen sich aendern, taugen nicht als k.o.
+    wiedergaenger = fit_result.get("wiedergaenger") or {}
+    _FACHLICHE_KO_GRUENDE = {
+        "falsches_fachgebiet", "zu_junior", "zu_senior",
+        "kein_hochschulabschluss", "unpassendes_arbeitsmodell",
+    }
 
     ko_gruende: list[str] = []
+    if (wiedergaenger and wiedergaenger.get("anzahl", 0) >= 2
+            and wiedergaenger.get("top_grund") in _FACHLICHE_KO_GRUENDE):
+        ko_gruende.append(
+            f"Wiedergaenger: Firma '{wiedergaenger.get('firma')}' wurde "
+            f"bereits {wiedergaenger['anzahl']}x mit fachlichem k.o.-Grund "
+            f"'{wiedergaenger['top_grund']}' aussortiert — sehr wahrscheinlich "
+            "erneut nicht passend."
+        )
     if not desc_ok:
         ko_gruende.append(
             "Stellenbeschreibung fehlt — keine fachliche Bewertung moeglich. "
@@ -996,6 +1012,104 @@ def register(mcp, db, logger):
                 "aussortieren."
             ),
         }
+
+    @mcp.tool()
+    def stelle_wiedergaenger_pruefen(
+        job_hash: str = "",
+        firma: str = "",
+        titel: str = "",
+        schwellwert: int = 2,
+        auto_aussortieren: bool = False,
+    ) -> dict:
+        """Prueft ob eine Stelle ein "Wiedergaenger" ist (#671, Ebene 0, KI-frei).
+
+        Ein Wiedergaenger ist eine Stelle, die inhaltlich derselben Firma +
+        Domaene entspricht, die bereits frueher mehrfach mit demselben Grund
+        aussortiert wurde — taucht aber unter neuem Hash (anderer Scrape/Quelle)
+        wieder als "frischer Fund" auf. Beispiel: Firma X + Domaene "PLM" wurde
+        schon 2x als `falsches_fachgebiet` verworfen.
+
+        **Rein deterministisch (Ebene 0) — keine lokale KI noetig.** Das Feature
+        funktioniert vollstaendig auch in Installationen ohne Ollama. Eine
+        optionale Ollama-Verfeinerung (Ebene 1) und der Claude-Kontext in
+        `fit_analyse` (Ebene 2) bauen darauf auf, sind aber nicht erforderlich.
+
+        Args:
+            job_hash: Optional. Hash der zu pruefenden Stelle — Firma/Titel
+                werden daraus gelesen. Ueberschreibt firma/titel.
+            firma: Firmenname (wenn kein job_hash gegeben).
+            titel: Stellentitel (wenn kein job_hash gegeben).
+            schwellwert: Ab wie vielen frueheren Aussortierungen mit gleichem
+                Grund als Wiedergaenger gilt (Default 2).
+            auto_aussortieren: Wenn True UND ein job_hash gegeben UND ein klares
+                Muster: die Stelle direkt mit dem Top-Grund aussortieren
+                (dismiss_reason = 'wiedergaenger:<grund>'). Default False
+                (nur melden).
+        """
+        from ..services.wiedergaenger import find_wiedergaenger_pattern
+
+        resolved_hash = None
+        if job_hash:
+            from ..services.typed_ids import strip_prefix
+            resolved_hash = db.resolve_job_hash(strip_prefix(job_hash))
+            if not resolved_hash:
+                return {"fehler": "Stelle nicht gefunden. Pruefe Hash mit stellen_anzeigen()."}
+            job = db.get_job(resolved_hash)
+            if not job:
+                return {"fehler": "Stelle nicht gefunden."}
+            firma = job.get("company", "") or firma
+            titel = job.get("title", "") or titel
+
+        if not (firma or "").strip():
+            return {"fehler": "firma (oder job_hash) ist Pflicht."}
+
+        pattern = find_wiedergaenger_pattern(
+            db, firma, titel,
+            schwellwert=max(1, int(schwellwert or 2)),
+            target_hash=resolved_hash,
+        )
+
+        if not pattern:
+            return {
+                "status": "kein_wiedergaenger",
+                "firma": firma,
+                "titel": titel,
+                "hinweis": (
+                    "Keine ausreichende Aussortier-Historie fuer diese "
+                    "Firma+Domaene gefunden — als Neufund behandeln."
+                ),
+            }
+
+        result = {
+            "status": "wiedergaenger",
+            "firma": firma,
+            "titel": titel,
+            "top_grund": pattern["top_grund"],
+            "anzahl_frueher_aussortiert": pattern["anzahl"],
+            "domain_tokens": pattern["domain_tokens"],
+            "alle_gruende": pattern["alle_gruende"],
+            "beispiele": pattern["beispiele"],
+            "empfehlung": (
+                f"Diese Stelle gleicht {pattern['anzahl']} frueher als "
+                f"'{pattern['top_grund']}' aussortierten Stellen derselben "
+                "Firma+Domaene. Wahrscheinlich erneut nicht passend — pruefen "
+                "ob sich etwas geaendert hat, sonst aussortieren."
+            ),
+        }
+
+        # Auto-Aussortieren nur bei explizitem Flag + vorhandenem Hash
+        if auto_aussortieren and resolved_hash:
+            try:
+                db.dismiss_job(resolved_hash, f"wiedergaenger:{pattern['top_grund']}")
+                result["aktion"] = "auto_aussortiert"
+                result["dismiss_reason"] = f"wiedergaenger:{pattern['top_grund']}"
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Wiedergaenger-Auto-Aussortieren fehlgeschlagen: %s", exc)
+                result["aktion"] = "aussortieren_fehlgeschlagen"
+        else:
+            result["aktion"] = "nur_gemeldet"
+
+        return result
 
     @mcp.tool()
     @time_tool(logger, "stellen_bulk_bewerten")
@@ -2444,6 +2558,32 @@ def register(mcp, db, logger):
                 result["outcome_pattern"] = outcome_warning
         except Exception as exc:
             logger.warning("Outcome-Pattern-Check fuer %s fehlgeschlagen: %s",
+                           job_hash, exc)
+
+        # v1.7.0-beta.86 (#671 Ebene 2): Wiedergaenger-Kontext. Firma-
+        # verankert (im Gegensatz zum token-Jaccard outcome_pattern oben,
+        # das ueber alle Firmen geht). Liefert "Firma X + Domaene Y schon
+        # N-mal als Z verworfen" — als starkes Signal in die Empfehlung.
+        # KI-frei (Ebene 0 traegt das), greift auch ohne Ollama.
+        try:
+            from ..services.wiedergaenger import find_wiedergaenger_pattern
+            wg = find_wiedergaenger_pattern(
+                db,
+                job_dict.get("company", ""),
+                job_dict.get("title", ""),
+                schwellwert=2,
+                target_hash=job_dict.get("hash"),
+            )
+            if wg:
+                if "risks" not in result or not isinstance(result["risks"], list):
+                    result["risks"] = []
+                result["risks"].append(
+                    f"WIEDERGAENGER: {wg['hinweis']} "
+                    "Wahrscheinlich erneut nicht passend."
+                )
+                result["wiedergaenger"] = wg
+        except Exception as exc:
+            logger.warning("Wiedergaenger-Check fuer %s fehlgeschlagen: %s",
                            job_hash, exc)
 
         # v1.7.0-beta.81 (#662): Klare 3-Stufen-Empfehlung im Result.
