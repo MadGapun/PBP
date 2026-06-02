@@ -922,6 +922,61 @@ def register(mcp, db, logger):
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
     @mcp.tool()
+    def stelle_reaktivieren(job_hash: str, grund: str = "") -> dict:
+        """Reaktiviert eine zuvor aussortierte Stelle (#664).
+
+        Setzt `is_active=1` und loescht `dismiss_reason`. Gegenstueck zu
+        `stelle_bewerten('passt_nicht')` — analog zu `dokument_reaktivieren()`
+        fuer Dokumente. Notwendig wenn Claude oder der User eine Stelle
+        irrtuemlich aussortiert hat und sie wieder in der aktiven Liste
+        haben moechte, ohne ueber den DB-Bypass zu gehen (#514).
+
+        Args:
+            job_hash: Hash der Stelle (8-Zeichen-Kurzform oder voll).
+            grund: Optionaler Hinweis warum reaktiviert wird (z.B.
+                "Irrtum — Firma nicht auf Blacklist"). Wird im Result
+                zurueckgegeben, nicht persistiert.
+        """
+        from ..services.typed_ids import strip_prefix
+        h = strip_prefix(job_hash)
+        target_hash = db.resolve_job_hash(h)
+        if not target_hash:
+            return {
+                "fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."
+            }
+        job_before = db.get_job(target_hash)
+        if not job_before:
+            return {"fehler": "Stelle nicht gefunden."}
+
+        war_aktiv = bool(job_before.get("is_active"))
+        alter_grund = job_before.get("dismiss_reason") or ""
+
+        if war_aktiv and not alter_grund:
+            return {
+                "status": "bereits_aktiv",
+                "job_hash": target_hash[:8],
+                "titel": job_before.get("title", ""),
+                "firma": job_before.get("company", ""),
+                "hinweis": "Stelle war bereits aktiv — nichts zu tun.",
+            }
+
+        db.restore_job(target_hash)
+
+        return {
+            "status": "reaktiviert",
+            "job_hash": target_hash[:8],
+            "titel": job_before.get("title", ""),
+            "firma": job_before.get("company", ""),
+            "vorheriger_dismiss_reason": alter_grund or None,
+            "grund": grund or None,
+            "hinweis": (
+                "Stelle ist wieder aktiv und erscheint in stellen_anzeigen() "
+                "+ fit_analyse(). Bei Bedarf erneut mit stelle_bewerten() "
+                "aussortieren."
+            ),
+        }
+
+    @mcp.tool()
     @time_tool(logger, "stellen_bulk_bewerten")
     def stellen_bulk_bewerten(
         bewertung: str,

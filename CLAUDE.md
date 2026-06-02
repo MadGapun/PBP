@@ -221,7 +221,18 @@ Bevor ein neuer Release gebaut wird:
 6. **Pre-Release-Pause:** vor `git commit` einmal kurz reflektieren (Risiko-
    Tabelle pro Issue, was kann brechen, was ist nur additiv) und nochmal
    testen. User hat das explizit eingefordert.
-7. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
+7. **⛔ Pre-Release-Issue-Check (HART, seit beta.82):** UNMITTELBAR
+   bevor `gh release create` laeuft, IMMER die aktuelle Liste offener
+   Issues auf GitHub abrufen (`gh issue list --state open --json
+   number,title,createdAt,labels --limit 30`) und mit den in der Session
+   adressierten Issues abgleichen. Wenn ein neues Issue dazwischen
+   gekommen ist, das in diesen Release gehoert haette (Bug oder
+   prompt-relevant), den Release zurueckhalten und das Issue noch
+   mitnehmen. **Lieber 5 Minuten warten als einen Release nachschieben.**
+   Hintergrund: am 2026-06-02 wurde beta.81 zu frueh veroeffentlicht;
+   waehrend Tests + CHANGELOG liefen, kam #664 rein und musste in eine
+   hektische beta.82 nachgezogen werden.
+8. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
 
 ## GitHub-Release-Notes — Pflicht-Block
 

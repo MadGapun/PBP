@@ -16,6 +16,59 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.82] - 2026-06-02 — `stelle_reaktivieren` + Pre-Release-Issue-Check (#664)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Nachzieher zu beta.81 fuer Issue #664 — das waehrend des beta.81-Release-Prozesses dazwischen kam. **+5 neue Tests, 1545 passed.** Keine Schema-Aenderung.
+
+### Added
+
+- **#664 (enhancement)** Neues MCP-Tool `stelle_reaktivieren(job_hash, grund="")` — Gegenstueck zu `stelle_bewerten('passt_nicht')`. Setzt `is_active=1`, loescht `dismiss_reason`, idempotent bei bereits aktiven Stellen. Analog zu `dokument_reaktivieren()` aus beta.79. Schliesst eine konkrete Luecke im Anti-DB-Bypass-Pattern (#514, H9) — vorher musste Claude bei einer irrtuemlich aussortierten Stelle in den DB-Bypass.
+- 5 neue Tests in `tests/test_v17_stelle_reaktivieren_664.py`: Standard-Reaktivierung, Kurzhash-Aufloesung, Idempotenz, Fehlerpfad, End-to-End-Check (Stelle taucht wieder in `stellen_anzeigen()` auf).
+
+### Changed
+
+- **CLAUDE.md**: neuer Pflicht-Schritt im Release-Workflow:
+  > **Pre-Release-Issue-Check (HART, seit beta.82):** unmittelbar vor `gh release create` IMMER die aktuelle offene Issue-Liste auf GitHub abrufen und mit den in der Session adressierten Issues abgleichen. Wenn ein neues Issue dazwischen gekommen ist, das in diesen Release gehoert haette, den Release zurueckhalten.
+
+  Hintergrund: beta.81 wurde zu frueh veroeffentlicht — waehrend Tests + CHANGELOG liefen, kam #664 rein und musste in eine hektische beta.82 nachgezogen werden. Diese Regel verhindert das Wiederholen.
+- MCP-Tool-Count: 161 → **162**.
+
+### Schema
+
+**Keine Schema-Aenderung.** beta.82 ist additiv (ein neues Tool + CLAUDE.md-Regel). Schema bleibt v44.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.82.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.82.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. \`C:\PBP\`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **\`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.81] - 2026-06-02 — User-Test-Findings (#659 + #661 + #662 + #663)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Vier Bug- und Prompt-Findings aus dem Live-Test von beta.80 — alle additiv. **+14 neue Tests, 1540 passed.** Keine Schema-Aenderung.
