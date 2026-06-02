@@ -2060,6 +2060,10 @@ export default function SettingsPage() {
     taetigkeitsbericht_mode: false,
   });
   const [reportSaving, setReportSaving] = useState(false);
+  // #663 (C20): Ablehnungsgruende-Editor
+  const [dismissReasons, setDismissReasons] = useState([]);
+  const [newReason, setNewReason] = useState("");
+  const [reasonBusy, setReasonBusy] = useState(false);
   const loginPollersRef = useRef(new Map());
 
   // Handle incoming tab intent from navigateTo (#420)
@@ -2082,7 +2086,7 @@ export default function SettingsPage() {
 
   const loadPage = useEffectEvent(async () => {
     try {
-      const [sourceRows, logsData, impulseData, healthData, privacyData, followupData, reportData] = await Promise.all([
+      const [sourceRows, logsData, impulseData, healthData, privacyData, followupData, reportData, reasonsData] = await Promise.all([
         api("/api/sources"),
         api("/api/logs?lines=100"),
         api("/api/daily-impulse").catch(() => null),
@@ -2090,6 +2094,7 @@ export default function SettingsPage() {
         api("/api/privacy-info").catch(() => null),
         api("/api/settings/followup").catch(() => null),
         api("/api/settings/report").catch(() => null),
+        api("/api/dismiss-reasons").catch(() => []),
       ]);
       startTransition(() => {
         setSources(sourceRows || []);
@@ -2099,6 +2104,7 @@ export default function SettingsPage() {
         setPrivacy(privacyData);
         if (followupData) setFollowupSettings(followupData);
         if (reportData) setReportSettings((prev) => ({ ...prev, ...reportData }));
+        setDismissReasons(Array.isArray(reasonsData) ? reasonsData : []);
         setLoading(false);
       });
     } catch (error) {
@@ -2319,12 +2325,51 @@ export default function SettingsPage() {
     }
   }
 
+  // #663 (C20): Ablehnungsgruende-Editor-Handler
+  async function reloadDismissReasons() {
+    try {
+      const data = await api("/api/dismiss-reasons");
+      setDismissReasons(Array.isArray(data) ? data : []);
+    } catch {
+      /* still */
+    }
+  }
+
+  async function handleAddReason() {
+    const label = (newReason || "").trim();
+    if (!label) return;
+    setReasonBusy(true);
+    try {
+      await postJson("/api/dismiss-reasons", { label });
+      setNewReason("");
+      await reloadDismissReasons();
+      pushToast(`Ablehnungsgrund "${label}" angelegt.`, "success");
+    } catch (error) {
+      pushToast(error?.message || "Konnte Grund nicht anlegen.", "danger");
+    } finally {
+      setReasonBusy(false);
+    }
+  }
+
+  async function handleToggleReason(reason) {
+    try {
+      await api(`/api/dismiss-reasons/${reason.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: reason.is_active ? 0 : 1 }),
+      });
+      await reloadDismissReasons();
+    } catch (error) {
+      pushToast(error?.message || "Konnte Status nicht aendern.", "danger");
+    }
+  }
+
   if (loading) return <LoadingPanel label="Einstellungen werden geladen..." />;
 
   const tabs = [
     { id: "quellen", label: "Quellen" },
     { id: "ai", label: "Lokale KI" },
     { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
+    { id: "bewerten", label: "Bewertung" },  // #663 C20
     { id: "system", label: "System" },
     { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },
@@ -2411,6 +2456,68 @@ export default function SettingsPage() {
         )}
 
         {settingsTab === "automatik" && <AutoActionsTab pushToast={pushToast} />}
+
+        {/* ── Bewertung Tab: Ablehnungsgruende-Editor (#663 C20) ── */}
+        {settingsTab === "bewerten" && (
+          <Card className="rounded-2xl">
+            <SectionHeading
+              title="Ablehnungsgruende"
+              description="Eigene Gruende fuer 'passt nicht' anlegen oder deaktivieren. Aktive Gruende stehen Claude bei stelle_bewerten zur Verfuegung. Deaktivierte bleiben in der Statistik erhalten, werden aber nicht mehr vorgeschlagen."
+            />
+            <div className="mt-4 grid gap-2">
+              {dismissReasons.length === 0 && (
+                <p className="text-sm text-muted/60">Noch keine Ablehnungsgruende vorhanden.</p>
+              )}
+              {dismissReasons
+                .slice()
+                .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
+                .map((reason) => {
+                  const active = reason.is_active === undefined ? true : Boolean(reason.is_active);
+                  return (
+                    <div
+                      key={reason.id ?? reason.label}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-white/5 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-sm ${active ? "text-ink" : "text-muted/40 line-through"}`}>
+                          {reason.label}
+                        </span>
+                        {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
+                        {reason.usage_count ? (
+                          <span className="text-xs text-muted/50">{reason.usage_count}x</span>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => handleToggleReason(reason)}
+                      >
+                        {active ? "Deaktivieren" : "Aktivieren"}
+                      </Button>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="mt-4 flex items-end gap-2">
+              <Field label="Neuer Grund (z.B. kein_homeoffice)" className="flex-1">
+                <TextInput
+                  value={newReason}
+                  onChange={(event) => setNewReason(event.target.value)}
+                  placeholder="snake_case empfohlen"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleAddReason();
+                    }
+                  }}
+                />
+              </Field>
+              <Button type="button" onClick={handleAddReason} disabled={reasonBusy || !newReason.trim()}>
+                Hinzufuegen
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
         {settingsTab === "system" && (

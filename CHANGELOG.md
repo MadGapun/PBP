@@ -16,6 +16,59 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.90] - 2026-06-02 — Frontend: Ablehnungsgruende-Editor + Tasks + Direkt-Abhaken (#663 C20 + #666 D19 + #665 D18)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Schliesst die Frontend-Reihe ab (C20/D18/D19). Build gruen. **Blind gebaut — bitte morgen visuell gegenchecken.**
+
+### Added — Frontend
+
+- **#663 (C20): Ablehnungsgruende-Editor** — neuer Tab "Bewertung" in den Einstellungen. Listet alle Gruende (mit Verwendungs-Haeufigkeit + "eigen"-Badge), erlaubt Anlegen neuer Custom-Gruende und Aktivieren/Deaktivieren bestehender. Verdrahtet an `/api/dismiss-reasons` (GET/POST/PATCH). Aktive Custom-Gruende stehen Claude bei `stelle_bewerten` zur Verfuegung (dynamische Whitelist aus beta.85).
+- **#666 (D19): Aufgaben-Sektion im Bewerbungs-Detail** — Tasks/Todos pro Bewerbung in der Timeline-Ansicht. Anlegen (Titel + Enter), Abhaken (Toggle erledigt/offen), Loeschen. Zeigt "(N offen)" im Header. Verdrahtet an `/api/applications/{id}/tasks` + `/api/tasks/{id}/complete|reopen` + DELETE.
+- **#665 (D18): Direkt-Abhaken-Button** — Check-Icon auf jeder Follow-up-Zeile in "Offene Aktionen". Ein Klick markiert den Nachfass als erledigt (`/api/follow-ups/{id}/complete`), ohne Umweg ueber Timeline oder Claude. `stopPropagation`, damit der Zeilen-Klick (Timeline oeffnen) nicht mit ausgeloest wird.
+
+### Bug gefangen beim Bauen
+
+- C20-Toast-Aufrufe nutzten faelschlich die Objekt-Form `pushToast({tone, message})` — die echte Signatur ist positional `pushToast(message, tone)`. Vor dem Build korrigiert (haette sonst `[object Object]`-Toasts gezeigt). Genau die Klasse Fehler, die ein gruener Build nicht faengt — daher der Hinweis: morgen visuell pruefen.
+
+### Frontend-Build
+
+- `pnpm exec vite build` gruen. Neue Assets committed, alte Hash-Datei entfernt. **Damit ist Cluster-Frontend B20/C20/D18/D19 komplett.**
+
+### Schema
+
+**Keine Schema-Aenderung.** Reine Frontend-Arbeit gegen bestehende REST-Endpoints (beta.85). Schema bleibt v45.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.90.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.90.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.89] - 2026-06-02 — Frontend: Minus-Keywords-Sektion (#667 B20)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Erste **Frontend**-Beta der B20/C20/D18/D19-Reihe. Keine neuen Tests (Backend unveraendert), Frontend gebaut.

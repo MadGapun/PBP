@@ -125,6 +125,9 @@ export default function ApplicationsPage() {
   const [timelineStatusDraft, setTimelineStatusDraft] = useState(EMPTY_APPLICATION.status);
   const [timelineMeetings, setTimelineMeetings] = useState([]);
   const [timelineEmails, setTimelineEmails] = useState([]);
+  // #666 (D19): Tasks/Todos pro Bewerbung
+  const [timelineTasks, setTimelineTasks] = useState([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
   const [researchDraft, setResearchDraft] = useState("");
   const [researchSaving, setResearchSaving] = useState(false);
 
@@ -161,6 +164,19 @@ export default function ApplicationsPage() {
     setLoading(true);
     loadPage();
   }, [reloadKey, includeArchivedDataset]);
+
+  // #665 (D18): Follow-up direkt aus der "Offene Aktionen"-Liste abhaken,
+  // ohne Umweg ueber Claude oder die Timeline.
+  async function completeFollowUp(followUpId, event) {
+    if (event) event.stopPropagation();
+    try {
+      await postJson(`/api/follow-ups/${followUpId}/complete`, {});
+      pushToast("Nachfass als erledigt markiert.", "success");
+      loadPage();
+    } catch (error) {
+      pushToast(`Konnte nicht abhaken: ${error.message}`, "danger");
+    }
+  }
 
   // #483/#484/#485: Dashboard-TODOs uebergeben ein `filter`-Intent, das wir
   // auf die lokalen Filter / Special-Filter abbilden. Bisher gesetzte Filter
@@ -250,17 +266,20 @@ export default function ApplicationsPage() {
 
   async function openTimeline(application) {
     try {
-      const [timeline, docs, meetings, emails] = await Promise.all([
+      const [timeline, docs, meetings, emails, tasks] = await Promise.all([
         api(`/api/application/${application.id}/timeline`),
         api("/api/documents"),
         api(`/api/applications/${application.id}/meetings`).catch(() => ({ meetings: [] })),
         api(`/api/applications/${application.id}/emails`).catch(() => ({ emails: [] })),
+        api(`/api/applications/${application.id}/tasks`).catch(() => []),  // #666 D19
       ]);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
       setTimelineMeetings(meetings?.meetings || []);
       setTimelineEmails(emails?.emails || []);
+      setTimelineTasks(Array.isArray(tasks) ? tasks : []);
+      setNewTaskTitle("");
       setResearchDraft(timeline?.job?.research_notes || "");
       setNewNoteText("");
       setEditingNoteId(null);
@@ -276,6 +295,50 @@ export default function ApplicationsPage() {
       setTimelineDialog((current) => ({ ...current, entry: timeline }));
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
     } catch { /* silent */ }
+  }
+
+  // #666 (D19): Task-Handler im Bewerbungs-Detail
+  async function reloadTimelineTasks(appId) {
+    try {
+      const tasks = await api(`/api/applications/${appId}/tasks`);
+      setTimelineTasks(Array.isArray(tasks) ? tasks : []);
+    } catch { /* silent */ }
+  }
+
+  async function addTimelineTask() {
+    const appId = timelineDialog.entry?.application?.id;
+    const titel = (newTaskTitle || "").trim();
+    if (!appId || !titel) return;
+    try {
+      await postJson(`/api/applications/${appId}/tasks`, { titel });
+      setNewTaskTitle("");
+      await reloadTimelineTasks(appId);
+    } catch (error) {
+      pushToast(`Todo konnte nicht angelegt werden: ${error.message}`, "danger");
+    }
+  }
+
+  async function toggleTimelineTask(task) {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    const done = task.status === "erledigt";
+    try {
+      await postJson(`/api/tasks/${task.id}/${done ? "reopen" : "complete"}`, {});
+      await reloadTimelineTasks(appId);
+    } catch (error) {
+      pushToast(`Todo-Status fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  async function deleteTimelineTask(task) {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId) return;
+    try {
+      await deleteRequest(`/api/tasks/${task.id}`);
+      await reloadTimelineTasks(appId);
+    } catch (error) {
+      pushToast(`Todo loeschen fehlgeschlagen: ${error.message}`, "danger");
+    }
   }
 
   async function updateTimelineStatus(status) {
@@ -682,6 +745,15 @@ export default function ApplicationsPage() {
                     <span className="flex-1 min-w-0 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
                     <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
                     <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
+                    {/* #665 (D18): Direkt-Abhaken ohne Umweg */}
+                    <button
+                      type="button"
+                      title="Als erledigt markieren"
+                      onClick={(event) => completeFollowUp(followUp.id, event)}
+                      className="shrink-0 rounded-md p-1 text-teal/70 hover:bg-teal/10 hover:text-teal transition-colors"
+                    >
+                      <Check size={15} />
+                    </button>
                   </div>
                 ))}
                 {followUps.length > 5 && (
@@ -1310,6 +1382,62 @@ export default function ApplicationsPage() {
             applicationId={timelineDialog.entry?.application?.id}
             pushToast={pushToast}
           />
+
+          {/* Todos/Tasks for this application (#666 D19) */}
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              <Check size={12} className="mr-1 inline" />
+              Aufgaben ({timelineTasks.filter((t) => t.status === "offen").length} offen)
+            </p>
+            <div className="mt-2 grid gap-1.5">
+              {timelineTasks.length === 0 && (
+                <p className="text-xs text-muted/50 px-1">Noch keine Aufgaben. Lege unten eine an.</p>
+              )}
+              {timelineTasks.map((task) => {
+                const done = task.status === "erledigt";
+                return (
+                  <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${done ? "opacity-50" : "bg-white/[0.03] border border-white/5"}`}>
+                    <button
+                      type="button"
+                      title={done ? "Wieder oeffnen" : "Erledigt"}
+                      onClick={() => toggleTimelineTask(task)}
+                      className={`shrink-0 rounded-md p-1 transition-colors ${done ? "text-teal" : "text-muted/40 hover:text-teal hover:bg-teal/10"}`}
+                    >
+                      <Check size={14} />
+                    </button>
+                    <span className={`flex-1 min-w-0 truncate text-sm ${done ? "text-muted/40 line-through" : "text-ink"}`}>
+                      {task.titel}
+                      {task.faellig_am ? <span className="ml-2 text-xs text-muted/50">{formatDate(task.faellig_am)}</span> : null}
+                    </span>
+                    <button
+                      type="button"
+                      title="Loeschen"
+                      onClick={() => deleteTimelineTask(task)}
+                      className="shrink-0 rounded-md p-1 text-muted/30 hover:text-coral hover:bg-coral/10 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <TextInput
+                value={newTaskTitle}
+                onChange={(event) => setNewTaskTitle(event.target.value)}
+                placeholder="Neue Aufgabe (z.B. Gehalt recherchieren)"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addTimelineTask();
+                  }
+                }}
+              />
+              <Button type="button" variant="secondary" onClick={addTimelineTask} disabled={!newTaskTitle.trim()}>
+                <Plus size={14} />
+              </Button>
+            </div>
+          </Card>
 
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (
