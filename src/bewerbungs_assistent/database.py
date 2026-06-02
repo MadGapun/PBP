@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 43
+SCHEMA_VERSION = 44
 
 
 def _gen_id() -> str:
@@ -248,6 +248,20 @@ class Database:
                 conn.commit()
             except Exception:
                 pass
+
+        # v44 (#657, E16): Safety net fuer Lifecycle-Index. Bei frischen DBs
+        # ist die Spalte ueber SCHEMA_SQL bereits da; bei alten DBs wird sie
+        # in _migrate v43->v44 ergaenzt. Index in beiden Faellen idempotent
+        # nachziehen — wenn die Spalte aus irgendeinem Grund fehlt, bewusst
+        # still failen lassen.
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_lifecycle "
+                "ON documents(lifecycle, profile_id)"
+            )
+            conn.commit()
+        except Exception:
+            pass
         # Safety net: if active_sources / last_search_at were migrated to
         # profile_settings by a prior profile-scoped migration, copy them back
         # to settings so the current code can read them.
@@ -1736,6 +1750,35 @@ class Database:
                     pass
             conn.commit()
             logger.info("Migration v39->v40: scraper_health Auto-Reactivate-Felder")
+
+        if from_ver < 44:
+            # v44 / v1.7.0-beta.79 (#657, E16): Dokument-Lifecycle
+            # Orthogonale Spalte zum extraction_status:
+            #   aktiv      = Default, taucht im analyse_plan_erstellen() auf
+            #   archiviert = manuell ausgeblendet (Rauschen, erledigte Korrespondenz)
+            #   veraltet   = auto-gesetzt wenn ausschliesslich verknuepfte
+            #                Bewerbung auf abgelehnt/abgelaufen/zurueckgezogen geht
+            # Default-Filter "nur aktiv" in den drei Analyse-Ansichten;
+            # archiv=True zeigt alles.
+            try:
+                conn.execute(
+                    "ALTER TABLE documents ADD COLUMN lifecycle TEXT NOT NULL DEFAULT 'aktiv'"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_documents_lifecycle "
+                    "ON documents(lifecycle, profile_id)"
+                )
+                # Defensive: alle bestehenden Eintraege explizit auf 'aktiv'
+                # setzen, falls SQLite den Default bei ALTER nicht durchzieht
+                # (variiert zwischen SQLite-Versionen).
+                conn.execute(
+                    "UPDATE documents SET lifecycle='aktiv' "
+                    "WHERE lifecycle IS NULL OR lifecycle=''"
+                )
+                conn.commit()
+                logger.info("Migration v43->v44: documents.lifecycle + Index angelegt")
+            except Exception as exc:
+                logger.warning("Lifecycle-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -7221,6 +7264,60 @@ class Database:
         )
         conn.commit()
 
+    # === Dokument-Lifecycle (v44, #657, E16) ===
+
+    _LIFECYCLE_VALUES = ("aktiv", "archiviert", "veraltet")
+
+    def update_document_lifecycle(
+        self, doc_id: str, lifecycle: str, profile_id: str | None = None
+    ) -> bool:
+        """Setzt den Lifecycle-Status eines Dokuments (#657 E16).
+
+        DB-only. Physische Dateien bleiben unberuehrt. Reversibel —
+        ein archiviertes Doku kann jederzeit zurueck auf aktiv.
+
+        Returns True wenn Aenderung durchgekommen ist (rowcount > 0).
+        """
+        if lifecycle not in self._LIFECYCLE_VALUES:
+            raise ValueError(
+                f"Ungueltiger lifecycle-Wert '{lifecycle}'. "
+                f"Erlaubt: {self._LIFECYCLE_VALUES}"
+            )
+        conn = self.connect()
+        query = "UPDATE documents SET lifecycle=? WHERE id=?"
+        params: list = [lifecycle, doc_id]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_documents_linked_to_application(self, application_id) -> list[str]:
+        """Liefert Doku-IDs, die mit dieser Bewerbung verknuepft sind (#657 E16).
+
+        Verwendung: Auto-Veralten beim Bewerbungs-Statuswechsel
+        (abgelehnt/abgelaufen/zurueckgezogen).
+
+        Schema-Hinweis: `documents.linked_application_id` ist ein einzelnes
+        Feld (1:1) — ein Doku kann schemamaessig nur mit max EINER Bewerbung
+        verknuepft sein. "Exklusiv" ist daher automatisch erfuellt; der Auto-
+        Veralten-Hook kann die Treffer direkt auf `veraltet` setzen, ohne
+        Junction-Cross-Check.
+
+        Cast-sicher: linked_application_id ist INTEGER, applications.id ist
+        TEXT (Altlast). CAST(... AS TEXT) auf beiden Seiten.
+        """
+        if application_id is None or application_id == "":
+            return []
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT id FROM documents "
+            "WHERE CAST(linked_application_id AS TEXT) = CAST(? AS TEXT)",
+            (application_id,)
+        ).fetchall()
+        return [r["id"] for r in rows]
+
     # === Profile Export/Import (PBP v0.8.0) ===
 
     def export_profile_json(self, profile_id: str = None) -> Optional[dict]:
@@ -7984,7 +8081,12 @@ CREATE TABLE IF NOT EXISTS documents (
     extraction_status TEXT DEFAULT 'nicht_extrahiert',
     last_extraction_at TEXT,
     content_hash TEXT,
-    created_at TEXT
+    created_at TEXT,
+    -- v44 (#657, E16): Lifecycle orthogonal zum extraction_status
+    -- Werte: aktiv | archiviert | veraltet
+    -- Index idx_documents_lifecycle wird in initialize() bzw. Migration
+    -- angelegt — bei alten DBs ist die Spalte erst nach _migrate da.
+    lifecycle TEXT NOT NULL DEFAULT 'aktiv'
 );
 
 CREATE TABLE IF NOT EXISTS jobs (

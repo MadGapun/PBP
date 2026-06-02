@@ -676,6 +676,37 @@ def register(mcp, db, logger):
         open_before = sum(1 for fu in db.get_pending_follow_ups()
                           if fu.get("application_id") == bewerbung_id)
         db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
+
+        # v1.7.0-beta.79 (#657 E16): Auto-Veralten verknuepfter Dokumente.
+        # Wenn die Bewerbung in einen End-Status uebergeht (abgelehnt /
+        # abgelaufen / zurueckgezogen), werden die ausschliesslich mit
+        # dieser Bewerbung verknuepften Docs auf `lifecycle=veraltet`
+        # gesetzt — sie verschwinden damit aus den Default-Analyse-
+        # Ansichten, bleiben aber via `archiv=True` einsehbar und sind
+        # ueber `dokument_reaktivieren` jederzeit reversibel.
+        #
+        # Schema-Hinweis: linked_application_id ist 1:1 — ein Doku haengt
+        # max an EINER Bewerbung. "Exklusiv" ist damit automatisch erfuellt.
+        #
+        # DB-only: physische Dateien werden NICHT angefasst.
+        veraltet_docs: list[str] = []
+        if neuer_status in ("abgelehnt", "abgelaufen", "zurueckgezogen"):
+            try:
+                pid_for_lc = db.get_active_profile_id()
+                for doc_id in db.get_documents_linked_to_application(bewerbung_id):
+                    try:
+                        if db.update_document_lifecycle(
+                            doc_id, "veraltet", profile_id=pid_for_lc
+                        ):
+                            veraltet_docs.append(doc_id)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug(
+                            "Auto-Veralten fuer Doku %s fehlgeschlagen: %s",
+                            doc_id, exc,
+                        )
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Auto-Veralten-Hook (#657) fehlgeschlagen: %s", exc)
+
         # v1.7.0-beta.40 (#609): Elwosa-Hook bei Status-Wechsel
         try:
             from ..services import elwosa as _elwosa
@@ -702,6 +733,17 @@ def register(mcp, db, logger):
             "neuer_status": neuer_status,
             "nächste_aktionen": _get_context_actions(neuer_status),
         }
+        if veraltet_docs:
+            # #657 E16: Auto-Veralten-Hook hat Docs gekippt
+            result["dokumente_veraltet"] = {
+                "anzahl": len(veraltet_docs),
+                "ids": veraltet_docs,
+                "hinweis": (
+                    "Mit der Bewerbung verknuepfte Dokumente wurden auf "
+                    "lifecycle=veraltet gesetzt (DB-only, Dateien unberuehrt). "
+                    "Reversibel ueber dokument_reaktivieren."
+                ),
+            }
         if auto_followup_id:
             result["auto_follow_up"] = {
                 "id": auto_followup_id,

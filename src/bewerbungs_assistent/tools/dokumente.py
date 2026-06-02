@@ -81,12 +81,20 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
-    def dokumente_zur_analyse() -> dict:
+    def dokumente_zur_analyse(archiv: bool = False) -> dict:
         """Listet alle Dokumente mit extrahiertem Text auf — auch bereits analysierte.
 
         Zeigt den Extraktions-Status jedes Dokuments an, damit auch wiederholte
         Extraktion möglich ist. Nutze extraktion_starten(document_ids=[...]) um
         bestimmte Dokumente erneut zu extrahieren.
+
+        v1.7.0-beta.79 (#657 E16): Default-Filter `lifecycle='aktiv'`. Mit
+        `archiv=True` werden archivierte/veraltete Dokumente mit aufgelistet
+        — analog zu `bewerbungen_anzeigen(archiv=True)`.
+
+        Args:
+            archiv: False (Default) zeigt nur lifecycle=aktiv.
+                True zeigt ALLE (aktiv + archiviert + veraltet).
         """
         profile = db.get_profile()
         if profile is None:
@@ -99,6 +107,9 @@ def register(mcp, db, logger):
         # Sowohl nie-angefasste ALS AUCH nur-Basis gelten als "zu analysieren".
         _PENDING = ("nicht_extrahiert", "", "basis_analysiert", None)
         docs = profile.get("documents", [])
+        # v1.7.0-beta.79 (#657 E16): Default-Filter lifecycle=aktiv.
+        if not archiv:
+            docs = [d for d in docs if (d.get("lifecycle") or "aktiv") == "aktiv"]
         analysierbare = [
             {
                 "id": d["id"],
@@ -107,6 +118,7 @@ def register(mcp, db, logger):
                 "hat_text": bool(d.get("extracted_text")),
                 "text_laenge": len(d.get("extracted_text", "")),
                 "extraction_status": d.get("extraction_status", "nicht_extrahiert"),
+                "lifecycle": d.get("lifecycle", "aktiv"),
                 "bereits_analysiert": d.get("extraction_status", "") not in _PENDING,
                 "nur_basis": d.get("extraction_status", "") == "basis_analysiert",
             }
@@ -724,7 +736,7 @@ def register(mcp, db, logger):
     # ── Neue Tools ───────────────────────────────────────────────────────
 
     @mcp.tool()
-    def analyse_plan_erstellen() -> dict:
+    def analyse_plan_erstellen(archiv: bool = False) -> dict:
         """Erstellt einen Analyse-Plan BEVOR die eigentliche Extraktion startet.
 
         Zeigt:
@@ -738,6 +750,14 @@ def register(mcp, db, logger):
         v1.7.0-beta.59 (#635): Response-Payload reduziert (nur 3 Datei-
         Vorschauen pro Batch statt aller). Byte-Counter nutzt CAST AS
         BLOB damit UTF-8-Sonderzeichen korrekt gezaehlt werden.
+
+        v1.7.0-beta.79 (#657 E16): Default-Filter `lifecycle='aktiv'`.
+        Archivierte/veraltete Dokumente tauchen nicht mehr im Plan auf —
+        sie sind ausgeblendet, aber via `archiv=True` einsehbar.
+
+        Args:
+            archiv: False (Default) plant nur lifecycle=aktiv.
+                True bezieht archivierte/veraltete Docs mit ein.
         """
         import time as _t
         _t0 = _t.time()
@@ -750,11 +770,15 @@ def register(mcp, db, logger):
         # #635: LENGTH(BLOB) liefert Bytes — bei UTF-8 mit Umlauten/Sonderzeichen
         # ist das praeziser als LENGTH() (Char-Count). Verhindert Underestimation
         # die zu zu-grossen Batches fuehrt.
+        # #657 E16: Default-Filter lifecycle=aktiv.
+        lifecycle_clause = "" if archiv else " AND lifecycle='aktiv'"
         all_docs = conn.execute(
-            "SELECT id, filename, doc_type, extraction_status, "
+            "SELECT id, filename, doc_type, extraction_status, lifecycle, "
             "LENGTH(CAST(extracted_text AS BLOB)) as text_laenge, created_at "
             "FROM documents WHERE profile_id=? AND extracted_text IS NOT NULL "
-            "AND extracted_text != '' ORDER BY filename",
+            "AND extracted_text != ''"
+            + lifecycle_clause
+            + " ORDER BY filename",
             (pid,)
         ).fetchall()
 
@@ -835,6 +859,7 @@ def register(mcp, db, logger):
         max_dokumente: int = 8,
         max_bytes_per_doc: int = 8000,
         profil_mitsenden: bool = True,
+        archiv: bool = False,
     ) -> dict:
         """Analysiert den nächsten Batch von Dokumenten — effizient und Token-sparend.
 
@@ -880,12 +905,15 @@ def register(mcp, db, logger):
         conn = db.connect()
         pid = profile["id"]
         # #635: LENGTH(BLOB) -> Bytes statt Chars (UTF-8 korrekt)
+        # #657 E16: Default-Filter lifecycle=aktiv.
+        lifecycle_clause = "" if archiv else " AND lifecycle='aktiv'"
         rows = conn.execute(
             "SELECT id, filename, doc_type, extraction_status, extracted_text, "
             "LENGTH(CAST(extracted_text AS BLOB)) as text_laenge "
             "FROM documents WHERE profile_id=? AND extraction_status IN ('nicht_extrahiert', 'basis_analysiert') "
-            "AND extracted_text IS NOT NULL AND extracted_text != '' "
-            "ORDER BY LENGTH(CAST(extracted_text AS BLOB))",
+            "AND extracted_text IS NOT NULL AND extracted_text != ''"
+            + lifecycle_clause
+            + " ORDER BY LENGTH(CAST(extracted_text AS BLOB))",
             (pid,)
         ).fetchall()
         all_docs = [dict(r) for r in rows]
@@ -1610,4 +1638,215 @@ def register(mcp, db, logger):
             f"{umgesetzt} von {len(kandidaten)} Korrespondenz-"
             "Dokument(en) auf `angewendet` gesetzt. Dateien unberuehrt."
         )
+        return result
+
+    # === Dokument-Lifecycle (v44, #657, E16) ===========================
+    # archivieren / reaktivieren / bulk_archivieren operieren NUR auf der
+    # DB-Spalte `lifecycle`. Physische Dateien bleiben unberuehrt — analog
+    # zur file-vs-DB-Regel bei Duplikat-Cleanup.
+
+    @mcp.tool()
+    def dokument_archivieren(dokument_id: str, grund: str = "") -> dict:
+        """Archiviert ein Dokument — weiche Markierung, kein Loeschen (#657 E16).
+
+        Nutze dies, wenn ein Dokument aus den Standard-Analyse-Ansichten
+        ausgeblendet werden soll, aber erhalten bleiben muss (z.B. reine
+        Benachrichtigungs-Mails, erledigte Korrespondenz, Rauschen).
+
+        Sicherheits-Hinweis: **DB-only**. Die physische Datei auf der
+        Platte wird NIE angefasst. Reversibel ueber `dokument_reaktivieren`.
+
+        Args:
+            dokument_id: ID des Dokuments
+            grund: Optionaler Kurz-Hinweis warum archiviert (wird ins
+                Tool-Result zurueckgegeben, nicht in der DB persistiert).
+        """
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        if doc.get("lifecycle") == "archiviert":
+            return {
+                "status": "bereits_archiviert",
+                "dokument_id": dokument_id,
+                "filename": doc.get("filename", ""),
+                "hinweis": "Das Dokument war bereits archiviert.",
+            }
+        changed = db.update_document_lifecycle(
+            dokument_id, "archiviert", profile_id=profile_id
+        )
+        if not changed:
+            return {"fehler": "Archivierung konnte nicht angewendet werden."}
+        return {
+            "status": "archiviert",
+            "dokument_id": dokument_id,
+            "filename": doc.get("filename", ""),
+            "lifecycle_vorher": doc.get("lifecycle", "aktiv"),
+            "lifecycle_nachher": "archiviert",
+            "grund": grund or None,
+            "hinweis": (
+                "Nur DB-Flag gesetzt. Physische Datei unberuehrt. "
+                "Reaktivierbar mit `dokument_reaktivieren`."
+            ),
+        }
+
+    @mcp.tool()
+    def dokument_reaktivieren(dokument_id: str) -> dict:
+        """Setzt ein archiviertes/veraltetes Dokument wieder auf `aktiv` (#657 E16).
+
+        Gegenstueck zu `dokument_archivieren` und zum Auto-Veralten-Hook.
+        Ist idempotent: wenn das Doku bereits `aktiv` ist, wird das gemeldet.
+
+        Args:
+            dokument_id: ID des Dokuments
+        """
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        if doc.get("lifecycle") == "aktiv":
+            return {
+                "status": "bereits_aktiv",
+                "dokument_id": dokument_id,
+                "filename": doc.get("filename", ""),
+                "hinweis": "Das Dokument war bereits aktiv.",
+            }
+        changed = db.update_document_lifecycle(
+            dokument_id, "aktiv", profile_id=profile_id
+        )
+        if not changed:
+            return {"fehler": "Reaktivierung konnte nicht angewendet werden."}
+        return {
+            "status": "aktiv",
+            "dokument_id": dokument_id,
+            "filename": doc.get("filename", ""),
+            "lifecycle_vorher": doc.get("lifecycle", "?"),
+            "lifecycle_nachher": "aktiv",
+        }
+
+    @mcp.tool()
+    def dokumente_bulk_archivieren(
+        filter_doc_type: list = None,
+        filter_quelle: list = None,
+        filter_extraction_status: list = None,
+        dry_run: bool = True,
+        max_treffer: int = 200,
+    ) -> dict:
+        """Archiviert mehrere Dokumente in einem Rutsch mit Filter (#657 E16).
+
+        Sicherheits-Hinweise:
+        - **DB-only**: aendert nur `lifecycle`. Keine Dateien werden angefasst.
+        - **dry_run=True (Default)**: zeigt nur die Treffer, schreibt nichts.
+        - **Hard-Cap `max_treffer`**: schuetzt vor versehentlich riesigen
+          Operationen. Default 200 — wenn mehr in Frage kaemen, wird die
+          Liste begrenzt und ein Hinweis ausgegeben.
+        - Nur Dokumente mit aktuellem `lifecycle='aktiv'` werden archiviert.
+          Bereits archivierte/veraltete bleiben unberuehrt.
+
+        Args:
+            filter_doc_type: Liste von doc_type-Werten (z.B. ["sonstiges",
+                "absage"]). Default: kein Filter.
+            filter_quelle: NICHT IMPLEMENTIERT in Phase 2 (Stub fuer spaeter,
+                wenn `documents.source` existiert). Aktuell ignoriert.
+            filter_extraction_status: Liste von extraction_status (z.B.
+                ["angewendet"]). Default: kein Filter.
+            dry_run: True (Default) = nur Vorschau, schreibt nichts.
+            max_treffer: Maximale Anzahl Dokumente pro Aufruf (Hard-Cap).
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+        max_treffer = max(1, min(int(max_treffer or 200), 2000))
+
+        conn = db.connect()
+        pid = profile["id"]
+        clauses = ["profile_id=?", "lifecycle='aktiv'"]
+        params: list = [pid]
+        if filter_doc_type:
+            placeholders = ",".join("?" * len(filter_doc_type))
+            clauses.append(f"doc_type IN ({placeholders})")
+            params.extend(filter_doc_type)
+        if filter_extraction_status:
+            placeholders = ",".join("?" * len(filter_extraction_status))
+            clauses.append(f"extraction_status IN ({placeholders})")
+            params.extend(filter_extraction_status)
+        where = " AND ".join(clauses)
+
+        rows = conn.execute(
+            f"SELECT id, filename, doc_type, extraction_status, "
+            f"COALESCE(linked_application_id,0) AS aid "
+            f"FROM documents WHERE {where} "
+            f"ORDER BY created_at DESC LIMIT ?",
+            (*params, max_treffer + 1),
+        ).fetchall()
+        truncated = len(rows) > max_treffer
+        kandidaten = [dict(r) for r in rows[:max_treffer]]
+
+        result = {
+            "status": "vorschau" if dry_run else "abgeschlossen",
+            "dry_run": dry_run,
+            "kandidaten_anzahl": len(kandidaten),
+            "max_treffer": max_treffer,
+            "max_treffer_erreicht": truncated,
+            "filter_quelle_ignoriert": bool(filter_quelle),
+            "hinweis": (
+                "DB-only. Physische Dateien bleiben unberuehrt. "
+                "Reaktivierbar mit `dokument_reaktivieren`."
+            ),
+        }
+        if not dry_run:
+            result["umgesetzt_anzahl"] = 0
+
+        if not kandidaten:
+            result["nachricht"] = "Keine passenden Dokumente gefunden."
+            return result
+
+        if dry_run:
+            result["kandidaten"] = [
+                {
+                    "id": k["id"],
+                    "filename": k["filename"],
+                    "doc_type": k["doc_type"],
+                    "extraction_status": k["extraction_status"],
+                    "linked_application_id": k["aid"] or None,
+                }
+                for k in kandidaten
+            ]
+            result["nachricht"] = (
+                f"{len(kandidaten)} Dokument(e) wuerden archiviert. "
+                "Setze `dry_run=False` um umzusetzen."
+            )
+            if truncated:
+                result["nachricht"] += (
+                    f" (Hard-Cap {max_treffer} erreicht — weitere Treffer "
+                    "wurden abgeschnitten. Erhoehe max_treffer oder filtere enger.)"
+                )
+            return result
+
+        # Live-Apply
+        umgesetzt = 0
+        for k in kandidaten:
+            try:
+                if db.update_document_lifecycle(
+                    k["id"], "archiviert", profile_id=pid
+                ):
+                    umgesetzt += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Bulk-Archivieren fehlgeschlagen fuer %s: %s",
+                    k["id"], exc,
+                )
+        logger.info(
+            "dokumente_bulk_archivieren: %d/%d archiviert", umgesetzt, len(kandidaten)
+        )
+        result["umgesetzt_anzahl"] = umgesetzt
+        result["nachricht"] = (
+            f"{umgesetzt} von {len(kandidaten)} Dokument(en) auf "
+            "`lifecycle=archiviert` gesetzt. Dateien unberuehrt."
+        )
+        if truncated:
+            result["nachricht"] += (
+                f" (Hard-Cap {max_treffer} erreicht — Lauf erneut "
+                "ausfuehren, falls weitere Treffer bestehen.)"
+            )
         return result

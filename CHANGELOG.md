@@ -16,6 +16,142 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.79] - 2026-06-02 — Dokument-Lifecycle Phase 2 (#657, E16)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Fuenfter Master-Plan-First-
+> Release: Plan-Eintrag E16 → Code → 18 neue Tests → Wiki ✅ → Commit.
+> **Schema-Aenderung — automatisches Backup vor Migration.**
+
+### Hintergrund (#657)
+
+Bisher waren `extraction_status` und Verfuegbarkeit eines Dokuments dasselbe.
+Wer Rauschen (LinkedIn-/XING-Digest-Mails) ausblenden oder zu abgelehnten
+Bewerbungen gehoerende Anhaenge wegfiltern wollte, musste sie loeschen — was
+DB-Eintrag UND Datei verbrennt. Phase 2 fuehrt die orthogonale Dimension
+`lifecycle` ein:
+
+  - `aktiv`      = Default, taucht in Standard-Analyse-Ansichten auf
+  - `archiviert` = manuell ausgeblendet (DB-Flag, Datei unberuehrt)
+  - `veraltet`   = auto-gesetzt beim Bewerbungs-Statuswechsel auf
+                   abgelehnt/abgelaufen/zurueckgezogen
+
+### Schema v43 → v44
+
+- Neue Spalte `documents.lifecycle TEXT NOT NULL DEFAULT 'aktiv'`
+- Neuer Index `idx_documents_lifecycle (lifecycle, profile_id)`
+- Migration ist additiv und idempotent — bestehende Docs erhalten den
+  Default `aktiv`, kein bestehender Workflow wird beeintraechtigt.
+- **Backup wird vor Migration automatisch erstellt** (Standard-Pfad
+  `data/backups/`).
+
+### Added
+
+- **MCP-Tool `dokument_archivieren(dokument_id, grund='')`** — markiert ein
+  Doku als `lifecycle=archiviert`. DB-only, Datei bleibt unberuehrt,
+  reversibel.
+- **MCP-Tool `dokument_reaktivieren(dokument_id)`** — setzt `archiviert`
+  oder `veraltet` zurueck auf `aktiv`.
+- **MCP-Tool `dokumente_bulk_archivieren(filter_doc_type, filter_extraction_status,
+  dry_run=True, max_treffer=200)`** — Massenrueckruf mit dry-run + Hard-Cap.
+  Filter-Kombination ueber doc_type und/oder extraction_status. Hard-Cap
+  meldet, wenn Treffer abgeschnitten wurden.
+- **Auto-Veralten-Hook in `bewerbung_status_aendern`** — wenn der neue
+  Status in `{abgelehnt, abgelaufen, zurueckgezogen}` liegt, werden alle
+  mit dieser Bewerbung verknuepften Docs auf `lifecycle=veraltet` gesetzt.
+  Hinweis steht im Tool-Result unter `dokumente_veraltet`. Reversibel ueber
+  `dokument_reaktivieren`.
+- **18 neue Tests** in `tests/test_v17_lifecycle_657.py`: Migration,
+  archivieren/reaktivieren, Default-Filter in drei Read-Tools, Auto-Veralten
+  fuer drei End-Stati, Schutz vor versehentlicher Beruehrung anderer
+  Bewerbungen.
+
+### Changed
+
+- `analyse_plan_erstellen(archiv=False)` — Default zeigt nur `aktiv`.
+  `archiv=True` bezieht archivierte/veraltete Docs ein. Bestehende
+  Aufrufer ohne Argument sehen das gewohnte Verhalten direkt nach
+  Migration (alle Docs sind `aktiv`).
+- `dokumente_batch_analysieren(archiv=False)` — gleiche Semantik.
+- `dokumente_zur_analyse(archiv=False)` — analog zu
+  `bewerbungen_anzeigen(archiv=...)`. Neues Feld `lifecycle` im
+  zurueckgegebenen Doku-Eintrag.
+- `documents.lifecycle` wird zusaetzlich im Response von
+  `analyse_plan_erstellen` und `dokumente_batch_analysieren` mitgesendet.
+- MCP-Tool-Count: 156 → **159** (drei neue Tools).
+- Plan-Dokumente.md: E16 ✅, neuer Phase-2-Abschnitt, naechste Iteration
+  zeigt E11 (#643, doc_type-Routing) als naechsten Schritt.
+- Master-Plan.md: E16 (#657) auf ✅.
+
+### Migration
+
+Schema v43 → v44 ist ALTER-only, idempotent und reversibel. Vor der
+Migration wird automatisch ein Backup unter
+`%LOCALAPPDATA%\BewerbungsAssistent\data\backups\` angelegt.
+
+**Rollback (falls noetig):**
+1. PBP beenden.
+2. Backup-Datei aus `data\backups\` zurueck nach `data\pbp.db` kopieren.
+3. Alte PBP-Version installieren.
+
+### DB-Helfer (intern, nicht MCP)
+
+- `Database.update_document_lifecycle(doc_id, lifecycle, profile_id=None)` —
+  validiert gegen `("aktiv", "archiviert", "veraltet")`, profile-scoped.
+- `Database.get_documents_linked_to_application(application_id)` — Cast-sicher
+  fuer Auto-Veralten-Hook, beruecksichtigt INTEGER/TEXT-Mismatch zwischen
+  `documents.linked_application_id` und `applications.id`.
+
+### Bekannt nicht enthalten (kommt in Phase 3)
+
+- **Doc-Type-Routing mit typspezifischen Aktionen** (#643, E11) → Phase 3.
+- **Rauschen-Heuristik beim Import** (#657 MVP-Phase 3, optional) — kommt
+  zusammen mit dem Routing-Refactor.
+- **Frontend-UI fuer Archiv-Toggle** — wird nachgezogen, sobald sich der
+  Filter-Pfad stabilisiert hat. MCP-Tools reichen fuer den Claude-Workflow.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.79.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.79.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.78] - 2026-06-02 — Dokument-Lifecycle Phase 1 (#658, E15)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Vierter Master-Plan-First-
