@@ -1464,6 +1464,9 @@ def _parse_weights(criteria: dict) -> dict:
     return {
         "muss": w.get("muss", 2),
         "plus": w.get("plus", 1),
+        # #667 (B19, beta.84): Minus-Keywords als Gegenstueck zu Plus.
+        # Weicher Malus pro Treffer — Default 1, analog zu plus.
+        "minus": w.get("minus", 1),
         "remote": w.get("remote", 2),
         "naehe": w.get("naehe", 2),
         "fern_malus": w.get("fern_malus", 3),
@@ -1691,6 +1694,13 @@ def calculate_score(job: dict, criteria: dict) -> int:
     plus = criteria.get("keywords_plus", [])
     score += sum(1 for kw in plus if _fuzzy_keyword_match(kw, text)) * w["plus"]
 
+    # MINUS keywords (#667, B19, beta.84) — weiche Score-Abwertung als
+    # Gegenstueck zu PLUS. Beispiel: kw="Automotive" zieht Punkte ab, schliesst
+    # die Stelle aber nicht aus (harter Ausschluss = keywords_ausschluss).
+    minus = criteria.get("keywords_minus", [])
+    if minus:
+        score -= sum(1 for kw in minus if _fuzzy_keyword_match(kw, text)) * w["minus"]
+
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     dist = job.get("distance_km")
     emp_type = job.get("employment_type", "festanstellung")
@@ -1758,11 +1768,14 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     muss = criteria.get("keywords_muss", [])
     plus = criteria.get("keywords_plus", [])
+    # #667 (B19, beta.84): Minus-Keywords als weiche Score-Abwertung.
+    minus = criteria.get("keywords_minus", [])
 
     # #183: Fuzzy-Matching auch in der Fit-Analyse
     muss_hits = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
     missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
     plus_hits = [kw for kw in plus if _fuzzy_keyword_match(kw, text)]
+    minus_hits = [kw for kw in minus if _fuzzy_keyword_match(kw, text)]
 
     factors = {}
     total = 0
@@ -1775,6 +1788,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     if plus_hits:
         pts = len(plus_hits) * w["plus"]
         factors[f"PLUS-Keywords ({len(plus_hits)} Treffer)"] = pts
+        total += pts
+
+    # #667: Minus-Keywords abziehen — analog zu Plus, aber negativ.
+    # Beispiel: kw="Automotive" mit Gewicht 1 -> -1 pro Treffer.
+    # Bewusst weicher Malus, kein harter Ausschluss (das ist
+    # keywords_ausschluss). Stelle bleibt in der Liste, rutscht nur runter.
+    if minus_hits:
+        pts = -len(minus_hits) * w["minus"]
+        factors[f"MINUS-Keywords ({len(minus_hits)} Treffer)"] = pts
         total += pts
 
     remote = job.get("remote_level", "unbekannt")
@@ -1863,11 +1885,24 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         risks.insert(0, "BESCHREIBUNG FEHLT — Score ist unzuverlässig! "
                      "Lade die Stellenbeschreibung nach (stelle_manuell_anlegen oder URL öffnen).")
 
+    # #667: Risk-Hinweis wenn viele Minus-Treffer (weicher als k.o., aber
+    # transparent fuer den User wenn die Stelle nicht zuoberst rutscht).
+    if minus_hits and len(minus_hits) >= 2:
+        risks.append(
+            f"{len(minus_hits)} MINUS-Keyword-Treffer "
+            f"({', '.join(minus_hits[:3])}{'...' if len(minus_hits) > 3 else ''}) "
+            "- weiche Abwertung im Score."
+        )
+
     return {
         "total_score": max(0, total),
         "muss_hits": muss_hits,
         "missing_muss": missing_muss,
         "plus_hits": plus_hits,
+        # #667: Minus-Treffer im Result transparent machen — Claude kann
+        # sie zitieren ("Stelle hat 'Automotive' und 'SAP' getroffen, das
+        # zieht den Score").
+        "minus_hits": minus_hits,
         "factors": factors,
         "risks": risks,
         "beschreibung_vorhanden": len(desc.strip()) >= 50,

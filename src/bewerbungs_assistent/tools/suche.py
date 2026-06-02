@@ -8,6 +8,7 @@ def register(mcp, db, logger):
     def suchkriterien_setzen(
         keywords_muss: list[str] = None,
         keywords_plus: list[str] = None,
+        keywords_minus: list[str] = None,
         keywords_ausschluss: list[str] = None,
         regionen: list[str] = None,
         standort: str = "",
@@ -22,7 +23,14 @@ def register(mcp, db, logger):
 
         MUSS-Keywords: Stelle wird nur beruecksichtigt wenn mindestens eins vorkommt.
         PLUS-Keywords: Erhoehen den Score (= bessere Sortierung).
+        MINUS-Keywords (#667, B19, beta.84): Senken den Score (weiche Abwertung).
+            Stelle bleibt sichtbar, rutscht aber nach unten. Gegenstueck zu PLUS.
         AUSSCHLUSS-Keywords: Stelle wird komplett ignoriert wenn eins vorkommt.
+
+        Wann was nutzen:
+        - **Ausschluss**: harte k.o.-Begriffe (Junior, Werkstudent, Zeitarbeit, Bauwesen)
+        - **Minus**: weich unschoen, aber nicht disqualifizierend (Automotive,
+          Versicherung, Beratungshaus, "SAP-only")
 
         Tipp: Leite die Keywords aus dem Profil ab! Was kann der User,
         was sucht er? Nutze profil_zusammenfassung() als Basis.
@@ -30,6 +38,7 @@ def register(mcp, db, logger):
         Args:
             keywords_muss: Pflicht-Keywords (muessen vorkommen)
             keywords_plus: Bonus-Keywords (erhoehen Score)
+            keywords_minus: Malus-Keywords (senken Score, schliessen nicht aus)
             keywords_ausschluss: Ausschluss-Keywords (z.B. Junior, Praktikum)
             regionen: Bevorzugte Regionen
             standort: Wohnort des Bewerbers für Entfernungsberechnung (#167).
@@ -50,6 +59,9 @@ def register(mcp, db, logger):
             db.set_search_criteria("keywords_muss", keywords_muss)
         if keywords_plus:
             db.set_search_criteria("keywords_plus", keywords_plus)
+        # #667 (B19, beta.84): Minus-Keywords als weiche Score-Abwertung
+        if keywords_minus:
+            db.set_search_criteria("keywords_minus", keywords_minus)
         if keywords_ausschluss:
             db.set_search_criteria("keywords_ausschluss", keywords_ausschluss)
         if regionen:
@@ -101,14 +113,25 @@ def register(mcp, db, logger):
         inkrementell hinzugefügt oder entfernt werden.
 
         Args:
-            kategorie: 'muss', 'plus' oder 'ausschluss'
+            kategorie: 'muss', 'plus', 'minus' oder 'ausschluss'
+                (minus seit #667 / B19, beta.84 — weiche Score-Abwertung)
             aktion: 'hinzufügen' oder 'entfernen'
             werte: Liste der Keywords
         """
-        key_map = {"muss": "keywords_muss", "plus": "keywords_plus", "ausschluss": "keywords_ausschluss"}
+        key_map = {
+            "muss": "keywords_muss",
+            "plus": "keywords_plus",
+            "minus": "keywords_minus",  # #667
+            "ausschluss": "keywords_ausschluss",
+        }
         key = key_map.get(kategorie)
         if not key:
-            return {"fehler": f"Kategorie muss 'muss', 'plus' oder 'ausschluss' sein, nicht '{kategorie}'"}
+            return {
+                "fehler": (
+                    f"Kategorie muss 'muss', 'plus', 'minus' oder 'ausschluss' "
+                    f"sein, nicht '{kategorie}'"
+                )
+            }
         if not werte:
             return {"fehler": "Keine Werte angegeben"}
 
@@ -142,8 +165,8 @@ def register(mcp, db, logger):
     def suchkriterien_anzeigen() -> dict:
         """Zeigt die aktuellen Suchkriterien an.
 
-        Gibt alle MUSS-, PLUS- und AUSSCHLUSS-Keywords, Regionen und
-        benutzerdefinierte Kriterien zurück.
+        Gibt alle MUSS-, PLUS-, MINUS- und AUSSCHLUSS-Keywords, Regionen und
+        benutzerdefinierte Kriterien zurueck. (MINUS seit #667 / B19, beta.84.)
         """
         return {"kriterien": db.get_search_criteria()}
 

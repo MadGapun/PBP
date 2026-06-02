@@ -16,6 +16,79 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.84] - 2026-06-02 — Minus-Keywords als weiche Score-Abwertung (#667, B19)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+11 neue Tests, 1562 passed.** Keine Schema-Aenderung.
+
+### Hintergrund (#667)
+
+User-Wort: *"Wo Plus ist, muss es auch Minus geben."*
+
+Bisher gab es drei Keyword-Kategorien:
+- **Muss** — mindestens eins muss vorkommen, sonst zaehlt die Stelle nicht
+- **Plus** — erhoeht den Score
+- **Ausschluss** — kommt eins vor → Stelle wird komplett ignoriert
+
+Es fehlte das Gegenstueck zu Plus: ein weicher Malus, der den Score senkt, die Stelle aber nicht komplett verschwinden laesst. Ausschluss war fuer viele Faelle zu radikal (z.B. "Automotive" oder "Versicherung" — nicht per se k.o., aber Passung gesenkt).
+
+### Added
+
+- **#667 (B19) Vierte Kategorie `keywords_minus`** als Gegenstueck zu `keywords_plus`:
+  - In `suchkriterien_setzen(keywords_minus=[...])` als neuer Parameter
+  - In `suchkriterien_bearbeiten(kategorie='minus', ...)` als vierte Kategorie
+  - In `suchkriterien_anzeigen()` mit zurueckgegeben (durch get_search_criteria)
+- **Scoring-Engine** (`job_scraper/__init__.py:fit_analyse` und `calculate_score`):
+  - Pro Minus-Treffer wird ein Malus abgezogen (Default-Gewicht 1, konfigurierbar via `criteria["gewichtung"]["minus"]`)
+  - Neuer Result-Key `minus_hits` in `fit_analyse`
+  - Risk-Eintrag ab 2+ Minus-Treffern fuer Transparenz
+- 11 neue Tests in `tests/test_v17_minus_keywords_667.py`: Tools (set/edit/anzeigen) + Scoring-Engine (fit_analyse + calculate_score) + Risk-Schwelle + Default-Gewicht + Abgrenzung gegen Ausschluss.
+
+### Wann was nutzen — Abgrenzung
+
+- **Ausschluss** bleibt: harter Filter fuer echte k.o.-Begriffe (Junior, Werkstudent, Zeitarbeit, Bauwesen)
+- **Minus** neu: weiche Abwertung fuer "unschoen, aber nicht disqualifizierend"
+  - Beispiele: "Automotive", "Versicherung", "Beratungshaus", "SAP-only", "Customizing-lastig"
+
+### Schema
+
+**Keine Schema-Aenderung.** `search_criteria` ist ein generisches Key-Value-Store (Profile-ID + Key + JSON-Value), `keywords_minus` ist nur ein neuer Key im bestehenden Schema. Schema bleibt v44.
+
+### Bekannt nicht enthalten
+
+- **Frontend-Sektion fuer Minus-Keywords im Tab Einstellungen** — kommt als separate Beta zusammen mit den anderen Frontend-Sektionen (#665 Direkt-Abhaken, #666 Aufgaben-System).
+- **`scoring_konfigurieren`-Slider fuer das Minus-Gewicht** — Default 1 reicht; wer ein anderes Gewicht will, kann es via `criteria["gewichtung"]["minus"]` setzen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.84.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.84.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.83] - 2026-06-02 — nachfass_planen Dubletten-Check (#665 MCP-Teil)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+6 neue Tests, 1551 passed.** Keine Schema-Aenderung.
