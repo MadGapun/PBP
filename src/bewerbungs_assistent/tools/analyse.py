@@ -1783,7 +1783,7 @@ def register(mcp, db, logger):
         # #647 (H12): Tool-Count-Sync — getrennt zwischen gesamt (echte Tool-
         # Anzahl im MCP-Registry) und kuratiert (Hauptwerkzeuge in diesem
         # Catalog). Vorher war "95 Tools" hardcoded und widersprach dem
-        # tatsaechlichen 152er-Inventar.
+        # tatsaechlichen Inventar (beta.90: 171 Tools).
         tools_kuratiert = sum(
             len(data["hauptwerkzeuge"]) for data in catalog.values()
         )
@@ -1804,7 +1804,7 @@ def register(mcp, db, logger):
 
         if not kategorie:
             count_text = (
-                f"PBP-MCP bietet {tools_gesamt or '~152'} Tools "
+                f"PBP-MCP bietet {tools_gesamt or '~171'} Tools "
                 f"(davon {tools_kuratiert} kuratierte in 10 Kategorien)."
             ) if tools_gesamt and tools_gesamt != tools_kuratiert else (
                 f"PBP-MCP bietet {tools_kuratiert} Tools in 10 Kategorien."

@@ -16,6 +16,96 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.91] - 2026-06-02 — QA-Selbsttest + Doku-Sync (Wiki beta.74 → beta.90)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Kein Verhaltens- oder
+> UI-Change gegenueber beta.90** — das Frontend-Bundle ist unveraendert
+> (Version wird vom Backend gelesen, nicht ins Bundle gebacken). Dein fuer
+> morgen geplanter Test der beta.90-Oberflaeche gilt also 1:1 weiter; diese
+> Version ergaenzt nur Doku + einen winzigen Fallback-Fix.
+
+Autonomer QA-Lauf: alles selbst durchgetestet, Workflow analysiert, Wiki
+gegen den Code-Stand abgeglichen. Befund: das Wiki war auf **beta.74**
+eingefroren (152 Tools / 23 Prompts / Schema v42), waehrend der Code bei
+**beta.90** steht (171 / 24 / v45). Komplett nachgezogen.
+
+### Added
+
+- **`docs/QA-Audit-beta90.md`** — technischer Beleg des Selbsttests:
+  was getestet wurde (volle Suite, Migration v43→v45 auf Real-DB-**Kopie**,
+  10/10 REST-Endpoints via TestClient), Drift-Tabelle, Liste der
+  undokumentierten beta.78-90-Features, Workflow-Analyse mit rauen Kanten.
+- **`tools/qa_rest_smoke.py`** — REST-Smoke-Harness (FastAPI TestClient,
+  kein Port-Binding) gegen eine migrierte DB-Kopie. Pfad via `QA_DATA_DIR`
+  ueberschreibbar.
+
+### Changed
+
+- **`pbp_capabilities`** — der Fallback-Text fuer die Tool-Gesamtzahl (greift
+  nur wenn die MCP-Registry-Introspektion fehlschlaegt) sagte stale `~152`,
+  jetzt `~171`. Der Normalpfad zaehlt ohnehin dynamisch (war korrekt).
+- **`CLAUDE.md`** — Header `zuletzt beta.74` → `beta.90`; neuer Stand-Block
+  (Schema v45, 171 Tools, 24 Prompts, 1611 Tests, Modul-Aufschluesselung).
+
+### Docs (Wiki, separates Repo PBP.wiki)
+
+- Stale Zahlen Wiki-weit korrigiert: 171 Tools, 24 Prompts, Schema v45,
+  beta.90, 1611 Tests (Home, Architektur, MCP-Tools, Master-Plan,
+  Plan-MCP-Layer/-Datenbasis, Workflows, Master-Plan-Optimierung).
+- Neue User-Doku fuer die beta.78-90-Welle: Dokument-Lifecycle (#657/#658)
+  + Routing (#643) in Tab-Dokumente; TODOs/Tasks (#666) + Follow-up-
+  Direkt-Abhaken + Dubletten-Check (#665) in Tab-Bewerbungen;
+  Ablehnungsgruende-Editor (#663) als 9. Einstellungen-Tab; MINUS-Keywords
+  (#667) in Suchkriterien; Wiedergaenger-Erkenner (#671),
+  `stelle_reaktivieren` (#664), verfeinerte Duplikat-Erkennung (#670) in
+  Tab-Stellen. Plan-* Sub-Pages (B/C/D/F/G) auf beta.90 nachgezogen.
+
+### Schema
+
+**Keine Schema-Aenderung.** Bleibt v45.
+
+### Tests
+
+- Volle Suite: **1611 passed, 1 skipped** (1612 collected).
+  `test_mcp_registry.py` bestaetigt 171 Tools.
+
+### Offene Issues (Hinweis)
+
+Die in beta.78-90 umgesetzten Issues (#657-#671) bleiben bewusst **offen**
+als deine Test-Checkliste fuer morgen — sie werden nach erfolgreichem
+User-Test geschlossen, nicht vorher.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.91.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.91.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.90] - 2026-06-02 — Frontend: Ablehnungsgruende-Editor + Tasks + Direkt-Abhaken (#663 C20 + #666 D19 + #665 D18)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Schliesst die Frontend-Reihe ab (C20/D18/D19). Build gruen. **Blind gebaut — bitte morgen visuell gegenchecken.**

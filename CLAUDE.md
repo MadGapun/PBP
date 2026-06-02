@@ -2,8 +2,32 @@
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
 React-Frontend + SQLite. **v1.6.10** ist Stable auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt **beta.74**) — wird `--latest` erst nach
+in der Beta-Reihe (zuletzt **beta.90**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
+
+## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
+
+**Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
+`dismiss_reasons.is_active` + `search_criteria.keywords_minus`).
+**Tests:** 1611 passed, 1 skipped (1612 collected).
+**MCP-Tools:** 171 (verifiziert via `test_mcp_registry.py`), **Prompts:** 24.
+**Quellen:** 34 (~6 produktiv).
+
+Selbsttest dieser Session (autonomer 8h-Lauf): volle Suite gruen +
+saubere Migration v43->v45 auf einer **Kopie** der Real-DB
+(`C:\Temp\claude\qa`, Original unter AppData NIE angefasst); 10/10
+REST-Endpoints der beta.78-90-Welle via FastAPI-TestClient OK
+(`tools/qa_rest_smoke.py`). Befunde + Drift-Tabelle:
+`docs/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
+Tools / 23 Prompts / Schema v42) und wurde Wiki-weit nachgezogen, inkl.
+neuer User-Doku fuer Lifecycle (#657/#658), Routing (#643), Tasks
+(#666), Ablehnungsgruende-Editor (#663), Minus-Keywords (#667),
+Wiedergaenger (#671), `stelle_reaktivieren` (#664).
+
+**Tool-Module (Code-Wahrheit, 11 Module = 171):** bewerbungen 30,
+analyse 27, jobs 26, dokumente 22, profil 20, kontakte 14, suche 12,
+export_tools 7, elwosa 6, tasks 4, workflows 3. `pbp_*`-Diagnose-Tools
+liegen im `analyse`-Modul.
 
 ## ⛔ Master-Plan-First (HART, seit 2026-06-01)
 
