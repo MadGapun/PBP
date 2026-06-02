@@ -53,27 +53,53 @@ def test_url_match_beats_everything():
 
 # --- find_duplicate_job: #471 repro case ---
 
-def test_virtotech_case_is_caught():
-    """Der Original-Bug aus Issue #471: 2h spaeter, Titel umformuliert."""
+def test_virtotech_gleiche_url_wird_gefangen():
+    """#471/#670: Bei IDENTISCHER URL ist es sicher ein Duplikat — unabhaengig
+    vom Titel. Die URL ist das zuverlaessigste Signal.
+
+    Hinweis: Der urspruengliche #471-Catch beruhte auf einem einzelnen
+    geteilten Domain-Keyword (PLM). Das hat #670 bewusst entschaerft, weil
+    es verschiedene Stellen derselben Firma faelschlich blockte. Reale
+    Reposts werden jetzt zuverlaessig ueber die URL erkannt.
+    """
     t_minus_2h = (datetime.now() - timedelta(hours=2)).isoformat()
     existing = [
         {
             "hash": "add792f49628",
             "title": "PLM Expert (Endkunde: Rota Yokogawa) via VirtoTech",
             "company": "VirtoTech Ltd. (Endkunde: Rota Yokogawa)",
-            "url": "",
+            "url": "https://virtotech.example/jobs/plm-123",
             "found_at": t_minus_2h,
         }
     ]
     hit = find_duplicate_job(
         firma="VirtoTech Ltd.",
         titel="SAP / PLM Lead Consultant",
-        url="",
+        url="https://virtotech.example/jobs/plm-123",
         candidates=existing,
     )
-    assert hit is not None, "Duplikat muss erkannt werden"
-    # Gemeinsame Tokens enthalten 'plm' (Domain-Keyword)
-    assert "plm" in hit["shared_tokens"]
+    assert hit is not None, "Gleiche URL muss als Duplikat erkannt werden"
+    assert hit["grund"] == "url_match"
+
+
+def test_670_single_domainkeyword_blockt_nicht():
+    """#670: 'PLM Project Manager' und 'PLM Product Owner' teilen nur 'PLM',
+    sind aber verschiedene Jobs -> KEIN Duplikat (verschiedene URLs)."""
+    existing = [
+        {
+            "hash": "tchibo1",
+            "title": "PLM Project Manager (m/w/d)",
+            "company": "Tchibo GmbH",
+            "url": "https://tchibo.example/jobs/pm",
+        }
+    ]
+    hit = find_duplicate_job(
+        firma="Tchibo GmbH",
+        titel="PLM Product Owner (m/w/d)",
+        url="https://tchibo.example/jobs/po",
+        candidates=existing,
+    )
+    assert hit is None, "Single geteiltes Domain-Keyword darf nicht blocken (#670)"
 
 
 def test_firma_mit_klammer_match():
@@ -117,12 +143,10 @@ def test_gleiche_firma_anderer_bereich_kein_match_ohne_zeitnaehe():
     assert hit is None
 
 
-def test_zeitnaehe_ohne_titel_match_schwache_warnung():
-    """Gleiche Firma, innerhalb 72h, keine Domain-Keyword-Ueberlappung.
-
-    v1.7.0-beta.15: Timestamps muessen tz-aware UTC sein, sonst kollidiert
-    `datetime.now()` lokal mit `datetime.now(timezone.utc)` im Code und
-    `hours_ago` wird negativ (Test schlaegt in Nicht-UTC-Zonen fehl).
+def test_zeitnaehe_ohne_titel_match_blockt_nicht():
+    """#670: Gleiche Firma + Zeitnaehe, aber KEINE Titel-Ueberlappung
+    (shared_tokens leer) -> KEIN Duplikat. Vorher (bis beta.86) gab das
+    faelschlich eine 'firma_plus_zeitnaehe'-Warnung und blockte das Anlegen.
     """
     t_minus_1h = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     existing = [
@@ -131,8 +155,7 @@ def test_zeitnaehe_ohne_titel_match_schwache_warnung():
          "found_at": t_minus_1h},
     ]
     hit = find_duplicate_job("Foo GmbH", "Marketing Manager", "", existing)
-    assert hit is not None
-    assert hit["grund"] == "firma_plus_zeitnaehe"
+    assert hit is None, "Zeitnaehe allein darf nicht blocken (#670)"
 
 
 def test_leere_eingaben():

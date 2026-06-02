@@ -1789,6 +1789,7 @@ def register(mcp, db, logger):
         quelle: str = "manuell",
         remote: str = "unbekannt",
         stellenart: str = "festanstellung",
+        force: bool = False,
     ) -> dict:
         """Legt eine Stelle manuell an (z.B. von LinkedIn/XING via Claude-in-Chrome) (#160).
 
@@ -1797,8 +1798,17 @@ def register(mcp, db, logger):
         bewertet und erscheint in stellen_anzeigen().
 
         WICHTIG: Vor dem Anlegen wird automatisch geprueft ob bereits eine
-        Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei Duplikat
-        wird eine Warnung zurueckgegeben und die Stelle NICHT angelegt.
+        Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei klarem
+        Duplikat-Verdacht wird eine Warnung zurueckgegeben und die Stelle
+        NICHT angelegt — es sei denn `force=True`.
+
+        v1.7.0-beta.87 (#670): Die Duplikat-Erkennung ist verschaerft. Ein
+        einzelnes geteiltes Domain-Keyword (z.B. "PLM") oder bloße Zeitnaehe
+        bei gleicher Firma blockt NICHT mehr — nur noch eine hinreichend hohe
+        Titel-Aehnlichkeit. Unterschiedliche URLs gelten als starkes
+        "verschiedene Stellen"-Signal. Mit `force=True` kann ein erkanntes
+        Duplikat dennoch angelegt werden (die Warnung wird im Result als
+        `duplikat_uebersteuert` mitgeliefert).
 
         Args:
             titel: Stellentitel (z.B. 'Senior Projektmanager PLM')
@@ -1809,6 +1819,7 @@ def register(mcp, db, logger):
             quelle: Herkunft der Stelle (z.B. 'linkedin', 'xing', 'firmenwebsite', 'manuell')
             remote: Remote-Level ('remote', 'hybrid', 'vor_ort', 'unbekannt')
             stellenart: Art der Stelle ('festanstellung', 'freelance', 'praktikum', 'werkstudent')
+            force: True = erkanntes Duplikat ignorieren und trotzdem anlegen (#670).
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
@@ -1845,8 +1856,21 @@ def register(mcp, db, logger):
         running_apps = [a for a in all_apps
                         if (a.get("status") or "") not in TERMINAL_STATUSES]
 
+        # v1.7.0-beta.87 (#670): force=True ueberspringt den Duplikat-Block.
+        # Der Verdacht wird aber gesammelt und im Erfolgs-Result transparent
+        # gemacht (`duplikat_uebersteuert`).
+        uebersteuerter_verdacht = None
+
         # Stufe A — laufende Bewerbung mit Titel-Match?
         app_hit = find_duplicate_job(firma, titel, url, running_apps)
+        if app_hit and force:
+            uebersteuerter_verdacht = {
+                "stufe": "laufende_bewerbung",
+                "grund": app_hit["grund"],
+                "shared_tokens": app_hit.get("shared_tokens"),
+                "existing_application_id": app_hit["job"].get("id", "")[:8],
+            }
+            app_hit = None
         if app_hit:
             app = app_hit["job"]
             return {
@@ -1875,6 +1899,15 @@ def register(mcp, db, logger):
         # blocken NICHT, weil sie schon mal aktiv abgelehnt wurden.
         active_jobs = db.get_active_jobs(exclude_applied=False)
         active_hit = find_duplicate_job(firma, titel, url, active_jobs)
+        if (active_hit and force
+                and active_hit["job"].get("hash") != job_hash):
+            uebersteuerter_verdacht = uebersteuerter_verdacht or {
+                "stufe": "aktive_stelle",
+                "grund": active_hit["grund"],
+                "shared_tokens": active_hit.get("shared_tokens"),
+                "existing_hash": active_hit["job"].get("hash"),
+            }
+            active_hit = None
         if active_hit and active_hit["job"].get("hash") != job_hash:
             existing = active_hit["job"]
             return {
@@ -1950,6 +1983,15 @@ def register(mcp, db, logger):
         }
         if job.get("distance_km"):
             result["entfernung_km"] = job["distance_km"]
+        # v1.7.0-beta.87 (#670): wenn ein Duplikat-Verdacht via force=True
+        # uebersteuert wurde, transparent im Result melden.
+        if uebersteuerter_verdacht:
+            result["duplikat_uebersteuert"] = uebersteuerter_verdacht
+            result["nachricht"] += (
+                " HINWEIS: Es bestand ein Duplikat-Verdacht "
+                f"({uebersteuerter_verdacht['grund']}), der per force=True "
+                "uebersteuert wurde."
+            )
         # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt
         from ..job_scraper import is_search_result_url
         if url and is_search_result_url(url):

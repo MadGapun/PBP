@@ -16,6 +16,72 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.87] - 2026-06-02 — Duplikat-Erkennung verfeinert + force-Override (#670)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+6 neue/geaenderte Tests, 1603 passed.** Keine Schema-Aenderung.
+
+### Hintergrund (#670)
+
+`stelle_manuell_anlegen` blockierte das Anlegen einer zweiten, inhaltlich verschiedenen Stelle derselben Firma als vermeintliches Duplikat. Konkret: zwei verschiedene PLM-Rollen bei derselben Firma ("PLM Project Manager" + "PLM Product Owner") wurden geblockt, weil sie ein einzelnes Domain-Keyword ("PLM") teilten. Schlimmer: `firma_plus_zeitnaehe` blockte sogar bei `shared_tokens: []` — also pro Firma nur eine Stelle pro Zeitfenster.
+
+### Fixed
+
+- **Ein einzelnes geteiltes Domain-Keyword blockt nicht mehr.** Die Duplikat-Entscheidung haengt jetzt an der **Titel-Aehnlichkeit** (Token-Set + Domain-Bonus), die einen Schwellwert (0.5) erreichen muss. "PLM Project Manager" vs "PLM Product Owner" (sim 0.4) gilt nicht mehr als Duplikat.
+- **`firma_plus_zeitnaehe` alleine blockt nicht mehr.** Zeitnaehe ist nur noch ein Ranking-Tiebreaker unter bereits qualifizierten Kandidaten, NIE ein Standalone-Trigger. Bei `shared_tokens: []` kommt gar keine Warnung mehr.
+- **Unterschiedliche URLs sind ein starkes Trennsignal.** Bei verschiedenen nicht-leeren URLs wird nur noch bei nahezu identischem Titel (Schwellwert 0.85) ein Duplikat angenommen.
+- Der Schwellwert-Vergleich passiert auf der reinen Titel-Aehnlichkeit (ohne Zeit-Bonus), damit Zeitnaehe einen knappen Nicht-Treffer nicht ueber die Grenze hebt.
+
+### Added
+
+- **`stelle_manuell_anlegen(..., force=False)`** — neuer Parameter. `force=True` legt eine Stelle trotz erkanntem Duplikat-Verdacht an. Der Verdacht wird im Erfolgs-Result als `duplikat_uebersteuert` (Stufe, Grund, shared_tokens, existierende ID/Hash) transparent gemeldet. Statt "Stelle geht verloren" hat der Aufrufer jetzt die Wahl.
+
+### Abgrenzung zu #671
+
+- **#670** (dieser Fix): identische/aehnliche *aktive* Stellen → Anlage-Block, jetzt feiner + Override.
+- **#671** (beta.86): frueher *verworfene* Wiedergaenger → Auto-Markierung.
+
+### Schema
+
+**Keine Schema-Aenderung.** Reine Logik-Verfeinerung in `duplicate_detection.py` + `stelle_manuell_anlegen`. Schema bleibt v45.
+
+### Tests
+
+- `tests/test_v17_duplikat_670.py` (5 neu): Tchibo-Doppelrolle anlegbar, Zeitnaehe-ohne-Titel kein Block, URL-Match weiter erkannt, force-Override, Gegentest ohne force.
+- `tests/test_duplicate_detection.py` aktualisiert: zwei Tests dokumentieren jetzt das #670-Verhalten (single-keyword + Zeitnaehe blocken nicht; URL-Match faengt reale Reposts).
+
+Volle Suite: **1603 passed, 1 skipped** (vorher 1597).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.87.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.87.zip)
+2. **Entpacken + Doppelklick \`INSTALLIEREN.bat\`**
+
+### macOS
+
+\`INSTALLIEREN.command\` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+\`\`\`
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: \`%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db\`
+- macOS/Linux: \`~/.bewerbungs-assistent/pbp.db\`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.86] - 2026-06-02 — Wiedergaenger-Erkenner, KI-frei (#671)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **+13 neue Tests, 1597 passed.** Keine Schema-Aenderung. **Komplett ohne lokale KI** (Architektur-Leitplanke aus #671).

@@ -25,14 +25,25 @@ _LEGAL_SUFFIXES = (
     "holding", "group", "gruppe",
 )
 
-# Domaenen-Keywords: treten ein Vorkommen schon reicht, da sie
-# den Fachbereich eindeutig markieren.
+# Domaenen-Keywords: markieren den Fachbereich. v1.7.0-beta.87 (#670):
+# NICHT mehr als Standalone-Trigger — nur noch als Bonus in der Titel-
+# Aehnlichkeit (_title_similarity). Ein einzelnes geteiltes "PLM" macht
+# zwei sonst verschiedene Stellen NICHT zu Duplikaten.
 _DOMAIN_KEYWORDS = {
     "plm", "sap", "erp", "cad", "pdm", "ecm", "dms",
     "devops", "sre", "mlops", "qa",
     "teamcenter", "windchill", "aras", "enovia", "3dexperience",
     "solidworks", "catia", "nx", "inventor",
 }
+
+# v1.7.0-beta.87 (#670): Schwellwerte fuer die Duplikat-Entscheidung.
+# Die Titel-Aehnlichkeit (inkl. Domain-Keyword-Bonus) muss diesen Wert
+# erreichen, sonst KEIN Duplikat. Bloße Zeitnaehe oder ein einzelnes
+# geteiltes Keyword reichen NICHT mehr.
+_TITLE_DUP_THRESHOLD = 0.5
+# Unterschiedliche URLs sind ein starkes "verschiedene Stellen"-Signal —
+# dann nur bei nahezu identischem Titel als Duplikat werten.
+_TITLE_DUP_THRESHOLD_DIFF_URL = 0.85
 
 
 def normalize_company_name(name: Optional[str]) -> str:
@@ -186,7 +197,7 @@ def find_duplicate_job(
         # 2. Titel-Aehnlichkeit
         sim, common = _title_similarity(titel, cand_title)
 
-        # 3. Zeitnaehe (optional, verstaerkt)
+        # 3. Zeitnaehe — NUR Tiebreaker im Ranking, NIE Standalone-Trigger (#670)
         cand_ts = _parse_iso(cand.get("found_at") or cand.get("created_at")
                              or cand.get("applied_at"))
         time_bonus = 0.0
@@ -196,23 +207,33 @@ def find_duplicate_job(
             if 0 <= hours_ago <= time_window_hours:
                 time_bonus = 0.3 * (1 - hours_ago / time_window_hours)
 
-        # Entscheidung
+        # v1.7.0-beta.87 (#670): Entscheidung allein an der Titel-Aehnlichkeit.
+        # Vorher triggerte ein einzelnes geteiltes Domain-Keyword ODER bloße
+        # Zeitnaehe (ohne Titel-Overlap) einen harten Block — das machte
+        # verschiedene Stellen derselben Firma unsichtbar (PLM Project Manager
+        # vs PLM Product Owner). Jetzt: `sim` muss ueber den Schwellwert.
+        # Das Domain-Keyword zaehlt nur als Bonus IN `sim` (siehe
+        # _title_similarity), Zeitnaehe nur als Ranking-Tiebreaker. Wichtig:
+        # der Schwellwert-Vergleich passiert auf `sim` (ohne time_bonus),
+        # damit Zeitnaehe einen knappen Nicht-Treffer nicht ueber die Grenze hebt.
+        urls_differ = bool(url_norm and cand_url and url_norm != cand_url)
+        threshold = _TITLE_DUP_THRESHOLD_DIFF_URL if urls_differ else _TITLE_DUP_THRESHOLD
+        if sim < threshold:
+            continue
+
         final_score = sim + time_bonus
-        if sim >= 0.4 or (common & _DOMAIN_KEYWORDS) or time_bonus > 0:
-            if final_score > best_score:
-                if common & _DOMAIN_KEYWORDS:
-                    grund = "firma_plus_domainkeyword"
-                elif sim >= 0.4:
-                    grund = "firma_plus_titel_fuzzy"
-                else:
-                    grund = "firma_plus_zeitnaehe"
-                best = {
-                    "job": cand,
-                    "grund": grund,
-                    "score": round(final_score, 2),
-                    "shared_tokens": sorted(common),
-                    "hours_ago": round(hours_ago, 1) if hours_ago is not None else None,
-                }
-                best_score = final_score
+        if final_score > best_score:
+            grund = (
+                "firma_plus_domainkeyword" if (common & _DOMAIN_KEYWORDS)
+                else "firma_plus_titel_fuzzy"
+            )
+            best = {
+                "job": cand,
+                "grund": grund,
+                "score": round(final_score, 2),
+                "shared_tokens": sorted(common),
+                "hours_ago": round(hours_ago, 1) if hours_ago is not None else None,
+            }
+            best_score = final_score
 
     return best
