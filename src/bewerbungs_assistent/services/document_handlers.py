@@ -305,3 +305,78 @@ def list_known_types() -> list[dict]:
         }
         for typ, info in KNOWN_TYPES.items()
     ]
+
+
+# ── Rauschen-Heuristik (#643/#657 Phase 3, beta.80) ──────────────────
+#
+# Reine Benachrichtigungs-Mails (LinkedIn-Digest, XING-Recruiter-Push,
+# Mail-Robot-Avisos) sollen beim Import direkt `lifecycle=archiviert`
+# bekommen. Das verhindert dass sie ueberhaupt erst im Analyse-Plan
+# auftauchen.
+#
+# Konservativ-defensiv: Nur bei klaren Treffern (Absender-Domain ODER
+# eindeutiges Betreffmuster) als Rauschen markieren. False-Positives sind
+# teuer (echte Recruiter-Anfragen koennten ueber LinkedIn kommen) — der
+# User kann archivierte Docs ohnehin via `dokument_reaktivieren` zurueck-
+# holen, aber wir wollen das nicht noetig machen.
+
+# Absender, deren Mails IMMER reine Notifications sind:
+_NOISE_SENDER_PATTERNS = (
+    "messaging-digest-noreply@linkedin.com",
+    "noreply@linkedin.com",
+    "notifications-noreply@linkedin.com",
+    "mailrobot@mail.xing.com",
+    "info@bot.xing.com",
+    "noreply@xing.com",
+)
+
+# Betreff-Muster, die unabhaengig vom Absender ein klares
+# Notification-Signal sind. Bewusst klein gehalten — bei Erweiterung
+# bitte Tests in `tests/test_v17_routing_643.py` mitziehen.
+_NOISE_SUBJECT_PATTERNS = (
+    "hat dir eine nachricht gesendet",
+    "hat Ihnen eine Nachricht gesendet".lower(),
+    "neue recruiting-nachricht",
+    "neue empfehlung fuer dich",
+    "neue empfehlung für dich",
+    "ist jetzt mit dir verbunden",
+    "ist Ihrem Netzwerk beigetreten".lower(),
+    "deine wöchentliche zusammenfassung",
+    "deine woechentliche zusammenfassung",
+    "linkedin-digest",
+    "your linkedin news",
+    "jobs you may be interested in",
+)
+
+
+def _normalize_for_match(value: str | None) -> str:
+    if not value:
+        return ""
+    s = str(value).lower()
+    for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        s = s.replace(uml, repl)
+    return s
+
+
+def is_pure_notification(sender: str | None = None, subject: str | None = None) -> bool:
+    """Erkennt reine Benachrichtigungs-Mails ohne verwertbaren Inhalt (#657 Phase 3).
+
+    Trifft auf LinkedIn-/XING-Digest-Avisos, Mail-Robot-Pushes und
+    aehnliches zu. Bewusst konservativ: nur klare Treffer.
+
+    Args:
+        sender: Volle From-Adresse aus der Mail.
+        subject: Betreff der Mail.
+
+    Returns:
+        True wenn das Doku klar als Rauschen erkennbar ist.
+    """
+    sender_norm = (sender or "").strip().lower()
+    if any(pat in sender_norm for pat in _NOISE_SENDER_PATTERNS):
+        return True
+
+    subject_norm = _normalize_for_match(subject)
+    if any(pat in subject_norm for pat in _NOISE_SUBJECT_PATTERNS):
+        return True
+
+    return False

@@ -785,6 +785,20 @@ def _build_email_document_context(parsed: dict) -> dict:
                 }
                 break
 
+    # v1.7.0-beta.80 (#643/#657 Phase 3): Rauschen-Heuristik.
+    # Erkennt LinkedIn-/XING-Digest-Mails und reine Notification-Pushes,
+    # damit sie beim Import direkt auf lifecycle=archiviert gesetzt werden
+    # koennen und gar nicht erst im Analyse-Plan auftauchen.
+    is_noise = False
+    try:
+        from .services.document_handlers import is_pure_notification
+        is_noise = is_pure_notification(
+            sender=parsed.get("sender", ""),
+            subject=parsed.get("subject", ""),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Rauschen-Heuristik fehlgeschlagen: %s", exc)
+
     return {
         "direction": direction,
         "match_application_id": match_app_id,
@@ -793,6 +807,7 @@ def _build_email_document_context(parsed: dict) -> dict:
         "detected_status": detected_status,
         "status_confidence": status_confidence,
         "meeting_count": len(meetings),
+        "is_pure_notification": is_noise,
     }
 
 
@@ -1310,6 +1325,18 @@ async def api_import_folder(request: Request):
                     logger.warning("Import: Dokument %s konnte nicht mit Bewerbung verknuepft werden: %s", fpath.name, exc)
             if fname.endswith((".msg", ".eml")) and extracted.strip():
                 _db.update_document_extraction_status(did, "basis_analysiert")
+            # v1.7.0-beta.80 (#643/#657 Phase 3): Rauschen-Heuristik
+            # Reine Notification-Mails (LinkedIn-/XING-Digest, Mail-Robot)
+            # direkt auf lifecycle=archiviert setzen — verhindert dass sie
+            # ueberhaupt erst im Analyse-Plan auftauchen.
+            if email_context and email_context.get("is_pure_notification"):
+                try:
+                    _db.update_document_lifecycle(did, "archiviert")
+                except Exception as exc:
+                    logger.debug(
+                        "Rauschen-Archivierung fehlgeschlagen fuer %s: %s",
+                        did, exc,
+                    )
             docs_imported += 1
 
         # Try to detect applications from folder structure
@@ -4690,6 +4717,15 @@ async def api_upload_document(
 
     if fname.endswith((".msg", ".eml")) and extracted.strip():
         _db.update_document_extraction_status(did, "basis_analysiert")
+    # v1.7.0-beta.80 (#643/#657 Phase 3): Rauschen-Heuristik im Upload-Pfad.
+    if email_context and email_context.get("is_pure_notification"):
+        try:
+            _db.update_document_lifecycle(did, "archiviert")
+        except Exception as exc:
+            logger.debug(
+                "Rauschen-Archivierung fehlgeschlagen fuer %s: %s",
+                did, exc,
+            )
 
     # For email documents: apply full email intelligence (meetings, status, timeline)
     stored_meetings = []

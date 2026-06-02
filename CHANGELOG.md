@@ -16,6 +16,129 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.80] - 2026-06-02 — Dokument-Routing Phase 3 (#643, E11)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Sechster Master-Plan-First-
+> Release: Plan-Eintrag E11 → Code → 16 neue Tests → Wiki ✅ → Commit.
+> **Cluster E (Dokumenten-Pipeline) ist mit dieser Beta komplett (13/13 ✅).**
+
+### Hintergrund (#643)
+
+Bisher war `/dokumente_verarbeiten` rein auf Profildaten-Extraktion ausgelegt:
+"Analysiere die Dokumente und extrahiere Profildaten" — egal ob CV oder Absage-
+Mail. Die Konsequenz war, dass Einladungen kein Termin wurden, Absagen keinen
+Status setzten, Recruiter-Anfragen keine Antwort triggerten — die Aktion-Schicht
+fehlte komplett.
+
+Phase 3 verbindet die Per-Typ-Handler aus E14 (beta.77) mit dem Verarbeitungs-
+Flow. Pro `doc_type` wird die passende PBP-Aktion abgeleitet (Profil-
+Extraktion, Termin-Anlage, Status-Wechsel, Bewerbung-Erfassen,
+Korrespondenz-Abschluss). Plus eine Rauschen-Heuristik im Mail-Import, die
+LinkedIn-/XING-Digest-Mails sofort archiviert.
+
+### Added
+
+- **MCP-Tool `dokumente_routing_plan_erstellen(archiv=False)`** — gruppiert
+  alle noch-nicht-fertig-verarbeiteten Dokumente nach abgeleiteter Aktion.
+  Pro Aktion: Anzahl, Hint fuer den naechsten konkreten Tool-Aufruf, Liste
+  der betroffenen Docs. Nutzt `services/document_handlers.handle_doc()`.
+- **MCP-Tool `dokument_aktion_ausfuehren(dokument_id, aktion, args)`** —
+  Wrapper um bestehende MCP-Tools. Aktionen:
+  - `profil_extraktion` → Anleitung (User-Bestaetigung notwendig, kein
+    Auto-Apply)
+  - `termin_anlegen` → delegiert an `meeting_hinzufuegen`
+  - `bewerbung_status_setzen` → delegiert an `bewerbung_status_aendern`
+    (Auto-Veralten-Hook aus #657 greift automatisch)
+  - `eingangsbestaetigung` → setzt Status auf `eingangsbestaetigung`
+  - `bewerbung_erfassen` → delegiert an `bewerbung_erstellen`
+  - `noop_korrespondenz_abschliessen` → setzt nur Status auf `angewendet`
+  Am Ende jeder Aktion: `extraction_status='angewendet'` fuer das Doku.
+- **`dokumente_batch_analysieren(routing_modus=False)`** — neuer Opt-in-
+  Parameter. Wenn True: pro Doku ein `routing`-Feld im Response mit
+  `aktion`, `claude_action_hint`, `extrahierte_felder`,
+  `naechster_aufruf_hinweis`. Default-Verhalten bleibt unveraendert.
+- **Rauschen-Heuristik `services/document_handlers.is_pure_notification(sender, subject)`**
+  — erkennt LinkedIn-/XING-Digest-Avisos, Mail-Robot-Pushes. Konservativ:
+  nur klare Treffer (Absender-Domain ODER eindeutiges Betreff-Muster mit
+  Umlaut-Normalisierung).
+- **Mail-Import-Hook** im Ordner-Import-Pfad (`dashboard.py`) und im
+  Mail-Upload-Pfad: wenn `is_pure_notification` greift, wird das Doku
+  direkt auf `lifecycle='archiviert'` gesetzt — taucht damit gar nicht
+  erst im Analyse-Plan auf. Reversibel ueber `dokument_reaktivieren`.
+- **16 neue Tests** in `tests/test_v17_routing_643.py`: Routing-Plan-
+  Gruppierung, Batch-Routing-Modus, alle 5 Aktions-Typen,
+  Rauschen-Heuristik (LinkedIn, XING, echte Mails, Umlaute, leere Werte).
+
+### Changed
+
+- MCP-Tool-Count: 159 → **161**.
+- Plan-Dokumente.md: E11 ✅, **Cluster E komplett 13/13 ✅**.
+- Master-Plan.md: E11 (#643) auf ✅.
+- `_build_email_document_context` (dashboard.py) liefert jetzt zusaetzlich
+  `is_pure_notification` zurueck.
+
+### Schema
+
+**Keine Schema-Aenderung.** Phase 3 ist reine Logik. Schema bleibt v44.
+
+### DSGVO-Hinweis
+
+Die Rauschen-Heuristik prueft Absender-Adressen und Betreff-Zeilen *nur
+lokal in Python*. Es werden keine Daten an externe Services geschickt.
+Pattern-Liste ist statisch im Code dokumentiert.
+
+### Bekannt nicht enthalten
+
+- **Frontend-UI fuer Routing-Plan / Aktion-Ausfuehrer** — wird nachgezogen.
+  MCP-Tools reichen fuer den Claude-Workflow.
+- **LLM-basierte Klassifikation fuer Routing-Entscheidung** — bewusst nicht
+  Phase 3. Regex/Keyword-basierter Pfad ist deterministisch und latenz-
+  arm. Tiefenanalyse via `_run_auto_deep_analysis` (E12, beta.76) bleibt
+  parallel verfuegbar.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.80.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.80.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.79] - 2026-06-02 — Dokument-Lifecycle Phase 2 (#657, E16)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Fuenfter Master-Plan-First-

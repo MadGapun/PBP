@@ -44,6 +44,8 @@ EXPECTED_TOOL_NAMES = {
     "dokument_archivieren",
     "dokument_reaktivieren",
     "dokumente_bulk_archivieren",
+    "dokumente_routing_plan_erstellen",
+    "dokument_aktion_ausfuehren",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
@@ -290,7 +292,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 159  # v1.7.0-beta.79 (#657 E16): + dokument_archivieren/reaktivieren/bulk_archivieren
+        assert len(tools) == 161  # v1.7.0-beta.80 (#643 E11): + dokumente_routing_plan_erstellen / dokument_aktion_ausfuehren
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

@@ -860,6 +860,7 @@ def register(mcp, db, logger):
         max_bytes_per_doc: int = 8000,
         profil_mitsenden: bool = True,
         archiv: bool = False,
+        routing_modus: bool = False,
     ) -> dict:
         """Analysiert den nächsten Batch von Dokumenten — effizient und Token-sparend.
 
@@ -978,7 +979,7 @@ def register(mcp, db, logger):
                 )
                 truncated = True
                 truncations += 1
-            dokumente.append({
+            doc_entry = {
                 "id": doc["id"],
                 "filename": doc["filename"],
                 "doc_type": doc.get("doc_type", "sonstiges"),
@@ -986,7 +987,49 @@ def register(mcp, db, logger):
                 "text_laenge_uebertragen": len(text.encode("utf-8", errors="replace")),
                 "gekuerzt": truncated,
                 "extrahierter_text": text,
-            })
+            }
+            # v1.7.0-beta.80 (#643 E11): Routing-Modus -> Per-Typ-Hint mitsenden
+            if routing_modus:
+                from ..services.document_handlers import handle_doc
+                try:
+                    info = handle_doc(doc)
+                except Exception:
+                    info = {"typ": doc.get("doc_type"), "claude_action": "", "fields": {}}
+                aktion = _DOC_ROUTING_ACTIONS.get(
+                    doc.get("doc_type") or "sonstiges",
+                    "noop_korrespondenz_abschliessen",
+                )
+                doc_entry["routing"] = {
+                    "aktion": aktion,
+                    "claude_action_hint": info.get("claude_action") or "",
+                    "extrahierte_felder": info.get("fields") or {},
+                    "naechster_aufruf_hinweis": _ROUTING_NAECHSTER_AUFRUF.get(
+                        aktion, ""
+                    ),
+                }
+            dokumente.append(doc_entry)
+
+        if routing_modus:
+            anleitung = (
+                "Pro Dokument im Batch: schaue auf `routing.aktion` und nutze "
+                "`dokument_aktion_ausfuehren(dokument_id, aktion, args)`. "
+                "Fuer `profil_extraktion` weiter wie bisher (Profildaten "
+                "ziehen + extraktion_ergebnis_speichern + extraktion_anwenden). "
+                "Fuer `noop_korrespondenz_abschliessen` reicht das Tool "
+                "`dokumente_korrespondenz_abschliessen()` am Ende des Batches. "
+                "Danach: dokumente_batch_analysieren(batch_nr="
+                + str(batch_nr + 1)
+                + ", routing_modus=True) fuer den naechsten Batch."
+            )
+        else:
+            anleitung = (
+                "Analysiere die Dokumente und extrahiere Profildaten. "
+                "Speichere mit extraktion_ergebnis_speichern(). "
+                "Dann extraktion_anwenden(). "
+                "Danach: dokumente_batch_analysieren(batch_nr="
+                + str(batch_nr + 1)
+                + ") für den nächsten Batch."
+            )
 
         result = {
             "status": "ok",
@@ -996,13 +1039,9 @@ def register(mcp, db, logger):
             "dokumente_in_batch": len(dokumente),
             "duplikate_uebersprungen": len(dup_ids),
             "dokumente_gekuerzt": truncations,
+            "routing_modus": routing_modus,
             "dokumente": dokumente,
-            "anleitung": (
-                "Analysiere die Dokumente und extrahiere Profildaten. "
-                "Speichere mit extraktion_ergebnis_speichern(). "
-                "Dann extraktion_anwenden(). "
-                "Danach: dokumente_batch_analysieren(batch_nr=" + str(batch_nr + 1) + ") für den nächsten Batch."
-            ),
+            "anleitung": anleitung,
         }
 
         if profil_mitsenden:
@@ -1850,3 +1889,329 @@ def register(mcp, db, logger):
                 "ausfuehren, falls weitere Treffer bestehen.)"
             )
         return result
+
+    # === Dokument-Routing (#643, E11, beta.80) =========================
+    # Phase 3 verbindet das Per-Typ-Handler-System (E14, beta.77) mit
+    # `/dokumente_verarbeiten`. Statt "extrahiere Profildaten" bekommt
+    # Claude jetzt typspezifische Aktions-Vorschlaege:
+    #   lebenslauf      -> Profil-Extraktion
+    #   absage          -> Bewerbung-Status setzen
+    #   einladung       -> Termin anlegen
+    #   recruiter_anfrage -> Anfrage erfassen, Antwort entwerfen
+    #   eingangsbestaetigung -> Bewerbung-Status setzen
+    #   sonstiges/noise -> Korrespondenz abschliessen oder archivieren
+
+    # Mapping doc_type -> Aktions-Code, der spaeter via
+    # `dokument_aktion_ausfuehren` umgesetzt wird. Bewusst klein gehalten —
+    # neue Typen ergaenzen wir in document_handlers.KNOWN_TYPES.
+    _DOC_ROUTING_ACTIONS = {
+        "lebenslauf": "profil_extraktion",
+        "anschreiben": "noop_korrespondenz_abschliessen",
+        "projektliste": "profil_extraktion",
+        "zeugnis": "profil_extraktion",
+        "arbeitszeugnis": "profil_extraktion",
+        "ausbildungszeugnis": "profil_extraktion",
+        "zertifikat": "profil_extraktion",
+        "absage": "bewerbung_status_setzen",
+        "einladung": "termin_anlegen",
+        "interview_einladung": "termin_anlegen",
+        "interview_bestaetigung": "termin_anlegen",
+        "eingangsbestaetigung": "eingangsbestaetigung",
+        "recruiter_anfrage": "bewerbung_erfassen",
+        "vermittler_korrespondenz": "noop_korrespondenz_abschliessen",
+        "projekt_update": "noop_korrespondenz_abschliessen",
+        "gespraechs_feedback": "noop_korrespondenz_abschliessen",
+        "angebot": "noop_korrespondenz_abschliessen",
+        "sonstiges": "noop_korrespondenz_abschliessen",
+    }
+
+    # Per-Aktion: kurzer Hinweis fuer den naechsten konkreten MCP-Tool-Call.
+    _ROUTING_NAECHSTER_AUFRUF = {
+        "profil_extraktion": (
+            "Nutze `dokumente_batch_analysieren(routing_modus=False)` oder "
+            "`extraktion_starten`, danach `extraktion_anwenden`."
+        ),
+        "termin_anlegen": (
+            "Pro Doku: `dokument_aktion_ausfuehren(dokument_id, "
+            "'termin_anlegen', args={datum,uhrzeit,plattform,bewerbung_id})`."
+        ),
+        "bewerbung_status_setzen": (
+            "Pro Doku: `dokument_aktion_ausfuehren(dokument_id, "
+            "'bewerbung_status_setzen', args={bewerbung_id, neuer_status, ablehnungsgrund?})`."
+        ),
+        "eingangsbestaetigung": (
+            "Pro Doku: `dokument_aktion_ausfuehren(dokument_id, "
+            "'eingangsbestaetigung', args={bewerbung_id})`."
+        ),
+        "bewerbung_erfassen": (
+            "Pro Doku: `dokument_aktion_ausfuehren(dokument_id, "
+            "'bewerbung_erfassen', args={firma, titel, url?})`."
+        ),
+        "noop_korrespondenz_abschliessen": (
+            "Sammelweise: `dokumente_korrespondenz_abschliessen(dry_run=False)`."
+        ),
+    }
+
+    @mcp.tool()
+    def dokumente_routing_plan_erstellen(archiv: bool = False) -> dict:
+        """Erstellt einen Routing-Plan: was sollte mit jedem Dokument passieren? (#643 E11)
+
+        Wertet pro noch-nicht-vollstaendig-verarbeitetes Doku den
+        `doc_type` aus und liefert die passende PBP-Aktion (Profil-
+        Extraktion, Termin-Anlage, Status-Wechsel, ...). Aufbauend auf
+        `services/document_handlers.handle_doc()` aus E14 (beta.77).
+
+        Nutzung: Claude ruft das Tool VOR `dokumente_batch_analysieren`
+        (im Routing-Modus) auf, um zu wissen welche Aktionen pro Typ
+        anstehen. Pro Aktion gruppiert + Vorschlaege fuer den naechsten
+        Tool-Aufruf.
+
+        Args:
+            archiv: False (Default) — nur lifecycle=aktiv. True bezieht
+                archivierte/veraltete mit ein.
+        """
+        from ..services.document_handlers import handle_doc
+
+        profile = db.get_profile()
+        if not profile:
+            return {"fehler": "Kein aktives Profil."}
+
+        conn = db.connect()
+        pid = profile["id"]
+        lifecycle_clause = "" if archiv else " AND lifecycle='aktiv'"
+        rows = conn.execute(
+            "SELECT id, filename, doc_type, extraction_status, "
+            "extracted_text, lifecycle, "
+            "COALESCE(linked_application_id,0) AS aid "
+            "FROM documents "
+            "WHERE profile_id=? "
+            "AND extraction_status IN "
+            "  ('nicht_extrahiert','basis_analysiert','analysiert','analysiert_leer')"
+            + lifecycle_clause
+            + " ORDER BY created_at DESC LIMIT 200",
+            (pid,)
+        ).fetchall()
+
+        gruppen: dict[str, list[dict]] = {}
+        for r in rows:
+            doc = dict(r)
+            info = handle_doc(doc)
+            aktion = _DOC_ROUTING_ACTIONS.get(
+                doc["doc_type"] or "sonstiges",
+                "noop_korrespondenz_abschliessen",
+            )
+            eintrag = {
+                "id": doc["id"],
+                "filename": doc["filename"],
+                "doc_type": doc["doc_type"],
+                "extraction_status": doc["extraction_status"],
+                "lifecycle": doc["lifecycle"],
+                "linked_application_id": doc["aid"] or None,
+                "claude_action": info["claude_action"],
+                "extrahierte_felder": info.get("fields") or {},
+            }
+            gruppen.setdefault(aktion, []).append(eintrag)
+
+        gruppen_summary = []
+        for aktion, items in sorted(gruppen.items()):
+            gruppen_summary.append({
+                "aktion": aktion,
+                "anzahl": len(items),
+                "naechster_aufruf_hinweis": _ROUTING_NAECHSTER_AUFRUF.get(
+                    aktion, "Pruefe das Doku einzeln und entscheide."
+                ),
+                "dokumente": items,
+            })
+
+        return {
+            "status": "ok",
+            "dokumente_gesamt": len(rows),
+            "aktionen_anzahl": len(gruppen),
+            "aktionen": gruppen_summary,
+            "anleitung": (
+                "Pro Aktions-Gruppe: rufe `dokument_aktion_ausfuehren(dokument_id, "
+                "aktion, args)` fuer jedes Doku auf — oder nutze "
+                "`dokumente_batch_analysieren(routing_modus=True)` fuer den "
+                "kombinierten Flow."
+            ),
+        }
+
+    @mcp.tool()
+    def dokument_aktion_ausfuehren(
+        dokument_id: str,
+        aktion: str,
+        args: dict = None,
+    ) -> dict:
+        """Fuehrt die fuer ein Dokument vorgeschlagene Aktion aus (#643 E11).
+
+        Wrapper um bestehende MCP-Tools — Claude muss nicht selber wissen
+        welches Tool fuer welche Aktion zustaendig ist. Liefert das
+        konkrete Ergebnis des delegierten Tools zurueck und setzt am Ende
+        `extraction_status='angewendet'` fuer das Dokument.
+
+        Unterstuetzte Aktionen:
+        - `profil_extraktion` — Hinweis: hierfuer den klassischen Pfad
+          extraktion_starten/extraktion_anwenden nutzen. Dieses Tool liefert
+          dafuer nur eine Anleitung zurueck (keine implizite Anwendung,
+          weil Profil-Apply einen User-Bestaetigungsschritt braucht).
+        - `termin_anlegen` — args: {bewerbung_id, datum, uhrzeit?,
+          plattform?, link?, ort?}. Delegiert an meeting_hinzufuegen().
+        - `bewerbung_status_setzen` — args: {bewerbung_id, neuer_status,
+          ablehnungsgrund?, notizen?}. Delegiert an bewerbung_status_aendern().
+        - `eingangsbestaetigung` — args: {bewerbung_id, notizen?}.
+          Setzt Status auf `eingangsbestaetigung`.
+        - `bewerbung_erfassen` — args: {firma, titel, url?, status?}.
+          Delegiert an bewerbung_erstellen().
+        - `noop_korrespondenz_abschliessen` — keine externe Aktion, setzt
+          nur extraction_status='angewendet'. Identisch zur Wirkung von
+          `dokumente_korrespondenz_abschliessen` fuer dieses eine Doku.
+
+        Args:
+            dokument_id: ID des betreffenden Dokuments.
+            aktion: einer der oben gelisteten Aktions-Codes.
+            args: Aktions-spezifische Argumente (siehe oben).
+        """
+        args = args or {}
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+
+        delegiert = None
+        post_status = "angewendet"
+
+        if aktion == "profil_extraktion":
+            return {
+                "status": "anleitung",
+                "dokument_id": dokument_id,
+                "aktion": aktion,
+                "anleitung": (
+                    "Profil-Extraktion: nutze `extraktion_starten(["
+                    f"\"{dokument_id}\"])`, dann `extraktion_ergebnis_speichern` "
+                    "und am Ende `extraktion_anwenden`. Diese setzt am "
+                    "Ende selbst `angewendet` und braucht User-"
+                    "Bestaetigung bei Konflikten."
+                ),
+            }
+
+        # Sub-Tool-Loader: registriert die bewerbungen-Tools in einem
+        # leichten Fake-MCP, sodass wir die echten Tool-Funktionen
+        # (inklusive aller Lifecycle-Hooks wie Auto-Veralten aus #657)
+        # aufrufen koennen, statt DB-Logik zu duplizieren.
+        def _load_bewerbungen_tools() -> dict:
+            from .bewerbungen import register as _reg_bw
+
+            class _SubMCP:
+                def __init__(self):
+                    self.tools: dict = {}
+
+                def tool(self):
+                    def deco(fn):
+                        self.tools[fn.__name__] = fn
+                        return fn
+                    return deco
+
+            sub = _SubMCP()
+            _reg_bw(sub, db, logger)
+            return sub.tools
+
+        if aktion == "termin_anlegen":
+            try:
+                tools = _load_bewerbungen_tools()
+            except Exception as exc:  # noqa: BLE001
+                return {"fehler": f"meeting_hinzufuegen nicht ladbar: {exc}"}
+            fn = tools.get("meeting_hinzufuegen")
+            if not fn:
+                return {"fehler": "meeting_hinzufuegen nicht registriert."}
+            datum_raw = args.get("datum") or ""
+            uhrzeit_raw = args.get("uhrzeit") or ""
+            if datum_raw and uhrzeit_raw and "T" not in datum_raw:
+                datum_combined = f"{datum_raw}T{uhrzeit_raw}"
+            else:
+                datum_combined = datum_raw
+            delegiert = fn(
+                bewerbung_id=args.get("bewerbung_id"),
+                datum=datum_combined,
+                typ=args.get("typ") or "interview",
+                platform=args.get("plattform") or args.get("platform") or "",
+                ort=args.get("ort") or "",
+                titel=args.get("titel") or "",
+                notizen=args.get("notizen") or args.get("link") or "",
+            )
+
+        elif aktion == "bewerbung_status_setzen":
+            try:
+                tools = _load_bewerbungen_tools()
+            except Exception as exc:  # noqa: BLE001
+                return {"fehler": f"bewerbung_status_aendern nicht ladbar: {exc}"}
+            fn = tools.get("bewerbung_status_aendern")
+            if not fn:
+                return {"fehler": "bewerbung_status_aendern nicht registriert."}
+            delegiert = fn(
+                bewerbung_id=args.get("bewerbung_id"),
+                neuer_status=args.get("neuer_status"),
+                notizen=args.get("notizen") or "",
+                ablehnungsgrund=args.get("ablehnungsgrund") or "",
+            )
+
+        elif aktion == "eingangsbestaetigung":
+            try:
+                tools = _load_bewerbungen_tools()
+            except Exception as exc:  # noqa: BLE001
+                return {"fehler": f"bewerbung_status_aendern nicht ladbar: {exc}"}
+            fn = tools.get("bewerbung_status_aendern")
+            if not fn:
+                return {"fehler": "bewerbung_status_aendern nicht registriert."}
+            delegiert = fn(
+                bewerbung_id=args.get("bewerbung_id"),
+                neuer_status="eingangsbestaetigung",
+                notizen=args.get("notizen") or "",
+            )
+
+        elif aktion == "bewerbung_erfassen":
+            try:
+                tools = _load_bewerbungen_tools()
+            except Exception as exc:  # noqa: BLE001
+                return {"fehler": f"bewerbung_erstellen nicht ladbar: {exc}"}
+            fn = tools.get("bewerbung_erstellen")
+            if not fn:
+                return {"fehler": "bewerbung_erstellen nicht registriert."}
+            delegiert = fn(
+                title=args.get("titel") or args.get("title") or "",
+                company=args.get("firma") or args.get("company") or "",
+                url=args.get("url") or "",
+                status=args.get("status") or "anfrage",
+                notes=args.get("notes") or args.get("notizen") or "",
+            )
+
+        elif aktion == "noop_korrespondenz_abschliessen":
+            delegiert = {"status": "korrespondenz_abgeschlossen"}
+
+        else:
+            return {
+                "fehler": f"Unbekannte Aktion '{aktion}'.",
+                "bekannte_aktionen": sorted(set(_DOC_ROUTING_ACTIONS.values())),
+            }
+
+        # Status auf `angewendet` heben — Doku gilt damit als verarbeitet
+        # und verschwindet aus analyse_plan_erstellen/dokumente_batch_analysieren.
+        try:
+            db.update_document_extraction_status(dokument_id, post_status)
+        except Exception as exc:
+            logger.warning(
+                "post-action status update fuer %s fehlgeschlagen: %s",
+                dokument_id, exc,
+            )
+
+        return {
+            "status": "umgesetzt",
+            "dokument_id": dokument_id,
+            "aktion": aktion,
+            "delegiert_an_tool_result": delegiert,
+            "extraction_status_nachher": post_status,
+            "hinweis": (
+                "Dokument wurde verarbeitet und auf extraction_status="
+                "`angewendet` gesetzt. Bei Bedarf reaktivierbar via "
+                "`dokument_status_setzen`."
+            ),
+        }
