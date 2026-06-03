@@ -30,6 +30,32 @@ Push (Desktop Commander). Der Master-Plan darf nur bewusst und
 nachvollziehbar geaendert werden — vor einem Wiki-Edit den aktuellen
 Stand frisch ziehen (Pull), nicht auf eine Cache-Version verlassen.
 
+## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
+
+**Am Ende JEDER Arbeitssession diese Punkte durchgehen.** Die maszgebliche,
+immer offene Version steht in **Issue #675** (nicht schliessen). Diese
+Kopie hier ist die schnell-praesente Fassung — bei Aenderungen beide
+synchron halten.
+
+1. **Master-Plan pruefen, lesen, ggf. aktualisieren** —
+   https://github.com/MadGapun/PBP/wiki/Master-Plan. Neue/geaenderte
+   Themen als Position aufnehmen (⬜) oder Status nachziehen (🟨/✅).
+2. **Wiki aktualisieren** — betroffene Seiten nachziehen (`Plan-{Cluster}`,
+   Tab-Seiten, MCP-Tools, FAQ). Clone + Push, vorher Pull.
+3. **README aktualisieren** — Repo-Root-README pruefen (Tool-Count,
+   Feature-Liste, Version) und bei Bedarf nachziehen.
+4. **Issues dokumentieren / abschliessen** — adressierte Issues mit
+   Ergebnis + Versionsbezug kommentieren und schliessen; neue Erkenntnisse
+   als neue Issues anlegen (PII-Scrub).
+5. **GitHub-MCP nutzen** — Issue-Operationen laufen ueber den GitHub-MCP.
+   Umlaut-Regel: nach `create` immer `update` mit korrekten Umlauten.
+6. **PBP-MCP-Luecken als Issue dokumentieren** — alles, was ueber den
+   PBP-MCP funktionieren MUESSTE aber nicht funktioniert (fehlende/kaputte
+   Tools, Felder die ins Leere schreiben, Tools die per tool_search nicht
+   ladbar sind, jeder Direkt-SQL-Workaround), wird als Issue erfasst. Ziel:
+   MCP-Layer bleibt langfristig die einzige Schnittstelle (Anti-DB-Bypass,
+   #514).
+
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
 
 **Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
