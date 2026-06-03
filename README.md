@@ -196,12 +196,12 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 95 Tools in 8 Modulen |
-| **Workflows** | 18 gefuehrte Workflows |
+| **MCP-Tools** | 174 Tools in 11 Modulen |
+| **Workflows** | 24 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v38 |
-| **Tests** | 1188 bestanden |
+| **Datenbank** | SQLite (WAL), Schema v45 |
+| **Tests** | 1622 bestanden |
 
 ### Typed IDs (v1.7.0, #505)
 
