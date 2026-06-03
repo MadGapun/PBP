@@ -5,6 +5,31 @@ React-Frontend + SQLite. **v1.6.10** ist Stable auf GitHub. v1.7.0 laeuft
 in der Beta-Reihe (zuletzt **beta.90**) — wird `--latest` erst nach
 abgeschlossenem User-Test (User-Wort).
 
+## ⛔⛔ ZUERST LESEN: Master-Plan (Single Source of Truth)
+
+**Der Master-Plan ist das verbindliche Steuerungsdokument fuer PBP. Er
+liegt im GitHub-Wiki, NICHT im Code-Repo:**
+
+> **https://github.com/MadGapun/PBP/wiki/Master-Plan**
+
+Begleitseiten:
+- Risiken / Trade-offs / Reihenfolge: https://github.com/MadGapun/PBP/wiki/Master-Plan-Optimierung
+- 9 Sub-Plaene auf Issue-Ebene: `Plan-{Cluster}` (A–J) im selben Wiki
+
+**Pflicht vor JEDER Aenderung (Code, Schema, Tools, Doku, Issues):**
+1. Den Master-Plan oeffnen und lesen — er ist ein lebendiges Dokument und
+   aendert sich staendig. NIE aus dem Gedaechtnis arbeiten.
+2. Pruefen, ob das Vorhaben dort schon als Position gefuehrt wird
+   (Cluster A–J). Wenn ja: Status und Abhaengigkeiten beachten.
+3. Wenn nein: erst einen Plan-Eintrag (⬜ Stub) ergaenzen, dann weiter
+   nach dem Master-Plan-First-Workflow unten.
+
+**Das Wiki ist ein eigenes Git-Repo** (`PBP.wiki.git`). Edits laufen
+NICHT ueber die Contents-API des Code-Repos, sondern per lokalem Clone +
+Push (Desktop Commander). Der Master-Plan darf nur bewusst und
+nachvollziehbar geaendert werden — vor einem Wiki-Edit den aktuellen
+Stand frisch ziehen (Pull), nicht auf eine Cache-Version verlassen.
+
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
 
 **Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
@@ -33,6 +58,8 @@ liegen im `analyse`-Modul.
 
 **Vor JEDEM Code-Change MUSS ein Master-Plan-Eintrag existieren** —
 mindestens als ⬜ Stub mit Issue-Verweis. Sonst keine Implementierung.
+Die Master-Plan-Adresse und die Pflicht zum Vorab-Lesen stehen oben im
+Abschnitt "ZUERST LESEN".
 
 - **Wiki:** [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan)
   (Cluster-Ebene A–J) + [Master-Plan-Optimierung](https://github.com/MadGapun/PBP/wiki/Master-Plan-Optimierung)
