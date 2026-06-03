@@ -16,6 +16,83 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.92] - 2026-06-03 — Ablehnungsgruende: Loeschen + Umbenennen (User-Test-Fix #663 C20)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Frontend neu gebaut** —
+> nach dem Update einmal neu laden. Direkt aus dem User-Test gekommen.
+
+Im Bewertung-Tab konnte man Ablehnungsgruende bisher nur **deaktivieren**.
+Beim Test kamen drei berechtigte Wuensche: (1) das Deaktivieren gab kein
+sichtbares Feedback, (2) man will Gruende richtig **loeschen** — und dann
+festlegen, welchem anderen Grund die bisher so aussortierten Stellen
+zugeordnet werden, (3) Gruende mit Tippfehlern **umbenennen**.
+
+### Added
+
+- **Loeschen mit Neuzuordnung** — Papierkorb-Button pro Grund. Hat der
+  Grund bereits aussortierte Stellen, fragt ein Dialog, welchem **anderen**
+  Grund diese Stellen zugeordnet werden sollen (Default `sonstiges`), bevor
+  geloescht wird. Keine Stelle bleibt ohne gueltigen Grund zurueck.
+- **Umbenennen (inline)** — Stift-Button pro Grund. Korrigiert Tippfehler
+  und **zieht die bestehenden `jobs.dismiss_reason`-Werte mit** — der
+  falsch geschriebene Wert verschwindet komplett aus den Daten. Kollidiert
+  der neue Name mit einem vorhandenen Grund, werden beide zusammengefuehrt
+  (Merge, usage_count addiert).
+- **MCP-Tool `ablehnungsgrund_loeschen(grund_id, neu_zuordnen_zu)`** — damit
+  Claude das Gleiche kann. Tool-Count **171 → 172**.
+- DB: `rename_dismiss_reason` (Cascade + Merge), `delete_dismiss_reason`
+  (Pflicht-Neuzuordnung bei Verwendung). REST: `DELETE
+  /api/dismiss-reasons/{id}` (Body `{reassign_to}`); `PATCH` mit `label`
+  cascaded jetzt.
+
+### Changed
+
+- **`ablehnungsgrund_umbenennen`** schreibt jetzt die jobs-Tabelle mit
+  (vorher bewusst nicht — fuer Tippfehler-Korrektur aber genau richtig).
+- **Deaktivieren/Aktivieren** gibt jetzt einen Toast als klares Feedback
+  ("X deaktiviert."). Das adressiert das "passiert nichts"-Gefuehl.
+
+### Tests
+
+- `test_v17_ablehnungsgruende_c20_663.py` um 6 Faelle erweitert
+  (Cascade-Rename, Merge, Delete ohne/mit Verwendung, Pflicht-Neuzuordnung,
+  MCP-Loeschen). Registry auf 172. Volle Suite gruen.
+
+### Schema
+
+**Keine Schema-Aenderung.** Bleibt v45 (nutzt bestehende Tabellen).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.92.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.92.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.91] - 2026-06-02 — QA-Selbsttest + Doku-Sync (Wiki beta.74 → beta.90)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Kein Verhaltens- oder

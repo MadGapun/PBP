@@ -1,4 +1,4 @@
-﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
+﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -11,7 +11,9 @@ import {
   Card,
   Field,
   LoadingPanel,
+  Modal,
   SectionHeading,
+  SelectInput,
   TextInput,
 } from "@/components/ui";
 
@@ -2064,6 +2066,9 @@ export default function SettingsPage() {
   const [dismissReasons, setDismissReasons] = useState([]);
   const [newReason, setNewReason] = useState("");
   const [reasonBusy, setReasonBusy] = useState(false);
+  const [editReasonId, setEditReasonId] = useState(null);
+  const [editReasonLabel, setEditReasonLabel] = useState("");
+  const [deleteReasonDialog, setDeleteReasonDialog] = useState({ open: false, reason: null, reassignTo: "" });
   const loginPollersRef = useRef(new Map());
 
   // Handle incoming tab intent from navigateTo (#420)
@@ -2352,14 +2357,96 @@ export default function SettingsPage() {
   }
 
   async function handleToggleReason(reason) {
+    const willDeactivate = Boolean(reason.is_active);
     try {
       await api(`/api/dismiss-reasons/${reason.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ is_active: reason.is_active ? 0 : 1 }),
+        body: JSON.stringify({ is_active: willDeactivate ? 0 : 1 }),
       });
       await reloadDismissReasons();
+      pushToast(
+        `"${reason.label}" ${willDeactivate ? "deaktiviert" : "aktiviert"}.`,
+        "success",
+      );
     } catch (error) {
       pushToast(error?.message || "Konnte Status nicht aendern.", "danger");
+    }
+  }
+
+  function startRenameReason(reason) {
+    setEditReasonId(reason.id);
+    setEditReasonLabel(reason.label || "");
+  }
+
+  function cancelRenameReason() {
+    setEditReasonId(null);
+    setEditReasonLabel("");
+  }
+
+  async function saveRenameReason(reason) {
+    const label = (editReasonLabel || "").trim();
+    if (!label || label === reason.label) {
+      cancelRenameReason();
+      return;
+    }
+    setReasonBusy(true);
+    try {
+      const res = await api(`/api/dismiss-reasons/${reason.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ label }),
+      });
+      const moved = res?.rename?.reassigned_jobs || 0;
+      const merged = res?.rename?.status === "zusammengefuehrt";
+      cancelRenameReason();
+      await reloadDismissReasons();
+      pushToast(
+        merged
+          ? `Mit "${label}" zusammengefuehrt${moved ? ` (${moved} Stellen umgezogen)` : ""}.`
+          : `Umbenannt in "${label}"${moved ? ` (${moved} Stellen mitgezogen)` : ""}.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(error?.message || "Konnte nicht umbenennen.", "danger");
+    } finally {
+      setReasonBusy(false);
+    }
+  }
+
+  function askDeleteReason(reason) {
+    // Default-Ziel fuer die Neuzuordnung: 'sonstiges', sonst der erste andere
+    // aktive Grund.
+    const others = dismissReasons.filter(
+      (r) => r.id !== reason.id && (r.is_active === undefined || r.is_active),
+    );
+    const fallback =
+      others.find((r) => r.label === "sonstiges")?.label ||
+      others[0]?.label ||
+      "sonstiges";
+    setDeleteReasonDialog({ open: true, reason, reassignTo: fallback });
+  }
+
+  async function confirmDeleteReason() {
+    const { reason, reassignTo } = deleteReasonDialog;
+    if (!reason) return;
+    const used = Number(reason.usage_count || 0) > 0;
+    setReasonBusy(true);
+    try {
+      await deleteRequest(
+        `/api/dismiss-reasons/${reason.id}`,
+        { reassign_to: reassignTo || "" },
+      );
+      setDeleteReasonDialog({ open: false, reason: null, reassignTo: "" });
+      await reloadDismissReasons();
+      pushToast(
+        used
+          ? `"${reason.label}" geloescht, Stellen auf "${reassignTo}" umgezogen.`
+          : `"${reason.label}" geloescht.`,
+        "success",
+      );
+    } catch (error) {
+      pushToast(error?.message || "Konnte nicht loeschen.", "danger");
+    } finally {
+      setReasonBusy(false);
     }
   }
 
@@ -2459,10 +2546,11 @@ export default function SettingsPage() {
 
         {/* ── Bewertung Tab: Ablehnungsgruende-Editor (#663 C20) ── */}
         {settingsTab === "bewerten" && (
+          <>
           <Card className="rounded-2xl">
             <SectionHeading
               title="Ablehnungsgruende"
-              description="Eigene Gruende fuer 'passt nicht' anlegen oder deaktivieren. Aktive Gruende stehen Claude bei stelle_bewerten zur Verfuegung. Deaktivierte bleiben in der Statistik erhalten, werden aber nicht mehr vorgeschlagen."
+              description="Eigene Gruende fuer 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder loeschen. Aktive Gruende stehen Claude bei stelle_bewerten zur Verfuegung."
             />
             <div className="mt-4 grid gap-2">
               {dismissReasons.length === 0 && (
@@ -2473,27 +2561,75 @@ export default function SettingsPage() {
                 .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
                 .map((reason) => {
                   const active = reason.is_active === undefined ? true : Boolean(reason.is_active);
+                  const isEditing = editReasonId === reason.id;
                   return (
                     <div
                       key={reason.id ?? reason.label}
                       className="flex items-center justify-between gap-3 rounded-lg border border-white/5 px-3 py-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-sm ${active ? "text-ink" : "text-muted/40 line-through"}`}>
-                          {reason.label}
-                        </span>
-                        {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
-                        {reason.usage_count ? (
-                          <span className="text-xs text-muted/50">{reason.usage_count}x</span>
-                        ) : null}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => handleToggleReason(reason)}
-                      >
-                        {active ? "Deaktivieren" : "Aktivieren"}
-                      </Button>
+                      {isEditing ? (
+                        <div className="flex flex-1 items-center gap-2">
+                          <TextInput
+                            value={editReasonLabel}
+                            onChange={(event) => setEditReasonLabel(event.target.value)}
+                            autoFocus
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                saveRenameReason(reason);
+                              } else if (event.key === "Escape") {
+                                cancelRenameReason();
+                              }
+                            }}
+                          />
+                          <Button type="button" onClick={() => saveRenameReason(reason)} disabled={reasonBusy}>
+                            Speichern
+                          </Button>
+                          <Button type="button" variant="ghost" onClick={cancelRenameReason}>
+                            Abbrechen
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-sm ${active ? "text-ink" : "text-muted/40 line-through"}`}>
+                              {reason.label}
+                            </span>
+                            {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
+                            {reason.usage_count ? (
+                              <span className="text-xs text-muted/50">{reason.usage_count}x</span>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startRenameReason(reason)}
+                              title="Umbenennen (Tippfehler korrigieren)"
+                            >
+                              <Pencil size={15} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleReason(reason)}
+                            >
+                              {active ? "Deaktivieren" : "Aktivieren"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => askDeleteReason(reason)}
+                              title="Loeschen"
+                            >
+                              <Trash2 size={15} />
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -2517,6 +2653,67 @@ export default function SettingsPage() {
               </Button>
             </div>
           </Card>
+
+          <Modal
+            open={deleteReasonDialog.open}
+            onClose={() => setDeleteReasonDialog({ open: false, reason: null, reassignTo: "" })}
+            title="Ablehnungsgrund loeschen"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDeleteReasonDialog({ open: false, reason: null, reassignTo: "" })}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={confirmDeleteReason}
+                  disabled={reasonBusy}
+                >
+                  Endgueltig loeschen
+                </Button>
+              </div>
+            }
+          >
+            {deleteReasonDialog.reason && (
+              <div className="space-y-3 text-sm text-muted/80">
+                <p>
+                  Grund{" "}
+                  <span className="font-semibold text-ink">"{deleteReasonDialog.reason.label}"</span>{" "}
+                  wirklich loeschen?
+                </p>
+                {Number(deleteReasonDialog.reason.usage_count || 0) > 0 ? (
+                  <Field
+                    label={`Die ${deleteReasonDialog.reason.usage_count} bisher so aussortierten Stellen neu zuordnen zu:`}
+                  >
+                    <SelectInput
+                      value={deleteReasonDialog.reassignTo}
+                      onChange={(event) =>
+                        setDeleteReasonDialog((d) => ({ ...d, reassignTo: event.target.value }))
+                      }
+                    >
+                      {dismissReasons
+                        .filter((r) => r.id !== deleteReasonDialog.reason.id)
+                        .map((r) => (
+                          <option key={r.id} value={r.label}>
+                            {r.label}
+                          </option>
+                        ))}
+                    </SelectInput>
+                  </Field>
+                ) : (
+                  <p className="text-muted/60">
+                    Dieser Grund wird von keiner Stelle verwendet und kann gefahrlos geloescht werden.
+                  </p>
+                )}
+              </div>
+            )}
+          </Modal>
+          </>
         )}
 
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}

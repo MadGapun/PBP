@@ -4502,20 +4502,47 @@ async def api_add_dismiss_reason(request: Request):
 # v45 (#663 C20, beta.85): Ablehnungsgruende-Verwaltung
 @app.patch("/api/dismiss-reasons/{reason_id}")
 async def api_update_dismiss_reason(reason_id: int, request: Request):
-    """Umbenennen + Aktiv-Toggle in einem Endpoint."""
+    """Umbenennen + Aktiv-Toggle in einem Endpoint.
+
+    beta.92: Umbenennen zieht bestehende jobs.dismiss_reason-Werte mit
+    (Tippfehler-Korrektur, #663 C20-Fix) und mergt bei Namens-Kollision.
+    """
     data = await request.json()
+    rename_info = None
     if "label" in data:
         try:
-            ok = _db.update_dismiss_reason(reason_id, data["label"])
+            res = _db.rename_dismiss_reason(reason_id, data["label"])
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
-        if not ok:
+        if res.get("status") == "nicht_gefunden":
             return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+        rename_info = res
     if "is_active" in data:
         ok = _db.set_dismiss_reason_active(reason_id, bool(data["is_active"]))
         if not ok:
             return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    return {"status": "ok", "rename": rename_info}
+
+
+@app.delete("/api/dismiss-reasons/{reason_id}")
+async def api_delete_dismiss_reason(reason_id: int, request: Request):
+    """Loescht einen Ablehnungsgrund (#663 C20-Fix, beta.92).
+
+    Body optional ``{"reassign_to": "<label>"}`` — Pflicht, wenn der Grund
+    bereits in der jobs-Tabelle verwendet wird (dann werden die Stellen
+    umgehaengt statt grundlos zu werden)."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    reassign_to = (data.get("reassign_to") or "").strip() or None
+    try:
+        res = _db.delete_dismiss_reason(reason_id, reassign_to)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    if res.get("status") == "nicht_gefunden":
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return res
 
 
 # v45 (#666 D19, beta.85): Tasks-API

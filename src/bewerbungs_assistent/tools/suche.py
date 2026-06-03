@@ -498,26 +498,57 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def ablehnungsgrund_umbenennen(grund_id: int, neues_label: str) -> dict:
-        """Benennt einen Custom-Ablehnungsgrund um (#663 C20).
+        """Benennt einen Ablehnungsgrund um — z.B. zur Tippfehler-Korrektur (#663 C20).
 
-        Hinweis: bereits gespeicherte dismiss_reason-Werte in der jobs-Tabelle
-        werden NICHT mit umgeschrieben. Diese behalten den alten Label-Wert
-        als historische Spur (Statistik-Treue).
+        beta.92: bereits gespeicherte dismiss_reason-Werte in der jobs-Tabelle
+        werden JETZT mit umgeschrieben — ein Tippfehler verschwindet damit
+        komplett aus den Daten, statt als Karteileiche zurueckzubleiben.
+        Kollidiert das neue Label mit einem bestehenden Grund, werden beide
+        zusammengefuehrt (Merge).
 
         Args:
             grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
             neues_label: Neuer Label-Text
         """
         try:
-            changed = db.update_dismiss_reason(grund_id, neues_label)
+            res = db.rename_dismiss_reason(grund_id, neues_label)
         except ValueError as exc:
             return {"fehler": str(exc)}
-        if not changed:
+        if res.get("status") == "nicht_gefunden":
             return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
         return {
-            "status": "umbenannt",
+            "status": res.get("status", "umbenannt"),
             "id": grund_id,
-            "neues_label": neues_label,
+            "neues_label": res.get("label", neues_label),
+            "stellen_umgezogen": res.get("reassigned_jobs", 0),
+        }
+
+    @mcp.tool()
+    def ablehnungsgrund_loeschen(grund_id: int, neu_zuordnen_zu: str = "") -> dict:
+        """Loescht einen Ablehnungsgrund (#663 C20, beta.92).
+
+        Wenn der Grund bereits Stellen zugeordnet ist (jobs.dismiss_reason),
+        MUSS `neu_zuordnen_zu` einen anderen Grund nennen — diese Stellen
+        werden dann darauf umgehaengt, damit keine Stelle ohne gueltigen
+        Grund zurueckbleibt. Ohne Verwendung wird direkt geloescht.
+
+        Args:
+            grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
+            neu_zuordnen_zu: Label des Ziel-Grunds fuer betroffene Stellen
+                (z.B. 'sonstiges'). Pflicht, wenn der Grund verwendet wird.
+        """
+        try:
+            res = db.delete_dismiss_reason(grund_id, neu_zuordnen_zu or None)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        if res.get("status") == "nicht_gefunden":
+            return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+        return {
+            "status": "geloescht",
+            "id": grund_id,
+            "label": res.get("label"),
+            "stellen_umgezogen": res.get("reassigned_jobs", 0),
+            "neu_zugeordnet_zu": res.get("reassigned_to"),
         }
 
     @mcp.tool()

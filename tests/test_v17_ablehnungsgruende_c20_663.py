@@ -191,3 +191,112 @@ def test_ablehnungsgruende_anzeigen_default_zeigt_alle(tmp_db):
     alle = anzeigen()
     nur_aktiv = anzeigen(nur_aktiv=True)
     assert alle["anzahl"] > nur_aktiv["anzahl"]
+
+
+# ── beta.92: Umbenennen mit Cascade + Loeschen mit Neuzuordnung ───────────
+
+
+def _job_with_reason(tmp_db, hash_suffix: str, reason: str):
+    """Helper: legt eine aussortierte Stelle mit gegebenem dismiss_reason an."""
+    pid = tmp_db.get_active_profile_id() or ""
+    full_hash = f"{pid}:{hash_suffix}"
+    tmp_db.save_jobs([{
+        "hash": full_hash, "title": "x", "company": "y",
+        "location": "", "url": "", "source": "manuell", "score": 50,
+        "description": "x",
+    }])
+    conn = tmp_db.connect()
+    conn.execute(
+        "UPDATE jobs SET is_active=0, dismiss_reason=? WHERE hash=?",
+        (reason, full_hash),
+    )
+    conn.commit()
+    return full_hash
+
+
+def _reason_of(tmp_db, full_hash: str) -> str:
+    conn = tmp_db.connect()
+    row = conn.execute(
+        "SELECT dismiss_reason FROM jobs WHERE hash=?", (full_hash,)
+    ).fetchone()
+    return row["dismiss_reason"] if row else None
+
+
+def test_rename_zieht_jobs_mit(tmp_db):
+    """Tippfehler-Korrektur: jobs.dismiss_reason wird mit umgeschrieben."""
+    tmp_db.create_profile("Test", "test@example.com")
+    rid = tmp_db.add_dismiss_reason("falsches_sytem")  # Tippfehler
+    h = _job_with_reason(tmp_db, "t0001aaa", "falsches_sytem")
+
+    res = tmp_db.rename_dismiss_reason(rid, "falsches_system")
+    assert res["status"] == "umbenannt"
+    assert res["reassigned_jobs"] == 1
+    assert _reason_of(tmp_db, h) == "falsches_system"
+    labels = [r["label"] for r in tmp_db.get_dismiss_reasons()]
+    assert "falsches_system" in labels
+    assert "falsches_sytem" not in labels
+
+
+def test_rename_kollision_merged(tmp_db):
+    """Umbenennen auf ein bereits existierendes Label fuehrt zusammen."""
+    tmp_db.create_profile("Test", "test@example.com")
+    keep = tmp_db.add_dismiss_reason("zielgrund")
+    dup = tmp_db.add_dismiss_reason("quellgrund")
+    h = _job_with_reason(tmp_db, "t0002bbb", "quellgrund")
+
+    res = tmp_db.rename_dismiss_reason(dup, "zielgrund")
+    assert res["status"] == "zusammengefuehrt"
+    assert res["merged_into"] == keep
+    assert _reason_of(tmp_db, h) == "zielgrund"
+    labels = [r["label"] for r in tmp_db.get_dismiss_reasons()]
+    assert labels.count("zielgrund") == 1  # nur noch eine Zeile
+
+
+def test_delete_ohne_verwendung(tmp_db):
+    tmp_db.create_profile("Test", "test@example.com")
+    rid = tmp_db.add_dismiss_reason("ungenutzt")
+    res = tmp_db.delete_dismiss_reason(rid)
+    assert res["status"] == "geloescht"
+    assert "ungenutzt" not in [r["label"] for r in tmp_db.get_dismiss_reasons()]
+
+
+def test_delete_mit_verwendung_braucht_neuzuordnung(tmp_db):
+    tmp_db.create_profile("Test", "test@example.com")
+    rid = tmp_db.add_dismiss_reason("wird_genutzt")
+    _job_with_reason(tmp_db, "t0003ccc", "wird_genutzt")
+
+    import pytest
+    with pytest.raises(ValueError):
+        tmp_db.delete_dismiss_reason(rid)  # ohne reassign_to -> Fehler
+
+
+def test_delete_mit_neuzuordnung_haengt_jobs_um(tmp_db):
+    tmp_db.create_profile("Test", "test@example.com")
+    rid = tmp_db.add_dismiss_reason("alt_grund")
+    h = _job_with_reason(tmp_db, "t0004ddd", "alt_grund")
+
+    res = tmp_db.delete_dismiss_reason(rid, reassign_to="sonstiges")
+    assert res["status"] == "geloescht"
+    assert res["reassigned_jobs"] == 1
+    assert res["reassigned_to"] == "sonstiges"
+    assert _reason_of(tmp_db, h) == "sonstiges"
+    assert "alt_grund" not in [r["label"] for r in tmp_db.get_dismiss_reasons()]
+
+
+def test_mcp_ablehnungsgrund_loeschen(tmp_db):
+    tmp_db.create_profile("Test", "test@example.com")
+    mcp = _register_suche(tmp_db)
+    anlegen = mcp.tools["ablehnungsgrund_anlegen"]
+    loeschen = mcp.tools["ablehnungsgrund_loeschen"]
+
+    r = anlegen(label="weg_damit")
+    h = _job_with_reason(tmp_db, "t0005eee", "weg_damit")
+
+    # Ohne Neuzuordnung -> Fehler-Hinweis
+    fehler = loeschen(grund_id=r["id"])
+    assert "fehler" in fehler
+
+    ok = loeschen(grund_id=r["id"], neu_zuordnen_zu="sonstiges")
+    assert ok["status"] == "geloescht"
+    assert ok["stellen_umgezogen"] == 1
+    assert _reason_of(tmp_db, h) == "sonstiges"

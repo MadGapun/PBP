@@ -96,6 +96,7 @@ EXPECTED_TOOL_NAMES = {
     "ablehnungsgrund_anlegen",
     "ablehnungsgrund_umbenennen",
     "ablehnungsgrund_aktivieren_setzen",
+    "ablehnungsgrund_loeschen",
     "stellen_anzeigen",
     "fit_analyse",
     "bewerbung_erstellen",
@@ -302,7 +303,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 171  # v1.7.0-beta.86 (#671): + stelle_wiedergaenger_pruefen
+        assert len(tools) == 172  # v1.7.0-beta.92 (#663 C20-Fix): + ablehnungsgrund_loeschen
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

@@ -6278,6 +6278,112 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    def rename_dismiss_reason(self, reason_id: int, new_label: str) -> dict:
+        """Benennt einen Ablehnungsgrund um UND zieht bestehende
+        ``jobs.dismiss_reason``-Werte mit (#663 C20-Fix, beta.92).
+
+        Anders als das aeltere ``update_dismiss_reason`` (nur Label in der
+        Tabelle) korrigiert das hier auch die historischen Eintraege in der
+        jobs-Tabelle — genau das, was man bei einem Tippfehler will, sonst
+        bliebe der falsch geschriebene Wert als Karteileiche zurueck.
+
+        Kollidiert das neue Label mit einem schon vorhandenen Grund, werden
+        beide zusammengefuehrt (Merge): die Jobs wandern aufs Ziel, die
+        ``usage_count`` werden addiert, die umbenannte Zeile faellt weg.
+        """
+        new_label = (new_label or "").strip()
+        if not new_label:
+            raise ValueError("label ist Pflicht")
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT label, usage_count FROM dismiss_reasons WHERE id=?",
+            (reason_id,),
+        ).fetchone()
+        if not row:
+            return {"status": "nicht_gefunden"}
+        old_label = row["label"]
+        old_usage = row["usage_count"] or 0
+        if new_label == old_label:
+            return {"status": "unveraendert", "label": new_label,
+                    "reassigned_jobs": 0}
+        # Historische jobs.dismiss_reason mitziehen (Tippfehler verschwindet)
+        cur = conn.execute(
+            "UPDATE jobs SET dismiss_reason=? WHERE dismiss_reason=?",
+            (new_label, old_label),
+        )
+        reassigned = cur.rowcount or 0
+        other = conn.execute(
+            "SELECT id, usage_count FROM dismiss_reasons WHERE label=? AND id!=?",
+            (new_label, reason_id),
+        ).fetchone()
+        if other:
+            # Merge in den bereits existierenden Grund
+            conn.execute(
+                "UPDATE dismiss_reasons SET usage_count=usage_count+? WHERE id=?",
+                (old_usage, other["id"]),
+            )
+            conn.execute("DELETE FROM dismiss_reasons WHERE id=?", (reason_id,))
+            conn.commit()
+            return {"status": "zusammengefuehrt", "label": new_label,
+                    "reassigned_jobs": reassigned, "merged_into": other["id"]}
+        conn.execute(
+            "UPDATE dismiss_reasons SET label=? WHERE id=?",
+            (new_label, reason_id),
+        )
+        conn.commit()
+        return {"status": "umbenannt", "label": new_label,
+                "reassigned_jobs": reassigned}
+
+    def delete_dismiss_reason(self, reason_id: int,
+                              reassign_to: str = None) -> dict:
+        """Loescht einen Ablehnungsgrund (#663 C20-Fix, beta.92).
+
+        Hat der Grund bereits Verwendungen in der jobs-Tabelle, MUSS
+        ``reassign_to`` ein anderer Grund sein — die betroffenen Stellen
+        werden dann auf diesen umgehaengt, damit keine Stelle ohne gueltigen
+        Grund zurueckbleibt (Statistik-/Lerneffekt-Treue). Ohne Verwendung
+        wird einfach geloescht.
+        """
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT label, usage_count FROM dismiss_reasons WHERE id=?",
+            (reason_id,),
+        ).fetchone()
+        if not row:
+            return {"status": "nicht_gefunden"}
+        old_label = row["label"]
+        old_usage = row["usage_count"] or 0
+        used = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE dismiss_reason=?",
+            (old_label,),
+        ).fetchone()["n"]
+        target = (reassign_to or "").strip()
+        reassigned = 0
+        if used > 0:
+            if not target:
+                raise ValueError(
+                    f"Neu-Zuordnung noetig: {used} Stellen nutzen "
+                    f"'{old_label}'."
+                )
+            if target == old_label:
+                raise ValueError("Neu-Zuordnung muss ein anderer Grund sein.")
+            cur = conn.execute(
+                "UPDATE jobs SET dismiss_reason=? WHERE dismiss_reason=?",
+                (target, old_label),
+            )
+            reassigned = cur.rowcount or 0
+        if target and (used > 0 or old_usage > 0):
+            # Anzeige-Statistik (usage_count) aufs Ziel uebertragen
+            conn.execute(
+                "UPDATE dismiss_reasons SET usage_count=usage_count+? "
+                "WHERE label=?",
+                (max(reassigned, old_usage), target),
+            )
+        conn.execute("DELETE FROM dismiss_reasons WHERE id=?", (reason_id,))
+        conn.commit()
+        return {"status": "geloescht", "label": old_label,
+                "reassigned_jobs": reassigned, "reassigned_to": target or None}
+
     def add_follow_up(self, application_id: str, scheduled_date: str,
                       follow_up_type: str = "nachfass", template: str = "") -> str:
         """Schedule a follow-up for an application.

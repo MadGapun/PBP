@@ -69,14 +69,19 @@ def test_lifesign_postet_wenn_heute_noch_nichts(db, monkeypatch):
 
     db.set_elwosa_settings(enabled=True, tonfall_modus="standard")
 
-    # Zeit auf Werktag-Vormittag fixieren (Morgen-Linie)
+    # Uhrzeit auf Vormittag (09:00) fixieren -> Morgen-Linie, hour >= 6.
+    # Datum = HEUTE (UTC), damit es zum realen created_at der gerade
+    # geposteten Nachricht passt: _count_all_today() vergleicht ueber
+    # die UTC-Tagesgrenze, ein hartkodiertes Datum wuerde nur am selben
+    # Tag passen (beta.92 Test-Fix gegen Datum-Rollover).
     import datetime as _dt
+
+    _today = _dt.datetime.now(_dt.timezone.utc).date()
 
     class _FakeDt(_dt.datetime):
         @classmethod
         def now(cls, tz=None):
-            # Dienstag 2026-06-02, 09:00
-            base = _dt.datetime(2026, 6, 2, 9, 0, 0)
+            base = _dt.datetime(_today.year, _today.month, _today.day, 9, 0, 0)
             return base if tz is None else base.replace(tzinfo=tz)
 
     monkeypatch.setattr(elwosa, "datetime", _FakeDt)
