@@ -16,6 +16,86 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.94] - 2026-06-03 — Automatik im Hintergrund: interne Jobsuche + Ollama-Lernen nach Zeitplan (#677/#678)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Frontend neu gebaut**,
+> nach Update neu laden (Strg+F5).
+
+Aus dem User-Test: zwei Automatik-Wuensche. (1) Ollama soll **regelmaessig
+automatisch** aus Verhalten + Dokumenten lernen (der manuelle „Sofort-Lauf"
+zeigte als letzten Lauf Anfang Mai). (2) Eine **interne** Jobsuche soll nach
+Zeitplan laufen (taeglich/woechentlich/alle 3 Tage) — ausdruecklich nur die
+internen Scraper, nicht die Claude-Browser-Quellen.
+
+### Added — Hintergrund-Scheduler
+
+- **Neuer Daemon-Scheduler** (`services/automatik_scheduler.py`), gestartet
+  aus `start_dashboard`. Tickt alle 5 Min und startet faellige Tasks. Laeuft
+  in der einen Instanz mit Dashboard -> kein Doppel-Lauf.
+- **Task „interne Jobsuche"** (#678): nur Scraper-Quellen; Browser-/Login-
+  Quellen (`_MANUAL_SOURCES`: LinkedIn, StepStone, XING, Indeed, ...) bleiben
+  aussen vor. Respektiert die Dubletten-Sperre (kein zweiter Lauf parallel).
+- **Task „Ollama-Lernen"** (#677): stoesst `_run_analyze_user_patterns` an
+  (self-gated: nur bei aktivem Lern-Modus + genug Events + lokaler AI).
+- **Intervalle:** 0 (aus) / 1 / 3 / 7 / 14 / 30 Tage, pro Task, pro Profil.
+
+### Added — Bedienung
+
+- **Automatik-Tab** (Einstellungen): neue Karte „Automatik im Hintergrund"
+  mit Intervall-Auswahl je Task, Anzeige „letzter/naechster Lauf" und einem
+  **Jetzt-Button** je Task. Im echten Browser gegen eine Real-DB-Kopie
+  verifiziert (rendert, 0 Konsolen-Fehler).
+- **MCP:** `automatik_status()` + `automatik_setzen(jobsuche_intervall_tage,
+  lernen_intervall_tage)`. Tool-Count **174 → 176**.
+- **REST:** `GET/PUT /api/automatik/settings`, `POST /api/automatik/run-now`.
+
+### Hinweis (Constraint)
+
+Der Scheduler laeuft nur, **solange Claude Desktop / der MCP-Server offen
+ist** — es ist kein Windows-Dienst. Im UI und in den Tool-Beschreibungen
+benannt.
+
+### Tests
+
+- `test_v17_automatik_scheduler_677.py` (Settings, Validierung,
+  Faelligkeits-Logik, Status, MCP-Tools). REST via TestClient geprueft.
+  Registry auf 176.
+
+### Schema
+
+**Keine Schema-Aenderung.** Settings als profile_settings. Bleibt v45.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.94.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.94.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.93] - 2026-06-03 — White-Screen-Fix: Telemetrie-Sharing + App-weites Sicherheitsnetz
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Wichtiger Fix** —

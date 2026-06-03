@@ -2072,6 +2072,52 @@ def register(mcp, db, logger):
             "intervall_tage": out.get("interval_days"),
         }
 
+    # === Automatik-Scheduler (#677/#678, beta.94) ======================
+
+    @mcp.tool()
+    def automatik_status() -> dict:
+        """Status der Hintergrund-Automatik (#677/#678).
+
+        Zwei Tasks mit Intervall in Tagen (0 = aus):
+        - `lernen`: Ollama analysiert Aktivitaet + Dokumente (Pattern-Lernen).
+        - `jobsuche`: die INTERNE Jobsuche (nur Scraper; Browser-/Login-
+          Quellen bleiben manuell ueber Claude-in-Chrome).
+
+        Liefert je Task Intervall, letzten und naechsten Lauf. Laeuft nur,
+        solange Claude Desktop / der MCP-Server offen ist (kein Dienst).
+        """
+        from ..services.automatik_scheduler import compute_status
+        return compute_status(db)
+
+    @mcp.tool()
+    def automatik_setzen(
+        jobsuche_intervall_tage: int | None = None,
+        lernen_intervall_tage: int | None = None,
+    ) -> dict:
+        """Setzt die Intervalle der Hintergrund-Automatik (#677/#678).
+
+        Erlaubte Werte: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unveraendert.
+
+        Args:
+            jobsuche_intervall_tage: wie oft die INTERNE Jobsuche laeuft.
+            lernen_intervall_tage: wie oft Ollama aus Verhalten/Dokumenten
+                lernt (greift nur, wenn der Lern-Modus an ist).
+        """
+        if jobsuche_intervall_tage is None and lernen_intervall_tage is None:
+            return {
+                "fehler": "Mindestens ein Intervall angeben.",
+                "aktueller_stand": db.get_automatik_settings(),
+            }
+        try:
+            db.set_automatik_settings(
+                jobsuche_intervall_tage=jobsuche_intervall_tage,
+                lernen_intervall_tage=lernen_intervall_tage,
+            )
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        from ..services.automatik_scheduler import compute_status
+        return {"status": "gespeichert", **compute_status(db)}
+
     # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
 
     @mcp.tool()

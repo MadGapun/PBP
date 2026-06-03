@@ -926,6 +926,127 @@ function PbpStartDateField({ pushToast }) {
 // v1.7.0-beta.20: Auto-Aktionen-Tab
 // Schwellwerte fuer Auto-Expire (Bewerbung -> abgelaufen) und
 // Auto-Followup-Reconciler. Manueller Trigger fuer Sofort-Lauf.
+// v1.7.0-beta.94 (#677/#678): Hintergrund-Automatik — interne Jobsuche +
+// Ollama-Lernen nach Zeitplan.
+const AUTOMATIK_INTERVALS = [
+  { v: 0, l: "Aus" },
+  { v: 1, l: "Taeglich" },
+  { v: 3, l: "Alle 3 Tage" },
+  { v: 7, l: "Woechentlich" },
+  { v: 14, l: "Alle 2 Wochen" },
+  { v: 30, l: "Monatlich" },
+];
+
+function AutomatikSchedulerCard({ pushToast }) {
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try {
+      setStatus(await api("/api/automatik/settings"));
+    } catch {
+      /* still */
+    }
+  }
+  useEffect(() => { reload(); }, []);
+
+  async function saveInterval(field, value) {
+    setBusy(true);
+    try {
+      await putJson("/api/automatik/settings", { [field]: Number(value) });
+      await reload();
+      pushToast("Automatik gespeichert.", "success");
+    } catch (err) {
+      pushToast(err?.message || "Speichern fehlgeschlagen.", "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runNow(kind) {
+    setBusy(true);
+    try {
+      const r = await postJson("/api/automatik/run-now", { kind });
+      await reload();
+      let msg = "Angestossen.";
+      if (kind === "lernen") {
+        msg = "Lern-Lauf angestossen.";
+      } else if (r.status === "gestartet") {
+        msg = "Interne Jobsuche gestartet.";
+      } else if (r.status === "keine_internen_quellen") {
+        msg = "Keine internen Quellen aktiv — nichts zu suchen.";
+      } else if (r.status === "laeuft_bereits") {
+        msg = "Eine Jobsuche laeuft bereits.";
+      }
+      pushToast(msg, "success");
+    } catch (err) {
+      pushToast(err?.message || "Lauf fehlgeschlagen.", "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!status) return null;
+
+  const fmt = (iso) => {
+    if (!iso) return "noch nie";
+    if (iso === "faellig") return "faellig";
+    try {
+      return new Date(iso).toLocaleString("de-DE");
+    } catch {
+      return iso;
+    }
+  };
+
+  const renderTask = (key, titel, beschreibung, buttonLabel) => (
+    <div className="glass-card p-4 space-y-2">
+      <h3 className="font-medium text-ink text-sm">{titel}</h3>
+      <p className="text-[12px] text-muted/60">{beschreibung}</p>
+      <div className="flex items-center justify-between gap-3">
+        <SelectInput
+          value={String(status[key].intervall_tage)}
+          onChange={(e) => saveInterval(`${key}_intervall_tage`, e.target.value)}
+          disabled={busy}
+        >
+          {AUTOMATIK_INTERVALS.map((o) => (
+            <option key={o.v} value={o.v}>{o.l}</option>
+          ))}
+        </SelectInput>
+        <Button variant="secondary" size="sm" onClick={() => runNow(key)} disabled={busy}>
+          {buttonLabel}
+        </Button>
+      </div>
+      <p className="text-[11px] text-muted/50">
+        Letzter Lauf: {fmt(status[key].letzter_lauf)} · Naechster: {fmt(status[key].naechster_lauf)}
+      </p>
+    </div>
+  );
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Automatik im Hintergrund"
+        description="PBP kann die interne Jobsuche und das Lernen aus deinem Verhalten/Dokumenten selbststaendig nach Zeitplan ausfuehren — solange Claude Desktop laeuft."
+      />
+      <div className="space-y-4">
+        {renderTask(
+          "jobsuche",
+          "Interne Jobsuche",
+          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell ueber die Chrome-Extension.",
+          "Jetzt suchen",
+        )}
+        {renderTask(
+          "lernen",
+          "Ollama lernt aus Verhalten + Dokumenten",
+          "Analysiert regelmaessig deine Aktivitaet und Dokumente, damit Vorschlaege treffsicherer werden. Greift nur, wenn der Lern-Modus (Datenschutz-Tab) an ist.",
+          "Jetzt lernen",
+        )}
+        <p className="text-[11px] text-muted/40">{status.hinweis}</p>
+      </div>
+    </Card>
+  );
+}
+
 function AutoActionsTab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -2542,7 +2663,12 @@ export default function SettingsPage() {
           </>
         )}
 
-        {settingsTab === "automatik" && <AutoActionsTab pushToast={pushToast} />}
+        {settingsTab === "automatik" && (
+          <>
+            <AutomatikSchedulerCard pushToast={pushToast} />
+            <AutoActionsTab pushToast={pushToast} />
+          </>
+        )}
 
         {/* ── Bewertung Tab: Ablehnungsgruende-Editor (#663 C20) ── */}
         {settingsTab === "bewerten" && (

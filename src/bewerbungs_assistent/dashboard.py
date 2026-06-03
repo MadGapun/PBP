@@ -9298,6 +9298,47 @@ async def api_telemetry_mark_shared():
     return {"status": "ok", "shared_at": ts}
 
 
+# === v1.7.0-beta.94 (#677/#678): Automatik-Scheduler ==================
+@app.get("/api/automatik/settings")
+async def api_automatik_settings():
+    """Status der Hintergrund-Automatik (Intervalle + letzter/naechster Lauf)."""
+    from .services.automatik_scheduler import compute_status
+    return compute_status(_db)
+
+
+@app.put("/api/automatik/settings")
+async def api_set_automatik_settings(request: Request):
+    data = await request.json()
+    try:
+        _db.set_automatik_settings(
+            jobsuche_intervall_tage=data.get("jobsuche_intervall_tage"),
+            lernen_intervall_tage=data.get("lernen_intervall_tage"),
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    from .services.automatik_scheduler import compute_status
+    return compute_status(_db)
+
+
+@app.post("/api/automatik/run-now")
+async def api_automatik_run_now(request: Request):
+    """Sofort-Lauf eines Automatik-Tasks. Body: {"kind": "lernen"|"jobsuche"}."""
+    data = await request.json()
+    kind = data.get("kind")
+    from .services.automatik_scheduler import run_lernen_now, run_jobsuche_now
+    if kind == "lernen":
+        res = run_lernen_now(_db)
+        _db.mark_automatik_run("lernen")
+    elif kind == "jobsuche":
+        res = run_jobsuche_now(_db)
+        if res.get("status") in ("gestartet", "keine_internen_quellen"):
+            _db.mark_automatik_run("jobsuche")
+    else:
+        return JSONResponse(
+            {"error": "kind muss 'lernen' oder 'jobsuche' sein"}, status_code=400)
+    return res
+
+
 @app.get("/api/learning/hints")
 async def api_get_learning_hints(page: str = "", limit: int = 3):
     """v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints, gefiltert nach Page.
@@ -10057,6 +10098,14 @@ def start_dashboard(db_instance, port: int = None):
     global _db
     _db = db_instance
     _cleanup_stale_jobs(db_instance)
+    # v1.7.0-beta.94 (#677/#678): Hintergrund-Automatik (Lernen + interne
+    # Jobsuche nach Intervall). Hier gestartet, weil _db gesetzt ist und es
+    # die EINE Instanz mit Dashboard ist (kein Doppel-Lauf).
+    try:
+        from .services.automatik_scheduler import start_automatik_scheduler
+        start_automatik_scheduler(db_instance)
+    except Exception as exc:
+        logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
     use_port = port or DASHBOARD_PORT
     logger.info("Dashboard startet auf http://localhost:%d", use_port)
     import uvicorn
