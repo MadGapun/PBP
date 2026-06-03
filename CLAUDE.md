@@ -37,6 +37,13 @@ immer offene Version steht in **Issue #675** (nicht schliessen). Diese
 Kopie hier ist die schnell-praesente Fassung — bei Aenderungen beide
 synchron halten.
 
+**Selbst-erweiternd:** Diese Checkliste ist lebendig. Taucht eine neue
+wiederkehrende Abschluss-Pflicht auf, wird sie als Punkt aufgenommen, nicht
+nur einmal abgehakt. **Pruefung und Erweiterung macht Claude Code** (tieferes
+Repo-/Code-Verstaendnis). Die MCP-Chat-Instanz arbeitet die Liste ab und
+meldet Erweiterungs-Kandidaten, schreibt die Liste aber nicht selbst fort,
+sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
+
 1. **Master-Plan pruefen, lesen, ggf. aktualisieren** —
    https://github.com/MadGapun/PBP/wiki/Master-Plan. Neue/geaenderte
    Themen als Position aufnehmen (⬜) oder Status nachziehen (🟨/✅).
@@ -55,6 +62,8 @@ synchron halten.
    ladbar sind, jeder Direkt-SQL-Workaround), wird als Issue erfasst. Ziel:
    MCP-Layer bleibt langfristig die einzige Schnittstelle (Anti-DB-Bypass,
    #514).
+7. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
+   Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
 
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
 
