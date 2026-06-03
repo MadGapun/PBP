@@ -38,6 +38,7 @@ import {
   savePreset,
   THEME_PRESETS,
 } from "@/theme";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
@@ -1502,15 +1503,19 @@ export default function App() {
               Inhalte sind jetzt in der linken Sidebar (Sub-Nav, Footer-Slot
               fuer JobsucheStatusBadge). Layout schlanker. */}
           <main className="min-w-0 flex-1 pb-12">
-            {page === "dashboard" ? <DashboardPage /> : null}
-            {page === "profil" ? <ProfilePage /> : null}
-            {page === "stellen" ? <JobsPage /> : null}
-            {page === "bewerbungen" ? <ApplicationsPage /> : null}
-            {page === "kontakte" ? <ContactsPage /> : null}
-            {page === "dokumente" ? <DocumentsPage /> : null}
-            {page === "kalender" ? <CalendarPage /> : null}
-            {page === "statistiken" ? <StatsPage /> : null}
-            {page === "einstellungen" ? <SettingsPage /> : null}
+            {/* v1.7.0-beta.93: key={page} -> Boundary resettet beim Tab-Wechsel,
+                ein Crash in einem Tab blankt nie die ganze App (Sidebar bleibt). */}
+            <ErrorBoundary key={page}>
+              {page === "dashboard" ? <DashboardPage /> : null}
+              {page === "profil" ? <ProfilePage /> : null}
+              {page === "stellen" ? <JobsPage /> : null}
+              {page === "bewerbungen" ? <ApplicationsPage /> : null}
+              {page === "kontakte" ? <ContactsPage /> : null}
+              {page === "dokumente" ? <DocumentsPage /> : null}
+              {page === "kalender" ? <CalendarPage /> : null}
+              {page === "statistiken" ? <StatsPage /> : null}
+              {page === "einstellungen" ? <SettingsPage /> : null}
+            </ErrorBoundary>
           </main>
         </div>
 

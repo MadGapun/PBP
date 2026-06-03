@@ -2012,6 +2012,66 @@ def register(mcp, db, logger):
             "features": cfg,
         }
 
+    # === Telemetrie-Sharing-Steuerung (#594 Stufe 5, beta.93) ==========
+
+    @mcp.tool()
+    def telemetrie_status() -> dict:
+        """Liefert den Stand des Telemetrie-Sharings (#594 Stufe 5).
+
+        Telemetrie-Sharing ist opt-in und teilt NUR anonymisierte,
+        aggregierte Lern-Erkenntnisse (keine Profildaten, keine Job-Titel,
+        keine Firmen) — und auch das nur, wenn der User die Vorschau-Mail
+        selbst abschickt. Es geht NIE automatisch etwas raus.
+
+        Use Case: 'ist bei mir Telemetrie an?' oder Recovery, falls der
+        Datenschutz-Tab im Dashboard gerade nicht erreichbar ist.
+        """
+        s = db.get_telemetry_settings()
+        return {
+            "aktiv": bool(s.get("enabled")),
+            "intervall_tage": s.get("interval_days"),
+            "letzter_share": s.get("last_share_at") or None,
+            "empfaenger": s.get("recipient"),
+            "hinweis": (
+                "Mit telemetrie_setzen(aktiv=False) abschalten. Versand bleibt "
+                "immer in User-Hand (mailto-Link), nie automatisch."
+            ),
+        }
+
+    @mcp.tool()
+    def telemetrie_setzen(
+        aktiv: bool | None = None,
+        intervall_tage: int | None = None,
+    ) -> dict:
+        """Schaltet Telemetrie-Sharing an/aus oder setzt das Nachfrage-Intervall.
+
+        Recovery-Pfad: falls der Datenschutz-Tab im Dashboard mal nicht
+        erreichbar ist, kann hierueber das Sharing wieder abgeschaltet werden.
+
+        Args:
+            aktiv: True = Sharing erlauben (wochenweise Vorschau), False = aus.
+                None = unveraendert.
+            intervall_tage: Nachfrage-Rhythmus: 0 (nie automatisch), 7, 14
+                oder 30. None = unveraendert.
+        """
+        if aktiv is None and intervall_tage is None:
+            return {
+                "fehler": "Mindestens aktiv oder intervall_tage angeben.",
+                "aktueller_stand": db.get_telemetry_settings(),
+            }
+        try:
+            out = db.set_telemetry_settings(
+                enabled=aktiv,
+                interval_days=intervall_tage,
+            )
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        return {
+            "status": "gespeichert",
+            "aktiv": bool(out.get("enabled")),
+            "intervall_tage": out.get("interval_days"),
+        }
+
     # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
 
     @mcp.tool()

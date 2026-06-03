@@ -16,6 +16,85 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.93] - 2026-06-03 — White-Screen-Fix: Telemetrie-Sharing + App-weites Sicherheitsnetz
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Wichtiger Fix** —
+> wer Telemetrie-Sharing aktiviert hatte, wurde aus dem Dashboard
+> ausgesperrt. **Frontend neu gebaut**, nach Update neu laden (Strg+F5).
+
+Direkt aus dem User-Test: nach **Aktivieren des Telemetrie-Sharings** im
+Datenschutz-Tab zeigte das Dashboard nur noch den blauen Hintergrund —
+auch nach Neustart, und man kam nicht mehr an den Toggle, um es
+rueckgaengig zu machen.
+
+### Fixed
+
+- **White-Screen beim Telemetrie-Sharing.** Ursache: im Datenschutz-Tab
+  wurde die Intervall-Auswahl (`<SelectInput>`) genutzt, aber die
+  Komponente war in `SettingsPage.jsx` **nicht importiert**. Das wirft erst
+  **zur Laufzeit** `SelectInput is not defined` — und nur, wenn der
+  Toggle AN ist (vorher rendert die Auswahl nicht). Ein gruener Build
+  faengt so einen undefinierten Komponenten-Verweis nicht. Import ergaenzt;
+  im echten Browser gegen eine DB-Kopie mit aktivierter Telemetrie
+  verifiziert (Auswahl rendert, 0 Konsolen-Fehler).
+
+### Added — Robustheit
+
+- **App-weite ErrorBoundary** (`components/ErrorBoundary.jsx`). Bisher hat
+  ein einzelner Render-Fehler den **ganzen** React-Baum mitgerissen — der
+  User sah nur Blau und kam an keine Einstellung mehr. Jetzt zeigt der
+  betroffene Tab eine Fehlerkarte (mit „nochmal versuchen" / „neu laden"),
+  **die Sidebar bleibt bedienbar**, man kann woanders hin navigieren. Per
+  `key={page}` resettet die Boundary beim Tab-Wechsel automatisch.
+
+### Added — Telemetrie als MCP (Recovery + „alles als MCP")
+
+- **`telemetrie_status()`** und **`telemetrie_setzen(aktiv, intervall_tage)`**
+  — Claude kann den Telemetrie-Stand lesen und das Sharing abschalten,
+  auch wenn das Dashboard mal nicht erreichbar ist. Tool-Count
+  **172 → 174**.
+
+### Tests
+
+- `test_v17_telemetrie_mcp_93.py` (5 Faelle: Status, An/Aus-Recovery,
+  Intervall, ungueltiges Intervall, Leer-Aufruf). Registry auf 174.
+  Browser-Verifikation des Fixes via Playwright gegen Real-DB-Kopie.
+
+### Schema
+
+**Keine Schema-Aenderung.** Bleibt v45.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.93.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.93.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.92] - 2026-06-03 — Ablehnungsgruende: Loeschen + Umbenennen (User-Test-Fix #663 C20)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Frontend neu gebaut** —
