@@ -242,6 +242,8 @@ export default function StatsPage() {
   const [timeline, setTimeline] = useState(null);
   const [scores, setScores] = useState(null);
   const [extended, setExtended] = useState(null);
+  const [coreStats, setCoreStats] = useState(null); // #682: get_statistics (Quoten)
+  const [quotaSegment, setQuotaSegment] = useState("seit_pbp"); // #682 default: seit PBP
   const [rejection, setRejection] = useState(null);
   const [styleStats, setStyleStats] = useState(null);
   // v1.7.0-beta.12 (#579): Activity-Heatmap
@@ -255,13 +257,14 @@ export default function StatsPage() {
     try {
       const params = new URLSearchParams({ interval: g });
       if (r) params.set("range", r);
-      const [timelineData, scoreData, extendedData, rejectionData, styleData, heatmapData] = await Promise.all([
+      const [timelineData, scoreData, extendedData, rejectionData, styleData, heatmapData, coreData] = await Promise.all([
         optionalApi(`/api/stats/timeline?${params}`),
         optionalApi("/api/stats/scores"),
         optionalApi("/api/stats/extended"),
         optionalApi("/api/rejection-patterns"),
         optionalApi("/api/stats/style"),
         optionalApi(`/api/stats/heatmap?days=${heatmapDays}`),
+        optionalApi("/api/statistics"),  // #682: Quoten + Segmentierung
       ]);
       if (!timelineData && !scoreData && !extendedData) {
         pushToast("Server nicht erreichbar.", "danger");
@@ -271,6 +274,7 @@ export default function StatsPage() {
       setTimeline(timelineData);
       setScores(scoreData);
       setExtended(extendedData);
+      setCoreStats(coreData);
       setRejection(rejectionData);
       setStyleStats(styleData);
       setHeatmap(heatmapData);
@@ -536,6 +540,72 @@ export default function StatsPage() {
               />
             </div>
           )}
+
+          {/* #682: Outcome-Quoten mit Segmentierung am PBP-Startdatum */}
+          {coreStats?.quoten && (() => {
+            const q = coreStats.quoten;
+            const seg = q[quotaSegment] || { basis: 0 };
+            const SEGMENTS = [
+              { key: "seit_pbp", label: "Seit PBP" },
+              { key: "vor_pbp", label: "Vor PBP" },
+              { key: "gesamt", label: "Gesamt" },
+            ];
+            const segLabel = SEGMENTS.find((s) => s.key === quotaSegment)?.label;
+            return (
+              <Card className="rounded-2xl">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={14} className="text-amber" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                      Outcome-Quoten
+                    </p>
+                    {q.pbp_start_datum && (
+                      <span className="ml-2 text-[11px] text-muted/50">
+                        PBP-Start: {formatDate(q.pbp_start_datum)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    {SEGMENTS.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setQuotaSegment(s.key)}
+                        className={`rounded-md px-2.5 py-1 text-[11px] transition ${
+                          quotaSegment === s.key
+                            ? "bg-sky/15 text-sky"
+                            : "text-muted/60 hover:text-ink"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {seg.basis > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                      <StatBox label="Abgelaufen" value={`${seg.expired_rate}%`} sub={`${seg.abgelaufen} Bew.`} tone="danger" />
+                      <StatBox label="Abgelehnt" value={`${seg.rejection_rate}%`} sub={`${seg.abgelehnt} Bew.`} tone="amber" />
+                      <StatBox label="Zurueckgezogen" value={`${seg.withdrawal_rate}%`} sub={`${seg.zurueckgezogen} Bew.`} tone="neutral" />
+                      <StatBox label="Interview erreicht" value={`${seg.interview_rate}%`} sub={`${seg.interview} Bew.`} tone="sky" />
+                      <StatBox label="Angebot" value={`${seg.offer_rate}%`} sub={`${seg.angebot} Bew.`} tone="success" />
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted/50">
+                      Basis: {seg.basis} abgeschickte Bewerbungen ({segLabel}, nach
+                      Bewerbungsdatum). Der Vergleich „Seit PBP" vs. „Vor PBP" zeigt,
+                      ob seit der systematischen Nutzung anteilig weniger Bewerbungen
+                      versanden.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted/60">
+                    Noch keine abgeschickten Bewerbungen in diesem Zeitraum.
+                  </p>
+                )}
+              </Card>
+            );
+          })()}
 
           {/* v1.7.0-beta.12 (#579): Activity-Heatmap */}
           <Card className="rounded-2xl">

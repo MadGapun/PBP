@@ -5196,6 +5196,66 @@ class Database:
                       + stats["applications_by_status"].get("angenommen", 0))
             stats["interview_rate"] = round(interviews / submitted * 100, 1)
             stats["offer_rate"] = round(offers / submitted * 100, 1)
+
+        # #682: abgeleitete Quoten (expired/rejection/withdrawal) + Segmentierung
+        # am PBP-Startdatum. Basis = abgeschickte Bewerbungen (ohne
+        # in_vorbereitung), konsistent mit interview_rate/offer_rate.
+        start_datum = self.get_pbp_first_active_at()
+        all_apps = conn.execute(
+            "SELECT status, applied_at, has_reached_interview FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        ).fetchall()
+
+        def _quoten(apps):
+            submitted_n = sum(1 for a in apps if a["status"] != "in_vorbereitung")
+            if not submitted_n:
+                return {"basis": 0}
+            def _cnt(pred):
+                return sum(1 for a in apps if pred(a))
+            abgelaufen = _cnt(lambda a: a["status"] == "abgelaufen")
+            abgelehnt = _cnt(lambda a: a["status"] == "abgelehnt")
+            zurueck = _cnt(lambda a: a["status"] == "zurueckgezogen")
+            iv = _cnt(lambda a: a["has_reached_interview"] == 1
+                      and a["status"] != "in_vorbereitung")
+            offer = _cnt(lambda a: a["status"] in ("angebot", "angenommen"))
+            rate = lambda n: round(n / submitted_n * 100, 1)
+            return {
+                "basis": submitted_n,
+                "abgelaufen": abgelaufen, "expired_rate": rate(abgelaufen),
+                "abgelehnt": abgelehnt, "rejection_rate": rate(abgelehnt),
+                "zurueckgezogen": zurueck, "withdrawal_rate": rate(zurueck),
+                "interview": iv, "interview_rate": rate(iv),
+                "angebot": offer, "offer_rate": rate(offer),
+            }
+
+        gesamt_q = _quoten(all_apps)
+        if start_datum:
+            seit_pbp_q = _quoten([
+                a for a in all_apps
+                if (a["applied_at"] or "")[:10] >= start_datum
+            ])
+            vor_pbp_q = _quoten([
+                a for a in all_apps
+                if (a["applied_at"] or "")[:10] < start_datum
+                and (a["applied_at"] or "").strip()
+            ])
+        else:
+            seit_pbp_q = {"basis": 0}
+            vor_pbp_q = {"basis": 0}
+        stats["quoten"] = {
+            "pbp_start_datum": start_datum,
+            "segmentiert_nach": "applied_at",
+            "gesamt": gesamt_q,
+            "seit_pbp": seit_pbp_q,
+            "vor_pbp": vor_pbp_q,
+        }
+        # Top-Level-Convenience (Gesamt-Basis), analog interview_rate/offer_rate
+        if gesamt_q.get("basis"):
+            stats["expired_rate"] = gesamt_q["expired_rate"]
+            stats["rejection_rate"] = gesamt_q["rejection_rate"]
+            stats["withdrawal_rate"] = gesamt_q["withdrawal_rate"]
+
         # Sources breakdown — count ALL jobs (active + dismissed) for historical accuracy (#125)
         source_rows = conn.execute(
             "SELECT source, COUNT(*) as cnt, "

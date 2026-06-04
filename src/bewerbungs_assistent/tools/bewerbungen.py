@@ -1210,6 +1210,10 @@ def register(mcp, db, logger):
         - Gesamtzahl Bewerbungen und aktive Stellen
         - Bewerbungen nach Status (in_vorbereitung, beworben, interview, angebot, etc.)
         - Interview-Rate (% der Bewerbungen die zum Interview fuehren)
+        - Quoten (#682): expired_rate / rejection_rate / withdrawal_rate, plus
+          ein `quoten`-Block mit Segmentierung am PBP-Startdatum
+          (gesamt / seit_pbp / vor_pbp) — zeigt, ob seit der systematischen
+          PBP-Nutzung anteilig weniger Bewerbungen versanden.
         - Pipeline-Übersicht (wie viele Bewerbungen in welchem Status)
 
         Args:
