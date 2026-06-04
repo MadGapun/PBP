@@ -1518,6 +1518,14 @@ async def api_application_timeline(app_id: str):
     # Chronologisch sortieren (neueste zuerst)
     unified_timeline.sort(key=lambda e: e.get("event_date", ""), reverse=True)
 
+    # #673: strukturierte Recherchen (research_notes-Tabelle, alle Kategorien)
+    recherchen = []
+    try:
+        recherchen = _db.get_research_notes(
+            bewerbung_id=app_id, job_hash=application.get("job_hash"))
+    except Exception:
+        recherchen = []
+
     return {
         "application": application,
         "events": events,
@@ -1526,6 +1534,7 @@ async def api_application_timeline(app_id: str):
         "documents": documents,
         "emails": emails,
         "meetings": meetings,
+        "recherchen": recherchen,
     }
 
 

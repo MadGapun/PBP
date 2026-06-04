@@ -11,6 +11,31 @@ def register(mcp, db, logger):
     """Register all 9 analysis/KI-feature tools."""
     from . import ki_gate, get_recent_tool_calls, get_slow_tool_calls
 
+    def _persist_recherche(kategorie, text, bewerbung_id="", job_hash=""):
+        """#674 Ein-Schritt-Persistenz: legt eine Analyse als research_notes-
+        Eintrag ab, sobald eine Bewerbung oder Stelle angegeben ist. Bindet bei
+        einer Bewerbung ohne expliziten job_hash die verknuepfte Stelle mit.
+        Gibt das Ziel-Dict zurueck oder None (nichts persistiert)."""
+        if not bewerbung_id and not job_hash:
+            return None
+        ziel_job = job_hash
+        if bewerbung_id and not job_hash:
+            app = db.get_application(bewerbung_id)
+            if app and app.get("job_hash"):
+                ziel_job = app["job_hash"]
+        nid = db.add_research_note(
+            kategorie, text,
+            bewerbung_id=bewerbung_id or None,
+            job_hash=ziel_job or None,
+        )
+        ziele = []
+        if bewerbung_id:
+            ziele.append(f"Bewerbung {bewerbung_id}")
+        if ziel_job:
+            ziele.append(f"Stelle {str(ziel_job)[:8]}")
+        return {"id": nid, "kategorie": kategorie, "gespeichert_in": ziele,
+                "ziel": "research_notes-Tabelle (Abschnitt 'Recherchen')"}
+
     @mcp.tool()
     def gehalt_extrahieren(job_hash: str) -> dict:
         """Extrahiert Gehaltsinformationen aus einer Stellenbeschreibung.
@@ -112,7 +137,7 @@ def register(mcp, db, logger):
         return stats
 
     @mcp.tool()
-    def firmen_recherche(firma: str) -> dict:
+    def firmen_recherche(firma: str, bewerbung_id: str = "", job_hash: str = "") -> dict:
         """Recherchiert Informationen über eine Firma anhand der gesammelten Stellendaten.
 
         Aggregiert alle bekannten Jobs, Standorte, Gehälter und Remote-Level
@@ -120,6 +145,9 @@ def register(mcp, db, logger):
 
         Args:
             firma: Name der Firma (oder Teil davon)
+            bewerbung_id: Optional — wird die Recherche im selben Aufruf an diese
+                Bewerbung gespeichert (#674, Kategorie 'firmenrecherche').
+            job_hash: Optional — speichert die Recherche an diese Stelle.
         """
         jobs = db.get_company_jobs(firma)
         if not jobs:
@@ -157,14 +185,33 @@ def register(mcp, db, logger):
                 "min": min(j["salary_min"] for j in gehalt_jobs),
                 "max": max(j["salary_max"] for j in gehalt_jobs),
             }
+        # #674: optionale Ein-Schritt-Persistenz
+        if bewerbung_id or job_hash:
+            teile = [f"Firmen-Recherche {firma}: {result['stellen_gesamt']} Stellen "
+                     f"({result['stellen_aktiv']} aktiv)."]
+            if standorte:
+                teile.append("Standorte: " + ", ".join(standorte[:5]) + ".")
+            if result.get("gehaltsspanne"):
+                teile.append(f"Gehalt: {result['gehaltsspanne']['min']}-"
+                             f"{result['gehaltsspanne']['max']}.")
+            teile.append(f"Quellen: {', '.join(quellen)}. Score best "
+                         f"{result['score_best']}, Schnitt {result['score_durchschnitt']}.")
+            ziel = _persist_recherche("firmenrecherche", " ".join(teile),
+                                      bewerbung_id, job_hash)
+            if ziel:
+                result["gespeichert_als"] = ziel
         return result
 
     @mcp.tool()
-    def branchen_trends() -> dict:
+    def branchen_trends(bewerbung_id: str = "") -> dict:
         """Analysiert gefragte Skills und Technologien in den gesammelten Stellenangeboten.
 
         Zählt Skill-Keywords in allen aktiven Job-Beschreibungen und vergleicht
         mit deinem Profil (Match/Gap-Analyse).
+
+        Args:
+            bewerbung_id: Optional — speichert die Markt-Analyse im selben Aufruf
+                an diese Bewerbung (#674, Kategorie 'markt').
         """
         descriptions = db.get_skill_frequency()
         if not descriptions:
@@ -213,7 +260,7 @@ def register(mcp, db, logger):
             for skill, count in trend_counts.most_common(20)
         ]
 
-        return {
+        ergebnis = {
             "status": "ok",
             "analysierte_stellen": total_jobs,
             "top_skills": top_20,
@@ -221,9 +268,20 @@ def register(mcp, db, logger):
             "tipp": "Skills die im Markt gefragt sind aber in deinem Profil fehlen, "
                     "sind unter 'skill_gap' aufgelistet.",
         }
+        # #674: optionale Ein-Schritt-Persistenz
+        if bewerbung_id:
+            top = ", ".join(f"{s['skill']} ({s['nennungen']})" for s in top_20[:8])
+            gap = ", ".join(g["skill"] for g in (skill_gap[:8] or []))
+            txt = f"Markt-Trends ({total_jobs} Stellen). Top-Skills: {top}."
+            if gap:
+                txt += f" Luecken im Profil: {gap}."
+            ziel = _persist_recherche("markt", txt, bewerbung_id)
+            if ziel:
+                ergebnis["gespeichert_als"] = ziel
+        return ergebnis
 
     @mcp.tool()
-    def skill_gap_analyse(job_hash: str = "") -> dict:
+    def skill_gap_analyse(job_hash: str = "", bewerbung_id: str = "") -> dict:
         """Vergleicht dein Profil mit einer Stelle oder allen aktiven Stellen.
 
         Zeigt welche Skills dir fehlen, welche gut passen, und gibt
@@ -231,6 +289,8 @@ def register(mcp, db, logger):
 
         Args:
             job_hash: Hash einer spezifischen Stelle (leer = alle aktiven Stellen analysieren)
+            bewerbung_id: Optional — speichert die Gap-Analyse im selben Aufruf an
+                diese Bewerbung (#674, Kategorie 'skillgap').
         """
         gate = ki_gate(db, "stellenanalyse")
         if gate is not None:
@@ -294,6 +354,16 @@ def register(mcp, db, logger):
         if job_hash and jobs:
             result["stelle"] = jobs[0].get("title")
             result["firma"] = jobs[0].get("company")
+
+        # #674: optionale Ein-Schritt-Persistenz (nur bei expliziter Bewerbung)
+        if bewerbung_id:
+            fehlend = ", ".join(g["skill"] for g in gaps[:10]) or "keine"
+            vorhanden = ", ".join(m["skill"] for m in matches[:10]) or "keine"
+            txt = (f"Skill-Gap ({len(jobs)} Stellen, Match {match_pct}%). "
+                   f"Fehlend: {fehlend}. Vorhanden: {vorhanden}.")
+            ziel = _persist_recherche("skillgap", txt, bewerbung_id, job_hash)
+            if ziel:
+                result["gespeichert_als"] = ziel
 
         return result
 
@@ -1562,67 +1632,49 @@ def register(mcp, db, logger):
         """
         if not job_hash and not bewerbung_id:
             return {"fehler": "Entweder job_hash oder bewerbung_id muss angegeben werden."}
+        if not (text or "").strip():
+            return {"fehler": "Kein Text angegeben."}
 
-        now = datetime.now().isoformat()
-        saved_to = []
-        written: set[str] = set()
-
-        def _append_research(target_hash: str) -> bool:
-            """Haengt die Recherche an jobs.research_notes (das anzeigbare Feld)
-            der Stelle an. Dedupe ueber den gespeicherten Hash."""
-            job = db.get_job(target_hash)
-            if not job:
-                return False
-            stored_hash = db.resolve_job_hash(target_hash)
-            if stored_hash in written:
-                return True  # schon in diesem Aufruf geschrieben
-            existing = job.get("research_notes") or ""
-            entry = f"\n\n--- {kategorie} ({now[:10]}) ---\n{text}"
-            conn = db.connect()
-            conn.execute(
-                "UPDATE jobs SET research_notes=?, updated_at=? WHERE hash=?",
-                ((existing + entry).strip(), now, stored_hash),
-            )
-            conn.commit()
-            written.add(stored_hash)
-            return True
-
-        if job_hash:
-            if not _append_research(job_hash):
-                return {"fehler": f"Stelle {job_hash} nicht gefunden."}
-            saved_to.append(f"Stelle {job_hash[:8]}")
-
+        # Ziele validieren
+        ziel_bewerbung = None
+        ziel_job = None
         if bewerbung_id:
             app = db.get_application(bewerbung_id)
             if not app:
                 return {"fehler": f"Bewerbung {bewerbung_id} nicht gefunden."}
-            # #672: Recherche gehoert ins ANZEIGBARE research_notes der
-            # verknuepften Stelle — NICHT in applications.fit_analyse (das ist
-            # das Fit-Verdict, wuerde kollidieren UND ist im Frontend unsichtbar).
-            ziel_hash = app.get("job_hash")
-            if not ziel_hash:
-                if not saved_to:
-                    return {
-                        "fehler": "Diese Bewerbung hat keine verknuepfte Stelle. "
-                                  "Gib job_hash direkt an, oder verknuepfe zuerst "
-                                  "eine Stelle (bewerbung_stelle_verknuepfen).",
-                        "kategorie": kategorie,
-                    }
-            elif _append_research(ziel_hash):
-                saved_to.append(f"Bewerbung {bewerbung_id} -> Stelle {ziel_hash[:8]}")
+            ziel_bewerbung = bewerbung_id
+            # Ohne expliziten job_hash: verknuepfte Stelle mitbinden, damit die
+            # Recherche auch im Stellen-Detail auftaucht (n:m, #472).
+            if not job_hash and app.get("job_hash"):
+                ziel_job = app.get("job_hash")
+        if job_hash:
+            if not db.get_job(job_hash):
+                return {"fehler": f"Stelle {job_hash} nicht gefunden."}
+            ziel_job = job_hash
 
-        if not saved_to:
-            return {"fehler": "Nichts gespeichert (keine gueltige Zielstelle gefunden)."}
+        # #674: strukturierter Eintrag in die research_notes-Tabelle (NICHT in
+        # applications.fit_analyse und NICHT in den manuellen Notizblock
+        # jobs.research_notes). Macht #673 (Anzeige) zu einer einfachen Query.
+        note_id = db.add_research_note(
+            kategorie=kategorie, text=text,
+            bewerbung_id=ziel_bewerbung, job_hash=ziel_job,
+        )
+
+        saved_to = []
+        if ziel_bewerbung:
+            saved_to.append(f"Bewerbung {ziel_bewerbung}")
+        if ziel_job:
+            saved_to.append(f"Stelle {str(ziel_job)[:8]}")
 
         return {
             "status": "gespeichert",
+            "id": note_id,
             "gespeichert_in": saved_to,
-            "zielfeld": "jobs.research_notes (im Bewerbungs-/Stellen-Detail sichtbar)",
-            "kategorie": kategorie,
+            "zielfeld": "research_notes-Tabelle (Bewerbungs-Detail, Abschnitt 'Recherchen')",
+            "kategorie": (kategorie or "allgemein").strip().lower(),
             "laenge": len(text),
-            "hinweis": "Recherche dauerhaft an der Stelle gespeichert und im "
-                       "Detail-Dialog sichtbar. Auslesen via bewerbung_details / "
-                       "stellen_anzeigen.",
+            "hinweis": "Recherche strukturiert gespeichert und im Detail-Dialog unter "
+                       "'Recherchen' sichtbar. Auslesen via bewerbung_details.",
         }
 
     # ========================================================================

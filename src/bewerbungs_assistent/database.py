@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 45
+SCHEMA_VERSION = 46
 
 
 def _gen_id() -> str:
@@ -1854,6 +1854,46 @@ class Database:
                 logger.info("Migration v44->v45: dismiss_reasons.is_active angelegt (#663 C20)")
             except Exception as exc:
                 logger.warning("dismiss_reasons.is_active-Migration: %s", exc)
+
+        if from_ver < 46:
+            # v46 / v1.7.0-beta.98 (#674): Dedizierte research_notes-Tabelle
+            # fuer strukturierte Recherche-Eintraege (Kategorie + Datum + Text),
+            # gebunden an eine Bewerbung ODER eine Stelle (n:m, #472). Loest die
+            # Sammeltopf-Kollision aus #672 (Recherche landete in fit_analyse)
+            # und macht #673 (Anzeige aller Recherchen) zu einer einfachen Query.
+            #
+            # WICHTIG: Tabelle `research_notes` ist NICHT die Spalte
+            # `jobs.research_notes` (freier Firmen-Recherche-Notizblock auf der
+            # Stelle, manuell im UI editierbar). Beide existieren parallel.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS research_notes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT,
+                        bewerbung_id TEXT,
+                        job_hash TEXT,
+                        kategorie TEXT NOT NULL DEFAULT 'allgemein',
+                        text TEXT NOT NULL,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_research_notes_bewerbung "
+                    "ON research_notes(bewerbung_id)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_research_notes_job "
+                    "ON research_notes(job_hash)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_research_notes_profile "
+                    "ON research_notes(profile_id)"
+                )
+                conn.commit()
+                logger.info("Migration v45->v46: research_notes-Tabelle angelegt (#674)")
+            except Exception as exc:
+                logger.warning("research_notes-Migration fehlgeschlagen: %s", exc)
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -5967,6 +6007,57 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    def add_research_note(self, kategorie: str, text: str,
+                          bewerbung_id: str = None, job_hash: str = None,
+                          profile_id: str = None) -> int:
+        """Speichert einen strukturierten Recherche-Eintrag (#674).
+
+        Gebunden an eine Bewerbung und/oder eine Stelle. `job_hash` wird auf den
+        gespeicherten (profil-praefixten) Hash aufgeloest. Gibt die neue id zurueck.
+        NB: schreibt in die Tabelle `research_notes`, NICHT in die Spalte
+        `jobs.research_notes` (manueller Firmen-Recherche-Notizblock).
+        """
+        conn = self.connect()
+        if profile_id is None:
+            profile_id = self.get_active_profile_id()
+        stored_hash = self.resolve_job_hash(job_hash, profile_id) if job_hash else None
+        now = _now()
+        cur = conn.execute(
+            "INSERT INTO research_notes "
+            "(profile_id, bewerbung_id, job_hash, kategorie, text, created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (profile_id, bewerbung_id or None, stored_hash,
+             (kategorie or "allgemein").strip().lower(), text, now, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+    def get_research_notes(self, bewerbung_id: str = None, job_hash: str = None,
+                           profile_id: str = None) -> list:
+        """Liest strukturierte Recherche-Eintraege (#674/#673).
+
+        Filtert nach Bewerbung ODER verknuepfter Stelle (mindestens eins
+        angeben). Neueste zuerst.
+        """
+        conn = self.connect()
+        clauses, params = [], []
+        if bewerbung_id:
+            clauses.append("bewerbung_id=?")
+            params.append(bewerbung_id)
+        if job_hash:
+            stored = self.resolve_job_hash(job_hash, profile_id)
+            clauses.append("job_hash=?")
+            params.append(stored or job_hash)
+        if not clauses:
+            return []
+        where = " OR ".join(clauses)
+        rows = conn.execute(
+            f"SELECT id, bewerbung_id, job_hash, kategorie, text, created_at "
+            f"FROM research_notes WHERE {where} ORDER BY created_at DESC, id DESC",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def update_job(self, job_hash: str, data: dict):
         """Update editable fields of a job (#90).
 
@@ -8688,6 +8779,22 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_app ON tasks(application_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status, faellig_am);
 CREATE INDEX IF NOT EXISTS idx_tasks_profile ON tasks(profile_id, status);
+
+-- #674 (v46): strukturierte Recherche-Eintraege (Kategorie+Datum+Text) an
+-- Bewerbung ODER Stelle. NICHT zu verwechseln mit der Spalte jobs.research_notes.
+CREATE TABLE IF NOT EXISTS research_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    bewerbung_id TEXT,
+    job_hash TEXT,
+    kategorie TEXT NOT NULL DEFAULT 'allgemein',
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_research_notes_bewerbung ON research_notes(bewerbung_id);
+CREATE INDEX IF NOT EXISTS idx_research_notes_job ON research_notes(job_hash);
+CREATE INDEX IF NOT EXISTS idx_research_notes_profile ON research_notes(profile_id);
 
 CREATE TABLE IF NOT EXISTS application_emails (
     id TEXT PRIMARY KEY,

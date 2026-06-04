@@ -16,6 +16,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.98] - 2026-06-04 — Recherchen strukturiert speichern + im Detail anzeigen (#673/#674)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. **Schema-Upgrade
+> auf v46** (additiv, automatisches Backup vor der Migration). Enthaelt
+> einen neuen Frontend-Build — nach dem Update MCP-Server / Claude Desktop
+> einmal neu starten und die Seite hart neu laden (Strg+F5).
+
+Baut auf beta.97 (#672) auf und schliesst den Recherche-Cluster.
+
+### Added
+
+- **#674 — Dedizierte `research_notes`-Tabelle (Schema v46).** Recherchen
+  werden jetzt strukturiert abgelegt (Kategorie + Datum + Text), gebunden an
+  eine Bewerbung und/oder eine Stelle (n:m-sauber, #472). Loest die alte
+  Sammeltopf-Problematik endgueltig: keine Kollision mehr im
+  Fit-Analyse-Feld, kein Vermischen mit dem manuellen Firmen-Recherche-
+  Notizblock.
+- **#674 — Ein-Schritt-Persistenz.** `firmen_recherche`, `branchen_trends`
+  und `skill_gap_analyse` nehmen optional `bewerbung_id` (firmen_recherche
+  zusaetzlich `job_hash`) und speichern das Ergebnis im selben Aufruf an die
+  richtige Stelle — kein separater `recherche_speichern`-Schritt mehr noetig.
+  Die Antwort nennt unter `gespeichert_als` das konkrete Ziel.
+- **#673 — Recherchen-Abschnitt im Bewerbungs-Detail.** Sowohl die
+  Tool-Ausgabe `bewerbung_details()` (Feld `recherchen`) als auch der
+  Detail-Dialog im Dashboard zeigen jetzt alle gespeicherten Recherchen —
+  pro Eintrag Kategorie, Datum und auf-/zuklappbarer Text. Klarer
+  Leer-Zustand, wenn noch nichts gespeichert ist.
+
+### Changed
+
+- **`recherche_speichern` schreibt in die neue Tabelle** statt (wie in
+  beta.97) in `jobs.research_notes`. Ohne verknuepfte Stelle wird die
+  Recherche jetzt an die Bewerbung gebunden gespeichert (vorher Fehler).
+  Bei job_hash + bewerbung_id auf dieselbe Stelle: ein Eintrag, beide
+  Bindungen. Der manuelle „Firmen-Recherche"-Notizblock auf der Stelle
+  (`jobs.research_notes`) bleibt davon unberuehrt.
+
+### Migration
+
+Schema v45 → v46: neue Tabelle `research_notes` + drei Indizes, rein additiv.
+Automatisches DB-Backup vor der Migration (`data/backups/`). Verifiziert auf
+einer Kopie der echten DB (v44 → v46 in einem Rutsch, alle Datensaetze
+unveraendert: 1645 Stellen / 93 Bewerbungen / 203 Dokumente).
+
+### Unter der Haube
+
+Tool-Count bleibt 177 (nur Parameter ergaenzt, keine neuen Tools). Neue Tests
+`test_v17_research_table_673_674.py` + aktualisierte
+`test_v17_recherche_notizen_672_680.py`. Frontend-Detail-Dialog im Browser
+gegen die Real-DB-Kopie verifiziert. Volle Suite gruen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.98.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.98.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.97] - 2026-06-04 — Recherche landet sichtbar + informelle Notizen editierbar (#672/#680)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. **Backend-only**

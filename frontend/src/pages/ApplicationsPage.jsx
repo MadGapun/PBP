@@ -45,6 +45,16 @@ const EMPTY_APPLICATION = {
 const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen"];
 const INTERVIEW_STATUSES = ["interview", "zweitgespraech", "interview_abgeschlossen"];
 
+// #673: Anzeige-Labels fuer Recherche-Kategorien (research_notes-Tabelle)
+const RESEARCH_LABELS = {
+  firmenrecherche: "Firmenrecherche",
+  skillgap: "Skill-Gap",
+  gehalt: "Gehalt",
+  markt: "Markt-Trends",
+  fit: "Fit-Analyse",
+  allgemein: "Allgemein",
+};
+
 function EmailUploadButton({ pushToast, onImported }) {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -1234,6 +1244,38 @@ export default function ApplicationsPage() {
                   Speichern
                 </Button>
               </div>
+            </Card>
+          ) : null}
+
+          {/* #673: Strukturierte Recherchen (research_notes-Tabelle, alle Kategorien) */}
+          {timelineDialog.entry?.application ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                Recherchen
+              </p>
+              {Array.isArray(timelineDialog.entry.recherchen) && timelineDialog.entry.recherchen.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {timelineDialog.entry.recherchen.map((r) => (
+                    <details
+                      key={r.id}
+                      className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
+                    >
+                      <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-foreground/90">
+                          {RESEARCH_LABELS[r.kategorie] || r.kategorie}
+                        </span>
+                        <span className="text-[10px] text-muted/60">{r.datum}</span>
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/80">{r.text}</p>
+                    </details>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted/60">
+                  Noch keine Recherchen gespeichert. Claude legt sie via
+                  {" "}firmen_recherche, skill_gap_analyse oder recherche_speichern an.
+                </p>
+              )}
             </Card>
           ) : null}
 

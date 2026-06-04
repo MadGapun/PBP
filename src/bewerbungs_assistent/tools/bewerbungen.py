@@ -1112,6 +1112,22 @@ def register(mcp, db, logger):
                 for d in linked_docs
             ]
 
+        # #673: Gespeicherte Recherchen (research_notes-Tabelle, alle Kategorien)
+        # — getrennt vom manuellen Firmen-Recherche-Notizblock (jobs.research_notes).
+        try:
+            rnotes = db.get_research_notes(
+                bewerbung_id=app["id"], job_hash=app.get("job_hash"))
+            if rnotes:
+                result["recherchen"] = [
+                    {"id": r["id"],
+                     "kategorie": r.get("kategorie", "allgemein"),
+                     "datum": (r.get("created_at") or "")[:10],
+                     "text": r.get("text", "")}
+                    for r in rnotes
+                ]
+        except Exception:
+            pass
+
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
         actions = _get_context_actions(app.get("status", ""))
 

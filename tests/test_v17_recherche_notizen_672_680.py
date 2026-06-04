@@ -56,13 +56,16 @@ def test_recherche_job_hash_landet_in_research_notes(tmp_db):
         job_hash=h, kategorie="firmenrecherche",
     )
     assert res.get("status") == "gespeichert", res
-    notes = tmp_db.get_job(h).get("research_notes") or ""
-    assert "Firma waechst stark" in notes
-    assert "firmenrecherche" in notes
+    # #674: landet in der research_notes-Tabelle (NICHT im Notizblock jobs.research_notes)
+    rows = tmp_db.get_research_notes(job_hash=h)
+    assert any("Firma waechst stark" in r["text"] for r in rows), rows
+    assert any(r["kategorie"] == "firmenrecherche" for r in rows)
+    # der manuelle Notizblock bleibt unberuehrt
+    assert not (tmp_db.get_job(h).get("research_notes") or "")
 
 
-def test_recherche_bewerbung_landet_in_verknuepfter_stelle_nicht_fit_analyse(tmp_db):
-    """#672 Kern: Bewerbung-Recherche -> jobs.research_notes, NICHT fit_analyse."""
+def test_recherche_bewerbung_landet_in_tabelle_nicht_fit_analyse(tmp_db):
+    """#672/#674 Kern: Bewerbung-Recherche -> research_notes-Tabelle, NICHT fit_analyse."""
     tmp_db.create_profile("Test User", "test@example.com")
     h = _make_job(tmp_db)
     app_id = tmp_db.add_application({
@@ -74,26 +77,28 @@ def test_recherche_bewerbung_landet_in_verknuepfter_stelle_nicht_fit_analyse(tmp
         bewerbung_id=app_id, kategorie="gehalt",
     )
     assert res.get("status") == "gespeichert", res
-    # landet im anzeigbaren Stellen-Feld
-    notes = tmp_db.get_job(h).get("research_notes") or ""
-    assert "Gehaltsband laut Kununu" in notes
-    assert "gehalt" in notes
-    # und NICHT (mehr) in applications.fit_analyse
+    # strukturiert in der Tabelle, abrufbar ueber Bewerbung UND verknuepfte Stelle
+    by_app = tmp_db.get_research_notes(bewerbung_id=app_id)
+    assert any("Gehaltsband laut Kununu" in r["text"] for r in by_app), by_app
+    assert any("Gehaltsband" in r["text"] for r in tmp_db.get_research_notes(job_hash=h))
+    # und NICHT in applications.fit_analyse
     app = tmp_db.get_application(app_id)
     fit = app.get("fit_analyse") or ""
     assert "Gehaltsband" not in str(fit), f"fit_analyse verschmutzt: {fit!r}"
 
 
-def test_recherche_bewerbung_ohne_stelle_meldet_fehler(tmp_db):
-    """Ohne verknuepfte Stelle: klare Fehlermeldung statt stiller fit_analyse-Write."""
+def test_recherche_bewerbung_ohne_stelle_wird_trotzdem_gespeichert(tmp_db):
+    """#674: ohne verknuepfte Stelle wird die Recherche an die Bewerbung gebunden."""
     tmp_db.create_profile("Test User", "test@example.com")
     app_id = tmp_db.add_application({"title": "Freie Anfrage", "company": "Firma Y"})
     mcp = _register_analyse(tmp_db)
     res = mcp.tools["recherche_speichern"](
-        text="Irgendwas", bewerbung_id=app_id, kategorie="allgemein",
+        text="Inbound-Anfrage, Konditionen offen", bewerbung_id=app_id,
+        kategorie="allgemein",
     )
-    assert "fehler" in res, res
-    assert "verknuepfte Stelle" in res["fehler"]
+    assert res.get("status") == "gespeichert", res
+    rows = tmp_db.get_research_notes(bewerbung_id=app_id)
+    assert len(rows) == 1 and rows[0]["job_hash"] is None
 
 
 def test_recherche_ohne_ziel_meldet_fehler(tmp_db):
@@ -103,8 +108,8 @@ def test_recherche_ohne_ziel_meldet_fehler(tmp_db):
     assert "fehler" in res
 
 
-def test_recherche_doppelziel_kein_doppelter_eintrag(tmp_db):
-    """job_hash + bewerbung_id auf dieselbe Stelle: nur EIN Append."""
+def test_recherche_doppelziel_ein_eintrag_beide_bindungen(tmp_db):
+    """job_hash + bewerbung_id: EIN Eintrag, an Bewerbung UND Stelle gebunden."""
     tmp_db.create_profile("Test User", "test@example.com")
     h = _make_job(tmp_db)
     app_id = tmp_db.add_application({
@@ -116,8 +121,10 @@ def test_recherche_doppelziel_kein_doppelter_eintrag(tmp_db):
         job_hash=h, bewerbung_id=app_id, kategorie="markt",
     )
     assert res.get("status") == "gespeichert", res
-    notes = tmp_db.get_job(h).get("research_notes") or ""
-    assert notes.count("EINMALIGER_MARKER_TEXT") == 1, notes
+    by_app = tmp_db.get_research_notes(bewerbung_id=app_id)
+    assert len([r for r in by_app if "EINMALIGER_MARKER_TEXT" in r["text"]]) == 1, by_app
+    row = by_app[0]
+    assert row["bewerbung_id"] == app_id and row["job_hash"]
 
 
 # ── #680 — informal_notes lesen / ersetzen / loeschen ───────────────────
