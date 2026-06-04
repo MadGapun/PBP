@@ -16,6 +16,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.97] - 2026-06-04 — Recherche landet sichtbar + informelle Notizen editierbar (#672/#680)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. **Backend-only**
+> (kein neuer Frontend-Build, keine Schema-Aenderung — bleibt v45). Nach
+> dem Update MCP-Server / Claude Desktop einmal neu starten.
+
+Zwei Daten-Hygiene-Fixes aus dem Issue-Backlog.
+
+### Fixed
+
+- **#672 — Recherche landete im falschen, unsichtbaren Feld.**
+  `recherche_speichern(..., bewerbung_id=...)` schrieb die Recherche bisher
+  als JSON in `applications.fit_analyse`. Das ist das Feld fuer das
+  Fit-Verdict — die Recherche kollidierte damit UND tauchte im Frontend
+  nirgends auf. Jetzt wird sie an das **anzeigbare** `research_notes` der
+  mit der Bewerbung verknuepften Stelle gehaengt (dasselbe Feld, das schon
+  „FIRMEN-RECHERCHE" im Detail-Dialog zeigt). Hat die Bewerbung keine
+  verknuepfte Stelle, kommt eine klare Meldung statt eines stillen
+  Fehlschlags. Doppelziel (job_hash + bewerbung_id auf dieselbe Stelle)
+  schreibt nur noch einen Eintrag. Die Antwort nennt jetzt das Zielfeld.
+  Damit ist die Recherche auch ueber `bewerbung_id` sofort im Detail
+  sichtbar (Teil von #673).
+
+### Added
+
+- **#680 — Informelle Notizen sind editierbar, nicht nur anhaengbar.**
+  `profil_bearbeiten(bereich="notizen", ...)` kann jetzt:
+  - `lesen` — gibt alle Sektionen strukturiert zurueck (welche Sektionen
+    existieren, was steht drin),
+  - `ersetzen` (`daten={"sektion","text"}`) — ersetzt den Inhalt einer
+    Sektion,
+  - `loeschen` (`daten={"sektion"}`) — entfernt eine ganze Sektion
+    (meldet `nicht_gefunden`, wenn es die Sektion nicht gibt).
+
+  Bisher ging nur `anhang` (immer nur dazu) und `aendern` (kompletter
+  Roh-Ersatz).
+
+### Bekannte Folge-Themen (offen, nicht in diesem Release)
+
+- **#673** (alle Recherche-Kategorien als eigene Timeline-Sektion) und
+  **#674** (Recherche-Tools persistieren direkt, dedizierte
+  `research_notes`-Tabelle) bleiben offen — sie brauchen einen
+  Frontend-Build bzw. eine Schema-Migration und kommen in einer eigenen
+  Iteration. Die Daten-Integritaet (#672) ist die Voraussetzung dafuer und
+  jetzt erledigt.
+
+### Unter der Haube
+
+Backend-only, keine Schema-Aenderung (bleibt v45), Tool-Count bleibt 177.
+Neue Tests: `test_v17_recherche_notizen_672_680.py` (11 Faelle —
+Recherche-Routing inkl. fit_analyse-Schutz + Dedupe; Notizen
+lesen/ersetzen/loeschen inkl. nicht_gefunden). Volle Suite gruen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.97.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.97.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.96] - 2026-06-03 — Ollama kennt das Datum + Junk-Skills raus (#679/#681)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Backend-only, **kein

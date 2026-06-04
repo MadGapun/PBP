@@ -1565,46 +1565,64 @@ def register(mcp, db, logger):
 
         now = datetime.now().isoformat()
         saved_to = []
+        written: set[str] = set()
 
-        if job_hash:
-            job = db.get_job(job_hash)
+        def _append_research(target_hash: str) -> bool:
+            """Haengt die Recherche an jobs.research_notes (das anzeigbare Feld)
+            der Stelle an. Dedupe ueber den gespeicherten Hash."""
+            job = db.get_job(target_hash)
             if not job:
-                return {"fehler": f"Stelle {job_hash} nicht gefunden."}
+                return False
+            stored_hash = db.resolve_job_hash(target_hash)
+            if stored_hash in written:
+                return True  # schon in diesem Aufruf geschrieben
             existing = job.get("research_notes") or ""
             entry = f"\n\n--- {kategorie} ({now[:10]}) ---\n{text}"
-            new_notes = (existing + entry).strip()
-            # #270: resolve to stored hash (public hash differs in multi-profile)
-            stored_hash = db.resolve_job_hash(job_hash)
             conn = db.connect()
             conn.execute(
                 "UPDATE jobs SET research_notes=?, updated_at=? WHERE hash=?",
-                (new_notes, now, stored_hash)
+                ((existing + entry).strip(), now, stored_hash),
             )
             conn.commit()
-            saved_to.append(f"Stelle {job_hash}")
+            written.add(stored_hash)
+            return True
+
+        if job_hash:
+            if not _append_research(job_hash):
+                return {"fehler": f"Stelle {job_hash} nicht gefunden."}
+            saved_to.append(f"Stelle {job_hash[:8]}")
 
         if bewerbung_id:
             app = db.get_application(bewerbung_id)
             if not app:
                 return {"fehler": f"Bewerbung {bewerbung_id} nicht gefunden."}
-            existing = app.get("fit_analyse") or ""
-            if existing:
-                try:
-                    data = json.loads(existing)
-                except (json.JSONDecodeError, TypeError):
-                    data = {"vorherige_analyse": existing}
-            else:
-                data = {}
-            data[f"{kategorie}_{now[:10]}"] = text
-            db.save_fit_analyse(bewerbung_id, data)
-            saved_to.append(f"Bewerbung {bewerbung_id}")
+            # #672: Recherche gehoert ins ANZEIGBARE research_notes der
+            # verknuepften Stelle — NICHT in applications.fit_analyse (das ist
+            # das Fit-Verdict, wuerde kollidieren UND ist im Frontend unsichtbar).
+            ziel_hash = app.get("job_hash")
+            if not ziel_hash:
+                if not saved_to:
+                    return {
+                        "fehler": "Diese Bewerbung hat keine verknuepfte Stelle. "
+                                  "Gib job_hash direkt an, oder verknuepfe zuerst "
+                                  "eine Stelle (bewerbung_stelle_verknuepfen).",
+                        "kategorie": kategorie,
+                    }
+            elif _append_research(ziel_hash):
+                saved_to.append(f"Bewerbung {bewerbung_id} -> Stelle {ziel_hash[:8]}")
+
+        if not saved_to:
+            return {"fehler": "Nichts gespeichert (keine gueltige Zielstelle gefunden)."}
 
         return {
             "status": "gespeichert",
             "gespeichert_in": saved_to,
+            "zielfeld": "jobs.research_notes (im Bewerbungs-/Stellen-Detail sichtbar)",
             "kategorie": kategorie,
             "laenge": len(text),
-            "hinweis": "Die Recherche ist jetzt dauerhaft gespeichert und bleibt über Chat-Sessions hinweg verfügbar."
+            "hinweis": "Recherche dauerhaft an der Stelle gespeichert und im "
+                       "Detail-Dialog sichtbar. Auslesen via bewerbung_details / "
+                       "stellen_anzeigen.",
         }
 
     # ========================================================================

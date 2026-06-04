@@ -188,7 +188,10 @@ def register(mcp, db, logger):
         AKTIONEN PRO BEREICH:
         - persönlich: ändern (Felder in daten)
         - präferenzen: ändern (Key-Value in daten)
-        - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — hängt Text an eine Sektion der informal_notes an
+        - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — hängt Text an eine Sektion an;
+          lesen (gibt alle Sektionen strukturiert zurück); ersetzen (daten: {"sektion","text"} — ersetzt
+          den Inhalt einer Sektion); löschen (daten: {"sektion"} — entfernt eine ganze Sektion); ändern
+          (daten.informal_notes — kompletter Roh-Ersatz)
         - position: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - projekt: hinzufügen (daten.position_id nötig), ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - ausbildung: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
@@ -351,6 +354,81 @@ def register(mcp, db, logger):
                 }
                 db.save_profile(update)
                 return {"status": "aktualisiert", "bereich": "notizen"}
+            elif aktion == "lesen":
+                # #680: strukturiertes Auslesen der informellen Notizen
+                profile = db.get_profile() or {}
+                blob = profile.get("informal_notes") or ""
+                sektionen = {}
+                cur = None
+                for ln in blob.split("\n"):
+                    st = ln.strip()
+                    if st.startswith("## "):
+                        cur = st[3:].strip()
+                        sektionen.setdefault(cur, [])
+                    elif cur and st:
+                        sektionen[cur].append(st)
+                return {
+                    "status": "ok", "bereich": "notizen",
+                    "informal_notes": blob,
+                    "sektionen": sektionen,
+                    "anzahl_sektionen": len(sektionen),
+                }
+            elif aktion in ("ersetzen", "loeschen"):
+                # #680: Sektion ersetzen oder loeschen (nicht nur anhaengen)
+                profile = db.get_profile()
+                if not profile:
+                    return {"fehler": "Kein Profil vorhanden"}
+                ziel = (daten.get("sektion", "") or "").strip().upper()
+                if not ziel:
+                    return {"fehler": "daten.sektion muss angegeben werden "
+                                      "(z.B. {'sektion': 'ALLGEMEIN'})"}
+                blob = profile.get("informal_notes") or ""
+                # In Sektionen zerlegen (Reihenfolge erhalten)
+                sektionen = []  # [name, [zeilen]]
+                cur = None
+                for ln in blob.split("\n"):
+                    st = ln.strip()
+                    if st.startswith("## "):
+                        cur = [st[3:].strip(), []]
+                        sektionen.append(cur)
+                    elif cur is not None and st:
+                        cur[1].append(ln.rstrip())
+                idx = next((i for i, (n, _) in enumerate(sektionen)
+                            if n.upper() == ziel), None)
+                if aktion == "loeschen":
+                    if idx is None:
+                        return {"status": "nicht_gefunden", "bereich": "notizen",
+                                "sektion": ziel}
+                    sektionen.pop(idx)
+                else:  # ersetzen
+                    from datetime import datetime as _dt
+                    text = (daten.get("text", "") or "").strip()
+                    if not text:
+                        return {"fehler": "daten.text muss angegeben werden"}
+                    eintrag = f"[{_dt.now().strftime('%Y-%m-%d')}] {text}"
+                    if idx is None:
+                        sektionen.append([ziel, [eintrag]])
+                    else:
+                        sektionen[idx][1] = [eintrag]
+                new_blob = "\n\n".join(
+                    f"## {n}\n" + "\n".join(zeilen)
+                    for n, zeilen in sektionen
+                ).strip()
+                update = {
+                    "name": profile.get("name"), "email": profile.get("email"),
+                    "phone": profile.get("phone"), "address": profile.get("address"),
+                    "city": profile.get("city"), "plz": profile.get("plz"),
+                    "country": profile.get("country"), "birthday": profile.get("birthday"),
+                    "nationality": profile.get("nationality"),
+                    "summary": profile.get("summary"),
+                    "informal_notes": new_blob,
+                    "preferences": profile.get("preferences", {}),
+                }
+                db.save_profile(update)
+                return {
+                    "status": "geloescht" if aktion == "loeschen" else "ersetzt",
+                    "bereich": "notizen", "sektion": ziel,
+                }
 
         elif bereich == "position":
             if aktion == "loeschen" and element_id:
