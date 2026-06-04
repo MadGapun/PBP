@@ -413,6 +413,10 @@ export default function DashboardPage() {
   }
 
   const workspaceReadiness = chrome.workspace?.readiness || {};
+  // #683: ueberfaellige offene Aufgaben fuer die prominente Dashboard-Warnung
+  const overdueTasks = Array.isArray(chrome.workspace?.ueberfaellige_aufgaben)
+    ? chrome.workspace.ueberfaellige_aufgaben
+    : [];
   const workspaceTodos = Array.isArray(chrome.workspace?.todos) ? chrome.workspace.todos : [];
   const profileCompleteness = Number(chrome.workspace?.profile?.completeness || 0);
   const jobsWithoutDescription = Number(chrome.workspace?.jobs?.ohne_beschreibung || 0);
@@ -578,6 +582,39 @@ export default function DashboardPage() {
 
       {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
       <div className="mb-5 grid gap-4">
+          {/* #683: Ueberfaellige Aufgaben — prominente Warnung ganz oben */}
+          {overdueTasks.length > 0 && (
+            <Card className="rounded-2xl border border-coral/40 bg-coral/[0.08]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList size={16} className="text-coral" />
+                    <p className="text-sm font-bold uppercase tracking-[0.12em] text-coral">
+                      {overdueTasks.length} {overdueTasks.length === 1 ? "Aufgabe überfällig" : "Aufgaben überfällig"}
+                    </p>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {overdueTasks.slice(0, 5).map((t) => (
+                      <li key={t.id} className="text-sm text-ink">
+                        <span className="font-medium">{t.titel}</span>
+                        {t.bewerbung_titel ? (
+                          <span className="text-muted/60"> — {t.bewerbung_titel}{t.firma ? ` (${t.firma})` : ""}</span>
+                        ) : null}
+                        <span className="ml-2 text-xs font-semibold text-coral">fällig {formatDate(t.faellig_am)}</span>
+                      </li>
+                    ))}
+                    {overdueTasks.length > 5 && (
+                      <li className="text-xs text-muted/60">und {overdueTasks.length - 5} weitere …</li>
+                    )}
+                  </ul>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => navigateTo("bewerbungen")}>
+                  Zu den Bewerbungen
+                </Button>
+              </div>
+            </Card>
+          )}
+
           {/* Im Fluss (Readiness Card) */}
           <Card className="rounded-2xl">
             <div className="flex flex-wrap items-start justify-between gap-4">

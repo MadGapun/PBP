@@ -6399,6 +6399,34 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_overdue_tasks(self, profile_id: str | None = None,
+                          heute: str | None = None) -> list[dict]:
+        """Offene Aufgaben mit ueberschrittenem Faelligkeitsdatum (#683).
+
+        Kriterium: status='offen' UND faellig_am < heute (heute selbst gilt
+        noch nicht als ueberfaellig). Joint die Bewerbung fuer Titel/Firma +
+        Sprung-ID. Aelteste Faelligkeit zuerst.
+        """
+        conn = self.connect()
+        if profile_id is None:
+            profile_id = self.get_active_profile_id()
+        heute = heute or _now()[:10]
+        clauses = ["t.status='offen'", "t.faellig_am IS NOT NULL",
+                   "t.faellig_am < ?"]
+        params: list = [heute]
+        if profile_id:
+            clauses.append(
+                "(t.profile_id=? OR t.profile_id IS NULL OR t.profile_id='')")
+            params.append(profile_id)
+        rows = conn.execute(
+            "SELECT t.id, t.titel, t.faellig_am, t.application_id, "
+            "a.title AS bewerbung_titel, a.company AS firma "
+            "FROM tasks t LEFT JOIN applications a ON a.id = t.application_id "
+            "WHERE " + " AND ".join(clauses) + " ORDER BY t.faellig_am ASC",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def update_task(self, task_id: str, data: dict) -> bool:
         """Update tasks-Felder (titel, beschreibung, faellig_am, typ, notiz)."""
         conn = self.connect()

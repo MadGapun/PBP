@@ -138,6 +138,7 @@ export default function ApplicationsPage() {
   // #666 (D19): Tasks/Todos pro Bewerbung
   const [timelineTasks, setTimelineTasks] = useState([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");  // #683: Erledigt-bis-Datum
   const [researchDraft, setResearchDraft] = useState("");
   const [researchSaving, setResearchSaving] = useState(false);
 
@@ -320,8 +321,12 @@ export default function ApplicationsPage() {
     const titel = (newTaskTitle || "").trim();
     if (!appId || !titel) return;
     try {
-      await postJson(`/api/applications/${appId}/tasks`, { titel });
+      await postJson(`/api/applications/${appId}/tasks`, {
+        titel,
+        faellig_am: newTaskDue || undefined,  // #683: Erledigt-bis-Datum
+      });
       setNewTaskTitle("");
+      setNewTaskDue("");
       await reloadTimelineTasks(appId);
     } catch (error) {
       pushToast(`Todo konnte nicht angelegt werden: ${error.message}`, "danger");
@@ -1437,8 +1442,10 @@ export default function ApplicationsPage() {
               )}
               {timelineTasks.map((task) => {
                 const done = task.status === "erledigt";
+                const overdue = !done && task.faellig_am
+                  && task.faellig_am < new Date().toISOString().slice(0, 10);
                 return (
-                  <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${done ? "opacity-50" : "bg-white/[0.03] border border-white/5"}`}>
+                  <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${done ? "opacity-50" : overdue ? "bg-coral/10 border border-coral/30" : "bg-white/[0.03] border border-white/5"}`}>
                     <button
                       type="button"
                       title={done ? "Wieder oeffnen" : "Erledigt"}
@@ -1449,7 +1456,11 @@ export default function ApplicationsPage() {
                     </button>
                     <span className={`flex-1 min-w-0 truncate text-sm ${done ? "text-muted/40 line-through" : "text-ink"}`}>
                       {task.titel}
-                      {task.faellig_am ? <span className="ml-2 text-xs text-muted/50">{formatDate(task.faellig_am)}</span> : null}
+                      {task.faellig_am ? (
+                        <span className={`ml-2 text-xs ${overdue ? "font-semibold text-coral" : "text-muted/50"}`}>
+                          {overdue ? "überfällig: " : "bis "}{formatDate(task.faellig_am)}
+                        </span>
+                      ) : null}
                     </span>
                     <button
                       type="button"
@@ -1465,6 +1476,7 @@ export default function ApplicationsPage() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <TextInput
+                className="flex-1"
                 value={newTaskTitle}
                 onChange={(event) => setNewTaskTitle(event.target.value)}
                 placeholder="Neue Aufgabe (z.B. Gehalt recherchieren)"
@@ -1474,6 +1486,13 @@ export default function ApplicationsPage() {
                     addTimelineTask();
                   }
                 }}
+              />
+              <input
+                type="date"
+                value={newTaskDue}
+                onChange={(event) => setNewTaskDue(event.target.value)}
+                title="Erledigt bis (optional)"
+                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm text-ink [color-scheme:dark]"
               />
               <Button type="button" variant="secondary" onClick={addTimelineTask} disabled={!newTaskTitle.trim()}>
                 <Plus size={14} />

@@ -204,7 +204,7 @@ def _get_follow_up_summary() -> dict:
 def _build_workspace_summary() -> dict:
     """Aggregate the current workspace state for dashboard navigation and guidance."""
     # #534 v1.6.5: exclude_blacklisted=True konsistent zur Stellen-Liste
-    return build_workspace_summary(
+    summary = build_workspace_summary(
         profile=_db.get_profile(),
         jobs=_db.get_active_jobs(exclude_applied=True, exclude_blacklisted=True),
         applications=_db.get_applications(),
@@ -212,6 +212,12 @@ def _build_workspace_summary() -> dict:
         search_status=_get_search_status_payload(),
         follow_up_summary=_get_follow_up_summary(),
     )
+    # #683: ueberfaellige offene Aufgaben fuer die Dashboard-Warnung
+    try:
+        summary["ueberfaellige_aufgaben"] = _db.get_overdue_tasks()
+    except Exception:
+        summary["ueberfaellige_aufgaben"] = []
+    return summary
 
 
 def _build_live_update_token_payload() -> dict:

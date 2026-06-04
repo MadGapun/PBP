@@ -16,6 +16,78 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.100] - 2026-06-04 — Aufgaben mit „Erledigt bis"-Datum + Dashboard warnt bei Ueberfaelligkeit (#683)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,
+> keine Schema-Aenderung (bleibt v46). Nach dem Update MCP-Server / Claude
+> Desktop einmal neu starten und die Seite hart neu laden (Strg+F5).
+
+### Added
+
+- **#683 — „Erledigt bis"-Datum direkt beim Anlegen einer Aufgabe.** Im
+  Bewerbungs-Detail (Aufgaben-Sektion) gibt es jetzt neben dem Titel ein
+  Datumsfeld. Das Backend konnte `faellig_am` bereits — bisher hat das
+  Frontend es nur nicht gesendet. (Termine/„Termin hinzufuegen" bleiben davon
+  unberuehrt; Kalender-Verknuepfung war nicht noetig.)
+- **#683 — Prominente Dashboard-Warnung bei ueberfaelligen Aufgaben.** Ganz
+  oben im Dashboard erscheint eine rote Karte, sobald offene Aufgaben ihr
+  Faelligkeitsdatum ueberschritten haben — mit Anzahl, Titeln (inkl.
+  Bewerbung/Firma), Faelligkeitsdatum und Sprung zu den Bewerbungen.
+  Ueberfaellige Aufgaben werden zusaetzlich in der Aufgaben-Liste der
+  Bewerbung rot markiert („ueberfaellig: …").
+
+### Unter der Haube
+
+Neuer DB-Helper `get_overdue_tasks` (offen + `faellig_am` < heute, joint die
+Bewerbung fuer Titel/Firma), eingehaengt in die Workspace-Zusammenfassung
+(`/api/workspace-summary` → `ueberfaellige_aufgaben`). Keine Schema-Aenderung
+(`tasks.faellig_am` existiert seit #666). Tool-Count bleibt 177. Neue Tests
+`test_v17_overdue_tasks_683.py`. Im Browser gegen eine Real-DB-Kopie geprueft
+(Dashboard-Warnung + Datumsfeld). Volle Suite gruen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.100.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.100.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`)
+3. **Installieren:** Im entpackten Ordner Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+
+### macOS
+
+1. **ZIP herunterladen** (siehe Windows-Link)
+2. **Entpacken** (Doppelklick reicht)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt: Rechtsklick auf die Datei → *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.99] - 2026-06-04 — Outcome-Quoten segmentiert am PBP-Startdatum (#682)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Enthaelt einen neuen
