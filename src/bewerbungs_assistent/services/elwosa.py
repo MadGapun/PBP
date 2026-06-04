@@ -120,15 +120,47 @@ def detect_world_trigger() -> Optional[str]:
 
 # === Variablen-Einsetzung ========================================
 
+# v1.7.0-beta.95: echte Uhrzeit als Platzhalter. Hintergrund: einige
+# Nacht-/Abend-Linien hatten eine feste Uhrzeit im Text ("Halb zwei",
+# "Drei Uhr morgens") — die war zur tatsaechlichen Zeit dann falsch und
+# wirkte wie ein kaputter Zeit-Abgleich. Jetzt setzt {zeit} die echte
+# LOKALE Uhrzeit ein (datetime.now() = Uhr des Rechners, auf dem PBP laeuft).
+_STUNDEN_12 = ["zwoelf", "eins", "zwei", "drei", "vier", "fuenf", "sechs",
+               "sieben", "acht", "neun", "zehn", "elf"]
+
+
+def format_uhrzeit(now: Optional[datetime] = None) -> str:
+    """Aktuelle LOKALE Uhrzeit als natuerliches Deutsch.
+
+    Beispiele: 04:30 -> 'Halb fuenf', 16:00 -> 'Vier Uhr',
+    15:15 -> 'Viertel nach drei', 04:32 -> '4:32 Uhr'.
+    """
+    now = now or datetime.now()
+    h, m = now.hour, now.minute
+    if m == 0:
+        s = f"{_STUNDEN_12[h % 12]} Uhr"
+    elif m == 15:
+        s = f"Viertel nach {_STUNDEN_12[h % 12]}"
+    elif m == 30:
+        s = f"Halb {_STUNDEN_12[(h + 1) % 12]}"
+    elif m == 45:
+        s = f"Viertel vor {_STUNDEN_12[(h + 1) % 12]}"
+    else:
+        s = f"{h}:{m:02d} Uhr"
+    return s[0].upper() + s[1:]
+
+
 def fill_template(line: str, ctx: dict) -> str:
-    """Ersetzt Platzhalter ({firma}, {count}, {days}, ...) durch Kontext.
+    """Ersetzt Platzhalter ({firma}, {count}, {zeit}, ...) durch Kontext.
 
     v1.7.0-beta.48 (#611): {ref} (z.B. application_id) ist auch
     verfuegbar, damit Linien Action-Links auf konkrete Eintraege
     bauen koennen: `[link:application:{ref}|Bewerbung oeffnen]`.
+    v1.7.0-beta.95: {zeit}/{uhrzeit} = echte Lokalzeit, {datum} = Datum.
     """
     if "{" not in line:
         return line
+    _now_local = datetime.now()
     try:
         return line.format(**{
             "firma": ctx.get("firma", ""),
@@ -140,6 +172,9 @@ def fill_template(line: str, ctx: dict) -> str:
             "ref": ctx.get("ref", ""),
             "tool": ctx.get("tool", ""),
             "wochentag": ctx.get("wochentag", ""),
+            "zeit": format_uhrzeit(_now_local),
+            "uhrzeit": format_uhrzeit(_now_local),
+            "datum": _now_local.strftime("%d.%m.%Y"),
         })
     except (KeyError, ValueError):
         # Wenn ein Platzhalter im Kontext fehlt: Linie unverändert ausgeben

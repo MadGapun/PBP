@@ -221,16 +221,16 @@ WORLD_LINES: dict[str, list[str]] = {
     "evening": [
         "Spaeter Abend. Du arbeitest noch? Kann verstehen, kann auch nicht. Du entscheidest.",
         "Tag geht zu Ende. {count} Sachen erledigt. Keine schlechte Bilanz.",
-        "Achtzehn Uhr. Recruiter sind durch. Du noch hier — okay, ich auch.",
+        "{zeit}. Recruiter sind durch. Du noch hier — okay, ich auch.",
         "Abend. Wenn du was Wichtiges fertig kriegen willst, [link:pause:90|halt mich kurz still].",
         "Feierabendzeit fuer normale Menschen. Wir machen wohl noch ein bisschen.",
         "Tag ausklingen lassen. Ich bleib leise wenn du noch konzentriert bist.",
     ],
     "late_night": [
-        "Drei Uhr morgens. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung.",
-        "Halb zwei. Was machst du noch hier.",
+        "{zeit}. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung.",
+        "{zeit}. Was machst du noch hier.",
         "Mitternacht durch. Anschreiben werden um diese Uhrzeit selten besser.",
-        "Eins durch, zwei naht. Falls Konzentration: weiter. Falls Trotz: Bett.",
+        "Tiefe Nacht. Falls Konzentration: weiter. Falls Trotz: Bett.",
         "**Nacht.** Sieh zu dass du morgen noch funktionierst.",
         "Spaete Stunde. Ich bleib wach. Du musst nicht.",
     ],
@@ -243,12 +243,12 @@ WORLD_LINES: dict[str, list[str]] = {
     ],
     "friday_evening": [
         "Freitagabend. Recruiter sind im Wochenende. Du auch, falls du willst.",
-        "Sechzehn Uhr Freitag. Damit ist der Stellenmarkt offiziell zu. Bis Montag friert er ein.",
+        "Freitag, kurz vor Feierabend. Damit ist der Stellenmarkt offiziell zu. Bis Montag friert er ein.",
         "Ja, ja. Ich weiss, du arbeitest noch. Wollte nur erwaehnen, dass sonst niemand mehr da ist.",
         "**Freitag.** Geh raus. Triff Menschen. Bewerbungen kann ich auch alleine sortieren.",
         "Es ist Wochenende. Falls du in Zeitnot bist und das fertig machen willst — [link:pause:120|sag's, ich halte mich raus].",
         "Vermutlich verschwendet — aber ich erwaehne es: Wochenende. Recruiter ruhen. Modell auch.",
-        "Achtzehn Uhr Freitag. Statistisch werden Bewerbungen ab jetzt 73% spaeter gelesen. Falls dich das interessiert.",
+        "Spaeter Freitag. Statistisch werden Bewerbungen ab jetzt 73% spaeter gelesen. Falls dich das interessiert.",
         "Wochenende. Goennen wir uns das. Beide.",
     ],
     "weekend": [
@@ -342,7 +342,7 @@ TIP_LINES: list[str] = [
 # === Easter Eggs (Sektion 8.15) ==================================
 
 EASTER_EGGS: dict[str, str] = {
-    "user_active_at_3am": "Drei Uhr morgens. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung.",
+    "user_active_at_3am": "{zeit}. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung.",
     "model_changed_bigger": "Groesseres Modell. Ich werde langsamer aber praeziser. Wie das Alter.",
     "model_changed_smaller": "Kleineres Modell. Schneller, oberflaechlicher. Wie ein Praktikant. Auch das geht.",
     "first_application_ever": "Erste Bewerbung. Erinner mich. Der Anfang war schwer.",

@@ -16,6 +16,69 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.95] - 2026-06-03 — Elwosa nennt die echte Uhrzeit (#679)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Kein Frontend-Build**
+> noetig (reine Backend-Linien). Nach Update MCP-Server neu starten.
+
+User-Test, 5 Uhr morgens: Elwosa fragte „Halb zwei. Was machst du noch
+hier." — die Uhrzeit war falsch und wirkte wie ein kaputter Zeit-Abgleich.
+
+### Fixed
+
+- **Feste Uhrzeiten im Elwosa-Linientext.** Nicht der Clock war kaputt
+  (`datetime.now()` ist korrekt — der Nacht-Trigger feuerte ja richtig),
+  sondern mehrere Welt-Linien hatten eine **hartkodierte Uhrzeit** im Text
+  („Halb zwei", „Drei Uhr morgens", „Achtzehn Uhr", „Sechzehn Uhr Freitag").
+- Neuer Platzhalter **`{zeit}`** in `fill_template` setzt die **echte lokale**
+  Uhrzeit ein (`format_uhrzeit`: 04:30 → „Halb fuenf", 16:00 → „Vier Uhr",
+  04:32 → „4:32 Uhr"). Dazu `{uhrzeit}` (Alias) + `{datum}`.
+- Die betroffenen Linien auf `{zeit}` umgestellt bzw. zeit-generisch gemacht
+  (Freitag-Linien → „Freitagabend"). `docs/elwosa-character.md` synchron.
+
+### Tests
+
+- `test_v17_elwosa_zeit_95.py`: `format_uhrzeit`, `{zeit}`-Substitution,
+  Regression (keine feste Uhrzeit mehr in den Pools). Tonfall-Validator +
+  Lifesign weiter gruen.
+
+### Hinweis
+
+Gespeicherte Zeitstempel (`_now()`) sind UTC und werden im Frontend lokal
+angezeigt (`toLocaleString`) — das war korrekt, es ging rein um die
+hartkodierten Linientexte. **Keine Schema-Aenderung** (v45).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.95.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.95.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.94] - 2026-06-03 — Automatik im Hintergrund: interne Jobsuche + Ollama-Lernen nach Zeitplan (#677/#678)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Frontend neu gebaut**,

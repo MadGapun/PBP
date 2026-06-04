@@ -432,8 +432,8 @@ evening:
   - "Tag geht zu Ende. {count} Sachen erledigt. Keine schlechte Bilanz."
 
 late_night:
-  - "Drei Uhr morgens. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung."
-  - "Halb zwei. Was machst du noch hier."
+  - "{zeit}. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung."
+  - "{zeit}. Was machst du noch hier."
 
 monday_morning:
   - "Montag. Stellenmarkt waehlt sich gerade ein. Eine Stunde Geduld."
@@ -549,7 +549,7 @@ Selten, aber wenn dann mit Wiedererkennungswert.
 
 ```yaml
 - trigger: user_active_at_3am
-  line: "Drei Uhr morgens. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung."
+  line: "{zeit}. Ich respektiere die Hingabe. Aber Schlaf ist auch eine Form von Karriereplanung."
 
 - trigger: user_clicks_5x_in_10s
   line: "Klickst du mich gerade an? Es bewegt sich nichts. Ich versprech's."
