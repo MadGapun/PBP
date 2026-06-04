@@ -402,7 +402,13 @@ def register(mcp, db, logger):
 
         elif bereich == "skill":
             if aktion == "loeschen" and element_id:
-                db.delete_skill(element_id)
+                ok = db.delete_skill(element_id)
+                if not ok:
+                    return {"status": "nicht_gefunden", "bereich": "skill",
+                            "id": element_id,
+                            "hinweis": "Keine Skill mit dieser ID. IDs via "
+                                       "profil_zusammenfassung pruefen, oder "
+                                       "skills_bereinigen fuer Junk-Skills."}
                 return {"status": "geloescht", "bereich": "skill", "id": element_id}
             elif aktion == "aendern" and element_id:
                 db.update_skill(element_id, daten)
@@ -703,6 +709,33 @@ def register(mcp, db, logger):
         """Loescht einen Skill-Zeitraum."""
         ok = db.delete_skill_period(zeitraum_id)
         return {"status": "geloescht" if ok else "nicht_gefunden"}
+
+    @mcp.tool()
+    def skills_bereinigen(anwenden: bool = False) -> dict:
+        """Findet und entfernt Junk-Skills aus der Extraktion (#681).
+
+        Die Skill-Extraktion erzeugt manchmal Satzfragmente statt echter
+        Skills (z.B. 'in Systemen wie Creo', 'Programmierung in CATIA.',
+        'SAP oder vergleichbar)'). Dieses Tool findet sie ueber die
+        Garbage-Heuristik und entfernt sie auf Wunsch.
+
+        Args:
+            anwenden: False (Default) = nur Vorschau, welche Skills als Junk
+                erkannt werden. True = die gefundenen Junk-Skills loeschen.
+        """
+        junk = db.find_junk_skills()
+        if not junk:
+            return {"status": "sauber", "anzahl": 0, "skills": []}
+        namen = [j["name"] for j in junk]
+        if not anwenden:
+            return {
+                "status": "vorschau",
+                "anzahl": len(junk),
+                "skills": namen,
+                "hinweis": "Mit skills_bereinigen(anwenden=True) entfernen.",
+            }
+        geloescht = sum(1 for j in junk if db.delete_skill(j["id"]))
+        return {"status": "bereinigt", "geloescht": geloescht, "skills": namen}
 
     # --- Multi-Profil (4 Tools) ---
 

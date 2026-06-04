@@ -34,6 +34,7 @@ EXPECTED_TOOL_NAMES = {
     "skill_zeitraeume_anzeigen",
     "skill_zeitraum_hinzufuegen",
     "skill_zeitraum_loeschen",
+    "skills_bereinigen",
     "stelle_vergleichen",
     "stellenbeschreibung_nachladen",
     "stellen_qualitaet_pruefen",
@@ -307,7 +308,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 176  # v1.7.0-beta.94 (#677/#678): + automatik_status + automatik_setzen
+        assert len(tools) == 177  # v1.7.0-beta.96 (#681): + skills_bereinigen
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

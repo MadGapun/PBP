@@ -2524,6 +2524,29 @@ class Database:
         # Reject names that are just a single digit/number
         if name.strip().isdigit():
             return True
+        # #681: Satzfragmente aus der Extraktion ausfiltern (z.B.
+        # "in Systemen wie Creo", "Programmierung in CATIA.",
+        # "SAP oder vergleichbar)").
+        stripped = name.strip()
+        words = stripped.split()
+        # Fuehrendes Funktionswort (Praeposition/Artikel/Konjunktion) = aus
+        # einem Satz gerissen, kein eigenstaendiger Skill.
+        _FRAGMENT_PREFIXES = {
+            "in", "im", "an", "am", "auf", "mit", "und", "oder", "wie", "bzw",
+            "fuer", "für", "von", "vom", "bei", "aus", "zu", "zur", "zum",
+            "ueber", "über", "der", "die", "das", "den", "dem", "des", "ein",
+            "eine", "einem", "einen", "einer", "sowie", "etc", "bzgl", "ggf",
+            "inkl", "sehr",
+        }
+        if words and words[0].lower().strip(".,;:") in _FRAGMENT_PREFIXES:
+            return True
+        # Satz-Endzeichen am Ende = abgeschnittener Satz (".NET" beginnt mit
+        # Punkt, endet aber nicht damit — bleibt erlaubt).
+        if stripped.endswith((".", ",", ";")):
+            return True
+        # Unbalancierte Klammern (")" ohne "(", "(Infor" ohne ")").
+        if stripped.count("(") != stripped.count(")"):
+            return True
         return False
 
     @staticmethod
@@ -2609,6 +2632,26 @@ class Database:
         cur = conn.execute(query, params)
         conn.commit()
         return cur.rowcount > 0
+
+    def find_junk_skills(self, profile_id: str = None) -> list:
+        """#681: Skills, die laut Heuristik Satzfragmente/Junk sind.
+
+        Greift dieselbe (verschaerfte) `_is_garbage_skill`-Heuristik, die
+        beim Anlegen filtert — faengt damit auch Altbestand, der unter einer
+        frueheren, schwaecheren Version reingerutscht ist.
+        """
+        conn = self.connect()
+        pid = profile_id or self.get_active_profile_id()
+        rows = conn.execute(
+            "SELECT id, name, category FROM skills "
+            "WHERE profile_id=? OR profile_id IS NULL",
+            (pid,),
+        ).fetchall()
+        return [
+            {"id": r["id"], "name": r["name"], "category": r["category"]}
+            for r in rows
+            if self._is_garbage_skill((r["name"] or "").strip())
+        ]
 
     # === Suggested Job Titles ===
 

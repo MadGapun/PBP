@@ -348,7 +348,11 @@ class LLMService:
         if builder is None:
             raise NotImplementedError(f"Lokaler Task '{task.value}' nicht implementiert.")
 
-        prompt = builder(payload)
+        # v1.7.0-beta.96: Ollama kennt sein Trainings-Datum, nicht HEUTE.
+        # Ohne expliziten Zeitbezug rechnet das Modell z.B. 'X Jahre
+        # Erfahrung' gegen ein falsches Jahr oder haelt alte Stellen fuer
+        # aktuell. Darum vor jeden lokalen Prompt den echten Zeitkontext.
+        prompt = _datums_kontext() + builder(payload)
         start = time.time()
         response_text = self._ollama_generate(model, prompt)
         duration_ms = int((time.time() - start) * 1000)
@@ -481,6 +485,25 @@ class LLMService:
 
 
 # ── Prompt-Builders & Response-Parsers ────────────────────────────
+
+def _datums_kontext() -> str:
+    """Aktueller Zeitbezug fuer lokale LLM-Prompts (#679-Folgefix, beta.96).
+
+    Ollama-Modelle haben kein eingebautes 'heute' — ohne diesen Hinweis
+    rechnen sie Zeitraeume ('X Jahre Erfahrung', 'seit JJJJ') gegen ihr
+    Trainings-Datum oder halten alte Stellen fuer aktuell. Locale-
+    unabhaengig: numerisches Datum, Jahr explizit.
+    """
+    from datetime import datetime
+    now = datetime.now()
+    return (
+        f"WICHTIG — aktueller Zeitbezug: Heute ist der {now.strftime('%d.%m.%Y')} "
+        f"(Jahr {now.year}), aktuelle Uhrzeit {now.strftime('%H:%M')}. Verwende "
+        f"AUSSCHLIESSLICH dieses Datum fuer alle zeitbezogenen Angaben "
+        f"(Jahres-Zeitraeume aus 'X Jahre Erfahrung' oder 'seit JJJJ', "
+        f"Aktualitaet, Fristen). Nimm NICHT dein Trainings-Datum an.\n\n"
+    )
+
 
 def _build_classify_document_prompt(payload: dict) -> str:
     text = (payload.get("text") or "")[:3000]

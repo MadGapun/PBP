@@ -16,6 +16,79 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.96] - 2026-06-03 — Ollama kennt das Datum + Junk-Skills raus (#679/#681)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. Backend-only, **kein
+> Frontend-Build**. Nach Update MCP-Server neu starten.
+
+Zwei Folge-Fixes nach dem Zeit-Thema (#679) und ein User-Test-Befund zur
+Skill-Datenqualitaet (#681).
+
+### Fixed
+
+- **Ollama kennt jetzt das heutige Datum (#679-Folge).** Lokale Modelle
+  haben kein eingebautes „heute" — vor jeden Ollama-Prompt
+  (`_run_local`) kommt jetzt der echte Zeitbezug („Heute ist der ...,
+  Jahr ..."). So rechnet das Modell `X Jahre Erfahrung` / `seit JJJJ`
+  gegen das richtige Jahr und haelt alte Stellen nicht faelschlich fuer
+  aktuell.
+- **Junk-Skills aus der Extraktion (#681).** Die Skill-Heuristik
+  (`_is_garbage_skill`) liess Satzfragmente durch („in Systemen wie Creo",
+  „Programmierung in CATIA.", „SAP oder vergleichbar)"). Verschaerft:
+  fuehrende Funktionswoerter (in/oder/und/…), Satz-Endzeichen,
+  unbalancierte Klammern werden jetzt erkannt und abgewiesen.
+- **Skill-Loeschen meldet ehrlich.** `profil_bearbeiten(bereich="skill",
+  aktion="loeschen")` gab bisher „geloescht" auch bei unbekannter ID.
+  Jetzt `nicht_gefunden`, wenn nichts getroffen wurde.
+
+### Added
+
+- **`skills_bereinigen(anwenden=False)`** — findet Junk-Skills im Profil
+  (auch Altbestand, der unter der frueheren schwaecheren Heuristik
+  reinrutschte) und entfernt sie auf Wunsch. Default ist Vorschau.
+  Tool-Count **176 → 177**.
+
+### Tests
+
+- `test_v17_skill_junk_681.py` (Heuristik faengt 7 Junk-Beispiele, laesst
+  10 echte Skills durch; add_skill-Reject; find/bereinigen). 
+  `test_v17_ollama_zeitkontext_96.py` (Datum im Prompt). Registry 177.
+
+### Schema
+
+**Keine Schema-Aenderung** (v45).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download und einen Doppelklick. Voraussetzung: [Claude Desktop](https://claude.ai/download) ist installiert.
+
+### Windows (empfohlen)
+
+1. **ZIP:** [PBP-1.7.0-beta.96.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.96.zip)
+2. **Entpacken + Doppelklick `INSTALLIEREN.bat`**
+
+### macOS
+
+`INSTALLIEREN.command` (Rechtsklick → Oeffnen falls macOS warnt)
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+```
+
+### Update
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.95] - 2026-06-03 — Elwosa nennt die echte Uhrzeit (#679)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt v1.6.10. **Kein Frontend-Build**
