@@ -3448,7 +3448,8 @@ class Database:
                     "— evtl. orphaned FK (#616). Pruefe mit stellen_anzeigen()."
                 )
         elif target_kind == "meeting":
-            row = conn.execute("SELECT id FROM meetings WHERE id=? OR id LIKE ? LIMIT 1",
+            # #685: Tabelle heisst application_meetings, nicht meetings.
+            row = conn.execute("SELECT id FROM application_meetings WHERE id=? OR id LIKE ? LIMIT 1",
                                (target_id, f"{target_id}%")).fetchone()
             if row:
                 target_id = row["id"]

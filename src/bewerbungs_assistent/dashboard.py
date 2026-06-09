@@ -4352,7 +4352,10 @@ async def api_refetch_description(job_hash: str):
     try:
         with httpx.Client(follow_redirects=True, timeout=15,
                            headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-            text = fetch_description_from_detail(url, client, timeout=15)
+            # #690: grosszuegiges max_chars beim expliziten Nachladen, damit
+            # lange Stellenbeschreibungen nicht bei 2000 Zeichen abgeschnitten
+            # gespeichert werden (Display kappt ohnehin erst bei 20000).
+            text = fetch_description_from_detail(url, client, timeout=15, max_chars=20000)
     except Exception as exc:
         _bump_refetch_failure(job_hash)
         return JSONResponse(

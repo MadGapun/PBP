@@ -467,26 +467,13 @@ WICHTIG:
 - Aufmunternder Ton
 - Sprich Deutsch und per Du"""
 
-    # v1.6.6 (#560): Drei in prompts.py registrierte Prompts haben hier
-    # gefehlt — Folge: Frontend-Klick auf /tipps_und_tricks zeigte den
-    # "Anleitung konnte nicht geladen werden"-Toast und kopierte nur den
-    # rohen Befehlsnamen. Wir delegieren an die FastMCP-Prompt-Registry,
-    # damit der Inhalt aus prompts.py durchgereicht wird.
-    def _delegate_to_prompt(prompt_name):
-        def _wrapper():
-            try:
-                from .. import prompts as _prompts_mod
-                # Suche die im prompts.register_prompts(...) definierten
-                # geschachtelten Funktionen ueber das fastmcp-Tool-Manager.
-                # Fallback: leerer String, damit der Caller wenigstens nicht crasht.
-                from ..server import mcp as _mcp
-                tool_or_prompt = _mcp._prompt_manager._prompts.get(prompt_name)
-                if tool_or_prompt and getattr(tool_or_prompt, "fn", None):
-                    return tool_or_prompt.fn()
-            except Exception:
-                pass
-            return f"# Prompt /{prompt_name}\n\n(Inhalt konnte nicht geladen werden — bitte Issue melden.)"
-        return _wrapper
+    # #560 / Beta-Stabilisierung: Diese statischen Prompts werden direkt aus
+    # prompts.py geladen (modul-level build_*_prompt-Funktionen = Single Source
+    # of Truth). Frueher lief das ueber FastMCP-Interna
+    # (_mcp._prompt_manager._prompts) — das brach mit FastMCP 3.x lautlos
+    # (AttributeError -> except: pass -> "Inhalt konnte nicht geladen werden"-Toast
+    # im Frontend). Direkter Import ist versions-stabil und testbar.
+    from ..prompts import build_profil_sync_prompt, build_tipps_und_tricks_prompt
 
     return {
         "ersterfassung": _ersterfassung,
@@ -507,8 +494,8 @@ WICHTIG:
         "faq": _faq,
         # v1.6.6 (#560): Diese drei waren bisher nicht im Frontend-Registry
         # — Klick auf die Karte produzierte einen Fehler-Toast.
-        "tipps_und_tricks": _delegate_to_prompt("tipps_und_tricks"),
-        "profil_sync": _delegate_to_prompt("profil_sync"),
+        "tipps_und_tricks": build_tipps_und_tricks_prompt,
+        "profil_sync": build_profil_sync_prompt,
     }
 
 

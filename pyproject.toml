@@ -38,7 +38,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp>=2.0",
+    # #692/K6: Major-Version begrenzen. FastMCP 3.x hat interne APIs umgebaut
+    # (_prompt_manager entfiel) — ein ungepinntes >=2.0 liess den Bump lautlos
+    # durch. <4 verhindert, dass der naechste Major-Sprung erneut Interna bricht.
+    "fastmcp>=3.0,<4",
     "uvicorn>=0.30",
     "fastapi>=0.115",
     "python-multipart>=0.0.9",

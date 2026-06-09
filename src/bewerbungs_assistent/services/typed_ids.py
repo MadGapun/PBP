@@ -43,6 +43,7 @@ class IdKind(str, Enum):
     SKILL = "SKL"         # skills.id
     EDUCATION = "EDU"     # education.id
     FOLLOWUP = "FUP"      # follow_ups.id
+    CONTACT = "CON"       # contacts.id (#684: CON-Prefix muss beim Input akzeptiert werden)
 
 
 # Reverse-Lookup
