@@ -362,7 +362,12 @@ class Database:
             if Path(old_path).exists():
                 continue
             broken += 1
-            basename = Path(old_path).name
+            # #503/CI: separator-agnostisch — ein in der DB gespeicherter
+            # Windows-Pfad (Backslashes) muss auch auf Linux korrekt zum
+            # Basenamen aufgeloest werden, sonst schlaegt die Pfad-Reparatur
+            # nach einem Backup-Umzug Windows->Linux fehl (Path(...).name auf
+            # POSIX behandelt '\' nicht als Trenner).
+            basename = old_path.replace("\\", "/").split("/")[-1]
             candidates = [
                 data_dir / "dokumente" / basename,
                 data_dir / "dokumente" / (profile_id or "") / basename,
