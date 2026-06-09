@@ -9,6 +9,28 @@ from pathlib import Path
 from ..database import get_data_dir
 
 
+def _company_match_key(name: str) -> str:
+    """#686: Firmenname auf einen distinktiven Such-Schluessel reduzieren.
+
+    Entfernt Rechtsformen/Generika (SE, GmbH, AG, Group, ...) und nimmt das
+    laengste verbleibende Token (>=4 Zeichen): 'adesso SE' -> 'adesso',
+    'Bechtle GmbH' -> 'bechtle', 'Lufthansa Technik' -> 'lufthansa'. Liefert ''
+    wenn nichts Distinktives bleibt (dann findet kein Matching statt) — bewusst
+    konservativ gegen Falsch-Treffer bei sehr kurzen/generischen Namen.
+    """
+    s = (name or "").lower()
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    stop = {
+        "se", "ag", "gmbh", "mbh", "kg", "ohg", "ug", "kgaa", "ek", "co",
+        "inc", "ltd", "llc", "plc", "group", "gruppe", "holding", "deutschland",
+        "germany", "international", "the", "und", "and", "von", "der", "die", "das",
+    }
+    tokens = [t for t in s.split() if t not in stop and len(t) >= 4]
+    if not tokens:
+        tokens = [t for t in s.split() if len(t) >= 4]
+    return max(tokens, key=len) if tokens else ""
+
+
 def register(mcp, db, logger):
     """Register all document-related tools."""
     from . import ki_gate
@@ -814,6 +836,50 @@ def register(mcp, db, logger):
             if firma:
                 firmen.add(firma)
 
+        # #686: Eingehende Dokumente gegen bestehende Bewerbungen matchen, damit
+        # eine Mail/Anlage einer bestehenden Bewerbung zugeordnet werden kann
+        # statt unbemerkt eine Dublette anzulegen. Firmenname (normalisiert) im
+        # Dateinamen ODER Volltext -> Zuordnungsvorschlag. Bewusst grosszuegig
+        # (Vorschlag, kein Auto-Link) — Claude/User bestaetigt.
+        bewerbungs_zuordnungen = []
+        try:
+            apps = conn.execute(
+                "SELECT id, company, title, status FROM applications "
+                "WHERE profile_id=? AND company IS NOT NULL AND TRIM(company) != ''",
+                (pid,)
+            ).fetchall()
+            analyse_ids = {d["id"] for d in nicht_analysiert}
+            gesehen = set()
+            for app in apps:
+                firma_key = _company_match_key(app["company"])
+                if len(firma_key) < 4:
+                    continue
+                like = f"%{firma_key}%"
+                rows = conn.execute(
+                    "SELECT id, filename FROM documents "
+                    "WHERE profile_id=? AND extracted_text IS NOT NULL "
+                    "AND extracted_text != ''" + lifecycle_clause +
+                    " AND (LOWER(filename) LIKE ? OR LOWER(extracted_text) LIKE ?)",
+                    (pid, like, like)
+                ).fetchall()
+                for r in rows:
+                    schluessel = (r["id"], app["id"])
+                    if schluessel in gesehen:
+                        continue
+                    gesehen.add(schluessel)
+                    firmen.add(app["company"])  # Firma aus Bewerbung sichtbar machen
+                    bewerbungs_zuordnungen.append({
+                        "dokument_id": r["id"],
+                        "dateiname": r["filename"],
+                        "bewerbung_id": app["id"],
+                        "firma": app["company"],
+                        "bewerbung_titel": app["title"],
+                        "bewerbung_status": app["status"],
+                        "noch_zu_analysieren": r["id"] in analyse_ids,
+                    })
+        except Exception as exc:
+            logger.warning("#686 Bewerbungs-Matching im Analyse-Plan fehlgeschlagen: %s", exc)
+
         total_bytes = sum((d.get("text_laenge") or 0) for d in unique)
         # #635: Pro Batch nur 3 Datei-Vorschauen + Counter — vorher alle
         # Dateinamen, was bei vielen Docs die Response sprengen konnte.
@@ -839,11 +905,19 @@ def register(mcp, db, logger):
             "total_text_bytes": total_bytes,
             "geschaetzte_tokens": total_bytes // 4,
             "erkannte_firmen": sorted(firmen)[:50],  # #635: Hard-Cap
+            # #686: Vorschlaege, welche Dokumente zu bestehenden Bewerbungen gehoeren
+            "bewerbungs_zuordnungen": bewerbungs_zuordnungen[:50],
             "batches": batches_summary,
             "empfehlung": (
                 f"{len(dup_ids)} Duplikate werden automatisch übersprungen. "
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
-                f"Nutze dokumente_batch_analysieren() für den nächsten Batch."
+                + (
+                    f"{len(bewerbungs_zuordnungen)} Dokument(e) passen evtl. zu bestehenden "
+                    "Bewerbungen (siehe bewerbungs_zuordnungen) — pruefe das, bevor du eine "
+                    "neue Bewerbung anlegst (Dublettenschutz). "
+                    if bewerbungs_zuordnungen else ""
+                )
+                + "Nutze dokumente_batch_analysieren() für den nächsten Batch."
             ),
         }
         logger.info(
