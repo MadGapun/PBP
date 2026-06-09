@@ -1,7 +1,7 @@
 # AGENTS.md — PBP (Persönliches Bewerbungs-Portal)
 
-> **Version:** 1.0.0 (Stand: 2026-03-26)
-> **Detaillierte Doku:** `README.md`, `CHANGELOG.md`
+> **Version:** 1.7.0-beta.100 (Stand: 2026-06-09)
+> **Detaillierte Doku:** `README.md`, `CHANGELOG.md`, [Wiki Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan)
 
 ## Projektübersicht
 
@@ -9,8 +9,8 @@ PBP ist ein MCP-Server für Claude Desktop, der bei der gesamten Jobsuche und Be
 unterstützt — vom Profil-Aufbau über die Stellensuche bis zum Bewerbungstracking.
 
 **Sprache:** Deutsch
-**Tech-Stack:** Python 3.11+, FastMCP, SQLite (WAL Mode), FastAPI, React 19, Playwright
-**Tests:** 362 Tests, 4 bewusst geskippt
+**Tech-Stack:** Python 3.11+, FastMCP 3.x, SQLite (WAL Mode), FastAPI, React 19, Playwright
+**Tests:** 1683 Tests (1 bewusst geskippt)
 
 ## Architektur
 
@@ -20,7 +20,7 @@ Claude Desktop
     ▼
 server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │
-    ├── tools/              ◄── 72 MCP-Tools in 8 Modulen
+    ├── tools/              ◄── 177 MCP-Tools in 11 Modulen
     │   ├── profil.py       — Profilverwaltung, Multi-Profil, Erfassungsfortschritt
     │   ├── dokumente.py    — Dokumenten-Analyse, Extraktion, Profil-Im/Export
     │   ├── jobs.py         — Jobsuche, Stellenverwaltung, Fit-Analyse
@@ -30,17 +30,17 @@ server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │   ├── suche.py        — Suchkriterien und Blacklist
     │   └── workflows.py    — Geführte Workflows
     │
-    ├── prompts.py          ◄── 16 MCP-Prompts
+    ├── prompts.py          ◄── 24 MCP-Prompts
     ├── resources.py        ◄── 6 MCP-Resources
     │
     ├── services/           ◄── Service-Layer (profile/search/workspace/email/daily_impulse)
-    ├── database.py         ◄── Schema v18, WAL, CASCADE
+    ├── database.py         ◄── Schema v46, WAL, CASCADE
     │
     ├── dashboard.py        ◄── FastAPI, React-SPA, REST-API
     │
     ├── export.py           ◄── Lebenslauf + Anschreiben (PDF/DOCX)
     │
-    └── job_scraper/        ◄── 18 Quellen
+    └── job_scraper/        ◄── 34 Quellen (6 produktiv, Rest defekt/zurueckgestellt)
         ├── __init__.py     — Dispatcher, Scoring, Deduplizierung
         └── *.py            — Bundesagentur, StepStone, LinkedIn, XING, etc.
 ```

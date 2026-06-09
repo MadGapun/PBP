@@ -35,3 +35,6 @@ jobs:
 
       - name: Run full test suite
         run: pytest -q
+
+      - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
+        run: python release_check.py
