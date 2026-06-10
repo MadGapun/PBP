@@ -1,6 +1,7 @@
 ﻿import {
   ArrowRight,
   BarChart3,
+  BellRing,
   BookOpen,
   Briefcase,
   Calendar,
@@ -712,10 +713,12 @@ export default function DashboardPage() {
           )}
       </div>
 
-      {/* #421: Anstehende Termine direkt unter Im Fluss (nur wenn vorhanden, max 5) */}
+      {/* #421: Anstehende Termine direkt unter Im Fluss (nur wenn vorhanden, max 5)
+          #700: Follow-up-Erinnerungen (Nachfass etc.) sind keine Termine —
+          sie bekommen einen eigenen Block "Offene Erinnerungen" darunter. */}
       {(() => {
         const interviewPseudoMeetings = upcomingInterviewTodos
-          .filter((fu) => !data.meetings.some((m) => m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
+          .filter((fu) => !data.meetings.some((m) => !m.is_follow_up && m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
           .map((fu) => ({
             id: `interview-${fu.id}`,
             title: "Interview vorbereiten",
@@ -727,39 +730,28 @@ export default function DashboardPage() {
             application_id: fu.application_id,
             _isInterview: true,
           }));
-        const allMeetings = [...data.meetings, ...interviewPseudoMeetings]
-          .sort((a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || "")));
-        if (allMeetings.length === 0) return null;
-        return (
-          <Card className="mb-5 rounded-2xl">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
-                onClick={() => navigateTo("kalender")}
-              >
-                <Calendar size={14} className="text-teal/60" />
-                Anstehende Termine
-              </button>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {allMeetings.slice(0, 5).map((meeting) => {
+        const byDate = (a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || ""));
+        const echteTermine = data.meetings.filter((m) => !m.is_follow_up).sort(byDate);
+        const erinnerungen = [...data.meetings.filter((m) => m.is_follow_up), ...interviewPseudoMeetings].sort(byDate);
+        if (echteTermine.length === 0 && erinnerungen.length === 0) return null;
+        const renderEntry = (meeting) => {
                 const meetingDate = new Date(meeting.meeting_date);
                 const now = new Date();
                 const diffMs = meetingDate - now;
-                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                // #701: Kalendertage statt 24h-Schritte — ein Termin in 47h ist
+                // "uebermorgen", nicht "morgen"; sonst kippt das Label je nach Uhrzeit.
+                const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const dayDiff = Math.round((startOfDay(meetingDate) - startOfDay(now)) / 86400000);
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 const countdown =
-                  diffDays > 1
-                    ? `in ${diffDays} Tagen`
-                    : diffDays === 1
+                  dayDiff > 1
+                    ? `in ${dayDiff} Tagen`
+                    : dayDiff === 1
                       ? "morgen"
-                      : diffHours > 0
-                        ? `in ${diffHours} Stunden`
-                        : diffMs > 0
-                          ? "jetzt gleich"
-                          : "vergangen";
-                const isMeetingToday = diffDays === 0 && diffMs > 0;
+                      : diffMs > 0
+                        ? (diffHours > 0 ? `heute, in ${diffHours} Std.` : "jetzt gleich")
+                        : "vergangen";
+                const isMeetingToday = dayDiff === 0 && diffMs > 0;
                 const isPrivate = meeting.is_private;
                 const platformIcon = meeting.platform === "teams" ? "Teams" :
                   meeting.platform === "zoom" ? "Zoom" :
@@ -808,7 +800,7 @@ export default function DashboardPage() {
                         </p>
                       )}
                       <p className={`mt-0.5 text-[11px] font-medium ${
-                        isMeetingToday ? "text-teal" : diffDays <= 3 ? "text-amber" : "text-muted/50"
+                        isMeetingToday ? "text-teal" : dayDiff <= 3 ? "text-amber" : "text-muted/50"
                       }`}>
                         {countdown}
                       </p>
@@ -914,9 +906,45 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          </Card>
+        };
+        return (
+          <>
+            {echteTermine.length > 0 && (
+              <Card className="mb-5 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
+                    onClick={() => navigateTo("kalender")}
+                  >
+                    <Calendar size={14} className="text-teal/60" />
+                    Anstehende Termine
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {echteTermine.slice(0, 5).map(renderEntry)}
+                </div>
+              </Card>
+            )}
+            {erinnerungen.length > 0 && (
+              <Card className="mb-5 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
+                    onClick={() => navigateTo("kalender")}
+                    title="Nachfass- und Vorbereitungs-Erinnerungen — keine festen Termine"
+                  >
+                    <BellRing size={14} className="text-amber/60" />
+                    Offene Erinnerungen
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {erinnerungen.slice(0, 5).map(renderEntry)}
+                </div>
+              </Card>
+            )}
+          </>
         );
       })()}
 

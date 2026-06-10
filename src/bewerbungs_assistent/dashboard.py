@@ -7394,8 +7394,17 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
         "  SELECT 1 FROM follow_ups f "
         "  WHERE f.application_id=a.id AND f.status='geplant' "
         "  AND (f.follow_up_type='nachfass' OR f.follow_up_type IS NULL)"
+        ") "
+        # #700: kein Auto-Nachfass wenn bereits ein zukuenftiger Termin
+        # (Interview etc.) existiert — sonst erscheint die Nachfass-
+        # Erinnerung NACH dem Interview und verwirrt.
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM application_meetings m "
+        "  WHERE m.application_id=a.id "
+        "  AND m.meeting_date > ? "
+        "  AND m.status IN ('geplant', 'bestaetigt')"
         ")",
-        (pid,)
+        (pid, now.isoformat())
     ).fetchall()
 
     created = []
