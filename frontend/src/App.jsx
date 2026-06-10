@@ -1828,7 +1828,7 @@ export default function App() {
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Suchkriterien</h3>
-                      <p>Definiere MUSS-Keywords (Pflicht), PLUS-Keywords (Bonus) und AUSSCHLUSS-Keywords. Diese steuern den Score der gefundenen Stellen.</p>
+                      <p>Definiere MUSS-Keywords (Pflicht), PLUS-Keywords (Bonus), MINUS-Keywords (weiche Abwertung) und AUSSCHLUSS-Keywords (harter Ausschluss). Diese steuern den Score der gefundenen Stellen.</p>
                     </div>
                   </>
                 )}

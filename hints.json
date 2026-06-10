@@ -1,13 +1,13 @@
 {
   "hints": [
     {
-      "id": "v162",
+      "id": "beta101",
       "type": "info",
-      "title": "Neu in v1.6.2",
-      "text": "Stable-Foundation-Release: Linke Sidebar-Navigation, kompletter Bewerbungs-ZIP-Export, reanimierte Scraper (Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow), Skill-Datenmodell mit Datumsbereich und aktuellem Level, ueberarbeitete Keyword-Vorschlaege.",
+      "title": "Neu in v1.7.0-beta.101",
+      "text": "Grosser Stabilisierungs-Release: 13 Bugfixes (u.a. Jobsuche haengt nicht mehr bei 0%, Profil-Daten bleiben beim Aktualisieren erhalten, Blacklist warnt vor laufenden Interview-Bewerbungen), Dashboard trennt Termine von Erinnerungen, ehrlichere Meldungen fuer Einsteiger.",
       "url": "https://github.com/MadGapun/PBP/releases/latest",
       "url_label": "Release-Notes ansehen",
-      "min_version": "1.6.2"
+      "min_version": "1.7.0"
     }
   ]
 }

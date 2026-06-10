@@ -899,9 +899,11 @@ export default function CalendarPage() {
                               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted/40">
                                 <span className="flex items-center gap-1">
                                   <Clock size={11} />
-                                  {formatDateTime(meeting.meeting_date)}
-                                  {meeting.meeting_end && ` – ${formatDateTime(meeting.meeting_end).split(", ").pop()}`}
-                                  {!meeting.meeting_end && meeting.duration_minutes && ` (${meeting.duration_minutes} Min.)`}
+                                  {/* #702: Follow-ups sind Tages-Aufgaben ohne Uhrzeit — das
+                                      datum-only scheduled_date rendert sonst als "02:00" */}
+                                  {isFollowUp ? formatDate(meeting.meeting_date) : formatDateTime(meeting.meeting_date)}
+                                  {!isFollowUp && meeting.meeting_end && ` – ${formatDateTime(meeting.meeting_end).split(", ").pop()}`}
+                                  {!isFollowUp && !meeting.meeting_end && meeting.duration_minutes && ` (${meeting.duration_minutes} Min.)`}
                                 </span>
                                 {!isPrivate && meeting.location && (
                                   <span className="flex items-center gap-1"><MapPin size={11} />{meeting.location}</span>

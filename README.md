@@ -54,7 +54,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **34 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
+- **35 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export

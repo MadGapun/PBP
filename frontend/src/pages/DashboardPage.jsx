@@ -570,13 +570,13 @@ export default function DashboardPage() {
         <MetricCard
           label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
           value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-          note={salaryCount > 0 ? `Auf Basis von ${salaryCount} Stellen mit Jahresgehalt` : "Noch keine Gehaltsdaten"}
+          note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
           tone="success"
         />
         <MetricCard
           label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
           value={salaryBandText}
-          note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} Stellen` : "Echte Min/Max-Spanne über alle Stellen"}
+          note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : "Echte Min/Max-Spanne über alle Stellen"}
           tone="success"
         />
       </div>
@@ -752,7 +752,10 @@ export default function DashboardPage() {
                         ? (diffHours > 0 ? `heute, in ${diffHours} Std.` : "jetzt gleich")
                         : "vergangen";
                 const isMeetingToday = dayDiff === 0 && diffMs > 0;
-                const isPrivate = meeting.is_private;
+                // #702: SQLite liefert is_private als 0/1 — {0 && <p>} rendert
+                // in React eine nackte "0" ins Widget. Boolean() verhindert das.
+                const isPrivate = Boolean(meeting.is_private);
+                const istErinnerung = Boolean(meeting.is_follow_up || meeting._isInterview);
                 const platformIcon = meeting.platform === "teams" ? "Teams" :
                   meeting.platform === "zoom" ? "Zoom" :
                   meeting.platform === "google_meet" ? "Meet" : "";
@@ -784,8 +787,12 @@ export default function DashboardPage() {
                           {meeting.app_company && (
                             <span className="font-medium text-muted/80">{meeting.app_company} — </span>
                           )}
-                          {formatDate(meeting.meeting_date)}{" "}
-                          {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+                          {formatDate(meeting.meeting_date)}
+                          {/* #702: Erinnerungen (Follow-ups) sind Tages-Aufgaben — die
+                              Pseudo-Uhrzeit (02:00/09:00) verwirrt nur */}
+                          {!istErinnerung && (
+                            <> {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</>
+                          )}
                           {platformIcon && (
                             <span className="ml-1.5 rounded bg-sky/15 px-1.5 py-px text-[10px] font-bold text-sky">
                               {platformIcon}
