@@ -199,7 +199,7 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Plattformen** | Windows, macOS, Linux |
 | **MCP-Tools** | 177 Tools in 11 Modulen |
 | **Workflows** | 24 gefuehrte Workflows (Prompts) |
-| **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
+| **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v46 |
 | **Tests** | 1714 bestanden (1 uebersprungen) |
@@ -234,6 +234,16 @@ und in der UI; intern bleibt die ID gleich.
 ## Changelog
 
 > Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+### v1.7.0-Beta-Reihe (April–Juni 2026) — Lokale KI, Elwosa, Stabilisierung
+
+Ueber 100 Beta-Iterationen Richtung v1.7.0 (aktuell **beta.102**, Stable bleibt v1.6.10):
+
+- **Lokale KI (Ollama)** als Hintergrund-Backbone — Auto-Aussortieren per Profil-Match, Doku-Klassifikation, Lern-System mit Pattern-Analyse, Automatik-Scheduler
+- **Elwosa** — Live-Statusanzeige der lokalen AI mit eigener Persoenlichkeit + kontextuellen Tipps pro Seite
+- **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
+- **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
+- Stand: 177 MCP-Tools, 24 Prompts, Schema v46, ueber 1700 Tests
 
 ### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
 
