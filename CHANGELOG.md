@@ -97,7 +97,7 @@ ohne Claude-Vorwissen.
 ### Unter der Haube
 
 Tool-Count bleibt 177, Schema bleibt v46. 9 neue Regressionstest-Dateien,
-Suite: **1715 passed, 1 skipped**. Master-Plan Teil K (K1-K18) dokumentiert
+Suite: **1710 passed, 1 skipped**. Master-Plan Teil K (K1-K18) dokumentiert
 jeden Fix; Issues #694-#697 dokumentieren die Audit-Befunde.
 
 ---
