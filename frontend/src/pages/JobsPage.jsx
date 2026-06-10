@@ -718,21 +718,18 @@ export default function JobsPage() {
               //   - aussortiert (dismissed via "passt nicht")
               //   - anders ausgefiltert (UI-Filter, Score, etc.)
               // statt pauschal "X mit Bewerbung" wie vorher.
+              // #702: jobsTotal zaehlt nur AKTIVE Stellen — Bewerbungen und
+              // aussortierte sind eigene Mengen. Die alte Klammer-Form
+              // ("2 gesamt (6 mit Bewerbung, 1676 aussortiert)") las sich wie
+              // Teilmengen und war damit unsinnig. Jetzt entkoppelt.
               const withApplication = appliedJobHashes.size;
               const dismissedCount = dismissedJobs.length;
-              const filteredOut = Math.max(
-                0,
-                jobsTotal - filteredJobs.length - withApplication - dismissedCount
-              );
-              if (jobsTotal > filteredJobs.length) {
-                const parts = [];
-                if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
-                if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
-                if (filteredOut > 0) parts.push(`${filteredOut} ausgefiltert`);
-                return parts.length > 0
-                  ? `${jobsTotal} gesamt (${parts.join(", ")})`
-                  : `${jobsTotal} gesamt`;
-              }
+              const durchFilterVerborgen = Math.max(0, jobsTotal - filteredJobs.length);
+              const parts = [];
+              if (durchFilterVerborgen > 0) parts.push(`${jobsTotal} aktiv gesamt, ${durchFilterVerborgen} durch Filter verborgen`);
+              if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
+              if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
+              if (parts.length > 0) return parts.join(" · ");
               return jobsWithSalary > 0
                 ? `${jobsWithSalary} mit Gehalt${salaryEstimated ? " (geschätzt)" : ""}`
                 : "Keine Gehaltsdaten";
@@ -742,14 +739,14 @@ export default function JobsPage() {
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-            note={salaryCount > 0 ? `Auf Basis von ${salaryCount} Stellen mit Jahresgehalt` : "Noch keine Gehaltsdaten"}
+            note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
             tone="success"
           />
           <MetricCard
             label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryBandText}
             note={salaryCount > 0
-              ? `Niedrigster bis höchster Wert über ${salaryCount} Stellen`
+              ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}`
               : "Echte Min/Max-Spanne ueber alle Stellen"}
             tone="success"
           />

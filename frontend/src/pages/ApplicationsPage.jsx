@@ -616,7 +616,7 @@ export default function ApplicationsPage() {
             tone="sky"
           />
           <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
-          <MetricCard label="Follow-ups" value={dueFollowUps.length} note="Offene Nachfassaktionen" tone={dueFollowUps.length ? "danger" : "neutral"} />
+          <MetricCard label="Fällige Nachfässe" value={dueFollowUps.length} note="Heute fällig oder überfällig — Geplante stehen unter 'Offene Aktionen'" tone={dueFollowUps.length ? "danger" : "neutral"} />
           <MetricCard label="Interviews" value={interviewApplicationsCount} note="Aktive Interview-Phase" tone="amber" />
         </div>
 

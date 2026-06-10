@@ -224,6 +224,16 @@ def pick_line(db, pool: list, ctx: dict) -> Optional[str]:
     """
     if not pool:
         return None
+    # #702: Linien mit Text-Platzhaltern nur waehlen, wenn der Kontext sie
+    # auch fuellt — sonst erscheint "{firma} will dich sehen." als
+    # " will dich sehen." mit fehlendem Satzanfang.
+    _text_keys = ("firma", "title", "tool", "wochentag")
+    pool = [
+        line for line in pool
+        if all(f"{{{key}}}" not in line or ctx.get(key) for key in _text_keys)
+    ]
+    if not pool:
+        return None
     filled = [(line, fill_template(line, ctx)) for line in pool]
     fresh_7d = [(raw, f) for (raw, f) in filled
                 if not _seen_recently(db, f, days=7)]

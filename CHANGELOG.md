@@ -16,6 +16,94 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.102] - 2026-06-10 — Feinschliff aus der Dashboard-Tour (#702)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,
+> keine Schema-Aenderung (bleibt v46). Nach dem Update Claude Desktop einmal
+> komplett beenden und neu starten, Dashboard hart neu laden (Strg+F5).
+
+Kleiner, rein kosmetischer Release: Ergebnis eines vollstaendigen
+Klick-Durchgangs durch alle Dashboard-Bereiche (beta.101 gegen eine
+DB-Kopie). Dabei nebenbei live verifiziert: die Jobsuche laeuft ohne
+0%-Haenger durch (#668) und die Datums-Labels stimmen (#701-Teilfix).
+
+### Fixed
+
+- **Nackte „0" im Termine-Widget** — `is_private` kommt aus SQLite als 0/1,
+  React renderte die 0 als Text. (#702)
+- **„Neu in v1.6.2"-Banner** auf der Startseite — die remote geladene
+  `hints.json` war seit v1.6.2 eingefroren; zeigt jetzt den
+  Stabilisierungs-Release. (#702)
+- **Follow-ups erschienen mit „02:00 Uhr"** (Kalender + Termine-Widget) —
+  Nachfass-Erinnerungen sind Tages-Aufgaben und zeigen jetzt nur das Datum.
+  (#702)
+- **„Auf Basis von 1 Stellen"** — Singular/Plural korrigiert; bei weniger als
+  3 Datenpunkten steht jetzt „wenig Datenbasis" an den Gehaltskennzahlen.
+  (#702)
+- **Elwosa-Linie mit fehlendem Satzanfang** („ will dich sehen.") —
+  `pick_line` ueberspringt Linien mit ungefuellten Text-Platzhaltern. (#702)
+- **Stellen-KPI las sich wie Teilmengen** („2 gesamt (6 mit Bewerbung, 1676
+  aussortiert)") — aktive Stellen, Bewerbungen und Aussortierte sind
+  getrennte Mengen und werden jetzt entkoppelt aufgezaehlt. (#702)
+- **KPI „Follow-ups" vs. „Offene Aktionen"** widersprachen sich — Label heisst
+  jetzt „Faellige Nachfaesse" mit klarer Abgrenzung. (#702)
+- Stale Texte: Elwosa-Tipp „ueber 130 Werkzeuge" → „ueber 170"; Tippfehler
+  „Falls du noch nicht durch ist"; Hilfe-Dialog nennt jetzt auch die
+  MINUS-Keywords; Quellen-Zahl ueberall auf die Code-Wahrheit **35**
+  normiert (`len(SOURCE_REGISTRY)`). (#702)
+
+### Unter der Haube
+
+Kein Schema-, kein Tool-Signatur-Change. Neue Regressionstests
+`test_v17_feinschliff_702`. Bewusst nicht angefasst (Design, kein Glitch):
+Hero- und Workspace-Card zeigen beide den Jobsuche-CTA; „Offene Aktionen"
+mischt Termine + Nachfaesse absichtlich mit Labels.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.102.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.102.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.101] - 2026-06-10 — Beta-Stabilisierung: 13 Bugfixes, Onboarding-Haertung, CI-Gate
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,

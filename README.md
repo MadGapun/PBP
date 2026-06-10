@@ -10,7 +10,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.6.10-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1711-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-1715-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-177-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -54,7 +54,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **34 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
+- **35 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
@@ -202,7 +202,7 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v46 |
-| **Tests** | 1710 bestanden (1 uebersprungen) |
+| **Tests** | 1714 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
