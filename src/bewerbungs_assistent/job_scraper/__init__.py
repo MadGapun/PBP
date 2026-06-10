@@ -21,7 +21,7 @@ import json
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 from typing import Callable, Optional
 from urllib.parse import quote
 
@@ -960,30 +960,52 @@ def run_search(db, job_id: str, params: dict):
                 skipped_sources.append(quelle)
                 source_status[quelle] = {"status": "error", "count": 0, "time_s": 0, "detail": str(e)}
 
-        for future in futures:
-            quelle, timeout = futures[future]
-            elapsed = round(time.time() - _start_times.get(quelle, time.time()), 1)
-            try:
-                jobs = future.result(timeout=timeout)
-                all_jobs.extend(jobs)
-                logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
-                elapsed = round(time.time() - _start_times.get(quelle, time.time()), 1)
-                source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
-            except FuturesTimeoutError:
-                logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
+        # #668: Ergebnisse in FERTIGSTELLUNGS-Reihenfolge einsammeln (nicht in
+        # Submit-Reihenfolge). Vorher blockierte EIN langsamer, zuerst
+        # submitteter Scraper die Fortschrittsanzeige aller schnellen — die UI
+        # stand bis zu 90-180s bei 5% ("laeuft komplett in Timeout / 0%").
+        # Zusaetzlich ein globales Phasen-Budget: nach max(Quellen-Timeout)+15s
+        # werden alle noch haengenden Scraper gemeinsam als timeout markiert,
+        # statt seriell auf jeden einzeln bis zu seinem Timeout zu warten.
+        phase_budget = max((t for _, t in futures.values()), default=_SOURCE_TIMEOUT) + 15
+        pending = dict(futures)  # future -> (quelle, timeout)
+        phase_start = time.time()
+        try:
+            for future in as_completed(futures, timeout=phase_budget):
+                quelle, timeout = pending.pop(future)
+                elapsed = round(time.time() - _start_times.get(quelle, phase_start), 1)
+                try:
+                    jobs = future.result()
+                    all_jobs.extend(jobs)
+                    logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
+                    source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
+                except Exception as e:
+                    logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
+                    skipped_sources.append(quelle)
+                    source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
+                completed += 1
+                # #316: Fokus-Modus Progress mit Per-Source-Status
+                ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
+                db.update_background_job(
+                    job_id, "running",
+                    progress=int((completed / total) * 100),
+                    message=f"{quelle}: {source_status[quelle]['status']} ({source_status[quelle]['count']} Stellen) | {ok_count}/{completed} Quellen OK"
+                )
+        except FuturesTimeoutError:
+            # #668: globales Phasen-Budget erreicht — die restlichen Scraper
+            # haengen. Gemeinsam als timeout markieren statt den Gesamt-Job
+            # weiter zu blockieren. Die Threads laufen im Hintergrund aus
+            # (shutdown wait=False), ihre Ergebnisse werden verworfen.
+            for _f, (quelle, timeout) in pending.items():
+                logger.warning("%s: Phasen-Budget %ds erreicht — uebersprungen", quelle, phase_budget)
                 skipped_sources.append(quelle)
-                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout}
-            except Exception as e:
-                logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
-                skipped_sources.append(quelle)
-                source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
-            completed += 1
-            # #316: Fokus-Modus Progress mit Per-Source-Status
+                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": phase_budget}
+                completed += 1
             ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
             db.update_background_job(
                 job_id, "running",
                 progress=int((completed / total) * 100),
-                message=f"{quelle}: {source_status[quelle]['status']} ({source_status[quelle]['count']} Stellen) | {ok_count}/{completed} Quellen OK"
+                message=f"{len(pending)} Quelle(n) im Timeout uebersprungen | {ok_count} OK"
             )
         parallel_executor.shutdown(wait=False)
 
@@ -1449,12 +1471,18 @@ def extract_jobposting_jsonld(html: str, max_chars: int = 2000) -> dict:
         return {}
 
 
-def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> str:
+def fetch_description_from_detail(url: str, client, *, timeout: float = 15,
+                                  max_chars: int = 2000) -> str:
     """Fetch job description from a detail page via httpx.
 
     Tries JSON-LD first (via extract_jobposting_jsonld), then common
-    HTML content selectors. Returns plain text description (max 2000
-    chars) or empty string.
+    HTML content selectors. Returns plain text description (max
+    ``max_chars`` chars) or empty string.
+
+    #690: Beim expliziten Nachladen einer einzelnen Stelle
+    (stellenbeschreibung_nachladen) wird ein grosszuegiges max_chars
+    uebergeben, damit lange Beschreibungen nicht bei 2000 Zeichen
+    abgeschnitten werden. Bulk-Scraper nutzen weiter den 2000er-Default.
     """
     try:
         from bs4 import BeautifulSoup
@@ -1463,7 +1491,7 @@ def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> s
             return ""
 
         # Strategy 1: JSON-LD structured data — uses zentralen Helper
-        jp = extract_jobposting_jsonld(resp.text)
+        jp = extract_jobposting_jsonld(resp.text, max_chars=max_chars)
         if jp.get("description"):
             return jp["description"]
 
@@ -1480,7 +1508,7 @@ def fetch_description_from_detail(url: str, client, *, timeout: float = 15) -> s
             if el:
                 text = el.get_text(separator=" ", strip=True)
                 if len(text) > 100:
-                    return text[:2000]
+                    return text[:max_chars]
 
         return ""
     except Exception as e:

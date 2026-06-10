@@ -362,7 +362,12 @@ class Database:
             if Path(old_path).exists():
                 continue
             broken += 1
-            basename = Path(old_path).name
+            # #503/CI: separator-agnostisch — ein in der DB gespeicherter
+            # Windows-Pfad (Backslashes) muss auch auf Linux korrekt zum
+            # Basenamen aufgeloest werden, sonst schlaegt die Pfad-Reparatur
+            # nach einem Backup-Umzug Windows->Linux fehl (Path(...).name auf
+            # POSIX behandelt '\' nicht als Trenner).
+            basename = old_path.replace("\\", "/").split("/")[-1]
             candidates = [
                 data_dir / "dokumente" / basename,
                 data_dir / "dokumente" / (profile_id or "") / basename,
@@ -3448,7 +3453,8 @@ class Database:
                     "— evtl. orphaned FK (#616). Pruefe mit stellen_anzeigen()."
                 )
         elif target_kind == "meeting":
-            row = conn.execute("SELECT id FROM meetings WHERE id=? OR id LIKE ? LIMIT 1",
+            # #685: Tabelle heisst application_meetings, nicht meetings.
+            row = conn.execute("SELECT id FROM application_meetings WHERE id=? OR id LIKE ? LIMIT 1",
                                (target_id, f"{target_id}%")).fetchone()
             if row:
                 target_id = row["id"]

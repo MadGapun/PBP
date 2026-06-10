@@ -176,7 +176,8 @@ def register(mcp, db, logger):
         typ: str = "firma",
         wert: str = "",
         grund: str = "",
-        entry_id: int = 0
+        entry_id: int = 0,
+        force: bool = False
     ) -> dict:
         """Verwaltet die Blacklist (Firmen und Keywords die bei der Jobsuche automatisch aussortiert werden).
 
@@ -193,6 +194,8 @@ def register(mcp, db, logger):
             wert: Der Blacklist-Eintrag (Firmenname oder Keyword)
             grund: Optionaler Grund für den Eintrag
             entry_id: ID des Eintrags (nur bei aktion='entfernen')
+            force: True ueberstimmt die Warnung bei laufenden Bewerbungen
+                im Interview-Stadium (#699) und traegt trotzdem ein.
         """
         if aktion == "hinzufuegen":
             # Validate type (#168)
@@ -211,6 +214,44 @@ def register(mcp, db, logger):
                                "(z.B. Firmenname oder einzelnes Keyword). "
                                "Trotzdem hinzufügen? Rufe erneut auf wenn ja."
                 }
+            # #699: Schutz fuer laufende Bewerbungen — eine Blacklist-Firma
+            # deaktiviert automatisch alle aktiven Stellen der Firma. Laeuft
+            # parallel eine Bewerbung im Interview-Stadium, verliert der User
+            # genau dann den Stellen-Kontext (Fit-Analyse, Beschreibung),
+            # wenn er ihn am dringendsten braucht.
+            if typ == "firma" and not force:
+                kritische_status = (
+                    "interview", "zweitgespraech", "angebot",
+                    "interview_abgeschlossen",
+                )
+                conn = db.connect()
+                pid = db.get_active_profile_id()
+                betroffene = conn.execute(
+                    "SELECT id, title, company, status FROM applications "
+                    f"WHERE status IN ({','.join('?' * len(kritische_status))}) "
+                    "AND LOWER(company) LIKE ? "
+                    "AND (profile_id=? OR profile_id IS NULL)",
+                    (*kritische_status, f"%{wert.strip().lower()}%", pid)
+                ).fetchall()
+                if betroffene:
+                    details = [
+                        {
+                            "id": r["id"], "titel": r["title"],
+                            "firma": r["company"], "status": r["status"],
+                        } for r in betroffene
+                    ]
+                    return {
+                        "status": "warnung",
+                        "nachricht": (
+                            f"Firma '{wert.strip()}' hat {len(betroffene)} "
+                            f"laufende Bewerbung(en) im Status "
+                            f"{', '.join(sorted({r['status'] for r in betroffene}))}. "
+                            "Ein Blacklist-Eintrag wuerde die zugehoerigen "
+                            "Stellen deaktivieren."
+                        ),
+                        "betroffene_bewerbungen": details,
+                        "hinweis": "Mit force=True trotzdem eintragen.",
+                    }
             db.add_to_blacklist(typ, wert.strip(), grund)
             result = {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
             # #109: Blacklist-Eintrag löscht sofort alle Stellen des Unternehmens

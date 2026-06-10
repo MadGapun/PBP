@@ -4352,7 +4352,10 @@ async def api_refetch_description(job_hash: str):
     try:
         with httpx.Client(follow_redirects=True, timeout=15,
                            headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-            text = fetch_description_from_detail(url, client, timeout=15)
+            # #690: grosszuegiges max_chars beim expliziten Nachladen, damit
+            # lange Stellenbeschreibungen nicht bei 2000 Zeichen abgeschnitten
+            # gespeichert werden (Display kappt ohnehin erst bei 20000).
+            text = fetch_description_from_detail(url, client, timeout=15, max_chars=20000)
     except Exception as exc:
         _bump_refetch_failure(job_hash)
         return JSONResponse(
@@ -7391,8 +7394,17 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
         "  SELECT 1 FROM follow_ups f "
         "  WHERE f.application_id=a.id AND f.status='geplant' "
         "  AND (f.follow_up_type='nachfass' OR f.follow_up_type IS NULL)"
+        ") "
+        # #700: kein Auto-Nachfass wenn bereits ein zukuenftiger Termin
+        # (Interview etc.) existiert — sonst erscheint die Nachfass-
+        # Erinnerung NACH dem Interview und verwirrt.
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM application_meetings m "
+        "  WHERE m.application_id=a.id "
+        "  AND m.meeting_date > ? "
+        "  AND m.status IN ('geplant', 'bestaetigt')"
         ")",
-        (pid,)
+        (pid, now.isoformat())
     ).fetchall()
 
     created = []

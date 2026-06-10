@@ -650,6 +650,25 @@ def _build_match_job_to_skills_prompt(payload: dict) -> str:
     )
 
 
+def _clean_match_reason(reason: str) -> str:
+    """Bereinigt die KURZBEGRUENDUNG aus der match_job_to_skills-Antwort.
+
+    #691: Das 7B-Modell laesst gelegentlich den Prompt-Platzhalter
+    'KURZBEGRUENDUNG' (oder eine Variante) woertlich stehen oder liefert eine
+    leere Begruendung. Solche Faelle werden zu '' normalisiert, damit nie ein
+    Platzhalter als echte Begruendung in research_notes / UI landet.
+    """
+    r = (reason or "").strip().strip(".,;:'\"`").strip()
+    if not r:
+        return ""
+    if r.lower() in {
+        "kurzbegruendung", "kurzbegrundung", "kurzbegründung",
+        "begruendung", "begründung", "begrundung", "reason",
+    }:
+        return ""
+    return r[:200]
+
+
 def _parse_match_job_to_skills(raw: str) -> dict:
     raw_clean = (raw or "").strip()
     if not raw_clean:
@@ -658,7 +677,7 @@ def _parse_match_job_to_skills(raw: str) -> dict:
     line = next((l.strip() for l in raw_clean.split("\n") if l.strip()), "")
     parts = [p.strip() for p in line.split("|", 1)]
     decision = parts[0].upper().strip(".,;:'\"`")
-    reason = parts[1] if len(parts) > 1 else ""
+    reason = _clean_match_reason(parts[1] if len(parts) > 1 else "")
     if decision not in ("PASST", "PASST_NICHT", "UNSICHER"):
         # Versuche Auto-Heuristik aus dem Roh-Text
         lower = raw_clean.lower()
@@ -670,7 +689,7 @@ def _parse_match_job_to_skills(raw: str) -> dict:
             decision = "UNSICHER"
     return {
         "decision": decision,
-        "reason": reason[:200] if reason else "",
+        "reason": reason,
         "raw": raw,
     }
 

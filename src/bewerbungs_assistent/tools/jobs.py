@@ -500,6 +500,22 @@ def register(mcp, db, logger):
                                  "oder gib sie explizit an: quellen=['stepstone', 'bundesagentur']"
                 }
 
+        # #695: Ohne Suchbegriffe nicht starten — sonst faellt z.B. der
+        # Bundesagentur-Adapter still auf generische DEFAULT_KEYWORDS zurueck
+        # und flutet die Stellen-Liste eines Neulings mit profil-fremden Jobs.
+        if not keywords:
+            crit = db.get_search_criteria()
+            if not (crit.get("keywords_muss") or crit.get("keywords_plus")):
+                return {
+                    "status": "keine_suchbegriffe",
+                    "nachricht": (
+                        "Noch keine Suchkriterien gesetzt. Lege sie mit "
+                        "suchkriterien_setzen() fest oder nutze "
+                        "workflow_starten('jobsuche_workflow') — sonst wuerde "
+                        "PBP mit generischen Begriffen suchen."
+                    ),
+                }
+
         # #488: Manuelle/deprecated Quellen rausfiltern und separat melden.
         manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
         auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
@@ -891,6 +907,13 @@ def register(mcp, db, logger):
                 firma_uninteressant, zeitarbeit, befristet, bereits_beworben,
                 duplikat, kein_hochschulabschluss, sonstiges
         """
+        # #695: Existenz-Guard — vorher meldete das Tool bei unbekanntem Hash
+        # "aussortiert"/"als_passend_markiert" und zaehlte sogar die
+        # Ablehnungs-Statistik hoch (Phantom-Eintraege im Lerneffekt).
+        if not db.get_job(job_hash):
+            return {"fehler": "Stelle nicht gefunden. "
+                              "Pruefe den Hash mit stellen_anzeigen()."}
+
         if bewertung == "passt_nicht":
             reason_list = _normalize_reason_list(grund, gruende)
             if not reason_list:
@@ -2751,7 +2774,7 @@ def register(mcp, db, logger):
         max_stellen: int = 10,
         min_score: int = 0,
         dry_run: bool = False,
-        max_dauer_sek: int = 180,
+        max_dauer_sek: int = 50,
     ) -> dict:
         """Profil-basiertes Auto-Aussortieren via lokaler AI (#586, #646).
 
@@ -2772,9 +2795,10 @@ def register(mcp, db, logger):
         Heuristik-Raterei.
 
         v1.7.0-beta.74 (#646): Hard-Cap auf max_stellen=10 (vorher 50) +
-        Wall-Clock-Budget max_dauer_sek=180s. Bei Erreichen des Budgets
-        wird mit `status='teilweise'` und allen bis dahin verarbeiteten
-        Stellen zurueckgegeben — kein stilles 4-Min-Timeout mehr.
+        Wall-Clock-Budget max_dauer_sek=50s (#691, bewusst unter dem ~60s-
+        MCP-Client-Timeout). Bei Erreichen des Budgets wird mit
+        `status='teilweise'` und allen bis dahin verarbeiteten Stellen
+        zurueckgegeben — kein stilles Timeout, kein Schema-Validierungsfehler.
         Idempotent fortsetzbar: ein erneuter Aufruf bearbeitet die nicht
         verarbeiteten Reste.
 
@@ -2785,18 +2809,23 @@ def register(mcp, db, logger):
             min_score: Mindest-Score-Schwelle. Stellen darunter werden gar
                        nicht erst der LLM vorgelegt (Default 0 = alle).
             dry_run: Wenn True, nur Vorschau ohne dismiss-Aktionen.
-            max_dauer_sek: Wall-Clock-Budget in Sekunden (Default 180).
-                Bei Erreichen wird mit Teil-Ergebnis abgebrochen.
+            max_dauer_sek: Wall-Clock-Budget in Sekunden (Default 50, cap 90;
+                bewusst unter dem ~60s-MCP-Client-Timeout, #691). Bei
+                Erreichen wird mit schemakonformem Teil-Ergebnis abgebrochen.
 
         Idempotent: bewertet keine Stelle erneut die schon `passt_nicht`
         oder eine Bewerbung hat.
         """
         import time as _time
         run_started_at = _time.monotonic()
-        # Defensive Caps (#646): MCP-Client gibt nach 4 Min auf, deshalb
-        # NIE ueber 240s budget und nie ueber 30 Stellen pro Run.
+        # Defensive Caps (#646, #691): Der MCP-Client (Claude Desktop) bricht
+        # einen Tool-Call schon nach ~60s ab. Ein laengerer Lauf wird dann
+        # gecancelt und FastMCP 3.x liefert "outputSchema defined but no
+        # structured output returned" statt eines sauberen Teil-Ergebnisses.
+        # Darum Budget-Default 50s (cap 90s); der Wall-Clock-Check unten gibt
+        # VOR dem Client-Timeout ein schemakonformes status='teilweise' zurueck.
         max_stellen = max(1, min(int(max_stellen or 10), 30))
-        max_dauer_sek = max(30, min(int(max_dauer_sek or 180), 240))
+        max_dauer_sek = max(20, min(int(max_dauer_sek or 50), 90))
         # v1.7.0-beta.46 (#610): Try/except um den ganzen Body, alle
         # Returns mit uniformem Schema. Vorher: outputSchema-Validierungs-
         # fehler weil error-Pfade andere Keys hatten als Success-Pfade.
@@ -2845,7 +2874,10 @@ def register(mcp, db, logger):
             return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
 
         # Profil-Kontext sammeln
-        profile = db.get_profile() or {}
+        try:
+            profile = db.get_profile() or {}
+        except Exception as exc:  # #691: schemakonformer Fehler statt Crash
+            return _err(f"profil_lesen_fehlgeschlagen: {str(exc)[:150]}")
         profile_skills = [
             s.get("name", "") for s in (profile.get("skills") or [])[:15]
         ]
@@ -2873,7 +2905,10 @@ def register(mcp, db, logger):
             profile_seniority = "Berufseinsteiger / Berufsanfaenger"
 
         # Kandidaten holen — aktive, noch nicht bewertete Stellen
-        all_active = db.get_active_jobs()
+        try:
+            all_active = db.get_active_jobs()
+        except Exception as exc:  # #691: schemakonformer Fehler statt Crash
+            return _err(f"stellen_lesen_fehlgeschlagen: {str(exc)[:150]}")
         # Filter: keine Bewerbung, kein dismiss-Reason
         candidates = [
             j for j in all_active
@@ -2956,7 +2991,10 @@ def register(mcp, db, logger):
                     })
                     continue
                 decision = (result.payload or {}).get("decision", "UNSICHER")
-                reason = (result.payload or {}).get("reason", "")
+                # #691: leere/Platzhalter-Begruendung nicht roh durchreichen
+                reason = ((result.payload or {}).get("reason") or "").strip()
+                if not reason:
+                    reason = "(lokale KI lieferte keine Begruendung)"
                 entry = {
                     "hash": job["hash"],
                     "title": job.get("title"),

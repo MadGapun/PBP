@@ -525,6 +525,9 @@ def register(mcp, db, logger):
     ) -> dict:
         """Erstellt oder aktualisiert das Bewerberprofil.
 
+        Bestehende Werte bleiben erhalten, wenn ein Argument leer bleibt.
+        Zum gezielten Leeren/Bearbeiten einzelner Felder profil_bearbeiten nutzen.
+
         Args:
             name: Vollständiger Name
             email: E-Mail-Adresse
@@ -556,6 +559,42 @@ def register(mcp, db, logger):
             "reisebereitschaft": reisebereitschaft,
             "umzug_moeglich": umzug_moeglich,
         }
+        # #695: Bestehendes Profil NICHT mit Leerwerten ueberschreiben.
+        # db.save_profile setzt ALLE Spalten — ohne Merge loescht ein
+        # "Aktualisierungs"-Aufruf nur mit name E-Mail/Telefon/Notizen etc.
+        existing = db.get_profile()
+        if existing:
+            name = name or existing.get("name") or ""
+            email = email or existing.get("email") or ""
+            phone = phone or existing.get("phone") or ""
+            address = address or existing.get("address") or ""
+            city = city or existing.get("city") or ""
+            plz = plz or existing.get("plz") or ""
+            birthday = birthday or existing.get("birthday") or ""
+            nationality = nationality or existing.get("nationality") or ""
+            summary = summary or existing.get("summary") or ""
+            # informal_notes besonders kritisch: nie durch Leerwert ersetzen
+            informal_notes = informal_notes or existing.get("informal_notes") or ""
+            # country hat Default "Deutschland" — den Default-Wert nicht als
+            # explizite Eingabe werten, wenn schon ein Land hinterlegt ist
+            if country == "Deutschland" and existing.get("country"):
+                country = existing["country"]
+            # Praeferenzen mergen: Bestand als Basis, nur Keys mit
+            # nicht-Default-Werten gelten als explizit uebergeben
+            existing_prefs = existing.get("preferences") or {}
+            if isinstance(existing_prefs, str):
+                existing_prefs = json.loads(existing_prefs) if existing_prefs else {}
+            _PREF_DEFAULTS = {
+                "stellentyp": "beides", "arbeitsmodell": "hybrid",
+                "min_gehalt": 0, "ziel_gehalt": 0,
+                "min_tagessatz": 0, "ziel_tagessatz": 0,
+                "reisebereitschaft": "mittel", "umzug_moeglich": False,
+            }
+            merged_prefs = dict(existing_prefs)
+            for key, value in preferences.items():
+                if value != _PREF_DEFAULTS[key] or key not in merged_prefs:
+                    merged_prefs[key] = value
+            preferences = merged_prefs
         pid = db.save_profile({
             "name": name, "email": email, "phone": phone,
             "address": address, "city": city, "plz": plz,
@@ -563,13 +602,17 @@ def register(mcp, db, logger):
             "summary": summary, "informal_notes": informal_notes,
             "preferences": preferences,
         })
-        return {
+        result = {
             "status": "gespeichert",
             "profil_id": pid,
             "naechster_schritt": "Füge jetzt Berufserfahrung hinzu mit position_hinzufuegen(). "
                                 "Frage nach: Firma, Position, Zeitraum, Aufgaben, Erfolge, Technologien. "
                                 "Nutze die STAR-Methode (Situation, Task, Action, Result) für jedes Projekt."
         }
+        if existing:
+            result["hinweis"] = ("Bestehendes Profil aktualisiert — leere Argumente haben "
+                                 "die vorhandenen Werte behalten. Gezieltes Leeren via profil_bearbeiten.")
+        return result
 
     @mcp.tool()
     def position_hinzufuegen(

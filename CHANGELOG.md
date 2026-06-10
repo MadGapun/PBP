@@ -16,6 +16,135 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.101] - 2026-06-10 — Beta-Stabilisierung: 13 Bugfixes, Onboarding-Haertung, CI-Gate
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,
+> keine Schema-Aenderung (bleibt v46). Nach dem Update Claude Desktop einmal
+> komplett beenden (Tray-Symbol → Beenden) und neu starten, Dashboard hart
+> neu laden (Strg+F5).
+
+Der groesste Stabilisierungs-Release der Beta-Reihe — Ergebnis eines
+Multi-Agent-Audits aus Sicht unerfahrener Nutzer plus der User-Test-Funde
+vom 8.-10. Juni. Ziel: PBP laeuft fehlerfrei fuer Menschen ohne PBP- und
+ohne Claude-Vorwissen.
+
+### Fixed
+
+- **#692 — Prompt-Karten `/tipps_und_tricks` + `/profil_sync` luden nicht**
+  („Inhalt konnte nicht geladen werden"). Ursache: FastMCP 3.x brach die
+  interne Prompt-Delegation. Texte sind jetzt versions-stabil entkoppelt.
+- **#691 — `stellen_auto_aussortieren`:** schemakonformes Teil-Ergebnis statt
+  „outputSchema"-Validierungsfehler bei groesseren Laeufen (Budget jetzt 50s
+  Default, bis 90s via `max_dauer_sek`); der Platzhalter „KURZBEGRUENDUNG"
+  landet nie mehr als Begruendung.
+- **#690 — `stellenbeschreibung_nachladen`** laedt jetzt bis 20.000 Zeichen
+  statt bei 2.000 abzuschneiden.
+- **#686 — Dublettenschutz:** `analyse_plan_erstellen` erkennt Firmen auch im
+  Dokument-INHALT und schlaegt vor, zu welcher bestehenden Bewerbung ein
+  Dokument gehoert (`bewerbungs_zuordnungen`).
+- **#685/#684 — `kontakt_verknuepfen`:** Ziel `meeting` funktioniert (Tabellen-
+  Fix) und das `CON-`-Praefix wird akzeptiert.
+- **#668 — Jobsuche haengt nicht mehr bei 0%:** Ergebnisse werden in
+  Fertigstellungs-Reihenfolge eingesammelt + globales Phasen-Budget gegen
+  haengende Quellen.
+- **#694 — Onboarding-Sackgassen:** gefuehrte Prompts verwiesen auf nicht
+  existierende Tools (`anschreiben_generieren`, Umlaut-Varianten wie
+  `skill_hinzufügen`) — mitten im Kennenlerngespraech. Alle Tool-Referenzen
+  korrigiert, `workflow_starten` versteht jetzt auch Umlaut-Schreibweisen und
+  meldet unbekannte Workflows ehrlich (statt „gestartet" mit Fehlertext).
+  ~340 Zeilen toter Alt-Prompt-Code entfernt.
+- **#695 — Stille Falsch-Erfolge:** `stelle_bewerten` und
+  `bewerbung_status_aendern` melden bei unbekannter ID jetzt einen Fehler
+  statt Erfolg (vorher wurde sogar die Lern-Statistik verfaelscht);
+  `bewerbung_status_aendern` akzeptiert die `APP-`-ID-Form. **Wichtigster
+  Fix: `profil_erstellen` loescht beim Aktualisieren keine Bestandsfelder
+  mehr** (E-Mail/Telefon/Notizen blieben vorher auf der Strecke).
+  `jobsuche_starten` startet nicht mehr ohne Suchkriterien (verhinderte
+  Flut profil-fremder Treffer beim Erstnutzer).
+- **#696 — Ehrliche Leere-Zustaende:** 0 hochgeladene Dokumente heisst jetzt
+  „Noch keine Dokumente hochgeladen" (statt „alle analysiert"); Kein-Profil-
+  Antworten sagen, was zu tun ist. `pbp_capabilities` kennt jetzt die
+  Features seit beta.78 (Aufgaben, Dokument-Lifecycle, `stelle_reaktivieren`,
+  Ablehnungsgruende-Editor, Minus-Keywords) und beschreibt
+  `kennlerngespraech_abschliessen` korrekt.
+- **#697 — Installation fuer Neulinge:** macOS-Doku ist ehrlich (Python-
+  Voraussetzung + Gatekeeper-Hinweis), `INSTALLIEREN.command` installiert
+  jetzt Chromium (Browser-Quellen liefen auf macOS sonst in einen Fehler),
+  Tippfehler im Windows-Download-Fallback behoben, Release-Notes erklaeren
+  den Claude-Desktop-Neustart und den ersten Befehl.
+- **#699 — Blacklist-Schutz:** `blacklist_verwalten` warnt, wenn die Firma
+  laufende Bewerbungen im Interview-Stadium hat (statt deren Stellen still zu
+  deaktivieren); `force=True` uebersteuert bewusst.
+- **#700 — Termine vs. Erinnerungen:** der Auto-Reconciler legt keinen
+  Nachfass mehr an, wenn bereits ein zukuenftiger Termin existiert (vorher:
+  „Nachfassen" 4 Tage NACH dem Interview); das Dashboard trennt „Anstehende
+  Termine" (echte Meetings) von „Offene Erinnerungen" (Nachfass & Co., mit
+  Erledigt/Hinfaellig-Buttons).
+- **#701 (Teilfix) — Datums-Labels:** „morgen"/„in X Tagen" rechnen jetzt in
+  Kalendertagen statt 24-Stunden-Schritten — ein Termin in 47 Stunden ist
+  „uebermorgen", nicht „morgen". (Vollausbau Timestamp-Standard folgt, A18.)
+
+### Changed
+
+- **CI-Test-Gate:** GitHub Actions laesst bei jedem Push/PR die volle Suite
+  (inkl. Installer-Extras + Chromium) und den Release-Check laufen — fing auf
+  dem ersten Lauf direkt einen Linux-only-Bug (Pfad-Reparatur, #503).
+- **`fastmcp` auf `>=3.0,<4` gepinnt** — ein Major-Update kann nicht mehr
+  lautlos Interna brechen (Ursache von #692).
+- README/Doku-Zahlen normiert (177 Tools, Schema v46, 34 Quellen) und der
+  faq-Prompt zeigt jetzt aktive Onboarding-Tipps.
+
+### Unter der Haube
+
+Tool-Count bleibt 177, Schema bleibt v46. 9 neue Regressionstest-Dateien,
+Suite: **1710 passed, 1 skipped**. Master-Plan Teil K (K1-K18) dokumentiert
+jeden Fix; Issues #694-#697 dokumentieren die Audit-Befunde.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.101.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.101.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.100] - 2026-06-04 — Aufgaben mit „Erledigt bis"-Datum + Dashboard warnt bei Ueberfaelligkeit (#683)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,

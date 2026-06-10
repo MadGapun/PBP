@@ -605,6 +605,16 @@ def register(mcp, db, logger):
                 angelegt (#522). Sinnvoll wenn der Recruiter ausdruecklich
                 zugesagt hat sich zu melden.
         """
+        # #695: Typ-Pruefung am Tool-Eingang — gleiches Muster wie
+        # bewerbung_details (#505). DOC-/JOB-IDs fliegen sofort raus.
+        from ..services.typed_ids import validate_id, IdKind, TypedIdMismatch
+        try:
+            bewerbung_id = validate_id(IdKind.APPLICATION, bewerbung_id)
+        except TypedIdMismatch as e:
+            return {"fehler": str(e),
+                    "hinweis": "Du hast eine ID des falschen Typs uebergeben. "
+                               "Bewerbungs-IDs haben das Praefix 'APP-'."}
+
         # v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
         # ("warte_auf_rueckmeldung", "abgesagt") die durch das alte Tool
         # einfach durchgewunken wurden — Statistik konnte sie nicht einordnen.
@@ -640,6 +650,10 @@ def register(mcp, db, logger):
         # v1.7.0-beta.40 (#609): App holen wir immer, damit Elwosa-Hook
         # weiter unten die Firma kennt.
         app = db.get_application(bewerbung_id)
+        # #695: unbekannte ID -> klarer Fehler statt stillem "aktualisiert"
+        if not app:
+            return {"fehler": "Bewerbung nicht gefunden. "
+                              "Pruefe die ID mit bewerbungen_anzeigen()."}
 
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         auto_followup_id = None
