@@ -1,9 +1,29 @@
 # PBP — Claude-Code-Memory
 
-Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP) +
+Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
 React-Frontend + SQLite. **v1.6.10** ist Stable auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt **beta.90**) — wird `--latest` erst nach
-abgeschlossenem User-Test (User-Wort).
+in der Beta-Reihe (zuletzt **beta.101**, der grosse Stabilisierungs-Release)
+— wird `--latest` erst nach abgeschlossenem User-Test (User-Wort).
+
+## ⛔ QA-Isolations-Regel (HART, seit dem DB-Vorfall 2026-06-10)
+
+Der Daten-Isolations-Env-Var heisst **`BA_DATA_DIR`** (NICHT PBP_DATA_DIR
+— ein falscher Name faellt STILL auf die echte AppData-DB zurueck!).
+Jedes QA-/Test-Skript und jede Test-Fixture MUSS nach dem DB-Oeffnen hart
+asserten, dass `db.db_path` im Temp-Verzeichnis liegt:
+
+```python
+os.environ["BA_DATA_DIR"] = tmpdir
+# ... importlib.reload(database); db = Database(); db.initialize()
+assert str(tmpdir) in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+```
+
+Hintergrund: Am 2026-06-10 traf ein QA-Lauf mit falschem Env-Var-Namen die
+echte User-DB (Profil ueberschrieben — aus Backup wiederhergestellt, alle
+Aenderungen inventarisiert und zurueckgebaut). NIEMALS MCP-Tools des
+laufenden bewerbungs-assistent-Servers fuer Tests nutzen — die treffen
+immer die echte DB. Subagenten bekommen diese Regel woertlich in den
+Auftrag geschrieben.
 
 ## ⛔⛔ ZUERST LESEN: Master-Plan (Single Source of Truth)
 
