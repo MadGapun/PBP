@@ -202,7 +202,7 @@ goto :download_done
 
 :download_ps
 echo [DEBUG] Starte PowerShell Download... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityPointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_ZIP_PATH%'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_ZIP_PATH%'" 2>> "%LOGFILE%"
 echo [DEBUG] PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :download_done
@@ -263,7 +263,7 @@ echo [DEBUG] get-pip curl beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 goto :getpip_done
 
 :getpip_ps
-powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityPointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile '%GETPIP_PATH%'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile '%GETPIP_PATH%'" 2>> "%LOGFILE%"
 echo [DEBUG] get-pip PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :getpip_done

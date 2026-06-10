@@ -101,6 +101,15 @@ $PYTHON -m pip install -e "$PROJECT_DIR[all]" -q 2>/dev/null && \
     ok "Alle Module installiert" || \
     warn "Optionale Module teilweise fehlgeschlagen (kein Problem)"
 
+# #697: Playwright-Chromium wie in installer/install.sh — ohne diesen
+# Schritt erscheint zur Laufzeit "Executable doesn't exist".
+info "Installiere Chromium fuer Browser-Quellen..."
+if $PYTHON -m playwright install chromium 2>/dev/null; then
+    ok "Chromium-Browser installiert"
+else
+    warn "Chromium-Download fehlgeschlagen — Browser-Quellen eingeschraenkt, Rest funktioniert"
+fi
+
 # ── 4. Frontend bauen ──────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}[4/6] Dashboard (React UI) bauen...${NC}"

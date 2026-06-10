@@ -161,7 +161,11 @@ def test_batch_profile_section_is_capped(setup_env):
 
 
 def test_batch_empty_docs(setup_env):
+    # #696 (beta.101): 0 hochgeladene Dokumente melden jetzt ehrlich
+    # 'keine_dokumente' mit Upload-Hinweis — nicht mehr 'fertig'
+    # ("alle analysiert"), was Neulinge in die Irre fuehrte.
     db = setup_env
     mcp = _make_mcp(db)
     result = _call(mcp, "dokumente_batch_analysieren", {})
-    assert result["status"] == "fertig"
+    assert result["status"] == "keine_dokumente"
+    assert "hoch" in result["nachricht"].lower()

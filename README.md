@@ -54,7 +54,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **24 Jobportale konfiguriert, 17 davon aktiv liefernd** — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; 7 weitere sind als „defekt" sichtbar markiert mit Chrome-Extension-Workaround
+- **34 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
@@ -78,7 +78,7 @@ Du musst keine Kommandos kennen. **Du redest einfach mit Claude, wie mit einem M
 
 ## Voraussetzungen
 
-PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose App von Anthropic für Windows, Mac und Linux.
+PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose App von Anthropic für Windows und macOS. Unter Linux funktioniert alternativ [Claude Code](https://claude.com/claude-code) (CLI) mit MCP-Support.
 
 | | **Free** | **Pro** ⭐ empfohlen | **Max** |
 |---|----------|---------------------|---------|
@@ -117,19 +117,20 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 
 ### Windows (Empfohlen)
 
-1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
-2. **Entpacke** das ZIP in einen Ordner (z.B. `C:\PBP`)
+1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** — auf der Release-Seite unter *Assets* → **„Source code (zip)"**
+2. **Entpacke** das ZIP in einen Ordner (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
 3. **Doppelklicke `INSTALLIEREN.bat`** — fertig!
 
 > **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
 
 ### macOS
 
-1. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (ZIP-Datei)
-2. **Entpacke** das ZIP
-3. **Doppelklicke `INSTALLIEREN.command`** — fertig!
+1. **Einmalig vorab: Python 3.11+ installieren** — am einfachsten mit dem [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **Lade die [neueste Version](https://github.com/MadGapun/PBP/releases/latest) herunter** (*Assets* → „Source code (zip)") und **entpacke** sie (im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklicke `INSTALLIEREN.command`**
 
-> **Voraussetzungen:** macOS 12+, Python 3.11+ (`brew install python@3.12`), [Claude Desktop](https://claude.ai/download)
+> Falls macOS warnt („kann nicht geoeffnet werden"): **Rechtsklick** auf `INSTALLIEREN.command` → *„Oeffnen"* → nochmal *„Oeffnen"*.
+> **Voraussetzungen:** macOS 12+, Python 3.11+, [Claude Desktop](https://claude.ai/download)
 
 ### Linux
 
@@ -196,11 +197,11 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 174 Tools in 11 Modulen |
+| **MCP-Tools** | 177 Tools in 11 Modulen |
 | **Workflows** | 24 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 24 Quellen (17 aktiv liefernd inkl. Indeed/LinkedIn/Glassdoor/Google ueber JobSpy + Greenhouse + Arbeitnow, 7 als defekt sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v45 |
+| **Datenbank** | SQLite (WAL), Schema v46 |
 | **Tests** | 1682 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)

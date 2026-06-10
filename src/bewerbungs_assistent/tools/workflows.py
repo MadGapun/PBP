@@ -14,16 +14,6 @@ def register(mcp, db, logger):
     """Registriert Workflow-Tools (Prompt-Wrapper)."""
     from . import ki_gate
 
-    def _get_prompt_text(name: str) -> str:
-        """Holt den Prompt-Text aus dem registrierten MCP-Prompt."""
-        from ..prompts import register_prompts as _  # noqa — ensures prompts registered
-
-        # Build prompt text by calling the prompt function directly
-        prompt_funcs = _prompt_registry(db)
-        if name in prompt_funcs:
-            return prompt_funcs[name]()
-        return f"Workflow '{name}' nicht gefunden."
-
     @mcp.tool()
     def workflow_starten(name: str = "") -> dict:
         """Startet einen geführten Workflow. Ohne Parameter: zeigt alle verfügbaren Workflows.
@@ -34,10 +24,10 @@ def register(mcp, db, logger):
         - bewerbung_schreiben: Stellenspezifisches Anschreiben erstellen
         - interview_vorbereitung: Interview-Vorbereitung mit STAR-Antworten
         - interview_simulation: Simuliertes Bewerbungsgespräch
-        - profil_überprüfen: Profil anschauen und korrigieren
+        - profil_ueberpruefen: Profil anschauen und korrigieren
         - profil_analyse: Detaillierte Profilbewertung
         - profil_erweiterung: Dokumente analysieren und Profil erweitern
-        - bewerbungs_übersicht: Komplette Übersicht aller Aktivitäten
+        - bewerbungs_uebersicht: Komplette Übersicht aller Aktivitäten
         - gehaltsverhandlung: Gehaltsverhandlung vorbereiten
         - netzwerk_strategie: Networking-Strategie entwickeln
         - willkommen: Willkommensbildschirm mit Status
@@ -72,7 +62,21 @@ def register(mcp, db, logger):
                 "beispiel": "workflow_starten(name='jobsuche_workflow')"
             }
 
-        text = _get_prompt_text(name)
+        # #694: Namen normalisieren (lowercase + Umlaut-Transliteration), damit
+        # z.B. 'profil_überprüfen' den Registry-Key 'profil_ueberpruefen' trifft
+        name = name.strip().lower()
+        for umlaut, ersatz in (("ü", "ue"), ("ö", "oe"), ("ä", "ae"), ("ß", "ss")):
+            name = name.replace(umlaut, ersatz)
+
+        prompt_funcs = _prompt_registry(db)
+        if name not in prompt_funcs:
+            # #694: kein Pseudo-Erfolg (status='gestartet' mit Fehlertext) mehr
+            return {
+                "fehler": f"Workflow '{name}' nicht gefunden.",
+                "verfuegbare_workflows": sorted(prompt_funcs),
+            }
+
+        text = prompt_funcs[name]()
         logger.info("Workflow gestartet: %s", name)
         return {
             "workflow": name,
@@ -147,7 +151,8 @@ SCHRITT 2: QUELLEN AKTIVIEREN
 Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen müssen erst aktiviert werden)'}
 
 Falls keine Quellen aktiv:
-→ Erkläre welche Quellen verfügbar sind (StepStone, Indeed, Monster, BA, Hays, Freelancermap, LinkedIn, XING)
+→ Pruefe die konfigurierten Quellen mit quellen_health_check()
+→ Verweise auf Dashboard → Einstellungen → Job-Quellen zum Aktivieren
 → Frage welche der User nutzen möchte
 
 SCHRITT 3: SUCHE STARTEN
@@ -216,7 +221,7 @@ Frag einfach in deinen eigenen Worten!"""
 Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
 
 - PROFIL ERSTELLEN: Lockeres Gespräch, kein steifes Formular
-- JOBS FINDEN: Bis zu 9 Jobportale gleichzeitig durchsuchen
+- JOBS FINDEN: Die konfigurierten Job-Quellen gleichzeitig durchsuchen (Dashboard → Einstellungen → Job-Quellen)
 - BEWERBUNGEN SCHREIBEN: Stellenspezifische Anschreiben, Export als PDF/DOCX
 - LEBENSLAUF EXPORTIEREN: Professionell formatiert
 - INTERVIEW-VORBEREITUNG: STAR-Antworten, Gehaltsverhandlung
@@ -435,9 +440,10 @@ Bewerbungen in Vorbereitung:
 ABLAUF:
 1. Frage welche Bewerbung vorbereitet werden soll (oder nimm die letzte)
 2. Rufe bewerbung_details(id) auf
-3. Fuehre fit_analyse(id) durch — zeige MUSS/PLUS/Risiken
-4. Erstelle angepassten Lebenslauf: lebenslauf_angepasst_exportieren(id)
-5. Erstelle Anschreiben: anschreiben_generieren(id)
+3. Fuehre fit_analyse(stellen_id) durch — die stellen_id der verknuepften
+   Stelle steht in bewerbung_details(id) — zeige MUSS/PLUS/Risiken
+4. Erstelle angepassten Lebenslauf: lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung)
+5. Erstelle das Anschreiben im Chat und exportiere es mit anschreiben_exportieren(text, stelle, firma)
 6. Verknuepfe Dokumente und plane Follow-up: nachfass_planen(id)
 7. Setze Status auf 'beworben' wenn alles fertig
 
@@ -497,39 +503,3 @@ WICHTIG:
         "tipps_und_tricks": build_tipps_und_tricks_prompt,
         "profil_sync": build_profil_sync_prompt,
     }
-
-
-def _static_ersterfassung():
-    """Ersterfassung-Prompt (statisch, keine DB-Abhängigkeiten)."""
-    return """Du bist ein freundlicher Karriereberater. Dies ist ein zwangloses Gespräch.
-
-SCHRITT 0: FORTSCHRITT PRÜFEN
-Rufe zuerst auf: erfassung_fortschritt_lesen() und profile_auflisten()
-Falls angefangenes Profil: Weitermachen wo aufgehört.
-Falls mehrere Profile: Fragen welches bearbeitet werden soll.
-
-PHASE 1: LOCKERER EINSTIEG
-"Hey, schön dass du hier bist! Erzähl mal: Wie heißt du und was machst du so beruflich?"
-Nur 1-2 offene Fragen, NICHT nach E-Mail/Telefon im ersten Schritt!
-
-PHASE 2: STRUKTURIERTE ERFASSUNG
-a) Persönliche Daten → profil_erstellen()
-b) Berufserfahrung → position_hinzufuegen(), projekt_hinzufuegen()
-c) Ausbildung → ausbildung_hinzufuegen()
-d) Skills → skill_hinzufuegen()
-e) Zwanglose Notizen → informal_notes
-
-PHASE 3: PRÄFERENZ-FRAGEN
-Branche, Festanstellung/Freelance, Region, Remote, Gehalt, Reisebereitschaft
-→ profil_erstellen() aktualisieren
-
-PHASE 4: REVIEW
-→ profil_zusammenfassung() aufrufen und zeigen
-→ Korrigieren bis der User zufrieden ist
-
-REGELN:
-- Max 2-3 Fragen pro Nachricht
-- Deutsch und per Du
-- Ermutigend bei Lücken
-- SOFORT mit Tools speichern
-- erfassung_fortschritt_speichern() nach jedem Bereich"""

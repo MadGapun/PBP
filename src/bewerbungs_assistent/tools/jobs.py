@@ -500,6 +500,22 @@ def register(mcp, db, logger):
                                  "oder gib sie explizit an: quellen=['stepstone', 'bundesagentur']"
                 }
 
+        # #695: Ohne Suchbegriffe nicht starten — sonst faellt z.B. der
+        # Bundesagentur-Adapter still auf generische DEFAULT_KEYWORDS zurueck
+        # und flutet die Stellen-Liste eines Neulings mit profil-fremden Jobs.
+        if not keywords:
+            crit = db.get_search_criteria()
+            if not (crit.get("keywords_muss") or crit.get("keywords_plus")):
+                return {
+                    "status": "keine_suchbegriffe",
+                    "nachricht": (
+                        "Noch keine Suchkriterien gesetzt. Lege sie mit "
+                        "suchkriterien_setzen() fest oder nutze "
+                        "workflow_starten('jobsuche_workflow') — sonst wuerde "
+                        "PBP mit generischen Begriffen suchen."
+                    ),
+                }
+
         # #488: Manuelle/deprecated Quellen rausfiltern und separat melden.
         manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
         auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
@@ -891,6 +907,13 @@ def register(mcp, db, logger):
                 firma_uninteressant, zeitarbeit, befristet, bereits_beworben,
                 duplikat, kein_hochschulabschluss, sonstiges
         """
+        # #695: Existenz-Guard — vorher meldete das Tool bei unbekanntem Hash
+        # "aussortiert"/"als_passend_markiert" und zaehlte sogar die
+        # Ablehnungs-Statistik hoch (Phantom-Eintraege im Lerneffekt).
+        if not db.get_job(job_hash):
+            return {"fehler": "Stelle nicht gefunden. "
+                              "Pruefe den Hash mit stellen_anzeigen()."}
+
         if bewertung == "passt_nicht":
             reason_list = _normalize_reason_list(grund, gruende)
             if not reason_list:

@@ -120,7 +120,9 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if profile is None:
-            return {"status": "kein_profil"}
+            return {"status": "kein_profil",
+                    "nachricht": "Noch kein Profil vorhanden. Starte die Ersterfassung "
+                                 "mit ersterfassung_starten() oder lege es mit profil_erstellen() an."}
 
         # v1.7.0-beta.64 (#640): Status-Stufen explizit trennen.
         # 'nicht_extrahiert'/'' = nie angefasst
@@ -785,7 +787,9 @@ def register(mcp, db, logger):
         _t0 = _t.time()
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return {"fehler": "Kein aktives Profil.",
+                    "nachricht": "Starte die Ersterfassung mit ersterfassung_starten() "
+                                 "oder lege ein Profil mit profil_erstellen() an."}
 
         conn = db.connect()
         pid = profile["id"]
@@ -909,6 +913,15 @@ def register(mcp, db, logger):
             "bewerbungs_zuordnungen": bewerbungs_zuordnungen[:50],
             "batches": batches_summary,
             "empfehlung": (
+                # #696: bei 0 zu analysierenden Docs nicht zum naechsten
+                # Batch raten — der Neuling muss erst hochladen.
+                (
+                    "Keine Dokumente zu analysieren. Lade Lebenslauf & Zeugnisse "
+                    "im Dashboard unter 'Dokumente' hoch."
+                    if len(docs) == 0 else
+                    "Alle vorhandenen Dokumente sind bereits analysiert."
+                )
+                if len(nicht_analysiert) == 0 else
                 f"{len(dup_ids)} Duplikate werden automatisch übersprungen. "
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
                 + (
@@ -975,7 +988,9 @@ def register(mcp, db, logger):
 
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return {"fehler": "Kein aktives Profil.",
+                    "nachricht": "Starte die Ersterfassung mit ersterfassung_starten() "
+                                 "oder lege ein Profil mit profil_erstellen() an."}
 
         conn = db.connect()
         pid = profile["id"]
@@ -994,6 +1009,18 @@ def register(mcp, db, logger):
         all_docs = [dict(r) for r in rows]
 
         if not all_docs:
+            # #696: ehrlich unterscheiden — "alles analysiert" stimmt nur,
+            # wenn ueberhaupt Dokumente existieren. Der Neulings-Normalfall
+            # (frische Installation, noch nichts hochgeladen) bekommt einen
+            # Upload-Hinweis statt einer faktisch falschen Erfolgsmeldung.
+            doc_count = conn.execute(
+                "SELECT COUNT(*) AS n FROM documents WHERE profile_id=?", (pid,)
+            ).fetchone()["n"]
+            if doc_count == 0:
+                return {"status": "keine_dokumente",
+                        "nachricht": "Noch keine Dokumente hochgeladen. Lade Lebenslauf & "
+                                     "Zeugnisse im Dashboard unter 'Dokumente' hoch — "
+                                     "danach kann ich sie analysieren."}
             return {"status": "fertig", "nachricht": "Alle Dokumente sind bereits analysiert."}
 
         # Duplikate erkennen und automatisch markieren
