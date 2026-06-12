@@ -86,6 +86,9 @@ function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
               // v1.7.0-beta.45 (#623): Wiki-Deep-Link in neuem Tab
               const url = `https://github.com/MadGapun/PBP/wiki/${encodeURIComponent(tok.linkId)}`;
               window.open(url, "_blank", "noopener,noreferrer");
+            } else if (tok.linkType === "prompt") {
+              // F24 (#713): fertigen Claude-Prompt in die Zwischenablage
+              onCopy?.(tok.linkId);
             } else {
               onNavigate?.(tok.linkType, tok.linkId);
             }
@@ -93,7 +96,9 @@ function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
           className="text-teal hover:text-teal/80 underline decoration-dotted decoration-teal/40 underline-offset-2 cursor-pointer"
           title={tok.linkType === "pause"
             ? `Elwosa fuer ${tok.linkId} Minuten pausieren`
-            : `${tok.linkType}: ${tok.linkId}`}
+            : tok.linkType === "prompt"
+              ? "Kopiert den fertigen Prompt — danach in Claude einfuegen"
+              : `${tok.linkType}: ${tok.linkId}`}
         >
           {tok.label}
         </button>,

@@ -377,6 +377,39 @@ def _count_in_days(db, trigger_kind: str, days: int) -> int:
 
 # === Master-Speak-Funktion =======================================
 
+def _feature_tipp_linien(db) -> list:
+    """F24 (#713): baut Elwosa-Linien aus den aktiven onboarding_hints.
+
+    Die Hints (#652) sind nutzungsbasiert (Bedingung prueft echte Nutzung,
+    z.B. "Termine vorhanden, aber nie Aufwand erfasst") und wurden bis jetzt
+    nie ausgespielt. Jede Linie traegt zwei Aktions-Links: Navigation zum
+    passenden Tab ([link:page:...]) und einen fertigen Claude-Prompt zum
+    Kopieren ([link:prompt:...]). Sprach-DNA: lakonisch, kein Ausrufezeichen,
+    max 280 Zeichen — Ueberlaenge wird verworfen statt gekuerzt.
+    """
+    try:
+        from .onboarding_hints import list_active_hints
+        hints = list_active_hints(db)
+    except Exception:
+        return []
+    linien = []
+    for h in hints:
+        kern = (h.get("body") or "").split(". ")[0].strip().rstrip(".")
+        if not kern:
+            continue
+        tab = h.get("tab") or "dashboard"
+        prompt = h.get("cta_label") or "Zeig mir mehr dazu"
+        if h.get("cta_tool"):
+            prompt = f"{prompt} — nutze {h['cta_tool']}"
+        line = (
+            f"{kern}. [link:page:{tab}|Ansehen] "
+            f"[link:prompt:{prompt}|Claude-Prompt kopieren]"
+        )
+        if len(line) <= 280:
+            linien.append(line)
+    return linien
+
+
 def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
            cluster: Optional[str] = None) -> Optional[int]:
     """Triggert Elwosa-Linie nach allen Regeln.
@@ -420,7 +453,10 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
     elif trigger_kind in STATUS_CHANGE_LINES:
         pool = STATUS_CHANGE_LINES[trigger_kind]
     elif trigger_kind == "tip":
-        pool = TIP_LINES
+        # F24 (#713): nutzungsbasierte Feature-Tipps haben Vorrang vor den
+        # generischen Tipp-Linien — selten/nie genutzte Funktionen werden
+        # gezielt vorgestellt, mit klickbarer Navigation + Claude-Prompt.
+        pool = _feature_tipp_linien(db) or TIP_LINES
     elif trigger_kind == "idle":
         # Idle nutzt cluster-spezifischen Pool wenn moeglich, sonst global
         if cluster and cluster in CLUSTER_LINES:
