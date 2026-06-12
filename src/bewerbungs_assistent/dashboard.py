@@ -9126,6 +9126,36 @@ async def api_set_ki_features(request: Request):
     return {"status": "ok", "features": cfg}
 
 
+@app.get("/api/local-ai/auto-dismissed")
+async def api_local_ai_auto_dismissed(limit: int = 50):
+    """F21 (#689): Liste der von Ollama automatisch aussortierten Stellen.
+
+    Die KI-Begruendung steckt im dismiss_reason-Format
+    'auto:profil_match_negativ:<begruendung>' (beta.63ff). Zurueckholen
+    laeuft ueber den bestehenden POST /api/jobs/restore.
+    """
+    pid = _get_active_profile_id()
+    conn = _db.connect()
+    rows = conn.execute(
+        "SELECT hash, title, company, dismiss_reason, updated_at FROM jobs "
+        "WHERE is_active=0 AND dismiss_reason LIKE 'auto:%' "
+        "AND (profile_id=? OR profile_id IS NULL) "
+        "ORDER BY updated_at DESC LIMIT ?",
+        (pid, max(1, min(int(limit), 200))),
+    ).fetchall()
+    items = []
+    for r in rows:
+        teile = (r["dismiss_reason"] or "").split(":", 2)
+        items.append({
+            "hash": r["hash"],
+            "title": r["title"],
+            "company": r["company"],
+            "datum": r["updated_at"],
+            "begruendung": teile[2] if len(teile) > 2 else "",
+        })
+    return {"items": items, "count": len(items)}
+
+
 @app.get("/api/learning/insights")
 async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
     """Liefert die LLM-generierten + heuristischen learning_insights

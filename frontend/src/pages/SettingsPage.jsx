@@ -1312,6 +1312,95 @@ function KIFeaturesCard({ pushToast }) {
 }
 
 // v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop-Anzeige.
+// beta.104 (#689 / F21): Liste der Auto-Aussortierungen mit KI-Begruendung
+// und Zurueckholen-Aktion — vorher zeigte nur die Kachel "N automatisch
+// aussortiert", ohne dass man sah WELCHE Stellen es traf.
+function AutoDismissedSection() {
+  const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState("");
+  const load = () => api("/api/local-ai/auto-dismissed?limit=50").then(setData).catch(() => {});
+  useEffect(() => { load(); }, []);
+  if (!data || !data.count) return null;
+  const restore = async (hash) => {
+    setBusy(hash);
+    try {
+      await postJson("/api/jobs/restore", { hash });
+      await load();
+    } catch {} finally { setBusy(""); }
+  };
+  return (
+    <div className="glass-card p-3 mb-4">
+      <button type="button" className="w-full flex items-center justify-between text-left"
+        onClick={() => setOpen(!open)}>
+        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+          Was wurde aussortiert? ({data.count})
+        </p>
+        <span className="text-muted/50 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {data.items.map((j) => (
+            <div key={j.hash} className="flex items-start justify-between gap-2 rounded-lg border border-white/[0.04] px-2.5 py-1.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] text-ink truncate">{j.title} <span className="text-muted/50">— {j.company}</span></p>
+                {j.begruendung && <p className="text-[11px] text-muted/50 truncate" title={j.begruendung}>{j.begruendung}</p>}
+              </div>
+              <button type="button" disabled={busy === j.hash}
+                onClick={() => restore(j.hash)}
+                className="shrink-0 rounded-lg bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25 disabled:opacity-50">
+                {busy === j.hash ? "..." : "Zurueckholen"}
+              </button>
+            </div>
+          ))}
+          <p className="text-[10px] text-muted/40 pt-1">
+            Zurueckgeholte Stellen erscheinen wieder im Stellen-Tab — Ollama lernt aus jeder Korrektur (Few-Shot).
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// beta.104 (#689 / F21): Lernprotokoll — was die lokale KI gelernt hat,
+// dauerhaft einsehbar (vorher nur fluechtig auf der Dashboard-Card).
+function LernprotokollSection() {
+  const [items, setItems] = useState(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    api("/api/learning/insights?only_active=0&limit=20")
+      .then((r) => setItems(r?.items || r?.insights || []))
+      .catch(() => setItems([]));
+  }, []);
+  if (!items || !items.length) return null;
+  return (
+    <div className="glass-card p-3 mb-4">
+      <button type="button" className="w-full flex items-center justify-between text-left"
+        onClick={() => setOpen(!open)}>
+        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+          Lernprotokoll — was Ollama gelernt hat ({items.length})
+        </p>
+        <span className="text-muted/50 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {items.map((it, i) => (
+            <div key={it.id || i} className="rounded-lg border border-white/[0.04] px-2.5 py-1.5">
+              <p className="text-[12px] text-ink">{it.title || it.titel || it.insight_type}</p>
+              {(it.recommendation || it.empfehlung) && (
+                <p className="text-[11px] text-muted/50">{it.recommendation || it.empfehlung}</p>
+              )}
+            </div>
+          ))}
+          <p className="text-[10px] text-muted/40 pt-1">
+            Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594). Loeschen/Reset folgt (#689).
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Zeigt wie viele Stellen Ollama automatisch aussortiert hat und — sobald
 // genug Datenbasis (>= 5) — wie treffsicher die Auto-Entscheidungen waren
 // (gemessen daran wie oft der User sie korrigiert hat).
@@ -1670,6 +1759,10 @@ function LocalAITab({ pushToast }) {
 
       {/* v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop — Ollama-Leistung */}
       <OllamaAccuracyCard />
+
+      {/* beta.104 (#689 / F21): Transparenz — was wurde aussortiert, was gelernt */}
+      <AutoDismissedSection />
+      <LernprotokollSection />
 
       {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}
       <TestConnectionBlock />
