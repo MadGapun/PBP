@@ -300,7 +300,9 @@ def register(mcp, db, logger):
         kontakt_email: str = "",
         portal_name: str = "",
         bereits_beworben: bool = True,
-        stellenbeschreibung: str = ""
+        stellenbeschreibung: str = "",
+        endkunde: str = "",
+        force: bool = False
     ) -> dict:
         """Erstellt eine neue Bewerbung (manuell oder aus einer gefundenen Stelle).
 
@@ -325,6 +327,13 @@ def register(mcp, db, logger):
             portal_name: Name des Portals (bei bewerbungsart=ueber_portal)
             bereits_beworben: True = schon beworben (Standard), False = will mich bewerben (#170)
             stellenbeschreibung: Optional: Vollständige Stellenbeschreibung (#172) — wird automatisch gespeichert
+            endkunde: Optional (#710): Endkunde bei Vermittler-Engagements
+                (company = Vermittler). Bei gesetztem Endkunden vergleicht die
+                Duplikat-Erkennung company+endkunde statt nur company+title —
+                mehrere Engagements ueber denselben Vermittler sind dann
+                getrennt erfassbar.
+            force: True ueberstimmt die Duplikat-Erkennung bewusst (#709) —
+                nutzen wenn es wirklich eine eigene, neue Bewerbung ist.
         """
         # #170: Wenn der User sich noch nicht beworben hat → in_vorbereitung
         # #506: Aber NUR, wenn der Aufrufer keinen expliziten Status gesetzt hat.
@@ -364,13 +373,22 @@ def register(mcp, db, logger):
         # company.lower() — verfehlt z.B. "IQ ... (Endkunde: Siemens)" vs
         # "Siemens (via IQ ...)". Plus Email-/Ansprechpartner-Match als
         # zusaetzliches Signal.
-        existing_apps = db.get_applications()
+        # #709: force=True ueberspringt das Dedup-Gate bewusst (der frueher
+        # in der Fehlermeldung versprochene notes-Override war nie
+        # implementiert — jetzt gibt es den expliziten Parameter).
+        existing_apps = [] if force else db.get_applications()
         norm_company = _normalize_company_for_dedup(company)
         norm_title = _normalize_title_for_dedup(title)
         norm_email = (kontakt_email or "").lower().strip()
         norm_ansprech = (ansprechpartner or "").lower().strip()
+        norm_endkunde = (endkunde or "").lower().strip()
 
         for existing in existing_apps:
+            # #710: Verschiedene Endkunden beim selben Vermittler sind
+            # KEINE Duplikate — getrennte Engagements.
+            ex_endkunde = (existing.get("endkunde") or "").lower().strip()
+            if norm_endkunde and ex_endkunde and norm_endkunde != ex_endkunde:
+                continue
             ex_company = existing.get("company", "")
             ex_title = existing.get("title", "")
             ex_email = (existing.get("kontakt_email") or "").lower().strip()
@@ -384,7 +402,8 @@ def register(mcp, db, logger):
                     "bestehende_bewerbung_id": existing["id"][:8],
                     "nachricht": f"Es gibt bereits eine Bewerbung bei {company} für '{title}' "
                                  f"(Status: {existing.get('status', '?')}). "
-                                 "Nutze bewerbung_bearbeiten() um diese zu aktualisieren."
+                                 "Nutze bewerbung_bearbeiten() um diese zu aktualisieren — "
+                                 "oder force=True, wenn es wirklich eine neue, eigene Bewerbung ist."
                 }
 
             # 2) Fuzzy-Match: aehnliche Firma + aehnlicher Titel
@@ -411,7 +430,9 @@ def register(mcp, db, logger):
                         f"Aehnliche Bewerbung gefunden: '{ex_title}' bei {ex_company} "
                         f"(Status: {existing.get('status', '?')}). "
                         f"Vermutlich Vermittler/Endkunde-Beziehung oder Titelvariante. "
-                        f"Falls neue Bewerbung trotzdem gewuenscht: notes='Klarstellen, dass dies eine eigene Bewerbung ist'."
+                        f"Falls neue Bewerbung trotzdem gewuenscht: force=True setzen — "
+                        f"bei Vermittler-Engagements zusaetzlich endkunde='...' angeben, "
+                        f"dann unterscheidet die Duplikat-Erkennung kuenftig selbst."
                     )
                 }
 
@@ -430,7 +451,7 @@ def register(mcp, db, logger):
                     "nachricht": (
                         f"Identischer Ansprechpartner/Email + aehnlicher Titel: "
                         f"'{ex_title}' bei {ex_company} (Status: {existing.get('status', '?')}). "
-                        f"Sehr wahrscheinlich Duplikat."
+                        f"Sehr wahrscheinlich Duplikat. Falls doch eigenstaendig: force=True."
                     )
                 }
 
@@ -510,6 +531,7 @@ def register(mcp, db, logger):
             "source": source,
             "description_snapshot": snapshot_text,
             "snapshot_date": _dt_snap.now().isoformat() if snapshot_text else "",
+            "endkunde": endkunde,
         })
 
         # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt

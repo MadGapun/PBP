@@ -124,6 +124,15 @@ class HeartbeatMiddleware(Middleware):
         except Exception as e:
             logger.error("Tool %s Fehler: %s", tool_name, e, exc_info=True)
             raise
+        finally:
+            # #708: Bricht wait_for ein Tool mitten in einem Write ab (oder
+            # leakt ein Fehlerpfad eine Transaktion), bliebe der Write-Lock
+            # sonst dauerhaft offen — jeder weitere Write (auch der des
+            # Dashboard-Threads) scheitert dann bis zum Neustart.
+            try:
+                db.rollback_if_stale(context=f"Tool '{tool_name}'")
+            except Exception:
+                pass
 
 
 mcp.add_middleware(HeartbeatMiddleware())

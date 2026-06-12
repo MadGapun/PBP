@@ -167,9 +167,15 @@ SCHRITT 3: SUCHE STARTEN
    3. Schlage vor: „Sag mir in ein paar Minuten 'Wie laeuft meine Jobsuche?' — ich
       pruefe dann mit jobsuche_status('{{job_id}}') nach."
    4. Beende den Workflow-Schritt hier. Kein weiteres jobsuche_status() im selben Turn.
-→ Wenn das Tool ein `manuelle_quellen`-Feld mitliefert, LISTE es dem User auf und
-   erklaere ihm, dass er diese Quellen ueber Claude-in-Chrome und die jeweils
-   empfohlenen Ersatz-Tools (jobspy_linkedin/jobspy_indeed/google_jobs_url) bedienen muss.
+→ Wenn das Tool ein `manuelle_quellen`-Feld mitliefert (#704):
+   ARBEITE DIESE QUELLEN SELBST AB — OHNE NACHFRAGE — sofern Claude-in-Chrome
+   verbunden ist (waehrend die Hintergrund-Suche laeuft):
+   - LinkedIn: oeffne linkedin.com/jobs/search mit den Suchprofil-Keywords
+   - XING: oeffne xing.com/jobs/search mit den Suchprofil-Keywords
+   - StepStone / Google Jobs: nutze google_jobs_url() und oeffne die URL in Chrome
+   - Passende Treffer SOFORT mit stelle_manuell_anlegen() in PBP erfassen
+   Ist Claude-in-Chrome NICHT verbunden: liste die Quellen auf und erklaere
+   dem User den Chrome-Extension-Weg.
 
 SCHRITT 4: ERGEBNISSE SICHTEN
 → Zeige die Ergebnisse mit stellen_anzeigen()

@@ -340,6 +340,21 @@ async def api_status():
 
 
 
+def _version_tuple(v: str) -> tuple:
+    """#711: '1.7.0-beta.101' -> (1, 7, 0, 0, 101); '1.7.0' -> (1, 7, 0, 1, 0).
+
+    Das vierte Element (Stable-Flag) sorgt dafuer, dass ein Stable-Release
+    NEUER ist als jede Beta derselben Versionsnummer.
+    """
+    import re
+    s = str(v or "").strip()
+    nums = [int(x) for x in re.findall(r"\d+", s)]
+    is_beta = "beta" in s.lower() or "rc" in s.lower() or "a" == s.lower()[-1:]
+    base = nums[:3] + [0] * (3 - len(nums[:3]))
+    rest = nums[3:4] or [0]
+    return tuple(base + [0 if is_beta else 1] + rest)
+
+
 @app.get("/api/public/hints")
 async def api_public_hints():
     """Holt dezente Hinweise/Updates aus einer öffentlichen GitHub-Quelle (#233).
@@ -377,7 +392,11 @@ async def api_public_hints():
         hints = data if isinstance(data, list) else data.get("hints", [])
         result["hints"] = [
             h for h in hints
-            if not h.get("min_version") or h["min_version"] <= __version__
+            if (not h.get("min_version") or h["min_version"] <= __version__)
+            # #711: Release-Hints (mit `version`-Feld) sind UPDATE-Hinweise —
+            # nur zeigen, wenn die angekuendigte Version NEUER ist als die
+            # installierte. Sonst sieht ein beta.102-User "Neu in beta.101".
+            and (not h.get("version") or _version_tuple(h["version"]) > _version_tuple(__version__))
         ]
     except Exception as exc:
         logger.debug("hints fetch failed: %s", exc)
@@ -8425,6 +8444,19 @@ async def api_run_auto_actions():
     """
     from datetime import datetime
     now = datetime.now().isoformat()
+    # #708: Engine-Steps schreiben viel — ein abgebrochener Step darf keine
+    # offene Transaktion (= dauerhaften Write-Lock fuer den MCP-Server-
+    # Writer) hinterlassen. Netz am Ende des Zyklus, siehe finally.
+    try:
+        return _run_auto_actions_inner(now)
+    finally:
+        try:
+            _db.rollback_if_stale(context="Auto-Engine-Zyklus")
+        except Exception:
+            pass
+
+
+def _run_auto_actions_inner(now: str) -> dict:
     expire_result = _run_auto_expire(now)
     fu_result = _run_auto_followup_reconciler(now)
     # v1.7.0-beta.25: Mail- + Doku-Auto-Klassifikation. Lokale AI sortiert
