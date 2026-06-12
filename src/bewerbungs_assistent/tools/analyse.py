@@ -1099,6 +1099,35 @@ def register(mcp, db, logger):
                     "problem": "Keine Berufserfahrung hinterlegt",
                     "loesung": "position_hinzufuegen() oder Lebenslauf hochladen",
                 })
+            # #705: Integritaets-Check gegen Profil-Datenverlust. Ein
+            # GEPFLEGTES Profil (Positionen + Skills vorhanden) sollte auch
+            # Kontaktdaten und informelle Notizen haben — sind die ploetzlich
+            # leer, deutet das auf einen Datenverlust hin (z.B. den erst in
+            # beta.101 gefixten profil_erstellen-Ueberschreib-Bug).
+            if positions and len(skills) >= 3:
+                leere_kontaktfelder = [
+                    feld for feld in ("email", "phone", "address", "summary")
+                    if not (profile.get(feld) or "").strip()
+                ]
+                notizen_leer = not (profile.get("informal_notes") or "").strip()
+                if len(leere_kontaktfelder) >= 3 or (leere_kontaktfelder and notizen_leer):
+                    warnungen.append({
+                        "bereich": "Profil-Integritaet",
+                        "problem": (
+                            "Das Profil ist gepflegt (Positionen + Skills vorhanden), aber "
+                            f"{'Kontaktfelder (' + ', '.join(leere_kontaktfelder) + ')' if leere_kontaktfelder else ''}"
+                            f"{' und ' if leere_kontaktfelder and notizen_leer else ''}"
+                            f"{'die informellen Notizen' if notizen_leer else ''} sind leer — "
+                            "moeglicher Datenverlust (#705)."
+                        ),
+                        "loesung": (
+                            "Pruefe data/backups/ — vor jeder Migration wird ein Backup "
+                            "angelegt. Wiederherstellung einzelner Felder: Backup-DB oeffnen "
+                            "und Werte via profil_bearbeiten() zuruecktragen. "
+                            "Seit beta.101 ueberschreibt profil_erstellen() keine "
+                            "Bestandsfelder mehr."
+                        ),
+                    })
 
         # --- 2. Suchkriterien-Check ---
         criteria = db.get_search_criteria()

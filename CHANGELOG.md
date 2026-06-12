@@ -16,6 +16,98 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.103] - 2026-06-12 — User-Test-Welle: DB-Lock-Haertung, ehrliches Dedup-Gate, Update-Banner (#704, #705, #708-#711)
+
+> ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Kein Frontend-Build
+> noetig, keine Schema-Aenderung (bleibt v46). Nach dem Update Claude Desktop
+> einmal komplett beenden und neu starten.
+
+Fixes aus dem laufenden Abschlusstest (Stellen-Triage 11./12.06.).
+
+### Fixed
+
+- **#708 — „database is locked" bis zum Neustart (kritisch):** Der
+  Haupt-Connection fehlte `busy_timeout` (Writes scheiterten sofort, statt
+  kurz zu warten), und ein per Timeout abgebrochenes Tool konnte eine offene
+  Transaktion hinterlassen, die den Write-Lock dauerhaft hielt. Jetzt:
+  `busy_timeout=5000` + Rollback-Sicherheitsnetz an den Ausfuehrungs-Grenzen
+  (Tool-Middleware + Auto-Engine-Zyklus) mit WARNING-Log.
+- **#709 — Dedup-Override war eine Luege:** Die Fehlermeldung versprach einen
+  `notes`-Bypass, der **nie implementiert** war. Jetzt gibt es den ehrlichen
+  Parameter `force=True` in `bewerbung_erstellen`; alle Duplikat-Meldungen
+  nennen ihn.
+- **#710 — `endkunde` in `bewerbung_erstellen`:** Die DB-Spalte existierte
+  seit Schema v14, wurde aber nie durchgereicht. Bei gesetztem Endkunden
+  trennt die Duplikat-Erkennung jetzt Vermittler-Engagements (gleicher
+  Vermittler + anderer Endkunde ≠ Duplikat).
+- **#711 — Release-Banner ist wieder ein Update-Hinweis:** Das Dashboard
+  zeigte beta.102-Nutzern „Neu in beta.101". Release-Hints werden jetzt nur
+  noch angezeigt, wenn die angekuendigte Version NEUER ist als die
+  installierte (korrekter Versionsvergleich, Stable > Beta).
+- **#705 — Profil-Datenverlust-Haertung:** `pbp_diagnose` erkennt jetzt das
+  Muster „gepflegtes Profil, aber Kontaktfelder/Notizen leer" und zeigt den
+  Wiederherstellungs-Weg aus `data/backups/`. (Die Ursache des gemeldeten
+  Verlusts — der `profil_erstellen`-Ueberschreib-Bug — ist seit beta.101
+  gefixt; Migrationen selbst leeren keine Felder, sie sind ALTER-only.)
+
+### Changed
+
+- **#704 — Jobsuche-Workflow schliesst manuelle Quellen ein:** Claude wird im
+  gefuehrten Workflow angewiesen, LinkedIn/XING/StepStone/Google Jobs ohne
+  Nachfrage via Claude-in-Chrome abzuarbeiten (sofern verbunden) und Treffer
+  direkt mit `stelle_manuell_anlegen()` zu erfassen.
+
+### Unter der Haube
+
+Neue Regressionstests `test_v17_user_test_703plus` (9 Tests). Keine
+Schema-/Frontend-Aenderung. #706 (Interview-Button) und #707
+(Notizen-Pflege) sind als G16/H15 im Master-Plan eingeplant.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.103.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.103.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.102] - 2026-06-10 — Feinschliff aus der Dashboard-Tour (#702)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,

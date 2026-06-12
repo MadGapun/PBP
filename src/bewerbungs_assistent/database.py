@@ -162,7 +162,33 @@ class Database:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
+            # #708: MCP-Server und Dashboard-Thread haben je eine eigene
+            # Connection (zwei Writer). Ohne busy_timeout scheitert ein Write
+            # SOFORT mit 'database is locked', sobald der andere gerade
+            # schreibt — mit Timeout wird bis zu 5s gewartet.
+            self._conn.execute("PRAGMA busy_timeout=5000")
         return self._conn
+
+    def rollback_if_stale(self, context: str = "") -> bool:
+        """#708: Sicherheitsnetz gegen geleakte Transaktionen.
+
+        Wird an Ausfuehrungs-Grenzen gerufen (Tool-Middleware, Auto-Engine-
+        Zyklus). Eine dort noch offene implizite Transaktion ist IMMER ein
+        Leak (z.B. Tool via Timeout mitten im Write abgebrochen) und wuerde
+        den Write-Lock dauerhaft halten — alle anderen Writer scheitern dann
+        bis zum Prozess-Neustart.
+        """
+        if self._conn is not None and self._conn.in_transaction:
+            try:
+                self._conn.rollback()
+                logger.warning(
+                    "Offene Transaktion nach %s zurueckgerollt (#708) — "
+                    "ein Write wurde vermutlich abgebrochen.", context or "Lauf"
+                )
+                return True
+            except Exception as exc:
+                logger.error("Rollback-Sicherheitsnetz fehlgeschlagen: %s", exc)
+        return False
 
     def close(self):
         if self._conn:
@@ -4315,8 +4341,8 @@ class Database:
                 applied_at, cover_letter_path, cv_path, notes, created_at,
                 bewerbungsart, lebenslauf_variante, ansprechpartner,
                 kontakt_email, portal_name, source,
-                description_snapshot, snapshot_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                description_snapshot, snapshot_date, endkunde)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             aid, stored_job_hash, pid, data.get("title"), data.get("company"),
             data.get("url"), data.get("status", "beworben"),
@@ -4330,6 +4356,7 @@ class Database:
             source,
             data.get("description_snapshot", ""),
             data.get("snapshot_date", ""),
+            data.get("endkunde", ""),
         ))
         # Add initial event
         conn.execute("""
