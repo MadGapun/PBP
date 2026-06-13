@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 46
+SCHEMA_VERSION = 47
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -1955,6 +1955,17 @@ class Database:
                 logger.info("Migration v45->v46: research_notes-Tabelle angelegt (#674)")
             except Exception as exc:
                 logger.warning("research_notes-Migration fehlgeschlagen: %s", exc)
+
+        if from_ver < 47:
+            # v47 / v1.7.0-beta.106 (#720): Scraper-Fehlerklasse. Speichert die
+            # Klasse des letzten Fehlers (tot/blockiert/server_weg/kaputt), damit
+            # die Reaktion (#721) zur Fehlerart passt — temporaere Fehler werden
+            # pausiert-mit-Probe statt hart deaktiviert. Rein additiv.
+            try:
+                conn.execute("ALTER TABLE scraper_health ADD COLUMN error_class TEXT")
+            except Exception:
+                pass
+            logger.info("Migration v46->v47: scraper_health.error_class (#720)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -4716,10 +4727,16 @@ class Database:
     # deaktiviert wird (#499 / v1.6.0-beta.14).
     SILENT_AUTO_DEACTIVATE_THRESHOLD = 5
 
+    # #721: Schwelle, ab der eine FEHLERHAFTE Quelle in Serie reagiert wird —
+    # gleiche Staffel wie silent (5). Ein einzelner server_weg-Aussetzer bei
+    # sonst gesunder Quelle deaktiviert NICHT; erst nach 5 Fehlern in Folge.
+    FAIL_AUTO_THRESHOLD = 5
+
     def update_scraper_health(self, name: str, status: str, count: int = 0,
                               time_s: float = 0, detail: str = None,
                               filtered_count: int = None,
-                              new_count: int = None) -> dict:
+                              new_count: int = None,
+                              error_class: str = None) -> dict:
         """Persist per-scraper health after each search run.
 
         Returns a dict mit Status-Klassifikation (#499):
@@ -4754,6 +4771,14 @@ class Database:
                 status_detail = status_detail or "silent_timeout"
             else:
                 status_detail = status_detail or "silent"
+
+        # #720: Bei echten Fehlern die Klasse in das Detail einweben
+        # ("server_weg: timeout 90s"), konsistent fuer Insert und Update.
+        detail_mit_klasse = status_detail
+        if state == "fail" and error_class:
+            detail_mit_klasse = (
+                f"{error_class}: {status_detail}" if status_detail else error_class
+            )
 
         conn = self.connect()
         now = _now()
@@ -4820,36 +4845,93 @@ class Database:
                     )
             else:
                 consec = existing["consecutive_failures"] + 1
+                # #720: detail_mit_klasse (oben berechnet) traegt die Klasse +
+                # Kurzdetail; error_class kommt zusaetzlich in die eigene Spalte.
                 conn.execute(f"""
                     UPDATE scraper_health SET last_run=?, last_error=?,
                         consecutive_failures=?, total_runs=?, total_successes=?,
-                        avg_time_s=?, last_count=?, last_status_detail=?{_fc_clause}{_nc_clause}
+                        avg_time_s=?, last_count=?, last_status_detail=?,
+                        error_class=?{_fc_clause}{_nc_clause}
                         WHERE scraper_name=?
-                """, (now, status_detail or status, consec, total_runs,
-                      total_successes, avg_time, count, status_detail, *_extra_vals, name))
+                """, (now, detail_mit_klasse or status, consec, total_runs,
+                      total_successes, avg_time, count, detail_mit_klasse,
+                      error_class, *_extra_vals, name))
+                # #721: Differenzierte Reaktion nach Fehlerklasse. Greift erst
+                # ab FAIL_AUTO_THRESHOLD gleichartigen Fehlern in Folge und nur
+                # solange die Quelle noch aktiv ist. Fehlt die Klasse (Altdaten
+                # vor #720), passiert hier NICHTS — der >=10-Backstop im
+                # job_runner uebernimmt wie bisher (kein Regressionsrisiko).
+                if (error_class and consec >= self.FAIL_AUTO_THRESHOLD
+                        and existing["is_active"]):
+                    from .services.scraper_classifier import (
+                        TEMPORARY_CLASSES, ERROR_CLASS_BLOCKIERT,
+                    )
+                    if error_class in TEMPORARY_CLASSES:
+                        # server_weg / blockiert: NICHT hart deaktivieren,
+                        # sondern pausieren-mit-Probe (is_active=0 MIT
+                        # reactivate_at). Bei 429 den Retry-After respektieren.
+                        conn.execute(
+                            "UPDATE scraper_health SET is_active=0 "
+                            "WHERE scraper_name=?", (name,)
+                        )
+                        held = None
+                        if error_class == ERROR_CLASS_BLOCKIERT:
+                            held = self.is_scraper_held_by_retry_after(name)
+                        if held:
+                            conn.execute(
+                                "UPDATE scraper_health SET reactivate_at=?, "
+                                "reactivate_attempt=COALESCE(reactivate_attempt,0)+1 "
+                                "WHERE scraper_name=?", (held, name)
+                            )
+                            conn.commit()
+                        else:
+                            self.schedule_scraper_probe(name, success=False)
+                        auto_deactivated = True
+                        logger.warning(
+                            "Scraper %s nach %d %s-Fehlern PAUSIERT-mit-Probe "
+                            "(#721) — kommt automatisch zurueck", name,
+                            consec, error_class
+                        )
+                    else:
+                        # tot / kaputt: hart deaktivieren (kommt nicht von
+                        # selbst zurueck), ohne reactivate_at.
+                        conn.execute(
+                            "UPDATE scraper_health SET is_active=0, "
+                            "reactivate_at=NULL WHERE scraper_name=?", (name,)
+                        )
+                        conn.commit()
+                        auto_deactivated = True
+                        logger.warning(
+                            "Scraper %s nach %d %s-Fehlern HART deaktiviert "
+                            "(#721) — Code-/Endpoint-Fix noetig", name,
+                            consec, error_class
+                        )
         else:
             # v1.6.5 (#553): filtered/new auch beim ersten Insert mitnehmen
             conn.execute("""
                 INSERT INTO scraper_health (scraper_name, last_run, last_success,
                     last_error, consecutive_failures, total_runs, total_successes,
                     avg_time_s, is_active, last_count, last_status_detail,
-                    consecutive_silent, last_filtered_count, last_new_count)
-                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?, ?, ?)
+                    consecutive_silent, last_filtered_count, last_new_count,
+                    error_class)
+                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?, ?, ?, ?)
             """, (name, now,
                   now if state == "ok" else None,
                   None if state != "fail" else (status_detail or status),
                   0 if state != "fail" else 1,
                   1 if state == "ok" else 0,
                   count,
-                  status_detail,
+                  detail_mit_klasse,
                   1 if state == "silent" else 0,
                   int(filtered_count) if filtered_count is not None else 0,
-                  int(new_count) if new_count is not None else 0))
+                  int(new_count) if new_count is not None else 0,
+                  error_class if state == "fail" else None))
         conn.commit()
         return {
             "state": state,
             "auto_deactivated": auto_deactivated,
             "detail": status_detail,
+            "error_class": error_class,
         }
 
     def get_scraper_health(self) -> list:
@@ -9041,7 +9123,10 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     -- v1.7.0-beta.33 (#590 Aufgabe C): Auto-Reactivate
     reactivate_at TEXT,
     reactivate_attempt INTEGER DEFAULT 0,
-    retry_after TEXT
+    retry_after TEXT,
+    -- v1.7.0-beta.106 (#720): Fehlerklasse des letzten Fehlers
+    -- (tot/blockiert/server_weg/kaputt) — steuert die Reaktion (#721)
+    error_class TEXT
 );
 
 -- v1.7.0 (#577) Stilarchiv fuer Anschreiben/Lebenslauf-Versionen

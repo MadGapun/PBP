@@ -27,6 +27,12 @@ from urllib.parse import quote
 
 import httpx
 
+from ..services.scraper_classifier import (
+    classify_scraper_error,
+    ERROR_CLASS_SERVER_WEG,
+    ERROR_CLASS_KAPUTT,
+)
+
 logger = logging.getLogger("bewerbungs_assistent.scraper")
 
 
@@ -958,7 +964,8 @@ def run_search(db, job_id: str, params: dict):
             except ImportError as e:
                 logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
                 skipped_sources.append(quelle)
-                source_status[quelle] = {"status": "error", "count": 0, "time_s": 0, "detail": str(e)}
+                source_status[quelle] = {"status": "error", "count": 0, "time_s": 0,
+                                         "detail": str(e), "error_class": ERROR_CLASS_KAPUTT}
 
         # #668: Ergebnisse in FERTIGSTELLUNGS-Reihenfolge einsammeln (nicht in
         # Submit-Reihenfolge). Vorher blockierte EIN langsamer, zuerst
@@ -982,7 +989,9 @@ def run_search(db, job_id: str, params: dict):
                 except Exception as e:
                     logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
                     skipped_sources.append(quelle)
-                    source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
+                    source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed,
+                                             "detail": str(e)[:100],
+                                             "error_class": classify_scraper_error(e)}
                 completed += 1
                 # #316: Fokus-Modus Progress mit Per-Source-Status
                 ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
@@ -999,7 +1008,8 @@ def run_search(db, job_id: str, params: dict):
             for _f, (quelle, timeout) in pending.items():
                 logger.warning("%s: Phasen-Budget %ds erreicht — uebersprungen", quelle, phase_budget)
                 skipped_sources.append(quelle)
-                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": phase_budget}
+                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": phase_budget,
+                                         "error_class": ERROR_CLASS_SERVER_WEG}
                 completed += 1
             ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
             db.update_background_job(
@@ -1042,7 +1052,8 @@ def run_search(db, job_id: str, params: dict):
                 logger.warning("%s: Timeout nach %ds — uebersprungen", quelle, timeout)
                 executor.shutdown(wait=False, cancel_futures=True)
                 skipped_sources.append(quelle)
-                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout}
+                source_status[quelle] = {"status": "timeout", "count": 0, "time_s": timeout,
+                                         "error_class": ERROR_CLASS_SERVER_WEG}
                 continue
             finally:
                 executor.shutdown(wait=False)
@@ -1054,12 +1065,15 @@ def run_search(db, job_id: str, params: dict):
         except ImportError as e:
             logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
             skipped_sources.append(quelle)
-            source_status[quelle] = {"status": "error", "count": 0, "time_s": 0, "detail": str(e)[:100]}
+            source_status[quelle] = {"status": "error", "count": 0, "time_s": 0,
+                                     "detail": str(e)[:100], "error_class": ERROR_CLASS_KAPUTT}
         except Exception as e:
             elapsed = round(time.time() - _start, 1)
             logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
             skipped_sources.append(quelle)
-            source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed, "detail": str(e)[:100]}
+            source_status[quelle] = {"status": "error", "count": 0, "time_s": elapsed,
+                                     "detail": str(e)[:100],
+                                     "error_class": classify_scraper_error(e)}
 
     # v1.6.5 (#550): Defensiv NaN-Strings ("nan", "none", "<NA>") aus
     # Firmenname filtern, falls ein Scraper sie versehentlich durchlaesst.
@@ -1262,14 +1276,21 @@ def run_search(db, job_id: str, params: dict):
                 status_info.get("detail"),
                 filtered_count=filtered_per_source.get(quelle, 0),
                 new_count=new_per_source.get(quelle, 0),
+                error_class=status_info.get("error_class"),  # #720
             )
         except Exception as e:
             logger.debug("Scraper health update failed for %s: %s", quelle, e)
 
-    # #432: Auto-deactivate scrapers with 10+ consecutive failures
+    # #432: Auto-deactivate scrapers with 10+ consecutive failures.
+    # #721: Backstop nur noch fuer Quellen OHNE Fehlerklasse (Altdaten) bzw.
+    # ohne geplanten Probe-Run. Klassifizierte Fehler werden bereits in
+    # update_scraper_health differenziert behandelt (server_weg/blockiert ->
+    # pausiert-mit-Probe, tot/kaputt -> hart). Eine pausierte Quelle
+    # (reactivate_at gesetzt) wird hier NICHT hart abgeschaltet.
     try:
         for h in db.get_scraper_health():
-            if h.get("consecutive_failures", 0) >= 10 and h.get("is_active"):
+            if (h.get("consecutive_failures", 0) >= 10 and h.get("is_active")
+                    and not h.get("reactivate_at")):
                 db.toggle_scraper(h["scraper_name"], False)
                 logger.info("Scraper '%s' nach %d Fehlern auto-deaktiviert",
                             h["scraper_name"], h["consecutive_failures"])

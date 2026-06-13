@@ -46,6 +46,34 @@ function healthBadge(health) {
           Auto-Aus
         </Badge>
       );
+    case "pausiert":
+      return (
+        <Badge tone="amber" className="gap-1" title={`Temporaer pausiert (${health.error_class || "stumm"}) — Probe-Run geplant, kommt automatisch zurueck${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+          <Clock size={10} />
+          Pausiert
+        </Badge>
+      );
+    case "blockiert":
+      return (
+        <Badge tone="amber" className="gap-1" title={`Geblockt (403/429)${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+          <AlertTriangle size={10} />
+          Blockiert
+        </Badge>
+      );
+    case "tot":
+      return (
+        <Badge tone="danger" className="gap-1" title={`Endpoint weg (404/410)${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+          <Ban size={10} />
+          Tot
+        </Badge>
+      );
+    case "kaputt":
+      return (
+        <Badge tone="danger" className="gap-1" title={`Adapter/Parser defekt — Code-Fix noetig${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+          <XCircle size={10} />
+          Kaputt
+        </Badge>
+      );
     default:
       return null;
   }

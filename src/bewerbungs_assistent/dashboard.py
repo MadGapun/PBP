@@ -5228,8 +5228,22 @@ async def api_sources():
         last_count = h.get("last_count") or 0
         consec_silent = h.get("consecutive_silent") or 0
         consec_fail = h.get("consecutive_failures") or 0
+        # #722: Fehlerklasse + Probe-Zeitpunkt differenzieren das frueher
+        # pauschale "deaktiviert"-Badge.
+        error_class = h.get("error_class")
+        reactivate_at = h.get("reactivate_at")
         if not h.get("is_active"):
-            badge = "deaktiviert"
+            if error_class == "tot":
+                badge = "tot"
+            elif error_class == "kaputt":
+                badge = "kaputt"
+            elif error_class == "blockiert":
+                badge = "blockiert"
+            elif reactivate_at:
+                # server_weg ODER stumm-Auto-Deaktivierung: pausiert-mit-Probe
+                badge = "pausiert"
+            else:
+                badge = "deaktiviert"
         elif consec_fail > 0:
             badge = "fehler"
         elif consec_silent >= 3:
@@ -5242,12 +5256,15 @@ async def api_sources():
             badge = "nie"
         row["health"] = {
             "last_run": h.get("last_run"),
+            "last_success": h.get("last_success"),
             "last_count": last_count,
             "last_status_detail": h.get("last_status_detail"),
             "consecutive_silent": consec_silent,
             "consecutive_failures": consec_fail,
             "avg_time_s": h.get("avg_time_s") or 0,
             "is_active_health": bool(h.get("is_active")),
+            "error_class": error_class,
+            "reactivate_at": reactivate_at,
             "badge": badge,
         }
     return rows
