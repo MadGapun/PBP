@@ -2,7 +2,7 @@
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
 React-Frontend + SQLite. **v1.6.10** ist Stable auf GitHub. v1.7.0 laeuft
-in der Beta-Reihe (zuletzt **beta.105**; beta.101 war der grosse Stabilisierungs-Release)
+in der Beta-Reihe (zuletzt **beta.106**; beta.101 war der grosse Stabilisierungs-Release)
 — wird `--latest` erst nach abgeschlossenem User-Test (User-Wort).
 
 ## ⛔ QA-Isolations-Regel (HART, seit dem DB-Vorfall 2026-06-10)
