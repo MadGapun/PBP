@@ -150,3 +150,71 @@ def test_695_frische_db_legt_normal_an(setup_env):
     assert p["country"] == "Deutschland"
     assert p["preferences"]["min_gehalt"] == 50000
     assert p["preferences"]["stellentyp"] == "beides"
+
+
+def test_695_leerstring_informal_notes_bewahrt_bestand(setup_env):
+    """(e) Explizit leerer String fuer informal_notes loescht den Bestand NICHT.
+
+    Der haeufigste Datenverlust-Pfad: ein Aufruf reicht informal_notes=""
+    mit (statt es wegzulassen). '' ist falsy -> Bestand muss bleiben.
+    """
+    db = setup_env
+    db.save_profile(dict(_VOLL_PROFIL))
+    mcp = _make_mcp(db)
+    _call(mcp, "profil_erstellen", {
+        "name": "Max Tester", "email": "", "phone": "",
+        "summary": "", "informal_notes": "",
+    })
+    p = db.get_profile()
+    assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
+    assert p["summary"] == "Erfahrener Tester."
+    assert p["email"] == "max@example.com"
+    assert p["phone"] == "+49 123 456789"
+
+
+def test_695_nur_telefon_bewahrt_rest(setup_env):
+    """(f) Nur phone gesetzt: alle anderen Felder unveraendert."""
+    db = setup_env
+    db.save_profile(dict(_VOLL_PROFIL))
+    mcp = _make_mcp(db)
+    _call(mcp, "profil_erstellen", {"name": "Max Tester", "phone": "+49 999 000"})
+    p = db.get_profile()
+    assert p["phone"] == "+49 999 000"
+    assert p["email"] == "max@example.com"
+    assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
+    assert p["summary"] == "Erfahrener Tester."
+
+
+def test_695_nur_summary_bewahrt_rest(setup_env):
+    """(g) Nur summary gesetzt: informal_notes + Kontaktfelder unveraendert."""
+    db = setup_env
+    db.save_profile(dict(_VOLL_PROFIL))
+    mcp = _make_mcp(db)
+    _call(mcp, "profil_erstellen",
+          {"name": "Max Tester", "summary": "Neue Zusammenfassung."})
+    p = db.get_profile()
+    assert p["summary"] == "Neue Zusammenfassung."
+    assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
+    assert p["email"] == "max@example.com"
+    assert p["phone"] == "+49 123 456789"
+
+
+def test_695_sequenzielle_teilupdates_verlieren_nichts(setup_env):
+    """(h) Mehrere Aufrufe nacheinander mit je anderem Teilfeld akkumulieren,
+    ohne je einen frueher gesetzten Wert zu verlieren."""
+    db = setup_env
+    db.save_profile(dict(_VOLL_PROFIL))
+    mcp = _make_mcp(db)
+    _call(mcp, "profil_erstellen", {"name": "Max Tester", "email": "a@b.de"})
+    _call(mcp, "profil_erstellen", {"name": "Max Tester", "phone": "+49 7 7"})
+    _call(mcp, "profil_erstellen", {"name": "Max Tester", "city": "Hamburg"})
+    _call(mcp, "profil_erstellen", {"name": "Max Tester", "ziel_gehalt": 99000})
+    p = db.get_profile()
+    assert p["email"] == "a@b.de"
+    assert p["phone"] == "+49 7 7"
+    assert p["city"] == "Hamburg"
+    assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
+    assert p["summary"] == "Erfahrener Tester."
+    assert p["preferences"]["ziel_gehalt"] == 99000
+    assert p["preferences"]["min_gehalt"] == 70000  # nie angefasst -> Bestand
+    assert p["preferences"]["custom_key"] == "bleibt"

@@ -36,5 +36,11 @@ jobs:
       - name: Run full test suite
         run: pytest -q
 
+      - name: Frontend-Datumslogik (Kipp-Test, Europe/Berlin, #701)
+        # Bewusst in UTC ausgefuehrt: beweist, dass die relativen Datumslabels
+        # auch dann in Europe/Berlin rechnen, wenn der Host nicht auf Berlin
+        # steht. Nutzt den auf den Runnern vorinstallierten Node, kein Framework.
+        run: TZ=UTC node frontend/src/lib/relativeDate.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

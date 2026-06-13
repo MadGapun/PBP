@@ -19,6 +19,16 @@ logger = logging.getLogger("bewerbungs_assistent.database")
 
 SCHEMA_VERSION = 46
 
+# #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
+# SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
+# MCP-Server sind zwei Prozesse mit je eigener Connection auf dieselbe
+# pbp.db — SQLite erlaubt nur einen Writer. 30s ueberdauert jeden
+# legitimen einzelnen Schreibvorgang (auch Bulk-Tools/Auto-Engine-Zyklen),
+# bleibt aber weit unter dem 4-Min-Client-Timeout des MCP-Clients. Wird der
+# Lock laenger gehalten, ist das ein echter Leak — dann greift die klare
+# Fehlermeldung + das rollback_if_stale-Sicherheitsnetz (#708).
+BUSY_TIMEOUT_MS = 30000
+
 
 def _gen_id() -> str:
     """Generate a short unique ID (8 hex chars)."""
@@ -162,11 +172,11 @@ class Database:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
-            # #708: MCP-Server und Dashboard-Thread haben je eine eigene
-            # Connection (zwei Writer). Ohne busy_timeout scheitert ein Write
-            # SOFORT mit 'database is locked', sobald der andere gerade
-            # schreibt — mit Timeout wird bis zu 5s gewartet.
-            self._conn.execute("PRAGMA busy_timeout=5000")
+            # #708/#723: MCP-Server und Dashboard sind zwei Prozesse mit je
+            # eigener Connection (zwei Writer). Ohne busy_timeout scheitert ein
+            # Write SOFORT mit 'database is locked', sobald der andere gerade
+            # schreibt — mit Timeout wird bis BUSY_TIMEOUT_MS gewartet.
+            self._conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
         return self._conn
 
     def rollback_if_stale(self, context: str = "") -> bool:
@@ -257,9 +267,29 @@ class Database:
         else:
             current = int(row["value"])
             if current < SCHEMA_VERSION:
-                # Backup before schema migration
+                # #705: Pflicht-Backup VOR dem ersten Migrationsschritt.
+                # Schlaegt es fehl, wird die Migration HART abgebrochen statt
+                # ohne Sicherheitsnetz zu migrieren — ein fehlgeschlagenes
+                # Update ist reparierbar, ein Datenverlust ohne Backup nicht.
                 backup_dir = self.db_path.parent / "backups"
-                create_backup(self.db_path, backup_dir)
+                try:
+                    backup_path = create_backup(self.db_path, backup_dir)
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Pre-Migration-Backup fehlgeschlagen ({exc}) — "
+                        f"Migration abgebrochen, um Datenverlust zu vermeiden. "
+                        f"Bitte Speicherplatz/Schreibrechte unter {backup_dir} "
+                        f"pruefen und PBP neu starten."
+                    ) from exc
+                # Die DB existiert hier garantiert (schema_version wurde gerade
+                # gelesen) — also MUSS ein gueltiges Backup entstanden sein.
+                if (not backup_path or not backup_path.exists()
+                        or backup_path.stat().st_size < 1024):
+                    raise RuntimeError(
+                        f"Pre-Migration-Backup wurde nicht gueltig geschrieben "
+                        f"(Pfad: {backup_path}) — Migration abgebrochen, um "
+                        f"Datenverlust zu vermeiden."
+                    )
                 self._migrate(current, SCHEMA_VERSION)
         # Safety net: ensure is_pinned column exists (may be missing if a prior
         # v10 migration only added profile-scoped tables but not this column).

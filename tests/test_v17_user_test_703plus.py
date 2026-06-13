@@ -59,9 +59,13 @@ def _make_mcp(db, modname):
 
 def test_708_busy_timeout_gesetzt(setup_env):
     db = setup_env
+    from bewerbungs_assistent.database import BUSY_TIMEOUT_MS
     conn = db.connect()
     timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
-    assert timeout == 5000, f"busy_timeout ist {timeout}, erwartet 5000"
+    # #723: auf 30s angehoben (war 5s) — ueberdauert legitime Bulk-Writes,
+    # bleibt weit unter dem 4-Min-Client-Timeout.
+    assert timeout == BUSY_TIMEOUT_MS, f"busy_timeout ist {timeout}, erwartet {BUSY_TIMEOUT_MS}"
+    assert BUSY_TIMEOUT_MS == 30000
 
 
 def test_708_rollback_if_stale_raeumt_leak(setup_env):

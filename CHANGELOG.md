@@ -16,6 +16,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.105] - 2026-06-13 — Release-Gate: Datenintegritaet, DB-Kontention, Zeitanzeige (Teil A, Stable-Kandidat)
+
+> ⚠️ **Pre-Release / Beta — zugleich der Stable-Kandidat fuer v1.7.0.** Stable
+> bleibt **v1.6.10**, bis der Abschlusstest durch ist. Keine Schema-Aenderung
+> (bleibt v46). Nach dem Update Claude Desktop komplett beenden und neu starten,
+> Dashboard hart neu laden (Strg+F5).
+
+Diese Version schliesst die drei Pflicht-Blocker des Release-Gates ab. Vieles
+davon war Verifikation statt Neubau — bestaetigt mit Tests, nicht nur Code-Lesung.
+
+### Datenintegritaet bei Update/Migration (#705, Teil A1)
+
+- **Generalprobe Migration** als Pflicht-Test: Eine voll befuellte 1.6.x-DB
+  (Schema v31, Profil inkl. informal_notes/summary/Kontaktdaten, mehrere
+  Bewerbungen mit Events/Meetings/Follow-ups, Dokumente, Skills, Positionen,
+  Projekt, Ausbildung) wird auf das aktuelle Schema migriert und Feld- bzw.
+  zeilengenau gegen den Vorher-Zustand geprueft: kein vorher befuelltes
+  Profilfeld wird leer, alle Tabellen-Zaehler bleiben >= vorher, keine Waisen.
+  Bestaetigt: der reale 1.6.x->1.7-Pfad ist rein additiv (ADD COLUMN /
+  CREATE TABLE) — die drei Tabellen-Rebuilds greifen nur fuer Schemas < v23.
+- **Pre-Migration-Backup ist jetzt verbindlich:** Schlaegt das Backup vor der
+  Migration fehl, wird die Migration HART abgebrochen (klare Fehlermeldung)
+  statt ohne Sicherheitsnetz weiterzulaufen.
+- **profil_erstellen-Merge** gegen Datenverlust gehaertet und um Randfaelle
+  erweitert (leerer String loescht keinen Bestand, sequenzielle Teilupdates,
+  nur-Telefon / nur-Summary).
+- **Export/Import-Sicherheitsnetz** mit Round-Trip-Test (informal_notes
+  ueberlebt Export -> Import).
+
+### DB-Schreib-Kontention Dashboard <-> MCP (#723, Teil A2)
+
+- **busy_timeout auf 30s angehoben** (war 5s) auf der gemeinsam genutzten
+  Connection — ueberdauert auch laengere Bulk-Writes/Auto-Engine-Zyklen, bleibt
+  aber weit unter dem 4-Min-Client-Timeout. Zusammen mit WAL und dem
+  rollback_if_stale-Sicherheitsnetz (#708) heilt das die sporadischen
+  "MCP antwortet nicht"-Haenger, wenn parallel im Dashboard gepflegt wird.
+- **Reproduktionstest** fuer den Kontentions-Fall: ein zweiter Writer wartet
+  auf die Lock-Freigabe und geht dann durch, statt sofort zu scheitern oder in
+  den Client-Timeout zu haengen.
+
+### Zeitanzeige (#701, Teil A3)
+
+- Relative Datumslabels (heute/morgen/uebermorgen/in X Tagen) rechnen jetzt
+  explizit in **Europe/Berlin** und sind damit unabhaengig von der Zeitzone des
+  Rechners — das Label kippt nicht mehr um Mitternacht UTC. Logik in eine pure,
+  testbare Hilfsfunktion (`lib/relativeDate`) ausgelagert.
+- **Kipp-Test** deckt den UTC-Mitternachts-Grenzfall ab (Sommer-/Winterzeit),
+  laeuft in der CI bewusst unter TZ=UTC. Der grosse einheitliche UTC-Umbau
+  (Master-Plan A18) ist bewusst auf v1.7.1/v1.8 vertagt — der akute Fall ist
+  behoben.
+
+### Verifiziert und geschlossen
+
+- **#668** (Jobsuche-Gesamttimeout): Pro-Scraper-Timeout, Auto-Skip defekter
+  Quellen, Teilergebnis-Persistierung und parallele Ausfuehrung sind vorhanden
+  und belegt.
+- **#724 / #725** (E-Mail-Verknuepfung + Dashboard-Kachel): E-Mail-Matching
+  laeuft ueber alle Bewerbungs-Status (kein Aktiv-Filter); die "offen"-Kachel
+  ist klickbar mit Zuordnen-/Loeschen-Aktionen.
+
+### Unter der Haube
+
+Neue Tests: `test_v17_migration_generalprobe_705`, `test_v17_db_contention_723`,
+erweiterte `test_v17_profil_merge_695`, Frontend-Kipp-Test
+`frontend/src/lib/relativeDate.test.mjs` (in CI). Suite: 1739 passed, 1 skipped.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.105.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.105.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `dataackups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.104] - 2026-06-12 — Lokale-KI-Transparenz + Elwosa-Feature-Tipps (#689 Teil 1, #713)
 
 > ⚠️ **Pre-Release / Beta**. Stable bleibt **v1.6.10**. Neuer Frontend-Build,
