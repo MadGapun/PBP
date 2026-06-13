@@ -30,6 +30,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import { berlinDayDiff } from "@/lib/relativeDate";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -738,10 +739,11 @@ export default function DashboardPage() {
                 const meetingDate = new Date(meeting.meeting_date);
                 const now = new Date();
                 const diffMs = meetingDate - now;
-                // #701: Kalendertage statt 24h-Schritte — ein Termin in 47h ist
-                // "uebermorgen", nicht "morgen"; sonst kippt das Label je nach Uhrzeit.
-                const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-                const dayDiff = Math.round((startOfDay(meetingDate) - startOfDay(now)) / 86400000);
+                // #701: Kalendertage in Europe/Berlin statt 24h-Schritte — ein
+                // Termin in 47h ist "uebermorgen", nicht "morgen"; und das Label
+                // darf nicht um Mitternacht UTC kippen, wenn der Rechner nicht
+                // auf Berlin steht. Siehe lib/relativeDate (+ Kipp-Test).
+                const dayDiff = berlinDayDiff(meetingDate, now);
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 const countdown =
                   dayDiff > 1

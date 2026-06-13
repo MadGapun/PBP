@@ -1,13 +1,14 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.7.0-beta.104",
+  "version": "1.7.0-beta.105",
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "pnpm exec vite",
     "build": "pnpm exec vite build",
-    "preview": "pnpm exec vite preview"
+    "preview": "pnpm exec vite preview",
+    "test": "node src/lib/relativeDate.test.mjs"
   },
   "keywords": [],
   "author": "",
