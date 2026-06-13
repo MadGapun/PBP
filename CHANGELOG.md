@@ -16,6 +16,103 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.106] - 2026-06-13 — Scraper-Robustheit: Fehlerklassifikation statt Pauschal-Deaktivierung (#719-#722)
+
+> ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **Schema v46 -> v47**
+> (rein additiv: eine neue Spalte `scraper_health.error_class`; automatisches
+> Backup laeuft vor der Migration). Nach dem Update Claude Desktop komplett
+> beenden und neu starten, Dashboard hart neu laden (Strg+F5).
+
+Ein eigenstaendiger Feature-Block (kein Stabilitaets-Fix): Das System
+unterscheidet beim Abschalten einer Job-Quelle jetzt zwischen "kurz weg" und
+"dauerhaft kaputt" — und behandelt das oft nur temporaere Problem (Timeout,
+5xx, Verbindung) nicht mehr mit der haertesten, dauerhaftesten Reaktion.
+
+### Added
+
+- **#720 — Fehlerklassifikation:** Neue zentrale, testbare Funktion
+  `classify_scraper_error` leitet aus dem aufgetretenen Fehler eine Klasse ab —
+  `tot` (404/410), `blockiert` (403/429), `server_weg` (Timeout/5xx/Connection/
+  DNS), `kaputt` (Parser-Crash/ImportError). Die Klasse wird bis in
+  `scraper_health.last_status_detail` ("server_weg: timeout 90s") und eine
+  eigene Spalte `error_class` durchgereicht. Rein additiv, kein
+  Verhaltenswechsel in diesem Schritt.
+- **#721 — Differenzierte Reaktion:** Der fail-Pfad nutzt jetzt die schon
+  vorhandene Backoff-/Probe-Mechanik, gesteuert durch die Klasse:
+  - `server_weg` / `blockiert` werden nach 5 gleichartigen Fehlern in Folge
+    **pausiert-mit-Probe** (kommen per Probe-Run automatisch zurueck) statt
+    hart deaktiviert. Bei 429 wird der Retry-After-Header respektiert.
+  - `tot` / `kaputt` werden weiterhin hart deaktiviert (kommen nicht von
+    selbst zurueck).
+  - Ein einzelner Aussetzer bei sonst gesunder Quelle deaktiviert NICHT.
+  - Fehlt die Klasse (Altdaten), bleibt das bisherige Verhalten — kein
+    Regressionsrisiko.
+- **#722 — Dashboard-Sichtbarkeit:** Die Quellen-Health-Anzeige (Einstellungen
+  -> Quellen) zeigt jetzt differenzierte Zustaende statt nur "deaktiviert":
+  **pausiert (Probe geplant)**, **blockiert (403/429)**, **tot (404)**,
+  **kaputt (Code-Fix)** — je mit Fehlerklasse im Klartext, naechstem
+  Probe-Zeitpunkt sowie letztem Erfolg und letzter Trefferzahl. Der
+  "Jetzt reaktivieren"-Button war bereits vorhanden.
+
+### Verifiziert
+
+- **#719 (Master):** Generalprobe als Test abgedeckt — server_weg x5 ->
+  pausiert (nicht hart), 404 -> tot (hart), Erfolg nach Pause -> reaktiviert.
+  Der 1.8-Roadmap-Teil (Claude-Handoff fuer blockierte/SPA-tote Quellen,
+  Playwright-Adapter #656, Langzeit-Auswertung) bleibt bewusst offen.
+
+### Unter der Haube
+
+Neuer Service `services/scraper_classifier.py`. Neue Tests
+`test_v17_scraper_robustheit_720_721` (Klassifikation + differenzierte
+Reaktion) und `test_v17_scraper_dashboard_722` (Badge-Vertrag). Schema-
+Migration v46->v47 (ALTER-only). Suite: 1753 passed, 1 skipped.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.106.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.106.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `dataackups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.105] - 2026-06-13 — Release-Gate: Datenintegritaet, DB-Kontention, Zeitanzeige (Teil A, Stable-Kandidat)
 
 > ⚠️ **Pre-Release / Beta — zugleich der Stable-Kandidat fuer v1.7.0.** Stable

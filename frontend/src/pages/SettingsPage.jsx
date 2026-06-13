@@ -706,7 +706,11 @@ function ScraperHealthCard({ pushToast }) {
 
   function statusOf(s) {
     if (!s.is_active) {
-      if (s.reactivate_at) return "probing";
+      // #722: Fehlerklasse differenziert das frueher pauschale "Aus".
+      if (s.error_class === "tot") return "tot";
+      if (s.error_class === "kaputt") return "kaputt";
+      if (s.error_class === "blockiert") return "blockiert";
+      if (s.reactivate_at) return "probing";  // server_weg ODER stumm-Auto
       return "off";
     }
     if (s.consecutive_failures >= 3) return "warn";
@@ -717,12 +721,23 @@ function ScraperHealthCard({ pushToast }) {
   }
 
   const STATUS_CONFIG = {
-    ok:       { color: "bg-teal/80",   label: "OK" },
-    warn:     { color: "bg-amber/80",  label: "Warnung" },
-    silent:   { color: "bg-amber/80",  label: "Stumm" },
-    probing:  { color: "bg-amber/40",  label: "Probe geplant" },
-    off:      { color: "bg-coral/70",  label: "Aus" },
-    unknown:  { color: "bg-muted/40",  label: "Unbekannt" },
+    ok:        { color: "bg-teal/80",   label: "OK" },
+    warn:      { color: "bg-amber/80",  label: "Warnung" },
+    silent:    { color: "bg-amber/80",  label: "Stumm" },
+    probing:   { color: "bg-amber/40",  label: "Pausiert (Probe geplant)" },
+    blockiert: { color: "bg-amber/70",  label: "Blockiert (403/429)" },
+    tot:       { color: "bg-coral/80",  label: "Tot (404)" },
+    kaputt:    { color: "bg-coral/80",  label: "Kaputt (Code-Fix)" },
+    off:       { color: "bg-coral/70",  label: "Aus" },
+    unknown:   { color: "bg-muted/40",  label: "Unbekannt" },
+  };
+
+  // #722: Fehlerklasse im Klartext.
+  const ERROR_CLASS_LABEL = {
+    tot: "Endpoint/Seite weg (404/410)",
+    blockiert: "Geblockt / rate-limited (403/429)",
+    server_weg: "Server kurz weg (Timeout/5xx/Verbindung)",
+    kaputt: "Adapter/Parser defekt — Code-Fix noetig",
   };
 
   function relativeTime(iso) {
@@ -801,6 +816,15 @@ function ScraperHealthCard({ pushToast }) {
                 <div>
                   Letzter Lauf: {s.last_run ? new Date(s.last_run).toLocaleString("de-DE") : "—"}
                 </div>
+                <div>
+                  Letzter Erfolg: {s.last_success ? new Date(s.last_success).toLocaleDateString("de-DE") : "—"}
+                  {typeof s.last_count === "number" ? ` · ${s.last_count} Treffer` : ""}
+                </div>
+                {s.error_class && ERROR_CLASS_LABEL[s.error_class] && (
+                  <div className="col-span-2 text-muted/70">
+                    Fehlerklasse: <span className="text-ink/80">{ERROR_CLASS_LABEL[s.error_class]}</span>
+                  </div>
+                )}
                 {s.consecutive_failures > 0 && (
                   <div className="text-coral/80">
                     {s.consecutive_failures} Fehler in Folge
