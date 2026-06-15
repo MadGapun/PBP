@@ -323,6 +323,13 @@ async def api_status():
 
     profile = _db.get_profile()
     summary = summarize_profile(profile)
+    # #701: Serverzeit in Europe/Berlin fuer den Footer-Debughinweis.
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        _berlin_now = datetime.now(ZoneInfo("Europe/Berlin"))
+    except Exception:
+        _berlin_now = datetime.now()
     return {
         "version": __version__,
         "has_profile": profile is not None,
@@ -335,6 +342,8 @@ async def api_status():
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
         "mcp_connection": get_connection_status(),
+        "server_time": _berlin_now.strftime("%H:%M"),
+        "timezone": "Europe/Berlin",
     }
 
 
@@ -2290,6 +2299,8 @@ async def api_fit_analyse(job_hash: str):
         skills = profile.get("skills", [])
         criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
         criteria["_profile_education"] = profile.get("education", [])
+    # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
+    criteria["_hochschulabschluss_malus"] = _db.get_hochschulabschluss_malus()
     result = fit_analyse(job, criteria)
     # #306: Research notes (Claude-Analyse) mitsenden
     result["research_notes"] = job.get("research_notes") or ""
@@ -6284,6 +6295,14 @@ async def api_health():
         except ImportError:
             modules[mod_name] = None
 
+    # #701: Serverzeit in Europe/Berlin als einfaches Debugging-Mittel fuer
+    # Zeitverwechslungen (Footer zeigt "Serverzeit: HH:MM (Europe/Berlin)").
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        _berlin_now = datetime.now(ZoneInfo("Europe/Berlin"))
+    except Exception:
+        _berlin_now = datetime.now()
     return {
         "pbp_version": __version__,
         "python_version": platform.python_version(),
@@ -6295,6 +6314,9 @@ async def api_health():
         "document_count": doc_count,
         "modules": modules,
         "mcp_connection": get_connection_status(),
+        "server_time": _berlin_now.strftime("%H:%M"),
+        "server_time_iso": _berlin_now.isoformat(),
+        "timezone": "Europe/Berlin",
     }
 
 

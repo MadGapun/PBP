@@ -30,7 +30,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
-import { berlinDayDiff } from "@/lib/relativeDate";
+import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -745,19 +745,24 @@ export default function DashboardPage() {
                 // auf Berlin steht. Siehe lib/relativeDate (+ Kipp-Test).
                 const dayDiff = berlinDayDiff(meetingDate, now);
                 const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                const countdown =
-                  dayDiff > 1
-                    ? `in ${dayDiff} Tagen`
-                    : dayDiff === 1
-                      ? "morgen"
-                      : diffMs > 0
-                        ? (diffHours > 0 ? `heute, in ${diffHours} Std.` : "jetzt gleich")
-                        : "vergangen";
-                const isMeetingToday = dayDiff === 0 && diffMs > 0;
                 // #702: SQLite liefert is_private als 0/1 — {0 && <p>} rendert
                 // in React eine nackte "0" ins Widget. Boolean() verhindert das.
                 const isPrivate = Boolean(meeting.is_private);
                 const istErinnerung = Boolean(meeting.is_follow_up || meeting._isInterview);
+                // #701: relative Labels in zukuenftige Tage um die Berliner
+                // Uhrzeit ergaenzen ("in 2 Tagen, 14:00 Uhr") — aber nicht bei
+                // Erinnerungen/Follow-ups, die reine Tages-Aufgaben ohne
+                // sinnvolle Uhrzeit sind.
+                const zeitSuffix = istErinnerung ? "" : `, ${berlinTimeOfDay(meetingDate)} Uhr`;
+                const countdown =
+                  dayDiff > 1
+                    ? `in ${dayDiff} Tagen${zeitSuffix}`
+                    : dayDiff === 1
+                      ? `morgen${zeitSuffix}`
+                      : diffMs > 0
+                        ? (diffHours > 0 ? `heute, in ${diffHours} Std.` : "jetzt gleich")
+                        : "vergangen";
+                const isMeetingToday = dayDiff === 0 && diffMs > 0;
                 const platformIcon = meeting.platform === "teams" ? "Teams" :
                   meeting.platform === "zoom" ? "Zoom" :
                   meeting.platform === "google_meet" ? "Meet" : "";
@@ -793,7 +798,7 @@ export default function DashboardPage() {
                           {/* #702: Erinnerungen (Follow-ups) sind Tages-Aufgaben — die
                               Pseudo-Uhrzeit (02:00/09:00) verwirrt nur */}
                           {!istErinnerung && (
-                            <> {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr</>
+                            <> {berlinTimeOfDay(meetingDate)} Uhr</>
                           )}
                           {platformIcon && (
                             <span className="ml-1.5 rounded bg-sky/15 px-1.5 py-px text-[10px] font-bold text-sky">
@@ -805,7 +810,7 @@ export default function DashboardPage() {
                       {isPrivate && (
                         <p className="text-[12px] text-muted/40">
                           {formatDate(meeting.meeting_date)}{" "}
-                          {meetingDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+                          {berlinTimeOfDay(meetingDate)} Uhr
                         </p>
                       )}
                       <p className={`mt-0.5 text-[11px] font-medium ${

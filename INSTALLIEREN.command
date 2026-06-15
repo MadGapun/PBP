@@ -46,7 +46,7 @@ echo ""
 echo -e "${YELLOW}[1/6] Python pruefen...${NC}"
 
 PYTHON=""
-for cmd in python3 python; do
+for cmd in python3.13 python3.12 python3.11 python3 python; do
     if command -v $cmd &>/dev/null; then
         ver=$($cmd --version 2>&1)
         minor=$(echo "$ver" | sed -n 's/.*3\.\([0-9]*\).*/\1/p')

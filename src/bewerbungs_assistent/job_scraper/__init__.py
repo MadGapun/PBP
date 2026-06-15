@@ -1951,19 +1951,24 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if len(skill_miss) > len(skill_hits) and skill_miss:
             risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
-    # #305: Hochschulabschluss-Erkennung
+    # #305 / #698: Hochschulabschluss-Erkennung. Der Malus ist ueber
+    # scoring_konfigurieren('hochschulabschluss','fehlt') konfigurierbar
+    # (Default -2). criteria['_hochschulabschluss_malus'] == None bedeutet
+    # "ignorieren" — dann faellt Malus UND Risiko-Hinweis komplett weg.
     desc = job.get("description") or ""
     degree_required = _detect_degree_required(f"{job.get('title', '')} {desc}")
     has_degree = _profile_has_degree(criteria)
-    if degree_required and not has_degree:
+    _hs_malus = criteria.get("_hochschulabschluss_malus", -2)
+    if degree_required and not has_degree and _hs_malus is not None:
         risks.insert(0,
             "HOCHSCHULABSCHLUSS GEFORDERT — Stelle fordert formalen Abschluss "
             "(Studium/Bachelor/Master). Dein Profil enthält keinen. "
             "Risiko: Automatische ATS-Aussortierung möglich, "
             "selbst bei passender Berufserfahrung."
         )
-        factors["Hochschulabschluss fehlt"] = -2
-        total -= 2
+        if _hs_malus != 0:
+            factors["Hochschulabschluss fehlt"] = _hs_malus
+            total += _hs_malus
 
     # #180: Warnung bei fehlender Beschreibung
     if len(desc.strip()) < 50:

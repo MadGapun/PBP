@@ -16,6 +16,7 @@
   Monitor,
   Moon,
   Plus,
+  RefreshCw,
   Send,
   Settings2,
   Sun,
@@ -328,6 +329,18 @@ export default function App() {
   const TOAST_DEDUP_WINDOW_MS = 5000;
   const [page, setPage] = useState(parsePageFromHash());
   const [intent, setIntent] = useState(null);
+  // #630 (Stufe 1): manueller Refresh. Claude/MCP schreibt direkt in die DB;
+  // ohne Live-Subscription muss der User neu laden, um Hintergrund-Aenderungen
+  // zu sehen. Der Aktualisieren-Button bumpt refreshNonce -> die aktive Page
+  // wird ueber den ErrorBoundary-key neu gemountet und laedt ihre Daten frisch.
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [lastSync, setLastSync] = useState(() =>
+    new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
+  );
+  function doRefresh() {
+    setRefreshNonce((n) => n + 1);
+    setLastSync(new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }));
+  }
   const [reloadKey, setReloadKey] = useState(0);
   const [themeMode, setThemeModeState] = useState(() => loadMode());
   const [themeCustom, setThemeCustomState] = useState(() => loadCustom());
@@ -1269,6 +1282,21 @@ export default function App() {
             {/* v1.7.0 (#571): Globale Suche */}
             <GlobalSearch navigateTo={navigateTo} />
 
+            {/* #630 (Stufe 1): Aktualisieren-Button + letzter Sync. Aenderungen
+                via Claude erscheinen nach dem Neuladen. */}
+            <span className="hidden lg:inline text-[11px] text-muted/40 whitespace-nowrap" title="Aenderungen via Claude erscheinen nach dem Aktualisieren">
+              Letzter Sync: {lastSync}
+            </span>
+            <button
+              type="button"
+              onClick={doRefresh}
+              className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              title="Aktualisieren — laedt Aenderungen, die Claude im Hintergrund gemacht hat"
+              aria-label="Aktualisieren"
+            >
+              <RefreshCw size={18} />
+            </button>
+
             {/* Theme Toggle (#475) — System -> Light -> Dark cycle */}
             {(() => {
               const nextMode = themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system";
@@ -1504,8 +1532,10 @@ export default function App() {
               fuer JobsucheStatusBadge). Layout schlanker. */}
           <main className="min-w-0 flex-1 pb-12">
             {/* v1.7.0-beta.93: key={page} -> Boundary resettet beim Tab-Wechsel,
-                ein Crash in einem Tab blankt nie die ganze App (Sidebar bleibt). */}
-            <ErrorBoundary key={page}>
+                ein Crash in einem Tab blankt nie die ganze App (Sidebar bleibt).
+                #630: refreshNonce im key -> Aktualisieren remountet die Page und
+                laedt ihre Daten neu (zeigt Claude-Hintergrund-Aenderungen). */}
+            <ErrorBoundary key={`${page}-${refreshNonce}`}>
               {page === "dashboard" ? <DashboardPage /> : null}
               {page === "profil" ? <ProfilePage /> : null}
               {page === "stellen" ? <JobsPage /> : null}
@@ -1523,6 +1553,14 @@ export default function App() {
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
             <span>PBP v{chrome.status?.version || "?"}</span>
             <span aria-hidden="true" className="text-muted/30">·</span>
+            {chrome.status?.server_time && (
+              <>
+                <span title={`Zeitzone: ${chrome.status?.timezone || "Europe/Berlin"}`}>
+                  Serverzeit: {chrome.status.server_time} ({chrome.status?.timezone || "Europe/Berlin"})
+                </span>
+                <span aria-hidden="true" className="text-muted/30">·</span>
+              </>
+            )}
             <a
               href="https://github.com/MadGapun/PBP"
               target="_blank"

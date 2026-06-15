@@ -16,6 +16,98 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.107] - 2026-06-15 — Bugfix-Welle: Installer, Blacklist, Zeitanzeige, Scoring, Live-Updates (#728/#729/#701/#698/#630)
+
+> ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **Schema v47 -> v48**
+> (rein additiv: ein sichtbarer Scoring-Regler `hochschulabschluss/fehlt`;
+> automatisches Backup laeuft vor der Migration). Nach dem Update Claude Desktop
+> komplett beenden und neu starten, Dashboard hart neu laden (Strg+F5).
+
+### Fixed
+
+- **#728 — macOS-Installer erkennt Homebrew-Python:** `INSTALLIEREN.command`
+  und `installer/install.sh` probieren jetzt zuerst die versionierten Binaries
+  (`python3.13`/`python3.12`/`python3.11`), bevor sie auf `python3` zurueckfallen.
+  Vorher fand der Installer auf macOS nur Apples System-Python 3.9 und brach ab,
+  obwohl `brew install python@3.12` (der empfohlene Weg) ein passendes Python
+  bereitstellt.
+- **#729 — Blacklist-Check beim manuellen Anlegen:** `stelle_manuell_anlegen()`
+  prueft jetzt VOR dem Anlegen, ob die Firma auf der Blacklist steht, und legt
+  sie nicht an (klarer Fehler; `force=True` ueberbrueckt bewusst). Zusaetzlich
+  schlaegt PBP nach `stelle_bewerten()` nicht mehr vor, eine Firma auf die
+  Blacklist zu setzen, die bereits drauf steht. Neuer Helfer
+  `is_company_blacklisted` als gemeinsame Basis.
+- **#701 — Zeitdarstellung auf Europe/Berlin:** Relative Datumslabels tragen
+  jetzt die Berliner Uhrzeit ("in 2 Tagen, 14:00 Uhr") und die Uhrzeit-Anzeige
+  rechnet zeitzonen-robust (`berlinTimeOfDay`). Die Serverzeit steht zum
+  Debugging im Footer ("Serverzeit: HH:MM (Europe/Berlin)"). Der einheitliche
+  DB-weite Timestamp-Standard (naive vs. aware) bleibt bewusst Folge-Arbeit
+  (Master-Plan A18) — der akute Anzeige-Fehler ist behoben.
+
+### Added
+
+- **#698 — Hochschulabschluss-Malus konfigurierbar:** Der frueher hart codierte
+  -2-Malus (fehlender Hochschulabschluss) ist jetzt ein sichtbarer Scoring-Regler.
+  `scoring_konfigurieren('setzen','hochschulabschluss','fehlt', wert=0)` aendert
+  den Wert, `ignorieren=True` deaktiviert Malus UND Risiko-Hinweis komplett.
+  Default bleibt -2 (rueckwaertskompatibel).
+- **#630 — Live-Updates Stufe 1:** Aktualisieren-Knopf oben rechts in der
+  Kopfzeile (auf jeder Seite) laedt die aktuelle Seite neu und zeigt
+  Aenderungen, die Claude im Hintergrund gemacht hat; daneben "Letzter Sync:
+  HH:MM". FAQ-Eintrag "Wann muss ich aktualisieren?". (Automatisches Polling/SSE
+  bleibt spaetere Ausbaustufe.)
+
+### Unter der Haube
+
+Neue Tests: `test_v17_blacklist_manuell_729`, `test_v17_hochschul_malus_698`,
+`test_v17_serverzeit_701`, erweiterter Frontend-Kipp-Test (berlinTimeOfDay).
+Schema-Migration v47->v48 (ALTER-/INSERT-only). Suite: 1767 passed, 1 skipped.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.107.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.107.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `dataackups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.106] - 2026-06-13 — Scraper-Robustheit: Fehlerklassifikation statt Pauschal-Deaktivierung (#719-#722)
 
 > ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **Schema v46 -> v47**
