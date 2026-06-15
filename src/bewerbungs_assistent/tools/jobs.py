@@ -2585,6 +2585,8 @@ def register(mcp, db, logger):
                 criteria["min_gehalt"] = prefs["min_gehalt"]
             if prefs.get("min_tagessatz"):
                 criteria["min_tagessatz"] = prefs["min_tagessatz"]
+        # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
+        criteria["_hochschulabschluss_malus"] = db.get_hochschulabschluss_malus()
         result = _fit_analyse(job_dict, criteria)
 
         # v1.6.5 (#539, Folge von #535): Fit-Score zurueck in jobs.score

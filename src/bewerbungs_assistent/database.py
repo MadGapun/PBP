@@ -4713,9 +4713,6 @@ class Database:
         criteria = {}
         for row in rows:
             criteria[row["key"]] = json.loads(row["value"])
-        # #698: Konfigurierbaren Hochschulabschluss-Malus mitliefern, damit
-        # fit_analyse ihn lesen kann (None = per scoring_konfigurieren ignoriert).
-        criteria["_hochschulabschluss_malus"] = self.get_hochschulabschluss_malus()
         return criteria
 
     def get_hochschulabschluss_malus(self):

@@ -59,17 +59,26 @@ def test_698_ignorieren_gibt_none(db):
     assert db.get_hochschulabschluss_malus() is None
 
 
-def test_698_criteria_traegt_malus(db):
+def test_698_get_search_criteria_bleibt_sauber(db):
+    # Der Malus ist KEIN Suchkriterium — get_search_criteria darf den
+    # computed key NICHT mitliefern (sonst leakt er in /api/search-criteria).
     crit = db.get_search_criteria()
-    assert crit["_hochschulabschluss_malus"] == -2
+    assert "_hochschulabschluss_malus" not in crit
 
 
 # ============= fit_analyse-Wirkung =============
+# Die Aufrufer (MCP-Tool + Dashboard) injizieren den Malus in criteria —
+# hier exakt nachgestellt: criteria + helper, dann fit_analyse.
+
+def _crit_mit_malus(db):
+    crit = db.get_search_criteria()
+    crit["_hochschulabschluss_malus"] = db.get_hochschulabschluss_malus()
+    return crit
+
 
 def test_698_fit_analyse_default_malus(db):
     from bewerbungs_assistent.job_scraper import fit_analyse
-    crit = db.get_search_criteria()
-    res = fit_analyse(_DEGREE_JOB, crit)
+    res = fit_analyse(_DEGREE_JOB, _crit_mit_malus(db))
     assert res["hochschulabschluss_gefordert"] is True
     assert res["factors"].get("Hochschulabschluss fehlt") == -2
     assert any("HOCHSCHULABSCHLUSS" in r for r in res["risks"])
@@ -78,8 +87,7 @@ def test_698_fit_analyse_default_malus(db):
 def test_698_fit_analyse_ignoriert_keine_punkte_kein_risiko(db):
     from bewerbungs_assistent.job_scraper import fit_analyse
     db.set_scoring_config("hochschulabschluss", "fehlt", -2, True)  # ignorieren
-    crit = db.get_search_criteria()
-    res = fit_analyse(_DEGREE_JOB, crit)
+    res = fit_analyse(_DEGREE_JOB, _crit_mit_malus(db))
     assert "Hochschulabschluss fehlt" not in res["factors"]
     assert not any("HOCHSCHULABSCHLUSS" in r for r in res["risks"])
 
@@ -87,8 +95,7 @@ def test_698_fit_analyse_ignoriert_keine_punkte_kein_risiko(db):
 def test_698_fit_analyse_wert_null_zeigt_risiko_ohne_punkte(db):
     from bewerbungs_assistent.job_scraper import fit_analyse
     db.set_scoring_config("hochschulabschluss", "fehlt", 0, False)
-    crit = db.get_search_criteria()
-    res = fit_analyse(_DEGREE_JOB, crit)
+    res = fit_analyse(_DEGREE_JOB, _crit_mit_malus(db))
     assert "Hochschulabschluss fehlt" not in res["factors"]
     # Risiko-Hinweis bleibt informativ
     assert any("HOCHSCHULABSCHLUSS" in r for r in res["risks"])

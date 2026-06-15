@@ -2299,6 +2299,8 @@ async def api_fit_analyse(job_hash: str):
         skills = profile.get("skills", [])
         criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
         criteria["_profile_education"] = profile.get("education", [])
+    # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
+    criteria["_hochschulabschluss_malus"] = _db.get_hochschulabschluss_malus()
     result = fit_analyse(job, criteria)
     # #306: Research notes (Claude-Analyse) mitsenden
     result["research_notes"] = job.get("research_notes") or ""
