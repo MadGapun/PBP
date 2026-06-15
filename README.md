@@ -237,12 +237,13 @@ und in der UI; intern bleibt die ID gleich.
 
 ### v1.7.0-Beta-Reihe (April–Juni 2026) — Lokale KI, Elwosa, Stabilisierung
 
-Ueber 100 Beta-Iterationen Richtung v1.7.0 (aktuell **beta.102**, Stable bleibt v1.6.10):
+Ueber 100 Beta-Iterationen Richtung v1.7.0 (aktuell **beta.108**, Stable bleibt v1.6.10):
 
 - **Lokale KI (Ollama)** als Hintergrund-Backbone — Auto-Aussortieren per Profil-Match, Doku-Klassifikation, Lern-System mit Pattern-Analyse, Automatik-Scheduler
 - **Elwosa** — Live-Statusanzeige der lokalen AI mit eigener Persoenlichkeit + kontextuellen Tipps pro Seite
 - **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
 - **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
+- **Laufende Bugfix-Wellen (beta.103–108)** — DB-Kontention, Zeitanzeige (Europe/Berlin), Scraper-Robustheit (Fehlerklassifikation), Geo-Filter fuer nicht-DACH Stellen, Stilarchiv-Autosave, korrekte Interview-Quote
 - Stand: 177 MCP-Tools, 24 Prompts, Schema v48, ueber 1700 Tests
 
 ### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
