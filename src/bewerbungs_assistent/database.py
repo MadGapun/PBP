@@ -5063,6 +5063,22 @@ class Database:
             "SELECT * FROM blacklist ORDER BY type, value"
         ).fetchall()]
 
+    def is_company_blacklisted(self, company: str):
+        """#729: Liefert den Blacklist-Eintrag (type='firma'), der auf `company`
+        matcht, sonst None. Match ist case-insensitiv und beidseitig-substring —
+        identisch zur Logik in blacklist_anwenden, damit beide gleich entscheiden.
+        """
+        if not company:
+            return None
+        c_lc = company.lower()
+        for e in self.get_blacklist():
+            if e.get("type") != "firma":
+                continue
+            v = (e.get("value") or "").lower()
+            if v and (v in c_lc or c_lc in v):
+                return e
+        return None
+
     def remove_blacklist_entry(self, entry_id: int) -> bool:
         pid = self.get_active_profile_id()
         conn = self.connect()

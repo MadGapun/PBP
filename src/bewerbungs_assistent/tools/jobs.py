@@ -816,10 +816,14 @@ def register(mcp, db, logger):
                     hints.append(f"Tipp: Setze '{g}' im Scoring-Regler auf 'Komplett Ignorieren' (scoring_konfigurieren).")
                 elif normalized == "firma_uninteressant":
                     job = db.get_job(job_hash)
-                    if job:
+                    company = (job or {}).get("company", "")
+                    # #729: Hinweis nur wenn die Firma noch NICHT auf der
+                    # Blacklist steht — sonst schlaegt PBP etwas vor, das schon
+                    # erledigt ist.
+                    if company and not db.is_company_blacklisted(company):
                         hints.append(
-                            f"Tipp: Moechtest du '{job.get('company', '')}' auf die Blacklist setzen? "
-                            f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{job.get('company', '')}')."
+                            f"Tipp: Moechtest du '{company}' auf die Blacklist setzen? "
+                            f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{company}')."
                         )
 
         db.set_setting("dismiss_counts", counts)
@@ -1846,6 +1850,21 @@ def register(mcp, db, logger):
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
+
+        # #729: Blacklist-Check auf die Firma VOR dem Anlegen. Vorher wurde eine
+        # Stelle einer geblacklisteten Firma kommentarlos angelegt (z.B. via
+        # Claude-in-Chrome). force=True ueberbrueckt den Block bewusst.
+        _bl_hit = db.is_company_blacklisted(firma)
+        if _bl_hit and not force:
+            grund = _bl_hit.get("reason") or "ohne Begruendung"
+            return {
+                "fehler": (
+                    f"Firma '{firma}' steht auf der Blacklist ({grund}). "
+                    "Stelle nicht angelegt."
+                ),
+                "blacklist_treffer": _bl_hit.get("value"),
+                "hinweis": "Mit force=True kann die Stelle dennoch angelegt werden.",
+            }
 
         from ..job_scraper import stelle_hash, calculate_score, extract_salary_from_text, estimate_salary
 
