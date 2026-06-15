@@ -1981,6 +1981,9 @@ def register(mcp, db, logger):
             "source": quelle,
             "remote_level": remote,
             "employment_type": stellenart,
+            # #732/#733: bewusste User-Aktion — nicht dem automatischen
+            # Geo-Aussortierer (save_jobs) zum Opfer fallen lassen.
+            "_manual_entry": True,
         }
 
         # Score
@@ -2025,6 +2028,18 @@ def register(mcp, db, logger):
         }
         if job.get("distance_km"):
             result["entfernung_km"] = job["distance_km"]
+        # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
+        # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
+        # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
+        # ("18 Stellen manuell", obwohl keine von Hand angelegt wurde).
+        if quelle == "manuell":
+            result["hinweis"] = (
+                "quelle='manuell' gesetzt. Wenn die echte Herkunft bekannt "
+                "ist (z.B. 'linkedin', 'xing', 'firmenwebsite'), bitte den "
+                "Parameter quelle entsprechend setzen — sonst zaehlt die "
+                "Stelle faelschlich als manuell angelegt. Bei bekannter URL "
+                "wird die Quelle automatisch abgeleitet (#613/#733)."
+            )
         # v1.7.0-beta.87 (#670): wenn ein Duplikat-Verdacht via force=True
         # uebersteuert wurde, transparent im Result melden.
         if uebersteuerter_verdacht:

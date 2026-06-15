@@ -40,6 +40,42 @@ def _auto_save_job_description(db, firma: str, stelle: str, beschreibung: str):
         pass  # Non-critical feature
 
 
+def _auto_save_stilarchiv(db, kind: str, content: str, firma: str, stelle: str):
+    """Legt nach einem Export automatisch eine Stilarchiv-Version an (#734).
+
+    'Letzte Version gewinnt' pro (Bewerbung bzw. Titel, kind) via
+    upsert_document_version — so stapeln sich nicht beliebig viele
+    Versionen pro Bewerbung. Verlinkt die Bewerbung, wenn eine zu
+    Firma+Stelle existiert. Komplett non-critical (Export schlaegt nie
+    daran fehl). Gibt die Version-ID zurueck oder None.
+    """
+    if not content or not content.strip():
+        return None
+    try:
+        title = " — ".join(t for t in (firma, stelle) if t) or "ohne Titel"
+        application_id = None
+        pid = db.get_active_profile_id()
+        conn = db.connect()
+        if firma and stelle:
+            row = conn.execute(
+                "SELECT id FROM applications WHERE company LIKE ? AND title LIKE ? "
+                "AND (profile_id=? OR profile_id IS NULL) "
+                "ORDER BY created_at DESC LIMIT 1",
+                (f"%{firma}%", f"%{stelle}%", pid),
+            ).fetchone()
+            if row:
+                application_id = row["id"]
+        return db.upsert_document_version({
+            "kind": kind,
+            "title": title,
+            "content": content,
+            "application_id": application_id,
+            "notes": "Automatisch beim Export archiviert (#734).",
+        })
+    except Exception:
+        return None  # Non-critical feature
+
+
 def register(mcp, db, logger):
     from . import ki_gate
     """Registriert Export-Tools."""
@@ -307,12 +343,20 @@ def register(mcp, db, logger):
         if stellenbeschreibung:
             _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
 
+        # #734: Anschreiben automatisch im Stilarchiv ablegen (letzte
+        # Version gewinnt) — damit stil_auswertung()/stilarchiv_kontext()
+        # echte Daten haben, ohne dass der manuelle Schritt vergessen wird.
+        _stil_vid = _auto_save_stilarchiv(db, "cover_letter", text, firma, stelle)
+
         result = {
             "status": "erstellt",
             "datei": str(path),
             "format": format,
             "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
         }
+        if _stil_vid:
+            result["stilarchiv_version_id"] = _stil_vid
+            result["nachricht"] += " Im Stilarchiv abgelegt (#734)."
         if format == "pdf":
             result["empfehlung"] = (
                 "DOCX ist fuer Bewerbungen in der Regel besser geeignet: "

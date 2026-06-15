@@ -764,18 +764,24 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def stil_auswertung() -> dict:
-        """Wertet getrackte Anschreiben-Stile aus: Welcher Stil bringt mehr Interviews/Angebote? (#454)
+        """Wertet getrackte Anschreiben-Stile aus: Welcher Stil oeffnet mehr Tueren (Interviews)? (#454, #736)
 
-        Liest alle stil_tracking-Events aus application_events und joined gegen
-        den aktuellen Status der jeweiligen Bewerbung. Berechnet pro Stil:
-        Anzahl, Interview-Quote, Angebots-Quote, Absage-Quote.
+        Liest alle stil_tracking-Events aus application_events. Die
+        Interview-Quote misst, welcher Anteil der Bewerbungen eines Stils
+        MINDESTENS EIN Interview erreicht hat — bestimmt ueber den
+        Status-Verlauf (Timeline), nicht ueber den finalen Status (#736).
+        Eine Bewerbung mit Verlauf interview -> abgelehnt zaehlt also als
+        Interview-Treffer UND als (Nach-Interview-)Absage. Begruendung: das
+        Anschreiben beeinflusst die Einladung, nicht was im Gespraech folgt.
 
-        Mindestens 3 Bewerbungen pro Stil noetig damit eine Quote
-        ausgegeben wird (sonst zu rauschig).
+        Pro Stil: Anzahl, Interview-Quote, Angebots-Quote, Absage-Quote
+        (zusaetzlich aufgeschluesselt in absage_nach_interview /
+        absage_ohne_interview). Mindestens 3 Bewerbungen pro Stil noetig
+        damit eine Quote ausgegeben wird (sonst zu rauschig).
         """
         conn = db.connect()
         rows = conn.execute("""
-            SELECT e.notes, e.application_id, a.status
+            SELECT e.notes, e.application_id, a.status, a.has_reached_interview
             FROM application_events e
             JOIN applications a ON a.id = e.application_id
             WHERE e.status = 'stil_tracking'
@@ -797,7 +803,9 @@ def register(mcp, db, logger):
             m = re.match(r"Anschreiben-Stil:\s*(\w+)", notes)
             if not m:
                 continue
-            latest_per_app[r["application_id"]] = (m.group(1).lower(), r["status"])
+            latest_per_app[r["application_id"]] = (
+                m.group(1).lower(), r["status"], r["has_reached_interview"]
+            )
 
         if not latest_per_app:
             return {
@@ -806,29 +814,67 @@ def register(mcp, db, logger):
                 "stile": {},
             }
 
-        INTERVIEW_STATES = {"interview", "zweitgespraech"}
+        # #736: Interview-Stati inkl. interview_abgeschlossen — und die
+        # Interview-Erreichung wird ueber den STATUS-VERLAUF
+        # (application_events) bestimmt, nicht ueber den finalen Status.
+        # Sonst zaehlt eine Bewerbung mit Verlauf interview -> abgelehnt
+        # faelschlich als 0 Interviews. Das Anschreiben entscheidet, ob eine
+        # Tuer aufgeht (Interview) — nicht was danach im Gespraech passiert.
+        INTERVIEW_STATES = {"interview", "zweitgespraech", "interview_abgeschlossen"}
         OFFER_STATES = {"angebot", "angenommen"}
         REJECT_STATES = {"abgelehnt", "abgesagt"}
 
+        # Status-Historie pro Bewerbung aus der Timeline holen (#736).
+        app_ids = list(latest_per_app.keys())
+        hist: dict[str, set] = {aid: set() for aid in app_ids}
+        if app_ids:
+            placeholders = ",".join("?" * len(app_ids))
+            for er in conn.execute(
+                f"SELECT application_id, status FROM application_events "
+                f"WHERE application_id IN ({placeholders})",
+                app_ids,
+            ).fetchall():
+                hist.setdefault(er["application_id"], set()).add(
+                    (er["status"] or "").lower()
+                )
+
         per_stil: dict[str, dict] = {}
-        for app_id, (stil, app_status) in latest_per_app.items():
+        for app_id, (stil, app_status, has_reached) in latest_per_app.items():
             bucket = per_stil.setdefault(stil, {
                 "anzahl": 0,
                 "interviews": 0,
                 "angebote": 0,
                 "absagen": 0,
+                "absage_nach_interview": 0,
+                "absage_ohne_interview": 0,
                 "in_prozess": 0,
             })
             bucket["anzahl"] += 1
-            if app_status in INTERVIEW_STATES:
+
+            verlauf = hist.get(app_id, set())
+            # Interview erreicht, wenn das kanonische Flag gesetzt ist (#530,
+            # wird bei jedem Status-Wechsel gepflegt und historisch
+            # backfilled) ODER irgendwann ein Interview-Event auftauchte ODER
+            # der aktuelle Status Interview/Angebot ist (Angebot setzt ein
+            # vorausgegangenes Gespraech voraus).
+            reached_interview = bool(
+                has_reached
+                or (verlauf & INTERVIEW_STATES)
+                or (verlauf & OFFER_STATES)
+                or app_status in INTERVIEW_STATES
+                or app_status in OFFER_STATES
+            )
+            if reached_interview:
                 bucket["interviews"] += 1
-                bucket["in_prozess"] += 1
-            elif app_status in OFFER_STATES:
-                bucket["interviews"] += 1
+            if app_status in OFFER_STATES:
                 bucket["angebote"] += 1
-            elif app_status in REJECT_STATES:
+            if app_status in REJECT_STATES:
                 bucket["absagen"] += 1
-            else:
+                if reached_interview:
+                    bucket["absage_nach_interview"] += 1
+                else:
+                    bucket["absage_ohne_interview"] += 1
+            elif app_status not in OFFER_STATES:
                 bucket["in_prozess"] += 1
 
         MIN_SAMPLES = 3

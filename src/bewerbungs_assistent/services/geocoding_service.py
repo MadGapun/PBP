@@ -5,6 +5,7 @@ Rate-Limit: max 1 Request/Sekunde (Nominatim Fair-Use-Policy).
 """
 
 import logging
+import re
 import time
 import threading
 from typing import Optional
@@ -150,3 +151,113 @@ def cache_user_coordinates(db, address: str) -> Optional[tuple[float, float]]:
         db.set_search_criteria("standort_lon", coords[1])
         logger.info("User coordinates cached: %s -> %s", address, coords)
     return coords
+
+
+# === #732: Nicht-DACH-Erkennung fuer den Geo-Filter ===
+#
+# Hintergrund: Globale Remote-Aggregatoren (remotive, remoteok) liefern
+# Stellen mit Orten wie "Brazil" oder "Remote (Florianópolis)". Das
+# Geocoding haengt ", Deutschland" an die Anfrage (s.o. Zeile 71) und
+# bekommt dann irgendeinen DE-Treffer mit falscher Naehe (z.B. 533 km
+# statt ~10.000 km). Der Entfernungs-Malus ist zudem gedeckelt und reicht
+# nicht, eine solche Stelle aus dem aktiven Pool zu draengen. Darum eine
+# String-Heuristik VOR dem Geocoding.
+#
+# Konservativ by design: Ein DACH-Marker gewinnt IMMER (-> False). Nur ein
+# klarer Auslands-Marker OHNE DACH-Marker liefert True. Unbekannte oder
+# leere Orte bleiben False (kein Auto-Aussortieren bei Unsicherheit).
+
+# Reine Remote-/Weitraum-Angaben ohne Ortsbezug — koennen DACH sein,
+# darum NICHT filtern.
+_GEO_PURE_REMOTE = {
+    "remote", "home office", "homeoffice", "deutschlandweit", "bundesweit",
+    "weltweit", "worldwide", "europa", "europe", "eu", "global", "anywhere",
+    "remote (eu)", "eu remote", "europe remote", "remote europe",
+}
+
+# DACH-Marker: Laendernamen/Codes + grosse Staedte als Positivliste.
+_GEO_DACH_MARKERS = {
+    "deutschland", "germany", "allemagne", "de", "ger", "deu", "brd",
+    "oesterreich", "österreich", "austria", "at", "aut",
+    "schweiz", "switzerland", "suisse", "svizzera", "ch", "che", "dach",
+    "berlin", "hamburg", "muenchen", "münchen", "munich", "koeln", "köln",
+    "cologne", "frankfurt", "stuttgart", "duesseldorf", "düsseldorf",
+    "dortmund", "essen", "leipzig", "dresden", "hannover", "nuernberg",
+    "nürnberg", "nuremberg", "bremen", "bonn", "mannheim", "karlsruhe",
+    "wiesbaden", "muenster", "münster", "kiel", "wedel", "pinneberg",
+    "wien", "vienna", "graz", "linz", "salzburg", "innsbruck", "klagenfurt",
+    "zuerich", "zürich", "zurich", "bern", "basel", "genf", "geneva",
+    "geneve", "lausanne", "luzern", "lucerne", "winterthur",
+}
+
+# Klare Auslands-Marker (Laender).
+_GEO_NON_DACH_COUNTRIES = {
+    "usa", "u.s.a", "us", "united states", "america", "uk", "u.k",
+    "united kingdom", "england", "scotland", "wales", "ireland", "irland",
+    "brazil", "brasil", "brasilien", "india", "indien", "china", "japan",
+    "poland", "polen", "polska", "france", "frankreich", "spain", "spanien",
+    "espana", "españa", "italy", "italien", "italia", "portugal",
+    "netherlands", "niederlande", "nederland", "holland", "belgium",
+    "belgien", "belgique", "sweden", "schweden", "norway", "norwegen",
+    "denmark", "daenemark", "dänemark", "finland", "finnland", "czech",
+    "czechia", "tschechien", "slovakia", "slowakei", "hungary", "ungarn",
+    "romania", "rumaenien", "rumänien", "bulgaria", "bulgarien", "greece",
+    "griechenland", "ukraine", "russia", "russland", "turkey", "tuerkei",
+    "türkei", "canada", "kanada", "mexico", "mexiko", "argentina",
+    "argentinien", "chile", "colombia", "kolumbien", "peru", "uruguay",
+    "venezuela", "singapore", "singapur", "australia", "australien",
+    "new zealand", "neuseeland", "philippines", "philippinen", "indonesia",
+    "indonesien", "malaysia", "vietnam", "thailand", "egypt", "aegypten",
+    "ägypten", "morocco", "marokko", "south africa", "suedafrika",
+    "südafrika", "nigeria", "kenya", "kenia", "israel", "uae", "emirates",
+    "dubai", "abu dhabi", "qatar", "katar", "saudi", "pakistan", "bangladesh",
+}
+
+# Notorische Auslands-Staedte aus globalen Remote-Aggregatoren.
+_GEO_NON_DACH_CITIES = {
+    "florianopolis", "florianópolis", "sao paulo", "são paulo",
+    "rio de janeiro", "new york", "san francisco", "los angeles", "chicago",
+    "boston", "austin", "seattle", "denver", "miami", "atlanta", "toronto",
+    "vancouver", "montreal", "london", "manchester", "dublin", "paris",
+    "lyon", "madrid", "barcelona", "lisbon", "lissabon", "lisboa", "porto",
+    "amsterdam", "rotterdam", "brussels", "bruessel", "warsaw", "warschau",
+    "krakow", "krakau", "wroclaw", "prague", "prag", "bangalore",
+    "bengaluru", "mumbai", "delhi", "hyderabad", "pune", "chennai", "manila",
+    "jakarta", "singapore city", "tel aviv", "sydney", "melbourne",
+}
+
+
+def is_non_dach_location(location: str) -> bool:
+    """True, wenn der Ort erkennbar ausserhalb DACH liegt (#732).
+
+    Konservativ: ein DACH-Marker gewinnt immer; nur ein klarer
+    Auslands-Marker ohne DACH-Marker liefert True. Leere, reine Remote-
+    oder unbekannte Orte liefern False (kein Auto-Aussortieren bei
+    Unsicherheit).
+    """
+    if not location:
+        return False
+    loc = location.strip().lower()
+    if not loc or loc in _GEO_PURE_REMOTE:
+        return False
+
+    # Einwort-Marker per Token, Mehrwort-/gepunktete Marker per Substring.
+    # \w ist in Python-3-str-Regex Unicode-aware und erfasst akzentuierte
+    # Buchstaben (z.B. "florianópolis", "münchen") als ganzes Token.
+    tokens = set(re.findall(r"\w+", loc))
+
+    def _has(markers: set) -> bool:
+        for m in markers:
+            if " " in m or "." in m:
+                if m in loc:
+                    return True
+            elif m in tokens:
+                return True
+        return False
+
+    # DACH gewinnt immer.
+    if _has(_GEO_DACH_MARKERS):
+        return False
+    if _has(_GEO_NON_DACH_COUNTRIES) or _has(_GEO_NON_DACH_CITIES):
+        return True
+    return False

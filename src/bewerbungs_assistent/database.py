@@ -3644,6 +3644,41 @@ class Database:
         conn.commit()
         return vid
 
+    def upsert_document_version(self, data: dict) -> str:
+        """Wie add_document_version, aber 'letzte Version gewinnt' (#734).
+
+        Loescht vorhandene Versionen mit gleichem (profile_id, kind) und
+        gleichem Schluessel, bevor die neue eingefuegt wird:
+        - application_id gesetzt -> Schluessel ist application_id
+        - sonst -> Schluessel ist der (nicht-leere) title
+
+        So stapeln sich beim automatischen Archivieren nach jedem Export
+        nicht beliebig viele Versionen pro Bewerbung; es bleibt genau die
+        aktuelle. add_document_version (manuelles Speichern) ist davon
+        unberuehrt und legt weiterhin additiv ab.
+        """
+        conn = self.connect()
+        pid = data.get("profile_id") or self.get_active_profile_id() or ""
+        kind = data.get("kind") or "other"
+        app_id = data.get("application_id") or None
+        title = (data.get("title") or "").strip()
+        if app_id:
+            conn.execute(
+                "DELETE FROM document_versions "
+                "WHERE profile_id=? AND kind=? AND application_id=?",
+                (pid, kind, app_id),
+            )
+            conn.commit()
+        elif title:
+            conn.execute(
+                "DELETE FROM document_versions "
+                "WHERE profile_id=? AND kind=? AND title=? "
+                "AND (application_id IS NULL OR application_id='')",
+                (pid, kind, title),
+            )
+            conn.commit()
+        return self.add_document_version(data)
+
     def get_recent_document_versions(self, kind: str, limit: int = 5,
                                        only_with_outcome: bool = False) -> list[dict]:
         """Liefert die letzten Versionen eines Doku-Typs als Kontext.
@@ -4012,6 +4047,7 @@ class Database:
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
         duplikate = 0
+        ausland_erkannt = 0  # #732: nicht-DACH Stellen automatisch aussortiert
         leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
@@ -4093,6 +4129,29 @@ class Database:
                     # Diese Stelle wird das Original fuer kuenftige Keys
                     dedup_index[key] = stored_hash
 
+                # #732: Stellen mit erkennbar nicht-DACH Ort automatisch
+                # aussortieren. Greift NUR fuer Scraper-Quellen — manuelle
+                # und Email-Eintraege (bewusste User-Aktion) bleiben aktiv.
+                # Der Entfernungs-Malus reicht hier nicht (gedeckelt) und
+                # globale Remote-Aggregatoren liefern falsche Naehe-Werte
+                # (z.B. 533 km statt ~10.000 km fuer "Brazil").
+                if (is_active and src and src not in _URL_OPTIONAL_SOURCES
+                        and not job.get("_manual_entry")):
+                    from .services.geocoding_service import is_non_dach_location
+                    if is_non_dach_location(job.get("location") or ""):
+                        is_active = 0
+                        dismiss_reason = "zu_weit_entfernt"
+                        _geo_note = (
+                            f"Automatisch aussortiert: Ort "
+                            f"'{job.get('location')}' liegt erkennbar "
+                            f"ausserhalb DACH (#732)."
+                        )
+                        research_notes = (
+                            f"{research_notes} | {_geo_note}"
+                            if research_notes else _geo_note
+                        )
+                        ausland_erkannt += 1
+
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
@@ -4124,6 +4183,7 @@ class Database:
             "new_per_source": new_per_source,
             "total": len(jobs),
             "duplikate_erkannt": duplikate,
+            "ausland_erkannt": ausland_erkannt,
         }
         if leere_url_quellen:
             # #645: sichtbar machen, damit job_runner / scraper_health das

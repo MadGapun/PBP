@@ -16,6 +16,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0-beta.108] - 2026-06-15 — Bugfix-Welle: Geo-Filter, Quellen-Hinweis, Stilarchiv-Autosave + Interview-Quote (#731/#732/#733/#734/#736)
+
+> ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **KEINE Schema-Migration**
+> (Schema **v48** unveraendert) — alle Aenderungen sind rein additive Logik.
+> Nach dem Update Claude Desktop komplett beenden und neu starten, Dashboard
+> hart neu laden (Strg+F5).
+
+Fortsetzung der Bugfix-Welle aus den User-Tests vom 15.06.2026 — Schwerpunkt
+Datenqualitaet der Stellensuche und Nutzbarkeit des Stilarchivs.
+
+### Fixed
+
+- **#732 — Geo-Filter fuer nicht-DACH Stellen:** Stellen aus Scraper-Quellen mit
+  erkennbar auslaendischem Ort (z.B. „Brazil", „Remote (Florianópolis)", „USA")
+  werden beim Ingest automatisch aussortiert (`is_active=0`,
+  `dismiss_reason='zu_weit_entfernt'`) statt mit falschem Naehe-Wert im aktiven
+  Pool zu landen. Hintergrund: das Geocoding haengt `", Deutschland"` an die
+  Anfrage und bekam fuer „Brazil" einen DE-Treffer mit ~533 km statt ~10.000 km;
+  der gedeckelte Entfernungs-Malus reichte nicht zum Aussortieren. Neue
+  konservative Heuristik `is_non_dach_location` (ein DACH-Marker gewinnt immer;
+  unbekannte und reine Remote-Orte werden NICHT gefiltert). Manuelle und
+  Email-Eintraege (bewusste User-Aktion) sind ausgenommen.
+- **#731 — Scoring-False-Positives via Remote-Aggregatoren:** Der konkrete Fall
+  (10 Consumer-Tech-Stellen aus Brasilien, durch das MUSS-Keyword „Product
+  Lifecycle" gerutscht) wird durch den neuen Geo-Filter (#732) bereits vor dem
+  Scoring geblockt. (Zusaetzliche Keyword-Praezisierung „Product Lifecycle
+  Management" ist eine User-Daten-Entscheidung in den Suchkriterien.)
+- **#736 — stil_auswertung zaehlt Interviews korrekt:** Die Interview-Quote
+  misst jetzt, welcher Anteil der Bewerbungen eines Stils MINDESTENS EIN
+  Interview erreicht hat — bestimmt ueber den Status-Verlauf (Timeline +
+  `has_reached_interview`-Flag), nicht ueber den finalen Status. Eine Bewerbung
+  mit Verlauf `interview -> abgelehnt` zaehlt damit als Interview-Treffer (und
+  zusaetzlich als `absage_nach_interview`) statt als 0 Interviews. Begruendung:
+  das Anschreiben entscheidet ueber die Einladung, nicht ueber das Ergebnis im
+  Gespraech.
+
+### Added / Changed
+
+- **#733 — stelle_manuell_anlegen: Quellen-Hinweis:** Bleibt die Quelle nach dem
+  Anlegen `'manuell'` (keine aus der URL ableitbare Herkunft), liefert das Tool
+  jetzt einen `hinweis`, die echte Quelle (linkedin/xing/firmenwebsite) zu
+  setzen — sonst verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik.
+  Die automatische URL->Quelle-Ableitung (#613) bleibt unveraendert.
+- **#734 — Stilarchiv-Autosave nach Anschreiben-Export:** `anschreiben_exportieren`
+  legt das Anschreiben automatisch im Stilarchiv ab (neue DB-Methode
+  `upsert_document_version`, „letzte Version gewinnt" pro Bewerbung/Titel +
+  `kind`) — damit `stil_auswertung`/`stilarchiv_kontext` echte Daten haben, ohne
+  dass der manuelle Schritt vergessen wird. (CV-Autosave ist bewusst
+  zurueckgestellt: `lebenslauf_angepasst_exportieren` erzeugt direkt ein DOCX
+  ohne greifbaren Text, und das Stilarchiv wertet ohnehin den Schreibstil =
+  Anschreiben aus.)
+
+### Unter der Haube
+
+Neue Tests: `tests/test_v17_beta108_fixes.py` (35 Tests fuer
+#731/#732/#733/#734/#736). KEINE Schema-Migration (Schema v48 unveraendert),
+rein additive Logik. Suite: **1802 passed, 1 skipped**.
+
+Begleit-Aufraeumen: Master-Issue #719 (Scraper-Robustheit 1.7) geschlossen — der
+1.7-Scope ist mit beta.106 erledigt; die bewusst auf 1.8 verschobene Folgearbeit
+(Claude-Handoff fuer blockierte/SPA-tote Quellen, Langzeit-Auswertung pro
+Quelle) ist als #735 ausgegliedert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0-beta.108.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0-beta.108.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.107] - 2026-06-15 — Bugfix-Welle: Installer, Blacklist, Zeitanzeige, Scoring, Live-Updates (#728/#729/#701/#698/#630)
 
 > ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **Schema v47 -> v48**
