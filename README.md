@@ -10,7 +10,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.6.10-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1754-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-1768-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-177-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -201,8 +201,8 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Workflows** | 24 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v47 |
-| **Tests** | 1753 bestanden (1 uebersprungen) |
+| **Datenbank** | SQLite (WAL), Schema v48 |
+| **Tests** | 1767 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -243,7 +243,7 @@ Ueber 100 Beta-Iterationen Richtung v1.7.0 (aktuell **beta.102**, Stable bleibt 
 - **Elwosa** — Live-Statusanzeige der lokalen AI mit eigener Persoenlichkeit + kontextuellen Tipps pro Seite
 - **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
 - **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
-- Stand: 177 MCP-Tools, 24 Prompts, Schema v47, ueber 1700 Tests
+- Stand: 177 MCP-Tools, 24 Prompts, Schema v48, ueber 1700 Tests
 
 ### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
 
