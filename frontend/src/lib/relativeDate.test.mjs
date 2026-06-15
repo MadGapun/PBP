@@ -5,7 +5,7 @@
 // Der Kern-Beweis: die Labels muessen auch dann stimmen, wenn der ausfuehrende
 // Rechner NICHT auf Europe/Berlin steht (CI laeuft typischerweise in UTC) und
 // wenn ein Termin nahe der UTC-Mitternachtsgrenze liegt.
-import { berlinDayDiff, relativeDayLabel } from "./relativeDate.js";
+import { berlinDayDiff, relativeDayLabel, berlinTimeOfDay, relativeDayLabelWithTime } from "./relativeDate.js";
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -48,6 +48,21 @@ check("uebermorgen label", relativeDayLabel(new Date("2026-06-17T11:00:00+02:00"
 // --- gestern / vergangen ---
 check("gestern", berlinDayDiff(new Date("2026-06-14T20:00:00+02:00"), refTag), -1);
 check("gestern label", relativeDayLabel(new Date("2026-06-14T20:00:00+02:00"), refTag), "gestern");
+
+// --- #701: Uhrzeit in Europe/Berlin (zeitzonen-robust) ---
+// 12:00 UTC = 14:00 Berlin (Sommer, UTC+2)
+check("berlinTimeOfDay sommer", berlinTimeOfDay(new Date("2026-06-15T12:00:00Z")), "14:00");
+// 12:00 UTC = 13:00 Berlin (Winter, UTC+1)
+check("berlinTimeOfDay winter", berlinTimeOfDay(new Date("2026-01-15T12:00:00Z")), "13:00");
+
+// --- #701: relatives Label mit Uhrzeit ---
+const refLabel = new Date("2026-06-15T12:00:00+02:00");
+check("label mit Uhrzeit morgen",
+  relativeDayLabelWithTime(new Date("2026-06-16T14:00:00+02:00"), refLabel),
+  "morgen, 14:00 Uhr");
+check("label mit Uhrzeit in 2 Tagen",
+  relativeDayLabelWithTime(new Date("2026-06-17T09:30:00+02:00"), refLabel),
+  "in 2 Tagen, 09:30 Uhr");
 
 if (failed > 0) {
   console.error(`\n${failed} Test(s) fehlgeschlagen.`);

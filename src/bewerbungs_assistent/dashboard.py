@@ -323,6 +323,13 @@ async def api_status():
 
     profile = _db.get_profile()
     summary = summarize_profile(profile)
+    # #701: Serverzeit in Europe/Berlin fuer den Footer-Debughinweis.
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        _berlin_now = datetime.now(ZoneInfo("Europe/Berlin"))
+    except Exception:
+        _berlin_now = datetime.now()
     return {
         "version": __version__,
         "has_profile": profile is not None,
@@ -335,6 +342,8 @@ async def api_status():
         "applications": len(_db.get_applications()),
         "statistics": _db.get_statistics(),
         "mcp_connection": get_connection_status(),
+        "server_time": _berlin_now.strftime("%H:%M"),
+        "timezone": "Europe/Berlin",
     }
 
 
@@ -6284,6 +6293,14 @@ async def api_health():
         except ImportError:
             modules[mod_name] = None
 
+    # #701: Serverzeit in Europe/Berlin als einfaches Debugging-Mittel fuer
+    # Zeitverwechslungen (Footer zeigt "Serverzeit: HH:MM (Europe/Berlin)").
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        _berlin_now = datetime.now(ZoneInfo("Europe/Berlin"))
+    except Exception:
+        _berlin_now = datetime.now()
     return {
         "pbp_version": __version__,
         "python_version": platform.python_version(),
@@ -6295,6 +6312,9 @@ async def api_health():
         "document_count": doc_count,
         "modules": modules,
         "mcp_connection": get_connection_status(),
+        "server_time": _berlin_now.strftime("%H:%M"),
+        "server_time_iso": _berlin_now.isoformat(),
+        "timezone": "Europe/Berlin",
     }
 
 

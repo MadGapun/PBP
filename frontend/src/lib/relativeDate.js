@@ -48,3 +48,19 @@ export function relativeDayLabel(target, ref = new Date()) {
   if (diff > 1) return `in ${diff} Tagen`;
   return `vor ${Math.abs(diff)} Tagen`;
 }
+
+// #701: Uhrzeit (HH:MM) eines Datums in Europe/Berlin — zeitzonen-robust,
+// unabhaengig von der System-Zeitzone des Browsers.
+export function berlinTimeOfDay(target) {
+  return new Intl.DateTimeFormat("de-DE", {
+    timeZone: BERLIN_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(target instanceof Date ? target : new Date(target));
+}
+
+// #701: Relatives Label MIT Uhrzeit, eindeutig und nicht kippanfaellig:
+// "morgen, 14:00 Uhr", "in 2 Tagen, 09:30 Uhr".
+export function relativeDayLabelWithTime(target, ref = new Date()) {
+  return `${relativeDayLabel(target, ref)}, ${berlinTimeOfDay(target)} Uhr`;
+}

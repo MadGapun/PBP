@@ -1523,6 +1523,14 @@ export default function App() {
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
             <span>PBP v{chrome.status?.version || "?"}</span>
             <span aria-hidden="true" className="text-muted/30">·</span>
+            {chrome.status?.server_time && (
+              <>
+                <span title={`Zeitzone: ${chrome.status?.timezone || "Europe/Berlin"}`}>
+                  Serverzeit: {chrome.status.server_time} ({chrome.status?.timezone || "Europe/Berlin"})
+                </span>
+                <span aria-hidden="true" className="text-muted/30">·</span>
+              </>
+            )}
             <a
               href="https://github.com/MadGapun/PBP"
               target="_blank"
