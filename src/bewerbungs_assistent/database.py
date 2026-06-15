@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 47
+SCHEMA_VERSION = 48
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -252,6 +252,8 @@ class Database:
                 ("entfernung_freelance", "999", -1, 0),
                 ("gehalt", "pro_10_prozent", 1, 0),
                 ("schwellenwert", "auto_ignore", 0, 0),
+                # #698: Hochschulabschluss-Malus als sichtbarer Regler (Default -2)
+                ("hochschulabschluss", "fehlt", -2, 0),
             ]
             for dim, sub, val, ign in _scoring_defaults:
                 try:
@@ -1966,6 +1968,21 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v46->v47: scraper_health.error_class (#720)")
+
+        if from_ver < 48:
+            # v48 / v1.7.0-beta.107 (#698): Hochschulabschluss-Malus als
+            # sichtbarer Scoring-Regler (Default -2). Rein additiv — der Wert
+            # galt vorher hart codiert, jetzt ist er konfigurierbar/ignorierbar.
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO scoring_config "
+                    "(profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                    "VALUES ('', 'hochschulabschluss', 'fehlt', -2, 0, ?)",
+                    (_now(),)
+                )
+            except Exception:
+                pass
+            logger.info("Migration v47->v48: scoring_config hochschulabschluss/fehlt (#698)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -4696,7 +4713,36 @@ class Database:
         criteria = {}
         for row in rows:
             criteria[row["key"]] = json.loads(row["value"])
+        # #698: Konfigurierbaren Hochschulabschluss-Malus mitliefern, damit
+        # fit_analyse ihn lesen kann (None = per scoring_konfigurieren ignoriert).
+        criteria["_hochschulabschluss_malus"] = self.get_hochschulabschluss_malus()
         return criteria
+
+    def get_hochschulabschluss_malus(self):
+        """#698: Konfigurierbarer Malus fuer fehlenden Hochschulabschluss.
+
+        Liefert den Punktwert (Default -2, rueckwaertskompatibel) oder None,
+        wenn der Malus per scoring_konfigurieren('setzen','hochschulabschluss',
+        'fehlt', ignorieren=True) komplett deaktiviert wurde.
+        """
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT value, ignore_flag FROM scoring_config "
+            "WHERE (profile_id=? OR profile_id='') "
+            "AND dimension='hochschulabschluss' AND sub_key='fehlt' "
+            "ORDER BY profile_id DESC LIMIT 1",
+            (pid,)
+        ).fetchone()
+        if row is None:
+            return -2
+        if row["ignore_flag"]:
+            return None
+        val = row["value"]
+        try:
+            return int(val) if float(val).is_integer() else float(val)
+        except (TypeError, ValueError):
+            return -2
 
     def set_search_criteria(self, key: str, value):
         pid = self.get_active_profile_id() or ""
