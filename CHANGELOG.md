@@ -16,6 +16,97 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.0] - 2026-06-18 — Stable: Lokale KI, Elwosa, Multi-Profil, Stabilisierung
+
+**Erster Stable-Release der 1.7-Reihe.** Loest **v1.6.10** als empfohlene Version
+(`--latest`) ab. Ergebnis aus ueber 100 Beta-Iterationen (April–Juni 2026); die
+Detail-Changelogs stehen in den `1.7.0-beta.*`-Eintraegen unterhalb. v1.6.10
+bleibt als Release weiterhin verfuegbar.
+
+> **Update von v1.6.x:** einfach drueberinstallieren — deine Daten bleiben
+> erhalten. Das Schema-Upgrade (bis **v48**) laeuft automatisch beim ersten
+> Start, rein additiv, mit Pre-Migration-Backup (bricht bei Fehler HART ab).
+> Nach dem Update Claude Desktop komplett beenden und neu starten, Dashboard
+> hart neu laden (Strg+F5).
+
+### Highlights gegenueber v1.6.10
+
+- **Lokale KI (Ollama) als Hintergrund-Backbone** — Auto-Aussortieren per
+  Profil-Match, Dokument-Klassifikation, 5-stufiges Lern-System mit
+  Pattern-Analyse, Automatik-Scheduler; TaskKind-Routing (lokal / Claude /
+  manuell).
+- **Elwosa** — Live-Statusanzeige der lokalen AI in der Sidebar mit eigener
+  Persoenlichkeit und kontextuellen Tipps pro Seite.
+- **Multi-Profil**, **Skills mit Zeitraeumen**, **Typed IDs** (sichtbare
+  Praefixe, nicht-breaking: nackte 8-Hex-IDs funktionieren weiter).
+- **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle,
+  Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner,
+  Ablehnungsgruende-Editor**.
+- **Scraper-Robustheit** — Fehlerklassifikation (tot/blockiert/server_weg/
+  kaputt) + differenzierter Backoff statt Pauschal-Deaktivierung; 35 Quellen.
+- **Datenqualitaet der Suche** — Geo-Filter fuer nicht-DACH Stellen,
+  tz-robuste Zeitanzeige (Europe/Berlin), Stilarchiv-Autosave.
+- **Stand:** 177 MCP-Tools, 24 Prompts, Schema v48, ueber 1800 Tests gruen.
+
+### Release-Reife
+
+Die projekteigenen Release-Gates sind erfuellt: Datenintegritaet
+(Migrations-Generalprobe #705), DB-Schreib-Kontention Dashboard<->MCP (#723),
+tz-robuste Zeitanzeige (#701). Der 1.6.x->1.7-Migrationspfad ist als
+Generalprobe verifiziert (rein additiv, Tabellen-Rebuilds nur fuer Schema
+< v23). beta.108 lief mehrere Tage im Realbetrieb ohne kritische Befunde.
+
+### Bewusst auf v1.8 verschoben
+
+Plugin-Plattform (#504), Mail-Integrationen (#478/#480/#481), Newsletter-Ingest
+(#525), Branchen-Radar/Tools-News (#718/#735), DB-weiter Timestamp-Umbau (A18).
+Tracking im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.0.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.0.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0-beta.108] - 2026-06-15 — Bugfix-Welle: Geo-Filter, Quellen-Hinweis, Stilarchiv-Autosave + Interview-Quote (#731/#732/#733/#734/#736)
 
 > ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.6.10**. **KEINE Schema-Migration**
