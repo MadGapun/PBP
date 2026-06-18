@@ -9,7 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.6.10-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-1768-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-177-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
@@ -237,7 +237,7 @@ und in der UI; intern bleibt die ID gleich.
 
 ### v1.7.0-Beta-Reihe (April–Juni 2026) — Lokale KI, Elwosa, Stabilisierung
 
-Ueber 100 Beta-Iterationen Richtung v1.7.0 (aktuell **beta.108**, Stable bleibt v1.6.10):
+Ueber 100 Beta-Iterationen Richtung v1.7.0 — **seit 2026-06-18 als Stable (`--latest`) veroeffentlicht** (promotet aus beta.108):
 
 - **Lokale KI (Ollama)** als Hintergrund-Backbone — Auto-Aussortieren per Profil-Match, Doku-Klassifikation, Lern-System mit Pattern-Analyse, Automatik-Scheduler
 - **Elwosa** — Live-Statusanzeige der lokalen AI mit eigener Persoenlichkeit + kontextuellen Tipps pro Seite
