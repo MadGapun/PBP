@@ -1,9 +1,10 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.0** ist seit 2026-06-18 Stable (`--latest`) auf
-GitHub — promotet aus beta.108 nach mehrtaegigem Realbetrieb (User-Wort).
-v1.6.10 bleibt als aelterer Release verfuegbar. Die naechste Arbeit laeuft
+React-Frontend + SQLite. **v1.7.1** ist Stable (`--latest`) — v1.7.0 wurde am
+2026-06-18 aus beta.108 promotet (User-Wort), v1.7.1 ist der unmittelbare
+Hotfix (Neu-Install-Statistik #737: `applications.is_imported` fehlte im
+CREATE TABLE). v1.6.10 bleibt als aelterer Release verfuegbar. Die naechste Arbeit laeuft
 Richtung **v1.8** (Plugin-Plattform #504, Mail-Integrationen #478/#480/#481,
 Branchen-Radar #718/#735) — siehe Master-Plan.
 
