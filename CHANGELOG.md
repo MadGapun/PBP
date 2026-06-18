@@ -16,6 +16,75 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.1] - 2026-06-18 — Hotfix: Statistik-Tab auf Neuinstallationen (#737)
+
+> **Hotfix fuer v1.7.0.** Empfohlenes Update (`--latest`), besonders relevant
+> fuer **Neuinstallationen**. KEINE Schema-Migration (v48 unveraendert).
+
+### Fixed
+
+- **#737 — Statistik-Tab crasht bei Neuinstallationen:** Die Spalte
+  `applications.is_imported` wurde nur per Migration v21->v22 (ALTER TABLE)
+  angelegt und fehlte im `CREATE TABLE applications` (SCHEMA_SQL). Auf einer
+  frisch installierten v1.7.0 (Schema direkt v48, Migration laeuft nicht)
+  fehlte die Spalte daher -> `get_extended_stats()` (nutzt
+  `COALESCE(a.is_imported, 0)`) warf `no such column: a.is_imported`, der
+  Endpoint `/api/stats/extended` lieferte HTTP 500 und der Statistik-Tab blieb
+  leer. Fix: `is_imported` ins `CREATE TABLE` aufgenommen (additiv, bestehende
+  DBs unveraendert; die Migration bleibt fuer Upgrader). Migrierte Alt-DBs
+  (Upgrade von < v22) waren nie betroffen. Regressionstest
+  `test_v17_fresh_install_stats` (frische DB -> Spalte vorhanden + kein Crash).
+
+### Unter der Haube
+
+Eine Zeile in SCHEMA_SQL + zwei Regressionstests. Suite: **1804 passed, 1 skipped**.
+Gefunden beim Neuaufnehmen der Wiki-Screenshots aus einer frischen Demo-Instanz.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.1.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.1.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.0] - 2026-06-18 — Stable: Lokale KI, Elwosa, Multi-Profil, Stabilisierung
 
 **Erster Stable-Release der 1.7-Reihe.** Loest **v1.6.10** als empfohlene Version

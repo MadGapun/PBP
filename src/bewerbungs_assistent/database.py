@@ -9003,6 +9003,7 @@ CREATE TABLE IF NOT EXISTS applications (
     gehaltsvorstellung TEXT DEFAULT '',
     final_salary TEXT DEFAULT '',
     has_reached_interview INTEGER DEFAULT 0,
+    is_imported INTEGER DEFAULT 0,
     created_at TEXT,
     updated_at TEXT
 );
