@@ -10,9 +10,9 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.7.1-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1768-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-1804-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-177-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
-[![Workflows](https://img.shields.io/badge/Workflows-18-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
+[![Workflows](https://img.shields.io/badge/Workflows-24-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
 [![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
 
@@ -178,6 +178,9 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 ### Bewerbungen — Pipeline mit Follow-ups und Dossier
 ![Bewerbungen](docs/screenshots/04_bewerbungen.png)
 
+### Kontakte — Recruiter, Hiring Manager, farbige Kategorien
+![Kontakte](docs/screenshots/04c_kontakte.png)
+
 ### Dokumente — Upload, Verknuepfung und Analyse
 ![Dokumente](docs/screenshots/05_dokumente.png)
 
@@ -200,9 +203,9 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **MCP-Tools** | 177 Tools in 11 Modulen |
 | **Workflows** | 24 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
-| **Dashboard** | 8 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Dokumente, Kalender, Statistiken, Einstellungen |
+| **Dashboard** | 9 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 1767 bestanden (1 uebersprungen) |
+| **Tests** | 1804 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -227,9 +230,8 @@ und in der UI; intern bleibt die ID gleich.
 
 ## Roadmap
 
-> **v1.7.0 wird ein tiefer Eingriff** mit Local-LLM-Foundation (Ollama-Sidecar).
-> Strategische Uebersicht: [docs/ROADMAP_v1.7.0.md](docs/ROADMAP_v1.7.0.md)
-> Detail-Issue mit Anwendungsfaellen: [#512](https://github.com/MadGapun/PBP/issues/512)
+> **v1.7 ist da** — Stable seit 2026-06-18, aktuell **v1.7.1**. Die Local-LLM-Foundation (Ollama-Sidecar), Elwosa, Multi-Profil, Typed IDs und die grosse Stabilisierungs-Welle sind ausgeliefert.
+> **Naechster Zyklus: v1.8** — Plugin-Plattform ([#504](https://github.com/MadGapun/PBP/issues/504)), Mail-Integrationen ([#478](https://github.com/MadGapun/PBP/issues/478)/[#480](https://github.com/MadGapun/PBP/issues/480)/[#481](https://github.com/MadGapun/PBP/issues/481)), Branchen-Radar ([#718](https://github.com/MadGapun/PBP/issues/718)). Strategische Uebersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
 
 ## Changelog
 
