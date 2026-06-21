@@ -80,11 +80,7 @@ if /i "!CONFIRM!" neq "j" (
 echo.
 echo  [1/7] Beende laufende PBP-Prozesse...
 call :stop_pbp_processes
-if "!STOPPED_COUNT!"=="0" (
-    echo         [--] Keine laufenden PBP-Prozesse gefunden
-) else (
-    echo         [OK] !STOPPED_COUNT! Prozess(e) beendet
-)
+echo         [OK] Laufende PBP-Prozesse beendet (falls vorhanden)
 
 echo.
 echo  [2/7] Entferne Claude Desktop MCP-Eintrag...
@@ -224,6 +220,13 @@ if "!DATA_RESULT!"=="kept" (
     echo.
 )
 
+if exist "%BASE_INSTALL%" (
+    echo  Hinweis: Falls Reste verbleiben (z.B. weil Dateien noch gesperrt
+    echo  waren), kannst du diesen Ordner gefahrlos manuell loeschen:
+    echo    %BASE_INSTALL%
+    echo.
+)
+
 echo  Bitte Claude Desktop einmal komplett neu starten.
 echo  Log-Datei: %LOGFILE%
 echo.
@@ -232,14 +235,14 @@ pause >nul
 exit /b 0
 
 :stop_pbp_processes
-set "STOPPED_COUNT=0"
-for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr /i "PID"') do (
-    wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "bewerbungs_assistent start_dashboard.py _selftest.py" >nul 2>&1
-    if !errorlevel! equ 0 (
-        taskkill /pid %%p /f >nul 2>&1
-        if !errorlevel! equ 0 set /a STOPPED_COUNT+=1
-    )
-)
+:: #739: wmic ist auf neueren Windows-Builds nicht mehr zuverlaessig verfuegbar
+:: (deprecated Feature-on-Demand) — frueher haengte der Prozess-Stopp daran.
+:: Robuster Stopp via PowerShell/CIM: beendet nur python-Prozesse, deren
+:: Kommandozeile eindeutig zu PBP gehoert. Ausgabe geht ins Log (Diagnose).
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|_selftest') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: Kurze Pause, damit gesperrte Datei-Handles (pbp.db / WAL) freigegeben werden,
+:: bevor die Runtime-Dateien geloescht werden — sonst schlaegt rmdir still fehl.
+ping -n 3 127.0.0.1 >nul 2>&1
 exit /b 0
 
 :remove_claude_entry
@@ -261,6 +264,12 @@ if not exist "%TARGET%" (
 )
 
 rmdir /s /q "%TARGET%" >nul 2>&1
+:: #739: ein Retry nach kurzer Pause — bei frisch beendetem Dashboard koennen
+:: Datei-Handles noch eine Sekunde gehalten werden.
+if exist "%TARGET%" (
+    ping -n 3 127.0.0.1 >nul 2>&1
+    rmdir /s /q "%TARGET%" >nul 2>&1
+)
 if exist "%TARGET%" (
     echo         [!!] %TARGET_LABEL% konnte nicht entfernt werden
     echo [WARN] Entfernen fehlgeschlagen: %TARGET% >> "%LOGFILE%"

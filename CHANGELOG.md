@@ -16,6 +16,80 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.2] - 2026-06-18 — Hotfix: Windows-Deinstaller-Haertung (#739)
+
+> **Hotfix fuer v1.7.x (Windows).** Empfohlen, falls die Deinstallation bei dir
+> nicht sauber durchlief. KEINE Schema-Migration. Wirkt erst nach
+> Neuinstallation von 1.7.2 (die gefixte `DEINSTALLIEREN.bat` wird dabei
+> mitkopiert).
+
+### Fixed / Changed
+
+- **#739 — Windows-Deinstaller robuster:** Der Prozess-Stopp (Schritt [1/7])
+  haengt nicht mehr an `wmic` (auf neueren Windows-Builds deprecated/entfernt),
+  sondern nutzt PowerShell/CIM. Vor dem Loeschen der Runtime gibt es eine kurze
+  Pause + einen `rmdir`-Retry, damit frisch freigegebene Datei-Handles
+  (`pbp.db`/WAL) das Entfernen nicht mehr still scheitern lassen. Am Ende nennt
+  der Deinstaller den Datenordner explizit, falls Reste verbleiben — der kann
+  gefahrlos manuell geloescht werden. Der Prozess-Stopp wird zusaetzlich ins
+  `deinstall_log.txt` protokolliert.
+- **Footprint-Klarstellung:** PBP legt nur an EINER Stelle Daten ab
+  (`%LOCALAPPDATA%\BewerbungsAssistent`) plus einen HKCU-Uninstall-Key, die
+  Desktop-Verknuepfung und den Claude-MCP-Eintrag. Keine Dienste, kein
+  Autostart, kein HKLM. Eine manuelle Komplett-Entfernung ist gefahrlos
+  moeglich.
+
+### Unter der Haube
+
+Geaendert: `DEINSTALLIEREN.bat` + Version. Versions-/Registry-Tests 112 passed,
+Deinstaller-Launcher-Test 4 passed. Der genaue Abbruch-Punkt auf einer
+betroffenen Maschine wird ueber `deinstall_log.txt` weiter eingegrenzt.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.2.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.2.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.1] - 2026-06-18 — Hotfix: Statistik-Tab auf Neuinstallationen (#737)
 
 > **Hotfix fuer v1.7.0.** Empfohlenes Update (`--latest`), besonders relevant

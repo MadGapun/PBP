@@ -9,7 +9,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.7.1-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.2-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-1804-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-177-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-24-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
