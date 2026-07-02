@@ -447,6 +447,9 @@ durch das verbrannt. Konsequenzen:
   gruen, CHANGELOG aktuell).
 - Bei kaputtem Release: NICHT taglock loesen — neue Patch-Version (vX.Y.Z+1)
   veroeffentlichen.
+- **NIE `git push --tags`** (Fund v1.7.3-Release): das schiebt auch lokale
+  Alt-Tags mit (v1.0.0, das verbrannte v1.6.0) und scheitert an den
+  Repo-Rules. Immer gezielt pushen: `git push origin main vX.Y.Z`.
 
 ## Bericht-Designprinzip (v1.6.8)
 
