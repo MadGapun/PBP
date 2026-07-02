@@ -25,6 +25,8 @@ EXPECTED_TOOL_NAMES = {
     "bewerbung_zu_anfrage_konvertieren",
     "profil_status",
     "profil_zusammenfassung",
+    # v1.7.3 (#741): STAR-Volltext aller Projekte + Projekt-IDs
+    "projekte_anzeigen",
     "profil_bearbeiten",
     "profil_erstellen",
     "position_hinzufuegen",
@@ -308,7 +310,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 177  # v1.7.0-beta.96 (#681): + skills_bereinigen
+        assert len(tools) == 178  # v1.7.3 (#741): + projekte_anzeigen
         assert len(prompts) == 24  # v1.7.0-beta.58: + dokumente_verarbeiten
         assert len(resources) == 6
     finally:

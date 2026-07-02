@@ -367,6 +367,24 @@ def extract_sender_domain(sender: str) -> str:
 # Application matching
 # =====================================================================
 
+# v1.7.3 (#743): Bekannte Personaldienstleister-/Vermittler-Domains. Bei diesen
+# ist die Sender-Domain als Signal wertlos — JEDE Mail der Agentur kommt von
+# derselben Domain, unabhaengig von Berater, Endkunde und Thema. Ein Auto-Match
+# braucht dort immer zusaetzlich ein inhaltliches Signal (exakte kontakt_email,
+# Ansprechpartner oder Stellentitel). Liste bewusst konservativ, erweiterbar.
+RECRUITER_DOMAIN_KEYWORDS = (
+    "hays", "sthree", "randstad", "adecco", "gulp", "ferchau", "brunel",
+    "akkodis", "manpower", "michaelpage", "robertwalters", "computerfutures",
+    "progressiverecruitment", "huxley", "westhouse", "etengo", "solcom",
+)
+
+
+def _is_recruiter_domain(domain: str) -> bool:
+    """True wenn die Domain zu einem bekannten Personaldienstleister gehoert."""
+    d = (domain or "").lower()
+    return bool(d) and any(k in d for k in RECRUITER_DOMAIN_KEYWORDS)
+
+
 def match_email_to_application(parsed_email: dict, applications: list) -> tuple[Optional[str], float]:
     """Try to match an email to an existing application.
 
@@ -382,6 +400,16 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     kriterium: ein Auto-Match braucht mindestens EIN Domain-Signal
     (kontakt_email-Match, Domain-Match, oder URL-Domain-Match) — reine
     Firmenname-im-Betreff-Treffer reichen NICHT mehr.
+
+    v1.7.3 (#743): drei Haertungen gegen Fehlzuordnung bei Vermittler-Mails:
+    - Bewerbungen mit Archiv-Status (abgelehnt/zurueckgezogen/abgelaufen)
+      matchen nur noch bei exakter kontakt_email — Domain-Signale allein
+      reichen nicht mehr (Status war vorher nur Tie-Break, #389).
+    - Teilen sich mehrere Bewerbungen denselben Domain-Treffer, entscheidet
+      nur noch ein inhaltliches Signal (Ansprechpartner/Titel/kontakt_email)
+      auf genau EINER Kandidatin; sonst bleibt die Mail unverknuepft.
+    - Bekannte Vermittler-Domains (RECRUITER_DOMAIN_KEYWORDS) matchen nie
+      ueber Domain-Signale allein.
     """
     if not applications:
         return None, 0.0
@@ -395,13 +423,10 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     direction = parsed_email.get("_direction", "eingang")
     match_text = recipients if direction == "ausgang" else sender
 
-    best_match = None
-    best_score = 0.0
-    best_app_date = ""  # #389: tie-breaking by recency
-    best_has_domain_signal = False  # v1.7.0 #523: Domain-Pflicht
-
-    # #389: Archive statuses are deprioritized
+    # #389: Archive statuses are deprioritized; #743: nie per Domain-Signal allein
     _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+
+    candidates = []
 
     for app in applications:
         score = 0.0
@@ -409,6 +434,11 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
         # Ohne Domain-Signal kommt KEIN Auto-Match zustande, egal wie hoch
         # der Score ueber andere Strategien wird.
         has_domain_signal = False
+        # v1.7.3 (#743): inhaltliche Signale (exakte kontakt_email, Titel im
+        # Betreff, Ansprechpartner im Absender) getrennt tracken — bei
+        # mehrdeutigen Domain-Treffern entscheidet nur noch der Inhalt.
+        has_content_signal = False
+        exact_email_match = False
         app_id = app.get("id")
         company = (app.get("company") or "").lower()
         kontakt_email = (app.get("kontakt_email") or "").lower()
@@ -422,6 +452,8 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
         if kontakt_email and kontakt_email == sender_email:
             score = max(score, 0.95)
             has_domain_signal = True
+            has_content_signal = True
+            exact_email_match = True
 
         # Strategy 2: Domain match (kontakt_email domain) — Domain-Signal
         if kontakt_email and "@" in kontakt_email:
@@ -443,7 +475,7 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
                 score = max(score, 0.9)  # v1.7.0 #523: angehoben (war 0.75)
                 has_domain_signal = True
 
-        # Strategy 4: Job title in subject (KEIN Domain-Signal)
+        # Strategy 4: Job title in subject (KEIN Domain-Signal, aber Inhalts-Signal)
         if title and len(title) > 4:
             # Look for significant words from title in subject
             title_words = [w for w in title.split() if len(w) > 3]
@@ -451,12 +483,14 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
                 matches = sum(1 for w in title_words if w in subject)
                 if matches >= 2 or (matches >= 1 and len(title_words) <= 2):
                     score = max(score, 0.6)
+                    has_content_signal = True
 
-        # Strategy 5: Ansprechpartner in sender (KEIN Domain-Signal)
+        # Strategy 5: Ansprechpartner in sender (KEIN Domain-Signal, aber Inhalts-Signal)
         if ansprechpartner and len(ansprechpartner) > 3:
             name_parts = [p for p in ansprechpartner.split() if len(p) > 2]
             if name_parts and all(p in sender for p in name_parts):
                 score = max(score, 0.5)
+                has_content_signal = True
 
         # Strategy 6: URL domain match — Domain-Signal
         if app_url and sender_domain:
@@ -467,27 +501,32 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
                     score = max(score, 0.85)  # v1.7.0 #523: angehoben (war 0.7)
                     has_domain_signal = True
 
-        # #389: Tie-breaking — prefer active (non-archived) applications and newer ones
-        is_better = False
-        if score > best_score:
-            is_better = True
-        elif score == best_score and score > 0:
-            # Same score: prefer active over archived, then newer over older
-            best_is_archived = best_match and any(
-                a.get("id") == best_match and (a.get("status") or "").lower() in _archive_statuses
-                for a in applications
-            )
-            this_is_archived = app_status in _archive_statuses
-            if best_is_archived and not this_is_archived:
-                is_better = True
-            elif best_is_archived == this_is_archived and app_date > best_app_date:
-                is_better = True
+        if score > 0:
+            candidates.append({
+                "app_id": app_id,
+                "score": score,
+                "domain_signal": has_domain_signal,
+                "content_signal": has_content_signal,
+                "exact_email": exact_email_match,
+                "archived": app_status in _archive_statuses,
+                "date": app_date,
+            })
 
-        if is_better:
-            best_score = score
-            best_match = app_id
-            best_app_date = app_date
-            best_has_domain_signal = has_domain_signal
+    if not candidates:
+        return None, 0.0
+
+    # v1.7.3 (#743): Bewerbungen mit Archiv-Status kommen nur noch bei exaktem
+    # kontakt_email-Match fuer ein Auto-Match in Frage. Vorher wirkte der
+    # Status nur als Tie-Break (#389) — war die abgeschlossene Bewerbung der
+    # einzige Kandidat, hing jede neue Agentur-Mail (gleiche Domain, anderer
+    # Berater/Endkunde) an der toten Bewerbung.
+    eligible = [c for c in candidates if not c["archived"] or c["exact_email"]]
+    if not eligible:
+        return None, 0.0
+
+    # #389: Tie-Breaking — hoechster Score, dann aktive vor archivierten,
+    # dann neuere vor aelteren.
+    best = max(eligible, key=lambda c: (c["score"], not c["archived"], c["date"]))
 
     # v1.7.0-beta.16 (#523): „Im Zweifel unverknuepft."
     # Threshold auf 0.90 angehoben (war 0.5) UND Domain-Signal-Pflicht.
@@ -497,10 +536,34 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     #     (kontakt_email-Match, kontakt_email-Domain-Match,
     #      Firma-in-Sender-Domain, oder URL-Domain-Match)
     # Reine Firmen-im-Betreff- oder Titel-Treffer reichen nicht mehr.
-    if best_score < 0.90 or not best_has_domain_signal:
+    if best["score"] < 0.90 or not best["domain_signal"]:
         return None, 0.0
 
-    return best_match, round(best_score, 2)
+    # v1.7.3 (#743): Ambiguitaets-Check. Stuetzt sich der beste Treffer NUR
+    # auf Domain-Signale (kein Inhalts-Signal), gilt:
+    #   - Hat genau EINE zulaessige Kandidatin Domain- UND Inhalts-Signal
+    #     (mit Score >= 0.90), gewinnt diese.
+    #   - Teilen sich mehrere Bewerbungen den Domain-Treffer ODER ist die
+    #     Sender-Domain eine bekannte Vermittler-Domain → unverknuepft.
+    #   - Sonst (einzelner Domain-Treffer einer normalen Firma) bleibt der
+    #     Match erhalten (bisheriges Verhalten, z.B. HR-Mail von firma.de).
+    if not best["content_signal"]:
+        # Ambiguitaet nur ueber ZULAESSIGE Kandidaten zaehlen: archivierte
+        # Bewerbungen sind vom Auto-Match ohnehin ausgeschlossen und duerfen
+        # den einzigen aktiven Kandidaten einer normalen Firma nicht blocken
+        # (aktive + alte abgelehnte Bewerbung derselben Firma ist der
+        # Normalfall). Vermittler-Faelle deckt die Domain-Liste ab.
+        domain_hits = [c for c in eligible if c["domain_signal"]]
+        with_content = [
+            c for c in domain_hits
+            if c["content_signal"] and c["score"] >= 0.90
+        ]
+        if len(with_content) == 1:
+            best = with_content[0]
+        elif len(domain_hits) >= 2 or _is_recruiter_domain(sender_domain):
+            return None, 0.0
+
+    return best["app_id"], round(best["score"], 2)
 
 
 # =====================================================================

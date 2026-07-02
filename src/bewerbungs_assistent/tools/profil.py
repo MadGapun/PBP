@@ -1,6 +1,7 @@
-"""Profil-Verwaltung — 14 Tools.
+"""Profil-Verwaltung — 22 Tools.
 
-Enthalt: Profil-Grundlagen (8), Multi-Profil (4), Erfassungsfortschritt (3).
+Enthalt: Profil-Grundlagen, Multi-Profil, Erfassungsfortschritt,
+Skill-Pflege und Projekt-Abfrage (projekte_anzeigen, #741).
 """
 
 import json
@@ -11,6 +12,12 @@ from ..services.profile_service import (
     get_profile_preferences,
     get_profile_status_payload,
 )
+
+
+def _kurz(text, n):
+    """Kuerzt fuer die Uebersicht; '…' zeigt an, dass Volltext existiert (#741)."""
+    t = text or ""
+    return t if len(t) <= n else t[:n] + "…"
 
 
 def register(mcp, db, logger):
@@ -96,11 +103,11 @@ def register(mcp, db, logger):
             lines.append(f"\n  {pos.get('title', '?')} bei {pos.get('company', '?')}{current}{type_badge}")
             lines.append(f"  {pos.get('start_date', '?')} - {end} | {pos.get('location', '')}")
             if pos.get("description"):
-                lines.append(f"  Beschreibung: {pos['description'][:200]}")
+                lines.append(f"  Beschreibung: {_kurz(pos['description'], 200)}")
             if pos.get("tasks"):
-                lines.append(f"  Aufgaben: {pos['tasks'][:200]}")
+                lines.append(f"  Aufgaben: {_kurz(pos['tasks'], 200)}")
             if pos.get("achievements"):
-                lines.append(f"  Erfolge: {pos['achievements'][:200]}")
+                lines.append(f"  Erfolge: {_kurz(pos['achievements'], 200)}")
             if pos.get("technologies"):
                 lines.append(f"  Technologien: {pos['technologies']}")
             projects = pos.get("projects", [])
@@ -110,9 +117,18 @@ def register(mcp, db, logger):
                     date_info = ""
                     if proj.get("start_date") or proj.get("end_date"):
                         date_info = f" ({proj.get('start_date', '?')} - {proj.get('end_date', 'heute')})"
-                    lines.append(f"    - {proj.get('name', '?')}{date_info}: {proj.get('description', '')[:100]}")
+                    lines.append(f"    - {proj.get('name', '?')}{date_info}: {_kurz(proj.get('description', ''), 100)}")
                     if proj.get("result"):
-                        lines.append(f"      Ergebnis: {proj['result'][:100]}")
+                        lines.append(f"      Ergebnis: {_kurz(proj['result'], 100)}")
+
+        # #741: Die Projektdarstellung hier ist bewusst eine Kurzuebersicht —
+        # STAR-Felder (situation/task/action) fehlen ganz, description/result
+        # sind gekuerzt. Fuer Bewerbungstexte den Volltext holen.
+        if any(pos.get("projects") for pos in positions):
+            lines.append(
+                "\n  Hinweis: Projektbeschreibungen sind gekuerzt (STAR-Felder "
+                "fehlen hier) — Volltext via projekte_anzeigen()."
+            )
 
         # Education
         lines.append(f"\n--- Ausbildung ({len(education)} Einträge) ---")
@@ -171,6 +187,92 @@ def register(mcp, db, logger):
             "projekte_anzahl": sum(len(p.get("projects", [])) for p in positions),
             "skills_anzahl": len(skills),
             "ausbildung_anzahl": len(education),
+            # #741: klar dokumentierter Weg zum Volltext
+            "projekt_volltext_hinweis": (
+                "Projektbeschreibungen in dieser Zusammenfassung sind gekuerzt "
+                "und ohne STAR-Felder. Fuer Anschreiben/Lebenslauf den Volltext "
+                "mit projekte_anzeigen() abrufen."
+            ),
+        }
+
+    @mcp.tool()
+    def projekte_anzeigen(position_id: str = "") -> dict:
+        """Alle Projekte des Profils mit UNGEKUERZTEN STAR-Feldern (Volltext).
+
+        Fuer Anschreiben, Lebenslauf und Interview-Vorbereitung IMMER dieses
+        Tool nutzen statt der Projektdarstellung aus profil_zusammenfassung —
+        dort sind Beschreibung/Ergebnis auf 100 Zeichen gekuerzt und
+        Situation/Task/Action fehlen ganz (#741). Liefert ausserdem die
+        Projekt-IDs, die profil_bearbeiten(bereich='projekt',
+        aktion='aendern') als element_id braucht.
+
+        Args:
+            position_id: Optional — nur Projekte dieser Position
+                (Kurz-ID/Praefix reicht). Leer = alle Positionen.
+        """
+        profile = db.get_profile()
+        if profile is None:
+            return {"status": "kein_profil", "nachricht": "Noch kein Profil vorhanden."}
+
+        positions = profile.get("positions", [])
+        if position_id:
+            positions = [
+                p for p in positions
+                if str(p.get("id", "")).startswith(position_id)
+            ]
+            if not positions:
+                return {
+                    "status": "nicht_gefunden",
+                    "nachricht": f"Keine Position mit ID '{position_id}' gefunden.",
+                }
+
+        projekte = []
+        for pos in positions:
+            for proj in pos.get("projects", []):
+                # Vertraulichkeit wie in den Exporten (#246): Kundenname
+                # bei is_confidential maskieren, nie in den Chat leaken.
+                kunde = proj.get("customer_name") or ""
+                if kunde and proj.get("is_confidential"):
+                    kunde = "[vertraulich]"
+                projekte.append({
+                    "projekt_id": proj.get("id"),
+                    "position_id": pos.get("id"),
+                    "position": f"{pos.get('title', '?')} bei {pos.get('company', '?')}",
+                    "name": proj.get("name"),
+                    "rolle": proj.get("role") or "",
+                    "zeitraum": (
+                        f"{proj.get('start_date') or '?'} - {proj.get('end_date') or 'heute'}"
+                        if (proj.get("start_date") or proj.get("end_date"))
+                        else (proj.get("duration") or "")
+                    ),
+                    "kunde": kunde,
+                    "beschreibung": proj.get("description") or "",
+                    "situation": proj.get("situation") or "",
+                    "task": proj.get("task") or "",
+                    "action": proj.get("action") or "",
+                    "ergebnis": proj.get("result") or "",
+                    "technologien": proj.get("technologies") or "",
+                })
+
+        if not projekte:
+            return {
+                "status": "leer",
+                "projekte": [],
+                "nachricht": (
+                    "Keine Projekte im Profil. Mit projekt_hinzufuegen() oder "
+                    "profil_bearbeiten(bereich='projekt') anlegen."
+                ),
+            }
+
+        return {
+            "status": "ok",
+            "anzahl": len(projekte),
+            "projekte": projekte,
+            "hinweis": (
+                "Alle Felder sind Volltext (ungekuerzt). Diese STAR-"
+                "Beschreibungen sind die Basis fuer konkrete, belegbare "
+                "Formulierungen in Anschreiben und Lebenslauf."
+            ),
         }
 
     @mcp.tool()

@@ -422,6 +422,8 @@ Firma: {firma}
 
 SCHRITTE:
 1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
+   → Danach projekte_anzeigen() — die VOLLEN Projektbeschreibungen (STAR).
+     Die Zusammenfassung kuerzt sie; fuer konkrete Bewerbungstexte brauchst du den Volltext (#741)
 2. Analysiere die Stellenanforderungen (wenn URL vorhanden, darauf eingehen)
 3. LEBENSLAUF-ANALYSE (3-PERSPEKTIVEN-CHECK):
    → Rufe lebenslauf_bewerten(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...') auf
@@ -440,6 +442,7 @@ SCHRITTE:
    → Zeige dem User was du angepasst hast (welche Skills/Erfahrungen priorisiert)
 5. ANSCHREIBEN ERSTELLEN:
    → Wähle die relevantesten Erfahrungen und Projekte aus dem Profil
+     (Volltext aus projekte_anzeigen() nutzen, nicht die gekuerzte Zusammenfassung)
    → Erstelle ein Anschreiben das:
      - Sofort einen Bezug zur Stelle herstellt
      - 2-3 konkrete Erfolge/Projekte aus dem Profil einbindet
@@ -751,6 +754,7 @@ Firma: {firma}
 
 VORBEREITUNG (still, nicht anzeigen):
 1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
+   → Plus projekte_anzeigen() fuer die vollen STAR-Projektbeschreibungen (#741)
 2. Falls eine Stelle angegeben: Rufe fit_analyse() oder stellen_anzeigen() auf
 3. Rufe firmen_recherche('{firma}') auf falls Firmendaten vorhanden
 

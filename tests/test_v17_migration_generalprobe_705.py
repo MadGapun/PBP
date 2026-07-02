@@ -46,6 +46,13 @@ _PROFILE_FIELDS = [
 def _create_full_v16x_db(db_path: Path) -> dict:
     """Legt eine voll befuellte v1.6.x-DB (Schema v31) an.
 
+    Die CREATE-TABLE-Definitionen entsprechen dem ECHTEN v1.6.10-SCHEMA_SQL
+    (verifiziert gegen `git show v1.6.10:...database.py`, 2026-07-02 im Zuge
+    von #738). Bewusst originalgetreu inklusive der historischen Luecke:
+    `applications` hat KEIN `is_imported` (#737-Fehlerklasse) — genau daran
+    haengt der Schema-Parity-Test (test_schema_parity_738.py) und das
+    is_imported-Safety-Net in initialize().
+
     Returns: erwartete Profil-Feldwerte + Tabellen-Zaehler fuer den Abgleich.
     """
     conn = sqlite3.connect(str(db_path))
@@ -138,10 +145,15 @@ def _create_full_v16x_db(db_path: Path) -> dict:
             parent_event_id INTEGER
         );
         CREATE TABLE application_meetings (
-            id TEXT PRIMARY KEY, application_id TEXT,
+            id TEXT PRIMARY KEY,
+            application_id TEXT REFERENCES applications(id) ON DELETE CASCADE,
+            email_id TEXT, profile_id TEXT,
             title TEXT NOT NULL, meeting_date TEXT NOT NULL,
-            meeting_type TEXT, location TEXT, status TEXT DEFAULT 'geplant',
-            notes TEXT, created_at TEXT
+            meeting_end TEXT, location TEXT, meeting_url TEXT,
+            meeting_type TEXT DEFAULT 'interview', platform TEXT,
+            ics_data TEXT, notes TEXT, status TEXT DEFAULT 'geplant',
+            is_private INTEGER DEFAULT 0, duration_minutes INTEGER,
+            category_id TEXT, created_at TEXT
         );
         CREATE TABLE follow_ups (
             id TEXT PRIMARY KEY, application_id TEXT NOT NULL,
@@ -156,20 +168,22 @@ def _create_full_v16x_db(db_path: Path) -> dict:
         CREATE TABLE blacklist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             profile_id TEXT NOT NULL DEFAULT '', type TEXT NOT NULL,
-            value TEXT NOT NULL, created_at TEXT
-        );
-        CREATE TABLE profile_settings (
-            profile_id TEXT, key TEXT NOT NULL, value TEXT,
-            PRIMARY KEY (profile_id, key)
+            value TEXT NOT NULL, reason TEXT, created_at TEXT,
+            UNIQUE(profile_id, type, value)
         );
         CREATE TABLE dismiss_reasons (
-            label TEXT, is_custom INTEGER DEFAULT 0,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL, is_custom INTEGER DEFAULT 0,
+            usage_count INTEGER DEFAULT 0,
             profile_id TEXT, created_at TEXT
         );
         CREATE TABLE scoring_config (
-            profile_id TEXT, dimension TEXT, sub_key TEXT,
-            value INTEGER, ignore_flag INTEGER DEFAULT 0, created_at TEXT,
-            PRIMARY KEY (profile_id, dimension, sub_key)
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            profile_id TEXT NOT NULL DEFAULT '',
+            dimension TEXT NOT NULL, sub_key TEXT NOT NULL,
+            value REAL DEFAULT 0, ignore_flag INTEGER DEFAULT 0,
+            created_at TEXT,
+            UNIQUE(profile_id, dimension, sub_key)
         );
     """)
     cur.execute("INSERT INTO settings VALUES ('schema_version', '31')")

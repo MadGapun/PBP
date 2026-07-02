@@ -1,13 +1,36 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.2** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.3** ist Stable (`--latest`) — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort), v1.7.1 war der Neu-Install-
-Statistik-Hotfix (#737, `applications.is_imported`), v1.7.2 haertet den
-Windows-Deinstaller (#739: kein `wmic` mehr, rmdir-Retry, sichtbare Reste).
-v1.6.10 bleibt als aelterer Release verfuegbar. Die naechste Arbeit laeuft
-Richtung **v1.8** (Plugin-Plattform #504, Mail-Integrationen #478/#480/#481,
-Branchen-Radar #718/#735) — siehe Master-Plan.
+Statistik-Hotfix (#737), v1.7.2 haertet den Windows-Deinstaller (#739),
+v1.7.3 (2026-07-02) haertet das Dokument-/Mail-Auto-Matching (#743, E17),
+bringt `projekte_anzeigen` mit STAR-Volltext (#741, H16) und den
+Schema-Parity-Test (#738, A19) inkl. Fix der #737-Restluecke fuer
+v1.6.x-Fresh-Install-Upgrader. v1.6.10 bleibt als aelterer Release
+verfuegbar. Die naechste Arbeit laeuft Richtung **v1.8** (Plugin-Plattform
+#504, Mail-Integrationen #478/#480/#481, Branchen-Radar #718/#735,
+Referenzen #740/D24, Umlaut-Restaurierung #742/A20) — siehe Master-Plan.
+
+## Stand 2026-07-02 (v1.7.3) — Hotfix-Session
+
+**Schema:** v48 (unveraendert, kein Bump — Safety-Net statt Migration).
+**Tests:** 1837 passed, 1 skipped.
+**MCP-Tools:** 178 (+`projekte_anzeigen`, #741), **Prompts:** 24.
+
+Kernpunkte: (1) **E17/#743** — beide Auto-Matcher gehaertet: Archiv-Status
+(abgelehnt/zurueckgezogen/abgelaufen) wird nie mehr auto-verknuepft,
+`auto_assign_document`-Schwelle 0.7→0.9, Ambiguitaets-Check + Vermittler-
+Domain-Liste (`RECRUITER_DOMAIN_KEYWORDS` in `email_service.py`),
+`achtung`-Warnung im Analyse-Plan. (2) **A19/#738** — Schema-Parity-Tests
+(`tests/test_schema_parity_738.py`, Doppel-Migrations-Trick + v31-Vergleich);
+der Test fand sofort die #737-RESTLUECKE: v1.6.x-SCHEMA_SQL hatte kein
+`is_imported`, Fresh-Install-Upgrader crashten weiter im Statistik-Tab →
+idempotentes Safety-Net in `initialize()`. Die #705-Fixture ist jetzt
+originalgetreu zum echten v1.6.10-Schema (aus Git-Historie verifiziert).
+(3) **H16/#741** — `projekte_anzeigen(position_id='')` liefert STAR-Volltext
++ Projekt-IDs, `is_confidential` maskiert; Prompts rufen es vor dem
+Formulieren auf.
 
 ## ⛔ QA-Isolations-Regel (HART, seit dem DB-Vorfall 2026-06-10)
 
@@ -94,7 +117,8 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
 **Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
 `dismiss_reasons.is_active` + `search_criteria.keywords_minus`).
 **Tests:** 1611 passed, 1 skipped (1612 collected).
-**MCP-Tools:** 171 (verifiziert via `test_mcp_registry.py`), **Prompts:** 24.
+**MCP-Tools:** 171 (historischer Stand beta.90 — aktuell 178, siehe oben),
+**Prompts:** 24.
 **Quellen:** 34 (~6 produktiv).
 
 Selbsttest dieser Session (autonomer 8h-Lauf): volle Suite gruen +

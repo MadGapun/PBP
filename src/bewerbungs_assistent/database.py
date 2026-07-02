@@ -307,6 +307,29 @@ class Database:
             except Exception:
                 pass
 
+        # v1.7.3 (#738, Fund des Schema-Parity-Tests): Safety net fuer
+        # applications.is_imported. Das v1.6.x-SCHEMA_SQL enthielt die Spalte
+        # NICHT (#737-Fehlerklasse) — eine v1.6.x-NEUinstallation startet
+        # daher mit schema_version >= 22 OHNE die Spalte, die v22-Migration
+        # laeuft beim Upgrade nie mehr, und /api/stats/extended crasht mit
+        # HTTP 500 (COALESCE(a.is_imported, 0)). Der #737-Hotfix (v1.7.1)
+        # deckte nur Neuinstallationen ab; hier idempotent fuer Upgrader
+        # nachziehen.
+        try:
+            conn.execute("SELECT is_imported FROM applications LIMIT 1")
+        except Exception:
+            try:
+                conn.execute(
+                    "ALTER TABLE applications ADD COLUMN is_imported INTEGER DEFAULT 0"
+                )
+                conn.commit()
+                logger.info(
+                    "Safety-Net: applications.is_imported nachgezogen "
+                    "(v1.6.x-Fresh-Install-Upgrade, #737/#738)"
+                )
+            except Exception:
+                pass
+
         # v44 (#657, E16): Safety net fuer Lifecycle-Index. Bei frischen DBs
         # ist die Spalte ueber SCHEMA_SQL bereits da; bei alten DBs wird sie
         # in _migrate v43->v44 ergaenzt. Index in beiden Faellen idempotent
@@ -3831,9 +3854,18 @@ class Database:
         """Smart auto-assignment of uploaded document to matching application (#177).
 
         Matching criteria (in order of confidence):
-        1. Company name in filename + document type → high confidence
-        2. Company name in filename only → medium confidence
-        3. Recently created application (within 24h) → low confidence
+        1. Company name in filename + document type → high confidence (0.95)
+        2. Company name in filename only → medium confidence (0.7)
+        3. Recently created application (within 24h) → low confidence (0.3)
+
+        v1.7.3 (#743): Auto-Link erst ab 0.9 (Angleich an das #523-Prinzip
+        „im Zweifel unverknuepft" — #523 hatte nur den E-Mail-Matcher auf
+        0.90 gehoben, dieser aeltere Dateiname-Matcher blieb auf 0.7).
+        Der reine Firmenname-im-Dateinamen-Treffer (0.7) ist damit nur noch
+        ein Vorschlag. Bewerbungen mit Archiv-Status (abgelehnt/
+        zurueckgezogen/abgelaufen) werden NIE auto-verknuepft — sonst haengt
+        jede neue Mail/Datei derselben Firma (z.B. Vermittler-Agentur) an
+        einer laengst abgeschlossenen Bewerbung.
 
         Returns dict with match info or None if no match.
         """
@@ -3867,6 +3899,9 @@ class Database:
 
         best_match = None
         best_confidence = 0
+        best_is_archived = False
+        # #743 (E17.1): Archiv-Status wie im E-Mail-Matcher (#389/#523)
+        _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
 
         for app in apps:
             company = (app["company"] or "").lower()
@@ -3908,9 +3943,15 @@ class Database:
                 except Exception:
                     confidence = 0
 
-            if confidence > best_confidence:
+            app_is_archived = (app["status"] or "").lower() in _archive_statuses
+            # #743: bei gleicher Konfidenz aktive Bewerbung vor archivierter
+            if confidence > best_confidence or (
+                confidence == best_confidence and confidence > 0
+                and best_is_archived and not app_is_archived
+            ):
                 best_confidence = confidence
                 best_match = dict(app)
+                best_is_archived = app_is_archived
 
         if not best_match:
             return {"match": None, "confidence": 0}
@@ -3928,7 +3969,9 @@ class Database:
         }
 
         # Auto-link if confidence is high enough (#219: auch extraction_status setzen)
-        if best_confidence >= 0.7:
+        # #743 (E17.2): Schwelle 0.7 → 0.9 — nur noch Firmenname+Doku-Typ
+        # verknuepft automatisch. #743 (E17.1): Archiv-Bewerbungen nie.
+        if best_confidence >= 0.9 and not best_is_archived:
             conn.execute(
                 "UPDATE documents SET linked_application_id=?, "
                 "extraction_status='angewendet', last_extraction_at=? WHERE id=?",
@@ -3943,12 +3986,23 @@ class Database:
             result["auto_verknuepft"] = True
         else:
             result["auto_verknuepft"] = False
-            result["hinweis"] = (
+            hinweis = (
                 f"Moeglicher Match mit '{best_match['company']}' "
                 f"(Konfidenz: {best_confidence:.0%}). "
                 f"Nutze dokument_verknuepfen('{doc_id}', '{best_match['id'][:8]}') "
                 "um manuell zu verknuepfen."
             )
+            if best_is_archived:
+                hinweis += (
+                    f" Achtung: Diese Bewerbung ist bereits abgeschlossen "
+                    f"(Status: {best_match['status']}) — nur verknuepfen wenn "
+                    "das Dokument eindeutig zu dieser alten Bewerbung gehoert."
+                )
+            result["hinweis"] = hinweis
+            # add_document verwirft den Rueckgabewert — den Vorschlag hier
+            # loggen, damit nachvollziehbar bleibt, warum nichts verknuepft
+            # wurde (#743).
+            logger.info("Auto-Assign nur Vorschlag fuer '%s': %s", filename, hinweis)
 
         return result
 

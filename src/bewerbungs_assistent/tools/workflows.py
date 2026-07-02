@@ -278,7 +278,8 @@ Sprich Deutsch und per Du. Sei nicht aufdringlich — biete an, draenge nicht.""
         return """Erstelle Bewerbungsunterlagen (Lebenslauf + Anschreiben).
 
 SCHRITTE:
-1. Rufe profil_zusammenfassung() auf
+1. Rufe profil_zusammenfassung() auf + projekte_anzeigen() fuer die
+   vollen Projektbeschreibungen (STAR) — die Zusammenfassung kuerzt sie (#741)
 2. Frage nach Stelle und Firma (falls nicht bekannt)
 3. LEBENSLAUF-ANALYSE (3-PERSPEKTIVEN-CHECK):
    → lebenslauf_bewerten(stelle, firma, stellenbeschreibung)
@@ -311,7 +312,8 @@ REGELN:
     def _interview_vorbereitung():
         return """Bereite den Nutzer auf ein Bewerbungsgespräch vor.
 
-ZUERST: Rufe profil_zusammenfassung() auf.
+ZUERST: Rufe profil_zusammenfassung() auf + projekte_anzeigen() —
+die STAR-Antworten brauchen die VOLLEN Projektbeschreibungen (#741).
 Frage nach Stelle und Firma (falls nicht bekannt).
 
 DANN LIEFERE:
@@ -328,7 +330,8 @@ Alles MUSS personalisiert sein. Sprich Deutsch und per Du."""
     def _interview_simulation():
         return """Du bist jetzt der Interviewer. Führe ein realistisches Bewerbungsgespräch.
 
-VORBEREITUNG: Rufe profil_zusammenfassung() auf. Frage nach Stelle und Firma.
+VORBEREITUNG: Rufe profil_zusammenfassung() + projekte_anzeigen() auf
+(STAR-Volltext fuer realistische Nachfragen). Frage nach Stelle und Firma.
 
 PHASE 1 — KENNENLERNEN (2-3 Fragen)
 PHASE 2 — FACHFRAGEN (3-4 Fragen)

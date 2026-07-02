@@ -16,6 +16,133 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.3] - 2026-07-02 — Hotfix: Dokument-Matching, STAR-Volltext, Schema-Parity (#743, #741, #738)
+
+> **Empfohlenes Update (`--latest`).** Haertet das Auto-Matching von Mails/
+> Dokumenten (keine Fehlzuordnung an abgeschlossene Bewerbungen mehr),
+> liefert Projekt-Volltexte fuer bessere Anschreiben und schliesst die
+> #737-Restluecke fuer v1.6.x-Neuinstallations-Upgrader.
+> KEINE Schema-Migration (v48 unveraendert).
+
+### Fixed
+
+- **#743 — Auto-Matching haengt neue Vermittler-Mails nicht mehr an alte
+  Bewerbungen (E17):** Eingehende Mails von Recruiting-Agenturen (gleiche
+  Absender-Domain, aber anderer Berater/Endkunde/Thema) wurden mit Konfidenz
+  70% an inhaltlich fremde, laengst abgeschlossene Bewerbungen verknuepft.
+  Es waren ZWEI Matcher beteiligt, beide gefixt:
+  - `auto_assign_document` (Dateiname-Matcher, #177): Auto-Link-Schwelle von
+    0.7 auf 0.9 angehoben (Angleich an das #523-Prinzip „im Zweifel
+    unverknuepft" — der reine Firmenname-im-Dateinamen-Treffer ist nur noch
+    ein Vorschlag) und Bewerbungen mit Archiv-Status (abgelehnt/
+    zurueckgezogen/abgelaufen) werden NIE mehr auto-verknuepft. Bei gleicher
+    Konfidenz gewinnt jetzt die aktive Bewerbung.
+  - `match_email_to_application` (E-Mail-Matcher, #523): Archiv-Bewerbungen
+    matchen nur noch bei exakter kontakt_email; teilen sich mehrere
+    ZULAESSIGE Bewerbungen denselben Domain-Treffer, entscheidet
+    ausschliesslich ein inhaltliches Signal (Ansprechpartner/Stellentitel/
+    kontakt_email) auf genau EINER Kandidatin; bekannte Vermittler-Domains
+    (Hays, SThree, Randstad, ...) matchen nie ueber die Domain allein.
+    Eine alte abgelehnte Bewerbung derselben Firma blockt den einzigen
+    aktiven Kandidaten dabei NICHT (Fund des adversarialen Reviews).
+  - `analyse_plan_erstellen` (#686) markiert Zuordnungsvorschlaege auf
+    abgeschlossene Bewerbungen jetzt mit einem `achtung`-Warnhinweis.
+  - Bereits falsch verknuepfte Dokumente werden NICHT automatisch
+    aufgeraeumt — manuelle Korrektur via `dokument_entverknuepfen`.
+  - Regression abgesichert: Absage-/Update-Mails an noch AKTIVE Bewerbungen
+    matchen weiterhin (auch von Vermittler-Domains, sofern der Stellentitel
+    im Betreff steht).
+- **#737-Restluecke — Statistik-Crash auch fuer v1.6.x-Neuinstallations-
+  Upgrader behoben (Fund des neuen Schema-Parity-Tests):** Das
+  v1.6.x-SCHEMA_SQL enthielt `applications.is_imported` nicht. Wer v1.6.x
+  FRISCH installiert hatte und auf v1.7.x upgradet, startete mit
+  schema_version 31 — die v22-Migration lief nie mehr, die Spalte fehlte
+  weiter und `/api/stats/extended` crashte trotz v1.7.1-Hotfix mit HTTP 500.
+  Fix: idempotentes Safety-Net in `initialize()` zieht die Spalte beim
+  ersten Start nach (Muster wie `is_pinned`).
+
+### Added
+
+- **#741 — Neues MCP-Tool `projekte_anzeigen` (H16):** liefert ALLE Projekte
+  mit ungekuerzten STAR-Feldern (situation/task/action/result), Beschreibung,
+  Rolle, Zeitraum, Technologien und Projekt-IDs (die `profil_bearbeiten`
+  braucht). Hintergrund: `profil_zusammenfassung` kuerzt description/result
+  auf 100 Zeichen und laesst situation/task/action ganz weg — Modelle, die
+  Anschreiben/CV formulieren, hatten keinen Zugriff auf die vollen, mit
+  Zahlen belegten Projektbeschreibungen. `customer_name` wird bei
+  `is_confidential` maskiert (wie in den Exporten, #246).
+  `profil_zusammenfassung` bleibt als Kurzuebersicht erhalten (Kuerzungen
+  jetzt mit `…`-Marker) und verweist auf den Volltext-Weg; die Prompts
+  `bewerbung_schreiben`, Interview-Vorbereitung/-Simulation und der
+  Bewerbungs-Workflow rufen das Tool jetzt explizit auf.
+  MCP-Tool-Count: 177 -> **178**.
+- **#738 — Generischer Fresh-Install-Schema-Parity-Test (A19):**
+  `tests/test_schema_parity_738.py` macht die #737-Fehlerklasse (Spalte per
+  Migration, aber nicht im CREATE TABLE) zur CI-Pflicht: (1) Doppel-
+  Migrations-Trick — die komplette idempotente Migrationskette darf auf
+  einer frischen DB nichts mehr anlegen; (2) echte v1.6.10-DB (Fixture aus
+  der Migrations-Generalprobe #705) hochmigrieren und spaltenweise
+  zweiseitig gegen einen Fresh-Install vergleichen; (3) Selbsttest: eine
+  kuenstlich entfernte CREATE-TABLE-Spalte wird nachweislich erkannt.
+  Die #705-Fixture wurde dabei gegen das ECHTE v1.6.10-Schema aus der
+  Git-Historie korrigiert (blacklist.reason, dismiss_reasons.id/usage_count,
+  application_meetings-Spalten, scoring_config.id; applications bewusst
+  ohne is_imported — originalgetreu inkl. der historischen Luecke).
+
+### Unter der Haube
+
+Geaendert: `database.py` (auto_assign_document, is_imported-Safety-Net),
+`services/email_service.py` (Matcher-Umbau + Vermittler-Domain-Liste),
+`tools/dokumente.py` (Analyse-Plan-Warnung), `tools/profil.py`
+(projekte_anzeigen + Kurz-Marker), `prompts.py`/`tools/workflows.py`
+(Prompt-Guidance), Tests (+33: matching_743, projekte_anzeigen_741,
+schema_parity_738). Kein Frontend-Change, kein Schema-Bump.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.3.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.3.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.2] - 2026-06-18 — Hotfix: Windows-Deinstaller-Haertung (#739)
 
 > **Hotfix fuer v1.7.x (Windows).** Empfohlen, falls die Deinstallation bei dir

@@ -872,7 +872,7 @@ def register(mcp, db, logger):
                         continue
                     gesehen.add(schluessel)
                     firmen.add(app["company"])  # Firma aus Bewerbung sichtbar machen
-                    bewerbungs_zuordnungen.append({
+                    zuordnung = {
                         "dokument_id": r["id"],
                         "dateiname": r["filename"],
                         "bewerbung_id": app["id"],
@@ -880,7 +880,18 @@ def register(mcp, db, logger):
                         "bewerbung_titel": app["title"],
                         "bewerbung_status": app["status"],
                         "noch_zu_analysieren": r["id"] in analyse_ids,
-                    })
+                    }
+                    # #743 (E17.4): Vorschlaege auf abgeschlossene Bewerbungen
+                    # deutlich markieren — neue Korrespondenz derselben Firma
+                    # (v.a. Vermittler-Agenturen) gehoert meist NICHT zur
+                    # alten, laengst erledigten Bewerbung.
+                    if (app["status"] or "").lower() in ("abgelehnt", "zurueckgezogen", "abgelaufen"):
+                        zuordnung["achtung"] = (
+                            f"Bewerbung bereits abgeschlossen (Status: {app['status']}) — "
+                            "nur verknuepfen wenn das Dokument eindeutig zu dieser "
+                            "alten Bewerbung gehoert, sonst unverknuepft lassen"
+                        )
+                    bewerbungs_zuordnungen.append(zuordnung)
         except Exception as exc:
             logger.warning("#686 Bewerbungs-Matching im Analyse-Plan fehlgeschlagen: %s", exc)
 
