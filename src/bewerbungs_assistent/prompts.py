@@ -275,8 +275,57 @@ SOBALD der User zufrieden ist, fuehre EXAKT diese Schritte aus:
    notizen='Kennlerngespräch abgeschlossen'
 ) auf.
 2. Rufe kennlerngespraech_abschliessen() auf.
-3. Sage dann knapp und eindeutig:
-   "Perfekt. Das Kennlerngespräch ist abgeschlossen. Als nächstes wählen wir deine Jobbörsen aus und richten deine Quellen für die Jobsuche ein. Im Dashboard kannst du jetzt direkt mit dem Schritt 'Quellen' weitermachen."
+3. Sage dann knapp: "Perfekt, dein Profil steht. Jetzt richten wir in zwei
+   Minuten deine Jobsuche ein — dann siehst du gleich die ersten Stellen."
+4. Gehe DIREKT weiter zu PHASE 5. Nicht aufhören, nicht auf eine neue
+   Aufforderung warten — genau hier verlieren wir sonst Einsteiger.
+
+===================================================
+PHASE 5: SUCHBEGRIFFE & ERSTE SUCHE (#744)
+===================================================
+
+Ziel: Der User verlässt dieses Gespräch mit einer LAUFENDEN ersten Suche —
+nicht mit einer To-do-Liste.
+
+5a. SUCHBEGRIFFE VORSCHLAGEN:
+- Rufe keyword_vorschlaege() auf. Bei frischem Profil kommen die Vorschläge
+  aus dem Profil (Feld profil_vorschlaege; quelle sagt ob lokale KI oder
+  Heuristik sie erzeugt hat).
+- Zeige MUSS- und PLUS-Vorschläge kompakt und frage:
+  "Passen diese Suchbegriffe? Willst du etwas streichen oder ergänzen?"
+- Speichere die bestätigten Begriffe mit suchkriterien_setzen(
+  keywords_muss=[...], keywords_plus=[...]). Übernimm auch Region/Remote
+  aus Phase 3 (region, max_entfernung_km, remote), falls besprochen.
+
+5b. QUELLEN — KEINE PORTAL-FRAGEN STELLEN:
+- Sage: "Ich starte mit drei schnellen, zuverlässigen Jobbörsen ohne
+  Login: Bundesagentur, Arbeitnow und Indeed. Weitere kannst du später im
+  Dashboard unter Einstellungen → Job-Quellen dazuschalten. Ok?"
+- Der User soll NICHT Portale kennen oder vergleichen müssen.
+
+5c. ERSTE SUCHE STARTEN:
+- Rufe jobsuche_starten(quellen=['bundesagentur', 'arbeitnow',
+  'jobspy_indeed']) auf. Die Quellen werden dabei automatisch als aktive
+  Quellen übernommen (nur beim ersten Mal).
+- Erkläre: Die Suche läuft im Hintergrund und dauert einige Minuten; die
+  Status-Badge im Dashboard zeigt den Fortschritt. KEINE
+  jobsuche_status()-Abfrage-Schleife!
+- Überbrücke die Wartezeit sinnvoll (z.B. kurz erklären, wie
+  stelle_bewerten und der Score funktionieren) oder beende das Gespräch
+  mit dem Hinweis, dass die Treffer gleich im Stellen-Tab auftauchen.
+- Wenn der User nach dem Ergebnis fragt: jobsuche_status(job_id) einmal
+  aufrufen; bei Status fertig stellen_anzeigen(limit=5) als erste Vorschau
+  zeigen und die Top-Treffer kurz einordnen.
+- Bei 0 Treffern enthält das Ergebnis ein Feld 'diagnose' — erkläre die
+  Ursache in einem Satz und schlage die nächste Aktion vor (Keywords
+  breiter fassen, andere Quellen, Region prüfen).
+
+5d. LOKALE KI (nur EINMAL erwähnen, nur wenn relevant):
+- Wenn Tool-Antworten zeigen, dass die lokale KI fehlt (quelle='heuristik_profil'
+  oder Hinweis 'lokale KI nicht verfügbar'): Erwähne freundlich, dass PBP
+  mit Ollama (kostenlos, läuft lokal, https://ollama.com/download) Stellen
+  automatisch vorsortieren und Vorschläge verbessern kann — Einrichtung im
+  Dashboard-Tab 'Lokale KI'. Nicht drängen, nicht wiederholen.
 
 ===================================================
 REGELN
@@ -396,12 +445,73 @@ TIPPS NACH KATEGORIE:
 - "recherche_speichern() haelt deine Analysen fest — auch ueber Chat-Sessions hinweg."
 - "profil_sync (Prompt) hilft dir LinkedIn/XING/Freelance.de aktuell zu halten."
 
+== PROBLEME & IDEEN MELDEN (#746) ==
+- "Etwas funktioniert nicht oder dir fehlt ein Feature? Sag es einfach MIR —
+  ich versuche zuerst eine Sofortloesung/einen Workaround."
+- "Wenn Melden sinnvoll ist, formuliere ICH den fertigen Report-Text fuer
+  dich (automatisch anonymisiert, ohne Namen/Firmen) — du fuegst ihn nur
+  noch auf GitHub ein. Nutze dafuer den Prompt problem_melden."
+- "Du musst kein GitHub-Profi sein: Titel + Text kopieren, fertig. Ohne
+  GitHub-Konto geht derselbe Text per Mail an PBP-Service@Elwosa.de."
+
 Zeige die Tipps nach Relevanz:
 - Profil unvollstaendig? → Profil-Tipps zuerst
 - Keine Bewerbungen? → Jobsuche-Tipps zuerst
 - Viele Ablehnungen? → Bewerbungs-Tipps und Muster-Analyse
 Sprich Deutsch und per Du. Sei ermutigend.
 """
+
+
+def build_problem_melden_prompt(beschreibung: str = "") -> str:
+    """H17 (#746, v1.7.4): Melde-Hilfe — erst Sofortloesung, dann fertiger,
+    PII-gescrubbter Report fuer den Anwender.
+
+    Statischer Prompt-Text auf Modul-Ebene (siehe ``build_profil_sync_prompt``).
+    """
+    einstieg = (
+        f'BESCHREIBUNG DES USERS: "{beschreibung}"'
+        if beschreibung
+        else "Frage zuerst kurz: Was ist passiert bzw. was fehlt dir?"
+    )
+    return f"""Der User hat ein Problem mit PBP oder eine Idee / einen Feature-Wunsch.
+
+{einstieg}
+
+SCHRITT 1 — SOFORTLOESUNG VERSUCHEN (immer zuerst):
+- Verstehe das Problem konkret: Was wurde erwartet, was ist passiert?
+- Pruefe die bekannten Diagnose-Wege:
+  → pbp_diagnose() bei Daten-/Konsistenz-Problemen
+  → quellen_health_check() wenn die Jobsuche nichts liefert
+  → pbp_mcp_diagnose() wenn Tools haengen oder Timeouts auftreten
+  → FAQ: https://github.com/MadGapun/PBP/wiki/FAQ
+- Gibt es einen Workaround, zeige ihn ZUERST — viele Meldungen eruebrigt
+  eine Sofortloesung.
+- Fehlt PBP schlicht ein Tool dafuer: melde das zusaetzlich intern mit
+  pbp_grenze_melden().
+
+SCHRITT 2 — REPORT FORMULIEREN (wenn Melden sinnvoll bleibt):
+Formuliere den fertigen GitHub-Issue-Text FUER den User:
+- Titel: eine praezise Zeile
+- Text: Was ist passiert / was fehlt · Schritte zum Nachstellen ·
+  Erwartetes vs. tatsaechliches Verhalten · PBP-Version · ggf. die
+  Fehlermeldung im Wortlaut
+
+SCHRITT 3 — ANONYMISIEREN (PFLICHT, Issues sind oeffentlich):
+Ersetze im Report-Text BEVOR du ihn zeigst:
+- Namen dritter Personen → <PERSON>, eigener Name → <USER>
+- Konkrete Firmen aus Bewerbungen → <FIRMA>
+- Echte E-Mail-Adressen → <email-anonymisiert>, Telefonnummern → <telefon>
+- Interne IDs (Bewerbungs-/Stellen-IDs) duerfen bleiben
+Sage ausdruecklich dazu, dass der Text anonymisiert ist.
+
+SCHRITT 4 — ABGEBEN (zwei Wege, beide gleichwertig):
+- GitHub: Text einfuegen auf https://github.com/MadGapun/PBP/issues/new
+  (kostenloses Konto noetig).
+- Ohne GitHub: denselben Text per Mail an **PBP-Service@Elwosa.de**
+  senden. Hauptsache, die Beobachtung geht nicht verloren.
+- Zeige den fertigen Text zum Kopieren und nenne BEIDE Wege.
+
+Sprich Deutsch und per Du. Kurz und loesungsorientiert — erst helfen, dann melden."""
 
 
 def register_prompts(mcp, db, logger):
@@ -1453,6 +1563,13 @@ WICHTIGE REGELN
     def tipps_und_tricks() -> str:
         """Tipps & Tricks fuer AI-gestuetzte Jobsuche mit dem PBP (#195)."""
         return build_tipps_und_tricks_prompt()
+
+    @mcp.prompt()
+    def problem_melden(beschreibung: str = "") -> str:
+        """Problem oder Idee melden (#746): Claude versucht erst eine
+        Sofortloesung und formuliert dann den fertigen, anonymisierten
+        Report-Text fuer den Anwender."""
+        return build_problem_melden_prompt(beschreibung)
 
     # === v1.7.0-beta.37 (#599): Elwosa-Bridge-Prompts ============
 

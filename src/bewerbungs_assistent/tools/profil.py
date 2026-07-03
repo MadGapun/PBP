@@ -1153,20 +1153,33 @@ def register(mcp, db, logger):
         return {
             "status": "ok",
             "profil_id": profile_id,
-            "naechster_schritt": "quellen",
+            # G17 (#744, v1.7.4): der Wizard fuehrt jetzt selbst weiter —
+            # Keywords vorschlagen, Smart-Default-Quellen, erste Suche.
+            "naechster_schritt": "erste_suche",
             "ui_signal": "profile_onboarding_conversation=complete",
-            "nachricht": "Kennlerngespräch abgeschlossen. Als nächstes können die Quellen eingerichtet werden.",
+            "nachricht": (
+                "Kennlerngespräch abgeschlossen. Fahre DIREKT mit Phase 5 "
+                "fort: keyword_vorschlaege() aufrufen, Suchbegriffe "
+                "bestätigen lassen, suchkriterien_setzen(), dann "
+                "jobsuche_starten(quellen=['bundesagentur', 'arbeitnow', "
+                "'jobspy_indeed']) für die erste Suche."
+            ),
         }
 
     # --- Jobtitel-Vorschläge (2 Tools) ---
 
     @mcp.tool()
-    def jobtitel_vorschlagen(titel: list[str], quelle: str = "auto") -> dict:
+    def jobtitel_vorschlagen(titel: list[str] = [], quelle: str = "auto") -> dict:
         """Speichert vorgeschlagene Jobtitel für das aktive Profil.
 
         Rufe dieses Tool auf nachdem du das Profil analysiert hast, um passende
         Jobtitel/Stellenbezeichnungen vorzuschlagen. Die Titel werden im Dashboard
         angezeigt und können vom User bearbeitet werden.
+
+        v1.7.4 (#745, F24): Ohne `titel` generiert die lokale KI (Ollama)
+        die Vorschläge selbst aus dem Profil — falls installiert und aktiv.
+        Sonst kommt ein Hinweis, dass du (Claude) analysieren und mit
+        titel=[...] aufrufen sollst.
 
         WICHTIG: Berücksichtige bei der Analyse:
         - Aktuelle Positionen und deren Titel
@@ -1176,12 +1189,44 @@ def register(mcp, db, logger):
         - Sowohl deutsch als auch englisch (z.B. "Software-Architekt" UND "Software Architect")
 
         Args:
-            titel: Liste von vorgeschlagenen Jobtiteln (z.B. ["Software-Architekt", "IT-Projektmanager"])
+            titel: Liste von vorgeschlagenen Jobtiteln (z.B. ["Software-Architekt", "IT-Projektmanager"]). Leer = lokale KI generiert selbst.
             quelle: Woher der Vorschlag kommt: 'auto' (aus Analyse), 'user' (vom Benutzer), 'extraktion' (aus Dokument)
         """
         profile_id = db.get_active_profile_id()
         if not profile_id:
             return {"fehler": "Kein aktives Profil vorhanden."}
+
+        # F24 (#745): ohne uebergebene Titel generiert die lokale KI selbst
+        generiert_von = None
+        if not titel:
+            try:
+                if db.is_ki_feature_enabled("stellenanalyse"):
+                    from ..services.llm_service import (
+                        Backend, TaskKind, build_profil_kurztext, get_llm_service,
+                    )
+                    service = get_llm_service(db)
+                    if service.select_backend(TaskKind.SUGGEST_JOB_TITLES) == Backend.LOCAL:
+                        result = service.run(TaskKind.SUGGEST_JOB_TITLES, {
+                            "profil_text": build_profil_kurztext(db.get_profile()),
+                        })
+                        if result.success and isinstance(result.payload, dict):
+                            titel = result.payload.get("titel") or []
+                            if titel:
+                                generiert_von = "lokale_ki"
+                                quelle = "lokale_ki"
+            except Exception as exc:
+                logger.debug("SUGGEST_JOB_TITLES lokal fehlgeschlagen: %s", exc)
+            if not titel:
+                return {
+                    "status": "keine_titel",
+                    "nachricht": (
+                        "Keine Titel uebergeben und lokale KI nicht "
+                        "verfuegbar/aktiv. Analysiere das Profil "
+                        "(profil_zusammenfassung + projekte_anzeigen) und rufe "
+                        "jobtitel_vorschlagen(titel=[...]) mit deinen "
+                        "Vorschlaegen auf."
+                    ),
+                }
 
         existing = {t["title"].lower() for t in db.get_suggested_job_titles(profile_id)}
         added = []
@@ -1193,18 +1238,22 @@ def register(mcp, db, logger):
             if t.lower() in existing:
                 skipped.append(t)
                 continue
-            db.add_job_title(t, source=quelle, confidence=0.8 if quelle == "auto" else 1.0,
+            db.add_job_title(t, source=quelle,
+                             confidence=0.8 if quelle in ("auto", "lokale_ki") else 1.0,
                              profile_id=profile_id)
             existing.add(t.lower())
             added.append(t)
 
-        return {
+        result = {
             "status": "ok",
             "hinzugefuegt": added,
             "uebersprungen_duplikate": skipped,
             "gesamt": len(db.get_suggested_job_titles(profile_id)),
             "hinweis": "Jobtitel sind im Dashboard unter 'Profil' sichtbar und editierbar."
         }
+        if generiert_von:
+            result["generiert_von"] = generiert_von
+        return result
 
     @mcp.tool()
     def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:

@@ -259,6 +259,11 @@ _MANUAL_SOURCES = {
     "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension oeffnen",
 }
 
+# G17 (#744, v1.7.4): Bewaehrter Starter-Satz fuer den allerersten Suchlauf —
+# schnell, zuverlaessig, ohne Login/Browser. Wird in der Ersterfassung
+# (Wizard-Phase 5) und in der "keine_quellen"-Antwort empfohlen.
+_SMART_DEFAULT_QUELLEN = ("bundesagentur", "arbeitnow", "jobspy_indeed")
+
 
 def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
     """v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach Jobsuche.
@@ -495,9 +500,18 @@ def register(mcp, db, logger):
             if not quellen:
                 return {
                     "status": "keine_quellen",
-                    "nachricht": "Keine Job-Quellen aktiviert. "
-                                 "Aktiviere Quellen im Dashboard unter Einstellungen → Job-Quellen, "
-                                 "oder gib sie explizit an: quellen=['stepstone', 'bundesagentur']"
+                    # G17 (#744, v1.7.4): Einsteiger nicht in den Einstellungs-
+                    # Tab schicken, sondern den bewaehrten Starter-Satz anbieten
+                    # (schnell, zuverlaessig, ohne Login).
+                    "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
+                    "nachricht": (
+                        "Keine Job-Quellen aktiviert. Empfehlung fuer den "
+                        "ersten Lauf: jobsuche_starten(quellen="
+                        f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
+                        "zuverlaessige Quellen ohne Login. Sie werden dabei "
+                        "als aktive Quellen uebernommen. Weitere Quellen: "
+                        "Dashboard → Einstellungen → Job-Quellen."
+                    ),
                 }
 
         # #695: Ohne Suchbegriffe nicht starten — sonst faellt z.B. der
@@ -532,6 +546,19 @@ def register(mcp, db, logger):
                 ),
             }
         quellen = auto_quellen
+
+        # G17 (#744, v1.7.4): Erster Lauf mit explizit uebergebenen Quellen
+        # (z.B. Smart-Defaults aus der Ersterfassung, nach User-Ok) — als
+        # aktive Quellen uebernehmen, damit Dashboard-Button ("Jetzt suchen")
+        # und Tagesroutine dieselben Quellen nutzen. Nur wenn noch KEINE
+        # gesetzt sind; bestehende Konfiguration wird nie ueberschrieben.
+        quellen_uebernommen = False
+        try:
+            if not db.get_profile_setting("active_sources", []):
+                db.set_profile_setting("active_sources", quellen)
+                quellen_uebernommen = True
+        except Exception as e:
+            logger.debug("active_sources-Uebernahme fehlgeschlagen: %s", e)
 
         # Prevent duplicate concurrent searches (#265)
         existing = db.get_running_background_job("jobsuche")
@@ -588,6 +615,8 @@ def register(mcp, db, logger):
             "status": "gestartet",
             "nachricht": nachricht,
         }
+        if quellen_uebernommen:
+            result["quellen_als_aktiv_uebernommen"] = quellen
         if manuelle_info:
             result["manuelle_quellen"] = manuelle_info
             result["hinweis"] = (

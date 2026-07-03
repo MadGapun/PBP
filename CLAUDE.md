@@ -1,16 +1,40 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.3** ist Stable (`--latest`) — v1.7.0 wurde am
-2026-06-18 aus beta.108 promotet (User-Wort), v1.7.1 war der Neu-Install-
-Statistik-Hotfix (#737), v1.7.2 haertet den Windows-Deinstaller (#739),
-v1.7.3 (2026-07-02) haertet das Dokument-/Mail-Auto-Matching (#743, E17),
-bringt `projekte_anzeigen` mit STAR-Volltext (#741, H16) und den
-Schema-Parity-Test (#738, A19) inkl. Fix der #737-Restluecke fuer
-v1.6.x-Fresh-Install-Upgrader. v1.6.10 bleibt als aelterer Release
-verfuegbar. Die naechste Arbeit laeuft Richtung **v1.8** (Plugin-Plattform
-#504, Mail-Integrationen #478/#480/#481, Branchen-Radar #718/#735,
-Referenzen #740/D24, Umlaut-Restaurierung #742/A20) — siehe Master-Plan.
+React-Frontend + SQLite. **v1.7.4** ist Stable (`--latest`) — v1.7.0 wurde am
+2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
+Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
++ Schema-Parity (#743/#741/#738), v1.7.4 (2026-07-03) ist die
+**Einsteiger-Welle**: gefuehrte Kette CV→Profil→Keywords→erste Suche
+(G17/#744), Ollama-Keyword-/Titel-Vorschlaege (F24/#745), Melde-Hilfe
+`problem_melden` inkl. Mail-Weg PBP-Service@Elwosa.de (H17/#746),
+Probe-URLs (B13/#747, 🟨 Rest-Drift offen). **Leitlinie des Users:
+Benutzerfuehrung ist oberste Prioritaet** — jeder Flow fuehrt zum
+naechsten logischen Schritt; Melde-Kultur gehoert zur DNA. v1.6.10 bleibt
+als aelterer Release verfuegbar. Naechste Arbeit Richtung **v1.8**
+(Plugin-Plattform #504, Mail-Integrationen #478/#480/#481, Branchen-Radar
+#718/#735, Referenzen #740/D24, Umlaut-Restaurierung #742/A20, G11
+Onboarding-Hints/Hover) — siehe Master-Plan.
+
+## Stand 2026-07-03 (v1.7.4) — Einsteiger-Welle
+
+**Schema:** v48 (unveraendert). **Tests:** 1871 passed, 1 skipped.
+**MCP-Tools:** 178, **Prompts:** 25 (+`problem_melden`).
+
+Kernpunkte: (1) **G17/#744** — Ersterfassungs-Wizard hat Phase 5
+(keyword_vorschlaege → suchkriterien_setzen → Smart-Default-Quellen
+`bundesagentur/arbeitnow/jobspy_indeed` → jobsuche_starten →
+Treffer-Vorschau); `keyword_vorschlaege` liefert bei leerem Bestand
+Profil-Vorschlaege statt Sackgasse; `jobsuche_starten` uebernimmt beim
+ersten expliziten Lauf die Quellen als aktiv; `zero_treffer_diagnose`
+erklaert 0-Treffer-Ergebnisse; Welcome-Screen: CV-Upload prominent.
+(2) **F24/#745** — TaskKinds EXTRACT_KEYWORDS/SUGGEST_JOB_TITLES,
+`jobtitel_vorschlagen()` ohne Argumente generiert via Ollama
+(`build_profil_kurztext` in llm_service, ohne PII). (3) **H17/#746** —
+Prompt `problem_melden`: erst Sofortloesung, dann PII-gescrubbter Report;
+GitHub ODER Mail an PBP-Service@Elwosa.de. Frontend: Defekt-Badges und
+Ollama-Download-Hinweis existierten schon (SourceSelectionList,
+SettingsPage) — vor Frontend-Arbeit immer erst pruefen, was da ist.
 
 ## Stand 2026-07-02 (v1.7.3) — Hotfix-Session
 

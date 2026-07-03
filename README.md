@@ -9,10 +9,10 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.7.3-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1837-brightgreen.svg)](#tests)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.4-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-1871-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-178-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
-[![Workflows](https://img.shields.io/badge/Workflows-24-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
+[![Workflows](https://img.shields.io/badge/Workflows-25-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
 [![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
 
@@ -201,11 +201,11 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
 | **MCP-Tools** | 178 Tools in 11 Modulen |
-| **Workflows** | 24 gefuehrte Workflows (Prompts) |
+| **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 9 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 1837 bestanden (1 uebersprungen) |
+| **Tests** | 1871 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -246,7 +246,7 @@ Ueber 100 Beta-Iterationen Richtung v1.7.0 — **seit 2026-06-18 als Stable (`--
 - **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
 - **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
 - **Laufende Bugfix-Wellen (beta.103–108)** — DB-Kontention, Zeitanzeige (Europe/Berlin), Scraper-Robustheit (Fehlerklassifikation), Geo-Filter fuer nicht-DACH Stellen, Stilarchiv-Autosave, korrekte Interview-Quote
-- Stand: 178 MCP-Tools, 24 Prompts, Schema v48, ueber 1800 Tests
+- Stand: 178 MCP-Tools, 25 Prompts, Schema v48, ueber 1800 Tests
 
 ### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
 

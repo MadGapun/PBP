@@ -1348,10 +1348,64 @@ def run_search(db, job_id: str, params: dict):
             details.append(f"{stats['bereits_beworben']} bereits beworben")
         msg_parts.append(f"Bereinigt: {', '.join(details)}")
 
+    # G17 (#744, v1.7.4): 0-Treffer-Diagnostik — sagen WARUM nichts kam,
+    # statt einen Einsteiger mit "0 Stellen gefunden" raten zu lassen.
+    if not unique:
+        diagnose = zero_treffer_diagnose(
+            stats, source_status, ok_count, error_count, timeout_count)
+        result_data["diagnose"] = diagnose
+        msg_parts.append(diagnose)
+
     db.update_background_job(
         job_id, "fertig", progress=100,
         message=" | ".join(msg_parts),
         result=result_data,
+    )
+
+
+def zero_treffer_diagnose(stats, source_status, ok_count, error_count,
+                          timeout_count) -> str:
+    """G17 (#744, v1.7.4): Erklaert, warum eine Suche 0 NEUE Stellen brachte.
+
+    Prioritaet: (1) alles bereinigt/bekannt, (2) gar keine Quelle gelaufen,
+    (3) alle Quellen mit Fehler/Timeout, (4) alle uebersprungen,
+    (5) Quellen ok, aber Suchbegriffe treffen nichts.
+    """
+    entfernt = sum(
+        (stats or {}).get(k, 0)
+        for k in ("duplikate_db", "blacklist", "bereits_bewertet", "bereits_beworben")
+    )
+    if entfernt:
+        return (
+            f"Die Quellen lieferten Treffer, aber alle {entfernt} waren "
+            "schon bekannt, bewertet oder geblacklistet — es gibt gerade "
+            "nichts Neues. Bei haeufigen Suchen ist das normal."
+        )
+    if not source_status:
+        return (
+            "Keine Quelle wurde tatsaechlich durchsucht — alle "
+            "ausgewaehlten Quellen wurden vorab uebersprungen "
+            "(defekt, deaktiviert oder nur manuell nutzbar). "
+            "Pruefe quellen_health_check() oder aktiviere andere Quellen."
+        )
+    if ok_count == 0 and (error_count or timeout_count):
+        return (
+            f"Keine Quelle hat geliefert ({error_count} Fehler, "
+            f"{timeout_count} Timeout). Vermutlich Netzwerk- oder "
+            "Portal-Problem — pruefe quellen_health_check() und "
+            "versuche es spaeter erneut."
+        )
+    if ok_count == 0:
+        return (
+            "Alle Quellen wurden uebersprungen (defekt oder deaktiviert). "
+            "Aktiviere andere Quellen (Dashboard → Einstellungen → "
+            "Job-Quellen) oder pruefe quellen_health_check()."
+        )
+    return (
+        f"{ok_count} Quelle(n) liefen fehlerfrei, fanden aber nichts "
+        "zu deinen Suchbegriffen. Versuche breitere Keywords "
+        "(weniger MUSS-Begriffe), pruefe Region/Entfernung oder "
+        "nimm weitere Quellen dazu (keyword_vorschlaege() hilft)."
     )
 
 

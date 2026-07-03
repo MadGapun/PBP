@@ -463,30 +463,33 @@ export default function DashboardPage() {
                   Du musst nicht wissen, was du tun sollst — PBP zeigt dir bei jedem
                   Schritt, was als Nächstes sinnvoll ist.
                 </p>
+                {/* G17 (#744): CV-Upload ist der schnellste Einstieg —
+                    gleichwertig prominent statt versteckter Ghost-Button */}
                 <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => navigateTo("profil")}>
-                    Starte dein Profil (ca. 10 Minuten)
+                  <Button onClick={() => navigateTo("profil", { composer: "document" })}>
+                    <Upload size={15} />
+                    Lebenslauf hochladen — Profil entsteht automatisch
+                  </Button>
+                  <Button variant="ghost" onClick={() => navigateTo("profil")}>
+                    Ohne Unterlagen starten (Gespräch, ca. 10 Min.)
                     <ArrowRight size={15} />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => navigateTo("profil", { composer: "document" })}
-                  >
-                    <Upload size={15} />
-                    Ich habe schon Unterlagen (optional)
-                  </Button>
                 </div>
+                <p className="max-w-2xl text-xs text-muted/70">
+                  In beiden Fällen gilt: Profil prüfen, Suchbegriffe bestätigen —
+                  und die erste Stellensuche startet direkt im Anschluss.
+                </p>
               </div>
 
               <div className="grid gap-4">
                 {[
                   {
                     title: "Schritt 1 — Profil",
-                    text: "Erzähl Claude von dir. Deine Erfahrung, deine Stärken, deine Wünsche.",
+                    text: "Lebenslauf hochladen oder einfach erzählen — Claude baut daraus dein Profil.",
                   },
                   {
                     title: "Schritt 2 — Stellen finden",
-                    text: "PBP durchsucht Jobbörsen und zeigt dir passende Stellen mit Bewertung.",
+                    text: "Suchbegriffe werden vorgeschlagen, die erste Suche startet direkt — du siehst sofort passende Stellen mit Bewertung.",
                   },
                   {
                     title: "Schritt 3 — Bewerben",

@@ -1481,10 +1481,102 @@ def register(mcp, db, logger):
 
         return result
 
+    def _keyword_vorschlaege_aus_profil(muss, plus, ausschluss) -> dict:
+        """G17/F24 (#744/#745): Keyword-Vorschlaege fuer frische Profile
+        ohne Stellen-Bestand. Lokale KI bevorzugt (EXTRACT_KEYWORDS),
+        sonst Heuristik aus Jobtiteln + fachlichen Skills.
+        Kein MCP-Tool — interner Helper von keyword_vorschlaege."""
+        profile = db.get_profile()
+        if not profile:
+            return {
+                "nachricht": "Kein Profil vorhanden. "
+                             "Starte mit dem Prompt ersterfassung_starten.",
+            }
+
+        vorhandene = muss + plus + ausschluss
+        bereits = {str(v).lower() for v in vorhandene}
+        quelle = "heuristik_profil"
+        vorschlag_muss: list = []
+        vorschlag_plus: list = []
+
+        # F24 (#745): lokale KI bevorzugt — Feature-Gate + Verfuegbarkeit
+        try:
+            if db.is_ki_feature_enabled("stellenanalyse"):
+                from ..services.llm_service import (
+                    Backend, TaskKind, build_profil_kurztext, get_llm_service,
+                )
+                service = get_llm_service(db)
+                if service.select_backend(TaskKind.EXTRACT_KEYWORDS) == Backend.LOCAL:
+                    result = service.run(TaskKind.EXTRACT_KEYWORDS, {
+                        "profil_text": build_profil_kurztext(profile),
+                        "vorhandene_keywords": vorhandene,
+                    })
+                    if result.success and isinstance(result.payload, dict):
+                        vorschlag_muss = result.payload.get("keywords_muss") or []
+                        vorschlag_plus = result.payload.get("keywords_plus") or []
+                        if vorschlag_muss or vorschlag_plus:
+                            quelle = "lokale_ki"
+        except Exception as exc:
+            logger.debug("EXTRACT_KEYWORDS lokal fehlgeschlagen: %s", exc)
+
+        if not vorschlag_muss and not vorschlag_plus:
+            # Heuristik: gespeicherte Jobtitel als MUSS-Kandidaten,
+            # fachliche Skills/Tools/Methoden nach Level als PLUS
+            try:
+                pid = db.get_active_profile_id()
+                vorschlag_muss = [
+                    t["title"] for t in db.get_suggested_job_titles(pid)
+                    if t.get("is_active", 1)
+                ][:4]
+            except Exception:
+                vorschlag_muss = []
+            skills = sorted(
+                profile.get("skills", []),
+                key=lambda s: -(s.get("level") or 0),
+            )
+            vorschlag_plus = [
+                s["name"] for s in skills
+                if s.get("name")
+                and s.get("category") in ("fachlich", "tool", "methodisch")
+            ][:8]
+
+        # Bereits gesetzte Keywords nicht nochmal vorschlagen
+        vorschlag_muss = [k for k in vorschlag_muss if str(k).lower() not in bereits]
+        vorschlag_plus = [
+            k for k in vorschlag_plus
+            if str(k).lower() not in bereits
+            and str(k).lower() not in {str(m).lower() for m in vorschlag_muss}
+        ]
+
+        return {
+            "aktive_stellen": 0,
+            "datenquelle": (
+                "Profil via lokale KI" if quelle == "lokale_ki"
+                else "Profil (Heuristik: Jobtitel + Skills)"
+            ),
+            "quelle": quelle,
+            "aktuelle_keywords": {"muss": muss, "plus": plus, "ausschluss": ausschluss},
+            "profil_vorschlaege": {
+                "muss": vorschlag_muss,
+                "plus": vorschlag_plus,
+            },
+            "hinweis": (
+                "Noch keine Stellen im Bestand — diese Vorschlaege stammen aus "
+                "deinem Profil. Zeige sie dem User zur Bestaetigung, uebernimm "
+                "sie mit suchkriterien_setzen(keywords_muss=[...], "
+                "keywords_plus=[...]) und starte dann die erste Suche mit "
+                "jobsuche_starten()."
+            ),
+        }
+
     @mcp.tool()
     def keyword_vorschlaege() -> dict:
         """Analysiert Bewerbungen vs. abgelehnte Stellen und schlägt
         Keyword-Anpassungen vor (#184 / #500 v1.6.0-beta.29).
+
+        v1.7.4 (#744/#745): Ohne Stellen-Bestand (frisches Profil) kommen
+        die Vorschläge aus dem Profil — lokale KI bevorzugt, sonst
+        Jobtitel-/Skill-Heuristik. Antwortfeld `profil_vorschlaege`.
 
         Datenquelle (in dieser Reihenfolge):
             1. Beste Quelle: Stellen mit Bewerbung vs. dismissed Stellen.
@@ -1589,7 +1681,11 @@ def register(mcp, db, logger):
             )
 
         if not all_jobs:
-            return {"nachricht": "Keine aktiven Stellen. Starte zuerst eine Jobsuche."}
+            # G17/F24 (#744/#745, v1.7.4): frueher eine Sackgasse ("starte
+            # zuerst eine Jobsuche") — genau der Punkt, an dem ein Einsteiger
+            # OHNE Stellen-Bestand Keywords braucht. Jetzt: Vorschlaege aus
+            # dem Profil, lokale KI bevorzugt, sonst Skill-/Titel-Heuristik.
+            return _keyword_vorschlaege_aus_profil(muss, plus, ausschluss)
 
         from collections import Counter as _Counter
         good_words = _Counter()

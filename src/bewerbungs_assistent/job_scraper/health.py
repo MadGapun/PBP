@@ -111,6 +111,23 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "xml",
         None,
     ),
+    # === HTML-Quellen nach URL-Migration #653 (B13/#747) ===
+    # Probe-URLs entsprechen exakt den Request-URLs der Adapter
+    # (ingenieur_de.py bzw. ferchau.py) — damit prueft der Health-Check
+    # denselben Endpunkt, den auch die echte Suche trifft.
+    "ingenieur_de": (
+        "GET",
+        "https://jobs.ingenieur.de/suche?q=test&sort=date",
+        "html",
+        None,
+    ),
+    "ferchau": (
+        "GET",
+        "https://touch.ferchau.com/de/de"
+        "?search=test&type=3&sortingType=actuality&sortingDirection=DESC",
+        "html",
+        None,
+    ),
 }
 
 _TIMEOUT = 10.0  # Health-Check ist nur Ping — keine 30s-Wartezeit

@@ -16,6 +16,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.4] - 2026-07-03 — Einsteiger-Welle: gefuehrte Kette bis zur ersten Suche, Ollama-Vorschlaege, Melde-Hilfe (#744, #745, #746, #747)
+
+> **Empfohlenes Update (`--latest`).** Einsteiger werden jetzt durchgehend
+> gefuehrt — vom Lebenslauf-Upload bis zur laufenden ersten Stellensuche.
+> Die lokale KI (Ollama) uebernimmt mehr Automatik, wo sie installiert ist.
+> KEINE Schema-Migration (v48 unveraendert).
+
+### Added
+
+- **#744 — Gefuehrte Einsteiger-Kette (G17):** Der Ersterfassungs-Wizard
+  endet nicht mehr nach dem Profil-Review, sondern fuehrt in **Phase 5**
+  direkt weiter: Suchbegriffe vorschlagen (`keyword_vorschlaege`) →
+  bestaetigen → `suchkriterien_setzen` → erste Suche mit drei schnellen,
+  zuverlaessigen Quellen ohne Login (Bundesagentur, Arbeitnow,
+  JobSpy-Indeed) → Treffer-Vorschau. Dazu:
+  - `keyword_vorschlaege` ist bei leerem Stellen-Bestand keine Sackgasse
+    mehr („starte zuerst eine Jobsuche"), sondern liefert Vorschlaege aus
+    dem Profil (`profil_vorschlaege`) — lokale KI bevorzugt, sonst
+    Jobtitel-/Skill-Heuristik.
+  - `jobsuche_starten` empfiehlt bei fehlenden Quellen den Starter-Satz
+    (`empfohlene_start_quellen`) und uebernimmt beim allerersten explizit
+    gestarteten Lauf die Quellen als aktive Quellen (nie ueberschreibend).
+  - **0-Treffer-Diagnostik:** Liefert eine Suche nichts, erklaert das
+    Ergebnis-Feld `diagnose`, WARUM (alles schon bekannt / Quellen defekt /
+    Fehler+Timeout / Suchbegriffe zu eng) statt nur „0 Stellen".
+  - Welcome-Screen: **Lebenslauf-Upload ist jetzt der prominente
+    Einstieg** („Profil entsteht automatisch"), Gespraechs-Variante als
+    Alternative; Schritt-Karten beschreiben die neue Kette.
+- **#745 — Ollama-gestuetzte Vorschlaege (F24):** Neue lokale Tasks
+  `EXTRACT_KEYWORDS` und `SUGGEST_JOB_TITLES` (lokal bevorzugt,
+  Fallback-Kette wie ueblich). `jobtitel_vorschlagen` kann jetzt OHNE
+  uebergebene Titel aufgerufen werden — die lokale KI generiert sie dann
+  selbst aus dem Profil (`generiert_von: "lokale_ki"`); ohne Ollama kommt
+  ein klarer Hinweis statt eines Fehlers. Antworten kennzeichnen die
+  Quelle (`quelle: "lokale_ki" | "heuristik_profil"`). Feature-Gate:
+  `ki_features` (stellenanalyse); ohne Ollama exakt bisheriges Verhalten.
+- **#746 — Melde-Hilfe (H17):** Neuer Prompt `problem_melden` — Claude
+  versucht bei Problemen/Ideen ZUERST eine Sofortloesung (Diagnose-Tools,
+  FAQ-Workarounds) und formuliert dann den fertigen, automatisch
+  anonymisierten Report-Text zum Einfuegen auf GitHub. Der
+  `tipps_und_tricks`-Prompt und das Wiki (FAQ, Erste Schritte) verweisen
+  darauf. Prompts: 24 → **25**.
+- **#747 — Probe-URLs vervollstaendigt (B13):** `quellen_health_check`
+  kann jetzt auch `ingenieur_de` und `ferchau` aktiv proben (die zwei
+  Quellen mit URL-Migrations-Historie aus #653); Konsistenz-Tests
+  Probe ↔ SOURCE_REGISTRY, defekte Quellen bleiben bewusst ohne Probe.
+
+### Unter der Haube
+
+Geaendert: `prompts.py` (Wizard-Phase 5, problem_melden, Tipps),
+`services/llm_service.py` (2 neue TaskKinds + Profil-Kurztext-Builder),
+`tools/analyse.py` (Profil-Pfad keyword_vorschlaege), `tools/profil.py`
+(jobtitel-Generierung, kennlerngespraech naechster_schritt),
+`tools/jobs.py` (Smart-Default-Quellen), `job_scraper/__init__.py`
+(zero_treffer_diagnose), `job_scraper/health.py` (2 Probes),
+`DashboardPage.jsx` (Welcome) + Frontend-Rebuild.
+Tests: +42 (probe_urls_747, ollama_vorschlaege_745, einsteiger_kette_744,
+problem_melden_746). Kein Schema-Bump.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.4.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.4.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.3] - 2026-07-02 — Hotfix: Dokument-Matching, STAR-Volltext, Schema-Parity (#743, #741, #738)
 
 > **Empfohlenes Update (`--latest`).** Haertet das Auto-Matching von Mails/

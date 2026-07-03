@@ -55,6 +55,8 @@ class TaskKind(str, Enum):
     ANALYZE_USER_PATTERNS = "analyze_user_patterns"  # v1.7.0-beta.28 (#594 Stufe 3)
     EXTRACT_CONTACTS = "extract_contacts"  # v1.7.0-beta.39 (#606)
     VALIDATE_JOB_QUALITY = "validate_job_quality"  # v1.7.0-beta.73 (#645)
+    EXTRACT_KEYWORDS = "extract_keywords"  # v1.7.4 (#745, F24): Suchbegriffe aus Profil
+    SUGGEST_JOB_TITLES = "suggest_job_titles"  # v1.7.4 (#745, F24): Jobtitel aus Profil
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -86,6 +88,8 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.ANALYZE_USER_PATTERNS:[Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.EXTRACT_CONTACTS:     [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.VALIDATE_JOB_QUALITY: [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.EXTRACT_KEYWORDS:     [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    TaskKind.SUGGEST_JOB_TITLES:   [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -1000,6 +1004,117 @@ def _parse_validate_job_quality(raw: str) -> dict:
     return out
 
 
+# ── F24 (#745, v1.7.4): Einsteiger-Vorschlaege aus dem Profil ──────
+# Beide Tasks bekommen denselben kompakten Profil-Text. Der Builder ist
+# public, weil die Tools (keyword_vorschlaege, jobtitel_vorschlagen) ihn
+# fuer den Payload nutzen.
+
+def build_profil_kurztext(profile: dict | None, max_len: int = 3500) -> str:
+    """Kompakter Profil-Text fuer lokale Vorschlags-Tasks (F24).
+
+    Enthaelt Positionen (Titel@Firma), Skills nach Kategorie und
+    Projekt-Namen/Rollen — genug Signal fuer Keywords/Titel, ohne
+    personenbezogene Details (Name/Adresse/Mail bleiben draussen).
+    """
+    if not profile:
+        return ""
+    lines: list[str] = []
+    if profile.get("summary"):
+        lines.append(f"Kurzprofil: {profile['summary'][:400]}")
+    positions = profile.get("positions", [])
+    if positions:
+        lines.append("Positionen:")
+        for pos in positions[:8]:
+            eintrag = f"- {pos.get('title', '?')} bei {pos.get('company', '?')}"
+            if pos.get("technologies"):
+                eintrag += f" (Technologien: {pos['technologies'][:150]})"
+            lines.append(eintrag)
+            for proj in (pos.get("projects") or [])[:4]:
+                lines.append(
+                    f"  Projekt: {proj.get('name', '?')}"
+                    + (f" — Rolle: {proj['role']}" if proj.get("role") else "")
+                )
+    skills = profile.get("skills", [])
+    if skills:
+        nach_kat: dict[str, list[str]] = {}
+        for s in skills:
+            nach_kat.setdefault(s.get("category", "sonstige"), []).append(
+                str(s.get("name", "")))
+        for kat, namen in nach_kat.items():
+            lines.append(f"Skills ({kat}): {', '.join(n for n in namen if n)[:300]}")
+    return "\n".join(lines)[:max_len]
+
+
+def _clean_token_list(raw: str, max_token_len: int) -> list[str]:
+    """Kommagetrennte LLM-Antwort in saubere Tokens verwandeln
+    (Bullets/Nummerierung/Anfuehrungszeichen weg — Muster wie
+    _parse_extract_skills)."""
+    cleaned = []
+    for s in (raw or "").replace("\n", ",").split(","):
+        token = s.strip()
+        while token and token[0] in "-*•·–—0123456789. ":
+            token = token[1:].strip()
+        token = token.strip(".,;:'\"`")
+        if token and len(token) <= max_token_len:
+            cleaned.append(token)
+    return cleaned
+
+
+def _build_extract_keywords_prompt(payload: dict) -> str:
+    profil = (payload.get("profil_text") or "")[:3500]
+    vorhandene = payload.get("vorhandene_keywords") or []
+    hinweis_vorhanden = (
+        f"Diese Begriffe sind schon gesetzt, NICHT wiederholen: "
+        f"{', '.join(str(v) for v in vorhandene[:20])}\n"
+        if vorhandene else ""
+    )
+    return (
+        "Du hilfst bei der Stellensuche auf deutschen Jobboersen. Leite aus "
+        "dem Bewerberprofil Suchbegriffe ab.\n"
+        "Antworte in GENAU diesem Format (zwei Zeilen, kommagetrennt):\n"
+        "MUSS: 3 bis 5 zentrale Begriffe (Kern-Taetigkeit/Fachgebiet, ohne "
+        "die keine passende Stelle denkbar ist)\n"
+        "PLUS: 4 bis 8 Bonus-Begriffe (Technologien, Methoden, Branchen)\n"
+        "Regeln: kurze Suchbegriffe (1-2 Woerter), marktueblich, KEINE "
+        "Saetze, KEINE Soft Skills, KEINE Erklaerungen.\n"
+        f"{hinweis_vorhanden}\nPROFIL:\n{profil}"
+    )
+
+
+def _parse_extract_keywords(raw: str) -> dict:
+    muss: list[str] = []
+    plus: list[str] = []
+    for line in (raw or "").splitlines():
+        low = line.strip().lower()
+        if low.startswith("muss:"):
+            muss.extend(_clean_token_list(line.split(":", 1)[1], 40))
+        elif low.startswith("plus:"):
+            plus.extend(_clean_token_list(line.split(":", 1)[1], 40))
+    return {"keywords_muss": muss[:6], "keywords_plus": plus[:10]}
+
+
+def _build_suggest_job_titles_prompt(payload: dict) -> str:
+    profil = (payload.get("profil_text") or "")[:3500]
+    return (
+        "Du kennst den deutschen Arbeitsmarkt. Schlage fuer das folgende "
+        "Bewerberprofil passende Stellenbezeichnungen vor, nach denen auf "
+        "Jobboersen gesucht werden kann.\n"
+        "Antworte NUR mit einer kommagetrennten Liste von 3 bis 6 Titeln — "
+        "marktueblich, gern deutsch UND englisch gemischt (z.B. "
+        "Projektleiter Maschinenbau, Project Manager Engineering). "
+        "KEINE Erklaerungen, KEINE Nummerierung.\n\n"
+        f"PROFIL:\n{profil}"
+    )
+
+
+def _parse_suggest_job_titles(raw: str) -> dict:
+    titel = [
+        t for t in _clean_token_list(raw, 60)
+        if len(t) >= 4 and not t.lower().startswith(("hier ", "vorschlag", "titel:"))
+    ]
+    return {"titel": titel[:6]}
+
+
 _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
@@ -1008,6 +1123,8 @@ _PROMPT_BUILDERS = {
     TaskKind.ANALYZE_USER_PATTERNS: _build_analyze_user_patterns_prompt,
     TaskKind.EXTRACT_CONTACTS: _build_extract_contacts_prompt,
     TaskKind.VALIDATE_JOB_QUALITY: _build_validate_job_quality_prompt,
+    TaskKind.EXTRACT_KEYWORDS: _build_extract_keywords_prompt,
+    TaskKind.SUGGEST_JOB_TITLES: _build_suggest_job_titles_prompt,
 }
 
 _RESPONSE_PARSERS = {
@@ -1018,6 +1135,8 @@ _RESPONSE_PARSERS = {
     TaskKind.ANALYZE_USER_PATTERNS: _parse_analyze_user_patterns,
     TaskKind.EXTRACT_CONTACTS: _parse_extract_contacts,
     TaskKind.VALIDATE_JOB_QUALITY: _parse_validate_job_quality,
+    TaskKind.EXTRACT_KEYWORDS: _parse_extract_keywords,
+    TaskKind.SUGGEST_JOB_TITLES: _parse_suggest_job_titles,
 }
 
 
