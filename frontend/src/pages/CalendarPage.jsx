@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import {
   Badge,
   Button,
@@ -514,6 +515,7 @@ export default function CalendarPage() {
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Kalender</h1>
       <p className="text-xs text-muted/50 mb-2">{meetings.length} Termine</p>
+      <OnboardingHintBanner tab="kalender" />
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Navigation arrows + label */}

@@ -9498,6 +9498,38 @@ async def api_get_learning_hints(page: str = "", limit: int = 3):
     }
 
 
+@app.get("/api/onboarding/hints")
+async def api_get_onboarding_hints(tab: str = ""):
+    """v1.7.5 (#652, G11): Onboarding-Hints fuer ungenutzte Features.
+
+    Backend existierte seit beta.76 (services/onboarding_hints.py), war aber
+    nur per MCP erreichbar — das Frontend konnte die Hints nie anzeigen.
+    Optionaler tab-Filter (dashboard/stellen/bewerbungen/kalender).
+    """
+    try:
+        from .services.onboarding_hints import list_active_hints
+        hints = list_active_hints(_db)
+    except Exception as exc:
+        logger.debug("onboarding hints failed: %s", exc)
+        hints = []
+    tab = (tab or "").strip().lower()
+    if tab:
+        hints = [h for h in hints if h.get("tab") == tab]
+    return {"hints": hints, "count": len(hints), "tab": tab or "alle"}
+
+
+@app.delete("/api/onboarding/hints/{hint_id}")
+async def api_dismiss_onboarding_hint(hint_id: str):
+    """v1.7.5 (#652, G11): Hint dauerhaft wegklicken (persistiert in settings,
+    gleicher Mechanismus wie das MCP-Tool onboarding_hint_dismiss)."""
+    try:
+        from .services.onboarding_hints import dismiss_hint
+        return dismiss_hint(_db, hint_id)
+    except Exception as exc:
+        logger.debug("onboarding hint dismiss failed: %s", exc)
+        return {"error": str(exc)}
+
+
 @app.post("/api/learning/analyze")
 async def api_run_learning_analysis(request: Request):
     """Manueller Trigger fuer LLM-Pattern-Analyse (z.B. 'Jetzt analysieren'

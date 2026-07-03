@@ -233,11 +233,19 @@ def test_run_check_stale_applications_idempotent(tmp_db, monkeypatch):
 
 
 def test_onboarding_hints_keine_bei_leerem_profil(tmp_db):
-    """#652: Frisches Profil hat 0 Bewerbungen, 0 Termine, 0 Interviews -> 0 Hints."""
+    """#652: Frisches Profil hat 0 Bewerbungen, 0 Termine, 0 Interviews ->
+    keiner der Aktivitaets-Hints feuert. Seit v1.7.5 (#652-Rest, G17-
+    Anschluss) erscheint fuer genau diesen Zustand aber BEWUSST der
+    Naechster-Schritt-Hint g11_erste_suche_starten (Profil da, keine
+    Suchbegriffe) — Leitlinie: der User sieht immer den naechsten Schritt."""
     tmp_db.create_profile("Test User", "test@example.com")
     from bewerbungs_assistent.services.onboarding_hints import list_active_hints
     hints = list_active_hints(tmp_db)
-    assert hints == []
+    assert [h["id"] for h in hints] == ["g11_erste_suche_starten"]
+
+    # Mit gesetzten Suchbegriffen verschwindet auch dieser Hint -> 0 Hints
+    tmp_db.set_search_criteria("keywords_muss", ["PLM"])
+    assert list_active_hints(tmp_db) == []
 
 
 def test_onboarding_hint_suchprofile_triggert_bei_3_bewerbungen(tmp_db):

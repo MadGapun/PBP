@@ -1,10 +1,12 @@
-"""Profil-Verwaltung — 22 Tools.
+"""Profil-Verwaltung — 23 Tools.
 
 Enthalt: Profil-Grundlagen, Multi-Profil, Erfassungsfortschritt,
-Skill-Pflege und Projekt-Abfrage (projekte_anzeigen, #741).
+Skill-Pflege, Projekt-Abfrage (projekte_anzeigen, #741) und
+Umlaut-Restaurierung (profil_umlaute_reparieren, #742).
 """
 
 import json
+import re
 
 from ..services.profile_service import (
     get_profile_completeness,
@@ -18,6 +20,157 @@ def _kurz(text, n):
     """Kuerzt fuer die Uebersicht; '…' zeigt an, dass Volltext existiert (#741)."""
     t = text or ""
     return t if len(t) <= n else t[:n] + "…"
+
+
+# ── A20 (#742, v1.7.5): Umlaut-Restaurierung Altbestand ─────────────
+# Kuratierte Positivliste: NUR diese Woerter werden ersetzt (wortweise,
+# case-erhaltend). Stumpfes ue→ü/ae→ä/oe→ö ist unmoeglich (neue, Steuerung,
+# Aussage, Queue, Eigennamen). ss→ß ist NIE dabei (dass/Straße-Problem);
+# Woerter, deren korrekte Form ein ß enthaelt (regelmaessig→regelmäßig,
+# groesser→größer, gemaess→gemäß), fehlen deshalb BEWUSST.
+# Erweiterung: neue Eintraege unten anfuegen; das Tool listet ungemappte
+# ae/oe/ue-Woerter als Kandidaten auf.
+_UMLAUT_REPAIR_MAP = {
+    # haeufige Funktionswoerter
+    "fuer": "für", "ueber": "über", "waehrend": "während",
+    "zusaetzlich": "zusätzlich", "zusaetzliche": "zusätzliche",
+    "spaeter": "später", "frueher": "früher", "fruehzeitig": "frühzeitig",
+    "naechste": "nächste", "naechsten": "nächsten", "naechster": "nächster",
+    "taeglich": "täglich", "jaehrlich": "jährlich", "staendig": "ständig",
+    "koennen": "können", "koennte": "könnte", "koennten": "könnten",
+    "moeglich": "möglich", "moegliche": "mögliche",
+    "moeglichkeit": "möglichkeit", "moeglichkeiten": "möglichkeiten",
+    # Fuehrung / Taetigkeit
+    "fuehrung": "führung", "fuehren": "führen", "gefuehrt": "geführt",
+    "fuehrungskraft": "führungskraft", "fuehrungskraefte": "führungskräfte",
+    "durchfuehrung": "durchführung", "durchgefuehrt": "durchgeführt",
+    "einfuehrung": "einführung", "eingefuehrt": "eingeführt",
+    "ausfuehrung": "ausführung", "ausfuehrlich": "ausführlich",
+    "weitergefuehrt": "weitergeführt", "fortgefuehrt": "fortgeführt",
+    "geschaeftsfuehrer": "geschäftsführer",
+    "geschaeftsfuehrend": "geschäftsführend",
+    "geschaeftsfuehrender": "geschäftsführender",
+    "geschaeftsfuehrung": "geschäftsführung",
+    "taetigkeit": "tätigkeit", "taetigkeiten": "tätigkeiten", "taetig": "tätig",
+    "zustaendig": "zuständig", "zustaendigkeit": "zuständigkeit",
+    "zustaendigkeiten": "zuständigkeiten",
+    "selbststaendig": "selbstständig", "selbststaendige": "selbstständige",
+    "eigenstaendig": "eigenständig", "eigenstaendige": "eigenständige",
+    "vollstaendig": "vollständig", "vollstaendige": "vollständige",
+    "vollstaendigkeit": "vollständigkeit",
+    # Qualitaet / Kompetenz
+    "qualitaet": "qualität", "qualitaeten": "qualitäten",
+    "qualitaetssicherung": "qualitätssicherung",
+    "qualitaetsmanagement": "qualitätsmanagement",
+    "aktivitaet": "aktivität", "aktivitaeten": "aktivitäten",
+    "produktivitaet": "produktivität", "flexibilitaet": "flexibilität",
+    "stabilitaet": "stabilität", "kapazitaet": "kapazität",
+    "kapazitaeten": "kapazitäten", "universitaet": "universität",
+    "faehigkeit": "fähigkeit", "faehigkeiten": "fähigkeiten",
+    "leistungsfaehig": "leistungsfähig",
+    "leistungsfaehigkeit": "leistungsfähigkeit",
+    "zuverlaessig": "zuverlässig", "zuverlaessigkeit": "zuverlässigkeit",
+    "verfuegbarkeit": "verfügbarkeit", "verfuegbar": "verfügbar",
+    # Loesung / Unterstuetzung
+    "loesung": "lösung", "loesungen": "lösungen",
+    "aufloesung": "auflösung", "abloesung": "ablösung", "erloes": "erlös",
+    "erloese": "erlöse", "unterstuetzung": "unterstützung",
+    "unterstuetzt": "unterstützt", "unterstuetzte": "unterstützte",
+    "unterstuetzen": "unterstützen",
+    # Pruefung / Klaerung
+    "pruefung": "prüfung", "pruefungen": "prüfungen", "pruefen": "prüfen",
+    "geprueft": "geprüft", "ueberpruefung": "überprüfung",
+    "ueberprueft": "überprüft", "klaerung": "klärung", "geklaert": "geklärt",
+    "erklaerung": "erklärung", "abklaerung": "abklärung",
+    # ueber-Komposita
+    "ueberblick": "überblick", "uebersicht": "übersicht",
+    "uebergabe": "übergabe", "uebernahme": "übernahme",
+    "uebernommen": "übernommen", "uebertragung": "übertragung",
+    "uebergreifend": "übergreifend", "uebergreifende": "übergreifende",
+    "ueberzeugt": "überzeugt", "ueberzeugung": "überzeugung",
+    "ueberfuehrung": "überführung", "ueberwachung": "überwachung",
+    "uebereinstimmung": "übereinstimmung",
+    # rueck / schluessel
+    "zurueck": "zurück", "rueckmeldung": "rückmeldung",
+    "rueckmeldungen": "rückmeldungen", "ruecksprache": "rücksprache",
+    "rueckbau": "rückbau", "schluessel": "schlüssel",
+    "schluesselrolle": "schlüsselrolle", "anschluesse": "anschlüsse",
+    "beruecksichtigung": "berücksichtigung",
+    "beruecksichtigt": "berücksichtigt",
+    # ae-Woerter
+    "mehrjaehrig": "mehrjährig", "mehrjaehrige": "mehrjährige",
+    "mehrjaehriger": "mehrjähriger", "langjaehrig": "langjährig",
+    "langjaehrige": "langjährige", "langjaehriger": "langjähriger",
+    "vertraege": "verträge", "geraete": "geräte", "ablaeufe": "abläufe",
+    "arbeitsablaeufe": "arbeitsabläufe", "geschaeftsablaeufe": "geschäftsabläufe",
+    "maerkte": "märkte", "laender": "länder", "traeger": "träger",
+    "staerken": "stärken", "gestaerkt": "gestärkt", "verstaerkt": "verstärkt",
+    "verstaendnis": "verständnis", "verstaendlich": "verständlich",
+    "bestaetigt": "bestätigt", "bestaetigung": "bestätigung",
+    "geschaetzt": "geschätzt", "schaetzung": "schätzung",
+    "gewaehrleistet": "gewährleistet", "gewaehrleistung": "gewährleistung",
+    "bewaehrt": "bewährt", "bewaehrte": "bewährte",
+    "ausgewaehlt": "ausgewählt", "auswaehlen": "auswählen",
+    "erwaehnt": "erwähnt", "gefaehrdung": "gefährdung",
+    "verlaengerung": "verlängerung", "verlaengert": "verlängert",
+    "praesentation": "präsentation", "praesentationen": "präsentationen",
+    "praesentiert": "präsentiert", "repraesentiert": "repräsentiert",
+    "praezise": "präzise", "praezision": "präzision",
+    # oe-Woerter
+    "oekosystem": "ökosystem", "oekonomisch": "ökonomisch",
+    "oeffentlich": "öffentlich", "oeffentliche": "öffentliche",
+    "oeffentlichkeit": "öffentlichkeit", "oertlich": "örtlich",
+    "erhoehung": "erhöhung", "erhoeht": "erhöht", "hoehere": "höhere",
+    "hoehe": "höhe", "verzoegerung": "verzögerung",
+    "verzoegerungen": "verzögerungen", "verzoegert": "verzögert",
+    "gehoert": "gehört", "zugehoerig": "zugehörig",
+    "zugehoerigkeit": "zugehörigkeit", "loeschen": "löschen",
+    "geloescht": "gelöscht", "stoerung": "störung", "stoerungen": "störungen",
+    "foerderung": "förderung", "gefoerdert": "gefördert",
+    "persoenlich": "persönlich", "persoenliche": "persönliche",
+    "persoenlichkeit": "persönlichkeit",
+    "erfuellt": "erfüllt", "erfuellung": "erfüllung",
+    "verkuerzt": "verkürzt", "verkuerzung": "verkürzung",
+}
+
+_UMLAUT_WORT_RE = re.compile(r"[A-Za-zÄÖÜäöüß]+")
+_UMLAUT_KANDIDAT_RE = re.compile(r"(ae|oe|ue)", re.IGNORECASE)
+
+
+def _umlaute_im_text_reparieren(text):
+    """Ersetzt NUR Woerter aus der kuratierten Map, case-erhaltend.
+
+    Returns (neuer_text, [(von, nach), ...]).
+    """
+    ersetzungen = []
+
+    def _repl(m):
+        wort = m.group(0)
+        ziel = _UMLAUT_REPAIR_MAP.get(wort.lower())
+        if not ziel:
+            return wort
+        if wort.isupper():
+            neu = ziel.upper()
+        elif wort[0].isupper():
+            neu = ziel[0].upper() + ziel[1:]
+        else:
+            neu = ziel
+        if neu != wort:
+            ersetzungen.append((wort, neu))
+        return neu
+
+    return _UMLAUT_WORT_RE.sub(_repl, text or ""), ersetzungen
+
+
+def _ungemappte_kandidaten(text, zaehler):
+    """Sammelt ae/oe/ue-Woerter, die NICHT in der Map stehen — als
+    Kuratierungs-Kandidaten fuer kuenftige Erweiterungen."""
+    for m in _UMLAUT_WORT_RE.finditer(text or ""):
+        wort = m.group(0)
+        low = wort.lower()
+        if len(low) >= 4 and _UMLAUT_KANDIDAT_RE.search(low) \
+                and low not in _UMLAUT_REPAIR_MAP:
+            zaehler[low] = zaehler.get(low, 0) + 1
 
 
 def register(mcp, db, logger):
@@ -272,6 +425,191 @@ def register(mcp, db, logger):
                 "Alle Felder sind Volltext (ungekuerzt). Diese STAR-"
                 "Beschreibungen sind die Basis fuer konkrete, belegbare "
                 "Formulierungen in Anschreiben und Lebenslauf."
+            ),
+        }
+
+    @mcp.tool()
+    def profil_umlaute_reparieren(anwenden: bool = False,
+                                  bereiche: list[str] = []) -> dict:
+        """Restauriert echte Umlaute im Profil-Altbestand (#742, A20).
+
+        Aeltere Profil-/Projekttexte enthalten ASCII-Umschreibungen
+        (Mehrjaehrige, Oekosystem, fuer) — schlecht fuer generierte
+        Anschreiben. Ersetzt werden AUSSCHLIESSLICH Woerter aus einer
+        kuratierten Positivliste (wortweise, case-erhaltend). Legitime
+        ue/ae/oe-Sequenzen (neue, Steuerung, Aussage, Queue, Eigennamen)
+        und ss/ß bleiben grundsaetzlich unangetastet;
+        `technologies`-Felder sind ausgenommen (Produktnamen).
+
+        Default ist die VORSCHAU (anwenden=False) — zeige sie dem User
+        und rufe erst nach Bestaetigung mit anwenden=True auf. Vor dem
+        Schreiben wird automatisch ein JSON-Backup des Profils erstellt.
+
+        Args:
+            anwenden: False = nur Diff-Vorschau (Default), True = schreiben.
+            bereiche: Optional einschraenken auf eine Teilmenge von
+                ['persoenlich', 'positionen', 'projekte', 'ausbildung',
+                'skills']. Leer = alle.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return {"status": "kein_profil",
+                    "nachricht": "Noch kein Profil vorhanden."}
+
+        alle_bereiche = ["persoenlich", "positionen", "projekte",
+                         "ausbildung", "skills"]
+        gewaehlt = [b for b in (bereiche or alle_bereiche) if b in alle_bereiche]
+        if not gewaehlt:
+            return {"status": "fehler",
+                    "nachricht": f"Unbekannte Bereiche. Erlaubt: {alle_bereiche}"}
+
+        aenderungen = []   # geplante/durchgefuehrte Schreib-Operationen
+        kandidaten = {}    # ungemappte ae/oe/ue-Woerter (Kuratierungs-Hilfe)
+
+        def _pruefe(bereich, element_id, element_name, feld, text):
+            _ungemappte_kandidaten(text, kandidaten)
+            neu, ersetzt = _umlaute_im_text_reparieren(text)
+            if ersetzt:
+                aenderungen.append({
+                    "bereich": bereich,
+                    "element_id": element_id,
+                    "element": element_name,
+                    "feld": feld,
+                    "ersetzungen": [
+                        {"von": v, "nach": n} for v, n in ersetzt],
+                    "_neu": neu,
+                })
+
+        if "persoenlich" in gewaehlt:
+            for feld in ("summary", "informal_notes"):
+                if profile.get(feld):
+                    _pruefe("persoenlich", None, "Profil", feld, profile[feld])
+
+        positions = profile.get("positions", [])
+        for pos in positions:
+            pos_name = f"{pos.get('title', '?')} bei {pos.get('company', '?')}"
+            if "positionen" in gewaehlt:
+                for feld in ("description", "tasks", "achievements"):
+                    if pos.get(feld):
+                        _pruefe("positionen", pos.get("id"), pos_name,
+                                feld, pos[feld])
+            if "projekte" in gewaehlt:
+                for proj in pos.get("projects", []):
+                    for feld in ("name", "description", "role", "situation",
+                                 "task", "action", "result"):
+                        if proj.get(feld):
+                            _pruefe("projekte", proj.get("id"),
+                                    proj.get("name", "?"), feld, proj[feld])
+
+        if "ausbildung" in gewaehlt:
+            for edu in profile.get("education", []):
+                if edu.get("description"):
+                    _pruefe("ausbildung", edu.get("id"),
+                            edu.get("institution", "?"), "description",
+                            edu["description"])
+
+        if "skills" in gewaehlt:
+            for skill in profile.get("skills", []):
+                if skill.get("name"):
+                    _pruefe("skills", skill.get("id"),
+                            skill.get("name", "?"), "name", skill["name"])
+
+        kandidaten_top = sorted(
+            ({"wort": w, "anzahl": n} for w, n in kandidaten.items()),
+            key=lambda e: -e["anzahl"],
+        )[:20]
+        gesamt = sum(len(a["ersetzungen"]) for a in aenderungen)
+
+        if not anwenden:
+            vorschau = [
+                {k: v for k, v in a.items() if k != "_neu"}
+                for a in aenderungen
+            ]
+            return {
+                "status": "vorschau",
+                "gesamt_ersetzungen": gesamt,
+                "betroffene_felder": len(aenderungen),
+                "aenderungen": vorschau,
+                "nicht_gemappte_kandidaten": kandidaten_top,
+                "hinweis": (
+                    "Nichts geschrieben (Dry-Run). Zeige dem User die "
+                    "Aenderungen; nach Bestaetigung mit anwenden=True "
+                    "aufrufen. nicht_gemappte_kandidaten sind ae/oe/ue-"
+                    "Woerter ausserhalb der kuratierten Liste — NICHT "
+                    "automatisch ersetzen, ggf. als Kuratierungs-Vorschlag "
+                    "an den Maintainer melden (problem_melden)."
+                ) if aenderungen else
+                "Keine ASCII-Umschreibungen aus der kuratierten Liste gefunden.",
+            }
+
+        if not aenderungen:
+            return {"status": "nichts_zu_tun", "gesamt_ersetzungen": 0,
+                    "nachricht": "Keine reparierbaren Woerter gefunden."}
+
+        # Pflicht-Backup VOR dem Schreiben (Reversibilitaet, #742-Kriterium).
+        # Schlaegt das Backup fehl, wird HART abgebrochen (#705-Prinzip).
+        from datetime import datetime
+        from pathlib import Path
+        export = db.export_profile_json()
+        if not export:
+            return {"status": "abgebrochen",
+                    "nachricht": "Backup fehlgeschlagen (export_profile_json "
+                                 "leer) — es wurde NICHTS geschrieben."}
+        backup_dir = Path(db.db_path).parent / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        stempel = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_datei = backup_dir / f"profil_vor_umlautreparatur_{stempel}.json"
+        backup_datei.write_text(
+            json.dumps(export, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # Schreiben — ausschliesslich ueber die bestehenden Whitelist-Pfade
+        # (Anti-DB-Bypass #514): update_project/update_position/
+        # update_education/update_skill bzw. save_profile-Merge.
+        geschrieben = {"persoenlich": 0, "positionen": 0, "projekte": 0,
+                       "ausbildung": 0, "skills": 0}
+        profil_update = {}
+        for a in aenderungen:
+            bereich, feld, neu = a["bereich"], a["feld"], a["_neu"]
+            ok = False
+            if bereich == "persoenlich":
+                profil_update[feld] = neu
+                ok = True
+            elif bereich == "positionen":
+                ok = db.update_position(a["element_id"], {feld: neu})
+            elif bereich == "projekte":
+                ok = db.update_project(a["element_id"], {feld: neu})
+            elif bereich == "ausbildung":
+                ok = db.update_education(a["element_id"], {feld: neu})
+            elif bereich == "skills":
+                ok = db.update_skill(a["element_id"], {feld: neu})
+            if ok:
+                geschrieben[bereich] += 1
+        if profil_update:
+            merge = {
+                "name": profile.get("name"), "email": profile.get("email"),
+                "phone": profile.get("phone"), "address": profile.get("address"),
+                "city": profile.get("city"), "plz": profile.get("plz"),
+                "country": profile.get("country"),
+                "birthday": profile.get("birthday"),
+                "nationality": profile.get("nationality"),
+                "summary": profil_update.get("summary", profile.get("summary")),
+                "informal_notes": profil_update.get(
+                    "informal_notes", profile.get("informal_notes")),
+                "preferences": profile.get("preferences", {}),
+            }
+            db.save_profile(merge)
+
+        return {
+            "status": "angewendet",
+            "gesamt_ersetzungen": gesamt,
+            "geschriebene_felder": geschrieben,
+            "backup_datei": str(backup_datei),
+            "nicht_gemappte_kandidaten": kandidaten_top,
+            "hinweis": (
+                "Fertig. Kontrolle: profil_zusammenfassung() bzw. "
+                "projekte_anzeigen(). Rueckweg: das JSON-Backup liegt unter "
+                "backup_datei (Import erstellt ein NEUES Profil — siehe "
+                "profil_importieren)."
             ),
         }
 

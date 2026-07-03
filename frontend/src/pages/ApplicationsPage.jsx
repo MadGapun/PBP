@@ -32,6 +32,7 @@ import {
   textExcerpt,
 } from "@/utils";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
+import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 
 const EMPTY_APPLICATION = {
@@ -581,6 +582,7 @@ export default function ApplicationsPage() {
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Bewerbungen</h1>
       {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
+      <OnboardingHintBanner tab="bewerbungen" />
       <AdaptiveHintBanner page="bewerbungen" />
 
       {/* v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt */}

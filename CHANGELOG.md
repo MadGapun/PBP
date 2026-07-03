@@ -16,6 +16,107 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.5] - 2026-07-03 — Fuehrung & Pflege: Onboarding-Hints sichtbar, ehrliche Quellen-Diagnose, Umlaut-Restaurierung (#652, #748, #742)
+
+> **Empfohlenes Update (`--latest`).** Rundet die Einsteiger-Welle ab:
+> Feature-Hinweise erscheinen jetzt direkt im Dashboard, der Quellen-
+> Health-Check meldet nicht mehr falsch-rot, und der Profil-Altbestand
+> bekommt seine echten Umlaute zurueck (kuratiert, mit Vorschau).
+> KEINE Schema-Migration (v48 unveraendert).
+
+### Added
+
+- **#652 — Onboarding-Hints im Frontend (G11, Rest):** Das Hint-Backend
+  existierte seit beta.76, war aber nur per MCP erreichbar — jetzt gibt es
+  REST-Endpoints (`GET /api/onboarding/hints?tab=...`,
+  `DELETE /api/onboarding/hints/{id}`) und die neue Komponente
+  `OnboardingHintBanner` auf Dashboard-, Stellen-, Bewerbungs- und
+  Kalender-Tab: kuratierte "Naechster-Schritt"-Tipps mit Hover-Erklaerung,
+  „Sag Claude: ..."-Anleitung und persistentem Wegklicken (wirkt auch
+  auf das MCP-Tool und umgekehrt). Neuer vierter Hint
+  `g11_erste_suche_starten` schliesst die #744-Kette fuer Dashboard-First-
+  Nutzer: Profil vorhanden, aber keine Suchbegriffe → konkreter naechster
+  Schritt.
+- **#742 — Umlaut-Restaurierung Altbestand (A20):** Neues Tool
+  `profil_umlaute_reparieren(anwenden=False, bereiche=[])` — ersetzt
+  ASCII-Umschreibungen (Mehrjaehrige, Oekosystem, fuer, ...) in Profil-,
+  Positions-, Projekt-, Ausbildungs- und Skill-Texten anhand einer
+  **kuratierten Positivliste** (~150 Woerter, wortweise, case-erhaltend).
+  Sicherheits-Design: legitime ue/ae/oe-Sequenzen (neue, Steuerung,
+  Aussage, Queue) bleiben unangetastet, `ss`→`ß` passiert NIE,
+  `technologies`-Felder sind ausgenommen, Default ist die Diff-VORSCHAU,
+  vor jedem Schreiben entsteht ein JSON-Backup, und alle Writes laufen
+  ueber die bestehenden Whitelist-Pfade (Anti-DB-Bypass #514). Ungemappte
+  Kandidaten-Woerter werden zur Kuratierung aufgelistet.
+  MCP-Tool-Count: 178 → **179**.
+
+### Fixed
+
+- **#748 — Quellen-Health-Check meldet nicht mehr falsch-rot (B13.4):**
+  Mehrere Probes wichen vom echten Adapter-Request ab und meldeten
+  403/404, obwohl die Scraper liefen: `bundesagentur` bekam keinen
+  `X-API-Key`-Header (Adapter sendet ihn), `workable` probte die alte
+  v3-API (Adapter nutzt v1-Widget), `personio` probte eine Firma
+  ausserhalb der Adapter-Liste. Prinzip jetzt: **Probe == Adapter**
+  (URL, Header, Firma) — inkl. neuem `_PROBE_EXTRA_HEADERS`-Mechanismus.
+  Die RSS-Probes (berufsstart/studentjob/praktikum_de) waren bereits
+  adapter-identisch und bleiben unveraendert: wenn sie rot melden, ist
+  der Adapter wirklich betroffen — genau dafuer ist der Check da.
+
+### Unter der Haube
+
+Geaendert: `services/onboarding_hints.py` (+1 Hint), `dashboard.py`
+(2 Endpoints), `OnboardingHintBanner.jsx` (neu) + 4 Page-Mounts,
+`job_scraper/health.py` (Probe-Header + 2 URLs), `tools/profil.py`
+(Umlaut-Map + Tool) + Frontend-Rebuild.
+Tests: +30 (onboarding_hints_652, probe_konsistenz_748,
+umlaut_reparatur_742). Kein Schema-Bump.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.5.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.4] - 2026-07-03 — Einsteiger-Welle: gefuehrte Kette bis zur ersten Suche, Ollama-Vorschlaege, Melde-Hilfe (#744, #745, #746, #747)
 
 > **Empfohlenes Update (`--latest`).** Einsteiger werden jetzt durchgehend

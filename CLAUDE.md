@@ -1,20 +1,36 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.4** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.5** ist Stable (`--latest`) — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
 Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
-+ Schema-Parity (#743/#741/#738), v1.7.4 (2026-07-03) ist die
-**Einsteiger-Welle**: gefuehrte Kette CV→Profil→Keywords→erste Suche
-(G17/#744), Ollama-Keyword-/Titel-Vorschlaege (F24/#745), Melde-Hilfe
-`problem_melden` inkl. Mail-Weg PBP-Service@Elwosa.de (H17/#746),
-Probe-URLs (B13/#747, 🟨 Rest-Drift offen). **Leitlinie des Users:
++ Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
+gefuehrte Kette #744, F24 Ollama-Vorschlaege #745, H17 Melde-Hilfe #746
+inkl. Mail-Weg PBP-Service@Elwosa.de, B13-Teil-1 #747), v1.7.5
+(2026-07-03) **Fuehrung & Pflege**: G11 Onboarding-Hints im Frontend
+(#652), Probes adapter-konsistent (#748), Umlaut-Restaurierung
+`profil_umlaute_reparieren` (A20/#742). **Leitlinie des Users:
 Benutzerfuehrung ist oberste Prioritaet** — jeder Flow fuehrt zum
 naechsten logischen Schritt; Melde-Kultur gehoert zur DNA. v1.6.10 bleibt
 als aelterer Release verfuegbar. Naechste Arbeit Richtung **v1.8**
 (Plugin-Plattform #504, Mail-Integrationen #478/#480/#481, Branchen-Radar
-#718/#735, Referenzen #740/D24, Umlaut-Restaurierung #742/A20, G11
-Onboarding-Hints/Hover) — siehe Master-Plan.
+#718/#735, Referenzen #740/D24) — siehe Master-Plan.
+
+## Stand 2026-07-03 (v1.7.5) — Fuehrung & Pflege
+
+**Schema:** v48 (unveraendert). **Tests:** 1901 passed, 1 skipped. **MCP-Tools:** 179
+(+`profil_umlaute_reparieren`, #742), **Prompts:** 25.
+
+Kernpunkte: (1) **G11/#652** — Onboarding-Hints endlich sichtbar: REST
+`GET /api/onboarding/hints?tab=` + `DELETE .../{id}`,
+`OnboardingHintBanner.jsx` auf 4 Tabs, neuer Hint
+`g11_erste_suche_starten` (Profil ohne Suchbegriffe → naechster Schritt).
+(2) **B13.4/#748** — Prinzip Probe==Adapter: `_PROBE_EXTRA_HEADERS`
+(bundesagentur X-API-Key+UA), workable v1-Widget-API, personio
+Adapter-Firma. (3) **A20/#742** — `profil_umlaute_reparieren`
+(kuratierte ~150-Wort-Positivliste in `tools/profil.py`, Dry-Run-Default,
+Backup-Pflicht, ss→ß nie, technologies nie; ungemappte Woerter als
+Kuratierungs-Kandidaten).
 
 ## Stand 2026-07-03 (v1.7.4) — Einsteiger-Welle
 

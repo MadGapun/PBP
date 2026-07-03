@@ -56,6 +56,19 @@ def _set_dismissed(db, hint_ids: list[str]) -> None:
 # ── Condition-Helper ────────────────────────────────────────────────
 
 
+def _condition_profil_ohne_suchbegriffe(db) -> bool:
+    """G17-Anschluss (#744, v1.7.5): Profil existiert, aber noch keine
+    Suchbegriffe — der Dashboard-First-User haengt genau da fest, wo der
+    Chat-Wizard mit Phase 5 weiterfuehren wuerde."""
+    try:
+        if not db.get_profile():
+            return False
+        crit = db.get_search_criteria()
+        return not (crit.get("keywords_muss") or crit.get("keywords_plus"))
+    except Exception:
+        return False
+
+
 def _condition_keine_suchprofile_aber_bewerbungen(db) -> bool:
     """Hint sinnvoll wenn: 0 Suchprofile + >=3 Bewerbungen."""
     try:
@@ -129,6 +142,20 @@ def _condition_keine_interview_reflexion_aber_interviews(db) -> bool:
 # ── Hint-Definitionen ───────────────────────────────────────────────
 
 HINT_DEFINITIONS: list[dict] = [
+    {
+        "id": "g11_erste_suche_starten",
+        "tab": "dashboard",
+        "title": "Naechster Schritt: Suchbegriffe festlegen und erste Suche starten",
+        "body": (
+            "Dein Profil steht — aber PBP weiss noch nicht, wonach es suchen "
+            "soll. Sag Claude einfach: \"Schlag mir Suchbegriffe vor und "
+            "starte die erste Suche.\" Claude leitet die Begriffe aus deinem "
+            "Profil ab, du bestaetigst sie nur."
+        ),
+        "cta_label": "Suchbegriffe vorschlagen lassen",
+        "cta_tool": "keyword_vorschlaege",
+        "condition": _condition_profil_ohne_suchbegriffe,
+    },
     {
         "id": "g11_suchprofile_anlegen",
         "tab": "stellen",

@@ -44,6 +44,8 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "json",
         None,
     ),
+    # HINWEIS zu bundesagentur: braucht die Adapter-Header (X-API-Key + UA),
+    # sonst 403 — siehe _PROBE_EXTRA_HEADERS unten (B13.4, #748).
     "arbeitnow": (
         "GET",
         "https://www.arbeitnow.com/api/job-board-api?page=1",
@@ -76,7 +78,9 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     ),
     "workable": (
         "GET",
-        "https://apply.workable.com/api/v3/accounts/n26/jobs?limit=1",
+        # B13.4 (#748): v3-Pfad war 404 — der Adapter (workable.py) nutzt die
+        # v1-Widget-API; Probe-Firma = erste DEFAULT_COMPANIES ("workable").
+        "https://apply.workable.com/api/v1/widget/accounts/workable",
         "json",
         None,
     ),
@@ -107,7 +111,10 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     ),
     "personio": (
         "GET",
-        "https://hellofresh.jobs.personio.de/xml",  # bekannte Public-Personio-Site
+        # B13.4 (#748): hellofresh war 404 (nicht in der Adapter-Liste) —
+        # Probe-Firma = erste DEFAULT_COMPANIES aus personio.py
+        # ("personio", Personio selbst; stabilste Wahl).
+        "https://personio.jobs.personio.de/xml",
         "xml",
         None,
     ),
@@ -128,6 +135,20 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "html",
         None,
     ),
+}
+
+# B13.4 (#748): Quellen, deren Production-Adapter besondere Header senden,
+# brauchen dieselben Header auch in der Probe — sonst meldet der Health-Check
+# falsch-rot (bundesagentur: 403 ohne X-API-Key). Header stammen 1:1 aus dem
+# jeweiligen Adapter-Modul.
+_PROBE_EXTRA_HEADERS: dict[str, dict] = {
+    "bundesagentur": {
+        "X-API-Key": "jobboerse-jobsuche",  # bundesagentur.py:API_KEY (public)
+        "User-Agent": (
+            "Jobsuche/2.12.0 (de.arbeitsagentur.jobboerse; build:1081; "
+            "iOS 16.0) Alamofire/5.6.2"
+        ),
+    },
 }
 
 _TIMEOUT = 10.0  # Health-Check ist nur Ping — keine 30s-Wartezeit
@@ -168,9 +189,11 @@ def check_source(source_key: str, timeout: float = _TIMEOUT) -> dict[str, Any]:
             "notes": "Quelle hat keine API/Feed (z.B. Browser-/JobSpy-basiert)",
         }
     method, url, content_type, body = _PROBES[source_key]
+    extra_headers = _PROBE_EXTRA_HEADERS.get(source_key)
     start = time.perf_counter()
     try:
-        with make_session(content_type=content_type, timeout=timeout) as client:
+        with make_session(content_type=content_type, timeout=timeout,
+                          extra_headers=extra_headers) as client:
             if method == "GET":
                 resp = client.get(url)
             elif method == "POST":
