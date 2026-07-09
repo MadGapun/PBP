@@ -1085,8 +1085,17 @@ async def api_list_prompts():
 
 
 @app.get("/api/workflow-prompt/{workflow_name}")
-async def api_get_workflow_prompt(workflow_name: str):
-    """Return the resolved workflow instructions instead of a raw slash command."""
+async def api_get_workflow_prompt(workflow_name: str, request: Request):
+    """Return the resolved workflow instructions instead of a raw slash command.
+
+    v1.7.6 (#706, G16): optionale Query-Parameter werden an die Prompt-
+    Funktion durchgereicht, sofern deren Signatur sie kennt (z.B.
+    ?stelle=...&firma=... fuer interview_vorbereitung) — so koennen
+    UI-Buttons vorbefuellte Anleitungen holen. Unbekannte Parameter
+    werden ignoriert, argumentlose Prompts bleiben unveraendert.
+    """
+    import inspect
+
     from .tools.workflows import _prompt_registry
 
     name = str(workflow_name or "").strip().lstrip("/")
@@ -1097,7 +1106,16 @@ async def api_get_workflow_prompt(workflow_name: str):
     if name not in prompt_funcs:
         return JSONResponse({"error": f"Workflow '{name}' nicht gefunden"}, status_code=404)
 
-    return {"workflow": name, "prompt": prompt_funcs[name]()}
+    func = prompt_funcs[name]
+    kwargs = {}
+    try:
+        params = inspect.signature(func).parameters
+        for key, value in request.query_params.items():
+            if key in params:
+                kwargs[key] = value
+    except (TypeError, ValueError):
+        kwargs = {}
+    return {"workflow": name, "prompt": func(**kwargs)}
 
 
 @app.put("/api/document/{doc_id}/extraction")
@@ -9220,6 +9238,22 @@ async def api_dismiss_learning_insight(insight_id: int):
         return JSONResponse({"error": "Insight nicht gefunden"},
                              status_code=404)
     return {"status": "ok", "dismissed": insight_id}
+
+
+@app.post("/api/learning/insights/reset")
+async def api_reset_learning_insights():
+    """v1.7.6 (#689, F21-Rest): Lernprotokoll komplett zuruecksetzen.
+
+    Harter Reset auf Wunsch des Users (Steuerung der lokalen KI): loescht
+    alle Insights des aktiven Profils; die Pattern-Analyse (#594) baut das
+    Protokoll aus kuenftigen Ereignissen neu auf.
+    """
+    try:
+        geloescht = _db.reset_learning_insights()
+    except Exception as exc:
+        logger.warning("learning insights reset failed: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return {"status": "ok", "geloescht": geloescht}
 
 
 # === v1.7.0-beta.30 (#594 Stufe 5): Telemetrie-Sharing ===

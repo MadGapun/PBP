@@ -1387,16 +1387,41 @@ function AutoDismissedSection() {
 }
 
 // beta.104 (#689 / F21): Lernprotokoll — was die lokale KI gelernt hat,
-// dauerhaft einsehbar (vorher nur fluechtig auf der Dashboard-Card).
+// dauerhaft einsehbar. v1.7.6 (#689-Rest): Eintraege einzeln stummschalten
+// und komplett zuruecksetzen — der User behaelt die Kontrolle darueber,
+// was Ollama gelernt hat.
 function LernprotokollSection() {
   const [items, setItems] = useState(null);
   const [open, setOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   useEffect(() => {
     api("/api/learning/insights?only_active=0&limit=20")
       .then((r) => setItems(r?.items || r?.insights || []))
       .catch(() => setItems([]));
   }, []);
   if (!items || !items.length) return null;
+
+  async function stummschalten(id) {
+    try {
+      await deleteRequest(`/api/learning/insights/${id}`);
+    } catch {}
+    setItems((cur) => cur.map((it) =>
+      it.id === id ? { ...it, is_active: 0 } : it));
+  }
+
+  async function alleZuruecksetzen() {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      window.setTimeout(() => setConfirmReset(false), 5000);
+      return;
+    }
+    try {
+      await postJson("/api/learning/insights/reset", {});
+    } catch {}
+    setItems([]);
+    setConfirmReset(false);
+  }
+
   return (
     <div className="glass-card p-3 mb-4">
       <button type="button" className="w-full flex items-center justify-between text-left"
@@ -1409,16 +1434,38 @@ function LernprotokollSection() {
       {open && (
         <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
           {items.map((it, i) => (
-            <div key={it.id || i} className="rounded-lg border border-white/[0.04] px-2.5 py-1.5">
-              <p className="text-[12px] text-ink">{it.title || it.titel || it.insight_type}</p>
-              {(it.recommendation || it.empfehlung) && (
-                <p className="text-[11px] text-muted/50">{it.recommendation || it.empfehlung}</p>
+            <div key={it.id || i}
+              className={`flex items-start gap-2 rounded-lg border border-white/[0.04] px-2.5 py-1.5 ${it.is_active === 0 ? "opacity-45" : ""}`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] text-ink">
+                  {it.title || it.titel || it.insight_type}
+                  {it.is_active === 0 && (
+                    <span className="ml-2 text-[10px] text-muted/40">stummgeschaltet</span>
+                  )}
+                </p>
+                {(it.recommendation || it.empfehlung) && (
+                  <p className="text-[11px] text-muted/50">{it.recommendation || it.empfehlung}</p>
+                )}
+              </div>
+              {it.id != null && it.is_active !== 0 && (
+                <button type="button" onClick={() => stummschalten(it.id)}
+                  className="text-[11px] text-muted/40 hover:text-coral shrink-0"
+                  title="Diesen Lern-Eintrag stummschalten — er beeinflusst Hinweise und Vorschlaege nicht mehr">
+                  stumm
+                </button>
               )}
             </div>
           ))}
-          <p className="text-[10px] text-muted/40 pt-1">
-            Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594). Loeschen/Reset folgt (#689).
-          </p>
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-[10px] text-muted/40">
+              Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594).
+            </p>
+            <button type="button" onClick={alleZuruecksetzen}
+              className={`text-[10px] ${confirmReset ? "text-coral font-semibold" : "text-muted/40 hover:text-coral"}`}
+              title="Loescht das komplette Lernprotokoll — Ollama lernt danach von vorn. Deine Stellen und Bewerbungen sind nicht betroffen.">
+              {confirmReset ? "Wirklich alles loeschen? (nochmal klicken)" : "Alles zuruecksetzen"}
+            </button>
+          </div>
         </div>
       )}
     </div>

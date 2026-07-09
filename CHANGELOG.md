@@ -16,6 +16,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.6] - 2026-07-03 — Alltags-Fuehrung: Interview-Button, Notizen-Pflege, Lernprotokoll-Steuerung (#706, #707, #689)
+
+> **Empfohlenes Update (`--latest`).** Fuehrung im Bewerbungs-Alltag:
+> Der naechste logische Schritt ist jetzt auch NACH der ersten Suche
+> immer einen Klick entfernt — und die lokale KI laesst sich vollstaendig
+> steuern. KEINE Schema-Migration (v48 unveraendert).
+
+### Added
+
+- **#706 — Interview-Vorbereitung direkt aus der Bewerbung (G16):**
+  Bewerbungen im Status `interview`/`zweitgespraech` haben jetzt einen
+  Button in der Uebersicht UND in der Timeline: Er kopiert die
+  **vorbefuellte** Vorbereitungs-Anleitung (Stelle + Firma bereits
+  eingesetzt, keine Rueckfragen) in die Zwischenablage — einfuegen in
+  Claude Desktop, fertig. Die Anleitung legt zusaetzlich ein **Todo mit
+  Faelligkeit** an (Termin-Datum, falls ein Meeting existiert).
+  Unterbau: `/api/workflow-prompt/{name}` reicht optionale Query-Parameter
+  an Prompt-Funktionen durch (signatur-geprueft, rein additiv).
+- **#707 — Informelle Notizen werden aktiv gepflegt (H15):** Neuer
+  Onboarding-Hint auf dem Profil-Tab, wenn die Notizen leer/kurz sind
+  (sie speisen Anschreiben-Tonalitaet, Bewertung und Interview-
+  Vorbereitung); Hilfetext mit Hover-Erklaerung direkt am Notizen-Feld;
+  und die Prompts `ersterfassung` + `willkommen` weisen Claude an,
+  nebenbei erwaehnte Praeferenzen/No-Gos/Lebensumstaende SOFORT via
+  `profil_bearbeiten(bereich='notizen')` festzuhalten.
+- **#749 — Verbindungsstatus direkt auf dem Welcome-Screen (G18):** Der
+  frisch installierte User sieht jetzt SOFORT und prominent, ob Claude
+  Desktop mit PBP verbunden ist. Gruen: „du kannst direkt loslegen."
+  Amber: die exakte 3-Schritte-Anleitung (Claude ueber das Taskleisten-
+  Symbol KOMPLETT beenden — Fenster schliessen reicht nicht — neu starten,
+  Anzeige wird von selbst gruen) plus „jetzt pruefen"-Button. Vorher war
+  der haeufigste Support-Stolperstein nur am kleinen Sidebar-Badge
+  erkennbar.
+- **#689 (Rest) — Lernprotokoll: stummschalten & zuruecksetzen (F21):**
+  Im Lokale-KI-Tab laesst sich jetzt jeder Lern-Eintrag einzeln
+  stummschalten und das komplette Protokoll per Doppel-Klick-Bestaetigung
+  zuruecksetzen (neuer Endpoint `POST /api/learning/insights/reset` —
+  harter Reset, Ollama lernt danach von vorn; Stellen/Bewerbungen bleiben
+  unberuehrt). Damit ist F21 (Transparenz + Steuerung der lokalen KI)
+  komplett.
+
+### Sonstiges
+
+- **Plan-Hygiene:** Master-Plan-Position C24 (Hochschulabschluss-Malus
+  konfigurierbar, #698) war seit beta.107/Schema v48 umgesetzt, stand aber
+  noch auf ⬜ — Status nachgezogen.
+
+### Unter der Haube
+
+Geaendert: `dashboard.py` (Query-Args fuer Workflow-Prompts,
+Insights-Reset), `tools/workflows.py` (interview_vorbereitung
+parametrisiert + Todo-Anweisung, willkommen-Guidance), `prompts.py`
+(ersterfassung Regel 6b), `services/onboarding_hints.py` (+1 Hint),
+`database.py` (reset_learning_insights), `ApplicationsPage.jsx`
+(2 Buttons), `ProfilePage.jsx` (Hint-Banner + Feld-Hilfe),
+`SettingsPage.jsx` (Lernprotokoll-Steuerung) + Frontend-Rebuild.
+Tests: +12 (test_v176_alltags_fuehrung.py) + beta.76-Hint-Test an neues
+Verhalten angepasst. Kein Schema-Bump.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.6.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.6.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.5] - 2026-07-03 — Fuehrung & Pflege: Onboarding-Hints sichtbar, ehrliche Quellen-Diagnose, Umlaut-Restaurierung (#652, #748, #742)
 
 > **Empfohlenes Update (`--latest`).** Rundet die Einsteiger-Welle ab:

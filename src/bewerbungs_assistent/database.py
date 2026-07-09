@@ -7242,6 +7242,23 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    def reset_learning_insights(self) -> int:
+        """v1.7.6 (#689, F21-Rest): Lernprotokoll komplett zuruecksetzen.
+
+        Loescht ALLE learning_insights des aktiven Profils (harter Reset,
+        User-Steuerung ueber die lokale KI) — die Pattern-Analyse baut das
+        Protokoll beim naechsten Lauf neu auf. Liefert die Anzahl geloeschter
+        Eintraege.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        cur = conn.execute(
+            "DELETE FROM learning_insights WHERE (profile_id=? OR profile_id IS NULL)",
+            (pid,)
+        )
+        conn.commit()
+        return cur.rowcount
+
     def deactivate_outdated_insights(self, current_version: str) -> int:
         """Bei Version-Update: Insights, die fuer eine aeltere Version erstellt
         wurden und seit > 30 Tagen nicht mehr beobachtet wurden, deaktivieren.

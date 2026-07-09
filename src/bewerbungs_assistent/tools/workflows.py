@@ -220,7 +220,13 @@ WAS KANN ICH FÜR DICH TUN?
   - "Wie sieht mein Profil aus?" → profil_zusammenfassung()
   - "Analysiere mein Profil" → workflow_starten(name='profil_analyse')
 
-Frag einfach in deinen eigenen Worten!"""
+Frag einfach in deinen eigenen Worten!
+
+HINWEIS FUER DICH (Claude, #707): Erwaehnt der User im Gespraech nebenbei
+Praeferenzen, No-Gos oder Lebensumstaende ("max. 2 Buerotage", "kein
+Reisejob"), speichere das sofort via profil_bearbeiten(bereich='notizen',
+aktion='anhang', ...) und bestaetige kurz — diese Notizen speisen
+Anschreiben, Bewertung und Interview-Vorbereitung."""
 
         return """Willkommen beim Bewerbungs-Assistent!
 
@@ -309,12 +315,29 @@ REGELN:
 - Manchmal braucht der User nur den Lebenslauf — dann Anschreiben überspringen
 - Sprich Deutsch"""
 
-    def _interview_vorbereitung():
-        return """Bereite den Nutzer auf ein Bewerbungsgespräch vor.
-
+    def _interview_vorbereitung(stelle: str = "", firma: str = ""):
+        # G16 (#706, v1.7.6): vorbefuellbar — der Button in der Bewerbungs-
+        # Uebersicht/Timeline reicht Stelle+Firma per Query-Param durch.
+        kontext = (
+            f"\nKONTEXT (vorbefuellt aus der Bewerbung):\n"
+            f"  Stelle: {stelle}\n  Firma: {firma}\n"
+            if (stelle or firma) else ""
+        )
+        frage_zeile = (
+            "Stelle und Firma stehen oben im KONTEXT — NICHT nochmal fragen."
+            if (stelle or firma)
+            else "Frage nach Stelle und Firma (falls nicht bekannt)."
+        )
+        todo_suffix = f" {firma}" if firma else ""
+        return f"""Bereite den Nutzer auf ein Bewerbungsgespräch vor.
+{kontext}
 ZUERST: Rufe profil_zusammenfassung() auf + projekte_anzeigen() —
 die STAR-Antworten brauchen die VOLLEN Projektbeschreibungen (#741).
-Frage nach Stelle und Firma (falls nicht bekannt).
+{frage_zeile}
+DANN (#706): Lege ein Todo an, damit die Vorbereitung nicht liegen bleibt:
+todo_anlegen(titel='Interview-Vorbereitung{todo_suffix}',
+faellig_am=<Datum des Gespraechs, falls bekannt — sonst morgen>). Wenn zur
+Bewerbung ein Termin existiert (meetings_anzeigen), nimm dessen Datum.
 
 DANN LIEFERE:
 1. Die 10 wahrscheinlichsten Fragen (Fachlich, Persönlich, Situativ, Motivation)

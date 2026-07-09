@@ -241,10 +241,17 @@ def test_onboarding_hints_keine_bei_leerem_profil(tmp_db):
     tmp_db.create_profile("Test User", "test@example.com")
     from bewerbungs_assistent.services.onboarding_hints import list_active_hints
     hints = list_active_hints(tmp_db)
-    assert [h["id"] for h in hints] == ["g11_erste_suche_starten"]
+    # v1.7.6 (#707): zusaetzlich der Notizen-Hint (informal_notes leer)
+    assert {h["id"] for h in hints} == {
+        "g11_erste_suche_starten", "g11_notizen_pflegen"}
 
-    # Mit gesetzten Suchbegriffen verschwindet auch dieser Hint -> 0 Hints
+    # Mit Suchbegriffen + gepflegten Notizen verschwinden beide -> 0 Hints
     tmp_db.set_search_criteria("keywords_muss", ["PLM"])
+    tmp_db.save_profile({
+        "name": "Test User", "email": "test@example.com",
+        "informal_notes": "Bevorzugt Remote, max. 2 Buerotage pro Woche, "
+                          "keine Zeitarbeit, Hund zuhause daher flexible Zeiten.",
+    })
     assert list_active_hints(tmp_db) == []
 
 

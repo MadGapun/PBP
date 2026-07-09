@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.5** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.6** ist Stable (`--latest`) — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
 Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
 + Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
@@ -15,6 +15,23 @@ naechsten logischen Schritt; Melde-Kultur gehoert zur DNA. v1.6.10 bleibt
 als aelterer Release verfuegbar. Naechste Arbeit Richtung **v1.8**
 (Plugin-Plattform #504, Mail-Integrationen #478/#480/#481, Branchen-Radar
 #718/#735, Referenzen #740/D24) — siehe Master-Plan.
+
+## Stand 2026-07-03 (v1.7.6) — Alltags-Fuehrung
+
+**Schema:** v48 (unveraendert). **Tests:** 1911 passed, 1 skipped.
+**MCP-Tools:** 179, **Prompts:** 25.
+
+Kernpunkte: (1) **G16/#706** — Interview-Vorbereitung-Button in
+Bewerbungs-Uebersicht + Timeline (Status interview/zweitgespraech):
+kopiert vorbefuellte Anleitung (Stelle+Firma) in die Zwischenablage;
+`/api/workflow-prompt/{name}` nimmt jetzt signatur-geprueft Query-Args.
+(2) **H15/#707** — Notizen-Pflege: Hint `g11_notizen_pflegen` (Profil-Tab),
+Feld-Hilfetext, Prompt-Guidance in ersterfassung (Regel 6b) + willkommen.
+(3) **F21/#689 komplett** — Lernprotokoll stummschalten je Eintrag +
+`POST /api/learning/insights/reset` (harter Reset). (4) **G18/#749** —
+Verbindungsstatus-Streifen auf dem Welcome-Screen (gruen/amber mit
+3-Schritte-Anleitung; User-Leitlinie: ab Installation alles einfach).
+(5) Plan-Hygiene: C24/#698 war seit beta.107 fertig.
 
 ## Stand 2026-07-03 (v1.7.5) — Fuehrung & Pflege
 

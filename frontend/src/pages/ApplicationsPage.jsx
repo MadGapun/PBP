@@ -1,4 +1,4 @@
-﻿import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
+﻿import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
 
@@ -273,6 +273,27 @@ export default function ApplicationsPage() {
       pushToast("Bewerbung angelegt.", "success");
     } catch (error) {
       pushToast(`Bewerbung konnte nicht angelegt werden: ${error.message}`, "danger");
+    }
+  }
+
+  // G16 (#706, v1.7.6): Interview-Vorbereitung direkt aus der Bewerbung —
+  // holt die vorbefuellte Anleitung (Stelle+Firma) und legt sie in die
+  // Zwischenablage; der User fuegt sie in Claude Desktop ein.
+  async function interviewVorbereitungKopieren(application) {
+    try {
+      const params = new URLSearchParams({
+        stelle: application?.title || "",
+        firma: application?.company || "",
+      });
+      const resolved = await api(`/api/workflow-prompt/interview_vorbereitung?${params}`);
+      await navigator.clipboard.writeText(resolved?.prompt || "");
+      pushToast(
+        `Interview-Vorbereitung fuer "${application?.title || "die Stelle"}" kopiert — jetzt in Claude Desktop einfuegen (Strg+V).`,
+        "success",
+        { duration: 7000 }
+      );
+    } catch (err) {
+      pushToast(`Anleitung konnte nicht geladen werden: ${err.message}`, "danger");
     }
   }
 
@@ -869,6 +890,16 @@ export default function ApplicationsPage() {
                         <Workflow size={15} />
                         Timeline
                       </Button>
+                      {["interview", "zweitgespraech"].includes(application.status) && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => interviewVorbereitungKopieren(application)}
+                          title="Vorbefuellte Interview-Vorbereitung (Fragen, STAR-Antworten, Gehalt) kopieren und in Claude Desktop einfuegen — legt auch ein Todo mit Faelligkeit an"
+                        >
+                          <GraduationCap size={15} />
+                          Interview-Vorbereitung
+                        </Button>
+                      )}
                       {application.url && (
                         <a href={application.url} target="_blank" rel="noopener noreferrer">
                           <Button variant="secondary" type="button" onClick={(e) => e.stopPropagation()}>
@@ -942,6 +973,15 @@ export default function ApplicationsPage() {
           return (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
+                {["interview", "zweitgespraech"].includes(timelineDialog.entry?.application?.status) && (
+                  <Button
+                    size="sm"
+                    onClick={() => interviewVorbereitungKopieren(timelineDialog.entry?.application)}
+                    title="Vorbefuellte Interview-Vorbereitung kopieren und in Claude Desktop einfuegen"
+                  >
+                    <GraduationCap size={14} /> Interview-Vorbereitung
+                  </Button>
+                )}
                 <LinkButton
                   size="sm"
                   href={`/api/application/${appId}/timeline/print`}

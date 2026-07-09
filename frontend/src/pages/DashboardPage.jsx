@@ -464,6 +464,48 @@ export default function DashboardPage() {
                   Du musst nicht wissen, was du tun sollst — PBP zeigt dir bei jedem
                   Schritt, was als Nächstes sinnvoll ist.
                 </p>
+                {/* G18 (#749): Erster-Start-Verbindungscheck — der frisch
+                    installierte User sieht SOFORT, ob Claude Desktop mit PBP
+                    verbunden ist (haeufigster Support-Stolperstein), statt
+                    es erst am kleinen Sidebar-Badge zu entdecken. */}
+                {(() => {
+                  const st = chrome?.status?.mcp_connection?.status;
+                  if (st === "connected") {
+                    return (
+                      <div className="flex items-center gap-2 rounded-lg border border-teal/25 bg-teal/[0.06] px-3 py-2 text-[12px] text-teal"
+                        title="PBP hat in den letzten 90 Sekunden ein Lebenszeichen von Claude Desktop empfangen.">
+                        <span className="h-2 w-2 rounded-full bg-teal shrink-0" />
+                        Claude Desktop ist verbunden — du kannst direkt loslegen.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2 text-[12px]">
+                      <p className="flex items-center gap-2 font-medium text-amber-600">
+                        <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                        {st === "unknown"
+                          ? "Verbindung zu Claude Desktop wird geprueft..."
+                          : "Claude Desktop ist noch nicht mit PBP verbunden."}
+                      </p>
+                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-muted/80">
+                        <li>
+                          Claude Desktop <strong>komplett beenden</strong>: Rechtsklick auf das
+                          Claude-Symbol unten rechts in der Taskleiste → „Beenden"
+                          (Fenster schliessen reicht nicht).
+                        </li>
+                        <li>Claude Desktop neu starten und einen Moment warten.</li>
+                        <li>
+                          Diese Anzeige wird von selbst gruen — oder{" "}
+                          <button type="button" className="underline hover:text-ink"
+                            onClick={() => refreshChrome()}>
+                            jetzt pruefen
+                          </button>.
+                        </li>
+                      </ol>
+                    </div>
+                  );
+                })()}
+
                 {/* G17 (#744): CV-Upload ist der schnellste Einstieg —
                     gleichwertig prominent statt versteckter Ghost-Button */}
                 <div className="flex flex-wrap gap-3">

@@ -21,6 +21,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, apiUrl, deleteRequest, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -1146,6 +1147,7 @@ export default function ProfilePage() {
     <div id="page-profil" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Profil</h1>
+      <OnboardingHintBanner tab="profil" />
       <div className="mb-6 flex items-center justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
           <Download size={15} /> Export & Backup
@@ -1226,6 +1228,10 @@ export default function ProfilePage() {
                 <TextArea rows={4} value={draft.summary || ""} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} />
               </Field>
               <Field label="Informelle Notizen">
+                {/* H15 (#707): Fuehrung — erklaeren wozu die Notizen gut sind */}
+                <p className="text-[11px] text-muted/50 mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalitaet, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergaenzt sie im Gespraech automatisch.">
+                  Persoenliches, das Claude kennen soll: Praeferenzen, No-Gos, Lebensumstaende (z.B. „max. 2 Buerotage", „kein Reisejob"). Einfach im Chat erwaehnen — Claude traegt es hier ein.
+                </p>
                 <TextArea rows={3} value={draft.informal_notes || ""} onChange={(event) => setDraft((current) => ({ ...current, informal_notes: event.target.value }))} />
               </Field>
             </div>

@@ -69,6 +69,20 @@ def _condition_profil_ohne_suchbegriffe(db) -> bool:
         return False
 
 
+def _condition_notizen_leer_oder_kurz(db) -> bool:
+    """H15 (#707, v1.7.6): Profil existiert, aber die informellen Notizen
+    sind leer oder sehr kurz — dabei speisen sie Anschreiben-Tonalitaet,
+    Bewertung und Interview-Vorbereitung."""
+    try:
+        profile = db.get_profile()
+        if not profile:
+            return False
+        notizen = (profile.get("informal_notes") or "").strip()
+        return len(notizen) < 80
+    except Exception:
+        return False
+
+
 def _condition_keine_suchprofile_aber_bewerbungen(db) -> bool:
     """Hint sinnvoll wenn: 0 Suchprofile + >=3 Bewerbungen."""
     try:
@@ -155,6 +169,21 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_label": "Suchbegriffe vorschlagen lassen",
         "cta_tool": "keyword_vorschlaege",
         "condition": _condition_profil_ohne_suchbegriffe,
+    },
+    {
+        "id": "g11_notizen_pflegen",
+        "tab": "profil",
+        "title": "Tipp: Persoenliche Notizen machen PBP treffsicherer",
+        "body": (
+            "Deine informellen Notizen sind noch (fast) leer. Praeferenzen, "
+            "No-Gos und Lebensumstaende (z.B. \"max. 2 Buerotage\", \"kein "
+            "Reisejob\") fliessen in Anschreiben, Stellen-Bewertung und "
+            "Interview-Vorbereitung ein. Erwaehne sie einfach im Chat — "
+            "Claude traegt sie automatisch ein."
+        ),
+        "cta_label": "Merk dir: ich will hoechstens zwei Buerotage",
+        "cta_tool": "profil_bearbeiten",
+        "condition": _condition_notizen_leer_oder_kurz,
     },
     {
         "id": "g11_suchprofile_anlegen",

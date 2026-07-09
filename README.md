@@ -9,8 +9,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.7.5-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1901-brightgreen.svg)](#tests)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.6-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-1911-brightgreen.svg)](#tests)
 [![Tools](https://img.shields.io/badge/MCP_Tools-179-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-25-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -205,7 +205,7 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 9 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 1901 bestanden (1 uebersprungen) |
+| **Tests** | 1911 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
