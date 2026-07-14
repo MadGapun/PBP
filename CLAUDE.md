@@ -32,7 +32,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
-## Stand 2026-07-14 (v1.8.0-beta.0, Prerelease) — Komponenten + Auto-OCR
+## Stand 2026-07-14 (v1.8.0-beta.1, Prerelease) — Komponenten + Auto-OCR
 
 **Schema:** v49 (`components`-Tabelle, rein additiv). **MCP-Tools:** 185
 (+`komponenten_status`/`komponente_installieren`/`komponente_pfad_setzen`
