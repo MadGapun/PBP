@@ -46,6 +46,14 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
   („Interview, 2. Runde") und bei mehrzeiligen Notizen — jetzt korrektes
   TEXT-Escaping und 75-Oktett-Line-Folding (Kern extrahiert nach
   `services/ics_service.py`, identisch fuer Button und MCP-Tool).
+- **#759 — Test-Suite stabil auf langsamen Runnern (A22):**
+  Jobsuche-Hintergrund-Threads ueberlebten den Test-Teardown und
+  griffen auf die geschlossene SQLite zu (auf Linux-CI sporadisch
+  Segfault). Jetzt: benannte `pbp-*`-Threads + pytest-Teardown-Hook,
+  der sie VOR dem DB-Schliessen joint; dazu der modul-globale
+  Tool-Timing-Ringbuffer im betroffenen Test deterministisch geleert.
+  Reine Test-/Infra-Aenderung, kein Laufzeitverhalten betroffen
+  (Thread-Namen ausgenommen).
 
 ---
 

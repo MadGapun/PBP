@@ -591,7 +591,11 @@ def register(mcp, db, logger):
                 logger.error("Jobsuche fehlgeschlagen: %s", e, exc_info=True)
                 db.update_background_job(job_id, "fehler", message=str(e))
 
-        thread = threading.Thread(target=_run_search, daemon=True)
+        # A22 (#759): benannte Threads — die Test-Suite joint alle
+        # "pbp-"-Threads im conftest-Drain, bevor die DB geschlossen wird
+        # (SQLite-Use-after-close segfaultete sonst sporadisch im Linux-CI).
+        thread = threading.Thread(target=_run_search, daemon=True,
+                                  name=f"pbp-jobsuche-{job_id[:8]}")
         thread.start()
 
         # Timeout watchdog: mark as failed if still running after 10 minutes
@@ -601,7 +605,8 @@ def register(mcp, db, logger):
                 logger.warning("Jobsuche Timeout nach 10 Minuten (Job %s)", job_id)
                 db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
 
-        threading.Thread(target=_timeout_watchdog, daemon=True).start()
+        threading.Thread(target=_timeout_watchdog, daemon=True,
+                         name=f"pbp-watchdog-{job_id[:8]}").start()
 
         nachricht = (
             f"Jobsuche laeuft im Hintergrund auf {len(params['quellen'])} Portalen. "

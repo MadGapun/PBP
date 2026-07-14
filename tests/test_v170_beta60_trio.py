@@ -117,9 +117,18 @@ def test_time_tool_records_exception(setup_env):
 
 
 def test_get_slow_tool_calls_filters_threshold(setup_env):
-    from bewerbungs_assistent.tools import time_tool, get_slow_tool_calls
+    from bewerbungs_assistent.tools import (
+        _TOOL_CALL_LOG, _TOOL_CALL_LOG_LOCK, time_tool, get_slow_tool_calls)
     import logging
     log = logging.getLogger("test")
+
+    # A22-Nachbar-Fund (CI-Rerun beta.3): Der Ringbuffer ist MODUL-GLOBAL
+    # und sammelt Calls aller vorher gelaufenen Tests. Auf einem lahmen
+    # CI-Runner rutschen echte Calls ueber die 0.04s-Schwelle und
+    # verdraengen 'slow_tool' aus dem Ergebnis. Fuer Determinismus:
+    # Buffer leeren, der Test prueft NUR seine eigenen zwei Calls.
+    with _TOOL_CALL_LOG_LOCK:
+        _TOOL_CALL_LOG.clear()
 
     @time_tool(log, "slow_tool")
     def slow_tool():

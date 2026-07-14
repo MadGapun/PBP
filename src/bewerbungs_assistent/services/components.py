@@ -382,7 +382,9 @@ def start_install_job(db, name: str) -> dict:
                 pass
 
     import threading
-    threading.Thread(target=_run, daemon=True).start()
+    # A22 (#759): benannt fuer den conftest-Thread-Drain der Test-Suite
+    threading.Thread(target=_run, daemon=True,
+                     name=f"pbp-komponente-install-{name}").start()
     return {"status": "gestartet", "job_id": job_id}
 
 

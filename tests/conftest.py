@@ -10,6 +10,26 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item):
+    """A22 (#759): PBP-Hintergrund-Threads VOR den Fixture-Finalizern beenden.
+
+    Jobsuche-/Watchdog-/Install-Threads (alle mit Namen "pbp-*") lebten
+    sonst in db.close() hinein — SQLite-Use-after-close ueber Threads
+    produzierte auf dem Linux-CI mal OperationalError, mal Segfault
+    (exit 139). Als hookwrapper laeuft der Drain garantiert BEVOR
+    irgendein Fixture (tmp_db & Co.) die DB schliesst — eine autouse-
+    Fixture koennte das nicht zusichern (die wird zuerst aufgesetzt und
+    damit zuletzt abgebaut). In Tests sind die Threads gemockt/kurzlebig;
+    der 15s-Join ist nur das Sicherheitsnetz gegen Haenger.
+    """
+    import threading
+    for t in threading.enumerate():
+        if t.name.startswith("pbp-") and t is not threading.current_thread():
+            t.join(timeout=15)
+    yield
+
+
 @pytest.fixture
 def tmp_db(tmp_path):
     """Create a fresh temporary database."""
