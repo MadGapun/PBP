@@ -110,7 +110,9 @@ def test_set_manual_path_validiert(tmp_db, tmp_path, monkeypatch):
                                         str(tmp_path / "gibtsnicht"))
     assert result["status"] == "fehler"
 
-    fake = tmp_path / "tesseract.exe"
+    # binary_name ist plattformabhaengig (tesseract.exe vs tesseract) —
+    # der Ordner-Zweig unten sucht danach (CI-Fund: Linux-Runner)
+    fake = tmp_path / components.COMPONENT_DEFS["tesseract"]["binary_name"]
     fake.write_text("x")
     # Datei existiert, antwortet aber nicht auf --version -> Fehler
     monkeypatch.setattr(components, "_binary_version", lambda b: "")
