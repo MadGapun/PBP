@@ -14,10 +14,17 @@ inkl. Mail-Weg PBP-Service@Elwosa.de, B13-Teil-1 #747), v1.7.5
 **Scoring-Fairness & Praxis-Funde** vom 13.07. (#750/#752-#757).
 **Leitlinie des Users: Benutzerfuehrung ist oberste Prioritaet** — jeder
 Flow fuehrt zum naechsten logischen Schritt; Melde-Kultur gehoert zur
-DNA. v1.6.10 bleibt als aelterer Release verfuegbar. Naechste Arbeit
-Richtung **v1.8** (Plugin-Plattform #504, Komponenten-Framework
-I10/#751, Auto-OCR E19/#750, Mail-Integrationen #478/#480/#481,
-Branchen-Radar #718/#735, Referenzen #740/D24) — siehe Master-Plan.
+DNA. v1.6.10 bleibt als aelterer Release verfuegbar. **v1.8-Beta-Linie
+eroeffnet (Planungswelle 2026-07-14, User-Wort):** Architektur-Entwurf
+D1–D5 (Plugins = EXTERNE Prozesse gegen versionierte Ingest-API, kein
+Code-Loading; Komponenten ≠ Plugins; Pairing statt Discovery) + Beta-
+Fahrplan in Plan-Roadmap-v18; Beta-Exit-Kriterium v1.8 im Master-Plan.
+**beta.0 = I10 Komponenten-Framework (#751) + E19 Auto-OCR (#750-T2,
+Schema v49)**, beta.1 = J1 Ingest-API v1 (#504), beta.2 = J2 Thunderbird
++ J4.1 ics, beta.3 = J5 Newsletter. Betas sind GitHub-Prereleases,
+`--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. Weitere
+v1.8-Themen: Branchen-Radar #718/#735 (Kern-Welle), Referenzen #740/D24,
+PII-Altbestand A21/#758.
 
 ## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
 
