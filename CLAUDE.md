@@ -22,9 +22,15 @@ Fahrplan in Plan-Roadmap-v18; Beta-Exit-Kriterium v1.8 im Master-Plan.
 **beta.0 = I10 Komponenten-Framework (#751) + E19 Auto-OCR (#750-T2,
 Schema v49)**, beta.1 = J1 Ingest-API v1 (#504), beta.2 = J2 Thunderbird
 + J4.1 ics, beta.3 = J5 Newsletter. Betas sind GitHub-Prereleases,
-`--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. Weitere
-v1.8-Themen: Branchen-Radar #718/#735 (Kern-Welle), Referenzen #740/D24,
-PII-Altbestand A21/#758.
+`--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. **ALLE 25
+offenen Issues sind Wellen zugeordnet** (Tabelle im Master-Plan →
+Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
+#735/B25 neu, #627), F (Lokale KI: #669, #714, #632, F16-Rest), D
+(Bewerbungs-Mehrwert: #740 Referenzen, #452 Interview-Arc), J8
+(Branchen-Radar #718/#716/#717, zuletzt); beta.0-Beipack A21/#758,
+beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
+(Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
+`components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
 ## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
 
