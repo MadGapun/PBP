@@ -118,6 +118,45 @@ def register(mcp, db, logger: logging.Logger):
         return result
 
     @mcp.tool()
+    def plugins_anzeigen() -> dict:
+        """Zeigt gekoppelte Plugins und die Ingest-API v1 (J1/#504).
+
+        Plugins sind EXTERNE Programme (Thunderbird-Add-on, Watch-Folder-
+        Skript, ...), die ueber die lokale REST-API `/api/v1/ingest/*`
+        Stellen oder E-Mails an PBP liefern. Kopplung + Widerruf laufen
+        BEWUSST nur ueber die UI: Einstellungen → Erweiterungen →
+        Gekoppelte Plugins (der API-Key wird dort genau einmal angezeigt
+        und gehoert nicht in den Chat).
+
+        Nutze dies fuer Diagnose: Welche Plugins sind gekoppelt, was
+        duerfen sie, wann kam der letzte Ingest?
+        """
+        from ..services import plugins as plug
+        eintraege = db.get_plugins()
+        return {
+            "plugins": [
+                {
+                    "plugin_id": p.get("id"),
+                    "name": p.get("name"),
+                    "version": p.get("version"),
+                    "capabilities": p.get("capabilities"),
+                    "gekoppelt_am": p.get("created_at"),
+                    "letzter_ingest": p.get("last_ingest_at") or "nie",
+                    "letzter_ingest_info": p.get("last_ingest_info") or "",
+                }
+                for p in eintraege
+            ],
+            "anzahl": len(eintraege),
+            "ingest_api": f"v{plug.INGEST_API_MAJOR} (Beta — Freeze mit 1.8-Stable)",
+            "verfuegbare_capabilities": plug.CAPABILITIES,
+            "hinweis": (
+                "Neues Plugin koppeln: Einstellungen → Erweiterungen → "
+                "Gekoppelte Plugins → 'Plugin koppeln'. Referenz-Beispiel: "
+                "plugins/watch-folder im PBP-Repo."
+            ),
+        }
+
+    @mcp.tool()
     def komponente_pfad_setzen(name: str, pfad: str) -> dict:
         """Registriert eine extern installierte Komponente per Pfad.
 

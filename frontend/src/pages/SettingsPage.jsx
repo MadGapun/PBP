@@ -2329,6 +2329,12 @@ function ErweiterungenTab({ pushToast }) {
   const [installJob, setInstallJob] = useState(null);
   const [pathInputs, setPathInputs] = useState({});
   const pollRef = useRef(null);
+  // v1.8.0-beta.2 (#504 J1): Gekoppelte Plugins
+  const [plugins, setPlugins] = useState([]);
+  const [pairOpen, setPairOpen] = useState(false);
+  const [manifestText, setManifestText] = useState("");
+  const [pairResult, setPairResult] = useState(null); // {name, api_key} — Key nur einmal!
+  const [pluginBusy, setPluginBusy] = useState(false);
 
   async function reload() {
     try {
@@ -2336,6 +2342,48 @@ function ErweiterungenTab({ pushToast }) {
       setData(res);
     } catch (error) {
       pushToast(`Erweiterungen laden fehlgeschlagen: ${error.message}`, "danger");
+    }
+    try {
+      const p = await api("/api/plugins");
+      setPlugins(p.plugins || []);
+    } catch {
+      /* Plugins-Endpoint optional — Sektion bleibt leer */
+    }
+  }
+
+  async function pairPlugin() {
+    let manifest;
+    try {
+      manifest = JSON.parse(manifestText);
+    } catch {
+      pushToast("Das Manifest ist kein gueltiges JSON.", "danger");
+      return;
+    }
+    setPluginBusy(true);
+    try {
+      const res = await postJson("/api/plugins/pair", { manifest });
+      setPairResult(res);
+      setManifestText("");
+      setPairOpen(false);
+      await reload();
+    } catch (error) {
+      pushToast(`Kopplung fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      setPluginBusy(false);
+    }
+  }
+
+  async function revokePlugin(p) {
+    if (!window.confirm(`Plugin "${p.name}" widerrufen? Der API-Key ist danach sofort ungueltig.`)) return;
+    setPluginBusy(true);
+    try {
+      await deleteRequest(`/api/plugins/${p.id}`);
+      pushToast("Plugin widerrufen — der Key ist tot.", "success");
+      await reload();
+    } catch (error) {
+      pushToast(`Widerruf fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      setPluginBusy(false);
     }
   }
 
@@ -2512,6 +2560,96 @@ function ErweiterungenTab({ pushToast }) {
               </div>
             );
           })}
+        </div>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <SectionHeading
+          title="Gekoppelte Plugins"
+          description="Externe Programme (z.B. Watch-Folder, Mail-Add-ons), die ueber die lokale Ingest-API Stellen oder E-Mails an PBP liefern. Alles bleibt auf diesem Rechner (127.0.0.1)."
+        />
+        {pairResult ? (
+          <div className="mb-4 rounded-xl border border-amber/30 bg-amber/10 p-4">
+            <p className="text-sm font-semibold text-ink">
+              „{pairResult.name}" gekoppelt — API-Key jetzt kopieren (wird nur dieses eine Mal angezeigt):
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="rounded bg-night/60 px-2 py-1 text-xs text-ink break-all">{pairResult.api_key}</code>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(pairResult.api_key);
+                    pushToast("Key in der Zwischenablage.", "success");
+                  } catch {
+                    pushToast("Kopieren fehlgeschlagen — bitte manuell markieren.", "danger");
+                  }
+                }}
+              >
+                Kopieren
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPairResult(null)}>
+                Fertig, Key ist im Plugin
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Das Plugin schickt ihn bei jedem Aufruf als Header <code>X-PBP-API-Key</code>. Verloren? Plugin widerrufen und neu koppeln.
+            </p>
+          </div>
+        ) : null}
+        {plugins.length === 0 && !pairResult ? (
+          <p className="text-sm text-muted">
+            Noch kein Plugin gekoppelt. Referenz-Beispiel: <code>plugins/watch-folder</code> im PBP-Repo — Mails per Ordner an PBP uebergeben.
+          </p>
+        ) : null}
+        <div className="grid gap-3">
+          {plugins.map((p) => (
+            <div key={p.id} className="rounded-xl border border-line/40 bg-shell/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-ink">{p.name}</span>
+                  <Badge tone="sky">v{p.version}</Badge>
+                  {(p.capabilities || []).map((c) => (
+                    <Badge key={c} tone="neutral">{c}</Badge>
+                  ))}
+                </div>
+                <Button size="sm" variant="ghost" disabled={pluginBusy} onClick={() => revokePlugin(p)}>
+                  <Trash2 size={14} className="mr-1 inline" /> Widerrufen
+                </Button>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Gekoppelt {p.created_at ? p.created_at.slice(0, 10) : "?"} · Letzter Ingest: {p.last_ingest_at ? `${p.last_ingest_at.slice(0, 16).replace("T", " ")} (${p.last_ingest_info || "?"})` : "noch keiner"}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4">
+          {pairOpen ? (
+            <div className="rounded-xl border border-line/40 bg-shell/40 p-4">
+              <p className="text-sm text-muted">
+                Manifest des Plugins einfuegen (Datei <code>pbp-plugin.json</code>, liegt dem Plugin bei):
+              </p>
+              <textarea
+                value={manifestText}
+                onChange={(e) => setManifestText(e.target.value)}
+                rows={6}
+                className="mt-2 w-full rounded-lg border border-line/40 bg-night/40 p-2 font-mono text-xs text-ink outline-none focus:ring-2 focus:ring-sky/40"
+                placeholder='{"name": "Watch-Folder", "version": "1.0.0", "ingest_api": "^1", "capabilities": ["ingest:email"]}'
+              />
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" disabled={pluginBusy || !manifestText.trim()} onClick={pairPlugin}>
+                  Koppeln & Key erzeugen
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setPairOpen(false)}>
+                  Abbrechen
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="sm" variant="secondary" onClick={() => setPairOpen(true)}>
+              Plugin koppeln
+            </Button>
+          )}
         </div>
       </Card>
 

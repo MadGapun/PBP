@@ -1,0 +1,7 @@
+{
+  "name": "Watch-Folder",
+  "version": "1.0.0",
+  "ingest_api": "^1",
+  "capabilities": ["ingest:email"],
+  "beschreibung": "Beobachtet einen Ordner und uebergibt neue .eml-Dateien an PBP. Referenz-Plugin fuer die Ingest-API v1 — zugleich der einfachste Mail-Zubringer: Thunderbird-Mails per Drag&Drop in den Ordner ziehen."
+}

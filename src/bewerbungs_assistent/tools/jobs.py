@@ -2250,6 +2250,9 @@ def register(mcp, db, logger):
                     "grund": "Keine brauchbare Beschreibung gefunden — Login-Wall oder Bot-Block?",
                     "url": url, "got_chars": len(text or "")}
         db.update_job(h, {"description": text})
+        # C23 (#687): erster brauchbarer Volltext wird zum unveraenderlichen
+        # Snapshot (nur falls noch keiner existiert)
+        db.set_description_snapshot_if_empty(h, text, "nachladen")
         return {"status": "ok", "chars": len(text), "preview": text[:200]}
 
     @mcp.tool()
@@ -2653,6 +2656,15 @@ def register(mcp, db, logger):
         job_dict = db.get_job(job_hash)
         if not job_dict:
             return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
+        # C23 (#687): Ist die Live-Beschreibung weggebrochen (URL offline,
+        # spaeterer Refetch lieferte Muell), traegt der unveraenderliche
+        # Snapshot die Analyse — mit sichtbarem Hinweis.
+        beschreibung_aus_snapshot = False
+        if (len((job_dict.get("description") or "").strip()) < 50
+                and len((job_dict.get("description_snapshot") or "").strip()) >= 50):
+            job_dict = dict(job_dict)
+            job_dict["description"] = job_dict["description_snapshot"]
+            beschreibung_aus_snapshot = True
         criteria = db.get_search_criteria()
         # Enrich criteria with profile skills and salary preferences for better fit analysis
         profile = db.get_profile()
@@ -2669,6 +2681,15 @@ def register(mcp, db, logger):
         # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
         criteria["_hochschulabschluss_malus"] = db.get_hochschulabschluss_malus()
         result = _fit_analyse(job_dict, criteria)
+        if beschreibung_aus_snapshot:
+            result["beschreibung_aus_snapshot"] = {
+                "snapshot_at": job_dict.get("snapshot_at", ""),
+                "hinweis": (
+                    "Live-Beschreibung fehlt/zu kurz — Analyse lief auf dem "
+                    "unveraenderlichen Volltext-Snapshot vom Anlage-Zeitpunkt "
+                    "(#687). Die Anzeige koennte offline sein."
+                ),
+            }
 
         # v1.6.5 (#539, Folge von #535): Fit-Score zurueck in jobs.score
         # persistieren. Vorher rechnete fit_analyse on-demand mit Profile-

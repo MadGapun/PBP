@@ -16,6 +16,52 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.2] - 2026-07-14 — Ingest-API v1 + Plugin-Pairing (J1 #504) + Volltext-Snapshot (#687/#688)
+
+> ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Die Ingest-API v1
+> gilt waehrend der Beta als „kann sich additiv aendern" und wird mit dem
+> 1.8-Stable eingefroren.
+
+### Added
+
+- **#504 — Ingest-API v1 + Plugin-Pairing (J1):** Externe Programme
+  koennen PBP jetzt zuliefern — ueber eine versionierte lokale REST-API
+  (`/api/v1/ingest/ping|job|email`, 127.0.0.1, nichts verlaesst den
+  Rechner). **Kein Code-Loading**: Plugins sind eigene Prozesse
+  (Architektur D1, Sandbox by design). Kopplung per **API-Key-Pairing**
+  in den Einstellungen (Erweiterungen → Gekoppelte Plugins): Manifest
+  (`pbp-plugin.json` mit `ingest_api: "^1"` + Capabilities) einfuegen,
+  Key wird **genau einmal** angezeigt (DB haelt nur den sha256-Hash),
+  Widerruf toetet den Key sofort. Zugelieferte Stellen laufen durch
+  dieselbe Pipeline wie manuelle (Scoring, Duplikat-Erkennung #641/#317,
+  Blacklist, Quelle `plugin:<name>`); E-Mails durch die volle
+  Upload-Pipeline (Matching, Termine, Timeline). Neues MCP-Tool
+  `plugins_anzeigen` (Diagnose; Kopplung bewusst nur in der UI — der
+  Key gehoert nicht in den Chat). Jetzt 186 Tools.
+- **Referenz-Plugin „Watch-Folder"** (`plugins/watch-folder/`, J1.6):
+  ~150 Zeilen Python-Standardbibliothek — beobachtet einen Ordner und
+  uebergibt neue `.eml`/`.msg`-Dateien an PBP. Zugleich der einfachste
+  Mail-Zubringer (Thunderbird-Mails per Drag&Drop, J2.3-Alternative)
+  und die dokumentierte Vorlage fuer eigene Plugins (README = API-Doku).
+- **#687 — Volltext-Snapshot beim Anlegen (C23):** Jede Stelle mit
+  brauchbarer Beschreibung bekommt einen **unveraenderlichen**
+  `description_snapshot` (+ Quelle/Zeitstempel) — schuetzt vor
+  Offline-Gehen der Anzeige und vor Ueberschreiben durch spaetere
+  kaputte Refetches. `fit_analyse` faellt automatisch auf den Snapshot
+  zurueck, wenn die Live-Beschreibung weggebrochen ist (mit sichtbarem
+  Hinweis). Kein Setter kann einen vorhandenen Snapshot ueberschreiben.
+- **#688 — Snapshot-Nachhol-Trigger (B24):** Neuer Auto-Engine-Step
+  zieht den Snapshot fuer den Bestand nach (deterministisch, DB-only;
+  der HTTP-Refetch beschreibungsloser Stellen laeuft weiter im
+  #622-Step). Abschaltbar per Setting `auto_snapshot_backfill`.
+
+### Changed
+
+- Schema v49 → **v50** (`plugins`-Tabelle + 3 Snapshot-Spalten auf
+  `jobs`, rein additiv). MCP-Tools: 185 → **186**.
+
+---
+
 ## [1.8.0-beta.1] - 2026-07-14 — Hotfix: PDFium-Segfault beim OCR-Rendering
 
 > ⚠️ **Beta (Prerelease).** Ersetzt beta.0 (dessen Tag ist gelocked,

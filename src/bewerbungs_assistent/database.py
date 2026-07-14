@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 49
+SCHEMA_VERSION = 50
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -2028,6 +2028,43 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v48->v49: components-Tabelle (#751, I10)")
+
+        if from_ver < 50:
+            # v50 / v1.8.0-beta.2: (a) plugins-Tabelle fuer gekoppelte
+            # externe Plugins (J1/#504 — API-Key nur als sha256-Hash, der
+            # Klartext wird genau einmal beim Pairing angezeigt);
+            # (b) unveraenderlicher Beschreibungs-Snapshot auf jobs
+            # (C23/#687 — schuetzt vor Offline-Gehen der URL und vor
+            # Ueberschreiben durch spaetere schlechte Refetches).
+            # Rein additiv.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS plugins (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        version TEXT DEFAULT '',
+                        api_key_hash TEXT NOT NULL,
+                        capabilities TEXT DEFAULT '[]',
+                        manifest TEXT DEFAULT '{}',
+                        ingest_api TEXT DEFAULT '^1',
+                        created_at TEXT,
+                        last_ingest_at TEXT,
+                        last_ingest_info TEXT DEFAULT ''
+                    )
+                """)
+            except Exception:
+                pass
+            for col, decl in (
+                ("description_snapshot", "TEXT"),
+                ("snapshot_at", "TEXT"),
+                ("snapshot_source", "TEXT"),
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {decl}")
+                except Exception:
+                    pass
+            logger.info("Migration v49->v50: plugins-Tabelle (#504 J1) + "
+                        "jobs.description_snapshot (#687 C23)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -4154,7 +4191,8 @@ class Database:
             # #645: Guard fuer leere URLs aus Scraper-Quellen.
             src = (job.get("source") or "").strip()
             url_val = (job.get("url") or "").strip()
-            if not url_val and src and src not in _URL_OPTIONAL_SOURCES:
+            if (not url_val and src and src not in _URL_OPTIONAL_SOURCES
+                    and not src.startswith("plugin:")):  # J1 (#504): bewusste Zulieferung
                 logger.warning(
                     "save_jobs: leere URL aus Scraper-Quelle %r (title=%r, "
                     "company=%r) — Regression-Indikator fuer #645, setze "
@@ -4171,7 +4209,8 @@ class Database:
             new_score = job.get("score", 0)
             new_pinned = 1 if job.get("is_pinned") else 0
             existing = conn.execute(
-                "SELECT score, is_pinned, is_active, dismiss_reason, research_notes "
+                "SELECT score, is_pinned, is_active, dismiss_reason, research_notes, "
+                "description_snapshot, snapshot_at, snapshot_source "
                 "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
@@ -4245,14 +4284,30 @@ class Database:
                         )
                         ausland_erkannt += 1
 
+            # C23 (#687): unveraenderlicher Beschreibungs-Snapshot.
+            # Bestand hat Vorrang (INSERT OR REPLACE wuerde ihn sonst
+            # verlieren); ist keiner da und die neue Beschreibung traegt
+            # (>= 50 Zeichen), wird er GENAU EINMAL gefuellt.
+            snap = snap_at = snap_src = None
+            if not is_new:
+                snap = existing["description_snapshot"]
+                snap_at = existing["snapshot_at"]
+                snap_src = existing["snapshot_source"]
+            desc_val = (job.get("description") or "").strip()
+            if not snap and len(desc_val) >= 50:
+                snap = job.get("description")
+                snap_at = now
+                snap_src = "anlage" if is_new else "ingest_update"
+
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
                     employment_type, is_pinned, lat, lon, veroeffentlicht_am,
                     is_search_url, profile_id, found_at, updated_at, is_active,
-                    dismiss_reason, research_notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    dismiss_reason, research_notes,
+                    description_snapshot, snapshot_at, snapshot_source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -4266,7 +4321,8 @@ class Database:
                 job.get("veroeffentlicht_am"),
                 1 if job.get("is_search_url") else 0,
                 job_pid, job.get("found_at", now), now, is_active,
-                dismiss_reason, research_notes
+                dismiss_reason, research_notes,
+                snap, snap_at, snap_src
             ))
             if is_new and is_active:
                 src = job.get("source") or "unbekannt"
@@ -5463,6 +5519,92 @@ class Database:
                 params,
             )
         conn.commit()
+
+    # ------------------------------------------------------------------
+    # Gekoppelte Plugins (#504, J1 / v1.8.0-beta.2)
+    # API-Key wird NUR als sha256-Hash gespeichert; der Klartext existiert
+    # ausschliesslich in der Pairing-Antwort (einmalige Anzeige).
+    # ------------------------------------------------------------------
+
+    def add_plugin(self, name: str, version: str, api_key_hash: str,
+                   capabilities: list, manifest: dict,
+                   ingest_api: str = "^1") -> str:
+        conn = self.connect()
+        pid = _gen_id()
+        conn.execute(
+            "INSERT INTO plugins (id, name, version, api_key_hash, "
+            "capabilities, manifest, ingest_api, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (pid, name, version, api_key_hash,
+             json.dumps(capabilities or []), json.dumps(manifest or {}),
+             ingest_api, _now()),
+        )
+        conn.commit()
+        return pid
+
+    def get_plugins(self) -> list:
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM plugins ORDER BY created_at").fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["capabilities"] = json.loads(d.get("capabilities") or "[]")
+            d["manifest"] = json.loads(d.get("manifest") or "{}")
+            d.pop("api_key_hash", None)  # Hash bleibt intern
+            result.append(d)
+        return result
+
+    def get_plugin_by_key_hash(self, api_key_hash: str) -> Optional[dict]:
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM plugins WHERE api_key_hash=?",
+            (api_key_hash,)).fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        d["capabilities"] = json.loads(d.get("capabilities") or "[]")
+        return d
+
+    def delete_plugin(self, plugin_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM plugins WHERE id=?", (str(plugin_id),))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def record_plugin_ingest(self, plugin_id: str, info: str) -> None:
+        conn = self.connect()
+        conn.execute(
+            "UPDATE plugins SET last_ingest_at=?, last_ingest_info=? WHERE id=?",
+            (_now(), (info or "")[:200], str(plugin_id)),
+        )
+        conn.commit()
+
+    # ------------------------------------------------------------------
+    # Beschreibungs-Snapshot (#687, C23 / v1.8.0-beta.2)
+    # ------------------------------------------------------------------
+
+    def set_description_snapshot_if_empty(self, job_hash: str, text: str,
+                                          source: str) -> bool:
+        """Fuellt den unveraenderlichen Snapshot GENAU EINMAL.
+
+        Atomar via WHERE-Klausel — ein vorhandener Snapshot wird nie
+        ueberschrieben (C23-Garantie). Es gibt bewusst keinen Setter ohne
+        diese Bedingung, und `_ALLOWED_UPDATE_FIELDS` kennt die
+        Snapshot-Spalten nicht.
+        """
+        if len((text or "").strip()) < 50:
+            return False
+        conn = self.connect()
+        stored = self.resolve_job_hash(job_hash) or job_hash
+        cur = conn.execute(
+            "UPDATE jobs SET description_snapshot=?, snapshot_at=?, "
+            "snapshot_source=? WHERE hash=? AND "
+            "(description_snapshot IS NULL OR description_snapshot='')",
+            (text, _now(), source, stored),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
     def create_background_job(self, job_type: str, params: dict = None) -> str:
         conn = self.connect()
@@ -9130,7 +9272,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     is_search_url INTEGER DEFAULT 0,
     profile_id TEXT,
     found_at TEXT,
-    updated_at TEXT
+    updated_at TEXT,
+    description_snapshot TEXT,
+    snapshot_at TEXT,
+    snapshot_source TEXT
 );
 
 CREATE TABLE IF NOT EXISTS applications (
@@ -9243,6 +9388,19 @@ CREATE TABLE IF NOT EXISTS components (
     installed_at TEXT,
     last_error TEXT DEFAULT '',
     updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plugins (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    version TEXT DEFAULT '',
+    api_key_hash TEXT NOT NULL,
+    capabilities TEXT DEFAULT '[]',
+    manifest TEXT DEFAULT '{}',
+    ingest_api TEXT DEFAULT '^1',
+    created_at TEXT,
+    last_ingest_at TEXT,
+    last_ingest_info TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);

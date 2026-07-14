@@ -32,6 +32,35 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-14 (v1.8.0-beta.2, Prerelease) — Ingest-API v1 + Snapshot
+
+**Schema:** v50 (`plugins`-Tabelle + `jobs.description_snapshot`/
+`snapshot_at`/`snapshot_source`, additiv). **MCP-Tools:** 186
+(+`plugins_anzeigen` in `tools/komponenten.py`). **Prompts:** 25.
+
+Kern: (1) **J1/#504** — `services/plugins.py`: Manifest-Validierung
+(`pbp-plugin.json`, `ingest_api: "^1"`, Capabilities-Whitelist
+ingest:email/ingest:job), Pairing erzeugt `pbp_<hex>`-Key (DB haelt NUR
+sha256; Einmal-Anzeige in der UI), Widerruf = DELETE. REST:
+`/api/plugins` + `/api/plugins/pair` + DELETE; Ingest-API
+`/api/v1/ingest/ping|job|email` mit `X-PBP-API-Key`-Header (401/403),
+job-Ingest laeuft durch stelle_hash+calculate_score+save_jobs
+(`source='plugin:<name>'`, `_manual_entry`, #317-Dup-Check → 409,
+Blacklist → 409), email-Ingest delegiert an `api_upload_document`
+(volle Pipeline). save_jobs-URL-Guard laesst `plugin:`-Quellen ohne URL
+zu. Referenz-Plugin `plugins/watch-folder/` (stdlib-only, README =
+API-Doku). UI: „Gekoppelte Plugins" im Erweiterungen-Tab. Wiki-Seite
+**Plugins** (40. Seite — Wiki-Guard zaehlt jetzt >= 40). API-v1-Freeze
+mit Stable = Beta-Exit Punkt 2. (2) **C23/#687** —
+`description_snapshot` unveraenderlich: save_jobs fuellt bei Anlage
+(>= 50 Zeichen) und schleift Bestand durch REPLACE durch;
+`set_description_snapshot_if_empty` (atomare WHERE-Klausel) an beiden
+Refetch-Stellen; fit_analyse faellt bei weggebrochener Beschreibung auf
+den Snapshot zurueck (`beschreibung_aus_snapshot`). (3) **B24/#688** —
+Auto-Engine-Step `_run_snapshot_backfill` (DB-only, 500/Lauf, Setting
+`auto_snapshot_backfill`). Tests: `test_v18_beta2_plugins.py` (14,
+TestClient).
+
 ## Stand 2026-07-14 (v1.8.0-beta.1, Prerelease) — Komponenten + Auto-OCR
 
 **Schema:** v49 (`components`-Tabelle, rein additiv). **MCP-Tools:** 185

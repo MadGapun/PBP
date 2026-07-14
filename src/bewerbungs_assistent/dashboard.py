@@ -4455,6 +4455,8 @@ async def api_refetch_description(job_hash: str):
             status_code=404,
         )
     _db.update_job(job_hash, {"description": text})
+    # C23 (#687): erster brauchbarer Volltext -> unveraenderlicher Snapshot
+    _db.set_description_snapshot_if_empty(job_hash, text, "nachladen")
     _reset_refetch_failure(job_hash)
     return {
         "status": "ok",
@@ -5573,6 +5575,184 @@ async def api_component_uninstall(name: str):
     if result.get("status") == "fehler":
         return JSONResponse({"error": result.get("fehler", "unbekannt")},
                             status_code=400)
+    return result
+
+
+# ============================================================
+# Gekoppelte Plugins + Ingest-API v1 (J1/#504, v1.8.0-beta.2)
+# Architektur D1-D4: Plugins sind externe Prozesse; Pairing per
+# API-Key (sha256 in DB, Klartext einmalig); API 127.0.0.1-bound
+# wie das gesamte Dashboard.
+# ============================================================
+
+@app.get("/api/plugins")
+async def api_plugins_list():
+    from .services import plugins as plug
+    return {
+        "plugins": _db.get_plugins(),
+        "capabilities": plug.CAPABILITIES,
+        "ingest_api": f"v{plug.INGEST_API_MAJOR} (Beta — Freeze mit 1.8-Stable)",
+    }
+
+
+@app.post("/api/plugins/pair")
+async def api_plugins_pair(payload: dict):
+    """Koppelt ein Plugin (expliziter User-Schritt in der Settings-UI).
+
+    Body: das Manifest (pbp-plugin.json-Inhalt) oder {"manifest": {...}}.
+    Antwort enthaelt den API-Key GENAU EINMAL.
+    """
+    from .services import plugins as plug
+    manifest = payload.get("manifest") if isinstance(payload, dict) and "manifest" in payload else payload
+    result = plug.pair_plugin(_db, manifest or {})
+    if result.get("status") != "gekoppelt":
+        return JSONResponse({"error": result.get("fehler")}, status_code=400)
+    return result
+
+
+@app.delete("/api/plugins/{plugin_id}")
+async def api_plugins_revoke(plugin_id: str):
+    """Widerruft ein Plugin — der zugehoerige API-Key ist sofort tot."""
+    if not _db.delete_plugin(plugin_id):
+        return JSONResponse({"error": "Plugin nicht gefunden"}, status_code=404)
+    return {"status": "widerrufen", "plugin_id": plugin_id}
+
+
+def _require_plugin(request: Request, capability: str):
+    """Key-Auth fuer Ingest-Endpoints. Liefert (plugin, None) oder
+    (None, JSONResponse)."""
+    from .services import plugins as plug
+    api_key = request.headers.get("X-PBP-API-Key", "")
+    plugin, fehler = plug.verify_key(_db, api_key, capability)
+    if plugin is None:
+        return None, JSONResponse(
+            {"error": fehler,
+             "hinweis": "Pairing: Einstellungen → Erweiterungen → Plugin koppeln."},
+            status_code=401 if "Header" in fehler or "unbekannt" in fehler else 403,
+            headers={"X-PBP-Ingest-API": str(plug.INGEST_API_MAJOR)},
+        )
+    return plugin, None
+
+
+@app.get("/api/v1/ingest/ping")
+async def api_ingest_ping(request: Request):
+    """Verbindungs-/Key-Check fuer Plugins (Setup-Validierung)."""
+    from .services import plugins as plug
+    plugin, err = _require_plugin(request, "")
+    if err:
+        return err
+    from . import __version__
+    return {
+        "status": "ok",
+        "plugin": plugin.get("name"),
+        "capabilities": plugin.get("capabilities"),
+        "ingest_api": plug.INGEST_API_MAJOR,
+        "pbp_version": __version__,
+    }
+
+
+@app.post("/api/v1/ingest/job")
+async def api_ingest_job(request: Request, payload: dict):
+    """Nimmt ein Stellenangebot von einem gekoppelten Plugin entgegen.
+
+    Body: {titel, firma, url?, ort?, beschreibung?, remote?, stellenart?}.
+    Laeuft durch dieselbe Pipeline wie manuell angelegte Stellen: Scoring,
+    Inhalts-Duplikat-Erkennung (#641), Bewerbungs-Duplikat-Check (#317),
+    Blacklist. Quelle wird 'plugin:<name>'.
+    """
+    plugin, err = _require_plugin(request, "ingest:job")
+    if err:
+        return err
+    titel = str((payload or {}).get("titel") or "").strip()
+    firma = str((payload or {}).get("firma") or "").strip()
+    if not titel or not firma:
+        return JSONResponse({"error": "titel und firma sind Pflicht"},
+                            status_code=422)
+
+    from .job_scraper import stelle_hash, calculate_score
+    from .duplicate_detection import find_duplicate_job
+
+    quelle = f"plugin:{plugin['name']}"
+    url = str(payload.get("url") or "").strip()
+    beschreibung = str(payload.get("beschreibung") or "")
+
+    if _db.is_company_blacklisted(firma):
+        return JSONResponse(
+            {"error": f"Firma '{firma}' steht auf der Blacklist — nicht angelegt."},
+            status_code=409)
+
+    job_hash = stelle_hash(quelle, f"{firma} {titel}")
+    existing = _db.get_job(job_hash)
+    if existing:
+        _db.record_plugin_ingest(plugin["id"], f"job (bereits vorhanden): {titel[:60]}")
+        return {"status": "bereits_vorhanden",
+                "job_hash": existing["hash"][-12:]}
+
+    # #317: laufende Bewerbung mit aehnlichem Titel? Plugin kann kein
+    # force — ehrliche 409-Antwort, der User entscheidet in PBP.
+    try:
+        apps = [a for a in _db.get_applications()
+                if a.get("status") not in ("abgelehnt", "abgelaufen",
+                                           "zurueckgezogen", "angenommen")]
+        dup = find_duplicate_job(firma, titel, url, apps)
+        if dup:
+            kandidat = dup.get("job") or {}
+            return JSONResponse(
+                {"error": "Zu dieser Firma laeuft bereits eine Bewerbung "
+                          "mit sehr aehnlichem Titel — nicht angelegt.",
+                 "duplikat": {
+                     "titel": kandidat.get("title", ""),
+                     "status": kandidat.get("status", ""),
+                     "grund": dup.get("grund", ""),
+                 }},
+                status_code=409)
+    except Exception as exc:  # noqa: BLE001 — Dup-Check darf Ingest nie killen
+        logger.debug("Ingest-Dup-Check uebersprungen: %s", exc)
+
+    criteria = _db.get_search_criteria() or {}
+    job = {
+        "hash": job_hash,
+        "title": titel,
+        "company": firma,
+        "location": str(payload.get("ort") or ""),
+        "url": url,
+        "source": quelle,
+        "description": beschreibung,
+        "remote_level": str(payload.get("remote") or "unbekannt"),
+        "employment_type": str(payload.get("stellenart") or "festanstellung"),
+        "_manual_entry": True,  # bewusste Zulieferung: kein Geo-Auto-Dismiss
+    }
+    try:
+        job["score"] = calculate_score(job, criteria)
+    except Exception:
+        job["score"] = 0
+    stats = _db.save_jobs([job])
+    saved = _db.get_job(job_hash)
+    _db.record_plugin_ingest(plugin["id"], f"job: {titel[:60]}")
+    return {
+        "status": "angelegt" if (saved and saved.get("is_active")) else "als_duplikat_markiert",
+        "job_hash": (saved or {}).get("hash", job_hash)[-12:],
+        "score": (saved or {}).get("score", job.get("score", 0)),
+        "duplikate_erkannt": stats.get("duplikate_erkannt", 0),
+    }
+
+
+@app.post("/api/v1/ingest/email")
+async def api_ingest_email(request: Request, file: UploadFile = File(...)):
+    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+
+    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
+    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+    """
+    plugin, err = _require_plugin(request, "ingest:email")
+    if err:
+        return err
+    result = await api_upload_document(
+        file=file, doc_type="sonstiges", position_id="",
+        link_application_id="", create_application="",
+    )
+    fname = (file.filename or "mail")[:60]
+    _db.record_plugin_ingest(plugin["id"], f"email: {fname}")
     return result
 
 
@@ -8628,6 +8808,47 @@ async def api_run_auto_actions():
             pass
 
 
+def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
+    """v1.8.0-beta.2 (#688 B24): Volltext-Snapshot-Nachhol-Trigger.
+
+    Fuellt fuer Bestands-Stellen den unveraenderlichen
+    `description_snapshot` (C23/#687) aus der vorhandenen Beschreibung —
+    deterministisch, DB-only, kein HTTP. Der HTTP-Refetch fuer Stellen
+    OHNE Beschreibung laeuft separat im bestehenden #622-Step
+    (_run_auto_refetch_descriptions); sobald der eine Beschreibung
+    liefert, greift dieser Step im naechsten Zyklus.
+
+    Flag: Setting `auto_snapshot_backfill` (Default an; '0' deaktiviert).
+    """
+    if str(_db.get_setting("auto_snapshot_backfill", "1")) in ("0", "false", "False"):
+        return {"status": "deaktiviert"}
+    conn = _db.connect()
+    try:
+        cur = conn.execute(
+            "UPDATE jobs SET description_snapshot=description, "
+            "snapshot_at=?, snapshot_source='nachhol' "
+            "WHERE hash IN (SELECT hash FROM jobs "
+            "  WHERE (description_snapshot IS NULL OR description_snapshot='') "
+            "  AND description IS NOT NULL AND LENGTH(TRIM(description)) >= 50 "
+            "  LIMIT ?)",
+            (now_iso, max_jobs),
+        )
+        conn.commit()
+        nachgezogen = cur.rowcount
+        offen = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs "
+            "WHERE (description_snapshot IS NULL OR description_snapshot='') "
+            "AND description IS NOT NULL AND LENGTH(TRIM(description)) >= 50"
+        ).fetchone()["n"]
+        if nachgezogen:
+            logger.info("Snapshot-Backfill (#688): %d nachgezogen, %d offen",
+                        nachgezogen, offen)
+        return {"status": "ok", "nachgezogen": nachgezogen, "offen": offen}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Snapshot-Backfill fehlgeschlagen: %s", exc)
+        return {"status": "fehler", "fehler": str(exc)[:150]}
+
+
 def _run_auto_actions_inner(now: str) -> dict:
     expire_result = _run_auto_expire(now)
     fu_result = _run_auto_followup_reconciler(now)
@@ -8646,6 +8867,8 @@ def _run_auto_actions_inner(now: str) -> dict:
     contacts_result = _run_extract_contacts(now)
     # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
     refetch_result = _run_auto_refetch_descriptions(now)
+    # v1.8.0-beta.2 (#688 B24): Snapshot-Backfill fuer den Bestand
+    snapshot_result = _run_snapshot_backfill(now)
     # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
     url_aging_result = _run_url_aging_check(now)
     # v1.7.0-beta.76 (#650 D15): Nachfass-Trigger bei staleness
@@ -8664,6 +8887,7 @@ def _run_auto_actions_inner(now: str) -> dict:
         "scraper_probe": probe_result,
         "extract_contacts": contacts_result,
         "auto_refetch_descriptions": refetch_result,
+        "snapshot_backfill": snapshot_result,
         "url_aging_check": url_aging_result,
         "stale_applications": stale_apps_result,
         "elwosa": elwosa_result,

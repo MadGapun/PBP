@@ -105,6 +105,7 @@ EXPECTED_TOOL_NAMES = {
     "komponenten_status",
     "komponente_installieren",
     "komponente_pfad_setzen",
+    "plugins_anzeigen",
     "ablehnungsgruende_anzeigen",
     "ablehnungsgrund_anlegen",
     "ablehnungsgrund_umbenennen",
@@ -322,7 +323,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 185  # v1.8.0-beta.0: + komponenten_status/komponente_installieren/komponente_pfad_setzen (#751 I10), + dokument_ocr_ausfuehren (#750 E19)
+        assert len(tools) == 186  # v1.8.0-beta.2: + plugins_anzeigen (#504 J1); beta.0: + komponenten_status/komponente_installieren/komponente_pfad_setzen (#751 I10), + dokument_ocr_ausfuehren (#750 E19)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
