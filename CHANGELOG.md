@@ -16,6 +16,23 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.1] - 2026-07-14 — Hotfix: PDFium-Segfault beim OCR-Rendering
+
+> ⚠️ **Beta (Prerelease).** Ersetzt beta.0 (dessen Tag ist gelocked,
+> daher neue Nummer). Stable bleibt **v1.7.7**.
+
+### Fixed
+
+- **OCR-Rendering: PDFium-Handles deterministisch freigeben.** Unter
+  Linux (und potenziell macOS) segfaultete der OCR-Pfad, weil
+  pypdfium2-Page-/Bitmap-Objekte erst vom Garbage Collector NACH dem
+  Schliessen des Dokuments freigegeben wurden (Doppel-Free in der
+  nativen PDFium-Library; auf dem Linux-CI-Runner als exit 139
+  aufgefallen, Windows war tolerant). Jetzt werden bitmap → page →
+  document in dieser Reihenfolge explizit geschlossen.
+
+---
+
 ## [1.8.0-beta.0] - 2026-07-14 — Komponenten-Framework + Auto-OCR (I10 #751, E19 #750)
 
 > ⚠️ **Beta (Prerelease).** Erster Schritt der v1.8-Linie („Plugin-Plattform

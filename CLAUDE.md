@@ -514,7 +514,16 @@ Bevor ein neuer Release gebaut wird:
    Hintergrund: am 2026-06-02 wurde beta.81 zu frueh veroeffentlicht;
    waehrend Tests + CHANGELOG liefen, kam #664 rein und musste in eine
    hektische beta.82 nachgezogen werden.
-8. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
+8. **⛔ Tag erst NACH gruenem CI (HART, seit beta.0-Segfault 2026-07-14):**
+   Release-Commit auf main pushen, den CI-Lauf ABWARTEN (`gh run watch`),
+   und erst bei Erfolg Tag setzen + pushen + GH-Release erstellen.
+   Hintergrund: v1.8.0-beta.0 wurde vor dem CI-Ergebnis getaggt; der
+   Linux-Runner fand einen PDFium-Segfault (exit 139), den Windows lokal
+   nicht zeigte — der Tag war gelocked, beta.1 musste nachgeschoben
+   werden. Native Dependencies (pypdfium2, playwright, ...) verhalten
+   sich plattformspezifisch; die lokale Windows-Suite reicht als
+   Tag-Freigabe nicht.
+9. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
 
 ## GitHub-Release-Notes — Pflicht-Block
 

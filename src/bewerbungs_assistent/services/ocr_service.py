@@ -167,10 +167,22 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
             for i in range(seiten):
                 progress(int(100 * i / seiten),
                          f"OCR Seite {i + 1}/{seiten}")
-                page = pdf[i]
-                bitmap = page.render(scale=_RENDER_DPI / 72)
+                # PDFium-Natives DETERMINISTISCH freigeben (bitmap vor page,
+                # page vor document) — haengen page/bitmap-Handles bis zum
+                # GC nach pdf.close(), segfaultet PDFium unter Linux
+                # (CI-Fund 2026-07-14, exit 139).
                 img_path = Path(tmp) / f"seite_{i + 1}.png"
-                bitmap.to_pil().save(str(img_path), format="PNG")
+                page = pdf[i]
+                try:
+                    bitmap = page.render(scale=_RENDER_DPI / 72)
+                    try:
+                        bitmap.to_pil().save(str(img_path), format="PNG")
+                    finally:
+                        closer = getattr(bitmap, "close", None)
+                        if closer:
+                            closer()
+                finally:
+                    page.close()
                 proc = subprocess.run(
                     [binary, str(img_path), "stdout", "-l", langs, "--psm", "1"],
                     capture_output=True, text=True, encoding="utf-8",
