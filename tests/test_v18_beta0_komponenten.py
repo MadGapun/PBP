@@ -175,17 +175,42 @@ def test_install_component_fehlerpfad_setzt_status(tmp_db, monkeypatch):
 
 
 def test_start_install_job_verhindert_doppelstart(tmp_db, monkeypatch):
+    """Deterministisch via Gate — und der Job-Thread wird VOR dem Fixture-
+    Teardown zu Ende gewartet. Ohne das racet der Daemon-Thread mit
+    db.close(): SQLite-Use-after-close segfaultete auf dem Linux-CI
+    (exit 139, Fund 2026-07-14). ensure_language ebenfalls stubben —
+    sonst macht der Thread echte DB-/Netz-Zugriffe."""
+    import threading
+    import time
     from bewerbungs_assistent.services import components
-    # install_component stubben, damit kein Thread wirklich arbeitet
-    monkeypatch.setattr(components, "install_component",
-                        lambda db, name, progress=None: {"status": "installiert"})
+
+    gate = threading.Event()
+
+    def blocked_install(db, name, progress=None):
+        gate.wait(timeout=5)
+        return {"status": "installiert"}
+
+    monkeypatch.setattr(components, "install_component", blocked_install)
+    monkeypatch.setattr(components, "ensure_language",
+                        lambda db, lang="deu", progress=None: {"status": "vorhanden"})
+
     first = components.start_install_job(tmp_db, "tesseract")
     assert first["status"] == "gestartet"
-    # Solange der Job als running steht, blockt der zweite Start
-    running = tmp_db.get_running_background_job("komponente_install")
-    if running:  # Thread evtl. schon fertig — dann Doppelstart legitim
-        second = components.start_install_job(tmp_db, "tesseract")
-        assert second["status"] == "laeuft_bereits"
+    # Job haengt im Gate -> zweiter Start MUSS blocken
+    second = components.start_install_job(tmp_db, "tesseract")
+    assert second["status"] == "laeuft_bereits"
+    assert second["job_id"] == first["job_id"]
+
+    gate.set()
+    for _ in range(200):  # max ~10s
+        job = tmp_db.get_background_job(first["job_id"])
+        if job and job.get("status") in ("fertig", "fehler"):
+            break
+        time.sleep(0.05)
+    else:
+        pytest.fail("Install-Job wurde nicht fertig — Thread wuerde ins Teardown racen")
+    assert job["status"] == "fertig"
+
     assert components.start_install_job(tmp_db, "unbekannt")["status"] == "fehler"
 
 
