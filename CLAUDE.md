@@ -206,7 +206,16 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    ladbar sind, jeder Direkt-SQL-Workaround), wird als Issue erfasst. Ziel:
    MCP-Layer bleibt langfristig die einzige Schnittstelle (Anti-DB-Bypass,
    #514).
-7. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
+7. **PII-Sweep ueber neue Artefakte** (seit 2026-07-14) — der Issue-Scrub
+   gilt sinngemaess fuer ALLES Oeffentliche: vor Commit/Wiki-Push neue
+   Tests, Docstrings, CHANGELOG-Eintraege und Plan-Seiten auf reale
+   Firmen aus der Bewerbungshistorie und Personen-Namen pruefen
+   (`grep -rni`; Namensmuster in `scripts/scrub_pii.py`). Reale Faelle
+   als „Praxis-Fall [Datum]" mit fiktiver Firma dokumentieren.
+   Hintergrund: 2026-07-14 standen reale Firmennamen in neuen
+   v1.7.7-Tests/Wiki-Stubs und der User-Vorname im Wiki-Altbestand —
+   vor dem Release bereinigt.
+8. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
    Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
 
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
