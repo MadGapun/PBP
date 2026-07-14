@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bewerbungs-assistent"
-version = "1.7.7"
+version = "1.8.0b0"
 description = "PBP — KI-gestuetzter Bewerbungsassistent als MCP-Server fuer Claude Desktop. Stellensuche, Bewerbungs-Tracking, Lebenslauf-/Anschreiben-Generierung, Interview-Coaching."
 readme = "README.md"
 license = "MIT"
@@ -67,6 +67,11 @@ docs = [
     "pypdf>=4.0",
     "fpdf2>=2.7",
     "matplotlib>=3.8",
+    # E19 (#750, v1.8.0-beta.0): Scan-PDF -> Bild fuers Komponenten-OCR.
+    # pypdfium2 bringt PDFium gebundelt mit (kein Poppler noetig — der
+    # alte pdf2image-Pfad aus #192 scheiterte genau daran).
+    "pypdfium2>=4.0",
+    "pillow>=10.0",
 ]
 export = [
     "openpyxl>=3.1",

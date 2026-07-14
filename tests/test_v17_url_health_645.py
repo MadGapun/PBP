@@ -87,11 +87,11 @@ def test_workday_api_url_airbus():
     assert "Hamburg-Area" in api
 
 
-def test_workday_api_url_nexperia():
-    url = "https://nexperia.wd3.myworkdayjobs.com/en-US/careers/job/Hamburg/Head-of-Sourcing--m-f-d----Front-End-BOM_R-20014600"
+def test_workday_api_url_tenant():
+    url = "https://examplecorp.wd3.myworkdayjobs.com/en-US/careers/job/Hamburg/Head-of-Sourcing--m-f-d----Front-End-BOM_R-20014600"
     api = _workday_api_url(url)
     assert api is not None
-    assert "wday/cxs/nexperia/careers/job/Hamburg/" in api
+    assert "wday/cxs/examplecorp/careers/job/Hamburg/" in api
 
 
 def test_workday_api_url_non_workday_returns_none():
@@ -208,7 +208,7 @@ def test_check_url_workday_api_404_overrides_html_200():
 
 def test_check_url_workday_api_200_confirms_active():
     """Workday-API 200 mit Title-Match -> ok."""
-    html_url = "https://nexperia.wd3.myworkdayjobs.com/en-US/careers/job/Hamburg/Head-of-Sourcing-BOM_R20014600"
+    html_url = "https://examplecorp.wd3.myworkdayjobs.com/en-US/careers/job/Hamburg/Head-of-Sourcing-BOM_R20014600"
     api_url = _workday_api_url(html_url)
     assert api_url is not None
     html_body = "<html><body><div id='wd-root'></div></body></html>"

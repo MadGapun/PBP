@@ -16,6 +16,56 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.0] - 2026-07-14 — Komponenten-Framework + Auto-OCR (I10 #751, E19 #750)
+
+> ⚠️ **Beta (Prerelease).** Erster Schritt der v1.8-Linie („Plugin-Plattform
+> & Integrationen", Fahrplan im Wiki: Plan-Roadmap-v18). Fuer den Alltag
+> bleibt **v1.7.7** der empfohlene Stable-Release (`--latest`). Update von
+> 1.7.x: einfach drueberinstallieren; Downgrade zurueck auf 1.7.7 ist
+> moeglich (Schema v49 ist rein additiv, Backup entsteht automatisch).
+
+### Added
+
+- **#751 — Optionale-Komponenten-Framework (I10):** PBP kann jetzt
+  Zusatzprogramme **on-demand** nachinstallieren — nie automatisch, immer
+  mit Groesse, Quelle und Lizenz VOR dem Download. Neuer Settings-Tab
+  **„Erweiterungen"**: Status je Komponente (installiert von PBP / extern
+  gefunden / nicht installiert), Installation mit Fortschrittsbalken,
+  manueller Pfad fuer Offline-Faelle, Entfernen (nur der PBP-Kopie —
+  extern installierte Programme werden erkannt, aber nie angefasst).
+  Ollama wird dort mit-angezeigt, bleibt aber eigenstaendig verwaltet.
+  Unterbau: `components`-Tabelle (Schema **v49**, rein additiv),
+  `services/components.py`, REST `GET/POST/DELETE /api/components*`,
+  MCP-Tools `komponenten_status`, `komponente_installieren`
+  (Zustimmungs-Pflicht via `bestaetigt=True`), `komponente_pfad_setzen`.
+  Der Windows-Deinstaller entfernt nachinstallierte Komponenten mit.
+- **#750 (Teil 2) — Auto-OCR fuer gescannte PDFs (E19):** Die erste
+  Komponente ist **Tesseract OCR** (Apache-2.0, ~55 MB): Zeugnisse und
+  Zertifikate ohne Text-Ebene werden beim Upload automatisch erkannt —
+  ist die Komponente installiert, laeuft OCR sofort (deu+eng,
+  Rotationskorrektur) und der Text landet mit **Provenienz-Header** im
+  Dokument; fehlt sie, kommt ein Angebot statt eines stillen Fehlers.
+  Neues MCP-Tool `dokument_ocr_ausfuehren(dokument_id)` zieht bereits
+  hochgeladene Scans nach. Deutsch-Sprachpaket wird automatisch
+  mitgeladen (~2 MB). PDF-Rendering via pypdfium2 (reine
+  pip-Dependency) — der tote #192-Fallback (pdf2image/pytesseract,
+  brauchte System-Poppler) ist ersetzt.
+
+### Fixed
+
+- **#758 — PII-Altbestand bereinigt (A21):** Reale Firmennamen aus der
+  Bewerbungshistorie in Alt-Tests, einem Einweg-Diagnoseskript
+  (entfernt), einem CHANGELOG-Alt-Eintrag und einem Code-Kommentar durch
+  fiktive Namen ersetzt.
+
+### Changed
+
+- **MCP-Tools: 181 → 185**, neues Tool-Modul `komponenten`. Schema
+  v48 → **v49** (`components`-Tabelle). Neue Dependencies (docs-Extra):
+  `pypdfium2`, `pillow`.
+
+---
+
 ## [1.7.7] - 2026-07-14 — Scoring-Fairness & Praxis-Funde: faire Urteile, ehrliche Firmen-Auskunft (#752-#757, #750)
 
 > **Empfohlenes Update (`--latest`).** Sechs Funde aus einem realen
@@ -3759,7 +3809,7 @@ Wiederverwendbarer Pure-Python-Health-Checker fuer Job-URLs:
 - **Workday-SPA-Sonderfall**: HTML-Body ist nur ein Skeleton, Stellen-
   Existenz nur ueber `wday/cxs/{tenant}/{site}/job/{path}`-API testbar.
   Workday-API-404 wird als `EXPIRED` klassifiziert. So fallen Workday-
-  Stellen wie `b9f0bbe25d09` (Nexperia Material Supply) ab denen die HTML
+  Stellen wie `b9f0bbe25d09` (<FIRMA>, Workday-Portal) ab denen die HTML
   weiterhin 200 OK liefert obwohl die Stelle weg ist.
 - **Title-Token-Cross-Check** fuer statisches HTML: wenn keine
   signaltragenden Title-Tokens im Body stehen, hat der Server eine

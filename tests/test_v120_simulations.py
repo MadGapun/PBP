@@ -402,10 +402,10 @@ class TestSim3RecherchePlusDuplikat:
         db = _build_server(tmp_path)
         _seed_profile(db)
 
-        # Bewerbung bei TKMS anlegen
+        # Bewerbung bei einer Beispiel-Firma anlegen
         app_id = db.add_application({
             "title": "Senior Projektmanager PLM",
-            "company": "TKMS GmbH",
+            "company": "Werftbau Nord GmbH",
             "status": "beworben",
             "url": "https://stepstone.de/jobs/12345",
         })
@@ -413,7 +413,7 @@ class TestSim3RecherchePlusDuplikat:
 
         # Duplikat-Logik simulieren: gleiche Firma + ähnlicher Titel
         import re
-        firma = "TKMS GmbH"
+        firma = "Werftbau Nord GmbH"
         titel = "Senior Projektmanager PLM Engineering"
         firma_lower = firma.lower()
         titel_words = set(titel.lower().split())
@@ -431,7 +431,7 @@ class TestSim3RecherchePlusDuplikat:
                     break
 
         assert found_dup, (
-            "Duplikat-Erkennung gegen Bewerbungen hat TKMS-Bewerbung nicht erkannt"
+            "Duplikat-Erkennung gegen Bewerbungen hat Bestands-Bewerbung nicht erkannt"
         )
 
         # URL-Duplikat-Erkennung

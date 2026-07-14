@@ -48,7 +48,7 @@ STATUS_PATTERNS = {
         "application has been received",
         "wir haben ihre bewerbung erhalten",
         "ihre bewerbung ist bei uns eingegangen",
-        # #362: Du-Anrede Varianten (z.B. TKMS/Lumesse TalentLink)
+        # #362: Du-Anrede Varianten (z.B. Lumesse-TalentLink-Systeme)
         "vielen dank für deine bewerbung",
         "herzlichen dank für deine bewerbung",
         "deine bewerbung ist bei uns eingegangen",

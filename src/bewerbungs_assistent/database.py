@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 48
+SCHEMA_VERSION = 49
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -2006,6 +2006,28 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v47->v48: scoring_config hochschulabschluss/fehlt (#698)")
+
+        if from_ver < 49:
+            # v49 / v1.8.0-beta.0 (#751, I10): Status-Tabelle fuer optionale
+            # nachinstallierbare Komponenten (Tesseract-OCR, spaeter
+            # Playwright). Die Komponenten-DEFINITIONEN leben im Code
+            # (services/components.py) — hier nur der Installations-Zustand.
+            # Rein additiv, kein Bestandsdaten-Umbau.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS components (
+                        name TEXT PRIMARY KEY,
+                        status TEXT NOT NULL DEFAULT 'nicht_installiert',
+                        version TEXT DEFAULT '',
+                        install_path TEXT DEFAULT '',
+                        installed_at TEXT,
+                        last_error TEXT DEFAULT '',
+                        updated_at TEXT
+                    )
+                """)
+            except Exception:
+                pass
+            logger.info("Migration v48->v49: components-Tabelle (#751, I10)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -5391,6 +5413,56 @@ class Database:
         conn.commit()
 
     # === Background Jobs ===
+
+    # ------------------------------------------------------------------
+    # Komponenten-Status (#751, I10 / v1.8.0-beta.0)
+    # Die Komponenten-DEFINITIONEN (Download-Quelle, Groesse, Lizenz)
+    # leben in services/components.py — hier nur der Install-Zustand.
+    # ------------------------------------------------------------------
+
+    def get_component_state(self, name: str) -> Optional[dict]:
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM components WHERE name=?", (str(name),)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def set_component_state(self, name: str, status: str,
+                            version: str = None, install_path: str = None,
+                            last_error: str = None) -> None:
+        """Upsert des Komponenten-Zustands. None-Felder bleiben unveraendert."""
+        conn = self.connect()
+        now = _now()
+        existing = self.get_component_state(name)
+        if existing is None:
+            conn.execute(
+                "INSERT INTO components (name, status, version, install_path, "
+                "installed_at, last_error, updated_at) VALUES (?,?,?,?,?,?,?)",
+                (str(name), status, version or "", install_path or "",
+                 now if status == "installiert" else None,
+                 last_error or "", now),
+            )
+        else:
+            fields = ["status=?", "updated_at=?"]
+            params: list = [status, now]
+            if version is not None:
+                fields.append("version=?")
+                params.append(version)
+            if install_path is not None:
+                fields.append("install_path=?")
+                params.append(install_path)
+            if last_error is not None:
+                fields.append("last_error=?")
+                params.append(last_error)
+            if status == "installiert":
+                fields.append("installed_at=?")
+                params.append(now)
+            params.append(str(name))
+            conn.execute(
+                f"UPDATE components SET {', '.join(fields)} WHERE name=?",
+                params,
+            )
+        conn.commit()
 
     def create_background_job(self, job_type: str, params: dict = None) -> str:
         conn = self.connect()
@@ -9161,6 +9233,16 @@ CREATE TABLE IF NOT EXISTS follow_ups (
     status TEXT DEFAULT 'geplant',
     created_at TEXT,
     completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS components (
+    name TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'nicht_installiert',
+    version TEXT DEFAULT '',
+    install_path TEXT DEFAULT '',
+    installed_at TEXT,
+    last_error TEXT DEFAULT '',
+    updated_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);

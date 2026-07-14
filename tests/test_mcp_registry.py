@@ -47,6 +47,7 @@ EXPECTED_TOOL_NAMES = {
     "onboarding_hints_anzeigen",
     "onboarding_hint_dismiss",
     "dokument_typen_anzeigen",
+    "dokument_ocr_ausfuehren",
     # v1.7.7 (#750, E18): OCR-Text nachtragen mit Provenienz-Pflicht
     "dokument_text_setzen",
     "dokumente_korrespondenz_abschliessen",
@@ -101,6 +102,9 @@ EXPECTED_TOOL_NAMES = {
     "todo_erledigen",
     "todo_reaktivieren",
     "todos_anzeigen",
+    "komponenten_status",
+    "komponente_installieren",
+    "komponente_pfad_setzen",
     "ablehnungsgruende_anzeigen",
     "ablehnungsgrund_anlegen",
     "ablehnungsgrund_umbenennen",
@@ -318,7 +322,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 181  # v1.7.7: + dokument_text_setzen (#750), + firma_kontext (#753)
+        assert len(tools) == 185  # v1.8.0-beta.0: + komponenten_status/komponente_installieren/komponente_pfad_setzen (#751 I10), + dokument_ocr_ausfuehren (#750 E19)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

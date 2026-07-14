@@ -186,6 +186,18 @@ if "!DELETE_DATA!"=="LOESCHEN" (
     set "DATA_RESULT=kept"
 )
 
+:: v1.8.0-beta.0 (#751 I10): Nachinstallierte Komponenten (z.B. Tesseract)
+:: sind Runtime wie app\, KEINE User-Daten — immer mit entfernen.
+:: Extern installierte Programme (Program Files, PATH) beruehrt das nicht.
+if exist "%BASE_INSTALL%\components" (
+    rmdir /s /q "%BASE_INSTALL%\components" >nul 2>&1
+    if exist "%BASE_INSTALL%\components" (
+        echo [WARN] Komponenten-Ordner konnte nicht entfernt werden >> "%LOGFILE%"
+    ) else (
+        echo [OK] Komponenten-Ordner entfernt >> "%LOGFILE%"
+    )
+)
+
 :: #620: Stamm-Ordner BASE_INSTALL entfernen wenn leer
 :: rmdir ohne /s loescht NUR leere Verzeichnisse — sicher.
 :: Wenn der User die Daten behalten hat, bleibt %DATA_DIR% drin und

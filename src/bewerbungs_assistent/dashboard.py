@@ -845,10 +845,21 @@ def _build_email_document_context(parsed: dict) -> dict:
     }
 
 
-def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
-    """Extract readable text for supported document types."""
+def _extract_document_text(filepath: Path) -> tuple[str, dict | None, dict | None]:
+    """Extract readable text for supported document types.
+
+    Returns:
+        (extracted_text, email_context, ocr_info) — ocr_info ist None fuer
+        normale Dokumente, sonst (E19/#750, v1.8.0-beta.0):
+        - {"ocr": "durchgefuehrt", ...} Text kam per Komponenten-OCR
+          (Provenienz-Header ist bereits im Text)
+        - {"ocr": "erforderlich", "angebot": {...}} Scan erkannt, Komponente
+          fehlt — On-Demand-Angebot fuer UI/Claude, NIE Auto-Install
+        - {"ocr": "fehlgeschlagen", "fehler": ...}
+    """
     fname = filepath.name.lower()
     email_context = None
+    ocr_info = None
     extracted = ""
 
     if fname.endswith(".pdf"):
@@ -856,23 +867,40 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
 
         reader = PdfReader(str(filepath))
         extracted = "\n".join(page.extract_text() or "" for page in reader.pages)
-        # #192: OCR-Fallback for scanned PDFs
+        # E19 (#750 Teil 2): Scan ohne Text-Ebene -> Komponenten-OCR.
+        # Ersetzt den toten #192-Fallback (pdf2image/pytesseract, brauchte
+        # Poppler und war nie installiert).
         if len(extracted.strip()) < 50 and reader.pages:
             try:
-                from pdf2image import convert_from_path
-                import pytesseract
-                images = convert_from_path(str(filepath), dpi=200)
-                ocr_parts = []
-                for img in images:
-                    ocr_parts.append(pytesseract.image_to_string(img, lang="deu+eng"))
-                ocr_text = "\n".join(ocr_parts).strip()
-                if ocr_text:
-                    extracted = ocr_text
-                    logger.info("OCR-Fallback erfolgreich für %s (%d Zeichen)", filepath.name, len(ocr_text))
-            except ImportError:
-                logger.debug("OCR nicht verfügbar (pip install pytesseract pdf2image)")
+                from .services import ocr_service
+                result = ocr_service.ocr_pdf(_db, filepath)
+                if result["status"] == "ok":
+                    header = ocr_service.provenienz_header(result)
+                    extracted = f"{header}\n\n{result['text']}"
+                    ocr_info = {
+                        "ocr": "durchgefuehrt",
+                        "seiten": result["seiten"],
+                        "sprachen": result["sprachen"],
+                        "dauer_s": result["dauer_s"],
+                    }
+                    for k in ("hinweis_seiten", "hinweis_sprache"):
+                        if result.get(k):
+                            ocr_info[k] = result[k]
+                    logger.info("Auto-OCR erfolgreich fuer %s (%d Zeichen, %ss)",
+                                filepath.name, len(result["text"]), result["dauer_s"])
+                elif result["status"] == "komponente_fehlt":
+                    ocr_info = {"ocr": "erforderlich",
+                                "angebot": result["angebot"]}
+                    logger.info("Scan-PDF ohne OCR-Komponente: %s", filepath.name)
+                else:
+                    ocr_info = {"ocr": "fehlgeschlagen",
+                                "fehler": result.get("fehler", "")}
+                    logger.warning("Auto-OCR fehlgeschlagen fuer %s: %s",
+                                   filepath.name, result.get("fehler"))
             except Exception as e:
-                logger.warning("OCR-Fallback fehlgeschlagen für %s: %s", filepath.name, e)
+                ocr_info = {"ocr": "fehlgeschlagen", "fehler": str(e)[:200]}
+                logger.warning("Auto-OCR-Pfad fehlgeschlagen fuer %s: %s",
+                               filepath.name, e)
     elif fname.endswith(".doc") and not fname.endswith(".docx"):
         # #192: .doc (legacy Word) support via antiword or textract
         import subprocess
@@ -903,7 +931,7 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
     elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
         extracted = filepath.read_text(encoding="utf-8", errors="replace")
 
-    return extracted, email_context
+    return extracted, email_context, ocr_info
 
 
 @app.post("/api/documents/auto-mark-templates")
@@ -1333,9 +1361,16 @@ async def api_import_folder(request: Request):
 
         extracted = ""
         email_context = None
+        ocr_info = None
         fname = fpath.name.lower()
         try:
-            extracted, email_context = _extract_document_text(fpath)
+            extracted, email_context, ocr_info = _extract_document_text(fpath)
+            # E19: Scan ohne OCR-Komponente — einmalig als Warnung fuehren
+            if ocr_info and ocr_info.get("ocr") == "erforderlich":
+                hint = ("Scan ohne Text-Ebene — OCR-Komponente fehlt "
+                        "(Einstellungen → Erweiterungen)")
+                if not any(hint in w for w in warnings):
+                    warnings.append(f"{fpath.name}: {hint}")
         except ImportError as exc:
             warnings.append(f"{fpath.name}: {exc}")
             skipped_files += 1
@@ -4803,9 +4838,10 @@ async def api_upload_document(
     # Try to extract text
     extracted = ""
     email_context = None
+    ocr_info = None
     fname = stored_filename.lower()
     try:
-        extracted, email_context = _extract_document_text(filepath)
+        extracted, email_context, ocr_info = _extract_document_text(filepath)
     except ImportError as exc:
         logger.warning("Text extraction failed for %s: %s", incoming_name, exc)
         if fname.endswith(".msg"):
@@ -4935,7 +4971,7 @@ async def api_upload_document(
         except Exception as e:
             logger.warning("Email intelligence for doc %s failed: %s", did, e)
 
-    return {
+    antwort = {
         "status": "ok",
         "id": did,
         "filename": stored_filename,
@@ -4948,6 +4984,11 @@ async def api_upload_document(
             for m in stored_meetings
         ] if stored_meetings else [],
     }
+    # E19 (#750 Teil 2): OCR-Ergebnis bzw. On-Demand-Angebot in die
+    # Upload-Antwort — der naechste logische Schritt steht direkt am Fund.
+    if ocr_info:
+        antwort["ocr"] = ocr_info
+    return antwort
 
 
 def _detect_doc_type(filename: str, text: str) -> str | None:
@@ -5459,6 +5500,80 @@ async def api_background_job(job_id: str):
             except (ValueError, TypeError):
                 pass
     return job
+
+
+# ============================================================
+# Erweiterungen: optionale Komponenten (I10/#751, v1.8.0-beta.0)
+# ============================================================
+
+@app.get("/api/components")
+async def api_components_overview():
+    """Status aller Komponenten + Ollama als mit-angezeigte Sonderrolle (D2)."""
+    from .services import components as comp
+    result = {"komponenten": comp.get_components_overview(_db)}
+    # Ollama wird NUR angezeigt (eigenstaendig verwaltet via llm_service)
+    try:
+        from .services.llm_service import get_llm_service
+        status = get_llm_service(_db).get_status()
+        result["ollama"] = {
+            "label": "Ollama (Lokale KI)",
+            "verfuegbar": bool(status.ollama_available),
+            "modelle": list(status.available_models or []),
+            "verwaltung": "Eigener Bereich: Einstellungen → Lokale KI",
+        }
+    except Exception:
+        result["ollama"] = {"label": "Ollama (Lokale KI)", "verfuegbar": False,
+                            "verwaltung": "Eigener Bereich: Einstellungen → Lokale KI"}
+    return result
+
+
+@app.post("/api/components/{name}/install")
+async def api_component_install(name: str):
+    """Startet die Installation als Background-Job (explizite User-Aktion).
+
+    Die Zustimmung IST der Button-Klick in der Settings-UI — der Endpoint
+    wird nie automatisch aufgerufen (I10-Grundregel: kein Auto-Install).
+    """
+    from .services import components as comp
+    if name not in comp.COMPONENT_DEFS:
+        return JSONResponse({"error": f"Unbekannte Komponente '{name}'"},
+                            status_code=404)
+    result = comp.start_install_job(_db, name)
+    if result.get("status") == "laeuft_bereits":
+        return JSONResponse(
+            {"error": result.get("hinweis", ""), "job_id": result.get("job_id")},
+            status_code=409,
+        )
+    if result.get("status") != "gestartet":
+        return JSONResponse({"error": result.get("fehler", "unbekannt")},
+                            status_code=400)
+    result["hinweis"] = "Fortschritt: GET /api/background-jobs/" + result["job_id"]
+    return result
+
+
+@app.post("/api/components/{name}/path")
+async def api_component_set_path(name: str, payload: dict):
+    """Manueller Pfad zu einem extern installierten Binary (Offline-Weg)."""
+    from .services import components as comp
+    pfad = (payload or {}).get("pfad", "").strip()
+    if not pfad:
+        return JSONResponse({"error": "pfad ist Pflicht"}, status_code=400)
+    result = comp.set_manual_path(_db, name, pfad)
+    if result.get("status") != "installiert":
+        return JSONResponse({"error": result.get("fehler", "unbekannt")},
+                            status_code=400)
+    return result
+
+
+@app.delete("/api/components/{name}")
+async def api_component_uninstall(name: str):
+    """Entfernt eine VON PBP installierte Komponente (extern bleibt heil)."""
+    from .services import components as comp
+    result = comp.uninstall_component(_db, name)
+    if result.get("status") == "fehler":
+        return JSONResponse({"error": result.get("fehler", "unbekannt")},
+                            status_code=400)
+    return result
 
 
 @app.post("/api/jobsuche/start")

@@ -1689,6 +1689,78 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokument_ocr_ausfuehren(dokument_id: str, max_seiten: int = 15) -> dict:
+        """Fuehrt OCR fuer ein gescanntes PDF aus (E19/#750, v1.8.0-beta.0).
+
+        Nutzt die Tesseract-Komponente (I10) — KI-frei, laeuft komplett
+        lokal. Der erkannte Text wird mit Provenienz-Header gespeichert
+        (wie dokument_text_setzen). Typischer Einsatz: ein frueher
+        hochgeladenes Zeugnis ohne Text-Ebene nachziehen, nachdem die
+        Komponente installiert wurde.
+
+        Ist die Komponente nicht installiert, kommt ein ANGEBOT zurueck —
+        den User fragen, nie ungefragt installieren.
+
+        Args:
+            dokument_id: ID des Dokuments (PDF).
+            max_seiten: Seiten-Obergrenze (Default 15; Zeugnisse sind kurz).
+        """
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        filepath = doc.get("filepath") or ""
+        if not filepath.lower().endswith(".pdf"):
+            return {"fehler": "OCR gibt es nur fuer PDF-Dokumente."}
+        from pathlib import Path
+        if not Path(filepath).is_file():
+            return {"fehler": f"Datei nicht mehr vorhanden: {filepath}"}
+
+        from ..services import ocr_service
+        result = ocr_service.ocr_pdf(db, filepath, max_seiten=max_seiten)
+        if result["status"] == "komponente_fehlt":
+            return {
+                "status": "komponente_fehlt",
+                "angebot": result["angebot"],
+                "hinweis": (
+                    "OCR-Komponente ist nicht installiert. Dem User das "
+                    "Angebot zeigen; bei Ja: komponente_installieren("
+                    "name='tesseract', bestaetigt=True)."
+                ),
+            }
+        if result["status"] != "ok":
+            return {"fehler": result.get("fehler", "OCR fehlgeschlagen.")}
+
+        header = ocr_service.provenienz_header(
+            result, kontext="dokument_ocr_ausfuehren")
+        voller_text = f"{header}\n\n{result['text']}"
+        vorher = len((doc.get("extracted_text") or "").strip())
+        ok = db.set_document_extracted_text(dokument_id, voller_text,
+                                            profile_id=profile_id)
+        if not ok:
+            return {"fehler": "Schreiben fehlgeschlagen."}
+        antwort = {
+            "status": "ocr_gespeichert",
+            "dokument_id": dokument_id,
+            "dateiname": doc.get("filename", ""),
+            "seiten": result["seiten"],
+            "sprachen": result["sprachen"],
+            "dauer_s": result["dauer_s"],
+            "zeichen_vorher": vorher,
+            "zeichen_nachher": len(voller_text),
+            "provenienz": header,
+            "hinweis": (
+                "Naechste Schritte: dokument_profil_extrahieren() falls der "
+                "Inhalt ins Profil soll, dokument_status_setzen() fuer den "
+                "Extraktions-Status."
+            ),
+        }
+        for k in ("hinweis_seiten", "hinweis_sprache"):
+            if result.get(k):
+                antwort[k] = result[k]
+        return antwort
+
+    @mcp.tool()
     def dokument_status_setzen(dokument_id: str, status: str) -> dict:
         """Setzt den Extraktions-Status eines Dokuments manuell (#447).
 

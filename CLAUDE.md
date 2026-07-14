@@ -32,6 +32,35 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-14 (v1.8.0-beta.0, Prerelease) — Komponenten + Auto-OCR
+
+**Schema:** v49 (`components`-Tabelle, rein additiv). **MCP-Tools:** 185
+(+`komponenten_status`/`komponente_installieren`/`komponente_pfad_setzen`
+im neuen Modul `tools/komponenten.py` (#751 I10),
++`dokument_ocr_ausfuehren` (#750 E19)). **Prompts:** 25. Stable/`--latest`
+bleibt v1.7.7 — Betas sind GitHub-Prereleases.
+
+Kern: (1) **I10/#751** — `services/components.py`: Registry (Tesseract,
+Apache-2.0, ~55 MB, UB-Mannheim-NSIS silent nach
+`BewerbungsAssistent\\components\\`), Detection (PBP-Pfad → DB-Pfad →
+PATH → bekannte Orte), Install als Background-Job (`start_install_job`,
+REST `GET/POST/DELETE /api/components*`), manueller Pfad, deu-tessdata
+automatisch (Fallback selbsttragender TESSDATA_PREFIX-Ordner inkl.
+eng+osd). Settings-Tab **„Erweiterungen"** (SettingsPage,
+`ErweiterungenTab`); Ollama nur mit-angezeigt (D2). Deinstaller entfernt
+`components\\` mit. ZUSTIMMUNGS-PFLICHT: `komponente_installieren` ohne
+`bestaetigt=True` liefert NUR das Angebot. (2) **E19/#750-T2** —
+`services/ocr_service.py`: pypdfium2-Rendering (neue docs-Dependencies
+pypdfium2+pillow; ersetzt toten #192-pdf2image-Pfad in
+`dashboard._extract_document_text`, Rueckgabe jetzt 3-Tupel mit
+`ocr_info`), tesseract-subprocess `--psm 1` (OSD) mit Fallback,
+Provenienz-Header, Scan-Erkennung < 50 Zeichen, Seiten-Cap 15;
+Upload-Response traegt `ocr`-Feld (durchgefuehrt/erforderlich+Angebot).
+(3) **A21/#758** — PII-Altbestand bereinigt; `scripts/check_urls_645.py`
+(reale Sichtungsliste) entfernt. Tests: `test_v18_beta0_komponenten.py`
+(20, Netz+Binary gemockt); Real-Install-Verifikation ist Beta-Exit
+Punkt 3.
+
 ## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
 
 **Schema:** v48 (unveraendert). **Tests:** 1952 passed, 1 skipped.

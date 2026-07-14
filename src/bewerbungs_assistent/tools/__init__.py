@@ -17,7 +17,7 @@ import time
 from collections import deque
 from threading import Lock
 
-from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks
+from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks, komponenten
 
 
 # === Tool-Timing Telemetrie (#636, beta.60) ============================
@@ -174,3 +174,4 @@ def register_all(mcp, db, logger):
     kontakte.register(mcp, db, logger)  # v1.7.0 #563
     elwosa.register(mcp, db, logger)    # v1.7.0-beta.37 #599
     tasks.register(mcp, db, logger)     # v1.7.0-beta.85 #666 D19
+    komponenten.register(mcp, db, logger)  # v1.8.0-beta.0 #751 I10

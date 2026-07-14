@@ -2319,6 +2319,228 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// v1.8.0-beta.0 (#751 I10): Erweiterungen-Tab — optionale Komponenten
+// (Tesseract-OCR, kuenftig Playwright). Grundregeln: nie Auto-Install,
+// Groesse+Lizenz VOR dem Download sichtbar, externe Installationen werden
+// erkannt aber nie angefasst. Ollama wird nur mit-angezeigt (D2).
+function ErweiterungenTab({ pushToast }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [installJob, setInstallJob] = useState(null);
+  const [pathInputs, setPathInputs] = useState({});
+  const pollRef = useRef(null);
+
+  async function reload() {
+    try {
+      const res = await api("/api/components");
+      setData(res);
+    } catch (error) {
+      pushToast(`Erweiterungen laden fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  function pollJob(jobId, name) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const job = await api(`/api/background-jobs/${jobId}`);
+        setInstallJob({ name, ...job });
+        if (job.status === "fertig" || job.status === "fehler") {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setInstallJob(null);
+          setBusy("");
+          if (job.status === "fertig") {
+            pushToast("Komponente installiert — Scans werden ab jetzt automatisch erkannt.", "success");
+          } else {
+            pushToast(`Installation fehlgeschlagen: ${job.message || "unbekannt"}`, "danger");
+          }
+          reload();
+        }
+      } catch {
+        /* naechster Tick versucht es erneut */
+      }
+    }, 2000);
+  }
+
+  async function startInstall(name) {
+    setBusy(name);
+    try {
+      const res = await postJson(`/api/components/${name}/install`);
+      setInstallJob({ name, status: "running", progress: 0, message: "Startet..." });
+      pollJob(res.job_id, name);
+    } catch (error) {
+      setBusy("");
+      pushToast(`Installation nicht gestartet: ${error.message}`, "danger");
+    }
+  }
+
+  async function savePath(name) {
+    const pfad = (pathInputs[name] || "").trim();
+    if (!pfad) return;
+    setBusy(name);
+    try {
+      await postJson(`/api/components/${name}/path`, { pfad });
+      pushToast("Pfad registriert — PBP nutzt dieses Programm ab sofort.", "success");
+      setPathInputs((cur) => ({ ...cur, [name]: "" }));
+      await reload();
+    } catch (error) {
+      pushToast(`Pfad nicht uebernommen: ${error.message}`, "danger");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function removeComponent(name, label) {
+    if (!window.confirm(`${label} wieder entfernen? Nur die von PBP installierte Kopie wird geloescht.`)) return;
+    setBusy(name);
+    try {
+      await deleteRequest(`/api/components/${name}`);
+      pushToast("Komponente entfernt.", "success");
+      await reload();
+    } catch (error) {
+      pushToast(`Entfernen fehlgeschlagen: ${error.message}`, "danger");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  if (!data) return <LoadingPanel label="Erweiterungen werden geladen..." />;
+
+  const komponenten = data.komponenten || [];
+  const ollama = data.ollama;
+
+  return (
+    <>
+      <Card className="rounded-2xl">
+        <SectionHeading
+          title="Optionale Komponenten"
+          description="Zusatzprogramme, die PBP-Funktionen freischalten. Nichts wird ohne deine Zustimmung heruntergeladen; Groesse und Lizenz stehen immer dabei."
+        />
+        <div className="grid gap-4">
+          {komponenten.map((k) => {
+            const laeuft = installJob?.name === k.name || k.status === "wird_installiert";
+            return (
+              <div key={k.name} className="rounded-xl border border-line/40 bg-shell/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Package size={16} className="text-sky" />
+                    <span className="font-semibold text-ink">{k.label}</span>
+                    {k.verfuegbar ? (
+                      <Badge tone="success">
+                        {k.quelle === "pbp" ? "Installiert" : "Extern gefunden"}
+                        {k.version ? ` · v${k.version}` : ""}
+                      </Badge>
+                    ) : laeuft ? (
+                      <Badge tone="amber">Installation laeuft</Badge>
+                    ) : (
+                      <Badge tone="neutral">Nicht installiert</Badge>
+                    )}
+                    {k.letzter_fehler && !k.verfuegbar && !laeuft ? (
+                      <Badge tone="danger">Letzter Versuch fehlgeschlagen</Badge>
+                    ) : null}
+                  </div>
+                  <span className="text-xs text-muted">
+                    ~{k.groesse_mb} MB · Lizenz: {k.lizenz}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted">{k.beschreibung}</p>
+                <p className="mt-1 text-xs text-muted/70">
+                  Schaltet frei: {k.freigeschaltete_funktion}
+                </p>
+                {k.letzter_fehler && !k.verfuegbar ? (
+                  <p className="mt-1 text-xs text-amber">{k.letzter_fehler}</p>
+                ) : null}
+                {laeuft && installJob?.name === k.name ? (
+                  <div className="mt-3">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-sky transition-all"
+                        style={{ width: `${installJob.progress || 0}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted">{installJob.message || "..."}</p>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {!k.verfuegbar && !laeuft ? (
+                    <Button
+                      size="sm"
+                      disabled={busy === k.name}
+                      onClick={() => startInstall(k.name)}
+                      title={`Laedt ~${k.groesse_mb} MB herunter und installiert nach AppData (kein Admin noetig).`}
+                    >
+                      <Download size={14} className="mr-1 inline" /> Herunterladen & installieren
+                    </Button>
+                  ) : null}
+                  {k.verfuegbar && k.quelle === "pbp" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy === k.name}
+                      onClick={() => removeComponent(k.name, k.label)}
+                      title="Entfernt nur die von PBP installierte Kopie."
+                    >
+                      <Trash2 size={14} className="mr-1 inline" /> Entfernen
+                    </Button>
+                  ) : null}
+                </div>
+                {!k.verfuegbar && !laeuft ? (
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <div className="min-w-64 flex-1">
+                      <TextInput
+                        value={pathInputs[k.name] || ""}
+                        onChange={(e) => setPathInputs((cur) => ({ ...cur, [k.name]: e.target.value }))}
+                        placeholder={`Schon installiert? Pfad zu ${k.label} eintragen...`}
+                      />
+                    </div>
+                    <Button size="sm" variant="secondary" disabled={busy === k.name || !(pathInputs[k.name] || "").trim()} onClick={() => savePath(k.name)}>
+                      Pfad uebernehmen
+                    </Button>
+                  </div>
+                ) : null}
+                {k.install_hinweis ? (
+                  <p className="mt-2 text-xs text-muted/70">Auf diesem System: {k.install_hinweis}</p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {ollama ? (
+        <Card className="rounded-2xl">
+          <SectionHeading
+            title="Ollama (Lokale KI)"
+            description="Wird hier nur angezeigt — Verwaltung, Modelle und Lernprotokoll haben einen eigenen Bereich."
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            {ollama.verfuegbar ? (
+              <Badge tone="success">Verbunden{ollama.modelle?.length ? ` · ${ollama.modelle.length} Modell(e)` : ""}</Badge>
+            ) : (
+              <Badge tone="neutral">Nicht verbunden</Badge>
+            )}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab: "ai" } }))}
+            >
+              Zu Einstellungen → Lokale KI
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+    </>
+  );
+}
+
 export default function SettingsPage() {
   const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
@@ -2740,6 +2962,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: "quellen", label: "Quellen" },
     { id: "ai", label: "Lokale KI" },
+    { id: "erweiterungen", label: "Erweiterungen" },  // v1.8.0-beta.0 (#751 I10)
     { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
     { id: "bewerten", label: "Bewertung" },  // #663 C20
     { id: "system", label: "System" },
@@ -2825,6 +3048,11 @@ export default function SettingsPage() {
             <KIFeaturesCard pushToast={pushToast} />
             <LocalAITab pushToast={pushToast} />
           </>
+        )}
+
+        {/* ── v1.8.0-beta.0 (#751 I10): Erweiterungen (Komponenten) ── */}
+        {settingsTab === "erweiterungen" && (
+          <ErweiterungenTab pushToast={pushToast} />
         )}
 
         {settingsTab === "automatik" && (
