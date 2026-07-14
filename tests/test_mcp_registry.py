@@ -121,6 +121,7 @@ EXPECTED_TOOL_NAMES = {
     "blacklist_anwenden",
     "blacklist_verwalten",
     "lebenslauf_exportieren",
+    "termine_ics_exportieren",
     "lebenslauf_angepasst_exportieren",
     "fachprofil_exportieren",
     "anschreiben_exportieren",
@@ -323,7 +324,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 186  # v1.8.0-beta.2: + plugins_anzeigen (#504 J1); beta.0: + komponenten_status/komponente_installieren/komponente_pfad_setzen (#751 I10), + dokument_ocr_ausfuehren (#750 E19)
+        assert len(tools) == 187  # v1.8.0-beta.3: + termine_ics_exportieren (#481 J4.1); beta.2: + plugins_anzeigen (#504); beta.0: + 3x komponenten + dokument_ocr_ausfuehren (#750/#751)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

@@ -1,0 +1,7 @@
+{
+  "name": "Thunderbird An-PBP-senden",
+  "version": "1.0.0",
+  "ingest_api": "^1",
+  "capabilities": ["ingest:email"],
+  "beschreibung": "Thunderbird-Add-on: markierte Nachrichten (auch ganze Threads) per Rechtsklick an PBP uebergeben — Bewerbungs-Zuordnung, Termine und Timeline laufen automatisch."
+}

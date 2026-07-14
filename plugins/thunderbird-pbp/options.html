@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 12px; min-width: 420px; }
+    label { display: block; font-weight: 600; margin-top: 12px; margin-bottom: 4px; }
+    input { width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: monospace; }
+    .row { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+    button { padding: 6px 14px; }
+    #status { font-size: 0.9em; }
+    .ok { color: #15803d; }
+    .fehler { color: #b91c1c; }
+    .hinweis { font-size: 0.85em; color: #555; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h3>An PBP senden — Einstellungen</h3>
+
+  <label for="pbpUrl">PBP-Adresse</label>
+  <input id="pbpUrl" type="text" placeholder="http://127.0.0.1:8200">
+  <p class="hinweis">Das lokale PBP-Dashboard. Nur aendern, wenn du den Port umgestellt hast.</p>
+
+  <label for="apiKey">API-Key</label>
+  <input id="apiKey" type="password" placeholder="pbp_...">
+  <p class="hinweis">
+    Aus der Kopplung in PBP: Einstellungen &rarr; Erweiterungen &rarr;
+    Gekoppelte Plugins &rarr; „Plugin koppeln" (Manifest aus der Datei
+    <code>pbp-plugin.json</code> dieses Add-ons einfuegen).
+  </p>
+
+  <div class="row">
+    <button id="save">Speichern</button>
+    <button id="test">Verbindung testen</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

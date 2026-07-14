@@ -81,6 +81,44 @@ def register(mcp, db, logger):
     """Registriert Export-Tools."""
 
     @mcp.tool()
+    def termine_ics_exportieren() -> dict:
+        """Exportiert alle geplanten Bewerbungstermine als .ics-Kalenderdatei
+        (J4.1/#481, v1.8.0-beta.3).
+
+        Die Datei laesst sich in Thunderbird, Outlook, Apple- oder
+        Google-Kalender importieren (Doppelklick reicht meist). Enthalten
+        sind alle Termine mit Status 'geplant': Titel + Firma, Zeitraum,
+        Ort, Meeting-Link und ein Ruecklink in die PBP-Bewerbung.
+
+        RFC-5545-fest (Escaping + Line-Folding) — identischer Kern wie der
+        Download-Button im Kalender-Tab (`/api/meetings/export.ics`).
+        """
+        from ..services.ics_service import build_meetings_ics
+        ics_content, anzahl = build_meetings_ics(db)
+        if anzahl == 0:
+            return {
+                "status": "leer",
+                "hinweis": (
+                    "Keine geplanten Termine vorhanden. Termine entstehen "
+                    "aus E-Mail-Analyse oder via meeting_hinzufuegen()."
+                ),
+            }
+        export_dir = get_data_dir() / "export"
+        export_dir.mkdir(exist_ok=True)
+        path = export_dir / "pbp-termine.ics"
+        path.write_text(ics_content, encoding="utf-8", newline="")
+        return {
+            "status": "exportiert",
+            "datei": str(path),
+            "termine": anzahl,
+            "hinweis": (
+                "Import: Datei im Kalender-Programm oeffnen (Doppelklick) "
+                "oder in Thunderbird/Outlook importieren. Alternativ gibt "
+                "es den Download-Button im PBP-Kalender-Tab."
+            ),
+        }
+
+    @mcp.tool()
     def lebenslauf_exportieren(
         format: str = "docx",
         angepasst_für: str = ""

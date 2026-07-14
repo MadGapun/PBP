@@ -16,6 +16,39 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.3] - 2026-07-14 — Thunderbird-Add-on (J2 #478) + Kalender-Export gehaertet (J4.1 #481)
+
+> ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**.
+
+### Added
+
+- **#478 — Thunderbird-Add-on „An PBP senden" (J2):** MailExtension in
+  [`plugins/thunderbird-pbp/`](plugins/thunderbird-pbp/) — markierte
+  Nachrichten (auch ganze Threads via Mehrfachauswahl, J2.2) per
+  **Rechtsklick → „An PBP senden"** an die lokale Ingest-API uebergeben.
+  Byte-treuer .eml-Transfer (Umlaute in Headern bleiben heil),
+  Options-Seite mit Verbindungstest, klare Fehlerbilder
+  (Kopplung fehlt / Key widerrufen / Dashboard aus) als
+  Benachrichtigung. Installation ohne Store: Ordner zippen → `.xpi` →
+  „Add-on aus Datei installieren" (README mit 4-Schritte-Anleitung).
+  J2.3 (Alternativen) war mit dem Watch-Folder aus beta.2 bereits
+  geliefert.
+- **MCP-Tool `termine_ics_exportieren`** (J4.1/#481): Claude kann den
+  Kalender-Export jetzt direkt ausloesen — Datei landet im
+  Export-Ordner, Antwort nennt Pfad + Terminzahl (vorher gab es den
+  Export nur als Dashboard-Button; DoD-Regel 6: MCP-Luecke
+  geschlossen). Jetzt 187 Tools.
+
+### Fixed
+
+- **Kalender-Export RFC-5545-fest (J4.1/#481):** Der seit #310
+  existierende `.ics`-Export zerbrach bei Titeln mit Komma/Semikolon
+  („Interview, 2. Runde") und bei mehrzeiligen Notizen — jetzt korrektes
+  TEXT-Escaping und 75-Oktett-Line-Folding (Kern extrahiert nach
+  `services/ics_service.py`, identisch fuer Button und MCP-Tool).
+
+---
+
 ## [1.8.0-beta.2] - 2026-07-14 — Ingest-API v1 + Plugin-Pairing (J1 #504) + Volltext-Snapshot (#687/#688)
 
 > ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Die Ingest-API v1

@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "An PBP senden",
+  "description": "Uebergibt markierte E-Mails an das Persoenliche Bewerbungs-Portal (PBP) auf diesem Rechner — Bewerbungs-Zuordnung, Termine und Timeline laufen automatisch.",
+  "version": "1.0.0",
+  "author": "PBP",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pbp-sender@pbp.local",
+      "strict_min_version": "115.0"
+    }
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "permissions": [
+    "messagesRead",
+    "menus",
+    "storage",
+    "notifications",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "icons": {
+    "32": "icon-32.png",
+    "64": "icon-64.png"
+  }
+}

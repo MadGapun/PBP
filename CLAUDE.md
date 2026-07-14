@@ -32,6 +32,31 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-14 (v1.8.0-beta.3, Prerelease) — Thunderbird + ics
+
+**Schema:** v50 (unveraendert). **MCP-Tools:** 187
+(+`termine_ics_exportieren` in export_tools). **Prompts:** 25.
+
+Kern: (1) **J2/#478** — Thunderbird-MailExtension
+`plugins/thunderbird-pbp/` (manifest MV2, TB 115+): Kontextmenue
+„An PBP senden" auf der Nachrichtenliste, Mehrfachauswahl = Thread
+(J2.2), `messages.getRaw(id, {data_format:'File'})` mit byte-treuem
+Binary-String-Fallback (Uint8Array.from charCodeAt — nie UTF-8-deuten),
+POST an `/api/v1/ingest/email`, Options-Seite (URL+Key+Ping),
+401/403-Fehlerbild stoppt Batch. Install: Ordner zippen → .xpi →
+„aus Datei installieren" (unsigned ok in TB). Icons via Pillow
+generiert. J2.3: Watch-Folder (beta.2) deckt die Alternative.
+(2) **J4.1/#481** — ics-Export war seit #310 da, aber NICHT
+RFC-5545-fest: Kern nach `services/ics_service.py` extrahiert
+(ics_escape: Komma/Semikolon/Backslash/Newlines; ics_fold: 75-Oktett-
+Folding UTF-8-sicher), Endpoint nutzt ihn, NEU MCP-Tool
+`termine_ics_exportieren` (Export-Ordner, `newline=''` beim Schreiben
+erhaelt CRLF). Plan-Wahrheit korrigiert: J4.1 war faelschlich ⬜.
+#481 bleibt offen (J4.2 CalDAV / J4.3 Graph opportunistisch).
+Tests: `test_v18_beta3_ics_thunderbird.py` (12, inkl. Vertragstest:
+beide pbp-plugin.json bestehen validate_manifest; Add-on nutzt die
+richtigen Endpunkte).
+
 ## Stand 2026-07-14 (v1.8.0-beta.2, Prerelease) — Ingest-API v1 + Snapshot
 
 **Schema:** v50 (`plugins`-Tabelle + `jobs.description_snapshot`/
