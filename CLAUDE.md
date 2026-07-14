@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.6** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.7** ist Stable (`--latest`) — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
 Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
 + Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
@@ -9,12 +9,41 @@ gefuehrte Kette #744, F24 Ollama-Vorschlaege #745, H17 Melde-Hilfe #746
 inkl. Mail-Weg PBP-Service@Elwosa.de, B13-Teil-1 #747), v1.7.5
 (2026-07-03) **Fuehrung & Pflege**: G11 Onboarding-Hints im Frontend
 (#652), Probes adapter-konsistent (#748), Umlaut-Restaurierung
-`profil_umlaute_reparieren` (A20/#742). **Leitlinie des Users:
-Benutzerfuehrung ist oberste Prioritaet** — jeder Flow fuehrt zum
-naechsten logischen Schritt; Melde-Kultur gehoert zur DNA. v1.6.10 bleibt
-als aelterer Release verfuegbar. Naechste Arbeit Richtung **v1.8**
-(Plugin-Plattform #504, Mail-Integrationen #478/#480/#481, Branchen-Radar
-#718/#735, Referenzen #740/D24) — siehe Master-Plan.
+`profil_umlaute_reparieren` (A20/#742), v1.7.6 (2026-07-03)
+**Alltags-Fuehrung** (#706/#707/#689/#749), v1.7.7 (2026-07-14)
+**Scoring-Fairness & Praxis-Funde** vom 13.07. (#750/#752-#757).
+**Leitlinie des Users: Benutzerfuehrung ist oberste Prioritaet** — jeder
+Flow fuehrt zum naechsten logischen Schritt; Melde-Kultur gehoert zur
+DNA. v1.6.10 bleibt als aelterer Release verfuegbar. Naechste Arbeit
+Richtung **v1.8** (Plugin-Plattform #504, Komponenten-Framework
+I10/#751, Auto-OCR E19/#750, Mail-Integrationen #478/#480/#481,
+Branchen-Radar #718/#735, Referenzen #740/D24) — siehe Master-Plan.
+
+## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
+
+**Schema:** v48 (unveraendert). **Tests:** 1952 passed, 1 skipped.
+**MCP-Tools:** 181 (+`firma_kontext` #753, +`dokument_text_setzen` #750),
+**Prompts:** 25.
+
+Sechs Funde aus einem realen Bewerbungs-Nachmittag (13.07.): (1)
+**C25/#755** — MINUS-Keywords matchen strikt (`_strict_keyword_match`:
+Wortgrenzen + zusammenhaengende Phrase, keine Synonym-Expansion; betrifft
+`calculate_score` UND `fit_analyse`). (2) **F25/#754+#757** —
+Wiedergaenger rollen-sensitiv: Fach-Domaene traegt allein (#671-Semantik
+bleibt), ohne Fach-Signal zaehlt nur dieselbe Rollen-Familie
+(`_role_families` in `services/wiedergaenger.py`); NEU
+`firmen_historie()` als neutrale Einordnung (Gruende gelten je STELLE).
+(3) **F26/#756** — Beschreibung-zuerst: `stellen_auto_aussortieren`
+ueberspringt beschreibungslose Stellen (< 50 Zeichen) statt die LLM auf
+Titel-Basis raten zu lassen (`uebersprungen_ohne_beschreibung`);
+`stellen_anzeigen` liefert `score_status='unbewertet'` + Summenzeile;
+Frontend-Badge „Unbewertet" auch bei Score 0 (JobsPage). (4) **F27/#752**
+— Elwosa: `{monat}`-Platzhalter, Guard gegen Linien die mit falschem
+Monat BEGINNEN, `paused_until` nur bei aktiver Pause. (5) **H18/#753** —
+`firma_kontext(firmenname)` + PFLICHT-Regel (Server-Instructions,
+willkommen, CLAUDE.md-Sektion unten). (6) **E18/#750-T1** —
+`dokument_text_setzen` mit Provenienz-Pflicht (E19 Auto-OCR bleibt v1.8,
+braucht I10/#751).
 
 ## Stand 2026-07-03 (v1.7.6) — Alltags-Fuehrung
 
@@ -133,6 +162,17 @@ NICHT ueber die Contents-API des Code-Repos, sondern per lokalem Clone +
 Push (Desktop Commander). Der Master-Plan darf nur bewusst und
 nachvollziehbar geaendert werden — vor einem Wiki-Edit den aktuellen
 Stand frisch ziehen (Pull), nicht auf eine Cache-Version verlassen.
+
+**⛔ Wiki-Clone-Regeln (HART, seit dem Vorfall 2026-07-14):** Der Clone
+liegt in `D:\MAD\Documents\Entwicklung\PBP.wiki` — NIEMALS in Temp-/
+Scratchpad-Verzeichnissen (die werden zwischen Sessions teilweise
+aufgeraeumt; ein `git add -A` committet die fehlenden Dateien dann als
+LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
+und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
+Vollstaendigkeits-Guard laufen lassen:
+`test $(ls *.md | wc -l) -ge 39 && git add -A ...` (Zahl bei neuen
+Seiten nachziehen). Ausserdem: `git pull --rebase` und Commit-Kette nie
+so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
 ## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
 
@@ -537,6 +577,17 @@ durchlaeuft.
 
 Server-Instructions in `server.py` machen das transparent. `pbp_capabilities`
 und `pbp_grenze_melden` decken Edge-Cases ab.
+
+## STRENG: Firmen-Status NIE aus dem Gedaechtnis (#753, seit v1.7.7)
+
+Sobald ein Firmenname mit einer WERTUNG faellt — "kenne ich", "war
+abgesagt", "laeuft noch", "da war ein Interview", auch beilaeufig in
+einem Fallback-Vorschlag — ZUERST `firma_kontext(firmenname)` aufrufen
+und NUR auf dessen Ergebnis antworten. Der Trigger ist der bewertete
+Firmenname, nicht erst die explizite Statusfrage. Hintergrund (13.07.):
+Claude behauptete aus dem Gedaechtnis einen falschen Firmen-Stand ("nur
+eine Bewerbung, kein Interview") — tatsaechlich lief ein kompletter
+Prozess bis ins Finale. PBP haelt die dokumentierte Wahrheit.
 
 ## STRENG: keine eigenen Ablehnungsgruende erfinden (#663 Teil 2)
 

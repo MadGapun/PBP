@@ -62,6 +62,13 @@ titel_enthaelt_nicht, beschreibung_enthaelt_nicht, ...) und
 dry_run=True (Default) → erst Vorschau, dann mit dry_run=False
 anwenden.
 
+FIRMEN-STATUS NIE AUS DEM GEDAECHTNIS (#753) — sobald ein Firmenname mit
+einer Wertung faellt ("kenne ich", "war abgesagt", "laeuft noch", "da war
+ein Interview", auch beilaeufig in einem Vorschlag), ZUERST
+'firma_kontext(firmenname)' aufrufen und NUR auf dessen Ergebnis
+antworten. PBP haelt die dokumentierte Wahrheit; Erinnerungen an
+Bewerbungsverlaeufe sind regelmaessig falsch.
+
 UEBERSICHT WAS PBP KANN — bei Unklarheit rufe 'pbp_capabilities()' auf.
 Das Tool liefert kuratierte, nach Use-Cases gruppierte Tool-Listen.
 

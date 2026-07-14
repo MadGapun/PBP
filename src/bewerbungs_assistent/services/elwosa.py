@@ -150,6 +150,26 @@ def format_uhrzeit(now: Optional[datetime] = None) -> str:
     return s[0].upper() + s[1:]
 
 
+MONATSNAMEN = ["Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+               "Juli", "August", "September", "Oktober", "November",
+               "Dezember"]
+
+
+def _nennt_falschen_monat(line: str) -> bool:
+    """v1.7.7 (#752, F27): True wenn die Linie mit einem KONKRETEN falschen
+    Monatsnamen BEGINNT ('August. ...' im Juli) — das Muster des Bugs:
+    die Linie behauptet den aktuellen Monat. Monatsnennungen im Satz
+    ('Kommt im September zurueck') sind legitime Zukunfts-Referenzen und
+    bleiben erlaubt. Der {monat}-Platzhalter ist der richtige Weg fuer
+    saisonale Linien."""
+    aktueller = MONATSNAMEN[datetime.now().month - 1]
+    m = re.match(r"\s*([A-Za-zäöüÄÖÜ]+)[.!,: ]", line or "")
+    if not m:
+        return False
+    erstes_wort = m.group(1)
+    return erstes_wort in MONATSNAMEN and erstes_wort != aktueller
+
+
 def fill_template(line: str, ctx: dict) -> str:
     """Ersetzt Platzhalter ({firma}, {count}, {zeit}, ...) durch Kontext.
 
@@ -175,6 +195,9 @@ def fill_template(line: str, ctx: dict) -> str:
             "zeit": format_uhrzeit(_now_local),
             "uhrzeit": format_uhrzeit(_now_local),
             "datum": _now_local.strftime("%d.%m.%Y"),
+            # v1.7.7 (#752, F27): echter Monatsname — saisonale Linien
+            # ("{monat}. Stellenmarkt im Off-Modus.") stimmen damit immer.
+            "monat": MONATSNAMEN[_now_local.month - 1],
         })
     except (KeyError, ValueError):
         # Wenn ein Platzhalter im Kontext fehlt: Linie unverändert ausgeben
@@ -232,6 +255,8 @@ def pick_line(db, pool: list, ctx: dict) -> Optional[str]:
         line for line in pool
         if all(f"{{{key}}}" not in line or ctx.get(key) for key in _text_keys)
     ]
+    # #752 (F27): Linien mit falschem konkretem Monatsnamen ueberspringen
+    pool = [line for line in pool if not _nennt_falschen_monat(line)]
     if not pool:
         return None
     filled = [(line, fill_template(line, ctx)) for line in pool]
@@ -690,7 +715,9 @@ def get_status(db, ai_state: str = "active") -> dict:
                      and ai_state == "active",
         "ai_state": ai_state,
         "is_paused": is_paused,
-        "paused_until": paused_until or "",
+        # #752: abgelaufene Pause nicht mehr als (vergangenes) Datum
+        # anzeigen — das sah wie ein Datums-Berechnungsfehler aus.
+        "paused_until": (paused_until or "") if is_paused else "",
         "mood": detect_mood(db),
         "messages_today": db.count_elwosa_messages_today(),
         "tonfall_modus": settings.get("tonfall_modus", "standard"),

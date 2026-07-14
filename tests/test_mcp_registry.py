@@ -23,6 +23,8 @@ EXPECTED_TOOL_NAMES = {
     # v1.7.0-beta.20: Recruiter-Anfragen-Tools
     "recruiter_anfrage_ablehnen",
     "bewerbung_zu_anfrage_konvertieren",
+    # v1.7.7 (#753, H18): Firmen-Stand in einem Call — nie aus Gedaechtnis
+    "firma_kontext",
     "profil_status",
     "profil_zusammenfassung",
     # v1.7.3 (#741): STAR-Volltext aller Projekte + Projekt-IDs
@@ -45,6 +47,8 @@ EXPECTED_TOOL_NAMES = {
     "onboarding_hints_anzeigen",
     "onboarding_hint_dismiss",
     "dokument_typen_anzeigen",
+    # v1.7.7 (#750, E18): OCR-Text nachtragen mit Provenienz-Pflicht
+    "dokument_text_setzen",
     "dokumente_korrespondenz_abschliessen",
     "dokument_archivieren",
     "dokument_reaktivieren",
@@ -314,7 +318,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 179  # v1.7.5 (#742): + profil_umlaute_reparieren
+        assert len(tools) == 181  # v1.7.7: + dokument_text_setzen (#750), + firma_kontext (#753)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

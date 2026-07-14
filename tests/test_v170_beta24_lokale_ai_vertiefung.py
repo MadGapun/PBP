@@ -116,11 +116,17 @@ def test_586_stellen_auto_aussortieren_dry_run(setup_env):
     """Mit aktivem mock-LLM laeuft der Tool durch (dry_run=True ändert nichts)."""
     db, srv = setup_env
     db.set_profile_setting("llm_local_state", "active")
+    # v1.7.7 (#756): Beschreibungen >= 50 Zeichen — beschreibungslose
+    # Stellen legt das Tool der LLM gar nicht mehr vor (Beschreibung-zuerst).
     db.save_jobs([
         {"hash": "h1", "title": "Senior PLM Architect", "company": "Cool",
-         "source": "test", "score": 80, "url": "x"},
+         "source": "test", "score": 80, "url": "x",
+         "description": "Senior PLM Architect fuer Teamcenter-Landschaft, "
+                        "Prozessdesign und Rollout in der Fertigung."},
         {"hash": "h2", "title": "Technischer Zeichner", "company": "Old",
-         "source": "test", "score": 20, "url": "y"},
+         "source": "test", "score": 20, "url": "y",
+         "description": "Technischer Zeichner fuer 2D-Ableitungen und "
+                        "Stuecklistenpflege im Anlagenbau gesucht."},
     ])
     from bewerbungs_assistent.services.llm_service import LLMService
     svc = LLMService(db)

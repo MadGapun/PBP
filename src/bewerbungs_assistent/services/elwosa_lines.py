@@ -267,7 +267,7 @@ WORLD_LINES: dict[str, list[str]] = {
     ],
     "holiday_summer": [
         "Sommerloch. Niemand stellt ein, alle in Cala-irgendwo. Wir auch fast.",
-        "August. Stellenmarkt im Off-Modus. Kommt im September zurueck mit Wucht.",
+        "{monat}. Stellenmarkt im Off-Modus. Kommt im September zurueck mit Wucht.",
         "Sommer. Halb leere Buero, halbe Bewerbungs-Antwort-Quote. Statistisch belegt.",
         "Hitze und Stille. Selbst meine Linien werden langsamer.",
     ],

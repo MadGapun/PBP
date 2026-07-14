@@ -1665,6 +1665,36 @@ def _word_boundary_match(keyword: str, text: str) -> bool:
     return re.search(pattern, text, flags=re.IGNORECASE) is not None
 
 
+def _strict_keyword_match(keyword: str, text: str) -> bool:
+    """v1.7.7 (#755, C25): Praezises Matching fuer MINUS-Keywords.
+
+    MINUS-Keywords BESTRAFEN — anders als beim PLUS-Matching (Recall,
+    _fuzzy_keyword_match) zaehlt hier Praezision: 'Product Manager' darf
+    nicht feuern, nur weil 'product portfolio' und 'project manager'
+    irgendwo im selben Text stehen (Multi-Word-Split war die Ursache der
+    -12-Punkte-Fehlabwertung auf Project-Manager-Stellen).
+
+    Regeln: Mehrwort-Keywords matchen nur als ZUSAMMENHAENGENDE Phrase
+    (Whitespace/Bindestrich/Slash zwischen den Woertern variabel),
+    Einwort-Keywords nur an Wortgrenzen. Umlaut-Normalisierung bleibt,
+    Synonym-Expansion bewusst NICHT.
+    """
+    kw_lower = keyword.lower().strip()
+    if not kw_lower:
+        return False
+    for needle, haystack in (
+        (kw_lower, text.lower()),
+        (_normalize_for_matching(kw_lower), _normalize_for_matching(text.lower())),
+    ):
+        parts = [re.escape(p) for p in re.split(r"[\s\-/]+", needle) if p]
+        if not parts:
+            continue
+        pattern = (r"(?<![\w])" + r"[\s\-/]+".join(parts) + r"(?![\w])")
+        if re.search(pattern, haystack):
+            return True
+    return False
+
+
 def _normalize_for_matching(text: str) -> str:
     """Normalisiere Text fuer Matching: Umlaute, Bindestriche, Gross/Klein (#183)."""
     text = text.lower()
@@ -1838,7 +1868,8 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # die Stelle aber nicht aus (harter Ausschluss = keywords_ausschluss).
     minus = criteria.get("keywords_minus", [])
     if minus:
-        score -= sum(1 for kw in minus if _fuzzy_keyword_match(kw, text)) * w["minus"]
+        # #755 (C25): strikt statt fuzzy — Malus nur bei echtem Treffer
+        score -= sum(1 for kw in minus if _strict_keyword_match(kw, text)) * w["minus"]
 
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     dist = job.get("distance_km")
@@ -1914,7 +1945,9 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     muss_hits = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
     missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
     plus_hits = [kw for kw in plus if _fuzzy_keyword_match(kw, text)]
-    minus_hits = [kw for kw in minus if _fuzzy_keyword_match(kw, text)]
+    # #755 (C25): MINUS strikt (Wortgrenzen + Phrase) statt fuzzy —
+    # PLUS belohnt (Recall ok), MINUS bestraft (Praezision Pflicht).
+    minus_hits = [kw for kw in minus if _strict_keyword_match(kw, text)]
 
     factors = {}
     total = 0

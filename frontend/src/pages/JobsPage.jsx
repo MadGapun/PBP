@@ -124,7 +124,14 @@ function buildAnnualSalaryMetrics(jobs = []) {
 }
 
 function jobNeedsDescriptionAttention(job) {
-  return Number(job?.score || 0) > 0 && String(job?.description || "").trim().length < 50;
+  // v1.7.7 (#756): score-unabhaengig — gerade Score-0-Stellen ohne
+  // Beschreibung sind unbewertet, nicht uninteressant. Vorher fielen
+  // genau sie durchs Raster (score > 0 war Bedingung).
+  return String(job?.description || "").trim().length < 50;
+}
+
+function descriptionAttentionLabel(job) {
+  return Number(job?.score || 0) > 0 ? "Score unsicher" : "Unbewertet";
 }
 
 export default function JobsPage() {
@@ -1074,7 +1081,7 @@ export default function JobsPage() {
                       </button>
                     ) : null}
                     {jobNeedsDescriptionAttention(job) ? (
-                      <Badge tone="amber">Score unsicher</Badge>
+                      <Badge tone="amber">{descriptionAttentionLabel(job)}</Badge>
                     ) : null}
                   </div>
                   <div
@@ -1095,7 +1102,9 @@ export default function JobsPage() {
                     <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
                     {jobNeedsDescriptionAttention(job) ? (
                       <p className="text-xs text-amber">
-                        Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du den Score zu ernst nimmst.
+                        {Number(job?.score || 0) > 0
+                          ? "Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du den Score zu ernst nimmst."
+                          : "Score 0 ist kein Urteil — ohne Beschreibung wurde diese Stelle nicht bewertet. Erst Beschreibung nachladen, dann entscheiden."}
                       </p>
                     ) : null}
                     {job.salary_min ? (
@@ -1486,7 +1495,7 @@ export default function JobsPage() {
                 {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
                 <Badge tone="amber">Score {detailDialog.job.score || 0}</Badge>
-                {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">Score unsicher</Badge> : null}
+                {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>
               {detailDialog.job.salary_min ? (

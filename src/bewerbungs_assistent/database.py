@@ -3758,6 +3758,23 @@ class Database:
 
         return did
 
+    def set_document_extracted_text(self, doc_id: str, text: str,
+                                    profile_id: str = None) -> bool:
+        """v1.7.7 (#750, E18): extracted_text nachtraeglich setzen (z.B.
+        OCR-Ergebnis). Ersetzt den bisherigen Text und stempelt
+        last_extraction_at — der bisher einzige Weg war Direkt-SQL
+        (Anti-DB-Bypass-Verstoss)."""
+        conn = self.connect()
+        query = ("UPDATE documents SET extracted_text=?, last_extraction_at=? "
+                 "WHERE id=?")
+        params: list = [text, _now(), str(doc_id)]
+        if profile_id is not None:
+            query += " AND (profile_id=? OR profile_id IS NULL)"
+            params.append(profile_id)
+        cur = conn.execute(query, params)
+        conn.commit()
+        return cur.rowcount > 0
+
     def update_document_type(self, doc_id: str, doc_type: str, profile_id: str = None) -> bool:
         """Update a document type, optionally scoped to a profile."""
         conn = self.connect()

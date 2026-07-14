@@ -252,9 +252,121 @@ def _get_context_actions(status: str) -> dict:
     return STATUS_ACTIONS.get(status, default)
 
 
+def _firma_normalisieren(name: str) -> str:
+    """H18 (#753): Firmen-String fuer den Vergleich normalisieren —
+    Rechtsformen und Fuellwoerter raus, Umlaute vereinheitlicht, lower."""
+    s = (name or "").lower().strip()
+    for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        s = s.replace(uml, repl)
+    for stop in (" gmbh & co. kg", " gmbh & co kg", " se & co. kg", " gmbh",
+                 " ag", " se", " kg", " ohg", " inc", " inc.", " ltd",
+                 " limited", " holding", " group", " germany", " deutschland"):
+        s = s.replace(stop, " ")
+    return " ".join(s.split())
+
+
+def _firma_matcht(company: str, query_norm: str) -> bool:
+    """True wenn der normalisierte Firmen-String zum Such-String passt
+    (Substring in beide Richtungen — 'Acme' matcht
+    'Acme Solutions GmbH')."""
+    comp_norm = _firma_normalisieren(company)
+    if not comp_norm or not query_norm:
+        return False
+    return query_norm in comp_norm or comp_norm in query_norm
+
+
 def register(mcp, db, logger):
     """Registriert Bewerbungs-Tools."""
     from . import time_tool
+
+    @mcp.tool()
+    def firma_kontext(firmenname: str) -> dict:
+        """Kompletter dokumentierter Stand zu einer Firma in EINEM Aufruf (#753, H18).
+
+        ⛔ PFLICHT-LOOKUP: Sobald ein Firmenname mit einer WERTUNG faellt
+        ("kenne ich", "war abgesagt", "laeuft noch", "da hatte ich ein
+        Interview", auch beilaeufig in einem Fallback-Vorschlag), rufe
+        ZUERST dieses Tool auf und antworte NUR auf Basis des Ergebnisses.
+        Nie Firmen-Status, Interview-Verlauf oder Absagen aus dem
+        Gedaechtnis behaupten — PBP haelt die dokumentierte Wahrheit.
+
+        Liefert: alle Bewerbungen (Titel, Status, Datum, Termine), aktive
+        Stellen, Aussortier-Historie mit Gruenden — die Basis fuer jede
+        Aussage ueber die Firma.
+
+        Args:
+            firmenname: Name der Firma (Teilstring reicht — 'Acme'
+                findet 'Acme Solutions GmbH').
+        """
+        query_norm = _firma_normalisieren(firmenname)
+        if not query_norm:
+            return {"fehler": "firmenname ist Pflicht."}
+
+        bewerbungen = []
+        for app in db.get_applications():
+            if not _firma_matcht(app.get("company", ""), query_norm):
+                continue
+            eintrag = {
+                "bewerbung_id": (app.get("id") or "")[:8],
+                "titel": app.get("title"),
+                "firma": app.get("company"),
+                "status": app.get("status"),
+                "beworben_am": app.get("applied_at"),
+            }
+            try:
+                meetings = db.get_meetings_for_application(app.get("id"))
+                if meetings:
+                    eintrag["termine"] = [
+                        {"titel": m.get("title"), "datum": m.get("meeting_date"),
+                         "typ": m.get("meeting_type")}
+                        for m in meetings[:5]
+                    ]
+            except Exception:
+                pass
+            bewerbungen.append(eintrag)
+
+        aktive_stellen = [
+            {"hash": j.get("hash"), "titel": j.get("title"),
+             "score": j.get("score")}
+            for j in db.get_active_jobs()
+            if _firma_matcht(j.get("company", ""), query_norm)
+        ][:15]
+
+        aussortiert = [
+            j for j in (db.get_dismissed_jobs() or [])
+            if _firma_matcht(j.get("company", ""), query_norm)
+        ]
+        gruende: dict = {}
+        for j in aussortiert:
+            grund = j.get("dismiss_reason") or "unbekannt"
+            gruende[grund] = gruende.get(grund, 0) + 1
+        aussortiert_beispiele = [
+            {"titel": j.get("title"), "grund": j.get("dismiss_reason")}
+            for j in aussortiert[:8]
+        ]
+
+        gefunden = bool(bewerbungen or aktive_stellen or aussortiert)
+        return {
+            "firma_suchbegriff": firmenname,
+            "gefunden": gefunden,
+            "bewerbungen": bewerbungen,
+            "aktive_stellen": aktive_stellen,
+            "aussortiert_anzahl": len(aussortiert),
+            "aussortiert_gruende": gruende,
+            "aussortiert_beispiele": aussortiert_beispiele,
+            "hinweis": (
+                "WICHTIG (#757): Aussortier-Gruende gelten je STELLE, nicht "
+                "fuer die Firma insgesamt — dieselbe Firma kann passende und "
+                "unpassende Rollen ausschreiben. Andere Schreibweisen der "
+                "Firma (z.B. Abkuerzung vs. voller Name) ggf. separat "
+                "nachschlagen."
+            ) if gefunden else (
+                "Kein dokumentierter Kontakt mit dieser Firma in PBP — weder "
+                "Bewerbungen noch Stellen. Wenn du (Claude) etwas anderes "
+                "'weisst', stammt es NICHT aus PBP und gehoert nicht in eine "
+                "Status-Aussage. Auch alternative Schreibweisen pruefen."
+            ),
+        }
 
     @mcp.tool()
     @time_tool(logger, "bewerbung_event_datum_setzen")

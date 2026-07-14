@@ -1637,6 +1637,58 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def dokument_text_setzen(dokument_id: str, text: str, quelle: str) -> dict:
+        """Setzt den extrahierten Text eines Dokuments nachtraeglich (#750, E18).
+
+        Fuer Faelle, in denen der Import keinen Text liefern konnte —
+        typisch: gescannte PDFs ohne Text-Layer, deren Inhalt nachtraeglich
+        per OCR gewonnen wurde. NIE mehr Direkt-SQL dafuer nutzen.
+
+        PROVENIENZ-PFLICHT: `quelle` beschreibt, woher der Text stammt
+        (z.B. 'OCR via Tesseract 5.4.0, deu+eng, OSD-Rotationskorrektur').
+        Sie wird dem Text als Header vorangestellt, damit spaeter erkennbar
+        bleibt, dass es kein Original-Textlayer ist.
+
+        Args:
+            dokument_id: ID des Dokuments
+            text: Der vollstaendige extrahierte Text
+            quelle: Woher der Text stammt (Pflicht, landet als Header im Text)
+        """
+        if not (quelle or "").strip():
+            return {
+                "fehler": "quelle ist Pflicht (Provenienz) — z.B. "
+                          "'OCR via Tesseract 5.4.0, deu+eng'.",
+            }
+        if not (text or "").strip():
+            return {"fehler": "text darf nicht leer sein."}
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden."}
+        from datetime import date
+        header = f"[{quelle.strip()} — nachgetragen {date.today().isoformat()}]"
+        voller_text = f"{header}\n\n{text.strip()}"
+        vorher = len((doc.get("extracted_text") or "").strip())
+        ok = db.set_document_extracted_text(dokument_id, voller_text,
+                                            profile_id=profile_id)
+        if not ok:
+            return {"fehler": "Schreiben fehlgeschlagen."}
+        return {
+            "status": "gesetzt",
+            "dokument_id": dokument_id,
+            "dateiname": doc.get("filename", ""),
+            "zeichen_vorher": vorher,
+            "zeichen_nachher": len(voller_text),
+            "provenienz": header,
+            "hinweis": (
+                "Text ersetzt (alter Stand ueberschrieben). Naechste "
+                "Schritte: dokument_profil_extrahieren() falls der Inhalt "
+                "ins Profil soll, dokument_status_setzen() fuer den "
+                "Extraktions-Status."
+            ),
+        }
+
+    @mcp.tool()
     def dokument_status_setzen(dokument_id: str, status: str) -> dict:
         """Setzt den Extraktions-Status eines Dokuments manuell (#447).
 

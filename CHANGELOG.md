@@ -16,6 +16,119 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.7] - 2026-07-14 — Scoring-Fairness & Praxis-Funde: faire Urteile, ehrliche Firmen-Auskunft (#752-#757, #750)
+
+> **Empfohlenes Update (`--latest`).** Sechs Funde aus einem realen
+> Bewerbungs-Nachmittag (13.07.): PBP urteilt jetzt fair — kein k.o. mehr
+> durch grobe Aehnlichkeits-Matches, kein Score-0-Fehlurteil ohne
+> Stellentext, keine Firmen-Behauptungen aus dem Gedaechtnis. KEINE
+> Schema-Migration (v48 unveraendert).
+
+### Fixed
+
+- **#755 — MINUS-Keywords treffen nur noch echte Treffer (C25):**
+  Minus-Begriffe matchen jetzt strikt mit Wortgrenzen und als
+  zusammenhaengende Phrase — ohne die Synonym-/Teilwort-Aufweichung des
+  Plus-Matchings. Vorher konnte ein Minus-Keyword wie „Product Portfolio
+  Manager" eine Stelle abwerten, in deren Text nur „product portfolio"
+  und „project management" getrennt vorkamen; ein Minus „SAP" traf
+  „Aussaat-Planung" nicht mehr. Betrifft `calculate_score` UND
+  `fit_analyse` (identische Logik).
+- **#754 + #757 (Stufe 1) — Wiedergaenger-Check ist rollen-sensitiv (F25):**
+  Drei aussortierte Halbleiter-Fachrollen (Quality/Reliability/Wafertest
+  Engineer) machten einen „(Sr.) Project Manager" derselben Firma zum
+  Wiedergaenger-k.o. — der Match kam ueber generische Tokens („sr",
+  „project"). Jetzt gilt: Fach-Domaenen-Ueberlappung traegt allein (#671
+  bleibt: PLM Owner + PLM Manager → PLM Architect ist Wiedergaenger);
+  OHNE Fach-Signal zaehlt nur dieselbe Rollen-Familie
+  (Manager/Engineer/Entwickler/...). Die Historie anderer Rollen kommt
+  als **neutrale `firmen_historie`** mit — ausdruecklich kein k.o., denn
+  Aussortier-Gruende gelten je STELLE, nicht fuer die Firma (#757).
+- **#756 — Beschreibung zuerst, Score 0 ist kein Urteil (F26):**
+  `stellen_auto_aussortieren` legt beschreibungslose Stellen (< 50
+  Zeichen) NIE mehr der lokalen KI vor — sie werden als
+  `uebersprungen_ohne_beschreibung` ausgewiesen, naechster Schritt
+  `stellenbeschreibung_nachladen`. `stellen_anzeigen` markiert Score 0 +
+  fehlende Beschreibung als `score_status='unbewertet'` mit Summenzeile.
+  Frontend: der „Score unsicher"-Badge greift jetzt auch bei Score 0
+  (vorher fielen genau diese Stellen durchs Raster) und heisst dort
+  ehrlich „Unbewertet".
+- **#752 — Elwosa kennt den Kalender (F27):** Eine Sommer-Linie begann
+  hartkodiert mit „August." — mitten im Juli. Der Linien-Pool nutzt
+  jetzt den `{monat}`-Platzhalter, ein Guard blockt Linien, die mit
+  einem falschen Monatsnamen BEGINNEN (Zukunfts-Bezuege wie „Kommt im
+  September zurueck" bleiben erlaubt), und `elwosa_status` zeigt
+  `paused_until` nur noch bei tatsaechlich aktiver Pause an.
+
+### Added
+
+- **#753 — `firma_kontext(firmenname)`: Firmen-Status nie aus dem
+  Gedaechtnis (H18):** Ein Call liefert den dokumentierten Stand einer
+  Firma: Bewerbungen (Status, Datum, Termine), aktive Stellen,
+  Aussortierungen mit Gruenden. Hintergrund: Claude behauptete einer
+  Firma gegenueber einen Absage-Status, der nie in PBP stand. Die
+  PFLICHT-Regel (erst `firma_kontext`, dann antworten) steht jetzt in
+  den Server-Instructions, im `willkommen`-Prompt und in CLAUDE.md.
+  Teilstring-Suche inkl. Rechtsform-Normalisierung („Acme" findet
+  „Acme Solutions GmbH").
+- **#750 (Teil 1) — `dokument_text_setzen`: OCR-Text ohne DB-Bypass
+  (E18):** Extrahierter Text (z.B. aus einem gescannten Zeugnis via
+  Claude-OCR) laesst sich jetzt regulaer nachtragen — mit
+  **Provenienz-Pflicht**: die Quelle („OCR via Tesseract 5.4.0, ...")
+  wird als Header im Text dokumentiert. Vorher ging das nur per
+  Direkt-SQL (Anti-DB-Bypass-Verstoss, #514). Teil 2 (Auto-OCR beim
+  Import) ist als E19 fuer v1.8 geplant.
+
+### Changed
+
+- **MCP-Tools: 179 → 181** (+`firma_kontext`, +`dokument_text_setzen`).
+  Prompts unveraendert 25, Schema unveraendert v48.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.7.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.7.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.6] - 2026-07-03 — Alltags-Fuehrung: Interview-Button, Notizen-Pflege, Lernprotokoll-Steuerung (#706, #707, #689)
 
 > **Empfohlenes Update (`--latest`).** Fuehrung im Bewerbungs-Alltag:

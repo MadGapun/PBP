@@ -226,7 +226,12 @@ HINWEIS FUER DICH (Claude, #707): Erwaehnt der User im Gespraech nebenbei
 Praeferenzen, No-Gos oder Lebensumstaende ("max. 2 Buerotage", "kein
 Reisejob"), speichere das sofort via profil_bearbeiten(bereich='notizen',
 aktion='anhang', ...) und bestaetige kurz — diese Notizen speisen
-Anschreiben, Bewertung und Interview-Vorbereitung."""
+Anschreiben, Bewertung und Interview-Vorbereitung.
+
+PFLICHT-REGEL (#753): Bevor du IRGENDEINE Wertung zu einer Firma oder
+Stelle aussprichst ("kenne ich", "war abgesagt", "laeuft noch", "da war
+ein Interview" — auch beilaeufig), rufe firma_kontext(firmenname) auf und
+stuetze dich NUR auf das Ergebnis. Firmen-Status nie aus dem Gedaechtnis."""
 
         return """Willkommen beim Bewerbungs-Assistent!
 

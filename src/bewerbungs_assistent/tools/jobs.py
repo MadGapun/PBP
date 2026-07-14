@@ -1126,15 +1126,27 @@ def register(mcp, db, logger):
         )
 
         if not pattern:
-            return {
+            antwort = {
                 "status": "kein_wiedergaenger",
                 "firma": firma,
                 "titel": titel,
                 "hinweis": (
                     "Keine ausreichende Aussortier-Historie fuer diese "
-                    "Firma+Domaene gefunden — als Neufund behandeln."
+                    "Firma+Domaene/Rolle gefunden — als Neufund behandeln."
                 ),
             }
+            # v1.7.7 (#754/#757): Gibt es Historie zu ANDEREN Rollen der
+            # Firma, kommt sie als neutrale Einordnung mit — kein k.o.
+            from ..services.wiedergaenger import firmen_historie
+            fh = firmen_historie(db, firma, target_hash=resolved_hash)
+            if fh:
+                antwort["firmen_historie"] = fh
+                antwort["hinweis"] = (
+                    "Kein Wiedergaenger — die frueheren Aussortierungen "
+                    "dieser Firma betrafen andere Rollen/Domaenen. "
+                    "Als Neufund bewerten (Gruende gelten je Stelle, #757)."
+                )
+            return antwort
 
         result = {
             "status": "wiedergaenger",
@@ -1625,7 +1637,17 @@ def register(mcp, db, logger):
             desc = j.get("description") or ""
             if len(desc.strip()) < 50:
                 entry["beschreibung_fehlt"] = True
-                entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
+                if (j.get("score") or 0) <= 0:
+                    # v1.7.7 (#756): Score 0 ohne Beschreibung ist KEIN
+                    # Urteil — die Stelle wurde schlicht nicht bewertet.
+                    entry["score_status"] = "unbewertet"
+                    entry["score_hinweis"] = (
+                        "Score 0 ist KEIN Urteil — ohne Beschreibung wurde "
+                        "nicht bewertet. Erst stellenbeschreibung_nachladen"
+                        f"('{j['hash'][:8]}'), dann entscheiden."
+                    )
+                else:
+                    entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
             # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt statt auf Detail-Anzeige
             if j.get("is_search_url"):
                 entry["url_warnung"] = (
@@ -1651,6 +1673,21 @@ def register(mcp, db, logger):
             "quellen_uebersicht": source_counts,
             "stellen": formatted,
         }
+        # v1.7.7 (#756): unbewertete Stellen (Score 0 + keine Beschreibung)
+        # ueber die GANZE Liste ausweisen — Score 0 darf nicht wie ein
+        # fachliches Urteil wirken.
+        unbewertet_gesamt = sum(
+            1 for j in jobs
+            if (j.get("score") or 0) <= 0
+            and len((j.get("description") or "").strip()) < 50
+        )
+        if unbewertet_gesamt and filter != "aussortiert":
+            result["unbewertet_anzahl"] = unbewertet_gesamt
+            result["unbewertet_hinweis"] = (
+                f"{unbewertet_gesamt} Stellen haben Score 0 nur weil die "
+                "Beschreibung fehlt — das ist KEIN Urteil. Vor dem "
+                "Aussortieren: stellenbeschreibung_nachladen(hash)."
+            )
         if filter == "aktiv":
             result["hinweis"] = (
                 "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
@@ -2696,7 +2733,8 @@ def register(mcp, db, logger):
         # N-mal als Z verworfen" — als starkes Signal in die Empfehlung.
         # KI-frei (Ebene 0 traegt das), greift auch ohne Ollama.
         try:
-            from ..services.wiedergaenger import find_wiedergaenger_pattern
+            from ..services.wiedergaenger import (
+                find_wiedergaenger_pattern, firmen_historie)
             wg = find_wiedergaenger_pattern(
                 db,
                 job_dict.get("company", ""),
@@ -2712,6 +2750,17 @@ def register(mcp, db, logger):
                     "Wahrscheinlich erneut nicht passend."
                 )
                 result["wiedergaenger"] = wg
+            else:
+                # v1.7.7 (#754/#757): Kein Wiedergaenger (andere Rolle oder
+                # Domaene) — die Firmen-Historie kommt trotzdem als NEUTRALE
+                # Einordnung mit. Bewusst kein risks-Eintrag und kein
+                # k.o.-Einfluss: Aussortier-Gruende gelten je Stelle.
+                fh = firmen_historie(
+                    db, job_dict.get("company", ""),
+                    target_hash=job_dict.get("hash"),
+                )
+                if fh:
+                    result["firmen_historie"] = fh
         except Exception as exc:
             logger.warning("Wiedergaenger-Check fuer %s fehlgeschlagen: %s",
                            job_hash, exc)
@@ -2980,8 +3029,27 @@ def register(mcp, db, logger):
             if not j.get("dismiss_reason")
             and (j.get("score") or 0) >= min_score
         ]
+        # v1.7.7 (#756): Beschreibung-zuerst — ohne Stellentext gibt es kein
+        # fachliches Urteil. Die lokale KI wuerde sonst auf Titel+Firma raten
+        # (Praxis-Fund 13.07.: passende Stellen flogen mangels Beschreibung
+        # raus). Schwelle 50 Zeichen, konsistent mit fit_analyse (#180).
+        ohne_beschreibung = [
+            j for j in candidates
+            if len((j.get("description") or "").strip()) < 50
+        ]
+        candidates = [
+            j for j in candidates
+            if len((j.get("description") or "").strip()) >= 50
+        ]
         candidates.sort(key=lambda j: -(j.get("score") or 0))
         candidates = candidates[:max_stellen]
+        uebersprungen_details = [
+            {
+                "hash": j["hash"], "title": j.get("title"),
+                "company": j.get("company"), "score": j.get("score"),
+            }
+            for j in ohne_beschreibung[:10]
+        ]
 
         # v1.7.0-beta.28 (#594 Stufe 3): adaptive Prompt-Anreicherung —
         # Top-3 dismiss_reasons des Users bekommt die LLM mit, damit sie
@@ -3011,6 +3079,19 @@ def register(mcp, db, logger):
             recent_dismissals_fewshot = []
 
         if not candidates:
+            if ohne_beschreibung:
+                return _err(
+                    "Keine bewertbaren Stellen — alle Kandidaten haben "
+                    "keine Stellenbeschreibung.",
+                    status="leer",
+                    uebersprungen_ohne_beschreibung=len(ohne_beschreibung),
+                    uebersprungen_details=uebersprungen_details,
+                    hinweis=(
+                        "Ohne Beschreibung kein fachliches Urteil (#756). "
+                        "Erst stellenbeschreibung_nachladen(hash) fuer die "
+                        "uebersprungenen Stellen, dann erneut aufrufen."
+                    ),
+                )
             return _err(
                 "Keine ungerateten Stellen oberhalb min_score.",
                 status="leer",
@@ -3123,6 +3204,14 @@ def register(mcp, db, logger):
                 "Stellen unverarbeitet. Erneut aufrufen um die Reste zu "
                 "bearbeiten (idempotent — bereits aussortierte werden "
                 "uebersprungen)."
+            )
+        if ohne_beschreibung:
+            result_payload["uebersprungen_ohne_beschreibung"] = len(ohne_beschreibung)
+            result_payload["uebersprungen_details"] = uebersprungen_details
+            result_payload["uebersprungen_hinweis"] = (
+                f"{len(ohne_beschreibung)} Stellen ohne Beschreibung wurden "
+                "NICHT bewertet (#756) — ohne Stellentext kein fachliches "
+                "Urteil. Naechster Schritt: stellenbeschreibung_nachladen(hash)."
             )
         return result_payload
 
