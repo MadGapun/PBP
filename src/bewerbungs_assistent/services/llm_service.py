@@ -57,6 +57,7 @@ class TaskKind(str, Enum):
     VALIDATE_JOB_QUALITY = "validate_job_quality"  # v1.7.0-beta.73 (#645)
     EXTRACT_KEYWORDS = "extract_keywords"  # v1.7.4 (#745, F24): Suchbegriffe aus Profil
     SUGGEST_JOB_TITLES = "suggest_job_titles"  # v1.7.4 (#745, F24): Jobtitel aus Profil
+    EXTRACT_NEWSLETTER_JOBS = "extract_newsletter_jobs"  # v1.8.0-beta.4 (#525, J5): Ebene-1-Fallback
 
     # Claude-bevorzugte kreative Tasks
     GENERATE_COVER_LETTER = "generate_cover_letter"
@@ -90,6 +91,9 @@ ROUTING_TABLE: dict[TaskKind, list[Backend]] = {
     TaskKind.VALIDATE_JOB_QUALITY: [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.EXTRACT_KEYWORDS:     [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
     TaskKind.SUGGEST_JOB_TITLES:   [Backend.LOCAL, Backend.CLAUDE, Backend.MANUAL],
+    # J5 (#525): reiner Ebene-1-Fallback — ohne Ollama traegt die
+    # deterministische Link-Extraktion (newsletter_service) allein
+    TaskKind.EXTRACT_NEWSLETTER_JOBS: [Backend.LOCAL, Backend.MANUAL],
     # Claude bevorzugt — kreativ, Real-Time, Tonalität
     TaskKind.GENERATE_COVER_LETTER:  [Backend.CLAUDE, Backend.MANUAL],
     TaskKind.INTERVIEW_COACHING:     [Backend.CLAUDE, Backend.MANUAL],
@@ -1115,6 +1119,43 @@ def _parse_suggest_job_titles(raw: str) -> dict:
     return {"titel": titel[:6]}
 
 
+def _build_extract_newsletter_jobs_prompt(payload: dict) -> str:
+    """J5 (#525, Ebene 1): Stellen aus unstrukturiertem Newsletter-Text."""
+    text = (payload.get("newsletter_text") or "")[:4000]
+    return (
+        "Du extrahierst Stellenangebote aus einem Job-Newsletter.\n"
+        "Antworte NUR mit einem JSON-Array, ein Objekt pro Stelle:\n"
+        '[{"titel": "...", "firma": "...", "url": "https://..."}]\n'
+        "Regeln: nur echte Stellenangebote (keine Footer-/Profil-Links), "
+        "url muss eine http(s)-Adresse aus dem Text sein, firma leer lassen "
+        "wenn unbekannt, maximal 20 Eintraege. Kein Text ausserhalb des "
+        "JSON.\n\nNEWSLETTER:\n" + text
+    )
+
+
+def _parse_extract_newsletter_jobs(response: str) -> dict:
+    """Robust: erstes JSON-Array im Output, Felder defensiv."""
+    import json as _json
+    import re
+    m = re.search(r"\[.*\]", response or "", re.S)
+    if not m:
+        return {"jobs": []}
+    try:
+        raw = _json.loads(m.group(0))
+    except Exception:
+        return {"jobs": []}
+    jobs = []
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        jobs.append({
+            "titel": str(item.get("titel") or item.get("title") or "").strip(),
+            "firma": str(item.get("firma") or item.get("company") or "").strip(),
+            "url": str(item.get("url") or "").strip(),
+        })
+    return {"jobs": jobs}
+
+
 _PROMPT_BUILDERS = {
     TaskKind.CLASSIFY_DOCUMENT: _build_classify_document_prompt,
     TaskKind.EXTRACT_SKILLS: _build_extract_skills_prompt,
@@ -1125,6 +1166,7 @@ _PROMPT_BUILDERS = {
     TaskKind.VALIDATE_JOB_QUALITY: _build_validate_job_quality_prompt,
     TaskKind.EXTRACT_KEYWORDS: _build_extract_keywords_prompt,
     TaskKind.SUGGEST_JOB_TITLES: _build_suggest_job_titles_prompt,
+    TaskKind.EXTRACT_NEWSLETTER_JOBS: _build_extract_newsletter_jobs_prompt,
 }
 
 _RESPONSE_PARSERS = {
@@ -1137,6 +1179,7 @@ _RESPONSE_PARSERS = {
     TaskKind.VALIDATE_JOB_QUALITY: _parse_validate_job_quality,
     TaskKind.EXTRACT_KEYWORDS: _parse_extract_keywords,
     TaskKind.SUGGEST_JOB_TITLES: _parse_suggest_job_titles,
+    TaskKind.EXTRACT_NEWSLETTER_JOBS: _parse_extract_newsletter_jobs,
 }
 
 

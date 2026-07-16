@@ -4909,6 +4909,31 @@ async def api_upload_document(
         except Exception as e:
             logger.warning("Email intelligence for doc %s failed: %s", did, e)
 
+    # J5 (#525, v1.8.0-beta.4): Job-Newsletter erkennen und die enthaltenen
+    # Stellen direkt in den Pool uebernehmen (Ebene 0 KI-frei). Die Mail
+    # selbst wird nach erfolgreicher Uebernahme archiviert — ihr Wert
+    # steckt jetzt in den Stellen, nicht im Dokument.
+    newsletter_result = None
+    if fname.endswith((".eml", ".msg")):
+        try:
+            from .services.email_service import parse_email_file
+            from .services import newsletter_service
+            parsed_nl = parse_email_file(str(filepath))
+            quelle = newsletter_service.erkennung(parsed_nl, _db)
+            if quelle:
+                newsletter_result = newsletter_service.verarbeite_newsletter(
+                    _db, parsed_nl, quelle["label"])
+                newsletter_result["erkannt_ueber"] = quelle["erkannt_ueber"]
+                if newsletter_result.get("status") == "uebernommen":
+                    try:
+                        _db.update_document_lifecycle(did, "archiviert")
+                        newsletter_result["dokument"] = "archiviert"
+                    except Exception:
+                        pass
+        except Exception as exc:  # noqa: BLE001 — Newsletter-Pfad ist Zusatz
+            logger.debug("Newsletter-Erkennung uebersprungen fuer %s: %s",
+                         stored_filename, exc)
+
     antwort = {
         "status": "ok",
         "id": did,
@@ -4926,6 +4951,8 @@ async def api_upload_document(
     # Upload-Antwort — der naechste logische Schritt steht direkt am Fund.
     if ocr_info:
         antwort["ocr"] = ocr_info
+    if newsletter_result:
+        antwort["newsletter"] = newsletter_result
     return antwort
 
 

@@ -32,6 +32,29 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-14 (v1.8.0-beta.4, Prerelease) — Newsletter-Ingest
+
+**Schema:** v51 (`newsletter_sources`, additiv). **MCP-Tools:** 189
+(+`newsletter_quelle_markieren`/`newsletter_verarbeiten` in dokumente).
+**Prompts:** 25. Damit sind ALLE J-Feature-Betas geliefert; weiter mit
+Kern-Wellen B/F/D/J8 nach User-Prio.
+
+Kern: **J5/#525** — `services/newsletter_service.py`: `erkennung()`
+(gelernte Quellen → BUILTIN_SOURCES-Portale → konservative
+Betreff-Hinweise), `extract_job_links()` KI-frei (Portal-URL-Regexes
+StepStone/LinkedIn/XING/Indeed/Arbeitsagentur/freelance.de/JobLeads,
+Anker-Titel mit `_ist_boilerplate`-Wortmengen-Filter, „Titel bei Firma"-
+Split, Tracking-Param-Dedup), `verarbeite_newsletter()` → save_jobs mit
+`source='newsletter:<label>'` + `_manual_entry` (Stellen kommen ohne
+Beschreibung → #756-unbewertet → #622-Refetch → C23-Snapshot greifen
+ineinander). Ollama NUR als Fallback bei leerer Ebene 0 (TaskKind
+EXTRACT_NEWSLETTER_JOBS, Routing [LOCAL, MANUAL]). Upload-Pfad erkennt
+Newsletter automatisch, uebernimmt und archiviert die Mail
+(Response-Feld `newsletter`); gilt damit auch fuer Thunderbird-Add-on
+und Watch-Folder (delegieren an api_upload_document). Lern-Mechanik:
+`newsletter_quelle_markieren` speichert Domain+Betreff-Prefix in
+`newsletter_sources`. Tests: `test_v18_beta4_newsletter.py` (12).
+
 ## Stand 2026-07-14 (v1.8.0-beta.3, Prerelease) — Thunderbird + ics
 
 **Schema:** v50 (unveraendert). **MCP-Tools:** 187

@@ -48,6 +48,8 @@ EXPECTED_TOOL_NAMES = {
     "onboarding_hint_dismiss",
     "dokument_typen_anzeigen",
     "dokument_ocr_ausfuehren",
+    "newsletter_quelle_markieren",
+    "newsletter_verarbeiten",
     # v1.7.7 (#750, E18): OCR-Text nachtragen mit Provenienz-Pflicht
     "dokument_text_setzen",
     "dokumente_korrespondenz_abschliessen",
@@ -324,7 +326,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 187  # v1.8.0-beta.3: + termine_ics_exportieren (#481 J4.1); beta.2: + plugins_anzeigen (#504); beta.0: + 3x komponenten + dokument_ocr_ausfuehren (#750/#751)
+        assert len(tools) == 189  # v1.8.0-beta.4: + newsletter_quelle_markieren/newsletter_verarbeiten (#525 J5); beta.3: + termine_ics_exportieren; beta.2: + plugins_anzeigen; beta.0: + 4 Komponenten-/OCR-Tools
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

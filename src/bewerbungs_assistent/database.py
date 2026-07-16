@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 50
+SCHEMA_VERSION = 51
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -2065,6 +2065,27 @@ class Database:
                     pass
             logger.info("Migration v49->v50: plugins-Tabelle (#504 J1) + "
                         "jobs.description_snapshot (#687 C23)")
+
+        if from_ver < 51:
+            # v51 / v1.8.0-beta.4 (#525, J5): gelernte Newsletter-Quellen.
+            # Der User markiert eine Mail EINMAL als Job-Newsletter — Sender-
+            # Domain + Betreff-Muster landen hier, kuenftige Mails desselben
+            # Absenders werden automatisch erkannt und extrahiert. Die
+            # eingebauten Portal-Muster (StepStone, LinkedIn, XING, ...)
+            # leben im Code (services/newsletter_service.py). Rein additiv.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS newsletter_sources (
+                        id TEXT PRIMARY KEY,
+                        label TEXT NOT NULL,
+                        sender_pattern TEXT NOT NULL,
+                        subject_pattern TEXT DEFAULT '',
+                        created_at TEXT
+                    )
+                """)
+            except Exception:
+                pass
+            logger.info("Migration v50->v51: newsletter_sources (#525 J5)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -5579,6 +5600,36 @@ class Database:
             (_now(), (info or "")[:200], str(plugin_id)),
         )
         conn.commit()
+
+    # ------------------------------------------------------------------
+    # Gelernte Newsletter-Quellen (#525, J5 / v1.8.0-beta.4)
+    # ------------------------------------------------------------------
+
+    def add_newsletter_source(self, label: str, sender_pattern: str,
+                              subject_pattern: str = "") -> str:
+        conn = self.connect()
+        sid = _gen_id()
+        conn.execute(
+            "INSERT INTO newsletter_sources (id, label, sender_pattern, "
+            "subject_pattern, created_at) VALUES (?,?,?,?,?)",
+            (sid, (label or "")[:60], (sender_pattern or "").lower()[:120],
+             (subject_pattern or "").lower()[:120], _now()),
+        )
+        conn.commit()
+        return sid
+
+    def get_newsletter_sources(self) -> list:
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM newsletter_sources ORDER BY created_at").fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_newsletter_source(self, source_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM newsletter_sources WHERE id=?",
+                           (str(source_id),))
+        conn.commit()
+        return cur.rowcount > 0
 
     # ------------------------------------------------------------------
     # Beschreibungs-Snapshot (#687, C23 / v1.8.0-beta.2)
@@ -9401,6 +9452,14 @@ CREATE TABLE IF NOT EXISTS plugins (
     created_at TEXT,
     last_ingest_at TEXT,
     last_ingest_info TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS newsletter_sources (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    sender_pattern TEXT NOT NULL,
+    subject_pattern TEXT DEFAULT '',
+    created_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);

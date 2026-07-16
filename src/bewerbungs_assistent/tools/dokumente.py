@@ -1688,6 +1688,107 @@ def register(mcp, db, logger):
             ),
         }
 
+    def _newsletter_parse(dokument_id: str):
+        """Gemeinsamer Lade-Pfad fuer die Newsletter-Tools (J5/#525)."""
+        from pathlib import Path
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return None, None, {"fehler": "Dokument nicht gefunden."}
+        filepath = doc.get("filepath") or ""
+        if not filepath.lower().endswith((".eml", ".msg")):
+            return None, None, {"fehler": "Nur E-Mail-Dokumente (.eml/.msg) "
+                                          "koennen Newsletter sein."}
+        if not Path(filepath).is_file():
+            return None, None, {"fehler": f"Datei nicht mehr vorhanden: {filepath}"}
+        from ..services.email_service import parse_email_file
+        return doc, parse_email_file(filepath), None
+
+    @mcp.tool()
+    def newsletter_quelle_markieren(dokument_id: str) -> dict:
+        """Markiert eine Mail EINMAL als Job-Newsletter-Quelle (J5.1/#525).
+
+        PBP lernt Absender-Domain (+ Betreff-Anfang) — kuenftige Mails
+        dieser Quelle werden beim Eingang automatisch erkannt und ihre
+        Stellen in den Pool uebernommen. Die aktuelle Mail wird direkt
+        mitverarbeitet.
+
+        Fuer die grossen Portale (StepStone, LinkedIn, XING, Indeed,
+        Arbeitsagentur, freelance.de, JobLeads) ist das NICHT noetig —
+        die erkennt PBP von selbst. Dieses Tool ist fuer alles andere
+        (Firmen-Newsletter, Nischen-Boersen).
+
+        Args:
+            dokument_id: ID der bereits hochgeladenen Newsletter-Mail.
+        """
+        from ..services import newsletter_service
+        doc, parsed, fehler = _newsletter_parse(dokument_id)
+        if fehler:
+            return fehler
+        sender = parsed.get("sender") or ""
+        domain = newsletter_service._sender_domain(sender)
+        if not domain:
+            return {"fehler": "Kein Absender in der Mail erkennbar."}
+        subject = (parsed.get("subject") or "").strip()
+        # Betreff-Anfang als Muster (Newsletter-Betreffs variieren hinten:
+        # "Neue Jobs fuer dich: 12 Treffer" -> Prefix bis zum ':' reicht)
+        subject_prefix = subject.split(":")[0][:60].lower() if subject else ""
+        label = domain.split(".")[-2].capitalize() if "." in domain else domain
+        sid = db.add_newsletter_source(label, domain, subject_prefix)
+        result = newsletter_service.verarbeite_newsletter(db, parsed, label)
+        return {
+            "status": "quelle_gelernt",
+            "quelle_id": sid,
+            "label": label,
+            "sender_muster": domain,
+            "betreff_muster": subject_prefix,
+            "verarbeitung": result,
+            "hinweis": (
+                "Kuenftige Mails dieser Quelle werden beim Upload/Ingest "
+                "automatisch erkannt und uebernommen."
+            ),
+        }
+
+    @mcp.tool()
+    def newsletter_verarbeiten(dokument_id: str) -> dict:
+        """Extrahiert Stellen aus einer Newsletter-Mail in den Pool (J5/#525).
+
+        KI-frei (Ebene 0): Job-Links bekannter Portale aus der Mail;
+        optionaler Ollama-Fallback nur, wenn die Link-Extraktion leer
+        bleibt. Die Stellen laufen durch die normale Pipeline
+        (Duplikat-Erkennung, Score) mit Quelle `newsletter:<label>` und
+        erscheinen zunaechst als 'unbewertet' — der Auto-Refetch laedt
+        die Beschreibungen nach (#622/#756/C23 greifen ineinander).
+
+        Beim Upload passiert das fuer ERKANNTE Newsletter automatisch —
+        dieses Tool ist fuer Altbestand oder nicht erkannte Formate
+        (danach ggf. newsletter_quelle_markieren, damit PBP die Quelle
+        lernt).
+
+        Args:
+            dokument_id: ID der hochgeladenen Newsletter-Mail.
+        """
+        from ..services import newsletter_service
+        doc, parsed, fehler = _newsletter_parse(dokument_id)
+        if fehler:
+            return fehler
+        quelle = newsletter_service.erkennung(parsed, db)
+        label = (quelle or {}).get("label") or "Newsletter"
+        result = newsletter_service.verarbeite_newsletter(db, parsed, label)
+        if result.get("status") == "uebernommen":
+            try:
+                db.update_document_lifecycle(dokument_id, "archiviert")
+                result["dokument"] = "archiviert"
+            except Exception:
+                pass
+        if not quelle and result.get("status") == "uebernommen":
+            result["hinweis_quelle"] = (
+                "Quelle war nicht als Newsletter registriert — mit "
+                f"newsletter_quelle_markieren('{dokument_id}') lernt PBP "
+                "sie fuer kuenftige Mails."
+            )
+        return result
+
     @mcp.tool()
     def dokument_ocr_ausfuehren(dokument_id: str, max_seiten: int = 15) -> dict:
         """Fuehrt OCR fuer ein gescanntes PDF aus (E19/#750, v1.8.0-beta.0).

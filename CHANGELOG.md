@@ -16,6 +16,42 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.4] - 2026-07-14 — Newsletter-Ingest (J5 #525)
+
+> ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Damit sind alle
+> vier J-Feature-Betas des Fahrplans geliefert (Plattform → Thunderbird/
+> ics → Newsletter).
+
+### Added
+
+- **#525 — Job-Newsletter fliessen automatisch in den Stellen-Pool (J5):**
+  Newsletter von StepStone, LinkedIn-Job-Alerts, XING, Indeed,
+  Arbeitsagentur, freelance.de und JobLeads werden beim Eingang erkannt
+  (Upload, Thunderbird-Add-on oder Watch-Folder — alles laeuft durch
+  dieselbe Pipeline) und die enthaltenen Stellen uebernommen:
+  **KI-frei** per Link-Extraktion (Job-Detail-URLs + Titel/Firma aus dem
+  Linktext, Tracking-Parameter werden fuer die Duplikat-Erkennung
+  entfernt); ein optionaler Ollama-Fallback greift nur, wenn die
+  Link-Extraktion bei unbekannten Formaten leer bleibt. Die Mail selbst
+  wird nach der Uebernahme archiviert. Uebernommene Stellen kommen ohne
+  Beschreibung an und greifen nahtlos in die bestehende Kette: als
+  „unbewertet" gefuehrt (#756), Beschreibung laedt der Auto-Refetch nach
+  (#622), der Volltext wird als Snapshot eingefroren (C23).
+- **Lern-Mechanik fuer eigene Quellen (J5.1/J5.2):** Einmal
+  `newsletter_quelle_markieren(dokument_id)` — PBP merkt sich
+  Absender-Domain + Betreff-Muster (Tabelle `newsletter_sources`) und
+  erkennt kuenftige Mails dieser Quelle automatisch. Fuer
+  Altbestand/unbekannte Formate: `newsletter_verarbeiten(dokument_id)`.
+  Jetzt 189 Tools.
+
+### Changed
+
+- Schema v50 → **v51** (`newsletter_sources`, rein additiv). Neuer
+  optionaler LLM-Task `extract_newsletter_jobs` (nur Ollama/Manual —
+  die Kernfunktion braucht ihn nicht).
+
+---
+
 ## [1.8.0-beta.3] - 2026-07-14 — Thunderbird-Add-on (J2 #478) + Kalender-Export gehaertet (J4.1 #481)
 
 > ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**.
