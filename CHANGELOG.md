@@ -16,6 +16,45 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.5] - 2026-07-16 — Welle B: Quellen-Langzeitblick, Browser-Handoff, eigene Karriereseiten (#735, #627, #656)
+
+> ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Erste Kern-Welle
+> nach den J-Feature-Betas.
+
+### Added
+
+- **#735 — Quellen-Langzeit-Auswertung (B25):** Jeder Suchlauf wird jetzt
+  pro Quelle historisiert (`scraper_runs`, Schema **v52**). Das neue Tool
+  `quellen_langzeit_auswertung(tage)` beantwortet die Frage „welche
+  Quelle bringt mir seit Wochen nichts mehr?": Laeufe, Treffer, NEUE
+  Stellen pro Lauf, Fehlerklassen, Trend (versiegt/stabil/steigend) und
+  eine klare Empfehlung (behalten / beobachten / deaktivieren+Handoff).
+- **#735 — Browser-Handoff fuer blockierte Quellen (B25):** Das erprobte
+  `google_jobs_url`-Muster gilt jetzt fuer alle wichtigen Portale:
+  `quelle_handoff(quelle, keyword, ort)` liefert eine langlebige
+  Such-URL (gulp, kimeta, heise_jobs, StepStone, LinkedIn, XING, Indeed)
+  plus ein **DOM-agnostisches Extraktions-JS** — Claude oeffnet die Seite
+  im eingeloggten Chrome, zieht die Treffer strukturiert und uebernimmt
+  sie per `stelle_manuell_anlegen`. Bewusst KEINE geratenen
+  DOM-Selektoren (die dokumentierte B18-Lehre).
+- **#627 — Eigene Karriereseiten als Quellen (B16):**
+  `custom_quelle_hinzufuegen(name, url)` legt eine Firmen-/Nischenseite
+  als Quelle an — PBP prueft die Erreichbarkeit im `quellen_health_check`
+  mit und liefert jederzeit den Browser-Handoff. Bewusst **kein
+  Auto-Scraping** (Karriereseiten sind zu verschieden fuer stabile
+  Selektoren); der Handoff-Weg ist der ehrliche. Dazu
+  `custom_quellen_anzeigen` / `custom_quelle_loeschen`. Jetzt 194 Tools.
+- **#656 — Browser-Komponente sichtbar (B18, Teilschritt):**
+  Playwright/Chromium erscheint als zweite Komponente im
+  Erweiterungen-Tab — der Installer liefert Chromium zwar mit, aber wenn
+  das fehlschlug oder geloescht wurde, scheiterten browser-gestuetzte
+  Adapter bisher STILL. Jetzt: Status sichtbar, Reparatur per Klick
+  (`playwright install chromium`). Die portalspezifischen SPA-Adapter
+  bleiben bewusst hinter der dokumentierten Bedingung
+  (Live-Browser-Inspection statt geratener Selektoren).
+
+---
+
 ## [1.8.0-beta.4] - 2026-07-14 — Newsletter-Ingest (J5 #525)
 
 > ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Damit sind alle

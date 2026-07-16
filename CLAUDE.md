@@ -32,6 +32,31 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-16 (v1.8.0-beta.5, Prerelease) — Welle B: Quellen
+
+**Schema:** v52 (`scraper_runs` + `custom_sources`, additiv).
+**MCP-Tools:** 194 (+`quelle_handoff`/`quellen_langzeit_auswertung`
+(#735 B25), +`custom_quelle_hinzufuegen/anzeigen/loeschen` (#627 B16),
+alle in tools/jobs.py). **Prompts:** 25.
+
+Kern: (1) **B25/#735** — `update_scraper_health` schreibt jetzt je Lauf
+einen `scraper_runs`-Datensatz (Historie darf Health-Write nie
+blockieren); `quellen_langzeit_auswertung(tage)` rechnet Trefferquote,
+Fehlerklassen, Trend (versiegt = frueher neu>0, zweite Haelfte 0) und
+Empfehlung. `job_scraper/handoff.py`: HANDOFF_URL_TEMPLATES (langlebige
+Such-URLs, KEINE DOM-Wetten) + GENERIC_EXTRACTION_JS (Anker-Heuristik
+wie Newsletter-Ingest) + build_handoff — `quelle_handoff`-Tool,
+google_jobs_url-Muster generalisiert. (2) **B16/#627** —
+Custom-Karriereseiten als HANDOFF-Quellen (bewusst KEIN Auto-Scraping,
+B18-Lehre); Health-Ping im quellen_health_check (Status an Quelle
+vermerkt). (3) **B18/#656 Teilschritt** — `playwright-chromium` als
+I10-Komponente (art='playwright': Detection via ms-playwright-Ordner +
+importierbares Paket, Install via `python -m playwright install
+chromium`, plattformuebergreifend VOR dem win32-Gate); SPA-Selektoren
+bleiben zurueckgestellt (Master-Plan-Optimierung: Live-Inspection-
+Bedingung, JSON-API bevorzugt) — B18 im Plan 🟨. Tests:
+`test_v18_beta5_welle_b.py` (9).
+
 ## Stand 2026-07-14 (v1.8.0-beta.4, Prerelease) — Newsletter-Ingest
 
 **Schema:** v51 (`newsletter_sources`, additiv). **MCP-Tools:** 189

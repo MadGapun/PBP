@@ -80,6 +80,29 @@ COMPONENT_DEFS: dict[str, dict] = {
         "hinweis_macos": "brew install tesseract tesseract-lang",
         "hinweis_linux": "sudo apt install tesseract-ocr tesseract-ocr-deu",
     },
+    # B18 (#656, v1.8.0-beta.5): Sichtbarkeit + Nachinstallation des
+    # Playwright-Browsers. Der Installer laedt Chromium zwar mit — schlaegt
+    # das fehl (Netz, Platz) oder wurde es geloescht, scheiterten die
+    # browser-gestuetzten Adapter bisher STILL. Install laeuft ueber
+    # `python -m playwright install chromium` (art 'playwright'), nicht
+    # ueber einen Binary-Download.
+    "playwright-chromium": {
+        "label": "Browser (Playwright/Chromium)",
+        "beschreibung": (
+            "Headless-Browser fuer Quellen, die ohne echten Browser nicht "
+            "lesbar sind (SPA-Portale, LinkedIn-Suche). Wird vom Installer "
+            "normalerweise mitgeliefert — hier sichtbar und reparierbar."
+        ),
+        "freigeschaltete_funktion": (
+            "Browser-gestuetzte Quellen-Adapter + linkedin_browser_search (B18)"
+        ),
+        "lizenz": "Apache-2.0 (Playwright) / BSD (Chromium)",
+        "groesse_mb": 130,
+        "art": "playwright",
+        "binary_name": "",
+        "hinweis_macos": "python -m playwright install chromium",
+        "hinweis_linux": "python -m playwright install chromium",
+    },
 }
 
 # Sprachdaten (tessdata_fast, je ~2 MB) — nachladbar, falls die
@@ -124,6 +147,26 @@ def _binary_version(binary: str) -> str:
     return ""
 
 
+def _playwright_chromium_dir() -> Optional[str]:
+    """Ordner der installierten Chromium-Distribution (ms-playwright)."""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Caches" / "ms-playwright"
+    else:
+        base = Path.home() / ".cache" / "ms-playwright"
+    env_base = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if env_base and env_base != "0":
+        base = Path(env_base)
+    try:
+        for entry in sorted(base.glob("chromium*")):
+            if entry.is_dir():
+                return str(entry)
+    except Exception:
+        pass
+    return None
+
+
 def find_component_binary(db, name: str) -> Optional[str]:
     """Findet das nutzbare Binary einer Komponente (oder None).
 
@@ -133,6 +176,14 @@ def find_component_binary(db, name: str) -> Optional[str]:
     definition = COMPONENT_DEFS.get(name)
     if not definition:
         return None
+    if definition.get("art") == "playwright":
+        # "Binary" = installierte Chromium-Distribution + importierbares
+        # playwright-Paket. Manuelle Pfade/PATH sind hier nicht sinnvoll.
+        try:
+            import playwright  # noqa: F401
+        except ImportError:
+            return None
+        return _playwright_chromium_dir()
     state = None
     try:
         state = db.get_component_state(name)
@@ -150,6 +201,14 @@ def find_component_binary(db, name: str) -> Optional[str]:
             if Path(p).is_file():
                 return p
     return None
+
+
+def _playwright_version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("playwright")
+    except Exception:
+        return ""
 
 
 def get_component_status(db, name: str) -> dict:
@@ -181,7 +240,10 @@ def get_component_status(db, name: str) -> dict:
             else ("extern" if binary else "")
         ),
         "binary": binary or "",
-        "version": _binary_version(binary) if binary else "",
+        "version": (
+            _playwright_version() if definition.get("art") == "playwright" and binary
+            else (_binary_version(binary) if binary else "")
+        ),
         "status": (
             STATUS_WIRD_INSTALLIERT if wird_installiert
             else (STATUS_INSTALLIERT if binary else STATUS_NICHT_INSTALLIERT)
@@ -259,6 +321,44 @@ def install_component(db, name: str,
                                version=_binary_version(existing), last_error="")
         return {"status": "installiert", "binary": existing,
                 "hinweis": "War bereits vorhanden — nichts heruntergeladen."}
+
+    if definition.get("art") == "playwright":
+        # B18 (#656): kein Binary-Download, sondern Playwrights eigener
+        # Browser-Installer — plattformuebergreifend identisch.
+        try:
+            import playwright  # noqa: F401
+        except ImportError:
+            db.set_component_state(name, STATUS_FEHLER,
+                                   last_error="playwright-Paket fehlt")
+            return {"status": "fehler",
+                    "fehler": ("Das playwright-Python-Paket fehlt (scraper-"
+                               "Extra). PBP-Update drueberinstallieren, dann "
+                               "erneut versuchen.")}
+        db.set_component_state(name, STATUS_WIRD_INSTALLIERT, last_error="")
+        try:
+            progress(10, "Chromium wird geladen (playwright install)")
+            proc = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True, timeout=900,
+                **_SUBPROCESS_FLAGS,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    (proc.stderr or proc.stdout or "playwright install fehlgeschlagen")[:200])
+            chromium = _playwright_chromium_dir()
+            if not chromium:
+                raise RuntimeError("Chromium-Ordner nach Install nicht gefunden.")
+            db.set_component_state(name, STATUS_INSTALLIERT,
+                                   install_path=chromium,
+                                   version=_playwright_version(), last_error="")
+            progress(100, "Fertig")
+            return {"status": "installiert", "binary": chromium,
+                    "version": _playwright_version()}
+        except Exception as exc:
+            msg = str(exc)[:300]
+            logger.error("Playwright-Install fehlgeschlagen: %s", msg)
+            db.set_component_state(name, STATUS_FEHLER, last_error=msg)
+            return {"status": "fehler", "fehler": msg}
 
     if sys.platform != "win32":
         hint = definition.get(

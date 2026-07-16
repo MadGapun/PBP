@@ -17,7 +17,7 @@ import logging
 
 logger = logging.getLogger("bewerbungs_assistent.database")
 
-SCHEMA_VERSION = 51
+SCHEMA_VERSION = 52
 
 # #723: Wie lange ein Writer auf einen gehaltenen Write-Lock wartet, bevor
 # SQLite mit 'database is locked' abbricht. Dashboard (Port 8200) und
@@ -2086,6 +2086,48 @@ class Database:
             except Exception:
                 pass
             logger.info("Migration v50->v51: newsletter_sources (#525 J5)")
+
+        if from_ver < 52:
+            # v52 / v1.8.0-beta.5 (Welle B): (a) scraper_runs — Append-Log
+            # jedes Quellen-Laufs fuer die Langzeit-Auswertung (B25/#735;
+            # scraper_health haelt nur den AKTUELLEN Stand); (b)
+            # custom_sources — eigene Karriereseiten-URLs als
+            # Handoff-Quellen (B16/#627, bewusst KEIN Auto-Scraping).
+            # Rein additiv.
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS scraper_runs (
+                        id TEXT PRIMARY KEY,
+                        scraper_name TEXT NOT NULL,
+                        run_at TEXT NOT NULL,
+                        state TEXT DEFAULT '',
+                        count INTEGER DEFAULT 0,
+                        new_count INTEGER DEFAULT 0,
+                        time_s REAL DEFAULT 0,
+                        error_class TEXT DEFAULT '',
+                        detail TEXT DEFAULT ''
+                    )
+                """)
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scraper_runs_name "
+                    "ON scraper_runs(scraper_name, run_at)")
+            except Exception:
+                pass
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS custom_sources (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        url TEXT NOT NULL,
+                        created_at TEXT,
+                        last_check_at TEXT,
+                        last_status TEXT DEFAULT ''
+                    )
+                """)
+            except Exception:
+                pass
+            logger.info("Migration v51->v52: scraper_runs (#735 B25) + "
+                        "custom_sources (#627 B16)")
 
         conn.execute(
             "UPDATE settings SET value=? WHERE key='schema_version'",
@@ -5055,6 +5097,22 @@ class Database:
 
         conn = self.connect()
         now = _now()
+
+        # B25 (#735, v1.8.0-beta.5): Append-Log fuer die Langzeit-Auswertung.
+        # scraper_health haelt nur den aktuellen Stand — hier entsteht die
+        # Historie (ein Datensatz pro Quelle pro Lauf).
+        try:
+            conn.execute(
+                "INSERT INTO scraper_runs (id, scraper_name, run_at, state, "
+                "count, new_count, time_s, error_class, detail) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (_gen_id(), name, now, state, int(count or 0),
+                 int(new_count or 0), float(time_s or 0),
+                 error_class or "", (detail_mit_klasse or "")[:200]),
+            )
+        except Exception:
+            pass  # Historie darf den Health-Write nie blockieren
+
         existing = conn.execute(
             "SELECT * FROM scraper_health WHERE scraper_name=?", (name,)
         ).fetchone()
@@ -5598,6 +5656,56 @@ class Database:
         conn.execute(
             "UPDATE plugins SET last_ingest_at=?, last_ingest_info=? WHERE id=?",
             (_now(), (info or "")[:200], str(plugin_id)),
+        )
+        conn.commit()
+
+    # ------------------------------------------------------------------
+    # Quellen-Lauf-Historie + Custom-Quellen (B25/#735 + B16/#627, beta.5)
+    # ------------------------------------------------------------------
+
+    def get_scraper_runs(self, scraper_name: str = None,
+                         seit_iso: str = None, limit: int = 2000) -> list:
+        conn = self.connect()
+        query = "SELECT * FROM scraper_runs WHERE 1=1"
+        params: list = []
+        if scraper_name:
+            query += " AND scraper_name=?"
+            params.append(scraper_name)
+        if seit_iso:
+            query += " AND run_at >= ?"
+            params.append(seit_iso)
+        query += " ORDER BY run_at DESC LIMIT ?"
+        params.append(max(1, min(int(limit or 2000), 10000)))
+        return [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    def add_custom_source(self, name: str, url: str) -> str:
+        conn = self.connect()
+        sid = _gen_id()
+        conn.execute(
+            "INSERT INTO custom_sources (id, name, url, created_at) "
+            "VALUES (?,?,?,?)",
+            (sid, (name or "")[:60], (url or "")[:500], _now()),
+        )
+        conn.commit()
+        return sid
+
+    def get_custom_sources(self) -> list:
+        conn = self.connect()
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM custom_sources ORDER BY created_at").fetchall()]
+
+    def delete_custom_source(self, source_id: str) -> bool:
+        conn = self.connect()
+        cur = conn.execute("DELETE FROM custom_sources WHERE id=?",
+                           (str(source_id),))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def update_custom_source_status(self, source_id: str, status: str) -> None:
+        conn = self.connect()
+        conn.execute(
+            "UPDATE custom_sources SET last_check_at=?, last_status=? WHERE id=?",
+            (_now(), (status or "")[:120], str(source_id)),
         )
         conn.commit()
 
@@ -9460,6 +9568,28 @@ CREATE TABLE IF NOT EXISTS newsletter_sources (
     sender_pattern TEXT NOT NULL,
     subject_pattern TEXT DEFAULT '',
     created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS scraper_runs (
+    id TEXT PRIMARY KEY,
+    scraper_name TEXT NOT NULL,
+    run_at TEXT NOT NULL,
+    state TEXT DEFAULT '',
+    count INTEGER DEFAULT 0,
+    new_count INTEGER DEFAULT 0,
+    time_s REAL DEFAULT 0,
+    error_class TEXT DEFAULT '',
+    detail TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_scraper_runs_name ON scraper_runs(scraper_name, run_at);
+
+CREATE TABLE IF NOT EXISTS custom_sources (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at TEXT,
+    last_check_at TEXT,
+    last_status TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, score DESC);

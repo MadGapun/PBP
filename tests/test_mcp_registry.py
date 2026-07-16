@@ -60,6 +60,11 @@ EXPECTED_TOOL_NAMES = {
     "dokument_aktion_ausfuehren",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
+    "quelle_handoff",
+    "quellen_langzeit_auswertung",
+    "custom_quelle_hinzufuegen",
+    "custom_quellen_anzeigen",
+    "custom_quelle_loeschen",
     "verwaiste_stellenrefs_bereinigen",
     "profile_auflisten",
     "profil_wechseln",
@@ -326,7 +331,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 189  # v1.8.0-beta.4: + newsletter_quelle_markieren/newsletter_verarbeiten (#525 J5); beta.3: + termine_ics_exportieren; beta.2: + plugins_anzeigen; beta.0: + 4 Komponenten-/OCR-Tools
+        assert len(tools) == 194  # v1.8.0-beta.5 (Welle B): + quelle_handoff/quellen_langzeit_auswertung (#735 B25) + 3x custom_quelle (#627 B16); davor beta.0-4 siehe Historie
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

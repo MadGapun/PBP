@@ -3350,6 +3350,183 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def quelle_handoff(quelle: str, keyword: str, ort: str = "") -> dict:
+        """Browser-Handoff fuer blockierte/SPA-tote Quellen (B25/#735).
+
+        Wenn eine Quelle per HTTP nicht scrapbar ist (Bot-Block, SPA-Shell,
+        tot), liefert dieses Tool die Such-URL + ein generisches
+        Extraktions-JS — Workflow wie bei `google_jobs_url` (#573):
+        URL in Chrome mit Claude-in-Chrome oeffnen, Treffer per
+        javascript_tool() ziehen, mit stelle_manuell_anlegen uebernehmen.
+
+        Fuer eigene Karriereseiten: erst `custom_quelle_hinzufuegen`,
+        dann kommt der Handoff aus `custom_quellen_anzeigen`.
+
+        Args:
+            quelle: Quellen-Name (z.B. 'gulp', 'kimeta', 'heise_jobs',
+                'stepstone', 'linkedin', 'xing', 'indeed').
+            keyword: Suchbegriff.
+            ort: Optionaler Ort.
+        """
+        from ..job_scraper.handoff import build_handoff
+        return build_handoff(quelle, keyword, ort)
+
+    @mcp.tool()
+    def quellen_langzeit_auswertung(tage: int = 30) -> dict:
+        """Langzeit-Auswertung der Job-Quellen (B25/#735, v1.8.0-beta.5).
+
+        Wertet die Lauf-Historie (`scraper_runs`, seit beta.5 automatisch
+        mitgeschrieben) pro Quelle aus: Laeufe, Treffer, NEUE Stellen,
+        Fehlerklassen, Trend (zweite Haelfte vs. erste) und eine klare
+        Empfehlung (behalten / beobachten / deaktivieren+Handoff).
+
+        Ergaenzt `scraper_diagnose` (aktueller Zustand) um die Zeitachse:
+        „Welche Quelle bringt mir seit Wochen nichts mehr?"
+
+        Args:
+            tage: Auswertungszeitraum in Tagen (Default 30).
+        """
+        from datetime import datetime, timedelta
+        tage = max(1, min(int(tage or 30), 365))
+        seit = (datetime.now() - timedelta(days=tage)).isoformat()
+        runs = db.get_scraper_runs(seit_iso=seit)
+        if not runs:
+            return {
+                "status": "keine_daten",
+                "hinweis": (
+                    "Noch keine Lauf-Historie — sie entsteht ab v1.8.0-beta.5 "
+                    "automatisch mit jeder Jobsuche. Nach ein paar Laeufen "
+                    "erneut aufrufen."
+                ),
+            }
+        per_quelle: dict[str, list] = {}
+        for r in runs:
+            per_quelle.setdefault(r["scraper_name"], []).append(r)
+
+        auswertung = []
+        for name, eintraege in sorted(per_quelle.items()):
+            eintraege.sort(key=lambda r: r["run_at"])  # alt -> neu
+            n = len(eintraege)
+            neu_gesamt = sum(int(r.get("new_count") or 0) for r in eintraege)
+            treffer_gesamt = sum(int(r.get("count") or 0) for r in eintraege)
+            fehler = [r for r in eintraege if r.get("state") == "fail"]
+            klassen: dict[str, int] = {}
+            for r in fehler:
+                k = r.get("error_class") or "unklassifiziert"
+                klassen[k] = klassen.get(k, 0) + 1
+            halb = n // 2
+            neu_frueh = sum(int(r.get("new_count") or 0) for r in eintraege[:halb]) if halb else 0
+            neu_spaet = sum(int(r.get("new_count") or 0) for r in eintraege[halb:])
+            if n >= 4 and neu_frueh > 0 and neu_spaet == 0:
+                trend = "versiegt"
+            elif n >= 4 and neu_spaet > neu_frueh:
+                trend = "steigend"
+            elif n >= 4:
+                trend = "stabil"
+            else:
+                trend = "zu_wenig_laeufe"
+            fehlerquote = round(len(fehler) / n, 2)
+            if fehlerquote >= 0.8 and n >= 3:
+                empfehlung = ("deaktivieren — dauerhaft fehlerhaft; fuer "
+                              "Einzelrecherchen quelle_handoff nutzen")
+            elif neu_gesamt == 0 and n >= 5:
+                empfehlung = "beobachten — liefert seit laengerem nichts Neues"
+            else:
+                empfehlung = "behalten"
+            auswertung.append({
+                "quelle": name,
+                "laeufe": n,
+                "treffer": treffer_gesamt,
+                "neu": neu_gesamt,
+                "neu_pro_lauf": round(neu_gesamt / n, 2),
+                "fehlerquote": fehlerquote,
+                "fehlerklassen": klassen,
+                "trend": trend,
+                "empfehlung": empfehlung,
+            })
+        auswertung.sort(key=lambda a: -a["neu"])
+        return {
+            "zeitraum_tage": tage,
+            "quellen": auswertung,
+            "hinweis": (
+                "Deaktivieren: scraper_diagnose(scraper_name=..., "
+                "aktion='deaktivieren'); Browser-Recherche fuer blockierte "
+                "Quellen: quelle_handoff(quelle, keyword)."
+            ),
+        }
+
+    @mcp.tool()
+    def custom_quelle_hinzufuegen(name: str, url: str) -> dict:
+        """Eigene Karriereseiten-URL als Handoff-Quelle anlegen (B16/#627).
+
+        BEWUSST kein Auto-Scraping: Karriereseiten sind zu verschieden fuer
+        stabile automatische Extraktion (Master-Plan-Optimierung, B18-
+        Begruendung). Stattdessen: PBP prueft die Erreichbarkeit im
+        quellen_health_check mit und liefert jederzeit den Browser-Handoff
+        (URL + Extraktions-JS) — Claude zieht die Stellen strukturiert und
+        legt sie mit stelle_manuell_anlegen an.
+
+        Args:
+            name: Sprechender Name (z.B. 'Acme Karriere').
+            url: URL der Stellen-/Karriereseite.
+        """
+        name = (name or "").strip()
+        url = (url or "").strip()
+        if not name or not url.lower().startswith(("http://", "https://")):
+            return {"fehler": "name und eine http(s)-URL sind Pflicht."}
+        if any(c["url"].rstrip("/") == url.rstrip("/")
+               for c in db.get_custom_sources()):
+            return {"fehler": "Diese URL ist bereits als Custom-Quelle angelegt."}
+        sid = db.add_custom_source(name, url)
+        return {
+            "status": "angelegt",
+            "quelle_id": sid,
+            "name": name,
+            "url": url,
+            "hinweis": (
+                "Recherche starten: custom_quellen_anzeigen() liefert pro "
+                "Quelle den Browser-Handoff. Erreichbarkeit wird beim "
+                "quellen_health_check mitgeprueft."
+            ),
+        }
+
+    @mcp.tool()
+    def custom_quellen_anzeigen() -> dict:
+        """Zeigt eigene Karriereseiten-Quellen inkl. Browser-Handoff (B16/#627)."""
+        from ..job_scraper.handoff import build_handoff
+        eintraege = db.get_custom_sources()
+        quellen = []
+        for c in eintraege:
+            handoff = build_handoff(c["name"], "", custom_url=c["url"])
+            quellen.append({
+                "quelle_id": c["id"],
+                "name": c["name"],
+                "url": c["url"],
+                "letzter_check": c.get("last_check_at") or "nie",
+                "letzter_status": c.get("last_status") or "",
+                "handoff": {k: handoff[k] for k in ("url", "extraction_js", "anleitung")},
+            })
+        return {
+            "anzahl": len(quellen),
+            "quellen": quellen,
+            "hinweis": (
+                "Neue Quelle: custom_quelle_hinzufuegen(name, url); "
+                "entfernen: custom_quelle_loeschen(quelle_id)."
+            ) if quellen else (
+                "Noch keine Custom-Quellen. Anlegen: "
+                "custom_quelle_hinzufuegen(name, url)."
+            ),
+        }
+
+    @mcp.tool()
+    def custom_quelle_loeschen(quelle_id: str) -> dict:
+        """Entfernt eine Custom-Quelle (B16/#627)."""
+        if not db.delete_custom_source(quelle_id):
+            return {"fehler": "Custom-Quelle nicht gefunden — IDs zeigt "
+                              "custom_quellen_anzeigen()."}
+        return {"status": "geloescht", "quelle_id": quelle_id}
+
+    @mcp.tool()
     def quellen_health_check(quellen: list[str] = [], parallel: bool = True) -> dict:
         """v1.7.0-beta.51 (#624 Phase 2): Aktiver Probe-Check fuer Job-Quellen.
 
@@ -3384,16 +3561,48 @@ def register(mcp, db, logger):
         else:
             results = [check_source(s) for s in targets]
         reachable = sum(1 for r in results if r.get("reachable"))
-        return {
+
+        # B16 (#627, v1.8.0-beta.5): Custom-Quellen mit pingen (einfacher
+        # HTTP-Erreichbarkeits-Check; Status wird an der Quelle vermerkt).
+        custom_results = []
+        try:
+            custom = db.get_custom_sources()
+            if custom:
+                import httpx
+                for c in custom:
+                    eintrag = {"quelle": f"custom:{c['name']}", "url": c["url"]}
+                    try:
+                        with httpx.Client(timeout=10, follow_redirects=True) as cl:
+                            resp = cl.get(c["url"], headers={
+                                "User-Agent": "Mozilla/5.0 (PBP Health-Check)"})
+                        eintrag["http_status"] = resp.status_code
+                        eintrag["reachable"] = resp.status_code < 400
+                        status = f"HTTP {resp.status_code}"
+                    except Exception as exc:
+                        eintrag["reachable"] = False
+                        eintrag["error"] = str(exc)[:120]
+                        status = f"fehler: {str(exc)[:80]}"
+                    db.update_custom_source_status(c["id"], status)
+                    custom_results.append(eintrag)
+        except Exception as exc:
+            logger.debug("Custom-Quellen-Ping uebersprungen: %s", exc)
+
+        antwort = {
             "count_total": len(results),
             "count_reachable": reachable,
             "count_unreachable": len(results) - reachable,
             "results": results,
             "hinweis": (
                 f"{reachable} von {len(results)} Quellen erreichbar. "
-                "Ergaenzend zur Liefer-Statistik in scraper_diagnose."
+                "Ergaenzend zur Liefer-Statistik in scraper_diagnose; "
+                "Zeitachse: quellen_langzeit_auswertung(). Blockierte/tote "
+                "Quellen per Browser recherchieren: quelle_handoff(quelle, "
+                "keyword)."
             ),
         }
+        if custom_results:
+            antwort["custom_quellen"] = custom_results
+        return antwort
 
     @mcp.tool()
     def quellen_aus_urls_korrigieren(dry_run: bool = True) -> dict:
