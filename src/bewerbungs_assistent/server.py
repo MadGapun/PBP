@@ -104,8 +104,10 @@ class HeartbeatMiddleware(Middleware):
     async def on_call_tool(self, context, call_next):
         import asyncio
         tool_name = context.message.name if context.message else "unknown"
-        logger.info("Tool aufgerufen: %s", tool_name)
+        # Heartbeat VOR dem Log-Aufruf: friert Logging je ein (#760),
+        # dokumentiert der Heartbeat den Call trotzdem noch.
         write_heartbeat(tool_name)
+        logger.info("Tool aufgerufen: %s", tool_name)
 
         timeout = self.LONG_TIMEOUT if tool_name in self.LONG_RUNNING_TOOLS else self.DEFAULT_TIMEOUT
 

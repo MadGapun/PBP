@@ -16,6 +16,34 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.6] - 2026-07-16 — Hotfix: Server-Freeze bei grossen Suchlaeufen (#760)
+
+> ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Empfohlenes Update
+> fuer alle Beta-Tester — behebt einen kompletten Server-Haenger.
+
+### Fixed
+
+- **#760 — MCP-Server fror bei `jobsuche_starten` mit vielen Quellen ein
+  (A23):** Praxis-Fall vom 16.07., lokal reproduziert: Der Such-Thread
+  loggt pro Quelle dutzende Zeilen auf stderr. Liest der MCP-Client
+  (Claude Desktop) stderr nicht kontinuierlich, laeuft der OS-Pipe-Puffer
+  voll — der Log-Aufruf blockiert und haelt dabei den Logging-Lock, an dem
+  als naechstes die Tool-Middleware im Event-Loop haengen bleibt: **kein
+  Tool antwortet mehr** (auch `pbp_mcp_diagnose` nicht), der Heartbeat
+  friert ein, waehrend Dashboard und Datenbank im selben Prozess normal
+  weiterlaufen. Reproduktion: mit 35 aktiven Quellen und ungelesenem
+  stderr fror der Server nach ~40 s ein; mit gelesenem stderr lief er
+  durch (300 s Watch). Fix: Die Console-Ausgabe laeuft jetzt ueber eine
+  entkoppelte Queue (`DropOnFullQueueHandler` + `QueueListener` in
+  `logging_config.py`) — ist stderr verstopft, werden Console-Zeilen
+  verworfen statt den Server zu blockieren; die **Log-Datei
+  (`logs/pbp.log`) bekommt weiterhin alles**. Zusaetzlich schreibt die
+  Tool-Middleware den Heartbeat jetzt VOR dem Log-Aufruf, damit er selbst
+  bei klemmendem Logging Lebenszeichen dokumentiert. Neue Tests:
+  `tests/test_v18_logging_backpressure_760.py` (4).
+
+---
+
 ## [1.8.0-beta.5] - 2026-07-16 — Welle B: Quellen-Langzeitblick, Browser-Handoff, eigene Karriereseiten (#735, #627, #656)
 
 > ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Erste Kern-Welle

@@ -10,10 +10,32 @@ Nutzung:
 """
 import logging
 import os
+import queue
 import sys
-from logging.handlers import RotatingFileHandler
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 
 _initialized = False
+_queue_listener = None
+
+
+class DropOnFullQueueHandler(QueueHandler):
+    """QueueHandler der bei voller Queue Records verwirft statt zu blockieren.
+
+    #760: Der MCP-Server laeuft als Kind von Claude Desktop. Liest der
+    Client stderr nicht (mehr), laeuft der OS-Pipe-Puffer voll und ein
+    direkter StreamHandler-write blockiert — der schreibende Thread haelt
+    dabei den Handler-Lock, womit JEDER weitere logger-Aufruf (auch im
+    Event-Loop der Tool-Middleware) einfriert: der ganze Server wirkt tot,
+    waehrend Dashboard/DB weiterlaufen. Die Queue entkoppelt App-Threads
+    vom stderr-write; verworfen wird nur die Console-Ausgabe, die
+    Log-DATEI bekommt weiterhin alles.
+    """
+
+    def enqueue(self, record):
+        try:
+            self.queue.put_nowait(record)
+        except queue.Full:
+            pass
 
 
 class SafeRotatingFileHandler(RotatingFileHandler):
@@ -105,12 +127,19 @@ def setup_logging(level=None, console=True):
         # Dann halt nur Console
         pass
 
-    # Console-Handler (stderr, nicht stdout!)
+    # Console-Handler (stderr, nicht stdout!) — via Queue entkoppelt,
+    # damit ein blockierender stderr-write nie App-Threads einfriert (#760).
     if console:
+        global _queue_listener
         sh = logging.StreamHandler(sys.stderr)
         sh.setFormatter(fmt)
         sh.setLevel(log_level)
-        logger.addHandler(sh)
+        log_queue = queue.Queue(maxsize=1000)
+        qh = DropOnFullQueueHandler(log_queue)
+        qh.setLevel(log_level)
+        logger.addHandler(qh)
+        _queue_listener = QueueListener(log_queue, sh, respect_handler_level=True)
+        _queue_listener.start()
 
     _initialized = True
     return logger

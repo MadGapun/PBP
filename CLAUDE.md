@@ -21,7 +21,9 @@ Code-Loading; Komponenten ≠ Plugins; Pairing statt Discovery) + Beta-
 Fahrplan in Plan-Roadmap-v18; Beta-Exit-Kriterium v1.8 im Master-Plan.
 **beta.0 = I10 Komponenten-Framework (#751) + E19 Auto-OCR (#750-T2,
 Schema v49)**, beta.1 = J1 Ingest-API v1 (#504), beta.2 = J2 Thunderbird
-+ J4.1 ics, beta.3 = J5 Newsletter. Betas sind GitHub-Prereleases,
++ J4.1 ics, beta.3 = J5 Newsletter, beta.5 = Welle B (B25/B16/B18-Teil,
+Schema v52), beta.6 = Hotfix #760 (stderr-Backpressure-Freeze).
+Betas sind GitHub-Prereleases,
 `--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. **ALLE 25
 offenen Issues sind Wellen zugeordnet** (Tabelle im Master-Plan →
 Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
@@ -31,6 +33,28 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-07-16 (v1.8.0-beta.6, Prerelease) — Hotfix #760
+
+**Schema:** v52 (unveraendert). **MCP-Tools:** 194. **Prompts:** 25.
+
+Kern: **A23/#760** — Server-Freeze bei `jobsuche_starten` mit vielen
+Quellen REPRODUZIERT und behoben. Mechanismus: Such-Thread loggt massiv
+auf stderr; liest der MCP-Client stderr nicht kontinuierlich (Claude
+Desktop tut das nicht), laeuft der OS-Pipe-Puffer voll → der Log-write
+blockiert UND haelt den Logging-Handler-Lock → `logger.info("Tool
+aufgerufen")` der Middleware (Event-Loop-Thread!) haengt am Lock →
+kein Tool antwortet mehr, Heartbeat friert ein, Dashboard/DB laufen
+weiter (eigene uvicorn-Handler). Differential-Beweis via
+stdio-Repro-Client (QA-isoliert): 35 Quellen + ungelesenes stderr =
+Freeze t+40s; stderr gelesen = stabil; mit Fix + ungelesen = stabil.
+Fix: `logging_config.py` Console ueber `DropOnFullQueueHandler` +
+`QueueListener` entkoppelt (volle Queue → Console-Zeilen verworfen,
+Log-DATEI behaelt alles); Middleware schreibt Heartbeat VOR dem Log.
+Tests: `test_v18_logging_backpressure_760.py` (4). MERKE fuer
+Debug-Anleitungen: py-spy 0.4.2 kam an die venv-Python-3.13-Prozesse
+nicht ran („Failed to find python version") — Diagnose-Anleitungen
+lieber auf Differential-Läufe + Log-Datei stuetzen.
 
 ## Stand 2026-07-16 (v1.8.0-beta.5, Prerelease) — Welle B: Quellen
 
