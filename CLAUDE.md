@@ -1,7 +1,12 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.7** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.8** ist Stable (`--latest`, 2026-07-22) —
+Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
+strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
+den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
+1.7-Linie und nicht nur in die 1.8-Beta — die Beta zieht kaum jemand.
+Davor: **v1.7.7** war Stable — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
 Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
 + Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
