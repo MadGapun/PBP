@@ -56,6 +56,18 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
             "Stellenbeschreibung fehlt — keine fachliche Bewertung moeglich. "
             "Beschreibung nachladen vor Empfehlung."
         )
+    elif fit_result.get("beschreibung_kurz"):
+        # #762: Beschreibung existiert, ist aber nur eine Kurznotiz (typisch
+        # nach stelle_manuell_anlegen). Dann matchen kaum MUSS-Keywords und der
+        # Score ist kuenstlich niedrig — das ist KEINE fachliche Absage, sondern
+        # fehlende Datengrundlage. Ehrlich als "nicht beurteilbar" ausweisen,
+        # statt eine passende Rolle faelschlich als Gap abzuurteilen.
+        ko_gruende.append(
+            "Beschreibung ist nur ein Kurztext, keine vollstaendige Anzeige — "
+            "der Score ist dadurch NICHT belastbar und dies ist ausdruecklich "
+            "keine fachliche Absage. Anzeigen-Volltext nachladen "
+            "(stellenbeschreibung_nachladen) oder einfuegen, dann neu bewerten."
+        )
     if degree_required:
         # Wenn die Stelle einen Hochschulabschluss fordert UND die Risk-
         # Liste den "Hochschulabschluss fehlt"-Hinweis enthaelt, ist das
@@ -79,6 +91,10 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
             "kategorie": "NICHT_EMPFOHLEN",
             "score": score,
             "ko_gruende": ko_gruende,
+            # #762: maschinenlesbar, ob der Score ueberhaupt belastbar ist
+            "score_zuverlaessig": bool(
+                desc_ok and not fit_result.get("beschreibung_kurz")
+            ),
             "begruendung": (
                 "K.o.-Kriterium getroffen. " + ko_gruende[0]
                 + " Bewerbung lohnt nur, wenn das vorher transparent "
@@ -2115,6 +2131,25 @@ def register(mcp, db, logger):
                 f"({uebersteuerter_verdacht['grund']}), der per force=True "
                 "uebersteuert wurde."
             )
+        # #762: Ohne Detail-URL ist stellenbeschreibung_nachladen blockiert
+        # ("Stelle hat keine URL") — und genau das Nachladen macht aus dem
+        # schwachen Kurztext-Score erst einen belastbaren. Aktiv darauf hinweisen.
+        if not url:
+            result["url_hinweis"] = (
+                "Keine URL angegeben — stellenbeschreibung_nachladen() kann die "
+                "Anzeige spaeter nicht holen. Wenn die Detail-URL der Anzeige "
+                "vorliegt, gleich beim Anlegen mitgeben oder per "
+                "stelle_bearbeiten(url=...) nachreichen."
+            )
+        # #762: Kurztext -> Score ist nicht belastbar (es koennen kaum
+        # MUSS-Keywords matchen). Ehrlich kennzeichnen, statt einen niedrigen
+        # Score wie ein fachliches Urteil wirken zu lassen.
+        if len((beschreibung or "").strip()) < 50:
+            result["score_hinweis"] = (
+                "Die Beschreibung ist sehr kurz — der Score ist damit NICHT "
+                "belastbar. Erst mit dem Anzeigen-Volltext (nachladen oder "
+                "einfuegen) wird er aussagekraeftig."
+            )
         # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt
         from ..job_scraper import is_search_result_url
         if url and is_search_result_url(url):
@@ -2857,6 +2892,25 @@ def register(mcp, db, logger):
                         "alter_score": job.get("score"),
                         "neuer_score": new_score,
                     }
+                    # #762: Faellt der Score auf 0, den GRUND nennen. Sonst
+                    # wirkt das Nachpflegen eines echten Volltexts wie ein
+                    # Bug ("Score war 45, jetzt 0") — der haeufigste Fall ist
+                    # ein Ausschluss-Keyword, das erst im laengeren Text steht.
+                    if new_score == 0:
+                        _ko_kw = fresh_job.get("_ko_ausschluss")
+                        if _ko_kw:
+                            score_recomputed["grund"] = (
+                                f"Ausschluss-Keyword '{_ko_kw}' kommt im neuen Text "
+                                "vor — das setzt den Score hart auf 0. Wenn das ein "
+                                "Fehltreffer ist, das Keyword in den Suchkriterien "
+                                "schaerfen (suchkriterien_anzeigen)."
+                            )
+                        elif fresh_job.get("_ko_kein_muss"):
+                            score_recomputed["grund"] = (
+                                "Kein MUSS-Keyword im neuen Text gefunden — das setzt "
+                                "den Score auf 0. Pruefe die MUSS-Keywords "
+                                "(suchkriterien_anzeigen) oder ob der Text vollstaendig ist."
+                            )
             except Exception as exc:
                 logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s", job_hash, exc)
 
@@ -3324,7 +3378,8 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def quellen_health_check(quellen: list[str] = [], parallel: bool = True) -> dict:
+    def quellen_health_check(quellen: list[str] = [], parallel: bool = True,
+                             budget_sekunden: int = 90) -> dict:
         """v1.7.0-beta.51 (#624 Phase 2): Aktiver Probe-Check fuer Job-Quellen.
 
         Macht pro Quelle einen minimalen HTTP-Request (1 Stelle, keine
@@ -3337,6 +3392,10 @@ def register(mcp, db, logger):
             quellen: Liste der zu pruefenden Source-Keys. Wenn leer:
                 alle mit definiertem Probe (~12 Quellen).
             parallel: Wenn True (Default), Probes parallel via Threads.
+            budget_sekunden: Hartes Wall-Clock-Budget (Default 90s, min 5s).
+                Bei Ueberschreitung kommt ein TEILERGEBNIS zurueck
+                (`abgebrochen=True` + `nicht_geprueft`), statt in den
+                4-Minuten-MCP-Timeout zu laufen (#762/#761).
 
         Returns:
             count_total, count_reachable, results (Liste pro Quelle).
@@ -3350,15 +3409,52 @@ def register(mcp, db, logger):
             evtl. liegt's an deinen Suchbegriffen."
         """
         from ..job_scraper.health import check_source, get_probable_sources
-        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import (
+            ThreadPoolExecutor, as_completed, TimeoutError as _FuturesTimeout,
+        )
+        import time as _time
+
         targets = quellen if quellen else get_probable_sources()
+        # #762/#761: Hartes Wall-Clock-Budget mit Teilergebnis. Vorher wartete
+        # pool.map() auf ALLE Probes — bei haengenden Quellen lief der Aufruf in
+        # den 4-Minuten-MCP-Timeout ("No result received / server unresponsive")
+        # und lieferte gar nichts. Analog zu den Budget-Caps bei
+        # stellen_auto_aussortieren / stellen_bulk_bewerten.
+        budget = max(5, int(budget_sekunden or 90))
+        _start = _time.monotonic()
+        results: list = []
+        nicht_geprueft: list[str] = []
+        budget_gerissen = False
+
         if parallel and len(targets) > 1:
-            with ThreadPoolExecutor(max_workers=8) as pool:
-                results = list(pool.map(check_source, targets))
+            pool = ThreadPoolExecutor(max_workers=8)
+            futures = {pool.submit(check_source, s): s for s in targets}
+            try:
+                for fut in as_completed(futures, timeout=budget):
+                    try:
+                        results.append(fut.result())
+                    except Exception as exc:
+                        results.append({
+                            "source": futures[fut], "reachable": False,
+                            "error": str(exc)[:120],
+                        })
+            except _FuturesTimeout:
+                budget_gerissen = True
+                nicht_geprueft = [s for f, s in futures.items() if not f.done()]
+            finally:
+                # NICHT auf haengende Probes warten — sonst reissen wir den
+                # Client-Timeout trotz Budget.
+                pool.shutdown(wait=False, cancel_futures=True)
         else:
-            results = [check_source(s) for s in targets]
+            for s in targets:
+                if _time.monotonic() - _start > budget:
+                    budget_gerissen = True
+                    nicht_geprueft.append(s)
+                    continue
+                results.append(check_source(s))
+
         reachable = sum(1 for r in results if r.get("reachable"))
-        return {
+        antwort = {
             "count_total": len(results),
             "count_reachable": reachable,
             "count_unreachable": len(results) - reachable,
@@ -3368,6 +3464,20 @@ def register(mcp, db, logger):
                 "Ergaenzend zur Liefer-Statistik in scraper_diagnose."
             ),
         }
+        # #762/#761: Teilergebnis transparent machen statt still zu kuerzen.
+        if budget_gerissen:
+            antwort["abgebrochen"] = True
+            antwort["nicht_geprueft"] = nicht_geprueft
+            antwort["hinweis"] = (
+                f"TEILERGEBNIS: Budget von {budget}s erreicht — "
+                f"{len(nicht_geprueft)} Quelle(n) wurden nicht geprueft "
+                f"({', '.join(nicht_geprueft[:8])}"
+                f"{' ...' if len(nicht_geprueft) > 8 else ''}). "
+                "Die restlichen Ergebnisse sind gueltig. Fuer die offenen "
+                "Quellen gezielt nachfassen: quellen_health_check(quellen=[...]) "
+                "oder budget_sekunden erhoehen."
+            )
+        return antwort
 
     @mcp.tool()
     def quellen_aus_urls_korrigieren(dry_run: bool = True) -> dict:
