@@ -16,6 +16,107 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.8.0-beta.7] - 2026-07-22 — Scoring-Ehrlichkeit: Ausschluss-K.o., Kurztext-Scores, Health-Check-Budget (#762, #761)
+
+> ⚠️ **Pre-Release / Beta.** Stable bleibt **v1.7.7**. **KEINE Schema-Migration**
+> (Schema **v52** unveraendert) — rein additive Logik. Nach dem Update Claude
+> Desktop komplett beenden und neu starten.
+
+Bugfix-Welle aus dem manuellen Quellen- und Nachpflege-Durchgang vom 22.07.
+
+### Fixed
+
+- **#762.1 — Ausschluss-Keywords: Fehlalarm beim Volltext-Nachpflegen (Haupt-Bug).**
+  Nach dem Einfuegen einer echten Anzeige fiel der Score auf 0 (in der Session 3x
+  belegt: 59->0, 39->0, 15->0). Ursache war **nicht** der Recompute in
+  `stelle_bearbeiten` (der ist korrekt), sondern das **Fuzzy-Matching der
+  AUSSCHLUSS-Keywords**: bei einem Mehrwort-Keyword genuegte, dass dessen
+  Einzelwoerter *irgendwo* im Text vorkommen (Multi-Word-Split). Deterministisch
+  reproduziert: Ausschluss „Product Manager" feuerte auf einem PLM-Volltext, weil
+  'product' (in „product lifecycle") und 'manager' (in „manager der
+  Fachabteilung") in verschiedenen Saetzen standen. Je **laenger** der Text, desto
+  wahrscheinlicher der Fehlalarm — also ausgerechnet beim empfohlenen
+  Volltext-Nachpflegen. **Fix:** AUSSCHLUSS matcht jetzt strikt
+  (`_strict_keyword_match`: Wortgrenzen + zusammenhaengende Phrase, keine
+  Synonym-Expansion) — genau wie MINUS seit #755. Der **harte** K.o. ist damit
+  nicht mehr lockerer als die weiche Abwertung.
+- **#762.1b — K.o.-Grund ist sichtbar.** Faellt der Score doch auf 0, nennt
+  `stelle_bearbeiten` jetzt den Grund (welches Ausschluss-Keyword getroffen hat
+  bzw. „kein MUSS-Keyword gefunden") statt kommentarlos `neuer_score: 0`.
+- **#762.3 / #761 — `quellen_health_check` reisst keinen MCP-Timeout mehr.**
+  Neues hartes Wall-Clock-Budget (`budget_sekunden`, Default 90s, min 5s) mit
+  **Teilergebnis** statt „No result received" nach 4 Minuten. Haengende Probes
+  werden nicht mehr abgewartet (`shutdown(wait=False)`), offene Quellen kommen als
+  `nicht_geprueft` zurueck. Analog zu den Budget-Caps bei
+  `stellen_auto_aussortieren` / `stellen_bulk_bewerten`.
+
+### Changed
+
+- **#762.2 — Kurztext-Scores sind keine fachliche Absage mehr.** Stellen mit nur
+  einer Kurznotiz (typisch nach `stelle_manuell_anlegen`) wurden mit kuenstlich
+  niedrigem Score als „NICHT_EMPFOHLEN — Gap zu gross" abgeurteilt, obwohl die
+  Rolle fachlich passte. `fit_analyse` liefert jetzt `beschreibung_kurz`, und die
+  Empfehlung sagt ehrlich: „Score NICHT belastbar, ausdruecklich **keine**
+  fachliche Absage — Anzeigen-Volltext nachladen". Zusaetzlich maschinenlesbar
+  `score_zuverlaessig`.
+- **#762.4 — `stelle_manuell_anlegen` weist auf die fehlende Detail-URL hin.**
+  Ohne URL ist `stellenbeschreibung_nachladen` blockiert („Stelle hat keine
+  URL") — das Tool sagt das jetzt aktiv beim Anlegen, statt dass man erst spaeter
+  auflaeuft. Zusaetzlich ein Hinweis, wenn die Beschreibung zu kurz fuer einen
+  belastbaren Score ist.
+
+### Unter der Haube
+
+Neue Tests: `tests/test_v18_beta7_scoring_762.py` (7, inkl. deterministischem
+Fehlalarm-Nachweis). Keine Schema-Migration (v52). Suite: **2025 passed, 1
+skipped**. Hinweis: der OCR-Test braucht das `[docs]`-Extra (`pypdfium2`) —
+ohne das Paket meldet `ocr_pdf` korrekt `status=fehler`.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.7.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.7.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.6] - 2026-07-16 — Hotfix: Server-Freeze bei grossen Suchlaeufen (#760)
 
 > ⚠️ **Beta (Prerelease).** Stable bleibt **v1.7.7**. Empfohlenes Update

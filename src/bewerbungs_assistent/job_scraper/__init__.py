@@ -1835,9 +1835,20 @@ def calculate_score(job: dict, criteria: dict) -> int:
         job["_beschreibung_fehlt"] = True
 
     # AUSSCHLUSS keywords (check first for early exit)
+    # v1.8.0-beta.7 (#762): STRIKTES Matching wie bei MINUS (#755). Der harte
+    # K.o. darf nicht durch Fuzzy-/Synonym-/Multi-Word-Split-Treffer ausgeloest
+    # werden. Belegt: Ausschluss "Product Manager" feuerte auf einem PLM-
+    # Volltext, weil 'product' (in "product lifecycle") und 'manager' (in
+    # "der manager der fachabteilung") irgendwo im Text standen — Score fiel
+    # auf 0, obwohl die Rolle passte. Je LAENGER der Text, desto
+    # wahrscheinlicher der Fehlalarm — also genau beim empfohlenen
+    # Volltext-Nachpflegen. Der Grund wird am Job markiert, damit Tools
+    # erklaeren koennen, warum der Score 0 ist.
     ausschluss = criteria.get("keywords_ausschluss", [])
-    if any(_fuzzy_keyword_match(kw, text) for kw in ausschluss):
-        return 0
+    for _kw in ausschluss:
+        if _strict_keyword_match(_kw, text):
+            job["_ko_ausschluss"] = _kw
+            return 0
 
     # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
@@ -1855,6 +1866,8 @@ def calculate_score(job: dict, criteria: dict) -> int:
             if has_partial:
                 job["_score_unsicher"] = True
                 return 1  # Mindest-Score — Beschreibung nachladen!
+        # #762: K.o.-Grund markieren (kein MUSS-Keyword getroffen)
+        job["_ko_kein_muss"] = True
         return 0
 
     score = muss_found * w["muss"]
@@ -2083,6 +2096,12 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         "factors": factors,
         "risks": risks,
         "beschreibung_vorhanden": len(desc.strip()) >= 50,
+        # #762: Beschreibung da, aber nur eine Kurznotiz (typisch nach
+        # stelle_manuell_anlegen). Dann matchen kaum MUSS-Keywords -> der Score
+        # ist kuenstlich niedrig. Das ist KEIN fachliches Urteil, sondern
+        # fehlende Datengrundlage. Echte Anzeigen liegen deutlich ueber 400
+        # Zeichen; darunter behandeln wir den Score als nicht belastbar.
+        "beschreibung_kurz": 50 <= len(desc.strip()) < 400,
         "hochschulabschluss_gefordert": degree_required,
     }
 
