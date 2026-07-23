@@ -31,6 +31,7 @@ import {
   statusTone,
   textExcerpt,
 } from "@/utils";
+import { jobLinkInfo } from "@/lib/jobLink";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
@@ -1071,12 +1072,30 @@ export default function ApplicationsPage() {
                 {app.portal_name && (
                   <span className="text-xs text-muted/50">Portal: {app.portal_name}</span>
                 )}
-                {(app.url || timelineDialog.entry.job?.url) && (
-                  <a href={app.url || timelineDialog.entry.job?.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-sky hover:underline">
-                    <ExternalLink size={12} />
-                    Stellenanzeige öffnen
-                  </a>
-                )}
+                {/* #765: Frueher stand hier derselbe Text wie im Stellendetail-
+                    Block darunter — zwei Buttons "Stellenanzeige öffnen" mit
+                    unterschiedlichen Zielen, ohne erkennbaren Unterschied.
+                    Jetzt: bei identischer URL nur EIN Link (dieser hier),
+                    bei abweichender URL beide, aber eindeutig beschriftet. */}
+                {(() => {
+                  const jobUrl = (timelineDialog.entry.job?.url || "").trim();
+                  const appUrl = (app.url || "").trim();
+                  const url = appUrl || jobUrl;
+                  if (!url) return null;
+                  const weichtAb = appUrl && jobUrl && appUrl !== jobUrl;
+                  return (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={weichtAb ? "Die URL, die beim Erfassen der Bewerbung hinterlegt wurde" : undefined}
+                      className="inline-flex items-center gap-1 text-xs text-sky hover:underline"
+                    >
+                      <ExternalLink size={12} />
+                      {weichtAb ? "Anzeige zum Bewerbungszeitpunkt" : "Stellenanzeige öffnen"}
+                    </a>
+                  );
+                })()}
               </div>
               <div className="mt-1 flex items-center gap-2">
                 {app.applied_at && (
@@ -1218,11 +1237,39 @@ export default function ApplicationsPage() {
                   Gehalt: {formatCurrency(timelineDialog.entry.job.salary_min)}{timelineDialog.entry.job.salary_max ? ` bis ${formatCurrency(timelineDialog.entry.job.salary_max)}` : ""}{timelineDialog.entry.job.salary_estimated ? " (geschätzt)" : ""}
                 </p>
               ) : null}
-              {timelineDialog.entry.job.url && (
-                <a href={timelineDialog.entry.job.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm text-sky hover:underline">
-                  Stellenanzeige öffnen
-                </a>
-              )}
+              {/* #765: genau ein Link je Bedeutung. Dieser zeigt immer die
+                  AKTUELL verknuepfte Stelle (nach #764 dieselbe, die auch das
+                  MCP-Tool liefert). Er entfaellt, wenn die Bewerbung oben
+                  bereits denselben Link zeigt. */}
+              {(() => {
+                const link = jobLinkInfo(timelineDialog.entry.job);
+                const appUrl = (timelineDialog.entry.application?.url || "").trim();
+                if (link.art === "keine") {
+                  return (
+                    <p className="mt-2 text-xs text-amber/80">
+                      Zu dieser Stelle ist kein Link hinterlegt.
+                    </p>
+                  );
+                }
+                const weichtAb = appUrl && appUrl !== link.url;
+                if (appUrl && !weichtAb) return null; // oben schon gezeigt
+                return (
+                  <div className="mt-2">
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={weichtAb ? "Die aktuell verknuepfte Ausschreibung (z. B. nach einem Repost)" : undefined}
+                      className="inline-flex items-center gap-1 text-sm text-sky hover:underline"
+                    >
+                      {weichtAb ? "Aktuelle Ausschreibung" : link.label}
+                    </a>
+                    {link.hinweis ? (
+                      <p className="mt-1 text-xs text-amber/80">{link.hinweis}</p>
+                    ) : null}
+                  </div>
+                );
+              })()}
               {timelineDialog.entry.job.description && (
                 <details className="mt-3">
                   <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink">Stellenbeschreibung anzeigen</summary>

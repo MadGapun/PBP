@@ -3021,6 +3021,12 @@ class Database:
         Idempotent: gleiche Kombi gibt vorhandene ID zurueck. Wenn
         is_primary=True, wird zuvor jede andere Verknuepfung der Bewerbung
         auf is_primary=0 gesetzt (es gibt nur eine primary pro Bewerbung).
+
+        v1.7.9 (#764): `application_jobs` ist fuehrend — die Legacy-Spalte
+        `applications.job_hash` wird bei is_primary=True SYNCHRON mitgezogen.
+        Vorher liefen beide auseinander: die UI liest job_hash und zeigte
+        weiter die alte Stellenversion (toter Link, alter Score), obwohl die
+        Verknuepfung laengst umgehaengt war.
         """
         conn = self.connect()
         # v1.7.0: Hash auf scoped Form aufloesen (Format B aus #574)
@@ -3042,6 +3048,11 @@ class Database:
                     "UPDATE application_jobs SET is_primary=1 WHERE id=?",
                     (existing["id"],)
                 )
+                # #764: Legacy-Spalte mitziehen
+                conn.execute(
+                    "UPDATE applications SET job_hash=?, updated_at=? WHERE id=?",
+                    (job_hash, _now(), application_id)
+                )
                 conn.commit()
             return existing["id"]
         if is_primary:
@@ -3057,18 +3068,64 @@ class Database:
             (aj_id, application_id, job_hash, version_label or None,
              1 if is_primary else 0, _now())
         )
+        # #764: Legacy-Spalte mitziehen. Auch wenn die Bewerbung bisher gar
+        # keinen job_hash hatte, wird die erste Verknuepfung dort gespiegelt —
+        # sonst bleiben Leser wie die Timeline/UI blind.
+        if is_primary:
+            conn.execute(
+                "UPDATE applications SET job_hash=?, updated_at=? WHERE id=?",
+                (job_hash, _now(), application_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE applications SET job_hash=?, updated_at=? "
+                "WHERE id=? AND (job_hash IS NULL OR job_hash='')",
+                (job_hash, _now(), application_id)
+            )
         conn.commit()
         return aj_id
 
     def unlink_application_job(self, application_id: str, job_hash: str) -> bool:
+        """Entfernt eine Stellen-Verknuepfung.
+
+        v1.7.9 (#764): Zieht die Legacy-Spalte `applications.job_hash` mit.
+        Wenn die entfernte Stelle die dort eingetragene war, ruecken wir auf
+        die naechste verbleibende Verknuepfung (bevorzugt is_primary) nach —
+        bzw. leeren das Feld, wenn keine mehr existiert. Vorher blieb ein
+        verwaister Verweis stehen und die UI zeigte die entknuepfte Stelle
+        weiter an.
+        """
         conn = self.connect()
         resolved = self.resolve_job_hash(job_hash) or job_hash
         cur = conn.execute(
             "DELETE FROM application_jobs WHERE application_id=? AND job_hash=?",
             (application_id, resolved)
         )
+        geloescht = cur.rowcount > 0
+        if geloescht:
+            row = conn.execute(
+                "SELECT job_hash FROM applications WHERE id=?", (application_id,)
+            ).fetchone()
+            if row and (row["job_hash"] or "") == resolved:
+                nachfolger = conn.execute(
+                    "SELECT job_hash FROM application_jobs WHERE application_id=? "
+                    "ORDER BY is_primary DESC, added_at DESC LIMIT 1",
+                    (application_id,)
+                ).fetchone()
+                neu = nachfolger["job_hash"] if nachfolger else None
+                conn.execute(
+                    "UPDATE applications SET job_hash=?, updated_at=? WHERE id=?",
+                    (neu, _now(), application_id)
+                )
+                # Der Nachrueckende ist ab jetzt die primaere Stelle.
+                if neu:
+                    conn.execute(
+                        "UPDATE application_jobs SET is_primary=1 "
+                        "WHERE application_id=? AND job_hash=?",
+                        (application_id, neu)
+                    )
         conn.commit()
-        return cur.rowcount > 0
+        return geloescht
 
     def get_jobs_for_application(self, application_id: str) -> list[dict]:
         """Alle Stellen, die mit einer Bewerbung verknuepft sind.
@@ -4561,6 +4618,22 @@ class Database:
                 "UPDATE applications SET has_reached_interview=1 WHERE id=?",
                 (aid,)
             )
+        # v1.7.9 (#764): Junction-Eintrag sofort mit anlegen. Die #472-Migration
+        # (v34) hat den Bestand einmalig backfilled, aber seitdem entstand fuer
+        # JEDE neue Bewerbung wieder ein Drift: applications.job_hash gesetzt,
+        # application_jobs leer (Fall `2dbd0571` aus dem Issue). Damit lief die
+        # Junction als "fuehrende" Tabelle strukturell leer.
+        if stored_job_hash:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO application_jobs "
+                    "(id, application_id, job_hash, is_primary, added_at) "
+                    "VALUES (?, ?, ?, 1, ?)",
+                    (_gen_id(), aid, stored_job_hash, now)
+                )
+            except Exception as exc:
+                logger.warning("application_jobs-Backfill fuer %s fehlgeschlagen: %s",
+                               aid, exc)
         conn.commit()
         # Auto-link documents by company name match
         self._auto_link_documents(aid, data.get("company", ""))

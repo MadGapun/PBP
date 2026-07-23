@@ -42,5 +42,10 @@ jobs:
         # steht. Nutzt den auf den Runnern vorinstallierten Node, kein Framework.
         run: TZ=UTC node frontend/src/lib/relativeDate.test.mjs
 
+      - name: Frontend-Link-Klassifikation (#765)
+        # Haelt die Frontend-Heuristik mit is_search_result_url (#763) im
+        # Backend synchron — dieselben Faelle auf beiden Seiten.
+        run: node frontend/src/lib/jobLink.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

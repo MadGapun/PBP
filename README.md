@@ -10,8 +10,8 @@
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Stable](https://img.shields.io/badge/Stable-v1.7.7-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-1911-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP_Tools-181-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
+[![Tests](https://img.shields.io/badge/Tests-2000-brightgreen.svg)](#tests)
+[![Tools](https://img.shields.io/badge/MCP_Tools-183-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
 [![Workflows](https://img.shields.io/badge/Workflows-25-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
 [![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
@@ -200,12 +200,12 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 181 Tools in 11 Modulen |
+| **MCP-Tools** | 183 Tools in 11 Modulen |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
 | **Dashboard** | 9 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 1911 bestanden (1 uebersprungen) |
+| **Tests** | 1999 bestanden (1 uebersprungen) |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -246,7 +246,7 @@ Ueber 100 Beta-Iterationen Richtung v1.7.0 — **seit 2026-06-18 als Stable (`--
 - **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
 - **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
 - **Laufende Bugfix-Wellen (beta.103–108)** — DB-Kontention, Zeitanzeige (Europe/Berlin), Scraper-Robustheit (Fehlerklassifikation), Geo-Filter fuer nicht-DACH Stellen, Stilarchiv-Autosave, korrekte Interview-Quote
-- Stand: 181 MCP-Tools, 25 Prompts, Schema v48, ueber 1900 Tests
+- Stand: 183 MCP-Tools, 25 Prompts, Schema v48, ueber 1990 Tests
 
 ### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
 

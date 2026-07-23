@@ -1432,6 +1432,16 @@ _SEARCH_URL_PATH_PATTERNS = (
     "/jobs?",                 # indeed.de/jobs?q=
     "/jobs/suche",            # xing.com/jobs/suche?...
     "/suche?",                # generic /suche?q=
+    "/jobsuche/suche",        # arbeitsagentur.de/jobsuche/suche (auch ohne ?)
+)
+# v1.7.9 (#763): Pfade, die als GANZER Pfad (Portal-Wurzel, ohne weiteren
+# Slug-Anteil) eine Suchseite sind — z.B. indeed.de/jobs, xing.com/jobs,
+# arbeitsagentur.de/jobsuche. Bewusst NUR als exakter Pfad: "/jobs/12345"
+# ist eine echte XING-Detail-URL und darf NICHT als Suche gelten, sonst
+# blockieren wir stellenbeschreibung_nachladen (Regression).
+_SEARCH_URL_BARE_PATHS = (
+    "/jobs", "/jobsuche", "/stellenangebote", "/stellenmarkt",
+    "/suche", "/projekte", "/jobboerse",
 )
 _SEARCH_URL_QUERY_KEYS = (
     "query=", "keywords=", "q=", "skills=", "search=",
@@ -1470,22 +1480,40 @@ def is_search_result_url(url: str) -> bool:
     if not u.startswith(("http://", "https://")):
         return False
 
-    # Detail markers win. We require at least one alphanumeric char after
-    # the marker so ".../projekt/" (empty suffix) stays a search-style URL.
-    for marker in _DETAIL_URL_PATH_MARKERS:
-        idx = u.find(marker)
-        if idx < 0:
-            continue
-        rest = u[idx + len(marker):]
-        if re.match(r"[a-z0-9]", rest):
-            return False
-
     # Strip scheme+host to look at path+query only
     try:
         without_scheme = u.split("://", 1)[1]
+        host = without_scheme.split("/", 1)[0]
         path_and_query = "/" + without_scheme.split("/", 1)[1] if "/" in without_scheme else "/"
     except Exception:
+        host = ""
         path_and_query = u
+    path_only = path_and_query.split("?", 1)[0].split("#", 1)[0]
+
+    # Detail markers win. We require at least one alphanumeric char after
+    # the marker so ".../projekt/" (empty suffix) stays a search-style URL.
+    # v1.7.9 (#763): nur gegen den PFAD pruefen — sonst wuerde eine Such-URL
+    # mit "?ref=/jobs/view/123" faelschlich als Detail-URL durchgehen.
+    for marker in _DETAIL_URL_PATH_MARKERS:
+        idx = path_only.find(marker)
+        if idx < 0:
+            continue
+        rest = path_only[idx + len(marker):]
+        if re.match(r"[a-z0-9]", rest):
+            return False
+
+    # v1.7.9 (#763): Portal-Wurzel als GANZER Pfad = Suchseite
+    # (indeed.de/jobs, xing.com/jobs, arbeitsagentur.de/jobsuche).
+    if path_only.rstrip("/") in _SEARCH_URL_BARE_PATHS:
+        return True
+
+    # v1.7.9 (#763): stepstone-SEO-Suchpfade. PBP baut diese Form in
+    # handoff.py SELBST ("/jobs/{keyword_pfad}"), erkannte sie aber nicht.
+    # Detail-URLs von stepstone tragen "--" im Slug (_DETAIL_URL_PATH_MARKERS
+    # "/stellenangebote--"), Suchpfade nicht.
+    if "stepstone." in host and "--" not in path_only:
+        if path_only.startswith(("/jobs/", "/stellenangebote/")):
+            return True
 
     for pat in _SEARCH_URL_PATH_PATTERNS:
         if pat in path_and_query:

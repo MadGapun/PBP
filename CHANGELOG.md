@@ -16,6 +16,156 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.9] - 2026-07-23 — Verfolgbarkeit: Link zur Anzeige, Anker-Pflicht, Bestands-Heilung (#763, #764, #765, #766)
+
+> **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration
+> (Schema **v48** unveraendert) — rein additive Logik plus zwei neue Tools.
+> Nach dem Update Claude Desktop komplett beenden und neu starten.
+> Dieselben Fixes stecken parallel in der v1.8-Beta-Linie (beta.8).
+>
+> **Wichtig nach dem Update:** einmal `stellen_urls_heilen()` und
+> `bewerbungs_stellen_abgleichen()` laufen lassen (beide mit `dry_run=True`
+> als Default — erst Vorschau, dann anwenden). Bestehende Daten heilen sich
+> nicht von selbst.
+
+### Fixed
+
+- **#763 — Such-URLs wurden nicht als solche erkannt, Bestand blieb ungeheilt.**
+  Zwei Befunde. (1) `is_search_result_url` uebersah pfadbasierte Such-URLs ohne
+  Query-Parameter — darunter ausgerechnet die Form, die PBP fuer den
+  Portal-Aufruf **selbst baut** (`stepstone.de/jobs/{keyword}/in-{ort}`). Fuenf Luecken
+  geschlossen (`/jobs`, `/jobsuche`, `/stellenangebote`, `/suche`,
+  `/jobsuche/suche` und die StepStone-SEO-Form), ohne dass eine echte
+  Detail-URL faelschlich als Suche gilt — die Detail-Marker werden jetzt gegen
+  den PFAD statt gegen die ganze URL geprueft, sonst haette
+  `xing.com/jobs/hamburg-plm-manager-123456` mitgerissen. (2) Das
+  Akzeptanzkriterium AK5 aus #645 (Bestands-Heilung) war nie umgesetzt: der
+  Scraper-Fix wirkte nur auf NEUE Laeufe. Neues Tool `stellen_urls_heilen()`
+  reklassifiziert `is_search_url` in **beiden** Richtungen (auch zurueck auf 0,
+  wenn eine echte Detail-URL nachgepflegt wurde — sonst bleibt
+  `stellenbeschreibung_nachladen` dauerhaft blockiert) und traegt bei leerer URL
+  eine gezielte Such-URL nach.
+  **Ehrliche Grenze:** echte Detail-URLs sind aus dem Bestand NICHT
+  rekonstruierbar — die Portal-IDs wurden beim INSERT nie persistiert. Die
+  Heilung kann nur korrekt klassifizieren und eine SUCH-URL nachtragen; diese
+  wird dann auch ehrlich als solche markiert. Stellen, deren Quelle kein
+  Handoff-Template hat, kommen als `nicht_heilbar` zurueck statt still leer zu
+  bleiben.
+
+- **#764 — `applications.job_hash` und `application_jobs` liefen auseinander.**
+  Belegter Fall: eine Bewerbung wurde von einer veralteten Anzeige auf den
+  Repost umgehaengt; die Junction war korrekt, die Legacy-Spalte `job_hash`
+  blieb auf der ALTEN Stelle stehen. Die UI liest `job_hash` und zeigte weiter
+  die tote Anzeige mit dem alten Score. Ursachen an drei Stellen:
+  `link_application_to_job` und `unlink_application_job` zogen die Legacy-Spalte
+  nicht mit, und `add_application` legte ueberhaupt keine Junction-Zeile an —
+  seit v34 lief die Junction fuer alles strukturell leer, was nicht explizit
+  verknuepft wurde. Ab jetzt ist `application_jobs` **fuehrend** und die
+  Legacy-Spalte wird synchron gehalten (beim Entknuepfen der primaeren Stelle
+  rueckt die naechste Verknuepfung nach, bei der letzten wird geleert statt
+  einen verwaisten Verweis zu hinterlassen). Neues Tool
+  `bewerbungs_stellen_abgleichen()` heilt den Bestand (fehlende Junction,
+  leerer `job_hash`, Divergenz, nicht normalisierte Primaer-Markierung, plus
+  verwaiste Junction-Zeilen).
+
+- **#765 — Link zur Original-Anzeige fehlte oder war mehrdeutig.**
+  (1) In der Stellendetail-Ansicht fehlte bei leerer URL **kommentarlos** der
+  Link. Jetzt gibt es immer eine sichtbare Aussage: Link, oder ein Hinweis,
+  dass die URL auf eine Trefferliste zeigt, oder ein Hinweis, dass gar kein
+  Link hinterlegt ist — kein stiller toter Link und kein leeres Feld mehr.
+  (2) In der Bewerbungs-Timeline standen **zwei Buttons mit identischer
+  Beschriftung** „Stellenanzeige öffnen" auf unterschiedlichen URLs, ohne dass
+  erkennbar war, welcher der richtige ist. Jetzt: bei gleicher URL genau EIN
+  Link; bei abweichender URL beide, aber eindeutig als „Anzeige zum
+  Bewerbungszeitpunkt" und „Aktuelle Ausschreibung" beschriftet.
+
+### Added
+
+- **#766 — Anker-Pflicht: keine Stelle ohne Verfolgbarkeit.** Praxis-Fall
+  23.07.2026: von acht aktiven Stellen hatte **keine einzige** einen
+  nachvollziehbaren Weg zur Original-Ausschreibung. Mehrere davon waren mit
+  einer zusammenfassenden **Notiz statt der echten Anzeige** als Beschreibung
+  angelegt — ohne URL, ohne Kontakt. Folge: kein Nachladen moeglich, Score
+  kuenstlich niedrig, und eine Bewerbung waere nur gegen die Zusammenfassung
+  formulierbar gewesen statt gegen die echten Anforderungen.
+  Neuer Helper `services/stellen_anker.py`: eine Stelle gilt als verfolgbar,
+  wenn sie mindestens **einen** von drei Ankern hat — Detail-URL, verknuepftes
+  Dokument mit der Anzeige, oder Ansprechpartner. Eine reine Such-URL zaehlt
+  bewusst NICHT, und eine lange `description` auch nicht: genau die
+  Claude-Zusammenfassung liest sich wie eine Anzeige, ist aber keine.
+  Wirksam an drei Stellen: `stelle_manuell_anlegen` warnt (`anker_warnung`) und
+  nimmt neu `kontakt_name`/`kontakt_email`/`kontakt_telefon` entgegen — bei
+  Vermittler-Stellen mit unbekanntem Endkunden ist der Recruiter-Kontakt oft
+  das Einzige, was es gibt; `stellen_anzeigen` markiert ankerlose Stellen
+  sichtbar statt sie wie normale Treffer darzustellen; und `bewerbung_erstellen`
+  benennt den Zustand am Uebergang zur Bewerbung mit einem konkreten naechsten
+  Schritt. Bewusst **kein harter Block**: die Eingaben zu verwerfen waere
+  schlimmer als der fehlende Anker. Die Anker-Pflicht steht ausserdem in der
+  Tool-Beschreibung von `stelle_manuell_anlegen`, damit sie modellseitig
+  durchgesetzt wird und nicht von der Tagesform abhaengt.
+
+- **Zwei neue MCP-Tools** (jetzt **183**): `stellen_urls_heilen(dry_run=True,
+  nur_aktive=True)` und `bewerbungs_stellen_abgleichen(dry_run=True)`. Beide
+  idempotent, beide mit Vorschau als Default.
+
+### Changed
+
+- Frontend-Link-Klassifikation (`frontend/src/lib/jobLink.js`) spiegelt
+  `is_search_result_url` aus dem Backend; ein CI-Schritt prueft **dieselben
+  Faelle auf beiden Seiten**, damit die zwei Implementierungen nicht
+  auseinanderlaufen.
+
+### Tests
+
+- `tests/test_v179_url_heilung_763.py` (19), `tests/test_v179_verknuepfung_764.py`
+  (9), `tests/test_v179_anker_766.py` (12), `frontend/src/lib/jobLink.test.mjs`
+  (22 Faelle). Suite in der 1.7-Linie: **1999 passed, 1 skipped**.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.9.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.9.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.8] - 2026-07-22 — Hotfix: Ausschluss-K.o. feuerte beim Volltext-Nachpflegen (#762, #761)
 
 > **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration

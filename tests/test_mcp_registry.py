@@ -58,6 +58,10 @@ EXPECTED_TOOL_NAMES = {
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
+    # v1.7.9 (#763/#764): Bestands-Heilung fuer URL-Qualitaet und die
+    # Divergenz zwischen applications.job_hash und application_jobs
+    "stellen_urls_heilen",
+    "bewerbungs_stellen_abgleichen",
     "profile_auflisten",
     "profil_wechseln",
     "neues_profil_erstellen",
@@ -318,7 +322,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 181  # v1.7.7: + dokument_text_setzen (#750), + firma_kontext (#753)
+        assert len(tools) == 183  # v1.7.9 (#763/#764): + stellen_urls_heilen + bewerbungs_stellen_abgleichen; davor v1.7.7 181
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
