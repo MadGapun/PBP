@@ -1,14 +1,14 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.8.0-beta.7",
+  "version": "1.8.0-beta.8",
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "pnpm exec vite",
     "build": "pnpm exec vite build",
     "preview": "pnpm exec vite preview",
-    "test": "node src/lib/relativeDate.test.mjs"
+    "test": "node src/lib/relativeDate.test.mjs && node src/lib/jobLink.test.mjs"
   },
   "keywords": [],
   "author": "",

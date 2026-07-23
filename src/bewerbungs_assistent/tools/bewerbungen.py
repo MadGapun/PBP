@@ -699,6 +699,46 @@ def register(mcp, db, logger):
         if auto_followup_id:
             result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
 
+        # #766: Anker-Pruefung am Uebergang Stelle -> Bewerbung. Die eigentliche
+        # Gefahr ist nicht die fehlende URL, sondern dass Anschreiben und CV
+        # gegen eine Zusammenfassung optimiert werden statt gegen die echte
+        # Ausschreibung — ohne dass jemand die Anzeige je gesehen hat.
+        # Bewusst KEIN Block: die Bewerbung ist bereits erfasst, das Verwerfen
+        # der Eingaben waere schlimmer als der fehlende Anker.
+        try:
+            from ..services.stellen_anker import anker_status
+            _job_fuer_anker = db.get_job(effective_hash) if effective_hash else None
+            if _job_fuer_anker:
+                _anker = anker_status(db, _job_fuer_anker)
+                # Ansprechpartner auf Bewerbungsebene zaehlt als Kontakt-Anker
+                # (bei Vermittler-Stellen oft das Einzige, was es gibt).
+                if not _anker["hat_anker"] and (ansprechpartner or kontakt_email):
+                    _anker = {"hat_anker": True, "anker": ["kontakt"],
+                              "url_art": _anker["url_art"]}
+                result["anker"] = _anker["anker"]
+                if not _anker["hat_anker"]:
+                    result["anker_warnung"] = (
+                        "Zu dieser Bewerbung gibt es KEINE nachvollziehbare "
+                        "Ausschreibung (weder Detail-URL noch Dokument noch "
+                        "Ansprechpartner)."
+                        + (" Die hinterlegte URL ist eine Suchergebnis-Seite."
+                           if _anker["url_art"] == "suche" else "")
+                        + " Unterlagen jetzt zu erstellen hiesse, sie gegen "
+                        "eine Zusammenfassung zu optimieren statt gegen die "
+                        "echten Anforderungen."
+                    )
+                    result["anker_naechster_schritt"] = (
+                        "ZUERST die Anzeige beschaffen: Original-Link per "
+                        f"stelle_bearbeiten('{effective_hash[:8]}', url=...) "
+                        "nachtragen und stellenbeschreibung_nachladen() "
+                        "aufrufen, oder die Anzeige als Dokument hochladen, "
+                        "oder den Ansprechpartner per bewerbung_bearbeiten() "
+                        "erfassen. Dann pruefen, ob die Stelle noch aktiv ist "
+                        "— erst danach Anschreiben und Lebenslauf."
+                    )
+        except Exception:
+            pass  # Anker-Pruefung darf das Anlegen nie kippen
+
         # #170: Bei in_vorbereitung direkt die nächsten Schritte zeigen
         if status == "in_vorbereitung":
             result["nächste_schritte"] = _get_context_actions("in_vorbereitung")

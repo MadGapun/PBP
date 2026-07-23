@@ -16,6 +16,7 @@ import { ExternalLink, X } from "lucide-react";
 import { api } from "@/api";
 import { Button, Modal } from "@/components/ui";
 import { formatCurrency, formatDateTime, textExcerpt } from "@/utils";
+import { jobLinkInfo } from "@/lib/jobLink";
 
 export default function InlineJobDetailModal({ jobHash, onClose }) {
   const [job, setJob] = useState(null);
@@ -109,6 +110,22 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
             </details>
           )}
 
+          {/* #765: kein stiller toter Link und kein leeres Feld — der Weg zur
+              Original-Anzeige ist sichtbar oder wird erklaert. */}
+          {(() => {
+            const link = jobLinkInfo(job);
+            if (link.art === "keine") {
+              return (
+                <p className="pt-2 text-xs text-amber/80">
+                  Kein Link zur Original-Anzeige hinterlegt — die Stelle muss auf dem Portal gesucht werden.
+                </p>
+              );
+            }
+            return link.hinweis ? (
+              <p className="pt-2 text-xs text-amber/80">{link.hinweis}</p>
+            ) : null;
+          })()}
+
           <div className="flex gap-2 pt-2">
             {job.url && (
               <Button
@@ -117,7 +134,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
                 onClick={() => window.open(job.url, "_blank", "noopener")}
               >
                 <ExternalLink size={14} />
-                Original-URL
+                {jobLinkInfo(job).art === "suche" ? "Suchergebnis-Seite" : "Original-URL"}
               </Button>
             )}
             <Button variant="secondary" size="sm" onClick={onClose}>

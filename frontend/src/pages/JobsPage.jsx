@@ -20,6 +20,7 @@ import {
   TextInput,
 } from "@/components/ui";
 import { cn, formatCurrency, formatDateTime, textExcerpt } from "@/utils";
+import { jobLinkInfo } from "@/lib/jobLink";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 
@@ -1505,11 +1506,29 @@ export default function JobsPage() {
                   {detailDialog.job.salary_estimated ? " (geschaetzt)" : ""}
                 </p>
               ) : null}
-              {detailDialog.job.url ? (
-                <a href={detailDialog.job.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
-                  <ExternalLink size={14} /> Stellenanzeige oeffnen
-                </a>
-              ) : null}
+              {/* #765: nie ein stiller toter Link und nie ein leeres Feld —
+                  der Weg zur Original-Anzeige ist sichtbar oder erklaert. */}
+              {(() => {
+                const link = jobLinkInfo(detailDialog.job);
+                if (link.art === "keine") {
+                  return (
+                    <p className="text-sm text-amber/80">
+                      Kein Link zur Original-Anzeige hinterlegt — Bewerbung ist so nicht moeglich.
+                      Die Stelle auf dem Portal suchen und die URL per <code>stelle_bearbeiten</code> nachtragen.
+                    </p>
+                  );
+                }
+                return (
+                  <div>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
+                      <ExternalLink size={14} /> {link.label}
+                    </a>
+                    {link.hinweis ? (
+                      <p className="mt-1 text-xs text-amber/80">{link.hinweis}</p>
+                    ) : null}
+                  </div>
+                );
+              })()}
               {jobNeedsDescriptionAttention(detailDialog.job) ? (
                 <Card className="rounded-xl border-amber/20 bg-amber/10 shadow-none">
                   <p className="text-sm font-semibold text-ink">Beschreibung zuerst nachziehen</p>

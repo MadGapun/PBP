@@ -4,6 +4,7 @@ import re
 import threading
 from collections import Counter
 from typing import Optional
+from urllib.parse import quote_plus
 
 
 def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
@@ -1683,6 +1684,18 @@ def register(mcp, db, logger):
                         "Diese URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
                         "Stellenanzeige. Suche die Stelle manuell auf dem Portal."
                     )
+            # #766: Stellen ohne jeden Anker (URL/Dokument/Kontakt) sichtbar
+            # markieren, statt sie wie normale Treffer darzustellen.
+            from ..services.stellen_anker import anker_status as _anker_status
+            _a = _anker_status(db, j)
+            if not _a["hat_anker"]:
+                entry["ohne_anker"] = True
+                entry["anker_hinweis"] = (
+                    "Nicht verfolgbar: keine Detail-URL, kein Dokument, kein "
+                    "Ansprechpartner. So ist keine Bewerbung moeglich."
+                )
+            elif _a["anker"] != ["url_detail"]:
+                entry["anker"] = _a["anker"]
             formatted.append(entry)
 
         result = {
@@ -1708,6 +1721,17 @@ def register(mcp, db, logger):
                 f"{unbewertet_gesamt} Stellen haben Score 0 nur weil die "
                 "Beschreibung fehlt — das ist KEIN Urteil. Vor dem "
                 "Aussortieren: stellenbeschreibung_nachladen(hash)."
+            )
+        # #766: Anker-Lage ueber die angezeigte Seite zusammenfassen.
+        ohne_anker = sum(1 for e in formatted if e.get("ohne_anker"))
+        if ohne_anker and filter != "aussortiert":
+            result["ohne_anker_anzahl"] = ohne_anker
+            result["ohne_anker_hinweis"] = (
+                f"{ohne_anker} der angezeigten Stellen sind nicht verfolgbar "
+                "(keine Detail-URL, kein Dokument, kein Ansprechpartner). "
+                "Bestand heilen: stellen_urls_heilen(dry_run=True) traegt "
+                "wo moeglich eine Such-URL nach; den Rest per "
+                "stelle_bearbeiten(url=...) oder Kontakt ergaenzen."
             )
         if filter == "aktiv":
             result["hinweis"] = (
@@ -1904,12 +1928,33 @@ def register(mcp, db, logger):
         remote: str = "unbekannt",
         stellenart: str = "festanstellung",
         force: bool = False,
+        kontakt_name: str = "",
+        kontakt_email: str = "",
+        kontakt_telefon: str = "",
     ) -> dict:
         """Legt eine Stelle manuell an (z.B. von LinkedIn/XING via Claude-in-Chrome) (#160).
 
         Nutze dieses Tool, um Stellen aus externen Quellen (LinkedIn, XING,
         Firmen-Webseiten) in PBP zu uebertragen. Die Stelle wird automatisch
         bewertet und erscheint in stellen_anzeigen().
+
+        ⛔ ANKER-PFLICHT (#766) — VOR dem Aufruf beachten:
+        Jede Stelle braucht mindestens EINEN dieser drei Anker, sonst ist sie
+        fuer den Nutzer wertlos (er kann sich nicht bewerben und die Anzeige
+        nicht nachladen):
+
+          1. `url` — die DETAIL-URL der Anzeige (nicht die Suchergebnis-Seite)
+          2. `kontakt_name`/`kontakt_email`/`kontakt_telefon` — der
+             Ansprechpartner. Bei Vermittler-Stellen mit unbekanntem
+             Endkunden ist der Recruiter-Kontakt oft das Einzige, was es gibt.
+          3. Die Anzeige als Dokument hochladen (nach dem Anlegen).
+
+        Eine zusammenfassende NOTIZ ist KEIN gueltiger Ersatz fuer die
+        Beschreibung. Wenn beim Scrapen oder in der Browser-Recherche keine
+        Detail-URL greifbar ist, dann stattdessen den ANZEIGENTEXT vollstaendig
+        uebernehmen UND den Kontakt festhalten. Ohne Anker wird die Stelle zwar
+        angelegt, aber im Result steht eine `anker_warnung` — die gehoert
+        ungefiltert an den Nutzer weitergegeben.
 
         WICHTIG: Vor dem Anlegen wird automatisch geprueft ob bereits eine
         Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei klarem
@@ -1934,6 +1979,10 @@ def register(mcp, db, logger):
             remote: Remote-Level ('remote', 'hybrid', 'vor_ort', 'unbekannt')
             stellenart: Art der Stelle ('festanstellung', 'freelance', 'praktikum', 'werkstudent')
             force: True = erkanntes Duplikat ignorieren und trotzdem anlegen (#670).
+            kontakt_name: Ansprechpartner/Recruiter — wird als Kontakt angelegt
+                und mit der Stelle verknuepft (Anker #766).
+            kontakt_email: E-Mail des Ansprechpartners.
+            kontakt_telefon: Telefonnummer des Ansprechpartners.
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
@@ -2105,6 +2154,24 @@ def register(mcp, db, logger):
 
         db.save_jobs([job])
 
+        # #766: Kontakt als Anker. Wird VOR der Anker-Pruefung angelegt, damit
+        # eine Stelle mit Recruiter-Kontakt (Vermittler ohne bekannten
+        # Endkunden!) nicht faelschlich als ankerlos gemeldet wird.
+        kontakt_angelegt = None
+        if (kontakt_name or kontakt_email or kontakt_telefon):
+            try:
+                cid = db.add_contact({
+                    "full_name": (kontakt_name or "").strip() or f"Ansprechpartner {firma}",
+                    "email": (kontakt_email or "").strip(),
+                    "phone": (kontakt_telefon or "").strip(),
+                    "company": firma,
+                    "tags": ["recruiter"] if quelle != "firmenwebsite" else [],
+                })
+                db.link_contact(cid, "job", job_hash, role="ansprechpartner")
+                kontakt_angelegt = {"id": cid[:8], "name": kontakt_name or firma}
+            except Exception as e:  # Kontakt darf das Anlegen nie kippen
+                kontakt_angelegt = {"fehler": str(e)}
+
         result = {
             "status": "angelegt",
             "id": job_hash[:8],
@@ -2163,6 +2230,23 @@ def register(mcp, db, logger):
                 "konkrete Stellenanzeige. Die Stelle wurde trotzdem angelegt, aber der "
                 "Link wird zur Such-Seite zurueckfuehren. Falls moeglich die Detail-URL "
                 "der Stellenanzeige statt der Suchergebnis-URL nutzen."
+            )
+        # #766: Anker-Pflicht. Die Stelle wird bewusst NICHT abgelehnt (das
+        # wuerde bestehende Flows brechen und die schon eingegebenen Daten
+        # verwerfen) — aber der Zustand wird hart benannt statt still
+        # hingenommen.
+        if kontakt_angelegt and "id" in kontakt_angelegt:
+            result["kontakt"] = kontakt_angelegt
+        from ..services.stellen_anker import anker_status
+        _anker = anker_status(db, job)
+        result["anker"] = _anker["anker"]
+        if not _anker["hat_anker"]:
+            result["anker_warnung"] = _anker["warnung"]
+            if _anker.get("hinweis_such_url"):
+                result["anker_warnung"] += " " + _anker["hinweis_such_url"]
+            result["nachricht"] += (
+                " ⚠ OHNE ANKER — diese Stelle ist so nicht verfolgbar "
+                "(siehe anker_warnung)."
             )
         return result
 
@@ -3782,6 +3866,282 @@ def register(mcp, db, logger):
                 if dry_run else
                 f"{applied} Stellen umgestellt. Konversion in der Quellen-"
                 "Statistik des Bewerbungsbericht jetzt korrekter."
+            ),
+        }
+
+    @mcp.tool()
+    def bewerbungs_stellen_abgleichen(dry_run: bool = True) -> dict:
+        """v1.7.9 (#764): Gleicht `applications.job_hash` und `application_jobs` ab.
+
+        Hintergrund: Die Junction-Tabelle aus #472 wurde bei der Migration v34
+        EINMALIG befuellt. Seitdem lief beides auseinander — die UI liest
+        `applications.job_hash`, `bewerbung_stellen_anzeigen` liest die
+        Junction. Folge: nach dem Umhaengen einer Bewerbung auf einen Repost
+        zeigte die Oberflaeche weiter die alte Version mit totem Link.
+
+        Fuehrend ist `application_jobs`. Geheilt werden vier Faelle:
+
+        1. `job_hash` gesetzt, kein Junction-Eintrag -> Eintrag (is_primary=1)
+           nachtragen.
+        2. Junction vorhanden, `job_hash` leer -> aus der primaeren
+           Verknuepfung zurueckschreiben.
+        3. Beide gesetzt, aber verschieden -> Junction gewinnt, `job_hash`
+           wird darauf gezogen.
+        4. Kein oder mehrere `is_primary` pro Bewerbung -> auf genau einen
+           normalisieren (juengste Verknuepfung gewinnt).
+
+        Zusaetzlich werden verwaiste Junction-Zeilen gemeldet (Bewerbung oder
+        Stelle existiert nicht mehr) — geloescht werden sie nur mit
+        dry_run=False.
+
+        Args:
+            dry_run: True (Default) = nur Vorschau, kein Schreibvorgang.
+
+        Idempotent: ein zweiter Lauf findet 0 Abweichungen.
+        """
+        from ..database import _gen_id
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        apps = conn.execute(
+            "SELECT id, job_hash, company, title FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchall()
+
+        changes: list[dict] = []
+        applied = 0
+
+        def _apply(sql: str, params: tuple) -> None:
+            nonlocal applied
+            if not dry_run:
+                conn.execute(sql, params)
+                applied += 1
+
+        for a in apps:
+            aid = a["id"]
+            jh = (a["job_hash"] or "").strip()
+            links = conn.execute(
+                "SELECT job_hash, is_primary FROM application_jobs "
+                "WHERE application_id=? ORDER BY is_primary DESC, added_at DESC",
+                (aid,)
+            ).fetchall()
+            basis = {"bewerbung": aid[:8],
+                     "firma": (a["company"] or "")[:40],
+                     "titel": (a["title"] or "")[:50]}
+
+            if jh and not links:
+                changes.append({**basis, "fall": "junction_fehlt",
+                                "job_hash": jh[-12:]})
+                _apply("INSERT OR IGNORE INTO application_jobs "
+                       "(id, application_id, job_hash, is_primary, added_at) "
+                       "VALUES (?, ?, ?, 1, datetime('now'))",
+                       (_gen_id(), aid, jh))
+                continue
+
+            if not links:
+                continue
+
+            primaer = next((l["job_hash"] for l in links if l["is_primary"]),
+                           links[0]["job_hash"])
+
+            if not jh:
+                changes.append({**basis, "fall": "job_hash_leer",
+                                "job_hash_neu": primaer[-12:]})
+                _apply("UPDATE applications SET job_hash=?, updated_at=datetime('now') "
+                       "WHERE id=?", (primaer, aid))
+            elif jh != primaer:
+                changes.append({**basis, "fall": "divergenz",
+                                "job_hash_alt": jh[-12:],
+                                "job_hash_neu": primaer[-12:],
+                                "hinweis": "Junction ist fuehrend"})
+                _apply("UPDATE applications SET job_hash=?, updated_at=datetime('now') "
+                       "WHERE id=?", (primaer, aid))
+
+            # Genau EIN is_primary erzwingen
+            anzahl_primaer = sum(1 for l in links if l["is_primary"])
+            if anzahl_primaer != 1:
+                changes.append({**basis, "fall": "primary_normalisiert",
+                                "anzahl_primaer_alt": anzahl_primaer})
+                if not dry_run:
+                    conn.execute("UPDATE application_jobs SET is_primary=0 "
+                                 "WHERE application_id=?", (aid,))
+                    conn.execute("UPDATE application_jobs SET is_primary=1 "
+                                 "WHERE application_id=? AND job_hash=?",
+                                 (aid, primaer))
+                    applied += 1
+
+        # Verwaiste Junction-Zeilen
+        waisen = conn.execute(
+            "SELECT aj.id, aj.application_id, aj.job_hash FROM application_jobs aj "
+            "LEFT JOIN applications a ON a.id = aj.application_id "
+            "LEFT JOIN jobs j ON j.hash = aj.job_hash "
+            "WHERE a.id IS NULL OR j.hash IS NULL"
+        ).fetchall()
+        for w in waisen:
+            changes.append({"fall": "verwaiste_verknuepfung",
+                            "bewerbung": (w["application_id"] or "")[:8],
+                            "job_hash": (w["job_hash"] or "")[-12:]})
+            _apply("DELETE FROM application_jobs WHERE id=?", (w["id"],))
+
+        if not dry_run:
+            conn.commit()
+
+        return {
+            "status": "vorschau" if dry_run else "ausgefuehrt",
+            "count_bewerbungen": len(apps),
+            "count_abweichungen": len(changes),
+            "count_applied": applied,
+            "changes": changes[:50],
+            "hinweis": (
+                "dry_run=True — kein Schreibvorgang. Nochmal mit dry_run=False "
+                "aufrufen, um den Abgleich zu speichern."
+                if dry_run else
+                f"{applied} Korrekturen geschrieben. UI und "
+                "bewerbung_stellen_anzeigen zeigen jetzt dieselbe Stelle."
+            ),
+        }
+
+    @mcp.tool()
+    def stellen_urls_heilen(dry_run: bool = True, nur_aktive: bool = True) -> dict:
+        """v1.7.9 (#763): Heilt URL-Qualitaet im BESTAND (Datenmigration).
+
+        Hintergrund: Der Scraper-Fix aus #645 wirkte nur auf NEUE Laeufe —
+        das damals angekuendigte Akzeptanzkriterium AK5 (Bestands-Heilung)
+        wurde nie umgesetzt. Alle vor beta.71 angelegten Stellen tragen die
+        Regression bis heute mit (leere URL bzw. Such-URL ohne Markierung).
+
+        Zwei Heilungen, beide ohne Netzzugriff:
+
+        1. **Reklassifizierung** (verlustfrei): `is_search_url` wird aus der
+           gespeicherten URL neu bestimmt. Heilt BEIDE Richtungen — Alt-Stellen
+           mit Such-URL und Flag=0 werden markiert, und Stellen, die der
+           save_jobs-Guard defensiv auf 1 setzte, obwohl inzwischen eine echte
+           Detail-URL nachgepflegt wurde, werden wieder freigegeben (das
+           entsperrt stellenbeschreibung_nachladen).
+        2. **Such-URL nachtragen** bei komplett leerer URL, sofern fuer die
+           Quelle ein Handoff-Template existiert. Ergebnis wird IMMER als
+           `is_search_url=1` markiert — nie als Detail-URL ausgegeben.
+
+        EHRLICHE GRENZE: Eine echte Detail-URL laesst sich NICHT rekonstruieren.
+        Die Portal-IDs (xing_job_id/linkedin_job_id) werden von den Scrapern
+        zwar ins Job-Dict gelegt, aber nie in die DB geschrieben, und der
+        stelle_hash ist Einweg-MD5 ohne ID-Anteil. Was hier entsteht, ist eine
+        gezielte SUCH-URL — klickbar und ehrlich markiert, damit der Nutzer die
+        Anzeige selbst findet, statt vor einem leeren Feld zu stehen.
+
+        Args:
+            dry_run: True (Default) = nur Vorschau, kein Schreibvorgang.
+            nur_aktive: True (Default) = nur is_active=1; False = auch
+                aussortierte Stellen mitheilen.
+
+        Returns:
+            status, count_total, count_changed, count_applied, changes,
+            nicht_heilbar (Stellen ohne URL und ohne Handoff-Template).
+
+        Idempotent: ein zweiter Lauf findet 0 Kandidaten.
+        """
+        from ..job_scraper import is_search_result_url
+        try:
+            from ..job_scraper.handoff import HANDOFF_URL_TEMPLATES
+        except Exception:
+            HANDOFF_URL_TEMPLATES = {}
+
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        sql = ("SELECT hash, title, company, location, url, source, is_search_url, "
+               "is_active FROM jobs WHERE (profile_id=? OR profile_id IS NULL)")
+        if nur_aktive:
+            sql += " AND is_active=1"
+        rows = conn.execute(sql, (pid,)).fetchall()
+
+        changes: list[dict] = []
+        nicht_heilbar: list[dict] = []
+        applied = 0
+
+        def _such_url(source: str, titel: str, ort: str) -> str:
+            """Baut eine gezielte Such-URL — identische Formel wie build_handoff."""
+            tpl = HANDOFF_URL_TEMPLATES.get((source or "").lower())
+            if not tpl:
+                return ""
+            kw = (titel or "").strip()
+            if not kw:
+                return ""
+            try:
+                return tpl.format(
+                    keyword=quote_plus(kw),
+                    keyword_pfad=quote_plus(kw.replace(" ", "-")),
+                    ort=quote_plus((ort or "").strip()),
+                )
+            except Exception:
+                return ""
+
+        for r in rows:
+            url = (r["url"] or "").strip()
+            alt_flag = 1 if r["is_search_url"] else 0
+            eintrag = {
+                "hash": r["hash"], "title": (r["title"] or "")[:60],
+                "company": (r["company"] or "")[:40], "source": r["source"],
+            }
+
+            if url:
+                # Fall 1: Flag gegen die tatsaechliche URL neu bestimmen
+                neu_flag = 1 if is_search_result_url(url) else 0
+                if neu_flag != alt_flag:
+                    eintrag.update({
+                        "aktion": "reklassifiziert", "url": url[:80],
+                        "is_search_url_alt": alt_flag, "is_search_url_neu": neu_flag,
+                    })
+                    changes.append(eintrag)
+                    if not dry_run:
+                        try:
+                            conn.execute("UPDATE jobs SET is_search_url=? WHERE hash=?",
+                                         (neu_flag, r["hash"]))
+                            applied += 1
+                        except Exception as exc:
+                            eintrag["fehler"] = str(exc)[:200]
+                continue
+
+            # Fall 2: URL komplett leer -> gezielte Such-URL nachtragen
+            such = _such_url(r["source"] or "", r["title"] or "", r["location"] or "")
+            if such:
+                eintrag.update({
+                    "aktion": "such_url_nachgetragen", "url_neu": such[:100],
+                    "is_search_url_neu": 1,
+                    "hinweis": "Such-URL, KEINE Detail-URL — Anzeige selbst heraussuchen.",
+                })
+                changes.append(eintrag)
+                if not dry_run:
+                    try:
+                        conn.execute(
+                            "UPDATE jobs SET url=?, is_search_url=1 WHERE hash=?",
+                            (such, r["hash"]))
+                        applied += 1
+                    except Exception as exc:
+                        eintrag["fehler"] = str(exc)[:200]
+            else:
+                eintrag["grund"] = (
+                    f"Quelle '{r['source']}' hat kein Handoff-Template — "
+                    "Anzeige nur manuell auffindbar."
+                )
+                nicht_heilbar.append(eintrag)
+
+        if not dry_run:
+            conn.commit()
+
+        return {
+            "status": "vorschau" if dry_run else "ausgefuehrt",
+            "count_total": len(rows),
+            "count_changed": len(changes),
+            "count_applied": applied,
+            "count_nicht_heilbar": len(nicht_heilbar),
+            "changes": changes[:50],
+            "nicht_heilbar": nicht_heilbar[:20],
+            "hinweis": (
+                "dry_run=True — kein Schreibvorgang. Nochmal mit dry_run=False "
+                "aufrufen, um die Aenderungen zu speichern."
+                if dry_run else
+                f"{applied} Stellen geheilt. WICHTIG: nachgetragene URLs sind "
+                "SUCH-URLs (is_search_url=1), keine Detail-Links — echte "
+                "Detail-URLs sind aus dem Bestand nicht rekonstruierbar."
             ),
         }
 

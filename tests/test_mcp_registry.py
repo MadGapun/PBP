@@ -66,6 +66,10 @@ EXPECTED_TOOL_NAMES = {
     "custom_quellen_anzeigen",
     "custom_quelle_loeschen",
     "verwaiste_stellenrefs_bereinigen",
+    # v1.7.9 (#763/#764): Bestands-Heilung fuer URL-Qualitaet und die
+    # Divergenz zwischen applications.job_hash und application_jobs
+    "stellen_urls_heilen",
+    "bewerbungs_stellen_abgleichen",
     "profile_auflisten",
     "profil_wechseln",
     "neues_profil_erstellen",
@@ -331,7 +335,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 194  # v1.8.0-beta.5 (Welle B): + quelle_handoff/quellen_langzeit_auswertung (#735 B25) + 3x custom_quelle (#627 B16); davor beta.0-4 siehe Historie
+        assert len(tools) == 196  # v1.7.9/#763+#764: + stellen_urls_heilen + bewerbungs_stellen_abgleichen; davor beta.5 (Welle B) 194
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
