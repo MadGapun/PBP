@@ -15,6 +15,13 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > zu 404. Ueber 100 weitere Issues wurden anonymisiert (Firmen → `<FIRMA>`,
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
+>
+> **Update 2026-07-23:** Die Issues **#763** und **#766** enthielten reale
+> Firmennamen aus der Bewerbungshistorie (Stellen-Tabelle) und wurden
+> komplett geloescht — Verweise darauf in den v1.7.9-/v1.8.0-beta.8-
+> Eintraegen fuehren zu 404. Die Inhalte sind im Master-Plan (B27/C28)
+> und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
+> Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
 ## [1.8.0-beta.8] - 2026-07-23 — Verfolgbarkeit: Link zur Anzeige, Anker-Pflicht, Bestands-Heilung (#763, #764, #765, #766)
 

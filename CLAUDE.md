@@ -47,6 +47,8 @@ tools/jobs.py). **Tests:** 1999 / 2064 passed, 1 skipped.
 
 Vier Befunde aus einem Praxis-Nachmittag (23.07.): von acht aktiven Stellen
 hatte KEINE einen nachvollziehbaren Weg zur Original-Ausschreibung.
+(Die Issues #763 und #766 wurden noch am selben Tag DSGVO-geloescht —
+reale Firmennamen; Inhalte stehen in Master-Plan B27/C28 + CHANGELOG.)
 
 (1) **B27/#763** — `is_search_result_url` uebersah pfadbasierte Such-URLs
 ohne Query, darunter die Form, die PBP fuer den Portal-Aufruf SELBST baut.
@@ -434,6 +436,22 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    vor dem Release bereinigt.
 8. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
    Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
+9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
+   der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
+   UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM
+   `gh issue create/comment/edit` und `gh release create` den Text durch
+   `python scripts/scrub_pii.py --check` schicken — AUCH Tabellen und
+   Beispiele aus der eigenen DB (genau so kamen am 23.07. acht reale
+   Firmen in zwei Issues). Das gilt fuer ALLE Instanzen, auch die
+   MCP-Chat-Seite. Am Session-Ende zusaetzlich alle seit der letzten
+   Session neuen/geaenderten Issues gegenpruefen. Wird PII auf GH
+   gefunden: Issue LOESCHEN (GraphQL `deleteIssue`), NICHT editieren —
+   die Edit-History behaelt das Original. Dokumentierte Ausnahmen:
+   Portale/Vermittler als Quellen-Feature (hays, ferchau, ...) und
+   fiktive Firmen (Halbleiterwerk Nord GmbH). Hintergrund: #763 und #766
+   enthielten am 23.07. die reale Stellen-Tabelle des Users und wurden
+   geloescht — die Nummern sind verbrannt, die Inhalte stehen im
+   Master-Plan (B27/C28) und im CHANGELOG.
 
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
 
@@ -639,6 +657,9 @@ Code) als auch fuer Claude-Chat-getriebene Issue-Creation.**
 Background: am 2026-05-10 wurden in 3 Sweep-Passes ~155 historische
 Issue-Bodies + 9 Comments nachtraeglich anonymisiert. Das darf nicht
 nochmal passieren — siehe `scripts/scrub_pii.py` Header.
+Am 2026-07-23 passierte es doch wieder: #763/#766 trugen die reale
+Stellen-Tabelle des Users (8 Firmen) und mussten GELOESCHT werden —
+DoD-Punkt 9 ist seitdem der Pflicht-Riegel.
 
 **WICHTIG zur Edit-History:** GitHub zeigt fuer Issue-Bodies eine
 `edited`-Markierung mit Zugriff auf die Vorgaenger-Versionen — auch
