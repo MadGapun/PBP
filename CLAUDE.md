@@ -39,6 +39,50 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-23 (v1.7.9 Stable + v1.8.0-beta.8) — Verfolgbarkeit
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert. **MCP-Tools:**
+183 / 196 (+`stellen_urls_heilen`, +`bewerbungs_stellen_abgleichen` in
+tools/jobs.py). **Tests:** 1999 / 2064 passed, 1 skipped.
+
+Vier Befunde aus einem Praxis-Nachmittag (23.07.): von acht aktiven Stellen
+hatte KEINE einen nachvollziehbaren Weg zur Original-Ausschreibung.
+
+(1) **B27/#763** — `is_search_result_url` uebersah pfadbasierte Such-URLs
+ohne Query, darunter die Form, die PBP fuer den Portal-Aufruf SELBST baut.
+MERKE: Detail-Marker gegen den **Pfad** pruefen, nicht gegen die ganze URL —
+sonst reisst `xing.com/jobs/<slug>-123456` mit. Neu `stellen_urls_heilen`
+(AK5 aus #645 war nie umgesetzt; wirkte nur auf NEUE Laeufe). **Ehrliche
+Grenze, nicht spaeter als Bug behandeln:** echte Detail-URLs sind aus dem
+Bestand NICHT rekonstruierbar — Portal-IDs werden beim INSERT nie
+persistiert.
+
+(2) **D25/#764** — `add_application` legte GAR KEINE `application_jobs`-Zeile
+an; die Junction lief seit v34 strukturell leer. `application_jobs` ist jetzt
+fuehrend, `applications.job_hash` wird synchron gehalten. Neu
+`bewerbungs_stellen_abgleichen`.
+
+(3) **D26/#765** — Frontend: `frontend/src/lib/jobLink.js` spiegelt
+`is_search_result_url`; CI-Schritt prueft DIESELBEN Faelle auf beiden Seiten
+(`jobLink.test.mjs`). Bei Aenderung an einer Seite die andere nachziehen.
+
+(4) **C28/#766** — Anker-Pflicht (`services/stellen_anker.py`): URL, Dokument
+oder Kontakt. Such-URL zaehlt NICHT, lange `description` auch nicht (eine
+Claude-Zusammenfassung liest sich wie eine Anzeige). Bewusst kein harter
+Block. `stelle_manuell_anlegen` nimmt jetzt Kontakt-Parameter (via
+`contact_links` `target_kind='job'`, kein Schema-Bump).
+
+**Linien-Unterschied:** die Such-URL-Muster liegen in der 1.7-Linie als reine
+Daten in `job_scraper/such_urls.py`, in der 1.8-Linie in
+`job_scraper/handoff.py` (B25/#735, mit dem Handoff-Feature). Der Import in
+`stellen_urls_heilen` faellt der Reihe nach durch — keine Linie schleppt das
+Feature der anderen mit.
+
+**MERKE Release-Gate:** `release_check.py` erwartet den CHANGELOG-Kopf auf der
+AKTUELLEN Version. Ein nachtraeglich oben eingefuegter Stable-Eintrag (wie der
+v1.7.8-Nachzug am 22.07.) bricht damit das Gate auf main, bis der naechste
+Release-Eintrag darueber kommt.
+
 ## Stand 2026-07-16 (v1.8.0-beta.6, Prerelease) — Hotfix #760
 
 **Schema:** v52 (unveraendert). **MCP-Tools:** 194. **Prompts:** 25.
