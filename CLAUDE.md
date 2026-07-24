@@ -39,6 +39,43 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-07-24 (v1.7.10 Stable + v1.8.0-beta.9) — Stabilisierungswelle
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert — die neue
+`learned_insights`-Tabelle kommt als idempotentes CREATE-IF-NOT-EXISTS-
+Safety-Net OHNE Versions-Bump (v49 bleibt fuer `components` reserviert;
+Muster fuer kuenftige linien-uebergreifende Tabellen). **MCP-Tools:**
+192 / 205 (+9: `kalibrierung_backtest`, `suchperformance_auswerten`,
+`kontakt_historie`, `vermittler_historie`, `erkenntnisse_ableiten/
+anzeigen`, `erkenntnis_bestaetigen`, `elwosa_fragen`,
+`elwosa_prompt_kopieren`). **Tests:** 2045 / 2111 passed.
+
+Acht Praxis-Issues vom 24.07., strikt getrennt: v1.7 = Fehler/
+Datenqualitaet/Kalibrierung/fehlende Auswertungen; v1.8-Reste nur als
+Label `v1.8` + Kommentar. MERKE: die urspruenglichen Issues #769/#770/
+#772/#773/#775/#776/#777 trugen PII (Recruiter-Namen, User-Klarname im
+Dateipfad, Gehaltszahlen) und wurden nach DoD-9 GELOESCHT und als
+**#778-#784** anonymisiert neu angelegt (Mapping: 772→778, 775→779,
+776→780, 777→781, 773→782, 769→783, 770→784; #774 war sauber).
+
+Kern: (1) **C29/#778** `kalibrierung_backtest` ist eine SCHATTENRECHNUNG
+(ruft nie scores_neu_berechnen — Test erzwingt das); IDF+Top-5-Deckelung
+nur als Opt-in (`suchkriterien_bearbeiten(kategorie='scoring',
+aktion='idf')`), Injektion via `criteria['_idf_faktoren']` in
+get_search_criteria; Einzelgewichte in `criteria['keyword_gewichte']`.
+(2) **D27/#779** applied_at-Nachtrag bei uebersprungenem 'beworben';
+Status `arbeitgeber_ausgefallen` (kein Rueckzug, Angebot bleibt via
+Event-Historie in offer_rate) — Status-Listen an 10+ Stellen (DB, Tools,
+dashboard.py, Frontend). (3) **D29/#781** `services/statistik_erweitert.py`
+(Zeit/Kanal/Ablehnungs-Kategorien, Quote roh+bereinigt; Vor-PBP =
+Untergrenze). (4) **C30/#782** Repost-Erkennung compute-on-read
+(`find_repost_of_application` in duplicate_detection, bewusst OHNE
+URL-Vergleich — Reposts haben neue URLs, #670-Regel wuerde sie filtern).
+(5) **F28/#784 + F29/#774** learned_insights (nichts wirkt ohne
+Nutzerbestaetigung; widersprochen = -1, nie erneut) + Elwosa-Dialog
+(auskunftsfaehig, nicht urteilsfaehig; Ausfall ehrlich statt
+Claude-Fallback).
+
 ## Stand 2026-07-23 (v1.7.9 Stable + v1.8.0-beta.8) — Verfolgbarkeit
 
 **Schema:** v48 (Stable) / v52 (Beta), beide unveraendert. **MCP-Tools:**
