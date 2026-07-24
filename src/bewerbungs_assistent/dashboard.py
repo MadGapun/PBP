@@ -2857,7 +2857,7 @@ async def api_documents(
     # #388: Documents linked to archived applications sort to end
     # v1.6.9 (#569): Workflow-Sortierung — nicht_extrahiert > basis_analysiert >
     # extrahiert > angewendet > verworfen/duplikat. Rank-Werte: kleiner = oben.
-    archive_suffix = "CASE WHEN a.status IN ('abgelehnt', 'zurueckgezogen', 'abgelaufen') THEN 1 ELSE 0 END, "
+    archive_suffix = "CASE WHEN a.status IN ('abgelehnt', 'zurueckgezogen', 'abgelaufen', 'arbeitgeber_ausgefallen') THEN 1 ELSE 0 END, "
     workflow_rank = (
         "CASE COALESCE(d.extraction_status, 'nicht_extrahiert') "
         "WHEN 'nicht_extrahiert' THEN 0 "
@@ -3177,7 +3177,7 @@ async def api_keyword_suggestions():
     applied_hashes = {
         a["job_hash"] for a in applications
         if a.get("job_hash") and a.get("status") not in (
-            "abgelehnt", "zurueckgezogen", "abgelaufen", "passt_nicht"
+            "abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen", "passt_nicht"
         )
     }
     dismissed_jobs = _db.get_dismissed_jobs() if hasattr(_db, "get_dismissed_jobs") else []
@@ -7731,7 +7731,7 @@ def _run_check_stale_applications(now_iso: str) -> dict:
     )
     TERMINAL_STATUSES = (
         "abgelehnt", "zurueckgezogen", "abgelaufen",
-        "angenommen", "interview_abgeschlossen",
+        "angenommen", "interview_abgeschlossen", "arbeitgeber_ausgefallen",
     )
     # Aktive Bewerbungen + ihre letzten Events holen.
     try:

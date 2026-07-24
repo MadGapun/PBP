@@ -426,6 +426,17 @@ def register(mcp, db, logger):
         # Kanonische Report-Daten aus DB (inkl. rejection_patterns, follow_ups,
         # bewerbungsart-Verteilung). Keine doppelte Aggregation hier.
         report_data = db.get_report_data()
+        # v1.7.10 (#781/D29): Prozess-Kennzahlen, Kanal-Erfolg,
+        # Ablehnungs-Kategorien und Aufwand in den Bericht. Fehler hier
+        # duerfen den Bericht nie verhindern.
+        try:
+            from ..services import statistik_erweitert as _se
+            report_data["prozess_kennzahlen"] = _se.zeitliche_kennzahlen(db)
+            report_data["kanal_auswertung"] = _se.kanal_auswertung(db)
+            report_data["ablehnungs_kategorien"] = _se.ablehnungs_kategorien(db)
+            report_data["aufwand"] = db.get_aufwand_summary()
+        except Exception as _e:
+            logger.warning("Bericht-Erweiterung (#781) fehlgeschlagen: %s", _e)
         # v1.6.6 (#540): Optionale Bericht-Einstellungen
         report_settings = {
             "arbeitsamt_block_enabled": bool(db.get_profile_setting("report_arbeitsamt_block_enabled", False)),

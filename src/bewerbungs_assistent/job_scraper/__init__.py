@@ -1831,6 +1831,39 @@ def _strip_pbp_notes(description: str) -> str:
     return description
 
 
+def _keyword_gewichte(criteria: dict) -> dict:
+    """Einzelgewicht-Overrides pro Keyword (#778/C29, v1.7.10).
+
+    criteria['keyword_gewichte'] = {"<keyword lower>": punkte}. Default
+    bleibt das Kategorie-Gewicht — ein Override macht z.B. den Minus-Begriff
+    'Arbeitnehmerueberlassung' milder als 'Bauwesen', ohne die ganze
+    Kategorie umzustellen.
+    """
+    kg = criteria.get("keyword_gewichte") or {}
+    if isinstance(kg, str):
+        try:
+            import json as _json
+            kg = _json.loads(kg)
+        except Exception:
+            kg = {}
+    return {str(k).lower(): v for k, v in kg.items()} if isinstance(kg, dict) else {}
+
+
+def _punkte_pro_treffer(kw: str, kategorie_gewicht: float,
+                        overrides: dict, idf: dict) -> float:
+    """Punkte fuer EINEN Keyword-Treffer: Override vor Kategorie-Gewicht,
+    multipliziert mit dem IDF-Seltenheitsfaktor (nur wenn Faktoren
+    injiziert sind — sonst neutral 1.0)."""
+    basis = overrides.get(kw.lower(), kategorie_gewicht)
+    try:
+        basis = float(basis)
+    except (TypeError, ValueError):
+        basis = kategorie_gewicht
+    if idf:
+        basis *= idf.get(kw.lower(), 1.0)
+    return basis
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -1844,6 +1877,13 @@ def calculate_score(job: dict, criteria: dict) -> int:
     #180: Bei fehlender Beschreibung wird nur der Titel gematcht.
     Das Scoring laeuft trotzdem, aber der Score wird als "unsicher" markiert
     (via _description_missing Flag am Job).
+
+    v1.7.10 (#778/C29): Einzelgewichte pro Keyword
+    (criteria['keyword_gewichte'], wirkt immer) und optional
+    IDF-Seltenheitsgewichtung + Top-5-Deckelung der MUSS-Summe — beides
+    NUR aktiv, wenn criteria['_idf_faktoren'] injiziert ist (Opt-in via
+    Suchkriterium 'scoring_idf'; get_search_criteria uebernimmt die
+    Injektion). Ohne Opt-in ist das Verhalten unveraendert.
     """
     description = job.get("description", "") or ""
     title = job.get("title", "") or ""
@@ -1877,9 +1917,16 @@ def calculate_score(job: dict, criteria: dict) -> int:
             job["_ko_ausschluss"] = _kw
             return 0
 
+    # v1.7.10 (#778): Einzelgewichte + optionale IDF-Faktoren
+    overrides = _keyword_gewichte(criteria)
+    idf = criteria.get("_idf_faktoren") or {}
+    if not isinstance(idf, dict):
+        idf = {}
+
     # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
-    muss_found = sum(1 for kw in muss if _fuzzy_keyword_match(kw, text))
+    muss_hits_kws = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
+    muss_found = len(muss_hits_kws)
     if muss and muss_found == 0:
         # #180: Ohne Beschreibung nicht sofort auf 0 setzen, WENN der Titel
         # zumindest Teilworte der MUSS-Keywords enthält (z.B. "PLM" im Titel)
@@ -1897,19 +1944,38 @@ def calculate_score(job: dict, criteria: dict) -> int:
         job["_ko_kein_muss"] = True
         return 0
 
-    score = muss_found * w["muss"]
+    # v1.7.10 (#778): Punkte pro Treffer statt pauschal Anzahl x Gewicht.
+    # Mit IDF-Faktoren zaehlen zusaetzlich nur die MUSS_TOP_N staerksten
+    # MUSS-Treffer (Deckelung) — Masse darf Klasse nicht schlagen.
+    muss_punkte = sorted(
+        (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
+         for kw in muss_hits_kws),
+        reverse=True,
+    )
+    if idf:
+        from ..services.kalibrierung import MUSS_TOP_N
+        muss_punkte = muss_punkte[:MUSS_TOP_N]
+    score = sum(muss_punkte)
 
     # PLUS keywords — #183: Fuzzy-Matching
     plus = criteria.get("keywords_plus", [])
-    score += sum(1 for kw in plus if _fuzzy_keyword_match(kw, text)) * w["plus"]
+    score += sum(
+        _punkte_pro_treffer(kw, w["plus"], overrides, idf)
+        for kw in plus if _fuzzy_keyword_match(kw, text)
+    )
 
     # MINUS keywords (#667, B19, beta.84) — weiche Score-Abwertung als
     # Gegenstueck zu PLUS. Beispiel: kw="Automotive" zieht Punkte ab, schliesst
     # die Stelle aber nicht aus (harter Ausschluss = keywords_ausschluss).
+    # #778: Einzelgewicht-Override gilt auch hier; IDF bewusst NICHT —
+    # ein Malus soll nicht dadurch schrumpfen, dass der Begriff haeufig ist.
     minus = criteria.get("keywords_minus", [])
     if minus:
         # #755 (C25): strikt statt fuzzy — Malus nur bei echtem Treffer
-        score -= sum(1 for kw in minus if _strict_keyword_match(kw, text)) * w["minus"]
+        score -= sum(
+            _punkte_pro_treffer(kw, w["minus"], overrides, {})
+            for kw in minus if _strict_keyword_match(kw, text)
+        )
 
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     dist = job.get("distance_km")
@@ -1964,7 +2030,9 @@ def calculate_score(job: dict, criteria: dict) -> int:
         if pref_yearly and job_yearly >= pref_yearly:
             score += w["gehalt"]
 
-    return max(0, score)
+    # #778: Mit Einzelgewichten/IDF kann score ein Float sein — auf eine
+    # Nachkommastelle runden; der Default-Pfad (Ints) bleibt unveraendert.
+    return max(0, round(score, 1))
 
 
 def fit_analyse(job: dict, criteria: dict) -> dict:
@@ -1992,13 +2060,31 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     factors = {}
     total = 0
 
+    # v1.7.10 (#778): dieselbe Punkte-Logik wie calculate_score —
+    # Einzelgewichte immer, IDF + Top-5-Deckelung nur bei injizierten
+    # Faktoren. Sonst laufen Listen-Score und Fit-Analyse auseinander.
+    _overrides = _keyword_gewichte(criteria)
+    _idf = criteria.get("_idf_faktoren") or {}
+    if not isinstance(_idf, dict):
+        _idf = {}
+
     if muss_hits:
-        pts = len(muss_hits) * w["muss"]
+        _muss_pts = sorted(
+            (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
+             for kw in muss_hits),
+            reverse=True,
+        )
+        if _idf:
+            from ..services.kalibrierung import MUSS_TOP_N
+            _muss_pts = _muss_pts[:MUSS_TOP_N]
+        pts = round(sum(_muss_pts), 1)
         factors[f"MUSS-Keywords ({len(muss_hits)} Treffer)"] = pts
         total += pts
 
     if plus_hits:
-        pts = len(plus_hits) * w["plus"]
+        pts = round(sum(
+            _punkte_pro_treffer(kw, w["plus"], _overrides, _idf)
+            for kw in plus_hits), 1)
         factors[f"PLUS-Keywords ({len(plus_hits)} Treffer)"] = pts
         total += pts
 
@@ -2006,8 +2092,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # Beispiel: kw="Automotive" mit Gewicht 1 -> -1 pro Treffer.
     # Bewusst weicher Malus, kein harter Ausschluss (das ist
     # keywords_ausschluss). Stelle bleibt in der Liste, rutscht nur runter.
+    # #778: Override gilt, IDF bewusst nicht (wie in calculate_score).
     if minus_hits:
-        pts = -len(minus_hits) * w["minus"]
+        pts = -round(sum(
+            _punkte_pro_treffer(kw, w["minus"], _overrides, {})
+            for kw in minus_hits), 1)
         factors[f"MINUS-Keywords ({len(minus_hits)} Treffer)"] = pts
         total += pts
 

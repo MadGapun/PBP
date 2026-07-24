@@ -328,7 +328,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             _line_cell(pdf, 0, 4, _safe_text(
                 f"Hinweis: {pre_pbp_count} Bewerbungen aus der Zeit vor PBP-Nutzung "
                 f"({_de_date(pbp_first_active_at)}) sind in der Liste markiert (kursiv/grau). "
-                "Sie wurden nachtraeglich erfasst und koennten unvollstaendig sein."
+                "Sie wurden nachtraeglich aus Dateien rekonstruiert und haben "
+                "typischerweise nur 1-2 Timeline-Events. Interview- und "
+                "Zeitkennzahlen dieses Zeitraums sind eine UNTERGRENZE, "
+                "keine Wahrheit (#781)."
             ))
             pdf.set_text_color(0, 0, 0)
             pdf.ln(2)
@@ -369,6 +372,81 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "B", 9)
         _line_cell(pdf, 0, 5, _safe_text(value))
     pdf.ln(4)
+
+    # --- 1b. Prozess-Kennzahlen & Kanal-Erfolg (v1.7.10, #781/D29) ---
+    _pk = report_data.get("prozess_kennzahlen") or {}
+    _ka = report_data.get("kanal_auswertung") or {}
+    _aufwand = report_data.get("aufwand") or {}
+    if _pk or _ka:
+        _section_header(pdf, "1b. Prozess-Kennzahlen & Kanal-Erfolg")
+        zeilen = []
+        _r = _pk.get("zeit_bis_erste_reaktion") or {}
+        if _r.get("anzahl"):
+            zeilen.append(("Zeit bis erste Reaktion (Median)",
+                           f"{_r['median_tage']} Tage (n={_r['anzahl']})"))
+        _iv = _pk.get("zeit_bis_interview") or {}
+        if _iv.get("anzahl"):
+            zeilen.append(("Zeit bis Interview-Einladung (Median)",
+                           f"{_iv['median_tage']} Tage (n={_iv['anzahl']})"))
+        for ausgang, werte in (_pk.get("prozessdauer_nach_ausgang") or {}).items():
+            if werte.get("anzahl"):
+                zeilen.append((f"Prozessdauer bis '{ausgang}' (Median/Mittel)",
+                               f"{werte['median_tage']} / {werte['mittel_tage']} "
+                               f"Tage (n={werte['anzahl']})"))
+        _ab = (_pk.get("zeit_bis_absage") or {})
+        for label, key in (("Absage vor Interview (Median)", "vor_interview"),
+                           ("Absage nach Interview (Median)", "nach_interview")):
+            w = _ab.get(key) or {}
+            if w.get("anzahl"):
+                zeilen.append((label, f"{w['median_tage']} Tage (n={w['anzahl']})"))
+        if _aufwand:
+            for label, key in (
+                    ("Vorbereitungszeit gesamt (Min.)",
+                     "vorbereitungszeit_min_summe"),
+                    ("Termine gesamt", "termine_anzahl"),
+                    ("Reisekosten netto (EUR)", "reisekosten_netto_eur"),
+                    ("Sonstige Kosten (EUR)", "kosten_summe_eur")):
+                if _aufwand.get(key) not in (None, "", 0, 0.0):
+                    zeilen.append((label, str(_aufwand.get(key))))
+        for label, value in zeilen:
+            pdf.set_font("Helvetica", "", 9)
+            pdf.cell(95, 5, _safe_text(f"  {label}:"), border=0)
+            pdf.set_font("Helvetica", "B", 9)
+            _line_cell(pdf, 0, 5, _safe_text(value))
+        # Kanal-Tabelle: Erfolg statt Trefferzahl
+        _kanaele = (_ka.get("kanaele") or {})
+        if _kanaele:
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_fill_color(224, 235, 255)
+            pdf.cell(60, 5, "  Kanal", border=1, fill=True)
+            pdf.cell(30, 5, "Bewerbungen", border=1, fill=True, align="C")
+            pdf.cell(30, 5, "Interviews", border=1, fill=True, align="C")
+            _line_cell(pdf, 0, 5, "Interview-Quote", border=1, fill=True,
+                       align="C")
+            _kanal_label = {
+                "vermittler_recruiter": "Vermittler/Recruiter",
+                "portal": "Portal/Jobboerse",
+                "netzwerk": "Persoenlicher Kontakt/Netzwerk",
+                "direktbewerbung": "Direktbewerbung",
+                "unklassifiziert": "Unklassifiziert",
+            }
+            for k in (_ka.get("ranking_nach_interview_quote") or []):
+                e = _kanaele.get(k) or {}
+                pdf.set_font("Helvetica", "", 8)
+                pdf.cell(60, 5, _safe_text(f"  {_kanal_label.get(k, k)}"), border=1)
+                pdf.cell(30, 5, str(e.get("bewerbungen", 0)), border=1, align="C")
+                pdf.cell(30, 5, str(e.get("interviews", 0)), border=1, align="C")
+                _line_cell(pdf, 0, 5, f"{e.get('interview_quote', 0)}%",
+                           border=1, align="C")
+        _dq = (_pk.get("datenqualitaet") or {})
+        if _dq.get("hinweis"):
+            pdf.ln(1)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(120, 120, 120)
+            pdf.multi_cell(0, 4, _safe_text("  " + _dq["hinweis"]))
+            pdf.set_text_color(0, 0, 0)
+        pdf.ln(4)
 
     # --- 2. Bewerbungen nach Status ---
     _section_header(pdf, "2. Bewerbungen nach Status")
@@ -617,6 +695,33 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # --- 7. Ablehnungsgruende ---
     _section_header(pdf, "7. Ablehnungsgruende")
+    # v1.7.10 (#781/D29): Kategorisierung VOR den Rohgruenden — die
+    # bereinigte Quote trennt externe Faelle (Stelle gestrichen, Insolvenz)
+    # von echten Absagen. Freitext-Gruende folgen darunter unveraendert.
+    _abk = report_data.get("ablehnungs_kategorien") or {}
+    if _abk.get("basis"):
+        _kat_label = {
+            "stille_absage": "Stille Absage / keine Rueckmeldung",
+            "automatische_ablehnung": "Automatische Ablehnung (< 72h)",
+            "nach_interview": "Absage nach Interview",
+            "vermittler_reject": "Vermittler-Reject",
+            "extern_bedingt": "Extern bedingt (keine echte Absage)",
+            "ohne_grund": "Ohne dokumentierten Grund",
+            "sonstige_absage": "Sonstige",
+        }
+        pdf.set_font("Helvetica", "", 8)
+        for k, v in (_abk.get("kategorien") or {}).items():
+            pdf.cell(95, 5, _safe_text(f"  {_kat_label.get(k, k)}:"), border=0)
+            pdf.set_font("Helvetica", "B", 8)
+            _line_cell(pdf, 0, 5, str(v.get("anzahl", 0)))
+            pdf.set_font("Helvetica", "", 8)
+        if _abk.get("ablehnungsquote_bereinigt") is not None:
+            pdf.set_font("Helvetica", "B", 8)
+            _line_cell(pdf, 0, 5, _safe_text(
+                f"  Ablehnungsquote roh {_abk.get('ablehnungsquote_roh')}% / "
+                f"bereinigt {_abk.get('ablehnungsquote_bereinigt')}% "
+                "(ohne extern bedingte Faelle)"))
+        pdf.ln(2)
     if rejection_patterns and rejection_patterns.get("anzahl"):
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(

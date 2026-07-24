@@ -62,6 +62,16 @@ EXPECTED_TOOL_NAMES = {
     # Divergenz zwischen applications.job_hash und application_jobs
     "stellen_urls_heilen",
     "bewerbungs_stellen_abgleichen",
+    # v1.7.10 (#778-#784, #774): Stabilisierungswelle 24.07.
+    "kalibrierung_backtest",
+    "suchperformance_auswerten",
+    "kontakt_historie",
+    "vermittler_historie",
+    "erkenntnisse_ableiten",
+    "erkenntnisse_anzeigen",
+    "erkenntnis_bestaetigen",
+    "elwosa_fragen",
+    "elwosa_prompt_kopieren",
     "profile_auflisten",
     "profil_wechseln",
     "neues_profil_erstellen",
@@ -322,7 +332,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 183  # v1.7.9 (#763/#764): + stellen_urls_heilen + bewerbungs_stellen_abgleichen; davor v1.7.7 181
+        assert len(tools) == 192  # v1.7.10 (#774/#778-#784): +9 (Backtest, Suchperformance, Kontakt-/Vermittler-Historie, 3x Erkenntnisse, 2x Elwosa-Dialog); davor v1.7.9 183
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

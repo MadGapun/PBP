@@ -330,6 +330,34 @@ class Database:
             except Exception:
                 pass
 
+        # v1.7.10 (#784, F28): learned_insights BEWUSST als idempotentes
+        # Safety-Net statt Schema-Bump — Schema v49 ist in der v1.8-Linie
+        # fuer die `components`-Tabelle reserviert (Kollisionsgefahr beim
+        # Upgrade-Pfad 1.7.x -> 1.8.x, siehe Master-Plan D24-Warnung).
+        # CREATE IF NOT EXISTS laeuft in beiden Linien identisch und
+        # kollidiert mit keiner Versionsnummer. Steht auch im SCHEMA_SQL.
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS learned_insights (
+                    id TEXT PRIMARY KEY,
+                    profile_id TEXT,
+                    kategorie TEXT NOT NULL,
+                    aussage TEXT NOT NULL,
+                    evidenz_json TEXT,
+                    konfidenz REAL DEFAULT 0,
+                    belegt_durch_n INTEGER DEFAULT 0,
+                    erstellt_am TEXT,
+                    aktualisiert_am TEXT,
+                    bestaetigt_vom_user INTEGER DEFAULT 0
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_learned_insights_profil "
+                "ON learned_insights(profile_id, bestaetigt_vom_user)")
+            conn.commit()
+        except Exception as e:
+            logger.warning("learned_insights-Safety-Net (#784): %s", e)
+
         # v44 (#657, E16): Safety net fuer Lifecycle-Index. Bei frischen DBs
         # ist die Spalte ueber SCHEMA_SQL bereits da; bei alten DBs wird sie
         # in _migrate v43->v44 ergaenzt. Index in beiden Faellen idempotent
@@ -3975,7 +4003,8 @@ class Database:
         best_confidence = 0
         best_is_archived = False
         # #743 (E17.1): Archiv-Status wie im E-Mail-Matcher (#389/#523)
-        _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+        _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen",
+                             "arbeitgeber_ausgefallen"}
 
         for app in apps:
             company = (app["company"] or "").lower()
@@ -4376,7 +4405,7 @@ class Database:
         if exclude_applied:
             applied_hashes = {
                 r["job_hash"] for r in self.get_applications()
-                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen")
+                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen")
             }
             if applied_hashes:
                 jobs = [j for j in jobs if j["hash"] not in applied_hashes]
@@ -4445,7 +4474,10 @@ class Database:
     # === Applications ===
 
     # Statuses considered archived (inactive)
-    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen")
+    # v1.7.10 (#779/D27): arbeitgeber_ausgefallen = Prozess endete ohne
+    # Zutun des Bewerbers (Insolvenz, Stellenstreichung, Einstellungsstopp).
+    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen",
+                        "arbeitgeber_ausgefallen")
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,
@@ -4640,7 +4672,8 @@ class Database:
         return aid
 
     # Terminal-Status: hier werden offene Follow-ups automatisch hinfaellig (#493)
-    TERMINAL_STATUSES = ("abgelehnt", "zurueckgezogen", "angenommen", "abgelaufen", "abgesagt")
+    TERMINAL_STATUSES = ("abgelehnt", "zurueckgezogen", "angenommen",
+                         "abgelaufen", "abgesagt", "arbeitgeber_ausgefallen")
 
     def update_application_status(
         self,
@@ -4917,6 +4950,16 @@ class Database:
         criteria = {}
         for row in rows:
             criteria[row["key"]] = json.loads(row["value"])
+        # v1.7.10 (#778/C29): Opt-in-IDF — nur wenn das Suchkriterium
+        # 'scoring_idf' gesetzt ist, werden die gecachten Seltenheits-
+        # faktoren injiziert. Ohne Opt-in: null Overhead, Verhalten
+        # unveraendert. Fehler hier duerfen das Kriterien-Laden nie kippen.
+        if criteria.get("scoring_idf"):
+            try:
+                from .services.kalibrierung import get_idf_faktoren
+                criteria["_idf_faktoren"] = get_idf_faktoren(self, criteria)
+            except Exception as e:
+                logger.debug("IDF-Injektion fehlgeschlagen: %s", e)
         return criteria
 
     def get_hochschulabschluss_malus(self):
@@ -5610,10 +5653,21 @@ class Database:
         # in_vorbereitung), konsistent mit interview_rate/offer_rate.
         start_datum = self.get_pbp_first_active_at()
         all_apps = conn.execute(
-            "SELECT status, applied_at, has_reached_interview FROM applications "
-            "WHERE (profile_id=? OR profile_id IS NULL)",
+            "SELECT id, company, status, applied_at, has_reached_interview "
+            "FROM applications WHERE (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchall()
+
+        # v1.7.10 (#779/D27): Bei arbeitgeberseitigem Ausfall zaehlt ein
+        # VORHER vorliegendes Angebot weiter als Angebot — sonst zeigt die
+        # Statistik 0 % Angebote bei jemandem, der eines hatte. Die
+        # Event-Historie weiss, ob der Status 'angebot' je erreicht wurde.
+        _offer_event_ids = {
+            r["application_id"] for r in conn.execute(
+                "SELECT DISTINCT application_id FROM application_events "
+                "WHERE status IN ('angebot', 'angenommen')"
+            ).fetchall()
+        }
 
         def _quoten(apps):
             submitted_n = sum(1 for a in apps if a["status"] != "in_vorbereitung")
@@ -5623,12 +5677,17 @@ class Database:
                 return sum(1 for a in apps if pred(a))
             abgelaufen = _cnt(lambda a: a["status"] == "abgelaufen")
             abgelehnt = _cnt(lambda a: a["status"] == "abgelehnt")
+            # #779: arbeitgeber_ausgefallen ist KEIN Rueckzug des Bewerbers —
+            # eigene Kennzahl, nicht in withdrawal_rate.
             zurueck = _cnt(lambda a: a["status"] == "zurueckgezogen")
+            ausgefallen = _cnt(lambda a: a["status"] == "arbeitgeber_ausgefallen")
             iv = _cnt(lambda a: a["has_reached_interview"] == 1
                       and a["status"] != "in_vorbereitung")
-            offer = _cnt(lambda a: a["status"] in ("angebot", "angenommen"))
+            offer = _cnt(lambda a: a["status"] in ("angebot", "angenommen")
+                         or (a["status"] == "arbeitgeber_ausgefallen"
+                             and a["id"] in _offer_event_ids))
             rate = lambda n: round(n / submitted_n * 100, 1)
-            return {
+            q = {
                 "basis": submitted_n,
                 "abgelaufen": abgelaufen, "expired_rate": rate(abgelaufen),
                 "abgelehnt": abgelehnt, "rejection_rate": rate(abgelehnt),
@@ -5636,6 +5695,10 @@ class Database:
                 "interview": iv, "interview_rate": rate(iv),
                 "angebot": offer, "offer_rate": rate(offer),
             }
+            if ausgefallen:
+                q["arbeitgeber_ausgefallen"] = ausgefallen
+                q["employer_loss_rate"] = rate(ausgefallen)
+            return q
 
         gesamt_q = _quoten(all_apps)
         if start_datum:
@@ -5658,6 +5721,28 @@ class Database:
             "seit_pbp": seit_pbp_q,
             "vor_pbp": vor_pbp_q,
         }
+        # v1.7.10 (#779/D27): Bewerbungen ohne applied_at fallen aus der
+        # Segmentierung — sichtbar ausweisen statt still verschlucken.
+        # Praxis-Fall 24.07.: der intensivste Vorgang des Jahres (3 Gespraeche,
+        # Angebot, Insolvenz) war komplett unsichtbar, weil der Status
+        # 'beworben' nie durchlaufen wurde.
+        _ohne_datum = [
+            {"id": (a["id"] or "")[:8], "firma": a["company"] or "",
+             "status": a["status"]}
+            for a in all_apps
+            if not (a["applied_at"] or "").strip()
+            and a["status"] not in ("in_vorbereitung", "offen")
+        ]
+        if _ohne_datum:
+            stats["ausgeschlossen"] = {
+                "anzahl": len(_ohne_datum),
+                "grund": "applied_at fehlt — faellt aus der Segmentierung seit/vor PBP",
+                "bewerbungen": _ohne_datum,
+                "loesung": (
+                    "pbp_diagnose(auto_fix=True) traegt applied_at aus dem "
+                    "aeltesten Timeline-Event nach."
+                ),
+            }
         # Top-Level-Convenience (Gesamt-Basis), analog interview_rate/offer_rate
         if gesamt_q.get("basis"):
             stats["expired_rate"] = gesamt_q["expired_rate"]
@@ -9446,6 +9531,23 @@ CREATE TABLE IF NOT EXISTS contacts (
 CREATE INDEX IF NOT EXISTS idx_contacts_profile ON contacts(profile_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
 CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company);
+
+-- v1.7.10 (#784, F28): Erkenntnis-Fundament der Ollama-Lernschleife.
+-- BEWUSST ohne Schema-Bump (v49 ist fuer components/1.8 reserviert) —
+-- initialize() zieht die Tabelle als Safety-Net auch bei Upgradern nach.
+CREATE TABLE IF NOT EXISTS learned_insights (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT,
+    kategorie TEXT NOT NULL,
+    aussage TEXT NOT NULL,
+    evidenz_json TEXT,
+    konfidenz REAL DEFAULT 0,
+    belegt_durch_n INTEGER DEFAULT 0,
+    erstellt_am TEXT,
+    aktualisiert_am TEXT,
+    bestaetigt_vom_user INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_learned_insights_profil ON learned_insights(profile_id, bestaetigt_vom_user);
 
 CREATE TABLE IF NOT EXISTS contact_links (
     id TEXT PRIMARY KEY,

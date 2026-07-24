@@ -237,3 +237,51 @@ def find_duplicate_job(
             best_score = final_score
 
     return best
+
+
+def find_repost_of_application(job: dict, applications) -> Optional[dict]:
+    """Repost-Erkennung (#782/C30, v1.7.10): entspricht eine (neu gefundene)
+    Stelle einer Bewerbung, die es schon gab?
+
+    Bewusst OHNE URL-Vergleich: Reposts haben praktisch immer eine neue
+    Portal-URL, und die "unterschiedliche URLs = verschiedene Stellen"-Regel
+    aus #670 wuerde genau den Repost-Fall wegfiltern. Firma + Titel-
+    Aehnlichkeit tragen hier allein.
+
+    Liefert eine WARNUNG, keine Entscheidung — ein Repost nach Monaten kann
+    eine echte zweite Chance sein (neue Ansprechpartner, geaenderte
+    Anforderungen, besserer CV). Nichts wird automatisch aussortiert.
+    """
+    own_hash = job.get("hash") or ""
+    kandidaten = [
+        a for a in applications
+        if (a.get("job_hash") or "") != own_hash
+        and (a.get("status") or "") != "in_vorbereitung"
+    ]
+    if not kandidaten:
+        return None
+    hit = find_duplicate_job(
+        job.get("company") or "", job.get("title") or "", "", kandidaten)
+    if not hit:
+        return None
+    app = hit["job"]
+    grund_dokumentiert = bool((app.get("rejection_reason") or "").strip())
+    datum = (app.get("applied_at") or app.get("created_at") or "")[:10]
+    return {
+        "bewerbung_id": (app.get("id") or "")[:8],
+        "beworben_am": datum,
+        "status": app.get("status") or "",
+        "titel_damals": app.get("title") or "",
+        "ablehnungsgrund_dokumentiert": grund_dokumentiert,
+        "match_grund": hit.get("grund", ""),
+        "warnung": (
+            f"Repost-Verdacht: Auf diese Stelle wurde am {datum} bereits "
+            f"beworben (Status: {app.get('status')}). "
+            + ("Ablehnungsgrund dokumentiert: ja."
+               if grund_dokumentiert else
+               "Ablehnungsgrund dokumentiert: NEIN — ob die alte Huerde "
+               "noch steht, ist unbekannt.")
+            + " Keine automatische Aussortierung — ein Repost kann eine "
+            "echte zweite Chance sein."
+        ),
+    }

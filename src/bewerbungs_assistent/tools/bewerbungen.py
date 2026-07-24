@@ -325,12 +325,26 @@ def register(mcp, db, logger):
                 pass
             bewerbungen.append(eintrag)
 
-        aktive_stellen = [
-            {"hash": j.get("hash"), "titel": j.get("title"),
-             "score": j.get("score")}
-            for j in db.get_active_jobs()
-            if _firma_matcht(j.get("company", ""), query_norm)
-        ][:15]
+        # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
+        # der Praxis-Fall war genau hier: aktive Stelle, auf die vor
+        # 10 Monaten schon beworben wurde, ohne dass es jemand sah.
+        from ..duplicate_detection import find_repost_of_application
+        _apps_fuer_repost = db.get_applications()
+        aktive_stellen = []
+        for j in db.get_active_jobs():
+            if not _firma_matcht(j.get("company", ""), query_norm):
+                continue
+            eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
+                          "score": j.get("score")}
+            try:
+                _rp = find_repost_of_application(j, _apps_fuer_repost)
+                if _rp:
+                    eintrag_st["repost_warnung"] = _rp["warnung"]
+            except Exception:
+                pass
+            aktive_stellen.append(eintrag_st)
+            if len(aktive_stellen) >= 15:
+                break
 
         aussortiert = [
             j for j in (db.get_dismissed_jobs() or [])
@@ -771,7 +785,10 @@ def register(mcp, db, logger):
 
         Args:
             bewerbung_id: ID der Bewerbung
-            neuer_status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen
+            neuer_status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen, arbeitgeber_ausgefallen
+                (arbeitgeber_ausgefallen seit v1.7.10/#779: Insolvenz, Stellenstreichung,
+                Einstellungsstopp — der Prozess endete ohne Zutun des Bewerbers.
+                KEIN Rueckzug, KEINE Absage.)
             notizen: Optionale Notizen zum Statuswechsel
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
             auto_follow_up: Default True. Wenn False, wird beim Wechsel auf
@@ -799,6 +816,11 @@ def register(mcp, db, logger):
             "eingangsbestaetigung", "interview", "zweitgespraech",
             "interview_abgeschlossen", "angebot", "angenommen",
             "abgelehnt", "zurueckgezogen", "abgelaufen",
+            # v1.7.10 (#779/D27): Prozess endete ohne Zutun des Bewerbers
+            # (Insolvenz, Stellenstreichung, Einstellungsstopp, Reorg).
+            # Zaehlt NICHT in die withdrawal_rate; ein vorher vorliegendes
+            # Angebot bleibt in der offer_rate erhalten.
+            "arbeitgeber_ausgefallen",
         }
         if neuer_status not in VALID_STATUSES:
             # Frueher genutzte Custom-Status auf den jetzt offiziellen Wert mappen
@@ -858,6 +880,38 @@ def register(mcp, db, logger):
                             when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
                             auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
 
+        # v1.7.10 (#779/D27): applied_at nachtragen, wenn ein Status erreicht
+        # wird, der eine erfolgte Bewerbung voraussetzt — bei Netzwerk-
+        # Kontakten wird 'beworben' oft uebersprungen (in_vorbereitung ->
+        # interview -> angebot) und die Bewerbung fiel aus jeder Statistik.
+        # Quelle: aeltester Timeline-Event, Fallback created_at.
+        applied_at_nachgetragen = None
+        _STATUS_SETZT_BEWERBUNG_VORAUS = {
+            "eingangsbestaetigung", "interview", "zweitgespraech",
+            "interview_abgeschlossen", "angebot", "angenommen",
+            "abgelehnt", "arbeitgeber_ausgefallen",
+        }
+        if (neuer_status in _STATUS_SETZT_BEWERBUNG_VORAUS
+                and not (app.get("applied_at") or "").strip()):
+            try:
+                row = db.connect().execute(
+                    "SELECT MIN(event_date) AS erster FROM application_events "
+                    "WHERE application_id=?",
+                    (bewerbung_id,),
+                ).fetchone()
+                quelle = "aeltester Timeline-Event"
+                datum = (row["erster"] or "") if row else ""
+                if not datum:
+                    datum = app.get("created_at") or ""
+                    quelle = "created_at (keine Events vorhanden)"
+                if datum:
+                    db.update_application(
+                        bewerbung_id, {"applied_at": datum[:10]})
+                    applied_at_nachgetragen = {
+                        "datum": datum[:10], "quelle": quelle}
+            except Exception as e:
+                logger.debug("applied_at-Nachtrag fehlgeschlagen: %s", e)
+
         # Lifecycle-Hooks (dismiss + auto-Nachfrage) laufen in
         # db.update_application_status() selbst — siehe _apply_status_lifecycle (#493, #494, #497).
         # Zaehlen vor/nach, damit der MCP-Caller das Ergebnis reporten kann.
@@ -878,7 +932,8 @@ def register(mcp, db, logger):
         #
         # DB-only: physische Dateien werden NICHT angefasst.
         veraltet_docs: list[str] = []
-        if neuer_status in ("abgelehnt", "abgelaufen", "zurueckgezogen"):
+        if neuer_status in ("abgelehnt", "abgelaufen", "zurueckgezogen",
+                            "arbeitgeber_ausgefallen"):
             try:
                 pid_for_lc = db.get_active_profile_id()
                 for doc_id in db.get_documents_linked_to_application(bewerbung_id):
@@ -921,6 +976,32 @@ def register(mcp, db, logger):
             "neuer_status": neuer_status,
             "nächste_aktionen": _get_context_actions(neuer_status),
         }
+        if applied_at_nachgetragen:
+            result["applied_at_nachgetragen"] = applied_at_nachgetragen
+            result["applied_at_hinweis"] = (
+                f"applied_at war leer und wurde auf "
+                f"{applied_at_nachgetragen['datum']} gesetzt "
+                f"({applied_at_nachgetragen['quelle']}) — sonst faellt die "
+                "Bewerbung aus der Statistik. Bei Bedarf mit "
+                "bewerbung_bearbeiten(applied_at=...) korrigieren."
+            )
+        # v1.7.10 (#782/C30): Absage ohne Grund ist bei einem spaeteren
+        # Repost ein Blindflug — Rueckfrage, kein Zwang.
+        if neuer_status == "abgelehnt" and not (ablehnungsgrund or "").strip():
+            result["rueckfrage_ablehnungsgrund"] = (
+                "Kein Ablehnungsgrund angegeben. Frag den Nutzer kurz: Gab es "
+                "ein Absageschreiben oder eine Begruendung? Nachtragen mit "
+                "bewerbung_status_aendern(..., 'abgelehnt', "
+                "ablehnungsgrund='...') oder bewerbung_notiz(). Hintergrund: "
+                "Taucht die Stelle als Repost wieder auf, laesst sich ohne "
+                "Grund nicht beurteilen, ob die alte Huerde noch steht."
+            )
+        if neuer_status == "arbeitgeber_ausgefallen":
+            result["hinweis"] = (
+                "Status 'arbeitgeber_ausgefallen' gesetzt: zaehlt NICHT als "
+                "Rueckzug (withdrawal_rate) und NICHT als Absage. Ein vorher "
+                "erreichtes Angebot bleibt in der offer_rate erhalten."
+            )
         if veraltet_docs:
             # #657 E16: Auto-Veralten-Hook hat Docs gekippt
             result["dokumente_veraltet"] = {
@@ -983,7 +1064,8 @@ def register(mcp, db, logger):
         apps = db.get_applications(status_filter if status_filter else None)
 
         # #182: Archivierte Bewerbungen standardmäßig ausblenden
-        ARCHIVE_STATUSES = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+        ARCHIVE_STATUSES = {"abgelehnt", "zurueckgezogen", "abgelaufen",
+                            "arbeitgeber_ausgefallen"}
         if not archiv and not status_filter:
             aktive = [a for a in apps if a.get("status") not in ARCHIVE_STATUSES]
             archivierte_count = len(apps) - len(aktive)
@@ -1051,7 +1133,8 @@ def register(mcp, db, logger):
             status_order = ["in_vorbereitung", "beworben", "eingangsbestaetigung",
                             "interview", "zweitgespraech", "interview_abgeschlossen",
                             "angebot", "angenommen",
-                            "offen", "abgelehnt", "zurueckgezogen", "abgelaufen"]
+                            "offen", "abgelehnt", "zurueckgezogen", "abgelaufen",
+                            "arbeitgeber_ausgefallen"]
             formatted.sort(key=lambda x: (
                 status_order.index(x.get("status", "offen"))
                 if x.get("status") in status_order else 99
@@ -1270,6 +1353,27 @@ def register(mcp, db, logger):
             "kontakt_email": app.get("kontakt_email", ""),
             "notizen": app.get("notes", ""),
         }
+        # v1.7.10 (#782/C30): rekonstruierte Altbewerbung kennzeichnen —
+        # ABGELEITET (applied_at deutlich vor created_at), kein Schema-Feld.
+        # Fehlende Details (Ablehnungsgrund, Ansprechpartner) sind dann kein
+        # Pflegefehler, sondern Folge der nachtraeglichen Erfassung.
+        try:
+            from datetime import datetime as _dq_dt
+            _applied = (app.get("applied_at") or "")[:10]
+            _created = (app.get("created_at") or "")[:10]
+            if _applied and _created:
+                _delta = (_dq_dt.fromisoformat(_created)
+                          - _dq_dt.fromisoformat(_applied)).days
+                if _delta > 30:
+                    result["datenqualitaet"] = "rekonstruiert"
+                    result["datenqualitaet_hinweis"] = (
+                        f"Erst {_delta} Tage nach dem Bewerbungsdatum in PBP "
+                        "erfasst (nachtraeglich rekonstruiert) — fehlende "
+                        "Details sind kein Pflegefehler. Timeline und "
+                        "Interview-Zahlen sind eine Untergrenze."
+                    )
+        except (ValueError, TypeError):
+            pass
         if app.get("job_hash"):
             result["stellen_id"] = app["job_hash"][:8]  # #171
             result["stellen_id_voll"] = app["job_hash"]
@@ -1407,8 +1511,37 @@ def register(mcp, db, logger):
         Args:
             zeitraum_von: Optional: Start-Datum (YYYY-MM-DD) für den Bericht (#173)
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD) für den Bericht (#173)
+
+        v1.7.10 (#781/D29) — drei neue Bloecke:
+        - `zeitliche_kennzahlen`: Prozessdauer nach Ausgang, Reaktionszeit,
+          Zeit bis Interview/Absage (Median + Mittel), laengste laufende
+          Prozesse, Verteilung pro Monat
+        - `kanal_auswertung`: Interview-Quote pro Kanal (Portal, Vermittler,
+          Netzwerk, Direktbewerbung) — Erfolg statt Trefferzahl
+        - `ablehnungs_kategorien`: still/automatisch/nach Interview/
+          Vermittler/extern bedingt; Quote roh UND bereinigt (extern
+          bedingte Faelle sind keine Ablehnung des Bewerbers)
+        Vor-PBP-Zahlen sind eine Untergrenze (rekonstruierter Altbestand) —
+        siehe `zeitliche_kennzahlen.datenqualitaet` und `quoten.fussnote`.
         """
         stats = db.get_statistics()
+
+        # v1.7.10 (#781/D29): erweiterte Bloecke. Fehler hier duerfen die
+        # Basis-Statistik nie kippen.
+        try:
+            from ..services import statistik_erweitert as _se
+            stats["zeitliche_kennzahlen"] = _se.zeitliche_kennzahlen(db)
+            stats["kanal_auswertung"] = _se.kanal_auswertung(db)
+            stats["ablehnungs_kategorien"] = _se.ablehnungs_kategorien(db)
+            if isinstance(stats.get("quoten"), dict):
+                stats["quoten"]["fussnote"] = (
+                    "Zahlen aus der Zeit vor der PBP-Nutzung stammen aus "
+                    "rekonstruierten Altbewerbungen (typisch nur 1-2 Events) "
+                    "— Interview- und Zeitkennzahlen dieses Zeitraums sind "
+                    "eine Untergrenze, keine Wahrheit."
+                )
+        except Exception as e:
+            logger.warning("Erweiterte Statistik (#781) fehlgeschlagen: %s", e)
 
         # Zeitraumfilter (#173)
         if zeitraum_von or zeitraum_bis:

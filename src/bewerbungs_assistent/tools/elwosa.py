@@ -250,3 +250,72 @@ def register(mcp, db, logger):
         except Exception:
             ai_state = "active"  # Fallback
         return get_status(db, ai_state=ai_state)
+
+    # === v1.7.10 (#774, F29): Dialog mit Elwosa ueber Claude ===
+
+    @mcp.tool()
+    def elwosa_fragen(frage: str, roh: bool = False) -> dict:
+        """Stellt der lokalen Elwosa-KI eine Frage — Claude ist der Vermittler (#774).
+
+        Elwosa bekommt automatisch den relevanten PBP-Kontext mit
+        (Profil-Kurzfassung, Kern-Statistiken, vom User BESTAETIGTE
+        learned_insights). Ohne diesen Kontext waere die Antwort wertlos.
+
+        ⛔ VERHALTENSREGELN FUER CLAUDE:
+        - Antwort als Position kennzeichnen ("Elwosa sagt dazu: ..."),
+          nie als Fakt.
+        - Bei Widerspruch zur eigenen Einschaetzung BEIDES zeigen und den
+          Unterschied benennen.
+        - Elwosa NICHT fuer Stellenbewertungen, Dokumentenerstellung oder
+          Handlungsempfehlungen heranziehen.
+        - Ist die lokale KI nicht erreichbar, den Ausfall ehrlich melden —
+          NICHT stillschweigend selbst antworten.
+
+        Args:
+            frage: Die Frage des Nutzers an Elwosa.
+            roh: True = Antwort unveraendert durchreichen (Debug);
+                False (Default) = Claude ordnet ein und kommentiert.
+        """
+        if not (frage or "").strip():
+            return {"fehler": "Keine Frage angegeben."}
+        from ..services.elwosa_dialog import frage_stellen
+        return frage_stellen(db, frage.strip(), roh=roh)
+
+    @mcp.tool()
+    def elwosa_prompt_kopieren(zweck: str = "freie_frage",
+                               frage: str = "") -> dict:
+        """Zeigt den vollstaendigen Prompt, den Elwosa bekaeme — OHNE ihn auszufuehren (#774).
+
+        Zwei Anwendungsfaelle: Debugging (welcher Kontext kommt wirklich an?)
+        und Prompt-Entwicklung (anpassen und Wirkung pruefen, bevor etwas
+        fest eingebaut wird).
+
+        Args:
+            zweck: 'freie_frage' (v1.7). Weitere Zwecke
+                (stellen_auto_aussortieren, keyword_vorschlaege, ...) sind
+                der v1.8-Teil von #774 — sie brauchen Zugriff auf die
+                jeweiligen internen Prompt-Builder samt Live-Payload.
+            frage: Bei zweck='freie_frage': die Beispiel-Frage, die in den
+                Prompt eingesetzt wird.
+        """
+        if zweck != "freie_frage":
+            return {
+                "status": "nicht_verfuegbar",
+                "hinweis": (
+                    f"Zweck '{zweck}' ist der v1.8-Teil von #774. In v1.7 "
+                    "verfuegbar: 'freie_frage'. Der Prompt der internen "
+                    "Tasks haengt am Live-Payload des jeweiligen Laufs."
+                ),
+                "verfuegbar": ["freie_frage"],
+            }
+        from ..services.elwosa_dialog import baue_prompt
+        prompt, quellen, datenpunkte = baue_prompt(
+            db, (frage or "<hier steht die Frage des Nutzers>").strip())
+        return {
+            "status": "ok",
+            "zweck": zweck,
+            "prompt": prompt,
+            "kontext_quellen": quellen,
+            "datenpunkte": datenpunkte,
+            "hinweis": "Nur Anzeige — es wurde NICHTS an die lokale KI gesendet.",
+        }
