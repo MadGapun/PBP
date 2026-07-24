@@ -27,6 +27,7 @@ export const STATUS_OPTIONS = [
   { value: "abgelehnt", label: "Abgelehnt" },
   { value: "zurueckgezogen", label: "Zurückgezogen" },
   { value: "abgelaufen", label: "Abgelaufen" },
+  { value: "arbeitgeber_ausgefallen", label: "Arbeitgeber ausgefallen" },
 ];
 
 export function cn(...parts) {

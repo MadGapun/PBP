@@ -614,3 +614,218 @@ def register(mcp, db, logger):
                 "Genehmigung in Kontakte-Tab."
             ),
         }
+
+    # === v1.7.10 (#780, D28): Recruiter-Historie ===
+
+    @mcp.tool()
+    def kontakt_historie(suchbegriff: str) -> dict:
+        """Historie zu einer Person: wer hat schon mal angefragt, wie lief es? (#780)
+
+        Sucht ueber Personennamen, E-Mail und Telefonnummer — sowohl in der
+        Kontaktdatenbank als auch in den FREITEXTFELDERN der Bewerbungen
+        (`ansprechpartner`, `kontakt_email`). Damit funktioniert die Suche
+        auch fuer den Altbestand, in dem Ansprechpartner nie als Kontakt
+        angelegt wurden. Teilnamen genuegen ("van Wijk" findet
+        "Saskia van Wijk").
+
+        Typischer Ausloeser: ein Anruf — "Hier ist <Name>". Erst dieses Tool
+        aufrufen, dann antworten (analog zur firma_kontext-Pflicht #753).
+
+        Args:
+            suchbegriff: Name, Namensteil, E-Mail oder Telefonnummer.
+        """
+        begriff = (suchbegriff or "").strip()
+        if len(begriff) < 3:
+            return {"fehler": "Suchbegriff braucht mindestens 3 Zeichen."}
+        like = f"%{begriff.lower()}%"
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+
+        # 1) Kontaktdatenbank
+        kontakt_rows = conn.execute(
+            "SELECT * FROM contacts WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND (LOWER(COALESCE(full_name,'')) LIKE ? "
+            "  OR LOWER(COALESCE(email,'')) LIKE ? "
+            "  OR REPLACE(COALESCE(phone,''),' ','') LIKE REPLACE(?,' ','')) "
+            "ORDER BY full_name",
+            (pid, like, like, like),
+        ).fetchall()
+        kontakte = []
+        for r in kontakt_rows:
+            kontakte.append({
+                "id": r["id"][:8],
+                "name": r["full_name"],
+                "firma": r["company"] or "",
+                "email": r["email"] or "",
+                "telefon": r["phone"] or "",
+                "position": r["position"] or "",
+            })
+
+        # 2) Freitextfelder der Bewerbungen (Altbestand!)
+        app_rows = conn.execute(
+            "SELECT id, company, title, status, applied_at, created_at, "
+            "       ansprechpartner, kontakt_email, vermittler, endkunde "
+            "FROM applications WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND (LOWER(COALESCE(ansprechpartner,'')) LIKE ? "
+            "  OR LOWER(COALESCE(kontakt_email,'')) LIKE ?) "
+            "ORDER BY COALESCE(NULLIF(applied_at,''), created_at) DESC",
+            (pid, like, like),
+        ).fetchall()
+
+        vorgaenge = []
+        letzter_kontakt = ""
+        for r in app_rows:
+            datum = (r["applied_at"] or r["created_at"] or "")[:10]
+            letzter_kontakt = max(letzter_kontakt, datum)
+            vorgaenge.append({
+                "bewerbung_id": r["id"][:8],
+                "firma": r["company"],
+                "titel": r["title"],
+                "status": r["status"],
+                "datum": datum,
+                "ansprechpartner": r["ansprechpartner"] or "",
+                "vermittler": r["vermittler"] or "",
+                "endkunde": r["endkunde"] or "",
+            })
+
+        # 3) Verknuepfte Vorgaenge der gefundenen Kontakte (contact_links)
+        for r in kontakt_rows:
+            try:
+                for link in db.get_contact_links(r["id"]):
+                    if link.get("target_kind") != "application":
+                        continue
+                    app = db.get_application(link.get("target_id") or "")
+                    if app and app["id"][:8] not in {
+                        v["bewerbung_id"] for v in vorgaenge
+                    }:
+                        datum = (app.get("applied_at")
+                                 or app.get("created_at") or "")[:10]
+                        letzter_kontakt = max(letzter_kontakt, datum)
+                        vorgaenge.append({
+                            "bewerbung_id": app["id"][:8],
+                            "firma": app.get("company", ""),
+                            "titel": app.get("title", ""),
+                            "status": app.get("status", ""),
+                            "datum": datum,
+                            "ansprechpartner": app.get("ansprechpartner") or "",
+                            "vermittler": app.get("vermittler") or "",
+                            "endkunde": app.get("endkunde") or "",
+                            "quelle": "kontakt_verknuepfung",
+                        })
+            except Exception as e:
+                logger.debug("kontakt_historie Links: %s", e)
+
+        vorgaenge.sort(key=lambda v: v["datum"], reverse=True)
+        if not kontakte and not vorgaenge:
+            return {
+                "status": "nichts_gefunden",
+                "suchbegriff": begriff,
+                "hinweis": (
+                    "Weder in der Kontaktdatenbank noch in den "
+                    "Bewerbungs-Freitextfeldern gefunden. Bei Firmen "
+                    "stattdessen vermittler_historie() oder firma_kontext()."
+                ),
+            }
+        return {
+            "status": "ok",
+            "suchbegriff": begriff,
+            "kontakte": kontakte,
+            "vorgaenge": vorgaenge,
+            "anzahl_vorgaenge": len(vorgaenge),
+            "letzter_kontakt": letzter_kontakt or None,
+        }
+
+    @mcp.tool()
+    def vermittler_historie(firma: str) -> dict:
+        """Aggregierte Historie eines Vermittlers/Personaldienstleisters (#780).
+
+        Beantwortet vor der Reaktion auf eine neue Anfrage: Wie oft kam
+        dieser Vermittler schon? Wohin fuehrte es? Welche Endkunden, welche
+        Ansprechpartner? "Die sechste Anfrage, keine fuehrte zum Abschluss"
+        aendert die Antwort.
+
+        Args:
+            firma: Vermittler-Name (Substring genuegt).
+        """
+        name = (firma or "").strip()
+        if len(name) < 2:
+            return {"fehler": "Firmenname braucht mindestens 2 Zeichen."}
+        like = f"%{name.lower()}%"
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        rows = conn.execute(
+            "SELECT id, company, title, status, applied_at, created_at, "
+            "       ansprechpartner, kontakt_email, vermittler, endkunde, "
+            "       has_reached_interview "
+            "FROM applications WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND (LOWER(COALESCE(company,'')) LIKE ? "
+            "  OR LOWER(COALESCE(vermittler,'')) LIKE ?) "
+            "ORDER BY COALESCE(NULLIF(applied_at,''), created_at)",
+            (pid, like, like),
+        ).fetchall()
+        if not rows:
+            return {
+                "status": "nichts_gefunden",
+                "firma": name,
+                "hinweis": "Keine Bewerbung mit diesem Vermittler im Bestand. "
+                           "Fuer Einzelpersonen: kontakt_historie(name).",
+            }
+
+        ausgaenge = {}
+        endkunden = set()
+        ansprechpartner = set()
+        interviews = 0
+        beworben = 0
+        daten = []
+        vorgaenge = []
+        for r in rows:
+            ausgaenge[r["status"]] = ausgaenge.get(r["status"], 0) + 1
+            if r["endkunde"]:
+                endkunden.add(r["endkunde"])
+            if r["ansprechpartner"]:
+                # Freitext kann mehrere Personen enthalten — grob an
+                # Kommas/Und trennen, Klammer-Zusaetze bleiben dran.
+                for teil in (r["ansprechpartner"]
+                             .replace(" und ", ",").split(",")):
+                    t = teil.strip()
+                    if len(t) > 2:
+                        ansprechpartner.add(t)
+            if r["has_reached_interview"] == 1:
+                interviews += 1
+            if r["status"] != "in_vorbereitung":
+                beworben += 1
+            datum = (r["applied_at"] or r["created_at"] or "")[:10]
+            if datum:
+                daten.append(datum)
+            vorgaenge.append({
+                "bewerbung_id": r["id"][:8],
+                "titel": r["title"],
+                "status": r["status"],
+                "datum": datum,
+                "endkunde": r["endkunde"] or "",
+                "ansprechpartner": r["ansprechpartner"] or "",
+            })
+
+        gesamt = len(rows)
+        return {
+            "status": "ok",
+            "firma": name,
+            "anfragen_gesamt": gesamt,
+            "davon_beworben": beworben,
+            "interviews": interviews,
+            "interview_quote": round(interviews / gesamt * 100, 1) if gesamt else 0,
+            "ausgaenge": ausgaenge,
+            "endkunden": sorted(endkunden),
+            "ansprechpartner": sorted(ansprechpartner),
+            "zeitraum": {
+                "erster_kontakt": min(daten) if daten else None,
+                "letzter_kontakt": max(daten) if daten else None,
+            },
+            "vorgaenge": vorgaenge,
+            "hinweis": (
+                f"{gesamt + 1}. Anfrage waere die naechste. "
+                + ("Noch kein Vorgang fuehrte zu einem Interview."
+                   if interviews == 0 else
+                   f"{interviews} Vorgang/Vorgaenge erreichten ein Interview.")
+            ),
+        }

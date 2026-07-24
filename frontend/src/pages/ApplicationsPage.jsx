@@ -44,7 +44,7 @@ const EMPTY_APPLICATION = {
   applied_at: new Date().toISOString().slice(0, 10),
   notes: "",
 };
-const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen"];
+const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen"];
 const INTERVIEW_STATUSES = ["interview", "zweitgespraech", "interview_abgeschlossen"];
 
 // #673: Anzeige-Labels fuer Recherche-Kategorien (research_notes-Tabelle)
@@ -496,7 +496,7 @@ export default function ApplicationsPage() {
     angebot: 0, interview_abgeschlossen: 1, zweitgespraech: 2, interview: 3,
     warte_auf_rueckmeldung: 4, eingangsbestaetigung: 5, beworben: 6,
     in_vorbereitung: 7, entwurf: 8,
-    angenommen: 9, abgelehnt: 10, zurueckgezogen: 11, abgelaufen: 12,
+    angenommen: 9, abgelehnt: 10, zurueckgezogen: 11, abgelaufen: 12, arbeitgeber_ausgefallen: 13,
   };
   const sortedApplications = [...filteredApplications].sort((a, b) => {
     if (sortMode === "firma") return (a.company || "").localeCompare(b.company || "", "de");
@@ -718,6 +718,7 @@ export default function ApplicationsPage() {
                 <option value="angebot">Angebot</option>
                 <option value="abgelehnt">Abgelehnt</option>
                 <option value="zurueckgezogen">Zurückgezogen</option>
+                <option value="arbeitgeber_ausgefallen">Arbeitgeber ausgefallen</option>
                 <option value="abgelaufen">Abgelaufen</option>
               </SelectInput>
             </Field>
@@ -943,7 +944,7 @@ export default function ApplicationsPage() {
           ))}
           <Field label="Status">
             <SelectInput value={createDialog.draft.status} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value } }))}>
-              {STATUS_OPTIONS.filter((option) => !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(option.value)).map((option) => (
+              {STATUS_OPTIONS.filter((option) => !["abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen"].includes(option.value)).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

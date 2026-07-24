@@ -1600,8 +1600,11 @@ def register(mcp, db, logger):
             source_counts[src] = source_counts.get(src, 0) + 1
 
         # Check which jobs have been applied to (#65)
+        # v1.7.10 (#782/C30): volle Bewerbungsliste einmal laden — die
+        # Repost-Pruefung braucht Firma/Titel/Status, nicht nur Hashes.
+        _alle_bewerbungen = db.get_applications()
         applied_hashes_all = {
-            r["job_hash"] for r in db.get_applications()
+            r["job_hash"] for r in _alle_bewerbungen
             if r.get("job_hash")
         } if not nur_nicht_beworben else set()
 
@@ -1684,6 +1687,17 @@ def register(mcp, db, logger):
                         "Diese URL zeigt auf eine Suchergebnis-Seite, nicht auf die konkrete "
                         "Stellenanzeige. Suche die Stelle manuell auf dem Portal."
                     )
+            # v1.7.10 (#782/C30): Repost-Erkennung — entspricht die Stelle
+            # einer FRUEHEREN Bewerbung? Warnung, keine Entscheidung. Nur
+            # wenn nicht ohnehin als bereits_beworben markiert (gleicher Hash).
+            if j["hash"] not in applied_hashes_all:
+                from ..duplicate_detection import find_repost_of_application
+                _repost = find_repost_of_application(j, _alle_bewerbungen)
+                if _repost:
+                    entry["repost_warnung"] = _repost["warnung"]
+                    entry["repost_details"] = {
+                        k: v for k, v in _repost.items() if k != "warnung"}
+
             # #766: Stellen ohne jeden Anker (URL/Dokument/Kontakt) sichtbar
             # markieren, statt sie wie normale Treffer darzustellen.
             from ..services.stellen_anker import anker_status as _anker_status
@@ -1884,6 +1898,181 @@ def register(mcp, db, logger):
             "max_anstieg": max(deltas) if deltas else 0,
             "max_rueckgang": min(deltas) if deltas else 0,
         }
+
+    @mcp.tool()
+    def suchperformance_auswerten() -> dict:
+        """Welche Quelle fuehrt tatsaechlich zu Bewerbungen? (#783/B28, v1.7.10)
+
+        Wertet die KOMPLETTE Kette rueckwirkend aus Bestandsdaten aus:
+        gefunden -> aussortiert (mit Top-Gruenden) -> beworben -> Interview/
+        Angebot, je Quelle. Die eigentliche Kennzahl ist die BEWERBUNGSQUOTE
+        pro Quelle, nicht die Trefferzahl — eine Quelle mit 7 Treffern und
+        2 Bewerbungen schlaegt eine mit 100 Treffern und 0.
+
+        Ehrliche Grenze (v1.7): Auswertung auf QUELLEN-Ebene. Die Ebene
+        einzelner Such-Queries braucht eine Lauf-Protokollierung
+        (search_runs) — das ist der v1.8-Teil von #783; die Beta-Linie
+        fuehrt mit `scraper_runs` (B25/#735) bereits eine Lauf-Historie.
+        """
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+
+        quellen: dict = {}
+        for r in conn.execute(
+            "SELECT source, COUNT(*) AS n, "
+            "SUM(CASE WHEN is_active=1 THEN 1 ELSE 0 END) AS aktiv "
+            "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+            "GROUP BY source", (pid,)
+        ).fetchall():
+            src = r["source"] or "unbekannt"
+            quellen[src] = {
+                "gefunden": r["n"],
+                "aktiv": r["aktiv"] or 0,
+                "aussortiert": r["n"] - (r["aktiv"] or 0),
+                "top_aussortier_gruende": {},
+                "beworben": 0, "interviews": 0, "angebote": 0,
+            }
+
+        # Top-Aussortier-Gruende je Quelle (Mehrfach-Gruende als JSON-Liste
+        # werden als Rohstring gezaehlt — fuer das Ranking reicht das)
+        for r in conn.execute(
+            "SELECT source, dismiss_reason, COUNT(*) AS n FROM jobs "
+            "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "
+            "AND COALESCE(dismiss_reason,'') != '' "
+            "GROUP BY source, dismiss_reason", (pid,)
+        ).fetchall():
+            src = r["source"] or "unbekannt"
+            if src in quellen:
+                quellen[src]["top_aussortier_gruende"][r["dismiss_reason"]] = r["n"]
+        for q in quellen.values():
+            q["top_aussortier_gruende"] = dict(sorted(
+                q["top_aussortier_gruende"].items(),
+                key=lambda kv: -kv[1])[:3])
+
+        # Erfolgs-Kette: Bewerbung -> Interview -> Angebot je Quelle.
+        # Verknuepfung ueber jobs.hash (seit #764 mit application_jobs
+        # synchron); Fallback auf applications.source fuer Bewerbungen
+        # ohne verknuepfte Stelle.
+        beworben_ids = set()
+        for r in conn.execute(
+            "SELECT j.source AS source, a.id AS aid, "
+            "       a.has_reached_interview AS iv, a.status AS status "
+            "FROM applications a JOIN jobs j ON j.hash = a.job_hash "
+            "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+            "AND a.status != 'in_vorbereitung'", (pid,)
+        ).fetchall():
+            src = r["source"] or "unbekannt"
+            q = quellen.setdefault(src, {
+                "gefunden": 0, "aktiv": 0, "aussortiert": 0,
+                "top_aussortier_gruende": {},
+                "beworben": 0, "interviews": 0, "angebote": 0})
+            q["beworben"] += 1
+            beworben_ids.add(r["aid"])
+            if r["iv"] == 1:
+                q["interviews"] += 1
+            if r["status"] in ("angebot", "angenommen"):
+                q["angebote"] += 1
+        ohne_stelle = 0
+        for r in conn.execute(
+            "SELECT id, source, has_reached_interview AS iv, status "
+            "FROM applications WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND status != 'in_vorbereitung'", (pid,)
+        ).fetchall():
+            if r["id"] in beworben_ids:
+                continue
+            src = (r["source"] or "").strip()
+            if not src:
+                ohne_stelle += 1
+                continue
+            q = quellen.setdefault(src, {
+                "gefunden": 0, "aktiv": 0, "aussortiert": 0,
+                "top_aussortier_gruende": {},
+                "beworben": 0, "interviews": 0, "angebote": 0})
+            q["beworben"] += 1
+            if r["iv"] == 1:
+                q["interviews"] += 1
+            if r["status"] in ("angebot", "angenommen"):
+                q["angebote"] += 1
+
+        for q in quellen.values():
+            basis = q["gefunden"] or q["beworben"]
+            q["bewerbungsquote_prozent"] = (
+                round(q["beworben"] / basis * 100, 1) if basis else 0)
+            q["interview_quote_prozent"] = (
+                round(q["interviews"] / q["beworben"] * 100, 1)
+                if q["beworben"] else 0)
+
+        ranking = sorted(
+            (s for s, q in quellen.items() if q["beworben"] > 0),
+            key=lambda s: -quellen[s]["bewerbungsquote_prozent"])
+        trocken = sorted(
+            s for s, q in quellen.items()
+            if q["beworben"] == 0 and q["gefunden"] >= 10)
+
+        result = {
+            "status": "ok",
+            "quellen": quellen,
+            "ranking_nach_bewerbungsquote": ranking,
+            "quellen_ohne_einzige_bewerbung": trocken,
+            "hinweis_trocken": (
+                "Quellen ohne Bewerbung trotz >=10 Funden sind KANDIDATEN "
+                "fuer die Deaktivierung — aber Vorschlag, keine Automatik: "
+                "eine Quelle kann drei Monate trocken laufen und dann die "
+                "passende Stelle liefern."
+            ) if trocken else "",
+            "grenze": (
+                "Auswertung auf Quellen-Ebene aus Bestandsdaten. Einzelne "
+                "Such-Queries sind erst mit der Lauf-Protokollierung "
+                "(v1.8-Teil von #783) zuordenbar."
+            ),
+        }
+        if ohne_stelle:
+            result["bewerbungen_ohne_quelle"] = ohne_stelle
+        return result
+
+    @mcp.tool()
+    def kalibrierung_backtest(
+        stichprobe_dismissed: int = 200,
+        modus: str = "aktuell",
+        dry_run: bool = True,
+    ) -> dict:
+        """Backtest der Suchkriterien gegen die eigene Bewerbungshistorie (#778/C29).
+
+        Prueft, wie die AKTUELLEN Kriterien die Vergangenheit bewertet
+        haetten: Score-Verteilung der Stellen, auf die tatsaechlich beworben
+        wurde (positive Labels), gegen eine Zufallsstichprobe der
+        Aussortierten (negative Labels). Liefert einen Schwellen-Vorschlag
+        (niedrigster Bewerbungs-Score x 0,8) und warnt, wenn historische
+        Bewerbungen unter der aktuellen `min_score_schwelle` laegen.
+
+        ⛔ GARANTIE: Reine SCHATTENRECHNUNG. Dieses Tool ruft NIEMALS
+        scores_neu_berechnen auf und schreibt keinen einzigen Score in die
+        jobs-Tabelle — egal welche Parameter. Der dry_run-Parameter
+        existiert nur der Konvention wegen; es gibt keinen Schreibmodus.
+
+        Nutzung nach jeder Kriterienaenderung: erst Backtest ansehen,
+        dann entscheiden, dann (separat) scores_neu_berechnen().
+
+        Args:
+            stichprobe_dismissed: Groesse der Zufallsstichprobe aussortierter
+                Stellen (Default 200).
+            modus: 'aktuell' = Kriterien wie konfiguriert; 'idf' = mit
+                Seltenheitsgewichtung + Top-5-Deckelung; 'beide' = Vergleich
+                der beiden Varianten (zum Entscheiden, ob sich das
+                IDF-Opt-in lohnt).
+            dry_run: ohne Funktion — der Backtest persistiert nie.
+        """
+        from ..services.kalibrierung import backtest as _backtest
+        if modus not in ("aktuell", "idf", "beide"):
+            return {"fehler": "modus muss 'aktuell', 'idf' oder 'beide' sein."}
+        result = _backtest(db, stichprobe_dismissed=stichprobe_dismissed,
+                           modus=modus)
+        if not dry_run:
+            result["hinweis_dry_run"] = (
+                "dry_run=False hat keine Wirkung — der Backtest ist per "
+                "Design eine Schattenrechnung und persistiert nie."
+            )
+        return result
 
     @mcp.tool()
     def linkedin_browser_search(
@@ -2915,6 +3104,20 @@ def register(mcp, db, logger):
         # ("Trefferchance nicht hoch, aber realistisch vorhanden") — statt-
         # dessen liefert die Heuristik eine eindeutige Aussage, die Claude
         # direkt zitieren kann.
+        # v1.7.10 (#782/C30): Repost-Warnung prominent in der Fit-Analyse —
+        # bevor Unterlagen erstellt werden, muss klar sein, dass es diese
+        # Stelle als Bewerbung schon einmal gab.
+        try:
+            from ..duplicate_detection import find_repost_of_application
+            _repost = find_repost_of_application(
+                job_dict, db.get_applications())
+            if _repost:
+                result["repost_warnung"] = _repost["warnung"]
+                result["repost_details"] = {
+                    k: v for k, v in _repost.items() if k != "warnung"}
+        except Exception as _e:
+            logger.debug("Repost-Check in fit_analyse: %s", _e)
+
         result["empfehlung"] = _build_empfehlung(result, job_dict)
 
         return result

@@ -23,6 +23,162 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.9] - 2026-07-24 — Stabilisierungswelle: Kalibrierung, Statistik-Ehrlichkeit, Historie, Lern-Fundament (#774, #778-#784)
+
+> **Prerelease.** `--latest` ist v1.7.10 — dieselben Aenderungen in der
+> Stable-Linie. KEINE Schema-Migration (Schema **v52** unveraendert — die neue `learned_insights`-Tabelle kommt
+> als idempotentes Safety-Net ohne Versions-Bump, weil v49 in der
+> 1.8-Linie fuer `components` reserviert ist). Nach dem Update Claude
+> Desktop komplett beenden und neu starten.
+>
+> Acht Issues aus den Praxis-Sessions vom 24.07. — alles, was den
+> bestehenden Funktionsumfang korrekt und ehrlich macht. Umbauten und
+> Automatiken wurden bewusst nach v1.8 verschoben (Label `v1.8` an den
+> Issues).
+
+### Added
+
+- **#778 — Scoring-Kalibrierung (C29).** Neues Tool `kalibrierung_backtest()`:
+  validiert die aktuellen Suchkriterien gegen die gelabelte Historie
+  (Bewerbungen = positiv, Aussortierte = negativ) als reine
+  **Schattenrechnung** — es wird garantiert kein Score persistiert.
+  Schwellen-Vorschlag = niedrigster Bewerbungs-Score × 0,8 (User-Vorgabe),
+  Warnung wenn historische Bewerbungen unter der aktuellen Schwelle laegen
+  (die Schwelle darf ausblenden, nie loeschen). Dazu als **Opt-in**
+  (`suchkriterien_bearbeiten(kategorie='scoring', aktion='idf',
+  werte=['an'])`): IDF-Seltenheitsgewichtung („Digital Transformation" in
+  50 % aller Anzeigen zaehlt weniger als ein Nischenbegriff mit 1 %) plus
+  Top-5-Deckelung der MUSS-Summe — Masse schlaegt nicht mehr Klasse. Der
+  Backtest vergleicht beide Modi (`modus='beide'`). **Einzelgewichte pro
+  Keyword** (`aktion='gewichten'`) uebersteuern das Kategorie-Gewicht —
+  „Arbeitnehmerueberlassung" kann milder wirken als „Bauwesen". Ausschluss-
+  Klassiker bekommen beim Anlegen einen DE/EN-Paar-Hinweis (Praxis-Fall:
+  „Working Student" erreichte Score 40, weil nur deutsche Junior-Begriffe
+  gepflegt waren). Default-Verhalten ohne Opt-in: exakt wie vorher.
+- **#780 — Recruiter-Historie (D28).** `kontakt_historie(suchbegriff)`
+  („Hier ist Frau X" → sofort alle Vorgaenge, sucht auch in den
+  Freitextfeldern des Altbestands, Teilname genuegt) und
+  `vermittler_historie(firma)` (Anfragen, Ausgaenge, Endkunden,
+  Ansprechpartner, Zeitraum — „die sechste Anfrage, keine fuehrte zum
+  Abschluss" aendert die Reaktion).
+- **#783 — Suchperformance (B28).** `suchperformance_auswerten()`: die
+  komplette Kette gefunden → aussortiert (Top-Gruende) → beworben →
+  Interview/Angebot je Quelle, rueckwirkend aus Bestandsdaten. Die
+  Kennzahl ist die **Bewerbungsquote pro Quelle**, nicht die Trefferzahl.
+- **#784 — Lern-Fundament (F28).** Tabelle `learned_insights` +
+  `erkenntnisse_ableiten(dry_run)` (regelbasiert: dominante Aussortier-
+  Gruende, Zeitarbeit-Muster, Hochscore-Fehlleitungen, Kanal-Unterschiede
+  — jede Aussage mit Evidenz und Konfidenz aus der Fallzahl),
+  `erkenntnisse_anzeigen()`, `erkenntnis_bestaetigen()`. ⛔ Grundsatz:
+  **Keine Erkenntnis wird ohne Nutzerbestaetigung wirksam.** Widersprochene
+  Aussagen werden nie erneut vorgeschlagen.
+- **#774 — Elwosa ueber Claude ansprechbar (F29).** `elwosa_fragen(frage)`
+  reicht Fragen an die lokale KI durch — mit PBP-Kontext (Profil-Kurztext,
+  Statistik, bestaetigte Erkenntnisse). Elwosa ist auskunftsfaehig, nicht
+  urteilsfaehig; Claude kennzeichnet die Antwort als Position. Lokale KI
+  nicht erreichbar → ehrliche Meldung, kein stiller Claude-Fallback.
+  `elwosa_prompt_kopieren()` zeigt den vollstaendigen Prompt ohne
+  Ausfuehrung (Debugging/Prompt-Entwicklung). Dialoge landen in
+  `elwosa_messages`.
+- **Neuer Status `arbeitgeber_ausgefallen`** (#779): Insolvenz,
+  Stellenstreichung, Einstellungsstopp — der Prozess endete ohne Zutun des
+  Bewerbers. Zaehlt NICHT in die withdrawal_rate; ein vorher vorliegendes
+  Angebot bleibt in der offer_rate (belegter Fall: Angebot lag vor, Firma
+  ging insolvent, Statistik zeigte 0 % Angebote und einen „Rueckzug").
+
+### Fixed
+
+- **#779 — Bewerbungen ohne applied_at fielen aus der Statistik (D27).**
+  Der intensivste Vorgang des Jahres (drei Gespraeche, Angebot, Insolvenz)
+  war unsichtbar, weil bei einem Netzwerk-Kontakt der Status `beworben`
+  uebersprungen wurde. Jetzt: Statuswechsel, die eine Bewerbung
+  voraussetzen, tragen `applied_at` aus dem aeltesten Timeline-Event nach
+  (Hinweis im Tool-Result); `statistiken_abrufen()` weist Ausgeschlossene
+  aus statt sie zu verschlucken; `pbp_diagnose(auto_fix=True)` heilt den
+  Bestand idempotent.
+- **#782 — Repost-Erkennung (C30).** Neu gefundene Stellen werden gegen
+  die Bewerbungshistorie geprueft (Firma + Titel-Aehnlichkeit, bewusst
+  ohne URL-Vergleich — Reposts haben neue URLs). Warnung in
+  `stellen_anzeigen`, `fit_analyse` und `firma_kontext` inkl. Datum,
+  Status und ob ein Ablehnungsgrund dokumentiert ist. **Keine automatische
+  Aussortierung** — ein Repost kann eine echte zweite Chance sein.
+  Dazu: Absage ohne Grund → Rueckfrage im Tool-Result (kein Zwang);
+  rekonstruierte Altbewerbungen werden in `bewerbung_details` als solche
+  gekennzeichnet (abgeleitet, kein Schema-Feld).
+- **#781 — Statistik sagt jetzt, was wirklich passiert ist (D29).**
+  `statistiken_abrufen()` liefert `zeitliche_kennzahlen` (Prozessdauer
+  nach Ausgang, Reaktionszeit, Zeit bis Interview/Absage — Median UND
+  Mittelwert, denn 48-Stunden-Absagen und Vier-Monats-Prozesse sind
+  verschiedene Welten), `kanal_auswertung` (Interview-Quote je Kanal)
+  und `ablehnungs_kategorien` (still/automatisch/nach Interview/
+  Vermittler/extern — die Quote wird um extern bedingte Faelle
+  **bereinigt**, denn „Stelle gestrichen" ist keine Ablehnung des
+  Bewerbers). Der PDF-Bericht bekommt die Bloecke als eigene Abschnitte;
+  Vor-PBP-Zahlen sind als **Untergrenze** gekennzeichnet (rekonstruierter
+  Altbestand hat typisch nur 1-2 Events). `pbp_diagnose()` findet
+  Gespraeche, die nur im Notizfeld stehen (Muster + Datum, reine Liste —
+  bewusst kein Auto-Anlegen).
+
+### Nach v1.8 verschoben (Label `v1.8` + Kommentar am Issue)
+
+- #778 Teil 4 (Kalibrierungs-Schleife in der Automatik), #780 (Auto-
+  Kontakt-Anlage + Bestands-Migration), #781 (PDF-Diagramme), #782
+  (CV-Text ins Stilarchiv), #783 (search_runs-Tabellen + Query-Ebene —
+  die Beta-Linie hat mit `scraper_runs` bereits die Lauf-Historie),
+  #784 (LLM-Ableitung, Anbindung an Auto-Aussortierung, Dashboard-
+  Kuratierung), #774 (weitere Prompt-Zwecke, Dashboard-Einsicht).
+
+### Unter der Haube
+
+- 9 neue MCP-Tools (jetzt **192**), 46 neue Tests. Suite: **2045 passed,
+  1 skipped**. Neue Services: `kalibrierung.py`, `statistik_erweitert.py`,
+  `lerninsights.py`, `elwosa_dialog.py`.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.9.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.9.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.8] - 2026-07-23 — Verfolgbarkeit: Link zur Anzeige, Anker-Pflicht, Bestands-Heilung (#763, #764, #765, #766)
 
 > **Prerelease.** `--latest` bleibt v1.7.9. KEINE Schema-Migration

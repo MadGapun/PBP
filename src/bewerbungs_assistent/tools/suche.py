@@ -105,19 +105,55 @@ def register(mcp, db, logger):
     def suchkriterien_bearbeiten(
         kategorie: str,
         aktion: str,
-        werte: list[str] = None
+        werte: list[str] = None,
+        gewicht: float = 0.0,
     ) -> dict:
-        """Einzelne Keywords zu Suchkriterien hinzufügen oder entfernen.
+        """Einzelne Keywords zu Suchkriterien hinzufügen, entfernen oder gewichten.
 
         Statt die gesamte Liste zu ersetzen, können einzelne Keywords
         inkrementell hinzugefügt oder entfernt werden.
 
+        v1.7.10 (#778/C29):
+        - aktion='gewichten' setzt ein EINZELGEWICHT pro Keyword (Override
+          des Kategorie-Gewichts, z.B. 'Arbeitnehmerueberlassung' mit
+          Gewicht 2 statt Kategorie-Malus 6). aktion='gewicht_entfernen'
+          setzt zurueck auf das Kategorie-Gewicht.
+        - kategorie='scoring', aktion='idf' mit werte=['an']/['aus']
+          schaltet die IDF-Seltenheitsgewichtung + Top-5-Deckelung um
+          (Default: aus). Danach `kalibrierung_backtest()` laufen lassen
+          und erst dann `scores_neu_berechnen()`.
+
         Args:
             kategorie: 'muss', 'plus', 'minus' oder 'ausschluss'
-                (minus seit #667 / B19, beta.84 — weiche Score-Abwertung)
-            aktion: 'hinzufügen' oder 'entfernen'
-            werte: Liste der Keywords
+                (minus seit #667 / B19, beta.84 — weiche Score-Abwertung);
+                'scoring' nur fuer aktion='idf'
+            aktion: 'hinzufügen', 'entfernen', 'gewichten',
+                'gewicht_entfernen' oder 'idf'
+            werte: Liste der Keywords (bei 'idf': ['an'] oder ['aus'])
+            gewicht: Punktwert pro Treffer bei aktion='gewichten'
         """
+        action_norm0 = (aktion or "").strip().lower()
+
+        # --- #778: IDF-Schalter ---
+        if action_norm0 == "idf":
+            wert = (werte[0].lower() if werte else "").strip()
+            if wert not in ("an", "aus", "on", "off"):
+                return {"fehler": "aktion='idf' braucht werte=['an'] oder ['aus']."}
+            an = wert in ("an", "on")
+            db.set_search_criteria("scoring_idf", an)
+            result = {
+                "status": "idf_" + ("aktiviert" if an else "deaktiviert"),
+                "hinweis": (
+                    "Seltenheitsgewichtung (IDF) + Top-5-Deckelung der "
+                    "MUSS-Summe sind jetzt "
+                    + ("AKTIV. Empfehlung: erst kalibrierung_backtest() "
+                       "pruefen, dann scores_neu_berechnen()."
+                       if an else "aus — das Scoring rechnet wieder klassisch. "
+                       "scores_neu_berechnen() nicht vergessen.")
+                ),
+            }
+            return result
+
         key_map = {
             "muss": "keywords_muss",
             "plus": "keywords_plus",
@@ -134,6 +170,39 @@ def register(mcp, db, logger):
             }
         if not werte:
             return {"fehler": "Keine Werte angegeben"}
+
+        # --- #778: Einzelgewichte pro Keyword ---
+        if action_norm0 in ("gewichten", "gewicht_entfernen"):
+            if kategorie == "ausschluss":
+                return {"fehler": (
+                    "Ausschluss-Keywords haben kein Gewicht — sie sind ein "
+                    "harter K.o. Fuer eine mildere Wirkung das Keyword nach "
+                    "'minus' verschieben und dort gewichten."
+                )}
+            criteria_g = db.get_search_criteria()
+            kg = criteria_g.get("keyword_gewichte") or {}
+            if not isinstance(kg, dict):
+                kg = {}
+            geaendert = []
+            for wrt in werte:
+                wl = wrt.lower()
+                if action_norm0 == "gewichten":
+                    if gewicht <= 0:
+                        return {"fehler": "gewicht muss > 0 sein (Punkte pro Treffer)."}
+                    kg[wl] = gewicht
+                    geaendert.append({wrt: gewicht})
+                else:
+                    kg.pop(wl, None)
+                    geaendert.append({wrt: "Kategorie-Gewicht"})
+            db.set_search_criteria("keyword_gewichte", kg)
+            return {
+                "status": "gewichtet" if action_norm0 == "gewichten" else "zurueckgesetzt",
+                "kategorie": kategorie,
+                "geaendert": geaendert,
+                "alle_einzelgewichte": kg,
+                "hinweis": "Wirkt ab der naechsten Score-Berechnung — "
+                           "scores_neu_berechnen() fuer den Bestand.",
+            }
 
         criteria = db.get_search_criteria()
         current = criteria.get(key, [])
@@ -152,7 +221,39 @@ def register(mcp, db, logger):
                     current.append(w)
                     added.append(w)
             db.set_search_criteria(key, current)
-            return {"status": "hinzugefuegt", "kategorie": kategorie, "hinzugefuegt": added, "gesamt": len(current)}
+            result = {"status": "hinzugefuegt", "kategorie": kategorie,
+                      "hinzugefuegt": added, "gesamt": len(current)}
+            # v1.7.10 (#778): DE/EN-Paare fuer Ausschluss-Klassiker. Praxis-
+            # Fall 24.07.: nur deutsche Junior-Begriffe gepflegt — eine
+            # englische "Working Student (f/m/d)"-Anzeige erreichte Score 40.
+            if kategorie == "ausschluss":
+                paare = {
+                    "werkstudent": "Working Student",
+                    "working student": "Werkstudent",
+                    "praktikant": "Intern",
+                    "praktikum": "Internship",
+                    "intern": "Praktikant",
+                    "internship": "Praktikum",
+                    "auszubildende": "Apprentice",
+                    "ausbildung": "Apprenticeship",
+                    "apprentice": "Auszubildende",
+                    "berufseinsteiger": "Entry Level",
+                    "entry level": "Berufseinsteiger",
+                    "studentische hilfskraft": "Student Assistant",
+                }
+                jetzt = {w.lower() for w in current}
+                fehlend = sorted({
+                    partner for wrt in added
+                    for kw_l, partner in paare.items()
+                    if kw_l == wrt.lower() and partner.lower() not in jetzt
+                })
+                if fehlend:
+                    result["hinweis_sprachpaare"] = (
+                        "Anzeigen sind oft englisch — diese Pendants fehlen "
+                        f"noch im Ausschluss: {', '.join(fehlend)}. "
+                        "Bei Bedarf gleich mit aufnehmen."
+                    )
+            return result
         elif action_norm in ("entfernen", "remove"):
             remove_set = set(w.lower() for w in werte)
             removed = [w for w in current if w.lower() in remove_set]

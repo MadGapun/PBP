@@ -1269,6 +1269,88 @@ def register(mcp, db, logger):
                         if fixed:
                             fixes.append(f"{fixed} Bewerbungen: source aus verknüpfter Stelle nachgetragen")
 
+                # v1.7.10 (#779/D27): applied_at leer bei Status, der eine
+                # Bewerbung voraussetzt -> faellt aus der Statistik-
+                # Segmentierung. auto_fix traegt aus dem aeltesten Timeline-
+                # Event nach (Fallback created_at). Idempotent: einmal
+                # gefuellt, taucht die Bewerbung hier nie wieder auf.
+                _braucht_datum = {
+                    "beworben", "eingangsbestaetigung", "interview",
+                    "zweitgespraech", "interview_abgeschlossen", "angebot",
+                    "angenommen", "abgelehnt", "arbeitgeber_ausgefallen",
+                }
+                ohne_applied = [
+                    a for a in apps
+                    if a.get("status") in _braucht_datum
+                    and not (a.get("applied_at") or "").strip()
+                ]
+                if ohne_applied:
+                    eintrag = {
+                        "bereich": "Bewerbungen",
+                        "problem": (
+                            f"{len(ohne_applied)} Bewerbung(en) ohne applied_at "
+                            "trotz fortgeschrittenem Status — unsichtbar in der "
+                            "Statistik-Segmentierung (#779)"
+                        ),
+                        "bewerbungen": [
+                            {"id": a["id"][:8], "firma": a.get("company", ""),
+                             "status": a.get("status", "")}
+                            for a in ohne_applied[:10]
+                        ],
+                        "loesung": "pbp_diagnose(auto_fix=True) oder "
+                                   "bewerbung_bearbeiten(applied_at=...)",
+                    }
+                    if auto_fix:
+                        fixed_dates = 0
+                        conn_af = db.connect()
+                        for a in ohne_applied:
+                            row = conn_af.execute(
+                                "SELECT MIN(event_date) AS erster "
+                                "FROM application_events WHERE application_id=?",
+                                (a["id"],),
+                            ).fetchone()
+                            datum = (row["erster"] or "") if row else ""
+                            if not datum:
+                                datum = a.get("created_at") or ""
+                            if datum:
+                                db.update_application(
+                                    a["id"], {"applied_at": datum[:10]})
+                                fixed_dates += 1
+                        if fixed_dates:
+                            fixes.append(
+                                f"{fixed_dates} Bewerbungen: applied_at aus "
+                                "aeltestem Timeline-Event nachgetragen (#779)")
+                    else:
+                        warnungen.append(eintrag)
+
+                # v1.7.10 (#781/D29, Punkt 6): Gespraeche, die nur im
+                # Notizfeld dokumentiert sind, aber weder als Event noch als
+                # Meeting existieren — die Statistik zaehlt dort 0 Interviews.
+                # NUR eine pruefbare Liste, KEIN automatisches Anlegen
+                # (der Mensch muss bestaetigen, dass es echte Termine waren).
+                try:
+                    from ..services.statistik_erweitert import (
+                        notizen_gespraeche_check)
+                    nur_notiz = notizen_gespraeche_check(db)
+                    if nur_notiz:
+                        warnungen.append({
+                            "bereich": "Bewerbungen",
+                            "problem": (
+                                f"{len(nur_notiz)} Bewerbung(en) mit "
+                                "Gespraechs-Hinweisen im Notizfeld, aber ohne "
+                                "Interview-Event/Meeting — Interviews fehlen "
+                                "in der Statistik (#781)"
+                            ),
+                            "bewerbungen": nur_notiz[:10],
+                            "loesung": (
+                                "Je Fall pruefen und manuell nachtragen: "
+                                "bewerbung_event_datum_setzen / "
+                                "meeting_hinzufuegen. Bewusst KEIN auto_fix."
+                            ),
+                        })
+                except Exception as _e:
+                    logger.debug("Notiz-Gespraeche-Check: %s", _e)
+
                 # Zombies: Seit >60 Tagen in beworben ohne Update
                 _now = datetime.now()
                 zombies = []
@@ -2497,3 +2579,122 @@ def register(mcp, db, logger):
         """
         from ..services.onboarding_hints import dismiss_hint
         return dismiss_hint(db, hint_id)
+
+    # === v1.7.10 (#784, F28): learned_insights — Fundament der Lernschleife ===
+
+    @mcp.tool()
+    def erkenntnisse_ableiten(dry_run: bool = True) -> dict:
+        """Leitet Kandidaten-Erkenntnisse aus dem PBP-Verhalten ab (#784/F28).
+
+        Regelbasiert (deterministisch): dominante Aussortier-Gruende,
+        Zeitarbeit-Muster, Hochscore-Fehlleitungen, Kanal-Unterschiede.
+        Jede Aussage traegt EVIDENZ und eine KONFIDENZ aus der Fallzahl —
+        zwei Faelle sind eine Vermutung, dreissig ein Muster.
+
+        ⛔ GRUNDSATZ: Keine Erkenntnis wird ohne Nutzerbestaetigung wirksam.
+        Dieses Tool leitet ab und legt UNBESTAETIGT ab — angewendet wird
+        nichts. Bestaetigen/verwerfen: erkenntnis_bestaetigen(). Bereits
+        widersprochene Aussagen werden NIE erneut vorgeschlagen.
+
+        Args:
+            dry_run: True (Default) = nur anzeigen, nichts speichern.
+                False = Kandidaten als unbestaetigt ablegen.
+        """
+        from ..services.lerninsights import kandidaten_ableiten, speichern
+        kandidaten = kandidaten_ableiten(db)
+        result = {
+            "status": "vorschau" if dry_run else "abgelegt",
+            "kandidaten": kandidaten,
+            "anzahl": len(kandidaten),
+            "hinweis": (
+                "Nichts davon ist wirksam, bevor der User es per "
+                "erkenntnis_bestaetigen() bestaetigt hat."
+            ),
+        }
+        if not dry_run and kandidaten:
+            result["gespeichert"] = speichern(db, kandidaten)
+        return result
+
+    @mcp.tool()
+    def erkenntnisse_anzeigen(filter: str = "alle") -> dict:
+        """Zeigt abgeleitete Erkenntnisse mit Evidenz und Status (#784/F28).
+
+        Args:
+            filter: 'alle', 'offen' (unbestaetigt), 'bestaetigt' oder
+                'widersprochen'.
+        """
+        conn = db.connect()
+        pid = db.get_active_profile_id() or ""
+        status_map = {"offen": 0, "bestaetigt": 1, "widersprochen": -1}
+        sql = ("SELECT * FROM learned_insights "
+               "WHERE (profile_id=? OR profile_id='')")
+        params: list = [pid]
+        if filter in status_map:
+            sql += " AND bestaetigt_vom_user=?"
+            params.append(status_map[filter])
+        elif filter != "alle":
+            return {"fehler": "filter muss alle/offen/bestaetigt/widersprochen sein."}
+        rows = conn.execute(sql + " ORDER BY konfidenz DESC", params).fetchall()
+        import json as _json
+        eintraege = []
+        for r in rows:
+            try:
+                evidenz = _json.loads(r["evidenz_json"] or "{}")
+            except Exception:
+                evidenz = {}
+            eintraege.append({
+                "id": r["id"][:8],
+                "kategorie": r["kategorie"],
+                "aussage": r["aussage"],
+                "konfidenz": r["konfidenz"],
+                "belegt_durch_n": r["belegt_durch_n"],
+                "status": {0: "offen", 1: "bestaetigt",
+                           -1: "widersprochen"}.get(
+                    r["bestaetigt_vom_user"], "offen"),
+                "evidenz": evidenz,
+            })
+        return {"erkenntnisse": eintraege, "anzahl": len(eintraege),
+                "filter": filter}
+
+    @mcp.tool()
+    def erkenntnis_bestaetigen(erkenntnis_id: str, bestaetigen: bool) -> dict:
+        """Kuratiert eine Erkenntnis: bestaetigen oder widersprechen (#784/F28).
+
+        Widersprochene Erkenntnisse werden nicht geloescht, sondern als
+        widersprochen markiert (-1) — dieselbe Fehlableitung wird dadurch
+        nie erneut vorgeschlagen.
+
+        Args:
+            erkenntnis_id: ID aus erkenntnisse_anzeigen (Kurzform reicht).
+            bestaetigen: True = bestaetigt (darf kuenftig als Kontext
+                dienen), False = widersprochen.
+        """
+        conn = db.connect()
+        pid = db.get_active_profile_id() or ""
+        row = conn.execute(
+            "SELECT id, aussage FROM learned_insights "
+            "WHERE (profile_id=? OR profile_id='') AND id LIKE ?",
+            (pid, (erkenntnis_id or "") + "%"),
+        ).fetchone()
+        if not row:
+            return {"fehler": "Erkenntnis nicht gefunden. "
+                              "IDs liefert erkenntnisse_anzeigen()."}
+        wert = 1 if bestaetigen else -1
+        from datetime import datetime as _dt
+        conn.execute(
+            "UPDATE learned_insights SET bestaetigt_vom_user=?, "
+            "aktualisiert_am=? WHERE id=?",
+            (wert, _dt.now().isoformat(), row["id"]))
+        conn.commit()
+        return {
+            "status": "bestaetigt" if bestaetigen else "widersprochen",
+            "id": row["id"][:8],
+            "aussage": row["aussage"],
+            "hinweis": (
+                "Bestaetigte Erkenntnisse stehen der lokalen KI als Kontext "
+                "zur Verfuegung (elwosa_fragen); automatisch ANGEWENDET "
+                "wird weiterhin nichts (v1.8-Teil von #784)."
+                if bestaetigen else
+                "Wird nicht erneut vorgeschlagen."
+            ),
+        }
