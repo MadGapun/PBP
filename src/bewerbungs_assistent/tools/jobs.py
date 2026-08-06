@@ -2174,7 +2174,10 @@ def register(mcp, db, logger):
         # #729: Blacklist-Check auf die Firma VOR dem Anlegen. Vorher wurde eine
         # Stelle einer geblacklisteten Firma kommentarlos angelegt (z.B. via
         # Claude-in-Chrome). force=True ueberbrueckt den Block bewusst.
-        _bl_hit = db.is_company_blacklisted(firma)
+        # v1.7.11 (#790/C31): Der Titel entscheidet mit — ein Firmen-Block
+        # mit gesetzter Ausnahme laesst fachlich passende Rollen durch.
+        _bl_hit = db.is_company_blacklisted(firma, titel)
+        _bl_ausnahme = db.blacklist_ausnahme_treffer(firma, titel)
         if _bl_hit and not force:
             grund = _bl_hit.get("reason") or "ohne Begruendung"
             return {
@@ -2184,6 +2187,14 @@ def register(mcp, db, logger):
                 ),
                 "blacklist_treffer": _bl_hit.get("value"),
                 "hinweis": "Mit force=True kann die Stelle dennoch angelegt werden.",
+                "hinweis_ausnahme": (
+                    "Wenn diese Firma grundsaetzlich unerwuenscht ist, aber "
+                    "einzelne Fachrollen passen (typisch bei Personal"
+                    "dienstleistern), setze eine Ausnahme statt force: "
+                    "blacklist_verwalten('hinzufuegen', 'firma', "
+                    f"'{_bl_hit.get('value')}', "
+                    "ausser_wenn_titel_enthaelt=['PLM', 'PDM'])."
+                ),
             }
 
         from ..job_scraper import stelle_hash, calculate_score, extract_salary_from_text, estimate_salary
@@ -2421,6 +2432,17 @@ def register(mcp, db, logger):
         # hingenommen.
         if kontakt_angelegt and "id" in kontakt_angelegt:
             result["kontakt"] = kontakt_angelegt
+        if _bl_ausnahme:
+            # #790: transparent machen, WARUM die Stelle trotz Blacklist kam
+            result["blacklist_ausnahme"] = {
+                "eintrag": _bl_ausnahme["eintrag"],
+                "begriff": _bl_ausnahme["begriff"],
+                "hinweis": (
+                    f"Firma steht auf der Blacklist, der Titel enthaelt aber "
+                    f"'{_bl_ausnahme['begriff']}' — die hinterlegte Ausnahme "
+                    "greift, die Stelle wurde angelegt."
+                ),
+            }
         from ..services.stellen_anker import anker_status
         _anker = anker_status(db, job)
         result["anker"] = _anker["anker"]

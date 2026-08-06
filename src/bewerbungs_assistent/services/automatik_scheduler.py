@@ -84,16 +84,66 @@ def compute_status(db) -> dict:
 
 
 def run_lernen_now(db, log: logging.Logger = logger) -> dict:
-    """Stoesst die Lern-/Pattern-Analyse an. `_run_analyze_user_patterns`
-    self-gated: macht nichts, wenn Lern-Modus aus, zu wenig Events oder
-    keine lokale AI — kostet dann also nichts."""
-    try:
-        from ..dashboard import _run_analyze_user_patterns  # lazy: vermeidet Zirkular-Import
-        res = _run_analyze_user_patterns(_utcnow().isoformat())
-        return {"status": "gelaufen", "ergebnis": res}
-    except Exception as exc:  # pragma: no cover - defensiv
-        log.warning("Automatik-Lernen-Fehler: %s", exc)
-        return {"status": "fehler", "fehler": str(exc)}
+    """Startet den Lern-Lauf im HINTERGRUND (v1.7.11, #799).
+
+    Vorher lief das synchron im Scheduler-Thread — inklusive des
+    Ollama-Aufrufs aus `_run_analyze_user_patterns`, der bei kaltem Modell
+    50-60 s braucht (#638). Da alle Threads sich EINE SQLite-Connection
+    teilen (`check_same_thread=False`), zog ein haengender Lernlauf jeden
+    weiteren DB-Zugriff mit — der MCP-Server war komplett blockiert.
+
+    Jetzt wie die Jobsuche: eigener Thread, Eintrag in `background_jobs`
+    mit Status/Dauer/Fehlertext. Damit hinterlaesst jeder Lauf eine Spur;
+    vorher war in `background_jobs` ausschliesslich `jobsuche` zu sehen,
+    obwohl die Automatik taeglich einen Lernlauf meldete.
+
+    Zwei Stufen, in dieser Reihenfolge:
+      1. REGELBASIERT (#799) — laeuft immer, braucht keine lokale KI
+      2. Pattern-Analyse (#594) — self-gated, nutzt Ollama wenn verfuegbar
+    Stufe 1 laeuft zuerst, damit der Nutzer auch dann Erkenntnisse
+    bekommt, wenn Stufe 2 uebersprungen wird oder scheitert.
+    """
+    if db.get_running_background_job("lernen"):
+        return {"status": "laeuft_bereits"}
+    job_id = db.create_background_job("lernen", {"quelle": "automatik"})
+
+    def _run():
+        ergebnis: dict = {}
+        try:
+            db.update_background_job(job_id, "laeuft", progress=10,
+                                     message="Regelbasierte Erkenntnisse")
+            from ..services.lerninsights import kandidaten_ableiten, speichern
+            from .. import __version__ as _v
+            lauf = kandidaten_ableiten(db)
+            ergebnis["regelbasiert"] = speichern(
+                db, lauf["kandidaten"], app_version=_v)
+            ergebnis["regeln_gelaufen"] = lauf["regeln_gelaufen"]
+            if lauf["abgebrochen"]:
+                ergebnis["regeln_uebersprungen"] = lauf["regeln_uebersprungen"]
+        except Exception as exc:
+            log.warning("Regelbasierte Erkenntnisse fehlgeschlagen: %s", exc)
+            ergebnis["regelbasiert_fehler"] = str(exc)
+
+        try:
+            db.update_background_job(job_id, "laeuft", progress=60,
+                                     message="Pattern-Analyse (lokale KI)")
+            from ..dashboard import _run_analyze_user_patterns
+            ergebnis["pattern_analyse"] = _run_analyze_user_patterns(
+                _utcnow().isoformat())
+        except Exception as exc:
+            log.warning("Pattern-Analyse fehlgeschlagen: %s", exc)
+            ergebnis["pattern_analyse_fehler"] = str(exc)
+
+        fehler = [k for k in ergebnis if k.endswith("_fehler")]
+        db.update_background_job(
+            job_id, "fehler" if len(fehler) == 2 else "fertig",
+            progress=100,
+            message=("Lern-Lauf abgeschlossen" if not fehler
+                     else f"Teilweise fehlgeschlagen: {', '.join(fehler)}"),
+            result=ergebnis)
+
+    threading.Thread(target=_run, daemon=True, name="automatik-lernen").start()
+    return {"status": "gestartet", "job_id": job_id}
 
 
 def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:

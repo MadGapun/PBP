@@ -74,72 +74,20 @@ def _korpus(db):
 
 
 # ------------------------------------------------------------------ #784
+# Die urspruenglichen #784-Tests pruefen eine Tabelle, die es bewusst nicht
+# mehr gibt: `learned_insights` war eine Doppelanlage neben dem seit #594
+# existierenden `learning_insights` (siehe #799). Die Ableitungs- und
+# Kuratier-Tests sind nach tests/test_v1711_lernmodus_799.py gewandert.
+# Hier bleibt der Waechter, dass die Doppelung nicht zurueckkehrt.
 
-def test_784_tabelle_existiert_ohne_schema_bump(setup_env):
+def test_784_doppel_tabelle_bleibt_entfernt(setup_env):
     db, _ = setup_env
-    conn = db.connect()
-    row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' "
-        "AND name='learned_insights'").fetchone()
-    assert row, "learned_insights muss ueber das Safety-Net existieren"
-    # Kein Schema-Bump: die Version der 1.7-Linie bleibt 48 (v49 ist in
-    # der 1.8-Linie fuer `components` reserviert — Upgrade-Kollision!)
-    from bewerbungs_assistent.database import SCHEMA_VERSION
-    assert SCHEMA_VERSION == 48, (
-        f"Schema-Bump verboten (v49 reserviert), ist {SCHEMA_VERSION}")
-
-
-def test_784_ableiten_liefert_kandidaten_mit_evidenz(setup_env):
-    db, _ = setup_env
-    from bewerbungs_assistent.server import mcp
-    _korpus(db)
-    res = _result(_call(mcp, "erkenntnisse_ableiten", {}))
-    assert res["status"] == "vorschau"
-    assert res["anzahl"] >= 2
-    zeitarbeit = next((k for k in res["kandidaten"]
-                       if k["kategorie"] == "stellentyp"), None)
-    assert zeitarbeit, res["kandidaten"]
-    assert zeitarbeit["belegt_durch_n"] == 6
-    assert 0 < zeitarbeit["konfidenz"] < 1
-    assert zeitarbeit["evidenz"]["grund"] == "zeitarbeit"
-    # dry_run speichert nichts
-    n = db.connect().execute(
-        "SELECT COUNT(*) FROM learned_insights").fetchone()[0]
-    assert n == 0
-
-
-def test_784_ablegen_bestaetigen_widersprechen(setup_env):
-    db, _ = setup_env
-    from bewerbungs_assistent.server import mcp
-    _korpus(db)
-    res = _result(_call(mcp, "erkenntnisse_ableiten", {"dry_run": False}))
-    assert res["gespeichert"]["neu"] >= 2
-
-    alle = _result(_call(mcp, "erkenntnisse_anzeigen", {"filter": "offen"}))
-    assert alle["anzahl"] >= 2
-    erste, zweite = alle["erkenntnisse"][0], alle["erkenntnisse"][1]
-
-    ok = _result(_call(mcp, "erkenntnis_bestaetigen",
-                       {"erkenntnis_id": erste["id"], "bestaetigen": True}))
-    assert ok["status"] == "bestaetigt"
-    nein = _result(_call(mcp, "erkenntnis_bestaetigen",
-                         {"erkenntnis_id": zweite["id"], "bestaetigen": False}))
-    assert nein["status"] == "widersprochen"
-
-    # Widersprochene werden beim naechsten Lauf NICHT erneut vorgeschlagen
-    res2 = _result(_call(mcp, "erkenntnisse_ableiten", {"dry_run": False}))
-    g = res2["gespeichert"]
-    assert g["uebersprungen_widersprochen"] >= 1, g
-    wider = _result(_call(mcp, "erkenntnisse_anzeigen",
-                          {"filter": "widersprochen"}))
-    assert wider["anzahl"] == 1
-
-    # Nur BESTAETIGTE landen im Ollama-Kontext
-    from bewerbungs_assistent.services.lerninsights import (
-        bestaetigte_fuer_kontext)
-    ctx = bestaetigte_fuer_kontext(db)
-    assert len(ctx) == 1
-    assert ctx[0]["aussage"] == erste["aussage"]
+    namen = {r["name"] for r in db.connect().execute(
+        "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    assert "learning_insights" in namen
+    assert "learned_insights" not in namen, (
+        "learned_insights ist die Fehlanlage aus #784 — sie darf nicht "
+        "wieder entstehen (siehe #799)")
 
 
 # ------------------------------------------------------------------ #774
@@ -207,14 +155,22 @@ def test_774_prompt_kopieren_sendet_nichts(setup_env):
 
 
 def test_774_bestaetigte_erkenntnisse_landen_im_prompt(setup_env):
-    """Die Brücke #784 -> #774: bestaetigte Insights gehen als Kontext mit."""
+    """Die Bruecke Lernmodus -> Elwosa: bestaetigte Erkenntnisse gehen als
+    Kontext mit, offene nicht."""
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
     _korpus(db)
     _result(_call(mcp, "erkenntnisse_ableiten", {"dry_run": False}))
     offen = _result(_call(mcp, "erkenntnisse_anzeigen", {"filter": "offen"}))
+    assert offen["anzahl"] > 0, "Ableitung muss etwas geliefert haben"
+
+    # Solange nichts bestaetigt ist, taucht auch nichts im Prompt auf
+    ohne = _result(_call(mcp, "elwosa_prompt_kopieren",
+                         {"zweck": "freie_frage", "frage": "x"}))
+    assert "BESTAETIGTE ERKENNTNISSE" not in ohne["prompt"]
+
     _result(_call(mcp, "erkenntnis_bestaetigen",
-                  {"erkenntnis_id": offen["erkenntnisse"][0]["id"],
+                  {"erkenntnis_id": str(offen["erkenntnisse"][0]["id"]),
                    "bestaetigen": True}))
     res = _result(_call(mcp, "elwosa_prompt_kopieren",
                         {"zweck": "freie_frage", "frage": "x"}))

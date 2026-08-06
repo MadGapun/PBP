@@ -70,6 +70,8 @@ EXPECTED_TOOL_NAMES = {
     "erkenntnisse_ableiten",
     "erkenntnisse_anzeigen",
     "erkenntnis_bestaetigen",
+    # v1.7.11 (#804/D30): Termin-Dubletten im Bestand aufraeumen
+    "termin_dubletten_bereinigen",
     "elwosa_fragen",
     "elwosa_prompt_kopieren",
     "profile_auflisten",
@@ -332,7 +334,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 192  # v1.7.10 (#774/#778-#784): +9 (Backtest, Suchperformance, Kontakt-/Vermittler-Historie, 3x Erkenntnisse, 2x Elwosa-Dialog); davor v1.7.9 183
+        assert len(tools) == 193  # v1.7.11 (#804): + termin_dubletten_bereinigen; davor v1.7.10 192
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
