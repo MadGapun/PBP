@@ -19,7 +19,11 @@ from . import detect_remote_level, make_session, stelle_hash
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.bundesagentur")
 
-API_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs"
+# v1.7.11 (#807/B29): Die Suche laeuft auf v6 — v4 und v5 liefern seit
+# Sommer 2026 HTTP 404. Die produktivste Quelle von PBP lief dadurch ins
+# Leere. Die DETAIL-API bleibt bewusst auf v4 (siehe DETAIL_URL unten):
+# v5/v6 antworten dort mit 403.
+API_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v6/jobs"
 API_KEY = "jobboerse-jobsuche"  # Public key, no registration needed
 
 # iOS-App User-Agent laut bundesAPI/jobsuche-api — die API mag dort einen
@@ -130,18 +134,29 @@ def search_bundesagentur(params: dict) -> list:
                     continue
 
                 data = resp.json()
-                stellenangebote = data.get("stellenangebote", [])
+                # v6 hat die Felder umbenannt (#807/B29). Fallback auf die
+                # v4-Namen bleibt stehen, damit ein spaeterer Rueckbau oder
+                # ein zwischenzeitlich abweichender Server nicht sofort
+                # wieder alles kippt.
+                stellenangebote = (data.get("ergebnisliste")
+                                   or data.get("stellenangebote") or [])
 
                 for idx, s in enumerate(stellenangebote):
-                    title = s.get("titel", "")
-                    company = s.get("arbeitgeber", "Nicht angegeben")
-                    location = s.get("arbeitsort", {}).get("ort", "")
-                    ref_nr = s.get("refnr", "")
+                    title = s.get("stellenangebotsTitel") or s.get("titel", "")
+                    company = (s.get("firma") or s.get("arbeitgeber")
+                               or "Nicht angegeben")
+                    location = ""
+                    lokationen = s.get("stellenlokationen") or []
+                    if lokationen:
+                        location = (lokationen[0].get("adresse", {})
+                                    .get("ort", "") or "")
+                    if not location:
+                        location = (s.get("arbeitsort", {}) or {}).get("ort", "")
+                    ref_nr = s.get("referenznummer") or s.get("refnr", "")
 
                     # Detail-API nur fuer die ersten N pro Keyword (#500),
-                    # sonst beruf-Kurzbeschreibung. Ergebnis: 4x schneller
-                    # ohne Volumenverlust.
-                    description = s.get("beruf", "")
+                    # sonst die Berufsbezeichnung als Kurzbeschreibung.
+                    description = s.get("hauptberuf") or s.get("beruf", "")
                     if ref_nr and idx < _DETAIL_FETCH_LIMIT_PER_KW:
                         description = _fetch_ba_detail(client, ref_nr) or description
 
@@ -169,7 +184,9 @@ def search_bundesagentur(params: dict) -> list:
     return jobs
 
 
-# #489: Neue Detail-URL — base64(refnr) statt nacktem refnr, sonst 403.
+# #489: Detail-URL — base64(refnr) statt nacktem refnr, sonst 403.
+# v1.7.11 (#807): bleibt auf v4! Getestet 06.08.2026: v4 -> 200,
+# v5/v6 -> 403 "No match found for request". Nicht mit der Suche mitziehen.
 DETAIL_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobdetails/{encoded}"
 
 

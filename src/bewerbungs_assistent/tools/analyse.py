@@ -2583,117 +2583,173 @@ def register(mcp, db, logger):
     # === v1.7.10 (#784, F28): learned_insights — Fundament der Lernschleife ===
 
     @mcp.tool()
-    def erkenntnisse_ableiten(dry_run: bool = True) -> dict:
-        """Leitet Kandidaten-Erkenntnisse aus dem PBP-Verhalten ab (#784/F28).
+    def erkenntnisse_ableiten(dry_run: bool = True,
+                              budget_sekunden: int = 20) -> dict:
+        """Leitet Erkenntnisse aus dem eigenen Bewerbungsverhalten ab (#799/F35).
 
-        Regelbasiert (deterministisch): dominante Aussortier-Gruende,
-        Zeitarbeit-Muster, Hochscore-Fehlleitungen, Kanal-Unterschiede.
-        Jede Aussage traegt EVIDENZ und eine KONFIDENZ aus der Fallzahl —
-        zwei Faelle sind eine Vermutung, dreissig ein Muster.
+        Regelbasiert und OHNE lokale KI lauffaehig — alle Aussagen entstehen
+        aus Zaehlwerten der eigenen Datenbank: dominante Aussortier-Gruende,
+        Kanal-Unterschiede (welcher Weg fuehrt wirklich zum Interview),
+        Score-Realitaetscheck (hoher Score trotzdem aussortiert),
+        Reaktionszeiten (ab wann ist ein Vorgang praktisch tot) und
+        zeitliche Muster. Jede Aussage traegt Evidenz und eine Konfidenz aus
+        der Fallzahl; bei duenner Datenlage steht die Unsicherheit IN der
+        Aussage.
 
-        ⛔ GRUNDSATZ: Keine Erkenntnis wird ohne Nutzerbestaetigung wirksam.
-        Dieses Tool leitet ab und legt UNBESTAETIGT ab — angewendet wird
-        nichts. Bestaetigen/verwerfen: erkenntnis_bestaetigen(). Bereits
-        widersprochene Aussagen werden NIE erneut vorgeschlagen.
+        ⛔ GRUNDSATZ: Nichts wird ohne Nutzerbestaetigung wirksam. Dieses
+        Tool leitet ab und legt UNBESTAETIGT ab. Kuratierung ueber
+        erkenntnis_bestaetigen(); Widersprochenes wird nie erneut
+        vorgeschlagen.
+
+        v1.7.11 (#799): laeuft mit Wall-Clock-Budget und liefert bei
+        Ueberschreitung ein gekennzeichnetes TEILERGEBNIS, statt den
+        MCP-Server zu blockieren. Speichert in `learning_insights` —
+        dieselbe Tabelle, aus der sich die Lern-Karte im Dashboard speist
+        (die separate `learned_insights` aus #784 war ein Fehlgriff und
+        wurde migriert und entfernt).
 
         Args:
             dry_run: True (Default) = nur anzeigen, nichts speichern.
-                False = Kandidaten als unbestaetigt ablegen.
+            budget_sekunden: Wall-Clock-Grenze fuer den gesamten Lauf.
         """
         from ..services.lerninsights import kandidaten_ableiten, speichern
-        kandidaten = kandidaten_ableiten(db)
+        from .. import __version__ as _v
+        lauf = kandidaten_ableiten(db, budget_sekunden=budget_sekunden)
+        kandidaten = lauf["kandidaten"]
+        strategie = [k for k in kandidaten if k["scope"] == "strategie"]
+        bedienung = [k for k in kandidaten if k["scope"] != "strategie"]
         result = {
             "status": "vorschau" if dry_run else "abgelegt",
             "kandidaten": kandidaten,
             "anzahl": len(kandidaten),
+            "strategie": strategie,
+            "bedienung": bedienung,
+            "dauer_ms": lauf["dauer_ms"],
+            "regeln_gelaufen": lauf["regeln_gelaufen"],
             "hinweis": (
-                "Nichts davon ist wirksam, bevor der User es per "
-                "erkenntnis_bestaetigen() bestaetigt hat."
+                "Nichts davon ist wirksam, bevor es per "
+                "erkenntnis_bestaetigen() bestaetigt wurde."
             ),
         }
+        if lauf["abgebrochen"]:
+            result["abgebrochen"] = True
+            result["regeln_uebersprungen"] = lauf["regeln_uebersprungen"]
+            result["hinweis_budget"] = (
+                f"Budget von {budget_sekunden}s erreicht — Teilergebnis. "
+                "Mit hoeherem budget_sekunden erneut aufrufen."
+            )
+        if lauf["regel_fehler"]:
+            result["regel_fehler"] = lauf["regel_fehler"]
         if not dry_run and kandidaten:
-            result["gespeichert"] = speichern(db, kandidaten)
+            result["gespeichert"] = speichern(db, kandidaten, app_version=_v)
         return result
 
     @mcp.tool()
-    def erkenntnisse_anzeigen(filter: str = "alle") -> dict:
-        """Zeigt abgeleitete Erkenntnisse mit Evidenz und Status (#784/F28).
+    def erkenntnisse_anzeigen(filter: str = "alle",
+                              bereich: str = "alle") -> dict:
+        """Zeigt die abgeleiteten Erkenntnisse mit Evidenz und Status (#799).
 
         Args:
             filter: 'alle', 'offen' (unbestaetigt), 'bestaetigt' oder
                 'widersprochen'.
+            bereich: 'alle', 'strategie' (Aussagen ueber die eigene
+                Bewerbungslage) oder 'bedienung' (Hinweise zur Oberflaeche).
+                Die Trennung ist Absicht — wer wissen will, was seine
+                Absagen verbindet, will nicht zugleich lesen, dass er viel
+                klickt.
         """
         conn = db.connect()
         pid = db.get_active_profile_id() or ""
         status_map = {"offen": 0, "bestaetigt": 1, "widersprochen": -1}
-        sql = ("SELECT * FROM learned_insights "
-               "WHERE (profile_id=? OR profile_id='')")
+        sql = ("SELECT id, kind, scope, title, details_json, score, "
+               "observed_count, last_seen_at, "
+               "COALESCE(bestaetigt_vom_user, 0) AS bvu "
+               "FROM learning_insights "
+               "WHERE (profile_id=? OR profile_id='' OR profile_id IS NULL) "
+               "AND is_active=1")
         params: list = [pid]
         if filter in status_map:
-            sql += " AND bestaetigt_vom_user=?"
+            sql += " AND COALESCE(bestaetigt_vom_user, 0)=?"
             params.append(status_map[filter])
         elif filter != "alle":
             return {"fehler": "filter muss alle/offen/bestaetigt/widersprochen sein."}
-        rows = conn.execute(sql + " ORDER BY konfidenz DESC", params).fetchall()
+        if bereich == "strategie":
+            sql += " AND COALESCE(scope,'') != 'bedienung'"
+        elif bereich == "bedienung":
+            sql += " AND COALESCE(scope,'') = 'bedienung'"
+        elif bereich != "alle":
+            return {"fehler": "bereich muss alle/strategie/bedienung sein."}
+        rows = conn.execute(sql + " ORDER BY score DESC, last_seen_at DESC",
+                            params).fetchall()
         import json as _json
         eintraege = []
         for r in rows:
             try:
-                evidenz = _json.loads(r["evidenz_json"] or "{}")
+                details = _json.loads(r["details_json"] or "{}")
             except Exception:
-                evidenz = {}
+                details = {}
             eintraege.append({
-                "id": r["id"][:8],
-                "kategorie": r["kategorie"],
-                "aussage": r["aussage"],
-                "konfidenz": r["konfidenz"],
-                "belegt_durch_n": r["belegt_durch_n"],
+                "id": r["id"],
+                "art": r["kind"],
+                "bereich": r["scope"] or "strategie",
+                "aussage": r["title"],
+                "konfidenz": round(r["score"] or 0, 2),
+                "belegt_durch_n": details.get("belegt_durch_n",
+                                              r["observed_count"]),
                 "status": {0: "offen", 1: "bestaetigt",
-                           -1: "widersprochen"}.get(
-                    r["bestaetigt_vom_user"], "offen"),
-                "evidenz": evidenz,
+                           -1: "widersprochen"}.get(r["bvu"], "offen"),
+                "evidenz": details.get("evidenz", details),
+                "zuletzt_gesehen": r["last_seen_at"],
             })
-        return {"erkenntnisse": eintraege, "anzahl": len(eintraege),
-                "filter": filter}
+        result = {"erkenntnisse": eintraege, "anzahl": len(eintraege),
+                  "filter": filter, "bereich": bereich}
+        if not eintraege:
+            result["hinweis"] = (
+                "Noch keine Erkenntnisse abgelegt. "
+                "erkenntnisse_ableiten(dry_run=False) fuellt sie aus dem "
+                "vorhandenen Bestand — dafuer wird keine lokale KI gebraucht."
+            )
+        return result
 
     @mcp.tool()
     def erkenntnis_bestaetigen(erkenntnis_id: str, bestaetigen: bool) -> dict:
-        """Kuratiert eine Erkenntnis: bestaetigen oder widersprechen (#784/F28).
+        """Kuratiert eine Erkenntnis: bestaetigen oder widersprechen (#799).
 
-        Widersprochene Erkenntnisse werden nicht geloescht, sondern als
-        widersprochen markiert (-1) — dieselbe Fehlableitung wird dadurch
-        nie erneut vorgeschlagen.
+        Widersprochene Erkenntnisse werden nicht geloescht, sondern markiert
+        — dieselbe Fehlableitung wird dadurch nie erneut vorgeschlagen.
 
         Args:
-            erkenntnis_id: ID aus erkenntnisse_anzeigen (Kurzform reicht).
-            bestaetigen: True = bestaetigt (darf kuenftig als Kontext
-                dienen), False = widersprochen.
+            erkenntnis_id: ID aus erkenntnisse_anzeigen.
+            bestaetigen: True = bestaetigt (darf als Kontext dienen),
+                False = widersprochen.
         """
         conn = db.connect()
         pid = db.get_active_profile_id() or ""
+        try:
+            iid = int(str(erkenntnis_id).strip())
+        except (TypeError, ValueError):
+            return {"fehler": "erkenntnis_id ist eine Zahl — "
+                              "IDs liefert erkenntnisse_anzeigen()."}
         row = conn.execute(
-            "SELECT id, aussage FROM learned_insights "
-            "WHERE (profile_id=? OR profile_id='') AND id LIKE ?",
-            (pid, (erkenntnis_id or "") + "%"),
-        ).fetchone()
+            "SELECT id, title FROM learning_insights WHERE id=? "
+            "AND (profile_id=? OR profile_id='' OR profile_id IS NULL)",
+            (iid, pid)).fetchone()
         if not row:
             return {"fehler": "Erkenntnis nicht gefunden. "
                               "IDs liefert erkenntnisse_anzeigen()."}
         wert = 1 if bestaetigen else -1
-        from datetime import datetime as _dt
         conn.execute(
-            "UPDATE learned_insights SET bestaetigt_vom_user=?, "
-            "aktualisiert_am=? WHERE id=?",
-            (wert, _dt.now().isoformat(), row["id"]))
+            "UPDATE learning_insights SET bestaetigt_vom_user=? WHERE id=?",
+            (wert, row["id"]))
         conn.commit()
         return {
             "status": "bestaetigt" if bestaetigen else "widersprochen",
-            "id": row["id"][:8],
-            "aussage": row["aussage"],
+            "id": row["id"],
+            "aussage": row["title"],
             "hinweis": (
                 "Bestaetigte Erkenntnisse stehen der lokalen KI als Kontext "
                 "zur Verfuegung (elwosa_fragen); automatisch ANGEWENDET "
-                "wird weiterhin nichts (v1.8-Teil von #784)."
+                "wird weiterhin nichts."
                 if bestaetigen else
                 "Wird nicht erneut vorgeschlagen."
             ),

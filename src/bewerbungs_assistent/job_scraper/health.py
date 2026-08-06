@@ -39,7 +39,10 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     # === Offizielle JSON-APIs ===
     "bundesagentur": (
         "GET",
-        "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobs"
+        # v1.7.11 (#807/B29): v6 — v4/v5 liefern seit Sommer 2026 HTTP 404.
+        # Muss mit dem Adapter-Endpunkt uebereinstimmen, sonst prueft der
+        # Health-Check etwas anderes als die Suche tatsaechlich nutzt.
+        "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v6/jobs"
         "?was=test&size=1",
         "json",
         None,

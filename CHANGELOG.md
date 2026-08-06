@@ -23,7 +23,149 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.10] - 2026-08-06 — Stille Ausfaelle: tote Job-API, blockierter Lernmodus, verunglueckte IDs (#790, #796, #799, #804, #807)
+
+> **Prerelease.** `--latest` ist v1.7.11 — dieselben Fixes in der
+> Stable-Linie. KEINE Schema-Migration (Schema **v52** unveraendert). Nach dem Update Claude Desktop komplett
+> beenden und neu starten.
+>
+> Der rote Faden dieser Version: **Fehler, die sich als Erfolg tarnen.**
+> Eine tote API, die der Health-Check gruen meldet. Ein Lernlauf, der
+> taeglich meldet zu laufen und nie ankommt. IDs, die beim Speichern
+> still zu Zahlen werden. Nichts davon warf je eine Fehlermeldung.
+
+### Fixed
+
+- **#807 — Bundesagentur-Suche lief ins Leere (der teuerste Fund).** Der
+  Adapter fragte `pc/v4/jobs` ab; dieser Endpunkt liefert seit Sommer 2026
+  **HTTP 404**. Damit lag ausgerechnet die produktivste Quelle still —
+  beim letzten dokumentierten Lauf hatte sie noch 3.732 Rohtreffer und 17
+  neue Stellen geliefert. Live geprueft am 06.08.: Suche v4/v5 → 404,
+  **v6 → 200**; Details v4 → 200, v5/v6 → 403. Die Suche laeuft jetzt auf
+  v6, die Detail-API bleibt bewusst auf v4. Weil v6 saemtliche Feldnamen
+  umbenannt hat (`stellenangebote`→`ergebnisliste`, `titel`→
+  `stellenangebotsTitel`, `arbeitgeber`→`firma`, `refnr`→`referenznummer`
+  …), waere ein reiner Endpunkt-Tausch in einer Liste leerer Stellen
+  geendet — schlimmer als ein Fehler, weil es wie ein Erfolg aussieht. Das
+  Feld-Mapping ist ergaenzt, die v4-Namen bleiben als Fallback.
+  **Verifikation nach dem Umbau: 100 Stellen mit vollstaendigen Feldern,
+  0 unvollstaendig.** Der Health-Check probte denselben toten Endpunkt und
+  meldete deshalb konsistent dasselbe wie die Suche — beide falsch; er
+  zeigt jetzt auf v6, ein Regressionstest haelt beide zusammen.
+- **#799 — Lernmodus lieferte dem Nutzer nichts.** Drei Ursachen, alle
+  behoben. (1) Der `lernen`-Lauf rief die Pattern-Analyse **synchron im
+  Scheduler-Thread** auf, inklusive Ollama-Aufruf (bei kaltem Modell
+  50-60 s). Da sich alle Threads EINE SQLite-Connection teilen, zog ein
+  haengender Lauf jeden weiteren Zugriff mit — der MCP-Server war komplett
+  blockiert, bis hin zur Diagnose selbst. Jetzt laeuft er wie die Jobsuche
+  im eigenen Thread mit Eintrag in `background_jobs`; vorher hinterliess
+  er nicht einmal eine Spur. (2) **Zwei Tabellen mit fast gleichem Namen:**
+  `learned_insights` (aus v1.7.10/#784, leer) neben dem seit #594
+  existierenden `learning_insights` (gefuellt). Die UI las die eine, die
+  Logik schrieb in die andere. Das war ein Fehler von uns — die Doppelanlage
+  wird migriert und entfernt, `learning_insights` gewinnt. (3) Der
+  Duplikat-Schutz griff nur bei exakt gleichem Titel und liess deshalb
+  dieselbe Aussage mit anderer Prozentzahl erneut durch.
+- **#796 — Text-IDs wurden beim Speichern still zu Zahlen.**
+  `documents.linked_application_id` hatte in gewachsenen Bestaenden
+  INTEGER-Affinitaet. Eine Hex-ID wie `42061e46` ist zugleich eine gueltige
+  Zahl in wissenschaftlicher Notation und wurde zu `4.2061e+50`; `1e960980`
+  lief sogar zu `inf` ueber. Folge: `dokument_verknuepfen` brach mit
+  "FOREIGN KEY constraint failed" ab — und, gefaehrlicher, `inf = inf` ist
+  wahr, sodass jede Pruefung per SELECT solche Zeilen als sauber meldete,
+  obwohl sie rechnerisch zu **jeder** ueberlaufenden Bewerbung passten.
+  Die Heilung laeuft automatisch beim Start: Spalte auf TEXT, Werte gegen
+  die echten IDs zurueckuebersetzt (nicht geraten). Nur wo mehrere IDs auf
+  denselben Zahlwert fallen, wird die Verknuepfung geleert statt falsch
+  belassen. Frische Installationen waren nie betroffen.
+- **#804 — Termine lagen doppelt im Kalender.** `meeting_hinzufuegen`
+  pruefte nicht, ob fuer dieselbe Bewerbung schon ein Termin im selben
+  Zeitfenster liegt — bei Stellen (#670) und Nachfassungen (#665) gibt es
+  das laengst. Im belegten Fall ergaenzten sich die beiden Eintraege sogar:
+  einer trug den Video-Link, der andere Dauer und Gespraechskontext, keiner
+  war vollstaendig, und jede Auswertung zaehlte den Termin zweimal. Neu:
+  `wenn_dublette='melden'` (Default), `'zusammenfuehren'` (fuellt nur
+  LEERE Felder, ueberschreibt nie gefuellte) und `'trotzdem_neu'`.
+- **#790 — Firmen-Blacklist blockte fachlich passende Stellen.** Ein
+  Firmen-Block wirkt pauschal, seine Begruendung stammt aber fast immer
+  aus der Bewertung EINER Stelle. Bei Personaldienstleistern, die quer
+  durch alle Fachgebiete ausschreiben, wirft das die passenden Treffer
+  mit weg. Neu: `ausser_wenn_titel_enthaelt` — die Firma bleibt geblockt,
+  Rollen mit den genannten Fachbegriffen kommen durch. Wirkt beim Anlegen,
+  im Scraper-Pfad und retroaktiv in `blacklist_anwenden`; bestehende
+  Eintraege verhalten sich unveraendert.
+
+### Added
+
+- **`termin_dubletten_bereinigen()`** (jetzt **206** MCP-Tools): findet
+  Termin-Paare im Bestand und fuehrt sie feldweise zusammen, mit Vorschau.
+- **Fuenf regelbasierte Erkenntnis-Arten** (#799), die **ohne lokale KI**
+  laufen: dominante Aussortier-Gruende, Kanal-Unterschiede (welcher Weg
+  fuehrt wirklich zum Interview), Score-Realitaetscheck (hoher Score
+  trotzdem aussortiert), Reaktionszeiten (ab wann ist ein Vorgang
+  praktisch tot) und zeitliche Muster. Jede Aussage traegt Evidenz und
+  eine Konfidenz aus der Fallzahl; bei duenner Datenlage steht die
+  Unsicherheit **in** der Aussage. Ollama darf darueber formulieren, nicht
+  darunter. Neu getrennt: `bereich='strategie'` gegen `'bedienung'` — wer
+  wissen will, was seine Absagen verbindet, will nicht zugleich lesen,
+  dass er viel klickt.
+- `erkenntnisse_ableiten()` laeuft mit **Wall-Clock-Budget** und liefert
+  bei Ueberschreitung ein gekennzeichnetes Teilergebnis, statt zu haengen.
+
+### Unter der Haube
+
+Neue Services: `spalten_affinitaet.py`, `termin_dubletten.py`;
+`lerninsights.py` neu geschrieben. 39 neue Tests, Suite in der Beta-Linie: **2111+ passed**. Zwei Folge-Issues aus dieser Runde: #808 (Health-Check meldet
+falsch-gruen, weil HTTP 200 allein nichts ueber Stellen aussagt) und die
+Bestands-Frage aus #799 zur Trennung von Lern- und Bedien-Erkenntnissen.
+
 ## [1.8.0-beta.9] - 2026-07-24 — Stabilisierungswelle: Kalibrierung, Statistik-Ehrlichkeit, Historie, Lern-Fundament (#774, #778-#784)
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein, **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.10.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.10.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP -> *„Alle extrahieren..."* -> Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3-5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste -> *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei -> *„Oeffnen"* -> nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki -> Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.10] - 2026-07-24 — Stabilisierungswelle: Kalibrierung, Statistik-Ehrlichkeit, Historie, Lern-Fundament (#774, #778-#784)
 
 > **Prerelease.** `--latest` ist v1.7.10 — dieselben Aenderungen in der
 > Stable-Linie. KEINE Schema-Migration (Schema **v52** unveraendert — die neue `learned_insights`-Tabelle kommt

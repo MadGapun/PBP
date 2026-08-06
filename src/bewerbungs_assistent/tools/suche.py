@@ -278,7 +278,8 @@ def register(mcp, db, logger):
         wert: str = "",
         grund: str = "",
         entry_id: int = 0,
-        force: bool = False
+        force: bool = False,
+        ausser_wenn_titel_enthaelt: list[str] = None,
     ) -> dict:
         """Verwaltet die Blacklist (Firmen und Keywords die bei der Jobsuche automatisch aussortiert werden).
 
@@ -297,6 +298,14 @@ def register(mcp, db, logger):
             entry_id: ID des Eintrags (nur bei aktion='entfernen')
             force: True ueberstimmt die Warnung bei laufenden Bewerbungen
                 im Interview-Stadium (#699) und traegt trotzdem ein.
+            ausser_wenn_titel_enthaelt: v1.7.11 (#790/C31) — Liste von
+                Begriffen, bei denen ein FIRMEN-Block NICHT greift
+                (case-insensitiv im Stellentitel). Gedacht fuer
+                Personaldienstleister und Beratungen, die quer durch alle
+                Fachgebiete ausschreiben: die Firma bleibt grundsaetzlich
+                geblockt, die fachlich passenden Rollen kommen trotzdem
+                durch. Beispiel: ausser_wenn_titel_enthaelt=['PLM', 'PDM'].
+                Wirkt auch retroaktiv in blacklist_anwenden().
         """
         if aktion == "hinzufuegen":
             # Validate type (#168)
@@ -353,23 +362,38 @@ def register(mcp, db, logger):
                         "betroffene_bewerbungen": details,
                         "hinweis": "Mit force=True trotzdem eintragen.",
                     }
-            db.add_to_blacklist(typ, wert.strip(), grund)
+            ausnahmen = [a.strip() for a in (ausser_wenn_titel_enthaelt or [])
+                         if a and a.strip()]
+            db.add_to_blacklist(typ, wert.strip(), grund,
+                                ausser_wenn_titel_enthaelt=ausnahmen)
             result = {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
+            if ausnahmen:
+                result["ausser_wenn_titel_enthaelt"] = ausnahmen
+                result["hinweis_ausnahme"] = (
+                    "Stellen dieser Firma werden NICHT geblockt, wenn ihr "
+                    f"Titel einen dieser Begriffe enthaelt: {', '.join(ausnahmen)}."
+                )
             # #109: Blacklist-Eintrag löscht sofort alle Stellen des Unternehmens
+            # v1.7.11 (#790): ausser denen, die unter die Ausnahme fallen
             if typ == "firma":
                 conn = db.connect()
                 firma_lower = wert.strip().lower()
-                dismissed = conn.execute(
-                    "UPDATE jobs SET is_active=0, dismiss_reason='firma_blacklisted' "
-                    "WHERE is_active=1 AND LOWER(company) LIKE ?",
-                    (f"%{firma_lower}%",)
-                ).rowcount
+                sql = ("UPDATE jobs SET is_active=0, "
+                       "dismiss_reason='firma_blacklisted' "
+                       "WHERE is_active=1 AND LOWER(company) LIKE ?")
+                params = [f"%{firma_lower}%"]
+                for a in ausnahmen:
+                    sql += " AND LOWER(COALESCE(title,'')) NOT LIKE ?"
+                    params.append(f"%{a.lower()}%")
+                dismissed = conn.execute(sql, params).rowcount
                 conn.commit()
                 if dismissed:
                     result["stellen_deaktiviert"] = dismissed
                     result["hinweis"] = (
                         f"{dismissed} aktive Stelle(n) von '{wert.strip()}' "
                         "wurden automatisch deaktiviert."
+                        + (" Stellen mit den Ausnahme-Begriffen im Titel "
+                           "blieben aktiv." if ausnahmen else "")
                     )
             return result
         elif aktion == "entfernen":
@@ -379,11 +403,20 @@ def register(mcp, db, logger):
             return {"fehler": "entry_id ist erforderlich zum Entfernen."}
         elif aktion == "anzeigen":
             entries = db.get_blacklist()
-            return {
+            mit_ausnahme = [e for e in entries
+                            if e.get("ausser_wenn_titel_enthaelt")]
+            res = {
                 "blacklist": entries,
                 "anzahl": len(entries),
                 "hinweis": "Nutze blacklist_verwalten('entfernen', entry_id=<id>) um Einträge zu entfernen."
             }
+            if mit_ausnahme:
+                res["mit_titel_ausnahme"] = [
+                    {"wert": e.get("value"),
+                     "ausser_wenn_titel_enthaelt": e["ausser_wenn_titel_enthaelt"]}
+                    for e in mit_ausnahme
+                ]
+            return res
         return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen', 'anzeigen' oder 'entfernen'."}
 
     @mcp.tool()
@@ -416,6 +449,17 @@ def register(mcp, db, logger):
         bl_firms_lc = [f.lower() for f in bl_firms]
         bl_keywords_lc = [k.lower() for k in bl_keywords]
 
+        # v1.7.11 (#790/C31): Titel-Ausnahmen je Firmen-Eintrag. Ohne das
+        # entfernt ein retroaktiver Lauf genau die passenden Stellen wieder,
+        # die die Ausnahme beim Anlegen durchgelassen hat.
+        ausnahmen_je_firma = {
+            (e.get("value") or "").lower(): [
+                a.lower() for a in (e.get("ausser_wenn_titel_enthaelt") or [])
+            ]
+            for e in bl_entries if e.get("type") == "firma"
+        }
+        verschont = []
+
         matched = []
         for j in active:
             company_lc = (j.get("company") or "").lower()
@@ -424,6 +468,17 @@ def register(mcp, db, logger):
                 (f for f in bl_firms_lc if f and (f in company_lc or company_lc in f)),
                 None,
             )
+            if firma_treffer:
+                _greift = next(
+                    (a for a in ausnahmen_je_firma.get(firma_treffer, [])
+                     if a and a in title_lc), None)
+                if _greift:
+                    verschont.append({
+                        "hash": j.get("hash"), "titel": j.get("title"),
+                        "firma": j.get("company"),
+                        "ausnahme_begriff": _greift,
+                    })
+                    firma_treffer = None
             kw_treffer = next(
                 (k for k in bl_keywords_lc if k and (k in company_lc or k in title_lc)),
                 None,
@@ -436,10 +491,13 @@ def register(mcp, db, logger):
                 })
 
         if not matched:
-            return {
+            res = {
                 "status": "kein_treffer",
                 "nachricht": "Keine aktiven Stellen passen zur Blacklist. Nichts zu tun.",
             }
+            if verschont:
+                res["durch_ausnahme_verschont"] = verschont
+            return res
 
         if dry_run:
             preview = [

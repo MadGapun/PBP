@@ -1605,11 +1605,17 @@ def register(mcp, db, logger):
         notizen: str = "",
         dauer_minuten: int = 0,
         status: str = "geplant",
+        wenn_dublette: str = "melden",
     ) -> dict:
         """Fuegt einen Termin (Interview, Telefonat, Video-Call) zu einer Bewerbung hinzu (#444).
 
         Nutze dies immer wenn der Anwender einen Gespraechstermin erwaehnt. Das
         Meeting erscheint anschliessend in `bewerbung_details()` und im Kalender.
+
+        v1.7.11 (#804/D30): Dubletten-Pruefung. Termine entstehen inzwischen
+        aus mehreren Quellen gleichzeitig (Mail-/ICS-Import, Claude, manuelle
+        Eingabe) — ohne Pruefung liegt derselbe Termin doppelt im Kalender und
+        jede Auswertung zaehlt ihn zweimal.
 
         Args:
             bewerbung_id: ID der Bewerbung (aus bewerbungen_anzeigen)
@@ -1621,12 +1627,22 @@ def register(mcp, db, logger):
             notizen: Freie Notizen zum Termin
             dauer_minuten: Geplante Dauer in Minuten (0 = unbekannt)
             status: Status (geplant, bestaetigt, abgeschlossen, abgesagt, verschoben)
+            wenn_dublette: Verhalten bei einem bestehenden Termin derselben
+                Bewerbung im Zeitfenster (+/- 30 Minuten, nicht abgesagt):
+                'melden' (Default) = nichts anlegen, bestehenden Termin
+                zurueckgeben; 'zusammenfuehren' = LEERE Felder des
+                bestehenden Termins mit den neuen Werten fuellen, gefuellte
+                nie ueberschreiben; 'trotzdem_neu' = zweiten Termin anlegen
+                (echte Doppeltermine am selben Tag gibt es).
         """
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden. Prüfe die ID mit bewerbungen_anzeigen()."}
         if not datum:
             return {"fehler": "Datum ist ein Pflichtfeld."}
+        if wenn_dublette not in ("melden", "zusammenfuehren", "trotzdem_neu"):
+            return {"fehler": "wenn_dublette muss 'melden', 'zusammenfuehren' "
+                              "oder 'trotzdem_neu' sein."}
         if typ not in _MEETING_TYPES:
             return {
                 "fehler": f"Ungueltiger Typ '{typ}'.",
@@ -1636,6 +1652,50 @@ def register(mcp, db, logger):
             return {
                 "fehler": f"Ungueltiger Status '{status}'.",
                 "erlaubte_status": sorted(_MEETING_STATUS),
+            }
+
+        # v1.7.11 (#804/D30): bestehenden Termin im Zeitfenster suchen
+        from ..services.termin_dubletten import finde_dublette, zusammenfuehren
+        bestehend = finde_dublette(db, bewerbung_id, datum)
+        if bestehend and wenn_dublette != "trotzdem_neu":
+            if wenn_dublette == "melden":
+                return {
+                    "status": "dublette_moeglich",
+                    "bestehender_termin": bestehend,
+                    "nicht_angelegt": True,
+                    "nachricht": (
+                        f"Fuer diese Bewerbung gibt es bereits einen Termin am "
+                        f"{bestehend.get('meeting_date')} "
+                        f"('{bestehend.get('title')}'). Es wurde NICHTS "
+                        "angelegt."
+                    ),
+                    "optionen": {
+                        "zusammenfuehren": (
+                            "wenn_dublette='zusammenfuehren' — fuellt leere "
+                            "Felder des bestehenden Termins mit den neuen "
+                            "Angaben (gefuellte bleiben unangetastet)."
+                        ),
+                        "trotzdem_neu": (
+                            "wenn_dublette='trotzdem_neu' — echter zweiter "
+                            "Termin am selben Tag."
+                        ),
+                    },
+                }
+            # zusammenfuehren
+            merge = zusammenfuehren(db, bestehend, {
+                "title": titel, "meeting_type": typ, "platform": platform,
+                "location": ort, "notes": notizen, "status": status,
+                "duration_minutes": dauer_minuten, "meeting_date": datum,
+            })
+            return {
+                "status": "zusammengefuehrt",
+                "meeting_id": bestehend.get("id"),
+                "ergaenzte_felder": merge["ergaenzt"],
+                "unveraendert": merge["behalten"],
+                "nachricht": (
+                    f"Bestehender Termin ergaenzt statt doppelt angelegt "
+                    f"({len(merge['ergaenzt'])} Feld(er) gefuellt)."
+                ),
             }
 
         data = {
@@ -1650,7 +1710,7 @@ def register(mcp, db, logger):
             "duration_minutes": dauer_minuten or None,
         }
         meeting_id = db.add_meeting(data)
-        return {
+        result = {
             "status": "angelegt",
             "meeting_id": meeting_id,
             "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
@@ -1660,6 +1720,95 @@ def register(mcp, db, logger):
                 f"{typ.capitalize()} am {datum} zu '{app.get('title', '')}' "
                 f"bei {app.get('company', '')} gespeichert."
             ),
+        }
+        if bestehend:
+            result["dublette_uebersteuert"] = {
+                "bestehender_termin_id": bestehend.get("id"),
+                "hinweis": "Ein Termin im selben Zeitfenster existierte "
+                           "bereits — auf Wunsch trotzdem angelegt.",
+            }
+        return result
+
+    @mcp.tool()
+    def termin_dubletten_bereinigen(
+        dry_run: bool = True,
+        master_id: str = "",
+        duplikat_id: str = "",
+    ) -> dict:
+        """Findet und bereinigt doppelte Termine im Bestand (#804/D30).
+
+        Ohne Argumente: Report aller Termin-Paare derselben Bewerbung im
+        selben Zeitfenster (+/- 30 Minuten, abgesagte ausgenommen). Mit
+        `master_id` + `duplikat_id`: fuehrt genau dieses Paar zusammen —
+        leere Felder des Masters werden aus dem Duplikat gefuellt, gefuellte
+        bleiben unangetastet, danach wird das Duplikat geloescht.
+
+        Idempotent: ein zweiter Lauf findet das bereinigte Paar nicht mehr.
+
+        Args:
+            dry_run: True (Default) = nur zeigen, nichts aendern.
+            master_id: Termin, der bestehen bleibt.
+            duplikat_id: Termin, der nach dem Uebernehmen geloescht wird.
+        """
+        from ..services.termin_dubletten import (
+            finde_alle_dubletten, zusammenfuehren)
+
+        if not master_id and not duplikat_id:
+            paare = finde_alle_dubletten(db)
+            return {
+                "status": "report",
+                "dubletten": paare,
+                "anzahl": len(paare),
+                "hinweis": (
+                    "Zum Zusammenfuehren: termin_dubletten_bereinigen("
+                    "master_id=..., duplikat_id=..., dry_run=False). Der "
+                    "Master ist vorbelegt mit dem inhaltsreicheren Termin."
+                ) if paare else "Keine Termin-Dubletten gefunden.",
+            }
+        if not (master_id and duplikat_id):
+            return {"fehler": "master_id UND duplikat_id angeben — oder "
+                              "beide weglassen fuer den Report."}
+        if str(master_id) == str(duplikat_id):
+            return {"fehler": "master_id und duplikat_id sind identisch."}
+
+        _conn = db.connect()
+        alle = {
+            str(r["id"]): dict(r) for r in _conn.execute(
+                "SELECT * FROM application_meetings WHERE id IN (?, ?)",
+                (str(master_id), str(duplikat_id))).fetchall()
+        }
+        master, dupl = alle.get(str(master_id)), alle.get(str(duplikat_id))
+        if not master or not dupl:
+            return {"fehler": "Termin nicht gefunden. IDs liefert "
+                              "meetings_anzeigen() oder der Report."}
+        if master.get("application_id") != dupl.get("application_id"):
+            return {"fehler": "Die Termine gehoeren zu verschiedenen "
+                              "Bewerbungen — kein Zusammenfuehren."}
+        if dry_run:
+            from ..services.termin_dubletten import _MERGE_FELDER, _ist_leer
+            wuerde = [f for f in _MERGE_FELDER
+                      if _ist_leer(master.get(f)) and not _ist_leer(dupl.get(f))]
+            return {
+                "status": "vorschau",
+                "master": {"id": master.get("id"), "titel": master.get("title"),
+                           "datum": master.get("meeting_date")},
+                "duplikat": {"id": dupl.get("id"), "titel": dupl.get("title")},
+                "wuerde_uebernehmen": wuerde,
+                "hinweis": "Mit dry_run=False ausfuehren.",
+            }
+        merge = zusammenfuehren(db, master, dupl)
+        geloescht = False
+        try:
+            geloescht = bool(db.delete_meeting(dupl.get("id")))
+        except Exception as e:
+            return {"status": "teilweise", "ergaenzt": merge["ergaenzt"],
+                    "fehler": f"Duplikat nicht geloescht: {e}"}
+        return {
+            "status": "zusammengefuehrt",
+            "master_id": master.get("id"),
+            "ergaenzte_felder": merge["ergaenzt"],
+            "unveraendert": merge["behalten"],
+            "duplikat_geloescht": geloescht,
         }
 
     @mcp.tool()

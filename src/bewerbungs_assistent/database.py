@@ -330,33 +330,104 @@ class Database:
             except Exception:
                 pass
 
-        # v1.7.10 (#784, F28): learned_insights BEWUSST als idempotentes
-        # Safety-Net statt Schema-Bump — Schema v49 ist in der v1.8-Linie
-        # fuer die `components`-Tabelle reserviert (Kollisionsgefahr beim
-        # Upgrade-Pfad 1.7.x -> 1.8.x, siehe Master-Plan D24-Warnung).
-        # CREATE IF NOT EXISTS laeuft in beiden Linien identisch und
-        # kollidiert mit keiner Versionsnummer. Steht auch im SCHEMA_SQL.
+        # v1.7.11 (#790, C31): Titel-Ausnahmen fuer Firmen-Blocks.
+        # Ohne Schema-Bump als Safety-Net — die Spalte ist optional und
+        # aendert das Verhalten bestehender Eintraege nicht.
         try:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS learned_insights (
-                    id TEXT PRIMARY KEY,
-                    profile_id TEXT,
-                    kategorie TEXT NOT NULL,
-                    aussage TEXT NOT NULL,
-                    evidenz_json TEXT,
-                    konfidenz REAL DEFAULT 0,
-                    belegt_durch_n INTEGER DEFAULT 0,
-                    erstellt_am TEXT,
-                    aktualisiert_am TEXT,
-                    bestaetigt_vom_user INTEGER DEFAULT 0
-                )
-            """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_learned_insights_profil "
-                "ON learned_insights(profile_id, bestaetigt_vom_user)")
-            conn.commit()
+            _bl_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(blacklist)").fetchall()}
+            if _bl_cols and "ausser_wenn_titel_enthaelt" not in _bl_cols:
+                conn.execute("ALTER TABLE blacklist "
+                             "ADD COLUMN ausser_wenn_titel_enthaelt TEXT")
+                conn.commit()
+                logger.info("Safety-Net: blacklist.ausser_wenn_titel_enthaelt "
+                            "nachgezogen (#790)")
         except Exception as e:
-            logger.warning("learned_insights-Safety-Net (#784): %s", e)
+            logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
+
+        # v1.7.11 (#796, A25): Spalten-Affinitaet bei Text-IDs heilen.
+        # Gewachsene Bestaende haben `documents.linked_application_id` als
+        # INTEGER — eine Hex-ID wie '42061e46' wird darin still zu
+        # 4.2061e+50, '1e960980' sogar zu `inf`. Folge: FK-Fehler beim
+        # Verknuepfen und, schlimmer, still falsche Zuordnungen (inf = inf
+        # ist wahr, also passt so ein Dokument rechnerisch zu JEDER
+        # ueberlaufenden Bewerbung). Frische DBs sind nicht betroffen.
+        # Laeuft nur, wenn es wirklich etwas zu tun gibt, und ist idempotent.
+        try:
+            from .services.spalten_affinitaet import pruefe as _aff_pruefe, heilen as _aff_heilen
+            _diag = _aff_pruefe(self)
+            if _diag["handlungsbedarf"]:
+                _res = _aff_heilen(self, dry_run=False)
+                logger.warning(
+                    "Safety-Net #796: Spalten-Affinitaet korrigiert: %s",
+                    _res.get("ergebnis"))
+        except Exception as e:
+            logger.warning("Affinitaets-Safety-Net (#796): %s", e)
+
+        # v1.7.11 (#799, F35): KORREKTUR eines Fehlers aus v1.7.10/#784.
+        # Damals wurde `learned_insights` neu angelegt, ohne zu pruefen, dass
+        # `learning_insights` (#594, Stufe 3) bereits existiert — ein
+        # Buchstabe Unterschied, zwei Konzepte, beide im Schema. Die UI las
+        # die alte, die neue Logik schrieb in die neue: deshalb blieb der
+        # Lernbereich fuer den Nutzer leer.
+        #
+        # Entscheidung: `learning_insights` GEWINNT (dort liegen die Daten,
+        # dort haengen UI + REST + CRUD). `learned_insights` wird migriert
+        # und entfernt. Die fehlende Kuratier-Dimension aus #784 zieht als
+        # Spalte in die Gewinner-Tabelle ein — weiter ohne Schema-Bump
+        # (v49 bleibt in der 1.8-Linie fuer `components` reserviert).
+        try:
+            cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(learning_insights)").fetchall()}
+            if cols and "bestaetigt_vom_user" not in cols:
+                conn.execute(
+                    "ALTER TABLE learning_insights "
+                    "ADD COLUMN bestaetigt_vom_user INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Safety-Net: learning_insights.bestaetigt_vom_user "
+                            "nachgezogen (#799)")
+        except Exception as e:
+            logger.warning("learning_insights-Kuratier-Spalte (#799): %s", e)
+
+        # Bestand aus der Fehl-Tabelle uebernehmen und sie danach entfernen.
+        # Idempotent: existiert `learned_insights` nicht (mehr), passiert
+        # nichts. Doppelte Aussagen werden dabei nicht erneut angelegt.
+        try:
+            hat_alt = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name='learned_insights'").fetchone()
+            if hat_alt:
+                uebernommen = 0
+                for r in conn.execute(
+                    "SELECT profile_id, kategorie, aussage, evidenz_json, "
+                    "konfidenz, belegt_durch_n, erstellt_am, "
+                    "bestaetigt_vom_user FROM learned_insights"
+                ).fetchall():
+                    schon_da = conn.execute(
+                        "SELECT id FROM learning_insights "
+                        "WHERE title=? LIMIT 1", (r["aussage"],)).fetchone()
+                    if schon_da:
+                        continue
+                    now_m = _now()
+                    conn.execute(
+                        "INSERT INTO learning_insights "
+                        "(profile_id, kind, scope, title, details_json, score, "
+                        " observed_count, first_seen_at, last_seen_at, "
+                        " is_active, bestaetigt_vom_user) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,1,?)",
+                        (r["profile_id"], r["kategorie"] or "strategie",
+                         "strategie", r["aussage"], r["evidenz_json"] or "{}",
+                         r["konfidenz"] or 0.0, r["belegt_durch_n"] or 1,
+                         r["erstellt_am"] or now_m, now_m,
+                         r["bestaetigt_vom_user"] or 0))
+                    uebernommen += 1
+                conn.execute("DROP TABLE learned_insights")
+                conn.commit()
+                logger.info(
+                    "Migration #799: learned_insights -> learning_insights "
+                    "(%d uebernommen), Fehl-Tabelle entfernt", uebernommen)
+        except Exception as e:
+            logger.warning("learned_insights-Migration (#799): %s", e)
 
         # v44 (#657, E16): Safety net fuer Lifecycle-Index. Bei frischen DBs
         # ist die Spalte ueber SCHEMA_SQL bereits da; bei alten DBs wird sie
@@ -5140,16 +5211,31 @@ class Database:
 
     # === Blacklist ===
 
-    def add_to_blacklist(self, entry_type: str, value: str, reason: str = ""):
+    def add_to_blacklist(self, entry_type: str, value: str, reason: str = "",
+                          ausser_wenn_titel_enthaelt: Optional[list] = None):
+        """v1.7.11 (#790/C31): `ausser_wenn_titel_enthaelt` schraenkt einen
+        Firmen-Block auf die Faelle ein, in denen KEINER dieser Begriffe im
+        Stellentitel steht — damit blockt ein Personaldienstleister nicht
+        mehr die fachlich passenden Rollen mit."""
         # #168: Nur noch firma und keyword erlaubt
         if entry_type not in ("firma", "keyword"):
             raise ValueError(f"Ungültiger Blacklist-Typ '{entry_type}'. Nur 'firma' oder 'keyword' erlaubt.")
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
+        ausnahmen = [a.strip() for a in (ausser_wenn_titel_enthaelt or [])
+                     if a and a.strip()]
         conn.execute("""
             INSERT OR IGNORE INTO blacklist (profile_id, type, value, reason, created_at)
             VALUES (?, ?, ?, ?, ?)
         """, (pid, entry_type, value, reason, _now()))
+        if ausnahmen:
+            # Auch bei bestehendem Eintrag (INSERT OR IGNORE) die Ausnahmen
+            # setzen — so lassen sie sich nachtraeglich ergaenzen.
+            conn.execute(
+                "UPDATE blacklist SET ausser_wenn_titel_enthaelt=? "
+                "WHERE type=? AND value=? AND (profile_id=? OR profile_id='')",
+                (json.dumps(ausnahmen, ensure_ascii=False), entry_type,
+                 value, pid))
         conn.commit()
 
     # --- Scraper Health (#432) ---
@@ -5503,27 +5589,81 @@ class Database:
         pid = self.get_active_profile_id()
         conn = self.connect()
         if pid:
-            return [dict(r) for r in conn.execute(
+            rows = conn.execute(
                 "SELECT * FROM blacklist WHERE profile_id=? ORDER BY type, value", (pid,)
-            ).fetchall()]
-        return [dict(r) for r in conn.execute(
-            "SELECT * FROM blacklist ORDER BY type, value"
-        ).fetchall()]
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM blacklist ORDER BY type, value").fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            # v1.7.11 (#790): Ausnahmen liegen als JSON-Liste in der Spalte
+            roh = d.get("ausser_wenn_titel_enthaelt")
+            if roh:
+                try:
+                    d["ausser_wenn_titel_enthaelt"] = json.loads(roh)
+                except (ValueError, TypeError):
+                    d["ausser_wenn_titel_enthaelt"] = []
+            else:
+                d["ausser_wenn_titel_enthaelt"] = []
+            out.append(d)
+        return out
 
-    def is_company_blacklisted(self, company: str):
+    def is_company_blacklisted(self, company: str, titel: str = ""):
         """#729: Liefert den Blacklist-Eintrag (type='firma'), der auf `company`
         matcht, sonst None. Match ist case-insensitiv und beidseitig-substring —
         identisch zur Logik in blacklist_anwenden, damit beide gleich entscheiden.
+
+        v1.7.11 (#790/C31): Optionale Titel-Ausnahme. Ein Firmen-Block wirkt
+        pauschal, die Begruendung stammt aber fast immer aus der Bewertung
+        EINER konkreten Stelle — bei Personaldienstleistern, die quer durch
+        alle Fachgebiete ausschreiben, wirft das zwangslaeufig auch die
+        passenden Treffer weg (belegt: ein Firmen-Block mit der Begruendung
+        "kein PLM-Fit" blockte eine PLM-Stelle). Steht ein Ausnahme-Begriff
+        im Stellentitel, greift der Block nicht.
+
+        Args:
+            company: Firmenname der Stelle.
+            titel: Stellentitel — nur noetig, wenn Ausnahmen greifen sollen.
         """
         if not company:
             return None
         c_lc = company.lower()
+        t_lc = (titel or "").lower()
         for e in self.get_blacklist():
             if e.get("type") != "firma":
                 continue
             v = (e.get("value") or "").lower()
-            if v and (v in c_lc or c_lc in v):
-                return e
+            if not v or not (v in c_lc or c_lc in v):
+                continue
+            ausnahmen = e.get("ausser_wenn_titel_enthaelt") or []
+            if t_lc and ausnahmen:
+                treffer = next((a for a in ausnahmen
+                                if a and a.lower() in t_lc), None)
+                if treffer:
+                    return None  # Ausnahme greift — Stelle darf durch
+            return e
+        return None
+
+    def blacklist_ausnahme_treffer(self, company: str, titel: str):
+        """Welcher Ausnahme-Begriff hat einen Firmen-Block ausgehebelt? (#790)
+
+        Fuer die Transparenz im Tool-Result: der Nutzer soll sehen, WARUM
+        eine Stelle trotz Blacklist angelegt wurde.
+        """
+        if not company or not titel:
+            return None
+        c_lc, t_lc = company.lower(), titel.lower()
+        for e in self.get_blacklist():
+            if e.get("type") != "firma":
+                continue
+            v = (e.get("value") or "").lower()
+            if not v or not (v in c_lc or c_lc in v):
+                continue
+            for a in (e.get("ausser_wenn_titel_enthaelt") or []):
+                if a and a.lower() in t_lc:
+                    return {"eintrag": e.get("value"), "begriff": a}
         return None
 
     def remove_blacklist_entry(self, entry_id: int) -> bool:
@@ -7714,15 +7854,43 @@ class Database:
             (pid, pid, kind, title)
         ).fetchone()
 
+        # v1.7.11 (#799): Der Exakt-Vergleich oben greift nicht, wenn sich
+        # nur die Zahl in der Aussage aendert ("85 % der Aussortierungen…"
+        # -> "86 % …"). Genau so entstand das belegte Duplikat. Zweiter
+        # Versuch daher mit zahlen-normalisiertem Titel. Widersprochene
+        # Aussagen (bestaetigt_vom_user=-1) werden dabei NICHT
+        # wiederbelebt — sie sollen nie erneut auftauchen.
+        if not existing:
+            def _norm(s: str) -> str:
+                return "".join(c for c in (s or "").lower() if not c.isdigit())
+            ziel = _norm(title)
+            # Schutz gegen Ueber-Deduplizierung: Bleibt nach dem Entfernen
+            # der Zahlen kaum Text uebrig ("Hint 1" -> "hint "), taugt das
+            # nicht als Identitaet — dann greift nur der Exakt-Vergleich.
+            # Echte Erkenntnis-Saetze sind deutlich laenger.
+            if len(ziel.strip()) < 25:
+                ziel = None
+            for r in (conn.execute(
+                "SELECT id, observed_count, title, bestaetigt_vom_user "
+                "FROM learning_insights "
+                "WHERE (profile_id=? OR (profile_id IS NULL AND ? IS NULL)) "
+                "AND kind=? AND is_active=1", (pid, pid, kind)
+            ).fetchall() if ziel else []):
+                if _norm(r["title"]) == ziel:
+                    if r["bestaetigt_vom_user"] == -1:
+                        return r["id"]  # widersprochen: nichts auffrischen
+                    existing = r
+                    break
+
         now = _now()
         if existing:
             conn.execute(
                 "UPDATE learning_insights SET "
                 "observed_count=observed_count+1, "
-                "last_seen_at=?, score=?, details_json=? "
+                "last_seen_at=?, score=?, details_json=?, title=? "
                 "WHERE id=?",
                 (now, score, json.dumps(details, ensure_ascii=False),
-                 existing["id"])
+                 title, existing["id"])
             )
             conn.commit()
             return existing["id"]
@@ -7747,7 +7915,8 @@ class Database:
         sql = (
             "SELECT id, kind, scope, title, details_json, score, "
             "observed_count, first_seen_at, last_seen_at, "
-            "app_version_at_creation, is_active, is_shared, dismissed_at "
+            "app_version_at_creation, is_active, is_shared, dismissed_at, "
+            "COALESCE(bestaetigt_vom_user, 0) AS bvu "
             "FROM learning_insights "
             "WHERE (profile_id=? OR profile_id IS NULL) "
         )
@@ -7761,6 +7930,10 @@ class Database:
                 details = json.loads(r["details_json"] or "{}")
             except Exception:
                 details = {}
+            try:
+                bvu = r["bvu"]
+            except (IndexError, KeyError):
+                bvu = 0
             out.append({
                 "id": r["id"],
                 "kind": r["kind"],
@@ -7768,6 +7941,14 @@ class Database:
                 "title": r["title"],
                 "details": details,
                 "recommendation": details.get("recommendation", ""),
+                # v1.7.11 (#799): Evidenz, Konfidenz und Fallzahl mit
+                # ausliefern, damit die Karte im Dashboard zeigen kann,
+                # WORAUF eine Aussage beruht — und ob sie belastbar ist.
+                "evidenz": details.get("evidenz", {}),
+                "konfidenz": details.get("konfidenz", r["score"]),
+                "belegt_durch_n": details.get("belegt_durch_n",
+                                              r["observed_count"]),
+                "bereich": r["scope"] or "strategie",
                 "score": r["score"],
                 "observed_count": r["observed_count"],
                 "first_seen_at": r["first_seen_at"],
@@ -7776,6 +7957,8 @@ class Database:
                 "is_active": bool(r["is_active"]),
                 "is_shared": bool(r["is_shared"]),
                 "dismissed_at": r["dismissed_at"],
+                "bestaetigt": {0: "offen", 1: "bestaetigt",
+                               -1: "widersprochen"}.get(bvu, "offen"),
             })
         return out
 
@@ -9671,6 +9854,9 @@ CREATE TABLE IF NOT EXISTS blacklist (
     value TEXT NOT NULL,
     reason TEXT,
     created_at TEXT,
+    -- v1.7.11 (#790): JSON-Liste von Titel-Begriffen, bei denen ein
+    -- Firmen-Block NICHT greift. Leer/NULL = Block wirkt wie bisher.
+    ausser_wenn_titel_enthaelt TEXT,
     UNIQUE(profile_id, type, value)
 );
 
@@ -9961,23 +10147,6 @@ CREATE INDEX IF NOT EXISTS idx_contacts_profile ON contacts(profile_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
 CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company);
 
--- v1.7.10 (#784, F28): Erkenntnis-Fundament der Ollama-Lernschleife.
--- BEWUSST ohne Schema-Bump (v49 ist fuer components/1.8 reserviert) —
--- initialize() zieht die Tabelle als Safety-Net auch bei Upgradern nach.
-CREATE TABLE IF NOT EXISTS learned_insights (
-    id TEXT PRIMARY KEY,
-    profile_id TEXT,
-    kategorie TEXT NOT NULL,
-    aussage TEXT NOT NULL,
-    evidenz_json TEXT,
-    konfidenz REAL DEFAULT 0,
-    belegt_durch_n INTEGER DEFAULT 0,
-    erstellt_am TEXT,
-    aktualisiert_am TEXT,
-    bestaetigt_vom_user INTEGER DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_learned_insights_profil ON learned_insights(profile_id, bestaetigt_vom_user);
-
 CREATE TABLE IF NOT EXISTS contact_links (
     id TEXT PRIMARY KEY,
     contact_id TEXT NOT NULL,
@@ -10062,7 +10231,12 @@ CREATE TABLE IF NOT EXISTS learning_insights (
     app_version_at_creation TEXT,
     is_active INTEGER DEFAULT 1,
     is_shared INTEGER DEFAULT 0,
-    dismissed_at TEXT
+    dismissed_at TEXT,
+    -- v1.7.11 (#799): Kuratierung. 0 = offen, 1 = bestaetigt,
+    -- -1 = widersprochen (wird nie erneut vorgeschlagen). Kam aus dem
+    -- #784-Entwurf; die dortige Doppel-Tabelle `learned_insights` wurde
+    -- nach hier migriert und entfernt.
+    bestaetigt_vom_user INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_li_profile_active ON learning_insights(profile_id, is_active, last_seen_at DESC);
 
