@@ -189,7 +189,6 @@ def test_796_nach_heilung_ist_die_falle_zu(setup_env):
     conn = _alt_zustand_herstellen(db)
     from bewerbungs_assistent.services.spalten_affinitaet import heilen
     heilen(db, dry_run=False)
-    db.close()
     conn = db.connect()
 
     conn.execute(
@@ -207,8 +206,6 @@ def test_796_idempotent(setup_env):
     _alt_zustand_herstellen(db)
     from bewerbungs_assistent.services.spalten_affinitaet import heilen
     heilen(db, dry_run=False)
-    db.close()
-    db.connect()
     zweit = heilen(db, dry_run=False)
     assert zweit["status"] == "nichts_zu_tun", zweit
 
@@ -226,7 +223,6 @@ def test_796_verknuepfen_funktioniert_nach_heilung(setup_env):
     conn = _alt_zustand_herstellen(db)
     from bewerbungs_assistent.services.spalten_affinitaet import heilen
     heilen(db, dry_run=False)
-    db.close()
     conn = db.connect()
 
     conn.execute(

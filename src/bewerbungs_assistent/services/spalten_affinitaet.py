@@ -179,6 +179,13 @@ def _spalte_auf_text(conn, tabelle: str, spalte: str) -> bool:
         conn.execute(
             "UPDATE sqlite_master SET sql=? WHERE type='table' AND name=?",
             (neu_sql, tabelle))
+        # Schema-Version hochzaehlen: damit liest JEDE Connection das
+        # geaenderte Schema bei der naechsten Anweisung neu ein. Das ist der
+        # dokumentierte Weg — ein `close()` waere hier gefaehrlich, weil
+        # Hintergrund-Threads (Jobsuche, Automatik) dieselbe Connection
+        # benutzen und ein Schliessen unter ihnen weg zum Absturz fuehrt.
+        version = conn.execute("PRAGMA schema_version").fetchone()[0]
+        conn.execute(f"PRAGMA schema_version={int(version) + 1}")
     finally:
         conn.execute("PRAGMA writable_schema=OFF")
     return True
@@ -218,11 +225,14 @@ def heilen(db: Any, dry_run: bool = True) -> dict:
                 schema_geaendert = True
     if schema_geaendert:
         conn.commit()
-        # Verbindung neu aufbauen, damit SQLite das geaenderte Schema
-        # einliest. Die bereits gespeicherten Zahlwerte bleiben physisch
-        # REAL — sie sind also weiterhin lesbar und heilbar.
-        db.close()
-        conn = db.connect()
+        # KEIN db.close() hier: Hintergrund-Threads (Jobsuche, Automatik)
+        # teilen sich diese Connection, und ein Schliessen unter ihnen weg
+        # laesst SQLite auf C-Ebene abstuerzen (in der CI als Segfault
+        # aufgetreten). Das Schema-Reload passiert stattdessen ueber den
+        # schema_version-Bump in _spalte_auf_text. Die bereits
+        # gespeicherten Zahlwerte bleiben physisch REAL — also weiterhin
+        # lesbar und heilbar.
+        pass
 
     # Waehrend der Heilung stehen kurzzeitig Werte, die auf nichts zeigen
     # (der inf-Fall wird geleert) — Fremdschluessel deshalb aussetzen und

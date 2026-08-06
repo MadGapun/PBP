@@ -329,6 +329,14 @@ def test_799_lernlauf_erzeugt_background_job(setup_env):
         if job and job.get("status") in ("fertig", "fehler"):
             break
         time.sleep(0.05)
+    # Den Thread wirklich beenden lassen, bevor die Fixture die Verbindung
+    # schliesst: zwischen dem letzten DB-Write und dem Thread-Ende liegt
+    # sonst ein Fenster, in dem `close()` unter dem Thread weg passiert —
+    # SQLite stuerzt dann auf C-Ebene ab (in der CI als Segfault gesehen).
+    import threading
+    for th in threading.enumerate():
+        if th.name == "automatik-lernen":
+            th.join(timeout=10)
     job = db.get_background_job(res["job_id"])
     assert job is not None, "Lern-Lauf muss eine Spur hinterlassen"
     assert job["status"] in ("fertig", "fehler")
