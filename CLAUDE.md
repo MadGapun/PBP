@@ -39,6 +39,50 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-08-06 (v1.7.11 Stable + v1.8.0-beta.10) — Stille Ausfaelle
+
+**Schema:** v48 / v52, beide unveraendert. **MCP-Tools:** 193 / 206
+(+`termin_dubletten_bereinigen`). **Tests:** 2082 / 2147 passed.
+
+Roter Faden: Fehler, die sich als Erfolg tarnen — keiner warf je eine
+Fehlermeldung.
+
+(1) **B29/#807** — die Bundesagentur-Suche lief auf `pc/v4/jobs`; der
+Endpunkt liefert seit Sommer 2026 **404**. Die produktivste Quelle lag
+still. Suche jetzt **v6**, Details bleiben **v4** (v5/v6 dort 403 — live
+geprueft 06.08.). MERKE: v6 hat ALLE Feldnamen umbenannt
+(`stellenangebote`→`ergebnisliste`, `titel`→`stellenangebotsTitel`,
+`arbeitgeber`→`firma`, `refnr`→`referenznummer`, `beruf`→`hauptberuf`,
+Ort unter `stellenlokationen[0].adresse.ort`) — ein reiner
+Endpunkt-Tausch haette leere Stellen ergeben.
+
+(2) **F35/#799** — der `lernen`-Lauf lief SYNCHRON im Scheduler-Thread
+samt Ollama-Aufruf. Bei geteilter SQLite-Connection
+(`check_same_thread=False`) blockiert das den GESAMTEN MCP-Server.
+MERKE: langlaufende Arbeit gehoert in einen Thread mit
+`background_jobs`-Eintrag — sonst gibt es nicht mal eine Spur.
+Ausserdem KORREKTUR des eigenen Fehlers aus F28/#784: `learned_insights`
+war eine Doppelanlage neben `learning_insights` (#594). **Vor dem
+Anlegen einer Tabelle pruefen, ob es sie unter aehnlichem Namen gibt.**
+
+(3) **A25/#796** — `documents.linked_application_id` hatte in
+gewachsenen Bestaenden INTEGER-Affinitaet; Hex-IDs wie `42061e46` werden
+darin still zu `4.2061e+50`, `1e960980` zu `inf`. MERKE: `inf = inf` ist
+wahr — solche Fehlzuordnungen melden sich bei JEDER SELECT-Pruefung als
+sauber. Heilung: erst Typ auf TEXT, DANN Werte zurueckuebersetzen (sonst
+laeuft der korrigierte Wert wieder in dieselbe Falle).
+
+**MERKE (CI-Segfault, teuer erkauft):** NIE `db.close()` aufrufen,
+solange Hintergrund-Threads laufen — alle teilen sich eine Connection,
+SQLite stuerzt dann auf C-Ebene ab (Exit 139). Fuer einen Schema-Reload
+stattdessen `PRAGMA schema_version` hochzaehlen. Tests, die Threads
+starten, muessen diese vor dem Fixture-Teardown joinen.
+
+Ausserdem: D30/#804 Termin-Dubletten, C31/#790 Blacklist-Ausnahme je
+Titel. Offen als B30/#808: der Health-Check meldet falsch-gruen, weil
+HTTP 200 nichts ueber gelieferte Stellen aussagt — genau deshalb blieb
+B29 wochenlang unbemerkt.
+
 ## Stand 2026-07-24 (v1.7.10 Stable + v1.8.0-beta.9) — Stabilisierungswelle
 
 **Schema:** v48 (Stable) / v52 (Beta), beide unveraendert — die neue
