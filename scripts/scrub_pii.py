@@ -191,15 +191,51 @@ _PHONE_RE = re.compile(
 )
 
 
+# Inline-Code in Backticks. Dort stehen Commit-Hashes, IDs und Codeschnipsel
+# — nie die Telefonnummer eines Menschen. Gefunden beim Sweep am 07.08.2026:
+# `0462449` (ein Git-Commit) wurde als Rufnummer gemeldet, weil sieben Ziffern
+# mit fuehrender Null exakt wie eine aussehen. Bewusst NUR ueber den
+# Backtick-Kontext und nicht ueber ein Hex-Muster: ein reines Ziffernmuster
+# wuerde auch echte Rufnummern verschlucken.
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def _in_inline_code(text: str, start: int, ende: int) -> bool:
+    """True, wenn der Treffer vollstaendig in einem Backtick-Block liegt."""
+    return any(m.start() <= start and ende <= m.end()
+               for m in _INLINE_CODE_RE.finditer(text))
+
+
 def _ist_fiktiv(label: str) -> bool:
     """True fuer Platzhalter-Firmen aus FIKTIVE_FIRMEN (DoD-9-Konvention)."""
     klein = label.lower()
     return any(f in klein for f in FIKTIVE_FIRMEN)
 
 
+# Automaten-Absender. Hinter `noreply@` oder `mailrobot@` steht kein Mensch,
+# den man erreichen kann — das sind keine Kontaktdaten, sondern technische
+# Kennungen. PBP dokumentiert sie bewusst (Absender-Erkennung fuer
+# Newsletter und Portal-Benachrichtigungen, #643/#657). Bewusst ueber den
+# LOKALTEIL und nicht ueber die Domain: `noreply@firma.de` ist harmlos,
+# `vorname.name@firma.de` auf derselben Domain waere es nicht.
+_SYSTEM_LOKALTEILE = (
+    "noreply", "no-reply", "donotreply", "do-not-reply",
+    "mailrobot", "notifications-noreply", "messaging-digest-noreply",
+    "notification", "automailer", "bounce", "postmaster",
+)
+
+
 def _is_safe_email(addr: str) -> bool:
-    domain = addr.split("@", 1)[-1].lower()
-    return any(domain.endswith(d) for d in SAFE_EMAIL_DOMAINS)
+    lokal, _, domain = addr.rpartition("@")
+    domain = domain.lower()
+    # Exakt oder echte Subdomain — NICHT per endswith. Sonst galt jede
+    # Domain als sicher, die zufaellig auf einen Platzhalter endet:
+    # `grossfirma.de` endet auf `firma.de`, `bestetest.de` auf `test.de`.
+    # Das war ein Fehler in der gefaehrlichen Richtung (echte Adressen
+    # rutschten durch), gefunden am 07.08.2026.
+    if any(domain == d or domain.endswith("." + d) for d in SAFE_EMAIL_DOMAINS):
+        return True
+    return lokal.lower() in _SYSTEM_LOKALTEILE
 
 
 def find_pii(text: str) -> list[str]:
@@ -224,9 +260,18 @@ def find_pii(text: str) -> list[str]:
     for m in set(_EMAIL_RE.findall(text)):
         if not _is_safe_email(m):
             hits.append(f"EMAIL: {m}")
-    for m in set(_PHONE_RE.findall(text)):
-        if len(m.replace(" ", "").replace("-", "")) >= 7:
-            hits.append(f"PHONE: {m}")
+    gesehen_tel: set[str] = set()
+    for m in _PHONE_RE.finditer(text):
+        wert = m.group(0)
+        if wert in gesehen_tel:
+            continue
+        if len(wert.replace(" ", "").replace("-", "")) < 7:
+            continue
+        # Commit-Hashes, IDs und Codeschnipsel stehen in Backticks
+        if _in_inline_code(text, m.start(), m.end()):
+            continue
+        gesehen_tel.add(wert)
+        hits.append(f"PHONE: {wert}")
     return hits
 
 
