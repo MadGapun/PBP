@@ -209,6 +209,32 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
 7. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
    Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
 
+   **Seit 2026-08-07 MECHANISCH abgesichert — die Regel allein hat
+   dreimal versagt.** Nach ihrer Einfuehrung am 23.07. kamen am 31.07.
+   und 06.08. drei weitere Issues mit realen Firmen dazu, eines davon
+   mit Klarnamen, Mailadresse und zwei Telefonnummern eines Dritten
+   (geloescht am 07.08., anonymisiert neu als #814/#815/#816). Eine
+   Regel, an die man sich erinnern muss, ist keine Kontrolle. Jetzt:
+
+   - **PreToolUse-Hook** (`.claude/settings.json` →
+     `scripts/gh_pii_guard.py`): blockiert JEDEN `gh issue|pr|release
+     create/comment/edit` mit PII, bevor er laeuft — prueft
+     Inline-Argumente, `--body-file`-Inhalte UND Heredocs.
+     **GRENZE: nur der Bash-Weg.** Der GitHub-MCP (Claude Desktop) laeuft
+     daran vorbei — genau dort entstanden die drei Issues.
+   - **`scripts/gh_pii_sweep.py`**: prueft den IST-Zustand ueber ALLE
+     Issues, Kommentare und Releases, auch geschlossene. Deckt den
+     MCP-Weg mit ab, gehoert in die Session-Abschluss-Runde.
+   - **`FIKTIVE_FIRMEN`** in `scrub_pii.py`: der Pruefer schlug vorher bei
+     genau den Platzhaltern an, die diese Regel vorschreibt. Neue
+     Platzhalter dort eintragen.
+
+   MERKE (warum dem Report niemand mehr glaubte): die Telefon-Erkennung
+   matchte ueber ZEILENUMBRUECHE und las die Jahresspanne `2020-2024` als
+   Rufnummer — 16 von 60 Treffern waren Fehlalarm. Ein Pruefer, der bei
+   korrektem Ergebnis Alarm gibt, wird nach dem zweiten Mal ignoriert.
+   Beim Haerten von Erkennungs-Regeln IMMER beide Richtungen testen.
+
 ## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
 
 **Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
