@@ -1,0 +1,135 @@
+"""Regressionstests fuer die PII-Erkennung (scripts/scrub_pii.py).
+
+Warum es diese Tests gibt: Der Pruefer ist die mechanische Absicherung
+gegen das Veroeffentlichen personenbezogener Daten (DoD-Punkt 9). Er hatte
+selbst vier Fehler, die ihn in beide Richtungen unbrauchbar machten —
+gefunden beim Bestands-Sweep am 07.08.2026:
+
+  1. Telefon-Erkennung matchte ueber ZEILENUMBRUECHE ("0160\\n127")
+  2. ... und las Jahresspannen als Rufnummern ("2020-2024" -> "020-2024")
+  3. ... und Git-Commit-Hashes in Backticks ("`0462449`")
+  4. Die Mail-Allowlist prueste per endswith: "grossfirma.de" endet auf
+     "firma.de" und galt damit als Platzhalter — echte Adressen rutschten
+     durch (die gefaehrliche Richtung)
+
+16 von 60 Treffern des ersten Sweeps waren Fehlalarm. Ein Pruefer, der bei
+korrektem Ergebnis Alarm gibt, wird nach dem zweiten Mal ignoriert; einer
+mit Loechern schuetzt nicht. Deshalb prueft jeder Test hier BEIDE
+Richtungen — was anschlagen MUSS und was NICHT anschlagen darf.
+"""
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+
+from scrub_pii import find_pii  # noqa: E402
+
+
+def _arten(text: str, praefix: str) -> list:
+    return [h for h in find_pii(text) if h.startswith(praefix)]
+
+
+# ----------------------------------------------------------- Telefon
+
+@pytest.mark.parametrize("text", [
+    "Tel. +49 151 4497 4978",
+    "Rueckruf unter 0431/7002356 erbeten",
+    "Kontakt: +49 40 85538906",
+    "Durchwahl +49 69 9897 283 65",
+    "Mobil 0176 4766 4385",
+])
+def test_echte_rufnummern_werden_erkannt(text):
+    assert _arten(text, "PHONE"), f"nicht erkannt: {text!r}"
+
+
+@pytest.mark.parametrize("text", [
+    "Zeitraum 2020-2024 im Profil",              # Jahresspanne
+    "hitteam.de 2009-2019 + Firma 2020-2024",
+    "Version 1.7.11 vom 2026-08-06",
+    "Umgesetzt in `v1.7.0-beta.83` (Commit `0462449`)",   # Commit-Hash
+    "Siehe Commit `0260421` und `a3f9b12`.",
+    "Seiten-Cap 15\n127 Treffer",                # Zeilenumbruch
+    "Erste 200 Zeichen",
+    "ca. 10 Personentage",
+])
+def test_keine_fehlalarme_bei_zahlen(text):
+    assert not _arten(text, "PHONE"), f"Fehlalarm: {text!r}"
+
+
+def test_echte_nummer_neben_code_wird_trotzdem_erkannt():
+    """Der Backtick-Filter darf nicht die halbe Zeile mitentschaerfen."""
+    assert _arten("In `v1.7` gemeldet, Tel +49 69 9897 283 65", "PHONE")
+
+
+# -------------------------------------------------------------- Mail
+
+@pytest.mark.parametrize("addr", [
+    "a.weber@mersol.de",
+    "vorname.nachname@firma-xy.de",
+    "recruiting@grossfirma.de",   # endet auf "firma.de" — war die Luecke
+    "hr@bestetest.de",            # endet auf "test.de"
+    "info@bot.xing.com",          # info@ ist ein echter Kontaktweg
+])
+def test_personen_adressen_werden_erkannt(addr):
+    assert _arten(addr, "EMAIL"), f"nicht erkannt: {addr!r}"
+
+
+@pytest.mark.parametrize("addr", [
+    "test@example.com",
+    "bewerbung@firma.de",
+    "kontakt@test.de",
+    "info@sub.example.org",              # echte Subdomain
+    "PBP-Service@Elwosa.de",
+    "noreply@linkedin.com",              # Automaten-Absender
+    "mailrobot@mail.xing.com",
+    "notifications-noreply@linkedin.com",
+    "noreply@recruiting.beispiel-gruppe.de",
+])
+def test_platzhalter_und_automaten_sind_erlaubt(addr):
+    assert not _arten(addr, "EMAIL"), f"Fehlalarm: {addr!r}"
+
+
+# ------------------------------------------------------------ Firmen
+
+def test_echte_firmen_werden_erkannt():
+    hits = find_pii("Wir haben uns bei der Bosch Rexroth AG beworben.")
+    assert any(h.startswith(("FIRMA", "CORP")) for h in hits)
+
+
+@pytest.mark.parametrize("text", [
+    "Praxis-Fall: Halbleiterwerk Nord GmbH lehnte ab.",
+    "Anlagenbau Sued GmbH und Chemiewerk Mitte",
+    "Ingenieurvermittlung Mitte GmbH als Vermittler",
+    "Beispiel AG im Testfall",
+])
+def test_fiktive_platzhalter_firmen_sind_erlaubt(text):
+    """Der Pruefer schlug frueher bei genau den Platzhaltern an, die die
+    DoD-Regel vorschreibt — dann nimmt ihn niemand mehr ernst."""
+    assert not [h for h in find_pii(text) if h.startswith("CORP")], text
+
+
+# ------------------------------------------------------- Gesamtbild
+
+def test_anonymisierter_issue_text_ist_sauber():
+    """Ein nach der Konvention anonymisierter Text muss ohne Nacharbeit
+    durchgehen — sonst ist die Konvention nicht anwendbar."""
+    text = (
+        "## Problem\n\n"
+        "Bei Halbleiterwerk Nord GmbH (via Ingenieurvermittlung Mitte GmbH) "
+        "blieb die Zuordnung leer. Ansprechpartner <PERSON>, erreichbar "
+        "unter <telefon-fest> bzw. <email-anonymisiert>.\n\n"
+        "Beleg aus dem Bestand: Commit `0462449`, Zeitraum 2020-2024, "
+        "Absage kam von noreply@linkedin.com.\n"
+    )
+    assert find_pii(text) == [], find_pii(text)
+
+
+def test_originaler_issue_text_schlaegt_an():
+    """Gegenprobe: der Fall, der am 07.08. geloescht werden musste."""
+    text = ("Ansprechpartner Alexander Weber, a.weber@mersol.de, "
+            "Tel. +49 69 2009 144 72")
+    hits = find_pii(text)
+    assert any(h.startswith("EMAIL") for h in hits)
+    assert any(h.startswith("PHONE") for h in hits)
