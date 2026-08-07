@@ -132,6 +132,27 @@ _FIRMA_LITERAL = [
 ]
 _FIRMA_PATTERNS = [re.compile(rf"\b{p}\b", re.IGNORECASE) for p in _FIRMA_LITERAL]
 
+# Fiktive Firmen, die als ANONYMISIERUNG dienen (CLAUDE.md, DoD-9).
+# Ohne diese Liste schlaegt der Catch-all bei genau den Platzhaltern an, die
+# die Regel vorschreibt — ein Pruefer, der bei korrektem Ergebnis Alarm gibt,
+# wird nach dem zweiten Mal ignoriert. Neue Platzhalter hier eintragen.
+FIKTIVE_FIRMEN = (
+    "musterfirma",
+    "halbleiterwerk nord",
+    "anlagenbau sued",
+    "chemiewerk mitte",
+    "engineering-partner",
+    "konsumgueter",
+    "ingenieurvermittlung mitte",
+    "werft nord",
+    "vermittler nord",
+    "vermittler ost",
+    "vermittler sued",
+    "vermittler west",
+    "beispiel",
+    "acme",
+)
+
 # Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
 _GERMAN_CORP_RE = re.compile(
     r"\b[A-ZÄÖÜ][\wÄÖÜäöüß\.\-/&]+(?:\s+[A-ZÄÖÜ&][\wÄÖÜäöüß\.\-/&]*){0,4}"
@@ -153,9 +174,27 @@ SAFE_EMAIL_DOMAINS = (
 )
 
 # === Telefon (DE) =================================================
+#
+# Zwei Fehler der ersten Fassung, gefunden beim Sweep am 07.08.2026:
+#   1. `\s` matchte auch ZEILENUMBRUECHE — "0160\n127" wurde als Nummer
+#      gemeldet, obwohl die Ziffern aus zwei verschiedenen Zeilen kamen.
+#   2. Kein Lookbehind — die Jahresspanne "2020-2024" wurde ab Position 1
+#      als "020-2024" gelesen und als Telefonnummer gemeldet.
+# Beides erzeugte so viele Fehlalarme, dass der Report unbrauchbar war —
+# und ein Pruefer, dem man nicht glaubt, verhindert nichts.
 _PHONE_RE = re.compile(
-    r"(?:\+49|0049|0)\s?[1-9]\d{1,4}[\s\-/]?\d{3,}[\s\-/]?\d{0,}"
+    r"(?<![\d/.\-])"                      # nicht mitten in einer Zahl beginnen
+    r"(?:\+49|0049|0)[ ]?"                # DE-Vorwahl, nur echte Leerzeichen
+    r"[1-9]\d{1,4}[ \-/]?"                # Ortsnetz/Mobilfunk
+    r"\d{3,}(?:[ \-/]?\d+)*"              # Rufnummer, optional gruppiert
+    r"(?![\d\-]*\s*(?:Zeichen|Stellen|px|EUR|€))"  # keine Mengenangaben
 )
+
+
+def _ist_fiktiv(label: str) -> bool:
+    """True fuer Platzhalter-Firmen aus FIKTIVE_FIRMEN (DoD-9-Konvention)."""
+    klein = label.lower()
+    return any(f in klein for f in FIKTIVE_FIRMEN)
 
 
 def _is_safe_email(addr: str) -> bool:
@@ -180,7 +219,7 @@ def find_pii(text: str) -> list[str]:
             hits.append(f"FIRMA: {label}")
     for m in set(_GERMAN_CORP_RE.findall(text)):
         label = m if isinstance(m, str) else " ".join(filter(None, m))
-        if "<" not in label and "musterfirma" not in label.lower():
+        if "<" not in label and not _ist_fiktiv(label):
             hits.append(f"CORP: {label}")
     for m in set(_EMAIL_RE.findall(text)):
         if not _is_safe_email(m):
