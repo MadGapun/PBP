@@ -5,6 +5,7 @@
   BookOpen,
   Briefcase,
   Calendar,
+  Check,
   ClipboardList,
   Download,
   HandCoins,
@@ -644,12 +645,29 @@ export default function DashboardPage() {
                   </div>
                   <ul className="mt-2 space-y-1">
                     {overdueTasks.slice(0, 5).map((t) => (
-                      <li key={t.id} className="text-sm text-ink">
-                        <span className="font-medium">{t.titel}</span>
-                        {t.bewerbung_titel ? (
-                          <span className="text-muted/60"> — {t.bewerbung_titel}{t.firma ? ` (${t.firma})` : ""}</span>
-                        ) : null}
-                        <span className="ml-2 text-xs font-semibold text-coral">fällig {formatDate(t.faellig_am)}</span>
+                      <li key={t.id} className="group flex items-center gap-2 text-sm text-ink">
+                        {/* #814 (D35): direkt aus dem Dashboard abhaken —
+                            vorher war die Warnung rein passiv, die
+                            Erledigung ging nur ueber Claude. */}
+                        <button
+                          type="button"
+                          title="Erledigt"
+                          onClick={async () => {
+                            try {
+                              await postJson(`/api/tasks/${t.id}/complete`, {});
+                              refreshChrome?.();
+                            } catch { /* silent */ }
+                          }}
+                          className="shrink-0 rounded-md border border-teal/40 bg-teal/10 p-0.5 text-teal hover:bg-teal/25">
+                          <Check size={12} />
+                        </button>
+                        <span className="min-w-0 cursor-pointer truncate" onClick={() => navigateTo("aufgaben")}>
+                          <span className="font-medium">{t.titel}</span>
+                          {t.bewerbung_titel ? (
+                            <span className="text-muted/60"> — {t.bewerbung_titel}{t.firma ? ` (${t.firma})` : ""}</span>
+                          ) : null}
+                          <span className="ml-2 text-xs font-semibold text-coral">fällig {formatDate(t.faellig_am)}</span>
+                        </span>
                       </li>
                     ))}
                     {overdueTasks.length > 5 && (
@@ -657,8 +675,8 @@ export default function DashboardPage() {
                     )}
                   </ul>
                 </div>
-                <Button size="sm" variant="secondary" onClick={() => navigateTo("bewerbungen")}>
-                  Zu den Bewerbungen
+                <Button size="sm" variant="secondary" onClick={() => navigateTo("aufgaben")}>
+                  Zu den Aufgaben
                 </Button>
               </div>
             </Card>

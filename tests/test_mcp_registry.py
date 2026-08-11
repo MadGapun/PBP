@@ -125,6 +125,11 @@ EXPECTED_TOOL_NAMES = {
     "stelle_reaktivieren",
     "stelle_wiedergaenger_pruefen",
     "todo_anlegen",
+    # v1.7.12 (#814/#815, D35): Aufgaben vollwertig bedienbar
+    "todo_bearbeiten",
+    "todo_hinfaellig",
+    "todo_details",
+    "aufgaben_uebersicht",
     "todo_erledigen",
     "todo_reaktivieren",
     "todos_anzeigen",
@@ -354,7 +359,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 210  # v1.7.12 (#816): +follow_up_bearbeiten
+        assert len(tools) == 214  # v1.7.12 (#814/#815): +todo_bearbeiten/_hinfaellig/_details, +aufgaben_uebersicht
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

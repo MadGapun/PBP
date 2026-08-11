@@ -213,6 +213,10 @@ export default function ApplicationsPage() {
       setFilters({ query: "", status: "", fromDate: "", toDate: "", stellenart: "", showArchived: false });
       setSpecialFilter("zombies");
       clearIntent();
+    } else if (intent.applicationId) {
+      // #815 (D35): Sprung aus dem Aufgaben-Bereich direkt in die Timeline
+      openTimeline({ id: intent.applicationId });
+      clearIntent();
     }
   }, [intent, clearIntent]);
 
@@ -1572,11 +1576,14 @@ export default function ApplicationsPage() {
                   && task.faellig_am < new Date().toISOString().slice(0, 10);
                 return (
                   <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${done ? "opacity-50" : overdue ? "bg-coral/10 border border-coral/30" : "bg-white/[0.03] border border-white/5"}`}>
+                    {/* #814 (D35): als SCHALTFLAECHE erkennbar — der blasse
+                        Haken wurde als Statussymbol gelesen, die Funktion
+                        galt als nicht vorhanden (belegter Nutzer-Befund). */}
                     <button
                       type="button"
-                      title={done ? "Wieder oeffnen" : "Erledigt"}
+                      title={done ? "Wieder oeffnen" : "Als erledigt abhaken"}
                       onClick={() => toggleTimelineTask(task)}
-                      className={`shrink-0 rounded-md p-1 transition-colors ${done ? "text-teal" : "text-muted/40 hover:text-teal hover:bg-teal/10"}`}
+                      className={`shrink-0 rounded-md border p-1 transition-colors ${done ? "border-teal/40 bg-teal/15 text-teal" : "border-teal/30 bg-teal/5 text-teal/70 hover:bg-teal/20 hover:text-teal"}`}
                     >
                       <Check size={14} />
                     </button>
