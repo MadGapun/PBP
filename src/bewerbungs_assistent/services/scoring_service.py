@@ -106,16 +106,28 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                 break
 
     # 4. Gehalt (pro 10% Abweichung)
-    # v1.6.7 (#552): Geschaetzte Gehaelter (salary_estimated=True) bekommen
-    # einen 0.5x-Multiplikator — sonst verzerren spekulative Werte die Score-
-    # Sortierung. Der Anwender sieht im fit_analyse-Output transparent, dass
-    # der Gehalts-Beitrag aus einer Schaetzung stammt.
+    # v1.6.7 (#552): Geschaetzte Gehaelter bekamen einen 0.5x-Multiplikator.
+    # v1.7.12 (#827, C32): Schaetzungen zaehlen jetzt GAR NICHT mehr.
+    # Begruendung (belegter Fall): 14 von 29 Stellen eines Laufs trugen
+    # exakt eine von vier schematischen Spannen — ein Servicetechniker
+    # dieselbe wie ein Category Planner. Das ist keine Information ueber
+    # die Stelle, sondern ueber die Schaetzlogik; bei der Dimension mit
+    # dem hoechsten Gewicht ist auch die Haelfte davon Scheingenauigkeit.
+    # Echte Angaben aus der Anzeige zaehlen unveraendert; der transparente
+    # 0-Punkte-Eintrag erklaert, warum die Dimension leer bleibt.
     gehalt_cfg = cfg.get(("gehalt", "pro_10_prozent"))
     if gehalt_cfg and gehalt_cfg["value"] != 0:
         salary_min = job.get("salary_min")
         salary_estimated = bool(job.get("salary_estimated"))
-        # Multiplikator: 0.5x wenn geschaetzt, sonst 1.0x
-        gehalt_multiplikator = 0.5 if salary_estimated else 1.0
+        if salary_estimated and salary_min:
+            adjustments.append({
+                "dimension": "Gehalt/Rate",
+                "detail": "nur Schaetzung vorhanden — neutral (#827)",
+                "punkte": 0,
+                "source": "geschaetzt",
+            })
+            salary_min = None  # Block unten ueberspringen
+        gehalt_multiplikator = 1.0
         if salary_min:
             # Get user preferences for salary
             criteria = db.get_search_criteria()

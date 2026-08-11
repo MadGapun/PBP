@@ -58,15 +58,20 @@ def test_552_estimated_salary_halves_score_impact(setup_env):
     gehalt_adj_est = next((a for a in result_est["adjustments"] if a["dimension"] == "Gehalt/Rate"), None)
 
     assert gehalt_adj_ext is not None, "Extracted-Job sollte Gehalts-Adjustment bekommen"
-    assert gehalt_adj_est is not None, "Estimated-Job sollte (kleineres) Gehalts-Adjustment bekommen"
-    # Estimated muss 0.5x sein
-    assert abs(gehalt_adj_est["punkte"]) <= abs(gehalt_adj_ext["punkte"]), (
-        f"Estimated punkte {gehalt_adj_est['punkte']} sollte <= extracted {gehalt_adj_ext['punkte']}"
+    assert gehalt_adj_est is not None, "Estimated-Job bekommt den transparenten 0-Eintrag"
+    # v1.7.12 (#827, C32): Schaetzungen zaehlen GAR NICHT mehr (vorher
+    # 0.5x). 14 von 29 Stellen eines Laufs trugen dieselben vier
+    # Schema-Spannen — das ist keine Information ueber die Stelle. Der
+    # 0-Punkte-Eintrag bleibt sichtbar und erklaert die leere Dimension.
+    assert gehalt_adj_est["punkte"] == 0, (
+        f"Schaetzung darf nicht mehr beitragen: {gehalt_adj_est['punkte']}"
     )
+    assert gehalt_adj_ext["punkte"] != 0, "echte Angabe wirkt unveraendert"
     assert gehalt_adj_est["source"] == "geschaetzt"
     assert gehalt_adj_ext["source"] == "extrahiert"
     # Detail-String enthaelt den Hinweis
-    assert "geschaetzt" in gehalt_adj_est["detail"]
+    assert "geschaetzt" in gehalt_adj_est["detail"] \
+        or "Schaetzung" in gehalt_adj_est["detail"]
 
 
 def test_552_no_estimated_flag_no_change(setup_env):

@@ -1638,7 +1638,65 @@ def _parse_weights(criteria: dict) -> dict:
         "naehe": w.get("naehe", 2),
         "fern_malus": w.get("fern_malus", 3),
         "gehalt": w.get("gehalt", 1),
+        # v1.7.12 (#827, C32): Treffer, die NUR im Firmen-Werbeabsatz
+        # stehen, zaehlen mit diesem Faktor. 0 wuerde falsche Ausschluesse
+        # produzieren, 1 waere der alte Fehler — 0.25 laesst die Stelle
+        # sichtbar, ohne dass Portfolio-Prosa Fach-Rollen ueberholt.
+        "firmenabsatz_faktor": float(w.get("firmenabsatz_faktor", 0.25)),
     }
+
+
+# v1.7.12 (#827, C32): Ueberschriften, mit denen Anzeigen den Aufgaben-
+# oder Anforderungsteil einleiten. Bewusst breit — die Formulierungen
+# variieren stark ("In deiner Mission bluehst du auf", "Dein Spielfeld").
+# Alles VOR der ersten dieser Ueberschriften ist typischerweise die
+# Firmen-Selbstdarstellung, deren Portfolio-Aufzaehlung ("allen voran PLM
+# und ERP") sonst fachfremde Stellen nach oben spuelt.
+_AUFGABEN_MARKER = (
+    "aufgaben", "taetigkeiten", "tätigkeiten", "mission",
+    "das erwartet dich", "was dich erwartet", "das erwartet sie",
+    "deine rolle", "ihre rolle", "die rolle", "dein spielfeld",
+    "das machst du", "das bewegst du", "was du bei uns",
+    "your tasks", "your role", "responsibilities", "what you",
+    "dein aufgabengebiet", "ihr aufgabengebiet", "der job",
+    "das bringst du mit", "dein profil", "ihr profil",
+    "anforderungen", "qualifikation",
+)
+
+_WIR_SIGNALE = ("wir sind", "wir gestalten", "wir zaehlen", "wir zählen",
+                "unsere", "unseren", "unserem", "als einer der",
+                "als eines der", "fuehrende", "führende", "marktfuehrer",
+                "marktführer")
+
+
+def _firmenabsatz_ende(description: str) -> int:
+    """Index, an dem die Firmen-Selbstdarstellung endet. 0 = keine erkannt.
+
+    Zwei Stufen: (1) erste Aufgaben-artige Ueberschrift in den vorderen
+    60 % des Texts — was davor liegt, ist Intro/Firmenzone. (2) Ohne
+    Ueberschrift zaehlt nur der ERSTE Absatz als Firmenzone, und auch nur,
+    wenn er nach Wir-Prosa aussieht (>= 2 Signale). Konservativ: im
+    Zweifel 0, denn ein zu grosser Schnitt wuerde echte Aufgaben-Treffer
+    abwerten — der teurere Fehler.
+    """
+    if not description:
+        return 0
+    d_lc = description.lower()
+    # Untergrenze 80: steht die Ueberschrift praktisch am Textanfang,
+    # BEGINNT die Anzeige mit den Aufgaben — es gibt keine Firmenzone.
+    # Obergrenze 80 %: ein "Profil"-Marker kurz vor Schluss darf nicht
+    # fast den ganzen Text zur Firmenzone erklaeren.
+    limit = int(len(d_lc) * 0.8)
+    kandidaten = [i for m in _AUFGABEN_MARKER
+                  if 80 <= (i := d_lc.find(m)) < limit]
+    if kandidaten:
+        return min(kandidaten)
+    erster_absatz = d_lc.split("\n\n", 1)[0]
+    if len(erster_absatz) < len(d_lc) * 0.5:
+        signale = sum(1 for s in _WIR_SIGNALE if s in erster_absatz)
+        if signale >= 2:
+            return len(erster_absatz)
+    return 0
 
 
 # Synonym-Map fuer echte Synonyme/Varianten (#183)
@@ -1898,6 +1956,24 @@ def calculate_score(job: dict, criteria: dict) -> int:
     text = f"{title} {description_for_score}".lower()
     w = _parse_weights(criteria)
 
+    # v1.7.12 (#827, C32): Kern-Text = Titel + Beschreibung OHNE die
+    # Firmen-Selbstdarstellung. Treffer dort zaehlen voll; Treffer, die
+    # NUR im Firmenabsatz stehen, mit firmenabsatz_faktor. Belegt: eine
+    # fachfremde Rolle sammelte 30 von 36 Punkten ausschliesslich aus dem
+    # Portfolio-Absatz des Dienstleisters ("allen voran PLM und ERP").
+    _grenze = _firmenabsatz_ende(description_for_score)
+    if _grenze > 0:
+        kern_text = f"{title} {description_for_score[_grenze:]}".lower()
+    else:
+        kern_text = text
+
+    def _treffer_faktor(kw: str, fuzzy: bool = True) -> float:
+        """1.0 = Treffer im Kern, firmenabsatz_faktor = nur im Firmenabsatz."""
+        match = _fuzzy_keyword_match if fuzzy else _strict_keyword_match
+        if _grenze <= 0 or match(kw, kern_text):
+            return 1.0
+        return w["firmenabsatz_faktor"]
+
     # #180: Markiere Jobs ohne Beschreibung damit Claude/Frontend warnen kann
     if not has_description:
         job["_beschreibung_fehlt"] = True
@@ -1947,8 +2023,10 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # v1.7.10 (#778): Punkte pro Treffer statt pauschal Anzahl x Gewicht.
     # Mit IDF-Faktoren zaehlen zusaetzlich nur die MUSS_TOP_N staerksten
     # MUSS-Treffer (Deckelung) — Masse darf Klasse nicht schlagen.
+    # v1.7.12 (#827): jeder Treffer traegt seinen Firmenabsatz-Faktor.
     muss_punkte = sorted(
         (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
+         * _treffer_faktor(kw)
          for kw in muss_hits_kws),
         reverse=True,
     )
@@ -1957,11 +2035,26 @@ def calculate_score(job: dict, criteria: dict) -> int:
         muss_punkte = muss_punkte[:MUSS_TOP_N]
     score = sum(muss_punkte)
 
+    # v1.7.12 (#827): Flag fuer Tools/Frontend, wenn ALLE MUSS-Treffer
+    # nur in der Firmen-Selbstdarstellung sitzen — der Score ist dann
+    # niedrig, und der Grund soll erklaerbar sein.
+    if _grenze > 0 and muss_hits_kws and all(
+            not _fuzzy_keyword_match(kw, kern_text) for kw in muss_hits_kws):
+        job["_treffer_nur_firmenabsatz"] = True
+
     # PLUS keywords — #183: Fuzzy-Matching
+    # v1.7.12 (#827): Begriffe, die schon in MUSS stehen, zaehlen hier
+    # NICHT nochmal — vorher wurden PLM & Co. doppelt gewertet (einmal
+    # als MUSS, einmal als PLUS). Normalisiert verglichen, weil die
+    # Listen historisch Schreibvarianten tragen.
     plus = criteria.get("keywords_plus", [])
+    _muss_norm = {kw.strip().lower() for kw in muss}
+    plus_effektiv = [kw for kw in plus
+                     if kw.strip().lower() not in _muss_norm]
     score += sum(
         _punkte_pro_treffer(kw, w["plus"], overrides, idf)
-        for kw in plus if _fuzzy_keyword_match(kw, text)
+        * _treffer_faktor(kw)
+        for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)
     )
 
     # MINUS keywords (#667, B19, beta.84) — weiche Score-Abwertung als
@@ -2049,10 +2142,29 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # #667 (B19, beta.84): Minus-Keywords als weiche Score-Abwertung.
     minus = criteria.get("keywords_minus", [])
 
+    # v1.7.12 (#827, C32): dieselbe Firmenabsatz-Logik wie calculate_score
+    # — sonst erklaert die Fit-Analyse einen anderen Score als die Liste.
+    _desc = _strip_pbp_notes(job.get("description", "") or "")
+    _fa_grenze = _firmenabsatz_ende(_desc)
+    if _fa_grenze > 0:
+        _kern = f"{job.get('title', '')} {_desc[_fa_grenze:]}".lower()
+    else:
+        _kern = text
+
+    def _fa_faktor(kw: str) -> float:
+        if _fa_grenze <= 0 or _fuzzy_keyword_match(kw, _kern):
+            return 1.0
+        return w["firmenabsatz_faktor"]
+
     # #183: Fuzzy-Matching auch in der Fit-Analyse
+    # v1.7.12 (#827): PLUS zaehlt Begriffe nicht nochmal, die schon in
+    # MUSS stehen — vorher wurden sie doppelt gewertet.
+    _muss_norm = {kw.strip().lower() for kw in muss}
+    plus_effektiv = [kw for kw in plus
+                     if kw.strip().lower() not in _muss_norm]
     muss_hits = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
     missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
-    plus_hits = [kw for kw in plus if _fuzzy_keyword_match(kw, text)]
+    plus_hits = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
     # #755 (C25): MINUS strikt (Wortgrenzen + Phrase) statt fuzzy —
     # PLUS belohnt (Recall ok), MINUS bestraft (Praezision Pflicht).
     minus_hits = [kw for kw in minus if _strict_keyword_match(kw, text)]
@@ -2068,9 +2180,17 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     if not isinstance(_idf, dict):
         _idf = {}
 
+    _nur_firmenabsatz = (
+        _fa_grenze > 0
+        and (muss_hits or plus_hits)
+        and all(not _fuzzy_keyword_match(kw, _kern)
+                for kw in muss_hits + plus_hits)
+    )
+
     if muss_hits:
         _muss_pts = sorted(
             (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
+             * _fa_faktor(kw)
              for kw in muss_hits),
             reverse=True,
         )
@@ -2078,14 +2198,21 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             from ..services.kalibrierung import MUSS_TOP_N
             _muss_pts = _muss_pts[:MUSS_TOP_N]
         pts = round(sum(_muss_pts), 1)
-        factors[f"MUSS-Keywords ({len(muss_hits)} Treffer)"] = pts
+        _label = f"MUSS-Keywords ({len(muss_hits)} Treffer)"
+        if _fa_grenze > 0 and any(_fa_faktor(kw) < 1.0 for kw in muss_hits):
+            _label += " — teils nur im Firmenabsatz, abgewertet"
+        factors[_label] = pts
         total += pts
 
     if plus_hits:
         pts = round(sum(
             _punkte_pro_treffer(kw, w["plus"], _overrides, _idf)
+            * _fa_faktor(kw)
             for kw in plus_hits), 1)
-        factors[f"PLUS-Keywords ({len(plus_hits)} Treffer)"] = pts
+        _label = f"PLUS-Keywords ({len(plus_hits)} Treffer)"
+        if _fa_grenze > 0 and any(_fa_faktor(kw) < 1.0 for kw in plus_hits):
+            _label += " — teils nur im Firmenabsatz, abgewertet"
+        factors[_label] = pts
         total += pts
 
     # #667: Minus-Keywords abziehen — analog zu Plus, aber negativ.
@@ -2190,6 +2317,18 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     if len(desc.strip()) < 50:
         risks.insert(0, "BESCHREIBUNG FEHLT — Score ist unzuverlässig! "
                      "Lade die Stellenbeschreibung nach (stelle_manuell_anlegen oder URL öffnen).")
+
+    # v1.7.12 (#827): ALLE Keyword-Treffer sitzen im Firmen-Werbeabsatz —
+    # die Anzeige redet ueber das Portfolio der Firma, nicht ueber die
+    # Rolle. Belegter Fall: fachfremde Rolle sammelte 30 Punkte aus dem
+    # Selbstdarstellungs-Absatz eines IT-Dienstleisters.
+    if _nur_firmenabsatz:
+        risks.insert(0,
+            "KEYWORD-TREFFER NUR IM FIRMENABSATZ — alle MUSS/PLUS-Treffer "
+            "stehen in der Selbstdarstellung der Firma, keiner in der "
+            "Aufgabenbeschreibung. Die Punkte sind entsprechend abgewertet; "
+            "die Rolle selbst hat mit deinen Suchbegriffen vermutlich "
+            "nichts zu tun.")
 
     # #667: Risk-Hinweis wenn viele Minus-Treffer (weicher als k.o., aber
     # transparent fuer den User wenn die Stelle nicht zuoberst rutscht).

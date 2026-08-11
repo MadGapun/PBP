@@ -148,32 +148,38 @@ def test_validator_length_uses_rendered_text():
 # ============= #614: Anti-Wiederholung ============
 
 def test_pick_line_avoids_same_day_repeat(setup_env):
-    """pick_line darf eine Linie nicht zweimal am selben Tag ziehen,
-    solange noch andere Linien im Pool unbenutzt sind."""
+    """pick_line zieht ohne Zuruecklegen: erst alle Linien einmal, dann —
+    seit v1.7.12 (#822) — KEINE mehr, statt zu wiederholen.
+
+    Der alte Vertrag ("Repeat erlaubt, wenn der Pool durch ist") war die
+    zweite Ursache der stuendlichen Wiederholungen und ist abgeschafft.
+    """
     db = setup_env
     from bewerbungs_assistent.services import elwosa
     pool = ["A. Vermerkt.", "B. Notiert.", "C. Markiert."]
     chosen = []
-    for _ in range(20):
+    for _ in range(3):
         line = elwosa.pick_line(db, pool, ctx={})
         assert line is not None
-        # Direkt persistieren um Same-Day-Filter zu testen
         db.add_elwosa_message(line, trigger_kind="world")
         chosen.append(line)
-    # In den ersten 3 Picks sollten alle 3 verschiedenen Linien vorkommen
-    assert set(chosen[:3]) == set(pool)
+    # Alle 3 verschiedenen Linien genau einmal
+    assert set(chosen) == set(pool)
+    # Pool innerhalb der Sperrfrist verbraucht -> None statt Wiederholung
+    assert elwosa.pick_line(db, pool, ctx={}) is None
 
 
 def test_pick_line_falls_back_when_pool_exhausted(setup_env):
-    """Wenn der Pool an einem Tag durch ist, darf die Auswahl Repeats erlauben."""
+    """v1.7.12 (#822): Der Fallback ist ABGESCHAFFT. Ist der Pool
+    innerhalb der Sperrfrist durch, kommt keine Linie — lieber Stille
+    als dieselbe Aussage dreimal in drei Stunden (belegter Fall)."""
     db = setup_env
     from bewerbungs_assistent.services import elwosa
     pool = ["Einzige Linie. Vermerkt."]
     a = elwosa.pick_line(db, pool, ctx={})
     db.add_elwosa_message(a, trigger_kind="world")
     b = elwosa.pick_line(db, pool, ctx={})
-    # Pool hat nur 1 Linie → Fallback erlaubt sie nochmal
-    assert b == a
+    assert b is None, "kein Repeat innerhalb der Sperrfrist"
 
 
 # ============= #612: tonfall_modus-Verdrahtung ============

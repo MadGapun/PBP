@@ -1523,12 +1523,17 @@ def register(mcp, db, logger):
         seite: int = 1,
         pro_seite: int = 20,
         max_alter_tage: int = 0,
-        nur_nicht_beworben: bool = False
+        nur_nicht_beworben: bool = False,
+        nur_empfohlen: bool = False
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
-        Gibt die Liste der Stellen zurück, sortiert nach Score.
-        Nutze stelle_bewerten() um einzelne Stellen zu bewerten.
+        Gibt die Liste der Stellen zurück, sortiert nach Score — Stellen
+        mit fachlichem k.o. (Wiedergaenger-Muster, #671) sinken dabei ans
+        Ende, egal wie hoch ihr Score ist (v1.7.12, #827/C32): der Score
+        misst Begriffe, das k.o.-Muster misst deine dokumentierten
+        Entscheidungen. Nutze stelle_bewerten() um einzelne Stellen zu
+        bewerten.
 
         Args:
             filter: 'aktiv' (Standard), 'aussortiert', oder 'alle'
@@ -1538,6 +1543,7 @@ def register(mcp, db, logger):
             pro_seite: Anzahl Stellen pro Seite (Standard: 20, max: 50)
             max_alter_tage: Nur Stellen die nicht älter als X Tage sind (0 = kein Limit)
             nur_nicht_beworben: Nur Stellen anzeigen auf die noch nicht beworben wurde
+            nur_empfohlen: True blendet Stellen mit k.o.-Muster ganz aus
         """
         if filter == "aussortiert":
             jobs = db.get_dismissed_jobs()
@@ -1579,6 +1585,33 @@ def register(mcp, db, logger):
                 jobs.sort(key=lambda j: (-j.get("is_pinned", 0), -j.get("score", 0)))
             except Exception as e:
                 logger.debug("Scoring adjustments fehlgeschlagen: %s", e)
+
+            # v1.7.12 (#827, C32): Empfehlungslage VOR der Paginierung.
+            # Das Wiedergaenger-Muster (#671) ist rein regelbasiert und
+            # wird compute-on-read ausgewertet — damit zaehlt die Historie
+            # zum LESEzeitpunkt, nicht der Stand beim ersten Speichern der
+            # Stelle. Der Bestand wird EINMAL geladen (Preload), sonst
+            # wuerde jede Stelle der Liste den vollen Scan wiederholen.
+            try:
+                from ..services.wiedergaenger import find_wiedergaenger_pattern
+                _dismissed_pool = db.get_dismissed_jobs()
+                for j in jobs:
+                    muster = find_wiedergaenger_pattern(
+                        db, j.get("company", ""), j.get("title", ""),
+                        target_hash=j.get("hash"),
+                        dismissed=_dismissed_pool)
+                    if muster:
+                        j["_ko_muster"] = muster
+                if nur_empfohlen:
+                    jobs = [j for j in jobs if not j.get("_ko_muster")]
+                # NICHT_EMPFOHLEN sinkt unter alle Empfohlenen — der Fall
+                # aus #827: fachfremde Rolle mit Boilerplate-Score stand
+                # auf Platz 9, waehrend das System ihr k.o. laengst kannte.
+                jobs.sort(key=lambda j: (-j.get("is_pinned", 0),
+                                         1 if j.get("_ko_muster") else 0,
+                                         -j.get("score", 0)))
+            except Exception as e:
+                logger.debug("Empfehlungs-Anreicherung fehlgeschlagen: %s", e)
 
         if not jobs:
             return {
@@ -1693,6 +1726,18 @@ def register(mcp, db, logger):
                     entry["repost_details"] = {
                         k: v for k, v in _repost.items() if k != "warnung"}
 
+            # v1.7.12 (#827): Empfehlungslage sichtbar in der Liste — der
+            # Nutzer soll nicht fuer jede Stelle fit_analyse aufrufen
+            # muessen, um zu erfahren, dass PBP laengst abgeraten hat.
+            if j.get("_ko_muster"):
+                _m = j["_ko_muster"]
+                entry["empfehlung"] = {
+                    "kategorie": "NICHT_EMPFOHLEN",
+                    "ko_grund": (
+                        f"Wiedergaenger: Firma wurde bereits {_m['anzahl']}x "
+                        f"mit Grund '{_m['top_grund']}' aussortiert"
+                    ),
+                }
             # #766: Stellen ohne jeden Anker (URL/Dokument/Kontakt) sichtbar
             # markieren, statt sie wie normale Treffer darzustellen.
             from ..services.stellen_anker import anker_status as _anker_status

@@ -129,6 +129,13 @@ _FIRMA_LITERAL = [
     r"CONTACT\s+Software(?:\s+GmbH)?",
     r"Masa\s+GmbH",
     r"NVL(?:\s+B\.V\.\s*&\s*Co\.\s*KG)?",
+    # Nachtrag 11.08.2026: standen in #821 (Blacklist-/Bewerbungshistorie)
+    # und rutschten am Sweep vorbei — Markennamen ohne Rechtsform-Suffix
+    # faengt der Corp-Catch-all nicht.
+    r"Atos",
+    r"valantic",
+    r"adesso(?:\s+SE)?",
+    r"Akkodis(?:\s+Germany)?(?:\s+Tech\s+Experts)?(?:\s+GmbH)?",
 ]
 _FIRMA_PATTERNS = [re.compile(rf"\b{p}\b", re.IGNORECASE) for p in _FIRMA_LITERAL]
 
@@ -139,6 +146,7 @@ _FIRMA_PATTERNS = [re.compile(rf"\b{p}\b", re.IGNORECASE) for p in _FIRMA_LITERA
 FIKTIVE_FIRMEN = (
     "musterfirma",
     "halbleiterwerk nord",
+    "systemhaus nord",
     "anlagenbau sued",
     "chemiewerk mitte",
     "engineering-partner",

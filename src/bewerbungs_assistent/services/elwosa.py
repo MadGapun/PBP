@@ -236,14 +236,33 @@ def _seen_today(db, content: str) -> bool:
     return row is not None
 
 
-def pick_line(db, pool: list, ctx: dict) -> Optional[str]:
-    """Waehlt eine Linie aus dem Pool, die nicht in den letzten 7 Tagen
-    benutzt wurde. Liefert None wenn der ganze Pool 'verbraucht' ist.
+def _seen_within_hours(db, content: str, hours: int) -> bool:
+    """v1.7.12 (#822): Sperrfrist-Pruefung auf Stunden-Basis."""
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(hours=hours)).isoformat()
+    pid = db.get_active_profile_id()
+    row = db.connect().execute(
+        "SELECT 1 FROM elwosa_messages "
+        "WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND content=? AND created_at >= ? LIMIT 1",
+        (pid, content, cutoff)).fetchone()
+    return row is not None
 
-    v1.7.0-beta.41 (#614): Zwei-Schicht-Filter.
-    - Schicht 1: noch nicht in den letzten 7 Tagen → Fallback: voller Pool
-    - Schicht 2: noch nicht heute → Fallback: Schicht 1 (also Repeat erst
-      wenn der ganze Pool an einem Tag durch ist)
+
+def pick_line(db, pool: list, ctx: dict,
+              sperrfrist_stunden: int = 24) -> Optional[str]:
+    """Waehlt eine Linie, die die Sperrfrist einhaelt. None wenn der ganze
+    Pool innerhalb der Sperrfrist verbraucht ist.
+
+    v1.7.12 (#822, F36): Die Sperrfrist ist HART — der alte Fallback auf
+    den vollen Pool (`candidates = fresh_7d if fresh_7d else filled`)
+    erlaubte Wiederholung, sobald ein kleiner Pool an einem Tag durch war
+    (holiday_summer: 4 Linien, stuendlich gefeuert = dieselbe Linie
+    dreimal in drei Stunden). Lieber KEINE Linie als dieselbe nochmal —
+    das ist zugleich das "Ziehen ohne Zuruecklegen" aus dem Issue.
+    Innerhalb der zulaessigen Kandidaten werden Linien bevorzugt, die
+    auch in den letzten 7 Tagen nicht liefen (Abwechslung ueber die
+    Mindestsperre hinaus).
     """
     if not pool:
         return None
@@ -260,14 +279,13 @@ def pick_line(db, pool: list, ctx: dict) -> Optional[str]:
     if not pool:
         return None
     filled = [(line, fill_template(line, ctx)) for line in pool]
-    fresh_7d = [(raw, f) for (raw, f) in filled
-                if not _seen_recently(db, f, days=7)]
-    candidates = fresh_7d if fresh_7d else filled
-    fresh_today = [(raw, f) for (raw, f) in candidates
-                   if not _seen_today(db, f)]
-    if fresh_today:
-        candidates = fresh_today
-    _, chosen = random.choice(candidates)
+    frisch = [(raw, f) for (raw, f) in filled
+              if not _seen_within_hours(db, f, max(1, sperrfrist_stunden))]
+    if not frisch:
+        return None
+    bevorzugt = [(raw, f) for (raw, f) in frisch
+                 if not _seen_recently(db, f, days=7)]
+    _, chosen = random.choice(bevorzugt or frisch)
     return chosen
 
 
@@ -303,32 +321,153 @@ _HARD_TRIGGER_KINDS = {
     "wiki_hint",
 }
 
+# v1.7.12 (#822, F36): DER Kern-Bug hinter der stuendlichen Wiederholung.
+# can_post_class prueft auf die KLASSE ("world"), gefeuert wird aber mit
+# dem konkreten Kind ("holiday_summer", "late_night", ...). Die Kinds
+# standen weder in den Limits noch in _SACHLICH_BLOCKED und fielen bis
+# zum abschliessenden `return True` durch — unbegrenzt, in jedem Modus.
+# Belegt 11.08.: 40 Nachrichten in 87 h, nur zwei Trigger-Arten, sechs
+# verschiedene Texte aus einem 105-Linien-Pool.
+_WORLD_KINDS = frozenset(WORLD_LINES.keys())
+
+# Anredende Trigger sprechen den Anwesenden direkt an ("Was machst du
+# noch hier") — an einen leeren Bildschirm gerichtet sind sie sinnlos
+# und wirken am Morgen danach wie ein Vorwurf fuer etwas, das nie
+# stattfand. Sie setzen Aktivitaet in den letzten 15 Minuten voraus.
+_ANREDENDE_KINDS = frozenset({"late_night"})
+
+_AMBIENTE_KLASSEN = ("world", "idle")
+
+
+def _trigger_klasse(trigger_kind: str) -> str:
+    """Ordnet ein konkretes Kind seiner Drossel-Klasse zu."""
+    if trigger_kind in _WORLD_KINDS:
+        return "world"
+    if trigger_kind in ("idle", "tip", "easter_egg"):
+        return trigger_kind
+    return "hard"
+
+
+def _user_praesent(db, minuten: int = 15) -> bool:
+    """Aktivitaet in den letzten N Minuten? (user_activity_events, #594)
+
+    Fail-open bei fehlender Tabelle waere falsch herum — ohne Datenbasis
+    gilt der Nutzer als abwesend. Eine faelschlich unterdrueckte
+    Ambiente-Linie kostet nichts; eine an niemanden gerichtete nervt.
+    """
+    try:
+        cutoff = (datetime.now(timezone.utc)
+                  - timedelta(minutes=minuten)).isoformat()
+        pid = db.get_active_profile_id()
+        row = db.connect().execute(
+            "SELECT 1 FROM user_activity_events "
+            "WHERE (profile_id=? OR profile_id IS NULL) "
+            "AND timestamp >= ? LIMIT 1",
+            (pid, cutoff)).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+def _in_ruhezeit(settings: dict, now: Optional[datetime] = None) -> bool:
+    """Liegt die LOKALE Stunde in der konfigurierten Ruhezeit ("22-07")?"""
+    roh = str(settings.get("ruhezeit") or "").strip()
+    m = re.match(r"^(\d{1,2})\s*-\s*(\d{1,2})$", roh)
+    if not m:
+        return False
+    start, ende = int(m.group(1)) % 24, int(m.group(2)) % 24
+    h = (now or datetime.now()).hour
+    if start == ende:
+        return False
+    if start < ende:
+        return start <= h < ende
+    return h >= start or h < ende  # ueber Mitternacht
+
+
+def _kind_gesperrt(db, trigger_kind: str, stunden: int) -> bool:
+    """Sperrfrist je trigger_kind: dieselbe Art fruehestens nach N Stunden."""
+    if stunden <= 0:
+        return False
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(hours=stunden)).isoformat()
+    pid = db.get_active_profile_id()
+    row = db.connect().execute(
+        "SELECT 1 FROM elwosa_messages "
+        "WHERE (profile_id=? OR profile_id IS NULL) "
+        "AND trigger_kind=? AND created_at >= ? LIMIT 1",
+        (pid, trigger_kind, cutoff)).fetchone()
+    return row is not None
+
+
+def _ambiente_heute(db) -> int:
+    """Wie viele Ambiente-Linien (Welt + Idle) gab es heute schon?"""
+    pid = db.get_active_profile_id()
+    today = datetime.now(timezone.utc).date().isoformat()
+    kinds = tuple(_WORLD_KINDS) + ("idle",)
+    row = db.connect().execute(
+        "SELECT COUNT(*) AS n FROM elwosa_messages "
+        f"WHERE (profile_id=? OR profile_id IS NULL) "
+        f"AND trigger_kind IN ({','.join('?' * len(kinds))}) "
+        "AND date(created_at)=date(?)",
+        (pid, *kinds, today)).fetchone()
+    return row["n"] if row else 0
+
+
+def _ambiente_stumm_wegen_ungelesen(db, schwelle: int = 10) -> bool:
+    """Die letzten N Ambiente-Linien alle ungelesen? Dann leiser werden.
+
+    #822 Problem 5: read_at war bei allen 40 Nachrichten null — wenn
+    niemand liest, ist lauter weiterreden die falsche Antwort. Sobald der
+    Nutzer den Stream oeffnet (mark-read), spricht Elwosa wieder.
+    """
+    pid = db.get_active_profile_id()
+    kinds = tuple(_WORLD_KINDS) + ("idle",)
+    rows = db.connect().execute(
+        "SELECT read_at FROM elwosa_messages "
+        f"WHERE (profile_id=? OR profile_id IS NULL) "
+        f"AND trigger_kind IN ({','.join('?' * len(kinds))}) "
+        "ORDER BY created_at DESC LIMIT ?",
+        (pid, *kinds, schwelle)).fetchall()
+    if len(rows) < schwelle:
+        return False
+    return all(r["read_at"] is None for r in rows)
+
 
 def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
     """Prueft Frequenz-Limits pro Trigger-Klasse.
 
     Status-Trigger (mail_received, auto_dismiss_ran, status_change, etc.)
-    sind UNBEGRENZT. Nur idle/world/tip werden gedrosselt.
+    sind UNBEGRENZT. Ambiente (Welt-Kinds + idle) und tip werden gedrosselt.
 
     v1.7.0-beta.38 (#601):
-    - 'unbegrenzt'-Frequenz hebt alle Limits auf
+    - 'unbegrenzt'-Frequenz hebt die KONTINGENTE auf — nicht die
+      Sperrfristen (#822): "viele Linien" heisst nie "dieselbe oefter"
     - triggers_disabled deaktiviert ganze Klassen
 
     v1.7.0-beta.41 (#612): tonfall_modus wird respektiert.
     - 'aus' blockt alles (entspricht enabled=False)
-    - 'sachlich' blockt idle/world/tip/easter_egg (nur Status passt)
+    - 'sachlich' blockt Ambiente/tip/easter_egg (nur Status passt)
     - 'minimal' setzt harten Cap 1 Linie pro Tag (egal welche Klasse)
     - 'humorvoll' lockert keine Limits — wird im Picker beruecksichtigt
+
+    v1.7.12 (#822, F36): Die Pruefungen laufen ueber die KLASSE des
+    Kinds, nicht den rohen String — vorher fielen holiday_summer &
+    Co. an jeder Drossel vorbei (Kern-Bug, stuendliche Wiederholung).
+    Neu ausserdem: Kind-Sperrfrist, Ambiente-Tageskontingent,
+    Anwesenheitspflicht fuer anredende Trigger, Ruhezeit und die
+    Ungelesen-Daempfung.
     """
     # Disabled-Liste pruefen (Power-User kann ganze Klassen abschalten)
     disabled = settings.get("triggers_disabled") or []
     if trigger_kind in disabled:
         return False
 
+    klasse = _trigger_klasse(trigger_kind)
     modus = settings.get("tonfall_modus", "standard")
     if modus == "aus":
         return False
-    if modus == "sachlich" and trigger_kind in _SACHLICH_BLOCKED:
+    if modus == "sachlich" and (klasse in _SACHLICH_BLOCKED
+                                or trigger_kind in _SACHLICH_BLOCKED):
         return False
     if modus == "minimal":
         # Hard-Cap: max 1 Linie pro Tag, ueber alle Klassen
@@ -337,17 +476,33 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
 
     if trigger_kind in _HARD_TRIGGER_KINDS:
         return True
+
+    # --- ab hier nur Ambiente/tip — die Sperren gelten IMMER (#822) ---
+    kind_sperre = int(settings.get("kind_sperre_stunden") or 12)
+    if _kind_gesperrt(db, trigger_kind, kind_sperre):
+        return False
+    if trigger_kind in _ANREDENDE_KINDS and not _user_praesent(db):
+        return False
+    if klasse in _AMBIENTE_KLASSEN:
+        if _in_ruhezeit(settings) and not _user_praesent(db):
+            return False
+        if _ambiente_stumm_wegen_ungelesen(db):
+            return False
+        if _ambiente_heute(db) >= int(settings.get("ambiente_pro_tag") or 1):
+            return False
+
     freq = settings.get("frequency", "standard")
     if freq == "unbegrenzt":
-        # Power-User: keine Drosselung
+        # Power-User: keine Kontingent-Drosselung (Sperren oben bleiben)
         return True
     limits = FREQUENCY_LIMITS.get(freq, FREQUENCY_LIMITS["standard"])
 
-    if trigger_kind == "idle":
+    if klasse == "idle":
         return _count_today(db, "idle") < limits["idle"]
-    if trigger_kind == "world":
-        return _count_today(db, "world") < limits["world"]
-    if trigger_kind == "tip":
+    if klasse == "world":
+        return _ambiente_heute(db) - _count_today(db, "idle") \
+            < limits["world"]
+    if klasse == "tip":
         if _count_today(db, "tip") >= limits["tip_per_day"]:
             return False
         if _count_in_days(db, "tip", 7) >= limits["tip_per_week"]:
@@ -507,7 +662,9 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
     # Validierung nicht bestand. Jetzt werden bis zu N Kandidaten probiert,
     # bevor aufgegeben wird — eine einzelne kaputte Linie verursacht kein
     # Schweigen mehr.
-    line = _pick_valid_line(db, pool, ctx)
+    line = _pick_valid_line(db, pool, ctx,
+                            sperrfrist_stunden=int(
+                                settings.get("sperrfrist_stunden") or 24))
     if not line:
         return None
 
@@ -520,7 +677,8 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
     return msg_id
 
 
-def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6) -> Optional[str]:
+def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6,
+                     sperrfrist_stunden: int = 24) -> Optional[str]:
     """Waehlt eine Linie und validiert sie gegen die Sprach-DNA (#669).
 
     Probiert bis zu `max_tries` Kandidaten — eine einzelne Linie, die die
@@ -530,7 +688,7 @@ def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6) -> Optional[
         return None
     seen: set = set()
     for _ in range(max_tries):
-        line = pick_line(db, pool, ctx)
+        line = pick_line(db, pool, ctx, sperrfrist_stunden=sperrfrist_stunden)
         if not line or line in seen:
             continue
         seen.add(line)

@@ -237,6 +237,22 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
     };
   }, []);
 
+  // v1.7.12 (#822): read_at setzen, sobald der Stream tatsaechlich
+  // sichtbar ist. Der Endpoint existierte seit je — er wurde nur nie
+  // aufgerufen, deshalb war read_at bei allen Nachrichten null und das
+  // naheliegendste Frequenz-Signal fehlte (durchgehend ungelesene
+  // Ambiente-Linien daempfen serverseitig das Kontingent).
+  useEffect(() => {
+    if (collapsed || hidden) return;
+    if (!messages.some((m) => !m.read_at)) return;
+    postJson("/api/elwosa/messages/mark-read", {})
+      .then(() => {
+        setMessages((prev) => prev.map((m) =>
+          m.read_at ? m : { ...m, read_at: new Date().toISOString() }));
+      })
+      .catch(() => {});
+  }, [messages, collapsed, hidden]);
+
   // Hide-Timer
   useEffect(() => {
     if (!hidden) return;
@@ -368,7 +384,19 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
     return (
       <div
         className="relative flex justify-center py-2"
-        onMouseEnter={() => setIsHovering(true)}
+        onMouseEnter={() => {
+          setIsHovering(true);
+          // #822: Hover-Popup zeigt die letzten Linien — das zaehlt als
+          // gelesen, sonst bleibt die Daempfung im collapsed-Modus aktiv.
+          if (hasUnread) {
+            postJson("/api/elwosa/messages/mark-read", {})
+              .then(() => {
+                setMessages((prev) => prev.map((m) =>
+                  m.read_at ? m : { ...m, read_at: new Date().toISOString() }));
+              })
+              .catch(() => {});
+          }
+        }}
         onMouseLeave={() => setIsHovering(false)}
         title={messages[messages.length - 1]?.content || "Elwosa"}
       >
