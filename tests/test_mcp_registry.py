@@ -111,6 +111,9 @@ EXPECTED_TOOL_NAMES = {
     "kontakte_auflisten",
     "kontakte_zu_bewerbung",
     "interview_reflexion_speichern",
+    # v1.7.12 (#824, D31): Mehrfach-Reflexionen + Auswertung
+    "interview_reflexion_loeschen",
+    "interview_lehren_auswerten",
     "interview_reflexion_lesen",
     "interview_reflexionen_anzeigen",
     "kosten_anzeigen",
@@ -347,7 +350,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 206  # beta.10 (#804): + termin_dubletten_bereinigen; davor beta.9 205
+        assert len(tools) == 208  # v1.7.12 (#824): +interview_reflexion_loeschen, +interview_lehren_auswerten
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

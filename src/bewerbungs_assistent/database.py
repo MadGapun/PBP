@@ -355,6 +355,17 @@ class Database:
                     conn.commit()
                     logger.info("Safety-Net: blacklist.%s nachgezogen (#828)",
                                 _neu)
+            # v1.7.12 (#824, D31): Reflexion optional an den konkreten
+            # Termin binden — Erstgespraech laeuft anders als Endrunde,
+            # und die Auswertung soll das unterscheiden koennen.
+            _ir_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(interview_reflections)").fetchall()}
+            if _ir_cols and "meeting_id" not in _ir_cols:
+                conn.execute("ALTER TABLE interview_reflections "
+                             "ADD COLUMN meeting_id TEXT DEFAULT ''")
+                conn.commit()
+                logger.info("Safety-Net: interview_reflections.meeting_id "
+                            "nachgezogen (#824)")
         except Exception as e:
             logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
 
@@ -9578,13 +9589,92 @@ class Database:
 
     # === Interview-Reflexion (#464, v1.7.0-beta.49) ============
 
+    def add_interview_reflection(self, application_id: str, data: dict,
+                                 meeting_id: str = "") -> int:
+        """v1.7.12 (#824, D31): legt IMMER eine neue Reflexion an.
+
+        Die alte 1:1-Bindung sass nur in der Upsert-Logik, nicht im
+        Schema — bei zweistufigen Verfahren ueberschrieb die Nachbereitung
+        des Zweitgespraechs die des ersten. Jetzt gehoert zu jedem
+        Gespraech eine eigene Reflexion; `meeting_id` ordnet sie optional
+        dem konkreten Termin zu.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        cur = conn.execute(
+            "INSERT INTO interview_reflections "
+            "(application_id, profile_id, meeting_id, was_lief_gut, "
+            " was_lief_schlecht, was_war_ueberraschend, gefuehl, next_steps, "
+            " wiederverwendbare_antwort, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (application_id, pid, meeting_id or "",
+             data.get("was_lief_gut") or "",
+             data.get("was_lief_schlecht") or "",
+             data.get("was_war_ueberraschend") or "",
+             data.get("gefuehl"),
+             data.get("next_steps") or "",
+             data.get("wiederverwendbare_antwort") or "",
+             _now()))
+        conn.commit()
+        return cur.lastrowid
+
+    def update_interview_reflection(self, reflexion_id: int,
+                                    data: dict) -> Optional[dict]:
+        """v1.7.12 (#824): aendert eine bestehende Reflexion feldweise."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        row = conn.execute(
+            "SELECT * FROM interview_reflections WHERE id=? "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (reflexion_id, pid)).fetchone()
+        if not row:
+            return None
+        fields = ("was_lief_gut", "was_lief_schlecht",
+                  "was_war_ueberraschend", "gefuehl", "next_steps",
+                  "wiederverwendbare_antwort", "meeting_id")
+        sets, vals = [], []
+        for f in fields:
+            if f in data:
+                sets.append(f"{f}=?")
+                vals.append(data[f])
+        if sets:
+            sets.append("updated_at=?")
+            vals.append(_now())
+            vals.append(reflexion_id)
+            conn.execute(
+                f"UPDATE interview_reflections SET {','.join(sets)} "
+                "WHERE id=?", vals)
+            conn.commit()
+        neu = conn.execute("SELECT * FROM interview_reflections WHERE id=?",
+                           (reflexion_id,)).fetchone()
+        return dict(neu) if neu else None
+
+    def delete_interview_reflection(self, reflexion_id: int) -> bool:
+        """v1.7.12 (#824): entfernt eine versehentlich angelegte Reflexion."""
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        cur = conn.execute(
+            "DELETE FROM interview_reflections WHERE id=? "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (reflexion_id, pid))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def get_interview_reflections(self, application_id: str) -> list:
+        """v1.7.12 (#824): ALLE Reflexionen einer Bewerbung, neueste zuerst."""
+        conn = self.connect()
+        rows = conn.execute(
+            "SELECT * FROM interview_reflections WHERE application_id=? "
+            "ORDER BY created_at DESC", (application_id,)).fetchall()
+        return [dict(r) for r in rows]
+
     def upsert_interview_reflection(self, application_id: str, data: dict) -> int:
         """Anlegen oder Aktualisieren der Reflexion fuer eine Bewerbung.
 
-        Eine Bewerbung kann mehrere Interviews haben — wir nutzen
-        application_id als Primary-Key der Reflexion (eine Reflexion
-        pro Bewerbung). Fuer mehrere Reflexionen pro Bewerbung muesste
-        man auf event_id-Basis wechseln (Folge-Issue).
+        HISTORISCH (bis v1.7.11): application_id als Quasi-Primary-Key —
+        eine Reflexion pro Bewerbung, der zweite Aufruf ueberschrieb die
+        erste. Seit v1.7.12 (#824) nutzen die Tools add/update mit echter
+        reflexion_id; diese Funktion bleibt fuer Alt-Aufrufer erhalten.
         """
         conn = self.connect()
         pid = self.get_active_profile_id()

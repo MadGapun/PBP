@@ -2489,6 +2489,8 @@ def register(mcp, db, logger):
         gefuehl: int = 0,
         next_steps: str = "",
         wiederverwendbare_antwort: str = "",
+        meeting_id: str = "",
+        reflexion_id: str = "",
     ) -> dict:
         """v1.7.0-beta.49 (#464): Strukturierte Reflexion nach einem Interview.
 
@@ -2496,6 +2498,19 @@ def register(mcp, db, logger):
         Fragebogen abgelegt — wiederverwendbar bei der naechsten
         Interview-Vorbereitung. Erste Stufe von #452 (Interview-
         Training-Arc).
+
+        v1.7.12 (#824, D31): Jeder Aufruf legt eine NEUE Reflexion an —
+        bei zweistufigen Verfahren gehoert zu jedem Gespraech eine eigene.
+        (Vorher ueberschrieb der zweite Aufruf die erste; die Nachbereitung
+        des Erstgespraechs war damit weg.) Zum Nachbearbeiten einer
+        bestehenden Reflexion `reflexion_id` uebergeben. Alle Felder
+        optional — zwei ausgefuellte Felder sind besser als keine.
+
+        Teilnehmer des Gespraechs werden als Kontakte am TERMIN erfasst:
+        kontakt_verknuepfen(kontakt_id, ziel_typ='meeting',
+        ziel_id=<meeting_id>, rolle='fachlicher Gegenpart'). Unbekannte
+        Namen als Kontakt "Rolle, Name unbekannt" anlegen — die ehrliche
+        Luecke ist wertvoller als ein leeres Feld.
 
         Args:
             bewerbung_id: ID der Bewerbung (akzeptiert auch kurzen Hash).
@@ -2507,9 +2522,12 @@ def register(mcp, db, logger):
             next_steps: was macht der User als naechstes? (Nachfass, warten, ...)
             wiederverwendbare_antwort: Falls eine konkrete Antwort gut
                 lief — fuer die Stilarchiv-Wiederverwendung.
-
-        Idempotent: zweiter Aufruf updated dieselbe Reflexion.
-        Sammelpunkt fuer Pattern-Analyse beim Lern-System.
+            meeting_id: Optional — der Termin, zu dem das Gespraech gehoert
+                (meetings_anzeigen liefert die IDs). Erstgespraech laeuft
+                anders als Endrunde; die Auswertung unterscheidet das.
+            reflexion_id: Optional — bestehende Reflexion nachbearbeiten
+                statt eine neue anzulegen. Nur uebergebene Felder aendern
+                sich.
         """
         from ..services.typed_ids import strip_prefix
         bid = strip_prefix(bewerbung_id)
@@ -2519,14 +2537,39 @@ def register(mcp, db, logger):
                     "bewerbung_id": bewerbung_id}
         if gefuehl and not 1 <= int(gefuehl) <= 5:
             return {"fehler": "gefuehl muss zwischen 1 und 5 liegen"}
-        rid = db.upsert_interview_reflection(bid, {
+
+        if reflexion_id:
+            daten = {}
+            if was_lief_gut:
+                daten["was_lief_gut"] = was_lief_gut
+            if was_lief_schlecht:
+                daten["was_lief_schlecht"] = was_lief_schlecht
+            if was_war_ueberraschend:
+                daten["was_war_ueberraschend"] = was_war_ueberraschend
+            if gefuehl:
+                daten["gefuehl"] = int(gefuehl)
+            if next_steps:
+                daten["next_steps"] = next_steps
+            if wiederverwendbare_antwort:
+                daten["wiederverwendbare_antwort"] = wiederverwendbare_antwort
+            if meeting_id:
+                daten["meeting_id"] = strip_prefix(meeting_id)
+            neu = db.update_interview_reflection(int(reflexion_id), daten)
+            if neu is None:
+                return {"fehler": "Reflexion nicht gefunden",
+                        "reflexion_id": reflexion_id}
+            return {"status": "aktualisiert", "reflexion_id": neu["id"],
+                    "bewerbung_id": bewerbung_id,
+                    "firma": app.get("company")}
+
+        rid = db.add_interview_reflection(bid, {
             "was_lief_gut": was_lief_gut,
             "was_lief_schlecht": was_lief_schlecht,
             "was_war_ueberraschend": was_war_ueberraschend,
             "gefuehl": int(gefuehl) if gefuehl else None,
             "next_steps": next_steps,
             "wiederverwendbare_antwort": wiederverwendbare_antwort,
-        })
+        }, meeting_id=strip_prefix(meeting_id) if meeting_id else "")
         # Auch eine kurze Notiz an die Bewerbung haengen damit die Reflexion
         # im Verlauf sichtbar ist
         try:
@@ -2535,26 +2578,70 @@ def register(mcp, db, logger):
             )
         except Exception:
             pass
-        return {
+        vorhandene = db.get_interview_reflections(bid)
+        result = {
             "status": "gespeichert",
             "reflexion_id": rid,
             "bewerbung_id": bewerbung_id,
             "firma": app.get("company"),
             "stelle": app.get("title"),
         }
+        if len(vorhandene) > 1:
+            result["hinweis"] = (
+                f"Das ist Reflexion Nr. {len(vorhandene)} zu dieser "
+                "Bewerbung — jede bleibt erhalten (#824). Nachbearbeiten "
+                "per reflexion_id.")
+        return result
 
     @mcp.tool()
     def interview_reflexion_lesen(bewerbung_id: str) -> dict:
-        """Liest die gespeicherte Reflexion zu einer Bewerbung. Leer wenn keine vorhanden."""
+        """Liest ALLE Reflexionen zu einer Bewerbung, neueste zuerst (#824).
+
+        Leer wenn keine vorhanden. Vor einem Folgegespraech lesen: was
+        lief beim letzten Mal, wer war dabei (Kontakte am Termin), was
+        waren die offenen Punkte.
+        """
         from ..services.typed_ids import strip_prefix
         bid = strip_prefix(bewerbung_id)
-        r = db.get_interview_reflection(bid)
-        if not r:
+        rs = db.get_interview_reflections(bid)
+        if not rs:
             return {"status": "leer",
                     "bewerbung_id": bewerbung_id,
                     "hinweis": "Noch keine Reflexion gespeichert. "
                                "Nutze interview_reflexion_speichern."}
-        return {"status": "vorhanden", "reflexion": r}
+        return {"status": "vorhanden", "anzahl": len(rs),
+                "reflexionen": rs,
+                # Alt-Feld fuer bestehende Aufrufer: die neueste.
+                "reflexion": rs[0]}
+
+    @mcp.tool()
+    def interview_reflexion_loeschen(reflexion_id: str) -> dict:
+        """Entfernt eine versehentlich angelegte Reflexion (#824).
+
+        Die IDs stehen in interview_reflexion_lesen bzw.
+        interview_reflexionen_anzeigen.
+        """
+        ok = db.delete_interview_reflection(int(reflexion_id))
+        return {"status": "geloescht" if ok else "nicht_gefunden",
+                "reflexion_id": reflexion_id}
+
+    @mcp.tool()
+    def interview_lehren_auswerten() -> dict:
+        """Quer-Auswertung ueber ALLE Interview-Reflexionen (#824, D31).
+
+        Regelbasiert, ohne Sprachmodell: Antwortarchiv (alle
+        wiederverwendbaren Antworten mit Herkunft), wiederkehrende
+        Selbstkritik und Ueberraschungen (mit Fallzahl — Beobachtung,
+        kein Urteil), Bauchgefuehl gegen tatsaechlichen Ausgang, offene
+        naechste Schritte aus laufenden Verfahren.
+
+        Muster werden erst ab 4 Reflexionen ausgewiesen (#798-Regel:
+        zwei Vorkommen sind kein Muster). Nutze das VOR einer
+        Gespraechsvorbereitung — die wiederkehrenden Ueberraschungen
+        sind die Fragen, die in der Recherche bisher fehlten.
+        """
+        from ..services.interview_lehren import lehren_auswerten
+        return lehren_auswerten(db)
 
     @mcp.tool()
     def interview_reflexionen_anzeigen(limit: int = 20) -> dict:
