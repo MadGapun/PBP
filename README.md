@@ -1,20 +1,23 @@
+**Deutsch** | [English](README.en.md)
+
 # <img src="docs/pbp.png" alt="PBP Logo" width="36" align="absmiddle" /> PBP — Persönliches Bewerbungs-Portal
 
 <sup>An <b>ELWOSA</b> Project</sup>
 
-> **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German. Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
-
+<!-- Einstiegs-Block: wird nach der Varianten-Auswahl in #834 ersetzt (Baustelle 0/1). -->
 > PBP verwaltet deine Bewerbungen, durchsucht diverse Stellenportale und gibt dir ehrliches Feedback zu deinen Unterlagen — mit konkreten Vorschlägen, wie es besser geht. Läuft lokal, kostet nichts, deine Daten bleiben bei dir.
 
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
+
+Aktuelle Version **v1.7.12** · letztes Release am 11. August 2026 · 2199 automatische Tests · wöchentliche Releases
+
+> **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
+
+[![Stable](https://img.shields.io/badge/Stable-v1.7.12-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-2199-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stable](https://img.shields.io/badge/Stable-v1.7.12-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-2199-brightgreen.svg)](#tests)
-[![Tools](https://img.shields.io/badge/MCP-Tools-202-blueviolet.svg)](https://github.com/MadGapun/PBP/wiki/MCP-Tools)
-[![Workflows](https://img.shields.io/badge/Workflows-25-ff69b4.svg)](https://github.com/MadGapun/PBP/wiki/Workflows)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
-[![Wiki](https://img.shields.io/badge/Wiki-Dokumentation-informational.svg)](https://github.com/MadGapun/PBP/wiki)
 
 ---
 
@@ -29,6 +32,53 @@
 | **3. Du bewirbst dich — mit Unterstützung** | Anschreiben, Lebenslauf, Interview-Vorbereitung — PBP begleitet dich bei jedem Schritt. |
 
 > 💡 **Wichtig:** PBP arbeitet zusammen mit [Claude Desktop](https://claude.ai/download). Du wirst an bestimmten Stellen automatisch dorthin weitergeleitet — das ist Teil des Ablaufs. Claude ist dein Gesprächspartner, das Dashboard deine Übersicht.
+
+---
+
+## PBP in Bildern
+
+| ![Stellen mit Scoring](docs/screenshots/03_stellen.png) | ![Bewerbungs-Pipeline](docs/screenshots/04_bewerbungen.png) |
+|:--:|:--:|
+| *Stellen mit Scoring, Filtern und Fit-Analyse* | *Bewerbungs-Pipeline mit Nachfassaktionen* |
+| ![Kalender](docs/screenshots/06_kalender.png) | ![Statistiken](docs/screenshots/07_statistiken.png) |
+| *Kalender mit Kategorien und Terminen* | *Statistiken mit Outcome-Quoten und Antwortzeiten* |
+
+<details>
+<summary><b>Weitere Ansichten anzeigen</b> — Aufgaben, Profil, Dokumente, Kontakte, Dossier, erster Start, Einstellungen</summary>
+
+<br>
+
+*Aufgaben — Nachfassen, Termine und Todos nach Fälligkeit gruppiert (neu in v1.7.12)*
+![Aufgaben](docs/screenshots/05b_aufgaben.png)
+
+*Profil — Berufserfahrung, Skills mit Zeiträumen, Ausbildung*
+![Profil](docs/screenshots/02_profil.png)
+
+*Bewerbungs-Dossier — Timeline, Stellendetails und Firmen-Recherche an einem Ort*
+![Dossier](docs/screenshots/04b_dossier.png)
+
+*Kontakte — Recruiter, HR und Referenzen mit farbigen Kategorien*
+![Kontakte](docs/screenshots/04c_kontakte.png)
+
+*Dokumente — Upload, Verknüpfung und Analyse*
+![Dokumente](docs/screenshots/05_dokumente.png)
+
+*Erster Start — So begrüßt dich PBP*
+![Willkommen](docs/screenshots/00_willkommen.png)
+
+*Unvollständiges Profil — PBP zeigt dir den nächsten Schritt*
+![Profil unvollständig](docs/screenshots/00b_profil_unvollstaendig.png)
+
+*Alles eingerichtet — Dashboard im Normalbetrieb*
+![Dashboard vollständig](docs/screenshots/00c_dashboard_vollstaendig.png)
+
+*Einstellungen — Quellen, Erweiterungen, Export & Backup*
+![Einstellungen](docs/screenshots/08_einstellungen.png)
+
+*Datenschutz — wo deine Daten liegen und was wohin geht*
+![Datenschutz](docs/screenshots/08b_datenschutz.png)
+
+</details>
 
 ---
 
@@ -59,6 +109,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
 - **Bewerbungs-Tracking** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
+- **Aufgaben-Übersicht** — Nachfassen, Termine und Todos nach Fälligkeit an einem Ort (v1.7.12)
 - **Scoring-Regler** — Konfiguriere, was dir wichtig ist. PBP sortiert automatisch
 
 > 📖 **Alle Features im Detail:** [Wiki → Dashboard](https://github.com/MadGapun/PBP/wiki/Dashboard) · [Workflows](https://github.com/MadGapun/PBP/wiki/Workflows) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
@@ -153,59 +204,17 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 
 ---
 
-## Screenshots
-
-> UI-Design von [@Koala280](https://github.com/Koala280) — React 19 + Vite + Tailwind CSS
-
-### Erster Start — So begruesst dich PBP
-![Willkommen](docs/screenshots/00_willkommen.png)
-
-### Profil unvollstaendig — PBP zeigt dir den naechsten Schritt
-![Profil unvollstaendig](docs/screenshots/00b_profil_unvollstaendig.png)
-
-### Alles eingerichtet — Dashboard im Normalbetrieb
-![Dashboard vollstaendig](docs/screenshots/00c_dashboard_vollstaendig.png)
-
-### Dashboard — "Im Fluss", Termine und Schnellimport
-![Dashboard](docs/screenshots/01_dashboard.png)
-
-### Profil — Berufserfahrung, Skills, Ausbildung
-![Profil](docs/screenshots/02_profil.png)
-
-### Stellen — Scoring, Filter und Fit-Analyse
-![Stellen](docs/screenshots/03_stellen.png)
-
-### Bewerbungen — Pipeline mit Follow-ups und Dossier
-![Bewerbungen](docs/screenshots/04_bewerbungen.png)
-
-### Kontakte — Recruiter, Hiring Manager, farbige Kategorien
-![Kontakte](docs/screenshots/04c_kontakte.png)
-
-### Dokumente — Upload, Verknuepfung und Analyse
-![Dokumente](docs/screenshots/05_dokumente.png)
-
-### Kalender — Grafisches Grid mit Kategorien
-![Kalender](docs/screenshots/06_kalender.png)
-
-### Statistiken — Charts mit flexiblen Zeitraeumen
-![Statistiken](docs/screenshots/07_statistiken.png)
-
-### Einstellungen — Quellen, Export & Backup, Datenschutz
-![Einstellungen](docs/screenshots/08_einstellungen.png)
-
----
-
 ## Auf einen Blick
 
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 193 Tools in 11 Modulen |
+| **MCP-Tools** | 202 Tools in 11 Modulen |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
-| **Dashboard** | 9 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Kalender, Statistiken, Einstellungen |
+| **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 2082 bestanden (1 uebersprungen) |
+| **Tests** | 2199 bestanden |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -230,82 +239,16 @@ und in der UI; intern bleibt die ID gleich.
 
 ## Roadmap
 
-> **v1.7 ist da** — Stable seit 2026-06-18, aktuell **v1.7.3**. Die Local-LLM-Foundation (Ollama-Sidecar), Elwosa, Multi-Profil, Typed IDs und die grosse Stabilisierungs-Welle sind ausgeliefert.
-> **Naechster Zyklus: v1.8** — Plugin-Plattform ([#504](https://github.com/MadGapun/PBP/issues/504)), Mail-Integrationen ([#478](https://github.com/MadGapun/PBP/issues/478)/[#480](https://github.com/MadGapun/PBP/issues/480)/[#481](https://github.com/MadGapun/PBP/issues/481)), Branchen-Radar ([#718](https://github.com/MadGapun/PBP/issues/718)). Strategische Uebersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
+> **v1.7 ist Stable** — aktuell **v1.7.12** (11. August 2026), mit wöchentlichen Pflege-Releases seit Juni.
+> **Nächster Zyklus: v1.8** — die Beta-Reihe läuft (aktuell v1.8.0-beta.11): Plugin-Plattform ([#504](https://github.com/MadGapun/PBP/issues/504)), Thunderbird-Add-on, Newsletter-Ingest, Komponenten-Framework mit Auto-OCR. Strategische Übersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
 
 ## Changelog
 
-> Vollstaendiges Changelog: [CHANGELOG.md](CHANGELOG.md)
+Die letzten drei Stable-Releases — vollständige Historie im [CHANGELOG.md](CHANGELOG.md) und auf der [Releases-Seite](https://github.com/MadGapun/PBP/releases):
 
-### v1.7.0-Beta-Reihe (April–Juni 2026) — Lokale KI, Elwosa, Stabilisierung
-
-Ueber 100 Beta-Iterationen Richtung v1.7.0 — **seit 2026-06-18 als Stable (`--latest`) veroeffentlicht** (promotet aus beta.108):
-
-- **Lokale KI (Ollama)** als Hintergrund-Backbone — Auto-Aussortieren per Profil-Match, Doku-Klassifikation, Lern-System mit Pattern-Analyse, Automatik-Scheduler
-- **Elwosa** — Live-Statusanzeige der lokalen AI mit eigener Persoenlichkeit + kontextuellen Tipps pro Seite
-- **Kontakte-System, TODOs mit Faelligkeit, Dokument-Lifecycle, Recherche-Persistenz, Outcome-Quoten, Minus-Keywords, Wiedergaenger-Erkenner, Ablehnungsgruende-Editor**
-- **Beta-Stabilisierung (beta.101/102)** — 13 Bugfixes aus Audits + User-Tests, CI-Test-Gate auf jeder Aenderung, Onboarding-Haertung fuer Einsteiger, ehrliche macOS-Doku
-- **Laufende Bugfix-Wellen (beta.103–108)** — DB-Kontention, Zeitanzeige (Europe/Berlin), Scraper-Robustheit (Fehlerklassifikation), Geo-Filter fuer nicht-DACH Stellen, Stilarchiv-Autosave, korrekte Interview-Quote
-- Stand: 202 MCP-Tools, 25 Prompts, Schema v48, ueber 2080 Tests
-
-### v1.6.3 — Anti-DB-Bypass-Pattern (Hotfix, 2026-04-27)
-
-Drei Hebel um zu verhindern dass Claude bei groesseren Datenmengen
-die PBP-Lifecycle-Logik durch direkte SQLite-Writes umgeht:
-
-- **`stellen_bulk_bewerten`** — Filter-basiertes Bulk-Aussortieren mit
-  `dry_run=True` Default. Loest den Real-Case „500 Stellen, hunderte
-  falsches Fachgebiet, sortier mir die alle aus" in einem Tool-Call
-  statt 200 Einzelaufrufen.
-- **`pbp_capabilities`** — Read-only Meta-Tool das Claude eine
-  kuratierte Tool-Uebersicht liefert (10 Kategorien). Damit Claude
-  weiss was PBP kann, bevor es auf andere MCP-Tools ausweicht.
-- **`pbp_grenze_melden`** — Wenn PBP fuer einen Use-Case nichts hat,
-  wird die Grenze geloggt und ein vorausgefuellter GitHub-Issue-Body
-  geliefert. Strukturierte Reibung beim Bypass-Versuch.
-
-Plus: PBP-MCP-Server-Instructions die beim Initialize-Handshake an
-Claude gesendet werden — Anti-Bypass-Hinweis ist damit Teil des
-System-Kontextes, nicht erst Reaktion auf einen Workaround-Versuch.
-
-### v1.6.2 — Foundation-Release (Stable, 2026-04-26)
-
-Stabiler Abschluss von 35 Beta-Iterationen plus drei User-Findings.
-Versionsnummer-Hinweis: die Tags `v1.6.0` und `v1.6.1` wurden durch
-GitHubs „Immutable releases"-Feature unbrauchbar; die offizielle
-Foundation-Stable-Linie startet daher bei v1.6.2. Vollstaendiger
-Sprint-Verlauf und User-Stories: siehe [CHANGELOG.md](CHANGELOG.md).
-
-### v1.6.0-beta.* (2026-04-23 bis 2026-04-26) — Sprint-Themen
-
-Foundation-Release nach 35 Beta-Iterationen — alles unter der Haube ueberholt:
-
-- **Linke Sidebar-Navigation (#508)** — neuer Layout-Refactor (Variante B): Top-Nav weg, Sidebar mit Hover-to-Expand-Overlay, Status-Block (Version + MCP-Heartbeat), Sub-Navigation pro Bereich, Path-Breadcrumb in der Top-Bar.
-- **Bewerbungs-ZIP-Export (#474)** — kompletter Export pro Bewerbung als ZIP: bericht.html, stelle.html, notizen.md, termine.ics, mails.md, dokumente/, mails/, INHALT.md, optional bericht.pdf via Playwright.
-- **Scraper reanimiert (#502, #499, Phase 1-3)** — Adapter v2 mit AdapterStatus, scraper_health-Tabelle, Silent-Detection. JobSpy als Core-Dependency: Indeed/LinkedIn/Glassdoor/Google ohne API-Key, ohne Kosten. Greenhouse + Arbeitnow als neue DACH-Adapter. Tote Quellen sichtbar ausgegraut mit Chrome-Extension-Fallback.
-- **Skill-Datenmodell Schema v28** — `start_year`, `end_year`, `level_current`. Skill-Editor mit Punkt-Visualisierung (5 Dots), Skill-Karte zeigt echten Datumsbereich statt zurueckgerechnetem `currentYear - years_experience`.
-- **Keyword-Vorschlaege ueberarbeitet** — erweiterte Stopwords, TF-IDF Specificity, applied vs dismissed Datasource, strikte Exklusion (good_words==0). Frontend-Endpoint und MCP-Tool synchronisiert.
-- **Statistik ISO-Wochen-Aggregation** — Python `_iso_week_key`, da SQLite `%V` nicht kennt; current-period nicht mehr ausgefiltert (vorher endete Chart bei KW-1).
-- **Eigenes PBP-Icon (#502)** — multi-resolution `assets/pbp.ico`, Desktop-Verknuepfung zeigt PBP-Logo statt generischem Batch-Icon.
-- **Konfigurierbare Hints-Quelle** — neue `PBP_HINTS_URL` ENV-Variable (lokaler Pfad oder `off`) fuer Tests und Screenshots.
-- **Installer-Konsistenz** — INSTALLIEREN.bat / install.ps1 / install.sh / setup_gui.py auf v1.6.0-Stand, Port 8200 ueberall, Playwright + Chromium standardmaessig.
-
-Schema v28, 92 Tools, 18 Prompts, 537 Tests bestanden, 24 Quellen.
-
-### v1.5.0 — Kalender, macOS, E-Mail-Pipeline, Dashboard-Redesign (2026-04-10)
-
-Das groesste Update seit dem ersten Public Release:
-
-- **macOS offiziell unterstuetzt** — Doppelklick-Installer, Dashboard-Starter, Deinstaller
-- **Kalender-System** — Grafisches Grid, CRUD, benutzerdefinierte Kategorien, .ics-Export, Kollisionserkennung
-- **E-Mail-Pipeline** — Import (.msg/.eml), automatische Zuordnung, Status-Erkennung, Termin-Extraktion
-- **Dashboard-Redesign** — "Im Fluss" + Schnellimport, Follow-ups ueber Bewerbungen
-- **Export & Backup zentralisiert** — Komplett-Export, DB-Backup und Profil-Import in den Einstellungen
-- Schema v23, 73 Tools, 18 Prompts, 401 Tests
-
-### v1.0.0 — Erster Public Release (2026-03-26)
-- 72 Tools, 16 Prompts, 18 Quellen, React 19 Dashboard
-- E-Mail-Integration, Multi-Profil, Scoring-Regler, Geocoding, CV-Export
+- **v1.7.12** (11.08.2026) — Große Pflege-Welle: Aufgaben-Bereich vollwertig bedienbar, Interview-Nachbereitung, Scoring-Fairness (Firmen-Werbeabsätze zählen weniger), WAL-Hygiene, Elwosa-Feinschliff. 15 Issues in einer Welle.
+- **v1.7.11** (06.08.2026) — Stille Ausfälle behoben: tote Bundesagentur-API (v4→v6), blockierter Lernmodus, still verunglückte Dokument-Verknüpfungen. Fehler, die sich als Erfolg tarnten.
+- **v1.7.10** (24.07.2026) — Stabilisierungswelle: Kalibrierungs-Backtest, ehrliche Statistik (Quote roh + bereinigt), Kontakt- und Vermittler-Historie, Lern-Fundament mit Nutzerbestätigung.
 
 ---
 
@@ -370,4 +313,5 @@ Hintergrund: PBP versucht den Standard-Browser zu steuern. Wenn Edge geoeffnet i
 <p align="center">
 <a href="https://paypal.me/birzite"><img src="https://img.shields.io/badge/☕_Kaffee_spendieren-PayPal-blue?style=for-the-badge" alt="Kaffee spendieren"></a>
 <br><sub>An <b>ELWOSA</b> Project</sub>
+<br><sub><b>Deutsch</b> | <a href="README.en.md">English</a></sub>
 </p>
