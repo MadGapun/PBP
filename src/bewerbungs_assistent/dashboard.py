@@ -4837,6 +4837,61 @@ async def api_aufgaben_uebersicht(status: str = "offen"):
             "gruppen": gruppen}
 
 
+# === Adzuna-Zugang (#809, B31, v1.7.12) ==============================
+# Der Adapter war seit #654 fertig und lieferte nie etwas — es gab
+# schlicht kein Eingabefeld fuer die beiden Keys. Speichern loest sofort
+# einen Testabruf aus: kein stiller Zustand mehr, in dem die Quelle wie
+# defekt aussieht, obwohl nur die Registrierung fehlt.
+
+@app.get("/api/quellen/adzuna")
+async def api_adzuna_status():
+    app_id = _db.get_setting("adzuna_app_id", "") or ""
+    app_key = _db.get_setting("adzuna_app_key", "") or ""
+    return {
+        "konfiguriert": bool(app_id and app_key),
+        "app_id_gesetzt": bool(app_id),
+        "app_key_gesetzt": bool(app_key),
+        "registrierungs_url": "https://developer.adzuna.com/",
+    }
+
+
+@app.post("/api/quellen/adzuna")
+async def api_adzuna_speichern(request: Request):
+    body = await request.json()
+    app_id = (body.get("app_id") or "").strip()
+    app_key = (body.get("app_key") or "").strip()
+    if not app_id or not app_key:
+        return JSONResponse({"error": "app_id und app_key sind Pflicht"},
+                            status_code=400)
+    # Erst testen, dann speichern — ein kaputter Key soll nicht als
+    # 'konfiguriert' in den Settings landen.
+    try:
+        import httpx
+        r = httpx.get(
+            "https://api.adzuna.com/v1/api/jobs/de/search/1",
+            params={"app_id": app_id, "app_key": app_key,
+                    "results_per_page": 1, "what": "software"},
+            timeout=15)
+        if r.status_code in (401, 403):
+            return JSONResponse(
+                {"error": ("Adzuna lehnt die Keys ab (HTTP "
+                           f"{r.status_code}). Auf developer.adzuna.com "
+                           "pruefen — der Free Tier reicht.")},
+                status_code=400)
+        r.raise_for_status()
+        anzahl = len((r.json() or {}).get("results") or [])
+    except Exception as exc:
+        return JSONResponse(
+            {"error": f"Testabruf fehlgeschlagen: {exc}"},
+            status_code=502)
+    _db.set_setting("adzuna_app_id", app_id)
+    _db.set_setting("adzuna_app_key", app_key)
+    return {"status": "verbunden", "test_treffer": anzahl,
+            "hinweis": ("Adzuna ist einsatzbereit — in den Quellen "
+                        "aktivieren, dann laeuft sie beim naechsten "
+                        "Suchlauf mit.")}
+
+
 @app.get("/api/blacklist")
 async def api_blacklist():
     return _db.get_blacklist()

@@ -2323,6 +2323,81 @@ function formatBytes(bytes) {
 // (Tesseract-OCR, kuenftig Playwright). Grundregeln: nie Auto-Install,
 // Groesse+Lizenz VOR dem Download sichtbar, externe Installationen werden
 // erkannt aber nie angefasst. Ollama wird nur mit-angezeigt (D2).
+// #809 (B31, v1.7.12): Adzuna-Quelle konfigurieren. Speichern loest
+// sofort einen Testabruf aus — kein stiller Zustand, in dem die fertige
+// Quelle wie defekt aussieht, obwohl nur die Registrierung fehlt.
+function AdzunaCard({ pushToast }) {
+  const [status, setStatus] = useState(null);
+  const [appId, setAppId] = useState("");
+  const [appKey, setAppKey] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api("/api/quellen/adzuna").then(setStatus).catch(() => {});
+  }, []);
+
+  async function speichern() {
+    if (!appId.trim() || !appKey.trim()) return;
+    setBusy(true);
+    try {
+      const res = await postJson("/api/quellen/adzuna", {
+        app_id: appId.trim(), app_key: appKey.trim(),
+      });
+      pushToast(
+        `Adzuna verbunden — Testabruf lieferte ${res.test_treffer} Treffer. ${res.hinweis || ""}`,
+        "success");
+      setAppId(""); setAppKey("");
+      setStatus(await api("/api/quellen/adzuna"));
+    } catch (error) {
+      pushToast(`Adzuna: ${error.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Adzuna-Jobsuche"
+        description="Kostenlose Job-API mit deutschen Stellen — zweite Generalquelle neben der Bundesagentur. Einmalige Registrierung, der Free Tier reicht und verlangt kein Zahlungsmittel."
+      />
+      <div className="grid gap-3">
+        {status?.konfiguriert ? (
+          <p className="text-sm text-teal">
+            Verbunden — Adzuna laeuft bei aktivierter Quelle im Suchlauf mit.
+            Neue Keys unten eintragen, um sie zu ersetzen.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            Noch nicht eingerichtet. Keys gibt es nach der Registrierung auf{" "}
+            <a href="https://developer.adzuna.com/" target="_blank" rel="noopener noreferrer"
+              className="text-sky underline decoration-dotted">developer.adzuna.com</a>.
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            placeholder="App ID"
+            value={appId}
+            onChange={(e) => setAppId(e.target.value)}
+            className="w-40 rounded-lg border border-line/40 bg-shell/40 px-3 py-2 text-sm text-ink outline-none focus:border-sky/40"
+          />
+          <input
+            placeholder="App Key"
+            type="password"
+            value={appKey}
+            onChange={(e) => setAppKey(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-line/40 bg-shell/40 px-3 py-2 text-sm text-ink outline-none focus:border-sky/40"
+          />
+          <Button size="sm" disabled={busy || !appId.trim() || !appKey.trim()} onClick={speichern}>
+            {busy ? "Teste…" : "Speichern & testen"}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
 function ErweiterungenTab({ pushToast }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState("");
@@ -2467,6 +2542,9 @@ function ErweiterungenTab({ pushToast }) {
 
   return (
     <>
+      {/* #809 (B31): Adzuna-Zugang — der Adapter war seit #654 fertig,
+          es gab nur kein Eingabefeld fuer die beiden Keys. */}
+      <AdzunaCard pushToast={pushToast} />
       <Card className="rounded-2xl">
         <SectionHeading
           title="Optionale Komponenten"
