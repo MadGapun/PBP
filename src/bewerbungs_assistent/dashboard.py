@@ -8922,6 +8922,18 @@ def _run_auto_actions_inner(now: str) -> dict:
     stale_apps_result = _run_check_stale_applications(now)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
     elwosa_result = _run_elwosa_speak(now)
+    # v1.7.12 (#768, A27): WAL-Hygiene je Zyklus. PASSIVE blockiert nie;
+    # ohne diesen Anstoss wuchs die WAL bei parallel laufendem Zweit-
+    # prozess unbegrenzt (belegt: 3,9 MB / 29 h Rueckstand am 23.07.).
+    try:
+        wal_result = _db.wal_checkpoint(truncate=False)
+        if wal_result.get("blockiert"):
+            logger.warning(
+                "WAL-Checkpoint blockiert — ein zweiter Prozess haelt die "
+                "DB offen (WAL aktuell %d Bytes). Siehe #768.",
+                _db.wal_groesse_bytes())
+    except Exception:
+        wal_result = {"fehler": "checkpoint fehlgeschlagen"}
     _db.set_setting("auto_actions_last_run_at", now)
     return {
         "ran_at": now,

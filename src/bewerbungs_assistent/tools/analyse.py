@@ -1509,6 +1509,46 @@ def register(mcp, db, logger):
         except Exception as e:
             logger.debug("Dokumente-Integritaetspruefung fehlgeschlagen: %s", e)
 
+        # --- WAL-Gesundheit (#768, A27) ---
+        # Belegter Vorfall 23.07.: Hauptdatei 29 h unveraendert, 3,9 MB
+        # Schreibvorgaenge in der WAL — zwei Prozesse hielten die DB
+        # offen, der Checkpoint kam nie durch, und genau dieses Tool war
+        # blockiert, als man es brauchte. Jetzt macht die Diagnose den
+        # Zustand sichtbar UND versucht die Heilung gleich mit.
+        try:
+            wal_bytes = db.wal_groesse_bytes()
+            cp = db.wal_checkpoint(truncate=False)
+            if wal_bytes > 4 * 1024 * 1024 or cp.get("blockiert"):
+                eintrag = {
+                    "bereich": "Datenbank",
+                    "problem": (
+                        f"WAL-Datei ist {wal_bytes / 1024 / 1024:.1f} MB gross"
+                        + (" und der Checkpoint wird blockiert — ein "
+                           "zweiter PBP-Prozess (Dashboard-Fenster?) haelt "
+                           "die Datenbank offen" if cp.get("blockiert")
+                           else "")
+                    ),
+                    "loesung": (
+                        "Alle PBP-Fenster ausser einem schliessen (auch das "
+                        "separate Dashboard-Konsolenfenster). Beim naechsten "
+                        "sauberen Beenden wird die WAL zurueckgeschrieben. "
+                        "NICHT den Prozess hart beenden — die ausstehenden "
+                        "Schreibvorgaenge stecken in der WAL."
+                    ),
+                }
+                if cp.get("blockiert"):
+                    probleme.append({**eintrag, "schwere": "kritisch"})
+                else:
+                    warnungen.append(eintrag)
+            else:
+                info.append({
+                    "bereich": "Datenbank",
+                    "meldung": (f"WAL gesund ({wal_bytes / 1024:.0f} KB, "
+                                "Checkpoint laeuft durch)."),
+                })
+        except Exception as e:
+            logger.debug("WAL-Check fehlgeschlagen: %s", e)
+
         # --- Vollstaendigkeit von Interview-Verfahren (#825, D32) ---
         # KEIN auto_fix: alle Befunde erfordern Wissen, das nur der Mensch
         # hat — wer im Gespraech war, laesst sich nicht ableiten. Jeder
