@@ -550,7 +550,7 @@ def seed_bob(db):
 
     # ── Kontakte mit Kategorien und Verknuepfung ──
     kontakte = [
-        ("Petra Hellwig", "Hays (Vermittlung)", "Recruiterin", "vermittler",
+        ("Petra Hellwig", "Vermittler Nord GmbH", "Recruiterin", "vermittler",
          "Betreut die Windrose-Besetzung, antwortet schnell, bevorzugt Telefon.",
          ("Leiter Arbeitsvorbereitung", "Windrose Energietechnik GmbH")),
         ("Jonas Kretschmar", "Steinfeld Hydraulik GmbH", "Leiter Fertigung", "ansprechpartner",
