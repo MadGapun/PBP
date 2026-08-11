@@ -112,6 +112,35 @@ def _normalize_date(value: str) -> str:
     return ""
 
 
+def _nachfass_template(app: dict) -> str:
+    """v1.7.12 (#816, D34): fallbezogener Inhalt fuer Auto-Nachfassungen.
+
+    Vorher entstanden automatische Follow-ups grundsaetzlich als LEERER
+    Reminder (8 von 9 im belegten Bestand) — der Nutzer musste sich die
+    Aufgabe aus Notizen und Kontakten selbst rekonstruieren, und genau
+    das passierte dann nicht. Alles hier steht bereits im Datensatz;
+    es wurde nur nie zusammengefuehrt.
+    """
+    teile = [f"Nachfassen zur Bewerbung als {app.get('title', '?')} "
+             f"bei {app.get('company', '?')}"]
+    if app.get("applied_at"):
+        teile[0] += f" (beworben am {str(app['applied_at'])[:10]})"
+    ansprech = (app.get("ansprechpartner") or "").strip()
+    mail = (app.get("kontakt_email") or "").strip()
+    if ansprech and mail:
+        teile.append(f"Ansprechpartner: {ansprech} ({mail})")
+    elif ansprech:
+        teile.append(f"Ansprechpartner: {ansprech}")
+    elif mail:
+        teile.append(f"Kontakt: {mail}")
+    art = (app.get("bewerbungsart") or "").strip()
+    if art:
+        teile.append(f"Beworben per: {art}")
+    teile.append("Kurz freundlich nach dem Stand fragen und auf die "
+                 "Bewerbung Bezug nehmen.")
+    return " — ".join(teile)
+
+
 # Status-zu-Aktionen Mapping (#170): Kontextabhängige Aktionen pro Status
 # Jeder Status zeigt dem User genau die Aktionen die JETZT relevant sind.
 STATUS_ACTIONS = {
@@ -698,7 +727,11 @@ def register(mcp, db, logger):
                 from datetime import datetime as dt_auto, timedelta as td_auto
                 when = (dt_auto.now() + td_auto(days=default_days)).date().isoformat()
                 try:
-                    auto_followup_id = db.add_follow_up(aid, when, "nachfass")
+                    # #816: nie mehr als leerer Reminder anlegen
+                    _app_fuer_tpl = db.get_application(aid) or {}
+                    auto_followup_id = db.add_follow_up(
+                        aid, when, "nachfass",
+                        template=_nachfass_template(_app_fuer_tpl))
                 except Exception:
                     auto_followup_id = None
 
@@ -878,7 +911,11 @@ def register(mcp, db, logger):
                         if not existing:
                             from datetime import datetime, timedelta
                             when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
-                            auto_followup_id = db.add_follow_up(bewerbung_id, when, "nachfass")
+                            # #816: fallbezogener Inhalt statt leerer Reminder
+                            _app_tpl = db.get_application(bewerbung_id) or {}
+                            auto_followup_id = db.add_follow_up(
+                                bewerbung_id, when, "nachfass",
+                                template=_nachfass_template(_app_tpl))
 
         # v1.7.10 (#779/D27): applied_at nachtragen, wenn ein Status erreicht
         # wird, der eine erfolgte Bewerbung voraussetzt — bei Netzwerk-
@@ -1453,24 +1490,54 @@ def register(mcp, db, logger):
                 if last_dt:
                     age = datetime.now(timezone.utc) - last_dt
                     if age >= timedelta(days=14):
+                        # v1.7.12 (#816, D34): fallbezogen statt status-
+                        # generisch. Belegter Fall: 55 Tage Funkstille,
+                        # nie ein Interview — und ganz oben standen
+                        # "Interview-Vorbereitung" (Prio 1) und
+                        # "-Simulation" (Prio 2), dazu 'zurueckgezogen'
+                        # als Vorschlag, obwohl niemand zurueckzog.
+                        _hatte_interview = app.get("status") in (
+                            "interview", "zweitgespraech") or any(
+                            (e.get("event_type") or "").startswith("status")
+                            and "interview" in str(e.get("new_value") or "")
+                            for e in (app.get("events") or []))
+                        _basis = actions.get("aktionen", []) or []
+                        if not _hatte_interview:
+                            # Ohne je ein Interview verdraengen die
+                            # Interview-Workflows nur die sinnvolle Aktion.
+                            _basis = [a for a in _basis
+                                      if a.get("workflow") not in (
+                                          "interview_vorbereitung",
+                                          "interview_simulation")]
+                        # Nachfass-Label mit dem, was der Datensatz weiss.
+                        _wer = (app.get("ansprechpartner") or "").strip() \
+                            or app.get("company", "Firma")
+                        _mail = (app.get("kontakt_email") or "").strip()
+                        _nachfass_label = f"Nachfass-Mail an {_wer}"
+                        if _mail:
+                            _nachfass_label += f" ({_mail})"
+                        _nachfass_label += " verfassen"
+                        _neu = [
+                            {"label": _nachfass_label,
+                             "tool": "antwort_formulieren"},
+                            # Funkstille heisst 'abgelaufen', nicht
+                            # 'zurueckgezogen' — der Bewerber hat nichts
+                            # zurueckgezogen, und die Statistik trennt
+                            # withdrawal_rate von expired_rate (#779).
+                            {"label": ("Als 'abgelaufen' ablegen (keine "
+                                       "Reaktion der Firma)"),
+                             "tool": "bewerbung_status_aendern",
+                             "status": "abgelaufen"},
+                        ] + _basis
+                        # Deterministische Rangfolge: 1..n, keine Dubletten.
+                        for _i, _a in enumerate(_neu, start=1):
+                            _a["prioritaet"] = _i
                         actions = {
                             "beschreibung": (
                                 f"Wartest du seit {age.days} Tagen auf Antwort — "
                                 "hoechste Zeit nachzufassen."
                             ),
-                            "aktionen": [
-                                {
-                                    "label": f"Nachfass-Mail an {app.get('company', 'Firma')} verfassen",
-                                    "tool": "antwort_formulieren",
-                                    "prioritaet": 1,
-                                },
-                                {
-                                    "label": "Status auf 'zurueckgezogen' setzen",
-                                    "tool": "bewerbung_status_aendern",
-                                    "status": "zurueckgezogen",
-                                    "prioritaet": 5,
-                                },
-                            ] + (actions.get("aktionen", []) or []),
+                            "aktionen": _neu,
                             "motivation": (
                                 f"Ohne aktives Zutun bleibt's bei {app.get('company', 'der Firma')} "
                                 "still — bei manchen ueberbrueckt das System einen Nachfass-Anstoss."
@@ -2138,6 +2205,30 @@ def register(mcp, db, logger):
             return {"fehler": f"Nur geplante Follow-ups koennen verschoben werden (aktuell: {fu.get('status')})."}
         db.update_follow_up(follow_up_id, {"scheduled_date": neues_datum})
         return {"status": "verschoben", "follow_up_id": follow_up_id, "neues_datum": neues_datum}
+
+    @mcp.tool()
+    def follow_up_bearbeiten(follow_up_id: str, text: str) -> dict:
+        """v1.7.12 (#816, D34): setzt oder aendert den INHALT einer
+        Nachfassung nachtraeglich.
+
+        Bisher gab es dafuer keinen Weg — follow_up_verschieben aendert
+        nur das Datum, und ein leerer Reminder blieb leer. Der Text soll
+        sagen, WAS zu tun ist: an wen, worauf bezogen, ueber welchen
+        Kanal.
+
+        Args:
+            follow_up_id: ID des Follow-ups (nachfass_anzeigen zeigt sie).
+            text: Die Handlungsanweisung (ersetzt den bisherigen Inhalt).
+        """
+        fu = db.get_follow_up(follow_up_id)
+        if not fu:
+            return {"fehler": "Follow-up nicht gefunden."}
+        if not (text or "").strip():
+            return {"fehler": "text darf nicht leer sein — genau der leere "
+                              "Reminder ist das Problem (#816)."}
+        db.update_follow_up(follow_up_id, {"template": text.strip()})
+        return {"status": "aktualisiert", "follow_up_id": follow_up_id,
+                "text": text.strip()}
 
     # === v1.7.0-beta.6: Bewerbungsaufwand (#568) ===
 
