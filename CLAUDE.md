@@ -39,6 +39,53 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-08-11 (v1.7.12 Stable + v1.8.0-beta.11) — Grosse Welle
+
+**Schema:** v48 / v52, beide unveraendert (nur idempotente Safety-Nets:
+blacklist.is_active/updated_at/grund_vorher, interview_reflections.
+meeting_id, elwosa_messages.link_url/link_label, tasks.application_id
+nullable via writable_schema). **MCP-Tools:** 202 / 215 (+9: follow_up_
+bearbeiten, todo_bearbeiten/_hinfaellig/_details, aufgaben_uebersicht,
+interview_reflexion_loeschen, interview_lehren_auswerten,
+diagnose_befund_abweisen, dokumente_ohne_bewerbung). **Tests:** 2199 /
+2265 passed. 15 Issues in einer Welle (#768, #797, #809-#816,
+#822-#828), 6 davon vom selben Vormittag.
+
+MERKE-Punkte dieser Welle:
+
+(1) **F36/#822** — der Elwosa-Kern-Bug war ein KLASSEN-MAPPING:
+can_post_class prueste `trigger_kind == "world"`, gefeuert wurde mit
+`holiday_summer`/`late_night` → fiel durch ALLE Limits und durch
+`sachlich`. Zweite Ursache: pick_line fiel auf den vollen Pool zurueck,
+sobald er verbraucht war. Bei Drossel-Logik IMMER pruefen, ob die
+Pruefung dieselben Schluessel sieht wie der Aufrufer.
+
+(2) **C32/#827** — Anzeigen-Scoring: Treffer im Firmen-Werbeabsatz
+(Portfolio-Prosa) zaehlen 0.25x (`_firmenabsatz_ende` in
+job_scraper/__init__). Abwerten statt nullen — falscher Ausschluss ist
+teurer als zu hoher Score. Geschaetzte Gehaelter zaehlen GAR NICHT mehr.
+
+(3) **A27/#768** — es gab im gesamten Code KEINEN wal_checkpoint-
+Aufruf. close() macht jetzt TRUNCATE, die Auto-Engine PASSIVE je
+Zyklus. Bei Zweitprozess-Symptomen: pbp_diagnose zeigt WAL-Groesse und
+Blockade.
+
+(4) **D35/#814/#815** — tasks.application_id NOT NULL wurde per
+writable_schema + PRAGMA schema_version geloest (das #796-Muster, NIE
+db.close()). Der Erledigt-Haken-Befund: ein funktionierender Button in
+Statussymbol-Optik gilt als nicht vorhanden — vor Neubau pruefen, ob
+etwas nur unsichtbar ist.
+
+(5) **Cherry-Pick-Lehre (Stable-Port):** NIE `--skip` als Fallback in
+Resolution-Schleifen — vier Teile wurden still uebersprungen. Verlorene
+Hunks findet man ueber die mitgewanderten TESTS (82 Wellen-Tests auf
+dem Stable-Branch deckten den verlorenen analyse.py-Hunk auf).
+
+Offen fuer die naechste Welle: #802 (Score-Schwelle aus Verteilung),
+#808 (Health inhaltlich — deckt #809-Rest-UI mit ab), #811 (ATS-Slugs),
+#813 (Filterstufen-Telemetrie), #823-Rest (Kanaele 2/3/5/7), #817
+(PII an der Quelle), #791-#795, #798, #801, #806.
+
 ## Stand 2026-08-06 (v1.7.11 Stable + v1.8.0-beta.10) — Stille Ausfaelle
 
 **Schema:** v48 / v52, beide unveraendert. **MCP-Tools:** 193 / 206
