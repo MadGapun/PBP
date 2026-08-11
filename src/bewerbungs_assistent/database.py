@@ -200,8 +200,50 @@ class Database:
                 logger.error("Rollback-Sicherheitsnetz fehlgeschlagen: %s", exc)
         return False
 
+    def wal_checkpoint(self, truncate: bool = False) -> dict:
+        """v1.7.12 (#768, A27): WAL-Checkpoint explizit anstossen.
+
+        Belegter Vorfall 23.07.: MCP-Server und Dashboard hielten die DB
+        von zwei Seiten offen — die Hauptdatei blieb 29 Stunden
+        unveraendert, waehrend 3,9 MB Schreibvorgaenge in der WAL
+        steckten. SQLite checkpointet nur, wenn kein anderer Prozess
+        liest; ohne expliziten Anstoss passierte das NIE. Bei einem
+        harten Kill waeren Stunden Arbeit in der Schwebe gewesen.
+
+        PASSIVE blockiert nie (kopiert, was moeglich ist); TRUNCATE beim
+        Beenden setzt die WAL auf 0 zurueck. Rueckgabe meldet ehrlich,
+        ob der Checkpoint durchkam — `blockiert=True` ist das Signal
+        "ein zweiter Prozess haelt die DB offen".
+        """
+        modus = "TRUNCATE" if truncate else "PASSIVE"
+        try:
+            row = self.connect().execute(
+                f"PRAGMA wal_checkpoint({modus})").fetchone()
+            # (busy, log_frames, checkpointed_frames)
+            busy, log_frames, ok_frames = (row[0], row[1], row[2]) \
+                if row else (1, -1, -1)
+            return {"modus": modus, "blockiert": bool(busy),
+                    "wal_frames": log_frames,
+                    "uebertragen": ok_frames}
+        except Exception as exc:
+            return {"modus": modus, "fehler": str(exc)}
+
+    def wal_groesse_bytes(self) -> int:
+        """Aktuelle Groesse der WAL-Datei (0 wenn keine existiert)."""
+        try:
+            wal = Path(str(self.db_path) + "-wal")
+            return wal.stat().st_size if wal.exists() else 0
+        except OSError:
+            return 0
+
     def close(self):
         if self._conn:
+            # #768: beim sauberen Beenden die WAL zurueckschreiben — sonst
+            # haengt der letzte Arbeitstag in der Sidecar-Datei.
+            try:
+                self.wal_checkpoint(truncate=True)
+            except Exception:
+                pass
             self._conn.close()
             self._conn = None
 
