@@ -217,6 +217,8 @@ EXPECTED_TOOL_NAMES = {
     "pbp_diagnose",
     # v1.7.12 (#825, D32): Vollstaendigkeits-Befunde abweisbar
     "diagnose_befund_abweisen",
+    # v1.7.12 (#797, E20): lose Dokumente auffindbar
+    "dokumente_ohne_bewerbung",
     "recherche_speichern",
     # v1.5.4: Write-Back-Gaps (#443-#448)
     "meeting_hinzufuegen",
@@ -359,7 +361,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 214  # v1.7.12 (#814/#815): +todo_bearbeiten/_hinfaellig/_details, +aufgaben_uebersicht
+        assert len(tools) == 215  # v1.7.12 (#797): +dokumente_ohne_bewerbung
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
