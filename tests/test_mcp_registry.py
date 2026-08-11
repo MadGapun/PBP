@@ -233,6 +233,8 @@ EXPECTED_TOOL_NAMES = {
     "follow_up_erledigen",
     "follow_up_hinfaellig",
     "follow_up_verschieben",
+    # v1.7.12 (#816, D34): Nachfass-Inhalt nachtraeglich setzbar
+    "follow_up_bearbeiten",
     "position_aus_bewerbung_uebernehmen",
     # v1.6.3: Anti-DB-Bypass-Pattern (#514)
     "stellen_bulk_bewerten",
@@ -352,7 +354,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 209  # v1.7.12 (#825): +diagnose_befund_abweisen
+        assert len(tools) == 210  # v1.7.12 (#816): +follow_up_bearbeiten
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
