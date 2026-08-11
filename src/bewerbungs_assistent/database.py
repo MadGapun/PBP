@@ -366,6 +366,17 @@ class Database:
                 conn.commit()
                 logger.info("Safety-Net: interview_reflections.meeting_id "
                             "nachgezogen (#824)")
+            # v1.7.12 (#823, F37): Elwosa-Linien koennen verlinken —
+            # dezenter Verweis unter der Linie, extern oder pbp://-Deeplink.
+            _em_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(elwosa_messages)").fetchall()}
+            for _neu in ("link_url", "link_label"):
+                if _em_cols and _neu not in _em_cols:
+                    conn.execute(f"ALTER TABLE elwosa_messages "
+                                 f"ADD COLUMN {_neu} TEXT DEFAULT ''")
+                    conn.commit()
+                    logger.info("Safety-Net: elwosa_messages.%s "
+                                "nachgezogen (#823)", _neu)
         except Exception as e:
             logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
 
@@ -8048,15 +8059,24 @@ class Database:
     # === v1.7.0-beta.37 (#599): Elwosa-Helpers ===
 
     def add_elwosa_message(self, content: str, trigger_kind: str = "",
-                            trigger_ref: str = "", cluster: str = "") -> int:
-        """Schreibt eine Elwosa-Nachricht in den Stream des aktiven Profils."""
+                            trigger_ref: str = "", cluster: str = "",
+                            link_url: str = "", link_label: str = "") -> int:
+        """Schreibt eine Elwosa-Nachricht in den Stream des aktiven Profils.
+
+        v1.7.12 (#823, F37): `link_url`/`link_label` — Inhaltskanaele wie
+        Changelog oder Betriebslage sind nur etwas wert, wenn man von der
+        Linie aus weiterlesen kann. Externe URLs oder pbp://-Deeplinks;
+        das aeltere [link:...]-Markup im Text (#611) bleibt gueltig.
+        """
         pid = self.get_active_profile_id()
         conn = self.connect()
         cur = conn.execute(
             "INSERT INTO elwosa_messages "
             "(profile_id, content, trigger_kind, trigger_ref, cluster, "
-            " created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (pid, content, trigger_kind, trigger_ref, cluster, _now())
+            " link_url, link_label, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (pid, content, trigger_kind, trigger_ref, cluster,
+             link_url or "", link_label or "", _now())
         )
         conn.commit()
         return cur.lastrowid or 0
