@@ -103,6 +103,8 @@ EXPECTED_TOOL_NAMES = {
     "kontakte_auflisten",
     "kontakte_zu_bewerbung",
     "interview_reflexion_speichern",
+    "interview_reflexion_loeschen",
+    "interview_lehren_auswerten",
     "interview_reflexion_lesen",
     "interview_reflexionen_anzeigen",
     "kosten_anzeigen",
@@ -114,6 +116,10 @@ EXPECTED_TOOL_NAMES = {
     "stelle_reaktivieren",
     "stelle_wiedergaenger_pruefen",
     "todo_anlegen",
+    "todo_bearbeiten",
+    "todo_hinfaellig",
+    "todo_details",
+    "aufgaben_uebersicht",
     "todo_erledigen",
     "todo_reaktivieren",
     "todos_anzeigen",
@@ -194,6 +200,8 @@ EXPECTED_TOOL_NAMES = {
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
     "pbp_diagnose",
+    "diagnose_befund_abweisen",
+    "dokumente_ohne_bewerbung",
     "recherche_speichern",
     # v1.5.4: Write-Back-Gaps (#443-#448)
     "meeting_hinzufuegen",
@@ -215,6 +223,7 @@ EXPECTED_TOOL_NAMES = {
     "follow_up_erledigen",
     "follow_up_hinfaellig",
     "follow_up_verschieben",
+    "follow_up_bearbeiten",
     "position_aus_bewerbung_uebernehmen",
     # v1.6.3: Anti-DB-Bypass-Pattern (#514)
     "stellen_bulk_bewerten",
@@ -334,7 +343,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 193  # v1.7.11 (#804): + termin_dubletten_bereinigen; davor v1.7.10 192
+        assert len(tools) == 202  # v1.7.12: 193 + 9 Wellen-Tools (#814/#815/#816/#824/#825/#797)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

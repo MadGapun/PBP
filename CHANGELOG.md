@@ -16,6 +16,126 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.12] - 2026-08-11 — Grosse Welle: Bedienbarkeit, Elwosa, Scoring, Aufgaben (#768, #797, #809-#816, #822-#828)
+
+> **Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration (Schema
+> **v48** unveraendert;
+> alle neuen Spalten sind idempotente Safety-Nets). Die groesste
+> Einzelwelle bisher: 15 Issues aus dem Praxisbetrieb, davon 6 vom
+> selben Vormittag (11.08.).
+
+### Added
+- **Aufgaben-Bereich** (#814/#815, D35): eigener Menuepunkt mit
+  Gesamtsicht ueber alle drei Toepfe (Todos, Nachfassungen, Termine),
+  gruppiert nach Faelligkeit, bedienbar aus der Zeile; Aufgaben OHNE
+  Bewerbungsbezug; `todo_bearbeiten`/`todo_hinfaellig`/`todo_details`/
+  `aufgaben_uebersicht`; Dashboard-Warnung direkt abhakbar (jetzt **202**
+  MCP-Tools)
+- **Interview-Nachbereitung vollwertig** (#824, D31): Reflexion im
+  Frontend pflegbar (Formular in der Bewerbungs-Timeline), MEHRERE
+  Reflexionen je Bewerbung (vorher ueberschrieb Runde 2 die Runde 1),
+  Termin-Zuordnung, Teilnehmer als Kontakte am Termin,
+  `interview_reflexion_loeschen`, `interview_lehren_auswerten`
+  (Antwortarchiv, wiederkehrende Muster mit Fallzahl-Regel, Gefuehl
+  gegen Ausgang — Beobachtung, nie Urteil)
+- **Vollstaendigkeits-Check Interview-Verfahren** (#825, D32) in
+  `pbp_diagnose`: nur-Vermittler-Kontakte, Termin ohne Teilnehmer/
+  Reflexion, Bewerbung ohne Kontakt, Gespraech nur in Notizen — kein
+  auto_fix, jeder Befund dauerhaft abweisbar (`diagnose_befund_abweisen`)
+- **Elwosa-Inhaltskanaele** (#823, F37): Provider-Architektur, Linien
+  koennen verlinken (`link_url`/`link_label`), Kanal Changelog (max 3
+  Linien je Version), Kanal Betriebslage (Stellen ohne Anker, versiegte
+  Quelle, Repost), Feature-Tipps mit geteiltem Dismiss in beide
+  Richtungen, Rueckschlag-Sperre (24 h nach Absage keine Scherzlinien)
+- **Lose Dokumente auffindbar** (#797, E20): `dokumente_ohne_bewerbung`
+  mit drei Verdachtssignalen (Thread-Geschwister, Firmenname, Vorgangs-
+  Typ) und Zuordnungs-Vorschlag samt Konfidenz; kaputte Verknuepfungen
+  als kritischer Diagnose-Befund
+- **Adzuna einsatzbereit** (#809, B31): Keys in Einstellungen >
+  Erweiterungen eintragbar, Speichern loest sofort einen Testabruf aus —
+  abgelehnte Keys werden nicht gespeichert
+- **Blacklist-Pflege** (#828, C33): `aendern`/`deaktivieren`/`aktivieren`
+  statt nur loeschen; `entry_id` im Ergebnis; alter Grund bleibt als
+  `grund_vorher` nachvollziehbar; Kategorienurteil-Hinweis beim Anlegen
+- **Nachfass-Inhalt** (#816, D34): Auto-Nachfassungen tragen
+  fallbezogenen Inhalt (Rolle, Firma, Ansprechpartner, Kanal) statt
+  leer zu entstehen; `follow_up_bearbeiten` zum Nachtragen
+
+### Changed
+- **Elwosa wiederholt sich nicht mehr stuendlich** (#822, F36): der
+  Kern-Bug war ein Klassen-Mapping (Limits prueften 'world', gefeuert
+  wurde mit 'holiday_summer' — fiel durch ALLES durch). Jetzt harte
+  Sperrfristen (Linie 24 h, Art 12 h, Ziehen ohne Zuruecklegen),
+  Ambiente-Tageskontingent, Anwesenheitspflicht fuer anredende Trigger,
+  Ruhezeit, Ungelesen-Daempfung; `sachlich` wirkt jetzt tatsaechlich
+- **Scoring belohnt keine Werbeabsaetze mehr** (#827, C32): Treffer, die
+  NUR in der Firmen-Selbstdarstellung stehen, zaehlen 0.25x (belegt:
+  fachfremde Rolle mit 30 von 36 Punkten aus dem Portfolio-Absatz);
+  MUSS/PLUS-Doppelzaehlung beseitigt; `stellen_anzeigen` liefert die
+  Empfehlung mit und laesst NICHT_EMPFOHLEN unter alle Empfohlenen
+  sinken (`nur_empfohlen`-Filter); geschaetzte Gehaelter zaehlen
+  gar nicht mehr statt 0.5x
+- **Offene Aktionen fallbezogen** (#816): ohne je ein Interview keine
+  Interview-Workflow-Vorschlaege; Funkstille schlaegt 'abgelaufen' vor
+  statt 'zurueckgezogen'; Prioritaeten deterministisch
+- **kimeta wird nicht mehr gescrapt** (#810, B32): robots.txt untersagt
+  es — Handoff statt Scraping. **GULP** ebenso (#812, B34: SPA ohne
+  erreichbare JSON-API)
+
+### Fixed
+- **WAL-Hygiene** (#768, A27 — critical): erster wal_checkpoint-Aufruf
+  im Code ueberhaupt; close() schreibt die WAL zurueck, die Auto-Engine
+  checkpointet je Zyklus, pbp_diagnose macht Blockaden durch
+  Zweitprozesse sichtbar (belegt: 3,9 MB / 29 h Rueckstand)
+
+### Offen (naechste Welle)
+- #802 Score-Schwelle aus Verteilung, #808 Health-Check inhaltlich,
+  #813 Filterstufen-Telemetrie — brauchen Orchestrator-Arbeit mit
+  eigenem Anlauf
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.12.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.12.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `dataackups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.11] - 2026-08-06 — Stille Ausfaelle: tote Job-API, blockierter Lernmodus, verunglueckte IDs (#790, #796, #799, #804, #807)
 
 > **Dringendes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration

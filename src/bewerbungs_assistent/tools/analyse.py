@@ -1509,6 +1509,74 @@ def register(mcp, db, logger):
         except Exception as e:
             logger.debug("Dokumente-Integritaetspruefung fehlgeschlagen: %s", e)
 
+        # --- Lose/kaputte Dokument-Verknuepfungen (#797, E20) ---
+        try:
+            from ..services.dokument_zuordnung import (
+                finde_lose_dokumente, pruefe_verknuepfungs_integritaet)
+            lose = finde_lose_dokumente(db, nur_verdaechtige=True)
+            if lose["verdaechtige"] > 0:
+                warnungen.append({
+                    "bereich": "Dokumente",
+                    "problem": (
+                        f"{lose['verdaechtige']} lose Dokumente mit "
+                        "Verdachtsmoment (Vorgangs-Typ, Firmenname oder "
+                        "Thread-Geschwister an einer Bewerbung)"),
+                    "loesung": ("dokumente_ohne_bewerbung() zeigt die "
+                                "Faelle samt Zuordnungs-Vorschlag."),
+                })
+            kaputt = pruefe_verknuepfungs_integritaet(db)
+            if kaputt:
+                probleme.append({
+                    "bereich": "Dokumente",
+                    "problem": (f"{len(kaputt)} Dokument-Verknuepfungen "
+                                "zeigen auf keine existierende Bewerbung"),
+                    "loesung": ("dokumente_ohne_bewerbung() listet sie "
+                                "unter kaputte_verknuepfungen."),
+                    "schwere": "kritisch",
+                })
+        except Exception as e:
+            logger.debug("Dokument-Zuordnungs-Check fehlgeschlagen: %s", e)
+
+        # --- WAL-Gesundheit (#768, A27) ---
+        # Belegter Vorfall 23.07.: Hauptdatei 29 h unveraendert, 3,9 MB
+        # Schreibvorgaenge in der WAL — zwei Prozesse hielten die DB
+        # offen, der Checkpoint kam nie durch, und genau dieses Tool war
+        # blockiert, als man es brauchte. Jetzt macht die Diagnose den
+        # Zustand sichtbar UND versucht die Heilung gleich mit.
+        try:
+            wal_bytes = db.wal_groesse_bytes()
+            cp = db.wal_checkpoint(truncate=False)
+            if wal_bytes > 4 * 1024 * 1024 or cp.get("blockiert"):
+                eintrag = {
+                    "bereich": "Datenbank",
+                    "problem": (
+                        f"WAL-Datei ist {wal_bytes / 1024 / 1024:.1f} MB gross"
+                        + (" und der Checkpoint wird blockiert — ein "
+                           "zweiter PBP-Prozess (Dashboard-Fenster?) haelt "
+                           "die Datenbank offen" if cp.get("blockiert")
+                           else "")
+                    ),
+                    "loesung": (
+                        "Alle PBP-Fenster ausser einem schliessen (auch das "
+                        "separate Dashboard-Konsolenfenster). Beim naechsten "
+                        "sauberen Beenden wird die WAL zurueckgeschrieben. "
+                        "NICHT den Prozess hart beenden — die ausstehenden "
+                        "Schreibvorgaenge stecken in der WAL."
+                    ),
+                }
+                if cp.get("blockiert"):
+                    probleme.append({**eintrag, "schwere": "kritisch"})
+                else:
+                    warnungen.append(eintrag)
+            else:
+                info.append({
+                    "bereich": "Datenbank",
+                    "meldung": (f"WAL gesund ({wal_bytes / 1024:.0f} KB, "
+                                "Checkpoint laeuft durch)."),
+                })
+        except Exception as e:
+            logger.debug("WAL-Check fehlgeschlagen: %s", e)
+
         # --- Vollstaendigkeit von Interview-Verfahren (#825, D32) ---
         # KEIN auto_fix: alle Befunde erfordern Wissen, das nur der Mensch
         # hat — wer im Gespraech war, laesst sich nicht ableiten. Jeder
@@ -1585,6 +1653,41 @@ def register(mcp, db, logger):
         if interview_befunde:
             result["interview_vollstaendigkeit"] = interview_befunde
 
+        return result
+
+    @mcp.tool()
+    def dokumente_ohne_bewerbung(nur_verdaechtige: bool = True) -> dict:
+        """v1.7.12 (#797, E20): findet lose Dokumente samt Zuordnungs-
+        Vorschlag — die Frage 'welche Dokumente haengen an keiner
+        Bewerbung, obwohl es die passende gibt?' war vorher NUR per
+        Direkt-SQL beantwortbar (#514-Verstoss; belegt: 48 von 223 lose,
+        9 davon gehoerten nachweislich zu einer Bewerbung).
+
+        Drei Verdachtssignale, staerkstes zuerst: das Geschwister-
+        Dokument desselben Mail-Threads haengt bereits an einer Bewerbung
+        (Betreff-Stamm-Abgleich); der Dateiname enthaelt eine Firma aus
+        dem Bewerbungsbestand; der Dokumenttyp gehoert fast immer zu
+        einem Vorgang (Absage, Angebot, Antwort, ...).
+
+        KEIN auto_fix — Zuordnung ist eine inhaltliche Entscheidung.
+        Verknuepfen nach Bestaetigung: dokument_verknuepfen(dokument_id,
+        bewerbung_id). Zusaetzlich werden kaputte Verknuepfungen gemeldet
+        (zeigen auf keine existierende Bewerbung, #796-Anschluss).
+
+        Args:
+            nur_verdaechtige: True (Default) = nur Faelle mit
+                Verdachtsmoment; False = alle losen Dokumente.
+        """
+        from ..services.dokument_zuordnung import (
+            finde_lose_dokumente, pruefe_verknuepfungs_integritaet)
+        result = finde_lose_dokumente(db, nur_verdaechtige=nur_verdaechtige)
+        kaputt = pruefe_verknuepfungs_integritaet(db)
+        if kaputt:
+            result["kaputte_verknuepfungen"] = kaputt
+        result["hinweis"] = (
+            "Vorschlaege mit Konfidenz 'hoch' stammen aus dem Thread-"
+            "Signal. Verknuepfen: dokument_verknuepfen(dokument_id, "
+            "bewerbung_id) — erst nach Sichtung, nie pauschal.")
         return result
 
     @mcp.tool()
