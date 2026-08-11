@@ -210,6 +210,8 @@ EXPECTED_TOOL_NAMES = {
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
     "pbp_diagnose",
+    # v1.7.12 (#825, D32): Vollstaendigkeits-Befunde abweisbar
+    "diagnose_befund_abweisen",
     "recherche_speichern",
     # v1.5.4: Write-Back-Gaps (#443-#448)
     "meeting_hinzufuegen",
@@ -350,7 +352,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 208  # v1.7.12 (#824): +interview_reflexion_loeschen, +interview_lehren_auswerten
+        assert len(tools) == 209  # v1.7.12 (#825): +diagnose_befund_abweisen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
