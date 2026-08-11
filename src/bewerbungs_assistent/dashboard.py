@@ -8694,6 +8694,20 @@ def _run_elwosa_speak(now_iso: str) -> dict:
 
     posted = []
 
+    # 0. v1.7.12 (#823, F37): Inhaltskanaele ZUERST — Betriebslage und
+    # Changelog haben Vorrang vor Wetter und Uhrzeit. Vier Tage Sommerloch-
+    # Kommentare, waehrend eine Zweitgespraechs-Einladung einging, war
+    # genau die falsche Reihenfolge.
+    try:
+        from .services.elwosa_provider import alle_kandidaten
+        for cand in alle_kandidaten(_db):
+            msg_id = elwosa.post_candidate(_db, cand)
+            if msg_id:
+                posted.append({"trigger": cand.trigger_kind, "id": msg_id})
+                break  # ein Kanal-Post pro Tick reicht
+    except Exception:
+        pass
+
     # 1. Welt-Trigger
     world_trigger = elwosa.detect_world_trigger()
     if world_trigger:
@@ -8946,6 +8960,20 @@ async def api_elwosa_mark_read():
 
 @app.delete("/api/elwosa/messages/{message_id}")
 async def api_elwosa_dismiss(message_id: int):
+    # v1.7.12 (#823, F37): geteilter Dismiss-Zustand — wer eine
+    # Feature-Tipp-Linie im Stream abweist, weist damit den zugrunde
+    # liegenden Onboarding-Hint mit ab (und umgekehrt filtert
+    # list_active_hints laengst). Wer die Karte wegklickt, darf den
+    # Hinweis nicht eine Stunde spaeter im Stream wiederfinden.
+    try:
+        row = _db.connect().execute(
+            "SELECT trigger_kind, trigger_ref FROM elwosa_messages "
+            "WHERE id=?", (int(message_id),)).fetchone()
+        if row and row["trigger_kind"] == "tip" and row["trigger_ref"]:
+            from .services.onboarding_hints import dismiss_hint
+            dismiss_hint(_db, row["trigger_ref"])
+    except Exception:
+        pass
     ok = _db.dismiss_elwosa_message(int(message_id))
     if not ok:
         return JSONResponse({"error": "Nachricht nicht gefunden"},

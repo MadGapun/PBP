@@ -413,6 +413,28 @@ def _ambiente_heute(db) -> int:
     return row["n"] if row else 0
 
 
+def _rueckschlag_aktiv(db, stunden: int = 24) -> bool:
+    """v1.7.12 (#823): Absage in den letzten N Stunden dokumentiert?
+
+    Danach sind Scherz- und reine Stimmungslinien fuer 24 h gesperrt.
+    Der Charakter ist trocken, nicht aufgekratzt — eine Sommerloch-
+    Pointe direkt nach einer Absage waere ein Bruch der Sprach-DNA,
+    nicht nur ein Geschmacksfehler.
+    """
+    try:
+        cutoff = (datetime.now(timezone.utc)
+                  - timedelta(hours=stunden)).isoformat()
+        pid = db.get_active_profile_id()
+        row = db.connect().execute(
+            "SELECT 1 FROM applications WHERE status='abgelehnt' "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "AND updated_at >= ? LIMIT 1",
+            (pid, cutoff)).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
 def _ambiente_stumm_wegen_ungelesen(db, schwelle: int = 10) -> bool:
     """Die letzten N Ambiente-Linien alle ungelesen? Dann leiser werden.
 
@@ -474,6 +496,11 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
         if _count_all_today(db) >= 1:
             return False
 
+    # v1.7.12 (#823): nach einer dokumentierten Absage 24 h keine
+    # Scherzlinien — greift VOR dem Hard-Shortcut, easter_egg ist hard.
+    if trigger_kind == "easter_egg" and _rueckschlag_aktiv(db):
+        return False
+
     if trigger_kind in _HARD_TRIGGER_KINDS:
         return True
 
@@ -484,6 +511,9 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
     if trigger_kind in _ANREDENDE_KINDS and not _user_praesent(db):
         return False
     if klasse in _AMBIENTE_KLASSEN:
+        # #823: reine Stimmungslinien nach einer Absage ebenfalls gesperrt
+        if _rueckschlag_aktiv(db):
+            return False
         if _in_ruhezeit(settings) and not _user_praesent(db):
             return False
         if _ambiente_stumm_wegen_ungelesen(db):
@@ -674,6 +704,81 @@ def speak(db, trigger_kind: str, ctx: Optional[dict] = None,
         trigger_ref=str(ctx.get("ref") or ""),
         cluster=cluster or ctx.get("cluster") or "",
     )
+    # v1.7.12 (#823): Tipp-Linien tragen die Hint-ID als trigger_ref —
+    # Grundlage fuer den geteilten Dismiss-Zustand (Linie im Stream
+    # abweisen = Onboarding-Hint abweisen, DELETE-Endpoint).
+    if msg_id and trigger_kind == "tip" and not ctx.get("ref"):
+        try:
+            from .onboarding_hints import list_active_hints
+            for h in list_active_hints(db):
+                kern = (h.get("body") or "").split(". ")[0].strip().rstrip(".")
+                if kern and line.startswith(kern):
+                    conn = db.connect()
+                    conn.execute(
+                        "UPDATE elwosa_messages SET trigger_ref=? WHERE id=?",
+                        (str(h.get("id") or ""), msg_id))
+                    conn.commit()
+                    break
+        except Exception:
+            pass
+    return msg_id
+
+
+def post_candidate(db, cand) -> Optional[int]:
+    """v1.7.12 (#823, F37): postet einen Provider-Kandidaten regelkonform.
+
+    Kein Kanal schreibt an der Engine vorbei: Sprach-DNA-Validierung,
+    enabled/Pause/Cooldown, Kind-Sperrfrist und Inhalts-Sperre gelten
+    wie fuer jede andere Linie. Ereignis-Kandidaten (prioritaet 0,
+    Betriebslage) unterliegen NICHT dem Ambiente-Kontingent — sie sind
+    der Grund, warum Elwosa ueberhaupt etwas Nuetzliches zu sagen hat.
+    """
+    settings = db.get_elwosa_settings()
+    if not settings.get("enabled"):
+        return None
+    if settings.get("tonfall_modus") == "aus":
+        return None
+    paused_until = settings.get("paused_until")
+    if paused_until:
+        try:
+            until = datetime.fromisoformat(paused_until)
+            now = datetime.now(until.tzinfo) if until.tzinfo else datetime.now()
+            if until > now:
+                return None
+        except Exception:
+            pass
+    cooldown = int(settings.get("cooldown_seconds") or 90)
+    if is_in_cooldown(db, seconds=cooldown):
+        return None
+    try:
+        validate_tonfall(cand.content)
+    except TonfallError as exc:
+        logger.warning("Provider-Linie verstoesst gegen Sprach-DNA: %s — %r",
+                       exc, cand.content)
+        return None
+    # Kind-Sperrfrist: Changelog max. ~1/Tag (verteilt die 3 Linien einer
+    # Version ueber Tage), Betriebslage nach der normalen Kind-Sperre.
+    kind_sperre = 20 if cand.trigger_kind == "changelog" \
+        else int(settings.get("kind_sperre_stunden") or 12)
+    if _kind_gesperrt(db, cand.trigger_kind, kind_sperre):
+        return None
+    # Inhalts-Sperre: derselbe Befund kommt nicht taeglich wieder.
+    if _seen_within_hours(db, cand.content, 24 * 7):
+        return None
+    msg_id = db.add_elwosa_message(
+        content=cand.content,
+        trigger_kind=cand.trigger_kind,
+        trigger_ref=cand.trigger_ref,
+        cluster=cand.cluster,
+        link_url=cand.link_url,
+        link_label=cand.link_label,
+    )
+    if msg_id and cand.trigger_kind == "changelog":
+        try:
+            from .elwosa_provider import changelog_gemeldet
+            changelog_gemeldet(db, cand.trigger_ref)
+        except Exception:
+            pass
     return msg_id
 
 

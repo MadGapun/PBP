@@ -539,6 +539,26 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
                 <p className="text-[11px] leading-relaxed text-muted/85">
                   {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
                 </p>
+                {/* #823 (F37): dezenter Verweis unter der Linie — extern
+                    in neuem Tab, pbp://-Deeplinks per Tab-Navigation. */}
+                {m.link_url && (
+                  m.link_url.startsWith("pbp://") ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const teil = m.link_url.replace("pbp://", "").split("/");
+                        onNavigate?.(teil[0] === "tab" ? teil[1] : teil[0]);
+                      }}
+                      className="mt-0.5 text-[10px] text-teal/70 underline decoration-dotted hover:text-teal">
+                      {m.link_label || "Ansehen"}
+                    </button>
+                  ) : (
+                    <a href={m.link_url} target="_blank" rel="noopener noreferrer"
+                      className="mt-0.5 inline-block text-[10px] text-teal/70 underline decoration-dotted hover:text-teal">
+                      {m.link_label || "Mehr dazu"}
+                    </a>
+                  )
+                )}
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-[9px] text-muted/30">
                     {relativeTime(m.created_at)}
