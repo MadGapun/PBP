@@ -159,6 +159,9 @@ FIKTIVE_FIRMEN = (
     "vermittler west",
     "beispiel",
     "acme",
+    # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
+    # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
+    "firma gmbh",
 )
 
 # Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
