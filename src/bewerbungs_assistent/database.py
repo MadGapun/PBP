@@ -419,6 +419,31 @@ class Database:
                     conn.commit()
                     logger.info("Safety-Net: elwosa_messages.%s "
                                 "nachgezogen (#823)", _neu)
+            # v1.7.12 (#815, D35): tasks.application_id NOT NULL loesen —
+            # Aufgaben ohne Bewerbungsbezug. Gewachsene DBs tragen das
+            # NOT NULL aus v45; der Umbau laeuft ueber writable_schema +
+            # PRAGMA schema_version (NIE db.close() — CI-Segfault-Lehre
+            # aus #796: Hintergrund-Threads teilen die Connection).
+            _t_info = {r["name"]: r["notnull"] for r in conn.execute(
+                "PRAGMA table_info(tasks)").fetchall()}
+            if _t_info.get("application_id") == 1:
+                ddl_row = conn.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='table' "
+                    "AND name='tasks'").fetchone()
+                if ddl_row and "application_id TEXT NOT NULL" in ddl_row["sql"]:
+                    conn.execute("PRAGMA writable_schema=ON")
+                    conn.execute(
+                        "UPDATE sqlite_master SET sql=? WHERE type='table' "
+                        "AND name='tasks'",
+                        (ddl_row["sql"].replace(
+                            "application_id TEXT NOT NULL",
+                            "application_id TEXT"),))
+                    conn.execute("PRAGMA writable_schema=OFF")
+                    _sv = conn.execute("PRAGMA schema_version").fetchone()[0]
+                    conn.execute(f"PRAGMA schema_version={_sv + 1}")
+                    conn.commit()
+                    logger.info("Safety-Net: tasks.application_id ist jetzt "
+                                "nullable (#815)")
         except Exception as e:
             logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
 
@@ -7140,10 +7165,14 @@ class Database:
     _TASK_STATUS = ("offen", "erledigt", "hinfaellig")
 
     def add_task(self, data: dict) -> str:
-        """Legt einen Todo/Task fuer eine Bewerbung an (#666 D19)."""
-        application_id = data.get("application_id")
-        if not application_id:
-            raise ValueError("application_id ist Pflicht")
+        """Legt einen Todo/Task an (#666 D19).
+
+        v1.7.12 (#815, D35): application_id ist optional — Aufgaben ohne
+        Bewerbungsbezug ("Suchkriterien nachschaerfen") landeten vorher
+        in Notizen, Chats oder gar nicht. Traeger der Profilzuordnung
+        ist dann profile_id.
+        """
+        application_id = data.get("application_id") or None
         titel = (data.get("titel") or "").strip()
         if not titel:
             raise ValueError("titel ist Pflicht")
@@ -9825,7 +9854,10 @@ CREATE TABLE IF NOT EXISTS dismiss_reasons (
 -- v45 (#666 D19): Generisches Task/Todo-System pro Bewerbung
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
-    application_id TEXT NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    -- v1.7.12 (#815, D35): nullable — Aufgaben ohne Bewerbungsbezug
+    -- ("Lebenslauf-Variante aktualisieren") sind regulaere Datensaetze,
+    -- Traeger der Profilzuordnung ist dann profile_id.
+    application_id TEXT REFERENCES applications(id) ON DELETE CASCADE,
     profile_id TEXT,
     typ TEXT NOT NULL DEFAULT 'custom',
     titel TEXT NOT NULL,

@@ -12,6 +12,7 @@
   HelpCircle,
   Link2,
   Link2Off,
+  ListChecks,
   Menu,
   Monitor,
   Moon,
@@ -53,6 +54,7 @@ import JobsPage from "@/pages/JobsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import CalendarPage from "@/pages/CalendarPage";
+import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
@@ -85,6 +87,8 @@ const TAB_CONFIG = [
   { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "TODOs, Follow-ups und Status" },
   { id: "kontakte", title: "Kontakte", icon: UsersRound, defaultMeta: "Personen mit Rollen und Historie" },
   { id: "dokumente", title: "Docs", icon: FolderOpen, defaultMeta: "Suche, Filter und Querverweis" },
+  // #814/#815 (D35): eigener Bereich — Aufgaben hatten keinen Ort im Produkt
+  { id: "aufgaben", title: "Aufgaben", icon: ListChecks, defaultMeta: "Todos, Nachfassungen und Termine in einer Sicht" },
   { id: "kalender", title: "Kalender", icon: CalendarDays, defaultMeta: "Termine und ICS-Export" },
   { id: "statistiken", title: "Statistiken", icon: BarChart3, defaultMeta: "Charts, Trends und Export" },
   { id: "einstellungen", title: "Einstellungen", icon: Settings2, defaultMeta: "Quellen, Suche und Verhalten" },
@@ -1542,6 +1546,7 @@ export default function App() {
               {page === "bewerbungen" ? <ApplicationsPage /> : null}
               {page === "kontakte" ? <ContactsPage /> : null}
               {page === "dokumente" ? <DocumentsPage /> : null}
+              {page === "aufgaben" ? <TasksPage /> : null}
               {page === "kalender" ? <CalendarPage /> : null}
               {page === "statistiken" ? <StatsPage /> : null}
               {page === "einstellungen" ? <SettingsPage /> : null}

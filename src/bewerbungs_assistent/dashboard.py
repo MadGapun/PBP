@@ -4742,6 +4742,128 @@ async def api_delete_task(task_id: str):
     return {"status": "ok"}
 
 
+# === Aufgaben vollwertig bedienbar (#814/#815, D35, v1.7.12) =========
+
+@app.post("/api/tasks")
+async def api_add_free_task(request: Request):
+    """Aufgabe OHNE Bewerbungsbezug anlegen (#815) — vorher unmoeglich."""
+    data = await request.json()
+    if not (data.get("titel") or "").strip():
+        return JSONResponse({"error": "titel ist Pflicht"}, status_code=400)
+    try:
+        tid = _db.add_task({
+            "application_id": data.get("application_id") or None,
+            "titel": data.get("titel"),
+            "beschreibung": data.get("beschreibung") or "",
+            "faellig_am": data.get("faellig_am") or None,
+            "typ": data.get("typ") or "custom",
+        })
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"status": "ok", "id": tid}
+
+
+@app.patch("/api/tasks/{task_id}")
+async def api_update_task(task_id: str, request: Request):
+    """Titel/Beschreibung/Faelligkeit/Typ aendern (#814) — es gab keinen
+    Weg, ein Faelligkeitsdatum zu aendern."""
+    data = await request.json()
+    erlaubt = ("titel", "beschreibung", "faellig_am", "typ", "notiz")
+    daten = {k: data[k] for k in erlaubt if k in data}
+    if not daten:
+        return JSONResponse({"error": "Keine Aenderungen"}, status_code=400)
+    ok = _db.update_task(task_id, daten)
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok", "task": _db.get_task(task_id)}
+
+
+@app.post("/api/tasks/{task_id}/hinfaellig")
+async def api_task_hinfaellig(task_id: str, request: Request):
+    payload = {}
+    try:
+        payload = await request.json()
+    except Exception:
+        pass
+    ok = _db.complete_task(task_id, status="hinfaellig",
+                           notiz=(payload or {}).get("grund") or "")
+    if not ok:
+        return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.get("/api/aufgaben")
+async def api_aufgaben_uebersicht(status: str = "offen"):
+    """Alle drei Toepfe (Todos, Nachfassungen, Termine) in einer Sicht,
+    gruppiert nach Faelligkeit (#815) — dieselbe Logik wie das MCP-Tool
+    aufgaben_uebersicht, damit UI und Claude dasselbe sehen."""
+    from datetime import date, timedelta
+    heute = date.today().isoformat()
+    wochenende = (date.today() + timedelta(days=7)).isoformat()
+    eintraege = []
+    for t in _db.list_tasks(nur_offen=(status == "offen")):
+        if status == "erledigt" and t.get("status") != "erledigt":
+            continue
+        app_row = _db.get_application(t.get("application_id") or "") or {}
+        eintraege.append({
+            "herkunft": "todo", "id": t["id"], "titel": t.get("titel", ""),
+            "beschreibung": t.get("beschreibung") or "",
+            "status": t.get("status"), "faellig_am": t.get("faellig_am"),
+            "bewerbung_id": t.get("application_id"),
+            "firma": app_row.get("company"), "notiz": t.get("notiz") or "",
+        })
+    if status in ("offen", "alle"):
+        try:
+            for fu in _db.get_pending_follow_ups():
+                app_row = _db.get_application(
+                    fu.get("application_id") or "") or {}
+                eintraege.append({
+                    "herkunft": "nachfass", "id": fu.get("id"),
+                    "titel": (f"Nachfassen: {app_row.get('company', '?')} — "
+                              f"{app_row.get('title', '?')}"),
+                    "beschreibung": fu.get("template") or "",
+                    "status": "offen",
+                    "faellig_am": fu.get("scheduled_date"),
+                    "bewerbung_id": fu.get("application_id"),
+                    "firma": app_row.get("company"),
+                })
+        except Exception:
+            pass
+        try:
+            for m in _db.get_upcoming_meetings(days=30):
+                eintraege.append({
+                    "herkunft": "termin", "id": m.get("id"),
+                    "titel": m.get("title") or "Termin",
+                    "beschreibung": m.get("notes") or "",
+                    "status": "geplant",
+                    "faellig_am": (m.get("meeting_date") or "")[:10],
+                    "bewerbung_id": m.get("application_id"),
+                    "firma": m.get("app_company") or m.get("company"),
+                })
+        except Exception:
+            pass
+    gruppen = {"ueberfaellig": [], "heute": [], "diese_woche": [],
+               "spaeter": [], "ohne_faelligkeit": []}
+    for e in sorted(eintraege,
+                    key=lambda x: x.get("faellig_am") or "9999-12-31"):
+        f = e.get("faellig_am")
+        if not f:
+            gruppen["ohne_faelligkeit"].append(e)
+        elif f < heute and e.get("herkunft") != "termin":
+            e["ueberfaellig_seit_tagen"] = (
+                date.today() - date.fromisoformat(f[:10])).days
+            gruppen["ueberfaellig"].append(e)
+        elif f[:10] == heute:
+            gruppen["heute"].append(e)
+        elif f <= wochenende:
+            gruppen["diese_woche"].append(e)
+        else:
+            gruppen["spaeter"].append(e)
+    return {"anzahl": len(eintraege),
+            "ueberfaellig_anzahl": len(gruppen["ueberfaellig"]),
+            "gruppen": gruppen}
+
+
 @app.get("/api/blacklist")
 async def api_blacklist():
     return _db.get_blacklist()
