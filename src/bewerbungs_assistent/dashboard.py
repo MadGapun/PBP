@@ -4219,6 +4219,76 @@ async def api_get_application_meetings(app_id: str):
     return {"meetings": meetings, "count": len(meetings)}
 
 
+# === Interview-Reflexionen (#824, D31, v1.7.12) ====================
+# Die Reflexion existierte seit #464 ausschliesslich als MCP-Tool — im
+# Frontend gab es KEINE Eingabemoeglichkeit, und genau deshalb hatten die
+# drei juengsten Interviews keine Nachbereitung. Diese Endpunkte sind die
+# Ursachen-Behebung; das Formular haengt in der Bewerbungs-Timeline.
+
+@app.get("/api/applications/{app_id}/reflexionen")
+async def api_get_reflexionen(app_id: str):
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"},
+                            status_code=404)
+    return {"reflexionen": _db.get_interview_reflections(app_id)}
+
+
+@app.post("/api/applications/{app_id}/reflexionen")
+async def api_add_reflexion(app_id: str, request: Request):
+    if not _get_application_row_for_active_profile(app_id):
+        return JSONResponse({"error": "Bewerbung nicht gefunden"},
+                            status_code=404)
+    body = await request.json()
+    gefuehl = body.get("gefuehl")
+    if gefuehl and not 1 <= int(gefuehl) <= 5:
+        return JSONResponse({"error": "gefuehl muss 1-5 sein"},
+                            status_code=400)
+    rid = _db.add_interview_reflection(app_id, {
+        "was_lief_gut": body.get("was_lief_gut", ""),
+        "was_lief_schlecht": body.get("was_lief_schlecht", ""),
+        "was_war_ueberraschend": body.get("was_war_ueberraschend", ""),
+        "gefuehl": int(gefuehl) if gefuehl else None,
+        "next_steps": body.get("next_steps", ""),
+        "wiederverwendbare_antwort": body.get("wiederverwendbare_antwort", ""),
+    }, meeting_id=body.get("meeting_id", ""))
+    return {"status": "gespeichert", "reflexion_id": rid}
+
+
+@app.put("/api/reflexionen/{reflexion_id}")
+async def api_update_reflexion(reflexion_id: int, request: Request):
+    body = await request.json()
+    erlaubt = ("was_lief_gut", "was_lief_schlecht", "was_war_ueberraschend",
+               "gefuehl", "next_steps", "wiederverwendbare_antwort",
+               "meeting_id")
+    daten = {k: body[k] for k in erlaubt if k in body}
+    if "gefuehl" in daten and daten["gefuehl"]:
+        if not 1 <= int(daten["gefuehl"]) <= 5:
+            return JSONResponse({"error": "gefuehl muss 1-5 sein"},
+                                status_code=400)
+        daten["gefuehl"] = int(daten["gefuehl"])
+    neu = _db.update_interview_reflection(reflexion_id, daten)
+    if neu is None:
+        return JSONResponse({"error": "Reflexion nicht gefunden"},
+                            status_code=404)
+    return {"status": "aktualisiert", "reflexion": neu}
+
+
+@app.delete("/api/reflexionen/{reflexion_id}")
+async def api_delete_reflexion(reflexion_id: int):
+    ok = _db.delete_interview_reflection(reflexion_id)
+    if not ok:
+        return JSONResponse({"error": "Reflexion nicht gefunden"},
+                            status_code=404)
+    return {"status": "geloescht"}
+
+
+@app.get("/api/interview-lehren")
+async def api_interview_lehren():
+    """Quer-Auswertung aller Reflexionen (#824) — regelbasiert."""
+    from .services.interview_lehren import lehren_auswerten
+    return lehren_auswerten(_db)
+
+
 @app.get("/api/meetings/{meeting_id}/ics")
 async def api_meeting_ics(meeting_id: str):
     """Export a single meeting as .ics file (#261, #263)."""

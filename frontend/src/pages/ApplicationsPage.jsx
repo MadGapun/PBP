@@ -139,6 +139,11 @@ export default function ApplicationsPage() {
   const [timelineEmails, setTimelineEmails] = useState([]);
   // #666 (D19): Tasks/Todos pro Bewerbung
   const [timelineTasks, setTimelineTasks] = useState([]);
+  // #824 (D31): Interview-Reflexionen im Bewerbungs-Detail pflegbar —
+  // vorher gab es das Feature nur als MCP-Tool, und genau deshalb hatten
+  // die juengsten Interviews keine Nachbereitung.
+  const [timelineReflexionen, setTimelineReflexionen] = useState([]);
+  const [reflexionForm, setReflexionForm] = useState(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDue, setNewTaskDue] = useState("");  // #683: Erledigt-bis-Datum
   const [researchDraft, setResearchDraft] = useState("");
@@ -300,12 +305,13 @@ export default function ApplicationsPage() {
 
   async function openTimeline(application) {
     try {
-      const [timeline, docs, meetings, emails, tasks] = await Promise.all([
+      const [timeline, docs, meetings, emails, tasks, reflexionen] = await Promise.all([
         api(`/api/application/${application.id}/timeline`),
         api("/api/documents"),
         api(`/api/applications/${application.id}/meetings`).catch(() => ({ meetings: [] })),
         api(`/api/applications/${application.id}/emails`).catch(() => ({ emails: [] })),
         api(`/api/applications/${application.id}/tasks`).catch(() => []),  // #666 D19
+        api(`/api/applications/${application.id}/reflexionen`).catch(() => ({ reflexionen: [] })),  // #824 D31
       ]);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
@@ -313,6 +319,8 @@ export default function ApplicationsPage() {
       setTimelineMeetings(meetings?.meetings || []);
       setTimelineEmails(emails?.emails || []);
       setTimelineTasks(Array.isArray(tasks) ? tasks : []);
+      setTimelineReflexionen(reflexionen?.reflexionen || []);
+      setReflexionForm(null);
       setNewTaskTitle("");
       setResearchDraft(timeline?.job?.research_notes || "");
       setNewNoteText("");
@@ -329,6 +337,34 @@ export default function ApplicationsPage() {
       setTimelineDialog((current) => ({ ...current, entry: timeline }));
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
     } catch { /* silent */ }
+  }
+
+  // #824 (D31): Reflexion speichern — POST fuer neue, PUT fuer bestehende.
+  async function saveReflexion() {
+    const appId = timelineDialog.entry?.application?.id;
+    if (!appId || !reflexionForm) return;
+    const felder = {
+      was_lief_gut: reflexionForm.was_lief_gut || "",
+      was_lief_schlecht: reflexionForm.was_lief_schlecht || "",
+      was_war_ueberraschend: reflexionForm.was_war_ueberraschend || "",
+      next_steps: reflexionForm.next_steps || "",
+      wiederverwendbare_antwort: reflexionForm.wiederverwendbare_antwort || "",
+      gefuehl: reflexionForm.gefuehl || null,
+      meeting_id: reflexionForm.meeting_id || "",
+    };
+    try {
+      if (reflexionForm.id) {
+        await putJson(`/api/reflexionen/${reflexionForm.id}`, felder);
+      } else {
+        await postJson(`/api/applications/${appId}/reflexionen`, felder);
+      }
+      const res = await api(`/api/applications/${appId}/reflexionen`).catch(() => null);
+      setTimelineReflexionen(res?.reflexionen || []);
+      setReflexionForm(null);
+      pushToast("Reflexion gespeichert.", "success");
+    } catch (error) {
+      pushToast(`Reflexion speichern fehlgeschlagen: ${error.message}`, "danger");
+    }
   }
 
   // #666 (D19): Task-Handler im Bewerbungs-Detail
@@ -1643,6 +1679,124 @@ export default function ApplicationsPage() {
               </div>
             </Card>
           )}
+
+          {/* Interview-Reflexionen (#824, D31): direkt an der Bewerbung
+              pflegbar — alle Felder optional, mehrere pro Bewerbung. */}
+          <Card className="glass-card-soft rounded-xl shadow-none">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                Interview-Nachbereitung ({timelineReflexionen.length})
+              </p>
+              {!reflexionForm && (
+                <button
+                  onClick={() => setReflexionForm({})}
+                  className="rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
+                  + Reflexion
+                </button>
+              )}
+            </div>
+            {timelineReflexionen.length > 0 && (
+              <div className="mt-2 grid gap-1.5">
+                {timelineReflexionen.map((r) => (
+                  <div key={r.id} className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted/60">
+                        {formatDate(r.created_at)}
+                        {r.gefuehl ? <span className="ml-2 rounded bg-sky/15 px-1 py-px text-[10px] font-bold text-sky">Gefühl {r.gefuehl}/5</span> : null}
+                      </p>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          onClick={() => setReflexionForm({ ...r })}
+                          className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted/60 hover:bg-white/10 hover:text-ink">
+                          Bearbeiten
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Reflexion wirklich löschen?")) return;
+                            try {
+                              await deleteRequest(`/api/reflexionen/${r.id}`);
+                              setTimelineReflexionen((prev) => prev.filter((x) => x.id !== r.id));
+                            } catch (error) {
+                              pushToast(`Löschen fehlgeschlagen: ${error.message}`, "danger");
+                            }
+                          }}
+                          className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted/40 hover:bg-danger/15 hover:text-danger">
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    </div>
+                    {r.was_lief_gut && <p className="mt-1 text-sm text-ink"><span className="text-teal">Gut:</span> {r.was_lief_gut}</p>}
+                    {r.was_lief_schlecht && <p className="mt-0.5 text-sm text-ink"><span className="text-coral">Schwierig:</span> {r.was_lief_schlecht}</p>}
+                    {r.was_war_ueberraschend && <p className="mt-0.5 text-sm text-ink"><span className="text-sky">Überraschend:</span> {r.was_war_ueberraschend}</p>}
+                    {r.next_steps && <p className="mt-0.5 text-sm text-muted/80">Nächste Schritte: {r.next_steps}</p>}
+                    {r.wiederverwendbare_antwort && <p className="mt-0.5 text-xs italic text-muted/60">Merken: „{r.wiederverwendbare_antwort}"</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {timelineReflexionen.length === 0 && !reflexionForm && (
+              <p className="mt-2 text-xs text-muted/50">
+                Noch keine Nachbereitung. Direkt nach dem Gespräch sind zwei Sätze mehr wert als ein perfekter Bericht nächste Woche.
+              </p>
+            )}
+            {reflexionForm && (
+              <div className="mt-3 grid gap-2 rounded-lg border border-teal/20 bg-teal/5 p-3">
+                {[
+                  ["was_lief_gut", "Was lief gut?"],
+                  ["was_lief_schlecht", "Wo hat es geknirscht?"],
+                  ["was_war_ueberraschend", "Was war überraschend?"],
+                  ["next_steps", "Nächste Schritte"],
+                  ["wiederverwendbare_antwort", "Eine Antwort, die du wiederverwenden willst"],
+                ].map(([feld, label]) => (
+                  <label key={feld} className="grid gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted/60">{label}</span>
+                    <textarea
+                      rows={2}
+                      value={reflexionForm[feld] || ""}
+                      onChange={(e) => setReflexionForm((f) => ({ ...f, [feld]: e.target.value }))}
+                      className="rounded-lg border border-white/10 bg-bg/60 px-2 py-1.5 text-sm text-ink outline-none focus:border-teal/40"
+                    />
+                  </label>
+                ))}
+                <label className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted/60">Bauchgefühl</span>
+                  <select
+                    value={reflexionForm.gefuehl || ""}
+                    onChange={(e) => setReflexionForm((f) => ({ ...f, gefuehl: e.target.value ? Number(e.target.value) : null }))}
+                    className="rounded-lg border border-white/10 bg-bg/60 px-2 py-1 text-sm text-ink">
+                    <option value="">—</option>
+                    {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} / 5</option>)}
+                  </select>
+                  {timelineMeetings.length > 0 && (
+                    <>
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-muted/60">Termin</span>
+                      <select
+                        value={reflexionForm.meeting_id || ""}
+                        onChange={(e) => setReflexionForm((f) => ({ ...f, meeting_id: e.target.value }))}
+                        className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-bg/60 px-2 py-1 text-sm text-ink">
+                        <option value="">nicht zugeordnet</option>
+                        {timelineMeetings.map((m) => (
+                          <option key={m.id} value={m.id}>{formatDate(m.meeting_date)} — {m.title || "Termin"}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </label>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setReflexionForm(null)}
+                    className="rounded bg-white/5 px-3 py-1.5 text-xs text-muted/60 hover:bg-white/10">
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={saveReflexion}
+                    className="rounded bg-teal/20 px-3 py-1.5 text-xs font-semibold text-teal hover:bg-teal/30">
+                    Speichern
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
 
           {/* Emails for this application (#136) */}
           {timelineEmails.length > 0 && (
