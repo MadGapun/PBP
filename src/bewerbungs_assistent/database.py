@@ -333,6 +333,9 @@ class Database:
         # v1.7.11 (#790, C31): Titel-Ausnahmen fuer Firmen-Blocks.
         # Ohne Schema-Bump als Safety-Net — die Spalte ist optional und
         # aendert das Verhalten bestehender Eintraege nicht.
+        # v1.7.12 (#828, C33): dazu is_active/updated_at/grund_vorher —
+        # Eintraege sind damit aenderbar und deaktivierbar, statt nur
+        # loeschbar. DEFAULT 1 gilt in SQLite auch fuer Bestandszeilen.
         try:
             _bl_cols = {r["name"] for r in conn.execute(
                 "PRAGMA table_info(blacklist)").fetchall()}
@@ -342,6 +345,16 @@ class Database:
                 conn.commit()
                 logger.info("Safety-Net: blacklist.ausser_wenn_titel_enthaelt "
                             "nachgezogen (#790)")
+            for _neu, _ddl in (
+                ("is_active", "is_active INTEGER DEFAULT 1"),
+                ("updated_at", "updated_at TEXT"),
+                ("grund_vorher", "grund_vorher TEXT"),
+            ):
+                if _bl_cols and _neu not in _bl_cols:
+                    conn.execute(f"ALTER TABLE blacklist ADD COLUMN {_ddl}")
+                    conn.commit()
+                    logger.info("Safety-Net: blacklist.%s nachgezogen (#828)",
+                                _neu)
         except Exception as e:
             logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
 
@@ -5236,7 +5249,86 @@ class Database:
                 "WHERE type=? AND value=? AND (profile_id=? OR profile_id='')",
                 (json.dumps(ausnahmen, ensure_ascii=False), entry_type,
                  value, pid))
+        # v1.7.12 (#828): Wieder-Anlage eines deaktivierten Eintrags
+        # reaktiviert ihn — wer neu hinzufuegt, will dass der Block wirkt.
+        conn.execute(
+            "UPDATE blacklist SET is_active=1 "
+            "WHERE type=? AND value=? AND (profile_id=? OR profile_id='') "
+            "AND COALESCE(is_active, 1) = 0",
+            (entry_type, value, pid))
         conn.commit()
+        # #828: entry_id zurueckgeben, damit 'aendern' ohne Suche moeglich ist
+        row = conn.execute(
+            "SELECT id FROM blacklist WHERE type=? AND value=? "
+            "AND (profile_id=? OR profile_id='') LIMIT 1",
+            (entry_type, value, pid)).fetchone()
+        return row["id"] if row else None
+
+    def update_blacklist_entry(self, entry_id: int, wert: str = None,
+                               grund: str = None,
+                               ausser_wenn_titel_enthaelt: list = None):
+        """v1.7.12 (#828, C33): aendert einen bestehenden Eintrag in place.
+
+        Nur uebergebene Felder werden geschrieben; `created_at` bleibt
+        unangetastet. Bei einer Grund-Aenderung wandert der alte Text nach
+        `grund_vorher` — ein Feld, das Bewertungen steuert, soll seine
+        letzte Fassung nachvollziehbar behalten (belegter Fall: ein als
+        Gattungsurteil formulierter Einzelfall-Grund verzerrte die
+        Bewertung zweier unbeteiligter Stellen).
+        """
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        row = conn.execute(
+            "SELECT * FROM blacklist WHERE id=? "
+            "AND (profile_id=? OR profile_id='')",
+            (entry_id, pid)).fetchone()
+        if not row:
+            return None
+        sets, params = [], []
+        if wert is not None and wert.strip():
+            sets.append("value=?")
+            params.append(wert.strip())
+        if grund is not None:
+            alt = row["reason"] or ""
+            if alt and alt != grund:
+                sets.append("grund_vorher=?")
+                params.append(alt)
+            sets.append("reason=?")
+            params.append(grund)
+        if ausser_wenn_titel_enthaelt is not None:
+            ausnahmen = [a.strip() for a in ausser_wenn_titel_enthaelt
+                         if a and a.strip()]
+            sets.append("ausser_wenn_titel_enthaelt=?")
+            params.append(json.dumps(ausnahmen, ensure_ascii=False)
+                          if ausnahmen else None)
+        if not sets:
+            return dict(row)
+        sets.append("updated_at=?")
+        params.append(_now())
+        params.append(entry_id)
+        conn.execute(f"UPDATE blacklist SET {', '.join(sets)} WHERE id=?",
+                     params)
+        conn.commit()
+        neu = conn.execute("SELECT * FROM blacklist WHERE id=?",
+                           (entry_id,)).fetchone()
+        return dict(neu) if neu else None
+
+    def set_blacklist_active(self, entry_id: int, active: bool) -> bool:
+        """v1.7.12 (#828): Eintrag deaktivieren/aktivieren statt loeschen.
+
+        Deaktivierte Eintraege behalten Historie und Ausnahmen, greifen
+        aber nirgends mehr — get_blacklist() filtert sie per Default, und
+        alle drei Wirkorte (Anlegen, Sofort-Deaktivierung, retroaktives
+        blacklist_anwenden) lesen ueber genau diese Funktion.
+        """
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE blacklist SET is_active=?, updated_at=? "
+            "WHERE id=? AND (profile_id=? OR profile_id='')",
+            (1 if active else 0, _now(), entry_id, pid))
+        conn.commit()
+        return cur.rowcount > 0
 
     # --- Scraper Health (#432) ---
 
@@ -5585,16 +5677,28 @@ class Database:
         )
         conn.commit()
 
-    def get_blacklist(self) -> list:
+    def get_blacklist(self, include_inactive: bool = False) -> list:
+        """v1.7.12 (#828): Deaktivierte Eintraege sind per Default draussen.
+
+        WICHTIG: Diese Funktion ist der EINZIGE Lesepfad der Blacklist
+        (is_company_blacklisted, blacklist_ausnahme_treffer, Such-Filter,
+        blacklist_anwenden) — der Filter hier deckt damit alle Wirkorte
+        gleichzeitig ab. `include_inactive=True` nur fuer die Anzeige.
+        COALESCE, weil Bestands-DBs vor dem Safety-Net NULL tragen koennen.
+        """
         pid = self.get_active_profile_id()
         conn = self.connect()
+        aktiv_filter = "" if include_inactive \
+            else " AND COALESCE(is_active, 1) = 1"
         if pid:
             rows = conn.execute(
-                "SELECT * FROM blacklist WHERE profile_id=? ORDER BY type, value", (pid,)
+                "SELECT * FROM blacklist WHERE profile_id=?"
+                + aktiv_filter + " ORDER BY type, value", (pid,)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM blacklist ORDER BY type, value").fetchall()
+                "SELECT * FROM blacklist WHERE 1=1" + aktiv_filter
+                + " ORDER BY type, value").fetchall()
         out = []
         for r in rows:
             d = dict(r)
@@ -8467,6 +8571,26 @@ class Database:
             "comment_user_actions": bool(self.get_profile_setting(
                 "elwosa_comment_user_actions", False
             )),
+            # v1.7.12 (#822, F36): Sperrfristen + Ambiente-Kontingent.
+            # Dieselbe Linie fruehestens nach 24 h (Minimum 12 — darunter
+            # wird beim Lesen hochgesetzt), derselbe trigger_kind nach 12 h.
+            # Diese Sperren gelten IMMER, auch bei frequency='unbegrenzt' —
+            # unbegrenzt heisst "viele Linien", nie "dieselbe Linie oefter".
+            "sperrfrist_stunden": max(12, int(self.get_profile_setting(
+                "elwosa_sperrfrist_stunden", 24
+            ) or 24)),
+            "kind_sperre_stunden": int(self.get_profile_setting(
+                "elwosa_kind_sperre_stunden", 12
+            ) or 12),
+            # Ambiente (Welt + Idle) zusammen: max. N pro Tag. Ereignis-
+            # Trigger sind davon unberuehrt.
+            "ambiente_pro_tag": int(self.get_profile_setting(
+                "elwosa_ambiente_pro_tag", 1
+            ) or 1),
+            # Ruhezeit "HH-HH" lokal: Ambiente ohne Praesenz unterdrueckt.
+            "ruhezeit": str(self.get_profile_setting(
+                "elwosa_ruhezeit", "22-07"
+            ) or "22-07"),
         }
 
     def set_elwosa_settings(self, **fields) -> dict:

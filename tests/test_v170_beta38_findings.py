@@ -128,14 +128,26 @@ def test_elwosa_frequency_unbegrenzt_accepted(setup_env):
 
 
 def test_elwosa_can_post_class_unbegrenzt_bypasses_idle_limit(setup_env):
-    """Bei frequency='unbegrenzt' ist auch idle uneingeschraenkt."""
+    """Bei frequency='unbegrenzt' entfallen die KONTINGENTE — nicht die
+    Sperrfristen (v1.7.12/#822: 'viele Linien' heisst nie 'dieselbe Art
+    im Stundentakt'). Der Alt-Vertrag (100 idle heute, trotzdem weiter)
+    war Teil der stuendlichen Wiederholung."""
     db = setup_env
+    from datetime import datetime, timedelta, timezone
     db.set_elwosa_settings(frequency="unbegrenzt")
-    # 100 idle-Messages eintragen
-    for i in range(100):
-        db.add_elwosa_message(f"idle nr {i}", trigger_kind="idle")
     from bewerbungs_assistent.services import elwosa
     settings = db.get_elwosa_settings()
+
+    # Frisch gepostetes idle -> Kind-Sperre (12h) blockt, auch unbegrenzt
+    mid = db.add_elwosa_message("idle frisch", trigger_kind="idle")
+    assert elwosa.can_post_class(db, "idle", settings) is False
+
+    # Sperre abgelaufen -> unbegrenzt umgeht die Tages-Kontingente
+    alt = (datetime.now(timezone.utc) - timedelta(hours=13)).isoformat()
+    conn = db.connect()
+    conn.execute("UPDATE elwosa_messages SET created_at=? WHERE id=?",
+                 (alt, mid))
+    conn.commit()
     assert elwosa.can_post_class(db, "idle", settings) is True
 
 

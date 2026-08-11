@@ -181,6 +181,7 @@ def find_wiedergaenger_pattern(
     schwellwert: int = 2,
     min_overlap: int = 1,
     target_hash: Optional[str] = None,
+    dismissed: Optional[list] = None,
 ) -> Optional[dict]:
     """Ebene 0 (#671): KI-freier Wiedergaenger-Check.
 
@@ -197,6 +198,9 @@ def find_wiedergaenger_pattern(
             Guard gegen "gleiche Grossfirma, voellig andere Rolle".
         target_hash: Optional — eigener Hash, damit die Stelle sich nicht
             selbst matcht.
+        dismissed: v1.7.12 (#827) — vorab geladene Liste aussortierter
+            Stellen. stellen_anzeigen prueft jede Stelle der Seite; ohne
+            Preload wuerde jeder Aufruf den vollen Bestand neu laden.
 
     Returns:
         None wenn kein klares Muster, sonst dict mit:
@@ -208,10 +212,11 @@ def find_wiedergaenger_pattern(
     target_tokens = _domain_tokens(title)
     target_roles = _role_families(title)
 
-    try:
-        dismissed = db.get_dismissed_jobs()
-    except Exception:
-        return None
+    if dismissed is None:
+        try:
+            dismissed = db.get_dismissed_jobs()
+        except Exception:
+            return None
 
     matches: list[tuple[dict, set]] = []
     roles_matched: set = set()

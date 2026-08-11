@@ -1,5 +1,38 @@
 """Suchkriterien und Blacklist-Verwaltung — 5 Tools (#559: blacklist_anwenden)."""
 
+# v1.7.12 (#828, C33): Woerter, die auf ein Gattungsurteil statt einer
+# konkreten Erfahrung hindeuten. Belegter Fall 11.08.: ein Blacklist-Grund
+# "bewusste Entscheidung gegen Beratungshaus" (tatsaechlicher Anlass: nie
+# Rueckmeldung von genau EINER Firma) wurde bei spaeteren Bewertungen als
+# generelle Haltung gelesen und verzerrte zwei unbeteiligte Stellen.
+_KATEGORIEN_WOERTER = (
+    "beratungshaus", "beratungshaeuser", "consulting", "zeitarbeit",
+    "personaldienstleister", "vermittler", "branche", "generell",
+    "grundsaetzlich", "alle ", "solche firmen", "diese art",
+)
+
+
+def _kategorienurteil_hinweis(grund: str):
+    """Hinweis-Text, wenn ein Grund wie ein Gattungsurteil formuliert ist.
+
+    Kein Block — nur der Hinweis. Die Entscheidung bleibt beim Nutzer.
+    """
+    g = (grund or "").lower()
+    if not g:
+        return None
+    treffer = next((w for w in _KATEGORIEN_WOERTER if w in g), None)
+    if not treffer:
+        return None
+    return (
+        f"Der Grund klingt nach einem Urteil ueber eine ganze Gattung "
+        f"('{treffer.strip()}'). Blacklist-Gruende werden bei spaeteren "
+        "Bewertungen mitgelesen — ein Kategorienurteil faerbt dann auf "
+        "unbeteiligte Firmen derselben Art ab. Praeziser ist, was mit "
+        "DIESER Firma passiert ist (z. B. 'nie Rueckmeldung auf 3 "
+        "Bewerbungen'). Aendern geht jederzeit: "
+        "blacklist_verwalten('aendern', entry_id=..., grund=...)."
+    )
+
 
 def register(mcp, db, logger):
     """Registriert Suchkriterien-Tools."""
@@ -99,6 +132,20 @@ def register(mcp, db, logger):
         result = {"status": "gespeichert", "kriterien": db.get_search_criteria()}
         if geo_info:
             result["geocoding"] = geo_info
+        # v1.7.12 (#827, C32): MUSS/PLUS-Ueberschneidung sichtbar machen.
+        # Doppelt gelistete Begriffe zaehlen im Score nur noch EINMAL (als
+        # MUSS) — der Hinweis erklaert, warum die PLUS-Liste kuerzer wirkt.
+        _krit = result["kriterien"]
+        _m = {k.strip().lower() for k in (_krit.get("keywords_muss") or [])}
+        _doppelt = [k for k in (_krit.get("keywords_plus") or [])
+                    if k.strip().lower() in _m]
+        if _doppelt:
+            result["hinweis_ueberschneidung"] = (
+                f"{len(_doppelt)} Begriff(e) stehen in MUSS UND PLUS "
+                f"({', '.join(_doppelt[:5])}) — sie zaehlen im Score nur "
+                "einmal (als MUSS). In PLUS gehoeren Begriffe, die KEIN "
+                "Pflichtkriterium sind, aber die Sortierung verbessern."
+            )
         return result
 
     @mcp.tool()
@@ -291,11 +338,24 @@ def register(mcp, db, logger):
         Diese werden automatisch bei stelle_bewerten() als dismiss_reason gespeichert.
 
         Args:
-            aktion: 'hinzufuegen', 'anzeigen', 'entfernen'
+            aktion: 'hinzufuegen', 'anzeigen', 'aendern', 'deaktivieren',
+                'aktivieren', 'entfernen'. v1.7.12 (#828, C33): 'aendern'
+                korrigiert grund/wert/ausser_wenn_titel_enthaelt in place
+                (created_at bleibt, alter Grund wandert nach grund_vorher);
+                'deaktivieren' pausiert den Eintrag ohne Datenverlust —
+                fuer "die Firma will ich erstmal wieder zulassen, aber den
+                Eintrag nicht wegwerfen".
             typ: 'firma' oder 'keyword' (keine anderen Typen mehr!)
             wert: Der Blacklist-Eintrag (Firmenname oder Keyword)
-            grund: Optionaler Grund für den Eintrag
-            entry_id: ID des Eintrags (nur bei aktion='entfernen')
+            grund: Grund fuer den Eintrag. WICHTIG: beschreiben, was mit
+                DIESER Firma passiert ist ("nie Rueckmeldung auf 3
+                Bewerbungen"), nicht ihre Gattung ("Beratungshaus") —
+                der Grund wird bei spaeteren Bewertungen mitgelesen, und
+                ein Kategorienurteil faerbt auf unbeteiligte Firmen
+                derselben Branche ab.
+            entry_id: ID des Eintrags (bei aendern/deaktivieren/
+                aktivieren/entfernen; steht im hinzufuegen-Result und in
+                'anzeigen')
             force: True ueberstimmt die Warnung bei laufenden Bewerbungen
                 im Interview-Stadium (#699) und traegt trotzdem ein.
             ausser_wenn_titel_enthaelt: v1.7.11 (#790/C31) — Liste von
@@ -364,9 +424,14 @@ def register(mcp, db, logger):
                     }
             ausnahmen = [a.strip() for a in (ausser_wenn_titel_enthaelt or [])
                          if a and a.strip()]
-            db.add_to_blacklist(typ, wert.strip(), grund,
-                                ausser_wenn_titel_enthaelt=ausnahmen)
-            result = {"status": "hinzugefuegt", "typ": typ, "wert": wert.strip()}
+            neu_id = db.add_to_blacklist(typ, wert.strip(), grund,
+                                         ausser_wenn_titel_enthaelt=ausnahmen)
+            result = {"status": "hinzugefuegt", "typ": typ,
+                      "wert": wert.strip(), "entry_id": neu_id}
+            # v1.7.12 (#828): beim Anlegen zum praezisen Grund anleiten.
+            warnung = _kategorienurteil_hinweis(grund)
+            if warnung:
+                result["hinweis_grund"] = warnung
             if ausnahmen:
                 result["ausser_wenn_titel_enthaelt"] = ausnahmen
                 result["hinweis_ausnahme"] = (
@@ -399,17 +464,81 @@ def register(mcp, db, logger):
         elif aktion == "entfernen":
             if entry_id:
                 ok = db.remove_blacklist_entry(entry_id)
-                return {"status": "entfernt" if ok else "nicht_gefunden"}
+                return {"status": "entfernt" if ok else "nicht_gefunden",
+                        "hinweis": ("Loeschen verwirft Grund, Historie und "
+                                    "Titel-Ausnahmen. 'deaktivieren' behaelt "
+                                    "alles und laesst sich rueckgaengig machen.")}
             return {"fehler": "entry_id ist erforderlich zum Entfernen."}
+        elif aktion == "aendern":
+            # v1.7.12 (#828, C33): in place aendern statt loeschen+neu —
+            # created_at und Ausnahmen bleiben, der alte Grund wandert nach
+            # grund_vorher.
+            if not entry_id:
+                return {"fehler": "entry_id ist erforderlich zum Aendern. "
+                                  "IDs zeigt blacklist_verwalten('anzeigen')."}
+            neu = db.update_blacklist_entry(
+                entry_id,
+                wert=wert.strip() if wert and wert.strip() else None,
+                grund=grund if grund else None,
+                ausser_wenn_titel_enthaelt=(
+                    [a.strip() for a in ausser_wenn_titel_enthaelt
+                     if a and a.strip()]
+                    if ausser_wenn_titel_enthaelt is not None else None),
+            )
+            if neu is None:
+                return {"status": "nicht_gefunden", "entry_id": entry_id}
+            result = {"status": "geaendert", "entry_id": entry_id,
+                      "eintrag": {"wert": neu.get("value"),
+                                  "grund": neu.get("reason"),
+                                  "grund_vorher": neu.get("grund_vorher"),
+                                  "updated_at": neu.get("updated_at")}}
+            warnung = _kategorienurteil_hinweis(grund)
+            if warnung:
+                result["hinweis_grund"] = warnung
+            return result
+        elif aktion in ("deaktivieren", "aktivieren"):
+            if not entry_id:
+                return {"fehler": f"entry_id ist erforderlich zum "
+                                  f"{aktion.capitalize()}."}
+            aktiv = aktion == "aktivieren"
+            ok = db.set_blacklist_active(entry_id, aktiv)
+            if not ok:
+                return {"status": "nicht_gefunden", "entry_id": entry_id}
+            result = {"status": "aktiviert" if aktiv else "deaktiviert",
+                      "entry_id": entry_id}
+            if not aktiv:
+                result["hinweis"] = (
+                    "Der Eintrag bleibt sichtbar, greift aber nicht mehr — "
+                    "weder bei neuen Funden noch in blacklist_anwenden. "
+                    "Bereits deaktivierte Stellen der Firma bleiben "
+                    "deaktiviert; stelle_reaktivieren holt sie zurueck.")
+            return result
         elif aktion == "anzeigen":
-            entries = db.get_blacklist()
-            mit_ausnahme = [e for e in entries
+            entries = db.get_blacklist(include_inactive=True)
+            aktive = [e for e in entries
+                      if (e.get("is_active") if e.get("is_active") is not None
+                          else 1)]
+            inaktive = [e for e in entries if e not in aktive]
+            mit_ausnahme = [e for e in aktive
                             if e.get("ausser_wenn_titel_enthaelt")]
             res = {
-                "blacklist": entries,
-                "anzahl": len(entries),
-                "hinweis": "Nutze blacklist_verwalten('entfernen', entry_id=<id>) um Einträge zu entfernen."
+                "blacklist": aktive,
+                "anzahl": len(aktive),
+                "hinweis": ("Aendern: blacklist_verwalten('aendern', "
+                            "entry_id=<id>, grund=...). Pausieren: "
+                            "'deaktivieren' statt 'entfernen' — behaelt "
+                            "Grund und Ausnahmen.")
             }
+            if inaktive:
+                res["inaktiv"] = [
+                    {"id": e.get("id"), "typ": e.get("type"),
+                     "wert": e.get("value"), "grund": e.get("reason")}
+                    for e in inaktive
+                ]
+                res["inaktiv_hinweis"] = (
+                    f"{len(inaktive)} Eintraege sind deaktiviert und greifen "
+                    "NICHT. Reaktivieren: blacklist_verwalten('aktivieren', "
+                    "entry_id=<id>).")
             if mit_ausnahme:
                 res["mit_titel_ausnahme"] = [
                     {"wert": e.get("value"),
@@ -417,7 +546,9 @@ def register(mcp, db, logger):
                     for e in mit_ausnahme
                 ]
             return res
-        return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen', 'anzeigen' oder 'entfernen'."}
+        return {"fehler": "Unbekannte Aktion. Nutze 'hinzufuegen', 'anzeigen', "
+                          "'aendern', 'deaktivieren', 'aktivieren' oder "
+                          "'entfernen'."}
 
     @mcp.tool()
     def blacklist_anwenden(dry_run: bool = True) -> dict:
