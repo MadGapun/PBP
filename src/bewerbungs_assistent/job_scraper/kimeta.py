@@ -1,9 +1,22 @@
-"""Kimeta Scraper — Deutscher Job-Aggregator.
+"""Kimeta — SCRAPING EINGESTELLT (#810/B32, v1.7.12).
 
-Aggregiert Stellen aus vielen Quellen, gute DE-Abdeckung.
-Kein Login erforderlich. HTML-Scraping.
+robots.txt-Stand (live geprueft 06.08. und 11.08.2026):
 
-Fix #236: Erweiterte CSS-Selektoren, URL-Fallbacks, JSON-LD-Fallback.
+    User-agent: *
+    Disallow: /
+
+Der Block am Dateiende gilt fuer alle Bots ausser einer namentlichen
+Liste von Suchmaschinen und KI-Crawlern — PBP steht nicht darauf, und
+der Adapter sendete obendrein einen Browser-User-Agent. Da PBP bei jedem
+Anwender unter dessen IP laeuft, wird hier nicht mehr gescrapt: kein
+Reparieren, sondern einstellen.
+
+Der Weg zur Quelle bleibt der HANDOFF (#735/B25): PBP oeffnet die
+Suchseite im Browser des Nutzers (`quelle_handoff('kimeta')`), der
+Nutzer uebernimmt, was ihn interessiert — das ist kein automatisierter
+Abruf. Das Template liegt in handoff.py.
+
+Historie: Fix #236 (CSS-Selektoren, URL-Fallbacks) ist damit obsolet.
 """
 
 import logging
@@ -38,7 +51,23 @@ _SEARCH_URLS = [
 
 
 def search_kimeta(params: dict) -> list:
-    """Search Kimeta job aggregator via HTML scraping."""
+    """v1.7.12 (#810/B32): scrapt NICHT mehr — robots.txt untersagt es.
+
+    Liefert bewusst eine leere Liste mit Log-Hinweis statt einer
+    Exception: eine aktivierte Quelle darf einen Suchlauf nicht kippen.
+    Der Health-Check sieht den Zustand ueber das deprecated-Flag im
+    Quellen-Katalog; der Weg zur Quelle ist quelle_handoff('kimeta').
+    """
+    logger.info(
+        "Kimeta wird nicht gescrapt (robots.txt: 'User-agent: *' -> "
+        "'Disallow: /', geprueft 11.08.2026). Nutze "
+        "quelle_handoff('kimeta') fuer den Browser-Weg. (#810)")
+    return []
+
+
+def _search_kimeta_eingestellt(params: dict) -> list:
+    """Alter Scrape-Pfad — bewusst vom Namen getrennt, damit ihn niemand
+    versehentlich reaktiviert, ohne den robots.txt-Stand neu zu pruefen."""
     jobs = []
     kw_data = params.get("keywords", {})
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]

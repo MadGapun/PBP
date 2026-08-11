@@ -205,13 +205,19 @@ SOURCE_REGISTRY = {
     "gulp": {
         "name": "GULP",
         "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
-        "methode": "HTML Scraping + JSON-LD",
+        "methode": "Handoff (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # #500: Live-Test 2026-04-25 — alle bekannten Such-URLs HTTP 404.
+        # v1.7.12 (#812/B34, live 11.08.): Projektliste liefert 200 mit
+        # 9-KB-SPA-Huelle (Projekte laden erst im Browser), die im Adapter
+        # hinterlegte JSON-API antwortet 404. Ein Playwright-Umbau waere
+        # eine kurzlebige DOM-Wette (B18-Lehre) fuer eine einzelne
+        # Freelance-Boerse — der Handoff ist der ehrliche Weg.
         "defekt": True,
-        "defekt_grund": "URL veraltet (HTTP 404 seit 2026-04-25, vermutlich SPA-Migration)",
-        "manueller_fallback": "https://www.gulp.de/ (im Browser nach IT-Projekten suchen)",
+        "defekt_grund": "SPA ohne erreichbare JSON-API (Suche 200/leer, API 404 — 11.08.2026)",
+        "handoff_verfuegbar": True,
+        "manueller_fallback": "quelle_handoff('gulp') — oeffnet die Projektsuche im Browser",
     },
     "solcom": {
         "name": "SOLCOM",
@@ -270,12 +276,18 @@ SOURCE_REGISTRY = {
     "kimeta": {
         "name": "Kimeta",
         "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
-        "methode": "HTML Scraping",
+        "methode": "Handoff (Browser)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        "defekt": True,
-        "defekt_grund": "Such-Endpunkt liefert nur Kategorie-Liste (235 Berufsgruppen-Links), Stellen werden via JavaScript nachgeladen",
-        "manueller_fallback": "https://www.kimeta.de/jobs?q=Python&l=Hamburg (im Browser oder Chrome-Extension)",
+        # v1.7.12 (#810/B32): SCRAPING EINGESTELLT — robots.txt untersagt
+        # es fuer alle Bots ausser namentlich gelisteten Suchmaschinen
+        # ('User-agent: *' -> 'Disallow: /', geprueft 11.08.2026). Kein
+        # Defekt, keine Reparatur: die Quelle bleibt ueber den Handoff
+        # nutzbar (quelle_handoff oeffnet die Suche im Browser).
+        "deprecated": True,
+        "deprecated_grund": "robots.txt untersagt automatisierten Abruf — Handoff statt Scraping",
+        "handoff_verfuegbar": True,
+        "manueller_fallback": "quelle_handoff('kimeta') — oeffnet https://www.kimeta.de/jobs im Browser",
     },
     # ── JobSpy-basierte Quellen (#490, schnell, API-Scrapes via python-jobspy) ──
     "jobspy_linkedin": {
