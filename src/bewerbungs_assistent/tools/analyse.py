@@ -1509,6 +1509,27 @@ def register(mcp, db, logger):
         except Exception as e:
             logger.debug("Dokumente-Integritaetspruefung fehlgeschlagen: %s", e)
 
+        # --- Vollstaendigkeit von Interview-Verfahren (#825, D32) ---
+        # KEIN auto_fix: alle Befunde erfordern Wissen, das nur der Mensch
+        # hat — wer im Gespraech war, laesst sich nicht ableiten. Jeder
+        # Befund ist per diagnose_befund_abweisen dauerhaft abweisbar.
+        interview_befunde = []
+        try:
+            from ..services.interview_vollstaendigkeit import (
+                pruefe_interview_vollstaendigkeit)
+            interview_befunde = pruefe_interview_vollstaendigkeit(db)
+            for b in interview_befunde:
+                warnungen.append({
+                    "bereich": "Interview-Vollstaendigkeit",
+                    "problem": b["befund"],
+                    "loesung": (f"Deeplink: {b['deeplink']} — abweisen mit "
+                                f"diagnose_befund_abweisen('{b['id']}')"),
+                    "befund_id": b["id"],
+                })
+        except Exception as e:
+            logger.debug("Interview-Vollstaendigkeits-Check fehlgeschlagen: "
+                         "%s", e)
+
         # --- Ergebnis ---
         gesundheit = "kritisch" if probleme else "warnungen" if warnungen else "gesund"
         result = {
@@ -1561,7 +1582,27 @@ def register(mcp, db, logger):
                 "Kopiere diese Diagnose-Ausgabe und sende sie an den Entwickler."
             )
 
+        if interview_befunde:
+            result["interview_vollstaendigkeit"] = interview_befunde
+
         return result
+
+    @mcp.tool()
+    def diagnose_befund_abweisen(befund_id: str) -> dict:
+        """Weist einen Vollstaendigkeits-Befund DAUERHAFT ab (#825, D32).
+
+        Der Befund kommt bei keinem spaeteren pbp_diagnose-Lauf wieder —
+        ein weggeklickter Hinweis, der wiederkehrt, wird nach dem dritten
+        Mal ignoriert und entwertet auch die berechtigten. Die IDs stehen
+        in pbp_diagnose() unter interview_vollstaendigkeit.
+        """
+        from ..services.interview_vollstaendigkeit import befund_abweisen
+        ok = befund_abweisen(db, befund_id)
+        return {
+            "status": "abgewiesen" if ok else "war_bereits_abgewiesen",
+            "befund_id": befund_id,
+            "hinweis": "Dauerhaft — der Befund erscheint nicht erneut.",
+        }
 
     def _keyword_vorschlaege_aus_profil(muss, plus, ausschluss) -> dict:
         """G17/F24 (#744/#745): Keyword-Vorschlaege fuer frische Profile
