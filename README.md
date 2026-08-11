@@ -28,7 +28,7 @@ Aktuelle Version **v1.7.12** · letztes Release am 11. August 2026 · 2199 autom
 | Schritt | Was passiert |
 |---------|-------------|
 | **1. Du erzählst kurz von dir** | Claude führt dich durch ein Kennenlerngespräch und baut dein Profil auf. Du musst nichts vorbereiten. |
-| **2. PBP findet passende Stellen** | Jobbörsen werden automatisch durchsucht. Du bekommst eine bewertete Liste. |
+| **2. PBP findet passende Stellen** | PBP durchsucht Stellenanzeigen automatisch auf den wichtigsten Jobbörsen. Du bekommst eine bewertete Liste. |
 | **3. Du bewirbst dich — mit Unterstützung** | Anschreiben, Lebenslauf, Interview-Vorbereitung — PBP begleitet dich bei jedem Schritt. |
 
 > 💡 **Wichtig:** PBP arbeitet zusammen mit [Claude Desktop](https://claude.ai/download). Du wirst an bestimmten Stellen automatisch dorthin weitergeleitet — das ist Teil des Ablaufs. Claude ist dein Gesprächspartner, das Dashboard deine Übersicht.
@@ -39,9 +39,9 @@ Aktuelle Version **v1.7.12** · letztes Release am 11. August 2026 · 2199 autom
 
 | ![Stellen mit Scoring](docs/screenshots/03_stellen.png) | ![Bewerbungs-Pipeline](docs/screenshots/04_bewerbungen.png) |
 |:--:|:--:|
-| *Stellen mit Scoring, Filtern und Fit-Analyse* | *Bewerbungs-Pipeline mit Nachfassaktionen* |
+| *Stellenanzeigen automatisch durchsuchen und mit Score bewerten* | *Bewerbungen verwalten: Pipeline, Status und Nachfassen* |
 | ![Kalender](docs/screenshots/06_kalender.png) | ![Statistiken](docs/screenshots/07_statistiken.png) |
-| *Kalender mit Kategorien und Terminen* | *Statistiken mit Outcome-Quoten und Antwortzeiten* |
+| *Termine und Vorstellungsgespräche im Kalender* | *Absagen auswerten: Quoten, Antwortzeiten, Muster* |
 
 <details>
 <summary><b>Weitere Ansichten anzeigen</b> — Aufgaben, Profil, Dokumente, Kontakte, Dossier, erster Start, Einstellungen</summary>
@@ -90,16 +90,18 @@ Die meisten Bewerber wissen es nicht. Sie schreiben ihren CV einmal, kopieren da
 
 **PBP ist dieser ehrliche Sparringspartner.**
 
+Und zugleich ein kostenloser Bewerbungsmanager: Bewerbungen verwalten, den Bewerbungsstatus verfolgen, Absagen auswerten — alles an einem Ort statt in einer wachsenden Excel-Liste. Wer nur eine übersichtliche Alternative zur Bewerbungsübersicht in Excel sucht, kann PBP auch komplett ohne KI nutzen.
+
 ### Was PBP anders macht
 
 PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absenden". PBP gibt dir **Perspektive, Struktur und ehrliches Feedback** — die Entscheidungen triffst du.
 
 | Du fragst dich... | PBP hilft dir so |
 |-------------------|-----------------|
-| *"Ist mein Lebenslauf gut genug?"* | **3-Perspektiven-Analyse** — Wie wirkt dein CV auf einen Personalberater, ein ATS-System und einen Recruiter? |
+| *"Ist mein Lebenslauf gut genug?"* | **3-Perspektiven-Analyse** — lass deinen Lebenslauf prüfen: Wie wirkt er auf einen Personalberater, ein ATS-System und einen Recruiter? |
 | *"Passe ich überhaupt auf die Stelle?"* | **Fit-Analyse** — Punkt-für-Punkt-Vergleich Profil vs. Stelle. Ehrlich, nicht schöngerechnet. |
 | *"Was fehlt mir noch?"* | **Skill-Gap-Analyse** — Welche Fähigkeiten verlangt die Stelle, die du (noch) nicht hast? |
-| *"Was soll ich im Interview sagen?"* | **Interview-Simulation** — Claude spielt den Interviewer auf Basis der echten Stelle. |
+| *"Was soll ich im Interview sagen?"* | **Interview-Simulation** — so kannst du jedes Vorstellungsgespräch vorbereiten: Claude spielt den Interviewer auf Basis der echten Stelle. |
 | *"Wie verhandle ich das Gehalt?"* | **Gehaltsverhandlung** — Markdaten, Strategie, konkrete Argumente. |
 
 ### Und wenn du mehr willst
@@ -108,7 +110,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
-- **Bewerbungs-Tracking** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
+- **Bewerbungsstatus verfolgen** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
 - **Aufgaben-Übersicht** — Nachfassen, Termine und Todos nach Fälligkeit an einem Ort (v1.7.12)
 - **Scoring-Regler** — Konfiguriere, was dir wichtig ist. PBP sortiert automatisch
 
