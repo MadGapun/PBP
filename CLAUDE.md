@@ -621,7 +621,7 @@ saubere Migration v43->v45 auf einer **Kopie** der Real-DB
 (`C:\Temp\claude\qa`, Original unter AppData NIE angefasst); 10/10
 REST-Endpoints der beta.78-90-Welle via FastAPI-TestClient OK
 (`tools/qa_rest_smoke.py`). Befunde + Drift-Tabelle:
-`docs/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
+`docs/internal/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
 Tools / 23 Prompts / Schema v42) und wurde Wiki-weit nachgezogen, inkl.
 neuer User-Doku fuer Lifecycle (#657/#658), Routing (#643), Tasks
 (#666), Ablehnungsgruende-Editor (#663), Minus-Keywords (#667),

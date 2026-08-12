@@ -3,7 +3,7 @@
 
 > **Hinweis:** Dieses Dokument ist ein Archiv der abgeschlossenen Optimierungen
 > bis v0.13.0. Fuer aktuelle und kuenftige Aenderungen siehe
-> [CHANGELOG.md](CHANGELOG.md) und [docs/VERBESSERUNGSPLAN.md](docs/VERBESSERUNGSPLAN.md).
+> [CHANGELOG.md](../../CHANGELOG.md) und [VERBESSERUNGSPLAN.md](VERBESSERUNGSPLAN.md).
 
 ---
 
@@ -303,4 +303,4 @@
 
 **Alle Optimierungen und Fixes abgeschlossen!**
 
-> Ab v0.14.0 werden Aenderungen im [CHANGELOG.md](CHANGELOG.md) dokumentiert.
+> Ab v0.14.0 werden Aenderungen im [CHANGELOG.md](../../CHANGELOG.md) dokumentiert.
