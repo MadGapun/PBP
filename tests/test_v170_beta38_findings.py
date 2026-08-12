@@ -24,12 +24,11 @@ def setup_env():
     db = Database()
     db.initialize()
     db.save_profile({"name": "Test"})
-    # v1.7.12 (#822) fuehrte die Ruhezeit ein — auf ein nie-aktives Fenster
-    # legen, sonst sind die speak/can_post_class-Tests tageszeitabhaengig
-    # (#853: CI zwischen 22 und 7 Uhr Runner-Lokalzeit rot).
-    from datetime import datetime as _dt
-    _h = _dt.now().hour
-    db.set_profile_setting("elwosa_ruhezeit", f"{(_h + 2) % 24}-{(_h + 3) % 24}")
+    # v1.7.12 (#822) fuehrte die Ruhezeit ein — deaktivieren ("0-0" =
+    # Start==Ende = nie aktiv), sonst sind die Tests tageszeitabhaengig
+    # (#853). Bewusst NICHT relativ zur echten Uhr: Tests, die die Uhr
+    # faken, wuerden sonst zufaellig im Fenster landen.
+    db.set_profile_setting("elwosa_ruhezeit", "0-0")
     _dash_mod._db = db
     yield db
     db.close()
