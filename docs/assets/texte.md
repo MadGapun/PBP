@@ -12,25 +12,21 @@ zuerst hier ändern, dann die Verwender nachziehen.
 Alles Weitere baut auf diesem Satz auf. Kein Marketing-Sprech, keine
 Superlative, keine Ausrufezeichen.
 
-## Einzeiler
+## Einzeiler (README-Einstieg — Variante D, gewählt in #834)
 
-> Der Bewerbungs-Helfer für den deutschsprachigen Raum — kostenlos,
-> Open Source, läuft lokal. Deine Daten bleiben auf deinem Rechner.
+> PBP ist ein Bewerbungs-Helfer — mit einem entscheidenden Unterschied:
+> die Werkzeuge reden miteinander.
 
-(Verwendet im Social-Preview-Bild. Der README-Einstieg wird nach der
-Varianten-Auswahl in #834 hier festgeschrieben.)
+## Social-Preview-Zeilen
 
-## Repo-Kurzbeschreibung (GitHub „Description")
+> Der Bewerbungs-Helfer für den deutschsprachigen Raum
+> Geführt. Lokal. Einfach.
+> Kostenlos und Open Source. Deine Daten bleiben auf deinem Rechner.
 
-Zwei Varianten, Auswahl liegt beim Projektinhaber (#843):
+(„Geführt. Lokal. Einfach." stammt aus dem ersten Social-Preview-Entwurf
+des Projektinhabers und ist bewusst übernommen.)
 
-**Variante 1 — deutsch zuerst:**
-
-> Lokaler KI-Bewerbungsassistent für den DACH-Arbeitsmarkt —
-> Stellensuche, Bewerbungsverwaltung, CV-Analyse. MCP-Server für
-> Claude Desktop, self-hosted, keine Cloud.
-
-**Variante 2 — englisch zuerst (für die GitHub-Suche):**
+## Repo-Kurzbeschreibung (GitHub „Description" — Variante 2, gewählt und gesetzt am 12.08.2026)
 
 > Local AI job application assistant for the German-speaking job market
 > (DACH) — job search, application tracking, CV analysis. MCP server

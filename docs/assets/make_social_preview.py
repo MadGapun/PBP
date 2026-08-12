@@ -89,10 +89,12 @@ def main():
     draw.text((72, 300), "Der Bewerbungs-Helfer für den\ndeutschsprachigen Raum",
               font=_font(33), fill="#2e4562", spacing=10)
 
-    draw.text((72, 424), "kostenlos · Open Source · läuft lokal",
-              font=_font(26), fill="#3f5a78")
-    draw.text((72, 464), "Deine Daten bleiben auf deinem Rechner.",
-              font=_font(26), fill="#3f5a78")
+    draw.text((72, 416), "Geführt. Lokal. Einfach.",
+              font=_font(28, bold=True), fill="#1f6f57")
+    draw.text((72, 462), "Kostenlos und Open Source.",
+              font=_font(24), fill="#3f5a78")
+    draw.text((72, 498), "Deine Daten bleiben auf deinem Rechner.",
+              font=_font(24), fill="#3f5a78")
 
     draw.text((72, 548), "github.com/MadGapun/PBP", font=_font(24, bold=True),
               fill="#1f6f57")
