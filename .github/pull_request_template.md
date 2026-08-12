@@ -15,7 +15,7 @@
 
 ## Regression-Check (#498)
 
-- [ ] `docs/WORKING_FEATURES.md` gesichtet — keine `[x]` → `[ ]` Regressionen
+- [ ] `docs/internal/WORKING_FEATURES.md` gesichtet — keine `[x]` → `[ ]` Regressionen
 - [ ] Bei Breaking Change: Feature-Flag in `feature_flags.py` gesetzt (Default=False)
 - [ ] Manueller Test der vom Change berührten Szenarien durchgeführt
 

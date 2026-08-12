@@ -435,4 +435,4 @@ jederzeit manuell bestaetigt oder geaendert werden.
 ### Moegliche zukuenftige Erweiterungen:
 - Dark Mode
 - Bewerbungs-Templates
-- weiterer Ausbau des Service-Layers (siehe docs/VERBESSERUNGSPLAN.md)
+- weiterer Ausbau des Service-Layers (siehe docs/internal/VERBESSERUNGSPLAN.md)
