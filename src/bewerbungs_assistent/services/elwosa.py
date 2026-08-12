@@ -798,7 +798,13 @@ def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6,
         return None
     seen: set = set()
     for _ in range(max_tries):
-        line = pick_line(db, pool, ctx, sperrfrist_stunden=sperrfrist_stunden)
+        # Bereits geprobte Linien aus dem Kandidaten-Pool nehmen — sonst
+        # kann der Zufall dieselbe kaputte Linie mehrfach ziehen und eine
+        # valide bleibt trotz max_tries unerreicht (CI-Flake, #853 Teil 2).
+        kandidaten = [l for l in pool if l not in seen]
+        if not kandidaten:
+            return None
+        line = pick_line(db, kandidaten, ctx, sperrfrist_stunden=sperrfrist_stunden)
         if not line or line in seen:
             continue
         seen.add(line)

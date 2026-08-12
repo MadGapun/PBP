@@ -28,6 +28,11 @@ def db():
     database = Database()
     database.initialize()
     database.save_profile({"name": "Test"})
+    # Ruhezeit (v1.7.12/#822) auf ein nie-aktives Fenster legen — sonst
+    # sind Elwosa-Tests zwischen 22 und 7 Uhr Runner-Zeit rot (#853).
+    from datetime import datetime as _dt
+    _h = _dt.now().hour
+    database.set_profile_setting("elwosa_ruhezeit", f"{(_h + 2) % 24}-{(_h + 3) % 24}")
     yield database
     database.close()
     import shutil
