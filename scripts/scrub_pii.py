@@ -274,6 +274,14 @@ _SYSTEM_LOKALTEILE = (
     "notification", "automailer", "bounce", "postmaster",
 )
 
+# Reine Roboter-DOMAINS der Portale: dahinter ist unabhaengig vom Lokalteil
+# kein Mensch erreichbar (Absender-Erkennung ist Produktfunktion, #643).
+# Fund aus der PII-Triage 12.08.2026: `info@bot.xing.com` wurde gemeldet,
+# obwohl der Lokalteil "info" nur an einem Benachrichtigungs-Roboter haengt.
+_AUTOMAT_DOMAINS = (
+    "bot.xing.com",
+)
+
 
 def _is_safe_email(addr: str) -> bool:
     lokal, _, domain = addr.rpartition("@")
@@ -284,6 +292,8 @@ def _is_safe_email(addr: str) -> bool:
     # Das war ein Fehler in der gefaehrlichen Richtung (echte Adressen
     # rutschten durch), gefunden am 07.08.2026.
     if any(domain == d or domain.endswith("." + d) for d in SAFE_EMAIL_DOMAINS):
+        return True
+    if any(domain == d or domain.endswith("." + d) for d in _AUTOMAT_DOMAINS):
         return True
     return lokal.lower() in _SYSTEM_LOKALTEILE
 
