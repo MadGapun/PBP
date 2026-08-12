@@ -518,13 +518,18 @@ def can_post_class(db, trigger_kind: str, settings: dict) -> bool:
             return False
         if _ambiente_stumm_wegen_ungelesen(db):
             return False
-        if _ambiente_heute(db) >= int(settings.get("ambiente_pro_tag") or 1):
-            return False
 
     freq = settings.get("frequency", "standard")
     if freq == "unbegrenzt":
         # Power-User: keine Kontingent-Drosselung (Sperren oben bleiben)
         return True
+
+    # Das Ambiente-Tageskontingent ist ein KONTINGENT, keine Sperrfrist —
+    # 'unbegrenzt' hebt es deshalb auf (#822-Vertrag). Stand die Pruefung
+    # vor dem Shortcut, war der CI-Lauf tageszeitabhaengig rot (#853).
+    if klasse in _AMBIENTE_KLASSEN and \
+            _ambiente_heute(db) >= int(settings.get("ambiente_pro_tag") or 1):
+        return False
     limits = FREQUENCY_LIMITS.get(freq, FREQUENCY_LIMITS["standard"])
 
     if klasse == "idle":
@@ -793,7 +798,13 @@ def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6,
         return None
     seen: set = set()
     for _ in range(max_tries):
-        line = pick_line(db, pool, ctx, sperrfrist_stunden=sperrfrist_stunden)
+        # Bereits geprobte Linien aus dem Kandidaten-Pool nehmen — sonst
+        # kann der Zufall dieselbe kaputte Linie mehrfach ziehen und eine
+        # valide bleibt trotz max_tries unerreicht (CI-Flake, #853 Teil 2).
+        kandidaten = [l for l in pool if l not in seen]
+        if not kandidaten:
+            return None
+        line = pick_line(db, kandidaten, ctx, sperrfrist_stunden=sperrfrist_stunden)
         if not line or line in seen:
             continue
         seen.add(line)

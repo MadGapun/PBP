@@ -25,6 +25,10 @@ def setup_env():
     db = Database()
     db.initialize()
     db.save_profile({"name": "Test"})
+    # Ruhezeit (v1.7.12/#822) deaktivieren ("0-0" = Start==Ende = nie
+    # aktiv) — sonst sind Elwosa-Tests nachts rot, und ein relatives
+    # Fenster kollidiert mit Tests, die die Uhr faken (#853).
+    db.set_profile_setting("elwosa_ruhezeit", "0-0")
     _dash_mod._db = db
     yield db
     db.close()

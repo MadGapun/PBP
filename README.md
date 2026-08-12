@@ -4,12 +4,20 @@
 
 <sup>An <b>ELWOSA</b> Project</sup>
 
-<!-- Einstiegs-Block: wird nach der Varianten-Auswahl in #834 ersetzt (Baustelle 0/1). -->
-> PBP verwaltet deine Bewerbungen, durchsucht diverse Stellenportale und gibt dir ehrliches Feedback zu deinen Unterlagen — mit konkreten Vorschlägen, wie es besser geht. Läuft lokal, kostet nichts, deine Daten bleiben bei dir.
+<!-- Einstieg: Variante D (Originalsprache) + Schlusszeile aus Variante A, gewaehlt in #834. -->
+**PBP ist ein Bewerbungs-Helfer — mit einem entscheidenden Unterschied: die Werkzeuge reden miteinander.**
+
+Wer schon mal mehr als zehn Bewerbungen gleichzeitig laufen hatte, kennt das Gefühl: zehn offene Tabs, drei Excel-Listen, ein Kalender voller Termine ohne Kontext, und am Ende der Woche weiß man nicht mehr, wem man eigentlich was geschrieben hat.
+
+PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß, was eigentlich passiert ist. Mehr als ein Kalender, der an das Interview morgen erinnert, aber nicht weiß, mit wem man vor zwei Wochen telefoniert hat. Mehr als ein Coach, der Tipps gibt, ohne Lebenslauf, Stelle und bisherige Korrespondenz zu kennen.
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
 Aktuelle Version **v1.7.12** · letztes Release am 11. August 2026 · 2199 automatische Tests · wöchentliche Releases
+
+Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
+
+**So fängst du an:** [ZIP herunterladen und `INSTALLIEREN.bat` doppelklicken](#schnellstart) — nach rund fünf Minuten läuft PBP. Du brauchst dazu [Claude Desktop](https://claude.ai/download) (kostenlos); als reines Verwaltungs-Tool funktioniert PBP auch ganz ohne KI.
 
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
