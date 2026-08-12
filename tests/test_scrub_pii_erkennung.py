@@ -70,10 +70,17 @@ def test_echte_nummer_neben_code_wird_trotzdem_erkannt():
     "vorname.nachname@firma-xy.de",
     "recruiting@grossfirma.de",   # endet auf "firma.de" — war die Luecke
     "hr@bestetest.de",            # endet auf "test.de"
-    "info@bot.xing.com",          # info@ ist ein echter Kontaktweg
 ])
 def test_personen_adressen_werden_erkannt(addr):
     assert _arten(addr, "EMAIL"), f"nicht erkannt: {addr!r}"
+
+
+def test_portal_roboter_domain_ist_safe():
+    """PII-Triage 12.08.2026: hinter bot.xing.com haengt unabhaengig vom
+    Lokalteil nur der XING-Benachrichtigungs-Roboter (#643) — info@ dort
+    ist kein Kontaktweg zu einem Menschen. Personen-Adressen auf normalen
+    Domains bleiben erkannt (siehe Parametrize oben)."""
+    assert not _arten("info@bot.xing.com", "EMAIL")
 
 
 @pytest.mark.parametrize("addr", [

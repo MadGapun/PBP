@@ -32,6 +32,64 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scrub_pii import find_pii  # noqa: E402
 
 
+# Dokumentierte Ausnahmen (DoD-9, PII-Triage 12.08.2026): Diese Artefakte
+# nennen Portale/Vermittler als QUELLEN-Feature (Produktfunktion, kein
+# Bewerbungsverhaeltnis) bzw. den historischen Referenzfall aus dem
+# A21/#758-Sweep. Der Sweep meldet fuer sie nur ABWEICHUNGEN vom erwarteten
+# Treffer-Set — so bleibt er stumm, solange nichts Neues dazukommt, und
+# schlaegt an, sobald jemand echte PII ergaenzt. (Ein Pruefer, der bei
+# korrektem Zustand Alarm gibt, wird ignoriert — MERKE aus DoD-9.)
+# ACHTUNG: Kommentare sind positionsindiziert ("Kommentar 2") — wird vor
+# einem Ausnahme-Kommentar ein neuer eingefuegt, verrutscht der Schluessel
+# und der Sweep meldet scheinbar Neues. Dann hier nachziehen.
+AUSNAHMEN: dict[str, set[str]] = {
+    # Quellen-/Scraper-Kontext: Portale und Vermittler als Adapter/Health
+    "#653 Body": {"FIRMA: ferchau"},
+    "#668 Body": {"FIRMA: ferchau", "FIRMA: hays"},
+    "#668 Kommentar 1": {"FIRMA: ferchau"},
+    "#675 Body": {"FIRMA: ferchau", "FIRMA: hays"},  # DoD-Checkliste selbst
+    "#747 Titel": {"FIRMA: ferchau"},
+    "#747 Body": {"FIRMA: ferchau"},
+    "#747 Kommentar 1": {"FIRMA: ferchau"},
+    "#748 Body": {"FIRMA: ferchau"},
+    "#758 Kommentar 2": {"FIRMA: Hays", "FIRMA: ferchau"},  # beschreibt die Ausnahme-Regel
+    "#761 Body": {"FIRMA: ferchau", "FIRMA: hays"},
+    "#813 Body": {"FIRMA: ferchau", "FIRMA: hays"},
+    # Historischer Referenzfall aus dem A21/#758-Sweep (bewusst belassen):
+    # aussortierte Fremd-Stellen, kein Bewerbungsverhaeltnis.
+    "#670 Body": {"CORP: Tchibo GmbH"},
+    "#671 Body": {"CORP: Konkreter Fall\n\nTchibo GmbH"},
+    "#671 Kommentar 1": {"CORP: Fall\n\nTchibo GmbH", "CORP: Tchibo GmbH"},
+    # Release-Notes: Portale/Vermittler als Quellen-Feature (Adapter,
+    # Probe-URLs, URL-Erkennung, Workday-DAX-Karriereportale) sowie der
+    # Tchibo-Referenzfall (beta.86) und ein Catch-all-Fehlalarm auf die
+    # Formulierung "Rechtsform-Suffixe GmbH" (beta.64).
+    "Release v1.7.4": {"FIRMA: FERCHAU"},
+    "Release v1.7.3": {"FIRMA: Hays"},
+    "Release v1.7.0-beta.86": {"CORP: Tchibo GmbH"},
+    "Release v1.7.0-beta.85": {"FIRMA: ferchau"},
+    "Release v1.7.0-beta.77": {"FIRMA: ferchau"},
+    "Release v1.7.0-beta.64": {"CORP: Rechtsform-Suffixe GmbH"},
+    "Release v1.7.0-beta.47": {"FIRMA: Hays"},
+    "Release v1.7.0-beta.36": {"FIRMA: Bosch", "FIRMA: Siemens"},
+    "Release v1.7.0-beta.35": {"FIRMA: ferchau", "FIRMA: hays"},
+    "Release v1.6.2": {"FIRMA: FERCHAU", "FIRMA: Hays"},
+    "Release v1.6.0-beta.20": {"FIRMA: hays"},
+    "Release v1.6.0-beta.18": {"FIRMA: ferchau", "FIRMA: hays"},
+    "Release v1.6.0-beta.16": {"FIRMA: ferchau"},
+    "Release v1.6.0-beta.14": {"FIRMA: hays"},
+    "Release v1.6.0-beta.12": {"FIRMA: Hays"},
+}
+
+
+def _gefiltert(stelle: str, treffer: list[str]) -> list[str]:
+    """Blendet erwartete Treffer dokumentierter Ausnahmen aus."""
+    erwartet = AUSNAHMEN.get(stelle)
+    if erwartet is None:
+        return treffer
+    return sorted(set(treffer) - erwartet)
+
+
 def _gh(args: list[str]) -> str:
     """Ruft gh auf — ohne GITHUB_TOKEN, sonst greift der Token mit zu
     engen Scopes (siehe CLAUDE.md, Token-Falle)."""
@@ -82,20 +140,22 @@ def main() -> int:
         n = iss["number"]
         for stelle, text in [(f"#{n} Titel", iss.get("title", "")),
                              (f"#{n} Body", iss.get("body", "") or "")]:
-            treffer = find_pii(text)
+            treffer = _gefiltert(stelle, find_pii(text))
             if treffer:
                 funde.append((stelle, treffer))
         for i, kom in enumerate(iss.get("comments") or [], 1):
-            treffer = find_pii(kom.get("body", "") or "")
+            stelle = f"#{n} Kommentar {i}"
+            treffer = _gefiltert(stelle, find_pii(kom.get("body", "") or ""))
             if treffer:
-                funde.append((f"#{n} Kommentar {i}", treffer))
+                funde.append((stelle, treffer))
 
     if args.mit_releases:
         for rel in releases_laden():
             geprueft += 1
-            treffer = find_pii(rel.get("body", "") or "")
+            stelle = f"Release {rel['tagName']}"
+            treffer = _gefiltert(stelle, find_pii(rel.get("body", "") or ""))
             if treffer:
-                funde.append((f"Release {rel['tagName']}", treffer))
+                funde.append((stelle, treffer))
 
     print(f"Geprueft: {geprueft} Artefakte\n")
     if not funde:
