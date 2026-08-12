@@ -86,16 +86,29 @@ def _stub_run_search(db, job_id, params):
 
 
 def _wait_job_beendet(db, job_id, timeout=5.0):
-    """Wartet bis der Hintergrund-Job durch ist — verhindert Races zwischen
-    Stub-Thread (Commit) und Test-Asserts sowie Patch-Exit vor Thread-Start."""
+    """Wartet bis der Hintergrund-Job durch ist UND der Worker-Thread endete.
+
+    #857: run_search setzt 'fertig', danach laeuft im SELBEN Thread noch
+    _maybe_auto_dismiss_after_search — auf der GETEILTEN SQLite-Connection
+    (check_same_thread=False, eine Connection pro Database-Instanz).
+    Asserts, die nur auf den Job-Status warten, lesen sporadisch parallel
+    zu diesem Nachlauf und sehen fremde Transaktionszustaende (beobachtet:
+    active_sources las sich als leer). Deshalb wie der conftest-Drain
+    (A22/#759) zusaetzlich auf das ENDE aller pbp-Threads joinen — erst
+    dann ist die Connection exklusiv beim Test."""
+    import threading
     import time
     start = time.time()
+    job = None
     while time.time() - start < timeout:
         job = db.get_background_job(job_id)
         if job and job.get("status") in ("fertig", "fehler"):
-            return job
+            break
         time.sleep(0.05)
-    return db.get_background_job(job_id)
+    for t in threading.enumerate():
+        if t.name.startswith("pbp-") and t is not threading.current_thread():
+            t.join(timeout=10)
+    return job or db.get_background_job(job_id)
 
 
 class TestSmartDefaultQuellen:

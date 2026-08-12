@@ -17,15 +17,18 @@
   "einstellungen",
 ];
 
+// v1.8 (#896): 'entwurf' und 'warte_auf_rueckmeldung' entfernt — beide
+// kennt die Backend-Whitelist (tools/bewerbungen.py VALID_STATUSES) nicht
+// mehr; 'warte_auf_rueckmeldung' wurde serverseitig still auf
+// 'eingangsbestaetigung' gemappt, 'entwurf' abgelehnt. Guard-Test:
+// tests/test_frontend_paritaet_896.py.
 export const STATUS_OPTIONS = [
   { value: "in_vorbereitung", label: "In Vorbereitung" },
-  { value: "entwurf", label: "Entwurf" },
   { value: "beworben", label: "Beworben" },
   { value: "eingangsbestaetigung", label: "Eingangsbestätigung" },
   { value: "interview", label: "Interview" },
   { value: "zweitgespraech", label: "Zweitgespräch" },
   { value: "interview_abgeschlossen", label: "Interview abgeschlossen" },
-  { value: "warte_auf_rueckmeldung", label: "Warte auf Rückmeldung" },
   { value: "angebot", label: "Angebot" },
   { value: "angenommen", label: "Angenommen" },
   { value: "abgelehnt", label: "Abgelehnt" },
