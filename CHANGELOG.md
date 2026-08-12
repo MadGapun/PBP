@@ -16,6 +16,82 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.13] - 2026-08-12 — Hotfix: Aufgaben-Tab Deep-Link/2-Klick-Bug (#846) + Elwosa-unbegrenzt-Vertrag (#853)
+
+> **Update fuer alle v1.7-Nutzer, die den Aufgaben-Bereich nutzen.**
+> KEINE Schema-Migration (Schema **v48** unveraendert), keine neuen
+> Abhaengigkeiten.
+
+### Fixed
+- **Elwosa: `frequency='unbegrenzt'` hebt jetzt wirklich die Kontingente
+  auf** (#853): Das Ambiente-Tageskontingent stand VOR dem
+  unbegrenzt-Shortcut und drosselte Power-User entgegen dem
+  dokumentierten #822-Vertrag („Kontingente entfallen, Sperrfristen
+  bleiben"). Kind-Sperrfrist, Ruhezeit, Rueckschlag-Sperre und
+  Ungelesen-Daempfung gelten unveraendert. Nebeneffekt behoben: der
+  CI-Lauf war dadurch tageszeitabhaengig rot. Zusaetzlich zieht
+  `_pick_valid_line` ohne Wiederholung (eine kaputte Linie im Pool
+  konnte Elwosa per Zufallspech verstummen lassen) und fuenf
+  Alt-Test-Fixtures sind Ruhezeit-fest.
+- **Aufgaben-Tab: Deep-Link und erster Klick funktionieren** (#846):
+  `aufgaben` fehlte in `PAGE_IDS` (`frontend/src/utils.js`) — exakt
+  derselbe Fehler wie bei `kontakte` in v1.7.0-beta.21. Folgen bisher:
+  ein Lesezeichen oder Reload auf `#aufgaben` landete auf dem Dashboard,
+  und der erste Klick auf „Aufgaben" in der Sidebar (oder „Zu den
+  Aufgaben" im Ueberfaellig-Banner) prallte ab — erst der zweite blieb
+  stabil. Gefunden bei der Screenshot-Erzeugung der Sichtbarkeits-Welle.
+
+### Added
+- **Guard-Test `tests/test_frontend_page_ids_846.py`**: liest
+  `TAB_CONFIG` (App.jsx) und `PAGE_IDS` (utils.js) und schlaegt fehl,
+  sobald ein Tab ohne `PAGE_IDS`-Eintrag dazukommt — der Fehler kann
+  beim naechsten neuen Tab nicht mehr passieren.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.13.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.13.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.12] - 2026-08-11 — Grosse Welle: Bedienbarkeit, Elwosa, Scoring, Aufgaben (#768, #797, #809-#816, #822-#828)
 
 > **Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration (Schema
