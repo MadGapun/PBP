@@ -8,6 +8,10 @@
                 // 2-Klick-Bug (1. Klick setzte hash, hashchange-Listener
                 // verwarf 'kontakte' als unbekannt, fiel auf dashboard
                 // zurueck; erst 2. Klick blieb stabil)
+  "aufgaben",  // v1.7.13 (#846): exakt derselbe Fehler wie 'kontakte' —
+                // beim Anlegen des Aufgaben-Tabs (#814/#815) vergessen.
+                // Guard-Test test_frontend_page_ids_846.py haelt TAB_CONFIG
+                // und PAGE_IDS jetzt mechanisch synchron.
   "kalender",
   "statistiken",
   "einstellungen",
