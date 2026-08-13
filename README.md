@@ -2,7 +2,7 @@
 
 # <img src="docs/pbp.png" alt="PBP Logo" width="36" align="absmiddle" /> PBP — Persönliches Bewerbungs-Portal
 
-<sup>An <b>ELWOSA</b> Project</sup>
+<sup><a href="https://www.elwosa.de">An <b>ELWOSA</b> Project</a></sup>
 
 <!-- Einstieg: Variante D (Originalsprache) + Schlusszeile aus Variante A, gewaehlt in #834. -->
 **PBP ist ein Bewerbungs-Helfer — mit einem entscheidenden Unterschied: die Werkzeuge reden miteinander.**
@@ -320,8 +320,14 @@ Hintergrund: PBP versucht den Standard-Browser zu steuern. Wenn Edge geoeffnet i
 
 ---
 
+## PBP und ELWOSA
+
+PBP entsteht auf [ELWOSA](https://www.elwosa.de), der Arbeitsplattform für Menschen und KI. Dort liegen Plan, Stories und Wiki nach demselben Definition-of-Done-Prinzip, das auch dieses Repository führt: Eine Position gilt erst als fertig, wenn Code, Tests und Dokumentation zusammen abgeschlossen sind. Was hinter der Plattform steckt und warum es sie gibt, steht unter [elwosa.de/idee](https://www.elwosa.de/idee).
+
+---
+
 <p align="center">
 <a href="https://paypal.me/birzite"><img src="https://img.shields.io/badge/☕_Kaffee_spendieren-PayPal-blue?style=for-the-badge" alt="Kaffee spendieren"></a>
-<br><sub>An <b>ELWOSA</b> Project</sub>
+<br><sub><a href="https://www.elwosa.de">An <b>ELWOSA</b> Project</a></sub>
 <br><sub><b>Deutsch</b> | <a href="README.en.md">English</a></sub>
 </p>
