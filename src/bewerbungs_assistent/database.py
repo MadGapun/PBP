@@ -6,6 +6,7 @@ cross-thread access (MCP thread + Dashboard thread).
 """
 
 import sqlite3
+import threading
 import json
 import os
 import sys
@@ -164,20 +165,35 @@ class Database:
 
     def __init__(self, db_path: Optional[Path] = None):
         self.db_path = db_path or get_db_path()
-        self._conn: Optional[sqlite3.Connection] = None
+        # A28 (#900, v1.7.15): eine Connection JE THREAD statt einer
+        # geteilten. Die alte geteilte Connection (check_same_thread=False,
+        # ein Objekt fuer alle Threads) liess Transaktionen zweier Threads
+        # verschraenken: execute+commit des einen committete/verwarf
+        # halbfertige Arbeit des anderen, und jeder sah die uncommitteten
+        # Zwischenstaende der anderen (belegter Fall: #857-Flake).
+        # WAL traegt mehrere Connections auf dieselbe Datei; die Registry
+        # existiert nur, damit close() alle sauber schliessen kann.
+        self._local = threading.local()
+        self._conns: list = []
+        self._conns_lock = threading.Lock()
 
     def connect(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-            self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
-            self._conn.execute("PRAGMA foreign_keys=ON")
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
             # #708/#723: MCP-Server und Dashboard sind zwei Prozesse mit je
             # eigener Connection (zwei Writer). Ohne busy_timeout scheitert ein
             # Write SOFORT mit 'database is locked', sobald der andere gerade
             # schreibt — mit Timeout wird bis BUSY_TIMEOUT_MS gewartet.
-            self._conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
-        return self._conn
+            # Seit A28 gilt dasselbe auch fuer die Threads EINES Prozesses.
+            conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+            self._local.conn = conn
+            with self._conns_lock:
+                self._conns.append(conn)
+        return conn
 
     def rollback_if_stale(self, context: str = "") -> bool:
         """#708: Sicherheitsnetz gegen geleakte Transaktionen.
@@ -187,10 +203,15 @@ class Database:
         Leak (z.B. Tool via Timeout mitten im Write abgebrochen) und wuerde
         den Write-Lock dauerhaft halten — alle anderen Writer scheitern dann
         bis zum Prozess-Neustart.
+
+        A28 (#900): wirkt nur auf die Connection des AUFRUFENDEN Threads —
+        vorher rollte die geteilte Connection auch fremde, noch laufende
+        Writes anderer Threads zurueck.
         """
-        if self._conn is not None and self._conn.in_transaction:
+        conn = getattr(self._local, "conn", None)
+        if conn is not None and conn.in_transaction:
             try:
-                self._conn.rollback()
+                conn.rollback()
                 logger.warning(
                     "Offene Transaktion nach %s zurueckgerollt (#708) — "
                     "ein Write wurde vermutlich abgebrochen.", context or "Lauf"
@@ -237,15 +258,28 @@ class Database:
             return 0
 
     def close(self):
-        if self._conn:
-            # #768: beim sauberen Beenden die WAL zurueckschreiben — sonst
-            # haengt der letzte Arbeitstag in der Sidecar-Datei.
+        # A28 (#900): alle registrierten Thread-Connections schliessen.
+        # Der Vertrag bleibt wie bei A22/#759: erst pbp-Threads joinen,
+        # DANN close() — eine von einem noch laufenden Thread benutzte
+        # Connection zu schliessen bleibt ein Use-after-close.
+        with self._conns_lock:
+            conns, self._conns = list(self._conns), []
+        self._local = threading.local()
+        if not conns:
+            return
+        # #768: beim sauberen Beenden die WAL zurueckschreiben — sonst
+        # haengt der letzte Arbeitstag in der Sidecar-Datei. Bewusst auf
+        # einer BESTEHENDEN Connection, nicht via connect() — das wuerde
+        # eine frische Connection in der geleerten Registry anlegen.
+        try:
+            conns[0].execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
+        for conn in conns:
             try:
-                self.wal_checkpoint(truncate=True)
+                conn.close()
             except Exception:
                 pass
-            self._conn.close()
-            self._conn = None
 
     def initialize(self):
         """Create all tables if they don't exist."""
