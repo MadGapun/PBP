@@ -1133,6 +1133,9 @@ export default function App() {
         { id: "settings-quellen", label: "Quellen" },
         { id: "settings-ai", label: "Lokale KI" },
         { id: "settings-automatik", label: "Automatik" },
+        // v1.7.14 (#896): 'bewerten' (#663) fehlte hier — der Tab
+        // existierte, war aber per Sidebar nicht erreichbar.
+        { id: "settings-bewerten", label: "Bewertung" },
         { id: "settings-system", label: "System" },
         { id: "settings-erscheinungsbild", label: "Erscheinungsbild" },
         { id: "settings-datenschutz", label: "Datenschutz" },
@@ -1146,6 +1149,7 @@ export default function App() {
           "quellen": "Quellen",
           "ai": "Lokale KI",
           "automatik": "Automatik",
+          "bewerten": "Bewertung",
           "system": "System",
           "erscheinungsbild": "Erscheinungsbild",
           "datenschutz": "Datenschutz",
