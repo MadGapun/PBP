@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.13** ist Stable (`--latest`, 2026-08-12; Hotfix vom Tag v1.7.12: #846 Aufgaben-Tab-Navigation + #853 Elwosa-unbegrenzt) —
+React-Frontend + SQLite. **v1.7.14** ist Stable (`--latest`, 2026-08-13; Hotfix vom Tag v1.7.13: #896 Status-Dropdown+Subnav, #857 Testhaerte) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
