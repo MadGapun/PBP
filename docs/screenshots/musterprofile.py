@@ -723,13 +723,13 @@ def seed_anna(db):
          "industry": "Hotellerie",
          "description": "Führung von fünf Mitarbeitenden je Schicht, Dienstplanung, "
                         "Beschwerdemanagement, Einarbeitung."},
-        {"company": "Kontor 44 Wirtschaftsprüfung GmbH", "title": "Office Managerin",
+        {"company": "Kontor Nord Wirtschaftspruefung GmbH", "title": "Office Managerin",
          "location": "Leipzig", "start_date": "2015-06", "end_date": "2017-08",
          "industry": "Wirtschaftsprüfung",
          "description": "Branchenwechsel: Empfang, Mandantenkorrespondenz, "
                         "Reiseplanung, vorbereitende Buchhaltung für 30 Beschäftigte."},
         # 2017-09 bis 2019-04: Elternzeit (20 Monate) — bewusste Luecke.
-        {"company": "Kontor 44 Wirtschaftsprüfung GmbH", "title": "Office Managerin (Teilzeit 25h)",
+        {"company": "Kontor Nord Wirtschaftspruefung GmbH", "title": "Office Managerin (Teilzeit 25h)",
          "location": "Leipzig", "start_date": "2019-05", "end_date": "2021-07",
          "industry": "Wirtschaftsprüfung",
          "description": "Wiedereinstieg in Teilzeit nach Elternzeit, zusätzlich "

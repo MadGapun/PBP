@@ -187,7 +187,7 @@ FIKTIVE_FIRMEN = (
     "parkhotel auenblick",
     "grandhotel firnlicht",
     "stadthotel elsterblick",
-    "kontor 44",
+    "kontor nord",
     "pflegewerk saale",
     "auwald klinikgruppe",
     "lindenhof seniorenresidenzen",
@@ -248,6 +248,31 @@ _PHONE_RE = re.compile(
 # Backtick-Kontext und nicht ueber ein Hex-Muster: ein reines Ziffernmuster
 # wuerde auch echte Rufnummern verschlucken.
 _INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def _ist_fiktive_nummer(wert: str) -> bool:
+    """Rufnummern nach der 555-Fiktionskonvention (v1.7.16).
+
+    Musterdaten brauchen Telefonnummern, die erkennbar KEINE echten sind
+    — international ueblich ist dafuer der 555-Block (Filme, Lehrbuecher).
+    PBP nutzt ihn in den Musterprofilen (docs/screenshots/musterprofile.py).
+    Ohne diese Regel meldet der Pruefer bei korrekten Musterdaten Alarm,
+    und ein Pruefer, dem man nicht glaubt, verhindert nichts.
+
+    Eng gefasst: der Teilnehmerteil (nach der Vorwahl) muss mit 555
+    BEGINNEN. Eine echte Nummer, in der zufaellig 555 vorkommt, faellt
+    nicht darunter.
+    """
+    ziffern = re.sub(r"\D", "", wert)
+    if ziffern.startswith("0049"):
+        ziffern = "0" + ziffern[4:]
+    elif ziffern.startswith("49") and len(ziffern) > 10:
+        ziffern = "0" + ziffern[2:]
+    # Vorwahl: 0 + 2-5 Stellen, danach der Teilnehmerteil
+    for vorwahl_laenge in range(3, 7):
+        if len(ziffern) > vorwahl_laenge and ziffern[vorwahl_laenge:].startswith("555"):
+            return True
+    return False
 
 
 def _in_inline_code(text: str, start: int, ende: int) -> bool:
@@ -329,6 +354,8 @@ def find_pii(text: str) -> list[str]:
             continue
         # Commit-Hashes, IDs und Codeschnipsel stehen in Backticks
         if _in_inline_code(text, m.start(), m.end()):
+            continue
+        if _ist_fiktive_nummer(wert):
             continue
         gesehen_tel.add(wert)
         hits.append(f"PHONE: {wert}")
