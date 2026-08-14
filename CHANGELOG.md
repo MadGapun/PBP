@@ -16,6 +16,90 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.16] - 2026-08-13 — Aufgeraeumtes Paket: Schaufenster, Musterdaten, saubere Doku
+
+> **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration
+> (Schema **v48** unveraendert), keine neuen Abhaengigkeiten, keine
+> Funktionsaenderung — dieser Release bringt die Stable-Linie auf den
+> Doku- und Materialstand, der bisher nur in der Entwicklungslinie lag.
+
+### Changed
+- **Neues README**: Produkt vor Installation. Was PBP ist und wie es
+  aussieht steht jetzt ganz oben (Einzeiler, Hero-Bild, Lebenszeichen
+  mit Version/Datum/Testzahl), die Installationsanleitung folgt danach.
+  Bildergalerie mit den vier wichtigsten Ansichten, der Rest
+  eingeklappt; Badges von zehn auf fuenf reduziert; Changelog-Abschnitt
+  auf die letzten Releases gekuerzt.
+- **Screenshots komplett neu** — erzeugt aus zwei frei erfundenen
+  Musterprofilen statt aus Alt-Demodaten, die reale Firmennamen
+  enthielten. Alle Bilder unter 200 KB, heller Modus, einheitliche
+  Fensterbreite; neu dabei ist die Aufgaben-Ansicht.
+- **`docs/` aufgeraeumt**: 21 interne Arbeits-, Audit- und
+  Planungsdokumente liegen jetzt unter `docs/internal/` (nichts
+  geloescht, Historie erhalten). In `docs/` steht nur noch, was
+  Nutzerinnen und Nutzer wirklich brauchen.
+
+### Added
+- **`README.en.md`** — kurze englische Fassung mit ehrlicher Einordnung
+  (deutschsprachiges Produkt fuer den DACH-Arbeitsmarkt), Architektur-
+  Ueberblick und Einladung, das Konzept fuer andere Arbeitsmaerkte zu
+  forken. Sprachumschalter in beiden READMEs.
+- **Musterprofile als Seed-Modul** (`docs/screenshots/musterprofile.py`):
+  zwei vollstaendige, fiktive Berufsleben mit Stationen, STAR-Projekten,
+  Skills, Bewerbungsverlauf, Terminen und Aufgaben — reproduzierbar per
+  Skript statt handgeklickt. Grundlage fuer alle kuenftigen Screenshots.
+- **Zentrale Textquelle** `docs/assets/texte.md` und Social-Preview-Bild
+  (`docs/social-preview.png`) fuer geteilte Links.
+- **PII-Pruefer gehaertet**: der Bestands-Sweep meldet nur noch
+  Abweichungen von dokumentierten Ausnahmen und schweigt, solange alles
+  in Ordnung ist — ein Pruefer, der bei korrektem Zustand Alarm gibt,
+  wird sonst irgendwann ignoriert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.16.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.16.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.15] - 2026-08-13 — Hotfix: SQLite-Connection je Thread (A28, #900)
 
 > **Unsichtbares, aber wichtiges Update fuer alle v1.7-Nutzer.** KEINE

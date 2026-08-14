@@ -159,6 +159,48 @@ FIKTIVE_FIRMEN = (
     "vermittler west",
     "beispiel",
     "acme",
+    # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
+    # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
+    "firma gmbh",
+    # Musterprofile Bob & Anna (docs/screenshots/musterprofile.py, #840) —
+    # alle frei erfunden, dienen als Demo-/Screenshot-Daten.
+    "weserstahl",
+    "leinetal",
+    "hansa verfahrenstechnik",
+    "bergwind getriebebau",
+    "alpenland anlagenmontage",
+    "nordlicht antriebstechnik",
+    "steinfeld hydraulik",
+    "calenberg maschinenfabrik",
+    "windrose energietechnik",
+    "teutoburg stanztechnik",
+    "aller metallbau",
+    "harzland pumpen",
+    "borgfeld automotive",
+    "leibniz schaltanlagen",
+    "okertal getriebe",
+    "muehlenberg werkzeugbau",
+    "mühlenberg werkzeugbau",
+    "deistervilla",
+    "steinhuder foerdertechnik",
+    "steinhuder fördertechnik",
+    "parkhotel auenblick",
+    "grandhotel firnlicht",
+    "stadthotel elsterblick",
+    "kontor nord",
+    "pflegewerk saale",
+    "auwald klinikgruppe",
+    "lindenhof seniorenresidenzen",
+    "quartier m immobilien",
+    "elbaue logistik",
+    "salzgold therme",
+    "mitteldeutsches bildungswerk",
+    "wetterfeld",
+    "pleisse medien",
+    "pleiße medien",
+    "rosental kosmetikwerk",
+    "cospudener reisen",
+    "hafenkontor halle",
 )
 
 # Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
@@ -208,6 +250,31 @@ _PHONE_RE = re.compile(
 _INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 
+def _ist_fiktive_nummer(wert: str) -> bool:
+    """Rufnummern nach der 555-Fiktionskonvention (v1.7.16).
+
+    Musterdaten brauchen Telefonnummern, die erkennbar KEINE echten sind
+    — international ueblich ist dafuer der 555-Block (Filme, Lehrbuecher).
+    PBP nutzt ihn in den Musterprofilen (docs/screenshots/musterprofile.py).
+    Ohne diese Regel meldet der Pruefer bei korrekten Musterdaten Alarm,
+    und ein Pruefer, dem man nicht glaubt, verhindert nichts.
+
+    Eng gefasst: der Teilnehmerteil (nach der Vorwahl) muss mit 555
+    BEGINNEN. Eine echte Nummer, in der zufaellig 555 vorkommt, faellt
+    nicht darunter.
+    """
+    ziffern = re.sub(r"\D", "", wert)
+    if ziffern.startswith("0049"):
+        ziffern = "0" + ziffern[4:]
+    elif ziffern.startswith("49") and len(ziffern) > 10:
+        ziffern = "0" + ziffern[2:]
+    # Vorwahl: 0 + 2-5 Stellen, danach der Teilnehmerteil
+    for vorwahl_laenge in range(3, 7):
+        if len(ziffern) > vorwahl_laenge and ziffern[vorwahl_laenge:].startswith("555"):
+            return True
+    return False
+
+
 def _in_inline_code(text: str, start: int, ende: int) -> bool:
     """True, wenn der Treffer vollstaendig in einem Backtick-Block liegt."""
     return any(m.start() <= start and ende <= m.end()
@@ -232,6 +299,14 @@ _SYSTEM_LOKALTEILE = (
     "notification", "automailer", "bounce", "postmaster",
 )
 
+# Reine Roboter-DOMAINS der Portale: dahinter ist unabhaengig vom Lokalteil
+# kein Mensch erreichbar (Absender-Erkennung ist Produktfunktion, #643).
+# Fund aus der PII-Triage 12.08.2026: `info@bot.xing.com` wurde gemeldet,
+# obwohl der Lokalteil "info" nur an einem Benachrichtigungs-Roboter haengt.
+_AUTOMAT_DOMAINS = (
+    "bot.xing.com",
+)
+
 
 def _is_safe_email(addr: str) -> bool:
     lokal, _, domain = addr.rpartition("@")
@@ -242,6 +317,8 @@ def _is_safe_email(addr: str) -> bool:
     # Das war ein Fehler in der gefaehrlichen Richtung (echte Adressen
     # rutschten durch), gefunden am 07.08.2026.
     if any(domain == d or domain.endswith("." + d) for d in SAFE_EMAIL_DOMAINS):
+        return True
+    if any(domain == d or domain.endswith("." + d) for d in _AUTOMAT_DOMAINS):
         return True
     return lokal.lower() in _SYSTEM_LOKALTEILE
 
@@ -277,6 +354,8 @@ def find_pii(text: str) -> list[str]:
             continue
         # Commit-Hashes, IDs und Codeschnipsel stehen in Backticks
         if _in_inline_code(text, m.start(), m.end()):
+            continue
+        if _ist_fiktive_nummer(wert):
             continue
         gesehen_tel.add(wert)
         hits.append(f"PHONE: {wert}")

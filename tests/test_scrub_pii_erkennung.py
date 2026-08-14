@@ -63,6 +63,29 @@ def test_echte_nummer_neben_code_wird_trotzdem_erkannt():
     assert _arten("In `v1.7` gemeldet, Tel +49 69 9897 283 65", "PHONE")
 
 
+@pytest.mark.parametrize("text", [
+    "0511 5550123",              # Musterprofil Bob
+    "0341 5550987",              # Musterprofil Anna
+    "+49 511 555 0123",          # international geschrieben
+])
+def test_fiktive_555_nummern_sind_erlaubt(text):
+    """v1.7.16: Musterdaten brauchen erkennbar unechte Rufnummern; der
+    555-Block ist die uebliche Fiktionskonvention. Ohne diese Regel gab
+    der Pruefer bei KORREKTEN Musterprofilen Alarm."""
+    assert not _arten(text, "PHONE"), f"Fehlalarm auf Fiktion: {text!r}"
+
+
+@pytest.mark.parametrize("text", [
+    "Tel. 0511 4497 4978",       # gleiche Vorwahl, echte Nummer
+    "Mobil 0176 4766 4385",
+    "Kontakt: +49 40 85538906",
+])
+def test_echte_nummern_trotz_555_regel_erkannt(text):
+    """Gegenrichtung: Die Fiktions-Ausnahme darf keine echten Nummern
+    durchlassen — sie greift nur, wenn der Teilnehmerteil mit 555 BEGINNT."""
+    assert _arten(text, "PHONE"), f"nicht erkannt: {text!r}"
+
+
 # -------------------------------------------------------------- Mail
 
 @pytest.mark.parametrize("addr", [
@@ -70,10 +93,17 @@ def test_echte_nummer_neben_code_wird_trotzdem_erkannt():
     "vorname.nachname@firma-xy.de",
     "recruiting@grossfirma.de",   # endet auf "firma.de" — war die Luecke
     "hr@bestetest.de",            # endet auf "test.de"
-    "info@bot.xing.com",          # info@ ist ein echter Kontaktweg
 ])
 def test_personen_adressen_werden_erkannt(addr):
     assert _arten(addr, "EMAIL"), f"nicht erkannt: {addr!r}"
+
+
+def test_portal_roboter_domain_ist_safe():
+    """PII-Triage 12.08.2026: hinter bot.xing.com haengt unabhaengig vom
+    Lokalteil nur der XING-Benachrichtigungs-Roboter (#643) — info@ dort
+    ist kein Kontaktweg zu einem Menschen. Personen-Adressen auf normalen
+    Domains bleiben erkannt (siehe Parametrize oben)."""
+    assert not _arten("info@bot.xing.com", "EMAIL")
 
 
 @pytest.mark.parametrize("addr", [

@@ -1,7 +1,19 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.7** ist Stable (`--latest`) — v1.7.0 wurde am
+React-Frontend + SQLite. **v1.7.16** ist Stable (`--latest`, 2026-08-13) —
+der erste 1.7er-Release, der die komplette Sichtbarkeits-Arbeit (Teil L)
+enthaelt: bis v1.7.15 lagen neues README, README.en, Musterprofile,
+frische Screenshots und die docs/internal-Aufraeumung NUR auf main, das
+ausgelieferte Stable-ZIP zeigte noch Alt-Doku und Demo-Daten mit realen
+Firmennamen. MERKE: Schaufenster-Arbeit auf main ist erst beim Nutzer,
+wenn sie in der Stable-Linie ist. Davor v1.7.15 (A28/#900
+SQLite-Connection je Thread), v1.7.14 (#896/#857), v1.7.13 (#846/#853) —
+Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
+strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
+den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
+1.7-Linie und nicht nur in die 1.8-Beta — die Beta zieht kaum jemand.
+Davor: **v1.7.7** war Stable — v1.7.0 wurde am
 2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
 Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
 + Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
@@ -14,10 +26,352 @@ inkl. Mail-Weg PBP-Service@Elwosa.de, B13-Teil-1 #747), v1.7.5
 **Scoring-Fairness & Praxis-Funde** vom 13.07. (#750/#752-#757).
 **Leitlinie des Users: Benutzerfuehrung ist oberste Prioritaet** — jeder
 Flow fuehrt zum naechsten logischen Schritt; Melde-Kultur gehoert zur
-DNA. v1.6.10 bleibt als aelterer Release verfuegbar. Naechste Arbeit
-Richtung **v1.8** (Plugin-Plattform #504, Komponenten-Framework
-I10/#751, Auto-OCR E19/#750, Mail-Integrationen #478/#480/#481,
-Branchen-Radar #718/#735, Referenzen #740/D24) — siehe Master-Plan.
+DNA. v1.6.10 bleibt als aelterer Release verfuegbar. **v1.8-Beta-Linie
+eroeffnet (Planungswelle 2026-07-14, User-Wort):** Architektur-Entwurf
+D1–D5 (Plugins = EXTERNE Prozesse gegen versionierte Ingest-API, kein
+Code-Loading; Komponenten ≠ Plugins; Pairing statt Discovery) + Beta-
+Fahrplan in Plan-Roadmap-v18; Beta-Exit-Kriterium v1.8 im Master-Plan.
+**beta.0 = I10 Komponenten-Framework (#751) + E19 Auto-OCR (#750-T2,
+Schema v49)**, beta.1 = J1 Ingest-API v1 (#504), beta.2 = J2 Thunderbird
++ J4.1 ics, beta.3 = J5 Newsletter, beta.5 = Welle B (B25/B16/B18-Teil,
+Schema v52), beta.6 = Hotfix #760 (stderr-Backpressure-Freeze).
+Betas sind GitHub-Prereleases,
+`--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. **ALLE 25
+offenen Issues sind Wellen zugeordnet** (Tabelle im Master-Plan →
+Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
+#735/B25 neu, #627), F (Lokale KI: #669, #714, #632, F16-Rest), D
+(Bewerbungs-Mehrwert: #740 Referenzen, #452 Interview-Arc), J8
+(Branchen-Radar #718/#716/#717, zuletzt); beta.0-Beipack A21/#758,
+beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
+(Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
+`components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-08-11 (v1.7.12 Stable + v1.8.0-beta.11) — Grosse Welle
+
+**Schema:** v48 / v52, beide unveraendert (nur idempotente Safety-Nets:
+blacklist.is_active/updated_at/grund_vorher, interview_reflections.
+meeting_id, elwosa_messages.link_url/link_label, tasks.application_id
+nullable via writable_schema). **MCP-Tools:** 202 / 215 (+9: follow_up_
+bearbeiten, todo_bearbeiten/_hinfaellig/_details, aufgaben_uebersicht,
+interview_reflexion_loeschen, interview_lehren_auswerten,
+diagnose_befund_abweisen, dokumente_ohne_bewerbung). **Tests:** 2199 /
+2265 passed. 15 Issues in einer Welle (#768, #797, #809-#816,
+#822-#828), 6 davon vom selben Vormittag.
+
+MERKE-Punkte dieser Welle:
+
+(1) **F36/#822** — der Elwosa-Kern-Bug war ein KLASSEN-MAPPING:
+can_post_class prueste `trigger_kind == "world"`, gefeuert wurde mit
+`holiday_summer`/`late_night` → fiel durch ALLE Limits und durch
+`sachlich`. Zweite Ursache: pick_line fiel auf den vollen Pool zurueck,
+sobald er verbraucht war. Bei Drossel-Logik IMMER pruefen, ob die
+Pruefung dieselben Schluessel sieht wie der Aufrufer.
+
+(2) **C32/#827** — Anzeigen-Scoring: Treffer im Firmen-Werbeabsatz
+(Portfolio-Prosa) zaehlen 0.25x (`_firmenabsatz_ende` in
+job_scraper/__init__). Abwerten statt nullen — falscher Ausschluss ist
+teurer als zu hoher Score. Geschaetzte Gehaelter zaehlen GAR NICHT mehr.
+
+(3) **A27/#768** — es gab im gesamten Code KEINEN wal_checkpoint-
+Aufruf. close() macht jetzt TRUNCATE, die Auto-Engine PASSIVE je
+Zyklus. Bei Zweitprozess-Symptomen: pbp_diagnose zeigt WAL-Groesse und
+Blockade.
+
+(4) **D35/#814/#815** — tasks.application_id NOT NULL wurde per
+writable_schema + PRAGMA schema_version geloest (das #796-Muster, NIE
+db.close()). Der Erledigt-Haken-Befund: ein funktionierender Button in
+Statussymbol-Optik gilt als nicht vorhanden — vor Neubau pruefen, ob
+etwas nur unsichtbar ist.
+
+(5) **Cherry-Pick-Lehre (Stable-Port):** NIE `--skip` als Fallback in
+Resolution-Schleifen — vier Teile wurden still uebersprungen. Verlorene
+Hunks findet man ueber die mitgewanderten TESTS (82 Wellen-Tests auf
+dem Stable-Branch deckten den verlorenen analyse.py-Hunk auf).
+
+Offen fuer die naechste Welle: #802 (Score-Schwelle aus Verteilung),
+#808 (Health inhaltlich — deckt #809-Rest-UI mit ab), #811 (ATS-Slugs),
+#813 (Filterstufen-Telemetrie), #823-Rest (Kanaele 2/3/5/7), #817
+(PII an der Quelle), #791-#795, #798, #801, #806.
+
+## Stand 2026-08-06 (v1.7.11 Stable + v1.8.0-beta.10) — Stille Ausfaelle
+
+**Schema:** v48 / v52, beide unveraendert. **MCP-Tools:** 193 / 206
+(+`termin_dubletten_bereinigen`). **Tests:** 2082 / 2147 passed.
+
+Roter Faden: Fehler, die sich als Erfolg tarnen — keiner warf je eine
+Fehlermeldung.
+
+(1) **B29/#807** — die Bundesagentur-Suche lief auf `pc/v4/jobs`; der
+Endpunkt liefert seit Sommer 2026 **404**. Die produktivste Quelle lag
+still. Suche jetzt **v6**, Details bleiben **v4** (v5/v6 dort 403 — live
+geprueft 06.08.). MERKE: v6 hat ALLE Feldnamen umbenannt
+(`stellenangebote`→`ergebnisliste`, `titel`→`stellenangebotsTitel`,
+`arbeitgeber`→`firma`, `refnr`→`referenznummer`, `beruf`→`hauptberuf`,
+Ort unter `stellenlokationen[0].adresse.ort`) — ein reiner
+Endpunkt-Tausch haette leere Stellen ergeben.
+
+(2) **F35/#799** — der `lernen`-Lauf lief SYNCHRON im Scheduler-Thread
+samt Ollama-Aufruf. Bei geteilter SQLite-Connection
+(`check_same_thread=False`) blockiert das den GESAMTEN MCP-Server.
+MERKE: langlaufende Arbeit gehoert in einen Thread mit
+`background_jobs`-Eintrag — sonst gibt es nicht mal eine Spur.
+Ausserdem KORREKTUR des eigenen Fehlers aus F28/#784: `learned_insights`
+war eine Doppelanlage neben `learning_insights` (#594). **Vor dem
+Anlegen einer Tabelle pruefen, ob es sie unter aehnlichem Namen gibt.**
+
+(3) **A25/#796** — `documents.linked_application_id` hatte in
+gewachsenen Bestaenden INTEGER-Affinitaet; Hex-IDs wie `42061e46` werden
+darin still zu `4.2061e+50`, `1e960980` zu `inf`. MERKE: `inf = inf` ist
+wahr — solche Fehlzuordnungen melden sich bei JEDER SELECT-Pruefung als
+sauber. Heilung: erst Typ auf TEXT, DANN Werte zurueckuebersetzen (sonst
+laeuft der korrigierte Wert wieder in dieselbe Falle).
+
+**MERKE (CI-Segfault, teuer erkauft):** NIE `db.close()` aufrufen,
+solange Hintergrund-Threads laufen — alle teilen sich eine Connection,
+SQLite stuerzt dann auf C-Ebene ab (Exit 139). Fuer einen Schema-Reload
+stattdessen `PRAGMA schema_version` hochzaehlen. Tests, die Threads
+starten, muessen diese vor dem Fixture-Teardown joinen.
+
+Ausserdem: D30/#804 Termin-Dubletten, C31/#790 Blacklist-Ausnahme je
+Titel. Offen als B30/#808: der Health-Check meldet falsch-gruen, weil
+HTTP 200 nichts ueber gelieferte Stellen aussagt — genau deshalb blieb
+B29 wochenlang unbemerkt.
+
+## Stand 2026-07-24 (v1.7.10 Stable + v1.8.0-beta.9) — Stabilisierungswelle
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert — die neue
+`learned_insights`-Tabelle kommt als idempotentes CREATE-IF-NOT-EXISTS-
+Safety-Net OHNE Versions-Bump (v49 bleibt fuer `components` reserviert;
+Muster fuer kuenftige linien-uebergreifende Tabellen). **MCP-Tools:**
+192 / 205 (+9: `kalibrierung_backtest`, `suchperformance_auswerten`,
+`kontakt_historie`, `vermittler_historie`, `erkenntnisse_ableiten/
+anzeigen`, `erkenntnis_bestaetigen`, `elwosa_fragen`,
+`elwosa_prompt_kopieren`). **Tests:** 2045 / 2111 passed.
+
+Acht Praxis-Issues vom 24.07., strikt getrennt: v1.7 = Fehler/
+Datenqualitaet/Kalibrierung/fehlende Auswertungen; v1.8-Reste nur als
+Label `v1.8` + Kommentar. MERKE: die urspruenglichen Issues #769/#770/
+#772/#773/#775/#776/#777 trugen PII (Recruiter-Namen, User-Klarname im
+Dateipfad, Gehaltszahlen) und wurden nach DoD-9 GELOESCHT und als
+**#778-#784** anonymisiert neu angelegt (Mapping: 772→778, 775→779,
+776→780, 777→781, 773→782, 769→783, 770→784; #774 war sauber).
+
+Kern: (1) **C29/#778** `kalibrierung_backtest` ist eine SCHATTENRECHNUNG
+(ruft nie scores_neu_berechnen — Test erzwingt das); IDF+Top-5-Deckelung
+nur als Opt-in (`suchkriterien_bearbeiten(kategorie='scoring',
+aktion='idf')`), Injektion via `criteria['_idf_faktoren']` in
+get_search_criteria; Einzelgewichte in `criteria['keyword_gewichte']`.
+(2) **D27/#779** applied_at-Nachtrag bei uebersprungenem 'beworben';
+Status `arbeitgeber_ausgefallen` (kein Rueckzug, Angebot bleibt via
+Event-Historie in offer_rate) — Status-Listen an 10+ Stellen (DB, Tools,
+dashboard.py, Frontend). (3) **D29/#781** `services/statistik_erweitert.py`
+(Zeit/Kanal/Ablehnungs-Kategorien, Quote roh+bereinigt; Vor-PBP =
+Untergrenze). (4) **C30/#782** Repost-Erkennung compute-on-read
+(`find_repost_of_application` in duplicate_detection, bewusst OHNE
+URL-Vergleich — Reposts haben neue URLs, #670-Regel wuerde sie filtern).
+(5) **F28/#784 + F29/#774** learned_insights (nichts wirkt ohne
+Nutzerbestaetigung; widersprochen = -1, nie erneut) + Elwosa-Dialog
+(auskunftsfaehig, nicht urteilsfaehig; Ausfall ehrlich statt
+Claude-Fallback).
+
+## Stand 2026-07-23 (v1.7.9 Stable + v1.8.0-beta.8) — Verfolgbarkeit
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert. **MCP-Tools:**
+183 / 196 (+`stellen_urls_heilen`, +`bewerbungs_stellen_abgleichen` in
+tools/jobs.py). **Tests:** 1999 / 2064 passed, 1 skipped.
+
+Vier Befunde aus einem Praxis-Nachmittag (23.07.): von acht aktiven Stellen
+hatte KEINE einen nachvollziehbaren Weg zur Original-Ausschreibung.
+(Die Issues #763 und #766 wurden noch am selben Tag DSGVO-geloescht —
+reale Firmennamen; Inhalte stehen in Master-Plan B27/C28 + CHANGELOG.)
+
+(1) **B27/#763** — `is_search_result_url` uebersah pfadbasierte Such-URLs
+ohne Query, darunter die Form, die PBP fuer den Portal-Aufruf SELBST baut.
+MERKE: Detail-Marker gegen den **Pfad** pruefen, nicht gegen die ganze URL —
+sonst reisst `xing.com/jobs/<slug>-123456` mit. Neu `stellen_urls_heilen`
+(AK5 aus #645 war nie umgesetzt; wirkte nur auf NEUE Laeufe). **Ehrliche
+Grenze, nicht spaeter als Bug behandeln:** echte Detail-URLs sind aus dem
+Bestand NICHT rekonstruierbar — Portal-IDs werden beim INSERT nie
+persistiert.
+
+(2) **D25/#764** — `add_application` legte GAR KEINE `application_jobs`-Zeile
+an; die Junction lief seit v34 strukturell leer. `application_jobs` ist jetzt
+fuehrend, `applications.job_hash` wird synchron gehalten. Neu
+`bewerbungs_stellen_abgleichen`.
+
+(3) **D26/#765** — Frontend: `frontend/src/lib/jobLink.js` spiegelt
+`is_search_result_url`; CI-Schritt prueft DIESELBEN Faelle auf beiden Seiten
+(`jobLink.test.mjs`). Bei Aenderung an einer Seite die andere nachziehen.
+
+(4) **C28/#766** — Anker-Pflicht (`services/stellen_anker.py`): URL, Dokument
+oder Kontakt. Such-URL zaehlt NICHT, lange `description` auch nicht (eine
+Claude-Zusammenfassung liest sich wie eine Anzeige). Bewusst kein harter
+Block. `stelle_manuell_anlegen` nimmt jetzt Kontakt-Parameter (via
+`contact_links` `target_kind='job'`, kein Schema-Bump).
+
+**Linien-Unterschied:** die Such-URL-Muster liegen in der 1.7-Linie als reine
+Daten in `job_scraper/such_urls.py`, in der 1.8-Linie in
+`job_scraper/handoff.py` (B25/#735, mit dem Handoff-Feature). Der Import in
+`stellen_urls_heilen` faellt der Reihe nach durch — keine Linie schleppt das
+Feature der anderen mit.
+
+**MERKE Release-Gate:** `release_check.py` erwartet den CHANGELOG-Kopf auf der
+AKTUELLEN Version. Ein nachtraeglich oben eingefuegter Stable-Eintrag (wie der
+v1.7.8-Nachzug am 22.07.) bricht damit das Gate auf main, bis der naechste
+Release-Eintrag darueber kommt.
+
+## Stand 2026-07-16 (v1.8.0-beta.6, Prerelease) — Hotfix #760
+
+**Schema:** v52 (unveraendert). **MCP-Tools:** 194. **Prompts:** 25.
+
+Kern: **A23/#760** — Server-Freeze bei `jobsuche_starten` mit vielen
+Quellen REPRODUZIERT und behoben. Mechanismus: Such-Thread loggt massiv
+auf stderr; liest der MCP-Client stderr nicht kontinuierlich (Claude
+Desktop tut das nicht), laeuft der OS-Pipe-Puffer voll → der Log-write
+blockiert UND haelt den Logging-Handler-Lock → `logger.info("Tool
+aufgerufen")` der Middleware (Event-Loop-Thread!) haengt am Lock →
+kein Tool antwortet mehr, Heartbeat friert ein, Dashboard/DB laufen
+weiter (eigene uvicorn-Handler). Differential-Beweis via
+stdio-Repro-Client (QA-isoliert): 35 Quellen + ungelesenes stderr =
+Freeze t+40s; stderr gelesen = stabil; mit Fix + ungelesen = stabil.
+Fix: `logging_config.py` Console ueber `DropOnFullQueueHandler` +
+`QueueListener` entkoppelt (volle Queue → Console-Zeilen verworfen,
+Log-DATEI behaelt alles); Middleware schreibt Heartbeat VOR dem Log.
+Tests: `test_v18_logging_backpressure_760.py` (4). MERKE fuer
+Debug-Anleitungen: py-spy 0.4.2 kam an die venv-Python-3.13-Prozesse
+nicht ran („Failed to find python version") — Diagnose-Anleitungen
+lieber auf Differential-Läufe + Log-Datei stuetzen.
+
+## Stand 2026-07-16 (v1.8.0-beta.5, Prerelease) — Welle B: Quellen
+
+**Schema:** v52 (`scraper_runs` + `custom_sources`, additiv).
+**MCP-Tools:** 194 (+`quelle_handoff`/`quellen_langzeit_auswertung`
+(#735 B25), +`custom_quelle_hinzufuegen/anzeigen/loeschen` (#627 B16),
+alle in tools/jobs.py). **Prompts:** 25.
+
+Kern: (1) **B25/#735** — `update_scraper_health` schreibt jetzt je Lauf
+einen `scraper_runs`-Datensatz (Historie darf Health-Write nie
+blockieren); `quellen_langzeit_auswertung(tage)` rechnet Trefferquote,
+Fehlerklassen, Trend (versiegt = frueher neu>0, zweite Haelfte 0) und
+Empfehlung. `job_scraper/handoff.py`: HANDOFF_URL_TEMPLATES (langlebige
+Such-URLs, KEINE DOM-Wetten) + GENERIC_EXTRACTION_JS (Anker-Heuristik
+wie Newsletter-Ingest) + build_handoff — `quelle_handoff`-Tool,
+google_jobs_url-Muster generalisiert. (2) **B16/#627** —
+Custom-Karriereseiten als HANDOFF-Quellen (bewusst KEIN Auto-Scraping,
+B18-Lehre); Health-Ping im quellen_health_check (Status an Quelle
+vermerkt). (3) **B18/#656 Teilschritt** — `playwright-chromium` als
+I10-Komponente (art='playwright': Detection via ms-playwright-Ordner +
+importierbares Paket, Install via `python -m playwright install
+chromium`, plattformuebergreifend VOR dem win32-Gate); SPA-Selektoren
+bleiben zurueckgestellt (Master-Plan-Optimierung: Live-Inspection-
+Bedingung, JSON-API bevorzugt) — B18 im Plan 🟨. Tests:
+`test_v18_beta5_welle_b.py` (9).
+
+## Stand 2026-07-14 (v1.8.0-beta.4, Prerelease) — Newsletter-Ingest
+
+**Schema:** v51 (`newsletter_sources`, additiv). **MCP-Tools:** 189
+(+`newsletter_quelle_markieren`/`newsletter_verarbeiten` in dokumente).
+**Prompts:** 25. Damit sind ALLE J-Feature-Betas geliefert; weiter mit
+Kern-Wellen B/F/D/J8 nach User-Prio.
+
+Kern: **J5/#525** — `services/newsletter_service.py`: `erkennung()`
+(gelernte Quellen → BUILTIN_SOURCES-Portale → konservative
+Betreff-Hinweise), `extract_job_links()` KI-frei (Portal-URL-Regexes
+StepStone/LinkedIn/XING/Indeed/Arbeitsagentur/freelance.de/JobLeads,
+Anker-Titel mit `_ist_boilerplate`-Wortmengen-Filter, „Titel bei Firma"-
+Split, Tracking-Param-Dedup), `verarbeite_newsletter()` → save_jobs mit
+`source='newsletter:<label>'` + `_manual_entry` (Stellen kommen ohne
+Beschreibung → #756-unbewertet → #622-Refetch → C23-Snapshot greifen
+ineinander). Ollama NUR als Fallback bei leerer Ebene 0 (TaskKind
+EXTRACT_NEWSLETTER_JOBS, Routing [LOCAL, MANUAL]). Upload-Pfad erkennt
+Newsletter automatisch, uebernimmt und archiviert die Mail
+(Response-Feld `newsletter`); gilt damit auch fuer Thunderbird-Add-on
+und Watch-Folder (delegieren an api_upload_document). Lern-Mechanik:
+`newsletter_quelle_markieren` speichert Domain+Betreff-Prefix in
+`newsletter_sources`. Tests: `test_v18_beta4_newsletter.py` (12).
+
+## Stand 2026-07-14 (v1.8.0-beta.3, Prerelease) — Thunderbird + ics
+
+**Schema:** v50 (unveraendert). **MCP-Tools:** 187
+(+`termine_ics_exportieren` in export_tools). **Prompts:** 25.
+
+Kern: (1) **J2/#478** — Thunderbird-MailExtension
+`plugins/thunderbird-pbp/` (manifest MV2, TB 115+): Kontextmenue
+„An PBP senden" auf der Nachrichtenliste, Mehrfachauswahl = Thread
+(J2.2), `messages.getRaw(id, {data_format:'File'})` mit byte-treuem
+Binary-String-Fallback (Uint8Array.from charCodeAt — nie UTF-8-deuten),
+POST an `/api/v1/ingest/email`, Options-Seite (URL+Key+Ping),
+401/403-Fehlerbild stoppt Batch. Install: Ordner zippen → .xpi →
+„aus Datei installieren" (unsigned ok in TB). Icons via Pillow
+generiert. J2.3: Watch-Folder (beta.2) deckt die Alternative.
+(2) **J4.1/#481** — ics-Export war seit #310 da, aber NICHT
+RFC-5545-fest: Kern nach `services/ics_service.py` extrahiert
+(ics_escape: Komma/Semikolon/Backslash/Newlines; ics_fold: 75-Oktett-
+Folding UTF-8-sicher), Endpoint nutzt ihn, NEU MCP-Tool
+`termine_ics_exportieren` (Export-Ordner, `newline=''` beim Schreiben
+erhaelt CRLF). Plan-Wahrheit korrigiert: J4.1 war faelschlich ⬜.
+#481 bleibt offen (J4.2 CalDAV / J4.3 Graph opportunistisch).
+Tests: `test_v18_beta3_ics_thunderbird.py` (12, inkl. Vertragstest:
+beide pbp-plugin.json bestehen validate_manifest; Add-on nutzt die
+richtigen Endpunkte).
+
+## Stand 2026-07-14 (v1.8.0-beta.2, Prerelease) — Ingest-API v1 + Snapshot
+
+**Schema:** v50 (`plugins`-Tabelle + `jobs.description_snapshot`/
+`snapshot_at`/`snapshot_source`, additiv). **MCP-Tools:** 186
+(+`plugins_anzeigen` in `tools/komponenten.py`). **Prompts:** 25.
+
+Kern: (1) **J1/#504** — `services/plugins.py`: Manifest-Validierung
+(`pbp-plugin.json`, `ingest_api: "^1"`, Capabilities-Whitelist
+ingest:email/ingest:job), Pairing erzeugt `pbp_<hex>`-Key (DB haelt NUR
+sha256; Einmal-Anzeige in der UI), Widerruf = DELETE. REST:
+`/api/plugins` + `/api/plugins/pair` + DELETE; Ingest-API
+`/api/v1/ingest/ping|job|email` mit `X-PBP-API-Key`-Header (401/403),
+job-Ingest laeuft durch stelle_hash+calculate_score+save_jobs
+(`source='plugin:<name>'`, `_manual_entry`, #317-Dup-Check → 409,
+Blacklist → 409), email-Ingest delegiert an `api_upload_document`
+(volle Pipeline). save_jobs-URL-Guard laesst `plugin:`-Quellen ohne URL
+zu. Referenz-Plugin `plugins/watch-folder/` (stdlib-only, README =
+API-Doku). UI: „Gekoppelte Plugins" im Erweiterungen-Tab. Wiki-Seite
+**Plugins** (40. Seite — Wiki-Guard zaehlt jetzt >= 40). API-v1-Freeze
+mit Stable = Beta-Exit Punkt 2. (2) **C23/#687** —
+`description_snapshot` unveraenderlich: save_jobs fuellt bei Anlage
+(>= 50 Zeichen) und schleift Bestand durch REPLACE durch;
+`set_description_snapshot_if_empty` (atomare WHERE-Klausel) an beiden
+Refetch-Stellen; fit_analyse faellt bei weggebrochener Beschreibung auf
+den Snapshot zurueck (`beschreibung_aus_snapshot`). (3) **B24/#688** —
+Auto-Engine-Step `_run_snapshot_backfill` (DB-only, 500/Lauf, Setting
+`auto_snapshot_backfill`). Tests: `test_v18_beta2_plugins.py` (14,
+TestClient).
+
+## Stand 2026-07-14 (v1.8.0-beta.1, Prerelease) — Komponenten + Auto-OCR
+
+**Schema:** v49 (`components`-Tabelle, rein additiv). **MCP-Tools:** 185
+(+`komponenten_status`/`komponente_installieren`/`komponente_pfad_setzen`
+im neuen Modul `tools/komponenten.py` (#751 I10),
++`dokument_ocr_ausfuehren` (#750 E19)). **Prompts:** 25. Stable/`--latest`
+bleibt v1.7.7 — Betas sind GitHub-Prereleases.
+
+Kern: (1) **I10/#751** — `services/components.py`: Registry (Tesseract,
+Apache-2.0, ~55 MB, UB-Mannheim-NSIS silent nach
+`BewerbungsAssistent\\components\\`), Detection (PBP-Pfad → DB-Pfad →
+PATH → bekannte Orte), Install als Background-Job (`start_install_job`,
+REST `GET/POST/DELETE /api/components*`), manueller Pfad, deu-tessdata
+automatisch (Fallback selbsttragender TESSDATA_PREFIX-Ordner inkl.
+eng+osd). Settings-Tab **„Erweiterungen"** (SettingsPage,
+`ErweiterungenTab`); Ollama nur mit-angezeigt (D2). Deinstaller entfernt
+`components\\` mit. ZUSTIMMUNGS-PFLICHT: `komponente_installieren` ohne
+`bestaetigt=True` liefert NUR das Angebot. (2) **E19/#750-T2** —
+`services/ocr_service.py`: pypdfium2-Rendering (neue docs-Dependencies
+pypdfium2+pillow; ersetzt toten #192-pdf2image-Pfad in
+`dashboard._extract_document_text`, Rueckgabe jetzt 3-Tupel mit
+`ocr_info`), tesseract-subprocess `--psm 1` (OSD) mit Fallback,
+Provenienz-Header, Scan-Erkennung < 50 Zeichen, Seiten-Cap 15;
+Upload-Response traegt `ocr`-Feld (durchgefuehrt/erforderlich+Angebot).
+(3) **A21/#758** — PII-Altbestand bereinigt; `scripts/check_urls_645.py`
+(reale Sichtungsliste) entfernt. Tests: `test_v18_beta0_komponenten.py`
+(20, Netz+Binary gemockt); Real-Install-Verifikation ist Beta-Exit
+Punkt 3.
 
 ## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
 
@@ -206,8 +560,33 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    ladbar sind, jeder Direkt-SQL-Workaround), wird als Issue erfasst. Ziel:
    MCP-Layer bleibt langfristig die einzige Schnittstelle (Anti-DB-Bypass,
    #514).
-7. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
+7. **PII-Sweep ueber neue Artefakte** (seit 2026-07-14) — der Issue-Scrub
+   gilt sinngemaess fuer ALLES Oeffentliche: vor Commit/Wiki-Push neue
+   Tests, Docstrings, CHANGELOG-Eintraege und Plan-Seiten auf reale
+   Firmen aus der Bewerbungshistorie und Personen-Namen pruefen
+   (`grep -rni`; Namensmuster in `scripts/scrub_pii.py`). Reale Faelle
+   als „Praxis-Fall [Datum]" mit fiktiver Firma dokumentieren.
+   Hintergrund: 2026-07-14 standen reale Firmennamen in neuen
+   v1.7.7-Tests/Wiki-Stubs und der User-Vorname im Wiki-Altbestand —
+   vor dem Release bereinigt.
+8. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
    Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
+9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
+   der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
+   UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM
+   `gh issue create/comment/edit` und `gh release create` den Text durch
+   `python scripts/scrub_pii.py --check` schicken — AUCH Tabellen und
+   Beispiele aus der eigenen DB (genau so kamen am 23.07. acht reale
+   Firmen in zwei Issues). Das gilt fuer ALLE Instanzen, auch die
+   MCP-Chat-Seite. Am Session-Ende zusaetzlich alle seit der letzten
+   Session neuen/geaenderten Issues gegenpruefen. Wird PII auf GH
+   gefunden: Issue LOESCHEN (GraphQL `deleteIssue`), NICHT editieren —
+   die Edit-History behaelt das Original. Dokumentierte Ausnahmen:
+   Portale/Vermittler als Quellen-Feature (hays, ferchau, ...) und
+   fiktive Firmen (Halbleiterwerk Nord GmbH). Hintergrund: #763 und #766
+   enthielten am 23.07. die reale Stellen-Tabelle des Users und wurden
+   geloescht — die Nummern sind verbrannt, die Inhalte stehen im
+   Master-Plan (B27/C28) und im CHANGELOG.
 
    **Seit 2026-08-07 MECHANISCH abgesichert — die Regel allein hat
    dreimal versagt.** Nach ihrer Einfuehrung am 23.07. kamen am 31.07.
@@ -249,7 +628,7 @@ saubere Migration v43->v45 auf einer **Kopie** der Real-DB
 (`C:\Temp\claude\qa`, Original unter AppData NIE angefasst); 10/10
 REST-Endpoints der beta.78-90-Welle via FastAPI-TestClient OK
 (`tools/qa_rest_smoke.py`). Befunde + Drift-Tabelle:
-`docs/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
+`docs/internal/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
 Tools / 23 Prompts / Schema v42) und wurde Wiki-weit nachgezogen, inkl.
 neuer User-Doku fuer Lifecycle (#657/#658), Routing (#643), Tasks
 (#666), Ablehnungsgruende-Editor (#663), Minus-Keywords (#667),
@@ -439,6 +818,9 @@ Code) als auch fuer Claude-Chat-getriebene Issue-Creation.**
 Background: am 2026-05-10 wurden in 3 Sweep-Passes ~155 historische
 Issue-Bodies + 9 Comments nachtraeglich anonymisiert. Das darf nicht
 nochmal passieren — siehe `scripts/scrub_pii.py` Header.
+Am 2026-07-23 passierte es doch wieder: #763/#766 trugen die reale
+Stellen-Tabelle des Users (8 Firmen) und mussten GELOESCHT werden —
+DoD-Punkt 9 ist seitdem der Pflicht-Riegel.
 
 **WICHTIG zur Edit-History:** GitHub zeigt fuer Issue-Bodies eine
 `edited`-Markierung mit Zugriff auf die Vorgaenger-Versionen — auch
@@ -489,7 +871,16 @@ Bevor ein neuer Release gebaut wird:
    Hintergrund: am 2026-06-02 wurde beta.81 zu frueh veroeffentlicht;
    waehrend Tests + CHANGELOG liefen, kam #664 rein und musste in eine
    hektische beta.82 nachgezogen werden.
-8. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
+8. **⛔ Tag erst NACH gruenem CI (HART, seit beta.0-Segfault 2026-07-14):**
+   Release-Commit auf main pushen, den CI-Lauf ABWARTEN (`gh run watch`),
+   und erst bei Erfolg Tag setzen + pushen + GH-Release erstellen.
+   Hintergrund: v1.8.0-beta.0 wurde vor dem CI-Ergebnis getaggt; der
+   Linux-Runner fand einen PDFium-Segfault (exit 139), den Windows lokal
+   nicht zeigte — der Tag war gelocked, beta.1 musste nachgeschoben
+   werden. Native Dependencies (pypdfium2, playwright, ...) verhalten
+   sich plattformspezifisch; die lokale Windows-Suite reicht als
+   Tag-Freigabe nicht.
+9. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
 
 ## GitHub-Release-Notes — Pflicht-Block
 
