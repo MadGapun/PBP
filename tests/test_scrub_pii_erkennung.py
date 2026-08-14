@@ -63,6 +63,29 @@ def test_echte_nummer_neben_code_wird_trotzdem_erkannt():
     assert _arten("In `v1.7` gemeldet, Tel +49 69 9897 283 65", "PHONE")
 
 
+@pytest.mark.parametrize("text", [
+    "0511 5550123",              # Musterprofil Bob
+    "0341 5550987",              # Musterprofil Anna
+    "+49 511 555 0123",          # international geschrieben
+])
+def test_fiktive_555_nummern_sind_erlaubt(text):
+    """v1.7.16: Musterdaten brauchen erkennbar unechte Rufnummern; der
+    555-Block ist die uebliche Fiktionskonvention. Ohne diese Regel gab
+    der Pruefer bei KORREKTEN Musterprofilen Alarm."""
+    assert not _arten(text, "PHONE"), f"Fehlalarm auf Fiktion: {text!r}"
+
+
+@pytest.mark.parametrize("text", [
+    "Tel. 0511 4497 4978",       # gleiche Vorwahl, echte Nummer
+    "Mobil 0176 4766 4385",
+    "Kontakt: +49 40 85538906",
+])
+def test_echte_nummern_trotz_555_regel_erkannt(text):
+    """Gegenrichtung: Die Fiktions-Ausnahme darf keine echten Nummern
+    durchlassen — sie greift nur, wenn der Teilnehmerteil mit 555 BEGINNT."""
+    assert _arten(text, "PHONE"), f"nicht erkannt: {text!r}"
+
+
 # -------------------------------------------------------------- Mail
 
 @pytest.mark.parametrize("addr", [

@@ -161,8 +161,27 @@ def test_seed_daten_enthalten_nur_fiktive_firmen(geseedet):
     import scrub_pii
     importlib.reload(scrub_pii)
     quelle = (SCREENSHOT_DIR / "musterprofile.py").read_text(encoding="utf-8")
-    hits = [h for h in scrub_pii.find_pii(quelle) if h[0] == "CORP"]
-    assert hits == [], f"Reale Firmenmuster im Seed: {hits}"
+    # v1.7.16: Der Filter prueste frueher `h[0] == "CORP"` — das ist das
+    # erste ZEICHEN ("C"), nie der Praefix. Der Test war damit wirkungslos
+    # und meldete auch bei echten Funden nichts. Jetzt startswith, und
+    # zusaetzlich PHONE/EMAIL, denn Musterdaten duerfen auch keine
+    # Kontaktdaten enthalten.
+    hits = [h for h in scrub_pii.find_pii(quelle)
+            if h.startswith(("CORP", "PHONE", "EMAIL", "PERSON", "USER"))]
+    assert hits == [], f"Reale Muster im Seed: {hits}"
+
+
+def test_quellen_keys_sind_die_einzige_firma_ausnahme():
+    """Die einzigen FIRMA-Treffer im Seed duerfen Jobportale sein — sie
+    stehen dort als Quellen-Schluessel (Produktfunktion, kein
+    Bewerbungsverhaeltnis; dokumentierte Ausnahme aus DoD-9)."""
+    import scrub_pii
+    importlib.reload(scrub_pii)
+    quelle = (SCREENSHOT_DIR / "musterprofile.py").read_text(encoding="utf-8")
+    firmen = {h.split(": ", 1)[1].lower()
+              for h in scrub_pii.find_pii(quelle) if h.startswith("FIRMA")}
+    erlaubt = {"hays"}  # als active_sources-Eintrag und Quellen-Spalte
+    assert firmen <= erlaubt, f"Unerwartete Firmen im Seed: {firmen - erlaubt}"
 
 
 def test_interview_reflexionen_vorhanden(geseedet):
