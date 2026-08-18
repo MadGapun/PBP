@@ -545,6 +545,26 @@ class Database:
                     logger.info("Safety-Net #917: %d Scoring-Dublette(n) "
                                 "zusammengefuehrt (profilspezifische "
                                 "Zeile gewinnt)", _n_dub)
+                # (3) #908: ignore_flags der ALTEN Automatik zuruecknehmen.
+                #     _auto_adjust_scoring setzte fuer genau diese drei
+                #     sub_keys ab 5 Nennungen ignore_flag=1 — der Nutzer
+                #     wollte abgewertet, nicht ausgeblendet, und konnte
+                #     es wegen #917/A nicht einmal zuruecknehmen. Nur
+                #     Zeilen OHNE set_by_user (Nutzer-Zeilen bleiben);
+                #     wer das Ausblenden doch will, setzt es jetzt
+                #     wirksam ueber scoring_konfigurieren.
+                _n_ign = conn.execute(
+                    "UPDATE scoring_config SET ignore_flag=0 "
+                    "WHERE dimension='stellentyp' "
+                    "AND sub_key IN ('zeitarbeit','befristet','praktikum') "
+                    "AND ignore_flag=1 "
+                    "AND COALESCE(set_by_user,0)=0").rowcount
+                if _n_ign:
+                    conn.commit()
+                    logger.info(
+                        "Safety-Net #908: %d automatisch gesetzte(s) "
+                        "Ignorieren-Flag(s) zurueckgenommen — Malus "
+                        "bleibt, Stellenart ist wieder sichtbar", _n_ign)
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
 

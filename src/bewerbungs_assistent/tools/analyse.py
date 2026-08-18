@@ -954,7 +954,11 @@ def register(mcp, db, logger):
             ),
         }
 
+    # v1.7.17 (#915): Wall-Clock-Budget gegen stille 4-Minuten-Haenger.
+    from ..services.tool_budget import mit_budget as _mit_budget
+
     @mcp.tool()
+    @_mit_budget("dokument_verknuepfen", lese_tool="dokumente_zur_analyse")
     def dokument_verknuepfen(dokument_id: str, bewerbung_id: str) -> dict:
         """Verknuepft ein hochgeladenes Dokument mit einer Bewerbung.
 
@@ -2027,6 +2031,47 @@ def register(mcp, db, logger):
             if not _fuzzy_keyword_match(kw, all_text):
                 tote_keywords.append(kw)
 
+        # v1.7.17 (#908 Befund 3): der haeufigste Ablehnungsgrund
+        # (falsches_fachgebiet, im Bestand 1200+ Nennungen) erzeugte NULL
+        # Lerneffekt — sein Lerneffekt liegt nicht in einem Regler,
+        # sondern in den Begriffen. Hier: haeufigste Titel-Begriffe der
+        # so aussortierten Stellen, die in keiner beworbenen Stelle
+        # vorkommen, als MINUS-Kandidaten MIT Belegen. Der Nutzer
+        # entscheidet, PBP rechnet vor.
+        minus = [kw.lower() for kw in criteria.get("keywords_minus", [])]
+        fachgebiet_jobs = [
+            j for j in (dismissed_jobs or [])
+            if "falsches_fachgebiet" in str(j.get("dismiss_reason") or "")
+        ]
+        minus_kandidaten = []
+        if len(fachgebiet_jobs) >= 5:
+            fg_words = _Counter()
+            fg_beispiele: dict = {}
+            for j in fachgebiet_jobs:
+                titel = j.get("title", "") or ""
+                for term in set(_extract_terms(titel)):
+                    fg_words[term] += 1
+                    fg_beispiele.setdefault(term, [])
+                    if len(fg_beispiele[term]) < 3 and titel not in fg_beispiele[term]:
+                        fg_beispiele[term].append(titel[:80])
+            for term, count in fg_words.most_common(30):
+                if count < 3:
+                    break
+                if (term in alle_keywords or term in ausschluss
+                        or term in minus or term in too_generic):
+                    continue
+                # niemals Zielbegriffe vorschlagen: Begriff darf in keiner
+                # beworbenen Stelle auftauchen (beta.35-Regel)
+                if good_words.get(term, 0) > 0:
+                    continue
+                minus_kandidaten.append({
+                    "keyword": term,
+                    "in_aussortierten_fachgebiet_stellen": count,
+                    "beispiel_titel": fg_beispiele.get(term, []),
+                })
+                if len(minus_kandidaten) >= 8:
+                    break
+
         return {
             "aktive_stellen": len(all_jobs),
             "gut_bewertet": len(good_jobs),
@@ -2039,6 +2084,11 @@ def register(mcp, db, logger):
             },
             "vorschlaege_plus": vorschlaege_plus[:10],
             "vorschlaege_ausschluss": vorschlaege_ausschluss[:5],
+            # #908: MINUS-Kandidaten aus dem haeufigsten Ablehnungsgrund,
+            # mit Trefferzahl und Beispiel-Titeln als Beleg. Uebernehmen:
+            # suchkriterien_bearbeiten(aktion='hinzufuegen',
+            # kategorie='minus', werte=[...]).
+            "minus_kandidaten_fachgebiet": minus_kandidaten,
             "tote_keywords": tote_keywords,
             "hinweis": (
                 "Nutze suchkriterien_bearbeiten() um Keywords anzupassen. "
@@ -2681,10 +2731,20 @@ def register(mcp, db, logger):
                 c["at_iso"] = str(c.get("at", ""))
 
         # v1.7.0-beta.66 (#638 Stufe 5): Ollama-Auto-Entscheidungs-Genauigkeit
-        try:
-            ollama_accuracy = db.get_ollama_accuracy_stats()
-        except Exception:
-            ollama_accuracy = {}
+        # v1.7.17 (#915): Der EINZIGE DB-Zugriff dieses Tools — und genau
+        # er machte die Diagnose im Vorfall vom 17.08. selbst unerreichbar,
+        # waehrend die eigentliche Quelle (der In-Memory-Ringpuffer)
+        # jederzeit lieferbar gewesen waere. Jetzt: eigenes 3s-Budget,
+        # bei Blockade Teilergebnis statt Stille.
+        from ..services.tool_budget import mit_kurzbudget
+        from ..services.hintergrund_status import (aktuelle_tasks,
+                                                   zuletzt_beendet)
+        ollama_accuracy = mit_kurzbudget(
+            db.get_ollama_accuracy_stats, budget=3.0,
+            fallback={"status": "uebersprungen",
+                      "grund": "DB-Zugriff antwortete nicht binnen 3s — "
+                               "vermutlich dieselbe Blockade, wegen der "
+                               "du diese Diagnose aufrufst (#915)"})
 
         return {
             "status": "ok",
@@ -2694,6 +2754,10 @@ def register(mcp, db, logger):
             "platform": _pf.platform(),
             "tool_calls": calls,
             "ollama_genauigkeit": ollama_accuracy,
+            # #915: laufende Hintergrund-Arbeit DB-frei benennen — im
+            # Blockade-Fall der wichtigste Hinweis auf den Sperrhalter.
+            "hintergrund_tasks": aktuelle_tasks(),
+            "hintergrund_zuletzt": zuletzt_beendet(),
             "stats": {
                 "anzahl": len(calls),
                 "ok": ok_count,

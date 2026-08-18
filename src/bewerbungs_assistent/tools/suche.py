@@ -68,6 +68,11 @@ def register(mcp, db, logger):
         Tipp: Leite die Keywords aus dem Profil ab! Was kann der User,
         was sucht er? Nutze profil_zusammenfassung() als Basis.
 
+        MALUS VERSCHAERFEN (#908): NIE ein Keyword doppelt eintragen —
+        Listen werden dedupliziert. Der Weg zu einem staerkeren Einzel-
+        Malus ist `keyword_gewichte` (#778):
+        suchkriterien_bearbeiten(aktion='gewichten', ...).
+
         Args:
             keywords_muss: Pflicht-Keywords (muessen vorkommen)
             keywords_plus: Bonus-Keywords (erhoehen Score)
@@ -88,15 +93,32 @@ def register(mcp, db, logger):
             min_stundensatz: Wunsch-Stundensatz in EUR fuer Teilzeit/Werkstudent (#544).
             custom_kriterien: Eigene Kriterien mit Gewichtung, z.B. {"homeoffice": 8, "gehalt": 7}
         """
+        # v1.7.17 (#908 Befund 6): dedupliziert wie 'hinzufuegen' —
+        # der Vollersatz war die stille Hintertuer, ueber die ein doppelt
+        # eingetragenes MINUS-Keyword doppelt zaehlte und die
+        # Trefferanzeige verfaelschte ("2 Treffer" fuer ein Wort).
+        # Malus VERSCHAERFEN geht ueber keyword_gewichte (#778), nie
+        # ueber Duplikate.
+        def _dedup(werte: list) -> list:
+            gesehen: set = set()
+            out = []
+            for w in werte or []:
+                k = str(w).strip().lower()
+                if k and k not in gesehen:
+                    gesehen.add(k)
+                    out.append(str(w).strip())
+            return out
+
         if keywords_muss:
-            db.set_search_criteria("keywords_muss", keywords_muss)
+            db.set_search_criteria("keywords_muss", _dedup(keywords_muss))
         if keywords_plus:
-            db.set_search_criteria("keywords_plus", keywords_plus)
+            db.set_search_criteria("keywords_plus", _dedup(keywords_plus))
         # #667 (B19, beta.84): Minus-Keywords als weiche Score-Abwertung
         if keywords_minus:
-            db.set_search_criteria("keywords_minus", keywords_minus)
+            db.set_search_criteria("keywords_minus", _dedup(keywords_minus))
         if keywords_ausschluss:
-            db.set_search_criteria("keywords_ausschluss", keywords_ausschluss)
+            db.set_search_criteria("keywords_ausschluss",
+                                   _dedup(keywords_ausschluss))
         if regionen:
             db.set_search_criteria("regionen", regionen)
         if stellentypen is not None:

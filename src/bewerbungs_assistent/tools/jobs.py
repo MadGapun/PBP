@@ -597,13 +597,17 @@ def register(mcp, db, logger):
 
         # Start background search with timeout
         def _run_search():
+            # v1.7.17 (#915): im DB-freien Register anmelden, damit ein
+            # Budget-Timeout anderer Tools den Sperrhalter benennen kann.
+            from ..services.hintergrund_status import laufender_task
             try:
-                from ..job_scraper import run_search
-                run_search(db, job_id, params)
-                # v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach
-                # erfolgreicher Suche — laeuft im selben Background-Thread
-                # damit User keine extra Aktion machen muss.
-                _maybe_auto_dismiss_after_search(db, job_id)
+                with laufender_task(f"jobsuche:{job_id[:8]}"):
+                    from ..job_scraper import run_search
+                    run_search(db, job_id, params)
+                    # v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach
+                    # erfolgreicher Suche — laeuft im selben Background-Thread
+                    # damit User keine extra Aktion machen muss.
+                    _maybe_auto_dismiss_after_search(db, job_id)
             except Exception as e:
                 logger.error("Jobsuche fehlgeschlagen: %s", e, exc_info=True)
                 db.update_background_job(job_id, "fehler", message=str(e))
@@ -764,23 +768,28 @@ def register(mcp, db, logger):
         # v1.7.17 (#917/#908): Die Automatik setzt KEIN ignore_flag mehr —
         # "schaerfer statt aus". Der Nutzer wollte Stellenarten abgewertet,
         # nicht ausgeblendet (Recall vor Praezision); die Flags waren zudem
-        # ueber MCP nicht zuruecknehmbar (#917 Defekt A). Alle Gruende
-        # eskalieren jetzt den Malus (Cap -10).
+        # ueber MCP nicht zuruecknehmbar (#917 Defekt A). Jeder Grund traegt
+        # (dimension, sub_key, start_malus, max_malus).
         #
         # Entfernung (#917 Defekt C): Ziel-Stufe ist '999' — die Brackets
         # sind OBERGRENZEN ("Malus fuer Stellen BIS X km"). Der alte
         # Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50
         # und bestrafte damit Stellen ZWISCHEN 30 und 50 km — genau den
         # Bereich, den der Nutzer will. Der Lerneffekt war invertiert.
+        #
+        # zu_junior ist BEWUSST raus (#908 Befund 4): es mappte auf
+        # stellentyp/praktikum — ausgeloest aber von Festanstellungen
+        # ("mind. 2 Jahre Erfahrung"), die der Hebel nie erreicht.
+        # Senioritaet ist keine Stellenart; der Weg sind MINUS-Keywords
+        # (Hint unten in _apply_dismiss_with_lifecycle).
         LEARN_MAP = {
-            "zu_weit_entfernt": ("entfernung_fest", "999", -2),
-            "zeitarbeit": ("stellentyp", "zeitarbeit", -2),
-            "befristet": ("stellentyp", "befristet", -2),
-            "zu_junior": ("stellentyp", "praktikum", -2),
+            "zu_weit_entfernt": ("entfernung_fest", "999", -2, -10),
+            "zeitarbeit": ("stellentyp", "zeitarbeit", -2, -8),
+            "befristet": ("stellentyp", "befristet", -2, -6),
         }
         if reason not in LEARN_MAP:
             return None
-        dim, sub, adjustment = LEARN_MAP[reason]
+        dim, sub, start_malus, max_malus = LEARN_MAP[reason]
         conn = db_ref.connect()
         pid = db_ref.get_active_profile_id() or ""
         # #269: Seed-Daten haben profile_id='' — beides prüfen
@@ -797,9 +806,15 @@ def register(mcp, db, logger):
         # kehrte sie kommentarlos wieder um.
         if existing and existing["set_by_user"]:
             return None
-        # Increase penalty proportionally to count
-        new_val = adjustment * (1 + (count - 5) * 0.5)
-        new_val = max(new_val, -10)
+        # #908 Befund 5: die alte Formel (count-5)*0.5 erreichte den
+        # Deckel schon bei ~13 Nennungen — faktisch ein Zweistufen-
+        # Schalter. Jetzt linear ueber den realen Nennungsbereich:
+        # Schwelle 5 = start_malus, ab 155 Nennungen = max_malus,
+        # dazwischen gleichmaessig (halbe Punkte, monoton).
+        fortschritt = min(1.0, max(0.0, (count - 5) / 150.0))
+        new_val = start_malus + (max_malus - start_malus) * fortschritt
+        new_val = round(new_val * 2) / 2
+        alt_val = existing["value"] if existing else None
         if existing:
             if existing["value"] <= new_val:
                 return None  # already penalized enough
@@ -814,7 +829,16 @@ def register(mcp, db, logger):
                 (pid, dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
             )
         conn.commit()
-        return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
+        # #908 Punkt 6: alt->neu benennen und den Rueckweg gleich mitgeben
+        # — eine Automatik, die den Bestand umgewichtet, muss revidierbar
+        # sein. Landet via auto_adjustments/hints beim Nutzer UND im Log.
+        logger.info("Auto-Scoring (#908): '%s' -> %s/%s Malus %s -> %s "
+                    "(Nennungen: %d)", reason, dim, sub, alt_val, new_val,
+                    count)
+        return (f"'{reason}' → {dim}/{sub} Malus "
+                f"{alt_val if alt_val is not None else 'Default'} → {new_val} "
+                f"(zuruecknehmbar via scoring_konfigurieren('setzen'/"
+                f"'loeschen', '{dim}', '{sub}'))")
 
     def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
                                        collect_hints: bool = True,
@@ -853,13 +877,43 @@ def register(mcp, db, logger):
             counts[normalized] = counts.get(normalized, 0) + 1
 
             # Suggest scoring adjustments (#169) when patterns are strong
+            # v1.7.17 (#908): kein Vorschlag lautet mehr "Komplett
+            # Ignorieren" — ein wiederholt genutzter Grund ist ein
+            # RELEVANTER Grund und gehoert verschaerft, nicht
+            # abgeschaltet. ignore_flag setzt nur noch der Nutzer selbst.
             if collect_hints and counts.get(normalized, 0) >= 3:
                 if normalized == "zu_weit_entfernt":
-                    hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren).")
+                    hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren, Stufe '999' = jenseits aller Grenzen).")
                 elif normalized == "gehalt_zu_niedrig":
                     hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
                 elif normalized in ("zeitarbeit", "befristet"):
-                    hints.append(f"Tipp: Setze '{g}' im Scoring-Regler auf 'Komplett Ignorieren' (scoring_konfigurieren).")
+                    hints.append(
+                        f"Tipp: Der Malus fuer '{g}' eskaliert automatisch mit. "
+                        f"Noch schaerfer: scoring_konfigurieren('setzen', 'stellentyp', '{normalized}', wert=-8). "
+                        "Komplett ausblenden nur bewusst mit ignorieren=True."
+                    )
+                elif normalized == "zu_junior" and counts.get(normalized, 0) % 10 == 3:
+                    # #908 Befund 4: Senioritaet ist keine Stellenart —
+                    # der wirksame Hebel sind MINUS-Keywords, die auch
+                    # Festanstellungen erreichen. Vorschlag statt
+                    # Automatik; gedrosselt (jede 10. Nennung).
+                    hints.append(
+                        "Tipp: 'zu_junior' lernt ueber MINUS-Keywords, nicht ueber die Stellenart. "
+                        "Kandidaten: suchkriterien_bearbeiten(aktion='hinzufuegen', kategorie='minus', "
+                        "werte=['Junior', 'Berufseinsteiger', 'Entry Level', 'Trainee']) — "
+                        "Gewicht schaerfen via kategorie='gewichten' (#778). Keine Duplikate anlegen."
+                    )
+                elif normalized == "falsches_fachgebiet" and counts.get(normalized, 0) % 25 == 0:
+                    # #908 Befund 3: das staerkste Signal (1200+ Nennungen)
+                    # erzeugte NULL Lerneffekt. Der Lerneffekt liegt in den
+                    # Begriffen — keyword_vorschlaege rechnet die
+                    # MINUS-Kandidaten mit Belegen vor, der Nutzer
+                    # entscheidet. Stark gedrosselt (jede 25. Nennung).
+                    hints.append(
+                        f"Hinweis: '{normalized}' wurde inzwischen {counts[normalized]}x genutzt. "
+                        "keyword_vorschlaege() schlaegt daraus MINUS-Kandidaten mit Trefferzahlen "
+                        "und Beispielstellen vor — so lernt der Score aus dem haeufigsten Grund."
+                    )
                 elif normalized == "firma_uninteressant":
                     job = db.get_job(job_hash)
                     company = (job or {}).get("company", "")
