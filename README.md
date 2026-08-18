@@ -114,7 +114,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **35 Jobportale konfiguriert** (~6 davon liefern aktuell zuverlaessig) — Indeed, LinkedIn, Glassdoor und Google ueber JobSpy, Stepstone, Hays, Bundesagentur, Greenhouse, Arbeitnow und mehr; defekte Quellen sind sichtbar markiert, teils mit Chrome-Extension-Workaround ([Details im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
+- **35 Jobportale konfiguriert** (~8 davon liefern aktuell zuverlaessig) — die grosse oeffentliche Jobboerse, mehrere Stellenmaerkte und Bewerbermanagement-Systeme, dazu Projektboersen fuer Freelancer; die uebrigen laufen ueber die Chrome-Extension oder sind sichtbar als defekt markiert, damit kein falscher Eindruck von Abdeckung entsteht ([welche genau, steht im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
@@ -221,7 +221,7 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | **Plattformen** | Windows, macOS, Linux |
 | **MCP-Tools** | 202 Tools in 11 Modulen |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
-| **Jobportale** | 35 Quellen konfiguriert (~6 aktuell zuverlaessig liefernd, u.a. Bundesagentur, Hays, Greenhouse, Arbeitnow, JobSpy-Indeed; defekte sichtbar markiert mit Chrome-Workaround) |
+| **Jobportale** | 35 Quellen konfiguriert, ~8 aktuell zuverlaessig liefernd (Festanstellung und Freelance); defekte sichtbar markiert, mit Chrome-Workaround |
 | **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
 | **Datenbank** | SQLite (WAL), Schema v48 |
 | **Tests** | 2304 bestanden |
@@ -318,7 +318,7 @@ Hintergrund: PBP versucht den Standard-Browser zu steuern. Wenn Edge geoeffnet i
 
 ### Third-Party-Bibliotheken
 
-- **[python-jobspy](https://github.com/speedyapply/JobSpy)** (MIT) — seit v1.6.0-beta.3 als optionale Scraper-Quelle fuer LinkedIn und Indeed.de verwendet (#490). Kein API-Key, keine Kosten.
+- **[python-jobspy](https://github.com/speedyapply/JobSpy)** (MIT) — seit v1.6.0-beta.3 als optionale Scraper-Bibliothek fuer mehrere grosse Jobportale eingebunden (#490). Kein API-Key, keine Kosten.
 
 ---
 
