@@ -180,6 +180,57 @@ def check_badge(fix=False):
     except Exception as e:
         warn(f"Test-Zaehlung fehlgeschlagen: {e}")
 
+    _check_readme_version(readme_file, readme, fix)
+
+
+def _check_readme_version(readme_file, readme, fix):
+    """Die README nennt die Stable-Version an zwei Stellen (Fliesstext und
+    Badge). Beide standen am 18.08.2026 fuenf Releases lang auf v1.7.16,
+    obwohl DoD-Punkt 3 die Pflege vorschreibt — die README ist die
+    oeffentliche Visitenkarte des Projekts, ein veralteter Stand dort
+    kostet Vertrauen. Eine Regel, an die man sich erinnern muss, ist
+    keine Kontrolle; deshalb steht sie jetzt im Gate.
+    """
+    try:
+        tags = subprocess.run(
+            ["git", "tag", "--list", "v1.7.*"],
+            capture_output=True, text=True, timeout=15,
+            cwd=str(PROJECT_DIR)).stdout.split()
+    except Exception as e:  # pragma: no cover
+        warn(f"Stable-Tag nicht ermittelbar: {e}")
+        return
+    # NUR echte Stable-Tags: "v1.7.0-beta.108" wuerde sonst als 1.7.108
+    # gelesen (die Ziffern-Extraktion ueberspringt das "0-beta"-Segment)
+    # und jede README als veraltet melden.
+    tags = [t for t in tags if re.fullmatch(r"v1\.7\.\d+", t)]
+    if not tags:
+        return
+
+    def _key(t):
+        return [int(x) for x in t.lstrip("v").split(".")]
+
+    neuster = "v" + ".".join(str(x) for x in max(_key(t) for t in tags))
+
+    genannt = set(re.findall(r'v1\.7\.\d+', readme))
+    veraltet = {v for v in genannt if _key(v) < _key(neuster)}
+    # Nur die beiden Kopf-Stellen zaehlen: Fliesstext und Stable-Badge.
+    marke = chr(10) + "## "
+    kopf = readme[:readme.index(marke)] if marke in readme else readme
+    veraltet = {v for v in veraltet if v in kopf}
+
+    if not veraltet:
+        ok(f"README nennt die aktuelle Stable-Version ({neuster})")
+        return
+    if fix:
+        neu_text = readme
+        for v in veraltet:
+            neu_text = neu_text.replace(v, neuster)
+        readme_file.write_text(neu_text, encoding="utf-8")
+        ok(f"README von {sorted(veraltet)} auf {neuster} korrigiert")
+    else:
+        warn(f"README nennt im Kopf {sorted(veraltet)}, "
+             f"neustes Stable-Tag ist {neuster}")
+
 
 # ── 4. CHANGELOG-Inhalt ──────────────────────────────────────
 
