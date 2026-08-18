@@ -1,106 +1,154 @@
-# LinkedIn-Beitrag zu PBP v1.7.16 — Entwürfe
+# LinkedIn-Beitrag zu PBP — Entwurf für Jobsuchende
 
 > Arbeitsdatei, nicht Teil des Produkts. Ton nach `docs/assets/texte.md`:
 > kein Marketing-Sprech, keine Superlative, keine Ausrufezeichen.
 >
-> **Vor dem Posten prüfen:** v1.7.16 muss als GitHub-Release veröffentlicht
-> sein (Stand beim Verfassen: `--latest` = v1.7.15). Testzahl und
-> Portal-Anzahl gegen den Release-Stand gegenprüfen.
+> Stand: v1.7.16 ist am 14.08.2026 veröffentlicht (`--latest`).
+> Inhaltlich abgedeckt: alles zwischen v1.7.0 (18.06.) und v1.7.16.
+>
+> **Zielgruppe:** Menschen auf Jobsuche aus Medien, HR, Engineering,
+> Verwaltung, Handwerk. Keine Entwickler. Keine KI-Affinität vorausgesetzt.
+> Alles, was nach Software-Innerei klingt, ist bewusst draußen.
 
 ---
 
-## Entwurf A — Hauptversion (~2.400 Zeichen)
+## Der Filter: was von 1.7.0–1.7.16 überhaupt in den Beitrag darf
 
-Wer sich bewirbt, verbringt die meiste Zeit nicht mit Bewerben.
+**Drin (weil es einen Alltagsschmerz löst):**
 
-Sondern mit Nachhalten. Wo habe ich mich beworben, wann war das, wer war der
-Ansprechpartner, welche Fassung des Lebenslaufs ist rausgegangen — und war
-diese Stelle nicht schon mal da?
+| Neuerung | Warum es jemanden auf Jobsuche interessiert |
+|---|---|
+| Firmen- und Vermittler-Historie auf Zuruf | „Wer war das nochmal und was war da los?" — der häufigste Moment am Telefon |
+| Erkennung neu ausgeschriebener Stellen | „Habe ich mich da nicht schon beworben?" |
+| Aufgaben, Nachfassungen und Termine in einer Sicht | Der Überblick, den sonst drei Excel-Listen nicht liefern |
+| Nachfassungen mit Inhalt statt leerem Termin | Erinnert nicht nur woran, sondern auch worum es ging |
+| Gesprächs-Nachbereitung über mehrere Runden | Vor dem Zweitgespräch nachlesen, was man im ersten gesagt hat |
+| Ehrlichere Stellenbewertung | Firmen-Selbstlob zählt kaum noch; ohne Anzeigentext gibt es kein Urteil |
+| Bereinigte Auswertung | Eine gestrichene Stelle ist keine Absage an dich |
+| Geführter Einstieg ab Lebenslauf-Upload | „Ich muss nichts können" — die entscheidende Hürde |
+| Neue Projektseite mit Bildern (v1.7.16) | Anschauen vor Installieren |
 
-Dafür gibt es PBP: ein Bewerbungs-Helfer, der komplett auf dem eigenen
-Rechner läuft. Eine Datei, kein Konto, keine Cloud. Er durchsucht Jobportale,
-hält Bewerbungen, Termine und Dokumente an einem Ort zusammen und redet dabei
-über Claude Desktop mit dir, statt dich durch Formulare zu schicken.
+**Draußen (Entwicklerthemen, für die Zielgruppe bedeutungslos):**
+Datenbank-Verbindungen je Thread, WAL-Checkpoints, Schema-Parität,
+Endpunkt-Wechsel bei der Bundesagentur, MCP-Tool-Anzahl, Testzahlen,
+Scoring-Kalibrierung, IDF-Gewichtung, Blacklist-Pflege, Adzuna-Keys,
+robots.txt-Konformität, sämtliche Issue-Nummern.
 
-Seit dem Sommer hat sich einiges getan. Das Wichtigste daraus:
+---
 
-Ein Einstieg ohne Sackgasse. Lebenslauf hochladen, das Profil entsteht daraus,
-Suchbegriffe kommen als Vorschlag, die erste Suche läuft. Und wenn nichts
-gefunden wird, sagt PBP warum — statt nur „0 Treffer".
+## Entwurf C — Hauptversion (~2.000 Zeichen)
 
-Ehrliche Bewertungen. Eine fachfremde Stelle kam auf 30 von 36 Punkten, weil
-sämtliche Treffer im Werbeabsatz der Firma standen. Solche Treffer zählen
-jetzt kaum noch. Und eine Stelle ohne Beschreibungstext heißt „unbewertet"
-statt „Score 0" — ein fehlender Text ist kein Urteil.
+Nicht jede Absage war eine Absage an dich.
 
-Gedächtnis statt Behauptung. Ein Firmenname genügt, und der dokumentierte
-Stand liegt vor: Bewerbungen, Termine, Absagen mit Grund. Dasselbe für
-Recruiter und Vermittler. Wird dieselbe Stelle Wochen später neu
-ausgeschrieben, erkennt PBP das — auch unter neuer Adresse.
+Stellen werden gestrichen, Einstellungsstopps kommen, Budgets kippen, Firmen gehen insolvent. In deiner eigenen Bilanz sieht das am Ende trotzdem aus wie ein Nein zu dir.
 
-Zahlen, die stimmen. Die Absagequote wird um Fälle bereinigt, die nichts mit
-dir zu tun hatten: eine gestrichene Stelle oder eine insolvente Firma ist
-keine Ablehnung. Dazu Reaktionszeiten, Zeit bis zum Gespräch und die
-Bewerbungsquote je Portal — nicht die Trefferzahl.
+Das ist einer der Gründe, warum ich angefangen habe, mir ein eigenes Werkzeug für die Jobsuche zu bauen. Es heißt PBP, es kostet nichts, es läuft auf deinem Rechner, und deine Bewerbungsdaten gehen nirgendwohin.
 
-Ein Aufgaben-Bereich. Offene Punkte, Nachfassungen und Termine in einer Sicht,
-nach Fälligkeit sortiert. Auch für alles, was zu keiner Bewerbung gehört.
+Was es dir abnimmt:
 
-Interview-Nachbereitung, die trägt. Mehrere Gesprächsrunden je Bewerbung, ein
-Archiv der eigenen Antworten, wiederkehrende Muster über alle Gespräche hinweg.
+Es merkt sich, was du längst vergessen hast. Ein Firmenname genügt, und du siehst, was war: wann du dich beworben hast, mit wem du gesprochen hast, was daraus wurde. Ruft jemand an, dessen Namen du zum dritten Mal hörst, weißt du sofort, worum es beim letzten Mal ging. Und wenn dieselbe Stelle Wochen später wieder ausgeschrieben wird, sagt PBP dir das.
 
-Kostenlos und Open Source. Voraussetzung ist Claude Desktop.
+Es hält fest, was ansteht. Nachfassen, Termine, offene Punkte, alles an einer Stelle und nach Fälligkeit sortiert. Mit dem Hinweis, worum es bei der Nachfrage eigentlich ging.
 
-Was PBP ist und für wen — ausführlich, mit drei Beispiel-Situationen:
+Es begleitet Gespräche über mehrere Runden. Vor dem Zweitgespräch kannst du nachlesen, was du im ersten gesagt hast.
+
+Es ist ehrlich zu dir. Ob du auf eine Stelle passt, sagt es dir auch dann, wenn die Antwort nein lautet. Umgekehrt lässt es sich nicht davon beeindrucken, wie schön eine Firma über sich selbst schreibt. Und die Auswertung rechnet heraus, was nie an dir lag.
+
+Und es sieht mehr in dir als deinen Lebenslauf. Was du im Verein organisiert hast, die Zeit, in der du jemanden gepflegt hast, der Umweg, der eigentlich keiner war. Das kannst du PBP alles erzählen, und es rechnet damit. Manchmal kommen dabei Stellen heraus, an die du von selbst nicht gedacht hättest.
+
+Und es zeigt dir, welcher Weg dich tatsächlich zu Gesprächen bringt und welcher nicht. Nach ein paar Wochen ist das kein Gefühl mehr, sondern ablesbar.
+
+Was du dafür können musst: nichts. Du lädst deinen Lebenslauf hoch, das Profil entsteht daraus, die ersten Suchbegriffe kommen als Vorschlag. Unter Windows sind es ein Download und ein Doppelklick, den Rest macht das Setup in ein paar Minuten. PBP nutzt Claude Desktop als Gesprächspartner, den es kostenlos gibt. Und wer mit KI nichts zu tun haben möchte, nutzt PBP einfach als Verwaltung für Bewerbungen.
+
+Anschauen geht vor Installieren: auf der Projektseite siehst du zuerst Bilder von allem, was drin ist.
+
+Das meiste davon gab es im Frühjahr noch nicht. Es ist dazugekommen, weil Leute mir geschrieben haben, was ihnen fehlt. Was alles neu ist, steht im ersten Kommentar.
+
+Wenn du gerade suchst, probier es aus. Wenn du jemanden kennst, der sucht, gib es weiter.
+
+Jede Bewerbung, die mit Struktur statt mit Stress rausgeht, ist ein guter Tag für jemanden.
+
+https://github.com/MadGapun/PBP
+
+#Bewerbung #Jobsuche #Wiedereinstieg
+
+---
+
+## Warum dieser Einstieg
+
+Der gewählte Einstieg gibt etwas her, bevor er etwas will: eine Entlastung.
+Er stellt sich auf die Seite der Lesenden, statt ihnen ihren Schmerz
+vorzulesen, den sie ohnehin kennen. Und er passt nicht ins übersättigte
+Muster „meine Jobsuche hat mich gelehrt", das im Feed eines
+#OpenToWork-Profils reflexhaft weggescrollt wird.
+
+Sichtbares Fenster (rund 200 Zeichen): die erste Zeile trägt die komplette
+Aussage allein — auch wenn die zweite abgeschnitten wird, ist die Botschaft
+angekommen. Genau das soll sie.
+
+Verworfen: **„Nach der zwölften Bewerbung habe ich den Überblick verloren."**
+Zwölf ist für viele Suchende eine kleine Zahl; wer bei achtzig steht, liest
+Anfänger und fühlt sich nicht gemeint.
+
+---
+
+## Alternative Einstiege (die ersten Zeilen austauschbar)
+
+**1 — Szene am Telefon.** Konkreter, weniger Anspruch, funktioniert fast
+genauso gut und handelt nicht von dir:
+
+> „Guten Tag, hier ist Frau Berger, wir hatten ja telefoniert."
+>
+> Hatten wir. Nur wann, worüber und für welche Stelle, keine Ahnung.
+
+**2 — Der Stapel.** Für Leute, die nicht digital denken:
+
+> Irgendwann bestand meine Jobsuche aus vier Excel-Listen, einem Ordner mit
+> zwölf Lebenslauf-Versionen und einem Kalender voller Termine, bei denen
+> nicht dabeistand, worum es geht.
+
+**3 — Die unbezahlte Arbeit.** Am ehesten diskussionsauslösend:
+
+> Bewerben ist ein Vollzeitjob. Nur besteht er zur Hälfte aus Buchhaltung.
+
+---
+
+## Erster Kommentar (direkt nach dem Posten, trägt die eigentliche Neuigkeit)
+
+Für alle, die PBP schon kennen: das ist seit dem Frühjahr dazugekommen.
+
+Ein Aufgabenbereich, der Nachfassungen, Termine und offene Punkte an einer
+Stelle zusammenführt, auch für alles, was zu keiner Bewerbung gehört.
+
+Firmen- und Vermittlerhistorie auf Zuruf: ein Name genügt, und der ganze
+Vorgang liegt vor dir.
+
+Erkennung von Stellen, die Wochen später erneut ausgeschrieben werden.
+
+Gesprächs-Nachbereitung über mehrere Runden, mit einem Archiv der eigenen
+Antworten.
+
+Eine fairere Bewertung von Anzeigen: Selbstlob im Firmenprofil zählt kaum
+noch, und ohne Anzeigentext gibt es gar kein Urteil mehr.
+
+Eine Auswertung, die zwischen einer Absage und einer gestrichenen Stelle
+unterscheidet, dazu Reaktionszeiten und die Frage, welcher Weg dich
+tatsächlich zu Gesprächen bringt.
+
+Und eine neue Projektseite: man sieht jetzt zuerst Bilder von allem, was drin
+ist, bevor man irgendetwas installiert.
+
+Alles im Einzelnen steht auf GitHub unter Releases.
+
+Und falls du wissen willst, wofür das Ganze überhaupt gut ist: hier habe ich
+es ausführlich beschrieben, mit drei Beispiel-Situationen.
 https://www.linkedin.com/pulse/pbp-wenn-jobsuche-einen-roten-faden-bekommt-markus-birzite-fk3ne/
 
-Herunterladen und installieren: https://github.com/MadGapun/PBP
-
-#Bewerbung #Jobsuche #Arbeitsmarkt #OpenSource #KI
-
----
-
-## Entwurf B — kompakt (~1.200 Zeichen)
-
-Bewerben ist zum größeren Teil Verwaltungsarbeit. Wer sich beworben hat, weiß
-das: nachhalten, wiederfinden, nachfassen.
-
-PBP ist ein Bewerbungs-Helfer dagegen — kostenlos, Open Source und komplett
-auf dem eigenen Rechner. Keine Cloud, kein Konto, deine Bewerbungsdaten
-bleiben bei dir.
-
-Version 1.7.16 ist draußen. Seit dem Sommer-Release neu:
-
-– Geführter Einstieg: Lebenslauf hochladen, Profil entsteht, erste Suche läuft
-– Ehrlichere Bewertung von Stellenanzeigen — Werbetext der Firma zählt kaum noch
-– Firmen- und Recruiter-Historie auf Zuruf, statt aus dem Gedächtnis
-– Erkennt Stellen, die neu ausgeschrieben wurden, auch unter neuer Adresse
-– Statistik, die zwischen „abgelehnt" und „Stelle gestrichen" unterscheidet
-– Aufgaben, Nachfassungen und Termine in einer Sicht
-– Interview-Nachbereitung über mehrere Runden
-
-Voraussetzung ist Claude Desktop, der Rest ist ein Download und ein Doppelklick.
-
-Ausführlich, mit drei Beispiel-Situationen:
-https://www.linkedin.com/pulse/pbp-wenn-jobsuche-einen-roten-faden-bekommt-markus-birzite-fk3ne/
-
-Herunterladen: https://github.com/MadGapun/PBP
-
-#Bewerbung #Jobsuche #OpenSource
-
----
-
-## Erster Kommentar (optional, direkt nach dem Posten)
-
-Zwei Dinge, die ich lieber dazusage, als sie im Beitrag zu verstecken:
-
-PBP ist deutschsprachig und auf den DACH-Arbeitsmarkt zugeschnitten. Und es
-braucht Claude Desktop als Gesprächspartner — ohne läuft das Dashboard zwar,
-aber der geführte Teil fehlt.
-
-Wer es ausprobiert: Rückmeldungen gehen am besten direkt als Issue auf GitHub.
-Fast alles, was seit Juni dazugekommen ist, stammt aus echten
-Bewerbungs-Nachmittagen und nicht aus einer Roadmap.
+Zwei Dinge sage ich lieber noch dazu: PBP ist deutschsprachig und auf
+Deutschland, Österreich und die Schweiz zugeschnitten. Und es ist kein
+Produkt einer Firma, sondern etwas, das ich für meine eigene Jobsuche gebaut
+habe und weiter baue. Wenn dir etwas fehlt, schreib es mir, hier oder auf
+GitHub.
 
 ---
 
@@ -112,40 +160,48 @@ Ja — aber mit klarer Rollenverteilung, sonst konkurrieren die beiden Ziele.
 (Festanstellung / Teilzeit und Wiedereinstieg / Freelance) und vor allem der
 Abschnitt über das, was nicht im Zeugnis steht — Ehrenamt, Pflege eines
 Angehörigen, Auszeiten, Umwege. Das ist der Teil, der Jobsuchende persönlich
-abholt, und er steht so weder im README noch im Wiki. Genau deshalb bleibt er
-verlinkenswert.
+abholt, und er steht so weder im README noch im Wiki.
 
 **Was gegen ihn spricht:** er ist knapp vier Monate alt und kennt keine der
 Neuerungen. Wer über eine Update-News in einem Artikel landet, der kein Wort
-zum Update sagt, fühlt sich fehlgeleitet. Deshalb muss die Link-Zeile
-ehrlich beschriften: „Was PBP ist und für wen", nicht „mehr dazu".
+zum Update sagt, fühlt sich fehlgeleitet. Deshalb muss die Link-Zeile ehrlich
+beschriften: „Ausführlich, mit drei Beispiel-Situationen", nicht „mehr dazu".
 
 **Reihenfolge:** Artikel zuerst, GitHub danach. Der Artikel ist
-LinkedIn-intern (keine Reichweitenstrafe) und die weichere Landebahn — für
-jemanden, der gerade Bewerbungen schreibt und kein Entwickler ist, ist ein
-GitHub-Repo als erster Kontakt eine Hürde.
-
-**Gegenargument, das trägt, falls nur ein Link gewünscht ist:** genau dieses
-Problem hat v1.7.16 gelöst. Das neue README zeigt Produkt vor Installation,
-mit Hero-Bild und Bildergalerie. Was im April nur der Artikel leisten konnte,
-leistet die Repo-Startseite inzwischen selbst. Wer sich für einen Link
-entscheiden muss, nimmt GitHub — das ist das Ziel, an dem Installationen
-entstehen.
+LinkedIn-intern (keine Reichweitenstrafe) und die weichere Landebahn.
 
 **Faktenprüfung Artikel gegen heutigen Stand:** keine Aussage ist durch
-v1.7.x überholt. „Die Werkzeuge reden miteinander" ist weiterhin der Anker
-aus `docs/assets/texte.md`. Einziger Schönheitsfehler: die Autorenzeile sagt
+v1.7.x überholt. Einziger Schönheitsfehler: die Autorenzeile sagt
 „20+ Jahre", die GitHub-Bio „25+ Jahre".
 
 ---
 
 ## Hinweise zur Verwendung
 
-- **Bild mitgeben.** `docs/social-preview.png` oder ein Screenshot der
+- **Bild mitgeben.** `docs/social-preview.png` oder der Screenshot der
   Bewerbungs-Übersicht. Beiträge ohne Bild verlieren spürbar Reichweite.
-- **Erste drei Zeilen entscheiden.** Alles danach steht hinter „mehr anzeigen".
-- **Externe Links im Text kosten Reichweite** (bewusste Entscheidung des
-  Autors). Alternative bei schwachem Anlauf: Links nachträglich in den ersten
-  Kommentar verschieben und im Beitrag durch „Link im ersten Kommentar"
-  ersetzen.
+- **Die ersten zwei bis drei Zeilen entscheiden.** Alles danach steht hinter
+  „mehr anzeigen". Der Einstieg muss aus der Sicht der Lesenden funktionieren,
+  nicht aus der Sicht der Software.
+- **Externe Links im Text kosten Reichweite.** Falls der Anlauf schwach ist:
+  Links in den ersten Kommentar verschieben und im Beitrag durch „Links im
+  ersten Kommentar" ersetzen.
+- **Keine Gedankenstriche im Beitragstext.** Der Gedankenstrich als
+  Einschub-Zeichen ist inzwischen das auffälligste Erkennungsmerkmal für
+  maschinell verfasste Texte. Doppelpunkt, Komma oder ein zweiter Satz tun
+  dasselbe, ohne den Verdacht auszulösen. Gilt für den Beitrag und den ersten
+  Kommentar; die Notizen darunter sind interne Arbeitstexte.
+- **Vorschaubild prüfen, bevor der Beitrag rausgeht.** LinkedIn hält
+  Link-Vorschauen rund sieben Tage im Zwischenspeicher. Nach einem Wechsel
+  des Social-Preview-Bilds auf GitHub erst die Repo-URL durch den
+  [Post Inspector](https://www.linkedin.com/post-inspector/) schicken, sonst
+  erscheint das alte Bild im Beitrag.
 - **Zeitpunkt:** Dienstag bis Donnerstag, vormittags.
+- **Hashtags bringen keine Reichweite mehr.** Seit LinkedIn 2024 das Folgen
+  von Hashtags abgeschafft hat, sind sie weitgehend neutral — sie helfen nur
+  noch bei der Suche und als Themensignal. Drei bis fünf, am Ende, zum Text
+  passend. Bewusst ohne #OpenSource und #KI: die holen die Entwickler-Bubble,
+  also das falsche Publikum für diesen Beitrag. Die eigentliche Arbeit machen
+  ohnehin die Wörter im Text selbst.
+- **Kein Wort über Versionen, Tests oder Technik.** Wer das wissen will,
+  findet es auf GitHub.

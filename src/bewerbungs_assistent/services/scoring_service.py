@@ -132,7 +132,28 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
             # Get user preferences for salary
             criteria = db.get_search_criteria()
             salary_type = job.get("salary_type", "jaehrlich")
-            if salary_type == "taeglich" or emp_type == "freelance":
+            # v1.7.17 (#920): Stundensaetze auf Tagessatz-Basis normieren,
+            # bevor der Freelance-Zweig sie als EUR/Tag fehlinterpretiert.
+            if salary_type == "stuendlich":
+                _pref_h = criteria.get("min_stundensatz", 0) or 0
+                if isinstance(_pref_h, (int, float)) and _pref_h > 0:
+                    pct_diff = (salary_min - _pref_h) / _pref_h * 100
+                    points = round(pct_diff / 10) * gehalt_cfg["value"]
+                    points = max(-5, min(5, points))
+                    if points != 0:
+                        total_adj += points
+                        adjustments.append({
+                            "dimension": "Gehalt/Rate",
+                            "detail": (f"{pct_diff:+.0f}% vom Wunsch "
+                                       f"({salary_min} EUR/Std)"),
+                            "punkte": points,
+                            "source": "extrahiert",
+                        })
+                    salary_min = None  # unten nicht nochmal als Tagessatz
+                else:
+                    salary_min = salary_min * 8  # Tagessatz-Aequivalent
+            if salary_min and (salary_type in ("taeglich", "stuendlich")
+                               or emp_type == "freelance"):
                 pref = criteria.get("min_tagessatz", 0)
                 if isinstance(pref, (int, float)) and pref > 0:
                     pct_diff = (salary_min - pref) / pref * 100
@@ -149,7 +170,7 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                             "punkte": points,
                             "source": "geschaetzt" if salary_estimated else "extrahiert",
                         })
-            else:
+            elif salary_min:
                 pref = criteria.get("min_gehalt", 0)
                 if isinstance(pref, (int, float)) and pref > 0:
                     pct_diff = (salary_min - pref) / pref * 100
