@@ -225,16 +225,20 @@ def _reason_of(tmp_db, full_hash: str) -> str:
 def test_rename_zieht_jobs_mit(tmp_db):
     """Tippfehler-Korrektur: jobs.dismiss_reason wird mit umgeschrieben."""
     tmp_db.create_profile("Test", "test@example.com")
-    rid = tmp_db.add_dismiss_reason("falsches_sytem")  # Tippfehler
-    h = _job_with_reason(tmp_db, "t0001aaa", "falsches_sytem")
+    # v1.7.17 (#913): 'falsches_system' ist jetzt ein Standard-Grund —
+    # das alte Beispiel wuerde in eine Merge-Kollision laufen. Der
+    # Testzweck (Tippfehler-Korrektur zieht jobs.dismiss_reason mit)
+    # bleibt mit einem Custom-Grund identisch.
+    rid = tmp_db.add_dismiss_reason("falsche_platform")  # Tippfehler
+    h = _job_with_reason(tmp_db, "t0001aaa", "falsche_platform")
 
-    res = tmp_db.rename_dismiss_reason(rid, "falsches_system")
+    res = tmp_db.rename_dismiss_reason(rid, "falsche_plattform")
     assert res["status"] == "umbenannt"
     assert res["reassigned_jobs"] == 1
-    assert _reason_of(tmp_db, h) == "falsches_system"
+    assert _reason_of(tmp_db, h) == "falsche_plattform"
     labels = [r["label"] for r in tmp_db.get_dismiss_reasons()]
-    assert "falsches_system" in labels
-    assert "falsches_sytem" not in labels
+    assert "falsche_plattform" in labels
+    assert "falsche_platform" not in labels
 
 
 def test_rename_kollision_merged(tmp_db):

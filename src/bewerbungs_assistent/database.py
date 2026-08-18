@@ -568,6 +568,70 @@ class Database:
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
 
+        # v1.7.17 (#913): Ablehnungsgrund-Vokabular durchsetzen.
+        # Befund: 101 verschiedene Freitext-Gruende in 182 Datensaetzen —
+        # die drei haeufigsten Nutzer-Signale erzeugten NULL Lerneffekt,
+        # jede Aggregation war systematisch falsch. Jetzt: dismiss_note-
+        # Spalte, Bestands-Migration (Freitext bleibt als Note erhalten,
+        # NICHTS geht verloren; Bericht im Log), neue regulaere Gruende
+        # falsches_system/falsche_branche in den Seeds.
+        try:
+            _j_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(jobs)").fetchall()}
+            if _j_cols and "dismiss_note" not in _j_cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN dismiss_note TEXT")
+                conn.commit()
+                logger.info("Safety-Net: jobs.dismiss_note nachgezogen (#913)")
+            for _label in ("falsches_system", "falsche_branche"):
+                conn.execute(
+                    "INSERT INTO dismiss_reasons (label, is_custom, "
+                    "profile_id, created_at) "
+                    "SELECT ?, 0, '', ? WHERE NOT EXISTS "
+                    "(SELECT 1 FROM dismiss_reasons WHERE label=?)",
+                    (_label, _now(), _label))
+            conn.commit()
+            if _j_cols:
+                from .services.ablehnungsgruende import (
+                    ist_konform, normalisiere_dismiss_wert)
+                try:
+                    _custom = {r["label"].lower() for r in
+                               (self.get_dismiss_reasons() or [])
+                               if r.get("is_custom") and r.get("is_active", 1)}
+                except Exception:
+                    _custom = set()
+                _rows = conn.execute(
+                    "SELECT hash, dismiss_reason, dismiss_note FROM jobs "
+                    "WHERE COALESCE(dismiss_reason,'') != ''").fetchall()
+                _bericht: dict = {}
+                _geheilt = 0
+                for _r in _rows:
+                    if ist_konform(_r["dismiss_reason"], _custom):
+                        continue
+                    _neu, _texte = normalisiere_dismiss_wert(
+                        _r["dismiss_reason"], _custom)
+                    _note = _r["dismiss_note"]
+                    if not _note:
+                        # Original IMMER sichern — Migrationsbericht in
+                        # den Daten selbst, der Nutzer kann widersprechen.
+                        _note = "; ".join(_texte) if _texte \
+                            else str(_r["dismiss_reason"])[:500]
+                    conn.execute(
+                        "UPDATE jobs SET dismiss_reason=?, dismiss_note=? "
+                        "WHERE hash=?", (_neu, _note[:500], _r["hash"]))
+                    _key = f"{str(_r['dismiss_reason'])[:60]} -> {_neu}"
+                    _bericht[_key] = _bericht.get(_key, 0) + 1
+                    _geheilt += 1
+                if _geheilt:
+                    conn.commit()
+                    _top = sorted(_bericht.items(), key=lambda kv: -kv[1])[:15]
+                    logger.info(
+                        "Safety-Net #913: %d Ablehnungsgrund-Datensaetze "
+                        "normalisiert (Original steht in dismiss_note). "
+                        "Haeufigste Abbildungen: %s", _geheilt,
+                        "; ".join(f"{k} ({n}x)" for k, n in _top))
+        except Exception as e:
+            logger.warning("Ablehnungsgrund-Safety-Net (#913): %s", e)
+
         # v1.7.11 (#796, A25): Spalten-Affinitaet bei Text-IDs heilen.
         # Gewachsene Bestaende haben `documents.linked_application_id` als
         # INTEGER — eine Hex-ID wie '42061e46' wird darin still zu
@@ -4860,10 +4924,31 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
-        conn.execute(
-            "UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=?",
-            (reason, _now(), target_hash)
-        )
+        # v1.7.17 (#913): SCHREIBSCHUTZ — dies ist die eine Stelle, durch
+        # die alle dismiss_reason-Writes laufen. Werte ausserhalb der
+        # Whitelist werden normalisiert, Freitext wandert nach
+        # dismiss_note (Belegt: 101 Freitext-Gruende in 182 Datensaetzen,
+        # die drei haeufigsten Nutzer-Signale ohne jeden Lerneffekt).
+        try:
+            from .services.ablehnungsgruende import normalisiere_dismiss_wert
+            custom = {r["label"].lower() for r in
+                      (self.get_dismiss_reasons() or [])
+                      if r.get("is_custom") and r.get("is_active", 1)}
+            reason, freitexte = normalisiere_dismiss_wert(reason, custom)
+        except Exception as exc:
+            logger.warning("dismiss_reason-Normalisierung (#913): %s", exc)
+            freitexte = []
+        if freitexte:
+            conn.execute(
+                "UPDATE jobs SET is_active=0, dismiss_reason=?, "
+                "dismiss_note=?, updated_at=? WHERE hash=?",
+                (reason, "; ".join(freitexte)[:500], _now(), target_hash)
+            )
+        else:
+            conn.execute(
+                "UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=?",
+                (reason, _now(), target_hash)
+            )
         conn.commit()
 
     def restore_job(self, job_hash: str):
@@ -6023,14 +6108,14 @@ class Database:
         total = conn.execute(
             "SELECT COUNT(*) AS n FROM jobs "
             "WHERE (profile_id=? OR profile_id IS NULL) "
-            "AND dismiss_reason LIKE 'auto:%'",
+            "AND (dismiss_reason LIKE 'auto:%' OR dismiss_reason LIKE '%profil_match_negativ%')",
             (pid,)
         ).fetchone()["n"]
         # Davon wieder aktiv = User hat die Auto-Entscheidung zurueckgenommen
         reaktiviert = conn.execute(
             "SELECT COUNT(*) AS n FROM jobs "
             "WHERE (profile_id=? OR profile_id IS NULL) "
-            "AND dismiss_reason LIKE 'auto:%' AND is_active=1",
+            "AND (dismiss_reason LIKE 'auto:%' OR dismiss_reason LIKE '%profil_match_negativ%') AND is_active=1",
             (pid,)
         ).fetchone()["n"]
         # Davon mit Bewerbung verknuepft = starke Korrektur (Ollama lag falsch)
@@ -6038,7 +6123,7 @@ class Database:
             "SELECT COUNT(DISTINCT j.hash) AS n FROM jobs j "
             "JOIN applications a ON a.job_hash = j.hash "
             "WHERE (j.profile_id=? OR j.profile_id IS NULL) "
-            "AND j.dismiss_reason LIKE 'auto:%'",
+            "AND (j.dismiss_reason LIKE 'auto:%' OR j.dismiss_reason LIKE '%profil_match_negativ%')",
             (pid,)
         ).fetchone()["n"]
         korrigiert = reaktiviert  # reaktivierte sind die messbaren Korrekturen
@@ -10220,6 +10305,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     salary_estimated INTEGER DEFAULT 0,
     employment_type TEXT DEFAULT 'festanstellung',
     dismiss_reason TEXT,
+    dismiss_note TEXT,
     is_active INTEGER DEFAULT 1,
     is_pinned INTEGER DEFAULT 0,
     lat REAL,

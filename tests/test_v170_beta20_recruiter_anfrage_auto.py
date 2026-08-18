@@ -157,7 +157,9 @@ def test_konvertieren_leert_applications_dismisst_stelle(setup_env):
     ).fetchone()
     assert job is not None
     assert job["is_active"] == 0
-    assert job["dismiss_reason"] == "standort"
+    # v1.7.17 (#913): 'standort' ist ein Alias des Konvertier-Tools und
+    # wird auf den Whitelist-Grund zu_weit_entfernt normalisiert.
+    assert job["dismiss_reason"] == "zu_weit_entfernt"
 
 
 def test_konvertieren_lehnt_aktive_bewerbungen_ab(setup_env):
