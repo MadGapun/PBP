@@ -16,6 +16,143 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.17] - 2026-08-18 — Praxis-Welle 18.08.: Scoring-Wahrheit, stille Haenger, Quellen-Ehrlichkeit
+
+> **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration
+> (Schema **v48** unveraendert — nur idempotente Safety-Nets:
+> `scoring_config.set_by_user`, `jobs.dismiss_note`, vier
+> `scraper_health`-Metadaten-Spalten), keine neuen Abhaengigkeiten.
+> Elf Issues aus zwei realen Bewerbungs-Nachmittagen (17./18.08.).
+
+### Fixed
+- **Scoring-Regler ueber MCP repariert (#917)**: `scoring_konfigurieren('setzen')`
+  legte eine Dublette an statt zu aktualisieren — von der Automatik
+  gesetzte Ignorieren-Flags waren dadurch unerreichbar (vier Stellenarten
+  still ausgeblendet). Jetzt echtes UPSERT, neue Aktion `'loeschen'`
+  (Regler faellt auf den Default zurueck), deterministischer Tie-Break,
+  Safety-Net fuehrt Bestands-Dubletten zusammen.
+- **Entfernungs-Lerneffekt war INVERTIERT (#917 Defekt C)**: der
+  `zu_weit_entfernt`-Malus landete via Schluessel `'50km'` im Bracket 50
+  und bestrafte Stellen ZWISCHEN 30 und 50 km mit bis zu -10, waehrend
+  600 km nur -8 bekamen. Lern-Malus wandert jetzt in die Stufe `999`;
+  Safety-Net ueberfuehrt fehl-adressierte Altzeilen. Bracket-Semantik
+  ("Malus fuer Stellen BIS X km") in der Tool-Doku dokumentiert.
+- **Score-Pfade vereinheitlicht (#917 Defekt D)**: `fit_analyse` wendet
+  Ausschluss-Keywords jetzt an wie `calculate_score` und matcht gegen die
+  notiz-bereinigte Beschreibung — dieselbe Stelle konnte vorher
+  gleichzeitig Score 0 und 88 haben. `scores_neu_berechnen()` nennt bei
+  harten Nullungen den Grund statt im Batch stumm zu nullen; die
+  Notizen-Konvention (#603, `---`-Trenner) ist in `stelle_bearbeiten`/
+  `stelle_manuell_anlegen` dokumentiert und wird heuristisch angemahnt.
+- **Schaetz-Gehalt-Regression (#918)**: der #827-Fix sass nur im
+  Listen-Score — `fit_analyse` vergab weiter +8 fuer geschaetzte
+  Gehaelter. Jetzt in beiden Pfaden neutral mit transparentem 0-Eintrag.
+- **EUR/hour wurde als EUR/Tag gelesen (#920)**: englische
+  Stundensatz-Formate ("100 EUR/hour", "€90 per hour") werden erkannt,
+  `min_stundensatz` wird endlich ausgewertet — passende Freelance-
+  Stellen verschwanden vorher lautlos.
+- **Termin-Merge verwarf Texte (#916)**: beim Dubletten-Zusammenfuehren
+  gingen abweichende Titel verloren (dort standen die einzigen
+  Gespraechspartner-Namen). Abweichende Texte wandern jetzt als
+  "Alternative Bezeichnung" in die Notizen; die Master-Wahl geht nach
+  Informationsgehalt (Eigennamen zaehlen).
+- **Stille 4-Minuten-Haenger schreibender MCP-Tools (#915)**:
+  `meeting_hinzufuegen`, `meeting_bearbeiten`, `todo_anlegen` und
+  `dokument_verknuepfen` haben ein Wall-Clock-Budget (45 s) und liefern
+  bei Blockade ein `status='timeout'`-Ergebnis mit laufenden
+  Hintergrund-Tasks und Idempotenz-Hinweis statt Stille.
+  `pbp_mcp_diagnose` antwortet jetzt auch waehrend einer DB-Blockade
+  (Ringpuffer bleibt lieferbar, DB-Teil mit eigenem 3s-Budget).
+- **Ablehnungsgrund-Vokabular durchgesetzt (#913)**: 101 verschiedene
+  Freitext-Gruende in 182 Datensaetzen — die drei haeufigsten Signale
+  erzeugten NULL Lerneffekt. Alle Schreibpfade laufen jetzt durch EINE
+  Normalisierung (`db.dismiss_job`); Freitext wandert in die neue Spalte
+  `jobs.dismiss_note`; Bestands-Migration mit Bericht (Original bleibt
+  als Note erhalten). NEU als regulaere Gruende: `falsches_system` und
+  `falsche_branche`.
+- **Sidebar-Hoehenkette (#907)**: Jobsuche-Badge und Elwosa-Header
+  scrollten mit dem Chat weg (`maxHeight:100%` gegen `height:auto` ist
+  unaufloesbar). Jetzt scrollt genau EIN Container — die
+  Nachrichtenliste; der "X neu"-Button sitzt wieder im sichtbaren
+  Bereich.
+
+### Changed
+- **Lernmodus: schaerfer statt aus (#908)**: kein Ablehnungsgrund setzt
+  mehr automatisch `ignore_flag`. Gestufte, gedeckelte Malusse
+  (zu_weit_entfernt -2..-10, zeitarbeit -2..-8, befristet -2..-6),
+  Eskalation linear ueber den realen Nennungsbereich (5..155 statt
+  Deckel ab ~13). `zu_junior` lernt nicht mehr auf der falschen
+  Stellenart-Achse (MINUS-Keyword-Hinweis stattdessen);
+  `falsches_fachgebiet` erzeugt via `keyword_vorschlaege()` belegte
+  MINUS-Kandidaten. Explizit gesetzte Regler (`set_by_user`) sind fuer
+  die Automatik unantastbar; alte Automatik-Flags werden per Safety-Net
+  zurueckgenommen. `suchkriterien_setzen` dedupliziert alle Listen.
+- **Quellen-Wahrheit (#906)**: jede Quelle traegt eine `zugriffsart`
+  (api/browser/browser_login); linkedin, xing, stepstone, indeed,
+  monster, google_jobs sind `browser_login` mit Konto-URL und
+  Login-Hinweis. Aktivierung nur nach bestaetigtem Dialog; aktive
+  Browser-Quellen zeigen "Wartet auf dich" statt "Aktiv".
+  Auto-Deaktivierung persistiert Grund+Zeitpunkt; `quellen_health_check`
+  vermerkt jede Probe an der Quelle und meldet auto-deaktivierte, aber
+  erreichbare Quellen als `pruefen` (nicht als tot) — Response-Feld
+  `wieder_erreichbar`. `jobsuche_starten` warnt, wenn ein konfigurierter
+  Stellentyp keine einzige laufende Quelle hat (Freelance-Schiene war
+  monatelang komplett aus, ohne dass es jemand sagte).
+
+### Added
+- **Entfernungs-Malus gegen Gehalt verrechnen (#910)**: "km sind ein
+  Malus, der durch Verdienst behoben werden kann." Neue Dimension
+  `entfernung_gehalt_kompensation/spanne` (EUR/Jahr, Default 0 = aus):
+  liegt das ECHTE Gehalt ueber dem Wunsch, sinkt der Entfernungs-Malus
+  linear — bei Wunsch+Spanne auf 0. Schaetzungen kompensieren nie;
+  wirkt identisch in Listen-Score, Fit-Analyse (Basis/Grad/Gutschrift
+  getrennt ausgewiesen) und Scoring-Reglern.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.17.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.17.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.16] - 2026-08-13 — Aufgeraeumtes Paket: Schaufenster, Musterdaten, saubere Doku
 
 > **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration
