@@ -99,7 +99,9 @@ def test_reingestion_preserves_dismissed_state(setup_env):
     db = setup_env
     db.save_jobs([_job("h-x", "QA Tester", "TestFirma")])
     # Aussortieren
-    db.dismiss_job("h-x", reason="passt_nicht")
+    # v1.7.17 (#913): Whitelist-Grund nutzen — Freitext wuerde auf
+    # 'sonstiges' normalisiert (der Testzweck ist der dismissed-STATE).
+    db.dismiss_job("h-x", reason="falsches_fachgebiet")
     conn = db.connect()
     before = conn.execute("SELECT is_active, dismiss_reason FROM jobs WHERE hash LIKE '%h-x'").fetchone()
     assert before["is_active"] == 0
@@ -107,7 +109,7 @@ def test_reingestion_preserves_dismissed_state(setup_env):
     db.save_jobs([_job("h-x", "QA Tester", "TestFirma")])
     after = conn.execute("SELECT is_active, dismiss_reason FROM jobs WHERE hash LIKE '%h-x'").fetchone()
     assert after["is_active"] == 0, "aussortierte Stelle wurde faelschlich reaktiviert"
-    assert after["dismiss_reason"] == "passt_nicht"
+    assert after["dismiss_reason"] == "falsches_fachgebiet"
 
 
 def test_dedup_key_helper(setup_env):

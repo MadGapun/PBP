@@ -172,7 +172,10 @@ class TestJobs:
         assert len(active) == 1
         dismissed = tmp_db.get_dismissed_jobs()
         assert len(dismissed) == 1
-        assert dismissed[0]["dismiss_reason"] == "nicht relevant"
+        # v1.7.17 (#913): Freitext wird beim Schreiben auf die Whitelist
+        # normalisiert, das Original bleibt in dismiss_note lesbar.
+        assert dismissed[0]["dismiss_reason"] == "sonstiges"
+        assert "nicht relevant" in (dismissed[0].get("dismiss_note") or "")
         # Restore
         tmp_db.restore_job("abc123456789")
         active = tmp_db.get_active_jobs()

@@ -95,7 +95,10 @@ def test_auto_dismiss_now_actually_dismisses(setup_env, monkeypatch):
     conn = db.connect()
     bad = conn.execute("SELECT is_active, dismiss_reason FROM jobs WHERE hash LIKE '%h-bad'").fetchone()
     assert bad["is_active"] == 0, "PASST_NICHT-Stelle haette aussortiert werden muessen"
-    assert bad["dismiss_reason"].startswith("auto:profil_match_negativ")
+    # v1.7.17 (#913): der 'auto:<grund>:<text>'-Rohwert wird beim
+    # Schreiben normalisiert — Grund in dismiss_reason, LLM-Begruendung
+    # in dismiss_note. Die Ollama-Statistik zaehlt beide Formate.
+    assert bad["dismiss_reason"] == "profil_match_negativ"
 
 
 def test_score_enrichment_for_thin_description(setup_env, monkeypatch):

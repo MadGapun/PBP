@@ -677,22 +677,15 @@ def register(mcp, db, logger):
             result["bereinigung"] = bereinigung
         return result
 
-    # Standard rejection reasons for learning (#66)
-    ABLEHNUNGSGRUENDE = [
-        "zu_weit_entfernt",
-        "gehalt_zu_niedrig",
-        "falsches_fachgebiet",
-        "zu_junior",
-        "zu_senior",
-        "unpassendes_arbeitsmodell",
-        "firma_uninteressant",
-        "zeitarbeit",
-        "befristet",
-        "bereits_beworben",
-        "duplikat",
-        "kein_hochschulabschluss",
-        "sonstiges",
-    ]
+    # Standard rejection reasons for learning (#66).
+    # v1.7.17 (#913): das Vokabular lebt jetzt zentral in
+    # services/ablehnungsgruende.py — inkl. der neuen regulaeren Gruende
+    # falsches_system (Fachgebiet stimmt, Plattform nicht) und
+    # falsche_branche (Rolle stimmt, Branche nicht). Alle Schreibpfade
+    # auf jobs.dismiss_reason laufen durch dieselbe Normalisierung
+    # (verdrahtet in db.dismiss_job); Freitext landet in dismiss_note.
+    from ..services.ablehnungsgruende import STANDARD_GRUENDE
+    ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
 
     def _detect_duplicate(job_hash: str) -> dict | None:
         """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert."""
@@ -743,21 +736,24 @@ def register(mcp, db, logger):
         return None
 
     def _normalize_dismiss_reason(reason: str) -> str:
-        """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158)."""
-        lower = reason.lower().strip()
-        if "bereits beworben" in lower or "schon beworben" in lower:
-            return "bereits_beworben"
-        if "zu weit" in lower or "entfernung" in lower:
-            return "zu_weit_entfernt"
-        if "gehalt" in lower or "zu niedrig" in lower:
-            return "gehalt_zu_niedrig"
-        if "zeitarbeit" in lower or "arbeitnehmerüberl" in lower:
-            return "zeitarbeit"
-        if "befristet" in lower:
-            return "befristet"
-        if "hochschul" in lower or "studium" in lower or "abschluss" in lower or "ats" in lower:
-            return "kein_hochschulabschluss"
-        return reason
+        """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158).
+
+        v1.7.17 (#913): delegiert an die EINE zentrale Normalisierung —
+        vorher gab es hier eine eigene, unvollstaendige Musterliste,
+        waehrend andere Schreibpfade komplett daran vorbeischrieben.
+        """
+        from ..services.ablehnungsgruende import _kanonisch_einzeln
+        erlaubt = set(ABLEHNUNGSGRUENDE) | _get_active_custom_reasons_lower()
+        grund, _freitext = _kanonisch_einzeln(reason, erlaubt)
+        return grund
+
+    def _get_active_custom_reasons_lower() -> set:
+        try:
+            rows = db.get_dismiss_reasons() or []
+            return {r["label"].lower() for r in rows
+                    if r.get("is_custom") and r.get("is_active", 1)}
+        except Exception:
+            return set()
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
         """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern.
