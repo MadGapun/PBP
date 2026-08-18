@@ -2576,6 +2576,22 @@ _DEGREE_REQUIRED_PATTERNS = [
     "studium des maschinenbau",
     "studium in informatik",
     "erfolgreich abgeschlossenes studium",
+    # v1.7.17 (#918 Defekt 2): englische Formulierungen fehlten komplett —
+    # "Educational Background: Bachelor's degree in Business ..." wurde
+    # NICHT erkannt (Falsch-Negativ: echtes ATS-Risiko verschwiegen).
+    "educational background",
+    "bachelor's degree",
+    "bachelors degree",
+    "bachelor degree",
+    "master's degree",
+    "masters degree",
+    "master degree",
+    "mba",
+    "degree in business",
+    "degree in engineering",
+    "degree in computer science",
+    "academic degree",
+    "college degree",
 ]
 
 
@@ -2607,13 +2623,63 @@ _DEGREE_RELAXATION_PATTERNS = [
     "or comparable field",
     "comparable qualification",
     "auch ohne abschluss",
+    # v1.7.17 (#918 Defekt 2): Oeffnungsklauseln, die den Abschluss
+    # entwerten — ein Techniker-Abschluss erfuellt die Anforderung dann.
+    "oder vergleichbare ausbildung",
+    "oder eine vergleichbare ausbildung",
+    "oder vergleichbare berufsausbildung",
+    "vergleichbare qualifikation",
+    "or similar education",
+    "or similar qualification",
+    "or equivalent qualification",
+    "or equivalent education",
+    "or relevant experience",
+    "equivalent practical experience",
+    "oder einschlaegige berufserfahrung",
+    "oder einschlägige berufserfahrung",
 ]
+
+
+def _degree_text(text: str) -> str:
+    """Matching-Text fuer die Abschluss-Erkennung (v1.7.17, #918 Defekt 2).
+
+    Zusaetzlich zur Umlaut-Normalisierung wird der Whitespace geglaettet:
+    echte Anzeigen brechen Zeilen mitten in der Phrase um ("oder eine" /
+    Zeilenumbruch / "vergleichbare Ausbildung"), und die Muster sind zusammenhaengende
+    Phrasen — ohne Glaettung greift ausgerechnet die Oeffnungsklausel nicht.
+    """
+    import re as _re
+    return _re.sub(r"\s+", " ", _normalize_for_matching(text or ""))
 
 
 def _has_degree_relaxation(text: str) -> bool:
     """True wenn der Text Quereinsteiger-/Abschwaechungs-Klauseln enthaelt (#536)."""
-    text_lower = _normalize_for_matching(text)
+    text_lower = _degree_text(text)
     return any(pat in text_lower for pat in _DEGREE_RELAXATION_PATTERNS)
+
+
+# v1.7.17 (#918 Defekt 2): Zeilen, die ueber ANDERE Bewerber reden statt
+# ueber die Anforderung. Belegter Fall: die LinkedIn-Bewerberstatistik
+# ("21 % haben den Abschluss Master, 17 % Bachelor der
+# Ingenieurswissenschaften") stand im Datensatz und loeste einen
+# Falsch-Alarm aus ("HOCHSCHULABSCHLUSS GEFORDERT") bei einer Anzeige,
+# die gar keinen Abschluss verlangt.
+_DEGREE_STATISTIK_MARKER = (
+    "bewerberfeld", "bewerberlage", "bewerberstatistik", "der bewerber",
+    "% haben", "prozent haben", "berufserfahrene", "berufseinsteiger",
+    "applicant", "applicants have",
+)
+
+
+def _ohne_bewerberstatistik(text: str) -> str:
+    """Entfernt Zeilen, die Bewerber-Statistiken statt Anforderungen tragen."""
+    zeilen = []
+    for zeile in (text or "").splitlines():
+        low = zeile.lower()
+        if any(m in low for m in _DEGREE_STATISTIK_MARKER):
+            continue
+        zeilen.append(zeile)
+    return chr(10).join(zeilen)
 
 
 def _detect_degree_required(text: str) -> bool:
@@ -2622,8 +2688,14 @@ def _detect_degree_required(text: str) -> bool:
     v1.6.4 (#536): Quereinsteiger-Klauseln werden jetzt beruecksichtigt.
     Wenn die Beschreibung explizit Quereinsteiger einlaedt, wird die formale
     Anforderung als nicht-bindend gewertet (False zurueckgegeben).
+
+    v1.7.17 (#918 Defekt 2): Die Erkennung lief auf dem GESAMTEN Datensatz —
+    inklusive redaktioneller PBP-Notizen und Bewerberstatistiken. Jetzt
+    zuerst Notizen abschneiden (#603-Trenner) und Statistik-Zeilen
+    entfernen; erst dann matchen.
     """
-    text_lower = _normalize_for_matching(text)
+    text = _ohne_bewerberstatistik(_strip_pbp_notes(text or ""))
+    text_lower = _degree_text(text)
     if not any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS):
         return False
     # Pattern hat angeschlagen — pruefe ob abgeschwaecht
