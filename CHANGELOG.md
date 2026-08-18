@@ -16,6 +16,81 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.18] - 2026-08-18 — Nachzug: Phantom-Termine und Abschluss-Erkennung
+
+> **Patch auf v1.7.17** (gleicher Tag). Zwei Datenqualitaets-Fehler, die
+> beide dazu fuehren, dass PBP etwas berichtet, das nicht in der Quelle
+> steht. Keine Schema-Migration, keine neuen Abhaengigkeiten.
+
+### Fixed
+- **Phantom-Termine aus zitierten Mail-Threads (#922)**: Der Import EINER
+  Mail mit Antwortverlauf legte VIER Termine an — die Sendezeiten der
+  zitierten Vorgaengermails, alle als "interview" mit erfundenen 60
+  Minuten. Folge: vermuellter Kalender, verfaelschte Aufwands-Statistik
+  und `firma_kontext` berichtete fuenf Interviews statt einem. Jetzt
+  werden zitierte Bereiche vor der Terminsuche abgeschnitten, ein Datum
+  allein genuegt nicht mehr (es braucht ICS, Konferenzlink oder
+  Terminvokabular im eigenen Text), und aus Text abgeleitete Termine
+  bekommen kein pauschales "interview". NEU
+  `phantom_termine_bereinigen` fuer den Altbestand — Report mit
+  Begruendung, geloescht wird nur auf ausdrueckliche Anweisung.
+- **Hochschulabschluss-Erkennung lag in beide Richtungen falsch
+  (#918 Defekt 2)**: Die Erkennung lief ueber den gesamten Datensatz —
+  eine Bewerberstatistik in den Notizen ("21 % haben den Abschluss
+  Master") ist eine Aussage ueber ANDERE Bewerber und loeste den
+  ATS-Risikohinweis bei einer Anzeige aus, die gar keinen Abschluss
+  fordert. Umgekehrt fehlten die englischen Muster komplett
+  ("Educational Background: Bachelor's degree" wurde nicht erkannt) —
+  ein echtes Risiko blieb unerwaehnt. Jetzt: Notizen und
+  Statistik-Zeilen raus, englische Muster und Oeffnungsklauseln
+  ("oder vergleichbare Ausbildung") ergaenzt, Whitespace-Glaettung
+  (Anzeigen brechen mitten in der Phrase um).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.18.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.18.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.17] - 2026-08-18 — Praxis-Welle 18.08.: Scoring-Wahrheit, stille Haenger, Quellen-Ehrlichkeit
 
 > **Empfohlenes Update fuer alle v1.7-Nutzer.** KEINE Schema-Migration
