@@ -27,6 +27,7 @@ from __future__ import annotations
 import functools
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as _FutureTimeout
 
@@ -42,8 +43,50 @@ BUDGET_SEK_DEFAULT = 45.0
 # Klein halten: mehr als eine Handvoll gleichzeitig haengender Writes
 # bedeutet ohnehin, dass der Server Hilfe braucht — und jeder
 # Pool-Thread haelt eine eigene DB-Connection (A28).
+#
+# WICHTIG zum Thread-Namen (v1.7.18): NICHT mit "pbp-" praefixen. Der
+# Test-Drain aus A22/#759 (conftest.pytest_runtest_teardown) joint jeden
+# "pbp-*"-Thread mit 15 s Timeout, bevor eine Fixture die DB schliesst.
+# Pool-Worker sind aber IDLE-Dauerlaeufer — sie beenden sich nie, also
+# lief der Join jedes Mal voll aus: 15 s pro Test, in Summe ueber eine
+# halbe Stunde CI-Laufzeit (Timeout). Statt des Thread-Todes wartet der
+# Drain jetzt auf LEERLAUF (warte_auf_leerlauf) — das ist ohnehin die
+# richtige Bedingung: kein laufender Auftrag = keine aktive Connection.
 _EXECUTOR = ThreadPoolExecutor(max_workers=4,
-                               thread_name_prefix="pbp-tool-budget")
+                               thread_name_prefix="pbpbudget-worker")
+
+# Zaehler laufender Auftraege (nicht der Threads) — Grundlage fuer
+# warte_auf_leerlauf.
+_LAUFEND = 0
+_LAUFEND_LOCK = threading.Lock()
+_LEERLAUF = threading.Event()
+_LEERLAUF.set()
+
+
+def _auftrag_beginnt() -> None:
+    global _LAUFEND
+    with _LAUFEND_LOCK:
+        _LAUFEND += 1
+        _LEERLAUF.clear()
+
+
+def _auftrag_endet() -> None:
+    global _LAUFEND
+    with _LAUFEND_LOCK:
+        _LAUFEND = max(0, _LAUFEND - 1)
+        if _LAUFEND == 0:
+            _LEERLAUF.set()
+
+
+def warte_auf_leerlauf(timeout: float = 5.0) -> bool:
+    """Wartet, bis kein Budget-Auftrag mehr laeuft (True = leer).
+
+    Fuer Test-Teardown und geordnetes Herunterfahren: Pool-Worker leben
+    weiter, aber ohne laufenden Auftrag halten sie keine aktive
+    DB-Arbeit — genau das ist die Bedingung, unter der db.close()
+    gefahrlos ist (A22-Segfault-Schutz).
+    """
+    return _LEERLAUF.wait(timeout=timeout)
 
 
 def _budget_sek() -> float:
@@ -87,7 +130,15 @@ def mit_budget(tool_name: str, lese_tool: str = "dem passenden "
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             budget = _budget_sek()
-            future = _EXECUTOR.submit(fn, *args, **kwargs)
+
+            def _lauf():
+                try:
+                    return fn(*args, **kwargs)
+                finally:
+                    _auftrag_endet()
+
+            _auftrag_beginnt()
+            future = _EXECUTOR.submit(_lauf)
             try:
                 return future.result(timeout=budget)
             except _FutureTimeout:
@@ -107,7 +158,14 @@ def mit_kurzbudget(fn, budget: float, fallback):
     pbp_mcp_diagnose): blockiert der Aufruf, kommt `fallback` zurueck
     und die Diagnose bleibt antwortfaehig.
     """
-    future = _EXECUTOR.submit(fn)
+    def _lauf():
+        try:
+            return fn()
+        finally:
+            _auftrag_endet()
+
+    _auftrag_beginnt()
+    future = _EXECUTOR.submit(_lauf)
     try:
         return future.result(timeout=budget)
     except _FutureTimeout:
