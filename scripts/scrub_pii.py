@@ -73,6 +73,15 @@ _PERSON_LITERAL = [
     r"Saskia\s+van\s+Wijk",
     r"R\.\s+Molnar",
     r"Sebastian\s+Hentzelt",
+    # Nachtrag 18.08.2026: Gespraechspartner aus Termin-Titeln — standen
+    # in #830 (Merge-Datenverlust) als reale Belege und rutschten am
+    # Sweep vorbei, weil der Pruefer sie nicht kannte.
+    r"Felix\s+Hennings",
+    r"Hennings",
+    r"Christina\s+Pesold",
+    r"Pesold",
+    r"Schmidt-Lechler",
+    r"Jan\s+Peters",
 ]
 _PERSON_PATTERNS = [re.compile(rf"\b{p}\b") for p in _PERSON_LITERAL]
 
@@ -133,6 +142,16 @@ _FIRMA_LITERAL = [
     # und rutschten am Sweep vorbei — Markennamen ohne Rechtsform-Suffix
     # faengt der Corp-Catch-all nicht.
     r"Atos",
+    # Nachtrag 18.08.2026: Interview-/Sichtungshistorie aus #830/#911/#914
+    # — Markennamen ohne Rechtsform-Suffix, die der Corp-Catch-all nicht
+    # faengt.
+    r"ePLM(?:\s+AG)?",
+    r"Dassault(?:\s+Syst(?:e|è)mes)?",
+    r"HydroDyn",
+    r"VirtoTech",
+    r"Amplifon",
+    r"BW\s+Papersystems",
+    r"Cubiq(?:\s+Recruitment)?",
     r"valantic",
     r"adesso(?:\s+SE)?",
     r"Akkodis(?:\s+Germany)?(?:\s+Tech\s+Experts)?(?:\s+GmbH)?",
@@ -201,6 +220,18 @@ FIKTIVE_FIRMEN = (
     "rosental kosmetikwerk",
     "cospudener reisen",
     "hafenkontor halle",
+    # Nachtrag 18.08.2026: Stand-ins der Welle 17.08. (#830/#909/#911/#914)
+    "plm-haus sued",
+    "cad-konzern west",
+    "wasserkraft nord",
+    "vermittler mitte",
+    "messtechnik mitte",
+    "hoertechnik sued",
+    "sortiertechnik nord",
+    "papiertechnik west",
+    "recruitment-haus",
+    "systemhaus sued",
+
 )
 
 # Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
