@@ -85,12 +85,14 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
     if lower in _ALIAS:
         return _ALIAS[lower], None
 
-    # Systempfad 'auto:<grund>:<llm-begruendung>' — Grund extrahieren,
-    # Begruendung ist Freitext.
-    m = re.match(r"^auto:([a-z_]+):(.*)$", text, re.IGNORECASE | re.DOTALL)
+    # Systempfad 'auto:<grund>' bzw. 'auto:<grund>:<llm-begruendung>' —
+    # Grund extrahieren, Begruendung (falls vorhanden) ist Freitext.
+    # Der Kurzform-Fall ohne Begruendung existiert im Altbestand (#671).
+    m = re.match(r"^auto:([a-z_]+)(?::(.*))?$", text,
+                 re.IGNORECASE | re.DOTALL)
     if m:
         grund = m.group(1).lower()
-        rest = m.group(2).strip()
+        rest = (m.group(2) or "").strip()
         if grund in erlaubt:
             return grund, (rest or None)
         return "sonstiges", text

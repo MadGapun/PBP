@@ -22,7 +22,7 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
 [![Stable](https://img.shields.io/badge/Stable-v1.7.16-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-2223-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
+[![Tests](https://img.shields.io/badge/Tests-2289-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)

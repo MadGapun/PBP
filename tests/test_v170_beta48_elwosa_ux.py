@@ -38,14 +38,19 @@ def test_jump_to_bottom_button_with_unread_count():
 
 def test_adaptive_height_replaces_fixed_max_height():
     """Adaptive Hoehe statt starrem Pixel-Wert.
-    v1.7.0-beta.61 (#625): Container darueber bestimmt Hoehe (flex:1 +
-    min-h:0), Elwosa fuellt mit maxHeight: 100% — keine vh-Werte mehr
-    hier drin, sonst kollidiert es wieder mit dem Menue-Vorrang."""
+    v1.7.0-beta.61 (#625): Container darueber bestimmt die Hoehe.
+    v1.7.17 (#907): der damalige Weg (maxHeight:100% gegen height:auto)
+    war in CSS unaufloesbar und damit wirkungslos — jetzt traegt eine
+    echte Flex-Kette (relative flex-1 min-h-0 + h-full); Pixel-/vh-Werte
+    bleiben weiterhin verboten."""
     src = SIDEBAR_CHAT.read_text(encoding="utf-8")
-    # Mindestgroesse muss da sein, damit Elwosa nicht ganz verschwindet
-    assert "min-h-[80px]" in src or "min-h-[100px]" in src or "min-h-[150px]" in src
-    # maxHeight: 100% (Container-relativ) statt vh
-    assert "maxHeight" in src or "max-h-full" in src
+    # keine starren Werte mehr — weder vh noch Pixel-Mindesthoehen
+    assert "vh]" not in src and "min-h-[80px]" not in src
+    assert 'maxHeight: "100%"' not in src, \
+        "Prozent-maxHeight gegen height:auto ist der #907-Bug"
+    # die Flex-Hoehenkette muss stehen
+    assert 'className="relative flex-1 min-h-0"' in src
+    assert 'className="h-full space-y-2 overflow-y-auto pr-1"' in src
 
 
 def test_action_link_routing_in_app_jsx():

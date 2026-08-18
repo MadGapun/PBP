@@ -23,6 +23,58 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.12] - 2026-08-18 — Praxis-Welle 18.08.: Scoring-Wahrheit, stille Haenger, Quellen-Ehrlichkeit (#906-#920)
+
+> **Prerelease der v1.8-Linie.** Identischer Inhalt wie **v1.7.17**
+> (Stable, siehe Eintrag darunter) auf der Beta-Codebasis: elf Issues
+> aus zwei realen Bewerbungs-Nachmittagen. Schema **v52** unveraendert —
+> nur idempotente Safety-Nets (`scoring_config.set_by_user`,
+> `jobs.dismiss_note`, vier `scraper_health`-Metadaten-Spalten).
+
+### Fixed
+- Scoring-Regler ueber MCP repariert: UPSERT, Aktion `'loeschen'`,
+  deterministischer Tie-Break, Dubletten-Migration (#917/A+B)
+- Entfernungs-Lerneffekt war invertiert (`'50km'` traf Stellen BIS
+  50 km) — Lern-Malus in Stufe `999`, Altzeilen migriert (#917/C)
+- Score-Pfade vereinheitlicht: `fit_analyse` wendet Ausschluss-Keywords
+  an und matcht notiz-bereinigt; `scores_neu_berechnen` nennt Gruende;
+  Notizen-Konvention dokumentiert + Heuristik-Warnung (#917/D)
+- Schaetz-Gehalt-Regression in `fit_analyse` (+8 fuer Schaetzungen)
+  behoben — beide Pfade neutral (#918)
+- "100 EUR/hour" wurde als Tagessatz gelesen; `min_stundensatz` wird
+  jetzt ausgewertet (#920)
+- Termin-Merge verwirft keine Texte mehr; Master-Wahl nach
+  Informationsgehalt (#916)
+- Wall-Clock-Budgets (45 s) fuer `meeting_hinzufuegen`,
+  `meeting_bearbeiten`, `todo_anlegen`, `dokument_verknuepfen` —
+  `status='timeout'` mit Hintergrund-Tasks statt 4 Minuten Stille;
+  `pbp_mcp_diagnose` antwortet auch bei DB-Blockade (#915)
+- Ablehnungsgrund-Vokabular durchgesetzt: zentrale Normalisierung in
+  `db.dismiss_job`, Freitext nach `jobs.dismiss_note`,
+  Bestands-Migration mit Bericht; NEU `falsches_system` und
+  `falsche_branche` als regulaere Gruende (#913)
+- Sidebar-Hoehenkette: genau EIN Scroll-Container (die
+  Nachrichtenliste); "X neu"-Button wieder im sichtbaren Bereich (#907)
+
+### Changed
+- Lernmodus "schaerfer statt aus": kein automatisches `ignore_flag`,
+  gestufte Malusse mit linearer Eskalation (5..155 Nennungen),
+  `zu_junior` raus aus der Stellenart-Achse, `falsches_fachgebiet`
+  liefert belegte MINUS-Kandidaten via `keyword_vorschlaege()`,
+  `set_by_user`-Regler sind fuer die Automatik unantastbar,
+  `suchkriterien_setzen` dedupliziert (#908)
+- Quellen-Wahrheit: `zugriffsart` je Quelle (api/browser/browser_login),
+  Bestaetigungsdialog + "Wartet auf dich" fuer Browser-Quellen,
+  Deaktivierungs-Metadaten, Probe hebt erreichbare deaktivierte Quellen
+  auf `pruefen`, Warnung bei Stellentyp ohne laufende Quelle (#906)
+
+### Added
+- Entfernung-Gehalt-Kompensation: `entfernung_gehalt_kompensation/spanne`
+  (Opt-in, Default aus; nie mit Schaetzungen; identisch in allen drei
+  Score-Pfaden, Basis/Grad/Gutschrift getrennt ausgewiesen) (#910)
+
+---
+
 ## [1.8.0-beta.11] - 2026-08-11 — Grosse Welle: Bedienbarkeit, Elwosa, Scoring, Aufgaben (#768, #797, #809-#816, #822-#828)
 
 > **Prerelease.** `--latest` ist v1.7.12 — dieselben Fixes in der
