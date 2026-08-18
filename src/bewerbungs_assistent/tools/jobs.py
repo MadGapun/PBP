@@ -650,6 +650,32 @@ def register(mcp, db, logger):
                 "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
                 "sie sind im Hintergrund-Job NICHT enthalten."
             )
+        # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen. Der
+        # Nutzer suchte monatelang nur Festanstellung, obwohl sein Profil
+        # auch freelance sagte — ALLE Freelance-Quellen waren aus, und
+        # nichts wies darauf hin. Ein Kriterium, das niemand auswertet,
+        # ist schlimmer als ein fehlendes: es erzeugt falsche Sicherheit.
+        try:
+            from ..job_scraper import STELLENTYP_QUELLEN
+            _typen = db.get_search_criteria().get("stellentypen") or []
+            _laufende = set(params.get("quellen") or [])
+            for _typ in _typen:
+                _noetig = STELLENTYP_QUELLEN.get(_typ)
+                if _noetig and not (_noetig & _laufende):
+                    result.setdefault("stellentyp_ohne_quelle", []).append({
+                        "stellentyp": _typ,
+                        "quellen_dafuer": sorted(_noetig),
+                        "warnung": (
+                            f"Fuer '{_typ}' laeuft in dieser Suche KEINE "
+                            f"Quelle ({', '.join(sorted(_noetig))} alle "
+                            "inaktiv/defekt). Die zugehoerigen Kriterien "
+                            "werden nicht ausgewertet. Alternativen: "
+                            "quelle_handoff() fuer die Browser-Recherche "
+                            "oder scraper_diagnose(aktion='reaktivieren')."
+                        ),
+                    })
+        except Exception as exc:
+            logger.debug("Stellentyp-Warnung (#906) uebersprungen: %s", exc)
         return result
 
     @mcp.tool()
@@ -3798,6 +3824,7 @@ def register(mcp, db, logger):
             scraper_name: Name eines bestimmten Scrapers (z.B. 'stepstone', 'indeed'). Leer = alle anzeigen.
             aktion: 'status' = Gesundheitsdaten anzeigen, 'reaktivieren' = deaktivierten Scraper wieder aktivieren.
         """
+        from ..job_scraper import zugriffsart_von as _zugriffsart
         health = db.get_scraper_health()
         if not health:
             return {
@@ -3861,6 +3888,15 @@ def register(mcp, db, logger):
                 "laeufe_gesamt": h["total_runs"],
                 "durchschn_zeit_s": round(h["avg_time_s"], 1),
                 "letzter_fehler": h.get("last_error"),
+                # v1.7.17 (#906): Deaktivierung nachvollziehbar als eigene
+                # Felder — 'deprecated' (bewusst, Registry) und
+                # auto-deaktiviert (Automatik) sind zwei verschiedene
+                # Dinge; die Probe zeigt, ob die API ueberhaupt tot ist.
+                "zugriffsart": _zugriffsart(h["scraper_name"]),
+                "deaktiviert_am": h.get("deaktiviert_am"),
+                "deaktiviert_grund": h.get("deaktiviert_grund"),
+                "letzte_probe_am": h.get("letzte_probe_am"),
+                "letzte_probe_status": h.get("letzte_probe_status"),
             }
             scrapers.append(entry)
             if consec_silent >= 3 and h["is_active"]:
@@ -4150,6 +4186,50 @@ def register(mcp, db, logger):
 
         reachable = sum(1 for r in results if r.get("reachable"))
 
+        # v1.7.17 (#906): Probe-Ergebnis an der Quelle PERSISTIEREN und
+        # den sich selbst bestaetigenden 'deprecated'-Zustand aufbrechen:
+        # eine auto-deaktivierte Quelle laeuft nie wieder, also wird ihr
+        # Status nie widerlegt. Antwortet die API jetzt mit HTTP 200,
+        # wird sie als 'pruefen' gemeldet — NICHT als tot. (Bewusst im
+        # Registry deprecated markierte Quellen bleiben deprecated.)
+        wieder_erreichbar: list = []
+        try:
+            from ..job_scraper import SOURCE_REGISTRY as _REG
+            conn = db.connect()
+            _jetzt = __import__("datetime").datetime.now().isoformat()
+            for r in results:
+                src = r.get("source")
+                if not src:
+                    continue
+                _probe_status = (f"HTTP {r['http_status']}"
+                                 if r.get("http_status")
+                                 else (r.get("error") or "unbekannt")[:80])
+                conn.execute(
+                    "UPDATE scraper_health SET letzte_probe_am=?, "
+                    "letzte_probe_status=? WHERE scraper_name=?",
+                    (_jetzt, _probe_status, src))
+                if not r.get("reachable"):
+                    continue
+                if (_REG.get(src) or {}).get("deprecated"):
+                    continue
+                row = conn.execute(
+                    "SELECT is_active, deaktiviert_grund FROM scraper_health "
+                    "WHERE scraper_name=?", (src,)).fetchone()
+                if row and not row["is_active"]:
+                    conn.execute(
+                        "UPDATE scraper_health SET last_status_detail=? "
+                        "WHERE scraper_name=?",
+                        ("pruefen: API erreichbar, Parser/Abfrage liefert "
+                         "nichts (#906)", src))
+                    wieder_erreichbar.append({
+                        "quelle": src,
+                        "deaktiviert_grund": row["deaktiviert_grund"],
+                        "probe": _probe_status,
+                    })
+            conn.commit()
+        except Exception as exc:
+            logger.debug("Probe-Vermerk (#906) uebersprungen: %s", exc)
+
         # B16 (#627, v1.8.0-beta.5): Custom-Quellen mit pingen (einfacher
         # HTTP-Erreichbarkeits-Check; Status wird an der Quelle vermerkt).
         custom_results = []
@@ -4195,6 +4275,13 @@ def register(mcp, db, logger):
         }
         if custom_results:
             antwort["custom_quellen"] = custom_results
+        if wieder_erreichbar:
+            antwort["wieder_erreichbar"] = wieder_erreichbar
+            antwort["hinweis"] += (
+                f" | {len(wieder_erreichbar)} auto-deaktivierte Quelle(n) "
+                "antworten wieder (Status 'pruefen' gesetzt) — das Problem "
+                "liegt dann am Parser/an der Abfrage, nicht an der API (#906)."
+            )
         # #762/#761: Teilergebnis transparent machen statt still zu kuerzen.
         if budget_gerissen:
             antwort["abgebrochen"] = True

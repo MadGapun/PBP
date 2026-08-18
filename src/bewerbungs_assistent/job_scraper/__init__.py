@@ -444,6 +444,11 @@ SOURCE_REGISTRY = {
         "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
+        # v1.7.17 (#906): laeuft faktisch nur ueber Claude-in-Chrome mit
+        # eingeloggtem Konto — als aktive Hintergrund-Quelle sah sie nur so aus.
+        "zugriffsart": "browser_login",
+        "konto_url": "https://www.stepstone.de/registrieren",
+        "login_hinweis": "StepStone-Konto empfohlen; die Suche laeuft ueber die Chrome-Extension in deinem Browser, Treffer via stelle_manuell_anlegen().",
         "geschwindigkeit": "langsam",
         "warnung": "Benoetigt Google Chrome. Kann 1-3 Minuten dauern. Alternativ: Lass Claude gezielt auf stepstone.de suchen.",
     },
@@ -461,6 +466,9 @@ SOURCE_REGISTRY = {
         "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://secure.indeed.com/account/register",
+        "login_hinweis": "Laeuft ueber die Chrome-Extension in deinem Browser; ein Indeed-Konto verbessert die Treffer (Standort/Praeferenzen).",
         "geschwindigkeit": "langsam",
         "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf indeed.com suchen.",
     },
@@ -469,6 +477,9 @@ SOURCE_REGISTRY = {
         "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
         "methode": "Playwright (Browser)",
         "login_erforderlich": False,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://www.monster.de/",
+        "login_hinweis": "De facto tot (deprecated) — falls ueberhaupt, nur ueber die Chrome-Extension.",
         "geschwindigkeit": "langsam",
         "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
         "beta": True,
@@ -487,6 +498,9 @@ SOURCE_REGISTRY = {
         "beschreibung": "LinkedIn-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
         "methode": "Claude-in-Chrome (manuell)",
         "login_erforderlich": True,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://www.linkedin.com/signup",
+        "login_hinweis": "LinkedIn-Konto noetig und im Chrome eingeloggt; Easy-Apply-Stellen sind nur eingeloggt sichtbar.",
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
@@ -498,6 +512,9 @@ SOURCE_REGISTRY = {
         "beschreibung": "XING-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
         "methode": "Claude-in-Chrome (manuell)",
         "login_erforderlich": True,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://www.xing.com/signup",
+        "login_hinweis": "XING-Konto noetig und im Chrome eingeloggt — sonst sind Suchergebnisse stark beschnitten.",
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
@@ -514,6 +531,9 @@ SOURCE_REGISTRY = {
         # Vorher loeste der Login-Button einen Backend-Fehler aus, weil
         # api_start_source_login keinen google_jobs-Branch hatte.
         "login_erforderlich": False,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://accounts.google.com/signup",
+        "login_hinweis": "Eingeloggtes Google-Konto in Chrome noetig — die Standortableitung der Jobsuche (udm=8) haengt daran.",
         "manueller_fallback": True,
         "geschwindigkeit": "manuell",
         "warnung": "Benoetigt einen Google-Account in Chrome mit Claude-in-Chrome-Extension.",
@@ -522,6 +542,34 @@ SOURCE_REGISTRY = {
                     "im Dashboard noetig.",
         "beta": True,
     },
+}
+
+
+def zugriffsart_von(source_id: str) -> str:
+    """v1.7.17 (#906): Zugriffsart einer Quelle — 'api' (laeuft
+    automatisch), 'browser' (nur via Claude-in-Chrome) oder
+    'browser_login' (Chrome UND eingeloggtes Konto noetig).
+
+    Explizites Registry-Feld gewinnt; sonst Ableitung aus der Methode.
+    Hintergrund: linkedin/xing/stepstone & Co. standen als 'aktiv' im
+    Profil, liefen aber nie automatisch — nichts sagte dem Nutzer, dass
+    (und welches) Konto noetig ist.
+    """
+    meta = SOURCE_REGISTRY.get(source_id) or {}
+    if meta.get("zugriffsart"):
+        return meta["zugriffsart"]
+    methode = str(meta.get("methode", ""))
+    if methode.startswith("Claude-in-Chrome"):
+        return "browser_login" if meta.get("login_erforderlich") else "browser"
+    return "api"
+
+
+# v1.7.17 (#906 Befund 2): welche Quellen einen Stellentyp ueberhaupt
+# bedienen. Sind ALLE Quellen eines konfigurierten Typs inaktiv, wird
+# das Kriterium still nie ausgewertet — der Nutzer suchte monatelang
+# nur Festanstellung, obwohl sein Profil beides sagte.
+STELLENTYP_QUELLEN = {
+    "freelance": {"freelance_de", "freelancermap", "gulp", "solcom"},
 }
 
 
