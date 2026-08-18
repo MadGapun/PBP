@@ -39,6 +39,49 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-08-19 (v1.7.21 Stable + beta.14) — Der Pruefer war blind
+
+**#929** — `scrub_pii.py` UND der blockierende `gh_pii_guard.py` lasen
+ihre Eingabe mit `sys.stdin.read()`, also unter Windows als **cp1252**.
+Jeder Text mit Umlauten kam verstuemmelt an und passte auf KEIN
+Erkennungsmuster mehr: ein Firmenname mit Umlaut wurde durchgewunken,
+der Pruefer meldete "sauber". MERKE: **Falsch-negativ in einem
+Schutzwerkzeug ist der teuerste Fehlertyp** — und er sass ausgerechnet
+in der mechanischen Absicherung, die eingefuehrt wurde, weil die Regel
+allein dreimal versagt hatte. Beide lesen jetzt
+`sys.stdin.buffer.read().decode("utf-8", errors="replace")`.
+
+Dazu drei Fehlalarme, die den Pruefer praktisch unbenutzbar machten
+(generische Woerter vor einer Rechtsform, CSS-Farbtripel als
+Telefonnummer, Adapter-Klassennamen) — jeder mit Test in BEIDE
+Richtungen, nach der Telefon-Lehre von 2026-08-07.
+
+Erst mit dem reparierten Pruefer war ein Repo-Scan sinnvoll: 478
+Dateien, 86 Vorkommen zweier realer Firmennamen in Quellcode, Tests und
+CHANGELOG, dazu vier reale Arbeitgeber in Tool-Docstrings — ersetzt
+durch Platzhalter aus FIKTIVE_FIRMEN. Rest-Triage als **#930** offen
+(Quellen-Adapter zulaessig, Testdaten-Platzhalter fehlen in der Liste,
+Alt-Tests mit echten Firmen). MERKE zur Platzhalter-Liste: sie
+vergleicht per TEILSTRING — ein zu kurzer Eintrag verdeckt reale
+Firmen, die den Baustein zufaellig enthalten.
+
+**Zehn Alt-Issues geloescht** (#88, #434, #471, #474, #481, #530, #540,
+#568, #658, #709). Das offene #481 (Kalender-Export) wurde vorher
+anonymisiert als **#928** neu angelegt — Inhalte erst archivieren, dann
+loeschen. GH-Sweep seither sauber (772 Artefakte).
+
+**Zeitzonen-Fund** (fiel auf, weil die Suite nach Mitternacht rot
+wurde): `scheduled_date` ist ein LOKALES Datum, SQLites `date('now')`
+liefert UTC. In Sommerzeit meldete PBP zwischen 00:00 und 02:00
+Ortszeit "keine faelligen Nachfassungen"; `get_statistics` rechnete
+schon lokal, die Schwester-Abfrage nicht. MERKE: `date('now')` in SQL
+neben `datetime.now()` in Python ist immer ein Verdachtsfall — und
+ein Test, der nur nachts rot wird, ist kein Flake, sondern ein Befund.
+
+**README-Gate**: `release_check.py` prueft jetzt die Versionszeile im
+README-Kopf gegen das neuste Stable-Tag. Die README stand fuenf
+Releases lang auf v1.7.16, obwohl DoD-3 ihre Pflege vorschreibt.
+
 ## Stand 2026-08-18 (v1.7.21 Stable + v1.8.0-beta.13) — Keine Sackgassen
 
 **Schema:** v48 / v52 unveraendert. **Tests:** 2335 / 2401 gesammelt.
