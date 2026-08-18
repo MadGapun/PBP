@@ -766,11 +766,22 @@ def register(mcp, db, logger):
         Bug #269: Seed-Daten haben profile_id='', daher muss mit
         (profile_id=? OR profile_id='') gesucht werden.
         """
+        # v1.7.17 (#917/#908): Die Automatik setzt KEIN ignore_flag mehr —
+        # "schaerfer statt aus". Der Nutzer wollte Stellenarten abgewertet,
+        # nicht ausgeblendet (Recall vor Praezision); die Flags waren zudem
+        # ueber MCP nicht zuruecknehmbar (#917 Defekt A). Alle Gruende
+        # eskalieren jetzt den Malus (Cap -10).
+        #
+        # Entfernung (#917 Defekt C): Ziel-Stufe ist '999' — die Brackets
+        # sind OBERGRENZEN ("Malus fuer Stellen BIS X km"). Der alte
+        # Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50
+        # und bestrafte damit Stellen ZWISCHEN 30 und 50 km — genau den
+        # Bereich, den der Nutzer will. Der Lerneffekt war invertiert.
         LEARN_MAP = {
-            "zu_weit_entfernt": ("entfernung_fest", "50km", -2),
-            "zeitarbeit": ("stellentyp", "zeitarbeit", None),  # None = ignore
-            "befristet": ("stellentyp", "befristet", None),
-            "zu_junior": ("stellentyp", "praktikum", None),
+            "zu_weit_entfernt": ("entfernung_fest", "999", -2),
+            "zeitarbeit": ("stellentyp", "zeitarbeit", -2),
+            "befristet": ("stellentyp", "befristet", -2),
+            "zu_junior": ("stellentyp", "praktikum", -2),
         }
         if reason not in LEARN_MAP:
             return None
@@ -779,47 +790,36 @@ def register(mcp, db, logger):
         pid = db_ref.get_active_profile_id() or ""
         # #269: Seed-Daten haben profile_id='' — beides prüfen
         existing = conn.execute(
-            "SELECT id, value, ignore_flag, profile_id FROM scoring_config "
+            "SELECT id, value, ignore_flag, profile_id, set_by_user "
+            "FROM scoring_config "
             "WHERE (profile_id=? OR profile_id='') AND dimension=? AND sub_key=? "
             "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
             (pid, dim, sub, pid)
         ).fetchone()
-        if adjustment is None:
-            # Set ignore flag
-            if existing and existing["ignore_flag"]:
-                return None  # already ignored
-            if existing:
-                conn.execute(
-                    "UPDATE scoring_config SET ignore_flag=1 WHERE id=?",
-                    (existing["id"],)
-                )
-            else:
-                conn.execute(
-                    "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
-                    "VALUES (?, ?, ?, 0, 1, ?)",
-                    (pid, dim, sub, __import__("datetime").datetime.now().isoformat())
-                )
-            conn.commit()
-            return f"'{reason}' → {dim}/{sub} auf IGNORIEREN gesetzt"
+        # v1.7.17 (#917): explizite Nutzer-Entscheidung ist unantastbar.
+        # Belegt: Nutzer schaltete das Ignorieren ab, die naechste
+        # Aussortierung mit demselben Grund (Zaehler 71, Schwelle 5)
+        # kehrte sie kommentarlos wieder um.
+        if existing and existing["set_by_user"]:
+            return None
+        # Increase penalty proportionally to count
+        new_val = adjustment * (1 + (count - 5) * 0.5)
+        new_val = max(new_val, -10)
+        if existing:
+            if existing["value"] <= new_val:
+                return None  # already penalized enough
+            conn.execute(
+                "UPDATE scoring_config SET value=? WHERE id=?",
+                (new_val, existing["id"])
+            )
         else:
-            # Increase penalty proportionally to count
-            new_val = adjustment * (1 + (count - 5) * 0.5)
-            new_val = max(new_val, -10)
-            if existing:
-                if existing["value"] <= new_val:
-                    return None  # already penalized enough
-                conn.execute(
-                    "UPDATE scoring_config SET value=? WHERE id=?",
-                    (new_val, existing["id"])
-                )
-            else:
-                conn.execute(
-                    "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
-                    "VALUES (?, ?, ?, ?, 0, ?)",
-                    (pid, dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
-                )
-            conn.commit()
-            return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
+            conn.execute(
+                "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
+                "VALUES (?, ?, ?, ?, 0, ?)",
+                (pid, dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
+            )
+        conn.commit()
+        return f"'{reason}' → {dim}/{sub} Malus auf {new_val}"
 
     def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
                                        collect_hints: bool = True,
@@ -1914,6 +1914,13 @@ def register(mcp, db, logger):
         recomputed = 0
         unchanged = 0
         deltas: list[int] = []
+        # v1.7.17 (#917 Defekt D): der Batch setzte Scores STUMM auf 0 —
+        # eine gute Stelle rutschte von 83 auf 0 (Ausschluss-Keyword in
+        # einer redaktionellen Notiz) und niemand erfuhr warum, waehrend
+        # stelle_bearbeiten denselben Fall sauber begruendet. Jetzt
+        # liefert der Lauf fuer harte Nullungen und grosse Ruecklaeufe
+        # den Grund mit.
+        auffaellig: list[dict] = []
         for j in jobs:
             old_score = int(j.get("score") or 0)
             try:
@@ -1930,11 +1937,32 @@ def register(mcp, db, logger):
                 except Exception as e:
                     logger.warning("update_job fuer %s fehlgeschlagen: %s",
                                    j.get("hash"), e)
+                    continue
+                if new_score == 0 and j.get("_ko_ausschluss"):
+                    auffaellig.append({
+                        "hash": j.get("hash"),
+                        "titel": j.get("title"),
+                        "alt": old_score, "neu": 0,
+                        "grund": (f"Ausschluss-Keyword "
+                                  f"'{j['_ko_ausschluss']}' im Text — "
+                                  "harter K.o. Steht der Begriff in einer "
+                                  "redaktionellen Notiz, gehoert sie "
+                                  "hinter eine '---'-Trennzeile (#603)."),
+                    })
+                elif new_score - old_score <= -20:
+                    auffaellig.append({
+                        "hash": j.get("hash"),
+                        "titel": j.get("title"),
+                        "alt": old_score, "neu": new_score,
+                        "grund": "starker Rueckgang — Kriterien/Regler "
+                                 "pruefen (scoring_vorschau zeigt die "
+                                 "Rechnung im Detail)",
+                    })
             else:
                 unchanged += 1
 
         avg_delta = sum(deltas) / len(deltas) if deltas else 0
-        return {
+        result = {
             "status": "fertig",
             "verarbeitet": len(jobs),
             "geaendert": recomputed,
@@ -1943,6 +1971,11 @@ def register(mcp, db, logger):
             "max_anstieg": max(deltas) if deltas else 0,
             "max_rueckgang": min(deltas) if deltas else 0,
         }
+        if auffaellig:
+            result["auffaellige_aenderungen"] = auffaellig[:20]
+            if len(auffaellig) > 20:
+                result["auffaellige_aenderungen_gesamt"] = len(auffaellig)
+        return result
 
     @mcp.tool()
     def suchperformance_auswerten() -> dict:
@@ -2151,6 +2184,37 @@ def register(mcp, db, logger):
             ),
         }
 
+    # v1.7.17 (#917 Defekt D): redaktionelle Notizen im Beschreibungsfeld
+    # erkennen, die NICHT hinter der '---'-Trennzeile (#603) stehen.
+    # Belegter Fall: eine Notiz mit der LinkedIn-Bewerberstatistik
+    # ("20 % Berufseinsteiger") stand im Anzeigentext-Teil — das
+    # Ausschluss-Keyword feuerte und setzte eine 49er-Stelle hart auf 0.
+    # Die Konvention existierte seit #603, war aber in keiner
+    # Tool-Beschreibung erwaehnt — ein Agent traf sie nur zufaellig.
+    _EDITORIAL_MARKER = (
+        "pbp-", "erfasst", "hinweis:", "bewerberlage", "bewerberfeld",
+        "notiz:", "auffaellig", "gehaltsschaetzung", "quelle:",
+        "recherche:", "einschaetzung:",
+    )
+
+    def _editorial_ohne_trenner(beschreibung: str) -> str | None:
+        """Warntext, wenn Notiz-Marker VOR der '---'-Trennzeile stehen."""
+        if not beschreibung:
+            return None
+        anzeigenteil = beschreibung.split("\n---", 1)[0].lower()
+        treffer = [m for m in _EDITORIAL_MARKER if m in anzeigenteil]
+        if not treffer:
+            return None
+        return (
+            "Die Beschreibung enthaelt vermutlich redaktionelle Notizen "
+            f"(erkannt an: {', '.join(sorted(treffer)[:3])}), die NICHT "
+            "durch eine '---'-Zeile vom Anzeigentext getrennt sind. "
+            "Solche Notizen zaehlen dann ins Scoring — ein Ausschluss-"
+            "Keyword darin setzt den Score hart auf 0 (#603/#917). "
+            "Konvention: erst der Original-Anzeigentext, dann eine Zeile "
+            "mit '---', dann die Notizen."
+        )
+
     @mcp.tool()
     def stelle_manuell_anlegen(
         titel: str,
@@ -2208,7 +2272,13 @@ def register(mcp, db, logger):
             firma: Firmenname
             url: Link zur Stellenanzeige
             ort: Arbeitsort (z.B. 'Hamburg', 'Remote')
-            beschreibung: Stellenbeschreibung (so ausfuehrlich wie moeglich)
+            beschreibung: Stellenbeschreibung (so ausfuehrlich wie moeglich).
+                NOTIZEN-KONVENTION (#603/#917): eigene Anmerkungen,
+                Recherche-Ergebnisse oder Bewerberstatistiken gehoeren
+                HINTER eine Zeile mit '---' (erst Original-Anzeigentext,
+                dann '---', dann Notizen). Alles vor der Trennzeile
+                zaehlt ins Scoring — ein Ausschluss-Keyword in einer
+                Notiz setzt den Score sonst hart auf 0.
             quelle: Herkunft der Stelle (z.B. 'linkedin', 'xing', 'firmenwebsite', 'manuell')
             remote: Remote-Level ('remote', 'hybrid', 'vor_ort', 'unbekannt')
             stellenart: Art der Stelle ('festanstellung', 'freelance', 'praktikum', 'werkstudent')
@@ -2504,6 +2574,9 @@ def register(mcp, db, logger):
                 " ⚠ OHNE ANKER — diese Stelle ist so nicht verfolgbar "
                 "(siehe anker_warnung)."
             )
+        _notiz_warnung = _editorial_ohne_trenner(beschreibung)
+        if _notiz_warnung:
+            result["notizen_warnung"] = _notiz_warnung
         return result
 
     # === v1.7.0-beta.5: n:m + Stellen-Vergleich (#472, #580) ===
@@ -3217,7 +3290,15 @@ def register(mcp, db, logger):
             titel: Neuer Stellentitel
             firma: Neuer Firmenname
             ort: Neuer Arbeitsort
-            beschreibung: Neue Stellenbeschreibung
+            beschreibung: Neue Stellenbeschreibung.
+                NOTIZEN-KONVENTION (#603/#917): eigene Anmerkungen,
+                Recherche-Ergebnisse oder Bewerberstatistiken gehoeren
+                HINTER eine Zeile mit '---' (erst Original-Anzeigentext,
+                dann '---', dann Notizen). Alles vor der Trennzeile
+                zaehlt ins Scoring — ein Ausschluss-Keyword in einer
+                Notiz setzt den Score sonst hart auf 0 (belegter Fall:
+                eine LinkedIn-Bewerberstatistik mit '20 % Berufseinsteiger'
+                nullte eine passende Stelle).
             url: Neue Stellen-URL. Wird auch genutzt um nach #645 leere
                 URL-Felder bei XING/Stepstone/Email-Stellen nachzupflegen.
         """
@@ -3315,6 +3396,13 @@ def register(mcp, db, logger):
                 "stellenbeschreibung_nachladen wird damit voraussichtlich nichts "
                 "Brauchbares zurueckliefern — fuer das Nachladen die Detail-URL nachreichen."
             )
+        # v1.7.17 (#917): Notizen ohne '---'-Trenner erkennen und warnen
+        # — die #603-Konvention war unsichtbar, redaktionelle Texte
+        # sabotierten das Scoring.
+        if beschreibung:
+            _notiz_warnung = _editorial_ohne_trenner(beschreibung)
+            if _notiz_warnung:
+                result["notizen_warnung"] = _notiz_warnung
         return result
 
     @mcp.tool()

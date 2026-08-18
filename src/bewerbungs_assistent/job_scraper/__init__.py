@@ -2147,7 +2147,13 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     Returns dict with total_score, muss_hits, missing_muss, plus_hits,
     factors (breakdown), and risks.
     """
-    text = f"{job.get('title', '')} {job.get('description', '')}".lower()
+    # v1.7.17 (#917 Defekt D): dieselbe Textbasis wie calculate_score —
+    # PBP-Notizen VOR dem Matchen ausblenden. Vorher matchte die
+    # Fit-Analyse gegen den vollen Text inkl. redaktioneller Notizen,
+    # calculate_score gegen den gestrippten; dieselbe Stelle bekam je
+    # nach Pfad verschiedene Scores.
+    _desc = _strip_pbp_notes(job.get("description", "") or "")
+    text = f"{job.get('title', '')} {_desc}".lower()
     w = _parse_weights(criteria)
 
     muss = criteria.get("keywords_muss", [])
@@ -2155,9 +2161,34 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # #667 (B19, beta.84): Minus-Keywords als weiche Score-Abwertung.
     minus = criteria.get("keywords_minus", [])
 
+    # v1.7.17 (#917 Defekt D): Ausschluss-Keywords gelten in BEIDEN
+    # Score-Pfaden. calculate_score setzte hart 0, fit_analyse ignorierte
+    # die Liste — dieselbe Stelle hatte gleichzeitig Score 0 und 88, je
+    # nachdem welches Tool zuletzt geschrieben hat. Strikt wie in
+    # calculate_score (#762): Wortgrenzen, keine Synonym-Expansion.
+    _raw_desc = job.get("description", "") or ""
+    for _ko_kw in criteria.get("keywords_ausschluss", []):
+        if _strict_keyword_match(_ko_kw, text):
+            return {
+                "total_score": 0,
+                "muss_hits": [], "missing_muss": list(muss),
+                "plus_hits": [], "minus_hits": [],
+                "factors": {f"AUSSCHLUSS-Keyword '{_ko_kw}' — Score hart 0": 0},
+                "risks": [
+                    f"AUSSCHLUSS-Keyword '{_ko_kw}' kommt im Anzeigentext "
+                    "vor — harter K.o. wie in der Stellenliste. Falls der "
+                    "Treffer aus einer redaktionellen Notiz stammt: Notizen "
+                    "gehoeren hinter eine '---'-Trennzeile (#603), dann "
+                    "zaehlen sie nicht."
+                ],
+                "ko_ausschluss": _ko_kw,
+                "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
+                "beschreibung_kurz": 50 <= len(_raw_desc.strip()) < 400,
+                "hochschulabschluss_gefordert": False,
+            }
+
     # v1.7.12 (#827, C32): dieselbe Firmenabsatz-Logik wie calculate_score
     # — sonst erklaert die Fit-Analyse einen anderen Score als die Liste.
-    _desc = _strip_pbp_notes(job.get("description", "") or "")
     _fa_grenze = _firmenabsatz_ende(_desc)
     if _fa_grenze > 0:
         _kern = f"{job.get('title', '')} {_desc[_fa_grenze:]}".lower()

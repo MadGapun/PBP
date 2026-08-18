@@ -228,15 +228,22 @@ def test_558_bulk_dismiss_kein_score_drift(setup_env):
     # WICHTIG: Auto-Adjust darf nur EINMAL passiert sein, nicht 8x
     # Pruefen: scoring_config-Eintrag fuer entfernung_fest sollte einen
     # vernuenftigen Wert haben, nicht extrem niedrig.
+    # v1.7.17 (#917 Defekt C): der Lern-Malus landet jetzt in der Stufe
+    # '999' (jenseits aller normalen Grenzen) — der alte Schluessel
+    # '50km' traf via Ziffern-Extraktion Stellen BIS 50 km und
+    # invertierte den Lerneffekt.
     conn = db.connect()
     row = conn.execute(
-        "SELECT value FROM scoring_config WHERE dimension='entfernung_fest' AND sub_key='50km'"
+        "SELECT value FROM scoring_config WHERE dimension='entfernung_fest' AND sub_key='999'"
     ).fetchone()
     assert row is not None
     # new_val = -2 * (1 + (12-5)*0.5) = -2 * 4.5 = -9 (mit final count)
     # vs. wenn pro Job aufgerufen: zuletzt -2 * (1 + (12-5)*0.5) = -9 — selbe Formel
     # Der echte Fix: NICHT mehr pro Stelle, sondern einmal. Wert sollte -9 sein.
     assert -10 <= row["value"] <= -2
+    assert conn.execute(
+        "SELECT 1 FROM scoring_config WHERE dimension='entfernung_fest' "
+        "AND sub_key='50km'").fetchone() is None
 
 
 # ============= #559 — blacklist_anwenden Tool =================

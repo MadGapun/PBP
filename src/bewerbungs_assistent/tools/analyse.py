@@ -1004,8 +1004,24 @@ def register(mcp, db, logger):
         - gehalt: Punkte pro 10% Abweichung vom Wunschgehalt
         - schwellenwert: Auto-Ignore-Schwelle (Stellen unter diesem Score werden ausgeblendet)
 
+        ⚠ BRACKET-SEMANTIK Entfernung (#917): die km-Stufen sind
+        OBERGRENZEN — der Malus der Stufe X gilt fuer Stellen BIS X km
+        (genauer: oberhalb der naechstkleineren Stufe). Beispiel
+        entfernung_fest: Stufe '50' trifft Stellen zwischen 30 und 50 km,
+        Stufe '999' alles jenseits von 80 km. Wer FERNE Stellen staerker
+        abwerten will, verschaerft also '999' — NICHT '50'. Schluessel
+        immer als reine Zahl ('50'), nie '50km'.
+
+        v1.7.17 (#917): 'setzen' aktualisiert jetzt wirklich (vorher
+        entstanden Dubletten neben unerreichbaren Altzeilen), 'loeschen'
+        laesst einen Regler auf den Default zurueckfallen — auch der Weg,
+        ein automatisch gesetztes Ignorieren-Flag loszuwerden. Explizit
+        gesetzte Regler werden vom Ablehnungs-Lerneffekt nicht mehr
+        ueberschrieben.
+
         Args:
             aktion: 'anzeigen' (alle Regler), 'setzen' (einen Regler aendern),
+                    'loeschen' (einen Regler auf Default zurueckfallen lassen),
                     'reset' (alle auf Defaults zuruecksetzen)
             dimension: Dimension des Reglers (stellentyp, remote, entfernung_fest, etc.)
             sub_key: Unter-Schluessel (z.B. 'freelance', 'zeitarbeit', '50', 'hybrid')
@@ -1055,6 +1071,28 @@ def register(mcp, db, logger):
                              + (" (IGNORIEREN)" if ignorieren else "") + "."
             }
 
+        elif aktion == "loeschen":
+            # v1.7.17 (#917): einzelnen Regler auf den Default zurueckfallen
+            # lassen — der einzige Weg, ein von _auto_adjust_scoring
+            # gesetztes ignore_flag wieder loszuwerden. Vorher liessen
+            # sich die vier still ausgeblendeten Stellenarten ueber MCP
+            # NICHT zuruecknehmen.
+            if not dimension or not sub_key:
+                return {"fehler": "dimension und sub_key sind Pflicht beim "
+                                  "Loeschen."}
+            n = db.delete_scoring_config(dimension, sub_key)
+            if n == 0:
+                return {"status": "nicht_gefunden",
+                        "dimension": dimension, "sub_key": sub_key}
+            return {
+                "status": "geloescht",
+                "dimension": dimension, "sub_key": sub_key,
+                "entfernte_zeilen": n,
+                "nachricht": (f"{dimension}/{sub_key} entfernt — faellt auf "
+                              "den Default zurueck (inkl. eventuell "
+                              "gesetztem Ignorieren-Flag)."),
+            }
+
         elif aktion == "reset":
             # Delete all custom scoring config and re-run migration defaults
             conn = db.connect()
@@ -1067,7 +1105,8 @@ def register(mcp, db, logger):
                              "Die Defaults werden beim nächsten Start geladen."
             }
 
-        return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen' oder 'reset'."}
+        return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen', "
+                          "'loeschen' oder 'reset'."}
 
     @mcp.tool()
     def scoring_vorschau(job_hash: str) -> dict:
