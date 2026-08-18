@@ -55,6 +55,8 @@ AUSNAHMEN: dict[str, set[str]] = {
     "#758 Kommentar 2": {"FIRMA: Hays", "FIRMA: ferchau"},  # beschreibt die Ausnahme-Regel
     "#761 Body": {"FIRMA: ferchau", "FIRMA: hays"},
     "#813 Body": {"FIRMA: ferchau", "FIRMA: hays"},
+    # 18.08.: Quellen-Aktivierungs-UX — Portale/Vermittler als Adapter
+    "#906 Body": {"FIRMA: ferchau", "FIRMA: hays"},
     # Historischer Referenzfall aus dem A21/#758-Sweep (bewusst belassen):
     # aussortierte Fremd-Stellen, kein Bewerbungsverhaeltnis.
     "#670 Body": {"CORP: Tchibo GmbH"},
