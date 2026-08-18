@@ -3536,7 +3536,15 @@ async def api_upload_email(file: UploadFile = File(...)):
                     "location": m.get("location", ""),
                     "meeting_url": m.get("meeting_url"),
                     "platform": m.get("platform"),
-                    "meeting_type": "interview",
+                    # v1.7.17 (#922): 'interview' nur mit Beleg (ICS oder
+                    # Konferenzlink). Eine aus Fliesstext abgeleitete
+                    # Zeitangabe ist ein Termin unbekannter Art — sie
+                    # pauschal als Interview zu fuehren hat die
+                    # Aufwands-Statistik und firma_kontext verfaelscht.
+                    "meeting_type": ("interview"
+                                     if m.get("source") != "text"
+                                     or m.get("meeting_url")
+                                     else "sonstiges"),
                 })
                 stored_meetings.append({"id": mid, **m})
 

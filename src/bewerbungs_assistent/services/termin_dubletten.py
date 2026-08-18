@@ -225,3 +225,81 @@ def finde_alle_dubletten(db: Any) -> list:
                         "verlust_ohne_uebernahme": verlust,
                     })
     return paare
+
+
+# =====================================================================
+# v1.7.17 (#922): Phantom-Termine aus zitierten Mail-Threads finden
+# =====================================================================
+# Belegter Fall: der Import EINER Mail legte vier Termine an — die
+# Sendezeiten der zitierten Vorgaengermails. Sie sind formal KEINE
+# Dubletten (die Zeitpunkte liegen weit auseinander), sondern schlicht
+# keine Termine. Die #804-Pruefung greift hier nicht.
+#
+# Merkmale eines solchen Phantoms, alle zusammen:
+#   - Titel beginnt mit einem Mail-Betreff-Praefix (AW:, Re:, WG:, Fwd:)
+#   - kein Konferenzlink, keine Notizen, kein Ort
+#   - mehrere Termine derselben Bewerbung mit demselben Titel, im selben
+#     Importvorgang angelegt (created_at)
+#
+# Bewusst NUR ein Vorschlag: geloescht wird erst nach Bestaetigung.
+
+_BETREFF_PREFIX = ("aw:", "re:", "wg:", "fwd:", "fw:", "antw:")
+
+
+def _ist_betreff_titel(titel: str) -> bool:
+    t = (titel or "").strip().lower()
+    return any(t.startswith(p) for p in _BETREFF_PREFIX)
+
+
+def finde_phantom_termine(db: Any) -> list:
+    """Termine, die aus zitierten Mail-Zeitstempeln entstanden sind (#922).
+
+    Liefert Gruppen (je Bewerbung + Titel) mit Begruendung. Ein einzelner
+    Termin mit Betreff-Titel ist NICHT verdaechtig — erst mehrere gleich
+    betitelte, belegfreie Eintraege aus demselben Import.
+    """
+    conn = db.connect()
+    pid = db.get_active_profile_id()
+    rows = conn.execute(
+        "SELECT m.*, a.company AS firma FROM application_meetings m "
+        "LEFT JOIN applications a ON a.id = m.application_id "
+        "WHERE (a.profile_id=? OR a.profile_id IS NULL) "
+        "ORDER BY m.application_id, m.title, m.meeting_date", (pid,)
+    ).fetchall()
+
+    gruppen: dict = {}
+    for r in rows:
+        d = dict(r)
+        if not _ist_betreff_titel(d.get("title")):
+            continue
+        # Beleg vorhanden? Dann ist es ein echter Termin.
+        if any(not _ist_leer(d.get(f))
+               for f in ("meeting_url", "notes", "location", "platform")):
+            continue
+        schluessel = (d.get("application_id"), (d.get("title") or "").strip())
+        gruppen.setdefault(schluessel, []).append(d)
+
+    treffer = []
+    for (app_id, titel), eintraege in gruppen.items():
+        if len(eintraege) < 2:
+            continue
+        # Selber Importvorgang? (created_at auf die Minute genau)
+        stempel = {str(e.get("created_at") or "")[:16] for e in eintraege}
+        treffer.append({
+            "bewerbung_id": app_id,
+            "firma": eintraege[0].get("firma", ""),
+            "titel": titel,
+            "anzahl": len(eintraege),
+            "termin_ids": [e.get("id") for e in eintraege],
+            "zeitpunkte": [e.get("meeting_date") for e in eintraege],
+            "aus_einem_import": len(stempel) == 1,
+            "begruendung": (
+                f"{len(eintraege)} Termine mit identischem Mail-Betreff als "
+                "Titel, ohne Link, Notizen oder Ort"
+                + (" — alle im selben Importvorgang angelegt"
+                   if len(stempel) == 1 else "")
+                + ". Typisches Muster fuer Sendezeiten aus einem zitierten "
+                  "Mail-Thread (#922)."
+            ),
+        })
+    return treffer

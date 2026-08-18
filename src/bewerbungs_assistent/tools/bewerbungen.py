@@ -1804,6 +1804,78 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def phantom_termine_bereinigen(
+        dry_run: bool = True,
+        termin_ids: list[str] = None,
+    ) -> dict:
+        """Findet Termine, die aus zitierten Mail-Zeitstempeln entstanden (#922).
+
+        Belegter Fall: der Import EINER Mail mit Antwortverlauf legte VIER
+        Termine an — die Sendezeiten der zitierten Vorgaengermails, alle
+        mit dem Mail-Betreff als Titel. Sie sind keine Dubletten (die
+        Zeitpunkte liegen weit auseinander), sondern schlicht keine
+        Termine; die #804-Pruefung greift dort nicht.
+
+        Ohne Argumente: Report der verdaechtigen Gruppen mit Begruendung.
+        Mit `termin_ids` + `dry_run=False`: loescht genau diese Termine.
+
+        Sicherheitsnetz: verdaechtig ist nur, was ALLE Merkmale traegt —
+        Mail-Betreff-Praefix im Titel (AW:/Re:/WG:/Fwd:), kein Link, keine
+        Notizen, kein Ort, UND mindestens zwei gleich betitelte Eintraege
+        derselben Bewerbung. Ein einzelner Termin faellt nie darunter.
+        Geloescht wird NUR auf ausdrueckliche Anweisung.
+
+        Args:
+            dry_run: True (Default) = nur zeigen, nichts loeschen.
+            termin_ids: Termine, die geloescht werden sollen.
+        """
+        from ..services.termin_dubletten import finde_phantom_termine
+
+        if not termin_ids:
+            gruppen = finde_phantom_termine(db)
+            gesamt = sum(g["anzahl"] for g in gruppen)
+            return {
+                "status": "report",
+                "gruppen": gruppen,
+                "anzahl_gruppen": len(gruppen),
+                "anzahl_termine": gesamt,
+                "hinweis": (
+                    "Zum Loeschen: phantom_termine_bereinigen("
+                    "termin_ids=[...], dry_run=False). Bitte die Liste "
+                    "VORHER mit dem Nutzer durchgehen — echte Termine mit "
+                    "Betreff-Titel sind moeglich, wenn sie ohne Link und "
+                    "Notizen erfasst wurden."
+                ) if gruppen else (
+                    "Keine Phantom-Termine gefunden. Fuer echte Dubletten "
+                    "(gleicher Zeitpunkt): termin_dubletten_bereinigen()."
+                ),
+            }
+
+        if dry_run:
+            return {
+                "status": "vorschau",
+                "wuerde_loeschen": termin_ids,
+                "anzahl": len(termin_ids),
+                "hinweis": "Mit dry_run=False wird tatsaechlich geloescht.",
+            }
+
+        geloescht, fehler = [], []
+        for tid in termin_ids:
+            try:
+                db.delete_meeting(tid)
+                geloescht.append(tid)
+            except Exception as exc:  # noqa: BLE001
+                fehler.append({"id": tid, "fehler": str(exc)[:120]})
+        result = {
+            "status": "bereinigt",
+            "geloescht": geloescht,
+            "anzahl": len(geloescht),
+        }
+        if fehler:
+            result["fehler"] = fehler
+        return result
+
+    @mcp.tool()
     def termin_dubletten_bereinigen(
         dry_run: bool = True,
         master_id: str = "",

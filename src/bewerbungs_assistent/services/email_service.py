@@ -715,6 +715,66 @@ def _extract_dates_from_text(text: str) -> list[dict]:
     return results
 
 
+# =====================================================================
+# v1.7.17 (#922): Zitat-Erkennung + Termin-Beleg
+# =====================================================================
+# Belegter Fall 31.07.: der Import EINER Mail legte VIER Termine an —
+# die Sendezeiten der zitierten Vorgaengermails ("Am 28.07.2026 um 17:17
+# schrieb ..."), alle als 'interview' mit erfundenen 60 Minuten. Der
+# Extraktor lief ueber den kompletten Mailtext; ein Datum-Zeit-Treffer
+# im Fliesstext reichte zur Terminanlage. Folge: vermuellter Kalender,
+# verfaelschte Aufwands-Statistik und — am schwersten — firma_kontext
+# berichtete fuenf Interviews statt einem. Die Regel "nie aus dem
+# Gedaechtnis, immer aus PBP" setzt voraus, dass PBP stimmt.
+
+_ZITAT_MARKER = [
+    r"^\s*-{2,}\s*urspr(?:u|ue|ü)ngliche nachricht\s*-{2,}",
+    r"^\s*-{2,}\s*original message\s*-{2,}",
+    r"^\s*-{2,}\s*weitergeleitete nachricht\s*-{2,}",
+    r"^\s*am .{0,60}\s+schrieb\s",
+    r"^\s*am .{0,40}\s+um\s+\d{1,2}[:.]\d{2}\s",
+    r"^\s*on .{0,60}\s+wrote:",
+    r"^\s*von:\s",
+    r"^\s*from:\s",
+    r"^\s*gesendet:\s",
+    r"^\s*sent:\s",
+]
+
+# Terminvokabular im NICHT zitierten Teil — ohne das (oder ICS/Link)
+# entsteht kein Termin mehr.
+_TERMIN_VOKABULAR = (
+    "termin", "gespraech", "gespräch", "interview", "meeting",
+    "laden wir sie ein", "laden wir dich ein", "einladung",
+    "findet statt", "treffen", "kennenlernen", "vorstellung",
+    "besprechung", "call", "appointment", "invite you",
+)
+
+
+def strip_quoted_reply(text: str) -> str:
+    """Schneidet zitierte Vorgaengermails ab (#922).
+
+    Alles ab dem ersten Zitat-Marker bzw. ab einem '>'-Block gehoert zur
+    Historie und ist KEIN Terminhinweis fuer die aktuelle Nachricht.
+    """
+    import re as _re
+    if not text:
+        return ""
+    rows = text.splitlines()
+    muster = [_re.compile(m, _re.IGNORECASE) for m in _ZITAT_MARKER]
+    for i, row in enumerate(rows):
+        if row.lstrip().startswith(">"):
+            return chr(10).join(rows[:i])
+        if any(m.search(row) for m in muster):
+            return chr(10).join(rows[:i])
+    return text
+
+
+def hat_termin_beleg(text: str) -> bool:
+    """True, wenn der NICHT zitierte Text Terminvokabular traegt (#922)."""
+    low = (text or "").lower()
+    return any(w in low for w in _TERMIN_VOKABULAR)
+
+
 def extract_meetings_from_email(parsed_email: dict) -> list[dict]:
     """Extract meeting information from a parsed email.
 
@@ -728,6 +788,10 @@ def extract_meetings_from_email(parsed_email: dict) -> list[dict]:
     html = parsed_email.get("body_html", "") or ""
     subject = parsed_email.get("subject", "") or ""
     combined_text = f"{subject}\n{body}\n{html}"
+    # v1.7.17 (#922): nur der EIGENE Text der Nachricht zaehlt
+    # fuer die Terminableitung — zitierte Threads liefern sonst
+    # je Sendezeit einen Phantom-Termin.
+    eigener_text = strip_quoted_reply(body)
 
     # 1. Parse .ics attachments
     for att in (parsed_email.get("attachments") or []):
@@ -746,10 +810,15 @@ def extract_meetings_from_email(parsed_email: dict) -> list[dict]:
     links = extract_meeting_links(combined_text)
 
     # 3. Extract dates from text
-    dates = _extract_dates_from_text(body)
+    # v1.7.17 (#922): NUR aus dem eigenen Teil
+    dates = _extract_dates_from_text(eigener_text)
 
     # Combine: if we have dates and links but no ICS meetings, create meetings
-    if dates and not meetings:
+    # v1.7.17 (#922): ein Datum allein genuegt NICHT. Es braucht
+    # einen Beleg — Konferenzlink oder Terminvokabular im eigenen
+    # Text. Sonst ist die Datumsangabe Fliesstext und kein Termin;
+    # die Mail bleibt dann ein reiner Timeline-Eintrag.
+    if dates and not meetings and (links or hat_termin_beleg(eigener_text)):
         for date_info in dates:
             meeting = {
                 "title": subject,
