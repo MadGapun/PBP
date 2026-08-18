@@ -481,6 +481,73 @@ class Database:
         except Exception as e:
             logger.warning("Blacklist-Ausnahme-Spalte (#790): %s", e)
 
+        # v1.7.17 (#917): scoring_config heilen — drei Altlasten:
+        # (0) set_by_user-Spalte: kennzeichnet explizite Nutzer-Regler,
+        #     die _auto_adjust_scoring nicht mehr anfassen darf (belegt:
+        #     Automatik kehrte eine Nutzerkorrektur im selben Durchgang
+        #     kommentarlos wieder um, Zaehler 71 >= Schwelle 5).
+        # (1) Fehl-adressierte Entfernungs-Lern-Zeilen: '50km' landete via
+        #     Ziffern-Extraktion im Bracket 50 (= Stellen BIS 50 km) und
+        #     bestrafte NAHE Stellen mit bis zu -10, waehrend 600 km nur
+        #     -8 bekam. Der gelernte Malus wandert in die Stufe 999
+        #     (jenseits aller normalen Grenzen), tiefer gewinnt.
+        # (2) Dubletten aus dem INSERT-OR-REPLACE-Fehler (#917/A):
+        #     profilspezifische Zeile gewinnt, die ''-Zeile faellt weg.
+        try:
+            _sc_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(scoring_config)").fetchall()}
+            if _sc_cols and "set_by_user" not in _sc_cols:
+                conn.execute("ALTER TABLE scoring_config "
+                             "ADD COLUMN set_by_user INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("Safety-Net: scoring_config.set_by_user "
+                            "nachgezogen (#917)")
+            if _sc_cols:
+                _km_rows = conn.execute(
+                    "SELECT id, profile_id, value FROM scoring_config "
+                    "WHERE dimension='entfernung_fest' "
+                    "AND sub_key LIKE '%km'").fetchall()
+                for _r in _km_rows:
+                    _ziel = conn.execute(
+                        "SELECT id, value FROM scoring_config "
+                        "WHERE dimension='entfernung_fest' AND sub_key='999' "
+                        "AND (profile_id=? OR profile_id='') "
+                        "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END "
+                        "LIMIT 1",
+                        (_r["profile_id"], _r["profile_id"])).fetchone()
+                    if _ziel is None:
+                        conn.execute(
+                            "INSERT INTO scoring_config (profile_id, "
+                            "dimension, sub_key, value, ignore_flag, "
+                            "created_at) VALUES (?, 'entfernung_fest', "
+                            "'999', ?, 0, ?)",
+                            (_r["profile_id"], _r["value"], _now()))
+                    elif _r["value"] < _ziel["value"]:
+                        conn.execute(
+                            "UPDATE scoring_config SET value=? WHERE id=?",
+                            (_r["value"], _ziel["id"]))
+                    conn.execute("DELETE FROM scoring_config WHERE id=?",
+                                 (_r["id"],))
+                if _km_rows:
+                    conn.commit()
+                    logger.info(
+                        "Safety-Net #917: %d Entfernungs-Lern-Zeile(n) "
+                        "('...km') in Stufe 999 ueberfuehrt — der Malus "
+                        "traf vorher Stellen BIS 50 km", len(_km_rows))
+                _n_dub = conn.execute(
+                    "DELETE FROM scoring_config WHERE profile_id='' "
+                    "AND EXISTS (SELECT 1 FROM scoring_config s2 "
+                    "WHERE s2.dimension=scoring_config.dimension "
+                    "AND s2.sub_key=scoring_config.sub_key "
+                    "AND s2.profile_id<>'')").rowcount
+                if _n_dub:
+                    conn.commit()
+                    logger.info("Safety-Net #917: %d Scoring-Dublette(n) "
+                                "zusammengefuehrt (profilspezifische "
+                                "Zeile gewinnt)", _n_dub)
+        except Exception as e:
+            logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
+
         # v1.7.11 (#796, A25): Spalten-Affinitaet bei Text-IDs heilen.
         # Gewachsene Bestaende haben `documents.linked_application_id` als
         # INTEGER — eine Hex-ID wie '42061e46' wird darin still zu
@@ -8482,28 +8549,59 @@ class Database:
         if dimension:
             rows = conn.execute(
                 "SELECT * FROM scoring_config WHERE (profile_id=? OR profile_id='') "
-                "AND dimension=? ORDER BY sub_key",
+                # v1.7.17 (#917/B): Seed-Zeile zuerst, Profil-Zeile
+                # zuletzt — der Consumer arbeitet last-wins.
+                "AND dimension=? ORDER BY sub_key, "
+                "CASE WHEN profile_id='' THEN 0 ELSE 1 END",
                 (pid, dimension)
             ).fetchall()
         else:
             rows = conn.execute(
                 "SELECT * FROM scoring_config WHERE profile_id=? OR profile_id='' "
-                "ORDER BY dimension, sub_key",
+                # v1.7.17 (#917/B): Profil-Zeile zuletzt — last wins.
+                "ORDER BY dimension, sub_key, "
+                "CASE WHEN profile_id='' THEN 0 ELSE 1 END",
                 (pid,)
             ).fetchall()
         return [dict(r) for r in rows]
 
     def set_scoring_config(self, dimension: str, sub_key: str,
                            value: float = 0, ignore_flag: bool = False):
-        """Set or update a scoring config entry."""
+        """Set or update a scoring config entry.
+
+        v1.7.17 (#917/A): echtes UPSERT. `INSERT OR REPLACE` ersetzte nur
+        bei UNIQUE-Konflikt — Seed-/Auto-Zeilen tragen profile_id='',
+        der Schreibvorgang die aktive ID: kein Konflikt, also entstand
+        eine DUBLETTE, und die Altzeile (samt ignore_flag=1 aus
+        _auto_adjust_scoring) blieb ueber MCP unerreichbar bestehen.
+        Jetzt raeumt der Write beide Varianten des Schluessels weg.
+        """
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
+        conn.execute(
+            "DELETE FROM scoring_config WHERE dimension=? AND sub_key=? "
+            "AND (profile_id=? OR profile_id='')",
+            (dimension, sub_key, pid))
         conn.execute("""
-            INSERT OR REPLACE INTO scoring_config
-                (profile_id, dimension, sub_key, value, ignore_flag, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO scoring_config
+                (profile_id, dimension, sub_key, value, ignore_flag,
+                 set_by_user, created_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?)
         """, (pid, dimension, sub_key, value, 1 if ignore_flag else 0, _now()))
         conn.commit()
+
+    def delete_scoring_config(self, dimension: str, sub_key: str) -> int:
+        """v1.7.17 (#917): Eintrag entfernen — faellt auf den Default
+        zurueck. Der einzige Weg, ein von _auto_adjust_scoring gesetztes
+        ignore_flag wieder loszuwerden."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        cur = conn.execute(
+            "DELETE FROM scoring_config WHERE dimension=? AND sub_key=? "
+            "AND (profile_id=? OR profile_id='')",
+            (dimension, sub_key, pid))
+        conn.commit()
+        return cur.rowcount
 
     def get_scoring_threshold(self) -> float:
         """Get the auto-ignore threshold for fit scores."""
@@ -9994,6 +10092,7 @@ CREATE TABLE IF NOT EXISTS scoring_config (
     sub_key TEXT NOT NULL,
     value REAL DEFAULT 0,
     ignore_flag INTEGER DEFAULT 0,
+    set_by_user INTEGER DEFAULT 0,
     created_at TEXT,
     UNIQUE(profile_id, dimension, sub_key)
 );
