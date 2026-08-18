@@ -13,7 +13,7 @@ PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
-Aktuelle Version **v1.7.16** · letztes Release am 14. August 2026 · 2223 automatische Tests · wöchentliche Releases
+Aktuelle Version **v1.7.21** · letztes Release am 18. August 2026 · 2401 automatische Tests · wöchentliche Releases
 
 Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
 
@@ -21,8 +21,8 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
-[![Stable](https://img.shields.io/badge/Stable-v1.7.16-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-2304-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.21-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-2401-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -219,11 +219,11 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 202 Tools in 11 Modulen |
+| **MCP-Tools** | 216 Tools in 11 Modulen (Stable: 203) |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert, ~8 aktuell zuverlaessig liefernd (Festanstellung und Freelance); defekte sichtbar markiert, mit Chrome-Workaround |
 | **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v48 |
+| **Datenbank** | SQLite (WAL), Schema v48 (Stable) · v52 (Beta) |
 | **Tests** | 2199 bestanden |
 
 ### Typed IDs (v1.7.0, #505)
