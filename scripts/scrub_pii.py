@@ -235,6 +235,38 @@ FIKTIVE_FIRMEN = (
 )
 
 # Catch-all: "<Wort> GmbH/AG/KG/SE/UG" — fängt unbekannte deutsche Firmen
+# Woerter, die vor einer Rechtsform stehen koennen, ohne dass ein
+# Firmenname gemeint ist — sonst meldet der Pruefer Saetze wie
+# "Firma (Umlaute, Rechtsform-Suffixe GmbH/AG/...)" als Treffer.
+# Ein Pruefer, der bei korrektem Text Alarm gibt, wird ignoriert.
+_CORP_STOPWORDS = (
+    "rechtsform", "rechtsformen", "firmen", "firma", "suffix", "suffixe",
+    "beispiel", "beispiele", "platzhalter", "endung", "endungen",
+)
+
+
+def _ist_quellen_klasse(label: str, text: str) -> bool:
+    """True fuer Adapter-Klassennamen wie `HaysAdapter` — das ist ein
+    Quellen-Bezeichner im Code, kein Hinweis auf eine Bewerbung
+    (DoD-9-Ausnahme, gleiche Logik wie fuer die kleingeschriebenen Keys).
+    """
+    return f"{label}Adapter" in text
+
+
+def _ist_stoppwort_kopf(label: str) -> bool:
+    """True, wenn im Treffer ein generisches Wort steckt.
+
+    Nicht nur das erste Wort pruefen: "Die Endungen GmbH" beginnt mit
+    einem Artikel, das aussagekraeftige Wort steht dahinter. Echte
+    Firmennamen enthalten diese Woerter praktisch nie.
+    """
+    for wort in label.split():
+        rein = wort.lower().strip("-,.:;\"'()„“")
+        if rein in _CORP_STOPWORDS or rein.split("-")[0] in _CORP_STOPWORDS:
+            return True
+    return False
+
+
 _GERMAN_CORP_RE = re.compile(
     r"\b[A-ZÄÖÜ][\wÄÖÜäöüß\.\-/&]+(?:\s+[A-ZÄÖÜ&][\wÄÖÜäöüß\.\-/&]*){0,4}"
     r"\s+(?:GmbH|AG|KG|SE|UG|e\.V\.|gGmbH|mbH|GbR)"
@@ -270,6 +302,22 @@ _PHONE_RE = re.compile(
     r"\d{3,}(?:[ \-/]?\d+)*"              # Rufnummer, optional gruppiert
     r"(?![\d\-]*\s*(?:Zeichen|Stellen|px|EUR|€))"  # keine Mengenangaben
 )
+
+
+def _ist_farbwert(treffer: str) -> bool:
+    """True fuer RGB-Tripel wie "0 255 200" (CSS-Variablen im Frontend).
+
+    Die Telefon-Erkennung hat schon einmal Vertrauen gekostet, weil sie
+    die Jahresspanne 2020-2024 als Rufnummer las. Ein Pruefer, der bei
+    korrektem Inhalt Alarm gibt, wird nach dem zweiten Mal ignoriert —
+    deshalb hier die enge Ausnahme: drei Gruppen, alle im Bereich
+    0..255, per Leerzeichen getrennt. Eine echte Rufnummer sieht so
+    nicht aus.
+    """
+    teile = treffer.split()
+    if len(teile) != 3:
+        return False
+    return all(t.isdigit() and len(t) <= 3 and int(t) <= 255 for t in teile)
 
 
 # Inline-Code in Backticks. Dort stehen Commit-Hashes, IDs und Codeschnipsel
@@ -398,18 +446,21 @@ def find_pii(text: str) -> list[str]:
     for p in _FIRMA_PATTERNS:
         for m in set(p.findall(text)):
             label = m if isinstance(m, str) else " ".join(filter(None, m))
-            if _ist_quellen_key(label):
+            if _ist_quellen_key(label) or _ist_quellen_klasse(label, text):
                 continue  # technischer Quellen-Key, DoD-9-Ausnahme
             hits.append(f"FIRMA: {label}")
     for m in set(_GERMAN_CORP_RE.findall(text)):
         label = m if isinstance(m, str) else " ".join(filter(None, m))
-        if "<" not in label and not _ist_fiktiv(label):
+        if ("<" not in label and not _ist_fiktiv(label)
+                and not _ist_stoppwort_kopf(label)):
             hits.append(f"CORP: {label}")
     for m in set(_EMAIL_RE.findall(text)):
         if not _is_safe_email(m):
             hits.append(f"EMAIL: {m}")
     gesehen_tel: set[str] = set()
     for m in _PHONE_RE.finditer(text):
+        if _ist_farbwert(m.group(0)):
+            continue
         wert = m.group(0)
         if wert in gesehen_tel:
             continue
@@ -444,7 +495,18 @@ def scrub_text(text: str) -> str:
     return text
 
 
+def _stdio_utf8() -> None:
+    """Meldungen enthalten Gedankenstriche und Umlaute — unter cp1252
+    wuerden sie als '?' erscheinen oder die Ausgabe abbrechen."""
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):  # pragma: no cover
+            pass
+
+
 def main() -> int:
+    _stdio_utf8()
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true",
                     help="exit 1 wenn PII gefunden (kein Output ausser auf stderr)")
@@ -465,7 +527,13 @@ def main() -> int:
               file=sys.stderr)
         return 0
 
-    text = sys.stdin.read()
+    # sys.stdin.read() nimmt unter Windows die ANSI-Codepage (cp1252).
+    # UTF-8-Eingabe kommt dann verstuemmelt an: "Grün & Söhne GmbH" wird
+    # zu "GrÃ¼n & SÃ¶hne GmbH" — und passt auf KEIN Erkennungsmuster mehr.
+    # Der Pruefer haette solche Namen also durchgewinkt (falsch-negativ in
+    # einem Schutzwerkzeug), und meldete umgekehrt Fehlalarme, weil
+    # deutsche Anfuehrungszeichen zerfielen. Deshalb hart UTF-8.
+    text = sys.stdin.buffer.read().decode("utf-8", errors="replace")
     hits = find_pii(text)
 
     if args.check:

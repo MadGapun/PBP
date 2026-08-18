@@ -9275,7 +9275,14 @@ class Database:
             FROM follow_ups f
             JOIN applications a ON a.id = f.application_id
             WHERE f.status = 'geplant'
-              AND f.scheduled_date <= date('now')
+              -- 'localtime': scheduled_date ist ein LOKALES Datum
+              -- (die Aufrufer rechnen mit datetime.now()), waehrend
+              -- SQLites date('now') UTC liefert. In Sommerzeit lagen
+              -- dazwischen zwei Stunden: zwischen 00:00 und 02:00
+              -- meldete PBP 'keine faelligen Nachfassungen', obwohl
+              -- eine fuer heute anstand. Die Schwester-Pruefung in
+              -- get_statistics rechnet bereits lokal.
+              AND f.scheduled_date <= date('now', 'localtime')
               AND (? IS NULL OR a.profile_id=? OR a.profile_id IS NULL)
         """, (profile_id, profile_id)).fetchone()[0]
         if due_followups:

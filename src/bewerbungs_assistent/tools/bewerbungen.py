@@ -11,8 +11,8 @@ def _normalize_company_for_dedup(name: str) -> str:
 
     Entfernt Klammerzusaetze (Vermittler/Endkunde-Hinweise), Rechtsform-
     Suffixe (GmbH/AG/SE/KG), Sonderzeichen — vergleicht so dass
-    'IQ Intelligentes Ingenieur Management (Endkunde: Siemens Energy)'
-    und 'Siemens Energy (via IQ Intelligentes Ingenieur Management GmbH)'
+    'Ingenieurvermittlung Mitte (Endkunde: Anlagenbau Sued)'
+    und 'Anlagenbau Sued (via Ingenieurvermittlung Mitte GmbH)'
     als verwandt erkennbar werden.
     """
     if not name:

@@ -48,11 +48,11 @@ def _add_dismissed(tmp_db, hash_short, title, company, reason):
 
 def test_normalize_company_strippt_rechtsform():
     from bewerbungs_assistent.services.wiedergaenger import normalize_company
-    assert normalize_company("Tchibo GmbH") == "tchibo"
+    assert normalize_company("Konsumgueter GmbH") == "konsumgueter"
     assert normalize_company("Beispiel AG & Co. KG") == "beispiel"
-    assert normalize_company("Tchibo") == "tchibo"
+    assert normalize_company("Konsumgueter") == "konsumgueter"
     # Gleichheit ueber Rechtsform hinweg
-    assert normalize_company("Tchibo GmbH") == normalize_company("Tchibo")
+    assert normalize_company("Konsumgueter GmbH") == normalize_company("Konsumgueter")
 
 
 def test_normalize_company_leer():
@@ -65,14 +65,14 @@ def test_normalize_company_leer():
 
 
 def test_wiedergaenger_erkannt_bei_2x_gleicher_grund(tmp_db):
-    """Tchibo PLM 2x als falsches_fachgebiet -> Wiedergaenger."""
+    """Konsumgueter PLM 2x als falsches_fachgebiet -> Wiedergaenger."""
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager (m/w/d)", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Product Owner (m/w/d)", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager (m/w/d)", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Product Owner (m/w/d)", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     pattern = find_wiedergaenger_pattern(
-        tmp_db, "Tchibo GmbH", "PLM Architect (m/w/d)", schwellwert=2,
+        tmp_db, "Konsumgueter GmbH", "PLM Architect (m/w/d)", schwellwert=2,
     )
     assert pattern is not None
     assert pattern["top_grund"] == "falsches_fachgebiet"
@@ -83,11 +83,11 @@ def test_wiedergaenger_erkannt_bei_2x_gleicher_grund(tmp_db):
 def test_wiedergaenger_unter_schwellwert_kein_treffer(tmp_db):
     """Nur 1x aussortiert -> bei schwellwert=2 kein Wiedergaenger."""
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     pattern = find_wiedergaenger_pattern(
-        tmp_db, "Tchibo GmbH", "PLM Architect", schwellwert=2,
+        tmp_db, "Konsumgueter GmbH", "PLM Architect", schwellwert=2,
     )
     assert pattern is None
 
@@ -95,8 +95,8 @@ def test_wiedergaenger_unter_schwellwert_kein_treffer(tmp_db):
 def test_wiedergaenger_andere_firma_kein_treffer(tmp_db):
     """Gleiche Domaene, aber andere Firma -> kein Wiedergaenger."""
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     pattern = find_wiedergaenger_pattern(
@@ -109,13 +109,13 @@ def test_wiedergaenger_keine_domain_ueberlappung_kein_treffer(tmp_db):
     """Gleiche Firma, aber voellig andere Domaene -> kein Wiedergaenger.
     Guard gegen 'Grossfirma, ganz andere Rolle' (#670-Abgrenzung)."""
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     # Neue Stelle: Marketing — teilt kein Domaenen-Token mit PLM
     pattern = find_wiedergaenger_pattern(
-        tmp_db, "Tchibo GmbH", "Marketing Brand Strategist", schwellwert=2,
+        tmp_db, "Konsumgueter GmbH", "Marketing Brand Strategist", schwellwert=2,
     )
     assert pattern is None
 
@@ -123,12 +123,12 @@ def test_wiedergaenger_keine_domain_ueberlappung_kein_treffer(tmp_db):
 def test_wiedergaenger_auto_prefix_normalisiert(tmp_db):
     """'auto:falsches_fachgebiet' und 'falsches_fachgebiet' fallen zusammen."""
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Tchibo GmbH", "auto:falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Konsumgueter GmbH", "auto:falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     pattern = find_wiedergaenger_pattern(
-        tmp_db, "Tchibo GmbH", "PLM Architect", schwellwert=2,
+        tmp_db, "Konsumgueter GmbH", "PLM Architect", schwellwert=2,
     )
     assert pattern is not None
     assert pattern["top_grund"] == "falsches_fachgebiet"
@@ -140,12 +140,12 @@ def test_wiedergaenger_auto_prefix_normalisiert(tmp_db):
 
 def test_tool_wiedergaenger_meldung(tmp_db):
     tmp_db.create_profile("Test", "test@example.com")
-    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Konsumgueter GmbH", "falsches_fachgebiet")
 
     mcp = _register_jobs(tmp_db)
     fn = mcp.tools["stelle_wiedergaenger_pruefen"]
-    result = fn(firma="Tchibo GmbH", titel="PLM Architect")
+    result = fn(firma="Konsumgueter GmbH", titel="PLM Architect")
     assert result["status"] == "wiedergaenger"
     assert result["top_grund"] == "falsches_fachgebiet"
     assert result["aktion"] == "nur_gemeldet"
@@ -163,12 +163,12 @@ def test_tool_auto_aussortieren(tmp_db):
     """Mit job_hash + auto_aussortieren=True wird die Stelle dismissed."""
     tmp_db.create_profile("Test", "test@example.com")
     pid = tmp_db.get_active_profile_id() or ""
-    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Owner", "Konsumgueter GmbH", "falsches_fachgebiet")
     # Neue aktive Stelle
     new_hash = f"{pid}:ccc3"
     tmp_db.save_jobs([{
-        "hash": new_hash, "title": "PLM Architect (m/w/d)", "company": "Tchibo GmbH",
+        "hash": new_hash, "title": "PLM Architect (m/w/d)", "company": "Konsumgueter GmbH",
         "location": "Hamburg", "url": "https://x/ccc3", "source": "xing",
         "score": 50, "description": "PLM Architect",
     }])
@@ -198,11 +198,11 @@ def test_tool_fehler_ohne_firma(tmp_db):
 def test_fit_analyse_liefert_wiedergaenger_feld(tmp_db):
     tmp_db.create_profile("Test", "test@example.com")
     pid = tmp_db.get_active_profile_id() or ""
-    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager", "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "bbb2", "PLM Product Owner", "Tchibo GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "aaa1", "PLM Project Manager", "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "bbb2", "PLM Product Owner", "Konsumgueter GmbH", "falsches_fachgebiet")
     new_hash = f"{pid}:ddd4"
     tmp_db.save_jobs([{
-        "hash": new_hash, "title": "PLM Architect (m/w/d)", "company": "Tchibo GmbH",
+        "hash": new_hash, "title": "PLM Architect (m/w/d)", "company": "Konsumgueter GmbH",
         "location": "Hamburg", "url": "https://x/ddd4", "source": "xing",
         "score": 50,
         "description": "Wir suchen einen PLM Architect fuer unser Team. "

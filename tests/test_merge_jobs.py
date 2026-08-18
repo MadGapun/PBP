@@ -9,7 +9,7 @@ def two_jobs(tmp_db):
     master = {
         "hash": "master00000001",
         "title": "SAP / PLM Lead Consultant",
-        "company": "VirtoTech Ltd.",
+        "company": "Systemhaus Nord Ltd.",
         "location": "Remote",
         "url": "",
         "source": "manuell",
@@ -18,10 +18,10 @@ def two_jobs(tmp_db):
     }
     duplicate = {
         "hash": "dup00000001abc",
-        "title": "PLM Expert (Endkunde: Rota Yokogawa) via VirtoTech",
-        "company": "VirtoTech Ltd. (Endkunde: Rota Yokogawa)",
+        "title": "PLM Expert (Endkunde: Anlagenbau Sued) via Systemhaus Nord",
+        "company": "Systemhaus Nord Ltd. (Endkunde: Anlagenbau Sued)",
         "location": "",  # leer im Duplikat
-        "url": "https://example.com/jobs/virtotech",
+        "url": "https://example.com/jobs/systemhaus-nord",
         "source": "headhunter",
         "description": "Duplikat-Zusatzinfo ueber Endkunde.",
         "score": 5,

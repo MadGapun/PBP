@@ -15,6 +15,16 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > zu 404. Ueber 100 weitere Issues wurden anonymisiert (Firmen → `<FIRMA>`,
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
+
+> 🛡 **DSGVO-Nachtrag (2026-08-19):** Ein maschineller Sweep ueber alle
+> 781 Issue-Bodies, Kommentare und Release-Notes fand in **zehn
+> Alt-Issues** noch reale Firmennamen. Diese sind geloescht: **#88,
+> #434, #471, #474, #481, #530, #540, #568, #658, #709** — Verweise
+> darauf fuehren zu 404. Neun davon waren geschlossen und historisch;
+> das offene **#481** (Kalender-Export) wurde anonymisiert als **#928**
+> neu angelegt, der ics-Teil war ohnehin seit v1.8.0-beta.3 geliefert.
+> Der Sweep ist seither sauber (772 Artefakte, null Treffer) und
+> gehoert als `scripts/gh_pii_sweep.py` in jede Session-Abschlussrunde.
 >
 > **Update 2026-07-23:** Die Issues **#763** und **#766** enthielten reale
 > Firmennamen aus der Bewerbungshistorie (Stellen-Tabelle) und wurden
@@ -1863,7 +1873,8 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
     ZULAESSIGE Bewerbungen denselben Domain-Treffer, entscheidet
     ausschliesslich ein inhaltliches Signal (Ansprechpartner/Stellentitel/
     kontakt_email) auf genau EINER Kandidatin; bekannte Vermittler-Domains
-    (Hays, SThree, Randstad, ...) matchen nie ueber die Domain allein.
+    (Liste `RECRUITER_DOMAIN_KEYWORDS` in `email_service.py`) matchen
+    nie ueber die Domain allein.
     Eine alte abgelehnte Bewerbung derselben Firma blockt den einzigen
     aktiven Kandidaten dabei NICHT (Fund des adversarialen Reviews).
   - `analyse_plan_erstellen` (#686) markiert Zuordnungsvorschlaege auf
@@ -4007,7 +4018,7 @@ git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/instal
 
 ### Tests
 
-- `tests/test_v17_duplikat_670.py` (5 neu): Tchibo-Doppelrolle anlegbar, Zeitnaehe-ohne-Titel kein Block, URL-Match weiter erkannt, force-Override, Gegentest ohne force.
+- `tests/test_v17_duplikat_670.py` (5 neu): Konsumgueter-Doppelrolle anlegbar, Zeitnaehe-ohne-Titel kein Block, URL-Match weiter erkannt, force-Override, Gegentest ohne force.
 - `tests/test_duplicate_detection.py` aktualisiert: zwei Tests dokumentieren jetzt das #670-Verhalten (single-keyword + Zeitnaehe blocken nicht; URL-Match faengt reale Reposts).
 
 Volle Suite: **1603 passed, 1 skipped** (vorher 1597).
@@ -4049,7 +4060,7 @@ git clone https://github.com/MadGapun/PBP.git && cd PBP && bash installer/instal
 
 ### Hintergrund (#671)
 
-Dieselbe Stelle (bzw. ihre Geschwister derselben Firma + Domaene) taucht ueber verschiedene Scrapes immer wieder als "neuer Fund" auf und wird jedes Mal bis zur vollen Detailbewertung durchgeschleift — obwohl sie schon mehrfach aus identischem Grund verworfen wurde. Konkret: Tchibo GmbH PLM-Rolle wurde 2x als `falsches_fachgebiet` aussortiert, taucht beim 3. Scrape (neuer Hash, andere Quelle) wieder als frischer Fund auf.
+Dieselbe Stelle (bzw. ihre Geschwister derselben Firma + Domaene) taucht ueber verschiedene Scrapes immer wieder als "neuer Fund" auf und wird jedes Mal bis zur vollen Detailbewertung durchgeschleift — obwohl sie schon mehrfach aus identischem Grund verworfen wurde. Konkret: Konsumgueter GmbH PLM-Rolle wurde 2x als `falsches_fachgebiet` aussortiert, taucht beim 3. Scrape (neuer Hash, andere Quelle) wieder als frischer Fund auf.
 
 **Architektur-Leitplanke (User-Vorgabe):** PBP-Kernfunktionen duerfen lokale KI NIE voraussetzen. Manche User wollen bewusst gar kein Ollama. Daher die gestufte Verteidigung:
 
@@ -4061,7 +4072,7 @@ beta.86 liefert **Ebene 0 + Ebene 2** — beide KI-frei.
 
 ### Added
 
-- **`services/wiedergaenger.py`** (Ebene 0, reines Python): `find_wiedergaenger_pattern(db, company, title, schwellwert=2)` sucht aussortierte Stellen DERSELBEN FIRMA mit Titel-Domaenen-Token-Ueberlappung, aggregiert nach `dismiss_reason`. Firmen-Normalisierung (Rechtsform-Suffixe raus: "Tchibo GmbH" == "Tchibo"), Domaenen-Token-Extraktion (generische Rollen-/Gender-Woerter raus, nur fachliche Tokens wie "plm" zaehlen als Ueberlappung). `auto:`-Prefix-Normalisierung.
+- **`services/wiedergaenger.py`** (Ebene 0, reines Python): `find_wiedergaenger_pattern(db, company, title, schwellwert=2)` sucht aussortierte Stellen DERSELBEN FIRMA mit Titel-Domaenen-Token-Ueberlappung, aggregiert nach `dismiss_reason`. Firmen-Normalisierung (Rechtsform-Suffixe raus: "Konsumgueter GmbH" == "Konsumgueter"), Domaenen-Token-Extraktion (generische Rollen-/Gender-Woerter raus, nur fachliche Tokens wie "plm" zaehlen als Ueberlappung). `auto:`-Prefix-Normalisierung.
 - **MCP-Tool `stelle_wiedergaenger_pruefen(job_hash="", firma="", titel="", schwellwert=2, auto_aussortieren=False)`** — exponiert Ebene 0. Mit `auto_aussortieren=True` + `job_hash` wird die Stelle direkt mit `dismiss_reason='wiedergaenger:<grund>'` aussortiert. Default nur melden.
 - **Ebene 2 in `fit_analyse`:** firma-verankerter Wiedergaenger-Check (im Gegensatz zum bestehenden token-Jaccard `outcome_pattern`, das ueber alle Firmen geht). Neues Result-Feld `wiedergaenger` + Risk-Eintrag.
 - 13 neue Tests in `tests/test_v17_wiedergaenger_671.py` — alle ohne Ollama.
@@ -5336,12 +5347,12 @@ ueberall implementiert, nur in `monster.py` / `freelancermap.py`).
 
 `bewerbungs_dokumente_erkennen(auto_erstellen=True)` legte aus generischen
 CV-Varianten Phantom-Bewerbungen an (Bewerbung bei „Ausfuehrlich",
-„freelancer", „SC", „SL"; „Dassault-Systems" zu „Systems" verstuemmelt).
+„freelancer", „SC", „SL"; „Muster-Systems" zu „Systems" verstuemmelt).
 `_extract_firma_from_filename` neu aufgebaut:
 
 - **Trenner-Logik:** enthaelt der Rest nach dem DocType-Praefix ein `;`,
   ist die Firma der Teil nach dem **letzten** `;` (darf Bindestriche tragen
-  -> „Dassault-Systems" bleibt ganz); sonst der Teil nach dem **ersten** `-`
+  -> „Muster-Systems" bleibt ganz); sonst der Teil nach dem **ersten** `-`
 - **Blacklist** (umlaut-normalisiert): freelancer, ausfuehrlich,
   deutsch/english, master, version, mit/ohne-foto, kurz/lang, …
 - **Kuerzel-Filter:** ≤ 3 Zeichen ohne Kleinbuchstaben (SC, SL, BWI) =
@@ -13552,7 +13563,7 @@ Default bleibt der alte Pfad; der neue wird schrittweise haerter getestet.
 ## [1.6.0-beta.11] - 2026-04-25
 
 Duplikat-Pruefung gehaertet + Merge-Tool fuer nachtraegliche
-Duplikat-Aufloesung. Der Real-Case aus #471 (zwei VirtoTech-Stellen
+Duplikat-Aufloesung. Der Real-Case aus #471 (zwei Systemhaus Nord-Stellen
 innerhalb von 2 Stunden, Titel leicht umformuliert) wird jetzt erkannt;
 und fuer Altlasten gibt es `stelle_mergen()` mit Dry-Run-Default.
 
@@ -13579,7 +13590,7 @@ und fuer Altlasten gibt es `stelle_mergen()` mit Dry-Run-Default.
 
 - **#471 `stelle_manuell_anlegen` Duplikat-Pruefung gehaertet:**
   Der bisherige Token-Overlap-Check hat Fuzzy-Umformulierungen wie
-  `PLM Expert via VirtoTech` vs. `SAP / PLM Lead Consultant` nicht
+  `PLM Expert via Systemhaus Nord` vs. `SAP / PLM Lead Consultant` nicht
   erkannt. Neue Logik mit normalisierter Firma + Domain-Keyword-
   Overlap + Zeitnaehe findet den Fall. Check laeuft jetzt ueber
   **Bewerbungen UND Jobs** (inkl. dismissed), nicht nur Bewerbungen.

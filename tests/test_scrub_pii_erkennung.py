@@ -197,3 +197,55 @@ def test_quellen_ausnahme_deckt_keine_fremden_firmen():
     from scrub_pii import find_pii
     # kleingeschrieben, aber kein Quellen-Key -> bleibt PII
     assert find_pii("die stelle bei rheinmetall war interessant")
+
+
+# ── v1.7.22 (#929): Kodierung, Fehlalarme, Adapter-Klassen ────────────
+
+def test_929_umlaut_firma_wird_ueber_stdin_erkannt(tmp_path):
+    """Der Pruefer liest die Eingabe hart als UTF-8.
+
+    Unter Windows nahm `sys.stdin.read()` die ANSI-Codepage (cp1252).
+    Ein Firmenname mit Umlaut kam dadurch verstuemmelt an
+    ("Gruen & Soehne GmbH" mit echten Umlauten wurde zu Mojibake) und
+    passte auf KEIN Muster mehr — der Schutz haette ihn durchgewinkt.
+    Falsch-negativ in einem Schutzwerkzeug ist der teuerste Fehler.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    skript = Path(__file__).resolve().parents[1] / "scripts" / "scrub_pii.py"
+    datei = tmp_path / "eingabe.md"
+    datei.write_text("Bewerbung bei Gr\u00fcn & S\u00f6hne GmbH lief gut.\n",
+                     encoding="utf-8")
+    with open(datei, "rb") as f:
+        p = subprocess.run([sys.executable, str(skript), "--check"],
+                           stdin=f, capture_output=True)
+    assert p.returncode == 1, "Umlaut-Firma muss erkannt werden"
+
+    # Gegenrichtung: sauberer Text darf nicht anschlagen.
+    sauber = tmp_path / "sauber.md"
+    sauber.write_text("Ein Text ueber Musterfirma GmbH.\n", encoding="utf-8")
+    with open(sauber, "rb") as f:
+        p2 = subprocess.run([sys.executable, str(skript), "--check"],
+                            stdin=f, capture_output=True)
+    assert p2.returncode == 0, p2.stderr.decode("utf-8", "replace")
+
+
+def test_929_generische_woerter_vor_rechtsform_sind_keine_firma():
+    """"Rechtsform-Suffixe GmbH/AG" ist ein Satz, kein Unternehmen."""
+    from scrub_pii import find_pii
+    for text in ("Firma normalisiert (Umlaute, Rechtsform-Suffixe GmbH/AG).",
+                 "Beispiele GmbH und AG werden gleich behandelt.",
+                 "Die Endungen GmbH, AG, KG fallen weg."):
+        assert find_pii(text) == [], (text, find_pii(text))
+    # Gegenrichtung: eine echte Firma mit Rechtsform bleibt ein Treffer.
+    assert find_pii("Das Gespraech bei Nordwerk Antriebstechnik GmbH lief.")
+
+
+def test_929_adapter_klassennamen_sind_quellen_bezeichner():
+    """`HaysAdapter` benennt eine Quelle im Code, keine Bewerbung."""
+    from scrub_pii import find_pii
+    assert find_pii("- `BundesagenturAdapter` + `HaysAdapter` sind Wrapper.") == []
+    # Ohne den Adapter-Kontext bleibt der blosse Firmenname PII.
+    assert find_pii("Hays hat sich zur Stelle gemeldet.")

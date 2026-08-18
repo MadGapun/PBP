@@ -135,16 +135,16 @@ def test_aufgaben_fuellen_alle_faelligkeitsgruppen(geseedet):
     for pid in pids.values():
         conn = db.connect()
         heute = conn.execute(
-            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am = date('now')",
+            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am = date('now', 'localtime')",
             (pid,),
         ).fetchone()[0]
         ueberfaellig = conn.execute(
-            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am < date('now') "
+            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am < date('now', 'localtime') "
             "AND faellig_am IS NOT NULL",
             (pid,),
         ).fetchone()[0]
         zukunft = conn.execute(
-            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am > date('now')",
+            "SELECT COUNT(*) FROM tasks WHERE profile_id=? AND faellig_am > date('now', 'localtime')",
             (pid,),
         ).fetchone()[0]
         ohne = conn.execute(

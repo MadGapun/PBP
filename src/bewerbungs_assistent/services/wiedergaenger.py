@@ -10,9 +10,9 @@ ohne jede KI. Er traegt das Feature allein.
   Ebene 1 (Ollama) — optional, separat, ueberspringbar ohne Funktionsverlust.
   Ebene 2 (Claude) — in fit_analyse: liefert die Aussortier-Historie als Kontext.
 
-Konkreter Fall (#671): Tchibo GmbH PLM-Rolle wurde 2x als
+Konkreter Fall (#671): Konsumgueter GmbH PLM-Rolle wurde 2x als
 `falsches_fachgebiet` verworfen. Beim 3. Auftauchen (neuer Hash, andere Quelle)
-soll PBP erkennen: "Firma Tchibo + Domaene PLM schon 2x als falsches_fachgebiet
+soll PBP erkennen: "Firma Konsumgueter + Domaene PLM schon 2x als falsches_fachgebiet
 verworfen" — bevor die Stelle wieder als frischer Fund auf dem Tisch landet.
 
 Gegenfall (#754, v1.7.7): Der Match darf NICHT ueber generische Tokens
@@ -36,7 +36,7 @@ from typing import Optional
 
 
 # Rechtsform-Suffixe + generische Zusaetze, die bei der Firmen-Normalisierung
-# entfernt werden. "Tchibo GmbH" und "Tchibo" sollen als gleiche Firma gelten.
+# entfernt werden. "Konsumgueter GmbH" und "Konsumgueter" sollen als gleiche Firma gelten.
 _COMPANY_SUFFIXES = {
     "gmbh", "ag", "se", "kg", "kgaa", "mbh", "ohg", "ug", "ev", "co",
     "gbr", "ltd", "limited", "inc", "llc", "plc", "holding", "group",
@@ -108,7 +108,7 @@ _ROLE_FAMILIES = {
 def normalize_company(name: Optional[str]) -> str:
     """Normalisiert einen Firmennamen fuer den Gleichheits-Vergleich.
 
-    "Tchibo GmbH" -> "tchibo", "Beispiel AG & Co. KG" -> "beispiel".
+    "Konsumgueter GmbH" -> "konsumgueter", "Beispiel AG & Co. KG" -> "beispiel".
     Lowercase, Interpunktion raus, Rechtsform-Suffixe raus.
     """
     if not name:
