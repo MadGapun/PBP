@@ -39,6 +39,42 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-08-18 (v1.7.21 Stable + v1.8.0-beta.13) — Keine Sackgassen
+
+**Schema:** v48 / v52 unveraendert. **Tests:** 2335 / 2401 gesammelt.
+Neu `services/nutzerfuehrung.py` (`kein_profil` / `leer`).
+
+**#927** — gemessen ueber ALLE 53 argumentlosen Tools auf frischer DB:
+18 Sackgassen vorher, 6 danach. Die MESSUNG ist der eigentliche Wert,
+nicht die Textarbeit: ohne den Rundumlauf haette niemand gemerkt, dass
+die Meldung "kein Profil" in **15 verschiedenen Formulierungen**
+existierte. Groesste Einzelwirkung `suchkriterien_anzeigen`: gab `{}`
+zurueck — die Grundlage JEDER Jobsuche fehlte, und nichts sagte das;
+die Suche lief danach ins Leere. Die restlichen 6 bleiben BEWUSST
+("0 Euro Kosten" erklaert sich selbst). Der Guard-Test ruft trotzdem
+JEDES argumentlose Tool auf der leeren DB auf und faengt Abstuerze.
+
+MERKE-Punkte:
+
+(1) **Skript-Patches am return-Statement sind gefaehrlich.** Ein
+`replace(return_X, "if leer: ...")`, das den Normalpfad nicht wieder
+ANHAENGT, loescht ihn: `suchprofile_auflisten` lieferte danach `None`
+— gefunden erst von der vollen Suite (`'NoneType' object is not
+subscriptable`), nicht von den gezielten Tests. Gegenprobe nach JEDEM
+Skript-Lauf: `git diff -U0 | grep "^-[^-]"`, jede entfernte Zeile
+einzeln rechtfertigen. (Dieselbe Welle: zweimal zerrissen
+Skript-Einfuegungen Import-Bloecke.)
+
+(2) **Zahlendreher im Issue-Verweis wandert in den Release.** Der
+v1.7.20-Commit UND sein CHANGELOG-Eintrag verwiesen zweimal auf #927;
+gemeint war die Quellen-Arbeit, die gar kein eigenes Issue hatte. Tag
+und Release-Notes sind eingefroren — nur die Repo-Datei liess sich
+korrigieren. Nummer vor dem Commit gegen `gh issue view N` pruefen.
+
+(3) **Negativ-Befund, dokumentiert damit ihn niemand nachmisst:** die
+7 Stellen `{"fehler": str(e)}` in tools/ sind KEIN Traceback-Leck —
+durchweg `ValueError` aus der DB-Schicht mit lesbaren deutschen Texten.
+
 ## Stand 2026-08-18 (v1.7.17 Stable + v1.8.0-beta.12) — Praxis-Welle 18.08.
 
 **Schema:** v48 / v52 unveraendert (Safety-Nets: scoring_config.
