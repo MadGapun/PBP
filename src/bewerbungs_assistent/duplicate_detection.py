@@ -1,7 +1,7 @@
 """Duplikat-Erkennung fuer Stellen (#471).
 
 Haertet die Duplikat-Pruefung in stelle_manuell_anlegen gegen:
-- Firma mit Klammer-Zusaetzen (z.B. "VirtoTech Ltd." vs. "VirtoTech Ltd. (Endkunde: Rota Yokogawa)")
+- Firma mit Klammer-Zusaetzen (z.B. "Systemhaus Nord Ltd." vs. "Systemhaus Nord Ltd. (Endkunde: Anlagenbau Sued)")
 - Rechtsform-Suffixe (GmbH, AG, Ltd., KG, ...)
 - Titel-Umformulierungen mit gleichem Fachbereich
 - Zeitnaehe als zusaetzliches Signal
@@ -58,7 +58,7 @@ def normalize_company_name(name: Optional[str]) -> str:
     if not name:
         return ""
     n = name.lower().strip()
-    # Klammer-Zusaetze entfernen: "VirtoTech Ltd. (Endkunde: ...)" -> "virtotech ltd."
+    # Klammer-Zusaetze entfernen: "Systemhaus Nord Ltd. (Endkunde: ...)" -> "systemhaus nord ltd."
     n = re.sub(r"\([^)]*\)", " ", n)
     # Umlaute
     for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
@@ -183,7 +183,7 @@ def find_duplicate_job(
             return {"job": cand, "grund": "url_match", "score": 1.0}
 
         # Firma muss normalisiert uebereinstimmen (oder Teilmenge, wenn der
-        # kuerzere der Basisname ist — z.B. "virtotech" in "virtotech holding").
+        # kuerzere der Basisname ist — z.B. "systemhaus nord" in "systemhaus nord holding").
         if not norm_firma or not cand_firma:
             continue
         firma_match = (

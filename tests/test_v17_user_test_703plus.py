@@ -93,7 +93,7 @@ def test_708_rollback_if_stale_noop_ohne_transaktion(setup_env):
 # ============= #709/#710 / K21: Dedup force + endkunde =============
 
 def _neue_bewerbung(db, mcp, **kwargs):
-    args = {"title": "PLM Consultant", "company": "VirtoTech Ltd.",
+    args = {"title": "PLM Consultant", "company": "Systemhaus Nord Ltd.",
             "bereits_beworben": True}
     args.update(kwargs)
     return _call(mcp, "bewerbung_erstellen", args)
@@ -116,7 +116,7 @@ def test_709_force_ueberstimmt_dedup(setup_env):
 def test_710_endkunde_gespeichert_und_trennt(setup_env):
     db = setup_env
     mcp = _make_mcp(db, "bewerbungen")
-    r1 = _neue_bewerbung(db, mcp, endkunde="Rota Yokogawa")
+    r1 = _neue_bewerbung(db, mcp, endkunde="Anlagenbau Sued")
     assert r1.get("status") != "duplikat", r1
     # Gleicher Vermittler + gleicher Titel, ANDERER Endkunde -> kein Duplikat
     r2 = _neue_bewerbung(db, mcp, endkunde="PRO.FILE Assessment Kunde")
@@ -124,9 +124,9 @@ def test_710_endkunde_gespeichert_und_trennt(setup_env):
     # endkunde ist persistiert
     apps = db.get_applications()
     endkunden = sorted((a.get("endkunde") or "") for a in apps)
-    assert "Rota Yokogawa" in endkunden, endkunden
+    assert "Anlagenbau Sued" in endkunden, endkunden
     # Gleicher Endkunde nochmal -> Duplikat
-    r3 = _neue_bewerbung(db, mcp, endkunde="Rota Yokogawa")
+    r3 = _neue_bewerbung(db, mcp, endkunde="Anlagenbau Sued")
     assert r3.get("status") == "duplikat", r3
 
 

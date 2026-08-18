@@ -369,7 +369,7 @@ def register(mcp, db, logger):
         """Verwaltet die Blacklist (Firmen und Keywords die bei der Jobsuche automatisch aussortiert werden).
 
         WICHTIG (#168): Die Blacklist ist NUR für harte Ausschlüsse gedacht:
-        - 'firma': Firmen die IMMER ignoriert werden (z.B. CIDEON, Zeitarbeitsfirma XY)
+        - 'firma': Firmen die IMMER ignoriert werden (z.B. Musterfirma, Zeitarbeitsfirma XY)
         - 'keyword': Begriffe die IMMER ignoriert werden (z.B. Werkstudent, Praktikum)
 
         Individuelle Ablehnungsgründe (zu_weit, zu_junior, etc.) gehoeren NICHT hierher!

@@ -29,19 +29,19 @@ def _register_jobs(tmp_db):
     return mcp
 
 
-def test_tchibo_zweite_stelle_wird_angelegt(tmp_db):
+def test_konsumgueter_zweite_stelle_wird_angelegt(tmp_db):
     """#670-Kernfall: PLM Project Manager + PLM Product Owner bei derselben
     Firma sind verschiedene Stellen — beide muessen anlegbar sein."""
     tmp_db.create_profile("Test", "test@example.com")
     mcp = _register_jobs(tmp_db)
     fn = mcp.tools["stelle_manuell_anlegen"]
 
-    r1 = fn(titel="PLM Project Manager (m/w/d)", firma="Tchibo GmbH",
-            url="https://tchibo.example/jobs/pm", ort="Hamburg")
+    r1 = fn(titel="PLM Project Manager (m/w/d)", firma="Konsumgueter GmbH",
+            url="https://konsumgueter.example/jobs/pm", ort="Hamburg")
     assert r1["status"] == "angelegt"
 
-    r2 = fn(titel="PLM Product Owner (m/w/d)", firma="Tchibo GmbH",
-            url="https://tchibo.example/jobs/po", ort="Hamburg")
+    r2 = fn(titel="PLM Product Owner (m/w/d)", firma="Konsumgueter GmbH",
+            url="https://konsumgueter.example/jobs/po", ort="Hamburg")
     assert r2["status"] == "angelegt", f"Zweite Stelle muss anlegbar sein: {r2}"
 
 

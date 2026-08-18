@@ -788,7 +788,7 @@ def _post_search_cleanup(db, jobs: list) -> dict:
             stats["duplikate_db"] += 1
             continue
 
-        # Skip blacklisted companies (Substring-Match: "CIDEON" matcht "CIDEON Software GmbH")
+        # Skip blacklisted companies (Substring-Match: "Musterfirma" matcht "Musterfirma Software GmbH")
         if any(firm in company or company in firm for firm in bl_firms):
             stats["blacklist"] += 1
             continue

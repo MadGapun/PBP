@@ -11,15 +11,15 @@ from bewerbungs_assistent.duplicate_detection import (
 # --- normalize_company_name ---
 
 def test_normalize_strips_legal_suffix():
-    assert normalize_company_name("VirtoTech Ltd.") == "virtotech"
+    assert normalize_company_name("Systemhaus Nord Ltd.") == "systemhaus nord"
     assert normalize_company_name("ACME GmbH") == "acme"
     assert normalize_company_name("BigCorp AG") == "bigcorp"
     assert normalize_company_name("Foo GmbH & Co. KG") == "foo"
 
 
 def test_normalize_strips_parens():
-    assert (normalize_company_name("VirtoTech Ltd. (Endkunde: Rota Yokogawa)")
-            == "virtotech")
+    assert (normalize_company_name("Systemhaus Nord Ltd. (Endkunde: Anlagenbau Sued)")
+            == "systemhaus nord")
     assert (normalize_company_name("Lürssen Werft (Abt. Business & Engineering IT)")
             == "luerssen werft")
 
@@ -53,7 +53,7 @@ def test_url_match_beats_everything():
 
 # --- find_duplicate_job: #471 repro case ---
 
-def test_virtotech_gleiche_url_wird_gefangen():
+def test_systemhaus_nord_gleiche_url_wird_gefangen():
     """#471/#670: Bei IDENTISCHER URL ist es sicher ein Duplikat — unabhaengig
     vom Titel. Die URL ist das zuverlaessigste Signal.
 
@@ -66,16 +66,16 @@ def test_virtotech_gleiche_url_wird_gefangen():
     existing = [
         {
             "hash": "add792f49628",
-            "title": "PLM Expert (Endkunde: Rota Yokogawa) via VirtoTech",
-            "company": "VirtoTech Ltd. (Endkunde: Rota Yokogawa)",
-            "url": "https://virtotech.example/jobs/plm-123",
+            "title": "PLM Expert (Endkunde: Anlagenbau Sued) via Systemhaus Nord",
+            "company": "Systemhaus Nord Ltd. (Endkunde: Anlagenbau Sued)",
+            "url": "https://systemhaus-nord.example/jobs/plm-123",
             "found_at": t_minus_2h,
         }
     ]
     hit = find_duplicate_job(
-        firma="VirtoTech Ltd.",
+        firma="Systemhaus Nord Ltd.",
         titel="SAP / PLM Lead Consultant",
-        url="https://virtotech.example/jobs/plm-123",
+        url="https://systemhaus-nord.example/jobs/plm-123",
         candidates=existing,
     )
     assert hit is not None, "Gleiche URL muss als Duplikat erkannt werden"
@@ -87,16 +87,16 @@ def test_670_single_domainkeyword_blockt_nicht():
     sind aber verschiedene Jobs -> KEIN Duplikat (verschiedene URLs)."""
     existing = [
         {
-            "hash": "tchibo1",
+            "hash": "konsumgueter1",
             "title": "PLM Project Manager (m/w/d)",
-            "company": "Tchibo GmbH",
-            "url": "https://tchibo.example/jobs/pm",
+            "company": "Konsumgueter GmbH",
+            "url": "https://konsumgueter.example/jobs/pm",
         }
     ]
     hit = find_duplicate_job(
-        firma="Tchibo GmbH",
+        firma="Konsumgueter GmbH",
         titel="PLM Product Owner (m/w/d)",
-        url="https://tchibo.example/jobs/po",
+        url="https://konsumgueter.example/jobs/po",
         candidates=existing,
     )
     assert hit is None, "Single geteiltes Domain-Keyword darf nicht blocken (#670)"
@@ -104,10 +104,10 @@ def test_670_single_domainkeyword_blockt_nicht():
 
 def test_firma_mit_klammer_match():
     existing = [
-        {"hash": "h1", "company": "VirtoTech Ltd. (Endkunde: ACME)",
+        {"hash": "h1", "company": "Systemhaus Nord Ltd. (Endkunde: ACME)",
          "title": "PLM Consultant", "url": ""},
     ]
-    hit = find_duplicate_job("VirtoTech Ltd.", "PLM Architect", "", existing)
+    hit = find_duplicate_job("Systemhaus Nord Ltd.", "PLM Architect", "", existing)
     assert hit is not None
 
 

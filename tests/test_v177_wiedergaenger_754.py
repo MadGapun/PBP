@@ -128,13 +128,13 @@ def test_domaene_schlaegt_rolle_671_bleibt(tmp_db):
     wenn die Rollen verschieden sind (Owner/Manager -> Architect)."""
     tmp_db.create_profile("Test", "test@example.com")
     _add_dismissed(tmp_db, "tc1", "PLM Product Owner (m/w/d)",
-                   "Tchibo GmbH", "falsches_fachgebiet")
-    _add_dismissed(tmp_db, "tc2", "PLM Manager", "Tchibo GmbH",
+                   "Konsumgueter GmbH", "falsches_fachgebiet")
+    _add_dismissed(tmp_db, "tc2", "PLM Manager", "Konsumgueter GmbH",
                    "falsches_fachgebiet")
 
     from bewerbungs_assistent.services.wiedergaenger import find_wiedergaenger_pattern
     pattern = find_wiedergaenger_pattern(
-        tmp_db, "Tchibo GmbH", "PLM Architect (m/w/d)", schwellwert=2,
+        tmp_db, "Konsumgueter GmbH", "PLM Architect (m/w/d)", schwellwert=2,
     )
     assert pattern is not None
     assert "plm" in pattern["domain_tokens"]

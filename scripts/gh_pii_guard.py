@@ -80,7 +80,11 @@ def _texte_einsammeln(command: str) -> list[tuple[str, str]]:
 
 def main() -> int:
     try:
-        daten = json.load(sys.stdin)
+        # Wie in scrub_pii: sys.stdin dekodiert unter Windows mit
+        # cp1252 und zerstoert Umlaute im Kommandotext — der Guard
+        # wuerde einen Firmennamen mit Umlaut dann NICHT erkennen.
+        daten = json.loads(
+            sys.stdin.buffer.read().decode("utf-8", errors="replace"))
     except (json.JSONDecodeError, ValueError):
         return 0  # Kein verwertbarer Input -> nicht blockieren
 

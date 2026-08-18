@@ -14,8 +14,8 @@ def _company_match_key(name: str) -> str:
     """#686: Firmenname auf einen distinktiven Such-Schluessel reduzieren.
 
     Entfernt Rechtsformen/Generika (SE, GmbH, AG, Group, ...) und nimmt das
-    laengste verbleibende Token (>=4 Zeichen): 'adesso SE' -> 'adesso',
-    'Bechtle GmbH' -> 'bechtle', 'Lufthansa Technik' -> 'lufthansa'. Liefert ''
+    laengste verbleibende Token (>=4 Zeichen): 'Beispieltech SE' -> 'beispieltech',
+    'Musterfirma GmbH' -> 'musterfirma', 'Werft Nord Technik' -> 'werft'. Liefert ''
     wenn nichts Distinktives bleibt (dann findet kein Matching statt) — bewusst
     konservativ gegen Falsch-Treffer bei sehr kurzen/generischen Namen.
     """
