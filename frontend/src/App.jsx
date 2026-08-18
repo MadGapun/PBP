@@ -1210,10 +1210,15 @@ export default function App() {
           collapsed={sidebarCollapsed}
           onToggle={toggleSidebar}
           footerSlot={
-            <>
-              <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
+            /* v1.7.17 (#907): Badge fix (shrink-0), Elwosa flexibel —
+               nur die Nachrichtenliste im Chat scrollt. */
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="shrink-0 px-3 pt-2">
+                <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
+              </div>
               {/* v1.7.0-beta.37 (#599): Elwosa-Live-Statusanzeige */}
               <ElwosaSidebarChat
+                className="flex-1 min-h-0"
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}
                 onNavigateToSettings={(tab) => {
@@ -1244,7 +1249,7 @@ export default function App() {
                   }
                 }}
               />
-            </>
+            </div>
           }
         />
 

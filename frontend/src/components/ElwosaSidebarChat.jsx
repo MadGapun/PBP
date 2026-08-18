@@ -182,7 +182,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings, onNavigate }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings, onNavigate, className = "" }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -438,8 +438,13 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
   });
 
   return (
-    <div className="border-t border-white/5 px-3 py-2">
-      <div className="mb-2 flex items-center justify-between">
+    /* v1.7.17 (#907): Flex-Column mit durchgereichter Hoehe — Header
+       bleibt stehen (shrink-0), NUR die Nachrichtenliste scrollt.
+       Vorher: maxHeight:100% gegen ein height:auto-Elternteil ist in
+       CSS unaufloesbar (= none) — der innere Scroller scrollte nie,
+       stattdessen schob die Liste den ganzen Footer zum Scrollen. */
+    <div className={`border-t border-white/5 px-3 py-2 flex min-h-0 flex-col ${className}`}>
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           {avatar}
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted/70">
@@ -508,12 +513,11 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
           Container darueber gibt via flex:1 + min-h:0 vor wieviel Platz
           zur Verfuegung steht — Elwosa fuellt das aus und scrollt intern.
           Auf grossen Screens wird Elwosa entsprechend gross. */}
-      <div className="relative">
+      <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="space-y-2 min-h-[80px] overflow-y-auto pr-1"
-          style={{ maxHeight: "100%" }}
+          className="h-full space-y-2 overflow-y-auto pr-1"
         >
           {messages.length === 0 && (
             <p className="text-[10px] text-muted/40 italic">

@@ -330,6 +330,10 @@ class Database:
                 ("schwellenwert", "auto_ignore", 0, 0),
                 # #698: Hochschulabschluss-Malus als sichtbarer Regler (Default -2)
                 ("hochschulabschluss", "fehlt", -2, 0),
+                # #910: Entfernung-Gehalt-Kompensation, 0 = aus.
+                # Spanne in EUR/Jahr ueber min_gehalt, ab der der
+                # Entfernungs-Malus vollstaendig kompensiert ist.
+                ("entfernung_gehalt_kompensation", "spanne", 0, 0),
             ]
             for dim, sub, val, ign in _scoring_defaults:
                 try:
@@ -5339,6 +5343,21 @@ class Database:
                 criteria["_idf_faktoren"] = get_idf_faktoren(self, criteria)
             except Exception as e:
                 logger.debug("IDF-Injektion fehlgeschlagen: %s", e)
+        # v1.7.17 (#910): Entfernung-Gehalt-Kompensation — die Spanne aus
+        # scoring_config wird nur injiziert, wenn sie > 0 ist (Opt-in;
+        # ohne Eintrag null Overhead und exakt das alte Verhalten).
+        try:
+            row = conn.execute(
+                "SELECT value FROM scoring_config "
+                "WHERE (profile_id=? OR profile_id='') "
+                "AND dimension='entfernung_gehalt_kompensation' "
+                "AND sub_key='spanne' AND ignore_flag=0 "
+                "ORDER BY profile_id DESC LIMIT 1",
+                (pid or "",)).fetchone()
+            if row and float(row["value"]) > 0:
+                criteria["_entfernung_gehalt_spanne"] = float(row["value"])
+        except Exception as e:
+            logger.debug("Kompensations-Injektion (#910): %s", e)
         return criteria
 
     def get_hochschulabschluss_malus(self):

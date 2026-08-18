@@ -153,7 +153,9 @@ export default function Sidebar({
           IMMER Vorrang und schrumpft nicht. Elwosa-Footer unten passt
           sich an. Scrollt nur wenn das Menue laenger als der gesamte
           Viewport ist (z.B. <500px Hoehe). */}
-      <nav className="flex-shrink-0 overflow-y-auto px-2 py-3" style={{ maxHeight: "calc(100vh - 180px)" }}>
+      {/* v1.7.17 (#907): die 180px-Magic-Number entfaellt — die
+          Flex-Kette (Footer: flex 1 1 0 + min-h-0) traegt jetzt selbst. */}
+      <nav className="flex-shrink-0 overflow-y-auto px-2 py-3">
         <ul className="space-y-0.5">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -228,9 +230,14 @@ export default function Sidebar({
           Elwosa innen passt sich via h-full an. So waechst Elwosa auf
           grossen Screens, schrumpft auf kleinen, und das Menue ist
           IMMER voll sichtbar (es sei denn der Screen ist absurd klein). */}
+      {/* v1.7.17 (#907): KEIN overflow-y-auto mehr auf dem Footer —
+          sonst scrollen Jobsuche-Badge und Elwosa-Header mit dem Chat
+          weg. Zielbild: genau EIN Scroll-Container, und das ist die
+          Nachrichtenliste im ElwosaSidebarChat. Das Padding wandert in
+          die Slot-Kinder, damit die Flex-Hoehenkette durchtraegt. */}
       {!visualCollapsed && footerSlot ? (
         <div
-          className="border-t border-white/8 px-3 py-2 overflow-y-auto"
+          className="border-t border-white/8 flex flex-col overflow-hidden"
           style={{ flex: "1 1 0", minHeight: 0 }}
         >
           {footerSlot}
