@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.17** ist Stable (`--latest`, 2026-08-18; Praxis-Welle 18.08., Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.18** ist Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -111,6 +111,26 @@ zwei verschiedene Dinge in zwei verschiedenen Feldern.
 Hotfix-Branches `gh workflow run tests.yml --ref hotfix/vX.Y.Z`
 (workflow_dispatch), sonst wartet man ewig auf einen Run, der nie
 kommt. release_check.py liegt im REPO-ROOT (nicht scripts/).
+
+(10) **D37/#922 (Nachzug v1.7.18)** — der Mail-Terminextraktor lief
+ueber den KOMPLETTEN Text: eine Mail mit Antwortverlauf erzeugte je
+zitierter Sendezeit einen Termin (vier Stueck, alle 'interview', 60
+min). firma_kontext meldete daraufhin fuenf Interviews statt einem —
+die Regel 'nie aus dem Gedaechtnis, immer aus PBP' setzt voraus, dass
+PBP stimmt. Jetzt: Zitat abschneiden (strip_quoted_reply), Datum
+allein genuegt NICHT (Beleg: ICS/Link/Terminvokabular), kein pauschales
+'interview'. MERKE beim Zitat-Marker: '-----Urspruengliche Nachricht---'
+kommt in ue-UND-ü-Schreibweise vor — `urspr(?:u|ue|ü)ngliche`.
+
+(11) **C35 Teil 2/#918 (Nachzug v1.7.18)** — ein Issue-Titel mit zwei
+Defekten wurde nur zur Haelfte abgearbeitet und trotzdem geschlossen.
+MERKE: bei Issues mit mehreren nummerierten Defekten die
+Akzeptanzkriterien-Liste VOR dem Schliessen einzeln abhaken. Inhaltlich:
+die Abschluss-Erkennung lief ueber den ganzen Datensatz (Bewerber-
+statistik in den Notizen = Aussage ueber ANDERE Bewerber, loeste
+ATS-Alarm aus) und kannte keine englischen Muster. Und: Phrasen-Muster
+brauchen Whitespace-Glaettung, sonst zerreisst ein Zeilenumbruch mitten
+in 'oder eine vergleichbare Ausbildung' ausgerechnet die Oeffnungsklausel.
 
 ## Stand 2026-08-11 (v1.7.12 Stable + v1.8.0-beta.11) — Grosse Welle
 
