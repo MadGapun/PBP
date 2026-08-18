@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.16** ist Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.17** ist Stable (`--latest`, 2026-08-18; Praxis-Welle 18.08., Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,79 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-08-18 (v1.7.17 Stable + v1.8.0-beta.12) — Praxis-Welle 18.08.
+
+**Schema:** v48 / v52 unveraendert (Safety-Nets: scoring_config.
+set_by_user, jobs.dismiss_note, scraper_health deaktiviert_am/-grund +
+letzte_probe_am/-status). **Tests:** 2288 / 2354 passed. Elf Issues aus
+zwei Bewerbungs-Nachmittagen (#906-#920); Hotfix-Branch vom Tag v1.7.16,
+7 Cherry-Picks, Port-Audit ueber die 65 mitgewanderten Wellen-Tests.
+Neu offen: #924 (Elwosa-Linien-Wiederholung), #919 als B36 fuer v1.8
+(LinkedIn-Voyager-Handoff), #922 (Phantom-Termine aus Mail-Zitaten)
+blieb BEWUSST liegen — Kandidat naechste Welle.
+
+MERKE-Punkte dieser Welle:
+
+(1) **C34/#917 A+B** — INSERT OR REPLACE ersetzt nur bei UNIQUE-
+Konflikt: Seed-Zeilen tragen profile_id='', der Write die aktive ID —
+kein Konflikt, also Dublette, und die Altzeile (samt ignore_flag der
+Automatik) blieb ueber MCP unerreichbar. Echtes UPSERT = DELETE beider
+Varianten + INSERT; scoring_konfigurieren hat jetzt 'loeschen';
+set_by_user macht Nutzer-Regler fuer _auto_adjust_scoring unantastbar
+(Live-Repro: Automatik kehrte die Nutzerkorrektur im selben Durchgang
+um, Zaehler 71 >= Schwelle 5).
+
+(2) **C34/#917 C** — die Entfernungs-Brackets sind OBERGRENZEN. Der
+Lern-Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50 und
+bestrafte Stellen BIS 50 km — der Lerneffekt war INVERTIERT (-10 auf
+nahe, -8 auf 600 km). Lernen jetzt in Stufe '999'; Safety-Net migriert
+km-Altzeilen (tiefer gewinnt) und stellt die Nah-Brackets wieder her.
+
+(3) **C34/#917 D** — fit_analyse wendete keywords_ausschluss NIE an und
+matchte gegen die UNgestrippte Beschreibung: dieselbe Stelle hatte
+Score 0 (Liste) und 88 (Fit-Analyse) gleichzeitig. Ausloeser im Feld:
+redaktionelle Notiz mit LinkedIn-Bewerberstatistik ('20 %
+Berufseinsteiger') VOR dem ----Trenner. Beide Pfade jetzt identisch;
+scores_neu_berechnen liefert auffaellige_aenderungen mit Grund.
+
+(4) **A29/#915** — busy_timeout (30 s) war gesetzt, es kam trotzdem
+NICHTS: 4-Minuten-Stille = Blockade auf PYTHON-Ebene, dagegen hilft nur
+ein Wall-Clock-Budget im Tool-Pfad (services/tool_budget.py, 45 s,
+fester ThreadPool wegen A28-per-Thread-Connections — ein Thread je
+Aufruf wuerde Connections leaken). pbp_mcp_diagnose hing an seinem
+EINZIGEN DB-Zugriff — Anreicherungen gehoeren hinter mit_kurzbudget.
+Sperrhalter-Benennung DB-frei via services/hintergrund_status.py.
+
+(5) **C38/#913** — db.dismiss_job ist das Nadeloehr ALLER dismiss-
+Writes und damit der richtige Ort fuer den Vokabular-Schreibschutz;
+Freitext nach jobs.dismiss_note, nie ins Lern-Feld. auto:-Prefix hat
+eine KURZFORM ohne Begruendung ('auto:falsches_fachgebiet') — Regex mit
+optionalem Rest, sonst bricht der Wiedergaenger-Vertrag (#671). Die
+Ollama-Genauigkeits-Statistik zaehlt jetzt LIKE-auto UND
+profil_match_negativ (beide Formate).
+
+(6) **F39/#908** — die alte Eskalation (count-5)*0.5 war ab ~13
+Nennungen am Cap = Zweistufen-Schalter. Linear ueber (start,max) je
+Grund, 5..155. zu_junior mappte auf stellentyp/praktikum und traf
+Festanstellungen NIE (Senioritaet ist keine Stellenart).
+
+(7) **G22/#907** — maxHeight:'100%' gegen ein height:auto-Elternteil
+ist in CSS unaufloesbar (= none): der 'adaptive' Elwosa-Scroller
+scrollte seit beta.61 NIE, die Liste schob den Footer. Prozent-Hoehen
+brauchen eine geschlossene Flex-Kette (h-full/min-h-0 durchgereicht).
+
+(8) **B35/#906** — Auto-Deaktivierung ist ein sich selbst
+bestaetigender Zustand (deaktivierte Quelle laeuft nie wieder, Status
+wird nie widerlegt). Deshalb: Probe-Ergebnisse an der Quelle
+persistieren und erreichbare Deaktivierte als 'pruefen' melden.
+deprecated (Registry, bewusst) und auto_deaktiviert (Automatik) sind
+zwei verschiedene Dinge in zwei verschiedenen Feldern.
+
+(9) **Release-Mechanik** — tests.yml triggert NUR auf main/PR: fuer
+Hotfix-Branches `gh workflow run tests.yml --ref hotfix/vX.Y.Z`
+(workflow_dispatch), sonst wartet man ewig auf einen Run, der nie
+kommt. release_check.py liegt im REPO-ROOT (nicht scripts/).
 
 ## Stand 2026-08-11 (v1.7.12 Stable + v1.8.0-beta.11) — Grosse Welle
 
