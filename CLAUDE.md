@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.18** ist Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.19** ist Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -121,6 +121,31 @@ PBP stimmt. Jetzt: Zitat abschneiden (strip_quoted_reply), Datum
 allein genuegt NICHT (Beleg: ICS/Link/Terminvokabular), kein pauschales
 'interview'. MERKE beim Zitat-Marker: '-----Urspruengliche Nachricht---'
 kommt in ue-UND-ü-Schreibweise vor — `urspr(?:u|ue|ü)ngliche`.
+
+(12) **B37/B38 — Quellen-Wiederbelebung (v1.7.19)**: zwei als tot
+gefuehrte Quellen liefern wieder. MERKE fuer jede kuenftige
+Quellen-Diagnose:
+  (a) Bevor ein Adapter als kaputt gilt, muss er mit KORREKTEN
+      Parametern gelaufen sein — `freelancermap` war voellig intakt und
+      scheiterte nur an einem Fallback mit Slug-FRAGMENTEN statt URLs
+      (`client.get("Software-Engineer")`). Der Fallback greift genau
+      ohne Suchkriterien, also bei frischen Profilen.
+  (b) SPA-Karriereseiten liefern JobPosting-Daten haeufig NICHT als
+      ld+json im DOM, sondern escaped im SSR-Hydration-Payload
+      (`job_scraper/hydration.py`). BeautifulSoup findet dort nichts.
+  (c) Das plattform-eigene Datenarray (hier "Offers") ist reicher als
+      der schema.org-Auszug: Detail-Slug, ECHTE Gehaltsspanne, Ort.
+  (d) Soft-Hyphens (­) MITTEN im Wort killen jedes Keyword-Match,
+      waehrend der Titel fuer das Auge normal aussieht — immer
+      `entweiche_trennzeichen` vor dem Matchen.
+  (e) Bei beiden Quellen war der Query-Parameter serverseitig TOT, die
+      Themen-/Slug-Seite dagegen lebendig. Erst pruefen, ob der
+      Suchparameter ueberhaupt wirkt — sonst holt man achtmal dieselbe
+      Liste.
+  (f) MERKE zum eigenen Fehler: der #925-Patch suchte nach dem Text
+      "Cloudflare-Bot-Block" und traf damit die FALSCHE Quelle. Bei
+      Registry-Patches den Quellen-Key als Anker nehmen, nie den
+      Begruendungstext.
 
 (11) **C35 Teil 2/#918 (Nachzug v1.7.18)** — ein Issue-Titel mit zwei
 Defekten wurde nur zur Haelfte abgearbeitet und trotzdem geschlossen.
