@@ -228,8 +228,12 @@ SOURCE_REGISTRY = {
         # #653 (B12, beta.77): Cloudflare Bot-Block seit 2026-04-25
         # dauerhaft aktiv (auch mit User-Agent-Spoofing 403). Quelle nur
         # noch via Chrome-Extension nutzbar. Aus Auto-Scraper-Liste raus.
-        "deprecated": True,
-        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur Chrome-Extension",
+        # v1.7.18 (#925): deprecated aufgehoben — die Quelle liefert
+        # wieder. Der Cloudflare-Befund von damals betraf die alte
+        # Plattform; die neue liefert 25 Stellen je Abruf im
+        # SSR-Hydration-Payload (mit Detail-URL und echter
+        # Gehaltsspanne). Live verifiziert am 18.08.2026.
+        "url_aktualisiert_am": "2026-08-18 (Issue #925)",
         "manueller_fallback": "https://www.solcom.de/projekte (Browser oder Chrome-Extension)",
     },
     "stellenanzeigen_de": {

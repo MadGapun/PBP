@@ -354,6 +354,36 @@ def _is_safe_email(addr: str) -> bool:
     return lokal.lower() in _SYSTEM_LOKALTEILE
 
 
+# === Quellen-Keys: dokumentierte DoD-9-Ausnahme ==================
+# Einige Portale und Personaldienstleister sind BEIDES: reale Vermittler
+# aus der Bewerbungshistorie (dann PII) UND technische Quellen-Keys im
+# SOURCE_REGISTRY (dann ein Feature, ueber das Issues, Wiki und
+# Release-Notes zwangslaeufig sprechen muessen). Die DoD nennt sie
+# ausdruecklich als Ausnahme — bisher musste man sie pro Artefakt von
+# Hand freischalten (siehe AUSNAHMEN in gh_pii_sweep.py).
+#
+# Unterschieden wird ueber die SCHREIBWEISE, weil sie den Kontext
+# zuverlaessig verraet:
+#   `ferchau`, ferchau        -> technischer Key aus dem Registry  = erlaubt
+#   FERCHAU, Ferchau GmbH     -> Firmen-Nennung, i.d.R. Historie   = PII
+# Damit bleibt der Pruefer fuer den eigentlichen Schutzfall scharf.
+_QUELLEN_KEYS = {
+    "adzuna", "arbeitnow", "berufsstart", "bundesagentur", "ferchau",
+    "freelance_de", "freelancermap", "google_jobs", "greenhouse", "gulp",
+    "hays", "heise_jobs", "himalayas", "indeed", "ingenieur_de",
+    "jobware", "kimeta", "linkedin", "meinestadt", "monster", "personio",
+    "praktikum_de", "remoteok", "remotive", "solcom",
+    "stellenanzeigen_de", "stepstone", "studentjob", "workable",
+    "workday_dax", "xing",
+}
+
+
+def _ist_quellen_key(treffer: str) -> bool:
+    """True, wenn der Treffer als technischer Quellen-Key geschrieben ist."""
+    roh = (treffer or "").strip()
+    return roh.islower() and roh.replace("-", "_") in _QUELLEN_KEYS
+
+
 def find_pii(text: str) -> list[str]:
     """Liefert eine Liste der gefundenen PII-Treffer (zur Anzeige)."""
     if not text:
@@ -368,6 +398,8 @@ def find_pii(text: str) -> list[str]:
     for p in _FIRMA_PATTERNS:
         for m in set(p.findall(text)):
             label = m if isinstance(m, str) else " ".join(filter(None, m))
+            if _ist_quellen_key(label):
+                continue  # technischer Quellen-Key, DoD-9-Ausnahme
             hits.append(f"FIRMA: {label}")
     for m in set(_GERMAN_CORP_RE.findall(text)):
         label = m if isinstance(m, str) else " ".join(filter(None, m))

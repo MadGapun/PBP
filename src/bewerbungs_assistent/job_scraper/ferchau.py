@@ -12,6 +12,8 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .hydration import (jsonld_aus_hydration, liste_aus_hydration,
+                        entweiche_trennzeichen)
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.ferchau")
 
@@ -28,11 +30,143 @@ HEADERS = {
 }
 
 
+def _passt_zu_keywords(text: str, keywords: list) -> bool:
+    """Clientseitiger Filter (#925).
+
+    Der `search`-Parameter der Plattform wird serverseitig nicht mehr
+    ausgewertet — drei verschiedene Suchbegriffe lieferten am 18.08.2026
+    exakt dieselben 25 Stellen. Also einmal die neuesten Stellen holen
+    und hier filtern, statt acht identische Abrufe zu machen.
+    Ohne Suchbegriffe passiert alles (der Score filtert danach ohnehin).
+    """
+    if not keywords:
+        return True
+    low = (text or "").lower()
+    return any(str(k).lower() in low for k in keywords if k)
+
+
+def _aus_offers(html: str, keywords: list) -> list:
+    """Stellen aus dem plattform-eigenen Offers-Array (#925).
+
+    Reichhaltiger als der schema.org-Auszug: Detail-Slug (Anker-Pflicht
+    #766), ECHTE Gehaltsspanne (kein Schaetzwert, vgl. #827/#918),
+    Arbeitsort und Arbeitsmodell stehen nur hier.
+    """
+    treffer = []
+    for o in liste_aus_hydration(html, "Offers"):
+        if not isinstance(o, dict):
+            continue
+        title = entweiche_trennzeichen(o.get("title") or "").strip()
+        if not title:
+            continue
+        ort = entweiche_trennzeichen(o.get("locationCity") or "")
+        intro = entweiche_trennzeichen(o.get("intro") or "")
+        beschreibung = re.sub(r"<[^>]+>", " ", intro)
+        beschreibung = re.sub(r"\s+", " ", beschreibung).strip()[:2000]
+        if not _passt_zu_keywords(f"{title} {beschreibung}", keywords):
+            continue
+
+        slug = o.get("slug") or ""
+        url = f"https://touch.ferchau.com{slug}" if slug.startswith("/") else slug
+
+        stelle = {
+            "hash": stelle_hash("ferchau.com", title),
+            "title": title,
+            "company": entweiche_trennzeichen(
+                o.get("companyName") or "FERCHAU"),
+            "location": ort,
+            "url": url,
+            "source": "ferchau",
+            "description": beschreibung,
+            "employment_type": "festanstellung",
+            "remote_level": detect_remote_level(
+                f"{title} {o.get('workplaceTypeName', '')} {beschreibung}"),
+        }
+        # Echte Gehaltsangaben der Plattform — NICHT geschaetzt (#827).
+        smin = o.get("annualSalaryMinimum")
+        smax = o.get("annualSalaryMaximum")
+        if isinstance(smin, (int, float)) and smin > 0:
+            stelle["salary_min"] = float(smin)
+            stelle["salary_type"] = "jaehrlich"
+            stelle["salary_estimated"] = False
+            if isinstance(smax, (int, float)) and smax > 0:
+                stelle["salary_max"] = float(smax)
+        treffer.append(stelle)
+    return treffer
+
+
+def _aus_hydration(html: str, keywords: list) -> list:
+    """Fallback: schema.org-JobPosting aus dem Payload (ohne Detail-URL)."""
+    treffer = []
+    for item in jsonld_aus_hydration(html, typ="JobPosting"):
+        title = entweiche_trennzeichen(item.get("title") or "").strip()
+        if not title:
+            continue
+        org = item.get("hiringOrganization") or {}
+        company = org.get("name", "FERCHAU") if isinstance(org, dict) else "FERCHAU"
+        loc = item.get("jobLocation") or {}
+        if isinstance(loc, list):
+            loc = loc[0] if loc else {}
+        adr = (loc.get("address") or {}) if isinstance(loc, dict) else {}
+        location = entweiche_trennzeichen(
+            adr.get("addressLocality", "") if isinstance(adr, dict) else "")
+        beschreibung = entweiche_trennzeichen(item.get("description") or "")[:2000]
+        if not _passt_zu_keywords(f"{title} {beschreibung}", keywords):
+            continue
+        treffer.append({
+            "hash": stelle_hash("ferchau.com", title),
+            "title": title,
+            "company": entweiche_trennzeichen(company),
+            "location": location,
+            "url": item.get("url", ""),
+            "source": "ferchau",
+            "description": beschreibung,
+            "employment_type": "festanstellung",
+            "remote_level": detect_remote_level(
+                f"{title} {location} {beschreibung}"),
+        })
+    return treffer
+
+
 def search_ferchau(params: dict) -> list:
-    """Search FERCHAU jobs via HTML scraping."""
+    """Search FERCHAU jobs via HTML scraping.
+
+    v1.7.18 (#925): Die JobPosting-Daten stehen NICHT als ld+json im DOM
+    (dort liegt nur ein Organization-Block), sondern escaped im
+    SSR-Hydration-Payload. Der DOM-Pfad fand deshalb monatelang nichts,
+    obwohl die Seite 25 Stellen pro Abruf ausliefert. Reihenfolge jetzt:
+    Hydration-Payload -> ld+json im DOM -> HTML-Karten.
+    """
     jobs = []
     kw_data = params.get("keywords", {})
-    queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
+    if isinstance(kw_data, dict):
+        keywords = kw_data.get("general", []) or []
+    else:
+        keywords = list(kw_data or [])
+    queries = (keywords or FALLBACK_QUERIES)[:8]
+
+    # #925: ein Abruf reicht — der search-Parameter wirkt nicht mehr.
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True,
+                          headers=HEADERS) as client:
+            resp = client.get(
+                "https://touch.ferchau.com/de/de",
+                params={"type": 3, "sortingType": "actuality",
+                        "sortingDirection": "DESC"},
+            )
+        if resp.status_code == 200:
+            jobs = _aus_offers(resp.text, keywords)
+            if jobs:
+                logger.info("FERCHAU: %d Stellen aus dem Offers-Payload",
+                            len(jobs))
+                return jobs
+            jobs = _aus_hydration(resp.text, keywords)
+            if jobs:
+                logger.info("FERCHAU: %d Stellen aus dem JSON-LD-Payload",
+                            len(jobs))
+                return jobs
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("FERCHAU Hydration-Pfad fehlgeschlagen: %s", exc)
 
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         for query in queries:

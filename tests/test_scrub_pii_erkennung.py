@@ -163,3 +163,37 @@ def test_originaler_issue_text_schlaegt_an():
     hits = find_pii(text)
     assert any(h.startswith("EMAIL") for h in hits)
     assert any(h.startswith("PHONE") for h in hits)
+
+
+# === v1.7.18: Quellen-Keys als DoD-9-Ausnahme ======================
+# Einige Namen sind BEIDES: realer Vermittler aus der Bewerbungshistorie
+# (PII) und technischer Quellen-Key im SOURCE_REGISTRY (Feature, ueber
+# das Issues/Wiki/Release-Notes sprechen muessen). Unterschieden wird
+# ueber die Schreibweise. Beide Richtungen sind Pflicht — ein Pruefer,
+# der bei korrektem Text Alarm gibt, wird nach dem zweiten Mal ignoriert.
+
+def test_quellen_key_kleingeschrieben_ist_erlaubt():
+    from scrub_pii import find_pii
+    sauber = [
+        "Der ferchau-Adapter liefert 0 Stellen.",
+        "quellen_health_check meldet hays und personio als erreichbar.",
+        "`ferchau` steht als deprecated, obwohl die API antwortet.",
+        "gulp und solcom laufen jetzt ueber Handoff.",
+    ]
+    for text in sauber:
+        assert find_pii(text) == [], (text, find_pii(text))
+
+
+def test_firmen_schreibweise_bleibt_pii():
+    from scrub_pii import find_pii
+    for text in ("Bewerbung bei FERCHAU wurde abgelehnt.",
+                 "Hays hat sich zur Stelle gemeldet.",
+                 "Das Gespraech bei FERCHAU GmbH lief gut."):
+        assert find_pii(text), f"muss PII melden: {text}"
+
+
+def test_quellen_ausnahme_deckt_keine_fremden_firmen():
+    """Die Ausnahme gilt NUR fuer bekannte Registry-Keys."""
+    from scrub_pii import find_pii
+    # kleingeschrieben, aber kein Quellen-Key -> bleibt PII
+    assert find_pii("die stelle bei rheinmetall war interessant")
