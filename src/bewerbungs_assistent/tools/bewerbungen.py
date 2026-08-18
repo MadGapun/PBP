@@ -1661,7 +1661,14 @@ def register(mcp, db, logger):
     }
     _MEETING_STATUS = {"geplant", "bestaetigt", "durchgefuehrt", "abgeschlossen", "abgesagt", "verschoben"}
 
+    # v1.7.17 (#915): Wall-Clock-Budget. Belegt 17.08.: fuenf Aufrufe je
+    # 4 Minuten Stille bis zum Client-Timeout, ohne Wirkung und ohne
+    # Fehlermeldung. Bei Budget-Riss kommt jetzt ein status='timeout'-
+    # Ergebnis mit den laufenden Hintergrund-Tasks.
+    from ..services.tool_budget import mit_budget as _mit_budget
+
     @mcp.tool()
+    @_mit_budget("meeting_hinzufuegen", lese_tool="meetings_anzeigen")
     def meeting_hinzufuegen(
         bewerbung_id: str,
         datum: str,
@@ -1879,6 +1886,7 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    @_mit_budget("meeting_bearbeiten", lese_tool="meetings_anzeigen")
     def meeting_bearbeiten(
         meeting_id: str,
         titel: str = "",

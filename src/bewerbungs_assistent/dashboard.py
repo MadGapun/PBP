@@ -9074,31 +9074,45 @@ def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
 
 
 def _run_auto_actions_inner(now: str) -> dict:
-    expire_result = _run_auto_expire(now)
-    fu_result = _run_auto_followup_reconciler(now)
+    # v1.7.17 (#915): jeder Step meldet sich im DB-freien
+    # Hintergrund-Register an. Laeuft ein schreibendes Tool in sein
+    # Wall-Clock-Budget, kann das Timeout-Ergebnis benennen, welcher
+    # Auto-Engine-Step gerade arbeitet — der wahrscheinlichste
+    # Sperrhalter. Vorher war die Telemetrie genau dann blind, wenn man
+    # sie brauchte.
+    from .services.hintergrund_status import laufender_task
+
+    def _step(name, fn):
+        with laufender_task(f"auto_engine:{name}"):
+            return fn(now)
+
+    expire_result = _step("expire", _run_auto_expire)
+    fu_result = _step("followup_reconciler", _run_auto_followup_reconciler)
     # v1.7.0-beta.25: Mail- + Doku-Auto-Klassifikation. Lokale AI sortiert
     # neue Mails + Dokumente von selbst ein wenn aktiv.
-    mail_result = _run_auto_classify_emails(now)
-    doc_result = _run_auto_classify_documents(now)
+    mail_result = _step("mail_classify", _run_auto_classify_emails)
+    doc_result = _step("document_classify", _run_auto_classify_documents)
     # v1.7.0-beta.76 (#651 E12): Tiefenanalyse fuer basis_analysiert-Docs
-    deep_analysis_result = _run_auto_deep_analysis(now)
+    deep_analysis_result = _step("deep_analysis", _run_auto_deep_analysis)
     # v1.7.0-beta.28 (#594 Stufe 3): LLM-Pattern-Analyse als 5. Schritt.
     # Greift nur wenn lokale AI aktiv und genug events vorhanden sind.
-    patterns_result = _run_analyze_user_patterns(now)
+    patterns_result = _step("pattern_analysis", _run_analyze_user_patterns)
     # v1.7.0-beta.33 (#590-C.1): Probe-Run-Faelligkeit pruefen
-    probe_result = _run_scraper_probe(now)
+    probe_result = _step("scraper_probe", _run_scraper_probe)
     # v1.7.0-beta.39 (#606): Auto-Extract Contacts
-    contacts_result = _run_extract_contacts(now)
+    contacts_result = _step("extract_contacts", _run_extract_contacts)
     # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
-    refetch_result = _run_auto_refetch_descriptions(now)
+    refetch_result = _step("auto_refetch_descriptions",
+                           _run_auto_refetch_descriptions)
     # v1.8.0-beta.2 (#688 B24): Snapshot-Backfill fuer den Bestand
-    snapshot_result = _run_snapshot_backfill(now)
+    snapshot_result = _step("snapshot_backfill", _run_snapshot_backfill)
     # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
-    url_aging_result = _run_url_aging_check(now)
+    url_aging_result = _step("url_aging_check", _run_url_aging_check)
     # v1.7.0-beta.76 (#650 D15): Nachfass-Trigger bei staleness
-    stale_apps_result = _run_check_stale_applications(now)
+    stale_apps_result = _step("stale_applications",
+                              _run_check_stale_applications)
     # v1.7.0-beta.37 (#599): Elwosa-Trigger-Engine
-    elwosa_result = _run_elwosa_speak(now)
+    elwosa_result = _step("elwosa", _run_elwosa_speak)
     # v1.7.12 (#768, A27): WAL-Hygiene je Zyklus. PASSIVE blockiert nie;
     # ohne diesen Anstoss wuchs die WAL bei parallel laufendem Zweit-
     # prozess unbegrenzt (belegt: 3,9 MB / 29 h Rueckstand am 23.07.).

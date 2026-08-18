@@ -207,8 +207,11 @@ def test_558_bulk_dismiss_kein_score_drift(setup_env):
     } for i in range(8)]
     db.save_jobs(jobs)
 
-    # dismiss_counts vorab auf 4 setzen (knapp unter Schwelle)
-    db.set_setting("dismiss_counts", {"zu_weit_entfernt": 4})
+    # dismiss_counts vorab auf 148 setzen — v1.7.17 (#908): die lineare
+    # Eskalation erreicht den Seed der Stufe 999 (-8) erst spaet; bei
+    # niedrigen Zaehlern ist der Seed bereits strenger als der Lernwert
+    # und es gibt (korrekt) KEINE Anpassung und keinen Hinweis.
+    db.set_setting("dismiss_counts", {"zu_weit_entfernt": 148})
 
     raw = _call(mcp, "stellen_bulk_bewerten", {
         "bewertung": "passt_nicht",
@@ -221,9 +224,9 @@ def test_558_bulk_dismiss_kein_score_drift(setup_env):
     hinweise = " ".join(result.get("hinweise") or [])
     assert "Score" in hinweise or "Scoring" in hinweise
 
-    # Counts hochgesetzt — nach 8 Dismissals von 4 starten
+    # Counts hochgesetzt — nach 8 Dismissals von 148 starten
     final_counts = db.get_setting("dismiss_counts", {})
-    assert final_counts.get("zu_weit_entfernt") == 12
+    assert final_counts.get("zu_weit_entfernt") == 156
 
     # WICHTIG: Auto-Adjust darf nur EINMAL passiert sein, nicht 8x
     # Pruefen: scoring_config-Eintrag fuer entfernung_fest sollte einen

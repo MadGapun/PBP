@@ -21,7 +21,11 @@ will, nutzt todo_anlegen.
 def register(mcp, db, logger):
     """Registriert Task/Todo-Tools."""
 
+    # v1.7.17 (#915): Wall-Clock-Budget gegen stille 4-Minuten-Haenger.
+    from ..services.tool_budget import mit_budget as _mit_budget
+
     @mcp.tool()
+    @_mit_budget("todo_anlegen", lese_tool="todos_anzeigen")
     def todo_anlegen(
         titel: str,
         bewerbung_id: str = "",
