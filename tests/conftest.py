@@ -27,6 +27,16 @@ def pytest_runtest_teardown(item):
     for t in threading.enumerate():
         if t.name.startswith("pbp-") and t is not threading.current_thread():
             t.join(timeout=15)
+    # v1.7.18 (#915-Nachfix): Die Budget-Pool-Worker sind IDLE-Dauerlaeufer
+    # und heissen deshalb bewusst NICHT "pbp-*" (ein Join auf sie liefe
+    # immer in die vollen 15 s — das kostete die CI ueber eine halbe
+    # Stunde und riss ihr Timeout). Richtige Bedingung ist LEERLAUF:
+    # ohne laufenden Auftrag haelt kein Worker aktive DB-Arbeit.
+    try:
+        from bewerbungs_assistent.services.tool_budget import warte_auf_leerlauf
+        warte_auf_leerlauf(timeout=10)
+    except Exception:
+        pass
     yield
 
 
