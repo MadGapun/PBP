@@ -4,6 +4,8 @@ Personen als zentrale Entitaet mit Historie ueber Bewerbungen, Stellen,
 Meetings und Mails. Rollen als JSON-Array Tags.
 """
 
+from ..services.nutzerfuehrung import leer
+
 
 def register(mcp, db, logger):
     """Registriert Kontakt-Tools."""
@@ -104,6 +106,18 @@ def register(mcp, db, logger):
             firma: Filter nach Firma (Substring).
         """
         contacts = db.list_contacts(search=suche, role=rolle, company=firma)
+        if not contacts and not (suche or rolle or firma):
+            # v1.7.21 (#927): nur beim WIRKLICH leeren Adressbuch —
+            # eine ergebnislose Suche ist etwas anderes als "noch nichts
+            # erfasst" und braucht keinen Einsteiger-Hinweis.
+            return leer(
+                {"anzahl": 0, "kontakte": []},
+                "Noch keine Kontakte gespeichert.",
+                "Aus deinen bestehenden Bewerbungen lassen sich "
+                "Ansprechpartner automatisch uebernehmen: "
+                "kontakte_aus_bewerbungen_extrahieren(). Einzeln geht es "
+                "mit kontakt_anlegen(full_name=...). Wer sich meldet, "
+                "steht dann beim naechsten Kontakt sofort parat.")
         return {
             "anzahl": len(contacts),
             "kontakte": contacts,

@@ -17,6 +17,8 @@ geht weiter ueber nachfass_planen. Wer freie Todos pro Bewerbung
 will, nutzt todo_anlegen.
 """
 
+from ..services.nutzerfuehrung import leer
+
 
 def register(mcp, db, logger):
     """Registriert Task/Todo-Tools."""
@@ -370,6 +372,17 @@ def register(mcp, db, logger):
             application_id=bewerbung_id or None,
             nur_offen=nur_offen,
         )
+        if not tasks:
+            # v1.7.21 (#927): "anzahl: 0" beantwortet nicht die Frage,
+            # die der Nutzer wirklich hat — was kann ich hier tun?
+            return leer(
+                {"status": "ok", "anzahl": 0, "todos": []},
+                "Noch keine Aufgaben erfasst.",
+                "Aufgaben sorgen dafuer, dass nichts untergeht — etwa "
+                "Unterlagen nachreichen oder nach zwei Wochen nachfassen. "
+                "Anlegen mit todo_anlegen('Was ist zu tun?'); mit "
+                "faellig_am='JJJJ-MM-TT' erscheint die Aufgabe "
+                "rechtzeitig im Dashboard.")
         return {
             "status": "ok",
             "anzahl": len(tasks),

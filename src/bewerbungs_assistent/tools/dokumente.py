@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..database import get_data_dir
+from ..services.nutzerfuehrung import kein_profil, leer
 
 
 def _company_match_key(name: str) -> str:
@@ -57,7 +58,7 @@ def register(mcp, db, logger):
         conn = db.connect()
         pid = db.get_active_profile_id()
         if not pid:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
         # Try ID first, then filename fallback
         row = conn.execute(
             "SELECT * FROM documents WHERE id=? AND profile_id=?",
@@ -197,7 +198,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil vorhanden. Erstelle zuerst eins mit profil_erstellen()."}
+            return kein_profil()
 
         conn = db.connect()
         pid = profile["id"]
@@ -328,7 +329,7 @@ def register(mcp, db, logger):
         conn = db.connect()
         pid = db.get_active_profile_id()
         if not pid:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
         updated = conn.execute("""
             UPDATE extraction_history SET
                 extracted_fields=?, conflicts=?, status=?
@@ -400,7 +401,7 @@ def register(mcp, db, logger):
         conn = db.connect()
         pid = db.get_active_profile_id()
         if not pid:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
         row = conn.execute(
             "SELECT * FROM extraction_history WHERE id=? AND profile_id=?",
             (extraction_id, pid),
@@ -412,7 +413,7 @@ def register(mcp, db, logger):
         conflicts = json.loads(row["conflicts"] or "[]")
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
 
         applied = {}
         all_bereiche = bereiche or list(extracted.keys())
@@ -1195,7 +1196,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
 
         conn = db.connect()
         pid = profile["id"]
@@ -1248,7 +1249,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
 
         conn = db.connect()
         pid = profile["id"]
@@ -1369,7 +1370,7 @@ def register(mcp, db, logger):
         """
         pid = db.get_active_profile_id()
         if not pid:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
         history = db.get_extraction_history(profile_id=pid)
         result = []
         for h in history:
@@ -1926,7 +1927,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
 
         types = set(_KORRESPONDENZ_DOC_TYPES)
         if zusaetzliche_doc_types:
@@ -2131,7 +2132,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
         max_treffer = max(1, min(int(max_treffer or 200), 2000))
 
         conn = db.connect()
@@ -2311,7 +2312,7 @@ def register(mcp, db, logger):
 
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil."}
+            return kein_profil()
 
         conn = db.connect()
         pid = profile["id"]

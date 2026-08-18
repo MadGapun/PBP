@@ -1,5 +1,7 @@
 """Bewerbungs-Management — 16 Tools (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
+from ..services.nutzerfuehrung import kein_profil, leer
+
 import hashlib
 import re
 
@@ -2062,6 +2064,17 @@ def register(mcp, db, logger):
                 "meetings": meetings,
             }
         meetings = db.get_upcoming_meetings(days=tage)
+        if not meetings:
+            # v1.7.21 (#927): leere Liste ohne Angebot ist eine Sackgasse.
+            return leer(
+                {"status": "ok", "zeitraum_tage": tage, "anzahl": 0,
+                 "meetings": []},
+                f"Keine Termine in den naechsten {tage} Tagen.",
+                "Sobald ein Gespraech vereinbart ist, sag es einfach "
+                "Claude ('Interview am 3.9. um 14 Uhr bei ...') — der "
+                "Termin landet dann hier, im Kalender und in der "
+                "Vorbereitung. Zurueckliegende Termine siehst du ueber "
+                "die jeweilige Bewerbung.")
         return {
             "status": "ok",
             "zeitraum_tage": tage,
@@ -2823,6 +2836,19 @@ def register(mcp, db, logger):
         was lief gut bei aehnlichen Stellen, was war ueberraschend.
         """
         items = db.list_interview_reflections(limit=max(1, min(int(limit), 100)))
+        if not items:
+            # v1.7.21 (#927): gerade hier zaehlt der Hinweis — die
+            # Nachbereitung ist der Teil, den man am leichtesten
+            # vergisst, und der am meisten fuer das naechste Gespraech
+            # bringt.
+            return leer(
+                {"anzahl": 0, "reflexionen": []},
+                "Noch keine Gespraechs-Nachbereitung erfasst.",
+                "Nach einem Gespraech lohnt es sich, die Eindruecke "
+                "festzuhalten, solange sie frisch sind: welche Fragen "
+                "kamen, was lief gut, was hat gefehlt. Speichern mit "
+                "interview_reflexion_speichern(bewerbung_id, ...) — vor "
+                "dem naechsten Gespraech liest PBP das wieder vor.")
         return {
             "anzahl": len(items),
             "reflexionen": items,
