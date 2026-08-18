@@ -79,20 +79,11 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "json",
         None,
     ),
-    "workable": (
-        "GET",
-        # B13.4 (#748): v3-Pfad war 404 — der Adapter (workable.py) nutzt die
-        # v1-Widget-API; Probe-Firma = erste DEFAULT_COMPANIES ("workable").
-        "https://apply.workable.com/api/v1/widget/accounts/workable",
-        "json",
-        None,
-    ),
-    "workday_dax": (
-        "POST",
-        "https://wd3.myworkdayjobs.com/wday/cxs/sap/SAPCareers/jobs",
-        "json",
-        {"appliedFacets": {}, "limit": 1, "offset": 0, "searchText": ""},
-    ),
+    # v1.7.19 (#927): Probes fuer workable, workday_dax und praktikum_de
+    # entfernt — diese Quellen sind seit dem Live-Check als `defekt`
+    # markiert. Eine Probe auf eine defekte Quelle meldet im besten Fall
+    # HTTP 200 und damit faelschlich "gruen" (#808-Logik); der Guard-Test
+    # aus #747 haelt die beiden Listen deshalb auseinander.
     # === RSS / XML ===
     "berufsstart": (
         "GET",
@@ -103,12 +94,6 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     "studentjob": (
         "GET",
         "https://www.studentjob.de/rss/jobs",
-        "rss",
-        None,
-    ),
-    "praktikum_de": (
-        "GET",
-        "https://www.praktikum.de/rss.xml",
         "rss",
         None,
     ),

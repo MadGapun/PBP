@@ -172,6 +172,10 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "schnell",
     },
     "freelance_de": {
+        # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        "defekt": True,
+        "defekt_grund": "Projektsuche liefert nur eine SPA-Huelle (25 KB ohne Inhalt), die JSON-API antwortet mit HTTP 403 (18.08.2026). Seit Bestehen kein einziger erfolgreicher Lauf.",
+        "manueller_fallback": "quelle_handoff('freelance_de') — Projektsuche im Browser oeffnen; Alternative mit denselben Projekttypen: die zweite Projektboerse laeuft seit v1.7.19 wieder",
         "name": "freelance.de",
         "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
         "methode": "HTML Scraping",
@@ -345,6 +349,10 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "schnell",
     },
     "workable": {
+        # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        "defekt": True,
+        "defekt_grund": "Oeffentliche Suche liefert keine Stellenlinks mehr (200, aber 0 Treffer im HTML — 18.08.2026). Der Anbieter ist ein Bewerbermanagement-System; oeffentlich durchsuchbar sind nur die Job-Boards einzelner Firmen.",
+        "manueller_fallback": "Firmen-Jobboard direkt als Custom-Quelle hinterlegen",
         "name": "Workable (Public Postings)",
         "beschreibung": "Internationaler ATS, viele KMU-Kunden. Public Widget API "
                          "pro Firma. Mid-Level breit gestreut, auch nicht-Tech.",
@@ -353,6 +361,10 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "schnell",
     },
     "meinestadt": {
+        # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        "defekt": True,
+        "defekt_grund": "Bot-Block: HTTP 403 auf die Suchseite (18.08.2026). Ein automatischer Abruf ist nicht moeglich.",
+        "manueller_fallback": "Im Browser oder ueber die Chrome-Extension suchen und Treffer mit stelle_manuell_anlegen uebernehmen",
         "name": "meinestadt.de (Regional)",
         "beschreibung": "Regionale DACH-Stellenseite mit Schwerpunkt Service-, Trade- "
                          "und Pflege-Berufe (Kassierer, Hotel, Gastro, Handwerk). "
@@ -389,6 +401,9 @@ SOURCE_REGISTRY = {
     },
     # ── #590 Aufgabe B.4: Student-Cluster ──
     "praktikum_de": {
+        # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        "defekt": True,
+        "defekt_grund": "Suchseite antwortet mit HTTP 404 (18.08.2026). Fuer Senior-Profile ohnehin ohne Treffer-Erwartung.",
         "name": "Praktikum.de",
         "beschreibung": "Groesste DACH-Plattform fuer Praktika und Werkstudenten-"
                          "Stellen. RSS-Feed mit Suchwort-Parameter.",
@@ -414,6 +429,10 @@ SOURCE_REGISTRY = {
     },
     # ── #590 Aufgabe B.3: Workday-DAX-Cluster ──
     "workday_dax": {
+        # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        "defekt": True,
+        "defekt_grund": "Host nicht mehr aufloesbar (DNS-Fehler, 18.08.2026) — die Sammel-Domain fuer Workday-Karriereseiten existiert so nicht mehr. Einzelne Firmen-Instanzen haben eigene Adressen.",
+        "manueller_fallback": "Karriereseite der jeweiligen Firma direkt aufrufen; als Custom-Quelle hinterlegen (custom_quelle_hinzufuegen)",
         "name": "Workday-DAX-Cluster",
         "beschreibung": "Public Workday-Career-Sites grosser DACH-Konzerne "
                          "(Siemens, SAP, Bosch, Continental, ZF, Schaeffler, "
