@@ -1934,6 +1934,51 @@ def _punkte_pro_treffer(kw: str, kategorie_gewicht: float,
     return basis
 
 
+def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
+    """#910 (v1.7.17): km sind ein PREIS, kein Ausschluss — 0.0 bis 1.0.
+
+    Nutzer-Formulierung: "km sind ein Malus, der durch Verdienst behoben
+    werden kann." Liegt das ECHTE Gehalt ueber dem Wunsch, reduziert der
+    Grad den Entfernungs-Malus anteilig (linear ueber die konfigurierte
+    Spanne). Belegt: Rollen in mehreren hundert km Entfernung wurden
+    ernsthaft verfolgt, weil die Konditionen stimmten — der harte Malus
+    arbeitete gegen Recall-vor-Praezision.
+
+    Aktivierung: scoring_konfigurieren('setzen',
+    'entfernung_gehalt_kompensation', 'spanne', wert=30000).
+    spanne=0 (Default) = aus, exakt heutiges Verhalten. Geschaetzte
+    Gehaelter kompensieren NIE (#827) — sonst bezahlt eine erfundene
+    Zahl einen echten Malus.
+    """
+    try:
+        spanne = float(criteria.get("_entfernung_gehalt_spanne") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if spanne <= 0:
+        return 0.0
+    if job.get("salary_estimated"):
+        return 0.0
+    salary_min = job.get("salary_min")
+    if not salary_min:
+        return 0.0
+    styp = job.get("salary_type", "jaehrlich")
+    emp = job.get("employment_type", "festanstellung")
+    if styp == "stuendlich":
+        job_jahr = salary_min * 8 * 220
+    elif styp == "taeglich" or emp == "freelance":
+        job_jahr = salary_min * 220
+    else:
+        job_jahr = salary_min
+    wunsch = criteria.get("min_gehalt", 0) or 0
+    if emp == "freelance":
+        _tag = criteria.get("min_tagessatz", 0) or 0
+        if _tag:
+            wunsch = _tag * 220
+    if not wunsch:
+        return 0.0
+    return min(1.0, max(0.0, (job_jahr - wunsch) / spanne))
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -2091,12 +2136,17 @@ def calculate_score(job: dict, criteria: dict) -> int:
     _default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
     type_max_dist = max_dist_map.get(emp_type) or _default_max.get(emp_type, 50)
     if dist is not None:
+        # #910: echter Verdienst ueber Wunsch reduziert den
+        # Entfernungs-Malus anteilig (nur die MALUS-Zweige — Naehe-Boni
+        # bleiben unveraendert). Default-aus, siehe
+        # entfernungs_kompensationsgrad.
+        _komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > type_max_dist * 4:
             # Way beyond limit: full penalty
-            score -= w["fern_malus"]
+            score -= w["fern_malus"] * (1 - _komp)
         elif dist > type_max_dist * 2:
             # Moderately beyond: slight penalty
-            score -= 1
+            score -= 1 * (1 - _komp)
         elif dist <= type_max_dist * 0.6:
             # Well within range: bonus
             score += w["naehe"]
@@ -2282,12 +2332,28 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _fit_default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
     fit_type_max = fit_max_dist_map.get(fit_emp_type) or _fit_default_max.get(fit_emp_type, 50)
     if dist is not None:
+        # #910: identische Kompensations-Logik wie calculate_score —
+        # Basis-Malus, Kompensationsgrad und Ergebnis stehen GETRENNT
+        # in den factors, damit die Rechnung nachvollziehbar bleibt.
+        _fit_komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > fit_type_max * 4:
-            factors[f"Entfernung: {int(dist)} km (Max {fit_emp_type}: {fit_type_max} km)"] = -w["fern_malus"]
-            total -= w["fern_malus"]
+            _basis = -w["fern_malus"]
+            factors[f"Entfernung: {int(dist)} km (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
+            total += _basis
+            if _fit_komp > 0:
+                _gutschrift = round(-_basis * _fit_komp, 1)
+                factors[f"Entfernungs-Malus durch Gehalt kompensiert "
+                        f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
+                total += _gutschrift
         elif dist > fit_type_max * 2:
-            factors[f"Entfernung: {int(dist)} km (ueber Max {fit_type_max} km)"] = -1
-            total -= 1
+            _basis = -1
+            factors[f"Entfernung: {int(dist)} km (ueber Max {fit_type_max} km)"] = _basis
+            total += _basis
+            if _fit_komp > 0:
+                _gutschrift = round(-_basis * _fit_komp, 1)
+                factors[f"Entfernungs-Malus durch Gehalt kompensiert "
+                        f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
+                total += _gutschrift
         elif dist <= fit_type_max * 0.6:
             factors[f"Naehe: {int(dist)} km"] = w["naehe"]
             total += w["naehe"]

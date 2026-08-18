@@ -97,11 +97,28 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
         for bracket_km, entry in brackets:
             if distance_km <= bracket_km:
                 if entry["value"] != 0:
-                    total_adj += entry["value"]
+                    punkte = entry["value"]
+                    detail = f"{distance_km:.0f}km (Grenze: {bracket_km}km, {emp_type})"
+                    # v1.7.17 (#910): echter Verdienst ueber Wunsch
+                    # reduziert den Bracket-Malus anteilig — dieselbe
+                    # Logik wie calculate_score/fit_analyse.
+                    if punkte < 0:
+                        try:
+                            from ..job_scraper import (
+                                entfernungs_kompensationsgrad)
+                            _krit = db.get_search_criteria()
+                            _grad = entfernungs_kompensationsgrad(job, _krit)
+                        except Exception:
+                            _grad = 0.0
+                        if _grad > 0:
+                            punkte = round(punkte * (1 - _grad), 1)
+                            detail += (f" — Malus durch Gehalt kompensiert "
+                                       f"({int(_grad * 100)} %, #910)")
+                    total_adj += punkte
                     adjustments.append({
                         "dimension": "Entfernung",
-                        "detail": f"{distance_km:.0f}km (Grenze: {bracket_km}km, {emp_type})",
-                        "punkte": entry["value"]
+                        "detail": detail,
+                        "punkte": punkte
                     })
                 break
 

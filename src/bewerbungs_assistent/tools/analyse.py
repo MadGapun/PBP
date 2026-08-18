@@ -1007,6 +1007,12 @@ def register(mcp, db, logger):
         - entfernung_freelance: km-Stufen-Malus fuer Freelance (100, 200, 999)
         - gehalt: Punkte pro 10% Abweichung vom Wunschgehalt
         - schwellenwert: Auto-Ignore-Schwelle (Stellen unter diesem Score werden ausgeblendet)
+        - entfernung_gehalt_kompensation (#910): sub_key 'spanne' in
+          EUR/Jahr. km sind ein PREIS, kein Ausschluss: liegt das ECHTE
+          Gehalt (nie Schaetzungen, #827) ueber dem Wunsch, reduziert
+          sich der Entfernungs-Malus linear — bei Wunsch+Spanne auf 0.
+          Beispiel: min_gehalt 80000, spanne 30000 -> 95000 EUR
+          kompensieren 50 %. wert=0 (Default) = aus.
 
         ⚠ BRACKET-SEMANTIK Entfernung (#917): die km-Stufen sind
         OBERGRENZEN — der Malus der Stufe X gilt fuer Stellen BIS X km
