@@ -1,0 +1,68 @@
+name: Cache-Aufraeumer
+
+# Actions-Caches zaehlen gegen das Konto-Kontingent (0,5 GB im
+# Free-Plan). PBP legt pro Branch einen eigenen pip-Cache von rund
+# 195 MB an — bei parallelen Hotfix-Branches und PRs waren im August
+# 2026 zehn Caches mit zusammen 1,95 GB aufgelaufen, also fast das
+# Vierfache des Kontingents.
+#
+# Dieser Workflow raeumt den Cache eines Branches, sobald der Branch
+# weg ist bzw. sein PR geschlossen wurde. Der Cache von main bleibt
+# unangetastet — er beschleunigt jeden Lauf und soll bestehen.
+
+on:
+  pull_request:
+    types: [closed]
+  delete:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  aufraeumen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Caches des Branches entfernen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Welcher Ref soll geraeumt werden?
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            REF="refs/pull/${{ github.event.pull_request.number }}/merge"
+          elif [ "${{ github.event_name }}" = "delete" ]; then
+            REF="refs/heads/${{ github.event.ref }}"
+          else
+            REF=""
+          fi
+
+          if [ "$REF" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            echo "Default-Branch wird nie geraeumt — Abbruch."
+            exit 0
+          fi
+
+          if [ -n "$REF" ]; then
+            echo "Raeume Caches fuer $REF"
+            ids=$(gh api "repos/$REPO/actions/caches?per_page=100" \
+                    --jq ".actions_caches[] | select(.ref==\"$REF\") | .id" || true)
+          else
+            # workflow_dispatch: alles ausser dem Default-Branch
+            echo "Manueller Lauf — raeume alle Caches ausser dem Default-Branch"
+            ids=$(gh api "repos/$REPO/actions/caches?per_page=100" \
+                    --jq ".actions_caches[] | select(.ref!=\"refs/heads/${{ github.event.repository.default_branch }}\") | .id" || true)
+          fi
+
+          if [ -z "$ids" ]; then
+            echo "Nichts zu raeumen."
+            exit 0
+          fi
+
+          n=0
+          for id in $ids; do
+            gh api -X DELETE "repos/$REPO/actions/caches/$id" --silent && n=$((n+1)) || true
+          done
+          echo "Geloeschte Caches: $n"
