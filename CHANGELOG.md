@@ -16,6 +16,87 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.19] - 2026-08-18 — Tote Quellen wiederbelebt: Freelance-Schiene und Engineering-Dienstleister
+
+> **Empfohlenes Update.** Zwei Quellen, die als tot galten, liefern
+> wieder — eine davon fuer Freelance-Projekte, eine fuer
+> Festanstellungen im Engineering. Keine Schema-Migration.
+
+### Fixed
+- **Freelance-Schiene war komplett aus (#926)**: Im Bestand standen alle
+  vier Projektboersen auf deaktiviert; eine davon hatte seit Bestehen
+  keinen einzigen Erfolg. Der Live-Test aller deaktivierten Adapter
+  zeigte: einer davon ist voellig intakt und liefert **45 Projekte mit
+  Link und Volltext** — er lief nur nie. Ursache war eine
+  Fallback-Liste, die Slug-Fragmente statt URLs enthielt; sie greift
+  genau dann, wenn noch keine Suchkriterien gesetzt sind (also bei
+  einem frischen Profil). Die Quelle lieferte damit zwangslaeufig null
+  Treffer, wurde nach fuenf stillen Laeufen automatisch abgeschaltet
+  und lief danach nie wieder. Mit dem Fix: **87 Projekte** allein ueber
+  den Fallback.
+- **Engineering-Dienstleister lieferte nichts (#925)**: Der Adapter
+  suchte die Stellendaten als JSON-LD im Seiten-DOM — dort steht aber
+  nur ein Organisations-Block. Die Stellen liegen escaped im
+  Hydration-Payload moderner Single-Page-Seiten. Neu ist ein
+  wiederverwendbarer Helfer dafuer; die Quelle liefert jetzt **25
+  Stellen pro Abruf, alle mit Detail-Link und echter Gehaltsspanne**
+  (keine Schaetzwerte, die seit #918 ohnehin neutral zaehlen).
+  Nebenbefund: die Titel enthielten Trennzeichen mitten im Wort — ohne
+  Bereinigung passte kein einziges Suchwort, obwohl der Titel fuer das
+  Auge normal aussieht.
+
+### Changed
+- **README ohne Portalnamen**: Die namentliche Aufzaehlung der Quellen
+  ist raus. Statt Fremdmarken steht dort jetzt, was tatsaechlich
+  zaehlt — wie viele Quellen konfiguriert sind, wie viele zuverlaessig
+  liefern und dass defekte sichtbar markiert bleiben. Die vollstaendige
+  Liste steht weiterhin im Wiki.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.19.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.19.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.18] - 2026-08-18 — Nachzug: Phantom-Termine und Abschluss-Erkennung
 
 > **Patch auf v1.7.17** (gleicher Tag). Zwei Datenqualitaets-Fehler, die
