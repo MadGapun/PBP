@@ -123,7 +123,14 @@ def test_check_source_transport_error():
 
 
 def test_check_source_post_method():
-    """workday_dax nutzt POST."""
+    """Der POST-Pfad der Probe funktioniert.
+
+    v1.7.19 (#927): Frueher haing dieser Test an der einzigen
+    POST-Probe (workday_dax) — die Quelle ist inzwischen als `defekt`
+    markiert und hat keine Probe mehr. Getestet wird jetzt die
+    FAEHIGKEIT statt einer bestimmten Quelle: die Probe-Definition wird
+    fuer den Testlauf eingesetzt.
+    """
     from bewerbungs_assistent.job_scraper import health
     fake_resp = MagicMock(spec=httpx.Response)
     fake_resp.status_code = 200
@@ -133,9 +140,20 @@ def test_check_source_post_method():
     fake_client.__enter__ = MagicMock(return_value=fake_client)
     fake_client.__exit__ = MagicMock(return_value=None)
 
-    with patch("bewerbungs_assistent.job_scraper.health.make_session",
-               return_value=fake_client):
-        r = health.check_source("workday_dax")
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    SOURCE_REGISTRY["_testquelle_post"] = {
+        "name": "Testquelle", "beschreibung": "nur fuer diesen Test",
+        "methode": "REST API", "login_erforderlich": False}
+    health._PROBES["_testquelle_post"] = (
+        "POST", "https://example.invalid/api", "json", {"limit": 1})
+
+    try:
+        with patch("bewerbungs_assistent.job_scraper.health.make_session",
+                   return_value=fake_client):
+            r = health.check_source("_testquelle_post")
+    finally:
+        health._PROBES.pop("_testquelle_post", None)
+        SOURCE_REGISTRY.pop("_testquelle_post", None)
 
     assert r["reachable"] is True
     assert r["method"] == "POST"

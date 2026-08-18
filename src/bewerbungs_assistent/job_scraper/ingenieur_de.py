@@ -37,11 +37,15 @@ def search_ingenieur_de(params: dict) -> list:
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         for query in queries:
             try:
-                url = f"https://jobs.ingenieur.de/suche?q={httpx.QueryParams({'q': query})['q']}"
-                # ingenieur.de uses /jobs/suche/ with q parameter
+                # v1.7.19 (#927): Der Pfad ist /jobs, NICHT /suche —
+                # /suche antwortet mit HTTP 404 (live geprueft 18.08.2026,
+                # alle Varianten). Die Subdomain-Umstellung aus #653 war
+                # halb erledigt: der Host stimmte, der Pfad nicht. Der
+                # Guard-Test dazu prueft nur, ob "jobs.ingenieur.de" im
+                # Code steht — Domain gruen, Feature tot.
                 resp = client.get(
-                    "https://jobs.ingenieur.de/suche",
-                    params={"q": query, "sort": "date"},
+                    "https://jobs.ingenieur.de/jobs",
+                    params={"q": query},
                 )
                 if resp.status_code != 200:
                     logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
@@ -52,8 +56,9 @@ def search_ingenieur_de(params: dict) -> list:
                 # Job cards: article elements or list items with job links
                 cards = soup.select("article, .job-item, .search-result, [class*='job-card']")
                 if not cards:
-                    # Fallback: find all links to job detail pages
-                    cards = soup.select("a[href*='/jobs/']")
+                    # v1.7.19 (#927): Detailseiten liegen unter /job/
+                    # (Einzahl); '/jobs/' traf nur die Kategorie-Links.
+                    cards = soup.select("a[href*='/job/']")
 
                 for card in cards[:25]:
                     try:
@@ -91,7 +96,9 @@ def search_ingenieur_de(params: dict) -> list:
 def _parse_card(card) -> dict | None:
     """Parse a job card or link element."""
     # Try to get title from link
-    link_el = card.find("a", href=re.compile(r"/jobs/")) if card.name != "a" else card
+    # v1.7.19 (#927): Detailseiten liegen unter /job/ (Einzahl) —
+    # der alte Ausdruck traf nur Kategorie-Links unter /jobs/.
+    link_el = card.find("a", href=re.compile(r"/job/")) if card.name != "a" else card
     if not link_el:
         return None
 
@@ -108,7 +115,7 @@ def _parse_card(card) -> dict | None:
     # darauf vertrauen dass der relativen href schon korrekt rendert.
     if href.startswith("http"):
         url = href
-    elif href.startswith("/jobs/") or href.startswith("/suche"):
+    elif href.startswith("/job/") or href.startswith("/jobs"):
         url = f"https://jobs.ingenieur.de{href}"
     else:
         url = f"https://www.ingenieur.de{href}"
