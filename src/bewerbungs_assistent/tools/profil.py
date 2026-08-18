@@ -8,6 +8,7 @@ Umlaut-Restaurierung (profil_umlaute_reparieren, #742).
 import json
 import re
 
+from ..services.nutzerfuehrung import kein_profil, leer
 from ..services.profile_service import (
     get_profile_completeness,
     get_profile_completeness_labels,
@@ -1481,7 +1482,7 @@ def register(mcp, db, logger):
         """
         profile_id = db.get_active_profile_id()
         if not profile_id:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
 
         db.set_user_preference(f"profile_onboarding_started_{profile_id}", True)
         db.set_user_preference(f"profile_onboarding_completed_{profile_id}", False)
@@ -1532,7 +1533,7 @@ def register(mcp, db, logger):
         """
         profile_id = db.get_active_profile_id()
         if not profile_id:
-            return {"fehler": "Kein aktives Profil vorhanden."}
+            return kein_profil()
 
         # F24 (#745): ohne uebergebene Titel generiert die lokale KI selbst
         generiert_von = None

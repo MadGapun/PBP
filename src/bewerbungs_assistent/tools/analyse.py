@@ -2,6 +2,7 @@
 
 import json
 import re
+from ..services.nutzerfuehrung import kein_profil, leer
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -297,7 +298,7 @@ def register(mcp, db, logger):
             return gate
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil. Erstelle zuerst eins mit /ersterfassung."}
+            return kein_profil()
 
         user_skills = set()
         for s in profile.get("skills", []):
@@ -923,7 +924,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden."}
+            return kein_profil()
 
         context_data = {
             "name": profile.get("name", ""),

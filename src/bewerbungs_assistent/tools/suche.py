@@ -1,5 +1,7 @@
 """Suchkriterien und Blacklist-Verwaltung — 5 Tools (#559: blacklist_anwenden)."""
 
+from ..services.nutzerfuehrung import leer
+
 # v1.7.12 (#828, C33): Woerter, die auf ein Gattungsurteil statt einer
 # konkreten Erfahrung hindeuten. Belegter Fall 11.08.: ein Blacklist-Grund
 # "bewusste Entscheidung gegen Beratungshaus" (tatsaechlicher Anlass: nie
@@ -338,7 +340,21 @@ def register(mcp, db, logger):
         Gibt alle MUSS-, PLUS-, MINUS- und AUSSCHLUSS-Keywords, Regionen und
         benutzerdefinierte Kriterien zurueck. (MINUS seit #667 / B19, beta.84.)
         """
-        return {"kriterien": db.get_search_criteria()}
+        kriterien = db.get_search_criteria()
+        # v1.7.21 (#927): Ein leeres {} war die haeufigste Sackgasse
+        # ueberhaupt — die Suchkriterien sind die Grundlage JEDER
+        # Jobsuche, und der Nutzer erfuhr nicht, dass sie fehlen.
+        if not kriterien:
+            return leer(
+                {"kriterien": {}},
+                "Es sind noch keine Suchkriterien gesetzt — ohne sie "
+                "findet die Jobsuche nichts Passendes.",
+                "Vorschlaege aus deinem Profil bekommst du mit "
+                "keyword_vorschlaege(); setzen kannst du sie mit "
+                "suchkriterien_setzen(keywords_muss=[...]). MUSS-Begriffe "
+                "muessen in der Anzeige vorkommen, PLUS-Begriffe "
+                "verbessern nur die Reihenfolge.")
+        return {"kriterien": kriterien}
 
     @mcp.tool()
     def blacklist_verwalten(
@@ -766,6 +782,15 @@ def register(mcp, db, logger):
     def suchprofile_auflisten() -> dict:
         """Listet alle gespeicherten Portal-Such-Profile (#564)."""
         items = db.list_portal_search_profiles()
+        if not items:
+            return leer(
+                {"profile": [], "anzahl": 0},
+                "Noch keine Suchprofile angelegt.",
+                "Ein Suchprofil buendelt Suchbegriffe und Quellen fuer "
+                "eine Richtung — etwa 'Festanstellung in der Naehe' und "
+                "'Freelance bundesweit' getrennt. Wer nur eine Richtung "
+                "verfolgt, braucht das nicht: die normalen "
+                "Suchkriterien reichen.")
         return {"profile": items, "anzahl": len(items)}
 
     # === Ablehnungsgruende-Verwaltung (#663 C20, beta.85) ==================
