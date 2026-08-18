@@ -68,6 +68,25 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "defekt": info.get("defekt", False),
             "defekt_grund": info.get("defekt_grund"),
             "manueller_fallback": info.get("manueller_fallback"),
+            # v1.7.17 (#906): Zugriffsart explizit — 'api' laeuft
+            # automatisch, 'browser'/'browser_login' nur ueber
+            # Claude-in-Chrome (letzteres mit eingeloggtem Konto). Das
+            # Frontend zeigt den Hinweis VOR der Aktivierung.
+            "zugriffsart": _zugriffsart(key, info),
+            "konto_url": info.get("konto_url"),
+            "login_hinweis": info.get("login_hinweis"),
+            "deprecated": info.get("deprecated", False),
+            "deprecated_grund": info.get("deprecated_grund"),
         }
         for key, info in source_registry.items()
     ]
+
+
+def _zugriffsart(key: str, info: dict) -> str:
+    """Wie zugriffsart_von in job_scraper, aber ohne Registry-Lookup —
+    hier liegt der Eintrag schon vor (kein Zirkularimport)."""
+    if info.get("zugriffsart"):
+        return info["zugriffsart"]
+    if str(info.get("methode", "")).startswith("Claude-in-Chrome"):
+        return "browser_login" if info.get("login_erforderlich") else "browser"
+    return "api"

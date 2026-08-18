@@ -572,6 +572,25 @@ class Database:
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
 
+        # v1.7.17 (#906): Deaktivierungs-Metadaten an scraper_health —
+        # die Auto-Deaktivierung konnte nicht zwischen "Quelle tot" und
+        # "Quelle lebt, Parser liefert nichts" unterscheiden; beides
+        # verschwand als Freitext in last_status_detail und wurde nie
+        # wieder geprueft (sich selbst bestaetigender Zustand).
+        try:
+            _sh_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(scraper_health)").fetchall()}
+            for _neu in ("deaktiviert_am", "deaktiviert_grund",
+                         "letzte_probe_am", "letzte_probe_status"):
+                if _sh_cols and _neu not in _sh_cols:
+                    conn.execute(f"ALTER TABLE scraper_health "
+                                 f"ADD COLUMN {_neu} TEXT")
+                    conn.commit()
+                    logger.info("Safety-Net: scraper_health.%s "
+                                "nachgezogen (#906)", _neu)
+        except Exception as e:
+            logger.warning("Scraper-Health-Safety-Net (#906): %s", e)
+
         # v1.7.17 (#913): Ablehnungsgrund-Vokabular durchsetzen.
         # Befund: 101 verschiedene Freitext-Gruende in 182 Datensaetzen —
         # die drei haeufigsten Nutzer-Signale erzeugten NULL Lerneffekt,
@@ -5592,6 +5611,7 @@ class Database:
                         consecutive_silent=0,
                         reactivate_at=NULL, reactivate_attempt=0,
                         retry_after=NULL,
+                        deaktiviert_am=NULL, deaktiviert_grund=NULL,
                         is_active=1
                         {_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, now, total_runs, total_successes, avg_time,
@@ -5613,11 +5633,16 @@ class Database:
                     # sonst exponential Backoff (48h, 72h, 168h).
                     from datetime import datetime, timedelta
                     next_probe = (datetime.now() + timedelta(hours=24)).isoformat()
+                    # v1.7.17 (#906): Grund + Zeitpunkt als eigene Felder —
+                    # 'auto_deaktiviert' ist NICHT 'deprecated'.
                     conn.execute(
                         "UPDATE scraper_health SET is_active=0, "
-                        "reactivate_at=?, reactivate_attempt=1 "
+                        "reactivate_at=?, reactivate_attempt=1, "
+                        "deaktiviert_am=?, deaktiviert_grund=? "
                         "WHERE scraper_name=?",
-                        (next_probe, name)
+                        (next_probe, now,
+                         f"auto: {consec_silent} stille Laeufe in Serie "
+                         "(ok ohne Treffer)", name)
                     )
                     auto_deactivated = True
                     logger.warning(
@@ -10244,7 +10269,14 @@ CREATE TABLE IF NOT EXISTS scraper_health (
     retry_after TEXT,
     -- v1.7.0-beta.106 (#720): Fehlerklasse des letzten Fehlers
     -- (tot/blockiert/server_weg/kaputt) — steuert die Reaktion (#721)
-    error_class TEXT
+    error_class TEXT,
+    -- v1.7.17 (#906): Deaktivierung nachvollziehbar statt Freitext —
+    -- 'deprecated' (bewusst aufgegeben, Registry) und auto-deaktiviert
+    -- (Automatik) sind zwei verschiedene Dinge.
+    deaktiviert_am TEXT,
+    deaktiviert_grund TEXT,
+    letzte_probe_am TEXT,
+    letzte_probe_status TEXT
 );
 
 -- v1.7.0 (#577) Stilarchiv fuer Anschreiben/Lebenslauf-Versionen

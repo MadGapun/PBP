@@ -180,8 +180,17 @@ export default function SourceSelectionList({
                       Defekt
                     </Badge>
                   ) : (
+                    /* v1.7.17 (#906): Browser-Quellen laufen NIE von
+                       selbst — "Aktiv" sah aus wie jede andere Quelle.
+                       Ehrlicher Zustand: "Wartet auf dich". */
                     <Badge tone={source.active ? "success" : "neutral"}>
-                      {source.veraltet ? "Manuell" : source.active ? "Aktiv" : "Inaktiv"}
+                      {source.veraltet
+                        ? "Manuell"
+                        : source.active
+                          ? (String(source.zugriffsart || "").startsWith("browser")
+                              ? "Wartet auf dich"
+                              : "Aktiv")
+                          : "Inaktiv"}
                     </Badge>
                   )}
                   {speedBadge(source.geschwindigkeit)}
@@ -191,6 +200,11 @@ export default function SourceSelectionList({
                   ) : null}
                   {source.login_erforderlich ? (
                     <Badge tone="amber">Login noetig</Badge>
+                  ) : null}
+                  {source.zugriffsart === "browser_login" && !source.login_erforderlich ? (
+                    <Badge tone="amber" title={source.login_hinweis || "Laeuft nur ueber Claude-in-Chrome mit eingeloggtem Konto (#906)"}>
+                      Konto + Chrome
+                    </Badge>
                   ) : null}
                   {loginJob?.status ? (
                     <Badge tone={loginTone(loginJob.status)}>
@@ -280,6 +294,22 @@ export default function SourceSelectionList({
                   onChange={(event) => {
                     if (isDefekt) return;
                     const checked = event.target.checked;
+                    // v1.7.17 (#906): browser_login-Quellen nur nach
+                    // bestaetigtem Hinweis aktivieren — sonst entstehen
+                    // "aktive" Quellen, die faktisch nie laufen und ein
+                    // Konto brauchen, von dem niemand weiss.
+                    if (checked && source.zugriffsart === "browser_login") {
+                      const zeilen = [
+                        `${source.name} laeuft nicht automatisch, sondern ueber die Chrome-Extension in deinem eigenen Browser.`,
+                      ];
+                      if (source.login_hinweis) zeilen.push(source.login_hinweis);
+                      if (source.konto_url) zeilen.push(`Konto anlegen: ${source.konto_url}`);
+                      zeilen.push("Treffer uebernimmt Claude mit stelle_manuell_anlegen().");
+                      if (!window.confirm(`${zeilen.join("\n\n")}\n\nVerstanden — Quelle aktivieren?`)) {
+                        event.target.checked = false;
+                        return;
+                      }
+                    }
                     onToggle?.(source, checked, {
                       trigger: "checkbox",
                       autoStartLogin: checked && Boolean(source.login_erforderlich) && !loginReady,
