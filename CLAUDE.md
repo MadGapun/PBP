@@ -657,6 +657,25 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    vor dem Release bereinigt.
 8. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
    Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
+
+8a. **Mehr-Defekt-Issues einzeln abhaken (seit 2026-08-18)** — bei Issues,
+   die mehrere nummerierte Defekte oder zwei AK-Bloecke tragen, VOR dem
+   Schliessen jeden Block einzeln gegen den Code pruefen. Hintergrund:
+   #918 ("Zwei Metadaten-Fehler...") wurde geschlossen, obwohl nur
+   Defekt 1 umgesetzt war — der Titel nannte beide, der Kommentar
+   beschrieb nur einen. Faustregel: Issue-Titel mit "und"/"zwei"/
+   "mehrere" oder AK-Listen mit Nummerierung sind Warnsignale.
+
+8b. **Tag-Setzen nur mit sauberem Working Tree (seit 2026-08-18)** —
+   `git checkout <release-branch>` VOR `git tag` kann an uncommitteten
+   Dateien scheitern ("Aborting"); die Kette laeuft dann auf dem
+   FALSCHEN Branch weiter und der Tag landet still auf dem falschen
+   Commit. Deshalb: erst `git status --short` leer machen, nach dem
+   Checkout `git branch --show-current` verifizieren, und nach dem
+   Taggen `git log --oneline -1 <tag>` gegen den erwarteten Commit
+   pruefen. Ein Tag OHNE Release laesst sich noch gefahrlos
+   korrigieren (push :refs/tags/X + tag -d + neu setzen) — mit Release
+   ist die Nummer verbrannt.
 9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
    der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
    UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM
