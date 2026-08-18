@@ -16,6 +16,111 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+## [1.7.21] - 2026-08-18 — Keine Sackgassen: Wegweiser statt Nullmeldung
+
+> **Empfohlenes Update**, besonders fuer neue Installationen. Keine
+> Schema-Migration, keine Verhaltensaenderung an bestehenden Daten —
+> es aendern sich ausschliesslich Antworttexte im leeren Zustand.
+
+### Fixed
+- **Leere Antworten sagen jetzt, was zu tun ist (#927)**: Wer PBP frisch
+  installiert, traf bisher auf lauter Nullmeldungen — "Kein aktives
+  Profil", "anzahl: 0", ein leeres `{}`. Technisch richtig, aber es
+  beantwortete nicht die Frage, die der Mensch davor tatsaechlich hat:
+  *Was mache ich jetzt?* Und es sagte auch nicht, wofuer die Funktion
+  ueberhaupt gut ist. Wer sich mit Technik nicht auskennt, landet damit
+  in einer Sackgasse.
+
+  Gemessen wurde ueber **alle 53 Funktionen, die ohne Argumente
+  aufrufbar sind**, auf einer frischen Datenbank: **18 Sackgassen
+  vorher, 6 danach.**
+
+  Besonders folgenreich war `suchkriterien_anzeigen`: die Suchkriterien
+  sind die Grundlage jeder Jobsuche, und ein leeres `{}` verriet nicht,
+  dass sie fehlen — die Suche lief anschliessend ins Leere, ohne dass
+  irgendwo stand, warum.
+
+  Einen Wegweiser bekommen ausserdem: Aufgaben, Termine,
+  Interview-Nachbereitung, Kontakte und Suchprofile. Jeder Hinweis
+  nennt den Grund *und* den naechsten Schritt, und erklaert in einem
+  Satz, wozu die Funktion gut ist ("Ein Suchprofil buendelt
+  Suchbegriffe und Quellen fuer eine Richtung").
+
+- **Eine Sprache fuer die fehlende Voraussetzung (#927)**: Die Meldung
+  bei fehlendem Profil existierte in **15 verschiedenen
+  Formulierungen** — mal mit Hinweis auf `profil_erstellen()`, mal auf
+  `/ersterfassung`, mal ganz ohne. Jetzt eine einheitliche Antwort, die
+  auf den gefuehrten Weg zeigt: *"Sag Claude einfach: Starte die
+  Ersterfassung."*
+
+### Changed
+- Sechs der urspruenglich 18 leeren Antworten bleiben **bewusst
+  unveraendert**: "0 Euro Kosten erfasst" oder "keine Befunde" erklaeren
+  sich selbst, und wo ein Pflichtargument fehlt, steht das bereits in
+  der Meldung. Zugekleistert wird da nichts.
+
+### Added
+- Neues Modul `services/nutzerfuehrung.py` als zentrale Stelle fuer
+  Wegweiser-Texte — kuenftige Funktionen erben denselben Ton, statt
+  jede Meldung neu zu erfinden.
+- Neuer Test `test_v1721_keine_sackgassen_927.py`: er ruft **jede**
+  argumentlose Funktion auf einer leeren Datenbank auf und prueft, dass
+  keine abstuerzt und die gefixten einen Weg nach vorn nennen. Damit
+  faellt kuenftig auf, wenn eine neue Funktion wieder in einer
+  Sackgasse endet.
+
+### Korrektur zur vorherigen Version
+- Der v1.7.20-Eintrag verwies zweimal auf "#927". Das war ein
+  Zahlendreher: jene Quellen-Arbeit hatte kein eigenes Issue, und #927
+  ist das hier behandelte Sackgassen-Thema. Die Verweise wurden im
+  CHANGELOG entfernt; die bereits veroeffentlichten Release-Notes zu
+  v1.7.20 lassen sich nachtraeglich nicht mehr aendern.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.21.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.21.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.20] - 2026-08-18 — Quellen ehrlich: dritte Reparatur, tote Quellen ausgegraut
 
 > **Empfohlenes Update.** Abschluss der Quellen-Durchsicht: jede tote
@@ -23,7 +128,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > defekt markiert. Keine Schema-Migration.
 
 ### Fixed
-- **Dritte wiederhergestellte Quelle (#927)**: Eine Ingenieur-Jobboerse
+- **Dritte wiederhergestellte Quelle**: Eine Ingenieur-Jobboerse
   lief auf einem Pfad, der mit HTTP 404 antwortet — die Umstellung auf
   die neue Subdomain war halb erledigt: Host richtig, Pfad falsch. Dazu
   passte der Link-Selektor nur auf Kategorie-Seiten statt auf
@@ -33,7 +138,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
   steht — Domain gruen, Feature tot.
 
 ### Changed
-- **Tote Quellen werden ausgegraut statt still mitgeschleppt (#927)**:
+- **Tote Quellen werden ausgegraut statt still mitgeschleppt**:
   Fuenf Quellen sind nach dem Live-Check als defekt markiert und damit
   im Dashboard ausgegraut, mit Begruendung und Pruefdatum: ein Host ist
   nicht mehr aufloesbar, eine oeffentliche Suche liefert keine Stellen
