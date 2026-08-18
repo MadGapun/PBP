@@ -79,12 +79,39 @@ def _ist_leer(wert: Any) -> bool:
     return False
 
 
-def zusammenfuehren(db: Any, bestehend: dict, neu: dict) -> dict:
-    """Fuellt LEERE Felder des bestehenden Termins. Gefuellte bleiben.
+# Textfelder, deren ABWEICHENDER Duplikat-Wert beim Merge erhalten wird
+# statt verworfen (#916/#830-Nachfolger, v1.7.17). Belegter Fall: der
+# Duplikat-Titel trug die einzigen Namen der Gespraechspartner
+# ("Erstgespraech mit <PERSON>") — der Master hatte nur "Kennenlernen".
+# Ein stiller Datenverlust in einer "Bereinigung" ist schlechter als
+# keine Bereinigung.
+_TEXT_ERHALT_FELDER = ("title", "notes", "location", "platform")
 
-    Rueckgabe: {"ergaenzt": [...], "behalten": [...]}. Das Datum wird nie
-    ueberschrieben — der bestehende Termin behaelt seinen Zeitpunkt, sonst
-    waere es kein Zusammenfuehren, sondern ein Verschieben.
+_FELD_LABEL = {"title": "Alternative Bezeichnung",
+               "notes": "Abweichende Notiz",
+               "location": "Abweichender Ort",
+               "platform": "Abweichende Plattform"}
+
+
+def abweichende_texte(bestehend: dict, neu: dict) -> list:
+    """(feld, wert)-Paare, deren Duplikat-Text beim Merge verloren ginge."""
+    out = []
+    for feld in _TEXT_ERHALT_FELDER:
+        alt, nw = bestehend.get(feld), neu.get(feld)
+        if _ist_leer(nw) or _ist_leer(alt):
+            continue
+        if str(alt).strip() != str(nw).strip():
+            out.append((feld, str(nw).strip()))
+    return out
+
+
+def zusammenfuehren(db: Any, bestehend: dict, neu: dict) -> dict:
+    """Fuellt LEERE Felder des bestehenden Termins. Gefuellte bleiben —
+    und ABWEICHENDE Texte des Duplikats werden an die Notizen angehaengt
+    statt verworfen (v1.7.17, #916).
+
+    Rueckgabe: {"ergaenzt": [...], "behalten": [...],
+    "texte_uebernommen": [...]}. Das Datum wird nie ueberschrieben.
     """
     updates: dict = {}
     ergaenzt: list = []
@@ -98,13 +125,25 @@ def zusammenfuehren(db: Any, bestehend: dict, neu: dict) -> dict:
             ergaenzt.append(feld)
         elif str(bestehend.get(feld)) != str(neuer_wert):
             behalten.append(feld)
+    # #916: kein Text geht verloren — Abweichungen wandern in die Notizen.
+    texte = [(f, w) for f, w in abweichende_texte(bestehend, neu)
+             if f != "notes" or "notes" not in ergaenzt]
+    texte_uebernommen = []
+    if texte:
+        basis = updates.get("notes", bestehend.get("notes") or "")
+        anhang = "\n\n".join(
+            f"{_FELD_LABEL.get(f, f)}: {w}" for f, w in texte)
+        updates["notes"] = (str(basis).rstrip() + "\n\n" + anhang).strip()
+        texte_uebernommen = [f for f, _ in texte]
     if updates:
         try:
             db.update_meeting(bestehend.get("id"), updates)
         except Exception as e:  # nicht schweigen, aber auch nicht kippen
             return {"ergaenzt": [], "behalten": behalten,
+                    "texte_uebernommen": [],
                     "fehler": f"Update fehlgeschlagen: {e}"}
-    return {"ergaenzt": ergaenzt, "behalten": behalten}
+    return {"ergaenzt": ergaenzt, "behalten": behalten,
+            "texte_uebernommen": texte_uebernommen}
 
 
 def finde_alle_dubletten(db: Any) -> list:
@@ -139,12 +178,34 @@ def finde_alle_dubletten(db: Any) -> list:
                     continue
                 dbt = _parse(b.get("meeting_date") or "")
                 if dbt and abs(dbt - da) <= fenster:
-                    # Welcher traegt mehr Information?
-                    def _fuelle(m):
-                        return sum(1 for f in _MERGE_FELDER
-                                   if not _ist_leer(m.get(f)))
-                    master, dublette = ((a, b) if _fuelle(a) >= _fuelle(b)
-                                        else (b, a))
+                    # v1.7.17 (#916): Master-Wahl nach INFORMATIONSGEHALT,
+                    # nicht nach Anzahl gefuellter Felder. Belegter Fall:
+                    # der "inhaltsreichere" Master war der mit generischem
+                    # Titel — das Duplikat trug die Personennamen.
+                    def _gehalt(m):
+                        text_laenge = sum(
+                            len(str(m.get(f) or ""))
+                            for f in _TEXT_ERHALT_FELDER)
+                        felder = sum(1 for f in _MERGE_FELDER
+                                     if not _ist_leer(m.get(f)))
+                        # Eigennamen-Signal: grossgeschriebene Wortpaare
+                        # im Titel ("mit Vorname Nachname")
+                        import re as _re
+                        namen = len(_re.findall(
+                            r"\b[A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+\b",
+                            str(m.get("title") or "")))
+                        return text_laenge + felder * 10 + namen * 50
+                    ga, gb = _gehalt(a), _gehalt(b)
+                    if ga != gb:
+                        master, dublette = (a, b) if ga > gb else (b, a)
+                    else:
+                        # Gleichstand: der aeltere Datensatz gewinnt
+                        master, dublette = ((a, b)
+                                            if str(a.get("created_at") or "")
+                                            <= str(b.get("created_at") or "")
+                                            else (b, a))
+                    verlust = [f for f, _ in abweichende_texte(
+                        master, dublette)]
                     paare.append({
                         "bewerbung_id": app_id,
                         "firma": a.get("firma", ""),
@@ -157,5 +218,10 @@ def finde_alle_dubletten(db: Any) -> list:
                             [f for f in _MERGE_FELDER
                              if _ist_leer(master.get(f))
                              and not _ist_leer(dublette.get(f))]),
+                        # #916: was OHNE die Text-Uebernahme verloren
+                        # ginge — der Nutzer sieht die Entscheidung, ohne
+                        # die DB zu oeffnen. (Die Uebernahme laeuft beim
+                        # Merge automatisch; die Liste dokumentiert sie.)
+                        "verlust_ohne_uebernahme": verlust,
                     })
     return paare

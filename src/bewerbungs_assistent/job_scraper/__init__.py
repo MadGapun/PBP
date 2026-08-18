@@ -2269,10 +2269,35 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     # Salary factor — normalize daily rates vs yearly salary
     salary_min = job.get("salary_min")
+    # v1.7.17 (#918/#827-Nachzug): Schaetzungen bleiben auch HIER neutral.
+    # Der #827-Fix sass nur in scoring_service — dieser Pfad vergab
+    # weiter den vollen Bonus fuer eine Zahl, die es nicht gibt (belegt:
+    # +8 von 43,8 Gesamtpunkten fuer eine Anzeige ohne Gehaltsangabe).
+    if salary_min and job.get("salary_estimated"):
+        factors["Gehalt: nur Schaetzung — neutral (#827)"] = 0
+        salary_min = None
     if salary_min:
         salary_type = job.get("salary_type", "jaehrlich")
         emp_type = job.get("employment_type", "festanstellung")
-        if salary_type == "taeglich" or emp_type == "freelance":
+        if salary_type == "stuendlich":
+            # v1.7.17 (#920): Stundensaetze existierten im Extraktor,
+            # dieser Vergleich kannte sie nicht — "100 EUR/hour" wurde
+            # als 100 EUR/TAG gelesen (Faktor 8 zu niedrig) und
+            # min_stundensatz nie ausgewertet.
+            salary_pref = criteria.get("min_stundensatz", 0) or 0
+            job_yearly = salary_min * 8 * 220
+            if salary_pref:
+                pref_yearly = salary_pref * 8 * 220
+                pref_label = f"{salary_pref} EUR/Stunde"
+            else:
+                _tag = criteria.get("min_tagessatz", 0) or 0
+                pref_yearly = _tag * 220 if _tag \
+                    else (criteria.get("min_gehalt", 0) or 0)
+                pref_label = f"{_tag} EUR/Tag" if _tag \
+                    else f"{pref_yearly} EUR/Jahr"
+            salary_label = (f"{salary_min} EUR/Stunde "
+                            f"(~{int(job_yearly)} EUR/Jahr)")
+        elif salary_type == "taeglich" or emp_type == "freelance":
             salary_pref = criteria.get("min_tagessatz", 0) or 0
             job_yearly = salary_min * 220
             pref_yearly = salary_pref * 220 if salary_pref else (criteria.get("min_gehalt", 0) or 0)
@@ -2543,6 +2568,20 @@ SALARY_PATTERNS = [
         r'(?:stundensatz|stunden-?satz)[:\s]*(?:€|EUR)?\s*(\d{2,3})\s*(?:€|EUR)?',
         re.IGNORECASE
     ),
+    # v1.7.17 (#920): englische Stundensaetze — "Rate: 100 EUR/hour",
+    # "€85 per hour", "100-120 EUR/h". Vorher fiel genau der Zweig durch,
+    # der ohnehin blind ist (Freelance) — und der Fehler unterschaetzte um
+    # Faktor 8-10, konnte also nur passende Stellen lautlos abwerten.
+    re.compile(
+        r'(?:€|EUR)?\s*(\d{2,3})\s*(?:[-–]|bis)\s*(?:€|EUR)?\s*(\d{2,3})\s*'
+        r'(?:€|EUR)?\s*(?:/|per\s+)\s*(?:hour|hr|h)\b',
+        re.IGNORECASE
+    ),
+    re.compile(
+        r'(?:€|EUR)\s*(\d{2,3})\s*(?:/|per\s+)\s*(?:hour|hr|h)\b'
+        r'|(\d{2,3})\s*(?:€|EUR)\s*(?:/|per\s+)\s*(?:hour|hr|h)\b',
+        re.IGNORECASE
+    ),
 ]
 
 
@@ -2591,11 +2630,14 @@ def extract_salary_from_text(text: str) -> tuple:
                     if 200 <= s_min <= 5000:
                         return s_min, s_max, "taeglich"
                 else:  # Hourly patterns
-                    if len(groups) >= 2 and groups[1]:
-                        s_min = float(groups[0])
-                        s_max = float(groups[1])
+                    # #920: die EN-Alternation liefert None-Gruppen —
+                    # erst auf die tatsaechlich gefuellten reduzieren.
+                    werte = [g for g in groups if g]
+                    if len(werte) >= 2:
+                        s_min = float(werte[0])
+                        s_max = float(werte[1])
                     else:
-                        s_min = float(groups[0])
+                        s_min = float(werte[0])
                         s_max = s_min * 1.1
                     if 10 <= s_min <= 500:
                         return s_min, s_max, "stuendlich"
