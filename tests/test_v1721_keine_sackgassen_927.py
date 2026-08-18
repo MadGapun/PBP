@@ -33,7 +33,16 @@ def frisches_pbp():
     import bewerbungs_assistent.server as srv
     importlib.reload(srv)
     yield db, srv
-    db.close()
+    # ⛔ KEIN db.close() hier: alle Threads teilen sich eine Connection,
+    # ein close() waehrend ein Hintergrund-Thread laeuft bringt SQLite
+    # auf C-Ebene zum Absturz (Exit 139, CLAUDE.md-Regel seit beta.0).
+    # Stattdessen die pbp-*-Threads auslaufen lassen, dann erst das
+    # Verzeichnis entfernen — sonst meldet der CI-Runner
+    # "unable to open database file" aus noch pollenden Threads.
+    import threading
+    for t in threading.enumerate():
+        if t.name.startswith("pbp-") and t is not threading.current_thread():
+            t.join(timeout=15)
     shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -101,7 +110,13 @@ def test_927_kein_einstiegs_tool_stuerzt_ab(frisches_pbp):
     db, srv = frisches_pbp
 
     async def _tools():
-        return await srv.mcp.get_tools()
+        # FastMCP-Versionen unterscheiden sich hier: aeltere kennen nur
+        # list_tools() (Liste), neuere get_tools() (dict name -> Tool).
+        # Dasselbe Muster wie in test_mcp_registry.py — sonst ist der
+        # Test lokal gruen und auf dem CI-Runner rot.
+        if hasattr(srv.mcp, "get_tools"):
+            return dict(await srv.mcp.get_tools())
+        return {t.name: t for t in await srv.mcp.list_tools()}
 
     tools = asyncio.run(_tools())
     tabu = ("loesch", "reset", "starten", "erstellen", "anlegen", "setzen",
