@@ -26,9 +26,22 @@ def _extract_publish_date(project: dict) -> str | None:
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelancermap")
 
+# v1.7.19 (#926): Der Fallback enthielt nur Slug-FRAGMENTE statt URLs —
+# `client.get("Software-Engineer")` kann nicht funktionieren. Greift nur,
+# wenn keine Suchkriterien gesetzt sind (build_search_keywords baut sonst
+# `freelancermap_urls`); dann lieferte die Quelle zwangslaeufig 0 Treffer
+# und lief nach fuenf stillen Laeufen in die Auto-Deaktivierung.
+#
+# Die Slug-Seiten sind der funktionierende Weg: /projekte/<begriff>
+# liefert thematisch passende Projekte. Der Query-Parameter
+# (?query=PLM) wird dagegen ignoriert — er gibt immer dieselbe
+# Startseiten-Liste zurueck (live geprueft 18.08.2026).
+_BASIS = "https://www.freelancermap.de/projekte"
 SEARCH_URLS = [
-    "Software-Engineer", "Projektmanager",
-    "Data-Analyst", "Consultant",
+    f"{_BASIS}/software-engineer",
+    f"{_BASIS}/projektmanagement",
+    f"{_BASIS}/konstruktion",
+    f"{_BASIS}/consultant",
 ]
 
 
