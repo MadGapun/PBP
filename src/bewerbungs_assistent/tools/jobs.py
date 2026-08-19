@@ -1148,8 +1148,34 @@ def register(mcp, db, logger):
 
         db.restore_job(target_hash)
 
+        # v1.7.22 (#941): Reaktivierung ist ein LERNSIGNAL. Automatisches
+        # Aussortieren ohne Rueckfrage hat den Preis, dass eine zu
+        # scharfe Regel niemandem auffaellt — ausser der Nutzer holt die
+        # Stelle zurueck. Genau dann gehoert es protokolliert.
+        war_automatik = alter_grund.startswith("auto:")
+        if war_automatik:
+            try:
+                db.add_activity_event({
+                    "event_type": "auto_dismiss_zurueckgeholt",
+                    "entity_type": "job",
+                    "entity_id": target_hash[:8],
+                    "action": "reaktivieren",
+                    "metadata": {"dismiss_reason": alter_grund,
+                                 "titel": (job_before.get("title") or "")[:80],
+                                 "nutzer_grund": grund or ""},
+                })
+            except Exception:
+                logger.debug("Lernsignal fuer %s nicht protokolliert",
+                             target_hash[:8])
+
         return {
             "status": "reaktiviert",
+            "war_automatisch_aussortiert": war_automatik,
+            "lernhinweis": (
+                "Diese Stelle hatte die Automatik aussortiert. Die "
+                "Ruecknahme ist protokolliert — haeuft sich das, steht "
+                "die Regel zu scharf."
+            ) if war_automatik else None,
             "job_hash": target_hash[:8],
             "titel": job_before.get("title", ""),
             "firma": job_before.get("company", ""),

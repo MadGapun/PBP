@@ -1351,6 +1351,27 @@ def run_search(db, job_id: str, params: dict):
     cleanup = _post_search_cleanup(db, unique)
     unique = cleanup["jobs"]
 
+    # v1.7.22 (#941): Stufe 1 der Kaskade — erkannte Wiedergaenger
+    # bekommen endlich eine Konsequenz. Vorher wurden sie erkannt, als
+    # NICHT_EMPFOHLEN markiert und trotzdem als aktive Stelle angelegt;
+    # aus Nutzersicht sah das aus, als funktioniere die Erkennung nicht.
+    try:
+        from ..services.stellen_automatik import anwenden as _automatik
+        _beworben = set()
+        try:
+            for _a in db.get_applications():
+                if _a.get("job_hash"):
+                    _beworben.add(_a["job_hash"])
+        except Exception:
+            pass
+        _erg = _automatik(db, unique, beworbene_hashes=_beworben)
+        unique = _erg["jobs"]
+        for _k, _v in _erg["zaehler"].items():
+            if _v:
+                filterstufen[_k] = _v
+    except Exception as e:  # pragma: no cover - Automatik darf nie blockieren
+        logger.warning("Wiedergaenger-Automatik uebersprungen: %s", e)
+
     save_stats = db.save_jobs(unique) or {}
     new_per_source = save_stats.get("new_per_source", {}) if isinstance(save_stats, dict) else {}
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
