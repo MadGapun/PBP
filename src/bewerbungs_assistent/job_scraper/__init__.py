@@ -1208,6 +1208,11 @@ def run_search(db, job_id: str, params: dict):
         ]
     except Exception:
         criteria["_applied_titles"] = []
+    # v1.7.22 (#940): Filterkaskade mitzaehlen. Ohne diese Zahlen sieht
+    # der Nutzer nur "7.100 Rohtreffer -> 15 Stellen" und kann nicht
+    # beurteilen, ob die Suche zu streng oder die Quelle schlecht war.
+    filterstufen: dict[str, int] = {}
+
     for job in unique:
         job["score"] = calculate_score(job, criteria)
 
@@ -1328,12 +1333,19 @@ def run_search(db, job_id: str, params: dict):
         logger.debug("Stellenalter-Filter fehlgeschlagen: %s", e)
 
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
+    # v1.7.22 (#940): Stufe 0 der Filterkaskade. Die Zaehler wandern ins
+    # Ergebnis, nicht nur ins Log — ohne sie sieht der Nutzer nur, dass
+    # von 7.100 Rohtreffern 15 uebrig blieben, aber nicht warum.
     min_score_threshold = criteria.get("min_score_schwelle", 1)
     before = len(unique)
-    unique = [j for j in unique if j.get("score", 0) >= min_score_threshold]
+    ohne_muss = sum(1 for j in unique if j.get("_ko_kein_muss"))
+    unique, verworfen_schwelle = _filter_nach_schwelle(unique, min_score_threshold)
+    filterstufen["kein_muss_keyword"] = ohne_muss
+    filterstufen["unter_schwelle"] = max(0, verworfen_schwelle - ohne_muss)
     if before > len(unique):
-        logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d)",
-                     before - len(unique), before, min_score_threshold)
+        logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d, "
+                    "davon %d ohne MUSS-Keyword)",
+                    before - len(unique), before, min_score_threshold, ohne_muss)
 
     # === Post-Search Cleanup (#153, #154) ===
     cleanup = _post_search_cleanup(db, unique)
@@ -1389,6 +1401,8 @@ def run_search(db, job_id: str, params: dict):
     }
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
+    if any(filterstufen.values()):
+        result_data["filterstufen"] = dict(filterstufen)
 
     # v1.6.9 (#548): Counter konsequent aus source_status ableiten — sonst
     # kommen Diskrepanzen zwischen `total` (Eingangs-Liste) und `source_status`
@@ -1879,6 +1893,63 @@ def _normalize_for_matching(text: str) -> str:
     return normalized
 
 
+def _filter_nach_schwelle(stellen, schwelle):
+    """v1.7.22 (#940): Schwellenfilter als eigene Funktion.
+
+    Vorher stand die Bedingung inline im Suchlauf — testbar war sie
+    damit nur ueber einen kompletten Durchlauf, und die Zahl der
+    verworfenen Treffer landete ausschliesslich im Log, nicht im
+    Ergebnis. Beides braucht die Filterkaskade.
+    """
+    behalten = [j for j in stellen if (j.get("score") or 0) >= schwelle]
+    return behalten, len(stellen) - len(behalten)
+
+
+def _muss_tor_match(keyword: str, text: str) -> bool:
+    """v1.7.22 (#940): Tor-Entscheidung fuer MUSS-Keywords.
+
+    MUSS beantwortet die Frage *kommt die Stelle ueberhaupt in Frage*.
+    Dafuer zaehlt Praezision, nicht Recall — genau umgekehrt zu PLUS.
+    `_fuzzy_keyword_match` wurde fuer Recall gebaut und war trotzdem als
+    Torwaechter im Einsatz; zwei seiner Regeln qualifizieren dabei
+    fachfremde Stellen:
+
+    * **Mehrwort-Split** — alle Einzelwoerter irgendwo im Text, in
+      beliebiger Reihenfolge und Entfernung. "Engineering Data
+      Management" passte damit auf jede Anzeige, in der die drei Woerter
+      einzeln vorkamen (gemessen: Data Analytics, Data Science, Physics
+      of CT). Dieselbe Regel war in der Gegenrichtung schon einmal die
+      Ursache falscher MINUS-Abzuege, siehe #755/C25.
+    * **generische Synonym-Phrasen** — `PLM` traegt das Synonym
+      "product lifecycle"; die Wendung "manage product lifecycles" in
+      einer Produktmanager-Anzeige machte daraus eine PLM-Stelle,
+      obwohl das Kuerzel PLM dort null Mal vorkam.
+
+    Deshalb hier: zusammenhaengende Phrase beziehungsweise Wortgrenze
+    fuer das Keyword selbst (wie bei MINUS), Synonym-Expansion NUR fuer
+    eindeutige Ein-Wort-Produktnamen. Die muessen bleiben — eine
+    Teamcenter-Stelle IST eine PLM-Stelle, auch ohne das Kuerzel im
+    Text.
+    """
+    if _strict_keyword_match(keyword, text):
+        return True
+
+    kw_lower = keyword.lower().strip()
+    for syn_key, synonyme in _SYNONYM_MAP.items():
+        if syn_key != kw_lower and kw_lower not in synonyme:
+            continue
+        for begriff in [syn_key] + list(synonyme):
+            # Nur Ein-Wort-Synonyme: Produktnamen sind eindeutig,
+            # Mehrwort-Phrasen sind es nicht.
+            if " " in begriff or "-" in begriff:
+                continue
+            if begriff == kw_lower:
+                continue
+            if _strict_keyword_match(begriff, text):
+                return True
+    return False
+
+
 def _fuzzy_keyword_match(keyword: str, text: str) -> bool:
     """Fuzzy-Keyword-Matching: Substring + Synonyme + Umlaut-Normalisierung (#183).
 
@@ -2130,8 +2201,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
 
     # MUSS keywords — #183: Fuzzy-Matching statt exakter Substring
     muss = criteria.get("keywords_muss", [])
+    # v1.7.22 (#940): Zwei getrennte Fragen, zwei getrennte Matcher.
+    # Das TOR entscheidet praezise, ob die Stelle ueberhaupt in Frage
+    # kommt. Die PUNKTE bleiben bewusst auf dem bisherigen (weiteren)
+    # Matching — sonst verschieben sich alle Scores und die Wirkung des
+    # Tors waere nicht mehr isoliert messbar. Die Neubewertung der
+    # Punktevergabe ist #942.
     muss_hits_kws = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
-    muss_found = len(muss_hits_kws)
+    muss_tor_kws = [kw for kw in muss if _muss_tor_match(kw, text)]
+    muss_found = len(muss_tor_kws)
     if muss and muss_found == 0:
         # #180: Ohne Beschreibung nicht sofort auf 0 setzen, WENN der Titel
         # zumindest Teilworte der MUSS-Keywords enthält (z.B. "PLM" im Titel)
