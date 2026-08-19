@@ -607,6 +607,18 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    - **`FIKTIVE_FIRMEN`** in `scrub_pii.py`: der Pruefer schlug vorher bei
      genau den Platzhaltern an, die diese Regel vorschreibt. Neue
      Platzhalter dort eintragen.
+   - **`issue_text_pruefen(text=...)` (MCP, #946, seit 2026-08-19) — der
+     Pflichtschritt VOR jedem ausgehenden Text.** Er dreht die Richtung
+     um: statt einer gepflegten Namensliste im Repo sucht er die Namen
+     aus der DATENBANK (applications/jobs/contacts) im Text. Die
+     gepflegte Liste ist immer nur so gut wie ihre letzte Pflege — sie
+     hat am 18./19.08. dreimal versagt (#919, #928, #940-#945), obwohl
+     die Regel bekannt war. Mit `anonymisieren=True` kommt der fertige
+     Text zurueck; die Zuordnung steht in `anonymisierung_map` und
+     bleibt stabil, damit dieselbe Firma ueber mehrere Issues denselben
+     Platzhalter behaelt. Die Tabelle ist LOKAL und gehoert nie in
+     Export oder Telemetrie (Test sichert das ab). Quellennamen,
+     Job-Hashes und der eigene Klarname loesen bewusst nichts aus.
 
    MERKE (warum dem Report niemand mehr glaubte): die Telefon-Erkennung
    matchte ueber ZEILENUMBRUECHE und las die Jahresspanne `2020-2024` als

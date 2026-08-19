@@ -106,6 +106,7 @@ EXPECTED_TOOL_NAMES = {
     "interview_reflexion_speichern",
     "interview_reflexion_loeschen",
     "interview_lehren_auswerten",
+    "issue_text_pruefen",
     "interview_reflexion_lesen",
     "interview_reflexionen_anzeigen",
     "kosten_anzeigen",
@@ -344,7 +345,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 203  # v1.7.18 (#922): 202 + phantom_termine_bereinigen
+        assert len(tools) == 204  # v1.7.22 (#946): 203 + issue_text_pruefen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
