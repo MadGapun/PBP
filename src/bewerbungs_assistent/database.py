@@ -4765,6 +4765,14 @@ class Database:
             is_active = 1
             dismiss_reason = None
             research_notes = job.get("research_notes")
+            # v1.7.22 (#941): Der Aufrufer darf eine NEUE Stelle direkt
+            # aussortiert anlegen — die Wiedergaenger-Automatik braucht
+            # genau das. Bewusst nur fuer neue Stellen und nur mit
+            # Begruendung: ohne diese Bedingung koennte ein beliebiger
+            # Ingest-Pfad bestehende Stellen still abraeumen.
+            if is_new and job.get("is_active") == 0 and job.get("dismiss_reason"):
+                is_active = 0
+                dismiss_reason = job.get("dismiss_reason")
             if not is_new:
                 # v1.7.0-beta.64 (#641): Bestehenden Lifecycle-State erhalten —
                 # re-ingestion darf eine vom User aussortierte Stelle NICHT
@@ -4870,6 +4878,13 @@ class Database:
                 # eine Aussage, NULL ist ehrlich "nicht bewertet".
                 job.get("_fachscore"), job.get("_rahmenscore")
             ))
+            # #913: Freitext gehoert nach dismiss_note, nie ins Lern-Feld.
+            if is_new and job.get("dismiss_note"):
+                try:
+                    conn.execute("UPDATE jobs SET dismiss_note=? WHERE hash=?",
+                                 (job.get("dismiss_note"), stored_hash))
+                except Exception:
+                    pass
             if is_new and is_active:
                 src = job.get("source") or "unbekannt"
                 new_per_source[src] = new_per_source.get(src, 0) + 1
@@ -6582,9 +6597,16 @@ class Database:
         # Score statistics (excluding pinned/manual to avoid skew) —
         # #471 follow-up: auch dismissed Jobs zaehlen, sonst weicht der
         # "Spitzen-Score" von der Unapplied-Liste ab, die dismissed inkludiert.
+        # v1.7.22 (#941): AUTOMATISCH aussortierte Stellen zaehlen NICHT
+        # mit. Der Nutzer hat sie nie gesehen — je mehr die Automatik
+        # wegraeumt, desto staerker waere der Durchschnitt von Stellen
+        # bestimmt, die nie jemand beurteilt hat. Manuell aussortierte
+        # bleiben drin: die Absicht von #471 (Spitzen-Score passt zur
+        # Liste, die Aussortierte enthaelt) gilt fuer sie weiter.
         score_row = conn.execute(
             "SELECT AVG(score) as avg_score, MAX(score) as max_score, COUNT(*) as cnt "
             "FROM jobs WHERE is_pinned=0 AND score>0 "
+            "AND (dismiss_reason IS NULL OR dismiss_reason NOT LIKE 'auto:%') "
             "AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchone()
