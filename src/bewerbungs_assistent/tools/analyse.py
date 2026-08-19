@@ -1136,9 +1136,21 @@ def register(mcp, db, logger):
         from ..services.scoring_service import apply_scoring_adjustments
         result = apply_scoring_adjustments(job, job.get("score", 0), db)
 
+        # v1.7.22 (#942): Fach- und Rahmenanteil getrennt zeigen. Vorher
+        # sah man nur die Summe und musste raten, woher sie kommt — ein
+        # Fehlgriff (viel Rahmen, kein Fach) war nicht erkennbar.
+        fach = job.get("fachscore")
+        rahmen = job.get("rahmenscore")
+        herkunft = None
+        if fach is not None:
+            herkunft = (f"fachlich {fach}, Rahmen {rahmen if rahmen is not None else 0}")
+
         return {
             "stelle": f"{job.get('title', '')} bei {job.get('company', '')}",
             "basis_score": result.get("basis_score", 0),
+            "fachscore": fach,
+            "rahmenscore": rahmen,
+            "score_herkunft": herkunft,
             "adjustments": result.get("adjustments", []),
             "adjustment_total": result.get("adjustment_total", 0),
             "final_score": result.get("final_score", 0),

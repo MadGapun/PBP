@@ -605,6 +605,16 @@ class Database:
                 conn.execute("ALTER TABLE jobs ADD COLUMN dismiss_note TEXT")
                 conn.commit()
                 logger.info("Safety-Net: jobs.dismiss_note nachgezogen (#913)")
+            # v1.7.22 (#942): Teilscores getrennt speichern. Ohne sie
+            # sieht man nur die Summe und muss raten, ob die Punkte
+            # fachlich oder aus dem Rahmen kommen — genau daran war der
+            # Fehlgriff bisher nicht erkennbar. Additiv und optional,
+            # deshalb Safety-Net statt Schema-Bump (Muster #913).
+            for _sp in ("fachscore", "rahmenscore"):
+                if _j_cols and _sp not in _j_cols:
+                    conn.execute(f"ALTER TABLE jobs ADD COLUMN {_sp} REAL")
+                    conn.commit()
+                    logger.info("Safety-Net: jobs.%s nachgezogen (#942)", _sp)
             for _label in ("falsches_system", "falsche_branche"):
                 conn.execute(
                     "INSERT INTO dismiss_reasons (label, is_custom, "
@@ -4696,8 +4706,9 @@ class Database:
                     salary_info, salary_min, salary_max, salary_type, salary_estimated,
                     employment_type, is_pinned, lat, lon, veroeffentlicht_am,
                     is_search_url, profile_id, found_at, updated_at, is_active,
-                    dismiss_reason, research_notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    dismiss_reason, research_notes,
+                    fachscore, rahmenscore)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -4711,7 +4722,12 @@ class Database:
                 job.get("veroeffentlicht_am"),
                 1 if job.get("is_search_url") else 0,
                 job_pid, job.get("found_at", now), now, is_active,
-                dismiss_reason, research_notes
+                dismiss_reason, research_notes,
+                # v1.7.22 (#942): calculate_score legt die Teilscores am
+                # Job-Dict ab. Fehlen sie (manuelle Anlage, Ingest ohne
+                # Bewertung), bleibt die Spalte NULL statt 0 — 0 waere
+                # eine Aussage, NULL ist ehrlich "nicht bewertet".
+                job.get("_fachscore"), job.get("_rahmenscore")
             ))
             if is_new and is_active:
                 src = job.get("source") or "unbekannt"
@@ -7208,7 +7224,11 @@ class Database:
         if not target_hash:
             return
         allowed = ("title", "company", "location", "description", "research_notes",
-                   "score", "url", "is_search_url")
+                   "score", "url", "is_search_url",
+                   # v1.7.22 (#942): sonst kommen die Teilscores beim
+                   # Neuberechnen des Bestands nicht durch — die
+                   # Whitelist filtert unbekannte Felder still weg.
+                   "fachscore", "rahmenscore")
         sets, vals = [], []
         for f in allowed:
             if f in data:

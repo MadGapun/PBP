@@ -1905,6 +1905,31 @@ def _filter_nach_schwelle(stellen, schwelle):
     return behalten, len(stellen) - len(behalten)
 
 
+# v1.7.22 (#942): Deckel fuer den positiven Rahmenanteil, relativ zum
+# Fachscore. Der Wert ist NICHT geraten, sondern am eigenen Bestand
+# kalibriert (siehe Backtest im Issue): er trennt bewerbungsverknuepfte
+# Stellen am deutlichsten von aussortierten.
+RAHMEN_DECKEL_STANDARD = 0.5
+
+
+def rahmen_deckel_faktor(criteria: dict) -> float:
+    """Wieviel Rahmen darf der Fachscore hoechstens tragen.
+
+    0.5 bedeutet: hoechstens 50 Prozent Aufschlag auf den Fachscore.
+    Ueber `suchkriterien_bearbeiten` einstellbar; 0 schaltet den
+    Rahmenbonus ganz ab, ein sehr hoher Wert stellt das alte additive
+    Verhalten wieder her.
+    """
+    try:
+        wert = criteria.get("rahmen_deckel_faktor")
+        if wert is None or wert == "":
+            return RAHMEN_DECKEL_STANDARD
+        wert = float(wert)
+        return wert if wert >= 0 else RAHMEN_DECKEL_STANDARD
+    except (TypeError, ValueError):
+        return RAHMEN_DECKEL_STANDARD
+
+
 def _muss_tor_match(keyword: str, text: str) -> bool:
     """v1.7.22 (#940): Tor-Entscheidung fuer MUSS-Keywords.
 
@@ -2240,7 +2265,14 @@ def calculate_score(job: dict, criteria: dict) -> int:
     if idf:
         from ..services.kalibrierung import MUSS_TOP_N
         muss_punkte = muss_punkte[:MUSS_TOP_N]
-    score = sum(muss_punkte)
+    # v1.7.22 (#942): Zwei getrennte Konten statt einer Summe.
+    # Additiv verrechnet konnten Rahmenpunkte fachliche Passung nicht
+    # nur verstaerken, sondern ERSETZEN — eine Hamburger
+    # Senior-Remote-Stelle ohne jeden Fachbezug kam auf zweistellige
+    # Scores. Der Fachscore ist die Basis und zugleich das Tor.
+    fachscore = sum(muss_punkte)
+    rahmen_plus = 0.0
+    rahmen_minus = 0.0
 
     # v1.7.12 (#827): Flag fuer Tools/Frontend, wenn ALLE MUSS-Treffer
     # nur in der Firmen-Selbstdarstellung sitzen — der Score ist dann
@@ -2258,7 +2290,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     _muss_norm = {kw.strip().lower() for kw in muss}
     plus_effektiv = [kw for kw in plus
                      if kw.strip().lower() not in _muss_norm]
-    score += sum(
+    rahmen_plus += sum(
         _punkte_pro_treffer(kw, w["plus"], overrides, idf)
         * _treffer_faktor(kw)
         for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)
@@ -2272,7 +2304,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     minus = criteria.get("keywords_minus", [])
     if minus:
         # #755 (C25): strikt statt fuzzy — Malus nur bei echtem Treffer
-        score -= sum(
+        rahmen_minus += sum(
             _punkte_pro_treffer(kw, w["minus"], overrides, {})
             for kw in minus if _strict_keyword_match(kw, text)
         )
@@ -2292,23 +2324,23 @@ def calculate_score(job: dict, criteria: dict) -> int:
         _komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > type_max_dist * 4:
             # Way beyond limit: full penalty
-            score -= w["fern_malus"] * (1 - _komp)
+            rahmen_minus += w["fern_malus"] * (1 - _komp)
         elif dist > type_max_dist * 2:
             # Moderately beyond: slight penalty
-            score -= 1 * (1 - _komp)
+            rahmen_minus += 1 * (1 - _komp)
         elif dist <= type_max_dist * 0.6:
             # Well within range: bonus
-            score += w["naehe"]
+            rahmen_plus += w["naehe"]
         elif dist <= type_max_dist:
             # Within range: smaller bonus
-            score += max(1, w["naehe"] - 1)
+            rahmen_plus += max(1, w["naehe"] - 1)
 
     # Remote bonus (#60) — differentiate remote vs hybrid
     remote = job.get("remote_level", "unbekannt")
     if remote == "remote":
-        score += w["remote"] + 1  # full remote gets extra
+        rahmen_plus += w["remote"] + 1  # full remote gets extra
     elif remote == "hybrid":
-        score += w["remote"]
+        rahmen_plus += w["remote"]
 
     # Application signal bonus (#68) — boost similar jobs
     applied_titles = criteria.get("_applied_titles", [])
@@ -2316,7 +2348,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
         job_title = job.get("title", "").lower()
         for at in applied_titles:
             if at in job_title or job_title in at:
-                score += 2  # applied for similar = strong signal
+                rahmen_plus += 2  # applied for similar = strong signal
                 break
 
     # Salary bonus: reward jobs matching salary expectations
@@ -2333,7 +2365,32 @@ def calculate_score(job: dict, criteria: dict) -> int:
             job_yearly = salary_min
             pref_yearly = salary_pref_min
         if pref_yearly and job_yearly >= pref_yearly:
-            score += w["gehalt"]
+            rahmen_plus += w["gehalt"]
+
+    # v1.7.22 (#942): Asymmetrie ist der Kern. Ein Bonus darf fehlende
+    # Eignung NICHT kompensieren — deshalb ist der positive Rahmen
+    # relativ zum Fachscore gedeckelt (null mal irgendetwas bleibt
+    # null). Ein Malus darf vorhandene Eignung sehr wohl entwerten —
+    # deshalb bleibt der negative Rahmen ungedeckelt: eine fachlich
+    # passende Stelle, die sich als reine Administrationsrolle
+    # entpuppt, soll abstuerzen duerfen.
+    # WICHTIG: Der Deckel gilt nur, wenn ueberhaupt MUSS-Keywords
+    # konfiguriert sind. Ohne sie gibt es keinen Fachscore, an dem man
+    # etwas relativieren koennte — der Rahmen IST dann die Bewertung.
+    # Ohne diese Ausnahme bekaeme jede Stelle 0, und zwar ausgerechnet
+    # bei frischen Profilen, die noch keine MUSS-Liste gepflegt haben.
+    if muss:
+        deckel = rahmen_deckel_faktor(criteria) * fachscore
+        rahmen_effektiv = min(rahmen_plus, deckel) - rahmen_minus
+    else:
+        rahmen_effektiv = rahmen_plus - rahmen_minus
+    score = fachscore + rahmen_effektiv
+
+    # Teilscores mitgeben: ohne sie sieht man nur die Summe und muss
+    # raten, woher die Punkte kommen (#942).
+    job["_fachscore"] = round(fachscore, 1)
+    job["_rahmenscore"] = round(rahmen_effektiv, 1)
+    job["_rahmen_ungedeckelt"] = round(rahmen_plus - rahmen_minus, 1)
 
     # #778: Mit Einzelgewichten/IDF kann score ein Float sein — auf eine
     # Nachkommastelle runden; der Default-Pfad (Ints) bleibt unveraendert.
