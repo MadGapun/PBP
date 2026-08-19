@@ -77,6 +77,16 @@ einer kurzen Beschreibung auf. Das informiert den User UND legt einen
 Datensatz fuer ein potentielles GitHub-Issue an. Niemals stillschweigend
 auf Workarounds ausweichen — die fehlende Tool-Abdeckung ist Wert
 gemeldet zu werden, damit PBP daraus lernt.
+
+BEVOR EIN TEXT NACH DRAUSSEN GEHT (#946) — jeder GitHub-Issue, jeder
+Kommentar, jede Release-Notiz, jeder Fehlerbericht laeuft ZUERST durch
+'issue_text_pruefen(text=...)'. Das Tool vergleicht den Text gegen den
+echten Bestand (Bewerbungen, gesichtete Stellen, Kontakte) und findet
+Firmen- und Personennamen, die beim Durchlesen uebersehen werden.
+Meldet es Treffer: erneut mit anonymisieren=True aufrufen und NUR den
+zurueckgegebenen Text verwenden. Eigenes Durchlesen genuegt NICHT —
+dieser Schritt ist dreimal in zwei Tagen misslungen; nachtraeglich
+korrigieren hilft nicht, weil GitHub die Bearbeitungshistorie zeigt.
 """
 
 # Create MCP server

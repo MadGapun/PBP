@@ -3008,3 +3008,61 @@ def register(mcp, db, logger):
                 "Wird nicht erneut vorgeschlagen."
             ),
         }
+
+    # === #946: Pruefschritt VOR dem Anlegen eines Issues =================
+    # Dreimal innerhalb von zwei Tagen sind Bewerbungsdaten in oeffentliche
+    # Issues geraten (#919, #928, #940-#945). Die Regel dagegen existiert
+    # laengst — sie greift nur beim Nachlesen, also zu spaet: GitHub zeigt
+    # die Bearbeitungshistorie, Ueberschreiben hilft nicht, und Loeschen
+    # kann nur der Eigentuemer.
+
+    @mcp.tool()
+    def issue_text_pruefen(text: str, anonymisieren: bool = False) -> dict:
+        """PFLICHT vor jedem GitHub-Text: prueft gegen den eigenen Bestand.
+
+        Sucht Firmen- und Personennamen aus DEINER Datenbank
+        (Bewerbungen, gesichtete Stellen, Kontakte) in einem Text, der
+        nach draussen gehen soll — Issue, Kommentar, Release-Notiz,
+        Fehlerbericht.
+
+        Args:
+            text: Der vollstaendige Text, so wie er abgeschickt wuerde.
+            anonymisieren: True ersetzt gefundene Namen durch stabile
+                Platzhalter und liefert den fertigen Text zurueck.
+                Dieselbe Firma bekommt dabei immer denselben Platzhalter,
+                damit Belegketten ueber mehrere Issues lesbar bleiben.
+
+        Quellennamen (Jobportale), Job-Hashes und der eigene Klarname
+        loesen bewusst keinen Treffer aus.
+        """
+        from ..services import pii_bestand
+
+        if not (text or "").strip():
+            return {"fehler": "Kein Text uebergeben.",
+                    "hinweis": "Gib den Text mit, der veroeffentlicht "
+                               "werden soll — vollstaendig, nicht gekuerzt."}
+
+        bericht = pii_bestand.pruefe_text(db, text)
+
+        if anonymisieren:
+            ersatz = pii_bestand.anonymisiere_text(db, text)
+            bericht["anonymisierter_text"] = ersatz["text"]
+            bericht["ersetzt"] = ersatz["ersetzt"]
+
+        if bericht["sauber"] and not bericht["anzahl"]:
+            bericht["hinweis"] = (
+                "Keine Namen aus deinem Bestand gefunden — der Text kann "
+                "so veroeffentlicht werden.")
+        elif bericht["sauber"]:
+            bericht["hinweis"] = (
+                f"{bericht['anzahl']} unsichere(r) Treffer: das sind "
+                "gewoehnliche Woerter, die zufaellig auch als Firmenname "
+                "im Bestand stehen. Kurz ansehen, meist unbedenklich.")
+        else:
+            bericht["hinweis"] = (
+                "NICHT veroeffentlichen. Die gefundenen Namen stammen aus "
+                "deinem Bewerbungsbestand. Mit anonymisieren=True bekommst "
+                "du den Text mit stabilen Platzhaltern zurueck. "
+                "Nachtraeglich korrigieren hilft nicht — GitHub zeigt die "
+                "Bearbeitungshistorie.")
+        return bericht

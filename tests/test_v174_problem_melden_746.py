@@ -19,10 +19,17 @@ class TestProblemMeldenPrompt:
         assert "pbp_grenze_melden()" in text
 
     def test_pii_scrub_pflicht(self):
+        """v1.7.22 (#946): der Schritt ist jetzt MECHANISCH, nicht mehr
+        eine Aufzaehlung von Platzhaltern, die Claude selbst anwenden
+        soll. Genau das ist am 18./19.08. dreimal misslungen — die
+        Ersetzung von Hand uebersieht Namen, die man nicht kennt.
+        Stattdessen ist `issue_text_pruefen` Pflicht, das gegen den
+        echten Bestand prueft."""
         text = build_problem_melden_prompt()
-        assert "ANONYMISIEREN" in text
-        for platzhalter in ("<PERSON>", "<USER>", "<FIRMA>", "<email-anonymisiert>"):
-            assert platzhalter in text, f"Platzhalter fehlt: {platzhalter}"
+        assert "issue_text_pruefen" in text
+        assert "anonymisieren=True" in text
+        # Der Schritt muss VOR dem Zeigen des Textes stehen.
+        assert text.index("issue_text_pruefen") < text.index("SCHRITT 4")
 
     def test_github_link_und_beschreibung(self):
         text = build_problem_melden_prompt("Suche findet nichts")

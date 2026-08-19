@@ -503,13 +503,24 @@ Formuliere den fertigen GitHub-Issue-Text FUER den User:
   Erwartetes vs. tatsaechliches Verhalten · PBP-Version · ggf. die
   Fehlermeldung im Wortlaut
 
-SCHRITT 3 — ANONYMISIEREN (PFLICHT, Issues sind oeffentlich):
-Ersetze im Report-Text BEVOR du ihn zeigst:
-- Namen dritter Personen → <PERSON>, eigener Name → <USER>
-- Konkrete Firmen aus Bewerbungen → <FIRMA>
-- Echte E-Mail-Adressen → <email-anonymisiert>, Telefonnummern → <telefon>
-- Interne IDs (Bewerbungs-/Stellen-IDs) duerfen bleiben
-Sage ausdruecklich dazu, dass der Text anonymisiert ist.
+SCHRITT 3 — PRUEFEN LASSEN (PFLICHT, Issues sind oeffentlich):
+Rufe `issue_text_pruefen(text=<der vollstaendige Report>)` auf, BEVOR du
+den Text zeigst. Das Tool vergleicht ihn gegen den echten Bestand
+(Bewerbungen, gesichtete Stellen, Kontakte) und findet auch Namen, an
+die du nicht gedacht haettest.
+
+- Meldet es Treffer: nochmal mit `anonymisieren=True` aufrufen und NUR
+  den zurueckgegebenen Text weiterverwenden.
+- Verlass dich NICHT auf eigenes Durchlesen. Genau dieser Schritt ist
+  dreimal in zwei Tagen misslungen (#919, #928, #940-#945) — jedes Mal
+  war der Report gut und enthielt trotzdem echte Firmennamen. Je
+  belegstaerker der Text, desto hoeher das Risiko.
+- Nachtraeglich korrigieren hilft nicht: GitHub zeigt die
+  Bearbeitungshistorie, und loeschen kann nur der Repo-Eigentuemer.
+
+Interne IDs und Stellen-Hashes duerfen bleiben, ebenso Quellennamen
+(Jobportale) — beides loest im Pruefer bewusst keinen Treffer aus.
+Sage ausdruecklich dazu, dass der Text geprueft und anonymisiert ist.
 
 SCHRITT 4 — ABGEBEN (zwei Wege, beide gleichwertig):
 - GitHub: Text einfuegen auf https://github.com/MadGapun/PBP/issues/new
