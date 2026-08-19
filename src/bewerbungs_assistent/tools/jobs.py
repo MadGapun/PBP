@@ -1763,6 +1763,14 @@ def register(mcp, db, logger):
                     entry["gehalt_geschaetzt"] = True
             if j.get("distance_km"):
                 entry["entfernung_km"] = j["distance_km"]
+            # v1.7.22 (#942): Fach- und Rahmenanteil getrennt ausweisen.
+            # "Score 31" allein verraet nicht, ob die Punkte fachlich
+            # sind oder aus Rahmenbegriffen (Senior, Remote, Hamburg)
+            # stammen. Mit der Aufteilung ist ein Fehlgriff auf einen
+            # Blick erkennbar.
+            if j.get("fachscore") is not None:
+                entry["fachscore"] = j.get("fachscore")
+                entry["rahmenscore"] = j.get("rahmenscore")
             if j.get("dismiss_reason"):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
             if j["hash"] in applied_hashes_all:
@@ -2005,9 +2013,21 @@ def register(mcp, db, logger):
                 logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s",
                                j.get("hash"), e)
                 continue
+            # v1.7.22 (#942): Teilscores immer nachziehen, auch wenn die
+            # Summe gleich bleibt — der Bestand hat sie noch gar nicht,
+            # und ohne sie zeigt die Liste weiter nur eine nackte Zahl.
+            _teile = {}
+            if j.get("_fachscore") is not None:
+                _teile = {"fachscore": j.get("_fachscore"),
+                          "rahmenscore": j.get("_rahmenscore")}
+            if new_score == old_score and _teile:
+                try:
+                    db.update_job(j.get("hash"), _teile)
+                except Exception:
+                    pass
             if new_score != old_score:
                 try:
-                    db.update_job(j.get("hash"), {"score": new_score})
+                    db.update_job(j.get("hash"), {"score": new_score, **_teile})
                     recomputed += 1
                     deltas.append(new_score - old_score)
                 except Exception as e:

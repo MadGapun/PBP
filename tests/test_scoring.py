@@ -63,8 +63,10 @@ class TestCalculateScore:
         job = _job(title="PLM Consultant", description="Python und Agile Methoden")
         criteria = _criteria(muss=["PLM"], plus=["Python", "Agile"])
         score = calculate_score(job, criteria)
-        # MUSS=2 + 2xPLUS=2 = 4 (default weights)
-        assert score == 4
+        # v1.7.22 (#942): PLUS ist relativ zum Fachscore gedeckelt.
+        # MUSS=2 (Fachscore), PLUS=2 roh -> gedeckelt auf 50% von 2 = 1.
+        # Ein Bonus darf fehlende Eignung nicht kompensieren.
+        assert score == 3
 
     def test_ausschluss_keyword(self):
         """AUSSCHLUSS keyword present → score = 0 regardless of other matches."""
@@ -87,8 +89,9 @@ class TestCalculateScore:
         job = _job(title="PLM Engineer", remote="hybrid")
         criteria = _criteria(muss=["PLM"])
         score = calculate_score(job, criteria)
-        # MUSS=2 + remote=2 = 4
-        assert score == 4
+        # v1.7.22 (#942): Remote ist Rahmen und faellt unter denselben
+        # Deckel: MUSS=2, Rahmen 2 -> gedeckelt auf 1.
+        assert score == 3
 
     def test_distance_bonus(self):
         """Jobs within 80km get bonus points."""
@@ -116,8 +119,8 @@ class TestCalculateScore:
             gewichtung={"muss": 5, "plus": 3, "remote": 1, "naehe": 1, "fern_malus": 1},
         )
         score = calculate_score(job, criteria)
-        # MUSS=5 + PLUS=3 = 8
-        assert score == 8
+        # v1.7.22 (#942): MUSS=5 (Fachscore), PLUS=3 -> Deckel 2.5.
+        assert score == 7.5
 
     def test_case_insensitive(self):
         """Keyword matching is case-insensitive."""
