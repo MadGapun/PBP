@@ -33,6 +33,138 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.22] - 2026-08-19 — Die Stellenliste wird ehrlich
+
+> **Empfohlenes Update.** Vier Praxis-Befunde aus einer Pruefung des
+> Live-Bestands: die Stellenliste enthielt ueberwiegend Stellen ohne
+> fachlichen Bezug, und erkannte Wiedergaenger wurden trotzdem
+> angezeigt. Keine Schema-Migration (nur additive Safety-Net-Spalten).
+
+### Fixed
+- **MUSS-Begriffe sind wieder ein echtes Tor (#940)**: Der Filter hat
+  nie gefehlt — er wurde ueberlistet. Die Suche nach Stichworten war auf
+  *Finden* ausgelegt (richtig fuer Bonus-Begriffe) und entschied
+  trotzdem darueber, ob eine Stelle ueberhaupt in Frage kommt. Zwei
+  Effekte:
+
+  Ein Begriff aus mehreren Woertern galt als getroffen, sobald die
+  Einzelwoerter *irgendwo* im Text standen — in beliebiger Reihenfolge
+  und Entfernung. Damit passte "Engineering Data Management" auf nahezu
+  jede technische Anzeige. Und ueber die Synonymliste machte die
+  Wendung "manage product lifecycles" aus einer Produktmanager-Stelle
+  eine PLM-Stelle, obwohl das Kuerzel dort **null Mal** vorkam.
+
+  Jetzt zaehlt fuer die Aufnahme nur noch ein zusammenhaengender
+  Treffer. Produktnamen bleiben als Synonym erhalten — eine
+  Teamcenter-Stelle *ist* eine PLM-Stelle, auch ohne das Kuerzel.
+
+  Gemessen am echten Bestand, gleiche Einstellungen, nur das Tor
+  getauscht: von 19 aktiven Stellen wies das alte Verfahren **keine**
+  ab, das neue **sieben** — und die Bewertung aller uebrigen blieb
+  unveraendert.
+
+- **Fachliche Passung laesst sich nicht mehr durch Rahmenbegriffe
+  ersetzen (#942)**: Bisher wurden alle Punkte in eine Summe geworfen.
+  Eine Hamburger Senior-Remote-Stelle sammelte damit zweistellige
+  Werte, ohne fachlich irgendetwas zu treffen. Die Begriffsliste war
+  dabei nicht falsch gepflegt — die Verrechnung war es.
+
+  Jetzt gibt es zwei Werte: einen **Fachscore** aus den MUSS-Begriffen
+  und einen **Rahmenscore** aus allem Uebrigen (Bonus-Begriffe, Naehe,
+  Remote, Gehalt). Der Rahmen kann den Fachscore nur noch um einen
+  Anteil anheben, ein Malus dagegen weiterhin unbegrenzt abwerten. Ein
+  Bonus darf fehlende Eignung nicht kompensieren, ein Malus vorhandene
+  Eignung sehr wohl entwerten.
+
+  Beide Werte werden getrennt ausgewiesen — bisher sah man nur die
+  Summe und musste raten, woher sie kommt.
+
+- **Erkannte Wiedergaenger haben endlich eine Konsequenz (#941)**:
+  Bisher wurde eine Stelle als "nicht empfohlen" erkannt, begruendet —
+  und trotzdem als aktive Stelle angezeigt. Jetzt wird sie automatisch
+  aussortiert; taucht dieselbe Firma-Fachgebiet-Kombination erneut auf,
+  erscheint sie gar nicht mehr. Neu ist auch eine Erkennung ueber
+  Titel und Fachgebiet **firmenuebergreifend**.
+
+  Damit das nicht unbemerkt zu scharf wird: unter den aktiven Stellen
+  liegt jetzt eine **eingeklappte Liste der automatisch aussortierten**
+  (Laenge einstellbar), jede mit einem Klick zurueckholbar. Jede
+  Ruecknahme wird protokolliert. Und automatisch aussortierte Stellen
+  zaehlen nicht mehr in die Durchschnittswerte der Statistik — sonst
+  waeren die zunehmend von Stellen bestimmt, die nie jemand gesehen hat.
+
+  **Bewerbungen bleiben ausgenommen.** Eine Stelle, auf die du dich
+  beworben hast, wird nie automatisch aussortiert — eine erneute
+  Ausschreibung kann eine echte zweite Chance sein.
+
+### Added
+- **Schutz vor Bewerbungsdaten in oeffentlichen Fehlerberichten
+  (#946)**: Innerhalb von zwei Tagen sind dreimal reale Firmennamen aus
+  der Bewerbungshistorie in oeffentliche Fehlerberichte geraten. Der
+  Melde-Weg prueft den Text jetzt automatisch gegen den eigenen
+  Bestand, bevor er nach draussen geht, und ersetzt gefundene Namen auf
+  Wunsch durch Platzhalter — dieselbe Firma behaelt dabei immer
+  denselben Platzhalter. Die Zuordnung bleibt ausschliesslich lokal.
+
+  Namen von Jobportalen, interne IDs und der eigene Name loesen bewusst
+  keinen Treffer aus.
+
+- Die Jobsuche weist jetzt aus, wie viele Treffer je Filterstufe
+  verworfen wurden. Bisher sah man nur "7.100 Rohtreffer, 15 Stellen"
+  und konnte nicht beurteilen, ob die Suche zu streng oder die Quelle
+  schlecht war.
+
+### Changed
+- Die Automatik entscheidet nur auf Basis echter Ablehnungsgruende.
+  Buchhaltungs-Vermerke, Freitext-Notizen und System-Eintraege loesen
+  nichts aus — zwei Messungen am echten Bestand zeigten sonst, dass
+  ausgerechnet die bestbewerteten Stellen verschwunden waeren.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.22.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.22.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.21] - 2026-08-18 — Keine Sackgassen: Wegweiser statt Nullmeldung
 
 > **Empfohlenes Update**, besonders fuer neue Installationen. Keine
