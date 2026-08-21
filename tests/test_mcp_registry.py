@@ -214,6 +214,7 @@ EXPECTED_TOOL_NAMES = {
     "stilarchiv_outcome_setzen",
     "stilarchiv_speichern",
     "scoring_vorschau",
+    "beschreibungen_nachladen_bestand",
     "bewerbungsbericht_exportieren",
     "keyword_vorschlaege",
     "pbp_diagnose",
@@ -363,7 +364,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 217  # v1.7.22 (#946): +issue_text_pruefen
+        assert len(tools) == 218  # v1.7.23 (#952): +beschreibungen_nachladen_bestand
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

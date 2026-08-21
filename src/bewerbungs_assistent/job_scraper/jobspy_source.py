@@ -26,6 +26,7 @@ import logging
 from typing import Any
 
 from . import stelle_hash, detect_remote_level
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.jobspy")
 
@@ -113,7 +114,7 @@ def _map_row(row: Any, site: str) -> dict:
         "location": location,
         "url": url,
         "source": source_key,
-        "description": description[:2000],
+        "description": fuer_speicher(description),
         "employment_type": _normalize_job_type(job_type),
         "remote_level": remote,
         "salary_min": _to_int_or_none(salary_min),

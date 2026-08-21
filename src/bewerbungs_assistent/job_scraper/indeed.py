@@ -123,7 +123,7 @@ def search_indeed(params: dict) -> list:
                             link,
                             company: companyEl?.textContent?.trim() || 'Unbekannt',
                             location: locationEl?.textContent?.trim() || '',
-                            desc: (descEl?.textContent?.trim() || '').substring(0, 2000),
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 200000),
                             salary: salaryEl?.textContent?.trim() || '',
                         });
                     }
@@ -205,7 +205,7 @@ def _fetch_detail_descriptions(page, jobs):
                 ]) {
                     const el = document.querySelector(sel);
                     if (el && el.textContent?.trim().length > 100) {
-                        return el.textContent.trim().substring(0, 2000);
+                        return el.textContent.trim().substring(0, 200000);
                     }
                 }
                 return '';

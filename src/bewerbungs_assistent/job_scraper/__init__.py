@@ -1694,18 +1694,23 @@ def extract_jobposting_jsonld(html: str, max_chars: int = 2000) -> dict:
 
 
 def fetch_description_from_detail(url: str, client, *, timeout: float = 15,
-                                  max_chars: int = 2000) -> str:
+                                  max_chars: int = None) -> str:
     """Fetch job description from a detail page via httpx.
 
     Tries JSON-LD first (via extract_jobposting_jsonld), then common
     HTML content selectors. Returns plain text description (max
     ``max_chars`` chars) or empty string.
 
-    #690: Beim expliziten Nachladen einer einzelnen Stelle
-    (stellenbeschreibung_nachladen) wird ein grosszuegiges max_chars
-    uebergeben, damit lange Beschreibungen nicht bei 2000 Zeichen
-    abgeschnitten werden. Bulk-Scraper nutzen weiter den 2000er-Default.
+    v1.7.23 (#952): Der Default war 2000 — und damit kappte ausgerechnet
+    der REFETCH, der duenne Beschreibungen heilen soll. Die Kette aus
+    #622 und #756 (unbewertet fuehren, Volltext nachladen, Snapshot
+    festschreiben) lief deshalb ins Leere: sie holte zuverlaessig immer
+    wieder denselben halben Text. Jetzt greift die Notbremse aus
+    `textgrenzen`, nicht die alte Anzeige-Grenze.
     """
+    from .textgrenzen import SPEICHER_MAX
+    if max_chars is None:
+        max_chars = SPEICHER_MAX
     try:
         from bs4 import BeautifulSoup
         resp = client.get(url, timeout=timeout)
@@ -2662,6 +2667,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # "ignorieren" — dann faellt Malus UND Risiko-Hinweis komplett weg.
     desc = job.get("description") or ""
     degree_required = _detect_degree_required(f"{job.get('title', '')} {desc}")
+    # v1.7.23 (#952): Wurde der Anzeigentext bei der alten Grenze
+    # abgeschnitten? Dann fehlt der Anforderungsteil, und
+    # Negativ-Aussagen daraus sind nicht belastbar.
+    from .textgrenzen import ist_gekappt as _ist_gekappt
+    _text_gekappt = _ist_gekappt(desc)
     has_degree = _profile_has_degree(criteria)
     _hs_malus = criteria.get("_hochschulabschluss_malus", -2)
     if degree_required and not has_degree and _hs_malus is not None:
@@ -2712,6 +2722,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         "minus_hits": minus_hits,
         "factors": factors,
         "risks": risks,
+        "beschreibung_unvollstaendig": _text_gekappt,
         "beschreibung_vorhanden": len(desc.strip()) >= 50,
         # #762: Beschreibung da, aber nur eine Kurznotiz (typisch nach
         # stelle_manuell_anlegen). Dann matchen kaum MUSS-Keywords -> der Score
@@ -2719,7 +2730,14 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         # fehlende Datengrundlage. Echte Anzeigen liegen deutlich ueber 400
         # Zeichen; darunter behandeln wir den Score als nicht belastbar.
         "beschreibung_kurz": 50 <= len(desc.strip()) < 400,
-        "hochschulabschluss_gefordert": degree_required,
+        # v1.7.23 (#952): Bei abgeschnittenem Text ist `False` eine
+        # Behauptung, die die Daten nicht hergeben. Der Anforderungsteil
+        # steht am Ende der Anzeige und ist genau der Teil, der fehlt —
+        # ein falsches "nicht gefordert" ist schlechter als ein
+        # eingestandenes "weiss nicht".
+        "hochschulabschluss_gefordert": (
+            degree_required if (degree_required or not _text_gekappt)
+            else "unbekannt"),
     }
 
 

@@ -76,5 +76,8 @@ def test_527_freelancermap_detail_fetch_in_code():
     src = Path("src/bewerbungs_assistent/job_scraper/freelancermap.py").read_text(encoding="utf-8")
     # Detail-Fetch-Schleife muss da sein
     assert "DETAIL_FETCH_LIMIT" in src
-    # Beschreibung wird gesetzt (nicht nur leer)
-    assert "description = txt[:2000]" in src
+    # Beschreibung wird gesetzt (nicht nur leer).
+    # v1.7.23 (#952): frueher stand hier die Kappung auf 2000 Zeichen —
+    # die Ablage bekommt jetzt den vollen Text, die Grenze wirkt nur
+    # noch in der Ausgabe.
+    assert "description = fuer_speicher(txt)" in src

@@ -32,6 +32,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
 
 from . import detect_remote_level, make_session, stelle_hash
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.greenhouse")
 
@@ -144,7 +145,7 @@ def _map(job: dict, slug: str, location_text: str, desc_text: str) -> dict:
         "location": location_text,
         "url": url,
         "source": "greenhouse",
-        "description": desc_text[:2000],
+        "description": fuer_speicher(desc_text),
         "employment_type": "festanstellung",
         "remote_level": remote,
     }

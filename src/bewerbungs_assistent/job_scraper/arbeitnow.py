@@ -26,6 +26,7 @@ from urllib.parse import quote_plus
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.arbeitnow")
 
@@ -39,7 +40,7 @@ def _clean_html(html: str) -> str:
         return ""
     text = re.sub(r"<[^>]+>", " ", html)
     text = re.sub(r"\s+", " ", text).strip()
-    return text[:2000]
+    return fuer_speicher(text)
 
 
 def _matches(job: dict, keywords: list[str], region: str | None) -> bool:

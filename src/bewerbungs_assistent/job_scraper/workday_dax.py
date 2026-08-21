@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.workday_dax")
 
@@ -56,7 +57,7 @@ def _strip_html(text: str) -> str:
         return ""
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    return text[:2000]
+    return fuer_speicher(text)
 
 
 def _build_url(tenant: str, wd: str, site: str) -> str:

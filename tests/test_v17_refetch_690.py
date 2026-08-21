@@ -37,7 +37,11 @@ def test_690_fetch_description_honors_max_chars():
     from bewerbungs_assistent.job_scraper import fetch_description_from_detail
     html = JSONLD.format(desc="B" * 8000)
     client = _FakeClient(html)
-    # Default bleibt 2000 (Bulk-Scraper-Kompatibilitaet)
-    assert len(fetch_description_from_detail("http://x", client)) == 2000
-    # Explizites Nachladen kann die volle Beschreibung speichern
-    assert len(fetch_description_from_detail("http://x", client, max_chars=20000)) == 8000
+    # v1.7.23 (#952): Der 2000er-Default WAR die Ursache. Er kappte
+    # ausgerechnet im Refetch, der duenne Beschreibungen heilen soll —
+    # die Kette aus #622/#756 holte damit zuverlaessig immer wieder
+    # denselben halben Text. Jetzt greift die Notbremse aus
+    # `textgrenzen`, und der volle Text kommt an.
+    assert len(fetch_description_from_detail("http://x", client)) == 8000
+    # Eine ausdrueckliche Grenze wird weiterhin respektiert.
+    assert len(fetch_description_from_detail("http://x", client, max_chars=500)) == 500
