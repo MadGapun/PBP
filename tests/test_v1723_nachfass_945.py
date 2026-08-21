@@ -190,3 +190,46 @@ def test_945_uebersicht_nennt_den_passenden_aufruf_je_herkunft():
                    "meeting_bearbeiten"):
         assert f'"{aufruf}' in quelle or f"{aufruf}('" in quelle, aufruf
     assert "erledigen_mit" in quelle
+
+
+# ── Automatik setzt tatsaechlich auf hinfaellig ──────────────────────
+
+def test_945_automatik_schliesst_ueberholte_nachfassung(tmp_db, monkeypatch):
+    """AK: nicht nur melden, sondern auf hinfaellig setzen.
+
+    Bewusst in der Automatik und nicht beim Lesen — eine Liste
+    abzurufen darf nichts veraendern.
+    """
+    import bewerbungs_assistent.dashboard as dash
+
+    aid = tmp_db.add_application({
+        "title": "PLM Consultant", "company": "Musterfirma GmbH",
+        "position": "PLM Consultant", "status": "beworben",
+        "applied_at": "2026-07-30",
+    })
+    fid = tmp_db.add_follow_up(aid, "2026-08-05", "nachfass", template="")
+    monkeypatch.setattr(dash, "_db", tmp_db)
+
+    # Solange der Stand 'beworben' ist, bleibt sie offen.
+    dash._run_followup_ueberholt("2026-08-20T10:00:00")
+    assert (tmp_db.get_follow_up(fid) or {}).get("status") == "geplant"
+
+    # Sobald ein Gespraech laeuft, ist sie gegenstandslos.
+    tmp_db.update_application_status(aid, "zweitgespraech")
+    ergebnis = dash._run_followup_ueberholt("2026-08-20T10:00:00")
+    assert ergebnis["hinfaellig"] >= 1, ergebnis
+    danach = tmp_db.get_follow_up(fid) or {}
+    assert danach.get("status") == "hinfaellig", danach
+    # Nicht geloescht — die Historie bleibt.
+    assert danach.get("id") == fid
+
+
+def test_945_aufraeumer_laeuft_vor_dem_reconciler():
+    """Andersherum legt der Reconciler an, was der Aufraeumer im selben
+    Lauf wieder schliesst."""
+    from pathlib import Path
+    quelle = (Path(__file__).resolve().parents[1] / "src" /
+              "bewerbungs_assistent" / "dashboard.py").read_text(encoding="utf-8")
+    i_auf = quelle.index('_step("followup_ueberholt"')
+    i_rec = quelle.index('_step("followup_reconciler"')
+    assert i_auf < i_rec
