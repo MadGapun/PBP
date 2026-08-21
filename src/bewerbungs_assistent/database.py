@@ -5349,9 +5349,19 @@ class Database:
                 from datetime import datetime, timedelta
                 when = (datetime.now() + timedelta(days=delay_days)).date().isoformat()
                 try:
+                    # v1.7.23 (#945): auch hier den vollen Kontext
+                    # erzeugen. Bisher stand nur der Anlass da — wer die
+                    # Aufgabe oeffnete, musste Ansprechpartner, Kanal und
+                    # Bewerbungsdatum wieder selbst zusammensuchen.
+                    from .services.nachfass_text import nachfass_text
+                    _app_tpl = self.get_application(app_id) or {}
                     fid = self.add_follow_up(
                         app_id, when, follow_up_type="nachfass",
-                        template=f"Nachfrage nach Interview-Ergebnis (automatisch {delay_days} Tage nach Abschluss)",
+                        template=nachfass_text(
+                            _app_tpl,
+                            anlass=(f"Nachfrage nach dem Gespraechsergebnis "
+                                    f"(automatisch {delay_days} Tage nach "
+                                    f"Abschluss)")),
                     )
                     result["new_followup_id"] = fid
                     result["new_followup_date"] = when

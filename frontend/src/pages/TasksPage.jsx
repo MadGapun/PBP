@@ -11,7 +11,7 @@
  * gruppiert nach Faelligkeit, bedienbar aus der Zeile.
  */
 import { useCallback, useContext, useEffect, useState } from "react";
-import { Check, Clock3, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, ClipboardCopy, Clock3, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { api, deleteRequest, postJson } from "@/api";
 import { AppContext } from "@/app-context";
 
@@ -50,6 +50,7 @@ export default function TasksPage() {
   const [neuBewerbung, setNeuBewerbung] = useState("");
   const [bewerbungen, setBewerbungen] = useState([]);
   const [detail, setDetail] = useState(null);
+  const [kopiert, setKopiert] = useState("");
   const [fehler, setFehler] = useState("");
 
   const laden = useCallback(async () => {
@@ -155,6 +156,15 @@ export default function TasksPage() {
             <span className={`rounded px-1.5 py-px text-[10px] font-bold ${badgeCls}`}>{label}</span>
             <span className={`truncate text-sm ${e.status === "erledigt" ? "text-muted/40 line-through" : "text-ink"}`}>{e.titel}</span>
           </div>
+          {/* #945: Die Beschreibung gehoert in die Zeile. Wer nur Firma
+              und Datum sieht, faengt an zu suchen — genau das war die
+              Beobachtung, die zu diesem Issue gefuehrt hat. */}
+          {e.beschreibung ? (
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted/80">{e.beschreibung}</p>
+          ) : null}
+          {e.ueberholt ? (
+            <p className="mt-0.5 text-xs text-amber">{e.ueberholt_grund}</p>
+          ) : null}
           <p className="mt-0.5 text-xs text-muted/60">
             {e.firma ? <span className="mr-2">{e.firma}</span> : null}
             {e.faellig_am ? (
@@ -183,6 +193,21 @@ export default function TasksPage() {
               </button>
             </>
           )}
+          {e.claude_prompt ? (
+            <button
+              onClick={async (ev) => {
+                ev.stopPropagation();
+                try {
+                  await navigator.clipboard.writeText(e.claude_prompt);
+                  setKopiert(e.id);
+                  setTimeout(() => setKopiert(""), 2000);
+                } catch { /* Zwischenablage nicht verfuegbar */ }
+              }}
+              title="Fertigen Claude-Auftrag kopieren"
+              className="rounded p-1 text-muted/40 hover:bg-white/10 hover:text-teal">
+              {kopiert === e.id ? <Check size={13} className="text-teal" /> : <ClipboardCopy size={13} />}
+            </button>
+          ) : null}
           {e.herkunft === "todo" && (
             <button
               onClick={() => { if (confirm("Aufgabe wirklich löschen?")) aktion(e, "loeschen"); }}

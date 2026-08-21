@@ -117,30 +117,13 @@ def _normalize_date(value: str) -> str:
 def _nachfass_template(app: dict) -> str:
     """v1.7.12 (#816, D34): fallbezogener Inhalt fuer Auto-Nachfassungen.
 
-    Vorher entstanden automatische Follow-ups grundsaetzlich als LEERER
-    Reminder (8 von 9 im belegten Bestand) — der Nutzer musste sich die
-    Aufgabe aus Notizen und Kontakten selbst rekonstruieren, und genau
-    das passierte dann nicht. Alles hier steht bereits im Datensatz;
-    es wurde nur nie zusammengefuehrt.
+    v1.7.23 (#945): Der Baustein liegt jetzt in
+    `services/nachfass_text.py`, weil er an VIER Anlagestellen gebraucht
+    wird und nur an zwei benutzt wurde — die automatisch beim
+    Statuswechsel erzeugten Eintraege blieben deshalb leer.
     """
-    teile = [f"Nachfassen zur Bewerbung als {app.get('title', '?')} "
-             f"bei {app.get('company', '?')}"]
-    if app.get("applied_at"):
-        teile[0] += f" (beworben am {str(app['applied_at'])[:10]})"
-    ansprech = (app.get("ansprechpartner") or "").strip()
-    mail = (app.get("kontakt_email") or "").strip()
-    if ansprech and mail:
-        teile.append(f"Ansprechpartner: {ansprech} ({mail})")
-    elif ansprech:
-        teile.append(f"Ansprechpartner: {ansprech}")
-    elif mail:
-        teile.append(f"Kontakt: {mail}")
-    art = (app.get("bewerbungsart") or "").strip()
-    if art:
-        teile.append(f"Beworben per: {art}")
-    teile.append("Kurz freundlich nach dem Stand fragen und auf die "
-                 "Bewerbung Bezug nehmen.")
-    return " — ".join(teile)
+    from ..services.nachfass_text import nachfass_text
+    return nachfass_text(app)
 
 
 # Status-zu-Aktionen Mapping (#170): Kontextabhängige Aktionen pro Status

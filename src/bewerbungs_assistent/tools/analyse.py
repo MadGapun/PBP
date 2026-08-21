@@ -601,8 +601,39 @@ def register(mcp, db, logger):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         week_end = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%d")
 
+        from ..services.nachfass_text import (claude_prompt, dringlichkeit,
+                                              ist_ueberholt, nachfass_text)
+
         grouped = {"ueberfaellig": [], "heute": [], "diese_woche": [], "spaeter": []}
+        ueberholt: list = []
         for f in follow_ups:
+            # v1.7.23 (#945): Bewerbung dazuladen — der Kontext liegt dort
+            # und wurde bisher nie zusammengefuehrt.
+            app = {}
+            try:
+                app = db.get_application(f.get("application_id")) or {}
+            except Exception:
+                app = {}
+
+            # Hat sich die Aufgabe durch den Verfahrensstand erledigt?
+            weg, warum = ist_ueberholt(f, app)
+            if weg:
+                ueberholt.append({
+                    "id": f["id"],
+                    "bewerbung": f.get("title", "?"),
+                    "firma": f.get("company", "?"),
+                    "grund": warum,
+                    "erledigen_mit": f"follow_up_hinfaellig('{f['id'][:8]}')",
+                })
+                continue
+
+            # Fehlender Text wird BEIM LESEN erzeugt. Der Altbestand
+            # traegt ihn nicht, und eine Migration koennte ihn fuer
+            # geloeschte Bewerbungen ohnehin nicht rekonstruieren.
+            text = (f.get("template") or "").strip()
+            if not text and app:
+                text = nachfass_text(app)
+
             entry = {
                 "id": f["id"],
                 "bewerbung": f.get("title", "?"),
@@ -610,7 +641,17 @@ def register(mcp, db, logger):
                 "app_status": f.get("app_status", "?"),
                 "typ": f["follow_up_type"],
                 "geplant_fuer": f["scheduled_date"],
-                "template": f.get("template", ""),
+                "template": text,
+                "was_zu_tun_ist": text,
+                "claude_prompt": claude_prompt(app) if app else "",
+                "erledigen_mit": f"follow_up_erledigen('{f['id'][:8]}')",
+                "_rang": dringlichkeit(
+                    app,
+                    tage_ueberfaellig=max(0, (
+                        datetime.now(timezone.utc).date()
+                        - datetime.fromisoformat(
+                            str(f["scheduled_date"])[:10]).date()).days)
+                    if f.get("scheduled_date") else 0),
             }
             if f["scheduled_date"] < today:
                 grouped["ueberfaellig"].append(entry)
@@ -621,12 +662,29 @@ def register(mcp, db, logger):
             else:
                 grouped["spaeter"].append(entry)
 
-        return {
+        # Nach Verfahrensstand sortieren, nicht allein nach Datum: sonst
+        # geht die Nachfrage zu einem abgeschlossenen Gespraech zwischen
+        # Routine-Eintraegen unter, nur weil deren Datum aelter ist.
+        for schluessel in grouped:
+            grouped[schluessel].sort(key=lambda e: -e.get("_rang", 0))
+            for e in grouped[schluessel]:
+                e.pop("_rang", None)
+
+        ergebnis = {
             "status": "ok",
-            "gesamt": len(follow_ups),
+            "gesamt": sum(len(v) for v in grouped.values()),
             "ueberfaellig": len(grouped["ueberfaellig"]),
             "follow_ups": grouped,
         }
+        if ueberholt:
+            ergebnis["ueberholt"] = ueberholt
+            ergebnis["hinweis"] = (
+                f"{len(ueberholt)} Nachfassung(en) sind durch den "
+                "Verfahrensstand gegenstandslos geworden (Gespraech laeuft "
+                "bereits oder Termin steht). Sie stehen unter 'ueberholt' "
+                "und lassen sich mit follow_up_hinfaellig(...) schliessen — "
+                "die Historie bleibt dabei erhalten.")
+        return ergebnis
 
     @mcp.tool()
     def stilarchiv_speichern(
