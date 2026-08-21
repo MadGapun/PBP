@@ -60,6 +60,8 @@ from .document_analysis_prompts import (
     build_prompt as build_document_analysis_prompt,
 )
 
+from .job_scraper.textgrenzen import fuer_speicher
+
 logger = logging.getLogger("bewerbungs_assistent.dashboard")
 
 # Reference to shared database (set in start_dashboard)
@@ -10340,7 +10342,8 @@ async def api_refresh_freelancermap_descriptions(request: Request):
                     if el:
                         txt = el.get_text(separator=" ", strip=True)
                         if len(txt) > 100:
-                            description = txt[:2000]
+                            # #952: Ablage vollstaendig, Grenze nur in der Ausgabe
+                            description = fuer_speicher(txt)
                             break
                 if description:
                     _db.update_job(r["hash"], {"description": description})

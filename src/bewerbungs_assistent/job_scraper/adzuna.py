@@ -23,6 +23,7 @@ from urllib.parse import quote
 import httpx
 
 from . import stelle_hash, detect_remote_level
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.adzuna")
 
@@ -180,7 +181,7 @@ def _process_raw_job(raw: dict) -> Optional[dict]:
     if isinstance(loc_obj, dict):
         location = loc_obj.get("display_name", "") or ""
     url = (raw.get("redirect_url") or "").strip()
-    description = (raw.get("description") or "")[:2000]
+    description = (raw.get("description") or fuer_speicher(""))
 
     # Gehalt — Adzuna liefert Jahres-Brutto wenn vorhanden
     salary_min = raw.get("salary_min")

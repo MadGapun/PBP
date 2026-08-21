@@ -23,6 +23,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level, fetch_description_from_detail
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.freelance_de")
 
@@ -239,7 +240,7 @@ def _extract_project_from_card(card, seen_urls: set) -> dict | None:
         "location": location,
         "url": project_url,
         "source": "freelance_de",
-        "description": description[:2000],
+        "description": fuer_speicher(description),
         "employment_type": "freelance",
         "remote_level": detect_remote_level(remote_text),
     }

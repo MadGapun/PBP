@@ -16,6 +16,7 @@ import re
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.remotive")
 
@@ -28,7 +29,7 @@ def _strip_html(text: str) -> str:
         return ""
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    return text[:2000]
+    return fuer_speicher(text)
 
 
 def _matches(title: str, location: str, desc: str, keywords: list) -> bool:

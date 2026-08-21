@@ -27,6 +27,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level, fetch_description_from_detail
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.kimeta")
 
@@ -144,7 +145,7 @@ def _search_kimeta_eingestellt(params: dict) -> list:
                                     "location": location,
                                     "url": item.get("url", ""),
                                     "source": "kimeta",
-                                    "description": (item.get("description", "") or "")[:2000],
+                                    "description": (item.get("description", "") or fuer_speicher("")),
                                     "employment_type": "festanstellung",
                                     "remote_level": detect_remote_level(
                                         f"{title} {location} {item.get('description', '')}"

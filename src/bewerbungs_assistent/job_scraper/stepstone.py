@@ -241,7 +241,7 @@ def _fetch_detail_descriptions(page, jobs):
                             if (item['@type'] === 'JobPosting' && item.description) {
                                 const div = document.createElement('div');
                                 div.innerHTML = item.description;
-                                return div.textContent?.trim()?.substring(0, 2000) || '';
+                                return div.textContent?.trim()?.substring(0, 200000) || '';
                             }
                         }
                     } catch (e) {}
@@ -254,7 +254,7 @@ def _fetch_detail_descriptions(page, jobs):
                 ]) {
                     const el = document.querySelector(sel);
                     if (el && el.textContent?.trim().length > 100) {
-                        return el.textContent.trim().substring(0, 2000);
+                        return el.textContent.trim().substring(0, 200000);
                     }
                 }
                 return '';

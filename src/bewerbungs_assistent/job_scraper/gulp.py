@@ -16,6 +16,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.gulp")
 
@@ -84,7 +85,7 @@ def _try_api_search(client: httpx.Client, query: str) -> list:
                     "location": location,
                     "url": url,
                     "source": "gulp",
-                    "description": desc[:2000],
+                    "description": fuer_speicher(desc),
                     "employment_type": "freelance",
                     "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                 })
@@ -154,7 +155,7 @@ def _try_playwright_search(query: str) -> list:
                             "location": location,
                             "url": item.get("url", ""),
                             "source": "gulp",
-                            "description": (item.get("description", "") or "")[:2000],
+                            "description": (item.get("description", "") or fuer_speicher("")),
                             "employment_type": "freelance",
                             "remote_level": detect_remote_level(
                                 f"{title} {location} {item.get('description', '')}"
@@ -263,7 +264,7 @@ def search_gulp(params: dict) -> list:
                                 "location": location,
                                 "url": item.get("url", ""),
                                 "source": "gulp",
-                                "description": (item.get("description", "") or "")[:2000],
+                                "description": (item.get("description", "") or fuer_speicher("")),
                                 "employment_type": "freelance",
                                 "remote_level": detect_remote_level(
                                     f"{title} {location} {item.get('description', '')}"

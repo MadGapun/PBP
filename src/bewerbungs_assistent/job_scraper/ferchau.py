@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from . import stelle_hash, detect_remote_level
 from .hydration import (jsonld_aus_hydration, liste_aus_hydration,
                         entweiche_trennzeichen)
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.ferchau")
 
@@ -62,7 +63,7 @@ def _aus_offers(html: str, keywords: list) -> list:
         ort = entweiche_trennzeichen(o.get("locationCity") or "")
         intro = entweiche_trennzeichen(o.get("intro") or "")
         beschreibung = re.sub(r"<[^>]+>", " ", intro)
-        beschreibung = re.sub(r"\s+", " ", beschreibung).strip()[:2000]
+        beschreibung = re.sub(r"\s+", " ", fuer_speicher(beschreibung).strip())
         if not _passt_zu_keywords(f"{title} {beschreibung}", keywords):
             continue
 
@@ -110,7 +111,7 @@ def _aus_hydration(html: str, keywords: list) -> list:
         adr = (loc.get("address") or {}) if isinstance(loc, dict) else {}
         location = entweiche_trennzeichen(
             adr.get("addressLocality", "") if isinstance(adr, dict) else "")
-        beschreibung = entweiche_trennzeichen(item.get("description") or "")[:2000]
+        beschreibung = entweiche_trennzeichen(item.get("description") or fuer_speicher(""))
         if not _passt_zu_keywords(f"{title} {beschreibung}", keywords):
             continue
         treffer.append({
@@ -219,7 +220,7 @@ def search_ferchau(params: dict) -> list:
                                 "location": location,
                                 "url": item.get("url", ""),
                                 "source": "ferchau",
-                                "description": (item.get("description", "") or "")[:2000],
+                                "description": (item.get("description", "") or fuer_speicher("")),
                                 "employment_type": "festanstellung",
                                 "remote_level": detect_remote_level(
                                     f"{title} {location} {item.get('description', '')}"

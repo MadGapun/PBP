@@ -9,6 +9,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .textgrenzen import fuer_speicher
 
 
 def _extract_publish_date(project: dict) -> str | None:
@@ -102,7 +103,7 @@ def search_freelancermap(params: dict) -> list:
                         "url": pjob_url,
                         "is_search_url": not bool(slug),
                         "source": "freelancermap",
-                        "description": desc[:2000],
+                        "description": fuer_speicher(desc),
                         "employment_type": "freelance",
                         "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                     }
@@ -157,7 +158,7 @@ def search_freelancermap(params: dict) -> list:
                                         if el:
                                             txt = el.get_text(separator=" ", strip=True)
                                             if len(txt) > 100:
-                                                description = txt[:2000]
+                                                description = fuer_speicher(txt)
                                                 break
                                     fetched += 1
                                     time.sleep(0.3)
@@ -234,7 +235,7 @@ def _playwright_fallback(urls: list) -> list:
                             "url": f"https://www.freelancermap.de/projekt/{slug}" if slug else url,
                             "is_search_url": not bool(slug),
                             "source": "freelancermap",
-                            "description": desc[:2000],
+                            "description": fuer_speicher(desc),
                             "employment_type": "freelance",
                             "remote_level": detect_remote_level(f"{title} {location} {desc}"),
                         }
@@ -261,7 +262,7 @@ def _playwright_fallback(urls: list) -> list:
                             title,
                             link,
                             location: locEl?.parentElement?.textContent?.trim() || locEl?.textContent?.trim() || '',
-                            desc: (descEl?.textContent?.trim() || '').substring(0, 2000),
+                            desc: (descEl?.textContent?.trim() || '').substring(0, 200000),
                         });
                     }
                     return results;

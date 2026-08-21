@@ -2819,8 +2819,124 @@ def register(mcp, db, logger):
             return {"status": "fehler",
                     "grund": "Keine brauchbare Beschreibung gefunden — Login-Wall oder Bot-Block?",
                     "url": url, "got_chars": len(text or "")}
+        from ..job_scraper.textgrenzen import (ALTE_KAPPUNG, SPEICHER_MAX,
+                                               ist_gekappt)
+        vorher = job.get("description") or ""
         db.update_job(h, {"description": text})
-        return {"status": "ok", "chars": len(text), "preview": text[:200]}
+        antwort = {"status": "ok", "chars": len(text), "preview": text[:200]}
+        # #952: Der Fehler war stumm — "status: ok" bei halbem Text.
+        # Jetzt sagt die Antwort, wenn eine Grenze erreicht wurde.
+        if len(text) >= SPEICHER_MAX:
+            antwort["grenze_erreicht"] = True
+            antwort["hinweis"] = (
+                f"Der Text erreicht die Speicher-Notbremse von "
+                f"{SPEICHER_MAX} Zeichen und koennte abgeschnitten sein.")
+        elif ist_gekappt(text):
+            antwort["grenze_erreicht"] = True
+            antwort["hinweis"] = (
+                f"Der geholte Text ist exakt {ALTE_KAPPUNG} Zeichen lang — "
+                "die Quelle selbst kappt hier moeglicherweise.")
+        if ist_gekappt(vorher) and len(text) > len(vorher):
+            antwort["gekappten_text_geheilt"] = True
+            antwort["hinweis"] = (
+                f"Vorher {len(vorher)} Zeichen (abgeschnitten), jetzt "
+                f"{len(text)}. Der Anforderungsteil steht meist am Ende "
+                "und war bisher nicht bewertbar.")
+        return antwort
+
+    @mcp.tool()
+    def beschreibungen_nachladen_bestand(max_stellen: int = 25,
+                                         nur_zaehlen: bool = True) -> dict:
+        """Laedt abgeschnittene Anzeigentexte im Bestand nach (#952).
+
+        Bis v1.7.22 kappte jeder Quellen-Adapter den Text bei exakt 2000
+        Zeichen, bevor er gespeichert wurde. Betroffen ist damit der
+        gesamte Altbestand — und weil der Refetch selbst kappte, half
+        auch wiederholtes Nachladen nicht.
+
+        Sinnvoll erst NACH v1.7.23: vorher holt der Lauf denselben halben
+        Text zurueck.
+
+        Args:
+            max_stellen: Obergrenze pro Lauf. Jede Stelle ist ein
+                HTTP-Aufruf, deshalb bewusst klein.
+            nur_zaehlen: Default True — meldet nur, wie viele betroffen
+                sind, ohne etwas zu holen.
+        """
+        import httpx
+
+        from ..job_scraper import fetch_description_from_detail
+        from ..job_scraper.textgrenzen import ist_gekappt
+
+        aktive = db.get_active_jobs() or []
+        betroffen = [j for j in aktive if ist_gekappt(j.get("description"))]
+        if not betroffen:
+            return {
+                "status": "nichts_zu_tun",
+                "geprueft": len(aktive),
+                "hinweis": ("Kein aktiver Anzeigentext ist exakt 2000 "
+                            "Zeichen lang — es sieht nichts nach der alten "
+                            "Kappung aus."),
+            }
+        if nur_zaehlen:
+            return {
+                "status": "vorschau",
+                "betroffen": len(betroffen),
+                "von": len(aktive),
+                "beispiele": [
+                    {"hash": (j.get("hash") or "")[-8:],
+                     "titel": (j.get("title") or "")[:60]}
+                    for j in betroffen[:5]
+                ],
+                "hinweis": (f"{len(betroffen)} Stellen tragen einen "
+                            "abgeschnittenen Text. Mit nur_zaehlen=False "
+                            "werden bis zu max_stellen davon nachgeladen "
+                            "(je ein HTTP-Aufruf)."),
+            }
+
+        geheilt, ohne_url, fehler = 0, 0, 0
+        gewachsen = []
+        with httpx.Client(follow_redirects=True, timeout=15,
+                          headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
+            for job in betroffen[:max(1, int(max_stellen or 25))]:
+                url = job.get("url") or ""
+                if not url or job.get("is_search_url"):
+                    ohne_url += 1
+                    continue
+                try:
+                    text = fetch_description_from_detail(url, client, timeout=15)
+                except Exception:
+                    fehler += 1
+                    continue
+                alt_laenge = len(job.get("description") or "")
+                if not text or len(text) <= alt_laenge:
+                    continue
+                db.update_job(job.get("hash"), {"description": text})
+                geheilt += 1
+                gewachsen.append({
+                    "hash": (job.get("hash") or "")[-8:],
+                    "vorher": alt_laenge, "nachher": len(text),
+                })
+
+        return {
+            "status": "fertig",
+            "geheilt": geheilt,
+            "ohne_brauchbare_url": ohne_url,
+            "fehler": fehler,
+            "verbleibend": max(0, len(betroffen) - geheilt),
+            "gewachsen": gewachsen[:10],
+            "hinweis": (
+                "Nachgeladene Stellen sollten neu bewertet werden — der "
+                "Anforderungsteil war bisher nicht Teil des Scores: "
+                "scores_neu_berechnen()."
+                if geheilt else
+                "Nichts geheilt. Moeglich: die Quelle kappt selbst, oder "
+                "die Detailseite ist nicht mehr erreichbar."),
+        }
+
+    def _ist_gekappt(text) -> bool:
+        from ..job_scraper.textgrenzen import ist_gekappt
+        return ist_gekappt(text)
 
     @mcp.tool()
     def stellen_qualitaet_pruefen(
@@ -2941,6 +3057,14 @@ def register(mcp, db, logger):
 
                 if not desc or len(desc) < 50:
                     kategorie.append("beschreibung_fehlt")
+                # #952: bisher kannte die Pruefung nur die UNTERGRENZE.
+                # Ein bei exakt 2000 Zeichen abgeschnittener Text galt als
+                # tadellos, obwohl der Anforderungsteil fehlte — und ohne
+                # diese Kategorie war die Tragweite nur per Direkt-SQL
+                # messbar, was nach #514 unterbleiben soll.
+                elif _ist_gekappt(desc):
+                    kategorie.append("beschreibung_gekappt")
+                    detail["beschreibung_zeichen"] = len(desc)
 
                 # Auto-aussortieren
                 if auto_aussortieren and health and health.should_dismiss:
@@ -2992,6 +3116,27 @@ def register(mcp, db, logger):
             "befunde": befunde,
             "details": details,
         }
+        # #952: Anteil am GESAMTEN Bestand nennen, nicht nur an der
+        # geprueften Stichprobe — sonst bleibt die Tragweite unklar.
+        try:
+            _alle = db.get_active_jobs() or []
+            _gekappt = sum(1 for j in _alle if _ist_gekappt(j.get("description")))
+            if _gekappt:
+                _quote = round(100.0 * _gekappt / max(1, len(_alle)), 1)
+                result["beschreibung_gekappt_gesamt"] = {
+                    "anzahl": _gekappt,
+                    "von": len(_alle),
+                    "anteil_prozent": _quote,
+                    "hinweis": (
+                        f"{_gekappt} von {len(_alle)} aktiven Stellen "
+                        f"({_quote} %) tragen einen abgeschnittenen "
+                        "Anzeigentext (Altbestand vor v1.7.23). Der "
+                        "Anforderungsteil steht meist am Ende und fehlt "
+                        "dort. Nachladen mit "
+                        "beschreibungen_nachladen_bestand()."),
+                }
+        except Exception:
+            pass
         if auto_aussortieren:
             result["aussortiert"] = aussortiert
         else:
@@ -3262,7 +3407,13 @@ def register(mcp, db, logger):
 
         # Include job description in result (#55) so Claude can use it for analysis
         if job_dict.get("description"):
-            result["stellenbeschreibung"] = job_dict["description"][:2000]
+            from ..job_scraper.textgrenzen import (fuer_ausgabe,
+                                                   kappungs_hinweis)
+            result["stellenbeschreibung"] = fuer_ausgabe(job_dict["description"])
+            _kappung = kappungs_hinweis(job_dict["description"])
+            if _kappung:
+                result["beschreibung_unvollstaendig"] = True
+                result["beschreibung_hinweis"] = _kappung
         result["url"] = job_dict.get("url", "")
         # #436: Warne wenn URL nur auf Suchergebnis-Seite zeigt
         if job_dict.get("is_search_url"):

@@ -16,6 +16,7 @@ import time
 import httpx
 
 from . import detect_remote_level, make_session, stelle_hash
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.bundesagentur")
 
@@ -170,7 +171,7 @@ def search_bundesagentur(params: dict) -> list:
                         "location": location,
                         "url": f"https://www.arbeitsagentur.de/jobsuche/jobdetail/{ref_nr}",
                         "source": "bundesagentur",
-                        "description": description[:2000],
+                        "description": fuer_speicher(description),
                         "employment_type": "festanstellung",
                         "remote_level": detect_remote_level(f"{title} {location} {description}"),
                     }
