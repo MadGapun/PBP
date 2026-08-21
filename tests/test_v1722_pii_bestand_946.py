@@ -149,9 +149,23 @@ def test_946_zuordnungstabelle_ist_nicht_teil_von_export_oder_telemetrie():
         "Tabelle haelt Klarnamen und gehoert nicht in Export/Telemetrie")
 
 
-def test_946_tool_ist_registriert_und_warnt_deutlich(bestand):
+def test_946_tool_ist_registriert_und_warnt_deutlich(bestand, tmp_path):
     """Das Tool muss existieren und im Trefferfall klar Stopp sagen."""
+    import importlib
+    import os
+
+    # Das server-Modul haelt seine DB auf Modulebene. Wurde es in einem
+    # frueheren Test importiert, zeigt der Pfad auf ein Temp-Verzeichnis,
+    # das inzwischen geloescht ist — auf dem CI-Runner scheiterte der
+    # Test daran mit "unable to open database file", lokal je nach
+    # Testreihenfolge nicht. Deshalb beide Module frisch laden.
+    os.environ["BA_DATA_DIR"] = str(tmp_path)
+    import bewerbungs_assistent.database as dbmod
+    importlib.reload(dbmod)
     import bewerbungs_assistent.server as srv
+    importlib.reload(srv)
+    assert str(tmp_path) in str(srv.db.db_path), (
+        f"DB nicht isoliert: {srv.db.db_path}")
 
     async def _call(name, args):
         tool = await srv.mcp.get_tool(name)
