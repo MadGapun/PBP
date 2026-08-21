@@ -2331,9 +2331,40 @@ async def api_dismiss_job(request: Request):
     return {"status": "ok"}
 
 
+@app.get("/api/jobs/auto-dismissed")
+async def api_auto_dismissed_jobs(limit: int = 20):
+    """Die zuletzt automatisch aussortierten Stellen (#941).
+
+    Grundlage der eingeklappten Rueckhol-Liste. Die Laenge ist
+    einstellbar; der volle Aussortiert-Bestand (ueber 2.000 Eintraege)
+    waere als Liste unbrauchbar.
+    """
+    jobs = _db.get_auto_dismissed_jobs(limit=limit)
+    return {"jobs": jobs, "anzahl": len(jobs), "limit": limit}
+
+
 @app.post("/api/jobs/restore")
 async def api_restore_job(request: Request):
     data = await request.json()
+    # v1.7.22 (#941): Wird eine AUTOMATISCH aussortierte Stelle
+    # zurueckgeholt, steht die Regel zu scharf. Das ist das einzige
+    # Signal, das eine zu scharfe Automatik ueberhaupt sichtbar macht —
+    # deshalb auch auf dem REST-Weg protokollieren, nicht nur ueber MCP.
+    try:
+        vorher = _db.get_job(data["hash"]) or {}
+        grund = (vorher.get("dismiss_reason") or "")
+        if grund.startswith("auto:"):
+            _db.add_activity_event({
+                "event_type": "auto_dismiss_zurueckgeholt",
+                "entity_type": "job",
+                "entity_id": str(data["hash"])[:8],
+                "action": "reaktivieren",
+                "metadata": {"dismiss_reason": grund,
+                             "titel": (vorher.get("title") or "")[:80],
+                             "quelle": "dashboard"},
+            })
+    except Exception:
+        logger.debug("Lernsignal fuer %s nicht protokolliert", data.get("hash"))
     _db.restore_job(data["hash"])
     return {"status": "ok"}
 
