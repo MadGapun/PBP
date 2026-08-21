@@ -140,6 +140,16 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
+  // #941: Die zuletzt AUTOMATISCH aussortierten Stellen. Bewusst nicht
+  // der ganze Aussortiert-Bestand (ueber 2.000 Eintraege) — nur das,
+  // was ohne Rueckfrage entschieden wurde und der Nutzer nie gesehen
+  // hat. Ohne diese Einsicht faellt eine zu scharfe Regel niemandem auf.
+  const [autoDismissed, setAutoDismissed] = useState([]);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoLimit, setAutoLimit] = useState(() => {
+    const gespeichert = Number(localStorage.getItem("pbp-auto-dismiss-limit"));
+    return Number.isFinite(gespeichert) && gespeichert > 0 ? gespeichert : 20;
+  });
   const [followUps, setFollowUps] = useState([]);
   // beta.27: Min-Score-Schwelle aus Suchkriterien als Default-UI-Filter.
   // Damit greift die persistente Einstellung auch in der Anzeige —
@@ -368,6 +378,27 @@ export default function JobsPage() {
       setFitDialog({ open: true, title: job.title, hash: job.hash, analysis });
     } catch (error) {
       pushToast(`Fit-Analyse fehlgeschlagen: ${error.message}`, "danger");
+    }
+  }
+
+  const ladeAutoAussortiert = useCallback(async (limit) => {
+    const daten = await optionalApi(`/api/jobs/auto-dismissed?limit=${limit}`);
+    setAutoDismissed(Array.isArray(daten?.jobs) ? daten.jobs : []);
+  }, []);
+
+  useEffect(() => {
+    ladeAutoAussortiert(autoLimit);
+  }, [ladeAutoAussortiert, autoLimit]);
+
+  async function holeZurueck(job) {
+    try {
+      await postJson("/api/jobs/restore", { hash: job.hash });
+      setAutoDismissed((cur) => cur.filter((j) => String(j.hash) !== String(job.hash)));
+      setJobs((cur) => [{ ...job, status: "aktiv" }, ...cur]);
+      refreshChrome({ quiet: true });
+      pushToast("Stelle zurueckgeholt — die Ruecknahme ist protokolliert.", "success");
+    } catch (error) {
+      pushToast(`Zurueckholen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -1209,6 +1240,75 @@ export default function JobsPage() {
                 </div>
               ) : null}
             />
+          )}
+
+          {/* #941: Eingeklappte Rueckhol-Liste. Die Automatik sortiert
+              ohne Rueckfrage aus — das ist nur ertraeglich, solange
+              sichtbar bleibt, WAS sie entschieden hat. Standardmaessig
+              zu, damit sie den Blick auf die aktiven Stellen nicht
+              stoert. */}
+          {filters.view === "active" && autoDismissed.length > 0 && (
+            <Card className="glass-card-soft rounded-xl">
+              <button
+                type="button"
+                onClick={() => setAutoOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <EyeOff size={15} className="text-muted" />
+                  Automatisch aussortiert
+                  <Badge tone="subtle">{autoDismissed.length}</Badge>
+                </span>
+                <span className="text-xs text-muted">
+                  {autoOpen ? "Einklappen" : "Anzeigen"}
+                </span>
+              </button>
+
+              {autoOpen && (
+                <div className="mt-4 grid gap-3">
+                  <p className="text-xs text-muted">
+                    Diese Stellen hat PBP als Wiedergaenger erkannt und ohne
+                    Rueckfrage aussortiert. Holst du eine zurueck, wird das
+                    protokolliert — haeuft es sich, steht die Regel zu scharf.
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted">Anzahl</span>
+                    {[20, 40, 60].map((n) => (
+                      <Button
+                        key={n}
+                        variant={autoLimit === n ? "secondary" : "ghost"}
+                        onClick={() => {
+                          setAutoLimit(n);
+                          localStorage.setItem("pbp-auto-dismiss-limit", String(n));
+                        }}
+                      >
+                        {n}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {autoDismissed.map((job) => (
+                    <div
+                      key={job.hash}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-subtle px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-ink">{job.title}</p>
+                        <p className="truncate text-xs text-muted">
+                          {job.company}
+                          {job.dismiss_note ? ` · ${job.dismiss_note}` : ""}
+                        </p>
+                      </div>
+                      <Button variant="ghost" onClick={() => holeZurueck(job)}>
+                        <RotateCcw size={15} />
+                        Zurueckholen
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           )}
         </div>
       </div>

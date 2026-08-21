@@ -270,3 +270,40 @@ def test_941_buchhaltungsgruende_loesen_keine_automatik_aus(tmp_db):
             _aussortiert(tmp_db, f"w941D{grund[:3]}{i}", "SAP Berater MM",
                          firma, grund)
     assert automatik.find_titel_muster(tmp_db, "SAP Berater MM") is None
+
+
+# ── Rueckhol-Liste (REST) ────────────────────────────────────────────
+
+def test_941_endpunkt_liefert_nur_automatisch_aussortierte(tmp_db):
+    """Der volle Aussortiert-Bestand waere als Liste unbrauchbar.
+
+    Gezeigt wird nur, was die Automatik ohne Rueckfrage entschieden hat
+    — das ist der Teil, den der Nutzer nie gesehen hat.
+    """
+    # von Hand aussortiert -> gehoert NICHT in die Rueckhol-Liste
+    _aussortiert(tmp_db, "w941E", "Von Hand weg", "Manuell GmbH",
+                 "firma_uninteressant")
+    # von der Automatik aussortiert -> gehoert hinein
+    tmp_db.save_jobs([{
+        "hash": "w941F", "title": "Automatisch weg", "company": "Automatik GmbH",
+        "url": "https://example.com/F", "source": "bundesagentur", "score": 20,
+        "is_active": 0, "dismiss_reason": "auto:falsches_fachgebiet:wiedergaenger",
+        "dismiss_note": "Wiedergaenger: 2x aussortiert.",
+    }])
+
+    liste = tmp_db.get_auto_dismissed_jobs(limit=20)
+    titel = [j["title"] for j in liste]
+    assert "Automatisch weg" in titel
+    assert "Von Hand weg" not in titel
+
+
+def test_941_rueckhol_liste_ist_begrenzt(tmp_db):
+    for i in range(8):
+        tmp_db.save_jobs([{
+            "hash": f"w941G{i}", "title": f"Auto {i}", "company": f"Firma {i} GmbH",
+            "url": f"https://example.com/G{i}", "source": "bundesagentur",
+            "score": 20, "is_active": 0,
+            "dismiss_reason": "auto:zu_junior:wiedergaenger",
+        }])
+    assert len(tmp_db.get_auto_dismissed_jobs(limit=3)) == 3
+    assert len(tmp_db.get_auto_dismissed_jobs(limit=20)) == 8

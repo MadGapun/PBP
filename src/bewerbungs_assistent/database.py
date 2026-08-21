@@ -4832,6 +4832,25 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    def get_auto_dismissed_jobs(self, limit: int = 20) -> list:
+        """Die zuletzt AUTOMATISCH aussortierten Stellen (#941).
+
+        Bewusst NICHT der ganze Aussortiert-Bestand — der liegt bei ueber
+        2.000 Eintraegen und ist als Rueckhol-Liste unbrauchbar. Gezeigt
+        wird nur, was die Automatik ohne Rueckfrage entschieden hat: das
+        ist der Teil, den der Nutzer nie gesehen hat und der deshalb
+        einsehbar bleiben muss.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        return [self._serialize_job_row(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE is_active=0 "
+            "AND dismiss_reason LIKE 'auto:%' "
+            "AND (profile_id=? OR profile_id IS NULL) "
+            "ORDER BY updated_at DESC LIMIT ?",
+            (pid, max(1, int(limit or 20)))
+        ).fetchall()]
+
     def dismiss_job(self, job_hash: str, reason: str):
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
