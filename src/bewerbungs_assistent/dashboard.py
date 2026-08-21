@@ -7737,6 +7737,51 @@ def _run_auto_expire(now_iso: str) -> dict:
                            "eingangsbestaetigung": d_eb}}
 
 
+def _run_followup_ueberholt(now_iso: str) -> dict:
+    """Schliesst Nachfassungen, die der Verfahrensstand ueberholt hat (#945).
+
+    Belegter Fall: eine Nachfassung war seit Tagen ueberfaellig, waehrend
+    der Bewerbungsstatus laengst `zweitgespraech` war und ein
+    bestaetigter Termin acht Tage spaeter vorlag. Die Aufgabe war
+    gegenstandslos und wurde trotzdem angemahnt — und solches Rauschen
+    ist der Grund, warum die WICHTIGEN Eintraege uebersehen werden.
+
+    Bewusst auf `hinfaellig`, nicht loeschen: die Historie bleibt.
+    Bewusst in der Automatik und nicht beim Lesen — eine Liste
+    abzurufen darf nichts veraendern.
+    """
+    from .services.nachfass_text import ist_ueberholt
+
+    geschlossen = []
+    try:
+        offene = _db.get_pending_follow_ups() or []
+    except Exception:
+        return {"geprueft": 0, "hinfaellig": 0}
+
+    for fu in offene:
+        try:
+            app = _db.get_application(fu.get("application_id") or "") or {}
+            if not app:
+                continue
+            weg, grund = ist_ueberholt(fu, app)
+            if not weg:
+                continue
+            _db.complete_follow_up(fu.get("id"), status="hinfaellig")
+            geschlossen.append({
+                "id": str(fu.get("id"))[:8],
+                "firma": app.get("company"),
+                "grund": grund,
+            })
+        except Exception:
+            continue
+
+    if geschlossen:
+        logger.info("Nachfass-Aufraeumer: %d gegenstandslose Nachfassung(en) "
+                    "auf hinfaellig gesetzt (#945)", len(geschlossen))
+    return {"geprueft": len(offene), "hinfaellig": len(geschlossen),
+            "details": geschlossen[:10]}
+
+
 def _run_auto_followup_reconciler(now_iso: str) -> dict:
     """Stellt sicher dass jede aktive Bewerbung einen offenen Follow-up hat.
 
@@ -8844,6 +8889,10 @@ def _run_auto_actions_inner(now: str) -> dict:
             return fn(now)
 
     expire_result = _step("expire", _run_auto_expire)
+    # v1.7.23 (#945): ZUERST aufraeumen, dann nachlegen. Andersherum
+    # wuerde der Reconciler eine Nachfassung anlegen, die der
+    # Aufraeumer im selben Lauf wieder schliesst.
+    fu_ueberholt = _step("followup_ueberholt", _run_followup_ueberholt)
     fu_result = _step("followup_reconciler", _run_auto_followup_reconciler)
     # v1.7.0-beta.25: Mail- + Doku-Auto-Klassifikation. Lokale AI sortiert
     # neue Mails + Dokumente von selbst ein wenn aktiv.
@@ -8886,6 +8935,7 @@ def _run_auto_actions_inner(now: str) -> dict:
     return {
         "ran_at": now,
         "expire": expire_result,
+        "followup_ueberholt": fu_ueberholt,
         "followup_reconciler": fu_result,
         "mail_classify": mail_result,
         "document_classify": doc_result,
