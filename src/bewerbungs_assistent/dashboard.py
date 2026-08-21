@@ -4858,11 +4858,26 @@ async def api_aufgaben_uebersicht(status: str = "offen"):
             for fu in _db.get_pending_follow_ups():
                 app_row = _db.get_application(
                     fu.get("application_id") or "") or {}
+                # v1.7.23 (#945): fehlenden Text beim Lesen erzeugen und
+                # den fertigen Claude-Auftrag mitgeben. Fuenf von sieben
+                # Nachfassungen im Bestand hatten ein leeres
+                # Beschreibungsfeld — wer sie oeffnete, sah Firma und
+                # Datum und musste den Rest selbst zusammensuchen.
+                from .services.nachfass_text import (claude_prompt,
+                                                     ist_ueberholt,
+                                                     nachfass_text)
+                _weg, _warum = ist_ueberholt(fu, app_row)
+                _text = (fu.get("template") or "").strip()
+                if not _text and app_row:
+                    _text = nachfass_text(app_row)
                 eintraege.append({
                     "herkunft": "nachfass", "id": fu.get("id"),
                     "titel": (f"Nachfassen: {app_row.get('company', '?')} — "
                               f"{app_row.get('title', '?')}"),
-                    "beschreibung": fu.get("template") or "",
+                    "ueberholt": _weg,
+                    "ueberholt_grund": _warum,
+                    "claude_prompt": claude_prompt(app_row) if app_row else "",
+                    "beschreibung": _text,
                     "status": "offen",
                     "faellig_am": fu.get("scheduled_date"),
                     "bewerbung_id": fu.get("application_id"),

@@ -244,6 +244,27 @@ def register(mcp, db, logger):
             result["bewerbungsbezug"] = "keiner (freie Aufgabe)"
         return result
 
+    def _nachfass_beschreibung(fu: dict, app: dict) -> str:
+        """Leerer Text wird beim Lesen erzeugt (#945).
+
+        Fuenf von sieben Nachfassungen im belegten Bestand hatten ein
+        leeres Beschreibungsfeld — wer sie oeffnete, sah Firma und Datum
+        und musste den Rest selbst zusammensuchen.
+        """
+        vorhanden = (fu.get("template") or "").strip()
+        if vorhanden:
+            return vorhanden
+        if not app:
+            return ""
+        from ..services.nachfass_text import nachfass_text
+        return nachfass_text(app)
+
+    def _nachfass_prompt(app: dict) -> str:
+        if not app:
+            return ""
+        from ..services.nachfass_text import claude_prompt
+        return claude_prompt(app)
+
     @mcp.tool()
     def aufgaben_uebersicht(
         status: str = "offen",
@@ -284,6 +305,11 @@ def register(mcp, db, logger):
                 "faellig_am": t.get("faellig_am"),
                 "bewerbung_id": t.get("application_id"),
                 "firma": app.get("company"),
+                # v1.7.23 (#945): Der Aufrufer soll nicht wissen muessen,
+                # aus welchem Topf ein Eintrag stammt. Die Sicht nennt
+                # den passenden Aufruf selbst.
+                "erledigen_mit": f"todo_erledigen('{t['id']}')",
+                "hinfaellig_mit": f"todo_hinfaellig('{t['id']}')",
             })
 
         # Topf 2: Nachfassungen
@@ -296,11 +322,16 @@ def register(mcp, db, logger):
                         "herkunft": "nachfass", "id": fu.get("id"),
                         "titel": (f"Nachfassen: {app.get('company', '?')}"
                                   f" — {app.get('title', '?')}"),
-                        "beschreibung": fu.get("template") or "",
+                        "beschreibung": _nachfass_beschreibung(fu, app),
                         "status": "offen",
                         "faellig_am": fu.get("scheduled_date"),
                         "bewerbung_id": fu.get("application_id"),
                         "firma": app.get("company"),
+                        "erledigen_mit": (
+                            f"follow_up_erledigen('{str(fu.get('id'))[:8]}')"),
+                        "hinfaellig_mit": (
+                            f"follow_up_hinfaellig('{str(fu.get('id'))[:8]}')"),
+                        "claude_prompt": _nachfass_prompt(app),
                     })
         except Exception:
             pass
@@ -318,6 +349,8 @@ def register(mcp, db, logger):
                         "faellig_am": (m.get("meeting_date") or "")[:10],
                         "bewerbung_id": m.get("application_id"),
                         "firma": m.get("app_company") or m.get("company"),
+                        "erledigen_mit": (
+                            f"meeting_bearbeiten('{str(m.get('id'))[:8]}')"),
                     })
                 _ = horizont
         except Exception:
@@ -375,6 +408,27 @@ def register(mcp, db, logger):
         if not tasks:
             # v1.7.21 (#927): "anzahl: 0" beantwortet nicht die Frage,
             # die der Nutzer wirklich hat — was kann ich hier tun?
+            #
+            # v1.7.23 (#945): ABER der Onboarding-Text darf nur im
+            # Erstzustand kommen. Bei sechs erledigten Aufgaben ist
+            # "Noch keine Aufgaben erfasst" schlicht falsch und entwertet
+            # die geleistete Arbeit.
+            erledigte = 0
+            if nur_offen:
+                try:
+                    alle = db.list_tasks(
+                        application_id=bewerbung_id or None, nur_offen=False)
+                    erledigte = len(alle or [])
+                except Exception:
+                    erledigte = 0
+            if erledigte:
+                return leer(
+                    {"status": "ok", "anzahl": 0, "todos": [],
+                     "erledigt_gesamt": erledigte},
+                    f"Keine offenen Aufgaben — {erledigte} bereits erledigt.",
+                    "Neue Aufgaben legst du mit todo_anlegen('Was ist zu "
+                    "tun?') an; mit nur_offen=False siehst du die "
+                    "erledigten.")
             return leer(
                 {"status": "ok", "anzahl": 0, "todos": []},
                 "Noch keine Aufgaben erfasst.",
