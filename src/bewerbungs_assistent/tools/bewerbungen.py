@@ -1585,6 +1585,12 @@ def register(mcp, db, logger):
             stats["zeitliche_kennzahlen"] = _se.zeitliche_kennzahlen(db)
             stats["kanal_auswertung"] = _se.kanal_auswertung(db)
             stats["ablehnungs_kategorien"] = _se.ablehnungs_kategorien(db)
+            # v1.7.23 (#943): drei Auswertungen, die aus dem vorhandenen
+            # Bestand ohne Zusatzerfassung berechenbar waren und
+            # trotzdem fehlten.
+            stats["erfolg_nach_score_band"] = _se.erfolg_nach_score_band(db)
+            stats["nachfass_wirksamkeit"] = _se.nachfass_wirksamkeit(db)
+            stats["trend_vergleich"] = _se.trend_vergleich(db)
             if isinstance(stats.get("quoten"), dict):
                 stats["quoten"]["fussnote"] = (
                     "Zahlen aus der Zeit vor der PBP-Nutzung stammen aus "

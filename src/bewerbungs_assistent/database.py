@@ -6238,14 +6238,37 @@ class Database:
         stats["applications_by_status"] = {r["status"]: r["cnt"] for r in rows}
         stats["total_applications"] = sum(r["cnt"] for r in rows)
         # Jobs
-        stats["active_jobs"] = conn.execute(
+        # v1.7.23 (#943): Dieselbe Basis wie die Stellenliste. Vorher
+        # zaehlte die Statistik roh, waehrend stellen_anzeigen
+        # Blacklist-Firmen ausschliesst — beide sollen dasselbe
+        # beschreiben, wichen aber um die geblockten Stellen ab.
+        stats["active_jobs_roh"] = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchone()[0]
+        try:
+            stats["active_jobs"] = len(
+                self.get_active_jobs(exclude_blacklisted=True))
+        except Exception:
+            stats["active_jobs"] = stats["active_jobs_roh"]
+        if stats["active_jobs_roh"] != stats["active_jobs"]:
+            stats["active_jobs_hinweis"] = (
+                f"{stats['active_jobs_roh'] - stats['active_jobs']} aktive "
+                "Stelle(n) stammen von Firmen auf der Blacklist und werden "
+                "in der Stellenliste ausgeblendet. active_jobs zeigt "
+                "dieselbe Menge wie stellen_anzeigen.")
         stats["dismissed_jobs"] = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
         ).fetchone()[0]
+        # v1.7.23 (#943): Die Differenz zu scored_jobs war unerklaert.
+        # Sie hat zwei Ursachen, und beide sind erwartetes Verhalten.
+        stats["scored_jobs_hinweis"] = (
+            "scored_jobs zaehlt nur Stellen mit Score > 0 und ohne "
+            "Anpinnung; seit v1.7.22 zusaetzlich ohne die von der "
+            "Automatik aussortierten. Die Differenz zu dismissed_jobs "
+            "sind Stellen, die nie bewertet wurden — meist weil die "
+            "Beschreibung fehlte (#756).")
         stats["pinned_jobs"] = conn.execute(
             "SELECT COUNT(*) FROM jobs WHERE is_pinned=1 AND is_active=1 AND (profile_id=? OR profile_id IS NULL)",
             (pid,)
