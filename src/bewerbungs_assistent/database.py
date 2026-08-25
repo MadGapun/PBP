@@ -8867,18 +8867,50 @@ class Database:
 
     # === v1.7.0-beta.37 (#599): Elwosa-Helpers ===
 
+    # v1.7.23 (#924): Wie viele Stunden dieselbe Linie gesperrt ist.
+    ELWOSA_WIEDERHOLUNGSSPERRE_STUNDEN = 24
+
     def add_elwosa_message(self, content: str, trigger_kind: str = "",
                             trigger_ref: str = "", cluster: str = "",
-                            link_url: str = "", link_label: str = "") -> int:
+                            link_url: str = "", link_label: str = "",
+                            erlaube_wiederholung: bool = False) -> int:
         """Schreibt eine Elwosa-Nachricht in den Stream des aktiven Profils.
 
         v1.7.12 (#823, F37): `link_url`/`link_label` — Inhaltskanaele wie
         Changelog oder Betriebslage sind nur etwas wert, wenn man von der
         Linie aus weiterlesen kann. Externe URLs oder pbp://-Deeplinks;
         das aeltere [link:...]-Markup im Text (#611) bleibt gueltig.
+
+        v1.7.23 (#924): WIEDERHOLUNGSSPERRE an dieser Stelle, nicht in
+        den Aufrufern. `pick_line` hatte die Sperre seit #822 korrekt,
+        aber mehrere Pfade schreiben direkt — Wiki-Hints, der
+        Claude-Schreibzugriff, Provider-Linien. Belegt: dieselbe
+        Ambiente-Linie stand dreimal wortgleich untereinander (3:07,
+        4:07, 5:07 Uhr), waehrend der Frontend-Heartbeat stuendlich
+        feuerte.
+
+        Das ist dasselbe Muster wie bei `dismiss_job` (#913): eine Regel,
+        die fuer ALLE Pfade gelten soll, gehoert an das Nadeloehr, durch
+        das alle Schreibzugriffe laufen — nicht in jeden Aufrufer.
+        Bewusst wird 0 zurueckgegeben statt einer Ausnahme: eine
+        unterdrueckte Wiederholung ist kein Fehler, sondern der Normalfall.
         """
         pid = self.get_active_profile_id()
         conn = self.connect()
+        if not erlaube_wiederholung and (content or "").strip():
+            from datetime import timedelta as _td
+            cutoff = (datetime.now(timezone.utc) - _td(
+                hours=self.ELWOSA_WIEDERHOLUNGSSPERRE_STUNDEN)).isoformat()
+            schon_da = conn.execute(
+                "SELECT 1 FROM elwosa_messages "
+                "WHERE (profile_id=? OR profile_id IS NULL) "
+                "AND content=? AND created_at >= ? LIMIT 1",
+                (pid, content, cutoff)).fetchone()
+            if schon_da:
+                logger.debug(
+                    "Elwosa: Wiederholung unterdrueckt (%s): %.60s",
+                    trigger_kind or "?", content)
+                return 0
         cur = conn.execute(
             "INSERT INTO elwosa_messages "
             "(profile_id, content, trigger_kind, trigger_ref, cluster, "

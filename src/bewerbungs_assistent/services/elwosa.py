@@ -801,13 +801,27 @@ def _pick_valid_line(db, pool: list, ctx: dict, max_tries: int = 6,
         # Bereits geprobte Linien aus dem Kandidaten-Pool nehmen — sonst
         # kann der Zufall dieselbe kaputte Linie mehrfach ziehen und eine
         # valide bleibt trotz max_tries unerreicht (CI-Flake, #853 Teil 2).
+        #
+        # v1.7.23 (#924): `seen` enthielt die GEFUELLTE Linie, gefiltert
+        # wurde aber der ROHE Pool. Bei Linien mit Platzhaltern passte
+        # das nie zusammen, der Ausschluss lief leer — und eine kaputte
+        # Vorlage konnte alle Versuche aufbrauchen. Genau das Schweigen,
+        # das diese Funktion verhindern soll. Jetzt wird die Vorlage
+        # gemerkt, nicht ihr Ergebnis.
         kandidaten = [l for l in pool if l not in seen]
         if not kandidaten:
             return None
+        vorher = set(kandidaten)
         line = pick_line(db, kandidaten, ctx, sperrfrist_stunden=sperrfrist_stunden)
-        if not line or line in seen:
+        if not line:
             continue
-        seen.add(line)
+        # Zugehoerige Vorlage merken (die gefuellte Linie kann abweichen).
+        for vorlage in vorher:
+            if fill_template(vorlage, ctx) == line:
+                seen.add(vorlage)
+                break
+        else:
+            seen.add(line)
         try:
             validate_tonfall(line)
             return line
