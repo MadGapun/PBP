@@ -221,7 +221,7 @@ def test_stelle_bearbeiten_accepts_url_and_flags_search_url(tmp_db):
         {
             "hash": "edit-url-1",
             "title": "Lead Consultant PLM",
-            "company": "Adesso",
+            "company": "Beispieltech",
             "source": "stepstone",
             "url": "",
             "is_search_url": True,

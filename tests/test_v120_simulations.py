@@ -447,7 +447,7 @@ class TestSim3RecherchePlusDuplikat:
 
         # Kein Duplikat bei anderer Firma
         apps2 = db.get_applications()
-        firma2 = "Rheinmetall AG"
+        firma2 = "Anlagenbau Sued AG"
         titel2 = "Projektleiter Schiffbau"
         firma2_lower = firma2.lower()
         titel2_words = set(titel2.lower().split())

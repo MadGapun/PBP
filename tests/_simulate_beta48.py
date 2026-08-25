@@ -50,7 +50,7 @@ def setup_environment():
         ("aaaa11111111", "Senior PLM Engineer", "BMW", "linkedin",
          "https://www.linkedin.com/jobs/view/aaaa", 78,
          "PLM-Architekt mit Teamcenter. " * 10),
-        ("bbbb22222222", "PLM Solution Architect", "Phoenix Contact", "stepstone",
+        ("bbbb22222222", "PLM Solution Architect", "Anlagenbau Sued", "stepstone",
          "https://www.stepstone.de/x/bbbb", 82,
          "Senior PLM mit Aras. " * 10),
         ("cccc33333333", "Junior Backend Dev", "Startup XY", "manuell",

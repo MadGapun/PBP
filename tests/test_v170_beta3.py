@@ -33,8 +33,8 @@ def setup_env():
 
 def test_538_recruiter_anfrage_per_filename():
     from bewerbungs_assistent.dashboard import _detect_doc_type
-    assert _detect_doc_type("Soorce - Offene Vakanz.eml", "") == "recruiter_anfrage"
-    assert _detect_doc_type("HiSimply Projektanfrage 1390.pdf", "") == "recruiter_anfrage"
+    assert _detect_doc_type("Vermittler Ost - Offene Vakanz.eml", "") == "recruiter_anfrage"
+    assert _detect_doc_type("Beispieltech Projektanfrage 1390.pdf", "") == "recruiter_anfrage"
     # 'opportunity' im Namen
     assert _detect_doc_type("External PLM PRO.FILE opportunity.eml", "") == "recruiter_anfrage"
 
@@ -69,7 +69,7 @@ def test_538_absage_per_filename_and_text():
 
 def test_538_angebot_vertrag():
     from bewerbungs_assistent.dashboard import _detect_doc_type
-    assert _detect_doc_type("Soorce - Projektangebot.pdf", "") == "angebot"
+    assert _detect_doc_type("Vermittler Ost - Projektangebot.pdf", "") == "angebot"
     assert _detect_doc_type("Blanko-Arbeitsvertrag.pdf", "") == "angebot"
 
 

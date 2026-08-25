@@ -137,7 +137,7 @@ def test_konvertieren_leert_applications_dismisst_stelle(setup_env):
     db, srv = setup_env
     # Faelschlich angelegte "zurueckgezogen"-Bewerbung ohne Stelle
     aid = db.add_application({
-        "title": "PLM Manager", "company": "Leuchtmehr",
+        "title": "PLM Manager", "company": "Vermittler Nord",
         "status": "zurueckgezogen",
         "notes": "Headhunter, Standort passt nicht.",
     })
@@ -152,7 +152,7 @@ def test_konvertieren_leert_applications_dismisst_stelle(setup_env):
     pid = db.get_active_profile_id()
     conn = db.connect()
     job = conn.execute(
-        "SELECT * FROM jobs WHERE company='Leuchtmehr' AND (profile_id=? OR profile_id IS NULL)",
+        "SELECT * FROM jobs WHERE company='Vermittler Nord' AND (profile_id=? OR profile_id IS NULL)",
         (pid,)
     ).fetchone()
     assert job is not None

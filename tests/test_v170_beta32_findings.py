@@ -80,8 +80,8 @@ def test_bewerbung_erstellen_keine_notes_in_jobs_description(setup_env):
     register(mcp, db, logging.getLogger("test"))
     out = _call(mcp, "bewerbung_erstellen", {
         "title": "PLM",
-        "company": "Phoenix Contact",
-        "notes": "Vermittler PBCN, Endkunde-Kandidaten Benteler/CLAAS",
+        "company": "Anlagenbau Sued",
+        "notes": "Vermittler ANSU, Endkunde-Kandidaten Benteler/CLAAS",
         # KEIN stellenbeschreibung-Parameter
     })
     apps = db.get_applications()
