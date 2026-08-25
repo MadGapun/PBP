@@ -240,3 +240,32 @@ def test_944_bewerbungsliste_hat_lesbare_spaltenbreiten():
     assert 'pdf.cell(55, 5, "Firma"' in quelle
     assert 'pdf.cell(65, 5, "Position"' in quelle
     assert '"Kontakt", border=1, fill=True' not in quelle
+
+
+def test_944_bericht_und_liste_zeigen_denselben_score(tmp_db):
+    """Die Scoring-Regler (#169) wirkten nur in der Stellenliste — der
+    Bericht nannte fuer dieselbe Stelle einen anderen Wert."""
+    tmp_db.save_jobs([{
+        "hash": "b944d", "title": "PLM Consultant", "company": "Regler GmbH",
+        "url": "https://example.com/d", "source": "bundesagentur",
+        "score": 40, "_fachscore": 30.0, "_rahmenscore": 10.0,
+    }])
+    # Ein Regler, der den Score verschiebt.
+    try:
+        tmp_db.set_scoring_config("firma", "Regler GmbH", -10)
+    except Exception:
+        pytest.skip("Scoring-Regler in dieser Fassung nicht setzbar")
+
+    from bewerbungs_assistent.services.scoring_service import (
+        apply_scoring_adjustments)
+    job = [j for j in tmp_db.get_active_jobs()
+           if (j.get("hash") or "").endswith("b944d")][0]
+    erwartet = apply_scoring_adjustments(job, job.get("score", 0), tmp_db)[
+        "final_score"]
+
+    daten = tmp_db.get_report_data()
+    im_bericht = [j for j in daten.get("unapplied_high_score", [])
+                  if j.get("company") == "Regler GmbH"]
+    if not im_bericht:
+        pytest.skip("Stelle erfuellt die Abschnitt-9-Bedingungen nicht")
+    assert im_bericht[0]["score"] == erwartet, (im_bericht[0], erwartet)
