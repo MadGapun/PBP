@@ -2849,6 +2849,51 @@ def _degree_text(text: str) -> str:
     return _re.sub(r"\s+", " ", _normalize_for_matching(text or ""))
 
 
+# v1.7.23 (#955): BESCHREIBENDE Formulierungen, getrennt gefuehrt.
+# Die Hauptliste kannte nur FORDERNDE Wendungen ("Studium erforderlich",
+# "abgeschlossenes Studium"). Belegter Fall: "Dein akademischer
+# Hintergrund: Dein Studium bildet die Ausgangsbasis" — eine klare
+# Anforderung, die auch mit vollstaendigem Text nicht erkannt wurde.
+#
+# Die Richtung des Fehlers ist die unangenehme: nicht erkannt heisst
+# `false`, also "nicht gefordert" — und das ist ein k.o.-Kriterium,
+# keine Anzeigeinformation.
+_DEGREE_BESCHREIBEND = (
+    "akademischer hintergrund", "akademische ausbildung",
+    "dein studium", "ihr studium", "studium bildet", "studium der",
+    "studiengang", "hochschulstudium", "universitaetsstudium",
+    "universitätsstudium", "fachhochschulstudium",
+    "studierte", "studierter", "studierten",
+    "your degree", "your academic", "academic background",
+)
+
+# Anzeigen, die sich AN Studierende richten. Dort ist "Studium" die
+# Zielgruppe, nicht die Anforderung — eine Wortliste ohne diesen
+# Kontext wuerde beide Faelle verwechseln.
+_STUDIERENDEN_MARKER = (
+    "werkstudent", "werkstudierend", "praktikum", "praktikant",
+    "duales studium", "dualer student", "studentische hilfskraft",
+    "fuer studierende", "für studierende", "abschlussarbeit",
+    "bachelorarbeit", "masterarbeit", "internship", "working student",
+)
+
+
+# Formulierungen, die einen ABGESCHLOSSENEN Abschluss verlangen. Nur
+# diese zaehlen noch, wenn sich die Anzeige an Studierende richtet —
+# alles andere ist dort Zielgruppenbeschreibung.
+_DEGREE_ABGESCHLOSSEN = (
+    "abgeschlossenes studium", "abgeschlossenes hochschulstudium",
+    "abgeschlossene hochschulausbildung", "hochschulabschluss",
+    "studienabschluss", "akademischer abschluss", "universitaetsabschluss",
+    "universitätsabschluss", "degree required", "completed degree",
+    "bachelor of", "master of",
+)
+
+
+def _ist_studierenden_stelle(text_lower: str) -> bool:
+    return any(m in text_lower for m in _STUDIERENDEN_MARKER)
+
+
 def _has_degree_relaxation(text: str) -> bool:
     """True wenn der Text Quereinsteiger-/Abschwaechungs-Klauseln enthaelt (#536)."""
     text_lower = _degree_text(text)
@@ -2893,7 +2938,18 @@ def _detect_degree_required(text: str) -> bool:
     """
     text = _ohne_bewerberstatistik(_strip_pbp_notes(text or ""))
     text_lower = _degree_text(text)
-    if not any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS):
+    # v1.7.23 (#955): Richtet sich die Anzeige an Studierende, ist
+    # "Studium" die ZIELGRUPPE, nicht die Anforderung. Dann zaehlen nur
+    # noch Formulierungen, die ausdruecklich einen abgeschlossenen
+    # Abschluss verlangen. Ohne diese Unterscheidung wuerde jede
+    # Werkstudenten- und Praktikumsanzeige einen Hochschulabschluss
+    # fordern — und das ist ein k.o.-Kriterium.
+    if _ist_studierenden_stelle(text_lower):
+        treffer = any(pat in text_lower for pat in _DEGREE_ABGESCHLOSSEN)
+    else:
+        treffer = (any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS)
+                   or any(pat in text_lower for pat in _DEGREE_BESCHREIBEND))
+    if not treffer:
         return False
     # Pattern hat angeschlagen — pruefe ob abgeschwaecht
     if _has_degree_relaxation(text_lower):
