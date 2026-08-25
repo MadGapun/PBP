@@ -147,7 +147,7 @@ def test_531_duplikat_vermittler_endkunde(setup_env):
     # Erste Bewerbung: Vermittler-Sicht
     raw = _call(mcp, "bewerbung_erstellen", {
         "title": "Senior PLM Functional Expert (m/w/d)",
-        "company": "IQ Intelligentes Ingenieur Management (Endkunde: Siemens Energy)",
+        "company": "Ingenieurvermittlung Mitte (Endkunde: Siemens Energy)",
     })
     result = _result(raw)
     assert result.get("status") in ("erstellt", "angelegt")  # Erste = OK
@@ -155,7 +155,7 @@ def test_531_duplikat_vermittler_endkunde(setup_env):
     # Zweite mit Endkunden-Sicht — sollte als Duplikat erkannt werden
     raw2 = _call(mcp, "bewerbung_erstellen", {
         "title": "Senior PLM Functional Expert (Internal) (m/w/d) — Mülheim",
-        "company": "Siemens Energy (via IQ Intelligentes Ingenieur Management GmbH)",
+        "company": "Siemens Energy (via Ingenieurvermittlung Mitte GmbH)",
     })
     result2 = _result(raw2)
     assert result2.get("status") == "duplikat", f"Erwartet Duplikat-Status, bekommen: {result2}"
@@ -167,10 +167,10 @@ def test_531_kein_duplikat_bei_unterschiedlicher_firma(setup_env):
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
     _call(mcp, "bewerbung_erstellen", {
-        "title": "Python Developer", "company": "Bechtle AG",
+        "title": "Python Developer", "company": "Musterfirma AG",
     })
     raw = _call(mcp, "bewerbung_erstellen", {
-        "title": "Python Developer", "company": "Adesso SE",
+        "title": "Python Developer", "company": "Beispieltech SE",
     })
     result = _result(raw)
     assert result.get("status") != "duplikat"

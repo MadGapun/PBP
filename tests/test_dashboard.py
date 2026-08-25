@@ -1575,7 +1575,7 @@ class TestStatistics:
         r = client.post(
             "/api/documents/upload",
             data={"doc_type": "sonstiges"},
-            files={"file": ("Tomra/Bewerbung Vollzeit.pdf", b"%PDF-1.4 fake", "application/pdf")},
+            files={"file": ("Konsumgueter/Bewerbung Vollzeit.pdf", b"%PDF-1.4 fake", "application/pdf")},
         )
         assert r.status_code == 200
 
@@ -1587,7 +1587,7 @@ class TestStatistics:
         stored_path = Path(docs[0]["filepath"])
         assert stored_path.exists()
         assert "dokumente" in [part.lower() for part in stored_path.parts]
-        assert stored_path.parent.name != "Tomra"
+        assert stored_path.parent.name != "Konsumgueter"
 
     def test_upload_document_sanitizes_windows_separator_filename(self, client):
         """Upload with backslashes should not fail and should keep only the basename."""
@@ -1595,7 +1595,7 @@ class TestStatistics:
         r = client.post(
             "/api/documents/upload",
             data={"doc_type": "sonstiges"},
-            files={"file": ("Tomra\\Lebenslauf Vollzeit.pdf", b"dummy", "application/pdf")},
+            files={"file": ("Konsumgueter\\Lebenslauf Vollzeit.pdf", b"dummy", "application/pdf")},
         )
         assert r.status_code == 200
         profile = client.get("/api/profile").json()

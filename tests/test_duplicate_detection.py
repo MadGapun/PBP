@@ -20,12 +20,12 @@ def test_normalize_strips_legal_suffix():
 def test_normalize_strips_parens():
     assert (normalize_company_name("Systemhaus Nord Ltd. (Endkunde: Anlagenbau Sued)")
             == "systemhaus nord")
-    assert (normalize_company_name("Lürssen Werft (Abt. Business & Engineering IT)")
-            == "luerssen werft")
+    assert (normalize_company_name("Werft Nord (Abt. Business & Engineering IT)")
+            == "werft nord")
 
 
 def test_normalize_umlauts():
-    assert normalize_company_name("Lürssen") == "luerssen"
+    assert normalize_company_name("Werft Nord") == "werft nord"
     assert normalize_company_name("Müller GmbH") == "mueller"
 
 

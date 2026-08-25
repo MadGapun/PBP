@@ -249,3 +249,33 @@ def test_929_adapter_klassennamen_sind_quellen_bezeichner():
     assert find_pii("- `BundesagenturAdapter` + `HaysAdapter` sind Wrapper.") == []
     # Ohne den Adapter-Kontext bleibt der blosse Firmenname PII.
     assert find_pii("Hays hat sich zur Stelle gemeldet.")
+
+
+# ── v1.7.23 (#930): Testdaten und Quelltext-Konstanten ───────────────
+
+def test_930_testplatzhalter_loesen_keinen_alarm():
+    """Der Repo-Scan war unbenutzbar, weil er bei jedem Testdatensatz
+    anschlug. Erkannt wird strukturell am Kopfwort, nicht ueber eine
+    gepflegte Einzelliste — Testdaten entstehen staendig neu."""
+    from scrub_pii import find_pii
+    for name in ("Tech GmbH", "Foo GmbH & Co. KG", "Beta GmbH", "Alt AG",
+                 "TestCorp GmbH", "EvilCorp AG", "Geheime Bank GmbH",
+                 "Musterfirma Software GmbH"):
+        assert find_pii(f"Bewerbung bei {name} lief gut.") == [], name
+
+
+def test_930_aehnlich_klingende_echte_firmen_bleiben_treffer():
+    """Gegenrichtung: 'Alt GmbH' ist ein Platzhalter, 'Altana AG' nicht."""
+    from scrub_pii import find_pii
+    for name in ("Altana AG", "Nordwerk Antriebstechnik GmbH",
+                 "Testo SE"):
+        assert find_pii(f"Bewerbung bei {name} lief gut."), name
+
+
+def test_930_hex_konstanten_sind_keine_telefonnummern():
+    """Belegt: creationflags 0x08000000 wurde als Rufnummer gemeldet."""
+    from scrub_pii import find_pii
+    assert find_pii('_FLAGS = {"creationflags": 0x08000000}') == []
+    # Gegenrichtung: echte Nummern werden weiterhin gefunden.
+    assert find_pii("Tel. 08000 123456")
+    assert find_pii("Ruf an: +49 171 1234567")
