@@ -303,12 +303,18 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # Summary text
     pdf.set_font("Helvetica", "", 9)
+    # v1.7.23 (#944): Die Sichtungsleistung gehoert auf Seite 1. Sie ist
+    # der eigentliche Beleg systematischer Suche — und stand bisher auf
+    # Seite 5 unter der Ablehnungstabelle, wo eine Vermittlerin sie
+    # kaum findet.
+    _gesichtet = active_jobs + dismissed_jobs
     summary_text = (
-        f"Im Berichtszeitraum wurden {total_apps} Bewerbungen erfasst. "
+        f"Im Berichtszeitraum wurden {_gesichtet} Stellen gesichtet, "
+        f"davon {dismissed_jobs} begruendet aussortiert und "
+        f"{total_apps} Bewerbungen erstellt. "
         f"Davon haben {interviews_track_record} jemals eine Interview-Phase erreicht "
         f"(Track-Record-Interview-Rate: {interview_rate}%). "
-        f"Die Angebotsrate liegt bei {offer_rate}%. "
-        f"Insgesamt wurden {active_jobs + dismissed_jobs} Stellen analysiert."
+        f"Die Angebotsrate liegt bei {offer_rate}%."
     )
     pdf.multi_cell(0, 5, _safe_text(summary_text))
     pdf.ln(2)
@@ -636,7 +642,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 pdf.set_fill_color(238, 238, 238)
                 fill = True
 
-            company = (a.get("company") or "")[:20]
+            # #944: In einem Behoerdendokument darf kein Eintrag ohne
+            # Firma erscheinen — der Vorgang existiert ja.
+            company = ((a.get("company") or "").strip()
+                       or "Ohne Firmenangabe")[:20]
             title = (a.get("title") or "")[:28]
             status_key = a.get("status", "")
             status = STATUS_LABELS.get(status_key, status_key)[:12]
@@ -678,6 +687,19 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(30, 4, _safe_text(kontakt), border=1, fill=fill)
             pdf.set_text_color(0, 0, 0)  # zurueck zum Default
             pdf.ln()
+
+        # v1.7.23 (#944): Legende fuer das Sternchen in der Score-Spalte.
+        # Es stand ohne jede Erklaerung im Dokument — in einem Bericht
+        # fuer die Vermittlung ist ein unerklaertes Zeichen schlicht
+        # Rauschen.
+        if any(a.get("is_pinned") for a in apps):
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "I", 7)
+            pdf.set_text_color(110, 110, 110)
+            _line_cell(pdf, 0, 4, _safe_text(
+                "* Vorgemerkte Stelle (angepinnt) — eigene Priorisierung, "
+                "unabhaengig vom Score."))
+            pdf.set_text_color(0, 0, 0)
 
         # Legende fuer Pre-PBP-Markierung
         if pbp_first_active_at and any(
@@ -907,6 +929,25 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             "team", "stelle", "position", "bewerbung", "kollegen",
             "unternehmen", "firma", "rolle", "aufgaben", "anforderungen",
             "kunde", "kunden", "projekt", "projekte",
+            # v1.7.23 (#944): Ohne diese Gruppe bestand der Abschnitt zur
+            # Haelfte aus Fuellwoertern — belegt waren "erfahrung" 49,
+            # "nicht" 27, "kein" 23, "sowie" 22 auf den vorderen Plaetzen.
+            # Ein fachlich echtes Signal (ein PLM-System auf Platz fuenf)
+            # ging dazwischen unter.
+            "nicht", "kein", "keine", "sowie", "sehr", "gute", "guten",
+            "gut", "mehr", "auch", "durch", "unter", "ueber", "über",
+            "dem", "denen", "diese", "dieser", "dieses", "damit", "dabei",
+            "dann", "noch", "schon", "eigene", "eigenen", "eigener",
+            "erste", "ersten", "neue", "neuen", "neuer", "viele", "vielen",
+            "erfahrung", "erfahrungen", "kenntnisse", "kenntnissen",
+            "bereich", "bereichen", "moeglichkeiten", "möglichkeiten",
+            "arbeit", "arbeiten", "sowohl", "insbesondere", "beispielsweise",
+            "bereits", "jeweils", "entsprechend", "entsprechenden",
+            "idealerweise", "wuenschenswert", "wünschenswert",
+            "abgeschlossene", "abgeschlossenes", "abgeschlossen",
+            "selbststaendige", "selbstständige", "strukturierte",
+            "freuen", "freust", "bieten", "bietet", "suchen", "suchst",
+            "your", "who", "what", "work", "working", "role", "team's",
         }
         for text in applied_descriptions:
             # #596 Bug 3 Tokenisierung: erlaubt nur Buchstaben & Umlaute,
@@ -1134,7 +1175,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
         if buckets["einfach"] + buckets["standard"] + buckets["aufwaendig"] > 0:
             pdf.set_font("Helvetica", "B", 8)
-            _line_cell(pdf, 0, 5, _safe_text("  Verteilung nach Aufwand:"))
+            _gesamt_verteilung = sum(buckets.values())
+            _line_cell(pdf, 0, 5, _safe_text(
+                f"  Verteilung nach Aufwand ({_gesamt_verteilung} von "
+                f"{len(apps)} Bewerbungen mit hinterlegten Dokumenten):"))
             pdf.set_font("Helvetica", "", 7)
             for label, n in buckets.items():
                 pdf.cell(40, 4, _safe_text(f"  {label}"), border=1)
@@ -1155,15 +1199,33 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.ln()
             pdf.set_font("Helvetica", "", 7)
             for a, d, n in per_app_rows[:30]:
-                title = (a.get("company") or "")[:30]
+                # v1.7.23 (#944): "Gesamt" war `total` ueber ALLE
+                # Dokumentarten, die Spalten decken aber nur vier
+                # benannte ab — die Zeile ging deshalb nicht auf
+                # (Beispiel: 1+0+0+1+0 stand neben Gesamt 3). In einem
+                # Behoerdendokument ist eine Tabelle, die sichtbar
+                # falsch addiert, schlimmer als eine fehlende Spalte.
+                # "Sonst." traegt jetzt alles, was keine eigene Spalte
+                # hat, damit Summe und Gesamt uebereinstimmen.
+                benannt = sum(int(d.get(k) or 0) for k in
+                              ("lebenslauf", "anschreiben", "zeugnis", "email"))
+                sonstige = max(0, n - benannt)
+                title = (a.get("company") or "Ohne Firmenangabe")[:30]
                 pdf.cell(70, 4, _safe_text(f"  {title}"), border=1)
                 pdf.cell(15, 4, str(d.get("lebenslauf") or 0), border=1, align="C")
                 pdf.cell(15, 4, str(d.get("anschreiben") or 0), border=1, align="C")
                 pdf.cell(15, 4, str(d.get("zeugnis") or 0), border=1, align="C")
                 pdf.cell(15, 4, str(d.get("email") or 0), border=1, align="C")
-                pdf.cell(15, 4, str(d.get("sonstiges") or 0), border=1, align="C")
+                pdf.cell(15, 4, str(sonstige), border=1, align="C")
                 pdf.cell(15, 4, str(n), border=1, align="C")
                 pdf.ln()
+            if len(per_app_rows) > 30:
+                pdf.set_font("Helvetica", "I", 7)
+                pdf.set_text_color(110, 110, 110)
+                _line_cell(pdf, 0, 4, _safe_text(
+                    f"  Gezeigt: 30 von {len(per_app_rows)} Bewerbungen mit "
+                    "hinterlegten Dokumenten."))
+                pdf.set_text_color(0, 0, 0)
         pdf.ln(4)
 
     # v1.6.8: Sektion 13 „Bewerbungs-Trichter" entfernt — die Stufen waren
