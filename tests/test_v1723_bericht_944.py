@@ -193,3 +193,50 @@ def test_944_bericht_laesst_sich_weiterhin_erzeugen(tmp_db, tmp_path):
     pfad = generate_application_report(daten, {"name": "Test"}, str(ziel))
     assert pfad and ziel.exists()
     assert ziel.stat().st_size > 1000
+
+
+# ── Nachtrag: die restlichen Kriterien ───────────────────────────────
+
+def test_944_quellen_taxonomie_ist_einheitlich():
+    """Dieselbe Quelle stand in beiden Tabellen unterschiedlich da —
+    fuer eine Leserin sind das zwei verschiedene Quellen."""
+    from bewerbungs_assistent.export_report import quelle_normalisiert as q
+    assert q("jobspy_indeed") == q("indeed") == q("Indeed")
+    assert q("browser_linkedin") == q("linkedin")
+    assert q("") == "unbekannt"
+    # Traeger-Praefixe bleiben erhalten: das IST die Quelle.
+    assert q("plugin:watch-folder").startswith("plugin:")
+    assert q("newsletter:Nischenboerse").startswith("newsletter:")
+    # Verschiedene Quellen bleiben verschieden.
+    assert q("stepstone") != q("indeed")
+
+
+def test_944_quellen_volumen_wird_zusammengefasst():
+    from pathlib import Path
+    quelle = (Path(__file__).resolve().parents[1] / "src" /
+              "bewerbungs_assistent" / "export_report.py").read_text(encoding="utf-8")
+    assert "_zusammengefasst" in quelle
+    assert "_nach_quelle_summiert" in quelle
+
+
+def test_944_aktivitaetsprotokoll_ist_vollstaendig():
+    """Bei einem Nachweisdokument ist Vollstaendigkeit der Zweck."""
+    from pathlib import Path
+    quelle = (Path(__file__).resolve().parents[1] / "src" /
+              "bewerbungs_assistent" / "export_report.py").read_text(encoding="utf-8")
+    # Die Sache pruefen, nicht die Kommentare: die Schleife darf nicht
+    # mehr abschneiden.
+    assert "timeline_events[:60]" not in quelle
+    assert "for date, evt, target, status in timeline_events:" in quelle
+    assert "vollstaendig aufgefuehrt" in quelle
+
+
+def test_944_bewerbungsliste_hat_lesbare_spaltenbreiten():
+    """Art und Kontakt kosteten die halbe Breite, wodurch Firmennamen
+    mitten im Wort abbrachen — bei 95 Eintraegen der Hauptteil."""
+    from pathlib import Path
+    quelle = (Path(__file__).resolve().parents[1] / "src" /
+              "bewerbungs_assistent" / "export_report.py").read_text(encoding="utf-8")
+    assert 'pdf.cell(55, 5, "Firma"' in quelle
+    assert 'pdf.cell(65, 5, "Position"' in quelle
+    assert '"Kontakt", border=1, fill=True' not in quelle
