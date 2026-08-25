@@ -7158,7 +7158,13 @@ class Database:
             # Compat).
             "score_distribution": {r["bracket"]: r["cnt"] for r in score_dist},
             "score_distribution_ordered": score_dist,
-            "unapplied_high_score": [self._serialize_job_row(r) for r in unapplied_high],
+            # v1.7.23 (#944): Die Scoring-Regler (#169) werden in
+            # stellen_anzeigen BEIM LESEN angewandt, im Bericht bisher
+            # nicht — daher nannten beide fuer dieselbe Stelle
+            # unterschiedliche Werte (belegt: 81 gegen 82, 52 gegen 49).
+            # Fuer eine Leserin sind das schlicht falsche Zahlen.
+            "unapplied_high_score": self._mit_scoring_reglern(
+                [self._serialize_job_row(r) for r in unapplied_high]),
             "date_range": {
                 "first": date_range["first"] if date_range else None,
                 "last": date_range["last"] if date_range else None,
@@ -8898,6 +8904,26 @@ class Database:
         conn.commit()
 
     # === Rejection Analysis (PBP v0.9.0) ===
+
+    def _mit_scoring_reglern(self, jobs: list) -> list:
+        """Wendet die Scoring-Regler an, wie es die Stellenliste tut (#944).
+
+        Ohne diesen Schritt weichen Bericht und Liste fuer dieselbe
+        Stelle voneinander ab. Ignorierte Stellen fallen hier bewusst
+        NICHT weg: der Bericht soll zeigen, was gesichtet wurde.
+        """
+        try:
+            from .services.scoring_service import apply_scoring_adjustments
+        except Exception:
+            return jobs
+        for j in jobs:
+            try:
+                ergebnis = apply_scoring_adjustments(j, j.get("score", 0), self)
+                j["score"] = ergebnis.get("final_score", j.get("score", 0))
+            except Exception:
+                continue
+        jobs.sort(key=lambda x: -(x.get("score") or 0))
+        return jobs
 
     def get_rejection_patterns(self) -> dict:
         """Analyze rejection patterns across all applications."""

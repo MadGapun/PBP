@@ -206,7 +206,12 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                         })
 
     # 5. Ausschluss-Keywords (nur negativ, #169)
-    job_text = f"{job.get('title', '')} {job.get('description', '')[:500]}".lower()
+    # v1.7.23 (#944): `.get(key, "")` liefert None, wenn der Schluessel
+    # MIT dem Wert None existiert — genau so kommen Stellen ohne
+    # Beschreibung aus der Serialisierung. None[:500] stuerzt ab und
+    # haette den Bericht mitgerissen, sobald er die Regler anwendet.
+    job_text = (f"{job.get('title') or ''} "
+                f"{(job.get('description') or '')[:500]}").lower()
     keyword_entries = [(k, v) for k, v in cfg.items() if k[0] == "keyword"]
     for (_, kw), entry in keyword_entries:
         if kw.lower() in job_text:
