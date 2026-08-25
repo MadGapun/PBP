@@ -483,7 +483,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     ))
     pdf.set_text_color(0, 0, 0)
     pdf.ln(1)
-    by_source = stats.get("jobs_by_source", {})
+    by_source = _nach_quelle_summiert(
+        (stats.get("jobs_by_source", {}) or {}).items())
     if by_source:
         # #430: Source chart
         _embed_chart(pdf, _chart_source_bar(by_source))
@@ -615,14 +616,18 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     if apps:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(18, 5, "Datum", border=1, fill=True)
-        pdf.cell(35, 5, "Firma", border=1, fill=True)
-        pdf.cell(45, 5, "Position", border=1, fill=True)
-        pdf.cell(22, 5, "Status", border=1, fill=True, align="C")
+        # v1.7.23 (#944): "Art" und "Kontakt" entfernt. Sie kosteten die
+        # halbe Breite, wodurch Firmennamen und Positionen mitten im Wort
+        # abbrachen — bei 95 Eintraegen ist diese Liste der Hauptteil des
+        # Dokuments. Fuer eine Vermittlerin zaehlen Datum, Firma,
+        # Position und Status; Ansprechpartner und Bewerbungsart stehen
+        # ohnehin in der Bewerbung selbst.
+        pdf.cell(20, 5, "Datum", border=1, fill=True)
+        pdf.cell(55, 5, "Firma", border=1, fill=True)
+        pdf.cell(65, 5, "Position", border=1, fill=True)
+        pdf.cell(25, 5, "Status", border=1, fill=True, align="C")
         pdf.cell(15, 5, "Quelle", border=1, fill=True, align="C")
         pdf.cell(10, 5, "Score", border=1, fill=True, align="C")
-        pdf.cell(15, 5, "Art", border=1, fill=True, align="C")
-        pdf.cell(30, 5, "Kontakt", border=1, fill=True)
         pdf.ln()
         pdf.set_font("Helvetica", "", 6.5)
         # v1.7.0-beta.22: Pre-PBP-Daten grau hinterlegen (Asterisk + grauer Text).
@@ -645,8 +650,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             # #944: In einem Behoerdendokument darf kein Eintrag ohne
             # Firma erscheinen — der Vorgang existiert ja.
             company = ((a.get("company") or "").strip()
-                       or "Ohne Firmenangabe")[:20]
-            title = (a.get("title") or "")[:28]
+                       or "Ohne Firmenangabe")[:34]
+            title = (a.get("title") or "")[:42]
             status_key = a.get("status", "")
             status = STATUS_LABELS.get(status_key, status_key)[:12]
             source = (a.get("job_source") or a.get("source", ""))[:10]
@@ -655,8 +660,6 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 score = f"*{score}" if score else "*"
             else:
                 score = str(score) if score else ""
-            art = (a.get("bewerbungsart") or "")[:10]
-            kontakt = (a.get("ansprechpartner") or "")[:18]
 
             # Pre-PBP: Asterisk vor dem Datum + grauer Text
             date_display = ("† " + date_str) if is_pre_pbp else date_str
@@ -666,13 +669,13 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             # Status color badge
             r, g, b = STATUS_COLORS.get(status_key, (100, 116, 139))
 
-            pdf.cell(18, 4, _safe_text(date_display), border=1, fill=fill)
-            pdf.cell(35, 4, _safe_text(company), border=1, fill=fill)
-            pdf.cell(45, 4, _safe_text(title), border=1, fill=fill)
+            pdf.cell(20, 4, _safe_text(date_display), border=1, fill=fill)
+            pdf.cell(55, 4, _safe_text(company), border=1, fill=fill)
+            pdf.cell(65, 4, _safe_text(title), border=1, fill=fill)
             # Status with color (immer farbig — auch fuer Pre-PBP)
             pdf.set_fill_color(r, g, b)
             pdf.set_text_color(255, 255, 255)
-            pdf.cell(22, 4, _safe_text(status), border=1, fill=True, align="C")
+            pdf.cell(25, 4, _safe_text(status), border=1, fill=True, align="C")
             # Text-Color zurueck auf grau wenn Pre-PBP
             pdf.set_text_color(110 if is_pre_pbp else 0,
                                 110 if is_pre_pbp else 0,
@@ -683,8 +686,6 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
                 pdf.set_fill_color(245, 247, 250)
             pdf.cell(15, 4, _safe_text(source), border=1, fill=fill, align="C")
             pdf.cell(10, 4, _safe_text(str(score)), border=1, fill=fill, align="C")
-            pdf.cell(15, 4, _safe_text(art), border=1, fill=fill, align="C")
-            pdf.cell(30, 4, _safe_text(kontakt), border=1, fill=fill)
             pdf.set_text_color(0, 0, 0)  # zurueck zum Default
             pdf.ln()
 
@@ -1025,7 +1026,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.cell(35, 5, "Status", border=1, fill=True, align="C")
         pdf.ln()
         pdf.set_font("Helvetica", "", 7)
-        for date, evt, target, status in timeline_events[:60]:
+        # v1.7.23 (#944): vollstaendig statt abgeschnitten. Bei einem
+        # NACHWEISDOKUMENT ist Vollstaendigkeit der Zweck — "... weitere
+        # 107 Ereignisse nicht angezeigt" entwertet genau den Beleg, den
+        # der Abschnitt liefern soll. Die Seitenzahl steigt, das ist der
+        # richtige Preis.
+        for date, evt, target, status in timeline_events:
             try:
                 date_de = datetime.fromisoformat(date).strftime("%d.%m.%Y")
             except Exception:
@@ -1035,11 +1041,11 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.cell(95, 4, _safe_text(target[:60]), border=1)
             pdf.cell(35, 4, _safe_text(status[:22]), border=1, align="C")
             pdf.ln()
-        if len(timeline_events) > 60:
-            pdf.set_font("Helvetica", "I", 7)
-            _line_cell(pdf, 0, 4, _safe_text(
-                f"  ... weitere {len(timeline_events) - 60} Ereignisse nicht angezeigt."
-            ))
+        pdf.set_font("Helvetica", "I", 7)
+        pdf.set_text_color(110, 110, 110)
+        _line_cell(pdf, 0, 4, _safe_text(
+            f"  {len(timeline_events)} Ereignisse, vollstaendig aufgefuehrt."))
+        pdf.set_text_color(0, 0, 0)
     else:
         _line_cell(pdf, 0, 5, _safe_text(
             "  Keine Aktivitaeten im Berichtszeitraum erfasst."
@@ -1101,7 +1107,20 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.set_text_color(0, 0, 0)
     pdf.ln(1)
 
-    source_volume = report_data.get("source_volume") or []
+    # v1.7.23 (#944): dieselbe Schreibweise wie Abschnitt 3. Vorher
+    # stand dieselbe Quelle in beiden Tabellen unterschiedlich und mit
+    # abweichenden Zahlen — fuer eine Leserin sind das zwei Quellen.
+    _roh_volume = report_data.get("source_volume") or []
+    _zusammengefasst: dict = {}
+    for _e in _roh_volume:
+        _k = quelle_normalisiert(_e.get("source"))
+        _z = _zusammengefasst.setdefault(
+            _k, {"source": _k, "total": 0, "active": 0,
+                 "dismissed": 0, "applied": 0})
+        for _feld in ("total", "active", "dismissed", "applied"):
+            _z[_feld] += int(_e.get(_feld) or 0)
+    source_volume = sorted(_zusammengefasst.values(),
+                           key=lambda x: -x["total"])
     if source_volume:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_fill_color(230, 230, 230)
@@ -1401,6 +1420,44 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     pdf.output(str(output_path))
     logger.info("PDF Datenauskunft erstellt: %s", output_path)
     return output_path
+
+
+def quelle_normalisiert(name) -> str:
+    """Eine Schreibweise je Quelle (#944, v1.7.23).
+
+    Der Bericht enthielt zwei Quellentabellen aus verschiedenen
+    Abfragen. Dieselbe Quelle stand einmal mit 22 und einmal mit 30
+    Treffern da, teils in abweichender Schreibweise — einmal
+    `jobs.source`, einmal `applications.source`, ohne gemeinsame
+    Normalisierung. Fuer eine Leserin sind das zwei verschiedene
+    Quellen.
+
+    Vereinheitlicht wird nur die SCHREIBWEISE, nicht die Bedeutung: die
+    beiden Tabellen messen weiterhin Unterschiedliches (Qualitaet
+    gegenueber Volumen), und das steht auch so dabei.
+    """
+    roh = str(name or "").strip().lower()
+    if not roh:
+        return "unbekannt"
+    # Sammel-Adapter: jobspy_indeed und indeed sind dieselbe Quelle.
+    for prefix in ("jobspy_", "browser_", "api_"):
+        if roh.startswith(prefix):
+            roh = roh[len(prefix):]
+            break
+    # Plugin-/Newsletter-Quellen behalten ihren Traeger als Praefix.
+    if ":" in roh:
+        traeger, _, rest = roh.partition(":")
+        return f"{traeger}:{rest.strip()}" if rest.strip() else traeger
+    return roh.replace("-", "_")
+
+
+def _nach_quelle_summiert(paare) -> dict:
+    """Zaehlwerte auf die normalisierte Schreibweise zusammenfassen."""
+    summe: dict = {}
+    for name, wert in paare:
+        schluessel = quelle_normalisiert(name)
+        summe[schluessel] = summe.get(schluessel, 0) + (wert or 0)
+    return summe
 
 
 def _section_header(pdf, title: str):
