@@ -85,6 +85,18 @@ def _kanonisch_einzeln(raw: str, erlaubt: set) -> tuple[str, str | None]:
     if lower in _ALIAS:
         return _ALIAS[lower], None
 
+    # v1.7.23 (#944): Ein Vokabular-Wert mit angehaengter Zeichensetzung
+    # ("zu_weit_entfernt.") fiel bisher aus der Whitelist und wurde zu
+    # 'sonstiges' plus Freitext — im Bericht erschien derselbe Grund
+    # dadurch ZWEIMAL als eigene Kategorie, und der Lerneffekt ging
+    # verloren. Ein Schlusspunkt ist keine andere Kategorie.
+    entkleidet = lower.strip(" .;,:!-")
+    if entkleidet and entkleidet != lower:
+        if entkleidet in erlaubt:
+            return entkleidet, None
+        if entkleidet in _ALIAS:
+            return _ALIAS[entkleidet], None
+
     # Systempfad 'auto:<grund>' bzw. 'auto:<grund>:<llm-begruendung>' —
     # Grund extrahieren, Begruendung (falls vorhanden) ist Freitext.
     # Der Kurzform-Fall ohne Begruendung existiert im Altbestand (#671).
