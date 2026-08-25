@@ -57,28 +57,28 @@ def _make_suche_mcp(db):
 
 def test_699_warnung_bei_interview_bewerbung(setup_env):
     db, _ = setup_env
-    db.add_application({"title": "Lead Consultant PLM", "company": "adesso SE",
+    db.add_application({"title": "Lead Consultant PLM", "company": "Beispieltech SE",
                         "status": "interview"})
     mcp = _make_suche_mcp(db)
     res = _call(mcp, "blacklist_verwalten", {
-        "aktion": "hinzufuegen", "typ": "firma", "wert": "adesso",
+        "aktion": "hinzufuegen", "typ": "firma", "wert": "beispieltech",
     })
     assert res["status"] == "warnung", res
     assert res["betroffene_bewerbungen"], res
     assert "force" in res["hinweis"]
     # Nicht eingetragen
-    assert all(e["value"].lower() != "adesso" for e in db.get_blacklist())
+    assert all(e["value"].lower() != "beispieltech" for e in db.get_blacklist())
 
 
 def test_699_force_traegt_trotzdem_ein(setup_env):
     db, _ = setup_env
-    db.add_application({"title": "X", "company": "adesso SE", "status": "interview"})
+    db.add_application({"title": "X", "company": "Beispieltech SE", "status": "interview"})
     mcp = _make_suche_mcp(db)
     res = _call(mcp, "blacklist_verwalten", {
-        "aktion": "hinzufuegen", "typ": "firma", "wert": "adesso", "force": True,
+        "aktion": "hinzufuegen", "typ": "firma", "wert": "beispieltech", "force": True,
     })
     assert res["status"] == "hinzugefuegt", res
-    assert any(e["value"].lower() == "adesso" for e in db.get_blacklist())
+    assert any(e["value"].lower() == "beispieltech" for e in db.get_blacklist())
 
 
 def test_699_keine_warnung_ohne_kritische_bewerbung(setup_env):

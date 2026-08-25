@@ -7332,7 +7332,7 @@ class Database:
         # is_active=1 erzwingen + auch Stellen ausschliessen, deren Firma bereits
         # eine Bewerbung hat (Vermittler/Endkunde-Beziehung).
         # v1.6.5 (#540): Zusaetzlich Blacklist-Firmen ausschliessen — die hatten
-        # vorher trotzdem in der Liste gestanden (z.B. CONTACT Software trotz
+        # vorher trotzdem in der Liste gestanden (z.B. eine Firma trotz
         # explizitem User-Ausschluss).
         unapplied_high = conn.execute("""
             SELECT j.hash, j.title, j.company, j.score, j.source,

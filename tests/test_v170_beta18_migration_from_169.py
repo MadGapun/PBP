@@ -170,7 +170,7 @@ def _create_v169_database(db_path: Path) -> dict:
     )
     cur.execute(
         "INSERT INTO positions (id, company, title, profile_id, start_date, created_at) "
-        "VALUES ('pos-1', 'CONTACT Software GmbH', 'PLM Consultant', ?, '2018-01-01', '2024-12-01T10:00:00')",
+        "VALUES ('pos-1', 'Musterfirma Software GmbH', 'PLM Consultant', ?, '2018-01-01', '2024-12-01T10:00:00')",
         (pid,)
     )
     cur.execute(
@@ -311,7 +311,7 @@ def test_v169_data_preserved(v169_data_dir):
         "SELECT * FROM positions WHERE id=?", (ids["position_id"],)
     ).fetchone()
     assert pos is not None
-    assert pos["company"] == "CONTACT Software GmbH"
+    assert pos["company"] == "Musterfirma Software GmbH"
 
     # Skill
     sk = conn.execute(

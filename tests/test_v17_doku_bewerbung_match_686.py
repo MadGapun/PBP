@@ -3,7 +3,7 @@ bestehende Bewerbungen ab (Firmenname im INHALT, nicht nur im Dateinamen) und
 schlaegt die Zuordnung vor -> Dublettenschutz.
 
 Vorher: `erkannte_firmen` kam nur aus `_extract_firma_from_filename`, ein
-adesso-Interview-Mail (Firma nur im Text) blieb unerkannt, kein
+beispieltech-Interview-Mail (Firma nur im Text) blieb unerkannt, kein
 Zuordnungsvorschlag -> Beinahe-Dublette.
 """
 import asyncio
@@ -49,8 +49,8 @@ def _make_mcp(db):
 
 def test_686_company_match_key():
     from bewerbungs_assistent.tools.dokumente import _company_match_key
-    assert _company_match_key("adesso SE") == "adesso"
-    assert _company_match_key("Bechtle GmbH") == "bechtle"
+    assert _company_match_key("Beispieltech SE") == "beispieltech"
+    assert _company_match_key("Musterfirma GmbH") == "musterfirma"
     assert _company_match_key("Lufthansa Technik") == "lufthansa"
     assert _company_match_key("The Quality Group") == "quality"
     assert _company_match_key("SAP") == ""    # zu kurz/generisch -> kein Matching
@@ -59,7 +59,7 @@ def test_686_company_match_key():
 
 def test_686_plan_matcht_dokument_gegen_bewerbung(setup_env):
     db = setup_env
-    db.add_application({"title": "Lead Consultant PLM", "company": "adesso SE"})
+    db.add_application({"title": "Lead Consultant PLM", "company": "Beispieltech SE"})
     # Eingehendes Dokument: Firmenname NUR im Inhalt, NICHT im Dateinamen
     db.add_document({
         "id": "doc-mail-001",
@@ -67,9 +67,9 @@ def test_686_plan_matcht_dokument_gegen_bewerbung(setup_env):
         "filepath": "/fake/doc-mail-001.eml",
         "doc_type": "email",
         "extracted_text": (
-            "Von: recruiting@adesso-group.com\n"
+            "Von: recruiting@beispieltech-group.com\n"
             "Betreff: Einladung zum Interview\n"
-            "adesso SE freut sich, Sie kennenzulernen."
+            "Beispieltech SE freut sich, Sie kennenzulernen."
         ),
     })
     mcp = _make_mcp(db)
@@ -77,16 +77,16 @@ def test_686_plan_matcht_dokument_gegen_bewerbung(setup_env):
     assert result["status"] == "ok"
     z = result["bewerbungs_zuordnungen"]
     assert any(
-        e["dateiname"] == "Mail_2026-06-08.eml" and e["firma"] == "adesso SE"
+        e["dateiname"] == "Mail_2026-06-08.eml" and e["firma"] == "Beispieltech SE"
         for e in z
     ), z
     # Firma taucht jetzt in erkannte_firmen auf (vorher nur aus Dateinamen)
-    assert "adesso SE" in result["erkannte_firmen"]
+    assert "Beispieltech SE" in result["erkannte_firmen"]
 
 
 def test_686_kein_match_ohne_treffer(setup_env):
     db = setup_env
-    db.add_application({"title": "X", "company": "Bechtle GmbH"})
+    db.add_application({"title": "X", "company": "Musterfirma GmbH"})
     db.add_document({
         "id": "doc-x",
         "filename": "Mail.eml",

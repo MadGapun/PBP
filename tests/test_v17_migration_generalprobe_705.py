@@ -218,7 +218,7 @@ def _create_full_v16x_db(db_path: Path) -> dict:
     cur.executemany(
         "INSERT INTO positions (id, company, title, profile_id, start_date, created_at) "
         "VALUES (?,?,?,?,?, '2024-10-01T08:00:00')",
-        [("pos-1", "CONTACT Software GmbH", "PLM Consultant", pid, "2015-01-01"),
+        [("pos-1", "Musterfirma Software GmbH", "PLM Consultant", pid, "2015-01-01"),
          ("pos-2", "Maschinenbau AG", "CAx-Administrator", pid, "2009-01-01")],
     )
     # 1 Projekt (an Position gehaengt)

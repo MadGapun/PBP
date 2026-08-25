@@ -253,6 +253,41 @@ def _ist_quellen_klasse(label: str, text: str) -> bool:
     return f"{label}Adapter" in text
 
 
+# Woerter, an denen man einen TESTPLATZHALTER erkennt. Strukturell
+# statt als Einzelliste: eine gepflegte Aufzaehlung ist immer nur so
+# gut wie ihre letzte Pflege (#929), und Testdaten entstehen staendig
+# neu. Ein Treffer, der mit einem dieser Woerter beginnt, ist keine
+# reale Firma.
+_PLATZHALTER_WOERTER = frozenset({
+    "foo", "bar", "baz", "qux", "test", "testfirma", "testcorp", "demo",
+    "beispiel", "dummy", "muster", "musterfirma", "alt", "neu", "frisch",
+    "eins", "zwei", "drei", "vier", "alpha", "beta", "gamma", "delta",
+    "evilcorp", "badcorp", "badfit", "bigcorp", "cloudcorp", "techcorp",
+    "techstart", "mittelstandtech", "bla", "blub", "andere", "anderer",
+    "anderes", "geblockt", "geheime", "phantom", "reconstruct", "bridge",
+    "export", "standard", "default", "aktiv", "inaktiv", "pausiert",
+    "konkret", "gattung", "spaet", "dienst", "dienstleister", "saubere",
+    "leer", "offener", "geheimkunde", "voellig", "unbekannt", "nur",
+    "lang", "schnell", "bericht", "netzwerk", "reflex", "refetch",
+    "tech", "passt", "fehltreffer", "knapp", "regler", "gute", "laeuft",
+    "belegt", "vermutet", "gewertet", "ohne", "werk", "reue", "zweite",
+    "systemhaus", "medienhaus", "agentur", "verlag", "beratungshaus",
+})
+
+
+def _ist_platzhalter_kopf(label: str) -> bool:
+    """True, wenn der Treffer wie ein Testdatensatz aussieht.
+
+    Bewusst nur der KOPF: "Alt GmbH" ist ein Platzhalter, "Altana AG"
+    waere eine reale Firma und beginnt mit einem anderen Wort.
+    """
+    teile = label.split()
+    if not teile:
+        return False
+    kopf = teile[0].lower().strip("-,.:;\"'()„“")
+    return kopf in _PLATZHALTER_WOERTER
+
+
 def _ist_stoppwort_kopf(label: str) -> bool:
     """True, wenn im Treffer ein generisches Wort steckt.
 
@@ -302,6 +337,17 @@ _PHONE_RE = re.compile(
     r"\d{3,}(?:[ \-/]?\d+)*"              # Rufnummer, optional gruppiert
     r"(?![\d\-]*\s*(?:Zeichen|Stellen|px|EUR|€))"  # keine Mengenangaben
 )
+
+
+def _ist_hex_konstante(text: str, start: int) -> bool:
+    """True, wenn die Ziffernfolge Teil einer 0x-Konstante ist.
+
+    Belegt: `creationflags: 0x08000000` wurde als Rufnummer gemeldet.
+    Ein Pruefer, der bei Quelltext-Konstanten Alarm gibt, wird
+    ignoriert — dieselbe Lehre wie bei den Jahresspannen.
+    """
+    davor = text[max(0, start - 2):start].lower()
+    return davor.endswith("0x") or davor.endswith("x")
 
 
 def _ist_farbwert(treffer: str) -> bool:
@@ -452,7 +498,8 @@ def find_pii(text: str) -> list[str]:
     for m in set(_GERMAN_CORP_RE.findall(text)):
         label = m if isinstance(m, str) else " ".join(filter(None, m))
         if ("<" not in label and not _ist_fiktiv(label)
-                and not _ist_stoppwort_kopf(label)):
+                and not _ist_stoppwort_kopf(label)
+                and not _ist_platzhalter_kopf(label)):
             hits.append(f"CORP: {label}")
     for m in set(_EMAIL_RE.findall(text)):
         if not _is_safe_email(m):
@@ -460,6 +507,8 @@ def find_pii(text: str) -> list[str]:
     gesehen_tel: set[str] = set()
     for m in _PHONE_RE.finditer(text):
         if _ist_farbwert(m.group(0)):
+            continue
+        if _ist_hex_konstante(text, m.start()):
             continue
         wert = m.group(0)
         if wert in gesehen_tel:
