@@ -7340,7 +7340,22 @@ class Database:
             FROM jobs j
             LEFT JOIN applications a ON j.hash = a.job_hash
             WHERE a.id IS NULL
-              AND j.score >= 5
+              -- v1.7.23 (#944): Schwelle war 5 — damit landeten
+              -- Fehltreffer des Filters (#940) in einem Abschnitt mit
+              -- der Ueberschrift "Nicht beworben trotz gutem Fit-Score".
+              -- Fuer eine Vermittlerin liest sich das als Liste
+              -- versaeumter Gelegenheiten; der Bericht machte damit
+              -- einen Softwarefehler zu einem Vorwurf an den Nutzer.
+              -- Jetzt gilt die konfigurierte Aufnahmeschwelle, und ein
+              -- fachlicher Anker ist Pflicht: fachscore > 0 (seit
+              -- v1.7.22 gespeichert). Aeltere Stellen ohne Teilscore
+              -- bleiben ueber die Schwelle qualifiziert.
+              AND j.score >= COALESCE((
+                    SELECT CAST(value AS INTEGER) FROM search_criteria
+                    WHERE key='min_score_schwelle'
+                      AND (profile_id=? OR profile_id IS NULL)
+                    LIMIT 1), 15)
+              AND (j.fachscore IS NULL OR j.fachscore > 0)
               AND j.is_pinned = 0
               AND j.is_active = 1
               AND (j.profile_id=? OR j.profile_id IS NULL)
@@ -7353,7 +7368,7 @@ class Database:
                   SELECT LOWER(TRIM(value)) FROM blacklist WHERE type='firma'
               )
             ORDER BY j.score DESC LIMIT 30
-        """, (pid,)).fetchall()
+        """, (pid, pid)).fetchall()
 
         # Date range
         date_range = conn.execute("""
@@ -9272,24 +9287,78 @@ class Database:
         if not apps:
             return {"anzahl": 0, "muster": [], "nachricht": "Keine Ablehnungen vorhanden."}
 
-        rejections = [dict(a) for a in apps]
+        # v1.7.23 (#944): Der LEFT JOIN auf application_events liefert je
+        # 'abgelehnt'-Ereignis eine Zeile. Bewerbungen mit mehreren
+        # solchen Ereignissen wurden deshalb mehrfach gezaehlt — daher
+        # nannte derselbe Bericht 60 (Statusverteilung) und 64
+        # (Fliesstext) fuer dieselbe Groesse. Ein Behoerdendokument darf
+        # das nicht.
+        gesehen: set = set()
+        rejections = []
+        for a in apps:
+            row = dict(a)
+            if row.get("id") in gesehen:
+                continue
+            gesehen.add(row.get("id"))
+            rejections.append(row)
+
         # Group by company
         by_company = {}
         for r in rejections:
             co = r.get("company", "Unbekannt")
             by_company.setdefault(co, []).append(r)
 
-        # Aggregate reasons
-        reasons = {}
+        # v1.7.23 (#944): Gruende auf das gepflegte Vokabular normalisieren
+        # statt auf Freitext. Vorher erschien derselbe Grund doppelt (mit
+        # und ohne Schlusspunkt), Einzelfall-Freitexte wurden zu
+        # Kategorien, und ueber den event_notes-Rueckfall landete sogar
+        # "Bewerbung erstellt" als Ablehnungsgrund in der Tabelle — das
+        # ist ein Ereignistyp, kein Grund.
+        from .services.ablehnungsgruende import normalisiere_dismiss_wert
+        from .services.statistik_erweitert import sicherheitsgrad
+
+        reasons: dict = {}
+        vermutungen = 0
         for r in rejections:
-            reason = r.get("rejection_reason") or r.get("event_notes") or "Kein Grund angegeben"
-            reasons.setdefault(reason, 0)
-            reasons[reason] += 1
+            roh = (r.get("rejection_reason") or "").strip()
+            if not roh:
+                reasons["Kein Grund angegeben"] = (
+                    reasons.get("Kein Grund angegeben", 0) + 1)
+                continue
+            # Vermutungen und eigene Zuschreibungen sind KEINE vom
+            # Arbeitgeber genannten Gruende (#943, Befund 5). In einem
+            # Dokument fuer die Vermittlung kann eine unbelegte
+            # Selbstzuschreibung Schaden anrichten.
+            if sicherheitsgrad(r) != "belegt":
+                vermutungen += 1
+                continue
+            # normalisiere_dismiss_wert liefert (speicherwert, freitexte);
+            # der Speicherwert kann eine JSON-Liste sein (Mehrfachauswahl).
+            speicherwert, _freitexte = normalisiere_dismiss_wert(roh)
+            labels = []
+            if speicherwert:
+                try:
+                    import json as _json
+                    geparst = _json.loads(speicherwert)
+                    labels = [str(x) for x in geparst] if isinstance(
+                        geparst, list) else [str(speicherwert)]
+                except (ValueError, TypeError):
+                    labels = [str(speicherwert)]
+            if not labels:
+                # Kein Whitelist-Treffer: Freitext bleibt sichtbar, aber
+                # ohne Zeichensetzung, damit derselbe Grund nicht zweimal
+                # als Kategorie erscheint.
+                labels = [roh.rstrip(" .;,").strip()]
+            for label in labels:
+                if not label:
+                    continue
+                reasons[label] = reasons.get(label, 0) + 1
 
         return {
             "anzahl": len(rejections),
             "nach_firma": {k: len(v) for k, v in by_company.items()},
             "nach_grund": dict(sorted(reasons.items(), key=lambda x: -x[1])),
+            "nicht_belegte_gruende": vermutungen,
             "ablehnungen": [{
                 "firma": r.get("company"),
                 "stelle": r.get("title"),

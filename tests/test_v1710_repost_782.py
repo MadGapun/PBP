@@ -150,14 +150,22 @@ def test_782_rekonstruiert_kennzeichen(setup_env):
     """applied_at deutlich vor created_at -> abgeleitetes Kennzeichen."""
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
+    # v1.7.23: Datumsangaben RELATIV zu heute. Vorher stand hier ein
+    # festes "frisches" Datum — 29 Tage spaeter fiel es selbst unter die
+    # 30-Tage-Schwelle und der Test wurde rot, ohne dass sich am Code
+    # etwas geaendert haette. Ein Test mit Verfallsdatum ist kein Test.
+    from datetime import date as _date, timedelta as _td
+    lange_her = (_date.today() - _td(days=300)).isoformat()
+    frisch = (_date.today() - _td(days=3)).isoformat()
+
     aid = db.add_application({
         "company": "Alt AG", "title": "PLM Rolle",
-        "status": "abgelehnt", "applied_at": "2025-09-30"})
+        "status": "abgelehnt", "applied_at": lange_her})
     res = _result(_call(mcp, "bewerbung_details", {"bewerbung_id": aid}))
     assert res.get("datenqualitaet") == "rekonstruiert", res.get("datenqualitaet")
 
     aid2 = db.add_application({
         "company": "Frisch GmbH", "title": "X", "status": "beworben",
-        "applied_at": "2026-07-24"})
+        "applied_at": frisch})
     res2 = _result(_call(mcp, "bewerbung_details", {"bewerbung_id": aid2}))
     assert res2.get("datenqualitaet") != "rekonstruiert"
