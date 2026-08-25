@@ -129,6 +129,84 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
 # brauchen dieselben Header auch in der Probe — sonst meldet der Health-Check
 # falsch-rot (bundesagentur: 403 ohne X-API-Key). Header stammen 1:1 aus dem
 # jeweiligen Adapter-Modul.
+# v1.7.23 (#808): Schluessel, unter denen Stellen-Listen in den
+# API-Antworten stehen. Bewusst breit — es geht nicht um exakte
+# Feldnamen, sondern um die Frage "kommt hier plausibel etwas zurueck".
+_LISTEN_SCHLUESSEL = (
+    "stellenangebote", "ergebnisliste", "jobs", "data", "results",
+    "items", "offers", "positions", "content", "elements", "hits",
+    "vacancies", "postings",
+)
+
+
+def _zaehle_treffer(nutzlast) -> Optional[int]:
+    """Wie viele Eintraege sieht die Probe? None = nicht bestimmbar."""
+    if isinstance(nutzlast, list):
+        return len(nutzlast)
+    if not isinstance(nutzlast, dict):
+        return None
+    for schluessel in _LISTEN_SCHLUESSEL:
+        wert = nutzlast.get(schluessel)
+        if isinstance(wert, list):
+            return len(wert)
+        if isinstance(wert, dict):
+            # Eine Ebene tiefer schauen (haeufig bei ATS-Antworten).
+            for unter in _LISTEN_SCHLUESSEL:
+                if isinstance(wert.get(unter), list):
+                    return len(wert[unter])
+    # Manche ATS melden nur eine Gesamtzahl.
+    for schluessel in ("totalFound", "total", "totalCount", "count",
+                       "maxErgebnisse", "numFound"):
+        wert = nutzlast.get(schluessel)
+        if isinstance(wert, int):
+            return wert
+    return None
+
+
+def bewerte_inhalt(resp, erwarteter_typ: str) -> tuple[str, Optional[int], str]:
+    """Liefert die Probe plausibel STELLEN, nicht nur einen Server?
+
+    Drei belegte Muster von falsch-gruen (#808):
+
+    1. Die Probe zeigt auf denselben toten Endpunkt wie der Adapter —
+       beide melden konsistent dasselbe Falsche. So blieb der
+       Bundesagentur-Ausfall wochenlang unbemerkt.
+    2. Eine SPA antwortet auf einen API-Pfad mit HTTP 200 und HTML (die
+       Fallback-Route). Der Check sah 200 und meldete "lebt".
+    3. Ein falscher Firmen-Slug liefert gueltiges JSON mit
+       `totalFound: 0`. Technisch einwandfrei, fachlich tot.
+
+    Rueckgabe: (status, treffer, grund) mit status in
+    ok | verdaechtig | leer. `verdaechtig` und `leer` sind bewusst KEIN
+    Fehler — eine echte Flaute darf eine Quelle nicht sofort abschalten.
+    """
+    typ = (resp.headers.get("content-type") or "").lower()
+    if erwarteter_typ == "json" and "html" in typ:
+        return ("verdaechtig", None,
+                "Als JSON-Quelle deklariert, geantwortet wurde HTML — "
+                "typisch fuer die Fallback-Route einer Single-Page-App. "
+                "Der Endpunkt existiert vermutlich nicht mehr.")
+    if erwarteter_typ != "json":
+        return ("ok", None, "")
+    try:
+        nutzlast = resp.json()
+    except Exception:
+        return ("verdaechtig", None,
+                "Antwort ist kein gueltiges JSON, obwohl die Quelle als "
+                "JSON-API gefuehrt wird.")
+    treffer = _zaehle_treffer(nutzlast)
+    if treffer is None:
+        return ("ok", None,
+                "Antwort ist JSON, eine Ergebnisliste war aber nicht "
+                "erkennbar — der Status sagt hier nur, dass der Endpunkt lebt.")
+    if treffer <= 0:
+        return ("leer", 0,
+                "Der Endpunkt antwortet, liefert aber keine Stellen. Bei "
+                "firmenbezogenen Quellen ist das meist ein falscher "
+                "Firmen-Slug, keine Stoerung.")
+    return ("ok", treffer, "")
+
+
 _PROBE_EXTRA_HEADERS: dict[str, dict] = {
     "bundesagentur": {
         "X-API-Key": "jobboerse-jobsuche",  # bundesagentur.py:API_KEY (public)
@@ -194,15 +272,32 @@ def check_source(source_key: str, timeout: float = _TIMEOUT) -> dict[str, Any]:
                     "error": f"unsupported_method:{method}",
                 }
         latency_ms = int((time.perf_counter() - start) * 1000)
-        return {
+        erreichbar = 200 <= resp.status_code < 300
+        # v1.7.23 (#808): HTTP 200 allein beweist nicht, dass eine Quelle
+        # Stellen liefert. Solange die Zahl nicht misst, was sie
+        # behauptet, ist sie schlimmer als keine Zahl — man verlaesst
+        # sich darauf.
+        inhalt, treffer, grund = ("ok", None, "")
+        if erreichbar:
+            try:
+                inhalt, treffer, grund = bewerte_inhalt(resp, content_type)
+            except Exception:
+                inhalt, treffer, grund = ("ok", None, "")
+        ergebnis = {
             "source": source_key,
-            "reachable": 200 <= resp.status_code < 300,
+            "reachable": erreichbar,
             "http_status": resp.status_code,
             "latency_ms": latency_ms,
             "method": method,
             "url": url,
             "error": None,
+            "inhalt": inhalt if erreichbar else "fehler",
         }
+        if treffer is not None:
+            ergebnis["treffer"] = treffer
+        if grund:
+            ergebnis["inhalt_hinweis"] = grund
+        return ergebnis
     except httpx.TimeoutException:
         return {
             "source": source_key, "reachable": False,
