@@ -39,6 +39,66 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
 
+## Stand 2026-08-25 (v1.7.23 Stable) — Ehrliche Zahlen
+
+Sieben Praxis-Befunde. Roter Faden: PBP behauptete Dinge, die die Daten
+nicht hergaben. **Tests: 2489 / 2555.**
+
+**#952 — die teuerste Ursache.** Der Anzeigentext wurde in JEDEM der 26
+Adapter bei exakt 2000 Zeichen gekappt GESPEICHERT (38 Stellen, drei
+davon in Browser-JS). Die Grenze sass in der Ablage statt in der
+Ausgabe. Getroffen hat das systematisch den Anforderungsteil am Ende.
+MERKE: `fetch_description_from_detail` hatte `max_chars=2000` als
+DEFAULT — damit kappte ausgerechnet der Refetch, der duenne
+Beschreibungen heilen soll (#622/#756 liefen deshalb ins Leere), und
+`set_description_snapshot_if_empty` zementierte den halben Text als
+unveraenderlichen Snapshot.
+
+**#943/#944 — dasselbe Artefakt, zwei Befunde.** Bei rekonstruierten
+Altbewerbungen stehen Bewerbungs- und Absagedatum am selben Tag.
+Daraus folgte (a) "automatische Ablehnung" zu 81 % falsch befuellt (die
+Kategorie entstand ALLEIN aus dem Zeitabstand) und (b) ein Median
+"Zeit bis erste Reaktion" von 0,0 Tagen. MERKE: Der Ausschluss gehoert
+auf den NULL-ABSTAND, nicht pauschal auf "wenige Events" — eine echte
+Absage nach zwei Tagen hat oft nur zwei Ereignisse und ist gueltig.
+
+**#944 — die drei Ablehnungszahlen.** `get_rejection_patterns` machte
+einen LEFT JOIN auf `application_events` und zaehlte ZEILEN. Eine
+Bewerbung mit zwei 'abgelehnt'-Ereignissen zaehlte doppelt: 60 in der
+Statusverteilung, 64 im Fliesstext. MERKE bei JOIN-Zaehlungen immer
+fragen, ob die Kardinalitaet stimmt.
+
+**#924 — Regeln gehoeren ans Nadeloehr.** `pick_line` hatte die
+Sperrfrist korrekt; mehrere Pfade (Wiki-Hints, Provider, Claude)
+schreiben aber DIREKT. Die Sperre sitzt jetzt in
+`db.add_elwosa_message` — dasselbe Muster wie `dismiss_job` (#913).
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Gegenproben decken Ueberschiessen auf, Nachdenken nicht.** Bei
+#955 meldete die erste Fassung zwei von fuenf Studierenden-Anzeigen
+faelschlich als abschlusspflichtig — dort ist "Studium" die
+ZIELGRUPPE. Bei #941 haetten Freitext-Gruende (`zu "hands-on"`) und
+`bewerbung_erstellt` (23x!) die BESTBEWERTETE Stelle automatisch
+aussortiert; `bewerbung_erstellt` ist das GEGENTEIL eines
+Ablehnungsgrundes. Automatik nur auf einer expliziten Positivliste
+echter Eignungs-Urteile.
+
+(2) **Branch vor dem Commit pruefen.** Sieben Commits landeten auf
+einem Feature-Branch statt auf main; `git push origin main` meldete
+Erfolg und uebertrug nichts. `git branch --show-current` vor der
+Arbeit, nicht erst beim Release.
+
+(3) **Tests mit Verfallsdatum.** `test_782` nutzte ein festes
+"frisches" Datum, das 29 Tage spaeter selbst unter die 30-Tage-Schwelle
+fiel. Datumsangaben in Tests immer relativ zu heute.
+
+(4) **Fehlalarme sind teurer als sie aussehen.** Der PII-Repo-Scan war
+unbenutzbar, weil er bei jedem Testdatensatz anschlug. Platzhalter
+werden jetzt STRUKTURELL am Kopfwort erkannt: "Alt GmbH" ist ein
+Platzhalter, ein realer Firmenname mit demselben Wortanfang bleibt ein
+Treffer.
+
 ## Stand 2026-08-19 (v1.7.21 Stable + beta.14) — Der Pruefer war blind
 
 **#929** — `scrub_pii.py` UND der blockierende `gh_pii_guard.py` lasen
