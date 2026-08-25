@@ -4385,6 +4385,20 @@ def register(mcp, db, logger):
                 results.append(check_source(s))
 
         reachable = sum(1 for r in results if r.get("reachable"))
+        # v1.7.23 (#808): "antwortet" und "liefert Stellen" sind zwei
+        # verschiedene Fragen. Vorher zaehlte nur die erste — und
+        # scraper_diagnose meldete 93-98 % Erfolg fuer Quellen, die seit
+        # Wochen nichts lieferten.
+        liefert = sum(1 for r in results
+                      if r.get("reachable") and r.get("inhalt") == "ok")
+        auffaellig = [
+            {"quelle": r.get("source"),
+             "inhalt": r.get("inhalt"),
+             "hinweis": r.get("inhalt_hinweis") or "",
+             "treffer": r.get("treffer")}
+            for r in results
+            if r.get("reachable") and r.get("inhalt") in ("leer", "verdaechtig")
+        ]
 
         # v1.7.17 (#906): Probe-Ergebnis an der Quelle PERSISTIEREN und
         # den sich selbst bestaetigenden 'deprecated'-Zustand aufbrechen:
@@ -4404,11 +4418,22 @@ def register(mcp, db, logger):
                 _probe_status = (f"HTTP {r['http_status']}"
                                  if r.get("http_status")
                                  else (r.get("error") or "unbekannt")[:80])
+                # #808: Der gespeicherte Status soll die WAHRHEIT tragen,
+                # nicht nur die HTTP-Zahl. "HTTP 200" neben einer Quelle,
+                # die nichts liefert, ist genau die irrefuehrende Angabe,
+                # um die es in diesem Issue geht.
+                if r.get("inhalt") in ("leer", "verdaechtig"):
+                    _probe_status = f"{_probe_status} / {r['inhalt']}"
                 conn.execute(
                     "UPDATE scraper_health SET letzte_probe_am=?, "
                     "letzte_probe_status=? WHERE scraper_name=?",
                     (_jetzt, _probe_status, src))
                 if not r.get("reachable"):
+                    continue
+                # #808: Nur wer auch INHALT liefert, gilt als
+                # wiederbelebt. Sonst meldet der Check eine Quelle als
+                # "pruefen", die nachweislich nichts zurueckgibt.
+                if r.get("inhalt") in ("leer", "verdaechtig"):
                     continue
                 if (_REG.get(src) or {}).get("deprecated"):
                     continue
@@ -4463,16 +4488,26 @@ def register(mcp, db, logger):
         antwort = {
             "count_total": len(results),
             "count_reachable": reachable,
+            "count_liefert_stellen": liefert,
             "count_unreachable": len(results) - reachable,
             "results": results,
             "hinweis": (
-                f"{reachable} von {len(results)} Quellen erreichbar. "
+                f"{reachable} von {len(results)} Quellen antworten, "
+                f"{liefert} davon liefern auch Stellen. "
                 "Ergaenzend zur Liefer-Statistik in scraper_diagnose; "
                 "Zeitachse: quellen_langzeit_auswertung(). Blockierte/tote "
                 "Quellen per Browser recherchieren: quelle_handoff(quelle, "
                 "keyword)."
             ),
         }
+        if auffaellig:
+            antwort["antwortet_ohne_stellen"] = auffaellig
+            antwort["warnung"] = (
+                f"{len(auffaellig)} Quelle(n) antworten mit HTTP 200, "
+                "liefern aber nichts Verwertbares. Das ist der Fall, den "
+                "eine reine Statuspruefung nicht sieht — meist ein "
+                "veralteter Endpunkt oder ein falscher Firmen-Slug, keine "
+                "Stoerung. Details je Quelle unter 'antwortet_ohne_stellen'.")
         if custom_results:
             antwort["custom_quellen"] = custom_results
         if wieder_erreichbar:
