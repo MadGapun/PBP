@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.19** ist Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.24** ist Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,111 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-02 (v1.7.24 Stable) — Fehler, die wie Erfolg aussehen
+
+Sieben Praxis-Befunde vom 28.08. und 02.09. Roter Faden: **keiner davon
+hat je eine Fehlermeldung erzeugt.** Eine fehlende Farbe, eine
+unbekannte Entfernung, ein falsch abgelegtes Stellenangebot — alles sah
+aus wie ein normaler Zustand. **Tests: 2563 / 2565 (Stable), 2629 /
+2631 (Beta). MCP-Tools: 206 / 219.**
+
+**#963 — die lehrreichste Ursache, weil sie meine eigene war.** Das
+MUSS-Tor (#940) und der Rahmen-Deckel (#942) sassen NUR in
+`calculate_score`, nicht in `fit_analyse`. Gemessene Divergenz bis zu
+6 Punkten auf 21; welcher Wert in der Liste stand, hing davon ab,
+welches Tool zuletzt lief. MERKE: **eine Regel in einen von zwei
+parallelen Rechenwegen einzubauen verschiebt die Divergenz nur.**
+`fit_analyse` trug den Kommentar "dieselbe Logik wie calculate_score"
+FUENFMAL (#762, #778, #827, #910, #917) — jedes Mal hatte ein Issue
+einen Zweig nachtraeglich wieder angeglichen. Ein Kommentar haelt
+nichts zusammen; jetzt tut es ein Guard-Test ueber zehn Faelle.
+Ausserdem schrieb `fit_analyse` den Score als NEBENWIRKUNG (#539) — wer
+sich eine Stelle nur genauer ansah, verschob ihre Position in der
+Liste. Ein Lesewerkzeug schreibt jetzt nur noch auf Ansage.
+
+**#964 — Tailwind meldet unbekannte Farben nicht.** Das Overlay im
+Aufgaben-Tab trug `bg-bg`; das Token gibt es nicht, also erzeugte
+Tailwind keine Regel UND keinen Fehler. Der Build war gruen, die
+Klasse stand im HTML, und sie tat nichts. Ein Guard ueber das ganze
+Frontend fand 47 weitere Stellen in neun Dateien — darunter die
+Fehlermeldungen mehrerer Seiten. MERKE: Projekt-Tokens sind FLACHE
+Farben; sobald `amber` in `extend.colors` eine Zeichenkette ist,
+verdraengt es Tailwinds Abstufungen, und `bg-amber-400` loest ebenfalls
+ins Leere auf. Am gebauten CSS gegengeprueft, nicht vermutet.
+
+**#965 — unbekannt wirkte wie nah.** Von vier aktiven Stellen trug
+genau eine keine Entfernung: die weiteste (~230 km). Weil
+`if dist is not None:` sie schlicht uebersprang, entfiel ihr Malus und
+sie stand mit dem hoechsten Score oben. MERKE: **ein stiller Bonus fuer
+schlechte Datenqualitaet ist das Gegenteil dessen, was ein Scoring
+leisten soll.** Ausloeser war ein Klammerzusatz im Ortsstring, an dem
+das Geocoding scheiterte. Dazu am Nadeloehr `save_jobs`: HTML-Entities
+werden aufgeloest — ein Titel mit `&amp;` wird von keinem Keyword mit
+Und-Zeichen gefunden, der Fehler wirkte also im Scoring.
+
+**#961 — der teuerste Ausfallmodus.** Eine Recruiter-Mail mit
+vollstaendiger Stellenbeschreibung lag als `sonstiges`, und `sonstiges`
+stand in der Korrespondenz-Whitelist von
+`dokumente_korrespondenz_abschliessen`. Sie waere sammelweise auf
+`angewendet` gesetzt worden: aus dem Analyse-Plan verschwunden, als
+erledigt gefuehrt, ohne dass je eine Stelle entsteht. MERKE: die
+Typ-Erkennung arbeitet fast nur am DATEINAMEN — der Text wird geladen,
+aber nur gegen feste Formulierungen geprueft. Jetzt zusaetzlich an der
+STRUKTUR (Rollenbezeichnung plus zwei Ausschreibungs-Merkmale);
+Formulierungen aendern sich je Absender, die Struktur nicht.
+
+**#966 — ein Urteil wog mehr als seine Grundlage.** Zwei
+Aussortierungen wegen `gehalt_zu_niedrig`, beide an Anzeigen-Rumpfen
+von rund 160 Zeichen und auf Basis GESCHAETZTER Spannen, werteten die
+vollstaendige Anzeige derselben Rolle ab. #827 hatte die Regel
+(geschaetztes Gehalt zaehlt neutral) bereits gezogen — sie wirkte nur
+nach vorn. Schwache Gruende zaehlen jetzt halb.
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Positivliste statt Sperrliste, zum zweiten Mal.** #963 Befund 2
+und #962 haben dieselbe Wurzel: im Deutschen ist JEDES Substantiv
+grossgeschrieben, also nimmt "jedes grossgeschriebene Wort" den ganzen
+Fliesstext mit. Eine Sperrliste deutscher Alltagswoerter wird nie
+fertig. Bei #962 traegt ausserdem Grossschreibung ALLEIN nicht — das
+unterscheidende Merkmal ist der Artikel davor ("die Feder im
+Mechanismus" vs. "bei Feder"). Der im Issue vorgeschlagene Fix waere
+also nur halb richtig gewesen; Vorschlaege aus Issues gehoeren
+geprueft, nicht uebernommen.
+
+(2) **Beim Haerten von Regeln beide Richtungen messen.** Bei #966 war
+meine erste Liste textabhaengiger Gruende zu breit (`zeitarbeit`,
+`befristet`) — zehn Alt-Tests wurden rot, weil der Mechanismus
+verstummte. Zeitarbeit erkennt man an Firma und Titel, nicht am
+Fliesstext. Und: ein FEHLENDES Feld ist "unbekannt", nicht "schwach" —
+sonst begeht die Haertung genau den Fehler, den #965 behebt.
+
+(3) **Ein Frueh-Ausstieg kuerzt die Auskunft.** Meine erste Fassung des
+MUSS-Tors in `fit_analyse` gab ein verkuerztes dict zurueck; zwei
+#952-Tests brachen an fehlenden Feldern. Ein Tor soll den Score nullen,
+nicht die Antwort abschneiden.
+
+(4) **Heredoc-Escaping unter Git-Bash (Windows).** Mehrfach wurden
+doppelte Backslashes in Patch-Skripten zu einem literalen Backspace
+bzw. Zeilenumbruch — einmal in einer kompilierten Regex, die daraufhin
+still NICHTS mehr matchte, und zweimal in einem f-String, der dadurch
+gar nicht mehr parste. Bei Regex- oder String-Literalen in
+Patch-Skripten `chr(92)` verwenden oder direkt mit dem Edit-Werkzeug
+arbeiten; danach `git diff` lesen statt dem Skript zu glauben.
+
+(5) **Erst pruefen, ob der Branch den Fix enthaelt.** PR #959 meldete
+rot wegen `test_782` — dem Test mit Verfallsdatum, der auf main
+laengst behoben war. Der Branch war nur veraltet, es gab keinen Fehler
+zu suchen.
+
+(6) **Cherry-Pick-Konflikte in gebauten Assets sind keine.** Beim Port
+in die 1.7-Linie kollidierten nur Hash-Dateien und ein 1.8-only-Block
+(Erweiterungen-Tab). Aufloesung: Stables Fassung nehmen, das Frontend
+NEU BAUEN, und den Guard-Test laufen lassen — der beweist, dass beim
+Aufloesen nichts verlorenging. Das ist die praktikable Fassung der
+Cherry-Pick-Lehre aus v1.7.12 (verlorene Hunks findet man ueber die
+mitgewanderten Tests).
 
 ## Stand 2026-08-25 (v1.7.23 Stable) — Ehrliche Zahlen
 
