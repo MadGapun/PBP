@@ -1498,8 +1498,19 @@ def register(mcp, db, logger):
     # nach Basis-Extraktion oder Tiefenanalyse keinen weiteren Schritt
     # brauchen, sollen sie via dokumente_korrespondenz_abschliessen()
     # auf `angewendet` wandern.
+    # v1.7.24 (#961): 'sonstiges' ist hier RAUS. Der Typ ist kein
+    # Korrespondenz-Typ, sondern der Sammeltopf fuer alles, was die
+    # Erkennung nicht zuordnen konnte — im Bestand 51 von 230
+    # Dokumenten. Darunter war belegt eine vollstaendige
+    # Stellenausschreibung, die sammelweise auf 'angewendet' gesetzt
+    # worden waere: aus dem Analyse-Plan verschwunden, als erledigt
+    # gefuehrt, ohne dass je eine Stelle entstand.
+    #
+    # Wer sie trotzdem abschliessen will, kann das ausdruecklich tun:
+    # zusaetzliche_doc_types=['sonstiges']. Der Weg existiert, er ist
+    # nur nicht mehr der stille Standard.
     _KORRESPONDENZ_DOC_TYPES = {
-        "sonstiges", "recruiter_anfrage", "angebot",
+        "recruiter_anfrage", "angebot",
         "absage", "einladung", "eingangsbestaetigung",
         "interview_bestaetigung", "interview_einladung",
         "gespraechs_feedback", "projekt_update",
@@ -1951,6 +1962,17 @@ def register(mcp, db, logger):
         ).fetchall()
         kandidaten = [dict(r) for r in rows]
 
+        # #961 AK 4: gesondert ausweisen, was ausgeklammert bleibt.
+        # Stillschweigend weglassen waere derselbe Fehler in die andere
+        # Richtung — der Nutzer wuesste nicht, dass da noch etwas liegt.
+        offen_sonstiges = 0
+        if "sonstiges" not in types:
+            offen_sonstiges = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE profile_id=? "
+                "AND extraction_status IN "
+                "('basis_analysiert','analysiert','analysiert_leer') "
+                "AND doc_type='sonstiges'", (pid,)).fetchone()[0]
+
         result = {
             "status": "vorschau" if dry_run else "abgeschlossen",
             "dry_run": dry_run,
@@ -1970,6 +1992,22 @@ def register(mcp, db, logger):
                 "Verknuepfungen zu Bewerbungen bleiben erhalten."
             ),
         }
+        if offen_sonstiges:
+            result["nicht_enthalten_sonstiges"] = {
+                "anzahl": offen_sonstiges,
+                "warum": (
+                    "'sonstiges' ist kein Korrespondenz-Typ, sondern der "
+                    "Sammeltopf fuer nicht zugeordnete Dokumente. Darunter "
+                    "koennen Stellenausschreibungen sein, aus denen noch "
+                    "eine Stelle entstehen muss — die waeren hier "
+                    "stillschweigend als erledigt abgehakt worden (#961)."),
+                "erst_pruefen": (
+                    "dokumente_zur_analyse() zeigt sie; "
+                    "dokument_status_setzen() ordnet einzelne richtig zu."),
+                "trotzdem_abschliessen": (
+                    "dokumente_korrespondenz_abschliessen("
+                    "zusaetzliche_doc_types=['sonstiges'], dry_run=True)"),
+            }
 
         if dry_run or not kandidaten:
             if not kandidaten:
