@@ -973,8 +973,20 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
      `scripts/gh_pii_guard.py`): blockiert JEDEN `gh issue|pr|release
      create/comment/edit` mit PII, bevor er laeuft — prueft
      Inline-Argumente, `--body-file`-Inhalte UND Heredocs.
-     **GRENZE: nur der Bash-Weg.** Der GitHub-MCP (Claude Desktop) laeuft
-     daran vorbei — genau dort entstanden die drei Issues.
+     **Seit 2026-09-02 deckt er AUCH den MCP-Weg ab** (zweiter Matcher
+     in `.claude/settings.json`): jeder schreibende MCP-Aufruf mit
+     Issue-, Kommentar-, Story-, Wiki- oder Datei-Bezug laeuft durch
+     denselben Pruefer, verschachtelte Felder eingeschlossen; lesende
+     Werkzeuge werden nicht angefasst. MERKE dazu: die Beschraenkung
+     "nur der Bash-Weg" stand hier als bekannte Grenze — und ist am
+     02.09. ein zweites Mal eingetreten. Fuenf Issues vom 21./25.08.
+     trugen reale Firmennamen, obwohl alle fuenf seit dem 10.05. in der
+     Erkennungsliste stehen: der Pruefer haette sie gefunden, er wurde
+     nur nie aufgerufen. **Eine dokumentierte Luecke ist keine Warnung,
+     sondern eine Vorhersage** — sie tritt ein, und zwar genau dort, wo
+     sie notiert ist. Tests: `tests/test_gh_pii_guard_mcp.py` (17, beide
+     Richtungen; bewusst OHNE reale Namen im Repo, ausgeloest wird mit
+     einer generischen Fundstelle).
    - **`scripts/gh_pii_sweep.py`**: prueft den IST-Zustand ueber ALLE
      Issues, Kommentare und Releases, auch geschlossene. Deckt den
      MCP-Weg mit ab, gehoert in die Session-Abschluss-Runde.

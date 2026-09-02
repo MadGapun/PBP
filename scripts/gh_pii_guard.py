@@ -18,9 +18,16 @@ Rueckgabe an Claude Code:
   exit 0  -> durchlassen
   exit 2  -> blockieren, stderr geht als Begruendung an das Modell
 
-Grenze, die man kennen muss: Dieser Hook sieht nur den Bash-Weg. Wird ein
-Issue ueber den GitHub-MCP angelegt (Claude Desktop), greift er NICHT.
-Dafuer ist der wiederkehrende Sweep (scripts/gh_pii_sweep.py) da.
+Seit dem 02.09.2026 deckt der Hook AUCH den MCP-Weg ab. Vorher war das
+seine bekannte Grenze — und genau dort ist sie ein zweites Mal
+eingetreten: fuenf Issues vom 21. und 25.08. trugen reale Firmennamen,
+obwohl alle fuenf seit dem 10.05. in der Erkennungsliste stehen. Der
+Pruefer haette sie gefunden; er wurde nur nie aufgerufen, weil die
+Issues ueber den GitHub-MCP entstanden und nicht ueber `gh`.
+
+MERKE daraus: eine dokumentierte Luecke ist keine Warnung, sondern eine
+Vorhersage. Sie wird eintreten, und zwar an genau der Stelle, an der sie
+notiert ist.
 """
 from __future__ import annotations
 
@@ -44,6 +51,49 @@ _RISKANT = re.compile(
 _TEXT_FLAGS = {"--body", "-b", "--title", "-t", "--notes", "--comment",
                "-m", "--message", "--add-label"}
 _FILE_FLAGS = {"--body-file", "-F", "--notes-file", "--input"}
+
+# MCP-Werkzeuge, die Text nach draussen tragen. Der Servername steht im
+# Toolnamen und ist bei manchen Servern eine UUID — deshalb wird nur der
+# hintere Teil geprueft.
+_MCP_SCHREIBT = re.compile(
+    r"(?:^|__)(?:create|add|update|write|post|append|edit|reply|comment|push)"
+    r"[a-z_]*(?:issue|comment|story|note|release|pull_request|wiki|"
+    r"discussion|page|epic|goal|plan|decision|file)"
+    r"|(?:issue|comment|story|note|release|pull_request|wiki|discussion|"
+    r"page|epic|goal|plan|decision|file)[a-z_]*_"
+    r"(?:create|add|update|write|post|append|edit|reply|push)",
+    re.IGNORECASE,
+)
+
+# Felder, die bei MCP-Aufrufen nie Fliesstext tragen — sie zu pruefen
+# erzeugt nur Fehlalarme (ein Slug wie `bw-papersystems` ist kein Satz,
+# und ein Repo-Name gehoert dorthin).
+_MCP_IGNORIEREN = {
+    "owner", "repo", "slug", "url", "state", "method", "sha", "branch",
+    "ref", "commit_id", "path", "side", "subject_type", "issue_number",
+    "pull_number", "number", "id", "labels", "assignees", "milestone",
+}
+
+
+def _mcp_texte(wert, pfad: str = "") -> list[tuple[str, str]]:
+    """Alle Zeichenketten aus einem MCP-tool_input, mit Herkunftspfad.
+
+    Rekursiv, weil Bodies verschachtelt sein koennen (z.B. `writes`-
+    Listen oder `fields`-Objekte).
+    """
+    out: list[tuple[str, str]] = []
+    if isinstance(wert, str):
+        if len(wert) >= 3:
+            out.append((f"Feld {pfad or '?'}", wert))
+    elif isinstance(wert, dict):
+        for k, v in wert.items():
+            if k in _MCP_IGNORIEREN:
+                continue
+            out.extend(_mcp_texte(v, f"{pfad}.{k}" if pfad else k))
+    elif isinstance(wert, list):
+        for i, v in enumerate(wert):
+            out.extend(_mcp_texte(v, f"{pfad}[{i}]"))
+    return out
 
 
 def _texte_einsammeln(command: str) -> list[tuple[str, str]]:
@@ -88,14 +138,25 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError):
         return 0  # Kein verwertbarer Input -> nicht blockieren
 
-    if daten.get("tool_name") != "Bash":
-        return 0
-    command = (daten.get("tool_input") or {}).get("command", "") or ""
-    if not _RISKANT.search(command):
+    werkzeug = daten.get("tool_name") or ""
+    eingabe = daten.get("tool_input") or {}
+
+    if werkzeug == "Bash":
+        command = eingabe.get("command", "") or ""
+        if not _RISKANT.search(command):
+            return 0
+        quellen = _texte_einsammeln(command)
+    elif werkzeug.startswith("mcp__"):
+        # Lesende Werkzeuge tragen nichts hinaus und werden nicht
+        # geprueft — sonst blockiert der Guard das Nachschlagen.
+        if not _MCP_SCHREIBT.search(werkzeug):
+            return 0
+        quellen = _mcp_texte(eingabe)
+    else:
         return 0
 
     funde: list[str] = []
-    for herkunft, text in _texte_einsammeln(command):
+    for herkunft, text in quellen:
         for treffer in find_pii(text):
             funde.append(f"  [{herkunft}] {treffer}")
 
