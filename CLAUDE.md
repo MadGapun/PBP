@@ -614,8 +614,12 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
      Richtungen; bewusst OHNE reale Namen im Repo, ausgeloest wird mit
      einer generischen Fundstelle).
    - **`scripts/gh_pii_sweep.py`**: prueft den IST-Zustand ueber ALLE
-     Issues, Kommentare und Releases, auch geschlossene. Deckt den
-     MCP-Weg mit ab, gehoert in die Session-Abschluss-Runde.
+     Issues, Kommentare und Releases, auch geschlossene. Seit der Hook
+     beide Wege abdeckt, ist der Sweep nicht mehr das einzige Netz fuer
+     den MCP-Weg, sondern das Netz fuer den ALTBESTAND und fuer alles,
+     was ausserhalb dieser Session entstanden ist. Gehoert weiter in die
+     Session-Abschluss-Runde — ein Guard verhindert Neues, er heilt
+     nichts Altes.
    - **`FIKTIVE_FIRMEN`** in `scrub_pii.py`: der Pruefer schlug vorher bei
      genau den Platzhaltern an, die diese Regel vorschreibt. Neue
      Platzhalter dort eintragen.
