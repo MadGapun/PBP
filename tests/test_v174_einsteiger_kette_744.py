@@ -85,7 +85,7 @@ def _stub_run_search(db, job_id, params):
                              message="stub", result={"total": 0})
 
 
-def _wait_job_beendet(db, job_id, timeout=5.0):
+def _wait_job_beendet(db, job_id, timeout=30.0):
     """Wartet bis der Hintergrund-Job durch ist UND der Worker-Thread endete.
 
     #857: run_search setzt 'fertig', danach laeuft im SELBEN Thread noch
@@ -95,7 +95,21 @@ def _wait_job_beendet(db, job_id, timeout=5.0):
     zu diesem Nachlauf und sehen fremde Transaktionszustaende (beobachtet:
     active_sources las sich als leer). Deshalb wie der conftest-Drain
     (A22/#759) zusaetzlich auf das ENDE aller pbp-Threads joinen — erst
-    dann ist die Connection exklusiv beim Test."""
+    dann ist die Connection exklusiv beim Test.
+
+    v1.7.26 (#767): zwei Aenderungen gegen die Flakiness.
+
+    (1) Das Budget lag bei 5 Sekunden. Auf einem ausgelasteten
+    CI-Runner reicht das nicht — lokal und auf dem 1.7-Branch war
+    derselbe Commit gruen, ein reiner Re-Run ebenfalls.
+
+    (2) Wichtiger: die Schleife lief bei Zeitueberschreitung STUMM
+    weiter. Der Test las danach ein Profil-Setting, das nie geschrieben
+    wurde, und meldete `assert [] == ['<portal>']` — eine Aussage ueber
+    die Quellen-Logik, obwohl der Job schlicht noch lief. Ein
+    irrefuehrender Fehlschlag kostet mehr Zeit als ein ehrlicher:
+    jetzt sagt der Test, dass er gewartet hat und worauf.
+    """
     import threading
     import time
     start = time.time()
@@ -105,9 +119,15 @@ def _wait_job_beendet(db, job_id, timeout=5.0):
         if job and job.get("status") in ("fertig", "fehler"):
             break
         time.sleep(0.05)
+    else:
+        raise AssertionError(
+            f"Hintergrund-Job {job_id} war nach {timeout:.0f}s nicht "
+            f"beendet (Status: {(job or {}).get('status')!r}). Das ist "
+            "eine Aussage ueber die Laufzeit, NICHT ueber die "
+            "Quellen-Logik — der eigentliche Test hat nie stattgefunden.")
     for t in threading.enumerate():
         if t.name.startswith("pbp-") and t is not threading.current_thread():
-            t.join(timeout=10)
+            t.join(timeout=30)
     return job or db.get_background_job(job_id)
 
 
