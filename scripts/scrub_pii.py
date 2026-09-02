@@ -288,13 +288,30 @@ def _ist_platzhalter_kopf(label: str) -> bool:
     return kopf in _PLATZHALTER_WOERTER
 
 
+# Rechtsform-Bausteine. Der KOPF eines Firmennamens ist nie selbst
+# einer — steht dort trotzdem einer, zaehlt das Umfeld eine Liste von
+# Rechtsformen auf statt eine Firma zu nennen.
+_RECHTSFORM_WOERTER = frozenset({
+    "gmbh", "ag", "kg", "se", "ug", "mbh", "gbr", "ohg", "ggmbh",
+    "co", "e.v.", "ev", "ltd", "inc", "plc", "llc", "b.v.", "n.v.",
+})
+
+
 def _ist_stoppwort_kopf(label: str) -> bool:
     """True, wenn im Treffer ein generisches Wort steckt.
 
     Nicht nur das erste Wort pruefen: "Die Endungen GmbH" beginnt mit
     einem Artikel, das aussagekraeftige Wort steht dahinter. Echte
     Firmennamen enthalten diese Woerter praktisch nie.
+
+    v1.7.24: dazu der Fall aus dem eigenen Bestand — die Aufzaehlung
+    "(GmbH, AG, SE, & Co. KG, B.V., Group, Ltd.)" in #962 wurde als
+    Firma "Co. KG" gemeldet. Der Regex nahm "Co." als Namen und "KG"
+    als Rechtsform. Ein Firmenname faengt nie mit einer Rechtsform an.
     """
+    kopf = (label.split() or [""])[0].lower().strip("-,.:;\"'()„“")
+    if kopf in _RECHTSFORM_WOERTER:
+        return True
     for wort in label.split():
         rein = wort.lower().strip("-,.:;\"'()„“")
         if rein in _CORP_STOPWORDS or rein.split("-")[0] in _CORP_STOPWORDS:

@@ -279,3 +279,30 @@ def test_930_hex_konstanten_sind_keine_telefonnummern():
     # Gegenrichtung: echte Nummern werden weiterhin gefunden.
     assert find_pii("Tel. 08000 123456")
     assert find_pii("Ruf an: +49 171 1234567")
+
+
+# ── v1.7.24: Rechtsform-Aufzaehlung ist keine Firma ──────────────────
+
+def test_1724_rechtsform_aufzaehlung_ist_kein_treffer():
+    """Gefunden beim GH-Sweep am 02.09.2026 im eigenen Issue #962.
+
+    Der Text zaehlt dort Rechtsform-Zusaetze auf:
+    "(GmbH, AG, SE, & Co. KG, B.V., Group, Ltd.)". Der Regex nahm "Co."
+    als Firmennamen und "KG" als Rechtsform und meldete "Co. KG".
+
+    Ein Firmenname faengt nie mit einer Rechtsform an. Dieselbe Lehre
+    wie bei Jahresspanne, CSS-Farbwert und Hex-Konstante: ein Pruefer,
+    der bei korrektem Text Alarm gibt, wird nach dem zweiten Mal
+    ignoriert.
+    """
+    from scripts.scrub_pii import find_pii
+    assert find_pii("(GmbH, AG, SE, & Co. KG, B.V., Group, Ltd.)") == []
+    assert find_pii("Rechtsformen sind GmbH, AG und KG") == []
+
+
+def test_1724_echte_firma_mit_co_kg_bleibt_treffer():
+    """Die Gegenrichtung — sonst waere die Haertung eine Luecke."""
+    from scripts.scrub_pii import find_pii
+    treffer = find_pii("Bewerbung bei Nordwerk Antriebstechnik GmbH & Co. KG")
+    assert treffer, "Eine echte Firma mit Co. KG muss weiterhin anschlagen"
+    assert "Nordwerk" in treffer[0]
