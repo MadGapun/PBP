@@ -321,15 +321,21 @@ def register(mcp, db, logger):
         if not jobs:
             return {"fehler": "Keine aktiven Stellen vorhanden. Starte zuerst eine Jobsuche."}
 
-        # Extract skill requirements from job descriptions
+        # v1.7.24 (#963 Befund 2): die alte Zerlegung nahm JEDES
+        # grossgeschriebene Wort — im Deutschen also jedes Substantiv
+        # und jedes Wort am Satzanfang. Ergebnis waren "sie", "kein",
+        # "aufgaben", "urlaub", "okt" als Kompetenzen, waehrend die
+        # echten Anforderungen (Systems Engineering, IEC 62304) fehlten
+        # oder als abgerissenes Fragment dastanden.
+        from ..services.stellen_skills import (
+            extrahiere_skills, quote_belastbar,
+        )
         required_skills = Counter()
         for job in jobs:
-            text = (job.get("description") or "") + " " + (job.get("title") or "")
-            # Look for common skill patterns
-            words = set(re.findall(r'\b[A-Z][a-zA-Z+#.]+\b', text))
-            for w in words:
-                if len(w) > 1:
-                    required_skills[w.lower()] += 1
+            _txt = ((job.get("description") or "") + chr(10)
+                    + (job.get("title") or ""))
+            for begriff in extrahiere_skills(_txt):
+                required_skills[begriff] += 1
 
         # Classify skills
         matches = []
@@ -1203,7 +1209,15 @@ def register(mcp, db, logger):
         if fach is not None:
             herkunft = (f"fachlich {fach}, Rahmen {rahmen if rahmen is not None else 0}")
 
-        return {
+        # v1.7.24 (#965): eine unbekannte Entfernung wurde im Scoring
+        # uebersprungen und tauchte hier gar nicht auf — die weiteste
+        # Stelle stand dadurch oben. Die Luecke gehoert in die
+        # Erklaerung, sonst erklaert das Tool eine Zahl, die auf einer
+        # ungeprueften Annahme beruht.
+        from ..job_scraper import entfernungs_guete
+        _guete, _grund = entfernungs_guete(job)
+
+        antwort = {
             "stelle": f"{job.get('title', '')} bei {job.get('company', '')}",
             "basis_score": result.get("basis_score", 0),
             "fachscore": fach,
@@ -1213,8 +1227,15 @@ def register(mcp, db, logger):
             "adjustment_total": result.get("adjustment_total", 0),
             "final_score": result.get("final_score", 0),
             "ignoriert": result.get("ignored", False),
+            "entfernung_guete": _guete,
             "hinweis": "Passe die Regler mit scoring_konfigurieren('setzen', ...) an."
         }
+        if _guete == "unbekannt":
+            antwort["entfernung_warnung"] = _grund
+            antwort["entfernung_naechster_schritt"] = (
+                "stelle_bearbeiten(job_hash, location='<Ort>') setzt den "
+                "Ort; danach scores_neu_berechnen() aufrufen.")
+        return antwort
 
     @mcp.tool()
     def pbp_diagnose(auto_fix: bool = False) -> dict:

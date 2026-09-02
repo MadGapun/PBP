@@ -2128,6 +2128,38 @@ def _punkte_pro_treffer(kw: str, kategorie_gewicht: float,
     return basis
 
 
+def entfernungs_guete(job: dict) -> tuple[str, str]:
+    """Wie belastbar ist die Entfernungsangabe dieser Stelle? (#965)
+
+    Belegter Fall vom 02.09.2026: von vier aktiven Stellen trug genau
+    eine keine Entfernung — ausgerechnet die weiteste (rund 230 km).
+    Weil eine unbekannte Entfernung im Scoring schlicht uebersprungen
+    wird, entfiel ihr Malus, und sie stand mit dem hoechsten Score ganz
+    oben.
+
+    Der Fehler ist nicht der fehlende Wert, sondern seine STILLE
+    Behandlung: unbekannt wirkte wie nah. Ein stiller Bonus fuer
+    schlechte Datenqualitaet ist das Gegenteil dessen, was ein Scoring
+    leisten soll.
+
+    Gibt (guete, erklaerung) zurueck. Bewusst wird bei 'unbekannt'
+    KEINE Ersatzzahl erfunden — die Luecke wird benannt.
+    """
+    if job.get("distance_km") is not None:
+        return "belegt", ""
+    if (job.get("remote_level") or "") == "remote":
+        return "entfaellt", "Vollstaendig remote — Entfernung ohne Belang."
+    ort = (job.get("location") or "").strip()
+    if not ort:
+        return "unbekannt", ("Kein Ort in der Anzeige — die Entfernung "
+                             "konnte nicht bestimmt werden.")
+    return "unbekannt", (
+        f"Der Ort '{ort}' liess sich nicht in Koordinaten aufloesen. "
+        "Die Entfernung geht deshalb NICHT in den Score ein — die "
+        "Stelle ist dadurch weder besser noch schlechter, als sie "
+        "aussieht, sondern ungeprueft.")
+
+
 def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
     """#910 (v1.7.17): km sind ein PREIS, kein Ausschluss — 0.0 bis 1.0.
 
@@ -2342,6 +2374,13 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Defaults: Festanstellung 50km, Freelance 200km, Rest 50km
     _default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
     type_max_dist = max_dist_map.get(emp_type) or _default_max.get(emp_type, 50)
+    if dist is None:
+        # #965: nicht stillschweigend uebergehen. Ohne diese Markierung
+        # sieht eine ungeprueft weite Stelle aus wie eine nahe.
+        _guete, _grund = entfernungs_guete(job)
+        if _guete == "unbekannt":
+            job["_entfernung_unbekannt"] = True
+            job["_entfernung_hinweis"] = _grund
     if dist is not None:
         # #910: echter Verdienst ueber Wunsch reduziert den
         # Entfernungs-Malus anteilig (nur die MALUS-Zweige — Naehe-Boni
@@ -2555,8 +2594,12 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     remote = job.get("remote_level", "unbekannt")
     if remote in ("remote", "hybrid"):
-        factors[f"Arbeitsmodell: {remote}"] = w["remote"]
-        total += w["remote"]
+        # #963: calculate_score gibt vollstaendig Remote einen Punkt
+        # mehr als Hybrid. fit_analyse tat das nicht — eine stille
+        # Ein-Punkt-Divergenz je Remote-Stelle.
+        _rp = w["remote"] + 1 if remote == "remote" else w["remote"]
+        factors[f"Arbeitsmodell: {remote}"] = _rp
+        total += _rp
 
     dist = job.get("distance_km")
     fit_emp_type = job.get("employment_type", "festanstellung")
@@ -2711,8 +2754,64 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             "- weiche Abwertung im Score."
         )
 
-    return {
+    # v1.7.24 (#963): der Rahmen-Deckel aus #942 sass NUR in
+    # calculate_score. Dadurch lieferten die beiden Rechenwege fuer
+    # dieselbe Stelle unterschiedliche Zahlen — bis zu 6 Punkte auf 21
+    # gemessen, und welche davon in der Liste stand, hing davon ab,
+    # welches Tool zuletzt lief.
+    #
+    # MERKE: das ist ein Fehler in MEINER #942-Arbeit. Eine Regel in
+    # einen von zwei parallelen Rechenwegen einzubauen, verschiebt die
+    # Divergenz nur an eine neue Stelle. Der Guard-Test
+    # test_963_beide_rechenwege_stimmen_ueberein haelt sie kuenftig
+    # zusammen — die fuenf Kommentare "dieselbe Logik wie
+    # calculate_score" (#762/#778/#827/#910/#917) haben das nicht
+    # geschafft.
+    #
+    # `factors` bildet `total` vollstaendig ab; der Anteil laesst sich
+    # daraus ableiten, ohne die Akkumulation umzubauen.
+    # v1.7.24 (#963): dasselbe MUSS-Tor wie calculate_score (#940).
+    # Ohne es rechnete fit_analyse eine Stelle ohne einen einzigen
+    # MUSS-Treffer allein aus PLUS-Keywords hoch — und schrieb den Wert
+    # anschliessend ueber die 0 aus der Liste. Genau der gemeldete Fall:
+    # basis_score 0, fit_analyse 20,8, gespeichert 20.
+    #
+    # Bewusst KEIN vorzeitiger Ausstieg: das Ergebnis muss alle Felder
+    # behalten (hochschulabschluss_gefordert, beschreibung_unvollstaendig,
+    # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
+    # Tor nullt den Score, es kuerzt nicht die Auskunft.
+    _kein_muss_tor = bool(muss) and not any(
+        _muss_tor_match(kw, text) for kw in muss)
+    if _kein_muss_tor:
+        risks.insert(0,
+            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "
+            "deiner Pflichtanforderungen. PLUS-Keywords allein tragen "
+            "keinen Score (#940).")
+
+    _zahlen = {k: v for k, v in factors.items() if isinstance(v, (int, float))}
+    _fach = sum(v for k, v in _zahlen.items() if k.startswith("MUSS-Keywords"))
+    _rahmen_plus = sum(v for k, v in _zahlen.items()
+                       if v > 0 and not k.startswith("MUSS-Keywords"))
+    _rahmen_minus = -sum(v for v in _zahlen.values() if v < 0)
+    if muss_hits and _fach > 0:
+        _deckel = rahmen_deckel_faktor(criteria) * _fach
+        if _rahmen_plus > _deckel:
+            _gekuerzt = _rahmen_plus - _deckel
+            total -= _gekuerzt
+            _rahmen_plus = _deckel
+            factors["Rahmen ueber Deckel gekuerzt (#942)"] = -round(_gekuerzt, 1)
+
+    if _kein_muss_tor:
+        total = 0
+        _fach = 0
+        _rahmen_plus = 0
+        _rahmen_minus = 0
+        factors = {"Kein MUSS-Keyword getroffen — Score 0": 0}
+
+    _ergebnis = {
         "total_score": max(0, total),
+        "fachscore": round(_fach, 1),
+        "rahmenscore": round(_rahmen_plus - _rahmen_minus, 1),
         "muss_hits": muss_hits,
         "missing_muss": missing_muss,
         "plus_hits": plus_hits,
@@ -2739,6 +2838,17 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             degree_required if (degree_required or not _text_gekappt)
             else "unbekannt"),
     }
+    if _kein_muss_tor:
+        # Die Empfehlung muss der Zahl folgen — sonst steht ein
+        # freundliches Urteil ueber einer Null.
+        _ergebnis["empfehlung"] = {
+            "kategorie": "NICHT_EMPFOHLEN",
+            "kurz": "Keine Pflichtanforderung erfuellt.",
+            "begruendung": (
+                "Von deinen MUSS-Keywords trifft keines zu. Ein hoher "
+                "PLUS-Anteil aendert daran nichts (#940)."),
+        }
+    return _ergebnis
 
 
 # Hochschulabschluss-Erkennung (#305)

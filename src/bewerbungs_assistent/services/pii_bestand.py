@@ -57,6 +57,83 @@ GEWOEHNLICHE_WOERTER = {
 _WORTGRENZE_VOR = r"(?<![\w\-])"
 _WORTGRENZE_NACH = r"(?![\w\-])"
 
+# Rechtsform-Zusaetze. Steht einer davon direkt hinter dem Namen, ist die
+# Nennung eindeutig eine Firma — auch wenn der Name wie ein Alltagswort
+# aussieht.
+_RECHTSFORM = re.compile(
+    r"\s*(?:gmbh|ag|se|kg|ug|mbh|gbr|ggmbh|ohg|plc|llc|group|holding|ltd\.?|inc\.?|b\.?v\.?|n\.?v\.?|e\.?\s?v\.?|&\s*co\.?(?:\s*kg)?)\b",
+    re.IGNORECASE,
+)
+
+
+# Artikel und Pronomen, die einen Gattungsnamen ankuendigen. Vor einem
+# Firmennamen stehen sie im Deutschen praktisch nie.
+_BEGLEITER = frozenset({
+    "der", "die", "das", "den", "dem", "des",
+    "ein", "eine", "einer", "eines", "einem", "einen",
+    "kein", "keine", "keiner", "keines", "keinem", "keinen",
+    "dieser", "diese", "dieses", "diesem", "diesen",
+    "jeder", "jede", "jedes", "jedem", "jeden",
+    "mein", "meine", "meiner", "meinem", "meinen",
+    "sein", "seine", "ihr", "ihre", "unser", "unsere",
+    "welche", "welcher", "welches", "manche", "solche", "solcher",
+})
+
+
+def _treffer_ist_unsicher(name: str, text: str, start: int, ende: int) -> str:
+    """Warum ist dieser Treffer nicht belastbar? Leerer String = belastbar.
+
+    v1.7.24 (#962): Personaldienstleister und Beratungen heissen
+    regelmaessig wie Alltagswoerter. In einem laengeren deutschen
+    Fliesstext trifft das mit hoher Wahrscheinlichkeit — belegt an dem
+    Wort "alten" in "den alten und den neuen Typ", das als harter
+    Firmentreffer mit der Aufforderung "NICHT veroeffentlichen"
+    gemeldet wurde.
+
+    Ein Fehlalarm mit derselben Dringlichkeit wie ein echter Fund
+    trainiert genau das Gegenteil dessen, wofuer der Pruefer da ist:
+    nach dem dritten Mal wird der Hinweis ueberlesen, und dann faellt
+    auch der echte Treffer durch (#825).
+
+    Unterschieden wird nach der WORTFORM im Text, nicht nach einer
+    Wortliste — eine gepflegte Liste deutscher Alltagswoerter waere
+    nie vollstaendig, und flektierte Formen ("alten") stehen ohnehin
+    in keiner.
+    """
+    # Rechtsform direkt dahinter: eindeutig eine Firma. Diese Pruefung
+    # steht bewusst GANZ VORNE — sie schlaegt jedes Wortform-Argument,
+    # auch bei einem Namen aus der Alltagswort-Liste ("Modern AG").
+    if _RECHTSFORM.match(text[ende:ende + 24]):
+        return ""
+
+    # Mehrwort-Namen kollidieren praktisch nie zufaellig.
+    if " " in name:
+        return ""
+
+    if name in GEWOEHNLICHE_WOERTER:
+        return "Der Name ist zugleich ein gebraeuchliches Wort."
+
+    # Kleingeschrieben: dann ist es ein Adjektiv, Adverb oder Verb —
+    # deutsche Firmennamen werden grossgeschrieben.
+    if text[start:ende][:1].islower():
+        return ("Der Name steht hier kleingeschrieben und ohne "
+                "Rechtsform — vermutlich ein gewoehnliches Wort, keine "
+                "Firmennennung.")
+
+    # Grossschreibung allein traegt im Deutschen NICHT: Substantive sind
+    # immer grossgeschrieben, und gerade Personaldienstleister heissen
+    # oft wie eines ("Feder", "Adler", "Krone"). Das unterscheidende
+    # Merkmal ist der Artikel davor: ein Gattungsname steht mit
+    # Begleiter ("die Feder im Mechanismus"), eine Firma ohne ("bei
+    # Feder", "Feder hat abgesagt").
+    davor = text[max(0, start - 40):start]
+    letztes = re.findall(r"[\wÄÖÜäöüß]+", davor)
+    if letztes and letztes[-1].lower() in _BEGLEITER:
+        return ("Der Name steht hier mit Artikel ('%s') — im Deutschen "
+                "das Kennzeichen eines Gattungsnamens, nicht einer "
+                "Firmennennung." % letztes[-1])
+    return ""
+
 
 def _tabelle_anlegen(db) -> None:
     """Idempotentes Safety-Net ohne Schema-Bump.
@@ -257,15 +334,19 @@ def pruefe_text(db, text: str) -> dict:
         zeile = _zeile_von(text, fund.start())
         auszug = text[max(0, fund.start() - 45):fund.end() + 45]
         auszug = " ".join(auszug.split())
-        treffer.append({
+        grund = _treffer_ist_unsicher(name, text, fund.start(), fund.end())
+        eintrag = {
             "name": text[fund.start():fund.end()],
             "art": art,
             "zeile": zeile,
             "fundstelle": auszug,
             "platzhalter_vorschlag": bekannt.get(
                 (name, art), "(wird beim Anonymisieren vergeben)"),
-            "unsicher": name in GEWOEHNLICHE_WOERTER,
-        })
+            "unsicher": bool(grund),
+        }
+        if grund:
+            eintrag["unsicher_grund"] = grund
+        treffer.append(eintrag)
 
     treffer.sort(key=lambda t: (t["unsicher"], t["zeile"]))
     sicher = [t for t in treffer if not t["unsicher"]]
@@ -280,15 +361,30 @@ def pruefe_text(db, text: str) -> dict:
 def anonymisiere_text(db, text: str) -> dict:
     """Ersetzt gefundene Bestandsnamen durch stabile Platzhalter."""
     ersetzt: list[dict] = []
+    offen: list[dict] = []
     ergebnis = text
     for eintrag in sammle_bestandsnamen(db):
         name, art = eintrag["name"], eintrag["art"]
         muster = _WORTGRENZE_VOR + re.escape(name) + _WORTGRENZE_NACH
-        if not re.search(muster, ergebnis, re.IGNORECASE):
+        fund = re.search(muster, ergebnis, re.IGNORECASE)
+        if not fund:
             continue
-        if name in GEWOEHNLICHE_WOERTER:
-            continue  # zu unsicher fuer automatisches Ersetzen
+        # v1.7.24 (#962): unsichere Treffer werden NICHT automatisch
+        # ersetzt. Ein Adjektiv durch einen Firmenplatzhalter zu
+        # tauschen entstellt den Satz, und der Nutzer merkt es nicht.
+        grund = _treffer_ist_unsicher(name, ergebnis, fund.start(), fund.end())
+        if grund:
+            offen.append({"name": ergebnis[fund.start():fund.end()],
+                          "art": art, "grund": grund})
+            continue
         platz = platzhalter_fuer(db, name, art)
         ergebnis, n = re.subn(muster, platz, ergebnis, flags=re.IGNORECASE)
         ersetzt.append({"art": art, "platzhalter": platz, "vorkommen": n})
-    return {"text": ergebnis, "ersetzt": ersetzt, "anzahl": len(ersetzt)}
+    antwort = {"text": ergebnis, "ersetzt": ersetzt, "anzahl": len(ersetzt)}
+    if offen:
+        antwort["zur_entscheidung"] = offen
+        antwort["hinweis"] = (
+            f"{len(offen)} Fundstelle(n) wurden NICHT ersetzt, weil sie "
+            "vermutlich gewoehnliche Woerter sind. Bitte selbst ansehen — "
+            "automatisch zu ersetzen wuerde den Satz entstellen.")
+    return antwort

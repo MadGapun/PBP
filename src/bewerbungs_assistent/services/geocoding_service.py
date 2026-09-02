@@ -33,6 +33,43 @@ def _rate_limit():
         _last_request_time = time.monotonic()
 
 
+# Zusaetze, die Quellen an den Ortsstring haengen und die Nominatim
+# nicht aufloesen kann. Sie stehen fast immer in Klammern oder hinter
+# einem Trenner am Ende: "Aerzen, Niedersachsen (Hybrid)".
+_ORT_ZUSATZ = {
+    "hybrid", "remote", "vor ort", "homeoffice", "home office",
+    "teilremote", "teilweise remote", "mobiles arbeiten", "vollzeit",
+    "teilzeit", "befristet", "unbefristet", "festanstellung",
+    "m/w/d", "m/w/x", "w/m/d", "und umgebung", "umgebung", "raum",
+    "deutschland", "germany",
+}
+
+
+def normalisiere_ort(ort: str) -> str:
+    """Ortsstring von Quellen-Zusaetzen befreien (#965).
+
+    Belegter Fall: "Aerzen, Niedersachsen (Hybrid)" scheiterte am
+    Geocoding, waehrend die drei uebrigen aktiven Stellen mit sauberem
+    Ort funktionierten. Der Fehlschlag blieb stumm — und weil eine
+    unbekannte Entfernung im Scoring gar nicht gerechnet wird, stand
+    ausgerechnet die WEITESTE Stelle mit dem hoechsten Score oben.
+
+    Der Ortsstring ist damit ein Datenqualitaets-Nadeloehr: was hier
+    durchfaellt, wird nicht als Fehler sichtbar, sondern als Vorteil.
+    """
+    if not ort:
+        return ""
+    text = str(ort)
+    # Klammerzusaetze entfernen — sie tragen nie die Ortsangabe.
+    text = re.sub(r"[(\[][^)\]]*[)\]]", " ", text)
+    # Trenner, hinter denen Quellen das Arbeitsmodell anhaengen.
+    text = re.split(r"\s+[|/·•]\s+|\s+-\s+", text)[0]
+    teile = [t.strip(" ,;-") for t in text.split(",")]
+    behalten = [t for t in teile
+                if t and t.lower() not in _ORT_ZUSATZ]
+    return ", ".join(behalten).strip(" ,;-") or text.strip(" ,;-")
+
+
 def geocode_location(location: str) -> Optional[tuple[float, float]]:
     """Geocode a location string to (lat, lon) coordinates.
 
@@ -76,6 +113,19 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
             # Retry without country
             _rate_limit()
             result = geolocator.geocode(location, exactly_one=True)
+
+        if result is None:
+            # #965: letzter Versuch mit bereinigtem Ort. Quellen haengen
+            # Arbeitsmodell und Zusaetze an den Ortsstring; genau daran
+            # scheiterte die Aufloesung stumm.
+            sauber = normalisiere_ort(location)
+            if sauber and sauber.lower() != location.strip().lower():
+                _rate_limit()
+                result = geolocator.geocode(f"{sauber}, Deutschland",
+                                            exactly_one=True)
+                if result is not None:
+                    logger.info("Geocoding erst nach Bereinigung erfolgreich: "
+                                "'%s' -> '%s'", location, sauber)
 
         if result:
             coords = (result.latitude, result.longitude)
