@@ -295,14 +295,14 @@ def test_1724_rechtsform_aufzaehlung_ist_kein_treffer():
     der bei korrektem Text Alarm gibt, wird nach dem zweiten Mal
     ignoriert.
     """
-    from scripts.scrub_pii import find_pii
+    from scrub_pii import find_pii
     assert find_pii("(GmbH, AG, SE, & Co. KG, B.V., Group, Ltd.)") == []
     assert find_pii("Rechtsformen sind GmbH, AG und KG") == []
 
 
 def test_1724_echte_firma_mit_co_kg_bleibt_treffer():
     """Die Gegenrichtung — sonst waere die Haertung eine Luecke."""
-    from scripts.scrub_pii import find_pii
+    from scrub_pii import find_pii
     treffer = find_pii("Bewerbung bei Nordwerk Antriebstechnik GmbH & Co. KG")
     assert treffer, "Eine echte Firma mit Co. KG muss weiterhin anschlagen"
     assert "Nordwerk" in treffer[0]
