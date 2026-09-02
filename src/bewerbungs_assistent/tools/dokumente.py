@@ -1582,6 +1582,102 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokument_typen_nachziehen(dry_run: bool = True,
+                                  auch_sonstiges: bool = False) -> dict:
+        """Klassifiziert Dokumente mit Altlast-Typ neu (#961, v1.7.24).
+
+        Der Wert `email` ist kein Dokumenttyp, sondern ein TRANSPORTWEG
+        — er beschreibt den Inhalt gar nicht. Im Bestand lagen damit 51
+        von 230 Dokumenten in einem Topf ohne Handler und ohne
+        Routing-Vorschlag, waehrend nur 11 als Recruiter-Anfrage erkannt
+        waren. Bei einem Bestand, der zu grossen Teilen aus
+        Personaldienstleister-Mails besteht, ist das unplausibel.
+
+        Was sich nicht sicher zuordnen laesst, wird `sonstiges` und
+        bleibt damit SICHTBAR im Analyse-Plan — der ehrliche Zustand.
+
+        Args:
+            dry_run: True (Default) = nur Vorschau, es wird nichts
+                geschrieben.
+            auch_sonstiges: True = auch bereits als 'sonstiges' gefuehrte
+                Dokumente noch einmal durch die Erkennung schicken. Seit
+                der Inhalts-Erkennung (#961) findet sie dort
+                Stellenausschreibungen, die vorher durchfielen.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return kein_profil()
+
+        from ..services.document_handlers import ALTLAST_TYPEN
+        try:
+            from ..dashboard import _detect_doc_type
+        except Exception as exc:  # pragma: no cover — Import-Schutz
+            return {"fehler": f"Erkennung nicht verfuegbar: {exc}"}
+
+        ziel_typen = set(ALTLAST_TYPEN)
+        if auch_sonstiges:
+            ziel_typen.add("sonstiges")
+
+        conn = db.connect()
+        pid = profile["id"]
+        platzhalter = ",".join("?" * len(ziel_typen))
+        rows = conn.execute(
+            "SELECT id, filename, doc_type, "
+            "COALESCE(extracted_text,'') AS txt FROM documents "
+            f"WHERE profile_id=? AND doc_type IN ({platzhalter})",
+            (pid, *sorted(ziel_typen)),
+        ).fetchall()
+
+        aenderungen, unveraendert = [], 0
+        for r in rows:
+            row = dict(r)
+            erkannt = _detect_doc_type(row["filename"] or "", row["txt"])
+            neu_typ = erkannt or ALTLAST_TYPEN.get(row["doc_type"], "sonstiges")
+            if neu_typ == row["doc_type"]:
+                unveraendert += 1
+                continue
+            aenderungen.append({
+                "id": row["id"],
+                "datei": (row["filename"] or "")[:70],
+                "vorher": row["doc_type"],
+                "nachher": neu_typ,
+            })
+
+        if not dry_run:
+            for a in aenderungen:
+                conn.execute(
+                    "UPDATE documents SET doc_type=? WHERE id=? AND profile_id=?",
+                    (a["nachher"], a["id"], pid))
+            conn.commit()
+
+        verteilung: dict = {}
+        for a in aenderungen:
+            verteilung[a["nachher"]] = verteilung.get(a["nachher"], 0) + 1
+
+        return {
+            "status": "vorschau" if dry_run else "umgesetzt",
+            "dry_run": dry_run,
+            "geprueft": len(rows),
+            "aenderungen_anzahl": len(aenderungen),
+            "unveraendert": unveraendert,
+            "neue_verteilung": verteilung,
+            "aenderungen": aenderungen[:40],
+            "hinweis": (
+                "DB-only: nur doc_type wird geaendert, Dateien und "
+                "Verknuepfungen bleiben unberuehrt. Was sich nicht "
+                "zuordnen laesst, wird 'sonstiges' und bleibt damit im "
+                "Analyse-Plan sichtbar."
+                + ("" if dry_run else
+                   " Danach analyse_plan_erstellen() aufrufen — die neu "
+                   "erkannten Recruiter-Anfragen tragen jetzt eine "
+                   "Handlungsempfehlung.")),
+            "naechster_schritt": (
+                "dokument_typen_nachziehen(dry_run=False) setzt es um."
+                if dry_run else
+                "dokument_typen_anzeigen() zeigt die neue Verteilung."),
+        }
+
+    @mcp.tool()
     def dokument_typen_anzeigen(mit_verteilung: bool = True) -> dict:
         """Listet alle bekannten Dokumenten-Typen + Aktion-Vorschlag (#655 E14).
 

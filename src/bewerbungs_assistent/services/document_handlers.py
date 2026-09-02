@@ -116,10 +116,40 @@ KNOWN_TYPES: dict[str, dict] = {
         "beschreibung": "Inbound-Mail von Headhuntern/Recruitern mit Stelle/Projekt",
         "claude_action": "recruiter_anfrage_ablehnen ODER stelle_manuell_anlegen + bewerbung_erstellen",
     },
+    # v1.7.24 (#961 AK 3): beide Werte lagen im Bestand, standen aber
+    # nicht in KNOWN_TYPES — damit gab es fuer sie keinen Handler und
+    # keinen Routing-Vorschlag. Sie sind echte Typen, keine Altlasten:
+    # eine Stellenanzeige ist etwas anderes als eine Recruiter-Mail
+    # (kein Absender, kein Vorgang), und eine Bewerbungsantwort ist die
+    # Oberkategorie ueber Absage/Einladung/Bestaetigung.
+    "stellenanzeige": {
+        "beschreibung": "Stellenausschreibung ohne persoenliche Ansprache",
+        "claude_action": ("stelle_manuell_anlegen(...) und danach "
+                          "fit_analyse(job_hash) — daraus entsteht eine "
+                          "Stelle, kein Korrespondenz-Vorgang"),
+    },
+    "bewerbungsantwort": {
+        "beschreibung": ("Rueckmeldung des Arbeitgebers, deren genaue Art "
+                         "noch offen ist (Absage/Einladung/Zwischenstand)"),
+        "claude_action": ("Inhalt lesen und mit dokument_status_setzen auf "
+                          "absage / interview_einladung / "
+                          "eingangsbestaetigung praezisieren, dann "
+                          "bewerbung_status_aendern"),
+    },
     "sonstiges": {
         "beschreibung": "Nicht klassifiziertes Dokument",
         "claude_action": "Manuell sichten oder doc_type via update_document_type setzen",
     },
+}
+
+# v1.7.24 (#961 AK 2): 'email' ist kein Dokumenttyp, sondern ein
+# TRANSPORTWEG — er beschreibt den Inhalt gar nicht. Der Wert stammt
+# aus fruehen Importen (51 Dokumente im Bestand), wird von keinem Code
+# mehr vergeben und hat keinen Handler. Dokumente damit fallen aus
+# jedem Routing heraus.
+ALTLAST_TYPEN: dict[str, str] = {
+    "email": "sonstiges",
+    "mail": "sonstiges",
 }
 
 
