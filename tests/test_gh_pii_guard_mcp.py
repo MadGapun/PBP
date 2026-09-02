@@ -159,12 +159,19 @@ def test_bash_lesen_bleibt_frei():
 
 def test_hook_ist_fuer_mcp_registriert():
     """Der beste Guard nuetzt nichts, wenn ihn niemand aufruft — genau
-    das war der Fehler."""
-    conf = json.loads(
-        (Path(__file__).resolve().parents[1] / ".claude" / "settings.json")
-        .read_text(encoding="utf-8"))
+    das war der Fehler.
+
+    `.claude/` ist gitignored, die Hook-Konfiguration ist also lokal und
+    liegt im CI-Klon nicht vor. Dort wird uebersprungen statt rot zu
+    werden — ein Test, der eine nicht vorhandene Datei einfordert,
+    prueft nichts, er meldet nur die Umgebung.
+    """
+    datei = Path(__file__).resolve().parents[1] / ".claude" / "settings.json"
+    if not datei.is_file():
+        pytest.skip("Lokale Hook-Konfiguration (.claude/) nicht vorhanden")
+    conf = json.loads(datei.read_text(encoding="utf-8"))
     matcher = [e.get("matcher", "")
-               for e in conf["hooks"]["PreToolUse"]]
+               for e in conf.get("hooks", {}).get("PreToolUse", [])]
     assert any("mcp" in m.lower() for m in matcher), (
         f"Kein PreToolUse-Matcher fuer MCP-Werkzeuge: {matcher}")
     assert any(m == "Bash" for m in matcher), "Bash-Weg verlorengegangen"
