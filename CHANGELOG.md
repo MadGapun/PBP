@@ -33,6 +33,128 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.24] - 2026-09-02
+
+Sieben Praxis-Befunde vom 28.08. und 02.09. Roter Faden: Fehler, die
+sich als Erfolg tarnen — eine fehlende Farbe, eine unbekannte
+Entfernung, ein falsch abgelegtes Stellenangebot. Keiner davon hat je
+eine Fehlermeldung erzeugt.
+
+### Fixed
+
+- **#962 — der PII-Pruefer meldete Alltagswoerter als Firmen.**
+  `issue_text_pruefen` markierte das Wort "alten" als Firmentreffer,
+  mit der Aufforderung, den Text nicht zu veroeffentlichen. Ein
+  Fehlalarm im Pflichtschritt entwertet die begruendeten Treffer mit;
+  nach dem dritten Mal wird der Hinweis ueberlesen. Unterschieden wird
+  jetzt nach dem Artikel: ein Gattungsname steht mit Begleiter ("die
+  Feder im Mechanismus"), eine Firma ohne ("bei Feder"). Ein
+  Rechtsformzusatz schlaegt beides. Unsichere Treffer werden gemeldet,
+  aber nicht automatisch ersetzt — ein Adjektiv durch einen
+  Firmenplatzhalter zu tauschen entstellt den Satz unbemerkt.
+- **#963 — zwei Rechenwege, zwei Scores fuer dieselbe Stelle.**
+  `scoring_vorschau` meldete 3,0, `fit_analyse` unmittelbar danach
+  20,8 — und schrieb die 20 in die Datenbank. Welcher Wert in der
+  Trefferliste stand, hing davon ab, welches Tool zuletzt lief.
+  Gemessene Abweichung bis zu 6 Punkten auf 21. Beide Wege teilen
+  jetzt MUSS-Tor, Rahmen-Deckel und Remote-Zuschlag; ein Guard-Test
+  ueber zehn Faelle haelt sie zusammen. `fit_analyse` schreibt nicht
+  mehr als Nebenwirkung — wer sich eine Stelle nur genauer ansah,
+  verschob damit ihre Position in der Liste.
+- **#963 — `skill_gap_analyse` lieferte Stoppwoerter als Kompetenzen.**
+  Die Extraktion nahm jedes grossgeschriebene Wort, im Deutschen also
+  jedes Substantiv: "sie", "kein", "urlaub", "okt" standen als Skills
+  da, waehrend Systems Engineering und IEC 62304 fehlten. Neue
+  Extraktion auf einer Positivliste. Ohne belastbare Grundlage
+  entfaellt `match_prozent`, statt eine Zahl zu rechnen.
+- **#965 — eine unbekannte Entfernung kostete gar nichts.** Von vier
+  aktiven Stellen trug genau eine keine Entfernung: die weiteste. Weil
+  der Malus damit entfiel, stand sie mit dem hoechsten Score ganz oben.
+  Ortsstrings werden vor dem Geocoding bereinigt (Klammerzusaetze wie
+  "(Hybrid)"), ein Fehlschlag wird benannt statt verschwiegen.
+- **#964 — Farbklassen, die es nicht gibt.** Das Detail-Overlay im
+  Aufgaben-Tab war durchscheinend, weil es die Klasse `bg-bg` trug —
+  ein Token, das im Design-System nicht existiert. Tailwind erzeugt
+  dafuer keine Regel UND keinen Fehler. Ein Guard ueber das ganze
+  Frontend fand 47 weitere solche Stellen, darunter die Fehlermeldungen
+  mehrerer Seiten, die dadurch farblos ausgegeben wurden.
+- **#966 — ein Urteil wog mehr als seine Grundlage.** Eine Stelle wurde
+  abgewertet, weil dieselbe Rolle zweimal mit `gehalt_zu_niedrig`
+  verworfen worden war — beide Male an einem Anzeigen-Rumpf von rund
+  160 Zeichen und auf Basis einer GESCHAETZTEN Spanne. Solche Gruende
+  zaehlen jetzt halb, und der Hinweistext nennt die Grundlage.
+- **#961 — Stellenangebote wurden still abgehakt.** Eine Recruiter-Mail
+  mit vollstaendiger Stellenbeschreibung landete als `sonstiges` und
+  waere von `dokumente_korrespondenz_abschliessen` sammelweise als
+  erledigt gesetzt worden, ohne dass je eine Stelle entsteht. Die
+  Typ-Erkennung arbeitet jetzt auch am INHALT (Rollenbezeichnung plus
+  mindestens zwei Ausschreibungs-Merkmale), und `sonstiges` ist aus der
+  Korrespondenz-Whitelist heraus.
+
+### Added
+
+- **#960** — `todo_bearbeiten` kann den Bewerbungsbezug nachtraeglich
+  setzen ('-' loest ihn). Seit #815 sind freie Aufgaben erlaubt; damit
+  ist der vergessene Bezug der haeufigste Fehlerfall, und dafuer gab es
+  keine Reparatur ausser Neuanlage plus hinfaellig.
+- **#964** — Aufgaben tragen eine kopierbare, QUALIFIZIERTE Kennung
+  ("Aufgabe cf8dffcf"), weil Aufgaben- und Nachfass-IDs beide
+  achtstellig hexadezimal sind. Titel und Beschreibung sind im Overlay
+  aenderbar — offene Zusage aus #814.
+- **#961** — `dokument_typen_nachziehen()` klassifiziert Dokumente mit
+  Altlast-Typ neu. `email` ist kein Dokumenttyp, sondern ein
+  Transportweg; 51 von 230 Dokumenten lagen damit ohne Handler.
+
+### Changed
+
+- MCP-Tools: 206. Tests: 2563 passed, 2 skipped. Schema v48
+  unveraendert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.24.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.24.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.23] - 2026-08-25 — Ehrliche Zahlen, ehrliche Texte
 
 > **Empfohlenes Update.** Sieben Praxis-Befunde, ueberwiegend Faelle, in
