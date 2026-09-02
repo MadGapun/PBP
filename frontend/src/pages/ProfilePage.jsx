@@ -1266,7 +1266,7 @@ export default function ProfilePage() {
                           if (existing.includes(s.keyword)) return current;
                           return { ...current, keywords_plus: [...existing, s.keyword] };
                         })}
-                        className="rounded-lg bg-success/15 px-2.5 py-1 text-xs text-success transition hover:bg-success/25"
+                        className="rounded-lg bg-teal/15 px-2.5 py-1 text-xs text-teal transition hover:bg-teal/25"
                         title={`In ${s.in_guten_stellen} guten / ${s.in_schlechten_stellen} schlechten Stellen — klicken zum Hinzufuegen`}
                       >
                         + {s.keyword}
@@ -1290,7 +1290,7 @@ export default function ProfilePage() {
                           if (existing.includes(s.keyword)) return current;
                           return { ...current, keywords_ausschluss: [...existing, s.keyword] };
                         })}
-                        className="rounded-lg bg-danger/15 px-2.5 py-1 text-xs text-danger transition hover:bg-danger/25"
+                        className="rounded-lg bg-coral/15 px-2.5 py-1 text-xs text-coral transition hover:bg-coral/25"
                         title={`In ${s.in_schlechten_stellen} schlechten / ${s.in_guten_stellen} guten Stellen — klicken zum Ausschliessen`}
                       >
                         − {s.keyword}
@@ -1356,7 +1356,7 @@ export default function ProfilePage() {
                           : [...(current.stellentypen || []), value];
                         return { ...current, stellentypen: next.length ? next : ["festanstellung"] };
                       })}
-                      className="h-4 w-4 accent-sky-500"
+                      className="h-4 w-4 accent-sky"
                     />
                     {label}
                   </label>
@@ -2410,7 +2410,7 @@ export default function ProfilePage() {
             </div>
           ) : skillDialog.draft.since_year ? (
             <div className="md:col-span-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-success/10 border border-success/30 px-2 py-1 text-xs text-success">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-teal/10 border border-teal/30 px-2 py-1 text-xs text-teal">
                 Aktiv seit {skillDialog.draft.since_year}
               </span>
             </div>

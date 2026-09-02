@@ -218,10 +218,10 @@ export default function SourceSelectionList({
                 </div>
                 <p className="text-sm text-muted">{source.beschreibung}</p>
                 {isDefekt ? (
-                  <div className="mt-1 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 space-y-1.5">
+                  <div className="mt-1 rounded-lg border border-coral/30 bg-coral/5 px-3 py-2 space-y-1.5">
                     <div className="flex items-center gap-1.5">
-                      <Ban size={13} className="shrink-0 text-danger" />
-                      <span className="text-xs font-semibold text-danger">
+                      <Ban size={13} className="shrink-0 text-coral" />
+                      <span className="text-xs font-semibold text-coral">
                         Automatische Suche aktuell nicht moeglich
                       </span>
                     </div>

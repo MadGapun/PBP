@@ -2652,7 +2652,7 @@ function ErweiterungenTab({ pushToast }) {
               „{pairResult.name}" gekoppelt — API-Key jetzt kopieren (wird nur dieses eine Mal angezeigt):
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code className="rounded bg-night/60 px-2 py-1 text-xs text-ink break-all">{pairResult.api_key}</code>
+              <code className="rounded bg-shell/60 px-2 py-1 text-xs text-ink break-all">{pairResult.api_key}</code>
               <Button
                 size="sm"
                 onClick={async () => {
@@ -2711,7 +2711,7 @@ function ErweiterungenTab({ pushToast }) {
                 value={manifestText}
                 onChange={(e) => setManifestText(e.target.value)}
                 rows={6}
-                className="mt-2 w-full rounded-lg border border-line/40 bg-night/40 p-2 font-mono text-xs text-ink outline-none focus:ring-2 focus:ring-sky/40"
+                className="mt-2 w-full rounded-lg border border-line/40 bg-shell/40 p-2 font-mono text-xs text-ink outline-none focus:ring-2 focus:ring-sky/40"
                 placeholder='{"name": "Watch-Folder", "version": "1.0.0", "ingest_api": "^1", "capabilities": ["ingest:email"]}'
               />
               <div className="mt-2 flex gap-2">
@@ -3250,7 +3250,7 @@ export default function SettingsPage() {
                       pushToast(`Fehler: ${error.message}`, "danger");
                     }
                   }}
-                  className="h-4 w-4 accent-sky-500"
+                  className="h-4 w-4 accent-sky"
                 />
                 Tagesimpuls im Dashboard anzeigen
               </label>
