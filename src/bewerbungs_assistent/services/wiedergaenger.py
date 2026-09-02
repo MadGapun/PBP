@@ -173,6 +173,76 @@ def _reasons_of(job: dict) -> list[str]:
     return out
 
 
+# Ab welcher Textlaenge ist ein Aussortier-Urteil ueberhaupt belastbar?
+# Belegter Fall vom 02.09.2026: zwei Aussortierungen derselben Rolle
+# wurden an Anzeigen-Rumpfen von 155 und 168 Zeichen getroffen. Bei so
+# wenig Text kann weder das Fachgebiet noch das eingesetzte System
+# beurteilt worden sein.
+MINDESTLAENGE_BELASTBAR = 200
+
+# Gruende, die sich unmittelbar auf eine Gehaltszahl stuetzen. War die
+# geschaetzt, steht das Urteil auf einer Schaetzung.
+_GEHALTS_GRUENDE = frozenset({"gehalt_zu_niedrig", "gehalt_unklar"})
+
+# Gruende, die NUR aus dem Anzeigentext hervorgehen koennen. Bewusst
+# eng gehalten: 'zeitarbeit' und 'befristet' erkennt man an Firma und
+# Titel, 'unpassendes_arbeitsmodell' steht in einem eigenen Feld,
+# 'firma_uninteressant' und 'zu_weit_entfernt' sind ohnehin keine
+# Aussagen ueber den Text. Wer die Liste zu breit zieht, entwertet
+# Urteile, die sehr wohl belastbar waren.
+_TEXTABHAENGIGE_GRUENDE = frozenset({
+    "falsches_fachgebiet", "falsches_system",
+    "zu_junior", "zu_senior", "kein_hochschulabschluss",
+})
+
+
+def grund_guete(job: dict) -> tuple[str, str]:
+    """Wie belastbar ist das Aussortier-Urteil dieser Stelle? (#966)
+
+    #827 hat die richtige Regel bereits gezogen: ein GESCHAETZTES
+    Gehalt wird im Scoring neutral gewertet, nicht gerechnet. Die Regel
+    wirkt aber nur nach vorn. Ein Aussortier-Grund, der historisch aus
+    einer Schaetzung entstanden ist, wurde unveraendert weiterverwendet
+    — und fiel im Wiedergaenger-Mechanismus sogar doppelt ins Gewicht,
+    weil er zweimal vorkam.
+
+    Belegter Fall: dieselbe Rolle, zweimal aussortiert wegen
+    'gehalt_zu_niedrig'. Beide Male an einem Anzeigen-Rumpf von rund
+    160 Zeichen, beide Male auf Basis einer geschaetzten Spanne. Heute
+    steht dieselbe Rolle mit vollstaendigem Text und einer geschaetzten
+    Spanne OBERHALB der Schwelle da. Beide Zahlen sind Schaetzungen,
+    sie zeigen nur in verschiedene Richtungen.
+
+    Kein Auto-Fix: alte Urteile werden nicht geloescht. Sie sollen nur
+    nicht schwerer wiegen als das, worauf sie beruhen.
+
+    Gibt (guete, begruendung) zurueck; guete ist 'belegt' oder 'schwach'.
+    """
+    gruende = set(_reasons_of(job))
+    maengel = []
+
+    # Fehlt das Feld ganz, ist die Grundlage UNBEKANNT — nicht schwach.
+    # get_dismissed_jobs liefert per SELECT * immer eine Beschreibung;
+    # wo sie fehlt, wurde der Datensatz nur teilgeladen. Aus fehlendem
+    # Wissen ein Urteil abzuleiten waere derselbe Fehler, den #965 im
+    # Entfernungs-Scoring behebt.
+    roh = job.get("description")
+    if roh is not None:
+        text = str(roh).strip()
+        if (len(text) < MINDESTLAENGE_BELASTBAR
+                and gruende & _TEXTABHAENGIGE_GRUENDE):
+            maengel.append(
+                f"die Anzeige hatte nur {len(text)} Zeichen — zu wenig, "
+                "um Fachgebiet, System oder Senioritaet zu beurteilen")
+
+    if gruende & _GEHALTS_GRUENDE and job.get("salary_estimated"):
+        maengel.append("die Gehaltsangabe war geschaetzt, nicht belegt")
+
+    if not maengel:
+        return "belegt", ""
+    return "schwach", " und ".join(maengel)
+
+
 def find_wiedergaenger_pattern(
     db,
     company: str,
@@ -254,17 +324,34 @@ def find_wiedergaenger_pattern(
     reason_counter: Counter = Counter()
     by_reason: dict[str, list] = {}
     domain_tokens_seen: set = set()
+    # #966: Gewicht nach Guete. Ein Urteil, das an einem Anzeigen-Rumpf
+    # oder auf einer Gehaltsschaetzung getroffen wurde, darf nicht so
+    # schwer wiegen wie eines an der vollstaendigen Anzeige.
+    gewicht: Counter = Counter()
+    schwache_belege: dict[str, list] = {}
     for j, shared in matches:
         domain_tokens_seen |= shared
-        for r in _reasons_of(j):
+        guete, warum = grund_guete(j)
+        # #966 Nebenbefund: je STELLE einmal zaehlen. Eine zweimal mit
+        # demselben Grund verworfene Stelle ist ein Fall, nicht zwei —
+        # sonst weichen zwei Ansichten desselben Sachverhalts
+        # voneinander ab, und die Schwelle haengt davon ab, welche gilt.
+        for r in sorted(set(_reasons_of(j))):
             reason_counter[r] += 1
             by_reason.setdefault(r, []).append(j)
+            gewicht[r] += 0.5 if guete == "schwach" else 1.0
+            if guete == "schwach":
+                schwache_belege.setdefault(r, []).append(warum)
 
     if not reason_counter:
         return None
 
-    top_grund, anzahl = reason_counter.most_common(1)[0]
-    if anzahl < schwellwert:
+    # Der fuehrende Grund bemisst sich am GEWICHT, nicht an der blossen
+    # Anzahl — sonst schlaegt ein zweifach vorkommendes schwaches Urteil
+    # ein einzelnes belegtes.
+    top_grund = max(gewicht, key=lambda r: (gewicht[r], reason_counter[r]))
+    anzahl = reason_counter[top_grund]
+    if gewicht[top_grund] < schwellwert:
         return None
 
     beispiele = [
@@ -281,6 +368,9 @@ def find_wiedergaenger_pattern(
         "anzahl": anzahl,
         "domain_tokens": sorted(domain_tokens_seen & target_tokens) or sorted(domain_tokens_seen),
         "alle_gruende": dict(reason_counter),
+        "gewicht_nach_guete": {r: round(w, 1) for r, w in gewicht.items()},
+        "zaehlweise": ("Stellen je Grund; eine Stelle mit mehreren "
+                       "Gruenden zaehlt bei jedem einmal."),
         "beispiele": beispiele,
         "hinweis": (
             f"Firma '{company}' wurde bereits {anzahl}x mit Grund "
@@ -290,8 +380,20 @@ def find_wiedergaenger_pattern(
             + (f" (gleiche Rolle: {', '.join(sorted(roles_matched))})"
                if roles_matched else "")
             + "."
+            # AK 3: die Grundlage nennen. "2x mit Grund gehalt_zu_niedrig"
+            # klingt nach einem harten Befund; "beide Male an einer
+            # Anzeige unter 200 Zeichen und auf Basis eines geschaetzten
+            # Gehalts" ist dieselbe Tatsache, richtig eingeordnet.
+            + (" ACHTUNG zur Grundlage: "
+               + "; ".join(sorted(set(schwache_belege[top_grund])))
+               + f" ({len(schwache_belege[top_grund])} von {anzahl} "
+                 "Urteilen). Der Befund wiegt entsprechend weniger."
+               if schwache_belege.get(top_grund) else "")
         ),
     }
+    if schwache_belege.get(top_grund):
+        result["guete"] = "teilweise schwach"
+        result["schwache_urteile"] = len(schwache_belege[top_grund])
     if roles_matched:
         result["rollen_familien"] = sorted(roles_matched)
     return result
@@ -330,7 +432,7 @@ def firmen_historie(
             continue
         if normalize_company(j.get("company")) != norm_company:
             continue
-        reasons = _reasons_of(j)
+        reasons = sorted(set(_reasons_of(j)))  # #966: je Stelle einmal
         if not reasons:
             continue
         for r in reasons:
@@ -347,6 +449,8 @@ def firmen_historie(
         "firma": company,
         "aussortiert_anzahl": anzahl,
         "gruende": dict(reason_counter),
+        "zaehlweise": ("Stellen je Grund; eine Stelle mit mehreren "
+                       "Gruenden zaehlt bei jedem einmal."),
         "beispiel_titel": titles[:5],
         "hinweis": (
             f"Zur Einordnung: bei '{company}' wurden {anzahl} andere "

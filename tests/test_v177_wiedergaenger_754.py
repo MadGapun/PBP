@@ -41,7 +41,18 @@ def _add_dismissed(tmp_db, hash_short, title, company, reason):
     tmp_db.save_jobs([{
         "hash": full, "title": title, "company": company,
         "location": "Hamburg", "url": f"https://x/{hash_short}",
-        "source": "manuell", "score": 50, "description": title,
+        "source": "manuell", "score": 50,
+        # v1.7.24 (#966): vollstaendige Anzeige, damit das
+        # Aussortier-Urteil als BELEGT gilt. Diese Tests pruefen den
+        # Abgleich-Mechanismus, nicht die Datenqualitaet — die Guete
+        # hat ihre eigenen Tests in test_v1724_wiedergaenger_guete_966.
+        "description": (
+            f"{title}. Aufgaben: Betreuung und Weiterentwicklung der "
+            "PLM-Landschaft, Abstimmung mit Fachbereichen, Steuerung "
+            "externer Dienstleister, Migration bestehender Strukturen. "
+            "Anforderungen: abgeschlossenes Studium, mehrjaehrige "
+            "Berufserfahrung, sichere Kommunikation in Deutsch und "
+            "Englisch, Bereitschaft zu gelegentlichen Reisen."),
     }])
     tmp_db.dismiss_job(full, reason)
     return full
