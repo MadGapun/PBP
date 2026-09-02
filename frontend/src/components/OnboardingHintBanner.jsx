@@ -86,15 +86,15 @@ export default function OnboardingHintBanner({ tab, limit = 2 }) {
       {visible.map((h) => (
         <div
           key={h.id}
-          className="flex items-start gap-2 p-2.5 rounded-lg border border-amber-400/25 bg-amber-400/[0.06] text-[12px]"
+          className="flex items-start gap-2 p-2.5 rounded-lg border border-amber/25 bg-amber/[0.06] text-[12px]"
         >
-          <Compass className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <Compass className="h-4 w-4 text-amber mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="font-medium text-ink">{h.title}</span>
             <p className="text-[11px] text-muted/80 mt-0.5">{h.body}</p>
             <div className="flex items-center gap-3 mt-1.5">
               <span
-                className="text-[11px] text-amber-600"
+                className="text-[11px] text-amber"
                 title={`Einfach in Claude Desktop tippen — Claude nutzt dann ${h.cta_tool || "das passende Werkzeug"}.`}
               >
                 💬 Sag Claude: „{h.cta_label}"

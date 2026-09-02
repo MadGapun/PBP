@@ -407,7 +407,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
           )}
         </div>
         {isHovering && messages.length > 0 && (
-          <div className="absolute left-12 bottom-0 z-50 w-72 rounded-lg border border-white/10 bg-bg/95 p-3 shadow-xl backdrop-blur-md">
+          <div className="absolute left-12 bottom-0 z-50 w-72 rounded-lg border border-white/10 bg-shell/95 p-3 shadow-xl backdrop-blur-md">
             <div className="mb-2 flex items-center gap-2">
               {avatar}
               <span className="text-[11px] font-medium text-ink">Elwosa</span>
@@ -480,7 +480,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
               <MoreHorizontal size={12} />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-5 z-50 w-44 rounded-lg border border-white/10 bg-bg/95 py-1 shadow-xl backdrop-blur-md">
+              <div className="absolute right-0 top-5 z-50 w-44 rounded-lg border border-white/10 bg-shell/95 py-1 shadow-xl backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => pauseElwosa(60)}

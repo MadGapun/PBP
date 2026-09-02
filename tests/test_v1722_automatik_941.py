@@ -17,7 +17,16 @@ def _aussortiert(db, hash_, titel, firma, grund):
     db.save_jobs([{
         "hash": hash_, "title": titel, "company": firma,
         "url": f"https://example.com/{hash_}", "source": "bundesagentur",
-        "description": "Beschreibung zur Stelle mit genug Text fuer die Pruefung.",
+        # v1.7.24 (#966): vollstaendige Anzeige, damit das Urteil als
+        # BELEGT gilt. Diese Tests pruefen die Automatik, nicht die
+        # Guete der Altdaten — die hat eigene Tests.
+        "description": (
+            "Aufgaben: Betreuung und Weiterentwicklung der PLM-Landschaft, "
+            "Abstimmung mit den Fachbereichen, Steuerung externer "
+            "Dienstleister und Migration bestehender Strukturen. "
+            "Anforderungen: abgeschlossenes Studium, mehrjaehrige "
+            "Berufserfahrung, sichere Kommunikation in Deutsch und "
+            "Englisch sowie Bereitschaft zu gelegentlichen Reisen."),
         "score": 20,
     }])
     voll = db.resolve_job_hash(hash_)

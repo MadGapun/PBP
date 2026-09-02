@@ -160,6 +160,29 @@ def get_db_path() -> Path:
     return get_data_dir() / "pbp.db"
 
 
+def _entities_aufloesen(wert):
+    """HTML-Entities in Textfeldern aufloesen (#965, v1.7.24).
+
+    Belegter Fall: ein Stellentitel aus dem LinkedIn-Import trug
+    '&amp;' statt '&'. Das betrifft nicht nur die Anzeige — ein
+    Suchbegriff oder MUSS-Keyword mit Und-Zeichen findet den Titel so
+    NICHT. Der Fehler wirkt also im Scoring, wo er nicht auffaellt.
+
+    Sitzt bewusst in save_jobs, dem Nadeloehr aller Stellen-Writes:
+    dieselbe Lehre wie bei dismiss_job (#913) und add_elwosa_message
+    (#924) — eine Regel, die fuer alle Wege gelten soll, gehoert an die
+    eine Stelle, durch die alle Wege laufen, nicht in 26 Adapter.
+    """
+    if not isinstance(wert, str) or "&" not in wert:
+        return wert
+    import html as _html
+    aufgeloest = _html.unescape(wert)
+    # Doppelt kodierte Faelle ('&amp;amp;') brauchen einen zweiten Gang.
+    if "&" in aufgeloest and aufgeloest != wert:
+        aufgeloest = _html.unescape(aufgeloest)
+    return aufgeloest
+
+
 class Database:
     """Synchronous SQLite database manager."""
 
@@ -4712,6 +4735,15 @@ class Database:
         Garantie aus #645: jobs.url-Inhalt ist entweder Detail-URL oder
         (mit Markierung) Such-URL; nie wieder leeres Feld ohne Indikator.
         """
+        # #965: Entities aufloesen, BEVOR irgendetwas gespeichert,
+        # gehasht oder gematcht wird.
+        for _j in jobs or []:
+            if not isinstance(_j, dict):
+                continue
+            for _feld in ("title", "company", "location", "description"):
+                if _j.get(_feld):
+                    _j[_feld] = _entities_aufloesen(_j[_feld])
+
         conn = self.connect()
         now = _now()
         active_pid = self.get_active_profile_id()
@@ -7996,9 +8028,17 @@ class Database:
         return [dict(r) for r in rows]
 
     def update_task(self, task_id: str, data: dict) -> bool:
-        """Update tasks-Felder (titel, beschreibung, faellig_am, typ, notiz)."""
+        """Update tasks-Felder.
+
+        v1.7.24 (#960): application_id gehoert dazu. Ohne sie war der
+        Bewerbungsbezug nur bei der Anlage setzbar — der haeufigste
+        Fehlerfall (vergessener Bezug) hatte damit keine Reparatur,
+        sondern nur den Ausweg Neuanlage plus hinfaellig. Das erzeugt
+        genau das Rauschen, das #815 vermeiden wollte.
+        """
         conn = self.connect()
-        allowed = ("titel", "beschreibung", "faellig_am", "typ", "notiz")
+        allowed = ("titel", "beschreibung", "faellig_am", "typ", "notiz",
+                   "application_id")
         fields, values = [], []
         for k in allowed:
             if k in data:

@@ -481,9 +481,9 @@ export default function DashboardPage() {
                     );
                   }
                   return (
-                    <div className="rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2 text-[12px]">
-                      <p className="flex items-center gap-2 font-medium text-amber-600">
-                        <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                    <div className="rounded-lg border border-amber/30 bg-amber/[0.06] px-3 py-2 text-[12px]">
+                      <p className="flex items-center gap-2 font-medium text-amber">
+                        <span className="h-2 w-2 rounded-full bg-amber shrink-0" />
                         {st === "unknown"
                           ? "Verbindung zu Claude Desktop wird geprueft..."
                           : "Claude Desktop ist noch nicht mit PBP verbunden."}
@@ -570,8 +570,8 @@ export default function DashboardPage() {
               key={hint.id}
               className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
                 hint.type === "warning"
-                  ? "border-amber-500/20 bg-amber-500/5 text-amber-200"
-                  : "border-sky-500/20 bg-sky-500/5 text-sky-200"
+                  ? "border-amber/20 bg-amber/5 text-amber"
+                  : "border-sky/20 bg-sky/5 text-sky"
               }`}
             >
               <div>
@@ -754,10 +754,10 @@ export default function DashboardPage() {
 
           {/* Heute fuer dich (Impulse) */}
           {impulse?.enabled && impulse?.impulse?.text && (
-            <Card className="rounded-2xl border-amber-600/30 bg-amber-950/10">
+            <Card className="rounded-2xl border-amber/30 bg-amber/10">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-400/60">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber/60">
                     {impulse.impulse.title || "Heute für dich"}
                   </p>
                   <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
@@ -1162,7 +1162,7 @@ export default function DashboardPage() {
                   const ok = s.is_active && s.consecutive_failures < 3;
                   const warn = s.is_active && s.consecutive_failures >= 3 && s.consecutive_failures < 10;
                   const off = !s.is_active;
-                  const color = off ? "bg-red-500/60" : warn ? "bg-amber-400/80" : ok ? "bg-emerald-400/80" : "bg-zinc-500/40";
+                  const color = off ? "bg-red-500/60" : warn ? "bg-amber/80" : ok ? "bg-emerald-400/80" : "bg-zinc-500/40";
                   const tip = `${s.scraper_name}: ${off ? "deaktiviert" : s.consecutive_failures > 0 ? `${s.consecutive_failures} Fehler` : "OK"} (${s.total_successes}/${s.total_runs} erfolgreich)`;
                   return (
                     <span key={s.scraper_name} className="flex items-center gap-1" title={tip}>

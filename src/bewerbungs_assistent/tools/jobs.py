@@ -3077,6 +3077,15 @@ def register(mcp, db, logger):
                     kategorie.append("beschreibung_gekappt")
                     detail["beschreibung_zeichen"] = len(desc)
 
+                # #965: eine unaufgeloeste Entfernung kostet nichts und
+                # sieht deshalb aus wie Naehe. Sie gehoert in dieselbe
+                # Qualitaetspruefung wie ein gekappter Text.
+                from ..job_scraper import entfernungs_guete
+                _eg, _egrund = entfernungs_guete(job)
+                if _eg == "unbekannt" and (job.get("location") or "").strip():
+                    kategorie.append("entfernung_unbekannt")
+                    detail["ort_unaufloesbar"] = job.get("location")
+
                 # Auto-aussortieren
                 if auto_aussortieren and health and health.should_dismiss:
                     try:
@@ -3145,6 +3154,70 @@ def register(mcp, db, logger):
                         "Anforderungsteil steht meist am Ende und fehlt "
                         "dort. Nachladen mit "
                         "beschreibungen_nachladen_bestand()."),
+                }
+        except Exception:
+            pass
+
+        # #966: Wie viele Aussortier-Urteile stehen auf duennem Grund?
+        # Das ist der Altlast-Umfang UND zugleich die Kandidatenliste
+        # fuer eine Neubewertung. Bewusst nur ein Bericht — alte Urteile
+        # werden nicht stillschweigend geloescht.
+        try:
+            from ..services.wiedergaenger import (
+                MINDESTLAENGE_BELASTBAR, grund_guete,
+            )
+            _verworfen = db.get_dismissed_jobs() or []
+            _schwach = [j for j in _verworfen
+                        if grund_guete(j)[0] == "schwach"]
+            if _schwach:
+                _q3 = round(100.0 * len(_schwach) / max(1, len(_verworfen)), 1)
+                result["schwache_aussortier_urteile"] = {
+                    "anzahl": len(_schwach),
+                    "von": len(_verworfen),
+                    "anteil_prozent": _q3,
+                    "mindestlaenge": MINDESTLAENGE_BELASTBAR,
+                    "beispiele": [
+                        {"hash": (j.get("hash") or "")[-12:],
+                         "titel": (j.get("title") or "")[:60],
+                         "grund": grund_guete(j)[1]}
+                        for j in _schwach[:5]
+                    ],
+                    "hinweis": (
+                        f"{len(_schwach)} von {len(_verworfen)} "
+                        f"Aussortierungen ({_q3} %) wurden an einer "
+                        f"Anzeige unter {MINDESTLAENGE_BELASTBAR} Zeichen "
+                        "oder auf Basis eines geschaetzten Gehalts "
+                        "getroffen. Sie zaehlen im "
+                        "Wiedergaenger-Mechanismus nur halb. Zum "
+                        "Zurueckholen: stelle_reaktivieren(hash)."),
+                }
+        except Exception:
+            pass
+
+        # #965: Umfang der Luecke ueber den ganzen Bestand. Ohne diese
+        # Zahl ist nicht zu erkennen, ob es ein Einzelfall ist oder ob
+        # die Rangfolge der Trefferliste systematisch schieflaeuft.
+        try:
+            from ..job_scraper import entfernungs_guete
+            _alle2 = db.get_active_jobs() or []
+            _ohne = [j for j in _alle2
+                     if (j.get("location") or "").strip()
+                     and entfernungs_guete(j)[0] == "unbekannt"]
+            if _ohne:
+                _q2 = round(100.0 * len(_ohne) / max(1, len(_alle2)), 1)
+                result["entfernung_unbekannt_gesamt"] = {
+                    "anzahl": len(_ohne),
+                    "von": len(_alle2),
+                    "anteil_prozent": _q2,
+                    "beispiel_orte": sorted({
+                        (j.get("location") or "")[:60] for j in _ohne})[:5],
+                    "hinweis": (
+                        f"{len(_ohne)} von {len(_alle2)} aktiven Stellen "
+                        f"({_q2} %) haben einen Ort, aber keine "
+                        "aufgeloeste Entfernung. Ihr Entfernungs-Malus "
+                        "entfaellt — sie stehen dadurch zu weit oben. "
+                        "Ort pruefen mit stelle_bearbeiten(), danach "
+                        "scores_neu_berechnen()."),
                 }
         except Exception:
             pass
@@ -3364,13 +3437,20 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def fit_analyse(job_hash: str) -> dict:
+    def fit_analyse(job_hash: str, score_uebernehmen: bool = False) -> dict:
         """Detaillierte Passungsanalyse für eine bestimmte Stelle.
 
         Zeigt welche Keywords matchen, was fehlt, und gibt eine Risikobewertung.
 
+        Reines LESEWERKZEUG (seit v1.7.24, #963): der Aufruf veraendert
+        die Stelle nicht mehr. Bis v1.7.23 schrieb er den errechneten
+        Wert still in `jobs.score` — wer sich eine Stelle nur genauer
+        ansah, verschob damit ihre Position in der Trefferliste.
+
         Args:
             job_hash: Hash der Stelle (von stellen_anzeigen)
+            score_uebernehmen: True = den errechneten Wert ausdruecklich
+                als neuen Score speichern. Standard False.
         """
         gate = ki_gate(db, "stellenanalyse")
         if gate is not None:
@@ -3421,18 +3501,44 @@ def register(mcp, db, logger):
         # zeigten alten Wert, fit_analyse einen anderen.
         # Der Fit-Score ist „mehr wert" weil er Profile + Risiken
         # beruecksichtigt; daher ueberschreibt er den Scrape-Score.
+        # v1.7.24 (#963): AK 2 und AK 3. Die alte Fassung (#539) hat die
+        # Divergenz zweier Rechenwege dadurch "geloest", dass der zuletzt
+        # laufende gewinnt. Damit war der Score in stellen_anzeigen nicht
+        # reproduzierbar, und ein Lesewerkzeug hatte eine Nebenwirkung.
+        #
+        # Jetzt: die Abweichung wird BENANNT statt still ueberschrieben.
+        # Seit beide Wege dasselbe Tor und denselben Deckel kennen,
+        # sollte sie ohnehin nur noch bei veraltetem Bestand auftreten —
+        # und dann ist sie ein Befund, keine Nebensache.
         new_score = result.get("total_score")
         if new_score is not None and isinstance(new_score, (int, float)):
-            try:
-                old_score = job_dict.get("score")
-                if old_score != new_score:
-                    db.update_job(job_hash, {"score": int(new_score)})
-                    result["score_aktualisiert"] = {
-                        "alter_score": old_score,
-                        "neuer_score": int(new_score),
-                    }
-            except Exception as exc:
-                logger.warning("Score-Persistierung nach fit_analyse fehlgeschlagen: %s", exc)
+            old_score = job_dict.get("score")
+            if old_score != new_score:
+                result["score_abweichung"] = {
+                    "gespeichert": old_score,
+                    "neu_berechnet": round(new_score, 1),
+                    "hinweis": (
+                        f"Der gespeicherte Score ({old_score}) weicht vom "
+                        f"jetzt berechneten ({round(new_score, 1)}) ab. "
+                        "Meist ist der gespeicherte Wert aelter als die "
+                        "aktuellen Suchkriterien."),
+                    "naechster_schritt": (
+                        "scores_neu_berechnen() zieht den ganzen Bestand "
+                        "nach; fit_analyse(job_hash, score_uebernehmen=True) "
+                        "nur diese eine Stelle."),
+                }
+                if score_uebernehmen:
+                    try:
+                        db.update_job(job_hash, {"score": int(new_score)})
+                        result["score_aktualisiert"] = {
+                            "alter_score": old_score,
+                            "neuer_score": int(new_score),
+                        }
+                    except Exception as exc:
+                        logger.warning(
+                            "Score-Persistierung nach fit_analyse "
+                            "fehlgeschlagen: %s", exc)
+                        result["score_aktualisiert"] = {"fehler": str(exc)[:200]}
 
         # Include job description in result (#55) so Claude can use it for analysis
         if job_dict.get("description"):

@@ -722,10 +722,10 @@ export default function JobsPage() {
 
       {/* Progress bar during job search (#210, #400) */}
       {searchJob.running && (
-        <div className="mb-4 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4">
+        <div className="mb-4 rounded-lg border border-sky/20 bg-sky/5 p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2 font-medium text-sky-300">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-sky-500/30 border-t-sky-400" />
+            <span className="flex items-center gap-2 font-medium text-sky">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-sky/30 border-t-sky" />
               {(() => {
                 // #400: Parse source status from message for better display
                 const msg = searchJob.message || "Jobsuche läuft...";
@@ -737,7 +737,7 @@ export default function JobsPage() {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/5">
             <div
-              className="h-full rounded-full bg-sky-500 transition-all duration-500 ease-out"
+              className="h-full rounded-full bg-sky transition-all duration-500 ease-out"
               style={{ width: `${Math.max(2, searchJob.progress)}%` }}
             />
           </div>
@@ -1291,7 +1291,7 @@ export default function JobsPage() {
                   {autoDismissed.map((job) => (
                     <div
                       key={job.hash}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-subtle px-3 py-2"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-3 py-2"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm text-ink">{job.title}</p>

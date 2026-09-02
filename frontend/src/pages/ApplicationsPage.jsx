@@ -1371,12 +1371,12 @@ export default function ApplicationsPage() {
                       className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
                     >
                       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold text-foreground/90">
+                        <span className="font-semibold text-ink/90">
                           {RESEARCH_LABELS[r.kategorie] || r.kategorie}
                         </span>
                         <span className="text-[10px] text-muted/60">{r.datum}</span>
                       </summary>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/80">{r.text}</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-ink/80">{r.text}</p>
                     </details>
                   ))}
                 </div>
@@ -1718,7 +1718,7 @@ export default function ApplicationsPage() {
                             pushToast("Termin gelöscht.", "success");
                             loadTimeline();
                           }}
-                          className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-[10px] text-muted/40 hover:bg-danger/15 hover:text-danger"
+                          className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-[10px] text-muted/40 hover:bg-coral/15 hover:text-coral"
                           title="Termin löschen">
                           <Trash2 size={10} />
                         </button>
@@ -1776,7 +1776,7 @@ export default function ApplicationsPage() {
                               pushToast(`Löschen fehlgeschlagen: ${error.message}`, "danger");
                             }
                           }}
-                          className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted/40 hover:bg-danger/15 hover:text-danger">
+                          className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted/40 hover:bg-coral/15 hover:text-coral">
                           <Trash2 size={10} />
                         </button>
                       </div>
@@ -1810,7 +1810,7 @@ export default function ApplicationsPage() {
                       rows={2}
                       value={reflexionForm[feld] || ""}
                       onChange={(e) => setReflexionForm((f) => ({ ...f, [feld]: e.target.value }))}
-                      className="rounded-lg border border-white/10 bg-bg/60 px-2 py-1.5 text-sm text-ink outline-none focus:border-teal/40"
+                      className="rounded-lg border border-white/10 bg-shell/60 px-2 py-1.5 text-sm text-ink outline-none focus:border-teal/40"
                     />
                   </label>
                 ))}
@@ -1819,7 +1819,7 @@ export default function ApplicationsPage() {
                   <select
                     value={reflexionForm.gefuehl || ""}
                     onChange={(e) => setReflexionForm((f) => ({ ...f, gefuehl: e.target.value ? Number(e.target.value) : null }))}
-                    className="rounded-lg border border-white/10 bg-bg/60 px-2 py-1 text-sm text-ink">
+                    className="rounded-lg border border-white/10 bg-shell/60 px-2 py-1 text-sm text-ink">
                     <option value="">—</option>
                     {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} / 5</option>)}
                   </select>
@@ -1829,7 +1829,7 @@ export default function ApplicationsPage() {
                       <select
                         value={reflexionForm.meeting_id || ""}
                         onChange={(e) => setReflexionForm((f) => ({ ...f, meeting_id: e.target.value }))}
-                        className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-bg/60 px-2 py-1 text-sm text-ink">
+                        className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-shell/60 px-2 py-1 text-sm text-ink">
                         <option value="">nicht zugeordnet</option>
                         {timelineMeetings.map((m) => (
                           <option key={m.id} value={m.id}>{formatDate(m.meeting_date)} — {m.title || "Termin"}</option>
