@@ -3158,6 +3158,42 @@ def register(mcp, db, logger):
         except Exception:
             pass
 
+        # #966: Wie viele Aussortier-Urteile stehen auf duennem Grund?
+        # Das ist der Altlast-Umfang UND zugleich die Kandidatenliste
+        # fuer eine Neubewertung. Bewusst nur ein Bericht — alte Urteile
+        # werden nicht stillschweigend geloescht.
+        try:
+            from ..services.wiedergaenger import (
+                MINDESTLAENGE_BELASTBAR, grund_guete,
+            )
+            _verworfen = db.get_dismissed_jobs() or []
+            _schwach = [j for j in _verworfen
+                        if grund_guete(j)[0] == "schwach"]
+            if _schwach:
+                _q3 = round(100.0 * len(_schwach) / max(1, len(_verworfen)), 1)
+                result["schwache_aussortier_urteile"] = {
+                    "anzahl": len(_schwach),
+                    "von": len(_verworfen),
+                    "anteil_prozent": _q3,
+                    "mindestlaenge": MINDESTLAENGE_BELASTBAR,
+                    "beispiele": [
+                        {"hash": (j.get("hash") or "")[-12:],
+                         "titel": (j.get("title") or "")[:60],
+                         "grund": grund_guete(j)[1]}
+                        for j in _schwach[:5]
+                    ],
+                    "hinweis": (
+                        f"{len(_schwach)} von {len(_verworfen)} "
+                        f"Aussortierungen ({_q3} %) wurden an einer "
+                        f"Anzeige unter {MINDESTLAENGE_BELASTBAR} Zeichen "
+                        "oder auf Basis eines geschaetzten Gehalts "
+                        "getroffen. Sie zaehlen im "
+                        "Wiedergaenger-Mechanismus nur halb. Zum "
+                        "Zurueckholen: stelle_reaktivieren(hash)."),
+                }
+        except Exception:
+            pass
+
         # #965: Umfang der Luecke ueber den ganzen Bestand. Ohne diese
         # Zahl ist nicht zu erkennen, ob es ein Einzelfall ist oder ob
         # die Rangfolge der Trefferliste systematisch schieflaeuft.
