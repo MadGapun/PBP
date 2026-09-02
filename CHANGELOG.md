@@ -33,6 +33,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.26] - 2026-09-02
+
+Drei Defekte aus der Durchsicht der offenen Issues — alle mit
+Ziel-Release v1.7.x, alle vom Typ "PBP zeigt etwas an, das so nicht
+stimmt".
+
+### Fixed
+
+- **#949 — das Alter einer Anzeige war unsichtbar.** PBP kannte nur
+  `found_at`, also wann es eine Stelle gesehen hat. Eine seit sechs
+  Monaten laufende Anzeige, gestern neu gescraped, sah damit taufrisch
+  aus. Aufgefallen ist es nur, weil der Nutzer die Originalanzeige
+  selbst geoeffnet hat.
+
+  Das Alter ist ein eigenstaendiges Signal: eine lange Laufzeit bei
+  wenigen Bewerbungsklicks deutet auf eine Dauerausschreibung ohne
+  konkrete Vakanz, eine frische Anzeige ist der Moment mit der besten
+  Chance. `stellen_anzeigen` und `fit_analyse` weisen die Laufzeit
+  jetzt aus, die Arbeitsagentur liefert das Datum mit.
+
+  Bewusst ein **Hinweis, kein Score-Malus** — eine lang laufende
+  Anzeige kann eine schwer besetzbare Spezialistenrolle sein. Und wo
+  kein Datum vorliegt, wird keines erfunden: die Auskunft sagt
+  ausdruecklich, dass `found_at` etwas anderes ist.
+
+- **#813 — die 0-Treffer-Meldung beruhigte, statt zu warnen.** Im
+  belegten Lauf lieferten die Quellen 389 Rohtreffer; 387 starben am
+  Kriterienfilter, 2 waren bereits bekannt. Gemeldet wurde: *"alle 2
+  waren schon bekannt [...] Bei haeufigen Suchen ist das normal."*
+
+  Die Meldung war nicht falsch, sie war der kleinste wahre Teil.
+  Jetzt nennt sie den Trichter — Rohtreffer und Verluste je
+  Filterstufe in Klartext — und warnt, wenn mehr als die Haelfte der
+  konfigurierten Quellen gar nicht gelaufen ist (in diesem Lauf: 9 von
+  32). Wenn tatsaechlich nur Bekanntes kam, bleibt die Auskunft
+  beruhigend; eine Warnung, die immer kommt, wird nicht gelesen.
+
+- **#767 — ein Test, der sporadisch falsch anklagte.** Die
+  Warteschleife auf den Hintergrund-Job lief bei Zeitueberschreitung
+  stumm weiter; der Test meldete danach eine Abweichung in der
+  Quellen-Logik, obwohl der Job schlicht noch lief. Budget erhoeht und
+  ehrlich gemacht: jetzt sagt der Fehlschlag, dass gewartet wurde und
+  worauf.
+
+### Changed
+
+- Tests: 2615 passed, 2 skipped. MCP-Tools 206, Schema v48
+  unveraendert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.26.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.26.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.25] - 2026-09-02
 
 Eine Wartungsversion ohne neue Funktionen. Sie schliesst eine Luecke im
