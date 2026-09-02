@@ -1471,7 +1471,8 @@ def run_search(db, job_id: str, params: dict):
     # statt einen Einsteiger mit "0 Stellen gefunden" raten zu lassen.
     if not unique:
         diagnose = zero_treffer_diagnose(
-            stats, source_status, ok_count, error_count, timeout_count)
+            stats, source_status, ok_count, error_count, timeout_count,
+            filterstufen=filterstufen, quellen_konfiguriert=len(quellen))
         result_data["diagnose"] = diagnose
         msg_parts.append(diagnose)
 
@@ -1482,23 +1483,73 @@ def run_search(db, job_id: str, params: dict):
     )
 
 
+# Klartext fuer die Filterstufen (#813). Die internen Schluessel sagen
+# dem Nutzer nichts; "kein_muss_keyword" ist kein Satz.
+_STUFEN_TEXT = {
+    "kein_muss_keyword": "ohne MUSS-Keyword",
+    "unter_schwelle": "unter der Score-Schwelle",
+    "automatisch_aussortiert": "automatisch aussortiert (Wiedergaenger)",
+    "ignoriert": "als Wiedergaenger ignoriert",
+}
+
+
 def zero_treffer_diagnose(stats, source_status, ok_count, error_count,
-                          timeout_count) -> str:
+                          timeout_count, filterstufen=None,
+                          quellen_konfiguriert=0) -> str:
     """G17 (#744, v1.7.4): Erklaert, warum eine Suche 0 NEUE Stellen brachte.
 
-    Prioritaet: (1) alles bereinigt/bekannt, (2) gar keine Quelle gelaufen,
-    (3) alle Quellen mit Fehler/Timeout, (4) alle uebersprungen,
-    (5) Quellen ok, aber Suchbegriffe treffen nichts.
+    Prioritaet: (0) der Filter hat den Grossteil verworfen, (1) alles
+    bereinigt/bekannt, (2) gar keine Quelle gelaufen, (3) alle Quellen
+    mit Fehler/Timeout, (4) alle uebersprungen, (5) Quellen ok, aber
+    Suchbegriffe treffen nichts.
+
+    v1.7.26 (#813 Problem 3): Stufe 0 ist neu, und sie steht bewusst
+    VOR der Bereinigungs-Meldung. Im belegten Lauf vom 06.08.2026 kamen
+    389 Rohtreffer, 387 starben am Filter und 2 waren bereits bekannt —
+    gemeldet wurde: *"alle 2 waren schon bekannt [...] Bei haeufigen
+    Suchen ist das normal."*
+
+    Diese Meldung beruhigt bei einem Befund, der eine Warnung waere.
+    Sie war nicht falsch, sie war nur der kleinste Teil der Wahrheit:
+    die Reihenfolge der Verzweigungen entschied darueber, welcher Teil
+    genannt wird.
     """
+    stufen = {k: v for k, v in (filterstufen or {}).items() if v}
+    rohtreffer = sum((s or {}).get("count", 0)
+                     for s in (source_status or {}).values())
     entfernt = sum(
         (stats or {}).get(k, 0)
         for k in ("duplikate_db", "blacklist", "bereits_bewertet", "bereits_beworben")
     )
+
+    # Warnung, wenn das Portfolio ueberwiegend nicht laeuft. Sie haengt
+    # sich an JEDE Begruendung an — die Ursache kann in beiden Teilen
+    # liegen, und der Nutzer soll nicht raten muessen.
+    warnung = ""
+    gelaufen = len(source_status or {})
+    if quellen_konfiguriert and gelaufen < quellen_konfiguriert / 2:
+        warnung = (f" ACHTUNG: nur {gelaufen} von {quellen_konfiguriert} "
+                   "konfigurierten Quellen sind ueberhaupt gelaufen — "
+                   "der Rest ist deaktiviert, defekt oder uebersprungen. "
+                   "scraper_diagnose() zeigt, welche.")
+
+    if stufen and sum(stufen.values()) >= max(1, entfernt):
+        teile = ", ".join(f"{v} {_STUFEN_TEXT.get(k, k)}"
+                          for k, v in sorted(stufen.items(),
+                                             key=lambda p: -p[1]))
+        return (
+            f"{rohtreffer} Rohtreffer aus den Quellen, davon am Filter "
+            f"verworfen: {teile}"
+            + (f"; {entfernt} waren bereits bekannt" if entfernt else "")
+            + ". Das ist KEIN leerer Markt, sondern das Ergebnis deiner "
+            "Kriterien. scoring_konfigurieren() zeigt die Regler, "
+            "suchkriterien_anzeigen() die Keywords." + warnung
+        )
     if entfernt:
         return (
             f"Die Quellen lieferten Treffer, aber alle {entfernt} waren "
             "schon bekannt, bewertet oder geblacklistet — es gibt gerade "
-            "nichts Neues. Bei haeufigen Suchen ist das normal."
+            "nichts Neues. Bei haeufigen Suchen ist das normal." + warnung
         )
     if not source_status:
         return (

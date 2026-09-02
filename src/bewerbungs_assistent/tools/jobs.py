@@ -5,6 +5,7 @@ import threading
 from collections import Counter
 from typing import Optional
 from urllib.parse import quote_plus
+from ..services import anzeigenalter as _anzeigenalter
 
 
 def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
@@ -1765,8 +1766,17 @@ def register(mcp, db, logger):
                 "url": j.get("url", ""),
                 "gefunden_am": (j.get("found_at") or "")[:10],
             }
+            # v1.7.26 (#949 Befund 2): das Datum allein sagt wenig —
+            # die LAUFZEIT ist das Signal. Eine seit Monaten laufende
+            # Anzeige sah bisher taufrisch aus, weil nur `found_at`
+            # sichtbar war.
             if j.get("veroeffentlicht_am"):
                 entry["veroeffentlicht_am"] = j["veroeffentlicht_am"]
+                _alter = _anzeigenalter.einordnung(j)
+                if _alter.get("anzeigenalter_tage") is not None:
+                    entry["anzeigenalter_tage"] = _alter["anzeigenalter_tage"]
+                if _alter.get("hinweis"):
+                    entry["anzeigenalter_hinweis"] = _alter["hinweis"]
             emp_type = j.get("employment_type") or ""
             if emp_type == "freelance":
                 typ_emoji = "🟢"
@@ -3563,6 +3573,12 @@ def register(mcp, db, logger):
                     "URL zeigt auf eine Suchergebnis-Seite. "
                     "Stelle manuell auf dem Portal suchen."
                 )
+        # v1.7.26 (#949 Befund 2): Laufzeit und Einordnung. Bewusst ein
+        # HINWEIS, kein Score-Malus — eine lang laufende Anzeige kann
+        # eine schwer besetzbare Spezialistenrolle sein, und die
+        # Leitlinie lautet Recall vor Praezision.
+        _alter = _anzeigenalter.einordnung(job_dict)
+        result["anzeigenalter"] = _alter
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
 

@@ -17,6 +17,7 @@ import httpx
 
 from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
+from ..services import anzeigenalter
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.bundesagentur")
 
@@ -175,6 +176,16 @@ def search_bundesagentur(params: dict) -> list:
                         "employment_type": "festanstellung",
                         "remote_level": detect_remote_level(f"{title} {location} {description}"),
                     }
+                    # v1.7.26 (#949 Befund 2): das Veroeffentlichungs-
+                    # datum ist ein eigenstaendiges Signal — `found_at`
+                    # sagt nur, wann PBP die Stelle gesehen hat. Die
+                    # Schluesselnamen unterscheiden sich zwischen den
+                    # API-Versionen, deshalb tolerant gelesen und im
+                    # Zweifel gar nichts gesetzt: ein falsches Datum
+                    # erfindet ein Frischesignal.
+                    _pub = anzeigenalter.aus_rohdaten(s)
+                    if _pub:
+                        job["veroeffentlicht_am"] = _pub
                     jobs.append(job)
 
                 time.sleep(0.5)  # Be polite
