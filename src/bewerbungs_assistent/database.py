@@ -7655,9 +7655,17 @@ class Database:
         return [dict(r) for r in rows]
 
     def update_task(self, task_id: str, data: dict) -> bool:
-        """Update tasks-Felder (titel, beschreibung, faellig_am, typ, notiz)."""
+        """Update tasks-Felder.
+
+        v1.7.24 (#960): application_id gehoert dazu. Ohne sie war der
+        Bewerbungsbezug nur bei der Anlage setzbar — der haeufigste
+        Fehlerfall (vergessener Bezug) hatte damit keine Reparatur,
+        sondern nur den Ausweg Neuanlage plus hinfaellig. Das erzeugt
+        genau das Rauschen, das #815 vermeiden wollte.
+        """
         conn = self.connect()
-        allowed = ("titel", "beschreibung", "faellig_am", "typ", "notiz")
+        allowed = ("titel", "beschreibung", "faellig_am", "typ", "notiz",
+                   "application_id")
         fields, values = [], []
         for k in allowed:
             if k in data:

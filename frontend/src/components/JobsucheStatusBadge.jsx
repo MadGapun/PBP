@@ -75,7 +75,7 @@ export default function JobsucheStatusBadge({ onNavigateToJobs }) {
   if (state.running) {
     return (
       <div
-        className="flex items-center gap-1.5 rounded-lg bg-iris/15 px-2 py-1.5 text-[11px] font-medium text-iris"
+        className="flex items-center gap-1.5 rounded-lg bg-sky/15 px-2 py-1.5 text-[11px] font-medium text-sky"
         title={state.message || "Jobsuche laeuft im Hintergrund"}
       >
         <Loader2 className="h-3 w-3 animate-spin" />

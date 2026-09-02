@@ -2811,7 +2811,7 @@ export default function SettingsPage() {
                       pushToast(`Fehler: ${error.message}`, "danger");
                     }
                   }}
-                  className="h-4 w-4 accent-sky-500"
+                  className="h-4 w-4 accent-sky"
                 />
                 Tagesimpuls im Dashboard anzeigen
               </label>

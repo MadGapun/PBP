@@ -139,6 +139,7 @@ def register(mcp, db, logger):
         beschreibung: str = "",
         faellig_am: str = "",
         typ: str = "",
+        bewerbung_id: str = "",
     ) -> dict:
         """v1.7.12 (#814, D35): aendert einen bestehenden Todo.
 
@@ -146,10 +147,19 @@ def register(mcp, db, logger):
         follow_up_verschieben existierte, das Todo-Pendant nicht. Nur
         uebergebene Felder werden geschrieben.
 
+        v1.7.24 (#960): auch der Bewerbungsbezug ist nachtraeglich
+        setzbar. Seit #815 sind freie Aufgaben ohne Bezug erlaubt — das
+        ist richtig, macht den vergessenen Bezug aber zum haeufigsten
+        Fehlerfall bei der Anlage. Eine Aufgabe ohne Bezug taucht in
+        bewerbung_details nicht auf, ist also genau dort unsichtbar, wo
+        man sie sucht.
+
         Args:
             todo_id: ID des Todos.
             titel/beschreibung/faellig_am/typ: neue Werte (leer = keine
                 Aenderung). faellig_am='-' loescht die Faelligkeit.
+            bewerbung_id: ordnet die Aufgabe einer Bewerbung zu.
+                '-' loest den Bezug (gleiche Konvention wie faellig_am).
         """
         task = db.get_task(todo_id)
         if not task:
@@ -163,13 +173,37 @@ def register(mcp, db, logger):
             daten["faellig_am"] = None if faellig_am == "-" else faellig_am
         if typ:
             daten["typ"] = typ
+        if bewerbung_id:
+            if bewerbung_id == "-":
+                daten["application_id"] = None
+            else:
+                # Pruefen statt still annehmen: eine erfundene ID wuerde
+                # die Aufgabe unsichtbar machen, ohne dass es auffaellt.
+                ziel = db.get_application(bewerbung_id)
+                if not ziel:
+                    return {"fehler": (
+                        f"Bewerbung '{bewerbung_id}' gibt es nicht. "
+                        "IDs zeigt bewerbungen_anzeigen().")}
+                daten["application_id"] = bewerbung_id
         if not daten:
             return {"fehler": "Keine Aenderungen angegeben."}
         db.update_task(todo_id, daten)
         neu = db.get_task(todo_id)
-        return {"status": "aktualisiert", "task_id": todo_id,
-                "titel": neu.get("titel"), "faellig_am": neu.get("faellig_am"),
-                "typ": neu.get("typ")}
+        antwort = {"status": "aktualisiert", "task_id": todo_id,
+                   "titel": neu.get("titel"),
+                   "faellig_am": neu.get("faellig_am"),
+                   "typ": neu.get("typ")}
+        if bewerbung_id:
+            if bewerbung_id == "-":
+                antwort["bewerbungsbezug"] = "geloest (freie Aufgabe)"
+            else:
+                _z = db.get_application(bewerbung_id) or {}
+                antwort["bewerbungsbezug"] = (
+                    f"{_z.get('title', '?')} bei {_z.get('company', '?')}")
+                antwort["naechster_schritt"] = (
+                    "Die Aufgabe erscheint jetzt in "
+                    f"bewerbung_details('{bewerbung_id}').")
+        return antwort
 
     @mcp.tool()
     def todo_hinfaellig(todo_id: str, grund: str = "") -> dict:
