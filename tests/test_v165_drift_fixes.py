@@ -84,7 +84,23 @@ def test_534_blacklist_filter_konsistent_active_jobs(setup_env):
 
 # ============= #539 — fit_analyse persistiert Score ================
 def test_539_fit_analyse_persistiert_score(setup_env):
-    """fit_analyse schreibt total_score zurueck nach jobs.score."""
+    """v1.7.24 (#963): fit_analyse schreibt NUR NOCH AUF ANSAGE.
+
+    #539 wollte verhindern, dass Listen-Score und Fit-Analyse
+    auseinanderlaufen, und loeste das so, dass der zuletzt laufende Weg
+    gewinnt. Das hat die Divergenz nicht beseitigt, sondern unsichtbar
+    gemacht: welcher Wert in der Liste stand, hing davon ab, welches
+    Tool zuletzt aufgerufen wurde.
+
+    Ausserdem hatte damit ein als Lesewerkzeug beschriebenes Tool eine
+    Nebenwirkung — wer sich eine Stelle nur genauer ansah, verschob ihre
+    Position in der Trefferliste.
+
+    Die Absicht von #539 bleibt gueltig; sie wird jetzt an der Wurzel
+    erfuellt (beide Rechenwege teilen MUSS-Tor und Rahmen-Deckel,
+    abgesichert durch test_963_beide_rechenwege_stimmen_ueberein). Eine
+    verbleibende Abweichung wird BENANNT statt still ueberschrieben.
+    """
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
 
@@ -117,12 +133,24 @@ def test_539_fit_analyse_persistiert_score(setup_env):
     new_score = result["total_score"]
     assert new_score > initial_score, f"Erwartet > {initial_score}, bekommen: {new_score}"
 
-    # DB sollte aktualisiert sein
+    # Ohne ausdruecklichen Auftrag bleibt die DB unveraendert.
     persisted = db.get_job("fit_test_01").get("score")
-    assert persisted == new_score, f"Score nicht persistiert: DB={persisted}, fit_analyse={new_score}"
+    assert persisted == initial_score, (
+        f"fit_analyse darf nicht mehr als Nebenwirkung schreiben "
+        f"(DB={persisted})")
+    assert "score_aktualisiert" not in result
 
-    # score_aktualisiert sollte im result enthalten sein
-    assert "score_aktualisiert" in result
+    # Die Abweichung wird aber gemeldet — nicht verschwiegen.
+    assert "score_abweichung" in result, result
+    assert result["score_abweichung"]["gespeichert"] == initial_score
+    assert "naechster_schritt" in result["score_abweichung"]
+
+    # Mit ausdruecklichem Auftrag wird geschrieben.
+    raw2 = _call(mcp, "fit_analyse",
+                 {"job_hash": "fit_test_01", "score_uebernehmen": True})
+    result2 = _result(raw2)
+    assert "score_aktualisiert" in result2, result2
+    assert db.get_job("fit_test_01").get("score") == int(result2["total_score"])
 
 
 def test_539_fit_analyse_kein_redundanter_update(setup_env):
