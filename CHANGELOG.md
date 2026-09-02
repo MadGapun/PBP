@@ -33,6 +33,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.25] - 2026-09-02
+
+Eine Wartungsversion ohne neue Funktionen. Sie schliesst eine Luecke im
+PII-Schutz, die als bekannte Grenze im Code notiert war — und genau
+dort ein zweites Mal eingetreten ist.
+
+### Security
+
+- **Der PII-Guard deckt jetzt auch den MCP-Weg ab.** Der PreToolUse-Hook
+  blockiert seit v1.7.11 `gh issue|pr|release create/comment/edit` mit
+  personenbezogenen Daten. Seine Beschraenkung stand ausdruecklich im
+  Docstring: *"GRENZE: nur der Bash-Weg. Der GitHub-MCP laeuft daran
+  vorbei."*
+
+  Am 02.09. fand der Bestands-Sweep fuenf Issues vom 21. und 25.08. mit
+  realen Firmennamen. Alle fuenf Namen stehen seit dem 10.05. in der
+  Erkennungsliste — der Pruefer haette sie gefunden. Er wurde nur nie
+  aufgerufen, weil die Issues ueber den MCP entstanden.
+
+  MERKE: **eine dokumentierte Luecke ist keine Warnung, sondern eine
+  Vorhersage.** Sie tritt ein, und zwar genau an der Stelle, an der sie
+  notiert ist.
+
+  Jetzt laeuft jeder SCHREIBENDE MCP-Aufruf mit Issue-, Kommentar-,
+  Story-, Wiki- oder Datei-Bezug durch denselben Pruefer, verschachtelte
+  Felder eingeschlossen (`push_files`-Listen, Unterobjekte) und
+  unabhaengig vom Servernamen, der bei manchen Servern eine UUID ist.
+  Lesende Werkzeuge bleiben bewusst unberuehrt: ein Guard, der das
+  Nachschlagen blockiert, wird abgeschaltet. Technische Felder (`slug`,
+  `sha`, `repo`, `branch`) sind ausgenommen, damit kein Fehlalarm
+  entsteht.
+
+### Fixed
+
+- **Eine Rechtsform-Aufzaehlung ist keine Firma.** Der Sweep meldete
+  `Co. KG` als Firmentreffer, wo ein Text lediglich Rechtsform-Zusaetze
+  auflistete — der Regex nahm `Co.` als Namen und `KG` als Rechtsform.
+  Ein Firmenname faengt nie mit einer Rechtsform an. Dieselbe Lehre wie
+  bei Jahresspanne, CSS-Farbwert und Hex-Konstante: ein Pruefer, der bei
+  korrektem Text Alarm gibt, wird nach dem zweiten Mal ignoriert.
+
+### Changed
+
+- Der GH-Sweep ist nicht mehr das einzige Netz fuer den MCP-Weg, sondern
+  das Netz fuer den Altbestand und fuer alles, was ausserhalb einer
+  Session entsteht. Ein Guard verhindert Neues, er heilt nichts Altes.
+- Tests: 2582 passed, 2 skipped. MCP-Tools 206, Schema v48
+  unveraendert. Fuer Nutzer aendert sich nichts an der Funktion.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.25.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.25.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.24] - 2026-09-02
 
 Sieben Praxis-Befunde vom 28.08. und 02.09. Roter Faden: Fehler, die
