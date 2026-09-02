@@ -54,9 +54,13 @@ def test_korrespondenz_abschliessen_dry_run_zeigt_treffer(tmp_db):
     mcp = _register(tmp_db)
     fn = mcp.tools["dokumente_korrespondenz_abschliessen"]
 
-    # 3 Korrespondenz-Docs auf basis_analysiert
+    # 3 Korrespondenz-Docs auf basis_analysiert.
+    # v1.7.24 (#961): 'sonstiges' ist KEIN Korrespondenz-Typ mehr —
+    # der Sammeltopf enthielt belegt eine vollstaendige
+    # Stellenausschreibung, die hier stillschweigend als erledigt
+    # abgehakt worden waere. Deshalb hier drei echte Korrespondenztypen.
     ids = []
-    for i, dtype in enumerate(("sonstiges", "recruiter_anfrage", "absage")):
+    for i, dtype in enumerate(("einladung", "recruiter_anfrage", "absage")):
         did = tmp_db.add_document({
             "filename": f"mail_{i}.eml",
             "doc_type": dtype,
@@ -102,7 +106,10 @@ def test_korrespondenz_abschliessen_wendet_an(tmp_db):
     for i in range(4):
         did = tmp_db.add_document({
             "filename": f"absage_{i}.eml",
-            "doc_type": "sonstiges",
+            # v1.7.24 (#961): der Inhalt IST eine Absage — dann gehoert
+            # sie auch als solche klassifiziert. 'sonstiges' wird seit
+            # #961 nicht mehr stillschweigend mit abgeschlossen.
+            "doc_type": "absage",
             "extracted_text": "Leider muessen wir Ihnen absagen.",
         })
         _set_status(tmp_db, did, "basis_analysiert")

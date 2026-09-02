@@ -5477,6 +5477,22 @@ def _detect_doc_type(filename: str, text: str) -> str | None:
         if cv_hits >= 3:
             return "lebenslauf"
 
+    # v1.7.24 (#961): letzter Schritt, bevor 'sonstiges' herauskommt.
+    # Die Erkennung oberhalb arbeitet an Dateinamen und festen
+    # Formulierungen; eine Recruiter-Mail mit unauffaelligem Betreff
+    # faellt dadurch durch — auch wenn ihr Inhalt unmissverstaendlich
+    # eine Ausschreibung ist.
+    #
+    # Bewusst GANZ HINTEN: Absage, Einladung und Bestaetigung haben
+    # Vorrang. Eine Absage nennt oft dieselbe Rolle und denselben
+    # Standort; sie soll nicht zur Recruiter-Anfrage werden.
+    try:
+        from .services.stellenangebot_erkennung import ist_stellenangebot
+        if ist_stellenangebot(text or "", filename)[0]:
+            return "recruiter_anfrage"
+    except Exception:  # Erkennung darf den Import nie blockieren
+        pass
+
     return None
 
 
