@@ -688,7 +688,7 @@ Blacklist → 409), email-Ingest delegiert an `api_upload_document`
 (volle Pipeline). save_jobs-URL-Guard laesst `plugin:`-Quellen ohne URL
 zu. Referenz-Plugin `plugins/watch-folder/` (stdlib-only, README =
 API-Doku). UI: „Gekoppelte Plugins" im Erweiterungen-Tab. Wiki-Seite
-**Plugins** (40. Seite — Wiki-Guard zaehlt jetzt >= 40). API-v1-Freeze
+**Plugins** (40. Seite — Wiki-Guard zaehlt jetzt >= 41). API-v1-Freeze
 mit Stable = Beta-Exit Punkt 2. (2) **C23/#687** —
 `description_snapshot` unveraenderlich: save_jobs fuellt bei Anlage
 (>= 50 Zeichen) und schleift Bestand durch REPLACE durch;
@@ -879,8 +879,8 @@ aufgeraeumt; ein `git add -A` committet die fehlenden Dateien dann als
 LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
 und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
 Vollstaendigkeits-Guard laufen lassen:
-`test $(ls *.md | wc -l) -ge 39 && git add -A ...` (Zahl bei neuen
-Seiten nachziehen). Ausserdem: `git pull --rebase` und Commit-Kette nie
+`test $(ls *.md | wc -l) -ge 41 && git add -A ...` (Zahl bei neuen
+Seiten nachziehen; Stand 2026-09-02: 41 Seiten, zuletzt Tab-Aufgaben). Ausserdem: `git pull --rebase` und Commit-Kette nie
 so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
 ## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
