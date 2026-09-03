@@ -846,6 +846,45 @@ def run_search(db, job_id: str, params: dict):
     total = len(quellen)
     all_jobs = []
 
+    # v1.7.27 (#967): VOR dem Lauf pruefen, ob ueberhaupt etwas da ist,
+    # womit sich suchen laesst. Vorher lief die Suche durch, holte
+    # Stellen von allen Quellen und warf sie am Ende geschlossen weg —
+    # gemessen 7 von 7 bei einem frisch angelegten Profil. Der erste
+    # Eindruck des Werkzeugs war eine leere Liste ohne Begruendung.
+    from ..services import suchbereitschaft as _bereit
+    _stand = _bereit.pruefe(db)
+    # Ein Aufrufer, der Suchbegriffe ausdruecklich mitgibt, hat eine
+    # Grundlage — die Pruefung gilt dem leeren Kaltstart, nicht dem
+    # gezielten Aufruf.
+    _explizit = bool(params.get("keywords"))
+    if not _stand["bereit"] and not _explizit:
+        db.update_background_job(
+            job_id, "fertig", progress=100,
+            message="Suche nicht gestartet — es fehlen Suchbegriffe.",
+            result={
+                "total": 0,
+                "nicht_gestartet": True,
+                "grund": _stand.get("grund", ""),
+                "naechster_schritt": _stand.get("naechster_schritt", ""),
+                "hinweis": (
+                    "Ohne Suchbegriffe bewertet PBP jede gefundene Stelle "
+                    "mit 0 und verwirft sie anschliessend. Ein Lauf haette "
+                    "die Quellen belastet und dir eine leere Liste "
+                    "gezeigt."),
+            },
+        )
+        logger.info("Suchlauf abgebrochen: keine Suchkriterien (#967)")
+        return
+
+    # Aus dem Profil abgeleitete Begriffe wirken wie gesetzte — mit dem
+    # Unterschied, dass PBP im Ergebnis sagt, dass es sie abgeleitet hat.
+    _abgeleitet = (_stand["quelle"] == "profil" and not _explizit)
+    if _abgeleitet:
+        try:
+            db.set_search_criteria("keywords_plus", _stand["keywords_plus"])
+        except Exception as exc:  # pragma: no cover — nie den Lauf blockieren
+            logger.warning("Abgeleitete Keywords nicht speicherbar: %s", exc)
+
     # Build dynamic keywords from DB if not explicitly provided
     if not params.get("keywords"):
         params["keywords"] = build_search_keywords(db)
@@ -1339,9 +1378,23 @@ def run_search(db, job_id: str, params: dict):
     min_score_threshold = criteria.get("min_score_schwelle", 1)
     before = len(unique)
     ohne_muss = sum(1 for j in unique if j.get("_ko_kein_muss"))
-    unique, verworfen_schwelle = _filter_nach_schwelle(unique, min_score_threshold)
-    filterstufen["kein_muss_keyword"] = ohne_muss
-    filterstufen["unter_schwelle"] = max(0, verworfen_schwelle - ohne_muss)
+
+    # v1.7.27 (#967): Ohne gesetzte MUSS-Begriffe hat JEDE Stelle Score 0
+    # — die Schwelle wuerde also den kompletten Lauf verwerfen. Dann
+    # sortiert sie nur noch, statt auszusortieren: eine ungefilterte
+    # erste Liste ist besser als gar keine. Das ist die Leitlinie
+    # "lieber ein Job zu viel", angewendet auf den Kaltstart.
+    _hat_muss = bool([k for k in (criteria.get("keywords_muss") or [])
+                      if str(k).strip()])
+    if not _hat_muss:
+        unique.sort(key=lambda j: float(j.get("score") or 0), reverse=True)
+        filterstufen["ungefiltert_ohne_muss"] = 0
+        verworfen_schwelle = 0
+    else:
+        unique, verworfen_schwelle = _filter_nach_schwelle(
+            unique, min_score_threshold)
+        filterstufen["kein_muss_keyword"] = ohne_muss
+        filterstufen["unter_schwelle"] = max(0, verworfen_schwelle - ohne_muss)
     if before > len(unique):
         logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d, "
                     "davon %d ohne MUSS-Keyword)",
@@ -1424,6 +1477,18 @@ def run_search(db, job_id: str, params: dict):
         result_data["bereinigung"] = cleanup["stats"]
     if any(filterstufen.values()):
         result_data["filterstufen"] = dict(filterstufen)
+    if _abgeleitet:
+        result_data["suchbegriffe_abgeleitet"] = {
+            "keywords": _stand["keywords_plus"],
+            "hinweis": _stand.get("hinweis", ""),
+            "naechster_schritt": _stand.get("naechster_schritt", ""),
+        }
+    if not _hat_muss:
+        result_data["ohne_muss_ungefiltert"] = (
+            "Es sind keine MUSS-Begriffe gesetzt, deshalb wurde nichts "
+            "aussortiert — die Liste ist nach Passung sortiert, aber "
+            "vollstaendig. Mit suchkriterien_setzen(keywords_muss=[...]) "
+            "wird sie enger.")
 
     # v1.6.9 (#548): Counter konsequent aus source_status ableiten — sonst
     # kommen Diskrepanzen zwischen `total` (Eingangs-Liste) und `source_status`
