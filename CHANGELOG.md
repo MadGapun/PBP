@@ -33,6 +33,91 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.27] - 2026-09-02
+
+Der erste Eindruck des Werkzeugs war eine leere Liste. Diese Version
+behebt das — und sie ist der erste Schritt aus einer Messung, die PBP
+mit sechs Lebenslaeufen quer durch den Arbeitsmarkt konfrontiert hat:
+Pflege, Kita, Elektrohandwerk, Gastronomie, Kommunikationsdesign,
+Buchhaltung.
+
+### Fixed
+
+- **#967 — ein frisch angelegtes Profil fand strukturell nichts.** Nach
+  `profil_erstellen()` waren keine Suchkriterien gesetzt. Ohne Keywords
+  bewertet das Scoring jede Stelle mit 0, und der Schwellenfilter
+  verwarf alles: gemessen 7 von 7 Anzeigen, unabhaengig vom Beruf. Der
+  Suchlauf pruefte das nicht — er lief durch, belastete alle Quellen und
+  warf das Ergebnis am Ende geschlossen weg.
+
+  Jetzt prueft PBP **vor** dem Lauf. Gibt das Profil etwas her, leitet
+  es Suchbegriffe daraus ab und sagt im Ergebnis, dass es das getan hat.
+  Gibt es nichts her, startet der Lauf gar nicht erst und nennt den
+  naechsten Schritt.
+
+  Abgeleitet wird dabei nur die WUNSCH-Liste, nie die Pflichtliste: ein
+  Pflichtbegriff ist ein Ausschlusskriterium, und ihn zu erraten wuerde
+  genau die Stellen unsichtbar machen, die man noch nicht benennen kann.
+
+  Die Ableitung kommt ohne Fachwortliste aus — sie nimmt die Stationen
+  und Faehigkeiten aus dem eigenen Profil. Was jemand selbst
+  aufgeschrieben hat, ist die verlaesslichste Quelle fuer sein
+  Berufsfeld, unabhaengig davon, welches es ist.
+
+### Changed
+
+- **Ohne Pflichtbegriffe wird nicht mehr aussortiert.** Die Schwelle
+  sortiert dann nur noch, statt den kompletten Lauf zu verwerfen. Das
+  ist die Leitlinie *lieber ein Job zu viel als einer zu wenig*,
+  angewendet auf den Einstieg.
+- Tests: 2637 passed, 2 skipped. MCP-Tools 206, Schema v48
+  unveraendert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.27.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.27.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.26] - 2026-09-02
 
 Drei Defekte aus der Durchsicht der offenen Issues — alle mit
