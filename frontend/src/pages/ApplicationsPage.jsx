@@ -148,6 +148,9 @@ export default function ApplicationsPage() {
   const [newTaskDue, setNewTaskDue] = useState("");  // #683: Erledigt-bis-Datum
   const [researchDraft, setResearchDraft] = useState("");
   const [researchSaving, setResearchSaving] = useState(false);
+  // #958: Lesen ist der Normalfall. Das Eingabefeld bleibt zugeklappt,
+  // bis der Nutzer es ausdruecklich oeffnet.
+  const [researchEditOpen, setResearchEditOpen] = useState(false);
 
   const deferredQuery = useDeferredValue(filters.query);
   const includeArchivedDataset = filters.showArchived || ARCHIVE_STATUSES.includes(filters.status);
@@ -327,6 +330,7 @@ export default function ApplicationsPage() {
       setReflexionForm(null);
       setNewTaskTitle("");
       setResearchDraft(timeline?.job?.research_notes || "");
+      setResearchEditOpen(false);  // #958
       setNewNoteText("");
       setEditingNoteId(null);
       setDocSearchQuery("");
@@ -1322,72 +1326,43 @@ export default function ApplicationsPage() {
             </Card>
           ) : null}
 
-          {/* #463: Firmen-Recherche-Sektion */}
-          {timelineDialog.entry?.job ? (
-            <Card className="glass-card-soft rounded-xl shadow-none">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Firmen-Recherche</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    // v1.7.0-beta.24 (#587): Aktuellster Firmen-Stand zuerst.
-                    // Vorher zog `job.company` Vorrang — die Stelle wird aber
-                    // beim Anlegen "eingefroren" und veraltet, sobald Vermittler
-                    // den Endkunden bestaetigt. Jetzt:
-                    //   1. application.endkunde (verbindlichster Wert wenn gesetzt)
-                    //   2. application.company (User-aktualisierbar)
-                    //   3. job.company (Snapshot bei Anlage, kann veralten)
-                    const app = timelineDialog.entry.application || {};
-                    const firma = (app.endkunde && app.endkunde.trim())
-                      || (app.company && app.company.trim())
-                      || timelineDialog.entry.job?.company
-                      || "";
-                    copyPrompt(`/firmen_recherche firma="${firma}"`);
-                  }}
-                >
-                  Mit Claude aktualisieren
-                </Button>
-              </div>
-              <TextArea
-                rows={6}
-                value={researchDraft}
-                onChange={(event) => setResearchDraft(event.target.value)}
-                placeholder="Notizen zur Firma — Kennzahlen, Kultur, News, Ansprechpartner. Claude kann das per Button oben generieren."
-                className="mt-2"
-              />
-              <div className="mt-2 flex justify-end">
-                <Button
-                  size="sm"
-                  disabled={researchSaving || researchDraft === (timelineDialog.entry?.job?.research_notes || "")}
-                  onClick={async () => {
-                    setResearchSaving(true);
-                    try {
-                      await putJson(
-                        `/api/applications/${timelineDialog.entry.application.id}/research-notes`,
-                        { research_notes: researchDraft },
-                      );
-                      pushToast("Firmen-Recherche gespeichert.", "success");
-                      await reloadTimeline(timelineDialog.entry.application.id);
-                    } catch (err) {
-                      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
-                    } finally {
-                      setResearchSaving(false);
-                    }
-                  }}
-                >
-                  Speichern
-                </Button>
-              </div>
-            </Card>
-          ) : null}
-
-          {/* #673: Strukturierte Recherchen (research_notes-Tabelle, alle Kategorien) */}
+          {/* #673 + #958: Gespeicherte Recherchen zuerst — Lesen ist der
+              Normalfall. Die Eingabe steht darunter und ist zugeklappt. */}
           {timelineDialog.entry?.application ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-                Recherchen
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                  Recherchen
+                </p>
+                {timelineDialog.entry?.job ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      // v1.7.0-beta.24 (#587): Aktuellster Firmen-Stand zuerst.
+                      // Vorher zog `job.company` Vorrang — die Stelle wird aber
+                      // beim Anlegen "eingefroren" und veraltet, sobald Vermittler
+                      // den Endkunden bestaetigt. Jetzt:
+                      //   1. application.endkunde (verbindlichster Wert wenn gesetzt)
+                      //   2. application.company (User-aktualisierbar)
+                      //   3. job.company (Snapshot bei Anlage, kann veralten)
+                      const app = timelineDialog.entry.application || {};
+                      const firma = (app.endkunde && app.endkunde.trim())
+                        || (app.company && app.company.trim())
+                        || timelineDialog.entry.job?.company
+                        || "";
+                      // #958: `bewerbung_id` mitgeben. firmen_recherche speichert
+                      // seit #674 im selben Aufruf — ohne die ID bleibt der Aufruf
+                      // ein reiner Lesevorgang und es kommt nichts in PBP an.
+                      copyPrompt(
+                        `/firmen_recherche firma="${firma}" bewerbung_id="${timelineDialog.entry.application.id}"`,
+                      );
+                    }}
+                  >
+                    Claude-Prompt kopieren
+                  </Button>
+                ) : null}
+              </div>
               {Array.isArray(timelineDialog.entry.recherchen) && timelineDialog.entry.recherchen.length > 0 ? (
                 <div className="mt-2 space-y-2">
                   {timelineDialog.entry.recherchen.map((r) => (
@@ -1411,6 +1386,80 @@ export default function ApplicationsPage() {
                   {" "}firmen_recherche, skill_gap_analyse oder recherche_speichern an.
                 </p>
               )}
+
+              {/* #463 + #958: Manuelle Firmen-Notiz. Speicherpfad unveraendert
+                  (jobs.research_notes), nur noch aufklappbar. Die Zusammen-
+                  fuehrung beider Speicher laeuft separat unter #956. */}
+              {timelineDialog.entry?.job ? (
+                <div className="mt-3 border-t border-white/5 pt-3">
+                  {researchEditOpen ? (
+                    <>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                        Eigene Firmen-Notiz
+                      </p>
+                      <TextArea
+                        rows={6}
+                        value={researchDraft}
+                        onChange={(event) => setResearchDraft(event.target.value)}
+                        placeholder="Notizen zur Firma — Kennzahlen, Kultur, News, Ansprechpartner."
+                        className="mt-2"
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={researchSaving}
+                          onClick={() => {
+                            setResearchDraft(timelineDialog.entry?.job?.research_notes || "");
+                            setResearchEditOpen(false);
+                          }}
+                        >
+                          Abbrechen
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={researchSaving || researchDraft === (timelineDialog.entry?.job?.research_notes || "")}
+                          onClick={async () => {
+                            setResearchSaving(true);
+                            try {
+                              await putJson(
+                                `/api/applications/${timelineDialog.entry.application.id}/research-notes`,
+                                { research_notes: researchDraft },
+                              );
+                              pushToast("Firmen-Recherche gespeichert.", "success");
+                              setResearchEditOpen(false);
+                              await reloadTimeline(timelineDialog.entry.application.id);
+                            } catch (err) {
+                              pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+                            } finally {
+                              setResearchSaving(false);
+                            }
+                          }}
+                        >
+                          Speichern
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted/60">
+                        {(timelineDialog.entry?.job?.research_notes || "").trim()
+                          ? "Eigene Firmen-Notiz vorhanden."
+                          : "Noch keine eigene Firmen-Notiz."}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setResearchEditOpen(true)}
+                      >
+                        {(timelineDialog.entry?.job?.research_notes || "").trim()
+                          ? "Notiz bearbeiten"
+                          : "Notiz hinzufuegen"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </Card>
           ) : null}
 
