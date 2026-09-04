@@ -328,13 +328,19 @@ def register(mcp, db, logger):
         # echten Anforderungen (Systems Engineering, IEC 62304) fehlten
         # oder als abgerissenes Fragment dastanden.
         from ..services.stellen_skills import (
-            extrahiere_skills, quote_belastbar,
+            extrahiere_skills, quote_belastbar, vokabular,
         )
+        # v1.7.30 (#971): das Vokabular kommt aus Profil und Bestand,
+        # nicht mehr nur aus der kuratierten Liste. Fuer Pflege,
+        # Erziehung und Grafik erkannte die Liste NULL Begriffe — sie
+        # deckt ein Berufsfeld ab. Was in einem Feld gefragt ist, steht
+        # in den Anzeigen, die PBP ohnehin gesammelt hat.
+        _vok = vokabular(db=db, profil=profile)
         required_skills = Counter()
         for job in jobs:
             _txt = ((job.get("description") or "") + chr(10)
                     + (job.get("title") or ""))
-            for begriff in extrahiere_skills(_txt):
+            for begriff in extrahiere_skills(_txt, _vok):
                 required_skills[begriff] += 1
 
         # Classify skills

@@ -32,7 +32,7 @@ Kompetenz auszuweisen ist der teure.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from typing import Iterable, Optional
 
 # Trennzeile, hinter der PBP Notizen ablegt (#603/#917). Alles dahinter
 # ist Korrespondenz, nicht Anzeige — im belegten Fall stand dort der
@@ -119,6 +119,19 @@ _BENEFIT = frozenset({
     "altersvorsorge", "gesundheit", "sportangebot", "mitarbeiterrabatte",
     "onboarding", "duzkultur", "flache", "hierarchien", "start",
     "aufgaben", "profil", "benefits", "kontakt", "bewerbung",
+    # v1.7.30 (#971): Floskeln der TEXTSORTE Stellenanzeige. Diese
+    # Liste bindet sich bewusst NICHT an ein Berufsfeld — "Team" und
+    # "Fortbildungen" stehen in einer Pflege-Anzeige genauso wie in
+    # einer IT-Anzeige. Sie bleibt damit gueltig, egal wer sucht.
+    "team", "teams", "fortbildungen", "fortbildung", "erfahrung",
+    "kenntnisse", "faehigkeiten", "fähigkeiten", "einsatz",
+    "unternehmen", "arbeitgeber", "stelle", "position", "taetigkeit",
+    "tätigkeit", "verantwortung", "zusammenarbeit", "umfeld",
+    "moeglichkeiten", "möglichkeiten", "weiterentwicklung", "chancen",
+    "wochenstunden", "arbeitszeit", "verguetung", "bezahlung",
+    "abschluss", "ausbildung", "studium", "berufserfahrung",
+    "mitarbeiter", "mitarbeiterinnen", "kolleginnen", "kollegen",
+    "kunden", "kundinnen", "bereich", "abteilung", "standort",
 })
 
 # Ab wie vielen erkannten Begriffen ist eine Quote ueberhaupt eine
@@ -134,8 +147,13 @@ def anzeigenteil(text: str) -> str:
     return teile[0]
 
 
-def _kandidaten(text: str) -> Iterable[str]:
+def _kandidaten(text: str, gelernt: Optional[set] = None) -> Iterable[str]:
     klein = text.lower()
+
+    # 0) Gelerntes zuerst — Mehrwortbegriffe vor der Zerlegung.
+    for begriff in sorted(gelernt or (), key=len, reverse=True):
+        if len(begriff) >= MIN_LAENGE and begriff in klein:
+            yield begriff
 
     # 1) Normen als EIN Begriff, Schreibweise vereinheitlicht.
     for treffer in _NORM.findall(text):
@@ -165,16 +183,21 @@ def _kandidaten(text: str) -> Iterable[str]:
         yield k
 
 
-def extrahiere_skills(text: str) -> list[str]:
+def extrahiere_skills(text: str, vokabular: Optional[set] = None) -> list[str]:
     """Fachbegriffe aus einer Stellenbeschreibung, ohne Rauschen.
 
     Reihenfolge des Auftretens bleibt erhalten, Dubletten fallen weg.
+
+    v1.7.30 (#971): `vokabular` erweitert die kuratierten Listen um das,
+    was aus Profil und Bestand gelernt wurde. Ohne Argument verhaelt
+    sich die Funktion wie bisher — Aufrufer, die kein Vokabular haben,
+    verlieren nichts.
     """
     roh = anzeigenteil(text or "")
     if not roh.strip():
         return []
     gesehen: list[str] = []
-    for begriff in _kandidaten(roh):
+    for begriff in _kandidaten(roh, vokabular):
         b = begriff.strip()
         if not b or b in _BENEFIT or b in _STOPP_KUERZEL:
             continue
@@ -204,3 +227,118 @@ def quote_belastbar(anzahl_begriffe: int) -> bool:
     Grundlage — dasselbe Prinzip wie beim Bewerbungsbericht (v1.6.8).
     """
     return anzahl_begriffe >= MINDEST_BEGRIFFE
+
+
+# ══ Aus dem Bestand lernen (#971, v1.7.30) ══════════════════════════
+#
+# Die kuratierten Listen oben decken ein Berufsfeld ab. Gemessen an
+# sechs Lebenslaeufen quer durch den Arbeitsmarkt erkannten sie fuer
+# Pflege, Erziehung und Grafik NULL Begriffe; die drei Treffer bei den
+# uebrigen fielen durch die Abkuerzungs-Regel an, nicht durch die Liste.
+#
+# Dieselbe Umkehr wie bei `issue_text_pruefen` (#946) und bei den
+# Berufsbezeichnungen (#969): nicht gegen eine gepflegte Liste pruefen,
+# sondern gegen den vorhandenen Bestand. Die Begriffe eines Menschen
+# stehen in seinem eigenen Lebenslauf; was in seinem Berufsfeld gefragt
+# ist, steht in den Anzeigen, die PBP ohnehin gesammelt hat.
+#
+# Eine Liste ist immer nur so gut wie ihre letzte Pflege. Ein Bestand
+# waechst von allein, und zwar in genau dem Feld, in dem gesucht wird.
+
+# In wie vielen Anzeigen muss ein Begriff vorkommen, um als Fachbegriff
+# zu gelten? Einmal ist Zufall.
+MIN_ANZEIGEN = 3
+
+# Und in hoechstens wie vielen? Was in fast jeder Anzeige steht, ist
+# Floskel und kein Fachbegriff ("Team", "Erfahrung", "Kunden").
+MAX_ANTEIL = 0.4
+
+# Ein Fachbegriff hat Substanz. Kuerzer als vier Zeichen ist entweder
+# ein Kuerzel (die faengt die Grossbuchstaben-Regel ab) oder Rauschen.
+MIN_LAENGE = 4
+
+_WORT = re.compile(r"[A-ZÄÖÜ][a-zäöüß]{3,}(?:-[A-ZÄÖÜ][a-zäöüß]+)?")
+
+
+def _rohbegriffe(text: str) -> set[str]:
+    """Kandidaten einer einzelnen Anzeige: grossgeschriebene Woerter.
+
+    Im Deutschen ist das jedes Substantiv — als Kandidatenmenge taugt
+    das, als ERGEBNIS nicht (genau daran scheiterte die alte Fassung).
+    Die Auswahl trifft erst die Haeufigkeit ueber viele Anzeigen.
+    """
+    roh = anzeigenteil(text or "")
+    if not roh.strip():
+        return set()
+    treffer = set()
+    for w in _WORT.findall(roh):
+        klein = w.lower()
+        if (len(w) >= MIN_LAENGE and klein not in _BENEFIT
+                and klein not in _STOPP_KUERZEL):
+            treffer.add(w)
+    return treffer
+
+
+def lerne_aus_bestand(db, *, limit: int = 400) -> set[str]:
+    """Fachvokabular aus den gesammelten Anzeigen ableiten.
+
+    Ein Begriff zaehlt, wenn er in mehreren Anzeigen vorkommt, aber
+    nicht in fast allen: das erste schliesst Zufall aus, das zweite
+    Floskeln. Was uebrig bleibt, ist das, was dieses Berufsfeld von
+    anderen unterscheidet — unabhaengig davon, welches Feld es ist.
+    """
+    try:
+        stellen = (db.get_active_jobs() or [])[:limit]
+    except Exception:
+        return set()
+    beschreibungen = [
+        f"{s.get('title') or ''}\n{s.get('description') or ''}"
+        for s in stellen
+        if (s.get("description") or "").strip()
+    ]
+    if len(beschreibungen) < MIN_ANZEIGEN:
+        return set()
+
+    haeufigkeit: dict[str, int] = {}
+    for text in beschreibungen:
+        for begriff in _rohbegriffe(text):
+            haeufigkeit[begriff] = haeufigkeit.get(begriff, 0) + 1
+
+    obergrenze = max(MIN_ANZEIGEN, int(len(beschreibungen) * MAX_ANTEIL))
+    return {b.lower() for b, n in haeufigkeit.items()
+            if MIN_ANZEIGEN <= n <= obergrenze}
+
+
+def aus_profil(profil: Optional[dict]) -> set[str]:
+    """Die Begriffe, die der Mensch selbst aufgeschrieben hat.
+
+    Die verlaesslichste Quelle fuer sein Berufsfeld — und die einzige,
+    die auf gar kein Feld kalibriert ist.
+    """
+    begriffe: set[str] = set()
+    for skill in (profil or {}).get("skills") or []:
+        name = ((skill or {}).get("name") or "").strip()
+        if len(name) >= MIN_LAENGE:
+            begriffe.add(name.lower())
+    for pos in (profil or {}).get("positions") or []:
+        for feld in ("title", "technologies"):
+            wert = (pos or {}).get(feld) or ""
+            for teil in re.split(r"[,;/]", str(wert)):
+                teil = teil.strip()
+                if len(teil) >= MIN_LAENGE and len(teil.split()) <= 3:
+                    begriffe.add(teil.lower())
+    return begriffe
+
+
+def vokabular(db=None, profil: Optional[dict] = None) -> set[str]:
+    """Alles zusammen: kuratierter Startwert, Profil, Bestand.
+
+    Die kuratierten Listen bleiben als STARTWERT — sie sind fuer ihr
+    Feld richtig und kosten nichts. Sie sind nur nicht mehr die Grenze.
+    """
+    erg = {b.lower() for b in _FACHWORT} | {b.lower() for b in _MEHRWORT}
+    if profil:
+        erg |= aus_profil(profil)
+    if db is not None:
+        erg |= lerne_aus_bestand(db)
+    return erg
