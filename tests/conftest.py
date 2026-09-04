@@ -10,6 +10,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
+# v1.7.28 (#969): die Berufs-Synonyme kommen aus einer fremden API.
+# In der Suite bleibt der Weg zu — ein Suchlauf-Test darf nicht an einer
+# Netzwerksperre haengen oder fremde Latenz messen. Tests, die das
+# Verhalten pruefen, reichen einen eigenen Client herein.
+os.environ.setdefault("PBP_BERUFE_LOOKUP", "0")
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_teardown(item):
     """A22 (#759): PBP-Hintergrund-Threads VOR den Fixture-Finalizern beenden.
