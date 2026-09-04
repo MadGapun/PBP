@@ -10,6 +10,43 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
+# v1.7.28 (#969): die Berufs-Synonyme kommen aus einer fremden API.
+# In der Suite bleibt der Weg zu — ein Suchlauf-Test darf nicht an einer
+# Netzwerksperre haengen oder fremde Latenz messen. Tests, die das
+# Verhalten pruefen, reichen einen eigenen Client herein.
+os.environ.setdefault("PBP_BERUFE_LOOKUP", "0")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item):
+    """A22 (#759): PBP-Hintergrund-Threads VOR den Fixture-Finalizern beenden.
+
+    Jobsuche-/Watchdog-/Install-Threads (alle mit Namen "pbp-*") lebten
+    sonst in db.close() hinein — SQLite-Use-after-close ueber Threads
+    produzierte auf dem Linux-CI mal OperationalError, mal Segfault
+    (exit 139). Als hookwrapper laeuft der Drain garantiert BEVOR
+    irgendein Fixture (tmp_db & Co.) die DB schliesst — eine autouse-
+    Fixture koennte das nicht zusichern (die wird zuerst aufgesetzt und
+    damit zuletzt abgebaut). In Tests sind die Threads gemockt/kurzlebig;
+    der 15s-Join ist nur das Sicherheitsnetz gegen Haenger.
+    """
+    import threading
+    for t in threading.enumerate():
+        if t.name.startswith("pbp-") and t is not threading.current_thread():
+            t.join(timeout=15)
+    # v1.7.18 (#915-Nachfix): Die Budget-Pool-Worker sind IDLE-Dauerlaeufer
+    # und heissen deshalb bewusst NICHT "pbp-*" (ein Join auf sie liefe
+    # immer in die vollen 15 s — das kostete die CI ueber eine halbe
+    # Stunde und riss ihr Timeout). Richtige Bedingung ist LEERLAUF:
+    # ohne laufenden Auftrag haelt kein Worker aktive DB-Arbeit.
+    try:
+        from bewerbungs_assistent.services.tool_budget import warte_auf_leerlauf
+        warte_auf_leerlauf(timeout=10)
+    except Exception:
+        pass
+    yield
+
+
 @pytest.fixture
 def tmp_db(tmp_path):
     """Create a fresh temporary database."""

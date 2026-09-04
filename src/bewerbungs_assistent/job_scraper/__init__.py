@@ -1247,6 +1247,18 @@ def run_search(db, job_id: str, params: dict):
         ]
     except Exception:
         criteria["_applied_titles"] = []
+    # v1.7.28 (#969): amtliche Alternativbezeichnungen EINMAL je Lauf
+    # holen und ueber die Kriterien weiterreichen. Eine Netzabfrage je
+    # Stelle und Keyword waere unbrauchbar.
+    try:
+        from ..services import berufsbezeichnungen as _berufe
+        _muss_begriffe = [k for k in (criteria.get("keywords_muss") or [])
+                          if str(k).strip()]
+        if _muss_begriffe:
+            criteria["_muss_synonyme"] = _berufe.erweitere(_muss_begriffe)
+    except Exception as exc:  # pragma: no cover — darf den Lauf nie stoppen
+        logger.debug("Berufsbezeichnungen uebersprungen: %s", exc)
+
     # v1.7.22 (#940): Filterkaskade mitzaehlen. Ohne diese Zahlen sieht
     # der Nutzer nur "7.100 Rohtreffer -> 15 Stellen" und kann nicht
     # beurteilen, ob die Suche zu streng oder die Quelle schlecht war.
@@ -2072,7 +2084,7 @@ def rahmen_deckel_faktor(criteria: dict) -> float:
         return RAHMEN_DECKEL_STANDARD
 
 
-def _muss_tor_match(keyword: str, text: str) -> bool:
+def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     """v1.7.22 (#940): Tor-Entscheidung fuer MUSS-Keywords.
 
     MUSS beantwortet die Frage *kommt die Stelle ueberhaupt in Frage*.
@@ -2100,6 +2112,19 @@ def _muss_tor_match(keyword: str, text: str) -> bool:
     """
     if _strict_keyword_match(keyword, text):
         return True
+
+    # v1.7.28 (#969): amtliche Alternativbezeichnungen desselben Berufs.
+    # Eine Pflegekraft traegt "Pflegefachkraft" ein; "Gesundheits- und
+    # Krankenpflegerin" ist derselbe Beruf und bekam bis hierher Score 0
+    # (#968). Die Bezeichnungen kommen aus der Berufs-Facette der
+    # Bundesagentur und werden EINMAL je Suchlauf geholt, nicht je
+    # Stelle — dasselbe Muster wie die IDF-Faktoren (#778).
+    #
+    # Geprueft werden sie strikt wie das Keyword selbst: ein Synonym
+    # darf den Torwaechter erweitern, nicht aufweichen.
+    for alternative in (synonyme or []):
+        if _strict_keyword_match(alternative, text):
+            return True
 
     kw_lower = keyword.lower().strip()
     for syn_key, synonyme in _SYNONYM_MAP.items():
@@ -2406,8 +2431,22 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Matching — sonst verschieben sich alle Scores und die Wirkung des
     # Tors waere nicht mehr isoliert messbar. Die Neubewertung der
     # Punktevergabe ist #942.
-    muss_hits_kws = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
-    muss_tor_kws = [kw for kw in muss if _muss_tor_match(kw, text)]
+    _muss_syn = criteria.get("_muss_synonyme") or {}
+    # v1.7.28 (#969): ein Keyword zaehlt auch dann als Treffer, wenn eine
+    # amtliche Alternativbezeichnung im Text steht. Ohne das oeffnet das
+    # Tor zwar (muss_tor_kws), es gibt aber KEINE Punkte — die Stelle
+    # haette Score 0 und faellt trotzdem raus. Beim Messen aufgefallen:
+    # fit_analyse lieferte 6,0 und calculate_score 0 fuer dieselbe
+    # Anzeige. Genau die Divergenz aus #963, diesmal vor dem Ausliefern
+    # bemerkt.
+    muss_hits_kws = [
+        kw for kw in muss
+        if _fuzzy_keyword_match(kw, text)
+        or any(_strict_keyword_match(alt_kw, text)
+               for alt_kw in (_muss_syn.get(kw) or []))
+    ]
+    muss_tor_kws = [kw for kw in muss
+                    if _muss_tor_match(kw, text, _muss_syn.get(kw))]
     muss_found = len(muss_tor_kws)
     if muss and muss_found == 0:
         # #180: Ohne Beschreibung nicht sofort auf 0 setzen, WENN der Titel
@@ -2643,7 +2682,17 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _muss_norm = {kw.strip().lower() for kw in muss}
     plus_effektiv = [kw for kw in plus
                      if kw.strip().lower() not in _muss_norm]
-    muss_hits = [kw for kw in muss if _fuzzy_keyword_match(kw, text)]
+    # v1.7.28 (#969): dieselbe Synonym-Regel wie in calculate_score —
+    # sonst oeffnet das Tor und die Punkte bleiben aus. Gemessen: calc
+    # 10,5 gegen fit 6,0 fuer dieselbe Anzeige. Der Guard-Test aus #963
+    # haelt beide Wege zusammen.
+    _muss_syn_fit = criteria.get("_muss_synonyme") or {}
+    muss_hits = [
+        kw for kw in muss
+        if _fuzzy_keyword_match(kw, text)
+        or any(_strict_keyword_match(a, text)
+               for a in (_muss_syn_fit.get(kw) or []))
+    ]
     missing_muss = [kw for kw in muss if not _fuzzy_keyword_match(kw, text)]
     plus_hits = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
     # #755 (C25): MINUS strikt (Wortgrenzen + Phrase) statt fuzzy —
@@ -2897,7 +2946,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
     _kein_muss_tor = bool(muss) and not any(
-        _muss_tor_match(kw, text) for kw in muss)
+        _muss_tor_match(kw, text, _muss_syn_fit.get(kw)) for kw in muss)
     if _kein_muss_tor:
         risks.insert(0,
             "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "

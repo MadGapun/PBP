@@ -42,6 +42,13 @@ SCHWELLE_TAGE = 90
 # Bewusst breit: welcher Schluessel wirklich kommt, unterscheidet sich
 # je Portal und je API-Version. Was nicht passt, wird nicht geraten.
 _DATUMS_SCHLUESSEL = (
+    # Der Feldname der Bundesagentur, live gegen die API geprueft
+    # (v6-Antwort, 04.09.2026). v1.7.26 hatte hier die falsche
+    # Wortstellung geraten — die Erkennung feuerte bei der einzigen
+    # angebundenen Quelle deshalb NIE. MERKE: Feldnamen einer fremden
+    # API nachschlagen, nicht plausibel erfinden; ein defensiver
+    # Mehrfachversuch ersetzt keine Pruefung.
+    "datumErsteVeroeffentlichung",
     "aktuelleVeroeffentlichungsdatum",
     "ersteVeroeffentlichungsdatum",
     "veroeffentlichungsdatum",

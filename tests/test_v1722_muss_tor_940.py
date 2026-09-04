@@ -155,7 +155,11 @@ def test_940_qualifizierte_stellen_behalten_ihren_score():
     import bewerbungs_assistent.job_scraper as js
     echt = js._muss_tor_match
     try:
-        js._muss_tor_match = js._fuzzy_keyword_match   # altes Verhalten
+        # v1.7.28 (#969): das Tor nimmt jetzt Synonyme entgegen. Der
+        # Ersatz muss das dritte Argument annehmen und ignorieren —
+        # sonst prueft der Test die Signatur statt des Verhaltens.
+        js._muss_tor_match = (
+            lambda kw, text, synonyme=None: js._fuzzy_keyword_match(kw, text))
         ohne_tor = calculate_score(dict(stelle), KRITERIEN)
     finally:
         js._muss_tor_match = echt
