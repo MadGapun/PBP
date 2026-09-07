@@ -2524,6 +2524,16 @@ def register(mcp, db, logger):
         _bl_ausnahme = db.blacklist_ausnahme_treffer(firma, titel)
         if _bl_hit and not force:
             grund = _bl_hit.get("reason") or "ohne Begruendung"
+            # #992: auch die Abweisung von Hand gehoert ins Protokoll —
+            # sonst zaehlt nur, was der Suchlauf verwirft, und genau die
+            # Stellen, die der Mensch selbst gefunden hat, fehlen.
+            db.record_blacklist_block(
+                {"title": titel, "company": firma, "url": url,
+                 "source": quelle},
+                {"typ": "firma", "wert": _bl_hit.get("value"),
+                 "eintrag_id": _bl_hit.get("id"),
+                 "grund": _bl_hit.get("reason") or ""},
+                kontext="manuell_abgewiesen")
             return {
                 "fehler": (
                     f"Firma '{firma}' steht auf der Blacklist ({grund}). "

@@ -1599,6 +1599,44 @@ def register(mcp, db, logger):
                     "problem": f"{len(invalid)} Einträge mit ungültigem Typ (nicht firma/keyword)",
                     "loesung": "Diese Einträge haben keine Wirkung. Entferne sie mit blacklist_verwalten('entfernen', entry_id=...)",
                 })
+
+            # v1.7.41 (#992, C52): Die Blacklist arbeitet still. Bis hier
+            # gab es keine Zahl dafuer, wie viel sie wegwirft — und keine,
+            # ob sie dabei die eigenen MUSS-Begriffe trifft. Ein Filter,
+            # dessen Wirkung man nicht sieht, laesst sich nicht pruefen.
+            from ..services import blacklist_regel
+            blockaden = db.get_blacklist_blocks(limit=200)
+            if blockaden:
+                kriterien = db.get_search_criteria() or {}
+                befunde = blacklist_regel.befund(blacklist, kriterien, blockaden)
+                offen = sum(len(b["muss_kollisionen"]) for b in befunde)
+                info.append({
+                    "bereich": "Blacklist",
+                    "meldung": (f"{len(blockaden)} Stelle(n) von der Blacklist "
+                                "verworfen (protokolliert seit v1.7.41)"),
+                    "details": "blacklist_wirkung() zeigt Titel und Ausloeser.",
+                })
+                if offen:
+                    warnungen.append({
+                        "bereich": "Blacklist",
+                        "problem": (f"{offen} verworfene Stelle(n) tragen einen "
+                                    "deiner MUSS-Begriffe im Titel — der Filter "
+                                    "wirft weg, was du suchst"),
+                        "loesung": ("blacklist_wirkung() ansehen und beim "
+                                    "betroffenen Eintrag eine Ausnahme setzen: "
+                                    "blacklist_verwalten('aendern', "
+                                    "entry_id=..., ausser_wenn_titel_enthaelt=[...])"),
+                    })
+            ohne_grund = [b for b in blacklist
+                          if not (b.get("reason") or "").strip()]
+            if ohne_grund:
+                warnungen.append({
+                    "bereich": "Blacklist",
+                    "problem": (f"{len(ohne_grund)} Eintrag/Eintraege ohne "
+                                "Begruendung — spaeter nicht mehr ueberpruefbar"),
+                    "loesung": ("blacklist_verwalten('aendern', entry_id=..., "
+                                "grund='...') nachtragen"),
+                })
         except Exception:
             pass
 

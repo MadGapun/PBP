@@ -458,6 +458,32 @@ class Database:
                     conn.commit()
                     logger.info("Safety-Net: blacklist.%s nachgezogen (#828)",
                                 _neu)
+            # v1.7.41 (#992, C52): Protokoll der geblockten Stellen.
+            # Ein Filter, dessen Wirkung niemand sehen kann, laesst sich
+            # nicht ueberpruefen — man weiss nicht, ob er richtig
+            # arbeitet, und merkt nicht, wenn seine Begruendung veraltet.
+            # Additive Tabelle, deshalb Safety-Net statt Schema-Bump
+            # (Muster #784/#913).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS blacklist_blocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    profile_id TEXT DEFAULT '',
+                    titel TEXT,
+                    firma TEXT,
+                    url TEXT,
+                    quelle TEXT,
+                    typ TEXT,
+                    eintrag_wert TEXT,
+                    eintrag_id INTEGER,
+                    grund TEXT,
+                    kontext TEXT,
+                    blockiert_am TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_bl_blocks_profil "
+                         "ON blacklist_blocks(profile_id, blockiert_am)")
+            conn.commit()
+
             # v1.7.12 (#824, D31): Reflexion optional an den konkreten
             # Termin binden — Erstgespraech laeuft anders als Endrunde,
             # und die Auswertung soll das unterscheiden koennen.
@@ -4970,21 +4996,21 @@ class Database:
         jobs = [self._serialize_job_row(r) for r in conn.execute(query, params).fetchall()]
 
         # Blacklist filter (#121): exclude jobs from blacklisted companies
+        #
+        # v1.7.41 (#992/C52): lief bis hier als EIGENE Fassung — Firmen
+        # per GLEICHHEIT statt Substring (also anders als ueberall sonst)
+        # und ohne die Titel-Ausnahme aus #790. Eine Stelle, die
+        # `is_company_blacklisted` durchliess, verschwand damit trotzdem
+        # aus genau der Liste, die der Mensch ansieht. Jetzt derselbe
+        # Aufruf wie alle anderen.
         if exclude_blacklisted:
             bl_entries = self.get_blacklist()
-            bl_firms = {e["value"].lower() for e in bl_entries if e.get("type") == "firma"}
-            bl_keywords = {e["value"].lower() for e in bl_entries if e.get("type") == "keyword"}
-            if bl_firms or bl_keywords:
-                filtered = []
-                for j in jobs:
-                    company = (j.get("company") or "").lower()
-                    title = (j.get("title") or "").lower()
-                    if company in bl_firms:
-                        continue
-                    if any(kw in title or kw in company for kw in bl_keywords):
-                        continue
-                    filtered.append(j)
-                jobs = filtered
+            if bl_entries:
+                from .services import blacklist_regel
+                jobs = [j for j in jobs
+                        if not blacklist_regel.treffer(
+                            bl_entries, j.get("company") or "",
+                            j.get("title") or "")]
 
         # Applied filter (#118): exclude jobs already applied to
         if exclude_applied:
@@ -6147,16 +6173,16 @@ class Database:
 
     def is_company_blacklisted(self, company: str, titel: str = ""):
         """#729: Liefert den Blacklist-Eintrag (type='firma'), der auf `company`
-        matcht, sonst None. Match ist case-insensitiv und beidseitig-substring —
-        identisch zur Logik in blacklist_anwenden, damit beide gleich entscheiden.
+        matcht, sonst None.
 
-        v1.7.11 (#790/C31): Optionale Titel-Ausnahme. Ein Firmen-Block wirkt
-        pauschal, die Begruendung stammt aber fast immer aus der Bewertung
-        EINER konkreten Stelle — bei Personaldienstleistern, die quer durch
-        alle Fachgebiete ausschreiben, wirft das zwangslaeufig auch die
-        passenden Treffer weg (belegt: ein Firmen-Block mit der Begruendung
-        "kein PLM-Fit" blockte eine PLM-Stelle). Steht ein Ausnahme-Begriff
-        im Stellentitel, greift der Block nicht.
+        v1.7.11 (#790/C31): Optionale Titel-Ausnahme — steht ein
+        Ausnahme-Begriff im Stellentitel, greift der Block nicht.
+
+        v1.7.41 (#992/C52): Die Entscheidung liegt jetzt in
+        `services/blacklist_regel.py`. Sie stand vorher VIERMAL im Code,
+        und zwei der vier Fassungen kannten die Ausnahme nicht —
+        ausgerechnet der Suchlauf und die Trefferliste. Ein Kommentar
+        haelt nichts zusammen, ein Aufruf schon.
 
         Args:
             company: Firmenname der Stelle.
@@ -6164,22 +6190,10 @@ class Database:
         """
         if not company:
             return None
-        c_lc = company.lower()
-        t_lc = (titel or "").lower()
-        for e in self.get_blacklist():
-            if e.get("type") != "firma":
-                continue
-            v = (e.get("value") or "").lower()
-            if not v or not (v in c_lc or c_lc in v):
-                continue
-            ausnahmen = e.get("ausser_wenn_titel_enthaelt") or []
-            if t_lc and ausnahmen:
-                treffer = next((a for a in ausnahmen
-                                if a and a.lower() in t_lc), None)
-                if treffer:
-                    return None  # Ausnahme greift — Stelle darf durch
-            return e
-        return None
+        from .services import blacklist_regel
+        hit = blacklist_regel.treffer(self.get_blacklist(), company, titel,
+                                      typen=("firma",))
+        return hit["eintrag"] if hit else None
 
     def blacklist_ausnahme_treffer(self, company: str, titel: str):
         """Welcher Ausnahme-Begriff hat einen Firmen-Block ausgehebelt? (#790)
@@ -6187,19 +6201,63 @@ class Database:
         Fuer die Transparenz im Tool-Result: der Nutzer soll sehen, WARUM
         eine Stelle trotz Blacklist angelegt wurde.
         """
-        if not company or not titel:
-            return None
-        c_lc, t_lc = company.lower(), titel.lower()
-        for e in self.get_blacklist():
-            if e.get("type") != "firma":
-                continue
-            v = (e.get("value") or "").lower()
-            if not v or not (v in c_lc or c_lc in v):
-                continue
-            for a in (e.get("ausser_wenn_titel_enthaelt") or []):
-                if a and a.lower() in t_lc:
-                    return {"eintrag": e.get("value"), "begriff": a}
-        return None
+        from .services import blacklist_regel
+        return blacklist_regel.verschont(self.get_blacklist(), company, titel)
+
+    # === Blockade-Protokoll (#992, C52) ===
+
+    def record_blacklist_block(self, job: dict, hit: dict,
+                               kontext: str = "") -> None:
+        """Haelt fest, welche Stelle die Blacklist gerade verworfen hat.
+
+        Der Kern von #992: bis hierher war die Wirkung des Filters
+        unsichtbar. Wer die Stelle nicht zufaellig selbst fand, erfuhr
+        nie, dass es sie gab — und eine veraltete Begruendung konnte
+        jahrelang weiterarbeiten, ohne je aufzufallen.
+
+        Schreibt nie einen Fehler nach aussen: ein Protokoll darf einen
+        Suchlauf nicht abbrechen.
+        """
+        try:
+            conn = self.connect()
+            pid = self.get_active_profile_id() or ""
+            conn.execute(
+                "INSERT INTO blacklist_blocks (profile_id, titel, firma, url,"
+                " quelle, typ, eintrag_wert, eintrag_id, grund, kontext,"
+                " blockiert_am) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (pid, (job or {}).get("title"), (job or {}).get("company"),
+                 (job or {}).get("url"), (job or {}).get("source"),
+                 (hit or {}).get("typ"), (hit or {}).get("wert"),
+                 (hit or {}).get("eintrag_id"), (hit or {}).get("grund"),
+                 kontext, _now()))
+            # Kappung: die aeltesten Zeilen fallen heraus, sobald die
+            # Grenze ueberschritten ist (#991 MERKE 5).
+            from .services.blacklist_regel import PROTOKOLL_MAX
+            conn.execute(
+                "DELETE FROM blacklist_blocks WHERE profile_id=? AND id NOT IN "
+                "(SELECT id FROM blacklist_blocks WHERE profile_id=? "
+                " ORDER BY id DESC LIMIT ?)", (pid, pid, PROTOKOLL_MAX))
+            conn.commit()
+        except Exception as e:  # pragma: no cover - Protokoll ist Beiwerk
+            logger.debug("Blacklist-Protokoll (#992) nicht geschrieben: %s", e)
+
+    def get_blacklist_blocks(self, limit: int = 200,
+                             eintrag_wert: str = "") -> list:
+        """Die zuletzt von der Blacklist verworfenen Stellen (#992)."""
+        try:
+            conn = self.connect()
+            pid = self.get_active_profile_id() or ""
+            sql = ("SELECT * FROM blacklist_blocks WHERE profile_id=?")
+            params = [pid]
+            if eintrag_wert:
+                sql += " AND LOWER(eintrag_wert)=?"
+                params.append(eintrag_wert.strip().lower())
+            sql += " ORDER BY id DESC LIMIT ?"
+            params.append(max(1, int(limit)))
+            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+        except Exception as e:  # pragma: no cover
+            logger.debug("Blacklist-Protokoll (#992) nicht lesbar: %s", e)
+            return []
 
     def remove_blacklist_entry(self, entry_id: int) -> bool:
         pid = self.get_active_profile_id()

@@ -6021,7 +6021,15 @@ async def api_ingest_job(request: Request, payload: dict):
     url = str(payload.get("url") or "").strip()
     beschreibung = str(payload.get("beschreibung") or "")
 
-    if _db.is_company_blacklisted(firma):
+    # v1.7.41 (#992): der Titel entscheidet mit — ohne ihn greift die
+    # Ausnahme aus #790 hier nicht, und ein Plugin kann kein force.
+    _bl = _db.is_company_blacklisted(firma, titel)
+    if _bl:
+        _db.record_blacklist_block(
+            {"title": titel, "company": firma, "url": url, "source": quelle},
+            {"typ": "firma", "wert": _bl.get("value"),
+             "eintrag_id": _bl.get("id"), "grund": _bl.get("reason") or ""},
+            kontext="plugin_ingest")
         return JSONResponse(
             {"error": f"Firma '{firma}' steht auf der Blacklist — nicht angelegt."},
             status_code=409)
