@@ -133,10 +133,44 @@ feste Datum 2026-08-05 und fiel am 04.09. aus dem 30-Tage-Fenster der
 Reflexions-Pruefung — von allein rot, ohne Codeaenderung. Dritter Fall
 dieser Art nach `test_782` und #767.
 
-**Offen aus dem Epic:** G29/#979 (Prompt-Katalog als einzige Quelle,
-konfigurierbarer Schnellzugriff) braucht #981 Teil B zuerst. Der
-Screenshot `01_dashboard.png` wird mit #979 einmal erneuert statt
-zweimal.
+**Das Epic ist abgeschlossen** — vier Releases an einem Tag:
+
+* **v1.7.32 / D43 (#981)** — der Dialog im Stellen-Tab bot `entwurf` an,
+  einen Status ausserhalb der Whitelist, und `POST /api/applications`
+  schrieb ihn ungeprueft durch. MERKE: `VALID_STATUSES` lag als LOKALE
+  Variable in `bewerbung_status_aendern` und konnte damit genau ein Tool
+  schuetzen. **Eine Whitelist an einer von mehreren Schreibstellen ist
+  keine Whitelist.** Dazu ein Guard ueber die Inline-`<option>`-Listen
+  der Seiten — G20/#896 las nur `utils.js`, und genau dort ist der Wert
+  ueberlebt.
+* **v1.7.33 / G29 (#979)** — Prompt-Katalog als einzige Quelle. Es waren
+  nicht vier Quellen, sondern fuenf: `prompts.py` trug eine zweite
+  Fassung des `bewerbung_schreiben`-TEXTES, die bereits abgewichen war.
+* **v1.7.34** — zwei Layout-Fehler, die erst der erneuerte Screenshot
+  zeigte (siehe MERKE 9 und 10).
+
+(9) **Ein gerendertes Bild ist eine eigene Pruefung.** Drei Karten im
+oberen Dashboard-Block waren 1035 px breit in einem 961 px breiten
+Container und liefen rechts aus dem Fenster. Ursache: ein `grid` ohne
+explizite Spalte gibt jedem Item `min-width: auto`, damit kann es nicht
+unter seine Mindestbreite schrumpfen — `grid-cols-1` ist
+`repeat(1, minmax(0, 1fr))` und erlaubt es. Der Fehler war AELTER als
+der neue Block (Readiness-Karte und Tagesimpuls hatten ihn auch) und im
+Browser kaum zu bemerken, weil der Ueberhang abgeschnitten wird. Kein
+Test und kein Code-Review haette ihn gefunden.
+
+(10) **Zwei Issues koennen sich gegenseitig einen Fehler bauen.** #982
+gab der Vorbereitungszeile das TERMINDATUM; #983 entschied danach, die
+Termine in denselben Block zu nehmen. Ergebnis: "Vorbereiten: X" stand
+direkt ueber "X" — genau die Doppelung, gegen die das Epic angetreten
+war. Keines der beiden Issues war fuer sich falsch. Bei Epics mit
+Sub-Issues, die dasselbe Bild bauen, gehoert das Ergebnis am Ende
+EINMAL angesehen, nicht nur je Issue abgehakt.
+
+(11) **Sieben Tests bestanden nur an einer Stelle.** Sie lasen Dateien
+ueber RELATIVE Pfade und warfen aus einem fremden Arbeitsverzeichnis
+`FileNotFoundError` (gemessen: 2 von 5 rot in einer Datei). Das ist DoD
+8c woertlich. Jetzt ueber einen `_repo()`-Helfer.
 
 ## Stand 2026-09-02 (v1.7.24 Stable) — Fehler, die wie Erfolg aussehen
 
