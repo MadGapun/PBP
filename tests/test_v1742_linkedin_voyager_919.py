@@ -39,6 +39,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bewerbungs_assistent.job_scraper import linkedin_voyager as lv  # noqa: E402
 
+# Zeilenumbruch als Literal — Heredoc-Escaping frisst rohe
+# Backslash-Sequenzen unter Git-Bash (CLAUDE.md, v1.7.24 MERKE 4).
+NL = chr(10)
+
 
 # ── Fixtures: die Antwortform der Voyager-API (AK5) ───────────────────
 
@@ -233,17 +237,53 @@ def test_919_js_laeuft_als_async_iife():
         assert "setTimeout" in js          # Pause zwischen den Requests
 
 
-def test_919_ausgabe_rendert_in_die_seite():
-    """Stolperstein 3: Anzeigentexte kommen nur ueber get_page_text heraus."""
-    assert "document.body.innerHTML" in lv.JS_AUSGABE
+def test_919_ausgabe_geht_am_sanitizer_vorbei():
+    """Live gemessen am 07.09.2026: LinkedIn sanitisiert `innerHTML`.
+
+    Die erste Fassung schrieb `<main><article>` in den Body. Der Text
+    stand danach da (10.589 Zeichen), aber `document.body.children` war
+    LEER — kein Element hatte ueberlebt, auch die `<hr>`-Trenner nicht.
+    Der Text waere gekommen, nur nicht mehr zerlegbar gewesen. Das
+    findet kein Test gegen Fixtures, nur ein Lauf im echten Browser.
+    """
+    assert "innerHTML" not in lv.JS_AUSGABE
+    assert "document.body.textContent" in lv.JS_AUSGABE
+    # Ohne pre-wrap faltet der Browser die Zeilenumbrueche zu Leerzeichen.
+    assert "pre-wrap" in lv.JS_AUSGABE
     assert "get_page_text" in lv.JS_AUSGABE
 
 
-def test_919_ids_werden_als_json_eingesetzt():
-    cfg = lv.konfig(["PDM"], "r604800")
-    js = lv.js_mit_konfig(lv.JS_VOLLTEXTE, cfg, ids=["4001", "4002"])
-    assert "__IDS__" not in js and '"4001"' in js
-    assert json.loads(js.split("const IDS = ")[1].split(";")[0]) == ["4001", "4002"]
+def test_919_ausgabe_und_parser_passen_zusammen():
+    """Die Marker sind der Vertrag zwischen Seite und Auswertung."""
+    seite = (
+        lv.MARKER_START + "4001 ===" + NL +
+        "TITEL: PLM Consultant" + NL +
+        "FIRMA: Musterberatung GmbH" + NL +
+        "ORT: Hamburg" + NL +
+        "REMOTE: remote" + NL +
+        "TEXT:" + NL + "Zeile eins." + NL + "Zeile zwei." + NL +
+        lv.MARKER_ENDE + "4001 ===" + NL + NL +
+        lv.MARKER_START + "4002 ===" + NL +
+        "TITEL: PLM Engineer" + NL +
+        "FIRMA: Musterwerft AG" + NL +
+        "ORT: Wedel" + NL +
+        "REMOTE: unbekannt" + NL +
+        "TEXT:" + NL + "Anderer Text." + NL +
+        lv.MARKER_ENDE + "4002 ==="
+    )
+    eintraege = lv.parse_ausgabe(seite)
+    assert [e["job_id"] for e in eintraege] == ["4001", "4002"]
+    assert eintraege[0]["titel"] == "PLM Consultant"
+    assert eintraege[0]["firma"] == "Musterberatung GmbH"
+    assert eintraege[0]["remote"] == "remote"
+    # Mehrzeilige Anzeigentexte bleiben mehrzeilig.
+    assert eintraege[0]["beschreibung"] == "Zeile eins." + NL + "Zeile zwei."
+    assert eintraege[1]["beschreibung"] == "Anderer Text."
+
+
+def test_919_parser_uebersteht_kaputte_seiten():
+    assert lv.parse_ausgabe("") == []
+    assert lv.parse_ausgabe("irgendein Seitentext ohne Marker") == []
 
 
 # ── Der Trichter (AK4) ────────────────────────────────────────────────

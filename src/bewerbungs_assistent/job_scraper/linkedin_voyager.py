@@ -423,21 +423,71 @@ JS_VOLLTEXTE = r"""
 # Stolperstein 3: javascript_tool kappt bei rund 1000 Zeichen. Ein
 # Anzeigentext hat 1.500-10.000. Also in die Seite rendern und mit
 # get_page_text abholen — das liefert mehrere Tausend Zeichen am Stueck.
+#
+# Live gemessen am 07.09.2026: **LinkedIn sanitisiert `innerHTML`.** Die
+# erste Fassung schrieb `<main><article>...` in den Body; danach stand
+# der Text zwar da (10.589 Zeichen), aber `document.body.children` war
+# LEER — kein einziges Element hatte ueberlebt, auch die `<hr>`-Trenner
+# zwischen den Stellen nicht. Der Text waere also gekommen, nur nicht
+# mehr zerlegbar gewesen.
+#
+# Deshalb: `textContent` statt `innerHTML` (geht am Sanitizer vorbei,
+# weil es gar kein Markup ist) plus `white-space: pre-wrap`, damit
+# `innerText` die Zeilenumbrueche behaelt — ohne das faltet der Browser
+# sie zu Leerzeichen zusammen. Getrennt wird ueber Text-Marker, die
+# jede Sanitisierung ueberstehen. Gegengemessen: 10.836 Zeichen, 103
+# Umbrueche, 3 von 3 Markern gefunden.
+MARKER_START = "=== PBP-STELLE "
+MARKER_ENDE = "=== ENDE "
+
 JS_AUSGABE = r"""
 (() => {
   const S = window.__pbp_ln;
   if (!S) return {fehler: 'kein_lauf'};
-  const esc = s => String(s || '').replace(/[<>&]/g, c =>
-    ({'<': '&lt;', '>': '&gt;', '&': '&amp;'}[c]));
   const rows = Object.values(S.treffer).filter(t => t.beschreibung);
-  const html = rows.map(t =>
-    '<article><h2>' + esc(t.job_id) + ' | ' + esc(t.titel) + ' | ' +
-    esc(t.firma) + ' | ' + esc(t.ort) + ' | ' + esc(t.remote) +
-    '</h2><p>' + esc(t.beschreibung) + '</p></article>').join('<hr>');
-  document.body.innerHTML = '<main>' + html + '</main>';
-  return {gerendert: rows.length, hinweis: 'Jetzt get_page_text aufrufen.'};
+  const text = rows.map(t =>
+    '=== PBP-STELLE ' + t.job_id + ' ===\n' +
+    'TITEL: ' + (t.titel || '') + '\n' +
+    'FIRMA: ' + (t.firma || '') + '\n' +
+    'ORT: ' + (t.ort || '') + '\n' +
+    'REMOTE: ' + (t.remote || '') + '\n' +
+    'TEXT:\n' + t.beschreibung +
+    '\n=== ENDE ' + t.job_id + ' ==='
+  ).join('\n\n');
+  document.body.style.whiteSpace = 'pre-wrap';
+  document.body.textContent = text;
+  return {gerendert: rows.length, zeichen: text.length,
+          hinweis: 'Jetzt get_page_text aufrufen.'};
 })()
 """
+
+
+def parse_ausgabe(text: str) -> list:
+    """Liest zurueck, was JS_AUSGABE in die Seite geschrieben hat.
+
+    Der Gegenpart zu den Text-Markern: `get_page_text` liefert einen
+    Block, und hier wird er wieder zu Datensaetzen. Ohne diese Funktion
+    muesste jeder Aufrufer die Marker selbst kennen — und der naechste
+    haette sie anders geraten.
+    """
+    out = []
+    for stueck in (text or "").split(MARKER_START)[1:]:
+        kopf, _, rest = stueck.partition("===")
+        job_id = kopf.strip()
+        if not job_id:
+            continue
+        rest = rest.split(MARKER_ENDE)[0]
+        eintrag = {"job_id": job_id, "titel": "", "firma": "", "ort": "",
+                   "remote": "", "beschreibung": ""}
+        kopfteil, _, text_teil = rest.partition("TEXT:")
+        for zeile in kopfteil.split("\n"):
+            for feld, praefix in (("titel", "TITEL:"), ("firma", "FIRMA:"),
+                                  ("ort", "ORT:"), ("remote", "REMOTE:")):
+                if zeile.strip().startswith(praefix):
+                    eintrag[feld] = zeile.split(praefix, 1)[1].strip()
+        eintrag["beschreibung"] = text_teil.strip()
+        out.append(eintrag)
+    return out
 
 
 def js_mit_konfig(vorlage: str, konfig: dict, ids=None) -> str:
