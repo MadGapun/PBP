@@ -509,7 +509,7 @@ for %%I in (python.exe pythonw.exe) do (
 for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr /i "PID"') do (
     wmic process where "ProcessId=%%p" get ExecutablePath 2>nul | findstr /i "BewerbungsAssistent" >nul 2>&1
     if !errorlevel! equ 0 (
-        echo [INFO] Beende alte PBP-Instanz PID %%p (aus APP_DIR) >> "%LOGFILE%"
+        echo [INFO] Beende alte PBP-Instanz PID %%p ^(aus APP_DIR^) >> "%LOGFILE%"
         taskkill /pid %%p /f >nul 2>&1
         set "KILLED_PROCESSES=1"
     )
@@ -590,6 +590,25 @@ if "!CLAUDE_FOUND!"=="0" (
     where Claude.exe >nul 2>&1
     if !errorlevel! equ 0 set "CLAUDE_FOUND=1"
 )
+:: MSIX-/Store-Installation (#990, Nutzer-Report 07.09.2026): Claude aus
+:: dem Microsoft Store liegt unter C:\Program Files\WindowsApps\<Paket> —
+:: einem Verzeichnis mit eigenen ACLs, in das ein `if exist` aus einer
+:: normalen Shell auch dann nicht hineinsieht, wenn die Datei da ist. Im
+:: PATH steht es ebenfalls nicht, weil MSIX-Apps ueber einen
+:: App-Execution-Alias starten. Und %LOCALAPPDATA%\Packages\Claude_*
+:: enthaelt nur Anwendungsdaten, nie das Binary — die #361-Erkennung
+:: suchte also an der richtigen Stelle nach der falschen Sache.
+:: Deshalb: die Appx-API fragen statt ueber Pfade raten.
+if "!CLAUDE_FOUND!"=="0" (
+    rem BEWUSST ohne Pipe: ein `^|` im Backtick-Kommando von `for /f` kommt
+    rem in der Subshell nicht als Pipe an — gemessen, die Abfrage lieferte
+    rem dann still nichts. Die Auswahl macht deshalb PowerShell selbst.
+    for /f "usebackq delims=" %%F in (`powershell -NoProfile -Command "$p = Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue; if ($p) { $p[0].PackageFamilyName }"`) do set "CLAUDE_APPX=%%F"
+    if defined CLAUDE_APPX (
+        set "CLAUDE_FOUND=1"
+        echo [INFO] Claude als Store-/MSIX-Paket erkannt: !CLAUDE_APPX! >> "%LOGFILE%"
+    )
+)
 :: Konfig-Verzeichnis-Fallback: wenn %APPDATA%\Claude\claude_desktop_config.json
 :: existiert, ist Claude offensichtlich schon mal installiert/genutzt worden
 if "!CLAUDE_FOUND!"=="0" if exist "%APPDATA%\Claude\claude_desktop_config.json" (
@@ -640,11 +659,11 @@ if !errorlevel! equ 0 (
     echo  HINWEIS: Claude Desktop laeuft gerade.
     echo  ----------------------------------------------------
     echo  Claude muss kurz beendet werden, damit die neue
-    echo  PBP-Konfiguration uebernommen wird (MCP-Server-Konfig
-    echo  wird nur beim Claude-Start eingelesen).
+    echo  PBP-Konfiguration uebernommen wird ^(MCP-Server-Konfig
+    echo  wird nur beim Claude-Start eingelesen^).
     echo.
     echo  Bitte schliesse Claude Desktop jetzt komplett
-    echo    (Rechtsklick auf Tray-Icon ^> Beenden).
+    echo    ^(Rechtsklick auf Tray-Icon ^> Beenden^).
     echo  Danach Enter druecken um fortzufahren.
     echo.
     pause >nul
@@ -724,6 +743,12 @@ if defined CLAUDE_EXE (
     start "" "!CLAUDE_EXE!"
     timeout /t 2 /nobreak >nul
     echo        [OK] Claude Desktop wurde gestartet.
+) else if defined CLAUDE_APPX (
+    echo  [1/3] Claude Desktop starten ^(Store-Version^)...
+    echo [INFO] Starte Claude ueber AppsFolder: !CLAUDE_APPX! >> "%LOGFILE%"
+    call :start_claude_appx
+    timeout /t 2 /nobreak >nul
+    echo        [OK] Claude Desktop wurde gestartet.
 ) else (
     echo  [1/3] Claude Desktop nicht gefunden — bitte manuell starten:
     echo        https://claude.ai/download
@@ -754,7 +779,7 @@ if "!DASH_OK!"=="1" (
     echo        [OK] Browser-Tab oeffnet sich.
 ) else (
     echo        [!!] Dashboard antwortet nicht nach 30 Sekunden.
-    echo  [3/3] Browser oeffnen trotzdem (falls alte Instanz laeuft)...
+    echo  [3/3] Browser oeffnen trotzdem ^(falls alte Instanz laeuft^)...
     start "" "http://localhost:8200/"
     echo             Falls leer: Pruefe das PBP-Dashboard-Fenster auf Fehler.
     echo             Log: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
@@ -1014,4 +1039,9 @@ echo         pip wird nachinstalliert...
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"
 if not exist "!GETPIP_PATH!" curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"
 "%PYTHON%" "!GETPIP_PATH!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+goto :eof
+
+:start_claude_appx
+:: #990: Store-Apps starten ueber den AppsFolder, nicht ueber einen Pfad.
+powershell -NoProfile -Command "$p = Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue; if ($p) { Start-Process ('shell:AppsFolder\' + $p[0].PackageFamilyName + [char]33 + 'Claude') }" >nul 2>&1
 goto :eof
