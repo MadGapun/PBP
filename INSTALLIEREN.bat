@@ -1043,5 +1043,14 @@ goto :eof
 
 :start_claude_appx
 :: #990: Store-Apps starten ueber den AppsFolder, nicht ueber einen Pfad.
-powershell -NoProfile -Command "$p = Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue; if ($p) { Start-Process ('shell:AppsFolder\' + $p[0].PackageFamilyName + [char]33 + 'Claude') }" >nul 2>&1
+:: Die Application-Id kommt aus dem Paketmanifest, nicht aus dem Kopf —
+:: Vorschlag des Melders von #990. v1.7.37 hatte hier 'Claude' fest
+:: eingetragen; das stimmt heute, wuerde bei einer Umbenennung aber still
+:: danebengreifen, und `>nul 2>&1` verschluckt den Fehler auch noch.
+:: Der Index [0] statt `Select-Object -First 1` fuer den Fall, dass ein
+:: Paket mehrere Anwendungen deklariert — dann waere `$id` ein Array und
+:: die Verkettung ergaebe Unsinn. BEWUSST ohne Pipe: ein `|` in einer
+:: eingebetteten PowerShell-Zeile ist in Batch eine Fehlerquelle, und ein
+:: `^|` kommt hier als literales `^|` bei PowerShell an (gemessen).
+powershell -NoProfile -Command "$p = @(Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue)[0]; if ($p) { $id = @((Get-AppxPackageManifest $p).Package.Applications.Application.Id)[0]; if ($id) { Start-Process ('shell:AppsFolder\' + $p.PackageFamilyName + [char]33 + $id) } }" >nul 2>&1
 goto :eof

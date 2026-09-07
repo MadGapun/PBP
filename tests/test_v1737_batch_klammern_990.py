@@ -196,3 +196,70 @@ def test_990_startbefehl_traegt_kein_literales_ausrufezeichen():
             break
     else:
         pytest.fail("Keine Zeile mit shell:AppsFolder gefunden")
+
+
+def test_990_application_id_kommt_aus_dem_manifest():
+    """Vorschlag des Melders — und er hat recht.
+
+    v1.7.37 trug die Id fest als 'Claude' ein. Das stimmt heute, wuerde
+    bei einer Umbenennung aber still danebengreifen, und `>nul 2>&1`
+    verschluckt den Fehler auch noch. Also aus dem Paketmanifest lesen.
+    """
+    for zeile in (_repo() / "INSTALLIEREN.bat").read_text(
+            encoding="utf-8", errors="replace").splitlines():
+        if "shell:AppsFolder" in zeile:
+            assert "Get-AppxPackageManifest" in zeile, zeile
+            assert "+ 'Claude'" not in zeile, (
+                "Die Application-Id steht wieder fest im Code: " + zeile)
+            break
+    else:
+        pytest.fail("Keine Zeile mit shell:AppsFolder gefunden")
+
+
+def test_990_kein_escapter_pipe_in_powershell_aufrufen():
+    """Zweimal an einem Tag dieselbe Falle — deshalb mechanisch.
+
+    Gemessen, beide Male still gescheitert:
+
+    * `^|` im Backtick-Kommando von `for /f` kommt in der Subshell nicht
+      als Pipe an — die Abfrage lieferte eine leere Zeichenkette.
+    * `^|` in einem in Anfuehrungszeichen stehenden PowerShell-Kommando
+      kommt als literales `^|` bei PowerShell an — Parserfehler.
+
+    Ein NORMALES `|` in einem gequoteten PowerShell-Kommando ist dagegen
+    in Ordnung und steht seit Jahren im Installer (Zeilen mit
+    `Set-Content` und der Dashboard-Health-Check). Der Waechter darf die
+    nicht anfassen — ein Pruefer, der bei korrektem Zustand Alarm gibt,
+    wird nach dem zweiten Mal ignoriert (MERKE aus DoD-9).
+    """
+    schlecht = []
+    for nr, zeile in enumerate((_repo() / "INSTALLIEREN.bat").read_text(
+            encoding="utf-8", errors="replace").splitlines(), 1):
+        blank = zeile.strip()
+        if blank.startswith("::") or blank.lower().startswith("rem "):
+            continue
+        if "powershell" in blank.lower() and "^|" in blank:
+            schlecht.append(f"Zeile {nr}: {blank[:110]}")
+    assert not schlecht, (
+        "PowerShell-Aufruf mit escaptem Pipe in INSTALLIEREN.bat:\n"
+        + "\n".join(schlecht)
+        + "\n\nAbhilfe: die Auswahl in PowerShell selbst treffen "
+          "(Index [0] statt `^| Select-Object -First 1`) oder ein "
+          "normales `|` innerhalb der Anfuehrungszeichen verwenden."
+    )
+
+
+def test_990_waechter_meldet_die_funktionierenden_pipes_nicht():
+    """Gegenprobe zum Fehlalarm, den die erste Fassung produziert hat.
+
+    Sie meldete fuenf seit Jahren laufende Zeilen — genau die Sorte
+    Befund, nach der niemand mehr hinsieht.
+    """
+    text = (_repo() / "INSTALLIEREN.bat").read_text(encoding="utf-8", errors="replace")
+    mit_normaler_pipe = [
+        z for z in text.splitlines()
+        if "powershell" in z.lower() and "|" in z and "^|" not in z
+    ]
+    assert mit_normaler_pipe, (
+        "Erwartet: es GIBT funktionierende PowerShell-Zeilen mit Pipe. "
+        "Ohne sie prueft die Gegenprobe nichts.")

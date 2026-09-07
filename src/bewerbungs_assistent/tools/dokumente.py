@@ -10,6 +10,13 @@ from ..database import get_data_dir
 from ..services.nutzerfuehrung import kein_profil, leer
 
 
+# v1.7.38 (#991): Obergrenze fuer die Zuordnungs-Vorschlaege im Plan.
+# 962 Eintraege sind auch als reine Datenmenge ein Problem — in einem
+# MCP-Client kosten sie Kontext, ohne etwas beizutragen (#635). Wer mehr
+# sehen will, ruft `dokumente_ohne_bewerbung()` auf; der Plan sagt das.
+PLAN_ZUORDNUNGEN_MAX = 15
+
+
 def _company_match_key(name: str) -> str:
     """#686: Firmenname auf einen distinktiven Such-Schluessel reduzieren.
 
@@ -863,60 +870,56 @@ def register(mcp, db, logger):
             if firma:
                 firmen.add(firma)
 
-        # #686: Eingehende Dokumente gegen bestehende Bewerbungen matchen, damit
-        # eine Mail/Anlage einer bestehenden Bewerbung zugeordnet werden kann
-        # statt unbemerkt eine Dublette anzulegen. Firmenname (normalisiert) im
-        # Dateinamen ODER Volltext -> Zuordnungsvorschlag. Bewusst grosszuegig
-        # (Vorschlag, kein Auto-Link) — Claude/User bestaetigt.
+        # #686: Eingehende Dokumente gegen bestehende Bewerbungen matchen,
+        # damit eine Mail/Anlage einer bestehenden Bewerbung zugeordnet
+        # werden kann statt unbemerkt eine Dublette anzulegen.
+        #
+        # v1.7.38 (#991): das lief hier als ZWEITE, schwaechere Fassung
+        # neben `dokumente_ohne_bewerbung` (#797). Sie suchte den
+        # Firmennamen im VOLLTEXT jedes Dokuments und lieferte damit im
+        # Praxisfall 962 Vorschlaege — einer einzigen abgeschlossenen
+        # Bewerbung wurden rund dreissig fremde Dokumente angeboten,
+        # darunter Lebenslaeufe fuer acht andere Firmen. Ein Firmenname
+        # irgendwo im Fliesstext ist kein Verdachtsmoment; er steht in
+        # jeder Absage, jeder Signatur und jedem Anschreiben, das die
+        # Firma nur erwaehnt.
+        #
+        # Zum fuenften Mal dasselbe Muster (#963, #913, #976, #987):
+        # zwei Wege beantworten dieselbe Frage, und der schwaechere ist
+        # der, den die Anleitung ZUERST empfiehlt. Jetzt ruft der Plan
+        # dieselbe Funktion auf — mit Verdachtsmoment, Konfidenz und
+        # Beleg an jedem Vorschlag, und ohne Vorschlag, wo kein Ziel
+        # erkennbar ist.
         bewerbungs_zuordnungen = []
+        zuordnungen_gesamt = 0
         try:
-            apps = conn.execute(
-                "SELECT id, company, title, status FROM applications "
-                "WHERE profile_id=? AND company IS NOT NULL AND TRIM(company) != ''",
-                (pid,)
-            ).fetchall()
+            from ..services.dokument_zuordnung import finde_lose_dokumente
+            lose = finde_lose_dokumente(db, nur_verdaechtige=True)
             analyse_ids = {d["id"] for d in nicht_analysiert}
-            gesehen = set()
-            for app in apps:
-                firma_key = _company_match_key(app["company"])
-                if len(firma_key) < 4:
-                    continue
-                like = f"%{firma_key}%"
-                rows = conn.execute(
-                    "SELECT id, filename FROM documents "
-                    "WHERE profile_id=? AND extracted_text IS NOT NULL "
-                    "AND extracted_text != ''" + lifecycle_clause +
-                    " AND (LOWER(filename) LIKE ? OR LOWER(extracted_text) LIKE ?)",
-                    (pid, like, like)
-                ).fetchall()
-                for r in rows:
-                    schluessel = (r["id"], app["id"])
-                    if schluessel in gesehen:
-                        continue
-                    gesehen.add(schluessel)
-                    firmen.add(app["company"])  # Firma aus Bewerbung sichtbar machen
-                    zuordnung = {
-                        "dokument_id": r["id"],
-                        "dateiname": r["filename"],
-                        "bewerbung_id": app["id"],
-                        "firma": app["company"],
-                        "bewerbung_titel": app["title"],
-                        "bewerbung_status": app["status"],
-                        "noch_zu_analysieren": r["id"] in analyse_ids,
-                    }
-                    # #743 (E17.4): Vorschlaege auf abgeschlossene Bewerbungen
-                    # deutlich markieren — neue Korrespondenz derselben Firma
-                    # (v.a. Vermittler-Agenturen) gehoert meist NICHT zur
-                    # alten, laengst erledigten Bewerbung.
-                    if (app["status"] or "").lower() in ("abgelehnt", "zurueckgezogen", "abgelaufen"):
-                        zuordnung["achtung"] = (
-                            f"Bewerbung bereits abgeschlossen (Status: {app['status']}) — "
-                            "nur verknuepfen wenn das Dokument eindeutig zu dieser "
-                            "alten Bewerbung gehoert, sonst unverknuepft lassen"
-                        )
-                    bewerbungs_zuordnungen.append(zuordnung)
+            mit_ziel = [t for t in lose.get("treffer", [])
+                        if t.get("zuordnungs_vorschlag")]
+            zuordnungen_gesamt = len(mit_ziel)
+            for t in mit_ziel[:PLAN_ZUORDNUNGEN_MAX]:
+                v = t["zuordnungs_vorschlag"]
+                if v.get("firma"):
+                    firmen.add(v["firma"])
+                eintrag = {
+                    "dokument_id": t["dokument_id"],
+                    "dateiname": t.get("dateiname"),
+                    "bewerbung_id": v.get("bewerbung_id"),
+                    "firma": v.get("firma"),
+                    "bewerbung_titel": v.get("stelle"),
+                    "konfidenz": v.get("konfidenz"),
+                    "beleg": v.get("beleg"),
+                    "verdacht": t.get("verdacht"),
+                    "noch_zu_analysieren": t["dokument_id"] in analyse_ids,
+                }
+                if v.get("achtung"):
+                    eintrag["achtung"] = v["achtung"]
+                bewerbungs_zuordnungen.append(eintrag)
         except Exception as exc:
-            logger.warning("#686 Bewerbungs-Matching im Analyse-Plan fehlgeschlagen: %s", exc)
+            logger.warning("#686/#991 Bewerbungs-Matching im Analyse-Plan "
+                           "fehlgeschlagen: %s", exc)
 
         total_bytes = sum((d.get("text_laenge") or 0) for d in unique)
         # #635: Pro Batch nur 3 Datei-Vorschauen + Counter — vorher alle
@@ -943,8 +946,10 @@ def register(mcp, db, logger):
             "total_text_bytes": total_bytes,
             "geschaetzte_tokens": total_bytes // 4,
             "erkannte_firmen": sorted(firmen)[:50],  # #635: Hard-Cap
-            # #686: Vorschlaege, welche Dokumente zu bestehenden Bewerbungen gehoeren
-            "bewerbungs_zuordnungen": bewerbungs_zuordnungen[:50],
+            # #686/#991: Vorschlaege mit Verdachtsmoment, Konfidenz und
+            # Beleg — dieselbe Quelle wie `dokumente_ohne_bewerbung`.
+            "bewerbungs_zuordnungen": bewerbungs_zuordnungen,
+            "bewerbungs_zuordnungen_gesamt": zuordnungen_gesamt,
             "batches": batches_summary,
             "empfehlung": (
                 # #696: bei 0 zu analysierenden Docs nicht zum naechsten
@@ -959,9 +964,13 @@ def register(mcp, db, logger):
                 f"{len(dup_ids)} Duplikate werden automatisch übersprungen. "
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
                 + (
-                    f"{len(bewerbungs_zuordnungen)} Dokument(e) passen evtl. zu bestehenden "
-                    "Bewerbungen (siehe bewerbungs_zuordnungen) — pruefe das, bevor du eine "
-                    "neue Bewerbung anlegst (Dublettenschutz). "
+                    f"{zuordnungen_gesamt} Dokument(e) haben ein Verdachtsmoment "
+                    "fuer eine bestehende Bewerbung (siehe bewerbungs_zuordnungen, "
+                    "je mit Konfidenz und Beleg) — pruefe das, bevor du eine neue "
+                    "Bewerbung anlegst (Dublettenschutz). "
+                    + (f"Hier stehen die ersten {PLAN_ZUORDNUNGEN_MAX}; "
+                       "die vollstaendige Liste liefert dokumente_ohne_bewerbung(). "
+                       if zuordnungen_gesamt > PLAN_ZUORDNUNGEN_MAX else "")
                     if bewerbungs_zuordnungen else ""
                 )
                 + "Nutze dokumente_batch_analysieren() für den nächsten Batch."

@@ -37,12 +37,51 @@ def _betreff_stamm(filename: str) -> str:
     return s.strip().lower()
 
 
+# v1.7.38 (#991): Wie viele Zeichen des Volltexts werden nach dem
+# Firmennamen durchsucht? Der Absender und die Anrede stehen vorn; wer
+# den Namen erst auf Seite drei nennt, meint meist etwas anderes.
+TEXT_FENSTER = 4000
+
+# Nur diese Typen duerfen ueber den VOLLTEXT zugeordnet werden. Ein
+# Lebenslauf oder Anschreiben nennt die Firma, FUER die er geschrieben
+# wurde — das macht ihn nicht zur Korrespondenz dieses Vorgangs. Genau
+# daraus entstanden die 962 Vorschlaege aus #991: einer einzigen
+# abgeschlossenen Bewerbung wurden dreissig fremde Dokumente angeboten,
+# darunter Lebenslaeufe fuer acht andere Firmen.
+_TEXT_TYPEN = _VORGANGS_TYPEN + ("email", "mail", "korrespondenz_eingang")
+
+
+# Status, nach denen eine Bewerbung abgeschlossen ist. Neue Korrespondenz
+# derselben Firma — gerade von Vermittlern — gehoert dann meist NICHT zu
+# diesem alten Vorgang (#743, E17.4).
+ABGESCHLOSSEN = ("abgelehnt", "zurueckgezogen", "abgelaufen", "angenommen")
+
+
+def _warnung_alte_bewerbung(app: dict) -> str:
+    """Leer, wenn die Bewerbung laeuft — sonst die Warnung dazu.
+
+    v1.7.38 (#991): stand vorher NUR im Analyse-Plan, obwohl
+    `dokumente_ohne_bewerbung` dieselben Vorschlaege macht. Eine Warnung
+    an einem von zwei Wegen ist keine Warnung — deshalb hier, wo beide
+    vorbeikommen.
+    """
+    status = (app.get("status") or "").lower()
+    if status not in ABGESCHLOSSEN:
+        return ""
+    return (f"Bewerbung bereits abgeschlossen (Status: {app.get('status')}) — "
+            "nur verknuepfen, wenn das Dokument eindeutig zu diesem alten "
+            "Vorgang gehoert, sonst unverknuepft lassen.")
+
+
 def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
     """Unverknuepfte Dokumente, sortiert nach Verdachtsstaerke."""
     conn = db.connect()
     pid = db.get_active_profile_id()
+    # v1.7.38 (#991): der Textanfang kommt mit — aber gedeckelt, sonst
+    # zieht diese Abfrage bei ein paar hundert Dokumenten Megabytes.
     docs = [dict(r) for r in conn.execute(
-        "SELECT id, filename, doc_type, linked_application_id, lifecycle "
+        "SELECT id, filename, doc_type, linked_application_id, lifecycle, "
+        f"substr(COALESCE(extracted_text, ''), 1, {TEXT_FENSTER}) AS textanfang "
         "FROM documents WHERE (profile_id=? OR profile_id IS NULL) "
         "AND COALESCE(lifecycle, 'aktiv') = 'aktiv'",
         (pid,)).fetchall()]
@@ -86,6 +125,34 @@ def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
                          "stelle": app.get("title"),
                          "konfidenz": "mittel",
                          "beleg": "Firmenname im Dateinamen"}
+            warnung = _warnung_alte_bewerbung(app)
+            if warnung:
+                vorschlag["achtung"] = warnung
+
+        # Schwaechstes Signal (#686, gehaertet in #991): der Firmenname
+        # steht im TEXT. Zwei Bedingungen, ohne die daraus Rauschen wird:
+        # nur bei Korrespondenz-Typen (ein Lebenslauf nennt die Firma,
+        # FUER die er geschrieben wurde), und nur bei GENAU EINEM
+        # Treffer. Nennt der Text mehrere Firmen aus dem Bestand, ist
+        # nicht erkennbar, zu welchem Vorgang er gehoert — dann lieber
+        # kein Vorschlag als ein geratener.
+        if vorschlag is None and (d.get("doc_type") or "") in _TEXT_TYPEN:
+            text_lc = (d.get("textanfang") or "").lower()
+            if text_lc:
+                im_text = [n for n in firmen if n in text_lc]
+                if len(im_text) == 1:
+                    app = firmen[im_text[0]]
+                    gruende.append(
+                        "Der Text nennt die Firma einer vorhandenen "
+                        "Bewerbung, und nur diese eine")
+                    vorschlag = {"bewerbung_id": app.get("id"),
+                                 "firma": app.get("company"),
+                                 "stelle": app.get("title"),
+                                 "konfidenz": "niedrig",
+                                 "beleg": "Firmenname im Text der Korrespondenz"}
+                    warnung = _warnung_alte_bewerbung(app)
+                    if warnung:
+                        vorschlag["achtung"] = warnung
 
         # Staerkstes Signal (#797): das Geschwister-Dokument desselben
         # Threads haengt bereits an einer Bewerbung.
@@ -103,6 +170,9 @@ def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
                              "stelle": app.get("title"),
                              "konfidenz": "hoch",
                              "beleg": f"Thread-Geschwister: '{stamm[:50]}'"}
+                warnung = _warnung_alte_bewerbung(app)
+                if warnung:
+                    vorschlag["achtung"] = warnung
 
         if gruende or not nur_verdaechtige:
             treffer.append({
@@ -117,7 +187,7 @@ def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
     # Nach Signalstaerke: Vorschlag mit hoher Konfidenz zuerst
     def _rang(t):
         k = (t.get("zuordnungs_vorschlag") or {}).get("konfidenz")
-        return {"hoch": 0, "mittel": 1}.get(k, 2)
+        return {"hoch": 0, "mittel": 1, "niedrig": 2}.get(k, 3)
     treffer.sort(key=_rang)
 
     return {
