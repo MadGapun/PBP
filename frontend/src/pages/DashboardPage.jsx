@@ -32,6 +32,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
+import { zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -54,6 +55,7 @@ import {
 } from "@/utils";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
+import OffenBlock from "@/components/OffenBlock";
 
 function positiveSalary(value) {
   if (value === null || typeof value === "undefined") return null;
@@ -242,8 +244,6 @@ export default function DashboardPage() {
     return <LoadingPanel label="Dashboard wird vorbereitet..." />;
   }
 
-  const dueFollowUps = data.followUps.filter((item) => item.faellig);
-  const interviewCount = data.statistics?.applications_by_status?.interview || 0;
   const applicationsTotal = Number(data.statistics?.total_applications || data.applications?.length || 0);  // #199: use total from statistics (includes archived)
   const applicationsCount = applicationsTotal;
   const applicationTimestamps = (data.applications || [])
@@ -330,22 +330,6 @@ export default function DashboardPage() {
   const lastSearchAt = chrome.searchStatus?.last_search || "";
   const searchDaysAgo = Number(chrome.searchStatus?.days_ago);
   const hasSearchDays = Number.isFinite(searchDaysAgo);
-  const secondInterviewCount = Number(data.statistics?.applications_by_status?.zweitgespraech || 0);
-  const activeInterviewCount = interviewCount + secondInterviewCount;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const inSevenDays = new Date(today);
-  inSevenDays.setDate(inSevenDays.getDate() + 7);
-  const upcomingInterviewTodos = data.followUps
-    .filter((item) => {
-      const status = String(item?.app_status || "").toLowerCase();
-      if (status !== "interview" && status !== "zweitgespraech") return false;
-      const timestamp = Date.parse(item?.scheduled_date || "");
-      if (Number.isNaN(timestamp)) return false;
-      const eventDate = new Date(timestamp);
-      return eventDate >= today && eventDate <= inSevenDays;
-    })
-    .sort((left, right) => String(left.scheduled_date || "").localeCompare(String(right.scheduled_date || "")));
   const needsSearchTodo = !lastSearchAt || !hasSearchDays || searchDaysAgo > 0;
   const appliedCoverage = activeJobsCount > 0 ? applicationsCount / activeJobsCount : 0;
   const activeSourceCount = Number(chrome.workspace?.sources?.active || 0);
@@ -367,31 +351,15 @@ export default function DashboardPage() {
     });
   }
 
-  // Interview-Termine werden jetzt im Meeting-Widget angezeigt (#140)
-  // Nur wenn KEINE Follow-Ups vorhanden, aber Interviews laufen, als TODO zeigen
-  if (activeInterviewCount > 0 && upcomingInterviewTodos.length === 0) {
-    todoItems.push({
-      id: "interviews",
-      title: "Interview vorbereiten",
-      description: `${activeInterviewCount} Bewerbung(en) sind im Interview-Status.`,
-      tone: "amber",
-      actionLabel: "Vorbereiten",
-      // #483: Filter auf Interview + Tab wechseln, damit User die konkreten Bewerbungen sieht
-      action: () => navigateTo("bewerbungen", { filter: "interview" }),
-    });
-  }
+  // #982: die Zaehl-Empfehlung "Interview vorbereiten" entfaellt.
+  // Sie entstand aus der ANZAHL der Bewerbungen im Interview-Status
+  // und kannte den konkreten Termin drei Bloecke tiefer nicht. Die
+  // Vorbereitungszeile kommt jetzt aus dem TERMIN und steht mit
+  // Datum im Block "Offen" (services/aufgaben_sicht.py).
 
-  if (dueFollowUps.length > 0) {
-    todoItems.push({
-      id: "followups",
-      title: "Nachfragen nicht vergessen",
-      description: `Bei ${dueFollowUps.length} Bewerbung(en) solltest du nachhaken.`,
-      tone: "sky",
-      actionLabel: "Öffnen",
-      // #484: Filter auf faellige Follow-ups
-      action: () => navigateTo("bewerbungen", { filter: "followups_due" }),
-    });
-  }
+  // #976 Befund 3: faellige Nachfassungen stehen im Block "Offen",
+  // mit Titel, Datum und Herkunft. Sie hier zusaetzlich als Zahl zu
+  // nennen war die dritte Zaehlweise derselben Lage.
 
   if (data.zombies.length > 0) {
     todoItems.push({
@@ -418,11 +386,20 @@ export default function DashboardPage() {
 
   const workspaceReadiness = chrome.workspace?.readiness || {};
   // #683: ueberfaellige offene Aufgaben fuer die prominente Dashboard-Warnung
-  const overdueTasks = Array.isArray(chrome.workspace?.ueberfaellige_aufgaben)
-    ? chrome.workspace.ueberfaellige_aufgaben
-    : [];
+  // #976: die ueberfaelligen Aufgaben kommen jetzt mit allem anderen
+  // Offenen aus /api/dashboard/offen (OffenBlock), nicht mehr aus der
+  // Workspace-Zusammenfassung als eigene Warnkarte.
   const workspaceTodos = Array.isArray(chrome.workspace?.todos) ? chrome.workspace.todos : [];
   const profileCompleteness = Number(chrome.workspace?.profile?.completeness || 0);
+  // #974: Onboarding-Fortschritt gehoert auf die Profilseite und in die
+  // Onboarding-Stufen. Bei 100 % und Stufe `nachfassen` stand hier bisher
+  // dauerhaft "100% Profil vollstaendig" neben einer Aufgabe, die mit dem
+  // Profil nichts zu tun hat. Die Entscheidung liegt in dashboardRegeln.js,
+  // damit die naechste Ansicht sie nicht erneut selbst trifft.
+  const zeigeVollstaendigkeit = zeigeProfilKpi(
+    chrome.workspace?.readiness?.stage,
+    profileCompleteness
+  );
   const jobsWithoutDescription = Number(chrome.workspace?.jobs?.ohne_beschreibung || 0);
 
   async function runWorkspaceAction(action) {
@@ -632,55 +609,20 @@ export default function DashboardPage() {
 
       {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
       <div className="mb-5 grid gap-4">
-          {/* #683: Ueberfaellige Aufgaben — prominente Warnung ganz oben */}
-          {overdueTasks.length > 0 && (
-            <Card className="rounded-2xl border border-coral/40 bg-coral/[0.08]">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <ClipboardList size={16} className="text-coral" />
-                    <p className="text-sm font-bold uppercase tracking-[0.12em] text-coral">
-                      {overdueTasks.length} {overdueTasks.length === 1 ? "Aufgabe überfällig" : "Aufgaben überfällig"}
-                    </p>
-                  </div>
-                  <ul className="mt-2 space-y-1">
-                    {overdueTasks.slice(0, 5).map((t) => (
-                      <li key={t.id} className="group flex items-center gap-2 text-sm text-ink">
-                        {/* #814 (D35): direkt aus dem Dashboard abhaken —
-                            vorher war die Warnung rein passiv, die
-                            Erledigung ging nur ueber Claude. */}
-                        <button
-                          type="button"
-                          title="Erledigt"
-                          onClick={async () => {
-                            try {
-                              await postJson(`/api/tasks/${t.id}/complete`, {});
-                              refreshChrome?.();
-                            } catch { /* silent */ }
-                          }}
-                          className="shrink-0 rounded-md border border-teal/40 bg-teal/10 p-0.5 text-teal hover:bg-teal/25">
-                          <Check size={12} />
-                        </button>
-                        <span className="min-w-0 cursor-pointer truncate" onClick={() => navigateTo("aufgaben")}>
-                          <span className="font-medium">{t.titel}</span>
-                          {t.bewerbung_titel ? (
-                            <span className="text-muted/60"> — {t.bewerbung_titel}{t.firma ? ` (${t.firma})` : ""}</span>
-                          ) : null}
-                          <span className="ml-2 text-xs font-semibold text-coral">fällig {formatDate(t.faellig_am)}</span>
-                        </span>
-                      </li>
-                    ))}
-                    {overdueTasks.length > 5 && (
-                      <li className="text-xs text-muted/60">und {overdueTasks.length - 5} weitere …</li>
-                    )}
-                  </ul>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => navigateTo("aufgaben")}>
-                  Zu den Aufgaben
-                </Button>
-              </div>
-            </Card>
-          )}
+          {/* v1.7.31 (#976 G27, #983 G31): EIN Block "Offen".
+
+              Vorher stand hier die rote Warnkarte aus D23/#683 mit den
+              ueberfaelligen Todos — und die faelligen Nachfassungen
+              standen zweimal woanders. Drei Zaehlweisen derselben Frage.
+              Jetzt eine Liste aus derselben Quelle wie der Aufgaben-Tab,
+              inklusive Termine (Nutzerentscheidung zu #983); die
+              Herkunft steht an jeder Zeile. Der Deep-Link in die Aufgabe
+              (#846) bleibt erhalten, das Abhaken aus D35/#814 auch. */}
+          <OffenBlock
+            navigateTo={navigateTo}
+            refreshChrome={refreshChrome}
+            onPrompt={(prompt) => copyPrompt?.(prompt)}
+          />
 
           {/* Im Fluss (Readiness Card) */}
           <Card className="rounded-2xl">
@@ -688,16 +630,20 @@ export default function DashboardPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
-                  <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+                  {zeigeVollstaendigkeit ? (
+                    <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+                  ) : null}
                   {jobsWithoutDescription > 0 ? (
                     <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
                   ) : null}
                 </div>
-                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted/55">Nächster sinnvoller Schritt</p>
-                <h2 className="mt-1 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
-                <p className="mt-1 max-w-3xl text-sm text-muted">
-                  {workspaceReadiness.description || "PBP zeigt dir hier immer, was als Nächstes sinnvoll ist."}
-                </p>
+                {/* #976 Befund 1 / #984: vier Etiketten fuer eine Aussage
+                    (Badge, Kicker, Headline, Beschreibung). Der Kicker
+                    erklaerte die Karte, das Badge wiederholte das Thema,
+                    die Beschreibung sagte die Headline in anderen Worten.
+                    Uebrig bleibt, was Information traegt: die Aussage und
+                    die Aktion daneben. */}
+                <h2 className="mt-3 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
               </div>
               <div className="flex shrink-0 gap-2">
                 {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
@@ -716,9 +662,13 @@ export default function DashboardPage() {
                     className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
                   >
                     <div className="min-w-0 flex items-center gap-2.5">
-                      <Badge tone={todo.tone}>
-                        {todo.id === "jobsuche" ? "Priorität 1" : todo.id === "interviews" ? "Priorität 2" : todo.id === "followups" ? "Priorität 3" : "Empfehlung"}
-                      </Badge>
+                      {/* #976 Befund 2: die Nummer war ein festes Etikett
+                          je Aufgabentyp, kein Rang in der gezeigten Liste
+                          — fehlte der Typ `jobsuche`, begann die Liste
+                          sichtbar bei "Prioritaet 2" und der Nutzer suchte
+                          nach einer 1, die es nicht gab. Die Reihenfolge
+                          der Karten sagt bereits, was zuerst kommt. */}
+                      <Badge tone={todo.tone}>Empfehlung</Badge>
                       <div>
                         <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
                         <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
@@ -779,253 +729,19 @@ export default function DashboardPage() {
           )}
       </div>
 
-      {/* #421: Anstehende Termine direkt unter Im Fluss (nur wenn vorhanden, max 5)
-          #700: Follow-up-Erinnerungen (Nachfass etc.) sind keine Termine —
-          sie bekommen einen eigenen Block "Offene Erinnerungen" darunter. */}
-      {(() => {
-        const interviewPseudoMeetings = upcomingInterviewTodos
-          .filter((fu) => !data.meetings.some((m) => !m.is_follow_up && m.application_id === fu.application_id && m.meeting_date?.startsWith(fu.scheduled_date)))
-          .map((fu) => ({
-            id: `interview-${fu.id}`,
-            title: "Interview vorbereiten",
-            meeting_date: fu.scheduled_date + "T09:00:00",
-            app_company: fu.company || fu.title || "",
-            app_title: fu.title || "",
-            platform: null,
-            meeting_url: null,
-            application_id: fu.application_id,
-            _isInterview: true,
-          }));
-        const byDate = (a, b) => String(a.meeting_date || "").localeCompare(String(b.meeting_date || ""));
-        const echteTermine = data.meetings.filter((m) => !m.is_follow_up).sort(byDate);
-        const erinnerungen = [...data.meetings.filter((m) => m.is_follow_up), ...interviewPseudoMeetings].sort(byDate);
-        if (echteTermine.length === 0 && erinnerungen.length === 0) return null;
-        const renderEntry = (meeting) => {
-                const meetingDate = new Date(meeting.meeting_date);
-                const now = new Date();
-                const diffMs = meetingDate - now;
-                // #701: Kalendertage in Europe/Berlin statt 24h-Schritte — ein
-                // Termin in 47h ist "uebermorgen", nicht "morgen"; und das Label
-                // darf nicht um Mitternacht UTC kippen, wenn der Rechner nicht
-                // auf Berlin steht. Siehe lib/relativeDate (+ Kipp-Test).
-                const dayDiff = berlinDayDiff(meetingDate, now);
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                // #702: SQLite liefert is_private als 0/1 — {0 && <p>} rendert
-                // in React eine nackte "0" ins Widget. Boolean() verhindert das.
-                const isPrivate = Boolean(meeting.is_private);
-                const istErinnerung = Boolean(meeting.is_follow_up || meeting._isInterview);
-                // #701: relative Labels in zukuenftige Tage um die Berliner
-                // Uhrzeit ergaenzen ("in 2 Tagen, 14:00 Uhr") — aber nicht bei
-                // Erinnerungen/Follow-ups, die reine Tages-Aufgaben ohne
-                // sinnvolle Uhrzeit sind.
-                const zeitSuffix = istErinnerung ? "" : `, ${berlinTimeOfDay(meetingDate)} Uhr`;
-                const countdown =
-                  dayDiff > 1
-                    ? `in ${dayDiff} Tagen${zeitSuffix}`
-                    : dayDiff === 1
-                      ? `morgen${zeitSuffix}`
-                      : diffMs > 0
-                        ? (diffHours > 0 ? `heute, in ${diffHours} Std.` : "jetzt gleich")
-                        : "vergangen";
-                const isMeetingToday = dayDiff === 0 && diffMs > 0;
-                const platformIcon = meeting.platform === "teams" ? "Teams" :
-                  meeting.platform === "zoom" ? "Zoom" :
-                  meeting.platform === "google_meet" ? "Meet" : "";
-                return (
-                  <div
-                    key={meeting.id}
-                    className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.03] ${
-                      isMeetingToday
-                        ? "border-teal/30 bg-teal/5"
-                        : "border-white/[0.04]"
-                    }`}
-                    onClick={() => {
-                      // #395/#421: Click navigates to application or calendar
-                      if (isPrivate) {
-                        navigateTo("kalender");
-                      } else if (meeting.application_id) {
-                        navigateTo("bewerbungen", { highlight: meeting.application_id });
-                      } else {
-                        navigateTo("kalender");
-                      }
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-ink">
-                        {isPrivate ? "Geblockt" : (meeting.title || meeting.app_title || "Termin")}
-                      </p>
-                      {!isPrivate && (
-                        <p className="text-[12px] text-muted/60">
-                          {meeting.app_company && (
-                            <span className="font-medium text-muted/80">{meeting.app_company} — </span>
-                          )}
-                          {formatDate(meeting.meeting_date)}
-                          {/* #702: Erinnerungen (Follow-ups) sind Tages-Aufgaben — die
-                              Pseudo-Uhrzeit (02:00/09:00) verwirrt nur */}
-                          {!istErinnerung && (
-                            <> {berlinTimeOfDay(meetingDate)} Uhr</>
-                          )}
-                          {platformIcon && (
-                            <span className="ml-1.5 rounded bg-sky/15 px-1.5 py-px text-[10px] font-bold text-sky">
-                              {platformIcon}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                      {isPrivate && (
-                        <p className="text-[12px] text-muted/40">
-                          {formatDate(meeting.meeting_date)}{" "}
-                          {berlinTimeOfDay(meetingDate)} Uhr
-                        </p>
-                      )}
-                      <p className={`mt-0.5 text-[11px] font-medium ${
-                        isMeetingToday ? "text-teal" : dayDiff <= 3 ? "text-amber" : "text-muted/50"
-                      }`}>
-                        {countdown}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {!meeting._isInterview && !meeting.is_follow_up && !isPrivate && (
-                        <a href={`/api/meetings/${meeting.id}/ics`} download
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-muted/50 transition hover:bg-white/10 hover:text-ink"
-                          title="Als .ics exportieren">
-                          <Download size={12} /> .ics
-                        </a>
-                      )}
-                      {meeting._isInterview ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const stelle = meeting.app_title ? ` stelle="${meeting.app_title}"` : "";
-                            const firma = meeting.app_company ? ` firma="${meeting.app_company}"` : "";
-                            copyPrompt(`/interview_vorbereitung${stelle}${firma}`);
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-amber/15 px-3 py-1.5 text-[12px] font-semibold text-amber transition hover:bg-amber/25"
-                        >
-                          <Calendar size={14} />
-                          Vorbereiten
-                        </button>
-                      ) : meeting.is_follow_up ? (
-                        // #453 / v1.5.7: Follow-ups abschliessen
-                        <>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const followId = String(meeting.id).replace(/^followup-/, "");
-                              try {
-                                await postJson(`/api/follow-ups/${followId}/complete`, {});
-                                pushToast("Nachfass als erledigt markiert.", "success");
-                                loadData();
-                                refreshChrome({ quiet: true });
-                              } catch (err) {
-                                pushToast(`Fehler: ${err.message}`, "danger");
-                              }
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
-                            title="Nachfass erledigt"
-                          >
-                            Erledigt
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const followId = String(meeting.id).replace(/^followup-/, "");
-                              try {
-                                await postJson(`/api/follow-ups/${followId}/dismiss`, {});
-                                pushToast("Nachfass als hinfaellig geschlossen.", "success");
-                                loadData();
-                                refreshChrome({ quiet: true });
-                              } catch (err) {
-                                pushToast(`Fehler: ${err.message}`, "danger");
-                              }
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-[12px] font-semibold text-muted/70 transition hover:bg-white/10 hover:text-ink"
-                            title="Nicht mehr noetig"
-                          >
-                            Hinf&auml;llig
-                          </button>
-                        </>
-                      ) : !isPrivate && meeting.meeting_url ? (
-                        <a
-                          href={meeting.meeting_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
-                        >
-                          <Video size={14} />
-                          Beitreten
-                        </a>
-                      ) : null}
-                      {/* #453 / v1.5.7: Durchgefuehrt-Button fuer vergangene Meetings */}
-                      {!meeting._isInterview && !meeting.is_follow_up && !isPrivate && diffMs < 0 && (meeting.status === "geplant" || meeting.status === "bestaetigt") && (
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await putJson(`/api/meetings/${meeting.id}`, { status: "durchgefuehrt" });
-                              pushToast("Termin als durchgef\u00fchrt markiert.", "success");
-                              loadData();
-                              refreshChrome({ quiet: true });
-                            } catch (err) {
-                              pushToast(`Fehler: ${err.message}`, "danger");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-teal/15 px-3 py-1.5 text-[12px] font-semibold text-teal transition hover:bg-teal/25"
-                          title="Termin hat stattgefunden"
-                        >
-                          Durchgef&uuml;hrt
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-        };
-        return (
-          <>
-            {echteTermine.length > 0 && (
-              <Card className="mb-5 rounded-2xl">
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
-                    onClick={() => navigateTo("kalender")}
-                  >
-                    <Calendar size={14} className="text-teal/60" />
-                    Anstehende Termine
-                  </button>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {echteTermine.slice(0, 5).map(renderEntry)}
-                </div>
-              </Card>
-            )}
-            {erinnerungen.length > 0 && (
-              <Card className="mb-5 rounded-2xl">
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    className="text-sm font-semibold text-ink hover:text-sky transition-colors flex items-center gap-1.5"
-                    onClick={() => navigateTo("kalender")}
-                    title="Nachfass- und Vorbereitungs-Erinnerungen — keine festen Termine"
-                  >
-                    <BellRing size={14} className="text-amber/60" />
-                    Offene Erinnerungen
-                  </button>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {erinnerungen.slice(0, 5).map(renderEntry)}
-                </div>
-              </Card>
-            )}
-          </>
-        );
-      })()}
+      {/* v1.7.31 (#983 G31, #982 G30): "Anstehende Termine" und "Offene
+          Erinnerungen" sind im Block "Offen" oben aufgegangen —
+          Nutzerentscheidung vom 07.09.2026. K17/#700 bleibt in der
+          SACHE: eine Nachfassung ist kein Termin und traegt nie eine
+          Uhrzeit. Die Unterscheidung leistet jetzt das Feld `herkunft`
+          an jeder Zeile statt ein zweiter Block; genau so macht es der
+          Aufgaben-Tab seit D35/#815.
+
+          Mit weg ist `interviewPseudoMeetings` (#140): aus
+          Interview-Nachfassungen wurden Termine "um 09:00 Uhr"
+          erfunden, die es nie gab. Die Vorbereitung entsteht jetzt aus
+          dem echten Termin (#982). Alles jenseits von sieben Tagen
+          steht im Kalender-Tab. */}
 
       {/* #450: Dokument-Import (saubere Version, gleiche Logik wie Docs-Seite) */}
       <DashboardDocumentImport pushToast={pushToast} refreshChrome={refreshChrome} />

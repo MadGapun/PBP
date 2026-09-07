@@ -11,6 +11,8 @@ import os
 import shutil
 import tempfile
 
+from datetime import date, timedelta
+
 import pytest
 
 
@@ -91,8 +93,13 @@ def test_825_vergangener_termin_ohne_teilnehmer_und_reflexion(setup_env):
                               "status": "interview"})
     kid = _kontakt(db, "Fachliche Leitung", "Werft Nord")
     db.link_contact(kid, "application", aid)
+    # Relativ zu heute: die Reflexions-Pruefung hat ein 30-Tage-Fenster.
+    # Vorher stand hier das feste Datum 2026-08-05 — am 04.09.2026 fiel es
+    # aus dem Fenster und der Test wurde von allein rot, ohne dass sich am
+    # Code etwas geaendert haette (dieselbe Falle wie test_782).
+    gestern = (date.today() - timedelta(days=1)).isoformat()
     mid = db.add_meeting({"application_id": aid,
-                          "meeting_date": "2026-08-05T16:00:00",
+                          "meeting_date": f"{gestern}T16:00:00",
                           "title": "Interview Runde 1",
                           "meeting_type": "interview"})
     arten = {b["art"]: b for b in _pruefe(db) if b["bewerbung_id"] == aid}
