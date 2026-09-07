@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.36** ist Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.37** ist Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,59 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.37 Stable) — Eine Klammer
+
+Der erste Fehlerbericht eines FREMDEN Anwenders (#990), und er wiegt
+schwerer als alles andere an diesem Tag: **seit v1.7.0-beta.18 brach der
+Installer ab, bevor er PBP in Claude Desktop eintrug.** Das Dashboard
+lief, die Werkzeuge fehlten, das Fenster schloss sich ohne Meldung, und
+ins Log kam nichts mehr. **Tests: 2898 / 2964.**
+
+**Die Ursache ist ein einziges Zeichen.** Eine unescapte `)` in einem
+`echo` INNERHALB eines Klammerblocks beendet den Block genau dort; der
+Zeilenrest wird zur naechsten Anweisung, `cmd` meldet einen Syntaxfehler
+und bricht ab. Am laufenden `cmd.exe` reproduziert und in beide
+Richtungen gemessen.
+
+MERKE-Punkte:
+
+(1) **Ein Klammerpaar ist in cmd nicht ausbalanciert.** `cmd` zaehlt die
+OEFFNENDE Klammer in einem `echo` nicht mit, die SCHLIESSENDE aber
+schon. Auch `echo (alles in einer Zeile).` bricht ab. Ich habe zuerst
+gegenteilig argumentiert — der Test hat es widerlegt. **Bei
+cmd-Parserfragen messen, nicht schliessen.**
+
+(2) **Der Fehler traf ausgerechnet die Sorgfaeltigen.** Getroffen wurde
+der letzte Schritt: der Eintrag in Claude Desktop. Alles davor war
+fertig, also lief das Dashboard — und der Nutzer sah einen halb
+installierten Zustand ohne jede Fehlermeldung. Neun Fundstellen in drei
+Dateien, darunter der Deinstaller (moeglicher Teilbeitrag zu #739, dort
+liegt der gemeldete Abbruch aber frueher). Jetzt
+`tests/test_v1737_batch_klammern_990.py` ueber ALLE `.bat`-Dateien.
+
+(3) **Ein Melder kann die halbe Arbeit machen — und die Luecke, die
+er offen laesst, ist der eigentliche Fund.** Der Anwender hat die
+MSIX-Ursache vollstaendig analysiert (Store-Claude liegt ACL-geschuetzt
+unter `WindowsApps`, steht nicht im PATH, und
+`%LOCALAPPDATA%\Packages\Claude_*` enthaelt nur Anwendungsdaten —
+die #361-Erkennung suchte an der richtigen Stelle nach der falschen
+Sache) und ausdruecklich geschrieben, den Abbruch nicht klaeren zu
+koennen. Genau der war die Ursache des gemeldeten Symptoms. **Den offen
+gelassenen Rest eines guten Berichts zuerst ansehen.**
+
+(4) **Zwei cmd-Fallen beim MSIX-Fix, beide gemessen.** Ein `^|` im
+Backtick-Kommando von `for /f` kommt in der Subshell NICHT als Pipe an
+— die Abfrage lieferte still eine leere Zeichenkette, also wieder
+ein Fehler, der wie ein normaler Zustand aussieht. Und das `!` in
+`shell:AppsFolder\<Paket>!Claude` haette bei `EnableDelayedExpansion`
+als Variablenklammer gegolten und waere verschwunden; PowerShell setzt
+es jetzt selbst zusammen (`[char]33`).
+
+(5) **Negativbefund, dokumentiert damit ihn niemand nachmisst:** LF-
+Zeilenenden im ZIP waren es NICHT. `git archive` wendet die
+`eol=crlf`-Regel aus `.gitattributes` an; das heruntergeladene ZIP
+traegt CRLF. Am Byte geprueft.
 
 ## Stand 2026-09-07 (v1.7.36 Stable) — Die Liste stand auf dem Kopf
 
