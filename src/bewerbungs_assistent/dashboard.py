@@ -1085,6 +1085,37 @@ async def api_list_prompts():
     }
 
 
+@app.get("/api/dashboard/bereiche")
+async def api_dashboard_bereiche():
+    """Welche Bloecke das Dashboard zeigt, in welcher Reihenfolge (#985).
+
+    Nutzerwunsch: sein eigenes Dashboard zusammenstellen — an- und
+    abschalten, einklappen, sortieren. Dieselbe Bauweise wie der
+    Prompt-Katalog (#979): der Katalog gibt die Voreinstellung, die
+    Abweichung liegt in `profile_settings`.
+    """
+    from .services import dashboard_bereiche
+    return {
+        "katalog": dashboard_bereiche.katalog(),
+        "bereiche": dashboard_bereiche.zustand(_db),
+        "standard": dashboard_bereiche.standard(),
+    }
+
+
+@app.put("/api/dashboard/bereiche")
+async def api_dashboard_bereiche_setzen(request: Request):
+    """Reihenfolge, Sichtbarkeit und Einklapp-Zustand speichern (#985)."""
+    from .services import dashboard_bereiche
+    body = await request.json()
+    if body.get("zuruecksetzen"):
+        return {"status": "ok", "bereiche": dashboard_bereiche.zuruecksetzen(_db)}
+    try:
+        erg = dashboard_bereiche.setzen(_db, body.get("bereiche"))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"status": "ok", **erg}
+
+
 @app.put("/api/prompts/schnellzugriff")
 async def api_set_schnellzugriff(request: Request):
     """Welche Katalogeintraege im Dashboard-Schnellzugriff stehen (#979).

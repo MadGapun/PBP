@@ -5,6 +5,7 @@
   Mail,
   MessageSquareReply,
   Search,
+  Settings2,
   Send,
   Upload,
   RefreshCw,
@@ -40,6 +41,8 @@ import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import OffenBlock from "@/components/OffenBlock";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
+import DashboardBereich from "@/components/DashboardBereich";
+import DashboardAnpassen from "@/components/DashboardAnpassen";
 
 function positiveSalary(value) {
   if (value === null || typeof value === "undefined") return null;
@@ -125,6 +128,12 @@ export default function DashboardPage() {
   // Wie viele Zeilen der Block "Offen" zeigt — die Readiness-Karte
   // darunter darf nicht wiederholen, was dort schon steht.
   const [offenAnzahl, setOffenAnzahl] = useState(0);
+  // v1.7.35 (#985): Reihenfolge, Sichtbarkeit und Einklapp-Zustand der
+  // Bloecke. Liegt beim Nutzer (profile_settings), nicht im Browser —
+  // die Einstellung soll den Rechner ueberleben, nicht die Sitzung.
+  const [bereiche, setBereiche] = useState([]);
+  const [bereichsKatalog, setBereichsKatalog] = useState([]);
+  const [anpassenOffen, setAnpassenOffen] = useState(false);
   const [publicHints, setPublicHints] = useState([]);
   const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
   const [dismissedHints, setDismissedHints] = useState(() => {
@@ -226,6 +235,25 @@ export default function DashboardPage() {
     setLoading(true);
     loadData();
   }, [reloadKey, chrome.status?.has_profile]);
+
+  // v1.7.35 (#985): MUSS vor dem Lade-Ausstieg direkt darunter stehen.
+  // Ein Hook hinter einem `return` laeuft im ersten Durchgang nicht und
+  // im zweiten schon — React bricht das mit Fehler 300 ab und der
+  // ErrorBoundary zeigt die ganze Seite als kaputt. Genau so ist es
+  // passiert: der Effekt stand 160 Zeilen weiter unten, direkt neben
+  // den Funktionen, zu denen er inhaltlich gehoert.
+  useEffect(() => {
+    let aktiv = true;
+    fetch("/api/dashboard/bereiche")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!aktiv || !d) return;
+        setBereichsKatalog(d.katalog || []);
+        setBereiche(d.bereiche || []);
+      })
+      .catch(() => {});
+    return () => { aktiv = false; };
+  }, []);
 
   if (loading && chrome.status?.has_profile) {
     return <LoadingPanel label="Dashboard wird vorbereitet..." />;
@@ -389,6 +417,33 @@ export default function DashboardPage() {
   );
   const jobsWithoutDescription = Number(chrome.workspace?.jobs?.ohne_beschreibung || 0);
 
+  async function bereicheSpeichern(neu) {
+    setBereiche(neu);
+    try {
+      await fetch("/api/dashboard/bereiche", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bereiche: neu }),
+      });
+    } catch {
+      pushToast?.("Anordnung konnte nicht gespeichert werden.", "danger");
+    }
+  }
+
+  async function bereicheZuruecksetzen() {
+    try {
+      const r = await fetch("/api/dashboard/bereiche", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ zuruecksetzen: true }),
+      });
+      const d = await r.json();
+      setBereiche(d.bereiche || []);
+    } catch {
+      pushToast?.("Zuruecksetzen fehlgeschlagen.", "danger");
+    }
+  }
+
   async function runWorkspaceAction(action) {
     if (!action) return;
     if (String(action.typ || "") === "beschreibung_nachladen" || String(action.aktion || "").includes("beschreibung_fehlt")) {
@@ -519,262 +574,185 @@ export default function DashboardPage() {
     );
   }
 
-  return (
-    <div id="page-dashboard" className="page active">
-      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
-      <h1 className="sr-only">Dashboard</h1>
-      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
-      <OnboardingHintBanner tab="dashboard" />
-      <AdaptiveHintBanner page="dashboard" />
-
-      {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
-        <div className="mb-4 space-y-2">
-          {publicHints.filter((h) => !dismissedHints.includes(h.id)).map((hint) => (
-            <div
-              key={hint.id}
-              className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
-                hint.type === "warning"
-                  ? "border-amber/20 bg-amber/5 text-amber"
-                  : "border-sky/20 bg-sky/5 text-sky"
-              }`}
-            >
-              <div>
-                {hint.title && <span className="font-medium">{hint.title} </span>}
-                {hint.text}
-                {hint.url ? (
-                  <>
-                    {" "}
-                    <a
-                      href={hint.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium underline underline-offset-2 hover:opacity-80"
-                    >
-                      {hint.url_label || "Mehr erfahren"} →
-                    </a>
-                  </>
-                ) : null}
+  // v1.7.35 (#985): jeder Block einmal benannt, damit die Reihenfolge
+  // aus den Nutzereinstellungen kommen kann statt aus dem Quelltext.
+  const bereichsInhalt = {
+    impuls: (
+      <>
+        {/* Heute fuer dich (Impulse) */}
+        {impulse?.enabled && impulse?.impulse?.text && (
+          <Card className="rounded-2xl border-amber/30 bg-amber/10">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber/60">
+                  {impulse.impulse.title || "Heute für dich"}
+                </p>
+                <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
               </div>
               <button
-                type="button"
-                onClick={() => {
-                  const next = [...dismissedHints, hint.id];
-                  setDismissedHints(next);
-                  try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
+                className="shrink-0 text-xs text-muted/40 hover:text-muted"
+                title="Tagesimpuls ausblenden"
+                onClick={async () => {
+                  try {
+                    await postJson("/api/daily-impulse/toggle");
+                    setImpulse((prev) => ({ ...prev, enabled: false }));
+                  } catch {}
                 }}
-                className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
-                title="Schliessen"
               >
-                <X size={14} />
+                ausblenden
               </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben${unappliedJobsCount > 0 ? ` / ${unappliedJobsCount} unbearbeitete Stellen` : ""}`} tone="sky" />
-        <MetricCard
-          label={<span className="flex items-center gap-1.5">Bew. / Woche<button type="button" onClick={() => setMetricPerspective((p) => (p + 1) % metricPerspectives.length)} className="rounded p-0.5 text-muted/30 hover:text-sky transition-colors" title="Andere Perspektive"><RefreshCw size={11} /></button></span>}
-          value={applicationsPerWeek}
-          note={currentMetric.note}
-          tone="sky"
+          </Card>
+        )}
+      </>
+    ),
+    offen: (
+      <>
+        <OffenBlock
+          navigateTo={navigateTo}
+          refreshChrome={refreshChrome}
+          onPrompt={(prompt) => copyPrompt?.(prompt)}
+          onAnzahl={setOffenAnzahl}
         />
-        <MetricCard
-          label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
-          value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-          note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
-          tone="success"
-        />
-        <MetricCard
-          label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
-          value={salaryBandText}
-          note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : "Echte Min/Max-Spanne über alle Stellen"}
-          tone="success"
-        />
-      </div>
+      </>
+    ),
+    naechster_schritt: (
+      <>
+        {/* Im Fluss (Readiness Card).
 
-      {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
-      {/* v1.7.33: `grid-cols-1` statt nur `grid`. Ohne explizite Spalte
-          bekommt ein Grid-Item `min-width: auto` und kann NICHT unter
-          seine Mindestbreite schrumpfen — die drei Karten hier waren
-          dadurch 1035 px breit in einem 961 px breiten Container und
-          liefen rechts aus dem Bild. Sichtbar wurde das erst am neu
-          erzeugten Screenshot; im Browser faellt es kaum auf, weil der
-          Ueberhang abgeschnitten wird. `grid-cols-1` ist
-          `repeat(1, minmax(0, 1fr))` und erlaubt das Schrumpfen. */}
-      <div className="mb-5 grid grid-cols-1 gap-4">
-          {/* v1.7.31 (#976 G27, #983 G31): EIN Block "Offen".
-
-              Vorher stand hier die rote Warnkarte aus D23/#683 mit den
-              ueberfaelligen Todos — und die faelligen Nachfassungen
-              standen zweimal woanders. Drei Zaehlweisen derselben Frage.
-              Jetzt eine Liste aus derselben Quelle wie der Aufgaben-Tab,
-              inklusive Termine (Nutzerentscheidung zu #983); die
-              Herkunft steht an jeder Zeile. Der Deep-Link in die Aufgabe
-              (#846) bleibt erhalten, das Abhaken aus D35/#814 auch. */}
-          <OffenBlock
-            navigateTo={navigateTo}
-            refreshChrome={refreshChrome}
-            onPrompt={(prompt) => copyPrompt?.(prompt)}
-            onAnzahl={setOffenAnzahl}
-          />
-
-          {/* Im Fluss (Readiness Card).
-
-              v1.7.35: Sie entfaellt, wenn der Block "Offen" ihre Aussage
-              schon traegt. Nutzerhinweis vom 07.09.2026 — der Block
-              listete zwei faellige Nachfassungen mit Firma und Datum,
-              und direkt darunter stand "Es gibt ueberfaellige
-              Nachfassaktionen". #976 verlangte, keine ZAEHLUNGEN zu
-              wiederholen; das war zu eng gelesen. Eine Wiederholung
-              ohne Zahl ist immer noch eine. */}
-          {readinessWirdVomBlockGetragen(workspaceReadiness.stage, offenAnzahl) ? null : (
-          <Card className="rounded-2xl">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
-                  {zeigeVollstaendigkeit ? (
-                    <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
-                  ) : null}
-                  {jobsWithoutDescription > 0 ? (
-                    <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
-                  ) : null}
-                </div>
-                {/* #976 Befund 1 / #984: vier Etiketten fuer eine Aussage
-                    (Badge, Kicker, Headline, Beschreibung). Der Kicker
-                    erklaerte die Karte, das Badge wiederholte das Thema,
-                    die Beschreibung sagte die Headline in anderen Worten.
-                    Uebrig bleibt, was Information traegt: die Aussage und
-                    die Aktion daneben. */}
-                <h2 className="mt-3 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
-                  <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
-                    {workspaceReadiness.action_label}
-                  </Button>
+            v1.7.35: Sie entfaellt, wenn der Block "Offen" ihre Aussage
+            schon traegt. Nutzerhinweis vom 07.09.2026 — der Block
+            listete zwei faellige Nachfassungen mit Firma und Datum,
+            und direkt darunter stand "Es gibt ueberfaellige
+            Nachfassaktionen". #976 verlangte, keine ZAEHLUNGEN zu
+            wiederholen; das war zu eng gelesen. Eine Wiederholung
+            ohne Zahl ist immer noch eine. */}
+        {readinessWirdVomBlockGetragen(workspaceReadiness.stage, offenAnzahl) ? null : (
+        <Card className="rounded-2xl">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
+                {zeigeVollstaendigkeit ? (
+                  <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+                ) : null}
+                {jobsWithoutDescription > 0 ? (
+                  <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
                 ) : null}
               </div>
+              {/* #976 Befund 1 / #984: vier Etiketten fuer eine Aussage
+                  (Badge, Kicker, Headline, Beschreibung). Der Kicker
+                  erklaerte die Karte, das Badge wiederholte das Thema,
+                  die Beschreibung sagte die Headline in anderen Worten.
+                  Uebrig bleibt, was Information traegt: die Aussage und
+                  die Aktion daneben. */}
+              <h2 className="mt-3 text-base font-semibold text-ink">{workspaceReadiness.headline || "Weiter im Prozess"}</h2>
             </div>
+            <div className="flex shrink-0 gap-2">
+              {workspaceReadiness.action_label && workspaceReadiness.action_target !== "dashboard" ? (
+                <Button size="sm" variant="secondary" onClick={() => runWorkspaceAction(workspaceReadiness)}>
+                  {workspaceReadiness.action_label}
+                </Button>
+              ) : null}
+            </div>
+          </div>
 
-            {(todoItems.length > 0 || workspaceTodos.length > 0) && (
-              <div className="mt-4 grid gap-2">
-                {todoItems.map((todo) => (
-                  <div
-                    key={todo.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
-                  >
-                    <div className="min-w-0 flex items-center gap-2.5">
-                      {/* #976 Befund 2: die Nummer war ein festes Etikett
-                          je Aufgabentyp, kein Rang in der gezeigten Liste
-                          — fehlte der Typ `jobsuche`, begann die Liste
-                          sichtbar bei "Prioritaet 2" und der Nutzer suchte
-                          nach einer 1, die es nicht gab. Die Reihenfolge
-                          der Karten sagt bereits, was zuerst kommt. */}
-                      <Badge tone={todo.tone}>Empfehlung</Badge>
-                      <div>
-                        <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
-                        <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={todo.action}>
-                      {todo.actionLabel}
-                    </Button>
-                  </div>
-                ))}
-                {workspaceTodos.slice(0, 2).map((todo) => (
-                  <div
-                    key={`ws-${todo.typ}-${todo.text}`}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
-                  >
-                    <div className="min-w-0 flex items-center gap-2.5">
-                      <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
-                      <div>
-                        <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
-                        <p className="mt-0.5 text-[12px] text-muted/60">
-                          {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
-                        </p>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
-                      Öffnen
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-          )}
-
-          {/* Heute fuer dich (Impulse) */}
-          {impulse?.enabled && impulse?.impulse?.text && (
-            <Card className="rounded-2xl border-amber/30 bg-amber/10">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber/60">
-                    {impulse.impulse.title || "Heute für dich"}
-                  </p>
-                  <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
-                </div>
-                <button
-                  className="shrink-0 text-xs text-muted/40 hover:text-muted"
-                  title="Tagesimpuls ausblenden"
-                  onClick={async () => {
-                    try {
-                      await postJson("/api/daily-impulse/toggle");
-                      setImpulse((prev) => ({ ...prev, enabled: false }));
-                    } catch {}
-                  }}
+          {(todoItems.length > 0 || workspaceTodos.length > 0) && (
+            <div className="mt-4 grid gap-2">
+              {todoItems.map((todo) => (
+                <div
+                  key={todo.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
                 >
-                  ausblenden
-                </button>
-              </div>
-            </Card>
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    {/* #976 Befund 2: die Nummer war ein festes Etikett
+                        je Aufgabentyp, kein Rang in der gezeigten Liste
+                        — fehlte der Typ `jobsuche`, begann die Liste
+                        sichtbar bei "Prioritaet 2" und der Nutzer suchte
+                        nach einer 1, die es nicht gab. Die Reihenfolge
+                        der Karten sagt bereits, was zuerst kommt. */}
+                    <Badge tone={todo.tone}>Empfehlung</Badge>
+                    <div>
+                      <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
+                      <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={todo.action}>
+                    {todo.actionLabel}
+                  </Button>
+                </div>
+              ))}
+              {workspaceTodos.slice(0, 2).map((todo) => (
+                <div
+                  key={`ws-${todo.typ}-${todo.text}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.05] px-4 py-3"
+                >
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
+                    <div>
+                      <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
+                      <p className="mt-0.5 text-[12px] text-muted/60">
+                        {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
+                      </p>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => runWorkspaceAction(todo)}>
+                    Öffnen
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
-      </div>
+        </Card>
+        )}
+      </>
+    ),
+    kennzahlen: (
+      <>
+        <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben${unappliedJobsCount > 0 ? ` / ${unappliedJobsCount} unbearbeitete Stellen` : ""}`} tone="sky" />
+          <MetricCard
+            label={<span className="flex items-center gap-1.5">Bew. / Woche<button type="button" onClick={() => setMetricPerspective((p) => (p + 1) % metricPerspectives.length)} className="rounded p-0.5 text-muted/30 hover:text-sky transition-colors" title="Andere Perspektive"><RefreshCw size={11} /></button></span>}
+            value={applicationsPerWeek}
+            note={currentMetric.note}
+            tone="sky"
+          />
+          <MetricCard
+            label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
+            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
+            note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
+            tone="success"
+          />
+          <MetricCard
+            label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
+            value={salaryBandText}
+            note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : "Echte Min/Max-Spanne über alle Stellen"}
+            tone="success"
+          />
+        </div>
 
-      {/* v1.7.31 (#983 G31, #982 G30): "Anstehende Termine" und "Offene
-          Erinnerungen" sind im Block "Offen" oben aufgegangen —
-          Nutzerentscheidung vom 07.09.2026. K17/#700 bleibt in der
-          SACHE: eine Nachfassung ist kein Termin und traegt nie eine
-          Uhrzeit. Die Unterscheidung leistet jetzt das Feld `herkunft`
-          an jeder Zeile statt ein zweiter Block; genau so macht es der
-          Aufgaben-Tab seit D35/#815.
-
-          Mit weg ist `interviewPseudoMeetings` (#140): aus
-          Interview-Nachfassungen wurden Termine "um 09:00 Uhr"
-          erfunden, die es nie gab. Die Vorbereitung entsteht jetzt aus
-          dem echten Termin (#982). Alles jenseits von sieben Tagen
-          steht im Kalender-Tab. */}
-
-      {/* #450: Dokument-Import (saubere Version, gleiche Logik wie Docs-Seite) */}
-      <DashboardDocumentImport pushToast={pushToast} refreshChrome={refreshChrome} />
-
-      {/* v1.7.0 (#576): Recap-Card — was hat sich seit deinem letzten Besuch getan */}
-      <RecapCard pushToast={pushToast} navigateTo={navigateTo} />
-
-      {/* v1.7.0-beta.24 (#585): Auto-Detect-Banner fuer Lokale KI */}
-      <LocalAiAutoDetectBanner pushToast={pushToast} navigateTo={navigateTo} />
-
-      {/* v1.7.0-beta.27 (#594 Stufe 2): „Was PBP ueber dich gelernt hat" */}
-      <LearningInsightsCard pushToast={pushToast} navigateTo={navigateTo} />
-
-      <div id="dashboard-content" className="grid gap-5">
-        {/* Schnellzugriff — v1.7.33 (#979, G29): die Karten kamen bis
-            v1.7.32 aus einer festen Liste HIER, mit Prompt, Label,
-            Beschreibung und Icon; dieselben Titel standen noch einmal
-            im META-Dict von dashboard.py. Jetzt rendert die Komponente
-            aus /api/prompts, also aus services/prompt_katalog.py, und
-            der Nutzer waehlt selbst, was hier steht. */}
+        {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
+        {/* v1.7.33: `grid-cols-1` statt nur `grid`. Ohne explizite Spalte
+            bekommt ein Grid-Item `min-width: auto` und kann NICHT unter
+            seine Mindestbreite schrumpfen — die drei Karten hier waren
+            dadurch 1035 px breit in einem 961 px breiten Container und
+            liefen rechts aus dem Bild. Sichtbar wurde das erst am neu
+            erzeugten Screenshot; im Browser faellt es kaum auf, weil der
+            Ueberhang abgeschnitten wird. `grid-cols-1` ist
+            `repeat(1, minmax(0, 1fr))` und erlaubt das Schrumpfen. */}
+      </>
+    ),
+    schnellzugriff: (
+      <>
         <SchnellzugriffKarten
           copyPrompt={copyPrompt}
           openHelp={openHelp}
           pushToast={pushToast}
         />
-
-        <div className="grid gap-3 xl:grid-cols-2">
+      </>
+    ),
+    top_stellen: (
+      <>
           <Card className="overflow-hidden rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
@@ -845,63 +823,187 @@ export default function DashboardPage() {
               })()}
             </div>
           </Card>
-
-          {/* Recent Emails (#136) */}
-          <Card className="overflow-hidden rounded-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-ink">
-                <Mail size={14} className="mr-1.5 inline-block text-teal/60" />
-                E-Mails
-                {data.emails.filter((e) => !e.application_id).length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-[10px] font-bold text-amber">
-                    {data.emails.filter((e) => !e.application_id).length} offen
-                  </span>
-                )}
-              </h2>
-              <EmailUploadButton pushToast={pushToast} />
-            </div>
-            <div className="mt-3 grid gap-1.5">
-              {data.emails.length > 0 ? (
-                data.emails.slice(0, 6).map((em) => (
-                  <button
-                    key={em.id}
-                    type="button"
-                    className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-white/[0.04] px-3 py-2 text-left transition hover:bg-white/[0.04]"
-                    onClick={async () => {
-                      try {
-                        const full = await api(`/api/emails/${em.id}`);
-                        setEmailDetail(full);
-                      } catch {
-                        setEmailDetail(em);
-                      }
-                    }}
-                  >
-                    <span className={`shrink-0 text-sm ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
-                      {em.direction === "ausgang" ? "↗" : "↙"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] text-ink">{em.subject || "Ohne Betreff"}</p>
-                      <p className="truncate text-[11px] text-muted/50">
-                        {em.sender || em.recipients}
-                        {em.sent_date && <span className="ml-1.5">{formatDate(em.sent_date)}</span>}
-                      </p>
-                    </div>
-                    {!em.application_id && (
-                      <Badge tone="amber">Offen</Badge>
-                    )}
-                    {em.detected_status && (
-                      <Badge tone="sky">{em.detected_status}</Badge>
-                    )}
-                  </button>
-                ))
-              ) : (
-                <p className="py-4 text-center text-[13px] text-muted/50">
-                  Keine E-Mails importiert. Drag &amp; Drop oder Button nutzen.
-                </p>
+      </>
+    ),
+    import: (
+      <>
+        {/* #450: Dokument-Import (saubere Version, gleiche Logik wie Docs-Seite) */}
+        <DashboardDocumentImport pushToast={pushToast} refreshChrome={refreshChrome} />
+      </>
+    ),
+    recap: (
+      <>
+        {/* v1.7.0 (#576): Recap-Card — was hat sich seit deinem letzten Besuch getan */}
+        <RecapCard pushToast={pushToast} navigateTo={navigateTo} />
+      </>
+    ),
+    emails: (
+      <>
+        {/* Recent Emails (#136) */}
+        <Card className="overflow-hidden rounded-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">
+              <Mail size={14} className="mr-1.5 inline-block text-teal/60" />
+              E-Mails
+              {data.emails.filter((e) => !e.application_id).length > 0 && (
+                <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-[10px] font-bold text-amber">
+                  {data.emails.filter((e) => !e.application_id).length} offen
+                </span>
               )}
+            </h2>
+            <EmailUploadButton pushToast={pushToast} />
+          </div>
+          <div className="mt-3 grid gap-1.5">
+            {data.emails.length > 0 ? (
+              data.emails.slice(0, 6).map((em) => (
+                <button
+                  key={em.id}
+                  type="button"
+                  className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-white/[0.04] px-3 py-2 text-left transition hover:bg-white/[0.04]"
+                  onClick={async () => {
+                    try {
+                      const full = await api(`/api/emails/${em.id}`);
+                      setEmailDetail(full);
+                    } catch {
+                      setEmailDetail(em);
+                    }
+                  }}
+                >
+                  <span className={`shrink-0 text-sm ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
+                    {em.direction === "ausgang" ? "↗" : "↙"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] text-ink">{em.subject || "Ohne Betreff"}</p>
+                    <p className="truncate text-[11px] text-muted/50">
+                      {em.sender || em.recipients}
+                      {em.sent_date && <span className="ml-1.5">{formatDate(em.sent_date)}</span>}
+                    </p>
+                  </div>
+                  {!em.application_id && (
+                    <Badge tone="amber">Offen</Badge>
+                  )}
+                  {em.detected_status && (
+                    <Badge tone="sky">{em.detected_status}</Badge>
+                  )}
+                </button>
+              ))
+            ) : (
+              <p className="py-4 text-center text-[13px] text-muted/50">
+                Keine E-Mails importiert. Drag &amp; Drop oder Button nutzen.
+              </p>
+            )}
+          </div>
+        </Card>
+      </>
+    ),
+    gelernt: (
+      <>
+        {/* v1.7.0-beta.27 (#594 Stufe 2): „Was PBP ueber dich gelernt hat" */}
+        <LearningInsightsCard pushToast={pushToast} navigateTo={navigateTo} />
+      </>
+    ),
+  };
+
+  return (
+    <div id="page-dashboard" className="page active">
+      {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
+      <h1 className="sr-only">Dashboard</h1>
+      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
+      <OnboardingHintBanner tab="dashboard" />
+      <AdaptiveHintBanner page="dashboard" />
+
+      {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
+        <div className="mb-4 space-y-2">
+          {publicHints.filter((h) => !dismissedHints.includes(h.id)).map((hint) => (
+            <div
+              key={hint.id}
+              className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                hint.type === "warning"
+                  ? "border-amber/20 bg-amber/5 text-amber"
+                  : "border-sky/20 bg-sky/5 text-sky"
+              }`}
+            >
+              <div>
+                {hint.title && <span className="font-medium">{hint.title} </span>}
+                {hint.text}
+                {hint.url ? (
+                  <>
+                    {" "}
+                    <a
+                      href={hint.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      {hint.url_label || "Mehr erfahren"} →
+                    </a>
+                  </>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = [...dismissedHints, hint.id];
+                  setDismissedHints(next);
+                  try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
+                }}
+                className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                title="Schliessen"
+              >
+                <X size={14} />
+              </button>
             </div>
-          </Card>
+          ))}
         </div>
+      )}
+
+      {/* Bleibt ausserhalb der Bereichs-Mechanik: ein Hinweis, der sich
+          selbst ausblendet, sobald Ollama laeuft. */}
+      <LocalAiAutoDetectBanner pushToast={pushToast} navigateTo={navigateTo} />
+
+      {anpassenOffen ? (
+        <DashboardAnpassen
+          katalog={bereichsKatalog}
+          bereiche={bereiche}
+          onAendern={bereicheSpeichern}
+          onZuruecksetzen={bereicheZuruecksetzen}
+          onSchliessen={() => setAnpassenOffen(false)}
+        />
+      ) : (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAnpassenOffen(true)}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] text-muted/45 transition hover:text-sky"
+            title="Bereiche an- und abschalten, sortieren"
+          >
+            <Settings2 size={12} />
+            Dashboard anpassen
+          </button>
+        </div>
+      )}
+
+      {/* v1.7.35 (#985): die Bloecke stehen in der Reihenfolge, die der
+          Nutzer gewaehlt hat — an- und abschaltbar, einklappbar.
+          Nutzerwunsch vom 07.09.2026, dieselbe Bauweise wie der
+          Prompt-Katalog aus #979. */}
+      <div className="grid grid-cols-1 gap-5">
+        {bereiche.filter((b) => b.sichtbar).map((b) => {
+          const inhalt = bereichsInhalt[b.id];
+          if (!inhalt) return null;
+          const meta = bereichsKatalog.find((k) => k.id === b.id) || {};
+          return (
+            <DashboardBereich
+              key={b.id}
+              titel={meta.titel || b.id}
+              offen={b.offen}
+              onUmschalten={() => bereicheSpeichern(
+                bereiche.map((x) => (x.id === b.id ? { ...x, offen: !x.offen } : x)))}
+            >
+              {inhalt}
+            </DashboardBereich>
+          );
+        })}
       </div>
 
       {/* Email Detail Modal (#136) */}
