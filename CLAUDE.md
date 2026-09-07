@@ -1371,6 +1371,17 @@ Vollstaendigkeits-Guard laufen lassen:
 Seiten nachziehen; Stand 2026-09-07: 42 Seiten, zuletzt Scoring). Ausserdem: `git pull --rebase` und Commit-Kette nie
 so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
+**Und zwar konkret: das Kommando in so einer Kette NIE durch eine Pipe
+fuehren.** Am 2026-09-07 lief ein Wiki-Commit trotz
+`error: cannot pull with rebase` durch, weil die Kette
+`git pull --rebase 2>&1 | tail -2 && git add -A && git commit` lautete —
+der Exit-Code einer Pipe ist der des LETZTEN Glieds, hier also der von
+`tail`, und der ist immer 0. Die Regel sah eingehalten aus und war
+wirkungslos. Ausgegangen ist es gut (Fast-Forward, Gegenseite
+unveraendert), aber der Schutz hat nicht geschuetzt. Richtige
+Reihenfolge ohne Pipe: **erst committen, dann `git pull --rebase`
+(unverpipt, Exit-Code lesen), dann pushen.**
+
 ## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
 
 **Am Ende JEDER Arbeitssession diese Punkte durchgehen.** Die maszgebliche,
