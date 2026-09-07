@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import EmailListe from "@/components/EmailListe";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -742,6 +743,12 @@ export default function DocumentsPage() {
           </div>
         </div>
       </Modal>
+      {/* v1.7.35 (#985): zugezogen vom Dashboard. Nutzerhinweis vom
+          07.09.2026 — "E-Mails gehoert eher in den Bereich Docs". Eine
+          importierte Mail IST ein Dokument; hier sucht man danach. */}
+      <div className="mt-5">
+        <EmailListe pushToast={pushToast} />
+      </div>
     </div>
   );
 }

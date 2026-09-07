@@ -41,6 +41,7 @@ import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import OffenBlock from "@/components/OffenBlock";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
+import EmailUploadButton from "@/components/EmailUploadButton";
 import DashboardBereich from "@/components/DashboardBereich";
 import DashboardAnpassen from "@/components/DashboardAnpassen";
 
@@ -123,7 +124,6 @@ export default function DashboardPage() {
     meetings: [],
     emails: [],
   });
-  const [emailDetail, setEmailDetail] = useState(null);
   const [scraperHealth, setScraperHealth] = useState([]);
   // Wie viele Zeilen der Block "Offen" zeigt — die Readiness-Karte
   // darunter darf nicht wiederholen, was dort schon steht.
@@ -786,7 +786,12 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
-            <div className="mt-3 grid gap-2">
+            {/* v1.7.35 (#985): zwei Spalten und sechs statt drei Treffer.
+                Nutzerwunsch: "unten, ggf. sogar mehr Platz einraeumen
+                (zwei Spalten)". Der Block hatte die halbe Breite, weil
+                rechts daneben die E-Mails standen — die ziehen in den
+                Docs-Bereich um. */}
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
               {(() => {
                 const appliedHashes = new Set(
                   (data.applications || []).map((a) => a.job_hash).filter(Boolean)
@@ -794,7 +799,7 @@ export default function DashboardPage() {
                 const topJobs = data.jobs
                   .filter((j) => !appliedHashes.has(j.hash))
                   .sort((a, b) => (b.score || 0) - (a.score || 0))
-                  .slice(0, 3);
+                  .slice(0, 6);
                 return topJobs.length ? (
                   topJobs.map((job) => (
                     <button
@@ -813,12 +818,19 @@ export default function DashboardPage() {
                     </button>
                   ))
                 ) : (
-                  <p className="py-4 text-center text-[13px] text-muted/50">
-                    Noch keine Stellen.{" "}
-                    <button type="button" className="text-teal/70 hover:text-teal" onClick={() => startJobsuche()}>
-                      Suche starten
-                    </button>
-                  </p>
+                  /* v1.7.35 (#985): "Und die Stellensuche starten etwas
+                     prominenter." Vorher ein Textlink in einer grauen
+                     Zeile — der einzige Weg aus dem leeren Zustand sah
+                     aus wie eine Fussnote. */
+                  <div className="col-span-full flex flex-col items-center gap-3 py-6">
+                    <p className="text-[13px] text-muted/60">
+                      Noch keine Stellen gefunden.
+                    </p>
+                    <Button onClick={() => startJobsuche()}>
+                      <Search size={15} />
+                      Jobsuche starten
+                    </Button>
+                  </div>
                 );
               })()}
             </div>
@@ -835,71 +847,6 @@ export default function DashboardPage() {
       <>
         {/* v1.7.0 (#576): Recap-Card — was hat sich seit deinem letzten Besuch getan */}
         <RecapCard pushToast={pushToast} navigateTo={navigateTo} />
-      </>
-    ),
-    emails: (
-      <>
-        {/* Recent Emails (#136) */}
-        <Card className="overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">
-              <Mail size={14} className="mr-1.5 inline-block text-teal/60" />
-              E-Mails
-              {data.emails.filter((e) => !e.application_id).length > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-[10px] font-bold text-amber">
-                  {data.emails.filter((e) => !e.application_id).length} offen
-                </span>
-              )}
-            </h2>
-            <EmailUploadButton pushToast={pushToast} />
-          </div>
-          <div className="mt-3 grid gap-1.5">
-            {data.emails.length > 0 ? (
-              data.emails.slice(0, 6).map((em) => (
-                <button
-                  key={em.id}
-                  type="button"
-                  className="flex w-full min-w-0 items-center gap-2 rounded-lg border border-white/[0.04] px-3 py-2 text-left transition hover:bg-white/[0.04]"
-                  onClick={async () => {
-                    try {
-                      const full = await api(`/api/emails/${em.id}`);
-                      setEmailDetail(full);
-                    } catch {
-                      setEmailDetail(em);
-                    }
-                  }}
-                >
-                  <span className={`shrink-0 text-sm ${em.direction === "ausgang" ? "text-sky" : "text-amber"}`}>
-                    {em.direction === "ausgang" ? "↗" : "↙"}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] text-ink">{em.subject || "Ohne Betreff"}</p>
-                    <p className="truncate text-[11px] text-muted/50">
-                      {em.sender || em.recipients}
-                      {em.sent_date && <span className="ml-1.5">{formatDate(em.sent_date)}</span>}
-                    </p>
-                  </div>
-                  {!em.application_id && (
-                    <Badge tone="amber">Offen</Badge>
-                  )}
-                  {em.detected_status && (
-                    <Badge tone="sky">{em.detected_status}</Badge>
-                  )}
-                </button>
-              ))
-            ) : (
-              <p className="py-4 text-center text-[13px] text-muted/50">
-                Keine E-Mails importiert. Drag &amp; Drop oder Button nutzen.
-              </p>
-            )}
-          </div>
-        </Card>
-      </>
-    ),
-    gelernt: (
-      <>
-        {/* v1.7.0-beta.27 (#594 Stufe 2): „Was PBP ueber dich gelernt hat" */}
-        <LearningInsightsCard pushToast={pushToast} navigateTo={navigateTo} />
       </>
     ),
   };
@@ -1006,16 +953,6 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Email Detail Modal (#136) */}
-      {emailDetail && (
-        <EmailDetailModal
-          email={emailDetail}
-          applications={data.applications}
-          onClose={() => setEmailDetail(null)}
-          pushToast={pushToast}
-          onUpdate={() => { setEmailDetail(null); loadData(); }}
-        />
-      )}
     </div>
   );
 }
@@ -1107,227 +1044,6 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
   );
 }
 
-
-// v1.7.0-beta.27 (#594 Stufe 2): „Was PBP ueber dich gelernt hat"
-// Zeigt Aggregat aus user_activity_events der letzten 30 Tage:
-// Top-Pages mit Klicks/Verweildauer, Workflow-Stats, Top-Filter,
-// Top-Dismiss-Reasons. Plus Anti-Pattern-Hinweise wenn erkannt.
-// Card wird ausgeblendet bei < 50 Events (zu wenig Daten fuer Insights).
-function LearningInsightsCard({ pushToast, navigateTo }) {
-  const [data, setData] = useState(null);
-  const [llmInsights, setLlmInsights] = useState([]);
-  const [collapsed, setCollapsed] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/activity/aggregate?days=30")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => {});
-    // v1.7.0-beta.28 (#594 Stufe 3): LLM-Insights nachladen wenn vorhanden
-    fetch("/api/learning/insights?only_active=1&limit=10")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (!cancelled && d?.insights) setLlmInsights(d.insights); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const dismissInsight = async (id) => {
-    try {
-      const r = await fetch(`/api/learning/insights/${id}`, { method: "DELETE" });
-      if (r.ok) {
-        setLlmInsights((cur) => cur.filter((x) => x.id !== id));
-      }
-    } catch {}
-  };
-
-  if (!data) return null;
-  // Mindestens 50 Events oder ein Anti-Pattern oder ein LLM-Insight,
-  // sonst kein Mehrwert.
-  if (
-    data.total_events < 50
-    && (data.anti_patterns || []).length === 0
-    && llmInsights.length === 0
-  ) {
-    return null;
-  }
-
-  return (
-    <Card className="rounded-2xl">
-      <button
-        type="button"
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between"
-      >
-        <div className="text-left">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-            Was PBP gelernt hat
-          </p>
-          <p className="text-sm text-ink mt-1">
-            {data.total_events} Events in {data.window_days} Tagen
-            {data.anti_patterns?.length > 0 && (
-              <span className="ml-2 text-amber">
-                · {data.anti_patterns.length} Hinweis{data.anti_patterns.length === 1 ? "" : "e"}
-              </span>
-            )}
-            {llmInsights.length > 0 && (
-              <span className="ml-2 text-teal">
-                · {llmInsights.length} KI-Insight{llmInsights.length === 1 ? "" : "s"}
-              </span>
-            )}
-          </p>
-        </div>
-        <span className="text-muted/40 text-xs">{collapsed ? "▼" : "▲"}</span>
-      </button>
-
-      {!collapsed && (
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {/* Top-Pages */}
-          {data.top_pages?.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Top-Seiten</p>
-              <div className="space-y-1.5">
-                {data.top_pages.map((p) => (
-                  <div key={p.page} className="glass-card p-2 text-[12px]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-ink">{p.page}</span>
-                      <span className="text-muted/50">{p.views}× besucht</span>
-                    </div>
-                    <p className="text-[11px] text-muted/60 mt-0.5">
-                      {p.dwell_minutes} min Verweildauer · {p.clicks_per_view} Klicks/Besuch
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top-Dismiss-Reasons */}
-          {data.dismiss_reasons_top?.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
-                Top-Aussortier-Gruende
-              </p>
-              <div className="space-y-1.5">
-                {data.dismiss_reasons_top.map((r) => (
-                  <div key={r.reason} className="glass-card p-2 text-[12px] flex items-center justify-between">
-                    <span className="font-medium text-ink">{r.reason}</span>
-                    <span className="text-muted/50">{r.count}×</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top-Filters */}
-          {data.top_filters?.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Haeufige Filter</p>
-              <div className="space-y-1.5">
-                {data.top_filters.map((f) => (
-                  <div key={f.filter} className="glass-card p-2 text-[12px] flex items-center justify-between">
-                    <span className="font-mono text-ink">{f.filter}</span>
-                    <span className="text-muted/50">{f.count}×</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Workflow-Stats */}
-          {Object.keys(data.workflow_stats || {}).length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Workflows</p>
-              <div className="space-y-1.5">
-                {Object.entries(data.workflow_stats).map(([wf, stats]) => {
-                  const total = stats.start || 0;
-                  const completed = stats.complete || 0;
-                  const aborted = stats.abort || 0;
-                  const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  return (
-                    <div key={wf} className="glass-card p-2 text-[12px]">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-ink">{wf}</span>
-                        <span className={
-                          rate >= 70 ? "text-teal" :
-                          rate >= 40 ? "text-amber" : "text-coral"
-                        }>{rate}%</span>
-                      </div>
-                      <p className="text-[11px] text-muted/50 mt-0.5">
-                        {total} gestartet · {completed} abgeschlossen · {aborted} abgebrochen
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* LLM-Insights (v1.7.0-beta.28 / #594 Stufe 3) */}
-          {llmInsights.length > 0 && (
-            <div className="lg:col-span-2">
-              <p className="text-[11px] font-semibold text-teal/80 uppercase mb-2">
-                KI-Erkenntnisse aus deinem Verhalten
-              </p>
-              <div className="space-y-1.5">
-                {llmInsights.map((ins) => (
-                  <div
-                    key={ins.id}
-                    className="glass-card p-3 text-[12px] border-teal/20 bg-teal/[0.03]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal/10 text-teal">
-                            {ins.kind?.replace(/_/g, " ")}
-                          </span>
-                          <span className="font-medium text-ink">{ins.title}</span>
-                        </div>
-                        {ins.recommendation && (
-                          <p className="text-[11px] text-muted/70 mt-1.5">
-                            {ins.recommendation}
-                          </p>
-                        )}
-                        <p className="text-[10px] text-muted/40 mt-1">
-                          {ins.observed_count}× beobachtet
-                          {ins.app_version_at_creation && ` · seit v${ins.app_version_at_creation}`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => dismissInsight(ins.id)}
-                        className="text-[10px] text-muted/40 hover:text-coral"
-                        title="Nicht mehr anzeigen"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Anti-Patterns */}
-          {data.anti_patterns?.length > 0 && (
-            <div className="lg:col-span-2">
-              <p className="text-[11px] font-semibold text-amber/80 uppercase mb-2">
-                Beobachtungen
-              </p>
-              <div className="space-y-1.5">
-                {data.anti_patterns.map((ap, i) => (
-                  <div key={i} className="glass-card p-3 text-[12px] border-amber/20 bg-amber/[0.03]">
-                    <p className="text-muted/80">{ap.message}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
 
 
 function RecapCard({ pushToast, navigateTo }) {
@@ -1456,202 +1172,6 @@ function RecapCard({ pushToast, navigateTo }) {
   );
 }
 
-function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate }) {
-  const [assignApp, setAssignApp] = useState(email.application_id || "");
-  const [applying, setApplying] = useState(false);
-
-  async function confirmMatch() {
-    if (!assignApp) return;
-    try {
-      await postJson(`/api/emails/${email.id}/confirm-match`, { application_id: assignApp });
-      pushToast("E-Mail zugeordnet.", "success");
-      onUpdate();
-    } catch (err) {
-      pushToast(`Zuordnung fehlgeschlagen: ${err.message}`, "danger");
-    }
-  }
-
-  async function createApplicationFromEmail() {
-    try {
-      const result = await postJson(`/api/emails/${email.id}/create-application`, {});
-      pushToast(`Bewerbung "${result.title}" @ ${result.company} angelegt.`, "success");
-      onUpdate();
-    } catch (err) {
-      pushToast(`Bewerbung konnte nicht angelegt werden: ${err.message}`, "danger");
-    }
-  }
-
-  async function applyStatus(status) {
-    setApplying(true);
-    try {
-      await postJson(`/api/emails/${email.id}/apply-status`, { status });
-      pushToast(`Status '${status}' angewendet.`, "success");
-      onUpdate();
-    } catch (err) {
-      pushToast(`Status konnte nicht angewendet werden: ${err.message}`, "danger");
-    } finally {
-      setApplying(false);
-    }
-  }
-
-  async function deleteEmail() {
-    try {
-      await api(`/api/emails/${email.id}`, { method: "DELETE" });
-      pushToast("E-Mail gelöscht.", "success");
-      onUpdate();
-    } catch (err) {
-      pushToast(`Löschen fehlgeschlagen: ${err.message}`, "danger");
-    }
-  }
-
-  const replyTo = email.direction === "ausgang" ? email.recipients : email.sender;
-  const replyMailto = buildReplyMailto(replyTo, email.subject);
-  const senderMailto = buildMailto({ to: email.sender });
-  const recipientsMailto = buildMailto({ to: email.recipients });
-
-  return (
-    <Modal
-      open={true}
-      title={email.subject || "E-Mail"}
-      onClose={onClose}
-      footer={
-        <div className="flex justify-between">
-          <Button variant="ghost" className="text-coral" onClick={deleteEmail}>Löschen</Button>
-          <div className="flex gap-2">
-            {replyMailto && (
-              <a
-                href={replyMailto}
-                className="inline-flex items-center gap-1 rounded-lg bg-sky/15 px-3 py-1.5 text-sm font-semibold text-sky hover:bg-sky/25 transition-colors"
-                title={`Im Mail-Client antworten an ${extractEmailAddress(replyTo)}`}
-              >
-                <MessageSquareReply size={14} /> Antworten
-              </a>
-            )}
-            <Button onClick={onClose}>Schließen</Button>
-          </div>
-        </div>
-      }
-    >
-      <div className="grid gap-4">
-        <Card className="glass-card-soft rounded-xl shadow-none">
-          <div className="grid gap-1.5 text-sm">
-            <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Von:</span>
-              {senderMailto ? (
-                <a href={senderMailto} className="text-sky hover:underline">{email.sender}</a>
-              ) : (
-                <span className="text-ink">{email.sender}</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">An:</span>
-              {recipientsMailto ? (
-                <a href={recipientsMailto} className="text-sky hover:underline">{email.recipients}</a>
-              ) : (
-                <span className="text-ink">{email.recipients}</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Datum:</span>
-              <span className="text-ink">{formatDate(email.sent_date)}</span>
-            </div>
-            <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Richtung:</span>
-              <Badge tone={email.direction === "ausgang" ? "sky" : "amber"}>
-                {email.direction === "ausgang" ? "Ausgehend" : "Eingehend"}
-              </Badge>
-            </div>
-          </div>
-        </Card>
-
-        {/* Body text */}
-        {email.body_text && (
-          <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Inhalt</p>
-            <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
-              {email.body_text}
-            </div>
-          </Card>
-        )}
-
-        {/* Detected status */}
-        {email.detected_status && (
-          <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Erkannter Status</p>
-            <div className="mt-2 flex items-center gap-3">
-              <Badge tone="sky">{email.detected_status}</Badge>
-              <span className="text-xs text-muted/50">
-                Konfidenz: {Math.round((email.detected_status_confidence || 0) * 100)}%
-              </span>
-              {email.application_id && (
-                <Button size="sm" onClick={() => applyStatus(email.detected_status)} disabled={applying}>
-                  Status übernehmen
-                </Button>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {/* Attachments */}
-        {(email.attachments_meta || []).length > 0 && (
-          <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-              Anhänge ({email.attachments_meta.length})
-            </p>
-            <div className="mt-2 grid gap-1">
-              {email.attachments_meta.map((att, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-ink">
-                  <span className="text-muted/50">📎</span>
-                  <span>{att.filename}</span>
-                  {att.imported && <Badge tone="success">Importiert</Badge>}
-                  {att.duplicate_of && <Badge tone="neutral">Duplikat</Badge>}
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Assign to application */}
-        <Card className="glass-card-soft rounded-xl shadow-none">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung zuordnen</p>
-          <div className="mt-2 flex gap-2">
-            <SelectInput
-              className="flex-1"
-              value={assignApp}
-              onChange={(e) => setAssignApp(e.target.value)}
-            >
-              <option value="">— Nicht zugeordnet —</option>
-              {(applications || []).map((app) => (
-                <option key={app.id} value={app.id}>
-                  {app.title} @ {app.company}
-                </option>
-              ))}
-            </SelectInput>
-            <Button size="sm" onClick={confirmMatch} disabled={!assignApp}>
-              Zuordnen
-            </Button>
-          </div>
-          {email.match_confidence > 0 && email.match_confidence < 1 && (
-            <p className="mt-1 text-xs text-muted/50">
-              Auto-Match Konfidenz: {Math.round(email.match_confidence * 100)}%
-            </p>
-          )}
-          {/* #459: Bewerbung neu erstellen, wenn keine passt */}
-          {!email.application_id && (
-            <div className="mt-3 border-t border-white/[0.04] pt-3">
-              <p className="text-xs text-muted/50 mb-2">
-                Keine passende Bewerbung? Lege eine neue aus dieser E-Mail an — Subject als Titel, Absender-Domain als Firma.
-              </p>
-              <Button size="sm" variant="secondary" onClick={createApplicationFromEmail}>
-                Neue Bewerbung daraus erstellen
-              </Button>
-            </div>
-          )}
-        </Card>
-      </div>
-    </Modal>
-  );
-}
 
 
 function DashboardDocumentImport({ pushToast, refreshChrome }) {
@@ -1692,7 +1212,7 @@ function DashboardDocumentImport({ pushToast, refreshChrome }) {
         </div>
         <div className="flex items-center gap-2">
           <EmailUploadButton pushToast={pushToast} />
-          <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.csv,.json,.xml,.rtf" className="hidden"
+          <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.csv,.json,.xml,.rtf,.pptx,.xlsx,.odt,.odp,.ods" className="hidden"
             onChange={async (e) => { await processFiles(Array.from(e.target.files || [])); if (fileRef.current) fileRef.current.value = ""; }} />
           <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
             {uploading ? "Importiere..." : "Dateien auswaehlen"}
@@ -1714,63 +1234,3 @@ function DashboardDocumentImport({ pushToast, refreshChrome }) {
   );
 }
 
-
-function EmailUploadButton({ pushToast }) {
-  const fileRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/emails/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        pushToast(data.error || "E-Mail-Upload fehlgeschlagen", "danger");
-        return;
-      }
-      const matchInfo = data.match?.application
-        ? ` → ${data.match.application.company} (${Math.round(data.match.confidence * 100)}%)`
-        : " (nicht zugeordnet)";
-      const statusInfo = data.detected_status?.status
-        ? ` | Status: ${data.detected_status.status}`
-        : "";
-      const meetingInfo = data.meetings?.length
-        ? ` | ${data.meetings.length} Termin(e)`
-        : "";
-      const docInfo = data.imported_documents
-        ? ` | ${data.imported_documents} Dokument(e)`
-        : "";
-      pushToast(`E-Mail importiert${matchInfo}${statusInfo}${meetingInfo}${docInfo}`, "success");
-    } catch (err) {
-      pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  };
-
-  return (
-    <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".msg,.eml"
-        className="hidden"
-        onChange={handleUpload}
-      />
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
-      >
-        <Mail size={14} className="mr-1" />
-        {uploading ? "Importiere..." : "E-Mail importieren"}
-      </Button>
-    </>
-  );
-}

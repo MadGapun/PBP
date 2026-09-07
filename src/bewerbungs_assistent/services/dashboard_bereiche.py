@@ -72,19 +72,22 @@ BEREICHE: tuple[dict, ...] = (
     {"id": "recap", "titel": "Was hat sich getan?",
      "beschreibung": "Aktivität seit deinem letzten Besuch",
      "standard_sichtbar": False, "standard_offen": False},
-    # Diese beiden gehoeren fachlich woanders hin (Nutzerhinweis
-    # 07.09.2026: E-Mails in den Docs-Bereich, Gelerntes zu den
-    # Statistiken — "ist keine Funktion drin"). Bis der Umzug steht,
-    # bleiben sie hier waehlbar statt ersatzlos zu verschwinden: eine
-    # Funktion ohne neue Heimat zu loeschen waere schlechter als eine,
-    # die man einschalten kann.
-    {"id": "emails", "titel": "E-Mails",
-     "beschreibung": "Letzte importierte Nachrichten — zieht in den Docs-Bereich um",
-     "standard_sichtbar": False, "standard_offen": False},
-    {"id": "gelernt", "titel": "Was PBP gelernt hat",
-     "beschreibung": "Erkannte Muster — ziehen zu den Statistiken um",
-     "standard_sichtbar": False, "standard_offen": False},
 )
+
+# UMGEZOGEN, nicht abgeschafft (Nutzerhinweis 07.09.2026):
+#
+# * **E-Mails** stehen jetzt im Docs-Bereich. "E-Mails gehoert eher in
+#   den Bereich Docs" — stimmt: eine importierte Mail IST ein Dokument,
+#   und dort sucht man danach. Auf dem Dashboard nahm die Liste die
+#   halbe Breite neben den Top-Stellen ein, ohne eine Frage zu
+#   beantworten, die man auf dem Dashboard stellt.
+# * **Was PBP gelernt hat** steht jetzt bei den Statistiken. "ist keine
+#   Funktion drin" — der Block zeigt eine Auswertung und bietet keine
+#   Handlung an. Auf dem Dashboard steht, was zu TUN ist.
+#
+# Sie tauchen deshalb hier NICHT mehr auf. Ein Bestandsnutzer, der sie
+# in seiner gespeicherten Reihenfolge stehen hat, verliert sie still —
+# genau dafuer ist `_zusammenfuehren` da.
 
 _NACH_ID = {b["id"]: b for b in BEREICHE}
 
