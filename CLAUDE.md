@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.30** ist Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.31** ist Stable (`--latest`, 2026-09-07; Dashboard-Klarheit nach externem Design-Review — sieben Befunde an EINEM Bildschirm, dazu ein Praxisfund, der schwerer wiegt: der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt" (#980). Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,105 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.31 Stable) — Eine Information, ein Ort
+
+Ein externer Design-Review vom 05./06.09. lieferte zwei Screenshots und
+drei Saetze Kritik; die Pruefung am Code ergab sieben Befunde an EINEM
+Bildschirm (Epic #978). Dazu ein Praxisfund aus derselben Durchsicht,
+der schwerer wiegt als alle sieben zusammen. **Tests: 2770 / 2836.
+Schema v48 / v52 unveraendert. MCP-Tools 206 / 219.**
+
+**#980 zuerst, weil er Daten betrifft.** Der Aufgaben-Tab rief zwei
+Routen, die es nicht gibt. `.../reschedule` liess das Verschieben einer
+Nachfassung seit v1.7.12 in HTTP 404 enden — sichtbar, aber harmlos.
+`.../obsolete` dagegen hatte einen `catch`-Fallback auf `.../complete`:
+wer "hinfaellig" anklickte, speicherte **"erledigt"**. Keine
+Fehlermeldung, falscher Datensatz, und die Zeile zaehlte seitdem in den
+Reaktionszeiten (D29) als durchgefuehrte Nachfassung. MERKE: **ein
+Fallback, der eine andere Bedeutung speichert, ist keine
+Fehlertoleranz.** Kein Rueckbau moeglich (die Datensaetze tragen kein
+Herkunftsfeld) — `pbp_diagnose` listet Verdachtsfaelle, ausdruecklich
+ohne `auto_fix` und mit der Grenze im Text.
+
+**Die Wurzel war eine fehlende Kontrolle, nicht Unachtsamkeit.** Das
+Frontend nennt API-Pfade als Zeichenketten, und nichts vergleicht sie
+mit `app.routes`. Fuer Tab-IDs (G19/#846) und Status-Werte (G20/#896)
+gibt es genau solche Guards; fuer Routen fehlte er. Jetzt
+`tests/test_frontend_api_paritaet_980.py`.
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Ein Kommentar haelt nichts zusammen — zum dritten Mal.** Die
+Aggregation der drei Aufgaben-Toepfe stand ZWEIMAL im Code (MCP-Tool und
+REST-Endpunkt), verbunden nur durch den Satz "dieselbe Logik wie das
+MCP-Tool aufgaben_uebersicht". Er stimmte bereits nicht mehr: der eine
+Weg kannte `ueberholt`/`notiz`, der andere `erledigen_mit`. Nach
+`fit_analyse` gegen `calculate_score` (#963, fuenfmal derselbe
+Kommentar) und `db.dismiss_job` (#913) ist das die dritte Runde. Neu
+`services/aufgaben_sicht.py` als Nadeloehr. **Wo zwei Wege denselben
+Wert erzeugen, gehoert ein Aufruf hin, kein Hinweis.**
+
+(2) **Ein Alt-Test kann den Fehler festhalten statt ihn zu finden.**
+`test_weekend_has_highest_priority` stand mit `follow_ups_due=3` und der
+Erwartung "weekend" im Repo — genau das Verhalten, das #977 als falsch
+meldet. Beim Aendern eines Verhaltens den roten Alt-Test LESEN, bevor
+man ihn anpasst: er kann die Spezifikation sein oder der Fehler.
+
+(3) **Ein Waechter darf nicht mehr behaupten, als er kann.** Meine erste
+Fassung des #984-Guards nutzte Wortueberschneidung mit Schwellwert und
+wies damit den AUSLOESENDEN Fall als "ergaenzt" ab: "Es gibt
+ueberfaellige Nachfassaktionen." und "Einige Bewerbungen warten auf
+deine Rueckmeldung" teilen kein einziges Wort und sind dieselbe Aussage.
+Kein lexikalischer Vergleich findet das. Die Funktion heisst jetzt
+`beschreibungWiederholtWoertlich` und der Fall wird geloest, indem das
+FELD verschwindet. Umgekehrt war die im Issue vorgeschlagene
+Teilstring-Regel fuer das Etikett zu schwach: "Nachfassen" steckt nicht
+in "Nachfassaktionen" — der Guard haette seinen eigenen Gruendungsfall
+durchgelassen. Jetzt ueber den Wortstamm.
+
+(4) **Beim Bauen eines Paritaets-Guards zuerst die Fehlalarme klaeren.**
+Meine erste Fassung meldete fuenf Treffer: einer war ein Parser-Artefakt
+(die Regex hoerte am `?` eines Ternaers im Template-String auf), vier
+waren Fehlalarme, weil ein Frontend-Literal auf einen Server-Parameter
+trifft (`/api/workflow-prompt/interview_vorbereitung` gegen
+`{workflow_name}`). Ich habe gegengeprueft, dass alle vier Routen
+wirklich existieren — sonst haette die Lockerung den Waechter blind
+gemacht statt geschaerft.
+
+(5) **Platzhalter werden im Deutschen ZUSAMMENGESETZT.** Der PII-Pruefer
+kannte "muster" als Kopfwort, nicht "Musterbetrieb" — dieselbe Lehre wie
+#962 und #970. Praefix-Regel jetzt fuer `muster`/`beispiel`/
+`platzhalter`, BEWUSST nicht fuer `test` und `demo`: es gibt reale
+Firmen, deren Name mit "Test..." beginnt, und ein Pruefer, der reale
+Namen durchwinkt, ist schlimmer als keiner (#929).
+
+(6) **Zwei eigene Kommentare haben eigene Tests rot gemacht.** Ein Test,
+der prueft, dass eine falsche Route WEG ist, schlaegt an der Erklaerung
+an, warum sie weg ist. Solche Tests auf die DEFINITION pruefen
+(`const interviewPseudoMeetings`) oder Kommentarzeilen vorher
+herausfiltern.
+
+(7) **Beim Cherry-Pick den Installationsblock pruefen.** Ich habe den
+Pflicht-Block aus dem CHANGELOG auf `main` extrahiert und auf der
+Stable-Linie eingefuegt — er trug die Versionsnummer der Beta-Linie
+(v1.7.18). Der Download-Link haette die falsche Version installiert.
+Nach dem Einfuegen `grep` auf die neue Versionsnummer.
+
+(8) **Der Farbklassen-Guard G24 hat direkt gegriffen.** Mein erster
+Entwurf des neuen Blocks trug `text-violet` — ein Token, das es nicht
+gibt; Tailwind erzeugt dafuer keine Regel UND keinen Fehler.
+
+Dazu ein Test mit Verfallsdatum gefunden und behoben:
+`test_825_vergangener_termin_ohne_teilnehmer_und_reflexion` nutzte das
+feste Datum 2026-08-05 und fiel am 04.09. aus dem 30-Tage-Fenster der
+Reflexions-Pruefung — von allein rot, ohne Codeaenderung. Dritter Fall
+dieser Art nach `test_782` und #767.
+
+**Offen aus dem Epic:** G29/#979 (Prompt-Katalog als einzige Quelle,
+konfigurierbarer Schnellzugriff) braucht #981 Teil B zuerst. Der
+Screenshot `01_dashboard.png` wird mit #979 einmal erneuert statt
+zweimal.
 
 ## Stand 2026-09-02 (v1.7.24 Stable) — Fehler, die wie Erfolg aussehen
 
