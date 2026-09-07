@@ -62,6 +62,12 @@ AUSNAHMEN: dict[str, set[str]] = {
     "#670 Body": {"CORP: Tchibo GmbH"},
     "#671 Body": {"CORP: Konkreter Fall\n\nTchibo GmbH"},
     "#671 Kommentar 1": {"CORP: Fall\n\nTchibo GmbH", "CORP: Tchibo GmbH"},
+    # #930 erklaert die Praefix-Regel der Platzhalter-Erkennung und braucht
+    # dafuer ein Gegenbeispiel: "Alt GmbH" ist ein Platzhalter, ein realer
+    # Name mit demselben Wortanfang bleibt ein Treffer. Der genannte Name
+    # steht in KEINER Bewerbung — gegengeprueft mit issue_text_pruefen
+    # (#946), das gegen den echten Bestand sucht statt gegen ein Muster.
+    "#930 Kommentar 1": {"CORP: Altana AG"},
     # Release-Notes: Portale/Vermittler als Quellen-Feature (Adapter,
     # Probe-URLs, URL-Erkennung, Workday-DAX-Karriereportale) sowie der
     # Tchibo-Referenzfall (beta.86) und ein Catch-all-Fehlalarm auf die
