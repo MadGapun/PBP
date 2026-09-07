@@ -33,6 +33,95 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.38] - 2026-09-07 — 962 Vorschläge, von denen keiner half
+
+### Fixed
+
+- **Der Analyseplan schlug 962 Dokument-Zuordnungen vor (#991).** Wer
+  ihn aufrief — und die Anleitung empfiehlt ihn als **ersten** Schritt —
+  bekam eine Liste, mit der sich nicht arbeiten liess: einer einzigen,
+  längst abgeschlossenen Bewerbung wurden rund dreissig Dokumente
+  angeboten, darunter Lebensläufe, die erkennbar für acht ganz andere
+  Firmen geschrieben worden waren. Dieselben Dokumente tauchten
+  zusätzlich bei weiteren Bewerbungen auf.
+
+  Die Ursache: der Plan suchte den Firmennamen im **Volltext** jedes
+  Dokuments. Ein Firmenname im Fliesstext ist aber kein Hinweis auf
+  Zugehörigkeit — er steht in jeder Absage, jeder Signatur und in jedem
+  Anschreiben, das die Firma nur adressiert.
+
+  Dieselbe Frage wurde an anderer Stelle längst besser beantwortet:
+  `dokumente_ohne_bewerbung` lieferte für denselben Bestand **8 Fälle**,
+  jeden mit Begründung, Konfidenz und Beleg. Beide Wege sind jetzt
+  derselbe. Der Plan liefert nur noch Vorschläge mit benanntem
+  Verdachtsmoment, nennt zu jedem die Konfidenz und den Beleg, macht
+  **keinen** Vorschlag, wo kein Ziel erkennbar ist, und ist auf 15
+  Einträge gedeckelt — die vollständige Liste holt weiterhin
+  `dokumente_ohne_bewerbung`.
+
+  Der Volltext bleibt ein Signal, aber ein enges: nur bei Korrespondenz
+  (Mails, Absagen, Zusagen, Recruiter-Anfragen) und nur, wenn genau
+  **eine** Firma aus deinem Bestand darin vorkommt. Damit funktioniert
+  der ursprüngliche Fall weiter, für den das Ganze einmal gebaut wurde:
+  eine Mail, deren Dateiname nichts sagt, deren Text aber die Firma
+  nennt.
+
+- **Die Warnung vor abgeschlossenen Bewerbungen gilt jetzt überall.**
+  „Diese Bewerbung ist schon abgeschlossen — nur verknüpfen, wenn das
+  Dokument eindeutig dazugehört" stand nur im Analyseplan, obwohl beide
+  Wege dieselben Vorschläge machen. Eine Warnung an einem von zwei Wegen
+  ist keine Warnung.
+
+### Changed
+
+- **Store-Installation von Claude Desktop: die App-Kennung kommt jetzt
+  aus dem Paket** statt fest aus dem Code — ein Vorschlag aus der
+  Diskussion zu #990. Vorher hätte eine Umbenennung durch Anthropic dazu
+  geführt, dass Claude nach der Installation still nicht mehr
+  automatisch startet.
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.38.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.38.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.37] - 2026-09-07 — Eine Klammer
 
 Ein Anwender hat PBP zum ersten Mal installiert und gemeldet, dass sich
