@@ -1847,6 +1847,52 @@ def register(mcp, db, logger):
         except Exception:
             pass
 
+        # v1.7.32 (#981, D43): Bewerbungen mit einem Status, den die
+        # Whitelist nicht kennt.
+        #
+        # Der Stellen-Dialog bot bis v1.7.31 "Entwurf" an; `VALID_STATUSES`
+        # kennt den Wert nicht, und `POST /api/applications` prueste ihn
+        # nicht. Solche Bewerbungen sind fuer `bewerbung_status_aendern`,
+        # die Statusverteilung und die Status-Journey unsichtbar — sie
+        # sehen nicht kaputt aus, sie sind nur nirgends dabei.
+        #
+        # Kein auto_fix: welcher Status gemeint war, weiss nur der Mensch.
+        # `in_vorbereitung` ist der naheliegende Vorschlag, aber wer sich
+        # damals schon beworben hatte, braucht `beworben` samt Datum.
+        try:
+            from .bewerbungen import VALID_STATUSES
+            unbekannt = {}
+            for app in (db.get_applications() or []):
+                st = (app.get("status") or "").strip()
+                if st and st not in VALID_STATUSES:
+                    unbekannt.setdefault(st, []).append(app)
+            if unbekannt:
+                gesamt = sum(len(v) for v in unbekannt.values())
+                warnungen.append({
+                    "bereich": "Bewerbungen",
+                    "problem": (
+                        f"{gesamt} Bewerbung(en) tragen einen Status, den "
+                        "PBP nicht kennt: "
+                        + ", ".join(f"'{k}' ({len(v)}x)"
+                                    for k, v in sorted(unbekannt.items()))
+                        + ". Sie fehlen in der Statusverteilung und in der "
+                        "Status-Journey. Bis v1.7.31 konnte der Dialog im "
+                        "Stellen-Tab 'entwurf' erzeugen (#981)."),
+                    "loesung": (
+                        "Je Bewerbung entscheiden und mit "
+                        "bewerbung_status_aendern(id, 'in_vorbereitung') "
+                        "bzw. 'beworben' (dann mit Datum) korrigieren. "
+                        "Automatisch geht das nicht — welcher Status "
+                        "gemeint war, steht nirgends."),
+                    "eintraege": [
+                        {"bewerbung_id": a.get("id"), "firma": a.get("company"),
+                         "stelle": a.get("title"), "status": a.get("status")}
+                        for v in unbekannt.values() for a in v[:20]
+                    ],
+                })
+        except Exception:
+            pass
+
         # Bugreport-Hinweis bei kritischen Problemen
         if probleme:
             result["bugreport_hinweis"] = (

@@ -21,7 +21,9 @@ def register(mcp, db, logger):
         Verfügbare Workflows:
         - jobsuche_workflow: Geführter Jobsuche-Prozess (Kriterien → Suche → Ergebnisse → Bewerbung)
         - ersterfassung: Lockeres Profilerfassungs-Interview
-        - bewerbung_schreiben: Stellenspezifisches Anschreiben erstellen
+        - bewerbung_schreiben: Bewerbungsunterlagen (Lebenslauf und/oder
+          Anschreiben) zu einer konkreten Stelle; nimmt stelle, firma,
+          job_hash, bewerbung_id und nur='lebenslauf'|'anschreiben'
         - interview_vorbereitung: Interview-Vorbereitung mit STAR-Antworten
         - interview_simulation: Simuliertes Bewerbungsgespräch
         - profil_ueberpruefen: Profil anschauen und korrigieren
@@ -44,7 +46,7 @@ def register(mcp, db, logger):
                 "verfuegbare_workflows": [
                     {"name": "jobsuche_workflow", "beschreibung": "Geführter Jobsuche-Prozess"},
                     {"name": "ersterfassung", "beschreibung": "Lockeres Profilerfassungs-Interview"},
-                    {"name": "bewerbung_schreiben", "beschreibung": "Anschreiben erstellen"},
+                    {"name": "bewerbung_schreiben", "beschreibung": "Bewerbungsunterlagen (Lebenslauf und/oder Anschreiben) zu einer Stelle"},
                     {"name": "interview_vorbereitung", "beschreibung": "Interview-Vorbereitung"},
                     {"name": "interview_simulation", "beschreibung": "Simuliertes Bewerbungsgespräch"},
                     {"name": "profil_ueberpruefen", "beschreibung": "Profil korrigieren"},
@@ -214,7 +216,8 @@ DEIN STATUS:
 
 WAS KANN ICH FÜR DICH TUN?
   - "Starte eine Jobsuche" → jobsuche_workflow_starten()
-  - "Schreib mir ein Anschreiben" → workflow_starten(name='bewerbung_schreiben')
+  - "Schreib mir ein Anschreiben" oder "Lebenslauf anpassen" →
+    workflow_starten(name='bewerbung_schreiben')
   - "Bereite mich auf ein Interview vor" → workflow_starten(name='interview_vorbereitung')
   - "Exportiere meinen Lebenslauf als PDF" → lebenslauf_exportieren()
   - "Wie sieht mein Profil aus?" → profil_zusammenfassung()
@@ -285,40 +288,122 @@ ABLAUF:
 
 Sprich Deutsch und per Du. Sei nicht aufdringlich — biete an, draenge nicht."""
 
-    def _bewerbung_schreiben():
-        return """Erstelle Bewerbungsunterlagen (Lebenslauf + Anschreiben).
+    def _bewerbung_schreiben(stelle: str = "", firma: str = "",
+                             job_hash: str = "", bewerbung_id: str = "",
+                             nur: str = ""):
+        """Bewerbungsunterlagen zu einer konkreten Stelle (#981, D43).
 
-SCHRITTE:
-1. Rufe profil_zusammenfassung() auf + projekte_anzeigen() fuer die
-   vollen Projektbeschreibungen (STAR) — die Zusammenfassung kuerzt sie (#741)
-2. Frage nach Stelle und Firma (falls nicht bekannt)
-3. LEBENSLAUF-ANALYSE (3-PERSPEKTIVEN-CHECK):
-   → lebenslauf_bewerten(stelle, firma, stellenbeschreibung)
-   → Zeige Bewertung aus 3 Perspektiven:
-     - Personalberater: Karriereverlauf, Soft Skills, Führung
-     - ATS: Keywords, Format, Metriken
-     - Recruiter: Technische Tiefe, Projekte, Tech-Stack
-   → Zeige Gesamtscore und Top-Empfehlungen
-   → Frage: "Schwerpunkt setzen? (z.B. ATS-optimiert oder Personalberater-fokussiert?)"
-   → Bei Gewichtungsänderung: erneut lebenslauf_bewerten() mit neuen Gewichten aufrufen
-4. LEBENSLAUF ERSTELLEN:
-   → lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung)
-   → Relevante Skills und Erfahrungen werden hervorgehoben und priorisiert
-   → IMMER als DOCX — finale Formatierung macht der User
-   → Zeige dem User was angepasst wurde
-5. ANSCHREIBEN ERSTELLEN:
-   → Wähle die relevantesten Erfahrungen und Projekte
-   → Erstelle ein Anschreiben (max. 1 Seite, professionell aber persönlich)
-   → Zeige den Text — "Passt das so?"
-   → Nach Freigabe: anschreiben_exportieren (als DOCX)
-6. Bewerbung im Tracking erfassen (bewerbung_erstellen)
+        Vorher ohne Parameter — deshalb gab es keinen vorbefuellten Knopf
+        an Stelle und Bewerbung, obwohl das Muster seit G16/#706 steht
+        (`/api/workflow-prompt/{name}` reicht Query-Argumente nur durch,
+        wenn die Signatur sie kennt). K11/#694 hatte die uebrigen Builder
+        bereinigt, dieser blieb.
 
-REGELN:
-- Lebenslauf IMMER als DOCX (nie PDF)
-- Die 3-Perspektiven-Analyse kommt VOR dem Export — damit der User noch reagieren kann
-- Erst Analyse, dann Lebenslauf, dann Anschreiben, dann Tracking
-- Manchmal braucht der User nur den Lebenslauf — dann Anschreiben überspringen
-- Sprich Deutsch"""
+        `nur` ist 'lebenslauf', 'anschreiben' oder leer (beides bzw.
+        nachfragen).
+        """
+        umfang = (nur or "").strip().lower()
+        if umfang not in ("lebenslauf", "anschreiben"):
+            umfang = ""
+        hat_stelle = bool(stelle or firma or job_hash or bewerbung_id)
+
+        zeilen = []
+        if stelle:
+            zeilen.append(f"  Stelle: {stelle}")
+        if firma:
+            zeilen.append(f"  Firma: {firma}")
+        if job_hash:
+            zeilen.append(f"  job_hash: {job_hash}")
+        if bewerbung_id:
+            zeilen.append(f"  bewerbung_id: {bewerbung_id}")
+        if umfang:
+            zeilen.append(f"  Umfang: nur {umfang}")
+        kontext = ("\nKONTEXT (vorbefuellt):\n" + "\n".join(zeilen) + "\n"
+                   if zeilen else "")
+
+        if hat_stelle and umfang:
+            schritt0 = ("SCHRITT 0 entfaellt — Stelle und Umfang stehen oben "
+                        "im KONTEXT. NICHT nachfragen.")
+        elif hat_stelle:
+            schritt0 = """SCHRITT 0: UMFANG KLAEREN
+Die Stelle steht oben im KONTEXT — dazu NICHT nachfragen.
+Stelle EINE Frage: "Lebenslauf, Anschreiben oder beides?"
+Hinweis dazu: ein Anschreiben lohnt sich, wenn die Stelle eines
+verlangt oder der Nutzer eines moechte — der Lebenslauf fast immer."""
+        else:
+            schritt0 = """SCHRITT 0: KONTEXT KLAEREN
+Es ist keine Stelle bekannt. OHNE konkrete Stelle werden KEINE
+Unterlagen erstellt — ein Lebenslauf ohne Ziel ist kein angepasster
+Lebenslauf.
+  1. bewerbungen_anzeigen(status_filter="in_vorbereitung") und die
+     Treffer zur Auswahl anbieten.
+  2. Passt keine: nach Stelle und Firma fragen und im Bestand suchen
+     (firma_kontext(firmenname), stellen_anzeigen).
+  3. Dann EINE Frage zum Umfang: "Lebenslauf, Anschreiben oder beides?"
+     Ein Anschreiben lohnt sich, wenn die Stelle eines verlangt oder
+     der Nutzer eines moechte — der Lebenslauf fast immer."""
+
+        lebenslauf = "" if umfang == "anschreiben" else """
+SCHRITT 4: LEBENSLAUF
+  → lebenslauf_bewerten(stelle, firma, stellenbeschreibung) — drei
+    Perspektiven: Personalberater (Karriereverlauf, Soft Skills,
+    Fuehrung), ATS (Keywords, Format, Metriken), Recruiter (fachliche
+    Tiefe, Projekte, Werkzeuge). Gesamtscore und Top-Empfehlungen zeigen.
+  → Fragen: "Schwerpunkt setzen?" — bei Aenderung erneut bewerten.
+  → lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung),
+    IMMER als DOCX. Zeigen, was angepasst wurde.
+  → stilarchiv_speichern(kind="cv")"""
+
+        anschreiben = "" if umfang == "lebenslauf" else """
+SCHRITT 5: ANSCHREIBEN
+  → Die relevantesten Erfahrungen und Projekte waehlen, max. eine Seite,
+    professionell aber persoenlich.
+  → Text zeigen — "Passt das so?"
+  → Nach Freigabe: anschreiben_exportieren (DOCX)
+  → stilarchiv_speichern(kind="cover_letter") + bewerbung_stil_tracken"""
+
+        tracking = ("""
+SCHRITT 6: TRACKING
+  Die Bewerbung existiert bereits (bewerbung_id oben im KONTEXT):
+  bewerbung_bearbeiten mit cv_path bzw. cover_letter_path (#448).
+  KEINE neue Bewerbung anlegen — das gaebe eine Dublette.
+  Danach fragen, ob der Status auf "beworben" gehen soll."""
+            if bewerbung_id else """
+SCHRITT 6: TRACKING
+  Ist die Bewerbung schon erfasst? Wenn ja: bewerbung_bearbeiten mit
+  cv_path bzw. cover_letter_path (#448), KEINE zweite anlegen.
+  Wenn nein: bewerbung_erstellen — mit der Einstiegsfrage aus #170
+  ("willst du dich bewerben" oder "hast du dich schon beworben").""")
+
+        return f"""Erstelle Bewerbungsunterlagen: Lebenslauf und/oder Anschreiben,
+immer zu einer konkreten Stelle.
+{kontext}
+{schritt0}
+
+SCHRITT 1: PROFIL
+  profil_zusammenfassung() + projekte_anzeigen() — die Zusammenfassung
+  kuerzt die STAR-Texte, die vollen brauchst du (#741).
+
+SCHRITT 2: STELLE
+  → job_hash bekannt: die Anzeige aus dem Bestand holen (Volltext,
+    C39/#952). Meldet sie beschreibung_kurz, biete
+    stellenbeschreibung_nachladen an, bevor du schreibst.
+  → bewerbung_id bekannt: bewerbung_details(); die verknuepfte Stelle
+    nutzen.
+  → nur Stelle und Firma: fragen, ob der Anzeigentext vorliegt.
+
+SCHRITT 3: STIL
+  stilarchiv_kontext(kind="cv"){' und kind="cover_letter"' if umfang != "lebenslauf" else ""} —
+  fruehere Fassungen als Stilvorgabe (#577). Was schon einmal gut
+  ankam, wird wiederverwendet statt neu erfunden.
+{lebenslauf}{anschreiben}{tracking}
+
+REGELN
+- Ohne konkrete Stelle keine Unterlagen.
+- Anschreiben nur, wenn gewuenscht oder gefordert.
+- Immer DOCX, nie PDF — die finale Formatierung macht der Nutzer.
+- Analyse VOR dem Export, damit der Nutzer noch reagieren kann.
+- Sprich Deutsch."""
 
     def _interview_vorbereitung(stelle: str = "", firma: str = ""):
         # G16 (#706, v1.7.6): vorbefuellbar — der Button in der Bewerbungs-

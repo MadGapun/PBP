@@ -6,6 +6,37 @@ import hashlib
 import re
 
 
+# v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
+# ("warte_auf_rueckmeldung", "abgesagt"), die das alte Tool einfach
+# durchwinkte — die Statistik konnte sie nicht einordnen. Die
+# Schema-v37-Migration hat den Bestand repariert, diese Liste verhindert
+# das erneute Eindringen.
+#
+# v1.7.32 (#981, D43): auf Modulebene gehoben. Sie stand als lokale
+# Variable in `bewerbung_status_aendern` — damit konnte sie NUR dieses
+# eine Tool schuetzen. `POST /api/applications` schrieb jeden Wert
+# durch, und der Stellen-Dialog bot "entwurf" an: ein Status, den
+# danach weder die Statistik noch die Status-Journey kennt. Eine
+# Whitelist, die nur an einer von mehreren Schreibstellen liegt, ist
+# keine Whitelist (dieselbe Lehre wie #913 und #924 — Regeln gehoeren
+# ans Nadeloehr).
+VALID_STATUSES = {
+    "in_vorbereitung", "offen", "beworben",
+    "eingangsbestaetigung", "interview", "zweitgespraech",
+    "interview_abgeschlossen", "angebot", "angenommen",
+    "abgelehnt", "zurueckgezogen", "abgelaufen",
+    # v1.7.10 (#779/D27): Prozess endete ohne Zutun des Bewerbers
+    # (Insolvenz, Stellenstreichung, Einstellungsstopp, Reorg). Zaehlt
+    # NICHT in die withdrawal_rate; ein vorher vorliegendes Angebot
+    # bleibt in der offer_rate erhalten.
+    "arbeitgeber_ausgefallen",
+}
+
+# Die zwei Werte, mit denen eine Bewerbung ENTSTEHT (#170). Alles andere
+# ergibt sich aus dem Verlauf.
+EINSTIEGS_STATUS = ("in_vorbereitung", "beworben")
+
+
 def _normalize_company_for_dedup(name: str) -> str:
     """Normalisiert Firmennamen fuer Duplikat-Erkennung (#531).
 
@@ -824,22 +855,6 @@ def register(mcp, db, logger):
                     "hinweis": "Du hast eine ID des falschen Typs uebergeben. "
                                "Bewerbungs-IDs haben das Praefix 'APP-'."}
 
-        # v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
-        # ("warte_auf_rueckmeldung", "abgesagt") die durch das alte Tool
-        # einfach durchgewunken wurden — Statistik konnte sie nicht einordnen.
-        # Schema-v37-Migration repariert den Bestand, hier verhindern wir das
-        # erneute Eindringen.
-        VALID_STATUSES = {
-            "in_vorbereitung", "offen", "beworben",
-            "eingangsbestaetigung", "interview", "zweitgespraech",
-            "interview_abgeschlossen", "angebot", "angenommen",
-            "abgelehnt", "zurueckgezogen", "abgelaufen",
-            # v1.7.10 (#779/D27): Prozess endete ohne Zutun des Bewerbers
-            # (Insolvenz, Stellenstreichung, Einstellungsstopp, Reorg).
-            # Zaehlt NICHT in die withdrawal_rate; ein vorher vorliegendes
-            # Angebot bleibt in der offer_rate erhalten.
-            "arbeitgeber_ausgefallen",
-        }
         if neuer_status not in VALID_STATUSES:
             # Frueher genutzte Custom-Status auf den jetzt offiziellen Wert mappen
             mapping = {

@@ -29,7 +29,11 @@ const EMPTY_APPLICATION = {
   title: "",
   company: "",
   url: "",
-  status: "beworben",
+  // #981 (D43): Vorgabe ist "will mich bewerben". Im Stellen-Tab steht
+  // man in aller Regel VOR der Bewerbung — und nur bei `beworben`
+  // entsteht ein Auto-Nachfass (#522), der sonst zu frueh laeuft.
+  status: "in_vorbereitung",
+  applied_at: "",
   notes: "",
 };
 
@@ -427,14 +431,56 @@ export default function JobsPage() {
   }
 
   async function saveApplication() {
+    const entwurf = applicationDialog.draft;
     try {
-      await postJson("/api/applications", applicationDialog.draft);
+      const erg = await postJson("/api/applications", entwurf);
       setApplicationDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
-      pushToast("Bewerbung angelegt.", "success");
+      // D43 (#981): wer sich erst bewerben WILL, braucht als Naechstes
+      // die Unterlagen — und zwar zu genau dieser Stelle. Bisher lag der
+      // Prompt nur im Dashboard-Schnellzugriff, ohne Stellenbezug, und
+      // der Nutzer musste Stelle und Firma im Chat noch einmal nennen.
+      if (entwurf.status === "in_vorbereitung") {
+        pushToast(
+          "Bewerbung angelegt. Unterlagen jetzt mit Claude erstellen?",
+          "success",
+          {
+            duration: 12000,
+            action: {
+              label: "Anleitung kopieren",
+              onClick: () => unterlagenAnleitungKopieren(entwurf, erg?.id || ""),
+            },
+          }
+        );
+      } else {
+        pushToast("Bewerbung angelegt.", "success");
+      }
       navigateTo("bewerbungen");
     } catch (error) {
       pushToast(`Bewerbung konnte nicht angelegt werden: ${error.message}`, "danger");
+    }
+  }
+
+  // Vorbefuellte Anleitung fuer Lebenslauf und Anschreiben (#981, D43).
+  // `nur` bleibt leer — der Prompt fragt nach dem Umfang, weil nicht
+  // jede Stelle ein Anschreiben verlangt.
+  async function unterlagenAnleitungKopieren(entwurf, bewerbungId) {
+    try {
+      const params = new URLSearchParams({
+        stelle: entwurf?.title || "",
+        firma: entwurf?.company || "",
+        job_hash: entwurf?.job_hash || "",
+        bewerbung_id: bewerbungId || "",
+      });
+      const resolved = await api(`/api/workflow-prompt/bewerbung_schreiben?${params}`);
+      await navigator.clipboard.writeText(resolved?.prompt || "");
+      pushToast(
+        "Anleitung kopiert — jetzt in Claude Desktop einfuegen (Strg+V).",
+        "success",
+        { duration: 7000 }
+      );
+    } catch (error) {
+      pushToast(`Anleitung konnte nicht geladen werden: ${error.message}`, "danger");
     }
   }
 
@@ -1414,12 +1460,23 @@ export default function JobsPage() {
               <TextInput value={applicationDialog.draft[key] || ""} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, [key]: event.target.value } }))} />
             </Field>
           ))}
-          <Field label="Status">
-            <SelectInput value={applicationDialog.draft.status} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value } }))}>
-              <option value="beworben">Beworben</option>
-              <option value="entwurf">Entwurf</option>
+          {/* #981 (D43): die Einstiegsfrage aus #170 statt einer
+              Status-Auswahl. Hier stand "Entwurf" — ein Wert, den
+              VALID_STATUSES nicht kennt; die so erzeugte Bewerbung war
+              danach fuer die Statistik und die Status-Journey unsichtbar.
+              G20/#896 hatte genau diesen Wert aus STATUS_OPTIONS entfernt,
+              die Inline-Liste hier sah der Guard nicht. */}
+          <Field label="Wo stehst du?">
+            <SelectInput value={applicationDialog.draft.status} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value, applied_at: event.target.value === "beworben" ? current.draft.applied_at : "" } }))}>
+              <option value="in_vorbereitung">Ich will mich bewerben</option>
+              <option value="beworben">Ich habe mich bereits beworben</option>
             </SelectInput>
           </Field>
+          {applicationDialog.draft.status === "beworben" ? (
+            <Field label="Beworben am">
+              <TextInput type="date" value={applicationDialog.draft.applied_at || ""} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, applied_at: event.target.value } }))} />
+            </Field>
+          ) : null}
           <Field label="Notizen">
             <TextArea rows={4} value={applicationDialog.draft.notes} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, notes: event.target.value } }))} />
           </Field>

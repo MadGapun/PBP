@@ -542,67 +542,33 @@ def register_prompts(mcp, db, logger):
         return build_kennlerngespraech_prompt(db)
 
     @mcp.prompt()
-    def bewerbung_schreiben(stelle: str = "", firma: str = "") -> str:
-        """Erstellt ein stellenspezifisches Anschreiben mit Export-Option."""
-        return f"""Erstelle Bewerbungsunterlagen für folgende Stelle:
-Stelle: {stelle}
-Firma: {firma}
+    def bewerbung_schreiben(stelle: str = "", firma: str = "",
+                            job_hash: str = "", bewerbung_id: str = "",
+                            nur: str = "") -> str:
+        """Bewerbungsunterlagen: Lebenslauf und/oder Anschreiben zu einer Stelle.
 
-SCHRITTE:
-1. Rufe profil_zusammenfassung() auf — lerne den Bewerber kennen
-   → Danach projekte_anzeigen() — die VOLLEN Projektbeschreibungen (STAR).
-     Die Zusammenfassung kuerzt sie; fuer konkrete Bewerbungstexte brauchst du den Volltext (#741)
-2. Analysiere die Stellenanforderungen (wenn URL vorhanden, darauf eingehen)
-3. LEBENSLAUF-ANALYSE (3-PERSPEKTIVEN-CHECK):
-   → Rufe lebenslauf_bewerten(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...') auf
-   → Zeige dem User die Bewertung aus allen 3 Perspektiven:
-     - PERSONALBERATER: Karriereverlauf, Soft Skills, Führung
-     - ATS: Keyword-Treffer, Format, messbare Erfolge
-     - HR-RECRUITER: Technische Tiefe, Projekt-Komplexität
-   → Zeige den Gesamtscore und die Top-Empfehlungen
-   → Frage: "Möchtest du einen Schwerpunkt setzen? (z.B. mehr ATS-optimiert oder mehr auf Personalberater ausgerichtet?)"
-   → Wenn der User Gewichtung ändern will, rufe lebenslauf_bewerten() erneut mit angepassten Gewichten auf
-4. LEBENSLAUF ERSTELLEN:
-   → Erstelle einen auf die Stelle angepassten Lebenslauf
-   → Relevante Skills und Erfahrungen werden hervorgehoben und priorisiert
-   → Export als DOCX: lebenslauf_angepasst_exportieren(stelle='{stelle}', firma='{firma}', stellenbeschreibung='...')
-   → WICHTIG: Immer DOCX — die finale Formatierung macht der Mensch!
-   → Zeige dem User was du angepasst hast (welche Skills/Erfahrungen priorisiert)
-5. ANSCHREIBEN ERSTELLEN:
-   → Wähle die relevantesten Erfahrungen und Projekte aus dem Profil
-     (Volltext aus projekte_anzeigen() nutzen, nicht die gekuerzte Zusammenfassung)
-   → Erstelle ein Anschreiben das:
-     - Sofort einen Bezug zur Stelle herstellt
-     - 2-3 konkrete Erfolge/Projekte aus dem Profil einbindet
-     - Die Motivation für genau diese Stelle deutlich macht
-     - Professionell aber persönlich klingt
-     - Max. 1 Seite lang ist
-   → Zeige den Text dem User — "Passt das so? Soll ich etwas ändern?"
-   → Nach Freigabe: anschreiben_exportieren(text, '{stelle}', '{firma}', 'docx')
-6. Frage ob die Bewerbung erfasst werden soll:
-   → "Soll ich die Bewerbung in dein Tracking aufnehmen?"
-   → bewerbung_erstellen(title='{stelle}', company='{firma}')
+        v1.7.32 (#981, D43): der Text kam bis hierher aus einer ZWEITEN
+        Fassung, die neben `tools/workflows.py::_bewerbung_schreiben`
+        stand — zwei Anleitungen fuer denselben Vorgang, die schon
+        auseinandergelaufen waren (diese hier kannte das Stilarchiv nicht
+        und erfasste die Bewerbung am Ende immer neu). Derselbe Fall wie
+        `fit_analyse` gegen `calculate_score` (#963). Jetzt gibt es einen
+        Text; der Katalog aus #979 wird ihn ebenfalls von hier beziehen.
 
-REGELN:
-- Sprich Deutsch
-- Lebenslauf IMMER als DOCX (nie PDF) — finale Formatierung macht der User
-- Die 3-Perspektiven-Analyse zeigt Stärken und Schwaechen VOR dem Export — so kann der User noch reagieren
-- Zeige erst die Analyse, dann den Lebenslauf, dann das Anschreiben, dann biete Tracking an
-- Daten werden gespeichert — der User kann alles im Dashboard wiederfinden
-- Manchmal braucht der User nur den Lebenslauf — wenn er das sagt, überspringe das Anschreiben
-
-CV-QUALITAETSREGELN (professionelle Best Practices):
-- Antichronologisch: Neueste Position zuerst
-- Max. 2-3 Seiten — bei 10+ Jahren Erfahrung max. 3, sonst max. 2
-- Jede Position: Aufgaben UND Erfolge (nicht nur Aufgabenliste!)
-- Erfolge IMMER quantifizieren: Budget, Teamgröße, Zeitersparnis, %-Verbesserung
-- Lücken proaktiv schließen: Weiterbildung, Ehrenamt, Familienzeit
-- Datumsformat einheitlich: MM/JJJJ (z.B. 04/2019 - 03/2023)
-- Skills mit Kontext: Nicht nur "Python" sondern "Python (8 Jahre, Data Engineering)"
-- Profil-Statement: 3-4 Sätze mit Kernkompetenz, Branchenfokus, Alleinstellungsmerkmal
-- Keywords der Stellenanzeige EXAKT übernehmen (ATS-Systeme filtern rigoros)
-- Jede Anpassung transparent machen: "Für diese Stelle habe ich X priorisiert weil..."
-- Keine generischen Floskeln: "teamfähig" → stattdessen konkretes Beispiel"""
+        Args:
+            stelle: Stellenbezeichnung.
+            firma: Arbeitgeber.
+            job_hash: Hash der Stelle im Bestand — dann wird der
+                Anzeigen-Volltext genutzt.
+            bewerbung_id: bestehende Bewerbung — sie wird ERGAENZT statt
+                eine zweite anzulegen.
+            nur: 'lebenslauf', 'anschreiben' oder leer (beides bzw.
+                nachfragen).
+        """
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["bewerbung_schreiben"](
+            stelle=stelle, firma=firma, job_hash=job_hash,
+            bewerbung_id=bewerbung_id, nur=nur)
 
     @mcp.prompt()
     def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:
