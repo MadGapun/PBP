@@ -28,6 +28,7 @@ EXPECTED_TOOL_NAMES = {
     "profil_status",
     "profil_zusammenfassung",
     # v1.7.3 (#741): STAR-Volltext aller Projekte + Projekt-IDs
+    "positionen_anzeigen",
     "projekte_anzeigen",
     # v1.7.5 (#742, A20): Umlaut-Restaurierung Altbestand (Dry-Run-Default)
     "profil_umlaute_reparieren",
@@ -349,7 +350,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 208  # v1.7.39 (#989): +umgang_mit_unbekannt_setzen
+        assert len(tools) == 209  # v1.7.40 (#994): +positionen_anzeigen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
