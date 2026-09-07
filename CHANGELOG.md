@@ -33,6 +33,187 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.31] - 2026-09-07 — Eine Information, ein Ort (Dashboard-Klarheit)
+
+Ein externer Design-Review vom 05./06.09.2026 lieferte zwei Screenshots
+und drei Saetze Kritik. Die Pruefung am Code ergab sieben Befunde an
+einem einzigen Bildschirm. Sie einzeln zu beheben waere moeglich
+gewesen, aber sie greifen ineinander: alle betreffen Reihenfolge,
+Zustaendigkeit und Textmenge derselben Blocke.
+
+Der Befund in einem Satz: **das Dashboard sagte dasselbe an mehreren
+Stellen in verschiedenen Zaehlweisen.** Oben eine rote Karte
+"2 Aufgaben ueberfaellig", darunter "Es gibt ueberfaellige
+Nachfassaktionen", darunter "Prioritaet 3 — Bei 2 Bewerbung(en)
+solltest du nachhaken". Fachlich sind das zwei verschiedene Toepfe.
+Fuer den Menschen davor ist es eine Frage: was muss ich tun. Er sah
+dreimal eine Zwei und musste selbst herausfinden, dass es nicht
+dieselbe Zwei ist.
+
+Dazu ein Praxisfund aus derselben Durchsicht, der nichts mit Optik zu
+tun hat und schwerer wiegt als alle sieben zusammen (#980).
+
+### Fixed
+
+- **Der Tagesimpuls kannte die Lage nicht (#977, G28).** Am Samstag
+  gewann der Ruhe-Kontext, bevor ueberhaupt geprueft wurde, ob etwas
+  faellig ist: `detect_context` gab `weekend` zurueck, danach erst kam
+  `follow_ups_due`. Auf einem Bildschirm stand oben "2 Aufgaben
+  ueberfaellig" und unten "Morgen geht es weiter. Heute darf es
+  stiller sein." Gegenueber jemandem, der bei der Agentur Rechenschaft
+  ueber seine Bewerbungen ablegt, ist das der falsche Satz. Ausserdem
+  waren ueberfaellige Todos ueberhaupt kein Eingang der Funktion — die
+  rote Warnung ganz oben und der Impuls ganz unten wurden aus
+  verschiedenen Signalen gespeist. Und zehn Wochenend-Saetze trugen
+  zusaetzlich den Kontext `default` und konnten damit an jedem
+  beliebigen Werktag erscheinen. Jetzt: Offenes schlaegt Ruhe, die
+  ueberfaelligen Aufgaben kommen aus derselben Quelle wie die Warnung,
+  und Ruhe gibt es, sobald nichts mehr offen ist.
+
+- **Aufgaben-Tab: zwei Routen, die es nicht gibt (#980, D42).** Das
+  Verschieben einer Nachfassung endete seit v1.7.12 in HTTP 404 —
+  `POST .../reschedule` war nie registriert. Schwerer wiegt der
+  Nebenfund: `POST .../obsolete` existiert ebenfalls nicht, hatte aber
+  einen `catch`-Fallback auf `.../complete`. **Wer eine Nachfassung als
+  "hinfaellig" markierte, speicherte sie damit still als "erledigt".**
+  Keine Fehlermeldung, falscher Datensatz — und die Zeile zaehlte
+  seitdem in den Reaktionszeiten (D29) und in der Stil-Auswertung als
+  durchgefuehrte Nachfassung. Ein Fallback, der eine andere Bedeutung
+  speichert, ist keine Fehlertoleranz.
+
+  **Was das fuer deine Daten heisst:** die Datensaetze tragen kein
+  Herkunftsfeld. Ob eine erledigte Nachfassung ueber den Aufgaben-Tab
+  oder ueber den Kalender kam, laesst sich nicht rekonstruieren — es
+  gibt deshalb bewusst keinen automatischen Rueckbau. `pbp_diagnose`
+  meldet jetzt erledigte Nachfassungen ohne zugehoerige Erledigt-Notiz
+  als Liste zum Durchsehen; wo es nicht stimmt, korrigiert
+  `follow_up_hinfaellig(id)`. Die Liste ist ein Anhaltspunkt, kein
+  Befund.
+
+- **"100% Profil vollstaendig" stand ausserhalb des Onboardings
+  (#974, G26).** Die Kennzahl wurde in der Readiness-Karte
+  bedingungslos gerendert — bei Stufe `nachfassen` also dauerhaft neben
+  einer Aufgabe, die mit dem Profil nichts zu tun hat. Dieselbe
+  Redundanz war schon einmal Kernkritik ("auf jeder Seite, teils
+  mehrfach") und war bereinigt worden; sie kam an neuer Stelle zurueck,
+  weil es keine Regel gab, sondern nur eine Gewohnheit.
+
+- **Vier Etiketten fuer eine Aussage (#976, G27).** Badge, Kicker,
+  Headline und Beschreibungssatz sagten dasselbe. Uebrig bleibt, was
+  Information traegt: die Aussage und die Aktion daneben.
+
+- **"Prioritaet 2" und "Prioritaet 3" ohne eine 1 (#976, G27).** Die
+  Nummer war ein festes Etikett je Aufgabentyp, kein Rang in der
+  angezeigten Liste. Fehlte der Typ `jobsuche`, begann die Liste
+  sichtbar bei 2 und der Nutzer suchte nach etwas, das es nicht gab.
+
+- **"Interview vorbereiten" kannte den Termin nicht (#982, G30).** Die
+  Empfehlung entstand aus der ANZAHL der Bewerbungen im
+  Interview-Status; drei Bloecke tiefer stand das konkrete
+  Zweitgespraech in drei Tagen. Eine Zaehlung ist keine Handlung. Jetzt
+  erzeugt jeder Gespraechstermin der naechsten sieben Tage genau eine
+  Vorbereitungszeile mit Datum — und keine, wenn dazu schon ein
+  Vorbereitungs-Todo existiert.
+
+### Changed
+
+- **Ein Block "Offen" statt drei Zaehlweisen (#976/#983, G27/G31).**
+  Ueberfaelliges, Faelliges dieser Woche, Nachfassungen und Termine
+  stehen in einer Liste, gruppiert nach ueberfaellig / heute / diese
+  Woche, mit Herkunft an jeder Zeile — aus derselben Quelle wie der
+  Aufgaben-Tab und das MCP-Tool `aufgaben_uebersicht`. Die Bloecke
+  "Anstehende Termine" und "Offene Erinnerungen" gehen darin auf
+  (Nutzerentscheidung 07.09.2026). K17 bleibt in der Sache erhalten:
+  eine Nachfassung ist kein Termin und traegt nie eine Uhrzeit.
+
+- **Neu `services/aufgaben_sicht.py` als Nadeloehr.** Die Aggregation
+  der drei Aufgaben-Toepfe stand zweimal im Code — im MCP-Tool und im
+  REST-Endpunkt — zusammengehalten von einem Kommentar ("dieselbe Logik
+  wie das MCP-Tool"). Der Kommentar stimmte bereits nicht mehr: der eine
+  Weg kannte `ueberholt` und `notiz`, der andere `erledigen_mit`. Wer
+  dieselbe Nachfassung im Tab und ueber Claude ansah, bekam zwei
+  verschiedene Datensaetze. Zum dritten Mal dasselbe Muster nach
+  `fit_analyse` gegen `calculate_score` (#963) — **ein Kommentar haelt
+  nichts zusammen.**
+
+- **Pseudo-Termine entfallen (#982).** Aus Interview-Nachfassungen
+  wurden Termine "um 09:00 Uhr" erfunden, die es nie gab. Die
+  Vorbereitung entsteht jetzt aus dem echten Termin.
+
+### Added
+
+- **Zwei Dashboard-Regeln in AGENTS.md (#974/#984, G26/G32).**
+  Onboarding-Fortschritt gehoert auf die Profilseite und in die
+  Onboarding-Stufen; eine Dashboard-Zeile besteht aus Titel, Datum oder
+  Zahl und Herkunft. Beide Befunde hatten dieselbe Wurzel: es gab keine
+  Regel, nur Gewohnheit — und jede neue Ansicht entschied es erneut mit
+  "ja". Die Regeln stehen zusaetzlich als pruefbare Funktionen in
+  `frontend/src/lib/dashboardRegeln.js` mit Kipp-Test in der CI.
+
+- **Leerer Zustand benannt (#984, G32).** Ist nichts offen, steht dort
+  eine Zeile "Nichts offen" — kein leerer Rahmen und kein Erklaertext.
+  Nur in diesem Zustand darf der Tagesimpuls zur Ruhe raten.
+
+- **Paritaets-Guard Frontend-Routen gegen Backend (#980, D42).** Alle
+  `/api/...`-Literale aus `frontend/src` werden gegen `app.routes`
+  geprueft. Er haette beide Funde aus #980 am Tag ihrer Entstehung
+  gemeldet und faengt die naechsten. Muster wie G19/#846 (Tab-IDs) und
+  G20/#896 (Status, Subnav).
+
+- **`pbp_diagnose` meldet verdaechtige Nachfassungen (#980).** Siehe
+  oben; ausdruecklich ohne `auto_fix`.
+
+### Known Issues
+
+- Einen Schalter zum Ausblenden von Hilfetexten gibt es nicht, und es
+  wird auch keiner gebaut (#984). Zeilen, die einen braeuchten, gehoeren
+  stattdessen weg. Onboarding-Hints bleiben einzeln wegklickbar.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.31.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.31.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.30] - 2026-09-04
 
 Letzter Schritt der Berufsfeld-Recherche: PBP lernt die Fachbegriffe
