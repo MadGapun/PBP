@@ -951,7 +951,8 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None, dict | Non
                 # Ehrliche Absage statt stillem Nichts: der Aufrufer
                 # traegt sie in `extraction_status` und in die Antwort.
                 ocr_info = {"format": "nicht_unterstuetzt", "grund": str(exc)}
-        if extracted.strip() == "" and ocr_info is None                 and office_text.kann_lesen(fname):
+        if (extracted.strip() == "" and ocr_info is None
+                and office_text.kann_lesen(fname)):
             ocr_info = {"format": "leer",
                         "grund": office_text.leer_grund(filepath)}
 
