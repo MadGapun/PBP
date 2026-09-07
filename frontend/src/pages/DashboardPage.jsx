@@ -1,30 +1,13 @@
 ﻿import {
   ArrowRight,
-  BarChart3,
-  BellRing,
-  BookOpen,
-  Briefcase,
   Calendar,
-  Check,
   ClipboardList,
-  Download,
-  HandCoins,
-  Info,
-  Lightbulb,
   Mail,
-  MailPlus,
   MessageSquareReply,
-  Mic,
-  Network,
-  PlayCircle,
-  PlusCircle,
   Search,
   Send,
-  TrendingDown,
   Upload,
-  UserCheck,
   RefreshCw,
-  Video,
   X,
 } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
@@ -56,6 +39,7 @@ import {
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import OffenBlock from "@/components/OffenBlock";
+import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
 
 function positiveSalary(value) {
   if (value === null || typeof value === "undefined") return null;
@@ -123,7 +107,7 @@ function buildAnnualSalaryMetrics(jobs = []) {
 }
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, pushToast, startJobsuche } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche } = useApp();
   const lastLoadErrorRef = useRef({ message: "", at: 0 });
   const [loading, setLoading] = useState(true);
   const [impulse, setImpulse] = useState(null);
@@ -756,104 +740,17 @@ export default function DashboardPage() {
       <LearningInsightsCard pushToast={pushToast} navigateTo={navigateTo} />
 
       <div id="dashboard-content" className="grid gap-5">
-        {/* Schnellzugriff (full width) */}
-        <Card className="rounded-2xl">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
-          </div>
-          {/* v1.6.5 (#543): Erklaerungs-Hinweis was Klick macht. Default offen,
-              minimierbar, Status persistent in localStorage — selbe Optik wie
-              der Quellen-Tipp in Einstellungen (SourceSelectionList.jsx).
-              WICHTIG: Nur dieser Hilfstext ist einklappbar — die Karten kommen
-              SEPARAT darunter und bleiben immer sichtbar. */}
-          <details
-            className="mt-1.5 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 group"
-            open={quickAccessHelpOpen}
-            onToggle={(e) => {
-              const next = e.currentTarget.open;
-              setQuickAccessHelpOpen(next);
-              try { localStorage.setItem("pbp_dashboard_quickhelp_open", next ? "1" : "0"); } catch {}
-            }}
-          >
-            <summary className="cursor-pointer list-none flex items-center gap-2 text-[12px] text-muted/80">
-              <Info size={13} className="shrink-0 text-sky/70" />
-              <span className="flex-1">
-                <strong className="text-ink/90">Was ist der Schnellzugriff?</strong>
-              </span>
-              <span className="text-muted/50 text-[10px] group-open:rotate-90 transition-transform shrink-0">▶</span>
-            </summary>
-            <p className="mt-2 pl-[21px] text-[12px] text-muted/80 leading-relaxed">
-              Beispiel-Prompts fuer Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
-              kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfuegen und absenden.
-              Du kannst auch frei mit Claude reden; das hier sind nur Vorschlaege fuer haeufige Workflows.
-              Die <strong className="text-ink/90">vollstaendige Liste aller Prompts</strong> findest
-              du unter „Hilfe &amp; Support" → Reiter „Prompts".
-            </p>
-          </details>
-          {/* v1.6.7 (#561): Kuratiertes 4×3-Grid (12 Karten in 4 Kategorien).
-               Entfernt: Uebersicht, Netzwerk aufbauen, Tipps & Tricks (sind im
-               Hilfe-Reiter „Prompts" verfuegbar — siehe #562). Umbenannt:
-               Erste Schritte → Profil, Profil pruefen → Profil-Check.
-               Begründung: Schnellzugriff dient als Werbe-Screenshot der haeufigsten
-               Workflows; vollstaendiger Prompt-Katalog gehoert in die Hilfe. */}
-          {[
-            {
-              title: "Profil",
-              items: [
-                { prompt: "/ersterfassung", label: "Kennenlernen", desc: "Profil im Gespraech erstellen", icon: PlayCircle },
-                { prompt: "/willkommen", label: "Wo stehe ich?", desc: "Dein aktueller Stand", icon: BookOpen },
-                { prompt: "/profil_erweiterung", label: "Dokumente analysieren", desc: "Profil ergaenzen, Skills extrahieren, CV bewerten", icon: PlusCircle },
-              ],
-            },
-            {
-              title: "Jobsuche & Bewerbung",
-              items: [
-                { prompt: "/jobsuche_workflow", label: "Jobsuche starten", desc: "Jobboersen durchsuchen lassen", icon: Search },
-                { prompt: "/bewerbung_schreiben", label: "Bewerbung schreiben", desc: "Anschreiben erstellen lassen", icon: Send },
-                { prompt: "/auto_bewerbung", label: "Inbound erfassen", desc: "Recruiter hat sich gemeldet", icon: MailPlus },
-              ],
-            },
-            {
-              title: "Interview & Verhandlung",
-              items: [
-                { prompt: "/interview_vorbereitung", label: "Interview vorbereiten", desc: "Typische Fragen ueben", icon: Briefcase },
-                { prompt: "/interview_simulation", label: "Uebungsgespraech", desc: "Probelauf mit Claude", icon: Mic },
-                { prompt: "/gehaltsverhandlung", label: "Gehalt verhandeln", desc: "Strategie besprechen", icon: HandCoins },
-              ],
-            },
-            {
-              title: "Analyse & Strategie",
-              items: [
-                { prompt: "/profil_analyse", label: "Staerken erkennen", desc: "Was kann ich besonders gut?", icon: BarChart3 },
-                { prompt: "/profil_ueberpruefen", label: "Profil-Check", desc: "Fehler finden und korrigieren", icon: UserCheck },
-                { prompt: "/ablehnungs_coaching", label: "Aus Absagen lernen", desc: "Muster erkennen, Strategie anpassen", icon: TrendingDown },
-              ],
-            },
-          ].map((group) => (
-            <div key={group.title} className="mt-3">
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-teal/60">{group.title}</p>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                {group.items.map(({ prompt, label, desc, icon: Icon, isNew }) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    className="glass-tab flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition"
-                    onClick={() => copyPrompt(prompt)}
-                  >
-                    <Icon size={16} className="shrink-0 text-teal/50" />
-                    <div className="min-w-0">
-                      <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink/90">
-                        {label}
-                        {isNew ? <span className="rounded bg-teal/15 px-1.5 py-px text-[10px] font-bold text-teal">NEU</span> : null}
-                      </span>
-                      <span className="block truncate text-[11px] text-muted/60">{desc}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </Card>
+        {/* Schnellzugriff — v1.7.33 (#979, G29): die Karten kamen bis
+            v1.7.32 aus einer festen Liste HIER, mit Prompt, Label,
+            Beschreibung und Icon; dieselben Titel standen noch einmal
+            im META-Dict von dashboard.py. Jetzt rendert die Komponente
+            aus /api/prompts, also aus services/prompt_katalog.py, und
+            der Nutzer waehlt selbst, was hier steht. */}
+        <SchnellzugriffKarten
+          copyPrompt={copyPrompt}
+          openHelp={openHelp}
+          pushToast={pushToast}
+        />
 
         <div className="grid gap-3 xl:grid-cols-2">
           <Card className="overflow-hidden rounded-2xl">

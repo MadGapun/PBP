@@ -122,15 +122,31 @@ def test_562_tipps_und_tricks_resolves(setup_env):
 
 
 # ============= #561 — Schnellzugriff Karten (lebt im Frontend) ===============
-def test_561_dashboard_curated_layout_marker_in_jsx(setup_env):
-    """DashboardPage.jsx enthaelt den 4x3-Grid-Hinweis (#561 Marker)."""
-    from pathlib import Path
-    src = Path("frontend/src/pages/DashboardPage.jsx").read_text(encoding="utf-8")
-    # Kuratiert auf 4x3 = entferne „Zum Nachlesen", „Uebersicht",
-    # „Netzwerk aufbauen", „Tipps & Tricks" aus Schnellzugriff
-    assert "title: \"Profil\"" in src, "Erste Schritte sollte zu 'Profil' umbenannt sein"
-    assert "Profil-Check" in src, "'Profil pruefen' sollte 'Profil-Check' heissen"
-    # Diese drei sind nicht mehr im Schnellzugriff
-    assert "/bewerbungs_uebersicht" not in src or "// removed" in src.lower()
-    # Die Karte „Tipps & Tricks" wurde entfernt aus Schnellzugriff (kein „Zum Nachlesen"-Block mehr)
-    assert "title: \"Zum Nachlesen\"" not in src
+def test_561_schnellzugriff_bleibt_kuratiert(setup_env):
+    """Der Schnellzugriff zeigt eine Auswahl, nicht alles (#561).
+
+    Bis v1.7.32 stand diese Auswahl fest im JSX, und dieser Test las sie
+    dort. Seit #979 (G29) kommt sie aus `services/prompt_katalog.py`;
+    die Zusage aus #561 gilt unveraendert, sie hat nur einen anderen
+    Ort — und ist dort auch fuer den Nutzer aenderbar.
+
+    Nebeneffekt: der Test las die Datei ueber einen RELATIVEN Pfad und
+    haette aus einem fremden Arbeitsverzeichnis heraus einen Fehler
+    geworfen statt zu pruefen (DoD 8c). Er braucht jetzt gar keinen.
+    """
+    from bewerbungs_assistent.services import prompt_katalog
+
+    standard = [e for e in prompt_katalog.alle() if e.get("standard")]
+    assert 0 < len(standard) < len(prompt_katalog.EINTRAEGE), (
+        "Der Schnellzugriff soll eine Auswahl sein, nicht der ganze Katalog")
+
+    # Die vier aus #561 entfernten Karten sind weiter im Katalog
+    # erreichbar, aber nicht im Standard.
+    im_standard = {e["id"] for e in standard}
+    for ausgelagert in ("bewerbungs_uebersicht", "netzwerk_strategie",
+                        "tipps_und_tricks"):
+        assert prompt_katalog.eintrag(ausgelagert), ausgelagert
+        assert ausgelagert not in im_standard, ausgelagert
+
+    # Die Umbenennung aus #561 steht im Katalog.
+    assert prompt_katalog.eintrag("profil_ueberpruefen")["titel"] == "Profil-Check"

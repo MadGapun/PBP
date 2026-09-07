@@ -3,6 +3,18 @@ import os
 import tempfile
 
 import pytest
+import pathlib
+
+
+def _repo(*teile) -> pathlib.Path:
+    """Pfad relativ zum Repo, nicht zum Arbeitsverzeichnis.
+
+    Diese Tests lasen ihre Dateien ueber einen RELATIVEN Pfad und
+    bestanden nur, solange pytest im Repo-Wurzelverzeichnis lief. Aus
+    einem fremden Verzeichnis heraus warfen sie FileNotFoundError —
+    gruen an der gewohnten Stelle ist kein Beweis (DoD 8c).
+    """
+    return pathlib.Path(__file__).resolve().parents[1].joinpath(*teile)
 
 
 @pytest.fixture
@@ -61,7 +73,7 @@ def test_518_valid_types_pass_through(setup_env):
 def test_526_ba_url_format_check():
     """Code in bundesagentur.py nutzt jobdetail/{ref_nr} statt jobsuche/suche?id=..."""
     from pathlib import Path
-    src = Path("src/bewerbungs_assistent/job_scraper/bundesagentur.py").read_text(encoding="utf-8")
+    src = _repo("src", "bewerbungs_assistent", "job_scraper", "bundesagentur.py").read_text(encoding="utf-8")
     # Neue Form: jobdetail/{ref_nr}
     assert '"url": f"https://www.arbeitsagentur.de/jobsuche/jobdetail/' in src
     # Alte Form sollte weg sein
@@ -73,7 +85,7 @@ def test_526_ba_url_format_check():
 def test_527_freelancermap_detail_fetch_in_code():
     """Code in freelancermap.py hat Detail-Fetch-Logik fuer Beschreibung."""
     from pathlib import Path
-    src = Path("src/bewerbungs_assistent/job_scraper/freelancermap.py").read_text(encoding="utf-8")
+    src = _repo("src", "bewerbungs_assistent", "job_scraper", "freelancermap.py").read_text(encoding="utf-8")
     # Detail-Fetch-Schleife muss da sein
     assert "DETAIL_FETCH_LIMIT" in src
     # Beschreibung wird gesetzt (nicht nur leer).

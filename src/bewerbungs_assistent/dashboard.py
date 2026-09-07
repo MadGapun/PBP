@@ -1018,83 +1018,56 @@ async def api_get_document_analysis_prompt(doc_id: str, request: Request):
 
 @app.get("/api/prompts")
 async def api_list_prompts():
-    """v1.6.7 (#562): Listet alle verfuegbaren MCP-Prompts mit Metadaten.
+    """Der Prompt-Katalog (#979, G29) — eine Quelle fuer alle Anzeigen.
 
-    Liefert pro Prompt: name, kategorie, titel, beschreibung. Der eigentliche
-    Prompt-Body wird weiter ueber /api/workflow-prompt/{name} on-demand
-    geladen, damit dieser Index leichtgewichtig bleibt.
+    Bis v1.7.32 standen Kategorie, Titel und Beschreibung hier in einem
+    META-Dict und ein zweites Mal fest einprogrammiert im Frontend. Eine
+    Umbenennung musste zweimal passieren, ein neuer Prompt dreimal. Und
+    die Hilfe-Liste nannte sich "vollstaendig", zeigte aber nur die
+    Prompts aus `_prompt_registry`.
+
+    Jetzt kommt beides — Hilfe-Liste UND Schnellzugriff — aus
+    `services/prompt_katalog.py`. `eintraege` sind die Karten (ein
+    Eintrag darf feste Parameter tragen), `schnellzugriff` ist die
+    Auswahl des Nutzers oder der Katalog-Standard.
+
+    Der eigentliche Prompt-Body wird weiter ueber
+    /api/workflow-prompt/{name} on-demand geladen, damit dieser Index
+    leichtgewichtig bleibt.
     """
-    from .tools.workflows import _prompt_registry
-    prompts_funcs = _prompt_registry(_db)
+    from .services import prompt_katalog
 
-    # Kategorisierung + UI-Metadaten — abgestimmt auf den Schnellzugriff
-    # nach #561, plus „Weitere" fuer alles was im Schnellzugriff nicht
-    # auftaucht.
-    META = {
-        # PROFIL
-        "ersterfassung":          {"kategorie": "Profil", "titel": "Kennenlernen",
-                                   "beschreibung": "Profil im Gespraech erstellen"},
-        "willkommen":             {"kategorie": "Profil", "titel": "Wo stehe ich?",
-                                   "beschreibung": "Dein aktueller Stand"},
-        "profil_erweiterung":     {"kategorie": "Profil", "titel": "Dokumente analysieren",
-                                   "beschreibung": "Profil ergaenzen, Skills extrahieren, CV bewerten"},
-        "profil_sync":            {"kategorie": "Profil", "titel": "Profil-Sync",
-                                   "beschreibung": "Profil mit hochgeladenen Dokumenten abgleichen"},
-        "bewerbungs_uebersicht":  {"kategorie": "Profil", "titel": "Uebersicht",
-                                   "beschreibung": "Was laeuft gerade?"},
-        # JOBSUCHE & BEWERBUNG
-        "jobsuche_workflow":      {"kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche starten",
-                                   "beschreibung": "Jobboersen durchsuchen lassen"},
-        # v1.7.32 (#981 D, #979 D): beide Etiketten waren falsch. Der
-        # Workflow erstellt Lebenslauf UND Anschreiben, nicht nur eines;
-        # und `auto_bewerbung` baut eine Bewerbung aus URL oder
-        # Anzeigentext — wer damit eine Recruiter-Anfrage erfassen
-        # wollte, landete in einem anderen Anwendungsfall.
-        "bewerbung_schreiben":    {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbungsunterlagen",
-                                   "beschreibung": "Lebenslauf und/oder Anschreiben zu einer Stelle"},
-        "auto_bewerbung":         {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung aus Anzeige",
-                                   "beschreibung": "URL oder Anzeigentext rein, Bewerbung raus"},
-        "bewerbung_vorbereitung": {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
-                                   "beschreibung": "Schritt fuer Schritt zur fertigen Bewerbung"},
-        # INTERVIEW & VERHANDLUNG
-        "interview_vorbereitung": {"kategorie": "Interview & Verhandlung", "titel": "Interview vorbereiten",
-                                   "beschreibung": "Typische Fragen ueben"},
-        "interview_simulation":   {"kategorie": "Interview & Verhandlung", "titel": "Uebungsgespraech",
-                                   "beschreibung": "Probelauf mit Claude"},
-        "gehaltsverhandlung":     {"kategorie": "Interview & Verhandlung", "titel": "Gehalt verhandeln",
-                                   "beschreibung": "Strategie besprechen"},
-        # ANALYSE & STRATEGIE
-        "profil_analyse":         {"kategorie": "Analyse & Strategie", "titel": "Staerken erkennen",
-                                   "beschreibung": "Was kann ich besonders gut?"},
-        "profil_ueberpruefen":    {"kategorie": "Analyse & Strategie", "titel": "Profil-Check",
-                                   "beschreibung": "Fehler finden und korrigieren"},
-        "ablehnungs_coaching":    {"kategorie": "Analyse & Strategie", "titel": "Aus Absagen lernen",
-                                   "beschreibung": "Muster erkennen, Strategie anpassen"},
-        "netzwerk_strategie":     {"kategorie": "Analyse & Strategie", "titel": "Netzwerk aufbauen",
-                                   "beschreibung": "Kontakte gezielt nutzen"},
-        # WEITERE
-        "tipps_und_tricks":       {"kategorie": "Weitere", "titel": "Tipps & Tricks",
-                                   "beschreibung": "Versteckte Funktionen entdecken"},
-        "faq":                    {"kategorie": "Weitere", "titel": "FAQ",
-                                   "beschreibung": "Erste-Schritte-Guide"},
+    eintraege = prompt_katalog.alle()
+    gewaehlt = prompt_katalog.auswahl(_db)
+    return {
+        # Rueckwaertskompatibel: `prompts` und `count` heissen wie bisher.
+        "prompts": eintraege,
+        "count": len(eintraege),
+        "kategorien": list(prompt_katalog.KATEGORIEN),
+        "schnellzugriff": gewaehlt,
+        "schnellzugriff_standard": prompt_katalog.standard_auswahl(),
     }
 
-    out = []
-    for name in sorted(prompts_funcs.keys()):
-        meta = META.get(name, {})
-        out.append({
-            "name": name,
-            "kategorie": meta.get("kategorie", "Weitere"),
-            "titel": meta.get("titel", name),
-            "beschreibung": meta.get("beschreibung", ""),
-        })
-    # Stabile Sortierung: erst nach Kategorie-Reihenfolge, dann nach Titel
-    KATEGORIE_REIHEN = [
-        "Profil", "Jobsuche & Bewerbung", "Interview & Verhandlung",
-        "Analyse & Strategie", "Weitere",
-    ]
-    out.sort(key=lambda p: (KATEGORIE_REIHEN.index(p["kategorie"]) if p["kategorie"] in KATEGORIE_REIHEN else 999, p["titel"]))
-    return {"prompts": out, "count": len(out)}
+
+@app.put("/api/prompts/schnellzugriff")
+async def api_set_schnellzugriff(request: Request):
+    """Welche Katalogeintraege im Dashboard-Schnellzugriff stehen (#979).
+
+    Speichert in `profile_settings` — dasselbe Muster wie die
+    weggeklickten Onboarding-Hints (#652): die Auswahl ueberlebt
+    Neustart und Update.
+    """
+    from .services import prompt_katalog
+
+    body = await request.json()
+    ids = body.get("prompts")
+    if not isinstance(ids, list):
+        return JSONResponse(
+            {"error": "prompts muss eine Liste von Katalog-Kennungen sein"},
+            status_code=400)
+    erg = prompt_katalog.auswahl_setzen(_db, ids)
+    return {"status": "ok", **erg,
+            "schnellzugriff": prompt_katalog.auswahl(_db)}
 
 
 @app.get("/api/workflow-prompt/{workflow_name}")

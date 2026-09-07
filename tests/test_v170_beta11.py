@@ -3,6 +3,18 @@ import os
 import tempfile
 
 import pytest
+import pathlib
+
+
+def _repo(*teile) -> pathlib.Path:
+    """Pfad relativ zum Repo, nicht zum Arbeitsverzeichnis.
+
+    Diese Tests lasen ihre Dateien ueber einen RELATIVEN Pfad und
+    bestanden nur, solange pytest im Repo-Wurzelverzeichnis lief. Aus
+    einem fremden Verzeichnis heraus warfen sie FileNotFoundError —
+    gruen an der gewohnten Stelle ist kein Beweis (DoD 8c).
+    """
+    return pathlib.Path(__file__).resolve().parents[1].joinpath(*teile)
 
 
 @pytest.fixture
@@ -136,7 +148,7 @@ def test_580_api_compare_missing_job(setup_env):
 
 def test_v170_beta11_components_in_jsx():
     from pathlib import Path
-    src = Path("frontend/src/pages/ApplicationsPage.jsx").read_text(encoding="utf-8")
+    src = _repo("frontend", "src", "pages", "ApplicationsPage.jsx").read_text(encoding="utf-8")
     assert "ApplicationJobsSection" in src
     assert "ApplicationAufwandSection" in src
     assert "StellenVergleichModal" in src

@@ -19,6 +19,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+import pathlib
+
+
+def _repo(*teile) -> pathlib.Path:
+    """Pfad relativ zum Repo, nicht zum Arbeitsverzeichnis.
+
+    Diese Tests lasen ihre Dateien ueber einen RELATIVEN Pfad und
+    bestanden nur, solange pytest im Repo-Wurzelverzeichnis lief. Aus
+    einem fremden Verzeichnis heraus warfen sie FileNotFoundError —
+    gruen an der gewohnten Stelle ist kein Beweis (DoD 8c).
+    """
+    return pathlib.Path(__file__).resolve().parents[1].joinpath(*teile)
 
 
 @pytest.fixture
@@ -201,7 +213,7 @@ def test_567_terminal_application_does_not_block(setup_env):
 # ============= #570 Direkt-Upload Idempotenz ===============
 def test_570_uploadDocumentFile_signature_accepts_options():
     """Frontend-Helper akzeptiert options.applicationId."""
-    src = Path("frontend/src/document-upload.js").read_text(encoding="utf-8")
+    src = _repo("frontend", "src", "document-upload.js").read_text(encoding="utf-8")
     assert "options.applicationId" in src
     assert "link_application_id" in src
 
