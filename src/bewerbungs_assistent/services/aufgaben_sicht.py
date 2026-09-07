@@ -101,6 +101,7 @@ def _todos(db, status: str) -> list[dict]:
             # v1.7.23 (#945): der Aufrufer soll nicht wissen muessen, aus
             # welchem Topf ein Eintrag stammt — die Sicht nennt den
             # passenden Aufruf selbst.
+            "erstellt_am": t.get("created_at") or "",
             "erledigen_mit": f"todo_erledigen('{t['id']}')",
             "hinfaellig_mit": f"todo_hinfaellig('{t['id']}')",
         })
@@ -133,6 +134,7 @@ def _nachfassungen(db) -> list[dict]:
             "uhrzeit": "",
             "bewerbung_id": fu.get("application_id"),
             "firma": app.get("company"),
+            "erstellt_am": fu.get("created_at") or "",
             "erledigen_mit": f"follow_up_erledigen('{_kurz(fu.get('id'))}')",
             "hinfaellig_mit": f"follow_up_hinfaellig('{_kurz(fu.get('id'))}')",
         })
@@ -159,6 +161,7 @@ def _termine(db, tage: int) -> list[dict]:
             "ort": m.get("location") or "",
             "bewerbung_id": m.get("application_id"),
             "firma": m.get("app_company") or m.get("company"),
+            "erstellt_am": m.get("created_at") or "",
             "erledigen_mit": f"meeting_bearbeiten('{_kurz(m.get('id'))}')",
         })
     return eintraege
@@ -315,6 +318,78 @@ def uebersicht(db, *, status: str = "offen", bis_datum: str = "",
     }
 
 
+
+# ── "Neu seit dem letzten Mal" (#985) ───────────────────────────────
+#
+# Nutzerhinweis vom 07.09.2026 zum Recap-Block:
+#
+#   *"Das 'Was hat sich getan' kann man doch eigentlich mit der 'offen'
+#   Liste verschmelzen, indem man das irgendwie einfach mit einem Symbol
+#   kennzeichnet, das sich seit dem letzten Mal was geaendert hat. hier
+#   nimmt es viel Platz fuer wenig Inhalt."*
+#
+# Der Recap-Block bestand aus einer einzigen Kennzahl in einer eigenen
+# Karte. Dieselbe Auskunft passt als Marke an die Zeile, die es betrifft
+# — und steht damit dort, wo man ohnehin hinschaut.
+
+# Ab wann gilt ein Besuch als neu? Kuerzer, und die Marken verschwinden
+# beim ersten Neuladen; laenger, und sie stehen tagelang.
+BESUCH_PAUSE_STUNDEN = 4
+
+BESUCH_EINSTELLUNG = "last_login_at"
+
+
+def _neu_seit(db) -> str:
+    """Der Zeitpunkt, gegen den "neu" gemessen wird.
+
+    Der Wert wird beim Lesen fortgeschrieben — aber nur, wenn seit dem
+    letzten Mal genug Zeit vergangen ist. Sonst waeren die Marken nach
+    dem ersten Neuladen weg, und die Auskunft "seit deinem letzten
+    Besuch" haette sich selbst geloescht.
+
+    Ja, das ist ein Schreibvorgang in einem Lesepfad. Er steht hier
+    bewusst und eng begrenzt: `/api/recap` macht seit jeher dasselbe,
+    und ein zweiter Weg, den jemand extra aufrufen muesste, waere ein
+    Weg, den niemand aufruft.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    jetzt = datetime.now(timezone.utc)
+    try:
+        roh = db.get_profile_setting(BESUCH_EINSTELLUNG, None)
+    except Exception:
+        roh = None
+
+    vorher = None
+    if roh:
+        try:
+            vorher = datetime.fromisoformat(str(roh).replace("Z", "+00:00"))
+            if vorher.tzinfo is None:
+                vorher = vorher.replace(tzinfo=timezone.utc)
+        except Exception:
+            vorher = None
+    if vorher is None:
+        vorher = jetzt - timedelta(hours=72)
+
+    if jetzt - vorher > timedelta(hours=BESUCH_PAUSE_STUNDEN):
+        try:
+            db.set_profile_setting(BESUCH_EINSTELLUNG, jetzt.isoformat())
+        except Exception:
+            pass
+    return vorher.isoformat()
+
+
+def _markiere_neu(gruppen: dict, seit: str) -> int:
+    """Zeilen markieren, die seit dem letzten Besuch dazugekommen sind."""
+    anzahl = 0
+    for eintraege in gruppen.values():
+        for e in eintraege:
+            erstellt = (e.get("erstellt_am") or "")[:19]
+            e["neu"] = bool(erstellt and seit and erstellt >= seit[:19])
+            if e["neu"]:
+                anzahl += 1
+    return anzahl
+
 def dashboard_block(db, *, heute: date | None = None) -> dict:
     """Der Block "Offen" (#976, #983): ueberfaellig, heute, diese Woche.
 
@@ -330,10 +405,14 @@ def dashboard_block(db, *, heute: date | None = None) -> dict:
     sichtbar = {name: gruppen[name]
                 for name in ("ueberfaellig", "heute", "diese_woche")}
     anzahl = sum(len(v) for v in sichtbar.values())
+    # #985: statt eines eigenen Blocks "Was hat sich getan" eine Marke an
+    # der Zeile, die es betrifft.
+    neu_anzahl = _markiere_neu(sichtbar, _neu_seit(db))
     return {
         "gruppen": sichtbar,
         "anzahl": anzahl,
         "ueberfaellig_anzahl": len(sichtbar["ueberfaellig"]),
+        "neu_anzahl": neu_anzahl,
         "leer": anzahl == 0,
         "spaeter_anzahl": len(gruppen["spaeter"]),
     }
