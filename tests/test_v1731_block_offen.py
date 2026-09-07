@@ -116,7 +116,11 @@ def test_982_termin_in_drei_tagen_ergibt_eine_zeile():
     assert len(zeilen) == 1
     z = zeilen[0]
     assert z["herkunft"] == "vorbereitung"
-    assert z["faellig_am"] == _tage(3)
+    # Faellig am VORTAG: mit dem Termindatum standen "Vorbereiten: X" und
+    # "X" untereinander in derselben Gruppe — dieselbe Wiederholung, die
+    # das Epic beseitigen soll. Aufgefallen erst am Screenshot.
+    assert z["faellig_am"] == _tage(2)
+    assert z["termin_datum"] == _tage(3)
     assert "Zweitgespraech" in z["titel"]
     assert z["termin_id"] == "m1"
 
@@ -127,7 +131,20 @@ def test_982_zeile_traegt_das_datum_nicht_nur_eine_zahl():
     z = aufgaben_sicht.vorbereitungszeilen(
         None, termine=[_termin(2)], todos=[])[0]
     assert z["faellig_am"]
-    assert z["termin_datum"] == z["faellig_am"]
+    assert z["termin_datum"] == _tage(2)
+
+
+def test_982_vorbereitung_faellt_nie_in_die_vergangenheit():
+    """Ist das Gespraech schon morgen oder heute, bleibt es bei heute.
+
+    Sonst waere die Vorbereitung sofort "ueberfaellig", ohne dass jemand
+    etwas versaeumt hat — genau der stille Fehlalarm, den #966 an anderer
+    Stelle abgestellt hat.
+    """
+    for tage in (0, 1):
+        z = aufgaben_sicht.vorbereitungszeilen(
+            None, termine=[_termin(tage)], todos=[])[0]
+        assert z["faellig_am"] == _tage(0), tage
 
 
 def test_982_vorhandenes_todo_verdraengt_die_zeile():

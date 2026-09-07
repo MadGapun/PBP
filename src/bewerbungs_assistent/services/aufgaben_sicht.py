@@ -197,13 +197,26 @@ def vorbereitungszeilen(db, *, tage: int = VORBEREITUNGS_HORIZONT_TAGE,
             continue
         if _hat_vorbereitungs_todo(todos, m):
             continue
+        # Die Vorbereitung ist am Tag VOR dem Gespraech faellig, nicht am
+        # Gespraechstag. Mit dem Termindatum standen beide Zeilen
+        # untereinander in derselben Gruppe — "Vorbereiten: X" direkt
+        # ueber "X" — und das ist genau die Wiederholung, gegen die das
+        # Epic angetreten ist. Aufgefallen erst am erzeugten Screenshot,
+        # nicht beim Lesen des Codes.
+        #
+        # Ist das Gespraech schon morgen oder heute, bleibt es bei heute:
+        # eine Vorbereitung mit Faelligkeit in der Vergangenheit waere
+        # sofort "ueberfaellig", ohne dass jemand etwas versaeumt hat.
+        vorbereitung_am = max(
+            heute.isoformat(),
+            (date.fromisoformat(datum) - timedelta(days=1)).isoformat())
         zeilen.append({
             "herkunft": "vorbereitung",
             "id": f"vorb_{_kurz(m.get('id'))}",
             "titel": f"Vorbereiten: {m.get('titel') or 'Termin'}",
             "beschreibung": "",
             "status": "offen",
-            "faellig_am": datum,
+            "faellig_am": vorbereitung_am,
             # Die Vorbereitung ist eine Handlung vor dem Termin, kein
             # Termin. Deshalb keine Uhrzeit (K17).
             "uhrzeit": "",
