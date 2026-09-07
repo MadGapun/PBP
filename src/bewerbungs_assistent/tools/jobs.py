@@ -6,6 +6,7 @@ from collections import Counter
 from typing import Optional
 from urllib.parse import quote_plus
 from ..services import anzeigenalter as _anzeigenalter
+from ..services.nutzerfuehrung import leer
 
 
 def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
@@ -2439,6 +2440,13 @@ def register(mcp, db, logger):
             "mit '---', dann die Notizen."
         )
 
+    # v1.7.42 (#919): `stelle_manuell_anlegen` ist der EINZIGE Schreibweg
+    # fuer eine von aussen gefundene Stelle — mit Blacklist-Pruefung,
+    # Duplikat-Stufen, Anker-Pflicht und Scoring. Der LinkedIn-Import
+    # ruft dieselbe Funktion auf, statt eine zweite Fassung zu bauen
+    # (das Muster aus #963/#987/#991/#992, siebenmal dieselbe Lehre).
+    # Deshalb steht der Rumpf jetzt in `_stelle_uebernehmen`; das Tool
+    # ist die Huelle darum.
     @mcp.tool()
     def stelle_manuell_anlegen(
         titel: str,
@@ -2456,9 +2464,56 @@ def register(mcp, db, logger):
     ) -> dict:
         """Legt eine Stelle manuell an (z.B. von LinkedIn/XING via Claude-in-Chrome) (#160).
 
-        Nutze dieses Tool, um Stellen aus externen Quellen (LinkedIn, XING,
-        Firmen-Webseiten) in PBP zu uebertragen. Die Stelle wird automatisch
-        bewertet und erscheint in stellen_anzeigen().
+        Der Weg fuer alles, was PBP nicht selbst gefunden hat: eine Stelle
+        aus dem Browser, aus einer Mail, aus einem Gespraech. Prueft
+        Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
+        Anker (#766), berechnet den Score und legt an.
+
+        Args:
+            titel: Stellentitel (Pflicht).
+            firma: Firmenname (Pflicht).
+            url: Link zur ORIGINAL-Ausschreibung (Detailseite, keine
+                Suchergebnis-URL — #645/#763).
+            ort: Arbeitsort.
+            beschreibung: Anzeigentext. Je vollstaendiger, desto
+                belastbarer der Score; unter 50 Zeichen gilt die Stelle
+                als unbewertet (#756/#989).
+            quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite', ...).
+            remote: 'remote' | 'hybrid' | 'vor_ort' | 'unbekannt'.
+            stellenart: 'festanstellung' | 'freelance' | 'praktikum' |
+                'werkstudent'.
+            force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
+            kontakt_name: Ansprechpartner — wird als Kontakt angelegt und
+                mit der Stelle verknuepft (Anker #766).
+            kontakt_email: E-Mail des Ansprechpartners.
+            kontakt_telefon: Telefonnummer des Ansprechpartners.
+        """
+        return _stelle_uebernehmen(
+            titel=titel, firma=firma, url=url, ort=ort,
+            beschreibung=beschreibung, quelle=quelle, remote=remote,
+            stellenart=stellenart, force=force, kontakt_name=kontakt_name,
+            kontakt_email=kontakt_email, kontakt_telefon=kontakt_telefon)
+
+    def _stelle_uebernehmen(
+        titel: str,
+        firma: str,
+        url: str = "",
+        ort: str = "",
+        beschreibung: str = "",
+        quelle: str = "manuell",
+        remote: str = "unbekannt",
+        stellenart: str = "festanstellung",
+        force: bool = False,
+        kontakt_name: str = "",
+        kontakt_email: str = "",
+        kontakt_telefon: str = "",
+    ) -> dict:
+        """Der EINE Schreibweg fuer eine von aussen gefundene Stelle (#160).
+
+        Rumpf von `stelle_manuell_anlegen` und zugleich der Aufruf, den der
+        LinkedIn-Import (#919) benutzt — damit es keine zweite Fassung
+        dieser Regeln gibt. Die Stelle wird geprueft, bewertet und
+        erscheint danach in stellen_anzeigen().
 
         ⛔ ANKER-PFLICHT (#766) — VOR dem Aufruf beachten:
         Jede Stelle braucht mindestens EINEN dieser drei Anker, sonst ist sie
@@ -2812,6 +2867,251 @@ def register(mcp, db, logger):
         if _notiz_warnung:
             result["notizen_warnung"] = _notiz_warnung
         return result
+
+    # === LinkedIn ueber die Voyager-API (#919, B36) =====================
+
+    @mcp.tool()
+    def linkedin_lauf_plan(max_begriffe: int = 12, seit: str = "",
+                           geo_id: str = "", seiten: int = 2) -> dict:
+        """Der erprobte LinkedIn-Weg als ausfuehrbarer Plan (#919).
+
+        LinkedIn liefert seit April 2026 nichts mehr: der Playwright-Adapter
+        steht auf Erfolgsrate 0 %, die jobspy-Variante ist deprecated. HTTP
+        von aussen blockt LinkedIn zuverlaessig — Requests aus dem
+        EINGELOGGTEN Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
+        dieser Weg vollstaendig durchgespielt: 22 Suchbegriffe, 511
+        deduplizierte Rohtreffer, 59 Volltexte, 3 uebernommene Stellen.
+
+        Dieses Werkzeug liefert den Plan samt fertiger Browser-Skripte;
+        Claude fuehrt ihn in einem Tab auf linkedin.com aus, und
+        `linkedin_treffer_uebernehmen` schreibt das Ergebnis nach PBP.
+
+        **Der Volltext ist Pflicht, nicht Kuer.** Von 59 Titeln, die den
+        Vorfilter passiert hatten, blieben nach dem Lesen der Volltexte 3
+        uebrig — der beste Titel-Treffer des Laufs verlangte im Fliesstext
+        ein System von der harten Ausschlussliste. Wer nur Titel und
+        Kurzbeschreibung uebernimmt, liefert genau die falschen Stellen
+        mit hohem Score ein.
+
+        Args:
+            max_begriffe: wie viele Suchbegriffe der Lauf umfasst. Jeder
+                Begriff kostet `seiten` Requests.
+            seit: ISO-Datum des letzten Laufs — daraus wird das
+                Zeitfenster abgeleitet, statt fix eine Woche zu nehmen.
+            geo_id: LinkedIn-Region (Vorgabe: Deutschland).
+            seiten: Ergebnisseiten je Begriff (25 Treffer je Seite).
+        """
+        from ..job_scraper import linkedin_voyager as lv
+
+        try:
+            portal = db.get_portal_search_profile("linkedin") or {}
+        except Exception:
+            portal = {}
+        kriterien = db.get_search_criteria() or {}
+        begriffe = lv.begriffe(portal, kriterien, max_begriffe)
+        if not begriffe:
+            return leer(
+                {"status": "leer", "begriffe": []},
+                "Keine Suchbegriffe vorhanden — ohne sie hat der Lauf kein Ziel.",
+                "MUSS-Begriffe setzen: suchkriterien_setzen(keywords_muss=[...]) "
+                "— oder das LinkedIn-Suchprofil pflegen: "
+                "suchprofil_aktualisieren('linkedin', ...).")
+
+        fenster = lv.zeitfenster(seit)
+        cfg = lv.konfig(begriffe, fenster, (geo_id or "").strip() or lv.GEO_ID_DE,
+                        seiten)
+        return {
+            "status": "bereit",
+            "quelle": "linkedin",
+            "begriffe": begriffe,
+            "begriffe_quelle": ("suchprofil_linkedin" if portal.get("primaere_suchen")
+                                else "keywords_muss"),
+            "zeitfenster": fenster,
+            "requests_gesamt": len(begriffe) * cfg["seiten"],
+            "konfiguration": cfg,
+            "js": {
+                "1_ernte": lv.js_mit_konfig(lv.JS_ERNTE, cfg),
+                "2_status": lv.JS_STATUS,
+                "3_volltexte": ("Vorlage — <IDS> durch die ausgewaehlten "
+                                "Job-IDs ersetzen (JSON-Liste): "
+                                + lv.JS_VOLLTEXTE.replace("__IDS__", "<IDS>")
+                                  .replace("__CFG__", "CFG_PLATZHALTER")),
+                "4_ausgabe": lv.JS_AUSGABE,
+            },
+            "js_volltexte_konfig": cfg,
+            "ablauf": [
+                "Tab auf die LinkedIn-Jobsuche oeffnen (eingeloggt).",
+                "Skript 1 ausfuehren — es laeuft als async IIFE weiter, "
+                "auch wenn der Aufruf sofort zurueckkommt.",
+                "Skript 2 wiederholt aufrufen, bis 'fertig' true ist.",
+                "Titel sichten und die Job-IDs waehlen, deren Volltext "
+                "geholt werden soll (der Vorfilter).",
+                "Skript 3 mit diesen IDs starten, danach wieder Skript 2.",
+                "Skript 4 rendert das Ergebnis in die Seite; mit "
+                "get_page_text abholen — javascript_tool kappt bei rund "
+                "1000 Zeichen.",
+                "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen.",
+            ],
+            "stolpersteine": [
+                "Navigation loescht window.__pbp_ln — der ganze Lauf muss "
+                "auf EINEM Tab ohne Seitenwechsel passieren.",
+                "javascript_tool bricht nach rund 45 s ab. Deshalb laufen "
+                "die Schleifen als async IIFE und der Fortschritt wird "
+                "abgefragt statt abgewartet.",
+                "javascript_tool kappt die Rueckgabe bei rund 1000 "
+                "Zeichen. Anzeigentexte deshalb NIE zurueckgeben, sondern "
+                "ueber Skript 4 rendern und mit get_page_text holen.",
+                "URLs mit Query-String in einer Rueckgabe loesen einen "
+                "Block aus. Die Skripte bauen ihre URLs deshalb selbst und "
+                "geben nur Zahlen zurueck.",
+                f"{lv.PAUSE_MS} ms zwischen den Requests — damit liefen "
+                "511 Trefferzeilen plus 59 Volltexte ohne Drosselung durch.",
+            ],
+            "fehlerdeutung": lv.FEHLER_TEXTE,
+            "hinweis": (
+                "Ohne eingeloggten Chrome bricht der Lauf ab: "
+                "linkedin_treffer_uebernehmen(login_fehlt=True) meldet das "
+                "als 'wartet_auf_login'. Das ist KEIN Befund ueber den "
+                "Stellenmarkt — die Quelle bleibt aktiv und wird nicht "
+                "automatisch deaktiviert (#906)."
+            ),
+        }
+
+    @mcp.tool()
+    def linkedin_treffer_uebernehmen(treffer: list = None,
+                                     dry_run: bool = True,
+                                     login_fehlt: bool = False,
+                                     rohtreffer: int = 0) -> dict:
+        """Uebernimmt die geernteten LinkedIn-Stellen nach PBP (#919).
+
+        Erwartet je Eintrag mindestens `job_id`, `titel`, `firma` und
+        `beschreibung` (Volltext). Optional `ort`, `remote`,
+        `anstellungsart`.
+
+        Schreibt ueber denselben Weg wie `stelle_manuell_anlegen` —
+        Blacklist, Duplikat-Stufen, Anker-Pflicht und Scoring gelten
+        unveraendert. Eine zweite Fassung dieser Regeln waere genau der
+        Fehler, der PBP in #963, #987, #991 und #992 je einmal gekostet
+        hat.
+
+        **Ohne Volltext keine Anlage.** Eintraege unter
+        `linkedin_voyager.MIN_BESCHREIBUNG` Zeichen werden uebersprungen
+        und gezaehlt, statt mit halbem Text angelegt zu werden.
+
+        Args:
+            treffer: die geernteten Stellen.
+            dry_run: True (Vorgabe) zeigt nur, was passieren wuerde.
+            login_fehlt: True meldet den Lauf als 'wartet_auf_login' —
+                kein Befund ueber den Markt, keine Auto-Deaktivierung.
+            rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
+                "3 angelegt" nicht einzuordnen (#813/#989).
+        """
+        from ..job_scraper import linkedin_voyager as lv
+
+        if login_fehlt:
+            return {
+                "status": "wartet_auf_login",
+                "quelle": "linkedin",
+                "nachricht": lv.FEHLER_TEXTE["nicht_eingeloggt"],
+                "hinweis": (
+                    "Die Quelle bleibt aktiv und wird NICHT automatisch "
+                    "deaktiviert — ein fehlender Login sagt nichts ueber "
+                    "den Stellenmarkt aus (#906)."
+                ),
+            }
+
+        eintraege = [e for e in (treffer or []) if isinstance(e, dict)]
+        trichter = lv.trichter_leer()
+        if not eintraege:
+            return leer(
+                {"status": "leer", "trichter": trichter},
+                "Keine Treffer uebergeben.",
+                "Erst linkedin_lauf_plan() ausfuehren und die Ernte hier "
+                "uebergeben.")
+
+        trichter["rohtreffer"] = max(int(rohtreffer or 0), len(eintraege))
+        trichter["nach_vorfilter"] = len(eintraege)
+
+        angelegt, uebersprungen = [], []
+
+        def _skip(eintrag, grund, detail=""):
+            trichter["uebersprungen"] += 1
+            trichter["gruende"][grund] = trichter["gruende"].get(grund, 0) + 1
+            uebersprungen.append({
+                "job_id": eintrag.get("job_id"),
+                "titel": eintrag.get("titel"),
+                "firma": eintrag.get("firma"),
+                "grund": grund, "detail": detail})
+
+        for e in eintraege:
+            titel = str(e.get("titel") or "").strip()
+            firma = str(e.get("firma") or "").strip()
+            job_id = str(e.get("job_id") or "").strip()
+            beschreibung = str(e.get("beschreibung") or "").strip()
+
+            if not titel or not firma:
+                _skip(e, "titel_oder_firma_fehlt")
+                continue
+            if not job_id:
+                # Ohne ID kein Anker — und ohne Anker ist die Stelle fuer
+                # den Nutzer wertlos (#766).
+                _skip(e, "kein_anker")
+                continue
+            if len(beschreibung) < lv.MIN_BESCHREIBUNG:
+                _skip(e, "volltext_fehlt",
+                      f"{len(beschreibung)} Zeichen, noetig sind "
+                      f"{lv.MIN_BESCHREIBUNG}")
+                continue
+            trichter["volltexte"] += 1
+
+            if dry_run:
+                trichter["angelegt"] += 1
+                angelegt.append({"job_id": job_id, "titel": titel,
+                                 "firma": firma,
+                                 "beschreibung_zeichen": len(beschreibung)})
+                continue
+
+            res = _stelle_uebernehmen(
+                titel=titel, firma=firma, url=lv.anzeige_url(job_id),
+                ort=str(e.get("ort") or "").strip(),
+                beschreibung=beschreibung, quelle="linkedin",
+                remote=str(e.get("remote") or "unbekannt"),
+                stellenart=str(e.get("anstellungsart") or "festanstellung"))
+            if res.get("hash") and not res.get("warnung"):
+                trichter["angelegt"] += 1
+                angelegt.append({"job_id": job_id, "titel": titel,
+                                 "firma": firma, "hash": res["hash"],
+                                 "score": res.get("score")})
+            elif res.get("warnung"):
+                _skip(e, res["warnung"], res.get("grund", ""))
+            elif res.get("fehler"):
+                grund = ("blacklist" if "Blacklist" in res["fehler"]
+                         else "abgewiesen")
+                _skip(e, grund, res["fehler"])
+            else:
+                _skip(e, "unbekannt", str(res)[:120])
+
+        ergebnis = {
+            "status": "vorschau" if dry_run else "uebernommen",
+            "quelle": "linkedin",
+            "dry_run": dry_run,
+            "trichter": trichter,
+            "trichter_text": lv.trichter_text(trichter),
+            "angelegt": angelegt[:25],
+            "uebersprungen": uebersprungen[:25],
+        }
+        if dry_run:
+            ergebnis["hinweis"] = (
+                "Vorschau. Erneut mit dry_run=False aufrufen, um die "
+                "Stellen anzulegen.")
+        elif not trichter["angelegt"] and trichter["uebersprungen"]:
+            # Ehrliche Null: nichts angelegt heisst hier NICHT nichts
+            # gefunden (#813).
+            ergebnis["hinweis"] = (
+                f"Keine Stelle angelegt — alle {trichter['uebersprungen']} "
+                "wurden aussortiert. Die Gruende stehen im Trichter; das "
+                "ist ein Ergebnis, kein Ausfall.")
+        return ergebnis
 
     # === v1.7.0-beta.5: n:m + Stellen-Vergleich (#472, #580) ===
 

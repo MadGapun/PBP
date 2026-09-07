@@ -519,17 +519,24 @@ SOURCE_REGISTRY = {
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "LinkedIn-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
-        "methode": "Claude-in-Chrome (manuell)",
+        "beschreibung": "LinkedIn-Jobsuche ueber die interne Voyager-API im eingeloggten Chrome (#919).",
+        "methode": "Claude-in-Chrome (Voyager-API)",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.linkedin.com/signup",
-        "login_hinweis": "LinkedIn-Konto noetig und im Chrome eingeloggt; Easy-Apply-Stellen sind nur eingeloggt sichtbar.",
-        "veraltet": True,
+        "login_hinweis": "LinkedIn-Konto noetig und im Chrome eingeloggt — HTTP von aussen blockt LinkedIn zuverlaessig, Requests aus dem eingeloggten Tab laufen durch.",
+        # v1.7.42 (#919): NICHT mehr 'veraltet'. Der Playwright-Weg ist
+        # tot (Erfolgsrate 0 % seit April 2026), der Voyager-Weg wurde am
+        # 17.08.2026 vollstaendig durchgespielt: 511 Rohtreffer, 59
+        # Volltexte, 3 uebernommene Stellen. BEWUSST dieselbe Quellen-ID
+        # statt eines zweiten Eintrags 'linkedin_voyager' — sonst zerfaellt
+        # die Lauf-Historie einer Quelle, die es schon gibt, und
+        # url_to_source zeigt weiterhin auf 'linkedin'.
         "beta": True,
         "geschwindigkeit": "manuell",
-        "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
-        "hinweis": "Automatische Suche deaktiviert (#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
+        "warnung": "Laeuft im Browser des Nutzers. Verbraucht mehr Token als normale Quellen.",
+        "hinweis": "linkedin_lauf_plan() liefert Suchbegriffe und Browser-Skripte, linkedin_treffer_uebernehmen() schreibt die Ernte nach PBP. Ohne Login: Status 'wartet_auf_login' — die Quelle wird NICHT deaktiviert (#906).",
+        "manueller_fallback": "linkedin_lauf_plan() — der erprobte Weg ueber die Voyager-API",
     },
     "xing": {
         "name": "XING",
