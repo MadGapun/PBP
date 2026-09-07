@@ -33,6 +33,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.33] - 2026-09-07 — Der Schnellzugriff gehoert dir
+
+Letzter Teil des Dashboard-Epics. Der Wunsch war einfach: selbst
+bestimmen, welche Prompt-Karten auf dem Dashboard stehen. Beim Nachsehen
+zeigte sich, dass das erst geht, wenn die Prompt-Texte einen Ort haben.
+
+### Added
+
+- **Du waehlst, was im Schnellzugriff steht.** Ein Klick auf „Auswaehlen"
+  oeffnet den ganzen Katalog mit Haken je Eintrag, nach Kategorie
+  gruppiert. Abgewaehlte Prompts verschwinden nur vom Dashboard, in der
+  Hilfe bleiben sie. „Voreinstellung" stellt den Auslieferungszustand
+  wieder her. Die Auswahl ueberlebt Neustart und Update.
+
+- **Auch ueber Claude:** `schnellzugriff_setzen()` zeigt ohne Argument
+  den Katalog mit der aktuellen Auswahl; mit
+  `schnellzugriff_setzen(prompts='faq,willkommen')` setzt du sie.
+  `prompts='standard'` stellt die Voreinstellung wieder her.
+
+- **Zwei neue Katalogeintraege: „Lebenslauf" und „Anschreiben".** Beide
+  fuehren auf denselben Workflow wie „Bewerbungsunterlagen", nur mit
+  festgelegtem Umfang. Wer lieber zwei getrennte Karten moechte, waehlt
+  sie dazu; im Standard steht der eine Eintrag, der nachfragt.
+
+### Fixed
+
+- **Die Hilfe-Liste war unvollstaendig und behauptete das Gegenteil.**
+  Sie nannte sich „Vollstaendige Liste aller Prompts" und zeigte 16 von
+  25. Es fehlten unter anderem *Dokumente einsortieren* und
+  *Problem melden* — beides Dinge, die man sucht, wenn man sie braucht.
+  Beide stehen jetzt drin.
+
+- **Der Hinweis auf die vollstaendige Liste war kein Link.** Da stand
+  „findest du unter Hilfe & Support, Reiter Prompts" — als Satz. Jetzt
+  oeffnet ein Klick genau diesen Reiter.
+
+- **Zwei Karten hiessen anders als das, was sie tun.** Bereits in
+  v1.7.32 korrigiert, jetzt auch im Schnellzugriff sichtbar:
+  „Bewerbungsunterlagen" statt „Bewerbung schreiben",
+  „Bewerbung aus Anzeige" statt „Inbound erfassen". Letztere faellt aus
+  der Standardauswahl; an ihre Stelle rueckt „Bewerbung vorbereiten".
+
+### Changed
+
+- **Prompt-Titel und -Beschreibungen stehen im Repo jetzt genau einmal.**
+  Sie lagen an vier Stellen, zwei davon als Kopie voneinander. Eine
+  Umbenennung musste zweimal passieren, ein neuer Prompt dreimal — und
+  genau daran ist „Inbound erfassen" jahrelang stehen geblieben. Neu:
+  `services/prompt_katalog.py`; Hilfe-Liste und Schnellzugriff rendern
+  beide daraus, das Frontend traegt keinen Prompt-Text mehr.
+
+- **Ein Test faengt den naechsten Fall.** Jeder registrierte Prompt
+  braucht einen Katalogeintrag oder einen begruendeten Platz auf der
+  Ausnahmeliste. Wer einen neuen Prompt anlegt und die Liste vergisst,
+  merkt es sofort statt in einem halben Jahr.
+
+- **Die Elwosa-Bedienprompts stehen auf dieser Ausnahmeliste.** PBP
+  laeuft unabhaengig von Elwosa; die Prompt-Liste ist eine Liste von
+  Bewerbungs-Workflows, keine Fernbedienung fuer die Sidebar. Ueber ihre
+  Kennung erreichbar bleiben sie.
+
+- **Sieben Tests bestanden nur an einer Stelle.** Sie lasen ihre Dateien
+  ueber relative Pfade und waren aus einem anderen Verzeichnis heraus
+  rot — nachgemessen, nicht vermutet. Fuer dich aendert sich daran
+  nichts; es heisst nur, dass die Pruefungen jetzt ueberall gelten.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.33.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.33.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.32] - 2026-09-07 — Bewerben aus der Stelle
 
 Der Weg, den man tatsaechlich geht: Stellen-Tab, eine Stelle gefaellt,
