@@ -1045,10 +1045,15 @@ async def api_list_prompts():
         # JOBSUCHE & BEWERBUNG
         "jobsuche_workflow":      {"kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche starten",
                                    "beschreibung": "Jobboersen durchsuchen lassen"},
-        "bewerbung_schreiben":    {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung schreiben",
-                                   "beschreibung": "Anschreiben erstellen lassen"},
-        "auto_bewerbung":         {"kategorie": "Jobsuche & Bewerbung", "titel": "Inbound erfassen",
-                                   "beschreibung": "Recruiter hat sich gemeldet"},
+        # v1.7.32 (#981 D, #979 D): beide Etiketten waren falsch. Der
+        # Workflow erstellt Lebenslauf UND Anschreiben, nicht nur eines;
+        # und `auto_bewerbung` baut eine Bewerbung aus URL oder
+        # Anzeigentext — wer damit eine Recruiter-Anfrage erfassen
+        # wollte, landete in einem anderen Anwendungsfall.
+        "bewerbung_schreiben":    {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbungsunterlagen",
+                                   "beschreibung": "Lebenslauf und/oder Anschreiben zu einer Stelle"},
+        "auto_bewerbung":         {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung aus Anzeige",
+                                   "beschreibung": "URL oder Anzeigentext rein, Bewerbung raus"},
         "bewerbung_vorbereitung": {"kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
                                    "beschreibung": "Schritt fuer Schritt zur fertigen Bewerbung"},
         # INTERVIEW & VERHANDLUNG
@@ -2404,6 +2409,21 @@ async def api_add_application(request: Request):
         return JSONResponse({"error": "Stelle ist ein Pflichtfeld"}, status_code=400)
     if not data.get("company", "").strip():
         return JSONResponse({"error": "Firma ist ein Pflichtfeld"}, status_code=400)
+    # v1.7.32 (#981, D43): Status pruefen statt durchschreiben.
+    #
+    # Der Stellen-Dialog bot "Entwurf" an — ein Wert, den VALID_STATUSES
+    # nicht kennt. Hier lief er ungeprueft in die Datenbank, und die so
+    # entstandene Bewerbung war danach fuer bewerbung_status_aendern, die
+    # Statistik und die Status-Journey unsichtbar. Die Oberflaeche ist
+    # korrigiert; die Pruefung gehoert trotzdem hierher, weil dieser
+    # Endpunkt auch von Plugins und Skripten aufgerufen wird.
+    from .tools.bewerbungen import VALID_STATUSES
+    status = (data.get("status") or "").strip()
+    if status and status not in VALID_STATUSES:
+        return JSONResponse(
+            {"error": (f"Unbekannter Status '{status}'. Erlaubt sind: "
+                       + ", ".join(sorted(VALID_STATUSES)))},
+            status_code=400)
     aid = _db.add_application(data)
     return {"status": "ok", "id": aid}
 

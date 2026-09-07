@@ -1,4 +1,4 @@
-﻿import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
+﻿import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
 
@@ -299,6 +299,34 @@ export default function ApplicationsPage() {
       await navigator.clipboard.writeText(resolved?.prompt || "");
       pushToast(
         `Interview-Vorbereitung fuer "${application?.title || "die Stelle"}" kopiert — jetzt in Claude Desktop einfuegen (Strg+V).`,
+        "success",
+        { duration: 7000 }
+      );
+    } catch (err) {
+      pushToast(`Anleitung konnte nicht geladen werden: ${err.message}`, "danger");
+    }
+  }
+
+  // D43 (#981, v1.7.32): dasselbe Muster wie G16 daruber, fuer die
+  // Unterlagen. `bewerbung_schreiben` hatte bis v1.7.31 keine Parameter
+  // — deshalb gab es hier keinen Knopf, obwohl der Weg seit #706 steht.
+  // `nur` entscheidet, ob Lebenslauf oder Anschreiben entsteht; die
+  // bewerbung_id sorgt dafuer, dass der Prompt die BESTEHENDE Bewerbung
+  // ergaenzt statt eine zweite anzulegen.
+  async function unterlagenKopieren(application, nur) {
+    const bezeichnung = nur === "lebenslauf" ? "Lebenslauf" : "Anschreiben";
+    try {
+      const params = new URLSearchParams({
+        stelle: application?.title || "",
+        firma: application?.company || "",
+        job_hash: application?.job_hash || "",
+        bewerbung_id: application?.id || "",
+        nur,
+      });
+      const resolved = await api(`/api/workflow-prompt/bewerbung_schreiben?${params}`);
+      await navigator.clipboard.writeText(resolved?.prompt || "");
+      pushToast(
+        `Anleitung fuer den ${bezeichnung} kopiert — jetzt in Claude Desktop einfuegen (Strg+V).`,
         "success",
         { duration: 7000 }
       );
@@ -932,6 +960,30 @@ export default function ApplicationsPage() {
                         <Workflow size={15} />
                         Timeline
                       </Button>
+                      {/* D43 (#981): Unterlagen, solange die Bewerbung noch
+                          vorbereitet wird. Der Knopf verschwindet, sobald der
+                          jeweilige Dokumentpfad haengt oder beworben wurde —
+                          danach waere er eine Einladung zur Dublette. */}
+                      {application.status === "in_vorbereitung" && !application.cv_path && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => unterlagenKopieren(application, "lebenslauf")}
+                          title="Vorbefuellte Anleitung fuer den angepassten Lebenslauf zu dieser Stelle kopieren und in Claude Desktop einfuegen"
+                        >
+                          <FileText size={15} />
+                          Lebenslauf
+                        </Button>
+                      )}
+                      {application.status === "in_vorbereitung" && !application.cover_letter_path && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => unterlagenKopieren(application, "anschreiben")}
+                          title="Vorbefuellte Anleitung fuer das Anschreiben zu dieser Stelle kopieren und in Claude Desktop einfuegen"
+                        >
+                          <PenLine size={15} />
+                          Anschreiben
+                        </Button>
+                      )}
                       {["interview", "zweitgespraech"].includes(application.status) && (
                         <Button
                           variant="secondary"
