@@ -33,6 +33,116 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.35] - 2026-09-07 — Dein Dashboard
+
+Der Bildschirm, den man am haeufigsten sieht, war bisher fuer alle
+gleich. Vier Releases haben ihn aufgeraeumt — dieser gibt ihn aus der
+Hand: **welche Bereiche du siehst, in welcher Reihenfolge und ob sie
+offen oder eingeklappt stehen, entscheidest jetzt du.** Dazu drei
+Befunde, die nichts mit dem Dashboard zu tun haben, aber lange genug
+lagen.
+
+### Added
+
+- **Dashboard selbst zusammenstellen (#985).** Ueber das Zahnrad rechts
+  oben: Bereiche an- und abschalten, mit Pfeilen sortieren, jeden
+  einzelnen ein- und ausklappen. Der Zustand haengt am Profil, nicht am
+  Browser — er ueberlebt also den Rechnerwechsel. Voreinstellung sind
+  **Offen** und **Schnellzugriff**; "Offen" laesst sich nicht
+  abschalten, weil sonst der eine Bildschirm verschwindet, der sagt,
+  was zu tun ist. Dasselbe Muster wie beim Prompt-Katalog aus v1.7.33:
+  *der Katalog gibt die Voreinstellung, der Mensch weicht ab.*
+- **PPTX, XLSX und OpenDocument werden gelesen (#833).** Praesentationen
+  (auch Sprechernotizen), Tabellen und die OpenDocument-Formen davon
+  liefern jetzt Text. Fuer die Altformate `.ppt`/`.xls` kommt eine
+  ehrliche Absage statt eines leeren Ergebnisses, und eine
+  bilderlastige Praesentation ohne Text sagt genau das.
+- **Deinstallation ohne Suchen (#975).** Neu `deinstallation.auskunft()`:
+  PBP zeigt vor dem Start, **was auf diesem Rechner entfernt wird und
+  was bleibt** — die Daten unter `data\` bleiben. Auf macOS und Linux
+  gab es bisher gar keinen Weg dorthin; die Gefahrenzone verwies auf
+  eine `.bat`, die es dort nicht gibt.
+
+### Changed
+
+- **"Was hat sich getan" ist keine eigene Karte mehr (#985).** Was seit
+  dem letzten Besuch dazugekommen ist, steht als Marke **an der Zeile**
+  in der Liste "Offen". Ein eigener Block nahm viel Platz fuer wenig
+  Inhalt — und wer wissen will, was neu ist, will es dort sehen, wo die
+  Aufgabe steht. Als "letzter Besuch" zaehlt erst eine Pause von vier
+  Stunden, sonst waere nach jedem Seitenwechsel nichts mehr neu.
+- **E-Mails stehen bei den Dokumenten, Gelerntes bei den Statistiken
+  (#985).** Beides lag auf dem Dashboard, und beides ist dort keine
+  Handlung, sondern ein Nachschlagewerk. Die Top-Stellen ruecken nach
+  unten und stehen dafuer zweispaltig.
+- **Die Hochschulabschluss-Pruefung ist entfernt (#972).** Sie hat in
+  drei Anlaeufen (#698, #918, #955) nie zuverlaessig zwischen "Abschluss
+  gefordert" und "Studium als Zielgruppe" unterschieden und in der
+  Praxis mehr passende Stellen abgewertet als unpassende. Ein
+  Mechanismus, der dreimal nachgebessert werden musste und immer noch
+  falsch liegt, gehoert nicht gehaertet, sondern weg. Der
+  Ablehnungsgrund `kein_hochschulabschluss` bleibt fuer Altdaten
+  waehlbar.
+
+### Fixed
+
+- **Das Dashboard waere ohne jede Gestaltung ausgeliefert worden.** Beim
+  Port auf die Stable-Linie kollidierten die gebauten Frontend-Dateien:
+  die `index.html` uebernahm den Stylesheet-Namen der einen Seite, der
+  Assets-Ordner die Datei der anderen. Der Verweis lief in einen 404 —
+  die Seite laedt, alle Texte stehen da, nichts meldet einen Fehler, und
+  gestaltet ist gar nichts. Gefunden hat es der Mobil-Layout-Test ueber
+  ein 1024 Pixel breites Logo. Neu ein Waechter
+  (`tests/test_v1735_gebaute_assets.py`), der genau diese Frage am
+  Dateinamen beantwortet, statt dafuer einen Browser zu starten.
+
+### Removed
+
+- `kein_hochschulabschluss` als automatisches K.-o.-Kriterium im Scoring
+  (#972). Als manueller Ablehnungsgrund bleibt der Wert erhalten.
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.35.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.35.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.34] - 2026-09-07 — Was erst im Bild auffiel
 
 Beim Erneuern des Dashboard-Screenshots fuer die Doku sind zwei Dinge
