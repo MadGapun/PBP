@@ -204,7 +204,7 @@ if exist "%BASE_INSTALL%\components" (
 :: damit auch %BASE_INSTALL% — kein Datenverlust.
 rmdir "%BASE_INSTALL%" 2>nul
 if exist "%BASE_INSTALL%" (
-    echo [INFO] %BASE_INSTALL% nicht entfernt (enthaelt noch Daten) >> "%LOGFILE%"
+    echo [INFO] %BASE_INSTALL% nicht entfernt ^(enthaelt noch Daten^) >> "%LOGFILE%"
 ) else (
     echo [OK] %BASE_INSTALL% Stamm-Ordner entfernt >> "%LOGFILE%"
 )
@@ -233,8 +233,8 @@ if "!DATA_RESULT!"=="kept" (
 )
 
 if exist "%BASE_INSTALL%" (
-    echo  Hinweis: Falls Reste verbleiben (z.B. weil Dateien noch gesperrt
-    echo  waren), kannst du diesen Ordner gefahrlos manuell loeschen:
+    echo  Hinweis: Falls Reste verbleiben ^(z.B. weil Dateien noch gesperrt
+    echo  waren^), kannst du diesen Ordner gefahrlos manuell loeschen:
     echo    %BASE_INSTALL%
     echo.
 )

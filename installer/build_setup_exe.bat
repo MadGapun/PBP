@@ -30,7 +30,7 @@ if %errorlevel% neq 0 (
     call npm install -g pnpm
     if %errorlevel% neq 0 (
         echo    FEHLER: pnpm konnte nicht installiert werden.
-        echo    Bitte Node.js (https://nodejs.org) installieren und dann 'npm install -g pnpm' ausfuehren.
+        echo    Bitte Node.js ^(https://nodejs.org^) installieren und dann 'npm install -g pnpm' ausfuehren.
         pause
         exit /b 1
     )
