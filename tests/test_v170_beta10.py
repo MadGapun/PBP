@@ -3,6 +3,18 @@ import os
 import tempfile
 
 import pytest
+import pathlib
+
+
+def _repo(*teile) -> pathlib.Path:
+    """Pfad relativ zum Repo, nicht zum Arbeitsverzeichnis.
+
+    Diese Tests lasen ihre Dateien ueber einen RELATIVEN Pfad und
+    bestanden nur, solange pytest im Repo-Wurzelverzeichnis lief. Aus
+    einem fremden Verzeichnis heraus warfen sie FileNotFoundError —
+    gruen an der gewohnten Stelle ist kein Beweis (DoD 8c).
+    """
+    return pathlib.Path(__file__).resolve().parents[1].joinpath(*teile)
 
 
 @pytest.fixture
@@ -157,7 +169,7 @@ def test_563_api_role_filter(setup_env):
 
 def test_563_contacts_page_jsx_exists():
     from pathlib import Path
-    p = Path("frontend/src/pages/ContactsPage.jsx")
+    p = _repo("frontend", "src", "pages", "ContactsPage.jsx")
     assert p.exists()
     src = p.read_text(encoding="utf-8")
     assert "ContactsPage" in src
@@ -166,7 +178,7 @@ def test_563_contacts_page_jsx_exists():
 
 def test_563_app_jsx_routes_kontakte():
     from pathlib import Path
-    src = Path("frontend/src/App.jsx").read_text(encoding="utf-8")
+    src = _repo("frontend", "src", "App.jsx").read_text(encoding="utf-8")
     assert 'page === "kontakte"' in src
     assert "ContactsPage" in src
     assert '"kontakte"' in src  # In TAB_CONFIG
@@ -174,7 +186,7 @@ def test_563_app_jsx_routes_kontakte():
 
 def test_563_applications_page_has_contacts_section():
     from pathlib import Path
-    src = Path("frontend/src/pages/ApplicationsPage.jsx").read_text(encoding="utf-8")
+    src = _repo("frontend", "src", "pages", "ApplicationsPage.jsx").read_text(encoding="utf-8")
     assert "ApplicationContactsSection" in src
     # Erklaerender Empty-State muss da sein
     assert "Wer war beim Interview dabei?" in src or "Beteiligte Personen" in src

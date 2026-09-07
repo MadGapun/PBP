@@ -265,9 +265,13 @@ function PromptsTab({ pushToast, copyPrompt }) {
     return <p className="text-sm text-muted/60">Lade...</p>;
   }
 
+  // #979: Katalogeintraege tragen `id` (die Karte) und `prompt` (den
+  // Builder). Zwei Eintraege duerfen auf denselben Builder zeigen — die
+  // Liste darf deshalb nicht mehr nach `name` schluesseln.
+  const kennung = (p) => p.prompt || p.name || p.id;
   const filtered = filter
     ? prompts.filter((p) =>
-        (p.titel + " " + p.name + " " + p.beschreibung).toLowerCase().includes(filter.toLowerCase())
+        (p.titel + " " + kennung(p) + " " + p.beschreibung).toLowerCase().includes(filter.toLowerCase())
       )
     : prompts;
 
@@ -281,7 +285,7 @@ function PromptsTab({ pushToast, copyPrompt }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted/70">
-        Vollstaendige Liste aller {prompts.length} verfuegbaren MCP-Prompts. Klick auf „Kopieren"
+        {prompts.length} Prompts fuer deine Bewerbung. Klick auf „Kopieren"
         kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfuegen und absenden.
       </p>
       <input
@@ -302,19 +306,24 @@ function PromptsTab({ pushToast, copyPrompt }) {
             <div className="space-y-1.5">
               {items.map((p) => (
                 <div
-                  key={p.name}
+                  key={p.id || p.name}
                   className="glass-card flex items-start justify-between gap-3 px-3 py-2.5 rounded-lg"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-ink">{p.titel}</p>
-                    <p className="text-[11px] text-muted/50 font-mono">/{p.name}</p>
+                    <p className="text-[11px] text-muted/50 font-mono">
+                      /{kennung(p)}
+                      {p.parameter
+                        ? " " + Object.entries(p.parameter).map(([k, v]) => `${k}=${v}`).join(" ")
+                        : ""}
+                    </p>
                     {p.beschreibung && (
                       <p className="text-[12px] text-muted/70 mt-0.5">{p.beschreibung}</p>
                     )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => copyPrompt(`/${p.name}`)}
+                    onClick={() => copyPrompt(`/${kennung(p)}`)}
                     className="shrink-0 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-[11px] font-medium px-2.5 py-1.5 transition-colors"
                   >
                     Kopieren
@@ -1065,6 +1074,10 @@ export default function App() {
     copyPrompt,
     startJobsuche,
     executeAction,
+    // #979 (G29, Befund 4): der Hilfetext im Schnellzugriff VERWIES auf
+    // "Hilfe & Support, Reiter Prompts" — als Satz, ohne Link. Der
+    // Oeffner lag als State hier und war von keiner Seite erreichbar.
+    openHelp: (tab = "hilfe") => { setHelpTab(tab); setHelpOpen(true); },
     openCreateProfileModal: () => setCreateProfileOpen(true),
     openProfileOnboarding: reopenProfileOnboarding,
     themeMode,

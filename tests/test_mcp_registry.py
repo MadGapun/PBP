@@ -211,6 +211,7 @@ EXPECTED_TOOL_NAMES = {
     "kontakte_aus_bewerbungen_extrahieren",
     "scoring_konfigurieren",
     "scores_neu_berechnen",
+    "schnellzugriff_setzen",
     "stilarchiv_kontext",
     "stilarchiv_outcome_setzen",
     "stilarchiv_speichern",
@@ -365,7 +366,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 219  # v1.7.24 (#961): +dokument_typen_nachziehen
+        assert len(tools) == 220  # v1.7.33 (#979): +schnellzugriff_setzen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

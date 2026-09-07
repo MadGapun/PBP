@@ -89,6 +89,63 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def schnellzugriff_setzen(prompts: str = "") -> dict:
+        """Welche Prompt-Karten im Dashboard-Schnellzugriff stehen (#979).
+
+        Ohne Argument: zeigt den Katalog und die aktuelle Auswahl, damit
+        der Nutzer sieht, was es gibt, bevor er waehlt.
+
+        Args:
+            prompts: Katalog-Kennungen, kommagetrennt. Ein leerer String
+                zeigt nur an; das Wort 'standard' stellt die
+                Voreinstellung wieder her.
+        """
+        from ..services import prompt_katalog
+
+        katalog = prompt_katalog.alle()
+        if not (prompts or "").strip():
+            aktuell = prompt_katalog.auswahl(db)
+            return {
+                "aktuell": aktuell,
+                "anzahl": len(aktuell),
+                "katalog": [
+                    {"kennung": e["id"], "titel": e["titel"],
+                     "kategorie": e["kategorie"],
+                     "beschreibung": e["beschreibung"],
+                     "im_schnellzugriff": e["id"] in aktuell}
+                    for e in katalog
+                ],
+                "hinweis": (
+                    "Auswahl setzen: schnellzugriff_setzen(prompts='a,b,c'). "
+                    "Voreinstellung: schnellzugriff_setzen(prompts='standard')."),
+            }
+
+        roh = [t.strip() for t in str(prompts).split(",") if t.strip()]
+        if len(roh) == 1 and roh[0].lower() == "standard":
+            roh = prompt_katalog.standard_auswahl()
+
+        erg = prompt_katalog.auswahl_setzen(db, roh)
+        antwort = {
+            "status": "gespeichert",
+            "schnellzugriff": erg["uebernommen"],
+            "anzahl": len(erg["uebernommen"]),
+        }
+        if erg["unbekannt"]:
+            # Nicht still schlucken: eine erfundene Kennung waere sonst
+            # ein Eintrag, der auf dem Dashboard einfach fehlt.
+            antwort["unbekannt"] = erg["unbekannt"]
+            antwort["hinweis"] = (
+                "Diese Kennungen gibt es im Katalog nicht und wurden "
+                "nicht uebernommen. schnellzugriff_setzen() ohne "
+                "Argument zeigt die gueltigen.")
+        if not erg["uebernommen"]:
+            antwort["hinweis"] = (
+                "Leere Auswahl — das Dashboard zeigt jetzt wieder die "
+                "Voreinstellung. Mit schnellzugriff_setzen(prompts='...') "
+                "eine eigene setzen.")
+        return antwort
+
+    @mcp.tool()
     def jobsuche_workflow_starten() -> dict:
         """Startet den geführten Jobsuche-Workflow: Suchkriterien prüfen, Quellen aktivieren,
         Suche starten, Ergebnisse sichten, Bewerbung vorbereiten.
