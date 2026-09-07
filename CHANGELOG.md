@@ -33,6 +33,79 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.34] - 2026-09-07 — Was erst im Bild auffiel
+
+Beim Erneuern des Dashboard-Screenshots fuer die Doku sind zwei Dinge
+aufgefallen, die beim Lesen des Codes unsichtbar waren und im Browser
+kaum stoerten — auf dem Bild aber sofort.
+
+### Fixed
+
+- **Der obere Block lief rechts aus dem Fenster.** Die Karten „Offen",
+  „Naechster sinnvoller Schritt" und der Tagesimpuls waren breiter als
+  der Inhaltsbereich; am rechten Rand fehlten Beschriftungen. Der Fehler
+  ist aelter als der neue Block — sichtbar wurde er erst, als dort eine
+  Liste mit Datum und Herkunft stand. Im Block „Offen" selbst waren aus
+  demselben Grund die Herkunft-Etiketten abgeschnitten.
+
+- **Die Vorbereitungszeile stand auf demselben Tag wie das Gespraech.**
+  Damit standen „Vorbereiten: Zweitgespraech" und „Zweitgespraech"
+  direkt untereinander — dieselbe Doppelung, gegen die das Dashboard
+  gerade aufgeraeumt wurde. Die Vorbereitung ist jetzt am Vortag
+  faellig. Ist das Gespraech heute oder morgen, bleibt sie bei heute:
+  sonst waere sie im selben Moment „ueberfaellig", ohne dass du etwas
+  versaeumt haettest.
+
+### Changed
+
+- **Die Screenshots in der Dokumentation sind neu.** Sie zeigen den
+  Dashboard-Stand ab v1.7.31, weiterhin nur mit Musterdaten.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.34.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.34.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.33] - 2026-09-07 — Der Schnellzugriff gehoert dir
 
 Letzter Teil des Dashboard-Epics. Der Wunsch war einfach: selbst
