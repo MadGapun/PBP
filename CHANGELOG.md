@@ -33,6 +33,113 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.41] - 2026-09-07 — Was der Filter wegwirft
+
+Beim Stöbern auf einer Jobbörse fand sich eine Stelle, die fachlich näher
+am Profil lag als alles, was vier PBP-Suchläufe geliefert hatten. Beim
+Anlegen kam: *„Firma steht auf der Blacklist (Zeitarbeit/Consulting —
+kein Fit). Stelle nicht angelegt."*
+
+Der Eintrag stammte aus einer Zeit, in der von dieser Firma nur
+unpassende Rollen kamen. Für genau diesen Fall gibt es seit v1.7.11 die
+Ausnahme: die Firma bleibt gesperrt, deine Fachrollen kommen durch.
+**Nur wusste der Suchlauf nichts davon.**
+
+### Fixed
+
+- **Die Ausnahme wirkt jetzt überall.** Die Frage „blockt die Blacklist
+  diese Stelle" wurde an vier Stellen im Code beantwortet — und zwei
+  davon kannten die Titel-Ausnahme nicht: **der Suchlauf und die
+  Trefferliste**, also genau die beiden, auf die es ankommt. Wer die
+  Ausnahme setzte, bekam die Stelle von Hand durch, und der nächste
+  Suchlauf warf sie wieder weg. Alle vier Wege rufen jetzt dieselbe Regel
+  auf.
+
+- **Die Trefferliste verglich Firmennamen auf Gleichheit** statt als
+  Wortbestandteil — als einzige der vier. Ein Eintrag „Musterfirma" ließ
+  „Musterfirma GmbH" dort stehen, obwohl jeder andere Weg sie wegwarf.
+
+- **Verschonte Stellen wurden verschwiegen.** Die Liste der Stellen, die
+  eine Ausnahme gerettet hat, erschien in `blacklist_anwenden` nur, wenn
+  gar nichts aussortiert wurde — also nie dann, wenn es interessant wird.
+
+### Added
+
+- **`blacklist_wirkung()` — was wirft dein Filter eigentlich weg?** Ein
+  Filter, dessen Wirkung niemand sieht, lässt sich nicht überprüfen: man
+  weiß nicht, ob er richtig arbeitet, und merkt nicht, wenn seine
+  Begründung veraltet ist. PBP protokolliert Blockaden jetzt — aus dem
+  Suchlauf, beim Anlegen von Hand und über Plugins — und zeigt sie mit
+  Titel, Auslöser und Datum.
+
+  Dazu je Eintrag: **Alter**, ob die Begründung eine ganze **Gattung**
+  beschreibt statt einer Firma, und ob der Eintrag Stellen wegwirft,
+  deren Titel deine **MUSS-Begriffe** enthalten. Das ist der Widerspruch,
+  der hier aufgetreten ist, und er ist maschinell erkennbar: „das suche
+  ich" und „das will ich nicht" über derselben Stelle.
+
+- **Die Warnung kommt beim Anlegen, nicht erst beim Abweisen.** Wer eine
+  Firma mit einer Gattungsbegründung sperrt, erfährt sofort, dass es die
+  Ausnahmeliste gibt — und bekommt gesagt, welche bekannten Stellen
+  dieser Eintrag ab jetzt still verwirft.
+
+### Changed
+
+- **`pbp_diagnose`** weist die Zahl der von der Blacklist verworfenen
+  Stellen aus, warnt bei Kollision mit den MUSS-Begriffen und nennt
+  Einträge ohne Begründung — die kann auch niemand später noch prüfen.
+
+### Hinweis
+
+Der Ausweg ist selten Löschen. `blacklist_verwalten('ändern',
+entry_id=…, ausser_wenn_titel_enthaelt=['PLM'])` hält die Firma draußen
+und lässt genau deine Fachrollen durch. Das Protokoll beginnt mit dieser
+Version — ältere Blockaden sind nicht rekonstruierbar, weil sie nirgends
+standen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.41.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.41.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.40] - 2026-09-07 — Der Weg zur Kennung
 
 Gemeldet von einem Anwender: nach dem Onboarding legt Claude die
