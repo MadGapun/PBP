@@ -174,6 +174,112 @@ def _ungemappte_kandidaten(text, zaehler):
             zaehler[low] = zaehler.get(low, 0) + 1
 
 
+# ── #994 (v1.7.40): Feldnamen — deutsch rein, ehrliche Antwort raus ──
+# Der zweite Teil des Melder-Befunds: "Sieht wohl also so aus, dass der
+# MCP die Ids und/oder die Feld Namen nicht alle korrekt uebermittelt."
+# Er hat recht. Die Lesewerkzeuge sprechen Deutsch (aufgaben, erfolge,
+# technologien), die Schreibschicht nimmt die Spaltennamen (tasks,
+# achievements, technologies) — und filtert alles andere STILL heraus.
+# Gemessen am 07.09.2026: profil_bearbeiten(daten={"aufgaben": ...})
+# antwortete "aktualisiert, geaenderte_felder: ['aufgaben']" und schrieb
+# nichts. Das ist eine Erfolgsmeldung ueber eine Nicht-Aenderung, also
+# derselbe Fehlertyp wie #980 — nur ohne falschen Datensatz.
+#
+# Zwei Konsequenzen, beide noetig: die deutschen Namen werden uebersetzt
+# (sonst treibt es Nutzer in den DB-Bypass, siehe #659), und was
+# uebrigbleibt, wird BENANNT statt verschluckt.
+_SCHREIBFELDER = {
+    "position": ("company", "title", "location", "start_date", "end_date",
+                 "is_current", "employment_type", "industry", "description",
+                 "tasks", "achievements", "technologies"),
+    "ausbildung": ("institution", "degree", "field_of_study", "start_date",
+                   "end_date", "grade", "description"),
+    "projekt": ("name", "description", "role", "situation", "task", "action",
+                "result", "technologies", "duration", "customer_name",
+                "is_confidential", "start_date", "end_date", "position_id"),
+}
+
+_FELD_ALIASE = {
+    "position": {
+        "firma": "company", "unternehmen": "company", "arbeitgeber": "company",
+        "titel": "title", "position": "title", "stellenbezeichnung": "title",
+        "ort": "location", "standort": "location",
+        "von": "start_date", "beginn": "start_date", "startdatum": "start_date",
+        "bis": "end_date", "ende": "end_date", "enddatum": "end_date",
+        "aktuell": "is_current", "laufend": "is_current",
+        "stellenart": "employment_type", "anstellungsart": "employment_type",
+        "branche": "industry",
+        "beschreibung": "description",
+        "aufgaben": "tasks", "taetigkeiten": "tasks",
+        "erfolge": "achievements", "ergebnisse": "achievements",
+        "technologien": "technologies", "tools": "technologies",
+    },
+    "ausbildung": {
+        "einrichtung": "institution", "hochschule": "institution",
+        "schule": "institution", "universitaet": "institution",
+        "abschluss": "degree",
+        "fachrichtung": "field_of_study", "studienfach": "field_of_study",
+        "von": "start_date", "beginn": "start_date",
+        "bis": "end_date", "ende": "end_date",
+        "note": "grade", "abschlussnote": "grade",
+        "beschreibung": "description",
+    },
+    "projekt": {
+        "titel": "name", "projektname": "name",
+        "beschreibung": "description",
+        "rolle": "role",
+        "ausgangslage": "situation", "aufgabe": "task",
+        "vorgehen": "action", "massnahme": "action",
+        "ergebnis": "result",
+        "technologien": "technologies", "tools": "technologies",
+        "dauer": "duration",
+        "kunde": "customer_name", "auftraggeber": "customer_name",
+        "vertraulich": "is_confidential",
+        "von": "start_date", "bis": "end_date",
+    },
+}
+
+
+def _felder_uebersetzen(bereich, daten):
+    """Deutsche Feldnamen abbilden; liefert (uebersetzt, ignoriert).
+
+    `ignoriert` ist der Punkt: ein Feld, das weder Spaltenname noch Alias
+    ist, wird nicht klammheimlich verworfen, sondern zurueckgemeldet.
+    """
+    if not isinstance(daten, dict):
+        return daten, []
+    erlaubt = _SCHREIBFELDER.get(bereich)
+    if erlaubt is None:
+        return daten, []
+    aliase = _FELD_ALIASE.get(bereich, {})
+    uebersetzt, ignoriert = {}, []
+    for schluessel, wert in daten.items():
+        name = str(schluessel).strip()
+        if name in erlaubt or name in ("profile_id", "sort_order"):
+            uebersetzt[name] = wert
+            continue
+        ziel = aliase.get(name.lower())
+        if ziel:
+            uebersetzt[ziel] = wert
+        else:
+            ignoriert.append(schluessel)
+    return uebersetzt, ignoriert
+
+
+def _feld_rueckmeldung(bereich, antwort, ignoriert):
+    """Haengt die unbekannten Feldnamen an die Antwort — mit Wegweiser."""
+    if ignoriert:
+        antwort["ignorierte_felder"] = ignoriert
+        antwort["moegliche_felder"] = list(_SCHREIBFELDER.get(bereich, ()))
+        antwort["hinweis"] = (
+            f"Nicht geschrieben: {', '.join(map(str, ignoriert))}. "
+            f"Diese Feldnamen kennt der Bereich '{bereich}' nicht — "
+            "moegliche stehen in moegliche_felder (deutsche Bezeichnungen "
+            "wie 'aufgaben' oder 'erfolge' werden uebersetzt)."
+        )
+    return antwort
+
+
 def register(mcp, db, logger):
     """Registriert alle Profil-Tools."""
 
@@ -254,7 +360,9 @@ def register(mcp, db, logger):
             end = pos.get("end_date") or "heute"
             emp_type = pos.get("employment_type", "")
             type_badge = f" [{emp_type}]" if emp_type else ""
-            lines.append(f"\n  {pos.get('title', '?')} bei {pos.get('company', '?')}{current}{type_badge}")
+            # #994: die ID steht hier, weil sie sonst nirgends steht — ohne
+            # sie ist profil_bearbeiten(bereich='position', ...) nicht aufrufbar.
+            lines.append(f"\n  [{pos.get('id', '?')}] {pos.get('title', '?')} bei {pos.get('company', '?')}{current}{type_badge}")
             lines.append(f"  {pos.get('start_date', '?')} - {end} | {pos.get('location', '')}")
             if pos.get("description"):
                 lines.append(f"  Beschreibung: {_kurz(pos['description'], 200)}")
@@ -290,11 +398,18 @@ def register(mcp, db, logger):
             degree = edu.get("degree", "")
             field = edu.get("field_of_study", "")
             degree_str = f"{degree} in {field}" if degree and field else degree or field or "?"
-            lines.append(f"  {degree_str} — {edu.get('institution', '?')}")
+            lines.append(f"  [{edu.get('id', '?')}] {degree_str} — {edu.get('institution', '?')}")
             if edu.get("start_date") or edu.get("end_date"):
                 lines.append(f"  {edu.get('start_date', '?')} - {edu.get('end_date', '?')}")
             if edu.get("grade"):
                 lines.append(f"  Note: {edu['grade']}")
+
+        if positions or education:
+            lines.append(
+                "\n  Die Kennung in eckigen Klammern ist die element_id. Aendern mit"
+                "\n  profil_bearbeiten(bereich='position'|'ausbildung', aktion='aendern',"
+                "\n  element_id=..., daten={...}); Volltext mit positionen_anzeigen()."
+            )
 
         # Skills
         lines.append(f"\n--- Skills ({len(skills)} Einträge) ---")
@@ -341,6 +456,17 @@ def register(mcp, db, logger):
             "projekte_anzahl": sum(len(p.get("projects", [])) for p in positions),
             "skills_anzahl": len(skills),
             "ausbildung_anzahl": len(education),
+            # #994: der Weg zum Bearbeiten gehoert in die Auskunft, die man
+            # tatsaechlich aufruft — nicht nur in den Docstring des Schreibers.
+            "positionen_ids": [p.get("id") for p in positions],
+            "ausbildung_ids": [e.get("id") for e in education],
+            "bearbeiten_hinweis": (
+                "Berufserfahrung und Ausbildung sind aenderbar: "
+                "profil_bearbeiten(bereich='position', aktion='aendern', "
+                "element_id=<id>, daten={...}). Die IDs stehen oben in eckigen "
+                "Klammern; den ungekuerzten Text dazu liefert "
+                "positionen_anzeigen()."
+            ),
             # #741: klar dokumentierter Weg zum Volltext
             "projekt_volltext_hinweis": (
                 "Projektbeschreibungen in dieser Zusammenfassung sind gekuerzt "
@@ -348,6 +474,145 @@ def register(mcp, db, logger):
                 "mit projekte_anzeigen() abrufen."
             ),
         }
+
+    @mcp.tool()
+    def positionen_anzeigen(nur_id: str = "") -> dict:
+        """Berufserfahrung und Ausbildung im VOLLTEXT — mit ihren IDs.
+
+        Nutzer-Report #994 (07.09.2026): "Beim Onboarding hat Claude die
+        Stellen korrekt aus meinem Lebenslauf angelegt. Diese will ich im
+        Nachhinein mit Claude besprechen und direkt aendern lassen.
+        Allerdings sagt mir Claude immer, dass das Tool zum Bearbeiten
+        nicht zur Verfuegung steht."
+
+        Das Werkzeug gab es: `profil_bearbeiten(bereich='position',
+        aktion='aendern', element_id=..., daten=...)`. Was fehlte, war der
+        Weg an die **element_id** — kein Lese-Werkzeug gab sie heraus.
+        `profil_zusammenfassung` liefert formatierten Text, und
+        `projekte_anzeigen` (H16/#741) nennt zwar `position_id`, aber nur
+        fuer Positionen, die schon Projekte tragen. Nach einem frischen
+        Lebenslauf-Import trifft das fast nie zu.
+
+        Genau dafuer gibt es dieses Werkzeug. Es ist die Entsprechung von
+        `projekte_anzeigen` fuer die beiden Ebenen darueber:
+        ungekuerzte Felder, und je Eintrag die ID, die zum Aendern
+        gebraucht wird.
+
+        **Der uebliche Ablauf:** `positionen_anzeigen()` aufrufen, mit dem
+        Menschen ueber die Luecken sprechen (Aufgaben, Erfolge,
+        Technologien fehlen nach einem CV-Import meist), und das Ergebnis
+        mit `profil_bearbeiten` zurueckschreiben.
+
+        Args:
+            nur_id: Optional — nur diese eine Position oder Ausbildung
+                (Kurz-ID/Praefix reicht). Leer = alles.
+        """
+        profile = db.get_profile()
+        if profile is None:
+            return {"status": "kein_profil",
+                    "nachricht": "Noch kein Profil vorhanden. "
+                                 "Starte mit dem Prompt ersterfassung_starten."}
+
+        def _passt(eintrag) -> bool:
+            return not nur_id or str(eintrag.get("id", "")).startswith(nur_id)
+
+        positionen = []
+        for pos in profile.get("positions", []):
+            if not _passt(pos):
+                continue
+            positionen.append({
+                "position_id": pos.get("id"),
+                "titel": pos.get("title") or "",
+                "firma": pos.get("company") or "",
+                "ort": pos.get("location") or "",
+                "zeitraum": (f"{pos.get('start_date') or '?'} - "
+                             f"{'heute' if pos.get('is_current') else (pos.get('end_date') or '?')}"),
+                "aktuell": bool(pos.get("is_current")),
+                "stellenart": pos.get("employment_type") or "",
+                "branche": pos.get("industry") or "",
+                # Volltext, NICHT gekuerzt — das ist der Unterschied zu
+                # profil_zusammenfassung (dort 200 Zeichen, #741-Lehre).
+                "beschreibung": pos.get("description") or "",
+                "aufgaben": pos.get("tasks") or "",
+                "erfolge": pos.get("achievements") or "",
+                "technologien": pos.get("technologies") or "",
+                "projekte_anzahl": len(pos.get("projects") or []),
+            })
+
+        ausbildung = []
+        for edu in profile.get("education", []):
+            if not _passt(edu):
+                continue
+            ausbildung.append({
+                "ausbildung_id": edu.get("id"),
+                "abschluss": edu.get("degree") or "",
+                "einrichtung": edu.get("institution") or "",
+                "fachrichtung": edu.get("field_of_study") or "",
+                "zeitraum": (f"{edu.get('start_date') or '?'} - "
+                             f"{edu.get('end_date') or '?'}"),
+                "note": edu.get("grade") or "",
+                "beschreibung": edu.get("description") or "",
+            })
+
+        if nur_id and not positionen and not ausbildung:
+            return {"status": "nicht_gefunden",
+                    "nachricht": f"Keine Position und keine Ausbildung mit "
+                                 f"ID '{nur_id}' gefunden."}
+
+        if not positionen and not ausbildung:
+            return {
+                "status": "leer",
+                "positionen": [], "ausbildung": [],
+                "nachricht": ("Weder Berufserfahrung noch Ausbildung im "
+                              "Profil. Anlegen mit position_hinzufuegen() "
+                              "bzw. ausbildung_hinzufuegen(), oder den "
+                              "Lebenslauf hochladen und "
+                              "dokument_profil_extrahieren() nutzen."),
+            }
+
+        # Was nach einem CV-Import typischerweise fehlt — benannt, statt
+        # es den Menschen selbst suchen zu lassen.
+        luecken = []
+        for pos in positionen:
+            fehlt = [name for name, feld in
+                     (("Aufgaben", "aufgaben"), ("Erfolge", "erfolge"),
+                      ("Technologien", "technologien"))
+                     if not pos[feld].strip()]
+            if fehlt:
+                luecken.append({
+                    "position_id": pos["position_id"],
+                    "position": f"{pos['titel']} bei {pos['firma']}",
+                    "fehlende_felder": fehlt,
+                })
+
+        ergebnis = {
+            "status": "ok",
+            "positionen": positionen,
+            "ausbildung": ausbildung,
+            "anzahl_positionen": len(positionen),
+            "anzahl_ausbildung": len(ausbildung),
+            "aendern_mit": (
+                "profil_bearbeiten(bereich='position', aktion='aendern', "
+                "element_id=<position_id>, daten={'aufgaben': '...'}) — "
+                "fuer Ausbildung bereich='ausbildung' mit der "
+                "ausbildung_id. Die Feldnamen aus dieser Antwort "
+                "funktionieren im daten-Dict (beschreibung, aufgaben, "
+                "erfolge, technologien, titel, firma, ort, stellenart, "
+                "branche), die englischen Spaltennamen ebenfalls. Was "
+                "weder das eine noch das andere ist, wird als "
+                "ignorierte_felder zurueckgemeldet statt still verworfen."
+            ),
+        }
+        if luecken:
+            ergebnis["luecken"] = luecken
+            ergebnis["hinweis"] = (
+                f"{len(luecken)} Position(en) haben leere Felder — nach "
+                "einem Lebenslauf-Import ist das normal, ein CV nennt "
+                "selten Aufgaben, Erfolge und Technologien vollstaendig. "
+                "Frag den Menschen danach und schreib die Antworten mit "
+                "profil_bearbeiten zurueck."
+            )
+        return ergebnis
 
     @mcp.tool()
     def projekte_anzeigen(position_id: str = "") -> dict:
@@ -642,6 +907,17 @@ def register(mcp, db, logger):
         adresse/anschrift->address, kurzprofil/zusammenfassung->summary,
         stadt/ort->city, telefon->phone
 
+        Feldnamen-Aliase für position/ausbildung/projekt (#994): die
+        deutschen Bezeichnungen aus positionen_anzeigen() funktionieren
+        direkt — aufgaben->tasks, erfolge->achievements,
+        technologien->technologies, beschreibung->description,
+        firma->company, titel->title, ort->location, stellenart->
+        employment_type, branche->industry; ausbildung: einrichtung->
+        institution, abschluss->degree, fachrichtung->field_of_study,
+        note->grade. Ein Feldname, den weder die Liste noch die
+        Spaltennamen kennen, kommt als `ignorierte_felder` zurueck; er
+        wird nicht mehr still verworfen.
+
         Args:
             bereich: persönlich, präferenzen, notizen, position, projekt, ausbildung, skill
             aktion: ändern, löschen, hinzufügen, hinzufügen_bulk, anhang (bei notizen)
@@ -876,12 +1152,22 @@ def register(mcp, db, logger):
                 db.delete_position(element_id)
                 return {"status": "geloescht", "bereich": "position", "id": element_id}
             elif aktion == "aendern" and element_id:
-                db.update_position(element_id, daten)
-                return {"status": "aktualisiert", "bereich": "position", "id": element_id,
-                        "geaenderte_felder": list(daten.keys())}
+                felder, ignoriert = _felder_uebersetzen("position", daten)
+                if not felder:
+                    return _feld_rueckmeldung("position", {
+                        "status": "nichts_geaendert", "bereich": "position",
+                        "id": element_id}, ignoriert or list(daten.keys()))
+                db.update_position(element_id, felder)
+                return _feld_rueckmeldung("position", {
+                    "status": "aktualisiert", "bereich": "position",
+                    "id": element_id,
+                    "geaenderte_felder": list(felder.keys())}, ignoriert)
             elif aktion == "hinzufuegen":
-                pid = db.add_position(daten)
-                return {"status": "hinzugefuegt", "bereich": "position", "id": pid}
+                felder, ignoriert = _felder_uebersetzen("position", daten)
+                pid = db.add_position(felder)
+                return _feld_rueckmeldung("position", {
+                    "status": "hinzugefuegt", "bereich": "position",
+                    "id": pid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
                 ids = [db.add_position(d) for d in daten]
                 return {"status": "hinzugefuegt", "bereich": "position", "anzahl": len(ids), "ids": ids}
@@ -891,9 +1177,16 @@ def register(mcp, db, logger):
                 db.delete_project(element_id)
                 return {"status": "geloescht", "bereich": "projekt", "id": element_id}
             elif aktion == "aendern" and element_id:
-                db.update_project(element_id, daten)
-                return {"status": "aktualisiert", "bereich": "projekt", "id": element_id,
-                        "geaenderte_felder": list(daten.keys())}
+                felder, ignoriert = _felder_uebersetzen("projekt", daten)
+                if not felder:
+                    return _feld_rueckmeldung("projekt", {
+                        "status": "nichts_geaendert", "bereich": "projekt",
+                        "id": element_id}, ignoriert or list(daten.keys()))
+                db.update_project(element_id, felder)
+                return _feld_rueckmeldung("projekt", {
+                    "status": "aktualisiert", "bereich": "projekt",
+                    "id": element_id,
+                    "geaenderte_felder": list(felder.keys())}, ignoriert)
             elif aktion == "hinzufuegen" and daten.get("position_id"):
                 pid = db.add_project(daten["position_id"], daten)
                 return {"status": "hinzugefuegt", "bereich": "projekt", "id": pid}
@@ -909,12 +1202,22 @@ def register(mcp, db, logger):
                 db.delete_education(element_id)
                 return {"status": "geloescht", "bereich": "ausbildung", "id": element_id}
             elif aktion == "aendern" and element_id:
-                db.update_education(element_id, daten)
-                return {"status": "aktualisiert", "bereich": "ausbildung", "id": element_id,
-                        "geaenderte_felder": list(daten.keys())}
+                felder, ignoriert = _felder_uebersetzen("ausbildung", daten)
+                if not felder:
+                    return _feld_rueckmeldung("ausbildung", {
+                        "status": "nichts_geaendert", "bereich": "ausbildung",
+                        "id": element_id}, ignoriert or list(daten.keys()))
+                db.update_education(element_id, felder)
+                return _feld_rueckmeldung("ausbildung", {
+                    "status": "aktualisiert", "bereich": "ausbildung",
+                    "id": element_id,
+                    "geaenderte_felder": list(felder.keys())}, ignoriert)
             elif aktion == "hinzufuegen":
-                eid = db.add_education(daten)
-                return {"status": "hinzugefuegt", "bereich": "ausbildung", "id": eid}
+                felder, ignoriert = _felder_uebersetzen("ausbildung", daten)
+                eid = db.add_education(felder)
+                return _feld_rueckmeldung("ausbildung", {
+                    "status": "hinzugefuegt", "bereich": "ausbildung",
+                    "id": eid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
                 ids = [db.add_education(d) for d in daten]
                 return {"status": "hinzugefuegt", "bereich": "ausbildung", "anzahl": len(ids), "ids": ids}
