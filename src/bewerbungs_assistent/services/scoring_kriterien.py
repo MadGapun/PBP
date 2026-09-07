@@ -127,4 +127,14 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
     aktuelle = {str(k) for k in (krit.get("keywords_muss") or []) if str(k).strip()}
     gespeichert = _gespeicherte_synonyme(db)
     krit["_muss_synonyme"] = {k: v for k, v in gespeichert.items() if k in aktuelle}
+
+    # v1.7.39 (#989): der strenge Umgang mit Unbekanntem wirkt im Score
+    # und gehoert damit in die Kriterien — sonst rechnete der Suchlauf
+    # wieder anders als die Neuberechnung. Genau der Fehler aus #987.
+    try:
+        from . import datenguete
+        if datenguete.umgang(db) == datenguete.STRENG:
+            krit["_unbekannt_streng"] = True
+    except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+        logger.debug("Umgang mit Unbekanntem nicht lesbar: %s", exc)
     return krit

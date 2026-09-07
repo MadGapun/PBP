@@ -1645,6 +1645,22 @@ def register(mcp, db, logger):
             nur_nicht_beworben: Nur Stellen anzeigen auf die noch nicht beworben wurde
             nur_empfohlen: True blendet Stellen mit k.o.-Muster ganz aus
         """
+        # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
+        # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
+        # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
+        # unbrauchbar (dasselbe Muster wie die Synonyme in #987).
+        from ..services import datenguete as _dg
+        from ..services import scoring_kriterien as _skrit
+        try:
+            _guete_krit = _skrit.fuer_scoring(db)
+            _guete_umgang = _dg.umgang(db)
+        except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+            logger.debug("Datenguete-Vorbereitung fehlgeschlagen: %s", exc)
+            _guete_krit, _guete_umgang = {}, _dg.NACHRANGIG
+
+        def _guete_rang(j):
+            return _dg.sortierschluessel(j, _guete_umgang, _guete_krit)
+
         if filter == "aussortiert":
             jobs = db.get_dismissed_jobs()
         else:
@@ -1682,7 +1698,16 @@ def register(mcp, db, logger):
                     logger.info("Scoring-Regler: %d Stellen auto-ignoriert", auto_ignored)
                 jobs = scored_jobs
                 # Re-sort by new score
-                jobs.sort(key=lambda j: (-j.get("is_pinned", 0), -j.get("score", 0)))
+                # v1.7.39 (#989): der Datenguete-Rang steht VOR dem Score.
+                # Eine Stelle ohne Anzeigentext ist nicht schlecht bewertet,
+                # sie ist GAR nicht bewertet — und was nichts kostet, stand
+                # bisher oben. Der Score selbst bleibt unveraendert: er misst,
+                # was in der Anzeige steht, und das ist eine Messung. Die
+                # Reihenfolge ist eine Darstellung, und dort gehoert die
+                # Unterscheidung hin.
+                jobs.sort(key=lambda j: (-j.get("is_pinned", 0),
+                                         _guete_rang(j),
+                                         -j.get("score", 0)))
             except Exception as e:
                 logger.debug("Scoring adjustments fehlgeschlagen: %s", e)
 
@@ -1709,6 +1734,7 @@ def register(mcp, db, logger):
                 # auf Platz 9, waehrend das System ihr k.o. laengst kannte.
                 jobs.sort(key=lambda j: (-j.get("is_pinned", 0),
                                          1 if j.get("_ko_muster") else 0,
+                                         _guete_rang(j),
                                          -j.get("score", 0)))
             except Exception as e:
                 logger.debug("Empfehlungs-Anreicherung fehlgeschlagen: %s", e)
@@ -1803,9 +1829,18 @@ def register(mcp, db, logger):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
             if j["hash"] in applied_hashes_all:
                 entry["bereits_beworben"] = True
+            # v1.7.39 (#989): Datenguete an JEDER Zeile — was ist belegt,
+            # was ist nur angenommen. Bisher stand das in drei getrennten
+            # Feldern verteilt (`score_status`, `entfernung_guete`,
+            # `grund_guete`), jedes in einer anderen Tool-Antwort, und in
+            # der Liste kam nichts davon an.
+            _marke = _dg.kurzmarke(j, _guete_krit)
+            if _marke:
+                entry["datenguete"] = _marke
+
             # #180: Warnung wenn Beschreibung fehlt (Score unsicher)
             desc = j.get("description") or ""
-            if len(desc.strip()) < 50:
+            if len(desc.strip()) < _dg.MIN_BESCHREIBUNG:
                 entry["beschreibung_fehlt"] = True
                 if (j.get("score") or 0) <= 0:
                     # v1.7.7 (#756): Score 0 ohne Beschreibung ist KEIN
@@ -1893,6 +1928,26 @@ def register(mcp, db, logger):
                 "Beschreibung fehlt — das ist KEIN Urteil. Vor dem "
                 "Aussortieren: stellenbeschreibung_nachladen(hash)."
             )
+
+        # v1.7.39 (#989): die Lage der Datenguete ueber die ganze Liste.
+        # Ohne diese Zeile sieht man je Stelle eine Marke, aber nicht,
+        # dass die halbe Liste auf Titeln beruht.
+        ohne_grundlage = sum(1 for j in jobs if not _dg.hat_beschreibung(j))
+        if ohne_grundlage and filter != "aussortiert":
+            result["datenguete"] = {
+                "ohne_bewertungsgrundlage": ohne_grundlage,
+                "von": len(jobs),
+                "umgang_mit_unbekannt": _guete_umgang,
+                "hinweis": (
+                    f"{ohne_grundlage} von {len(jobs)} Stellen haben keinen "
+                    "Anzeigentext — ihr Score beruht allein auf dem Titel. "
+                    + ("Sie stehen deshalb hinter den bewerteten Stellen."
+                       if _guete_umgang != _dg.MITMISCHEN else
+                       "Sie mischen sich unter die bewerteten Stellen "
+                       "(Einstellung 'mitmischen').")
+                    + " Umstellen: umgang_mit_unbekannt_setzen()."
+                ),
+            }
         # #766: Anker-Lage ueber die angezeigte Seite zusammenfassen.
         ohne_anker = sum(1 for e in formatted if e.get("ohne_anker"))
         if ohne_anker and filter != "aussortiert":
@@ -1985,6 +2040,40 @@ def register(mcp, db, logger):
                 "Fallback ueber get_page_text()."
             ),
         }
+
+    @mcp.tool()
+    def umgang_mit_unbekannt_setzen(modus: str = "") -> dict:
+        """Wie soll PBP mit UNGEPRUEFTEN Angaben umgehen? (#989)
+
+        Wo eine Information fehlt, setzt ein Punktesystem einen neutralen
+        Wert ein — und neutral heisst dort nicht "unbekannt", sondern
+        "kostet nichts". Was nichts kostet, steigt in der Sortierung. Am
+        07.09.2026 stand deshalb ein inhaltsleerer Titel mit 101 Punkten
+        ueber einer vollstaendig beschriebenen, fachlich passenden Stelle
+        mit 32.
+
+        Ob das ein Problem ist, haengt vom eigenen Kriterium ab — wer
+        "nur remote oder im Nahbereich" sucht, will eine Stelle mit
+        unbekanntem Ort im Zweifel NICHT als Nahstelle behandelt sehen.
+        Deshalb ist es eine Einstellung und keine feste Regel.
+
+        Args:
+            modus: leer = aktuellen Stand anzeigen. Sonst 'nachrangig'
+                (Vorgabe), 'mitmischen' oder 'streng'.
+        """
+        from ..services import datenguete as dg
+        if not (modus or "").strip():
+            jetzt = dg.umgang(db)
+            return {
+                "umgang": jetzt,
+                "bedeutet": dg.UMGANG_MIT_UNBEKANNT[jetzt],
+                "moeglich": dg.UMGANG_MIT_UNBEKANNT,
+                "hinweis": ("Aendern: umgang_mit_unbekannt_setzen('streng'). "
+                            "Die Dimensionen je Stelle stehen in "
+                            "stellen_anzeigen unter 'datenguete'."),
+            }
+        ergebnis = dg.umgang_setzen(db, modus.strip().lower())
+        return ergebnis
 
     @mcp.tool()
     def scores_neu_berechnen(

@@ -53,5 +53,11 @@ jobs:
         # Readiness-Stufen aus workspace_service.py ab.
         run: node frontend/src/lib/dashboardRegeln.test.mjs
 
+      - name: Datenguete-Regeln (#989 C51)
+        # Die Liste im Browser muss dieselbe Reihenfolge zeigen wie die
+        # im Chat. Dieselben Faelle wie tests/test_v1739_datenguete_989.py
+        # — weicht eine Seite ab, steht wieder das Unbekannte oben.
+        run: node frontend/src/lib/datenguete.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

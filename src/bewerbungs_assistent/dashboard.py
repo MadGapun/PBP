@@ -2352,12 +2352,40 @@ async def api_jobs(active: bool = True,
             exclude_blacklisted=exclude_blacklisted,
             exclude_applied=exclude_applied,
         )
+        # v1.7.39 (#989): den Datenguete-Befund MITGEBEN. Der Melder hat
+        # den Kern in einem Satz getroffen: "Es gibt bereits
+        # entfernung_guete, score_status, grund_guete. Alle vier stehen
+        # in Tool-Antworten. In der Trefferliste, die der Nutzer
+        # tatsaechlich ansieht, kommt davon nichts an." Diese Liste IST
+        # die Trefferliste — sie speist den Stellen-Tab.
+        _guete_anreichern(all_jobs)
         total = len(all_jobs)
         if limit > 0:
             page = all_jobs[offset:offset + limit]
             return {"jobs": page, "total": total, "offset": offset, "limit": limit, "has_more": offset + limit < total}
         return all_jobs
     return _db.get_dismissed_jobs()
+
+
+def _guete_anreichern(jobs: list) -> None:
+    """Haengt jeder Stelle ihren Datenguete-Befund an (#989).
+
+    Die Kriterien werden EINMAL geholt, nicht je Stelle — dasselbe
+    Muster wie die Alternativbezeichnungen in #987.
+    """
+    try:
+        from .services import datenguete, scoring_kriterien
+        krit = scoring_kriterien.fuer_scoring(_db)
+    except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+        logger.debug("Datenguete-Anreicherung uebersprungen: %s", exc)
+        return
+    for job in jobs:
+        try:
+            marke = datenguete.kurzmarke(job, krit)
+        except Exception:  # pragma: no cover
+            continue
+        if marke:
+            job["datenguete"] = marke
 
 
 @app.post("/api/jobs/dismiss")
@@ -4674,6 +4702,30 @@ async def api_export_applications(
             filename="Bewerbungsbericht.pdf",
             media_type="application/pdf"
         )
+
+
+@app.get("/api/datenguete/umgang")
+async def api_datenguete_umgang():
+    """#989: Wie geht PBP mit ungeprueften Angaben um?
+
+    Die Liste im Browser muss dieselbe Reihenfolge zeigen wie die im
+    Chat — sonst ist die Einstellung eine halbe.
+    """
+    from .services import datenguete
+    jetzt = datenguete.umgang(_db)
+    return {"umgang": jetzt,
+            "bedeutet": datenguete.UMGANG_MIT_UNBEKANNT[jetzt],
+            "moeglich": datenguete.UMGANG_MIT_UNBEKANNT}
+
+
+@app.post("/api/datenguete/umgang")
+async def api_datenguete_umgang_setzen(request: Request):
+    from .services import datenguete
+    data = await request.json()
+    ergebnis = datenguete.umgang_setzen(_db, str(data.get("umgang") or ""))
+    if ergebnis.get("fehler"):
+        return JSONResponse(ergebnis, status_code=400)
+    return ergebnis
 
 
 @app.get("/api/search-criteria")
