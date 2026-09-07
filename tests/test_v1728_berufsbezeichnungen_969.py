@@ -75,8 +75,10 @@ def _cache_leeren():
     ("Erzieher/in", ["Erzieher", "Erzieherin"]),
     ("Pflegefachmann/-frau (Altenpflege)",
      ["Pflegefachmann", "Pflegefachfrau"]),
-    ("Kaufmann/-frau - Büromanagement",
-     ["Kaufmann", "Kauffrau", "Büromanagement"]),
+    # v1.7.36 (#987): "Büromanagement" ist die FACHRICHTUNG, kein
+    # zweiter Name. Ein Kaufmann ist kein Büromanagement — als
+    # MUSS-Synonym traf das Wort jede Verwaltungsstelle.
+    ("Kaufmann/-frau - Büromanagement", ["Kaufmann", "Kauffrau"]),
     ("Sozialpädagoge/pädagogin", ["Sozialpädagoge", "Sozialpädagogin"]),
 ])
 def test_969_wortformen_werden_korrekt_gebildet(amtlich, erwartet):
@@ -93,7 +95,13 @@ def test_969_kompositum_vorderteil_wird_nie_zum_begriff():
     """
     formen = bb._formen("Gesundheits- und Krankenpfleger/in")
     assert "Gesundheits" not in formen
-    assert formen == ["Krankenpfleger", "Krankenpflegerin"]
+    # Das letzte Glied einer Koordination ist ein vollstaendiger
+    # Berufsname und steht weiterhin allein.
+    assert "Krankenpfleger" in formen
+    assert "Krankenpflegerin" in formen
+    # v1.7.36 (#987): zusaetzlich die ausgeschriebene Bezeichnung — so
+    # steht sie in den Anzeigen, die #969 ausgeloest haben.
+    assert "Gesundheits- und Krankenpfleger" in formen
 
 
 def test_969_keine_unwoerter():
@@ -240,11 +248,20 @@ def test_969_synonym_zaehlt_wie_ein_treffer_nicht_weniger():
 
 def test_969_suchlauf_holt_die_bezeichnungen_einmal():
     """Einmal je Lauf, nicht je Stelle — dasselbe Muster wie die
-    IDF-Faktoren (#778)."""
+    IDF-Faktoren (#778).
+
+    v1.7.36 (#987): der Aufruf steht nicht mehr woertlich im Suchlauf,
+    sondern im Nadeloehr `services/scoring_kriterien.py` — genau weil
+    die Anreicherung an dieser einen Stelle stand und die anderen
+    Score-Wege sie deshalb nicht hatten. Die Absicht dieses Tests bleibt
+    unveraendert: **einmal je Lauf.**
+    """
     from pathlib import Path
-    quelle = (Path(__file__).resolve().parents[1] / "src" /
-              "bewerbungs_assistent" / "job_scraper" /
-              "__init__.py").read_text(encoding="utf-8")
-    assert "berufsbezeichnungen as _berufe" in quelle
-    assert "_berufe.erweitere(_muss_begriffe)" in quelle
-    assert quelle.count("_berufe.erweitere") == 1
+    wurzel = Path(__file__).resolve().parents[1] / "src" / "bewerbungs_assistent"
+    suchlauf = (wurzel / "job_scraper" / "__init__.py").read_text(encoding="utf-8")
+    assert "scoring_kriterien" in suchlauf
+    assert suchlauf.count("synonyme_auffrischen(db)") == 1
+
+    nadeloehr = (wurzel / "services" / "scoring_kriterien.py").read_text(encoding="utf-8")
+    assert "berufsbezeichnungen" in nadeloehr
+    assert nadeloehr.count("berufsbezeichnungen.erweitere(") == 1

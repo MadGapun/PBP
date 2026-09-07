@@ -1236,28 +1236,17 @@ def run_search(db, job_id: str, params: dict):
         logger.info("Cross-Source Duplikate entfernt: %d", duplicates_merged)
 
     # Score, extract/estimate salary, and save
-    criteria = db.get_search_criteria()
-
-    # Enrich with application signals (#68)
-    try:
-        apps = db.get_applications()
-        criteria["_applied_titles"] = [
-            a.get("title", "").lower() for a in apps
-            if a.get("title") and a.get("status") not in ("abgelehnt", "zurueckgezogen")
-        ]
-    except Exception:
-        criteria["_applied_titles"] = []
-    # v1.7.28 (#969): amtliche Alternativbezeichnungen EINMAL je Lauf
-    # holen und ueber die Kriterien weiterreichen. Eine Netzabfrage je
-    # Stelle und Keyword waere unbrauchbar.
-    try:
-        from ..services import berufsbezeichnungen as _berufe
-        _muss_begriffe = [k for k in (criteria.get("keywords_muss") or [])
-                          if str(k).strip()]
-        if _muss_begriffe:
-            criteria["_muss_synonyme"] = _berufe.erweitere(_muss_begriffe)
-    except Exception as exc:  # pragma: no cover — darf den Lauf nie stoppen
-        logger.debug("Berufsbezeichnungen uebersprungen: %s", exc)
+    #
+    # v1.7.36 (#987): die Anreicherung stand HIER und nur hier. Damit war
+    # der gespeicherte Score von keinem anderen Werkzeug reproduzierbar —
+    # `scores_neu_berechnen` und `fit_analyse` rechneten mit anderen
+    # Kriterien und kamen auf einen anderen Wert, ohne dass irgendwo ein
+    # Fehler auftrat. Jetzt baut `services/scoring_kriterien.py` die
+    # Basis fuer alle Wege; hier wird nur noch die Netzabfrage
+    # ausgeloest, die ein Lesewerkzeug nicht machen darf.
+    from ..services import scoring_kriterien as _skrit
+    _skrit.synonyme_auffrischen(db)
+    criteria = _skrit.fuer_scoring(db)
 
     # v1.7.22 (#940): Filterkaskade mitzaehlen. Ohne diese Zahlen sieht
     # der Nutzer nur "7.100 Rohtreffer -> 15 Stellen" und kann nicht
@@ -2346,6 +2335,25 @@ def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
     return min(1.0, max(0.0, (job_jahr - wunsch) / spanne))
 
 
+def _teilscores_setzen(job: dict, fach: float, rahmen: float,
+                       ungedeckelt: float | None = None) -> None:
+    """Teilscores IMMER mitschreiben — auch bei einem Frueh-Ausstieg.
+
+    v1.7.36 (#987, zweite Beobachtung des Issues): `calculate_score`
+    setzte `_fachscore`/`_rahmenscore` erst ganz am Ende. Bei jedem
+    Frueh-Ausstieg (Ausschluss-Keyword, kein MUSS-Treffer) blieben sie
+    also ungesetzt, `scores_neu_berechnen` fand nichts zum Nachziehen —
+    und in der Datenbank stand weiter der ALTE Fachscore neben dem neuen
+    Gesamtscore. Gemeldet als "fachscore 56 gegen score 1". Eine Stelle,
+    die am Tor scheitert, hat keinen Fachwert; genau das gehoert
+    hingeschrieben.
+    """
+    job["_fachscore"] = round(fach, 1)
+    job["_rahmenscore"] = round(rahmen, 1)
+    job["_rahmen_ungedeckelt"] = round(
+        rahmen if ungedeckelt is None else ungedeckelt, 1)
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -2415,6 +2423,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     for _kw in ausschluss:
         if _strict_keyword_match(_kw, text):
             job["_ko_ausschluss"] = _kw
+            _teilscores_setzen(job, 0, 0)
             return 0
 
     # v1.7.10 (#778): Einzelgewichte + optionale IDF-Faktoren
@@ -2460,9 +2469,11 @@ def calculate_score(job: dict, criteria: dict) -> int:
             )
             if has_partial:
                 job["_score_unsicher"] = True
+                _teilscores_setzen(job, 1, 0)
                 return 1  # Mindest-Score — Beschreibung nachladen!
         # #762: K.o.-Grund markieren (kein MUSS-Keyword getroffen)
         job["_ko_kein_muss"] = True
+        _teilscores_setzen(job, 0, 0)
         return 0
 
     # v1.7.10 (#778): Punkte pro Treffer statt pauschal Anzahl x Gewicht.
@@ -2608,9 +2619,8 @@ def calculate_score(job: dict, criteria: dict) -> int:
 
     # Teilscores mitgeben: ohne sie sieht man nur die Summe und muss
     # raten, woher die Punkte kommen (#942).
-    job["_fachscore"] = round(fachscore, 1)
-    job["_rahmenscore"] = round(rahmen_effektiv, 1)
-    job["_rahmen_ungedeckelt"] = round(rahmen_plus - rahmen_minus, 1)
+    _teilscores_setzen(job, fachscore, rahmen_effektiv,
+                       rahmen_plus - rahmen_minus)
 
     # #778: Mit Einzelgewichten/IDF kann score ein Float sein — auf eine
     # Nachkommastelle runden; der Default-Pfad (Ints) bleibt unveraendert.

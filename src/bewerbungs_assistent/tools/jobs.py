@@ -2003,7 +2003,18 @@ def register(mcp, db, logger):
             max_stellen: 0 = unbegrenzt, sonst harter Cap (sinnvoll fuer Tests).
         """
         from ..job_scraper import calculate_score
-        criteria = db.get_search_criteria()
+        from ..services import scoring_kriterien
+        # v1.7.36 (#987): dieselben Kriterien wie der Suchlauf. Vorher
+        # rechnete dieser Lauf ohne die Anreicherung und "korrigierte"
+        # damit 86 von 86 Stellen — die Korrektur war richtig, aber die
+        # Abweichung haette es nie geben duerfen.
+        #
+        # Die Regel dahinter: **wer schreibt, frischt auf; wer liest,
+        # nimmt den abgelegten Stand.** Eine Neuberechnung ist eine
+        # bewusste Ansage des Nutzers und darf dafuer ins Netz;
+        # `fit_analyse` ist ein Lesewerkzeug und darf es nicht (#963).
+        scoring_kriterien.synonyme_auffrischen(db)
+        criteria = scoring_kriterien.fuer_scoring(db)
         if nur_aktive:
             jobs = db.get_active_jobs()
         else:
@@ -3450,7 +3461,11 @@ def register(mcp, db, logger):
         job_dict = db.get_job(job_hash)
         if not job_dict:
             return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
-        criteria = db.get_search_criteria()
+        # v1.7.36 (#987): dieselbe Basis wie Suchlauf und Neuberechnung.
+        # Die Profil-Anreicherung darunter kommt OBENDRAUF — sie ist
+        # fit-spezifisch, die Basis ist es nicht.
+        from ..services import scoring_kriterien
+        criteria = scoring_kriterien.fuer_scoring(db)
         # Enrich criteria with profile skills and salary preferences for better fit analysis
         profile = db.get_profile()
         if profile:
@@ -3487,14 +3502,35 @@ def register(mcp, db, logger):
         if new_score is not None and isinstance(new_score, (int, float)):
             old_score = job_dict.get("score")
             if old_score != new_score:
+                # v1.7.36 (#987): der alte Hinweis nannte nur EINE
+                # Erklaerung ("der Wert ist aelter als die Kriterien") und
+                # hat damit den echten Fehler verdeckt: die Stelle war am
+                # SELBEN TAG angelegt worden, die Kriterien lagen
+                # unveraendert, und trotzdem stand 105 gegen 0. Ein
+                # Hinweis, der die Ursache ausschliesst, ist schlimmer als
+                # keiner. Jetzt wird der Fall benannt statt weggeredet.
+                from datetime import date as _date
+                _gefunden = str(job_dict.get("found_at") or "")[:10]
+                _frisch = bool(_gefunden) and _gefunden == _date.today().isoformat()
+                _hinweis = (
+                    f"Der gespeicherte Score ({old_score}) weicht vom "
+                    f"jetzt berechneten ({round(new_score, 1)}) ab. ")
+                if _frisch:
+                    _hinweis += (
+                        "Die Stelle wurde HEUTE angelegt — der gespeicherte "
+                        "Wert kann also nicht veraltet sein. Dann ist die "
+                        "Abweichung ein Befund und kein Alterungseffekt: "
+                        "bitte melden (pbp_grenze_melden oder ein Issue).")
+                else:
+                    _hinweis += (
+                        "Meist ist der gespeicherte Wert aelter als die "
+                        "aktuellen Suchkriterien. Wurde seither nichts "
+                        "geaendert, ist die Abweichung ein Befund.")
                 result["score_abweichung"] = {
                     "gespeichert": old_score,
                     "neu_berechnet": round(new_score, 1),
-                    "hinweis": (
-                        f"Der gespeicherte Score ({old_score}) weicht vom "
-                        f"jetzt berechneten ({round(new_score, 1)}) ab. "
-                        "Meist ist der gespeicherte Wert aelter als die "
-                        "aktuellen Suchkriterien."),
+                    "am_selben_tag_angelegt": _frisch,
+                    "hinweis": _hinweis,
                     "naechster_schritt": (
                         "scores_neu_berechnen() zieht den ganzen Bestand "
                         "nach; fit_analyse(job_hash, score_uebernehmen=True) "
