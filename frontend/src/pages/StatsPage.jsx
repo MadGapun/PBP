@@ -18,6 +18,7 @@ import {
 
 import { api, apiUrl, optionalApi } from "@/api";
 import { useApp } from "@/app-context";
+import LearningInsightsCard from "@/components/LearningInsightsCard";
 import {
   Badge,
   Button,
@@ -928,6 +929,13 @@ export default function StatsPage() {
           )}
         </div>
       )}
+      {/* v1.7.35 (#985): zugezogen vom Dashboard. Nutzerhinweis vom
+          07.09.2026 — "gehoert das nicht eher in die Statistiken, ist
+          keine Funktion drin". Auf dem Dashboard steht, was zu TUN ist;
+          was zu SEHEN ist, gehoert hierher. */}
+      <div className="mt-5">
+        <LearningInsightsCard />
+      </div>
     </div>
   );
 }

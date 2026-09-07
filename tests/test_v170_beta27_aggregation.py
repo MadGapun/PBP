@@ -198,8 +198,25 @@ def test_anti_pattern_no_false_positive_low_volume(setup_env):
 
 # ============= Frontend Snapshot ===============
 
-def test_dashboard_has_learning_insights_card():
-    src = (PROJECT_ROOT / "frontend" / "src" / "pages" / "DashboardPage.jsx").read_text(encoding="utf-8")
-    assert "LearningInsightsCard" in src
-    assert "Was PBP gelernt hat" in src
-    assert "anti_patterns" in src
+def test_learning_insights_card_liegt_bei_den_statistiken():
+    """v1.7.35 (#985): umgezogen vom Dashboard zu den Statistiken.
+
+    Nutzerhinweis vom 07.09.2026: *"Was PBP gelernt hat... gehoert das
+    nicht eher in die Statistiken, ist keine Funktion drin."* Stimmt —
+    der Block zeigt eine Auswertung und bietet keine Handlung an, die
+    man von dort ausloest. Auf dem Dashboard steht, was zu TUN ist.
+
+    Der Test prueft weiter dieselbe Zusage aus #594, nur am neuen Ort.
+    """
+    komponente = (PROJECT_ROOT / "frontend" / "src" / "components"
+                  / "LearningInsightsCard.jsx").read_text(encoding="utf-8")
+    assert "Was PBP gelernt hat" in komponente
+    assert "anti_patterns" in komponente
+
+    stats = (PROJECT_ROOT / "frontend" / "src" / "pages"
+             / "StatsPage.jsx").read_text(encoding="utf-8")
+    assert "LearningInsightsCard" in stats
+
+    dash = (PROJECT_ROOT / "frontend" / "src" / "pages"
+            / "DashboardPage.jsx").read_text(encoding="utf-8")
+    assert "LearningInsightsCard" not in dash, "nicht an zwei Orten"

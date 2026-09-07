@@ -50,12 +50,38 @@ def test_985_offen_und_schnellzugriff_sind_in_der_voreinstellung_an():
     assert "offen" in an and "schnellzugriff" in an
 
 
-def test_985_platzfresser_sind_in_der_voreinstellung_aus():
-    """'Hier nimmt es viel Platz fuer wenig Inhalt' — der Recap bestand
-    aus einer einzigen Kennzahl. E-Mails und Gelerntes gehoeren fachlich
-    woanders hin und stehen bis zum Umzug auf AUS."""
+def test_985_recap_ist_in_der_voreinstellung_aus():
+    """'Hier nimmt es viel Platz fuer wenig Inhalt' — der Block bestand
+    aus einer einzigen Kennzahl."""
     aus = {b["id"] for b in db_bereiche.standard() if not b["sichtbar"]}
-    assert {"recap", "emails", "gelernt"} <= aus
+    assert "recap" in aus
+
+
+def test_985_umgezogene_bereiche_stehen_nicht_mehr_im_katalog():
+    """E-Mails und Gelerntes sind UMGEZOGEN, nicht abgeschaltet.
+
+    Sie im Katalog stehen zu lassen waere die schlechtere Loesung: dann
+    gaebe es sie an zwei Orten, und die Frage "wo steht das eigentlich"
+    kaeme sofort zurueck — genau die Wiederholung, gegen die Epic #978
+    angetreten ist.
+    """
+    ids = {b["id"] for b in db_bereiche.BEREICHE}
+    assert "emails" not in ids
+    assert "gelernt" not in ids
+
+    from pathlib import Path
+    wurzel = Path(__file__).resolve().parents[1]
+    docs = (wurzel / "frontend" / "src" / "pages"
+            / "DocumentsPage.jsx").read_text(encoding="utf-8")
+    stats = (wurzel / "frontend" / "src" / "pages"
+             / "StatsPage.jsx").read_text(encoding="utf-8")
+    assert "EmailListe" in docs, "E-Mails brauchen eine neue Heimat"
+    assert "LearningInsightsCard" in stats, "Gelerntes braucht eine neue Heimat"
+
+    dash = (wurzel / "frontend" / "src" / "pages"
+            / "DashboardPage.jsx").read_text(encoding="utf-8")
+    assert "EmailDetailModal" not in dash
+    assert "LearningInsightsCard" not in dash
 
 
 # ── Die drei Freiheitsgrade ─────────────────────────────────────────
