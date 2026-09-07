@@ -2547,6 +2547,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
         if _guete == "unbekannt":
             job["_entfernung_unbekannt"] = True
             job["_entfernung_hinweis"] = _grund
+            # v1.7.39 (#989): Nutzerentscheidung. Wer "nur remote oder im
+            # Nahbereich" sucht, will eine Stelle mit unbekanntem Ort im
+            # Zweifel NICHT als Nahstelle behandelt sehen. Vorgabe bleibt
+            # aus — unbekannt ist nicht dasselbe wie weit weg, und ein
+            # erfundener Malus waere derselbe Fehler wie der erfundene
+            # Bonus, nur mit anderem Vorzeichen.
+            if criteria.get("_unbekannt_streng"):
+                rahmen_minus += w["fern_malus"]
+                job["_entfernung_streng_gewertet"] = True
     if dist is not None:
         # #910: echter Verdienst ueber Wunsch reduziert den
         # Entfernungs-Malus anteilig (nur die MALUS-Zweige — Naehe-Boni

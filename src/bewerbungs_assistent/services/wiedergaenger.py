@@ -180,6 +180,24 @@ def _reasons_of(job: dict) -> list[str]:
 # beurteilt worden sein.
 MINDESTLAENGE_BELASTBAR = 200
 
+# v1.7.39 (#989 AK 5): Unterhalb DIESER Laenge ist ein textabhaengiges
+# Urteil kein schwacher Beleg mehr, sondern gar keiner. #966 hat solche
+# Urteile halbiert; der Nutzer hat am 07.09.2026 gezeigt, dass das nicht
+# reicht: eine Firma wurde als DREIFACHER Wiedergaenger mit "falsches
+# Fachgebiet" gemeldet, und zwei der drei Urteile beruhten auf Anzeigen
+# von 23 und 42 Zeichen. Halbiert ergeben zwei solche Urteile immer noch
+# eine ganze Stimme.
+#
+# Der Kreis, den der Melder beschreibt, schliesst sich genau hier:
+# Stellen ohne Text werden aussortiert, und diese Aussortierungen
+# begruenden spaeter neue. Ein Urteil ueber das Fachgebiet, das an 23
+# Zeichen getroffen wurde, ist keine Information ueber die Stelle,
+# sondern eine ueber die Datenlage.
+#
+# Die Abstufung bleibt: eine GESCHAETZTE Gehaltszahl ist ein schwacher
+# Beleg (sie zeigt in eine Richtung), ein Anzeigen-Rumpf ist keiner.
+MINDESTLAENGE_TRAGFAEHIG = 50
+
 # Gruende, die sich unmittelbar auf eine Gehaltszahl stuetzen. War die
 # geschaetzt, steht das Urteil auf einer Schaetzung.
 _GEHALTS_GRUENDE = frozenset({"gehalt_zu_niedrig", "gehalt_unklar"})
@@ -229,11 +247,17 @@ def grund_guete(job: dict) -> tuple[str, str]:
     roh = job.get("description")
     if roh is not None:
         text = str(roh).strip()
-        if (len(text) < MINDESTLAENGE_BELASTBAR
-                and gruende & _TEXTABHAENGIGE_GRUENDE):
-            maengel.append(
-                f"die Anzeige hatte nur {len(text)} Zeichen — zu wenig, "
-                "um Fachgebiet, System oder Senioritaet zu beurteilen")
+        if gruende & _TEXTABHAENGIGE_GRUENDE:
+            if len(text) < MINDESTLAENGE_TRAGFAEHIG:
+                # v1.7.39 (#989): kein Beleg, kein halber — gar keiner.
+                return "ohne_grundlage", (
+                    f"die Anzeige hatte nur {len(text)} Zeichen — daraus "
+                    "laesst sich ueber Fachgebiet, System oder Senioritaet "
+                    "nichts entnehmen; das Urteil zaehlt nicht mit")
+            if len(text) < MINDESTLAENGE_BELASTBAR:
+                maengel.append(
+                    f"die Anzeige hatte nur {len(text)} Zeichen — zu wenig, "
+                    "um Fachgebiet, System oder Senioritaet zu beurteilen")
 
     if gruende & _GEHALTS_GRUENDE and job.get("salary_estimated"):
         maengel.append("die Gehaltsangabe war geschaetzt, nicht belegt")
@@ -339,8 +363,8 @@ def find_wiedergaenger_pattern(
         for r in sorted(set(_reasons_of(j))):
             reason_counter[r] += 1
             by_reason.setdefault(r, []).append(j)
-            gewicht[r] += 0.5 if guete == "schwach" else 1.0
-            if guete == "schwach":
+            gewicht[r] += {"ohne_grundlage": 0.0, "schwach": 0.5}.get(guete, 1.0)
+            if guete in ("schwach", "ohne_grundlage"):
                 schwache_belege.setdefault(r, []).append(warum)
 
     if not reason_counter:

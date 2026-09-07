@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { cn, formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
+import { kurzmarke as datenguetMarke, vergleicheMitGuete } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 
@@ -186,6 +187,10 @@ export default function JobsPage() {
   const [editingScoreValue, setEditingScoreValue] = useState("");
   const [dismissDialog, setDismissDialog] = useState(EMPTY_DISMISS_DIALOG);
   const [dismissReasons, setDismissReasons] = useState([]);
+  // #989: Wie mit Ungepruefttem umgegangen wird. Die Liste im Browser
+  // muss dieselbe Reihenfolge zeigen wie die im Chat — sonst waere die
+  // Einstellung eine halbe.
+  const [guetUmgang, setGuetUmgang] = useState("nachrangig");
   const [jobsTotal, setJobsTotal] = useState(0);
   const [jobsHasMore, setJobsHasMore] = useState(false);
   const [jobsPageSize, setJobsPageSize] = useState(() => {
@@ -212,12 +217,13 @@ export default function JobsPage() {
       const jobsUrl = pageSize > 0
         ? `/api/jobs?active=true&exclude_blacklisted=true&limit=${pageSize}&offset=${currentOffset}`
         : "/api/jobs?active=true&exclude_blacklisted=true";
-      const [activeJobsResp, hiddenJobs, followUpsResponse, appsResponse, reasons] = await Promise.all([
+      const [activeJobsResp, hiddenJobs, followUpsResponse, appsResponse, reasons, guete] = await Promise.all([
         api(jobsUrl),
         append ? Promise.resolve(null) : api("/api/jobs?active=false"),
         append ? Promise.resolve(null) : api("/api/follow-ups"),
         append ? Promise.resolve(null) : api("/api/applications"),
         append ? Promise.resolve(null) : optionalApi("/api/dismiss-reasons"),
+        append ? Promise.resolve(null) : optionalApi("/api/datenguete/umgang"),
       ]);
       startTransition(() => {
         // Handle paginated response (object with jobs array) or plain array (no limit)
@@ -243,6 +249,7 @@ export default function JobsPage() {
             setAppliedJobHashes(appHashes);
           }
           if (reasons) setDismissReasons(reasons);
+          if (guete?.umgang) setGuetUmgang(guete.umgang);
         }
         setLoading(false);
         setLoadingMore(false);
@@ -663,14 +670,22 @@ export default function JobsPage() {
       const pinB = b.is_pinned ? 1 : 0;
       if (pinA !== pinB) return pinB - pinA;
 
+      // v1.7.39 (#989): Datenguete VOR dem gewaehlten Kriterium. Eine
+      // Stelle ohne Anzeigentext ist nicht schlecht bewertet, sie ist
+      // gar nicht bewertet — und was nichts kostet, stand bisher oben.
+      // Gemessen am 07.09.2026: inhaltsleerer Titel 101 Punkte, voll
+      // beschriebene passende Stelle 32. Der Score bleibt unangetastet;
+      // nur die Reihenfolge zieht die Konsequenz.
+      return vergleicheMitGuete(a, b, (x, y) => {
       switch (filters.sort) {
-        case "score_desc": return (b.score || 0) - (a.score || 0);
-        case "score_asc": return (a.score || 0) - (b.score || 0);
-        case "salary_desc": return (b.salary_max || b.salary_min || 0) - (a.salary_max || a.salary_min || 0);
-        case "company": return (a.company || "").localeCompare(b.company || "");
-        case "title": return (a.title || "").localeCompare(b.title || "");
+        case "score_desc": return (y.score || 0) - (x.score || 0);
+        case "score_asc": return (x.score || 0) - (y.score || 0);
+        case "salary_desc": return (y.salary_max || y.salary_min || 0) - (x.salary_max || x.salary_min || 0);
+        case "company": return (x.company || "").localeCompare(y.company || "");
+        case "title": return (x.title || "").localeCompare(y.title || "");
         default: return 0;
       }
+      }, guetUmgang);
     });
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
@@ -1161,6 +1176,27 @@ export default function JobsPage() {
                     {jobNeedsDescriptionAttention(job) ? (
                       <Badge tone="amber">{descriptionAttentionLabel(job)}</Badge>
                     ) : null}
+                    {/* #989: was an dieser Stelle NICHT geprueft wurde.
+                        "Ungeprueft" ist nicht dasselbe wie "erfuellt
+                        nicht" — im Score sehen beide gleich aus, und
+                        genau daran stand die Liste auf dem Kopf. Die
+                        fehlende Beschreibung hat schon ihr eigenes
+                        Etikett; hier stehen die uebrigen Dimensionen. */}
+                    {(() => {
+                      const marke = datenguetMarke(job);
+                      const rest = (marke?.ungeprueft || []).filter((d) => d !== "beschreibung");
+                      if (!rest.length) return null;
+                      // `neutral` ist der einzige gedeckte Ton dafuer —
+                      // ein erfundener Ton erzeugt in Tailwind keine
+                      // Regel UND keinen Fehler (G24/#964). Der Titel
+                      // gehoert an ein Element, das ihn auch annimmt:
+                      // Badge reicht `title` nicht durch.
+                      return (
+                        <span title={marke.text}>
+                          <Badge tone="neutral">{`Ungeprüft: ${rest.length}`}</Badge>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div
                     role="button"

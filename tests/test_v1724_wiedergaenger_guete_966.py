@@ -36,6 +36,15 @@ VOLL = ("Aufgaben: Betreuung und Weiterentwicklung der PLM-Landschaft, "
         "Kommunikation in Deutsch und Englisch.")
 RUMPF = "PLM Manager gesucht. Bewerbung ueber das Portal."
 
+# v1.7.39 (#989): der Fall aus #966 hatte 155 und 168 Zeichen — genug,
+# um ein Urteil zu SCHWAECHEN, zu wenig, um es zu tragen. Der Fall aus
+# #989 hatte 23 und 42 Zeichen; dort traegt es gar nichts mehr. Zwei
+# Stufen, zwei Fixtures.
+KURZ_ABER_LESBAR = (
+    "PLM Manager (m/w/d) gesucht fuer unser Team in der Region. "
+    "Aufgaben und Anforderungen entnehmen Sie bitte dem Portal. "
+    "Wir freuen uns auf Ihre Bewerbung ueber unser Karriereportal.")
+
 assert len(VOLL) >= MINDESTLAENGE_BELASTBAR
 assert len(RUMPF) < MINDESTLAENGE_BELASTBAR
 
@@ -61,10 +70,27 @@ def test_966_belegtes_gehalt_bleibt_belastbar():
 
 def test_966_rumpfanzeige_macht_fachurteile_schwach():
     """Bei 155 Zeichen kann das Fachgebiet nicht beurteilt worden sein."""
+    assert len(KURZ_ABER_LESBAR) < 200, "Fixture muss unter der Schwelle liegen"
     guete, warum = grund_guete({
-        "description": RUMPF, "dismiss_reason": "falsches_fachgebiet"})
+        "description": KURZ_ABER_LESBAR,
+        "dismiss_reason": "falsches_fachgebiet"})
     assert guete == "schwach"
     assert "Zeichen" in warum
+
+
+def test_989_anzeigenrumpf_traegt_gar_kein_fachurteil():
+    """v1.7.39 (#989 AK 5): unter 50 Zeichen zaehlt das Urteil NICHT.
+
+    #966 hat solche Urteile halbiert. Der Fall vom 07.09.2026 zeigt,
+    dass das nicht reicht: eine Firma wurde als DREIFACHER Wiedergaenger
+    gemeldet, und zwei der drei Urteile beruhten auf Anzeigen von 23 und
+    42 Zeichen. Halbiert ergeben zwei davon immer noch eine ganze
+    Stimme.
+    """
+    guete, warum = grund_guete({
+        "description": RUMPF, "dismiss_reason": "falsches_fachgebiet"})
+    assert guete == "ohne_grundlage"
+    assert "zaehlt nicht mit" in warum
 
 
 @pytest.mark.parametrize("grund", [
