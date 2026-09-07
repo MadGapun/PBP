@@ -33,6 +33,131 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.32] - 2026-09-07 — Bewerben aus der Stelle
+
+Der Weg, den man tatsaechlich geht: Stellen-Tab, eine Stelle gefaellt,
+"Bewerbung erfassen" — und jetzt sollen Anschreiben und Lebenslauf
+entstehen, mit Bezug auf genau diese Stelle. An diesem Weg lagen drei
+Dinge im Argen, eines davon ein Datenfehler.
+
+### Fixed
+
+- **Der Dialog bot einen Status an, den es nicht gibt (#981).** "Entwurf"
+  steht in keiner Whitelist, und `POST /api/applications` prueste den
+  Status gar nicht. Wer im Stellen-Tab "Entwurf" waehlte, bekam eine
+  Bewerbung, die danach fuer `bewerbung_status_aendern`, die
+  Statusverteilung und die Status-Journey **unsichtbar** war. Sie sah
+  nicht kaputt aus — sie war nur nirgends dabei.
+
+  Stattdessen jetzt die Einstiegsfrage: *"Ich will mich bewerben"* oder
+  *"Ich habe mich bereits beworben"* (dann mit Datum). Damit entsteht
+  auch der automatische Nachfass am richtigen Punkt statt zu frueh.
+
+  **Wenn du diesen Dialog schon benutzt hast:** `pbp_diagnose` listet
+  jetzt Bewerbungen mit unbekanntem Status, samt Firma und Stelle.
+  Automatisch korrigieren kann PBP sie nicht — welcher Status gemeint
+  war, weiss nur der Mensch. `bewerbung_status_aendern(id, ...)` setzt
+  ihn richtig.
+
+- **Der Prompt fuer die Unterlagen kannte die Stelle nicht (#981).**
+  `bewerbung_schreiben` hatte keine Parameter, deshalb gab es an Stelle
+  und Bewerbung keinen Knopf, der ihn vorbefuellt kopiert — man musste
+  Stelle und Firma im Chat noch einmal nennen. Das Muster steht seit
+  v1.7.6 an der Interview-Vorbereitung; dieser Prompt war der letzte
+  ohne.
+
+### Added
+
+- **Zwei Knoepfe an der Bewerbung: "Lebenslauf" und "Anschreiben".**
+  Sichtbar, solange die Bewerbung vorbereitet wird und das jeweilige
+  Dokument noch fehlt. Ein Klick legt die vorbefuellte Anleitung in die
+  Zwischenablage — Stelle, Firma und Bewerbung kommen mit, und die
+  Unterlagen landen an der bestehenden Bewerbung statt in einer zweiten.
+
+- **Nach dem Erfassen im Stellen-Tab** bietet die Rueckmeldung direkt an,
+  die Anleitung zu kopieren.
+
+- **Ein Guard fuer Status-Auswahlen im Frontend.** Er liest die
+  Auswahllisten der Seiten und prueft sie gegen die Whitelist des
+  Servers. Der bestehende Guard aus v1.7.14 las nur die zentrale
+  Statusliste — die Auswahl im Stellen-Dialog stand daneben und blieb
+  deshalb jahrelang unbemerkt.
+
+### Changed
+
+- **Die Anleitung fuer Bewerbungsunterlagen ist neu geordnet.** Sie
+  klaert zuerst, um welche Stelle es geht und ob Lebenslauf, Anschreiben
+  oder beides gebraucht wird — **ohne konkrete Stelle entstehen keine
+  Unterlagen.** Neu darin: das Stilarchiv (fruehere Fassungen als
+  Vorgabe, damit gut angekommene Formulierungen wiederverwendet werden
+  statt neu erfunden), die Pruefung auf den vollstaendigen Anzeigentext,
+  und ein Abschluss, der eine bestehende Bewerbung ergaenzt statt eine
+  Dublette anzulegen.
+
+- **Zwei Etiketten hiessen falsch, was sie tun.** "Bewerbung schreiben"
+  heisst jetzt **"Bewerbungsunterlagen"** (der Workflow macht Lebenslauf
+  UND Anschreiben), "Inbound erfassen" heisst **"Bewerbung aus Anzeige"**
+  (er baut eine Bewerbung aus URL oder Anzeigentext — wer eine
+  Recruiter-Anfrage erfassen wollte, landete im falschen Vorgang).
+
+- **Eine Anleitung statt zwei.** Denselben Workflow gab es zweimal im
+  Code, und die beiden Fassungen waren schon auseinandergelaufen: die
+  eine kannte das Stilarchiv nicht und legte am Ende immer eine neue
+  Bewerbung an. Es gibt jetzt eine.
+
+### Known Issues
+
+- Der Status `entwurf` bleibt im Bewerbungs-Tab als Filter und in der
+  Statistik als Farbe erhalten. Das ist Absicht: in gewachsenen
+  Datenbanken stehen solche Bewerbungen, und ohne Filter waeren sie
+  weder auffindbar noch korrigierbar. Neu anlegen laesst er sich nicht
+  mehr.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.32.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.32.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.31] - 2026-09-07 — Eine Information, ein Ort (Dashboard-Klarheit)
 
 Ein externer Design-Review vom 05./06.09.2026 lieferte zwei Screenshots
