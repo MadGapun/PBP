@@ -33,6 +33,115 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.36] - 2026-09-07 — Die Liste stand auf dem Kopf
+
+Zwei Befunde aus einer Jobsuche am selben Tag, beide von derselben Art:
+**PBP hat nicht falsch gerechnet, sondern mit den falschen Zahlen
+gerechnet.** Kein Fehler, keine Meldung, eine plausibel aussehende
+Trefferliste — und die bestbewertete Stelle war die, ueber die PBP am
+wenigsten wusste.
+
+### Fixed
+
+- **Der gespeicherte Score war reproduzierbar falsch (#987).** In einem
+  Lauf waren **86 von 86 Stellen zu hoch bewertet**, im Schnitt um 47
+  Punkte, im Maximum um 105. Oben in der Liste standen Elektrotechnik,
+  Bauwesen und Zeitarbeit; die Fit-Analyse auf die Spitzenstelle ergab
+  mit denselben Kriterien 0. Zwei Ursachen, die zusammen erst den vollen
+  Schaden ergeben:
+
+  1. **Die Kriterien lagen doppelt.** Der Suchlauf reicherte sie an,
+     `scores_neu_berechnen` und `fit_analyse` nahmen sie roh. Der
+     gespeicherte Score war damit von keinem anderen Werkzeug
+     nachzurechnen. Neu `services/scoring_kriterien.py` als einzige
+     Quelle; die Alternativbezeichnungen werden abgelegt statt bei jeder
+     Rechnung neu geholt, damit der Score nicht davon abhaengt, ob das
+     Netz gerade da ist.
+  2. **Die Anreicherung selbst war falsch.** Die Berufs-Facette der
+     Bundesagentur (aus v1.7.28) beantwortet *"wer arbeitet damit"*,
+     nicht *"wie heisst das noch"* — und nur wenn der Suchbegriff selbst
+     ein Beruf ist, sind das dieselbe Frage. Zu einem Technologie-Kuerzel
+     lieferte sie Ingenieur, Maschinenbau, Elektrotechnik, Konstrukteur,
+     Berater. Als Synonyme eines MUSS-Begriffs eingesetzt, oeffnete damit
+     **jede Ingenieursanzeige** das Tor. Jetzt muessen zwei Tore aufgehen
+     (gemeinsamer Wortstamm, konzentrierte Facette), und zerlegt wird nur
+     noch die Schreibweise, nicht die Bezeichnung: aus
+     "Ingenieur/in - Elektrotechnik" wird keine "Elektrotechnik" mehr.
+
+  Dazu: die Teilscores (Fach- und Rahmenwert) wurden erst am regulaeren
+  Ende gesetzt. Bei jedem frueheren Ausstieg blieb der ALTE Fachwert
+  neben dem neuen Gesamtwert stehen — gemeldet als "Fachscore 56 gegen
+  Score 1".
+
+- **Der Wunschwert fuer die Entfernung wirkte nicht (#988).** In den
+  Suchkriterien standen 30 km, gerechnet wurde gegen die Reglerstufe
+  999 km. Weil die oberste Stufe ein Deckel war, kostete eine Stelle in
+  577 km Entfernung **genau so viel wie eine in 87 km** — auf einer
+  Skala, auf der ein einzelner Treffer 7 Punkte bringt, also gar nichts.
+  Jenseits von 999 km traf sogar ueberhaupt keine Stufe mehr: 1200 km
+  kosteten null. Der Preis waechst jetzt je Verdopplung ueber dem
+  Wunschwert um einen weiteren Punkt (gedeckelt — Entfernung ist ein
+  Preis, kein Ausschluss), die oberste Stufe faengt alles darueber, und
+  die Vorschau nennt den Wunschwert statt der 999.
+
+- **Ein Regler, den niemand liest (#988, Randbefund).** Unter
+  "Schwellenwert" stand neben dem tatsaechlich gelesenen `auto_ignore`
+  ein zweiter Eintrag mit dem Wert 35. Er war ueber
+  `scoring_konfigurieren` ungeprueft angelegt worden und wurde nie
+  ausgewertet — wer ihn sah, glaubte, seine Schwelle liege bei 35. Sie
+  lag bei 0. Neu `services/scoring_vokabular.py`: unbekannte Regler
+  werden beim Setzen abgewiesen, und bestehende Zeilen ohne Wirkung
+  stehen in der Anzeige mit Begruendung statt stumm daneben.
+
+### Changed
+
+- `scoring_konfigurieren('anzeigen')` erklaert die beiden
+  Schwellenwerte, die es wirklich gibt: `auto_ignore` blendet Stellen in
+  der Liste aus, `min_score_schwelle` entscheidet waehrend der Suche,
+  was ueberhaupt gespeichert wird.
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.36.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.36.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.35] - 2026-09-07 — Dein Dashboard
 
 Der Bildschirm, den man am haeufigsten sieht, war bisher fuer alle
