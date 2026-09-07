@@ -254,7 +254,9 @@ def verarbeite_newsletter(db, parsed: dict, label: str) -> dict:
                             "StepStone/LinkedIn/XING/Indeed/Arbeitsagentur/"
                             "freelance.de/JobLeads ab.")}
 
-    criteria = db.get_search_criteria() or {}
+    # v1.7.36 (#987): dasselbe Nadeloehr wie der Suchlauf.
+    from . import scoring_kriterien
+    criteria = scoring_kriterien.fuer_scoring(db)
     quelle = f"newsletter:{label}"[:60]
     jobs = []
     for link in links:

@@ -1109,6 +1109,8 @@ def register(mcp, db, logger):
             wert: Punktwert (+/- Punkte). Positiv = Bonus, Negativ = Malus.
             ignorieren: True = Stellen mit diesem Wert komplett ignorieren
         """
+        from ..services import scoring_vokabular as _vokabular
+
         if aktion == "anzeigen":
             config = db.get_scoring_config(dimension if dimension else None)
             if not config:
@@ -1127,20 +1129,66 @@ def register(mcp, db, logger):
                 entry = {"sub_key": c["sub_key"], "wert": c["value"]}
                 if c.get("ignore_flag"):
                     entry["ignorieren"] = True
+                # v1.7.36 (#988): Zeilen benennen, die niemand liest.
+                # Der Bestand traegt Regler, die nie gelesen wurden
+                # (schwellenwert/schwellenwert) oder deren Mechanismus
+                # entfernt wurde (hochschulabschluss/fehlt). Sie sehen
+                # aus wie eine Einstellung und sind keine.
+                _grund = _vokabular.wirkungslos(dim, c["sub_key"])
+                if _grund:
+                    entry["wirkt"] = False
+                    entry["warum_nicht"] = _grund
                 grouped[dim].append(entry)
 
-            return {
+            _ohne_wirkung = [f"{d}/{e['sub_key']}" for d, eintraege
+                             in grouped.items() for e in eintraege
+                             if e.get("wirkt") is False]
+
+            ergebnis = {
                 "status": "ok",
                 "scoring_regler": grouped,
                 "schwellenwert": db.get_scoring_threshold(),
+                # v1.7.36 (#988 AK 5): drei Zahlen hiessen "Schwelle" und
+                # niemand konnte sehen, welche wirkt. Sie meinen drei
+                # verschiedene Dinge — hier stehen sie nebeneinander.
+                "schwellen_erklaert": {
+                    "auto_ignore": {
+                        "wert": db.get_scoring_threshold(),
+                        "bedeutet": ("Stellen unter diesem Score werden in "
+                                     "der Liste ausgeblendet. 0 = aus."),
+                        "wo": "scoring_konfigurieren('setzen', 'schwellenwert', 'auto_ignore', N)",
+                    },
+                    "min_score_schwelle": {
+                        "wert": (db.get_search_criteria() or {}).get(
+                            "min_score_schwelle", 1),
+                        "bedeutet": ("Ab welchem Score eine gefundene Stelle "
+                                     "ueberhaupt gespeichert wird. Wirkt "
+                                     "waehrend der Suche, nicht in der Liste."),
+                        "wo": "suchkriterien_setzen(min_score_schwelle=N)",
+                    },
+                },
                 "hinweis": "Nutze scoring_konfigurieren('setzen', dimension, sub_key, wert) "
                            "um einen Regler zu aendern. Setze ignorieren=True um einen "
                            "Wert komplett auszublenden."
             }
+            if _ohne_wirkung:
+                ergebnis["achtung"] = (
+                    "Diese Regler stehen im Bestand, werden aber von "
+                    "niemandem gelesen: " + ", ".join(sorted(_ohne_wirkung))
+                    + ". Sie sehen aus wie eine Einstellung und sind "
+                    "keine — die Begruendung steht am jeweiligen Eintrag. "
+                    "Entfernen mit scoring_konfigurieren('loeschen', ...).")
+            return ergebnis
 
         elif aktion == "setzen":
-            if not dimension or not sub_key:
-                return {"fehler": "dimension und sub_key sind Pflicht beim Setzen."}
+            # v1.7.36 (#988): vorher ging JEDER Schluessel durch. So
+            # entstand ein "schwellenwert/schwellenwert"-Regler, den
+            # niemand liest — dasselbe Muster wie der Status ausserhalb
+            # der Whitelist in #981. Eine Einstellung ohne Wirkung ist
+            # teurer als eine Fehlermeldung, weil man ihr glaubt.
+            _absage = _vokabular.pruefe(dimension, sub_key)
+            if _absage:
+                return {"fehler": _absage}
             db.set_scoring_config(dimension, sub_key, wert, ignorieren)
             return {
                 "status": "gespeichert",

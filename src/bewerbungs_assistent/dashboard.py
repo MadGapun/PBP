@@ -6002,7 +6002,11 @@ async def api_ingest_job(request: Request, payload: dict):
     except Exception as exc:  # noqa: BLE001 — Dup-Check darf Ingest nie killen
         logger.debug("Ingest-Dup-Check uebersprungen: %s", exc)
 
-    criteria = _db.get_search_criteria() or {}
+    # v1.7.36 (#987): dasselbe Nadeloehr wie der Suchlauf — sonst traegt
+    # eine zugelieferte Stelle einen Score, den kein anderes Werkzeug
+    # nachrechnen kann.
+    from .services import scoring_kriterien as _skrit
+    criteria = _skrit.fuer_scoring(_db)
     job = {
         "hash": job_hash,
         "title": titel,
