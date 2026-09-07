@@ -33,6 +33,95 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.37] - 2026-09-07 — Eine Klammer
+
+Ein Anwender hat PBP zum ersten Mal installiert und gemeldet, dass sich
+das Installer-Fenster **ohne jede Meldung schliesst**. Das Dashboard
+lief, aber in Claude Desktop tauchte PBP nicht auf. Danke dafür — der
+Fehler war seit Monaten drin und hat vermutlich mehr Leute getroffen,
+als je etwas gesagt haben.
+
+### Fixed
+
+- **Der Installer brach an einer Klammer ab (#990).** In einer
+  Bildschirmausgabe stand eine Klammer, die Windows als Ende des
+  umgebenden Programmblocks gelesen hat. Was danach kam, war für Windows
+  keine gültige Anweisung mehr — es hat das Skript abgebrochen. Da war
+  das Fenster schon zu, also sah niemand den Grund, und ins
+  Installations-Log kam nichts mehr.
+
+  Getroffen hat es ausgerechnet den letzten Schritt: den Eintrag von PBP
+  in Claude Desktop. Alles davor — Python, Pakete, Datenordner,
+  Verknüpfung — war fertig. Deshalb lief das Dashboard, und deshalb
+  fehlten trotzdem alle PBP-Werkzeuge in Claude.
+
+  Dieselbe Klammer stand an **neun Stellen in drei Dateien**, auch im
+  Deinstaller. Alle sind korrigiert; ein Test prüft die Installer-Dateien
+  ab jetzt bei jeder Änderung darauf.
+
+- **Claude Desktop aus dem Microsoft Store wurde nicht gefunden (#990).**
+  Wer Claude als Store-App installiert hat, bekam im Log
+  `Claude-Konfig vorhanden trotz fehlender exe` — der Installer konnte
+  Claude anschliessend auch nicht starten. Store-Apps liegen in einem
+  geschützten Windows-Verzeichnis, in das ein einfaches „gibt es diese
+  Datei?" nicht hineinsieht, und sie stehen nicht im Suchpfad. PBP fragt
+  jetzt das Windows-Paketsystem selbst und startet Claude über den
+  App-Ordner.
+
+### Wenn du betroffen warst
+
+Einfach **drüberinstallieren** — deine Daten bleiben erhalten. Wer nicht
+aktualisieren möchte, kann den fehlenden Schritt von Hand nachholen; die
+Installation ist ansonsten vollständig:
+
+```
+C:\PBP\PBP-<version>\python\python.exe C:\PBP\PBP-<version>\_setup_claude.py
+```
+
+Danach Claude Desktop komplett beenden und neu starten.
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.37.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.37.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.36] - 2026-09-07 — Die Liste stand auf dem Kopf
 
 Zwei Befunde aus einer Jobsuche am selben Tag, beide von derselben Art:
