@@ -34,7 +34,6 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
     muss_hits = fit_result.get("muss_hits") or []
     missing_muss = fit_result.get("missing_muss") or []
     desc_ok = fit_result.get("beschreibung_vorhanden", True)
-    degree_required = fit_result.get("hochschulabschluss_gefordert", False)
     # v1.7.0-beta.86 (#671 Ebene 2): Wiedergaenger als k.o.-Signal — aber NUR
     # bei fachlichen Gruenden (falsches_fachgebiet etc.). Gehalt/Entfernung
     # koennen sich aendern, taugen nicht als k.o.
@@ -70,18 +69,11 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
             "keine fachliche Absage. Anzeigen-Volltext nachladen "
             "(stellenbeschreibung_nachladen) oder einfuegen, dann neu bewerten."
         )
-    if degree_required:
-        # Wenn die Stelle einen Hochschulabschluss fordert UND die Risk-
-        # Liste den "Hochschulabschluss fehlt"-Hinweis enthaelt, ist das
-        # ein klares ATS-Risiko.
-        for r in risks:
-            if isinstance(r, str) and "Hochschulabschluss fehlt" in r:
-                ko_gruende.append(
-                    "Hochschulabschluss gefordert, aber im Profil nicht "
-                    "hinterlegt — ATS sortiert mit hoher Wahrscheinlichkeit "
-                    "automatisch aus."
-                )
-                break
+    # v1.7.35 (#972): der Hochschulabschluss-k.o. ist entfernt. Er
+    # stuetzte sich auf ein Merkmal, dessen Profilseite nie modelliert
+    # wurde — ein Staatlich gepruefter Techniker (DQR 6, wie Bachelor)
+    # galt als "kein Abschluss". Der WAEHLBARE Ablehnungsgrund
+    # `kein_hochschulabschluss` bleibt: das entscheidet der Mensch.
     if not muss_hits and missing_muss:
         ko_gruende.append(
             f"Kein einziges MUSS-Keyword im Profil belegt "

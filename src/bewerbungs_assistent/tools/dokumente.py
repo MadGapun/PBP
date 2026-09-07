@@ -234,16 +234,38 @@ def register(mcp, db, logger):
 
         dokumente = []
         doc_ids_for_history = []
+        # v1.7.35 (#833): Dokumente ohne Text nicht mehr stillschweigend
+        # mitliefern. Der gemeldete Fall lieferte `text_laenge: 0`,
+        # `extrahierter_text: ""` und `status: "ok"` — nicht
+        # unterscheidbar von einem Dokument, das nichts enthaelt.
+        ohne_text = []
         for row in rows:
             doc = dict(row)
+            text = doc.get("extracted_text") or ""
+            if not text.strip():
+                ohne_text.append({"id": doc["id"], "filename": doc["filename"],
+                                  "status": doc.get("extraction_status")})
+                continue
             dokumente.append({
                 "id": doc["id"],
                 "filename": doc["filename"],
                 "doc_type": doc.get("doc_type", "sonstiges"),
-                "text_laenge": len(doc.get("extracted_text", "")),
-                "extrahierter_text": doc.get("extracted_text", ""),
+                "text_laenge": len(text),
+                "extrahierter_text": text,
             })
             doc_ids_for_history.append(doc["id"])
+
+        if not dokumente:
+            return {
+                "status": "kein_text",
+                "ohne_text": ohne_text,
+                "nachricht": (
+                    f"{len(ohne_text)} Dokument(e) enthalten keinen "
+                    "auslesbaren Text. Ein erneuter Versuch aendert daran "
+                    "nichts — die Datei muss neu hochgeladen werden (dann "
+                    "greifen die Format-Leser) oder es handelt sich um "
+                    "einen Scan, der OCR braucht."),
+            }
 
         # Create extraction history entry
         extraction_type = "bulk" if len(dokumente) > 1 else "auto"

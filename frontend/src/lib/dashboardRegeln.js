@@ -95,5 +95,28 @@ export function labelWiederholtHeadline(label, headline) {
     .some((w) => w.length >= 6 && kopf.some((k) => k.startsWith(w) || w.startsWith(k)));
 }
 
+/** Readiness-Stufen, deren Aussage der Block "Offen" bereits traegt. */
+export const VOM_BLOCK_GETRAGEN = ["nachfassen"];
+
+/**
+ * Sagt die Readiness-Karte nur noch einmal, was der Block schon zeigt?
+ *
+ * Nutzerhinweis vom 07.09.2026: der Block "Offen" listet die faelligen
+ * Nachfassungen mit Firma und Datum, und direkt darunter stand "Es gibt
+ * ueberfaellige Nachfassaktionen." Dieselbe Aussage, nur unschaerfer.
+ *
+ * #976 verlangte, dass die Karte keine ZAEHLUNGEN aus dem Block
+ * wiederholt. Das war zu eng gelesen: eine Wiederholung ohne Zahl ist
+ * immer noch eine Wiederholung. Wo der Block die Sache konkret zeigt,
+ * hat die Karte nichts hinzuzufuegen.
+ *
+ * Nur wenn der Block LEER ist, traegt die Karte die Aussage — dann ist
+ * sie die einzige Stelle, an der sie steht.
+ */
+export function readinessWirdVomBlockGetragen(stage, blockAnzahl) {
+  if (!Number(blockAnzahl)) return false;
+  return VOM_BLOCK_GETRAGEN.includes(String(stage || ""));
+}
+
 /** Der leere Zustand des Blocks "Offen": eine Zeile, kein Rahmen. (#984) */
 export const NICHTS_OFFEN = "Nichts offen";

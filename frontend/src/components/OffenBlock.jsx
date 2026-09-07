@@ -55,15 +55,22 @@ function datumsLabel(eintrag) {
   return eintrag.uhrzeit ? `${datum}, ${eintrag.uhrzeit} Uhr` : datum;
 }
 
-export default function OffenBlock({ navigateTo, refreshChrome, onPrompt }) {
+export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnzahl }) {
   const [block, setBlock] = useState(null);
 
   const laden = useCallback(() => {
     fetch("/api/dashboard/offen")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setBlock(d))
+      .then((d) => {
+        if (!d) return;
+        setBlock(d);
+        // Die Readiness-Karte darunter darf nicht wiederholen, was hier
+        // schon steht (Nutzerhinweis 07.09.2026) — dafuer muss sie
+        // wissen, ob dieser Block etwas zeigt.
+        onAnzahl?.(d.anzahl || 0);
+      })
       .catch(() => {});
-  }, []);
+  }, [onAnzahl]);
 
   useEffect(() => {
     laden();

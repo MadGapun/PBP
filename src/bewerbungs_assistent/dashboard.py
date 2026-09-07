@@ -910,8 +910,44 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
         email_context = _build_email_document_context(parsed)
     elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
         extracted = filepath.read_text(encoding="utf-8", errors="replace")
+    else:
+        # v1.7.35 (#833): PPTX, XLSX und OpenDocument fielen bis hierher
+        # durch — ohne Zweig, ohne Meldung, mit leerem Text und
+        # `status: "ok"`. Ein Dokument, das nichts liefert, war von einem
+        # Dokument, das nichts enthaelt, nicht unterscheidbar.
+        #
+        # Diese Linie kennt kein OCR (E19 ist v1.8), deshalb bleibt die
+        # Signatur ein Zweier-Tupel; den Grund holt sich der Aufrufer
+        # ueber `format_befund` selbst.
+        from .services import office_text
+        if office_text.kann_lesen(fname) or office_text.ist_altformat(fname):
+            try:
+                extracted = office_text.extrahiere(filepath)
+            except office_text.FormatNichtUnterstuetzt:
+                extracted = ""
 
     return extracted, email_context
+
+
+def format_befund(dateiname: str, text: str) -> dict | None:
+    """Warum eine Datei keinen Text hergab — oder None, wenn alles gut ist.
+
+    Getrennt vom Extraktor, weil diese Linie dessen Signatur nicht
+    aendert (kein OCR). Wer den Grund braucht, fragt danach.
+    """
+    from .services import office_text
+    if (text or "").strip():
+        return None
+    if office_text.ist_altformat(dateiname):
+        try:
+            office_text.extrahiere(Path(dateiname))
+        except office_text.FormatNichtUnterstuetzt as exc:
+            return {"format": "nicht_unterstuetzt", "grund": str(exc)}
+        except Exception:
+            pass
+    if office_text.kann_lesen(dateiname):
+        return {"format": "leer", "grund": "Die Datei enthaelt keinen auslesbaren Text."}
+    return None
 
 
 @app.post("/api/documents/auto-mark-templates")
@@ -1255,7 +1291,10 @@ async def api_browse_directory(request: Request):
         return JSONResponse({"error": f"Verzeichnis nicht gefunden: {dir_path}"}, status_code=404)
 
     entries = []
-    supported = {".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf"}
+    supported = {".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+                 ".xml", ".rtf",
+                 # v1.7.35 (#833)
+                 ".pptx", ".xlsx", ".xlsm", ".odt", ".odp", ".ods"}
     file_count = 0
     try:
         for item in sorted(folder.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
@@ -1306,7 +1345,10 @@ async def api_import_folder(request: Request):
     skipped_files = 0
     auto_linked_documents = 0
     warnings = []
-    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf", ".msg", ".eml")
+    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+                 ".xml", ".rtf", ".msg", ".eml",
+                 # v1.7.35 (#833): bisher fielen diese still durch
+                 ".pptx", ".xlsx", ".xlsm", ".odt", ".odp", ".ods")
 
     file_iter = folder.rglob("*") if recursive else folder.glob("*")
     for fpath in file_iter:
@@ -1322,6 +1364,11 @@ async def api_import_folder(request: Request):
         fname = fpath.name.lower()
         try:
             extracted, email_context = _extract_document_text(fpath)
+            # v1.7.35 (#833): auch der Ordner-Import sagt jetzt, wenn eine
+            # Datei nichts hergibt. Vorher lief sie stumm durch.
+            _befund = format_befund(fpath.name, extracted)
+            if _befund:
+                warnings.append(f"{fpath.name}: {_befund['grund']}")
         except ImportError as exc:
             warnings.append(f"{fpath.name}: {exc}")
             skipped_files += 1
@@ -5134,6 +5181,26 @@ async def api_upload_document(
 
     if fname.endswith((".msg", ".eml")) and extracted.strip():
         _db.update_document_extraction_status(did, "basis_analysiert")
+    # v1.7.35 (#833): Eine Datei, aus der nichts herauskam, muss das
+    # SAGEN. Bis hierher blieb sie auf `nicht_extrahiert` stehen und
+    # tauchte in jedem `analyse_plan_erstellen` erneut als offen auf —
+    # eine Endlosschleife im Arbeitsablauf, die bei jedem Versuch
+    # dasselbe Nichts produzierte. `nicht_extrahiert` bleibt Dateien
+    # vorbehalten, die noch nie versucht wurden.
+    else:
+        # v1.7.35 (#833): Eine Datei, aus der nichts herauskam, muss das
+        # SAGEN. Bis hierher blieb sie auf `nicht_extrahiert` stehen und
+        # tauchte in jedem `analyse_plan_erstellen` erneut als offen auf
+        # — eine Endlosschleife im Arbeitsablauf, die bei jedem Versuch
+        # dasselbe Nichts produzierte. `nicht_extrahiert` bleibt Dateien
+        # vorbehalten, die noch nie versucht wurden.
+        _befund = format_befund(fname, extracted)
+        if _befund:
+            try:
+                _db.update_document_extraction_status(did, "analysiert_leer")
+            except Exception as exc:
+                logger.debug("Status analysiert_leer fehlgeschlagen (%s): %s",
+                             did, exc)
     # v1.7.0-beta.80 (#643/#657 Phase 3): Rauschen-Heuristik im Upload-Pfad.
     if email_context and email_context.get("is_pure_notification"):
         try:

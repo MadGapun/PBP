@@ -2660,7 +2660,6 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 "ko_ausschluss": _ko_kw,
                 "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
                 "beschreibung_kurz": 50 <= len(_raw_desc.strip()) < 400,
-                "hochschulabschluss_gefordert": False,
             }
 
     # v1.7.12 (#827, C32): dieselbe Firmenabsatz-Logik wie calculate_score
@@ -2869,29 +2868,34 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if len(skill_miss) > len(skill_hits) and skill_miss:
             risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
-    # #305 / #698: Hochschulabschluss-Erkennung. Der Malus ist ueber
-    # scoring_konfigurieren('hochschulabschluss','fehlt') konfigurierbar
-    # (Default -2). criteria['_hochschulabschluss_malus'] == None bedeutet
-    # "ignorieren" — dann faellt Malus UND Risiko-Hinweis komplett weg.
+    # v1.7.35 (#972): Die automatische Hochschulabschluss-Pruefung ist
+    # ERSATZLOS entfernt — Risiko-Hinweis, Malus und Feld.
+    #
+    # Drei Runden Nachbesserung (#698 Malus, #918 Bewerberstatistiken,
+    # #955 beschreibende Wendungen) drehten sich alle um dieselbe Frage:
+    # fordert die ANZEIGE einen Abschluss. Die Profilseite wurde nie
+    # angefasst — sie kannte nur "Hochschulabschluss ja/nein".
+    #
+    # Damit war der Satz "Dein Profil enthält keinen" schlicht falsch:
+    # ein Staatlich gepruefter Techniker liegt auf DQR-Niveau 6, also
+    # demselben wie ein Bachelor, und landete trotzdem in der Schublade
+    # "gar kein Abschluss". **Ein Merkmal, dessen Profilseite nie
+    # modelliert wurde, darf kein k.o.-Kriterium sein.**
+    #
+    # Eine vierte Nachbesserung muesste DQR/EQR-Stufen fuer Techniker,
+    # Meister, Fachwirt und auslaendische Abschluesse modellieren. Das
+    # steht in keinem Verhaeltnis: dass eine Anzeige ein Studium nennt,
+    # steht ohnehin im Text, den der Mensch liest.
+    #
+    # Der WAEHLBARE Ablehnungsgrund `kein_hochschulabschluss` bleibt —
+    # ob das ein Ausschluss ist, entscheidet der Mensch je Stelle.
     desc = job.get("description") or ""
-    degree_required = _detect_degree_required(f"{job.get('title', '')} {desc}")
     # v1.7.23 (#952): Wurde der Anzeigentext bei der alten Grenze
-    # abgeschnitten? Dann fehlt der Anforderungsteil, und
-    # Negativ-Aussagen daraus sind nicht belastbar.
+    # abgeschnitten? Dann fehlt der Anforderungsteil. Das Feld
+    # `beschreibung_unvollstaendig` haengt daran und bleibt — es sagt
+    # etwas ueber die DATENLAGE, nicht ueber den Menschen.
     from .textgrenzen import ist_gekappt as _ist_gekappt
     _text_gekappt = _ist_gekappt(desc)
-    has_degree = _profile_has_degree(criteria)
-    _hs_malus = criteria.get("_hochschulabschluss_malus", -2)
-    if degree_required and not has_degree and _hs_malus is not None:
-        risks.insert(0,
-            "HOCHSCHULABSCHLUSS GEFORDERT — Stelle fordert formalen Abschluss "
-            "(Studium/Bachelor/Master). Dein Profil enthält keinen. "
-            "Risiko: Automatische ATS-Aussortierung möglich, "
-            "selbst bei passender Berufserfahrung."
-        )
-        if _hs_malus != 0:
-            factors["Hochschulabschluss fehlt"] = _hs_malus
-            total += _hs_malus
 
     # #180: Warnung bei fehlender Beschreibung
     if len(desc.strip()) < 50:
@@ -2942,7 +2946,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # basis_score 0, fit_analyse 20,8, gespeichert 20.
     #
     # Bewusst KEIN vorzeitiger Ausstieg: das Ergebnis muss alle Felder
-    # behalten (hochschulabschluss_gefordert, beschreibung_unvollstaendig,
+    # behalten (beschreibung_vorhanden, beschreibung_unvollstaendig,
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
     _kein_muss_tor = bool(muss) and not any(
@@ -2994,14 +2998,6 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         # fehlende Datengrundlage. Echte Anzeigen liegen deutlich ueber 400
         # Zeichen; darunter behandeln wir den Score als nicht belastbar.
         "beschreibung_kurz": 50 <= len(desc.strip()) < 400,
-        # v1.7.23 (#952): Bei abgeschnittenem Text ist `False` eine
-        # Behauptung, die die Daten nicht hergeben. Der Anforderungsteil
-        # steht am Ende der Anzeige und ist genau der Teil, der fehlt —
-        # ein falsches "nicht gefordert" ist schlechter als ein
-        # eingestandenes "weiss nicht".
-        "hochschulabschluss_gefordert": (
-            degree_required if (degree_required or not _text_gekappt)
-            else "unbekannt"),
     }
     if _kein_muss_tor:
         # Die Empfehlung muss der Zahl folgen — sonst steht ein
@@ -3016,240 +3012,6 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     return _ergebnis
 
 
-# Hochschulabschluss-Erkennung (#305)
-_DEGREE_REQUIRED_PATTERNS = [
-    "abgeschlossenes studium",
-    "abgeschlossenes hochschulstudium",
-    "hochschulabschluss",
-    "universitaetsabschluss",
-    "universitätsabschluss",
-    "studienabschluss",
-    "akademischer abschluss",
-    "bachelor oder master",
-    "bachelor/master",
-    "master/bachelor",
-    "diplom oder master",
-    "diplom/master",
-    "bachelor of science",
-    "bachelor of engineering",
-    "bachelor of arts",
-    "master of science",
-    "master of engineering",
-    "master of arts",
-    "university degree",
-    "degree required",
-    "studium erforderlich",
-    "studium vorausgesetzt",
-    "studium im bereich",
-    "studium der informatik",
-    "studium der ingenieurwissenschaft",
-    "studium der wirtschaft",
-    "studium der betriebswirtschaft",
-    "studium des maschinenbau",
-    "studium in informatik",
-    "erfolgreich abgeschlossenes studium",
-    # v1.7.17 (#918 Defekt 2): englische Formulierungen fehlten komplett —
-    # "Educational Background: Bachelor's degree in Business ..." wurde
-    # NICHT erkannt (Falsch-Negativ: echtes ATS-Risiko verschwiegen).
-    "educational background",
-    "bachelor's degree",
-    "bachelors degree",
-    "bachelor degree",
-    "master's degree",
-    "masters degree",
-    "master degree",
-    "mba",
-    "degree in business",
-    "degree in engineering",
-    "degree in computer science",
-    "academic degree",
-    "college degree",
-]
-
-
-# #536 v1.6.4: Quereinsteiger-/Abschwaechungs-Klauseln erkennen.
-# Wenn die Stellenbeschreibung explizit Quereinsteiger einlaedt oder die
-# formale Anforderung relativiert, soll die Hochschulabschluss-Warnung
-# NICHT triggern. Vorher: "Career changers welcome" wurde ignoriert,
-# Score wurde zu Unrecht reduziert (-2), User abgeschreckt.
-_DEGREE_RELAXATION_PATTERNS = [
-    "career changers welcome",
-    "career changers are welcome",
-    "quereinsteiger willkommen",
-    "quereinsteiger sind willkommen",
-    "quereinsteiger:innen willkommen",
-    "auch quereinsteiger",
-    "oder vergleichbare qualifikation",
-    "oder vergleichbar",
-    "alternativ einschlaegige berufserfahrung",
-    "alternativ einschlägige berufserfahrung",
-    "auch ohne studium moeglich",
-    "auch ohne studium möglich",
-    "kein studium erforderlich",
-    "kein abschluss erforderlich",
-    "abschluss nicht zwingend",
-    "no degree required",
-    "degree not required",
-    "or equivalent experience",
-    "or comparable experience",
-    "or comparable field",
-    "comparable qualification",
-    "auch ohne abschluss",
-    # v1.7.17 (#918 Defekt 2): Oeffnungsklauseln, die den Abschluss
-    # entwerten — ein Techniker-Abschluss erfuellt die Anforderung dann.
-    "oder vergleichbare ausbildung",
-    "oder eine vergleichbare ausbildung",
-    "oder vergleichbare berufsausbildung",
-    "vergleichbare qualifikation",
-    "or similar education",
-    "or similar qualification",
-    "or equivalent qualification",
-    "or equivalent education",
-    "or relevant experience",
-    "equivalent practical experience",
-    "oder einschlaegige berufserfahrung",
-    "oder einschlägige berufserfahrung",
-]
-
-
-def _degree_text(text: str) -> str:
-    """Matching-Text fuer die Abschluss-Erkennung (v1.7.17, #918 Defekt 2).
-
-    Zusaetzlich zur Umlaut-Normalisierung wird der Whitespace geglaettet:
-    echte Anzeigen brechen Zeilen mitten in der Phrase um ("oder eine" /
-    Zeilenumbruch / "vergleichbare Ausbildung"), und die Muster sind zusammenhaengende
-    Phrasen — ohne Glaettung greift ausgerechnet die Oeffnungsklausel nicht.
-    """
-    import re as _re
-    return _re.sub(r"\s+", " ", _normalize_for_matching(text or ""))
-
-
-# v1.7.23 (#955): BESCHREIBENDE Formulierungen, getrennt gefuehrt.
-# Die Hauptliste kannte nur FORDERNDE Wendungen ("Studium erforderlich",
-# "abgeschlossenes Studium"). Belegter Fall: "Dein akademischer
-# Hintergrund: Dein Studium bildet die Ausgangsbasis" — eine klare
-# Anforderung, die auch mit vollstaendigem Text nicht erkannt wurde.
-#
-# Die Richtung des Fehlers ist die unangenehme: nicht erkannt heisst
-# `false`, also "nicht gefordert" — und das ist ein k.o.-Kriterium,
-# keine Anzeigeinformation.
-_DEGREE_BESCHREIBEND = (
-    "akademischer hintergrund", "akademische ausbildung",
-    "dein studium", "ihr studium", "studium bildet", "studium der",
-    "studiengang", "hochschulstudium", "universitaetsstudium",
-    "universitätsstudium", "fachhochschulstudium",
-    "studierte", "studierter", "studierten",
-    "your degree", "your academic", "academic background",
-)
-
-# Anzeigen, die sich AN Studierende richten. Dort ist "Studium" die
-# Zielgruppe, nicht die Anforderung — eine Wortliste ohne diesen
-# Kontext wuerde beide Faelle verwechseln.
-_STUDIERENDEN_MARKER = (
-    "werkstudent", "werkstudierend", "praktikum", "praktikant",
-    "duales studium", "dualer student", "studentische hilfskraft",
-    "fuer studierende", "für studierende", "abschlussarbeit",
-    "bachelorarbeit", "masterarbeit", "internship", "working student",
-)
-
-
-# Formulierungen, die einen ABGESCHLOSSENEN Abschluss verlangen. Nur
-# diese zaehlen noch, wenn sich die Anzeige an Studierende richtet —
-# alles andere ist dort Zielgruppenbeschreibung.
-_DEGREE_ABGESCHLOSSEN = (
-    "abgeschlossenes studium", "abgeschlossenes hochschulstudium",
-    "abgeschlossene hochschulausbildung", "hochschulabschluss",
-    "studienabschluss", "akademischer abschluss", "universitaetsabschluss",
-    "universitätsabschluss", "degree required", "completed degree",
-    "bachelor of", "master of",
-)
-
-
-def _ist_studierenden_stelle(text_lower: str) -> bool:
-    return any(m in text_lower for m in _STUDIERENDEN_MARKER)
-
-
-def _has_degree_relaxation(text: str) -> bool:
-    """True wenn der Text Quereinsteiger-/Abschwaechungs-Klauseln enthaelt (#536)."""
-    text_lower = _degree_text(text)
-    return any(pat in text_lower for pat in _DEGREE_RELAXATION_PATTERNS)
-
-
-# v1.7.17 (#918 Defekt 2): Zeilen, die ueber ANDERE Bewerber reden statt
-# ueber die Anforderung. Belegter Fall: die LinkedIn-Bewerberstatistik
-# ("21 % haben den Abschluss Master, 17 % Bachelor der
-# Ingenieurswissenschaften") stand im Datensatz und loeste einen
-# Falsch-Alarm aus ("HOCHSCHULABSCHLUSS GEFORDERT") bei einer Anzeige,
-# die gar keinen Abschluss verlangt.
-_DEGREE_STATISTIK_MARKER = (
-    "bewerberfeld", "bewerberlage", "bewerberstatistik", "der bewerber",
-    "% haben", "prozent haben", "berufserfahrene", "berufseinsteiger",
-    "applicant", "applicants have",
-)
-
-
-def _ohne_bewerberstatistik(text: str) -> str:
-    """Entfernt Zeilen, die Bewerber-Statistiken statt Anforderungen tragen."""
-    zeilen = []
-    for zeile in (text or "").splitlines():
-        low = zeile.lower()
-        if any(m in low for m in _DEGREE_STATISTIK_MARKER):
-            continue
-        zeilen.append(zeile)
-    return chr(10).join(zeilen)
-
-
-def _detect_degree_required(text: str) -> bool:
-    """Erkennt ob eine Stellenbeschreibung einen Hochschulabschluss fordert (#305).
-
-    v1.6.4 (#536): Quereinsteiger-Klauseln werden jetzt beruecksichtigt.
-    Wenn die Beschreibung explizit Quereinsteiger einlaedt, wird die formale
-    Anforderung als nicht-bindend gewertet (False zurueckgegeben).
-
-    v1.7.17 (#918 Defekt 2): Die Erkennung lief auf dem GESAMTEN Datensatz —
-    inklusive redaktioneller PBP-Notizen und Bewerberstatistiken. Jetzt
-    zuerst Notizen abschneiden (#603-Trenner) und Statistik-Zeilen
-    entfernen; erst dann matchen.
-    """
-    text = _ohne_bewerberstatistik(_strip_pbp_notes(text or ""))
-    text_lower = _degree_text(text)
-    # v1.7.23 (#955): Richtet sich die Anzeige an Studierende, ist
-    # "Studium" die ZIELGRUPPE, nicht die Anforderung. Dann zaehlen nur
-    # noch Formulierungen, die ausdruecklich einen abgeschlossenen
-    # Abschluss verlangen. Ohne diese Unterscheidung wuerde jede
-    # Werkstudenten- und Praktikumsanzeige einen Hochschulabschluss
-    # fordern — und das ist ein k.o.-Kriterium.
-    if _ist_studierenden_stelle(text_lower):
-        treffer = any(pat in text_lower for pat in _DEGREE_ABGESCHLOSSEN)
-    else:
-        treffer = (any(pat in text_lower for pat in _DEGREE_REQUIRED_PATTERNS)
-                   or any(pat in text_lower for pat in _DEGREE_BESCHREIBEND))
-    if not treffer:
-        return False
-    # Pattern hat angeschlagen — pruefe ob abgeschwaecht
-    if _has_degree_relaxation(text_lower):
-        return False
-    return True
-
-
-def _profile_has_degree(criteria: dict) -> bool:
-    """Prüft ob das Profil einen Hochschulabschluss enthält (#305)."""
-    education = criteria.get("_profile_education", [])
-    if not education:
-        return False
-    degree_keywords = {"bachelor", "master", "diplom", "magister", "doktor", "dr.",
-                       "phd", "mba", "staatsexamen", "promotion"}
-    for edu in education:
-        degree = (edu.get("degree") or "").lower()
-        if any(kw in degree for kw in degree_keywords):
-            return True
-        # Auch Studienfach prüfen — wenn degree leer, aber field_of_study "Informatik" o.ä.
-        field = (edu.get("field_of_study") or "").lower()
-        if field and ("studium" in degree or "university" in (edu.get("institution") or "").lower()
-                      or "hochschule" in (edu.get("institution") or "").lower()
-                      or "universität" in (edu.get("institution") or "").lower()):
-            return True
-    return False
 
 
 # Remote detection keywords

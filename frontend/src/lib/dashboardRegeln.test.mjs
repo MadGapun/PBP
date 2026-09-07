@@ -10,6 +10,7 @@ import {
   ONBOARDING_STUFEN,
   beschreibungWiederholtWoertlich,
   labelWiederholtHeadline,
+  readinessWirdVomBlockGetragen,
   zeigeProfilKpi,
 } from "./dashboardRegeln.js";
 
@@ -84,6 +85,28 @@ check(
   "Etikett Profil ausbauen ueber unvollstaendigem Profil",
   labelWiederholtHeadline("Profil ausbauen", "Dein Profil ist noch nicht vollstaendig."),
   true
+);
+
+// --- Nutzerhinweis 07.09.2026: die Karte wiederholt den Block ---
+// Der Block "Offen" listete zwei faellige Nachfassungen mit Firma und
+// Datum, und direkt darunter stand "Es gibt ueberfaellige
+// Nachfassaktionen". #976 verlangte, keine ZAEHLUNGEN zu wiederholen —
+// das war zu eng gelesen. Eine Wiederholung ohne Zahl ist immer noch
+// eine Wiederholung.
+check(
+  "Nachfassen mit gefuelltem Block: Karte entfaellt",
+  readinessWirdVomBlockGetragen("nachfassen", 2),
+  true
+);
+check(
+  "Nachfassen mit leerem Block: Karte traegt die Aussage",
+  readinessWirdVomBlockGetragen("nachfassen", 0),
+  false
+);
+check(
+  "andere Stufe: Karte bleibt, der Block sagt dazu nichts",
+  readinessWirdVomBlockGetragen("bewerben", 5),
+  false
 );
 
 // --- #984: leerer Zustand ---

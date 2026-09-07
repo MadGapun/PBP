@@ -647,8 +647,8 @@ def test_jobs_page_opens_detail_modal_and_allows_description_edit(live_dashboard
         context.close()
 
 
-def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
-    """Dashboard surfaces the workspace readiness as a clear next-step card."""
+def test_dashboard_zeigt_offenes_statt_es_zu_wiederholen(live_dashboard, browser):
+    """Das Offene steht EINMAL da — im Block, mit Firma und Datum."""
     _seed_ready_workspace(live_dashboard["db"])
 
     context = browser.new_context(viewport={"width": 1440, "height": 960})
@@ -662,10 +662,16 @@ def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
         # v1.7.31 (#976 Befund 1): der Kicker "Nächster sinnvoller Schritt"
         # ist weg. Er erklärte die Karte, während direkt darunter die
         # eigentliche Aussage stand — vier Etiketten für eine Information.
-        # Übrig bleibt, was Information trägt.
-        page.get_by_text("Es gibt überfällige Nachfassaktionen.").wait_for(state="visible")
-        # Und die Beschreibung, die dieselbe Aussage in anderen Worten
-        # wiederholte, steht nicht mehr daneben (#984).
+        #
+        # v1.7.35 (Nutzerhinweis 07.09.2026): die Karte selbst entfällt
+        # hier ebenfalls. Das Fixture legt eine überfällige Nachfassung
+        # an; die steht damit mit Firma und Datum im Block "Offen", und
+        # "Es gibt überfällige Nachfassaktionen." wäre dieselbe Aussage
+        # noch einmal, nur unschärfer.
+        page.get_by_text("Offen", exact=True).first.wait_for(state="visible")
+        page.get_by_text("Nachfassen:", exact=False).first.wait_for(state="visible")
+        assert page.get_by_text(
+            "Es gibt überfällige Nachfassaktionen.", exact=False).count() == 0
         assert page.get_by_text(
             "Einige Bewerbungen warten auf deine Rückmeldung",
             exact=False).count() == 0
