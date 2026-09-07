@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.41** ist Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.42** ist Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,64 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.42 Stable) — LinkedIn liefert wieder
+
+**#919.** Die Quelle stand auf aktiv, hatte aber `letzter_lauf
+23.04.2026` und Erfolgsrate 0 %; die jobspy-Variante ist deprecated nach
+24 Fehlern in Serie. HTTP von aussen blockt LinkedIn zuverlaessig,
+Requests aus dem EINGELOGGTEN Tab laufen durch. Der am 17.08.
+durchgespielte Weg (22 Begriffe, 511 Rohtreffer, 59 Volltexte, 3
+uebernommene Stellen) lag bis jetzt nur im Issue.
+**Tests: 3034 / 3100.** MCP-Tools 212 / 225.
+
+MERKE-Punkte:
+
+(1) **Der Volltext ist der ganze Wert der Quelle.** Von 59 Titeln, die
+den Vorfilter passiert hatten, blieben nach dem Lesen 3 uebrig — und der
+nach Titel BESTE Treffer des Laufs verlangte im Fliesstext ein System
+von der harten Ausschlussliste. Ein Import, der Titel und Kurztext
+nimmt, liefert also nicht ein paar Fehler ein, sondern bevorzugt die
+falschen: sie haben die besten Titel. Deshalb ist
+`MIN_BESCHREIBUNG = 500` eine Regel und keine Empfehlung.
+
+(2) **Ein zweiter Schreibweg waere der achte Fall desselben Musters
+gewesen.** Der Import geht durch `_stelle_uebernehmen` — den Rumpf von
+`stelle_manuell_anlegen`, der dafuer aus dem Tool herausgeloest wurde.
+Blacklist (#729/#790/#992), Duplikat-Stufen (#317/#567/#670), Anker
+(#766) und Scoring gelten damit unveraendert, ohne dass irgendwo steht
+"dieselbe Logik wie". Ein Test legt zweimal dieselbe Stelle an und
+erwartet eine.
+
+(3) **Der Python-Teil holt nichts.** Er baut URLs und Header, zerlegt
+Antworten und zaehlt den Trichter; geholt wird im Browser. Das ist keine
+Notloesung, sondern der Grund, warum die Quelle ueberhaupt testbar ist:
+`parse_trefferliste`/`parse_detail` laufen gegen gespeicherte Antworten,
+also faellt ein Feldumbau bei LinkedIn im Test auf statt im Feld (AK5).
+
+(4) **Die stille Null ist auch hier der teure Fall.** Auf eine veraltete
+Decoration-ID antwortet LinkedIn mit 400/426 — ohne Einordnung sieht das
+aus wie "gerade keine passenden Stellen". `fehlerklasse()` benennt es,
+und die IDs stehen als Konstanten oben im Modul, nicht verstreut im
+Code. Derselbe Gedanke wie #813 und #989.
+
+(5) **Suchbegriffe: das Portal-Profil schlaegt die MUSS-Liste.** #564
+wurde genau fuer LinkedIn gelernt (Phrase-Match ergibt 0 Treffer, drei
+Buchstaben ohne Branchenfilter treffen alles). `nicht_verwenden` aus dem
+Profil gewinnt immer — das ist gelerntes Wissen ueber die Quelle, kein
+Vorschlag.
+
+(6) **Bewusste Abweichung vom Issue-Vorschlag:** kein zweiter
+Quellen-Eintrag `linkedin_voyager`. Die Quelle `linkedin` existiert,
+`url_to_source` zeigt darauf, und ein zweiter Eintrag zerlegte die
+Lauf-Historie einer Quelle, die man gerade wieder messen will. Der
+bestehende Eintrag traegt den neuen Weg und ist nicht mehr `veraltet`.
+
+(7) **AK1 ist NICHT abgehakt.** "Ein Lauf liefert mindestens die
+Trefferzahl der LinkedIn-Oberflaeche" laesst sich nur live im
+eingeloggten Chrome pruefen. Der Mechanismus steht und ist gegen
+Fixtures gruen; die Zaehlprobe steht aus. Das gehoert gesagt, statt ein
+Kriterium als erfuellt zu fuehren, das niemand gemessen hat.
 
 ## Stand 2026-09-07 (v1.7.41 Stable) — Was der Filter wegwirft
 
