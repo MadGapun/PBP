@@ -1,17 +1,15 @@
-"""Suchkriterien und Blacklist-Verwaltung — 5 Tools (#559: blacklist_anwenden)."""
+"""Suchkriterien und Blacklist-Verwaltung — 6 Tools
 
+#559 blacklist_anwenden, #992 blacklist_wirkung.
+"""
+
+from ..services import blacklist_regel
 from ..services.nutzerfuehrung import leer
 
-# v1.7.12 (#828, C33): Woerter, die auf ein Gattungsurteil statt einer
-# konkreten Erfahrung hindeuten. Belegter Fall 11.08.: ein Blacklist-Grund
-# "bewusste Entscheidung gegen Beratungshaus" (tatsaechlicher Anlass: nie
-# Rueckmeldung von genau EINER Firma) wurde bei spaeteren Bewertungen als
-# generelle Haltung gelesen und verzerrte zwei unbeteiligte Stellen.
-_KATEGORIEN_WOERTER = (
-    "beratungshaus", "beratungshaeuser", "consulting", "zeitarbeit",
-    "personaldienstleister", "vermittler", "branche", "generell",
-    "grundsaetzlich", "alle ", "solche firmen", "diese art",
-)
+# v1.7.12 (#828, C33) / v1.7.41 (#992): die Wortliste liegt jetzt im
+# Nadeloehr, weil sie drei Aufrufer hat — der Hinweis beim Anlegen, die
+# Bestandspruefung und die Blockade-Auskunft.
+_KATEGORIEN_WOERTER = blacklist_regel.KATEGORIEN_WOERTER
 
 
 def _kategorienurteil_hinweis(grund: str):
@@ -32,8 +30,57 @@ def _kategorienurteil_hinweis(grund: str):
         "unbeteiligte Firmen derselben Art ab. Praeziser ist, was mit "
         "DIESER Firma passiert ist (z. B. 'nie Rueckmeldung auf 3 "
         "Bewerbungen'). Aendern geht jederzeit: "
-        "blacklist_verwalten('aendern', entry_id=..., grund=...)."
+        "blacklist_verwalten('aendern', entry_id=..., grund=...). "
+        # v1.7.41 (#992): der Hinweis auf die Ausnahme kam bisher erst,
+        # wenn eine Stelle schon abgewiesen war — also im schlechtest-
+        # moeglichen Moment. Personaldienstleister und Beratungen
+        # schreiben quer durch alle Fachgebiete aus; ein pauschaler Block
+        # wirft dort zwangslaeufig auch die passenden Rollen weg.
+        "Und wenn die Gattung wirklich der Grund ist: blocke die Firma, "
+        "aber lass deine Fachrollen durch — "
+        "blacklist_verwalten('aendern', entry_id=..., "
+        "ausser_wenn_titel_enthaelt=['<dein MUSS-Begriff>'])."
     )
+
+
+def _muss_kollisionen(db, wert: str, typ: str, limit: int = 5):
+    """Wuerde dieser Eintrag Stellen mit MUSS-Begriffen wegwerfen? (#992)
+
+    Der maschinell erkennbare Widerspruch, und er gehoert in den Moment
+    des Anlegens: "das suche ich" und "das will ich nicht" ueber derselben
+    Stelle. Geprueft wird gegen den bekannten Bestand — aktive wie
+    aussortierte Stellen, denn gerade die aussortierten sind ja der
+    Anlass fuer den Eintrag.
+    """
+    try:
+        kriterien = db.get_search_criteria() or {}
+        if not (kriterien.get("keywords_muss") or []):
+            return []
+        w = (wert or "").strip().lower()
+        if not w:
+            return []
+        bestand = list(db.get_active_jobs()) + list(db.get_dismissed_jobs())
+    except Exception:
+        return []
+    out, gesehen = [], set()
+    for j in bestand:
+        firma = (j.get("company") or "").lower()
+        titel = j.get("title") or ""
+        if typ == "firma":
+            passt = bool(firma) and (w in firma or firma in w)
+        else:
+            passt = w in titel.lower() or w in firma
+        if not passt:
+            continue
+        begriffe = blacklist_regel.muss_treffer(titel, kriterien)
+        if not begriffe or titel.lower() in gesehen:
+            continue
+        gesehen.add(titel.lower())
+        out.append({"titel": titel, "firma": j.get("company"),
+                    "muss_begriffe": begriffe})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def register(mcp, db, logger):
@@ -470,6 +517,24 @@ def register(mcp, db, logger):
             warnung = _kategorienurteil_hinweis(grund)
             if warnung:
                 result["hinweis_grund"] = warnung
+            # v1.7.41 (#992): der harte, maschinell erkennbare Widerspruch.
+            # Ein Eintrag, der Titel mit den eigenen MUSS-Begriffen
+            # wegwirft, sagt zwei Dinge gleichzeitig — das gehoert gesagt,
+            # bevor der Filter still zu arbeiten beginnt.
+            kollisionen = _muss_kollisionen(db, wert.strip(), typ)
+            if kollisionen and not ausnahmen:
+                begriffe = sorted({b for k in kollisionen
+                                   for b in k["muss_begriffe"]})
+                result["muss_kollisionen"] = kollisionen
+                result["warnung_muss"] = (
+                    f"Dieser Eintrag betrifft {len(kollisionen)} bekannte "
+                    "Stelle(n), deren Titel deine MUSS-Begriffe enthaelt "
+                    f"({', '.join(begriffe)}). Kuenftige Treffer dieser Art "
+                    "werden ab jetzt still verworfen. Wenn das nicht "
+                    "gewollt ist, setz eine Ausnahme: "
+                    f"blacklist_verwalten('aendern', entry_id={neu_id}, "
+                    f"ausser_wenn_titel_enthaelt={begriffe!r})."
+                )
             if ausnahmen:
                 result["ausser_wenn_titel_enthaelt"] = ausnahmen
                 result["hinweis_ausnahme"] = (
@@ -615,48 +680,29 @@ def register(mcp, db, logger):
 
         # Aktive Stellen laden (ohne Blacklist-Filter, sonst sehen wir nichts)
         active = db.get_active_jobs()
-        bl_firms_lc = [f.lower() for f in bl_firms]
-        bl_keywords_lc = [k.lower() for k in bl_keywords]
 
         # v1.7.11 (#790/C31): Titel-Ausnahmen je Firmen-Eintrag. Ohne das
         # entfernt ein retroaktiver Lauf genau die passenden Stellen wieder,
         # die die Ausnahme beim Anlegen durchgelassen hat.
-        ausnahmen_je_firma = {
-            (e.get("value") or "").lower(): [
-                a.lower() for a in (e.get("ausser_wenn_titel_enthaelt") or [])
-            ]
-            for e in bl_entries if e.get("type") == "firma"
-        }
+        # v1.7.41 (#992/C52): ueber das Nadeloehr statt eigener Fassung.
         verschont = []
-
         matched = []
         for j in active:
-            company_lc = (j.get("company") or "").lower()
-            title_lc = (j.get("title") or "").lower()
-            firma_treffer = next(
-                (f for f in bl_firms_lc if f and (f in company_lc or company_lc in f)),
-                None,
-            )
-            if firma_treffer:
-                _greift = next(
-                    (a for a in ausnahmen_je_firma.get(firma_treffer, [])
-                     if a and a in title_lc), None)
-                if _greift:
-                    verschont.append({
-                        "hash": j.get("hash"), "titel": j.get("title"),
-                        "firma": j.get("company"),
-                        "ausnahme_begriff": _greift,
-                    })
-                    firma_treffer = None
-            kw_treffer = next(
-                (k for k in bl_keywords_lc if k and (k in company_lc or k in title_lc)),
-                None,
-            )
-            if firma_treffer or kw_treffer:
+            _rettung = blacklist_regel.verschont(
+                bl_entries, j.get("company") or "", j.get("title") or "")
+            if _rettung:
+                verschont.append({
+                    "hash": j.get("hash"), "titel": j.get("title"),
+                    "firma": j.get("company"),
+                    "ausnahme_begriff": _rettung["begriff"],
+                })
+            hit = blacklist_regel.treffer(
+                bl_entries, j.get("company") or "", j.get("title") or "")
+            if hit:
                 matched.append({
                     "job": j,
-                    "trigger": "firma" if firma_treffer else "keyword",
-                    "wert": firma_treffer or kw_treffer,
+                    "trigger": hit["typ"],
+                    "wert": (hit["wert"] or "").lower(),
                 })
 
         if not matched:
@@ -679,7 +725,7 @@ def register(mcp, db, logger):
                 }
                 for m in matched[:10]
             ]
-            return {
+            res = {
                 "dry_run": True,
                 "betroffen": len(matched),
                 "vorschau": preview,
@@ -688,6 +734,14 @@ def register(mcp, db, logger):
                     "Erneut mit dry_run=False aufrufen, um sie zu deaktivieren."
                 ),
             }
+            # v1.7.41 (#992): die verschonten Stellen standen bisher NUR im
+            # Zweig "kein Treffer" — sobald irgendeine andere Stelle passte,
+            # verschwand die Auskunft darueber, was die Ausnahme gerettet
+            # hat. Sichtbar ist sie damit genau dann nicht, wenn es
+            # interessant wird.
+            if verschont:
+                res["durch_ausnahme_verschont"] = verschont
+            return res
 
         # Tatsaechlich anwenden — nutzt db.dismiss_job (resolve_job_hash inside),
         # damit profile-scoped Hashes korrekt aufgeloest werden.
@@ -705,11 +759,115 @@ def register(mcp, db, logger):
                 firmen_betroffen[firma] = firmen_betroffen.get(firma, 0) + 1
             except Exception as exc:
                 logger.warning("blacklist_anwenden: %s fehlgeschlagen: %s", job_hash, exc)
-        return {
+        res = {
             "dry_run": False,
             "deaktiviert": deaktiviert,
             "betroffene_firmen": dict(sorted(firmen_betroffen.items(), key=lambda x: -x[1])[:10]),
         }
+        if verschont:
+            res["durch_ausnahme_verschont"] = verschont
+        return res
+
+    @mcp.tool()
+    def blacklist_wirkung(limit: int = 30, nur_auffaellige: bool = False) -> dict:
+        """Was wirft deine Blacklist gerade weg — und ist das noch richtig? (#992)
+
+        Ein Filter, dessen Wirkung niemand sehen kann, laesst sich nicht
+        ueberpruefen. Man weiss nicht, ob er richtig arbeitet, und man
+        merkt nicht, wenn seine Begruendung veraltet ist. Genau das ist
+        am 07.09.2026 passiert: eine fachlich passende Stelle wurde von
+        einem Eintrag geblockt, dessen Begruendung aus einer Zeit stammte,
+        in der von dieser Firma nur unpassende Rollen kamen.
+
+        Dieses Werkzeug beantwortet drei Fragen auf einmal:
+
+        1. **Welche Stellen hat die Blacklist verworfen?** Seit v1.7.41
+           protokolliert PBP jede Blockade — aus dem Suchlauf, beim
+           Anlegen von Hand und ueber Plugins.
+        2. **Widerspricht ein Eintrag den eigenen Suchkriterien?** Ein
+           Eintrag, der Titel mit MUSS-Begriffen wegwirft, sagt zwei
+           Dinge gleichzeitig. Das ist maschinell erkennbar und steht
+           deshalb ganz oben.
+        3. **Ist die Begruendung noch tragfaehig?** Gattungsurteile
+           ("Zeitarbeit", "Consulting") beschreiben keine Firma, sondern
+           eine Annahme; mit Alter wird daraus eine Vermutung mit Datum.
+
+        Der uebliche Ausweg ist nicht Loeschen, sondern eine Ausnahme:
+        `blacklist_verwalten('aendern', entry_id=..., ausser_wenn_titel_
+        enthaelt=['PLM'])` haelt die Firma draussen und laesst die
+        Fachrollen durch.
+
+        Args:
+            limit: wie viele protokollierte Blockaden gelesen werden.
+            nur_auffaellige: True zeigt nur Eintraege mit Befund
+                (MUSS-Kollision, Gattungsurteil ohne Ausnahme, fehlende
+                Begruendung).
+        """
+        eintraege = db.get_blacklist(include_inactive=True)
+        if not eintraege:
+            return leer(
+                {"status": "leer", "eintraege": [], "eintraege_gesamt": 0},
+                "Die Blacklist ist leer — es wird nichts weggefiltert.",
+                "Firmen oder Begriffe sperren: "
+                "blacklist_verwalten('hinzufuegen', 'firma', '...').")
+
+        try:
+            kriterien = db.get_search_criteria() or {}
+        except Exception:
+            kriterien = {}
+        blockaden = db.get_blacklist_blocks(limit=max(1, int(limit)))
+        eintrags_befund = blacklist_regel.befund(eintraege, kriterien, blockaden)
+
+        auffaellig = [e for e in eintrags_befund
+                      if e["muss_kollisionen"]
+                      or (e["gattungswoerter"] and not e["ausser_wenn_titel_enthaelt"])
+                      or not e["grund"].strip()]
+
+        letzte = [{
+            "titel": b.get("titel"), "firma": b.get("firma"),
+            "geblockt_durch": b.get("eintrag_wert"), "typ": b.get("typ"),
+            "kontext": b.get("kontext"), "am": b.get("blockiert_am"),
+            "muss_begriffe": blacklist_regel.muss_treffer(
+                b.get("titel") or "", kriterien),
+        } for b in blockaden]
+
+        ergebnis = {
+            "status": "ok",
+            "eintraege_gesamt": len(eintraege),
+            "eintraege": auffaellig if nur_auffaellige else eintrags_befund,
+            "auffaellige_eintraege": len(auffaellig),
+            "geblockt_protokolliert": len(blockaden),
+            "geblockt_mit_muss_begriff": len([x for x in letzte
+                                              if x["muss_begriffe"]]),
+            "letzte_blockaden": letzte,
+        }
+        if not blockaden:
+            ergebnis["hinweis_protokoll"] = (
+                "Noch keine Blockade protokolliert. Das Protokoll beginnt "
+                "mit v1.7.41 — aeltere Blockaden sind nicht rekonstruierbar, "
+                "weil sie nie irgendwo standen. Nach dem naechsten Suchlauf "
+                "steht hier, was der Filter tatsaechlich wegwirft."
+            )
+        # Die Zahl oben ist Protokoll, also Vergangenheit. Gewarnt wird
+        # nur ueber das, was HEUTE noch blockt — sonst ermahnt PBP jemanden
+        # fuer ein Problem, das er schon geloest hat.
+        offen = sum(len(e["muss_kollisionen"]) for e in eintrags_befund)
+        behoben = sum(e.get("muss_kollisionen_behoben", 0)
+                      for e in eintrags_befund)
+        ergebnis["muss_kollisionen_offen"] = offen
+        if offen:
+            ergebnis["warnung"] = (
+                f"{offen} verworfene Stelle(n) tragen einen deiner "
+                "MUSS-Begriffe im Titel und wuerden auch jetzt wieder "
+                "verworfen. Das ist der Widerspruch aus #992 — sieh dir "
+                "die betroffenen Eintraege an."
+            )
+        elif behoben:
+            ergebnis["hinweis_behoben"] = (
+                f"{behoben} frueher verworfene Stelle(n) mit MUSS-Begriff "
+                "kaemen inzwischen durch — die Ausnahme wirkt."
+            )
+        return ergebnis
 
     # === v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile ===
     #

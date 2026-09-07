@@ -141,6 +141,7 @@ EXPECTED_TOOL_NAMES = {
     "statistiken_abrufen",
     "suchkriterien_setzen",
     "blacklist_anwenden",
+    "blacklist_wirkung",
     "blacklist_verwalten",
     "lebenslauf_exportieren",
     "lebenslauf_angepasst_exportieren",
@@ -350,7 +351,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 209  # v1.7.40 (#994): +positionen_anzeigen
+        assert len(tools) == 210  # v1.7.41 (#992): +blacklist_wirkung
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

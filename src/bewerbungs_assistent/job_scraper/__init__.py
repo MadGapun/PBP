@@ -735,6 +735,8 @@ def _post_search_cleanup(db, jobs: list) -> dict:
 
     Returns dict with 'jobs' (cleaned list) and 'stats' (cleanup counters).
     """
+    from ..services import blacklist_regel
+
     stats = {"duplikate_db": 0, "blacklist": 0, "bereits_bewertet": 0, "bereits_beworben": 0}
 
     # 1. Get existing job hashes from DB to skip already-known jobs
@@ -744,12 +746,16 @@ def _post_search_cleanup(db, jobs: list) -> dict:
         existing_dismissed = set()
 
     # 2. Get blacklist entries
+    #
+    # v1.7.41 (#992/C52): Der Suchlauf hatte eine EIGENE Blacklist-Fassung
+    # ohne die Titel-Ausnahme aus #790. Wer die Ausnahme setzte, bekam die
+    # Stelle beim manuellen Anlegen durch — und der naechste Suchlauf warf
+    # sie wieder weg, stumm und ohne Spur. Jetzt derselbe Aufruf wie
+    # ueberall, und jede Blockade wird protokolliert.
     try:
         bl_entries = db.get_blacklist()
-        bl_firms = {e["value"].lower() for e in bl_entries if e.get("type") == "firma"}
-        bl_keywords = {e["value"].lower() for e in bl_entries if e.get("type") == "keyword"}
     except Exception:
-        bl_firms, bl_keywords = set(), set()
+        bl_entries = []
 
     # 3. Get existing applications for fuzzy matching
     try:
@@ -788,15 +794,18 @@ def _post_search_cleanup(db, jobs: list) -> dict:
             stats["duplikate_db"] += 1
             continue
 
-        # Skip blacklisted companies (Substring-Match: "Musterfirma" matcht "Musterfirma Software GmbH")
-        if any(firm in company or company in firm for firm in bl_firms):
-            stats["blacklist"] += 1
-            continue
-
-        # Skip blacklisted keywords in title/company
-        if bl_keywords and any(kw in title or kw in company for kw in bl_keywords):
-            stats["blacklist"] += 1
-            continue
+        # Blacklist: Firmen als Substring, Keywords in Titel oder Firma,
+        # Titel-Ausnahmen (#790) beachtet — die Entscheidung liegt im
+        # Nadeloehr, nicht hier.
+        if bl_entries:
+            _hit = blacklist_regel.treffer(
+                bl_entries, job.get("company") or "", job.get("title") or "")
+            if _hit:
+                stats["blacklist"] += 1
+                # Die Blockade festhalten: ohne Protokoll erfaehrt niemand,
+                # dass es diese Stelle gab (#992).
+                db.record_blacklist_block(job, _hit, kontext="suchlauf")
+                continue
 
         # Fuzzy match against existing applications (#154)
         matched_app = None
