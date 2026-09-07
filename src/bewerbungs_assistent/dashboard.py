@@ -447,6 +447,10 @@ def _get_daily_impulse() -> dict:
         follow_up_summary = _get_follow_up_summary()
         active_jobs = len(_db.get_active_jobs())
         total_applications = len(_db.get_applications())
+        # Dieselbe Quelle wie die rote Warnung oben auf dem Dashboard
+        # (D23/#683). Ohne sie sah der Impuls die ueberfaelligen Aufgaben
+        # nicht und riet danebem zur Ruhe (#977).
+        overdue_tasks = len(_db.get_overdue_tasks() or [])
     except Exception:
         has_profile = False
         completeness = 0
@@ -455,6 +459,7 @@ def _get_daily_impulse() -> dict:
         follow_up_summary = {"due": 0}
         active_jobs = 0
         total_applications = 0
+        overdue_tasks = 0
 
     return get_daily_impulse(
         enabled=enabled,
@@ -465,6 +470,7 @@ def _get_daily_impulse() -> dict:
         active_jobs=active_jobs,
         total_applications=total_applications,
         follow_ups_due=follow_up_summary["due"],
+        overdue_tasks=overdue_tasks,
     )
 
 
@@ -4808,89 +4814,31 @@ async def api_task_hinfaellig(task_id: str, request: Request):
 
 @app.get("/api/aufgaben")
 async def api_aufgaben_uebersicht(status: str = "offen"):
-    """Alle drei Toepfe (Todos, Nachfassungen, Termine) in einer Sicht,
-    gruppiert nach Faelligkeit (#815) — dieselbe Logik wie das MCP-Tool
-    aufgaben_uebersicht, damit UI und Claude dasselbe sehen."""
-    from datetime import date, timedelta
-    heute = date.today().isoformat()
-    wochenende = (date.today() + timedelta(days=7)).isoformat()
-    eintraege = []
-    for t in _db.list_tasks(nur_offen=(status == "offen")):
-        if status == "erledigt" and t.get("status") != "erledigt":
-            continue
-        app_row = _db.get_application(t.get("application_id") or "") or {}
-        eintraege.append({
-            "herkunft": "todo", "id": t["id"], "titel": t.get("titel", ""),
-            "beschreibung": t.get("beschreibung") or "",
-            "status": t.get("status"), "faellig_am": t.get("faellig_am"),
-            "bewerbung_id": t.get("application_id"),
-            "firma": app_row.get("company"), "notiz": t.get("notiz") or "",
-        })
-    if status in ("offen", "alle"):
-        try:
-            for fu in _db.get_pending_follow_ups():
-                app_row = _db.get_application(
-                    fu.get("application_id") or "") or {}
-                # v1.7.23 (#945): fehlenden Text beim Lesen erzeugen und
-                # den fertigen Claude-Auftrag mitgeben. Fuenf von sieben
-                # Nachfassungen im Bestand hatten ein leeres
-                # Beschreibungsfeld — wer sie oeffnete, sah Firma und
-                # Datum und musste den Rest selbst zusammensuchen.
-                from .services.nachfass_text import (claude_prompt,
-                                                     ist_ueberholt,
-                                                     nachfass_text)
-                _weg, _warum = ist_ueberholt(fu, app_row)
-                _text = (fu.get("template") or "").strip()
-                if not _text and app_row:
-                    _text = nachfass_text(app_row)
-                eintraege.append({
-                    "herkunft": "nachfass", "id": fu.get("id"),
-                    "titel": (f"Nachfassen: {app_row.get('company', '?')} — "
-                              f"{app_row.get('title', '?')}"),
-                    "ueberholt": _weg,
-                    "ueberholt_grund": _warum,
-                    "claude_prompt": claude_prompt(app_row) if app_row else "",
-                    "beschreibung": _text,
-                    "status": "offen",
-                    "faellig_am": fu.get("scheduled_date"),
-                    "bewerbung_id": fu.get("application_id"),
-                    "firma": app_row.get("company"),
-                })
-        except Exception:
-            pass
-        try:
-            for m in _db.get_upcoming_meetings(days=30):
-                eintraege.append({
-                    "herkunft": "termin", "id": m.get("id"),
-                    "titel": m.get("title") or "Termin",
-                    "beschreibung": m.get("notes") or "",
-                    "status": "geplant",
-                    "faellig_am": (m.get("meeting_date") or "")[:10],
-                    "bewerbung_id": m.get("application_id"),
-                    "firma": m.get("app_company") or m.get("company"),
-                })
-        except Exception:
-            pass
-    gruppen = {"ueberfaellig": [], "heute": [], "diese_woche": [],
-               "spaeter": [], "ohne_faelligkeit": []}
-    for e in sorted(eintraege,
-                    key=lambda x: x.get("faellig_am") or "9999-12-31"):
-        f = e.get("faellig_am")
-        if not f:
-            gruppen["ohne_faelligkeit"].append(e)
-        elif f < heute and e.get("herkunft") != "termin":
-            e["ueberfaellig_seit_tagen"] = (
-                date.today() - date.fromisoformat(f[:10])).days
-            gruppen["ueberfaellig"].append(e)
-        elif f[:10] == heute:
-            gruppen["heute"].append(e)
-        elif f <= wochenende:
-            gruppen["diese_woche"].append(e)
-        else:
-            gruppen["spaeter"].append(e)
-    return {"anzahl": len(eintraege),
-            "ueberfaellig_anzahl": len(gruppen["ueberfaellig"]),
-            "gruppen": gruppen}
+    """Alle Toepfe (Todos, Nachfassungen, Termine, Vorbereitung) in einer
+    Sicht, gruppiert nach Faelligkeit (#815).
+
+    Seit v1.7.31 (#976) laeuft das ueber `services/aufgaben_sicht.py` —
+    denselben Weg wie das MCP-Tool `aufgaben_uebersicht`. Vorher stand
+    die Aggregation hier ein zweites Mal, und der Kommentar "dieselbe
+    Logik wie das MCP-Tool" stimmte bereits nicht mehr: dieser Weg kannte
+    `ueberholt` und `notiz`, der andere `erledigen_mit`. Ein Kommentar
+    haelt zwei Rechenwege nicht zusammen (Lehre aus #963).
+    """
+    from .services.aufgaben_sicht import uebersicht
+    return uebersicht(_db, status=status)
+
+
+@app.get("/api/dashboard/offen")
+async def api_dashboard_offen():
+    """Der Block "Offen" auf dem Dashboard (#976, #982, #983).
+
+    Ueberfaellig, heute und diese Woche aus derselben Quelle wie der
+    Aufgaben-Tab. "Spaeter" bleibt draussen — dafuer gibt es den Tab und
+    den Kalender. Der leere Zustand ist eine Zeile, kein Rahmen (#984);
+    `leer` sagt das, damit die Oberflaeche es nicht selbst entscheidet.
+    """
+    from .services.aufgaben_sicht import dashboard_block
+    return dashboard_block(_db)
 
 
 # === Adzuna-Zugang (#809, B31, v1.7.12) ==============================

@@ -275,6 +275,20 @@ _PLATZHALTER_WOERTER = frozenset({
 })
 
 
+# Bausteine, die im Deutschen ZUSAMMENGESETZT werden: "Musterbetrieb",
+# "Musterklinik", "Beispielverlag". Die exakte Kopfwort-Liste oben
+# kennt "muster", nicht aber jede Zusammensetzung damit — und Testdaten
+# entstehen staendig neu (dieselbe Lehre wie #962 und #970: im
+# Deutschen traegt der Wortanfang, nicht das ganze Wort).
+#
+# BEWUSST nur diese drei. "test" und "demo" waeren als Praefix
+# gefaehrlich — es gibt reale Firmen, deren Name mit "Test..." oder
+# "Dem..." BEGINNT; ein zu breiter Praefix wuerde sie verdecken, und
+# ein Pruefer, der reale Namen durchwinkt, ist schlimmer als keiner
+# (#929).
+_PLATZHALTER_PRAEFIXE = ("muster", "beispiel", "platzhalter")
+
+
 def _ist_platzhalter_kopf(label: str) -> bool:
     """True, wenn der Treffer wie ein Testdatensatz aussieht.
 
@@ -285,7 +299,9 @@ def _ist_platzhalter_kopf(label: str) -> bool:
     if not teile:
         return False
     kopf = teile[0].lower().strip("-,.:;\"'()„“")
-    return kopf in _PLATZHALTER_WOERTER
+    if kopf in _PLATZHALTER_WOERTER:
+        return True
+    return any(kopf.startswith(p) for p in _PLATZHALTER_PRAEFIXE)
 
 
 # Rechtsform-Bausteine. Der KOPF eines Firmennamens ist nie selbst

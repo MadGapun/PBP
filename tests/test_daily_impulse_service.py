@@ -38,8 +38,14 @@ class TestContentLoading:
 # --- Context detection ---
 
 class TestDetectContext:
-    def test_weekend_has_highest_priority(self):
-        # Saturday
+    def test_weekend_only_when_nothing_is_overdue(self):
+        """Samstag ohne Faelligkeit bleibt der Ruhe-Kontext.
+
+        Bis v1.7.30 stand hier `follow_ups_due=3` und die Erwartung
+        "weekend" — also genau der Fehler aus #977: PBP riet zur Ruhe,
+        waehrend zwei Zeilen weiter oben zwei Aufgaben ueberfaellig waren.
+        Der Test hat das Verhalten nicht gefunden, er hat es festgehalten.
+        """
         result = detect_context(
             has_profile=True,
             profile_completeness=80,
@@ -47,8 +53,8 @@ class TestDetectContext:
             search_status="aktuell",
             active_jobs=5,
             total_applications=2,
-            follow_ups_due=3,
-            today=date(2026, 3, 21),  # Saturday
+            follow_ups_due=0,
+            today=date(2026, 3, 21),  # Samstag
         )
         assert result == "weekend"
 

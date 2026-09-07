@@ -47,5 +47,11 @@ jobs:
         # Backend synchron — dieselben Faelle auf beiden Seiten.
         run: node frontend/src/lib/jobLink.test.mjs
 
+      - name: Dashboard-Regeln (#974 G26, #984 G32)
+        # Onboarding-KPI nur im Onboarding, Zeilenregel gegen den Stapel
+        # "Kicker + Headline + Beschreibung". Deckt die sieben
+        # Readiness-Stufen aus workspace_service.py ab.
+        run: node frontend/src/lib/dashboardRegeln.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

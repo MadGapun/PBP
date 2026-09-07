@@ -72,6 +72,30 @@ python start_dashboard.py  # → http://localhost:8200
 - **SQLite WAL + CASCADE** — Foreign Keys mit ON DELETE CASCADE
 - **Modular** — Tools in fachliche Module aufteilen, server.py bleibt schlank
 
+### Dashboard-Regeln (Epic #978, externer Design-Review 05./06.09.2026)
+
+Beide Regeln haben dieselbe Wurzel: es gab keine Regel, nur Gewohnheit.
+Jede neue Ansicht entschied erneut, ob eine Onboarding-Kennzahl noch
+dazugehört und ob unter die Überschrift noch ein Erklärsatz muss — und
+entschied es jedes Mal mit „ja". Deshalb stehen sie hier und als
+prüfbare Funktionen in `frontend/src/lib/dashboardRegeln.js`.
+
+- **Onboarding-Fortschritt nur im Onboarding (#974).** Anzeigen wie
+  „% Profil vollständig" gehören auf die Profilseite und in die
+  Readiness-Stufen `onboarding` und `profil_aufbauen`. Außerhalb davon
+  sind sie Wiederholung. Wer eine neue Ansicht baut, fragt
+  `readiness.stage` ab, statt die Kennzahl erneut einzublenden.
+- **Eine Dashboard-Zeile besteht aus Titel, Datum oder Zahl und
+  Herkunft (#984).** Ein Beschreibungssatz nur, wenn er eine
+  Information trägt, die der Titel nicht hat. Ein Kicker
+  (Bereichsüberschrift in Versalien) höchstens einmal je Block, nie je
+  Karte. Einen Schalter zum Ausblenden von Hilfetexten gibt es nicht
+  und wird es nicht geben — Zeilen, die einen bräuchten, gehören
+  stattdessen weg.
+- **Eine Information hat einen Ort.** Was außerhalb seines Ortes steht,
+  ist Wiederholung. Empfehlungen entstehen aus konkreten Objekten
+  (dieser Termin, diese Bewerbung), nicht aus Zählungen.
+
 ## Branches
 
 - `main` — Stabiler Hauptbranch, geschützt

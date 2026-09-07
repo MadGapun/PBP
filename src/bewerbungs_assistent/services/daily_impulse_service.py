@@ -12,10 +12,17 @@ from pathlib import Path
 _CONTENT_PATH = Path(__file__).resolve().parent.parent / "content" / "tagesimpulse.json"
 _impulse_cache: list[dict] | None = None
 
-# Context priority (highest first) — matches Codex implementation plan.
+# Context priority (highest first).
+#
+# #977 (v1.7.31): `follow_up_due` steht seit dem 07.09.2026 VOR `weekend`.
+# Vorher gewann der Ruhe-Kontext am Samstag auch dann, wenn etwas
+# ueberfaellig war — auf einem Bildschirm stand oben "2 Aufgaben
+# ueberfaellig" und unten "Heute darf es stiller sein". Ruhe darf es
+# geben, sobald nichts offen ist; bei Ueberfaelligkeit ist sie keine
+# Ruecksicht, sondern eine falsche Aussage.
 CONTEXT_PRIORITY = [
-    "weekend",
     "follow_up_due",
+    "weekend",
     "jobs_ready",
     "search_refresh",
     "sources_missing",
@@ -43,6 +50,7 @@ def detect_context(
     active_jobs: int,
     total_applications: int,
     follow_ups_due: int,
+    overdue_tasks: int = 0,
     today: date | None = None,
 ) -> str:
     """Determine the highest-priority context from workspace signals.
@@ -52,13 +60,16 @@ def detect_context(
     """
     today = today or date.today()
 
-    # Weekend has highest priority
+    # Offenes zuerst — auch am Wochenende (#977). `overdue_tasks` sind die
+    # ueberfaelligen Todos aus `get_overdue_tasks` (D23/#683); sie speisen
+    # die rote Warnung oben auf dem Dashboard und muessen denselben Impuls
+    # steuern, sonst widersprechen sich zwei Bloecke desselben Bildschirms.
+    if follow_ups_due > 0 or overdue_tasks > 0:
+        return "follow_up_due"
+
+    # Ruhe, sobald nichts offen ist
     if today.weekday() >= 5:
         return "weekend"
-
-    # Follow-ups due
-    if follow_ups_due > 0:
-        return "follow_up_due"
 
     # Jobs ready but no applications yet
     if active_jobs > 0 and total_applications == 0:
@@ -115,6 +126,7 @@ def get_daily_impulse(
     active_jobs: int = 0,
     total_applications: int = 0,
     follow_ups_due: int = 0,
+    overdue_tasks: int = 0,
     today: date | None = None,
 ) -> dict:
     """Main entry point: return the full impulse payload for the API.
@@ -141,6 +153,7 @@ def get_daily_impulse(
         active_jobs=active_jobs,
         total_applications=total_applications,
         follow_ups_due=follow_ups_due,
+        overdue_tasks=overdue_tasks,
         today=today,
     )
 

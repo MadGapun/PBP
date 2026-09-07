@@ -1790,6 +1790,63 @@ def register(mcp, db, logger):
         except Exception:
             pass
 
+        # v1.7.31 (#980, D42): Nachfassungen, die als "erledigt" gefuehrt
+        # werden, obwohl der Mensch "hinfaellig" angeklickt hat.
+        #
+        # Der Aufgaben-Tab rief seit v1.7.12 eine Route auf, die es nicht
+        # gab (`.../obsolete`), und fiel im catch auf `.../complete`
+        # zurueck — hinfaellig wurde still als erledigt gespeichert. Die
+        # betroffenen Zeilen zaehlen seitdem in den Reaktionszeiten (D29)
+        # und in der Stil-Auswertung als durchgefuehrte Nachfassung.
+        #
+        # EHRLICHE GRENZE, damit sie niemand nachmisst: die Datensaetze
+        # tragen kein Herkunftsfeld. Ob eine erledigte Nachfassung ueber
+        # den Aufgaben-Tab oder ueber den Kalender kam, laesst sich NICHT
+        # rekonstruieren. Die Timeline-Notiz "Nachfass erledigt" entsteht
+        # ausserdem nur, wenn beim Abhaken eine Notiz mitkam — sie ist ein
+        # schwacher Hinweis, kein Beweis. Deshalb kein automatischer
+        # Rueckbau und kein auto_fix, sondern eine Liste zum Durchsehen.
+        try:
+            conn = db.connect()
+            verdaechtig = conn.execute(
+                """SELECT f.id, f.application_id, f.completed_at,
+                          a.company, a.title
+                   FROM follow_ups f
+                   LEFT JOIN applications a ON a.id = f.application_id
+                   WHERE f.status = 'erledigt'
+                     AND f.completed_at >= '2026-08-11'
+                     AND NOT EXISTS (
+                         SELECT 1 FROM application_events e
+                         WHERE e.application_id = f.application_id
+                           AND e.notes LIKE 'Nachfass erledigt%')
+                   ORDER BY f.completed_at DESC""").fetchall()
+            if verdaechtig:
+                warnungen.append({
+                    "bereich": "Nachfassungen",
+                    "problem": (
+                        f"{len(verdaechtig)} Nachfassung(en) stehen auf "
+                        "'erledigt', ohne dass eine Erledigt-Notiz dazu "
+                        "existiert. Bis v1.7.31 speicherte der "
+                        "Aufgaben-Tab 'hinfaellig' still als 'erledigt' "
+                        "(#980) — ein Teil dieser Eintraege koennte davon "
+                        "stammen."),
+                    "loesung": (
+                        "Durchsehen und, wo es nicht stimmt, mit "
+                        "follow_up_hinfaellig(id) korrigieren. Der Fehler "
+                        "selbst ist ab v1.7.31 behoben; welche Zeile "
+                        "betroffen war, laesst sich nicht rekonstruieren "
+                        "— die Liste ist ein Anhaltspunkt, kein Befund."),
+                    "eintraege": [
+                        {"id": str(r["id"])[:8],
+                         "bewerbung_id": r["application_id"],
+                         "firma": r["company"], "stelle": r["title"],
+                         "erledigt_am": (r["completed_at"] or "")[:10]}
+                        for r in verdaechtig[:20]
+                    ],
+                })
+        except Exception:
+            pass
+
         # Bugreport-Hinweis bei kritischen Problemen
         if probleme:
             result["bugreport_hinweis"] = (

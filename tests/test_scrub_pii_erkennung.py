@@ -306,3 +306,32 @@ def test_1724_echte_firma_mit_co_kg_bleibt_treffer():
     treffer = find_pii("Bewerbung bei Nordwerk Antriebstechnik GmbH & Co. KG")
     assert treffer, "Eine echte Firma mit Co. KG muss weiterhin anschlagen"
     assert "Nordwerk" in treffer[0]
+
+
+# ── Zusammengesetzte Platzhalter (v1.7.31) ──────────────────────────
+
+def test_platzhalter_werden_auch_zusammengesetzt_erkannt():
+    """Im Deutschen wird der Platzhalter zusammengesetzt.
+
+    Ausgeloest von "Musterbetrieb GmbH" in einem neuen Test: die
+    Kopfwort-Liste kannte "muster", aber nicht jede Zusammensetzung
+    damit. Dieselbe Lehre wie #962 und #970 — im Deutschen traegt der
+    Wortanfang, nicht das ganze Wort.
+    """
+    from scrub_pii import _ist_platzhalter_kopf
+    for name in ("Musterbetrieb GmbH", "Musterklinik", "Musterfirma GmbH",
+                 "Beispielverlag AG", "Beispielbetrieb"):
+        assert _ist_platzhalter_kopf(name), name
+
+
+def test_praefix_regel_verdeckt_keine_realen_firmen():
+    """Die Gegenrichtung, und der Grund fuer die enge Auswahl.
+
+    "test" und "demo" waeren als Praefix gefaehrlich: es gibt reale
+    Firmen, deren Name damit BEGINNT. Ein Pruefer, der reale Namen
+    durchwinkt, ist schlimmer als keiner (#929) — deshalb bleiben sie
+    exakte Treffer.
+    """
+    from scrub_pii import _ist_platzhalter_kopf
+    for name in ("Testo SE", "Altana AG", "Demant A/S", "Mustang Energy"):
+        assert not _ist_platzhalter_kopf(name), name

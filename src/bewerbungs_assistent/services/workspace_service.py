@@ -24,6 +24,105 @@ def format_nav_badge(count: int) -> str | None:
     return "99+" if count > 99 else str(count)
 
 
+
+# ── Readiness-Stufen (#984 G32) ──────────────────────────────────────
+#
+# Vorher standen die sieben Stufen als Wortblöcke mitten in der
+# Verzweigung von `build_workspace_summary`. Sie hier zu sammeln macht
+# zweierlei möglich: der Wächter-Test kann jede Stufe einzeln prüfen,
+# ohne den Zustand einer Datenbank nachzustellen, und eine Textregel
+# ändert man an einer Stelle statt an sieben.
+#
+# Die Reihenfolge der Auswahl steckt weiterhin in der Funktion — sie
+# hängt vom Zustand ab, nicht vom Text.
+READINESS_STUFEN: dict[str, dict] = {
+    "onboarding": {
+        "stage": "onboarding",
+        "label": "Startklar machen",
+        "tone": "blue",
+        "headline": "Lass uns starten — erzähl Claude kurz von dir.",
+        "description": "Im ersten Schritt lernst du Claude kennen. Er fragt dich Schritt für Schritt nach deinen Daten. Du musst nichts vorbereiten.",
+        "next_page": "dashboard",
+        "action_label": "Profil starten",
+        "action_type": "prompt",
+        "action_target": "/ersterfassung",
+    },
+    "im_fluss": {
+        "stage": "im_fluss",
+        "label": "Im Fluss",
+        "tone": "green",
+        "headline": "Alles bereit — du kannst loslegen.",
+        "description": "Schau dir neue Stellen an, bewirb dich oder frag Claude nach Tipps für deine nächsten Schritte.",
+        "next_page": "dashboard",
+        "action_label": "Dashboard ansehen",
+        "action_type": "page",
+        "action_target": "dashboard",
+    },
+    "profil_aufbauen": {
+        "stage": "profil_aufbauen",
+        "label": "Profil ausbauen",
+        "tone": "yellow",
+        "headline": "Dein Profil ist noch nicht vollständig.",
+        "description": "Je mehr Claude über dich weiß, desto bessere Anschreiben und Stellenvorschläge bekommst du.",
+        "next_page": "profil",
+        "action_label": "Profil vervollständigen",
+        "action_type": "page",
+        "action_target": "profil",
+    },
+    "quellen_aktivieren": {
+        "stage": "quellen_aktivieren",
+        "label": "Quellen aktivieren",
+        "tone": "yellow",
+        "headline": "Die Jobsuche ist noch nicht startbereit.",
+        "description": "Wähle aus, auf welchen Jobbörsen PBP nach Stellen für dich suchen soll.",
+        "next_page": "einstellungen",
+        "action_label": "Quellen einrichten",
+        "action_type": "page",
+        "action_target": "einstellungen",
+    },
+    "jobsuche_erneuern": {
+        "stage": "jobsuche_erneuern",
+        "label": "Jobsuche erneuern",
+        "tone": "yellow",
+        "headline": "Es ist Zeit für eine frische Jobsuche.",
+        "description": "Starte eine neue Suche, damit du keine passenden Stellen verpasst.",
+        "next_page": "dashboard",
+        "action_label": "Jobsuche starten",
+        "action_type": "prompt",
+        "action_target": "/jobsuche_workflow",
+    },
+    "bewerben": {
+        "stage": "bewerben",
+        "label": "Jetzt bewerben",
+        "tone": "green",
+        "headline": "Du hast passende Stellen, aber noch keine Bewerbungen erfasst.",
+        "description": "Schau dir die Stellen an und entscheide, wo du dich bewerben möchtest.",
+        "next_page": "stellen",
+        "action_label": "Stellen prüfen",
+        "action_type": "page",
+        "action_target": "stellen",
+    },
+    "nachfassen": {
+        "stage": "nachfassen",
+        "label": "Nachfassen",
+        "tone": "red",
+        "headline": "Es gibt überfällige Nachfassaktionen.",
+        "description": "Einige Bewerbungen warten auf deine Rückmeldung — schau kurz rein.",
+        "next_page": "bewerbungen",
+        "action_label": "Bewerbungen prüfen",
+        "action_type": "page",
+        "action_target": "bewerbungen",
+    },
+}
+
+
+def readiness_stufe(stage: str, **ueberschreibungen) -> dict:
+    """Eine Readiness-Stufe als frische Kopie, optional mit Abweichungen."""
+    stufe = dict(READINESS_STUFEN[stage])
+    stufe.update(ueberschreibungen)
+    return stufe
+
+
 def build_workspace_summary(
     profile: dict | None,
     jobs,
@@ -46,91 +145,24 @@ def build_workspace_summary(
             label for label, ok in get_profile_completeness_labels(profile).items() if not ok
         ]
 
-    readiness = {
-        "stage": "onboarding",
-        "label": "Startklar machen",
-        "tone": "blue",
-        "headline": "Lass uns starten \u2014 erz\u00e4hl Claude kurz von dir.",
-        "description": "Im ersten Schritt lernst du Claude kennen. Er fragt dich Schritt f\u00fcr Schritt nach deinen Daten. Du musst nichts vorbereiten.",
-        "next_page": "dashboard",
-        "action_label": "Profil starten",
-        "action_type": "prompt",
-        "action_target": "/ersterfassung",
-    }
+    readiness = readiness_stufe("onboarding")
 
     if profile:
-        readiness = {
-            "stage": "im_fluss",
-            "label": "Im Fluss",
-            "tone": "green",
-            "headline": "Alles bereit \u2014 du kannst loslegen.",
-            "description": "Schau dir neue Stellen an, bewirb dich oder frag Claude nach Tipps f\u00fcr deine n\u00e4chsten Schritte.",
-            "next_page": "dashboard",
-            "action_label": "Dashboard ansehen",
-            "action_type": "page",
-            "action_target": "dashboard",
-        }
+        readiness = readiness_stufe("im_fluss")
 
         if completeness["completeness"] < 60:
-            readiness = {
-                "stage": "profil_aufbauen",
-                "label": "Profil ausbauen",
-                "tone": "yellow",
-                "headline": "Dein Profil ist noch nicht vollständig.",
-                "description": "Je mehr Claude über dich weiß, desto bessere Anschreiben und Stellenvorschläge bekommst du.",
-                "next_page": "profil",
-                "action_label": "Profil vervollständigen",
-                "action_type": "page",
-                "action_target": "profil",
-            }
+            readiness = readiness_stufe("profil_aufbauen")
         elif source_summary["active"] == 0:
-            readiness = {
-                "stage": "quellen_aktivieren",
-                "label": "Quellen aktivieren",
-                "tone": "yellow",
-                "headline": "Die Jobsuche ist noch nicht startbereit.",
-                "description": "Wähle aus, auf welchen Jobbörsen PBP nach Stellen für dich suchen soll.",
-                "next_page": "einstellungen",
-                "action_label": "Quellen einrichten",
-                "action_type": "page",
-                "action_target": "einstellungen",
-            }
+            readiness = readiness_stufe("quellen_aktivieren")
         elif search_status["status"] in {"nie", "veraltet", "dringend"}:
-            readiness = {
-                "stage": "jobsuche_erneuern",
-                "label": "Jobsuche erneuern",
-                "tone": "blue" if search_status["status"] == "nie" else "yellow",
-                "headline": "Es ist Zeit für eine frische Jobsuche.",
-                "description": "Starte eine neue Suche, damit du keine passenden Stellen verpasst.",
-                "next_page": "dashboard",
-                "action_label": "Jobsuche starten",
-                "action_type": "prompt",
-                "action_target": "/jobsuche_workflow",
-            }
+            readiness = readiness_stufe(
+                "jobsuche_erneuern",
+                tone="blue" if search_status["status"] == "nie" else "yellow",
+            )
         elif jobs and not applications:
-            readiness = {
-                "stage": "bewerben",
-                "label": "Jetzt bewerben",
-                "tone": "green",
-                "headline": "Du hast passende Stellen, aber noch keine Bewerbungen erfasst.",
-                "description": "Schau dir die Stellen an und entscheide, wo du dich bewerben möchtest.",
-                "next_page": "stellen",
-                "action_label": "Stellen prüfen",
-                "action_type": "page",
-                "action_target": "stellen",
-            }
+            readiness = readiness_stufe("bewerben")
         elif follow_up_summary["due"] > 0:
-            readiness = {
-                "stage": "nachfassen",
-                "label": "Nachfassen",
-                "tone": "red",
-                "headline": "Es gibt überfällige Nachfassaktionen.",
-                "description": "Einige Bewerbungen warten auf deine Rückmeldung — schau kurz rein.",
-                "next_page": "bewerbungen",
-                "action_label": "Bewerbungen prüfen",
-                "action_type": "page",
-                "action_target": "bewerbungen",
-            }
+            readiness = readiness_stufe("nachfassen")
 
     # #397: Inactivity detection — check when user last took meaningful action
     from datetime import datetime, timedelta

@@ -278,27 +278,6 @@ def register(mcp, db, logger):
             result["bewerbungsbezug"] = "keiner (freie Aufgabe)"
         return result
 
-    def _nachfass_beschreibung(fu: dict, app: dict) -> str:
-        """Leerer Text wird beim Lesen erzeugt (#945).
-
-        Fuenf von sieben Nachfassungen im belegten Bestand hatten ein
-        leeres Beschreibungsfeld — wer sie oeffnete, sah Firma und Datum
-        und musste den Rest selbst zusammensuchen.
-        """
-        vorhanden = (fu.get("template") or "").strip()
-        if vorhanden:
-            return vorhanden
-        if not app:
-            return ""
-        from ..services.nachfass_text import nachfass_text
-        return nachfass_text(app)
-
-    def _nachfass_prompt(app: dict) -> str:
-        if not app:
-            return ""
-        from ..services.nachfass_text import claude_prompt
-        return claude_prompt(app)
-
     @mcp.tool()
     def aufgaben_uebersicht(
         status: str = "offen",
@@ -320,103 +299,14 @@ def register(mcp, db, logger):
             status: 'offen' (Default) | 'erledigt' | 'alle'.
             bis_datum: Optional YYYY-MM-DD — nur Eintraege bis dahin.
         """
-        from datetime import date, timedelta
-        heute = date.today().isoformat()
-        wochenende = (date.today() + timedelta(days=7)).isoformat()
+        from ..services.aufgaben_sicht import uebersicht
 
-        eintraege = []
-
-        # Topf 1: Todos
-        for t in db.list_tasks(nur_offen=(status == "offen")):
-            if status == "erledigt" and t.get("status") != "erledigt":
-                continue
-            app = db.get_application(t.get("application_id") or "") or {}
-            eintraege.append({
-                "herkunft": "todo", "id": t["id"],
-                "titel": t.get("titel", ""),
-                "beschreibung": t.get("beschreibung") or "",
-                "status": t.get("status"),
-                "faellig_am": t.get("faellig_am"),
-                "bewerbung_id": t.get("application_id"),
-                "firma": app.get("company"),
-                # v1.7.23 (#945): Der Aufrufer soll nicht wissen muessen,
-                # aus welchem Topf ein Eintrag stammt. Die Sicht nennt
-                # den passenden Aufruf selbst.
-                "erledigen_mit": f"todo_erledigen('{t['id']}')",
-                "hinfaellig_mit": f"todo_hinfaellig('{t['id']}')",
-            })
-
-        # Topf 2: Nachfassungen
-        try:
-            if status in ("offen", "alle"):
-                for fu in db.get_pending_follow_ups():
-                    app = db.get_application(
-                        fu.get("application_id") or "") or {}
-                    eintraege.append({
-                        "herkunft": "nachfass", "id": fu.get("id"),
-                        "titel": (f"Nachfassen: {app.get('company', '?')}"
-                                  f" — {app.get('title', '?')}"),
-                        "beschreibung": _nachfass_beschreibung(fu, app),
-                        "status": "offen",
-                        "faellig_am": fu.get("scheduled_date"),
-                        "bewerbung_id": fu.get("application_id"),
-                        "firma": app.get("company"),
-                        "erledigen_mit": (
-                            f"follow_up_erledigen('{str(fu.get('id'))[:8]}')"),
-                        "hinfaellig_mit": (
-                            f"follow_up_hinfaellig('{str(fu.get('id'))[:8]}')"),
-                        "claude_prompt": _nachfass_prompt(app),
-                    })
-        except Exception:
-            pass
-
-        # Topf 3: anstehende Termine (naechste 30 Tage)
-        try:
-            if status in ("offen", "alle"):
-                horizont = (date.today() + timedelta(days=30)).isoformat()
-                for m in db.get_upcoming_meetings(days=30):
-                    eintraege.append({
-                        "herkunft": "termin", "id": m.get("id"),
-                        "titel": m.get("title") or "Termin",
-                        "beschreibung": m.get("notes") or "",
-                        "status": "geplant",
-                        "faellig_am": (m.get("meeting_date") or "")[:10],
-                        "bewerbung_id": m.get("application_id"),
-                        "firma": m.get("app_company") or m.get("company"),
-                        "erledigen_mit": (
-                            f"meeting_bearbeiten('{str(m.get('id'))[:8]}')"),
-                    })
-                _ = horizont
-        except Exception:
-            pass
-
-        if bis_datum:
-            eintraege = [e for e in eintraege
-                         if (e.get("faellig_am") or "9999") <= bis_datum]
-
-        gruppen = {"ueberfaellig": [], "heute": [], "diese_woche": [],
-                   "spaeter": [], "ohne_faelligkeit": []}
-        for e in sorted(eintraege,
-                        key=lambda x: x.get("faellig_am") or "9999-12-31"):
-            f = e.get("faellig_am")
-            if not f:
-                gruppen["ohne_faelligkeit"].append(e)
-            elif f < heute and e.get("herkunft") != "termin":
-                e["ueberfaellig_seit_tagen"] = (
-                    date.today() - date.fromisoformat(f[:10])).days
-                gruppen["ueberfaellig"].append(e)
-            elif f[:10] == heute:
-                gruppen["heute"].append(e)
-            elif f <= wochenende:
-                gruppen["diese_woche"].append(e)
-            else:
-                gruppen["spaeter"].append(e)
-
+        erg = uebersicht(db, status=status, bis_datum=bis_datum)
         return {
             "status": "ok",
-            "anzahl": len(eintraege),
-            "ueberfaellig_anzahl": len(gruppen["ueberfaellig"]),
-            "gruppen": gruppen,
+            "anzahl": erg["anzahl"],
+            "ueberfaellig_anzahl": erg["ueberfaellig_anzahl"],
+            "gruppen": erg["gruppen"],
             "hinweis": (
                 "Bedienen: todo_erledigen/todo_hinfaellig/todo_bearbeiten "
                 "fuer Todos, follow_up_erledigen/-verschieben/-bearbeiten "

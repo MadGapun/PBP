@@ -183,9 +183,14 @@ def test_945_leermeldung_unterscheidet_erstzustand_und_alles_erledigt(tmp_db):
 def test_945_uebersicht_nennt_den_passenden_aufruf_je_herkunft():
     """Der Nutzer sieht eine Liste und soll nicht wissen muessen, aus
     welchem Topf ein Eintrag stammt."""
+    # v1.7.31 (#976): die Sicht liegt jetzt in services/aufgaben_sicht.py.
+    # Vorher stand sie zweimal im Code (MCP-Tool und REST-Endpunkt), und
+    # die beiden Fassungen waren schon auseinandergelaufen. Die Zusage aus
+    # #945 gilt unveraendert — sie hat nur einen Ort.
     from pathlib import Path
     quelle = (Path(__file__).resolve().parents[1] / "src" /
-              "bewerbungs_assistent" / "tools" / "tasks.py").read_text(encoding="utf-8")
+              "bewerbungs_assistent" / "services" / "aufgaben_sicht.py"
+              ).read_text(encoding="utf-8")
     for aufruf in ("todo_erledigen", "follow_up_erledigen",
                    "meeting_bearbeiten"):
         assert f'"{aufruf}' in quelle or f"{aufruf}('" in quelle, aufruf

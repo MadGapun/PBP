@@ -659,8 +659,16 @@ def test_dashboard_shows_workspace_next_step_card(live_dashboard, browser):
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
 
-        page.get_by_text("Nächster sinnvoller Schritt", exact=True).wait_for(state="visible")
+        # v1.7.31 (#976 Befund 1): der Kicker "Nächster sinnvoller Schritt"
+        # ist weg. Er erklärte die Karte, während direkt darunter die
+        # eigentliche Aussage stand — vier Etiketten für eine Information.
+        # Übrig bleibt, was Information trägt.
         page.get_by_text("Es gibt überfällige Nachfassaktionen.").wait_for(state="visible")
+        # Und die Beschreibung, die dieselbe Aussage in anderen Worten
+        # wiederholte, steht nicht mehr daneben (#984).
+        assert page.get_by_text(
+            "Einige Bewerbungen warten auf deine Rückmeldung",
+            exact=False).count() == 0
     finally:
         context.close()
 

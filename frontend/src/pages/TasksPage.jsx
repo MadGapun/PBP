@@ -130,9 +130,16 @@ export default function TasksPage() {
         else if (was === "loeschen") await deleteRequest(`/api/tasks/${eintrag.id}`);
       } else if (eintrag.herkunft === "nachfass") {
         if (was === "erledigt") await postJson(`/api/follow-ups/${eintrag.id}/complete`, {});
-        else if (was === "hinfaellig") await postJson(`/api/follow-ups/${eintrag.id}/obsolete`, {}).catch(async () => {
-          await postJson(`/api/follow-ups/${eintrag.id}/complete`, {});
-        });
+        // #980: hier stand ein Aufruf auf `.../obsolete` — eine Route,
+        // die es nie gab — mit einem catch-Fallback auf `.../complete`.
+        // Wer eine Nachfassung als hinfaellig markierte, speicherte sie
+        // damit still als ERLEDIGT: falscher Datensatz, keine
+        // Fehlermeldung, und die Zeile zaehlte danach in den
+        // Reaktionszeiten (D29) als durchgefuehrte Nachfassung.
+        // Ein Fallback, der eine andere Bedeutung speichert, ist keine
+        // Fehlertoleranz. Die richtige Route ist `dismiss` — der
+        // Kalender-Tab ruft sie seit jeher korrekt auf.
+        else if (was === "hinfaellig") await postJson(`/api/follow-ups/${eintrag.id}/dismiss`, {});
       }
       await laden();
     } catch (e) {
@@ -146,7 +153,12 @@ export default function TasksPage() {
       if (eintrag.herkunft === "todo") {
         await patchJson(`/api/tasks/${eintrag.id}`, { faellig_am: datum });
       } else if (eintrag.herkunft === "nachfass") {
-        await postJson(`/api/follow-ups/${eintrag.id}/reschedule`,
+        // #980: `.../reschedule` existiert nicht — das Verschieben einer
+        // Nachfassung endete seit v1.7.12 in HTTP 404. Der Handler heisst
+        // `api_follow_up_reschedule` (#453), haengt aber an PUT auf die
+        // Ressource selbst. Dieselbe Datei nutzt sie ein paar Zeilen
+        // weiter unten bereits richtig.
+        await putJson(`/api/follow-ups/${eintrag.id}`,
           { scheduled_date: datum });
       }
       await laden();
