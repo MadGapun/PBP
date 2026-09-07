@@ -33,6 +33,104 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.39] - 2026-09-07 — Was nichts kostet, stand oben
+
+Ein Score ist eine Rechnung, und eine Rechnung braucht Zahlen. Fehlt
+eine, setzt ein Punktesystem einen neutralen Wert ein und rechnet weiter.
+**Neutral heisst dabei aber nicht „unbekannt", sondern „kostet nichts" —
+und was nichts kostet, steigt in der Sortierung.**
+
+Am selben Tag gemessen: eine Stelle mit vollständiger, fachlich
+passender Beschreibung bekam 32 Punkte. Ein inhaltsleerer Titel, zu dem
+PBP praktisch nichts wusste, bekam 101 und stand ganz oben.
+
+### Added
+
+- **Jede Stelle zeigt, was geprüft ist und was nicht (#989).** Fünf
+  Dimensionen — Anzeigentext, Entfernung, Gehalt, Remote-Anteil,
+  Stellenart — tragen jetzt einen von drei Zuständen: **geprüft**,
+  **verletzt** oder **ungeprüft**. Im Score sahen die letzten beiden
+  gleich aus (beide bringen keine Punkte) und bedeuten das Gegenteil
+  voneinander. Was fehlt, steht als Marke an der Zeile — in der Liste,
+  nicht nur in einer Werkzeug-Antwort.
+
+- **Du entscheidest, wie streng.** `umgang_mit_unbekannt_setzen(...)`
+  kennt drei Modi: **nachrangig** (Vorgabe — der Score bleibt, aber eine
+  Stelle ohne Anzeigentext steht nicht mehr über einer mit), **mitmischen**
+  (der Stand bis v1.7.38) und **streng** (eine unbekannte Entfernung
+  zählt wie eine zu grosse). `streng` ist für alle gedacht, deren
+  Kriterium „nur remote oder im Nahbereich" lautet.
+
+  Die Vorgabe ist bewusst nicht `streng`: unbekannt ist nicht dasselbe
+  wie weit weg, und ein erfundener Malus wäre derselbe Fehler wie der
+  erfundene Bonus, nur mit anderem Vorzeichen.
+
+### Changed
+
+- **Die Reihenfolge zieht die Konsequenz, nicht der Score.** Der Score
+  misst, was in der Anzeige steht — das ist eine Messung und bleibt eine.
+  Die Reihenfolge ist eine Darstellung, und dort gehört die
+  Unterscheidung hin. Deine gespeicherten Punktzahlen ändern sich durch
+  dieses Update nicht.
+
+- **Urteile aus Anzeigen-Rümpfen zählen nicht mehr mit.** Wird dieselbe
+  Firma mehrfach aus demselben Grund aussortiert, meldet PBP das. Urteile,
+  die an einer Anzeige von unter 50 Zeichen getroffen wurden, zählen dabei
+  jetzt gar nicht mehr — vorher zählten sie halb. Sonst schliesst sich ein
+  Kreis: Stellen ohne Text werden aussortiert, und diese Aussortierungen
+  begründen später neue. Eine geschätzte Gehaltszahl bleibt ein schwacher
+  Beleg und zählt weiter halb; sie zeigt immerhin in eine Richtung.
+
+### Hinweis
+
+Die Bausteine für all das gab es längst — eine Güte-Angabe zur
+Entfernung, ein „Score 0 ist kein Urteil", eine Abstufung beim
+Wiedergänger-Befund. Sie standen in Werkzeug-Antworten. **In der
+Trefferliste, die man tatsächlich ansieht, kam davon nichts an.** Das war
+der eigentliche Befund.
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.39.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.39.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.38] - 2026-09-07 — 962 Vorschläge, von denen keiner half
 
 ### Fixed
