@@ -592,7 +592,15 @@ export default function DashboardPage() {
       </div>
 
       {/* #450: Layout auf volle Breite — Schnellimport entfernt */}
-      <div className="mb-5 grid gap-4">
+      {/* v1.7.33: `grid-cols-1` statt nur `grid`. Ohne explizite Spalte
+          bekommt ein Grid-Item `min-width: auto` und kann NICHT unter
+          seine Mindestbreite schrumpfen — die drei Karten hier waren
+          dadurch 1035 px breit in einem 961 px breiten Container und
+          liefen rechts aus dem Bild. Sichtbar wurde das erst am neu
+          erzeugten Screenshot; im Browser faellt es kaum auf, weil der
+          Ueberhang abgeschnitten wird. `grid-cols-1` ist
+          `repeat(1, minmax(0, 1fr))` und erlaubt das Schrumpfen. */}
+      <div className="mb-5 grid grid-cols-1 gap-4">
           {/* v1.7.31 (#976 G27, #983 G31): EIN Block "Offen".
 
               Vorher stand hier die rote Warnkarte aus D23/#683 mit den

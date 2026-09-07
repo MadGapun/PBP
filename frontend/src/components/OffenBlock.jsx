@@ -122,7 +122,12 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt }) {
         </Button>
       </div>
 
-      <div className="mt-3 grid gap-3">
+      {/* `grid-cols-1`, nicht nur `grid`: ohne explizite Spalte bekommt
+          ein Grid-Item `min-width: auto` und kann nicht unter seine
+          Mindestbreite schrumpfen — die Zeilen liefen dann rechts aus
+          der Karte heraus. Derselbe Fehler wie eine Ebene hoeher in
+          DashboardPage. */}
+      <div className="mt-3 grid grid-cols-1 gap-3">
         {GRUPPEN.map(({ key, label, ton }) => {
           const zeilen = block.gruppen?.[key] || [];
           if (!zeilen.length) return null;
@@ -131,7 +136,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt }) {
               <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${ton}`}>
                 {label}
               </p>
-              <ul className="mt-1.5 space-y-1">
+              <ul className="mt-1.5 min-w-0 space-y-1">
                 {zeilen.map((e) => {
                   const meta = HERKUNFT[e.herkunft] || HERKUNFT.todo;
                   const Icon = meta.icon;
@@ -139,7 +144,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt }) {
                   return (
                     <li
                       key={`${e.herkunft}-${e.id}`}
-                      className="flex items-center gap-2 text-sm text-ink"
+                      className="flex min-w-0 items-center gap-2 text-sm text-ink"
                     >
                       {abhakbar ? (
                         <button
