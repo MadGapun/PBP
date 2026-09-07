@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.35** ist Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.36** ist Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,109 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.36 Stable) — Die Liste stand auf dem Kopf
+
+Zwei Befunde aus EINER Jobsuche, beide von derselben Art: PBP hat nicht
+falsch gerechnet, sondern **mit den falschen Zahlen** gerechnet. Kein
+Fehler, keine Meldung, eine plausibel sortierte Liste — und oben stand,
+worueber PBP am wenigsten wusste. **Tests: 2883 / 2949.**
+
+**#987 — der gespeicherte Score war reproduzierbar falsch.** 86 von 86
+Stellen eines Laufs zu hoch, im Schnitt um 47 Punkte, im Maximum um 105.
+`fit_analyse` ergab mit denselben Kriterien 0. Zwei Ursachen, die erst
+zusammen den vollen Schaden ergeben:
+
+(1) **Die Kriterien lagen doppelt.** Der Suchlauf reicherte sie an
+(`_applied_titles`, `_muss_synonyme`), `scores_neu_berechnen` und
+`fit_analyse` nahmen sie roh. Damit war der gespeicherte Score von
+keinem anderen Werkzeug nachzurechnen. MERKE: das ist zum VIERTEN Mal
+dasselbe Muster (#963 fit_analyse/calculate_score, #913 dismiss_job,
+#976 aufgaben_uebersicht) — aber eine Ebene tiefer. **Nicht die Rechnung
+lag doppelt, sondern ihre Eingabe.** Ein Nadeloehr fuer die Logik nuetzt
+nichts, wenn jeder Aufrufer ihr etwas anderes hineinreicht. Neu
+`services/scoring_kriterien.py`.
+
+(2) **Die Anreicherung selbst war falsch, und das ist der teurere
+Befund.** Die Berufs-Facette (#969) beantwortet "wer arbeitet damit",
+nicht "wie heisst das noch" — und nur wenn der Suchbegriff SELBST ein
+Beruf ist, sind das dieselbe Frage. Live gemessen: zu "PLM" nennt sie
+IT-Berater, Ingenieur/in - Maschinenbau, Ingenieur/in - Elektrotechnik,
+Informatiker/in, Konstrukteur/in. Als MUSS-Synonyme oeffnete damit jede
+Ingenieursanzeige das Tor. MERKE: **eine Datenquelle beantwortet ihre
+eigene Frage, nicht deine.** Die Annahme "Facette = Synonymliste" stand
+nirgends geschrieben und war der ganze Mechanismus.
+
+MERKE-Punkte dieser Welle:
+
+(1) **Ein Fragment ist gefaehrlicher als ein Unwort — auch das ganze
+Wort ist ein Fragment.** `_formen` zerlegte die amtliche Bezeichnung an
+Leerzeichen: aus "Ingenieur/in - Elektrotechnik" wurden "Ingenieur",
+"Ingenieurin" UND "Elektrotechnik". Der Docstring der ersten Fassung
+warnte bereits vor Fragmenten ("Gesundheits" traefe jedes Kompositum) —
+die Warnung galt nur dem Kompositum-Vorderteil, nicht dem abgetrennten
+ganzen Wort, das ein ganzes Berufsfeld benennt. Jetzt wird nur die
+SCHREIBWEISE zerlegt (Schraegstrich-Formen), nie die Bezeichnung; die
+Fachrichtung hinter " - " faellt weg. Ausnahme mit Ansage: bei einer
+Koordination ("Gesundheits- und Krankenpfleger/in") ist das letzte Glied
+ein vollstaendiger Berufsname und darf allein stehen.
+
+(2) **Zwei Tore, gemessen statt geschaetzt.** Die Schwelle
+`MIN_SPITZENANTEIL = 0.15` steht nicht aus dem Bauch da: gemessen am
+07.09. liegen Berufe bei 18–39 % (Elektroniker 18, Pflegefachkraft 20,
+Maschinenbauingenieur 36, Erzieherin 39), Technologien und Sachen bei
+10–13 %. Die Schwelle liegt bewusst UNTER dem tiefsten gemessenen Beruf:
+eine fehlende Alternativbezeichnung ist das Verhalten von vor #969 und
+damit harmlos, eine falsche kippt die ganze Liste.
+
+(3) **Ein Score darf nicht am Netz haengen.** Die Alternativbezeichnungen
+kommen aus einer Netzabfrage. Waeren sie live geholt worden, haette
+dieselbe Stelle online einen anderen Wert als offline. Sie liegen jetzt
+in `profile_settings`; die Regel dazu lautet **wer schreibt, frischt
+auf; wer liest, nimmt den abgelegten Stand** — ein Lesewerkzeug hat
+keine Nebenwirkung (#963). Und: ein LEERES Ergebnis wird nie ueber einen
+vorhandenen Stand geschrieben, weil "nichts gefunden" und "nicht
+erreichbar" von aussen gleich aussehen.
+
+(4) **Ein Frueh-Ausstieg laesst Altwerte stehen.** `calculate_score`
+setzte die Teilscores erst am regulaeren Ende; bei jedem K.o. blieb der
+ALTE Fachscore neben dem neuen Gesamtscore stehen ("fachscore 56 gegen
+score 1"). Verwandt mit MERKE (3) aus v1.7.24 — dort kuerzte ein
+Frueh-Ausstieg die Auskunft, hier laesst er sie veralten.
+
+(5) **Ein Hinweis, der die Ursache ausschliesst, ist schlimmer als
+keiner.** `score_abweichung` sagte "meist ist der gespeicherte Wert
+aelter als die Kriterien" — ueber einer Stelle, die am SELBEN TAG
+angelegt worden war. Der Text hat den Befund aktiv wegerklaert. Jetzt
+wird der Fall benannt.
+
+**#988 — der Wunschwert wirkte nicht.** In den Suchkriterien standen
+30 km, gerechnet wurde gegen die Reglerstufe 999 km; weil die oberste
+Stufe ein Deckel war, kostete 577 km genau so viel wie 87 km. Jenseits
+von 999 km traf sogar GAR KEINE Stufe mehr — 1200 km kosteten null.
+Diesen zweiten Teil hat kein Mensch gemeldet, sondern der Test beim
+Schreiben gefunden. Der Preis waechst jetzt je Verdopplung ueber dem
+Wunschwert um einen Punkt, gedeckelt (Entfernung ist ein PREIS, kein
+Ausschluss, #910).
+
+(6) **Zwei Einstellungen fuer dieselbe Sache, von denen nur eine wirkt,
+sind eine Fehlerquelle — eine, die GAR NICHTS tut, ist schlimmer.**
+Unter `schwellenwert` stand neben dem gelesenen `auto_ignore` ein
+zweiter Regler mit dem Wert 35, ungeprueft ueber
+`scoring_konfigurieren('setzen', ...)` angelegt. Der Nutzer glaubte,
+seine Schwelle liege bei 35; sie lag bei 0. **Das ist #981 in einer
+anderen Tabelle** (dort ein Status ausserhalb der Whitelist, hier ein
+Regler ausserhalb des Vokabulars) — und beide Male entsteht kein Fehler,
+sondern eine Einstellung ohne Wirkung, der man glaubt. Neu
+`services/scoring_vokabular.py`; bestehende wirkungslose Zeilen werden
+in der Anzeige BENANNT statt geloescht.
+
+**Offen als #989 (Architektur-Epic, vom Nutzer angelegt):** das
+gemeinsame Muster hinter #987, #965 und #972 — **fehlende Information
+wirkt wie Unauffaelligkeit statt als Luecke.** Wo ein Wert fehlt, setzt
+PBP neutral ein und rechnet weiter; neutral heisst in einem Punktesystem
+aber nicht "unbekannt", sondern "kostet nichts" — und was nichts kostet,
+steigt in der Sortierung. Das ist die naechste grosse Arbeit.
 
 ## Stand 2026-09-07 (v1.7.35 Stable) — Dein Dashboard
 
@@ -1100,8 +1203,8 @@ aufgeraeumt; ein `git add -A` committet die fehlenden Dateien dann als
 LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
 und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
 Vollstaendigkeits-Guard laufen lassen:
-`test $(ls *.md | wc -l) -ge 41 && git add -A ...` (Zahl bei neuen
-Seiten nachziehen; Stand 2026-09-02: 41 Seiten, zuletzt Tab-Aufgaben). Ausserdem: `git pull --rebase` und Commit-Kette nie
+`test $(ls *.md | wc -l) -ge 42 && git add -A ...` (Zahl bei neuen
+Seiten nachziehen; Stand 2026-09-07: 42 Seiten, zuletzt Scoring). Ausserdem: `git pull --rebase` und Commit-Kette nie
 so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
 ## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
