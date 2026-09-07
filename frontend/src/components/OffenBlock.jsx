@@ -123,6 +123,11 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
         <div className="flex items-center gap-2">
           <AlarmClock size={16} className={dringend ? "text-coral" : "text-muted/60"} />
           <h2 className="text-sm font-semibold text-ink">Offen</h2>
+          {block.neu_anzahl > 0 ? (
+            <span className="rounded-full bg-teal/15 px-2 py-px text-[10px] font-bold text-teal">
+              {block.neu_anzahl} neu
+            </span>
+          ) : null}
         </div>
         <Button size="sm" variant="ghost" onClick={() => navigateTo?.("aufgaben")}>
           {block.spaeter_anzahl > 0 ? `Alle Aufgaben (${block.spaeter_anzahl} später)` : "Alle Aufgaben"}
@@ -170,6 +175,14 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
                         onClick={() => oeffnen(e)}
                         className="min-w-0 flex-1 truncate text-left hover:text-sky"
                       >
+                        {/* #985: "Was hat sich getan" als Marke an der
+                            Zeile statt als eigener Block — die Auskunft
+                            steht dort, wo man ohnehin hinschaut. */}
+                        {e.neu ? (
+                          <span className="mr-1.5 rounded bg-teal/20 px-1 py-px text-[9px] font-bold uppercase tracking-[0.08em] text-teal">
+                            neu
+                          </span>
+                        ) : null}
                         <span className="font-medium">{e.titel}</span>
                         {e.firma ? <span className="text-muted/60"> — {e.firma}</span> : null}
                       </button>

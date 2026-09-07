@@ -250,3 +250,90 @@ def test_985_einklappen_merkt_sich_am_profil_nicht_im_browser():
               / "DashboardBereich.jsx").read_text(encoding="utf-8")
     assert "localStorage" not in quelle
     assert "onUmschalten" in quelle
+
+
+# ── "Neu seit dem letzten Mal" statt eines eigenen Blocks ───────────
+
+def test_985_neue_zeilen_werden_markiert(tmp_db):
+    """Nutzerhinweis: den Recap-Block mit der Offen-Liste verschmelzen,
+    "indem man das irgendwie einfach mit einem Symbol kennzeichnet"."""
+    from datetime import date, datetime, timedelta, timezone
+    from bewerbungs_assistent.services import aufgaben_sicht
+
+    tmp_db.create_profile("Nutzerin", "n@example.com")
+    aid = tmp_db.add_application({"title": "Fachkraft",
+                                  "company": "Musterbetrieb GmbH",
+                                  "status": "beworben"})
+    # Letzter Besuch: vor zwei Stunden — die Aufgabe entsteht danach.
+    vorher = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    tmp_db.set_profile_setting(aufgaben_sicht.BESUCH_EINSTELLUNG, vorher)
+    tmp_db.add_task({"application_id": aid, "titel": "Frisch",
+                     "faellig_am": date.today().isoformat()})
+
+    block = aufgaben_sicht.dashboard_block(tmp_db)
+    zeilen = [e for g in block["gruppen"].values() for e in g]
+    assert zeilen, "Testdaten fehlen"
+    assert block["neu_anzahl"] >= 1
+    assert any(e.get("neu") for e in zeilen)
+
+
+def test_985_alte_zeilen_bleiben_unmarkiert(tmp_db):
+    from datetime import date, datetime, timedelta, timezone
+    from bewerbungs_assistent.services import aufgaben_sicht
+
+    tmp_db.create_profile("Nutzerin", "n@example.com")
+    aid = tmp_db.add_application({"title": "Fachkraft",
+                                  "company": "Musterbetrieb GmbH",
+                                  "status": "beworben"})
+    tmp_db.add_task({"application_id": aid, "titel": "Alt",
+                     "faellig_am": date.today().isoformat()})
+    # Letzter Besuch: erst NACH der Anlage.
+    nachher = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    tmp_db.set_profile_setting(aufgaben_sicht.BESUCH_EINSTELLUNG, nachher)
+
+    block = aufgaben_sicht.dashboard_block(tmp_db)
+    assert block["neu_anzahl"] == 0
+
+
+def test_985_marke_ueberlebt_das_neuladen(tmp_db):
+    """Der Zeitpunkt wird beim Lesen fortgeschrieben — aber nur, wenn
+    genug Zeit vergangen ist.
+
+    Ohne diese Bremse waere die Marke nach dem ersten Neuladen weg: die
+    Auskunft "seit deinem letzten Besuch" haette sich beim ersten
+    Hinsehen selbst geloescht.
+    """
+    from datetime import date, datetime, timedelta, timezone
+    from bewerbungs_assistent.services import aufgaben_sicht
+
+    tmp_db.create_profile("Nutzerin", "n@example.com")
+    aid = tmp_db.add_application({"title": "Fachkraft",
+                                  "company": "Musterbetrieb GmbH",
+                                  "status": "beworben"})
+    vorher = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    tmp_db.set_profile_setting(aufgaben_sicht.BESUCH_EINSTELLUNG, vorher)
+    tmp_db.add_task({"application_id": aid, "titel": "Frisch",
+                     "faellig_am": date.today().isoformat()})
+
+    erst = aufgaben_sicht.dashboard_block(tmp_db)["neu_anzahl"]
+    zweit = aufgaben_sicht.dashboard_block(tmp_db)["neu_anzahl"]
+    assert erst == zweit >= 1
+
+
+def test_985_langer_abstand_setzt_den_besuch_neu(tmp_db):
+    """Nach einer echten Pause beginnt ein neuer Besuch."""
+    from datetime import datetime, timedelta, timezone
+    from bewerbungs_assistent.services import aufgaben_sicht
+
+    tmp_db.create_profile("Nutzerin", "n@example.com")
+    lange_her = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    tmp_db.set_profile_setting(aufgaben_sicht.BESUCH_EINSTELLUNG, lange_her)
+    aufgaben_sicht.dashboard_block(tmp_db)
+    danach = tmp_db.get_profile_setting(aufgaben_sicht.BESUCH_EINSTELLUNG, "")
+    assert danach != lange_her, "Der Besuch muss fortgeschrieben werden"
+
+
+def test_985_offenblock_zeigt_die_marke():
+    quelle = (FRONTEND / "components" / "OffenBlock.jsx").read_text(encoding="utf-8")
+    assert "e.neu" in quelle
+    assert "neu_anzahl" in quelle
