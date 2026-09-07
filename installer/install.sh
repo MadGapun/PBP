@@ -204,6 +204,8 @@ echo -e "${GREEN}║         Installation erfolgreich!            ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  Daten:     $BA_DATA_DIR"
+# #975 (I11): wer installiert, soll auch den Rueckweg kennen.
+echo -e "  Entfernen: DEINSTALLIEREN.command im Projektordner"
 echo ""
 
 if [ "$PLATFORM" = "macos" ]; then

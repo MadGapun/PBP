@@ -51,15 +51,25 @@ def test_launch_uninstaller_wrong_confirmation(setup_env):
 
 
 @pytest.mark.skipif(platform.system() == "Windows",
-                    reason="Test prueft das Non-Windows-Reject")
-def test_launch_uninstaller_rejects_non_windows(setup_env):
+                    reason="Der Windows-Weg ist im Test darunter")
+def test_launch_uninstaller_arbeitet_auch_ausserhalb_von_windows(setup_env):
+    """v1.7.35 (#975, I11): frueher stand hier ein 400 mit dem Hinweis
+    "Nur Windows" und einem Repo-Pfad.
+
+    Genau das war der gemeldete Fehler — eine technisch korrekte
+    Antwort, die dem Menschen nicht weiterhilft (G23/#927). Jetzt
+    startet der Deinstaller, und wenn sich kein Terminal oeffnen laesst,
+    kommt der fertige Befehl zum Kopieren.
+    """
     from fastapi.testclient import TestClient
     from bewerbungs_assistent.dashboard import app
     client = TestClient(app)
     r = client.post("/api/danger/launch-uninstaller",
                     json={"confirm": "DEINSTALLIEREN"})
-    assert r.status_code == 400
-    assert "Windows" in r.json()["error"]
+    assert r.status_code == 200
+    daten = r.json()
+    assert daten["status"] in ("gestartet", "befehl")
+    assert daten["entfernt"], "Der Nutzer muss erfahren, was passiert"
 
 
 @pytest.mark.skipif(platform.system() != "Windows",
@@ -78,7 +88,12 @@ def test_launch_uninstaller_404_when_bat_missing(setup_env, monkeypatch):
     import shutil
     shutil.rmtree(fake_localappdata, ignore_errors=True)
     assert r.status_code == 404
-    assert "nicht gefunden" in r.json()["error"]
+    # v1.7.35: der Schluessel heisst `fehler` (der Rest der Antwort ist
+    # ebenfalls deutsch). Wichtiger als der Name: es gibt KEINEN
+    # Rueckfall auf die Kopie im Repo-Root — die wuerde
+    # %LOCALAPPDATA%\BewerbungsAssistent abraeumen und damit aus einem
+    # Dev-Checkout heraus die echte Installation des Nutzers treffen.
+    assert "nicht gefunden" in r.json()["fehler"]
 
 
 def test_settings_page_has_uninstall_section():

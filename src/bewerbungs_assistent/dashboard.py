@@ -6398,70 +6398,46 @@ async def api_factory_reset(request: Request):
 
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
 
+@app.get("/api/danger/uninstaller")
+async def api_uninstaller_info():
+    """Wo der Deinstaller liegt und wie er heisst — je Plattform (#975).
+
+    Die Gefahrenzone versprach auf jeder Plattform dasselbe ("Entfernt
+    Programmdateien, Registry-Eintrag, Desktop-Verknuepfung und
+    MCP-Eintrag"), obwohl es davon nur unter Windows stimmt. Jetzt sagt
+    die Oberflaeche, was auf DIESEM Rechner passiert.
+    """
+    from .services import deinstallation
+    return deinstallation.auskunft()
+
+
 @app.post("/api/danger/launch-uninstaller")
 async def api_launch_uninstaller(request: Request):
-    """Startet `DEINSTALLIEREN.bat` als detached Konsolen-Prozess.
+    """Startet den Deinstaller — unter Windows, macOS und Linux (#975).
 
-    User muss `DEINSTALLIEREN` als Bestaetigung schicken. Der gestartete
-    Prozess oeffnet ein eigenes cmd-Fenster, der User klickt sich dann
-    durch die Deinstaller-Prompts (Backup, Daten loeschen, etc).
+    Der Nutzer muss `DEINSTALLIEREN` als Bestaetigung schicken. Der
+    gestartete Prozess laeuft in einem EIGENEN Fenster, damit er den
+    Dashboard-Prozess gefahrlos beenden kann.
 
-    Nur Windows. Auf macOS/Linux waere `installer/deinstallieren.sh`
-    der Pfad — wird in einem spaeteren Beta nachgezogen.
+    Bis v1.7.34 antwortete dieser Endpunkt auf allem ausser Windows mit
+    HTTP 400 und dem Hinweis auf einen Repo-Pfad — den kennt nur, wer
+    das Repo hat. Das ist die Sackgassen-Definition aus G23/#927:
+    technisch korrekte Antwort, keine Antwort auf die Frage des
+    Menschen. Laesst sich kein Terminal oeffnen, kommt jetzt der
+    fertige Befehl zum Kopieren zurueck statt einer Absage.
     """
-    import os
-    import platform
-    import subprocess
+    from .services import deinstallation
+
     data = await request.json()
     if data.get("confirm") != "DEINSTALLIEREN":
         return JSONResponse(
             {"error": "Bestaetigung fehlt (confirm: DEINSTALLIEREN)"},
             status_code=400,
         )
-    if platform.system() != "Windows":
-        return JSONResponse(
-            {"error": "Nur Windows. Auf macOS/Linux bitte den Skript-Pfad "
-                      "installer/deinstallieren.sh im Repo nutzen."},
-            status_code=400,
-        )
-
-    base_install = os.path.join(
-        os.environ.get("LOCALAPPDATA", ""), "BewerbungsAssistent"
-    )
-    bat_path = os.path.join(base_install, "app", "DEINSTALLIEREN.bat")
-    if not os.path.isfile(bat_path):
-        return JSONResponse(
-            {"error": f"Deinstaller nicht gefunden unter {bat_path}. "
-                      "Du laeufst vermutlich aus einer Dev-Checkout-Version "
-                      "oder die Installation war unvollstaendig."},
-            status_code=404,
-        )
-    # Detached Start — eigenes Fenster, neuer Prozess-Tree, damit der
-    # Deinstaller den Dashboard-Python-Prozess gefahrlos killen kann
-    # (Schritt [1/7] :stop_pbp_processes in der .bat).
-    DETACHED_PROCESS = 0x00000008
-    CREATE_NEW_CONSOLE = 0x00000010
-    CREATE_NEW_PROCESS_GROUP = 0x00000200
-    try:
-        subprocess.Popen(
-            ["cmd.exe", "/c", "start", "", "/D", os.path.dirname(bat_path),
-             "cmd.exe", "/c", bat_path],
-            creationflags=(DETACHED_PROCESS | CREATE_NEW_CONSOLE
-                           | CREATE_NEW_PROCESS_GROUP),
-            close_fds=True,
-        )
-    except Exception as exc:
-        return JSONResponse(
-            {"error": f"Konnte Deinstaller nicht starten: {exc}"},
-            status_code=500,
-        )
-    return {
-        "status": "started",
-        "bat_path": bat_path,
-        "hint": ("Ein neues Konsolen-Fenster ist offen. Folge den "
-                 "Anweisungen dort. Claude Desktop und Ollama muessen "
-                 "separat manuell deinstalliert werden."),
-    }
+    erg = deinstallation.starten()
+    if erg.get("status") == "nicht_gefunden":
+        return JSONResponse(erg, status_code=404)
+    return erg
 
 
 @app.delete("/api/extraction-history/{entry_id}")

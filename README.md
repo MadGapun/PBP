@@ -212,6 +212,22 @@ Claude führt dich durch ein lockeres Gespräch (ca. 10-15 Minuten) und baut dei
 
 > 📖 **Schritt-für-Schritt-Anleitung:** [Wiki → Erste Schritte](https://github.com/MadGapun/PBP/wiki/Erste-Schritte)
 
+### Deinstallation
+
+Ein Rückweg gehört dazu.
+
+- **Windows:** Doppelklick auf `DEINSTALLIEREN.bat` im PBP-Ordner — oder
+  ganz normal über *Apps & Features*.
+- **macOS/Linux:** Doppelklick auf `DEINSTALLIEREN.command` im PBP-Ordner.
+- **Aus PBP heraus:** Einstellungen → Gefahrenzone → *PBP komplett
+  deinstallieren*.
+
+Der Deinstaller fragt vor jedem Schritt. Deine Bewerbungsdaten werden
+nur gelöscht, wenn du das ausdrücklich bestätigst. Claude Desktop und
+Ollama bleiben installiert — die deinstallierst du separat.
+
+> 📖 **Details und der manuelle Weg:** [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation#deinstallation)
+
 ---
 
 ## Auf einen Blick

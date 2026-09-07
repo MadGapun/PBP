@@ -220,5 +220,8 @@ fi
 echo ""
 echo -e "  ${CYAN}Daten:${NC}     $BA_DATA_DIR"
 echo -e "  ${CYAN}Projekt:${NC}   $PROJECT_DIR"
+# #975 (I11): Symmetrie zum Windows-Installer — wer installiert,
+# soll auch wissen, wo der Rueckweg liegt.
+echo -e "  ${CYAN}Entfernen:${NC} DEINSTALLIEREN.command in diesem Ordner"
 echo ""
 read -p "  Druecke Enter zum Schliessen..."
