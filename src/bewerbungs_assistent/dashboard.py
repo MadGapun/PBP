@@ -938,6 +938,22 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None, dict | Non
         email_context = _build_email_document_context(parsed)
     elif fname.endswith((".txt", ".md", ".csv", ".json", ".xml", ".rtf")):
         extracted = filepath.read_text(encoding="utf-8", errors="replace")
+    else:
+        # v1.7.35 (#833): PPTX, XLSX und OpenDocument fielen bis hierher
+        # durch — ohne Zweig, ohne Meldung, mit leerem Text und
+        # `status: "ok"`. Ein Dokument, das nichts liefert, war von
+        # einem Dokument, das nichts enthaelt, nicht unterscheidbar.
+        from .services import office_text
+        if office_text.kann_lesen(fname) or office_text.ist_altformat(fname):
+            try:
+                extracted = office_text.extrahiere(filepath)
+            except office_text.FormatNichtUnterstuetzt as exc:
+                # Ehrliche Absage statt stillem Nichts: der Aufrufer
+                # traegt sie in `extraction_status` und in die Antwort.
+                ocr_info = {"format": "nicht_unterstuetzt", "grund": str(exc)}
+        if extracted.strip() == "" and ocr_info is None                 and office_text.kann_lesen(fname):
+            ocr_info = {"format": "leer",
+                        "grund": office_text.leer_grund(filepath)}
 
     return extracted, email_context, ocr_info
 
@@ -1283,7 +1299,10 @@ async def api_browse_directory(request: Request):
         return JSONResponse({"error": f"Verzeichnis nicht gefunden: {dir_path}"}, status_code=404)
 
     entries = []
-    supported = {".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf"}
+    supported = {".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+                 ".xml", ".rtf",
+                 # v1.7.35 (#833)
+                 ".pptx", ".xlsx", ".xlsm", ".odt", ".odp", ".ods"}
     file_count = 0
     try:
         for item in sorted(folder.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
@@ -1334,7 +1353,10 @@ async def api_import_folder(request: Request):
     skipped_files = 0
     auto_linked_documents = 0
     warnings = []
-    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json", ".xml", ".rtf", ".msg", ".eml")
+    supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
+                 ".xml", ".rtf", ".msg", ".eml",
+                 # v1.7.35 (#833): bisher fielen diese still durch
+                 ".pptx", ".xlsx", ".xlsm", ".odt", ".odp", ".ods")
 
     file_iter = folder.rglob("*") if recursive else folder.glob("*")
     for fpath in file_iter:
@@ -1357,6 +1379,10 @@ async def api_import_folder(request: Request):
                         "(Einstellungen → Erweiterungen)")
                 if not any(hint in w for w in warnings):
                     warnings.append(f"{fpath.name}: {hint}")
+            # v1.7.35 (#833): auch der Ordner-Import sagt jetzt, wenn eine
+            # Datei nichts hergibt. Vorher lief sie stumm durch.
+            if ocr_info and ocr_info.get("format") in ("leer", "nicht_unterstuetzt"):
+                warnings.append(f"{fpath.name}: {ocr_info.get('grund', '')}")
         except ImportError as exc:
             warnings.append(f"{fpath.name}: {exc}")
             skipped_files += 1
@@ -5108,6 +5134,18 @@ async def api_upload_document(
 
     if fname.endswith((".msg", ".eml")) and extracted.strip():
         _db.update_document_extraction_status(did, "basis_analysiert")
+    # v1.7.35 (#833): Eine Datei, aus der nichts herauskam, muss das
+    # SAGEN. Bis hierher blieb sie auf `nicht_extrahiert` stehen und
+    # tauchte in jedem `analyse_plan_erstellen` erneut als offen auf —
+    # eine Endlosschleife im Arbeitsablauf, die bei jedem Versuch
+    # dasselbe Nichts produzierte. `nicht_extrahiert` bleibt Dateien
+    # vorbehalten, die noch nie versucht wurden.
+    elif ocr_info and ocr_info.get("format") in ("leer", "nicht_unterstuetzt"):
+        try:
+            _db.update_document_extraction_status(did, "analysiert_leer")
+        except Exception as exc:
+            logger.debug("Status analysiert_leer fehlgeschlagen (%s): %s",
+                         did, exc)
     # v1.7.0-beta.80 (#643/#657 Phase 3): Rauschen-Heuristik im Upload-Pfad.
     if email_context and email_context.get("is_pure_notification"):
         try:

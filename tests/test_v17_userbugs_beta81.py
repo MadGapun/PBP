@@ -181,7 +181,6 @@ def test_empfehlung_empfohlen_bei_hohem_score():
         "missing_muss": [],
         "risks": [],
         "beschreibung_vorhanden": True,
-        "hochschulabschluss_gefordert": False,
     }
     verdict = _build_empfehlung(fit_result, {})
     assert verdict["kategorie"] == "EMPFOHLEN"
@@ -196,7 +195,6 @@ def test_empfehlung_bedingt_bei_mittlerem_score():
         "missing_muss": ["windchill", "teamcenter"],
         "risks": ["2 MUSS-Keywords nicht gefunden"],
         "beschreibung_vorhanden": True,
-        "hochschulabschluss_gefordert": False,
     }
     verdict = _build_empfehlung(fit_result, {})
     assert verdict["kategorie"] == "BEDINGT"
@@ -211,7 +209,6 @@ def test_empfehlung_nicht_empfohlen_bei_niedrigem_score():
         "missing_muss": ["windchill"],
         "risks": [],
         "beschreibung_vorhanden": True,
-        "hochschulabschluss_gefordert": False,
     }
     verdict = _build_empfehlung(fit_result, {})
     assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
@@ -226,28 +223,31 @@ def test_empfehlung_ko_bei_fehlender_beschreibung():
         "missing_muss": [],
         "risks": [],
         "beschreibung_vorhanden": False,
-        "hochschulabschluss_gefordert": False,
     }
     verdict = _build_empfehlung(fit_result, {})
     assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
     assert any("Beschreibung" in g for g in verdict["ko_gruende"])
 
 
-def test_empfehlung_ko_bei_hochschulabschluss_fehlt():
-    """Hochschulabschluss gefordert + nicht da -> NICHT_EMPFOHLEN, egal welcher Score."""
+def test_972_hochschulabschluss_ist_kein_ko_kriterium_mehr():
+    """Frueher: "Abschluss gefordert und nicht da" -> NICHT_EMPFOHLEN,
+    egal wie hoch der Score.
+
+    Genau das war der Schaden (#972): das Merkmal hatte keine
+    modellierte Profilseite. Ein Staatlich gepruefter Techniker (DQR 6,
+    wie Bachelor) galt als "kein Abschluss" — und eine Stelle mit Score
+    80 wurde damit abgeraten.
+    """
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
         "total_score": 80,
         "muss_hits": ["python"],
         "missing_muss": [],
-        "risks": [
-            "Hochschulabschluss fehlt — ATS-Risiko",
-        ],
+        "risks": [],
         "beschreibung_vorhanden": True,
-        "hochschulabschluss_gefordert": True,
     }
     verdict = _build_empfehlung(fit_result, {})
-    assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
+    assert verdict["kategorie"] != "NICHT_EMPFOHLEN"
 
 
 def test_empfehlung_ko_bei_null_muss_hits():
@@ -259,7 +259,6 @@ def test_empfehlung_ko_bei_null_muss_hits():
         "missing_muss": ["python", "fastapi", "sqlite"],
         "risks": [],
         "beschreibung_vorhanden": True,
-        "hochschulabschluss_gefordert": False,
     }
     verdict = _build_empfehlung(fit_result, {})
     assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
@@ -274,7 +273,6 @@ def test_empfehlung_hat_immer_die_pflichtfelder():
             "total_score": score,
             "muss_hits": ["x"], "missing_muss": [],
             "risks": [], "beschreibung_vorhanden": True,
-            "hochschulabschluss_gefordert": False,
         }
         v = _build_empfehlung(fit_result, {})
         assert "kategorie" in v

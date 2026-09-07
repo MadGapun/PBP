@@ -291,3 +291,25 @@ def test_976_readiness_karte_traegt_keine_beschreibung():
     seite = (Path(__file__).resolve().parents[1] / "frontend" / "src" /
              "pages" / "DashboardPage.jsx").read_text(encoding="utf-8")
     assert "workspaceReadiness.description" not in seite
+
+
+def test_976_readiness_karte_wiederholt_den_block_nicht():
+    """Nutzerhinweis vom 07.09.2026, nach der Auslieferung von v1.7.31.
+
+    Der Block "Offen" listete zwei faellige Nachfassungen mit Firma und
+    Datum — und direkt darunter stand "Es gibt ueberfaellige
+    Nachfassaktionen." Dieselbe Aussage, nur unschaerfer.
+
+    Das Akzeptanzkriterium sprach von ZAEHLUNGEN ("werden nicht
+    zusaetzlich in der Readiness-Karte gezaehlt"), und ich habe es
+    woertlich genommen: keine Zahl, also in Ordnung. War es nicht. Eine
+    Wiederholung ohne Zahl ist immer noch eine Wiederholung.
+    """
+    from pathlib import Path
+    wurzel = Path(__file__).resolve().parents[1]
+    seite = (wurzel / "frontend" / "src" / "pages"
+             / "DashboardPage.jsx").read_text(encoding="utf-8")
+    assert "readinessWirdVomBlockGetragen(workspaceReadiness.stage" in seite
+    regeln = (wurzel / "frontend" / "src" / "lib"
+              / "dashboardRegeln.js").read_text(encoding="utf-8")
+    assert 'VOM_BLOCK_GETRAGEN = ["nachfassen"]' in regeln

@@ -295,67 +295,60 @@ class TestBuildKeywords:
 
 # === Hochschulabschluss-Erkennung (#305) ===
 
-class TestDegreeDetection:
-    """Fit-Analyse erkennt Hochschulabschluss-Anforderungen (#305)."""
+class TestDegreeDetectionEntfernt:
+    """Die Hochschulabschluss-Pruefung ist ersatzlos entfernt (#972).
 
-    def test_degree_required_detected(self):
-        """Stellenbeschreibung mit 'abgeschlossenes Studium' wird erkannt."""
-        from bewerbungs_assistent.job_scraper import _detect_degree_required
-        assert _detect_degree_required("Abgeschlossenes Studium im Bereich Informatik")
-        assert _detect_degree_required("Bachelor of Science required")
-        assert _detect_degree_required("Hochschulabschluss in Ingenieurwesen")
+    Drei Runden Nachbesserung (#698 Malus, #918 Bewerberstatistiken,
+    #955 beschreibende Wendungen) drehten sich alle um die ANZEIGE. Die
+    Profilseite wurde nie modelliert — sie kannte nur "Hochschulabschluss
+    ja/nein". Damit war der Satz "Dein Profil enthält keinen" schlicht
+    falsch: ein Staatlich gepruefter Techniker liegt auf DQR-Niveau 6,
+    also demselben wie ein Bachelor.
 
-    def test_degree_not_falsely_detected(self):
-        """Beschreibungen ohne Studium-Anforderung triggern keine Warnung."""
-        from bewerbungs_assistent.job_scraper import _detect_degree_required
-        assert not _detect_degree_required("10 Jahre Berufserfahrung im PLM-Umfeld")
-        assert not _detect_degree_required("Teamcenter Consultant gesucht")
+    Diese Klasse prueste frueher die Erkennung. Sie prueft jetzt, dass es
+    sie nicht mehr gibt — sonst kommt sie beim naechsten "kleinen
+    Nachbessern" still zurueck.
+    """
 
-    def test_profile_has_degree(self):
-        """Profil mit Bachelor/Master wird korrekt erkannt."""
-        from bewerbungs_assistent.job_scraper import _profile_has_degree
-        assert _profile_has_degree({"_profile_education": [
-            {"degree": "Bachelor of Science", "field_of_study": "Informatik", "institution": "TU Hamburg"}
-        ]})
-        assert _profile_has_degree({"_profile_education": [
-            {"degree": "Master of Engineering", "field_of_study": "", "institution": ""}
-        ]})
+    def test_972_erkennung_ist_weg(self):
+        import bewerbungs_assistent.job_scraper as js
+        assert not hasattr(js, "_detect_degree_required")
+        assert not hasattr(js, "_profile_has_degree")
 
-    def test_profile_without_degree(self):
-        """Profil ohne Studium wird korrekt erkannt."""
-        from bewerbungs_assistent.job_scraper import _profile_has_degree
-        assert not _profile_has_degree({"_profile_education": []})
-        assert not _profile_has_degree({})
-        assert not _profile_has_degree({"_profile_education": [
-            {"degree": "Ausbildung", "field_of_study": "Mechatronik", "institution": "IHK"}
-        ]})
-
-    def test_fit_analyse_degree_risk(self):
-        """Fit-Analyse erzeugt Risikowarnung wenn Studium gefordert aber fehlt."""
+    def test_972_fit_analyse_urteilt_nicht_mehr_ueber_abschluesse(self):
         job = _job(
             title="PLM Consultant",
             description="Abgeschlossenes Studium im Bereich Ingenieurwesen. "
                         "Erfahrung mit PLM/PDM-Systemen wie Teamcenter."
         )
         criteria = _criteria(muss=["PLM"])
-        criteria["_profile_education"] = []  # Kein Studium
+        criteria["_profile_education"] = []
         result = fit_analyse(job, criteria)
-        assert result["hochschulabschluss_gefordert"] is True
-        assert any("HOCHSCHULABSCHLUSS" in r for r in result["risks"])
-        assert "Hochschulabschluss fehlt" in result["factors"]
+        assert "hochschulabschluss_gefordert" not in result
+        assert not any("HOCHSCHULABSCHLUSS" in r for r in result["risks"])
+        assert "Hochschulabschluss fehlt" not in result["factors"]
 
-    def test_fit_analyse_no_risk_with_degree(self):
-        """Fit-Analyse erzeugt keine Warnung wenn Profil Studium enthält."""
+    def test_972_ein_techniker_wird_nicht_mehr_abgewertet(self):
+        """Der ausloesende Fall: sieben Ausbildungseintraege im Profil,
+        darunter ein Staatlich gepruefter Techniker — und PBP behauptete
+        "Dein Profil enthält keinen"."""
         job = _job(
-            title="PLM Consultant",
-            description="Abgeschlossenes Studium im Bereich Ingenieurwesen. "
-                        "Erfahrung mit PLM/PDM-Systemen wie Teamcenter."
+            title="Konstrukteur",
+            description="Abgeschlossenes Studium oder vergleichbare "
+                        "Qualifikation. PLM-Kenntnisse noetig."
         )
         criteria = _criteria(muss=["PLM"])
         criteria["_profile_education"] = [
-            {"degree": "Diplom-Ingenieur", "field_of_study": "Maschinenbau",
-             "institution": "TU München"}
+            {"degree": "Staatlich gepruefter Techniker",
+             "field_of_study": "Maschinen- und Anlagenbau",
+             "institution": "Technikerschule"}
         ]
         result = fit_analyse(job, criteria)
-        assert result["hochschulabschluss_gefordert"] is True
-        assert not any("HOCHSCHULABSCHLUSS" in r for r in result["risks"])
+        assert "Hochschulabschluss fehlt" not in result["factors"]
+
+    def test_972_waehlbarer_ablehnungsgrund_bleibt(self):
+        """Ob ein fehlender Abschluss ein Ausschluss ist, entscheidet der
+        Mensch je Stelle — nicht ein Textvergleich."""
+        from bewerbungs_assistent.services.ablehnungsgruende import (
+            STANDARD_GRUENDE)
+        assert "kein_hochschulabschluss" in STANDARD_GRUENDE

@@ -1369,9 +1369,6 @@ export default function JobsPage() {
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gesamtscore</p>
             <p className="mt-3 text-4xl font-semibold text-ink">{fitDialog.analysis?.total_score ?? 0}</p>
-            {fitDialog.analysis?.hochschulabschluss_gefordert && (
-              <p className="mt-1 text-xs text-coral font-medium">Hochschulabschluss gefordert</p>
-            )}
           </Card>
           {/* Scoring-Faktoren Aufschlüsselung (#306) */}
           {fitDialog.analysis?.factors && Object.keys(fitDialog.analysis.factors).length > 0 && (

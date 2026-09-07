@@ -206,18 +206,16 @@ def test_535_score_recompute_after_description_update(setup_env):
     assert "score_neu_berechnet" in result, f"Erwartet Score-Recompute-Info, bekommen: {result}"
 
 
-# ============= #536 — Quereinsteiger-Heuristik =======================
-def test_536_career_changers_welcome_no_warning():
-    """Quereinsteiger-Klausel hebt Hochschulabschluss-Warnung auf."""
-    from bewerbungs_assistent.job_scraper import _detect_degree_required
-    text_with = (
-        "Degree in Engineering, Business Informatics or comparable field. "
-        "Career changers are welcome, provided they bring strong project management skills."
-    )
-    text_without = "Abgeschlossenes Studium der Informatik erforderlich."
-    text_quereinsteiger_de = (
-        "Hochschulabschluss erforderlich. Quereinsteiger sind willkommen."
-    )
-    assert _detect_degree_required(text_with) is False, "Career changers welcome muss Warnung aufheben"
-    assert _detect_degree_required(text_without) is True, "Eindeutige Anforderung muss True bleiben"
-    assert _detect_degree_required(text_quereinsteiger_de) is False, "Deutsche Quereinsteiger-Klausel muss greifen"
+# ============= #536 — Quereinsteiger-Heuristik (entfernt) ============
+def test_536_quereinsteiger_heuristik_ist_gegenstandslos():
+    """v1.7.35 (#972): die Hochschulabschluss-Erkennung ist entfernt.
+
+    Dieser Test prueste, ob eine Quereinsteiger-Klausel die
+    Abschluss-Anforderung aufhebt — eine Nachbesserung an einer
+    Erkennung, die es nicht mehr gibt. Sie war die erste von vier
+    (#536, #698, #918, #955), alle auf der Anzeigenseite; die
+    Profilseite wurde nie modelliert. Ob ein fehlender Abschluss ein
+    Ausschluss ist, entscheidet jetzt der Mensch je Stelle.
+    """
+    import bewerbungs_assistent.job_scraper as js
+    assert not hasattr(js, "_detect_degree_required")

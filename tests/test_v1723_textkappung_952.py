@@ -122,7 +122,7 @@ def test_952_qualitaetspruefung_kennt_die_kategorie():
 
 # ── Ehrlich bleiben statt falsch behaupten (AK 4) ────────────────────
 
-def test_952_hochschulabschluss_ist_unbekannt_statt_false():
+def test_952_gekappte_beschreibung_wird_eingestanden():
     """Regressionsfall aus dem Issue.
 
     Die Erkennung arbeitete korrekt — ihr fehlte nur der Satz. Ein
@@ -135,29 +135,34 @@ def test_952_hochschulabschluss_ist_unbekannt_statt_false():
                           "vorausgesetzt. PLM-Kenntnisse noetig.")
     gekappt = voll[:ALTE_KAPPUNG]
 
+    # v1.7.35 (#972): `hochschulabschluss_gefordert` gibt es nicht mehr.
+    # Die Zusage aus #952 gilt weiter und haengt jetzt allein an
+    # `beschreibung_unvollstaendig`: ein gekappter Text sagt das, statt
+    # eine Aussage zu treffen, die die Daten nicht hergeben.
     a_gekappt = fit_analyse({"title": "Consultant", "description": gekappt,
                              "company": "Musterfirma GmbH"}, KRITERIEN)
-    assert a_gekappt["hochschulabschluss_gefordert"] == "unbekannt", a_gekappt
     assert a_gekappt["beschreibung_unvollstaendig"] is True
 
     a_voll = fit_analyse({"title": "Consultant", "description": voll,
                           "company": "Musterfirma GmbH"}, KRITERIEN)
-    assert a_voll["hochschulabschluss_gefordert"] is True
     assert a_voll["beschreibung_unvollstaendig"] is False
 
 
-def test_952_positive_erkennung_bleibt_auch_bei_kappung_erhalten():
-    """Nur die NEGATIV-Aussage ist unsicher, nicht die positive.
+def test_952_gekappter_text_wird_als_solcher_gemeldet():
+    """Frueher prueste dieser Test, dass eine POSITIVE
+    Abschluss-Erkennung auch bei Kappung erhalten bleibt.
 
-    Steht die Anforderung noch im sichtbaren Teil, ist `True` belegt und
-    darf nicht zu "unbekannt" verwaessert werden.
+    Die Erkennung ist mit #972 entfernt; die dahinterliegende Zusage aus
+    #952 nicht: ein gekappter Anzeigentext muss sich als solcher zu
+    erkennen geben, damit niemand einen Score fuer belastbar haelt, dem
+    der Anforderungsteil fehlt.
     """
     text = ("Abgeschlossenes Studium erforderlich. " + "Fuelltext. " * 200)
     gekappt = text[:ALTE_KAPPUNG]
     assert len(gekappt) == ALTE_KAPPUNG
     a = fit_analyse({"title": "Consultant", "description": gekappt,
                      "company": "Musterfirma GmbH"}, KRITERIEN)
-    assert a["hochschulabschluss_gefordert"] is True
+    assert a["beschreibung_unvollstaendig"] is True
 
 
 # ── Der Refetch darf nicht selbst kappen (AK 2) ──────────────────────

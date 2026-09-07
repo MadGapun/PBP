@@ -15,7 +15,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
-import { zeigeProfilKpi } from "@/lib/dashboardRegeln";
+import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -122,6 +122,9 @@ export default function DashboardPage() {
   });
   const [emailDetail, setEmailDetail] = useState(null);
   const [scraperHealth, setScraperHealth] = useState([]);
+  // Wie viele Zeilen der Block "Offen" zeigt — die Readiness-Karte
+  // darunter darf nicht wiederholen, was dort schon steht.
+  const [offenAnzahl, setOffenAnzahl] = useState(0);
   const [publicHints, setPublicHints] = useState([]);
   const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
   const [dismissedHints, setDismissedHints] = useState(() => {
@@ -614,9 +617,19 @@ export default function DashboardPage() {
             navigateTo={navigateTo}
             refreshChrome={refreshChrome}
             onPrompt={(prompt) => copyPrompt?.(prompt)}
+            onAnzahl={setOffenAnzahl}
           />
 
-          {/* Im Fluss (Readiness Card) */}
+          {/* Im Fluss (Readiness Card).
+
+              v1.7.35: Sie entfaellt, wenn der Block "Offen" ihre Aussage
+              schon traegt. Nutzerhinweis vom 07.09.2026 — der Block
+              listete zwei faellige Nachfassungen mit Firma und Datum,
+              und direkt darunter stand "Es gibt ueberfaellige
+              Nachfassaktionen". #976 verlangte, keine ZAEHLUNGEN zu
+              wiederholen; das war zu eng gelesen. Eine Wiederholung
+              ohne Zahl ist immer noch eine. */}
+          {readinessWirdVomBlockGetragen(workspaceReadiness.stage, offenAnzahl) ? null : (
           <Card className="rounded-2xl">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
@@ -693,6 +706,7 @@ export default function DashboardPage() {
               </div>
             )}
           </Card>
+          )}
 
           {/* Heute fuer dich (Impulse) */}
           {impulse?.enabled && impulse?.impulse?.text && (
