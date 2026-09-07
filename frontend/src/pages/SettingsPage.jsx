@@ -3973,24 +3973,51 @@ export default function SettingsPage() {
 }
 
 // v1.7.0-beta.43 (#621): Komplett-Deinstallation aus der Gefahrenzone.
-// Startet DEINSTALLIEREN.bat als detached cmd-Fenster — der User klickt
-// sich dann durch die Deinstaller-Prompts (Backup, Daten loeschen, ...).
-// Hinweis: Claude Desktop und Ollama werden NICHT mit-deinstalliert.
+//
+// v1.7.34 (#975, I11): Der Abschnitt versprach auf JEDER Plattform
+// dasselbe — "Programmdateien, Registry-Eintrag, Desktop-Verknuepfung" —
+// obwohl es davon nur unter Windows etwas gibt. Wer auf dem Mac
+// DEINSTALLIEREN eintippte, bekam HTTP 400 und einen Repo-Pfad, den nur
+// kennt, wer das Repo hat. Das ist die Sackgassen-Definition aus
+// G23/#927: technisch korrekte Antwort, keine Antwort auf die Frage.
+//
+// Jetzt kommen die Listen vom Server (`/api/danger/uninstaller`) und
+// nennen, was auf DIESEM Rechner passiert. Laesst sich kein Terminal
+// oeffnen, erscheint der fertige Befehl zum Kopieren statt einer Absage.
 function UninstallSection({ pushToast }) {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState(null);
+  const [befehl, setBefehl] = useState("");
+
+  useEffect(() => {
+    let aktiv = true;
+    fetch("/api/danger/uninstaller")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (aktiv && d) setInfo(d); })
+      .catch(() => {});
+    return () => { aktiv = false; };
+  }, []);
 
   async function launch() {
     setBusy(true);
+    setBefehl("");
     try {
       const result = await postJson("/api/danger/launch-uninstaller", {
         confirm: "DEINSTALLIEREN",
       });
-      pushToast(
-        result?.hint || "Deinstaller gestartet — folge dem neuen Konsolen-Fenster",
-        "success"
-      );
-      setConfirm("");
+      if (result?.status === "befehl") {
+        // Kein Terminal gefunden — ein Weg, den der Mensch selbst gehen
+        // kann, ist immer noch besser als eine Fehlermeldung.
+        setBefehl(result.befehl || "");
+        pushToast(result.hinweis || "Bitte den Befehl unten ausfuehren.", "amber");
+      } else {
+        pushToast(
+          result?.hinweis || "Deinstaller gestartet — folge dem neuen Fenster",
+          "success"
+        );
+        setConfirm("");
+      }
     } catch (err) {
       pushToast(`Fehler: ${err.message}`, "danger");
     } finally {
@@ -3998,28 +4025,28 @@ function UninstallSection({ pushToast }) {
     }
   }
 
+  const doppelklick = info?.doppelklick;
+
   return (
     <Card className="glass-banner glass-banner-danger rounded-2xl">
       <SectionHeading
         title="PBP komplett deinstallieren"
-        description="Entfernt PBP von diesem Rechner: Programmdateien, Registry-Eintrag, Desktop-Verknuepfung und MCP-Eintrag in Claude Desktop. Im Deinstaller wirst du gefragt ob du auch deine Bewerbungsdaten loeschen willst."
+        description="Entfernt PBP von diesem Rechner. Im Deinstaller wirst du vor jedem Schritt gefragt — auch bevor Bewerbungsdaten geloescht werden."
       />
       <div className="flex flex-col gap-4">
+        {info?.entfernt?.length ? (
+          <div className="rounded-xl border border-white/[0.06] p-3 text-[12px] text-muted">
+            <strong className="text-ink/90">Was entfernt wird:</strong>
+            <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
+              {info.entfernt.map((z) => <li key={z}>{z}</li>)}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3 text-[12px] text-amber/90">
-          <strong className="text-amber">Wichtig — was NICHT mit deinstalliert wird:</strong>
+          <strong className="text-amber">Was NICHT mit deinstalliert wird:</strong>
           <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
-            <li>
-              <strong>Claude Desktop</strong> — Anthropics App. Bleibt installiert.
-              Manuell ueber <em>Windows Apps &amp; Features</em> entfernen wenn gewuenscht.
-            </li>
-            <li>
-              <strong>Ollama</strong> — falls du es fuer die lokale AI installiert hast.
-              Bleibt installiert. Manuell ueber <em>Windows Apps &amp; Features</em> entfernen.
-            </li>
-            <li>
-              <strong>Python</strong> — falls du eine eigene Installation neben PBP nutzt.
-              PBPs eigenes Python (im AppData) wird komplett entfernt.
-            </li>
+            {(info?.bleibt || ["Claude Desktop", "Ollama"]).map((z) => <li key={z}>{z}</li>)}
           </ul>
         </div>
 
@@ -4029,8 +4056,12 @@ function UninstallSection({ pushToast }) {
           </div>
           <p className="text-sm text-muted">
             Gib <strong className="text-ink">DEINSTALLIEREN</strong> ein, um die
-            Komplett-Deinstallation zu starten. Es oeffnet sich ein neues
-            Konsolen-Fenster mit den Deinstaller-Prompts.
+            Komplett-Deinstallation zu starten. Es oeffnet sich ein neues Fenster
+            mit den Deinstaller-Fragen.
+            {doppelklick ? (
+              <> Alternativ: <strong className="text-ink">{doppelklick}</strong> im
+              PBP-Ordner doppelklicken.</>
+            ) : null}
           </p>
         </div>
         <div className="flex items-end gap-3">
@@ -4051,6 +4082,17 @@ function UninstallSection({ pushToast }) {
             Deinstaller starten
           </Button>
         </div>
+
+        {befehl ? (
+          <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3">
+            <p className="text-[12px] text-amber/90">
+              Kein Terminal gefunden. Diesen Befehl in einem Terminal ausfuehren:
+            </p>
+            <code className="mt-1.5 block break-all rounded-lg bg-black/20 px-2 py-1.5 text-[12px] text-ink">
+              {befehl}
+            </code>
+          </div>
+        ) : null}
       </div>
     </Card>
   );
