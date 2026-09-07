@@ -33,6 +33,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.40] - 2026-09-07 — Der Weg zur Kennung
+
+Gemeldet von einem Anwender: nach dem Onboarding legt Claude die
+Stationen aus dem Lebenslauf korrekt an — danach lassen sie sich im
+Gespräch nicht mehr verfeinern. Claude antwortet, das Werkzeug zum
+Bearbeiten stehe nicht zur Verfügung.
+
+**Das Werkzeug gab es die ganze Zeit.** Was fehlte, war der Weg dorthin —
+und zwar an zwei Stellen, die der Melder beide selbst benannt hat.
+
+### Added
+
+- **`positionen_anzeigen()`** — Berufserfahrung und Ausbildung im
+  Volltext, jeweils mit ihrer Kennung. Ohne die Kennung lässt sich
+  `profil_bearbeiten` nicht aufrufen, und kein Lese-Werkzeug gab sie
+  heraus: die Zusammenfassung liefert formatierten Text, und
+  `projekte_anzeigen` nennt sie nur für Stationen, die bereits ein
+  Projekt tragen — nach einem frischen Lebenslauf-Import also praktisch
+  nie. Für **Projekte** war genau dieser Weg in v1.7.3 gebaut worden; für
+  die beiden Ebenen darüber wurde er nie nachgezogen.
+
+  Der Text ist ungekürzt, im Gegensatz zur Zusammenfassung (die schneidet
+  bei 200 Zeichen ab). Optional auf einen Eintrag eingegrenzt; ein Präfix
+  der Kennung genügt.
+
+- **Die Lücken werden benannt.** Nach einem Lebenslauf-Import sind
+  Aufgaben, Erfolge und Technologien fast immer leer — ein CV nennt sie
+  selten vollständig, und das Scoring braucht sie. `positionen_anzeigen`
+  sagt jetzt, bei welcher Station was fehlt, statt es dich suchen zu
+  lassen.
+
+### Fixed
+
+- **Eine Erfolgsmeldung über eine Nicht-Änderung.** Die Lese-Werkzeuge
+  sprechen Deutsch (`aufgaben`, `erfolge`, `technologien`), die
+  Schreibschicht nimmt die englischen Spaltennamen — und filterte alles
+  andere still heraus, **während sie „aktualisiert" meldete**. Gemessen:
+  ein Aufruf mit `{"aufgaben": …}` antwortete „aktualisiert,
+  geänderte_felder: ['aufgaben']" und schrieb nichts.
+
+  Die deutschen Bezeichnungen funktionieren jetzt direkt — bei
+  Berufserfahrung, Ausbildung und Projekten, beim Ändern wie beim
+  Hinzufügen. `geänderte_felder` nennt, was wirklich ankam. Und ein
+  Feldname, den PBP nicht kennt, kommt als `ignorierte_felder` samt
+  Liste der möglichen zurück, statt zu verschwinden.
+
+### Changed
+
+- **Die Zusammenfassung nennt die Kennungen.** In
+  `profil_zusammenfassung` steht vor jeder Station und jeder Ausbildung
+  die Kennung in eckigen Klammern, dazu einmal der Satz, wie man damit
+  ändert. Damit funktioniert der Weg auch für alle, die schon eine
+  Zusammenfassung vor sich haben.
+
+### Hinweis
+
+Der übliche Ablauf sieht jetzt so aus: `positionen_anzeigen()` aufrufen,
+mit Claude über das sprechen, was fehlt, und die Antworten mit
+`profil_bearbeiten(bereich='position', aktion='ändern', element_id=…)`
+zurückschreiben. Für die Ausbildung dasselbe mit `bereich='ausbildung'`.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.40.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.40.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.39] - 2026-09-07 — Was nichts kostet, stand oben
 
 Ein Score ist eine Rechnung, und eine Rechnung braucht Zahlen. Fehlt
