@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.38** ist Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.39** ist Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,72 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.39 Stable) — Was nichts kostet, stand oben
+
+**#989, das Architektur-Epic hinter #987/#965/#972/#988.** Wo eine
+Information fehlt, setzt ein Punktesystem einen neutralen Wert ein — und
+neutral heisst dort nicht "unbekannt", sondern "kostet nichts". Gemessen:
+vollstaendig beschriebene, passende Stelle 32 Punkte, inhaltsleerer
+Titel 101. **Tests: 2937 / 3003.**
+
+MERKE-Punkte:
+
+(1) **Der unangenehmste Satz des Issues:** *"Es gibt bereits
+entfernung_guete, score_status, grund_guete ... Alle vier stehen in
+Tool-Antworten. In der Trefferliste, die der Nutzer tatsaechlich
+ansieht, kommt davon nichts an."* Die Bausteine mussten nicht gebaut
+werden, sondern ankommen. **Ein Befund, den nur ein Werkzeug kennt, ist
+kein Befund** — das ist DoD 8c fuer Auskuenfte statt fuer Guards. Der
+Datenguete-Befund haengt deshalb an `stellen_anzeigen` UND an
+`GET /api/jobs`, also an der Liste, die den Stellen-Tab speist.
+
+(2) **`verletzt` und `ungeprueft` sehen im Score gleich aus.** Beide
+bringen keine Punkte und bedeuten das Gegenteil voneinander. Deshalb
+drei Zustaende statt zwei. Schoenstes Beispiel: ein GESCHAETZTES Gehalt
+zaehlt seit #827 gar nicht — es galt damit implizit als "erfuellt
+nicht", ist aber ungeprueft.
+
+(3) **Den Score NICHT angefasst.** Er misst, was in der Anzeige steht;
+das ist eine Messung. Die Rangfolge ist eine Darstellung, und dort zieht
+sie die Konsequenz. Ein Update, das gespeicherte Zahlen still
+umschreibt, waere derselbe Fehler wie #987 — nur diesmal absichtlich.
+
+(4) **Eine Trennung, die alles trennt, trennt nichts.** Der Vorschlag im
+Issue war, den Vollstaendigkeitsgrad in die Rangfolge einzurechnen. Ich
+habe die Gruppe an EINER Dimension festgemacht (Anzeigentext): eine
+unbekannte Entfernung ist alltaeglich, und wuerde sie die Gruppe
+entscheiden, landete fast alles in Gruppe zwei. Ungenau bewertet ist
+etwas anderes als gar nicht bewertet. Die uebrigen Dimensionen stehen
+als Marke an der Zeile, nur eben nicht gruppenbildend.
+
+(5) **Die Vorgabe ist bewusst nicht die strengste.** `streng` (unbekannte
+Entfernung zaehlt wie eine zu grosse) ist eine NUTZERENTSCHEIDUNG, wie
+das Issue sie beschreibt. Als Vorgabe waere sie ein erfundener Malus —
+derselbe Fehler wie der erfundene Bonus, nur mit anderem Vorzeichen.
+Weil `streng` im Score wirkt, geht die Einstellung durch das
+Kriterien-Nadeloehr aus #987; sonst rechnete der Suchlauf wieder anders
+als die Neuberechnung.
+
+(6) **#966 hat halbiert, wo Null richtig gewesen waere.** Ein
+Aussortier-Urteil an einer Anzeige von 23 Zeichen ist kein schwacher
+Beleg, sondern keiner: drei solche Urteile ergeben halbiert immer noch
+zwei Stimmen, und genau so entstand der gemeldete Dreifach-Wiedergaenger.
+Die Abstufung bleibt trotzdem — eine geschaetzte Gehaltszahl zeigt in
+eine Richtung, ein Anzeigen-Rumpf in gar keine. **Beim Nachschaerfen
+einer Haertung fragen, ob "schwach" ueberhaupt die richtige Kategorie
+war.**
+
+(7) **Die 50 lag siebenmal im Code.** Dieselbe Schwelle, jedes Mal neu
+getippt (jobs.py viermal, analyse.py, workspace_service.py,
+database.py). Jetzt `datenguete.MIN_BESCHREIBUNG` — und gespiegelt in
+`frontend/src/lib/datenguete.js` mit eigenem CI-Schritt, nach dem Muster
+von #765 und #974.
+
+(8) **Nebenbefund, nicht behoben:** `chrome.search_criteria` in
+`JobsPage.jsx` existiert nicht — die Zeile liest ins Leere und faellt
+auf 0 zurueck. Kein Schaden (die Schwelle wirkt serverseitig), aber ein
+totes Feld.
 
 ## Stand 2026-09-07 (v1.7.38 Stable) — Zwei Wege, der schwaechere zuerst
 
