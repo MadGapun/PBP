@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.34** ist Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.35** ist Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,94 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.35 Stable) — Dein Dashboard
+
+Der Nutzer hat den fertig aufgeraeumten Bildschirm angesehen und die
+naechste Frage gestellt: **warum ist er fuer alle gleich?** Daraus #985.
+Dazu drei Nachzuegler, die lange genug lagen. **Tests: 2844 / 2908
+(Stable / Beta). Schema v48 / v52 unveraendert.**
+
+**#985 — das Dashboard gehoert dem Nutzer.** Bereiche an- und
+abschalten, sortieren, einklappen; Zustand in `profile_settings`, also
+am Profil und nicht im Browser. Voreinstellung "Offen" und
+"Schnellzugriff"; `offen` traegt `fest=True`. `services/
+dashboard_bereiche.py` ist der Katalog, `_zusammenfuehren` haengt neue
+Bereiche ans Ende und laesst entfernte still herausfallen — dasselbe
+Muster wie `prompt_katalog.py` (#979): **der Katalog gibt die
+Voreinstellung, der Mensch weicht ab.** Sortierung ueber Pfeile, bewusst
+kein Drag-and-drop (acht Eintraege, Handy-Bedienbarkeit).
+
+MERKE-Punkte dieser Welle:
+
+(1) **Gebaute Assets sind ein PAAR, und ein 404 darauf ist stumm.**
+Beim Port auf die Stable-Linie uebernahm die `index.html` den
+Stylesheet-Namen von main, der Assets-Ordner behielt die Datei von
+Stable. Der Verweis lief ins Leere — die Seite laedt, React rendert,
+alle Texte stehen da, der Server meldet nichts, und **gestaltet ist gar
+nichts**. Gefunden hat es allein
+`test_dashboard_mobile_layout_has_no_horizontal_overflow`, und zwar
+ueber ein Logo, das ohne CSS in seiner Naturbreite von 1024 px stand.
+Ein Browser-Test mit laufendem Server und Mobil-Viewport fuer eine
+Frage, die man am Dateinamen beantworten kann. Jetzt
+`tests/test_v1735_gebaute_assets.py` (auf BEIDEN Linien): referenzierte
+Dateien existieren, keine verwaisten Reste, genau ein Stylesheet. Die
+Cherry-Pick-Regel aus v1.7.24 MERKE (6) bleibt richtig — neu bauen
+statt auswaehlen —, sie war nur nicht abgesichert.
+
+(2) **Ein `git pull` in einer Pipe kann nicht fehlschlagen.** Der
+Wiki-Commit lief trotz `error: cannot pull with rebase` durch, weil die
+Kette `git pull --rebase 2>&1 | tail -2 && git add -A && git commit`
+lautete: der Exit-Code einer Pipe ist der des LETZTEN Glieds, also von
+`tail`. Genau die Verkettung, vor der die Wiki-Clone-Regel warnt — sie
+sah nur aus, als waere sie eingehalten. Ausgegangen ist es gut (die
+Gegenseite war unveraendert, Fast-Forward), aber der Schutz war
+wirkungslos. **Bei Sicherheitsketten das Kommando nie durch eine Pipe
+fuehren.**
+
+(3) **Ein Cherry-Pick ohne Gegenstueck gehoert uebersprungen — nach
+dem Lesen beider Seiten.** `088e476` korrigierte einen Zeilenumbruch in
+der `ocr_info`-Fassung des Office-Zweigs. Diese Fassung gibt es auf der
+1.7-Linie nicht (kein OCR, Zweier-Tupel, Grund ueber `format_befund`).
+Der Konflikt war also kein Konflikt, sondern die richtige Antwort. Das
+ist die Ausnahme zur v1.7.12-Lehre "NIE `--skip` als Fallback": `--skip`
+als GEPRUEFTE Entscheidung ist etwas anderes als `--skip` in einer
+Aufloesungsschleife.
+
+(4) **#972 — dreimal nachgebessert heisst: weg, nicht haerten.** Die
+Hochschulabschluss-Pruefung hatte drei Anlaeufe (#698 Malus, #918
+Phrasen-Muster, #955 Zielgruppen-Erkennung) und unterschied "Abschluss
+gefordert" von "Studium als Zielgruppe" weiterhin nicht zuverlaessig;
+in der Praxis wertete sie mehr passende Stellen ab als unpassende. Der
+Ablehnungsgrund `kein_hochschulabschluss` BLEIBT — er beschreibt eine
+Entscheidung des Menschen und steht in Altdaten; ihn zu entfernen
+wuerde die Statistik ruecklaufend verfaelschen. **Beim Rueckbau eines
+Mechanismus trennen: die Automatik geht, das Vokabular bleibt.**
+
+(5) **#833 — die Stille war der Befund, nicht das Format.** Alles
+ausserhalb der bekannten Zweige fiel durch den `else`-Zweig mit leerem
+Text und `status: "ok"`; ein Dokument, das nichts liefert, war von
+einem, das nichts enthaelt, nicht zu unterscheiden. Neu
+`services/office_text.py`, bewusst stdlib-only (zipfile + ElementTree)
+— `python-pptx` steht nicht in `pyproject.toml`, und eine
+Abhaengigkeit fuer eine ZIP-Datei mit XML darin ist
+unverhaeltnismaessig. `.ppt`/`.xls` bekommen eine ehrliche Absage.
+
+(6) **#975 — der gefaehrlichste Rueckfall ist der bequeme.** Meine
+erste Fassung suchte die `DEINSTALLIEREN.bat` notfalls im
+Repo-Wurzelverzeichnis. Diese Kopie entfernt
+`%LOCALAPPDATA%\BewerbungsAssistent` — aus einem Entwickler-Checkout
+haette der Knopf also die INSTALLIERTE Version des Nutzers abgeraeumt,
+waehrend die Karte etwas anderes anzeigt. Ein Test hat es gefangen. Der
+Rueckfall ist ersatzlos weg: **"nicht gefunden" melden ist besser als
+das Falsche treffen.**
+
+(7) **README-Drift auf main, zum zweiten Mal.** Der README-Kopf auf
+main stand auf v1.7.30, also fuenf Releases zurueck — dasselbe Bild
+wie am 2026-08-19, das damals das README-Gate ausgeloest hat. Das Gate
+greift: auf der Stable-Linie ist es ein Fehler, auf main nur eine
+Warnung, und Warnungen driften. **Die sichtbare Seite des Projekts ist
+main, nicht die Release-Linie.**
 
 ## Stand 2026-09-07 (v1.7.31 Stable) — Eine Information, ein Ort
 
