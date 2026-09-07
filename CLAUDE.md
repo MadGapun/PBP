@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.39** ist Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.40** ist Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,66 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-07 (v1.7.40 Stable) — Der Weg zur Kennung
+
+**#994, gemeldet von demselben fremden Anwender wie #990.** Nach dem
+Onboarding legt Claude die Stationen aus dem Lebenslauf korrekt an —
+danach liessen sie sich im Gespraech nicht mehr verfeinern; Claude
+meldete, das Werkzeug zum Bearbeiten stehe nicht zur Verfuegung.
+**Tests: 2971 / 3037.** MCP-Tools 209 / 222 (+`positionen_anzeigen`).
+
+MERKE-Punkte:
+
+(1) **Ein halber Weg sieht von aussen aus wie ein fehlendes Werkzeug.**
+`profil_bearbeiten(bereich='position', aktion='aendern')` gab es seit
+langem, `update_position`/`update_education` liegen laenger in der
+DB-Schicht. Was fehlte, war die `element_id` — kein Lesewerkzeug gab sie
+heraus. Und der Weg dorthin war schon gebaut: H16/#741 hat ihn fuer
+PROJEKTE angelegt (`projekte_anzeigen` liefert `position_id`) und fuer
+die beiden Ebenen darueber nie nachgezogen. Ausgerechnet fuer Positionen
+ohne Projekte — also den Normalfall nach einem CV-Import — half er
+deshalb nicht. **Wenn ein Muster fuer einen von drei Datentypen gebaut
+wird, gehoert im selben Zug geprueft, warum die anderen zwei ihn nicht
+brauchen.**
+
+(2) **Der teurere Teil war der zweite, und er stand im Kommentar des
+Melders.** Die Lesewerkzeuge sprechen Deutsch (`aufgaben`, `erfolge`,
+`technologien`), die Schreibschicht nimmt die Spaltennamen — und
+`update_position` filtert alles andere STILL heraus, waehrend
+`profil_bearbeiten` `"aktualisiert"` mit `geaenderte_felder:
+['aufgaben']` meldet. Gemessen am 07.09.: Antwort erfolgreich, Bestand
+unveraendert. **Eine Erfolgsmeldung ueber eine Nicht-Aenderung beendet
+die Fehlersuche** — sie ist teurer als ein Fehler. Verwandt mit #980
+(Fallback speicherte eine andere Bedeutung), nur ohne falschen
+Datensatz. Jetzt `_felder_uebersetzen` + `_feld_rueckmeldung` in
+`tools/profil.py`: deutsche Namen werden abgebildet (position,
+ausbildung, projekt — aendern UND hinzufuegen), `geaenderte_felder`
+nennt die geschriebenen Spalten, der Rest kommt als `ignorierte_felder`
+samt `moegliche_felder` zurueck.
+
+(3) **Der Melder hat den Befund zweimal geliefert.** Erst die Ursache
+("laut Claude fehlen die Positions-IDs"), dann im Kommentar die zweite
+("sieht so aus, als uebermittelt der MCP die Ids und/oder die Feld Namen
+nicht alle korrekt"). Beides stimmte. Sein Workaround — Profil
+exportieren und das JSON in den Chat — funktionierte, weil er damit
+zufaellig die englischen Feldnamen bekam. **Wenn ein Workaround
+funktioniert, sagt er einem, was am regulaeren Weg fehlt.**
+
+(4) **Ein Guard gegen den Rueckfall, in die richtige Richtung gedreht:**
+`test_994_jeder_ausgabename_ist_ein_gueltiger_eingabename` schickt die
+Feldnamen, die `positionen_anzeigen` AUSGIBT, durch die
+Uebersetzungsschicht der SCHREIBSEITE. Ein kuenftiges neues Feld in der
+Auskunft faellt damit auf, bevor jemand vergeblich versucht, es
+zurueckzuschreiben. Das ist die Antwort auf (1) auf Testebene: nicht der
+Kommentar haelt die beiden Seiten zusammen, sondern ein Aufruf.
+
+(5) **Kein neues Werkzeug fuer den Rest.** `positionen_anzeigen` benennt
+zusaetzlich die leeren Felder je Position (`luecken`), weil ein CV
+Aufgaben, Erfolge und Technologien fast nie vollstaendig nennt und genau
+das die Arbeit ist, die der Melder machen wollte. Ein Befund, den nur
+der Mensch selbst zusammensuchen muss, ist der halbe Befund — dasselbe
+Argument wie #989 MERKE (1).
 
 ## Stand 2026-09-07 (v1.7.39 Stable) — Was nichts kostet, stand oben
 
