@@ -33,6 +33,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.49] - 2026-09-08 — Der Gap war die Skala
+
+Gemeldet von außen: eine Stelle, die **alle** Pflichtbegriffe trifft,
+remote ist, drei Kilometer entfernt liegt und über der
+Gehaltsvorstellung zahlt, bekam die Auskunft
+
+> „Score 15,0/100 — fachlicher Gap zu groß."
+
+Den Gap gab es nicht. Der Gap war die Skala.
+
+### Fixed
+
+- **Der Score ist keine Prozentzahl — die Einordnung tat aber so.** Er
+  ist eine Punktsumme, und ihre **Obergrenze folgt aus deinen eigenen
+  Suchkriterien**, vor allem aus der Länge deiner MUSS-Liste. Nachgemessen
+  mit Anzeigen, die jeden Pflichtbegriff enthalten:
+
+  | Pflichtbegriffe | erreichter Score |
+  |---|---|
+  | 5 | 15 |
+  | 10 | 26 |
+  | 20 | 46 |
+  | 40 | 86 |
+
+  Feste Schwellen von 75 und 50 dagegenzuhalten hieß: **„Empfohlen"
+  begann bei rund 37 gleichzeitig getroffenen Pflichtbegriffen.** Wer
+  fünf bis zehn pflegt — der Normalfall — konnte die Kategorie
+  strukturell nie erreichen, und jede Stelle bekam denselben Satz.
+
+- **Der erreichbare Höchstwert wird jetzt mitberechnet**, und zwar auf
+  demselben Weg wie der Score selbst. Eine Anzeige, die alles trifft,
+  erreicht damit **bei jeder Listenlänge genau 100 %** — unabhängig
+  davon, ob du drei oder vierzig Pflichtbegriffe pflegst.
+
+- **Kein Text behauptet mehr eine Skala, die es nicht gibt.** Statt
+  „Score 15/100" steht dort jetzt „Score 15 von erreichbaren 15 (100 %)".
+
+### Changed
+
+- **Neue Kategorie „nicht beurteilbar".** Lässt sich der Höchstwert
+  nicht bestimmen — etwa weil noch gar keine Suchkriterien gepflegt
+  sind —, sagt PBP das, statt eine Einordnung zu erfinden. „Unbekannt"
+  ist etwas anderes als „passt nicht".
+
+### Hinweis
+
+**An den Punktzahlen selbst ändert sich nichts.** Der Score misst, was in
+der Anzeige steht; das bleibt eine Messung. Geändert hat sich nur, wie
+diese Zahl eingeordnet und benannt wird — gespeicherte Werte still
+umzuschreiben wäre genau der Fehler, den frühere Versionen teuer bezahlt
+haben.
+
+Wenn dir bisher jede Stelle als „Gap zu groß" angezeigt wurde, obwohl sie
+gut passte: das war dieser Fehler.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.49.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.49.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.48] - 2026-09-08 — Zwei Regler ohne Draht
 
 Das **tausendste Issue** des Projekts, und es beschreibt einen Klassiker:
