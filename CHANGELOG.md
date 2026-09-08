@@ -33,6 +33,94 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.52] - 2026-09-08 — Nicht jeder Kilometer kostet gleich viel
+
+Vom Nutzer eingebracht: der Wohnort liegt am Nordufer eines Flusses.
+Nach Süden gibt es genau drei Wege — einen Tunnel, Brücken durch die
+Stadt oder die Fähre. Alle drei sind entweder staugefährdet oder
+taktgebunden. Nach Norden gibt es diese Barriere nicht.
+
+**Zwei Stellen mit derselben Kilometerzahl sind damit nicht gleich
+weit.** Und der Unterschied ist kein Aufschlag, den man mitteln könnte,
+sondern eine Streuung, die den Arbeitsweg unplanbar macht.
+
+### Added
+
+- **Reisewiderstand: Barrieren, die den Weg teurer machen.** Du legst
+  fest, in welcher Richtung eine Barriere liegt und was sie kostet —
+  etwa „alles südlich von hier: plus 60 Kilometer, Flussquerung". Für
+  Ziele in dieser Richtung rechnet PBP dann mit dem Aufschlag.
+
+  Sag es Claude einfach so: *„Alles südlich der Elbe kostet mich 60
+  Kilometer extra."*
+
+- **Die Regel ist sichtbar.** In der Scoring-Vorschau steht sie als
+  eigene Zeile, mit Namen, Richtung und Aufschlag. Du siehst die
+  Annahme, statt sie zu erraten — und kannst sie ändern.
+
+### Changed
+
+- **Der Aufschlag wirkt auf den Preis, nicht auf die Messung.** Die
+  ausgewiesene Entfernung bleibt, was sie ist. Verändert wird nur, wie
+  teuer diese Kilometer in der Bewertung sind. Eine Zahl, die etwas
+  anderes bedeutet als sie sagt, hat PBP schon genug gekostet.
+
+- **Ohne konfigurierte Barriere ändert sich nichts.** Die Vorgabe ist
+  „keine" — wer nichts einstellt, bekommt exakt das bisherige Verhalten.
+
+### Hinweis
+
+Das Muster ist nicht auf einen Fluss beschränkt: Meerengen,
+Gebirgskämme, Inseln und Grenzen erzeugen dasselbe. PBP kennt deshalb
+keine bestimmte Geografie, sondern nur Richtungen — die Regel gilt für
+Köln, Rostock und Konstanz genauso.
+
+Ein bewusst nicht gewählter Weg wäre eine echte Routenberechnung über
+einen externen Dienst gewesen. Sie löst das Problem am Ursprung, braucht
+aber eine Abfrage je Stelle — und trifft ausgerechnet die Streuung
+nicht, sondern nur den Mittelwert.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.52.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.52.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.51] - 2026-09-08 — „Nichts gefunden" hat zwei Bedeutungen
 
 Eine Jobbörse, die tot ist, und eine, die einwandfrei arbeitet und für
