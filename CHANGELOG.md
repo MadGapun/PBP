@@ -33,6 +33,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.44] - 2026-09-08 — Eine abgeschaltete Quelle lebte
+
+Eine Bestandsaufnahme der Job-Quellen, kein Fehlerbericht. Sieben Quellen
+standen seit dem 1. September automatisch abgeschaltet, jeweils mit der
+Begründung „fünf stille Läufe in Serie".
+
+**Eine davon lieferte in Wahrheit 20 Stellen.** Der Abruf klappte, das
+Auslesen nicht: die Quelle hatte ein Feld umgebaut, PBP stolperte über
+den **ersten** Datensatz und gab daraufhin eine leere Liste zurück — für
+alle zwanzig. Von außen sah das aus, als gäbe der Markt nichts her. Nach
+fünf solchen Läufen schaltete die Automatik die Quelle ab.
+
+Das ist die unangenehmste Sorte Fehler, weil sie sich selbst bestätigt:
+Der Fehler erzeugt Leere, die Leere erzeugt die Abschaltung, und die
+Abschaltung sorgt dafür, dass der Fehler nie wieder auffällt.
+
+### Fixed
+
+- **Ein unlesbarer Datensatz kostet jetzt einen Datensatz, nicht die
+  ganze Quelle.** Kippen mehr als die Hälfte, meldet PBP einen
+  Feldumbau — statt still null Stellen zu liefern. Dieselbe Bauform
+  steckte in zehn Anbindungen, zwei davon liefern täglich; drei sind
+  umgestellt, gemessen: 0 → 20, 100 und 17 Stellen.
+
+- **Abgeschaltete Quellen kommen wieder zurück.** Beim Abschalten wurde
+  seit jeher ein Termin für einen erneuten Versuch gesetzt (nach 24
+  Stunden, dann 48, 72, 168) — **gelesen hat ihn nie jemand.** Eine
+  abgeschaltete Quelle lief nie wieder, ihr Zustand wurde nie widerlegt.
+  Jetzt läuft sie zum fälligen Termin als Probe mit: liefert sie, ist sie
+  wieder dabei; bleibt sie still, rückt der Termin eine Stufe weiter.
+
+- **Kein Fehler mehr neben gesunden Quellen.** Die Fehlermeldung des
+  letzten Ausfalls blieb für immer stehen. Die Bundesagentur zeigte mit
+  91 % Erfolgsquote und 5.122 Treffern weiterhin „server_weg". Ein
+  erfolgreicher Lauf löscht sie jetzt.
+
+- **„Nicht prüfbar" ist nicht „nicht erreichbar".** Fünf der sieben
+  Quellen haben gar keinen Erreichbarkeits-Test — sie wurden trotzdem als
+  nicht erreichbar gezählt. „5 von 7 nicht erreichbar" hieß in Wahrheit
+  „über 5 wissen wir nichts".
+
+- **PBP empfahl ein Werkzeug, das es hier nicht gibt.** An sieben Stellen
+  stand als Ausweg für tote Quellen ein Befehl, den nur die Beta-Linie
+  kennt. Ersetzt durch den Weg, den diese Version wirklich hat.
+
+### Changed
+
+- **Remote-Stellen nennen ihre Ortsbindung.** Die Abfrage „Deutschland"
+  wird von einer der Remote-Börsen nicht beachtet; zurück kamen Rollen,
+  die auf die USA beschränkt sind. Bisher stand bei allen schlicht
+  „Remote" — was aussah wie eine Stelle, auf die man sich von hier aus
+  bewerben kann.
+
+### Bekannte Grenze
+
+Bei einigen Quellen ist die als „Rohtreffer" ausgewiesene Zahl schon
+gefiltert. Dadurch sehen „liefert nichts" und „liefert nichts Passendes"
+gleich aus — ein internationales Remote-Board ohne passende Stellen wird
+behandelt wie eine kaputte Anbindung. Das ist erfasst und wird getrennt
+angegangen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.44.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.44.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.43] - 2026-09-07 — Im echten Browser nachgemessen
 
 Der LinkedIn-Weg aus v1.7.42 wurde direkt nach dem Release einmal
