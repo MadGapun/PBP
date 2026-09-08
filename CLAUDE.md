@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.46** ist Stable (`--latest`, 2026-09-08; `profil_bearbeiten` meldete Erfolg fuer IDs, die es nicht gibt — der Rueckgabewert der DB-Ebene wurde an sieben Stellen verworfen (#997). Details im Stand-Block unten). Davor **v1.7.45** war Stable (`--latest`, 2026-09-08; "remote" schaltete die Ortspruefung ab — US-Stellen im DACH-Bestand (#996). Details im Stand-Block unten). Davor **v1.7.44** war Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.47** ist Stable (`--latest`, 2026-09-08; der DOCX-Import las keine Tabellen — ein Lebenslauf im Tabellenlayout ergab 26 Zeichen (#998). Details im Stand-Block unten). Davor **v1.7.46** war Stable (`--latest`, 2026-09-08; `profil_bearbeiten` meldete Erfolg fuer IDs, die es nicht gibt — der Rueckgabewert der DB-Ebene wurde an sieben Stellen verworfen (#997). Details im Stand-Block unten). Davor **v1.7.45** war Stable (`--latest`, 2026-09-08; "remote" schaltete die Ortspruefung ab — US-Stellen im DACH-Bestand (#996). Details im Stand-Block unten). Davor **v1.7.44** war Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,78 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-08 (v1.7.47 Stable) — Der halbe Lebenslauf
+
+**#998**, aus derselben Vierer-Welle wie #997 und **#1000**. Ein
+DOCX-Lebenslauf ergab 26 Zeichen Text — alles lag in einer Tabelle.
+**Tests: 3108 / 3174.** MCP-Tools 213 / 226.
+
+MERKE-Punkte:
+
+(1) **`doc.paragraphs` sind NUR Absaetze auf Body-Ebene.** Zelltext,
+Kopf-/Fusszeilen und Textfelder kommen dort nicht vor. Der Melder hat
+die Zeile mitgeliefert; gemessen an einer Vorlage: **13 gegen 205
+Zeichen**, die Mailadresse stand in der Kopfzeile. **Zweispaltiges
+Tabellenlayout ist bei Lebenslaeufen die Regel, nicht die Ausnahme** —
+das Format war also nicht am Rand, sondern im Zentrum des Anwendungsfalls.
+
+(2) **Der naheliegende Fix aus dem Issue haette den Text verdreifacht.**
+`row.cells` liefert eine ueber drei Spalten verbundene Zelle DREIMAL
+(gemessen, Test haelt die Annahme fest). In CV-Vorlagen sind
+Abschnittsueberschriften fast immer verbunden, und dieser Text geht ins
+Scoring. Im rohen OOXML gibt es die Zelle genau einmal — das Problem
+entsteht erst durch die Bequemlichkeitsschicht. Deshalb liest `_docx` in
+`services/office_text.py` stdlib statt python-docx; Dokumentreihenfolge
+und Textfelder kommen dabei kostenlos mit. **Vorschlaege aus Issues
+gehoeren geprueft, nicht uebernommen** (v1.7.24 MERKE 1, dritter Fall).
+
+(3) **Ein Sonderweg im `elif` haelt eine ganze Maschinerie fern.**
+`.docx` hatte seinen eigenen Zweig und erreichte die #833-Logik nie —
+es gab fuer Word also nicht einmal die ehrliche "leer"-Meldung. Der
+Melder schrieb, `format_befund` melde `{"format": "leer"}`; tatsaechlich
+meldete es GAR NICHTS. **Wenn ein Bericht die Folge etwas zu guenstig
+beschreibt, ist der wirkliche Zustand oft schlechter** — nachsehen statt
+uebernehmen. Jetzt geht DOCX durch denselben Dienst wie PPTX/XLSX/ODT.
+
+(4) **Ein besserer Leser hilft nur neuen Uploads.** Der Bestand behaelt
+den duennen Text und sieht unauffaellig aus — dasselbe galt seit #833
+fuer PPTX, ohne dass es jemandem aufgefallen waere. Es gab keinen Weg
+zurueck: `extraktion_starten` liest `extracted_text` aus der DB und
+fasst die Datei nie wieder an. Neu `dokumente_text_nachziehen`
+(Vorschau als Vorgabe, **ueberschreibt nur bei MEHR Text**,
+Handnachtrag mit Provenienz-Header bleibt unangetastet). **Eine
+Verbesserung ohne Nachziehpfad ist eine halbe Verbesserung.**
+
+(5) **Cherry-Pick: der Konflikt riss 280 Zeilen mit.** Die Aufloesung
+holte drei BETA-Werkzeuge (`newsletter_*`, `dokument_ocr_ausfuehren`)
+auf die Stable-Linie und dazu main's Namensliste im Registry-Test.
+Gefunden hat es der Registry-Guard. Die Regel aus v1.7.46 MERKE (8) hat
+gegriffen, aber erst hinterher: **bei einem Konflikt, der groesser ist
+als die eigene Aenderung, die Datei zuruecksetzen und den eigenen Block
+mit dem Edit-Werkzeug neu setzen** — Marker zu entfernen ist keine
+Aufloesung.
+
+(6) **Die Linien-Signatur unterscheidet sich, und das faellt nicht
+auf.** `_extract_document_text` gibt auf Stable ein ZWEIER-Tupel zurueck
+(kein OCR), auf main ein Dreier. Der portierte Code entpackte drei
+Werte. Kein Konflikt, kein Syntaxfehler — nur ein Laufzeitfehler beim
+ersten Aufruf. Beim Port also nicht nur den Code, sondern die
+SIGNATUREN der aufgerufenen Funktionen abgleichen.
+
+(7) **Denselben Fehler zweimal gemacht, obwohl er notiert war.** Der
+CHANGELOG-Eintrag landete wieder unter dem Vorgaenger, weil ich das
+Skript aus v1.7.46 in derselben Form wiederverwendet habe — der Anker
+muss der KOPF des bisher juengsten Eintrags sein, nicht sein
+Installblock. Eine notierte Lehre schuetzt nicht, wenn man die Vorlage
+kopiert, in der der Fehler steckt.
+
+(8) **Ein Test darf keine Bibliothek importieren, die nicht in den
+Abhaengigkeiten steht.** Mein erster Bestands-Test baute die Fixture mit
+`python-pptx` — lokal installiert, aber in keiner Dependency-Gruppe
+(#833). Auf dem CI-Runner waere er rot geworden oder, nach einem
+`importorskip`, still uebersprungen. Die Fixture entsteht jetzt mit
+`zipfile`. Das ist DoD 8c (b) in einer neuen Gestalt.
 
 ## Stand 2026-09-08 (v1.7.46 Stable) — Eine Erfolgsmeldung ueber nichts
 
