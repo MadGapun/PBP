@@ -16,6 +16,7 @@ import re
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .satzweise import zuordnen
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.remotive")
@@ -79,6 +80,7 @@ def search_remotive(params: dict) -> list[dict]:
 
     primary_kw = keywords[0] if keywords else None
     found: list[dict] = []
+    befund_gesamt: dict = {}
     try:
         # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
         with make_session(content_type="json", timeout=_TIMEOUT) as client:
@@ -89,10 +91,10 @@ def search_remotive(params: dict) -> list[dict]:
                 return []
             data = r.json()
             items = data.get("jobs") or []
-            for raw in items:
-                j = _map(raw)
-                if not j:
-                    continue
+            # #813: satzweise zuordnen — siehe himalayas.
+            gemappt, befund = zuordnen(items, _map, "remotive")
+            befund_gesamt.update(befund)
+            for j in gemappt:
                 if not _matches(
                     j["title"], j["location"], j["description"], keywords
                 ):
@@ -101,5 +103,12 @@ def search_remotive(params: dict) -> list[dict]:
     except Exception as exc:
         logger.warning("Remotive Verbindungsfehler: %s", exc)
 
-    logger.info("Remotive: %d Stellen gefunden", len(found))
+    if befund_gesamt.get("verdacht") == "feldumbau":
+        logger.warning(
+            "Remotive: %d Stellen gefunden, aber %d von %d Datensaetzen "
+            "waren nicht lesbar — Feldumbau, kein leerer Markt (%s)",
+            len(found), befund_gesamt.get("fehlerhaft"),
+            befund_gesamt.get("gesamt"), befund_gesamt.get("erster_fehler"))
+    else:
+        logger.info("Remotive: %d Stellen gefunden", len(found))
     return found

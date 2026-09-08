@@ -5722,11 +5722,21 @@ class Database:
                 # v1.7.0-beta.33 (#590-C.1): bei OK Probe-Run-Plan
                 # zuruecksetzen + Scraper reaktivieren falls er wegen
                 # Auto-Deaktivierung im "Probing"-Modus war.
+                # #813 (08.09.2026): `last_error` wird jetzt MIT
+                # geloescht. Vorher blieb der letzte Fehler fuer immer
+                # stehen — gemessen am selben Tag trug die Bundesagentur
+                # mit 91 % Erfolgsrate, Fehlerserie 0 und 5122 Treffern
+                # weiterhin "server_weg", remoteok und remotive
+                # "timeout", linkedin "deprecated". Wer die Diagnose las,
+                # sah neben JEDER laufenden Quelle einen Fehler stehen,
+                # den es nicht mehr gab. Eine Anzeige, die Fehler
+                # behauptet, wo keine sind, wird genauso ignoriert wie
+                # eine, die keine meldet (DoD-9-Lehre).
                 conn.execute(f"""
                     UPDATE scraper_health SET last_run=?, last_success=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=0,
+                        consecutive_silent=0, last_error=NULL,
                         reactivate_at=NULL, reactivate_attempt=0,
                         retry_after=NULL,
                         deaktiviert_am=NULL, deaktiviert_grund=NULL,
@@ -5743,6 +5753,23 @@ class Database:
                         consecutive_silent=?{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, total_runs, total_successes, avg_time,
                       count, status_detail, consec_silent, *_extra_vals, name))
+                # #813: Ein Probelauf einer bereits abgeschalteten Quelle
+                # bleibt still — dann muss `reactivate_at` WEITER nach
+                # vorn, sonst probt jeder Lauf ab jetzt dieselbe tote
+                # Quelle. Das ist die Backoff-Leiter aus #590-C.1, die
+                # bis v1.7.43 nur als Datenfeld existierte.
+                if not existing["is_active"] and existing["reactivate_at"]:
+                    from datetime import datetime as _dt, timedelta as _td
+                    _stufe = int(existing["reactivate_attempt"] or 1)
+                    _stunden = (24, 48, 72, 168)[min(_stufe, 3)]
+                    conn.execute(
+                        "UPDATE scraper_health SET reactivate_at=?, "
+                        "reactivate_attempt=? WHERE scraper_name=?",
+                        ((_dt.now() + _td(hours=_stunden)).isoformat(),
+                         _stufe + 1, name))
+                    logger.info(
+                        "Scraper %s: Probelauf blieb still, naechste Probe "
+                        "in %d h (Versuch %d)", name, _stunden, _stufe + 1)
                 if consec_silent >= self.SILENT_AUTO_DEACTIVATE_THRESHOLD \
                         and existing["is_active"]:
                     # v1.7.0-beta.33 (#590-C.1): Auto-Reactivate-Mechanik —

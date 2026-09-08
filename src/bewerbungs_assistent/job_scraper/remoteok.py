@@ -14,6 +14,7 @@ import logging
 import re
 
 from . import make_session, stelle_hash
+from .satzweise import text_aus, zuordnen
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.remoteok")
@@ -69,6 +70,7 @@ def search_remoteok(params: dict) -> list[dict]:
         keywords = kw_data or []
 
     found: list[dict] = []
+    befund_gesamt: dict = {}
     try:
         # v1.7.0-beta.50 (#624): zentraler make_session-Helper
         with make_session(content_type="json", timeout=_TIMEOUT) as client:
@@ -82,16 +84,30 @@ def search_remoteok(params: dict) -> list[dict]:
                 return []
             # Erstes Element ist Metadaten
             items = data[1:] if isinstance(data, list) and len(data) > 0 else []
-            for raw in items:
-                j = _map(raw)
-                if not j:
-                    continue
-                tags_str = " ".join(raw.get("tags") or [])
+            # #813: satzweise zuordnen. Ein umgebautes Feld in EINEM
+            # Datensatz hat bei himalayas die ganze Quelle genullt und
+            # nach fuenf stillen Laeufen ihre Abschaltung ausgeloest.
+            def _mit_tags(roh):
+                stelle = _map(roh)
+                if stelle is None:
+                    return None
+                return stelle, text_aus(roh.get("tags"))
+
+            paare, befund = zuordnen(items, _mit_tags, "remoteok")
+            befund_gesamt.update(befund)
+            for j, tags_str in paare:
                 if not _matches(j["title"], tags_str, j["description"], keywords):
                     continue
                 found.append(j)
     except Exception as exc:
         logger.warning("RemoteOK Verbindungsfehler: %s", exc)
 
-    logger.info("RemoteOK: %d Stellen gefunden", len(found))
+    if befund_gesamt.get("verdacht") == "feldumbau":
+        logger.warning(
+            "RemoteOK: %d Stellen gefunden, aber %d von %d Datensaetzen "
+            "waren nicht lesbar — Feldumbau, kein leerer Markt (%s)",
+            len(found), befund_gesamt.get("fehlerhaft"),
+            befund_gesamt.get("gesamt"), befund_gesamt.get("erster_fehler"))
+    else:
+        logger.info("RemoteOK: %d Stellen gefunden", len(found))
     return found
