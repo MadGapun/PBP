@@ -12,7 +12,7 @@ Anwender unter dessen IP laeuft, wird hier nicht mehr gescrapt: kein
 Reparieren, sondern einstellen.
 
 Der Weg zur Quelle bleibt der HANDOFF (#735/B25): PBP oeffnet die
-Suchseite im Browser des Nutzers (`quelle_handoff('kimeta')`), der
+Suchseite im Browser des Nutzers (https://www.kimeta.de/jobs), der
 Nutzer uebernimmt, was ihn interessiert — das ist kein automatisierter
 Abruf. Das Template liegt in handoff.py.
 
@@ -57,12 +57,13 @@ def search_kimeta(params: dict) -> list:
     Liefert bewusst eine leere Liste mit Log-Hinweis statt einer
     Exception: eine aktivierte Quelle darf einen Suchlauf nicht kippen.
     Der Health-Check sieht den Zustand ueber das deprecated-Flag im
-    Quellen-Katalog; der Weg zur Quelle ist quelle_handoff('kimeta').
+    Quellen-Katalog; der Weg zur Quelle ist die Suchseite im Browser.
     """
     logger.info(
         "Kimeta wird nicht gescrapt (robots.txt: 'User-agent: *' -> "
         "'Disallow: /', geprueft 11.08.2026). Nutze "
-        "quelle_handoff('kimeta') fuer den Browser-Weg. (#810)")
+        "https://www.kimeta.de/jobs im Browser oeffnen und Treffer mit "
+        "stelle_manuell_anlegen() uebernehmen. (#810)")
     return []
 
 

@@ -659,7 +659,7 @@ def register(mcp, db, logger):
                             f"Quelle ({', '.join(sorted(_noetig))} alle "
                             "inaktiv/defekt). Die zugehoerigen Kriterien "
                             "werden nicht ausgewertet. Alternativen: "
-                            "quelle_handoff() fuer die Browser-Recherche "
+                            "die Quellen-Seite im Browser oeffnen "
                             "oder scraper_diagnose(aktion='reaktivieren')."
                         ),
                     })

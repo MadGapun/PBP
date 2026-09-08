@@ -175,7 +175,7 @@ SOURCE_REGISTRY = {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
         "defekt_grund": "Projektsuche liefert nur eine SPA-Huelle (25 KB ohne Inhalt), die JSON-API antwortet mit HTTP 403 (18.08.2026). Seit Bestehen kein einziger erfolgreicher Lauf.",
-        "manueller_fallback": "quelle_handoff('freelance_de') — Projektsuche im Browser oeffnen; Alternative mit denselben Projekttypen: die zweite Projektboerse laeuft seit v1.7.19 wieder",
+        "manueller_fallback": "Projektsuche im Browser oeffnen und Treffer mit stelle_manuell_anlegen() uebernehmen; Alternative mit denselben Projekttypen: die zweite Projektboerse laeuft seit v1.7.19 wieder",
         "name": "freelance.de",
         "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
         "methode": "HTML Scraping",
@@ -221,7 +221,7 @@ SOURCE_REGISTRY = {
         "defekt": True,
         "defekt_grund": "SPA ohne erreichbare JSON-API (Suche 200/leer, API 404 — 11.08.2026)",
         "handoff_verfuegbar": True,
-        "manueller_fallback": "quelle_handoff('gulp') — oeffnet die Projektsuche im Browser",
+        "manueller_fallback": "Projektsuche im Browser oeffnen und Treffer mit stelle_manuell_anlegen() uebernehmen",
     },
     "solcom": {
         "name": "SOLCOM",
@@ -291,12 +291,12 @@ SOURCE_REGISTRY = {
         # v1.7.12 (#810/B32): SCRAPING EINGESTELLT — robots.txt untersagt
         # es fuer alle Bots ausser namentlich gelisteten Suchmaschinen
         # ('User-agent: *' -> 'Disallow: /', geprueft 11.08.2026). Kein
-        # Defekt, keine Reparatur: die Quelle bleibt ueber den Handoff
-        # nutzbar (quelle_handoff oeffnet die Suche im Browser).
+        # Defekt, keine Reparatur: die Quelle bleibt ueber den Browser
+        # nutzbar (Suchseite oeffnen, Treffer manuell uebernehmen).
         "deprecated": True,
         "deprecated_grund": "robots.txt untersagt automatisierten Abruf — Handoff statt Scraping",
         "handoff_verfuegbar": True,
-        "manueller_fallback": "quelle_handoff('kimeta') — oeffnet https://www.kimeta.de/jobs im Browser",
+        "manueller_fallback": "https://www.kimeta.de/jobs im Browser oeffnen und Treffer mit stelle_manuell_anlegen() uebernehmen",
     },
     # ── JobSpy-basierte Quellen (#490, schnell, API-Scrapes via python-jobspy) ──
     "jobspy_linkedin": {
