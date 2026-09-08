@@ -33,6 +33,91 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.50] - 2026-09-08 — Zahlen, die etwas anderes bedeuten
+
+Zwei Befunde aus der Durchsicht offener Meldungen. Beide sind vom selben
+Typ wie die Welle davor: **eine Angabe, die aussieht, als bedeute sie
+etwas — und etwas anderes bedeutet.**
+
+### Fixed
+
+- **Der Filter „Mindest-Score" startete immer bei 0.** Der Stellen-Tab
+  sollte ihn seit langem mit deiner gespeicherten Schwelle vorbelegen,
+  damit Einträge darunter ausgeblendet werden, ohne sie zu löschen.
+  Er las dafür ein Feld, **das es nie gab** — und weil der Zugriff
+  „optional" geschrieben war, wurde daraus lautlos eine 0 statt einer
+  Fehlermeldung.
+
+  Kein Datenschaden: die Schwelle wirkt weiterhin bei der Suche selbst.
+  Betroffen war allein die Vorbelegung des Filters.
+
+- **Die Entfernung ist Luftlinie und sagt es jetzt auch.** Gemeldet
+  anhand einer Stelle in Nordhessen: PBP wies **271,5 km** aus, die
+  Fahrstrecke beträgt rund **390 km** — vier Stunden je Richtung. Ein
+  Feld, das „Entfernung in km" heißt, wird als Wegstrecke gelesen.
+
+  Jede Ausgabe nennt jetzt ihre Art, und ab 25 km steht zusätzlich eine
+  **als Schätzung gekennzeichnete** Fahrstrecke daneben („271,5 km
+  Luftlinie, ~380 km Fahrstrecke, geschätzt"). Im Nahbereich bleibt sie
+  weg — dort wäre sie Scheingenauigkeit.
+
+  Das ist wichtiger geworden, als es klingt: seit die Entfernung gegen
+  das Gehalt verrechnet wird, ist sie keine reine Anzeige mehr, sondern
+  eine Rechengröße. Ein systematisch zu niedriger Wert fällt zugunsten
+  weit entfernter Stellen aus.
+
+### Hinweis
+
+**An der Bewertung ändert sich nichts.** Entfernung bleibt ein Preis und
+kein Ausschluss: eine weit entfernte Stelle rutscht nach unten, statt zu
+verschwinden. Es geht allein darum, dass die Zahl bedeutet, was sie
+vorgibt.
+
+Eine **echte Fahrstrecke samt Fahrzeit** — für die Frage „ist das
+pendelbar?" die eigentlich entscheidende Größe — braucht einen
+Routing-Dienst mit Zugangsschlüssel und bleibt offen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.50.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.50.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.49] - 2026-09-08 — Der Gap war die Skala
 
 Gemeldet von außen: eine Stelle, die **alle** Pflichtbegriffe trifft,
