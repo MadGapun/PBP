@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.43** ist Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.44** ist Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,64 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-08 (v1.7.44 Stable) — Eine abgeschaltete Quelle lebte
+
+Eine Bestandsaufnahme, kein Fehlerbericht: sieben Quellen standen seit
+dem 01.09. automatisch abgeschaltet ("5 stille Laeufe in Serie").
+**Eine davon lieferte in Wahrheit 20 Stellen.**
+**Tests: 3052 / 3118.**
+
+MERKE-Punkte:
+
+(1) **Die teuerste Bauform einer stillen Null ist die, die sich selbst
+bestaetigt.** `himalayas` antwortet mit HTTP 200 und 20 Stellen; der
+Adapter starb an der ERSTEN davon (`seniority` kommt seit einem
+Feldumbau als Liste statt als String), und weil die Zuordnungsschleife
+in einem grossen `try` lag, kam eine leere Liste zurueck. Der Fehler
+erzeugt Leere, die Leere erzeugt die Abschaltung, die Abschaltung
+verhindert, dass der Fehler je wieder auffaellt. Neu
+`job_scraper/satzweise.py`: ein kaputter Satz kostet einen Satz.
+Gezaehlt: **zehn Adapter** tragen dieselbe Bauform, zwei davon
+(`remoteok`, `remotive`) liefern produktiv.
+
+(2) **Ein Datenfeld ist kein Mechanismus.** #590-C.1 setzt beim
+Abschalten ein `reactivate_at` (24 h, dann 48/72/168) — **gelesen hat es
+kein einziger Aufrufer.** Der Backoff stand seit Monaten in CLAUDE.md
+als funktionierendes Feature; tatsaechlich lief keine abgeschaltete
+Quelle je wieder, und `letzte_probe_am` stand bei allen sieben auf
+`null`. Das ist DoD 8c fuer einen Mechanismus statt fuer einen Guard:
+**geschrieben ist nicht aufgerufen.** Die Auswahl liegt jetzt in
+`quellen_einteilen(db)` — bewusst herausgezogen, weil sie als
+Inline-Block in einer mehrhundertzeiligen Funktion von aussen nicht
+pruefbar war, und genau deshalb der fehlende Zweig nie auffiel.
+
+(3) **Ein alter Fehler, der stehen bleibt, ist eine Falschaussage.**
+`last_error` wurde bei Erfolg nie geloescht: die Bundesagentur trug mit
+91 % Erfolgsrate, Fehlerserie 0 und 5122 Treffern weiterhin
+"server_weg", remoteok und remotive "timeout", linkedin "deprecated".
+Wer die Diagnose las, sah neben JEDER laufenden Quelle einen Fehler.
+
+(4) **"Nicht pruefbar" ist nicht "nicht erreichbar".** Fuenf der sieben
+Quellen haben gar keinen Probe (`no_probe_defined`) und wurden trotzdem
+als unerreichbar gezaehlt. Dieselbe Verwechslung wie #989: eine
+fehlende Information sah aus wie eine negative.
+
+(5) **Beim Cherry-Pick auch die TEXTE pruefen, nicht nur den Code.**
+Der Konflikt in `quellen_health_check` zeigte darauf: Stables kuerzere
+Fassung war kein Rueckstand, sondern richtig — sie nennt bewusst keine
+Beta-Werkzeuge. Beim Nachsehen stand `quelle_handoff` (B25/#735, nur
+1.8) auf der Stable-Linie an SIEBEN Stellen als Ausweg fuer tote
+Quellen. Auf Stable ersetzt, **auf main bewusst NICHT** — dort gibt es
+das Werkzeug. Ein Cherry-Pick, der eine Korrektur in die falsche
+Richtung traegt, macht die Gegenseite schlechter.
+
+(6) **Nebenbefund, als #995 erfasst statt hier erledigt:** bei
+`himalayas`, `remoteok` und `remotive` ist `letzte_rohtreffer` schon
+keyword-gefiltert. Damit sehen "liefert nichts" und "liefert nichts
+Passendes" gleich aus — und beide fuehren zur Abschaltung. Das beruehrt
+den Rueckgabe-Vertrag der Adapter und gehoert nicht in eine
+Fehlerbehebung.
 
 ## Stand 2026-09-07 (v1.7.43 Stable) — Im echten Browser nachgemessen
 
