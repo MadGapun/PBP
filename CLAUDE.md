@@ -1,7 +1,7 @@
 # PBP — Claude-Code-Memory
 
 Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
-React-Frontend + SQLite. **v1.7.45** ist Stable (`--latest`, 2026-09-08; "remote" schaltete die Ortspruefung ab — US-Stellen im DACH-Bestand (#996). Details im Stand-Block unten). Davor **v1.7.44** war Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+React-Frontend + SQLite. **v1.7.46** ist Stable (`--latest`, 2026-09-08; `profil_bearbeiten` meldete Erfolg fuer IDs, die es nicht gibt — der Rueckgabewert der DB-Ebene wurde an sieben Stellen verworfen (#997). Details im Stand-Block unten). Davor **v1.7.45** war Stable (`--latest`, 2026-09-08; "remote" schaltete die Ortspruefung ab — US-Stellen im DACH-Bestand (#996). Details im Stand-Block unten). Davor **v1.7.44** war Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
 Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
 strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
 den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
@@ -38,6 +38,79 @@ Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
 beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 (Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
 `components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-08 (v1.7.46 Stable) — Eine Erfolgsmeldung ueber nichts
+
+**#997, gemeldet vom selben fremden Anwender wie #990/#994** — und aus
+derselben Vierer-Welle wie das **Issue #1000**. `profil_bearbeiten`
+meldete `status: "aktualisiert"` samt `geaenderte_felder` fuer eine ID,
+die es nicht gibt. **Tests: 3090 / 3156.**
+
+MERKE-Punkte:
+
+(1) **Die Auskunft war da und wurde weggeworfen.** `update_position` und
+ihre sechs Geschwister geben `cur.rowcount > 0` zurueck; die Tool-Ebene
+verwarf diesen Wert an SIEBEN Stellen. Das ist nicht dieselbe Bauform
+wie #994 (dort filterte die Schreibschicht Felder still heraus) —
+diesmal hat die untere Ebene ausdruecklich "nein" gesagt und die obere
+hat es nicht zugehoert. **Ein Rueckgabewert, den niemand liest, ist
+dasselbe wie kein Rueckgabewert.**
+
+(2) **Der REST-Weg machte es seit jeher richtig.** `dashboard.py`
+antwortet auf dieselbe Frage mit HTTP 404 ("Position nicht gefunden"),
+und `delete_skill` war der eine von acht MCP-Zweigen, der den Wert
+auswertete. Also wieder zwei Wege fuer eine Frage — und wieder ist der
+schwaechere der, den Claude nimmt. Das ist #991 in einem anderen Modul.
+**Beim Suchen nach der richtigen Fassung lohnt der Blick auf den
+anderen Weg**, statt sie neu zu erfinden: die Antwortform steht dort
+schon.
+
+(3) **`False` hiess zwei Dinge, und das durfte die Antwort nicht
+raten.** Auf DB-Ebene bedeutet `return False` sowohl "diese ID gibt es
+nicht" als auch "kein schreibbares Feld dabei" (beide Zweige enden
+gleich). Eine Absage, die sich ohne Nachsehen fuer eines entscheidet,
+schickt den Aufrufer im halben Fall in die falsche Richtung — genau der
+Fehler aus #987 MERKE (5). `_kennt_id` sieht deshalb nach.
+
+(4) **Sind BEIDE falsch, wiegt die ID schwerer** — vom eigenen Test
+gefunden, nicht gemeldet. Meine erste Fassung meldete bei falscher ID
+UND falschem Feldnamen nur den Feldnamen; wer den korrigiert haette,
+waere beim zweiten Versuch weiterhin ins Leere gelaufen. Der zweite
+Befund geht jetzt nicht verloren, steht aber hinten.
+
+(5) **Der Guard zaehlt die Fundstellen nicht ab, er ruft sie auf.** Vier
+Bereiche mal aendern/loeschen als `parametrize`, jeweils mit einer ID,
+die es nicht gibt. Sieben Zeilennummern nachzupruefen haette eine
+kuenftige achte Verzweigung uebersehen — dasselbe Argument wie bei
+#994 MERKE (4).
+
+(6) **Der vierte Bereich fehlte schon wieder.** #994 hat die
+Felduebersetzung fuer position/ausbildung/projekt gebaut und `skill`
+ausgelassen — im selben Modul, mit derselben Begruendung, die H19 MERKE
+(1) beschreibt ("wenn ein Muster fuer einen von drei Datentypen gebaut
+wird..."). Hier war es sogar noetig: ohne `_SCHREIBFELDER["skill"]`
+haette die neue Absage "nicht_gefunden" gelautet, wo in Wahrheit nur
+der Feldname deutsch war.
+
+(7) **Nebenbefund, vom eigenen Test gefunden:** `add_skill` weist
+Extraktions-Muell ab (#43/#129) und gibt eine LEERE ID zurueck — die
+Antwort lautete trotzdem "hinzugefuegt", mit `id: ""`. Derselbe stille
+Fehlschlag mit Erfolgsmeldung, nur beim Anlegen statt beim Aendern.
+
+(8) **Cherry-Pick: zwei Hunks wurden STILL verschluckt.** Beim Port auf
+die Stable-Linie meldete git EINEN Konflikt (den neuen Hilfsblock) und
+liess dabei die beiden Eintraege in `_SCHREIBFELDER`/`_FELD_ALIASE`
+kommentarlos fallen. Gefunden haben es die mitgewanderten TESTS, genau
+wie in v1.7.12 — nicht die Konfliktmeldung. **Nach dem Aufloesen die
+portierte Datei gegen die Quelle diffen** (`git diff main -- <datei>`
+muss leer sein), nicht nur die Marker zaehlen.
+
+(9) **Beim CHANGELOG die Reihenfolge pruefen.** Mein Skript hat den
+neuen Eintrag an der Stelle des Installblocks eingefuegt — er landete
+UNTER dem Vorgaenger, und der Vorgaenger verlor seinen eigenen
+Installblock. Beides vor dem Commit gefunden. Jeder Eintrag traegt
+seine EIGENE Versionsnummer im Download-Link (v1.7.31 MERKE 7); ein
+Skript, das den Block verschiebt, muss beide Seiten pruefen.
 
 ## Stand 2026-09-08 (v1.7.45 Stable) — "Remote" heisst nicht "von ueberall"
 
