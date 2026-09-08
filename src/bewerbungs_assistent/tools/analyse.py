@@ -1289,6 +1289,23 @@ def register(mcp, db, logger):
             antwort["entfernung_naechster_schritt"] = (
                 "stelle_bearbeiten(job_hash, location='<Ort>') setzt den "
                 "Ort; danach scores_neu_berechnen() aufrufen.")
+        # #965 AK 7: die konfigurierte Regel ist als eigene Zeile
+        # sichtbar und nachvollziehbar. Eine Regel, die wirkt, aber
+        # nirgends auftaucht, ist von einer erfundenen Zahl nicht zu
+        # unterscheiden.
+        try:
+            from ..services import reisewiderstand as _widerstand
+            _auf, _belege = _widerstand.aufschlag(db.get_search_criteria(), job)
+            if _auf:
+                antwort["reisewiderstand_km"] = _auf
+                antwort["reisewiderstand_begruendung"] = _belege
+                antwort["reisewiderstand_hinweis"] = (
+                    f"Fuer den Malus wird mit {job.get('distance_km')} + "
+                    f"{_auf:g} km gerechnet. **Die ausgewiesene Entfernung "
+                    "aendert sich dadurch nicht** — der Aufschlag ist ein "
+                    "Preis, keine Messung.")
+        except Exception:
+            pass
         return antwort
 
     @mcp.tool()

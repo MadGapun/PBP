@@ -130,6 +130,7 @@ def register(mcp, db, logger):
         stellentypen: list[str] = None,
         max_entfernung: dict = None,
         max_entfernung_km: float = None,
+        reisewiderstand: list = None,
         min_gehalt: float = None,
         min_tagessatz: float = None,
         min_stundensatz: float = None,
@@ -179,6 +180,17 @@ def register(mcp, db, logger):
                 Hintergrund: dieses Feld stand vorher in den Kriterien
                 und hatte KEINEN Leser; gerechnet wurde allein gegen die
                 Karte.
+            reisewiderstand: Barrieren, die den Weg teurer machen (#965).
+                Liste von {"richtung": "sueden"|"norden"|"osten"|"westen",
+                "aufschlag_km": 40, "name": "Flussquerung"}. Der Aufschlag
+                gilt fuer Ziele in dieser Richtung und wirkt auf den
+                Entfernungs-MALUS, **nie auf die ausgewiesene Entfernung**
+                — die bleibt, was sie ist (#950).
+                Hintergrund: zwei Stellen mit derselben Kilometerzahl sind
+                nicht gleich weit, wenn zwischen Wohnort und einer davon
+                ein Fluss ohne dichte Querungen, eine Meerenge, ein
+                Gebirgskamm oder eine Grenze liegt. Leere Liste loescht
+                alle Regeln.
             min_gehalt: Wunsch-Jahresgehalt in EUR (#544). Beeinflusst Fit-Scoring
                 via Gehalt-Dimension (Malus bei deutlich niedrigerem Angebot).
             min_tagessatz: Wunsch-Tagessatz in EUR fuer Freelance (#544).
@@ -237,6 +249,35 @@ def register(mcp, db, logger):
                 "max_entfernung_km wurde ignoriert — die Karte "
                 "max_entfernung ist der genauere Wunsch und gewinnt."
             )
+        # #965 AK 8: ueber die MCP-Tools konfigurierbar, nicht per
+        # Code- oder DB-Aenderung. Eine ungueltige Regel wird ABGEWIESEN
+        # statt gespeichert — sonst entstuende wieder eine Einstellung,
+        # die aussieht als wirke sie (#988).
+        widerstand_hinweis = None
+        if reisewiderstand is not None:
+            from ..services import reisewiderstand as _widerstand
+            geprueft, fehler = [], []
+            for eintrag in (reisewiderstand or []):
+                if not isinstance(eintrag, dict):
+                    fehler.append(f"Kein Objekt: {eintrag!r}")
+                    continue
+                ergebnis = _widerstand.regel_pruefen(
+                    eintrag.get("richtung"), eintrag.get("aufschlag_km"),
+                    eintrag.get("name", ""))
+                (geprueft if ergebnis["ok"] else fehler).append(
+                    ergebnis.get("regel") or ergebnis["fehler"])
+            if fehler:
+                return {"fehler": "Reisewiderstand nicht gespeichert.",
+                        "abgewiesen": fehler,
+                        "hinweis": ("Nichts wurde geaendert — eine Regel, "
+                                    "die nicht wirken kann, gehoert nicht "
+                                    "gespeichert.")}
+            db.set_search_criteria(_widerstand.EINSTELLUNG, geprueft)
+            widerstand_hinweis = (
+                f"{len(geprueft)} Regel(n) gespeichert. Sie wirken auf den "
+                "Entfernungs-MALUS, nicht auf die ausgewiesene Entfernung. "
+                "Danach scores_neu_berechnen() aufrufen."
+                if geprueft else "Alle Reisewiderstand-Regeln geloescht.")
         if max_entfernung is not None:
             db.set_search_criteria("max_entfernung", max_entfernung)
             # Den frueher toten Einzelwert nicht als Leiche stehen
@@ -275,6 +316,8 @@ def register(mcp, db, logger):
             result["geocoding"] = geo_info
         if entfernung_hinweis:
             result["entfernung"] = entfernung_hinweis
+        if widerstand_hinweis:
+            result["reisewiderstand"] = widerstand_hinweis
         # v1.7.12 (#827, C32): MUSS/PLUS-Ueberschneidung sichtbar machen.
         # Doppelt gelistete Begriffe zaehlen im Score nur noch EINMAL (als
         # MUSS) — der Hinweis erklaert, warum die PLUS-Liste kuerzer wirkt.
