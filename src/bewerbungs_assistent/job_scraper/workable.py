@@ -26,6 +26,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.workable")
 
@@ -159,6 +160,9 @@ def search_workable(params: dict) -> list[dict]:
             for fut in as_completed(futures):
                 firma = futures[fut]
                 jobs = fut.result()
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("workable", len(jobs))
                 for raw in jobs:
                     j = _map(raw, firma)
                     if not j:

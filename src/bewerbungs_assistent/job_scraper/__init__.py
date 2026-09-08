@@ -934,6 +934,10 @@ def run_search(db, job_id: str, params: dict):
     quellen = params.get("quellen", [])
     total = len(quellen)
     all_jobs = []
+    # #995: die Zahlen des letzten Laufs verwerfen — eine alte
+    # Zahl ist schlimmer als keine.
+    from . import rohtreffer as _rohtreffer
+    _rohtreffer.lauf_beginnen()
 
     # v1.7.27 (#967): VOR dem Lauf pruefen, ob ueberhaupt etwas da ist,
     # womit sich suchen laesst. Vorher lief die Suche durch, holte
@@ -1520,6 +1524,10 @@ def run_search(db, job_id: str, params: dict):
                 status_info.get("detail"),
                 filtered_count=filtered_per_source.get(quelle, 0),
                 new_count=new_per_source.get(quelle, 0),
+                # #995: was die QUELLE geliefert hat, vor dem
+                # adaptereigenen Keyword-Filter. None heisst
+                # "nicht gemeldet", nicht "null gesehen".
+                seen_count=_rohtreffer.stand(quelle),
                 error_class=status_info.get("error_class"),  # #720
             )
         except Exception as e:

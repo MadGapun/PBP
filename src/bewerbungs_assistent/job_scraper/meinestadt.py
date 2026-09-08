@@ -29,6 +29,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.meinestadt")
 
@@ -151,6 +152,9 @@ def search_meinestadt(params: dict) -> list[dict]:
             except ET.ParseError as exc:
                 logger.warning("Meinestadt Parse-Fehler: %s", exc)
                 return []
+            # #995: melden, was die QUELLE geliefert hat — der
+            # Rueckgabewert unten ist bereits gefiltert.
+            rohtreffer.melde("meinestadt", len(root.findall('.//item')))
             for item in root.findall(".//item"):
                 j = _parse_item(item, stadt)
                 if not j:

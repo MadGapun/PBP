@@ -27,6 +27,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.workday_dax")
 
@@ -185,6 +186,9 @@ def search_workday_dax(params: dict) -> list[dict]:
             }
             for fut in as_completed(futures):
                 jobs = fut.result()
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("workday_dax", len(jobs))
                 for j in jobs:
                     if not _matches(
                         j["title"], j["location"], j["description"],

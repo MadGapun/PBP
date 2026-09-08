@@ -19,6 +19,7 @@ import httpx
 from . import detect_remote_level, stelle_hash, make_session
 from .satzweise import text_aus, zuordnen
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.himalayas")
 
@@ -124,6 +125,9 @@ def search_himalayas(params: dict) -> list[dict]:
                     break
                 # #813: satzweise — ein kaputter Datensatz kostet einen
                 # Datensatz, nicht die Quelle.
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("himalayas", len(items))
                 gemappt, befund = zuordnen(items, _map, "himalayas")
                 if befund.get("verdacht") == "feldumbau":
                     letzter_befund.update(befund)
