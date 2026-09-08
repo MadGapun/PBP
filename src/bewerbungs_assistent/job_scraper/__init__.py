@@ -1397,6 +1397,25 @@ def run_search(db, job_id: str, params: dict):
                 if dist is not None:
                     job["distance_km"] = dist
                     geocoded_count += 1
+                    # #965 Befund 2: die Koordinaten mit ablegen. Ohne
+                    # sie liesse sich die RICHTUNG nur durch eine neue
+                    # Netzabfrage bestimmen — und ein Score darf nicht
+                    # am Netz haengen (v1.7.36 MERKE 3). Der Aufruf
+                    # kostet nichts: `geocode_location` liefert den
+                    # Ort aus seinem Cache, er wurde eben aufgeloest.
+                    try:
+                        from ..services.geocoding_service import geocode_location
+                        _koord = geocode_location(loc)
+                        if _koord:
+                            # Die Spalten `lat`/`lon` gibt es in der
+                            # jobs-Tabelle seit jeher und save_jobs
+                            # schreibt sie — nur gesetzt hat sie NIE
+                            # jemand. Zwei tote Spalten, dieselbe Klasse
+                            # wie #993/#1000; hier bekommen sie endlich
+                            # ihren Inhalt.
+                            job["lat"], job["lon"] = _koord
+                    except Exception:
+                        pass
                 # Update progress periodically during geocoding (#215)
                 if total_geocode > 20 and i > 0 and i % 20 == 0:
                     db.update_background_job(
@@ -2732,6 +2751,18 @@ def calculate_score(job: dict, criteria: dict) -> int:
                 rahmen_minus += w["fern_malus"]
                 job["_entfernung_streng_gewertet"] = True
     if dist is not None:
+        # #965 Befund 2: nicht jeder Kilometer kostet gleich viel. Liegt
+        # eine Barriere zwischen Wohnort und Ziel (Fluss ohne dichte
+        # Querungen, Meerenge, Gebirgskamm, Grenze), ist eine Stelle in
+        # 92 km dort schlechter erreichbar als eine in 92 km hier. Der
+        # Aufschlag wirkt auf die RECHENGROESSE, nie auf die
+        # ausgewiesene Entfernung — die bleibt, was sie ist (#950).
+        from ..services import reisewiderstand as _widerstand
+        _auf, _belege = _widerstand.aufschlag(criteria, job)
+        if _auf:
+            dist = dist + _auf
+            job["_reisewiderstand_km"] = _auf
+            job["_reisewiderstand_belege"] = _belege
         # #910: echter Verdienst ueber Wunsch reduziert den
         # Entfernungs-Malus anteilig (nur die MALUS-Zweige — Naehe-Boni
         # bleiben unveraendert). Default-aus, siehe
@@ -2984,6 +3015,18 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _fit_default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
     fit_type_max = fit_max_dist_map.get(fit_emp_type) or _fit_default_max.get(fit_emp_type, 50)
     if dist is not None:
+        # #965 Befund 2: derselbe Reisewiderstand wie in
+        # calculate_score. Eine Regel in nur EINEN von zwei parallelen
+        # Rechenwegen zu bauen verschiebt die Divergenz bloss — das hat
+        # dieses Projekt sieben Mal gekostet (#963 zuerst). Hier steht
+        # der Aufschlag zusaetzlich als eigene Zeile in `factors`, damit
+        # die Regel nachvollziehbar ist (AK 7).
+        from ..services import reisewiderstand as _widerstand
+        _fit_auf, _fit_belege = _widerstand.aufschlag(criteria, job)
+        if _fit_auf:
+            dist = dist + _fit_auf
+            for _beleg in _fit_belege:
+                factors[f"Reisewiderstand — {_beleg}"] = 0
         # #910: identische Kompensations-Logik wie calculate_score —
         # Basis-Malus, Kompensationsgrad und Ergebnis stehen GETRENNT
         # in den factors, damit die Rechnung nachvollziehbar bleibt.
