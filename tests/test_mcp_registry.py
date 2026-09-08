@@ -59,6 +59,7 @@ EXPECTED_TOOL_NAMES = {
     "dokument_reaktivieren",
     "dokumente_bulk_archivieren",
     "dokumente_routing_plan_erstellen",
+    "dokumente_text_nachziehen",
     "dokument_aktion_ausfuehren",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
@@ -371,7 +372,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 225  # v1.7.42 (#919): +linkedin_lauf_plan/-treffer_uebernehmen
+        assert len(tools) == 226  # v1.7.47 (#998): +dokumente_text_nachziehen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

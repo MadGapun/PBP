@@ -926,10 +926,20 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None, dict | Non
         except Exception as e:
             logger.warning(".doc extraction failed: %s", e)
     elif fname.endswith(".docx"):
-        from docx import Document
-
-        doc = Document(str(filepath))
-        extracted = "\n".join(p.text for p in doc.paragraphs)
+        # #998: bis v1.7.46 stand hier `"\n".join(p.text for p in
+        # doc.paragraphs)` — und das sind ausschliesslich Absaetze auf
+        # Body-Ebene. Ein Lebenslauf im zweispaltigen Tabellenlayout
+        # ergab damit 26 Zeichen. DOCX liest jetzt derselbe Dienst wie
+        # PPTX/XLSX/ODT (E22/#833); der Sonderweg hier war der Grund,
+        # warum die ehrliche "leer"-Meldung fuer .docx gar nicht griff.
+        from .services import office_text
+        try:
+            extracted = office_text.extrahiere(filepath)
+        except office_text.FormatNichtUnterstuetzt as exc:
+            ocr_info = {"format": "nicht_unterstuetzt", "grund": str(exc)}
+        if extracted.strip() == "" and ocr_info is None:
+            ocr_info = {"format": "leer",
+                        "grund": office_text.leer_grund(filepath)}
     elif fname.endswith((".eml", ".msg")):
         from .services.email_service import parse_email_file
 

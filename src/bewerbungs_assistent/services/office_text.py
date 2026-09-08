@@ -119,6 +119,81 @@ def _xlsx(pfad: Path) -> str:
         return "\n".join(werte)
 
 
+def _docx(pfad: Path) -> str:
+    """Text aus einem Word-Dokument — auch aus Tabellen (#998).
+
+    Gemeldet am 08.09.2026: ein Lebenslauf im zweispaltigen
+    Tabellenlayout ergab 26 Zeichen. Der alte Extraktor las
+    `doc.paragraphs`, und das sind ausschliesslich Absaetze auf
+    Body-Ebene. **Tabellenlayout ist bei Lebenslaeufen die Regel, nicht
+    die Ausnahme** (Zeitraum links, Taetigkeit rechts), und die
+    Kontaktdaten stehen haeufig in der Kopfzeile.
+
+    Warum stdlib statt python-docx, obwohl die Abhaengigkeit da ist:
+
+    * **Verbundene Zellen.** `row.cells` liefert eine ueber drei Spalten
+      verbundene Zelle DREIMAL — gemessen. Der naheliegende Einzeiler
+      verdreifacht damit jede Abschnittsueberschrift einer CV-Vorlage,
+      und dieser Text geht in die Keyword-Bewertung ein. Im rohen OOXML
+      gibt es die Zelle genau einmal; das Problem entsteht also erst
+      durch die Bequemlichkeitsschicht.
+    * **Dokumentreihenfolge.** Absaetze und Tabellen abwechselnd, so wie
+      sie dastehen. Erst Absaetze, dann alle Zellen zu sortieren
+      zerreisst den Lebenslauf in zwei Bloecke.
+    * **Textfelder** (`w:txbxContent`) kommen kostenlos mit, weil sie im
+      selben Baum liegen. Bei Design-Vorlagen steht dort oft der Name.
+    * Und es haelt die Regel dieses Moduls ein: OOXML ist ein ZIP mit
+      XML darin, das kann die Standardbibliothek.
+    """
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+    def _text(baum) -> list:
+        """Ein Eintrag je Absatz, Laeufe zusammengesetzt.
+
+        Ein Absatz zerfaellt bei jeder Formatierungsaenderung in mehrere
+        `w:t`; einzeln genommen ergaebe das Wortfragmente. Tabulatoren
+        und Zeilenumbrueche im Absatz werden zu Leerzeichen, sonst
+        klebt "2020Musterbetrieb" zusammen.
+        """
+        zeilen = []
+        for absatz in baum.iter(f"{ns}p"):
+            teile = []
+            for el in absatz.iter():
+                if el.tag == f"{ns}t":
+                    teile.append(el.text or "")
+                elif el.tag in (f"{ns}tab", f"{ns}br"):
+                    teile.append(" ")
+            text = " ".join("".join(teile).split())
+            if text:
+                zeilen.append(text)
+        return zeilen
+
+    with zipfile.ZipFile(pfad) as z:
+        namen = z.namelist()
+        if "word/document.xml" not in namen:
+            raise FormatNichtUnterstuetzt(
+                "Kein word/document.xml im Archiv — vermutlich keine "
+                "Word-Datei (eine umbenannte .doc etwa ist ein anderes "
+                "Format und muss einmal als .docx gespeichert werden).")
+        zeilen = _text(ElementTree.fromstring(z.read("word/document.xml")))
+
+        # Kopf- und Fusszeilen tragen bei Lebenslaeufen oft die
+        # Kontaktdaten. Sie wiederholen sich ueber Abschnitte hinweg
+        # wortgleich (erste Seite / Folgeseiten), deshalb wird jede
+        # Zeile nur einmal uebernommen.
+        rand = []
+        # Kopfzeilen vor Fusszeilen — dort stehen die Kontaktdaten,
+        # unten meist nur die Seitenzahl.
+        raender = [n for n in namen
+                   if re.fullmatch(r"word/(header|footer)\d*\.xml", n)]
+        for name in sorted(raender, key=lambda n: ("footer" in n, n)):
+            for zeile in _text(ElementTree.fromstring(z.read(name))):
+                if zeile not in zeilen and zeile not in rand:
+                    rand.append(zeile)
+
+    return "\n".join(zeilen + rand)
+
+
 def _odf(pfad: Path) -> str:
     with zipfile.ZipFile(pfad) as z:
         if "content.xml" not in z.namelist():
@@ -137,6 +212,7 @@ def _odf(pfad: Path) -> str:
 
 # Formate, die PBP lesen kann, und ihr Leser.
 LESER = {
+    ".docx": _docx,
     ".pptx": _pptx,
     ".xlsx": _xlsx,
     ".xlsm": _xlsx,
@@ -150,6 +226,9 @@ LESER = {
 ALTFORMATE = {
     ".ppt": "PowerPoint 97-2003",
     ".xls": "Excel 97-2003",
+    # .doc bleibt bewusst DRAUSSEN: dafuer gibt es seit #192 den
+    # antiword-Pfad im Extraktor. Ein Altformat mit funktionierendem
+    # Leser gehoert nicht auf die Absageliste.
 }
 
 
@@ -201,6 +280,13 @@ def leer_grund(pfad) -> str:
     ohne Grund ist eine Endlosschleife.
     """
     pfad = Path(pfad)
+    if pfad.suffix.lower() == ".docx":
+        # #998: bis v1.7.46 erreichte .docx diese Stelle gar nicht — es
+        # gab also nicht einmal die ehrliche "leer"-Meldung, sondern
+        # schlicht keine Auskunft.
+        return ("Das Word-Dokument enthaelt keinen Text — weder in "
+                "Absaetzen noch in Tabellen, Kopf- oder Fusszeilen. "
+                "Besteht es aus eingebetteten Bildern, braucht es OCR.")
     if pfad.suffix.lower() != ".pptx":
         return "Die Datei enthaelt keinen auslesbaren Text."
     try:
