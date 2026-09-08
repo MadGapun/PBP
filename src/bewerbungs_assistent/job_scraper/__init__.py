@@ -2146,6 +2146,74 @@ def rahmen_deckel_faktor(criteria: dict) -> float:
         return RAHMEN_DECKEL_STANDARD
 
 
+def score_maximum(criteria: dict) -> float:
+    """Was kann eine Stelle mit DIESEN Kriterien hoechstens erreichen? (#999)
+
+    Gemeldet am 08.09.2026: eine Stelle, die ALLE MUSS-Begriffe trifft,
+    remote ist, 3 km entfernt liegt und ueber Wunsch zahlt, bekam die
+    Auskunft *"Score 15.0/100 — fachlicher Gap zu gross"*.
+
+    Der Gap war die Skala. `total_score` ist keine Prozentzahl, sondern
+    eine ungedeckelte Punktsumme, und ihr Hoechstwert haengt an der
+    LAENGE der MUSS-Liste. Nachgemessen mit voll getroffenen Anzeigen:
+
+        5 Begriffe -> 15 Punkte      30 Begriffe -> 66 Punkte
+        10 Begriffe -> 26 Punkte     40 Begriffe -> 86 Punkte
+
+    Feste Schwellen von 75 und 50 dagegenzuhalten heisst: `EMPFOHLEN`
+    beginnt bei rund 37 gleichzeitig getroffenen Pflichtbegriffen. Wer
+    fuenf bis zehn pflegt — der Normalfall — kann die Kategorie
+    strukturell nie erreichen, und jede Stelle bekommt denselben Satz.
+
+    Der Hoechstwert folgt derselben Rechnung wie der Score selbst:
+
+        fachscore_max + min(rahmen_max, Deckel x fachscore_max)
+
+    Ohne MUSS-Begriffe gibt es keinen Fachscore, an dem sich etwas
+    relativieren liesse — dann IST der Rahmen die Bewertung (dieselbe
+    Ausnahme wie in `calculate_score`, sonst waere ein frisches Profil
+    ohne MUSS-Liste durch Null geteilt).
+
+    Returns:
+        Der erreichbare Hoechstwert, oder 0.0 wenn er sich nicht
+        bestimmen laesst. **0 heisst "unbekannt", nicht "nichts
+        erreichbar"** — der Aufrufer darf daraus keinen Anteil rechnen
+        (#989).
+    """
+    if not isinstance(criteria, dict):
+        return 0.0
+    w = _parse_weights(criteria)
+    overrides = criteria.get("keyword_gewichte") or {}
+    idf = criteria.get("_idf_faktoren") or {}
+
+    muss = criteria.get("keywords_muss", []) or []
+    muss_punkte = sorted(
+        (_punkte_pro_treffer(kw, w["muss"], overrides, idf) for kw in muss),
+        reverse=True)
+    if idf and muss_punkte:
+        from ..services.kalibrierung import MUSS_TOP_N
+        muss_punkte = muss_punkte[:MUSS_TOP_N]
+    fachscore_max = float(sum(muss_punkte))
+
+    # Der Rahmen im besten Fall: alle PLUS-Begriffe treffen, die Stelle
+    # ist vollstaendig remote, liegt im Nahbereich und zahlt ueber
+    # Wunsch. Der Bonus fuer "schon bei Aehnlichem beworben" bleibt
+    # bewusst aussen vor — er sagt etwas ueber die eigene Historie, nicht
+    # ueber die Passung dieser Stelle.
+    _muss_norm = {str(kw).strip().lower() for kw in muss}
+    plus = [kw for kw in (criteria.get("keywords_plus", []) or [])
+            if str(kw).strip().lower() not in _muss_norm]
+    rahmen_max = float(
+        sum(_punkte_pro_treffer(kw, w["plus"], overrides, idf) for kw in plus)
+        + w["remote"] + 1 + w["naehe"] + w["gehalt"])
+
+    if not muss:
+        return round(rahmen_max, 1)
+    return round(fachscore_max + min(rahmen_max,
+                                     rahmen_deckel_faktor(criteria)
+                                     * fachscore_max), 1)
+
+
 def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     """v1.7.22 (#940): Tor-Entscheidung fuer MUSS-Keywords.
 
@@ -3116,6 +3184,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     _ergebnis = {
         "total_score": max(0, total),
+        # #999: die Zahl allein sagt nichts, weil ihre Obergrenze aus den
+        # Kriterien folgt. Sie wandert deshalb NIE ohne ihren Bezug nach
+        # draussen — sonst haelt der naechste Aufrufer sie wieder fuer
+        # Prozent.
+        "total_score_max": score_maximum(criteria),
         "fachscore": round(_fach, 1),
         "rahmenscore": round(_rahmen_plus - _rahmen_minus, 1),
         "muss_hits": muss_hits,
