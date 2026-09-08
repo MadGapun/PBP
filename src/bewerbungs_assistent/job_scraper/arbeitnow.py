@@ -27,6 +27,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.arbeitnow")
 
@@ -159,6 +160,9 @@ def search_arbeitnow(params: dict) -> list[dict]:
                 if not items:
                     break
 
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("arbeitnow", len(items))
                 for raw in items:
                     slug = raw.get("slug")
                     if slug and slug in seen_slugs:

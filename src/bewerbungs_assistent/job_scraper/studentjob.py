@@ -17,6 +17,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.studentjob")
 
@@ -91,6 +92,9 @@ def search_studentjob(params: dict) -> list[dict]:
             except ET.ParseError as exc:
                 logger.warning("StudentJob Parse-Fehler: %s", exc)
                 return []
+            # #995: melden, was die QUELLE geliefert hat — der
+            # Rueckgabewert unten ist bereits gefiltert.
+            rohtreffer.melde("studentjob", len(root.findall('.//item')))
             for item in root.findall(".//item"):
                 j = _parse_item(item)
                 if not j:

@@ -33,6 +33,7 @@ import httpx
 
 from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.greenhouse")
 
@@ -189,6 +190,9 @@ def search_greenhouse(params: dict) -> list[dict]:
                 jobs = fut.result()
                 if not jobs:
                     continue
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("greenhouse", len(jobs))
                 for job in jobs:
                     loc_text = _location_text(job)
                     dept_text = _department_text(job)

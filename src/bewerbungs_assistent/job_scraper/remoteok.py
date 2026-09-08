@@ -16,6 +16,7 @@ import re
 from . import make_session, stelle_hash
 from .satzweise import text_aus, zuordnen
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.remoteok")
 
@@ -93,6 +94,9 @@ def search_remoteok(params: dict) -> list[dict]:
                     return None
                 return stelle, text_aus(roh.get("tags"))
 
+            # #995: melden, was die QUELLE geliefert hat — der
+            # Rueckgabewert unten ist bereits gefiltert.
+            rohtreffer.melde("remoteok", len(items))
             paare, befund = zuordnen(items, _mit_tags, "remoteok")
             befund_gesamt.update(befund)
             for j, tags_str in paare:

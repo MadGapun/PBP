@@ -458,6 +458,23 @@ class Database:
                     conn.commit()
                     logger.info("Safety-Net: blacklist.%s nachgezogen (#828)",
                                 _neu)
+            # v1.7.51 (#995, B44): was die QUELLE geliefert hat, vor
+            # dem adaptereigenen Keyword-Filter. Ohne diese Zahl sehen
+            # "liefert nichts" und "liefert nichts Passendes" gleich aus
+            # — und beide fuehren zur Abschaltung. Additive Spalte,
+            # deshalb Safety-Net statt Schema-Bump.
+            try:
+                _sh_cols = {r[1] for r in conn.execute(
+                    "PRAGMA table_info(scraper_health)").fetchall()}
+                if _sh_cols and "last_seen_count" not in _sh_cols:
+                    conn.execute("ALTER TABLE scraper_health "
+                                 "ADD COLUMN last_seen_count INTEGER")
+                    conn.commit()
+                    logger.info("Safety-Net: scraper_health.last_seen_count "
+                                "nachgezogen (#995)")
+            except Exception:
+                pass
+
             # v1.7.41 (#992, C52): Protokoll der geblockten Stellen.
             # Ein Filter, dessen Wirkung niemand sehen kann, laesst sich
             # nicht ueberpruefen — man weiss nicht, ob er richtig
@@ -5655,7 +5672,8 @@ class Database:
                               time_s: float = 0, detail: str = None,
                               filtered_count: int = None,
                               new_count: int = None,
-                              error_class: str = None) -> dict:
+                              error_class: str = None,
+                              seen_count: int = None) -> dict:
         """Persist per-scraper health after each search run.
 
         Returns a dict mit Status-Klassifikation (#499):
@@ -5670,7 +5688,21 @@ class Database:
         # status=ok mit count=0 => "stumme" Quelle (z.B. Indeed/XING melden
         # ok ohne Treffer). Wir tracken das als eigenen Zustand, damit die
         # Quelle nicht ewig faelschlich als "gesund" gilt.
-        if status == "ok" and count <= 0:
+        # #995 (08.09.2026): `count` ist bei zehn Adaptern bereits das
+        # Ergebnis ihres INTERNEN Keyword-Filters. Damit sahen zwei
+        # voellig verschiedene Zustaende gleich aus — "die Quelle
+        # liefert nichts" und "die Quelle liefert, aber nichts passt zum
+        # Profil" — und beide fuehrten nach fuenf Laeufen zur
+        # Abschaltung. Genau so wurde himalayas am 01.09. stillgelegt.
+        #
+        # `seen_count` ist, was die Quelle geliefert hat. Wer liefert,
+        # ist nicht stumm: eine global ausgerichtete Boerse ohne
+        # fachliche Passung ist die FALSCHE Quelle, keine kaputte
+        # (#996 MERKE 5) — und sie gehoert benannt, nicht abgeschaltet.
+        _hat_geliefert = seen_count is not None and seen_count > 0
+        if status == "ok" and count <= 0 and _hat_geliefert:
+            state = "ok"
+        elif status == "ok" and count <= 0:
             state = "silent"
         elif status == "ok":
             state = "ok"
@@ -5683,6 +5715,10 @@ class Database:
         # verdaechtig — Beispiel jobware: status=ok, count=0, time_s=237s.
         # Sieht aus wie ein Timeout der vom Scraper als ok gemeldet wird.
         status_detail = detail
+        if status == "ok" and count <= 0 and _hat_geliefert:
+            # AK 4 aus #995: als solche BENANNT, nicht still uebergangen.
+            status_detail = status_detail or (
+                f"liefert ({seen_count}), nichts Passendes")
         if state == "silent":
             if time_s > 0 and time_s < 2:
                 status_detail = status_detail or "verdaechtig schnell"
@@ -5706,9 +5742,12 @@ class Database:
         ).fetchone()
         auto_deactivated = False
         # v1.6.5 (#553): filtered_count/new_count nur updaten wenn explizit gesetzt
+        _sc_clause = ", last_seen_count=?" if seen_count is not None else ""
         _fc_clause = ", last_filtered_count=?" if filtered_count is not None else ""
         _nc_clause = ", last_new_count=?" if new_count is not None else ""
         _extra_vals = []
+        if seen_count is not None:
+            _extra_vals.append(int(seen_count))
         if filtered_count is not None:
             _extra_vals.append(int(filtered_count))
         if new_count is not None:
@@ -5741,7 +5780,7 @@ class Database:
                         retry_after=NULL,
                         deaktiviert_am=NULL, deaktiviert_grund=NULL,
                         is_active=1
-                        {_fc_clause}{_nc_clause} WHERE scraper_name=?
+                        {_sc_clause}{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, now, total_runs, total_successes, avg_time,
                       count, None, *_extra_vals, name))
             elif state == "silent":
@@ -5750,7 +5789,7 @@ class Database:
                     UPDATE scraper_health SET last_run=?,
                         consecutive_failures=0, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        consecutive_silent=?{_fc_clause}{_nc_clause} WHERE scraper_name=?
+                        consecutive_silent=?{_sc_clause}{_fc_clause}{_nc_clause} WHERE scraper_name=?
                 """, (now, total_runs, total_successes, avg_time,
                       count, status_detail, consec_silent, *_extra_vals, name))
                 # #813: Ein Probelauf einer bereits abgeschalteten Quelle
@@ -5803,7 +5842,7 @@ class Database:
                     UPDATE scraper_health SET last_run=?, last_error=?,
                         consecutive_failures=?, total_runs=?, total_successes=?,
                         avg_time_s=?, last_count=?, last_status_detail=?,
-                        error_class=?{_fc_clause}{_nc_clause}
+                        error_class=?{_sc_clause}{_fc_clause}{_nc_clause}
                         WHERE scraper_name=?
                 """, (now, detail_mit_klasse or status, consec, total_runs,
                       total_successes, avg_time, count, detail_mit_klasse,
@@ -5865,8 +5904,8 @@ class Database:
                     last_error, consecutive_failures, total_runs, total_successes,
                     avg_time_s, is_active, last_count, last_status_detail,
                     consecutive_silent, last_filtered_count, last_new_count,
-                    error_class)
-                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?, ?, ?, ?)
+                    error_class, last_seen_count)
+                VALUES (?, ?, ?, ?, ?, 1, ?, 0, 1, ?, ?, ?, ?, ?, ?, ?)
             """, (name, now,
                   now if state == "ok" else None,
                   None if state != "fail" else (status_detail or status),
@@ -5877,7 +5916,8 @@ class Database:
                   1 if state == "silent" else 0,
                   int(filtered_count) if filtered_count is not None else 0,
                   int(new_count) if new_count is not None else 0,
-                  error_class if state == "fail" else None))
+                  error_class if state == "fail" else None,
+                  int(seen_count) if seen_count is not None else None))
         conn.commit()
         return {
             "state": state,

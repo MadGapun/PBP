@@ -33,6 +33,7 @@ import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
 from .textgrenzen import fuer_speicher
+from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.personio")
 
@@ -185,6 +186,9 @@ def search_personio(params: dict) -> list[dict]:
             futures = {pool.submit(_fetch_firma, client, f): f for f in firmen}
             for fut in as_completed(futures):
                 jobs = fut.result()
+                # #995: melden, was die QUELLE geliefert hat — der
+                # Rueckgabewert unten ist bereits gefiltert.
+                rohtreffer.melde("personio", len(jobs))
                 for job in jobs:
                     if not _matches(
                         job["title"], job["location"], job["description"],

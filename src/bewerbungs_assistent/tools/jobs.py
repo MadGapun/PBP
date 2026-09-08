@@ -4642,6 +4642,7 @@ def register(mcp, db, logger):
 
         scrapers = []
         stumme = []
+        ohne_passung = []
         deaktiviert_auto = []
         for h in health:
             success_rate = round(h["total_successes"] / h["total_runs"] * 100) if h["total_runs"] else 0
@@ -4659,6 +4660,15 @@ def register(mcp, db, logger):
                 # letzte_gefilterte_treffer = nach MUSS/AUSSCHLUSS/Score-Filter,
                 # letzte_neue_treffer = wirklich neu in der DB (Duplikate raus).
                 "letzte_rohtreffer": last_count,
+                # #995 (08.09.2026): `letzte_rohtreffer` hiess nicht
+                # ueberall dasselbe — zehn Adapter filtern INTERN nach
+                # Suchbegriffen, bevor sie zurueckgeben. Bei ihnen war
+                # die "Roh"-Zahl bereits das Ergebnis des Filters, und
+                # "liefert nichts" sah aus wie "liefert nichts
+                # Passendes". `gesehen` ist, was die Quelle wirklich
+                # geliefert hat; None heisst "der Adapter meldet es
+                # nicht", nicht "null".
+                "gesehen": h.get("last_seen_count"),
                 "letzte_gefilterte_treffer": h.get("last_filtered_count") or 0,
                 "letzte_neue_treffer": h.get("last_new_count") or 0,
                 # Backward-compat-Alias (Frontend/Notes nutzen evtl. noch den alten Namen)
@@ -4690,7 +4700,17 @@ def register(mcp, db, logger):
                 "letzte_probe_status": h.get("letzte_probe_status"),
             }
             scrapers.append(entry)
-            if consec_silent >= 3 and h["is_active"]:
+            # #995 AK 4: eine Quelle, die liefert, aber nichts Passendes,
+            # wird BENANNT statt unter "stumm" gefuehrt. Sie arbeitet
+            # einwandfrei — sie ist nur die falsche Quelle fuer dieses
+            # Profil (#996 MERKE 5).
+            _gesehen = h.get("last_seen_count")
+            if _gesehen and last_count <= 0:
+                ohne_passung.append({
+                    "name": entry["name"], "gesehen": _gesehen,
+                    "regionen_fokus": entry["regionen_fokus"],
+                })
+            elif consec_silent >= 3 and h["is_active"]:
                 stumme.append(entry["name"])
             if not h["is_active"] and consec_silent >= 5:
                 deaktiviert_auto.append(entry["name"])
@@ -4707,6 +4727,16 @@ def register(mcp, db, logger):
                 "(URL veraltet, Bot-Schutz oder Timeout). Sie werden nicht "
                 "automatisch durchsucht. Workaround: Chrome-Extension oeffnen "
                 "und Stellen via stelle_manuell_anlegen nach PBP uebernehmen."
+            )
+        if ohne_passung:
+            result["quellen_ohne_passung"] = ohne_passung
+            result["hinweis_ohne_passung"] = (
+                f"{len(ohne_passung)} Quelle(n) liefern Stellen, aber keine, "
+                "die zu deinen Suchbegriffen passt. Das ist KEIN Defekt und "
+                "fuehrt nicht zur Abschaltung — die Quelle arbeitet, sie ist "
+                "nur die falsche fuer dieses Profil. Bei globalem Fokus "
+                "(regionen_fokus) lohnt es sich zu pruefen, ob sie "
+                "eingeschaltet bleiben soll."
             )
         if stumme:
             result["stumme_quellen"] = stumme
