@@ -4574,6 +4574,11 @@ def register(mcp, db, logger):
             aktion: 'status' = Gesundheitsdaten anzeigen, 'reaktivieren' = deaktivierten Scraper wieder aktivieren.
         """
         from ..job_scraper import zugriffsart_von as _zugriffsart
+        from ..job_scraper import SOURCE_REGISTRY as _quellen_katalog
+
+        def _quellen_registry():
+            return _quellen_katalog
+
         health = db.get_scraper_health()
         if not health:
             return {
@@ -4642,6 +4647,17 @@ def register(mcp, db, logger):
                 # auto-deaktiviert (Automatik) sind zwei verschiedene
                 # Dinge; die Probe zeigt, ob die API ueberhaupt tot ist.
                 "zugriffsart": _zugriffsart(h["scraper_name"]),
+                # #996 (08.09.2026): eine Quelle mit globalem Fokus ist
+                # nicht kaputt, wenn sie fuer eine DACH-Suche nichts
+                # bringt — sie ist die falsche Quelle. Ohne dieses Feld
+                # sieht beides gleich aus, und genau daran hing die
+                # Frage des Nutzers ("Was habe ich mit US zu tun?").
+                "regionen_fokus": (
+                    _quellen_registry().get(h["scraper_name"]) or {}
+                ).get("regionen_fokus", "dach"),
+                "regionen_befund": (
+                    _quellen_registry().get(h["scraper_name"]) or {}
+                ).get("regionen_befund"),
                 "deaktiviert_am": h.get("deaktiviert_am"),
                 "deaktiviert_grund": h.get("deaktiviert_grund"),
                 "letzte_probe_am": h.get("letzte_probe_am"),

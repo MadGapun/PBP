@@ -174,3 +174,37 @@ def test_996_vor_ort_stelle_im_ausland_faellt_auch_heraus():
     in den USA ist genauso wenig bewerbbar."""
     job = _stelle("Austin, United States", remote="vor_ort")
     assert calculate_score(job, KRITERIEN) == 0
+
+
+# ── Der geografische Fokus ist sichtbar ───────────────────────────────
+
+def test_996_globale_quellen_sind_als_solche_gekennzeichnet():
+    """Eine Quelle mit globalem Fokus ist nicht kaputt, wenn sie fuer
+    eine DACH-Suche nichts bringt — sie ist die falsche Quelle. Ohne
+    dieses Feld sieht beides gleich aus, und genau daran hing die Frage
+    des Nutzers."""
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    for quelle in ("himalayas", "remoteok", "remotive"):
+        eintrag = SOURCE_REGISTRY[quelle]
+        assert eintrag.get("regionen_fokus") == "global", quelle
+        assert eintrag.get("regionen_befund"), quelle
+        assert "2026" in eintrag["regionen_befund"], quelle
+
+
+def test_996_deutsche_quellen_bleiben_ohne_sondermarke():
+    """Gegenprobe: der Fokus ist eine Ausnahme-Kennzeichnung, keine
+    Pflichtangabe fuer jede Quelle."""
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    for quelle in ("bundesagentur", "hays", "stellenanzeigen_de"):
+        assert not SOURCE_REGISTRY[quelle].get("regionen_fokus"), quelle
+
+
+def test_996_registry_behauptet_keine_dach_abdeckung_mehr():
+    """Die Beschreibung von himalayas versprach 'gute DACH-Abdeckung
+    ueber country=DE-Filter'. Gemessen: 0 von 20. Eine Registry, die
+    eine Abdeckung behauptet, die es nicht gibt, ist der Grund, warum
+    die Quelle ueberhaupt aktiviert wurde."""
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    text = SOURCE_REGISTRY["himalayas"]["beschreibung"]
+    assert "gute DACH-Abdeckung" not in text
+    assert "GLOBAL" in text

@@ -376,25 +376,45 @@ SOURCE_REGISTRY = {
     # ── #590 Aufgabe B.5: Tech-Remote-Cluster ──
     "himalayas": {
         "name": "Himalayas (Remote)",
-        "beschreibung": "Remote-only Job-Aggregator mit Schwerpunkt Tech. "
-                         "Public JSON-API, kein Auth, gute DACH-Abdeckung "
-                         "ueber country=DE-Filter.",
+        # #996 (08.09.2026): "gute DACH-Abdeckung ueber country=DE-Filter"
+        # stand hier und war falsch. Live gemessen: die API beachtet den
+        # Parameter NICHT — 20 von 20 Treffern lagen ausserhalb des
+        # DACH-Raums ("Remote (United States)", "Remote (Romania)", ...).
+        # Eine Registry-Beschreibung, die eine Abdeckung behauptet, die
+        # es nicht gibt, ist der Grund, warum die Quelle ueberhaupt
+        # aktiviert wurde.
+        "beschreibung": "Remote-only Job-Aggregator mit Schwerpunkt Tech, "
+                         "GLOBAL. Der country=DE-Filter der API wirkt "
+                         "nicht — gemessen 0 von 20 Treffern im DACH-Raum "
+                         "(08.09.2026).",
+        "regionen_fokus": "global",
+        "regionen_befund": "0 von 20 Treffern im DACH-Raum (08.09.2026)",
         "methode": "REST API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "remotive": {
         "name": "Remotive (Remote)",
-        "beschreibung": "Kuratierter Remote-Job-Aggregator. Public REST API "
+        "beschreibung": "Kuratierter Remote-Job-Aggregator, GLOBAL — viele "
+                         "Treffer sind aber 'Worldwide' oder 'Europe' und "
+                         "damit auch von hier bewerbbar. Public REST API "
                          "mit Suchstring-Parameter.",
+        # #996: die vertraeglichste der drei Remote-Boersen.
+        "regionen_fokus": "global",
+        "regionen_befund": "14 von 17 Treffern DACH-tauglich (08.09.2026)",
         "methode": "REST API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "remoteok": {
         "name": "RemoteOK",
-        "beschreibung": "Remote-only Aggregator (englischsprachig). Liefert komplette "
-                         "Stellenliste als JSON-Feed. Schwerpunkt Tech/Marketing.",
+        "beschreibung": "Remote-only Aggregator (englischsprachig), GLOBAL. "
+                         "Liefert komplette Stellenliste als JSON-Feed. "
+                         "Schwerpunkt Tech/Marketing.",
+        # #996: gemessen 08.09.2026 — die Quelle wertet `regionen` nicht
+        # aus und liefert weltweit.
+        "regionen_fokus": "global",
+        "regionen_befund": "10 von 100 Treffern DACH-tauglich (08.09.2026)",
         "methode": "REST API (JSON-Feed)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
