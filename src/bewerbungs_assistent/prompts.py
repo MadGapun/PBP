@@ -294,8 +294,12 @@ nicht mit einer To-do-Liste.
 - Zeige MUSS- und PLUS-Vorschläge kompakt und frage:
   "Passen diese Suchbegriffe? Willst du etwas streichen oder ergänzen?"
 - Speichere die bestätigten Begriffe mit suchkriterien_setzen(
-  keywords_muss=[...], keywords_plus=[...]). Übernimm auch Region/Remote
-  aus Phase 3 (region, max_entfernung_km, remote), falls besprochen.
+  keywords_muss=[...], keywords_plus=[...]). Übernimm auch Region und
+  Entfernung aus Phase 3, falls besprochen: regionen=[...] (Remote gehört
+  als Eintrag in diese Liste) und max_entfernung_km=30 als EINE Zahl für
+  alle Stellenarten. #1000: hier standen bis v1.7.47 die Parameternamen
+  `region` und `remote` — beide gibt es nicht, der Entfernungswunsch des
+  Nutzers verdunstete damit ausgerechnet beim Onboarding.
 
 5b. QUELLEN — KEINE PORTAL-FRAGEN STELLEN:
 - Sage: "Ich starte mit drei schnellen, zuverlässigen Jobbörsen ohne

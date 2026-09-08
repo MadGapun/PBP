@@ -12,6 +12,39 @@ from ..services.nutzerfuehrung import leer
 _KATEGORIEN_WOERTER = blacklist_regel.KATEGORIEN_WOERTER
 
 
+def _entfernung_widerspruch(kriterien: dict):
+    """Steht ein Entfernungswunsch da, gegen den niemand rechnet? (#1000)
+
+    Bis v1.7.47 nahm `suchkriterien_setzen` keinen Einzelwert entgegen —
+    das Frontend schrieb `max_entfernung_km` trotzdem in die Kriterien,
+    gelesen wurde allein die Karte `max_entfernung` je Stellenart.
+    Gemessen am 08.09.2026 im echten Bestand: `max_entfernung_km` stand
+    auf 30, `max_entfernung.freelance` auf 1500.
+
+    Solche Altwerte werden BENANNT statt still umgedeutet — dasselbe
+    Vorgehen wie bei den wirkungslosen Scoring-Reglern aus #988. Eine
+    stille Neudeutung waere eine Aenderung am Score, die niemand
+    veranlasst hat.
+    """
+    einzel = kriterien.get("max_entfernung_km")
+    karte = kriterien.get("max_entfernung") or {}
+    if einzel in (None, "", 0) or not karte:
+        return None
+    abweichend = {art: km for art, km in karte.items()
+                  if float(km or 0) != float(einzel)}
+    if not abweichend:
+        return None
+    paare = ", ".join(f"{art} {km:g} km" for art, km in abweichend.items())
+    return (
+        f"In den Kriterien steht max_entfernung_km = {float(einzel):g}, "
+        f"gerechnet wird aber je Stellenart: {paare}. Der Einzelwert "
+        "hatte bis v1.7.47 gar keinen Leser. Setze ihn mit "
+        "suchkriterien_setzen(max_entfernung_km=...) neu, dann gilt er "
+        "fuer alle Stellenarten — oder nutze max_entfernung, wenn die "
+        "Unterschiede Absicht sind."
+    )
+
+
 def _kategorienurteil_hinweis(grund: str):
     """Hinweis-Text, wenn ein Grund wie ein Gattungsurteil formuliert ist.
 
@@ -96,6 +129,7 @@ def register(mcp, db, logger):
         standort: str = "",
         stellentypen: list[str] = None,
         max_entfernung: dict = None,
+        max_entfernung_km: float = None,
         min_gehalt: float = None,
         min_tagessatz: float = None,
         min_stundensatz: float = None,
@@ -136,6 +170,15 @@ def register(mcp, db, logger):
             max_entfernung: Max. Entfernung pro Stellentyp in km (#166).
                 z.B. {"festanstellung": 50, "freelance": 200, "teilzeit": 30}
                 Die Entfernung beeinflusst das Fit-Scoring als Malus.
+            max_entfernung_km: EINE Zahl fuer alle Stellentypen (#1000) —
+                der einfache Weg, wenn kein Unterschied noetig ist.
+                Ein Mensch sagt "hoechstens 30 km", nicht eine Karte je
+                Stellenart. Wird in `max_entfernung` uebersetzt und wirkt
+                damit ueberall, wo gerechnet wird. Wer BEIDES angibt,
+                bekommt `max_entfernung` — das ist der genauere Wunsch.
+                Hintergrund: dieses Feld stand vorher in den Kriterien
+                und hatte KEINEN Leser; gerechnet wurde allein gegen die
+                Karte.
             min_gehalt: Wunsch-Jahresgehalt in EUR (#544). Beeinflusst Fit-Scoring
                 via Gehalt-Dimension (Malus bei deutlich niedrigerem Angebot).
             min_tagessatz: Wunsch-Tagessatz in EUR fuer Freelance (#544).
@@ -174,8 +217,35 @@ def register(mcp, db, logger):
             valid = {"festanstellung", "freelance", "teilzeit", "praktikum", "werkstudent"}
             stellentypen = [s for s in stellentypen if s in valid]
             db.set_search_criteria("stellentypen", stellentypen or ["festanstellung"])
+        # #1000: eine Zahl fuer alle Stellentypen. Die Karte gewinnt,
+        # wenn beides kommt — sie ist der genauere Wunsch.
+        entfernung_hinweis = None
+        if max_entfernung_km is not None and max_entfernung is None:
+            arten = (stellentypen
+                     or db.get_search_criteria().get("stellentypen")
+                     or ["festanstellung", "freelance", "teilzeit",
+                         "praktikum", "werkstudent"])
+            max_entfernung = {a: float(max_entfernung_km) for a in arten}
+            entfernung_hinweis = (
+                f"{max_entfernung_km:g} km gilt jetzt fuer "
+                f"{', '.join(arten)}. Entfernung ist ein Preis im Score, "
+                "kein Ausschluss (#910/#988): eine weitere Stelle rutscht "
+                "nach unten, statt zu verschwinden."
+            )
+        elif max_entfernung_km is not None and max_entfernung is not None:
+            entfernung_hinweis = (
+                "max_entfernung_km wurde ignoriert — die Karte "
+                "max_entfernung ist der genauere Wunsch und gewinnt."
+            )
         if max_entfernung is not None:
             db.set_search_criteria("max_entfernung", max_entfernung)
+            # Den frueher toten Einzelwert nicht als Leiche stehen
+            # lassen: er wird mitgezogen, damit Anzeige und Rechnung
+            # nicht auseinanderlaufen (#1000).
+            werte = set(max_entfernung.values())
+            db.set_search_criteria(
+                "max_entfernung_km",
+                float(next(iter(werte))) if len(werte) == 1 else None)
         # #544: Gehalts-Wuensche als top-level Parameter (nicht mehr in custom_kriterien
         # versteckt). Scoring liest sie aus criteria.get("min_gehalt"/...).
         if min_gehalt is not None:
@@ -203,6 +273,8 @@ def register(mcp, db, logger):
         result = {"status": "gespeichert", "kriterien": db.get_search_criteria()}
         if geo_info:
             result["geocoding"] = geo_info
+        if entfernung_hinweis:
+            result["entfernung"] = entfernung_hinweis
         # v1.7.12 (#827, C32): MUSS/PLUS-Ueberschneidung sichtbar machen.
         # Doppelt gelistete Begriffe zaehlen im Score nur noch EINMAL (als
         # MUSS) — der Hinweis erklaert, warum die PLUS-Liste kuerzer wirkt.
@@ -401,7 +473,11 @@ def register(mcp, db, logger):
                 "suchkriterien_setzen(keywords_muss=[...]). MUSS-Begriffe "
                 "muessen in der Anzeige vorkommen, PLUS-Begriffe "
                 "verbessern nur die Reihenfolge.")
-        return {"kriterien": kriterien}
+        antwort = {"kriterien": kriterien}
+        hinweis = _entfernung_widerspruch(kriterien)
+        if hinweis:
+            antwort["hinweis_entfernung"] = hinweis
+        return antwort
 
     @mcp.tool()
     def blacklist_verwalten(

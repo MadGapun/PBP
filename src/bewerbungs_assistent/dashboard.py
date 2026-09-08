@@ -6136,8 +6136,6 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
 
     keywords = payload.get("keywords") or None
     quellen = payload.get("quellen") or []
-    nur_remote = bool(payload.get("nur_remote"))
-    max_entfernung_km = int(payload.get("max_entfernung_km") or 0)
 
     if not quellen:
         quellen = _db.get_profile_setting("active_sources", []) or []
@@ -6178,11 +6176,12 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
             "nachricht": "Eine Jobsuche laeuft bereits.",
         }
 
+    # #1000: die beiden Felder wurden aus dem Payload gelesen, in
+    # die Job-Parameter geschrieben und von run_search nie wieder
+    # angesehen. Sie sind entfallen.
     params = {
         "keywords": keywords,
         "quellen": auto_quellen,
-        "nur_remote": nur_remote,
-        "max_entfernung_km": max_entfernung_km,
     }
     job_id = _db.create_background_job("jobsuche", params)
 
