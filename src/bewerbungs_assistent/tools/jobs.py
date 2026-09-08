@@ -6,6 +6,7 @@ from collections import Counter
 from typing import Optional
 from urllib.parse import quote_plus
 from ..services import anzeigenalter as _anzeigenalter
+from ..services import entfernung as _entfernung
 from ..services.nutzerfuehrung import leer
 
 
@@ -1864,7 +1865,9 @@ def register(mcp, db, logger):
                 if j.get("salary_estimated"):
                     entry["gehalt_geschaetzt"] = True
             if j.get("distance_km"):
-                entry["entfernung_km"] = j["distance_km"]
+                # #950: nie die blosse Zahl — sie wird als Wegstrecke
+                # gelesen und ist eine Luftlinie.
+                entry.update(_entfernung.befund(j["distance_km"]))
             # v1.7.22 (#942): Fach- und Rahmenanteil getrennt ausweisen.
             # "Score 31" allein verraet nicht, ob die Punkte fachlich
             # sind oder aus Rahmenbegriffen (Senior, Remote, Hamburg)
@@ -2832,7 +2835,7 @@ def register(mcp, db, logger):
                          f"Bewerte mit stelle_bewerten('{job_hash[:8]}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
-            result["entfernung_km"] = job["distance_km"]
+            result.update(_entfernung.befund(job["distance_km"]))
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik

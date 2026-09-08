@@ -2982,7 +2982,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         _fit_komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > fit_type_max * 4:
             _basis = -w["fern_malus"]
-            factors[f"Entfernung: {int(dist)} km (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km Luftlinie (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -2991,7 +2991,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 total += _gutschrift
         elif dist > fit_type_max * 2:
             _basis = -1
-            factors[f"Entfernung: {int(dist)} km (ueber Max {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km Luftlinie (ueber Max {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -2999,11 +2999,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                         f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
                 total += _gutschrift
         elif dist <= fit_type_max * 0.6:
-            factors[f"Naehe: {int(dist)} km"] = w["naehe"]
+            factors[f"Naehe: {int(dist)} km Luftlinie"] = w["naehe"]
             total += w["naehe"]
         elif dist <= fit_type_max:
             pts = max(1, w["naehe"] - 1)
-            factors[f"Naehe: {int(dist)} km (im Rahmen)"] = pts
+            factors[f"Naehe: {int(dist)} km Luftlinie (im Rahmen)"] = pts
             total += pts
 
     risks = []

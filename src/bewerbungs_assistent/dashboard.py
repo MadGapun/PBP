@@ -219,6 +219,21 @@ def _build_workspace_summary() -> dict:
         summary["ueberfaellige_aufgaben"] = _db.get_overdue_tasks()
     except Exception:
         summary["ueberfaellige_aufgaben"] = []
+    # v1.7.50 (#993): der Stellen-Tab liest seit beta.27
+    # `chrome.search_criteria.min_score_schwelle`, um seinen
+    # Mindest-Score-Filter vorzubelegen — **das Feld wurde nie
+    # geliefert.** Die optionale Verkettung machte daraus lautlos eine 0,
+    # der Filter startete also immer bei 0 und die persistente Schwelle
+    # wirkte in der Anzeige nie. Bewusst schlank: nur die Werte, die das
+    # Frontend auch liest, statt der ganzen Kriterien (die tragen
+    # Keyword-Listen und gehoeren nicht in jede Dashboard-Antwort).
+    try:
+        _krit = _db.get_search_criteria() or {}
+        summary["search_criteria"] = {
+            "min_score_schwelle": _krit.get("min_score_schwelle") or 0,
+        }
+    except Exception:
+        summary["search_criteria"] = {"min_score_schwelle": 0}
     return summary
 
 

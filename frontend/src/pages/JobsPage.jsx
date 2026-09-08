@@ -160,7 +160,15 @@ export default function JobsPage() {
   // Damit greift die persistente Einstellung auch in der Anzeige —
   // bestehende DB-Eintraege mit Score < Schwelle werden ausgeblendet,
   // ohne dass sie geloescht werden.
-  const persistentMinScore = Number(chrome?.search_criteria?.min_score_schwelle ?? 0);
+  // v1.7.50 (#993): der Zugriff lautete `chrome?.search_criteria?...`
+  // — den Schluessel gibt es im chrome-Objekt nicht (es traegt
+  // loading/status/workspace/profiles/profile/... ). Die optionale
+  // Verkettung machte daraus lautlos eine 0, der Filter startete
+  // also seit beta.27 immer bei 0. Die Kriterien kommen aus der
+  // Workspace-Antwort.
+  const persistentMinScore = Number(
+    chrome?.workspace?.search_criteria?.min_score_schwelle ?? 0,
+  );
   const [filters, setFilters] = useState({
     query: "",
     source: "",
