@@ -5038,12 +5038,28 @@ def register(mcp, db, logger):
             "count_total": len(results),
             "count_reachable": reachable,
             "count_liefert_stellen": liefert,
-            "count_unreachable": len(results) - reachable,
+            # #813 (08.09.2026): "nicht pruefbar" ist nicht "nicht
+            # erreichbar". Fuenf der sieben abgeschalteten Quellen haben
+            # gar keinen Probe (`no_probe_defined`) und wurden trotzdem
+            # als unerreichbar gezaehlt — "5 von 7 nicht erreichbar" hiess
+            # in Wahrheit "5 nicht pruefbar". Dieselbe Verwechslung wie
+            # #989: eine fehlende Information sah aus wie eine negative.
+            "count_unreachable": len([
+                r for r in results
+                if not r.get("reachable")
+                and r.get("error") != "no_probe_defined"]),
+            "count_nicht_pruefbar": len([
+                r for r in results if r.get("error") == "no_probe_defined"]),
             "results": results,
             "hinweis": (
                 f"{reachable} von {len(results)} Quellen antworten, "
                 f"{liefert} davon liefern auch Stellen. "
-                "Ergaenzend zur Liefer-Statistik in scraper_diagnose; "
+                + (f"{len([r for r in results if r.get('error') == 'no_probe_defined'])} "
+                   "Quelle(n) haben gar keinen Probe — ueber sie sagt "
+                   "dieser Check NICHTS, weder gut noch schlecht. "
+                   if any(r.get("error") == "no_probe_defined" for r in results)
+                   else "")
+                + "Ergaenzend zur Liefer-Statistik in scraper_diagnose; "
                 "Zeitachse: quellen_langzeit_auswertung(). Blockierte/tote "
                 "Quellen per Browser recherchieren: quelle_handoff(quelle, "
                 "keyword)."

@@ -17,6 +17,7 @@ import re
 import httpx
 
 from . import detect_remote_level, stelle_hash, make_session
+from .satzweise import text_aus, zuordnen
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.himalayas")
@@ -42,32 +43,43 @@ def _matches(title: str, desc: str, keywords: list) -> bool:
 
 
 def _map(job: dict) -> dict | None:
-    title = job.get("title") or job.get("name") or ""
+    title = text_aus(job.get("title") or job.get("name"))
     if not title:
         return None
-    company = (
-        (job.get("companyName") or job.get("company") or "Nicht angegeben")
-        if isinstance(job.get("company"), str)
-        else (job.get("company") or {}).get("name")
-        or job.get("companyName")
-        or "Nicht angegeben"
-    )
-    url = job.get("applicationLink") or job.get("url") or ""
-    desc = _strip_html(job.get("description") or "")
-    job_id = job.get("guid") or job.get("id") or job.get("slug") or url
-    job_type = (job.get("seniority") or job.get("employmentType") or "").lower()
+    company = (text_aus(job.get("companyName"))
+               or text_aus(job.get("company"))
+               or "Nicht angegeben")
+    url = text_aus(job.get("applicationLink")) or text_aus(job.get("url"))
+    desc = _strip_html(text_aus(job.get("description")))
+    job_id = (text_aus(job.get("guid")) or text_aus(job.get("id"))
+              or text_aus(job.get("slug")) or url)
+    # #813 (08.09.2026): `seniority` kommt seit einem Feldumbau als LISTE
+    # (`['Senior']`). Das direkte `.lower()` warf einen AttributeError,
+    # und weil die Schleife in einem grossen try lag, gab der Adapter
+    # eine leere Liste zurueck — 20 gelieferte Stellen wurden zu einer
+    # stillen Null, und nach fuenf solchen Laeufen schaltete die
+    # Automatik die Quelle ab. `text_aus` liest jedes Feld als Text,
+    # egal welche Form die Quelle ihm als naechstes gibt.
+    job_type = f"{text_aus(job.get('seniority'))} " \
+               f"{text_aus(job.get('employmentType'))}".lower()
     if "intern" in job_type:
         emp = "praktikum"
     elif "freelance" in job_type or "contract" in job_type:
         emp = "freelance"
     else:
         emp = "festanstellung"
+    # `country=DE` filtert die Ergebnisse NICHT: gemessen am 08.09. trugen
+    # Treffer aus der DE-Abfrage `locationRestrictions: ['United States']`.
+    # Der Ort gehoert deshalb an die Stelle, statt pauschal "Remote" zu
+    # behaupten — sonst sieht eine US-gebundene Rolle aus wie eine, auf
+    # die man sich von Hamburg aus bewerben kann.
+    orte = text_aus(job.get("locationRestrictions"))
     return {
         "hash": stelle_hash("himalayas", f"{company} {job_id} {title}"),
         "title": title,
         "company": company,
-        "location": "Remote",
-        "url": url or f"https://himalayas.app/jobs/{job.get('slug', '')}",
+        "location": f"Remote ({orte})" if orte else "Remote",
+        "url": url or f"https://himalayas.app/jobs/{text_aus(job.get('slug'))}",
         "source": "himalayas",
         "description": desc,
         "employment_type": emp,
@@ -84,6 +96,7 @@ def search_himalayas(params: dict) -> list[dict]:
 
     found: list[dict] = []
     seen: set = set()
+    letzter_befund: dict = {}
     try:
         # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
         with make_session(content_type="json", timeout=_TIMEOUT) as client:
@@ -109,10 +122,12 @@ def search_himalayas(params: dict) -> list[dict]:
                 ) or []
                 if not items:
                     break
-                for raw in items:
-                    j = _map(raw)
-                    if not j:
-                        continue
+                # #813: satzweise — ein kaputter Datensatz kostet einen
+                # Datensatz, nicht die Quelle.
+                gemappt, befund = zuordnen(items, _map, "himalayas")
+                if befund.get("verdacht") == "feldumbau":
+                    letzter_befund.update(befund)
+                for j in gemappt:
                     if j["hash"] in seen:
                         continue
                     if not _matches(j["title"], j["description"], keywords):
@@ -124,5 +139,15 @@ def search_himalayas(params: dict) -> list[dict]:
     except Exception as exc:
         logger.warning("Himalayas Verbindungsfehler: %s", exc)
 
-    logger.info("Himalayas: %d Stellen gefunden", len(found))
+    if letzter_befund.get("verdacht") == "feldumbau":
+        # Der Unterschied, um den es in #813 geht: "nichts gefunden" und
+        # "nicht lesen koennen" duerfen nicht gleich aussehen.
+        logger.warning(
+            "Himalayas: %d Stellen gefunden, aber %d von %d Datensaetzen "
+            "waren nicht lesbar — das ist kein leerer Markt, sondern ein "
+            "Feldumbau. Erster Fehler: %s",
+            len(found), letzter_befund.get("fehlerhaft"),
+            letzter_befund.get("gesamt"), letzter_befund.get("erster_fehler"))
+    else:
+        logger.info("Himalayas: %d Stellen gefunden", len(found))
     return found

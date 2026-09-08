@@ -737,6 +737,59 @@ def _token_overlap(a: str, b: str) -> float:
     return len(intersection) / min(len(tokens_a), len(tokens_b))
 
 
+def quellen_einteilen(db, jetzt_iso: str = "") -> tuple:
+    """Welche Quelle laeuft, welche nicht, welche bekommt einen Probelauf?
+
+    Returns:
+        `(uebersprungen, dauerhaft_defekt, probelauf)` — Mengen bzw. ein
+        dict {Quelle: Fehlerserie}.
+
+    #432 hat die Auto-Deaktivierung gebracht, #668 den Hard-Skip ab fuenf
+    Fehlern in Serie. Was fehlte, war der Rueckweg: **#590-C.1 setzt beim
+    Abschalten ein `reactivate_at` (24 h, danach 48/72/168), und gelesen
+    hat es nie jemand.** Eine abgeschaltete Quelle lief damit nie wieder,
+    ihr Zustand wurde nie widerlegt — genau der sich selbst
+    bestaetigende Zustand, vor dem #906 warnt.
+
+    Gemessen am 08.09.2026: sieben Quellen seit dem 01.09. abgeschaltet,
+    `letzte_probe_am` bei allen sieben `null`. Eine davon (`himalayas`)
+    lieferte in Wahrheit 20 Stellen — der Adapter starb nur an einem
+    umgebauten Feld.
+
+    Bewusst herausgezogen: als Inline-Block in einer mehrhundertzeiligen
+    Funktion war diese Entscheidung von aussen nicht pruefbar, und genau
+    deshalb ist der fehlende Zweig nie aufgefallen.
+    """
+    from datetime import datetime as _dt
+
+    uebersprungen: set = set()
+    defekt: dict[str, int] = {}
+    probelauf: set = set()
+    jetzt = jetzt_iso or _dt.now().isoformat()
+    try:
+        for h in db.get_scraper_health():
+            name = h.get("scraper_name")
+            if not name:
+                continue
+            if not h.get("is_active"):
+                faellig = h.get("reactivate_at")
+                # Ohne Termin bleibt es beim Nein: wer bewusst
+                # abgeschaltet hat, will keine Wiederbelebung.
+                if faellig and str(faellig) <= jetzt:
+                    probelauf.add(name)
+                else:
+                    uebersprungen.add(name)
+                continue
+            # #668: dauerhaft defekt obwohl is_active=1
+            failures = h.get("consecutive_failures") or 0
+            if failures >= 5:
+                uebersprungen.add(name)
+                defekt[name] = failures
+    except Exception:
+        pass
+    return uebersprungen, defekt, probelauf
+
+
 def _post_search_cleanup(db, jobs: list) -> dict:
     """Post-search cleanup: remove duplicates, blacklist, dismissed, mark applied (#153, #154).
 
@@ -1000,23 +1053,7 @@ def run_search(db, job_id: str, params: dict):
     # Serie weiter auf is_active=1 (Auto-Deaktivierung griff nicht) und
     # blockierten den Gesamt-Job bis zum 10-Min-Timeout. Hard-Skip-Schwelle
     # = 5: kompromiss zwischen Toleranz und Selbstschutz.
-    _deactivated = set()
-    _broken_skipped: dict[str, int] = {}
-    try:
-        for h in db.get_scraper_health():
-            name = h.get("scraper_name")
-            if not name:
-                continue
-            if not h.get("is_active"):
-                _deactivated.add(name)
-                continue
-            # #668: dauerhaft defekt obwohl is_active=1
-            failures = h.get("consecutive_failures") or 0
-            if failures >= 5:
-                _deactivated.add(name)
-                _broken_skipped[name] = failures
-    except Exception:
-        pass
+    _deactivated, _broken_skipped, _probelauf = quellen_einteilen(db)
 
     # #234: Separate httpx (parallel) and playwright (sequential) sources
     # #500: Defekt-Flag in SOURCE_REGISTRY blockiert die Quelle automatisch.
