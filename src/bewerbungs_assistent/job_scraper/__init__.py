@@ -2330,6 +2330,17 @@ def entfernungs_guete(job: dict) -> tuple[str, str]:
     """
     if job.get("distance_km") is not None:
         return "belegt", ""
+    # #996 (08.09.2026): "remote" hiess hier bis v1.7.44 pauschal
+    # "Entfernung ohne Belang" — und damit KEIN Abzug, egal wo die
+    # Stelle liegt. Fuer eine deutsche Remote-Stelle stimmt das, fuer
+    # eine US-gebundene nicht: sie ist nicht weit weg, sondern gar nicht
+    # bewerbbar. Der Nutzer hat es bemerkt ("Was habe ich mit US zu
+    # tun?"), gemessen am selben Tag lagen bei einer Remote-Boerse
+    # 20 von 20 Treffern ausserhalb des DACH-Raums.
+    from ..services import arbeitsregion
+    _fremd, _belege = arbeitsregion.ausserhalb(job)
+    if _fremd:
+        return "verletzt", arbeitsregion.hinweis(_belege)
     if (job.get("remote_level") or "") == "remote":
         return "entfaellt", "Vollstaendig remote — Entfernung ohne Belang."
     ort = (job.get("location") or "").strip()
@@ -2478,6 +2489,21 @@ def calculate_score(job: dict, criteria: dict) -> int:
             job["_ko_ausschluss"] = _kw
             _teilscores_setzen(job, 0, 0)
             return 0
+
+    # #996: erkennbar ausserhalb des erreichbaren Rechtsraums. Das ist
+    # ein k.o. und kein Malus — wie die bereits gesetzten Ausschluesse
+    # "Umzug erforderlich" und "Relocation required", nur haerter: dort
+    # koennte man umziehen wollen, hier fehlt die Arbeitserlaubnis.
+    # BEWUSST nur bei Positivbeleg (ein Land steht ausdruecklich da),
+    # nie auf Verdacht — ein falscher Ausschluss ist teurer als ein zu
+    # hoher Score (#827), und Orte wie "Bedford" bleiben unbekannt.
+    from ..services import arbeitsregion as _region
+    _fremd, _belege = _region.ausserhalb(job)
+    if _fremd:
+        job["_ko_ausserhalb"] = _belege
+        job["_ko_ausserhalb_hinweis"] = _region.hinweis(_belege)
+        _teilscores_setzen(job, 0, 0)
+        return 0
 
     # v1.7.10 (#778): Einzelgewichte + optionale IDF-Faktoren
     overrides = _keyword_gewichte(criteria)
@@ -2733,6 +2759,25 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
                 "beschreibung_kurz": 50 <= len(_raw_desc.strip()) < 400,
             }
+
+    # #996: derselbe k.o. wie in calculate_score. Eine Regel in nur EINEN
+    # der beiden Rechenwege zu bauen verschiebt die Divergenz bloss —
+    # das hat dieses Projekt sieben Mal gekostet (#963 zuerst).
+    from ..services import arbeitsregion as _region
+    _fa_fremd, _fa_belege = _region.ausserhalb(job)
+    if _fa_fremd:
+        _fa_text = _region.hinweis(_fa_belege)
+        return {
+            "total_score": 0,
+            "muss_hits": [], "missing_muss": list(muss),
+            "plus_hits": [], "minus_hits": [],
+            "factors": {"Ausserhalb des erreichbaren Rechtsraums — "
+                        "Score hart 0": 0},
+            "risks": [_fa_text],
+            "ko_ausserhalb": _fa_belege,
+            "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
+            "beschreibung_kurz": 50 <= len(_raw_desc.strip()) < 400,
+        }
 
     # v1.7.12 (#827, C32): dieselbe Firmenabsatz-Logik wie calculate_score
     # — sonst erklaert die Fit-Analyse einen anderen Score als die Liste.
