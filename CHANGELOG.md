@@ -33,6 +33,93 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.53] - 2026-09-09 — Der Prüfer suchte die falsche Zeichenkette
+
+Die Prüfung, die verhindern soll, dass echte Firmennamen in öffentliche
+Fehlerberichte geraten, **fand sie nicht** — sobald der Name im Bericht
+etwas kürzer stand als in der Datenbank.
+
+### Fixed
+
+- **Nur die wortgleiche Fassung wurde erkannt.** Steht eine Firma im
+  Bestand mit einem Zusatz — etwa als „Werk XY (Konzern AB)", wie
+  Namen aus Import-Quellen regelmäßig ankommen —, dann fand die Prüfung
+  weder „Werk XY" noch „Konzern AB". **Und genau die kurze Form schreibt
+  ein Mensch in einen Bericht.**
+
+  Gefunden wurde das dadurch, dass zwei offene Meldungen einen echten
+  Firmennamen enthielten und die Prüfung „sauber" meldete.
+
+  Erkannt werden jetzt auch: der Name ohne Rechtsform, der Name ohne
+  angehängten Zusatz hinter Bindestrich oder Komma, und der Teil vor
+  einer Klammer.
+
+- **Vermittler- und Portalnamen bleiben ausgenommen — auch mit Zusatz.**
+  Sie sind ein Bestandteil des Produkts und stehen bewusst in Meldungen.
+  Bisher griff die Ausnahme nur bei exakt gleicher Schreibweise: stand
+  ein Vermittler im Bestand mit angehängter Rechtsform, war er **nicht**
+  ausgenommen.
+
+- **Einträge, die keine Namen sind, schweigen nicht mehr — sie werden
+  als unsicher gemeldet.** Im Bestand stehen als „Firma" auch
+  Technologiebegriffe und Platzhalter aus Importen. Sie tauchen jetzt
+  mit einem Hinweis auf, statt entweder zu fehlen oder wie ein echter
+  Treffer auszusehen.
+
+### Hinweis
+
+**Die Gegenrichtung war hier genauso wichtig wie die Erkennung
+selbst.** Ein erster Entwurf hat auch den Inhalt von Klammern als
+Suchbegriff genommen — gemessen am echten Bestand steht dort aber weit
+öfter eine Anmerkung („Vermittler", „Beratung", ein Ortsname) als ein
+zweiter Firmenname. Das hätte Fehlalarme über Dutzende Meldungen
+erzeugt, und **eine Prüfung, der niemand mehr glaubt, schützt gar
+nicht.** Der Klammerinhalt bleibt deshalb bewusst außen vor.
+
+Für Nutzer ändert sich an der Bedienung nichts. Die Prüfung läuft weiter
+automatisch vor jedem ausgehenden Text.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.53.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.53.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.52] - 2026-09-08 — Nicht jeder Kilometer kostet gleich viel
 
 Vom Nutzer eingebracht: der Wohnort liegt am Nordufer eines Flusses.
