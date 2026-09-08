@@ -165,8 +165,6 @@ def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
     params = {
         "keywords": None,
         "quellen": auto,
-        "nur_remote": False,
-        "max_entfernung_km": 0,
     }
     job_id = db.create_background_job("jobsuche", params)
 

@@ -470,8 +470,6 @@ def register(mcp, db, logger):
     def jobsuche_starten(
         keywords: list[str] = None,
         quellen: list[str] = None,
-        nur_remote: bool = False,
-        max_entfernung_km: int = 0
     ) -> dict:
         """Startet eine Jobsuche im Hintergrund auf allen konfigurierten Portalen.
 
@@ -490,11 +488,25 @@ def register(mcp, db, logger):
         soll den User vor dem Start ueber diese Quellen informieren und
         ihm empfehlen, sie via Chrome-Extension anzusteuern.
 
+        ENTFERNUNG UND REMOTE (#1000, v1.7.48): dieses Tool hatte bis
+        v1.7.47 die Parameter `nur_remote` und `max_entfernung_km`. Beide
+        wurden entgegengenommen und von niemandem gelesen. Sie sind
+        ersatzlos entfallen, weil ein Parameter ohne Wirkung schlechter
+        ist als keiner. Was stattdessen wirkt:
+
+        * Entfernung: `suchkriterien_setzen(max_entfernung_km=30)` —
+          gilt dauerhaft und fuer jeden Lauf. Entfernung ist dabei ein
+          PREIS im Score, kein Ausschluss (#910/#988): eine weite Stelle
+          rutscht nach unten, statt zu verschwinden.
+        * Remote: "Remote" gehoert in `regionen`, und das Gewicht dafuer
+          steht in `gewichtung.remote`. Ein harter Remote-Filter waere
+          gefaehrlich, weil sehr viele Anzeigen gar keine Angabe zum
+          Arbeitsmodell machen — er wuerde vor allem Unbekanntes
+          wegwerfen (#989).
+
         Args:
             keywords: Suchbegriffe (Standard: aus Profil)
             quellen: Welche Portale durchsuchen (Standard: alle aktiven)
-            nur_remote: Nur Remote-Stellen
-            max_entfernung_km: Maximale Entfernung in km (0 = kein Limit)
         """
         # #425: KI-Gate. Dashboard-Button bleibt unabhaengig nutzbar.
         gate = ki_gate(db, "jobsuche")
@@ -584,8 +596,6 @@ def register(mcp, db, logger):
         params = {
             "keywords": keywords,
             "quellen": quellen,
-            "nur_remote": nur_remote,
-            "max_entfernung_km": max_entfernung_km,
         }
         job_id = db.create_background_job("jobsuche", params)
 
