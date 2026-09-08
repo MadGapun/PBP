@@ -898,10 +898,19 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
         except Exception as e:
             logger.warning(".doc extraction failed: %s", e)
     elif fname.endswith(".docx"):
-        from docx import Document
-
-        doc = Document(str(filepath))
-        extracted = "\n".join(p.text for p in doc.paragraphs)
+        # #998: bis v1.7.46 stand hier `"\n".join(p.text for p in
+        # doc.paragraphs)` — und das sind ausschliesslich Absaetze auf
+        # Body-Ebene. Ein Lebenslauf im zweispaltigen Tabellenlayout
+        # ergab damit 26 Zeichen. DOCX liest jetzt derselbe Dienst wie
+        # PPTX/XLSX/ODT (E22/#833); der Sonderweg hier war der Grund,
+        # warum die ehrliche "leer"-Meldung fuer .docx gar nicht griff.
+        # Diese Linie kennt kein OCR und gibt ein Zweier-Tupel zurueck;
+        # den Grund liefert `format_befund`, wer ihn braucht.
+        from .services import office_text
+        try:
+            extracted = office_text.extrahiere(filepath)
+        except office_text.FormatNichtUnterstuetzt:
+            extracted = ""
     elif fname.endswith((".eml", ".msg")):
         from .services.email_service import parse_email_file
 
@@ -946,6 +955,19 @@ def format_befund(dateiname: str, text: str) -> dict | None:
         except Exception:
             pass
     if office_text.kann_lesen(dateiname):
+        # #998: der Grund kommt jetzt aus dem Leser statt aus einem
+        # Einheitssatz. Eine umbenannte .doc etwa sagt genau das, statt
+        # sich als "enthaelt keinen Text" auszugeben — die beiden
+        # auseinanderzuhalten ist der ganze Punkt von #833.
+        pfad = Path(dateiname)
+        if pfad.is_file():
+            try:
+                office_text.extrahiere(pfad)
+            except office_text.FormatNichtUnterstuetzt as exc:
+                return {"format": "nicht_unterstuetzt", "grund": str(exc)}
+            except Exception:
+                pass
+            return {"format": "leer", "grund": office_text.leer_grund(pfad)}
         return {"format": "leer", "grund": "Die Datei enthaelt keinen auslesbaren Text."}
     return None
 

@@ -1828,6 +1828,114 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokumente_text_nachziehen(dokument_id: str = "", anwenden: bool = False,
+                                  grenze: int = 200) -> dict:
+        """Liest gespeicherte Dokumente erneut aus — nach einem besseren Leser.
+
+        Wenn PBP lernt, ein Format besser zu lesen, hilft das nur neuen
+        Uploads. Der Bestand behaelt den duennen Text von damals, und
+        niemand sieht es ihm an. Genau das war der Fall bei #998
+        (DOCX-Tabellen blieben liegen) und schon bei #833 (PPTX/XLSX
+        wurden gar nicht gelesen) — beide Male gab es keinen Weg zurueck
+        ausser: Datei nochmal hochladen.
+
+        **Es wird nur ueberschrieben, wenn dabei MEHR herauskommt.** Ein
+        Leser, der sich verschlechtert, oder eine Datei, die inzwischen
+        anders aussieht, darf einen guten Bestandstext nicht ersetzen —
+        stiller Datenverlust waere schlimmer als der duenne Text.
+
+        Nachgetragener Text bleibt unangetastet: was per
+        `dokument_text_setzen` von Hand kam (OCR etwa), traegt einen
+        Provenienz-Header und ist bewusst gesetzt.
+
+        Args:
+            dokument_id: Einzelnes Dokument. Leer = alle Verdachtsfaelle.
+            anwenden: False (Vorgabe) zeigt nur, was sich aendern wuerde.
+            grenze: Ab wie wenig Zeichen ein Dokument als verdaechtig
+                gilt (nur bei der Bestandssuche, nicht bei einer ID).
+        """
+        from pathlib import Path
+        from ..dashboard import _extract_document_text, format_befund
+
+        profile_id = db.get_active_profile_id()
+        if not profile_id:
+            return kein_profil()
+
+        if dokument_id:
+            doc = db.get_document(dokument_id, profile_id=profile_id)
+            if not doc:
+                return {"fehler": "Dokument nicht gefunden."}
+            kandidaten = [doc]
+        else:
+            conn = db.connect()
+            kandidaten = [dict(r) for r in conn.execute(
+                "SELECT * FROM documents WHERE profile_id=? "
+                "AND filepath IS NOT NULL AND filepath != '' "
+                "AND LENGTH(COALESCE(extracted_text,'')) < ? "
+                "ORDER BY LENGTH(COALESCE(extracted_text,''))",
+                (profile_id, int(grenze))).fetchall()]
+
+        geprueft, aenderungen, uebersprungen = 0, [], []
+        for doc in kandidaten:
+            pfad = Path(doc.get("filepath") or "")
+            if not pfad.is_file():
+                uebersprungen.append({"dateiname": doc.get("filename", ""),
+                                      "grund": "Datei nicht mehr vorhanden"})
+                continue
+            alt = (doc.get("extracted_text") or "").strip()
+            if alt.startswith("["):
+                # Provenienz-Header aus dokument_text_setzen — von Hand
+                # gesetzt und nicht zu ueberschreiben.
+                uebersprungen.append({"dateiname": doc.get("filename", ""),
+                                      "grund": "Text wurde von Hand nachgetragen"})
+                continue
+            geprueft += 1
+            try:
+                # Diese Linie kennt kein OCR: der Extraktor gibt ein
+                # Zweier-Tupel zurueck, den Grund liefert format_befund.
+                neu, _kontext = _extract_document_text(pfad)
+            except Exception as exc:
+                uebersprungen.append({"dateiname": doc.get("filename", ""),
+                                      "grund": f"Lesen fehlgeschlagen: {exc}"})
+                continue
+            neu = (neu or "").strip()
+            befund = format_befund(str(pfad), neu)
+            if len(neu) <= len(alt):
+                if befund and befund.get("grund"):
+                    uebersprungen.append({"dateiname": doc.get("filename", ""),
+                                          "grund": befund["grund"]})
+                continue
+            eintrag = {"dokument_id": doc["id"],
+                       "dateiname": doc.get("filename", ""),
+                       "zeichen_vorher": len(alt), "zeichen_nachher": len(neu)}
+            if anwenden:
+                eintrag["geschrieben"] = db.set_document_extracted_text(
+                    doc["id"], neu, profile_id=profile_id)
+            aenderungen.append(eintrag)
+
+        antwort = {
+            "status": "angewendet" if anwenden else "vorschau",
+            "geprueft": geprueft,
+            "verbesserungen": len(aenderungen),
+            "dokumente": aenderungen[:25],
+        }
+        if len(aenderungen) > 25:
+            antwort["hinweis_gekuerzt"] = (
+                f"{len(aenderungen)} Dokumente betroffen, 25 gezeigt.")
+        if uebersprungen:
+            antwort["uebersprungen"] = uebersprungen[:25]
+        if aenderungen and not anwenden:
+            antwort["naechster_schritt"] = (
+                "Mit anwenden=True schreiben. Danach lohnt "
+                "dokument_profil_extrahieren() fuer Lebenslaeufe — der "
+                "neue Text kann Stationen enthalten, die vorher fehlten.")
+        elif not aenderungen:
+            antwort["nachricht"] = (
+                "Kein Dokument liefert mit dem heutigen Leser mehr Text "
+                "als gespeichert ist.")
+        return antwort
+
+    @mcp.tool()
     def dokument_status_setzen(dokument_id: str, status: str) -> dict:
         """Setzt den Extraktions-Status eines Dokuments manuell (#447).
 
