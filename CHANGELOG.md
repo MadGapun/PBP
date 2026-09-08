@@ -33,6 +33,100 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.47] - 2026-09-08 — Der halbe Lebenslauf
+
+Gemeldet von außen: der Import eines Lebenslaufs im Word-Format ergab
+**26 Zeichen** Text. Der gesamte Inhalt lag in einer Tabelle.
+
+### Fixed
+
+- **Word-Dokumente werden jetzt vollständig gelesen.** Bisher las PBP nur
+  die Absätze im Hauptteil. Text in **Tabellen**, in **Kopf- und
+  Fußzeilen** und in **Textfeldern** blieb liegen — und zweispaltiges
+  Tabellenlayout (Zeitraum links, Tätigkeit rechts) ist bei Lebensläufen
+  die Regel, nicht die Ausnahme. An einer solchen Vorlage gemessen:
+  **13 gegen 205 Zeichen**. Die Kontaktdaten stehen dabei oft in der
+  Kopfzeile und fehlten damit komplett.
+
+- **Die Reihenfolge bleibt erhalten.** Absätze und Tabellen kommen so,
+  wie sie im Dokument stehen. Erst alle Absätze und dann alle Zellen
+  aneinanderzuhängen würde den Lebenslauf in zwei unzusammenhängende
+  Blöcke zerlegen.
+
+- **Verbundene Zellen zählen einmal.** Der naheliegende Weg hätte eine
+  über drei Spalten verbundene Zelle **dreimal** geliefert — gemessen.
+  In Lebenslauf-Vorlagen sind Abschnittsüberschriften fast immer
+  verbunden, und dieser Text geht in die Bewertung ein.
+
+- **„Nicht gelesen" und „enthält nichts" sind jetzt unterscheidbar —
+  auch für Word.** Diese Trennung gab es seit v1.7.35 für Präsentationen
+  und Tabellen; `.docx` lief an ihr vorbei und bekam daher gar keine
+  Auskunft. Eine als `.docx` umbenannte Alt-Datei sagt das jetzt, statt
+  sich als leeres Dokument auszugeben.
+
+### Added
+
+- **Bestehende Dokumente lassen sich nachziehen — ohne sie erneut
+  hochzuladen.** Wenn PBP lernt, ein Format besser zu lesen, half das
+  bisher nur neuen Uploads; der Bestand behielt den dünnen Text von
+  damals, und man sah es ihm nicht an. Das neue Werkzeug liest
+  gespeicherte Dateien noch einmal und zeigt zuerst, was sich ändern
+  würde.
+
+  **Überschrieben wird nur, wenn dabei mehr herauskommt.** Von Hand
+  nachgetragener Text (etwa aus einer Texterkennung) bleibt unangetastet,
+  und Dateien, die nicht mehr am Platz liegen, werden benannt statt
+  übergangen. Das Werkzeug gilt für alle Formate — auch für die
+  Präsentationen und Tabellen aus v1.7.35, deren Bestand damals ebenfalls
+  liegenblieb.
+
+### Hinweis
+
+Wer nach dem Update einen Lebenslauf vermisst, dem PBP kaum Text
+entnommen hat: einmal nachziehen lassen, dann steht der Inhalt zur
+Verfügung. Bestehende Texte gehen dabei nicht verloren.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.47.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.47.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.46] - 2026-09-08 — Eine Erfolgsmeldung über nichts
 
 Gemeldet von außen: eine Profiländerung wurde bestätigt, die nie
