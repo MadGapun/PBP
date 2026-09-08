@@ -197,6 +197,14 @@ _SCHREIBFELDER = {
     "projekt": ("name", "description", "role", "situation", "task", "action",
                 "result", "technologies", "duration", "customer_name",
                 "is_confidential", "start_date", "end_date", "position_id"),
+    # #997: der vierte Bereich. #994 hat die Uebersetzung fuer drei von
+    # vier Datentypen gebaut und `skill` uebergangen — genau der Fehler,
+    # den H19 MERKE (1) beschreibt, im selben Modul wiederholt. Ohne
+    # diesen Eintrag hiesse `update_skill(...) is False` weiterhin zwei
+    # Dinge gleichzeitig, und die neue Meldung "nicht_gefunden" waere in
+    # der Haelfte der Faelle die falsche Auskunft.
+    "skill": ("name", "category", "level", "years_experience",
+              "last_used_year", "start_year", "end_year", "level_current"),
 }
 
 _FELD_ALIASE = {
@@ -236,6 +244,17 @@ _FELD_ALIASE = {
         "kunde": "customer_name", "auftraggeber": "customer_name",
         "vertraulich": "is_confidential",
         "von": "start_date", "bis": "end_date",
+    },
+    "skill": {
+        "bezeichnung": "name", "kompetenz": "name", "faehigkeit": "name",
+        "kategorie": "category", "art": "category",
+        "niveau": "level", "stufe": "level",
+        "jahre": "years_experience", "erfahrung": "years_experience",
+        "berufsjahre": "years_experience",
+        "zuletzt_genutzt": "last_used_year", "zuletzt": "last_used_year",
+        "seit": "start_year", "startjahr": "start_year",
+        "endjahr": "end_year",
+        "aktuelles_niveau": "level_current",
     },
 }
 
@@ -278,6 +297,136 @@ def _feld_rueckmeldung(bereich, antwort, ignoriert):
             "wie 'aufgaben' oder 'erfolge' werden uebersetzt)."
         )
     return antwort
+
+
+# --- #997: der Rueckgabewert der DB-Ebene wird ausgewertet ------------
+#
+# Nutzer-Report (08.09.2026): `profil_bearbeiten` meldete
+# `status: "aktualisiert"` samt `geaenderte_felder` fuer eine ID, die es
+# gar nicht gibt. Geaendert wurde nichts, und weder Mensch noch Claude
+# konnten das bemerken.
+#
+# Die DB-Ebene arbeitet korrekt: `update_position` und ihre sechs
+# Geschwister geben `cur.rowcount > 0` zurueck. Die Auskunft war also da
+# — sie wurde eine Ebene hoeher an SIEBEN Stellen weggeworfen.
+#
+# Zwei Dinge daran sind bemerkenswert:
+#
+# (1) Genau ein Zweig machte es richtig (`delete_skill`), und der
+#     REST-Weg im Dashboard ebenfalls (`404 Position nicht gefunden`).
+#     Dieselbe Frage, zwei Wege, und der schwaechere ist der, den Claude
+#     nimmt — das ist #991 in einem anderen Modul. Deshalb steht die
+#     Auswertung jetzt an EINER Stelle und nicht siebenmal als
+#     copy-paste-if; die achte Verzweigung, die jemand spaeter
+#     hinzufuegt, erbt sie damit automatisch.
+#
+# (2) `False` bedeutet auf DB-Ebene ZWEI verschiedene Dinge: "diese ID
+#     gibt es nicht" und "kein schreibbares Feld dabei" (beide Wege
+#     enden in `return False`). Eine Antwort, die sich fuer eines von
+#     beiden entscheidet, ohne nachzusehen, schickt den Aufrufer im
+#     halben Fall in die falsche Richtung — dieselbe Falle wie der
+#     Hinweis aus #987, der die Ursache aktiv wegerklaerte. Deshalb wird
+#     hier nachgesehen statt geraten.
+
+_ID_WEGWEISER = {
+    "position": "positionen_anzeigen() nennt Titel, Firma und ID jeder Position.",
+    "projekt": "projekte_anzeigen() nennt die IDs aller Projekte.",
+    "ausbildung": "positionen_anzeigen() nennt auch die IDs der Ausbildung.",
+    # Der Verweis auf skills_bereinigen stand schon im alten
+    # delete_skill-Zweig und bleibt erhalten — er ist der Grund, warum
+    # eine Skill-ID am haeufigsten ins Leere zeigt.
+    "skill": ("profil_zusammenfassung() nennt die Skill-IDs; fuer "
+              "Extraktions-Muell gibt es skills_bereinigen()."),
+}
+
+
+def _kennt_id(db, bereich, element_id) -> bool:
+    """Gibt es dieses Element ueberhaupt?
+
+    Bewusst ueber `db.get_profile()` statt per eigener SQL-Abfrage: der
+    Lesepfad ist derselbe, den `positionen_anzeigen` benutzt, und damit
+    sieht die Pruefung genau die IDs, die PBP auch herausgibt
+    (Anti-DB-Bypass, #514).
+    """
+    profil = db.get_profile() or {}
+    ziel = str(element_id or "")
+    if bereich == "position":
+        return any(p.get("id") == ziel for p in profil.get("positions", []))
+    if bereich == "projekt":
+        return any(pr.get("id") == ziel
+                   for p in profil.get("positions", [])
+                   for pr in (p.get("projects") or []))
+    if bereich == "ausbildung":
+        return any(e.get("id") == ziel for e in profil.get("education", []))
+    if bereich == "skill":
+        return any(s.get("id") == ziel for s in profil.get("skills", []))
+    return False
+
+
+def _nicht_gefunden(bereich, element_id, ignoriert=None):
+    """Die Absage bei unbekannter ID — an einer Stelle formuliert."""
+    antwort = {
+        "status": "nicht_gefunden", "bereich": bereich, "id": element_id,
+        "hinweis": (
+            f"Es gibt kein Element '{element_id}' im Bereich "
+            f"'{bereich}' — geschrieben wurde nichts. "
+            + _ID_WEGWEISER.get(bereich, "")
+        ),
+    }
+    if ignoriert:
+        # Beides war falsch. Der Aufrufer soll das in EINER Runde
+        # erfahren und nicht erst den Feldnamen reparieren, um dann
+        # wieder ins Leere zu schreiben.
+        antwort["ignorierte_felder"] = ignoriert
+        antwort["moegliche_felder"] = list(_SCHREIBFELDER.get(bereich, ()))
+    return antwort
+
+
+def _nichts_zu_schreiben(db, bereich, element_id, ignoriert):
+    """Kein schreibbares Feld dabei — aber stimmt wenigstens die ID?
+
+    Diese Reihenfolge ist Absicht. Sind ID UND Feldname falsch, ist die
+    ID der schwerere Befund: wer nur den Feldnamen korrigiert, schreibt
+    beim zweiten Versuch weiterhin ins Leere. Vor #997 meldete PBP in
+    diesem Fall ausschliesslich den Feldnamen — der Aufrufer haette den
+    eigentlichen Fehler erst eine Runde spaeter gesehen.
+    """
+    if element_id and not _kennt_id(db, bereich, element_id):
+        return _nicht_gefunden(bereich, element_id, ignoriert)
+    return _feld_rueckmeldung(bereich, {
+        "status": "nichts_geaendert", "bereich": bereich,
+        "id": element_id}, ignoriert)
+
+
+def _schreibbefund(db, bereich, element_id, ok, antwort):
+    """Wertet den Rueckgabewert eines Schreibaufrufs aus — an EINER Stelle.
+
+    Args:
+        ok: was die DB-Schicht gemeldet hat (`rowcount > 0`).
+        antwort: die Erfolgsantwort, die gelten soll, wenn wirklich
+            geschrieben wurde.
+
+    Returns:
+        Bei Erfolg `antwort` unveraendert. Sonst eine Absage, die den
+        Grund BENENNT statt ihn zu vermuten — Antwortform wie beim
+        `delete_skill`-Zweig, der es als einziger schon richtig machte.
+    """
+    if ok:
+        return antwort
+    if not _kennt_id(db, bereich, element_id):
+        return _nicht_gefunden(bereich, element_id)
+    # Die ID stimmt, geschrieben wurde trotzdem nichts. Auf diesem Weg
+    # bleibt nur "kein schreibbares Feld dabei" — die Felduebersetzung
+    # faengt das vorher ab, das hier ist das Netz darunter.
+    return {
+        "status": "nichts_geaendert", "bereich": bereich, "id": element_id,
+        "moegliche_felder": list(_SCHREIBFELDER.get(bereich, ())),
+        "hinweis": (
+            f"Das Element '{element_id}' gibt es, aber es war kein "
+            f"schreibbares Feld dabei — geaendert wurde nichts. "
+            "Moegliche Feldnamen stehen in moegliche_felder."
+        ),
+    }
 
 
 def register(mcp, db, logger):
@@ -1149,19 +1298,24 @@ def register(mcp, db, logger):
 
         elif bereich == "position":
             if aktion == "loeschen" and element_id:
-                db.delete_position(element_id)
-                return {"status": "geloescht", "bereich": "position", "id": element_id}
+                ok = db.delete_position(element_id)
+                return _schreibbefund(db, "position", element_id, ok, {
+                    "status": "geloescht", "bereich": "position",
+                    "id": element_id})
             elif aktion == "aendern" and element_id:
                 felder, ignoriert = _felder_uebersetzen("position", daten)
                 if not felder:
-                    return _feld_rueckmeldung("position", {
-                        "status": "nichts_geaendert", "bereich": "position",
-                        "id": element_id}, ignoriert or list(daten.keys()))
-                db.update_position(element_id, felder)
-                return _feld_rueckmeldung("position", {
-                    "status": "aktualisiert", "bereich": "position",
-                    "id": element_id,
-                    "geaenderte_felder": list(felder.keys())}, ignoriert)
+                    return _nichts_zu_schreiben(
+                        db, "position", element_id,
+                        ignoriert or list(daten.keys()))
+                ok = db.update_position(element_id, felder)
+                return _schreibbefund(db, "position", element_id, ok,
+                                      _feld_rueckmeldung("position", {
+                                          "status": "aktualisiert",
+                                          "bereich": "position",
+                                          "id": element_id,
+                                          "geaenderte_felder":
+                                              list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("position", daten)
                 pid = db.add_position(felder)
@@ -1174,19 +1328,24 @@ def register(mcp, db, logger):
 
         elif bereich == "projekt":
             if aktion == "loeschen" and element_id:
-                db.delete_project(element_id)
-                return {"status": "geloescht", "bereich": "projekt", "id": element_id}
+                ok = db.delete_project(element_id)
+                return _schreibbefund(db, "projekt", element_id, ok, {
+                    "status": "geloescht", "bereich": "projekt",
+                    "id": element_id})
             elif aktion == "aendern" and element_id:
                 felder, ignoriert = _felder_uebersetzen("projekt", daten)
                 if not felder:
-                    return _feld_rueckmeldung("projekt", {
-                        "status": "nichts_geaendert", "bereich": "projekt",
-                        "id": element_id}, ignoriert or list(daten.keys()))
-                db.update_project(element_id, felder)
-                return _feld_rueckmeldung("projekt", {
-                    "status": "aktualisiert", "bereich": "projekt",
-                    "id": element_id,
-                    "geaenderte_felder": list(felder.keys())}, ignoriert)
+                    return _nichts_zu_schreiben(
+                        db, "projekt", element_id,
+                        ignoriert or list(daten.keys()))
+                ok = db.update_project(element_id, felder)
+                return _schreibbefund(db, "projekt", element_id, ok,
+                                      _feld_rueckmeldung("projekt", {
+                                          "status": "aktualisiert",
+                                          "bereich": "projekt",
+                                          "id": element_id,
+                                          "geaenderte_felder":
+                                              list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen" and daten.get("position_id"):
                 pid = db.add_project(daten["position_id"], daten)
                 return {"status": "hinzugefuegt", "bereich": "projekt", "id": pid}
@@ -1199,19 +1358,24 @@ def register(mcp, db, logger):
 
         elif bereich == "ausbildung":
             if aktion == "loeschen" and element_id:
-                db.delete_education(element_id)
-                return {"status": "geloescht", "bereich": "ausbildung", "id": element_id}
+                ok = db.delete_education(element_id)
+                return _schreibbefund(db, "ausbildung", element_id, ok, {
+                    "status": "geloescht", "bereich": "ausbildung",
+                    "id": element_id})
             elif aktion == "aendern" and element_id:
                 felder, ignoriert = _felder_uebersetzen("ausbildung", daten)
                 if not felder:
-                    return _feld_rueckmeldung("ausbildung", {
-                        "status": "nichts_geaendert", "bereich": "ausbildung",
-                        "id": element_id}, ignoriert or list(daten.keys()))
-                db.update_education(element_id, felder)
-                return _feld_rueckmeldung("ausbildung", {
-                    "status": "aktualisiert", "bereich": "ausbildung",
-                    "id": element_id,
-                    "geaenderte_felder": list(felder.keys())}, ignoriert)
+                    return _nichts_zu_schreiben(
+                        db, "ausbildung", element_id,
+                        ignoriert or list(daten.keys()))
+                ok = db.update_education(element_id, felder)
+                return _schreibbefund(db, "ausbildung", element_id, ok,
+                                      _feld_rueckmeldung("ausbildung", {
+                                          "status": "aktualisiert",
+                                          "bereich": "ausbildung",
+                                          "id": element_id,
+                                          "geaenderte_felder":
+                                              list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("ausbildung", daten)
                 eid = db.add_education(felder)
@@ -1224,21 +1388,50 @@ def register(mcp, db, logger):
 
         elif bereich == "skill":
             if aktion == "loeschen" and element_id:
+                # Dieser Zweig war der einzige, der den Rueckgabewert schon
+                # ausgewertet hat — jetzt tut er es ueber dasselbe
+                # Nadeloehr wie die sechs anderen (#997).
                 ok = db.delete_skill(element_id)
-                if not ok:
-                    return {"status": "nicht_gefunden", "bereich": "skill",
-                            "id": element_id,
-                            "hinweis": "Keine Skill mit dieser ID. IDs via "
-                                       "profil_zusammenfassung pruefen, oder "
-                                       "skills_bereinigen fuer Junk-Skills."}
-                return {"status": "geloescht", "bereich": "skill", "id": element_id}
+                return _schreibbefund(db, "skill", element_id, ok, {
+                    "status": "geloescht", "bereich": "skill",
+                    "id": element_id})
             elif aktion == "aendern" and element_id:
-                db.update_skill(element_id, daten)
-                return {"status": "aktualisiert", "bereich": "skill", "id": element_id,
-                        "geaenderte_felder": list(daten.keys())}
+                felder, ignoriert = _felder_uebersetzen("skill", daten)
+                if not felder:
+                    return _nichts_zu_schreiben(
+                        db, "skill", element_id,
+                        ignoriert or list(daten.keys()))
+                ok = db.update_skill(element_id, felder)
+                return _schreibbefund(db, "skill", element_id, ok,
+                                      _feld_rueckmeldung("skill", {
+                                          "status": "aktualisiert",
+                                          "bereich": "skill",
+                                          "id": element_id,
+                                          "geaenderte_felder":
+                                              list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
-                sid = db.add_skill(daten)
-                return {"status": "hinzugefuegt", "bereich": "skill", "id": sid}
+                felder, ignoriert = _felder_uebersetzen("skill", daten)
+                sid = db.add_skill(felder)
+                if not sid:
+                    # Nebenbefund zu #997, vom eigenen Test gefunden:
+                    # `add_skill` gibt fuer einen als Extraktions-Muell
+                    # erkannten Namen (#43/#129) eine LEERE ID zurueck —
+                    # und die Antwort lautete trotzdem "hinzugefuegt",
+                    # mit `id: ""`. Derselbe stille Fehlschlag mit
+                    # Erfolgsmeldung, nur beim Anlegen statt beim Aendern.
+                    return {
+                        "status": "nicht_angelegt", "bereich": "skill",
+                        "hinweis": (
+                            f"'{(daten or {}).get('name', '')}' wurde als "
+                            "Extraktions-Artefakt abgewiesen und NICHT "
+                            "angelegt (zu kurz, reine Ziffern oder "
+                            "Satzzeichen). Mit einer klaren Bezeichnung "
+                            "erneut versuchen."
+                        ),
+                    }
+                return _feld_rueckmeldung("skill", {
+                    "status": "hinzugefuegt", "bereich": "skill",
+                    "id": sid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
                 ids = [db.add_skill(d) for d in daten]
                 return {"status": "hinzugefuegt", "bereich": "skill", "anzahl": len(ids), "ids": ids}
