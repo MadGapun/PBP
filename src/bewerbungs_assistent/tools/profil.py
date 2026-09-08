@@ -197,6 +197,14 @@ _SCHREIBFELDER = {
     "projekt": ("name", "description", "role", "situation", "task", "action",
                 "result", "technologies", "duration", "customer_name",
                 "is_confidential", "start_date", "end_date", "position_id"),
+    # #997: der vierte Bereich. #994 hat die Uebersetzung fuer drei von
+    # vier Datentypen gebaut und `skill` uebergangen — genau der Fehler,
+    # den H19 MERKE (1) beschreibt, im selben Modul wiederholt. Ohne
+    # diesen Eintrag hiesse `update_skill(...) is False` weiterhin zwei
+    # Dinge gleichzeitig, und die neue Meldung "nicht_gefunden" waere in
+    # der Haelfte der Faelle die falsche Auskunft.
+    "skill": ("name", "category", "level", "years_experience",
+              "last_used_year", "start_year", "end_year", "level_current"),
 }
 
 _FELD_ALIASE = {
@@ -236,6 +244,17 @@ _FELD_ALIASE = {
         "kunde": "customer_name", "auftraggeber": "customer_name",
         "vertraulich": "is_confidential",
         "von": "start_date", "bis": "end_date",
+    },
+    "skill": {
+        "bezeichnung": "name", "kompetenz": "name", "faehigkeit": "name",
+        "kategorie": "category", "art": "category",
+        "niveau": "level", "stufe": "level",
+        "jahre": "years_experience", "erfahrung": "years_experience",
+        "berufsjahre": "years_experience",
+        "zuletzt_genutzt": "last_used_year", "zuletzt": "last_used_year",
+        "seit": "start_year", "startjahr": "start_year",
+        "endjahr": "end_year",
+        "aktuelles_niveau": "level_current",
     },
 }
 
@@ -278,6 +297,104 @@ def _feld_rueckmeldung(bereich, antwort, ignoriert):
             "wie 'aufgaben' oder 'erfolge' werden uebersetzt)."
         )
     return antwort
+
+
+# --- #997: der Rueckgabewert der DB-Ebene wird ausgewertet ------------
+#
+# Nutzer-Report (08.09.2026): `profil_bearbeiten` meldete
+# `status: "aktualisiert"` samt `geaenderte_felder` fuer eine ID, die es
+# gar nicht gibt. Geaendert wurde nichts, und weder Mensch noch Claude
+# konnten das bemerken.
+#
+# Die DB-Ebene arbeitet korrekt: `update_position` und ihre sechs
+# Geschwister geben `cur.rowcount > 0` zurueck. Die Auskunft war also da
+# — sie wurde eine Ebene hoeher an SIEBEN Stellen weggeworfen.
+#
+# Zwei Dinge daran sind bemerkenswert:
+#
+# (1) Genau ein Zweig machte es richtig (`delete_skill`), und der
+#     REST-Weg im Dashboard ebenfalls (`404 Position nicht gefunden`).
+#     Dieselbe Frage, zwei Wege, und der schwaechere ist der, den Claude
+#     nimmt — das ist #991 in einem anderen Modul. Deshalb steht die
+#     Auswertung jetzt an EINER Stelle und nicht siebenmal als
+#     copy-paste-if; die achte Verzweigung, die jemand spaeter
+#     hinzufuegt, erbt sie damit automatisch.
+#
+# (2) `False` bedeutet auf DB-Ebene ZWEI verschiedene Dinge: "diese ID
+#     gibt es nicht" und "kein schreibbares Feld dabei" (beide Wege
+#     enden in `return False`). Eine Antwort, die sich fuer eines von
+#     beiden entscheidet, ohne nachzusehen, schickt den Aufrufer im
+#     halben Fall in die falsche Richtung — dieselbe Falle wie der
+#     Hinweis aus #987, der die Ursache aktiv wegerklaerte. Deshalb wird
+#     hier nachgesehen statt geraten.
+
+_ID_WEGWEISER = {
+    "position": "positionen_anzeigen() nennt Titel, Firma und ID jeder Position.",
+    "projekt": "projekte_anzeigen() nennt die IDs aller Projekte.",
+    "ausbildung": "positionen_anzeigen() nennt auch die IDs der Ausbildung.",
+    "skill": "profil_zusammenfassung() nennt die Skill-IDs.",
+}
+
+
+def _kennt_id(db, bereich, element_id) -> bool:
+    """Gibt es dieses Element ueberhaupt?
+
+    Bewusst ueber `db.get_profile()` statt per eigener SQL-Abfrage: der
+    Lesepfad ist derselbe, den `positionen_anzeigen` benutzt, und damit
+    sieht die Pruefung genau die IDs, die PBP auch herausgibt
+    (Anti-DB-Bypass, #514).
+    """
+    profil = db.get_profile() or {}
+    ziel = str(element_id or "")
+    if bereich == "position":
+        return any(p.get("id") == ziel for p in profil.get("positions", []))
+    if bereich == "projekt":
+        return any(pr.get("id") == ziel
+                   for p in profil.get("positions", [])
+                   for pr in (p.get("projects") or []))
+    if bereich == "ausbildung":
+        return any(e.get("id") == ziel for e in profil.get("education", []))
+    if bereich == "skill":
+        return any(s.get("id") == ziel for s in profil.get("skills", []))
+    return False
+
+
+def _schreibbefund(db, bereich, element_id, ok, antwort):
+    """Wertet den Rueckgabewert eines Schreibaufrufs aus — an EINER Stelle.
+
+    Args:
+        ok: was die DB-Schicht gemeldet hat (`rowcount > 0`).
+        antwort: die Erfolgsantwort, die gelten soll, wenn wirklich
+            geschrieben wurde.
+
+    Returns:
+        Bei Erfolg `antwort` unveraendert. Sonst eine Absage, die den
+        Grund BENENNT statt ihn zu vermuten — Antwortform wie beim
+        `delete_skill`-Zweig, der es als einziger schon richtig machte.
+    """
+    if ok:
+        return antwort
+    if not _kennt_id(db, bereich, element_id):
+        return {
+            "status": "nicht_gefunden", "bereich": bereich, "id": element_id,
+            "hinweis": (
+                f"Es gibt kein Element '{element_id}' im Bereich "
+                f"'{bereich}' — geschrieben wurde nichts. "
+                + _ID_WEGWEISER.get(bereich, "")
+            ),
+        }
+    # Die ID stimmt, geschrieben wurde trotzdem nichts. Auf diesem Weg
+    # bleibt nur "kein schreibbares Feld dabei" — die Felduebersetzung
+    # faengt das vorher ab, das hier ist das Netz darunter.
+    return {
+        "status": "nichts_geaendert", "bereich": bereich, "id": element_id,
+        "moegliche_felder": list(_SCHREIBFELDER.get(bereich, ())),
+        "hinweis": (
+            f"Das Element '{element_id}' gibt es, aber es war kein "
+            f"schreibbares Feld dabei — geaendert wurde nichts. "
+            "Moegliche Feldnamen stehen in moegliche_felder."
+        ),
+    }
 
 
 def register(mcp, db, logger):
