@@ -177,6 +177,10 @@ def test_empfehlung_empfohlen_bei_hohem_score():
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
         "total_score": 80,
+        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
+        # werden. Genau diese Unterstellung war der Fehler — der Score
+        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
+        "total_score_max": 100,
         "muss_hits": ["python", "fastapi", "sqlite"],
         "missing_muss": [],
         "risks": [],
@@ -191,6 +195,10 @@ def test_empfehlung_bedingt_bei_mittlerem_score():
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
         "total_score": 60,
+        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
+        # werden. Genau diese Unterstellung war der Fehler — der Score
+        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
+        "total_score_max": 100,
         "muss_hits": ["python"],
         "missing_muss": ["windchill", "teamcenter"],
         "risks": ["2 MUSS-Keywords nicht gefunden"],
@@ -205,6 +213,10 @@ def test_empfehlung_nicht_empfohlen_bei_niedrigem_score():
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
         "total_score": 20,
+        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
+        # werden. Genau diese Unterstellung war der Fehler — der Score
+        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
+        "total_score_max": 100,
         "muss_hits": ["python"],
         "missing_muss": ["windchill"],
         "risks": [],
@@ -266,11 +278,17 @@ def test_empfehlung_ko_bei_null_muss_hits():
 
 
 def test_empfehlung_hat_immer_die_pflichtfelder():
-    """Format-Vertrag: kategorie + score + begruendung + kurz IMMER vorhanden."""
+    """Format-Vertrag: kategorie + score + begruendung + kurz IMMER vorhanden.
+
+    v1.7.49 (#999): vierte Kategorie `NICHT_BEURTEILBAR` fuer den Fall,
+    dass der erreichbare Hoechstwert unbekannt ist. Eine Einordnung ohne
+    Skala waere erfunden — und "unbekannt" ist etwas anderes als "passt
+    nicht" (#989).
+    """
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     for score in (0, 50, 75, 100):
         fit_result = {
-            "total_score": score,
+            "total_score": score, "total_score_max": 100,
             "muss_hits": ["x"], "missing_muss": [],
             "risks": [], "beschreibung_vorhanden": True,
         }
@@ -280,3 +298,11 @@ def test_empfehlung_hat_immer_die_pflichtfelder():
         assert "begruendung" in v
         assert "kurz" in v
         assert v["kategorie"] in ("EMPFOHLEN", "BEDINGT", "NICHT_EMPFOHLEN")
+
+    # Ohne bekanntes Maximum: eigene Kategorie, kein geratener Verdict.
+    ohne = _build_empfehlung(
+        {"total_score": 12, "muss_hits": ["x"], "missing_muss": [],
+         "risks": [], "beschreibung_vorhanden": True}, {})
+    assert ohne["kategorie"] == "NICHT_BEURTEILBAR"
+    for feld in ("kategorie", "score", "begruendung", "kurz"):
+        assert feld in ohne

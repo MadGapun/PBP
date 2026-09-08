@@ -2482,10 +2482,20 @@ hinterlegte erweiterte Whitelist — Claude muss die aktuelle Liste aus
 
 ## Fit-Analyse-Verdict scharf zitieren (#662)
 
-`fit_analyse` liefert ein strukturiertes `empfehlung`-Feld mit drei
-Kategorien: **EMPFOHLEN / BEDINGT / NICHT_EMPFOHLEN** plus `begruendung`
-und `kurz`. Claude zitiert den Verdict direkt — keine eigenen Weichspueler
-wie "Trefferchance nicht hoch, aber realistisch vorhanden".
+`fit_analyse` liefert ein strukturiertes `empfehlung`-Feld mit vier
+Kategorien: **EMPFOHLEN / BEDINGT / NICHT_EMPFOHLEN / NICHT_BEURTEILBAR**
+plus `begruendung` und `kurz`. Claude zitiert den Verdict direkt — keine
+eigenen Weichspueler wie "Trefferchance nicht hoch, aber realistisch
+vorhanden".
+
+**Der Score ist KEINE Prozentzahl (#999, seit v1.7.49).** `total_score`
+ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt — vor
+allem aus der Laenge der MUSS-Liste. Deshalb steht daneben immer
+`total_score_max`, und die Empfehlung nennt beides ("Score 15 von
+erreichbaren 15"). **Nie "X von 100" schreiben**, solange 100 nicht
+erreichbar ist. `NICHT_BEURTEILBAR` heisst: der Hoechstwert ist
+unbekannt, also gibt es keine Skala — das ist etwas anderes als "passt
+nicht".
 
 - **EMPFOHLEN**: Profil passt, Bewerbung sinnvoll. Klare Ansage geben.
 - **BEDINGT**: Methodenluecke, aber ueberbrueckbar. Im Anschreiben

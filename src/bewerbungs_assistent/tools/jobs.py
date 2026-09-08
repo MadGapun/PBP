@@ -25,12 +25,34 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
     2. Hochschulabschluss gefordert, fehlt im Profil -> ATS-Risiko
     3. MUSS-Keywords komplett verfehlt -> kein fachlicher Anker
 
-    Sonst Score-Buckets:
-    - >= 75: EMPFOHLEN
-    - 50-74: BEDINGT
-    - <  50: NICHT_EMPFOHLEN
+    Sonst Score-ANTEIL am erreichbaren Hoechstwert (#999):
+    - >= 75 %: EMPFOHLEN
+    - 50-74 %: BEDINGT
+    - <  50 %: NICHT_EMPFOHLEN
+
+    **Bis v1.7.48 standen hier feste Zahlen gegen `total_score`** — und
+    der ist keine Prozentzahl, sondern eine ungedeckelte Punktsumme,
+    deren Obergrenze aus der Laenge der MUSS-Liste folgt. Gemeldet
+    (08.09.2026): eine Stelle, die ALLE MUSS-Begriffe trifft, remote
+    ist, 3 km entfernt liegt und ueber Wunsch zahlt, bekam
+    *"Score 15.0/100 — fachlicher Gap zu gross"*. Mit fuenf bis zehn
+    Pflichtbegriffen — dem Normalfall — war `EMPFOHLEN` strukturell
+    unerreichbar, und jede Stelle bekam denselben Satz.
+
+    Der Satz des Melders: *"Der Gap ist die Skala."*
     """
     score = fit_result.get("total_score", 0) or 0
+    # Der erreichbare Hoechstwert kommt aus derselben Rechnung wie der
+    # Score. Ist er unbekannt (0), wird KEIN Anteil gebildet — lieber
+    # keine Einordnung als eine erfundene (#989).
+    maximum = float(fit_result.get("total_score_max") or 0)
+    anteil = (score / maximum) if maximum > 0 else None
+
+    def _skala() -> str:
+        """Wie die Zahl genannt wird — nie als Prozent von 100."""
+        if anteil is None:
+            return f"Score {score}"
+        return f"Score {score} von erreichbaren {maximum:g} ({anteil:.0%})"
     risks = fit_result.get("risks") or []
     muss_hits = fit_result.get("muss_hits") or []
     missing_muss = fit_result.get("missing_muss") or []
@@ -100,18 +122,36 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
             ),
         }
 
-    if score >= 75:
+    # #999: ohne bekannten Hoechstwert gibt es keinen Anteil und damit
+    # keine ehrliche Einordnung. Das ist selten (Kriterien ohne jedes
+    # Keyword), aber es zu erfinden waere schlimmer als es zu sagen.
+    if anteil is None:
+        return {
+            "kategorie": "NICHT_BEURTEILBAR",
+            "score": score,
+            "score_maximum": maximum,
+            "begruendung": (
+                f"{_skala()} — der erreichbare Hoechstwert laesst sich "
+                "aus den Suchkriterien nicht bestimmen (keine Keywords "
+                "gepflegt). Ohne ihn ist die Zahl nicht einzuordnen. "
+                "Setze Kriterien mit suchkriterien_setzen()."
+            ),
+            "kurz": "Nicht beurteilbar — keine Suchkriterien gepflegt.",
+        }
+
+    if anteil >= 0.75:
         return {
             "kategorie": "EMPFOHLEN",
             "score": score,
+            "score_maximum": maximum,
             "begruendung": (
-                f"Score {score}/100 mit {len(muss_hits)} MUSS-Treffern. "
+                f"{_skala()} mit {len(muss_hits)} MUSS-Treffern. "
                 "Profil deckt die Stelle solide ab. Bewerbung lohnt sich."
             ),
             "kurz": "Empfohlen — Profil passt zur Stelle.",
         }
 
-    if score >= 50:
+    if anteil >= 0.50:
         offene_lucken = (
             f"{len(missing_muss)} MUSS-Keywords fehlen" if missing_muss else
             "Nebenpunkte ueberbrueckbar"
@@ -119,8 +159,9 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
         return {
             "kategorie": "BEDINGT",
             "score": score,
+            "score_maximum": maximum,
             "begruendung": (
-                f"Score {score}/100 mit {len(muss_hits)} MUSS-Treffern. "
+                f"{_skala()} mit {len(muss_hits)} MUSS-Treffern. "
                 f"{offene_lucken}. Lohnt sich nur, wenn die Luecken im "
                 "Anschreiben transparent adressiert werden (z.B. mit "
                 "transferierbarer Methodenkompetenz)."
@@ -134,8 +175,9 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
     return {
         "kategorie": "NICHT_EMPFOHLEN",
         "score": score,
+        "score_maximum": maximum,
         "begruendung": (
-            f"Score {score}/100 — fachlicher Gap zu gross. "
+            f"{_skala()} — fachlicher Gap zu gross. "
             "Bewerbung lohnt sich nicht ohne klaren Naehe-Bezug "
             "(z.B. Kontakt im Unternehmen oder klarer Pivot-Plan)."
         ),
