@@ -47,6 +47,14 @@ GENERISCHE_WERTE = {
 # Fundstelle gleich schwer. (Lehre aus der Telefon-Fehlalarm-Runde: wer
 # bei korrektem Text Alarm gibt, wird beim zweiten Mal ignoriert.)
 GEWOEHNLICHE_WOERTER = {
+    # v1.7.53: gemessen am echten Bestand ueber alle 400 Issues. Diese
+    # Eintraege stehen als Firma bzw. Person in der Datenbank, sind aber
+    # keine — "sap" ist eine Technologie und kommt in 25 Issues vor,
+    # "name" ist ein Platzhalter aus einem Import, "google" ein Portal.
+    # Sie werden weiterhin GEMELDET, aber als unsicher: der Pruefer soll
+    # nicht schweigen und auch nicht so tun, als sei jede Fundstelle
+    # gleich schwer.
+    "sap", "name", "google", "beratung", "personalberatung", "vermittler",
     "comet", "atlas", "orion", "delta", "alpha", "beta", "gamma", "nova",
     "phoenix", "apex", "prime", "core", "next", "future", "vision",
     "global", "digital", "smart", "data", "cloud", "group", "partner",
@@ -206,6 +214,112 @@ def _eigener_name(db) -> set[str]:
     return namen
 
 
+# Rechtsformen, die einen Firmennamen begleiten. Ein Text nennt die
+# Firma fast nie so vollstaendig wie die Datenbank.
+_RECHTSFORMEN = (
+    "gmbh & co. kg", "gmbh & co kg", "gmbh", "ag", "kg", "ohg", "se",
+    "mbh", "e.k.", "ug", "ltd", "llc", "inc", "corp", "plc", "b.v.",
+    "n.v.", "s.a.", "s.p.a.", "a/s", "oy", "ab",
+)
+
+# Ein Namensteil unterhalb dieser Laenge taugt nicht als Suchbegriff —
+# "BW" oder "TVS" traefe halbe Saetze. Bewusst hoeher als
+# MIN_NAMENSLAENGE: dort geht es um den vollstaendigen Namen, hier um
+# ein abgeleitetes Fragment, und ein Fragment muss mehr tragen.
+MIN_VARIANTENLAENGE = 6
+
+
+def schreibvarianten(name: str) -> list[str]:
+    """Wie derselbe Name in einem Text sonst noch dastehen kann (#956).
+
+    **Der Grund, warum es diese Funktion gibt.** Der Pruefer verglich bis
+    v1.7.53 nur die VOLLSTAENDIGE gespeicherte Zeichenkette. Steht eine
+    Firma im Bestand als "Musterwerk (Muster-Holding)", dann fand er
+    weder "Musterwerk" noch "Muster-Holding" — und genau so schreibt
+    man eine Firma in einem Fehlerbericht. Gemessen am 09.09.2026:
+    zwei oeffentliche Issues trugen den Firmennamen aus dem echten
+    Bestand, und der Pruefer meldete "sauber".
+
+    **Ein Falsch-negativ in einem Schutzwerkzeug ist der teuerste
+    Fehlertyp** — das ist woertlich die Lehre aus #929, und sie ist hier
+    ein zweites Mal eingetreten.
+
+    Die Gegenrichtung ist genauso wichtig (v1.7.24 MERKE 2): eine zu
+    kurze Variante macht den Pruefer unbrauchbar, weil er dann bei
+    jedem zweiten Satz anschlaegt. Deshalb `MIN_VARIANTENLAENGE` und
+    die Aussortierung gewoehnlicher Woerter.
+    """
+    roh = (name or "").strip()
+    if not roh:
+        return []
+    kandidaten = {roh}
+
+    # "Musterwerk (Muster-Holding)" -> der Teil VOR der Klammer.
+    #
+    # Der Klammerinhalt bleibt bewusst draussen. Gemessen am echten
+    # Bestand am 09.09.2026 steht dort weit oefter eine ANMERKUNG als
+    # ein zweiter Firmenname: "(Vermittler)", "(Beratung)",
+    # "(Personalberatung)", "(SAP PLM)", "(Bremen)". Als Suchbegriff
+    # genommen erzeugte jede davon Fehlalarme ueber Dutzende Issues —
+    # und ein Pruefer, dem niemand mehr glaubt, schuetzt gar nicht
+    # (#929). Der vordere Teil traegt den Namen; nur er wird genommen.
+    if "(" in roh:
+        kandidaten.add(roh.split("(", 1)[0])
+
+    # Trennzeichen, mit denen Quellen Zusaetze anhaengen
+    for trenner in (" - ", " – ", " — ", " | ", ", "):
+        if trenner in roh:
+            kandidaten.add(roh.split(trenner, 1)[0])
+
+    # Rechtsform abstreifen: "Musterwerk Hamburg GmbH" -> "Musterwerk Hamburg"
+    for teil in list(kandidaten):
+        klein = teil.strip().lower()
+        for form in _RECHTSFORMEN:
+            if klein.endswith(" " + form):
+                kandidaten.add(teil.strip()[: -len(form)].strip())
+                break
+
+    ergebnis = []
+    for kandidat in kandidaten:
+        sauber = kandidat.strip(" .,-–—|")
+        if not sauber or sauber == roh:
+            continue
+        if len(sauber) < MIN_VARIANTENLAENGE:
+            continue
+        # Ein Fragment, dessen Woerter ALLE gewoehnlich sind
+        # ("Global Solutions"), ist als Suchbegriff wertlos: es steht so
+        # in jedem zweiten Werbetext. Ein Pruefer, der bei korrektem
+        # Text Alarm gibt, wird nach dem zweiten Mal ignoriert (#929).
+        # Umgekehrt bleibt "Musterwerk Hamburg" drin, weil "musterwerk"
+        # nichts Gewoehnliches ist.
+        woerter = [_schluessel(w) for w in sauber.split() if w.strip()]
+        if woerter and all(w in GEWOEHNLICHE_WOERTER for w in woerter):
+            continue
+        if _schluessel(sauber) in GENERISCHE_WERTE:
+            continue
+        ergebnis.append(sauber)
+    # Laengste zuerst, damit die genaueste Fassung gemeldet wird.
+    return sorted(set(ergebnis), key=len, reverse=True)
+
+
+def _enthaelt_ausnahme(name: str, ausnahmen: set) -> bool:
+    """Traegt dieser Name einen ausgenommenen Namen als ganzes Wort?
+
+    Quellen- und Vermittlernamen sind ein FEATURE dieses Projekts
+    (hays, ferchau, ...) und stehen bewusst in Issues. Eine abgeleitete
+    Variante wie "hays ag" ist derselbe Name mit Zusatz und gehoert
+    genauso ausgenommen — sonst holt die Variantenbildung genau die
+    Namen zurueck, die die Ausnahmeliste heraushaelt.
+    """
+    if name in ausnahmen:
+        return True
+    woerter = set(name.split())
+    # Mindestlaenge, damit ein kurzes Kuerzel aus der Ausnahmeliste
+    # ("ab", "oy") nicht halbe Firmennamen stillstellt.
+    return any(a in woerter for a in ausnahmen
+               if " " not in a and len(a) >= 4)
+
+
 def sammle_bestandsnamen(db) -> list[dict]:
     """Alle Firmen- und Personennamen aus dem eigenen Bestand.
 
@@ -245,10 +359,36 @@ def sammle_bestandsnamen(db) -> list[dict]:
     ausnahmen = _quellen_namen() | _fiktive_namen() | _eigener_name(db)
     # Original-Schreibweise fuer die Ausgabe zurueckholen
     ergebnis = []
+    gesehen_namen: set[str] = set()
     for schluessel, art in roh.items():
-        if schluessel in ausnahmen:
+        # Bis v1.7.53 stand hier `schluessel in ausnahmen`, also
+        # Gleichheit. Ein Vermittler, der im Bestand als "Hays AG"
+        # steht, war damit NICHT ausgenommen, obwohl "hays" ausdruecklich
+        # auf der Liste steht — und Vermittlernamen sind ein Feature
+        # dieses Projekts, kein Geheimnis.
+        if _enthaelt_ausnahme(schluessel, ausnahmen):
             continue
-        ergebnis.append({"name": schluessel, "art": art})
+        if schluessel not in gesehen_namen:
+            gesehen_namen.add(schluessel)
+            ergebnis.append({"name": schluessel, "art": art})
+        # #956: auch die Schreibvarianten suchen. Ohne sie findet der
+        # Pruefer eine Firma nur dann, wenn sie WORTGLEICH so dasteht
+        # wie in der Datenbank — und das ist im Fliesstext fast nie der
+        # Fall.
+        for variante in schreibvarianten(schluessel):
+            schl = _schluessel(variante)
+            if schl in gesehen_namen:
+                continue
+            # Die Ausnahmen greifen bei Varianten per WORT-Enthaltensein,
+            # nicht per Gleichheit. Gemessen: "Hays AG (Vermittler)"
+            # ergibt die Variante "hays ag" — und die stand nicht in der
+            # Ausnahmeliste, obwohl "hays" ausdruecklich drin steht.
+            # Eine Variante, die einen ausgenommenen Namen ENTHAELT, ist
+            # derselbe ausgenommene Name mit Zusatz.
+            if _enthaelt_ausnahme(schl, ausnahmen):
+                continue
+            gesehen_namen.add(schl)
+            ergebnis.append({"name": schl, "art": art, "variante_von": schluessel})
     # Lange Namen zuerst: "Musterfirma Software GmbH" soll vor
     # "Musterfirma" greifen, sonst bleibt der Rest im Text stehen.
     ergebnis.sort(key=lambda e: len(e["name"]), reverse=True)
