@@ -140,6 +140,17 @@ function descriptionAttentionLabel(job) {
   return Number(job?.score || 0) > 0 ? "Score unsicher" : "Unbewertet";
 }
 
+// #1007: kurze Etiketten fuer das Urteil der Detailanalyse. Die
+// Kategorien selbst bleiben, wie der #662-Vertrag sie nennt — hier
+// steht nur die Beschriftung fuer eine schmale Karte.
+const ANALYSE_ETIKETT = {
+  EMPFOHLEN: "Empfohlen",
+  BEDINGT: "Bedingt",
+  NICHT_EMPFOHLEN: "Nicht empfohlen",
+  NICHT_BEURTEILBAR: "Nicht beurteilt",
+};
+
+
 export default function JobsPage() {
   const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo, startJobsuche } = useApp();
   const [loading, setLoading] = useState(true);
@@ -1205,6 +1216,30 @@ export default function JobsPage() {
                         </span>
                       );
                     })()}
+                    {/* #1007: das Urteil der Detailanalyse — getrennt vom
+                        Score, weil beide Verschiedenes sagen. Ohne
+                        gelesene Analyse steht hier NICHTS: "noch nicht
+                        gelesen" ist kein Urteil (#989). */}
+                    {job.analyse?.urteil ? (
+                      <span
+                        title={`${job.analyse.begruendung || ""}${
+                          job.analyse.am ? ` (${job.analyse.am.slice(0, 10)})` : ""
+                        }${job.analyse.veraltet ? " — Profil hat sich seither geändert" : ""}`}
+                      >
+                        <Badge
+                          tone={
+                            job.analyse.urteil === "EMPFOHLEN" ? "success"
+                              : job.analyse.urteil === "BEDINGT" ? "amber"
+                              : job.analyse.urteil === "NICHT_EMPFOHLEN" ? "danger"
+                              : "neutral"
+                          }
+                        >
+                          {`${ANALYSE_ETIKETT[job.analyse.urteil] || job.analyse.urteil}${
+                            job.analyse.veraltet ? " ⚠" : ""
+                          }`}
+                        </Badge>
+                      </span>
+                    ) : null}
                   </div>
                   <div
                     role="button"

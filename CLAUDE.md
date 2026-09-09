@@ -1110,14 +1110,33 @@ plus `begruendung` und `kurz`. Claude zitiert den Verdict direkt — keine
 eigenen Weichspueler wie "Trefferchance nicht hoch, aber realistisch
 vorhanden".
 
-**Der Score ist KEINE Prozentzahl (#999, seit v1.7.49).** `total_score`
-ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt — vor
-allem aus der Laenge der MUSS-Liste. Deshalb steht daneben immer
-`total_score_max`, und die Empfehlung nennt beides ("Score 15 von
-erreichbaren 15"). **Nie "X von 100" schreiben**, solange 100 nicht
-erreichbar ist. `NICHT_BEURTEILBAR` heisst: der Hoechstwert ist
-unbekannt, also gibt es keine Skala — das ist etwas anderes als "passt
-nicht".
+**Der Verdict kommt NICHT aus dem Score (#1003, seit v1.7.61).** Der
+Score misst, wie gut eine Anzeige die SUCHBEGRIFFE trifft — Keywords,
+Gehalt, Entfernung, Remote-Grad. **Der Lebenslauf geht nicht ein.** Ob
+jemand auf eine Stelle passt, ist eine andere Frage, und sie entsteht
+erst aus dem Vergleich von Profil und Anzeige.
+
+Deshalb gilt jetzt:
+
+- **`NICHT_BEURTEILBAR` ist der Normalfall**, solange niemand die
+  Anzeige gegen das Profil gelesen hat. Das heisst "noch nicht
+  gelesen", NICHT "passt nicht" — die Verwechslung ist #989. Der
+  richtige naechste Schritt ist die Detailanalyse, nicht eine
+  Weichspueler-Formulierung.
+- **Hast du Anzeige und Profil wirklich gelesen, schreib dein Urteil
+  zurueck:** `stelle_analyse_speichern(job_hash, urteil, begruendung)`.
+  Es haengt danach an der Stelle, steht in der Trefferliste und
+  ueberlebt das Gespraech. Ein Urteil, das du aus dem Score ableitest,
+  waere genau der Fehler, den #1003 behebt — nur von Hand.
+- **`NICHT_EMPFOHLEN` aus einem k.o.-Kriterium** (Wiedergaenger mit
+  fachlichem Grund, ausserhalb des Rechtsraums, kein MUSS-Anker) gilt
+  weiter und schlaegt auch eine gute Analyse.
+
+**Der Score ist KEINE Prozentzahl (#999).** `total_score` ist eine
+Punktsumme, deren Obergrenze aus den Kriterien folgt — vor allem aus
+der Laenge der MUSS-Liste. Er steht in der Antwort samt
+`score_bedeutung`; **nie "X von 100" schreiben**, solange 100 nicht
+erreichbar ist, und ihn nie als Passungsaussage zitieren.
 
 - **EMPFOHLEN**: Profil passt, Bewerbung sinnvoll. Klare Ansage geben.
 - **BEDINGT**: Methodenluecke, aber ueberbrueckbar. Im Anschreiben

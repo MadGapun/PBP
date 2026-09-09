@@ -475,6 +475,36 @@ class Database:
             except Exception:
                 pass
 
+            # v1.7.61 (#1007, G36): das Analyse-Ergebnis haengt an der
+            # STELLE, nicht am Gespraech. Bis hierher entstand der
+            # Verdict bei jedem `fit_analyse`-Aufruf neu und verschwand
+            # mit der Antwort — deshalb konnte die Trefferliste ihn nicht
+            # zeigen, und eine Claude-Detailanalyse war ein Chat-Verlauf
+            # statt ein Befund. Der teuerste Arbeitsschritt war der
+            # fluechtigste.
+            #
+            # `analyse_grundlage` ist Pflicht und nicht Zierde: ein
+            # maschinelles Urteil und ein gelesenes Urteil sind nicht
+            # dasselbe und duerfen in der Liste nicht gleich aussehen.
+            # Additive Spalten, deshalb Safety-Net statt Schema-Bump —
+            # die beiden Linien stehen auf v48 und v52 (Muster #784).
+            try:
+                _job_cols = {r[1] for r in conn.execute(
+                    "PRAGMA table_info(jobs)").fetchall()}
+                for _sp, _typ in (("analyse_urteil", "TEXT"),
+                                  ("analyse_begruendung", "TEXT"),
+                                  ("analyse_grundlage", "TEXT"),
+                                  ("analyse_am", "TEXT"),
+                                  ("analyse_profil_stand", "TEXT")):
+                    if _job_cols and _sp not in _job_cols:
+                        conn.execute(
+                            f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
+                        conn.commit()
+                        logger.info("Safety-Net: jobs.%s nachgezogen (#1007)",
+                                    _sp)
+            except Exception:
+                pass
+
             # v1.7.41 (#992, C52): Protokoll der geblockten Stellen.
             # Ein Filter, dessen Wirkung niemand sehen kann, laesst sich
             # nicht ueberpruefen — man weiss nicht, ob er richtig
@@ -4925,6 +4955,61 @@ class Database:
             "ORDER BY updated_at DESC LIMIT ?",
             (pid, max(1, int(limit or 20)))
         ).fetchall()]
+
+    def set_job_analysis(self, job_hash: str, urteil: str,
+                         begruendung: str = "", grundlage: str = "") -> bool:
+        """Legt den Befund einer Detailanalyse AN DER STELLE ab (#1007).
+
+        Das Nadeloehr fuer alle Analyse-Writes — dieselbe Rolle wie
+        `dismiss_job` fuer die Ablehnungsgruende (#913). Hier und nur
+        hier wird das Vokabular durchgesetzt, der Zeitpunkt gesetzt und
+        der Profil-Stand festgehalten. Ohne diesen einen Ort haette der
+        naechste Schreibweg wieder ein eigenes Vokabular.
+
+        Ein Urteil ausserhalb der vier Kategorien wird ABGEWIESEN, nicht
+        normalisiert: hier gibt es kein sinnvolles "sonstiges", und ein
+        still umgedeutetes Urteil waere schlimmer als gar keines (#980).
+
+        Returns:
+            True, wenn geschrieben wurde. False, wenn die Stelle nicht
+            existiert — der Aufrufer darf nicht "gespeichert" melden,
+            wo nichts gespeichert wurde (#997).
+        """
+        from .services.passung import KATEGORIEN, profil_stand
+        wert = (urteil or "").strip().upper()
+        if wert not in KATEGORIEN:
+            raise ValueError(
+                f"urteil muss eines von {', '.join(KATEGORIEN)} sein, "
+                f"nicht '{urteil}'.")
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return False
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE jobs SET analyse_urteil=?, analyse_begruendung=?, "
+            "analyse_grundlage=?, analyse_am=?, analyse_profil_stand=?, "
+            "updated_at=? WHERE hash=?",
+            (wert, (begruendung or "").strip()[:4000],
+             (grundlage or "detailanalyse").strip()[:80],
+             _now(), profil_stand(self.get_profile()), _now(), target_hash),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def clear_job_analysis(self, job_hash: str) -> bool:
+        """Loescht den Befund — fuer den Fall, dass er falsch war."""
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return False
+        conn = self.connect()
+        cur = conn.execute(
+            "UPDATE jobs SET analyse_urteil=NULL, analyse_begruendung=NULL, "
+            "analyse_grundlage=NULL, analyse_am=NULL, "
+            "analyse_profil_stand=NULL, updated_at=? WHERE hash=?",
+            (_now(), target_hash),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
     def dismiss_job(self, job_hash: str, reason: str):
         conn = self.connect()
