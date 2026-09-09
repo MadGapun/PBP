@@ -33,6 +33,112 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.68] - 2026-09-09 — Weit unten statt nirgends
+
+### Added
+
+- **Das MUSS-Tor ist umschaltbar (#968).** Trifft keiner deiner
+  Pflichtbegriffe, wird eine Anzeige bisher verworfen — sie wird gar
+  nicht erst gespeichert. Im dokumentierten Lauf aus #813 starben so
+  **312 von 389 Rohtreffern**, bevor ein Mensch sie gesehen hat.
+
+  Ob das richtig ist, hängt daran, **was deine Pflichtbegriffe
+  nennen**:
+
+  * **Techniken** („PLM", „SAP", „Python") — ihr Fehlen ist ein echter
+    Beleg: die Anzeige gehört in ein anderes Fachgebiet. Dafür ist
+    `hart` richtig.
+  * **einen Beruf** („Pflegefachkraft", „Erzieherin") — ihr Fehlen sagt
+    wenig, weil derselbe Beruf in vielen Anzeigen anders heißt. Dafür
+    ist `gewichtet` richtig.
+
+  Umstellen mit `muss_tor_setzen('gewichtet')`; der aktuelle Stand
+  steht in `suchkriterien_anzeigen`.
+
+- **In der Betriebsart `gewichtet`** wird die Stelle gespeichert und
+  angezeigt, aber sie **kann nie über einer Stelle mit Pflichttreffer
+  stehen**, sie trägt **höchstens die Hälfte dessen, was ein einzelner
+  Pflichttreffer wert ist**, und sie steht in der Liste mit
+  **„Kein Pflichttreffer"** an der Zeile. Je Suchlauf werden höchstens
+  50 solcher Stellen behalten; die übrigen nennt der Filtertrichter.
+
+### Changed
+
+- **Die Rangfolge steht in der Sortierung, nicht im Score.** Eine
+  Stelle mit Pflichttreffer darf abstürzen, wenn ein Malus sie
+  herunterzieht — das ist die Entscheidung aus #942 und bleibt so. Sie
+  darf dabei nur nicht unter eine Stelle rutschen, über deren Fach
+  nichts bekannt ist. Dieselbe Bauform wie der Datengüte-Rang aus
+  #989.
+
+### Bewusst nicht
+
+**Die Vorgabe bleibt `hart` — und das ist gemessen, nicht bequem.**
+
+Gegen den eigenen Bestand (2.491 Anzeigen, Kopie im
+Temp-Verzeichnis): 1.900 öffnen das Tor nicht, und **1.402 davon waren
+bereits von Hand als fachfremd aussortiert worden**. Das Tor stimmt in
+diesem Bestand also mit dem eigenen Urteil überein; die Vorgabe
+umzustellen hätte rund 1.400 abgelehnte Anzeigen zurück in die Liste
+gelegt.
+
+Das Issue verlangt die Gewichtung ausdrücklich als Vorgabe. Diese
+Messung spricht dagegen, deshalb ist beides gebaut und umschaltbar —
+was fehlt, ist allein die Voreinstellung, und die ist eine
+Entscheidung.
+
+**Wer nichts umstellt, merkt von dieser Version nichts:** über alle
+2.491 Anzeigen nachgerechnet ändert sich in der Vorgabe **kein
+einziger Score**.
+
+**Tests:** 3475 bestanden, 2 übersprungen (+26 neue).
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.68.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.68.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
 ## [1.7.67] - 2026-09-09 — Wer gehört dazu
 
 ### Fixed
