@@ -492,33 +492,18 @@ echo         Kopiere Runtime in festen Installationspfad...
 echo [INFO] Kopiere python + src nach %APP_DIR% >> "%LOGFILE%"
 
 :: Laufende PBP-Prozesse beenden (verhindert "Unzulaessiger SHARE-Vorgang")
+:: #739: bis v1.7.54 lief das ueber wmic. Auf Windows 11 24H2 ist das
+:: Werkzeug entfernt — die Schleife fand dann NICHTS, die Prozesse
+:: liefen weiter, und das Kopieren der Runtime traf auf gesperrte
+:: Dateien. Der Deinstaller war laengst umgestellt, der Installer nicht.
+:: Bewusst OHNE for /f und ohne Pipe im Kommando: ein escaptes Rohr
+:: kommt in der Subshell nicht als solches an (#990) — hier wird
+:: deshalb genau die Form benutzt, die im Deinstaller erprobt ist.
 echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
-set "KILLED_PROCESSES=0"
-:: Suche nach python.exe UND pythonw.exe Prozessen mit PBP im CommandLine oder Pfad
-for %%I in (python.exe pythonw.exe) do (
-    for /f "tokens=2" %%p in ('tasklist /fi "imagename eq %%I" /fo list 2^>nul ^| findstr /i "PID"') do (
-        wmic process where "ProcessId=%%p" get CommandLine 2>nul | findstr /i "bewerbungs_assistent BewerbungsAssistent uvicorn fastmcp" >nul 2>&1
-        if !errorlevel! equ 0 (
-            echo [INFO] Beende PBP-Prozess %%I PID %%p >> "%LOGFILE%"
-            taskkill /pid %%p /f >nul 2>&1
-            set "KILLED_PROCESSES=1"
-        )
-    )
-)
-:: Auch Prozesse beenden die aus dem APP_DIR laufen (z.B. alte Instanzen)
-for /f "tokens=2" %%p in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr /i "PID"') do (
-    wmic process where "ProcessId=%%p" get ExecutablePath 2>nul | findstr /i "BewerbungsAssistent" >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo [INFO] Beende alte PBP-Instanz PID %%p ^(aus APP_DIR^) >> "%LOGFILE%"
-        taskkill /pid %%p /f >nul 2>&1
-        set "KILLED_PROCESSES=1"
-    )
-)
-if "!KILLED_PROCESSES!"=="1" (
-    echo         [OK] Laufende PBP-Prozesse beendet
-    echo [OK] PBP-Prozesse beendet >> "%LOGFILE%"
-    timeout /t 3 /nobreak >nul
-)
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ( ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|uvicorn|fastmcp') -or ($_.ExecutablePath -match 'BewerbungsAssistent') ) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: Kurze Pause, damit gesperrte Datei-Handles freigegeben werden.
+ping -n 3 127.0.0.1 >nul 2>&1
+echo [OK] Prozess-Stopp durchlaufen >> "%LOGFILE%"
 
 :: python/ Ordner kopieren (#297: nach app/)
 echo [DEBUG] Kopiere python-Ordner... >> "%LOGFILE%"

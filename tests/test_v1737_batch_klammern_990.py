@@ -263,3 +263,43 @@ def test_990_waechter_meldet_die_funktionierenden_pipes_nicht():
     assert mit_normaler_pipe, (
         "Erwartet: es GIBT funktionierende PowerShell-Zeilen mit Pipe. "
         "Ohne sie prueft die Gegenprobe nichts.")
+
+def test_739_kein_wmic_mehr_in_den_batchdateien():
+    """`wmic` ist auf Windows 11 24H2 entfernt (#739).
+
+    Der Deinstaller wurde umgestellt, der Installer nicht — derselbe
+    Defekt in der Schwesterdatei, und er faellt erst beim UPDATE auf:
+    laufende PBP-Prozesse werden nicht beendet, das Kopieren der Runtime
+    trifft auf gesperrte Dateien ("Unzulaessiger SHARE-Vorgang").
+
+    **Eine Abhaengigkeit, die auf neuen Windows-Builds fehlt, faellt
+    still aus** — die Schleife findet dann nichts und meldet keinen
+    Fehler. Genau deshalb steht der Guard hier und nicht als Notiz.
+    """
+    treffer = []
+    for datei in sorted(_repo().glob("*.bat")):
+        for nr, zeile in enumerate(
+                datei.read_text(encoding="utf-8",
+                                errors="replace").splitlines(), 1):
+            nackt = zeile.strip()
+            if nackt.startswith("::") or nackt.startswith("rem "):
+                continue  # Erklaerungen duerfen das Wort nennen
+            if "wmic" in nackt.lower():
+                treffer.append(f"{datei.name}:{nr}")
+    assert not treffer, (
+        f"wmic wird noch aufgerufen: {treffer}. Auf Windows 11 24H2 ist es "
+        "entfernt — der Aufruf schlaegt still fehl. Ersatz: PowerShell mit "
+        "Get-CimInstance, wie in DEINSTALLIEREN.bat.")
+
+
+def test_739_der_prozess_stopp_nutzt_dieselbe_erprobte_form():
+    """Installer und Deinstaller muessen dieselbe Form verwenden.
+
+    Zwei Fassungen derselben Aufgabe waren der Grund, warum die eine
+    repariert wurde und die andere nicht — dasselbe Muster wie #963 und
+    #991, hier in Batch-Dateien.
+    """
+    for name in ("INSTALLIEREN.bat", "DEINSTALLIEREN.bat"):
+        text = (_repo() / name).read_text(encoding="utf-8", errors="replace")
+        assert "Get-CimInstance Win32_Process" in text, name
+        assert "Stop-Process" in text, name
