@@ -33,6 +33,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.67] - 2026-09-09 — Wer gehört dazu
+
+### Fixed
+
+- **Ob ein Kontakt entsteht, hing am Anlageweg (#1011).** Von 14 Stellen
+  eines Arbeitstags kamen 11 über eine Sammelübernahme — die hatte keine
+  Kontaktfelder. Dort entstand kein einziger Ansprechpartner, obwohl in
+  mindestens einem Anzeigentext eine namentlich stand.
+
+  Deine Regel ist jetzt die Regel: **sobald mit einer Stelle mehr
+  geschieht als eine Analyse, gibt es eine Historie — und die braucht
+  jemanden, an dem sie hängt.** Angeschlossen sind die Stellen-Anlage,
+  die Bewerbung, die Sammelübernahme und zwei weitere Wege, die der neue
+  Test gefunden hat.
+- **Der Ansprechpartner einer Bewerbung war nur Freitext.** Ein Name,
+  den keine Auswertung kennt und den kein Kontakt-Werkzeug findet. Jetzt
+  entsteht daraus ein echter Kontakt, verknüpft mit der Bewerbung.
+
+### Added
+
+- **Die Sammelübernahme nimmt Kontaktdaten entgegen** (`kontakt_name`,
+  `kontakt_email`, `kontakt_telefon`) — als Ergänzung, nicht als Ersatz
+  für die Regel.
+- **Wiedererkennung.** Ohne sie hätte „Kontakt bei jeder Interaktion" die
+  Kontaktliste in Tagen unbrauchbar gemacht: die Anlage prüfte bisher
+  nichts. Erkannt wird über die E-Mail, sonst über Name **plus** Firma.
+  Nur der Name reicht bewusst nicht — gleicher Name bei anderer Firma ist
+  ein anderer Mensch, und zwei Historien in einer Karteikarte wären
+  schlimmer als eine Dublette.
+
+### Changed
+
+- **Symbole statt Textzeilen in den Kopfzeilen (#1013).** Die Erklärung
+  der Schnellzugriff-Karte belegte eine volle Zeile *über* dem Inhalt,
+  die Auswahl stand als Knopf mit Text in der Ecke — zwei gleichartige
+  Funktionen, die sich wie zwei verschiedene Dinge lasen. Sie stehen
+  jetzt als gleich große Symbole nebeneinander; „Dashboard anpassen" und
+  „einklappen" ebenso.
+
+  Dabei gilt: jeder Symbolknopf trägt einen zugänglichen Namen (ohne Text
+  wäre er für Tastatur- und Screenreader-Bedienung namenlos), die
+  Trefferfläche bleibt fingergroß, und die Erklärung wandert — sie
+  verschwindet nicht.
+
+### Bewusst nicht
+
+**Sichten, analysieren und aussortieren erzeugen weiterhin keinen
+Kontakt.** Das ist die eigentliche Regel und steht als Test da: ein
+Ansprechpartner aus einer Anzeige, mit dem nie gesprochen wurde, ist eine
+Karteikarte; einer, mit dem ein Austausch lief, ist eine Historie.
+
+Eine eingehende Anfrage **ohne Stellenbezug** ließ sich schon vorher
+erfassen, ohne dass eine Firma erfunden werden muss — vor dem Bauen
+nachgesehen und als Test festgehalten statt neu gebaut.
+
+**Tests:** 3449 bestanden, 2 übersprungen (+17 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.67.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.67.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
 ## [1.7.66] - 2026-09-09 — Eine Anforderung, ein Punkt
 
 ### Fixed
