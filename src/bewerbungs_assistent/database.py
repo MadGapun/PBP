@@ -711,6 +711,28 @@ class Database:
             # fachlich oder aus dem Rahmen kommen — genau daran war der
             # Fehlgriff bisher nicht erkennbar. Additiv und optional,
             # deshalb Safety-Net statt Schema-Bump (Muster #913).
+            # v1.7.64 (#1010): Zeitpunkt der Aussortierung. `updated_at`
+            # taugt dafuer NICHT — die Spalte fasst jede
+            # Score-Neuberechnung, jeder Beschreibungs-Nachzug und jeder
+            # Snapshot-Backfill an; nach einem Suchlauf steht die eben
+            # weggeklickte Stelle nicht mehr oben. Genau das braucht der
+            # Verklicker aber: "was habe ich gerade weggeklickt".
+            # Altbestand bleibt bewusst NULL — `updated_at` einzusetzen
+            # waere eine erfundene Angabe (#987).
+            if _j_cols and "dismissed_at" not in _j_cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN dismissed_at TEXT")
+                conn.commit()
+                logger.info("Safety-Net: jobs.dismissed_at nachgezogen (#1010)")
+            # Und die HERKUNFT als eigene Angabe. Aus dem Grund ableiten
+            # laesst sie sich nicht: das `auto:`-Praefix (#913) wird von
+            # `normalisiere_dismiss_wert` bewusst entfernt, und
+            # `duplikat` oder `zu_weit_entfernt` kann sowohl die
+            # Automatik (#641/#732) als auch der Mensch gesetzt haben.
+            # Eine geratene Herkunft waere schlimmer als keine (#989).
+            if _j_cols and "dismissed_by" not in _j_cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN dismissed_by TEXT")
+                conn.commit()
+                logger.info("Safety-Net: jobs.dismissed_by nachgezogen (#1010)")
             # v1.7.62 (#1008 Befund 3): tote Regler abraeumen. Der
             # Mechanismus hinter `hochschulabschluss/fehlt` ist seit
             # v1.7.35 (#972) entfernt; die Zeile lag danach in jedem
@@ -4754,7 +4776,7 @@ class Database:
             new_pinned = 1 if job.get("is_pinned") else 0
             existing = conn.execute(
                 "SELECT score, is_pinned, is_active, dismiss_reason, research_notes, "
-                "fachscore, rahmenscore "
+                "fachscore, rahmenscore, dismissed_at, dismissed_by "
                 "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
@@ -4854,6 +4876,23 @@ class Database:
                         )
                         ausland_erkannt += 1
 
+            # v1.7.64 (#1010): `save_jobs` sortiert selbst aus — Wiedergaenger
+            # (#941), Duplikat (#641) und Nicht-DACH-Ort (#732), alle drei nur
+            # beim ANLEGEN. Der Kommentar zu #913 nennt `dismiss_job` das
+            # Nadeloehr ALLER dismiss-Writes; fuer den Anlege-Weg stimmt das
+            # nicht, und ohne diese Zeilen traegt ausgerechnet die Automatik
+            # kein Datum — waehrend das Protokoll sie ausweisen soll.
+            # Bestehende Zeilen behalten ihren Zeitpunkt: ein erneuter Ingest
+            # sortiert nichts neu aus, er schreibt die Zeile nur neu.
+            # Alle drei Anlage-Zweige (Wiedergaenger #941, Duplikat #641,
+            # Nicht-DACH #732) sind Entscheidungen der Automatik — der
+            # Mensch hat diese Stelle nie gesehen.
+            if is_new:
+                dismissed_at_wert = None if is_active else now
+                dismissed_by_wert = None if is_active else "automatik"
+            else:
+                dismissed_at_wert = existing["dismissed_at"]
+                dismissed_by_wert = existing["dismissed_by"]
             conn.execute("""
                 INSERT OR REPLACE INTO jobs (hash, title, company, location, url,
                     source, description, score, remote_level, distance_km,
@@ -4861,8 +4900,8 @@ class Database:
                     employment_type, is_pinned, lat, lon, veroeffentlicht_am,
                     is_search_url, profile_id, found_at, updated_at, is_active,
                     dismiss_reason, research_notes,
-                    fachscore, rahmenscore)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    fachscore, rahmenscore, dismissed_at, dismissed_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -4882,7 +4921,8 @@ class Database:
                 # Bewertung), bleibt die Spalte NULL statt 0 — 0 waere
                 # eine Aussage, NULL ist ehrlich "nicht bewertet".
                 # v1.7.62 (#1008): welcher Lauf gilt, entscheidet oben.
-                neue_teilscores[0], neue_teilscores[1]
+                neue_teilscores[0], neue_teilscores[1],
+                dismissed_at_wert, dismissed_by_wert
             ))
             # #913: Freitext gehoert nach dismiss_note, nie ins Lern-Feld.
             if is_new and job.get("dismiss_note"):
@@ -5053,7 +5093,7 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
-    def dismiss_job(self, job_hash: str, reason: str):
+    def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich"):
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
@@ -5072,16 +5112,25 @@ class Database:
         except Exception as exc:
             logger.warning("dismiss_reason-Normalisierung (#913): %s", exc)
             freitexte = []
+        # v1.7.64 (#1010): der Zeitpunkt entsteht HIER — an derselben
+        # Stelle, die seit #913 schon den Vokabular-Schutz traegt. Jeder
+        # Weg, der eine Stelle aussortiert, laeuft hier durch; ihn in den
+        # Aufrufern zu setzen waere die achte Fassung derselben Sache.
+        jetzt = _now()
+        wer = "automatik" if herkunft == "automatik" else "ich"
         if freitexte:
             conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
-                "dismiss_note=?, updated_at=? WHERE hash=?",
-                (reason, "; ".join(freitexte)[:500], _now(), target_hash)
+                "dismiss_note=?, dismissed_at=?, dismissed_by=?, "
+                "updated_at=? WHERE hash=?",
+                (reason, "; ".join(freitexte)[:500], jetzt, wer, jetzt,
+                 target_hash)
             )
         else:
             conn.execute(
-                "UPDATE jobs SET is_active=0, dismiss_reason=?, updated_at=? WHERE hash=?",
-                (reason, _now(), target_hash)
+                "UPDATE jobs SET is_active=0, dismiss_reason=?, "
+                "dismissed_at=?, dismissed_by=?, updated_at=? WHERE hash=?",
+                (reason, jetzt, wer, jetzt, target_hash)
             )
         conn.commit()
 
@@ -5090,8 +5139,12 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
+        # v1.7.64 (#1010): mit dem Grund faellt auch der Zeitpunkt. Eine
+        # zurueckgeholte Stelle ist nicht aussortiert — ein Datum, das
+        # stehenbliebe, wuerde sie im Protokoll weiter fuehren.
         conn.execute(
-            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, updated_at=? WHERE hash=?",
+            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, "
+            "dismissed_at=NULL, dismissed_by=NULL, updated_at=? WHERE hash=?",
             (_now(), target_hash)
         )
         conn.commit()

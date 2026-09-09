@@ -1,5 +1,5 @@
 ﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
-import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
@@ -192,6 +192,25 @@ export function aktiveFilterBestimmen(filters) {
   return aktiv;
 }
 
+// #1010: die Herkunft kommt vom Server (`services/aussortier_protokoll.py`).
+// Hier steht nur, wie sie HEISST — die Regel dahinter ist nicht trivial
+// und gehoert an genau eine Stelle.
+export const HERKUNFT_ETIKETT = {
+  ich: "von mir",
+  automatik: "Automatik",
+  unbekannt: "Herkunft unbekannt",
+};
+
+export function dismissWindowGrenze(fenster) {
+  if (fenster === "alle") return null;
+  const jetzt = new Date();
+  if (fenster === "heute") {
+    return new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate()).getTime();
+  }
+  const tage = fenster === "30tage" ? 30 : 7;
+  return jetzt.getTime() - tage * 24 * 60 * 60 * 1000;
+}
+
 const ANALYSE_ETIKETT = {
   EMPFOHLEN: "Empfohlen",
   BEDINGT: "Bedingt",
@@ -205,6 +224,10 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
+  // #1010: Zeitfenster fuer das Aussortier-Protokoll. Ueber 2.000
+  // Eintraege ohne Einstieg sind ein Archiv, kein Rueckholweg — und
+  // gesucht wird fast immer "was habe ich gerade weggeklickt".
+  const [dismissWindow, setDismissWindow] = useState("7tage");
   // #941: Die zuletzt AUTOMATISCH aussortierten Stellen. Bewusst nicht
   // der ganze Aussortiert-Bestand (ueber 2.000 Eintraege) — nur das,
   // was ohne Rueckfrage entschieden wurde und der Nutzer nie gesehen
@@ -432,7 +455,10 @@ export default function JobsPage() {
   async function showFitAnalysis(job) {
     try {
       const analysis = await api(`/api/jobs/${job.hash}/fit-analyse`);
-      setFitDialog({ open: true, title: job.title, hash: job.hash, analysis });
+      // #1009: die ganze Stelle behalten — der Dialog soll danach
+      // handeln koennen, ohne dass der Mensch sie in der Liste
+      // wiedersuchen muss.
+      setFitDialog({ open: true, title: job.title, hash: job.hash, job, analysis });
     } catch (error) {
       pushToast(`Fit-Analyse fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -554,9 +580,11 @@ export default function JobsPage() {
     if (!hash) return;
     try {
       await postJson("/api/jobs/dismiss", { hash, reasons });
+      // Die Stelle VOR dem Entfernen festhalten — der Rueckgaengig-Knopf
+      // im Toast braucht sie noch, und aus der Liste ist sie dann weg.
+      const dismissed = jobs.find((j) => String(j.hash) === String(hash));
       startTransition(() => {
         setJobs((cur) => cur.filter((j) => String(j.hash) !== String(hash)));
-        const dismissed = jobs.find((j) => String(j.hash) === String(hash));
         if (dismissed) setDismissedJobs((cur) => [{ ...dismissed, status: "aussortiert" }, ...cur]);
       });
       refreshChrome({ quiet: true });
@@ -565,7 +593,16 @@ export default function JobsPage() {
         const updated = await optionalApi("/api/dismiss-reasons");
         if (updated) setDismissReasons(updated);
       } catch (_) { /* ignore */ }
-      pushToast("Stelle aussortiert.", "success");
+      // #1010: der Verklicker faellt in Sekunden auf, nicht in Tagen —
+      // dort gehoert die Umkehr hin. Das Protokoll ist der zweite Weg,
+      // fuer den Fall, dass der Toast schon weg ist.
+      pushToast("Stelle aussortiert.", "success", {
+        duration: 9000,
+        action: {
+          label: "Rückgängig",
+          onClick: () => holeZurueck(dismissed || { hash }),
+        },
+      });
       setDismissDialog(EMPTY_DISMISS_DIALOG);
     } catch (error) {
       pushToast(`Stelle konnte nicht aussortiert werden: ${error.message}`, "danger");
@@ -616,6 +653,25 @@ export default function JobsPage() {
     }
   }
 
+  // #1009: EIN Oeffner fuer den Bewerbungs-Dialog. Der Entwurf stand als
+  // Literal direkt am Karten-Knopf; ihn im Fit-Dialog noch einmal
+  // hinzuschreiben waere die zweite Fassung derselben Sache — das Muster,
+  // das dieses Projekt achtmal gekostet hat (#963, #913, #976, #987,
+  // #991, #992, #994, #1008).
+  function openApplicationDialog(job) {
+    setApplicationDialog({
+      open: true,
+      draft: {
+        job_hash: job.hash,
+        title: job.title || "",
+        company: job.company || "",
+        url: job.url || "",
+        status: "beworben",
+        notes: "",
+      },
+    });
+  }
+
   async function togglePin(job) {
     try {
       const result = await putJson(`/api/jobs/${job.hash}/pin`, {});
@@ -646,13 +702,40 @@ export default function JobsPage() {
     }
   }
 
+  // ACHTUNG Reihenfolge: dieser Block steht VOR dem fruehen
+  // `if (loading) return ...`. Ein useMemo dahinter laeuft im ersten
+  // Rendern nicht mit und im zweiten schon — React verwirft die
+  // Komponente dann. Gefunden hat es der Browser-Test: der
+  // Vite-Build war gruen, und in der Konsole stand nichts.
+  // #1010: die Ausgeblendet-Ansicht ist das Protokoll. Sortiert wird nach
+  // dem Zeitpunkt der AUSSORTIERUNG — `updated_at` taugt dafuer nicht,
+  // die Spalte fasst jede Score-Neuberechnung an, und nach einem Suchlauf
+  // stand die eben weggeklickte Stelle nicht mehr oben.
+  const protokollListe = useMemo(() => {
+    const grenze = dismissWindowGrenze(dismissWindow);
+    const gefiltert = grenze === null
+      ? dismissedJobs
+      : dismissedJobs.filter((j) => {
+          const wann = Date.parse(j.dismissed_at || "");
+          // Ohne Zeitpunkt (Altbestand) laesst sich nichts einordnen —
+          // solche Zeilen erscheinen nur unter "alle", statt still in ein
+          // Fenster gerechnet zu werden.
+          return !Number.isNaN(wann) && wann >= grenze;
+        });
+    return [...gefiltert].sort(
+      (a, b) => (Date.parse(b.dismissed_at || "") || 0) - (Date.parse(a.dismissed_at || "") || 0)
+    );
+  }, [dismissedJobs, dismissWindow]);
+
+  const ohneZeitpunkt = dismissedJobs.filter((j) => !j.dismissed_at).length;
+
   if (loading) return <LoadingPanel label="Stellen werden geladen..." />;
 
   const allJobs = [...jobs, ...dismissedJobs];
   const sourceOptions = [...new Set(allJobs.map((job) => job.source).filter(Boolean))];
   const remoteOptions = [...new Set(allJobs.map((job) => job.remote_level).filter((r) => r && r !== "unbekannt"))];
   const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
-  const currentList = filters.view === "active" ? jobs : dismissedJobs;
+  const currentList = filters.view === "active" ? jobs : protokollListe;
   const scoredActiveJobs = jobs.filter((job) => Number(job?.score || 0) > 0);
   const jobsWithoutDescriptionCount = jobs.filter(jobNeedsDescriptionAttention).length;
   const hiddenAppliedCount = currentList.filter((job) => appliedJobHashes.has(job.hash)).length;
@@ -1193,6 +1276,41 @@ export default function JobsPage() {
               Anwendung fuer defekt gehalten und mehrfach neu geladen.
               Ein Filter, der Eintraege unterdrueckt, muss sichtbar und
               mit einem Klick aufhebbar sein. */}
+          {/* #1010: der Einstieg ins Protokoll. Ohne Zeitfenster ist eine
+              Liste mit ueber 2.000 Eintraegen ein Archiv, kein
+              Rueckholweg — gesucht wird "was habe ich gerade
+              weggeklickt". */}
+          {filters.view === "dismissed" && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+              <span className="text-[13px] text-muted/60">Aussortiert</span>
+              <div className="inline-flex items-center gap-1">
+                {[["heute", "heute"], ["7tage", "7 Tage"], ["30tage", "30 Tage"], ["alle", "alle"]].map(([wert, label]) => (
+                  <button
+                    key={wert}
+                    type="button"
+                    onClick={() => setDismissWindow(wert)}
+                    className={cn(
+                      "rounded-lg border px-2 py-1 text-[12px] font-medium transition-colors",
+                      dismissWindow === wert
+                        ? "border-teal/20 bg-teal/8 text-teal/80"
+                        : "border-white/5 bg-white/[0.03] text-muted/40 hover:text-muted/60"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[12px] text-muted/45">
+                {protokollListe.length} von {dismissedJobs.length}
+              </span>
+              {dismissWindow !== "alle" && ohneZeitpunkt > 0 && (
+                <span className="text-[12px] text-muted/45">
+                  · {ohneZeitpunkt} ohne Zeitpunkt (vor v1.7.64 aussortiert) — nur unter „alle"
+                </span>
+              )}
+            </div>
+          )}
+
           {verborgeneStellen > 0 && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber/30 bg-amber/[0.06] px-3 py-2">
               <span className="text-[13px] text-amber/90">
@@ -1371,21 +1489,7 @@ export default function JobsPage() {
                     <Target size={15} />
                     Fit-Analyse
                   </Button>
-                  <Button
-                    onClick={() =>
-                      setApplicationDialog({
-                        open: true,
-                        draft: {
-                          job_hash: job.hash,
-                          title: job.title || "",
-                          company: job.company || "",
-                          url: job.url || "",
-                          status: "beworben",
-                          notes: "",
-                        },
-                      })
-                    }
-                  >
+                  <Button onClick={() => openApplicationDialog(job)}>
                     <Plus size={15} />
                     Bewerbung erfassen
                   </Button>
@@ -1399,10 +1503,31 @@ export default function JobsPage() {
                       Passt nicht
                     </Button>
                   ) : (
-                    <Button variant="ghost" onClick={() => changeJobState("/api/jobs/restore", { hash: job.hash }, "Stelle wiederhergestellt")}>
-                      <RotateCcw size={15} />
-                      Wiederherstellen
-                    </Button>
+                    <>
+                      {/* #1010: Herkunft und Zeitpunkt an der Zeile. Ein
+                          eigenes Urteil sieht man anders an als eines der
+                          Automatik — und ohne Zeitpunkt findet man den
+                          Verklicker nicht wieder. */}
+                      <span className="inline-flex items-center gap-2 text-[12px] text-muted/60">
+                        <span className={cn(
+                          "rounded-md px-1.5 py-0.5",
+                          job.herkunft === "automatik"
+                            ? "bg-amber/10 text-amber/80"
+                            : job.herkunft === "ich"
+                              ? "bg-white/[0.06] text-muted/70"
+                              : "bg-white/[0.03] text-muted/40"
+                        )}>
+                          {HERKUNFT_ETIKETT[job.herkunft] || HERKUNFT_ETIKETT.unbekannt}
+                        </span>
+                        {job.dismissed_at
+                          ? formatDateTime(job.dismissed_at)
+                          : "Zeitpunkt unbekannt"}
+                      </span>
+                      <Button variant="ghost" onClick={() => changeJobState("/api/jobs/restore", { hash: job.hash }, "Stelle wiederhergestellt")}>
+                        <RotateCcw size={15} />
+                        Wiederherstellen
+                      </Button>
+                    </>
                   )}
                   {job.url ? (
                     <LinkButton href={job.url} target="_blank" rel="noreferrer">
@@ -1612,6 +1737,46 @@ export default function JobsPage() {
             <Search size={15} />
             Detailbewertung durch Claude anfordern
           </Button>
+
+          {/* #1009: Handlung direkt im Dialog. Wer die Analyse gelesen
+              hat, hat GENAU JETZT sein Urteil gebildet — bisher musste er
+              dafuer den Dialog schliessen und die Karte wiederfinden. Der
+              teuerste Schritt endete in einer Sackgasse.
+              Aufgerufen werden dieselben Funktionen wie auf der Karte
+              (openDismissDialog / openApplicationDialog / togglePin),
+              nicht eine zweite Fassung. */}
+          {fitDialog.job && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const stelle = fitDialog.job;
+                  setFitDialog({ open: false, title: "", analysis: null });
+                  openDismissDialog(stelle);
+                }}
+              >
+                <Ban size={15} />
+                Passt nicht
+              </Button>
+              <Button
+                onClick={() => {
+                  const stelle = fitDialog.job;
+                  setFitDialog({ open: false, title: "", analysis: null });
+                  openApplicationDialog(stelle);
+                }}
+              >
+                <Plus size={15} />
+                Bewerbung erfassen
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => togglePin(fitDialog.job)}
+              >
+                <Pin size={15} />
+                {fitDialog.job.is_pinned ? "Pin entfernen" : "Anpinnen"}
+              </Button>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -1916,18 +2081,12 @@ export default function JobsPage() {
               ) : null}
               <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-4 mt-4">
                 <Button onClick={() => {
+                  // #1009: dritte Fundstelle desselben Entwurfs — sie gab
+                  // es schon vor diesem Issue, gefunden hat sie der neue
+                  // Guard. Auch dieser Weg geht jetzt durchs Nadeloehr.
+                  const stelle = detailDialog.job;
                   setDetailDialog({ open: false, job: null, editing: false });
-                  setApplicationDialog({
-                    open: true,
-                    draft: {
-                      job_hash: detailDialog.job.hash,
-                      title: detailDialog.job.title || "",
-                      company: detailDialog.job.company || "",
-                      url: detailDialog.job.url || "",
-                      status: "beworben",
-                      notes: "",
-                    },
-                  });
+                  openApplicationDialog(stelle);
                 }}>
                   <Plus size={15} /> Bewerbung erfassen
                 </Button>

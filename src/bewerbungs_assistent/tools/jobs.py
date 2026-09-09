@@ -404,6 +404,11 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
                         db.dismiss_job(
                             jobitem.get("hash", ""),
                             reason=f"auto:profil_match_negativ:{reason[:120]}",
+                            # #1010: Herkunft explizit. Das `auto:`-Praefix
+                            # ueberlebt die Normalisierung aus #913 NICHT —
+                            # aus dem gespeicherten Grund waere die
+                            # Automatik danach nicht mehr erkennbar.
+                            herkunft="automatik",
                         )
                         aussortiert += 1
                     except Exception:
@@ -1177,6 +1182,39 @@ def register(mcp, db, logger):
                 "hinweis": "Die Stelle gilt wieder als nicht beurteilt."}
 
     @mcp.tool()
+    def aussortier_protokoll(zeitfenster: str = "7tage", limit: int = 50,
+                             herkunft: str = "") -> dict:
+        """Was wurde wann und von wem aussortiert (#1010).
+
+        Der Rueckholweg fuer einen Verklicker. Rueckholen ging schon
+        immer (`stelle_reaktivieren`, Filter "Ausgeblendet") — was
+        fehlte, war das WIEDERFINDEN: es gab keinen Zeitpunkt der
+        Aussortierung, und `updated_at` taugt nicht dafuer (die Spalte
+        fasst jede Score-Neuberechnung an).
+
+        Manuelle und automatische Aussortierungen stehen bewusst in
+        EINER Liste — so hat der Nutzer es verlangt —, aber mit
+        ausgewiesener Herkunft.
+
+        Args:
+            zeitfenster: 'heute', '7tage' (Standard), '30tage' oder 'alle'.
+            limit: hoechstens so viele Zeilen (Standard 50).
+            herkunft: '' fuer beide, 'ich' oder 'automatik'.
+
+        Stellen aus der Zeit vor v1.7.64 tragen keinen Zeitpunkt. Sie
+        werden als solche ausgewiesen und erscheinen nur bei
+        zeitfenster='alle' — `updated_at` als Ersatz einzusetzen waere
+        eine erfundene Angabe (#987).
+        """
+        from ..services import aussortier_protokoll as _protokoll
+        befund = _protokoll.eintraege(db, zeitfenster=zeitfenster,
+                                      limit=limit, herkunft_filter=herkunft)
+        if "fehler" not in befund:
+            befund["naechster_schritt"] = (
+                "Zurueckholen mit stelle_reaktivieren(job_hash).")
+        return befund
+
+    @mcp.tool()
     def stelle_reaktivieren(job_hash: str, grund: str = "") -> dict:
         """Reaktiviert eine zuvor aussortierte Stelle (#664).
 
@@ -1356,7 +1394,9 @@ def register(mcp, db, logger):
         # Auto-Aussortieren nur bei explizitem Flag + vorhandenem Hash
         if auto_aussortieren and resolved_hash:
             try:
-                db.dismiss_job(resolved_hash, f"wiedergaenger:{pattern['top_grund']}")
+                db.dismiss_job(resolved_hash,
+                               f"wiedergaenger:{pattern['top_grund']}",
+                               herkunft="automatik")
                 result["aktion"] = "auto_aussortiert"
                 result["dismiss_reason"] = f"wiedergaenger:{pattern['top_grund']}"
             except Exception as exc:  # noqa: BLE001

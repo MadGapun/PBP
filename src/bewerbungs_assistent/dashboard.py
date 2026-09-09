@@ -2390,7 +2390,16 @@ async def api_jobs(active: bool = True,
             page = all_jobs[offset:offset + limit]
             return {"jobs": page, "total": total, "offset": offset, "limit": limit, "has_more": offset + limit < total}
         return all_jobs
-    return _db.get_dismissed_jobs()
+    # v1.7.64 (#1010): die Herkunft rechnet der DIENST, nicht das
+    # Frontend. Eine gespiegelte Fassung im JavaScript waere der zweite
+    # Rechenweg fuer dieselbe Frage — und die Regel ist nicht trivial
+    # (gespeicherte Spalte, `auto:`-Praefix im Altbestand, sonst
+    # ehrlich "unbekannt").
+    from .services import aussortier_protokoll as _protokoll
+    aussortiert = _db.get_dismissed_jobs()
+    for _job in aussortiert:
+        _job["herkunft"] = _protokoll.herkunft(_job)
+    return aussortiert
 
 
 def _guete_anreichern(jobs: list) -> None:
@@ -2449,6 +2458,21 @@ async def api_auto_dismissed_jobs(limit: int = 20):
     """
     jobs = _db.get_auto_dismissed_jobs(limit=limit)
     return {"jobs": jobs, "anzahl": len(jobs), "limit": limit}
+
+
+@app.get("/api/jobs/dismissed-log")
+async def api_aussortier_protokoll(zeitfenster: str = "7tage",
+                                   limit: int = 50, herkunft: str = ""):
+    """Aussortier-Protokoll (#1010) — derselbe Dienst wie das MCP-Werkzeug.
+
+    Zwei Fassungen dieser Liste waeren das Muster, das dieses Projekt
+    achtmal gekostet hat (#963, #913, #976, #987, #991, #992, #994,
+    #1008). Deshalb rechnet hier nichts — `services/
+    aussortier_protokoll.py` ist das Nadeloehr.
+    """
+    from .services import aussortier_protokoll as _protokoll
+    return _protokoll.eintraege(_db, zeitfenster=zeitfenster, limit=limit,
+                                herkunft_filter=herkunft)
 
 
 @app.post("/api/jobs/restore")
@@ -8182,7 +8206,8 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
                 ) + 1
                 if health.should_dismiss:
                     try:
-                        _db.dismiss_job(h, "veraltet_url")
+                        _db.dismiss_job(h, "veraltet_url",
+                                        herkunft="automatik")
                         dismissed += 1
                         expired_hashes.append(h)
                     except Exception:
