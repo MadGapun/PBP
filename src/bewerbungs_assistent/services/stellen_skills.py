@@ -136,6 +136,36 @@ _BENEFIT = frozenset({
 
 # Ab wie vielen erkannten Begriffen ist eine Quote ueberhaupt eine
 # Aussage? Darunter wird sie NICHT ausgewiesen (AK 7).
+# v1.7.65 (#1005): Woerter der TEXTSORTE Stellenanzeige, die eine
+# TAETIGKEIT oder einen Allgemeinbegriff benennen — kein Fachgebiet.
+# Sie standen im belegten Fall als "Kompetenzen" in der Auswertung:
+# `qualifikation` und `informatik` als LUECKE auszuweisen legt nahe,
+# dem Menschen fehle etwas, das gar keine Kompetenz ist.
+#
+# **Aufnahmekriterium:** das Wort steht in Anzeigen quer durch alle
+# Berufsfelder und sagt fuer sich genommen nichts darueber, WAS jemand
+# kann. Fachbegriffe, die zufaellig so anfangen, bleiben unberuehrt —
+# geprueft wird das GANZE Token, nie ein Wortanfang ("Softwareent-
+# wicklung" und "Prozessleittechnik" fallen also nicht darunter).
+#
+# Bewusst NICHT dabei: Sprachen (`deutsch`, `englisch`). Eine
+# Sprachanforderung ist eine echte Anforderung — sie hier zu tilgen
+# waere die Gegenrichtung desselben Fehlers (#966: beim Haerten beide
+# Richtungen messen).
+_FLOSKEL_TAETIGKEIT = frozenset({
+    "qualifikation", "qualifikationen", "informatik",
+    "loesungen", "lösungen", "loesung", "lösung",
+    "projekten", "projekte", "projekt",
+    "umsetzung", "konzeption", "entwicklung", "entwicklungen",
+    "betreuung", "beratung", "analyse", "analysen",
+    "management", "koordination", "optimierung", "gestaltung",
+    "schnittstelle", "schnittstellen",
+    "systeme", "systemen", "system", "systems",
+    "prozesse", "prozessen", "prozess",
+    "anforderungen", "anforderung", "loesungsfindung",
+    "dokumentation", "abstimmung", "durchfuehrung", "durchführung",
+})
+
 MINDEST_BEGRIFFE = 4
 
 
@@ -201,6 +231,8 @@ def extrahiere_skills(text: str, vokabular: Optional[set] = None) -> list[str]:
         b = begriff.strip()
         if not b or b in _BENEFIT or b in _STOPP_KUERZEL:
             continue
+        if b.lower() in _FLOSKEL_TAETIGKEIT:
+            continue
         if b not in gesehen:
             gesehen.append(b)
 
@@ -218,6 +250,40 @@ def extrahiere_skills(text: str, vokabular: Optional[set] = None) -> list[str]:
     gesehen = [g for g in gesehen
                if not any(g != m and g in m for m in mehrwort)]
     return gesehen
+
+
+def grundform(begriff: str) -> str:
+    """Ein Gruppierungs-Schluessel, der Flexionsformen zusammenfasst.
+
+    `system`, `systeme` und `systemen` standen im belegten Fall als DREI
+    getrennte Kompetenzen in derselben Auswertung (#1005). Das ist keine
+    Lemmatisierung und will keine sein: der Rueckgabewert ist ein
+    SCHLUESSEL zum Gruppieren, kein anzeigbares Wort. Angezeigt wird
+    immer die haeufigste tatsaechlich vorkommende Form — ein erfundenes
+    Wort in einer Auswertung waere dieselbe Klasse Fehler wie ein
+    erfundener Zeitpunkt (#987).
+
+    Nur deutsche Plural-/Kasus-Endungen, und nur solange genug Stamm
+    uebrig bleibt.
+    """
+    b = (begriff or "").strip().lower()
+    if " " in b:
+        return b  # Mehrwortbegriffe bleiben, wie sie sind
+    # Nach LAENGE sortiert — die Schleife nimmt den ersten Treffer.
+    # Ohne "ung" faenden "wartung" und "wartungen" nicht zusammen: das
+    # eine endet auf "ungen", das andere auf gar nichts aus der Liste.
+    for endung in ("innen", "ungen", "enen", "ung", "en", "er", "es",
+                   "e", "n", "s"):
+        if not b.endswith(endung) or len(b) - len(endung) < MIN_LAENGE:
+            continue
+        # Ein einzelner Buchstabe aus einem DOPPELTEN Konsonanten ist
+        # keine Endung: aus "prozess" wuerde sonst "prozes", waehrend
+        # "prozesse" auf "prozess" faellt — die beiden faenden dann
+        # gerade NICHT zusammen. Vom eigenen Probelauf gefunden.
+        if len(endung) == 1 and len(b) >= 2 and b[-1] == b[-2]:
+            continue
+        return b[: -len(endung)]
+    return b
 
 
 def quote_belastbar(anzahl_begriffe: int) -> bool:
@@ -274,7 +340,11 @@ def _rohbegriffe(text: str) -> set[str]:
     for w in _WORT.findall(roh):
         klein = w.lower()
         if (len(w) >= MIN_LAENGE and klein not in _BENEFIT
-                and klein not in _STOPP_KUERZEL):
+                and klein not in _STOPP_KUERZEL
+                # #1005: sonst lernt PBP die Floskeln aus dem eigenen
+                # Bestand zurueck — die Obergrenze MAX_ANTEIL faengt nur
+                # das, was in FAST jeder Anzeige steht.
+                and klein not in _FLOSKEL_TAETIGKEIT):
             treffer.add(w)
     return treffer
 

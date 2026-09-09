@@ -76,6 +76,33 @@ _GENERIC_ROLE_TOKENS = {
     "product", "produkt", "interim",
 }
 
+# #1004: Namen breit aufgestellter Anbieter. Ihr NAME allein ist kein
+# Fachgebiet — sie decken ein Modulspektrum ab, das fachlich nichts
+# miteinander zu tun hat. Belegter Fall: drei aussortierte
+# Personalwesen-Rollen desselben Herstellers machten eine
+# Produktdaten-Stelle zum Wiedergaenger; gemeinsam war ausschliesslich
+# der Herstellername.
+#
+# **Aufnahmekriterium — und nur dieses:** der Anbieter deckt mehrere
+# fachlich UNVERWANDTE Domaenen ab (etwa Personalwesen und
+# Produktdaten). Ein Spezialanbieter gehoert NICHT hierher.
+#
+# Wichtig ist die Trennung Hersteller/Produkt: der PRODUKTname bleibt
+# ein Fachsignal ("teamcenter", "windchill", "catia", "successfactors"),
+# nur der Herstellername verliert es. Genau das unterscheidet die beiden
+# Faelle, um die es geht.
+#
+# Die Liste kann nur finden, was in ihr steht — ein unbekannter
+# Grossanbieter rutscht weiter durch. Das ist die bekannte Grenze jeder
+# kuratierten Liste (#742, #1006); sie ist hier vertretbar, weil ein
+# fehlender Eintrag nur das Verhalten von vor #1004 bedeutet.
+_BREITE_ANBIETER = {
+    "sap", "oracle", "microsoft", "ibm", "salesforce", "workday",
+    "servicenow", "adobe", "google", "amazon", "aws", "azure",
+    "siemens", "dassault", "ptc", "autodesk", "hexagon", "infor",
+    "sage", "atlassian", "vmware", "cisco",
+}
+
 # #754: Rollen-Familien fuer den Fallback OHNE Fach-Signal. Ein Token gehoert
 # zur Familie, wenn es mit einem Muster beginnt ODER endet — das faengt
 # deutsche Komposita ("Projektleiter" -> projektrolle + management,
@@ -327,7 +354,13 @@ def find_wiedergaenger_pattern(
             # Die neue Stelle hat ein Fach-Signal: Ueberlappung ist Pflicht.
             # Faecher-Match traegt allein — Rolle egal (#671: PLM Owner +
             # PLM Manager machen einen PLM Architect zum Wiedergaenger).
-            if len(shared) < min_overlap:
+            #
+            # #1004: gezaehlt wird nur, was ein Fachgebiet BENENNT. Der
+            # Name eines breit aufgestellten Anbieters tut das nicht —
+            # zwei Stellen, die sich nur ueber ihn beruehren, haben
+            # fachlich nichts gemeinsam. Der Gruendungsfall #671 bleibt
+            # unberuehrt: "plm" ist ein Fachgebiet, kein Hersteller.
+            if len(shared - _BREITE_ANBIETER) < min_overlap:
                 continue
         elif target_roles:
             # Kein Fach-Signal (generischer Titel wie "(Sr.) Project
@@ -390,7 +423,10 @@ def find_wiedergaenger_pattern(
         "firma": company,
         "top_grund": top_grund,
         "anzahl": anzahl,
-        "domain_tokens": sorted(domain_tokens_seen & target_tokens) or sorted(domain_tokens_seen),
+        # #1004: Herstellernamen erscheinen hier nicht mehr als Domaene —
+        # sie waren das sichtbare Symptom des Fehlalarms.
+        "domain_tokens": (sorted((domain_tokens_seen & target_tokens) - _BREITE_ANBIETER)
+                          or sorted(domain_tokens_seen - _BREITE_ANBIETER)),
         "alle_gruende": dict(reason_counter),
         "gewicht_nach_guete": {r: round(w, 1) for r, w in gewicht.items()},
         "zaehlweise": ("Stellen je Grund; eine Stelle mit mehreren "
@@ -399,8 +435,15 @@ def find_wiedergaenger_pattern(
         "hinweis": (
             f"Firma '{company}' wurde bereits {anzahl}x mit Grund "
             f"'{top_grund}' aussortiert"
-            + (f" (Domaene: {', '.join(sorted(domain_tokens_seen & target_tokens))})"
-               if (domain_tokens_seen & target_tokens) else "")
+            # #1004 AK 2: den Alttitel NENNEN. Er stand bisher nur unter
+            # `beispiele`; gelesen wird zuerst dieser Satz. Ein Fehlalarm
+            # faellt erst auf, wenn dabeisteht, WORAUF er sich stuetzt —
+            # im belegten Fall haette "Personalwesen ... Learning" neben
+            # einer Produktdaten-Stelle sofort stutzig gemacht.
+            + (f" — zuletzt: \"{beispiele[0]['title']}\""
+               if beispiele and beispiele[0].get("title") else "")
+            + (f" (Domaene: {', '.join(sorted((domain_tokens_seen & target_tokens) - _BREITE_ANBIETER))})"
+               if ((domain_tokens_seen & target_tokens) - _BREITE_ANBIETER) else "")
             + (f" (gleiche Rolle: {', '.join(sorted(roles_matched))})"
                if roles_matched else "")
             + "."
