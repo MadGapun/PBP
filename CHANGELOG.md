@@ -33,6 +33,108 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.65] - 2026-09-09 — Was ist eigentlich ein Fachgebiet
+
+Zwei Meldungen, dieselbe Frage aus zwei Richtungen.
+
+### Fixed
+
+- **Ein Herstellername galt als Fachgebiet (#1004).** Die
+  Wiedergänger-Prüfung gruppiert über Firma plus Titel-Begriffe — und
+  bei einem breit aufgestellten Softwarehersteller sagt dessen *Name*
+  nichts über das Fachgebiet. Belegter Fall: drei aussortierte
+  Personalwesen-Rollen machten eine Produktdaten-Stelle zum
+  „Wiedergänger". Gemeinsam war ausschließlich der Herstellername.
+
+  Gelöst über die Trennung **Hersteller ≠ Produkt**: der Produktname
+  bleibt ein Fachsignal, nur der Herstellername verliert es. Eine
+  pauschale Regel „ein gemeinsamer Begriff reicht nicht" hätte den
+  Gründungsfall aus #671 getötet — dort ist genau ein Begriff gemeinsam
+  und trägt zu Recht.
+
+  **Am Bestand gemessen:** Stichprobe von 500 aussortierten Stellen,
+  jede einmal behandelt, als käme sie neu herein — 121 Markierungen
+  vorher, 110 nachher. **11 Fehlalarme entfallen, keiner kommt hinzu.**
+- **Die Warnung nennt jetzt einen der Alttitel.** Sie standen nur unter
+  `beispiele`; gelesen wird zuerst der Satz — und ein Fehlalarm fällt
+  erst auf, wenn dabeisteht, worauf er sich stützt.
+- **`skill_gap_analyse` zählte Wörter als Kompetenzen (#1005).**
+  `system`, `systeme` und `systemen` standen als drei getrennte
+  Einträge in derselben Auswertung, `qualifikation` und `informatik`
+  als „fehlende Skills" — daraus 36 Prozent Übereinstimmung. Drei
+  Änderungen: Flexionsformen werden zusammengefasst, Wörter der
+  Textsorte Stellenanzeige (`Umsetzung`, `Konzeption`, `Lösungen`,
+  `Schnittstelle`, …) fallen heraus — auch beim *Lernen* aus dem
+  Bestand, sonst kommen sie darüber zurück.
+
+  Am gemeldeten Beispiel nachgestellt: von zwölf Floskeln bleibt keine
+  übrig, `PLM`, `Teamcenter` und `CAD` bleiben stehen.
+- **Die Quote gibt es nur noch mit Grundlage.** Die Prüfung dafür
+  existiert seit v1.7.30 — sie wurde **importiert und nie aufgerufen**.
+  Eine Regel, die nicht läuft, ist keine Regel; genau deshalb konnte aus
+  wenigen Rauschbegriffen eine Prozentzahl entstehen, die wie eine
+  Kennzahl aussieht. Reicht es nicht, steht jetzt der Grund da statt
+  einer Zahl.
+- **Die Fallzahl steht an der Zahl.** Ein Befund aus *einer* Anzeige ist
+  kein Trend und sagt das jetzt auch.
+
+### Bewusst nicht
+
+Sprachen (`Deutsch`, `Englisch`) bleiben in der Auswertung. Eine
+Sprachanforderung ist eine echte Anforderung — sie mit auszusieben wäre
+die Gegenrichtung desselben Fehlers.
+
+Die Anbieter-Liste kann nur finden, was in ihr steht; ein unbekannter
+Großanbieter rutscht weiter durch. Das Aufnahmekriterium steht im Code,
+damit die Liste nicht beliebig wächst.
+
+**Tests:** 3416 bestanden, 2 übersprungen (+14 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.65.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.65.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
 ## [1.7.64] - 2026-09-09 — Nach der Entscheidung
 
 Zwei Wünsche von dir vom selben Tag, beide am selben Punkt: **was
