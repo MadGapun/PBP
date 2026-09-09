@@ -33,6 +33,108 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.58] - 2026-09-09 — Ollama startet jetzt mit, wenn du willst
+
+Dein Wunsch von heute: *„Ich möchte die Option haben, dass ich Ollama
+automatisch mit PBP starte."*
+
+Den Knopf **„Ollama starten"** gibt es seit v1.7.0-beta.60. Was fehlte,
+war der Weg **ohne** Knopfdruck: nach jedem Neustart des Rechners stand
+die lokale KI auf „nicht erreichbar", bis jemand das Dashboard öffnet.
+Die Hintergrund-Aufgaben — Auto-Aussortierung, Lernlauf — liefen zu dem
+Zeitpunkt längst. Nur eben ohne lokale KI.
+
+### Added
+
+- **Schalter „Ollama mit PBP starten"** im Einstellungen-Tab *Lokale KI*.
+  Ist er an, fährt PBP beim eigenen Start auch Ollama hoch.
+
+  **Die Vorgabe ist AUS.** Einen fremden Prozess ungefragt zu starten ist
+  eine Nebenwirkung, die niemand bestellt hat. Wer nichts einstellt,
+  merkt von dieser Version nichts.
+
+- **Die Einstellung hängt am Profil, nicht am Browser.** PBP startet oft
+  über Claude Desktop, und dort sieht niemand das Dashboard — eine
+  Einstellung, die nur im Browser lebt, hätte genau dann nicht gegolten,
+  wenn man sie braucht.
+
+- **Über Claude bedienbar:** `ollama_autostart` — ohne Argument zeigt es
+  den Stand, mit `"an"` / `"aus"` setzt es ihn.
+
+### Changed
+
+- **Ollama wird jetzt auch außerhalb des PATH gefunden.** Startet PBP als
+  MCP-Server, erbt es die Umgebung von Claude Desktop, und die ist nicht
+  die deiner Anmelde-Shell. Bisher hieß es dort „nicht installiert",
+  obwohl Ollama danebenstand. PBP sieht jetzt zusätzlich an den Orten
+  nach, an die Ollamas eigener Installer schreibt.
+
+- **Der Knopf und der Autostart benutzen dieselbe Logik.** Zwei Fassungen
+  nebeneinander wären mit Sicherheit auseinandergelaufen — das ist in
+  diesem Projekt schon sieben Mal passiert.
+
+### Was PBP ausdrücklich *nicht* tut
+
+- **Ollama installieren.** Das bleibt bei ollama.com/download.
+- **Ollama starten, wenn die lokale KI auf „aus" oder „pausiert" steht.**
+  Ein Dienst, den du gerade abbestellt hast, soll keinen Arbeitsspeicher
+  belegen. Wenn du den Autostart trotzdem setzt, sagt PBP dir das —
+  statt still nichts zu tun.
+- **Ollama beenden, wenn PBP endet.** Es läuft weiter. Andersherum wäre
+  ein Modell mitten in einem Lauf verschwunden.
+
+### Fixed
+
+- Beim Bauen aufgefallen und mitgenommen: der neue Einstell-Endpunkt
+  hätte einen unsinnigen Wert stillschweigend als „aus" gespeichert und
+  Erfolg gemeldet. Ein Fallback, der etwas anderes speichert als gemeint,
+  ist keine Fehlertoleranz.
+
+Geschlossen: #1001. 27 neue Tests, Suite 3261.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.58.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.58.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.57] - 2026-09-09 — Erst lesen, dann schreiben
 
 Im Bewerbungs-Detail zeigte der Kasten **Firmen-Recherche** zuerst ein
