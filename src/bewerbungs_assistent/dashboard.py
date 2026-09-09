@@ -2402,6 +2402,7 @@ def _guete_anreichern(jobs: list) -> None:
     try:
         from .services import datenguete, scoring_kriterien
         krit = scoring_kriterien.fuer_scoring(_db)
+        _profil = _db.get_profile()
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Datenguete-Anreicherung uebersprungen: %s", exc)
         return
@@ -2412,6 +2413,15 @@ def _guete_anreichern(jobs: list) -> None:
             continue
         if marke:
             job["datenguete"] = marke
+        # #1007: derselbe Aufruf wie in stellen_anzeigen. Zwei Fassungen
+        # desselben Befunds waeren #963/#991 in der Trefferliste.
+        try:
+            from .services import passung
+            befund = passung.analyse_lesen(job, _profil)
+            if befund:
+                job["analyse"] = befund
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            pass
 
 
 @app.post("/api/jobs/dismiss")

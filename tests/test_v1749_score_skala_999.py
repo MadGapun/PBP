@@ -101,14 +101,32 @@ def test_999_maximum_stuerzt_bei_muell_nicht_ab():
 
 # ── Die Einordnung ────────────────────────────────────────────────────
 
-def test_999_perfekte_passung_ist_empfohlen_bei_jeder_listenlaenge():
-    """Der gemeldete Fall. Vorher: NICHT_EMPFOHLEN mit "Gap zu gross"
-    bei 100 % Passung."""
-    for n in (5, 10, 20, 40):
-        job, kriterien = _volltreffer(n)
-        fit = fit_analyse(dict(job), kriterien)
-        assert _build_empfehlung(fit, job)["kategorie"] == "EMPFOHLEN", \
-            f"{n} MUSS-Begriffe"
+def test_999_die_einstufung_kam_aus_dem_score_und_tut_es_nicht_mehr():
+    """Nachtrag zu #999 aus #1003 — die Skala war nur die halbe Miete.
+
+    v1.7.49 hat den Massstab ehrlich gemacht: `score_maximum` folgt
+    derselben Rechnung wie der Score, und die Einstufung nahm den
+    ANTEIL statt einer erfundenen 100er-Skala.
+
+    Der Nutzer hat danach den tieferliegenden Fehler benannt: in den
+    Score gehen Keyword-Treffer, Gehalt, Entfernung und Remote-Grad ein
+    — **der Lebenslauf nicht.** Ein Massstab fuer die falsche Zahl
+    bleibt der falsche Massstab.
+
+    Die Maximum-Formel bleibt (sie wird ausgewiesen und ist richtig),
+    die Einstufung daraus ist weg. Dieser Test haelt genau das fest.
+    """
+    from bewerbungs_assistent.tools.jobs import _build_empfehlung
+    for laenge in (5, 10, 20, 40):
+        muss = [f"begriff{i}" for i in range(laenge)]
+        v = _build_empfehlung(
+            {"total_score": 100, "total_score_max": 100,
+             "muss_hits": muss, "missing_muss": [], "risks": [],
+             "beschreibung_vorhanden": True},
+            {}, profil_kompetenzen=20)
+        assert v["kategorie"] == "NICHT_BEURTEILBAR", f"{laenge} Begriffe"
+        assert v["grundlage"] == "keine_grundlage"
+
 
 
 def test_999_kein_ausgabetext_behauptet_eine_100er_skala():
@@ -123,31 +141,23 @@ def test_999_kein_ausgabetext_behauptet_eine_100er_skala():
     assert empfehlung["score_maximum"] == fit["total_score_max"]
 
 
-def test_999_halbe_passung_bleibt_abgelehnt():
-    """Die entscheidende Gegenprobe: der Fix darf nicht einfach alles
-    hochstufen. Eine Stelle, die die Haelfte der Pflichtbegriffe
-    verfehlt, ist weiterhin keine Empfehlung."""
-    kws = [f"kw{i}" for i in range(10)]
-    job = {"title": "Rolle", "location": "Hamburg",
-           "employment_type": "festanstellung",
-           "description": (" ".join(kws[:5]) + ". ") * 8 + FUELLTEXT}
-    fit = fit_analyse(dict(job), {"keywords_muss": kws})
-    anteil = fit["total_score"] / fit["total_score_max"]
-    assert anteil < 0.5
-    assert _build_empfehlung(fit, job)["kategorie"] == "NICHT_EMPFOHLEN"
+def test_999_das_maximum_steht_weiter_in_der_antwort():
+    """Es wird ausgewiesen, nur nicht mehr zum Urteil gemacht.
 
+    Ohne die Zahl liesse sich der Score gar nicht einordnen — "Score 84"
+    allein sagt nichts. Sie gehoert also weiter dazu, mit dem Satz, was
+    sie misst.
+    """
+    from bewerbungs_assistent.tools.jobs import _build_empfehlung
+    v = _build_empfehlung(
+        {"total_score": 84, "total_score_max": 388.5, "muss_hits": ["x"],
+         "missing_muss": ["y"], "risks": [], "beschreibung_vorhanden": True},
+        {}, profil_kompetenzen=20)
+    assert v["score"] == 84
+    assert v["score_maximum"] == 388.5
+    assert "SUCHBEGRIFFE" in v["score_bedeutung"]
+    assert "84" in v["score_bedeutung"]
 
-def test_999_mittlere_passung_ist_bedingt():
-    """Die mittlere Stufe muss erreichbar bleiben, sonst hat der Fix
-    nur die Grenze verschoben statt sie zu reparieren."""
-    kws = [f"kw{i}" for i in range(8)]
-    job = {"title": "Rolle", "location": "Hamburg",
-           "employment_type": "festanstellung", "remote_level": "remote",
-           "description": (" ".join(kws[:5]) + " 100% remote. ") * 8 + FUELLTEXT}
-    fit = fit_analyse(dict(job), {"keywords_muss": kws})
-    anteil = fit["total_score"] / fit["total_score_max"]
-    assert 0.5 <= anteil < 0.75, f"Anteil {anteil:.0%} trifft die Stufe nicht"
-    assert _build_empfehlung(fit, job)["kategorie"] == "BEDINGT"
 
 
 def test_999_ohne_bekanntes_maximum_wird_nichts_erfunden():

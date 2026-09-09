@@ -127,6 +127,8 @@ EXPECTED_TOOL_NAMES = {
     "meeting_aufwand_setzen",
     "jobsuche_status",
     "stelle_bewerten",
+    "stelle_analyse_loeschen",
+    "stelle_analyse_speichern",
     "stelle_reaktivieren",
     "stelle_wiedergaenger_pruefen",
     "umgang_mit_unbekannt_setzen",
@@ -375,7 +377,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 229  # v1.7.60 (#1006): +dokument_regeln_pruefen
+        assert len(tools) == 231  # v1.7.61 (#1007): +stelle_analyse_speichern/-loeschen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

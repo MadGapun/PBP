@@ -172,58 +172,79 @@ def test_scoring_brackets_bracket_ohne_ziffern_uebersprungen():
 
 # ── #662 — fit_analyse Empfehlung-Verdict ────────────────────────────────
 
+def test_empfehlung_folgt_NICHT_dem_score():
+    """Der Kern von #1003 — und die Umkehr des alten Vertrags.
 
-def test_empfehlung_empfohlen_bei_hohem_score():
+    Bis v1.7.60 stand hier: Score 80 von 100 -> EMPFOHLEN, 60 ->
+    BEDINGT, 20 -> NICHT_EMPFOHLEN. Der Nutzer hat den Denkfehler
+    benannt:
+
+        "Ob es eine Empfehlung gibt, hat nichts mit den Punkten zu tun —
+        das ist nur ein Indikator fuer die Suchbegriffe."
+
+    In den Score gehen Keyword-Treffer, Gehalt, Entfernung und
+    Remote-Grad ein. Der LEBENSLAUF geht nicht ein. Ein hoher Score
+    heisst: die Anzeige trifft meine Suchbegriffe gut — nicht: ich passe.
+
+    Dieser Test haelt die Umkehr fest: **kein Score, wie hoch auch
+    immer, erzeugt von sich aus eine Empfehlung.** Er ist die Wache
+    dagegen, dass die Schwellen zurueckkommen.
+    """
+    from bewerbungs_assistent.tools.jobs import _build_empfehlung
+    for score in (100, 80, 60, 20, 0):
+        fit_result = {
+            "total_score": score, "total_score_max": 100,
+            "muss_hits": ["python", "fastapi"], "missing_muss": [],
+            "risks": [], "beschreibung_vorhanden": True,
+        }
+        v = _build_empfehlung(fit_result, {}, profil_kompetenzen=12)
+        assert v["kategorie"] == "NICHT_BEURTEILBAR", (
+            f"Score {score} hat einen Verdict erzeugt: {v['kategorie']}")
+        assert v["grundlage"] == "keine_grundlage"
+        assert v["warum"] == "nicht_gelesen"
+
+
+def test_empfehlung_kommt_aus_der_gespeicherten_detailanalyse():
+    """Woher der Verdict jetzt kommt.
+
+    Die Analyse hat Anzeige und Profil gelesen; ihr Urteil gilt — und
+    die Herkunft steht dabei, damit ein gelesenes Urteil in der Liste
+    nicht aussieht wie ein gerechnetes.
+    """
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
-        "total_score": 80,
-        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
-        # werden. Genau diese Unterstellung war der Fehler — der Score
-        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
-        "total_score_max": 100,
-        "muss_hits": ["python", "fastapi", "sqlite"],
-        "missing_muss": [],
-        "risks": [],
-        "beschreibung_vorhanden": True,
+        "total_score": 3, "total_score_max": 100,   # niedrig, egal
+        "muss_hits": ["python"], "missing_muss": [],
+        "risks": [], "beschreibung_vorhanden": True,
     }
-    verdict = _build_empfehlung(fit_result, {})
-    assert verdict["kategorie"] == "EMPFOHLEN"
-    assert "Empfohlen" in verdict["kurz"]
+    v = _build_empfehlung(
+        fit_result, {}, profil_kompetenzen=12,
+        gespeicherte_analyse={
+            "urteil": "EMPFOHLEN",
+            "begruendung": "Werdegang deckt die Rolle ab.",
+            "grundlage": "detailanalyse", "am": "2026-09-09T10:00:00",
+        })
+    assert v["kategorie"] == "EMPFOHLEN"
+    assert v["grundlage"] == "detailanalyse"
+    assert "Werdegang" in v["begruendung"]
+    # Der Score steht daneben — als das, was er ist.
+    assert v["score"] == 3
+    assert "SUCHBEGRIFFE" in v["score_bedeutung"]
 
 
-def test_empfehlung_bedingt_bei_mittlerem_score():
+def test_empfehlung_ohne_profil_ist_nicht_beurteilbar():
+    """Ohne Kompetenzen im Profil gibt es nichts zu vergleichen.
+
+    Das ist etwas anderes als "passt nicht" — genau die Verwechslung,
+    die #989 abgeschafft hat.
+    """
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
-    fit_result = {
-        "total_score": 60,
-        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
-        # werden. Genau diese Unterstellung war der Fehler — der Score
-        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
-        "total_score_max": 100,
-        "muss_hits": ["python"],
-        "missing_muss": ["windchill", "teamcenter"],
-        "risks": ["2 MUSS-Keywords nicht gefunden"],
-        "beschreibung_vorhanden": True,
-    }
-    verdict = _build_empfehlung(fit_result, {})
-    assert verdict["kategorie"] == "BEDINGT"
-    assert "Bedingt" in verdict["kurz"]
-
-
-def test_empfehlung_nicht_empfohlen_bei_niedrigem_score():
-    from bewerbungs_assistent.tools.jobs import _build_empfehlung
-    fit_result = {
-        "total_score": 20,
-        # v1.7.49 (#999): die 100 steht jetzt DA, statt unterstellt zu
-        # werden. Genau diese Unterstellung war der Fehler — der Score
-        # ist eine Punktsumme, deren Obergrenze aus den Kriterien folgt.
-        "total_score_max": 100,
-        "muss_hits": ["python"],
-        "missing_muss": ["windchill"],
-        "risks": [],
-        "beschreibung_vorhanden": True,
-    }
-    verdict = _build_empfehlung(fit_result, {})
-    assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
+    v = _build_empfehlung(
+        {"total_score": 90, "total_score_max": 100, "muss_hits": ["x"],
+         "missing_muss": [], "risks": [], "beschreibung_vorhanden": True},
+        {}, profil_kompetenzen=0)
+    assert v["kategorie"] == "NICHT_BEURTEILBAR"
+    assert v["warum"] == "kein_profil"
 
 
 def test_empfehlung_ko_bei_fehlender_beschreibung():
@@ -297,7 +318,13 @@ def test_empfehlung_hat_immer_die_pflichtfelder():
         assert "score" in v
         assert "begruendung" in v
         assert "kurz" in v
-        assert v["kategorie"] in ("EMPFOHLEN", "BEDINGT", "NICHT_EMPFOHLEN")
+        # #1003: der Score entscheidet die Kategorie nicht mehr.
+        # Der Format-Vertrag gilt weiter — er ist der Grund fuer
+        # diesen Test, nicht die Einstufung.
+        from bewerbungs_assistent.services.passung import KATEGORIEN
+        assert v["kategorie"] in KATEGORIEN
+        assert v["grundlage"] in ("detailanalyse", "ko_kriterium",
+                                  "keine_grundlage")
 
     # Ohne bekanntes Maximum: eigene Kategorie, kein geratener Verdict.
     ohne = _build_empfehlung(

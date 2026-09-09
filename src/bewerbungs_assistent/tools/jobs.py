@@ -10,7 +10,12 @@ from ..services import entfernung as _entfernung
 from ..services.nutzerfuehrung import leer
 
 
-def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
+from ..services import passung
+
+
+def _build_empfehlung(fit_result: dict, job_dict: dict,
+                      gespeicherte_analyse=None,
+                      profil_kompetenzen: int = 0) -> dict:
     """v1.7.0-beta.81 (#662): Klare 3-Stufen-Empfehlung im fit_analyse-Result.
 
     Soll Claude vor diplomatischen Weichspuelern bewahren ("Trefferchance
@@ -104,86 +109,38 @@ def _build_empfehlung(fit_result: dict, job_dict: dict) -> dict:
             f"({len(missing_muss)} fehlen) — kein fachlicher Anker."
         )
 
-    if ko_gruende:
-        return {
-            "kategorie": "NICHT_EMPFOHLEN",
-            "score": score,
-            "ko_gruende": ko_gruende,
-            # #762: maschinenlesbar, ob der Score ueberhaupt belastbar ist
-            "score_zuverlaessig": bool(
-                desc_ok and not fit_result.get("beschreibung_kurz")
-            ),
-            "begruendung": (
-                "K.o.-Kriterium getroffen. " + ko_gruende[0]
-                + " Bewerbung lohnt nur, wenn das vorher transparent "
-                "adressiert wird (oder im Profil korrigiert)."
-            ),
-            "kurz": (
-                "Nicht empfohlen — " + ko_gruende[0].split(" — ")[0].lower()
-            ),
-        }
-
-    # #999: ohne bekannten Hoechstwert gibt es keinen Anteil und damit
-    # keine ehrliche Einordnung. Das ist selten (Kriterien ohne jedes
-    # Keyword), aber es zu erfinden waere schlimmer als es zu sagen.
-    if anteil is None:
-        return {
-            "kategorie": "NICHT_BEURTEILBAR",
-            "score": score,
-            "score_maximum": maximum,
-            "begruendung": (
-                f"{_skala()} — der erreichbare Hoechstwert laesst sich "
-                "aus den Suchkriterien nicht bestimmen (keine Keywords "
-                "gepflegt). Ohne ihn ist die Zahl nicht einzuordnen. "
-                "Setze Kriterien mit suchkriterien_setzen()."
-            ),
-            "kurz": "Nicht beurteilbar — keine Suchkriterien gepflegt.",
-        }
-
-    if anteil >= 0.75:
-        return {
-            "kategorie": "EMPFOHLEN",
-            "score": score,
-            "score_maximum": maximum,
-            "begruendung": (
-                f"{_skala()} mit {len(muss_hits)} MUSS-Treffern. "
-                "Profil deckt die Stelle solide ab. Bewerbung lohnt sich."
-            ),
-            "kurz": "Empfohlen — Profil passt zur Stelle.",
-        }
-
-    if anteil >= 0.50:
-        offene_lucken = (
-            f"{len(missing_muss)} MUSS-Keywords fehlen" if missing_muss else
-            "Nebenpunkte ueberbrueckbar"
-        )
-        return {
-            "kategorie": "BEDINGT",
-            "score": score,
-            "score_maximum": maximum,
-            "begruendung": (
-                f"{_skala()} mit {len(muss_hits)} MUSS-Treffern. "
-                f"{offene_lucken}. Lohnt sich nur, wenn die Luecken im "
-                "Anschreiben transparent adressiert werden (z.B. mit "
-                "transferierbarer Methodenkompetenz)."
-            ),
-            "kurz": (
-                "Bedingt empfohlen — Methodenluecke. "
-                "Im Anschreiben offen adressieren."
-            ),
-        }
-
-    return {
-        "kategorie": "NICHT_EMPFOHLEN",
-        "score": score,
-        "score_maximum": maximum,
-        "begruendung": (
-            f"{_skala()} — fachlicher Gap zu gross. "
-            "Bewerbung lohnt sich nicht ohne klaren Naehe-Bezug "
-            "(z.B. Kontakt im Unternehmen oder klarer Pivot-Plan)."
-        ),
-        "kurz": "Nicht empfohlen — Gap zu gross.",
-    }
+    # #1003: ab hier entscheidet NICHT mehr der Score.
+    #
+    # Bis v1.7.60 stand hier `anteil >= 0.75 -> EMPFOHLEN` usw. In den
+    # Score gehen Keyword-Treffer, Gehalt, Entfernung und Remote-Grad
+    # ein — der LEBENSLAUF geht nicht ein. Der Score beantwortet "steht
+    # in dieser Anzeige, wonach ich gesucht habe"; der Verdict behauptete
+    # "passt dieser Mensch auf diese Stelle". Zwei Fragen, eine Antwort.
+    #
+    # Die Schwellen sind ersatzlos weg statt gegen einen besseren
+    # Massstab getauscht (Verteilung, bisheriger Bestwert): das haette
+    # denselben Fehler nur sauberer gemacht.
+    befund = passung.urteil(
+        ko_gruende=ko_gruende,
+        beschreibung_vorhanden=bool(
+            desc_ok and not fit_result.get("beschreibung_kurz")),
+        profil_kompetenzen=profil_kompetenzen,
+        gespeicherte_analyse=gespeicherte_analyse,
+    )
+    # Der Score kommt weiter mit — als das, was er ist.
+    befund["score"] = score
+    if maximum:
+        befund["score_maximum"] = maximum
+    befund["score_bedeutung"] = (
+        f"{_skala()}. Diese Zahl misst, wie gut die Anzeige deine "
+        "SUCHBEGRIFFE trifft — sie ist ein Indikator fuer die Suche und "
+        "keine Aussage darueber, ob du auf die Stelle passt.")
+    befund["score_zuverlaessig"] = bool(
+        desc_ok and not fit_result.get("beschreibung_kurz"))
+    if muss_hits or missing_muss:
+        befund["muss_treffer"] = len(muss_hits)
+        befund["muss_gesamt"] = len(muss_hits) + len(missing_muss)
+    return befund
 
 
 def _aehnliche_outcome_pattern(
@@ -1160,6 +1117,71 @@ def register(mcp, db, logger):
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
     @mcp.tool()
+    def stelle_analyse_speichern(job_hash: str, urteil: str,
+                                 begruendung: str = "",
+                                 grundlage: str = "detailanalyse") -> dict:
+        """Legt das Ergebnis einer Detailanalyse AN DER STELLE ab (#1007).
+
+        Args:
+            job_hash: Hash der Stelle.
+            urteil: EMPFOHLEN | BEDINGT | NICHT_EMPFOHLEN |
+                NICHT_BEURTEILBAR.
+            begruendung: warum — in einem oder zwei Saetzen, so wie du
+                es dem Menschen sagen wuerdest.
+            grundlage: woher das Urteil stammt. Vorgabe
+                'detailanalyse' (du hast Anzeige und Profil gelesen).
+
+        **Wofuer das da ist.** Bis v1.7.60 kam die Empfehlung aus dem
+        Suchbegriff-Score — in den geht der Lebenslauf nicht ein. Seit
+        #1003 sagt PBP ohne gelesene Analyse ehrlich
+        `NICHT_BEURTEILBAR`. Dein Urteil hier ist das, was diese Luecke
+        schliesst: es haengt danach an der Stelle, steht in der
+        Trefferliste und ueberlebt das Gespraech.
+
+        **Voraussetzung: du hast die Anzeige WIRKLICH gegen das Profil
+        gelesen.** Ein Urteil, das aus dem Score abgeleitet ist, waere
+        genau der Fehler, den #1003 behebt — nur diesmal von Hand.
+        Nutze `fit_analyse` fuer die Fakten und `projekte_anzeigen` /
+        `profil_zusammenfassung` fuer das Profil.
+
+        Ein Urteil ausserhalb der vier Kategorien wird abgewiesen, nicht
+        stillschweigend umgedeutet.
+        """
+        try:
+            geschrieben = db.set_job_analysis(
+                job_hash, urteil, begruendung, grundlage)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        if not geschrieben:
+            return {
+                "fehler": "Stelle nicht gefunden.",
+                "hinweis": "Pruefe den Hash mit stellen_anzeigen().",
+            }
+        return {
+            "status": "gespeichert",
+            "urteil": urteil.strip().upper(),
+            "grundlage": grundlage or "detailanalyse",
+            "hinweis": ("Der Befund haengt jetzt an der Stelle und "
+                        "erscheint in der Trefferliste. Aendert sich dein "
+                        "Profil, wird er als moeglicherweise ueberholt "
+                        "gekennzeichnet — nicht geloescht."),
+        }
+
+    @mcp.tool()
+    def stelle_analyse_loeschen(job_hash: str) -> dict:
+        """Entfernt den gespeicherten Analyse-Befund einer Stelle (#1007).
+
+        Fuer den Fall, dass das Urteil falsch war. Danach steht die
+        Stelle wieder auf `NICHT_BEURTEILBAR` — also auf "noch nicht
+        gelesen", was ehrlicher ist als ein Urteil, dem niemand traut.
+        """
+        if not db.clear_job_analysis(job_hash):
+            return {"fehler": "Stelle nicht gefunden oder kein Befund "
+                              "gespeichert."}
+        return {"status": "geloescht",
+                "hinweis": "Die Stelle gilt wieder als nicht beurteilt."}
+
+    @mcp.tool()
     def stelle_reaktivieren(job_hash: str, grund: str = "") -> dict:
         """Reaktiviert eine zuvor aussortierte Stelle (#664).
 
@@ -1704,6 +1726,7 @@ def register(mcp, db, logger):
         # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
         # unbrauchbar (dasselbe Muster wie die Synonyme in #987).
         from ..services import datenguete as _dg
+        _profil_fuer_analyse = db.get_profile()
         from ..services import scoring_kriterien as _skrit
         try:
             _guete_krit = _skrit.fuer_scoring(db)
@@ -1893,6 +1916,15 @@ def register(mcp, db, logger):
             _marke = _dg.kurzmarke(j, _guete_krit)
             if _marke:
                 entry["datenguete"] = _marke
+
+            # #1007 (G36): der Analyse-Befund haengt an der Stelle und
+            # gehoert in die Liste. Bis v1.7.60 entstand der Verdict bei
+            # jedem Aufruf neu und verschwand mit der Antwort — die
+            # Liste konnte ihn gar nicht zeigen. Ohne Befund steht hier
+            # NICHTS: "noch nicht gelesen" ist kein Urteil (#989).
+            _befund = passung.analyse_lesen(j, _profil_fuer_analyse)
+            if _befund:
+                entry["analyse"] = _befund
 
             # #180: Warnung wenn Beschreibung fehlt (Score unsicher)
             desc = j.get("description") or ""
@@ -4138,7 +4170,17 @@ def register(mcp, db, logger):
         except Exception as _e:
             logger.debug("Repost-Check in fit_analyse: %s", _e)
 
-        result["empfehlung"] = _build_empfehlung(result, job_dict)
+        # #1003/#1007: der Verdict kommt aus dem gespeicherten Befund der
+        # Detailanalyse — nicht aus dem Suchbegriff-Score. Liegt keiner
+        # vor, sagt PBP das, statt zu raten.
+        _gespeichert = passung.analyse_lesen(job_dict, profile)
+        _kompetenzen = len((profile or {}).get("skills") or [])
+        result["empfehlung"] = _build_empfehlung(
+            result, job_dict,
+            gespeicherte_analyse=_gespeichert,
+            profil_kompetenzen=_kompetenzen)
+        if _gespeichert:
+            result["gespeicherte_analyse"] = _gespeichert
 
         return result
 
