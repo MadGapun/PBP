@@ -705,6 +705,18 @@ def register(mcp, db, logger):
             "endkunde": endkunde,
         })
 
+        # v1.7.67 (#1011): Eine Bewerbung IST eine Interaktion — ab hier
+        # gibt es eine Historie, und die braucht jemanden, an dem sie
+        # haengt. `ansprechpartner` und `kontakt_email` lagen bisher nur
+        # als Freitext an der Bewerbung: ein Name, den keine Auswertung
+        # kennt und den kein Kontakt-Werkzeug findet.
+        kontakt_befund = None
+        if ansprechpartner or kontakt_email:
+            from ..services import kontakt_pflicht as _kp
+            kontakt_befund = _kp.sicherstellen(
+                db, name=ansprechpartner, email=kontakt_email, firma=company,
+                ziel_art="application", ziel_id=aid)
+
         # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
         if effective_hash:
             try:
@@ -762,6 +774,16 @@ def register(mcp, db, logger):
         }
         if auto_followup_id:
             result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
+        # #1011: den Befund melden. Ein Rueckgabewert, den niemand liest,
+        # ist dasselbe wie kein Rueckgabewert (#997) — und wer nicht
+        # erfaehrt, dass ein Kontakt entstanden ist, legt ihn ein
+        # zweites Mal an.
+        if kontakt_befund and kontakt_befund.get("status") in ("angelegt", "vorhanden"):
+            result["kontakt"] = kontakt_befund
+            if kontakt_befund["status"] == "angelegt":
+                result["nachricht"] += (
+                    f" Ansprechpartner '{kontakt_befund['name']}' als Kontakt "
+                    "angelegt — ab jetzt haengt die Historie an ihm.")
 
         # #766: Anker-Pruefung am Uebergang Stelle -> Bewerbung. Die eigentliche
         # Gefahr ist nicht die fehlende URL, sondern dass Anschreiben und CV

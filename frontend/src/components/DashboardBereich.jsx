@@ -28,14 +28,18 @@ export default function DashboardBereich({
             daneben. */}
         <div className="mb-1 flex items-center justify-end gap-2">
           {kopfZusatz}
+          {/* #1013: Symbol statt Text — dieselbe Form wie die uebrigen
+              Meta-Bedienelemente der Karten. Der Name steht im
+              `aria-label`, sonst waere der Knopf fuer Tastatur- und
+              Screenreader-Bedienung namenlos. */}
           <button
             type="button"
             onClick={onUmschalten}
+            aria-label={`${titel} einklappen`}
             title={`${titel} einklappen`}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted/40 transition hover:text-muted"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted/40 transition hover:bg-white/[0.04] hover:text-muted"
           >
-            <ChevronDown size={12} />
-            einklappen
+            <ChevronDown size={14} />
           </button>
         </div>
         {children}

@@ -2966,20 +2966,20 @@ def register(mcp, db, logger):
         # #766: Kontakt als Anker. Wird VOR der Anker-Pruefung angelegt, damit
         # eine Stelle mit Recruiter-Kontakt (Vermittler ohne bekannten
         # Endkunden!) nicht faelschlich als ankerlos gemeldet wird.
-        kontakt_angelegt = None
-        if (kontakt_name or kontakt_email or kontakt_telefon):
-            try:
-                cid = db.add_contact({
-                    "full_name": (kontakt_name or "").strip() or f"Ansprechpartner {firma}",
-                    "email": (kontakt_email or "").strip(),
-                    "phone": (kontakt_telefon or "").strip(),
-                    "company": firma,
-                    "tags": ["recruiter"] if quelle != "firmenwebsite" else [],
-                })
-                db.link_contact(cid, "job", job_hash, role="ansprechpartner")
-                kontakt_angelegt = {"id": cid[:8], "name": kontakt_name or firma}
-            except Exception as e:  # Kontakt darf das Anlegen nie kippen
-                kontakt_angelegt = {"fehler": str(e)}
+        # v1.7.67 (#1011): die Anlage laeuft ueber `kontakt_pflicht` —
+        # dieselbe Stelle, an der jetzt auch die Bewerbung und die
+        # Sammeluebernahme haengen. Vorher stand sie inline HIER, und
+        # genau deshalb entstand bei der Sammeluebernahme kein Kontakt:
+        # ob einer entsteht, hing am Anlageweg. Neu ist ausserdem die
+        # Wiedererkennung — vorher legte jeder Aufruf blind an.
+        from ..services import kontakt_pflicht as _kp
+        _befund = _kp.sicherstellen(
+            db, name=kontakt_name, email=kontakt_email,
+            telefon=kontakt_telefon, firma=firma,
+            ziel_art="job", ziel_id=job_hash,
+            tags=["recruiter"] if quelle != "firmenwebsite" else [])
+        kontakt_angelegt = (None if _befund.get("status") == "uebersprungen"
+                            else _befund)
 
         result = {
             "status": "angelegt",
@@ -3191,7 +3191,10 @@ def register(mcp, db, logger):
 
         Erwartet je Eintrag mindestens `job_id`, `titel`, `firma` und
         `beschreibung` (Volltext). Optional `ort`, `remote`,
-        `anstellungsart`.
+        `anstellungsart` — und seit v1.7.67 (#1011) `kontakt_name`,
+        `kontakt_email`, `kontakt_telefon`. Steht in der Anzeige eine
+        Ansprechpartnerin namentlich, gehoert sie hier hinein: bisher
+        hing es am Anlageweg, ob ein Kontakt entsteht.
 
         Schreibt ueber denselben Weg wie `stelle_manuell_anlegen` —
         Blacklist, Duplikat-Stufen, Anker-Pflicht und Scoring gelten
@@ -3276,17 +3279,30 @@ def register(mcp, db, logger):
                                  "beschreibung_zeichen": len(beschreibung)})
                 continue
 
+            # v1.7.67 (#1011) AK 3: die Sammeluebernahme nimmt jetzt
+            # Kontaktdaten entgegen. Sie hatte keine — und deshalb
+            # entstand bei 11 von 14 Stellen eines Arbeitstags kein
+            # einziger Ansprechpartner, obwohl in mindestens einem
+            # Anzeigentext eine namentlich stand. Ob ein Kontakt
+            # entsteht, darf nicht am Anlageweg haengen.
             res = _stelle_uebernehmen(
                 titel=titel, firma=firma, url=lv.anzeige_url(job_id),
                 ort=str(e.get("ort") or "").strip(),
                 beschreibung=beschreibung, quelle="linkedin",
                 remote=str(e.get("remote") or "unbekannt"),
-                stellenart=str(e.get("anstellungsart") or "festanstellung"))
+                stellenart=str(e.get("anstellungsart") or "festanstellung"),
+                kontakt_name=str(e.get("kontakt_name") or "").strip(),
+                kontakt_email=str(e.get("kontakt_email") or "").strip(),
+                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip())
             if res.get("hash") and not res.get("warnung"):
                 trichter["angelegt"] += 1
-                angelegt.append({"job_id": job_id, "titel": titel,
-                                 "firma": firma, "hash": res["hash"],
-                                 "score": res.get("score")})
+                _eintrag = {"job_id": job_id, "titel": titel,
+                            "firma": firma, "hash": res["hash"],
+                            "score": res.get("score")}
+                if res.get("kontakt"):
+                    _eintrag["kontakt"] = res["kontakt"]
+                    trichter["kontakte"] = trichter.get("kontakte", 0) + 1
+                angelegt.append(_eintrag)
             elif res.get("warnung"):
                 _skip(e, res["warnung"], res.get("grund", ""))
             elif res.get("fehler"):
