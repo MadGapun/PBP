@@ -99,16 +99,110 @@ def _overlap_hint(pos_index: int, positions: list, overlaps: dict) -> str:
     return f"(parallel zu {', '.join(partners)})"
 
 
-def generate_cv_docx(profile: dict, output_path: Path) -> Path:
+# Stile, die die Erzeuger benutzen. Fehlt einer in einer fremden
+# Vorlage, wird er ANGELEGT statt die Vorlage abzulehnen: eine Vorlage,
+# die nur "List Bullet" nicht kennt, ist immer noch die richtige
+# Grundlage — und ein Absturz mitten im Export waere die schlechteste
+# aller Antworten.
+VORLAGEN_STILE = ("Heading 1", "Heading 2", "Heading 3", "List Bullet")
+
+
+def neues_dokument(vorlage=None):
+    """Ein leeres DOCX — auf Wunsch auf Grundlage einer Vorlage (#973).
+
+    Gibt `(Document, befund)` zurueck. Der Befund unterscheidet vier
+    Faelle, weil sie verschiedene naechste Schritte verlangen (#989):
+    `ohne_vorlage`, `verwendet`, `nicht_lesbar`, `stile_ergaenzt`.
+
+    Aus der Vorlage wird der INHALT entfernt und alles andere behalten:
+    Schriften, Formatvorlagen, Seitenraender sowie Kopf- und Fusszeilen
+    haengen am Abschnitt bzw. am Stil-Teil der Datei und ueberleben das
+    Leeren des Rumpfs. Genau deshalb ist "Vorlage" hier eine echte
+    Vorlage und keine Datei, an die etwas angehaengt wird.
+    """
+    from docx import Document
+
+    if vorlage is None:
+        return Document(), {"vorlage": "ohne_vorlage"}
+
+    pfad = Path(vorlage)
+    try:
+        doc = Document(str(pfad))
+    except Exception as exc:
+        return Document(), {
+            "vorlage": "nicht_lesbar",
+            "datei": pfad.name,
+            "grund": str(exc)[:200],
+            "hinweis": "Die Vorlage liess sich nicht oeffnen — PBP hat das "
+                       "eingebaute Layout genommen. Ist es wirklich eine "
+                       "DOCX-Datei (kein DOC, kein PDF, nicht passwort"
+                       "geschuetzt)?",
+        }
+
+    _rumpf_leeren(doc)
+    ergaenzt = _stile_sicherstellen(doc)
+    befund = {"vorlage": "verwendet", "datei": pfad.name}
+    if ergaenzt:
+        befund["vorlage"] = "stile_ergaenzt"
+        befund["ergaenzte_stile"] = ergaenzt
+        befund["hinweis"] = (
+            "Deine Vorlage kennt diese Formatvorlagen nicht: "
+            + ", ".join(ergaenzt)
+            + ". PBP hat sie im Standardformat angelegt — der Rest kommt "
+              "aus deiner Vorlage.")
+    return doc, befund
+
+
+def _rumpf_leeren(doc) -> None:
+    """Inhalt raus, Abschnittseigenschaften drin lassen.
+
+    Das abschliessende `sectPr` traegt Seitengroesse, Raender und die
+    Verweise auf Kopf- und Fusszeilen. Wird es mitgeloescht, faellt das
+    Dokument auf Word-Vorgaben zurueck — und die Vorlage haette nichts
+    bewirkt ausser Arbeit.
+    """
+    rumpf = doc.element.body
+    for kind in list(rumpf):
+        if kind.tag.endswith("}sectPr"):
+            continue
+        rumpf.remove(kind)
+
+
+def _stile_sicherstellen(doc) -> list:
+    """Fehlende Formatvorlagen anlegen. Liefert die Namen zurueck."""
+    from docx.enum.style import WD_STYLE_TYPE
+
+    vorhanden = {s.name for s in doc.styles}
+    ergaenzt = []
+    for name in VORLAGEN_STILE:
+        if name in vorhanden:
+            continue
+        try:
+            doc.styles.add_style(name, WD_STYLE_TYPE.PARAGRAPH)
+            ergaenzt.append(name)
+        except Exception:
+            # Konnte nicht angelegt werden — dann faellt der Aufrufer auf
+            # den Standardabsatz zurueck, statt hier abzubrechen.
+            ergaenzt.append(name)
+    return ergaenzt
+
+
+def generate_cv_docx(profile: dict, output_path: Path,
+                     vorlage=None, befund: Optional[dict] = None) -> Path:
     """Generate a professional CV as Word document."""
     from docx import Document
     from docx.shared import Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-    doc = Document()
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(10)
+    doc, _vorlage = neues_dokument(vorlage)
+    if befund is not None:
+        befund.update(_vorlage)
+    if _vorlage["vorlage"] == "ohne_vorlage":
+        # Mit Vorlage NICHT ueberschreiben: Schrift und Groesse sind
+        # genau das, wofuer der Mensch die Vorlage hinterlegt hat.
+        style = doc.styles["Normal"]
+        style.font.name = "Calibri"
+        style.font.size = Pt(10)
 
     # Header
     heading = doc.add_heading(profile.get("name", "Lebenslauf"), level=0)
@@ -257,7 +351,8 @@ def _add_section_line(doc):
 
 
 def generate_tailored_cv_docx(
-    profile: dict, job_title: str, job_description: str, output_path: Path
+    profile: dict, job_title: str, job_description: str, output_path: Path,
+    vorlage=None, befund: Optional[dict] = None,
 ) -> Path:
     """Generate an ATS-compliant CV tailored for a specific job (#174).
 
@@ -279,8 +374,15 @@ def generate_tailored_cv_docx(
     job_text = f"{job_title} {job_description}".lower()
     job_keywords = set(w for w in job_text.split() if len(w) > 3)
 
-    doc = Document()
-    _setup_ats_styles(doc)
+    doc, _vorlage = neues_dokument(vorlage)
+    if befund is not None:
+        befund.update(_vorlage)
+    if _vorlage["vorlage"] == "ohne_vorlage":
+        # Die ATS-Stile ueberschreiben Normal und die Ueberschriften.
+        # Mit Vorlage waere das ihr Ende — dann gilt das Layout des
+        # Menschen. Die ATS-Regeln, auf die es wirklich ankommt, bleiben
+        # ohnehin: keine Tabellen, keine Spalten, klare Hierarchie.
+        _setup_ats_styles(doc)
 
     # === PAGE 1 HEADER: Large name ===
     name = profile.get("name", "Lebenslauf")
@@ -1242,17 +1344,21 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
 
 
 def generate_cover_letter_docx(
-    profile: dict, text: str, stelle: str, firma: str, output_path: Path
+    profile: dict, text: str, stelle: str, firma: str, output_path: Path,
+    vorlage=None, befund: Optional[dict] = None,
 ) -> Path:
     """Generate a cover letter as Word document."""
     from docx import Document
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-    doc = Document()
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(11)
+    doc, _vorlage = neues_dokument(vorlage)
+    if befund is not None:
+        befund.update(_vorlage)
+    if _vorlage["vorlage"] == "ohne_vorlage":
+        style = doc.styles["Normal"]
+        style.font.name = "Calibri"
+        style.font.size = Pt(11)
 
     # Sender
     for val in [profile.get("name"), profile.get("address"),
@@ -1570,6 +1676,8 @@ def generate_fachprofil_docx(
     stellenbeschreibung: str = "",
     projekte_anzahl: int = 5,
     output_path: Optional[Path] = None,
+    vorlage=None,
+    befund: Optional[dict] = None,
 ) -> Path:
     """Erstellt ein 'Fachprofil & Referenzprojekte'-Dokument (#617).
 
@@ -1592,8 +1700,11 @@ def generate_fachprofil_docx(
     if output_path is None:
         raise ValueError("output_path required")
 
-    doc = Document()
-    _setup_ats_styles(doc)
+    doc, _vorlage = neues_dokument(vorlage)
+    if befund is not None:
+        befund.update(_vorlage)
+    if _vorlage["vorlage"] == "ohne_vorlage":
+        _setup_ats_styles(doc)
 
     # Job-Kontext fuer Relevanz-Scoring
     job_text = f"{stelle} {stellenbeschreibung}".lower()
