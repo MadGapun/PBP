@@ -31,136 +31,15 @@ def _kurz(text, n):
 # groesser→größer, gemaess→gemäß), fehlen deshalb BEWUSST.
 # Erweiterung: neue Eintraege unten anfuegen; das Tool listet ungemappte
 # ae/oe/ue-Woerter als Kandidaten auf.
-_UMLAUT_REPAIR_MAP = {
-    # haeufige Funktionswoerter
-    "fuer": "für", "ueber": "über", "waehrend": "während",
-    "zusaetzlich": "zusätzlich", "zusaetzliche": "zusätzliche",
-    "spaeter": "später", "frueher": "früher", "fruehzeitig": "frühzeitig",
-    "naechste": "nächste", "naechsten": "nächsten", "naechster": "nächster",
-    "taeglich": "täglich", "jaehrlich": "jährlich", "staendig": "ständig",
-    "koennen": "können", "koennte": "könnte", "koennten": "könnten",
-    "moeglich": "möglich", "moegliche": "mögliche",
-    "moeglichkeit": "möglichkeit", "moeglichkeiten": "möglichkeiten",
-    # Fuehrung / Taetigkeit
-    "fuehrung": "führung", "fuehren": "führen", "gefuehrt": "geführt",
-    "fuehrungskraft": "führungskraft", "fuehrungskraefte": "führungskräfte",
-    "durchfuehrung": "durchführung", "durchgefuehrt": "durchgeführt",
-    "einfuehrung": "einführung", "eingefuehrt": "eingeführt",
-    "ausfuehrung": "ausführung", "ausfuehrlich": "ausführlich",
-    "weitergefuehrt": "weitergeführt", "fortgefuehrt": "fortgeführt",
-    "geschaeftsfuehrer": "geschäftsführer",
-    "geschaeftsfuehrend": "geschäftsführend",
-    "geschaeftsfuehrender": "geschäftsführender",
-    "geschaeftsfuehrung": "geschäftsführung",
-    "taetigkeit": "tätigkeit", "taetigkeiten": "tätigkeiten", "taetig": "tätig",
-    "zustaendig": "zuständig", "zustaendigkeit": "zuständigkeit",
-    "zustaendigkeiten": "zuständigkeiten",
-    "selbststaendig": "selbstständig", "selbststaendige": "selbstständige",
-    "eigenstaendig": "eigenständig", "eigenstaendige": "eigenständige",
-    "vollstaendig": "vollständig", "vollstaendige": "vollständige",
-    "vollstaendigkeit": "vollständigkeit",
-    # Qualitaet / Kompetenz
-    "qualitaet": "qualität", "qualitaeten": "qualitäten",
-    "qualitaetssicherung": "qualitätssicherung",
-    "qualitaetsmanagement": "qualitätsmanagement",
-    "aktivitaet": "aktivität", "aktivitaeten": "aktivitäten",
-    "produktivitaet": "produktivität", "flexibilitaet": "flexibilität",
-    "stabilitaet": "stabilität", "kapazitaet": "kapazität",
-    "kapazitaeten": "kapazitäten", "universitaet": "universität",
-    "faehigkeit": "fähigkeit", "faehigkeiten": "fähigkeiten",
-    "leistungsfaehig": "leistungsfähig",
-    "leistungsfaehigkeit": "leistungsfähigkeit",
-    "zuverlaessig": "zuverlässig", "zuverlaessigkeit": "zuverlässigkeit",
-    "verfuegbarkeit": "verfügbarkeit", "verfuegbar": "verfügbar",
-    # Loesung / Unterstuetzung
-    "loesung": "lösung", "loesungen": "lösungen",
-    "aufloesung": "auflösung", "abloesung": "ablösung", "erloes": "erlös",
-    "erloese": "erlöse", "unterstuetzung": "unterstützung",
-    "unterstuetzt": "unterstützt", "unterstuetzte": "unterstützte",
-    "unterstuetzen": "unterstützen",
-    # Pruefung / Klaerung
-    "pruefung": "prüfung", "pruefungen": "prüfungen", "pruefen": "prüfen",
-    "geprueft": "geprüft", "ueberpruefung": "überprüfung",
-    "ueberprueft": "überprüft", "klaerung": "klärung", "geklaert": "geklärt",
-    "erklaerung": "erklärung", "abklaerung": "abklärung",
-    # ueber-Komposita
-    "ueberblick": "überblick", "uebersicht": "übersicht",
-    "uebergabe": "übergabe", "uebernahme": "übernahme",
-    "uebernommen": "übernommen", "uebertragung": "übertragung",
-    "uebergreifend": "übergreifend", "uebergreifende": "übergreifende",
-    "ueberzeugt": "überzeugt", "ueberzeugung": "überzeugung",
-    "ueberfuehrung": "überführung", "ueberwachung": "überwachung",
-    "uebereinstimmung": "übereinstimmung",
-    # rueck / schluessel
-    "zurueck": "zurück", "rueckmeldung": "rückmeldung",
-    "rueckmeldungen": "rückmeldungen", "ruecksprache": "rücksprache",
-    "rueckbau": "rückbau", "schluessel": "schlüssel",
-    "schluesselrolle": "schlüsselrolle", "anschluesse": "anschlüsse",
-    "beruecksichtigung": "berücksichtigung",
-    "beruecksichtigt": "berücksichtigt",
-    # ae-Woerter
-    "mehrjaehrig": "mehrjährig", "mehrjaehrige": "mehrjährige",
-    "mehrjaehriger": "mehrjähriger", "langjaehrig": "langjährig",
-    "langjaehrige": "langjährige", "langjaehriger": "langjähriger",
-    "vertraege": "verträge", "geraete": "geräte", "ablaeufe": "abläufe",
-    "arbeitsablaeufe": "arbeitsabläufe", "geschaeftsablaeufe": "geschäftsabläufe",
-    "maerkte": "märkte", "laender": "länder", "traeger": "träger",
-    "staerken": "stärken", "gestaerkt": "gestärkt", "verstaerkt": "verstärkt",
-    "verstaendnis": "verständnis", "verstaendlich": "verständlich",
-    "bestaetigt": "bestätigt", "bestaetigung": "bestätigung",
-    "geschaetzt": "geschätzt", "schaetzung": "schätzung",
-    "gewaehrleistet": "gewährleistet", "gewaehrleistung": "gewährleistung",
-    "bewaehrt": "bewährt", "bewaehrte": "bewährte",
-    "ausgewaehlt": "ausgewählt", "auswaehlen": "auswählen",
-    "erwaehnt": "erwähnt", "gefaehrdung": "gefährdung",
-    "verlaengerung": "verlängerung", "verlaengert": "verlängert",
-    "praesentation": "präsentation", "praesentationen": "präsentationen",
-    "praesentiert": "präsentiert", "repraesentiert": "repräsentiert",
-    "praezise": "präzise", "praezision": "präzision",
-    # oe-Woerter
-    "oekosystem": "ökosystem", "oekonomisch": "ökonomisch",
-    "oeffentlich": "öffentlich", "oeffentliche": "öffentliche",
-    "oeffentlichkeit": "öffentlichkeit", "oertlich": "örtlich",
-    "erhoehung": "erhöhung", "erhoeht": "erhöht", "hoehere": "höhere",
-    "hoehe": "höhe", "verzoegerung": "verzögerung",
-    "verzoegerungen": "verzögerungen", "verzoegert": "verzögert",
-    "gehoert": "gehört", "zugehoerig": "zugehörig",
-    "zugehoerigkeit": "zugehörigkeit", "loeschen": "löschen",
-    "geloescht": "gelöscht", "stoerung": "störung", "stoerungen": "störungen",
-    "foerderung": "förderung", "gefoerdert": "gefördert",
-    "persoenlich": "persönlich", "persoenliche": "persönliche",
-    "persoenlichkeit": "persönlichkeit",
-    "erfuellt": "erfüllt", "erfuellung": "erfüllung",
-    "verkuerzt": "verkürzt", "verkuerzung": "verkürzung",
-}
-
-_UMLAUT_WORT_RE = re.compile(r"[A-Za-zÄÖÜäöüß]+")
-_UMLAUT_KANDIDAT_RE = re.compile(r"(ae|oe|ue)", re.IGNORECASE)
-
-
-def _umlaute_im_text_reparieren(text):
-    """Ersetzt NUR Woerter aus der kuratierten Map, case-erhaltend.
-
-    Returns (neuer_text, [(von, nach), ...]).
-    """
-    ersetzungen = []
-
-    def _repl(m):
-        wort = m.group(0)
-        ziel = _UMLAUT_REPAIR_MAP.get(wort.lower())
-        if not ziel:
-            return wort
-        if wort.isupper():
-            neu = ziel.upper()
-        elif wort[0].isupper():
-            neu = ziel[0].upper() + ziel[1:]
-        else:
-            neu = ziel
-        if neu != wort:
-            ersetzungen.append((wort, neu))
-        return neu
-
-    return _UMLAUT_WORT_RE.sub(_repl, text or ""), ersetzungen
+# #1006: die kuratierte Liste liegt jetzt in services/umlaute.py — sie hat
+# einen zweiten Aufrufer bekommen (die Dokument-Regeln). Die Namen hier
+# bleiben als Alias, damit nichts umbenannt werden muss.
+from ..services.umlaute import (  # noqa: E402
+    UMLAUT_REPAIR_MAP as _UMLAUT_REPAIR_MAP,
+    WORT_RE as _UMLAUT_WORT_RE,
+    KANDIDAT_RE as _UMLAUT_KANDIDAT_RE,
+    umlaute_reparieren as _umlaute_im_text_reparieren,
+)
 
 
 def _ungemappte_kandidaten(text, zaehler):

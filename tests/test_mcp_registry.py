@@ -262,6 +262,7 @@ EXPECTED_TOOL_NAMES = {
     "ki_features_lesen",
     "ki_features_setzen",
     "ablage_ordner",
+    "dokument_regeln_pruefen",
     "ollama_autostart",
     "telemetrie_status",
     "telemetrie_setzen",
@@ -374,7 +375,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 228  # v1.7.59 (#973): +ablage_ordner
+        assert len(tools) == 229  # v1.7.60 (#1006): +dokument_regeln_pruefen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

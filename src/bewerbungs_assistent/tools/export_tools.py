@@ -644,3 +644,60 @@ def register(mcp, db, logger):
             wert = ""
         return ablage.ordner_setzen(db, wahl, wert)
 
+    @mcp.tool()
+    def dokument_regeln_pruefen(pfad: str = "") -> dict:
+        """Prueft ein erzeugtes Dokument gegen die Versand-Regeln (#1006).
+
+        Args:
+            pfad: DOCX-Datei. Leer = die zuletzt geaenderte DOCX-Datei im
+                Ausgabe-Ordner — also im Normalfall genau das, was gerade
+                erzeugt wurde.
+
+        Geprueft wird das ERGEBNIS, nicht der Quelltext: Platzhalter im
+        Text (`None`, `null`), Gedankenstriche als Satzzeichen,
+        umschriebene Umlaute und dritte Person im Kurzprofil.
+
+        Zwei Dinge, die das Werkzeug bewusst NICHT tut: es schreibt keine
+        Prosa um (aus "Er verfuegt ueber" wird maschinell kein guter
+        Satz), und es meldet einen Bis-Strich zwischen zwei Datumsangaben
+        nicht als Fehler — der ist typografisch richtig. Ein Pruefer, der
+        bei korrektem Ergebnis Alarm gibt, wird nach dem zweiten Mal
+        ignoriert.
+
+        Auch fuer eigene Vorlagen nutzbar: `pfad` auf die Vorlage zeigen
+        lassen, dann sagt PBP, was an ihr den Regeln widerspricht.
+        """
+        from pathlib import Path
+        from ..services import dokument_regeln
+
+        ziel = (pfad or "").strip().strip('"')
+        if not ziel:
+            ordner = ablage.ausgabe_ordner(db)
+            kandidaten = sorted(
+                (p for p in ordner.glob("*.docx") if p.is_file()),
+                key=lambda p: p.stat().st_mtime, reverse=True)
+            if not kandidaten:
+                return {
+                    "status": "nichts_zu_pruefen",
+                    "ordner": str(ordner),
+                    "hinweis": "Im Ausgabe-Ordner liegt keine DOCX-Datei. "
+                               "Erzeuge zuerst eine (lebenslauf_exportieren) "
+                               "oder gib einen Pfad an.",
+                }
+            ziel = str(kandidaten[0])
+
+        ergebnis = dokument_regeln.pruefe_docx(Path(ziel))
+        if "fehler" in ergebnis:
+            return ergebnis
+        if ergebnis["sauber"]:
+            ergebnis["hinweis"] = (
+                "Keine Regelverstoesse gefunden — das Dokument ist ohne "
+                "Nachformatierung versandfaehig.")
+        else:
+            hart = [b for b in ergebnis["befunde"] if not b.get("weich")]
+            ergebnis["hinweis"] = (
+                f"{len(hart)} Befund(e), die vor dem Versand gehoeren. "
+                "Regel 8 (dritte Person) betrifft deinen Profiltext und "
+                "wird bewusst nicht automatisch umgeschrieben.")
+        return ergebnis
+
