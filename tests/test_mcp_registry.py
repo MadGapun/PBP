@@ -18,6 +18,7 @@ from bewerbungs_assistent.tools import register_all  # noqa: E402
 
 
 EXPECTED_TOOL_NAMES = {
+    "aussortier_protokoll",
     # v1.7.0-beta.24: Profil-basiertes Auto-Aussortieren via lokaler AI
     "stellen_auto_aussortieren",
     # v1.7.0-beta.20: Recruiter-Anfragen-Tools
@@ -377,7 +378,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 231  # v1.7.61 (#1007): +stelle_analyse_speichern/-loeschen
+        assert len(tools) == 232  # v1.7.64 (#1010): +aussortier_protokoll
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

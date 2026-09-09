@@ -708,7 +708,8 @@ def register(mcp, db, logger):
         # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
         if effective_hash:
             try:
-                db.dismiss_job(effective_hash, reason="bewerbung_erstellt")
+                db.dismiss_job(effective_hash, reason="bewerbung_erstellt",
+                               herkunft="automatik")
             except Exception:
                 pass  # Job existiert evtl. nicht
 
@@ -895,7 +896,9 @@ def register(mcp, db, logger):
                 job_hash = app.get("job_hash")
                 if job_hash:
                     try:
-                        db.dismiss_job(job_hash, reason="bewerbung_erstellt")
+                        db.dismiss_job(job_hash,
+                                       reason="bewerbung_erstellt",
+                                       herkunft="automatik")
                     except Exception:
                         pass
                 # #462: Auto-Follow-up nach Tageslücke (Default 7d), falls keiner offen
