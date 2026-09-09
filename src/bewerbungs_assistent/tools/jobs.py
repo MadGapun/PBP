@@ -1695,7 +1695,8 @@ def register(mcp, db, logger):
         pro_seite: int = 20,
         max_alter_tage: int = 0,
         nur_nicht_beworben: bool = False,
-        nur_empfohlen: bool = False
+        nur_empfohlen: bool = False,
+        nur_beurteilt: bool = False
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -1715,6 +1716,11 @@ def register(mcp, db, logger):
             max_alter_tage: Nur Stellen die nicht älter als X Tage sind (0 = kein Limit)
             nur_nicht_beworben: Nur Stellen anzeigen auf die noch nicht beworben wurde
             nur_empfohlen: True blendet Stellen mit k.o.-Muster ganz aus
+            nur_beurteilt: True zeigt nur Stellen, die gegen dein Profil
+                gelesen wurden (#1007). Ohne gespeicherte Detailanalyse
+                gilt eine Stelle als NICHT_BEURTEILBAR — das ist etwas
+                anderes als "passt nicht", und wer die beurteilten
+                sehen will, soll sie nicht suchen muessen.
         """
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
@@ -1821,7 +1827,31 @@ def register(mcp, db, logger):
             except Exception as e:
                 logger.debug("Empfehlungs-Anreicherung fehlgeschlagen: %s", e)
 
+        # v1.7.63 (#1007, letztes Akzeptanzkriterium): nach dem Urteil
+        # filtern. Wie jeder Filter, der etwas unterdrueckt, nennt er die
+        # Zahl der ausgeblendeten Stellen — die Lehre aus #1008 gilt fuer
+        # den neuen Filter genauso wie fuer die alten.
+        ohne_urteil_verborgen = 0
+        if nur_beurteilt:
+            vorher = len(jobs)
+            jobs = [j for j in jobs if (j.get("analyse_urteil") or "").strip()]
+            ohne_urteil_verborgen = vorher - len(jobs)
+
         if not jobs:
+            if ohne_urteil_verborgen:
+                return {
+                    "anzahl": 0,
+                    "ohne_urteil_verborgen": ohne_urteil_verborgen,
+                    "nachricht": (
+                        f"Keine beurteilte Stelle — {ohne_urteil_verborgen} "
+                        "aktive Stelle(n) wurden noch nicht gegen dein Profil "
+                        "gelesen. Das ist ein Filter, kein leerer Bestand."),
+                    "naechster_schritt": (
+                        "Lass Claude eine Detailanalyse machen und das "
+                        "Ergebnis mit stelle_analyse_speichern an der Stelle "
+                        "ablegen — oder ruf stellen_anzeigen() ohne "
+                        "nur_beurteilt auf."),
+                }
             if durch_schwelle_verborgen:
                 # Es GIBT Stellen — sie liegen nur unter der Schwelle.
                 # Eine Suche zu empfehlen waere der falsche Schritt.
@@ -2025,6 +2055,12 @@ def register(mcp, db, logger):
             "quellen_uebersicht": source_counts,
             "stellen": formatted,
         }
+        if ohne_urteil_verborgen:
+            result["ohne_urteil_verborgen"] = ohne_urteil_verborgen
+            result["urteils_hinweis"] = (
+                f"{ohne_urteil_verborgen} weitere aktive Stelle(n) wurden noch "
+                "nicht gegen dein Profil gelesen und stehen deshalb nicht in "
+                "dieser Liste. Sie sind nicht aussortiert — nur ungeprueft.")
         if durch_schwelle_verborgen:
             # #1008: sonst sieht eine gefilterte Liste aus wie die ganze.
             result["durch_schwelle_verborgen"] = durch_schwelle_verborgen
