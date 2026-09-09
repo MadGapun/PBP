@@ -261,6 +261,7 @@ EXPECTED_TOOL_NAMES = {
     # v1.7.0-beta.56 (#425): Granulare KI-Steuerung
     "ki_features_lesen",
     "ki_features_setzen",
+    "ablage_ordner",
     "ollama_autostart",
     "telemetrie_status",
     "telemetrie_setzen",
@@ -373,7 +374,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 227  # v1.7.58 (#1001): +ollama_autostart
+        assert len(tools) == 228  # v1.7.59 (#973): +ablage_ordner
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

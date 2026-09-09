@@ -53,6 +53,7 @@ from .services.search_service import (
     get_search_status,
     summarize_active_sources,
 )
+from .services import ablage
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
 from .document_analysis_prompts import (
     TEMPLATES as DOC_ANALYSIS_TEMPLATES,
@@ -2626,6 +2627,35 @@ async def api_set_pbp_start_date(request: Request):
     return {"status": "ok", "mode": "override", "effective": iso}
 
 
+@app.get("/api/settings/ablage")
+async def api_ablage_lesen():
+    """Ausgabe- und Vorlagen-Ordner (#973)."""
+    return ablage.uebersicht(_db)
+
+
+@app.put("/api/settings/ablage")
+async def api_ablage_setzen(request: Request):
+    """Setzt einen der beiden Ordner — oder weist ihn begruendet ab.
+
+    Ein Pfad, den es nicht gibt, wird NICHT gespeichert. Er stillschweigend
+    abzulegen erzeugte eine Einstellung, an die der Mensch glaubt und die
+    nichts tut (#988).
+    """
+    data = await request.json()
+    art = (data.get("art") or "").strip().lower()
+    if art not in ablage.ARTEN:
+        return JSONResponse(
+            {"error": "art muss 'ausgabe' oder 'vorlagen' sein"},
+            status_code=400)
+    pfad = data.get("pfad")
+    if pfad is None:
+        return JSONResponse({"error": "pfad fehlt"}, status_code=400)
+    ergebnis = ablage.ordner_setzen(_db, art, str(pfad))
+    if not ergebnis.get("gespeichert"):
+        return JSONResponse(ergebnis, status_code=400)
+    return ergebnis
+
+
 @app.get("/api/settings/report")
 async def api_get_report_settings():
     """Liest Bewerbungsbericht-Einstellungen (v1.6.6, #540).
@@ -4696,8 +4726,7 @@ async def api_export_applications(
     # v1.7.0-beta.22: PBP-Nutzung-Beginn fuer Cover-Page + Pre-PBP-Markierung
     pbp_first_active_at = _db.get_pbp_first_active_at()
     from .database import get_data_dir
-    export_dir = get_data_dir() / "export"
-    export_dir.mkdir(exist_ok=True)
+    export_dir = ablage.ausgabe_ordner(_db)
 
     if format == "xlsx":
         try:
@@ -5806,13 +5835,16 @@ async def api_export_cv(fmt: str):
     from .database import get_data_dir
     from .export import generate_cv_docx, generate_cv_pdf
 
-    export_dir = get_data_dir() / "export"
-    export_dir.mkdir(exist_ok=True)
+    export_dir = ablage.ausgabe_ordner(_db)
     name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
 
     if fmt == "docx":
         path = export_dir / f"lebenslauf_{name_slug}.docx"
-        generate_cv_docx(profile, path)
+        # #973: dieselbe Vorlage wie ueber Claude. Zwei Layouts fuer
+        # dasselbe Dokument, je nachdem wo geklickt wurde, waere das
+        # Muster aus #963/#991.
+        _vorlage, _ = ablage.vorlage_finden(_db, "lebenslauf")
+        generate_cv_docx(profile, path, vorlage=_vorlage)
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
@@ -5837,13 +5869,14 @@ async def api_export_cover_letter(fmt: str, request: Request):
     from .database import get_data_dir
     from .export import generate_cover_letter_docx, generate_cover_letter_pdf
 
-    export_dir = get_data_dir() / "export"
-    export_dir.mkdir(exist_ok=True)
+    export_dir = ablage.ausgabe_ordner(_db)
     firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
 
     if fmt == "docx":
         path = export_dir / f"anschreiben_{firma_slug}.docx"
-        generate_cover_letter_docx(profile, text, stelle, firma, path)
+        _vorlage, _ = ablage.vorlage_finden(_db, "anschreiben")
+        generate_cover_letter_docx(profile, text, stelle, firma, path,
+                                   vorlage=_vorlage)
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
@@ -6482,8 +6515,7 @@ async def api_export_profile():
     date_str = datetime.now().strftime("%Y%m%d")
     filename = f"profil_backup_{name_slug}_{date_str}.json"
 
-    export_dir = get_data_dir() / "export"
-    export_dir.mkdir(exist_ok=True)
+    export_dir = ablage.ausgabe_ordner(_db)
     filepath = export_dir / filename
     filepath.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, default=str),
@@ -7002,8 +7034,7 @@ async def api_privacy_self_disclosure():
     from .export_report import generate_data_self_disclosure
     profile = _db.get_profile()
     from .database import get_data_dir
-    export_dir = get_data_dir() / "export"
-    export_dir.mkdir(exist_ok=True)
+    export_dir = ablage.ausgabe_ordner(_db)
     path = export_dir / "datenauskunft.pdf"
     generate_data_self_disclosure(_db, profile, path)
     return FileResponse(

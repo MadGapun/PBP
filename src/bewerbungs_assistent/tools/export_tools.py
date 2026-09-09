@@ -1,6 +1,6 @@
 """PDF/DOCX-Export für Lebenslauf, Anschreiben und Profil-Report — 5 Tools."""
 
-from ..database import get_data_dir
+from ..services import ablage
 
 
 def _auto_save_job_description(db, firma: str, stelle: str, beschreibung: str):
@@ -103,8 +103,8 @@ def register(mcp, db, logger):
                     "aus E-Mail-Analyse oder via meeting_hinzufuegen()."
                 ),
             }
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         path = export_dir / "pbp-termine.ics"
         path.write_text(ics_content, encoding="utf-8", newline="")
         return {
@@ -126,7 +126,9 @@ def register(mcp, db, logger):
         """Exportiert den Lebenslauf als DOCX (Default), PDF, Markdown oder TXT-Datei.
 
         Erzeugt ein professionell formatiertes Dokument aus dem gespeicherten Profil.
-        Die Datei wird im Bewerbungs-Assistent Datenordner gespeichert.
+        Die Datei landet im eingestellten Ausgabe-Ordner (#973) —
+        ohne Einstellung im Datenordner von PBP. Die Antwort nennt
+        immer den tatsaechlichen Pfad.
 
         Default ist DOCX, weil ein direkt generiertes PDF typischerweise an Schrift,
         Layout und Formulierung als KI-generiert erkennbar ist. DOCX erlaubt es dir,
@@ -140,15 +142,17 @@ def register(mcp, db, logger):
         if not profile:
             return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil mit der Ersterfassung."}
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
         suffix = f"_{angepasst_für.replace(' ', '_').lower()}" if angepasst_für else ""
 
         if format == "docx":
             from ..export import generate_cv_docx
             path = export_dir / f"lebenslauf_{name_slug}{suffix}.docx"
-            generate_cv_docx(profile, path)
+            _vorlage, _ = ablage.vorlage_finden(db, "lebenslauf")
+            generate_cv_docx(profile, path, vorlage=_vorlage,
+                             befund=vorlagen_befund)
         elif format == "pdf":
             from ..export import generate_cv_pdf
             path = export_dir / f"lebenslauf_{name_slug}{suffix}.pdf"
@@ -167,12 +171,13 @@ def register(mcp, db, logger):
             return {"fehler": "Format muss 'pdf', 'docx', 'md' oder 'txt' sein."}
 
         result = {
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": format,
-            "nachricht": f"Lebenslauf als {format.upper()} exportiert: {path.name}. "
-                         "Die Datei liegt im Bewerbungs-Assistent Datenordner. "
-                         "Du kannst sie auch im Dashboard unter http://localhost:8200 herunterladen."
+            "ordner": str(export_dir),
+            "nachricht": f"Lebenslauf als {format.upper()} exportiert: "
+                         f"{path.name}. " + ablage.ziel_hinweis(db, path)
         }
         if format == "pdf":
             result["empfehlung"] = (
@@ -212,24 +217,32 @@ def register(mcp, db, logger):
 
         from ..export import generate_tailored_cv_docx
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
         firma_slug = (firma or "stelle").replace(" ", "_").lower()
 
         path = export_dir / f"lebenslauf_{name_slug}_{firma_slug}.docx"
-        generate_tailored_cv_docx(profile, stelle, stellenbeschreibung, path)
+        _vorlage, _ = ablage.vorlage_finden(db, "lebenslauf")
+        generate_tailored_cv_docx(profile, stelle, stellenbeschreibung, path,
+                                  vorlage=_vorlage, befund=vorlagen_befund)
 
         # #172: Stellenbeschreibung automatisch speichern
         if stellenbeschreibung:
             _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
 
         return {
+            # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).
+            # `None` ist hier "nicht anwendbar", nicht "keine Vorlage" —
+            # der Unterschied steht im Befund selbst (#989).
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": "docx",
-            "nachricht": f"Angepasster Lebenslauf für '{stelle}' bei {firma} als DOCX exportiert: {path.name}. "
-                         "Die Datei ist als DOCX gespeichert, damit du die finale Formatierung anpassen kannst."
+            "ordner": str(export_dir),
+            "nachricht": f"Angepasster Lebenslauf für '{stelle}' bei {firma} "
+                         f"als DOCX exportiert: {path.name}. "
+                         + ablage.ziel_hinweis(db, path)
         }
 
     @mcp.tool()
@@ -282,16 +295,18 @@ def register(mcp, db, logger):
 
         from ..export import generate_fachprofil_docx
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         name_slug = (profile.get("name") or "fachprofil").replace(" ", "_").lower()
         firma_slug = (firma or "stelle").replace(" ", "_").lower()
 
         path = export_dir / f"fachprofil_{name_slug}_{firma_slug}.{format}"
         if format == "docx":
+            _vorlage, _ = ablage.vorlage_finden(db, "fachprofil")
             generate_fachprofil_docx(
                 profile, stelle, firma, stellenbeschreibung,
                 projekte_anzahl, path,
+                vorlage=_vorlage, befund=vorlagen_befund,
             )
         else:
             # format == 'pdf': generiert DOCX als Zwischenstufe
@@ -307,6 +322,10 @@ def register(mcp, db, logger):
             _auto_save_job_description(db, firma, stelle, stellenbeschreibung)
 
         return {
+            # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).
+            # `None` ist hier "nicht anwendbar", nicht "keine Vorlage" —
+            # der Unterschied steht im Befund selbst (#989).
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": format,
@@ -316,8 +335,9 @@ def register(mcp, db, logger):
                 f"als {format.upper()} exportiert: {path.name}. "
                 "Top-Projekte wurden nach Stellen-Relevanz priorisiert. "
                 "Bei DOCX bitte vor dem Versenden manuell pruefen "
-                "(Layout, Formulierungen)."
+                "(Layout, Formulierungen). " + ablage.ziel_hinweis(db, path)
             ),
+            "ordner": str(export_dir),
         }
 
     @mcp.tool()
@@ -352,14 +372,17 @@ def register(mcp, db, logger):
 
         profile = db.get_profile() or {}
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
 
         if format == "docx":
             from ..export import generate_cover_letter_docx
             path = export_dir / f"anschreiben_{firma_slug}.docx"
-            generate_cover_letter_docx(profile, text, stelle, firma, path)
+            _vorlage, _ = ablage.vorlage_finden(db, "anschreiben")
+            generate_cover_letter_docx(profile, text, stelle, firma, path,
+                                       vorlage=_vorlage,
+                                       befund=vorlagen_befund)
         elif format == "pdf":
             from ..export import generate_cover_letter_pdf
             path = export_dir / f"anschreiben_{firma_slug}.pdf"
@@ -387,10 +410,14 @@ def register(mcp, db, logger):
         _stil_vid = _auto_save_stilarchiv(db, "cover_letter", text, firma, stelle)
 
         result = {
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": format,
-            "nachricht": f"Anschreiben fuer {stelle} bei {firma} als {format.upper()} exportiert: {path.name}."
+            "ordner": str(export_dir),
+            "nachricht": f"Anschreiben fuer {stelle} bei {firma} als "
+                         f"{format.upper()} exportiert: {path.name}. "
+                         + ablage.ziel_hinweis(db, path)
         }
         if _stil_vid:
             result["stilarchiv_version_id"] = _stil_vid
@@ -422,8 +449,8 @@ def register(mcp, db, logger):
         if not profile:
             return {"fehler": "Kein Profil vorhanden."}
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         name_slug = (profile.get("name") or "profil").replace(" ", "_").lower()
 
         if format != "pdf":
@@ -434,10 +461,16 @@ def register(mcp, db, logger):
         generate_cv_pdf(profile, path)
 
         return {
+            # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).
+            # `None` ist hier "nicht anwendbar", nicht "keine Vorlage" —
+            # der Unterschied steht im Befund selbst (#989).
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": "pdf",
+            "ordner": str(export_dir),
             "nachricht": f"Profil-Report als PDF exportiert: {path.name}. "
+                         + ablage.ziel_hinweis(db, path) + " "
                          "Enthält alle Profildaten, Berufserfahrung, Skills und Ausbildung."
         }
 
@@ -485,8 +518,8 @@ def register(mcp, db, logger):
             "berater_kommentar_block": bool(db.get_profile_setting("report_berater_kommentar_block", False)),
         }
 
-        export_dir = get_data_dir() / "export"
-        export_dir.mkdir(exist_ok=True)
+        export_dir = ablage.ausgabe_ordner(db)
+        vorlagen_befund: dict = {}
         name_slug = (profile.get("name", "bericht") if profile else "bericht").replace(" ", "_").lower()
 
         if format == "excel":
@@ -505,11 +538,17 @@ def register(mcp, db, logger):
                                         report_settings=report_settings)
 
         return {
+            # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).
+            # `None` ist hier "nicht anwendbar", nicht "keine Vorlage" —
+            # der Unterschied steht im Befund selbst (#989).
+            "vorlage": vorlagen_befund or None,
             "status": "erstellt",
             "datei": str(path),
             "format": format,
             "bewerbungen": len(report_data.get("applications", [])),
-            "nachricht": f"Bewerbungsbericht als {format.upper()} exportiert: {path.name}."
+            "ordner": str(export_dir),
+            "nachricht": f"Bewerbungsbericht als {format.upper()} exportiert: "
+                         f"{path.name}. " + ablage.ziel_hinweis(db, path)
         }
 
     @mcp.tool()
@@ -564,3 +603,44 @@ def register(mcp, db, logger):
             "naechster_schritt": "Nutze lebenslauf_angepasst_exportieren() um den optimierten CV zu erstellen. "
                                  "Oder passe dein Profil basierend auf den Empfehlungen an."
         }
+
+    @mcp.tool()
+    def ablage_ordner(art: str = "", pfad: str = "") -> dict:
+        """Wohin PBP schreibt und woher es die Vorlage nimmt (#973).
+
+        Ohne Argumente: zeigt beide Ordner und was daraus folgt.
+
+        Args:
+            art: 'ausgabe' (wohin erzeugte Dateien gehen) oder
+                'vorlagen' (wo deine DOCX-Vorlagen liegen).
+            pfad: der vollstaendige Ordnerpfad. '-' loescht die
+                Einstellung und stellt das bisherige Verhalten wieder her.
+
+        **Ausgabe-Ordner:** ist er gesetzt, landen Lebenslauf,
+        Anschreiben, Fachprofil, Berichte und Profil-Sicherungen direkt
+        dort statt im Datenordner von PBP. Kein Umkopieren mehr.
+
+        **Vorlagen-Ordner:** liegt dort eine `lebenslauf.docx`,
+        `anschreiben.docx` oder `fachprofil.docx`, baut PBP das Dokument
+        AUF DIESER GRUNDLAGE — Schriften, Raender sowie Kopf- und
+        Fusszeilen bleiben deine. Fehlt eine Datei, gilt fuer sie das
+        eingebaute Layout.
+
+        Ein Pfad, den es nicht gibt, wird ABGEWIESEN und nicht
+        gespeichert: eine Einstellung, an die man glaubt und die nichts
+        tut, ist schlimmer als keine.
+        """
+        wahl = (art or "").strip().lower()
+        if not wahl:
+            return ablage.uebersicht(db)
+        if wahl not in ablage.ARTEN:
+            return {
+                "fehler": "art muss 'ausgabe' oder 'vorlagen' sein "
+                          "(oder leer bleiben zum Anzeigen).",
+                "aktueller_stand": ablage.uebersicht(db),
+            }
+        wert = (pfad or "").strip()
+        if wert == "-":
+            wert = ""
+        return ablage.ordner_setzen(db, wahl, wert)
+

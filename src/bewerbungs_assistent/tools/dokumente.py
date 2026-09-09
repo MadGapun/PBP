@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..database import get_data_dir
+from ..services import ablage
 from ..services.nutzerfuehrung import kein_profil, leer
 
 
@@ -1445,7 +1445,7 @@ def register(mcp, db, logger):
         name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
         date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"profil_backup_{name_slug}_{date_str}.json"
-        export_dir = get_data_dir() / "export"
+        export_dir = ablage.ausgabe_ordner(db)
         filepath = export_dir / filename
 
         filepath.write_text(

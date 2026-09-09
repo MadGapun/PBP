@@ -1517,6 +1517,121 @@ function OllamaAccuracyCard() {
   );
 }
 
+// #973: Wohin PBP schreibt und woher es die Vorlage nimmt.
+// Ein ungueltiger Pfad wird vom Server ABGEWIESEN und nicht gespeichert —
+// die Karte zeigt die Begruendung, statt Erfolg zu melden (#988).
+function AblageOrdnerCard({ pushToast }) {
+  const [stand, setStand] = useState(null);
+  const [ausgabe, setAusgabe] = useState("");
+  const [vorlagen, setVorlagen] = useState("");
+  const [fehler, setFehler] = useState({});
+  const [speichert, setSpeichert] = useState("");
+
+  const laden = useEffectEvent(async () => {
+    try {
+      const d = await api("/api/settings/ablage");
+      setStand(d);
+      setAusgabe(d.ausgabe_eingestellt || "");
+      setVorlagen(d.vorlagen_ordner || "");
+    } catch (err) {
+      pushToast(`Ablage-Einstellungen: ${err.message}`, "danger");
+    }
+  });
+
+  useEffect(() => { laden(); }, []);
+
+  if (!stand) return null;
+
+  async function speichern(art, pfad) {
+    setSpeichert(art);
+    setFehler((f) => ({ ...f, [art]: null }));
+    try {
+      const d = await putJson("/api/settings/ablage", { art, pfad: pfad.trim() || "-" });
+      setStand(d);
+      pushToast(
+        art === "ausgabe"
+          ? (d.ausgabe_befund === "eigener_ordner"
+              ? "Erzeugte Dateien landen ab jetzt in deinem Ordner."
+              : "Ausgabe-Ordner zurueckgesetzt — PBP nutzt wieder den Datenordner.")
+          : (d.vorlagen_ordner
+              ? "Vorlagen-Ordner gesetzt."
+              : "Vorlagen-Ordner zurueckgesetzt — PBP nutzt das eingebaute Layout."),
+        "success",
+      );
+    } catch (err) {
+      // Der Server liefert die Begruendung im Body; sie gehoert an das
+      // Feld, nicht in einen Toast, der wieder verschwindet.
+      const text = String(err?.message || err);
+      setFehler((f) => ({ ...f, [art]: text }));
+      pushToast("Der Pfad wurde nicht gespeichert — siehe Begruendung am Feld.", "amber");
+    } finally {
+      setSpeichert("");
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Ordner fuer Dokumente und Vorlagen"
+        description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
+      />
+
+      <Field label="Ausgabe-Ordner (leer = Datenordner von PBP)">
+        <div className="flex flex-wrap items-center gap-2">
+          <TextInput
+            value={ausgabe}
+            placeholder="z.B. D:\Bewerbungen"
+            onChange={(e) => setAusgabe(e.target.value)}
+            disabled={speichert === "ausgabe"}
+          />
+          <Button size="sm" type="button" disabled={speichert === "ausgabe"}
+                  onClick={() => speichern("ausgabe", ausgabe)}>
+            Speichern
+          </Button>
+        </div>
+      </Field>
+      <p className="mt-1 text-[13px] text-muted/70">
+        Lebenslauf, Anschreiben, Fachprofil, Berichte und Profil-Sicherungen
+        werden direkt dort abgelegt. Kein Umkopieren mehr.
+      </p>
+      {fehler.ausgabe && <p className="mt-2 text-[13px] text-coral">{fehler.ausgabe}</p>}
+      {stand.ausgabe_befund === "ausweich" && (
+        <p className="mt-2 text-[13px] text-amber">{stand.hinweis_ausgabe}</p>
+      )}
+      <p className="mt-2 text-[12px] text-muted/60">
+        Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
+      </p>
+
+      <div className="mt-5 border-t border-white/5 pt-4">
+        <Field label="Vorlagen-Ordner (leer = eingebautes Layout)">
+          <div className="flex flex-wrap items-center gap-2">
+            <TextInput
+              value={vorlagen}
+              placeholder="z.B. D:\Bewerbungen\Vorlagen"
+              onChange={(e) => setVorlagen(e.target.value)}
+              disabled={speichert === "vorlagen"}
+            />
+            <Button size="sm" type="button" disabled={speichert === "vorlagen"}
+                    onClick={() => speichern("vorlagen", vorlagen)}>
+              Speichern
+            </Button>
+          </div>
+        </Field>
+        <p className="mt-1 text-[13px] text-muted/70">
+          Legst du dort eine <span className="font-mono">lebenslauf.docx</span>,{" "}
+          <span className="font-mono">anschreiben.docx</span> oder{" "}
+          <span className="font-mono">fachprofil.docx</span> ab, baut PBP das
+          Dokument auf dieser Grundlage — deine Schriften, Raender, Kopf- und
+          Fusszeilen bleiben. Fehlt eine Datei, gilt fuer sie das eingebaute
+          Layout.
+        </p>
+        {fehler.vorlagen && <p className="mt-2 text-[13px] text-coral">{fehler.vorlagen}</p>}
+        <p className="mt-2 text-[12px] text-muted/60">{stand.hinweis_vorlagen}</p>
+      </div>
+    </Card>
+  );
+}
+
 // #1001: Ollama mit PBP starten. Vorgabe AUS — PBP startet keine fremden
 // Programme, solange niemand darum bittet. Der Block steht in allen drei
 // Varianten, denn gebraucht wird er ausgerechnet dann, wenn Ollama gerade
@@ -3515,6 +3630,10 @@ export default function SettingsPage() {
         )}
 
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
+        {settingsTab === "system" && (
+          <AblageOrdnerCard pushToast={pushToast} />
+        )}
+
         {settingsTab === "system" && (
           <Card className="rounded-2xl">
             <div className="mb-4 flex items-center gap-3">
