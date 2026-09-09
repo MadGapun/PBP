@@ -33,6 +33,113 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.66] - 2026-09-09 — Eine Anforderung, ein Punkt
+
+### Fixed
+
+- **Schreibvarianten derselben Anforderung zählten mehrfach (#1012).**
+  Der Fachscore ist eine Summe über getroffene MUSS-Begriffe — und die
+  Summanden sind nicht unabhängig. Gemessen: drei Schreibweisen
+  desselben Sachverhalts ergaben **21,0 statt 7,0 Punkte**. Faktor 3 für
+  eine bloße Umformulierung, und das verschiebt die Sortierung: eine
+  geschwätzige Anzeige stieg über eine präzise.
+
+  Zusammengefasst wird nur, was sich **belegen** lässt — geschätzt wird
+  nichts:
+
+  1. ein Begriff steckt im anderen (`PLM` in `PLM-System`),
+  2. Abkürzung und Ausschreibung (`PLM` ↔ *Product Lifecycle
+     Management*),
+  3. **PBPs eigene Synonym-Karte.** Steht dort `PLM → Teamcenter`, zählt
+     der Matcher eine PLM-Anzeige längst als Teamcenter-Treffer — der
+     zweite Punkt entstand ohne jeden zusätzlichen Inhalt. Das war eine
+     *zweite* Quelle derselben Blähung und fiel erst beim Testschreiben
+     auf.
+
+  Zwei Begriffe, die dasselbe meinen, aber in keiner dieser Beziehungen
+  stehen, fasst PBP **nicht** zusammen. Lieber eine Blähung übrig lassen
+  als eine Anforderung schlucken.
+
+### Changed
+
+- **Der erreichbare Höchstwert gruppiert mit.** Täte er das nicht, wäre
+  er nicht mehr erreichbar — und die geprüfte Eigenschaft aus #999 (eine
+  Anzeige, die alles trifft, ergibt exakt 100 %) wäre still gebrochen.
+- **PBP sagt, was es zusammengefasst hat.** Die Fit-Analyse weist es je
+  Stelle aus; die Suchkriterien erklären es dort, wo du deine Liste
+  pflegst. Eine stille Score-Änderung ist in diesem Projekt schon
+  zweimal teuer geworden.
+- **Hinweis auf die Speicher-Schwelle.** `min_score_schwelle` ist eine
+  *absolute* Zahl auf einer Skala, die sich damit verschoben hat — sie
+  filtert jetzt schärfer, ohne dass du sie geändert hast. PBP sagt das
+  und nennt den Weg, sie anzupassen.
+
+### Was das an deinem Bestand ändert
+
+Backtest auf einer **Kopie** der Datenbank (das Original wurde nicht
+angefasst), 1.054 Stellen mit Beschreibung, gegen deine echten Kriterien:
+
+| | |
+|---|---|
+| MUSS-Begriffe → Anforderungen | 37 → 15 |
+| Stellen mit geändertem Score | 265 (25,1 %) |
+| Richtung | ausnahmslos niedriger, im Mittel −21,3 |
+| Top-20 der Rangfolge | 14 bleiben, 6 sind neu |
+| Stellen mit Score 0 | 605 → 612 |
+
+Die Zahlen sind niedriger, aber im Verhältnis zum erreichbaren
+Höchstwert vergleichbar — der ist mitgewandert. Gespeicherte Scores
+stammen noch aus der alten Rechnung; `scores_neu_berechnen()` zieht sie
+nach und nennt die auffälligen Änderungen.
+
+**Tests:** 3432 bestanden, 2 übersprungen (+16 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.66.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.66.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
 ## [1.7.65] - 2026-09-09 — Was ist eigentlich ein Fachgebiet
 
 Zwei Meldungen, dieselbe Frage aus zwei Richtungen.
