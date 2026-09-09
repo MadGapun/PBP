@@ -33,6 +33,72 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.63] - 2026-09-09 — Nur die beurteilten
+
+Nachtrag zu **#1007**. v1.7.61 hat das Analyse-Ergebnis an der Stelle
+verankert — gespeichert, in beiden Listen als eigene Marke, mit
+Herkunft, Alter und Veraltet-Kennzeichnung. Sieben Akzeptanzkriterien,
+sechs davon erfüllt. Das siebte fehlte, und ein Issue, von dem sechs von
+sieben Punkten stimmen, ist nicht erledigt.
+
+### Added
+
+- **Nach dem Urteil filtern.** `stellen_anzeigen(nur_beurteilt=True)`
+  und der Schalter **„Nur beurteilte"** in der Filterzeile zeigen nur
+  Stellen, die tatsächlich gegen dein Profil gelesen wurden. „Noch nicht
+  beurteilt" ist kein Urteil — wer sehen will, was geprüft ist, soll es
+  nicht suchen müssen.
+- Der neue Filter fällt selbst unter die Lehre aus #1008: Vorgabe
+  **aus**, in der Hinweiszeile über der Liste beim Namen genannt, und er
+  sagt, **wie viele** Stellen er ausblendet — samt Weg zurück. Ein
+  Filter, der still unterdrückt, erzeugt denselben Eindruck eines leeren
+  Bestands, egal wie sinnvoll er ist.
+
+**Tests:** 3385 bestanden, 2 übersprungen (+5 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.63.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.63.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
 ## [1.7.62] - 2026-09-09 — Die Liste sagt, was sie verbirgt
 
 Dein Bericht: die Sidebar zählt **8** Stellen, die Liste zeigt **eine**,
