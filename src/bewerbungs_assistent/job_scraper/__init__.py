@@ -1483,11 +1483,21 @@ def run_search(db, job_id: str, params: dict):
     # "lieber ein Job zu viel", angewendet auf den Kaltstart.
     _hat_muss = bool([k for k in (criteria.get("keywords_muss") or [])
                       if str(k).strip()])
+    # Vor der Verzweigung setzen: ohne MUSS-Liste wird nicht gefiltert,
+    # es gibt also nichts zu belegen — die Namen muessen trotzdem
+    # existieren, sonst faellt der Kaltstart in einen NameError.
+    _knapp, _ausloeser = {}, {}
     if not _hat_muss:
         unique.sort(key=lambda j: float(j.get("score") or 0), reverse=True)
         filterstufen["ungefiltert_ohne_muss"] = 0
         verworfen_schwelle = 0
     else:
+        # #813 AK 3+4: der Trichter zaehlt, aber er BELEGT nichts. Eine
+        # Zahl sagt nicht, ob die Schwelle zu hoch steht oder ein
+        # einzelnes Ausschluss-Keyword den halben Lauf kostet. Beides
+        # wird deshalb VOR dem Filtern eingesammelt — danach sind die
+        # Stellen weg.
+        _knapp, _ausloeser = _trichter_belege(unique, min_score_threshold)
         unique, verworfen_schwelle = _filter_nach_schwelle(
             unique, min_score_threshold)
         filterstufen["kein_muss_keyword"] = ohne_muss
@@ -1578,6 +1588,15 @@ def run_search(db, job_id: str, params: dict):
         result_data["bereinigung"] = cleanup["stats"]
     if any(filterstufen.values()):
         result_data["filterstufen"] = dict(filterstufen)
+        # #813 AK 3: die knapp Gescheiterten als Stichprobe. Wer sieht,
+        # dass fuenf Stellen bei Score 4 gegen eine Schwelle von 5
+        # gelaufen sind, kann die Schwelle beurteilen — die blosse Zahl
+        # "37 unter der Schwelle" laesst offen, ob sie richtig steht.
+        if _knapp:
+            result_data["knapp_gescheitert"] = _knapp
+        # #813 AK 4: welches Ausschluss-Keyword hat wie oft gefeuert.
+        if _ausloeser:
+            result_data["ausschluss_ausloeser"] = _ausloeser
     if _abgeleitet:
         result_data["suchbegriffe_abgeleitet"] = {
             "keywords": _stand["keywords_plus"],
@@ -1657,6 +1676,77 @@ _STUFEN_TEXT = {
     "automatisch_aussortiert": "automatisch aussortiert (Wiedergaenger)",
     "ignoriert": "als Wiedergaenger ignoriert",
 }
+
+
+def _trichter_belege(stellen, schwelle, stichprobe=5):
+    """Belege zum Filtertrichter, VOR dem Filtern eingesammelt (#813).
+
+    Der Trichter aus #940 zaehlt, wie viele Stellen an welcher Stufe
+    verworfen wurden. Das beantwortet nicht die eigentliche Frage: **ist
+    die Schwelle richtig gesetzt, und kostet ein einzelnes
+    Ausschluss-Keyword den halben Lauf?**
+
+    Zwei Belege, die genau das beantworten:
+
+    * die knapp Gescheiterten — Stellen unterhalb, aber nahe der
+      Schwelle. Fuenf Stellen bei Score 4 gegen eine Schwelle von 5
+      sind ein anderer Befund als fuenf Stellen bei Score 0.
+    * die ausloesenden Ausschluss-Keywords mit ihrer Haeufigkeit. Ein
+      einzelnes zu breites Wort ist im Trichter unsichtbar, in dieser
+      Liste steht es oben.
+
+    Beides muss VOR dem Filtern entstehen — danach sind die Stellen weg.
+
+    Returns:
+        `(knapp, ausloeser)`. Beide leer, wenn es nichts zu belegen gibt.
+    """
+    knapp, ausloeser = [], {}
+    for job in stellen or []:
+        kw = job.get("_ko_ausschluss")
+        if kw:
+            ausloeser[str(kw).lower()] = ausloeser.get(str(kw).lower(), 0) + 1
+        try:
+            punkte = float(job.get("score") or 0)
+        except (TypeError, ValueError):
+            # Ein unlesbarer Score ist kein Grund, den ganzen Lauf zu
+            # verlieren — der Beleg ist eine Zugabe, keine Bedingung.
+            continue
+        # "Knapp" heisst: die Stelle hat einen fachlichen Anker und ist
+        # trotzdem gescheitert. Eine Stelle ohne MUSS-Treffer ist nicht
+        # knapp, sondern nicht gemeint (#940).
+        if punkte < schwelle and not job.get("_ko_kein_muss") and punkte > 0:
+            knapp.append({
+                "titel": (job.get("title") or "")[:70],
+                "firma": (job.get("company") or "")[:40],
+                "score": punkte,
+                "fehlt_zur_schwelle": round(schwelle - punkte, 1),
+            })
+    knapp.sort(key=lambda e: -e["score"])
+    ergebnis_knapp = knapp[:stichprobe]
+    if ergebnis_knapp:
+        ergebnis_knapp = {
+            "schwelle": schwelle,
+            "anzahl": len(knapp),
+            "beispiele": ergebnis_knapp,
+            "hinweis": (
+                f"{len(knapp)} Stelle(n) haben einen fachlichen Anker und "
+                f"blieben trotzdem unter der Schwelle von {schwelle}. "
+                "Mit scoring_konfigurieren() laesst sie sich anpassen."),
+        }
+    else:
+        ergebnis_knapp = {}
+    if ausloeser:
+        top = sorted(ausloeser.items(), key=lambda p: -p[1])[:8]
+        ausloeser = {
+            "begriffe": [{"keyword": k, "treffer": n} for k, n in top],
+            "hinweis": (
+                "So oft hat ein AUSSCHLUSS-Keyword eine Stelle verworfen. "
+                "Steht ein Begriff weit oben, ist er womoeglich zu breit "
+                "— suchkriterien_bearbeiten() korrigiert das."),
+        }
+    else:
+        ausloeser = {}
+    return ergebnis_knapp, ausloeser
 
 
 def zero_treffer_diagnose(stats, source_status, ok_count, error_count,

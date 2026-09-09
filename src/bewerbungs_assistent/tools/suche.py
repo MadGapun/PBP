@@ -12,6 +12,31 @@ from ..services.nutzerfuehrung import leer
 _KATEGORIEN_WOERTER = blacklist_regel.KATEGORIEN_WOERTER
 
 
+# Kriterien, die ein EIGENES Feld haben. Ein gleichnamiger Eintrag in
+# `custom_kriterien` wirkt nicht — er wird beim Scoring nie gelesen
+# (#813 AK 6).
+_EIGENE_KRITERIEN = {
+    "min_gehalt", "min_tagessatz", "min_stundensatz", "max_entfernung",
+    "max_entfernung_km", "regionen", "stellentypen",
+}
+
+
+def _custom_widerspruch(kriterien: dict):
+    """Steht ein wirkungsloser Doppel-Eintrag im Bestand? (#813 AK 6)"""
+    custom = (kriterien or {}).get("custom_kriterien") or {}
+    if not isinstance(custom, dict):
+        return None
+    doppelt = [k for k in custom if str(k).strip().lower() in _EIGENE_KRITERIEN]
+    if not doppelt:
+        return None
+    return (
+        f"In custom_kriterien steht {', '.join(doppelt)} — dieses Kriterium "
+        "hat ein EIGENES Feld, und nur das wird beim Bewerten gelesen. Der "
+        "Eintrag im Sammelbecken ist wirkungslos. Setze den Wert direkt, "
+        "dann stimmen Anzeige und Rechnung ueberein."
+    )
+
+
 def _entfernung_widerspruch(kriterien: dict):
     """Steht ein Entfernungswunsch da, gegen den niemand rechnet? (#1000)
 
@@ -295,7 +320,23 @@ def register(mcp, db, logger):
             db.set_search_criteria("min_tagessatz", float(min_tagessatz))
         if min_stundensatz is not None:
             db.set_search_criteria("min_stundensatz", float(min_stundensatz))
+        # #813 AK 6: `min_gehalt` gibt es als eigenes Kriterium (#544) UND
+        # frueher als Eintrag in `custom_kriterien`. Gelesen wird beim
+        # Scoring nur das eigene Feld — ein Wert im Sammelbecken wirkt
+        # also nicht und sieht doch so aus. Dieselbe Klasse wie der
+        # zweite Schwellenwert-Regler aus #988: die Zeile wird BENANNT
+        # statt still geloescht oder still umgedeutet.
+        doppelt_hinweis = None
         if custom_kriterien:
+            _kollision = [k for k in custom_kriterien
+                          if str(k).strip().lower() in _EIGENE_KRITERIEN]
+            if _kollision:
+                doppelt_hinweis = (
+                    f"{', '.join(_kollision)} steht auch als eigenes "
+                    "Kriterium — beim Bewerten zaehlt NUR das eigene Feld, "
+                    "der Eintrag in custom_kriterien bleibt wirkungslos. "
+                    "Setze ihn direkt, z.B. "
+                    "suchkriterien_setzen(min_gehalt=70000).")
             db.set_search_criteria("custom_kriterien", custom_kriterien)
 
         # Geocode user location (#167)
@@ -318,6 +359,8 @@ def register(mcp, db, logger):
             result["entfernung"] = entfernung_hinweis
         if widerstand_hinweis:
             result["reisewiderstand"] = widerstand_hinweis
+        if doppelt_hinweis:
+            result["hinweis_doppelt"] = doppelt_hinweis
         # v1.7.12 (#827, C32): MUSS/PLUS-Ueberschneidung sichtbar machen.
         # Doppelt gelistete Begriffe zaehlen im Score nur noch EINMAL (als
         # MUSS) — der Hinweis erklaert, warum die PLUS-Liste kuerzer wirkt.
@@ -520,6 +563,9 @@ def register(mcp, db, logger):
         hinweis = _entfernung_widerspruch(kriterien)
         if hinweis:
             antwort["hinweis_entfernung"] = hinweis
+        doppelt = _custom_widerspruch(kriterien)
+        if doppelt:
+            antwort["hinweis_doppelt"] = doppelt
         return antwort
 
     @mcp.tool()
