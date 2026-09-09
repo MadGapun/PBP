@@ -1474,7 +1474,12 @@ def run_search(db, job_id: str, params: dict):
     # von 7.100 Rohtreffern 15 uebrig blieben, aber nicht warum.
     min_score_threshold = criteria.get("min_score_schwelle", 1)
     before = len(unique)
-    ohne_muss = sum(1 for j in unique if j.get("_ko_kein_muss"))
+    # v1.7.68 (#968): in der Betriebsart `gewichtet` markiert
+    # `calculate_score` mit `_ohne_muss_treffer` statt mit
+    # `_ko_kein_muss` — der Trichter muss beide zaehlen, sonst meldet er
+    # ausgerechnet in der neuen Betriebsart null Verwerfungen.
+    ohne_muss = sum(1 for j in unique
+                    if j.get("_ko_kein_muss") or j.get("_ohne_muss_treffer"))
 
     # v1.7.27 (#967): Ohne gesetzte MUSS-Begriffe hat JEDE Stelle Score 0
     # — die Schwelle wuerde also den kompletten Lauf verwerfen. Dann
@@ -1498,10 +1503,35 @@ def run_search(db, job_id: str, params: dict):
         # wird deshalb VOR dem Filtern eingesammelt — danach sind die
         # Stellen weg.
         _knapp, _ausloeser = _trichter_belege(unique, min_score_threshold)
-        unique, verworfen_schwelle = _filter_nach_schwelle(
-            unique, min_score_threshold)
-        filterstufen["kein_muss_keyword"] = ohne_muss
-        filterstufen["unter_schwelle"] = max(0, verworfen_schwelle - ohne_muss)
+        # v1.7.68 (#968): ohne Pflichttreffer heisst in `gewichtet`
+        # nicht mehr "weg". Diese Stellen gehen deshalb NICHT durch die
+        # Schwelle — ihr Score ist auf MAX_OHNE_MUSS gedeckelt und
+        # laege bei fast jeder Einstellung darunter, die Betriebsart
+        # waere also wirkungslos gewesen. Das ist derselbe Sonderweg wie
+        # beim Kaltstart (#967): die Schwelle sortiert, sie sortiert
+        # nicht aus.
+        from ..services import muss_tor as _tor
+        if _tor.gewichtet_aktiv(criteria):
+            _ohne = [j for j in unique if j.get("_ohne_muss_treffer")]
+            _mit = [j for j in unique if not j.get("_ohne_muss_treffer")]
+            _mit, verworfen_schwelle = _filter_nach_schwelle(
+                _mit, min_score_threshold)
+            _ohne.sort(key=lambda j: float(j.get("score") or 0), reverse=True)
+            # Eine benannte Grenze statt einer stillen Flut: im Lauf aus
+            # #813 waren es 312 Stellen ohne Pflichttreffer in EINEM
+            # Durchgang.
+            _behalten, _zuviel = _ohne[:_tor.MAX_JE_LAUF], _ohne[_tor.MAX_JE_LAUF:]
+            unique = _mit + _behalten
+            filterstufen["ohne_pflichttreffer_behalten"] = len(_behalten)
+            if _zuviel:
+                filterstufen["ohne_pflichttreffer_ueber_grenze"] = len(_zuviel)
+            filterstufen["unter_schwelle"] = verworfen_schwelle
+        else:
+            unique, verworfen_schwelle = _filter_nach_schwelle(
+                unique, min_score_threshold)
+            filterstufen["kein_muss_keyword"] = ohne_muss
+            filterstufen["unter_schwelle"] = max(
+                0, verworfen_schwelle - ohne_muss)
     if before > len(unique):
         logger.info("Score-Filter: %d von %d Stellen verworfen (Score < %d, "
                     "davon %d ohne MUSS-Keyword)",
@@ -1673,6 +1703,14 @@ def run_search(db, job_id: str, params: dict):
 _STUFEN_TEXT = {
     "kein_muss_keyword": "ohne MUSS-Keyword",
     "unter_schwelle": "unter der Score-Schwelle",
+    # v1.7.68 (#968): in der Betriebsart `gewichtet` ist "ohne
+    # Pflichttreffer" keine Verwerfung mehr, sondern eine Gruppe. Beide
+    # Zeilen muessen trotzdem im Trichter stehen — sonst sieht ein Lauf
+    # mit 50 behaltenen und 262 uebergangenen Stellen aus wie ein Lauf
+    # ohne jede Filterung (#813).
+    "ohne_pflichttreffer_behalten": "ohne Pflichttreffer, trotzdem behalten",
+    "ohne_pflichttreffer_ueber_grenze": (
+        "ohne Pflichttreffer und ueber der Behalten-Grenze"),
     "automatisch_aussortiert": "automatisch aussortiert (Wiedergaenger)",
     "ignoriert": "als Wiedergaenger ignoriert",
 }
@@ -2747,6 +2785,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
     muss_tor_kws = [kw for kw in muss
                     if _muss_tor_match(kw, text, _muss_syn.get(kw))]
     muss_found = len(muss_tor_kws)
+    # v1.7.68 (#968): Betriebsart des Tors. `hart` verwirft (bisheriges
+    # Verhalten und weiterhin Vorgabe), `gewichtet` laesst die Stelle
+    # weiterrechnen und deckelt sie am Ende. Die Entscheidung steht in
+    # den Kriterien, nicht in der Datenbank — sonst rechnete der
+    # Suchlauf anders als die Neuberechnung (#987).
+    from ..services import muss_tor as _tor
+    _ohne_muss = bool(muss) and muss_found == 0 and _tor.gewichtet_aktiv(criteria)
+    if _ohne_muss:
+        job["_ohne_muss_treffer"] = True
     if muss and muss_found == 0:
         # #180: Ohne Beschreibung nicht sofort auf 0 setzen, WENN der Titel
         # zumindest Teilworte der MUSS-Keywords enthält (z.B. "PLM" im Titel)
@@ -2758,9 +2805,17 @@ def calculate_score(job: dict, criteria: dict) -> int:
                 for kw in muss for w in kw.lower().split() if len(w) > 2
             )
             if has_partial:
+                # Die Markierung gilt in BEIDEN Betriebsarten: sie sagt
+                # "Beschreibung nachladen", und das bleibt richtig, auch
+                # wenn die Stelle in `gewichtet` ohnehin nicht verworfen
+                # wird. Nur der Frueh-Ausstieg gehoert dem harten Tor —
+                # ein Frueh-Ausstieg laesst sonst Altwerte stehen
+                # (v1.7.36 MERKE 4).
                 job["_score_unsicher"] = True
-                _teilscores_setzen(job, 1, 0)
-                return 1  # Mindest-Score — Beschreibung nachladen!
+                if not _ohne_muss:
+                    _teilscores_setzen(job, 1, 0)
+                    return 1  # Mindest-Score — Beschreibung nachladen!
+    if muss and muss_found == 0 and not _ohne_muss:
         # #762: K.o.-Grund markieren (kein MUSS-Keyword getroffen)
         job["_ko_kein_muss"] = True
         _teilscores_setzen(job, 0, 0)
@@ -2932,6 +2987,16 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # etwas relativieren koennte — der Rahmen IST dann die Bewertung.
     # Ohne diese Ausnahme bekaeme jede Stelle 0, und zwar ausgerechnet
     # bei frischen Profilen, die noch keine MUSS-Liste gepflegt haben.
+    # v1.7.68 (#968): ohne Pflichttreffer ist der Fachscore 0 und damit
+    # auch der Deckel — die Stelle laege wieder bei 0, und das
+    # Weiterrechnen waere wirkungslos gewesen. Deshalb hier derselbe
+    # Sonderweg wie beim Kaltstart ohne MUSS-Liste, nur zusaetzlich hart
+    # begrenzt: der Rahmen ordnet die Gruppe, ueber die fachlich nichts
+    # bekannt ist, und ersetzt keine Passung (#942).
+    if _ohne_muss:
+        score = _tor.ersatz_score(rahmen_plus, rahmen_minus, w["muss"])
+        _teilscores_setzen(job, 0, score, rahmen_plus - rahmen_minus)
+        return score
     if muss:
         deckel = rahmen_deckel_faktor(criteria) * fachscore
         rahmen_effektiv = min(rahmen_plus, deckel) - rahmen_minus
@@ -3329,11 +3394,22 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
     _kein_muss_tor = bool(muss) and not any(
         _muss_tor_match(kw, text, _muss_syn_fit.get(kw)) for kw in muss)
+    # v1.7.68 (#968): AK 5 — beide Rechenwege tragen die Betriebsart
+    # gemeinsam. Stuende sie nur in `calculate_score`, haette dieselbe
+    # Stelle je nach Werkzeug einen anderen Wert; das ist #963 und
+    # #917 Defekt D, zum dritten Mal an derselben Stelle.
+    from ..services import muss_tor as _tor
+    _tor_gewichtet = _kein_muss_tor and _tor.gewichtet_aktiv(criteria)
     if _kein_muss_tor:
         risks.insert(0,
             "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "
             "deiner Pflichtanforderungen. PLUS-Keywords allein tragen "
-            "keinen Score (#940).")
+            "keinen Score (#940)."
+            if not _tor_gewichtet else
+            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "
+            "deiner Pflichtanforderungen. Sie ist nicht verworfen, "
+            "steht aber hinter jeder Stelle mit Pflichttreffer "
+            "(MUSS-Tor: gewichtet).")
 
     _zahlen = {k: v for k, v in factors.items() if isinstance(v, (int, float))}
     _fach = sum(v for k, v in _zahlen.items() if k.startswith("MUSS-Keywords"))
@@ -3348,7 +3424,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             _rahmen_plus = _deckel
             factors["Rahmen ueber Deckel gekuerzt (#942)"] = -round(_gekuerzt, 1)
 
-    if _kein_muss_tor:
+    if _tor_gewichtet:
+        total = _tor.ersatz_score(_rahmen_plus, _rahmen_minus, w["muss"])
+        _fach = 0
+        factors = {
+            f"Kein MUSS-Keyword getroffen — hoechstens "
+            f"{_tor.obergrenze(w['muss']):g} Punkte (#968)": total,
+        }
+        _rahmen_plus, _rahmen_minus = total, 0
+    elif _kein_muss_tor:
         total = 0
         _fach = 0
         _rahmen_plus = 0
@@ -3390,13 +3474,20 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     }
     if _kein_muss_tor:
         # Die Empfehlung muss der Zahl folgen — sonst steht ein
-        # freundliches Urteil ueber einer Null.
+        # freundliches Urteil ueber einer Null. Das gilt in BEIDEN
+        # Betriebsarten: `gewichtet` laesst die Stelle sichtbar, es
+        # macht sie nicht empfehlenswert.
+        _ergebnis["ohne_pflichttreffer"] = True
         _ergebnis["empfehlung"] = {
             "kategorie": "NICHT_EMPFOHLEN",
             "kurz": "Keine Pflichtanforderung erfuellt.",
             "begruendung": (
                 "Von deinen MUSS-Keywords trifft keines zu. Ein hoher "
-                "PLUS-Anteil aendert daran nichts (#940)."),
+                "PLUS-Anteil aendert daran nichts (#940)."
+                if not _tor_gewichtet else
+                "Von deinen MUSS-Keywords trifft keines zu. Die Stelle "
+                "bleibt sichtbar, steht aber hinter jeder Stelle mit "
+                "Pflichttreffer (#968)."),
         }
     return _ergebnis
 
