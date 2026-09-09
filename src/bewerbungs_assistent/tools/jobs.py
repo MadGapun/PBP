@@ -243,9 +243,15 @@ def _aehnliche_outcome_pattern(
         }
         for j in by_reason[top_reason][:3]
     ]
+    # #1004 AK 2: den Alttitel NENNEN. Er stand bisher nur unter
+    # `beispiele`; gelesen wird zuerst dieser Satz — und ein Fehlalarm
+    # faellt nur auf, wenn dabeisteht, worauf er sich stuetzt.
+    _beleg = beispiele[0]["title"] if beispiele and beispiele[0].get("title") else ""
     risk_text = (
         f"Aufmerksamkeit: {count} aehnliche Stellen wurden wegen "
-        f"'{top_reason}' aussortiert. Pruefe ob das hier auch zutrifft."
+        f"'{top_reason}' aussortiert"
+        + (f" (zuletzt: \"{_beleg}\")" if _beleg else "")
+        + ". Pruefe ob das hier auch zutrifft."
     )
     return {
         "risk_text": risk_text,

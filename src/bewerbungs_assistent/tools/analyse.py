@@ -328,7 +328,8 @@ def register(mcp, db, logger):
         # echten Anforderungen (Systems Engineering, IEC 62304) fehlten
         # oder als abgerissenes Fragment dastanden.
         from ..services.stellen_skills import (
-            extrahiere_skills, quote_belastbar, vokabular,
+            MINDEST_BEGRIFFE, extrahiere_skills, grundform, quote_belastbar,
+            vokabular,
         )
         # v1.7.30 (#971): das Vokabular kommt aus Profil und Bestand,
         # nicht mehr nur aus der kuratierten Liste. Fuer Pflege,
@@ -336,12 +337,23 @@ def register(mcp, db, logger):
         # deckt ein Berufsfeld ab. Was in einem Feld gefragt ist, steht
         # in den Anzeigen, die PBP ohnehin gesammelt hat.
         _vok = vokabular(db=db, profil=profile)
-        required_skills = Counter()
+        # v1.7.65 (#1005): Flexionsformen sind EIN Begriff. `system`,
+        # `systeme` und `systemen` standen im belegten Fall als drei
+        # getrennte Kompetenzen in derselben Auswertung und blaehten
+        # damit auch den Nenner der Quote. Gruppiert wird ueber einen
+        # Schluessel; ANGEZEIGT wird die haeufigste tatsaechlich
+        # vorkommende Form — ein erfundenes Wort in einer Auswertung
+        # waere dieselbe Klasse Fehler wie eine erfundene Zahl (#987).
+        _je_gruppe: dict[str, Counter] = {}
         for job in jobs:
             _txt = ((job.get("description") or "") + chr(10)
                     + (job.get("title") or ""))
             for begriff in extrahiere_skills(_txt, _vok):
-                required_skills[begriff] += 1
+                _je_gruppe.setdefault(grundform(begriff), Counter())[begriff] += 1
+        required_skills = Counter()
+        for _formen in _je_gruppe.values():
+            _label, _ = _formen.most_common(1)[0]
+            required_skills[_label] = sum(_formen.values())
 
         # Classify skills
         matches = []
@@ -359,11 +371,32 @@ def register(mcp, db, logger):
         result = {
             "status": "ok",
             "analysierte_stellen": len(jobs),
-            "match_prozent": match_pct,
             "vorhandene_skills": matches[:15],
             "fehlende_skills": gaps[:15],
             "deine_skills_gesamt": len(user_skills),
         }
+        # v1.7.65 (#1005): die Quote nur, wenn sie eine Grundlage hat.
+        # `quote_belastbar` gab es seit v1.7.30 — sie wurde IMPORTIERT
+        # und nie aufgerufen. Eine Regel, die nicht laeuft, ist keine
+        # Regel (DoD 8c); genau deshalb konnte eine Prozentzahl aus vier
+        # Rauschbegriffen entstehen und wie eine Kennzahl aussehen.
+        if quote_belastbar(total_relevant):
+            result["match_prozent"] = match_pct
+        else:
+            result["match_prozent"] = None
+            result["quote_hinweis"] = (
+                f"Keine Quote: nach dem Aussieben blieben nur "
+                f"{total_relevant} verwertbare Begriffe (noetig sind "
+                f"{MINDEST_BEGRIFFE}). Eine Prozentzahl daraus saehe aus "
+                "wie eine Kennzahl und waere keine.")
+        # AK 3: die Fallzahl gehoert an die Zahl, nicht in eine
+        # Fussnote. Ein Befund aus EINER Anzeige ist kein Trend.
+        if len(jobs) == 1:
+            result["grundlage"] = (
+                "Einzelbefund aus einer Stelle — keine Statistik. Fuer ein "
+                "Muster ueber den Bestand: skill_gap_analyse() ohne job_hash.")
+        else:
+            result["grundlage"] = f"Ueber {len(jobs)} aktive Stellen gerechnet."
         if job_hash and jobs:
             result["stelle"] = jobs[0].get("title")
             result["firma"] = jobs[0].get("company")
@@ -372,7 +405,9 @@ def register(mcp, db, logger):
         if bewerbung_id:
             fehlend = ", ".join(g["skill"] for g in gaps[:10]) or "keine"
             vorhanden = ", ".join(m["skill"] for m in matches[:10]) or "keine"
-            txt = (f"Skill-Gap ({len(jobs)} Stellen, Match {match_pct}%). "
+            _quote = (f"Match {match_pct}%" if result.get("match_prozent") is not None
+                      else "ohne belastbare Quote")
+            txt = (f"Skill-Gap ({len(jobs)} Stellen, {_quote}). "
                    f"Fehlend: {fehlend}. Vorhanden: {vorhanden}.")
             ziel = _persist_recherche("skillgap", txt, bewerbung_id, job_hash)
             if ziel:
