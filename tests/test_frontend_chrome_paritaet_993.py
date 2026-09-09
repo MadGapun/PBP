@@ -158,21 +158,41 @@ def test_993_jedes_gelesene_workspace_feld_wird_geliefert(summary):
         f"liefert: {fehlend}")
 
 
-def test_993_die_schwelle_steht_in_der_workspace_antwort(summary):
-    """Der konkrete Fall aus dem Report."""
+def test_993_die_speicherschwelle_wird_nicht_mehr_ausgeliefert(summary):
+    """Korrektur an #993 selbst, nachgezogen mit #1008.
+
+    v1.7.50 hat `search_criteria.min_score_schwelle` in die
+    Workspace-Antwort gelegt, weil der Stellen-Tab den Wert als Vorgabe
+    seines Anzeige-Filters las. Der falsche ZUGRIFFSPFAD war damals der
+    Fund; die Frage, ob diese Schwelle die Anzeige ueberhaupt filtern
+    darf, blieb ungestellt.
+
+    Sie darf nicht: `min_score_schwelle` wirkt waehrend der SUCHE (ab
+    wann eine Stelle ueberhaupt gespeichert wird), der Anzeige-Filter
+    heisst `schwellenwert/auto_ignore` und wirkt serverseitig. Weil
+    #993 den toten Zugriff repariert hat, wurde aus einem seit beta.27
+    schlafenden Filter ein wirksamer — und sieben von acht Stellen
+    verschwanden aus der Liste, ohne dass jemand einen Filter gesetzt
+    haette (#1008).
+
+    Mit dem Leser faellt der Lieferant. Ein Feld, das niemand liest, ist
+    keine Auskunft, sondern die naechste Fehlerquelle.
+    """
     antwort = summary._build_workspace_summary()
-    assert "search_criteria" in antwort
-    assert antwort["search_criteria"]["min_score_schwelle"] == 0
-
-    summary._db.set_search_criteria("min_score_schwelle", 35)
-    assert summary._build_workspace_summary()[
-        "search_criteria"]["min_score_schwelle"] == 35
+    assert "search_criteria" not in antwort, (
+        "Feld ohne Leser — entweder es hat einen Zweck, oder es gehoert weg.")
 
 
-def test_993_der_stellen_tab_liest_den_richtigen_weg():
-    """Guard gegen den Rueckfall: die Vorbelegung muss ueber
-    `chrome.workspace` gehen, nicht ueber einen erfundenen Schluessel."""
+def test_993_der_stellen_tab_erfindet_keine_chrome_schluessel():
+    """Der bleibende Kern von #993.
+
+    Die urspruengliche Fassung forderte einen BESTIMMTEN Zugriff. Das
+    war zu eng: sie haette die Korrektur aus #1008 blockiert, obwohl
+    der Zugriff selbst der Fehler war. Geblieben ist, worum es ging —
+    `chrome.search_criteria` gibt es nicht, und eine optionale
+    Verkettung darauf faellt lautlos auf 0.
+    """
     code = ohne_kommentare((_repo() / "frontend" / "src" / "pages"
                             / "JobsPage.jsx").read_text(encoding="utf-8"))
-    assert "chrome?.workspace?.search_criteria?.min_score_schwelle" in code
     assert "chrome?.search_criteria" not in code
+    assert "chrome.search_criteria" not in code
