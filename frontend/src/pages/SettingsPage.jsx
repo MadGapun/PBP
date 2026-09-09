@@ -1517,6 +1517,66 @@ function OllamaAccuracyCard() {
   );
 }
 
+// #1001: Ollama mit PBP starten. Vorgabe AUS — PBP startet keine fremden
+// Programme, solange niemand darum bittet. Der Block steht in allen drei
+// Varianten, denn gebraucht wird er ausgerechnet dann, wenn Ollama gerade
+// NICHT laeuft.
+function OllamaAutostartBlock({ pushToast }) {
+  const [stand, setStand] = useState(null);
+
+  useEffect(() => {
+    api("/api/llm/autostart").then(setStand).catch(() => {});
+  }, []);
+
+  if (!stand) return null;
+
+  async function umschalten(an) {
+    try {
+      const neu = await putJson("/api/llm/autostart", { an });
+      setStand(neu);
+      if (neu.warnung) {
+        pushToast(neu.warnung, "amber", { duration: 6000 });
+      } else if (an && neu.wirkung !== "bereit") {
+        pushToast(neu.hinweis, "amber", { duration: 6000 });
+      } else {
+        pushToast(an ? "Ollama startet kuenftig mit PBP." : "Autostart ist aus.", "success");
+      }
+    } catch (err) {
+      pushToast(`Konnte den Autostart nicht setzen: ${err.message}`, "danger");
+    }
+  }
+
+  return (
+    <div className="glass-card p-4 mb-4">
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={!!stand.autostart}
+          onChange={(e) => umschalten(e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-medium text-ink">Ollama mit PBP starten</span>
+          <span className="mt-1 block text-sm text-muted/80">
+            Dann steht die lokale KI auch nach einem Neustart des Rechners bereit,
+            ohne dass du hier erst den Knopf druecken musst. Ollama laeuft weiter,
+            wenn du PBP beendest.
+          </span>
+        </span>
+      </label>
+      {stand.autostart && stand.wirkung !== "bereit" && (
+        <p className="mt-3 text-[13px] text-amber">{stand.hinweis}</p>
+      )}
+      {stand.autostart && !stand.ollama_gefunden && (
+        <p className="mt-2 text-[13px] text-amber">
+          Ollama ist auf diesem Rechner nicht zu finden — die Einstellung ist
+          gespeichert, wirkt aber erst nach der Installation.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
@@ -1654,6 +1714,8 @@ function LocalAITab({ pushToast }) {
             Ollama starten
           </Button>
         </div>
+
+        <OllamaAutostartBlock pushToast={pushToast} />
 
         <div className="glass-card p-4 mb-4 border-coral/15">
           <h3 className="font-medium text-ink mb-2">Noch nicht installiert?</h3>
@@ -1827,6 +1889,8 @@ function LocalAITab({ pushToast }) {
           Kreatives (Anschreiben, Coaching) bleibt bei Claude.
         </p>
       </div>
+
+      <OllamaAutostartBlock pushToast={pushToast} />
 
       {/* v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop — Ollama-Leistung */}
       <OllamaAccuracyCard />
