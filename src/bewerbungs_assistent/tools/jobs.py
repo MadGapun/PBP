@@ -1785,6 +1785,17 @@ def register(mcp, db, logger):
         def _guete_rang(j):
             return _dg.sortierschluessel(j, _guete_umgang, _guete_krit)
 
+        # v1.7.68 (#968) AK 4: eine Stelle ohne Pflichttreffer steht
+        # NIE ueber einer mit. Das steht bewusst in der Sortierung und
+        # nicht im Score — eine Stelle mit Pflichttreffer, die ein Malus
+        # nach unten gezogen hat, soll abstuerzen duerfen (#942); sie
+        # darf dabei nur nicht unter eine rutschen, ueber deren Fach
+        # nichts bekannt ist. Dieselbe Bauform wie der Guete-Rang.
+        from ..services import muss_tor as _tor
+
+        def _tor_rang(j):
+            return _tor.sortierschluessel(j, _guete_krit)
+
         if filter == "aussortiert":
             jobs = db.get_dismissed_jobs()
         else:
@@ -1840,6 +1851,7 @@ def register(mcp, db, logger):
                 # Reihenfolge ist eine Darstellung, und dort gehoert die
                 # Unterscheidung hin.
                 jobs.sort(key=lambda j: (-j.get("is_pinned", 0),
+                                         _tor_rang(j),
                                          _guete_rang(j),
                                          -j.get("score", 0)))
             except Exception as e:
@@ -1868,6 +1880,7 @@ def register(mcp, db, logger):
                 # auf Platz 9, waehrend das System ihr k.o. laengst kannte.
                 jobs.sort(key=lambda j: (-j.get("is_pinned", 0),
                                          1 if j.get("_ko_muster") else 0,
+                                         _tor_rang(j),
                                          _guete_rang(j),
                                          -j.get("score", 0)))
             except Exception as e:
@@ -2016,6 +2029,14 @@ def register(mcp, db, logger):
             _marke = _dg.kurzmarke(j, _guete_krit)
             if _marke:
                 entry["datenguete"] = _marke
+
+            # v1.7.68 (#968) AK 3: warum diese Zeile unten steht. Eine
+            # Stelle, die ohne erkennbaren Grund hinten liegt, sieht aus
+            # wie ein Fehler — und ein Befund, den nur ein Werkzeug
+            # kennt, ist kein Befund (#989).
+            _tor_marke = _tor.marke(j, _guete_krit)
+            if _tor_marke:
+                entry["muss_tor"] = _tor_marke
 
             # #1007 (G36): der Analyse-Befund haengt an der Stelle und
             # gehoert in die Liste. Bis v1.7.60 entstand der Verdict bei
@@ -2275,6 +2296,58 @@ def register(mcp, db, logger):
             }
         ergebnis = dg.umgang_setzen(db, modus.strip().lower())
         return ergebnis
+
+    @mcp.tool()
+    def muss_tor_setzen(betriebsart: str = "") -> dict:
+        """Ohne Pflichttreffer: verwerfen oder weit unten zeigen? (#968)
+
+        Das MUSS-Tor entscheidet, ob eine Anzeige ueberhaupt in Frage
+        kommt. Trifft kein einziger Pflichtbegriff, wird sie bisher
+        verworfen — sie wird gar nicht erst gespeichert. Im
+        dokumentierten Lauf aus #813 starben so 312 von 389
+        Rohtreffern, bevor ein Mensch sie gesehen hat.
+
+        Ob das richtig ist, haengt daran, WAS deine Pflichtbegriffe
+        nennen:
+
+        * **Techniken** ("PLM", "SAP", "Python") — ihr Fehlen ist ein
+          echter Beleg: die Anzeige gehoert in ein anderes Fachgebiet.
+          Dafuer ist `hart` richtig.
+        * **einen Beruf** ("Pflegefachkraft", "Erzieherin") — ihr
+          Fehlen sagt wenig, weil derselbe Beruf in vielen Anzeigen
+          anders heisst. Dafuer ist `gewichtet` richtig.
+
+        Gemessen am eigenen Bestand (09.09.2026, 2.491 Anzeigen): 1.900
+        oeffnen das Tor nicht, und 1.402 davon wurden vom Menschen
+        selbst als fachfremd aussortiert. Deshalb bleibt `hart` die
+        Vorgabe — die Umstellung ist eine bewusste Entscheidung.
+
+        Args:
+            betriebsart: leer = aktuellen Stand anzeigen. Sonst 'hart'
+                (Vorgabe) oder 'gewichtet'.
+        """
+        from ..services import muss_tor as mt
+        if not (betriebsart or "").strip():
+            jetzt = mt.modus(db)
+            _muss = [k for k in ((db.get_search_criteria() or {}).get(
+                "keywords_muss") or []) if str(k).strip()]
+            return {
+                "muss_tor": jetzt,
+                "bedeutet": mt.MODI[jetzt],
+                "moeglich": mt.MODI,
+                "pflichtbegriffe": len(_muss),
+                # Ohne Pflichtbegriffe gibt es nichts zu verfehlen —
+                # dann waere die Einstellung eine Vokabel ohne Wirkung
+                # (#988), und das gehoert gesagt statt verschwiegen.
+                "hinweis": (
+                    "Ohne MUSS-Begriffe wirkt diese Einstellung nicht — "
+                    "dann sortiert die Schwelle ohnehin nur (#967)."
+                    if not _muss else
+                    "Aendern: muss_tor_setzen('gewichtet'). Wirkt ab dem "
+                    "naechsten Suchlauf; betroffene Stellen tragen in "
+                    "stellen_anzeigen die Marke 'muss_tor'."),
+            }
+        return mt.modus_setzen(db, betriebsart.strip().lower())
 
     @mcp.tool()
     def scores_neu_berechnen(

@@ -566,6 +566,21 @@ def register(mcp, db, logger):
         doppelt = _custom_widerspruch(kriterien)
         if doppelt:
             antwort["hinweis_doppelt"] = doppelt
+        # v1.7.68 (#968): die Betriebsart des MUSS-Tors gehoert dorthin,
+        # wo der Mensch seine Pflichtbegriffe pflegt. Sie entscheidet,
+        # ob eine Anzeige ohne Pflichttreffer verworfen wird oder nur
+        # weit unten steht — eine Einstellung, die man nicht sieht,
+        # kann man nicht abwaegen.
+        try:
+            from ..services import muss_tor as _mt
+            _modus = _mt.modus(db)
+            antwort["muss_tor"] = {
+                "betriebsart": _modus,
+                "bedeutet": _mt.MODI[_modus],
+                "umstellen": "muss_tor_setzen('gewichtet')",
+            }
+        except Exception:
+            pass
         # v1.7.66 (#1012): welche MUSS-Begriffe als EINE Anforderung
         # zaehlen. Das ist die Stelle, an der der Mensch seine Liste
         # pflegt — und die Frage "warum ist mein Score gesunken"

@@ -808,6 +808,15 @@ export default function JobsPage() {
       // Gemessen am 07.09.2026: inhaltsleerer Titel 101 Punkte, voll
       // beschriebene passende Stelle 32. Der Score bleibt unangetastet;
       // nur die Reihenfolge zieht die Konsequenz.
+      // v1.7.68 (#968) AK 4: eine Stelle ohne Pflichttreffer steht nie
+      // ueber einer mit. Die Entscheidung trifft der SERVER
+      // (`services/muss_tor.py`) und schickt sie als `job.muss_tor` mit
+      // — hier wird nur gelesen. Eine gespiegelte Fassung der Regel
+      // waere der zweite Rechenweg fuer dieselbe Frage (#765, #963).
+      const torA = a.muss_tor ? 1 : 0;
+      const torB = b.muss_tor ? 1 : 0;
+      if (torA !== torB) return torA - torB;
+
       return vergleicheMitGuete(a, b, (x, y) => {
       switch (filters.sort) {
         case "score_desc": return (y.score || 0) - (x.score || 0);
@@ -1425,6 +1434,16 @@ export default function JobsPage() {
                         </span>
                       );
                     })()}
+                    {/* v1.7.68 (#968) AK 3: warum diese Zeile unten
+                        steht. Eine Stelle, die ohne erkennbaren Grund
+                        hinten liegt, sieht aus wie ein Fehler. Der Text
+                        kommt vom Server, nicht aus einer zweiten
+                        Fassung der Regel im JavaScript. */}
+                    {job.muss_tor ? (
+                      <span title={job.muss_tor.erklaerung || job.muss_tor.text}>
+                        <Badge tone="neutral">Kein Pflichttreffer</Badge>
+                      </span>
+                    ) : null}
                     {/* #1007: das Urteil der Detailanalyse — getrennt vom
                         Score, weil beide Verschiedenes sagen. Ohne
                         gelesene Analyse steht hier NICHTS: "noch nicht

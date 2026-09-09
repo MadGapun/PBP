@@ -158,6 +158,7 @@ EXPECTED_TOOL_NAMES = {
     "skill_gap_analyse",
     "ablehnungs_muster",
     "nachfass_planen",
+    "muss_tor_setzen",
     "nachfass_anzeigen",
     "bewerbung_stil_tracken",
     "workflow_starten",
@@ -360,7 +361,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 219  # v1.7.64 (#1010): +aussortier_protokoll
+        assert len(tools) == 220  # v1.7.68 (#968): +muss_tor_setzen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

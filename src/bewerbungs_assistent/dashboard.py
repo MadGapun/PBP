@@ -2409,13 +2409,22 @@ def _guete_anreichern(jobs: list) -> None:
     Muster wie die Alternativbezeichnungen in #987.
     """
     try:
-        from .services import datenguete, scoring_kriterien
+        from .services import datenguete, muss_tor, scoring_kriterien
         krit = scoring_kriterien.fuer_scoring(_db)
         _profil = _db.get_profile()
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Datenguete-Anreicherung uebersprungen: %s", exc)
         return
     for job in jobs:
+        # v1.7.68 (#968): derselbe Aufruf wie in stellen_anzeigen. Der
+        # Befund gehoert an die Liste, die der Mensch ansieht — nicht
+        # nur in die Tool-Antwort (#989 MERKE 1).
+        try:
+            tor_marke = muss_tor.marke(job, krit)
+            if tor_marke:
+                job["muss_tor"] = tor_marke
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            pass
         try:
             marke = datenguete.kurzmarke(job, krit)
         except Exception:  # pragma: no cover

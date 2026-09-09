@@ -137,4 +137,15 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
             krit["_unbekannt_streng"] = True
     except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
         logger.debug("Umgang mit Unbekanntem nicht lesbar: %s", exc)
+
+    # v1.7.68 (#968): auch die Betriebsart des MUSS-Tors wirkt im Score
+    # und gehoert deshalb hierher. Wuerde `calculate_score` sie selbst
+    # aus der Datenbank lesen, rechnete der Suchlauf wieder anders als
+    # die Neuberechnung — der Fehler aus #987, nur eine Einstellung
+    # spaeter.
+    try:
+        from . import muss_tor
+        krit["_muss_tor_modus"] = muss_tor.modus(db)
+    except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+        logger.debug("MUSS-Tor-Modus nicht lesbar: %s", exc)
     return krit
