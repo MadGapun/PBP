@@ -7400,16 +7400,23 @@ async def api_contacts_import_discovered(request: Request):
             skipped += 1
             continue
         try:
-            _db.add_contact({
-                "full_name": name or email.split("@")[0],
-                "email": email or None,
-                "company": (cand.get("company") or "").strip() or None,
-                "tags": cand.get("tags") or [],
-                "notes": cand.get("notes") or "",
-            })
+            # v1.7.67 (#1011): ueber das Nadeloehr. Die lokale
+            # E-Mail-Pruefung oben bleibt als schneller Vorfilter; der
+            # Dienst erkennt zusaetzlich Name+Firma wieder.
+            from .services import kontakt_pflicht as _kp
+            _befund = _kp.sicherstellen(
+                _db, name=name or email.split("@")[0], email=email,
+                firma=(cand.get("company") or "").strip(),
+                tags=cand.get("tags") or [],
+                zusatz={"notes": cand.get("notes") or ""})
+            if _befund.get("status") == "fehler":
+                raise RuntimeError(_befund.get("fehler", "unbekannt"))
             if email:
                 existing_emails.add(email)
-            created += 1
+            if _befund.get("status") == "angelegt":
+                created += 1
+            else:
+                skipped += 1
         except Exception as exc:
             errors.append({"name": name, "email": email, "error": str(exc)[:200]})
 
@@ -8842,19 +8849,18 @@ def _run_extract_contacts(now_iso: str, max_items: int = 20) -> dict:
         for c in result.payload.get("contacts") or []:
             if c.get("confidence", 0) < 0.5:
                 continue  # zu unsicher, ueberspringen
-            try:
-                _db.add_contact({
-                    "full_name": c.get("name", ""),
-                    "email": c.get("email", ""),
-                    "company": app_row["company"] or "",
-                    "position": c.get("rolle", ""),
-                    "tags": [c.get("kategorie", "sonstiges")],
-                    "is_pending": 1,
-                    "extracted_from": f"application:{app_row['id']}",
-                })
+            # v1.7.67 (#1011): ueber das Nadeloehr. Hier haeuften sich
+            # sonst Dubletten — wer die Extraktion zweimal laufen
+            # laesst, bekam jeden Kontakt zweimal.
+            from .services import kontakt_pflicht as _kp
+            _befund = _kp.sicherstellen(
+                _db, name=c.get("name", ""), email=c.get("email", ""),
+                firma=app_row["company"] or "",
+                tags=[c.get("kategorie", "sonstiges")],
+                zusatz={"position": c.get("rolle", ""), "is_pending": 1,
+                        "extracted_from": f"application:{app_row['id']}"})
+            if _befund.get("status") == "angelegt":
                 extracted += 1
-            except Exception:
-                pass
 
     # v1.7.0-beta.40 (#609): Elwosa-Hook
     if extracted > 0:

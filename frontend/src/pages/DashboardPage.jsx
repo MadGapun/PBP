@@ -918,14 +918,17 @@ export default function DashboardPage() {
         />
       ) : (
         <div className="mb-3 flex justify-end">
+          {/* #1013: nur noch das Symbol. Ein Meta-Bedienelement, das
+              jeden Tag als Textzeile ueber dem Inhalt steht, kostet
+              Platz fuer eine Funktion, die man selten braucht. */}
           <button
             type="button"
             onClick={() => setAnpassenOffen(true)}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] text-muted/45 transition hover:text-sky"
-            title="Bereiche an- und abschalten, sortieren"
+            aria-label="Dashboard anpassen — Bereiche an- und abschalten, sortieren"
+            title="Dashboard anpassen — Bereiche an- und abschalten, sortieren"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-muted/45 transition hover:text-sky"
           >
-            <Settings2 size={12} />
-            Dashboard anpassen
+            <Settings2 size={15} />
           </button>
         </div>
       )}

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { Button, Card } from "@/components/ui";
+import { cn } from "@/utils";
 
 // Die einzige Stelle, an der das Frontend noch etwas ueber einen Prompt
 // weiss: welches Symbol dazu passt. Alles andere kommt aus dem Katalog.
@@ -105,40 +106,60 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
 
   return (
     <Card className="rounded-2xl">
+      {/* #1013 (Rueckmeldung eines Testers, 09.09.2026): Erklaerung und
+          Auswahl sind BEIDE Meta-Funktionen der Karte — sie standen an
+          zwei Orten und in zwei Formen (eine volle Textzeile ueber dem
+          Inhalt, ein Knopf mit Text in der Ecke) und lasen sich dadurch
+          wie zwei verschiedene Dinge. Jetzt zwei gleich grosse Symbole
+          nebeneinander; die Erklaerung kostet keine Zeile mehr ueber dem
+          Inhalt, den man taeglich sieht. */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <h2 className="text-sm font-semibold text-ink">Schnellzugriff</h2>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setAuswahlOffen((v) => !v)}
-          title="Auswählen, welche Karten hier stehen"
-        >
-          <Settings2 size={14} />
-          {auswahlOffen ? "Fertig" : "Auswählen"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              const offen = !hilfeOffen;
+              setHilfeOffen(offen);
+              try { localStorage.setItem("pbp_dashboard_quickhelp_open", offen ? "1" : "0"); } catch { /* private Sitzung */ }
+            }}
+            aria-expanded={hilfeOffen}
+            aria-label="Was ist der Schnellzugriff?"
+            title="Was ist der Schnellzugriff?"
+            className={cn(
+              // Ein Symbol ohne Text braucht eine Trefferflaeche, die
+              // auch auf dem Handy mit dem Finger zu treffen ist.
+              "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
+              hilfeOffen
+                ? "border-sky/25 bg-sky/10 text-sky/80"
+                : "border-white/5 bg-white/[0.03] text-muted/50 hover:text-muted/80"
+            )}
+          >
+            <Info size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuswahlOffen((v) => !v)}
+            aria-expanded={auswahlOffen}
+            aria-label={auswahlOffen ? "Auswahl beenden" : "Auswählen, welche Karten hier stehen"}
+            title={auswahlOffen ? "Auswahl beenden" : "Auswählen, welche Karten hier stehen"}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
+              auswahlOffen
+                ? "border-teal/25 bg-teal/10 text-teal/80"
+                : "border-white/5 bg-white/[0.03] text-muted/50 hover:text-muted/80"
+            )}
+          >
+            <Settings2 size={15} />
+          </button>
+        </div>
       </div>
 
-      <details
-        className="mt-1.5 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 group"
-        open={hilfeOffen}
-        onToggle={(e) => {
-          const offen = e.currentTarget.open;
-          setHilfeOffen(offen);
-          try { localStorage.setItem("pbp_dashboard_quickhelp_open", offen ? "1" : "0"); } catch { /* private Sitzung */ }
-        }}
-      >
-        <summary className="cursor-pointer list-none flex items-center gap-2 text-[12px] text-muted/80">
-          <Info size={13} className="shrink-0 text-sky/70" />
-          <span className="flex-1"><strong className="text-ink/90">Was ist der Schnellzugriff?</strong></span>
-          <span className="text-muted/50 text-[10px] group-open:rotate-90 transition-transform shrink-0">▶</span>
-        </summary>
-        <p className="mt-2 pl-[21px] text-[12px] text-muted/80 leading-relaxed">
+      {hilfeOffen && (
+        <p className="mt-2 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 text-[12px] text-muted/80 leading-relaxed">
           Beispiel-Prompts für Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
           kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfügen und absenden.
           Du kannst auch frei mit Claude reden; das hier sind nur Vorschläge für häufige Workflows.
-          {/* #979 Befund 4: hier stand ein Satz, der auf die Hilfe VERWIES,
-              ohne sie öffnen zu können — der Öffner lag als State in App.jsx
-              und wurde nirgends durchgereicht. */}
           {" "}
           <button
             type="button"
@@ -148,7 +169,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
             Alle {katalog.length} Prompts ansehen
           </button>
         </p>
-      </details>
+      )}
 
       {auswahlOffen ? (
         <div className="mt-3 rounded-xl border border-white/[0.06] p-3">
