@@ -1655,6 +1655,25 @@ def register(mcp, db, logger):
         }
         stats["pipeline"] = pipeline
 
+        # #986: die Score-Verteilung ueber die BEWORBENEN Stellen. Sie
+        # zeigt, wie weit das eigene Urteil vom Modell abweicht — eine
+        # Frage, die keine andere Kennzahl beantwortet. Die Zahlen gab es
+        # bisher nur als Nebenprodukt von `kalibrierung_backtest`, das
+        # fuer die Schwellenkalibrierung gebaut wurde.
+        try:
+            from ..services import score_verteilung as _sv
+            _schwelle = None
+            try:
+                _schwelle = (db.get_search_criteria() or {}).get(
+                    "min_score_schwelle")
+            except Exception:
+                pass
+            _vert = _sv.verteilung(db, _schwelle)
+            if _vert:
+                stats["score_verteilung"] = _vert
+        except Exception as exc:  # pragma: no cover — nie die Statistik kippen
+            logger.debug("Score-Verteilung uebersprungen: %s", exc)
+
         return stats
 
     # === Meetings (#444) ===================================================

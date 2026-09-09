@@ -6589,6 +6589,19 @@ class Database:
         ).fetchall()
         stats["jobs_by_source"] = {r["source"]: r["cnt"] for r in source_rows}
         stats["active_jobs_by_source"] = {r["source"]: r["active_cnt"] for r in source_rows}
+        # #986: die Score-Verteilung ueber die beworbenen Stellen —
+        # dieselbe Quelle wie im MCP-Weg (`statistiken_abrufen`), damit
+        # Dashboard und Werkzeug nicht auseinanderlaufen. Rein lesend.
+        try:
+            from .services import score_verteilung as _sv
+            _schwelle = (self.get_search_criteria() or {}).get(
+                "min_score_schwelle")
+            _vert = _sv.verteilung(self, _schwelle)
+            if _vert:
+                stats["score_verteilung"] = _vert
+        except Exception as _exc:  # pragma: no cover
+            logger.debug("Score-Verteilung uebersprungen: %s", _exc)
+
         return stats
 
     def get_timeline_stats(self, interval: str = "month", time_range: str = "") -> dict:
