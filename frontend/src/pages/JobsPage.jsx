@@ -169,6 +169,10 @@ export const FILTER_STANDARD = {
   employmentType: "",
   hideApplied: true,
   missingDescriptionOnly: false,
+  // #1007: nur Stellen, die gegen das Profil gelesen wurden. Vorgabe
+  // AUS — ein Filter, den niemand gesetzt hat, war der ganze Befund
+  // von #1008.
+  onlyAnalysed: false,
 };
 
 // Welche Filter unterdruecken gerade Eintraege — und wie macht man das
@@ -184,6 +188,7 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
+  if (filters.onlyAnalysed) aktiv.push({ schluessel: "onlyAnalysed", text: "nur beurteilte" });
   return aktiv;
 }
 
@@ -420,6 +425,7 @@ export default function JobsPage() {
     filters.remote,
     filters.salaryOnly,
     filters.missingDescriptionOnly,
+    filters.onlyAnalysed,
     filters.sort,
   ]);
 
@@ -702,7 +708,10 @@ export default function JobsPage() {
       const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
       const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
       const descriptionMatch = !filters.missingDescriptionOnly || jobNeedsDescriptionAttention(job);
-      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch && descriptionMatch;
+      // #1007: "noch nicht beurteilt" ist kein Urteil — wer die
+      // gelesenen sehen will, filtert danach.
+      const analysedMatch = !filters.onlyAnalysed || Boolean(job.analyse?.urteil);
+      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch && descriptionMatch && analysedMatch;
     })
     .sort((a, b) => {
       // Pinned jobs always come first
@@ -1083,6 +1092,27 @@ export default function JobsPage() {
               </button>
               {filters.salaryOnly && (
                 <button type="button" onClick={() => setFilters(f => ({ ...f, salaryOnly: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
+
+            {/* #1007: nach dem Urteil filtern. "Noch nicht beurteilt"
+                ist kein Urteil — wer sehen will, was tatsaechlich gegen
+                das Profil gelesen wurde, soll es nicht suchen muessen. */}
+            <div className="group inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                  filters.onlyAnalysed
+                    ? "border-teal/20 bg-teal/8 text-teal/80"
+                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                )}
+                onClick={() => setFilters((current) => ({ ...current, onlyAnalysed: !current.onlyAnalysed }))}
+              >
+                Nur beurteilte
+              </button>
+              {filters.onlyAnalysed && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, onlyAnalysed: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
