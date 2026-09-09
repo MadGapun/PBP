@@ -251,6 +251,14 @@ def run_server():
     # damit der erste Aufruf nach Inaktivitaet nicht 50-60s Cold-Load kostet
     # (MCP-Timeout-Risiko). Nur aktiv wenn user_state='active'.
     start_ollama_warmup_loop(db)
+    # #1001: Ollama auf Wunsch mitstarten. Vorgabe AUS; die Logik liegt in
+    # services/ollama_start.py und wird auch vom Dashboard-Startweg und vom
+    # Knopf im Einstellungen-Tab aufgerufen — eine Fassung, drei Aufrufer.
+    try:
+        from .services import ollama_start
+        ollama_start.beim_start(db)
+    except Exception as exc:
+        logger.warning("Ollama-Autostart uebersprungen: %s", exc)
 
     # Run MCP server (blocks on stdio)
     from . import __version__

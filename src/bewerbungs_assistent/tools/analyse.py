@@ -2886,6 +2886,42 @@ def register(mcp, db, logger):
             "features": cfg,
         }
 
+    # === Ollama mit PBP starten (#1001) ================================
+
+    @mcp.tool()
+    def ollama_autostart(aktion: str = "anzeigen") -> dict:
+        """Soll Ollama automatisch mit PBP starten?
+
+        Ollama ist der Dienst hinter der lokalen KI. PBP kann ihn beim
+        eigenen Start mit hochfahren — dann steht die lokale KI auch nach
+        einem Neustart des Rechners bereit, ohne dass jemand das Dashboard
+        oeffnen und den Knopf druecken muss.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'an' oder 'aus'.
+
+        Die Vorgabe ist AUS: PBP startet keine fremden Programme, solange
+        niemand darum bittet.
+
+        Wichtig: der Autostart greift nur, wenn die lokale KI auf 'active'
+        steht. Steht sie auf 'off' oder 'paused', sagt die Antwort das —
+        eine Einstellung, die stillschweigend nichts tut, waere schlimmer
+        als gar keine.
+        """
+        from ..services import ollama_start
+
+        wahl = (aktion or "anzeigen").strip().lower()
+        if wahl in ("anzeigen", "lesen", "status", ""):
+            return ollama_start.autostart_lesen(db)
+        if wahl in ("an", "ein", "true", "ja"):
+            return ollama_start.autostart_setzen(db, True)
+        if wahl in ("aus", "off", "false", "nein"):
+            return ollama_start.autostart_setzen(db, False)
+        return {
+            "fehler": "aktion muss 'anzeigen', 'an' oder 'aus' sein.",
+            "aktueller_stand": ollama_start.autostart_lesen(db),
+        }
+
     # === Telemetrie-Sharing-Steuerung (#594 Stufe 5, beta.93) ==========
 
     @mcp.tool()

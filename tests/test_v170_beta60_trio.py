@@ -371,11 +371,29 @@ def test_llm_start_already_running(setup_env, monkeypatch):
 
 
 def test_llm_start_spawns_subprocess(setup_env, monkeypatch):
-    """Wenn Ollama nicht laeuft aber das Binary da ist, wird gespawnt."""
+    """Wenn Ollama nicht laeuft aber das Binary da ist, wird gespawnt.
+
+    Seit #1001 (v1.7.58) sucht PBP die Binary AUFLOESEND — erst `which`,
+    dann die bekannten Installationsorte —, weil der PATH nicht genuegt,
+    wenn PBP als MCP-Server unter Claude Desktop startet. Gespawnt wird
+    deshalb ein absoluter Pfad und nicht mehr der blosse Name.
+
+    Der Test hat diese Annahme vorher UNTERSTELLT: er erwartete
+    `["ollama", "serve"]` und war damit still davon abhaengig, ob auf der
+    Maschine ein `ollama` im PATH liegt. Auf einem Runner ohne Ollama
+    waere er nach der Aenderung mit 404 gescheitert, ohne dass jemand den
+    Grund sieht. Jetzt steht die Annahme als Monkeypatch da (v1.7.49
+    MERKE 5): geprueft wird, DASS `serve` an der gefundenen Binary
+    gespawnt wird, nicht wie die Binary heisst.
+    """
     from fastapi.testclient import TestClient
     from bewerbungs_assistent.dashboard import app
     from bewerbungs_assistent.services import llm_service
+    from bewerbungs_assistent.services import ollama_start
     import subprocess
+
+    monkeypatch.setattr(ollama_start, "binary_finden",
+                        lambda: "/pfad/zu/ollama")
 
     class FakeStatus:
         ollama_available = False
@@ -404,4 +422,4 @@ def test_llm_start_spawns_subprocess(setup_env, monkeypatch):
     data = r.json()
     assert data["status"] == "starting"
     assert data["pid"] == 12345
-    assert spawned_args == [["ollama", "serve"]]
+    assert spawned_args == [["/pfad/zu/ollama", "serve"]]

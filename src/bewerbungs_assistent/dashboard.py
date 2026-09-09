@@ -10558,67 +10558,81 @@ async def api_llm_warmup():
 
 @app.post("/api/llm/start")
 async def api_llm_start():
-    """v1.7.0-beta.60 (#637): Versucht Ollama als Detached-Subprocess zu spawnen.
+    """Startet Ollama auf Knopfdruck (#637, v1.7.0-beta.60).
 
     Use Case: Lokale KI wurde via Taskmanager / Reboot gestoppt. PBP zeigt
     'nicht erreichbar', aber der User hat keinen Weg das aus dem Dashboard
-    heraus zu starten. Dieses Endpoint spawnt `ollama serve` als
-    losgeloesten Prozess (Crash von PBP killed Ollama nicht).
+    heraus zu starten.
+
+    Seit #1001 liegt die Logik in `services/ollama_start.py` — dieselbe
+    Fassung, die auch der Autostart beim Hochfahren benutzt. Eine zweite
+    Fassung nebeneinander waere das Muster aus #963/#991/#992.
 
     Pollt nicht selbst — Frontend prueft via /api/llm/status nach.
     """
-    import subprocess
-    import platform as _pf
-    from .services.llm_service import get_llm_service
+    from .services import ollama_start
 
-    svc = get_llm_service(_db)
-    s = svc.get_status(force_refresh=True)
-    if s.ollama_available:
-        return {"status": "already_running", "endpoint": s.ollama_endpoint}
-
-    try:
-        kwargs = {
-            "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
-            "stdin": subprocess.DEVNULL,
-        }
-        if _pf.system() == "Windows":
-            # DETACHED_PROCESS = 0x00000008
-            # CREATE_NEW_PROCESS_GROUP = 0x00000200
-            # → Ollama lebt weiter wenn PBP-Server killed wird
-            kwargs["creationflags"] = 0x00000008 | 0x00000200
-        else:
-            kwargs["start_new_session"] = True
-        proc = subprocess.Popen(["ollama", "serve"], **kwargs)
-    except FileNotFoundError:
+    ergebnis = ollama_start.ollama_starten(_db)
+    status = ergebnis.get("status")
+    if status == "lief_bereits":
+        # Antwortform aus beta.60 beibehalten — das Frontend liest sie.
+        return {"status": "already_running",
+                "endpoint": ergebnis.get("endpoint")}
+    if status == "nicht_installiert":
         return JSONResponse(
             {
                 "status": "not_installed",
-                "error": "Ollama-Binary nicht im PATH gefunden.",
-                "hilfe_url": "https://ollama.com/download",
-                "hinweis": (
-                    "Lade Ollama von ollama.com/download herunter. Nach "
-                    "Installation startet es automatisch — dieser Button "
-                    "wird dann ueberfluessig."
-                ),
+                "error": ergebnis.get("fehler"),
+                "hilfe_url": ergebnis.get("hilfe_url"),
+                "hinweis": ergebnis.get("hinweis"),
             },
             status_code=404,
         )
-    except OSError as exc:
+    if status != "gestartet":
         return JSONResponse(
-            {"status": "error", "error": f"Spawn fehlgeschlagen: {exc}"},
+            {"status": "error", "error": ergebnis.get("fehler")},
             status_code=500,
         )
-
     return {
         "status": "starting",
-        "pid": proc.pid,
-        "hinweis": (
-            "Ollama wurde gestartet. Status wird in den naechsten "
-            "10-30 Sekunden auf 'verfuegbar' wechseln. Pruefe via "
-            "/api/llm/status."
-        ),
+        "pid": ergebnis.get("pid"),
+        "hinweis": ergebnis.get("hinweis"),
     }
+
+
+@app.get("/api/llm/autostart")
+async def api_llm_autostart_lesen():
+    """Soll Ollama mit PBP starten? (#1001)"""
+    from .services import ollama_start
+    return ollama_start.autostart_lesen(_db)
+
+
+@app.put("/api/llm/autostart")
+async def api_llm_autostart_setzen(request: Request):
+    """Setzt den Autostart. Vorgabe ist AUS (#1001).
+
+    Antwortet mit der WIRKUNG, nicht nur mit dem gespeicherten Wert:
+    steht die lokale KI auf 'off' oder 'paused', greift der Autostart
+    nicht — und das gehoert gesagt statt still hingenommen (#988).
+    """
+    from .services import ollama_start
+
+    data = await request.json()
+    an = data.get("an")
+    if isinstance(an, str):
+        # Nur ausdrueckliche Ja/Nein-Woerter. Alles andere auf False zu
+        # kippen waere der Fehler aus #980: ein Fallback, der eine ANDERE
+        # Bedeutung speichert als die gemeinte — der Nutzer bekaeme eine
+        # Erfolgsmeldung und einen abgeschalteten Autostart.
+        wort = an.strip().lower()
+        if wort in ("true", "1", "yes", "an", "ja"):
+            an = True
+        elif wort in ("false", "0", "no", "aus", "nein"):
+            an = False
+    if not isinstance(an, bool):
+        return JSONResponse(
+            {"error": "an muss true oder false sein"}, status_code=400)
+    return ollama_start.autostart_setzen(_db, an)
 
 
 @app.post("/api/llm/test-connection")
@@ -11101,6 +11115,13 @@ def start_dashboard(db_instance, port: int = None):
         start_automatik_scheduler(db_instance)
     except Exception as exc:
         logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
+    # #1001: Ollama auf Wunsch mitstarten — derselbe Aufruf wie im
+    # MCP-Startweg (server.py). Vorgabe AUS.
+    try:
+        from .services import ollama_start
+        ollama_start.beim_start(db_instance)
+    except Exception as exc:
+        logger.warning("Ollama-Autostart uebersprungen: %s", exc)
     use_port = port or DASHBOARD_PORT
     logger.info("Dashboard startet auf http://localhost:%d", use_port)
     import uvicorn
