@@ -33,6 +33,86 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.54] - 2026-09-09 — Der Trichter belegt, was er zählt
+
+Seit v1.7.22 sagt PBP nach einer Suche, an welcher Stufe wie viele
+Treffer verworfen wurden. Das beantwortet die eigentliche Frage aber
+nicht: **steht die Schwelle richtig, und kostet ein einzelnes zu breites
+Wort den halben Lauf?**
+
+### Added
+
+- **Die knapp Gescheiterten stehen jetzt namentlich da.** „37 unter der
+  Schwelle" ist keine Auskunft — fünf Stellen bei Score 4 gegen eine
+  Schwelle von 5 sind etwas völlig anderes als fünf bei Score 0. Nach
+  einer Suche siehst du die knappsten Fälle mit Titel, Firma und der
+  Angabe, wie viele Punkte gefehlt haben.
+
+  Stellen ohne fachlichen Bezug tauchen dort bewusst **nicht** auf: die
+  sind nicht knapp gescheitert, sondern gar nicht gemeint.
+
+- **Welches Ausschluss-Wort wie oft gefeuert hat.** Ein einziger zu
+  breit gefasster Begriff kann einen Suchlauf leerräumen, ohne dass es
+  auffällt — in der Liste steht er oben, mit Trefferzahl.
+
+### Changed
+
+- **Ein Kriterium, das doppelt gepflegt ist, wird benannt.** Werte wie
+  das Mindestgehalt haben ein eigenes Feld. Steht derselbe Wert
+  zusätzlich im Sammelbecken für eigene Kriterien, wird er beim Bewerten
+  **nie gelesen** — sieht aber aus, als würde er wirken. PBP sagt das
+  jetzt beim Setzen und beim Anzeigen, statt den Wert still zu löschen
+  oder still umzudeuten.
+
+### Hinweis
+
+Damit ist die große Quellen- und Filter-Meldung vom August vollständig
+abgearbeitet. Die übrigen Punkte kamen in v1.7.22 (Filterkaskade),
+v1.7.26 (ehrliche 0-Treffer-Meldung samt Warnung, wenn das halbe
+Quellenportfolio nicht läuft), v1.7.44 (Quellenpflege) und v1.7.51
+(„liefert nichts" gegen „liefert nichts Passendes").
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.54.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.54.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.53] - 2026-09-09 — Der Prüfer suchte die falsche Zeichenkette
 
 Die Prüfung, die verhindern soll, dass echte Firmennamen in öffentliche
