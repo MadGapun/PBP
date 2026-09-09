@@ -542,6 +542,85 @@ export default function StatsPage() {
             </div>
           )}
 
+          {/* #986: Score-Verteilung ueber die BEWORBENEN Stellen.
+              Zeigt, wie weit das eigene Urteil vom Modell abweicht —
+              eine Frage, die keine andere Kennzahl beantwortet. */}
+          {coreStats?.score_verteilung?.beworben?.anzahl > 0 && (() => {
+            const v = coreStats.score_verteilung;
+            const b = v.beworben;
+            const spanne = Math.max(1, b.max - b.min);
+            const pos = (wert) => ((wert - b.min) / spanne) * 100;
+            return (
+              <Card className="rounded-2xl">
+                <div className="mb-4 flex items-center gap-2">
+                  <BarChart3 size={14} className="text-amber" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                    Score deiner Bewerbungen
+                  </p>
+                </div>
+                <p className="mb-4 text-xs text-muted">
+                  Bei welchem Score du dich tatsaechlich beworben hast.
+                  Der Score ist eine Einschaetzung — entschieden hast du.
+                </p>
+                {/* Spannenbalken mit Quartilen und Schwellenmarkierung */}
+                <div className="relative mb-2 h-8 w-full rounded-lg bg-panelstrong">
+                  {b.q25 != null && (
+                    <div
+                      className="absolute top-2 h-4 rounded bg-amber/30"
+                      style={{ left: `${pos(b.q25)}%`, width: `${pos(b.q75) - pos(b.q25)}%` }}
+                      title={`Mittlere Haelfte: ${b.q25} bis ${b.q75}`}
+                    />
+                  )}
+                  <div
+                    className="absolute top-1 h-6 w-0.5 bg-amber"
+                    style={{ left: `${pos(b.median)}%` }}
+                    title={`Median ${b.median}`}
+                  />
+                  {v.schwelle != null && v.schwelle >= b.min && v.schwelle <= b.max && (
+                    <div
+                      className="absolute top-0 h-8 w-0.5 bg-muted"
+                      style={{ left: `${pos(v.schwelle)}%` }}
+                      title={`Deine Schwelle: ${v.schwelle}`}
+                    />
+                  )}
+                </div>
+                <div className="mb-4 flex justify-between text-[10px] text-muted/70">
+                  <span>{b.min}</span>
+                  <span>Median {b.median}</span>
+                  <span>{b.max}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                  <div><span className="text-muted/70">Bewerbungen</span><br />{b.anzahl}</div>
+                  <div><span className="text-muted/70">Mittel</span><br />{b.mittel}</div>
+                  <div><span className="text-muted/70">Median</span><br />{b.median}</div>
+                  <div><span className="text-muted/70">Spanne</span><br />{b.min} – {b.max}</div>
+                </div>
+                {v.unter_schwelle?.anzahl > 0 && (
+                  <p className="mt-4 text-xs text-muted">
+                    <strong>{v.unter_schwelle.anzahl}</strong> Bewerbung(en) lagen
+                    unter deiner Schwelle von {v.schwelle} — du hast dich also
+                    gegen die Einschaetzung entschieden.
+                  </p>
+                )}
+                {v.score_null?.anzahl > 0 && (
+                  <p className="mt-2 text-xs text-muted">
+                    <strong>{v.score_null.anzahl}</strong> weitere hatten Score 0.
+                    Das heisst <em>kein Pflichtbegriff getroffen</em> — nicht
+                    schlecht bewertet, sondern gar nicht beurteilt. Sie zaehlen
+                    deshalb nicht in die Zahlen oben.
+                  </p>
+                )}
+                {v.ohne_verknuepfte_stelle?.anzahl > 0 && (
+                  <p className="mt-2 text-xs text-muted">
+                    <strong>{v.ohne_verknuepfte_stelle.anzahl}</strong> Bewerbung(en)
+                    haben keine verknuepfte Stelle und damit keinen Score — eine
+                    Datenluecke, kein Nullwert.
+                  </p>
+                )}
+              </Card>
+            );
+          })()}
+
           {/* #682: Outcome-Quoten mit Segmentierung am PBP-Startdatum */}
           {coreStats?.quoten && (() => {
             const q = coreStats.quoten;
