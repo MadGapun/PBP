@@ -33,6 +33,104 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.64] - 2026-09-09 — Nach der Entscheidung
+
+Zwei Wünsche von dir vom selben Tag, beide am selben Punkt: **was
+passiert, nachdem man entschieden hat.**
+
+### Added
+
+- **Handlung direkt in der Fit-Analyse (#1009).** Der Dialog endete mit
+  den Risiken und der Claude-Analyse — ohne jede
+  Handlungsmöglichkeit. Wer die Analyse gelesen hatte, musste den Dialog
+  schließen und die Karte in der Liste wiederfinden. Jetzt stehen unten
+  **„Passt nicht"**, **„Bewerbung erfassen"** und **„Anpinnen"** —
+  über *dieselben* Funktionen wie auf der Karte, nicht als zweite
+  Fassung.
+- **Ein Aussortier-Protokoll (#1010).** Die Ansicht „Ausgeblendet" ist
+  jetzt der Rückholweg: **Zeitfenster** (heute / 7 Tage / 30 Tage /
+  alle), **Herkunft** je Zeile (von mir · Automatik) und der
+  **Zeitpunkt** der Aussortierung. Sortiert wird danach — nicht mehr
+  nach `updated_at`, das jede Score-Neuberechnung anfasst und die eben
+  weggeklickte Stelle nach einem Suchlauf nach unten schob.
+- **„Rückgängig" im Toast.** Ein Verklicker fällt in Sekunden auf, nicht
+  in Tagen — dort gehört die Umkehr hin. Das Protokoll ist der zweite
+  Weg, falls der Toast schon weg ist.
+- **`aussortier_protokoll()`** als MCP-Werkzeug, mit denselben
+  Zeitfenstern. Es und die Oberfläche lesen **einen** Dienst.
+
+### Fixed
+
+- **Der Zeitpunkt der Aussortierung wurde nirgends festgehalten.** Er
+  entsteht jetzt am Nadelöhr `dismiss_job` — **und im Anlege-Weg
+  `save_jobs`**, der ebenfalls aussortiert (Wiedergänger, Duplikat,
+  Nicht-DACH-Ort). Der Kommentar zu #913 nennt `dismiss_job` das
+  Nadelöhr *aller* dismiss-Writes; für das Anlegen stimmte das nicht,
+  und ohne diese Ergänzung hätte ausgerechnet die Automatik kein Datum
+  getragen.
+- **Manuell und automatisch waren nicht unterscheidbar.** Ableiten ließ
+  sich das nicht: das `auto:`-Präfix wird beim Schreiben bewusst
+  entfernt (#913), und `duplikat` setzt sowohl die Automatik als auch
+  du. Die Herkunft steht deshalb jetzt als eigene Angabe in der
+  Datenbank.
+- Der Bewerbungs-Entwurf stand als Literal am Karten-Knopf. Beim
+  Zusammenführen fand der neue Test eine **dritte** Fundstelle, die es
+  schon vor diesem Issue gab (Detail-Dialog).
+
+### Bewusst nicht
+
+Aussortierungen aus der Zeit vor dieser Version bekommen **kein**
+Datum und **keine** Herkunft. `updated_at` einzusetzen wäre eine
+erfundene Angabe (#987), und ohne Beleg heißt die Herkunft
+„unbekannt" — nicht „warst du" (#989). Solche Einträge erscheinen unter
+„alle" und sagen dort, warum sie sich nicht einordnen lassen.
+
+**Tests:** 3402 bestanden, 2 übersprungen (+17 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.64.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.64.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
 ## [1.7.63] - 2026-09-09 — Nur die beurteilten
 
 Nachtrag zu **#1007**. v1.7.61 hat das Analyse-Ergebnis an der Stelle
