@@ -2304,8 +2304,14 @@ def score_maximum(criteria: dict) -> float:
     idf = criteria.get("_idf_faktoren") or {}
 
     muss = criteria.get("keywords_muss", []) or []
+    # v1.7.66 (#1012): Schreibvarianten derselben Anforderung zaehlen
+    # EINMAL. Der Hoechstwert MUSS mitgruppieren — sonst waere er nicht
+    # mehr erreichbar und die gepruefte Eigenschaft aus #999 (eine
+    # Anzeige, die alles trifft, ergibt exakt 100 %) waere gebrochen.
+    from ..services.anforderungen import zaehlbare_punkte
     muss_punkte = sorted(
-        (_punkte_pro_treffer(kw, w["muss"], overrides, idf) for kw in muss),
+        zaehlbare_punkte(
+            muss, lambda kw: _punkte_pro_treffer(kw, w["muss"], overrides, idf)),
         reverse=True)
     if idf and muss_punkte:
         from ..services.kalibrierung import MUSS_TOP_N
@@ -2764,12 +2770,23 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Mit IDF-Faktoren zaehlen zusaetzlich nur die MUSS_TOP_N staerksten
     # MUSS-Treffer (Deckelung) — Masse darf Klasse nicht schlagen.
     # v1.7.12 (#827): jeder Treffer traegt seinen Firmenabsatz-Faktor.
+    # v1.7.66 (#1012): je Anforderung einmal. Drei Schreibweisen
+    # desselben Sachverhalts ergaben 21,0 statt 7,0 Punkte — Faktor 3
+    # fuer eine blosse Umformulierung, und das verschiebt die Sortierung.
+    from ..services.anforderungen import zaehlbare_punkte, zusammengefasst
     muss_punkte = sorted(
-        (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
-         * _treffer_faktor(kw)
-         for kw in muss_hits_kws),
+        zaehlbare_punkte(
+            muss_hits_kws,
+            lambda kw: (_punkte_pro_treffer(kw, w["muss"], overrides, idf)
+                        * _treffer_faktor(kw))),
         reverse=True,
     )
+    # AK 4: sagen, WAS zusammengefasst wurde. Eine stille
+    # Score-Aenderung ist in diesem Projekt schon zweimal teuer
+    # geworden (#987, #988).
+    _gruppiert = zusammengefasst(muss_hits_kws)
+    if _gruppiert:
+        job["_muss_zusammengefasst"] = _gruppiert
     if idf:
         from ..services.kalibrierung import MUSS_TOP_N
         muss_punkte = muss_punkte[:MUSS_TOP_N]
@@ -2932,6 +2949,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
     return max(0, round(score, 1))
 
 
+def _zusammengefasst_fit(muss_hits) -> list:
+    """Die Gruppen der getroffenen MUSS-Begriffe — leer, wenn keine."""
+    try:
+        from ..services.anforderungen import zusammengefasst
+        return zusammengefasst(muss_hits)
+    except Exception:  # pragma: no cover — eine Auskunft stoppt nie
+        return []
+
+
 def fit_analyse(job: dict, criteria: dict) -> dict:
     """Detailed fit analysis for a job — used by dashboard API.
 
@@ -3051,10 +3077,16 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     )
 
     if muss_hits:
+        # v1.7.66 (#1012): dieselbe Zusammenfassung wie in
+        # calculate_score. Liefe nur einer der beiden Wege darueber,
+        # waere das die Divergenz aus #963 — zum wievielten Mal auch
+        # immer.
+        from ..services.anforderungen import zaehlbare_punkte
         _muss_pts = sorted(
-            (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
-             * _fa_faktor(kw)
-             for kw in muss_hits),
+            zaehlbare_punkte(
+                muss_hits,
+                lambda kw: (_punkte_pro_treffer(kw, w["muss"], _overrides, _idf)
+                            * _fa_faktor(kw))),
             reverse=True,
         )
         if _idf:
@@ -3333,6 +3365,12 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         "fachscore": round(_fach, 1),
         "rahmenscore": round(_rahmen_plus - _rahmen_minus, 1),
         "muss_hits": muss_hits,
+        # v1.7.66 (#1012) AK 4: welche Treffer als EINE Anforderung
+        # gezaehlt wurden. Ohne diese Auskunft waere die Zusammenfassung
+        # eine stille Score-Aenderung — und wer eine Zahl sinken sieht,
+        # ohne den Grund zu erfahren, sucht ihn an der falschen Stelle
+        # (#987 MERKE 5).
+        "muss_zusammengefasst": _zusammengefasst_fit(muss_hits),
         "missing_muss": missing_muss,
         "plus_hits": plus_hits,
         # #667: Minus-Treffer im Result transparent machen — Claude kann
