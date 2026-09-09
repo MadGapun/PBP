@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from .services import dokument_regeln as dr
+
 logger = logging.getLogger("bewerbungs_assistent.export")
 
 
@@ -208,54 +210,64 @@ def generate_cv_docx(profile: dict, output_path: Path,
     heading = doc.add_heading(profile.get("name", "Lebenslauf"), level=0)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Contact
-    contact = []
-    if profile.get("email"): contact.append(profile["email"])
-    if profile.get("phone"): contact.append(profile["phone"])
-    if profile.get("city"):
-        addr = f"{profile.get('address', '')} " if profile.get("address") else ""
-        addr += f"{profile.get('plz', '')} {profile['city']}".strip()
-        contact.append(addr.strip())
-    if contact:
-        p = doc.add_paragraph(" | ".join(contact))
+    # Contact — #1006: jeder Wert durch dr.text(). `profile.get("x", "")`
+    # liefert bei einer NULL-Spalte `None`, nicht den Vorgabewert; genau
+    # so kam viermal "None" in einen echten Lebenslauf.
+    anschrift = dr.zeile(
+        dr.zeile(dr.text(profile.get("address")),
+                 dr.zeile(dr.text(profile.get("plz")),
+                          dr.text(profile.get("city")), trenner=" "),
+                 trenner=" "),
+        trenner=" ")
+    kopfzeile = dr.zeile(profile.get("email"), profile.get("phone"), anschrift)
+    if kopfzeile:
+        p = doc.add_paragraph(kopfzeile)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # Summary
-    if profile.get("summary"):
+    kurzprofil = dr.fliesstext(profile.get("summary"))
+    if kurzprofil:
         doc.add_heading("Profil", level=1)
-        doc.add_paragraph(profile["summary"])
+        doc.add_paragraph(kurzprofil)
 
     # Work experience
     positions = profile.get("positions", [])
     if positions:
         doc.add_heading("Berufserfahrung", level=1)
         overlaps = detect_position_overlaps(positions)
-        for pos_idx, pos in enumerate(positions):
-            end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
-            period = f"{pos.get('start_date', '')} - {end}"
-            hint = _overlap_hint(pos_idx, positions, overlaps)
+        # #1006 Regel 4: aktuelle Taetigkeit oben. Vorher lief die
+        # Schleife in Speicherreihenfolge — der gemeldete Lebenslauf
+        # begann mit einer Station aus 2005.
+        geordnet = dr.absteigend(positions)
+        for pos_idx, pos in enumerate(geordnet):
+            period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
+                                 bool(pos.get("is_current")))
+            hint = _overlap_hint(positions.index(pos) if pos in positions
+                                 else pos_idx, positions, overlaps)
             if hint:
                 period += f"  {hint}"
-            emp_type = pos.get("employment_type", "")
+            emp_type = dr.text(pos.get("employment_type"))
             type_str = f" ({emp_type})" if emp_type and emp_type != "festanstellung" else ""
 
             p = doc.add_paragraph()
-            run = p.add_run(f"{pos.get('title', '')} bei {pos.get('company', '')}{type_str}")
+            run = p.add_run(dr.zeile(dr.text(pos.get("title")),
+                                     dr.text(pos.get("company")),
+                                     trenner=" bei ") + type_str)
             run.bold = True
             run.font.size = Pt(11)
 
-            p2 = doc.add_paragraph(period)
-            if pos.get("location"):
-                p2.add_run(f" | {pos['location']}")
+            kopf = dr.zeile(period, dr.text(pos.get("location")))
+            if kopf:
+                doc.add_paragraph(kopf)
 
-            if pos.get("tasks"):
-                doc.add_paragraph(f"Aufgaben: {pos['tasks']}")
-            if pos.get("achievements"):
-                doc.add_paragraph(f"Erfolge: {pos['achievements']}")
-            if pos.get("technologies"):
-                doc.add_paragraph(f"Technologien: {pos['technologies']}")
+            for etikett, feld in (("Aufgaben", "tasks"),
+                                  ("Erfolge", "achievements"),
+                                  ("Technologien", "technologies")):
+                inhalt = dr.fliesstext(pos.get(feld))
+                if inhalt:
+                    doc.add_paragraph(f"{etikett}: {inhalt}")
 
-            for proj in pos.get("projects", []):
+            for proj in dr.projekte(pos.get("projects", [])):
                 p = doc.add_paragraph()
                 run = p.add_run(f"Projekt: {_project_display_name(proj)}{_project_date_range(proj)}")
                 run.bold = True
@@ -268,36 +280,31 @@ def generate_cv_docx(profile: dict, output_path: Path,
     education = profile.get("education", [])
     if education:
         doc.add_heading("Ausbildung", level=1)
-        for edu in education:
+        # #1006: hier standen die vier gemeldeten "None". `edu.get(k, "")`
+        # gibt bei NULL-Spalten den gespeicherten None zurueck, nicht "".
+        for edu in dr.absteigend(education):
+            abschluss = dr.zeile(edu.get("degree"), edu.get("field_of_study"),
+                                 trenner=" ")
+            institut = dr.text(edu.get("institution"))
             p = doc.add_paragraph()
-            degree = f"{edu.get('degree', '')} {edu.get('field_of_study', '')}".strip()
-            run = p.add_run(degree or edu.get("institution", ""))
+            run = p.add_run(abschluss or institut)
             run.bold = True
-            line = edu.get("institution", "")
-            start = edu.get("start_date", "")
-            end = edu.get("end_date", "")
-            if start or end:
-                line += f" | {start} - {end}"
-            if edu.get("grade"):
-                line += f" | Note: {edu['grade']}"
-            doc.add_paragraph(line)
+            note = dr.text(edu.get("grade"))
+            unterzeile = dr.zeile(
+                institut if abschluss else "",
+                dr.zeitraum(edu.get("start_date"), edu.get("end_date")),
+                f"Note: {note}" if note else "")
+            if unterzeile:
+                doc.add_paragraph(unterzeile)
 
     # Skills
     skills = profile.get("skills", [])
     if skills:
         doc.add_heading("Kompetenzen", level=1)
-        by_cat = {}
-        for s in skills:
-            by_cat.setdefault(s.get("category", "sonstige"), []).append(s)
-        cat_labels = {
-            "fachlich": "Fachlich", "methodisch": "Methodisch",
-            "soft_skill": "Soft Skills", "sprache": "Sprachen",
-            "tool": "Tools / Software",
-        }
-        for cat, items in by_cat.items():
-            label = cat_labels.get(cat, cat)
-            names = ", ".join(s["name"] for s in items)
-            doc.add_paragraph(f"{label}: {names}")
+        # #1006 Regel 6+7: thematisch gruppiert, begrenzt, ohne
+        # Satzfragmente aus der Dokumentenextraktion.
+        for bezeichnung, namen in dr.kompetenzen(skills):
+            doc.add_paragraph(f"{bezeichnung}: {', '.join(namen)}")
 
     doc.save(str(output_path))
     logger.info("CV DOCX generated: %s", output_path)
@@ -408,8 +415,11 @@ def generate_tailored_cv_docx(
     if profile.get("phone"):
         contact_parts.append(profile["phone"])
     if profile.get("city"):
-        addr = f"{profile.get('address', '')} " if profile.get("address") else ""
-        addr += f"{profile.get('plz', '')} {profile['city']}".strip()
+        addr = dr.zeile(
+            dr.text(profile.get("address")),
+            dr.zeile(dr.text(profile.get("plz")), dr.text(profile.get("city")),
+                     trenner=" "),
+            trenner=" ")
         contact_parts.append(addr.strip())
     if contact_parts:
         p3 = doc.add_paragraph()
@@ -503,11 +513,13 @@ def generate_tailored_cv_docx(
 
             # Role + period as normal text
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
-            period = f"{pos.get('start_date', '')} - {end}"
+            period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
+                                 bool(pos.get("is_current")))
             hint = _overlap_hint(orig_idx, positions, overlaps) if orig_idx >= 0 else ""
             emp_type = pos.get("employment_type", "")
             type_str = f" | {emp_type}" if emp_type and emp_type != "festanstellung" else ""
-            location_str = f" | {pos['location']}" if pos.get("location") else ""
+            _ort = dr.text(pos.get("location"))
+            location_str = f" | {_ort}" if _ort else ""
 
             p = doc.add_paragraph()
             run_title = p.add_run(pos.get("title", ""))
@@ -567,12 +579,15 @@ def generate_tailored_cv_docx(
         doc.add_heading("Ausbildung", level=1)
         _add_section_line(doc)
         for edu in education:
-            degree = f"{edu.get('degree', '')} {edu.get('field_of_study', '')}".strip()
-            institution = edu.get("institution", "")
-            start = edu.get("start_date", "")
-            end = edu.get("end_date", "")
-            period = f"{start} - {end}" if start or end else ""
-            grade = f" | Note: {edu['grade']}" if edu.get("grade") else ""
+            # #1006: hier stand dieselbe None-Falle wie in der
+            # schlichten Fassung — `edu.get(k, "")` liefert bei einer
+            # NULL-Spalte den gespeicherten None.
+            degree = dr.zeile(edu.get("degree"), edu.get("field_of_study"),
+                              trenner=" ")
+            institution = dr.text(edu.get("institution"))
+            period = dr.zeitraum(edu.get("start_date"), edu.get("end_date"))
+            _note = dr.text(edu.get("grade"))
+            grade = f" | Note: {_note}" if _note else ""
 
             p = doc.add_paragraph()
             if degree:
@@ -1241,7 +1256,9 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
     contact = []
     if profile.get("email"): contact.append(profile["email"])
     if profile.get("phone"): contact.append(profile["phone"])
-    if profile.get("city"): contact.append(f"{profile.get('plz', '')} {profile['city']}".strip())
+    if profile.get("city"):
+        contact.append(dr.zeile(dr.text(profile.get("plz")),
+                                dr.text(profile.get("city")), trenner=" "))
     if contact:
         pdf.set_font(font_name, "", 9)
         pdf.cell(epw, 6, safe(" | ".join(contact)),
@@ -1271,10 +1288,13 @@ def generate_cv_pdf(profile: dict, output_path: Path) -> Path:
         for pos_idx, pos in enumerate(positions):
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
             pdf.set_font(font_name, "B", 11)
-            pdf.cell(epw, 6, safe(f"{pos.get('title', '')} bei {pos.get('company', '')}"),
+            pdf.cell(epw, 6, safe(dr.zeile(dr.text(pos.get("title")),
+                                            dr.text(pos.get("company")),
+                                            trenner=" bei ")),
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font(font_name, "", 9)
-            loc = f" | {pos['location']}" if pos.get("location") else ""
+            _ort = dr.text(pos.get("location"))
+            loc = f" | {_ort}" if _ort else ""
             hint = _overlap_hint(pos_idx, positions, overlaps)
             hint_str = f"  {hint}" if hint else ""
             pdf.cell(epw, 5, safe(f"{pos.get('start_date', '')} - {end}{loc}{hint_str}"),
@@ -1479,7 +1499,8 @@ def generate_cv_markdown(profile: dict, output_path: Path) -> Path:
         lines.append("")
         for pos in positions:
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
-            period = f"{pos.get('start_date', '')} - {end}"
+            period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
+                                 bool(pos.get("is_current")))
             emp = pos.get("employment_type", "")
             t = f" ({emp})" if emp and emp != "festanstellung" else ""
             lines.append(f"### {pos.get('title', '')} bei {pos.get('company', '')}{t}")
@@ -1549,7 +1570,8 @@ def generate_cv_text(profile: dict, output_path: Path) -> Path:
         lines.extend(["BERUFSERFAHRUNG", "-" * 15, ""])
         for pos in positions:
             end = "heute" if pos.get("is_current") else (pos.get("end_date") or "")
-            period = f"{pos.get('start_date', '')} - {end}"
+            period = dr.zeitraum(pos.get("start_date"), pos.get("end_date"),
+                                 bool(pos.get("is_current")))
             lines.append(f"{pos.get('title', '')} bei {pos.get('company', '')}")
             lines.append(f"  {period}")
             if pos.get("tasks"):
