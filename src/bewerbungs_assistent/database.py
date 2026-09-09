@@ -351,8 +351,13 @@ class Database:
                 ("entfernung_freelance", "999", -1, 0),
                 ("gehalt", "pro_10_prozent", 1, 0),
                 ("schwellenwert", "auto_ignore", 0, 0),
-                # #698: Hochschulabschluss-Malus als sichtbarer Regler (Default -2)
-                ("hochschulabschluss", "fehlt", -2, 0),
+                # v1.7.62 (#1008 Befund 3): der Hochschulabschluss-Regler
+                # (#698) ist hier BEWUSST nicht mehr enthalten. Die
+                # Pruefung dahinter wurde in v1.7.35 (#972) ersatzlos
+                # entfernt; ein Default, der einen abgeschafften
+                # Mechanismus steuert, ist keine Einstellung, sondern
+                # eine Behauptung — und er stand in JEDER frischen
+                # Datenbank.
                 # #910: Entfernung-Gehalt-Kompensation, 0 = aus.
                 # Spanne in EUR/Jahr ueber min_gehalt, ab der der
                 # Entfernungs-Malus vollstaendig kompensiert ist.
@@ -706,6 +711,23 @@ class Database:
             # fachlich oder aus dem Rahmen kommen — genau daran war der
             # Fehlgriff bisher nicht erkennbar. Additiv und optional,
             # deshalb Safety-Net statt Schema-Bump (Muster #913).
+            # v1.7.62 (#1008 Befund 3): tote Regler abraeumen. Der
+            # Mechanismus hinter `hochschulabschluss/fehlt` ist seit
+            # v1.7.35 (#972) entfernt; die Zeile lag danach in jedem
+            # Bestand und sah aus wie eine wirksame Einstellung. Der
+            # Melder hat genau das verlangt: beim Entfernen einer
+            # Pruefung gehoeren ihre Regler mit weg.
+            try:
+                _weg = conn.execute(
+                    "DELETE FROM scoring_config WHERE dimension="
+                    "'hochschulabschluss'").rowcount
+                if _weg:
+                    conn.commit()
+                    logger.info(
+                        "Safety-Net: %d toten Hochschulabschluss-Regler "
+                        "entfernt (#1008)", _weg)
+            except Exception:
+                pass
             for _sp in ("fachscore", "rahmenscore"):
                 if _j_cols and _sp not in _j_cols:
                     conn.execute(f"ALTER TABLE jobs ADD COLUMN {_sp} REAL")
@@ -4731,15 +4753,34 @@ class Database:
             new_score = job.get("score", 0)
             new_pinned = 1 if job.get("is_pinned") else 0
             existing = conn.execute(
-                "SELECT score, is_pinned, is_active, dismiss_reason, research_notes "
+                "SELECT score, is_pinned, is_active, dismiss_reason, research_notes, "
+                "fachscore, rahmenscore "
                 "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
+            # v1.7.62 (#1008 Befund 2): Gesamtwert und Aufteilung MUESSEN
+            # aus demselben Lauf stammen. Bis hierher wurde der hoehere
+            # alte `score` behalten, `fachscore`/`rahmenscore` aber
+            # bedingungslos neu geschrieben — danach stand die Summe des
+            # einen Laufs neben dem Gesamtwert eines anderen. Gemeldet als
+            # "score 10.0 bei fachscore 0.0 und rahmenscore 0.0";
+            # nachgestellt und bestaetigt. Die Aufteilung folgt deshalb
+            # dem Wert, den sie erklaert.
+            neue_teilscores = (job.get("_fachscore"), job.get("_rahmenscore"))
             if existing:
                 if existing["is_pinned"]:
                     new_pinned = 1
                 if existing["score"] and existing["score"] > new_score:
                     new_score = existing["score"]
+                    neue_teilscores = (existing["fachscore"],
+                                       existing["rahmenscore"])
+                elif neue_teilscores == (None, None):
+                    # Eine Aktualisierung ohne Bewertung (Metadaten,
+                    # Beschreibung nachgeladen) darf die vorhandene
+                    # Aufteilung nicht auf NULL setzen — sie gehoert
+                    # weiterhin zum gespeicherten Wert.
+                    neue_teilscores = (existing["fachscore"],
+                                       existing["rahmenscore"])
 
             # #641: Inhalts-Duplikat-Check (nur fuer NEUE Stellen, nicht fuer
             # Updates an einem schon existierenden Hash)
@@ -4840,7 +4881,8 @@ class Database:
                 # Job-Dict ab. Fehlen sie (manuelle Anlage, Ingest ohne
                 # Bewertung), bleibt die Spalte NULL statt 0 — 0 waere
                 # eine Aussage, NULL ist ehrlich "nicht bewertet".
-                job.get("_fachscore"), job.get("_rahmenscore")
+                # v1.7.62 (#1008): welcher Lauf gilt, entscheidet oben.
+                neue_teilscores[0], neue_teilscores[1]
             ))
             # #913: Freitext gehoert nach dismiss_note, nie ins Lern-Feld.
             if is_new and job.get("dismiss_note"):
@@ -5599,31 +5641,12 @@ class Database:
             logger.debug("Kompensations-Injektion (#910): %s", e)
         return criteria
 
-    def get_hochschulabschluss_malus(self):
-        """#698: Konfigurierbarer Malus fuer fehlenden Hochschulabschluss.
-
-        Liefert den Punktwert (Default -2, rueckwaertskompatibel) oder None,
-        wenn der Malus per scoring_konfigurieren('setzen','hochschulabschluss',
-        'fehlt', ignorieren=True) komplett deaktiviert wurde.
-        """
-        pid = self.get_active_profile_id() or ""
-        conn = self.connect()
-        row = conn.execute(
-            "SELECT value, ignore_flag FROM scoring_config "
-            "WHERE (profile_id=? OR profile_id='') "
-            "AND dimension='hochschulabschluss' AND sub_key='fehlt' "
-            "ORDER BY profile_id DESC LIMIT 1",
-            (pid,)
-        ).fetchone()
-        if row is None:
-            return -2
-        if row["ignore_flag"]:
-            return None
-        val = row["value"]
-        try:
-            return int(val) if float(val).is_integer() else float(val)
-        except (TypeError, ValueError):
-            return -2
+    # v1.7.62 (#1008 Befund 3): `get_hochschulabschluss_malus` (#698)
+    # ist entfallen. Sie las einen Regler, dessen Pruefung v1.7.35
+    # (#972) ersatzlos entfernt hat, und ihre beiden Aufrufer legten
+    # das Ergebnis in `criteria` ab, wo es niemand mehr las. Der
+    # Ablehnungsgrund 'kein_hochschulabschluss' bleibt bestehen — er
+    # beschreibt eine Entscheidung des Menschen und steht in Altdaten.
 
     def set_search_criteria(self, key: str, value):
         pid = self.get_active_profile_id() or ""
@@ -9200,12 +9223,24 @@ class Database:
 
     # === Rejection Analysis (PBP v0.9.0) ===
 
-    def _mit_scoring_reglern(self, jobs: list) -> list:
+    def _mit_scoring_reglern(self, jobs: list, sortieren: bool = True) -> list:
         """Wendet die Scoring-Regler an, wie es die Stellenliste tut (#944).
 
         Ohne diesen Schritt weichen Bericht und Liste fuer dieselbe
         Stelle voneinander ab. Ignorierte Stellen fallen hier bewusst
         NICHT weg: der Bericht soll zeigen, was gesichtet wurde.
+
+        v1.7.62 (#1008 Befund 2): jetzt auch der REST-Weg `GET
+        /api/jobs`, der den Stellen-Tab speist. Der gab bis hierher den
+        ROHEN gespeicherten Wert aus, waehrend MCP-Liste und Bericht den
+        angepassten nannten — derselbe Feldname `score` mit
+        verschiedenen Bedeutungen je nach Aufrufweg, und ausgerechnet
+        die Oberflaeche war der Ausreisser. Genau das hat der Melder als
+        "vier verschiedene Score-Werte fuer dieselbe Stelle" gesehen.
+
+        `sortieren=False` fuer Aufrufer, die ihre eigene Reihenfolge
+        haben — die Datenguete-Ordnung aus #989 darf nicht still durch
+        eine reine Score-Sortierung ersetzt werden.
         """
         try:
             from .services.scoring_service import apply_scoring_adjustments
@@ -9217,7 +9252,8 @@ class Database:
                 j["score"] = ergebnis.get("final_score", j.get("score", 0))
             except Exception:
                 continue
-        jobs.sort(key=lambda x: -(x.get("score") or 0))
+        if sortieren:
+            jobs.sort(key=lambda x: -(x.get("score") or 0))
         return jobs
 
     def get_rejection_patterns(self) -> dict:

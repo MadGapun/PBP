@@ -220,21 +220,17 @@ def _build_workspace_summary() -> dict:
         summary["ueberfaellige_aufgaben"] = _db.get_overdue_tasks()
     except Exception:
         summary["ueberfaellige_aufgaben"] = []
-    # v1.7.50 (#993): der Stellen-Tab liest seit beta.27
-    # `chrome.search_criteria.min_score_schwelle`, um seinen
-    # Mindest-Score-Filter vorzubelegen — **das Feld wurde nie
-    # geliefert.** Die optionale Verkettung machte daraus lautlos eine 0,
-    # der Filter startete also immer bei 0 und die persistente Schwelle
-    # wirkte in der Anzeige nie. Bewusst schlank: nur die Werte, die das
-    # Frontend auch liest, statt der ganzen Kriterien (die tragen
-    # Keyword-Listen und gehoeren nicht in jede Dashboard-Antwort).
-    try:
-        _krit = _db.get_search_criteria() or {}
-        summary["search_criteria"] = {
-            "min_score_schwelle": _krit.get("min_score_schwelle") or 0,
-        }
-    except Exception:
-        summary["search_criteria"] = {"min_score_schwelle": 0}
+    # v1.7.62 (#1008): `search_criteria` ist hier entfallen. v1.7.50
+    # (#993) hat das Feld eingefuehrt, weil der Stellen-Tab
+    # `min_score_schwelle` als Vorgabe seines Anzeige-Filters las. Der
+    # Zugriffspfad war damals der Fund; die eigentliche Frage — ob diese
+    # Schwelle die Anzeige ueberhaupt filtern darf — blieb ungestellt.
+    # Sie darf es nicht: sie wirkt laut eigener Beschreibung waehrend
+    # der SUCHE (ab wann eine Stelle gespeichert wird), der
+    # Anzeige-Filter heisst `schwellenwert/auto_ignore`. Mit dem
+    # Frontend-Leser faellt auch der Lieferant weg — ein Feld ohne Leser
+    # ist keine Auskunft, sondern die naechste Fehlerquelle (#993,
+    # #1000).
     return summary
 
 
@@ -2381,6 +2377,13 @@ async def api_jobs(active: bool = True,
         # in Tool-Antworten. In der Trefferliste, die der Nutzer
         # tatsaechlich ansieht, kommt davon nichts an." Diese Liste IST
         # die Trefferliste — sie speist den Stellen-Tab.
+        # v1.7.62 (#1008 Befund 2): dieselben Scoring-Regler wie die
+        # MCP-Liste und der Bericht. Ohne diesen Schritt zeigte der
+        # Stellen-Tab den rohen gespeicherten Wert und jedes andere
+        # Werkzeug einen anderen. Die Reihenfolge bleibt unangetastet —
+        # sortiert wird im Frontend, und die Datenguete-Ordnung aus
+        # #989 darf eine Score-Sortierung nicht ueberschreiben.
+        _db._mit_scoring_reglern(all_jobs, sortieren=False)
         _guete_anreichern(all_jobs)
         total = len(all_jobs)
         if limit > 0:
@@ -2488,8 +2491,8 @@ async def api_fit_analyse(job_hash: str):
         skills = profile.get("skills", [])
         criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
         criteria["_profile_education"] = profile.get("education", [])
-    # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
-    criteria["_hochschulabschluss_malus"] = _db.get_hochschulabschluss_malus()
+    # v1.7.62 (#1008 Befund 3): Hochschulabschluss-Malus entfernt —
+    # er wurde geschrieben und nirgends gelesen (#972, #993, #1000).
     result = fit_analyse(job, criteria)
     # #306: Research notes (Claude-Analyse) mitsenden
     result["research_notes"] = job.get("research_notes") or ""

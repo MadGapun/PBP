@@ -1754,6 +1754,7 @@ def register(mcp, db, logger):
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
 
         # Apply scoring adjustments (#169)
+        durch_schwelle_verborgen = 0
         if filter != "aussortiert":
             try:
                 from ..services.scoring_service import apply_scoring_adjustments
@@ -1767,7 +1768,16 @@ def register(mcp, db, logger):
                         continue
                     scored_jobs.append(j)
                 if auto_ignored:
-                    logger.info("Scoring-Regler: %d Stellen auto-ignoriert", auto_ignored)
+                    logger.info("Scoring-Regler: %d Stellen auto-ignoriert",
+                                auto_ignored)
+                # #1008 (G37): die Zahl gehoert in die ANTWORT, nicht ins
+                # Log. Bis v1.7.61 verschwanden die Stellen still, und die
+                # leere Liste meldete "Keine Stellen gefunden. Starte eine
+                # Jobsuche" — waehrend `pbp_diagnose` dieselben Stellen als
+                # aktiv fuehrte. PBP widersprach sich in sich selbst, und
+                # der genannte naechste Schritt war der falsche. Das ist
+                # #813 an der Trefferliste statt am Suchlauf.
+                durch_schwelle_verborgen = auto_ignored
                 jobs = scored_jobs
                 # Re-sort by new score
                 # v1.7.39 (#989): der Datenguete-Rang steht VOR dem Score.
@@ -1812,6 +1822,25 @@ def register(mcp, db, logger):
                 logger.debug("Empfehlungs-Anreicherung fehlgeschlagen: %s", e)
 
         if not jobs:
+            if durch_schwelle_verborgen:
+                # Es GIBT Stellen — sie liegen nur unter der Schwelle.
+                # Eine Suche zu empfehlen waere der falsche Schritt.
+                return {
+                    "anzahl": 0,
+                    "durch_schwelle_verborgen": durch_schwelle_verborgen,
+                    "nachricht": (
+                        f"Keine Stelle ueber deiner Score-Schwelle — aber "
+                        f"{durch_schwelle_verborgen} aktive Stelle(n) liegen "
+                        "darunter und werden deshalb nicht angezeigt. Das ist "
+                        "ein Filter, kein leerer Markt."),
+                    "naechster_schritt": (
+                        "Schwelle ansehen: scoring_konfigurieren('anzeigen'). "
+                        "Senken oder abschalten: scoring_konfigurieren("
+                        "aktion='setzen', dimension='schwellenwert', "
+                        "sub_key='auto_ignore', wert=0). Ueber "
+                        "stellen_anzeigen(min_score=0) kommen sie NICHT "
+                        "zurueck — die Schwelle wirkt davor."),
+                }
             return {
                 "anzahl": 0,
                 "nachricht": "Keine Stellen gefunden. "
@@ -1996,6 +2025,13 @@ def register(mcp, db, logger):
             "quellen_uebersicht": source_counts,
             "stellen": formatted,
         }
+        if durch_schwelle_verborgen:
+            # #1008: sonst sieht eine gefilterte Liste aus wie die ganze.
+            result["durch_schwelle_verborgen"] = durch_schwelle_verborgen
+            result["schwellen_hinweis"] = (
+                f"{durch_schwelle_verborgen} weitere aktive Stelle(n) liegen "
+                "unter deiner Score-Schwelle und stehen deshalb nicht in "
+                "dieser Liste. Sie sind nicht aussortiert — nur gefiltert.")
         # v1.7.7 (#756): unbewertete Stellen (Score 0 + keine Beschreibung)
         # ueber die GANZE Liste ausweisen — Score 0 darf nicht wie ein
         # fachliches Urteil wirken.
@@ -3964,9 +4000,39 @@ def register(mcp, db, logger):
                 criteria["min_gehalt"] = prefs["min_gehalt"]
             if prefs.get("min_tagessatz"):
                 criteria["min_tagessatz"] = prefs["min_tagessatz"]
-        # #698: konfigurierbaren Hochschulabschluss-Malus mitgeben (None = ignoriert)
-        criteria["_hochschulabschluss_malus"] = db.get_hochschulabschluss_malus()
+        # v1.7.62 (#1008 Befund 3): der Hochschulabschluss-Malus ist
+        # entfallen. Er wurde hier in die Kriterien geschrieben und von
+        # KEINEM Rechenweg gelesen — die Pruefung dahinter ist seit
+        # v1.7.35 (#972) entfernt. Ein Wert ohne Leser ist keine
+        # Einstellung (#993, #1000).
         result = _fit_analyse(job_dict, criteria)
+
+        # v1.7.62 (#1008 Befund 2): die Liste zeigt den Wert MIT den
+        # gesetzten Scoring-Reglern, die Fit-Analyse rechnet den
+        # Fachwert. Das sind zwei verschiedene Groessen, und bisher
+        # hiessen beide "Score" — der Melder sah dieselbe Stelle mit
+        # vier Zahlen. Beide anzugleichen ginge NICHT: `total_score`
+        # wird gegen `total_score_max` gehalten, und in diesem
+        # Hoechstwert kommen die Regler nicht vor. Eine Stelle, die
+        # alles trifft, muss weiterhin exakt 100 % ergeben (#999).
+        # Also werden sie BENANNT statt gleichgemacht — eine Luecke
+        # gehoert erklaert, nicht zugerechnet (#989).
+        try:
+            from ..services.scoring_service import apply_scoring_adjustments
+            _regler = apply_scoring_adjustments(
+                job_dict, result.get("total_score", 0), db)
+            _in_liste = _regler.get("final_score", result.get("total_score", 0))
+            if abs(_in_liste - result.get("total_score", 0)) > 0.05:
+                result["score_in_liste"] = _in_liste
+                result["score_hinweis"] = (
+                    f"In der Stellenliste steht {_in_liste} — das ist dieser "
+                    f"Fachwert ({result.get('total_score')}) plus deine "
+                    "gesetzten Scoring-Regler. Verglichen wird gegen den "
+                    "Hoechstwert der Fachwert, weil die Regler dort nicht "
+                    "vorkommen.")
+        except Exception as e:
+            logger.debug("Regler-Abgleich (#1008): %s", e)
+
 
         # v1.6.5 (#539, Folge von #535): Fit-Score zurueck in jobs.score
         # persistieren. Vorher rechnete fit_analyse on-demand mit Profile-

@@ -1666,6 +1666,49 @@ def register(mcp, db, logger):
                     "meldung": "Keine individuellen Scoring-Regler konfiguriert (Standardwerte aktiv). "
                                "Nutze scoring_konfigurieren() für Feintuning.",
                 })
+            else:
+                # v1.7.62 (#1008 Befund 3): Karteileichen benennen.
+                # Seit v1.7.36 (#988) weist `setzen` einen unbekannten
+                # sub_key ab — die VORHER gespeicherten Zeilen liegen
+                # trotzdem noch da. Der Melder fand
+                # `schwellenwert/schwellenwert = 35`: ein Wert, der wie
+                # eine bewusst gesetzte Schwelle aussieht, nie gewirkt
+                # hat und beim Setzen nicht bemaengelt wurde. Sichtbar
+                # war das bisher nur, wer `scoring_konfigurieren
+                # ('anzeigen')` aufrief — die Diagnose schwieg. Eine
+                # Einstellung, der man glaubt, ist teurer als eine
+                # fehlende (#988/#981).
+                from ..services import scoring_vokabular as _vok
+                # get_scoring_config() liefert eine LISTE von Zeilen
+                # (dimension/sub_key/value) — nachgesehen, nicht geraten.
+                _tote = []
+                for _c in (scoring or []):
+                    _dim = _c.get("dimension")
+                    _sk = _c.get("sub_key")
+                    if not _dim or not _sk:
+                        continue
+                    _grund = _vok.wirkungslos(_dim, _sk)
+                    if _grund:
+                        _tote.append({
+                            "regler": f"{_dim}/{_sk}",
+                            "wert": _c.get("value"),
+                            "grund": _grund,
+                        })
+                if _tote:
+                    warnungen.append({
+                        "bereich": "Scoring",
+                        "meldung": (
+                            f"{len(_tote)} gespeicherte(r) Scoring-Regler wird "
+                            "von niemandem gelesen: "
+                            + ", ".join(sorted(x["regler"] for x in _tote))
+                            + ". Sie sehen aus wie Einstellungen und wirken "
+                            "nicht."),
+                        "details": _tote,
+                        "empfehlung": (
+                            "Entfernen mit scoring_konfigurieren('loeschen', "
+                            "dimension, sub_key). Die Anzeige-Schwelle heisst "
+                            "schwellenwert/auto_ignore."),
+                    })
         except Exception:
             pass
 

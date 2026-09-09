@@ -143,6 +143,50 @@ function descriptionAttentionLabel(job) {
 // #1007: kurze Etiketten fuer das Urteil der Detailanalyse. Die
 // Kategorien selbst bleiben, wie der #662-Vertrag sie nennt — hier
 // steht nur die Beschriftung fuer eine schmale Karte.
+// v1.7.62 (#1008): die Filter-Vorgabe steht EINMAL. Vorher lag die
+// Zuruecksetz-Form als Literal im Hinweis-Block, die Startwerte separat
+// im useState — zwei Fassungen derselben Sache, und genau daraus sind
+// #963, #991 und #992 entstanden. Der Hinweis ueber der Liste, der
+// Zuruecksetzen-Knopf und der Startzustand lesen jetzt dasselbe Objekt.
+//
+// `minScore: "0"` ist die eigentliche Korrektur an #1008: der Wert kam
+// bis v1.7.61 aus `search_criteria.min_score_schwelle`. Das ist laut
+// eigener Beschreibung die Schwelle, ab der eine Stelle beim Suchlauf
+// ueberhaupt GESPEICHERT wird — nicht ein Anzeige-Filter. Seit v1.7.50
+// (#993) den toten Zugriff darauf repariert hat, wirkte sie
+// tatsaechlich, und zwar ohne dass der Nutzer sie je gesetzt haette:
+// sieben von acht Stellen waren unsichtbar. Die Anzeige-Schwelle heisst
+// `schwellenwert/auto_ignore` und wirkt serverseitig; sie hier ein
+// zweites Mal nachzubauen waere derselbe Fehler in Gruen.
+export const FILTER_STANDARD = {
+  query: "",
+  source: "",
+  minScore: "0",
+  remote: "",
+  salaryOnly: false,
+  sort: "score_desc",
+  view: "active",
+  employmentType: "",
+  hideApplied: true,
+  missingDescriptionOnly: false,
+};
+
+// Welche Filter unterdruecken gerade Eintraege — und wie macht man das
+// rueckgaengig. Der Hinweis ueber der Liste und die Filterzeile
+// beantworten damit dieselbe Frage aus derselben Quelle.
+export function aktiveFilterBestimmen(filters) {
+  const aktiv = [];
+  if (filters.query) aktiv.push({ schluessel: "query", text: `Suchtext "${filters.query}"` });
+  if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${filters.source}` });
+  if (Number(filters.minScore || 0) > 0) aktiv.push({ schluessel: "minScore", text: `Score ab ${filters.minScore}` });
+  if (filters.remote) aktiv.push({ schluessel: "remote", text: `Remote ${filters.remote}` });
+  if (filters.salaryOnly) aktiv.push({ schluessel: "salaryOnly", text: "nur mit Gehalt" });
+  if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
+  if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
+  if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
+  return aktiv;
+}
+
 const ANALYSE_ETIKETT = {
   EMPFOHLEN: "Empfohlen",
   BEDINGT: "Bedingt",
@@ -167,31 +211,9 @@ export default function JobsPage() {
     return Number.isFinite(gespeichert) && gespeichert > 0 ? gespeichert : 20;
   });
   const [followUps, setFollowUps] = useState([]);
-  // beta.27: Min-Score-Schwelle aus Suchkriterien als Default-UI-Filter.
-  // Damit greift die persistente Einstellung auch in der Anzeige —
-  // bestehende DB-Eintraege mit Score < Schwelle werden ausgeblendet,
-  // ohne dass sie geloescht werden.
-  // v1.7.50 (#993): der Zugriff lautete `chrome?.search_criteria?...`
-  // — den Schluessel gibt es im chrome-Objekt nicht (es traegt
-  // loading/status/workspace/profiles/profile/... ). Die optionale
-  // Verkettung machte daraus lautlos eine 0, der Filter startete
-  // also seit beta.27 immer bei 0. Die Kriterien kommen aus der
-  // Workspace-Antwort.
-  const persistentMinScore = Number(
-    chrome?.workspace?.search_criteria?.min_score_schwelle ?? 0,
-  );
-  const [filters, setFilters] = useState({
-    query: "",
-    source: "",
-    minScore: String(Math.max(0, persistentMinScore)),
-    remote: "",
-    salaryOnly: false,
-    sort: "score_desc",
-    view: "active",
-    employmentType: "",
-    hideApplied: true,
-    missingDescriptionOnly: false,
-  });
+  // v1.7.62 (#1008): siehe FILTER_STANDARD oben. Die Liste startet
+  // ungefiltert; wer filtern will, sagt es.
+  const [filters, setFilters] = useState({ ...FILTER_STANDARD });
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
@@ -351,15 +373,14 @@ export default function JobsPage() {
   useEffect(() => {
     if (intent?.page !== "stellen") return;
     if (intent.focus === "job" && intent.jobHash) {
+      // v1.7.62 (#1008): auch der Sprung auf eine bestimmte Stelle
+      // raeumt ueber dieselbe Definition ab — sonst haette ein kuenftig
+      // neuer Filter die angesprungene Stelle weiter verborgen.
       setFilters((current) => ({
         ...current,
+        ...FILTER_STANDARD,
         view: "active",
-        query: "",
-        source: "",
-        minScore: "0",
-        remote: "",
-        salaryOnly: false,
-        missingDescriptionOnly: false,
+        sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
     }
@@ -706,6 +727,14 @@ export default function JobsPage() {
       }
       }, guetUmgang);
     });
+
+  // v1.7.62 (#1008): wie viele der GELADENEN Eintraege unterdruecken die
+  // Filter gerade. Bewusst gegen `currentList` gerechnet und nicht gegen
+  // `jobsTotal`: bei aktivem Nachladen waeren die noch nicht geholten
+  // Seiten sonst als "durch Filter verborgen" gezaehlt worden — eine
+  // Zahl, die zu hoch ist, ist so irrefuehrend wie eine, die fehlt.
+  const verborgeneStellen = Math.max(0, currentList.length - filteredJobs.length);
+  const aktiveFilter = aktiveFilterBestimmen(filters);
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
   const jobsGuidance = (() => {
@@ -746,14 +775,11 @@ export default function JobsPage() {
         actionLabel: "Filter zurücksetzen",
         action: () => setFilters((current) => ({
           ...current,
-          query: "",
-          source: "",
-          minScore: "0",
-          remote: "",
-          salaryOnly: false,
-          employmentType: "",
-          hideApplied: true,
-          missingDescriptionOnly: false,
+          ...FILTER_STANDARD,
+          // Sortierung und Sicht sind keine Filter — sie unterdruecken
+          // nichts und bleiben deshalb stehen.
+          sort: current.sort,
+          view: current.view,
         })),
       };
     }
@@ -831,7 +857,14 @@ export default function JobsPage() {
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Aktive Stellen"
+            // v1.7.62 (#1008 Befund 1): die Zahl ist die LAENGE DER
+            // ANGEZEIGTEN Liste. Die Ueberschrift versprach die Zahl der
+            // aktiven Stellen — zwei Zeilen darunter stand dann "8 aktiv
+            // gesamt, 7 durch Filter verborgen". Die Karte widersprach
+            // sich damit selbst und liess den Sidebar-Zaehler falsch
+            // aussehen, obwohl er stimmte. Jetzt benennt die
+            // Ueberschrift, was die Zahl zeigt.
+            label={verborgeneStellen > 0 ? "Angezeigte Stellen" : "Aktive Stellen"}
             value={filteredJobs.length}
             note={(() => {
               // beta.26 / User-Feedback: Differenzierung zwischen
@@ -845,7 +878,7 @@ export default function JobsPage() {
               // Teilmengen und war damit unsinnig. Jetzt entkoppelt.
               const withApplication = appliedJobHashes.size;
               const dismissedCount = dismissedJobs.length;
-              const durchFilterVerborgen = Math.max(0, jobsTotal - filteredJobs.length);
+              const durchFilterVerborgen = verborgeneStellen;
               const parts = [];
               if (durchFilterVerborgen > 0) parts.push(`${jobsTotal} aktiv gesamt, ${durchFilterVerborgen} durch Filter verborgen`);
               if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
@@ -1031,7 +1064,7 @@ export default function JobsPage() {
                 />
               </div>
               {Number(filters.minScore || 0) > 0 && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, minScore: "0" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button type="button" onClick={() => setFilters(f => ({ ...f, minScore: FILTER_STANDARD.minScore }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1124,6 +1157,34 @@ export default function JobsPage() {
               Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
             </p>
           </div>
+          {/* v1.7.62 (#1008 Befund 1, AK 2 und 3): zeigt die Liste
+              weniger als der Zaehler, gehoert der Grund UEBER die Liste
+              — nicht in eine Kennzahl-Notiz daneben. Der Melder hat die
+              Anwendung fuer defekt gehalten und mehrfach neu geladen.
+              Ein Filter, der Eintraege unterdrueckt, muss sichtbar und
+              mit einem Klick aufhebbar sein. */}
+          {verborgeneStellen > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber/30 bg-amber/[0.06] px-3 py-2">
+              <span className="text-[13px] text-amber/90">
+                {verborgeneStellen} {verborgeneStellen === 1 ? "Eintrag ist" : "Einträge sind"} durch aktive Filter verborgen
+                {aktiveFilter.length > 0 && (
+                  <span className="text-amber/60"> · {aktiveFilter.map((f) => f.text).join(" · ")}</span>
+                )}
+              </span>
+              <button
+                type="button"
+                className="rounded-lg border border-amber/40 px-2 py-1 text-[12px] font-medium text-amber/90 transition-colors hover:bg-amber/10"
+                onClick={() => setFilters((current) => ({
+                  ...current,
+                  ...FILTER_STANDARD,
+                  sort: current.sort,
+                  view: current.view,
+                }))}
+              >
+                Filter aufheben
+              </button>
+            </div>
+          )}
           {filteredJobs.length ? (
             filteredJobs.map((job) => (
               <Card
