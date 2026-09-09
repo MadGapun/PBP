@@ -33,6 +33,119 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.60] - 2026-09-09 — Versandfertig statt nachformatieren
+
+Dein Bericht von heute, an einem echten Lauf belegt: der erzeugte
+Lebenslauf enthielt **viermal `None`** mitten im Dokument, begann die
+Berufserfahrung mit einer Station aus 2005, listete sämtliche Skills in
+Speicherreihenfolge samt Satzfragmenten (`in ERP-Systemen (Infor`) und
+zeigte ein Datum ohne Monat.
+
+### Fixed
+
+- **Kein `None` mehr im Dokument.** Die Ursache ist eine Sprachfalle mit
+  Ansage: `edu.get("degree", "")` liefert den Vorgabewert **nur, wenn
+  der Schlüssel fehlt**. Steht die Spalte in der Datenbank auf NULL, ist
+  der Schlüssel da und der Wert `None` — und die Textzusammensetzung
+  schreibt das brav ins Dokument. Stand in **beiden** Lebenslauf-
+  Erzeugern. Fehlt ein Feld, entfällt es jetzt samt seinem Trennzeichen.
+
+- **Die aktuelle Tätigkeit steht oben.** Vorher lief die Ausgabe in
+  Speicherreihenfolge. Parallele Zeiträume zerstören die Sortierung
+  nicht.
+
+- **Einheitliches Datumsformat MM/JJJJ** über alle Abschnitte —
+  `2005-03`, `3/2005`, `01.03.2005` und `März 2005` ergeben dasselbe.
+
+- **Keine Satzfragmente mehr in den Kompetenzen.** Bruchstücke aus der
+  Dokumentenextraktion (unpaarige Klammern, Doppelpunkte, Sätze statt
+  Begriffen) landen nicht mehr im Lebenslauf. Kompetenzen sind
+  thematisch gruppiert und je Block begrenzt, Doppelungen entfallen.
+
+- **Echte Umlaute** in allen erzeugten Texten, über die gepflegte
+  Wortliste aus v1.7.5. Dabei fiel auf, dass ausgerechnet die
+  „verfügen"-Familie darin fehlte — in fast jedem Lebenslauf.
+
+- **Keine Gedankenstriche als Satzzeichen** im Fließtext. Bindestriche
+  in Wörtern (`CAD-Integration`) und der Bis-Strich zwischen zwei Daten
+  (`04/2019 – heute`) bleiben natürlich.
+
+### Added
+
+- **`dokument_regeln_pruefen`** — prüft ein erzeugtes Dokument gegen
+  alle Regeln und nennt, was vor dem Versand noch gehört. Ohne Argument
+  nimmt es die zuletzt erzeugte Datei. Funktioniert auch für **deine
+  eigenen Vorlagen** aus v1.7.59.
+
+### Zwei Dinge, die PBP bewusst *nicht* tut
+
+- **Deine Prosa umschreiben.** Steht das Kurzprofil in der dritten
+  Person, wird das **gemeldet**, nicht automatisch geändert. Aus „Er
+  verfügt über" wird maschinell kein guter Satz, sondern ein anderer
+  Fehler.
+- **Einen fehlenden Monat erfinden.** Steht im Profil nur ein Jahr,
+  steht im Dokument ein Jahr. `01/2005` zu schreiben, weil das Format
+  MM/JJJJ verlangt, wäre eine geratene Angabe in einem
+  Bewerbungsdokument.
+
+### Zur Regressionsfrage: es ist keine
+
+Der Bericht vermutete eine Verschlechterung zwischen Mai und September.
+Am Verlauf geprüft: eine Tabelle hat der Export **nie** erzeugt, und die
+Fußzeile mit Seitenzählung sitzt seit v0.32.0 im ATS-Erzeuger. Das
+Mai-Dokument stammt aus **`lebenslauf_angepasst_exportieren`**, das
+September-Dokument aus **`lebenslauf_exportieren`**. Zwei verschiedene
+Werkzeuge, nicht ein verschlechtertes — der Befund ist als Test
+festgehalten, damit ihn niemand erneut sucht.
+
+Die Regeln gelten jetzt für **jede** Ausgabe, nicht nur für die
+gemeldete: DOCX in beiden Fassungen, Markdown, Text und PDF.
+
+Geschlossen: #1006. 48 neue Tests, Suite 3338.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.60.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.60.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.59] - 2026-09-09 — Dein Ordner, dein Layout
 
 Dein Wunsch vom 4. September, heute noch einmal: *„Ich möchte das
