@@ -33,6 +33,122 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.62] - 2026-09-09 — Die Liste sagt, was sie verbirgt
+
+Dein Bericht: die Sidebar zählt **8** Stellen, die Liste zeigt **eine**,
+F5 und Strg+F5 ändern nichts. Der Eindruck ist ein Aktualisierungsfehler.
+Es war keiner — PBP hat gefiltert und es nicht gesagt.
+
+Drei Befunde, acht Akzeptanzkriterien, dazu ein vierter, den ich beim
+Nachsehen selbst gefunden habe.
+
+### Fixed
+
+- **Ein Filter, den du nie gesetzt hast, verbarg 7 von 8 Stellen (#1008
+  Befund 1).** Der Score-Filter der Stellenliste bezog seinen
+  Vorgabewert aus `min_score_schwelle`. Das ist laut PBPs **eigener
+  Beschreibung** die Schwelle, ab der eine Stelle beim Suchlauf
+  überhaupt *gespeichert* wird — ausdrücklich „wirkt während der Suche,
+  nicht in der Liste". Der Anzeige-Filter heißt
+  `schwellenwert/auto_ignore` und wirkt serverseitig; er stand bei dir
+  auf 0, also aus. Die Liste startet jetzt ungefiltert.
+- **Die Kennzahl-Karte widersprach sich selbst.** Sie trug die
+  Überschrift „Aktive Stellen" über der Zahl der *angezeigten* und zwei
+  Zeilen darunter die Notiz „8 aktiv gesamt, 7 durch Filter verborgen".
+  Der Sidebar-Zähler war korrekt und sah dadurch falsch aus. Die
+  Überschrift benennt jetzt die Größe, die darunter steht.
+- **Über der Liste steht, was fehlt.** Sind Einträge durch Filter
+  verborgen, nennt ein Hinweis ihre Zahl und die wirksamen Filter — mit
+  einem Knopf „Filter aufheben" daneben.
+- **Vier verschiedene Score-Werte für dieselbe Stelle (#1008 Befund 2).**
+  Zwei Ursachen: `save_jobs` behält beim erneuten Speichern den höheren
+  **alten** Gesamtwert, schrieb `fachscore`/`rahmenscore` aber
+  bedingungslos neu — danach stand die Aufteilung des einen Laufs neben
+  dem Gesamtwert eines anderen (genau dein „score 10.0 bei fachscore 0.0
+  und rahmenscore 0.0"). Und `GET /api/jobs`, die Liste die du ansiehst,
+  gab den **rohen** gespeicherten Wert aus, während MCP-Liste und
+  Bericht den mit deinen Scoring-Reglern angepassten nannten. Beides
+  läuft jetzt durch je ein Nadelöhr.
+- **Wirkungslose Regler lagen wie echte Einstellungen im Bestand (#1008
+  Befund 3).** `hochschulabschluss/fehlt` stand sogar in **jeder
+  frischen Datenbank**, obwohl die Prüfung dahinter in v1.7.35 (#972)
+  ersatzlos entfernt wurde; der Malus wurde an zwei Stellen in die
+  Kriterien geschrieben und von keinem Rechenweg gelesen. Vorgabe
+  entfernt, Altzeilen werden beim Start abgeräumt, die tote Kette ist
+  weg. `pbp_diagnose` meldet verbliebene wirkungslose Regler.
+- **Und derselbe Fehler im MCP, also im Kernstück von PBP.**
+  `stellen_anzeigen` verwarf Stellen unter der Score-Schwelle still,
+  zählte sie nur ins Log und antwortete dann *„Keine Stellen gefunden.
+  Starte eine Jobsuche"* — während `pbp_diagnose` dieselben Stellen als
+  aktiv meldete. Falsche Ursache, falscher nächster Schritt: eine Suche
+  bringt nichts, wenn die Treffer längst da sind. Die Zahl steht jetzt
+  in der Antwort, und die Meldung nennt den Weg zur Schwelle.
+
+### Changed
+
+- `fit_analyse` nennt neben dem Fachwert den Wert, der **in der Liste**
+  steht, wenn beide auseinandergehen. Sie gleichzumachen war keine
+  Option: der Fachwert wird gegen den erreichbaren Höchstwert gehalten,
+  und in dem kommen die Regler nicht vor — eine Stelle, die alles
+  trifft, muss weiterhin exakt 100 % ergeben (#999).
+- Die Filter-Vorgabe der Stellenliste steht an **einer** Stelle, die
+  alle drei Zurücksetz-Wege lesen.
+
+### Removed
+
+- `search_criteria` aus der Workspace-Antwort. **Das ist eine Korrektur
+  an v1.7.50 (#993).** Dort wurde das Feld eingeführt, weil der
+  Stellen-Tab `min_score_schwelle` als Filter-Vorgabe las; der falsche
+  Zugriffspfad war damals der Fund, und die eigentliche Frage — ob diese
+  Schwelle die Anzeige überhaupt filtern darf — blieb ungestellt. Der
+  reparierte Zugriff hat einen seit beta.27 schlafenden Filter erst
+  scharfgeschaltet. Mit dem Leser fällt der Lieferant.
+- `get_hochschulabschluss_malus` samt ihren beiden Aufrufern.
+
+**Tests:** 3380 bestanden, 2 übersprungen (+22 neue).
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.62.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.62.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.61] - 2026-09-09 — Die Empfehlung kommt nicht mehr aus den Punkten
 
 Dein Einwand von heute, und er trifft die Wurzel:
