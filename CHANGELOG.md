@@ -33,6 +33,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.61] - 2026-09-09 — Die Empfehlung kommt nicht mehr aus den Punkten
+
+Dein Einwand von heute, und er trifft die Wurzel:
+
+> Ob es eine Empfehlung gibt, hat nichts mit den Punkten, nichts mit dem
+> Score zu tun — das ist nur ein Indikator für die Suchbegriffe. Ob es
+> eine Empfehlung gibt oder nicht, entsteht erst durch den Vergleich von
+> Lebenslauf und Stelle.
+
+Am Code bestätigt: die Empfehlung wurde aus `Score / erreichbarem
+Höchstwert` gebildet. In diese Zahl gehen Keyword-Treffer, Gehalt,
+Entfernung und Remote-Grad ein. **Der Lebenslauf ging nicht ein.**
+
+Der Score beantwortete: *„Steht in dieser Anzeige, wonach ich gesucht
+habe?"* Die Empfehlung behauptete: *„Passt dieser Mensch auf diese
+Stelle?"* Zwei Fragen, eine Antwort.
+
+### Changed
+
+- **Die Schwellen sind ersatzlos weg** — nicht gegen einen besseren
+  Maßstab getauscht. Auch die Verteilung des Bestands oder der bisher
+  beste Wert hätten denselben Fehler nur sauberer gemacht.
+
+- **„Noch nicht beurteilt" ist jetzt der ehrliche Normalfall.** Solange
+  niemand die Anzeige gegen dein Profil gelesen hat, sagt PBP das —
+  statt aus Punkten ein Urteil zu bauen. Das ist etwas anderes als
+  „passt nicht", und die vierte Kategorie tut damit zum ersten Mal
+  echte Arbeit.
+
+- **K.o.-Kriterien gelten unverändert** und schlagen auch eine gute
+  Analyse: wer eine Firma dreimal aus fachlichem Grund aussortiert hat,
+  bekommt beim vierten Mal keine Empfehlung.
+
+- **Der Score bleibt** — als Sortierung und Filter, mit dem Satz
+  daneben, was er misst.
+
+### Added
+
+- **Das Analyse-Ergebnis hängt jetzt an der Stelle.** Bisher entstand
+  das Urteil bei jedem Aufruf neu und verschwand mit der Antwort; eine
+  Claude-Detailanalyse war ein Chat-Verlauf. Der teuerste Arbeitsschritt
+  war der flüchtigste.
+
+- **In der Trefferliste sichtbar** — als eigene Marke neben dem Score,
+  weil beide Verschiedenes sagen. Ohne gelesene Analyse steht dort
+  nichts.
+
+- **Ändert sich dein Profil, wird der Befund als möglicherweise
+  überholt gekennzeichnet** — nicht gelöscht. Er war zu seiner Zeit
+  richtig.
+
+- `stelle_analyse_speichern` und `stelle_analyse_loeschen` für Claude.
+  Ein Urteil außerhalb der vier Kategorien wird abgewiesen, nicht
+  stillschweigend umgedeutet.
+
+### Zu den alten Tests
+
+Die Score-Einstufung stand in drei Dateien als Spezifikation. Sie sind
+nicht gelöscht, sondern **umgedreht**: kein Score, wie hoch auch immer,
+erzeugt noch ein Urteil. Dazu ein Wächter, der die Rückkehr der
+Schwellen bemerkt — sie wieder einzufügen wäre in fünf Minuten getan,
+und der Verdict würde danach wieder verdächtig gut „funktionieren".
+
+Geschlossen: #1003, #1007. 23 neue Tests, Suite 3360.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.61.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.61.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.60] - 2026-09-09 — Versandfertig statt nachformatieren
 
 Dein Bericht von heute, an einem echten Lauf belegt: der erzeugte
