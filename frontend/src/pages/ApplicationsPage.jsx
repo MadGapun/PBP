@@ -1375,9 +1375,50 @@ export default function ApplicationsPage() {
           ) : null}
 
           {/* #463: Firmen-Recherche-Sektion */}
+          {/* #673: Strukturierte Recherchen (research_notes-Tabelle, alle Kategorien) */}
+          {timelineDialog.entry?.application ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                Recherchen
+              </p>
+              {Array.isArray(timelineDialog.entry.recherchen) && timelineDialog.entry.recherchen.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {timelineDialog.entry.recherchen.map((r) => (
+                    <details
+                      key={r.id}
+                      className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
+                    >
+                      <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs">
+                        <span className="font-semibold text-ink/90">
+                          {RESEARCH_LABELS[r.kategorie] || r.kategorie}
+                        </span>
+                        <span className="text-[10px] text-muted/60">{r.datum}</span>
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-ink/80">{r.text}</p>
+                    </details>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted/60">
+                  Noch keine Recherchen gespeichert. Claude legt sie via
+                  {" "}firmen_recherche, skill_gap_analyse oder recherche_speichern an.
+                </p>
+              )}
+            </Card>
+          ) : null}
+
           {timelineDialog.entry?.job ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <div className="flex items-center justify-between">
+              {/* #958: Lesen steht vor Schreiben. Das Eingabefeld ist
+                  zugeklappt — der Normalfall ist Nachlesen, nicht
+                  Tippen. Vorher stand ein leeres sechszeiliges Feld
+                  ueber den gespeicherten Recherchen, und der Nutzer
+                  hielt sie fuer nicht gespeichert. */}
+              {/* Der Kopier-Knopf steht AUSSERHALB des Aufklappers:
+                  in einem <summary> wuerde jeder Klick darauf das
+                  Aufklappen ausloesen, und der Nutzer bekaeme eine
+                  Nebenwirkung, die er nicht gemeint hat. */}
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Firmen-Recherche</p>
                 <Button
                   size="sm"
@@ -1395,12 +1436,25 @@ export default function ApplicationsPage() {
                       || (app.company && app.company.trim())
                       || timelineDialog.entry.job?.company
                       || "";
-                    copyPrompt(`/firmen_recherche firma="${firma}"`);
+                    // #958: `firmen_recherche` nimmt seit #674
+                    // `bewerbung_id` entgegen und speichert damit im
+                    // selben Aufruf. Ohne sie war der kopierte Prompt
+                    // ein reiner Lesevorgang — es kam nichts in PBP an,
+                    // obwohl das Label "aktualisieren" versprach.
+                    const bid = timelineDialog.entry.application?.id || "";
+                    copyPrompt(
+                      `/firmen_recherche firma="${firma}"`
+                      + (bid ? ` bewerbung_id="${bid}"` : ""),
+                    );
                   }}
                 >
-                  Mit Claude aktualisieren
+                  Prompt kopieren
                 </Button>
               </div>
+              <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-muted/70 hover:text-ink">
+                Eigene Notiz hinzufuegen
+              </summary>
               <TextArea
                 rows={6}
                 value={researchDraft}
@@ -1431,38 +1485,7 @@ export default function ApplicationsPage() {
                   Speichern
                 </Button>
               </div>
-            </Card>
-          ) : null}
-
-          {/* #673: Strukturierte Recherchen (research_notes-Tabelle, alle Kategorien) */}
-          {timelineDialog.entry?.application ? (
-            <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-                Recherchen
-              </p>
-              {Array.isArray(timelineDialog.entry.recherchen) && timelineDialog.entry.recherchen.length > 0 ? (
-                <div className="mt-2 space-y-2">
-                  {timelineDialog.entry.recherchen.map((r) => (
-                    <details
-                      key={r.id}
-                      className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
-                    >
-                      <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold text-ink/90">
-                          {RESEARCH_LABELS[r.kategorie] || r.kategorie}
-                        </span>
-                        <span className="text-[10px] text-muted/60">{r.datum}</span>
-                      </summary>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-ink/80">{r.text}</p>
-                    </details>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs text-muted/60">
-                  Noch keine Recherchen gespeichert. Claude legt sie via
-                  {" "}firmen_recherche, skill_gap_analyse oder recherche_speichern an.
-                </p>
-              )}
+              </details>
             </Card>
           ) : null}
 
