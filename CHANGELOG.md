@@ -33,6 +33,110 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.59] - 2026-09-09 — Dein Ordner, dein Layout
+
+Dein Wunsch vom 4. September, heute noch einmal: *„Ich möchte das
+Verzeichnis, in dem Dokumente wie z.B. der Lebenslauf, den Du erstellst,
+abgelegt werden, anpassen können — bzw. wo die Vorlagen liegen."*
+
+Bisher legte PBP jede erzeugte Datei in seinen eigenen Datenordner. Wer
+seine Bewerbungsunterlagen woanders führt, kopiert danach jede Datei von
+Hand und trägt die Pfade nach — bei **jeder** Bewerbung derselbe
+Handgriff.
+
+### Added
+
+- **Ausgabe-Ordner** (Einstellungen → System). Ist er gesetzt, landen
+  Lebenslauf, Anschreiben, Fachprofil, Berichte und Profil-Sicherungen
+  direkt dort. Kein Umkopieren mehr, und die Antwort nennt immer den
+  tatsächlichen Pfad.
+
+- **Vorlagen-Ordner** — das gab es vorher **gar nicht**. Legst du dort
+  eine `lebenslauf.docx`, `anschreiben.docx` oder `fachprofil.docx` ab,
+  baut PBP das Dokument **auf dieser Grundlage**: deine Schriften, deine
+  Ränder, deine Kopf- und Fußzeilen bleiben. Der Text der Vorlage kommt
+  natürlich nicht mit — nur ihr Layout.
+
+  Bis heute stand das Layout als Code in PBP, und die Empfehlung im
+  Werkzeug lautete sinngemäß „bearbeite das DOCX hinterher in deinem
+  eigenen Template nach". Genau dieser Schritt entfällt.
+
+- **Über Claude bedienbar:** `ablage_ordner` — ohne Argument zeigt es
+  beide Ordner, mit `"ausgabe"` bzw. `"vorlagen"` und einem Pfad setzt
+  es sie. `-` stellt das bisherige Verhalten wieder her.
+
+### Changed
+
+- Der Download-Knopf im Dashboard nimmt **dieselbe** Vorlage wie der Weg
+  über Claude. Zwei Layouts für dasselbe Dokument, je nachdem wo du
+  geklickt hast, wäre ein Fehler, den dieses Projekt schon oft genug
+  gemacht hat.
+
+- Die Meldung nach einem Export behauptete bisher pauschal, die Datei
+  liege im Datenordner. Sie nennt jetzt den echten Ort.
+
+### Was PBP dabei *nicht* tut
+
+- **Den Ordner anlegen.** Ein Pfad, den es nicht gibt, wird abgewiesen
+  und **nicht gespeichert** — sonst würde ein Tippfehler still zu einem
+  neuen Ordner, und deine Unterlagen lägen ab dann dort.
+- **Stillschweigend umleiten.** Ist dein Ordner gerade weg (externe
+  Platte, Netzlaufwerk), schreibt PBP in den Datenordner und **sagt
+  das**. Die Einstellung bleibt bestehen.
+- **Wegen einer kaputten Vorlage abbrechen.** Eine Datei, die `.docx`
+  heißt und keine ist, kostet die Vorlage — nicht den Export.
+
+### Noch offen
+
+Der zweite Teil von #973 — den Ordner **durchsuchbar** machen, damit
+PBP vorhandene Unterlagen zu bestehenden Bewerbungen vorschlagen kann —
+steht noch aus. Das Issue bleibt deshalb offen.
+
+29 neue Tests, Suite 3290.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.59.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.59.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.58] - 2026-09-09 — Ollama startet jetzt mit, wenn du willst
 
 Dein Wunsch von heute: *„Ich möchte die Option haben, dass ich Ollama
