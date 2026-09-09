@@ -566,6 +566,38 @@ def register(mcp, db, logger):
         doppelt = _custom_widerspruch(kriterien)
         if doppelt:
             antwort["hinweis_doppelt"] = doppelt
+        # v1.7.66 (#1012): welche MUSS-Begriffe als EINE Anforderung
+        # zaehlen. Das ist die Stelle, an der der Mensch seine Liste
+        # pflegt — und die Frage "warum ist mein Score gesunken"
+        # beantwortet sich hier, nicht in der Trefferliste.
+        try:
+            from ..services.anforderungen import zusammengefasst
+            _gruppen = zusammengefasst(kriterien.get("keywords_muss") or [])
+        except Exception:
+            _gruppen = []
+        if _gruppen:
+            antwort["muss_zusammengefasst"] = _gruppen
+            _betroffen = sum(len(g["begriffe"]) for g in _gruppen)
+            antwort["hinweis_zusammenfassung"] = (
+                f"{_betroffen} deiner MUSS-Begriffe sind Schreibweisen "
+                f"desselben Sachverhalts und zaehlen als {len(_gruppen)} "
+                "Anforderung(en) — sonst haette eine Anzeige, die dieselbe "
+                "Sache mehrfach benennt, ein Vielfaches an Punkten (#1012). "
+                "Fuer die SUCHE zaehlen weiterhin alle Begriffe einzeln; "
+                "zusammengefasst wird nur beim Bewerten.")
+            # Die Schwelle ist eine ABSOLUTE Zahl auf einer Skala, die
+            # sich damit verschoben hat. Sie stillschweigend weiter
+            # gelten zu lassen waere eine Einstellung, die etwas anderes
+            # bedeutet als sie sagt (#988, #1008).
+            _schwelle = kriterien.get("min_score_schwelle") or 0
+            if _schwelle:
+                antwort["hinweis_schwelle"] = (
+                    f"Deine Speicher-Schwelle steht auf {_schwelle}. Seit "
+                    "der Zusammenfassung faellt der Score fuer dieselbe "
+                    "Anzeige niedriger aus — die Schwelle filtert damit "
+                    "schaerfer als vorher, ohne dass du sie geaendert "
+                    "hast. Sieh sie einmal an: "
+                    "suchkriterien_setzen(min_score_schwelle=N).")
         return antwort
 
     @mcp.tool()
