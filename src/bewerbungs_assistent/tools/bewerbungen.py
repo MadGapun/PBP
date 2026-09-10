@@ -2546,10 +2546,11 @@ def register(mcp, db, logger):
         existing = db.get_job(h)
         if existing:
             target_hash = existing["hash"]
-            # Vorhandene Stelle: Notiz anhaengen + dismiss falls noch aktiv
-            cur_notes = (existing.get("research_notes") or "")
-            new_notes = (cur_notes + "\n\n" + notiz_block).strip() if cur_notes else notiz_block
-            db.update_job(target_hash, {"research_notes": new_notes})
+            # v1.7.70 (#956): das Protokoll geht nach `dismiss_note`,
+            # nicht in den Firmen-Recherche-Notizblock. Ein
+            # Aussortier-Vermerk ist keine Recherche — er stand dort
+            # nur, weil die Spalte zufaellig ein Freitextfeld an der
+            # Stelle war. `dismiss_job` unten nimmt ihn entgegen.
         else:
             db.save_jobs([{
                 "hash": h,
@@ -2558,13 +2559,12 @@ def register(mcp, db, logger):
                 "url": url or "",
                 "source": "recruiter_inbound",
                 "description": notiz_block,
-                "research_notes": notiz_block,
                 "score": 0,
             }])
             target_hash = h
 
-        # Sofort ausmustern
-        db.dismiss_job(target_hash, reason=grund)
+        # Sofort ausmustern — samt Protokolltext (#956)
+        db.dismiss_job(target_hash, reason=grund, notiz=notiz_block)
 
         # Lerneffekt: dismiss_count fuer den Grund hochzaehlen damit
         # AblehnungsMuster-Statistik den Inbound-Pfad mitbekommt
@@ -2630,12 +2630,9 @@ def register(mcp, db, logger):
         job_hash = app.get("job_hash")
         if job_hash:
             try:
-                cur = db.get_job(job_hash)
-                if cur:
-                    cur_notes = (cur.get("research_notes") or "")
-                    new_notes = (cur_notes + "\n\n" + notiz_archiv).strip() if cur_notes else notiz_archiv
-                    db.update_job(job_hash, {"research_notes": new_notes})
-                db.dismiss_job(job_hash, reason=grund)
+                # v1.7.70 (#956): Archivtext nach `dismiss_note`, nicht
+                # in den Recherche-Notizblock.
+                db.dismiss_job(job_hash, reason=grund, notiz=notiz_archiv)
             except Exception:
                 pass
         else:
@@ -2649,10 +2646,9 @@ def register(mcp, db, logger):
                 "url": app.get("url") or "",
                 "source": "recruiter_inbound",
                 "description": notiz_archiv,
-                "research_notes": notiz_archiv,
                 "score": 0,
             }])
-            db.dismiss_job(h, reason=grund)
+            db.dismiss_job(h, reason=grund, notiz=notiz_archiv)
             job_hash = h
 
         # Bewerbung loeschen — FK-Cascade entfernt application_events / follow_ups

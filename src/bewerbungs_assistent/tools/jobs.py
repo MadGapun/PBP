@@ -4842,12 +4842,14 @@ def register(mcp, db, logger):
                 }
                 if decision == "PASST_NICHT":
                     if not dry_run:
-                        # Notiz in research_notes anhaengen, dann dismiss
+                        # v1.7.70 (#956): der Vermerk gehoert nach
+                        # `dismiss_note`, nicht in den Firmen-Recherche-
+                        # Notizblock. Gemessen: 30 der 143 gefuellten
+                        # Spalten trugen genau dieses Protokoll.
                         try:
-                            cur_notes = (job.get("research_notes") or "")
-                            new_notes = (cur_notes + "\n\n" + f"[Auto-Aussortierung] {reason}").strip() if cur_notes else f"[Auto-Aussortierung] {reason}"
-                            db.update_job(job["hash"], {"research_notes": new_notes})
-                            db.dismiss_job(job["hash"], reason="profil_match_negativ")
+                            db.dismiss_job(
+                                job["hash"], reason="profil_match_negativ",
+                                notiz=f"[Auto-Aussortierung] {reason}")
                         except Exception as exc:
                             errors.append({
                                 "hash": job["hash"], "error": str(exc)[:200],
