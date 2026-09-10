@@ -33,6 +33,98 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.75] - 2026-09-10 — Melden, was du brauchst
+
+### Added
+
+- **Defekte Job-Quellen lassen sich melden (#937).** In *Einstellungen →
+  Job-Quellen → Quellen-Health* trägt jede defekte Quelle einen Knopf
+  **„Quelle melden"**, der ein vorausgefülltes GitHub-Formular öffnet.
+  **Der Defekt allein ist meistens schon bekannt** — PBP merkt selbst,
+  wenn eine Quelle nichts mehr liefert. Was PBP nicht weiß: **welche der
+  toten Quellen jemand tatsächlich braucht.** Von 32 konfigurierten
+  Quellen laufen regelmäßig etwa 10; alle zu reparieren ist
+  unrealistisch. Deshalb ist „Wozu brauchst du diese Quelle" das
+  Pflichtfeld im neuen Template `quelle-defekt.yml` — der Bedarf
+  entscheidet die Reihenfolge, nicht der Defekt.
+
+### Notes
+
+- **PBP schickt nichts ab und braucht kein Token.** Der Knopf öffnet das
+  GitHub-Formular mit den Angaben; abgeschickt wird dort von dir. Damit
+  entfällt die gesamte Berechtigungsfrage — und niemand veröffentlicht
+  versehentlich etwas.
+- **Du siehst den Text, bevor etwas geöffnet wird.** Wer nicht sieht,
+  was er meldet, kann nicht entscheiden, ob er es melden will — und die
+  Meldung landet öffentlich.
+- **Nur technische Quellendaten, und das ist per Bauweise abgesichert.**
+  Übermittelt werden Quellenname, Fehlerklasse, letzte Fehlermeldung,
+  Zähler, Zeitpunkte und die PBP-Version. Der Text entsteht aus einer
+  **abschließenden Positivliste**, nicht aus einem Abzug der
+  Datenbankzeile: ein neues Feld landet nicht von allein in einer
+  öffentlichen Meldung. Ein Test schickt eine absichtlich verseuchte
+  Zeile hindurch und prüft, dass Suchbegriffe, Profil-, Stellen- und
+  Kontaktdaten draußen bleiben.
+- **Gibt es schon eine offene Meldung zur selben Quelle**, zeigt der
+  Dialog sie an — ein Kommentar dort hilft mehr als ein zweites Issue.
+  Die Prüfung läuft unangemeldet gegen die GitHub-Suche und **blockiert
+  bei Ausfall nichts**: dann fehlt der Hinweis, mehr nicht. Ein Schutz,
+  der den Nutzer aussperrt, wenn er selbst ausfällt, wäre schlimmer als
+  keiner.
+- **Abgeschaltete Quellen bekommen keinen Knopf.** Eine als
+  `deprecated` geführte Quelle ist eine *Entscheidung*, kein Defekt
+  (#906) — eine Meldung darüber hätte keinen Adressaten. Der Endpunkt
+  antwortet darauf mit einer Begründung statt mit einem leeren Dialog.
+- Beim Bauen gefunden: die erste Fassung der Verbotsliste enthielt das
+  nackte „name" und schlug damit auf `scraper_name` an — den Schlüssel
+  der Quelle, also genau die Angabe, die hinaus **muss**. Verboten sind
+  die Namen von Menschen und Firmen, und die heißen anders.
+- Tests: **3648 passed / 2 skipped** (3650 gesammelt). Alle acht
+  Akzeptanzkriterien einzeln. Schema unverändert (v48).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.75.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.75.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.74] - 2026-09-10 — Der Regler kennt deinen Bestand
 
 ### Fixed
