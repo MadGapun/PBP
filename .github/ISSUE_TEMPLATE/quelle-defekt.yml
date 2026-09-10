@@ -1,0 +1,81 @@
+name: "\U0001F50C Job-Quelle defekt"
+description: "Eine Quelle liefert nichts mehr — und du brauchst sie"
+title: "Quelle defekt: "
+labels: ["quelle-defekt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Danke, dass du das meldest
+
+        **Der Defekt allein ist meistens schon bekannt.** PBP merkt selbst,
+        wenn eine Quelle nichts mehr liefert — von 32 konfigurierten Quellen
+        laufen regelmäßig etwa 10.
+
+        Was PBP *nicht* weiß: **welche der toten Quellen jemand tatsächlich
+        braucht.** Alle zu reparieren ist unrealistisch. Zu wissen, dass drei
+        davon nachgefragt werden, macht die Reihenfolge klar.
+
+        Deshalb ist das Feld „Wozu brauchst du diese Quelle" weiter unten das
+        wichtigste in diesem Formular.
+
+        ---
+
+        **Zu deinen Daten:** die Diagnose unten enthält ausschließlich
+        technische Angaben über die Quelle (Status, Fehlerklasse, Zähler,
+        Zeitpunkte) und die PBP-Version. Keine Suchbegriffe, keine Profil-,
+        Stellen- oder Kontaktdaten. Sieh sie dir trotzdem an, bevor du
+        abschickst — es ist dein Issue.
+
+  - type: input
+    id: quelle
+    attributes:
+      label: "Quelle"
+      description: "Der Schlüssel der Quelle, z.B. `freelance_de` oder `stepstone`"
+      placeholder: "quellen-schluessel"
+    validations:
+      required: true
+
+  - type: textarea
+    id: bedarf
+    attributes:
+      label: "Wozu brauchst du diese Quelle?"
+      description: |
+        Das ist der eigentliche Punkt dieser Meldung. Was findest du dort,
+        was woanders nicht steht? Welche Art Stellen? Wie oft nutzt du sie?
+      placeholder: |
+        Beispiel: Ich suche Projekte im Bereich X. Die großen Portale zeigen
+        dort fast nur Festanstellungen; über diese Quelle kamen zuletzt
+        regelmäßig passende Ausschreibungen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnose
+    attributes:
+      label: "Diagnose aus PBP"
+      description: "Von PBP vorausgefüllt. Bitte durchsehen, bevor du abschickst."
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: beobachtung
+    attributes:
+      label: "Was siehst du selbst?"
+      description: |
+        Optional. Funktioniert die Seite im Browser? Verlangt sie eine
+        Anmeldung? Hat sich die Adresse geändert? Solche Beobachtungen sind
+        oft der schnellste Weg zur Ursache.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: bestaetigung
+    attributes:
+      label: "Vor dem Abschicken"
+      options:
+        - label: "Ich habe die Diagnose oben durchgesehen"
+          required: true
+        - label: "Ich habe kurz geprüft, ob es zu dieser Quelle schon eine offene Meldung gibt"
+          required: false

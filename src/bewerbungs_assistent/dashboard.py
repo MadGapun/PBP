@@ -10786,6 +10786,33 @@ async def api_llm_recommended_models():
 
 # === Scraper Health (#432) ===
 
+@app.get("/api/scraper-health/{quelle}/meldung")
+async def api_quellen_meldung(quelle: str):
+    """#937: der fertige Meldetext plus Prefill-URL fuer eine Quelle.
+
+    PBP sendet NICHTS. Der Mensch sieht den Text im Dialog und schickt
+    ihn im GitHub-Formular selbst ab — deshalb braucht PBP kein Token
+    und kann nichts versehentlich veroeffentlichen.
+    """
+    from . import __version__
+    from .services import quellen_meldung
+    zeile = next((h for h in _db.get_scraper_health()
+                  if h.get("scraper_name") == quelle), None)
+    if not zeile:
+        return JSONResponse({"error": "Quelle nicht gefunden"},
+                            status_code=404)
+    angebot = quellen_meldung.angebot(zeile, version=__version__)
+    if not angebot:
+        # `deprecated` ist eine Entscheidung, kein Defekt (#906).
+        return JSONResponse(
+            {"error": "Diese Quelle ist nicht meldbar",
+             "grund": ("Abgeschaltete Quellen sind eine Entscheidung, "
+                       "kein Defekt — eine Meldung darueber haette "
+                       "keinen Adressaten.")},
+            status_code=409)
+    return angebot
+
+
 @app.get("/api/scraper-health")
 async def api_scraper_health():
     """Return per-scraper health status for dashboard display."""
