@@ -3532,15 +3532,35 @@ def register(mcp, db, logger):
                 "vorschlag_aufruf": f"stelle_bearbeiten('{stellen_hash}', url='https://...')",
             }
         try:
+            from ..services import nachladen
             with httpx.Client(follow_redirects=True, timeout=15,
                               headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-                text = fetch_description_from_detail(url, client, timeout=15)
+                befund = nachladen.beschreibung_holen(url, client, timeout=15)
+                text = befund.text
         except Exception as exc:
             return {"status": "fehler", "grund": f"HTTP-Fehler: {exc}"}
         if not text or len(text) < 50:
-            return {"status": "fehler",
-                    "grund": "Keine brauchbare Beschreibung gefunden — Login-Wall oder Bot-Block?",
-                    "url": url, "got_chars": len(text or "")}
+            # v1.7.70 (#1014): der Grund kommt jetzt vom Server, nicht
+            # aus einer Vermutung. "Login-Wall oder Bot-Block" steht nur
+            # noch dort, wo die Anzeige wirklich lebt und trotzdem
+            # nichts hergibt.
+            antwort = {"status": "fehler", "grund": befund.klartext(),
+                       "url": url, "got_chars": len(text or "")}
+            antwort.update(befund.als_dict())
+            if befund.soll_aussortiert_werden:
+                # Die Mechanik gibt es im Aging-Check laengst — eine
+                # Stelle, deren Anzeige der Server ausdruecklich als
+                # entfernt meldet, bleibt sonst aktiv ohne Beschreibung
+                # stehen und erzeugt eine Aufgabe, die niemand
+                # abarbeiten kann.
+                try:
+                    db.dismiss_job(h, reason="veraltet_url",
+                                   herkunft="automatik",
+                                   notiz=befund.klartext())
+                    antwort["aussortiert"] = "veraltet_url"
+                except Exception as exc:      # pragma: no cover
+                    antwort["aussortieren_fehlgeschlagen"] = str(exc)[:200]
+            return antwort
         from ..job_scraper.textgrenzen import (ALTE_KAPPUNG, SPEICHER_MAX,
                                                ist_gekappt)
         vorher = job.get("description") or ""
@@ -3632,7 +3652,9 @@ def register(mcp, db, logger):
                     ohne_url += 1
                     continue
                 try:
-                    text = fetch_description_from_detail(url, client, timeout=15)
+                    from ..services import nachladen as _nachladen
+                    text = _nachladen.beschreibung_holen(
+                        url, client, timeout=15).text
                 except Exception:
                     fehler += 1
                     continue

@@ -1,9 +1,16 @@
 """Tests fuer v1.7.0-beta.44 — Stellenbeschreibung nachladen (#622).
 
 Layer A (UI-Filter), Layer B (Per-Klick-Endpoint), Layer C (Auto-Engine-Step),
-plus MCP-Tool. Wir mocken `httpx.Client.get` und
-`fetch_description_from_detail`, um keine echten HTTP-Calls auszuloesen
-(User-Vorgabe: keine Live-HTTP-Calls in Tests).
+plus MCP-Tool. Gemockt wird `services.nachladen.beschreibung_holen` —
+die eine Stelle, durch die seit v1.7.70 (#1014) alle vier Nachlade-Wege
+laufen. Damit geht kein echter HTTP-Call hinaus (User-Vorgabe: keine
+Live-HTTP-Calls in Tests).
+
+**Vorher stand hier `fetch_description_from_detail`, und das war
+gefaehrlicher als es aussah:** gemockt war nur die Auswertung, der
+`client.get` davor nicht. Solange die Auswertung den Abruf selbst
+machte, fiel das nicht auf — sobald der Status getrennt geprueft wird,
+waeren echte Anfragen hinausgegangen. Der neue Mock deckt beides ab.
 """
 from __future__ import annotations
 
@@ -16,6 +23,15 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _befund(text="", status=None, http_status=200):
+    """Ein Nachlade-Befund fuer den Mock (#1014)."""
+    from bewerbungs_assistent.services import nachladen
+    if status is None:
+        status = nachladen.GELESEN if text else nachladen.LEBT_UNLESBAR
+    return nachladen.Befund(status=status, text=text,
+                            http_status=http_status, quelle="html")
 
 
 @pytest.fixture
@@ -91,8 +107,8 @@ def test_refetch_endpoint_success_writes_description(setup_env):
     from bewerbungs_assistent.dashboard import app
 
     fake_text = "Wir suchen einen Senior PLM Engineer fuer unser Team. " * 5
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value=fake_text):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund(fake_text)):
         client = TestClient(app)
         r = client.post(f"/api/jobs/{job_hash}/refetch-description")
     assert r.status_code == 200
@@ -109,8 +125,8 @@ def test_refetch_endpoint_404_when_no_description_found(setup_env):
     job_hash = _seed_job_without_description(db, "blocked")
     from fastapi.testclient import TestClient
     from bewerbungs_assistent.dashboard import app
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value=""):  # Bot-Block oder Login-Wall simulieren
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund("")):  # Bot-Block oder Login-Wall simulieren
         client = TestClient(app)
         r = client.post(f"/api/jobs/{job_hash}/refetch-description")
     assert r.status_code == 404
@@ -124,7 +140,7 @@ def test_refetch_endpoint_502_on_http_exception(setup_env):
     job_hash = _seed_job_without_description(db, "neterr")
     from fastapi.testclient import TestClient
     from bewerbungs_assistent.dashboard import app
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
                side_effect=Exception("DNS broken")):
         client = TestClient(app)
         r = client.post(f"/api/jobs/{job_hash}/refetch-description")
@@ -141,8 +157,8 @@ def test_auto_refetch_finds_jobs_without_description(setup_env):
     _seed_job_without_description(db, "auto2")
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
     fake_text = "X" * 200
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value=fake_text):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund(fake_text)):
         result = _run_auto_refetch_descriptions("2026-05-09T10:00:00")
     assert result["successes"] == 2
     assert result["failures"] == 0
@@ -154,8 +170,8 @@ def test_auto_refetch_skips_after_3_failures(setup_env):
     # Setze Failure-Count auf 3 (Backoff-Schwelle)
     db.set_setting(f"refetch_fail:{job_hash}", "3")
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value="Sollte nicht gerufen werden"):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund("Sollte nicht gerufen werden")):
         result = _run_auto_refetch_descriptions("2026-05-09T10:00:00")
     assert result["skipped_backoff"] == 1
     assert result["processed"] == 0
@@ -166,8 +182,8 @@ def test_auto_refetch_respects_max_jobs_cap(setup_env):
     for i in range(15):
         _seed_job_without_description(db, f"cap{i}")
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value="X" * 200):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund("X" * 200)):
         result = _run_auto_refetch_descriptions("2026-05-09T10:00:00", max_jobs=5)
     assert result["processed"] == 5
     assert result["successes"] == 5
@@ -177,8 +193,8 @@ def test_auto_refetch_increments_failure_counter(setup_env):
     db = setup_env
     job_hash = _seed_job_without_description(db, "failit")
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value=""):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund("")):
         _run_auto_refetch_descriptions("2026-05-09T10:00:00")
     fail = int(db.get_setting(f"refetch_fail:{job_hash}", "0") or "0")
     assert fail == 1
@@ -189,8 +205,8 @@ def test_auto_refetch_resets_failure_on_success(setup_env):
     job_hash = _seed_job_without_description(db, "recover")
     db.set_setting(f"refetch_fail:{job_hash}", "2")  # Vorherige Fehler
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
-    with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-               return_value="X" * 200):
+    with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+               return_value=_befund("X" * 200)):
         _run_auto_refetch_descriptions("2026-05-09T10:00:00")
     fail = int(db.get_setting(f"refetch_fail:{job_hash}", "0") or "0")
     assert fail == 0
@@ -209,8 +225,8 @@ def test_mcp_tool_stellenbeschreibung_nachladen_success(setup_env):
 
     async def _run():
         tool = await mcp.get_tool("stellenbeschreibung_nachladen")
-        with patch("bewerbungs_assistent.job_scraper.fetch_description_from_detail",
-                   return_value="Y" * 200):
+        with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
+                   return_value=_befund("Y" * 200)):
             res = await tool.run({"stellen_hash": job_hash})
         return res.structured_content if hasattr(res, "structured_content") else res
 
