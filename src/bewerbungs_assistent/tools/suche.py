@@ -1314,6 +1314,38 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def ablehnungsgruende_vereinheitlichen(dry_run: bool = True,
+                                           ziele: dict = None) -> dict:
+        """Fuehrt Gruende zusammen, die sich nur in der Schreibweise
+        unterscheiden (#663 C66).
+
+        Am Bestand gemessen standen drei Gruppen doppelt — `Falsche
+        Branche` neben `falsche_branche`, `Falsches System` neben
+        `falsches_system`, `Dublikat` neben `duplikat`. Damit ist die
+        Ablehnungs-Statistik zersplittert, und genau aus ihr ziehen
+        #908 und #778 ihre Lerneffekte.
+
+        **`ablehnungsgrund_umbenennen` reicht dafuer nicht.** Es
+        vergleicht gegen das alte LABEL, in den Stellen steht aber eine
+        dritte Schreibweise (`falsches system`, mit Leerzeichen). Der
+        Lauf hier gruppiert deshalb ueber einen normalisierten
+        Schluessel und schreibt BEIDE Orte um.
+
+        Zusammengefasst wird nur, was nach der Normalisierung IDENTISCH
+        ist — `falsches_fachgebiet` und `falsches_system` bleiben
+        getrennt. Aehnlichkeit entscheidet hier nichts.
+
+        Args:
+            dry_run: Vorgabe True — es wird nichts geschrieben. Die
+                Zielschreibweise je Gruppe steht in der Antwort.
+            ziele: je Gruppe eine abweichende Zielschreibweise, z.B.
+                `{"falschessystem": "falsches_system"}`.
+        """
+        from ..services import gruende_schreibweise
+        return gruende_schreibweise.vereinheitlichen(
+            db, dry_run=dry_run, ziele=ziele or {})
+
+    @mcp.tool()
     def ablehnungsgrund_umbenennen(grund_id: int, neues_label: str) -> dict:
         """Benennt einen Ablehnungsgrund um — z.B. zur Tippfehler-Korrektur (#663 C20).
 

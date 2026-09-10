@@ -136,6 +136,7 @@ EXPECTED_TOOL_NAMES = {
     "ablehnungsgruende_anzeigen",
     "ablehnungsgrund_anlegen",
     "ablehnungsgrund_umbenennen",
+    "ablehnungsgruende_vereinheitlichen",
     "ablehnungsgrund_aktivieren_setzen",
     "ablehnungsgrund_loeschen",
     "stellen_anzeigen",
@@ -366,7 +367,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 225  # v1.7.76 (#957): +bewerbung_notizen_zusammenfuehren
+        assert len(tools) == 226  # v1.7.77 (#663): +ablehnungsgruende_vereinheitlichen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
