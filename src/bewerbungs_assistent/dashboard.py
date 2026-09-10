@@ -4967,6 +4967,23 @@ async def api_datenguete_umgang_setzen(request: Request):
     return ergebnis
 
 
+@app.get("/api/score-verteilung")
+async def api_score_verteilung(nur_aktive: bool = True, schwelle: float = -1):
+    """#892: Reglerspanne, Median und Farbzonen aus der echten Verteilung.
+
+    Der Regler stand fest auf 0..20, waehrend der hoechste Score im
+    Bestand bei 110 liegt. Die Grenzen kommen deshalb vom Server —
+    dieselbe Rechnung im JavaScript nachzubauen waere die Bauform, die
+    dieses Projekt vierzehnmal gekostet hat.
+    """
+    from .services import schwellen_verteilung
+    antwort = schwellen_verteilung.verteilung(_db, nur_aktive=nur_aktive)
+    if schwelle >= 0:
+        antwort["wirkung"] = schwellen_verteilung.wirkung(
+            _db, schwelle, nur_aktive=nur_aktive)
+    return antwort
+
+
 @app.get("/api/search-criteria")
 async def api_search_criteria():
     return _db.get_search_criteria()

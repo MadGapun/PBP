@@ -207,6 +207,7 @@ EXPECTED_TOOL_NAMES = {
     "kontakte_aus_bestand_importieren",
     "kontakte_aus_bewerbungen_extrahieren",
     "scoring_konfigurieren",
+    "score_verteilung_anzeigen",
     "scores_neu_berechnen",
     "schnellzugriff_setzen",
     "stilarchiv_kontext",
@@ -364,7 +365,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 223  # v1.7.72 (#951): +stellen_dubletten_pruefen
+        assert len(tools) == 224  # v1.7.74 (#892): +score_verteilung_anzeigen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
