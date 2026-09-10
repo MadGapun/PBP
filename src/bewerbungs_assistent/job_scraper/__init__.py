@@ -2057,18 +2057,40 @@ def fetch_description_from_detail(url: str, client, *, timeout: float = 15,
     if max_chars is None:
         max_chars = SPEICHER_MAX
     try:
-        from bs4 import BeautifulSoup
         resp = client.get(url, timeout=timeout)
         if resp.status_code != 200:
             return ""
+        return text_aus_html(resp.text, max_chars=max_chars)
+    except Exception as e:
+        logger.debug("Detail-fetch failed for %s: %s", url, e)
+        return ""
+
+
+def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
+    """Den Anzeigentext aus einer bereits GEHOLTEN Seite lesen (#1014).
+
+    Herausgezogen, weil `services/nachladen.py` die Seite ohnehin schon
+    hat: es prueft den HTTP-Status, um "weg" von "geblockt" von "lebt
+    aber unlesbar" zu unterscheiden. Ohne diese Trennung haette jeder
+    Nachladeversuch die Seite ZWEIMAL geholt — einmal fuer den Status,
+    einmal fuer den Text. Bei 379 Stellen ohne Beschreibung waeren das
+    758 Abrufe statt 379.
+
+    Gefunden vom eigenen Test, der die Aufrufe zaehlt.
+    """
+    from .textgrenzen import SPEICHER_MAX
+    if max_chars is None:
+        max_chars = SPEICHER_MAX
+    try:
+        from bs4 import BeautifulSoup
 
         # Strategy 1: JSON-LD structured data — uses zentralen Helper
-        jp = extract_jobposting_jsonld(resp.text, max_chars=max_chars)
+        jp = extract_jobposting_jsonld(html, max_chars=max_chars)
         if jp.get("description"):
             return jp["description"]
 
         # Strategy 2: Common content selectors als Fallback
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(html, "html.parser")
         for selector in [
             "[class*='job-description']", "[class*='jobDescription']",
             "[class*='stellenbeschreibung']", "[class*='description']",
@@ -2084,7 +2106,7 @@ def fetch_description_from_detail(url: str, client, *, timeout: float = 15,
 
         return ""
     except Exception as e:
-        logger.debug("Detail-fetch failed for %s: %s", url, e)
+        logger.debug("HTML-Auswertung fehlgeschlagen: %s", e)
         return ""
 
 

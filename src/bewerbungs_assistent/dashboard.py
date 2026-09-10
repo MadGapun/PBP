@@ -4743,22 +4743,41 @@ async def api_refetch_description(job_hash: str):
             # #690: grosszuegiges max_chars beim expliziten Nachladen, damit
             # lange Stellenbeschreibungen nicht bei 2000 Zeichen abgeschnitten
             # gespeichert werden (Display kappt ohnehin erst bei 20000).
-            text = fetch_description_from_detail(url, client, timeout=15, max_chars=20000)
+            from .services import nachladen
+            befund = nachladen.beschreibung_holen(
+                url, client, timeout=15, max_chars=20000)
+            text = befund.text
     except Exception as exc:
         _bump_refetch_failure(job_hash)
         return JSONResponse(
             {"error": f"HTTP-Fehler: {exc}", "url": url},
             status_code=502,
         )
-    if not text or len(text) < 50:
+    if befund.status == nachladen.FEHLER:
+        # Ein Transportfehler ist kein Befund ueber die Anzeige, sondern
+        # ueber diesen Moment — und er behaelt seinen eigenen Code (502),
+        # damit er nicht wie eine fehlende Beschreibung aussieht.
         _bump_refetch_failure(job_hash)
         return JSONResponse(
-            {"error": "Keine brauchbare Beschreibung gefunden — "
-                      "evtl. Login-Wall oder Bot-Block. Probiere die URL "
-                      "im Browser zu oeffnen und manuell zu kopieren.",
-             "url": url, "got_chars": len(text or "")},
-            status_code=404,
-        )
+            {"error": befund.klartext(), "url": url,
+             **befund.als_dict()}, status_code=502)
+    if not text or len(text) < 50:
+        # v1.7.70 (#1014): der Grund kommt vom Server. Bei einer
+        # ausdruecklich entfernten Anzeige (404/410) wird die Stelle
+        # aussortiert statt weiter als offene Aufgabe gefuehrt.
+        antwort = {"error": befund.klartext(), "url": url,
+                   "got_chars": len(text or "")}
+        antwort.update(befund.als_dict())
+        if befund.soll_aussortiert_werden:
+            try:
+                _db.dismiss_job(job_hash, reason="veraltet_url",
+                                herkunft="automatik", notiz=befund.klartext())
+                antwort["aussortiert"] = "veraltet_url"
+            except Exception as exc:      # pragma: no cover
+                antwort["aussortieren_fehlgeschlagen"] = str(exc)[:200]
+        else:
+            _bump_refetch_failure(job_hash)
+        return JSONResponse(antwort, status_code=404)
     _db.update_job(job_hash, {"description": text})
     _reset_refetch_failure(job_hash)
     return {
@@ -8127,7 +8146,10 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
                     continue
                 processed += 1
                 try:
-                    text = fetch_description_from_detail(row["url"], client, timeout=15)
+                    from .services import nachladen as _nachladen
+                    _befund = _nachladen.beschreibung_holen(
+                        row["url"], client, timeout=15)
+                    text = _befund.text
                 except Exception:
                     text = ""
                 if text and len(text) >= 50:

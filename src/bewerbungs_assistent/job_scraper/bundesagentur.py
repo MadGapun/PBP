@@ -51,11 +51,24 @@ DEFAULT_KEYWORDS = [
 _DETAIL_FETCH_LIMIT_PER_KW = 20
 
 
-def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None) -> httpx.Response | None:
+def _request_with_retry(client: httpx.Client, url: str, params: dict | None = None,
+                        letzter_status: list | None = None) -> httpx.Response | None:
     """GET mit Retry+Backoff fuer transiente Fehler (#489).
 
     Liefert None bei permanenten Fehlern oder nach erschoepften Retries,
     damit der Caller einfach `continue`-en kann.
+
+    v1.7.70 (#1014): `letzter_status` ist eine Liste, in die der zuletzt
+    gesehene HTTP-Code geschrieben wird. Ohne sie ging die Auskunft
+    verloren — und ein eindeutiges 404 der Detail-API sah danach genauso
+    aus wie ein Timeout. Das ist derselbe Fehler wie oben im
+    Nachlade-Pfad, nur eine Ebene tiefer: **eine vorhandene Antwort wird
+    zu einer fehlenden gemacht** (#989).
+
+    Bewusst ein Ausgabe-Parameter statt eines geaenderten
+    Rueckgabewerts: die beiden Aufrufer pruefen auf `is None`, und ein
+    Tupel haette beide umgebaut, ohne dass einer davon den Status
+    braucht.
     """
     # v1.7.0-beta.52 (#624 Phase 3): Headers kommen jetzt von make_session.
     # Per-Request-Override nicht mehr noetig — der Client hat X-API-Key
@@ -64,6 +77,8 @@ def _request_with_retry(client: httpx.Client, url: str, params: dict | None = No
     for attempt in range(1, _RETRY_MAX + 1):
         try:
             resp = client.get(url, params=params)
+            if letzter_status is not None:
+                letzter_status.append(resp.status_code)
             if resp.status_code == 200:
                 return resp
             if resp.status_code in _RETRY_STATUS and attempt < _RETRY_MAX:
@@ -113,12 +128,7 @@ def search_bundesagentur(params: dict) -> list:
 
     # v1.7.0-beta.52 (#624 Phase 3): make_session mit iOS-App-UA-Override.
     # API erwartet diesen UA fuer stabile Ergebnisse (#489).
-    with make_session(
-        content_type="json",
-        timeout=30,
-        user_agent=USER_AGENT,
-        extra_headers={"X-API-Key": API_KEY},
-    ) as client:
+    with api_session() as client:
         for kw in keywords:
             try:
                 api_params = {
@@ -202,6 +212,23 @@ def search_bundesagentur(params: dict) -> list:
 DETAIL_URL = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v4/jobdetails/{encoded}"
 
 
+def api_session():
+    """Die Sitzung fuer die BA-API — an EINER Stelle gebaut (#1014).
+
+    Schluessel und iOS-User-Agent sind Pflicht (#489/#624): ohne sie
+    antwortet die API mit 403. Der Nachlade-Pfad braucht dieselbe
+    Sitzung wie der Suchlauf — eine zweite Fassung der Header waere die
+    naechste Gelegenheit, dass eine davon veraltet und PBP daraufhin
+    "geblockt" meldet, obwohl nur ein Header fehlt.
+    """
+    return make_session(
+        content_type="json",
+        timeout=30,
+        user_agent=USER_AGENT,
+        extra_headers={"X-API-Key": API_KEY},
+    )
+
+
 def _extract_text(data: dict, path: str) -> str:
     """Extract string value from nested dict using dot-notation path."""
     current = data
@@ -213,7 +240,8 @@ def _extract_text(data: dict, path: str) -> str:
     return current if isinstance(current, str) else ""
 
 
-def _fetch_ba_detail(client: httpx.Client, ref_nr: str) -> str:
+def _fetch_ba_detail(client: httpx.Client, ref_nr: str,
+                     status_raus: list | None = None) -> str:
     """Fetch full job description from BA detail API.
 
     #387: The BA API v4 nests description fields in various locations.
@@ -223,7 +251,8 @@ def _fetch_ba_detail(client: httpx.Client, ref_nr: str) -> str:
     try:
         import base64
         encoded = base64.b64encode(ref_nr.encode("utf-8")).decode("ascii")
-        resp = _request_with_retry(client, DETAIL_URL.format(encoded=encoded))
+        resp = _request_with_retry(client, DETAIL_URL.format(encoded=encoded),
+                                   letzter_status=status_raus)
         if resp is None:
             return ""
         data = resp.json()
