@@ -354,7 +354,9 @@ export default function ApplicationsPage() {
       setTimelineReflexionen(reflexionen?.reflexionen || []);
       setReflexionForm(null);
       setNewTaskTitle("");
-      setResearchDraft(timeline?.job?.research_notes || "");
+      // #956: kein Vorbefuellen mehr aus der alten Spalte — jede
+      // Notiz ist ein eigener Eintrag, kein ueberschriebener Text.
+      setResearchDraft("");
       setNewNoteText("");
       setEditingNoteId(null);
       setDocSearchQuery("");
@@ -1407,7 +1409,14 @@ export default function ApplicationsPage() {
             </Card>
           ) : null}
 
-          {timelineDialog.entry?.job ? (
+          {/* v1.7.70 (#956): haengt an der BEWERBUNG, nicht an der
+              Stelle. Vorher war die Bedingung `entry?.job` — und
+              gemessen (#986) haben **44 von 99 Bewerbungen gar keine
+              verknuepfte Stelle**. Fuer fast die Haelfte des Bestands
+              war der Eingabeweg damit unsichtbar, und der Server wies
+              ihn zusaetzlich mit HTTP 400 ab. Gespeichert wird an der
+              Bewerbung; eine Stelle ist dafuer nicht noetig. */}
+          {timelineDialog.entry?.application ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
               {/* #958: Lesen steht vor Schreiben. Das Eingabefeld ist
                   zugeklappt — der Normalfall ist Nachlesen, nicht
@@ -1465,7 +1474,12 @@ export default function ApplicationsPage() {
               <div className="mt-2 flex justify-end">
                 <Button
                   size="sm"
-                  disabled={researchSaving || researchDraft === (timelineDialog.entry?.job?.research_notes || "")}
+                  /* Der Entwurf startet leer: die Notiz wird als
+                     EINTRAG angelegt, nicht als ueberschriebenes Feld.
+                     Frueher stand hier der Inhalt von
+                     `job.research_notes` — also genau der zweite
+                     Speicher, den #956 abgeschafft hat. */
+                  disabled={researchSaving || !researchDraft.trim()}
                   onClick={async () => {
                     setResearchSaving(true);
                     try {

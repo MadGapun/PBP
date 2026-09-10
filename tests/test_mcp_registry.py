@@ -218,6 +218,7 @@ EXPECTED_TOOL_NAMES = {
     "pbp_diagnose",
     "diagnose_befund_abweisen",
     "dokumente_ohne_bewerbung",
+    "recherche_notizen_zusammenfuehren",
     "recherche_speichern",
     # v1.5.4: Write-Back-Gaps (#443-#448)
     "meeting_hinzufuegen",
@@ -362,7 +363,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 221  # v1.7.70 (#957): +bewerbung_notiz_drift
+        assert len(tools) == 222  # v1.7.70: +bewerbung_notiz_drift (#957), +recherche_notizen_zusammenfuehren (#956)
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

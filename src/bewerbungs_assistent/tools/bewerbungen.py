@@ -1356,6 +1356,34 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def recherche_notizen_zusammenfuehren(dry_run: bool = True,
+                                          max_stellen: int = 0) -> dict:
+        """Bringt den Altbestand der Firmen-Recherche an einen Ort (#956).
+
+        PBP hielt Recherche in ZWEI Speichern: der Spalte
+        `jobs.research_notes` (an der Stelle, #463) und der Tabelle
+        `research_notes` (an der Bewerbung, #673/#674). Seit v1.7.70
+        schreibt niemand mehr in die Spalte — was drinsteht, holt dieser
+        Lauf ab.
+
+        Gemessen am 10.09.2026 sind es zwei verschiedene Sorten: von 143
+        gefuellten Spalten tragen **113 eine Recherche** und **30 ein
+        Aussortier-Protokoll**. Das Protokoll geht nach `dismiss_note`,
+        wo Freitext zu einer Aussortierung seit #913 hingehoert — es in
+        die Recherche-Liste zu schieben waere eine zweite Verwechslung.
+
+        Args:
+            dry_run: Vorgabe True — es wird NICHTS geschrieben, nur
+                gezaehlt. Ein Lauf, der ungefragt 143 Datensaetze
+                umschreibt, ist keine Migration, sondern eine
+                Ueberraschung.
+            max_stellen: 0 = alle.
+        """
+        from ..services import recherche_migration
+        return recherche_migration.zusammenfuehren(
+            db, dry_run=dry_run, max_stellen=max_stellen)
+
+    @mcp.tool()
     def bewerbung_notiz_drift() -> dict:
         """Wo laufen Notizfeld und Timeline auseinander? (#957, Stufe 1)
 

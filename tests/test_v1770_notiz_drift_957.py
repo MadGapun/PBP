@@ -207,3 +207,170 @@ def test_957_das_werkzeug_ist_registriert_und_liest_nur():
     for verboten in ("db.update", "INSERT", "UPDATE", "DELETE"):
         assert verboten not in block, (
             f"Das Werkzeug enthaelt {verboten!r} — es soll nur lesen.")
+
+
+# ======================================================================
+# #956 — Recherche liegt an EINEM Ort
+# ======================================================================
+
+
+def test_956_protokoll_wird_von_recherche_unterschieden():
+    """Die Trennung, an der die ganze Migration haengt.
+
+    Gemessen am 10.09.2026: von 143 gefuellten Spalten tragen 30 ein
+    Aussortier-Protokoll statt einer Recherche. Alles in einen Topf zu
+    schieben waere kein Aufraeumen, sondern eine zweite Verwechslung.
+    """
+    from bewerbungs_assistent.services import recherche_ablage as ra
+
+    assert ra.ist_protokoll("[Auto-Aussortierung] falsches_fachgebiet")
+    assert ra.ist_protokoll(
+        "[2026-09-10] Recruiter-Anfrage abgelehnt. Grund: standort.")
+    assert not ra.ist_protokoll(
+        "Das Unternehmen baut seit zwei Jahren ein PLM-Team auf.")
+    assert not ra.ist_protokoll("")
+
+
+def test_956_der_schreibkasten_haengt_an_der_bewerbung():
+    """44 von 99 Bewerbungen haben keine Stelle (#986).
+
+    Solange die Karte an `entry?.job` hing, war der Eingabeweg fuer
+    fast die Haelfte des Bestands unsichtbar.
+    """
+    quelle = (_repo() / "frontend" / "src" / "pages"
+              / "ApplicationsPage.jsx").read_text(encoding="utf-8")
+    assert "{timelineDialog.entry?.application ? (" in quelle
+    # Und der Entwurf wird nicht mehr aus der alten Spalte vorbefuellt.
+    assert "job?.research_notes" not in quelle
+
+
+def test_956_kein_schreibweg_mehr_auf_die_alte_spalte():
+    """AK 3 des Issues, als Guard statt als Vorsatz.
+
+    Der Guard zaehlt keine Fundstellen ab, er verbietet die Bauform —
+    eine Zaehlung haette die fuenfte durchgelassen. (Das Issue nannte
+    drei Schreibwege; es waren vier.)
+    """
+    import re
+
+    for datei in ("src/bewerbungs_assistent/tools/jobs.py",
+                  "src/bewerbungs_assistent/tools/bewerbungen.py",
+                  "src/bewerbungs_assistent/dashboard.py"):
+        quelle = (_repo() / datei).read_text(encoding="utf-8")
+        code = "\n".join(z for z in quelle.split("\n")
+                         if not z.strip().startswith("#"))
+        assert not re.search(r'"research_notes"\s*:', code), (
+            f"{datei} schreibt wieder in die Spalte jobs.research_notes.")
+
+
+class _MigrationsDB:
+    """Genug Datenbank fuer den Migrationslauf."""
+
+    def __init__(self, zeilen):
+        self.zeilen = zeilen
+        self.geschrieben = []
+        self.notizen = []
+
+    def connect(self):
+        return self
+
+    def execute(self, sql, args=()):
+        if "FROM jobs WHERE research_notes" in sql:
+            return _Ergebnis([dict(z) for z in self.zeilen
+                              if (z["research_notes"] or "").strip()])
+        if sql.startswith("UPDATE jobs SET dismiss_note"):
+            self.geschrieben.append(("dismiss_note", args[1]))
+            for z in self.zeilen:
+                if z["hash"] == args[1]:
+                    z["dismiss_note"] = args[0]
+            return _Ergebnis([])
+        if "FROM applications" in sql:
+            return _Ergebnis([])
+        return _Ergebnis([])
+
+    def commit(self):
+        pass
+
+    def add_research_note(self, **kwargs):
+        self.notizen.append(kwargs)
+        return len(self.notizen)
+
+    def update_job(self, job_hash, felder):
+        self.geschrieben.append(("update_job", job_hash))
+        for z in self.zeilen:
+            if z["hash"] == job_hash:
+                z.update(felder)
+
+
+def _migrations_db():
+    return _MigrationsDB([
+        {"hash": "p1:aaa", "research_notes": "Firma baut ein Team auf.",
+         "dismiss_note": "", "is_active": 1},
+        {"hash": "p1:bbb",
+         "research_notes": "[Auto-Aussortierung] falsches_fachgebiet",
+         "dismiss_note": "", "is_active": 0},
+    ])
+
+
+def test_956_die_vorgabe_ist_zaehlen_nicht_verschieben():
+    """Ein Lauf, der ungefragt 143 Datensaetze umschreibt, ist keine
+    Migration, sondern eine Ueberraschung."""
+    from bewerbungs_assistent.services import recherche_migration as rm
+
+    db = _migrations_db()
+    ergebnis = rm.zusammenfuehren(db)
+    assert ergebnis["status"] == "vorschau"
+    assert ergebnis["kandidaten"] == 2
+    assert ergebnis["recherche"] == 1 and ergebnis["protokoll"] == 1
+    assert db.geschrieben == [] and db.notizen == []
+
+
+def test_956_der_echte_lauf_trennt_die_beiden_sorten():
+    from bewerbungs_assistent.services import recherche_migration as rm
+
+    db = _migrations_db()
+    ergebnis = rm.zusammenfuehren(db, dry_run=False)
+    assert ergebnis["status"] == "verschoben"
+    assert ergebnis["recherche"] == 1 and ergebnis["protokoll"] == 1
+    # Die Recherche liegt in der Tabelle ...
+    assert [n["text"] for n in db.notizen] == ["Firma baut ein Team auf."]
+    assert db.notizen[0]["kategorie"] == "firmenrecherche"
+    # ... das Protokoll in dismiss_note.
+    assert ("dismiss_note", "p1:bbb") in db.geschrieben
+
+
+def test_956_der_zweite_lauf_findet_nichts_mehr():
+    """Idempotent — und zwar durch Leeren, ohne zweite Wahrheit."""
+    from bewerbungs_assistent.services import recherche_migration as rm
+
+    db = _migrations_db()
+    rm.zusammenfuehren(db, dry_run=False)
+    zweiter = rm.zusammenfuehren(db, dry_run=False)
+    assert zweiter["kandidaten"] == 0
+
+
+def test_956_die_migration_sortiert_nichts_aus():
+    """Eine Migration ordnet ein, sie entscheidet nicht.
+
+    Ein `dismiss_job` haette `is_active` auf 0 gesetzt — eine Stelle,
+    die aus welchem Grund auch immer wieder aktiv ist, waere danach
+    still wieder aussortiert.
+    """
+    from bewerbungs_assistent.services import recherche_migration as rm
+
+    db = _MigrationsDB([
+        {"hash": "p1:ccc",
+         "research_notes": "[Auto-Aussortierung] alter Vermerk",
+         "dismiss_note": "", "is_active": 1},
+    ])
+    rm.zusammenfuehren(db, dry_run=False)
+    assert db.zeilen[0]["is_active"] == 1
+
+
+def test_956_die_stichprobe_traegt_keine_notizinhalte():
+    """Eine Recherche-Notiz kann alles enthalten, auch einen Namen."""
+    from bewerbungs_assistent.services import recherche_migration as rm
+
+    ergebnis = rm.zusammenfuehren(_migrations_db())
+    assert "Firma baut ein Team auf." not in repr(ergebnis["stichprobe"])
+    assert ergebnis["stichprobe"][0]["art"] in ("recherche", "protokoll")
