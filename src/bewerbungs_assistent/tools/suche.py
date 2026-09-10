@@ -18,6 +18,10 @@ _KATEGORIEN_WOERTER = blacklist_regel.KATEGORIEN_WOERTER
 _EIGENE_KRITERIEN = {
     "min_gehalt", "min_tagessatz", "min_stundensatz", "max_entfernung",
     "max_entfernung_km", "regionen", "stellentypen",
+    # #931: auch die Nennwerte. Ein gleichnamiger Eintrag im
+    # Sammelbecken waere wirkungslos und saehe doch nach einer
+    # Einstellung aus — genau der Fall aus #988.
+    "wunsch_gehalt", "wunsch_tagessatz", "wunsch_stundensatz",
 }
 
 
@@ -159,6 +163,9 @@ def register(mcp, db, logger):
         min_gehalt: float = None,
         min_tagessatz: float = None,
         min_stundensatz: float = None,
+        wunsch_gehalt: float = None,
+        wunsch_tagessatz: float = None,
+        wunsch_stundensatz: float = None,
         custom_kriterien: dict = None
     ) -> dict:
         """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
@@ -320,6 +327,16 @@ def register(mcp, db, logger):
             db.set_search_criteria("min_tagessatz", float(min_tagessatz))
         if min_stundensatz is not None:
             db.set_search_criteria("min_stundensatz", float(min_stundensatz))
+        # #931: die Nennwerte fuers Gespraech. Sie stehen NEBEN dem
+        # Minimum, nicht darin — und sie wirken nicht im Scoring. Wer
+        # sie in dieselbe Zahl zwingt, hat entweder einen zu scharfen
+        # Filter oder keinen Nennwert.
+        from ..services import nennwerte as _nw
+        for _feld, _wert in (("wunsch_gehalt", wunsch_gehalt),
+                             ("wunsch_tagessatz", wunsch_tagessatz),
+                             ("wunsch_stundensatz", wunsch_stundensatz)):
+            if _wert is not None:
+                db.set_search_criteria(_feld, float(_wert))
         # #813 AK 6: `min_gehalt` gibt es als eigenes Kriterium (#544) UND
         # frueher als Eintrag in `custom_kriterien`. Gelesen wird beim
         # Scoring nur das eigene Feld — ein Wert im Sammelbecken wirkt
@@ -560,6 +577,13 @@ def register(mcp, db, logger):
                 "muessen in der Anzeige vorkommen, PLUS-Begriffe "
                 "verbessern nur die Reihenfolge.")
         antwort = {"kriterien": kriterien}
+        # #931: Minimum und Nennwert GETRENNT ausgeben. Beide in einer
+        # Zahl waeren genau die Vermischung, wegen der das Issue
+        # entstanden ist — die eine filtert, die andere erinnert.
+        from ..services import nennwerte as _nw
+        _saetze = _nw.uebersicht(db)
+        if _saetze.get("werte"):
+            antwort["saetze"] = _saetze
         hinweis = _entfernung_widerspruch(kriterien)
         if hinweis:
             antwort["hinweis_entfernung"] = hinweis
