@@ -33,6 +33,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.71] - 2026-09-10 — Angesehen ist nicht beurteilt
+
+### Added
+
+- **Der Prüfstand einer Stelle (#948).** Jede Stelle steht jetzt in
+  genau einem von drei Zuständen: **ungeprüft**, **angesehen** (die
+  Fit-Analyse lief, aber niemand hat ein Urteil hinterlegt) und
+  **beurteilt**. Bis hierher hinterliess `fit_analyse` **gar keine
+  Spur** — wer eine Stelle vertieft ansah und danach kein Urteil
+  zurückschrieb, fand sie beim nächsten Sichten wieder vor, als sei nie
+  etwas geschehen. Genau das ist der gemeldete Schaden. Die Einteilung
+  entsteht an EINEM Ort (`services/passung.py`); Liste, MCP und Dialog
+  rufen sie auf, statt sie je einmal nachzubauen.
+- **„⚠ überholt" — der eigentlich wertvolle Zustand.** Neu
+  `jobs.analyse_score`: der Score zum Zeitpunkt des Urteils. Ohne ihn
+  liess sich „überholt" nur behaupten. Geprüft wird am **Score**, weil
+  eine nachgeladene Beschreibung, geänderte Suchkriterien und
+  verstellte Regler alle drei über ihn wirken — ein Vergleich statt
+  drei, und zwei davon wären ungenauer gewesen. **Ohne
+  Toleranzschwelle, und das ist gemessen:** über 600 Stellen mit
+  Anzeigentext (Kopie des Bestands) sind 381 unverändert und 219
+  abweichend, und die kleinste beobachtete Abweichung beträgt bereits
+  0,5 Punkte (Median 10,5). Es gibt kein Rauschband, das eine Schwelle
+  wegfiltern müsste — sie würde nur echte Änderungen verschweigen.
+- **Der Filter kann beide Richtungen.** „Nur ungeprüfte" ist der Wert
+  fürs Sichten: da weitermachen, wo man aufgehört hat. Er **ersetzt**
+  den bisherigen Ja/Nein-Schalter, statt danebenzustehen — zwei
+  Einstellungen für dieselbe Frage sind der Fehler aus #988.
+
+### Changed
+
+- **Der Einstieg zur vertieften Analyse steht ohne Scrollen da
+  (#948).** „Detailbewertung durch Claude anfordern" sass am Ende eines
+  langen Dialogs; man musste an Score, Faktoren, Treffern, Risiken und
+  Recherche vorbei, um den teuersten Schritt zu finden. Er sitzt jetzt
+  in der Fusszeile des Dialogs — die liegt ausserhalb des
+  Scroll-Bereichs, ist also immer sichtbar und verdeckt nichts. Kein
+  neuer Mechanismus: der richtige war bereits gebaut.
+- **Das Abzeichen führt zum Ergebnis.** Ein Klick öffnet die
+  Fit-Analyse mit dem gelesenen Urteil obenan, statt den Umweg über die
+  Detailansicht zu erzwingen.
+
+### Fixed
+
+- **Der Fit-Dialog im Dashboard rechnete eine andere Zahl als der Chat
+  (#948, Nebenbefund).** `/api/jobs/{hash}/fit-analyse` nahm die
+  Suchkriterien **roh** statt durch das Nadelöhr aus #987 — also ohne
+  Titel- und Synonym-Anreicherung, ohne die Begriffsart-Ableitung des
+  MUSS-Tors (#968) und ohne die Anforderungs-Gruppierung (#1012). An
+  derselben Stelle standen damit zwei Zahlen, je nachdem wer fragt. Das
+  Nadelöhr gab es seit v1.7.36; dieser Aufrufer ging daran vorbei.
+- **Der Recherche-Kasten im Fit-Dialog wäre nach v1.7.70 leer gewesen
+  (#948, Nebenbefund).** Er las noch `jobs.research_notes` roh — also
+  die Spalte, die die Zusammenführung aus #956 leert. Damit hätte
+  ausgerechnet dieser Kasten das Symptom gezeigt, wegen dem #956
+  aufgemacht wurde. Er liest jetzt über dieselbe Ablage wie alle
+  anderen.
+
+### Notes
+
+- Der Sichtungs-Vermerk fasst **weder Score noch Urteil** an. `fit_analyse`
+  ist seit v1.7.24 (#963) ein reines Lesewerkzeug, weil ein stiller
+  Score-Write die Rangfolge verschob; geschrieben werden genau zwei
+  Felder, die in keine Sortierung und in keine Rechnung eingehen.
+- Tests: **3569 passed / 2 skipped** (3571 gesammelt). Alle sieben
+  Akzeptanzkriterien einzeln, dazu ein Browser-Test, der klickt statt
+  den Quelltext zu lesen. Schema unverändert (v48).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.71.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.71.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.70] - 2026-09-10 — Ein Befund statt einer Vermutung
 
 ### Fixed
