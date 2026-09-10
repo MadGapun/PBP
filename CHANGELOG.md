@@ -33,6 +33,115 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.70] - 2026-09-10 — Ein Befund statt einer Vermutung
+
+### Fixed
+
+- **Nachladen sagt jetzt, WARUM nichts kam (#1014).** Gemeldet von
+  einem fremden Anwender mit eigenen Messungen: 360 von 473 aktiven
+  Stellen der Bundesagentur ohne Anzeigentext, und jeder Nachlade-
+  Versuch endete mit *"evtl. Login-Wall oder Bot-Block"*. Zwei
+  Ursachen. Erstens ging der Weg ueber HTML, obwohl die Seite ihren
+  Inhalt per JavaScript nachlaedt — den API-Weg gibt es seit #489,
+  gerufen hat ihn niemand. Zweitens wurde der HTTP-Status verworfen
+  (`if status != 200: return ""`), womit aus einem eindeutigen **410
+  Gone** eine Vermutung wurde. Neu `services/nachladen.py` als
+  Nadeloehr fuer alle vier Nachlade-Wege, mit fuenf unterscheidbaren
+  Befunden: gelesen, weg, geblockt, lebt-aber-unlesbar, Fehler. Nur
+  der vierte darf raten. **Ehrliche Abweichung vom Bericht:** an sechs
+  echten Stellen nachgemessen lieferte auch der HTML-Weg Text
+  (1.756–2.701 Zeichen) — die gemeldeten "0 Zeichen" liessen sich
+  nicht nachstellen. Der eigentliche Defekt schon: zwei der sechs
+  Anzeigen waren tatsaechlich entfernt und wurden bis dahin als
+  "Login-Wall oder Bot-Block" gefuehrt. Die Detail-API war in allen
+  vier lebenden Faellen mindestens so gut wie HTML.
+
+### Changed
+
+- **Firmen-Recherche liegt an EINEM Ort (#956).** PBP hielt sie in
+  zwei Speichern: einer Freitextspalte an der STELLE (#240/#463) und
+  der Tabelle `research_notes` an der BEWERBUNG (#673/#674). Die
+  Trennung war keine Fachentscheidung, sondern der Rest davon, dass
+  das bessere Modell nachgeliefert wurde, ohne das aeltere
+  abzuraeumen — derselbe Fehlertyp wie #764. Neu
+  `services/recherche_ablage.py`; vier Schreibwege gehen jetzt
+  hindurch. Sichtbar war es daran, dass ueber gespeicherten
+  Recherchen ein LEERES Eingabefeld stand.
+- **Der Schreibkasten haengt nicht mehr an der Stelle.** Nebenbefund
+  aus #958, jetzt behoben: das Eingabefeld erschien nur bei
+  verknuepfter Stelle — bei **44 von 99 Bewerbungen** gibt es keine
+  (gemessen fuer #986). Fuer fast die Haelfte des Bestands war der
+  Kasten damit unerreichbar, obwohl gespeichert wird an der
+  Bewerbung.
+
+### Added
+
+- **`recherche_notizen_zusammenfuehren` — der Altbestand kommt an
+  seinen Ort (#956, Teil 2).** Vorgabe ist ZAEHLEN (`dry_run=True`),
+  nicht Verschieben. Gemessen: 143 Stellen tragen einen Inhalt in der
+  alten Spalte, davon haengen 5 an einer Bewerbung — und **30 sind
+  ueberhaupt keine Recherche**, sondern Aussortier-Protokoll. Sie
+  gehen deshalb nach `jobs.dismiss_note` statt in die Recherche-
+  Liste: alles in einen Topf zu schieben waere kein Aufraeumen,
+  sondern eine zweite Verwechslung. Der Lauf ist idempotent, weil er
+  die alte Spalte leert — ohne Merkliste und ohne zweite Wahrheit
+  darueber, was schon gelaufen ist.
+- **`bewerbung_notiz_drift` — wo zwei Notiz-Fassungen auseinander
+  laufen (#957, Stufe 1).** Ein reiner Report, der NICHTS schreibt
+  und keine Notiztexte ausgibt. Gemessen am Bestand: **23 von 97
+  Bewerbungen** tragen zwei verschiedene Fassungen derselben Notiz,
+  und die Abweichung geht in BEIDE Richtungen. Welche Fassung gewinnt,
+  ist deshalb eine Nutzerentscheidung und keine Migration — Stufe 2
+  bleibt offen.
+
+### Notes
+
+- Tests: **3541 passed / 2 skipped** (3543 gesammelt). MCP-Tools 222.
+- Schema unveraendert (v48).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.70.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.70.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.69] - 2026-09-10 — Die Vorgabe kommt aus deinen Begriffen
 
 ### Changed
