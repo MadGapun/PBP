@@ -8280,6 +8280,80 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    def _dismiss_reason_umschreiben(self, conn, alt: str, neu: str) -> int:
+        """Ersetzt einen Ablehnungsgrund in `jobs.dismiss_reason` (#663 C65).
+
+        Bis v1.7.75 stand hier ein einzelnes
+        `UPDATE ... WHERE dismiss_reason=?`. Das hat den Normalfall NICHT
+        getroffen, und zwar gleich zweifach:
+
+        1. **Gross- und Kleinschreibung.** Der Grund heisst im Editor
+           `Dublikat`, gespeichert wird `dublikat` — SQLite vergleicht
+           TEXT exakt, also traf die Bedingung null Zeilen.
+        2. **Die Listenform.** Ein Grund steht seit #913 normalerweise als
+           JSON-Liste da (`["dublikat"]`, `["duplikat",
+           "falsches_fachgebiet"]`), weil eine Stelle mehrere Gruende
+           tragen kann. Ein Vergleich auf den nackten String sieht davon
+           nichts.
+
+        Am echten Bestand durchgespielt: **18 Stellen blieben auf dem
+        Tippfehler stehen**, waehrend das Werkzeug `zusammengefuehrt`
+        meldete — danach zeigten sie auf einen Grund, den es nicht mehr
+        gab. Eine Erfolgsmeldung ueber eine Nicht-Aenderung beendet die
+        Fehlersuche (#994, #997).
+
+        Zusammengefuehrt wird auf Ebene der EINZELWERTE: eine Stelle, die
+        schon beide Schreibweisen traegt, behaelt danach eine — sonst
+        entstuende `["duplikat", "duplikat"]`.
+
+        Returns:
+            Zahl der geaenderten Stellen.
+        """
+        import json as _json
+
+        alt_klein = (alt or "").strip().lower()
+        neu_wert = (neu or "").strip()
+        if not alt_klein or not neu_wert:
+            return 0
+
+        zeilen = conn.execute(
+            "SELECT hash, dismiss_reason FROM jobs "
+            "WHERE dismiss_reason IS NOT NULL AND TRIM(dismiss_reason) != ''"
+        ).fetchall()
+
+        geaendert = 0
+        for zeile in zeilen:
+            roh = zeile["dismiss_reason"]
+            text = str(roh).strip()
+            # Listenform?
+            werte, war_liste = None, False
+            if text.startswith("["):
+                try:
+                    geparst = _json.loads(text)
+                    if isinstance(geparst, list):
+                        werte, war_liste = [str(w) for w in geparst], True
+                except Exception:
+                    werte = None
+            if werte is None:
+                werte = [text]
+
+            if not any(w.strip().lower() == alt_klein for w in werte):
+                continue
+
+            # Ersetzen und dabei entdoppeln — die Reihenfolge bleibt.
+            neue_werte: list = []
+            for w in werte:
+                ersetzt = neu_wert if w.strip().lower() == alt_klein else w
+                if ersetzt not in neue_werte:
+                    neue_werte.append(ersetzt)
+
+            ziel = (_json.dumps(neue_werte, ensure_ascii=False)
+                    if war_liste else neue_werte[0])
+            conn.execute("UPDATE jobs SET dismiss_reason=? WHERE hash=?",
+                         (ziel, zeile["hash"]))
+            geaendert += 1
+        return geaendert
+
     def rename_dismiss_reason(self, reason_id: int, new_label: str) -> dict:
         """Benennt einen Ablehnungsgrund um UND zieht bestehende
         ``jobs.dismiss_reason``-Werte mit (#663 C20-Fix, beta.92).
@@ -8309,11 +8383,8 @@ class Database:
             return {"status": "unveraendert", "label": new_label,
                     "reassigned_jobs": 0}
         # Historische jobs.dismiss_reason mitziehen (Tippfehler verschwindet)
-        cur = conn.execute(
-            "UPDATE jobs SET dismiss_reason=? WHERE dismiss_reason=?",
-            (new_label, old_label),
-        )
-        reassigned = cur.rowcount or 0
+        reassigned = self._dismiss_reason_umschreiben(
+            conn, old_label, new_label)
         other = conn.execute(
             "SELECT id, usage_count FROM dismiss_reasons WHERE label=? AND id!=?",
             (new_label, reason_id),

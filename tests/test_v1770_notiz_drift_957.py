@@ -145,13 +145,25 @@ def _beispiel_db():
     )
 
 
-def test_957_der_bericht_zaehlt_die_vier_faelle():
+def test_957_der_bericht_zaehlt_die_faelle():
+    """Nachgezogen mit Stufe 2: es sind fuenf Faelle statt vier.
+
+    `zusammengefuehrt` kam dazu, weil der Report sonst nach der
+    Zusammenfuehrung weiter `abweichend` gemeldet haette — technisch
+    richtig (die Texte sind verschieden), in der Sache falsch: beide
+    Fassungen liegen dann an einem Ort. Ein Pruefer, der bei korrektem
+    Zustand Alarm gibt, wird ignoriert (#929).
+
+    Die Zusicherung dieses Tests ist unveraendert: der Bericht zaehlt
+    jeden Fall genau einmal.
+    """
     b = notiz_drift.bericht(_beispiel_db())
     assert b["bewerbungen_gesamt"] == 5
     assert b["mit_notiz"] == 4          # a5 hat nichts
     assert b["faelle"] == {
         notiz_drift.IDENTISCH: 1,
         notiz_drift.ABWEICHEND: 1,
+        notiz_drift.ZUSAMMENGEFUEHRT: 0,
         notiz_drift.NUR_FELD: 1,
         notiz_drift.NUR_TIMELINE: 1,
     }

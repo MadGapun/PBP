@@ -1401,6 +1401,35 @@ def register(mcp, db, logger):
             db, dry_run=dry_run, max_stellen=max_stellen)
 
     @mcp.tool()
+    def bewerbung_notizen_zusammenfuehren(dry_run: bool = True,
+                                          max_bewerbungen: int = 0) -> dict:
+        """Fuehrt abweichende Notiz-Fassungen zusammen (#957, Stufe 2).
+
+        **Nichts wird weggeworfen.** Stehen Notizfeld und Anlage-Eintrag
+        auseinander, stehen danach BEIDE Fassungen im Feld, getrennt
+        durch eine benannte Zeile. Der Timeline-Eintrag bleibt
+        unangetastet — er belegt die Herkunft des unteren Teils.
+
+        Das ist die Nutzerentscheidung vom 10.09.2026, und sie war
+        noetig: Stufe 1 hat gemessen, dass **23 von 97 Bewerbungen**
+        zwei Fassungen tragen und die Abweichung in BEIDE Richtungen
+        geht. Eine Regel "die neuere gilt" braucht einen Zeitstempel,
+        den das Feld nicht hat; "die laengere gilt" waere eine
+        Vermutung, die eine gekuerzte Korrektur vernichtet.
+
+        Vorgabe ist ZAEHLEN, nicht Schreiben. Der Lauf ist idempotent:
+        eine bereits verkettete Notiz enthaelt den Anlage-Eintrag und
+        gilt damit nicht mehr als abweichend.
+
+        Args:
+            dry_run: Vorgabe True — es wird nichts geschrieben.
+            max_bewerbungen: 0 = alle.
+        """
+        from ..services import notiz_drift
+        return notiz_drift.zusammenfuehren(
+            db, dry_run=dry_run, max_bewerbungen=max_bewerbungen)
+
+    @mcp.tool()
     def bewerbung_notiz_drift() -> dict:
         """Wo laufen Notizfeld und Timeline auseinander? (#957, Stufe 1)
 
