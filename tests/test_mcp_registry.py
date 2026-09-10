@@ -72,6 +72,7 @@ EXPECTED_TOOL_NAMES = {
     "verwaiste_stellenrefs_bereinigen",
     # v1.7.9 (#763/#764): Bestands-Heilung fuer URL-Qualitaet und die
     # Divergenz zwischen applications.job_hash und application_jobs
+    "stellen_dubletten_pruefen",
     "stellen_urls_heilen",
     "bewerbungs_stellen_abgleichen",
     # v1.7.10/beta.9 (#778-#784, #774): Stabilisierungswelle 24.07.
@@ -381,7 +382,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 235  # v1.7.70: +bewerbung_notiz_drift (#957), +recherche_notizen_zusammenfuehren (#956)
+        assert len(tools) == 236  # v1.7.72 (#951): +stellen_dubletten_pruefen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

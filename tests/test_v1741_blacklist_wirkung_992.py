@@ -86,8 +86,14 @@ def _sperre(db, wert="Musterdienst", grund="Zeitarbeit/Consulting, kein Fit",
 
 
 def _stelle(titel="Senior PLM Architect", firma="Musterdienst GmbH", h="h1"):
+    # v1.7.72 (#951): je Stelle eine EIGENE Detail-URL. Vorher trugen
+    # alle dieselbe — seit die Dublettenerkennung eine identische URL
+    # als dieselbe Anzeige wertet, waere die zweite Stelle beim
+    # Speichern als Duplikat ausgefallen und haette die Blacklist nie
+    # erreicht. Zwei verschiedene Anzeigen koennen sich keine
+    # Detail-URL teilen; die Fixture war unrealistisch.
     return {"hash": h, "title": titel, "company": firma,
-            "url": "https://example.org/1", "source": "testquelle"}
+            "url": f"https://example.org/{h}", "source": "testquelle"}
 
 
 # ── Der Kern: dieselbe Frage, vier Wege, EIN Ergebnis ─────────────────

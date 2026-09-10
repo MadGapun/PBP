@@ -2443,6 +2443,11 @@ def _guete_anreichern(jobs: list) -> None:
                 job["analyse"] = befund
             # #948 (G42): derselbe Aufruf wie in stellen_anzeigen.
             job["pruefstand"] = passung.zustand(job, _profil)
+            # #951 (AK 6): derselbe Aufruf wie in stellen_anzeigen.
+            from .services import stellen_quellen as _sq
+            _quellen = _sq.uebersicht(_db, job)
+            if _quellen:
+                job["quellen"] = _quellen
         except Exception:  # pragma: no cover — nie eine Liste stoppen
             pass
 
@@ -2566,6 +2571,11 @@ async def api_fit_analyse(job_hash: str):
     if _gespeichert:
         result["analyse"] = _gespeichert
     result["pruefstand"] = _passung.zustand(job, profile)
+    # #951 (AK 6): die Quellenliste gehoert auch in die Fit-Analyse.
+    from .services import stellen_quellen as _sq
+    _quellen = _sq.uebersicht(_db, job)
+    if _quellen:
+        result["quellen"] = _quellen
     # #948 (G42): derselbe Sichtungs-Vermerk wie im MCP-Weg. Zwei
     # Fassungen davon waeren #963 in einem neuen Feld.
     try:

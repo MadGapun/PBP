@@ -70,6 +70,19 @@ def test_dedup_different_jobs_both_active(setup_env):
 
 
 def test_dedup_duplicate_has_reference_note(setup_env):
+    """Der Verweis auf das Original bleibt — er steht nur woanders.
+
+    Bis v1.7.71 landete er in `jobs.research_notes`, dem Notizblock der
+    Firmen-Recherche. Seit #956 wird diese Spalte in die
+    Recherche-Tabelle zusammengefuehrt, und `ist_protokoll` erkannte
+    den Duplikat-Vermerk nicht — er waere als RECHERCHE in der Liste
+    des Menschen gelandet (gemessen: 9 von 107 Altzeilen). Freitext zu
+    einer Aussortierung gehoert seit #913 nach `dismiss_note`; genau
+    dort steht er jetzt.
+
+    Die Zusicherung dieses Tests ist unveraendert: ein Duplikat traegt
+    einen nachvollziehbaren Verweis auf sein Original.
+    """
     db = setup_env
     db.save_jobs([
         _job("h-orig", "Data Scientist", "DataCorp"),
@@ -77,11 +90,14 @@ def test_dedup_duplicate_has_reference_note(setup_env):
     ])
     conn = db.connect()
     dupe = conn.execute(
-        "SELECT dismiss_reason, research_notes, is_active FROM jobs WHERE hash LIKE '%h-dupe'"
+        "SELECT dismiss_reason, research_notes, dismiss_note, is_active "
+        "FROM jobs WHERE hash LIKE '%h-dupe'"
     ).fetchone()
     assert dupe["is_active"] == 0
     assert dupe["dismiss_reason"] == "duplikat"
-    assert "Duplikat von" in (dupe["research_notes"] or "")
+    assert "Duplikat von" in (dupe["dismiss_note"] or "")
+    assert not (dupe["research_notes"] or "").strip(), (
+        "Der Vermerk steht wieder im Recherche-Notizblock.")
 
 
 def test_dedup_against_already_stored_job(setup_env):

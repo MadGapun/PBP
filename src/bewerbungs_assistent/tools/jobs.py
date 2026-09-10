@@ -2056,6 +2056,13 @@ def register(mcp, db, logger):
             # "angesehen, aber nicht beurteilt" ist der Zustand, in dem
             # Arbeit verlorenging.
             entry["pruefstand"] = passung.zustand(j, _profil_fuer_analyse)
+            # #951 (AK 6): wo ueberall diese Stelle ausgeschrieben ist.
+            # Steht nur da, wenn es MEHR als eine Fundstelle gibt — sonst
+            # waere es die Wiederholung des `source`-Feldes.
+            from ..services import stellen_quellen as _sq
+            _quellen = _sq.uebersicht(db, j)
+            if _quellen:
+                entry["quellen"] = _quellen
 
             # #180: Warnung wenn Beschreibung fehlt (Score unsicher)
             desc = j.get("description") or ""
@@ -5729,6 +5736,30 @@ def register(mcp, db, logger):
                 "bewerbung_stellen_anzeigen zeigen jetzt dieselbe Stelle."
             ),
         }
+
+    @mcp.tool()
+    def stellen_dubletten_pruefen(max_stellen: int = 0) -> dict:
+        """Findet Stellen, die mehrfach im Bestand liegen (#951).
+
+        Der Bestand ist gewachsen, bevor es die quellenuebergreifende
+        Erkennung gab. Dieser Lauf gruppiert ihn nachtraeglich —
+        **er schreibt nichts und fuehrt nichts zusammen.**
+
+        Gruppiert wird nur nach nachrechenbaren Merkmalen: identische
+        Anzeigen-URL (ohne Tracking-Parameter) oder identischer
+        normalisierter Titel bei gleicher Firma. Eine
+        Aehnlichkeitsrechnung wuerde hier schaetzen, und die
+        Nutzervorgabe lautet Recall vor Praezision: zwei getrennte
+        Eintraege sind aergerlich, eine falsch verschmolzene Stelle ist
+        schlimmer.
+
+        Fuer einen bestaetigten Fall ist `stelle_mergen` der Weg (#470).
+
+        Args:
+            max_stellen: 0 = der ganze Bestand.
+        """
+        from ..services import stellen_dublette
+        return stellen_dublette.bestand_pruefen(db, max_stellen=max_stellen)
 
     @mcp.tool()
     def stellen_urls_heilen(dry_run: bool = True, nur_aktive: bool = True) -> dict:

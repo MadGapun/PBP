@@ -57,7 +57,9 @@ def _stelle(db, hash_="948aaa", score=20.0):
         "hash": hash_,
         "title": f"Testrolle Quintus {hash_}",
         "company": "Halbleiterwerk Nord GmbH",
-        "url": "https://example.com/stellen/948",
+        # #951: eigene URL je Stelle — eine geteilte Detail-URL gilt
+        # seit v1.7.72 als dieselbe Anzeige.
+        "url": f"https://example.com/stellen/{hash_}",
         "source": "manuell",
         "description": "Eine Anzeige mit genug Text fuer die Pruefungen. " * 8,
         "score": score,
@@ -376,7 +378,10 @@ def test_948_der_dashboard_weg_nutzt_dieselbe_kriterien_basis():
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
     start = quelle.index("async def api_fit_analyse")
-    block = quelle[start:start + 3000]
+    # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
+    # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
+    # erweitert, und meldet dann einen Fehler, den es nicht gibt.
+    block = quelle[start:quelle.index("@app.", start + 10)]
     assert "scoring_kriterien.fuer_scoring(_db)" in block
     assert "criteria = _db.get_search_criteria()" not in block
 
@@ -393,7 +398,10 @@ def test_948_der_recherche_kasten_liest_ueber_das_nadeloehr():
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
     start = quelle.index("async def api_fit_analyse")
-    block = quelle[start:start + 3000]
+    # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
+    # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
+    # erweitert, und meldet dann einen Fehler, den es nicht gibt.
+    block = quelle[start:quelle.index("@app.", start + 10)]
     assert "recherche_ablage.lesen(" in block
 
 
@@ -407,7 +415,10 @@ def test_948_der_dialog_liest_den_stand_vor_dem_eigenen_vermerk():
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "dashboard.py").read_text(encoding="utf-8-sig")
     start = quelle.index("async def api_fit_analyse")
-    block = quelle[start:start + 3000]
+    # Bis zum naechsten Endpunkt lesen statt eine feste Zeichenzahl —
+    # ein Fenster aus Zeichen bricht, sobald jemand die Funktion
+    # erweitert, und meldet dann einen Fehler, den es nicht gibt.
+    block = quelle[start:quelle.index("@app.", start + 10)]
     assert block.index("_passung.zustand(job") < block.index(
         "mark_job_sighted"), (
         "Der Vermerk laeuft vor dem Lesen — der Dialog zeigt dann "
