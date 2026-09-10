@@ -573,10 +573,17 @@ def register(mcp, db, logger):
         # kann man nicht abwaegen.
         try:
             from ..services import muss_tor as _mt
+            from ..services import scoring_kriterien as _sk
             _modus = _mt.modus(db)
+            _, _warum = _mt.abgeleitet(
+                _sk.gespeicherte_arten(db, kriterien.get("keywords_muss")))
             antwort["muss_tor"] = {
                 "betriebsart": _modus,
                 "bedeutet": _mt.MODI[_modus],
+                # Eine Vorgabe, die sich selbst setzt, muss sagen
+                # koennen warum — sonst ist sie von einer stillen
+                # Verhaltensaenderung nicht zu unterscheiden.
+                "begruendung": _warum,
                 "umstellen": "muss_tor_setzen('gewichtet')",
             }
         except Exception:

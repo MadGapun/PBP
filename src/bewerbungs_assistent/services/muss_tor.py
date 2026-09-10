@@ -23,7 +23,42 @@ nachrangig. Damit bleibt die Entscheidung aus #942 unangetastet — ein
 Bonus ersetzt keine fachliche Passung, er ordnet nur innerhalb der
 Gruppe, ueber die PBP fachlich nichts weiss.
 
-## Warum die Vorgabe trotzdem `hart` bleibt
+## Die Vorgabe wird ABGELEITET, nicht gesetzt (v1.7.69)
+
+Die erste Fassung dieses Moduls hatte `hart` fest als Vorgabe, und die
+Begruendung stand unten: gemessen am Bestand EINES Nutzers. Der
+Einwand dagegen war berechtigt — **eine Voreinstellung, die an einem
+fremden Lebenslauf kalibriert wurde, ist fuer alle anderen geraten.**
+Fuer die Pflegekraft aus dem Issue ist `hart` schlicht falsch.
+
+Der Unterschied zwischen beiden Faellen ist aber benennbar, und PBP
+kann ihn selbst entscheiden:
+
+* Nennen die Pflichtbegriffe **Techniken** ("PLM", "SAP", "Python"),
+  ist ihr Fehlen ein echter Beleg fuer ein anderes Fachgebiet -> `hart`.
+* Nennen sie einen **Beruf** ("Pflegefachkraft", "Erzieherin"), sagt
+  ihr Fehlen wenig, weil derselbe Beruf viele Namen hat -> `gewichtet`.
+
+Entschieden wird an der Schwelle, die seit v1.7.36 (#987) die
+Alternativbezeichnungen absichert und dort GEMESSEN wurde: ein Beruf
+zieht die Berufs-Facette an sich (18-39 %), eine Technologie streut
+(10-13 %). Die Einordnung entsteht aus derselben Netzabfrage wie die
+Synonyme, wird abgelegt und ab da gelesen — ein Score darf nicht am
+Netz haengen.
+
+**Ein einziger Berufsbegriff genuegt fuer `gewichtet`.** Das Tor oeffnet,
+sobald IRGENDEIN Pflichtbegriff trifft; gefaehrdet ist also der
+Begriff, der umbenannt sein kann. Die Schieflage der Kosten zeigt in
+dieselbe Richtung: `gewichtet` kostet hoechstens 50 zusaetzlich
+abgelegte, markierte und nachrangig einsortierte Anzeigen je Lauf —
+`hart` kostet im Zweifel den ganzen Beruf.
+
+**`unbekannt` faellt auf `hart` zurueck**, also auf das bisherige
+Verhalten. Das ist nicht dasselbe wie "Technik": ein Netzausfall darf
+keine Voreinstellung setzen (#989). Und wer es ausdruecklich einstellt,
+schlaegt die Ableitung immer.
+
+## Was die Messung am Bestand wirklich hergab
 
 Gemessen am 09.09.2026 gegen den echten Bestand (2.491 Anzeigen, Kopie
 im Temp-Verzeichnis):
@@ -39,21 +74,16 @@ ueberein, und ein Rueckgriff auf die KANN-Liste haette ausgerechnet die
 fachfremden Anzeigen zurueckgeholt: 85 % aller Anzeigen tragen
 irgendeinen KANN-Treffer, die Liste taugt nicht als Unterscheidung.
 
-Die Vorgabe umzustellen haette diesem Nutzer rund 1.400 bereits
-abgelehnte Anzeigen zurueck in die Liste gelegt. **Das Issue verlangt
-die Gewichtung als Vorgabe; diese Messung spricht dagegen, und die
-Entscheidung gehoert deshalb dem Menschen und nicht mir.** Beide
-Betriebsarten sind gebaut, umschaltbar und dokumentiert — was fehlt,
-ist allein die Voreinstellung.
+Die Messung bleibt gueltig — sie sagt nur etwas anderes, als ich
+zuerst daraus gemacht habe. Sie belegt, dass das Tor **bei einem
+Technik-Profil** mit dem Urteil des Menschen uebereinstimmt, und genau
+dafuer leitet die Regel oben jetzt `hart` ab. Was sie NICHT belegt, ist
+eine Voreinstellung fuer alle anderen.
 
-Der Unterschied zwischen den beiden Beispielen ist dabei benennbar:
-wessen Pflichtbegriffe **Techniken** nennen, dem sagt ihr Fehlen
-wirklich etwas ("kommt in der Anzeige nicht vor" heisst dann "anderes
-Fachgebiet"). Wessen Pflichtbegriffe einen **Beruf** nennen, dem sagt
-ihr Fehlen wenig, weil derselbe Beruf viele Namen hat — das ist der
-Fall aus dem Issue, und dafuer gibt es seit #969 die amtlichen
-Alternativbezeichnungen. Die Gewichtung ist die Auffanglinie fuer
-alles, was auch die nicht abdeckt.
+Ihr eigentlicher Ertrag war ein verworfener Entwurf: ein Rueckgriff auf
+die KANN-Liste haette 1.539 der 1.900 Anzeigen zurueckgeholt, also fast
+alle. Diese Zahl ist NICHT profilabhaengig — sie folgt aus der Laenge
+einer typischen KANN-Liste (hier 83 Eintraege) und gilt fuer jeden.
 """
 from __future__ import annotations
 
@@ -63,6 +93,7 @@ logger = logging.getLogger(__name__)
 
 EINSTELLUNG = "muss_tor"
 
+AUTOMATISCH = "automatisch"
 HART = "hart"
 GEWICHTET = "gewichtet"
 
@@ -95,6 +126,11 @@ MAX_OHNE_MUSS = 5.0
 MAX_JE_LAUF = 50
 
 MODI = {
+    AUTOMATISCH: (
+        "Vorgabe. PBP entscheidet anhand deiner Pflichtbegriffe: nennen "
+        "sie Techniken, gilt 'hart'; nennen sie einen Beruf, gilt "
+        "'gewichtet'. Laesst sich die Frage nicht beantworten, bleibt "
+        "es bei 'hart' — also beim bisherigen Verhalten."),
     HART: (
         "Vorgabe. Ohne Pflichttreffer faellt die Stelle heraus — sie "
         "wird gar nicht erst gespeichert. Richtig, wenn die "
@@ -110,14 +146,70 @@ MODI = {
 }
 
 
-def modus(db) -> str:
-    """Wie der Nutzer es eingestellt hat — Vorgabe `hart`."""
+def abgeleitet(arten: dict[str, str] | None) -> tuple[str, str]:
+    """Welche Betriebsart folgt aus den Begriffsarten — und warum.
+
+    Ein einziger BERUF unter den Pflichtbegriffen genuegt fuer
+    `gewichtet`: das Tor oeffnet, sobald irgendein Begriff trifft, also
+    ist der umbenennbare Begriff der gefaehrdete. `unbekannt` zaehlt
+    NICHT als Technik — sonst setzte ein Netzausfall eine
+    Voreinstellung (#989).
+
+    Returns:
+        `(betriebsart, begruendung)`. Die Begruendung geht in die
+        Tool-Antwort: eine Vorgabe, die sich selbst setzt, muss sagen
+        koennen warum.
+    """
+    arten = arten or {}
+    berufe = sorted(k for k, v in arten.items() if v == "beruf")
+    techniken = sorted(k for k, v in arten.items() if v == "technik")
+    if berufe:
+        return GEWICHTET, (
+            (f"Einer deiner Pflichtbegriffe nennt einen Beruf "
+             if len(berufe) == 1 else
+             f"{len(berufe)} deiner Pflichtbegriffe nennen einen Beruf ")
+            + f"({', '.join(berufe[:3])}"
+            + (" …" if len(berufe) > 3 else "")
+            + "). Derselbe Beruf heisst in vielen Anzeigen anders — "
+              "sein Fehlen ist deshalb kein Beleg fuer ein anderes "
+              "Fachgebiet.")
+    if techniken:
+        return HART, (
+            f"Deine Pflichtbegriffe nennen Techniken "
+            f"({', '.join(techniken[:3])}"
+            + (" …" if len(techniken) > 3 else "")
+            + "). Kommt eine davon in einer Anzeige nicht vor, ist das "
+              "ein echter Beleg fuer ein anderes Fachgebiet.")
+    return HART, (
+        "Die Art deiner Pflichtbegriffe ist noch nicht bestimmt — es "
+        "bleibt beim bisherigen Verhalten. Die Einordnung entsteht beim "
+        "naechsten Suchlauf.")
+
+
+def modus(db, criteria: dict | None = None) -> str:
+    """Die geltende Betriebsart — eingestellt oder abgeleitet.
+
+    Eine ausdrueckliche Einstellung schlaegt die Ableitung immer. Ohne
+    sie entscheidet die Art der Pflichtbegriffe (siehe `abgeleitet`);
+    das ist die Vorgabe und braucht keine Nutzeraktion.
+    """
     try:
         wert = db.get_profile_setting(EINSTELLUNG, None)
     except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
         logger.debug("MUSS-Tor-Modus nicht lesbar: %s", exc)
         return HART
-    return wert if wert in MODI else HART
+    if wert in (HART, GEWICHTET):
+        return wert
+    # `automatisch`, nichts gesetzt oder Unsinn im Bestand: ableiten.
+    arten = (criteria or {}).get("_muss_begriffsart")
+    if arten is None:
+        try:
+            from . import scoring_kriterien
+            arten = scoring_kriterien.gespeicherte_arten(db)
+        except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+            logger.debug("Begriffsarten nicht lesbar: %s", exc)
+            arten = {}
+    return abgeleitet(arten)[0]
 
 
 def modus_setzen(db, wert: str) -> dict:
@@ -130,6 +222,15 @@ def modus_setzen(db, wert: str) -> dict:
         return {"fehler": f"'{wert}' ist keine Betriebsart. Moeglich: "
                           + ", ".join(sorted(MODI))}
     db.set_profile_setting(EINSTELLUNG, wert)
+    if wert == AUTOMATISCH:
+        return {
+            "status": "gesetzt",
+            "muss_tor": wert,
+            "bedeutet": MODI[wert],
+            "gilt_jetzt": modus(db),
+            "hinweis": ("PBP entscheidet ab jetzt selbst. Der aktuelle "
+                        "Stand steht in suchkriterien_anzeigen."),
+        }
     return {
         "status": "gesetzt",
         "muss_tor": wert,

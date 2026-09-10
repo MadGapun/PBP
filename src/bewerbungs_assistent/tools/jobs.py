@@ -2317,23 +2317,33 @@ def register(mcp, db, logger):
           Fehlen sagt wenig, weil derselbe Beruf in vielen Anzeigen
           anders heisst. Dafuer ist `gewichtet` richtig.
 
-        Gemessen am eigenen Bestand (09.09.2026, 2.491 Anzeigen): 1.900
-        oeffnen das Tor nicht, und 1.402 davon wurden vom Menschen
-        selbst als fachfremd aussortiert. Deshalb bleibt `hart` die
-        Vorgabe — die Umstellung ist eine bewusste Entscheidung.
+        **Du musst hier nichts einstellen.** In der Vorgabe
+        `automatisch` entscheidet PBP anhand deiner Pflichtbegriffe
+        selbst — an derselben gemessenen Schwelle, die seit v1.7.36 die
+        Alternativbezeichnungen absichert. Dieses Werkzeug zeigt die
+        Entscheidung samt Begruendung und laesst sie ueberstimmen.
 
         Args:
-            betriebsart: leer = aktuellen Stand anzeigen. Sonst 'hart'
-                (Vorgabe) oder 'gewichtet'.
+            betriebsart: leer = aktuellen Stand anzeigen. Sonst
+                'automatisch' (Vorgabe), 'hart' oder 'gewichtet'.
         """
         from ..services import muss_tor as mt
+        from ..services import scoring_kriterien as _sk
         if not (betriebsart or "").strip():
-            jetzt = mt.modus(db)
             _muss = [k for k in ((db.get_search_criteria() or {}).get(
                 "keywords_muss") or []) if str(k).strip()]
+            _arten = _sk.gespeicherte_arten(db, _muss)
+            _ableitung, _warum = mt.abgeleitet(_arten)
+            jetzt = mt.modus(db)
+            _gesetzt = db.get_profile_setting(mt.EINSTELLUNG, None)
             return {
                 "muss_tor": jetzt,
                 "bedeutet": mt.MODI[jetzt],
+                "quelle": ("ausdruecklich eingestellt"
+                           if _gesetzt in (mt.HART, mt.GEWICHTET)
+                           else "abgeleitet aus deinen Pflichtbegriffen"),
+                "begruendung": _warum,
+                "begriffsart": _arten,
                 "moeglich": mt.MODI,
                 "pflichtbegriffe": len(_muss),
                 # Ohne Pflichtbegriffe gibt es nichts zu verfehlen —
@@ -2343,8 +2353,9 @@ def register(mcp, db, logger):
                     "Ohne MUSS-Begriffe wirkt diese Einstellung nicht — "
                     "dann sortiert die Schwelle ohnehin nur (#967)."
                     if not _muss else
-                    "Aendern: muss_tor_setzen('gewichtet'). Wirkt ab dem "
-                    "naechsten Suchlauf; betroffene Stellen tragen in "
+                    "Ueberstimmen: muss_tor_setzen('gewichtet') oder "
+                    "('hart'); zurueck zur Ableitung mit "
+                    "('automatisch'). Betroffene Stellen tragen in "
                     "stellen_anzeigen die Marke 'muss_tor'."),
             }
         return mt.modus_setzen(db, betriebsart.strip().lower())
