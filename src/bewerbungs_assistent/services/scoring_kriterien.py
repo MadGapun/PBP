@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 
 EINSTELLUNG = "muss_synonyme"
 
+# v1.7.69 (#968): welcher MUSS-Begriff nennt einen BERUF und welcher
+# eine TECHNIK. Entsteht aus derselben Abfrage wie die Synonyme und
+# wird daneben abgelegt — daraus leitet sich die Betriebsart des
+# MUSS-Tors ab, ohne dass jemand etwas einstellen muss.
+EINSTELLUNG_ARTEN = "muss_begriffsart"
+
 # Status ohne Bewerbung: deren Titel sollen kein Signal mehr geben (#68).
 ARCHIV_STATUS = ("abgelehnt", "zurueckgezogen")
 
@@ -83,6 +89,12 @@ def synonyme_auffrischen(db, *, client=None) -> dict[str, list[str]]:
             neu: dict[str, list[str]] = {}
         else:
             neu = berufsbezeichnungen.erweitere(begriffe, client=client)
+            # Dieselbe Abfrage beantwortet zwei Fragen. Die Begriffsart
+            # wird ABSICHTLICH auch dann geschrieben, wenn es keine
+            # Synonyme gab: "PLM ist eine Technik" ist eine Auskunft,
+            # keine Leere — und genau sie traegt die Voreinstellung.
+            _arten_ablegen(db, berufsbezeichnungen.arten(
+                begriffe, client=client))
 
         # Ein leeres Ergebnis hat zwei Ursachen, die von aussen gleich
         # aussehen: "nichts zu finden" und "nicht erreichbar" — die
@@ -103,6 +115,50 @@ def synonyme_auffrischen(db, *, client=None) -> dict[str, list[str]]:
     except Exception as exc:  # pragma: no cover — Ausfall darf nie stoeren
         logger.debug("Synonyme nicht auffrischbar: %s", exc)
         return _gespeicherte_synonyme(db)
+
+
+def _arten_ablegen(db, arten: dict[str, str]) -> None:
+    """Die Begriffsarten ablegen — Unbekanntes ueberschreibt nichts.
+
+    Ein Netzausfall meldet fuer JEDEN Begriff `unbekannt`. Wuerde das
+    einen vorhandenen Stand ersetzen, kippte die abgeleitete
+    Betriebsart bei jedem Aussetzer — dieselbe Ueberlegung wie bei den
+    Synonymen eine Ebene darueber.
+    """
+    from . import berufsbezeichnungen as _bb
+
+    if not arten:
+        return
+    try:
+        alt = db.get_profile_setting(EINSTELLUNG_ARTEN, None)
+        alt = alt if isinstance(alt, dict) else {}
+        zusammen = dict(alt)
+        for begriff, art in arten.items():
+            if art != _bb.UNBEKANNT or begriff not in zusammen:
+                zusammen[begriff] = art
+        db.set_profile_setting(EINSTELLUNG_ARTEN, zusammen)
+    except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+        logger.debug("Begriffsarten nicht ablegbar: %s", exc)
+
+
+def gespeicherte_arten(db, begriffe: list[str] | None = None) -> dict[str, str]:
+    """Die abgelegten Begriffsarten, auf die aktuellen Begriffe begrenzt.
+
+    Wer einen MUSS-Begriff entfernt, soll seine Einordnung nicht als
+    Altlast weiterschleppen — dieselbe Regel wie bei den Synonymen.
+    """
+    try:
+        roh = db.get_profile_setting(EINSTELLUNG_ARTEN, None)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Begriffsarten nicht lesbar: %s", exc)
+        return {}
+    if not isinstance(roh, dict):
+        return {}
+    sauber = {str(k): str(v) for k, v in roh.items()}
+    if begriffe is None:
+        return sauber
+    aktuell = {str(b) for b in begriffe if str(b).strip()}
+    return {k: v for k, v in sauber.items() if k in aktuell}
 
 
 def fuer_scoring(db, kriterien: dict | None = None) -> dict:
@@ -145,7 +201,12 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
     # spaeter.
     try:
         from . import muss_tor
-        krit["_muss_tor_modus"] = muss_tor.modus(db)
+        # Die Begriffsarten reisen MIT — die Betriebsart kann sich sonst
+        # nicht aus ihnen ableiten, ohne selbst in die Datenbank zu
+        # greifen (#987).
+        krit["_muss_begriffsart"] = gespeicherte_arten(
+            db, krit.get("keywords_muss") or [])
+        krit["_muss_tor_modus"] = muss_tor.modus(db, krit)
     except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
         logger.debug("MUSS-Tor-Modus nicht lesbar: %s", exc)
     return krit

@@ -73,17 +73,13 @@ def _kriterien(modus=None, **extra):
 # ---------------------------------------------------------------- Vorgabe
 
 
-def test_968_vorgabe_ist_weiterhin_hart():
-    """Die Vorgabe bleibt `hart` — gemessen begruendet, nicht bequem.
+def test_968_ohne_jede_auskunft_bleibt_es_beim_bisherigen_verhalten():
+    """Kein Profil, keine Begriffsarten — also keine Aenderung.
 
-    Gegen den echten Bestand (09.09.2026, 2.491 Anzeigen): 1.900
-    oeffnen das Tor nicht, 1.402 davon hat der Mensch selbst als
-    fachfremd aussortiert. Die Vorgabe umzustellen haette rund 1.400
-    abgelehnte Anzeigen zurueckgelegt.
-
-    Das Issue verlangt die Gewichtung als Vorgabe; diese Messung
-    spricht dagegen. Deshalb steht die Entscheidung hier als Test —
-    wer sie umdreht, tut es absichtlich.
+    Die Vorgabe ist seit v1.7.69 `automatisch` und leitet sich aus den
+    Pflichtbegriffen ab (siehe unten). Ist darueber nichts bekannt,
+    bleibt es bei `hart`, also beim Verhalten vor dieser Version — eine
+    fehlende Auskunft darf nie eine Voreinstellung setzen (#989).
     """
     class _DB:
         def get_profile_setting(self, key, default=None):
@@ -385,3 +381,171 @@ def test_968_die_behalten_grenze_ist_benannt_und_endlich():
     Pflichttreffer in EINEM Durchgang.
     """
     assert 0 < muss_tor.MAX_JE_LAUF <= 200
+
+
+# ------------------------------------- Die Vorgabe wird ABGELEITET (v1.7.69)
+#
+# Der Einwand, der diesen Abschnitt ausgeloest hat: die erste Fassung
+# hatte `hart` fest als Vorgabe, begruendet mit einer Messung an EINEM
+# Bestand. Fuer ein Technik-Profil stimmt das; fuer die Pflegekraft aus
+# dem Issue ist es falsch. Eine Voreinstellung, die an einem fremden
+# Lebenslauf kalibriert wurde, ist fuer alle anderen geraten.
+#
+# Diese Tests pruefen deshalb bewusst BEIDE Profile — und das
+# Technik-Profil ist NICHT das, an dem gemessen wurde: es steht hier
+# stellvertretend fuer jeden, dessen Pflichtbegriffe Techniken nennen.
+
+
+def test_968_berufsprofil_bekommt_gewichtet():
+    """Eine Pflegekraft: `Pflegefachkraft` ist ein Beruf, also gewichtet."""
+    art, warum = muss_tor.abgeleitet({"Pflegefachkraft": "beruf"})
+    assert art == muss_tor.GEWICHTET
+    assert "Beruf" in warum
+
+
+def test_968_technikprofil_bekommt_hart():
+    """Ein Entwickler: `Python`/`Kubernetes` sind Techniken, also hart."""
+    art, warum = muss_tor.abgeleitet(
+        {"Python": "technik", "Kubernetes": "technik"})
+    assert art == muss_tor.HART
+    assert "Techniken" in warum
+
+
+def test_968_ein_einziger_berufsbegriff_genuegt():
+    """Gemischte Liste — der umbenennbare Begriff ist der gefaehrdete.
+
+    Das Tor oeffnet, sobald IRGENDEIN Pflichtbegriff trifft. Wer
+    "Erzieherin" und "Dokumentation" fuehrt, verliert bei `hart` genau
+    dann alles, wenn die Anzeige den Beruf anders nennt.
+    """
+    art, _ = muss_tor.abgeleitet(
+        {"Erzieherin": "beruf", "Dokumentation": "technik"})
+    assert art == muss_tor.GEWICHTET
+
+
+def test_968_unbekannt_ist_nicht_technik():
+    """Ein Netzausfall darf keine Voreinstellung setzen (#989).
+
+    `unbekannt` faellt auf `hart` zurueck — also auf das bisherige
+    Verhalten — und NICHT, weil es als Technik gilt, sondern weil ohne
+    Auskunft nichts geaendert wird. Der Begruendungstext muss das
+    sagen, sonst sieht es aus wie eine Entscheidung.
+    """
+    art, warum = muss_tor.abgeleitet({"Irgendwas": "unbekannt"})
+    assert art == muss_tor.HART
+    assert "noch nicht bestimmt" in warum
+    # Und ohne jede Angabe genauso.
+    assert muss_tor.abgeleitet({})[0] == muss_tor.HART
+    assert muss_tor.abgeleitet(None)[0] == muss_tor.HART
+
+
+def test_968_die_ausdrueckliche_einstellung_schlaegt_die_ableitung():
+    """Wer es selbst setzt, bekommt es — in beide Richtungen."""
+    berufs_krit = {"_muss_begriffsart": {"Pflegefachkraft": "beruf"}}
+    technik_krit = {"_muss_begriffsart": {"Python": "technik"}}
+
+    # ohne Einstellung: die Ableitung gilt
+    assert muss_tor.modus(_Speicher(), berufs_krit) == muss_tor.GEWICHTET
+    assert muss_tor.modus(_Speicher(), technik_krit) == muss_tor.HART
+
+    # ausdruecklich gesetzt: die Ableitung wird ueberstimmt
+    assert muss_tor.modus(
+        _Speicher(muss_tor.HART), berufs_krit) == muss_tor.HART
+    assert muss_tor.modus(
+        _Speicher(muss_tor.GEWICHTET), technik_krit) == muss_tor.GEWICHTET
+
+    # und `automatisch` gibt die Ableitung zurueck
+    assert muss_tor.modus(
+        _Speicher(muss_tor.AUTOMATISCH), berufs_krit) == muss_tor.GEWICHTET
+
+
+def test_968_die_ableitung_nennt_ihren_grund():
+    """Eine Vorgabe, die sich selbst setzt, muss sagen koennen warum.
+
+    Sonst ist sie von einer stillen Verhaltensaenderung nicht zu
+    unterscheiden — und genau das war der Fehler in #987 und #988.
+    """
+    for arten in ({"Pflegefachkraft": "beruf"}, {"Python": "technik"}, {}):
+        _, warum = muss_tor.abgeleitet(arten)
+        assert warum and len(warum) > 30
+
+
+def test_968_die_begriffsart_kommt_aus_der_gemessenen_schwelle():
+    """Kein zweites Kriterium — dieselbe Schwelle wie bei #969/#987.
+
+    Ein Beruf zieht die Berufs-Facette an sich, eine Technologie
+    streut. Die Schwelle wurde am 07.09.2026 gemessen (Berufe 18-39 %,
+    Techniken 10-13 %); eine zweite, frei geratene Regel daneben waere
+    genau die Bauform, die dieses Projekt zehnmal gekostet hat.
+    """
+    from bewerbungs_assistent.services import berufsbezeichnungen as bb
+
+    def _antwort(counts):
+        return {"facetten": {"beruf": {"counts": counts}}}
+
+    # Ein Beruf konzentriert die Facette auf sich ...
+    BERUFS_FACETTE = {"Pflegefachkraft": 30, **{f"B{i}": 10 for i in range(7)}}
+    # ... eine Technik streut ueber viele Berufe gleichmaessig.
+    TECHNIK_FACETTE = {f"B{i}": 10 for i in range(10)}
+
+    class _Client:
+        def __init__(self, daten):
+            self.daten = daten
+
+        def get(self, *a, **k):
+            class _R:
+                status_code = 200
+
+                def json(_self):
+                    return self.daten
+            return _R()
+
+    bb.cache_leeren()
+    # 30 von 100 = 30 % Spitze — ueber MIN_SPITZENANTEIL, also ein Beruf.
+    assert bb.begriffsart(
+        "Testbegriff-A", client=_Client(_antwort(BERUFS_FACETTE))) == bb.BERUF
+    bb.cache_leeren()
+    # 10 von 100 = 10 % Spitze — darunter, also eine Technik.
+    assert bb.begriffsart(
+        "Testbegriff-B", client=_Client(_antwort(TECHNIK_FACETTE))) == bb.TECHNIK
+    bb.cache_leeren()
+
+    # Und die Schwelle ist DIESELBE, die die Synonyme absichert — nicht
+    # eine zweite daneben.
+    assert bb.MIN_SPITZENANTEIL == 0.15
+
+
+def test_968_ein_netzausfall_meldet_unbekannt_statt_technik():
+    """Die teuerste Verwechslung dieses Projekts, hier vorweggenommen."""
+    from bewerbungs_assistent.services import berufsbezeichnungen as bb
+
+    class _Toter:
+        def get(self, *a, **k):
+            raise OSError("kein Netz")
+
+    bb.cache_leeren()
+    assert bb.begriffsart("Pflegefachkraft", client=_Toter()) == bb.UNBEKANNT
+    bb.cache_leeren()
+
+
+def test_968_keine_zeile_im_modul_kennt_ein_einzelnes_profil():
+    """Der Guard gegen genau den Einwand, der diese Arbeit ausgeloest hat.
+
+    Im Entscheidungsmodul darf kein Begriff aus einem konkreten
+    Lebenslauf stehen — weder aus dem gemessenen Bestand noch aus dem
+    Issue. Dieselbe Bauform wie der Ortsnamen-Guard aus #965: sonst
+    waechst die Sonderbehandlung still hinein, sobald jemand einen Fall
+    "nur schnell" ergaenzt.
+    """
+    quelle = (_repo() / "src" / "bewerbungs_assistent" / "services"
+              / "muss_tor.py").read_text(encoding="utf-8").lower()
+    # Beispiele in der Doku sind erlaubt; eine LOGIK, die einen Begriff
+    # nennt, ist es nicht.
+    code = "\n".join(z for z in quelle.split("\n")
+                     if z.strip() and not z.strip().startswith("#")
+                     and '"' not in z and "'" not in z)
+    for begriff in ("plm", "pdm", "sap", "teamcenter", "windchill",
+                    "pflegefachkraft", "erzieherin", "python"):
+        assert begriff not in code, (
+            f"'{begriff}' steht in der Entscheidungslogik — das Modul "
+            "darf kein einzelnes Profil kennen.")

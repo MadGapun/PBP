@@ -101,6 +101,7 @@ MIN_SPITZENANTEIL = 0.15
 MIN_STAMM = 5
 
 _cache: dict[str, list[str]] = {}
+_daten_cache: dict[str, dict] = {}
 _cache_lock = threading.Lock()
 
 
@@ -309,6 +310,104 @@ def _aus_facette(daten: dict, begriff: str = "") -> list[str]:
     return treffer[:MAX_SYNONYME]
 
 
+BERUF = "beruf"
+TECHNIK = "technik"
+UNBEKANNT = "unbekannt"
+
+
+def _daten(begriff: str, *, client=None) -> dict | None:
+    """Die rohe Antwort des Berufe-Registers — oder None.
+
+    v1.7.69 (#968): herausgezogen, weil jetzt ZWEI Fragen an derselben
+    Antwort haengen ("wie heisst der Beruf noch" und "ist das ueberhaupt
+    ein Beruf"). Zwei Abfragen fuer eine Antwort waeren die Bauform aus
+    #963 — nur mit Netzkosten.
+
+    `None` heisst "nicht beantwortet" und ist etwas anderes als eine
+    leere Facette: das Netz kann weg sein. Die Unterscheidung ist der
+    ganze Punkt von #989 und entscheidet hier ueber eine Voreinstellung.
+    """
+    begriff = (begriff or "").strip()
+    if len(begriff) < 3:
+        return None
+    if client is None and not aktiv():
+        return None
+    schluessel = begriff.lower()
+    with _cache_lock:
+        if schluessel in _daten_cache:
+            return _daten_cache[schluessel]
+    try:
+        import httpx
+        eigener = client is None
+        client = client or httpx.Client(timeout=15)
+        try:
+            antwort = client.get(
+                API_URL,
+                params={"was": begriff, "size": 1},
+                headers={"X-API-Key": API_KEY, "User-Agent": _USER_AGENT},
+            )
+            if antwort.status_code != 200:
+                logger.debug("Berufs-Facette: HTTP %s fuer %r",
+                             antwort.status_code, begriff)
+                return None
+            daten = antwort.json()
+        finally:
+            if eigener:
+                client.close()
+    except Exception as exc:  # pragma: no cover — Ausfall darf nie stoeren
+        logger.debug("Berufsbezeichnungen nicht abrufbar (%s): %s",
+                     begriff, exc)
+        return None
+    with _cache_lock:
+        _daten_cache[schluessel] = daten
+    return daten
+
+
+def begriffsart(begriff: str, *, client=None) -> str:
+    """Nennt dieser Suchbegriff einen BERUF oder eine TECHNIK?
+
+    Der Unterschied entscheidet, was das Fehlen des Begriffs in einer
+    Anzeige bedeutet (#968):
+
+    * **Technik** ("PLM", "SAP", "Python") — kommt sie nicht vor, ist
+      das ein echter Beleg fuer ein anderes Fachgebiet.
+    * **Beruf** ("Pflegefachkraft", "Erzieherin") — kommt er nicht vor,
+      sagt das wenig: derselbe Beruf heisst in vielen Anzeigen anders.
+
+    Entschieden wird an derselben gemessenen Schwelle, die seit
+    v1.7.36 die Alternativbezeichnungen absichert
+    (`MIN_SPITZENANTEIL`): ein Beruf zieht die Berufs-Facette an sich,
+    eine Technologie streut ueber viele Berufe. Gemessen am 07.09.2026
+    liegen Berufe bei 18-39 %, Technologien und Sachen bei 10-13 %.
+
+    Returns:
+        `BERUF`, `TECHNIK` oder `UNBEKANNT`. **`UNBEKANNT` ist kein
+        Synonym fuer `TECHNIK`** — wer das gleichsetzt, macht aus einem
+        Netzausfall eine Voreinstellung (#989).
+    """
+    daten = _daten(begriff, client=client)
+    if daten is None:
+        return UNBEKANNT
+    facette = ((daten or {}).get("facetten") or {}).get("beruf") or {}
+    counts = facette.get("counts") if isinstance(facette, dict) else None
+    if not isinstance(counts, dict) or not counts:
+        return UNBEKANNT
+    gesamt = sum(counts.values()) or 1
+    spitze = max(counts.values())
+    return BERUF if spitze / gesamt >= MIN_SPITZENANTEIL else TECHNIK
+
+
+def arten(begriffe: list[str], *, client=None) -> dict[str, str]:
+    """Die Begriffsart zu jedem Suchbegriff — einmal je Suchlauf.
+
+    Dasselbe Muster wie `erweitere`: eine Netzabfrage je Stelle waere
+    unbrauchbar, und ein Score darf ohnehin nicht am Netz haengen
+    (v1.7.36 MERKE 3). Das Ergebnis wird abgelegt und ab da gelesen.
+    """
+    return {b: begriffsart(b, client=client)
+            for b in (begriffe or []) if str(b).strip()}
+
+
 def synonyme(begriff: str, *, client=None) -> list[str]:
     """Wie heisst dieser Beruf sonst noch? Leere Liste, wenn unbekannt.
 
@@ -326,37 +425,19 @@ def synonyme(begriff: str, *, client=None) -> list[str]:
         if schluessel in _cache:
             return list(_cache[schluessel])
 
-    ergebnis: list[str] = []
-    try:
-        import httpx
-        eigener = client is None
-        client = client or httpx.Client(timeout=15)
-        try:
-            antwort = client.get(
-                API_URL,
-                params={"was": begriff, "size": 1},
-                headers={"X-API-Key": API_KEY, "User-Agent": _USER_AGENT},
-            )
-            if antwort.status_code == 200:
-                # v1.7.36 (#987): der Begriff entscheidet mit — die
-                # Facette allein sagt nur, WER damit arbeitet.
-                amtlich = _aus_facette(antwort.json(), begriff)
-                for bezeichnung in amtlich:
-                    for form in _formen(bezeichnung):
-                        if (form.lower() != schluessel
-                                and not any(form.lower() == e.lower()
-                                            for e in ergebnis)):
-                            ergebnis.append(form)
-            else:
-                logger.debug("Berufs-Facette: HTTP %s fuer %r",
-                             antwort.status_code, begriff)
-        finally:
-            if eigener:
-                client.close()
-    except Exception as exc:  # pragma: no cover — Ausfall darf nie stoeren
-        logger.debug("Berufsbezeichnungen nicht abrufbar (%s): %s",
-                     begriff, exc)
+    daten = _daten(begriff, client=client)
+    if daten is None:
         return []
+
+    ergebnis: list[str] = []
+    # v1.7.36 (#987): der Begriff entscheidet mit — die Facette allein
+    # sagt nur, WER damit arbeitet.
+    for bezeichnung in _aus_facette(daten, begriff):
+        for form in _formen(bezeichnung):
+            if (form.lower() != schluessel
+                    and not any(form.lower() == e.lower()
+                                for e in ergebnis)):
+                ergebnis.append(form)
 
     ergebnis = ergebnis[:MAX_SYNONYME * 2]
     with _cache_lock:
@@ -383,3 +464,6 @@ def cache_leeren() -> None:
     """Nur fuer Tests."""
     with _cache_lock:
         _cache.clear()
+        # v1.7.69: der Rohdaten-Cache gehoert mit geleert, sonst
+        # antwortet ein Test mit den Daten des vorigen.
+        _daten_cache.clear()
