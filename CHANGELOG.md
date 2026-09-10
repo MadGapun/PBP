@@ -33,6 +33,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.69] - 2026-09-10 — Die Vorgabe kommt aus deinen Begriffen
+
+### Changed
+
+- **Die Betriebsart des MUSS-Tors wird abgeleitet statt vorgegeben
+  (#968).** v1.7.68 hatte `hart` fest eingestellt — begründet mit einer
+  Messung an *einem* Bestand. Für ein Technik-Profil stimmt das, für
+  eine Pflegekraft ist es falsch. **Eine Voreinstellung, die an einem
+  fremden Lebenslauf kalibriert wurde, ist für alle anderen geraten.**
+
+  PBP entscheidet jetzt selbst, anhand deiner Pflichtbegriffe:
+
+  | Deine Pflichtbegriffe | Betriebsart |
+  |---|---|
+  | Pflegefachkraft, Erzieherin, Elektroniker, Finanzbuchhalter | `gewichtet` |
+  | PLM, PDM, Python, Kubernetes | `hart` |
+  | gemischt, mindestens ein Beruf dabei | `gewichtet` |
+  | noch nicht bestimmt (erster Start, kein Netz) | `hart` |
+
+  Entschieden wird an **derselben gemessenen Schwelle**, die seit
+  v1.7.28 die Alternativbezeichnungen absichert: ein Beruf zieht die
+  Berufs-Facette an sich (18–39 %), eine Technik streut über viele
+  Berufe (10–13 %). Eine zweite, frei geratene Regel daneben wäre genau
+  die Bauform, die dieses Projekt zehnmal gekostet hat.
+
+  Geprüft an **vier fremden Berufen und zwei Technik-Profilen** gegen
+  das echte Register — nicht an einem einzigen Bestand.
+
+### Added
+
+- **Die Ableitung sagt, warum sie so entschieden hat.**
+  `suchkriterien_anzeigen` und `muss_tor_setzen()` nennen die geltende
+  Betriebsart samt Begründung und den Begriffen, die sie tragen. Eine
+  Vorgabe, die sich selbst setzt, muss das können — sonst ist sie von
+  einer stillen Verhaltensänderung nicht zu unterscheiden.
+- **`muss_tor_setzen('automatisch')`** schaltet zur Ableitung zurück.
+  Eine ausdrückliche Einstellung schlägt sie weiterhin immer.
+
+### Fixed
+
+- **Ein Netzausfall setzt keine Voreinstellung mehr.** Die Begriffsart
+  kennt drei Zustände, nicht zwei: `beruf`, `technik` und
+  **`unbekannt`**. Letzteres fällt auf das bisherige Verhalten zurück
+  und überschreibt nie einen bereits bekannten Stand — sonst kippte die
+  Betriebsart bei jedem Aussetzer.
+
+### Bewusst so
+
+**Ein einziger Berufsbegriff genügt für `gewichtet`.** Das Tor öffnet,
+sobald *irgendein* Pflichtbegriff trifft — gefährdet ist also der
+Begriff, der anders heißen kann. Die Kosten zeigen in dieselbe
+Richtung: `gewichtet` kostet höchstens 50 zusätzlich abgelegte,
+markierte und nachrangig einsortierte Anzeigen je Lauf, `hart` kostet
+im Zweifel den ganzen Beruf.
+
+**Ein Guard verbietet jeden Profil-Begriff in der
+Entscheidungslogik** — dieselbe Bauform wie der Ortsnamen-Guard aus
+#965. Sonst wächst die Sonderbehandlung still hinein, sobald jemand
+einen Fall „nur schnell" ergänzt.
+
+**Tests:** 3484 bestanden, 2 übersprungen (+9 neue).
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.69.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.69.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
 ## [1.7.68] - 2026-09-09 — Weit unten statt nirgends
 
 ### Added
