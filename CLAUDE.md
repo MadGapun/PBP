@@ -3052,7 +3052,29 @@ LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
 und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
 Vollstaendigkeits-Guard laufen lassen:
 `test $(ls *.md | wc -l) -ge 42 && git add -A ...` (Zahl bei neuen
-Seiten nachziehen; Stand 2026-09-07: 42 Seiten, zuletzt Scoring). Ausserdem: `git pull --rebase` und Commit-Kette nie
+Seiten nachziehen; Stand 2026-09-07: 42 Seiten, zuletzt Scoring).
+
+**Und den Tabellen-Guard laufen lassen** (seit 2026-09-10):
+`python scripts/masterplan_pruefen.py D:\MAD\Documents\Entwicklung\PBP.wiki`
+— Exit 1 heisst: nicht pushen. Grund: Plan-Zeilen werden per Skript
+umgebaut, und das ist DREIMAL schiefgegangen. v1.7.67 haengte Issue-
+und Wiki-Spalte ein zweites Mal an (sechs Zeilen mit neun statt sieben
+Feldern). v1.7.69 schrieb den Status in das Feld HINTER dem letzten
+Rohr: die Spaltenzahl stimmte, die Statuszelle blieb auf ⬜, und das ✅
+stand ausserhalb der Tabelle — der Plan meldete "nicht begonnen" fuer
+eine ausgelieferte Arbeit.
+
+**Der zweite Fall ist der lehrreiche: die Gegenprobe hat den Fehler
+BESTAETIGT.** Sie las denselben falschen Index, in den das Skript
+geschrieben hatte (`awk '{print $7}'` gegen `f[6]`), und meldete
+deshalb den Status als gesetzt. **Eine Kontrolle, die dieselbe Annahme
+benutzt wie der Schreibvorgang, prueft nichts.** Der Guard liest die
+Status-SPALTE aus der Kopfzeile und prueft zusaetzlich, dass hinter dem
+letzten Rohr nichts steht.
+
+Beim ersten Lauf fand er ausser seinem Anlass fuenf aeltere Defekte auf
+den Unterseiten (zwei fehlende Zellen, drei unescapte Rohre in
+Inline-Code — Backticks schuetzen in Markdown-Tabellen NICHT). Ausserdem: `git pull --rebase` und Commit-Kette nie
 so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
 **Und zwar konkret: das Kommando in so einer Kette NIE durch eine Pipe
