@@ -191,6 +191,7 @@ EXPECTED_TOOL_NAMES = {
     "bewerbung_bearbeiten",
     "bewerbung_notiz",
     "bewerbung_notiz_drift",
+    "bewerbung_notizen_zusammenfuehren",
     "bewerbung_details",
     "antwort_formulieren",
     "dokument_verknuepfen",
@@ -383,7 +384,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 237  # v1.7.74 (#892): +score_verteilung_anzeigen
+        assert len(tools) == 238  # v1.7.76 (#957): +bewerbung_notizen_zusammenfuehren
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
