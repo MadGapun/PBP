@@ -33,6 +33,111 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.73] - 2026-09-10 — Was ich mindestens nehme, und was ich sage
+
+### Added
+
+- **Wunsch-Nennwerte neben den Minimum-Sätzen (#931).** Unter jedem
+  Minimum steht jetzt ein zweites Feld. Ein Feld erfüllte bisher zwei
+  Zwecke, die einander widersprechen: die **Filterschwelle** (der
+  niedrigste noch akzeptable Wert) und den **Nennwert** im Gespräch
+  (ein höherer Wert, weil von der genannten Zahl nach unten verhandelt
+  wird, nie nach oben). Mit dem Minimum im Feld hat man den Nennwert
+  nirgends stehen und bildet ihn im Gespräch neu; mit dem Wunschwert
+  filtert die Suche zu scharf und wirft brauchbare Stellen weg.
+  Nutzerwort dazu: *„die selbst genannte Untergrenze ist über Monate
+  gewandert, und in Verhandlungen wird Flexibilität signalisiert, bevor
+  eine Zahl der Gegenseite auf dem Tisch liegt."*
+- **Vorbelegung der Gehaltsvorstellung nach Stellenart.** Beim Erfassen
+  einer Bewerbung schlägt PBP den passenden Nennwert vor —
+  Jahresgehalt bei Festanstellung, Tagessatz bei Freelance, Stundensatz
+  bei Teilzeit und Werkstudent. Er wird **nicht ins Feld geschrieben**:
+  eine Zahl, die niemand genannt hat, in einem Gehaltsfeld wäre eine
+  erfundene Angabe. Was tatsächlich genannt wird, entscheidet der
+  Mensch je Vorgang.
+
+### Changed
+
+- **Die Wunschwerte wirken nicht im Scoring, und die Trennung sitzt an
+  genau einer Stelle.** `scoring_kriterien.fuer_scoring` speist
+  Suchlauf, Neuberechnung, Fit-Analyse, Newsletter-Import und die
+  manuelle Anlage — dort werden sie entfernt. An den Aufrufern
+  wiederholt wäre das die Bauform, die dieses Projekt vierzehnmal
+  gekostet hat.
+- **`suchkriterien_anzeigen` nennt Minimum und Nennwert getrennt**,
+  jeweils mit ihrer Bedeutung. Beide in einer Zahl auszugeben wäre
+  genau die Vermischung, wegen der das Issue entstanden ist.
+- Ein Nennwert **unter** dem eigenen Minimum wird benannt, nicht
+  geblockt. Es kann Absicht sein — ist aber fast immer ein Vertipper.
+
+### Notes
+
+- **Kein Schema-Eingriff.** Die Suchkriterien liegen als
+  Schlüssel-Wert-Tabelle; die drei Felder kommen ohne Migration aus und
+  starten leer. Vorhandene Minimum-Werte werden ausdrücklich **nicht**
+  umgesetzt: ein Minimum, das stillschweigend zum Nennwert wird, wäre
+  eine erfundene Angabe in einer Gehaltsverhandlung — und die
+  Filterschwelle gleichzeitig weg.
+- **Zwei Nebenbefunde aus dem Issue nachgemessen statt übernommen.**
+  Die gemeldeten Doppelfelder gibt es im Bestand nicht mehr:
+  `custom_kriterien` trägt nur noch Gewichtungen (der Widerspruch
+  „Stundensatz 100 gegen 110" ist weg), und `max_entfernung_km` hat
+  seit v1.7.48 einen Setzer samt Widerspruchs-Meldung. Statt eines
+  Fixes stehen dort jetzt Guards, die den Rückfall verhindern.
+- **Ehrliche Grenze, von der Gegenprobe gefunden.** Der Test „gleicher
+  Score mit und ohne Wunschwert" bleibt grün, auch wenn man die
+  Trennung wieder ausbaut — `calculate_score` liest die neuen Schlüssel
+  schlicht nicht. Er belegt also, dass heute kein Rechenweg sie
+  anfasst, nicht dass sie ferngehalten werden. Der Test, der die
+  Trennung wirklich prüft, ist der am Nadelöhr; er war in der
+  Gegenprobe als einziger rot. Beides steht im Docstring, statt eine
+  Zusicherung vorzutäuschen.
+- Tests: **3609 passed / 2 skipped** (3611 gesammelt). Schema
+  unverändert (v48).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.73.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.73.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.72] - 2026-09-10 — Eine Stelle, mehrere Fundstellen
 
 ### Added
