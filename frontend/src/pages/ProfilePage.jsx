@@ -227,6 +227,27 @@ function criteriaToDraft(criteria) {
   };
 }
 
+// #892: der Klartext am Regler. Die ZAHL kommt vom Server
+// (`sichtbar_ab`), hier wird sie nur abgelesen und in einen Satz
+// gesetzt. Eine eigene Zaehlung im JavaScript waere eine zweite
+// Fassung der Regel.
+export function scoreEinordnung(verteilung, schwelle) {
+  if (!verteilung?.belastbar) return "";
+  const wert = Math.round(Number(schwelle) || 0);
+  const leiter = verteilung.sichtbar_ab || [];
+  const treffer = leiter.find(([s]) => s === wert);
+  if (!treffer) return "";
+  const [, sichtbar] = treffer;
+  const satz = `Bei ${wert} bleiben ${sichtbar} von ${verteilung.anzahl} Stellen sichtbar.`;
+  if (wert > verteilung.p90) {
+    return `${satz} Das liegt über dem obersten Zehntel — hier fallen systematisch gute Stellen weg.`;
+  }
+  if (wert > verteilung.median) {
+    return `${satz} Einzelne davon lägen nach dem Nachladen der Beschreibung höher.`;
+  }
+  return satz;
+}
+
 function criteriaDraftToPayload(criteriaDraft) {
   return {
     keywords_muss: criteriaDraft.keywords_muss,
@@ -406,6 +427,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [draft, setDraft] = useState(EMPTY_PROFILE);
   const [criteriaDraft, setCriteriaDraft] = useState(criteriaToDraft({}));
+  // #892: null = noch nicht geladen. Ohne Verteilung faellt der Regler
+  // auf den festen Bereich zurueck und sagt das.
+  const [scoreVerteilung, setScoreVerteilung] = useState(null);
   const [blacklist, setBlacklist] = useState([]);
   const [blacklistForm, setBlacklistForm] = useState({ type: "firma", value: "" });
   const [completeness, setCompleteness] = useState({ completeness: 0 });
@@ -494,6 +518,20 @@ export default function ProfilePage() {
   useEffect(() => {
     setLoading(true);
     loadPage();
+  }, [reloadKey]);
+
+  // #892: Reglerspanne, Median und Farbzonen kommen vom SERVER. Der
+  // Regler stand fest auf 0..20, waehrend der hoechste Score im
+  // Bestand bei 110 liegt — er deckte nicht einmal das oberste
+  // Zehntel ab. Die Verteilung hier im JavaScript nachzurechnen waere
+  // eine zweite Fassung derselben Regel.
+  useEffect(() => {
+    let abgebrochen = false;
+    (async () => {
+      const daten = await optionalApi("/api/score-verteilung?nur_aktive=false");
+      if (!abgebrochen && daten) setScoreVerteilung(daten);
+    })();
+    return () => { abgebrochen = true; };
   }, [reloadKey]);
 
   useEffect(() => {
@@ -1446,12 +1484,17 @@ export default function ProfilePage() {
                 Stellen unter dieser Score-Schwelle landen gar nicht erst in
                 der Datenbank. Default 1; User mit vielen unbrauchbaren
                 Treffern (geo weit, schwacher Fit) erhoeht das auf 3-5. */}
+            {/* #892: Spanne, Median und Farbzonen kommen aus der
+                tatsaechlichen Verteilung. Die feste Obergrenze 20 war
+                der gemeldete Fehler — gemessen liegt der hoechste
+                Score bei 110, der Regler erreichte also nicht einmal
+                das oberste Zehntel. */}
             <Field label="Mindest-Score (Stellen unter dieser Schwelle werden ausgefiltert)">
               <div className="flex items-center gap-3">
                 <input
                   type="range"
                   min={0}
-                  max={20}
+                  max={scoreVerteilung?.regler_max ?? 20}
                   step={1}
                   value={Number(criteriaDraft.min_score_schwelle) || 1}
                   onChange={(event) => setCriteriaDraft((current) => ({
@@ -1464,12 +1507,38 @@ export default function ProfilePage() {
                   {Number(criteriaDraft.min_score_schwelle) || 1}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-muted/50">
-                <strong>0–1:</strong> sehr offen — Stellen mit minimalem Keyword-Treffer kommen rein.{" "}
-                <strong>3–5:</strong> mittel — empfohlen.{" "}
-                <strong>10+:</strong> nur klar passende Stellen. Greift beim
-                naechsten Such-Lauf; bestehende Stellen bleiben sichtbar.
-              </p>
+              {scoreVerteilung?.belastbar ? (
+                <>
+                  {/* Die drei Bereiche samt ihren Grenzen. Eine Farbe
+                      ohne nachvollziehbare Grenze waere eine Behauptung. */}
+                  <div className="mt-2 flex gap-1.5 text-[11px]">
+                    {(scoreVerteilung.zonen || []).map((zone) => (
+                      <span
+                        key={zone.farbe}
+                        title={zone.bedeutung}
+                        className={`rounded-md px-2 py-0.5 ${
+                          zone.farbe === "gruen" ? "bg-teal/10 text-teal/80"
+                            : zone.farbe === "gelb" ? "bg-amber/10 text-amber"
+                              : "bg-coral/10 text-coral/80"
+                        }`}
+                      >
+                        {`${zone.von}–${zone.bis}`}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted/60">
+                    {scoreEinordnung(scoreVerteilung, criteriaDraft.min_score_schwelle)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted/40">
+                    {`Median ${scoreVerteilung.median}, höchster Score ${scoreVerteilung.max} über ${scoreVerteilung.anzahl} Stellen. ${scoreVerteilung.grundlage}`}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-muted/50">
+                  {scoreVerteilung?.grund
+                    || "Verteilung wird geladen — solange gilt der feste Bereich 0 bis 20."}
+                </p>
+              )}
             </Field>
 
             <div id="profil-blacklist" className="mt-2 border-t border-white/8 pt-5">

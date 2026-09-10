@@ -149,6 +149,44 @@ def register(mcp, db, logger):
     """Registriert Suchkriterien-Tools."""
 
     @mcp.tool()
+    def score_verteilung_anzeigen(nur_aktive: bool = True,
+                                  schwelle: float = -1) -> dict:
+        """Wie die Scores im Bestand verteilt sind (#892).
+
+        **Nicht zu verwechseln mit der Kennzahl aus #986**, die
+        `statistiken_abrufen` liefert: die sagt, welchen Score die
+        Stellen hatten, auf die du dich BEWORBEN hast. Hier geht es um
+        den ganzen Bestand — die Grundlage fuer den Regler. Zwei Fragen,
+        zwei Module (`services/schwellen_verteilung.py` gegen
+        `services/score_verteilung.py`).
+
+        Die Grundlage fuer den Schwellenregler: seine Spanne, sein
+        Median und die drei Farbbereiche kommen aus dieser Verteilung
+        und nicht aus einer festen Zahl. Der Regler reichte bis
+        v1.7.73 nur bis 20 — gemessen liegt der hoechste Score bei 110,
+        er deckte also nicht einmal das oberste Zehntel ab.
+
+        Gerechnet wird gegen die **Erst-Scores** (der Wert beim
+        Speichern), weil `min_score_schwelle` beim Speichern filtert
+        und nicht in der Liste (#1008). Fuer Stellen aus der Zeit vor
+        v1.7.74 gibt es keinen — dort steht der aktuelle Wert,
+        gekennzeichnet als rekonstruiert.
+
+        Args:
+            nur_aktive: True = nur aktive Stellen. False nimmt den
+                ganzen Bestand, was bei wenigen aktiven Stellen die
+                einzige belastbare Grundlage ist.
+            schwelle: >= 0 rechnet zusaetzlich aus, wie viele Stellen
+                bei dieser Einstellung sichtbar blieben.
+        """
+        from ..services import schwellen_verteilung
+        antwort = schwellen_verteilung.verteilung(db, nur_aktive=nur_aktive)
+        if schwelle >= 0:
+            antwort["wirkung"] = schwellen_verteilung.wirkung(
+                db, schwelle, nur_aktive=nur_aktive)
+        return antwort
+
+    @mcp.tool()
     def suchkriterien_setzen(
         keywords_muss: list[str] = None,
         keywords_plus: list[str] = None,

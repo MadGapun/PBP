@@ -507,13 +507,34 @@ class Database:
                                   # getrennt: siehe services/passung.py.
                                   ("analyse_score", "REAL"),
                                   ("gesichtet_am", "TEXT"),
-                                  ("gesichtet_score", "REAL")):
+                                  ("gesichtet_score", "REAL"),
+                                  # v1.7.74 (#892, C64): der Score beim
+                                  # ERSTEN Speichern. Er wird danach nie
+                                  # wieder ueberschrieben — ohne ihn
+                                  # laesst sich nicht messen, wie stark
+                                  # eine nachgeladene Beschreibung den
+                                  # Wert hebt, und die Schwellen-
+                                  # Empfehlung raet.
+                                  ("initial_score", "REAL"),
+                                  ("initial_score_rekonstruiert", "INTEGER")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
                         conn.commit()
                         logger.info("Safety-Net: jobs.%s nachgezogen (#1007)",
                                     _sp)
+                # v1.7.74 (#892 AK 2): der Altbestand bekommt den
+                # AKTUELLEN Score als Erst-Score — und zwar
+                # ausdruecklich als REKONSTRUIERT markiert. Ein
+                # rekonstruierter Wert, der wie ein gemessener aussieht,
+                # waere #987; eine leere Spalte waere eine Empfehlung
+                # ohne jede Grundlage. Idempotent ueber die
+                # NULL-Bedingung: ein zweiter Lauf findet nichts mehr.
+                conn.execute(
+                    "UPDATE jobs SET initial_score=COALESCE(score, 0), "
+                    "initial_score_rekonstruiert=1 "
+                    "WHERE initial_score IS NULL")
+                conn.commit()
             except Exception:
                 pass
 
@@ -4836,6 +4857,35 @@ class Database:
         c = _re.sub(r"[^a-z0-9]+", "", c)
         return f"{t}|{c}"
 
+    # v1.7.74 (#892, beim Bauen gefunden): Spalten, die einen erneuten
+    # Ingest UEBERLEBEN muessen.
+    #
+    # `save_jobs` schreibt mit `INSERT OR REPLACE` — und REPLACE loescht
+    # die Zeile und legt sie neu an. Jede Spalte, die nicht in der
+    # INSERT-Liste steht, ist danach NULL. Betroffen waren:
+    #
+    # * `analyse_urteil` und Geschwister (#1007) — das gelesene Urteil,
+    #   die teuerste Auskunft im System, war nach dem naechsten
+    #   Suchlauf weg.
+    # * `dismiss_note` (#913) — der Freitext zur Aussortierung.
+    # * `gesichtet_am`/`gesichtet_score` (#948) und `initial_score`
+    #   (#892).
+    #
+    # Der Verlust faellt nicht auf: die Stelle sieht danach aus wie
+    # eine, die nie beurteilt wurde. Genau die Bauform, die dieses
+    # Projekt als "stille Null" kennt.
+    #
+    # Ein Guard-Test haelt fest, dass JEDE Spalte von `jobs` entweder
+    # geschrieben oder hier gefuehrt wird — sonst faellt die naechste
+    # neue Spalte in dieselbe Luecke.
+    _BEWAHREN = (
+        "analyse_urteil", "analyse_begruendung", "analyse_grundlage",
+        "analyse_am", "analyse_profil_stand", "analyse_score",
+        "gesichtet_am", "gesichtet_score",
+        "initial_score", "initial_score_rekonstruiert",
+        "dismiss_note",
+    )
+
     def save_jobs(self, jobs: list) -> dict:
         """Persistiert Jobs (INSERT OR REPLACE).
 
@@ -4915,6 +4965,20 @@ class Database:
                 "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
+            # #892: die Spalten, die ein REPLACE sonst auf NULL setzt.
+            # Gelesen VOR dem Schreiben, zurueckgeschrieben danach.
+            bewahrt = {}
+            if not is_new:
+                try:
+                    _spalten = ", ".join(self._BEWAHREN)
+                    _alt = conn.execute(
+                        f"SELECT {_spalten} FROM jobs WHERE hash=?",
+                        (stored_hash,)).fetchone()
+                    if _alt:
+                        bewahrt = {k: _alt[k] for k in self._BEWAHREN
+                                   if _alt[k] is not None}
+                except Exception as _exc:  # pragma: no cover
+                    logger.debug("Bewahrte Spalten (#892): %s", _exc)
             # v1.7.62 (#1008 Befund 2): Gesamtwert und Aufteilung MUESSEN
             # aus demselben Lauf stammen. Bis hierher wurde der hoehere
             # alte `score` behalten, `fachscore`/`rahmenscore` aber
@@ -5138,6 +5202,33 @@ class Database:
                 neue_teilscores[0], neue_teilscores[1],
                 dismissed_at_wert, dismissed_by_wert
             ))
+            # #892: zurueckschreiben, was das REPLACE geloescht hat.
+            # Muss VOR dem Erst-Score laufen, damit der bewahrte Wert
+            # dort steht, wenn die NULL-Bedingung darunter greift.
+            if bewahrt:
+                try:
+                    _setz = ", ".join(f"{k}=?" for k in bewahrt)
+                    conn.execute(f"UPDATE jobs SET {_setz} WHERE hash=?",
+                                 (*bewahrt.values(), stored_hash))
+                except Exception as _exc:  # pragma: no cover
+                    logger.debug("Bewahrte Spalten zurueck (#892): %s", _exc)
+
+            # v1.7.74 (#892, C64): der Erst-Score. Er wird NUR beim
+            # ersten Speichern gesetzt und danach nie wieder angefasst —
+            # sonst waere er der aktuelle Score unter anderem Namen.
+            # Die Schwelle `min_score_schwelle` filtert beim SPEICHERN
+            # (#1008), also ist genau dieser Wert die richtige
+            # Grundlage fuer ihre Empfehlung.
+            if is_new:
+                try:
+                    conn.execute(
+                        "UPDATE jobs SET initial_score=?, "
+                        "initial_score_rekonstruiert=0 WHERE hash=? "
+                        "AND initial_score IS NULL",
+                        (float(new_score or 0), stored_hash))
+                except Exception as _exc:  # pragma: no cover
+                    logger.debug("Erst-Score (#892): %s", _exc)
+
             # #913: Freitext gehoert nach dismiss_note, nie ins Lern-Feld.
             # #951/#956: das gilt auch fuer den Duplikat-Vermerk. Bis
             # v1.7.71 stand er in `jobs.research_notes` — dem Notizblock
