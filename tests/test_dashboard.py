@@ -1456,7 +1456,13 @@ class TestStatistics:
         assert "interview_quote" not in kreativ
 
     def test_research_notes_save(self, client):
-        """PUT /api/applications/{id}/research-notes speichert auf job_hash (#463)."""
+        """PUT .../research-notes speichert an der BEWERBUNG (#956).
+
+        Bis v1.7.69 landete der Text in `jobs.research_notes`, also an
+        der STELLE — neben der Tabelle `research_notes`, in der jede
+        andere Recherche liegt. Dieser Test hielt bis dahin das aeltere
+        der beiden Modelle fest; er prueft jetzt das eine, das bleibt.
+        """
         import bewerbungs_assistent.dashboard as dash
         client.post("/api/profile", json={"name": "Tester"})
         dash._db.save_jobs([{
@@ -1476,20 +1482,40 @@ class TestStatistics:
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
-        job = dash._db.get_job("jobhash1")
-        assert job["research_notes"] == "Firma macht KI im Healthcare-Sektor."
+        # Der Text steht in der Tabelle, nicht in der Spalte.
+        eintraege = dash._db.get_research_notes(bewerbung_id=app_id)
+        assert [e["text"] for e in eintraege] == [
+            "Firma macht KI im Healthcare-Sektor."]
+        assert eintraege[0]["kategorie"] == "firmenrecherche"
+
+        # Und die alte Spalte bleibt leer — sonst laegen wieder zwei
+        # Fassungen derselben Sache nebeneinander.
+        assert not (dash._db.get_job("jobhash1").get("research_notes") or "")
 
     def test_research_notes_without_job_link(self, client):
-        """Bewerbung ohne job_hash liefert 400 (#463)."""
+        """Ohne verknuepfte Stelle laesst sich trotzdem recherchieren (#956).
+
+        **Dieser Test hielt bis v1.7.69 den Defekt fest, nicht die
+        Spezifikation.** Er forderte HTTP 400, wenn keine Stelle
+        verknuepft ist — gemessen in #986 trifft das **44 von 99
+        Bewerbungen**. Fuer fast die Haelfte des Bestands war der
+        Eingabeweg damit nicht bloss versteckt, sondern serverseitig
+        gesperrt.
+
+        Gespeichert wird an der Bewerbung; eine Stelle ist dafuer nicht
+        noetig und war es nie.
+        """
         import bewerbungs_assistent.dashboard as dash
         client.post("/api/profile", json={"name": "Tester"})
         app_id = dash._db.add_application({"title": "Solo", "company": "X"})
         r = client.put(
             f"/api/applications/{app_id}/research-notes",
-            json={"research_notes": "..."},
+            json={"research_notes": "Recherche ohne Stellenbezug."},
         )
-        assert r.status_code == 400
-        assert "nicht mit einer Stelle" in r.json()["error"]
+        assert r.status_code == 200
+        assert [e["text"] for e in
+                dash._db.get_research_notes(bewerbung_id=app_id)] == [
+            "Recherche ohne Stellenbezug."]
 
     def test_sources_default_all_inactive(self, client):
         """Quellen-API liefert standardmaessig alle Quellen als inaktiv."""

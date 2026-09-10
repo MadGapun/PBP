@@ -2849,21 +2849,32 @@ async def api_update_application(app_id: str, request: Request):
 
 @app.put("/api/applications/{app_id}/research-notes")
 async def api_update_research_notes(app_id: str, request: Request):
-    """Speichert Firmen-Recherche-Notizen am verknuepften Job des Dossiers (#463)."""
+    """Speichert eine Firmen-Recherche an der BEWERBUNG (#956).
+
+    Bis v1.7.69 schrieb dieser Weg in `jobs.research_notes`, also an die
+    STELLE — und wies mit HTTP 400 ab, wenn keine verknuepft war.
+    Gemessen (#986): **44 von 99 Bewerbungen haben gar keine Stelle.**
+    Fuer die war der Eingabeweg damit nicht bloss unsichtbar, sondern
+    strukturell tot; das Frontend versteckte das Feld folgerichtig.
+
+    Jetzt geht der Text durch dasselbe Nadeloehr wie jede andere
+    Recherche und landet in der Tabelle `research_notes` — dort, wo der
+    Lese-Kasten ohnehin liest. Der `job_hash` wandert nur noch als
+    Zusatzbezug mit, wenn es einen gibt.
+    """
     profile_id = _get_active_profile_id()
     app_row = _get_application_row_for_active_profile(app_id)
     if not profile_id or not app_row:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     job_hash = app_row["job_hash"] if "job_hash" in app_row.keys() else None
-    if not job_hash:
-        return JSONResponse(
-            {"error": "Bewerbung ist nicht mit einer Stelle verknuepft. Recherche kann nicht gespeichert werden."},
-            status_code=400,
-        )
     data = await request.json()
     notes = data.get("research_notes", "")
-    _db.update_job(job_hash, {"research_notes": notes})
-    return {"status": "ok"}
+    from .services import recherche_ablage
+    ergebnis = recherche_ablage.speichern(
+        _db, notes, bewerbung_id=app_id, job_hash=job_hash or "")
+    if ergebnis.get("status") == "fehler":
+        return JSONResponse({"error": ergebnis["fehler"]}, status_code=500)
+    return {"status": "ok", "recherche": ergebnis}
 
 
 @app.post("/api/applications/{app_id}/link-document")

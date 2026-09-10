@@ -5093,7 +5093,23 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
-    def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich"):
+    def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich",
+                    notiz: str = ""):
+        """Sortiert eine Stelle aus. `notiz` ist der Freitext dazu (#956).
+
+        Vor v1.7.70 haengten drei Aufrufer ihren Protokolltext an
+        `jobs.research_notes` — die Spalte des manuellen
+        Firmen-Recherche-Notizblocks. Damit stand ein Aussortier-Protokoll
+        in derselben Spalte wie eine Recherche, und die Anzeige zeigte
+        beides nebeneinander als "Recherche". Gemessen am 10.09.2026: von
+        143 gefuellten Spalten trugen **30 ein Protokoll statt einer
+        Recherche**.
+
+        Der richtige Ort gibt es seit #913: `dismiss_note`. Diese
+        Funktion ist ohnehin das Nadeloehr aller dismiss-Writes — den
+        Freitext hier entgegenzunehmen ist eine Zeile, drei Aufrufer
+        weniger auf der falschen Spalte.
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
@@ -5112,6 +5128,11 @@ class Database:
         except Exception as exc:
             logger.warning("dismiss_reason-Normalisierung (#913): %s", exc)
             freitexte = []
+        # Der mitgegebene Freitext steht VORN: er ist die ausdrueckliche
+        # Begruendung des Aufrufers, die normalisierten Reste sind der
+        # Rueckfall aus #913.
+        if (notiz or "").strip():
+            freitexte = [notiz.strip()] + list(freitexte)
         # v1.7.64 (#1010): der Zeitpunkt entsteht HIER — an derselben
         # Stelle, die seit #913 schon den Vokabular-Schutz traegt. Jeder
         # Weg, der eine Stelle aussortiert, laeuft hier durch; ihn in den
