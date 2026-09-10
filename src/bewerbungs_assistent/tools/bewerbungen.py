@@ -1356,6 +1356,30 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def bewerbung_notiz_drift() -> dict:
+        """Wo laufen Notizfeld und Timeline auseinander? (#957, Stufe 1)
+
+        Beim Anlegen einer Bewerbung landet die Notiz an ZWEI Orten: im
+        Feld `applications.notes` und als Timeline-Eintrag (#224).
+        `bewerbung_bearbeiten(notes=...)` aendert danach nur das Feld —
+        der Timeline-Eintrag bleibt unmarkiert stehen. Jede spaetere
+        Korrektur erzeugt damit zwei Fassungen derselben Notiz.
+
+        Dieses Werkzeug **schreibt nichts**. Es beantwortet nur, wie
+        verbreitet die Drift im eigenen Bestand ist — denn erst diese
+        Zahl sagt, ob ein Rueckbau ein Aufraeumen waere oder ein
+        Eingriff in gepflegte Inhalte. Bei zwei abweichenden Fassungen
+        ist die Frage, welche gilt, eine INHALTLICHE; die kann kein
+        Programm beantworten.
+
+        Der Bericht nennt bewusst **keine Notiztexte** — nur die
+        Bewerbungs-Kennung und die Groessenordnung. Eine Notiz ist das
+        Privateste im Bestand.
+        """
+        from ..services import notiz_drift
+        return notiz_drift.bericht(db)
+
+    @mcp.tool()
     def bewerbung_notiz(bewerbung_id: str, notiz: str) -> dict:
         """Fügt eine Gesprächsnotiz mit Timestamp zur Bewerbungs-Timeline hinzu.
 
