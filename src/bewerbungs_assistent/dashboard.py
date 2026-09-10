@@ -2441,6 +2441,8 @@ def _guete_anreichern(jobs: list) -> None:
             befund = passung.analyse_lesen(job, _profil)
             if befund:
                 job["analyse"] = befund
+            # #948 (G42): derselbe Aufruf wie in stellen_anzeigen.
+            job["pruefstand"] = passung.zustand(job, _profil)
         except Exception:  # pragma: no cover — nie eine Liste stoppen
             pass
 
@@ -2520,7 +2522,16 @@ async def api_fit_analyse(job_hash: str):
     job = _db.get_job(job_hash)
     if not job:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
-    criteria = _db.get_search_criteria()
+    # #948: dieselbe Kriterien-Basis wie der MCP-Weg. Bis v1.7.70 stand
+    # hier `get_search_criteria()` roh — also OHNE die Anreicherung aus
+    # #987 (Titel, Synonyme), ohne die Begriffsart-Ableitung des
+    # MUSS-Tors (#968) und ohne die Anforderungs-Gruppierung (#1012).
+    # Damit rechnete der Fit-Dialog im Dashboard eine andere Zahl aus
+    # als `fit_analyse` im Chat, an derselben Stelle. Das Nadeloehr gab
+    # es seit v1.7.36 — dieser Aufrufer ging nur daran vorbei (#1008
+    # MERKE 4).
+    from .services import scoring_kriterien
+    criteria = scoring_kriterien.fuer_scoring(_db)
     # #305: Education + Skills für Hochschulabschluss-Erkennung
     profile = _db.get_profile()
     if profile:
@@ -2530,8 +2541,37 @@ async def api_fit_analyse(job_hash: str):
     # v1.7.62 (#1008 Befund 3): Hochschulabschluss-Malus entfernt —
     # er wurde geschrieben und nirgends gelesen (#972, #993, #1000).
     result = fit_analyse(job, criteria)
-    # #306: Research notes (Claude-Analyse) mitsenden
-    result["research_notes"] = job.get("research_notes") or ""
+    # #306: Research notes (Claude-Analyse) mitsenden.
+    # #956/#948: seit v1.7.70 liegt die Recherche in der Tabelle, nicht
+    # mehr in `jobs.research_notes`. Die Spalte roh zu lesen haette den
+    # Kasten nach der Zusammenfuehrung LEER gezeigt — also genau das
+    # Symptom, wegen dem #956 aufgemacht wurde, nur an einer zweiten
+    # Stelle. Gelesen wird deshalb ueber das Nadeloehr.
+    from .services import recherche_ablage
+    _eintraege = recherche_ablage.lesen(_db, job_hash=job.get("hash") or job_hash)
+    if _eintraege:
+        result["research_notes"] = "\n\n".join(
+            (e.get("text") or e.get("inhalt") or "") for e in _eintraege
+            if (e.get("text") or e.get("inhalt"))
+        ).strip()
+    else:
+        result["research_notes"] = job.get("research_notes") or ""
+    # #948 (AK 7): das gespeicherte Urteil gehoert in den Dialog, auf
+    # den das Abzeichen der Liste zeigt — sonst fuehrt der Klick auf
+    # "beurteilt" an eine Stelle, an der das Urteil nicht steht.
+    # Gelesen wird VOR dem Sichtungs-Vermerk, damit der Dialog den
+    # Stand von vorher zeigt und nicht den, den er selbst erzeugt.
+    from .services import passung as _passung
+    _gespeichert = _passung.analyse_lesen(job, profile)
+    if _gespeichert:
+        result["analyse"] = _gespeichert
+    result["pruefstand"] = _passung.zustand(job, profile)
+    # #948 (G42): derselbe Sichtungs-Vermerk wie im MCP-Weg. Zwei
+    # Fassungen davon waeren #963 in einem neuen Feld.
+    try:
+        _db.mark_job_sighted(job.get("hash") or job_hash)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Sichtungs-Vermerk (#948) fehlgeschlagen: %s", exc)
     return result
 
 

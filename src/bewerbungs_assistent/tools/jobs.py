@@ -2051,6 +2051,11 @@ def register(mcp, db, logger):
             _befund = passung.analyse_lesen(j, _profil_fuer_analyse)
             if _befund:
                 entry["analyse"] = _befund
+            # #948 (G42): der Pruefstand ist eine ANDERE Auskunft als das
+            # Urteil. Er steht auch dann da, wenn kein Urteil vorliegt —
+            # "angesehen, aber nicht beurteilt" ist der Zustand, in dem
+            # Arbeit verlorenging.
+            entry["pruefstand"] = passung.zustand(j, _profil_fuer_analyse)
 
             # #180: Warnung wenn Beschreibung fehlt (Score unsicher)
             desc = j.get("description") or ""
@@ -4333,6 +4338,21 @@ def register(mcp, db, logger):
                             "Score-Persistierung nach fit_analyse "
                             "fehlgeschlagen: %s", exc)
                         result["score_aktualisiert"] = {"fehler": str(exc)[:200]}
+
+        # #948 (G42): die Sichtung hinterlaesst eine Spur. Bis hierher
+        # war der teuerste Arbeitsschritt der fluechtigste — wer eine
+        # Stelle vertieft ansah und kein Urteil zurueckschrieb, fand sie
+        # beim naechsten Sichten wieder als ungeprueft vor.
+        #
+        # Der Vermerk fasst weder Score noch Urteil an: `fit_analyse`
+        # ist seit #963 ein reines Lesewerkzeug, weil ein stiller
+        # Score-Write die Rangfolge verschob. Geschrieben werden genau
+        # zwei Felder, die in keine Sortierung eingehen — und der
+        # Zustand heisst `gesichtet`, nicht `beurteilt` (#989).
+        try:
+            db.mark_job_sighted(job_hash)
+        except Exception as exc:  # pragma: no cover — nie die Analyse kippen
+            logger.debug("Sichtungs-Vermerk (#948) fehlgeschlagen: %s", exc)
 
         # Include job description in result (#55) so Claude can use it for analysis
         if job_dict.get("description"):

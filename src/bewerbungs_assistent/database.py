@@ -500,7 +500,14 @@ class Database:
                                   ("analyse_begruendung", "TEXT"),
                                   ("analyse_grundlage", "TEXT"),
                                   ("analyse_am", "TEXT"),
-                                  ("analyse_profil_stand", "TEXT")):
+                                  ("analyse_profil_stand", "TEXT"),
+                                  # v1.7.71 (#948, G42): der Score ZUM
+                                  # ZEITPUNKT der Analyse, und die
+                                  # Sichtung als eigene Groesse. Warum
+                                  # getrennt: siehe services/passung.py.
+                                  ("analyse_score", "REAL"),
+                                  ("gesichtet_am", "TEXT"),
+                                  ("gesichtet_score", "REAL")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -5209,13 +5216,59 @@ class Database:
         if not target_hash:
             return False
         conn = self.connect()
+        # #948: der Score ZUM ZEITPUNKT des Urteils. Er wird hier
+        # gelesen und nicht vom Aufrufer entgegengenommen — sonst
+        # entstuende ein zweiter Weg, auf dem eine andere Zahl
+        # hineinkaeme als die, gegen die spaeter verglichen wird.
+        cur_score = conn.execute(
+            "SELECT COALESCE(score, 0) FROM jobs WHERE hash=?",
+            (target_hash,)).fetchone()
+        score_jetzt = float(cur_score[0]) if cur_score else 0.0
         cur = conn.execute(
             "UPDATE jobs SET analyse_urteil=?, analyse_begruendung=?, "
             "analyse_grundlage=?, analyse_am=?, analyse_profil_stand=?, "
-            "updated_at=? WHERE hash=?",
+            "analyse_score=?, updated_at=? WHERE hash=?",
             (wert, (begruendung or "").strip()[:4000],
              (grundlage or "detailanalyse").strip()[:80],
-             _now(), profil_stand(self.get_profile()), _now(), target_hash),
+             _now(), profil_stand(self.get_profile()), score_jetzt,
+             _now(), target_hash),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+    def mark_job_sighted(self, job_hash: str) -> bool:
+        """Haelt fest, DASS eine Stelle vertieft angesehen wurde (#948).
+
+        Das ist ausdruecklich KEIN Urteil. `set_job_analysis` speichert,
+        was ein Mensch nach dem Lesen entschieden hat; hier steht nur,
+        dass die Fit-Analyse ueber diese Stelle gelaufen ist und mit
+        welchem Score. Beides gleich zu behandeln waere die
+        Verwechslung aus #989 — "angesehen" ist nicht "beurteilt".
+
+        Der Score wird NICHT veraendert. `fit_analyse` ist seit #963 ein
+        reines Lesewerkzeug, weil ein stiller Score-Write die Rangfolge
+        verschob; diese Spur schreibt deshalb ausschliesslich in zwei
+        Felder, die in keine Sortierung und in keine Rechnung eingehen.
+
+        Returns:
+            True, wenn geschrieben wurde. False, wenn es die Stelle
+            nicht gibt (#997).
+        """
+        target_hash = self.resolve_job_hash(job_hash)
+        if not target_hash:
+            return False
+        conn = self.connect()
+        zeile = conn.execute(
+            "SELECT COALESCE(score, 0) FROM jobs WHERE hash=?",
+            (target_hash,)).fetchone()
+        if not zeile:
+            return False
+        # Bewusst OHNE `updated_at`: eine Sichtung ist keine Aenderung
+        # an der Stelle, und `updated_at` traegt anderswo Bedeutung
+        # (Wiedergaenger, Anzeigenalter).
+        cur = conn.execute(
+            "UPDATE jobs SET gesichtet_am=?, gesichtet_score=? WHERE hash=?",
+            (_now(), float(zeile[0]), target_hash),
         )
         conn.commit()
         return cur.rowcount > 0

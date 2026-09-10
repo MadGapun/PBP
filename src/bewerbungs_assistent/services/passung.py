@@ -166,6 +166,111 @@ def profil_stand(profil) -> str:
     return f"{kompetenzen}/{stationen}@{stand}"
 
 
+# -- Die drei Zustaende einer Stelle (#948) ---------------------------
+#
+# Das Issue verlangt, dass die Trefferliste drei Zustaende unterscheidet:
+# nie geprueft, geprueft und aktuell, geprueft aber ueberholt. Sie
+# entstehen HIER und nur hier — im Frontend und im MCP eine zweite
+# Fassung derselben Einteilung zu halten waere das Muster, das dieses
+# Projekt inzwischen dreizehnmal gekostet hat (#963 zuerst).
+
+UNGEPRUEFT = "ungeprueft"
+GESICHTET = "gesichtet"
+BEURTEILT = "beurteilt"
+
+ZUSTAND_TEXT = {
+    UNGEPRUEFT: "Noch nicht angesehen",
+    GESICHTET: "Angesehen, kein Urteil hinterlegt",
+    BEURTEILT: "Beurteilt",
+}
+
+# Warum "gesichtet" ueberhaupt ein eigener Zustand ist:
+#
+# `fit_analyse` hinterliess bis v1.7.71 GAR KEINE Spur. Wer eine Stelle
+# vertieft ansah und danach kein Urteil zurueckschrieb, fand sie beim
+# naechsten Sichten wieder vor, als sei nie etwas geschehen — das ist
+# der gemeldete Schaden aus #948.
+#
+# Die Spur trotzdem als "beurteilt" zu zaehlen waere falsch: dass ein
+# Werkzeug gelaufen ist, sagt nichts darueber, ob jemand das Ergebnis
+# gelesen und entschieden hat. Genau diese Gleichsetzung ist #989 —
+# eine fehlende Information sieht aus wie eine vorhandene. Also drei
+# Zustaende statt zwei.
+
+
+def ueberholt(job: dict, profil=None) -> dict | None:
+    """Hat sich seit der Pruefung die Grundlage geaendert?
+
+    Der Score ist das INTEGRIERENDE Signal, und deshalb genuegt er:
+    eine nachgeladene Beschreibung, geaenderte Suchkriterien und
+    verstellte Scoring-Regler wirken alle drei ueber ihn. Drei einzelne
+    Vergleiche zu bauen haette dieselbe Frage dreimal beantwortet —
+    und zwei davon ungenauer.
+
+    **Keine Toleranzschwelle, und das ist gemessen.** Ueber 600 Stellen
+    mit Anzeigentext (Kopie des Bestands, 10.09.2026) gegen die
+    heutigen Kriterien nachgerechnet: 381 unveraendert, 219 abweichend
+    — und die kleinste beobachtete Abweichung betraegt bereits 0,5
+    Punkte, der Median 10,5. Es gibt kein Rauschband, das eine Schwelle
+    wegfiltern muesste. Eine Schwelle waere hier also kein Schutz vor
+    Fehlalarmen (#929), sondern eine Grenze, die echte Aenderungen
+    verschweigt.
+
+    Returns:
+        dict mit `grund` ('score' | 'profil' | 'score+profil') und den
+        beiden Score-Werten, oder None wenn nichts veraltet ist.
+    """
+    if not job:
+        return None
+    gruende = []
+    damals = job.get("analyse_score")
+    if damals is None:
+        damals = job.get("gesichtet_score")
+    jetzt_score = job.get("score")
+    if damals is not None and jetzt_score is not None:
+        try:
+            if abs(float(jetzt_score) - float(damals)) >= 0.01:
+                gruende.append("score")
+        except (TypeError, ValueError):  # pragma: no cover
+            pass
+    gespeichert = job.get("analyse_profil_stand") or ""
+    jetzt_profil = profil_stand(profil)
+    if gespeichert and jetzt_profil and gespeichert != jetzt_profil:
+        gruende.append("profil")
+    if not gruende:
+        return None
+    befund = {"grund": "+".join(gruende)}
+    if "score" in gruende:
+        befund["score_damals"] = round(float(damals), 1)
+        befund["score_jetzt"] = round(float(jetzt_score), 1)
+    return befund
+
+
+def zustand(job: dict, profil=None) -> dict:
+    """In welchem der drei Zustaende steht diese Stelle (#948)?
+
+    Immer ein dict, nie None — "noch nicht angesehen" ist eine Antwort
+    und keine fehlende Auskunft.
+    """
+    job = job or {}
+    urteil_wert = (job.get("analyse_urteil") or "").strip()
+    gesichtet = (job.get("gesichtet_am") or "").strip()
+    if urteil_wert:
+        art = BEURTEILT
+    elif gesichtet:
+        art = GESICHTET
+    else:
+        art = UNGEPRUEFT
+    antwort = {"art": art, "text": ZUSTAND_TEXT[art]}
+    if art == UNGEPRUEFT:
+        return antwort
+    antwort["am"] = (job.get("analyse_am") or gesichtet or "")
+    alt = ueberholt(job, profil)
+    if alt:
+        antwort["ueberholt"] = alt
+    return antwort
+
+
 def analyse_lesen(job: dict, profil=None) -> dict | None:
     """Der gespeicherte Befund einer Stelle, oder None."""
     if not job:
@@ -179,8 +284,14 @@ def analyse_lesen(job: dict, profil=None) -> dict | None:
         "grundlage": job.get("analyse_grundlage") or "",
         "am": job.get("analyse_am") or "",
     }
-    gespeichert = job.get("analyse_profil_stand") or ""
-    jetzt = profil_stand(profil)
-    if gespeichert and jetzt and gespeichert != jetzt:
+    # #948: der Score zum Zeitpunkt des Urteils steht dabei — ohne ihn
+    # laesst sich "ueberholt" nur behaupten, nicht belegen.
+    if job.get("analyse_score") is not None:
+        befund["score_damals"] = round(float(job["analyse_score"]), 1)
+    alt = ueberholt(job, profil)
+    if alt:
         befund["veraltet"] = True
+        befund["veraltet_grund"] = alt["grund"]
+        if "score_jetzt" in alt:
+            befund["score_jetzt"] = alt["score_jetzt"]
     return befund

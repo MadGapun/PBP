@@ -301,10 +301,18 @@ def test_1010_rueckgaengig_steht_im_toast():
 # -- #1009: Handlung im Dialog ----------------------------------------
 
 def test_1009_fit_dialog_bietet_die_handlungen():
-    """AK 1: der Dialog endet nicht mehr im Nichts."""
+    """AK 1: der Dialog endet nicht mehr im Nichts.
+
+    Der Anker war bis #948 der Knopf "Detailbewertung durch Claude
+    anfordern" — der sitzt jetzt in der Fusszeile des Modals und steht
+    damit VOR dem Rumpf statt darin. Geankert wird deshalb am Dialog
+    selbst: die Zusicherung ist, dass die drei Handlungen IM
+    Fit-Dialog stehen, nicht wie weit sie von einem anderen Knopf
+    entfernt sind.
+    """
     quelle = JOBS_PAGE.read_text(encoding="utf-8")
-    start = quelle.index("Detailbewertung durch Claude anfordern")
-    block = quelle[start:start + 2500]
+    start = quelle.index("open={fitDialog.open}")
+    block = quelle[start:quelle.index("</Modal>", start)]
     assert "Passt nicht" in block
     assert "Bewerbung erfassen" in block
     assert "Anpinnen" in block

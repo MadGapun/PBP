@@ -137,12 +137,23 @@ def test_1007_der_hinweis_nennt_den_weg_zurueck(db):
 
 
 def test_1007_frontend_hat_den_schalter_und_nennt_ihn(db):
-    """Ein Filter ohne Bedienelement waere der Fehler aus #1008."""
+    """Ein Filter ohne Bedienelement waere der Fehler aus #1008.
+
+    Nachgezogen mit #948: der Schalter war ein Ja/Nein-Feld
+    (`onlyAnalysed`) und heisst jetzt `pruefstand` mit drei Werten —
+    die Gegenrichtung "zeig mir, was ich noch nicht angesehen habe"
+    war vorher gar nicht erreichbar. Die vier Zusicherungen von #1007
+    gelten unveraendert weiter und stehen hier gegen das neue Feld;
+    geaendert hat sich der Mechanismus, nicht die Anforderung.
+    """
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
     block = re.search(r"export const FILTER_STANDARD = \{[^}]*\}", quelltext)
-    assert "onlyAnalysed: false" in block.group(0), \
+    assert 'pruefstand: ""' in block.group(0), \
         "Vorgabe AUS — sonst filtert wieder etwas, das niemand gesetzt hat."
     assert "Nur beurteilte" in quelltext, "Der Schalter fehlt."
-    assert 'schluessel: "onlyAnalysed"' in quelltext, \
+    assert 'schluessel: "pruefstand"' in quelltext, \
         "Der Filter muss in der Hinweiszeile ueber der Liste auftauchen."
-    assert "filters.onlyAnalysed || Boolean(job.analyse?.urteil)" in quelltext
+    # Gefiltert wird weiterhin nach dem URTEIL — die Einteilung kommt
+    # seit #948 vom Server, damit es sie nicht zweimal gibt.
+    assert "job.pruefstand?.art" in quelltext
+    assert '"beurteilt"' in quelltext
