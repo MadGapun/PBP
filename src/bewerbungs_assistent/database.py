@@ -4755,7 +4755,11 @@ class Database:
         leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
-        dedup_index: dict[str, str] = {}
+        # #951: die aktiven Stellen EINMAL laden statt je neuer Stelle.
+        # Neu angelegte haengen sich an, damit auch Duplikate INNERHALB
+        # eines Laufs erkannt werden — das leistete vorher `dedup_index`.
+        # Je Profil getrennt, weil die Suche profilgebunden ist.
+        kandidaten_je_profil: dict[str, list] = {}
         # #645: Quellen, bei denen leere URL strukturell OK ist.
         # Alle anderen (XING, Stepstone, LinkedIn, Indeed, Bundesagentur,
         # Hays, Greenhouse, ...) MUESSEN eine URL liefern — sonst Regression.
@@ -4813,6 +4817,11 @@ class Database:
 
             # #641: Inhalts-Duplikat-Check (nur fuer NEUE Stellen, nicht fuer
             # Updates an einem schon existierenden Hash)
+            # #951: VOR dem Zweig gesetzt, nicht darin — sonst faellt die
+            # Variable in den falschen Zweig und der Lesezugriff weiter
+            # unten ist ein NameError, den nur der Kaltstart zeigt
+            # (v1.7.54 MERKE 4).
+            duplikat_notiz = ""
             is_active = 1
             dismiss_reason = None
             research_notes = job.get("research_notes")
@@ -4834,31 +4843,87 @@ class Database:
                 if existing["research_notes"]:
                     research_notes = existing["research_notes"]
             if is_new:
-                key = self._dedup_key(job.get("title", ""), job.get("company", ""))
-                original_hash = dedup_index.get(key)
-                if original_hash is None:
-                    # Auch gegen bereits in der DB liegende aktive Stellen pruefen
-                    row = conn.execute(
-                        "SELECT hash, title, company FROM jobs "
+                # v1.7.72 (#951, C62): die Identitaetsfrage laeuft durch
+                # EIN Nadeloehr. Bis hierher verglich dieser Weg exakt
+                # (`_dedup_key`), waehrend `stelle_manuell_anlegen` mit
+                # URL-Abgleich und Titel-Aehnlichkeit arbeitete — und
+                # dort entscheidet das Ergebnis bereits, ob ueberhaupt
+                # eine Zeile entsteht. Der SUCHLAUF, also der Weg, ueber
+                # den fast alles hereinkommt, hatte die schwaechere
+                # Regel. Gemessen ueber 2.491 Stellen: 53 Paare gegen
+                # 116 sichere Zweitfunde.
+                from .services import stellen_dublette
+                if job_pid not in kandidaten_je_profil:
+                    kandidaten_je_profil[job_pid] = [dict(r) for r in conn.execute(
+                        "SELECT hash, title, company, url FROM jobs "
                         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
                         (job_pid,)
-                    ).fetchall()
-                    for r in row:
-                        if self._dedup_key(r["title"], r["company"]) == key and r["hash"] != stored_hash:
-                            original_hash = r["hash"]
-                            break
+                    ).fetchall()]
+                kandidaten = kandidaten_je_profil[job_pid]
+                treffer = stellen_dublette.finde(job, [
+                    k for k in kandidaten if k["hash"] != stored_hash])
+                original_hash = None
+                if treffer and treffer["sicherheit"] == stellen_dublette.SICHER:
+                    original_hash = treffer["stelle"]["hash"]
                 if original_hash and original_hash != stored_hash:
+                    # #951 AK 2: der wiederholte Fund wird zur
+                    # ZUSATZINFORMATION statt zu einem neuen Eintrag.
+                    # Die Stelle selbst wird trotzdem angelegt und
+                    # aussortiert — sie ersatzlos zu verschlucken haette
+                    # den Trichter aus #813 belogen und die Spur zum
+                    # zweiten Portal gekappt.
                     is_active = 0
                     dismiss_reason = "duplikat"
                     pub_orig = self._public_job_hash(original_hash, job_pid)
-                    research_notes = (
-                        f"Duplikat von {pub_orig} (gleicher Titel+Firma, "
-                        f"andere Quelle/Hash). Automatisch erkannt beim Ingest."
-                    )
+                    # #956: der Protokolltext gehoert nach `dismiss_note`,
+                    # nicht in den Recherche-Notizblock. Bis v1.7.71 stand
+                    # er dort — und `ist_protokoll` erkannte ihn nicht, so
+                    # dass die Zusammenfuehrung ihn als Recherche gewertet
+                    # haette (gemessen: 9 von 107 Altzeilen).
+                    duplikat_notiz = (
+                        f"[Auto-Aussortierung] Duplikat von {pub_orig} "
+                        f"({treffer['text']}). Beim Ingest erkannt.")
                     duplikate += 1
+                    # Die neue Fundstelle haengt am ORIGINAL — das ist der
+                    # eigentliche Gewinn des Issues.
+                    try:
+                        from .services import stellen_quellen
+                        stellen_quellen.tabelle_anlegen(conn)
+                        conn.execute(
+                            "INSERT OR IGNORE INTO job_sources "
+                            "(job_hash, source, url, gefunden_am, "
+                            "veroeffentlicht_am) VALUES (?, ?, ?, ?, ?)",
+                            (original_hash, src or "unbekannt", url_val, now,
+                             (job.get("veroeffentlicht_am") or "")),
+                        )
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Fundstelle nicht vermerkbar: %s", _exc)
                 else:
-                    # Diese Stelle wird das Original fuer kuenftige Keys
-                    dedup_index[key] = stored_hash
+                    duplikat_notiz = ""
+                    # #951 AK 5: ein AEHNLICHER Titel wird MARKIERT, nicht
+                    # zusammengefuehrt. Die Nutzervorgabe lautet Recall vor
+                    # Praezision — zwei getrennte Eintraege sind aergerlich,
+                    # eine falsch verschmolzene Stelle ist schlimmer.
+                    if treffer and treffer["sicherheit"] == stellen_dublette.VERDACHT:
+                        verdacht_hash = treffer["stelle"]["hash"]
+                        if verdacht_hash != stored_hash:
+                            duplikat_notiz = (
+                                "[Auto-Aussortierung] Moegliches Duplikat von "
+                                f"{self._public_job_hash(verdacht_hash, job_pid)} "
+                                f"({treffer['text']}). NICHT zusammengefuehrt.")
+                    # Diese Stelle traegt ihre eigene erste Fundstelle.
+                    try:
+                        from .services import stellen_quellen
+                        stellen_quellen.tabelle_anlegen(conn)
+                        conn.execute(
+                            "INSERT OR IGNORE INTO job_sources "
+                            "(job_hash, source, url, gefunden_am, "
+                            "veroeffentlicht_am) VALUES (?, ?, ?, ?, ?)",
+                            (stored_hash, src or "unbekannt", url_val, now,
+                             (job.get("veroeffentlicht_am") or "")),
+                        )
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Fundstelle nicht vermerkbar: %s", _exc)
 
                 # #732: Stellen mit erkennbar nicht-DACH Ort automatisch
                 # aussortieren. Greift NUR fuer Scraper-Quellen — manuelle
@@ -4932,15 +4997,31 @@ class Database:
                 dismissed_at_wert, dismissed_by_wert
             ))
             # #913: Freitext gehoert nach dismiss_note, nie ins Lern-Feld.
-            if is_new and job.get("dismiss_note"):
+            # #951/#956: das gilt auch fuer den Duplikat-Vermerk. Bis
+            # v1.7.71 stand er in `jobs.research_notes` — dem Notizblock
+            # fuer die Firmen-Recherche. Die Zusammenfuehrung aus #956
+            # haette ihn deshalb als Recherche gewertet und in die Liste
+            # des Menschen gelegt (gemessen: 9 von 107 Altzeilen).
+            _notiz = job.get("dismiss_note") or duplikat_notiz
+            if is_new and _notiz:
                 try:
                     conn.execute("UPDATE jobs SET dismiss_note=? WHERE hash=?",
-                                 (job.get("dismiss_note"), stored_hash))
+                                 (_notiz[:500], stored_hash))
                 except Exception:
                     pass
             if is_new and is_active:
                 src = job.get("source") or "unbekannt"
                 new_per_source[src] = new_per_source.get(src, 0) + 1
+                # #951: die frisch angelegte Stelle ist ab jetzt selbst
+                # Kandidatin — sonst blieben Duplikate INNERHALB eines
+                # Laufs unerkannt, und genau die liefert ein Suchlauf
+                # ueber mehrere Portale.
+                kandidaten_je_profil.setdefault(job_pid, []).append({
+                    "hash": stored_hash,
+                    "title": job.get("title"),
+                    "company": job.get("company"),
+                    "url": job.get("url"),
+                })
         conn.commit()
         result = {
             "new_per_source": new_per_source,
