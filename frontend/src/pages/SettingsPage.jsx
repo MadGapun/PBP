@@ -695,6 +695,9 @@ function RecommendedSourcesCard({ sources, onToggle, pushToast }) {
 function ScraperHealthCard({ pushToast }) {
   const [scrapers, setScrapers] = useState([]);
   const [busy, setBusy] = useState(false);
+  // #937: null = kein Dialog offen. Der Text wird GEZEIGT, bevor
+  // irgendetwas geoeffnet wird — PBP schickt nichts selbst ab.
+  const [meldung, setMeldung] = useState(null);
 
   async function reload() {
     try {
@@ -703,6 +706,21 @@ function ScraperHealthCard({ pushToast }) {
     } catch {}
   }
   useEffect(() => { reload(); }, []);
+
+  // #937: nur echte Defekte bekommen den Melde-Knopf. "off" und "tot"
+  // koennen eine bewusste Abschaltung sein — dort waere eine Meldung
+  // ohne Adressaten. Die endgueltige Entscheidung trifft der Server;
+  // hier steht nur, wann der Knopf ueberhaupt erscheint.
+  const MELDBARE_STATUS = new Set(["kaputt", "blockiert", "warn", "silent"]);
+
+  async function meldungOeffnen(quelle) {
+    try {
+      const daten = await api(`/api/scraper-health/${quelle}/meldung`);
+      setMeldung(daten);
+    } catch (error) {
+      pushToast(`Meldung nicht vorbereitbar: ${error.message}`, "danger");
+    }
+  }
 
   function statusOf(s) {
     if (!s.is_active) {
@@ -867,11 +885,80 @@ function ScraperHealthCard({ pushToast }) {
                     Deaktivieren
                   </Button>
                 )}
+                {/* #937: melden, wenn die Quelle defekt ist UND du sie
+                    brauchst. Der Defekt allein ist meist bekannt — der
+                    Bedarf nicht, und der entscheidet die Reihenfolge.
+                    Ob eine Quelle meldbar ist, entscheidet der Server
+                    (`services/quellen_meldung.py`): `deprecated` ist
+                    eine Entscheidung, kein Defekt (#906). */}
+                {MELDBARE_STATUS.has(status) && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => meldungOeffnen(s.scraper_name)}
+                    disabled={busy}
+                  >
+                    Quelle melden
+                  </Button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* #937: der Text steht VOR dem Oeffnen da. Wer nicht sieht, was
+          er meldet, kann nicht entscheiden, ob er es melden will —
+          und die Meldung landet oeffentlich auf GitHub. */}
+      <Modal
+        open={Boolean(meldung)}
+        title={`Quelle melden — ${meldung?.quelle || ""}`}
+        description="PBP schickt nichts ab. Der Knopf öffnet das GitHub-Formular mit diesen Angaben."
+        onClose={() => setMeldung(null)}
+        size="md"
+        footer={(
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              variant="primary"
+              onClick={() => {
+                window.open(meldung.url, "_blank", "noopener,noreferrer");
+                setMeldung(null);
+              }}
+            >
+              Formular auf GitHub öffnen
+            </Button>
+            <Button variant="secondary" onClick={() => setMeldung(null)}>Abbrechen</Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-3 text-[13px]">
+          {meldung?.vorhandene?.gefunden?.length > 0 ? (
+            <div className="rounded-xl border border-amber/20 bg-amber/8 p-3">
+              <p className="font-medium text-amber">Dazu gibt es schon eine offene Meldung</p>
+              <ul className="mt-1.5 grid gap-1">
+                {meldung.vorhandene.gefunden.map((e) => (
+                  <li key={e.nummer}>
+                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">
+                      {`#${e.nummer} ${e.titel}`}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[12px] text-muted/60">
+                Ein Kommentar dort hilft mehr als ein zweites Issue — er zeigt,
+                dass mehrere Leute die Quelle brauchen.
+              </p>
+            </div>
+          ) : null}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted">Das wird übermittelt</p>
+            <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-white/8 bg-white/[0.03] p-3 text-[12px] text-muted/80">
+              {meldung?.bericht}
+            </pre>
+          </div>
+          <p className="text-[12px] text-muted/60">{meldung?.hinweis}</p>
+        </div>
+      </Modal>
     </Card>
   );
 }
