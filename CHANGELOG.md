@@ -33,6 +33,96 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.77] - 2026-09-10 — Ein Grund, eine Schreibweise
+
+### Added
+
+- **`ablehnungsgruende_vereinheitlichen()` (#663).** Ablehnungsgründe
+  können im Bestand über die Schreibweise gespalten sein — und dann ist
+  die Statistik es auch, aus der #908 und #778 ihre Lerneffekte ziehen.
+  Gemessen: `Falsche Branche` (50) neben `falsche_branche` (1),
+  `Falsches System` (50) neben `falsches_system` (5).
+
+  **Der Knackpunkt: Label und gespeicherter Wert sind zwei verschiedene
+  Zeichenketten.** In den Stellen steht `falsches system` — mit
+  Leerzeichen und klein, also weder wie das eine noch wie das andere
+  Label. `ablehnungsgrund_umbenennen` vergleicht gegen das alte Label
+  und hätte nur die fünf Zeilen mit Unterstrich getroffen; die fünfzig
+  mit Leerzeichen wären stehen geblieben — die Spaltung wäre nicht
+  behoben, sondern verschoben gewesen. Der neue Lauf gruppiert deshalb
+  über einen normalisierten Schlüssel und schreibt **beide Orte** um.
+
+### Notes
+
+- **Welche Schreibweise gewinnt:** die Whitelist-Form, wenn die Gruppe
+  eine enthält (jede andere wird von `stelle_bewerten` still auf
+  `sonstiges` normalisiert), sonst die häufigste unter den
+  gespeicherten Werten. Die Wahl steht in der Vorschau, **bevor** etwas
+  passiert, und lässt sich je Gruppe überschreiben — es sind deine
+  Daten.
+- **Was nicht zusammengefasst wird:** verschiedene Sachverhalte
+  (`falsches_fachgebiet` und `falsches_system` bleiben getrennt),
+  Tippfehler (`Dublikat` gegen `duplikat` ist ein vertauschter
+  Buchstabe — dafür gibt es das Umbenennen, wo ein Mensch das Ziel
+  nennt) und die normale Großschreibung im Label.
+- **Zwei eigene Fehler, beide am echten Bestand gefunden.** Die erste
+  Fassung hätte *jedes* Custom-Label kleingeschrieben: dass ein Grund
+  `Veraltet` heißt und als `veraltet` gespeichert wird, ist die normale
+  Ablage und keine Spaltung — sonst baut der Lauf die Anzeige um,
+  statt Daten aufzuräumen. Und die Gruppierung schlüsselte nach
+  Label-*Text* und verschluckte damit einen dritten Eintrag mit
+  identischem Label; eine frische Datenbank bringt `falsches_system`
+  bereits als Standardgrund mit. Der Lauf brauchte dadurch drei
+  Durchgänge statt einem und sah nicht-idempotent aus.
+- Am Bestand durchgespielt: 2 Gruppen, 6 Stellen umgeschrieben, 20 → 18
+  Grund-Einträge, keine Restspaltung, zweiter Lauf ohne Wirkung.
+- Tests: **3687 passed / 2 skipped** (3689 gesammelt). Gegenprobe
+  gemacht: mit zurückgebauten Fixes werden 5 rot. Schema unverändert
+  (v48).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.77.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.77.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.76] - 2026-09-10 — Beide behalten
 
 Zwei Nutzerentscheidungen, beide mit einem Fund darunter.
