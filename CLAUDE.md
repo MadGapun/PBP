@@ -3637,6 +3637,35 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    ergaenzen, der seine REGISTRIERUNG prueft. Gruen im
    Repo-Wurzelverzeichnis ist kein Beweis.
 
+8d. **Vor dem Anlegen pruefen, ob es das schon gibt — und die Antwort
+   des Schreibwerkzeugs LESEN (seit 2026-09-10)** — beim Anlegen von
+   `services/schwellen_verteilung.py` wurde zuerst
+   `services/score_verteilung.py` geschrieben. **Das Modul gab es
+   bereits seit #986**, es wurde vollstaendig ueberschrieben, und neun
+   Tests wurden rot. Wiederhergestellt, aber der Schaden waere ohne die
+   Testsuite unbemerkt geblieben.
+
+   Das ist woertlich die Lehre aus #799 (`learned_insights` neben
+   `learning_insights`) — sie stand in CLAUDE.md und hat nicht
+   geschuetzt. Zwei mechanische Schritte statt einer Erinnerung:
+   `ls services/ | grep <stichwort>` vor jedem neuen Modul, jeder neuen
+   Tabelle und jedem neuen Werkzeug, und die Antwort des
+   Schreibwerkzeugs lesen — sie sagt "updated" statt "created", wenn
+   etwas ueberschrieben wurde. Bei aehnlichen Namen gehoert die
+   Abgrenzung in BEIDE Modulkoepfe und in einen Test, der prueft, dass
+   beide existieren.
+
+8e. **Bei `INSERT OR REPLACE` zaehlt die Spaltenliste, nicht die
+   Absicht (seit 2026-09-10)** — `save_jobs` schreibt so, und REPLACE
+   loescht die Zeile und legt sie neu an. Jede Spalte ausserhalb der
+   INSERT-Liste war danach NULL. Betroffen waren `analyse_urteil` samt
+   Geschwistern (#1007, das gelesene Urteil), `dismiss_note` (#913)
+   und die Felder aus #948 — ein erneuter Suchlauf loeschte sie still,
+   und die Stelle sah danach aus wie eine, die nie beurteilt wurde.
+   **Wer eine neue Spalte anlegt, denkt nicht an ein REPLACE**, deshalb
+   ist die Abhilfe strukturell: `_BEWAHREN` plus ein Test, der JEDE
+   Spalte von `jobs` gegen die INSERT-Liste haelt.
+
 9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
    der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
    UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM
