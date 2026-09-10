@@ -739,3 +739,59 @@ def test_profile_workflow_button_copies_resolved_prompt_instead_of_slash_command
         assert "extraktion_starten()" in copied
     finally:
         context.close()
+
+
+def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, browser):
+    """#948 AK 4/6/7 am GERENDERTEN Bild, nicht am Quelltext.
+
+    Ein durchlaufender Build ist kein Beleg dafuer, dass die Seite
+    rendert (v1.7.64 MERKE 1) — und ein Grep im JSX belegt nur, dass
+    eine Zeichenkette dasteht. Hier wird geklickt.
+    """
+    db = live_dashboard["db"]
+    _seed_uncertain_jobs_workspace(db)
+    # Eine der beiden Stellen bekommt ein gelesenes Urteil, und danach
+    # aendert sich ihr Score — damit muss das Abzeichen "ueberholt"
+    # tragen (AK 5).
+    voll = db.resolve_job_hash("job-mit-beschreibung")
+    db.set_job_analysis(voll, "BEDINGT", "Methodenluecke, ueberbrueckbar")
+    db.update_job(voll, {"score": 91})
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        # AK 4/5: das Abzeichen steht da und meldet den Ueberholstand.
+        page.get_by_text("Bedingt ⚠ überholt").first.wait_for(state="visible")
+
+        # AK 6: die Gegenrichtung — nur ungeprueft.
+        page.get_by_text("Prüfstand: alle").click()
+        page.get_by_text("Nur ungeprüfte", exact=True).click()
+        page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
+        assert page.get_by_text("PLM Consultant", exact=True).count() == 0, (
+            "Die beurteilte Stelle steht noch in der Liste der ungeprueften."
+        )
+
+        # ... und nur beurteilte zeigt genau die andere.
+        page.get_by_text("Nur ungeprüfte").first.click()
+        page.get_by_text("Nur beurteilte", exact=True).click()
+        page.get_by_text("PLM Consultant", exact=True).wait_for(state="visible")
+        assert page.get_by_text("Senior Consultant", exact=True).count() == 0
+
+        # AK 7: der Klick auf das Abzeichen fuehrt zum Ergebnis.
+        page.get_by_text("Bedingt ⚠ überholt").first.click()
+        page.get_by_role("heading", name="Fit-Analyse — PLM Consultant").wait_for(state="visible")
+        page.get_by_text("Gelesenes Urteil").wait_for(state="visible")
+        page.get_by_text("Methodenluecke, ueberbrueckbar").wait_for(state="visible")
+
+        # AK 1/2: der Einstieg steht in der Fusszeile, also ohne Scrollen.
+        einstieg = page.get_by_role("button", name="Detailbewertung durch Claude anfordern")
+        einstieg.wait_for(state="visible")
+        assert einstieg.count() == 1, "Der Einstieg steht doppelt im Dialog."
+    finally:
+        context.close()

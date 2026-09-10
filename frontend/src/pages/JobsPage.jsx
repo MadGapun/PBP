@@ -169,10 +169,15 @@ export const FILTER_STANDARD = {
   employmentType: "",
   hideApplied: true,
   missingDescriptionOnly: false,
-  // #1007: nur Stellen, die gegen das Profil gelesen wurden. Vorgabe
-  // AUS — ein Filter, den niemand gesetzt hat, war der ganze Befund
-  // von #1008.
-  onlyAnalysed: false,
+  // #948: EIN Filter fuer den Pruefstand, drei Werte. Vorher stand
+  // hier `onlyAnalysed` als Ja/Nein — die Gegenrichtung ("zeig mir,
+  // was ich noch nicht angesehen habe") war damit gar nicht
+  // erreichbar, und genau die braucht man beim Sichten. Zwei
+  // Schalter fuer dieselbe Frage waeren #988 gewesen, deshalb ersetzt
+  // das Feld den alten Schalter, statt danebenzustehen.
+  // Vorgabe LEER — ein Filter, den niemand gesetzt hat, war der ganze
+  // Befund von #1008.
+  pruefstand: "",
 };
 
 // Welche Filter unterdruecken gerade Eintraege — und wie macht man das
@@ -188,7 +193,12 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
-  if (filters.onlyAnalysed) aktiv.push({ schluessel: "onlyAnalysed", text: "nur beurteilte" });
+  if (filters.pruefstand) {
+    aktiv.push({
+      schluessel: "pruefstand",
+      text: filters.pruefstand === "ungeprueft" ? "nur ungeprüfte" : "nur beurteilte",
+    });
+  }
   return aktiv;
 }
 
@@ -217,6 +227,28 @@ const ANALYSE_ETIKETT = {
   NICHT_EMPFOHLEN: "Nicht empfohlen",
   NICHT_BEURTEILBAR: "Nicht beurteilt",
 };
+
+// #948: der Text am Abzeichen. Was "ueberholt" BEDEUTET, entscheidet
+// der Server (`services/passung.py`) — hier wird der Befund nur
+// vorgelesen, samt der beiden Zahlen, die ihn belegen. Ein "veraltet"
+// ohne Beleg waere eine Behauptung.
+export function pruefstandTitel(job) {
+  const stand = job?.pruefstand;
+  if (!stand) return "";
+  const teile = [stand.text];
+  if (stand.am) teile.push(`am ${String(stand.am).slice(0, 10)}`);
+  if (job?.analyse?.begruendung) teile.push(job.analyse.begruendung);
+  const alt = stand.ueberholt;
+  if (alt) {
+    if (alt.grund?.includes("score")) {
+      teile.push(`Score seither ${alt.score_damals} → ${alt.score_jetzt}`);
+    }
+    if (alt.grund?.includes("profil")) {
+      teile.push("Profil hat sich seither geändert");
+    }
+  }
+  return teile.filter(Boolean).join(" — ");
+}
 
 
 export default function JobsPage() {
@@ -448,7 +480,7 @@ export default function JobsPage() {
     filters.remote,
     filters.salaryOnly,
     filters.missingDescriptionOnly,
-    filters.onlyAnalysed,
+    filters.pruefstand,
     filters.sort,
   ]);
 
@@ -791,9 +823,12 @@ export default function JobsPage() {
       const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
       const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
       const descriptionMatch = !filters.missingDescriptionOnly || jobNeedsDescriptionAttention(job);
-      // #1007: "noch nicht beurteilt" ist kein Urteil — wer die
-      // gelesenen sehen will, filtert danach.
-      const analysedMatch = !filters.onlyAnalysed || Boolean(job.analyse?.urteil);
+      // #1007/#948: "noch nicht beurteilt" ist kein Urteil. Welcher
+      // Zustand gilt, entscheidet der Server (`services/passung.py`) —
+      // hier steht nur, wonach gefiltert wird. Eine zweite Fassung der
+      // Einteilung im JavaScript waere #963 im Frontend.
+      const stand = job.pruefstand?.art || "ungeprueft";
+      const analysedMatch = !filters.pruefstand || stand === filters.pruefstand;
       return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch && descriptionMatch && analysedMatch;
     })
     .sort((a, b) => {
@@ -1187,24 +1222,30 @@ export default function JobsPage() {
               )}
             </div>
 
-            {/* #1007: nach dem Urteil filtern. "Noch nicht beurteilt"
-                ist kein Urteil — wer sehen will, was tatsaechlich gegen
-                das Profil gelesen wurde, soll es nicht suchen muessen. */}
+            {/* #1007/#948: nach dem Pruefstand filtern. "Noch nicht
+                beurteilt" ist kein Urteil — und wer sichtet, braucht
+                die Gegenrichtung: da weitermachen, wo man aufgehoert
+                hat. Ein Auswahlfeld statt zweier Schalter, damit es
+                nicht zwei Einstellungen fuer dieselbe Frage gibt
+                (#988). */}
             <div className="group inline-flex items-center gap-1.5">
-              <button
-                type="button"
+              <SelectInput
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
-                  filters.onlyAnalysed
-                    ? "border-teal/20 bg-teal/8 text-teal/80"
-                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                  "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
+                  filters.pruefstand
+                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
                 )}
-                onClick={() => setFilters((current) => ({ ...current, onlyAnalysed: !current.onlyAnalysed }))}
+                value={filters.pruefstand}
+                onChange={(event) => setFilters((current) => ({ ...current, pruefstand: event.target.value }))}
               >
-                Nur beurteilte
-              </button>
-              {filters.onlyAnalysed && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, onlyAnalysed: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <option value="">Prüfstand: alle</option>
+                <option value="ungeprueft">Nur ungeprüfte</option>
+                <option value="gesichtet">Nur angesehene ohne Urteil</option>
+                <option value="beurteilt">Nur beurteilte</option>
+              </SelectInput>
+              {filters.pruefstand && (
+                <button type="button" onClick={() => setFilters(f => ({ ...f, pruefstand: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1448,25 +1489,35 @@ export default function JobsPage() {
                         Score, weil beide Verschiedenes sagen. Ohne
                         gelesene Analyse steht hier NICHTS: "noch nicht
                         gelesen" ist kein Urteil (#989). */}
-                    {job.analyse?.urteil ? (
-                      <span
-                        title={`${job.analyse.begruendung || ""}${
-                          job.analyse.am ? ` (${job.analyse.am.slice(0, 10)})` : ""
-                        }${job.analyse.veraltet ? " — Profil hat sich seither geändert" : ""}`}
+                    {/* #948 (AK 4/5/7): drei Zustaende, und ein Klick
+                        fuehrt zum Ergebnis statt nur zu einem Tooltip.
+                        "Ungeprueft" traegt bewusst KEIN Abzeichen — die
+                        Abwesenheit ist die ehrliche Anzeige fuer "noch
+                        nicht angesehen", und wer gezielt danach sucht,
+                        hat dafuer den Pruefstand-Filter. */}
+                    {job.pruefstand && job.pruefstand.art !== "ungeprueft" ? (
+                      <button
+                        type="button"
+                        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sky/50"
+                        title={pruefstandTitel(job)}
+                        onClick={(event) => { event.stopPropagation(); showFitAnalysis(job); }}
                       >
                         <Badge
                           tone={
-                            job.analyse.urteil === "EMPFOHLEN" ? "success"
-                              : job.analyse.urteil === "BEDINGT" ? "amber"
-                              : job.analyse.urteil === "NICHT_EMPFOHLEN" ? "danger"
-                              : "neutral"
+                            job.pruefstand.art !== "beurteilt" ? "neutral"
+                              : job.analyse?.urteil === "EMPFOHLEN" ? "success"
+                                : job.analyse?.urteil === "BEDINGT" ? "amber"
+                                : job.analyse?.urteil === "NICHT_EMPFOHLEN" ? "danger"
+                                : "neutral"
                           }
                         >
-                          {`${ANALYSE_ETIKETT[job.analyse.urteil] || job.analyse.urteil}${
-                            job.analyse.veraltet ? " ⚠" : ""
-                          }`}
+                          {`${
+                            job.pruefstand.art === "beurteilt"
+                              ? (ANALYSE_ETIKETT[job.analyse?.urteil] || "Beurteilt")
+                              : "Angesehen"
+                          }${job.pruefstand.ueberholt ? " ⚠ überholt" : ""}`}
                         </Badge>
-                      </span>
+                      </button>
                     ) : null}
                   </div>
                   <div
@@ -1677,9 +1728,73 @@ export default function JobsPage() {
         open={fitDialog.open}
         title={`Fit-Analyse \u2014 ${fitDialog.title}`}
         onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
-        footer={<div className="flex justify-end"><Button onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schliessen</Button></div>}
+        /* #948 (AK 1/2): der Einstieg zur vertieften Analyse stand am
+           ENDE eines langen Dialogs — man musste an Score, Faktoren,
+           Treffern, Risiken und Recherche vorbeiscrollen, um den
+           teuersten Schritt zu finden. Die Fusszeile des Modals liegt
+           ausserhalb des Scroll-Containers: sie ist ohne Scrollen da,
+           bleibt beim Scrollen stehen und verdeckt nichts, weil der
+           Inhaltsbereich ihre Hoehe schon einrechnet. Kein zweiter
+           Mechanismus noetig — der richtige war bereits gebaut. */
+        footer={(
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              variant="primary"
+              onClick={() => {
+                const hash = fitDialog.hash || "";
+                const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert fuer mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschaetzung: Staerken, Schwaechen, Risiken, und ob sich eine Bewerbung lohnt.`;
+                copyPrompt(prompt);
+              }}
+            >
+              <Search size={15} />
+              Detailbewertung durch Claude anfordern
+            </Button>
+            <Button variant="secondary" onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schliessen</Button>
+          </div>
+        )}
       >
         <div className="grid gap-4">
+          {/* #948 (AK 7): wer in der Liste auf "Beurteilt" klickt, landet
+              hier — also muss das Urteil hier auch stehen, und zwar oben.
+              Es kommt aus der Datenbank, nicht aus dieser Antwort: der
+              Score misst die Suchbegriffe, das Urteil ist gelesen
+              (#1003). */}
+          {fitDialog.analysis?.analyse?.urteil ? (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gelesenes Urteil</p>
+                <Badge
+                  tone={
+                    fitDialog.analysis.analyse.urteil === "EMPFOHLEN" ? "success"
+                      : fitDialog.analysis.analyse.urteil === "BEDINGT" ? "amber"
+                        : fitDialog.analysis.analyse.urteil === "NICHT_EMPFOHLEN" ? "danger"
+                          : "neutral"
+                  }
+                >
+                  {ANALYSE_ETIKETT[fitDialog.analysis.analyse.urteil] || fitDialog.analysis.analyse.urteil}
+                </Badge>
+                {fitDialog.analysis.analyse.am ? (
+                  <span className="text-xs text-muted/60">vom {String(fitDialog.analysis.analyse.am).slice(0, 10)}</span>
+                ) : null}
+              </div>
+              {fitDialog.analysis.analyse.begruendung ? (
+                <p className="mt-2 text-sm text-muted/80 whitespace-pre-line">{fitDialog.analysis.analyse.begruendung}</p>
+              ) : null}
+              {fitDialog.analysis.pruefstand?.ueberholt ? (
+                <p className="mt-2 text-xs text-amber">
+                  {`Seit dem Urteil hat sich die Grundlage geändert${
+                    fitDialog.analysis.pruefstand.ueberholt.grund?.includes("score")
+                      ? ` — Score ${fitDialog.analysis.pruefstand.ueberholt.score_damals} → ${fitDialog.analysis.pruefstand.ueberholt.score_jetzt}`
+                      : ""
+                  }${
+                    fitDialog.analysis.pruefstand.ueberholt.grund?.includes("profil")
+                      ? " — das Profil wurde seither bearbeitet"
+                      : ""
+                  }.`}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gesamtscore</p>
             <p className="mt-3 text-4xl font-semibold text-ink">{fitDialog.analysis?.total_score ?? 0}</p>
@@ -1744,18 +1859,11 @@ export default function JobsPage() {
               <p className="text-sm text-muted/70 whitespace-pre-line">{fitDialog.analysis.research_notes}</p>
             </Card>
           )}
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={() => {
-              const hash = fitDialog.hash || "";
-              const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert fuer mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschaetzung: Staerken, Schwaechen, Risiken, und ob sich eine Bewerbung lohnt.`;
-              copyPrompt(prompt);
-            }}
-          >
-            <Search size={15} />
-            Detailbewertung durch Claude anfordern
-          </Button>
+          {/* #948 (AK 1/2): der Knopf "Detailbewertung durch Claude
+              anfordern" stand hier — hinter dem ganzen Dialog. Er sitzt
+              jetzt in der Fusszeile, also ohne Scrollen erreichbar. Eine
+              zweite Kopie an dieser Stelle waere derselbe Fehler wie in
+              #979: dieselbe Handlung an zwei Orten. */}
 
           {/* #1009: Handlung direkt im Dialog. Wer die Analyse gelesen
               hat, hat GENAU JETZT sein Urteil gebildet — bisher musste er
