@@ -525,7 +525,29 @@ LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
 und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
 Vollstaendigkeits-Guard laufen lassen:
 `test $(ls *.md | wc -l) -ge 39 && git add -A ...` (Zahl bei neuen
-Seiten nachziehen). Ausserdem: `git pull --rebase` und Commit-Kette nie
+Seiten nachziehen).
+
+**Und den Tabellen-Guard laufen lassen** (seit 2026-09-10):
+`python scripts/masterplan_pruefen.py <Pfad zum Wiki-Clone>` — Exit 1
+heisst: nicht pushen. Grund: Plan-Zeilen werden per Skript umgebaut, und
+das ist DREIMAL schiefgegangen. Einmal wurden Issue- und Wiki-Spalte ein
+zweites Mal angehaengt (Zeilen mit neun statt sieben Feldern), einmal
+landete der Status im Feld HINTER dem letzten Rohr: die Spaltenzahl
+stimmte, die Statuszelle blieb auf ⬜, und das ✅ stand ausserhalb der
+Tabelle — der Plan meldete "nicht begonnen" fuer eine ausgelieferte
+Arbeit.
+
+**Der zweite Fall ist der lehrreiche: die Gegenprobe hat den Fehler
+BESTAETIGT.** Sie las denselben falschen Index, in den das Skript
+geschrieben hatte. **Eine Kontrolle, die dieselbe Annahme benutzt wie
+der Schreibvorgang, prueft nichts.** Der Guard liest die Status-SPALTE
+aus der Kopfzeile und prueft zusaetzlich, dass hinter dem letzten Rohr
+nichts steht. Beim ersten Lauf fand er ausser seinem Anlass fuenf
+aeltere Defekte auf den Unterseiten (zwei fehlende Zellen, drei
+unescapte Rohre in Inline-Code — Backticks schuetzen in
+Markdown-Tabellen NICHT).
+
+Ausserdem: `git pull --rebase` und Commit-Kette nie
 so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
 
 ## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
