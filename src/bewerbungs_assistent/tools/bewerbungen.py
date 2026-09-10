@@ -774,6 +774,23 @@ def register(mcp, db, logger):
         }
         if auto_followup_id:
             result["auto_follow_up"] = {"id": auto_followup_id, "tage": default_days}
+        # #931: der Nennwert fuers Gespraech steht VOR dem Termin fest,
+        # statt im Gespraech gebildet zu werden. Nur ein Vorschlag —
+        # was tatsaechlich genannt wird, entscheidet der Mensch je
+        # Vorgang, und zwar mit `bewerbung_bearbeiten`. `gehaltsvorstellung`
+        # gibt es an DIESEM Werkzeug bewusst nicht: beim Erfassen steht
+        # die Zahl meist noch nicht fest.
+        try:
+            from ..services import nennwerte as _nw
+            _stellenart = ""
+            if effective_hash:
+                _j = db.get_job(effective_hash) or {}
+                _stellenart = _j.get("employment_type") or ""
+            _vorschlag = _nw.vorbelegung(db, _stellenart)
+            if _vorschlag:
+                result["gehaltsvorstellung_vorschlag"] = _vorschlag
+        except Exception as _exc:  # pragma: no cover
+            logger.debug("Nennwert-Vorbelegung (#931): %s", _exc)
         # #1011: den Befund melden. Ein Rueckgabewert, den niemand liest,
         # ist dasselbe wie kein Rueckgabewert (#997) — und wer nicht
         # erfaehrt, dass ein Kontakt entstanden ist, legt ihn ein

@@ -199,6 +199,12 @@ function criteriaToDraft(criteria) {
     min_gehalt: criteria?.min_gehalt ?? "",
     min_tagessatz: criteria?.min_tagessatz ?? "",
     min_stundensatz: criteria?.min_stundensatz ?? "",
+    // #931: der Nennwert fuers Gespraech, direkt unter dem Minimum.
+    // Er wirkt NICHT im Scoring — das entscheidet der Server
+    // (services/nennwerte.py), hier steht nur das Eingabefeld.
+    wunsch_gehalt: criteria?.wunsch_gehalt ?? "",
+    wunsch_tagessatz: criteria?.wunsch_tagessatz ?? "",
+    wunsch_stundensatz: criteria?.wunsch_stundensatz ?? "",
     max_entfernung_km: criteria?.max_entfernung_km ?? "",
     stellentypen,
     max_entfernung_festanstellung: maxEnt.festanstellung ?? DEFAULT_MAX_ENTFERNUNG.festanstellung,
@@ -231,6 +237,9 @@ function criteriaDraftToPayload(criteriaDraft) {
     min_gehalt: criteriaDraft.min_gehalt === "" ? null : Number(criteriaDraft.min_gehalt),
     min_tagessatz: criteriaDraft.min_tagessatz === "" ? null : Number(criteriaDraft.min_tagessatz),
     min_stundensatz: criteriaDraft.min_stundensatz === "" ? null : Number(criteriaDraft.min_stundensatz),
+    wunsch_gehalt: criteriaDraft.wunsch_gehalt === "" ? null : Number(criteriaDraft.wunsch_gehalt),
+    wunsch_tagessatz: criteriaDraft.wunsch_tagessatz === "" ? null : Number(criteriaDraft.wunsch_tagessatz),
+    wunsch_stundensatz: criteriaDraft.wunsch_stundensatz === "" ? null : Number(criteriaDraft.wunsch_stundensatz),
     max_entfernung_km: criteriaDraft.max_entfernung_km === "" ? null : Number(criteriaDraft.max_entfernung_km),
     stellentypen: criteriaDraft.stellentypen,
     max_entfernung: {
@@ -1339,6 +1348,44 @@ export default function ProfilePage() {
                   type="number"
                   value={criteriaDraft.min_stundensatz}
                   onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_stundensatz: event.target.value }))}
+                />
+              </Field>
+            </div>
+
+            {/* #931: die Nennwerte fuers Gespraech, direkt unter den
+                Minimum-Saetzen. Zwei verschiedene Zwecke, zwei Felder:
+                das Minimum ist die Filterschwelle, der Nennwert ist die
+                Zahl, die man sagt. In ein Feld gezwungen hat man
+                entweder einen zu scharfen Filter oder keinen Nennwert. */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field
+                label="Wunsch-Gehalt (Nennwert)"
+                hint="Was du im Gespräch nennst. Filtert nicht."
+              >
+                <TextInput
+                  type="number"
+                  value={criteriaDraft.wunsch_gehalt}
+                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, wunsch_gehalt: event.target.value }))}
+                />
+              </Field>
+              <Field
+                label="Wunsch-Tagessatz (Nennwert)"
+                hint="Was du im Gespräch nennst. Filtert nicht."
+              >
+                <TextInput
+                  type="number"
+                  value={criteriaDraft.wunsch_tagessatz}
+                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, wunsch_tagessatz: event.target.value }))}
+                />
+              </Field>
+              <Field
+                label="Wunsch-Stundensatz (Nennwert)"
+                hint="Was du im Gespräch nennst. Filtert nicht."
+              >
+                <TextInput
+                  type="number"
+                  value={criteriaDraft.wunsch_stundensatz}
+                  onChange={(event) => setCriteriaDraft((current) => ({ ...current, wunsch_stundensatz: event.target.value }))}
                 />
               </Field>
             </div>

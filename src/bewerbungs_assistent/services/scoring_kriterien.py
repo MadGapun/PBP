@@ -175,6 +175,21 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
     """
     krit = dict(kriterien if kriterien is not None
                 else (db.get_search_criteria() or {}))
+
+    # v1.7.73 (#931): die Nennwerte fuers Gespraech gehoeren NICHT in
+    # die Rechnung. Sie stehen in denselben Kriterien wie die
+    # Minimum-Saetze und saehen dort aus wie jeder andere Regler — ein
+    # Wunschgehalt, das mitfiltert, waere genau der Zielkonflikt, wegen
+    # dem das Issue entstanden ist ("mit dem Wunschwert filtert die
+    # Suche zu scharf").
+    #
+    # Hier und nur hier: dieses Nadeloehr speist Suchlauf,
+    # Neuberechnung, Fit-Analyse, Newsletter-Import und die manuelle
+    # Anlage. Die Trennung an den Aufrufern zu wiederholen waere die
+    # Bauform, die dieses Projekt vierzehnmal gekostet hat.
+    from . import nennwerte
+    krit = nennwerte.aus_scoring_entfernen(krit)
+
     krit["_applied_titles"] = _beworbene_titel(db)
 
     # Nur Synonyme zu Begriffen, die noch in den Kriterien stehen. Wer
