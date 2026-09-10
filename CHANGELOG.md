@@ -33,6 +33,118 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.74] - 2026-09-10 — Der Regler kennt deinen Bestand
+
+### Fixed
+
+- **Ein erneuter Suchlauf löschte das gelesene Urteil (#892,
+  Nebenbefund — und der teuerste Fund dieser Version).** `save_jobs`
+  schreibt mit `INSERT OR REPLACE`; REPLACE löscht die Zeile und legt
+  sie neu an, und jede Spalte außerhalb der INSERT-Liste stand danach
+  auf NULL. Betroffen waren **`analyse_urteil` samt Geschwistern**
+  (#1007, seit v1.7.61 — die teuerste Auskunft im System),
+  **`dismiss_note`** (#913, der Freitext zur Aussortierung) und die
+  neuen Felder aus #948. Fand der nächste Suchlauf dieselbe Stelle
+  wieder, war alles davon still weg — und die Stelle sah aus wie eine,
+  die nie beurteilt wurde. Reproduziert und behoben; ein Guard prüft
+  jetzt strukturell, dass **jede** Spalte von `jobs` entweder
+  geschrieben oder beim Neuschreiben bewahrt wird.
+- **Der Mindest-Score-Regler endete bei 20.** Gemessen über 2.491
+  Stellen: Median 1, p90 23, **Maximum 110** — der Regler erreichte
+  nicht einmal das oberste Zehntel und war praktisch wirkungslos.
+  Spanne und Mittelmarkierung kommen jetzt aus der tatsächlichen
+  Verteilung. Der Grund für die Spannweite ist bekannt: `total_score`
+  ist keine Prozentzahl, sondern eine Punktsumme, deren Obergrenze aus
+  der Länge der MUSS-Liste folgt (#999) — eine feste Grenze kann es
+  deshalb gar nicht geben.
+
+### Added
+
+- **`jobs.initial_score` — der Score beim ersten Speichern.** Die
+  Schwelle filtert beim **Speichern**, nicht in der Liste (#1008); die
+  Zahl, gegen die sie wirkt, ist also der Wert bei der Anlage. Viele
+  Scores wachsen aber erst mit der nachgeladenen Beschreibung — der
+  belegte Fall des Melders ging **0 → 72 → 75**, und bei Schwelle 70
+  wäre die Stelle im Zustand 0 unsichtbar gewesen. Für den Altbestand
+  steht der aktuelle Wert drin, **ausdrücklich als rekonstruiert
+  gekennzeichnet**: ein rekonstruierter Wert, der wie ein gemessener
+  aussieht, wäre #987.
+- **Drei Farbbereiche am Regler, mit nachrechenbaren Grenzen** — grün
+  bis zum Median, gelb bis zum obersten Zehntel, rot darüber. Jede
+  Grenze steht als Zahl dabei; eine Farbe ohne nachvollziehbare Grenze
+  wäre eine Behauptung.
+- **Klartext statt nur einer Zahl:** „Bei 35 bleiben 95 von 2.491
+  Stellen sichtbar." Gerechnet wird auf dem Server, das Frontend liest
+  nur ab.
+- **`score_verteilung_anzeigen()`** macht die Verteilung außerhalb der
+  Oberfläche abfragbar.
+
+### Notes
+
+- **Bei weniger als 20 Stellen** fällt der Regler auf den festen
+  Bereich zurück und sagt warum. Eine aus vier Werten errechnete
+  Empfehlung wäre Scheingenauigkeit.
+- **Zwei Teilwidersprüche zum Bericht, beide nachgemessen.** Von den
+  drei gemeldeten Dateninkonsistenzen in der Scoring-Konfiguration sind
+  zwei bereits erledigt (#917); die dritte wird seit #988 benannt und
+  ist über `scoring_konfigurieren('loeschen')` entfernbar. Und über den
+  **ganzen** Bestand liegt der Median mit Anzeigentext sogar unter dem
+  ohne — das MUSS-Tor setzt fachfremde Anzeigen mit Text sauber auf 0,
+  während textlose einen Titeltreffer behalten. Der Einzelfall des
+  Melders bleibt richtig; nur die Aggregatzahl sagt ihn nicht.
+- **Eigener Fehler, benannt statt versteckt:**
+  `services/score_verteilung.py` existierte bereits seit #986 und wurde
+  beim Anlegen des neuen Moduls überschrieben. Wiederhergestellt; das
+  neue heißt `schwellen_verteilung.py`, beide grenzen sich im Kopf
+  gegeneinander ab, und ein Test hält fest, dass beide existieren. Das
+  ist die Lehre aus #799 (`learned_insights` neben
+  `learning_insights`).
+- Tests: **3630 passed / 2 skipped** (3632 gesammelt). Schema
+  unverändert (v48) — die neuen Spalten kommen als Safety-Net.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.74.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.74.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.73] - 2026-09-10 — Was ich mindestens nehme, und was ich sage
 
 ### Added
