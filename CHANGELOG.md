@@ -33,6 +33,138 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.78] - 2026-09-11 — Ein Jahresäquivalent, zwei Rechenwege
+
+Zwei Meldungen, dasselbe Muster: eine Einstellung oder eine Regel, die
+an einem von mehreren Wegen fehlt — und der fehlende Weg ist jedes Mal
+der, dessen Ergebnis gespeichert wird.
+
+### Fixed
+
+- **Der Basis-Score vergab den Gehaltsbonus auf eine erfundene Zahl
+  (#1017).** `fit_analyse` neutralisiert geschätzte Gehälter seit
+  #827/#918, der Scoring-Regler ebenfalls — `calculate_score` prüfte
+  `salary_estimated` gar nicht. Das ist der Weg, dessen Ergebnis als
+  `jobs.score` gespeichert wird und die Trefferliste sortiert.
+  **Am Bestand gemessen: 2.406 von 2.535 Stellen tragen ein geschätztes
+  Gehalt** — der Bonus beruhte also bei 95 Prozent aller Stellen auf
+  einer Zahl, die in der Anzeige nie stand.
+- **Derselbe Weg kannte `salary_type` `stuendlich` nicht (#1017).**
+  25 EUR/Stunde wurden gegen ein Jahresgehalt von 40.000 gehalten; der
+  Bonus konnte strukturell nie auslösen. `fit_analyse` hat den Fall seit
+  #920.
+- **Das Suchkriterium `stellentypen` hatte keinen filternden Leser
+  (#1015).** Praktikumsstellen lagen aktiv und bewertbar in der Liste,
+  obwohl `festanstellung, freelance` eingestellt war. Es gab genau drei
+  Leser, und keiner filterte: einer setzte eine Marke, einer warnte über
+  fehlende Quellen, einer verteilte die Entfernungsgrenze. Das ist #1000
+  ein zweites Mal — nur schlimmer, weil hier ein Befund entsteht, der
+  aussieht, als greife etwas.
+- **Es gab keine zentrale Typ-Erkennung (#1015).** `bundesagentur`
+  schreibt für jede Stelle `festanstellung` fest verdrahtet,
+  `stellenanzeigen_de` an zwei Stellen ebenso. Dasselbe Titelmuster
+  führte deshalb je nach Quelle zu verschiedenen Typen — genau die
+  Beobachtung, dass zwei Pflichtpraktika unterschiedlich eingeordnet
+  wurden.
+- **Für Praktika und studentische Tätigkeiten wird kein Gehalt mehr
+  geschätzt (#1015).** Die Spannen beschreiben Vollzeit-Anstellungen; auf
+  ein Pflichtpraktikum angewandt kamen 80.000 bis 120.000 EUR heraus, und
+  die Zahl floss in die Durchschnittskennzahl. Lieber keine Angabe als
+  eine unmögliche.
+
+### Added
+
+- **`services/gehalt_vergleich.py`** — ein Nadelöhr für die MESSUNG, nicht
+  für die Bewertung. Es bildet aus `salary_min`, `salary_type`,
+  `employment_type` und den Wunschwerten ein Jahresäquivalent und meldet
+  vier unterscheidbare Zustände: `vergleichbar`, `geschaetzt`,
+  `ohne_angabe`, `ohne_wunsch`. Wie viel ein erfüllter Gehaltswunsch wert
+  ist, entscheidet weiterhin jeder Rechenweg selbst.
+- **`services/stellenart.py`** — die Stellenart wird aus dem TITEL
+  belegt. Ausgeschlossen wird nur, was belegt ist; die Angabe der Quelle
+  taugt dafür nicht. Positiver Beleg statt Verdacht, dieselbe Bauform wie
+  die DACH-Prüfung aus #996.
+- **Einheiten an den drei Minimum-Feldern im Formular (#1017).** Sie
+  standen nur in der MCP-Ebene; im Dashboard hießen dieselben Felder nackt
+  „Min. Gehalt". Jetzt „Min. Gehalt (EUR/Jahr, brutto)", „Min. Tagessatz
+  (EUR/Tag)", „Min. Stundensatz (EUR/Stunde)" — Letzteres mit dem Hinweis,
+  dass die Bezahlung gemeint ist und nicht die Wochenarbeitszeit.
+- **Die Gehaltskennzahl nennt ihren Schätzanteil (#1015).** Statt „Auf
+  Basis von 8 Stellen" jetzt „… — davon 7 geschätzt". Eine
+  Durchschnittszahl, die ihre Grundlage verschweigt, kann man nicht
+  einordnen.
+
+### Changed
+
+- `buildAnnualSalaryMetrics` lag wortgleich in `DashboardPage.jsx` und
+  `JobsPage.jsx` und liegt jetzt in `frontend/src/lib/gehaltsKennzahl.js`
+  samt eigenem CI-Schritt. Die Doppelung war vorgefunden, nicht angelegt —
+  beim Ergänzen der Schätz-Zählung wäre sie um eine dritte Abweichung
+  gewachsen.
+- `_gehalt_kompensation` (#910/#965) rechnet über dasselbe Nadelöhr. Sie
+  war eine **vierte** Fassung derselben Rechnung: Schätzungen schloss sie
+  korrekt aus und `stuendlich` rechnete sie korrekt um, aber
+  `min_stundensatz` kannte sie gar nicht — wer nur einen Stundensatz
+  gepflegt hatte, bekam keine Kompensation. **Gefunden hat das der neue
+  Guard beim ersten Lauf**, nicht das Nachdenken.
+
+### Bekannte Grenzen
+
+- Die Typ-Erkennung findet nur, was im Titel steht. Ein Praktikum, das
+  sich dort nicht zu erkennen gibt, bleibt bei der Angabe der Quelle.
+  Das ist das Verhalten von vorher; die Erkennung ist eine Verbesserung
+  und keine Garantie.
+- Die Messung hat die Marker zweimal korrigiert, und beide Korrekturen
+  gehören zur Sache: **`intern` ohne rechte Wortgrenze trifft
+  „International" und „Internal"** — 11 von 14 Treffern waren Fehlalarme,
+  darunter ein Senior IT Projektmanager, der damit automatisch
+  aussortiert worden wäre. Und **„Teilzeit" steht in 6 von 16 Titeln
+  neben „Vollzeit"**: die Stelle wird als beides angeboten, und sie als
+  Teilzeit auszuschließen würde eine Vollzeitstelle wegwerfen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.78.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.78.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.77] - 2026-09-10 — Ein Grund, eine Schreibweise
 
 ### Added
