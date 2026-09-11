@@ -169,6 +169,7 @@ EXPECTED_TOOL_NAMES = {
     "fachprofil_exportieren",
     "anschreiben_exportieren",
     "gehalt_extrahieren",
+    "gehaelter_neu_auswerten",
     "gehalt_marktanalyse",
     "firmen_recherche",
     "branchen_trends",
@@ -385,7 +386,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 239  # v1.7.77 (#663): +ablehnungsgruende_vereinheitlichen
+        assert len(tools) == 240  # v1.7.79 (#1018): +gehaelter_neu_auswerten
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

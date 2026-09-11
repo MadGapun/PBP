@@ -3500,122 +3500,30 @@ def detect_remote_level(text: str) -> str:
 
 # ── Salary Extraction & Estimation (PBP v0.10.0) ─────────────
 
-SALARY_PATTERNS = [
-    # Annual: 60.000-80.000 EUR, 60.000 - 80.000€, €60.000-€80.000
-    re.compile(
-        r'(?:€|EUR)?\s*(\d{2,3}(?:[.\s]\d{3}))\s*(?:[-–bis]+)\s*(?:€|EUR)?\s*(\d{2,3}(?:[.\s]\d{3}))\s*(?:€|EUR)?(?:\s*(?:brutto|p\.?\s*a|jahresgehalt|jaehrlich|jährlich|/\s*jahr))?',
-        re.IGNORECASE
-    ),
-    # Annual with k: 60k-80k, 60K - 80K EUR
-    re.compile(
-        r'(?:€|EUR)?\s*(\d{2,3})\s*[kK]\s*(?:[-–bis]+)\s*(?:€|EUR)?\s*(\d{2,3})\s*[kK]',
-        re.IGNORECASE
-    ),
-    # Annual single: ab 60.000 EUR, bis 80.000€
-    re.compile(
-        r'(?:ab|bis|ca\.?|circa)?\s*(?:€|EUR)?\s*(\d{2,3}(?:[.\s]\d{3}))\s*(?:€|EUR)\s*(?:brutto|p\.?\s*a|jahresgehalt|jaehrlich|jährlich|/\s*jahr)',
-        re.IGNORECASE
-    ),
-    # Daily rate: 800-1200€/Tag, Tagessatz 900-1100
-    re.compile(
-        r'(?:tagessatz|tages-?satz)?\s*(?:€|EUR)?\s*(\d{3,4})\s*(?:[-–bis]+)\s*(?:€|EUR)?\s*(\d{3,4})\s*(?:€|EUR)?\s*(?:/?\s*tag|tagessatz|tages-?satz)',
-        re.IGNORECASE
-    ),
-    # Daily single: Tagessatz: 900€, 1000€/Tag
-    re.compile(
-        r'(?:tagessatz|tages-?satz)[:\s]*(?:€|EUR)?\s*(\d{3,4})\s*(?:€|EUR)?',
-        re.IGNORECASE
-    ),
-    # Hourly: 50-60€/Stunde, Stundensatz 50-60
-    re.compile(
-        r'(?:stundensatz|stunden-?satz)?\s*(?:€|EUR)?\s*(\d{2,3})\s*(?:[-–bis]+)\s*(?:€|EUR)?\s*(\d{2,3})\s*(?:€|EUR)?\s*(?:/?\s*(?:stunde|std|h)|stundensatz)',
-        re.IGNORECASE
-    ),
-    # Hourly single: Stundensatz: 65€
-    re.compile(
-        r'(?:stundensatz|stunden-?satz)[:\s]*(?:€|EUR)?\s*(\d{2,3})\s*(?:€|EUR)?',
-        re.IGNORECASE
-    ),
-    # v1.7.17 (#920): englische Stundensaetze — "Rate: 100 EUR/hour",
-    # "€85 per hour", "100-120 EUR/h". Vorher fiel genau der Zweig durch,
-    # der ohnehin blind ist (Freelance) — und der Fehler unterschaetzte um
-    # Faktor 8-10, konnte also nur passende Stellen lautlos abwerten.
-    re.compile(
-        r'(?:€|EUR)?\s*(\d{2,3})\s*(?:[-–]|bis)\s*(?:€|EUR)?\s*(\d{2,3})\s*'
-        r'(?:€|EUR)?\s*(?:/|per\s+)\s*(?:hour|hr|h)\b',
-        re.IGNORECASE
-    ),
-    re.compile(
-        r'(?:€|EUR)\s*(\d{2,3})\s*(?:/|per\s+)\s*(?:hour|hr|h)\b'
-        r'|(\d{2,3})\s*(?:€|EUR)\s*(?:/|per\s+)\s*(?:hour|hr|h)\b',
-        re.IGNORECASE
-    ),
-]
-
-
-def _normalize_salary(val: str) -> float:
-    """Convert German salary string to float (60.000 → 60000, 60k → 60000)."""
-    val = val.strip().replace(" ", "").replace(".", "")
-    if val.lower().endswith("k"):
-        return float(val[:-1]) * 1000
-    return float(val)
-
+# v1.7.79 (#1018): `SALARY_PATTERNS` und `_normalize_salary` sind
+# ersatzlos entfernt — die Erkennung liegt in
+# `services/gehalt_extraktion.py`. Sie hier stehen zu lassen waere
+# ein Muster ohne Leser gewesen, und davon hat dieses Projekt genug
+# gefunden (#993, #1000, #1008).
 
 def extract_salary_from_text(text: str) -> tuple:
-    """Extract salary from job description text.
+    """Gehalt aus einem Anzeigentext — Nadeloehr in `gehalt_extraktion`.
 
-    Returns (salary_min, salary_max, salary_type) or (None, None, None).
-    salary_type: 'jaehrlich', 'taeglich', 'stuendlich'
+    v1.7.79 (#1018): die Muster lagen hier und verlangten NIRGENDS ein
+    Waehrungszeichen. "Teilzeit: 30-35 Stunden pro Woche" wurde damit
+    zu einem Stundensatz von 30 bis 35 Euro — und weil der Wert aus
+    dem Text stammt, mit `salary_estimated = 0`, also als BELEGT.
+    Am Bestand gemessen waren **10 von 12 stuendlich-Treffern in
+    Wahrheit Arbeitszeiten**.
+
+    Die Rueckgabeform bleibt `(min, max, art)`, weil zahlreiche
+    Aufrufer genau dieses Tupel entpacken. Wer den Befund braucht —
+    warum nichts gefunden wurde, ob die Anzeige monatlich rechnet —
+    ruft `gehalt_extraktion.extrahieren`.
     """
-    if not text:
-        return None, None, None
+    from ..services import gehalt_extraktion as _geh_extrakt
+    return _geh_extrakt.als_tupel(text)
 
-    for i, pattern in enumerate(SALARY_PATTERNS):
-        m = pattern.search(text)
-        if m:
-            groups = m.groups()
-            try:
-                if i <= 2:  # Annual patterns
-                    if len(groups) >= 2 and groups[1]:
-                        s_min = _normalize_salary(groups[0])
-                        s_max = _normalize_salary(groups[1])
-                        # k-notation
-                        if i == 1:
-                            s_min *= 1000
-                            s_max *= 1000
-                    else:
-                        s_min = _normalize_salary(groups[0])
-                        s_max = s_min * 1.15  # ~15% range for single values
-                    if 20000 <= s_min <= 300000:
-                        return s_min, s_max, "jaehrlich"
-                elif i <= 4:  # Daily rate patterns
-                    if len(groups) >= 2 and groups[1]:
-                        s_min = float(groups[0])
-                        s_max = float(groups[1])
-                    else:
-                        s_min = float(groups[0])
-                        s_max = s_min * 1.1
-                    if 200 <= s_min <= 5000:
-                        return s_min, s_max, "taeglich"
-                else:  # Hourly patterns
-                    # #920: die EN-Alternation liefert None-Gruppen —
-                    # erst auf die tatsaechlich gefuellten reduzieren.
-                    werte = [g for g in groups if g]
-                    if len(werte) >= 2:
-                        s_min = float(werte[0])
-                        s_max = float(werte[1])
-                    else:
-                        s_min = float(werte[0])
-                        s_max = s_min * 1.1
-                    if 10 <= s_min <= 500:
-                        return s_min, s_max, "stuendlich"
-            except (ValueError, TypeError):
-                continue
-
-    return None, None, None
-
-
-# Salary estimation lookup tables
 _SALARY_TITLE_RANGES = {
     # (min_annual, max_annual) for festanstellung
     "junior": (40000, 55000),

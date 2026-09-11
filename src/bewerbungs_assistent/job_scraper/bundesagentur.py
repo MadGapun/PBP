@@ -169,8 +169,15 @@ def search_bundesagentur(params: dict) -> list:
                     # Detail-API nur fuer die ersten N pro Keyword (#500),
                     # sonst die Berufsbezeichnung als Kurzbeschreibung.
                     description = s.get("hauptberuf") or s.get("beruf", "")
+                    # VOR dem Zweig initialisiert: gelesen wird es
+                    # danach immer, gefuellt nur hier. Eine Variable,
+                    # die in den falschen Zweig faellt, ist ein
+                    # NameError im Kaltstart (v1.7.54 MERKE 4).
+                    _ba_geh: dict = {}
                     if ref_nr and idx < _DETAIL_FETCH_LIMIT_PER_KW:
-                        description = _fetch_ba_detail(client, ref_nr) or description
+                        description = _fetch_ba_detail(
+                            client, ref_nr,
+                            gehalt_raus=_ba_geh) or description
 
                     # v1.7.0-beta.7 (#526): Direkte jobdetail-URL statt
                     # jobsuche/suche?id=... — letzteres landet auf der
@@ -186,6 +193,14 @@ def search_bundesagentur(params: dict) -> list:
                         "employment_type": "festanstellung",
                         "remote_level": detect_remote_level(f"{title} {location} {description}"),
                     }
+                    # #1018: die strukturierte Angabe gewinnt. Sie steht
+                    # hier VOR der Anreicherung, und die extrahiert nur
+                    # `if not job.get("salary_min")` — damit laeuft die
+                    # Regex ueber den Fliesstext gar nicht erst an, wenn
+                    # die Quelle eine Zahl geliefert hat. Kein zweiter
+                    # Vorrang-Mechanismus noetig.
+                    if _ba_geh:
+                        job.update(_ba_geh)
                     # v1.7.26 (#949 Befund 2): das Veroeffentlichungs-
                     # datum ist ein eigenstaendiges Signal — `found_at`
                     # sagt nur, wann PBP die Stelle gesehen hat. Die
@@ -240,8 +255,54 @@ def _extract_text(data: dict, path: str) -> str:
     return current if isinstance(current, str) else ""
 
 
+
+# v1.7.79 (#1018): die Bundesagentur liefert die Verguetung STRUKTURIERT.
+# `gehaltsspanneVon`/`gehaltsspanneBis` kamen im ganzen Projekt nicht vor,
+# gelesen wurde nur `verguetungsangabe` als Text in die Beschreibung — und
+# danach lief eine Regex ueber den Fliesstext. Eine verlaessliche Zahl
+# zugunsten einer Textsuche zu verwerfen ist dieselbe Klasse wie die
+# Hydration-Funde aus #925/#926.
+_BA_ART = {
+    "JAHRESGEHALT": "jaehrlich",
+    "MONATSGEHALT": "monatlich",
+    "STUNDENLOHN": "stuendlich",
+    "TAGESSATZ": "taeglich",
+}
+
+
+def _ba_gehalt(data: dict) -> dict:
+    """Die strukturierte Verguetung aus einer Detail-Antwort.
+
+    Leeres dict, wenn die Felder fehlen oder unplausibel sind — dann
+    bleibt es beim Fliesstext, also beim bisherigen Verhalten.
+    """
+    from ..services import gehalt_extraktion as _ge
+
+    try:
+        von = data.get("gehaltsspanneVon")
+        bis = data.get("gehaltsspanneBis")
+        art = _BA_ART.get(str(data.get("verguetungsangabe") or "").upper())
+        if von is None or not art:
+            return {}
+        von = float(von)
+        bis = float(bis) if bis is not None else round(von * 1.1, 2)
+        von, bis = _ge.gesund(von, bis)
+        unten, oben = _ge.GRENZEN[art]
+        if not (unten <= von <= oben):
+            return {}
+        if art == "monatlich":
+            von, bis = von * _ge.MONATE_PRO_JAHR, bis * _ge.MONATE_PRO_JAHR
+            art = "jaehrlich"
+        return {"salary_min": von, "salary_max": bis, "salary_type": art,
+                "salary_estimated": 0}
+    except (TypeError, ValueError) as exc:  # pragma: no cover
+        logger.debug("BA-Gehalt nicht lesbar: %s", exc)
+        return {}
+
+
 def _fetch_ba_detail(client: httpx.Client, ref_nr: str,
-                     status_raus: list | None = None) -> str:
+                     status_raus: list | None = None,
+                     gehalt_raus: dict | None = None) -> str:
     """Fetch full job description from BA detail API.
 
     #387: The BA API v4 nests description fields in various locations.
@@ -286,6 +347,16 @@ def _fetch_ba_detail(client: httpx.Client, ref_nr: str,
             val = data.get(key, "")
             if val and isinstance(val, str) and val not in parts:
                 parts.append(val)
+
+        # #1018: die Verguetung liegt hier STRUKTURIERT vor
+        # (`gehaltsspanneVon`/`Bis`, `verguetungsangabe`). Bis v1.7.78 las
+        # PBP davon nur `verguetungsangabe` als TEXT in die Beschreibung
+        # und liess danach eine Regex ueber den Fliesstext laufen. Die
+        # verlaessliche Angabe war da und wurde zugunsten einer Schaetzung
+        # aus Prosa verworfen. Aus DERSELBEN Antwort gelesen, nicht aus
+        # einem zweiten Abruf (#1014 MERKE 3).
+        if gehalt_raus is not None:
+            gehalt_raus.update(_ba_gehalt(data))
 
         desc = " | ".join(parts) if parts else ""
         if not desc:

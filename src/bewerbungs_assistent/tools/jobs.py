@@ -6048,3 +6048,90 @@ def register(mcp, db, logger):
                 f"{applied} Bewerbung(en) bereinigt mit Strategie '{strategie}'."
             ),
         }
+
+    @mcp.tool()
+    def gehaelter_neu_auswerten(dry_run: bool = True,
+                                max_stellen: int = 0) -> dict:
+        """Wertet gespeicherte Gehaelter mit der heutigen Erkennung neu aus
+        (#1018).
+
+        Ein besserer Leser hilft nur neuen Stellen — der Bestand behaelt
+        seine Fehltreffer und sieht dabei unauffaellig aus. Das ist die
+        Lehre aus #998, und sie gilt hier genauso: bis v1.7.78 landete
+        "Teilzeit: 30-35 Stunden pro Woche" als Stundensatz von 30 bis 35
+        Euro in der Datenbank, **mit `salary_estimated = 0`**, also als
+        BELEGT. Seit v1.7.78 zaehlen belegte Gehaelter im Score und
+        geschaetzte nicht — der falsche Wert ist damit der teurere.
+
+        Am Bestand gemessen: von 12 `stuendlich`-Treffern waren **10 in
+        Wahrheit Arbeitszeiten**.
+
+        Angefasst werden nur Stellen mit Anzeigentext. Findet die neue
+        Erkennung nichts, wird der alte Wert GELOESCHT statt durch eine
+        Schaetzung ersetzt — eine Anzeige, die kein Gehalt nennt, hat
+        keins, und eine Luecke gehoert benannt und nicht gefuellt (#989).
+
+        Args:
+            dry_run: Vorgabe True — es wird nichts geschrieben.
+            max_stellen: 0 = alle.
+        """
+        from ..services import gehalt_extraktion as _ge
+
+        conn = db.connect()
+        zeilen = conn.execute(
+            "SELECT hash, title, description, salary_min, salary_max, "
+            "salary_type, salary_estimated FROM jobs "
+            "WHERE description IS NOT NULL AND LENGTH(description) > 50"
+        ).fetchall()
+
+        aenderungen, geloescht, unveraendert = [], 0, 0
+        for h, titel, besch, alt_min, alt_max, alt_typ, alt_est in zeilen:
+            if max_stellen and len(aenderungen) >= max_stellen:
+                break
+            neu = _ge.extrahieren(besch or "")
+            # Eine Schaetzung wird nur ersetzt, wenn es jetzt etwas
+            # Belegtes gibt. Sie zu loeschen brauchte niemand.
+            if alt_est and not neu["art"]:
+                unveraendert += 1
+                continue
+            gleich = (alt_typ == neu["art"]
+                      and (alt_min or 0) == (neu["min"] or 0)
+                      and (alt_max or 0) == (neu["max"] or 0))
+            if gleich:
+                unveraendert += 1
+                continue
+            eintrag = {
+                "job_hash": h[:8] if h else "",
+                "titel": (titel or "")[:60],
+                "vorher": {"min": alt_min, "max": alt_max, "typ": alt_typ,
+                           "geschaetzt": bool(alt_est)},
+                "nachher": {"min": neu["min"], "max": neu["max"],
+                            "typ": neu["art"],
+                            "monat_erkannt": neu["monat_erkannt"]},
+                "beleg": neu["fundstelle"] or neu["grund"],
+            }
+            if not neu["art"]:
+                geloescht += 1
+            aenderungen.append(eintrag)
+            if not dry_run:
+                db.save_salary_data(h, neu["min"], neu["max"], neu["art"],
+                                    salary_estimated=0 if neu["art"] else 0)
+        if not dry_run:
+            conn.commit()
+
+        return {
+            "status": "vorschau" if dry_run else "ausgewertet",
+            "geprueft": len(zeilen),
+            "geaendert": len(aenderungen),
+            "davon_geloescht": geloescht,
+            "unveraendert": unveraendert,
+            "stichprobe": aenderungen[:15],
+            "hinweis": (
+                "Vorschau — es wurde nichts geschrieben. Mit dry_run=False "
+                "werden die Werte ersetzt; wo die Anzeige kein Gehalt "
+                "nennt, wird der alte Wert geloescht statt geschaetzt."
+                if dry_run else
+                f"{len(aenderungen)} Stelle(n) neu ausgewertet, davon "
+                f"{geloescht} ohne Gehaltsangabe in der Anzeige."
+            ),
+        }
