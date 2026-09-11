@@ -58,6 +58,52 @@ AUTOMATIK_GRUENDE = frozenset({
     "befristet", "kein_hochschulabschluss",
 })
 
+# v1.7.80 (#1020): Welche Gruende sich FIRMENUEBERGREIFEND uebertragen
+# lassen — also in Stufe 1b, wo nur der Titel verbindet.
+#
+# `zu_weit_entfernt`, `gehalt_zu_niedrig` und `firma_uninteressant`
+# gehoeren nicht dazu. Sie sind Eigenschaften der EINZELNEN Anzeige,
+# nicht des Berufsbilds: zwei Stellen mit identischem Titel koennen
+# 5 km und 500 km entfernt liegen. Gemeldet wurde eine Stelle in 9,2 km,
+# die als "zu weit entfernt" aussortiert wurde — bei einem Wunschwert
+# von 20 km, und die Zahl stand in derselben Datenbankzeile wie das
+# Urteil.
+#
+# **Dieselbe Regel steht im Projekt schon zweimal richtig**, und der
+# Aussortier-Pfad ist an beiden vorbeigelaufen:
+#
+#   tools/jobs.py          `_FACHLICHE_KO_GRUENDE` — "Gehalt/Entfernung
+#                          koennen sich aendern, taugen nicht als k.o."
+#   wiedergaenger.py       `_TEXTABHAENGIGE_GRUENDE` — "firma_uninteressant
+#                          und zu_weit_entfernt sind ohnehin keine
+#                          Aussagen ueber den Text."
+#
+# Der Aussortier-Pfad ist dabei der folgenreichere von dreien: die
+# Empfehlung sagt nur "nicht empfohlen", die Automatik laesst die Stelle
+# verschwinden. Siebzehnter Fall desselben Musters (#963 zuerst).
+#
+# Am Bestand gemessen: ueber eine Stichprobe von 400 aussortierten
+# Stellen greift das Titel-Muster bei 241 — **108 davon (45 %) auf einem
+# Grund, der nichts ueber die Art der Stelle sagt**, 20 davon
+# `zu_weit_entfernt` bei Stellen INNERHALB des Wunschwerts. Ein
+# einzelner generischer Titel trug dabei 86 Belege.
+#
+# In Stufe 1 (GLEICHE Firma) bleiben alle drei erlaubt — dort ist der
+# Bezug gegeben: derselbe Arbeitgeber am selben Ort ist beim naechsten
+# Mal wieder gleich weit weg.
+UEBERTRAGBARE_GRUENDE = frozenset({
+    # Aussagen ueber die ART der Stelle.
+    "falsches_fachgebiet", "falsches_system", "falsche_branche",
+    "zu_junior", "zu_senior", "kein_hochschulabschluss",
+    "unpassendes_arbeitsmodell",
+    # Erkennbar an Firma und Titel, also ebenfalls uebertragbar.
+    "zeitarbeit", "befristet",
+})
+
+#: Gruende, gegen die ein gemessenes Feld ANTRITT. Liegt die Zahl vor
+#: und widerspricht sie dem uebertragenen Urteil, gewinnt die Zahl.
+MESSBARE_GRUENDE = frozenset({"zu_weit_entfernt", "gehalt_zu_niedrig"})
+
 
 def _handlungsgruende(job: dict) -> list:
     """Nur echte Eignungs-Urteile rechtfertigen eine Automatik.
@@ -147,6 +193,11 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
 
     Verlangt wird eine gemeinsame Fach-Token-Schnittmenge ueber ALLE
     Belege — ein einzelnes geteiltes Allerweltswort genuegt nicht.
+
+    v1.7.80 (#1020): und es zaehlen nur Gruende aus
+    `UEBERTRAGBARE_GRUENDE`. Eine Entfernung, ein Gehalt oder ein Urteil
+    ueber die Firma sagen nichts ueber eine ANDERE Firma mit aehnlichem
+    Titel.
     """
     tokens = _domain_tokens(title)
     if not tokens:
@@ -158,7 +209,12 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
     for j in dismissed or []:
         if target_hash and j.get("hash") == target_hash:
             continue
-        gruende = _handlungsgruende(j)
+        # #1020: firmenuebergreifend zaehlen nur Gruende, die die ART
+        # der Stelle beschreiben. Die Filterung sitzt HIER und nicht
+        # beim Aufrufer — sonst haette der naechste Aufrufer sie wieder
+        # nicht (dieselbe Bauform, um die es in diesem Issue geht).
+        gruende = [g for g in _handlungsgruende(j)
+                   if g in UEBERTRAGBARE_GRUENDE]
         if not gruende:
             continue
         gemeinsam = tokens & _domain_tokens(j.get("title"))
@@ -180,6 +236,66 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
             return {"top_grund": grund, "anzahl": e["anzahl"],
                     "tokens": sorted(e["tokens"]), "beispiele": e["beispiele"]}
     return None
+
+
+
+def _zahl_widerspricht(db, job: dict, grund: str) -> str:
+    """Widerspricht ein GEMESSENES Feld dem uebertragenen Urteil?
+
+    Gibt die Begruendung zurueck, wenn ja — sonst einen leeren String.
+
+    Der Melder hat es auf den Punkt gebracht: die Entfernung stand in
+    DERSELBEN Datenbankzeile wie das Urteil "zu weit entfernt", und sie
+    lag innerhalb des Wunschwerts. Ein Muster darf eine vorhandene Zahl
+    nicht ueberstimmen.
+
+    Fuer die Gehaltsseite fragt die Pruefung das Nadeloehr aus #1017
+    statt die Regel ein drittes Mal zu formulieren — dort steckt auch
+    schon, dass eine SCHAETZUNG nichts belegt (#827).
+    """
+    if grund not in MESSBARE_GRUENDE:
+        return ""
+    try:
+        criteria = db.get_search_criteria() or {}
+    except Exception:  # pragma: no cover
+        return ""
+
+    if grund == "zu_weit_entfernt":
+        dist = job.get("distance_km")
+        if dist is None:
+            return ""
+        karte = criteria.get("max_entfernung") or {}
+        art = (job.get("employment_type") or "festanstellung").lower()
+        grenze = None
+        if isinstance(karte, dict) and karte:
+            grenze = karte.get(art)
+            if grenze is None:
+                grenze = max((float(v) for v in karte.values() if v),
+                             default=None)
+        if grenze is None:
+            grenze = criteria.get("max_entfernung_km")
+        try:
+            grenze = float(grenze) if grenze else None
+            dist = float(dist)
+        except (TypeError, ValueError):
+            return ""
+        if grenze and dist <= grenze:
+            return (f"{dist:.1f} km liegt innerhalb deiner "
+                    f"{grenze:.0f} km — die gemessene Entfernung schlaegt "
+                    f"das Titel-Muster.")
+        return ""
+
+    # gehalt_zu_niedrig
+    from . import gehalt_vergleich as _gv
+
+    befund = _gv.vergleich(job, criteria)
+    if befund["stand"] != _gv.VERGLEICHBAR:
+        return ""
+    if befund["erfuellt"]:
+        return (f"{befund['job_text']} erreicht deinen Wunsch "
+                f"({befund['wunsch_text']}) — die belegte Zahl schlaegt "
+                f"das Titel-Muster.")
+    return ""
 
 
 def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
@@ -232,19 +348,37 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
     if muster:
         grund = muster.get("top_grund") or "sonstiges"
         anzahl = muster.get("anzahl") or AUTOMATIK_SCHWELLE
-        return {
-            "aktion": "aussortieren",
-            "grund": grund,
-            "beleg": (f"Wiedergaenger: dieselbe Firma wurde bereits "
-                      f"{anzahl}x mit Grund '{grund}' aussortiert."),
-            "muster": muster,
-        }
+        # #1020: eine vorhandene Zahl schlaegt das Muster. In Stufe 1
+        # bleiben `zu_weit_entfernt` und `gehalt_zu_niedrig` erlaubt —
+        # derselbe Arbeitgeber am selben Ort ist beim naechsten Mal
+        # wieder gleich weit weg. Hat sich die Zahl aber geaendert,
+        # steht sie in derselben Zeile wie das Urteil.
+        _widerspruch = _zahl_widerspricht(db, job, grund)
+        if not _widerspruch:
+            return {
+                "aktion": "aussortieren",
+                "grund": grund,
+                "beleg": (f"Wiedergaenger: dieselbe Firma wurde bereits "
+                          f"{anzahl}x mit Grund '{grund}' aussortiert."),
+                "muster": muster,
+            }
+        muster = None
+        _stufe1_widerspruch = _widerspruch
+    else:
+        _stufe1_widerspruch = ""
 
     # Stufe 1b: dieselbe Art Stelle, andere Firma (#941-Regressionsfall).
     titel_muster = find_titel_muster(db, titel, dismissed,
                                      target_hash=job.get("hash"))
     if titel_muster:
         grund = titel_muster.get("top_grund") or "sonstiges"
+        # Doppelter Boden: nach der Filterung kann hier kein messbarer
+        # Grund mehr ankommen — geprueft wird trotzdem, weil die Menge
+        # sich aendern kann und die Zahl dann wieder ueberstimmt wuerde.
+        _widerspruch = _zahl_widerspricht(db, job, grund)
+        if _widerspruch:
+            return {"aktion": "anlegen", "grund": "", "beleg": "",
+                    "hinweis": _widerspruch}
         return {
             "aktion": "aussortieren",
             "grund": grund,
@@ -255,7 +389,9 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
             "muster": titel_muster,
         }
 
-    return {"aktion": "anlegen", "grund": "", "beleg": ""}
+    return {"aktion": "anlegen", "grund": "", "beleg": "",
+            **({"hinweis": _stufe1_widerspruch} if _stufe1_widerspruch
+               else {})}
 
 
 def _lade(db) -> list:
