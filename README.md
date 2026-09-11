@@ -13,7 +13,7 @@ PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
-Aktuelle Version **v1.7.80** · letztes Release am 11. September 2026 · 3878 automatische Tests · wöchentliche Releases
+Aktuelle Version **v1.7.81** · letztes Release am 11. September 2026 · 3902 automatische Tests · wöchentliche Releases
 
 Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
 
@@ -21,8 +21,8 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
-[![Stable](https://img.shields.io/badge/Stable-v1.7.80-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
-[![Tests](https://img.shields.io/badge/Tests-3878-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.81-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Tests](https://img.shields.io/badge/Tests-3902-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Plattformen](https://img.shields.io/badge/Plattformen-Windows_%7C_macOS_%7C_Linux-blue.svg)](#schnellstart)
@@ -235,12 +235,12 @@ Ollama bleiben installiert — die deinstallierst du separat.
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 218 Tools in 11 Modulen (Stable: 205) |
+| **MCP-Tools** | 202 Tools in 11 Modulen |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert, ~8 aktuell zuverlaessig liefernd (Festanstellung und Freelance); defekte sichtbar markiert, mit Chrome-Workaround |
 | **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v48 (Stable) · v52 (Beta) |
-| **Tests** | 2771 bestanden |
+| **Datenbank** | SQLite (WAL), Schema v48 |
+| **Tests** | 2705 bestanden |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -265,16 +265,18 @@ und in der UI; intern bleibt die ID gleich.
 
 ## Roadmap
 
-> **v1.7 ist Stable** — aktuell **v1.7.12** (11. August 2026), mit wöchentlichen Pflege-Releases seit Juni.
-> **Nächster Zyklus: v1.8** — die Beta-Reihe läuft (aktuell v1.8.0-beta.11): Plugin-Plattform ([#504](https://github.com/MadGapun/PBP/issues/504)), Thunderbird-Add-on, Newsletter-Ingest, Komponenten-Framework mit Auto-OCR. Strategische Übersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
+> **v1.7 ist Stable** — aktuell **v1.7.16** (13. August 2026), mit wöchentlichen Pflege-Releases seit Juni.
+> **Nächster Zyklus: v1.8** — die Beta-Reihe läuft parallel als Vorschau (Plugin-Plattform, Thunderbird-Add-on, Newsletter-Ingest, Komponenten-Framework mit Auto-OCR). Stabil und empfohlen bleibt die 1.7-Linie. Strategische Übersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
 
 ## Changelog
 
-Die letzten drei Stable-Releases — vollständige Historie im [CHANGELOG.md](CHANGELOG.md) und auf der [Releases-Seite](https://github.com/MadGapun/PBP/releases):
+Die letzten Stable-Releases — vollständige Historie im [CHANGELOG.md](CHANGELOG.md) und auf der [Releases-Seite](https://github.com/MadGapun/PBP/releases):
 
-- **v1.7.12** (11.08.2026) — Große Pflege-Welle: Aufgaben-Bereich vollwertig bedienbar, Interview-Nachbereitung, Scoring-Fairness (Firmen-Werbeabsätze zählen weniger), WAL-Hygiene, Elwosa-Feinschliff. 15 Issues in einer Welle.
-- **v1.7.11** (06.08.2026) — Stille Ausfälle behoben: tote Bundesagentur-API (v4→v6), blockierter Lernmodus, still verunglückte Dokument-Verknüpfungen. Fehler, die sich als Erfolg tarnten.
-- **v1.7.10** (24.07.2026) — Stabilisierungswelle: Kalibrierungs-Backtest, ehrliche Statistik (Quote roh + bereinigt), Kontakt- und Vermittler-Historie, Lern-Fundament mit Nutzerbestätigung.
+- **v1.7.16** (13.08.2026) — Aufgeräumtes Paket: neues README mit Bildergalerie, englische Kurzfassung, komplett neue Screenshots aus fiktiven Musterprofilen, interne Arbeitsdokumente aus dem Blickfeld geräumt.
+- **v1.7.15** (13.08.2026) — Datenbank-Verbindung je Thread: Hintergrund-Automatik und Bedienung kommen sich beim Schreiben nicht mehr in die Quere.
+- **v1.7.14** (13.08.2026) — Status-Dropdown ohne tote Werte, Einstellungen-Tab „Bewertung" per Sidebar erreichbar.
+- **v1.7.13** (12.08.2026) — Aufgaben-Tab: Lesezeichen und erster Klick funktionieren; Elwosa respektiert die Frequenz-Einstellung „unbegrenzt".
+- **v1.7.12** (11.08.2026) — Große Pflege-Welle: Aufgaben-Bereich vollwertig bedienbar, Interview-Nachbereitung, Scoring-Fairness, WAL-Hygiene. 15 Issues in einer Welle.
 
 ---
 

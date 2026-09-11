@@ -105,6 +105,360 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.81] - 2026-09-11 — Was gehört wozu, wenn gelöscht wird
+
+**#1025 Stufe 1** (Melder-Bericht). PBP hatte drei Löschwege und drei
+Vorstellungen davon, was dazugehört. Der Melder hat die Ursache benannt:
+*„Vollständig ist nur der DSGVO-Weg — und zwar nicht, weil seine Liste
+besser gepflegt wäre, sondern weil er keine hat."*
+
+### Fixed
+
+- **Der Factory Reset ließ 29 von 47 Tabellen stehen — darunter
+  personenbezogene Daten Dritter.** Am echten Bestand gemessen (Kopie,
+  Original nie angefasst): abgeräumt wurden 18 Tabellen, stehen blieben
+  81 Kontakte mit Namen und Mailadressen, 68
+  Bewerbungs-Stellen-Verknüpfungen, 26 Dokumentversionen, 15
+  Recherche-Notizen, 12 Aufgaben, 7 Interview-Reflexionen und 1.304
+  Zeilen Aktivitätsprotokoll. Wer diesen Weg wählte, um den Rechner
+  weiterzugeben, ließ fremde Daten zurück. Jetzt bleibt genau **eine**
+  Zeile stehen: der Schema-Stand.
+- **Das Löschen eines Profils hinterließ verwaiste Zeilen.** 29
+  Tabellen tragen eine `profile_id`, abgeräumt wurden 12 — 17 blieben
+  mit einer Kennung liegen, die es nicht mehr gibt (im gemessenen
+  Bestand 24 Zeilen, darunter 10 Bewerbungen). Der Löschvorgang prüft
+  sich jetzt selbst nach.
+- **Die Oberfläche behauptete „Alle Daten gelöscht".** Der Endpunkt
+  nennt jetzt, wie viele Zeilen aus wie vielen Tabellen und wie viele
+  Dateien wirklich entfernt wurden.
+- **Dateien auf der Platte gehören zum Bereich Dokumente.** Eine Zeile
+  zu löschen entfernt die Datei nicht — und die trägt den Inhalt.
+
+### Added
+
+- **`services/loeschbereiche.py`** — sechs Bereiche (Profil,
+  Bewerbungen, Stellen, Dokumente, Einstellungen, Gelerntes),
+  **abgeleitet aus dem Schema** statt aufgezählt: welche Tabellen es
+  gibt, steht in `sqlite_master`; ob eine an einem Profil hängt, in
+  `PRAGMA table_info` und `PRAGMA foreign_key_list`. Drei Bezugsarten:
+  `profil` (eigene Spalte), `mittelbar` (über eine Elterntabelle),
+  `geteilt` (gilt für alle Profile und bleibt beim Leeren eines
+  einzelnen unangetastet).
+- **Ein Guard hält jede Tabelle der Datenbank gegen die Bereiche.**
+  Aufgezählt ist nur noch die Zuordnung; fällt die nächste neue Tabelle
+  heraus, bricht der Test — statt dass ein Nutzer darauf hereinfällt.
+  Eine Aufzählung schützt einmal, eine Strukturprüfung immer.
+- **Vorschau mit Zahlen je Bereich, als Vorgabe.** Dazu Klartext, was
+  der Bereich kostet — zum Stellen-Bestand gehört ausdrücklich, dass
+  mit den aussortierten Stellen auch die Lernsignale verschwinden.
+- **Bereichsübergreifende Verweise werden genannt, nicht still
+  mitgelöscht.** Wer nur die Stellen leert, lässt Bewerbungen mit einem
+  `job_hash` zurück, der ins Leere zeigt; die Zeile gehört zu einem
+  Bereich, den niemand gewählt hat.
+- **`daten_bereiche_anzeigen`** und **`daten_bereiche_leeren`**
+  (Bestätigungswort `LOESCHEN`, Vorschau als Vorgabe). MCP-Tools 230.
+
+### Changed
+
+- `reset_all_data` und `delete_profile` rufen das Modul auf, statt je
+  eine eigene Tabellenliste zu führen. `settings.schema_version` ist
+  als Regel geschützt statt als SQL-Text.
+
+### Offen
+
+Stufe 2 (Oberfläche) — eine Gefahrenzone statt vier Einträge, Bereiche
+einzeln wählbar, alle Profile zur Auswahl, geteilte Bereiche
+gekennzeichnet. **#1024 schließt erst damit.** Die Trennung ist keine
+Bequemlichkeit: der Defekt, der personenbezogene Daten zurücklässt,
+sollte nicht auf einen Oberflächen-Umbau warten.
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.81.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.81.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+## [1.7.80] - 2026-09-11 — Nur die Art der Stelle wandert
+
+Zwei Stellen mit identischem Titel können 5 km und 500 km entfernt
+liegen. PBP hat das Urteil „zu weit entfernt" trotzdem von der einen auf
+die andere übertragen — über Firmengrenzen hinweg.
+
+### Fixed
+
+- **Eine Stelle in 9,2 km wurde als „zu weit entfernt" aussortiert
+  (#1020)** — bei einem Wunschwert von 20 km, und die Entfernung stand
+  in derselben Datenbankzeile wie das Urteil. Die Auto-Aussortierung
+  überträgt den häufigsten Ablehnungsgrund über gemeinsame Titel-Tokens
+  auf Stellen **fremder Firmen**, und `zu_weit_entfernt`,
+  `gehalt_zu_niedrig` und `firma_uninteressant` waren dabei erlaubt.
+  Das sind Eigenschaften der einzelnen Anzeige, nicht des Berufsbilds.
+- **Dieselbe Regel stand im Projekt schon zweimal richtig.**
+  `_FACHLICHE_KO_GRUENDE` in `tools/jobs.py` („Gehalt/Entfernung können
+  sich ändern, taugen nicht als k.o.") und `_TEXTABHAENGIGE_GRUENDE` in
+  `wiedergaenger.py` („`firma_uninteressant` und `zu_weit_entfernt` sind
+  ohnehin keine Aussagen über den Text"). Der Aussortier-Pfad ist an
+  beiden vorbeigelaufen — und er ist der folgenreichste der drei: die
+  Empfehlung sagt nur „nicht empfohlen", die Automatik lässt die Stelle
+  verschwinden. **Siebzehnter Fall desselben Musters** (#963 zuerst).
+- **Die Rückkopplung verschärfte die Regel von selbst.** Jede
+  automatisch entfernte Stelle zählte beim nächsten Lauf als weiterer
+  Beleg für dasselbe Muster. Ein einzelner generischer Titel trug im
+  Bestand **86 Belege** für „zu weit entfernt".
+
+### Added
+
+- **`UEBERTRAGBARE_GRUENDE`** — firmenübergreifend wandern nur Gründe,
+  die die **Art** der Stelle beschreiben (Fachgebiet, System, Branche,
+  Seniorität, Abschluss, Arbeitsmodell, Zeitarbeit, Befristung). Die
+  Filterung sitzt **in** `find_titel_muster`, nicht beim Aufrufer —
+  sonst hätte der nächste Aufrufer sie wieder nicht, also genau die
+  Bauform, um die es hier geht.
+- **`_zahl_widerspricht`** — wo ein gemessenes Feld vorliegt, schlägt es
+  das Muster. Für die Gehaltsseite über das Nadelöhr aus #1017, das auch
+  schon weiß, dass eine Schätzung nichts belegt (#827).
+- **`automatik_uebertragungen_pruefen`** — findet Stellen, die über ein
+  fremdes Titel-Muster aussortiert wurden, und holt sie zurück. Vorschau
+  als Vorgabe. Eine zurückgeholte Stelle zählt damit auch nicht mehr als
+  Beleg für dasselbe Muster.
+
+### Changed
+
+- In **Stufe 1** (gleiche Firma) bleiben alle drei Gründe erlaubt — dort
+  ist der Bezug gegeben: derselbe Arbeitgeber am selben Ort ist beim
+  nächsten Mal wieder gleich weit weg. Aber auch dort schlägt eine
+  vorhandene Zahl das Muster.
+
+### Gemessen
+
+Über die **aktiven** Stellen gerechnet gibt es genau eine — eine
+Stichprobe von eins ist keine Messung (#1012). Deshalb über eine
+Stichprobe von **400 aussortierten** Stellen, jede behandelt als käme
+sie frisch herein:
+
+| | |
+|---|---|
+| Titel-Muster greift | 241 |
+| davon auf nicht übertragbarem Grund | **108 (45 %)** |
+| davon `zu_weit_entfernt` innerhalb des Wunschwerts | 20 |
+
+Dazu im Bestand: 245 Zeilen tragen einen Wiedergänger-Vermerk, 83 davon
+(34 %) mit einem Grund, der nichts über die Art der Stelle sagt.
+
+### Bekannte Grenzen
+
+- **Wiederholte Rücknahmen schwächen das Muster weiterhin nicht ab.**
+  Der Melder schlägt das vor, und es ist richtig — es ist aber eine
+  Änderung am Lernverhalten und gehört in einen eigenen Vorgang.
+- Nebenbefund beim Testschreiben: das Beispiel im #941-Docstring nennt
+  drei **verschiedene** Gründe, das Muster gruppiert aber je Grund bei
+  Schwelle 3. Die Kombination hätte nie ausgelöst — auch vor dieser
+  Änderung nicht. Gegengeprüft, damit der Filterung nicht angelastet
+  wird, was an der Schwelle liegt.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.80.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.80.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+## [1.7.79] - 2026-09-11 — Arbeitszeit ist kein Stundenlohn
+
+Eine Zahl neben dem Wort „Stunden" ist ohne Währung fast immer
+Arbeitszeit. PBP hat sie als Lohn gespeichert — und zwar als **belegt**,
+nicht als Schätzung.
+
+### Fixed
+
+- **„Teilzeit: 30-35 Stunden pro Woche" wurde zu einem Stundensatz von
+  30 bis 35 Euro (#1018).** Im alten Muster war jeder Teil vor den
+  Zahlen optional, ein Währungszeichen wurde nirgends verlangt, und als
+  Nachsatz genügte das Wort „Stunde" — auf das „Stunden" ebenso passt.
+  **Am Bestand gemessen: von 12 `stuendlich`-Treffern waren 10 in
+  Wahrheit Arbeitszeiten**, nicht die vier aus dem Bericht. Danach: 4
+  Treffer, alle echt.
+- **Der Wert galt als BELEGT, nicht als Schätzung.** Seit v1.7.78
+  behalten belegte Gehälter ihren Anteil am Score und geschätzte nicht —
+  eine falsche Zahl mit vollem Vertrauen war damit die teuerste
+  verbliebene Form.
+- **Stand die Arbeitszeit neben dem Gehalt, gewann die Arbeitszeit.**
+  Ein Fall im Bestand trug beides im selben Satz: *„32-40h/Woche, 100%
+  Remote. Stundensatz: 60 EUR/h."* Genommen wurden die 32-40.
+- **Monatsgehälter gab es gar kein Muster.** In Teilzeitanzeigen ist die
+  Monatsangabe die übliche Form; der einzige belastbare Wert der Anzeige
+  wurde verworfen, während die Arbeitszeit gespeichert wurde.
+- **Eine genannte Spanne wurde durch eine gerechnete ersetzt.**
+  „Stundensatz 30-35 EUR" ergab 30 bis 33 — die Einheit steht zwischen
+  Präfix und Zahlen, also griff das Einzelmuster und erfand ein Maximum.
+- **Die Bundesagentur liefert die Vergütung strukturiert, und PBP hat
+  sie ignoriert.** `gehaltsspanneVon`/`gehaltsspanneBis` kamen im ganzen
+  Projekt nicht vor; gelesen wurde nur `verguetungsangabe` als Text in
+  die Beschreibung, und danach lief eine Regex über den Fließtext.
+
+### Added
+
+- **`services/gehalt_extraktion.py`** — die lesende Seite der
+  Gehalts-Dimension, neben `gehalt_vergleich.py` (#1017) als
+  vergleichende. **Die Regel: ohne Währungszeichen oder Rate-Wort am
+  Treffer kein Gehalt.** Damit löst sich der Vorrang von selbst — eine
+  Arbeitszeit ohne Währung ist gar kein Kandidat, also gewinnt das
+  Gehalt daneben, ohne dass irgendwo eine Rangfolge stehen muss.
+- **Markdown-Escapes werden entschärft.** Ein Befund aus der Messung,
+  der in keinem Bericht stand: **348 der 1.337 Beschreibungen tragen
+  `\.` und `\-`** (`43\.933 \- 52\.962 € / Jahr`), und allein deren
+  Entschärfung findet vier echte Jahresgehälter, die bis hierher
+  verloren gingen.
+- **`gehaelter_neu_auswerten`** — der Nachziehpfad für den Altbestand.
+  Ein besserer Leser hilft sonst nur neuen Stellen (#998). Vorschau als
+  Vorgabe; wo die Anzeige kein Gehalt nennt, wird der alte Wert
+  **gelöscht statt geschätzt** — eine Lücke gehört benannt, nicht
+  gefüllt (#989).
+
+### Changed
+
+- Monatsangaben werden erkannt und **intern auf Jahresbasis
+  umgerechnet**, statt einen vierten `salary_type` einzuführen. Der
+  würde an rund zwanzig Stellen einen Zweig brauchen, den man vergessen
+  kann — die Bauform, aus der #1015 entstanden ist.
+- `salary_min > salary_max` kommt nicht mehr in die Datenbank. Der
+  Riegel sitzt am **Speicherweg** und nicht in der Erkennung, weil die
+  Werte auch aus einer Quelle kommen können.
+- `SALARY_PATTERNS` und `_normalize_salary` sind ersatzlos entfernt —
+  ein Muster ohne Leser hat dieses Projekt oft genug gefunden (#993,
+  #1000, #1008).
+
+### Bekannte Grenzen
+
+- Drei eigene Fehler entstanden beim Bauen, und alle drei hat erst die
+  Messung am Bestand gefunden: **`p.a.` ohne rechte Wortgrenze trifft
+  jedes „Pa"** (aus „23.800 Patient:innen" und „100.000 Paletten­stell­-
+  plätzen" wurden Jahresgehälter), die Einheit im Spannen-Muster war
+  optional (aus „Tagessatz 900-1100 EUR" wurden 10.800 Euro im Jahr),
+  und die Arbeitszeit-Prüfung galt für jede Art und verwarf damit eine
+  genannte Jahresspanne. Alle drei stehen als Test da.
+- Dass PBP die **Wochenstunden** einer Stelle nicht kennt und ein
+  Teilzeitgehalt deshalb nicht ins Verhältnis setzen kann, bleibt
+  bewusst offen. Das ist eine Modellfrage und gehört in einen eigenen
+  Vorgang.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.79.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.79.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.8.0-beta.14] - 2026-08-18 — Quellen-Wahrheit und keine Sackgassen (#925, #926, #927)
 
 > **Prerelease.** Sammelt die Stable-Arbeit der Releases v1.7.19 bis

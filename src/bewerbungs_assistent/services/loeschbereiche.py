@@ -129,23 +129,42 @@ BESCHREIBUNG = {
                   "Quellen-Gesundheit, Elwosa-Verlauf."),
 }
 
-#: Tabellen, die es in einer FRISCHEN Datenbank nicht gibt, weil sie
-#: erst bei Bedarf entstehen. Sie fehlen dort zu Recht, und ein Guard,
-#: der deswegen Alarm gibt, wird nach dem zweiten Mal ignoriert (#929).
-#: Die Zuordnung zu einem Bereich muss trotzdem stehen — sonst bliebe
-#: die Tabelle beim Loeschen liegen, sobald sie einmal angelegt wurde.
-_SPAETER_ANGELEGT = {
-    # `services/stellen_quellen.py` (#951) legt sie beim ersten
-    # Zweitfund an. Im gemessenen Bestand: 43 Zeilen.
+#: Tabellen, die NICHT in jeder Datenbank stehen — und zwar zu Recht.
+#: Eine Zuordnung ist trotzdem Pflicht: sobald die Tabelle existiert,
+#: bliebe sie beim Loeschen sonst liegen. Ein Guard, der ihr Fehlen
+#: meldet, gibt bei korrektem Zustand Alarm und wird nach dem zweiten
+#: Mal ignoriert (#929).
+#:
+#: Zwei Gruende, beide gemessen:
+#:
+#: 1. **Erst bei Bedarf angelegt.** Ein Safety-Net legt sie beim ersten
+#:    Schreibzugriff an, statt das Schema zu bumpen.
+#: 2. **Nur auf der 1.8-Linie.** Stable steht auf Schema v48, die Beta
+#:    auf v52. Wer von 1.7 auf 1.8 wechselt, bekommt sie dazu — und
+#:    ohne Zuordnung waeren sie ab dann unloeschbar.
+_NICHT_IN_JEDER_DATENBANK = {
+    # (1) services/stellen_quellen.py (#951), beim ersten Zweitfund.
+    #     Im gemessenen Bestand: 43 Zeilen.
     "job_sources",
-    # `services/pii_bestand.py` (#946), beim ersten Anonymisieren.
+    # (1) services/pii_bestand.py (#946), beim ersten Anonymisieren.
     "anonymisierung_map",
-    # Ueberbleibsel der v19-Migration (#242): dort wurde `documents`
-    # ueber eine Zwischentabelle umgebaut, und die Zwischentabelle ist
-    # nie gefallen. Sie steht seitdem leer in jeder migrierten
-    # Datenbank — im gemessenen Bestand 0 Zeilen. Sie gehoert trotzdem
-    # in den Bereich: waere sie je befuellt, traege sie Dokumente.
+    # (1) Ueberbleibsel der v19-Migration (#242): dort wurde `documents`
+    #     ueber eine Zwischentabelle umgebaut, und die Zwischentabelle
+    #     ist nie gefallen. Sie steht seitdem leer in jeder migrierten
+    #     Datenbank — im gemessenen Bestand 0 Zeilen. Sie gehoert
+    #     trotzdem in den Bereich: waere sie je befuellt, traege sie
+    #     Dokumente.
     "documents_new",
+    # (2) I10/#751, v1.8.0-beta.0 — installierte Komponenten.
+    "components",
+    # (2) J1/#504, v1.8.0-beta.2 — gekoppelte Plugins samt Schluessel.
+    "plugins",
+    # (2) J5/#525, v1.8.0-beta.4 — gelernte Newsletter-Quellen.
+    "newsletter_sources",
+    # (2) B16/#627, v1.8.0-beta.5 — eigene Karriereseiten.
+    "custom_sources",
+    # (2) B25/#735, v1.8.0-beta.5 — Lauf-Historie je Quelle.
+    "scraper_runs",
 }
 
 #: Zeilen, die ein Leeren NIE erfassen darf — Schluessel ist die
@@ -206,8 +225,10 @@ def unzugeordnet(db) -> dict:
     fehlend = zugeordnet - vorhanden
     return {
         "fehlt_im_bereich": sorted(vorhanden - zugeordnet),
-        "kennt_die_datenbank_nicht": sorted(fehlend - _SPAETER_ANGELEGT),
-        "spaeter_angelegt": sorted(fehlend & _SPAETER_ANGELEGT),
+        "kennt_die_datenbank_nicht": sorted(
+            fehlend - _NICHT_IN_JEDER_DATENBANK),
+        "hier_nicht_vorhanden": sorted(
+            fehlend & _NICHT_IN_JEDER_DATENBANK),
         "mehrfach_zugeordnet": sorted(doppelt),
     }
 
