@@ -59,6 +59,9 @@ EXPECTED_TOOL_NAMES = {
     "dokumente_routing_plan_erstellen",
     "dokumente_text_nachziehen",
     "dokument_aktion_ausfuehren",
+    # v1.7.81 (#1025): Datenbereiche aus dem Schema statt aus Listen
+    "daten_bereiche_anzeigen",
+    "daten_bereiche_leeren",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
@@ -369,7 +372,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 228  # v1.7.80 (#1020): +automatik_uebertragungen_pruefen
+        assert len(tools) == 230  # v1.7.81 (#1025): +daten_bereiche_*
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
