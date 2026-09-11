@@ -4924,6 +4924,11 @@ class Database:
         new_per_source: dict[str, int] = {}
         duplikate = 0
         ausland_erkannt = 0  # #732: nicht-DACH Stellen automatisch aussortiert
+        stellenart_erkannt = 0  # #1015: Titel weist eine nicht gesuchte Art aus
+        # Einmal je Lauf geladen, nicht je Stelle — ein Suchlauf
+        # speichert hunderte Zeilen. `get_search_criteria` ist am
+        # Methodennamen nachgeschlagen, nicht geraten (v1.7.67 MERKE 4).
+        _art_kriterien = self.get_search_criteria() or {}
         leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
@@ -5136,6 +5141,29 @@ class Database:
                         )
                         ausland_erkannt += 1
 
+                # #1015: `stellentypen` hatte keinen filternden Leser.
+                # Die Stelle wird NUR aussortiert, wenn der TITEL die Art
+                # ausweist — die Angabe der Quelle taugt nicht dafuer
+                # (`bundesagentur` schreibt fuer jede Stelle
+                # `festanstellung`). Positiver Beleg statt Verdacht, wie
+                # bei der DACH-Pruefung darueber (#996).
+                if (is_active and src and src not in _URL_OPTIONAL_SOURCES
+                        and not job.get("_manual_entry")):
+                    from .services import stellenart as _art_modul
+                    _unerwuenscht = _art_modul.unerwuenscht(job, _art_kriterien)
+                    if _unerwuenscht:
+                        is_active = 0
+                        dismiss_reason = "unpassendes_arbeitsmodell"
+                        _art_note = (
+                            f"Automatisch aussortiert: "
+                            f"{_unerwuenscht['grund']} (#1015)"
+                        )
+                        research_notes = (
+                            f"{research_notes} | {_art_note}"
+                            if research_notes else _art_note
+                        )
+                        stellenart_erkannt += 1
+
             # v1.7.64 (#1010): `save_jobs` sortiert selbst aus — Wiedergaenger
             # (#941), Duplikat (#641) und Nicht-DACH-Ort (#732), alle drei nur
             # beim ANLEGEN. Der Kommentar zu #913 nennt `dismiss_job` das
@@ -5261,6 +5289,7 @@ class Database:
             "total": len(jobs),
             "duplikate_erkannt": duplikate,
             "ausland_erkannt": ausland_erkannt,
+            "stellenart_erkannt": stellenart_erkannt,
         }
         if leere_url_quellen:
             # #645: sichtbar machen, damit job_runner / scraper_health das

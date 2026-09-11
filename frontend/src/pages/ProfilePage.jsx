@@ -1366,22 +1366,40 @@ export default function ProfilePage() {
               </Field>
             ))}
 
+            {/* #1017 Befund 3: die Einheiten standen nur in der
+                MCP-Ebene ("Min. Gehalt (EUR/Jahr)"), im Formular hiessen
+                dieselben Felder nackt "Min. Gehalt". Zwei Fragen blieben
+                genau beim Ausfuellen offen: Jahres- oder Monatsgehalt,
+                und ob "Stundensatz" die Bezahlung oder die Arbeitszeit
+                meint. Beides ist teuer, weil der Wert direkt ins Scoring
+                geht und es keine Plausibilitaetsgrenze gibt — ein
+                Monatsgehalt im Jahresfeld verschiebt jede Bewertung im
+                Bestand, ohne dass irgendetwas widerspricht. */}
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Min. Gehalt">
+              <Field
+                label="Min. Gehalt (EUR/Jahr, brutto)"
+                hint="Untergrenze fürs Scoring. Zählt als Preis, schließt nicht aus."
+              >
                 <TextInput
                   type="number"
                   value={criteriaDraft.min_gehalt}
                   onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_gehalt: event.target.value }))}
                 />
               </Field>
-              <Field label="Min. Tagessatz">
+              <Field
+                label="Min. Tagessatz (EUR/Tag)"
+                hint="Untergrenze fürs Scoring. Zählt als Preis, schließt nicht aus."
+              >
                 <TextInput
                   type="number"
                   value={criteriaDraft.min_tagessatz}
                   onChange={(event) => setCriteriaDraft((current) => ({ ...current, min_tagessatz: event.target.value }))}
                 />
               </Field>
-              <Field label="Min. Stundensatz">
+              <Field
+                label="Min. Stundensatz (EUR/Stunde)"
+                hint="Bezahlung pro Stunde — nicht die Wochenarbeitszeit."
+              >
                 <TextInput
                   type="number"
                   value={criteriaDraft.min_stundensatz}
