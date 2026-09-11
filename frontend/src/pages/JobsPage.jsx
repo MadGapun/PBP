@@ -24,6 +24,7 @@ import { jobLinkInfo } from "@/lib/jobLink";
 import { kurzmarke as datenguetMarke, vergleicheMitGuete } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
+import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -61,72 +62,6 @@ function blacklistValueForType(job, type) {
 
 function jobCardElementId(jobHash) {
   return `job-card-${encodeURIComponent(String(jobHash || ""))}`;
-}
-
-function positiveSalary(value) {
-  if (value === null || typeof value === "undefined") return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return null;
-  return numeric;
-}
-
-function buildAnnualSalaryMetrics(jobs = []) {
-  const realRows = [];
-  const estimatedRows = [];
-  for (const job of jobs) {
-    let min = positiveSalary(job?.salary_min);
-    let max = positiveSalary(job?.salary_max);
-    if (min === null && max === null) continue;
-    if (min === null) min = max;
-    if (max === null) max = min;
-    const entry = { min, max, salaryType: String(job?.salary_type || "").toLowerCase() };
-    if (job?.salary_estimated) {
-      estimatedRows.push(entry);
-    } else {
-      realRows.push(entry);
-    }
-  }
-
-  // v1.6.2 Bugfix: vorher wurde bei "≥1 echte Gehaltsangabe" der gesamte
-  // geschätzte Pool verworfen — bei 2 echten + 272 geschätzten zeigte die
-  // Bandbreite-Karte nur 2 Datenpunkte. Jetzt: alle kombinieren;
-  // allEstimated bleibt true nur wenn KEINE echten existieren.
-  const rows = [...realRows, ...estimatedRows];
-  const allEstimated = realRows.length === 0 && estimatedRows.length > 0;
-
-  // beta.26: Plausibilitaets-Filter fuer Jahresgehaelter (Tagessaetze
-  // mit faelschlich salary_type=jaehrlich raus).
-  const ANNUAL_MIN_PLAUSIBLE = 20000;
-  const annualRows = rows.filter(
-    (row) => row.salaryType === "jaehrlich" && row.min >= ANNUAL_MIN_PLAUSIBLE
-  );
-  if (!annualRows.length) {
-    return {
-      jobsWithSalary: rows.length,
-      annualBasisCount: 0,
-      averageMin: null,
-      averageMax: null,
-      bandMin: null,
-      bandMax: null,
-      allEstimated,
-    };
-  }
-
-  const mins = annualRows.map((row) => row.min);
-  const maxs = annualRows.map((row) => row.max);
-  // beta.32 / User-Feedback: "Bandbreite" muss die echte Spanne sein.
-  // Vorher: Durchschnitt der Min- und Max-Werte. Wenn eine Stelle 94.500
-  // EUR hat, muss die Bandbreite auch bis 94.500 gehen — das ist die
-  // intuitive Interpretation. Durchschnitt bleibt separat als "Mittelwert".
-  return {
-    jobsWithSalary: rows.length,
-    annualBasisCount: annualRows.length,
-    averageMin: Math.round(mins.reduce((sum, value) => sum + value, 0) / mins.length),
-    averageMax: Math.round(maxs.reduce((sum, value) => sum + value, 0) / maxs.length),
-    bandMin: Math.min(...mins),
-    bandMax: Math.max(...maxs),
-    allEstimated,
-  };
 }
 
 function jobNeedsDescriptionAttention(job) {
@@ -1029,7 +964,7 @@ export default function JobsPage() {
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-            note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
+            note={grundlagenText(salaryMetrics)}
             tone="success"
           />
           <MetricCard

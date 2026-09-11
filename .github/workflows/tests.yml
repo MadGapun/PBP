@@ -59,5 +59,11 @@ jobs:
         # — weicht eine Seite ab, steht wieder das Unbekannte oben.
         run: node frontend/src/lib/datenguete.test.mjs
 
+      - name: Gehaltskennzahl (#1015 C68)
+        # Die Durchschnittszahl muss ausweisen, wie viele ihrer Werte
+        # geschaetzt sind. Die Funktion lag vorher wortgleich in zwei
+        # Seiten; der Test haengt an der gemeinsamen Fassung.
+        run: node frontend/src/lib/gehaltsKennzahl.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

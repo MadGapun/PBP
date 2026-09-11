@@ -16,6 +16,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
+import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
@@ -44,71 +45,6 @@ import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
 import EmailUploadButton from "@/components/EmailUploadButton";
 import DashboardBereich from "@/components/DashboardBereich";
 import DashboardAnpassen from "@/components/DashboardAnpassen";
-
-function positiveSalary(value) {
-  if (value === null || typeof value === "undefined") return null;
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) return null;
-  return numeric;
-}
-
-function buildAnnualSalaryMetrics(jobs = []) {
-  // v1.6.2 Bugfix: vorher wurde bei "≥1 echte Gehaltsangabe vorhanden" der
-  // gesamte Pool an geschätzten Gehältern verworfen. Bei 2 echten + 272
-  // geschätzten Stellen fielen also 272 raus — die Karte zeigte nur 2
-  // Datenpunkte. Jetzt: alle Zeilen kombinieren; allEstimated bleibt true
-  // nur wenn KEINE echten existieren (→ "(geschätzt)"-Label).
-  const realRows = [];
-  const estimatedRows = [];
-  for (const job of jobs) {
-    let min = positiveSalary(job?.salary_min);
-    let max = positiveSalary(job?.salary_max);
-    if (min === null && max === null) continue;
-    if (min === null) min = max;
-    if (max === null) max = min;
-    const entry = { min, max, salaryType: String(job?.salary_type || "").toLowerCase() };
-    if (job?.salary_estimated) {
-      estimatedRows.push(entry);
-    } else {
-      realRows.push(entry);
-    }
-  }
-
-  const rows = [...realRows, ...estimatedRows];
-  const allEstimated = realRows.length === 0 && estimatedRows.length > 0;
-
-  // beta.26: Plausibilitaets-Filter fuer Jahresgehaelter — Tagessaetze mit
-  // faelschlich salary_type=jaehrlich raus. (v1.6.2: zur Konsistenz mit JobsPage)
-  const ANNUAL_MIN_PLAUSIBLE = 20000;
-  const annualRows = rows.filter(
-    (row) => row.salaryType === "jaehrlich" && row.min >= ANNUAL_MIN_PLAUSIBLE
-  );
-  if (!annualRows.length) {
-    return {
-      jobsWithSalary: rows.length,
-      annualBasisCount: 0,
-      averageMin: null,
-      averageMax: null,
-      bandMin: null,
-      bandMax: null,
-      allEstimated,
-    };
-  }
-
-  const mins = annualRows.map((row) => row.min);
-  const maxs = annualRows.map((row) => row.max);
-  return {
-    jobsWithSalary: rows.length,
-    annualBasisCount: annualRows.length,
-    averageMin: Math.round(mins.reduce((sum, value) => sum + value, 0) / mins.length),
-    averageMax: Math.round(maxs.reduce((sum, value) => sum + value, 0) / maxs.length),
-    // v1.6.2: echte Min/Max-Spanne fuer "Bandbreite"-Kachel — gleiche
-    // Semantik wie in JobsPage, damit beide Tabs konsistent sind.
-    bandMin: Math.min(...mins),
-    bandMax: Math.max(...maxs),
-    allEstimated,
-  };
-}
 
 export default function DashboardPage() {
   const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche } = useApp();
@@ -720,7 +656,7 @@ export default function DashboardPage() {
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-            note={salaryCount > 0 ? `Auf Basis von ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"} mit Jahresgehalt${salaryCount < 3 ? " — wenig Datenbasis" : ""}` : "Noch keine Gehaltsdaten"}
+            note={grundlagenText(salaryMetrics)}
             tone="success"
           />
           <MetricCard

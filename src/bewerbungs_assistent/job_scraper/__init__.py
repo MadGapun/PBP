@@ -2647,27 +2647,20 @@ def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
         return 0.0
     if spanne <= 0:
         return 0.0
-    if job.get("salary_estimated"):
+    # Dieselbe Rechnung wie im Score, also dasselbe Nadeloehr (#1017).
+    # Bis v1.7.77 war das hier eine VIERTE Fassung: Schaetzungen wurden
+    # korrekt ausgeschlossen und `stuendlich` korrekt umgerechnet, aber
+    # der Wunschwert kam nur aus `min_gehalt` — mit `min_tagessatz` als
+    # Sonderfall fuer freelance und ohne `min_stundensatz` ueberhaupt.
+    # Wer nur einen Stundensatz gepflegt hat, bekam damit gar keine
+    # Kompensation. Gefunden hat es der Guard aus #1017 beim ERSTEN Lauf,
+    # nicht das Nachdenken.
+    from ..services import gehalt_vergleich as _geh_modul
+    _geh = _geh_modul.vergleich(job, criteria)
+    if _geh["stand"] != _geh_modul.VERGLEICHBAR:
         return 0.0
-    salary_min = job.get("salary_min")
-    if not salary_min:
-        return 0.0
-    styp = job.get("salary_type", "jaehrlich")
-    emp = job.get("employment_type", "festanstellung")
-    if styp == "stuendlich":
-        job_jahr = salary_min * 8 * 220
-    elif styp == "taeglich" or emp == "freelance":
-        job_jahr = salary_min * 220
-    else:
-        job_jahr = salary_min
-    wunsch = criteria.get("min_gehalt", 0) or 0
-    if emp == "freelance":
-        _tag = criteria.get("min_tagessatz", 0) or 0
-        if _tag:
-            wunsch = _tag * 220
-    if not wunsch:
-        return 0.0
-    return min(1.0, max(0.0, (job_jahr - wunsch) / spanne))
+    return min(1.0, max(0.0,
+                        (_geh["job_jahr"] - _geh["wunsch_jahr"]) / spanne))
 
 
 def _teilscores_setzen(job: dict, fach: float, rahmen: float,
@@ -2981,20 +2974,17 @@ def calculate_score(job: dict, criteria: dict) -> int:
                 rahmen_plus += 2  # applied for similar = strong signal
                 break
 
-    # Salary bonus: reward jobs matching salary expectations
-    salary_min = job.get("salary_min")
-    if salary_min and w.get("gehalt", 0):
-        salary_type = job.get("salary_type", "jaehrlich")
-        emp_type = job.get("employment_type", "festanstellung")
-        if salary_type == "taeglich" or emp_type == "freelance":
-            salary_pref_min = criteria.get("min_tagessatz", 0) or 0
-            job_yearly = salary_min * 220
-            pref_yearly = salary_pref_min * 220 if salary_pref_min else (criteria.get("min_gehalt", 0) or 0)
-        else:
-            salary_pref_min = criteria.get("min_gehalt", 0) or 0
-            job_yearly = salary_min
-            pref_yearly = salary_pref_min
-        if pref_yearly and job_yearly >= pref_yearly:
+    # Gehalt ueber das Nadeloehr (#1017). Bis v1.7.77 prueste GENAU
+    # DIESER Weg `salary_estimated` nicht und vergab den vollen Bonus
+    # auf eine geschaetzte Zahl — bei 95 Prozent des Bestands (2.406 von
+    # 2.535 Stellen). `fit_analyse` und der Regler neutralisieren
+    # Schaetzungen seit #827/#918, und `salary_type` `stuendlich` kannte
+    # dieser Weg ueberhaupt nicht: 25 EUR/Stunde wurden gegen ein
+    # Jahresgehalt gehalten, der Bonus konnte nie ausloesen.
+    if w.get("gehalt", 0):
+        from ..services import gehalt_vergleich as _geh_modul
+        _geh = _geh_modul.vergleich(job, criteria)
+        if _geh["erfuellt"]:
             rahmen_plus += w["gehalt"]
 
     # v1.7.22 (#942): Asymmetrie ist der Kern. Ein Bonus darf fehlende
@@ -3268,53 +3258,22 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     risks = []
 
-    # Salary factor — normalize daily rates vs yearly salary
-    salary_min = job.get("salary_min")
-    # v1.7.17 (#918/#827-Nachzug): Schaetzungen bleiben auch HIER neutral.
-    # Der #827-Fix sass nur in scoring_service — dieser Pfad vergab
-    # weiter den vollen Bonus fuer eine Zahl, die es nicht gibt (belegt:
-    # +8 von 43,8 Gesamtpunkten fuer eine Anzeige ohne Gehaltsangabe).
-    if salary_min and job.get("salary_estimated"):
-        factors["Gehalt: nur Schaetzung — neutral (#827)"] = 0
-        salary_min = None
-    if salary_min:
-        salary_type = job.get("salary_type", "jaehrlich")
-        emp_type = job.get("employment_type", "festanstellung")
-        if salary_type == "stuendlich":
-            # v1.7.17 (#920): Stundensaetze existierten im Extraktor,
-            # dieser Vergleich kannte sie nicht — "100 EUR/hour" wurde
-            # als 100 EUR/TAG gelesen (Faktor 8 zu niedrig) und
-            # min_stundensatz nie ausgewertet.
-            salary_pref = criteria.get("min_stundensatz", 0) or 0
-            job_yearly = salary_min * 8 * 220
-            if salary_pref:
-                pref_yearly = salary_pref * 8 * 220
-                pref_label = f"{salary_pref} EUR/Stunde"
-            else:
-                _tag = criteria.get("min_tagessatz", 0) or 0
-                pref_yearly = _tag * 220 if _tag \
-                    else (criteria.get("min_gehalt", 0) or 0)
-                pref_label = f"{_tag} EUR/Tag" if _tag \
-                    else f"{pref_yearly} EUR/Jahr"
-            salary_label = (f"{salary_min} EUR/Stunde "
-                            f"(~{int(job_yearly)} EUR/Jahr)")
-        elif salary_type == "taeglich" or emp_type == "freelance":
-            salary_pref = criteria.get("min_tagessatz", 0) or 0
-            job_yearly = salary_min * 220
-            pref_yearly = salary_pref * 220 if salary_pref else (criteria.get("min_gehalt", 0) or 0)
-            salary_label = f"{salary_min} EUR/Tag (~{int(job_yearly)} EUR/Jahr)"
-            pref_label = f"{salary_pref} EUR/Tag" if salary_pref else f"{pref_yearly} EUR/Jahr"
-        else:
-            salary_pref = criteria.get("min_gehalt", 0) or 0
-            job_yearly = salary_min
-            pref_yearly = salary_pref
-            salary_label = f"{salary_min} EUR/Jahr"
-            pref_label = f"{salary_pref} EUR/Jahr"
-        if pref_yearly and job_yearly >= pref_yearly:
-            factors["Gehalt passt zu Erwartung"] = w.get("gehalt", 1)
-            total += w.get("gehalt", 1)
-        elif pref_yearly and job_yearly < pref_yearly * 0.8:
-            risks.append(f"Gehalt ({salary_label}) liegt unter Mindestvorstellung ({pref_label})")
+    # Gehalt ueber dasselbe Nadeloehr wie der Basis-Score (#1017).
+    # Die Regeln standen HIER schon richtig — Schaetzung neutral seit
+    # #827/#918, Stundensatz seit #920. Sie lagen nur als zweite Fassung
+    # neben `calculate_score`, und die beiden liefen auseinander: gleiche
+    # Stelle, nur `salary_estimated` gedreht, ergab 3.0 gegen 2.0.
+    from ..services import gehalt_vergleich as _geh_modul
+    _geh = _geh_modul.vergleich(job, criteria)
+    if _geh["stand"] == _geh_modul.GESCHAETZT:
+        factors[_geh["grund"]] = 0
+    elif _geh["erfuellt"]:
+        factors["Gehalt passt zu Erwartung"] = w.get("gehalt", 1)
+        total += w.get("gehalt", 1)
+    elif _geh["deutlich_darunter"]:
+        risks.append(
+            f"Gehalt ({_geh['job_text']}) liegt unter "
+            f"Mindestvorstellung ({_geh['wunsch_text']})")
     if missing_muss:
         risks.append(f"{len(missing_muss)} MUSS-Keywords nicht gefunden")
     if not job.get("url"):
@@ -3729,6 +3688,24 @@ def estimate_salary(title: str, employment_type: str, location: str) -> tuple:
 
     Returns (salary_min, salary_max, salary_type).
     """
+    # #1015: fuer Praktika und studentische Taetigkeiten wird NICHT
+    # geschaetzt. Die Spannen dieser Tabelle beschreiben Vollzeit-
+    # Anstellungen; auf ein Pflichtpraktikum angewandt kamen dabei
+    # 80.000 bis 120.000 EUR heraus (belegter Fall des Melders), und die
+    # Zahl floss in die Durchschnittskennzahl. **Lieber keine Angabe als
+    # eine unmoegliche** — eine geratene Zahl, die wie eine gemessene
+    # aussieht, ist dieselbe Klasse Fehler wie ein erfundener Zeitpunkt
+    # (#987) oder ein erfundener Monat (#1006).
+    #
+    # Die Art kommt aus demselben Nadeloehr wie der Filter. Eine zweite
+    # Markerliste hier waere genau die Bauform, die dieses Projekt
+    # sechzehnmal gekostet hat.
+    from ..services import stellenart as _art_modul
+    _art = _art_modul.erkenne({"title": title,
+                               "employment_type": employment_type})
+    if _art["art"] in (_art_modul.PRAKTIKUM, _art_modul.WERKSTUDENT):
+        return None, None, None
+
     title_lower = (title or "").lower()
     location_lower = (location or "").lower()
 
