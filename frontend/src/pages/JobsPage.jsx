@@ -194,7 +194,20 @@ export default function JobsPage() {
   // #1010: Zeitfenster fuer das Aussortier-Protokoll. Ueber 2.000
   // Eintraege ohne Einstieg sind ein Archiv, kein Rueckholweg — und
   // gesucht wird fast immer "was habe ich gerade weggeklickt".
-  const [dismissWindow, setDismissWindow] = useState("7tage");
+  // #1010 hatte hier "7tage" als Vorgabe: gesucht wird "was habe ich
+  // gerade weggeklickt", und eine Liste mit 2.000 Eintraegen ist ein
+  // Archiv. Der Gedanke stimmt — die Vorgabe war trotzdem falsch.
+  //
+  // v1.7.83 (#1022 Befund 2): der Melder sah "AKTIVE STELLEN 54" ueber
+  // 172 ausgeblendeten Stellen und konnte die 54 von aussen nicht
+  // aufloesen. Es war dieses Fenster. **Ein Filter, den niemand gesetzt
+  // hat, verbarg 118 von 172 Zeilen** — woertlich #1008, wo ein
+  // ungesetzter Filter 7 von 8 Stellen verbarg.
+  //
+  // Die Sortierung erledigt den urspruenglichen Zweck ohnehin: das
+  // Protokoll ist nach `dismissed_at` sortiert, das gerade Weggeklickte
+  // steht oben. Dafuer muss nichts verborgen werden.
+  const [dismissWindow, setDismissWindow] = useState("alle");
   // #941: Die zuletzt AUTOMATISCH aussortierten Stellen. Bewusst nicht
   // der ganze Aussortiert-Bestand (ueber 2.000 Eintraege) — nur das,
   // was ohne Rueckfrage entschieden wurde und der Nutzer nie gesehen
@@ -228,6 +241,13 @@ export default function JobsPage() {
   // Einstellung eine halbe.
   const [guetUmgang, setGuetUmgang] = useState("nachrangig");
   const [jobsTotal, setJobsTotal] = useState(0);
+  // #1022: die Kennzahlen der Kopfzeile rechnen ueber den GANZEN aktiven
+  // Bestand, nicht ueber die geladene Seite. Der Endpunkt gibt dafuer
+  // eine schlanke Grundlage mit (Score + vier Gehaltsfelder je Stelle) —
+  // die Rechnung selbst bleibt `buildAnnualSalaryMetrics`, damit es
+  // keine zweite Fassung gibt.
+  const [kennzahlenBasis, setKennzahlenBasis] = useState([]);
+  const [aussortiertGesamt, setAussortiertGesamt] = useState(0);
   const [jobsHasMore, setJobsHasMore] = useState(false);
   const [jobsPageSize, setJobsPageSize] = useState(() => {
     const saved = localStorage.getItem("pbp_jobs_page_size");
@@ -273,12 +293,30 @@ export default function JobsPage() {
         if (isPaginated) {
           setJobsTotal(activeJobsResp.total || 0);
           setJobsHasMore(Boolean(activeJobsResp.has_more));
+          // #1022: auch beim Nachladen mitgesetzt — die Grundlage
+          // beschreibt den Bestand und aendert sich dabei nicht. Faellt
+          // sie aus, bleibt der alte Stand stehen statt auf die
+          // geladene Seite zurueckzufallen: eine Kennzahl ueber den
+          // halben Bestand ist schlimmer als eine, die kurz veraltet.
+          if (Array.isArray(activeJobsResp.kennzahlen_basis)) {
+            setKennzahlenBasis(activeJobsResp.kennzahlen_basis);
+          }
+          if (typeof activeJobsResp.aussortiert_gesamt === "number") {
+            setAussortiertGesamt(activeJobsResp.aussortiert_gesamt);
+          }
         } else {
           setJobsTotal(newJobs.length);
           setJobsHasMore(false);
+          // Ohne Paginierung IST die geladene Liste der Bestand.
+          setKennzahlenBasis(newJobs);
         }
         if (!append) {
-          if (hiddenJobs) setDismissedJobs(hiddenJobs || []);
+          if (hiddenJobs) {
+            setDismissedJobs(hiddenJobs || []);
+            // #1022: die Zahl im Tab-Namen. Beim Vollabruf ist sie hier
+            // genauer als die des Endpunkts.
+            setAussortiertGesamt((hiddenJobs || []).length);
+          }
           if (followUpsResponse) setFollowUps(followUpsResponse?.follow_ups || []);
           if (appsResponse) {
             const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
@@ -703,10 +741,17 @@ export default function JobsPage() {
   const remoteOptions = [...new Set(allJobs.map((job) => job.remote_level).filter((r) => r && r !== "unbekannt"))];
   const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
   const currentList = filters.view === "active" ? jobs : protokollListe;
-  const scoredActiveJobs = jobs.filter((job) => Number(job?.score || 0) > 0);
+  // #1022: die vier Kennzahlen der Kopfzeile beschreiben den BESTAND.
+  // Bis v1.7.82 rechneten sie ueber die geladene Seite — und weil nach
+  // Score sortiert wird, waren das immer die besten: Durchschnittsscore
+  // 13,82 ueber die ersten 20 gegen 3,59 ueber alle 1.110 (gemessen vom
+  // Melder). Eine Kennzahl, die sich beim Blaettern aendert, misst das
+  // Blaettern.
+  const kennzahlenQuelle = kennzahlenBasis.length ? kennzahlenBasis : jobs;
+  const scoredActiveJobs = kennzahlenQuelle.filter((job) => Number(job?.score || 0) > 0);
   const jobsWithoutDescriptionCount = jobs.filter(jobNeedsDescriptionAttention).length;
   const hiddenAppliedCount = currentList.filter((job) => appliedJobHashes.has(job.hash)).length;
-  const salaryMetrics = buildAnnualSalaryMetrics(jobs);
+  const salaryMetrics = buildAnnualSalaryMetrics(kennzahlenQuelle);
   const jobsWithSalary = Number(salaryMetrics.jobsWithSalary || 0);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
   const salaryCount = Number(salaryMetrics.annualBasisCount || 0);
@@ -928,15 +973,28 @@ export default function JobsPage() {
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            // v1.7.62 (#1008 Befund 1): die Zahl ist die LAENGE DER
+            // v1.7.62 (#1008 Befund 1): die Zahl war die LAENGE DER
             // ANGEZEIGTEN Liste. Die Ueberschrift versprach die Zahl der
             // aktiven Stellen — zwei Zeilen darunter stand dann "8 aktiv
-            // gesamt, 7 durch Filter verborgen". Die Karte widersprach
-            // sich damit selbst und liess den Sidebar-Zaehler falsch
-            // aussehen, obwohl er stimmte. Jetzt benennt die
-            // Ueberschrift, was die Zahl zeigt.
-            label={verborgeneStellen > 0 ? "Angezeigte Stellen" : "Aktive Stellen"}
-            value={filteredJobs.length}
+            // gesamt, 7 durch Filter verborgen". Damals bekam die
+            // Ueberschrift einen Wechsel, damit sie benennt, was die Zahl
+            // zeigt.
+            //
+            // v1.7.83 (#1022): das war die falsche Haelfte. Der Wechsel
+            // haengt an `verborgeneStellen`, und das zaehlt nur
+            // FILTER-verborgene Stellen — **Paginierung loest ihn nicht
+            // aus**, also genau den haeufigsten Fall nicht. Die Kachel
+            // meldete "AKTIVE STELLEN 20" bei 1.110 aktiven und wurde
+            // beim Blaettern zu 40, dann 60. Der Melder dazu: "ich hab
+            // immer gedacht, es gibt nur zwanzig Stellen fuer mich."
+            //
+            // Die Kopfzeile ist eine BESTANDSANZEIGE. Sie zeigt deshalb
+            // immer die Zahl der aktiven Stellen — auch im
+            // Ausgeblendet-Tab, wo vorher "AKTIVE STELLEN 54" ueber
+            // ausgeblendeten Stellen stand. Was gerade sichtbar ist,
+            // steht in der Notiz.
+            label="Aktive Stellen"
+            value={jobsTotal}
             note={(() => {
               // beta.26 / User-Feedback: Differenzierung zwischen
               //   - mit Bewerbung (echte applications, appliedJobHashes)
@@ -948,10 +1006,12 @@ export default function JobsPage() {
               // ("2 gesamt (6 mit Bewerbung, 1676 aussortiert)") las sich wie
               // Teilmengen und war damit unsinnig. Jetzt entkoppelt.
               const withApplication = appliedJobHashes.size;
-              const dismissedCount = dismissedJobs.length;
+              const dismissedCount = aussortiertGesamt || dismissedJobs.length;
               const durchFilterVerborgen = verborgeneStellen;
               const parts = [];
-              if (durchFilterVerborgen > 0) parts.push(`${jobsTotal} aktiv gesamt, ${durchFilterVerborgen} durch Filter verborgen`);
+              // #1022 AK 6: bei aktivem Filter gehoert die Einschraenkung
+              // in die Notiz — die Kachel selbst bleibt beim Bestand.
+              if (durchFilterVerborgen > 0) parts.push(`${filteredJobs.length} sichtbar, ${durchFilterVerborgen} durch Filter verborgen`);
               if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
               if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
               if (parts.length > 0) return parts.join(" · ");
@@ -1049,10 +1109,17 @@ export default function JobsPage() {
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             {/* View toggle */}
             <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/5 bg-white/[0.03]">
+              {/* #1022 AK 3+4: beide Tabs nennen ihre Menge, damit VOR
+                  dem Klick erkennbar ist, was dahinter liegt. Die Zahlen
+                  tragen die Toene, die das Dashboard ohnehin fuehrt —
+                  Tuerkis fuer den Bestand, mit dem man arbeitet, Rot fuer
+                  den Stapel, der aussortiert wurde. Beide Tokens gibt es
+                  bereits; der Farbklassen-Guard aus #964 laesst nur
+                  vorhandene durch. */}
               {[
-                ["active", "Aktive"],
-                ["dismissed", "Ausgeblendet"],
-              ].map(([value, label]) => (
+                ["active", "Aktive", jobsTotal, "text-teal"],
+                ["dismissed", "Ausgeblendet", aussortiertGesamt || dismissedJobs.length, "text-coral"],
+              ].map(([value, label, menge, tonKlasse]) => (
                 <button
                   key={value}
                   type="button"
@@ -1064,7 +1131,8 @@ export default function JobsPage() {
                   )}
                   onClick={() => setFilters((current) => ({ ...current, view: value }))}
                 >
-                  {label}
+                  {label}{" "}
+                  <span className={cn("tabular-nums font-semibold", tonKlasse)}>({menge})</span>
                 </button>
               ))}
             </div>
