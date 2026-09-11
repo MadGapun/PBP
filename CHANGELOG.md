@@ -33,6 +33,127 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.80] - 2026-09-11 — Nur die Art der Stelle wandert
+
+Zwei Stellen mit identischem Titel können 5 km und 500 km entfernt
+liegen. PBP hat das Urteil „zu weit entfernt" trotzdem von der einen auf
+die andere übertragen — über Firmengrenzen hinweg.
+
+### Fixed
+
+- **Eine Stelle in 9,2 km wurde als „zu weit entfernt" aussortiert
+  (#1020)** — bei einem Wunschwert von 20 km, und die Entfernung stand
+  in derselben Datenbankzeile wie das Urteil. Die Auto-Aussortierung
+  überträgt den häufigsten Ablehnungsgrund über gemeinsame Titel-Tokens
+  auf Stellen **fremder Firmen**, und `zu_weit_entfernt`,
+  `gehalt_zu_niedrig` und `firma_uninteressant` waren dabei erlaubt.
+  Das sind Eigenschaften der einzelnen Anzeige, nicht des Berufsbilds.
+- **Dieselbe Regel stand im Projekt schon zweimal richtig.**
+  `_FACHLICHE_KO_GRUENDE` in `tools/jobs.py` („Gehalt/Entfernung können
+  sich ändern, taugen nicht als k.o.") und `_TEXTABHAENGIGE_GRUENDE` in
+  `wiedergaenger.py` („`firma_uninteressant` und `zu_weit_entfernt` sind
+  ohnehin keine Aussagen über den Text"). Der Aussortier-Pfad ist an
+  beiden vorbeigelaufen — und er ist der folgenreichste der drei: die
+  Empfehlung sagt nur „nicht empfohlen", die Automatik lässt die Stelle
+  verschwinden. **Siebzehnter Fall desselben Musters** (#963 zuerst).
+- **Die Rückkopplung verschärfte die Regel von selbst.** Jede
+  automatisch entfernte Stelle zählte beim nächsten Lauf als weiterer
+  Beleg für dasselbe Muster. Ein einzelner generischer Titel trug im
+  Bestand **86 Belege** für „zu weit entfernt".
+
+### Added
+
+- **`UEBERTRAGBARE_GRUENDE`** — firmenübergreifend wandern nur Gründe,
+  die die **Art** der Stelle beschreiben (Fachgebiet, System, Branche,
+  Seniorität, Abschluss, Arbeitsmodell, Zeitarbeit, Befristung). Die
+  Filterung sitzt **in** `find_titel_muster`, nicht beim Aufrufer —
+  sonst hätte der nächste Aufrufer sie wieder nicht, also genau die
+  Bauform, um die es hier geht.
+- **`_zahl_widerspricht`** — wo ein gemessenes Feld vorliegt, schlägt es
+  das Muster. Für die Gehaltsseite über das Nadelöhr aus #1017, das auch
+  schon weiß, dass eine Schätzung nichts belegt (#827).
+- **`automatik_uebertragungen_pruefen`** — findet Stellen, die über ein
+  fremdes Titel-Muster aussortiert wurden, und holt sie zurück. Vorschau
+  als Vorgabe. Eine zurückgeholte Stelle zählt damit auch nicht mehr als
+  Beleg für dasselbe Muster.
+
+### Changed
+
+- In **Stufe 1** (gleiche Firma) bleiben alle drei Gründe erlaubt — dort
+  ist der Bezug gegeben: derselbe Arbeitgeber am selben Ort ist beim
+  nächsten Mal wieder gleich weit weg. Aber auch dort schlägt eine
+  vorhandene Zahl das Muster.
+
+### Gemessen
+
+Über die **aktiven** Stellen gerechnet gibt es genau eine — eine
+Stichprobe von eins ist keine Messung (#1012). Deshalb über eine
+Stichprobe von **400 aussortierten** Stellen, jede behandelt als käme
+sie frisch herein:
+
+| | |
+|---|---|
+| Titel-Muster greift | 241 |
+| davon auf nicht übertragbarem Grund | **108 (45 %)** |
+| davon `zu_weit_entfernt` innerhalb des Wunschwerts | 20 |
+
+Dazu im Bestand: 245 Zeilen tragen einen Wiedergänger-Vermerk, 83 davon
+(34 %) mit einem Grund, der nichts über die Art der Stelle sagt.
+
+### Bekannte Grenzen
+
+- **Wiederholte Rücknahmen schwächen das Muster weiterhin nicht ab.**
+  Der Melder schlägt das vor, und es ist richtig — es ist aber eine
+  Änderung am Lernverhalten und gehört in einen eigenen Vorgang.
+- Nebenbefund beim Testschreiben: das Beispiel im #941-Docstring nennt
+  drei **verschiedene** Gründe, das Muster gruppiert aber je Grund bei
+  Schwelle 3. Die Kombination hätte nie ausgelöst — auch vor dieser
+  Änderung nicht. Gegengeprüft, damit der Filterung nicht angelastet
+  wird, was an der Schwelle liegt.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.80.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.80.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.79] - 2026-09-11 — Arbeitszeit ist kein Stundenlohn
 
 Eine Zahl neben dem Wort „Stunden" ist ohne Währung fast immer
