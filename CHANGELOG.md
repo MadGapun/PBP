@@ -105,6 +105,95 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.83] - 2026-09-11 — Die Kopfzeile zeigt den Bestand
+
+**#1022** (Melder-Bericht). Die Kachel oben links meldete „AKTIVE
+STELLEN **20**" bei **1.110** aktiven Stellen und wurde beim Blättern zu
+40, dann 60 — während der Knopf direkt darunter die richtige Zahl nannte.
+Der Melder dazu: *„ich hab immer gedacht, es gibt nur zwanzig Stellen für
+mich."*
+
+### Fixed
+
+- **Die Kachel zählte gerenderte Zeilen statt des Bestands.** Die
+  Unterscheidung existierte bereits, hing aber am falschen Auslöser: der
+  Wechsel auf „Angezeigte Stellen" reagierte nur auf **Filter**, nicht
+  auf Paginierung — also auf genau den häufigsten Fall nicht. Die
+  Kopfzeile ist eine Bestandsanzeige und zeigt jetzt in **beiden Tabs**
+  dieselbe Zahl.
+- **Gehaltsdurchschnitt, Bandbreite und Durchschnittsscore rechneten
+  über die geladene Seite.** Weil nach Score sortiert wird, sind das
+  immer die **besten**: gemessen 13,82 Durchschnittsscore über die
+  ersten 20 gegen **3,59** über alle 1.110. Eine Kennzahl, die sich beim
+  Blättern ändert, misst das Blättern.
+- **Im Ausgeblendet-Tab stand „AKTIVE STELLEN 54"** über ausgeblendeten
+  Stellen. Die 54 waren von außen nicht auflösbar — es ist das
+  7-Tage-Zeitfenster aus #1010, **ein Filter, den niemand gesetzt hat
+  und der 118 von 172 Zeilen verbarg**. Der Schalter bleibt, die Vorgabe
+  ist jetzt „alle"; den ursprünglichen Zweck („was habe ich gerade
+  weggeklickt") erledigt die Sortierung ohnehin.
+
+### Added
+
+- **Beide Tabs nennen ihre Menge** — „Aktive (1110)" in Türkis,
+  „Ausgeblendet (172)" in Coral. Damit ist vor dem Klick erkennbar, was
+  dahinter liegt.
+- Bei aktivem Filter weist die Notiz aus, wie viele Stellen sichtbar
+  sind.
+
+### Changed
+
+- `GET /api/jobs` gibt bei Paginierung eine schlanke
+  **Kennzahlen-Grundlage** über den gesamten aktiven Bestand mit (Score
+  plus vier Gehaltsfelder je Stelle) sowie die Zahl der aussortierten
+  Stellen. Bewusst die Grundlage und nicht fertige Zahlen: die Rechnung
+  steht in `lib/gehaltsKennzahl.js` und soll nicht ein zweites Mal in
+  Python existieren.
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.83.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.83.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.82] - 2026-09-11 — Eine Telefonnummer ist kein Jahresgehalt
 
 **#1026** (Melder-Bericht), Nachtrag zu #1018 vom selben Tag. Der Melder
