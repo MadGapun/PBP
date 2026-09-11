@@ -84,9 +84,31 @@ GRENZEN = {
 #: Anzeige nennt einen Tagessatz und kein Jahresgehalt.
 RANG = ("jaehrlich", "monatlich", "taeglich", "stuendlich")
 
-_WAEHRUNG = r"(?:€|EUR|Euro)"
+# Wortgrenzen sind PFLICHT (#1026, Befund 2). Ohne sie qualifiziert
+# jede Zeichenfolge, die mit "Eur" beginnt, eine benachbarte Zahl als
+# Betrag — "Europastr.", "Eurotunnel", "europaweit". Dritter Fall
+# dieser Klasse nach "ki" in "Kita" (#970) und "us" in "Kundenservice"
+# (#996), und in #1018 wurde die Wortgrenze bei `p. a.` ausdruecklich
+# nachgezogen und hier vergessen. Dieselbe Regel, zwei Stellen, eine
+# davon uebersehen.
+#
+# `€` braucht keine Wortgrenze — es ist kein Wortzeichen, und die
+# Grenze wuerde sich daran anders verhalten als erwartet.
+_WAEHRUNG = r"(?:€|\bEUR\b|\bEURO\b)"
+# Der Dezimaltrenner ist im Deutschen das Komma — in Anzeigen steht
+# aber auch der Punkt, und zwar genau dort, wo die k-Schreibweise
+# benutzt wird ("72.5-103k EUR", gemessen). Die erste Alternative
+# verlangt hinter dem Punkt DREI Ziffern (Tausendertrennung), "72.5"
+# faellt also durch und wurde vom Rest des Musters als blosse "5"
+# gelesen — aus 72.500 bis 103.000 wurde damit eine Spanne von 5 bis
+# 103, die an der Plausibilitaetsgrenze scheitert. Danach griff der
+# Einzelwert-Pfad und machte 103k zur UNTERGRENZE, obwohl es die
+# Obergrenze ist.
+#
+# Dritter Befund zu #1026, im Bericht nicht enthalten: gefunden beim
+# Nachmessen der eigenen Aenderung an 1.337 Anzeigen.
 _ZAHL = (r"(?:\d{1,3}(?:[.\s]\d{3})+|\d{1,6})"
-         r"(?:,\d{1,2})?")
+         r"(?:[.,]\d{1,2}(?!\d))?")
 _BIS = r"\s*(?:-|–|—|bis)\s*"
 
 # Eine Zahl neben einer Wochenangabe ist Arbeitszeit, kein Lohn. Auch
@@ -116,7 +138,16 @@ def _entschaerfen(text: str) -> str:
 
 
 def _zahl(roh: str) -> float:
-    roh = (roh or "").strip().replace(" ", "").replace(".", "")
+    """"72.500" ist ein Tausender, "72.5" eine Dezimalzahl.
+
+    Der Punkt ist im Deutschen der Tausendertrenner und im Englischen
+    das Komma-Aequivalent. Unterscheiden laesst sich das an der Zahl der
+    Ziffern dahinter: DREI heisst Tausender, eine oder zwei heissen
+    Dezimalstelle. Ein Text, in dem beides vorkommt, ist damit
+    lesbar — und "72.5-103k" ergibt 72,5 statt 5.
+    """
+    roh = (roh or "").strip().replace(" ", "")
+    roh = re.sub(r"\.(?=\d{3}(?:\D|$))", "", roh)
     roh = roh.replace(",", ".")
     return float(roh)
 
@@ -236,6 +267,19 @@ def _kandidat(art: str, text: str, treffer, gerechnet: bool) -> dict | None:
 
     if len(zahlen) >= 2:
         s_min, s_max = min(zahlen[0], zahlen[1]), max(zahlen[0], zahlen[1])
+        # **Beide Werte muessen die Grenze passieren** (#1026, Befund 1).
+        # Vorher wurde nur `zahlen[0]` geprueft — bei einer Spanne kam
+        # der zweite ungeprueft durch. Aus "Telefon 01234-56789-10"
+        # wurde damit ein Jahresgehalt von 10 bis 56.789 EUR, und zwar
+        # als BELEGT gespeichert, weil 56.789 die Grenze passierte.
+        #
+        # Verworfen wird die ganze Fundstelle, nicht nur der eine Wert:
+        # eine halbe Spanne ist keine Angabe, und lieber gar kein Wert
+        # als ein falscher (#989). Im gemessenen Bestand des Melders
+        # ist der Fehltreffer der EINZIGE Jahreswert unter 15.000 — die
+        # Untergrenze faengt also nichts weg, was echt waere.
+        if not (unten <= s_min <= oben and unten <= s_max <= oben):
+            return None
     else:
         # Ein Einzelwert bekommt eine Spanne von 10 Prozent — aber NUR
         # hier. Eine genannte Spanne wird nie durch eine gerechnete
@@ -274,6 +318,19 @@ def extrahieren(text: str) -> dict:
 
     for art, muster in _KOMPILIERT.items():
         spanne_gefunden = False
+        # Wo eine Spanne zwar TRAF, aber an der Plausibilitaetsgrenze
+        # scheiterte (#1026). Der Einzelwert-Pfad darf sich aus einer
+        # verworfenen Spanne nicht den plausiblen Teil herausgreifen:
+        # aus "Jahresgehalt 10 - 56789 EUR" wurde sonst ein Gehalt von
+        # 56.789, und aus "Gehalt: 5 - 250000 Euro" eines von 250.000.
+        # Das ist derselbe Befund wie der gemeldete, eine Ebene weiter —
+        # die Zahl stammt aus einer Fundstelle, die als Ganzes
+        # unglaubwuerdig ist.
+        #
+        # Gemerkt wird die STELLE im Text, nicht ein Schalter fuer die
+        # ganze Art: sonst verloere eine Anzeige mit einer
+        # Telefonnummer VORNE ihr echtes Gehalt weiter HINTEN.
+        verworfen: list = []
         for nummer, m in enumerate(muster):
             # Muster 3 ist der Einzelwert und tritt nur an, wenn fuer
             # diese Art keine Spanne gefunden wurde.
@@ -282,11 +339,17 @@ def extrahieren(text: str) -> dict:
             for treffer in m.finditer(sauber):
                 if _ist_arbeitszeit(art, sauber, treffer.end()):
                     continue
+                if nummer == 2 and any(
+                        treffer.start() < ende and anfang < treffer.end()
+                        for anfang, ende in verworfen):
+                    continue
                 k = _kandidat(art, sauber, treffer, gerechnet=(nummer == 2))
                 if k:
                     gefunden.append(k)
                     if nummer < 2:
                         spanne_gefunden = True
+                elif nummer < 2:
+                    verworfen.append((treffer.start(), treffer.end()))
 
     if not gefunden:
         leer["grund"] = (

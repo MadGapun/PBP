@@ -6085,6 +6085,7 @@ def register(mcp, db, logger):
         ).fetchall()
 
         aenderungen, geloescht, unveraendert = [], 0, 0
+        von_hand = 0
         for h, titel, besch, alt_min, alt_max, alt_typ, alt_est in zeilen:
             if max_stellen and len(aenderungen) >= max_stellen:
                 break
@@ -6112,10 +6113,20 @@ def register(mcp, db, logger):
             }
             if not neu["art"]:
                 geloescht += 1
-            aenderungen.append(eintrag)
             if not dry_run:
-                db.save_salary_data(h, neu["min"], neu["max"], neu["art"],
-                                    salary_estimated=0 if neu["art"] else 0)
+                # v1.7.82 (#1026): der Rueckgabewert wird gelesen. Ein
+                # von Hand gesetztes Gehalt weist den Lauf ab, und dann
+                # gehoert die Stelle NICHT in die Aenderungsliste —
+                # sonst meldet der Lauf eine Aenderung, die nicht
+                # stattgefunden hat (#994/#997).
+                if not db.save_salary_data(
+                        h, neu["min"], neu["max"], neu["art"],
+                        salary_estimated=0):
+                    von_hand += 1
+                    if not neu["art"]:
+                        geloescht -= 1
+                    continue
+            aenderungen.append(eintrag)
         if not dry_run:
             conn.commit()
 
@@ -6124,6 +6135,7 @@ def register(mcp, db, logger):
             "geprueft": len(zeilen),
             "geaendert": len(aenderungen),
             "davon_geloescht": geloescht,
+            "von_hand_gesetzt_uebersprungen": von_hand,
             "unveraendert": unveraendert,
             "stichprobe": aenderungen[:15],
             "hinweis": (

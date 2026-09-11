@@ -532,7 +532,19 @@ class Database:
                                   # Wert hebt, und die Schwellen-
                                   # Empfehlung raet.
                                   ("initial_score", "REAL"),
-                                  ("initial_score_rekonstruiert", "INTEGER")):
+                                  ("initial_score_rekonstruiert", "INTEGER"),
+                                  # v1.7.82 (#1026, C72): woher der
+                                  # Gehaltswert stammt. Leer heisst
+                                  # "automatisch erkannt", "mensch"
+                                  # heisst von Hand gesetzt — und ein
+                                  # solcher Wert ueberlebt jeden
+                                  # automatischen Lauf. Ohne die Spalte
+                                  # gaebe es keinen Weg, eine falsch
+                                  # erkannte Angabe dauerhaft zu
+                                  # korrigieren: der Extraktor liest
+                                  # denselben Text beim naechsten Mal
+                                  # wieder gleich.
+                                  ("salary_quelle", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -4882,6 +4894,12 @@ class Database:
         "gesichtet_am", "gesichtet_score",
         "initial_score", "initial_score_rekonstruiert",
         "dismiss_note",
+        # v1.7.82 (#1026): ohne diesen Eintrag loescht ein erneuter
+        # Suchlauf die Herkunft, und der von Hand gesetzte Wert waere
+        # beim naechsten automatischen Lauf wieder ueberschreibbar —
+        # also genau die Luecke, die der Melder beschreibt, nur eine
+        # Version spaeter. Das ist DoD 8e.
+        "salary_quelle",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -4982,6 +5000,29 @@ class Database:
                                    if _alt[k] is not None}
                 except Exception as _exc:  # pragma: no cover
                     logger.debug("Bewahrte Spalten (#892): %s", _exc)
+                # v1.7.82 (#1026, Befund 3): ein von Hand gesetztes
+                # Gehalt ueberlebt den erneuten Suchlauf.
+                #
+                # `_BEWAHREN` genuegt dafuer NICHT: es schuetzt nur
+                # Spalten AUSSERHALB der INSERT-Liste, und
+                # `salary_min`/`salary_max` stehen darin. Ohne diese
+                # Zeilen haette die Korrektur genau bis zum naechsten
+                # Lauf gehalten — also so lange, dass man sie fuer
+                # dauerhaft haelt, und kurz genug, dass sie unbemerkt
+                # verschwindet.
+                if bewahrt.get("salary_quelle") == "mensch":
+                    try:
+                        _geh = conn.execute(
+                            "SELECT salary_min, salary_max, salary_type, "
+                            "salary_estimated FROM jobs WHERE hash=?",
+                            (stored_hash,)).fetchone()
+                        if _geh:
+                            job["salary_min"] = _geh["salary_min"]
+                            job["salary_max"] = _geh["salary_max"]
+                            job["salary_type"] = _geh["salary_type"]
+                            job["salary_estimated"] = _geh["salary_estimated"]
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Handgehalt (#1026): %s", _exc)
             # v1.7.62 (#1008 Befund 2): Gesamtwert und Aufteilung MUESSEN
             # aus demselben Lauf stammen. Bis hierher wurde der hoehere
             # alte `score` behalten, `fachscore`/`rahmenscore` aber
@@ -8171,7 +8212,8 @@ class Database:
     # === Salary Data (PBP-014) ===
 
     def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float,
-                         salary_type: str, salary_estimated: int | None = None):
+                         salary_type: str, salary_estimated: int | None = None,
+                         quelle: str | None = None) -> bool:
         """Save extracted salary data for a job.
 
         v1.7.79 (#1018): `salary_estimated` ist neu und hat eine Vorgabe,
@@ -8183,25 +8225,55 @@ class Database:
 
         `_gehalt_gesund` sitzt hier wie im Anlage-Weg: eine Regel in nur
         einem von zwei Schreibwegen verschiebt die Divergenz bloss (#963).
+
+        v1.7.82 (#1026, Befund 3): `quelle="mensch"` markiert einen von
+        Hand gesetzten Wert, und ein solcher wird von automatischen
+        Laeufen **nicht** ueberschrieben. Die Regel sitzt hier und nicht
+        bei den Aufrufern — es gibt drei (`gehalt_extrahieren`,
+        `gehaelter_neu_auswerten`, der Handweg), und eine Regel in einem
+        von dreien verschiebt die Divergenz bloss. Dieselbe Ueberlegung
+        wie bei `dismiss_job` (#913) und `gehalt_vergleich` (#1017).
+
+        Returns:
+            True, wenn geschrieben wurde; False, wenn ein Handwert den
+            automatischen Lauf abgewiesen hat. **Der Rueckgabewert muss
+            gelesen werden** — eine Erfolgsmeldung ueber eine
+            Nicht-Aenderung beendet die Fehlersuche (#994/#997).
         """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
-            return
+            return False
+        if quelle != "mensch":
+            try:
+                _alt = conn.execute(
+                    "SELECT salary_quelle FROM jobs WHERE hash=?",
+                    (target_hash,)).fetchone()
+                if _alt and _alt["salary_quelle"] == "mensch":
+                    logger.debug(
+                        "Gehalt von %s bleibt: von Hand gesetzt (#1026)",
+                        target_hash)
+                    return False
+            except Exception as _exc:  # pragma: no cover
+                logger.debug("salary_quelle nicht lesbar: %s", _exc)
         salary_min, salary_max = _gehalt_gesund(salary_min, salary_max)
         if salary_estimated is None:
             conn.execute(
-                "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
-                (salary_min, salary_max, salary_type, _now(), target_hash)
+                "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, "
+                "salary_quelle=?, updated_at=? WHERE hash=?",
+                (salary_min, salary_max, salary_type, quelle or "",
+                 _now(), target_hash)
             )
         else:
             conn.execute(
                 "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, "
-                "salary_estimated=?, updated_at=? WHERE hash=?",
+                "salary_estimated=?, salary_quelle=?, updated_at=? "
+                "WHERE hash=?",
                 (salary_min, salary_max, salary_type, int(salary_estimated),
-                 _now(), target_hash)
+                 quelle or "", _now(), target_hash)
             )
         conn.commit()
+        return True
 
     def get_salary_statistics(self) -> dict:
         """Get aggregated salary statistics across all jobs with salary data."""
