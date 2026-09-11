@@ -6135,3 +6135,94 @@ def register(mcp, db, logger):
                 f"{geloescht} ohne Gehaltsangabe in der Anzeige."
             ),
         }
+
+    @mcp.tool()
+    def automatik_uebertragungen_pruefen(dry_run: bool = True,
+                                         max_stellen: int = 0) -> dict:
+        """Findet Stellen, die ueber ein FREMDES Titel-Muster
+        aussortiert wurden (#1020).
+
+        Bis v1.7.79 uebertrug die Automatik den haeufigsten
+        Ablehnungsgrund firmenuebergreifend ueber gemeinsame
+        Titel-Tokens — auch `zu_weit_entfernt`, `gehalt_zu_niedrig` und
+        `firma_uninteressant`. Das sind Eigenschaften der EINZELNEN
+        Anzeige: zwei Stellen mit identischem Titel koennen 5 km und
+        500 km entfernt liegen.
+
+        Gemeldet wurde eine Stelle in **9,2 km**, die als "zu weit
+        entfernt" aussortiert wurde — bei einem Wunschwert von 20 km,
+        und die Zahl stand in derselben Datenbankzeile wie das Urteil.
+
+        Am hiesigen Bestand gemessen: 245 Zeilen tragen einen
+        Wiedergaenger-Vermerk, 83 davon (34 %) mit einem Grund, der
+        nichts ueber die Art der Stelle sagt.
+
+        Jede automatisch entfernte Stelle zaehlte beim naechsten Lauf
+        als weiterer Beleg fuer dasselbe Muster — die Regel konnte nur
+        schaerfer werden, nie milder. Deshalb ist die Ruecknahme mehr
+        als Kosmetik: sie nimmt die Belege wieder aus der Grundlage.
+
+        Args:
+            dry_run: Vorgabe True — es wird nichts geschrieben.
+            max_stellen: 0 = alle.
+        """
+        from ..services import stellen_automatik as _sa
+
+        conn = db.connect()
+        zeilen = conn.execute(
+            "SELECT hash, title, company, dismiss_reason, dismiss_note, "
+            "distance_km, salary_min, salary_max, salary_type, "
+            "salary_estimated, employment_type FROM jobs "
+            "WHERE is_active=0 AND dismiss_note IS NOT NULL "
+            "AND (dismiss_note LIKE '%iedergaenger nach Fachgebiet%' "
+            "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%')"
+        ).fetchall()
+
+        betroffen, zurueckgeholt = [], 0
+        for row in zeilen:
+            (h, titel, firma, grund, note, dist, smin, smax, styp,
+             sest, emp) = row
+            kern = (grund or "").replace("auto:", "").split(":")[0].lower()
+            if kern in _sa.UEBERTRAGBARE_GRUENDE:
+                continue
+            job = {"distance_km": dist, "salary_min": smin,
+                   "salary_max": smax, "salary_type": styp,
+                   "salary_estimated": sest, "employment_type": emp}
+            eintrag = {
+                "job_hash": (h or "")[:8],
+                "titel": (titel or "")[:60],
+                "firma": (firma or "")[:40],
+                "grund": kern,
+                "entfernung_km": dist,
+                "widerspruch": _sa._zahl_widerspricht(db, job, kern),
+                "beleg": (note or "")[:120],
+            }
+            betroffen.append(eintrag)
+            if max_stellen and len(betroffen) >= max_stellen:
+                break
+
+        if not dry_run:
+            for e in betroffen:
+                voll = db.resolve_job_hash(e["job_hash"])
+                if voll:
+                    db.restore_job(voll)
+                    zurueckgeholt += 1
+
+        mit_zahl = sum(1 for e in betroffen if e["widerspruch"])
+        return {
+            "status": "vorschau" if dry_run else "zurueckgeholt",
+            "geprueft": len(zeilen),
+            "betroffen": len(betroffen),
+            "davon_durch_zahl_widerlegt": mit_zahl,
+            "zurueckgeholt": zurueckgeholt,
+            "stichprobe": betroffen[:20],
+            "hinweis": (
+                "Vorschau — es wurde nichts geschrieben. Diese Stellen "
+                "wurden ueber ein Titel-Muster einer FREMDEN Firma "
+                "aussortiert, auf einem Grund, der nichts ueber die Art "
+                "der Stelle sagt. Mit dry_run=False kommen sie zurueck."
+                if dry_run else
+                f"{zurueckgeholt} Stelle(n) zurueckgeholt. Sie zaehlen "
+                "damit auch nicht mehr als Beleg fuer dasselbe Muster."
+            ),
+        }

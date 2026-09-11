@@ -279,6 +279,7 @@ EXPECTED_TOOL_NAMES = {
     "telemetrie_setzen",
     "automatik_status",
     "automatik_setzen",
+    "automatik_uebertragungen_pruefen",
     # v1.7.0-beta.60 (#636): MCP-Tool-Telemetrie fuer Hang/Timeout-Diagnose
     "pbp_mcp_diagnose",
     # v1.7.0-beta.60 (#631): Status-Wechsel-Datum nachtraeglich aenderbar
@@ -386,7 +387,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 240  # v1.7.79 (#1018): +gehaelter_neu_auswerten
+        assert len(tools) == 241  # v1.7.79 (#1018): +gehaelter_neu_auswerten
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
