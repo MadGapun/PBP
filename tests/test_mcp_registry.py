@@ -62,6 +62,8 @@ EXPECTED_TOOL_NAMES = {
     # v1.7.81 (#1025): Datenbereiche aus dem Schema statt aus Listen
     "daten_bereiche_anzeigen",
     "daten_bereiche_leeren",
+    # v1.7.82 (#1026): ein falsch erkanntes Gehalt von Hand korrigieren
+    "gehalt_setzen",
     "quellen_aus_urls_korrigieren",
     "quellen_health_check",
     "verwaiste_stellenrefs_bereinigen",
@@ -372,7 +374,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 230  # v1.7.81 (#1025): +daten_bereiche_*
+        assert len(tools) == 231  # v1.7.82 (#1026): +gehalt_setzen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

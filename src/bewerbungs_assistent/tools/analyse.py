@@ -77,8 +77,27 @@ def register(mcp, db, logger):
                 "salary_info_text": job.get("salary_info", ""),
             }
 
-        # Save to database
-        db.save_salary_data(job_hash, salary_min, salary_max, salary_type)
+        # Save to database.
+        # v1.7.82 (#1026): der Rueckgabewert wird GELESEN. Ein von Hand
+        # gesetztes Gehalt weist den automatischen Lauf ab, und die
+        # nachgelagerte Direktschreibung unten wuerde sonst an der
+        # Abweisung vorbei doch noch schreiben — also genau der
+        # DB-Bypass, gegen den #514 gebaut ist.
+        geschrieben = db.save_salary_data(
+            job_hash, salary_min, salary_max, salary_type)
+        if not geschrieben:
+            return {
+                "status": "von_hand_gesetzt",
+                "stelle": job["title"],
+                "firma": job["company"],
+                "hinweis": (
+                    "Für diese Stelle wurde das Gehalt von Hand gesetzt — "
+                    "der automatische Wert überschreibt es nicht. Zum "
+                    "Ändern: gehalt_setzen(...), zum Freigeben "
+                    "gehalt_setzen(..., loeschen=True)."),
+                "erkannt": {"min": salary_min, "max": salary_max,
+                            "art": salary_type, "geschaetzt": is_estimated},
+            }
         if is_estimated:
             conn = db.connect()
             target_hash = db.resolve_job_hash(job_hash)
@@ -3483,3 +3502,108 @@ def register(mcp, db, logger):
                 "Nachtraeglich korrigieren hilft nicht — GitHub zeigt die "
                 "Bearbeitungshistorie.")
         return bericht
+
+    # --- Gehalt von Hand setzen (#1026, Befund 3) ---
+
+    @mcp.tool()
+    def gehalt_setzen(job_hash: str, min_wert: float = 0,
+                      max_wert: float = 0, art: str = "jaehrlich",
+                      loeschen: bool = False) -> dict:
+        """Setzt oder löscht die Gehaltsangabe einer Stelle von Hand.
+
+        Das Gegenstück zu `dokument_text_setzen`: der Mensch trägt nach,
+        was die Maschine nicht lesen konnte — oder nimmt zurück, was sie
+        falsch gelesen hat.
+
+        **Warum es das gibt:** ein falsch erkanntes Gehalt war bis
+        v1.7.81 nicht korrigierbar. `gehalt_extrahieren` liest denselben
+        Text beim nächsten Mal wieder gleich, und `stelle_bearbeiten`
+        kennt die Gehaltsfelder nicht. Damit war jeder Fehltreffer
+        dauerhaft — gemeldet an einem Fall, in dem eine Telefonnummer
+        als Jahresgehalt von 10 EUR gespeichert wurde, und zwar als
+        belegt.
+
+        Ein von Hand gesetzter Wert **überlebt jeden automatischen
+        Lauf**: weder `gehalt_extrahieren` noch
+        `gehaelter_neu_auswerten` noch ein erneuter Suchlauf
+        überschreiben ihn. Er gilt als belegt, weil ein Mensch ihn
+        gelesen hat.
+
+        Args:
+            job_hash: Die Stelle.
+            min_wert: Untergrenze. Muss kleiner oder gleich max_wert
+                sein.
+            max_wert: Obergrenze. Leer lassen für einen Einzelwert.
+            art: 'jaehrlich', 'monatlich', 'taeglich' oder 'stuendlich'.
+                Ein Monatswert wird NICHT umgerechnet — er wird so
+                gespeichert, wie du ihn nennst.
+            loeschen: Entfernt die Gehaltsangabe und gibt die Stelle für
+                automatische Läufe wieder frei.
+        """
+        job = db.get_job(job_hash)
+        if not job:
+            return {"fehler": f"Stelle {job_hash} nicht gefunden."}
+
+        if loeschen:
+            conn = db.connect()
+            ziel = db.resolve_job_hash(job_hash)
+            conn.execute(
+                "UPDATE jobs SET salary_min=NULL, salary_max=NULL, "
+                "salary_type=NULL, salary_estimated=0, salary_quelle='' "
+                "WHERE hash=?", (ziel,))
+            conn.commit()
+            logger.info("Gehalt von %s geloescht (#1026)", ziel)
+            return {
+                "status": "geloescht",
+                "stelle": job.get("title", ""),
+                "hinweis": ("Die Gehaltsangabe ist weg, und die Stelle ist "
+                            "für automatische Läufe wieder freigegeben."),
+            }
+
+        gueltige = ("jaehrlich", "monatlich", "taeglich", "stuendlich")
+        if art not in gueltige:
+            return {"fehler": f"Unbekannte Art: {art}",
+                    "moegliche_arten": list(gueltige)}
+        if not min_wert and not max_wert:
+            return {"fehler": "Ohne Wert gibt es nichts zu setzen.",
+                    "hinweis": "Zum Entfernen: loeschen=True."}
+
+        unten = float(min_wert or max_wert)
+        oben = float(max_wert or min_wert)
+        if unten > oben:
+            # Nicht stillschweigend tauschen: hier hat ein MENSCH zwei
+            # Zahlen genannt, und welche er gemeint hat, weiss nur er.
+            # Der Tausch am Nadeloehr ist ein Riegel gegen kaputte
+            # Automatik-Werte, keine Korrektur menschlicher Eingaben.
+            return {"fehler": f"min_wert ({unten}) ist groesser als "
+                              f"max_wert ({oben}).",
+                    "hinweis": "Bitte die beiden Werte prüfen."}
+
+        from ..services import gehalt_extraktion
+        unten_g, oben_g = gehalt_extraktion.GRENZEN[art]
+        ausserhalb = not (unten_g <= unten <= oben_g
+                          and unten_g <= oben <= oben_g)
+
+        db.save_salary_data(job_hash, unten, oben, art,
+                            salary_estimated=0, quelle="mensch")
+        logger.info("Gehalt von %s von Hand gesetzt: %s-%s %s (#1026)",
+                    job_hash, unten, oben, art)
+        antwort = {
+            "status": "gesetzt",
+            "stelle": job.get("title", ""),
+            "firma": job.get("company", ""),
+            "min": unten, "max": oben, "art": art,
+            "herkunft": "mensch",
+            "hinweis": ("Dieser Wert gilt als belegt und wird von "
+                        "automatischen Läufen nicht mehr überschrieben."),
+        }
+        if ausserhalb:
+            # Gemeldet, nicht abgewiesen: die Grenzen sind ein Filter
+            # gegen Fehltreffer der MASCHINE. Ein Mensch darf einen
+            # Sonderfall eintragen — er soll nur wissen, dass er einer
+            # ist (#989: eine Luecke gehoert benannt, nicht gefuellt).
+            antwort["ungewoehnlich"] = (
+                f"Der Wert liegt ausserhalb des üblichen Rahmens für "
+                f"'{art}' ({unten_g}–{oben_g}). Gespeichert wurde er "
+                f"trotzdem — du hast ihn gelesen, die Maschine nicht.")
+        return antwort
