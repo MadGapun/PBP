@@ -183,6 +183,22 @@ def _entities_aufloesen(wert):
     return aufgeloest
 
 
+def _gehalt_gesund(s_min, s_max):
+    """`salary_min > salary_max` kommt nicht in die Datenbank (#1018).
+
+    Der Riegel sitzt am SPEICHER-Nadeloehr und nicht in der Erkennung,
+    weil die Werte auch aus einer Quelle kommen koennen — eine Regel in
+    nur einem der beiden Wege verschiebt die Divergenz bloss (#963).
+
+    Im hiesigen Bestand gibt es keine solche Zeile; der Melder hat eine
+    gesehen (75 bei 30), deren Herkunft sich nicht mehr rekonstruieren
+    liess. Das ist also ein Schutz gegen den Rueckfall und keine
+    Reparatur.
+    """
+    from .services.gehalt_extraktion import gesund
+    return gesund(s_min, s_max)
+
+
 class Database:
     """Synchronous SQLite database manager."""
 
@@ -5072,7 +5088,8 @@ class Database:
                 job.get("description"), new_score,
                 job.get("remote_level", "unbekannt"),
                 job.get("distance_km"), job.get("salary_info"),
-                job.get("salary_min"), job.get("salary_max"),
+                *_gehalt_gesund(job.get("salary_min"),
+                                job.get("salary_max")),
                 job.get("salary_type"), job.get("salary_estimated", 0),
                 job.get("employment_type", "festanstellung"),
                 new_pinned, job.get("lat"), job.get("lon"),
@@ -7797,16 +7814,37 @@ class Database:
 
     # === Salary Data (PBP-014) ===
 
-    def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float, salary_type: str):
-        """Save extracted salary data for a job."""
+    def save_salary_data(self, job_hash: str, salary_min: float, salary_max: float,
+                         salary_type: str, salary_estimated: int | None = None):
+        """Save extracted salary data for a job.
+
+        v1.7.79 (#1018): `salary_estimated` ist neu und hat eine Vorgabe,
+        damit die bestehenden Aufrufer unveraendert bleiben. Ohne das Feld
+        liesse sich ein falsch erkannter Wert nicht loeschen — er wuerde
+        weiter als BELEGT gelten, und seit v1.7.78 ist genau das die
+        teurere Sorte (belegte Gehaelter behalten ihren Score-Anteil,
+        geschaetzte nicht).
+
+        `_gehalt_gesund` sitzt hier wie im Anlage-Weg: eine Regel in nur
+        einem von zwei Schreibwegen verschiebt die Divergenz bloss (#963).
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
-        conn.execute(
-            "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
-            (salary_min, salary_max, salary_type, _now(), target_hash)
-        )
+        salary_min, salary_max = _gehalt_gesund(salary_min, salary_max)
+        if salary_estimated is None:
+            conn.execute(
+                "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, updated_at=? WHERE hash=?",
+                (salary_min, salary_max, salary_type, _now(), target_hash)
+            )
+        else:
+            conn.execute(
+                "UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, "
+                "salary_estimated=?, updated_at=? WHERE hash=?",
+                (salary_min, salary_max, salary_type, int(salary_estimated),
+                 _now(), target_hash)
+            )
         conn.commit()
 
     def get_salary_statistics(self) -> dict:
