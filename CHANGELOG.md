@@ -33,6 +33,128 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.79] - 2026-09-11 — Arbeitszeit ist kein Stundenlohn
+
+Eine Zahl neben dem Wort „Stunden" ist ohne Währung fast immer
+Arbeitszeit. PBP hat sie als Lohn gespeichert — und zwar als **belegt**,
+nicht als Schätzung.
+
+### Fixed
+
+- **„Teilzeit: 30-35 Stunden pro Woche" wurde zu einem Stundensatz von
+  30 bis 35 Euro (#1018).** Im alten Muster war jeder Teil vor den
+  Zahlen optional, ein Währungszeichen wurde nirgends verlangt, und als
+  Nachsatz genügte das Wort „Stunde" — auf das „Stunden" ebenso passt.
+  **Am Bestand gemessen: von 12 `stuendlich`-Treffern waren 10 in
+  Wahrheit Arbeitszeiten**, nicht die vier aus dem Bericht. Danach: 4
+  Treffer, alle echt.
+- **Der Wert galt als BELEGT, nicht als Schätzung.** Seit v1.7.78
+  behalten belegte Gehälter ihren Anteil am Score und geschätzte nicht —
+  eine falsche Zahl mit vollem Vertrauen war damit die teuerste
+  verbliebene Form.
+- **Stand die Arbeitszeit neben dem Gehalt, gewann die Arbeitszeit.**
+  Ein Fall im Bestand trug beides im selben Satz: *„32-40h/Woche, 100%
+  Remote. Stundensatz: 60 EUR/h."* Genommen wurden die 32-40.
+- **Monatsgehälter gab es gar kein Muster.** In Teilzeitanzeigen ist die
+  Monatsangabe die übliche Form; der einzige belastbare Wert der Anzeige
+  wurde verworfen, während die Arbeitszeit gespeichert wurde.
+- **Eine genannte Spanne wurde durch eine gerechnete ersetzt.**
+  „Stundensatz 30-35 EUR" ergab 30 bis 33 — die Einheit steht zwischen
+  Präfix und Zahlen, also griff das Einzelmuster und erfand ein Maximum.
+- **Die Bundesagentur liefert die Vergütung strukturiert, und PBP hat
+  sie ignoriert.** `gehaltsspanneVon`/`gehaltsspanneBis` kamen im ganzen
+  Projekt nicht vor; gelesen wurde nur `verguetungsangabe` als Text in
+  die Beschreibung, und danach lief eine Regex über den Fließtext.
+
+### Added
+
+- **`services/gehalt_extraktion.py`** — die lesende Seite der
+  Gehalts-Dimension, neben `gehalt_vergleich.py` (#1017) als
+  vergleichende. **Die Regel: ohne Währungszeichen oder Rate-Wort am
+  Treffer kein Gehalt.** Damit löst sich der Vorrang von selbst — eine
+  Arbeitszeit ohne Währung ist gar kein Kandidat, also gewinnt das
+  Gehalt daneben, ohne dass irgendwo eine Rangfolge stehen muss.
+- **Markdown-Escapes werden entschärft.** Ein Befund aus der Messung,
+  der in keinem Bericht stand: **348 der 1.337 Beschreibungen tragen
+  `\.` und `\-`** (`43\.933 \- 52\.962 € / Jahr`), und allein deren
+  Entschärfung findet vier echte Jahresgehälter, die bis hierher
+  verloren gingen.
+- **`gehaelter_neu_auswerten`** — der Nachziehpfad für den Altbestand.
+  Ein besserer Leser hilft sonst nur neuen Stellen (#998). Vorschau als
+  Vorgabe; wo die Anzeige kein Gehalt nennt, wird der alte Wert
+  **gelöscht statt geschätzt** — eine Lücke gehört benannt, nicht
+  gefüllt (#989).
+
+### Changed
+
+- Monatsangaben werden erkannt und **intern auf Jahresbasis
+  umgerechnet**, statt einen vierten `salary_type` einzuführen. Der
+  würde an rund zwanzig Stellen einen Zweig brauchen, den man vergessen
+  kann — die Bauform, aus der #1015 entstanden ist.
+- `salary_min > salary_max` kommt nicht mehr in die Datenbank. Der
+  Riegel sitzt am **Speicherweg** und nicht in der Erkennung, weil die
+  Werte auch aus einer Quelle kommen können.
+- `SALARY_PATTERNS` und `_normalize_salary` sind ersatzlos entfernt —
+  ein Muster ohne Leser hat dieses Projekt oft genug gefunden (#993,
+  #1000, #1008).
+
+### Bekannte Grenzen
+
+- Drei eigene Fehler entstanden beim Bauen, und alle drei hat erst die
+  Messung am Bestand gefunden: **`p.a.` ohne rechte Wortgrenze trifft
+  jedes „Pa"** (aus „23.800 Patient:innen" und „100.000 Paletten­stell­-
+  plätzen" wurden Jahresgehälter), die Einheit im Spannen-Muster war
+  optional (aus „Tagessatz 900-1100 EUR" wurden 10.800 Euro im Jahr),
+  und die Arbeitszeit-Prüfung galt für jede Art und verwarf damit eine
+  genannte Jahresspanne. Alle drei stehen als Test da.
+- Dass PBP die **Wochenstunden** einer Stelle nicht kennt und ein
+  Teilzeitgehalt deshalb nicht ins Verhältnis setzen kann, bleibt
+  bewusst offen. Das ist eine Modellfrage und gehört in einen eigenen
+  Vorgang.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.79.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.79.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.78] - 2026-09-11 — Ein Jahresäquivalent, zwei Rechenwege
 
 Zwei Meldungen, dasselbe Muster: eine Einstellung oder eine Regel, die
