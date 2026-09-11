@@ -583,3 +583,46 @@ def test_rest_reset_nennt_die_zahlen_statt_einer_behauptung(tmp_path):
         dash._db = vorher_db
         datenbank.close()
         os.environ.pop("BA_DATA_DIR", None)
+
+
+def test_auch_die_tabellen_der_anderen_linie_sind_zugeordnet():
+    """Die Bereiche decken BEIDE Release-Linien ab.
+
+    Stable steht auf Schema v48, die Beta auf v52 — fuenf Tabellen gibt
+    es nur dort (`components` I10/#751, `plugins` J1/#504,
+    `newsletter_sources` J5/#525, `custom_sources` B16/#627,
+    `scraper_runs` B25/#735). Der Guard hat das beim ersten Lauf auf
+    der Stable-Linie gemeldet, und das war kein Fehlalarm, sondern die
+    richtige Frage: **wer von 1.7 auf 1.8 wechselt, bekommt sie dazu,
+    und ohne Zuordnung waeren sie ab dann unloeschbar.**
+
+    Die Zuordnung steht deshalb auch dort, wo die Tabelle heute fehlt.
+    Dieser Test haelt das fest — sonst wuerde jemand die Eintraege
+    "aufraeumen", weil sie auf der eigenen Linie ins Leere zeigen.
+    """
+    zugeordnet = {t for ts in lb.BEREICHE.values() for t in ts}
+    for nur_dort in ("components", "plugins", "newsletter_sources",
+                     "custom_sources", "scraper_runs"):
+        assert nur_dort in zugeordnet, (
+            f"{nur_dort} gibt es auf der 1.8-Linie und in keinem Bereich")
+    for spaeter in ("job_sources", "anonymisierung_map", "documents_new"):
+        assert spaeter in zugeordnet
+
+
+def test_jede_ausnahme_traegt_einen_grund():
+    """Eine Ausnahmeliste ohne Begruendung waechst beliebig.
+
+    Dasselbe Argument wie bei den kuratierten Listen aus #1004/#1005:
+    beim naechsten Mal landet dort eine Tabelle, die schlicht vergessen
+    wurde — und der Guard schweigt dann zu Recht aussehend.
+    """
+    quelle = (_repo() / "src" / "bewerbungs_assistent" / "services"
+              / "loeschbereiche.py").read_text(encoding="utf-8")
+    block = quelle.split("_NICHT_IN_JEDER_DATENBANK = {")[1].split("}")[0]
+    for tabelle in lb._NICHT_IN_JEDER_DATENBANK:
+        zeilen = [z for z in block.split("\n") if f'"{tabelle}"' in z]
+        assert zeilen, tabelle
+        index = block.split("\n").index(zeilen[0])
+        davor = block.split("\n")[max(0, index - 3):index]
+        assert any(z.strip().startswith("#") for z in davor), (
+            f"{tabelle} steht in der Ausnahmeliste ohne Begruendung")

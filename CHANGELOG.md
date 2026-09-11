@@ -33,6 +33,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.81] - 2026-09-11 — Was gehört wozu, wenn gelöscht wird
+
+**#1025 Stufe 1** (Melder-Bericht). PBP hatte drei Löschwege und drei
+Vorstellungen davon, was dazugehört. Der Melder hat die Ursache benannt:
+*„Vollständig ist nur der DSGVO-Weg — und zwar nicht, weil seine Liste
+besser gepflegt wäre, sondern weil er keine hat."*
+
+### Fixed
+
+- **Der Factory Reset ließ 29 von 47 Tabellen stehen — darunter
+  personenbezogene Daten Dritter.** Am echten Bestand gemessen (Kopie,
+  Original nie angefasst): abgeräumt wurden 18 Tabellen, stehen blieben
+  81 Kontakte mit Namen und Mailadressen, 68
+  Bewerbungs-Stellen-Verknüpfungen, 26 Dokumentversionen, 15
+  Recherche-Notizen, 12 Aufgaben, 7 Interview-Reflexionen und 1.304
+  Zeilen Aktivitätsprotokoll. Wer diesen Weg wählte, um den Rechner
+  weiterzugeben, ließ fremde Daten zurück. Jetzt bleibt genau **eine**
+  Zeile stehen: der Schema-Stand.
+- **Das Löschen eines Profils hinterließ verwaiste Zeilen.** 29
+  Tabellen tragen eine `profile_id`, abgeräumt wurden 12 — 17 blieben
+  mit einer Kennung liegen, die es nicht mehr gibt (im gemessenen
+  Bestand 24 Zeilen, darunter 10 Bewerbungen). Der Löschvorgang prüft
+  sich jetzt selbst nach.
+- **Die Oberfläche behauptete „Alle Daten gelöscht".** Der Endpunkt
+  nennt jetzt, wie viele Zeilen aus wie vielen Tabellen und wie viele
+  Dateien wirklich entfernt wurden.
+- **Dateien auf der Platte gehören zum Bereich Dokumente.** Eine Zeile
+  zu löschen entfernt die Datei nicht — und die trägt den Inhalt.
+
+### Added
+
+- **`services/loeschbereiche.py`** — sechs Bereiche (Profil,
+  Bewerbungen, Stellen, Dokumente, Einstellungen, Gelerntes),
+  **abgeleitet aus dem Schema** statt aufgezählt: welche Tabellen es
+  gibt, steht in `sqlite_master`; ob eine an einem Profil hängt, in
+  `PRAGMA table_info` und `PRAGMA foreign_key_list`. Drei Bezugsarten:
+  `profil` (eigene Spalte), `mittelbar` (über eine Elterntabelle),
+  `geteilt` (gilt für alle Profile und bleibt beim Leeren eines
+  einzelnen unangetastet).
+- **Ein Guard hält jede Tabelle der Datenbank gegen die Bereiche.**
+  Aufgezählt ist nur noch die Zuordnung; fällt die nächste neue Tabelle
+  heraus, bricht der Test — statt dass ein Nutzer darauf hereinfällt.
+  Eine Aufzählung schützt einmal, eine Strukturprüfung immer.
+- **Vorschau mit Zahlen je Bereich, als Vorgabe.** Dazu Klartext, was
+  der Bereich kostet — zum Stellen-Bestand gehört ausdrücklich, dass
+  mit den aussortierten Stellen auch die Lernsignale verschwinden.
+- **Bereichsübergreifende Verweise werden genannt, nicht still
+  mitgelöscht.** Wer nur die Stellen leert, lässt Bewerbungen mit einem
+  `job_hash` zurück, der ins Leere zeigt; die Zeile gehört zu einem
+  Bereich, den niemand gewählt hat.
+- **`daten_bereiche_anzeigen`** und **`daten_bereiche_leeren`**
+  (Bestätigungswort `LOESCHEN`, Vorschau als Vorgabe). MCP-Tools 230.
+
+### Changed
+
+- `reset_all_data` und `delete_profile` rufen das Modul auf, statt je
+  eine eigene Tabellenliste zu führen. `settings.schema_version` ist
+  als Regel geschützt statt als SQL-Text.
+
+### Offen
+
+Stufe 2 (Oberfläche) — eine Gefahrenzone statt vier Einträge, Bereiche
+einzeln wählbar, alle Profile zur Auswahl, geteilte Bereiche
+gekennzeichnet. **#1024 schließt erst damit.** Die Trennung ist keine
+Bequemlichkeit: der Defekt, der personenbezogene Daten zurücklässt,
+sollte nicht auf einen Oberflächen-Umbau warten.
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.81.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.81.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.80] - 2026-09-11 — Nur die Art der Stelle wandert
 
 Zwei Stellen mit identischem Titel können 5 km und 500 km entfernt
